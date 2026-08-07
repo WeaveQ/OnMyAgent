@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { LogIn, RotateCcw, Unlink } from "lucide-react";
+import { Eye, FilePenLine, LogIn, RotateCcw, ShieldCheck, Unlink } from "lucide-react";
 
 import type {
   TencentDocsAuthProgress,
@@ -49,6 +49,10 @@ import {
 } from "./tencent-docs-plugin-state";
 
 const TENCENT_DOCS_ICON_SRC = "/connector-icons/tencent-docs.png";
+const ONMYAGENT_ICON_SRC = "/on-my-agent-logo.png";
+
+/** Product intro first; OAuth only after user confirms (WorkBuddy-style). */
+type ConnectStep = "intro" | "authorizing" | "error";
 
 const UNSUPPORTED_STATUS: TencentDocsConnectionStatus = {
   phase: "disconnected",
@@ -101,6 +105,7 @@ export function TencentDocsPluginCard() {
   const [status, setStatus] = useState<TencentDocsConnectionStatus | null>(null);
   const [progress, setProgress] = useState<TencentDocsAuthProgress | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
+  const [connectStep, setConnectStep] = useState<ConnectStep>("intro");
   const [authUrl, setAuthUrl] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [disconnectOpen, setDisconnectOpen] = useState(false);
@@ -144,6 +149,7 @@ export function TencentDocsPluginCard() {
       }
       if (next.phase === "error" || next.phase === "expired") {
         setAuthError(next.errorMessage ?? t("plugins.tencent_docs_error_hint"));
+        setConnectStep("error");
       }
     });
     return () => {
@@ -160,28 +166,43 @@ export function TencentDocsPluginCard() {
   const headerBadge = badgeFor(status);
   const canDisconnect = canDisconnectTencentDocs(status);
 
-  const runConnect = async () => {
+  /** Open product intro only — do not start OAuth yet. */
+  const openConnectIntro = () => {
+    if (!isDesktopRuntime() || connecting) return;
+    setAuthError(null);
+    setAuthUrl(null);
+    setProgress(null);
+    setConnectStep("intro");
+    setAuthOpen(true);
+  };
+
+  /** WorkBuddy step 2: user confirmed → real Tencent Docs OAuth in system browser. */
+  const runAuthorize = async () => {
     if (!isDesktopRuntime() || connecting) return;
     setConnecting(true);
     setAuthError(null);
-    setAuthOpen(true);
+    setConnectStep("authorizing");
     setProgress({ operation: "connect", phase: "starting" });
     try {
       const started = await startTencentDocsConnect();
       if (started.alreadyConnected) {
-        setAuthOpen(false);
         setStatus(await getTencentDocsStatus());
+        setAuthOpen(false);
+        setConnectStep("intro");
         return;
       }
       setAuthUrl(started.authorizationUrl || null);
-      // Browser is opened by the desktop manager; user can re-open via the dialog.
       const next = await completeTencentDocsConnect(started.sessionId);
       setStatus(next);
+      // Auto-close on success (WorkBuddy parity).
       setAuthOpen(false);
+      setConnectStep("intro");
+      setAuthUrl(null);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : t("plugins.tencent_docs_error_hint");
       setAuthError(message);
+      setConnectStep("error");
       setStatus((current) =>
         current
           ? {
@@ -205,14 +226,19 @@ export function TencentDocsPluginCard() {
   };
 
   const handleCancelAuth = async () => {
-    try {
-      await cancelTencentDocsConnect();
-    } catch {
-      // ignore
+    if (connecting) {
+      try {
+        await cancelTencentDocsConnect();
+      } catch {
+        // ignore
+      }
     }
     setAuthOpen(false);
     setConnecting(false);
     setProgress(null);
+    setAuthError(null);
+    setAuthUrl(null);
+    setConnectStep("intro");
     await refresh();
   };
 
@@ -309,7 +335,7 @@ export function TencentDocsPluginCard() {
                 <Button
                   size="xs"
                   disabled={busy}
-                  onClick={() => void runConnect()}
+                  onClick={openConnectIntro}
                 >
                   {primaryAction === "retry" ? (
                     <RotateCcw aria-hidden="true" />
@@ -323,7 +349,7 @@ export function TencentDocsPluginCard() {
           )}
         </div>
 
-        {status?.phase === "error" ? (
+        {status?.phase === "error" && !authOpen ? (
           <NoticeBox tone="error" role="alert" className="mt-2">
             {status.errorMessage || t("plugins.tencent_docs_error_hint")}
           </NoticeBox>
@@ -347,42 +373,140 @@ export function TencentDocsPluginCard() {
           if (!open) void handleCancelAuth();
         }}
       >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t("plugins.tencent_docs_connect_title")}</DialogTitle>
-            <DialogDescription>
-              {t("plugins.tencent_docs_connect_subtitle")}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            {authError ? (
-              <NoticeBox tone="error" role="alert">
-                {authError}
-              </NoticeBox>
-            ) : (
-              <div className="flex items-center justify-center gap-2 text-sm text-dls-secondary">
-                <LoadingSpinner size="sm" />
-                {t("plugins.tencent_docs_waiting")}
+        <DialogContent className="max-w-md gap-0 overflow-hidden p-0 sm:max-w-md">
+          {connectStep === "intro" ? (
+            <>
+              <div className="space-y-5 px-6 pb-2 pt-8 text-center">
+                <div className="flex items-center justify-center gap-3">
+                  <div className="flex size-12 items-center justify-center overflow-hidden rounded-2xl border border-dls-border bg-dls-surface shadow-sm">
+                    <img
+                      src={resolvePublicAssetUrl(ONMYAGENT_ICON_SRC)}
+                      alt=""
+                      className="size-8 object-contain"
+                      draggable={false}
+                    />
+                  </div>
+                  <span
+                    className="text-sm tracking-widest text-dls-secondary"
+                    aria-hidden="true"
+                  >
+                    ›››
+                  </span>
+                  <div className="flex size-12 items-center justify-center overflow-hidden rounded-2xl border border-dls-border bg-dls-surface shadow-sm">
+                    <img
+                      src={resolvePublicAssetUrl(TENCENT_DOCS_ICON_SRC)}
+                      alt=""
+                      className="size-8 object-contain"
+                      draggable={false}
+                    />
+                  </div>
+                </div>
+                <DialogHeader className="space-y-2 text-center sm:text-center">
+                  <DialogTitle className="text-center text-base font-semibold">
+                    {t("plugins.tencent_docs_intro_title")}
+                  </DialogTitle>
+                  <DialogDescription className="text-center text-sm leading-relaxed text-dls-secondary">
+                    {t("plugins.tencent_docs_intro_body")}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="rounded-xl border border-dls-border bg-dls-surface-muted/60 px-4 py-3 text-left">
+                  <p className="mb-3 text-xs font-medium text-dls-secondary">
+                    {t("plugins.tencent_docs_scope_heading")}
+                  </p>
+                  <ul className="space-y-3">
+                    <li className="flex gap-3">
+                      <Eye
+                        className="mt-0.5 size-4 shrink-0 text-dls-secondary"
+                        aria-hidden="true"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-dls-text">
+                          {t("plugins.tencent_docs_scope_read_title")}
+                        </p>
+                        <p className="text-xs text-dls-secondary">
+                          {t("plugins.tencent_docs_scope_read_desc")}
+                        </p>
+                      </div>
+                    </li>
+                    <li className="flex gap-3">
+                      <FilePenLine
+                        className="mt-0.5 size-4 shrink-0 text-dls-secondary"
+                        aria-hidden="true"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-dls-text">
+                          {t("plugins.tencent_docs_scope_edit_title")}
+                        </p>
+                        <p className="text-xs text-dls-secondary">
+                          {t("plugins.tencent_docs_scope_edit_desc")}
+                        </p>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
               </div>
-            )}
-          </div>
-          <DialogFooter className="gap-2 sm:justify-end">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => void handleCancelAuth()}
-            >
-              {t("plugins.tencent_docs_cancel")}
-            </Button>
-            {authUrl ? (
-              <Button
-                size="sm"
-                onClick={() => void openDesktopUrl(authUrl)}
-              >
-                {t("plugins.tencent_docs_open_browser")}
-              </Button>
-            ) : null}
-          </DialogFooter>
+
+              <div className="space-y-3 px-6 pb-6 pt-4">
+                <Button
+                  className="w-full"
+                  size="default"
+                  onClick={() => void runAuthorize()}
+                >
+                  {t("plugins.tencent_docs_go_authorize")}
+                </Button>
+                <p className="flex items-start justify-center gap-1.5 text-center text-[11px] leading-snug text-dls-secondary">
+                  <ShieldCheck
+                    className="mt-0.5 size-3.5 shrink-0"
+                    aria-hidden="true"
+                  />
+                  <span>{t("plugins.tencent_docs_privacy_note")}</span>
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <DialogHeader className="space-y-2 px-6 pb-2 pt-6">
+                <DialogTitle>{t("plugins.tencent_docs_connect_title")}</DialogTitle>
+                <DialogDescription>
+                  {t("plugins.tencent_docs_connect_subtitle")}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 px-6 py-3">
+                {connectStep === "error" || authError ? (
+                  <NoticeBox tone="error" role="alert">
+                    {authError || t("plugins.tencent_docs_error_hint")}
+                  </NoticeBox>
+                ) : (
+                  <div className="flex flex-col items-center gap-3 py-4 text-sm text-dls-secondary">
+                    <LoadingSpinner size="sm" />
+                    <p className="text-center">{t("plugins.tencent_docs_waiting")}</p>
+                    <p className="text-center text-xs">
+                      {t("plugins.tencent_docs_waiting_hint")}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <DialogFooter className="gap-2 border-t border-dls-border px-6 py-4 sm:justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void handleCancelAuth()}
+                >
+                  {t("plugins.tencent_docs_cancel")}
+                </Button>
+                {connectStep === "error" ? (
+                  <Button size="sm" onClick={() => void runAuthorize()}>
+                    {t("plugins.tencent_docs_retry")}
+                  </Button>
+                ) : authUrl ? (
+                  <Button size="sm" onClick={() => void openDesktopUrl(authUrl)}>
+                    {t("plugins.tencent_docs_open_browser")}
+                  </Button>
+                ) : null}
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
