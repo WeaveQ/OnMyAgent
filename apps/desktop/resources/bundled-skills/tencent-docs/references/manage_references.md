@@ -1033,11 +1033,11 @@
 
 ### 工作流五：将本地文件导入为云文档
 
-> **推荐方式**：执行 `import_file.sh` 脚本，自动完成 MD5 计算、调用 `manage.pre_import` 获取上传链接、上传文件到 COS 三步，输出结果后直接调用 `manage.async_import` 触发导入。
+> **推荐方式**：自行完成 MD5 计算 → 调用 `manage.pre_import` 获取上传链接 → curl PUT 上传文件到 COS → 调用 `manage.async_import` 触发导入。
 
 ```
 步骤 1：使用脚本完成预导入和上传（推荐）
- → 执行 bash import_file.sh <文件路径>
+ → 调用 manage.pre_import → curl PUT 上传 → manage.async_import
  → 脚本自动：计算文件 MD5 和大小 → 调用 manage.pre_import 获取上传链接 → curl 上传文件到 COS
  → 成功后输出 FILE_KEY、FILE_NAME、FILE_MD5、TASK_ID
 

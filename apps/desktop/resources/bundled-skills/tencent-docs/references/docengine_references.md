@@ -12,7 +12,7 @@
 | -------- | ----------------------------------------------------------------------------- |
 | 所属服务 | `tencent-docs`                                                                |
 | 工具前缀 | `doc.*`（如 `doc.insert_markdown`、`doc.get_outline`、`doc.find` 等）         |
-| 调用方式 | 与 tencent-docs 其他工具相同，`mcporter call "tencent-docs" "doc.<工具名>"`，无需额外配置 |
+| 调用方式 | 与 tencent-docs 其他工具相同，`client.callTool({ name: "doc.<工具名>", arguments: { ... } })`，无需额外配置 |
 | Token    | 使用 tencent-docs 统一 Token，完成授权（`references/auth.md`）后自动配置      |
 | 文档类型 | 仅支持 Word 文档类型（`doc_type: word`）                                      |
 

@@ -41,7 +41,7 @@ node scripts_path/aipage_pack.js --dir  "<html_dir>"  [--title "<title>"]
 > `scripts_path` 为本 SKILL 文件所在目录，例如：
 > `backend/application/open/mcpserver/tencent-docs/aipage_pack.js`
 >
-> 运行环境要求：Node.js >= 14（同 `ocr.js`）。Windows 上可直接 `node aipage_pack.js ...`。
+> 运行环境要求：Node.js >= 14。Windows 上可直接 `node aipage_pack.js ...`。
 
 脚本以稳定格式输出，可直接 `grep` / 正则解析：
 
@@ -56,16 +56,18 @@ AIPAGE_TITLE=立项方案
 
 ### Step 2：调用 `manage.pre_import` 获取 COS 上传链接
 
-```bash
-mcporter call "tencent-docs" "manage.pre_import" --args \
-  '{"file_name": "<basename(AIPAGE_PATH)>", "file_size": <AIPAGE_SIZE>, "file_md5": "<AIPAGE_MD5>"}'
+```
+client.callTool({
+  name: "manage.pre_import",
+  arguments: {
+    file_name: "<basename(AIPAGE_PATH)>",
+    file_size: <AIPAGE_SIZE>,
+    file_md5: "<AIPAGE_MD5>"
+  }
+})
 ```
 
 返回字段中需要：`upload_url`、`file_key`、`task_id`。
-
-> 也可以直接复用 `import_file.sh`（位于本 skill 同目录），它已封装 Step 1 之后的
-> 「pre_import + PUT 上传 COS」两步，输出 `IMPORT_READY` + 关键字段。
-> 推荐写法：先用 `node aipage_pack.js` 打出 `.aipage`，再 `bash import_file.sh <AIPAGE_PATH>`。
 
 ### Step 3：PUT 上传到 COS
 
@@ -80,13 +82,24 @@ HTTP 2xx 视为上传成功。
 
 ### Step 4：触发异步导入并轮询
 
-```bash
-# 触发
-mcporter call "tencent-docs" "manage.async_import" --args \
-  '{"task_id":"<task_id>","file_key":"<file_key>","file_name":"<file_name>","file_md5":"<AIPAGE_MD5>","file_size":<AIPAGE_SIZE>}'
+```
+// 触发
+client.callTool({
+  name: "manage.async_import",
+  arguments: {
+    task_id: "<task_id>",
+    file_key: "<file_key>",
+    file_name: "<file_name>",
+    file_md5: "<AIPAGE_MD5>",
+    file_size: <AIPAGE_SIZE>
+  }
+})
 
-# 轮询（建议每 3s 一次，最多 60s）
-mcporter call "tencent-docs" "manage.import_progress" --args '{"task_id":"<task_id>"}'
+// 轮询（建议每 3s 一次，最多 60s）
+client.callTool({
+  name: "manage.import_progress",
+  arguments: { task_id: "<task_id>" }
+})
 ```
 
 `progress=100` 时视为成功，从返回中拿 `file_id` / `file_url`，必要时用
@@ -96,23 +109,27 @@ mcporter call "tencent-docs" "manage.import_progress" --args '{"task_id":"<task_
 
 ## 推荐执行模板（agent 内复用）
 
-```bash
-# ① 打包（跨平台：macOS / Linux / Windows 通用，零依赖）
-PACK_OUT=$(node <skill_dir>/aipage_pack.js --html "$HTML_PATH" --title "$TITLE")
-AIPAGE_PATH=$(echo "$PACK_OUT" | awk -F= '/^AIPAGE_PATH=/{print $2}')
-AIPAGE_SIZE=$(echo "$PACK_OUT" | awk -F= '/^AIPAGE_SIZE=/{print $2}')
-AIPAGE_MD5=$( echo "$PACK_OUT" | awk -F= '/^AIPAGE_MD5=/{print $2}')
+```
+// ① 打包（跨平台：macOS / Linux / Windows 通用，零依赖）
+// 执行: node <skill_dir>/aipage_pack.js --html "$HTML_PATH" --title "$TITLE"
+// 解析输出获取 AIPAGE_PATH, AIPAGE_SIZE, AIPAGE_MD5
 
-# ② + ③ pre_import + PUT（直接复用 import_file.sh）
-IMPORT_OUT=$(bash <skill_dir>/import_file.sh "$AIPAGE_PATH")
-TASK_ID=$( echo "$IMPORT_OUT" | awk -F: '/^TASK_ID:/{print $2}')
-FILE_KEY=$(echo "$IMPORT_OUT" | awk -F: '/^FILE_KEY:/{print $2}')
-FILE_NAME=$(echo "$IMPORT_OUT" | awk -F: '/^FILE_NAME:/{print $2}')
+// ② pre_import
+const preResult = client.callTool({
+  name: "manage.pre_import",
+  arguments: { file_name, file_size, file_md5 }
+})
+// 从返回获取 upload_url, file_key, task_id
 
-# ④ async_import + 轮询
-mcporter call "tencent-docs" "manage.async_import" --args \
-  "{\"task_id\":\"$TASK_ID\",\"file_key\":\"$FILE_KEY\",\"file_name\":\"$FILE_NAME\",\"file_md5\":\"$AIPAGE_MD5\",\"file_size\":$AIPAGE_SIZE}"
-# 然后轮询 manage.import_progress 至 progress=100
+// ③ PUT 上传到 COS
+// curl -sS -X PUT -H "Content-Type: application/octet-stream" --data-binary "@<AIPAGE_PATH>" "<upload_url>"
+
+// ④ async_import + 轮询
+client.callTool({
+  name: "manage.async_import",
+  arguments: { task_id, file_key, file_name, file_md5, file_size }
+})
+// 然后轮询 manage.import_progress 至 progress=100
 ```
 
 ---
@@ -125,4 +142,4 @@ mcporter call "tencent-docs" "manage.async_import" --args \
   仍失败则把 stderr 与 `trace_id`（如有）回报用户，不要静默吞掉错误。
 - **成功输出**：拿到 `file_url` 后，独立发起一次 `preview_url` 工具调用，
   然后告知用户「已完成，在线地址如下 ↓」。
-- **常见错误码** 参见主 SKILL 的「问题定位指南」，鉴权失败优先看 `references/auth.md`。
+- **常见错误码** 参见主 SKILL 的「问题定位指南」，鉴权失败时重新发起连接器 OAuth 授权流程。
