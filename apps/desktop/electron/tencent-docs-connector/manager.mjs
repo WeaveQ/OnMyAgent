@@ -480,8 +480,10 @@ export function createTencentDocsConnectorManager(options) {
       });
 
       const endpoints = await discoverOAuthEndpoints();
+      // Stable preferred ports keep DCR redirect_uri aligned across retries.
       const port = await allocateLoopbackPort();
       const state = randomHex(16);
+      // RFC 7636: code_verifier 43–128 chars; 64 hex is fine.
       const codeVerifier = randomHex(32);
       const codeChallenge = pkceChallengeS256(codeVerifier);
       const callback = createOAuthCallbackServer({

@@ -10,6 +10,7 @@ import {
   AUTH_TIMEOUT_MS,
   CLIENT_NAME,
   OAUTH_AUTHORIZATION_SERVER_METADATA_URL,
+  OAUTH_CALLBACK_PREFERRED_PORTS,
   OAUTH_RESOURCE_METADATA_URL,
 } from "./constants.mjs";
 
@@ -42,25 +43,59 @@ export function pkceChallengeS256(verifier) {
 }
 
 /**
+ * @param {number} port
+ * @param {string} [host]
+ * @returns {Promise<number>}
+ */
+function tryListenPort(port, host = "127.0.0.1") {
+  return new Promise((resolve, reject) => {
+    const server = createNetServer();
+    server.unref();
+    server.once("error", (err) => {
+      server.close(() => undefined);
+      reject(err);
+    });
+    server.listen(port, host, () => {
+      const address = server.address();
+      const bound =
+        address && typeof address === "object" ? address.port : 0;
+      server.close((err) => {
+        if (err) reject(err);
+        else if (!bound) reject(new Error("failed to allocate port"));
+        else resolve(bound);
+      });
+    });
+  });
+}
+
+/**
+ * Prefer stable MCP callback ports so registered redirect_uri stays valid.
  * @param {string} [host]
  * @returns {Promise<number>}
  */
 export async function allocateLoopbackPort(host = "127.0.0.1") {
-  return new Promise((resolve, reject) => {
-    const server = createNetServer();
-    server.unref();
-    server.on("error", reject);
-    server.listen(0, host, () => {
-      const address = server.address();
-      const port =
-        address && typeof address === "object" ? address.port : 0;
-      server.close((err) => {
-        if (err) reject(err);
-        else if (!port) reject(new Error("failed to allocate port"));
-        else resolve(port);
-      });
-    });
-  });
+  for (const preferred of OAUTH_CALLBACK_PREFERRED_PORTS) {
+    try {
+      return await tryListenPort(preferred, host);
+    } catch {
+      // port busy — try next
+    }
+  }
+  return tryListenPort(0, host);
+}
+
+/**
+ * Whether a stored dynamic client can be reused for this redirect_uri.
+ * Tencent (and OAuth in general) requires exact redirect_uri match.
+ * @param {{ client_id?: string, redirect_uris?: string[] } | null | undefined} existing
+ * @param {string} redirectUri
+ */
+export function canReuseDynamicClient(existing, redirectUri) {
+  if (!existing?.client_id) return false;
+  const uris = Array.isArray(existing.redirect_uris)
+    ? existing.redirect_uris.map(String)
+    : [];
+  return uris.includes(redirectUri);
 }
 
 /**
@@ -153,7 +188,10 @@ export async function discoverOAuthEndpoints() {
  * }} input
  */
 export async function ensureDynamicClient(input) {
-  if (input.existing?.client_id) {
+  // Critical: never reuse a client_id registered for a different redirect_uri
+  // (e.g. previous random port). That makes Tencent consent page fail with
+  // generic "授权失败，请稍后重试".
+  if (canReuseDynamicClient(input.existing, input.redirectUri)) {
     return {
       client_id: String(input.existing.client_id),
       client_id_issued_at: input.existing.client_id_issued_at ?? null,
@@ -186,7 +224,8 @@ export async function ensureDynamicClient(input) {
   return {
     client_id: String(body.client_id),
     client_id_issued_at: body.client_id_issued_at ?? Date.now(),
-    redirect_uris: body.redirect_uris ?? [input.redirectUri],
+    // Always persist the redirect we actually registered — not only server echo.
+    redirect_uris: [input.redirectUri],
   };
 }
 

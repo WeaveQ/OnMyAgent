@@ -43,6 +43,15 @@ export const CLIENT_NAME = "OnMyAgent";
 export const AUTH_TIMEOUT_MS = 5 * 60 * 1000;
 export const TOKEN_SKEW_MS = 60_000;
 
+/**
+ * Prefer a stable loopback port so dynamic client registration's redirect_uri
+ * stays valid across reconnects. 19876 matches common MCP desktop callback.
+ * Fall back through the list, then OS-assigned 0.
+ */
+export const OAUTH_CALLBACK_PREFERRED_PORTS = Object.freeze([
+  19876, 19877, 19878, 19879, 19880,
+]);
+
 export const MANAGED_MARKER_FILE = ".onmyagent-managed.json";
 export const STATE_FILE = "state.json";
 export const TOKEN_FILE = "oauth-tokens.json";
