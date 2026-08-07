@@ -109,6 +109,6 @@ OnMyAgent 是**本地优先的办公 Agent 工作台**。你用自然语言描�
 3. [场景使用说明](./scenarios/usage-guide) — 通用工作法（公式、循环、选型）  
 4. [高效使用技巧](./guide/efficient-tips) — 10 条上手习惯  
 5. [实践案例总览](./scenarios/practice/) — 文件/文档/表格/自动化等端到端案例  
-6. [界面与工作区](./guide/overview) · [技能](./guide/skills) · [安全与数据](./security)
+6. [界面与工作区](./guide/overview) · [Agent 对话](./guide/agent-chat) · [Agent 管理](./guide/agent-management) · [技能](./guide/skills) · [安全与数据](./security)
 
 站点落地页在文档上一级路径（本地为站点根 `/`，GitHub Pages 为仓库根 URL）。

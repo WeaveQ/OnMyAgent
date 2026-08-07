@@ -30,6 +30,8 @@ const sidebarZh = [
     items: [
       { text: "界面与工作区", link: "/guide/overview" },
       { text: "会话", link: "/guide/sessions" },
+      { text: "Agent 对话", link: "/guide/agent-chat" },
+      { text: "Agent 管理", link: "/guide/agent-management" },
       { text: "文件与产物", link: "/guide/files" },
       { text: "技能", link: "/guide/skills" },
       { text: "专家", link: "/guide/experts" },
