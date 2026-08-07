@@ -120,15 +120,14 @@ export function removeTencentDocsMcp(config, serverNames) {
       delete existing[name];
       continue;
     }
-    const marker = /** @type {Record<string, unknown>} */ (entry)._onmyagent;
+    const markerRaw = /** @type {Record<string, unknown>} */ (entry)._onmyagent;
     // Remove product-managed entries, or same-name remote URLs we own by convention.
-    if (
-      marker &&
-      typeof marker === "object" &&
-      marker.pluginId === PLUGIN_ID
-    ) {
-      delete existing[name];
-      continue;
+    if (markerRaw && typeof markerRaw === "object" && !Array.isArray(markerRaw)) {
+      const marker = /** @type {Record<string, unknown>} */ (markerRaw);
+      if (marker.pluginId === PLUGIN_ID) {
+        delete existing[name];
+        continue;
+      }
     }
     // If user rewrote the entry without marker, still remove known product names
     // only when URL matches our catalog (avoid deleting unrelated custom MCP).

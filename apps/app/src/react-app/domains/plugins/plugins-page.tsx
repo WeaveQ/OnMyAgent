@@ -81,6 +81,7 @@ import {
 import { createArtifactPluginState } from "./artifact-plugin-state";
 import { OfficeCliPluginCard } from "./officecli-plugin";
 import { LarkCliPluginCard } from "./larkcli-plugin";
+import { TencentDocsPluginCard } from "./tencent-docs-plugin";
 import { ExtensionDetailModal } from "@/react-app/design-system/extension-detail-modal";
 import {
   getExtensionConfigSlot,
@@ -1309,6 +1310,7 @@ export function PluginsPage(props: PluginsPageProps) {
             <div className={pluginsLayoutClass.connectorCardGrid}>
               <OfficeCliPluginCard />
               <LarkCliPluginCard />
+              <TencentDocsPluginCard />
               {samplePlugins.map((item) => (
                 <PluginCard key={item.id} item={item} />
               ))}

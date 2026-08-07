@@ -49,6 +49,7 @@ import {
   exchangeAuthorizationCode,
   pkceChallengeS256,
   randomHex,
+  oauthError,
   refreshAccessToken,
 } from "./oauth.mjs";
 
@@ -153,7 +154,7 @@ export function createTencentDocsConnectorManager(options) {
       return options.bundledSkillSource();
     }
     if (options.bundledSkillSource) return options.bundledSkillSource;
-    return defaultBundledSkillSource();
+    return defaultBundledSkillSource(undefined);
   }
 
   /** @type {Map<string, any>} */
@@ -301,17 +302,17 @@ export function createTencentDocsConnectorManager(options) {
     const source = bundledSkillSource();
     const dest = skillPath();
     if (!(await pathExists(path.join(source, "SKILL.md")))) {
-      const err = new Error(`Bundled tencent-docs skill missing at ${source}`);
-      err.code = "skill_source_missing";
-      throw err;
+      throw oauthError(
+        `Bundled tencent-docs skill missing at ${source}`,
+        "skill_source_missing",
+      );
     }
     if (await pathExists(dest)) {
       if (!(await readOwnership(dest))) {
-        const err = new Error(
+        throw oauthError(
           "An existing user-owned tencent-docs skill was not overwritten",
+          "skill_conflict",
         );
-        err.code = "skill_conflict";
-        throw err;
       }
       await rm(dest, { recursive: true, force: true });
     }
@@ -410,9 +411,7 @@ export function createTencentDocsConnectorManager(options) {
     }
 
     if (busy) {
-      const err = new Error("Another Tencent Docs connect is in progress");
-      err.code = "busy";
-      throw err;
+      throw oauthError("Another Tencent Docs connect is in progress", "busy");
     }
 
     busy = true;
@@ -555,9 +554,7 @@ export function createTencentDocsConnectorManager(options) {
     }
     const session = sessions.get(sessionId);
     if (!session) {
-      const err = new Error("Unknown or expired connect session");
-      err.code = "session_not_found";
-      throw err;
+      throw oauthError("Unknown or expired connect session", "session_not_found");
     }
     return session.completion;
   }
