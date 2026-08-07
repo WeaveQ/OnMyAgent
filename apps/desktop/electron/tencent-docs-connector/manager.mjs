@@ -685,6 +685,17 @@ export function createTencentDocsConnectorManager(options) {
   async function disconnect() {
     busy = true;
     emitProgress({ operation: "disconnect", phase: "starting" });
+    // Audit: only the product Disconnect confirm (or explicit IPC) should hit this.
+    // Helps diagnose accidental clears when the user did not intend to disconnect.
+    try {
+      const err = new Error("tencent-docs disconnect invoked");
+      console.info("[tencent-docs] disconnect()", {
+        at: new Date(now()).toISOString(),
+        stack: err.stack,
+      });
+    } catch {
+      // ignore logging failures
+    }
     try {
       await cancelConnect().catch(() => undefined);
       await clearTokens();
