@@ -78,6 +78,11 @@
       "types": "./src/lark-cli-auth.ts",
       "development": "./src/lark-cli-auth.ts",
       "default": "./dist/lark-cli-auth.js"
+    },
+    "./tencent-docs-connector": {
+      "types": "./src/tencent-docs-connector.ts",
+      "development": "./src/tencent-docs-connector.ts",
+      "default": "./dist/tencent-docs-connector.js"
     }
   },
   "files": [

@@ -18,6 +18,11 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "larkCliStartConfigInit",
   "larkCliCancelConfigInit",
   "larkCliDisconnect",
+  "tencentDocsGetStatus",
+  "tencentDocsStartConnect",
+  "tencentDocsCompleteConnect",
+  "tencentDocsCancelConnect",
+  "tencentDocsDisconnect",
 ]);
 
 function errorDetails(error, fallbackCode) {
@@ -71,6 +76,7 @@ export function createManagedToolsDomainHandlers({
   officeCliManager,
   larkCliManager,
   larkCliAuth,
+  tencentDocsConnector,
 } = {}) {
   if (!officeCliManager) {
     throw new Error("createManagedToolsDomainHandlers requires officeCliManager");
@@ -80,6 +86,11 @@ export function createManagedToolsDomainHandlers({
   }
   if (!larkCliAuth) {
     throw new Error("createManagedToolsDomainHandlers requires larkCliAuth");
+  }
+  if (!tencentDocsConnector) {
+    throw new Error(
+      "createManagedToolsDomainHandlers requires tencentDocsConnector",
+    );
   }
 
   const office = createPluginHandlers(officeCliManager, "officecli_error");
@@ -109,5 +120,14 @@ export function createManagedToolsDomainHandlers({
     larkCliDisconnect: async (_event, args) => {
       return larkCliAuth.disconnect(args?.[0] ?? {});
     },
+
+    tencentDocsGetStatus: async () => tencentDocsConnector.getStatus(),
+    tencentDocsStartConnect: async () => tencentDocsConnector.startConnect(),
+    tencentDocsCompleteConnect: async (_event, args) => {
+      const sessionId = args?.[0]?.sessionId;
+      return tencentDocsConnector.completeConnect(sessionId);
+    },
+    tencentDocsCancelConnect: async () => tencentDocsConnector.cancelConnect(),
+    tencentDocsDisconnect: async () => tencentDocsConnector.disconnect(),
   };
 }
