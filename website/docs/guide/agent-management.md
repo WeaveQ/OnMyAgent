@@ -6,7 +6,11 @@ title: Agent 管理
 
 **Agent 管理**用来管理本机可对接的 **智能体舰队（fleet）**：发现已安装 CLI、纳入「我的智能体」、测试连接与修复、配置各 Agent 的 **模型服务商**、查看 **技能识别矩阵**，以及处理相关 **会话归档**。
 
-产品导航文案：左下账号菜单里的 **Agent 管理**（`nav.management`）。
+产品导航文案：左下 **账号菜单 → Agent 管理**（对话页顶部也有 **管理 Agent**）。
+
+![Agent 管理：我的智能体与可添加](/images/agent-management.png)
+
+<p class="oma-shot-caption">Agent 管理 · 本地：我的智能体、筛选与「可添加」目录</p>
 
 ## 1. 为什么需要单独一页
 
