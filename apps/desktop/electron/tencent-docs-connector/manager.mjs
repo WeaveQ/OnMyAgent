@@ -115,7 +115,6 @@ export function defaultBundledSkillSource(bundledSkillsRoot) {
  * @param {{
  *   homeDir?: string,
  *   globalOpencodeRoot: string | (() => string),
- *   // Extra OpenCode config roots (session OPENCODE_CONFIG_DIR, etc.).
  *   resolveOpencodeConfigDirs?: () => string[],
  *   bundledSkillSource?: string | (() => string),
  *   openExternal?: (url: string) => Promise<void> | void,
