@@ -55,8 +55,7 @@ export default {
   "plugins.artifact_plugin_spreadsheets_name": "表格",
   "plugins.artifact_plugin_spreadsheets_desc": "分析与编辑电子表格数据。",
   "plugins.sample_section_title": "推荐安装",
-  "plugins.sample_section_hint":
-    "精选第三方连接器，安装后即可扩展能力。当前为预览，暂不可安装。",
+  "plugins.sample_section_hint": "精选第三方连接器，安装后即可扩展能力。",
   "plugins.recommend_badge": "预览",
   "plugins.builtin_section_title": "内置",
   "plugins.builtin_section_hint": "系统自带能力，开箱可用。",
@@ -179,4 +178,41 @@ export default {
   "plugins.larkcli_login_step2_link": "打开浏览器进行登录授权",
   "plugins.larkcli_login_step2_suffix": "。",
   "plugins.larkcli_login_waiting": "等待扫码进行登录授权…",
+  "plugins.tencent_docs_title": "腾讯文档",
+  "plugins.tencent_docs_description":
+    "授权后即可在会话中创建、搜索与编辑腾讯文档（文档 / 表格 / 幻灯片 / 智能表格等），无需安装额外 CLI。",
+  "plugins.tencent_docs_checking": "正在检查腾讯文档状态",
+  "plugins.tencent_docs_desktop_only": "桌面端可用",
+  "plugins.tencent_docs_badge_disconnected": "未连接",
+  "plugins.tencent_docs_badge_authorizing": "授权中",
+  "plugins.tencent_docs_badge_connected": "已连接",
+  "plugins.tencent_docs_badge_error": "需要重试",
+  "plugins.tencent_docs_connect": "连接",
+  "plugins.tencent_docs_retry": "重试",
+  "plugins.tencent_docs_disconnect": "断开连接",
+  "plugins.tencent_docs_disconnect_title": "确定断开腾讯文档？",
+  "plugins.tencent_docs_disconnect_message":
+    "将清除本机授权、OpenCode MCP 配置与托管技能。之后仍可重新授权。",
+  "plugins.tencent_docs_intro_title": "连接腾讯文档作为 AI 资料库",
+  "plugins.tencent_docs_intro_body":
+    "授权后，OnMyAgent 将在你发起任务时读取文档内容，为你提供总结提炼、智能问答，以及自动化文档创作与管理。",
+  "plugins.tencent_docs_scope_heading": "即将获取以下权限",
+  "plugins.tencent_docs_scope_read_title": "读取文档与内容",
+  "plugins.tencent_docs_scope_read_desc": "读取您的各类型文件、文件夹及具体内容",
+  "plugins.tencent_docs_scope_edit_title": "编辑与管理文件",
+  "plugins.tencent_docs_scope_edit_desc": "代表您进行查看、编辑、创建及管理操作",
+  "plugins.tencent_docs_go_authorize": "立即前往授权",
+  "plugins.tencent_docs_privacy_note":
+    "OnMyAgent 仅在您执行 AI 任务时调用数据，严格保护隐私",
+  "plugins.tencent_docs_connect_title": "完成腾讯文档授权",
+  "plugins.tencent_docs_connect_subtitle":
+    "已在系统浏览器打开腾讯文档登录/授权页。请按页面提示完成登录与确认（可能是微信登录、QQ 登录或「授权」按钮）。",
+  "plugins.tencent_docs_waiting": "等待浏览器中完成授权…",
+  "plugins.tencent_docs_waiting_hint":
+    "授权成功后会自动返回；若浏览器未打开，可点击下方按钮重新打开。",
+  "plugins.tencent_docs_open_browser": "重新打开授权页",
+  "plugins.tencent_docs_cancel": "取消",
+  "plugins.tencent_docs_error_hint": "腾讯文档授权失败，请检查网络后重试。",
+  "plugins.tencent_docs_hint_disconnected": "尚未连接。点击连接完成授权后，新会话即可使用。",
+  "plugins.tencent_docs_hint_connected": "已连接。新的普通会话可使用腾讯文档工具与技能。",
 } as const;

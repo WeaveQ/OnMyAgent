@@ -14,16 +14,21 @@
 
 ```
 ├─ 有公网 URL → 直接调 ocr.* 工具，填 image_url（首选）
-├─ 本地文件   → node ocr.js（禁止手动传 base64）
-└─ data URI   → 先存本地文件，再走 ocr.js
+├─ 本地文件   → 先转 base64，再通过 image_base64 参数传入
+└─ data URI   → 先存本地文件，再转 base64
 ```
 
-**本地图片禁止将 base64 作为工具参数传入**，LLM 无法处理超长字符串。使用 `ocr.js` 脚本（自动编码+调用）：
+**本地图片处理方式**：先用 `fs.readFileSync(path).toString('base64')` 将图片转为 base64，再通过 `image_base64` 参数传入 ocr.* 工具：
 
-```bash
-node ocr.js extract /path/to/image.png [--accurate|--efficient] [--positions]
-node ocr.js toword  /path/to/p1.png /path/to/p2.png [--title "标题"]
-node ocr.js toexcel /path/to/table.png [--title "标题"]
+```
+// 单张图片 OCR
+client.callTool({ name: "ocr.extract", arguments: { image_base64: "<base64>", extract_type: "accurate" } })
+
+// 图片转 Word
+client.callTool({ name: "ocr.toword", arguments: { images: [{ image_base64: "<base64>" }], title: "标题" } })
+
+// 图片转 Excel
+client.callTool({ name: "ocr.toexcel", arguments: { images: [{ image_base64: "<base64>" }], title: "标题" } })
 ```
 
 ## 图片输入字段规则
@@ -69,11 +74,11 @@ node ocr.js toexcel /path/to/table.png [--title "标题"]
 ## 典型工作流
 
 ### 提取图片文字
-1. URL → `ocr.extract`；本地 → `node ocr.js extract <path>`
+1. URL → `ocr.extract`（image_url）；本地 → 先转 base64 再 `ocr.extract`（image_base64）
 2. 从 `texts` 拼接结果反馈用户
 
 ### 图片转文档/表格
-1. URL → `ocr.toword`/`ocr.toexcel`；本地 → `node ocr.js toword|toexcel <paths>`
+1. URL → `ocr.toword`/`ocr.toexcel`（image_url）；本地 → 先转 base64 再调用（image_base64）
 2. 返回 `file_url` 给用户
 
 ### OCR 回填到现有文档

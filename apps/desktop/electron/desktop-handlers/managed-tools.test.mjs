@@ -43,6 +43,18 @@ const connectionStatus = {
   lastCheckedAt: 1,
 };
 
+const tencentDocsStatus = {
+  phase: "disconnected",
+  mcpConfigured: false,
+  skillInstalled: false,
+  authorized: false,
+  serverNames: ["tencent-docs"],
+  message: null,
+  errorCode: null,
+  errorMessage: null,
+  lastCheckedAt: 1,
+};
+
 function stubManagers(overrides = {}) {
   return {
     officeCliManager: {
@@ -77,6 +89,23 @@ function stubManagers(overrides = {}) {
       cancelConfigInit: async () => ({ ok: true }),
       disconnect: async () => connectionStatus,
       ...(overrides.larkCliAuth ?? {}),
+    },
+    tencentDocsConnector: {
+      getStatus: async () => tencentDocsStatus,
+      startConnect: async () => ({
+        sessionId: "td1",
+        authorizationUrl: "https://example.com/oauth",
+      }),
+      completeConnect: async () => ({
+        ...tencentDocsStatus,
+        phase: "connected",
+        authorized: true,
+        mcpConfigured: true,
+        skillInstalled: true,
+      }),
+      cancelConnect: async () => ({ ok: true }),
+      disconnect: async () => tencentDocsStatus,
+      ...(overrides.tencentDocsConnector ?? {}),
     },
   };
 }

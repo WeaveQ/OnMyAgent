@@ -87,6 +87,11 @@ export function resolveLarkCliManagedRoot(homeDir) {
   return path.join(resolveLocalManagedToolsRoot(homeDir), "lark-cli");
 }
 
+/** @param {string | undefined} homeDir */
+export function resolveTencentDocsManagedRoot(homeDir) {
+  return path.join(resolveLocalManagedToolsRoot(homeDir), "tencent-docs");
+}
+
 /**
  * Managed remote CLI install root under profiles/local/tools/<pluginId>.
  * @param {string} pluginId

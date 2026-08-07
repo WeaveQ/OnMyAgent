@@ -25,8 +25,8 @@
 
 ### 正确路径
 
-1. 通过 `mcporter list slide-mcp` 确认目标工具存在
-2. 调用：`mcporter call "slide-mcp" "slide_<工具名>" --args '<JSON>'`
+1. 通过 `client.listTools()` 确认目标工具存在
+2. 调用：`client.callTool({ name: "slide_<工具名>", arguments: { ... } })`
 3. 入参用 `file_url`（直接传 https 链接）或 `file_id`（二选一）
 
 > 💡 如果用户要的是"AI 生成整份 PPT"（不是精细编辑已有 PPT），改去看 `references/slide_references.md`（PPT AI 生成）。本文档专门服务"对已有 PPT 做精细编辑"。
@@ -1034,7 +1034,7 @@
 |------|------|------|------|
 | `file_id` | string | 否 | 文档ID，与 file_url 二选一 |
 | `file_url` | string | 否 | 在线幻灯片的URL链接，与 file_id 二选一 |
-| `<addChartArgs>` | object | 否 | 更多参数详见 mcporter list slide-mcp 的 schema |
+| `<addChartArgs>` | object | 否 | 更多参数详见 client.listTools() 返回的 schema |
 
 ---
 
@@ -1050,7 +1050,7 @@
 |------|------|------|------|
 | `file_id` | string | 否 | 文档ID，与 file_url 二选一 |
 | `file_url` | string | 否 | 在线幻灯片的URL链接，与 file_id 二选一 |
-| `<chartStyleArgs>` | object | 否 | 更多参数详见 mcporter list slide-mcp 的 schema |
+| `<chartStyleArgs>` | object | 否 | 更多参数详见 client.listTools() 返回的 schema |
 
 ---
 
@@ -1193,7 +1193,7 @@
 |------|------|------|------|
 | `file_id` | string | 否 | 文档ID，与 file_url 二选一 |
 | `file_url` | string | 否 | 在线幻灯片的URL链接，与 file_id 二选一 |
-| `<groupPropertyArgs>` | object | 否 | 更多参数详见 mcporter list slide-mcp 的 schema |
+| `<groupPropertyArgs>` | object | 否 | 更多参数详见 client.listTools() 返回的 schema |
 
 ---
 
@@ -1388,7 +1388,7 @@
 |------|------|------|------|
 | `file_id` | string | 否 | 文档ID，与 file_url 二选一 |
 | `file_url` | string | 否 | 在线幻灯片的URL链接，与 file_id 二选一 |
-| `<commentArgs>` | object | 否 | 更多参数详见 mcporter list slide-mcp 的 schema |
+| `<commentArgs>` | object | 否 | 更多参数详见 client.listTools() 返回的 schema |
 
 ---
 
@@ -1404,7 +1404,7 @@
 |------|------|------|------|
 | `file_id` | string | 否 | 文档ID，与 file_url 二选一 |
 | `file_url` | string | 否 | 在线幻灯片的URL链接，与 file_id 二选一 |
-| `<commentKeyArgs>` | object | 否 | 更多参数详见 mcporter list slide-mcp 的 schema |
+| `<commentKeyArgs>` | object | 否 | 更多参数详见 client.listTools() 返回的 schema |
 
 ---
 
@@ -1422,7 +1422,7 @@
 | `file_url` | string | 否 | 在线幻灯片的URL链接，与 file_id 二选一 |
 | `text` | string | 否 | 批注文本 |
 | `author_name` | string | 否 | 作者名称 |
-| `<commentKeyArgs>` | object | 否 | 更多参数详见 mcporter list slide-mcp 的 schema |
+| `<commentKeyArgs>` | object | 否 | 更多参数详见 client.listTools() 返回的 schema |
 
 ---
 
@@ -1715,4 +1715,4 @@ Move one or more slides into a target section. The slides are appended
 - 形状的 `shape_id` 通过读类接口（如 `slide_get_shape_info` / `slide_get_page_info`）获取
 - 颜色值统一使用 6 位十六进制 RRGGBB 格式（不含 `#` 前缀）
 - 图片插入推荐通过 tencent-docs MCP 的 `upload_image` 拿 `image_id`，避免大 base64 撑爆 MCP 单次传输
-- 本文档由 `slideengine_mcp_tools.go` 自动派生（参考脚本 `.tmp/gen_slideengine_md.py`）。如与 `mcporter list slide-mcp` 返回的 schema 冲突，以 schema 为准。
+- 本文档由 `slideengine_mcp_tools.go` 自动派生（参考脚本 `.tmp/gen_slideengine_md.py`）。如与 `client.listTools()` 返回的 schema 冲突，以 schema 为准。

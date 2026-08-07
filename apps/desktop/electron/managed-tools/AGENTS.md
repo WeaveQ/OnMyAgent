@@ -12,6 +12,7 @@
 - **不走** OnMyAgent server / 企业 API / 其它 MCP connector store。
 - **不写** 主会话 archive；仅本地 binary + skill 物化 +（飞书）本机 OAuth。
 - 两个产品 **状态与 IPC 独立**；仅共享 `managed-cli/*` 下载/校验工具与 registry 路径。
+- **腾讯文档**是推荐 remote MCP 连接器（无下载），代码在 `../tencent-docs-connector/`，**禁止** import `managed-cli/*`。
 
 ## 所有权路径（默认只在此树改逻辑）
 

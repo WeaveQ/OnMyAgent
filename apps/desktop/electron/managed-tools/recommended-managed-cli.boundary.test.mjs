@@ -158,6 +158,30 @@ test("plugins-page still mounts both recommended CLI cards", () => {
   assert.match(page, /<LarkCliPluginCard\s*\/>/);
 });
 
+test("plugins-page mounts Tencent Docs connector card (no managed-cli download)", () => {
+  const page = readRepo(
+    "apps/app/src/react-app/domains/plugins/plugins-page.tsx",
+  );
+  assert.match(page, /TencentDocsPluginCard/);
+  assert.match(page, /from ["']\.\/tencent-docs-plugin["']/);
+  assert.match(page, /<TencentDocsPluginCard\s*\/>/);
+
+  const manager = readRepo(
+    "apps/desktop/electron/tencent-docs-connector/manager.mjs",
+  );
+  assert.equal(
+    manager.includes("managed-cli/"),
+    false,
+    "tencent-docs manager must not import managed-cli download stack",
+  );
+  assert.equal(
+    existsSync(
+      path.join(repoRoot, "apps/desktop/electron/tencent-docs-connector/manager.mjs"),
+    ),
+    true,
+  );
+});
+
 test("recommended CLI cards stay inside plugins domain mount surface", () => {
   // Allowed: self module, domain barrel, plugins-page mount only.
   const allow = new Set([

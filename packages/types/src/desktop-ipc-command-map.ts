@@ -185,6 +185,10 @@ import type {
   LarkCliManualCredentialsInput,
   LarkCliStartUserLoginResult,
 } from "./lark-cli-auth.js";
+import type {
+  TencentDocsConnectionStatus,
+  TencentDocsStartConnectResult,
+} from "./tencent-docs-connector.js";
 
 export type DesktopCommandContract<
   Args extends readonly unknown[] = readonly unknown[],
@@ -1158,6 +1162,17 @@ type TypedDesktopCommandMap = {
     [{ clearCredentials?: boolean }?],
     LarkCliConnectionStatus
   >;
+  tencentDocsGetStatus: DesktopCommandContract<[], TencentDocsConnectionStatus>;
+  tencentDocsStartConnect: DesktopCommandContract<
+    [],
+    TencentDocsStartConnectResult
+  >;
+  tencentDocsCompleteConnect: DesktopCommandContract<
+    [{ sessionId: string }],
+    TencentDocsConnectionStatus
+  >;
+  tencentDocsCancelConnect: DesktopCommandContract<[], { ok: boolean }>;
+  tencentDocsDisconnect: DesktopCommandContract<[], TencentDocsConnectionStatus>;
 };
 
 /**

@@ -1708,6 +1708,10 @@ export function createRuntimeManager({
     orchestratorInstanceDispose,
     orchestratorStartDetached,
     opencodeMcpAuth,
+    /** Config dir last prepared for the desktop OpenCode session. */
+    getActiveOpencodeConfigDir: () => activeOpencodeConfigDir,
+    resolveLocalOpencodeConfigDir,
+    onmyagentOpencodeConfigDir,
     sandboxDoctor,
     sandboxStop,
     sandboxCleanupOnMyAgentContainers,

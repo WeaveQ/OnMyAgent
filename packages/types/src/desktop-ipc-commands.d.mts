@@ -266,7 +266,12 @@ export type DesktopCommandName =
   | "larkCliCompleteUserLogin"
   | "larkCliStartConfigInit"
   | "larkCliCancelConfigInit"
-  | "larkCliDisconnect";
+  | "larkCliDisconnect"
+  | "tencentDocsGetStatus"
+  | "tencentDocsStartConnect"
+  | "tencentDocsCompleteConnect"
+  | "tencentDocsCancelConnect"
+  | "tencentDocsDisconnect";
 
 export type DesktopCommandDomain = "workspace" | "system" | "localAgents" | "messaging" | "agentManagement" | "opencode" | "runtime" | "skills" | "managedTools";
 

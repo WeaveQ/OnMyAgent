@@ -55,8 +55,7 @@ export default {
   "plugins.artifact_plugin_spreadsheets_name": "試算表",
   "plugins.artifact_plugin_spreadsheets_desc": "分析與編輯試算表資料。",
   "plugins.sample_section_title": "推薦安裝",
-  "plugins.sample_section_hint":
-    "精選第三方連接器，安裝後即可擴展能力。目前為預覽，暫不可安裝。",
+  "plugins.sample_section_hint": "精選第三方連接器，安裝後即可擴展能力。",
   "plugins.recommend_badge": "預覽",
   "plugins.builtin_section_title": "內建",
   "plugins.builtin_section_hint": "系統自帶能力，開箱可用。",
@@ -178,4 +177,41 @@ export default {
   "plugins.larkcli_login_step2_link": "開啟瀏覽器進行登入授權",
   "plugins.larkcli_login_step2_suffix": "。",
   "plugins.larkcli_login_waiting": "等待掃碼進行登入授權…",
+  "plugins.tencent_docs_title": "騰訊文件",
+  "plugins.tencent_docs_description":
+    "授權後即可在會話中建立、搜尋與編輯騰訊文件（文件／試算表／簡報／智慧表格等），無需安裝額外 CLI。",
+  "plugins.tencent_docs_checking": "正在檢查騰訊文件狀態",
+  "plugins.tencent_docs_desktop_only": "桌面端可用",
+  "plugins.tencent_docs_badge_disconnected": "未連線",
+  "plugins.tencent_docs_badge_authorizing": "授權中",
+  "plugins.tencent_docs_badge_connected": "已連線",
+  "plugins.tencent_docs_badge_error": "需要重試",
+  "plugins.tencent_docs_connect": "連線",
+  "plugins.tencent_docs_retry": "重試",
+  "plugins.tencent_docs_disconnect": "中斷連線",
+  "plugins.tencent_docs_disconnect_title": "確定中斷騰訊文件？",
+  "plugins.tencent_docs_disconnect_message":
+    "將清除本機授權、OpenCode MCP 設定與託管技能。之後仍可重新授權。",
+  "plugins.tencent_docs_intro_title": "連接騰訊文件作為 AI 資料庫",
+  "plugins.tencent_docs_intro_body":
+    "授權後，OnMyAgent 將在你發起任務時讀取文件內容，為你提供總結提煉、智慧問答，以及自動化文件創作與管理。",
+  "plugins.tencent_docs_scope_heading": "即將取得以下權限",
+  "plugins.tencent_docs_scope_read_title": "讀取文件與內容",
+  "plugins.tencent_docs_scope_read_desc": "讀取您的各類型檔案、資料夾及具體內容",
+  "plugins.tencent_docs_scope_edit_title": "編輯與管理檔案",
+  "plugins.tencent_docs_scope_edit_desc": "代表您進行查看、編輯、建立及管理操作",
+  "plugins.tencent_docs_go_authorize": "立即前往授權",
+  "plugins.tencent_docs_privacy_note":
+    "OnMyAgent 僅在您執行 AI 任務時呼叫資料，嚴格保護隱私",
+  "plugins.tencent_docs_connect_title": "完成騰訊文件授權",
+  "plugins.tencent_docs_connect_subtitle":
+    "已在系統瀏覽器開啟騰訊文件登入／授權頁。請依頁面提示完成登入與確認（可能是微信登入、QQ 登入或「授權」按鈕）。",
+  "plugins.tencent_docs_waiting": "等待瀏覽器中完成授權…",
+  "plugins.tencent_docs_waiting_hint":
+    "授權成功後會自動返回；若瀏覽器未開啟，可點擊下方按鈕重新開啟。",
+  "plugins.tencent_docs_open_browser": "重新開啟授權頁",
+  "plugins.tencent_docs_cancel": "取消",
+  "plugins.tencent_docs_error_hint": "騰訊文件授權失敗，請檢查網路後重試。",
+  "plugins.tencent_docs_hint_disconnected": "尚未連線。點擊連線完成授權後，新會話即可使用。",
+  "plugins.tencent_docs_hint_connected": "已連線。新的一般會話可使用騰訊文件工具與技能。",
 } as const;

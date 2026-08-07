@@ -103,6 +103,7 @@ import { createArtifactPreviewController } from "./artifact-preview-controller.m
 import { createOfficeCliManager } from "./managed-tools/officecli-manager.mjs";
 import { createLarkCliManager } from "./managed-tools/lark-cli-manager.mjs";
 import { createLarkCliAuthService } from "./managed-tools/lark-cli-auth.mjs";
+import { createTencentDocsConnectorManager } from "./tencent-docs-connector/manager.mjs";
 import { registerDesktopArtifactPreviewIpc } from "./desktop-ipc-artifact-preview.mjs";
 import { createSkillsScan } from "./skills-scan.mjs";
 import {
@@ -969,6 +970,54 @@ const larkCliAuth = createLarkCliAuthService({
   },
 });
 
+const tencentDocsConnector = createTencentDocsConnectorManager({
+  homeDir: getRealHomeDir(),
+  // Prefer the same roots the desktop OpenCode process uses (dev may set
+  // OPENCODE_CONFIG_DIR / XDG under Application Support while ~/.config also exists).
+  globalOpencodeRoot: () => globalOpencodeRoot(),
+  resolveOpencodeConfigDirs: () => {
+    /** @type {string[]} */
+    const dirs = [];
+    const push = (value) => {
+      const trimmed = String(value ?? "").trim();
+      if (trimmed && !dirs.includes(trimmed)) dirs.push(trimmed);
+    };
+    try {
+      push(runtimeManager.getActiveOpencodeConfigDir?.());
+    } catch {
+      // runtime not ready
+    }
+    try {
+      push(runtimeManager.resolveLocalOpencodeConfigDir?.());
+    } catch {
+      // ignore
+    }
+    try {
+      push(runtimeManager.onmyagentOpencodeConfigDir?.());
+    } catch {
+      // ignore
+    }
+    push(globalOpencodeRoot());
+    // Dev sandbox XDG (where MCP was written when HOME/XDG pointed there).
+    if (process.env.XDG_CONFIG_HOME?.trim()) {
+      push(path.join(process.env.XDG_CONFIG_HOME.trim(), "opencode"));
+    }
+    return dirs;
+  },
+  openExternal: async (url) => {
+    await shell.openExternal(url);
+  },
+  refreshSkillLinks: refreshRuntimeSkillLinks,
+  onProgress: (progress) => {
+    if (mainWindow?.isDestroyed()) return;
+    mainWindow?.webContents?.send("onmyagent:tencent-docs:auth-progress", progress);
+  },
+  onStatus: (status) => {
+    if (mainWindow?.isDestroyed()) return;
+    mainWindow?.webContents?.send("onmyagent:tencent-docs:status", status);
+  },
+});
+
 // Push channel state / pairing changes from the main process to the renderer
 // (parity: AionUi event-push for pluginStatusChanged / pairingRequested). The
 // singleton event bus is shared by every channel service's dispatcher, so a
@@ -1221,6 +1270,7 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   officeCliManager,
   larkCliManager,
   larkCliAuth,
+  tencentDocsConnector,
   // system
   userAgentRegistryPath,
   getRealHomeDir,
