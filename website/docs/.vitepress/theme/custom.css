@@ -668,7 +668,8 @@ body {
 .vp-doc > p:has(> img:only-child) > img,
 .vp-doc p:has(> img:only-child) > img,
 .vp-doc .vp-doc-img,
-.vp-doc img[src*="/images/"] {
+/* Exclude dual light/dark theme shots — visibility is owned by .oma-theme-shot rules */
+.vp-doc img[src*="/images/"]:not([data-oma-shot-theme]) {
   display: block;
   width: 100%;
   max-width: 100%;
@@ -725,8 +726,9 @@ body {
   overflow: hidden;
 }
 
+/* !important: beat .vp-doc img[src*="/images/"] so only one theme is visible */
 .oma-theme-shot > img {
-  display: none;
+  display: none !important;
   width: 100%;
   max-width: 100%;
   height: auto;
@@ -734,18 +736,18 @@ body {
   border-radius: var(--oma-shot-radius);
 }
 
-/* Default (light handbook): show light app screenshots */
+/* Default (light handbook): show light app screenshots only */
 .oma-theme-shot > img.oma-shot-light {
-  display: block;
+  display: block !important;
 }
 
-/* Dark handbook: show dark app screenshots */
+/* Dark handbook: show dark app screenshots only */
 .dark .oma-theme-shot > img.oma-shot-light {
-  display: none;
+  display: none !important;
 }
 
 .dark .oma-theme-shot > img.oma-shot-dark {
-  display: block;
+  display: block !important;
 }
 
 /* Paragraph wrapper when markdown only-child is dual-shot */
