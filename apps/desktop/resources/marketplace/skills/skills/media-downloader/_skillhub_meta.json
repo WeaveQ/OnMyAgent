@@ -1,0 +1,23 @@
+{
+  "name": "智能媒体下载器",
+  "installedAt": 1782877244817,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2066477017106116608",
+  "examples_zh": [
+    "下载一些可爱的猫咪图片",
+    "找一段海浪的视频，15秒左右",
+    "找一些适合做壁纸的风景图"
+  ],
+  "examples_en": [
+    "Download 5 cat images",
+    "Find a 15-second ocean wave video",
+    "Download YouTube video from 1:30 to 2:00"
+  ],
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2066477017106116608/85878d2127e694c7.svg",
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/media-downloader/_icon.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2066477017106116608/85878d2127e694c7.svg",
+  "skillName": "media-downloader",
+  "description_zh": "根据用户描述自动搜索和下载图片、视频片段。支持 Pexels/Unsplash/Pixabay 三大图库、YouTube 视频下载与自动剪辑。",
+  "description_en": "Smart media downloader. Automatically search and download images and video clips from Pexels, Unsplash, Pixabay. Supports YouTube video download and auto-trimming."
+}

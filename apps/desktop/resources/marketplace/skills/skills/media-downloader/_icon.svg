@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4F46E5"/>
+      <stop offset="100%" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="arrow" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#E0E7FF"/>
+      <stop offset="100%" stop-color="#FFFFFF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="url(#bg)"/>
+
+  <!-- Cloud -->
+  <g transform="translate(256, 170)">
+    <ellipse cx="-55" cy="25" rx="50" ry="40" fill="white" opacity="0.95"/>
+    <ellipse cx="55" cy="25" rx="50" ry="40" fill="white" opacity="0.95"/>
+    <ellipse cx="0" cy="0" rx="60" ry="45" fill="white" opacity="0.95"/>
+    <rect x="-60" y="0" width="120" height="50" rx="10" fill="white" opacity="0.95"/>
+  </g>
+
+  <!-- Arrow shaft -->
+  <rect x="236" y="280" width="40" height="100" rx="10" fill="white"/>
+
+  <!-- Arrow head -->
+  <polygon points="256,410 160,340 220,340 220,310 292,310 292,340 352,340" fill="white"/>
+
+  <!-- Media indicators: image frame (left) -->
+  <g transform="translate(120, 280)">
+    <rect x="0" y="0" width="40" height="30" rx="4" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+    <circle cx="14" cy="10" r="5" fill="white"/>
+    <polygon points="0,30 14,22 28,30 40,18 40,30" fill="white"/>
+  </g>
+
+  <!-- Media indicators: play button (right) -->
+  <g transform="translate(358, 280)">
+    <circle cx="20" cy="20" r="22" fill="none" stroke="white" stroke-width="3.5"/>
+    <polygon points="14,10 14,30 30,20" fill="white"/>
+  </g>
+</svg>
