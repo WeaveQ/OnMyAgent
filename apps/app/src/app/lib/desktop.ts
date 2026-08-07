@@ -74,6 +74,11 @@ import type {
   LarkCliManualCredentialsInput,
   LarkCliStartUserLoginResult,
 } from "@onmyagent/types/lark-cli-auth";
+import type {
+  TencentDocsAuthProgress,
+  TencentDocsConnectionStatus,
+  TencentDocsStartConnectResult,
+} from "@onmyagent/types/tencent-docs-connector";
 
 import type { WorkspaceList } from "./desktop-types";
 import type {
@@ -165,6 +170,14 @@ declare global {
         onStatus?: (callback: (status: OfficeCliStatus) => void) => () => void;
         onAuthProgress?: (
           callback: (progress: LarkCliAuthProgress) => void,
+        ) => () => void;
+      };
+      tencentDocs?: {
+        onStatus?: (
+          callback: (status: TencentDocsConnectionStatus) => void,
+        ) => () => void;
+        onAuthProgress?: (
+          callback: (progress: TencentDocsAuthProgress) => void,
         ) => () => void;
       };
       migration?: {
@@ -849,6 +862,43 @@ export function subscribeLarkCliAuthProgress(
 ) {
   return (
     window.__ONMYAGENT_ELECTRON__?.larkCli?.onAuthProgress?.(callback) ??
+    (() => undefined)
+  );
+}
+
+export const getTencentDocsStatus = (): Promise<TencentDocsConnectionStatus> =>
+  invokeDesktopCommand("tencentDocsGetStatus");
+
+export const startTencentDocsConnect =
+  (): Promise<TencentDocsStartConnectResult> =>
+    invokeDesktopCommand("tencentDocsStartConnect");
+
+export const completeTencentDocsConnect = (
+  sessionId: string,
+): Promise<TencentDocsConnectionStatus> =>
+  invokeDesktopCommand("tencentDocsCompleteConnect", { sessionId });
+
+export const cancelTencentDocsConnect = (): Promise<{ ok: boolean }> =>
+  invokeDesktopCommand("tencentDocsCancelConnect");
+
+export const disconnectTencentDocs =
+  (): Promise<TencentDocsConnectionStatus> =>
+    invokeDesktopCommand("tencentDocsDisconnect");
+
+export function subscribeTencentDocsStatus(
+  callback: (status: TencentDocsConnectionStatus) => void,
+) {
+  return (
+    window.__ONMYAGENT_ELECTRON__?.tencentDocs?.onStatus?.(callback) ??
+    (() => undefined)
+  );
+}
+
+export function subscribeTencentDocsAuthProgress(
+  callback: (progress: TencentDocsAuthProgress) => void,
+) {
+  return (
+    window.__ONMYAGENT_ELECTRON__?.tencentDocs?.onAuthProgress?.(callback) ??
     (() => undefined)
   );
 }

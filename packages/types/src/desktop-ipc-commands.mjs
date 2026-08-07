@@ -145,6 +145,11 @@ const commandGroups = /** @type {const} */ ({
     "larkCliStartConfigInit",
     "larkCliCancelConfigInit",
     "larkCliDisconnect",
+    "tencentDocsGetStatus",
+    "tencentDocsStartConnect",
+    "tencentDocsCompleteConnect",
+    "tencentDocsCancelConnect",
+    "tencentDocsDisconnect",
   ],
 });
 

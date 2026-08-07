@@ -124,6 +124,25 @@ contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
       };
     },
   },
+  tencentDocs: {
+    onStatus(callback) {
+      const handler = (_event, status) => callback(status);
+      ipcRenderer.on("onmyagent:tencent-docs:status", handler);
+      return () => {
+        ipcRenderer.removeListener("onmyagent:tencent-docs:status", handler);
+      };
+    },
+    onAuthProgress(callback) {
+      const handler = (_event, progress) => callback(progress);
+      ipcRenderer.on("onmyagent:tencent-docs:auth-progress", handler);
+      return () => {
+        ipcRenderer.removeListener(
+          "onmyagent:tencent-docs:auth-progress",
+          handler,
+        );
+      };
+    },
+  },
   computerUse: {
     onActivity(callback) {
       const handler = (_event, activity) => callback(activity);
