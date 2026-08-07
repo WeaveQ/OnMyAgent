@@ -1,0 +1,10 @@
+{
+  "slug": "local-whisper",
+  "name": "Local Whisper",
+  "version": "1.0.0",
+  "installedAt": 1786087999663,
+  "source": "skillhub",
+  "iconSource": "https://cloudcache.tencent-cloud.com/qcloud/ui/static/other_external_resource/2d8152d9-7618-454e-9d87-2487f1b4457f.png",
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/local-whisper__skillhub/_icon.png",
+  "iconDownloadedFrom": "https://cloudcache.tencent-cloud.com/qcloud/ui/static/other_external_resource/2d8152d9-7618-454e-9d87-2487f1b4457f.png"
+}
