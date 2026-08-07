@@ -474,10 +474,10 @@ export function TencentDocsPluginCard() {
           if (!open) void handleCancelAuth();
         }}
       >
-        <DialogContent className="max-w-md gap-0 overflow-hidden p-0 sm:max-w-md">
+        <DialogContent className="flex max-h-[min(90vh,640px)] max-w-md flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
           {connectStep === "intro" ? (
             <>
-              <div className="space-y-5 px-6 pb-2 pt-8 text-center">
+              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 pb-2 pt-8 text-center">
                 <div className="flex items-center justify-center gap-3">
                   <div className="flex size-12 items-center justify-center overflow-hidden rounded-2xl border border-dls-border bg-dls-surface shadow-sm">
                     <img
@@ -548,7 +548,7 @@ export function TencentDocsPluginCard() {
                 </div>
               </div>
 
-              <div className="space-y-3 px-6 pb-6 pt-4">
+              <div className="shrink-0 space-y-3 px-6 pb-6 pt-4">
                 <Button
                   className="w-full"
                   size="default"
@@ -567,13 +567,13 @@ export function TencentDocsPluginCard() {
             </>
           ) : (
             <>
-              <DialogHeader className="space-y-2 px-6 pb-2 pt-6">
+              <DialogHeader className="shrink-0 space-y-2 px-6 pb-2 pt-6">
                 <DialogTitle>{t("plugins.tencent_docs_connect_title")}</DialogTitle>
                 <DialogDescription>
                   {t("plugins.tencent_docs_connect_subtitle")}
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-3 px-6 py-3">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-3">
                 {connectStep === "error" || authError ? (
                   <NoticeBox tone="error" role="alert">
                     {authError || t("plugins.tencent_docs_error_hint")}
@@ -588,7 +588,8 @@ export function TencentDocsPluginCard() {
                   </div>
                 )}
               </div>
-              <DialogFooter className="gap-2 border-t border-dls-border px-6 py-4 sm:justify-end">
+              {/* Override DialogFooter -mx-6 -mb-6: parent uses p-0, negative margin clips buttons */}
+              <DialogFooter className="m-0 mx-0 mb-0 shrink-0 gap-2 rounded-b-xl border-t border-dls-border bg-transparent px-6 py-4 sm:justify-end">
                 <Button
                   size="sm"
                   variant="outline"
