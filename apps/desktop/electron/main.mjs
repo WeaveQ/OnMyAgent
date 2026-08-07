@@ -972,7 +972,38 @@ const larkCliAuth = createLarkCliAuthService({
 
 const tencentDocsConnector = createTencentDocsConnectorManager({
   homeDir: getRealHomeDir(),
+  // Prefer the same roots the desktop OpenCode process uses (dev may set
+  // OPENCODE_CONFIG_DIR / XDG under Application Support while ~/.config also exists).
   globalOpencodeRoot: () => globalOpencodeRoot(),
+  resolveOpencodeConfigDirs: () => {
+    /** @type {string[]} */
+    const dirs = [];
+    const push = (value) => {
+      const trimmed = String(value ?? "").trim();
+      if (trimmed && !dirs.includes(trimmed)) dirs.push(trimmed);
+    };
+    try {
+      push(runtimeManager.getActiveOpencodeConfigDir?.());
+    } catch {
+      // runtime not ready
+    }
+    try {
+      push(runtimeManager.resolveLocalOpencodeConfigDir?.());
+    } catch {
+      // ignore
+    }
+    try {
+      push(runtimeManager.onmyagentOpencodeConfigDir?.());
+    } catch {
+      // ignore
+    }
+    push(globalOpencodeRoot());
+    // Dev sandbox XDG (where MCP was written when HOME/XDG pointed there).
+    if (process.env.XDG_CONFIG_HOME?.trim()) {
+      push(path.join(process.env.XDG_CONFIG_HOME.trim(), "opencode"));
+    }
+    return dirs;
+  },
   openExternal: async (url) => {
     await shell.openExternal(url);
   },

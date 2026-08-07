@@ -42,6 +42,19 @@ test("mcp-config upserts and removes four managed endpoints", () => {
   assert.equal(hasManagedTencentDocsMcp(config, MCP_SERVER_NAMES), false);
 });
 
+test("parseConfigObject tolerates trailing commas in user opencode.json", () => {
+  const raw = `{
+  "mcp": {
+    "gitnexus": { "type": "local", "enabled": true, },
+  },
+  "enabled_providers": ["a", "b",],
+}`;
+  const config = parseConfigObject(raw);
+  assert.equal(typeof config.mcp, "object");
+  assert.ok(/** @type {any} */ (config.mcp).gitnexus);
+  assert.deepEqual(config.enabled_providers, ["a", "b"]);
+});
+
 test("buildTencentDocsMcpMap covers catalog names", () => {
   const map = buildTencentDocsMcpMap("x");
   assert.deepEqual(Object.keys(map).sort(), [...MCP_SERVER_NAMES].sort());
