@@ -1,0 +1,21 @@
+{
+  "name": "Exa 网络搜索",
+  "installedAt": 1782877224233,
+  "source": "marketplace",
+  "version": "2.0.1",
+  "skillId": "skill_2053083260766593024",
+  "examples_zh": [
+    "帮我深度调研一下这个行业的竞争格局",
+    "搜索这个技术的最新论文和实现方案",
+    "从这个网址提取主要内容并总结"
+  ],
+  "examples_en": [
+    "Do a deep research on the competitive landscape of this industry",
+    "Find the latest papers and implementations for this technology",
+    "Extract and summarize the main content from this URL"
+  ],
+  "iconSource": "letter:auto",
+  "skillName": "web-search-exa",
+  "description_zh": "基于 Exa 的神经网络搜索引擎，语义搜索、内容提取与深度研究",
+  "description_en": "Neural web search via Exa MCP: semantic search, content extraction & deep research"
+}

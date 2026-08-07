@@ -1,0 +1,22 @@
+{
+  "name": "obsidian",
+  "installedAt": 1786088467775,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2053082563940843521",
+  "examples_zh": [
+    "在Obsidian里创建一篇新笔记",
+    "搜索Obsidian知识库里关于产品设计的内容",
+    "查看笔记的关系图谱"
+  ],
+  "examples_en": [
+    "Create a new note in Obsidian",
+    "Search my Obsidian vault for product design notes",
+    "View the knowledge graph"
+  ],
+  "description_zh": "Obsidian 知识库管理与自动化",
+  "description_en": "Manage and automate Obsidian vaults",
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2053082563940843521/9580e66c5a18e746.png",
+  "iconLocalPath": "/Users/zhaoxincheng/.workbuddy/skills/obsidian/_icon.png",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/operation-platform/skill-icons/skill_2053082563940843521/9580e66c5a18e746.png"
+}
