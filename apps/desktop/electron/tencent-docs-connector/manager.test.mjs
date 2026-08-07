@@ -67,6 +67,50 @@ test("buildAuthorizationUrl sets PKCE params", () => {
   assert.equal(url.searchParams.get("state"), "st");
 });
 
+test("manager upgrades legacy unmarked tencent-docs skill", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "oma-tdocs-legacy-"));
+  const opencodeRoot = path.join(home, "opencode");
+  await mkdir(opencodeRoot, { recursive: true });
+  const legacyRoot = path.join(
+    home,
+    ".onmyagent",
+    "profiles",
+    "local",
+    "config",
+    "skills",
+    "tencent-docs",
+  );
+  await mkdir(legacyRoot, { recursive: true });
+  await writeFile(
+    path.join(legacyRoot, "SKILL.md"),
+    "---\nname: tencent-docs\ndescription: legacy\n---\n# old\n",
+    "utf8",
+  );
+  await writeFile(path.join(legacyRoot, "setup.sh"), "#!/bin/sh\necho legacy\n", "utf8");
+
+  const manager = createTencentDocsConnectorManager({
+    homeDir: home,
+    globalOpencodeRoot: opencodeRoot,
+    bundledSkillSource: repoSkill,
+  });
+
+  await manager._internals.materializeSkill();
+  const skillMd = await readFile(path.join(legacyRoot, "SKILL.md"), "utf8");
+  assert.match(skillMd, /腾讯文档|Tencent Docs|client\.callTool/i);
+  let setupExists = true;
+  try {
+    await readFile(path.join(legacyRoot, "setup.sh"), "utf8");
+  } catch {
+    setupExists = false;
+  }
+  assert.equal(setupExists, false);
+  const marker = JSON.parse(
+    await readFile(path.join(legacyRoot, ".onmyagent-managed.json"), "utf8"),
+  );
+  assert.equal(marker.pluginId, "tencent-docs");
+  await rm(home, { recursive: true, force: true });
+});
+
 test("manager materializes skill and writes mcp config from tokens", async () => {
   const home = await mkdtemp(path.join(os.tmpdir(), "oma-tdocs-"));
   const opencodeRoot = path.join(home, "opencode");

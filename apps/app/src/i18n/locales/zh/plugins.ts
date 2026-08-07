@@ -196,7 +196,7 @@ export default {
     "将清除本机授权、OpenCode MCP 配置与托管技能。之后仍可重新授权。",
   "plugins.tencent_docs_connect_title": "授权腾讯文档",
   "plugins.tencent_docs_connect_subtitle":
-    "在浏览器中使用微信扫码，允许 OnMyAgent 访问你的腾讯文档。",
+    "将打开系统浏览器完成腾讯文档授权。页面可能显示「授权」按钮或登录确认；完成后回到 OnMyAgent 即可。",
   "plugins.tencent_docs_waiting": "等待浏览器授权…",
   "plugins.tencent_docs_open_browser": "打开授权页",
   "plugins.tencent_docs_cancel": "取消",
