@@ -55,8 +55,7 @@ export default {
   "plugins.artifact_plugin_spreadsheets_name": "試算表",
   "plugins.artifact_plugin_spreadsheets_desc": "分析與編輯試算表資料。",
   "plugins.sample_section_title": "推薦安裝",
-  "plugins.sample_section_hint":
-    "精選第三方連接器，安裝後即可擴展能力。目前為預覽，暫不可安裝。",
+  "plugins.sample_section_hint": "精選第三方連接器，安裝後即可擴展能力。",
   "plugins.recommend_badge": "預覽",
   "plugins.builtin_section_title": "內建",
   "plugins.builtin_section_hint": "系統自帶能力，開箱可用。",

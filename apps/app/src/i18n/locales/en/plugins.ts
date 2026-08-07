@@ -56,7 +56,7 @@ export default {
   "plugins.artifact_plugin_spreadsheets_desc": "Analyze and edit spreadsheet data.",
   "plugins.sample_section_title": "Recommended",
   "plugins.sample_section_hint":
-    "Curated third-party connectors. Preview only for now — install coming soon.",
+    "Curated third-party connectors. Install them to extend capabilities.",
   "plugins.recommend_badge": "Preview",
   "plugins.builtin_section_title": "Built-in",
   "plugins.builtin_section_hint": "Built-in capabilities, ready to use.",
