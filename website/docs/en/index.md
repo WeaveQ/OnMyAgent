@@ -8,7 +8,7 @@ OnMyAgent is a **local-first office Agent workbench**. Describe a goal in natura
 
 ![Home: new task, recent sessions, and input](/images/home-session.png)
 
-## In one glance
+## 1. In one glance
 
 | You want | What OnMyAgent does |
 |----------|---------------------|
@@ -20,7 +20,7 @@ OnMyAgent is a **local-first office Agent workbench**. Describe a goal in natura
 
 Data stays in the local workspace by default. Network access happens when you use cloud models, the marketplace, or connectors. See the Chinese handbook [安全与数据](../security) for the full boundary (EN security page will follow).
 
-## Core capabilities
+## 2. Core capabilities
 
 | Capability | What it does |
 |------------|----------------|
@@ -32,7 +32,7 @@ Data stays in the local workspace by default. Network access happens when you us
 | **BYOK models** | Bring your own API or local model |
 | **Marketplace** | Browse Experts, Skills, and connectors |
 
-## How the UI is organized
+## 3. How the UI is organized
 
 Left rail switches modules; middle is lists/trees; right is chat/input (or the module body).
 
@@ -65,7 +65,7 @@ Bottom: **Agent chat** and **Settings** (models, preferences, company, memory, s
 Docs screenshots follow the handbook theme: **light** theme shows light app UI; **dark** shows dark app UI. Use the top-bar theme toggle to compare.
 :::
 
-## A typical task loop
+## 4. A typical task loop
 
 1. **State the goal** on Home or in a session (you can @ files and / skills).  
 2. **Pick workspace, permission level, and model** (configure a provider in Settings first).  
@@ -73,7 +73,7 @@ Docs screenshots follow the handbook theme: **light** theme shows light app UI; 
 4. **Accept deliverables** in **Files** (preview or open externally).  
 5. **Optional**: turn a stable flow into **Automation** or a **Skill / Expert**.
 
-## Typical use cases
+## 5. Typical use cases
 
 - Work reports, meeting notes, draft proposals  
 - Spreadsheet cleanup and light analysis  
@@ -82,7 +82,7 @@ Docs screenshots follow the handbook theme: **light** theme shows light app UI; 
 - Role-based Experts and skill packs  
 - (Optional) IM digital employees + org control — Chinese: [平台三分](../platform/)
 
-## Not just another chatbot
+## 6. Not just another chatbot
 
 | Chat-only AI | OnMyAgent |
 |--------------|-----------|
@@ -92,13 +92,13 @@ Docs screenshots follow the handbook theme: **light** theme shows light app UI; 
 | Results stuck in the thread | **Files** you can preview, edit outside, and archive |
 | Fixed chat capabilities | Extensible via Skills, Experts, connectors |
 
-## Local-first does not mean offline-only
+## 7. Local-first does not mean offline-only
 
 - **Local-first**: sessions, workspace files, and most config live on your machine.  
 - **Network on demand**: cloud models, marketplace, IM/office connectors.  
 - **You control the surface**: change endpoints or disable connectors to reduce egress.
 
-## Language note
+## 8. Language note
 
 This English tree is still a **skeleton**. Full guides, practices, and install docs are complete in **简体中文**.
 
