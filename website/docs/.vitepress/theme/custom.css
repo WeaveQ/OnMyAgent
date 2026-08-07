@@ -513,21 +513,21 @@ body {
  * Outline (大纲): show from VitePress desktop breakpoint (1280px).
  * Compact aside on mid laptops so main + outline fit without hiding TOC.
  */
-/* Wider outline for numbered Chinese titles (WorkBuddy-like TOC) */
+/* Outline column: wide enough for numbered Chinese H2 on one line */
 @media (min-width: 1280px) {
   .VPDoc .aside {
     display: block !important;
     padding-left: var(--oma-doc-aside-gap) !important;
     padding-right: var(--oma-doc-aside-edge) !important;
-    max-width: 220px;
-    width: 200px;
+    max-width: 280px;
+    width: 260px;
     flex-grow: 0;
     flex-shrink: 0;
   }
 
   .VPDoc .aside-container,
   .VPDoc .aside-curtain {
-    width: 188px;
+    width: 248px;
   }
 
   /* Keep article from stretching into the outline zone */
@@ -538,25 +538,25 @@ body {
 
 @media (min-width: 1440px) {
   .VPDoc .aside {
-    max-width: 240px;
-    width: 220px;
+    max-width: 300px;
+    width: 280px;
   }
 
   .VPDoc .aside-container,
   .VPDoc .aside-curtain {
-    width: 208px;
+    width: 268px;
   }
 }
 
 @media (min-width: 1680px) {
   .VPDoc .aside {
-    max-width: 260px;
-    width: 240px;
+    max-width: 320px;
+    width: 300px;
   }
 
   .VPDoc .aside-container,
   .VPDoc .aside-curtain {
-    width: 224px;
+    width: 288px;
   }
 }
 
@@ -595,16 +595,14 @@ body {
 }
 
 .VPDocAside .outline-link {
-  /* 2-line clamp for long Chinese titles (WorkBuddy-style nested TOC) */
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  /* Single line: wider column + ellipsis (no wrap) */
+  display: block;
   color: var(--vp-c-text-2);
   font-size: 13px !important;
   font-weight: 400 !important;
-  line-height: 1.45 !important;
+  line-height: 1.5 !important;
   padding: 5px 0 !important;
-  white-space: normal !important;
+  white-space: nowrap !important;
   overflow: hidden;
   text-overflow: ellipsis;
   transition: color 0.15s ease;
@@ -631,7 +629,7 @@ body {
   font-size: 12.5px !important;
   color: var(--vp-c-text-3);
   padding: 3px 0 3px 2px !important;
-  -webkit-line-clamp: 2;
+  white-space: nowrap !important;
 }
 
 .VPDocAside .VPDocOutlineItem.nested .outline-link:hover,
