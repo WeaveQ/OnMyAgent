@@ -6,7 +6,11 @@ title: Agent 对话
 
 **Agent 对话**是面向本机 **CLI / ACP 智能体** 的专用聊天入口：在 OnMyAgent 里直接对 Claude Code、Codex、OpenCode、OpenClaw、Hermes 等（以及自定义 Agent）下发任务，而不是走首页「通用会话」那条链路。
 
-产品导航文案：左下账号菜单里的 **Agent 对话**（`nav.local_agent`）。
+产品导航文案：左下 **账号菜单 → Agent 对话**。
+
+![Agent 对话：本机 Agent 列表与聊天](/images/agent-chat.png)
+
+<p class="oma-shot-caption">Agent 对话：左侧选本机 Agent，右侧对话与输入；顶部可进「管理 Agent」</p>
 
 ## 1. 和「首页会话」有什么区别
 
