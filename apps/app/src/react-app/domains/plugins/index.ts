@@ -42,6 +42,14 @@ export {
   LarkCliPluginCard,
   LarkCliPluginSection,
 } from "./larkcli-plugin";
+export { TencentDocsPluginCard } from "./tencent-docs-plugin";
+export {
+  canDisconnectTencentDocs,
+  getTencentDocsPrimaryAction,
+  getTencentDocsStatusTone,
+  isTencentDocsBusy,
+  type TencentDocsPrimaryAction,
+} from "./tencent-docs-plugin-state";
 export {
   canUninstallLarkCli,
   getLarkCliPrimaryAction,
