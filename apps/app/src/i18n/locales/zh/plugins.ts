@@ -55,8 +55,7 @@ export default {
   "plugins.artifact_plugin_spreadsheets_name": "表格",
   "plugins.artifact_plugin_spreadsheets_desc": "分析与编辑电子表格数据。",
   "plugins.sample_section_title": "推荐安装",
-  "plugins.sample_section_hint":
-    "精选第三方连接器，安装后即可扩展能力。当前为预览，暂不可安装。",
+  "plugins.sample_section_hint": "精选第三方连接器，安装后即可扩展能力。",
   "plugins.recommend_badge": "预览",
   "plugins.builtin_section_title": "内置",
   "plugins.builtin_section_hint": "系统自带能力，开箱可用。",
