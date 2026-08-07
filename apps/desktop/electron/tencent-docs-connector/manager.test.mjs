@@ -18,6 +18,8 @@ import { createTencentDocsConnectorManager } from "./manager.mjs";
 import {
   allocateLoopbackPort,
   buildAuthorizationUrl,
+  canReuseDynamicClient,
+  ensureDynamicClient,
   pkceChallengeS256,
   randomHex,
 } from "./oauth.mjs";
@@ -49,6 +51,67 @@ test("pkce challenge is base64url without padding", () => {
   const challenge = pkceChallengeS256("verifier-example-0123456789abcdef");
   assert.match(challenge, /^[A-Za-z0-9_-]+$/);
   assert.equal(challenge.includes("="), false);
+});
+
+test("canReuseDynamicClient requires exact redirect_uri match", () => {
+  assert.equal(
+    canReuseDynamicClient(
+      {
+        client_id: "abc",
+        redirect_uris: ["http://127.0.0.1:50099/mcp/oauth/callback"],
+      },
+      "http://127.0.0.1:19876/mcp/oauth/callback",
+    ),
+    false,
+  );
+  assert.equal(
+    canReuseDynamicClient(
+      {
+        client_id: "abc",
+        redirect_uris: ["http://127.0.0.1:19876/mcp/oauth/callback"],
+      },
+      "http://127.0.0.1:19876/mcp/oauth/callback",
+    ),
+    true,
+  );
+  assert.equal(canReuseDynamicClient(null, "http://127.0.0.1:19876/x"), false);
+});
+
+test("ensureDynamicClient re-registers when stored redirect_uri is stale", async () => {
+  let registerCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    const href = String(input);
+    if (href.includes("/register") && init?.method === "POST") {
+      registerCalls += 1;
+      return new Response(
+        JSON.stringify({
+          client_id: "fresh-client",
+          client_id_issued_at: 1,
+          redirect_uris: ["http://127.0.0.1:19876/mcp/oauth/callback"],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    return originalFetch(input, init);
+  };
+  try {
+    const client = await ensureDynamicClient({
+      registrationEndpoint: "https://example.test/register",
+      redirectUri: "http://127.0.0.1:19876/mcp/oauth/callback",
+      existing: {
+        client_id: "stale-port-client",
+        redirect_uris: ["http://127.0.0.1:50099/mcp/oauth/callback"],
+      },
+    });
+    assert.equal(client.client_id, "fresh-client");
+    assert.equal(registerCalls, 1);
+    assert.deepEqual(client.redirect_uris, [
+      "http://127.0.0.1:19876/mcp/oauth/callback",
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("buildAuthorizationUrl sets PKCE params", () => {
