@@ -37,7 +37,7 @@ import {
   hasManagedTencentDocsMcp,
   readGlobalOpencodeConfig,
   removeTencentDocsMcp,
-  updateGlobalOpencodeConfig,
+  updateOpencodeConfigs,
   upsertTencentDocsMcp,
 } from "./mcp-config.mjs";
 import {
@@ -115,6 +115,8 @@ export function defaultBundledSkillSource(bundledSkillsRoot) {
  * @param {{
  *   homeDir?: string,
  *   globalOpencodeRoot: string | (() => string),
+ *   // Extra OpenCode config roots (session OPENCODE_CONFIG_DIR, etc.).
+ *   resolveOpencodeConfigDirs?: () => string[],
  *   bundledSkillSource?: string | (() => string),
  *   openExternal?: (url: string) => Promise<void> | void,
  *   refreshSkillLinks?: () => Promise<unknown> | unknown,
@@ -147,6 +149,27 @@ export function createTencentDocsConnectorManager(options) {
     return typeof options.globalOpencodeRoot === "function"
       ? options.globalOpencodeRoot()
       : options.globalOpencodeRoot;
+  }
+
+  /**
+   * All config dirs that may be used by the desktop OpenCode session or CLI.
+   * Writing only to one path while sessions read another causes "card connected,
+   * session has no tencent-docs MCP".
+   */
+  function opencodeConfigRoots() {
+    /** @type {string[]} */
+    const roots = [];
+    const push = (value) => {
+      const trimmed = String(value ?? "").trim();
+      if (trimmed && !roots.includes(trimmed)) roots.push(trimmed);
+    };
+    push(globalOpencodeRoot());
+    if (typeof options.resolveOpencodeConfigDirs === "function") {
+      for (const dir of options.resolveOpencodeConfigDirs() ?? []) {
+        push(dir);
+      }
+    }
+    return roots;
   }
 
   function bundledSkillSource() {
@@ -274,17 +297,42 @@ export function createTencentDocsConnectorManager(options) {
    * @param {string} accessToken
    */
   async function applyMcpConfig(accessToken) {
-    await updateGlobalOpencodeConfig(
-      { globalOpencodeRoot: globalOpencodeRoot(), pathExists },
+    const { results, errors } = await updateOpencodeConfigs(
+      { roots: opencodeConfigRoots(), pathExists },
       (config) => upsertTencentDocsMcp(config, accessToken),
     );
+    if (errors.length) {
+      console.warn(
+        "[tencent-docs] applyMcpConfig partial failures:",
+        errors.map((e) => e.message),
+      );
+    }
+    if (results.length === 0) {
+      throw errors[0] ?? new Error("Failed to write tencent-docs MCP config");
+    }
+    return results;
   }
 
   async function clearMcpConfig() {
-    await updateGlobalOpencodeConfig(
-      { globalOpencodeRoot: globalOpencodeRoot(), pathExists },
+    await updateOpencodeConfigs(
+      { roots: opencodeConfigRoots(), pathExists },
       (config) => removeTencentDocsMcp(config, MCP_SERVER_NAMES),
     );
+  }
+
+  async function mcpConfiguredAnywhere() {
+    for (const root of opencodeConfigRoots()) {
+      try {
+        const { config } = await readGlobalOpencodeConfig({
+          globalOpencodeRoot: root,
+          pathExists,
+        });
+        if (hasManagedTencentDocsMcp(config, MCP_SERVER_NAMES)) return true;
+      } catch {
+        // continue
+      }
+    }
+    return false;
   }
 
   async function readOwnership(dir) {
@@ -402,28 +450,33 @@ export function createTencentDocsConnectorManager(options) {
    * @returns {Promise<import('@onmyagent/types/tencent-docs-connector').TencentDocsConnectionStatus>}
    */
   async function getStatus() {
-    const tokens = await ensureFreshTokens();
-    const authorized = Boolean(tokens && tokenUsable(tokens));
+    let tokens = await ensureFreshTokens();
+    let authorized = Boolean(tokens && tokenUsable(tokens));
     const skillInstalled =
       (await pathExists(path.join(skillPath(), "SKILL.md"))) &&
       (await readOwnership(skillPath()));
 
-    let mcpConfigured = false;
-    try {
-      const { config } = await readGlobalOpencodeConfig({
-        globalOpencodeRoot: globalOpencodeRoot(),
-        pathExists,
-      });
-      mcpConfigured = hasManagedTencentDocsMcp(config, MCP_SERVER_NAMES);
-    } catch {
-      mcpConfigured = false;
+    // Heal: token present but session config missing MCP (wrong config dir / bad JSON).
+    if (authorized && tokens?.access_token) {
+      try {
+        if (!(await mcpConfiguredAnywhere())) {
+          await applyMcpConfig(String(tokens.access_token));
+        }
+      } catch (error) {
+        console.warn("[tencent-docs] heal applyMcpConfig failed:", error);
+      }
     }
+
+    const mcpConfigured = await mcpConfiguredAnywhere();
+    // Re-check after heal
+    tokens = await ensureFreshTokens();
+    authorized = Boolean(tokens && tokenUsable(tokens));
 
     /** @type {import('@onmyagent/types/tencent-docs-connector').TencentDocsConnectionPhase} */
     let phase = "disconnected";
     if (busy) phase = "busy";
-    else if (authorized && mcpConfigured && skillInstalled) phase = "connected";
-    else if (authorized || mcpConfigured) phase = "connected";
+    else if (authorized && mcpConfigured) phase = "connected";
+    else if (authorized && !mcpConfigured) phase = "error";
     else phase = "disconnected";
 
     /** @type {import('@onmyagent/types/tencent-docs-connector').TencentDocsConnectionStatus} */
@@ -433,9 +486,15 @@ export function createTencentDocsConnectorManager(options) {
       skillInstalled,
       authorized,
       serverNames: [...MCP_SERVER_NAMES],
-      message: null,
-      errorCode: null,
-      errorMessage: null,
+      message:
+        authorized && !mcpConfigured
+          ? "Authorized but MCP not registered in session OpenCode config"
+          : null,
+      errorCode: authorized && !mcpConfigured ? "mcp_not_registered" : null,
+      errorMessage:
+        authorized && !mcpConfigured
+          ? "Authorized but MCP not registered in session OpenCode config"
+          : null,
       lastCheckedAt: now(),
     };
     emitStatus(status);

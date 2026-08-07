@@ -32,13 +32,44 @@ export async function resolveGlobalOpencodeConfigPath(
 }
 
 /**
- * Strip // and /* *\/ comments for a best-effort JSONC parse.
+ * Strip // and /* *\/ comments and trailing commas for best-effort JSONC.
+ * (User opencode.json often has trailing commas; without this, MCP upsert
+ * fails to merge and sessions never see tencent-docs.)
  * @param {string} raw
  */
 export function stripJsonc(raw) {
   return raw
     .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+    .replace(/(^|[^:])\/\/.*$/gm, "$1")
+    .replace(/,\s*([}\]])/g, "$1");
+}
+
+/**
+ * @param {string} raw
+ * @returns {{ config: Record<string, unknown>, ok: boolean }}
+ */
+export function parseConfigObjectDetailed(raw) {
+  if (!raw?.trim()) {
+    return {
+      config: { $schema: "https://opencode.ai/config.json" },
+      ok: true,
+    };
+  }
+  try {
+    const parsed = JSON.parse(stripJsonc(raw));
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return {
+        config: /** @type {Record<string, unknown>} */ (parsed),
+        ok: true,
+      };
+    }
+  } catch {
+    // fall through
+  }
+  return {
+    config: { $schema: "https://opencode.ai/config.json" },
+    ok: false,
+  };
 }
 
 /**
@@ -46,18 +77,7 @@ export function stripJsonc(raw) {
  * @returns {Record<string, unknown>}
  */
 export function parseConfigObject(raw) {
-  if (!raw?.trim()) {
-    return { $schema: "https://opencode.ai/config.json" };
-  }
-  try {
-    const parsed = JSON.parse(stripJsonc(raw));
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return /** @type {Record<string, unknown>} */ (parsed);
-    }
-  } catch {
-    // fall through
-  }
-  return { $schema: "https://opencode.ai/config.json" };
+  return parseConfigObjectDetailed(raw).config;
 }
 
 /**
@@ -179,12 +199,54 @@ export async function updateGlobalOpencodeConfig(io, mutate) {
   if (await io.pathExists(configPath)) {
     raw = await readFile(configPath, "utf8");
   }
-  const current = parseConfigObject(raw);
+  const { config: current, ok } = parseConfigObjectDetailed(raw);
+  if (!ok && raw.trim()) {
+    // Refuse to clobber a hand-edited invalid file with a nearly empty rewrite.
+    // Caller should repair trailing commas first, or write a sidecar.
+    const err = new Error(
+      `OpenCode config is not valid JSON/JSONC: ${configPath}`,
+    );
+    // @ts-expect-error coded
+    err.code = "opencode_config_parse";
+    throw err;
+  }
   const next = mutate(current);
   await mkdir(path.dirname(configPath), { recursive: true });
   const text = `${JSON.stringify(next, null, 2)}\n`;
   await writeFile(configPath, text, "utf8");
   return { path: configPath, config: next };
+}
+
+/**
+ * Apply mutate to every config root (session dir + user global).
+ * @param {{
+ *   roots: string[],
+ *   pathExists: (p: string) => Promise<boolean>,
+ * }} io
+ * @param {(config: Record<string, unknown>) => Record<string, unknown>} mutate
+ */
+export async function updateOpencodeConfigs(io, mutate) {
+  const roots = [...new Set(io.roots.filter(Boolean))];
+  /** @type {{ path: string, config: Record<string, unknown> }[]} */
+  const results = [];
+  /** @type {Error[]} */
+  const errors = [];
+  for (const root of roots) {
+    try {
+      results.push(
+        await updateGlobalOpencodeConfig(
+          { globalOpencodeRoot: root, pathExists: io.pathExists },
+          mutate,
+        ),
+      );
+    } catch (error) {
+      errors.push(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+  if (results.length === 0 && errors.length > 0) {
+    throw errors[0];
+  }
+  return { results, errors };
 }
 
 /**
