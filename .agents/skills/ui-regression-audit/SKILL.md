@@ -93,6 +93,8 @@ rg -n "route|settings|sidebar|composer|modal|dialog" apps/app/src/react-app/shel
 
 Boundary: mechanical token/class consolidation → `frontend-primitive-refactor`. This skill owns visual contracts, copy, and evidence.
 
+**Not this skill:** public handbook captures under `website/docs/public/images/**` (light/dark dual-theme for VitePress). Use `docs-screenshot-capture` + `product-handbook-write`.
+
 ### 3. Run Theme Token Scan
 
 Use this scan for hard-coded Tailwind color classes that may bypass the design system:

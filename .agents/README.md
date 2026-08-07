@@ -39,10 +39,14 @@ OpenCode product/workspace config stays under `.opencode/` (not a mirror of this
 
 | Skill | Use when |
 | --- | --- |
-| `documentation-audit` | Stale docs, old commands, broken links, doc map drift |
-| `ui-regression-audit` | Theme / i18n / screenshot UI regression |
+| `documentation-audit` | Stale **engineering** docs, old commands, broken links, doc map drift |
+| `product-handbook-write` | Write/extend **VitePress product handbook** (`website/docs`), sidebar vs app rail |
+| `docs-screenshot-capture` | Capture light/dark handbook screenshots under `website/docs/public/images` |
+| `ui-regression-audit` | App UI theme / i18n / screenshot **regression** (product, not handbook) |
 | `frontend-primitive-refactor` | Primitive reuse, size/token consistency while coding UI |
 | `skills-audit` | Audit this catalog for overlap / stale skills |
+
+**Handbook pair:** write copy with `product-handbook-write`, then shots with `docs-screenshot-capture`.
 
 ## Maintenance
 
