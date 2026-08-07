@@ -1,11 +1,13 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Plus } from "lucide-react";
+import { useQueries, useQuery } from "@tanstack/react-query";
 
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
 import type { SidebarSessionItem, WorkspaceSessionGroup } from "../../../../app/types";
 import { t } from "../../../../i18n";
-import { useQueries, useQuery } from "@tanstack/react-query";
-import { cn } from "@/lib/utils";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 import {
   useAgentRegistryStore,
@@ -18,7 +20,10 @@ import {
   writeAssistantSessionCategory,
 } from "../../agents";
 import { AssistantConversationSections } from "./assistant-conversation-sections";
-import { AgentConversationPanelHeader } from "./agent-conversation-panel-header";
+import {
+  AgentConversationPanelHeader,
+  EXPERT_CREATE_CTA_CLASS,
+} from "./agent-conversation-panel-header";
 import { AgentConversationList } from "./agent-conversation-list";
 import {
   automationLocalPinScope,
@@ -1303,14 +1308,6 @@ export function AgentConversationPanel(props: {
           clearSearchIfNeeded();
           props.onOpenAgents();
         }}
-        onCreateExpert={
-          props.onCreateExpert
-            ? () => {
-                clearSearchIfNeeded();
-                props.onCreateExpert?.();
-              }
-            : undefined
-        }
         onCreateTask={props.onCreateTask}
         onOpenAssistant={props.onOpenAssistant}
         onOpenAutomation={props.onOpenAutomation}
@@ -1318,9 +1315,9 @@ export function AgentConversationPanel(props: {
 
       <div
         className={cn(
-          // Only the conversation list scrolls; search + create stay pinned above.
+          // Only the conversation list scrolls; search top, create pinned bottom.
           "min-h-0 flex-1 overflow-y-auto pr-0.5",
-          // Even gap under primary chrome (home CTA strip / expert search+create).
+          // Even gap under primary chrome (home CTA strip / expert search).
           "pt-1.5",
         )}
       >
@@ -1376,6 +1373,25 @@ export function AgentConversationPanel(props: {
           />
         )}
       </div>
+
+      {mode === "agent" && props.onCreateExpert ? (
+        <div className="shrink-0 pt-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sidebar-cta"
+            onClick={() => {
+              clearSearchIfNeeded();
+              props.onCreateExpert?.();
+            }}
+            className={EXPERT_CREATE_CTA_CLASS}
+            data-expert-create="true"
+          >
+            <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+            {t("session.create_expert")}
+          </Button>
+        </div>
+      ) : null}
     </aside>
   );
 }
