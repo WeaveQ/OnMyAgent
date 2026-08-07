@@ -559,13 +559,13 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                     </p>
                     <ul className="space-y-3 text-sm leading-relaxed text-dls-secondary">
                       <li className="flex gap-2.5">
-                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-accent/12 text-[11px] font-semibold text-dls-accent">
+                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-accent/12 text-2xs font-semibold text-dls-accent">
                           1
                         </span>
                         <span>{t("plugins.larkcli_qr_step1")}</span>
                       </li>
                       <li className="flex gap-2.5">
-                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-accent/12 text-[11px] font-semibold text-dls-accent">
+                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-accent/12 text-2xs font-semibold text-dls-accent">
                           2
                         </span>
                         <span>
@@ -589,7 +589,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                         </span>
                       </li>
                       <li className="flex gap-2.5">
-                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-accent/12 text-[11px] font-semibold text-dls-accent">
+                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-accent/12 text-2xs font-semibold text-dls-accent">
                           3
                         </span>
                         <span>{t("plugins.larkcli_qr_step3")}</span>
@@ -631,7 +631,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                     </div>
                     <ol className="divide-y divide-dls-border text-xs text-dls-secondary">
                       <li className="flex gap-2 px-3.5 py-1.5">
-                        <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-[10px] font-semibold text-dls-text">
+                        <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-2xs font-semibold text-dls-text">
                           1
                         </span>
                         <span className="leading-snug">
@@ -649,7 +649,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                         </span>
                       </li>
                       <li className="flex gap-2 px-3.5 py-1.5">
-                        <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-[10px] font-semibold text-dls-text">
+                        <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-2xs font-semibold text-dls-text">
                           2
                         </span>
                         <span className="leading-snug">
@@ -657,7 +657,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                         </span>
                       </li>
                       <li className="flex gap-2 px-3.5 py-1.5">
-                        <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-[10px] font-semibold text-dls-text">
+                        <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-2xs font-semibold text-dls-text">
                           3
                         </span>
                         <span className="leading-snug">
@@ -675,7 +675,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                         </span>
                       </li>
                       <li className="flex gap-2 px-3.5 py-1.5">
-                        <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-[10px] font-semibold text-dls-text">
+                        <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-2xs font-semibold text-dls-text">
                           4
                         </span>
                         <span className="leading-snug">
@@ -683,7 +683,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                         </span>
                       </li>
                       <li className="flex gap-2 px-3.5 py-1.5">
-                        <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-[10px] font-semibold text-dls-text">
+                        <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-2xs font-semibold text-dls-text">
                           5
                         </span>
                         <span className="leading-snug">
@@ -745,13 +745,13 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                 </p>
                 <ul className="space-y-3 text-sm leading-relaxed text-dls-secondary">
                   <li className="flex gap-2.5">
-                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-accent/12 text-[11px] font-semibold text-dls-accent">
+                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-accent/12 text-2xs font-semibold text-dls-accent">
                       1
                     </span>
                     <span>{t("plugins.larkcli_login_step1")}</span>
                   </li>
                   <li className="flex gap-2.5">
-                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-accent/12 text-[11px] font-semibold text-dls-accent">
+                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-dls-accent/12 text-2xs font-semibold text-dls-accent">
                       2
                     </span>
                     <span>

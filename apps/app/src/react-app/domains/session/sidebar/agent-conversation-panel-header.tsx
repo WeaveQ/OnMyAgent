@@ -18,10 +18,10 @@ import { t } from "../../../../i18n";
 export { SIDEBAR_PRIMARY_CTA_CLASS, SIDEBAR_PRIMARY_HEADER_CLASS };
 
 /**
- * Expert create CTA under search: slightly deepen the light-theme surface
- * while keeping the original dark-theme surface unchanged.
+ * Expert create CTA (footer of expert list): slightly deepen the light-theme
+ * surface while keeping the original dark-theme surface unchanged.
  */
-const EXPERT_CREATE_CTA_CLASS =
+export const EXPERT_CREATE_CTA_CLASS =
   "mac:titlebar-no-drag border-0 bg-dls-active dark:bg-dls-surface-muted text-dls-text shadow-none hover:bg-dls-hover hover:text-dls-text before:rounded-lg";
 type AgentConversationPanelHeaderProps = {
   mode: "agent" | "assistant";
@@ -30,7 +30,6 @@ type AgentConversationPanelHeaderProps = {
   automationActive?: boolean;
   onQueryChange: (value: string) => void;
   onOpenAgents: () => void;
-  onCreateExpert?: () => void;
   onCreateTask?: () => void;
   onOpenAssistant?: () => void;
   onOpenAutomation?: () => void;
@@ -62,11 +61,8 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
   }
 
   return (
-    <div className="relative flex w-full shrink-0 flex-col gap-2 pt-1.5">
-      {/*
-        Expert list: bordered search (field) + borderless filled create (action).
-        Avoids two stacked outlines of the same weight.
-      */}
+    <div className="relative flex w-full shrink-0 flex-col pt-1.5">
+      {/* Expert list: search stays top; create CTA is pinned to panel footer. */}
       <InputGroup
         controlSize="lg"
         radius="lg"
@@ -96,19 +92,6 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
           </InputGroupButton>
         </InputGroupAddon>
       </InputGroup>
-      {props.onCreateExpert ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sidebar-cta"
-          onClick={props.onCreateExpert}
-          className={EXPERT_CREATE_CTA_CLASS}
-          data-expert-create="true"
-        >
-          <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-          {t("session.create_expert")}
-        </Button>
-      ) : null}
     </div>
   );
 }
