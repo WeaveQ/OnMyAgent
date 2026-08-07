@@ -27,16 +27,18 @@ const sidebarZh = [
   {
     text: "功能指南",
     collapsed: false,
+    // Order mirrors product UI: main rail → marketplace → account menu → settings
+    // Rail: 首页 · 专家 · 自动 · 文件 · 市场 · 项目；账号: Agent 对话 / 管理 / 设置
     items: [
       { text: "界面与工作区", link: "/guide/overview" },
       { text: "会话", link: "/guide/sessions" },
-      { text: "Agent 对话", link: "/guide/agent-chat" },
-      { text: "Agent 管理", link: "/guide/agent-management" },
+      { text: "专家", link: "/guide/experts" },
+      { text: "自动化", link: "/guide/automation" },
       { text: "文件与产物", link: "/guide/files" },
       { text: "技能", link: "/guide/skills" },
-      { text: "专家", link: "/guide/experts" },
       { text: "MCP / 连接", link: "/guide/mcp" },
-      { text: "自动化", link: "/guide/automation" },
+      { text: "Agent 对话", link: "/guide/agent-chat" },
+      { text: "Agent 管理", link: "/guide/agent-management" },
       { text: "审批与权限", link: "/guide/approvals" },
       { text: "模型与 BYOK", link: "/guide/models" },
       { text: "记忆 / 个人", link: "/guide/memory" },
