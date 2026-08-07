@@ -557,8 +557,9 @@ export function createTencentDocsConnectorManager(options) {
             serverNames: [...MCP_SERVER_NAMES],
           });
 
-          // Push status before resolving the IPC waiters so the UI can close the
-          // modal even if completeConnect's invoke is slow or already dropped.
+          // Clear busy before the final status snapshot so phase is "connected"
+          // (not "busy") when we push to the UI / resolve completeConnect.
+          busy = false;
           const status = await getStatus();
           emitProgress({ operation: "connect", phase: "complete" });
           emitStatus(status);
