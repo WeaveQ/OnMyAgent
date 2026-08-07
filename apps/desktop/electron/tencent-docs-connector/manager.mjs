@@ -565,10 +565,29 @@ export function createTencentDocsConnectorManager(options) {
           emitStatus(status);
           return status;
         } catch (error) {
+          // Auth may already be on disk (UI poll closed modal / prior success).
+          // Timeout/cancel after success must not surface as a hard failure.
+          busy = false;
+          const recovered = await getStatus().catch(() => null);
+          if (recovered?.authorized) {
+            emitProgress({ operation: "connect", phase: "complete" });
+            emitStatus(recovered);
+            return recovered;
+          }
+
           const code =
             error && typeof error === "object" && "code" in error
               ? String(error.code)
               : "connect_failed";
+          // User dismissed the flow — not an error phase for the card.
+          if (code === "oauth_cancelled") {
+            emitProgress({
+              operation: "connect",
+              phase: "cancelled",
+              errorCode: code,
+            });
+            throw error;
+          }
           const phase =
             code === "oauth_timeout" ? "expired" : "error";
           emitProgress({
@@ -580,7 +599,10 @@ export function createTencentDocsConnectorManager(options) {
           });
           throw error;
         } finally {
-          await callback.close().catch(() => undefined);
+          // close() rejects waiters if still pending — avoids 5min oauth_timeout ghost.
+          await callback
+            .close(oauthError("Authorization cancelled", "oauth_cancelled"))
+            .catch(() => undefined);
           sessions.delete(sessionId);
           busy = false;
         }
@@ -642,11 +664,21 @@ export function createTencentDocsConnectorManager(options) {
 
   async function cancelConnect() {
     for (const [id, session] of sessions) {
-      await session.cancel?.();
+      try {
+        await session.cancel?.();
+      } catch {
+        // ignore
+      }
       sessions.delete(id);
     }
     busy = false;
     emitProgress({ operation: "connect", phase: "cancelled" });
+    // Push clean status so a late IPC error does not stick on the card.
+    try {
+      emitStatus(await getStatus());
+    } catch {
+      // ignore
+    }
     return { ok: true };
   }
 

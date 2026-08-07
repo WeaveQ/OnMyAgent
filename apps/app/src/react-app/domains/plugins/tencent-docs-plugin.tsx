@@ -167,9 +167,31 @@ export function TencentDocsPluginCard() {
         setAuthUrl(next.authorizationUrl);
       }
       if (next.phase === "error" || next.phase === "expired") {
-        setAuthError(next.errorMessage ?? t("plugins.tencent_docs_error_hint"));
-        setConnectStep("error");
-        setConnecting(false);
+        // Ignore stale timeout after a successful authorize (token already on disk).
+        void getTencentDocsStatus()
+          .then((s) => {
+            if (s.authorized) {
+              setStatus(s);
+              setAuthOpen(false);
+              setConnecting(false);
+              setAuthError(null);
+              setProgress(null);
+              setConnectStep("intro");
+              return;
+            }
+            setAuthError(
+              next.errorMessage ?? t("plugins.tencent_docs_error_hint"),
+            );
+            setConnectStep("error");
+            setConnecting(false);
+          })
+          .catch(() => {
+            setAuthError(
+              next.errorMessage ?? t("plugins.tencent_docs_error_hint"),
+            );
+            setConnectStep("error");
+            setConnecting(false);
+          });
       }
     });
     return () => {
@@ -244,7 +266,7 @@ export function TencentDocsPluginCard() {
         setAuthUrl(null);
       }
     } catch (error) {
-      // OAuth may already be on disk even if IPC waiter failed.
+      // OAuth may already be on disk even if IPC waiter failed / timed out later.
       try {
         const recovered = await getTencentDocsStatus();
         if (recovered.authorized) {
@@ -258,8 +280,23 @@ export function TencentDocsPluginCard() {
       } catch {
         // fall through to error UI
       }
-      const message =
+      const raw =
         error instanceof Error ? error.message : t("plugins.tencent_docs_error_hint");
+      // Cancel / ghost timeout after close — do not paint the card red.
+      if (
+        /oauth_cancelled|Authorization cancelled|Authorization timed out|oauth_timeout/i.test(
+          raw,
+        )
+      ) {
+        setAuthOpen(false);
+        setConnectStep("intro");
+        setAuthError(null);
+        await refresh();
+        return;
+      }
+      const message = raw.includes("Error invoking remote method")
+        ? t("plugins.tencent_docs_error_hint")
+        : raw;
       setAuthError(message);
       setConnectStep("error");
       setStatus((current) =>
@@ -408,9 +445,14 @@ export function TencentDocsPluginCard() {
           )}
         </div>
 
-        {status?.phase === "error" && !authOpen ? (
+        {status?.phase === "error" &&
+        !authOpen &&
+        !status.authorized &&
+        status.errorMessage ? (
           <NoticeBox tone="error" role="alert" className="mt-2">
-            {status.errorMessage || t("plugins.tencent_docs_error_hint")}
+            {status.errorMessage.includes("Error invoking remote method")
+              ? t("plugins.tencent_docs_error_hint")
+              : status.errorMessage}
           </NoticeBox>
         ) : null}
       </article>
