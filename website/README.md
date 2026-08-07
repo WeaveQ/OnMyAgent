@@ -43,3 +43,19 @@ pnpm --filter @onmyagent/website preview
 （org/repo 名若不同，把路径里的 `OnMyAgent` 换成实际仓库名。）
 
 内部计划：`docs/plan/README.md`（不进入文档侧栏）。
+
+## 维护产品手册（Agent skills）
+
+写作 / 补功能指南 / 侧栏对齐主栏：
+
+- `.agents/skills/product-handbook-write/SKILL.md`  
+  - 侧栏顺序：`references/sidebar-order.md`  
+  - 页面模板：`references/page-template.md`
+
+截图 / 浅色·深色双套资源 / 叠图修复：
+
+- `.agents/skills/docs-screenshot-capture/SKILL.md`  
+  - 资源布局：`references/asset-layout.md`  
+  - 各页采集：`references/capture-checklist.md`
+
+工程 README/AGENTS 巡检仍用 `.agents/skills/documentation-audit`（不要和 handbook 混用）。

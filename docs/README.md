@@ -102,4 +102,5 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 2. Prefer one SoT update over copying paragraphs.
 3. **`docs/design/` only holds durable SoT** (roadmap, paths, product rules, theme/preview). Shipped one-shot feature notes and superseded experiments stay in git history or local `.loop/` — do not reintroduce dated “已落地 / superseded” stubs, or tracked `docs/superpowers/`.
 4. After edits: link smoke + `git diff --check`.
-5. Audit workflow: `.agents/skills/documentation-audit/SKILL.md`.
+5. Engineering doc audit: `.agents/skills/documentation-audit/SKILL.md`.  
+6. **Product handbook** (`website/docs` VitePress): write with `.agents/skills/product-handbook-write/SKILL.md`; screenshots with `.agents/skills/docs-screenshot-capture/SKILL.md`. See also `website/README.md`.

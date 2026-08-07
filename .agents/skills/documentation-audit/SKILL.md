@@ -25,6 +25,13 @@ Use this skill when the user asks to:
 - 查旧命令、旧品牌、断链、重复文档、生成报告是否该归档。
 - 把一次文档审计流程沉淀成项目内 Codex/OpenCode skill。
 
+**Not this skill:** public product handbook under `website/docs/**` (guides, intro, VitePress sidebar, dual-theme screenshots). Use:
+
+| Need | Skill |
+| --- | --- |
+| Write / structure handbook pages | `product-handbook-write` |
+| Capture / wire handbook images | `docs-screenshot-capture` |
+
 ## Required First Checks
 
 ```sh
