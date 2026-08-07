@@ -137,9 +137,28 @@ export function TencentDocsPluginCard() {
     if (!isDesktopRuntime()) return undefined;
     const unsubStatus = subscribeTencentDocsStatus((next) => {
       setStatus(next);
+      // Event-driven close: main may finish OAuth while completeConnect IPC is still open.
+      if (next.authorized && next.phase === "connected") {
+        setAuthOpen(false);
+        setConnecting(false);
+        setProgress(null);
+        setAuthError(null);
+        setAuthUrl(null);
+        setConnectStep("intro");
+      }
     });
     const unsubProgress = subscribeTencentDocsAuthProgress((next) => {
-      if (next.phase === "complete" || next.phase === "cancelled") {
+      if (next.phase === "complete") {
+        setProgress(null);
+        setAuthOpen(false);
+        setConnecting(false);
+        setAuthError(null);
+        setAuthUrl(null);
+        setConnectStep("intro");
+        void refresh();
+        return;
+      }
+      if (next.phase === "cancelled") {
         setProgress(null);
         return;
       }
@@ -150,6 +169,7 @@ export function TencentDocsPluginCard() {
       if (next.phase === "error" || next.phase === "expired") {
         setAuthError(next.errorMessage ?? t("plugins.tencent_docs_error_hint"));
         setConnectStep("error");
+        setConnecting(false);
       }
     });
     return () => {
@@ -157,6 +177,29 @@ export function TencentDocsPluginCard() {
       unsubProgress();
     };
   }, [refresh]);
+
+  // Fallback poll while waiting — covers missed IPC progress events.
+  useEffect(() => {
+    if (!authOpen || connectStep !== "authorizing" || !isDesktopRuntime()) {
+      return undefined;
+    }
+    const id = window.setInterval(() => {
+      void getTencentDocsStatus()
+        .then((next) => {
+          setStatus(next);
+          if (next.authorized && next.phase === "connected") {
+            setAuthOpen(false);
+            setConnecting(false);
+            setProgress(null);
+            setAuthError(null);
+            setAuthUrl(null);
+            setConnectStep("intro");
+          }
+        })
+        .catch(() => undefined);
+    }, 1500);
+    return () => window.clearInterval(id);
+  }, [authOpen, connectStep]);
 
   const busy = connecting || isTencentDocsBusy(status);
   const primaryAction = useMemo(
@@ -192,13 +235,29 @@ export function TencentDocsPluginCard() {
         return;
       }
       setAuthUrl(started.authorizationUrl || null);
+      // Primary path: await completion. Status/progress subscriptions + poll also close.
       const next = await completeTencentDocsConnect(started.sessionId);
       setStatus(next);
-      // Auto-close on success (WorkBuddy parity).
-      setAuthOpen(false);
-      setConnectStep("intro");
-      setAuthUrl(null);
+      if (next.authorized || next.phase === "connected") {
+        setAuthOpen(false);
+        setConnectStep("intro");
+        setAuthUrl(null);
+      }
     } catch (error) {
+      // OAuth may already be on disk even if IPC waiter failed.
+      try {
+        const recovered = await getTencentDocsStatus();
+        if (recovered.authorized) {
+          setStatus(recovered);
+          setAuthOpen(false);
+          setConnectStep("intro");
+          setAuthUrl(null);
+          setAuthError(null);
+          return;
+        }
+      } catch {
+        // fall through to error UI
+      }
       const message =
         error instanceof Error ? error.message : t("plugins.tencent_docs_error_hint");
       setAuthError(message);
