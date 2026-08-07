@@ -31,6 +31,8 @@ export function getTencentDocsPrimaryAction(
   status: TencentDocsConnectionStatus | null,
 ): TencentDocsPrimaryAction | null {
   if (!status) return null;
+  // Already authorized — never push "retry" for ghost oauth_timeout on the card.
+  if (status.authorized) return null;
   if (status.phase === "error") return "retry";
   if (status.phase === "disconnected") return "connect";
   if (status.phase === "connected" && !status.authorized) return "connect";

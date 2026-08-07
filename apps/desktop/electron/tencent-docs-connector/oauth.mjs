@@ -359,7 +359,7 @@ function normalizeTokenSet(body, fallbackRefresh) {
  * @returns {{
  *   redirectUri: string,
  *   waitForCode: () => Promise<{ code: string, state: string }>,
- *   close: () => Promise<void>,
+ *   close: (reason?: Error) => Promise<void>,
  * }}
  */
 export function createOAuthCallbackServer(input) {
@@ -454,7 +454,18 @@ export function createOAuthCallbackServer(input) {
       await listenPromise;
       return codePromise;
     },
-    async close() {
+    /**
+     * Stop listening. If the code was not received yet, reject waitForCode
+     * immediately (default: cancelled) so callers do not sit until oauth_timeout.
+     * @param {Error} [reason]
+     */
+    async close(reason) {
+      if (!settled) {
+        finish(
+          reason ??
+            oauthError("Authorization cancelled", "oauth_cancelled"),
+        );
+      }
       if (timer) {
         clearTimeout(timer);
         timer = null;
