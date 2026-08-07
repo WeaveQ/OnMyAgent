@@ -556,7 +556,7 @@ export function TencentDocsPluginCard() {
                 >
                   {t("plugins.tencent_docs_go_authorize")}
                 </Button>
-                <p className="flex items-start justify-center gap-1.5 text-center text-[11px] leading-snug text-dls-secondary">
+                <p className="flex items-start justify-center gap-1.5 text-center text-xs leading-snug text-dls-secondary">
                   <ShieldCheck
                     className="mt-0.5 size-3.5 shrink-0"
                     aria-hidden="true"
