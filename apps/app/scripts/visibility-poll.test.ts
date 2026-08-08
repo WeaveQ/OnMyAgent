@@ -225,6 +225,9 @@ describe("code-workspace-side-panel automations poll wiring", () => {
     expect(source).toContain("isDocumentHidden");
     expect(source).toContain('addEventListener("visibilitychange"');
     expect(source).toContain("focusedIntervalMs: 15_000");
+    expect(source).toContain("await load(false)");
+    expect(source).toContain("window.setTimeout");
+    expect(source).not.toContain("window.setInterval");
     // No fixed always-on 15s automations load interval without visibility pause.
     expect(source).not.toMatch(
       /setInterval\(\s*\(\)\s*=>\s*void\s*load\(false\)\s*,\s*15_000\s*\)/,
