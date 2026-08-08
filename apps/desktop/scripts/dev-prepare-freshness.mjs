@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
-import { resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 
 export function resolveDevOrchestratorArtifactPath({ sidecarDir, platform, targetTriple }) {
   const isWindowsTarget = platform === "win32" || targetTriple?.toLowerCase().includes("windows") === true;
@@ -34,6 +34,38 @@ export function resolveDevTypesArtifactPaths(typesDistDir) {
     "wecom-connector",
     "tencent-meeting-connector",
   ].map((entry) => resolve(typesDistDir, `${entry}.js`));
+}
+
+function collectFiles(dir) {
+  try {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) return collectFiles(path);
+      return entry.isFile() ? [path] : [];
+    });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The server uses tsc rather than a single bundle. Derive every emitted
+ * JavaScript path from its source tree so a missing transitive module cannot be
+ * hidden behind a present dist/embedded.js on a warm desktop start.
+ */
+export function resolveDevServerArtifactPaths({ serverSourceDir, serverDistDir, sourcePaths = collectFiles(serverSourceDir) }) {
+  return sourcePaths.flatMap((sourcePath) => {
+    const sourceRelativePath = relative(serverSourceDir, sourcePath);
+    if (!sourceRelativePath || sourceRelativePath.startsWith("..")) return [];
+    if (sourceRelativePath.endsWith(".d.ts")) return [];
+
+    const outputRelativePath = sourceRelativePath
+      .replace(/\.mts$/, ".mjs")
+      .replace(/\.cts$/, ".cjs")
+      .replace(/\.tsx?$/, ".js");
+    if (outputRelativePath === sourceRelativePath) return [];
+    return [resolve(serverDistDir, outputRelativePath)];
+  });
 }
 
 function newestModificationMs(path) {
