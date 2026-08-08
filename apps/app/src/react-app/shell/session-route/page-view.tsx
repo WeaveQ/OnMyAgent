@@ -1016,6 +1016,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                     writeCachedSidebarSessionsForWorkspace(
                       selectedWorkspaceId,
                       nextListForCache,
+                      { clearWhenEmpty: true },
                     );
                   }
 

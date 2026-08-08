@@ -292,12 +292,24 @@ export function mergeWorkspaceFetchedSessions(input: {
   fetched: SidebarSessionItem[];
   merge: (fetched: SidebarSessionItem[], current: SidebarSessionItem[]) => SidebarSessionItem[];
 }) {
+  const currentItems = input.current[input.workspaceId] ?? [];
+  // A successful empty list is not proof that the workspace has no sessions:
+  // OpenCode can report an empty index while it is warming up. Keep an
+  // already-rendered list in that case, while still applying delete tombstones
+  // so an explicit user delete remains authoritative.
+  if (input.fetched.length === 0 && currentItems.length > 0) {
+    const retainedItems = filterPendingDeletedSessions({
+      workspaceId: input.workspaceId,
+      items: filterRecentlyDeletedSessions(currentItems),
+    });
+    return { ...input.current, [input.workspaceId]: retainedItems };
+  }
   // Drop ids the user just deleted so a racing listSessions cannot resurrect
   // ghost/dirty rows while remote delete is still in flight or failed soft.
   const nextItems = filterPendingDeletedSessions({
     workspaceId: input.workspaceId,
     items: filterRecentlyDeletedSessions(
-      input.merge(input.fetched, input.current[input.workspaceId] ?? []),
+      input.merge(input.fetched, currentItems),
     ),
   });
   return { ...input.current, [input.workspaceId]: nextItems };
