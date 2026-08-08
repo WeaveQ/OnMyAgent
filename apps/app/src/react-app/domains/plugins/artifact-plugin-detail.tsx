@@ -209,7 +209,12 @@ const LOCALIZED_PLUGIN_DETAIL: Record<
   },
 };
 
-function localizedPluginDetail(plugin: ArtifactPluginDetailModel) {
+type ArtifactPluginCopySource = {
+  id: string;
+  manifest: ArtifactPluginDetailModel["manifest"];
+};
+
+function localizedPluginDetail(plugin: ArtifactPluginCopySource) {
   const keys = LOCALIZED_PLUGIN_DETAIL[plugin.id];
   if (!keys) {
     return {
@@ -226,18 +231,10 @@ function localizedPluginDetail(plugin: ArtifactPluginDetailModel) {
 }
 
 /** Shared copy for market card → connect dialog (Feishu-style shell). */
-export function getArtifactPluginConnectCopy(plugin: {
-  id: string;
-  manifest: ArtifactPluginDetailModel["manifest"];
-  enabled?: boolean;
-}): { title: string; longDescription: string; prompts: string[] } {
-  return localizedPluginDetail({
-    ...plugin,
-    id: plugin.id,
-    manifest: plugin.manifest,
-    enabled: plugin.enabled ?? true,
-    skills: [],
-  } as unknown as ArtifactPluginDetailModel);
+export function getArtifactPluginConnectCopy(
+  plugin: ArtifactPluginCopySource,
+): { title: string; longDescription: string; prompts: string[] } {
+  return localizedPluginDetail(plugin);
 }
 
 export function ArtifactPluginDetail(props: ArtifactPluginDetailProps) {
