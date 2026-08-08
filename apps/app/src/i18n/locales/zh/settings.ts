@@ -191,6 +191,8 @@ export default {
   "settings.computer_use_step_runtime": "运行状态",
   "settings.computer_use_step_apps": "应用授权",
   "settings.computer_use_step_memory": "本地记忆",
+  "settings.computer_use_step_prev": "上一步",
+  "settings.computer_use_step_next": "下一步",
   "settings.computer_use_connect_step_title": "1. 连接 Computer Use MCP",
   "settings.computer_use_connect_mcp_desc":
     "将本地 Computer Use 服务器添加到此工作区，让编辑器可以使用电脑控制工具",
@@ -904,7 +906,7 @@ export default {
   "settings.conversation_width_fixed": "默认",
   "settings.conversation_width_wide": "加宽",
   "settings.shortcuts_search_placeholder": "搜索快捷键…",
-  "settings.shortcuts_record_hint": "点击录制新的快捷键",
+  "settings.shortcuts_record_hint": "点击设置快捷键",
   "settings.shortcuts_action_openSettings": "打开设置",
   "settings.shortcuts_action_toggleSidebar": "切换侧栏",
   "settings.shortcuts_action_newTask": "创建新任务",

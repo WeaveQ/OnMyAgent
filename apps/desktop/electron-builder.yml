@@ -71,7 +71,7 @@ mac:
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
-    NSMicrophoneUsageDescription: OnMyAgent uses the microphone when you start Voice Mode so you can speak commands to your agent.
+    NSMicrophoneUsageDescription: OnMyAgent may use the microphone when a feature needs microphone access.
     # Required for Privacy → Automation entries / prompts (Hardened Runtime + AE).
     NSAppleEventsUsageDescription: OnMyAgent sends commands to other apps (for example Calendar, Reminders, and Notes) when you ask your agent to automate them.
   extraResources:

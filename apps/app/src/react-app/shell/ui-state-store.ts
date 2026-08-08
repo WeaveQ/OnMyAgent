@@ -23,7 +23,6 @@ export const SIDE_PANEL_ITEMS = [
   "browser",
   "artifacts",
   "extensions",
-  "voice",
   "codeMenu",
   "review",
   "terminal",

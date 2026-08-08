@@ -189,7 +189,7 @@ export function getSettingsTabDescription(tab: SettingsTab) {
  * 2. Workspace — workspace-scoped: models, company
  * 3. Personal — profile + memory
  * 4. App / Global — appearance, OS, shortcuts, env, updates
- * 5. Data — usage, reset, archive
+ * 5. Data — reset, archive (usage nav hidden for now; route still works)
  *
  * Preferences (language/theme/font) stay under Global, not Workspace.
  */
@@ -207,9 +207,13 @@ export function getPersonalMemorySettingsTabs(): SettingsTab[] {
   return ["memory", "conversation-memory"];
 }
 
-/** Usage + reset/recovery + archive. */
+/**
+ * Reset/recovery + archive.
+ * Usage is intentionally omitted from nav (and overview); keep the tab type
+ * + lazy view for deep links until the page ships publicly.
+ */
 export function getDataSettingsTabs(): SettingsTab[] {
-  return ["usage", "recovery", "archived-tasks"];
+  return ["recovery", "archived-tasks"];
 }
 
 /** @deprecated Use getDataSettingsTabs */

@@ -1,7 +1,6 @@
 /** @jsxImportSource react */
 import type { LucideIcon } from "lucide-react";
 import {
-  AudioLines,
   Compass,
   MousePointerClick,
   Plug,
@@ -21,8 +20,6 @@ const BUILTIN_LUCIDE_BY_ID: Record<string, LucideIcon> = {
   "computer-use": MousePointerClick,
   // Real Chromium profile navigation (distinct from in-app browser).
   "browser-skill": Compass,
-  // Speech / realtime — waveform is more distinctive than a bare mic.
-  "onmyagent-voice": AudioLines,
 };
 
 /** Brand logos (model picker language) for vendor-tied extensions. */
@@ -31,7 +28,7 @@ const BUILTIN_PROVIDER_ID_BY_EXT: Record<string, string> = {
   "openai-image-gen": "openai",
 };
 
-/** Dark ink on the white icon plate (must beat IconTile tone text utilities). */
+/** Dark ink on light plates (market tiles + setup logo). */
 const ICON_INK = "text-neutral-900";
 
 function extensionKey(entry: Pick<McpDirectoryInfo, "id" | "serverName" | "name">) {

@@ -165,7 +165,7 @@ export function useSessionSurfaceControlActions(input: SessionSurfaceControlActi
   const sessionLatestMessageControlAction = useMemo<OnMyAgentControlAction>(
     () => ({
       id: "session.latest_message",
-      label: t("session.voice_read_latest_short"),
+      label: t("session.control_latest_message"),
       description: t("session.control_latest_message_desc"),
       sideEffect: "none",
       execute: () => {

@@ -1,14 +1,5 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Download,
-  LogIn,
-  Plus,
-  RefreshCw,
-  RotateCcw,
-  Trash2,
-  Unlink,
-} from "lucide-react";
 
 import type {
   OfficeCliProgress,
@@ -16,10 +7,7 @@ import type {
 } from "@onmyagent/types/officecli";
 import type { LarkCliConnectionStatus } from "@onmyagent/types/lark-cli-auth";
 
-import { Button } from "@/components/ui/button";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { NoticeBox } from "@/components/ui/notice-box";
-import { StatusBadge, type StatusBadgeTone } from "@/components/ui/status-badge";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
 import {
   disconnectLarkCli,
@@ -32,24 +20,19 @@ import {
 } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
 import { t } from "@/i18n";
-import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import { cn } from "@/lib/utils";
 
 const LARKCLI_ICON_SRC = "/connector-icons/feishu.png";
 
+import { ConnectorConnectDialog } from "./connector-connect-dialog";
 import {
-  connectorTileClassName,
-  connectorTileDescClassName,
-  connectorTileFooterClassName,
-  connectorTileHeaderClassName,
-} from "./connector-tile";
+  ConnectorStatusCard,
+  type ConnectorCardStatus,
+} from "./connector-status-card";
 import { LarkCliConnectModal } from "./larkcli-connect-modal";
 import {
   canUninstallLarkCli,
   getLarkCliPrimaryAction,
-  getLarkCliStatusTone,
   isLarkCliBusy,
-  type LarkCliPrimaryAction,
 } from "./larkcli-plugin-state";
 
 const LARKCLI_UNSUPPORTED_STATUS = {
@@ -63,17 +46,6 @@ const LARKCLI_UNSUPPORTED_STATUS = {
   usable: false,
   lastCheckedAt: null,
 } satisfies OfficeCliStatus;
-
-type OfficeCliStatusKey =
-  | "plugins.larkcli_status_checking"
-  | "plugins.larkcli_status_error"
-  | "plugins.larkcli_status_installing"
-  | "plugins.larkcli_status_installed"
-  | "plugins.larkcli_status_not_installed"
-  | "plugins.larkcli_status_uninstalling"
-  | "plugins.larkcli_status_unsupported"
-  | "plugins.larkcli_status_update_available"
-  | "plugins.larkcli_status_updating";
 
 type OfficeCliProgressKey =
   | "plugins.larkcli_progress_checking"
@@ -111,29 +83,6 @@ function createErrorStatus(
   };
 }
 
-function statusLabelKey(status: OfficeCliStatus): OfficeCliStatusKey {
-  switch (status.state) {
-    case "checking":
-      return "plugins.larkcli_status_checking";
-    case "installing":
-      return "plugins.larkcli_status_installing";
-    case "updating":
-      return "plugins.larkcli_status_updating";
-    case "uninstalling":
-      return "plugins.larkcli_status_uninstalling";
-    case "installed":
-      return "plugins.larkcli_status_installed";
-    case "update_available":
-      return "plugins.larkcli_status_update_available";
-    case "unsupported":
-      return "plugins.larkcli_status_unsupported";
-    case "error":
-      return "plugins.larkcli_status_error";
-    case "not_installed":
-      return "plugins.larkcli_status_not_installed";
-  }
-}
-
 function progressLabelKey(progress: OfficeCliProgress): OfficeCliProgressKey | null {
   if (progress.operation === "uninstall" && progress.phase === "installing") {
     return "plugins.larkcli_progress_uninstalling";
@@ -160,57 +109,21 @@ function progressLabelKey(progress: OfficeCliProgress): OfficeCliProgressKey | n
   }
 }
 
-function primaryActionLabel(action: LarkCliPrimaryAction): string {
-  switch (action) {
-    case "install":
-      return t("plugins.larkcli_install");
-    case "update":
-      return t("plugins.larkcli_update");
-    case "retry":
-      return t("plugins.larkcli_retry");
-  }
-}
-
-function primaryActionIcon(action: LarkCliPrimaryAction) {
-  switch (action) {
-    case "install":
-      return Download;
-    case "update":
-      return RefreshCw;
-    case "retry":
-      return RotateCcw;
-  }
+function larkTryPrompts(): string[] {
+  return [
+    t("plugins.larkcli_prompt_1"),
+    t("plugins.larkcli_prompt_2"),
+    t("plugins.larkcli_prompt_3"),
+  ];
 }
 
 /**
  * lark-cli card for the connectors recommended-install grid.
- * Section chrome lives on PluginsPage (no separate "optional enhancements" band).
+ * P1 status card + P0 connect dialog; multi-step OAuth stays in LarkCliConnectModal.
  */
-function connectionBadge(
-  connection: LarkCliConnectionStatus | null,
-  installStatus: OfficeCliStatus | null,
-): { tone: StatusBadgeTone; label: string } | null {
-  if (!installStatus?.installedVersion && installStatus?.state !== "installed") {
-    return null;
-  }
-  if (!connection || !connection.installed) {
-    return { tone: "neutral", label: t("plugins.larkcli_badge_disconnected") };
-  }
-  switch (connection.phase) {
-    case "connected_logged_in":
-      return { tone: "success", label: t("plugins.larkcli_badge_logged_in") };
-    case "connected_not_logged_in":
-      return { tone: "success", label: t("plugins.larkcli_badge_connected") };
-    case "installed_disconnected":
-      return { tone: "neutral", label: t("plugins.larkcli_badge_disconnected") };
-    case "error":
-      return { tone: "danger", label: t("plugins.larkcli_status_error") };
-    default:
-      return { tone: "neutral", label: t("plugins.larkcli_badge_disconnected") };
-  }
-}
-
-export function LarkCliPluginCard() {
+export function LarkCliPluginCard(props: {
+  onTryPrompt?: (prompt: string) => void;
+}) {
   const [status, setStatus] = useState<OfficeCliStatus | null>(null);
   const [connection, setConnection] = useState<LarkCliConnectionStatus | null>(null);
   const [progress, setProgress] = useState<OfficeCliProgress | null>(null);
@@ -218,6 +131,8 @@ export function LarkCliPluginCard() {
   const [disconnectConfirmOpen, setDisconnectConfirmOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const [connectStep, setConnectStep] = useState<1 | 2>(1);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [unbinding, setUnbinding] = useState(false);
 
   const refreshConnection = useCallback(async () => {
     if (!isDesktopRuntime()) return;
@@ -266,11 +181,6 @@ export function LarkCliPluginCard() {
     [status],
   );
   const busy = status ? isLarkCliBusy(status) : true;
-  const installTone: StatusBadgeTone = status
-    ? getLarkCliStatusTone(status)
-    : "neutral";
-  const connBadge = connectionBadge(connection, status);
-  // Uninstall only when installed but not app-authorized and not signed in.
   const canUninstall =
     Boolean(status && canUninstallLarkCli(status)) &&
     (connection?.phase === "installed_disconnected" ||
@@ -281,25 +191,39 @@ export function LarkCliPluginCard() {
     status?.state !== "not_installed" &&
     status?.state !== "unsupported" &&
     status?.supported !== false;
+  const fullyConnected = connection?.phase === "connected_logged_in";
+  const needsLogin = connection?.phase === "connected_not_logged_in";
 
-  const handlePrimaryAction = async () => {
+  const cardStatus: ConnectorCardStatus = useMemo(() => {
+    if (!status || busy || progress) return "pending";
+    if (status.state === "error" || connection?.phase === "error") return "error";
+    if (fullyConnected) return "connected";
+    if (needsLogin) return "pending";
+    if (status.state === "unsupported") return "error";
+    return "idle";
+  }, [busy, connection?.phase, fullyConnected, needsLogin, progress, status]);
+
+  const handleInstallOrUpdate = async () => {
     if (!status || !primaryAction || busy) return;
     if (primaryAction === "retry") {
       await refreshStatus(true);
       return;
     }
-
     setProgress({
       operation: primaryAction === "update" ? "update" : "install",
       phase: "checking",
     });
-    setStatus({ ...status, state: primaryAction === "update" ? "updating" : "installing" });
+    setStatus({
+      ...status,
+      state: primaryAction === "update" ? "updating" : "installing",
+    });
     try {
       const next = await installLarkCli();
       setStatus(next);
       await refreshConnection();
       if (next.installedVersion || next.usable) {
         setConnectStep(1);
+        setDetailOpen(false);
         setConnectOpen(true);
       }
     } catch (error) {
@@ -307,6 +231,30 @@ export function LarkCliPluginCard() {
     } finally {
       setProgress(null);
     }
+  };
+
+  const openAuthFlow = (step: 1 | 2) => {
+    setConnectStep(step);
+    setDetailOpen(false);
+    setConnectOpen(true);
+  };
+
+  const handleDetailConnect = async () => {
+    if (!isDesktopRuntime()) return;
+    if (primaryAction) {
+      await handleInstallOrUpdate();
+      return;
+    }
+    if (needsLogin) {
+      openAuthFlow(2);
+      return;
+    }
+    if (installedReady) {
+      openAuthFlow(1);
+      return;
+    }
+    // Not installed and no primary action (edge) — force check/install.
+    await refreshStatus(true);
   };
 
   const handleUninstall = async () => {
@@ -317,6 +265,7 @@ export function LarkCliPluginCard() {
     try {
       setStatus(await uninstallLarkCli());
       setConnection(null);
+      setDetailOpen(false);
     } catch (error) {
       setStatus(createErrorStatus(status, error));
     } finally {
@@ -326,159 +275,108 @@ export function LarkCliPluginCard() {
 
   const handleDisconnect = async () => {
     setDisconnectConfirmOpen(false);
+    setUnbinding(true);
     try {
       const next = await disconnectLarkCli({ clearCredentials: true });
       setConnection(next);
+      setDetailOpen(false);
     } catch {
       await refreshConnection();
+    } finally {
+      setUnbinding(false);
     }
   };
 
+  const tryPrompts = useMemo(() => larkTryPrompts(), []);
+  const handleTryIt = () => {
+    const prompt = tryPrompts[0];
+    if (!prompt) return;
+    props.onTryPrompt?.(prompt);
+    setDetailOpen(false);
+  };
+  const handleSelectPrompt = (prompt: string) => {
+    props.onTryPrompt?.(prompt);
+    setDetailOpen(false);
+  };
+
   const progressLabel = progress ? progressLabelKey(progress) : null;
-  const PrimaryActionIcon = primaryAction ? primaryActionIcon(primaryAction) : null;
-  const headerBadge = installedReady && connBadge ? connBadge : status
-    ? { tone: installTone, label: t(statusLabelKey(status)) }
-    : null;
+  const footerNote = !isDesktopRuntime()
+    ? t("plugins.larkcli_desktop_only")
+    : status?.state === "error"
+      ? t("plugins.larkcli_error_hint")
+      : progressLabel
+        ? t(progressLabel)
+        : status && !status.supported
+          ? t("plugins.larkcli_unsupported_hint")
+          : null;
 
   return (
     <div className="min-w-0">
-      <article
-        className={cn(connectorTileClassName, "cursor-default")}
+      <ConnectorStatusCard
         data-plugin-id="lark-cli"
-        aria-busy={busy}
-      >
-        <div className={connectorTileHeaderClassName}>
-          <div className="size-9 shrink-0 overflow-hidden rounded-xl border border-black/5 bg-dls-surface">
-            <img
-              src={resolvePublicAssetUrl(LARKCLI_ICON_SRC)}
-              alt=""
-              className="size-full object-cover"
-              draggable={false}
-            />
-          </div>
-          <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-            <h3 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">
-              {t("plugins.larkcli_title")}
-            </h3>
-            {headerBadge ? (
-              <StatusBadge tone={headerBadge.tone} size="tiny">
-                {headerBadge.label}
-              </StatusBadge>
-            ) : (
-              <LoadingSpinner size="sm" />
-            )}
-          </div>
-        </div>
+        name={t("plugins.larkcli_title")}
+        description={t("plugins.larkcli_description")}
+        iconSrc={LARKCLI_ICON_SRC}
+        status={cardStatus}
+        busy={busy && cardStatus === "pending"}
+        onOpen={() => setDetailOpen(true)}
+        onAction={() => {
+          if (fullyConnected) {
+            handleTryIt();
+            return;
+          }
+          setDetailOpen(true);
+        }}
+        footer={
+          status?.state === "error" ? (
+            <NoticeBox tone="error" role="alert" className="mt-1 py-1.5 text-xs">
+              {t("plugins.larkcli_error_hint")}
+            </NoticeBox>
+          ) : null
+        }
+      />
 
-        <p
-          className={connectorTileDescClassName}
-          title={t("plugins.larkcli_description")}
-        >
-          {t("plugins.larkcli_description")}
-        </p>
-
-        <div className={cn(connectorTileFooterClassName, "justify-end gap-1.5")}>
-          {!status || status.state === "checking" ? (
-            <span
-              className="inline-flex items-center gap-1.5 text-xs text-dls-secondary"
-              aria-live="polite"
-            >
-              <LoadingSpinner size="sm" />
-              {t("plugins.larkcli_checking")}
-            </span>
-          ) : progressLabel ? (
-            <span
-              className="inline-flex items-center gap-1.5 text-xs text-dls-secondary"
-              aria-live="polite"
-            >
-              <LoadingSpinner size="sm" />
-              {t(progressLabel)}
-            </span>
-          ) : primaryAction && PrimaryActionIcon ? (
-            <Button
-              size="xs"
-              variant="outline"
-              disabled={busy}
-              onClick={() => void handlePrimaryAction()}
-            >
-              <PrimaryActionIcon aria-hidden="true" />
-              {primaryActionLabel(primaryAction)}
-            </Button>
-          ) : installedReady &&
-            connection?.phase === "installed_disconnected" ? (
-            <>
-              {canUninstall ? (
-                <Button
-                  size="xs"
-                  variant="destructive"
-                  disabled={busy}
-                  onClick={() => setUninstallConfirmOpen(true)}
-                >
-                  <Trash2 aria-hidden="true" />
-                  {t("plugins.larkcli_uninstall")}
-                </Button>
-              ) : null}
-              <Button
-                size="xs"
-                disabled={busy}
-                onClick={() => {
-                  setConnectStep(1);
-                  setConnectOpen(true);
-                }}
-              >
-                <Plus aria-hidden="true" />
-                {t("plugins.larkcli_connect")}
-              </Button>
-            </>
-          ) : installedReady &&
-            connection?.phase === "connected_not_logged_in" ? (
-            <>
-              <Button
-                size="xs"
-                variant="destructive"
-                disabled={busy}
-                onClick={() => setDisconnectConfirmOpen(true)}
-              >
-                <Unlink aria-hidden="true" />
-                {t("plugins.larkcli_disconnect")}
-              </Button>
-              <Button
-                size="xs"
-                disabled={busy}
-                onClick={() => {
-                  setConnectStep(2);
-                  setConnectOpen(true);
-                }}
-              >
-                <LogIn aria-hidden="true" />
-                {t("plugins.larkcli_go_login")}
-              </Button>
-            </>
-          ) : installedReady && connection?.phase === "connected_logged_in" ? (
-            <Button
-              size="xs"
-              variant="destructive"
-              disabled={busy}
-              onClick={() => setDisconnectConfirmOpen(true)}
-            >
-              <Unlink aria-hidden="true" />
-              {t("plugins.larkcli_disconnect")}
-            </Button>
-          ) : (
-            <span className="text-xs text-dls-secondary">
-              {status?.supported
-                ? t("plugins.larkcli_desktop_only")
-                : t("plugins.larkcli_unsupported_hint")}
-            </span>
-          )}
-        </div>
-
-        {status?.state === "error" ? (
-          <NoticeBox tone="error" role="alert" className="mt-2">
-            {t("plugins.larkcli_error_hint")}
-          </NoticeBox>
-        ) : null}
-      </article>
+      <ConnectorConnectDialog
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        name={t("plugins.larkcli_title")}
+        description={t("plugins.larkcli_description")}
+        iconSrc={LARKCLI_ICON_SRC}
+        connected={fullyConnected}
+        connecting={busy}
+        connectLabel={
+          needsLogin
+            ? t("plugins.larkcli_go_login")
+            : primaryAction === "install"
+              ? t("plugins.larkcli_install")
+              : primaryAction === "update"
+                ? t("plugins.larkcli_update")
+                : primaryAction === "retry"
+                  ? t("plugins.larkcli_retry")
+                  : t("plugins.larkcli_connect")
+        }
+        onConnect={() => void handleDetailConnect()}
+        onTryIt={fullyConnected ? handleTryIt : undefined}
+        onUnbind={
+          fullyConnected || needsLogin
+            ? () => setDisconnectConfirmOpen(true)
+            : canUninstall
+              ? () => setUninstallConfirmOpen(true)
+              : undefined
+        }
+        unbindLabel={
+          fullyConnected || needsLogin
+            ? t("plugins.connector_unbind")
+            : t("plugins.larkcli_uninstall")
+        }
+        unbinding={unbinding}
+        tryThisPrompts={tryPrompts}
+        promptsDisabled={!props.onTryPrompt || !fullyConnected}
+        onSelectPrompt={
+          fullyConnected && props.onTryPrompt ? handleSelectPrompt : undefined
+        }
+        footerNote={footerNote}
+      />
 
       <ConfirmModal
         open={uninstallConfirmOpen}

@@ -10,7 +10,6 @@ import {
   AGENT_PANEL_MAX_WIDTH,
   AGENT_PANEL_MIN_WIDTH,
   DEFAULT_AGENT_TEMPLATE_ID,
-  GLOBAL_VOICE_SIDE_PANEL_KEY,
   STARTUP_SKELETON_ROWS,
   sessionTitleForId,
 } from "../src/react-app/domains/session/sidebar/session-panel-model";
@@ -43,7 +42,6 @@ describe("session panel model", () => {
     expect(STARTUP_SKELETON_ROWS.map((row) => row.id)).toEqual(["intro", "middle", "final"]);
     expect(AGENT_PANEL_MIN_WIDTH).toBeLessThan(AGENT_PANEL_DEFAULT_WIDTH);
     expect(AGENT_PANEL_DEFAULT_WIDTH).toBeLessThan(AGENT_PANEL_MAX_WIDTH);
-    expect(GLOBAL_VOICE_SIDE_PANEL_KEY).toBe("__onmyagent_voice__");
     expect(DEFAULT_AGENT_TEMPLATE_ID).toBe("daily-assistant");
   });
 });

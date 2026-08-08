@@ -83,6 +83,31 @@
       "types": "./src/tencent-docs-connector.ts",
       "development": "./src/tencent-docs-connector.ts",
       "default": "./dist/tencent-docs-connector.js"
+    },
+    "./baidu-drive-connector": {
+      "types": "./src/baidu-drive-connector.ts",
+      "development": "./src/baidu-drive-connector.ts",
+      "default": "./dist/baidu-drive-connector.js"
+    },
+    "./kdocs-connector": {
+      "types": "./src/kdocs-connector.ts",
+      "development": "./src/kdocs-connector.ts",
+      "default": "./dist/kdocs-connector.js"
+    },
+    "./dingtalk-connector": {
+      "types": "./src/dingtalk-connector.ts",
+      "development": "./src/dingtalk-connector.ts",
+      "default": "./dist/dingtalk-connector.js"
+    },
+    "./wecom-connector": {
+      "types": "./src/wecom-connector.ts",
+      "development": "./src/wecom-connector.ts",
+      "default": "./dist/wecom-connector.js"
+    },
+    "./tencent-meeting-connector": {
+      "types": "./src/tencent-meeting-connector.ts",
+      "development": "./src/tencent-meeting-connector.ts",
+      "default": "./dist/tencent-meeting-connector.js"
     }
   },
   "files": [

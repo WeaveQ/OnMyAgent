@@ -84,22 +84,6 @@ export function createSystemClientMethods(ctx: OnMyAgentServerClientContext) {
         hostToken,
         method: "DELETE",
         timeoutMs: timeouts.config,
-      }),
-
-    createVoiceRealtimeSession: (payload?: { model?: string }) =>
-      requestJson<{
-        ok: true;
-        clientSecret: string;
-        expiresAt: number | null;
-        model: string;
-        transcriptionModel: string;
-        tools: string[];
-      }>(baseUrl, "/voice/realtime/session", {
-        token,
-        hostToken,
-        method: "POST",
-        body: payload ?? {},
-        timeoutMs: timeouts.config,
-      }),
+      })
   };
 }

@@ -29,7 +29,6 @@ import { createCanvasSessionKey } from "../infinite-canvas";
 import {
   LazyCodeWorkspaceSidePanel,
   LazyInfiniteCanvasPanel,
-  LazyVoicePanel,
 } from "./lazy-session-side-panels";
 import {
   SessionPageMainColumn,
@@ -401,7 +400,6 @@ export function ExpertPage(props: ExpertPageProps) {
     hasArtifactTargets,
     activeSidePanel,
     sidePanelOpen,
-    voiceExtensionEnabled,
     handleOpenTargetsChange,
     artifactFocusToken,
     codeWorkspacePath,
@@ -811,6 +809,16 @@ export function ExpertPage(props: ExpertPageProps) {
       openRailView("chat");
     },
     [openRailView, props.selectedWorkspaceId, props.sidebar],
+  );
+
+  /** Connector / artifact try-this prompt → new expert task + composer draft. */
+  const handleSelectArtifactPrompt = useCallback(
+    (selection: { pluginId: string; skillId: string; prompt: string }) => {
+      const prompt = selection.prompt.trim();
+      if (!prompt) return;
+      seedChatDraft(prompt);
+    },
+    [seedChatDraft],
   );
 
   const {
@@ -1368,6 +1376,7 @@ export function ExpertPage(props: ExpertPageProps) {
                           onCreateSkill={handleCreateSkill}
                           onChatWithSkill={handleChatWithSkill}
                           onEditSkill={handleEditSkill}
+                          onSelectArtifactPrompt={handleSelectArtifactPrompt}
                           onOpenCustomConnector={() => openCustomConnector("list")}
                         />
                       ),
@@ -1721,12 +1730,6 @@ export function ExpertPage(props: ExpertPageProps) {
                       <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-dls-background">
                         {props.settingsSlot}
                       </div>
-                    ) : activeSidePanel === "voice" ? (
-                      <LazyVoicePanel
-                        client={props.onmyagentServerClient}
-                        sessionId={props.selectedSessionId}
-                        onClose={closeRightPane}
-                      />
                     ) : (
                       <LazyCodeWorkspaceSidePanel
                         workspacePath={codeWorkspacePath}

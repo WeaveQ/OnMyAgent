@@ -3,7 +3,7 @@ import type { OnMyAgentServerClient } from "./client";
 export type OnMyAgentSystemClient = Pick<OnMyAgentServerClient,
   | "baseUrl" | "token" | "health" | "runtimeVersions" | "status"
   | "capabilities" | "getConfig" | "patchConfig" | "listReloadEvents"
-  | "reloadEngine" | "listAudit" | "createVoiceRealtimeSession"
+  | "reloadEngine" | "listAudit"
 >;
 
 export type OnMyAgentWorkspaceClient = Pick<OnMyAgentServerClient,

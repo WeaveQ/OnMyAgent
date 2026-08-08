@@ -19,7 +19,17 @@ export default {
   "plugins.custom_connector_empty_desc": "点击配置按钮添加 MCP 服务器",
   "plugins.custom_connector_configure_cta": "配置",
   "plugins.custom_connector_back": "返回 MCP 列表",
-  "plugins.custom_connector_config_path": "配置文件路径：{path}",
+  "plugins.custom_connector_mine": "我的 MCP",
+  "plugins.custom_connector_mine_count": "{count} 个连接器",
+  "plugins.custom_connector_summary_enabled": "已启用 {count}",
+  "plugins.custom_connector_summary_failed": "失败 {count}",
+  "plugins.custom_connector_type_tool": "工具",
+  "plugins.custom_connector_type_local": "本地命令",
+  "plugins.custom_connector_type_remote": "远程",
+  "plugins.custom_connector_reconnect": "重连",
+  "plugins.custom_connector_reconnecting": "重连中…",
+  "plugins.custom_connector_guide": "操作指引",
+  "plugins.custom_connector_copy_log": "复制日志",
   "plugins.custom_connector_save": "保存",
   "plugins.custom_connector_cancel": "取消",
   "plugins.custom_connector_invalid_json": "JSON 格式无效，请检查后重试。",
@@ -29,7 +39,7 @@ export default {
   "plugins.custom_connector_desktop_only": "自定义连接器需在桌面端使用。",
   "plugins.custom_connector_reload_title": "需要刷新引擎",
   "plugins.custom_connector_reload_desc":
-    "MCP 配置已保存。刷新引擎后助理即可使用新连接器（无需重启 App）。",
+    "MCP 配置已保存，连接器列表已更新。刷新引擎后助理即可使用新连接器（无需重启 App）。",
   "plugins.custom_connector_reload_now": "立刻刷新",
   "plugins.artifact_loading": "正在加载文件处理插件",
   "plugins.artifact_detail_loading": "正在加载插件详情",
@@ -39,24 +49,72 @@ export default {
   "plugins.artifact_open": "查看详情",
   "plugins.artifact_enabled": "已启用",
   "plugins.artifact_disabled": "已停用",
+  "plugins.artifact_enable_action": "启用",
+  "plugins.artifact_disable_action": "停用",
   "plugins.artifact_plugin_toggle": "切换插件状态",
   "plugins.artifact_card_toggle": "切换{name}状态",
   "plugins.artifact_skill_toggle": "切换{name}技能状态",
-  "plugins.artifact_starter_prompts": "推荐提示词",
+  "plugins.artifact_starter_prompts": "试试这样用",
   "plugins.artifact_skills": "技能",
   "plugins.artifact_excel_unavailable": "Excel实时控制暂不可用，需要先注册实时服务提供方。",
   "plugins.artifact_plugin_browser_name": "浏览器",
-  "plugins.artifact_plugin_browser_desc": "控制 OnMyAgent 内置浏览器。",
+  "plugins.artifact_plugin_browser_desc": "连接应用内浏览器，实现网页自动化。",
+  "plugins.artifact_plugin_browser_long":
+    "打开并控制应用内置浏览器：导航、点击、输入、检查页面与截图。适合本地开发页与无需真实 Chrome 登录的自动化。系统插件，默认启用、不可卸载；关闭后禁用应用内浏览器能力。与 BrowserSkill（真实 Chrome/Edge）互补。",
   "plugins.artifact_plugin_browser_system": "系统插件 — 不可卸载",
+  "plugins.artifact_plugin_browser_prompt_1": "打开 localhost 并检查首页是否正常。",
+  "plugins.artifact_plugin_browser_prompt_2": "在应用内浏览器里走一遍这个结账流程。",
+  "plugins.artifact_plugin_browser_prompt_3": "给当前应用内浏览器标签页截一张图。",
   "plugins.artifact_plugin_documents_name": "文档",
-  "plugins.artifact_plugin_documents_desc": "创建与修订 Word 文档。",
+  "plugins.artifact_plugin_documents_desc": "创建与修订本地 Word 文档。",
+  "plugins.artifact_plugin_documents_long":
+    "读取、创建、编辑并审阅本地 Word（DOCX）文档：从笔记起草报告、按大纲整理章节、针对性改稿与结构优化。适合周报、方案与说明文档。",
+  "plugins.artifact_plugin_documents_prompt_1": "根据我的笔记起草一份精炼的 DOCX 报告。",
+  "plugins.artifact_plugin_documents_prompt_2": "审阅这份 Word 文档，给出有针对性的修改建议。",
+  "plugins.artifact_plugin_documents_prompt_3": "把这份大纲整理成结构清晰的文档。",
   "plugins.artifact_plugin_pdf_name": "PDF",
-  "plugins.artifact_plugin_pdf_desc": "检查与生成 PDF 文件。",
+  "plugins.artifact_plugin_pdf_desc": "阅读、总结与生成 PDF。",
+  "plugins.artifact_plugin_pdf_long":
+    "读取、创建、提取并校验 PDF：总结关键发现、生成讲义/手册、检查版式与可读性。适合从笔记或网页材料输出可分享的 PDF 清稿。",
+  "plugins.artifact_plugin_pdf_prompt_1": "总结这份 PDF 的关键发现。",
+  "plugins.artifact_plugin_pdf_prompt_2": "把这些内容做成一份清晰的 PDF 讲义。",
+  "plugins.artifact_plugin_pdf_prompt_3": "检查这些 PDF 页面是否有版式问题。",
   "plugins.artifact_plugin_spreadsheets_name": "表格",
-  "plugins.artifact_plugin_spreadsheets_desc": "分析与编辑电子表格数据。",
+  "plugins.artifact_plugin_spreadsheets_desc": "创建与分析电子表格数据。",
+  "plugins.artifact_plugin_spreadsheets_long":
+    "创建、读取、分析并编辑电子表格与工作簿：清洗数据、编写/核对公式、汇总指标与趋势。适合报表、对账与从原始数据建表。",
+  "plugins.artifact_plugin_spreadsheets_prompt_1": "用这些原始数据建一张清晰的表格。",
+  "plugins.artifact_plugin_spreadsheets_prompt_2": "分析这份工作簿并标出有用的趋势。",
+  "plugins.artifact_plugin_spreadsheets_prompt_3": "更新公式并核对计算结果。",
   "plugins.sample_section_title": "推荐安装",
   "plugins.sample_section_hint": "精选第三方连接器，安装后即可扩展能力。",
   "plugins.recommend_badge": "预览",
+  "plugins.connector_connect_title": "连接 {name}",
+  "plugins.connector_setup_title": "设置 {name}",
+  "plugins.connector_try_it": "去试试",
+  "plugins.connector_unbind": "解绑",
+  "plugins.connector_connect_preview_note":
+    "该连接器即将支持一键安装。可先点下方示例，在对话里试用法。",
+  "plugins.connector_ipc_restart_hint":
+    "桌面端主进程未加载最新连接器接口。请完全退出 OnMyAgent 后重新启动再试（不要只刷新页面）。",
+  "plugins.connector_ipc_restart_short": "需重启桌面端",
+  "plugins.connector_error_short": "连接异常",
+  "plugins.sample_tencent_meeting_name": "腾讯会议",
+  "plugins.sample_tencent_meeting_desc":
+    "通过命令行创建、查询和管理腾讯会议。支持快速发起会议、查看日程安排、管理参会人员。",
+  "plugins.sample_tencent_meeting_prompt_1":
+    "帮我创建一个明天下午 3 点的会议，主题是周报评审，时长 1 小时",
+  "plugins.sample_tencent_meeting_prompt_2": "查看我今天的所有会议安排",
+  "plugins.sample_tencent_meeting_prompt_3": "取消明天的周报评审会议",
+  "plugins.sample_wecom_name": "企业微信",
+  "plugins.sample_wecom_desc":
+    "连接企业微信，收发消息、查询通讯录与日程，协作更顺手。",
+  "plugins.sample_wecom_prompt_1": "把今天下午的会议纪要发给项目群",
+  "plugins.sample_wecom_prompt_2": "查一下张三的部门与邮箱",
+  "plugins.sample_wecom_prompt_3": "提醒销售群：周五前提交本周商机表",
+  "plugins.filter_all": "全部",
+  "plugins.filter_builtin": "内置",
+  "plugins.filter_recommended": "推荐",
   "plugins.builtin_section_title": "内置",
   "plugins.builtin_section_hint": "系统自带能力，开箱可用。",
   "plugins.officecli_section_title": "可选增强",
@@ -64,7 +122,10 @@ export default {
     "按需安装 OfficeCLI。文件保存在用户目录，不会增加桌面端安装包体积；安装完成后，新的普通会话和专家会话都可以直接使用。",
   "plugins.officecli_title": "OfficeCLI",
   "plugins.officecli_description":
-    "通过对话或Agent创建、分析、校对和修改 Office 文档（.docx、.xlsx、.pptx）",
+    "通过对话创建、分析、校对和修改 Word / Excel / PPT 文档。",
+  "plugins.officecli_prompt_1": "根据这份会议纪要生成一份 Word 周报，并套用清晰标题结构。",
+  "plugins.officecli_prompt_2": "打开这份 Excel，汇总本月销售额并标出异常行。",
+  "plugins.officecli_prompt_3": "把大纲做成 8 页 PPT，每页有标题、要点和备注。",
   "plugins.officecli_checking": "正在检查 OfficeCLI 状态",
   "plugins.officecli_not_installed_hint": "尚未安装，点击安装即可启用。",
   "plugins.officecli_installed_hint": "已安装版本 {version}，新的会话可直接使用。",
@@ -98,9 +159,15 @@ export default {
   "plugins.officecli_progress_refreshing_skills": "刷新会话能力",
   "plugins.officecli_progress_uninstalling": "移除本地文件",
   "plugins.officecli_error_hint": "OfficeCLI 安装或更新失败，请检查网络后重试。",
-  "plugins.larkcli_title": "飞书 CLI",
+  "plugins.larkcli_title": "飞书",
   "plugins.larkcli_description":
-    "通过对话或Agent管理飞书/Lark 全产品能力：即时通讯、邮箱、日历、云文档、电子表格、多维表格（Base）、幻灯片、画板、知识库、云空间、妙记、视频会议、任务、审批、考勤、通讯录、OKR 等。",
+    "连接飞书/Lark：消息、日历、云文档、表格、任务与审批等协作能力。",
+  "plugins.larkcli_prompt_1":
+    "在飞书群【产品周会】里用机器人发一条通知：今天 15:00 在 3 楼会议室开周会，请带上周的进展材料",
+  "plugins.larkcli_prompt_2":
+    "查下周我和张三、李四的飞书日程，找出三人都空闲的 2 小时时段，并创建一个标题为【Q2 规划对齐】的日程，邀请他们俩，预定一间会议室",
+  "plugins.larkcli_prompt_3":
+    "在飞书多维表格【任务跟踪】里新增一行：标题=Q2 上线评审、负责人=张三、截止=2026-05-20、状态=进行中；并按负责人聚合未完成任务数",
   "plugins.larkcli_checking": "正在检查飞书 CLI 状态",
   "plugins.larkcli_not_installed_hint": "尚未安装，点击安装即可启用。",
   "plugins.larkcli_installed_hint": "已安装版本 {version}，新的会话可直接使用。",
@@ -180,7 +247,17 @@ export default {
   "plugins.larkcli_login_waiting": "等待扫码进行登录授权…",
   "plugins.tencent_docs_title": "腾讯文档",
   "plugins.tencent_docs_description":
-    "授权后即可在会话中创建、搜索与编辑腾讯文档（文档 / 表格 / 幻灯片 / 智能表格等），无需安装额外 CLI。",
+    "用自然语言管理腾讯文档：在线表格、文档与幻灯片协作。",
+  "plugins.tencent_docs_prompt_1":
+    "帮我在腾讯文档里新建一个在线表格，包含姓名、部门、入职日期三列，并填入示例数据",
+  "plugins.tencent_docs_prompt_2":
+    "打开我最近编辑的腾讯文档，帮我总结文档的主要内容和关键要点",
+  "plugins.tencent_docs_prompt_3":
+    "在腾讯文档的表格里查找所有【销售额】大于 10 万的记录，按金额从高到低排序",
+  "plugins.tencent_docs_prompt_4":
+    "帮我把这份会议纪要整理成腾讯文档，按议题分段并标注负责人和截止日期",
+  "plugins.tencent_docs_connected_note":
+    "已连接。点「去试试」或下方示例即可在对话中使用腾讯文档（新会话或刷新引擎后生效）。",
   "plugins.tencent_docs_checking": "正在检查腾讯文档状态",
   "plugins.tencent_docs_desktop_only": "桌面端可用",
   "plugins.tencent_docs_badge_disconnected": "未连接",
@@ -215,4 +292,180 @@ export default {
   "plugins.tencent_docs_error_hint": "腾讯文档授权失败，请检查网络后重试。",
   "plugins.tencent_docs_hint_disconnected": "尚未连接。点击连接完成授权后，新会话即可使用。",
   "plugins.tencent_docs_hint_connected": "已连接。新的普通会话可使用腾讯文档工具与技能。",
+  "plugins.baidu_drive_title": "百度网盘",
+  "plugins.baidu_drive_description":
+    "连接百度网盘：用自然语言搜索、整理和下载云盘文件。",
+  "plugins.baidu_drive_prompt_1":
+    "帮我在百度网盘里搜索最近上传的 PDF，按修改时间列出前 10 个",
+  "plugins.baidu_drive_prompt_2":
+    "列出百度网盘根目录下的文件夹，并说明每个文件夹大概有多少文件",
+  "plugins.baidu_drive_prompt_3":
+    "在百度网盘中找到名字包含「合同」的文档，汇总文件名和路径",
+  "plugins.baidu_drive_prompt_4":
+    "帮我把本机桌面上的报告.pdf 上传到百度网盘的「工作资料」文件夹",
+  "plugins.baidu_drive_connected_note":
+    "已连接。点「去试试」或下方示例即可在对话中使用百度网盘（新会话或刷新引擎后生效）。",
+  "plugins.baidu_drive_desktop_only": "桌面端可用",
+  "plugins.baidu_drive_connect": "连接",
+  "plugins.baidu_drive_retry": "重试",
+  "plugins.baidu_drive_disconnect": "断开连接",
+  "plugins.baidu_drive_disconnect_title": "确定断开百度网盘？",
+  "plugins.baidu_drive_disconnect_message":
+    "将清除本机授权与 OpenCode MCP 配置。之后仍可重新连接。",
+  "plugins.baidu_drive_connect_title": "完成百度网盘授权",
+  "plugins.baidu_drive_connect_subtitle":
+    "已在系统浏览器打开百度账号授权页。请登录并确认授权后返回 OnMyAgent。",
+  "plugins.baidu_drive_waiting": "等待浏览器中完成授权…",
+  "plugins.baidu_drive_waiting_hint":
+    "授权成功后会自动返回；若浏览器未打开，可点击下方按钮重新打开。",
+  "plugins.baidu_drive_open_browser": "重新打开授权页",
+  "plugins.baidu_drive_cancel": "取消",
+  "plugins.baidu_drive_error_hint": "百度网盘连接失败，请检查网络或 access_token 后重试。",
+  "plugins.baidu_drive_token_hint":
+    "当前未配置产品 OAuth 应用，连接时将粘贴百度网盘 access_token。",
+  "plugins.baidu_drive_token_title": "粘贴百度网盘 Access Token",
+  "plugins.baidu_drive_token_subtitle":
+    "在百度开放平台获取 access_token 后粘贴到下方，即可写入官方网盘 MCP。",
+  "plugins.baidu_drive_token_label": "Access Token",
+  "plugins.baidu_drive_token_placeholder": "粘贴 access_token…",
+  "plugins.baidu_drive_token_help":
+    "Token 仅保存在本机托管目录，用于官方 MCP：https://mcp-pan.baidu.com/sse",
+  "plugins.baidu_drive_token_submit": "连接",
+  "plugins.kdocs_title": "金山文档",
+  "plugins.kdocs_description":
+    "连接金山文档（WPS 云文档）：新建、搜索与读写在线表格和文档。",
+  "plugins.kdocs_prompt_1":
+    "帮我在金山文档新建一份周报智能文档，写上本周完成事项和风险",
+  "plugins.kdocs_prompt_2":
+    "搜索我最近编辑的金山文档，列出标题和链接",
+  "plugins.kdocs_prompt_3":
+    "在金山文档表格里汇总本月费用登记，按类别分组",
+  "plugins.kdocs_prompt_4":
+    "把这段 Markdown 内容写入金山文档并返回分享链接",
+  "plugins.kdocs_connected_note":
+    "已连接。点「去试试」或下方示例即可在对话中使用金山文档（新会话或刷新引擎后生效）。",
+  "plugins.kdocs_desktop_only": "桌面端可用",
+  "plugins.kdocs_connect": "连接",
+  "plugins.kdocs_retry": "重试",
+  "plugins.kdocs_disconnect": "断开连接",
+  "plugins.kdocs_disconnect_title": "确定断开金山文档？",
+  "plugins.kdocs_disconnect_message":
+    "将清除本机 token 与 OpenCode MCP 配置。之后仍可重新连接。",
+  "plugins.kdocs_cancel": "取消",
+  "plugins.kdocs_error_hint": "金山文档连接失败，请检查 access token 后重试。",
+  "plugins.kdocs_token_hint":
+    "连接需粘贴金山文档 / WPS 开放平台的 access token。",
+  "plugins.kdocs_token_title": "粘贴金山文档 Access Token",
+  "plugins.kdocs_token_subtitle":
+    "获取 token 后粘贴到下方，将写入官方 Skill Hub MCP。",
+  "plugins.kdocs_token_label": "Access Token",
+  "plugins.kdocs_token_placeholder": "粘贴 access token…",
+  "plugins.kdocs_token_help":
+    "Token 仅保存在本机。MCP：https://mcp-center.wps.cn/skill_hub/mcp",
+  "plugins.kdocs_token_submit": "连接",
+  "plugins.dingtalk_title": "钉钉",
+  "plugins.dingtalk_description":
+    "连接钉钉：通讯录、日程、待办与机器人消息。",
+  "plugins.dingtalk_prompt_1":
+    "查一下钉钉通讯录里叫「张三」的同事信息",
+  "plugins.dingtalk_prompt_2":
+    "列出我明天的钉钉日程安排",
+  "plugins.dingtalk_prompt_3":
+    "在钉钉待办里新建一项：周五前提交周报",
+  "plugins.dingtalk_prompt_4":
+    "用钉钉机器人给测试群发一条简短通知",
+  "plugins.dingtalk_connected_note":
+    "已连接。点「去试试」或下方示例即可在对话中使用钉钉（新会话或刷新引擎后生效）。",
+  "plugins.dingtalk_desktop_only": "桌面端可用",
+  "plugins.dingtalk_connect": "连接",
+  "plugins.dingtalk_retry": "重试",
+  "plugins.dingtalk_disconnect": "断开连接",
+  "plugins.dingtalk_disconnect_title": "确定断开钉钉？",
+  "plugins.dingtalk_disconnect_message":
+    "将清除本机凭证与 OpenCode MCP 配置。之后仍可重新连接。",
+  "plugins.dingtalk_cancel": "取消",
+  "plugins.dingtalk_error_hint":
+    "钉钉连接失败，请检查 Client ID / Secret 与权限后重试。",
+  "plugins.dingtalk_cred_hint":
+    "需要在钉钉开放平台创建应用，填写 Client ID 与 Client Secret。",
+  "plugins.dingtalk_cred_title": "配置钉钉应用凭证",
+  "plugins.dingtalk_cred_subtitle":
+    "凭证来自开放平台应用详情页的「凭证与基础信息」。连接后将通过 npx dingtalk-mcp 注册本地 MCP。",
+  "plugins.dingtalk_client_id_label": "Client ID",
+  "plugins.dingtalk_client_id_placeholder": "应用 Client ID",
+  "plugins.dingtalk_client_secret_label": "Client Secret",
+  "plugins.dingtalk_client_secret_placeholder": "应用 Client Secret",
+  "plugins.dingtalk_cred_help":
+    "默认启用通讯录、日程、待办与机器人发消息。请在开放平台为应用开通对应权限。",
+  "plugins.dingtalk_cred_submit": "连接",
+  "plugins.wecom_title": "企业微信",
+  "plugins.wecom_description":
+    "连接企业微信：消息、通讯录与日程协作。",
+  "plugins.wecom_prompt_1": "查一下企业微信通讯录里叫「张三」的同事",
+  "plugins.wecom_prompt_2": "列出我明天的企业微信日程",
+  "plugins.wecom_prompt_3": "在企业微信待办里新建：周五前提交周报",
+  "plugins.wecom_prompt_4": "把今天下午的会议纪要发给项目群",
+  "plugins.wecom_connected_note":
+    "已连接。点「去试试」或下方示例即可在对话中使用企业微信（新会话或刷新引擎后生效）。",
+  "plugins.wecom_desktop_only": "桌面端可用",
+  "plugins.wecom_connect": "扫码连接",
+  "plugins.wecom_retry": "重试",
+  "plugins.wecom_disconnect": "断开连接",
+  "plugins.wecom_disconnect_title": "确定断开企业微信？",
+  "plugins.wecom_disconnect_message":
+    "将清除本机 wecom-cli 凭证与托管技能。之后仍可重新连接。",
+  "plugins.wecom_cancel": "取消",
+  "plugins.wecom_error_hint":
+    "企业微信连接失败。请检查网络、重新扫码，或改用 Bot ID / Secret。",
+  "plugins.wecom_connect_hint":
+    "推荐使用企业微信扫码授权；也可改用智能机器人 Bot ID 与 Secret。",
+  "plugins.wecom_connect_title": "完成企业微信授权",
+  "plugins.wecom_connect_subtitle":
+    "已打开企业微信扫码页。请用企业微信扫码确认后返回 OnMyAgent。",
+  "plugins.wecom_waiting": "等待企业微信扫码授权…",
+  "plugins.wecom_waiting_hint":
+    "授权成功后会自动返回；若页面未打开，可点击下方按钮重新打开。",
+  "plugins.wecom_open_browser": "重新打开授权页",
+  "plugins.wecom_use_credentials": "改用 Bot ID / Secret",
+  "plugins.wecom_cred_title": "填写企业微信机器人凭证",
+  "plugins.wecom_cred_subtitle":
+    "在企业微信开放平台 / 智能机器人详情获取 Bot ID 与 Secret。",
+  "plugins.wecom_bot_id_label": "Bot ID",
+  "plugins.wecom_bot_id_placeholder": "粘贴 Bot ID",
+  "plugins.wecom_secret_label": "Secret",
+  "plugins.wecom_secret_placeholder": "粘贴 Secret",
+  "plugins.wecom_cred_help":
+    "将通过官方 wecom-cli 写入本机托管配置。扫码方式通常更稳定。",
+  "plugins.wecom_cred_submit": "连接",
+  "plugins.tencent_meeting_title": "腾讯会议",
+  "plugins.tencent_meeting_description":
+    "创建与管理腾讯会议：发起会议、查看日程与智能纪要。",
+  "plugins.tencent_meeting_prompt_1":
+    "帮我创建一个明天下午 3 点的会议，主题是周报评审，时长 1 小时",
+  "plugins.tencent_meeting_prompt_2": "查看我今天的所有腾讯会议安排",
+  "plugins.tencent_meeting_prompt_3": "取消明天的周报评审会议",
+  "plugins.tencent_meeting_prompt_4": "把昨天那个产品评审会的智能纪要给我",
+  "plugins.tencent_meeting_connected_note":
+    "已连接。点「去试试」或下方示例即可在对话中使用腾讯会议（新会话或刷新引擎后生效）。",
+  "plugins.tencent_meeting_desktop_only": "桌面端可用",
+  "plugins.tencent_meeting_connect": "连接",
+  "plugins.tencent_meeting_retry": "重试",
+  "plugins.tencent_meeting_disconnect": "断开连接",
+  "plugins.tencent_meeting_disconnect_title": "确定断开腾讯会议？",
+  "plugins.tencent_meeting_disconnect_message":
+    "将清除本机 Token 与 OpenCode MCP 配置。之后仍可重新连接。",
+  "plugins.tencent_meeting_cancel": "取消",
+  "plugins.tencent_meeting_error_hint":
+    "腾讯会议连接失败，请检查 Token 后重试。",
+  "plugins.tencent_meeting_token_hint":
+    "请在腾讯会议 AI Skill 专区用个人账号登录并复制 Token。",
+  "plugins.tencent_meeting_token_title": "粘贴腾讯会议 Token",
+  "plugins.tencent_meeting_token_subtitle":
+    "打开 AI Skill 专区，登录个人账号后复制 Token 粘贴到下方。",
+  "plugins.tencent_meeting_token_label": "Token",
+  "plugins.tencent_meeting_token_placeholder": "粘贴 Token…",
+  "plugins.tencent_meeting_token_help":
+    "Token 仅保存在本机。官方 MCP：https://mcp.meeting.tencent.com/mcp/wemeet-open/v1",
+  "plugins.tencent_meeting_open_token_page": "打开获取 Token 页面",
+  "plugins.tencent_meeting_token_submit": "连接",
 } as const;
