@@ -154,8 +154,9 @@ test("plugins-page still mounts both recommended CLI cards", () => {
   assert.match(page, /LarkCliPluginCard/);
   assert.match(page, /from ["']\.\/officecli-plugin["']/);
   assert.match(page, /from ["']\.\/larkcli-plugin["']/);
-  assert.match(page, /<OfficeCliPluginCard\s*\/>/);
-  assert.match(page, /<LarkCliPluginCard\s*\/>/);
+  // Mount may pass onTryPrompt — accept either self-closing or open tag.
+  assert.match(page, /<OfficeCliPluginCard[\s/>]/);
+  assert.match(page, /<LarkCliPluginCard[\s/>]/);
 });
 
 test("plugins-page mounts Tencent Docs connector card (no managed-cli download)", () => {
@@ -164,7 +165,7 @@ test("plugins-page mounts Tencent Docs connector card (no managed-cli download)"
   );
   assert.match(page, /TencentDocsPluginCard/);
   assert.match(page, /from ["']\.\/tencent-docs-plugin["']/);
-  assert.match(page, /<TencentDocsPluginCard\s*\/>/);
+  assert.match(page, /<TencentDocsPluginCard[\s/>]/);
 
   const manager = readRepo(
     "apps/desktop/electron/tencent-docs-connector/manager.mjs",

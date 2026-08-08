@@ -1,10 +1,5 @@
-import { ONMYAGENT_EXTENSION_CATALOG } from "../../../../app/constants";
 import { getDisplaySessionTitle } from "../../../../app/lib/session-title";
 import type { WorkspaceSessionGroup } from "../../../../app/types";
-import {
-  getExtensionId,
-  isOnMyAgentExtensionEnabled,
-} from "../../shared";
 
 export const STARTUP_SKELETON_ROWS = [
   { id: "intro", titleWidth: "42%", bodyWidth: "88%" },
@@ -44,7 +39,6 @@ export function shouldShowSessionStartupSkeleton(input: {
   return true;
 }
 
-export const GLOBAL_VOICE_SIDE_PANEL_KEY = "__onmyagent_voice__";
 
 export const AGENT_PANEL_MIN_WIDTH = 180;
 export const AGENT_PANEL_MAX_WIDTH = 300;
@@ -64,12 +58,5 @@ export function sessionTitleForId(
   return match ? getDisplaySessionTitle(match.title) : "";
 }
 
-export function isVoiceExtensionEnabled(): boolean {
-  const voiceExtension =
-    ONMYAGENT_EXTENSION_CATALOG.find(
-      (entry) => getExtensionId(entry) === "onmyagent-voice",
-    ) ?? null;
-  return voiceExtension ? isOnMyAgentExtensionEnabled(voiceExtension) : false;
-}
 
 export const DEFAULT_AGENT_TEMPLATE_ID = "daily-assistant";

@@ -7,6 +7,11 @@ import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Search, Trash2, Undo2 } from "lucide-react";
 import { desktopBridge } from "../../../../app/lib/desktop";
 import { isDesktopRuntime } from "../../../../app/utils";
@@ -251,36 +256,47 @@ export function ShortcutsView(props: ShortcutsViewProps) {
                       ) : null}
                     </div>
 
-                    <button
-                      type="button"
-                      className={cn(
-                        "min-w-0 justify-self-start rounded-md px-1 py-0.5 text-left",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent",
-                        isRecording && "ring-2 ring-dls-accent/50",
-                      )}
-                      disabled={props.busy}
-                      aria-label={
-                        isRecording
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <button
+                            type="button"
+                            className={cn(
+                              "min-w-0 justify-self-start rounded-md px-1 py-0.5 text-left",
+                              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent",
+                              isRecording && "ring-2 ring-dls-accent/50",
+                            )}
+                            disabled={props.busy}
+                            aria-label={
+                              isRecording
+                                ? t("settings.shortcuts_recording_hint")
+                                : t("settings.shortcuts_record_hint")
+                            }
+                            onClick={() =>
+                              setRecordingId(isRecording ? null : action.id)
+                            }
+                            onKeyDown={(event) => captureKey(action.id, event)}
+                          />
+                        }
+                      >
+                        {isRecording ? (
+                          <span className="text-xs font-medium text-dls-accent">
+                            {t("settings.shortcuts_recording_hint")}
+                          </span>
+                        ) : (
+                          <AcceleratorKeys
+                            accelerator={isCleared ? "" : accel}
+                            platform={platform}
+                            emptyLabel={t("settings.shortcuts_unbound")}
+                          />
+                        )}
+                      </TooltipTrigger>
+                      <TooltipContent side="top" sideOffset={6}>
+                        {isRecording
                           ? t("settings.shortcuts_recording_hint")
-                          : t("settings.shortcuts_record_hint")
-                      }
-                      onClick={() =>
-                        setRecordingId(isRecording ? null : action.id)
-                      }
-                      onKeyDown={(event) => captureKey(action.id, event)}
-                    >
-                      {isRecording ? (
-                        <span className="text-xs font-medium text-dls-accent">
-                          {t("settings.shortcuts_recording_hint")}
-                        </span>
-                      ) : (
-                        <AcceleratorKeys
-                          accelerator={isCleared ? "" : accel}
-                          platform={platform}
-                          emptyLabel={t("settings.shortcuts_unbound")}
-                        />
-                      )}
-                    </button>
+                          : t("settings.shortcuts_record_hint")}
+                      </TooltipContent>
+                    </Tooltip>
 
                     <div className="flex items-center justify-end gap-0.5">
                       {overridden && !isCleared ? (

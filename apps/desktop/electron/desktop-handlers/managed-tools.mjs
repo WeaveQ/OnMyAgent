@@ -23,6 +23,28 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "tencentDocsCompleteConnect",
   "tencentDocsCancelConnect",
   "tencentDocsDisconnect",
+  "baiduDriveGetStatus",
+  "baiduDriveStartConnect",
+  "baiduDriveCompleteConnect",
+  "baiduDriveCancelConnect",
+  "baiduDriveDisconnect",
+  "baiduDriveConnectWithToken",
+  "kdocsGetStatus",
+  "kdocsConnectWithToken",
+  "kdocsDisconnect",
+  "dingtalkGetStatus",
+  "dingtalkConnectWithCredentials",
+  "dingtalkDisconnect",
+  "wecomGetStatus",
+  "wecomStartConnect",
+  "wecomCompleteConnect",
+  "wecomCancelConnect",
+  "wecomConnectWithCredentials",
+  "wecomDisconnect",
+  "tencentMeetingGetStatus",
+  "tencentMeetingConnectWithToken",
+  "tencentMeetingOpenTokenPage",
+  "tencentMeetingDisconnect",
 ]);
 
 function errorDetails(error, fallbackCode) {
@@ -77,6 +99,11 @@ export function createManagedToolsDomainHandlers({
   larkCliManager,
   larkCliAuth,
   tencentDocsConnector,
+  baiduDriveConnector,
+  kdocsConnector,
+  dingtalkConnector,
+  wecomConnector,
+  tencentMeetingConnector,
 } = {}) {
   if (!officeCliManager) {
     throw new Error("createManagedToolsDomainHandlers requires officeCliManager");
@@ -90,6 +117,27 @@ export function createManagedToolsDomainHandlers({
   if (!tencentDocsConnector) {
     throw new Error(
       "createManagedToolsDomainHandlers requires tencentDocsConnector",
+    );
+  }
+  if (!baiduDriveConnector) {
+    throw new Error(
+      "createManagedToolsDomainHandlers requires baiduDriveConnector",
+    );
+  }
+  if (!kdocsConnector) {
+    throw new Error("createManagedToolsDomainHandlers requires kdocsConnector");
+  }
+  if (!dingtalkConnector) {
+    throw new Error(
+      "createManagedToolsDomainHandlers requires dingtalkConnector",
+    );
+  }
+  if (!wecomConnector) {
+    throw new Error("createManagedToolsDomainHandlers requires wecomConnector");
+  }
+  if (!tencentMeetingConnector) {
+    throw new Error(
+      "createManagedToolsDomainHandlers requires tencentMeetingConnector",
     );
   }
 
@@ -129,5 +177,54 @@ export function createManagedToolsDomainHandlers({
     },
     tencentDocsCancelConnect: async () => tencentDocsConnector.cancelConnect(),
     tencentDocsDisconnect: async () => tencentDocsConnector.disconnect(),
+
+    baiduDriveGetStatus: async () => baiduDriveConnector.getStatus(),
+    baiduDriveStartConnect: async () => baiduDriveConnector.startConnect(),
+    baiduDriveCompleteConnect: async (_event, args) => {
+      const sessionId = args?.[0]?.sessionId;
+      return baiduDriveConnector.completeConnect(sessionId);
+    },
+    baiduDriveCancelConnect: async () => baiduDriveConnector.cancelConnect(),
+    baiduDriveDisconnect: async () => baiduDriveConnector.disconnect(),
+    baiduDriveConnectWithToken: async (_event, args) => {
+      const input = args?.[0] ?? {};
+      return baiduDriveConnector.connectWithToken(input);
+    },
+
+    kdocsGetStatus: async () => kdocsConnector.getStatus(),
+    kdocsConnectWithToken: async (_event, args) => {
+      const input = args?.[0] ?? {};
+      return kdocsConnector.connectWithToken(input);
+    },
+    kdocsDisconnect: async () => kdocsConnector.disconnect(),
+
+    dingtalkGetStatus: async () => dingtalkConnector.getStatus(),
+    dingtalkConnectWithCredentials: async (_event, args) => {
+      const input = args?.[0] ?? {};
+      return dingtalkConnector.connectWithCredentials(input);
+    },
+    dingtalkDisconnect: async () => dingtalkConnector.disconnect(),
+
+    wecomGetStatus: async () => wecomConnector.getStatus(),
+    wecomStartConnect: async () => wecomConnector.startConnect(),
+    wecomCompleteConnect: async (_event, args) => {
+      const sessionId = args?.[0]?.sessionId;
+      return wecomConnector.completeConnect(sessionId);
+    },
+    wecomCancelConnect: async () => wecomConnector.cancelConnect(),
+    wecomConnectWithCredentials: async (_event, args) => {
+      const input = args?.[0] ?? {};
+      return wecomConnector.connectWithCredentials(input);
+    },
+    wecomDisconnect: async () => wecomConnector.disconnect(),
+
+    tencentMeetingGetStatus: async () => tencentMeetingConnector.getStatus(),
+    tencentMeetingConnectWithToken: async (_event, args) => {
+      const input = args?.[0] ?? {};
+      return tencentMeetingConnector.connectWithToken(input);
+    },
+    tencentMeetingOpenTokenPage: async () =>
+      tencentMeetingConnector.openTokenPage(),
+    tencentMeetingDisconnect: async () => tencentMeetingConnector.disconnect(),
   };
 }

@@ -16,8 +16,6 @@ const stops: Array<() => void | Promise<void>> = [];
 const dirs: string[] = [];
 const priorEnvStore = process.env.ONMYAGENT_ENV_STORE;
 const priorTokenStore = process.env.ONMYAGENT_TOKEN_STORE;
-const priorOpenAiApiKey = process.env.OPENAI_API_KEY;
-const nativeFetch = globalThis.fetch;
 
 function baseConfig(): ServerConfig {
   return {
@@ -77,12 +75,6 @@ afterEach(async () => {
   } else {
     process.env.ONMYAGENT_TOKEN_STORE = priorTokenStore;
   }
-  if (priorOpenAiApiKey === undefined) {
-    delete process.env.OPENAI_API_KEY;
-  } else {
-    process.env.OPENAI_API_KEY = priorOpenAiApiKey;
-  }
-  globalThis.fetch = nativeFetch;
 });
 
 describe("env routes", () => {
@@ -253,41 +245,6 @@ describe("env routes", () => {
     expect(del.status).toBe(404);
   });
 
-  test("voice realtime session accepts owner bearer token", async () => {
-    process.env.OPENAI_API_KEY = "sk-test";
-    globalThis.fetch = ((input, init) => {
-      const url = String(input);
-      if (url === "https://api.openai.com/v1/realtime/client_secrets") {
-        expect(init?.headers).toMatchObject({ Authorization: "Bearer sk-test" });
-        return Promise.resolve(new Response(JSON.stringify({ client_secret: { value: "rt-secret", expires_at: 123 } }), {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        }));
-      }
-      return nativeFetch(input, init);
-    }) as typeof fetch;
-
-    const { base } = await boot();
-    const issued = await fetch(`${base}/tokens`, {
-      method: "POST",
-      headers: hostAuth(),
-      body: JSON.stringify({ scope: "owner", label: "voice owner" }),
-    });
-    const tokenBody = (await issued.json()) as { token: string };
-
-    const response = await fetch(`${base}/voice/realtime/session`, {
-      method: "POST",
-      headers: { authorization: `Bearer ${tokenBody.token}`, "content-type": "application/json" },
-      body: JSON.stringify({}),
-    });
-
-    expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({
-      ok: true,
-      clientSecret: "rt-secret",
-      expiresAt: 123,
-    });
-  });
 
   test("values persist across server restart", async () => {
     const first = await boot();

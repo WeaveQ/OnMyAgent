@@ -18,7 +18,6 @@ import { registerWorkspaceImportExportRoutes } from "./routes/workspace-import-e
 import { registerExperimentalExtensionRoutes } from "./routes/experimental-extension-routes.js";
 import { registerTokenRoutes } from "./routes/token-routes.js";
 import { registerEnvRoutes } from "./routes/env-routes.js";
-import { registerVoiceRoutes } from "./routes/voice-routes.js";
 import { registerCommandRoutes } from "./routes/command-routes.js";
 import { registerAutomationRoutes } from "./routes/automation-routes.js";
 import { registerPluginRoutes } from "./routes/plugin-routes.js";
@@ -189,7 +188,6 @@ export function registerServerRoutes(input: RegisterServerRoutesInput): void {
     readJsonBody,
   });
 
-  registerVoiceRoutes({ routes, env, readJsonBody });
 
   registerCommandRoutes({
     routes,
@@ -216,7 +214,19 @@ export function registerServerRoutes(input: RegisterServerRoutesInput): void {
     runAutomationTask: async (workspace, task, onStarted) => {
       const execution = await startAutomationTask(config, workspace, task);
       await onStarted(execution);
-      await waitForAutomationSession(config, workspace, execution);
+      const leaseId = task.running?.leaseId?.trim();
+      await waitForAutomationSession(
+        config,
+        workspace,
+        execution,
+        leaseId
+          ? {
+              workspaceRoot: workspace.path,
+              automationId: task.id,
+              leaseId,
+            }
+          : undefined,
+      );
       return execution;
     },
     requireApproval,

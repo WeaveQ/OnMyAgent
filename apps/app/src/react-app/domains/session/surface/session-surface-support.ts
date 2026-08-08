@@ -36,6 +36,47 @@ function readModel(value: unknown) {
   return providerID && modelID ? { providerID, modelID } : null;
 }
 
+/** Strip wrapping quotes / JSON noise and map known engine errors to product copy. */
+export function humanizeSessionErrorMessage(raw: string): string {
+  let text = raw.trim();
+  // JSON-stringified messages often land as `"Streaming response failed"`.
+  if (
+    (text.startsWith('"') && text.endsWith('"')) ||
+    (text.startsWith("'") && text.endsWith("'"))
+  ) {
+    text = text.slice(1, -1).trim();
+  }
+  if (!text) return t("session.send_prompt_failed");
+
+  const lower = text.toLowerCase();
+  if (
+    /streaming response failed/.test(lower) ||
+    /failed to stream response/.test(lower)
+  ) {
+    return t("session.error_streaming_failed");
+  }
+  if (
+    /network|fetch failed|failed to fetch|econnreset|enotfound|etimedout|socket hang up/.test(
+      lower,
+    )
+  ) {
+    return t("session.error_network");
+  }
+  if (/timeout|timed out|deadline exceeded/.test(lower)) {
+    return t("session.error_timeout");
+  }
+  if (/rate limit|too many requests|429\b/.test(lower)) {
+    return t("session.error_rate_limit");
+  }
+  if (/unauthorized|401\b|invalid api key|authentication/.test(lower)) {
+    return t("session.error_auth");
+  }
+  if (/model.*not (found|available)|ProviderModelNotFoundError/i.test(text)) {
+    return t("session.error_model_unavailable");
+  }
+  return text;
+}
+
 export function parseSessionError(thrown: unknown): SessionError {
   const raw = thrown instanceof Error ? thrown.message : String(thrown);
   try {
@@ -67,8 +108,10 @@ export function parseSessionError(thrown: unknown): SessionError {
         : [];
       return {
         message: failedModel
-          ? `Model ${failedModel.providerID}/${failedModel.modelID} is not available.`
-          : t("session.send_prompt_failed"),
+          ? t("session.error_model_unavailable_named", {
+              model: `${failedModel.providerID}/${failedModel.modelID}`,
+            })
+          : t("session.error_model_unavailable"),
         kind: "model-not-found",
         ...details,
         ...(failedModel ? { failedModel } : {}),
@@ -78,16 +121,24 @@ export function parseSessionError(thrown: unknown): SessionError {
     const nestedMessage =
       readString(data, "message") ?? readString(parsedRecord, "message");
     if (typeof nestedMessage === "string" && nestedMessage.trim()) {
-      return { message: nestedMessage.trim(), ...details };
+      return {
+        message: humanizeSessionErrorMessage(nestedMessage.trim()),
+        ...details,
+      };
     }
   } catch {}
   if (
     /ProviderModelNotFoundError/i.test(raw) ||
     /model.*not found/i.test(raw)
   ) {
-    return { message: raw, kind: "model-not-found" };
+    return {
+      message: humanizeSessionErrorMessage(raw),
+      kind: "model-not-found",
+    };
   }
-  return { message: raw || t("session.send_prompt_failed") };
+  return {
+    message: humanizeSessionErrorMessage(raw || t("session.send_prompt_failed")),
+  };
 }
 
 export function readSnapshotSessionError(

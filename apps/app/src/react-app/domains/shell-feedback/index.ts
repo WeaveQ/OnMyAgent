@@ -20,6 +20,12 @@ export {
   type AgentActivityPhase,
 } from "./agent-ready-desktop-notifications";
 export {
+  resolveCompletionOwnerKind,
+  shouldEmitAgentReadyDesktopNotification,
+  shouldSuppressAgentReadyForOwner,
+  type CompletionOwnerKind,
+} from "./completion-owner-notifications";
+export {
   automationRunNotifyFingerprint,
   buildAutomationRunNotificationCopy,
   collectAutomationRunNotifications,

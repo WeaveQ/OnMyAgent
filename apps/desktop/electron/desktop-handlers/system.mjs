@@ -78,6 +78,8 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "installSoftwareEnv",
   "checkBrowserSkillStatus",
   "openBrowserSkillInstallPage",
+  "openOpenCodeConfigDir",
+  "repairOpenCodeEngineConfig",
   "workMemoryEnsureAwareness",
   "workMemoryReadFile",
   "workMemoryWriteFile",
@@ -402,6 +404,79 @@ export function createSystemDomainHandlers({
     const target = String(args[0] ?? "").trim();
     if (!target) return "Path is required.";
     return shell.openPath(target);
+  },
+
+  openOpenCodeConfigDir: async () => {
+    const {
+      openOpencodeConfigDir,
+    } = await import("../opencode-config-repair.mjs");
+    /** @type {string[]} */
+    const runtimeConfigDirs = [];
+    const pushRuntime = (value) => {
+      const trimmed = String(value ?? "").trim();
+      if (trimmed && !runtimeConfigDirs.includes(trimmed)) {
+        runtimeConfigDirs.push(trimmed);
+      }
+    };
+    try {
+      pushRuntime(runtimeManager?.getActiveOpencodeConfigDir?.());
+    } catch {
+      /* ignore */
+    }
+    try {
+      pushRuntime(runtimeManager?.resolveLocalOpencodeConfigDir?.());
+    } catch {
+      /* ignore */
+    }
+    try {
+      pushRuntime(runtimeManager?.onmyagentOpencodeConfigDir?.());
+    } catch {
+      /* ignore */
+    }
+    return openOpencodeConfigDir({
+      userDataDir: app?.getPath?.("userData"),
+      homeDir:
+        typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir(),
+      runtimeConfigDirs,
+      shellOpenPath: (target) => shell.openPath(target),
+    });
+  },
+
+  repairOpenCodeEngineConfig: async (event, args) => {
+    const {
+      repairOpencodeEngineConfigs,
+    } = await import("../opencode-config-repair.mjs");
+    const resetToEmpty = args?.[0]?.resetToEmpty === true;
+    /** @type {string[]} */
+    const runtimeConfigDirs = [];
+    const pushRuntime = (value) => {
+      const trimmed = String(value ?? "").trim();
+      if (trimmed && !runtimeConfigDirs.includes(trimmed)) {
+        runtimeConfigDirs.push(trimmed);
+      }
+    };
+    try {
+      pushRuntime(runtimeManager?.getActiveOpencodeConfigDir?.());
+    } catch {
+      /* ignore */
+    }
+    try {
+      pushRuntime(runtimeManager?.resolveLocalOpencodeConfigDir?.());
+    } catch {
+      /* ignore */
+    }
+    try {
+      pushRuntime(runtimeManager?.onmyagentOpencodeConfigDir?.());
+    } catch {
+      /* ignore */
+    }
+    return repairOpencodeEngineConfigs({
+      userDataDir: app?.getPath?.("userData"),
+      homeDir:
+        typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir(),
+      runtimeConfigDirs,
+      resetToEmpty,
+    });
   },
 
   __revealItemInDir: async (event, args) => {
