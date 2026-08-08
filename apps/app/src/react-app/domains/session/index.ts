@@ -148,13 +148,19 @@ export type {
 /** Delete policy: directory resolution + dirty/ghost remote failure tolerance. */
 export {
   SESSION_DELETE_REMOTE_BUDGET_MS,
+  SESSION_PENDING_DELETE_MAX_ATTEMPTS,
   SESSION_RECENTLY_DELETED_TTL_MS,
   clearRecentlyDeletedSessionsForTests,
+  executePendingSessionDelete,
+  filterPendingDeletedSessions,
   filterRecentlyDeletedSessions,
+  isSessionPendingDelete,
   isSessionRecentlyDeleted,
   isTolerableSessionDeleteFailure,
   markSessionRecentlyDeleted,
   raceSessionDeleteRemote,
+  registerPendingSessionDelete,
+  retryPendingSessionDeletesForWorkspace,
   resolveSessionDeleteDirectory,
   shouldContinueLocalSessionCleanupAfterRemoteDelete,
 } from "./sync/session-delete-policy";
