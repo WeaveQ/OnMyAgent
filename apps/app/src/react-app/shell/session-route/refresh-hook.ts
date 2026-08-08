@@ -16,10 +16,6 @@ import type { ResolvedWorkspaceEndpoint } from "../../../app/lib/workspace-endpo
 import type { OnMyAgentServerInfo } from "../../../app/lib/desktop";
 import type { SidebarSessionItem } from "../../../app/types";
 import { getReactQueryClient } from "../../infra/query-client";
-import {
-  isDocumentHidden,
-  shouldRunPollTick,
-} from "../../infra/visibility-poll";
 import { refreshProviderListQueries } from "../../domains/connections";
 import { useRemoteAccessRestart } from "../../domains/workspace";
 import {
@@ -506,7 +502,9 @@ export function useSessionRouteRefresh(input: Input) {
     let cancelled = false;
 
     const pollReloadEvents = async () => {
-      // Keep the interval installed while hidden; skip work until visible again.
+      // Keep the poller installed while hidden; skip this round until visible
+      // again. The next round is scheduled from `finally`, never from a fixed
+      // interval, so a slow server cannot accumulate concurrent list calls.
       if (!shouldRunReloadEventsPoll()) return;
       const currentCursor =
         reloadEventCursorByWorkspaceRef.current[selectedWorkspaceId];
@@ -536,14 +534,26 @@ export function useSessionRouteRefresh(input: Input) {
       }
     };
 
-    void pollReloadEvents();
-    const interval = window.setInterval(() => {
-      if (!shouldRunPollTick(isDocumentHidden())) return;
-      void pollReloadEvents();
-    }, RELOAD_EVENTS_POLL_INTERVAL_MS);
+    let timer: number | null = null;
+    const scheduleNextPoll = () => {
+      if (cancelled) return;
+      timer = window.setTimeout(() => {
+        timer = null;
+        void runPoll();
+      }, RELOAD_EVENTS_POLL_INTERVAL_MS);
+    };
+    const runPoll = async () => {
+      try {
+        await pollReloadEvents();
+      } finally {
+        scheduleNextPoll();
+      }
+    };
+
+    void runPoll();
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      if (timer !== null) window.clearTimeout(timer);
     };
   }, [
     client,
