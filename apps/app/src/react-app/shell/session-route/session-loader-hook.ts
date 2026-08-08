@@ -223,18 +223,21 @@ export function useSessionRouteSessionLoader(input: Input) {
             // sidebar before OpenCode finishes indexing.
             const persisted = next[workspace.id] ?? sidebarItems;
             writeCachedSidebarSessionsForWorkspace(workspace.id, persisted);
-            // Drop remembered session ids that no longer exist (avoids 404
-            // snapshot storms on the next cold start).
-            const liveIds = new Set(persisted.map((item) => item.id));
-            for (const mode of ["assistant", "expert"] as const) {
-              const remembered = readLastSessionFor(workspace.id, mode);
-              if (remembered && !liveIds.has(remembered)) {
-                writeLastSessionFor(workspace.id, null, mode);
+            // A successful empty list can be a warming index, not evidence
+            // that a remembered session was deleted. Only reconcile anchors
+            // after a non-empty authoritative list.
+            if (sidebarItems.length > 0) {
+              const liveIds = new Set(persisted.map((item) => item.id));
+              for (const mode of ["assistant", "expert"] as const) {
+                const remembered = readLastSessionFor(workspace.id, mode);
+                if (remembered && !liveIds.has(remembered)) {
+                  writeLastSessionFor(workspace.id, null, mode);
+                }
               }
-            }
-            const legacyRemembered = readLastSessionFor(workspace.id);
-            if (legacyRemembered && !liveIds.has(legacyRemembered)) {
-              writeLastSessionFor(workspace.id, null);
+              const legacyRemembered = readLastSessionFor(workspace.id);
+              if (legacyRemembered && !liveIds.has(legacyRemembered)) {
+                writeLastSessionFor(workspace.id, null);
+              }
             }
             return next;
           });

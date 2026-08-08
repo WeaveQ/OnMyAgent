@@ -248,6 +248,17 @@ describe("session route sessions", () => {
     expect(next.ws_b?.map((item) => item.id)).toEqual(["other"]);
   });
 
+  test("retains loaded sessions when a warming index returns an empty list", () => {
+    const next = mergeWorkspaceFetchedSessions({
+      current: { ws_a: [session({ id: "existing" })] },
+      workspaceId: "ws_a",
+      fetched: [],
+      merge: () => [],
+    });
+
+    expect(next.ws_a?.map((item) => item.id)).toEqual(["existing"]);
+  });
+
   test("resolves session ownership helpers", () => {
     const sessionsByWorkspaceId = {
       ws_a: [session({ id: "ses_a" })],
