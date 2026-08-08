@@ -1,6 +1,6 @@
 /** Session route navigation-state helpers for agent-management deep links + expert install. */
-import { installExpertPackage } from "../../../app/lib/desktop";
 import type { PendingAgentContext } from "../../domains/agents";
+import { ensureMarketplaceExpertInstalled } from "../../domains/plugins";
 import type { SessionAgentManagementIntent } from "../../domains/session";
 
 export function readStringStateField(state: unknown, key: string) {
@@ -44,13 +44,9 @@ export async function installMarketplaceExpertAfterSessionCreated(
   agent: PendingAgentContext,
 ) {
   const marketplaceExpert = agent.marketplaceExpert;
-  if (!marketplaceExpert || marketplaceExpert.source !== "builtin") return;
+  if (!marketplaceExpert) return;
   try {
-    await installExpertPackage({
-      source: "builtin",
-      marketplace: "experts",
-      packageName: marketplaceExpert.packageName,
-    });
+    await ensureMarketplaceExpertInstalled(marketplaceExpert);
   } catch (error) {
     console.warn("[expert-marketplace] failed to install expert package", error);
   }
