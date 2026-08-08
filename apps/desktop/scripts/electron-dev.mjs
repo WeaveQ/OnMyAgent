@@ -9,6 +9,7 @@ import {
   resolveAppViteCacheDir,
   resolveAppViteDepsDir,
   resolveOnMyAgentUserDataDir,
+  shouldResetElectronDevCaches,
   shouldForceViteOptimize,
 } from "./vite-deps-integrity.mjs";
 import {
@@ -353,17 +354,24 @@ if (forceViteOptimize) {
   }
 }
 
-// Drop Chromium HTTP/Code caches so the renderer cannot keep requesting deleted
-// chunk files under the same ?v=<browserHash>.
+// A re-optimize can replace chunk files without changing the browserHash, so
+// its old Chromium HTTP/Code cache must not survive. Healthy warmed starts keep
+// those caches for a faster first paint.
+const resetElectronDevCaches = shouldResetElectronDevCaches({
+  forceViteOptimize,
+  forceEnv: process.env.ONMYAGENT_FORCE_ELECTRON_CACHE_RESET,
+});
 const electronUserDataDir = resolveOnMyAgentUserDataDir({
   isDevMode: true,
   override: process.env.ONMYAGENT_ELECTRON_USERDATA,
 });
-const electronCacheClear = clearElectronDevHttpCaches(electronUserDataDir);
-if (electronCacheClear.cleared.length > 0) {
-  console.log(
-    `[electron-dev] Cleared Electron cache dirs (${electronCacheClear.cleared.join(", ")}) under ${electronCacheClear.path}`,
-  );
+if (resetElectronDevCaches) {
+  const electronCacheClear = clearElectronDevHttpCaches(electronUserDataDir);
+  if (electronCacheClear.cleared.length > 0) {
+    console.log(
+      `[electron-dev] Cleared Electron cache dirs (${electronCacheClear.cleared.join(", ")}) under ${electronCacheClear.path}`,
+    );
+  }
 }
 
 const initialProbeUrls = [startUrl, ...viteProbeUrls].filter(Boolean);
@@ -485,8 +493,8 @@ if (depsInspection.ok) {
 
 const extraLaunchArgs = [
   process.env.ELECTRON_EXTRA_LAUNCH_ARGS?.trim() ?? "",
-  // Prevent Chromium from reusing deleted Vite chunk modules across restarts.
-  "--disable-http-cache",
+  // Prevent Chromium from reusing deleted Vite chunks after a re-optimize.
+  resetElectronDevCaches ? "--disable-http-cache" : "",
 ]
   .filter(Boolean)
   .join(" ");
