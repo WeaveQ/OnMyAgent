@@ -29,6 +29,7 @@ import { registerApprovalRoutes } from "./routes/approval-routes.js";
 import { registerWorkspaceObservabilityRoutes } from "./routes/workspace-observability-routes.js";
 import { registerWorkspaceSessionArchiveRoutes } from "./routes/workspace-session-archive-routes.js";
 import { registerWorkspaceSessionRoutes } from "./routes/workspace-session-routes.js";
+import { registerWorkspaceSessionOriginRoutes } from "./routes/workspace-session-origin-routes.js";
 import { registerWorkspaceRoutes } from "./routes/workspace-routes.js";
 import { registerWorkspaceConfigRoutes } from "./routes/workspace-config-routes.js";
 import { registerWorkspaceArtifactRoutes } from "./routes/workspace-artifact-routes.js";
@@ -324,6 +325,15 @@ export function registerServerRoutes(input: RegisterServerRoutesInput): void {
     readWorkspaceSessionMessages,
     readWorkspaceSessionSnapshot,
     deleteWorkspaceSession,
+  });
+
+  registerWorkspaceSessionOriginRoutes({
+    routes,
+    config,
+    ensureWritable,
+    requireClientScope,
+    resolveWorkspace,
+    readJsonBody,
   });
 
   registerWorkspaceRoutes({
