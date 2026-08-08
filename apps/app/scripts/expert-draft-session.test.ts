@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   consumeBoundExpertDraftContext,
   matchesExpertDraftTransaction,
+  resolveBoundExpertDraftNavigation,
   resolveBoundExpertDraftSession,
   resolveReadyBoundExpertDraftSession,
   shouldKeepUnboundExpertDraft,
@@ -18,6 +19,27 @@ describe("expert draft session activation", () => {
       agentId: "order-entry",
       conversationStartId: 101,
     })).toEqual({});
+  });
+
+  test("requests navigation once only while the bound session is not selected", () => {
+    const input = {
+      contexts: { "order-entry": { conversationStartId: 101 } },
+      draftAgentId: "order-entry",
+      draftSessionActive: true,
+      pendingAgent: {
+        id: "order-entry",
+        conversationStartId: 101,
+        boundSessionId: "ses_created",
+      },
+    };
+    expect(resolveBoundExpertDraftNavigation({
+      ...input,
+      selectedSessionId: "ses_previous",
+    })).toBe("ses_created");
+    expect(resolveBoundExpertDraftNavigation({
+      ...input,
+      selectedSessionId: "ses_created",
+    })).toBeNull();
   });
 
   test("does not let an older binding consume a newer draft for the same agent", () => {

@@ -58,6 +58,29 @@ export function matchesExpertDraftTransaction<T extends {
   );
 }
 
+export function resolveBoundExpertDraftNavigation<T extends {
+  conversationStartId?: number;
+}>(input: {
+  contexts: Record<string, T>;
+  draftAgentId: string | null;
+  draftSessionActive: boolean;
+  pendingAgent: {
+    id: string;
+    boundSessionId?: string;
+    conversationStartId?: number;
+  } | null;
+  selectedSessionId: string | null;
+}): string | null {
+  const sessionId = resolveBoundExpertDraftSession(input);
+  if (!sessionId || !input.pendingAgent) return null;
+  if (!matchesExpertDraftTransaction({
+    contexts: input.contexts,
+    agentId: input.pendingAgent.id,
+    conversationStartId: input.pendingAgent.conversationStartId,
+  })) return null;
+  return input.selectedSessionId === sessionId ? null : sessionId;
+}
+
 /**
  * Whether an unbound "+ 新会话" draft should survive a route session id.
  *
