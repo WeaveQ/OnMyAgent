@@ -1346,6 +1346,9 @@ type SessionSyncSubscription = {
 type SessionSyncConnection = {
   controller: AbortController;
   generation: number;
+  startedAt: number;
+  establishedAt: number | null;
+  lastActivityAt: number | null;
 };
 
 type SessionSyncConnectionLifecycleOptions = {
@@ -1353,6 +1356,7 @@ type SessionSyncConnectionLifecycleOptions = {
   onEvent: (event: unknown) => void;
   staleStreamMs?: number;
   watchdogIntervalMs?: number;
+  handshakeWindowMs?: number;
   initialRetryDelayMs?: number;
 };
 
@@ -1364,11 +1368,12 @@ function createSessionSyncConnectionLifecycle(
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let watchdogTimer: ReturnType<typeof setInterval> | null = null;
   let activeConnection: SessionSyncConnection | null = null;
-  let lastEventAt = Date.now();
   let retryDelayMs = options.initialRetryDelayMs ?? 1_000;
   let nextGeneration = 0;
   const staleStreamMs = options.staleStreamMs ?? 30_000;
   const watchdogIntervalMs = options.watchdogIntervalMs ?? 10_000;
+  const handshakeWindowMs =
+    options.handshakeWindowMs ?? Math.max(staleStreamMs, watchdogIntervalMs * 2);
 
   const isActiveConnection = (connection: SessionSyncConnection) =>
     activeConnection === connection;
@@ -1394,6 +1399,9 @@ function createSessionSyncConnectionLifecycle(
     const connection: SessionSyncConnection = {
       controller: new AbortController(),
       generation: nextGeneration + 1,
+      startedAt: Date.now(),
+      establishedAt: null,
+      lastActivityAt: null,
     };
     nextGeneration = connection.generation;
     activeConnection = connection;
@@ -1401,7 +1409,8 @@ function createSessionSyncConnectionLifecycle(
       const sub = await options.subscribe(connection.controller.signal);
       if (!isActiveConnection(connection)) return;
       retryDelayMs = options.initialRetryDelayMs ?? 1_000;
-      lastEventAt = Date.now();
+      connection.establishedAt = Date.now();
+      connection.lastActivityAt = connection.establishedAt;
       for await (const raw of sub.stream) {
         if (
           controller.signal.aborted ||
@@ -1409,7 +1418,7 @@ function createSessionSyncConnectionLifecycle(
           !isActiveConnection(connection)
         )
           return;
-        lastEventAt = Date.now();
+        connection.lastActivityAt = Date.now();
         options.onEvent(raw);
       }
       scheduleRetry(connection);
@@ -1431,7 +1440,14 @@ function createSessionSyncConnectionLifecycle(
     if (disposed || controller.signal.aborted || retryTimer) return;
     const active = activeConnection;
     if (!active || active.controller.signal.aborted) return;
-    if (Date.now() - lastEventAt < staleStreamMs) return;
+    if (active.establishedAt === null) {
+      if (Date.now() - active.startedAt < handshakeWindowMs) return;
+    } else if (
+      active.lastActivityAt !== null &&
+      Date.now() - active.lastActivityAt < staleStreamMs
+    ) {
+      return;
+    }
     active.controller.abort();
     scheduleRetry(active);
   };
