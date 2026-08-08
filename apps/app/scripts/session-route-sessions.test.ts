@@ -10,6 +10,8 @@ import {
   maxSequence,
   mergeFetchedSessionsWithPending,
   mergeWorkspaceFetchedSessions,
+  recoverOriginDirectorySessionItems,
+  SESSION_ORIGIN_DIRECTORY_RECOVERY_CONCURRENCY,
   sessionBelongsToAnotherWorkspace,
   sessionListOwnsSession,
   shouldKeepWorkspaceSessionItem,
@@ -257,6 +259,49 @@ describe("session route sessions", () => {
     });
 
     expect(next.ws_a?.map((item) => item.id)).toEqual(["existing"]);
+  });
+
+  test("recovers durable-origin sessions outside the primary page with bounded directory concurrency", async () => {
+    let activeRequests = 0;
+    let maximumActiveRequests = 0;
+    const requestedDirectories: string[] = [];
+    const recovered = await recoverOriginDirectorySessionItems({
+      client: {
+        listSessions: async (_workspaceId, options) => {
+          const directory = options?.directory ?? "";
+          requestedDirectories.push(directory);
+          activeRequests += 1;
+          maximumActiveRequests = Math.max(maximumActiveRequests, activeRequests);
+          await new Promise((resolve) => setTimeout(resolve, 2));
+          activeRequests -= 1;
+          return { items: [{ id: `session-${directory}`, directory }] };
+        },
+      },
+      workspaceId: "workspace-a",
+      originWorkspaceId: "workspace-a",
+      primaryItems: [session({ id: "primary", directory: "/primary" })],
+      origins: [
+        { workspaceId: "workspace-a", sessionId: "primary", kind: "assistant", directory: "/primary", createdAt: 1, updatedAt: 1 },
+        { workspaceId: "workspace-a", sessionId: "session-/a", kind: "assistant", directory: "/a", createdAt: 1, updatedAt: 1 },
+        { workspaceId: "workspace-a", sessionId: "session-/b", kind: "expert", directory: "/b", createdAt: 1, updatedAt: 1 },
+        { workspaceId: "workspace-a", sessionId: "session-/c", kind: "automation", directory: "/c", createdAt: 1, updatedAt: 1 },
+        { workspaceId: "workspace-a", sessionId: "session-/d", kind: "expert", directory: "/d", createdAt: 1, updatedAt: 1 },
+        { workspaceId: "workspace-a", sessionId: "missing-directory", kind: "expert", createdAt: 1, updatedAt: 1 },
+        { workspaceId: "another-workspace", sessionId: "elsewhere", kind: "expert", directory: "/elsewhere", createdAt: 1, updatedAt: 1 },
+      ],
+      limit: 40,
+    });
+
+    expect(requestedDirectories).toEqual(["/a", "/b", "/c", "/d"]);
+    expect(maximumActiveRequests).toBeLessThanOrEqual(
+      SESSION_ORIGIN_DIRECTORY_RECOVERY_CONCURRENCY,
+    );
+    expect(recovered.map((item) => item.id)).toEqual([
+      "session-/a",
+      "session-/b",
+      "session-/c",
+      "session-/d",
+    ]);
   });
 
   test("resolves session ownership helpers", () => {

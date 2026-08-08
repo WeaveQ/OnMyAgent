@@ -2,6 +2,7 @@ import { getDisplaySessionTitle } from "../../../app/lib/session-title";
 import type { SidebarSessionItem } from "../../../app/types";
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
 import type { ResolvedWorkspaceEndpoint } from "../../../app/lib/workspace-endpoint";
+import type { SessionOriginRecord } from "@onmyagent/types/server";
 import { t } from "../../../i18n";
 import {
   addAssistantSession,
@@ -21,6 +22,80 @@ import { getSessionStatus, isActiveSessionStatus } from "./state";
 import type { SessionOption as PaletteSessionOption } from "../command-palette";
 
 export type PendingCreatedSessionMap = Record<string, Record<string, number>>;
+
+/**
+ * Origin-directory recovery is deliberately a second phase of cold start.
+ * Keep it small: primary list paint must not wait for arbitrary expert and
+ * assistant directories, and a large origin file must not fan out requests.
+ */
+export const SESSION_ORIGIN_DIRECTORY_RECOVERY_CONCURRENCY = 2;
+
+type SessionDirectoryListClient = {
+  listSessions: (
+    workspaceId: string,
+    options?: { limit?: number; directory?: string },
+  ) => Promise<{ items: unknown[] }>;
+};
+
+export async function recoverOriginDirectorySessionItems(input: {
+  client: SessionDirectoryListClient;
+  workspaceId: string;
+  originWorkspaceId: string;
+  primaryItems: SidebarSessionItem[];
+  origins: SessionOriginRecord[];
+  limit: number;
+}) {
+  const knownIds = new Set(input.primaryItems.map((item) => item.id));
+  const expectedIdsByDirectory = new Map<string, Set<string>>();
+
+  for (const origin of input.origins) {
+    const directory = origin.directory?.trim();
+    if (
+      origin.workspaceId !== input.originWorkspaceId ||
+      !directory ||
+      !origin.sessionId ||
+      knownIds.has(origin.sessionId)
+    ) {
+      continue;
+    }
+    const expectedIds = expectedIdsByDirectory.get(directory) ?? new Set<string>();
+    expectedIds.add(origin.sessionId);
+    expectedIdsByDirectory.set(directory, expectedIds);
+  }
+
+  const directoryEntries = Array.from(expectedIdsByDirectory.entries());
+  const recovered: SidebarSessionItem[] = [];
+  for (
+    let start = 0;
+    start < directoryEntries.length;
+    start += SESSION_ORIGIN_DIRECTORY_RECOVERY_CONCURRENCY
+  ) {
+    const batch = directoryEntries.slice(
+      start,
+      start + SESSION_ORIGIN_DIRECTORY_RECOVERY_CONCURRENCY,
+    );
+    const results = await Promise.allSettled(
+      batch.map(async ([directory, expectedIds]) => {
+        const response = await input.client.listSessions(input.workspaceId, {
+          limit: input.limit,
+          directory,
+        });
+        return toSidebarSessionItems(response.items).filter((item) =>
+          expectedIds.has(item.id),
+        );
+      }),
+    );
+    for (const result of results) {
+      if (result.status !== "fulfilled") continue;
+      for (const item of result.value) {
+        if (knownIds.has(item.id)) continue;
+        knownIds.add(item.id);
+        recovered.push(item);
+      }
+    }
+  }
+  return recovered;
+}
 
 export function toSidebarSessionItem(value: unknown): SidebarSessionItem | null {
   if (!value || typeof value !== "object") return null;
