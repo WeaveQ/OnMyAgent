@@ -2,6 +2,7 @@
 import {
   Folder,
   HelpCircle,
+  Info,
   Pause,
   Play,
   Plus,
@@ -44,6 +45,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StatusDot } from "@/components/ui/status-dot";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
@@ -1032,6 +1034,36 @@ export function AutomationPage(props: {
         {error ? (
           <NoticeBox tone="error" size="content" className="mb-4">
             {error}
+          </NoticeBox>
+        ) : null}
+        {isElectronRuntime() && local.prefs.keepSystemAwake !== true ? (
+          <NoticeBox
+            tone="info"
+            size="content"
+            className="mb-4 flex items-center justify-between gap-4"
+            role="status"
+          >
+            <div className="flex min-w-0 items-center gap-2">
+              <Info className="size-4 shrink-0" aria-hidden />
+              <p className="min-w-0 text-sm font-medium leading-5">
+                {t("automation.keep_awake_banner")}
+              </p>
+            </div>
+            <label className="flex shrink-0 cursor-pointer items-center gap-2.5 text-sm font-medium">
+              <span>{t("automation.keep_awake_toggle")}</span>
+              <Switch
+                size="sm"
+                checked={false}
+                onCheckedChange={(enabled) => {
+                  if (!enabled) return;
+                  local.setPrefs((previous) => ({
+                    ...previous,
+                    keepSystemAwake: true,
+                  }));
+                }}
+                aria-label={t("automation.keep_awake_toggle")}
+              />
+            </label>
           </NoticeBox>
         ) : null}
         {personalizationNotice ? (

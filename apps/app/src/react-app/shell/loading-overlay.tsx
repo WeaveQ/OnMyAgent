@@ -75,7 +75,9 @@ export function LoadingOverlay() {
     setBusyAction("repair");
     setRepairStatus("working");
     try {
-      const result = await desktopBridge.repairOpenCodeEngineConfig({});
+      const result = (await desktopBridge.repairOpenCodeEngineConfig(
+        {},
+      )) as { ok?: boolean } | null | undefined;
       if (result?.ok) {
         setRepairStatus("done");
       } else {
