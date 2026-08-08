@@ -77,6 +77,7 @@ export {
   sessionOriginsChangedEvent,
 } from "./session-origin-reconciliation";
 export {
+  createSessionOriginHydrationGate,
   markSessionOriginHydrated,
   useSessionOriginHydrated,
 } from "./session-origin-hydration";

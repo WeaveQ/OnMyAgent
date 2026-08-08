@@ -24,6 +24,33 @@ export function markSessionOriginHydrated(workspaceId: string): void {
   notify();
 }
 
+/**
+ * Origin recovery may finish before the primary session list. Do not expose a
+ * definitive expert state until both observations have completed.
+ */
+export function createSessionOriginHydrationGate(workspaceId: string) {
+  let primaryListSettled = false;
+  let originRecoverySettled = false;
+
+  const completeWhenReady = () => {
+    if (!primaryListSettled || !originRecoverySettled) return;
+    markSessionOriginHydrated(workspaceId);
+  };
+
+  return {
+    markPrimaryListSettled: () => {
+      primaryListSettled = true;
+      completeWhenReady();
+    },
+    markOriginRecoverySettled: () => {
+      originRecoverySettled = true;
+      completeWhenReady();
+    },
+    /** A terminal primary-list failure must not leave the UI loading forever. */
+    markTerminalFailure: () => markSessionOriginHydrated(workspaceId),
+  };
+}
+
 export function useSessionOriginHydrated(workspaceId: string): boolean {
   return useSyncExternalStore(
     (listener) => {
