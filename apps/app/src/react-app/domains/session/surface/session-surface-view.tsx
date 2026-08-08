@@ -383,6 +383,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
                     name: props.effectiveAgent.name,
                     description: props.effectiveAgent.description,
                     avatar: props.effectiveAgent.avatar,
+                    teamWorkflow: props.effectiveAgent.teamWorkflow,
                   }}
                   promptSuggestions={
                     <AgentPromptSuggestions

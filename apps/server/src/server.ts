@@ -82,8 +82,8 @@ const reloadBaselineRefreshers = new WeakMap<
   ServerConfig,
   (workspaceId: string, reasons?: ReloadReason[]) => Promise<void>
 >();
-
-export async function startServer(config: ServerConfig): Promise<ServeResult> {
+export type ServerRuntimeHooks = { onGlobalSkillsChanged?: () => Promise<unknown> };
+export async function startServer(config: ServerConfig, runtimeHooks: ServerRuntimeHooks = {}): Promise<ServeResult> {
   const approvals = new ApprovalService(config.approval);
   const reloadEvents = new ReloadEventStore();
   const tokens = new TokenService(config);
@@ -106,6 +106,7 @@ export async function startServer(config: ServerConfig): Promise<ServeResult> {
     tokens,
     env,
     restartReloadWatchers,
+    runtimeHooks,
   );
 
   const serverOptions: {
@@ -432,6 +433,7 @@ function createRoutes(
   tokens: TokenService,
   env: EnvService,
   onWorkspacesChanged: () => void,
+  runtimeHooks: ServerRuntimeHooks,
 ): Route[] {
   const routes: Route[] = [];
   const fileSessions = new FileSessionStore();
@@ -471,6 +473,7 @@ function createRoutes(
     writeOnMyAgentConfig,
     materializeBlueprintSessions,
     recordWorkspaceFileEvent,
+    onGlobalSkillsChanged: runtimeHooks.onGlobalSkillsChanged,
   });
 
   return routes;

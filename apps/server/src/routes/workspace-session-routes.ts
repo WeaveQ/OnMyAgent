@@ -1,5 +1,6 @@
 import type { ServerConfig, TokenScope, WorkspaceInfo } from "@onmyagent/types/server";
 import { ApiError } from "../core/errors.js";
+import { createExpertSessionRuntimeDirectory } from "../services/expert-session-runtime.js";
 import { addRoute, systemJsonResponse, type RequestContext, type Route } from "./route-core.js";
 
 type SessionListInput = {
@@ -21,6 +22,7 @@ export function registerWorkspaceSessionRoutes(input: {
   ensureWritable: (config: ServerConfig) => void;
   requireClientScope: (ctx: RequestContext, required: TokenScope) => void;
   resolveWorkspace: (config: ServerConfig, id: string) => Promise<WorkspaceInfo>;
+  readJsonBody: (request: Request) => Promise<Record<string, unknown>>;
   listWorkspaceSessions: (
     config: ServerConfig,
     workspace: WorkspaceInfo,
@@ -57,12 +59,37 @@ export function registerWorkspaceSessionRoutes(input: {
     ensureWritable,
     requireClientScope,
     resolveWorkspace,
+    readJsonBody,
     listWorkspaceSessions,
     readWorkspaceSession,
     readWorkspaceSessionMessages,
     readWorkspaceSessionSnapshot,
     deleteWorkspaceSession,
   } = input;
+
+  addRoute(
+    routes,
+    "POST",
+    "/workspace/:id/expert-session-directory",
+    "client",
+    async (ctx) => {
+      ensureWritable(config);
+      requireClientScope(ctx, "collaborator");
+      const workspace = await resolveWorkspace(config, ctx.params.id);
+      const body = await readJsonBody(ctx.request);
+      const agentName = typeof body.agentName === "string" ? body.agentName.trim() : "";
+      if (!agentName) {
+        throw new ApiError(400, "expert_agent_name_required", "Expert agent name is required");
+      }
+      const result = await createExpertSessionRuntimeDirectory({
+        workspace,
+        agentName,
+        agentId: typeof body.agentId === "string" ? body.agentId : undefined,
+        sessionKey: typeof body.sessionKey === "string" ? body.sessionKey : undefined,
+      });
+      return systemJsonResponse({ ok: true, ...result }, 201);
+    },
+  );
 
   addRoute(routes, "GET", "/workspace/:id/sessions", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);

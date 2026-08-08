@@ -28,7 +28,7 @@ export function resolveReadyBoundExpertDraftSession(input: {
  * expert's last tab) immediately kills the draft and the user lands on the
  * wrong expert's recent session.
  */
-export function shouldKeepUnboundNewSessionDraft(input: {
+export function shouldKeepUnboundExpertDraft(input: {
   draftSessionActive: boolean;
   draftAgentId: string | null;
   pendingDraftSource?: string | null;
@@ -40,12 +40,18 @@ export function shouldKeepUnboundNewSessionDraft(input: {
   if (!input.draftSessionActive) return false;
   const draftAgentId = input.draftAgentId?.trim() ?? "";
   if (!draftAgentId) return false;
-  if (input.pendingDraftSource !== "new-session") return false;
+  if (
+    input.pendingDraftSource !== "new-session" &&
+    input.pendingDraftSource !== "agent-selection"
+  ) {
+    return false;
+  }
   const pendingAgentId = input.pendingAgentId?.trim() ?? "";
   if (pendingAgentId && pendingAgentId !== draftAgentId) return false;
   const bound = input.pendingBoundSessionId?.trim() ?? "";
   if (bound && !bound.startsWith("draft:")) return false;
   const selectedAgent = input.selectedSessionAgentId?.trim() ?? "";
+  if (input.pendingDraftSource === "agent-selection") return true;
   // User explicitly opened another expert's real session → drop the draft.
   if (selectedAgent && selectedAgent !== draftAgentId) return false;
   return true;

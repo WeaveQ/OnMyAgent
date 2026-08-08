@@ -10,6 +10,7 @@ import {
   CORE_PREINSTALL_SKILLS,
   shouldInstallCoreSkill,
   shouldRefreshCoreSkillMarkdown,
+  shouldRefreshCoreSkillPackage,
 } from "./builtin-skills-policy.mjs";
 
 /**
@@ -109,6 +110,24 @@ export async function ensureDefaultBuiltinSkills(input) {
 
     // Product-owned core skills: refresh SKILL.md so card titles/descriptions
     // pick up bundled frontmatter (fixes stale ">-" / empty descriptions).
+    if (
+      shouldRefreshCoreSkillPackage({
+        packageName: entry.packageName,
+        skillName: entry.skillName,
+        destinationExists: exists,
+      })
+    ) {
+      try {
+        await copyDir(sourceDir, destination);
+        refreshed.push(entry.skillName);
+      } catch (error) {
+        errors.push(
+          `${entry.skillName} refresh: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+      continue;
+    }
+
     if (
       shouldRefreshCoreSkillMarkdown({
         packageName: entry.packageName,

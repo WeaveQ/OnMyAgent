@@ -75,6 +75,28 @@ function eventErrorText(properties: unknown) {
   return typeof message === "string" && message.trim() ? message.trim() : null;
 }
 
+function eventProperty(properties: unknown, key: string) {
+  if (!properties || typeof properties !== "object") return undefined;
+  return Reflect.get(properties, key);
+}
+
+/**
+ * OpenCode 1.17 can finish a run with the newer `session.status: idle`
+ * event instead of the legacy `session.idle` event. The chat transport must
+ * accept both, otherwise its event consumer remains open after promptAsync
+ * has completed and the composer stays stuck in a running state.
+ */
+export function isTerminalSessionStreamEvent(
+  event: { type: string; properties?: unknown },
+  sessionId: string,
+) {
+  if (eventProperty(event.properties, "sessionID") !== sessionId) return false;
+  if (event.type === "session.idle") return true;
+  if (event.type !== "session.status") return false;
+  const status = eventProperty(event.properties, "status");
+  return eventProperty(status, "type") === "idle";
+}
+
 function fileProviderMetadata(part: FilePart) {
   if (part.source) {
     return { opencode: { partId: part.id, source: part.source } };
@@ -483,9 +505,7 @@ function handleEventChunk(
     return;
   }
 
-  if (event.type === "session.idle") {
-    const record = (event.properties ?? {}) as Record<string, unknown>;
-    if (record.sessionID !== sessionId) return;
+  if (isTerminalSessionStreamEvent(event, sessionId)) {
     finalizeOpenParts(controller, state);
     controller.enqueue({ type: "finish", finishReason: normalizeUiFinishReason(state.finishReason) });
     state.streamFinished = true;

@@ -266,6 +266,7 @@ export function listBuiltinMarketplaceExperts(): ExpertMarketplaceEntry[] {
         leadAgentName,
         systemPrompt: agentMarkdown || readme,
         version: manifest.version?.trim() || null,
+        teamWorkflow: null,
       };
     })
     .sort((left, right) => left.displayName.localeCompare(right.displayName, "zh-Hans-CN"));

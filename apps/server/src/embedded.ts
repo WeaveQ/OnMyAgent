@@ -21,6 +21,8 @@ export type EmbeddedServerOptions = CliArgs & {
   opencodeBin?: string;
   /** Working directory for the managed OpenCode process. */
   opencodeCwd?: string;
+  /** Re-materialize runtime skill links after a global skill import. */
+  onGlobalSkillsChanged?: () => Promise<unknown>;
 };
 
 export type EmbeddedServerHandle = {
@@ -92,7 +94,9 @@ export async function startEmbeddedServer(options: EmbeddedServerOptions): Promi
     }
   }
 
-  const server = await startServer(config);
+  const server = await startServer(config, {
+    onGlobalSkillsChanged: options.onGlobalSkillsChanged,
+  });
 
   return {
     port: server.port,

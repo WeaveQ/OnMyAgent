@@ -30,11 +30,20 @@ export function useMyExpertPackages(options: {
     }
 
     let cancelled = false;
-    listExpertPackages("my-experts")
-      .then((entries) => {
+    Promise.all([
+      listExpertPackages("experts"),
+      listExpertPackages("my-experts"),
+    ])
+      .then(([installedEntries, mineEntries]) => {
         if (cancelled) return;
+        const entriesByPackageName = new Map(
+          [...installedEntries, ...mineEntries].map((entry) => [
+            entry.packageName,
+            entry,
+          ]),
+        );
         setMyExpertPackages(
-          entries
+          [...entriesByPackageName.values()]
             .filter(isVisibleExpertPackageEntry)
             .map(packageEntryToMarketplaceExpert),
         );

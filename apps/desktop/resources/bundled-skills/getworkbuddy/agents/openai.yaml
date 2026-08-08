@@ -1,0 +1,4 @@
+interface:
+  display_name: "Get WorkBuddy"
+  short_description: "安全导入本地 WorkBuddy 的专家、专家团及随包技能"
+  default_prompt: "使用 $getworkbuddy 列出并导入本地 WorkBuddy 专家包。"
