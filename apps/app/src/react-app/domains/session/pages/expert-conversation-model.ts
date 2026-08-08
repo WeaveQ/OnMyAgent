@@ -15,6 +15,7 @@ import {
   type AgentConversationGroup,
 } from "../sidebar/session-chrome";
 import { findBuiltinMarketplaceExpertById } from "@/react-app/domains/plugins";
+import { resolveExpertSessionSelection } from "../sidebar/expert-session-selection-memory";
 
 export { buildAgentConversationGroups };
 
@@ -205,4 +206,33 @@ export function computeHasAnyExpertConversation(
       isExpertSession(session.id) &&
       Boolean(readCustomAgentIdForSession(session.id)),
   );
+}
+
+/**
+ * Resolve an expert-list click against sessions that are currently ready in
+ * its group. A stale selected id is deliberately not treated as a no-op: the
+ * caller still needs to issue the open so route state can recover.
+ */
+export function resolveExpertSidebarOpen(input: {
+  hintSessionId: string;
+  rememberedSessionId: string | null;
+  orderIds: readonly string[];
+  readySessionIds: readonly string[];
+  selectedSessionId: string | null;
+}): { sessionId: string | null; shouldOpen: boolean } {
+  const sessionId =
+    resolveExpertSessionSelection({
+      rememberedSessionId: input.rememberedSessionId,
+      sessionIds: input.readySessionIds,
+      orderIds: input.orderIds,
+    }) ?? (input.hintSessionId.trim() || null);
+  const isReady = sessionId
+    ? input.readySessionIds.some((id) => id.trim() === sessionId)
+    : false;
+  return {
+    sessionId,
+    shouldOpen: !(
+      isReady && sessionId === (input.selectedSessionId?.trim() ?? "")
+    ),
+  };
 }
