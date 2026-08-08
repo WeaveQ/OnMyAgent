@@ -13,7 +13,6 @@ export type ServerClientMethodName =
   | "listReloadEvents"
   | "reloadEngine"
   | "listAudit"
-  | "createVoiceRealtimeSession"
   | "listWorkspaces"
   | "createLocalWorkspace"
   | "updateWorkspaceDisplayName"

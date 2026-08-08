@@ -143,6 +143,95 @@ contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
       };
     },
   },
+  baiduDrive: {
+    onStatus(callback) {
+      const handler = (_event, status) => callback(status);
+      ipcRenderer.on("onmyagent:baidu-drive:status", handler);
+      return () => {
+        ipcRenderer.removeListener("onmyagent:baidu-drive:status", handler);
+      };
+    },
+    onAuthProgress(callback) {
+      const handler = (_event, progress) => callback(progress);
+      ipcRenderer.on("onmyagent:baidu-drive:auth-progress", handler);
+      return () => {
+        ipcRenderer.removeListener(
+          "onmyagent:baidu-drive:auth-progress",
+          handler,
+        );
+      };
+    },
+  },
+  kdocs: {
+    onStatus(callback) {
+      const handler = (_event, status) => callback(status);
+      ipcRenderer.on("onmyagent:kdocs:status", handler);
+      return () => {
+        ipcRenderer.removeListener("onmyagent:kdocs:status", handler);
+      };
+    },
+    onAuthProgress(callback) {
+      const handler = (_event, progress) => callback(progress);
+      ipcRenderer.on("onmyagent:kdocs:auth-progress", handler);
+      return () => {
+        ipcRenderer.removeListener("onmyagent:kdocs:auth-progress", handler);
+      };
+    },
+  },
+  dingtalk: {
+    onStatus(callback) {
+      const handler = (_event, status) => callback(status);
+      ipcRenderer.on("onmyagent:dingtalk:status", handler);
+      return () => {
+        ipcRenderer.removeListener("onmyagent:dingtalk:status", handler);
+      };
+    },
+    onAuthProgress(callback) {
+      const handler = (_event, progress) => callback(progress);
+      ipcRenderer.on("onmyagent:dingtalk:auth-progress", handler);
+      return () => {
+        ipcRenderer.removeListener(
+          "onmyagent:dingtalk:auth-progress",
+          handler,
+        );
+      };
+    },
+  },
+  wecom: {
+    onStatus(callback) {
+      const handler = (_event, status) => callback(status);
+      ipcRenderer.on("onmyagent:wecom:status", handler);
+      return () => {
+        ipcRenderer.removeListener("onmyagent:wecom:status", handler);
+      };
+    },
+    onAuthProgress(callback) {
+      const handler = (_event, progress) => callback(progress);
+      ipcRenderer.on("onmyagent:wecom:auth-progress", handler);
+      return () => {
+        ipcRenderer.removeListener("onmyagent:wecom:auth-progress", handler);
+      };
+    },
+  },
+  tencentMeeting: {
+    onStatus(callback) {
+      const handler = (_event, status) => callback(status);
+      ipcRenderer.on("onmyagent:tencent-meeting:status", handler);
+      return () => {
+        ipcRenderer.removeListener("onmyagent:tencent-meeting:status", handler);
+      };
+    },
+    onAuthProgress(callback) {
+      const handler = (_event, progress) => callback(progress);
+      ipcRenderer.on("onmyagent:tencent-meeting:auth-progress", handler);
+      return () => {
+        ipcRenderer.removeListener(
+          "onmyagent:tencent-meeting:auth-progress",
+          handler,
+        );
+      };
+    },
+  },
   computerUse: {
     onActivity(callback) {
       const handler = (_event, activity) => callback(activity);

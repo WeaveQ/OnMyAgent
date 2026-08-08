@@ -28,7 +28,17 @@ export function registerAutomationRoutes(input: {
   resolveWorkspace: (config: ServerConfig, id: string) => Promise<WorkspaceInfo>;
   runAutomationTask: (
     workspace: WorkspaceInfo,
-    task: Pick<AutomationTaskItem, "title" | "prompt" | "workspaceDirectory" | "model" | "agent" | "accessMode">,
+    task: Pick<
+      AutomationTaskItem,
+      | "id"
+      | "title"
+      | "prompt"
+      | "workspaceDirectory"
+      | "model"
+      | "agent"
+      | "accessMode"
+      | "running"
+    >,
     onStarted: (execution: {
       sessionId: string;
       groupName: string;
@@ -174,7 +184,10 @@ export function registerAutomationRoutes(input: {
       summary: `Cancel automation run ${automationId}`,
       paths: [automationStoreAuditPath(workspace.path)],
     });
-    const item = await cancelAutomationRun(workspace.path, automationId);
+    const item = await cancelAutomationRun(workspace.path, automationId, {
+      config,
+      workspace,
+    });
     await recordAudit(workspace.path, {
       id: shortId(),
       workspaceId: workspace.id,

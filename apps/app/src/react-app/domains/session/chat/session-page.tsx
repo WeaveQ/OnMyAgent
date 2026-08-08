@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 
 import { t } from "../../../../i18n";
-import { ONMYAGENT_EXTENSION_CATALOG } from "../../../../app/constants";
 import {
   type OnMyAgentServerClient,
   type OnMyAgentServerStatus,
@@ -96,7 +95,6 @@ import { DevicesPage } from "./session-page-devices-page";
 import { SidebarFeaturePlaceholder } from "./session-page-feature-placeholder";
 import { EmptyArtifactsPanel, ProjectsComingSoonPage } from "./session-page-light-pages";
 import {
-  GLOBAL_VOICE_SIDE_PANEL_KEY,
   sessionTitleForId,
   type TaskStatusIndicator,
 } from "./session-page-model";
@@ -120,13 +118,6 @@ import {
   seedComposerFileAgentTask,
 } from "../pages/shared-page-utils";
 import { buildAskAgentFileInstruction } from "../../../capabilities/artifacts/file-preview-policy";
-import { VoicePanel } from "../voice/voice-panel";
-import { useSessionPageVoiceControls } from "./session-page-voice-controls";
-import {
-  getExtensionId,
-  isOnMyAgentExtensionEnabled,
-  ONMYAGENT_EXTENSION_STATE_CHANGED,
-} from "../../shared";
 import { cn } from "@/lib/utils";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { PersonalLocalAgentPage } from "../../local-agents";
@@ -297,24 +288,10 @@ export function SessionPage(props: SessionPageProps) {
       ? (state.sidePanelState[sidePanelScopeId] ?? null)
       : null,
   );
-  const voiceSidePanelOpen = useUiStateStore(
-    (state) => state.sidePanelState[GLOBAL_VOICE_SIDE_PANEL_KEY] === "voice",
-  );
   const setSidePanelState = useUiStateStore((state) => state.setSidePanelState);
   const toggleSidePanelState = useUiStateStore(
     (state) => state.toggleSidePanelState,
   );
-  const [, setExtensionStateVersion] = useState(0);
-  const voiceExtension = useMemo(
-    () =>
-      ONMYAGENT_EXTENSION_CATALOG.find(
-        (entry) => getExtensionId(entry) === "onmyagent-voice",
-      ) ?? null,
-    [],
-  );
-  const voiceExtensionEnabled = voiceExtension
-    ? isOnMyAgentExtensionEnabled(voiceExtension)
-    : false;
   useReactRenderWatchdog("SessionPage", {
     selectedSessionId: props.selectedSessionId,
     selectedWorkspaceId: props.selectedWorkspaceId,
@@ -468,29 +445,12 @@ export function SessionPage(props: SessionPageProps) {
     selectedWorkspaceId: props.selectedWorkspaceId,
     selectedSessionId: sidePanelScopeId,
     sessionSidePanel,
-    voiceSidePanelOpen,
-    voiceExtensionEnabled,
     browserPanelRef,
     setSidePanelState,
     toggleSidePanelState,
     onAccessibleTargetsChange: props.onAccessibleTargetsChange,
   });
 
-  useEffect(() => {
-    const refresh = () => setExtensionStateVersion((value) => value + 1);
-    window.addEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
-    window.addEventListener("storage", refresh);
-    return () => {
-      window.removeEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
-      window.removeEventListener("storage", refresh);
-    };
-  }, []);
-
-  useSessionPageVoiceControls({
-    activeSidePanel,
-    setCurrentSidePanel,
-    voiceExtensionEnabled,
-  });
   const sessionActionTitle = sessionActions.sessionActionTitle;
   const pageView = useMemo(
     () =>
@@ -1162,12 +1122,6 @@ export function SessionPage(props: SessionPageProps) {
                       <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-dls-background">
                         {props.settingsSlot}
                       </div>
-                    ) : activeSidePanel === "voice" ? (
-                      <VoicePanel
-                        client={props.onmyagentServerClient}
-                        sessionId={props.selectedSessionId}
-                        onClose={closeRightPane}
-                      />
                     ) : activeSidePanel === "artifacts" &&
                       visibleArtifactTarget &&
                       props.onmyagentServerClient &&

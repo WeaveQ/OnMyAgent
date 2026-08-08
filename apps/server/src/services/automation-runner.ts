@@ -16,7 +16,7 @@ import {
   recordAutomationRun,
   type ClaimedAutomationTask,
 } from "./automations.js";
-import { ApiError } from "../core/errors.js";
+import { ApiError, isApiError } from "../core/errors.js";
 import { exists, shortId } from "../core/utils.js";
 import type { ServerLogger } from "../core/server-logger.js";
 import { recordAudit } from "./audit.js";
@@ -171,7 +171,11 @@ async function executeClaimedAutomation(
       execution.groupName,
       execution.outputDirectory,
     );
-    await waitForAutomationSession(config, workspace, execution);
+    await waitForAutomationSession(config, workspace, execution, {
+      workspaceRoot: workspace.path,
+      automationId: task.id,
+      leaseId: task.running.leaseId,
+    });
     await recordAutomationRun(workspace.path, task.id, {
       status: "success",
       source: "scheduled",
@@ -196,6 +200,15 @@ async function executeClaimedAutomation(
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    // Stop/replace already finalized this generation — do not write a second outcome.
+    if (isApiError(error) && error.code === "automation_run_superseded") {
+      logger.log("info", "Automation task wait ended after stop or replace", {
+        workspaceId: workspace.id,
+        automationId: task.id,
+        leaseId: task.running.leaseId,
+      });
+      return;
+    }
     await recordAutomationRun(workspace.path, task.id, {
       status: "failed",
       source: "scheduled",
@@ -324,18 +337,35 @@ function automationSystemPrompt(
   ].filter((part): part is string => Boolean(part)).join("\n\n") || undefined;
 }
 
+export type AutomationWaitOwnership = {
+  workspaceRoot: string;
+  automationId: string;
+  leaseId: string;
+};
+
 export async function waitForAutomationSession(
   config: ServerConfig,
   workspace: WorkspaceInfo,
   execution: AutomationExecution,
+  ownership?: AutomationWaitOwnership,
 ): Promise<void> {
   const opencode = defaultOpencodeClientPool.get(config, workspace, execution.outputDirectory);
   const startedAt = Date.now();
   const timeoutAt = startedAt + 2 * 60 * 60 * 1000;
   let observedActive = false;
   let inactiveSince: number | null = null;
+  // Ownership is product-level; poll every few ticks instead of every second.
+  let ownershipCheckCounter = 0;
+  const OWNERSHIP_CHECK_EVERY_TICKS = 3;
 
   while (Date.now() < timeoutAt) {
+    if (ownership) {
+      ownershipCheckCounter += 1;
+      if (ownershipCheckCounter === 1 || ownershipCheckCounter % OWNERSHIP_CHECK_EVERY_TICKS === 0) {
+        await assertAutomationLeaseStillHeld(ownership);
+      }
+    }
+
     const statuses = buildSessionStatuses(
       unwrapOpencodeResult(await opencode.session.status(), "/session/status"),
     );
@@ -390,6 +420,20 @@ export async function waitForAutomationSession(
   }
 
   throw new ApiError(504, "automation_timeout", "Automation session timed out");
+}
+
+async function assertAutomationLeaseStillHeld(
+  ownership: AutomationWaitOwnership,
+): Promise<void> {
+  const tasks = await listAutomations(ownership.workspaceRoot);
+  const task = tasks.find((item) => item.id === ownership.automationId);
+  if (!task?.running || task.running.leaseId !== ownership.leaseId) {
+    throw new ApiError(
+      409,
+      "automation_run_superseded",
+      "Automation run was stopped or replaced by a newer generation",
+    );
+  }
 }
 
 async function readAutomationSessionError(

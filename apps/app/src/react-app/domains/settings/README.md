@@ -3,7 +3,7 @@
 设置面板、cloud onboarding、extension registry、settings shell、all pages。
 
 ## 对外符号
-`./index.ts` barrel 汇总 pages / panels / shell / state / cloud / openai-image-extension 全部对外符号，并 side-effect import 5 个 extension config 注册（`openai-image-gen`、`ollama`、`computer-use`、`browser-extension`、`onmyagent-voice`）。
+`./index.ts` barrel 汇总 pages / panels / shell / state / cloud / openai-image-extension 全部对外符号，并 side-effect import 5 个 extension config 注册（`openai-image-gen`、`ollama`、`computer-use`、`browser-extension`）。
 
 ### AI / providers tab
 - `state/ai-providers-controller.ts`（`useAiProvidersController`）— settings AI 页加载、合并、断开等 UI 控制器。

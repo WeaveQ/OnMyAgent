@@ -8,7 +8,6 @@ const methodGroups = /** @type {const} */ ({
   system: [
     "baseUrl", "token", "health", "runtimeVersions", "status", "capabilities",
     "getConfig", "patchConfig", "listReloadEvents", "reloadEngine", "listAudit",
-    "createVoiceRealtimeSession",
   ],
   workspace: [
     "listWorkspaces", "createLocalWorkspace", "updateWorkspaceDisplayName",

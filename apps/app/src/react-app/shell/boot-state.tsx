@@ -105,10 +105,26 @@ export function userFacingBootError(
           technicalDetail: trimmed,
         };
       }
+      if (
+        /Configuration is invalid|Missing key mcp\.|opencode\.jsonc/i.test(
+          trimmed,
+        )
+      ) {
+        return {
+          message: t("system.boot_config_invalid"),
+          technicalDetail: trimmed,
+        };
+      }
       return { message: trimmed, technicalDetail: null };
     }
     return {
-      message: t(fallbackKey),
+      message: t(
+        /Configuration is invalid|Missing key mcp\.|opencode\.jsonc/i.test(
+          trimmed,
+        )
+          ? "system.boot_config_invalid"
+          : fallbackKey,
+      ),
       technicalDetail: trimmed || null,
     };
   }

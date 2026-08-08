@@ -189,6 +189,21 @@ import type {
   TencentDocsConnectionStatus,
   TencentDocsStartConnectResult,
 } from "./tencent-docs-connector.js";
+import type {
+  BaiduDriveConnectionStatus,
+  BaiduDriveStartConnectResult,
+} from "./baidu-drive-connector.js";
+import type { KdocsConnectionStatus } from "./kdocs-connector.js";
+import type {
+  DingtalkConnectInput,
+  DingtalkConnectionStatus,
+} from "./dingtalk-connector.js";
+import type {
+  WecomConnectCredentialsInput,
+  WecomConnectionStatus,
+  WecomStartConnectResult,
+} from "./wecom-connector.js";
+import type { TencentMeetingConnectionStatus } from "./tencent-meeting-connector.js";
 
 export type DesktopCommandContract<
   Args extends readonly unknown[] = readonly unknown[],
@@ -492,6 +507,23 @@ type TypedDesktopCommandMap = {
     SoftwareEnvironmentInstallResult
   >;
   checkBrowserSkillStatus: DesktopCommandContract<[], BrowserSkillStatusResult>;
+  /** Open the active OpenCode config folder in Finder / Explorer. */
+  openOpenCodeConfigDir: DesktopCommandContract<
+    [],
+    { ok: boolean; path: string; files: string[]; error: string | null }
+  >;
+  /**
+   * Backup and repair invalid OpenCode engine config (common boot-blockers
+   * like incomplete mcp.* entries). Optional hard reset to empty schema.
+   */
+  repairOpenCodeEngineConfig: DesktopCommandContract<
+    [{ resetToEmpty?: boolean }?],
+    {
+      ok: boolean;
+      dirs: string[];
+      results: Array<Record<string, unknown>>;
+    }
+  >;
   workMemoryEnsureAwareness: DesktopCommandContract<
     [],
     { ok: boolean; path: string }
@@ -1173,6 +1205,61 @@ type TypedDesktopCommandMap = {
   >;
   tencentDocsCancelConnect: DesktopCommandContract<[], { ok: boolean }>;
   tencentDocsDisconnect: DesktopCommandContract<[], TencentDocsConnectionStatus>;
+  baiduDriveGetStatus: DesktopCommandContract<[], BaiduDriveConnectionStatus>;
+  baiduDriveStartConnect: DesktopCommandContract<
+    [],
+    BaiduDriveStartConnectResult
+  >;
+  baiduDriveCompleteConnect: DesktopCommandContract<
+    [{ sessionId: string }],
+    BaiduDriveConnectionStatus
+  >;
+  baiduDriveCancelConnect: DesktopCommandContract<[], { ok: boolean }>;
+  baiduDriveDisconnect: DesktopCommandContract<[], BaiduDriveConnectionStatus>;
+  baiduDriveConnectWithToken: DesktopCommandContract<
+    [{ accessToken: string; refreshToken?: string; expiresIn?: number }],
+    BaiduDriveConnectionStatus
+  >;
+  kdocsGetStatus: DesktopCommandContract<[], KdocsConnectionStatus>;
+  kdocsConnectWithToken: DesktopCommandContract<
+    [{ accessToken: string }],
+    KdocsConnectionStatus
+  >;
+  kdocsDisconnect: DesktopCommandContract<[], KdocsConnectionStatus>;
+  dingtalkGetStatus: DesktopCommandContract<[], DingtalkConnectionStatus>;
+  dingtalkConnectWithCredentials: DesktopCommandContract<
+    [DingtalkConnectInput],
+    DingtalkConnectionStatus
+  >;
+  dingtalkDisconnect: DesktopCommandContract<[], DingtalkConnectionStatus>;
+  wecomGetStatus: DesktopCommandContract<[], WecomConnectionStatus>;
+  wecomStartConnect: DesktopCommandContract<[], WecomStartConnectResult>;
+  wecomCompleteConnect: DesktopCommandContract<
+    [{ sessionId: string }],
+    WecomConnectionStatus
+  >;
+  wecomCancelConnect: DesktopCommandContract<[], { ok: boolean }>;
+  wecomConnectWithCredentials: DesktopCommandContract<
+    [WecomConnectCredentialsInput],
+    WecomConnectionStatus
+  >;
+  wecomDisconnect: DesktopCommandContract<[], WecomConnectionStatus>;
+  tencentMeetingGetStatus: DesktopCommandContract<
+    [],
+    TencentMeetingConnectionStatus
+  >;
+  tencentMeetingConnectWithToken: DesktopCommandContract<
+    [{ accessToken: string }],
+    TencentMeetingConnectionStatus
+  >;
+  tencentMeetingOpenTokenPage: DesktopCommandContract<
+    [],
+    { ok: boolean; url: string }
+  >;
+  tencentMeetingDisconnect: DesktopCommandContract<
+    [],
+    TencentMeetingConnectionStatus
+  >;
 };
 
 /**

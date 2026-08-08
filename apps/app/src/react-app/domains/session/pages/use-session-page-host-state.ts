@@ -5,16 +5,13 @@
  *
  * Mode-specific conversation models and surfaces stay in the page hosts.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePanelRef } from "react-resizable-panels";
 
-import { t } from "../../../../i18n";
 import type { OpenTarget } from "../artifacts/open-target";
 import { openInAppBrowser } from "../browser/open-in-app-browser";
 import { useAutoOpenBrowserPanel } from "../browser/use-auto-open-browser-panel";
 import {
-  type OnMyAgentControlAction,
-  useControlAction,
   useWorkspaceShellLayout,
 } from "../../../shell";
 import { useComposerStateStore } from "../surface/composer-state-store";
@@ -102,7 +99,6 @@ export function useSessionPageHostState(options: SessionPageHostStateOptions) {
     artifactTarget,
     accessibleTargets,
     removeAccessibleTarget,
-    voiceExtensionEnabled,
     activeSidePanel,
     sessionSidePanel,
     sidePanelOpen,
@@ -288,41 +284,6 @@ export function useSessionPageHostState(options: SessionPageHostStateOptions) {
     }
   }, [sessionSidePanel, setCurrentSidePanel]);
 
-  const openVoicePanelControlAction = useMemo<OnMyAgentControlAction | null>(
-    () =>
-      voiceExtensionEnabled
-        ? {
-            id: "voice.panel.open",
-            label: t("session.open_voice_mode"),
-            description: t("session.open_voice_mode_desc"),
-            sideEffect: "none",
-            execute: () => {
-              setCurrentSidePanel("voice");
-              return { open: true };
-            },
-          }
-        : null,
-    [setCurrentSidePanel, voiceExtensionEnabled],
-  );
-  useControlAction(openVoicePanelControlAction);
-
-  const closeVoicePanelControlAction = useMemo<OnMyAgentControlAction | null>(
-    () =>
-      voiceExtensionEnabled && activeSidePanel === "voice"
-        ? {
-            id: "voice.panel.close",
-            label: t("session.close_voice_mode"),
-            description: t("session.close_voice_mode_desc"),
-            sideEffect: "none",
-            execute: () => {
-              setCurrentSidePanel(null);
-              return { open: false };
-            },
-          }
-        : null,
-    [activeSidePanel, setCurrentSidePanel, voiceExtensionEnabled],
-  );
-  useControlAction(closeVoicePanelControlAction);
 
   const isPrimarySessionView = isPrimarySessionRailView(activeSidebarView);
 
