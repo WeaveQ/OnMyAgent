@@ -78,7 +78,9 @@ export {
 } from "./session-origin-reconciliation";
 export {
   createSessionOriginHydrationGate,
+  getSessionOriginRecoveryRetryDelayMs,
   markSessionOriginHydrated,
+  SESSION_ORIGIN_RECOVERY_MAX_RETRIES,
   useSessionOriginHydrated,
 } from "./session-origin-hydration";
 export { writeSessionOriginBestEffort } from "./session-origin-write";

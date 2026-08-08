@@ -9,9 +9,12 @@ import {
   insertSidebarSession,
   maxSequence,
   mergeFetchedSessionsWithPending,
+  mergeRecoveredSessionsWithCurrent,
   mergeWorkspaceFetchedSessions,
   recoverOriginDirectorySessionItems,
+  recoverOriginDirectorySessionItemsWithStatus,
   SESSION_ORIGIN_DIRECTORY_RECOVERY_CONCURRENCY,
+  SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS,
   sessionBelongsToAnotherWorkspace,
   sessionListOwnsSession,
   shouldKeepWorkspaceSessionItem,
@@ -238,6 +241,25 @@ describe("session route sessions", () => {
     expect(pendingByWorkspaceId.ws_a).toEqual({ pending_keep: 1_000 });
   });
 
+  test("keeps cached experts only while origin recovery is non-definitive", () => {
+    localStorage.clear();
+    localStorage.setItem("onmyagent:expertSessionIds", JSON.stringify(["expert-cache"]));
+    const base = {
+      workspaceId: "ws_a",
+      fetched: [session({ id: "root-session" })],
+      current: [session({ id: "expert-cache" })],
+      pendingByWorkspaceId: {},
+      explicitAssistantSessionIds: new Set<string>(),
+      now: 1,
+    };
+
+    expect(mergeFetchedSessionsWithPending({ ...base, preserveExpertSessions: true })
+      .map((item) => item.id)).toEqual(["expert-cache", "root-session"]);
+    expect(mergeFetchedSessionsWithPending({ ...base, preserveExpertSessions: false })
+      .map((item) => item.id)).toEqual(["root-session"]);
+    localStorage.clear();
+  });
+
   test("merges fetched sessions for one workspace without touching others", () => {
     const next = mergeWorkspaceFetchedSessions({
       current: { ws_a: [session({ id: "old" })], ws_b: [session({ id: "other" })] },
@@ -302,6 +324,124 @@ describe("session route sessions", () => {
       "session-/c",
       "session-/d",
     ]);
+  });
+
+  test("does not declare origin recovery complete when a directory read fails", async () => {
+    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
+      client: {
+        listSessions: async (_workspaceId, options) => {
+          if (options?.directory === "/failed") throw new Error("offline");
+          return { items: [{ id: "session-/ready", directory: "/ready" }] };
+        },
+      },
+      workspaceId: "workspace-a",
+      originWorkspaceId: "workspace-a",
+      primaryItems: [],
+      origins: [
+        { workspaceId: "workspace-a", sessionId: "session-/ready", kind: "expert", directory: "/ready", createdAt: 1, updatedAt: 1 },
+        { workspaceId: "workspace-a", sessionId: "session-/failed", kind: "expert", directory: "/failed", createdAt: 1, updatedAt: 1 },
+      ],
+      limit: 40,
+    });
+
+    expect(recovery.items.map((item) => item.id)).toEqual(["session-/ready"]);
+    expect(recovery.complete).toBe(false);
+  });
+
+  test("exactly recovers an old origin omitted by a single directory list page", async () => {
+    const requestedSessionIds: string[] = [];
+    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
+      client: {
+        listSessions: async () => ({
+          items: [{ id: "newer-session", directory: "/one-expert" }],
+        }),
+        getSession: async (_workspaceId, sessionId, options) => {
+          requestedSessionIds.push(sessionId);
+          return { item: { id: sessionId, directory: options?.directory } };
+        },
+      },
+      workspaceId: "workspace-a",
+      originWorkspaceId: "workspace-a",
+      primaryItems: [],
+      origins: [
+        { workspaceId: "workspace-a", sessionId: "older-session", kind: "expert", directory: "/one-expert", createdAt: 1, updatedAt: 1 },
+      ],
+      limit: 1,
+    });
+
+    expect(requestedSessionIds).toEqual(["older-session"]);
+    expect(recovery.items.map((item) => item.id)).toEqual(["older-session"]);
+    expect(recovery.complete).toBe(true);
+  });
+
+  test("uses exact bounded pages when origin metadata spans many directories", async () => {
+    let listRequests = 0;
+    let activeRequests = 0;
+    let maximumActiveRequests = 0;
+    const origins = Array.from(
+      { length: SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS + 1 },
+      (_, index) => ({
+        workspaceId: "workspace-a",
+        sessionId: `session-${index}`,
+        kind: "expert" as const,
+        directory: `/expert-${index}`,
+        createdAt: 1,
+        updatedAt: 1,
+      }),
+    );
+    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
+      client: {
+        listSessions: async () => {
+          listRequests += 1;
+          return { items: [] };
+        },
+        getSession: async (_workspaceId, sessionId, options) => {
+          activeRequests += 1;
+          maximumActiveRequests = Math.max(maximumActiveRequests, activeRequests);
+          await new Promise((resolve) => setTimeout(resolve, 2));
+          activeRequests -= 1;
+          return { item: { id: sessionId, directory: options?.directory } };
+        },
+      },
+      workspaceId: "workspace-a",
+      originWorkspaceId: "workspace-a",
+      primaryItems: [],
+      origins,
+      limit: 40,
+    });
+
+    expect(listRequests).toBe(0);
+    expect(recovery.items).toHaveLength(SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS);
+    expect(recovery.complete).toBe(false);
+    expect(recovery.nextOffset).toBe(0);
+    expect(maximumActiveRequests).toBeLessThanOrEqual(
+      SESSION_ORIGIN_DIRECTORY_RECOVERY_CONCURRENCY,
+    );
+
+    const finalPage = await recoverOriginDirectorySessionItemsWithStatus({
+      client: {
+        listSessions: async () => ({ items: [] }),
+        getSession: async (_workspaceId, sessionId, options) => ({
+          item: { id: sessionId, directory: options?.directory },
+        }),
+      },
+      workspaceId: "workspace-a",
+      originWorkspaceId: "workspace-a",
+      primaryItems: [],
+      verifiedItems: recovery.items,
+      origins,
+      limit: 40,
+    });
+    expect(finalPage.items.map((item) => item.id)).toEqual(["session-40"]);
+    expect(finalPage.complete).toBe(true);
+  });
+
+  test("keeps recovered session merges idempotent across refreshes", () => {
+    const existing = [session({ id: "existing" }), session({ id: "recovered" })];
+    const recovered = [session({ id: "recovered", title: "Newest" }), session({ id: "other" })];
+
+    expect(mergeRecoveredSessionsWithCurrent(recovered, existing).map((item) => item.id))
+      .toEqual(["recovered", "other", "existing"]);
   });
 
   test("resolves session ownership helpers", () => {
