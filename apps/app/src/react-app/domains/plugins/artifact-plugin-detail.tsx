@@ -237,7 +237,7 @@ export function getArtifactPluginConnectCopy(plugin: {
     manifest: plugin.manifest,
     enabled: plugin.enabled ?? true,
     skills: [],
-  } as ArtifactPluginDetailModel);
+  } as unknown as ArtifactPluginDetailModel);
 }
 
 export function ArtifactPluginDetail(props: ArtifactPluginDetailProps) {
