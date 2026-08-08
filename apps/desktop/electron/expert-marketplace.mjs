@@ -110,6 +110,50 @@ export function createExpertMarketplace(options = {}) {
       .filter(Boolean);
   }
 
+  function expertTeamWorkflow(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    if (value.mode !== "lead-workflow" || !Array.isArray(value.stages)) return null;
+    const stageKinds = new Set(["frame", "investigate", "produce", "verify", "deliver"]);
+    const stages = value.stages
+      .map((stage) => {
+        if (!stage || typeof stage !== "object" || Array.isArray(stage)) return null;
+        const id = typeof stage.id === "string" ? stage.id.trim() : "";
+        const kind = typeof stage.kind === "string" && stageKinds.has(stage.kind)
+          ? stage.kind
+          : "";
+        const title = localizedExpertValue(stage.title);
+        if (!id || !kind || !title) return null;
+        const members = Array.isArray(stage.members)
+          ? stage.members
+              .map((member) => {
+                if (!member || typeof member !== "object" || Array.isArray(member)) return "";
+                return localizedExpertValue(member.profession)
+                  || localizedExpertValue(member.name)
+                  || String(member.id ?? "").trim();
+              })
+              .filter(Boolean)
+          : [];
+        return {
+          id,
+          kind,
+          title,
+          description: localizedExpertValue(stage.description),
+          members,
+          deliverables: localizedExpertList(stage.deliverables),
+          checks: localizedExpertList(stage.checks),
+        };
+      })
+      .filter(Boolean);
+    if (stages.length === 0) return null;
+    return {
+      mode: "lead-workflow",
+      version: Number.isInteger(value.version) ? value.version : 1,
+      leadAgentName: String(value.leadAgentName ?? "").trim(),
+      memberCount: Number.isInteger(value.memberCount) ? value.memberCount : 0,
+      stages,
+    };
+  }
+
   function readTextIfExists(filePath) {
     if (!existsSync(filePath)) return "";
     try {
@@ -247,6 +291,7 @@ export function createExpertMarketplace(options = {}) {
       version: typeof manifest.version === "string" && manifest.version.trim()
         ? manifest.version.trim()
         : null,
+      teamWorkflow: expertTeamWorkflow(manifest.teamWorkflow),
     };
   }
 

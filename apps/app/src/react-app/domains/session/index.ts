@@ -73,6 +73,7 @@ export {
 export type { AssistantSessionWorkspace } from "./sync/assistant-session-workspaces";
 export {
   buildIsolatedExpertSessionDirectory,
+  createIsolatedExpertSessionRuntimeDirectory,
   createExpertSessionKey,
   isSameDirectory,
   joinWorkspacePath,

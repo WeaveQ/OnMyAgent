@@ -83,9 +83,8 @@ import {
   renameAutomationSessionRecord,
 } from "../../domains/session";
 import {
-  buildIsolatedExpertSessionDirectory,
+  createIsolatedExpertSessionRuntimeDirectory,
   dispatchAssistantSessionWorkspacesChanged,
-  materializeExpertSessionDirectory,
   readAssistantSessionWorkspace,
   removeAssistantSessionWorkspace,
   saveSessionDraft,
@@ -591,37 +590,32 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             } | null = null;
             const pendingAgentSnapshot =
               usePendingAgentStore.getState().getAgent();
-            const workspaceRoot = selectedWorkspaceRoot?.trim() || "";
-            const draftRoot =
-              surfaceProps?.draftWorkspace?.draftWorkspaceDirectory?.trim() || "";
-            let sessionDirectory = draftRoot || workspaceRoot || undefined;
-            let bindDirectory = draftRoot || "";
-            // Treat empty draft and "draft == workspace root" as no real folder pick.
-            // Only bind isolated path when materialize succeeds (opencode realPath).
-            if (shouldIsolateExpertSessionDirectory(workspaceRoot, draftRoot)) {
-              const isolated = buildIsolatedExpertSessionDirectory({
-                workspaceRoot,
-                agentName: pendingAgentSnapshot?.name?.trim() || "expert",
-                agentId: pendingAgentSnapshot?.id?.trim() || "",
-              });
-              const ensureClient = selectedWorkspaceEndpoint?.client ?? client;
-              const ensureWorkspaceId =
-                selectedWorkspaceEndpoint?.workspaceId ?? workspaceId;
-              const created = await materializeExpertSessionDirectory({
-                client: ensureClient,
-                workspaceId: ensureWorkspaceId,
-                workspaceRoot,
-                sessionDirectory: isolated.directory,
-              });
-              if (created) {
+            let bindDirectory = "";
+            try {
+              const workspaceRoot = selectedWorkspaceRoot?.trim() || "";
+              const draftRoot =
+                surfaceProps?.draftWorkspace?.draftWorkspaceDirectory?.trim() || "";
+              let sessionDirectory = draftRoot || workspaceRoot || undefined;
+              bindDirectory = draftRoot;
+              // Treat empty draft and "draft == workspace root" as no real folder pick.
+              // Default sessions must bind to the external runtime-state directory.
+              if (shouldIsolateExpertSessionDirectory(workspaceRoot, draftRoot)) {
+                const isolated = await createIsolatedExpertSessionRuntimeDirectory({
+                  client: selectedWorkspaceEndpoint?.client ?? client,
+                  workspaceId:
+                    selectedWorkspaceEndpoint?.workspaceId ?? workspaceId,
+                  workspaceRoot,
+                  agentName: pendingAgentSnapshot?.name?.trim() || "expert",
+                  agentId: pendingAgentSnapshot?.id?.trim() || "",
+                });
+                if (!isolated) {
+                  throw new Error(
+                    "Unable to allocate an external expert session directory",
+                  );
+                }
                 sessionDirectory = isolated.directory;
                 bindDirectory = isolated.directory;
-              } else {
-                sessionDirectory = workspaceRoot || undefined;
-                bindDirectory = "";
               }
-            }
-            try {
               newSession = unwrap(
                 await opencodeClient.session.create({
                   directory: sessionDirectory,

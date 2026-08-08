@@ -123,6 +123,7 @@ import {
   EXPERT_SIDE_PANEL_MIN_WIDTH,
   NO_EXPERT_CONVERSATIONS_ASSET,
   expertFeatureCategoryForAgent,
+  marketplaceExpertsToStarterItems,
 } from "./expert-page-utils";
 import { useCustomConnectorDialog } from "./use-custom-connector-dialog";
 import { useMyExpertPackages } from "./use-my-expert-packages";
@@ -144,7 +145,7 @@ import { useExpertAutomationOffer } from "./use-expert-automation-offer";
 import {
   resolveBoundExpertDraftSession,
   resolveReadyBoundExpertDraftSession,
-  shouldKeepUnboundNewSessionDraft,
+  shouldKeepUnboundExpertDraft,
 } from "./expert-draft-session";
 import { resolveColdOpenExpertSessionId } from "./order-conversation-groups";
 import { useExpertSessionStarters } from "./use-expert-session-starters";
@@ -438,8 +439,13 @@ export function ExpertPage(props: ExpertPageProps) {
     historyComposerSessionId: expertHistorySessionId,
   });
   const myExpertPackages = useMyExpertPackages({
-    enabled: activeSidebarView === "store" && storeActiveTab === "experts",
+    enabled: activeSidebarView === "chat" ||
+      (activeSidebarView === "store" && storeActiveTab === "experts"),
   });
+  const localExpertStarterItems = useMemo(
+    () => marketplaceExpertsToStarterItems(myExpertPackages),
+    [myExpertPackages],
+  );
   const openExpertSidePanelMenu = openWorkspaceSidePanelMenu;
 
   useReactRenderWatchdog("ExpertPage", {
@@ -495,7 +501,6 @@ export function ExpertPage(props: ExpertPageProps) {
   ]);
 
   useEffect(() => {
-    if (props.selectedSessionId) return;
     if (!pendingAgent?.conversationStartId || pendingAgent.boundSessionId) return;
     if (pendingAgent.draftSource !== "agent-selection") return;
     if (draftSessionActive && draftAgentId === pendingAgent.id) return;
@@ -512,7 +517,6 @@ export function ExpertPage(props: ExpertPageProps) {
     pendingAgent?.conversationStartId,
     pendingAgent?.draftSource,
     pendingAgent?.id,
-    props.selectedSessionId,
   ]);
 
   useEffect(() => {
@@ -816,6 +820,7 @@ export function ExpertPage(props: ExpertPageProps) {
   const {
     handleStartMarketplaceExpert,
     handleCreateCurrentAgentSession,
+    handleOpenExpertStarter,
   } = useExpertSessionStarters({
     conversationGroups,
     draftAgentContexts,
@@ -834,6 +839,8 @@ export function ExpertPage(props: ExpertPageProps) {
     openExpertMarket,
     handleOpenExpertSession,
     resolveSessionTabForAgent,
+    localExpertPackages: myExpertPackages,
+    handleStartAgentById,
   });
   const {
     automationOfferFlow,
@@ -942,16 +949,14 @@ export function ExpertPage(props: ExpertPageProps) {
     const sessionId = props.selectedSessionId?.trim() ?? "";
     if (!sessionId || sessionId.startsWith("draft:")) return;
 
-    if (
-      shouldKeepUnboundNewSessionDraft({
+    if (shouldKeepUnboundExpertDraft({
         draftSessionActive,
         draftAgentId,
         pendingDraftSource: pendingAgent?.draftSource,
         pendingAgentId: pendingAgent?.id,
         pendingBoundSessionId: pendingAgent?.boundSessionId,
         selectedSessionAgentId: readCustomAgentIdForSession(sessionId),
-      })
-    ) {
+      })) {
       return;
     }
 
@@ -1276,6 +1281,7 @@ export function ExpertPage(props: ExpertPageProps) {
                 sessionStatusById={props.sidebar.sessionStatusById}
                 draftAgentGroup={draftAgentGroup}
                 draftAgentGroups={draftAgentGroups}
+                additionalStarterItems={localExpertStarterItems}
                 query={agentSearch}
                 onQueryChange={setAgentSearch}
                 onToggleCollapsed={() =>
@@ -1283,7 +1289,7 @@ export function ExpertPage(props: ExpertPageProps) {
                 }
                 onOpenAgents={openExpertMarket}
                 onCreateExpert={openExpertCreation} onEditExpert={handleEditExpert} editableExpertIds={editableExpertIds}
-                onOpenAgentStarter={handleStartAgentById}
+                onOpenAgentStarter={handleOpenExpertStarter}
                 onCreateTask={handleCreateCurrentAgentSession}
                 onOpenSession={handleOpenExpertFromSidebar}
                 onOpenDraftAgent={handleOpenDraftSession}

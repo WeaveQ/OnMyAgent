@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   resolveBoundExpertDraftSession,
   resolveReadyBoundExpertDraftSession,
-  shouldKeepUnboundNewSessionDraft,
+  shouldKeepUnboundExpertDraft,
 } from "../src/react-app/domains/session/pages/expert-draft-session";
 
 describe("expert draft session activation", () => {
@@ -68,7 +68,7 @@ describe("expert draft session activation", () => {
 
   test("keeps unbound +新会话 draft even when route still points at prior tab", () => {
     expect(
-      shouldKeepUnboundNewSessionDraft({
+      shouldKeepUnboundExpertDraft({
         draftSessionActive: true,
         draftAgentId: "fulfillment-specialist",
         pendingDraftSource: "new-session",
@@ -80,7 +80,7 @@ describe("expert draft session activation", () => {
 
     // Prior tab of the same expert must not kill the new draft.
     expect(
-      shouldKeepUnboundNewSessionDraft({
+      shouldKeepUnboundExpertDraft({
         draftSessionActive: true,
         draftAgentId: "fulfillment-specialist",
         pendingDraftSource: "new-session",
@@ -92,7 +92,7 @@ describe("expert draft session activation", () => {
 
   test("drops +新会话 draft when user opens another expert's real session", () => {
     expect(
-      shouldKeepUnboundNewSessionDraft({
+      shouldKeepUnboundExpertDraft({
         draftSessionActive: true,
         draftAgentId: "fulfillment-specialist",
         pendingDraftSource: "new-session",
@@ -102,9 +102,21 @@ describe("expert draft session activation", () => {
     ).toBe(false);
   });
 
+  test("keeps a marketplace selection draft while the route still points at the previous expert", () => {
+    expect(
+      shouldKeepUnboundExpertDraft({
+        draftSessionActive: true,
+        draftAgentId: "senior-developer:senior-developer",
+        pendingDraftSource: "agent-selection",
+        pendingAgentId: "senior-developer:senior-developer",
+        selectedSessionAgentId: "daily-assistant",
+      }),
+    ).toBe(true);
+  });
+
   test("does not keep draft after first send binds a real session", () => {
     expect(
-      shouldKeepUnboundNewSessionDraft({
+      shouldKeepUnboundExpertDraft({
         draftSessionActive: true,
         draftAgentId: "fulfillment-specialist",
         pendingDraftSource: "new-session",

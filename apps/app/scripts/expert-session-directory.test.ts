@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildIsolatedExpertSessionDirectory,
+  createIsolatedExpertSessionRuntimeDirectory,
   isSameDirectory,
   joinWorkspacePath,
   resolveExpertSessionDirectoryMarker,
@@ -111,5 +112,37 @@ describe("expert session directory isolation", () => {
         workspaceRoot: "/Users/me/Work",
       }),
     ).toBe("");
+  });
+
+  test("accepts a server-created runtime directory outside the workspace", async () => {
+    const result = await createIsolatedExpertSessionRuntimeDirectory({
+      client: {
+        createExpertSessionRuntimeDirectory: async () => ({
+          directory: "/Users/me/Library/Application Support/OnMyAgent/expert-sessions/ws/expert/1",
+          sessionKey: "1753456789000",
+          agentSegment: "expert",
+        }),
+      },
+      workspaceId: "ws_test",
+      workspaceRoot: "/Users/me/Workspace",
+      agentName: "expert",
+    });
+    expect(result?.directory).toContain("Application Support/OnMyAgent/expert-sessions");
+  });
+
+  test("rejects a server response that places runtime state inside the workspace", async () => {
+    const result = await createIsolatedExpertSessionRuntimeDirectory({
+      client: {
+        createExpertSessionRuntimeDirectory: async () => ({
+          directory: "/Users/me/Workspace/experts/expert/1753456789000",
+          sessionKey: "1753456789000",
+          agentSegment: "expert",
+        }),
+      },
+      workspaceId: "ws_test",
+      workspaceRoot: "/Users/me/Workspace",
+      agentName: "expert",
+    });
+    expect(result).toBeNull();
   });
 });

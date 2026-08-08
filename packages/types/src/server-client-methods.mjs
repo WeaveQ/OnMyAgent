@@ -14,6 +14,7 @@ const methodGroups = /** @type {const} */ ({
     "listWorkspaces", "createLocalWorkspace", "updateWorkspaceDisplayName",
     "activateWorkspace", "deleteWorkspace", "exportWorkspace", "importWorkspace",
     "previewWorkspaceImport", "materializeBlueprintSessions",
+    "createExpertSessionRuntimeDirectory",
     "readOpencodeConfigFile", "writeOpencodeConfigFile", "readWorkspaceFile",
     "statWorkspaceFile", "writeWorkspaceFile", "writeWorkspaceBinaryFile",
     "downloadWorkspaceFile", "listWorkspaceFiles", "deleteWorkspaceFile",

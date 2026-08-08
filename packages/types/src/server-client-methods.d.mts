@@ -23,6 +23,7 @@ export type ServerClientMethodName =
   | "importWorkspace"
   | "previewWorkspaceImport"
   | "materializeBlueprintSessions"
+  | "createExpertSessionRuntimeDirectory"
   | "readOpencodeConfigFile"
   | "writeOpencodeConfigFile"
   | "readWorkspaceFile"

@@ -38,6 +38,7 @@ import {
   writeAssistantSpaceFolderOrder,
   snapshotConversationSummary,
   type AgentConversationGroup,
+  type AgentStarterItem,
   type AssistantGlobalPin,
   type TaskStatusIndicator,
 } from "./conversation-model";
@@ -147,6 +148,7 @@ export function AgentConversationPanel(props: {
   sessionStatusById: Record<string, string>;
   draftAgentGroup?: AgentConversationGroup | null;
   draftAgentGroups?: AgentConversationGroup[];
+  additionalStarterItems?: AgentStarterItem[];
   query: string;
   onQueryChange: (value: string) => void;
   onOpenSession: (workspaceId: string, sessionId: string) => void;
@@ -569,18 +571,21 @@ export function AgentConversationPanel(props: {
       ? [...visibleDraftGroups, ...agentGroups]
       : agentGroups;
   }, [agentGroups, mode, props.draftAgentGroup, props.draftAgentGroups]);
-  const starterItems = useMemo(
-    () =>
-      mode === "assistant"
-        ? []
-        : buildAgentStarterItems(registry).filter((item) => {
-            if (!normalizedQuery) return true;
-            return `${item.name} ${item.description}`
-              .toLowerCase()
-              .includes(normalizedQuery);
-          }),
-    [mode, normalizedQuery, registry],
-  );
+  const starterItems = useMemo(() => {
+    if (mode === "assistant") return [];
+    const byAgentId = new Map(
+      [
+        ...buildAgentStarterItems(registry),
+        ...(props.additionalStarterItems ?? []),
+      ].map((item) => [item.agentId, item]),
+    );
+    return [...byAgentId.values()].filter((item) => {
+      if (!normalizedQuery) return true;
+      return `${item.name} ${item.description}`
+        .toLowerCase()
+        .includes(normalizedQuery);
+    });
+  }, [mode, normalizedQuery, props.additionalStarterItems, registry]);
   const filteredAgentGroups = useMemo(() => {
     // Soft-archived sessions disappear from expert list (same store as settings archive).
     const base =

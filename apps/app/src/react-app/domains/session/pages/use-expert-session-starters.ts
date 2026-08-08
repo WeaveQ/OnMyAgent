@@ -45,6 +45,8 @@ export function useExpertSessionStarters(input: {
     agentId: string,
     sessionIds: readonly string[],
   ) => string | null;
+  localExpertPackages: ExpertMarketplaceEntry[];
+  handleStartAgentById: (agentId: string) => void;
 }) {
   const handleStartMarketplaceExpert = useCallback(
     (expert: ExpertMarketplaceEntry, initialPrompt?: string) => {
@@ -187,8 +189,19 @@ export function useExpertSessionStarters(input: {
     }
   }, [input]);
 
+  const handleOpenExpertStarter = useCallback((agentId: string) => {
+    const localExpert = input.localExpertPackages.find((expert) =>
+      marketplaceExpertMatchesAgentId(expert, agentId));
+    if (localExpert) {
+      handleStartMarketplaceExpert(localExpert);
+      return;
+    }
+    input.handleStartAgentById(agentId);
+  }, [handleStartMarketplaceExpert, input]);
+
   return {
     handleStartMarketplaceExpert,
     handleCreateCurrentAgentSession,
+    handleOpenExpertStarter,
   };
 }
