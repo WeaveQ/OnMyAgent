@@ -10,11 +10,13 @@ type SessionListInput = {
   search?: string;
   limit?: number;
   directory?: string;
+  signal?: AbortSignal;
 };
 
 type SessionMessagesInput = {
   limit?: number;
   directory?: string;
+  signal?: AbortSignal;
 };
 
 export function registerWorkspaceSessionRoutes(input: {
@@ -34,6 +36,7 @@ export function registerWorkspaceSessionRoutes(input: {
     workspace: WorkspaceInfo,
     sessionId: string,
     directory?: string,
+    signal?: AbortSignal,
   ) => Promise<unknown>;
   readWorkspaceSessionMessages: (
     config: ServerConfig,
@@ -106,6 +109,7 @@ export function registerWorkspaceSessionRoutes(input: {
         "limit",
       ),
       directory: ctx.url.searchParams.get("directory")?.trim() || undefined,
+      signal: ctx.request.signal,
     });
     return systemJsonResponse({ items });
   });
@@ -123,6 +127,7 @@ export function registerWorkspaceSessionRoutes(input: {
         workspace,
         sessionId,
         ctx.url.searchParams.get("directory")?.trim() || undefined,
+        ctx.request.signal,
       );
       return systemJsonResponse({ item });
     },
@@ -146,6 +151,7 @@ export function registerWorkspaceSessionRoutes(input: {
             "limit",
           ),
           directory: ctx.url.searchParams.get("directory")?.trim() || undefined,
+          signal: ctx.request.signal,
         },
       );
       return systemJsonResponse({ items });
@@ -170,6 +176,7 @@ export function registerWorkspaceSessionRoutes(input: {
             "limit",
           ),
           directory: ctx.url.searchParams.get("directory")?.trim() || undefined,
+          signal: ctx.request.signal,
         },
       );
       return systemJsonResponse({ item });

@@ -47,7 +47,14 @@ function remapSessionReadError(error: unknown): never {
 export async function listWorkspaceSessions(
   config: ServerConfig,
   workspace: WorkspaceInfo,
-  input: { roots?: boolean; start?: number; search?: string; limit?: number; directory?: string },
+  input: {
+    roots?: boolean;
+    start?: number;
+    search?: string;
+    limit?: number;
+    directory?: string;
+    signal?: AbortSignal;
+  },
 ) {
   const started = performance.now();
   const normalized = normalizeWorkspaceSessionListInput(input);
@@ -63,12 +70,15 @@ export async function listWorkspaceSessions(
     );
     const items = buildSessionList(
       unwrapOpencodeResult(
-        await opencode.session.list({
-          roots: normalized.roots,
-          start: normalized.start,
-          search: normalized.search,
-          limit: normalized.limit,
-        }),
+        await opencode.session.list(
+          {
+            roots: normalized.roots,
+            start: normalized.start,
+            search: normalized.search,
+            limit: normalized.limit,
+          },
+          { signal: input.signal },
+        ),
         "/session",
       ),
     );
@@ -96,12 +106,13 @@ export async function readWorkspaceSession(
   workspace: WorkspaceInfo,
   sessionId: string,
   directory?: string,
+  signal?: AbortSignal,
 ) {
   try {
     const opencode = getWorkspaceOpencodeClient(config, workspace, directory);
     return buildSession(
       unwrapOpencodeResult(
-        await opencode.session.get({ sessionID: sessionId }),
+        await opencode.session.get({ sessionID: sessionId }, { signal }),
         `/session/${encodeURIComponent(sessionId)}`,
       ),
     );
@@ -114,16 +125,19 @@ export async function readWorkspaceSessionMessages(
   config: ServerConfig,
   workspace: WorkspaceInfo,
   sessionId: string,
-  input: { limit?: number; directory?: string },
+  input: { limit?: number; directory?: string; signal?: AbortSignal },
 ) {
   try {
     const opencode = getWorkspaceOpencodeClient(config, workspace, input.directory);
     return buildSessionMessages(
       unwrapOpencodeResult(
-        await opencode.session.messages({
-          sessionID: sessionId,
-          limit: input.limit,
-        }),
+        await opencode.session.messages(
+          {
+            sessionID: sessionId,
+            limit: input.limit,
+          },
+          { signal: input.signal },
+        ),
         `/session/${encodeURIComponent(sessionId)}/message`,
       ),
     );
@@ -136,12 +150,13 @@ export async function readWorkspaceSessionTodos(
   config: ServerConfig,
   workspace: WorkspaceInfo,
   sessionId: string,
+  signal?: AbortSignal,
 ) {
   try {
     const opencode = getWorkspaceOpencodeClient(config, workspace);
     return buildSessionTodos(
       unwrapOpencodeResult(
-        await opencode.session.todo({ sessionID: sessionId }),
+        await opencode.session.todo({ sessionID: sessionId }, { signal }),
         `/session/${encodeURIComponent(sessionId)}/todo`,
       ),
     );
@@ -153,11 +168,15 @@ export async function readWorkspaceSessionTodos(
 export async function readWorkspaceSessionStatuses(
   config: ServerConfig,
   workspace: WorkspaceInfo,
+  signal?: AbortSignal,
 ) {
   try {
     const opencode = getWorkspaceOpencodeClient(config, workspace);
     return buildSessionStatuses(
-      unwrapOpencodeResult(await opencode.session.status(), "/session/status"),
+      unwrapOpencodeResult(
+        await opencode.session.status(undefined, { signal }),
+        "/session/status",
+      ),
     );
   } catch (error) {
     remapSessionReadError(error);
@@ -168,13 +187,13 @@ export async function readWorkspaceSessionSnapshot(
   config: ServerConfig,
   workspace: WorkspaceInfo,
   sessionId: string,
-  input: { limit?: number; directory?: string },
+  input: { limit?: number; directory?: string; signal?: AbortSignal },
 ) {
   try {
     const opencode = getWorkspaceOpencodeClient(config, workspace, input.directory);
     const [session, messages, todos, statuses] = await Promise.all([
       opencode.session
-        .get({ sessionID: sessionId })
+        .get({ sessionID: sessionId }, { signal: input.signal })
         .then((result) =>
           unwrapOpencodeResult(
             result,
@@ -182,7 +201,10 @@ export async function readWorkspaceSessionSnapshot(
           ),
         ),
       opencode.session
-        .messages({ sessionID: sessionId, limit: input.limit })
+        .messages(
+          { sessionID: sessionId, limit: input.limit },
+          { signal: input.signal },
+        )
         .then((result) =>
           unwrapOpencodeResult(
             result,
@@ -190,7 +212,7 @@ export async function readWorkspaceSessionSnapshot(
           ),
         ),
       opencode.session
-        .todo({ sessionID: sessionId })
+        .todo({ sessionID: sessionId }, { signal: input.signal })
         .then((result) =>
           unwrapOpencodeResult(
             result,
@@ -198,7 +220,7 @@ export async function readWorkspaceSessionSnapshot(
           ),
         ),
       opencode.session
-        .status()
+        .status(undefined, { signal: input.signal })
         .then((result) => unwrapOpencodeResult(result, "/session/status")),
     ]);
     return buildSessionSnapshot({ session, messages, todos, statuses });
