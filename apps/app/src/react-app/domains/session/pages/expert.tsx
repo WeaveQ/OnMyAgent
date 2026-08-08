@@ -142,10 +142,9 @@ import {
 } from "./expert-conversation-model";
 import { useExpertAutomationOffer } from "./use-expert-automation-offer";
 import {
-  resolveBoundExpertDraftSession,
-  resolveReadyBoundExpertDraftSession,
   shouldKeepUnboundExpertDraft,
 } from "./expert-draft-session";
+import { useExpertBoundDraftTransition } from "./use-expert-bound-draft-transition";
 import { resolveColdOpenExpertSessionId } from "./order-conversation-groups";
 import { useExpertSessionStarters } from "./use-expert-session-starters";
 import { useExpertWaybillPatch } from "./use-expert-waybill-patch";
@@ -657,38 +656,21 @@ export function ExpertPage(props: ExpertPageProps) {
     if (!agentId) return;
     writeExpertSessionSelection(props.selectedWorkspaceId, agentId, sessionId);
   }, [props.selectedSessionId, props.selectedWorkspaceId]);
-  useEffect(() => {
-    const createdSessionId = resolveBoundExpertDraftSession({
-      draftSessionActive,
-      draftAgentId,
-      pendingAgent,
-    });
-    if (!createdSessionId) return;
-    setPendingTabSessionId(createdSessionId);
-    if (props.selectedSessionId !== createdSessionId) {
-      props.sidebar.onOpenSession(
-        props.sidebar.selectedWorkspaceId,
-        createdSessionId,
-      );
-      return;
-    }
-    const readySessionId = resolveReadyBoundExpertDraftSession({
-      draftSessionActive,
-      draftAgentId,
-      pendingAgent,
-      selectedSessionId: props.selectedSessionId,
-    });
-    if (!readySessionId) return;
-    setDraftSessionActive(false);
-    setDraftAgentId(null);
-  }, [
+  useExpertBoundDraftTransition({
+    activeDraftSessionId,
+    draftAgentContexts,
     draftAgentId,
     draftSessionActive,
     pendingAgent,
-    props.selectedSessionId,
-    props.sidebar.onOpenSession,
-    props.sidebar.selectedWorkspaceId,
-  ]);
+    selectedSessionId: props.selectedSessionId,
+    selectedWorkspaceId: props.selectedWorkspaceId,
+    sidebarSelectedWorkspaceId: props.sidebar.selectedWorkspaceId,
+    onOpenSession: props.sidebar.onOpenSession,
+    setDraftAgentContexts,
+    setDraftAgentId,
+    setDraftSessionActive,
+    setPendingTabSessionId,
+  });
   const handleStartAgentConversation = useCallback(
     (
       item: AgentCardItem,

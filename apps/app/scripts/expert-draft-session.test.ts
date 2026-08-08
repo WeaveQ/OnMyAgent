@@ -1,12 +1,38 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  consumeBoundExpertDraftContext,
+  matchesExpertDraftTransaction,
   resolveBoundExpertDraftSession,
   resolveReadyBoundExpertDraftSession,
   shouldKeepUnboundExpertDraft,
 } from "../src/react-app/domains/session/pages/expert-draft-session";
 
 describe("expert draft session activation", () => {
+  test("consumes the bound draft so no ghost new-session tab remains", () => {
+    const contexts = {
+      "order-entry": { conversationStartId: 101, label: "draft" },
+    };
+    expect(consumeBoundExpertDraftContext({
+      contexts,
+      agentId: "order-entry",
+      conversationStartId: 101,
+    })).toEqual({});
+  });
+
+  test("does not let an older binding consume a newer draft for the same agent", () => {
+    const contexts = {
+      "order-entry": { conversationStartId: 202, label: "newer draft" },
+    };
+    const oldBinding = {
+      contexts,
+      agentId: "order-entry",
+      conversationStartId: 101,
+    };
+    expect(matchesExpertDraftTransaction(oldBinding)).toBe(false);
+    expect(consumeBoundExpertDraftContext(oldBinding)).toBe(contexts);
+  });
+
   test("activates the real session bound by the first draft send", () => {
     expect(resolveBoundExpertDraftSession({
       draftSessionActive: true,
