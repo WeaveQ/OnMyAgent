@@ -6,7 +6,9 @@ import type { ServerConfig, WorkspaceInfo } from "@onmyagent/types/server";
 import { ApiError } from "../src/core/errors.js";
 import { readJsonBody } from "../src/core/request-body.js";
 import { registerWorkspaceSessionOriginRoutes } from "../src/routes/workspace-session-origin-routes.js";
+import { registerWorkspaceSessionRoutes } from "../src/routes/workspace-session-routes.js";
 import type { RequestContext, Route } from "../src/routes/route-core.js";
+import { listSessionOrigins, upsertSessionOrigin } from "../src/services/session-origins.js";
 
 const roots: string[] = [];
 
@@ -43,7 +45,51 @@ describe("workspace session origin routes", () => {
       .rejects.toMatchObject({ status: 403 });
   });
 
+  test("removes the origin after an idempotent workspace session delete", async () => {
+    const workspace = await createWorkspace();
+    await upsertSessionOrigin(workspace, "already-gone", { kind: "assistant" });
+    const routes: Route[] = [];
+    const config = createConfig(workspace);
+    registerWorkspaceSessionRoutes({
+      routes,
+      config,
+      ensureWritable: () => undefined,
+      requireClientScope: () => undefined,
+      resolveWorkspace: async () => workspace,
+      readJsonBody: async () => ({}),
+      listWorkspaceSessions: async () => [],
+      readWorkspaceSession: async () => ({}),
+      readWorkspaceSessionMessages: async () => [],
+      readWorkspaceSessionSnapshot: async () => ({}),
+      deleteWorkspaceSession: async () => undefined,
+    });
 
+    expect(await callWorkspaceSessionDelete(routes, workspace, "already-gone")).toEqual({ ok: true });
+    expect((await listSessionOrigins(workspace)).items).toEqual([]);
+  });
+
+  test("preserves the origin when the upstream session delete fails", async () => {
+    const workspace = await createWorkspace();
+    await upsertSessionOrigin(workspace, "still-present", { kind: "expert" });
+    const routes: Route[] = [];
+    registerWorkspaceSessionRoutes({
+      routes,
+      config: createConfig(workspace),
+      ensureWritable: () => undefined,
+      requireClientScope: () => undefined,
+      resolveWorkspace: async () => workspace,
+      readJsonBody: async () => ({}),
+      listWorkspaceSessions: async () => [],
+      readWorkspaceSession: async () => ({}),
+      readWorkspaceSessionMessages: async () => [],
+      readWorkspaceSessionSnapshot: async () => ({}),
+      deleteWorkspaceSession: async () => { throw new ApiError(502, "upstream_failed", "Upstream failed"); },
+    });
+
+    await expect(callWorkspaceSessionDelete(routes, workspace, "still-present"))
+      .rejects.toMatchObject({ code: "upstream_failed" });
+    expect((await listSessionOrigins(workspace)).items).toHaveLength(1);
+  });
 });
 
 async function createWorkspace(): Promise<WorkspaceInfo> {
@@ -104,6 +150,27 @@ async function call(
   return response.json();
 }
 
+async function callWorkspaceSessionDelete(
+  routes: Route[],
+  workspace: WorkspaceInfo,
+  sessionId: string,
+): Promise<unknown> {
+  const url = new URL(`http://localhost/workspace/${workspace.id}/sessions/${sessionId}`);
+  const route = routes.find((item) => item.method === "DELETE" && item.regex.test(url.pathname));
+  if (!route) throw new Error("Missing workspace session DELETE route");
+  const response = await route.handler({
+    request: new Request(url, { method: "DELETE" }),
+    url,
+    params: { id: workspace.id, sessionId },
+    config: createConfig(workspace),
+    approvals: null,
+    reloadEvents: null,
+    tokens: null,
+    actor: { type: "remote", scope: "collaborator" },
+  } satisfies RequestContext);
+  expect(response.status).toBe(200);
+  return response.json();
+}
 
 function createConfig(workspace: WorkspaceInfo): ServerConfig {
   return {
