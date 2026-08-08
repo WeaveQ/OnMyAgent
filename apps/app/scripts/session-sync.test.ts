@@ -66,7 +66,7 @@ afterEach(() => {
 });
 
 describe("session sync tracking", () => {
-  test("does not let a stale watchdog connection schedule a third stream", async () => {
+  test("gives a slow replacement handshake a fresh watchdog window", async () => {
     const first = deferred<{ stream: AsyncIterable<unknown> }>();
     const second = deferred<{ stream: AsyncIterable<unknown> }>();
     const never = deferred<void>();
@@ -84,8 +84,20 @@ describe("session sync tracking", () => {
     await settle();
     expect(subscriptions).toBe(1);
 
+    first.resolve({
+      stream: (async function* () {
+        await never.promise;
+      })(),
+    });
+    await settle();
     sync.watchdog();
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(subscriptions).toBe(2);
+
+    // The replacement has not finished its subscribe handshake yet. Its
+    // watchdog must use its own start time instead of the stale first stream.
+    sync.watchdog();
+    await settle();
     expect(subscriptions).toBe(2);
 
     second.resolve({
@@ -94,10 +106,6 @@ describe("session sync tracking", () => {
       })(),
     });
     await settle();
-    first.reject(new Error("late connection failure"));
-    await settle();
-
-    expect(subscriptions).toBe(2);
     sync.dispose();
   });
 
