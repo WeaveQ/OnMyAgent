@@ -24,6 +24,7 @@ import {
   SIDEBAR_SESSION_LIST_LIMIT,
 } from "../../domains/session";
 import {
+  markSessionOriginHydrated,
   migrateLegacySessionOrigins,
   reconcileSessionOrigins,
 } from "../../domains/agents";
@@ -188,8 +189,12 @@ export function useSessionRouteSessionLoader(input: Input) {
         );
         const originsPromise = endpoint.client
           .listSessionOrigins(endpoint.workspaceId, { signal: originController.signal })
-          .catch(() => null)
+          .then((payload) => ({ failed: false as const, payload }))
+          .catch(() => ({ failed: true as const, payload: null }))
           .finally(() => window.clearTimeout(originTimeout));
+        void originsPromise.then((result) => {
+          if (result.failed) markSessionOriginHydrated(workspace.id);
+        });
         try {
           const sidebarItems = await collectWorkspaceSessionItems({
             client: endpoint.client,
@@ -246,8 +251,10 @@ export function useSessionRouteSessionLoader(input: Input) {
           // Origins are metadata only: start alongside the session request and
           // reconcile after the real list is available, without delaying the
           // sidebar or turning an origin error into a session-list error.
-          void originsPromise.then(async (payload) => {
-            if (!payload || originReadInFlight.current.has(workspace.id)) return;
+          void originsPromise.then(async (result) => {
+            if (result.failed || originReadInFlight.current.has(workspace.id)) return;
+            const payload = result.payload;
+            if (!payload) return;
             originReadInFlight.current.add(workspace.id);
             try {
               // The primary list is intentionally bounded and paints before
@@ -300,6 +307,7 @@ export function useSessionRouteSessionLoader(input: Input) {
               });
             } finally {
               originReadInFlight.current.delete(workspace.id);
+              markSessionOriginHydrated(workspace.id);
               setSessionsByWorkspaceId((current) => ({ ...current }));
             }
           });
