@@ -9,7 +9,12 @@ export function resolveExpertOriginHydrationView(input: {
   showBlockingStartupSkeleton: boolean;
 }) {
   const pending = input.activeChat && !input.originHydrated;
-  const showPendingWithoutSelection = pending && !input.selectedSessionId;
+  const showPendingWithoutSelection =
+    pending &&
+    !input.selectedSessionId &&
+    !input.showWorkspaceSetupEmptyState &&
+    !input.showSelectedWorkspaceError &&
+    !input.showBlockingStartupSkeleton;
   const showDegradedWithoutSelection =
     input.activeChat &&
     input.originDegraded &&

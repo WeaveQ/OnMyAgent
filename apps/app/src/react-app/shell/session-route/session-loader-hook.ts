@@ -571,8 +571,9 @@ export function useSessionRouteSessionLoader(input: Input) {
           setRetryingWorkspaceIds((current) =>
             removeRetryingWorkspaceId(current, workspace.id),
           );
-          // No definitive primary list means no definitive expert empty state.
-          // A later route refresh can still resolve the hydration gate.
+          // Stop blocking the Expert page after bounded primary-list retries.
+          // Cached sessions remain visible and a later refresh starts a new gate.
+          originHydrationGate.markTerminalFailure();
         } finally {
           if (
             backgroundSessionLoadInFlight.current.get(workspace.id) ===

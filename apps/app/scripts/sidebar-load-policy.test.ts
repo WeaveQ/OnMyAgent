@@ -173,6 +173,7 @@ describe("sidebar load policy", () => {
     expect(loader).toContain("findRouteWorkspace(");
     expect(loader).toContain("void fetchOnce(currentWorkspace, 0)");
     expect(loader).toContain("originHydrationGate.markOriginRecoveryDegraded");
+    expect(loader).toContain("originHydrationGate.markTerminalFailure()");
     expect(loader).toContain("clearOriginRecoveryState(workspaceId)");
   });
 });

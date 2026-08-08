@@ -92,6 +92,16 @@ describe("expert origin hydration view", () => {
       showSelectedWorkspaceError: true,
     }).showDegradedWithoutSelection).toBe(false);
   });
+
+  test("does not cover a workspace error with the pending recovery spinner", () => {
+    expect(resolveExpertOriginHydrationView({
+      ...base,
+      originHydrated: false,
+      originDegraded: false,
+      selectedSessionId: null,
+      showSelectedWorkspaceError: true,
+    }).showPendingWithoutSelection).toBe(false);
+  });
 });
 
 describe("session origin hydration gate", () => {
@@ -142,5 +152,15 @@ describe("session origin hydration gate", () => {
     refreshed.markPrimaryListSettled();
     refreshed.markOriginRecoverySettled();
     expect(isSessionOriginHydrationDegraded("workspace-a")).toBe(false);
+  });
+
+  test("settles a terminal primary-list failure without exposing a false empty state", () => {
+    resetSessionOriginHydrationForTests();
+    const gate = createSessionOriginHydrationGate("workspace-a");
+
+    gate.markTerminalFailure();
+
+    expect(isSessionOriginHydrated("workspace-a")).toBe(true);
+    expect(isSessionOriginHydrationDegraded("workspace-a")).toBe(true);
   });
 });
