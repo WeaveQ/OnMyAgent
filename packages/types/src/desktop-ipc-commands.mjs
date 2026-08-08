@@ -41,7 +41,7 @@ const commandGroups = /** @type {const} */ ({
     "setDesktopBootstrapConfig", "pickDirectory", "pickFile", "saveFile",
     "exportVisualSnapshot",
     "updaterEnvironment", "setWindowDecorations", "__openPath",
-    "__revealItemInDir", "__fetch", "__homeDir", "__joinPath",
+    "__revealItemInDir", "__fetch", "__fetchCancel", "__homeDir", "__joinPath",
     "__setZoomFactor", "__setNativeTheme", "__setApplicationMenuVisible",
     "checkSoftwareEnv", "installSoftwareEnv",
     "checkBrowserSkillStatus", "openBrowserSkillInstallPage",

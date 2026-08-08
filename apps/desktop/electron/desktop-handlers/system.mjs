@@ -69,6 +69,7 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "__openPath",
   "__revealItemInDir",
   "__fetch",
+  "__fetchCancel",
   "__homeDir",
   "__joinPath",
   "__setZoomFactor",
@@ -153,6 +154,32 @@ export function createSystemDomainHandlers({
   getRealHomeDir,
   onAppSnapshotHotkey,
 } = {}) {
+  const maxRememberedFetchCancellations = 1_024;
+  const fetchControllersById = new Map();
+  const cancelledFetchRequestIds = new Map();
+  const rememberEarlyFetchCancellation = (requestId) => {
+    const previousTimer = cancelledFetchRequestIds.get(requestId);
+    if (previousTimer) clearTimeout(previousTimer);
+    const timer = setTimeout(() => {
+      cancelledFetchRequestIds.delete(requestId);
+    }, 30_000);
+    timer.unref?.();
+    cancelledFetchRequestIds.set(requestId, timer);
+    while (cancelledFetchRequestIds.size > maxRememberedFetchCancellations) {
+      const oldestRequestId = cancelledFetchRequestIds.keys().next().value;
+      if (typeof oldestRequestId !== "string") break;
+      const oldestTimer = cancelledFetchRequestIds.get(oldestRequestId);
+      if (oldestTimer) clearTimeout(oldestTimer);
+      cancelledFetchRequestIds.delete(oldestRequestId);
+    }
+  };
+  const consumeEarlyFetchCancellation = (requestId) => {
+    const timer = cancelledFetchRequestIds.get(requestId);
+    if (!timer) return false;
+    clearTimeout(timer);
+    cancelledFetchRequestIds.delete(requestId);
+    return true;
+  };
   return {
   userAgentRegistryRead: async (event, args) => {
     const targetPath = userAgentRegistryPath();
@@ -509,24 +536,52 @@ export function createSystemDomainHandlers({
     const init = args[1] ?? {};
     if (!url) throw new Error("URL is required.");
     const timeoutMs = Number(init.timeoutMs);
-    const response = await fetch(url, {
-      method: typeof init.method === "string" ? init.method : undefined,
-      headers:
-        init.headers && typeof init.headers === "object"
-          ? init.headers
-          : undefined,
-      body: typeof init.body === "string" ? init.body : undefined,
-      signal:
-        Number.isFinite(timeoutMs) && timeoutMs > 0
-          ? AbortSignal.timeout(timeoutMs)
-          : undefined,
-    });
-    return {
-      status: response.status,
-      statusText: response.statusText,
-      headers: Array.from(response.headers.entries()),
-      body: await response.text(),
-    };
+    const requestId = typeof init.requestId === "string" ? init.requestId.trim() : "";
+    if (requestId && consumeEarlyFetchCancellation(requestId)) {
+      throw new Error("Request cancelled.");
+    }
+    const controller = new AbortController();
+    const timeout = Number.isFinite(timeoutMs) && timeoutMs > 0
+      ? setTimeout(() => controller.abort(new Error("Request timed out.")), timeoutMs)
+      : null;
+    if (requestId) {
+      fetchControllersById.get(requestId)?.abort(new Error("Request replaced."));
+      fetchControllersById.set(requestId, controller);
+    }
+    try {
+      const response = await fetch(url, {
+        method: typeof init.method === "string" ? init.method : undefined,
+        headers:
+          init.headers && typeof init.headers === "object"
+            ? init.headers
+            : undefined,
+        body: typeof init.body === "string" ? init.body : undefined,
+        signal: controller.signal,
+      });
+      return {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Array.from(response.headers.entries()),
+        body: await response.text(),
+      };
+    } finally {
+      if (timeout) clearTimeout(timeout);
+      if (requestId && fetchControllersById.get(requestId) === controller) {
+        fetchControllersById.delete(requestId);
+      }
+    }
+  },
+
+  __fetchCancel: async (event, args) => {
+    const requestId = String(args[0] ?? "").trim();
+    const controller = fetchControllersById.get(requestId);
+    if (!controller) {
+      if (requestId) rememberEarlyFetchCancellation(requestId);
+      return { ok: false };
+    }
+    fetchControllersById.delete(requestId);
+    controller.abort(new Error("Request cancelled."));
+    return { ok: true };
   },
 
   __homeDir: async (event, args) => {
