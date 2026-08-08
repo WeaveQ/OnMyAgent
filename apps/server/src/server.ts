@@ -66,6 +66,8 @@ import { getWorkspaceOpencodeClient } from "./services/opencode-client-pool.js";
 import {
   startAutomationScheduler,
 } from "./services/automation-runner.js";
+import { createSessionArchiveSyncWorkerRunner } from "./services/session-archive-sync-worker-runner.js";
+import { resolveSessionArchiveRuntimePaths, syncSessionArchiveWithRunner } from "./services/session-archive-sync.js";
 
 // Public API re-exports (tests/cli import these from server)
 export { createServerLogger } from "./core/server-logger.js";
@@ -94,6 +96,7 @@ export async function startServer(config: ServerConfig, runtimeHooks: ServerRunt
   const tokens = new TokenService(config);
   const env = new EnvService();
   const logger = createServerLogger(config);
+  const sessionArchiveSyncRunner = createSessionArchiveSyncWorkerRunner();
   const opencodeEngineReloader = createOpencodeEngineReloader();
   opencodeEngineReloaders.set(config, opencodeEngineReloader);
   let watcherHandle = startReloadWatchers({ config, reloadEvents, logger });
@@ -115,6 +118,10 @@ export async function startServer(config: ServerConfig, runtimeHooks: ServerRunt
     restartReloadWatchers,
     runtimeHooks,
     (workspace) => opencodeEngineReloader.reload(config, workspace),
+    (input) => syncSessionArchiveWithRunner(input, sessionArchiveSyncRunner),
+    (workspace) => sessionArchiveSyncRunner.dispose(
+      resolveSessionArchiveRuntimePaths({ workspace }).dbPath,
+    ),
   );
 
   const serverOptions: {
@@ -293,6 +300,7 @@ export async function startServer(config: ServerConfig, runtimeHooks: ServerRunt
       automationScheduler.close();
       watcherHandle.close();
       reloadBaselineRefreshers.delete(config);
+      await sessionArchiveSyncRunner.disposeAll();
       await server.stop();
     },
   };
@@ -443,6 +451,8 @@ function createRoutes(
   onWorkspacesChanged: () => void,
   runtimeHooks: ServerRuntimeHooks,
   reloadEngine: (workspace: WorkspaceInfo) => Promise<void>,
+  syncSessionArchive: Parameters<typeof registerServerRoutes>[0]["syncSessionArchive"],
+  disposeWorkspaceArchiveSync: Parameters<typeof registerServerRoutes>[0]["disposeWorkspaceArchiveSync"],
 ): Route[] {
   const routes: Route[] = [];
   const fileSessions = new FileSessionStore();
@@ -477,6 +487,8 @@ function createRoutes(
     persistServerWorkspaceState,
     onWorkspacesChanged,
     reloadOpencodeEngine: (_config, workspace) => reloadEngine(workspace),
+    syncSessionArchive,
+    disposeWorkspaceArchiveSync,
     readOpencodeConfig,
     readOnMyAgentConfig,
     writeOnMyAgentConfig,

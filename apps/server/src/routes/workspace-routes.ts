@@ -7,6 +7,7 @@ import { addRoute, systemJsonResponse, type Route } from "./route-core.js";
 import { ensureDir, shortId } from "../core/utils.js";
 import { ensureWorkspaceFiles } from "../workspace/workspace-init.js";
 import { workspaceIdForPath } from "../workspace/workspaces.js";
+import { clearWorkspaceOpencodeClients } from "../services/opencode-client-pool.js";
 
 export function registerWorkspaceRoutes(input: {
   routes: Route[];
@@ -21,6 +22,7 @@ export function registerWorkspaceRoutes(input: {
     workspace: WorkspaceInfo,
   ) => Promise<void>;
   readJsonBody: (request: Request) => Promise<Record<string, unknown>>;
+  disposeWorkspaceArchiveSync: (workspace: WorkspaceInfo) => Promise<void>;
 }) {
   const {
     routes,
@@ -32,6 +34,7 @@ export function registerWorkspaceRoutes(input: {
     onWorkspacesChanged,
     reloadOpencodeEngine,
     readJsonBody,
+    disposeWorkspaceArchiveSync,
   } = input;
 
   addRoute(routes, "GET", "/workspaces", "client", async () => {
@@ -193,6 +196,8 @@ export function registerWorkspaceRoutes(input: {
       config.authorizedRoots = config.authorizedRoots.filter(
         (root) => resolve(root) !== resolve(workspace.path),
       );
+      clearWorkspaceOpencodeClients(workspace);
+      await disposeWorkspaceArchiveSync(workspace);
     }
     const persisted = await persistServerWorkspaceState(config);
     onWorkspacesChanged();
