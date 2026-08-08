@@ -321,6 +321,7 @@ export async function proxyOpencodeRequest(input: {
     method,
     headers,
     body,
+    signal: input.request.signal,
   });
 
   return sanitizeProxyResponse(response);
