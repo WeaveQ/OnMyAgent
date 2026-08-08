@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 
 const hydratedWorkspaceIds = new Set<string>();
+const degradedWorkspaceIds = new Set<string>();
 const listeners = new Set<() => void>();
 
 export const SESSION_ORIGIN_RECOVERY_MAX_RETRIES = 3;
@@ -26,12 +27,34 @@ export function isSessionOriginHydrated(workspaceId: string): boolean {
   return Boolean(id) && hydratedWorkspaceIds.has(id);
 }
 
+export function isSessionOriginHydrationDegraded(workspaceId: string): boolean {
+  const id = normalizeWorkspaceId(workspaceId);
+  return Boolean(id) && degradedWorkspaceIds.has(id);
+}
+
 /** Tracks completed origin recovery independently from the session-list paint. */
 export function markSessionOriginHydrated(workspaceId: string): void {
   const id = normalizeWorkspaceId(workspaceId);
-  if (!id || hydratedWorkspaceIds.has(id)) return;
+  if (!id) return;
+  const changed = !hydratedWorkspaceIds.has(id) || degradedWorkspaceIds.has(id);
   hydratedWorkspaceIds.add(id);
-  notify();
+  degradedWorkspaceIds.delete(id);
+  if (changed) notify();
+}
+
+/**
+ * Stop automatic retries without turning an unknown recovery into an empty
+ * screen. The caller retains its last known sidebar state and a later refresh
+ * may attempt a normal hydration again.
+ */
+export function markSessionOriginHydrationDegraded(workspaceId: string): void {
+  const id = normalizeWorkspaceId(workspaceId);
+  if (!id) return;
+  const changed =
+    !hydratedWorkspaceIds.has(id) || !degradedWorkspaceIds.has(id);
+  hydratedWorkspaceIds.add(id);
+  degradedWorkspaceIds.add(id);
+  if (changed) notify();
 }
 
 /**
@@ -58,6 +81,9 @@ export function createSessionOriginHydrationGate(workspaceId: string) {
     },
     /** Failed or partial recovery intentionally remains non-definitive. */
     markOriginRecoveryFailed: () => undefined,
+    /** Bounded retries are exhausted; retain cached state but stop loading. */
+    markOriginRecoveryDegraded: () =>
+      markSessionOriginHydrationDegraded(workspaceId),
     /**
      * An unavailable primary list is not proof that there are no origin
      * sessions. Keep the state non-definitive until a later load completes.
@@ -79,5 +105,6 @@ export function useSessionOriginHydrated(workspaceId: string): boolean {
 
 export function resetSessionOriginHydrationForTests(): void {
   hydratedWorkspaceIds.clear();
+  degradedWorkspaceIds.clear();
   notify();
 }
