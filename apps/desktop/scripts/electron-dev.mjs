@@ -11,7 +11,11 @@ import {
   resolveOnMyAgentUserDataDir,
   shouldForceViteOptimize,
 } from "./vite-deps-integrity.mjs";
-import { resolveDevOrchestratorArtifactPath, shouldForceDevPreparation } from "./dev-prepare-freshness.mjs";
+import {
+  resolveDevOrchestratorArtifactPath,
+  resolveDevTypesArtifactPaths,
+  shouldForceDevPreparation,
+} from "./dev-prepare-freshness.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(__dirname, "..");
@@ -21,6 +25,10 @@ const electronRuntimeDir = resolve(desktopRoot, "resources", "runtimes");
 const electronHelperDir = resolve(desktopRoot, "resources", "helpers");
 const orchestratorSourceDir = resolve(repoRoot, "apps", "orchestrator");
 const handsfreeSourceDir = resolve(repoRoot, "packages", "handsfree", "native", "HandsFree");
+const typesRoot = resolve(repoRoot, "packages", "types");
+const typesDistDir = resolve(typesRoot, "dist");
+const serverRoot = resolve(repoRoot, "apps", "server");
+const serverDistDir = resolve(serverRoot, "dist");
 const defaultDevDataDir = resolve(
   process.env.HOME ?? process.env.USERPROFILE ?? repoRoot,
   ".onmyagent",
@@ -83,6 +91,29 @@ const computerUseForceRequired = shouldForceDevPreparation({
     resolve(__dirname, "computer-use-helper-manifest.mjs"),
   ],
   force: process.env.ONMYAGENT_COMPUTER_USE_FORCE_BUILD === "1",
+});
+const typesArtifactPaths = resolveDevTypesArtifactPaths(typesDistDir);
+const typesBuildRequired = shouldForceDevPreparation({
+  artifactPaths: typesArtifactPaths,
+  inputPaths: [
+    resolve(typesRoot, "src"),
+    resolve(typesRoot, "package.json"),
+    resolve(typesRoot, "tsconfig.json"),
+    resolve(typesRoot, "tsup.config.ts"),
+    resolve(repoRoot, "pnpm-lock.yaml"),
+  ],
+  force: process.env.ONMYAGENT_FORCE_DEV_BUILD === "1",
+});
+const serverBuildRequired = shouldForceDevPreparation({
+  artifactPaths: [resolve(serverDistDir, "embedded.js")],
+  inputPaths: [
+    resolve(serverRoot, "src"),
+    resolve(serverRoot, "package.json"),
+    resolve(serverRoot, "tsconfig.json"),
+    resolve(repoRoot, "pnpm-lock.yaml"),
+    ...typesArtifactPaths,
+  ],
+  force: process.env.ONMYAGENT_FORCE_DEV_BUILD === "1",
 });
 
 function run(command, args, options = {}) {
@@ -287,11 +318,19 @@ runSync(nodeCmd, [resolve(__dirname, "patch-electron-name.mjs")], {
 });
 
 // Shared packages must be built before Electron loads workspace deps from dist/.
-console.log("[electron-dev] Building @onmyagent/types...");
-runSync(pnpmCmd, ["--filter", "@onmyagent/types", "build"], { cwd: repoRoot });
-// Build the server TS → JS so Electron can import it in-process
-console.log("[electron-dev] Building onmyagent-server (tsc)...");
-runSync(pnpmCmd, ["--filter", "onmyagent-server", "build"], { cwd: repoRoot });
+if (typesBuildRequired) {
+  console.log("[electron-dev] Building @onmyagent/types...");
+  runSync(pnpmCmd, ["--filter", "@onmyagent/types", "build"], { cwd: repoRoot });
+} else {
+  console.log("[electron-dev] Reusing fresh @onmyagent/types build.");
+}
+// Build the server TS → JS so Electron can import it in-process.
+if (serverBuildRequired || typesBuildRequired) {
+  console.log("[electron-dev] Building onmyagent-server (tsc)...");
+  runSync(pnpmCmd, ["--filter", "onmyagent-server", "build"], { cwd: repoRoot });
+} else {
+  console.log("[electron-dev] Reusing fresh onmyagent-server build.");
+}
 
 // Stale Vite optimize-deps (missing chunk-*.js) blanks the Electron renderer.
 // Detect and force a clean re-optimize before we attach the main window.

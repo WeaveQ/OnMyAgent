@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import test from "node:test";
-import { resolveDevOrchestratorArtifactPath, shouldForceDevPreparation } from "./dev-prepare-freshness.mjs";
+import {
+  resolveDevOrchestratorArtifactPath,
+  resolveDevTypesArtifactPaths,
+  shouldForceDevPreparation,
+} from "./dev-prepare-freshness.mjs";
 
 function fromTimes(times) {
   return (path) => times[path] ?? null;
@@ -76,5 +80,61 @@ test("uses the Windows artifact suffix for a Windows target override", () => {
       targetTriple: "x86_64-pc-windows-msvc",
     }),
     join("/tmp/sidecars", "onmyagent-orchestrator.exe"),
+  );
+});
+
+test("requires a types build when a runtime package export is missing", () => {
+  const artifacts = resolveDevTypesArtifactPaths("/tmp/types/dist");
+  assert.equal(artifacts.includes(join("/tmp/types/dist", "artifact-plugin.js")), true);
+  assert.equal(artifacts.includes(join("/tmp/types/dist", "session-archive.js")), true);
+  assert.equal(
+    shouldForceDevPreparation({
+      artifactPaths: artifacts,
+      inputPaths: ["types-src"],
+      getNewest: fromTimes(Object.fromEntries(artifacts.map((artifact) => [artifact, 20]))),
+    }),
+    false,
+  );
+  assert.equal(
+    shouldForceDevPreparation({
+      artifactPaths: artifacts,
+      inputPaths: ["types-src"],
+      getNewest: fromTimes(Object.fromEntries(artifacts.filter((artifact) => !artifact.endsWith("artifact-plugin.js")).map((artifact) => [artifact, 20]))),
+    }),
+    true,
+  );
+});
+
+test("server build is stale when its source changes", () => {
+  assert.equal(
+    shouldForceDevPreparation({
+      artifactPaths: ["server-embedded"],
+      inputPaths: ["server-src", "server-package", "server-tsconfig", "lock", "types-index"],
+      getNewest: fromTimes({
+        "server-embedded": 20,
+        "server-src": 21,
+        "server-package": 19,
+        "server-tsconfig": 19,
+        lock: 19,
+        "types-index": 20,
+      }),
+    }),
+    true,
+  );
+});
+
+test("server build is stale when a rebuilt types artifact changes", () => {
+  assert.equal(
+    shouldForceDevPreparation({
+      artifactPaths: ["server-embedded"],
+      inputPaths: ["server-src", "types-server", "types-session-archive"],
+      getNewest: fromTimes({
+        "server-embedded": 20,
+        "server-src": 19,
+        "types-server": 21,
+        "types-session-archive": 21,
+      }),
+    }),
+    true,
   );
 });
