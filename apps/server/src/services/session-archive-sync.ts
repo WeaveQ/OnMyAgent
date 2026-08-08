@@ -23,7 +23,7 @@ import {
   shouldRunIncrementalSessionArchiveSync,
   shouldRunPeriodicArchiveSync,
 } from "./automation-schedule-policy.js";
-import { loadAutomationOwnedSessionIds } from "./automation-owned-sessions.js";
+import { loadAutomationOwnedSessionIds } from "./automations.js";
 import { notifyArchiveDbChanged } from "./archive-change-bus.js";
 import { withSessionArchiveStore } from "./session-archive-store-pool.js";
 
