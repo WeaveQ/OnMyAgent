@@ -321,15 +321,32 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
               ) : null}
             </div>
 
-            <div className="min-w-0 flex flex-col gap-1 justify-center self-stretch">
-              <DialogTitle>{name}</DialogTitle>
-              <DialogDescription className="flex flex-wrap items-center gap-2">
-                <span>{kindLabel[kind]}</span>
+            <div className="min-w-0 flex flex-1 flex-col gap-1.5 justify-center self-stretch">
+              <div className="flex flex-wrap items-center gap-2">
+                <DialogTitle className="leading-7">{name}</DialogTitle>
+                {connected ? (
+                  <span
+                    className="size-1.5 shrink-0 rounded-full bg-emerald-500"
+                    aria-hidden
+                  />
+                ) : null}
                 {preview ? (
                   <StatusBadge shape="soft" size="tiny" tone="accent">
                     Preview
                   </StatusBadge>
                 ) : null}
+                <StatusBadge
+                  shape="soft"
+                  size="tiny"
+                  tone={connected ? "success" : "neutral"}
+                >
+                  {connected
+                    ? connectedLabel ?? t("plugins.artifact_enabled")
+                    : disconnectedLabel ?? t("plugins.artifact_disabled")}
+                </StatusBadge>
+              </div>
+              <DialogDescription className="text-sm leading-6 text-dls-secondary">
+                {description}
               </DialogDescription>
             </div>
           </div>
@@ -338,10 +355,6 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
         {/* Body */}
         <div className={modalBodyClass}>
           <div className="space-y-5 px-px">
-            {/* Description */}
-            <div className="text-sm leading-relaxed text-dls-text">
-              {description}
-            </div>
 
             {setupInstructions ? (
               <Card variant="outline" size="sm">

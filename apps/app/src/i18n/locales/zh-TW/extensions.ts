@@ -40,7 +40,9 @@ export default {
   "extensions.computer_use_connect_mcp": "連接 Computer Use MCP",
   "extensions.computer_use_name": "Computer Use",
   "extensions.computer_use_description":
-    "透過 Computer Use 控制桌面應用（macOS 為 HandsFree 輔助功能執行環境；Windows 為內建 Cua Driver）。",
+    "讓 Agent 操控本機桌面應用：點選、輸入、切換視窗；適合本機軟體與系統級操作（需輔助功能／螢幕錄製權限）。",
+  "extensions.computer_use_long":
+    "讓 Agent 像人一樣操作本機桌面：開啟應用、點選選單、輸入文字、切換視窗。適合 Xcode、Finder、本機工具等非瀏覽器場景。macOS 需輔助功能與螢幕錄製；Windows 需啟用 Cua MCP。",
   "extensions.computer_use_prompt": "使用 Computer Use 來",
   "extensions.computer_use_suggestion_playlist": "播放一個能幫助我專注的歌單",
   "extensions.computer_use_suggestion_xcode": "建置並執行我已開啟的 Xcode 專案，然後測試其中的問題",
@@ -61,7 +63,9 @@ export default {
   "extensions.screen_recording_permission": "屏幕錄製權限",
   "extensions.browser_skill_name": "BrowserSkill",
   "extensions.browser_skill_description":
-    "透過騰訊 BrowserSkill 驅動本機真實 Chrome/Edge（含登入態），與應用內瀏覽器自動化、Computer Use 互補。",
+    "驅動本機真實 Chrome/Edge，沿用已登入狀態完成網頁操作、填表與巡檢；與應用內瀏覽器互補。",
+  "extensions.browser_skill_long":
+    "透過本機 Chrome/Edge 與 BrowserSkill 擴充功能操作真實網頁，保留登入態與 Cookie。適合後台、多步表單與需真實瀏覽器環境的檢查。需安裝 CLI 與擴充功能；與應用內「瀏覽器」外掛互補，不取代內建瀏覽器。",
   "extensions.browser_skill_prompt": "使用 BrowserSkill（bsk）來",
   "extensions.browser_skill_suggestion_summary":
     "開啟我已登入的後台頁面並總結置頂項目",
@@ -76,17 +80,19 @@ export default {
   "extensions.browser_skill_skill_label": "BrowserSkill Agent 技能",
   "extensions.browser_skill_cli_label": "bsk CLI",
   "extensions.browser_skill_panel_description":
-    "操控你已登入的網站。本機完成三步引導即可，之後 Agent 可直接使用。",
+    "操控你已登入的網站。完成本機三步引導後即可在對話中使用。",
   "extensions.browser_skill_desktop_only":
     "BrowserSkill 設定需要 OnMyAgent 桌面端。",
   "extensions.browser_skill_status_installed": "已安裝",
   "extensions.browser_skill_status_connected": "已連線",
   "extensions.browser_skill_status_ready": "就緒",
   "extensions.browser_skill_status_setup": "需要設定",
+  "extensions.browser_skill_cli_status": "CLI",
+  "extensions.browser_skill_ext_status": "擴充功能",
   "extensions.browser_skill_vs_in_app":
-    "選擇合適的介面：應用內 Browser（無需真實 Chrome 登入）、BrowserSkill（真實 Chrome/Edge，經 bsk + 擴充功能）、或 Computer Use（原生桌面應用）。本面板是 BrowserSkill。",
+    "與應用內瀏覽器、Computer Use 互補：這裡使用本機真實 Chrome/Edge。",
   "extensions.browser_skill_choose_surface":
-    "應用內 Browser · BrowserSkill（真實 Chrome）· Computer Use（原生應用）",
+    "應用內 Browser · BrowserSkill · Computer Use",
   "extensions.browser_skill_setup_intro": "依下面三步操作即可，每台機器只需一次。",
   "extensions.browser_skill_step_cli_title": "1. 安裝 bsk CLI",
   "extensions.browser_skill_step_cli_desc":
@@ -107,8 +113,8 @@ export default {
   "extensions.browser_skill_extension_opened":
     "已開啟 Chrome 線上應用程式商店。安裝 BrowserSkill，彈窗變綠後點「重新檢查狀態」。",
   "extensions.browser_skill_ready_message":
-    "BrowserSkill 已就緒。Agent 可透過 bsk 使用你的真實瀏覽器。",
-  "extensions.browser_skill_doctor_details": "Doctor 輸出",
+    "已就緒，可在對話中使用真實瀏覽器。",
+  "extensions.browser_skill_doctor_details": "診斷詳情",
   "extensions.openai_image_name": "OpenAI 圖片生成",
   "extensions.openai_image_desc": "使用 OpenAI 生成圖片。",
   "extensions.openai_image_prompt": "使用 OpenAI 圖片生成擴充功能來",
@@ -128,23 +134,7 @@ export default {
   "extensions.openai_image_missing_data": "OpenAI 沒有返回圖片數據。",
   "extensions.openai_api_key": "OpenAI API key",
   "extensions.api_key_found_environment": "環境中檢測到 API key",
-  "extensions.voice_desc": `通過 Realtime 語音面板與 ${APP_NAME} 對話，並驅動與 ${APP_NAME} UI MCP 相同的語義 UI 控制。`,
-  "extensions.voice_prompt": "使用語音模式來",
-  "extensions.voice_setup": `語音模式使用 OpenAI Realtime。請在 ${APP_NAME} 環境變量中保存 OpenAI API key，然後打開會話側欄面板，說話或發送文字語音命令。`,
-  "extensions.voice_realtime_title": "Realtime 語音",
-  "extensions.voice_realtime_desc":
-    "語音模式使用 OpenAI Realtime，並複用通過 OnMyAgent UI MCP 暴露的 {app} UI 控制面。",
-  "extensions.voice_env_key_desc":
-    "語音模式會優先使用 OPENAI_REALTIME_API_KEY，否則使用 {app} 環境變量中的 OPENAI_API_KEY。",
   "extensions.openai_key_detected": "檢測到 OpenAI key",
-  "extensions.voice_save_openai_key": "保存 OpenAI key",
-  "extensions.voice_test_realtime": "測試 Realtime",
-  "extensions.voice_realtime_client_secret": "Realtime 客戶端密鑰簽發",
-  "extensions.voice_mode": "語音模式",
-  "extensions.voice_openai_api_key_required": "請填寫 OpenAI API key。",
-  "extensions.voice_saved_status": "已為語音模式保存 OPENAI_API_KEY。",
-  "extensions.voice_server_not_connected": `${APP_NAME} 尚未連接。`,
-  "extensions.voice_realtime_ready_status": "Realtime 已就緒：{model}（{count} 個 OnMyAgent 工具）。",
   "extensions.local_provider_server_not_connected": `${APP_NAME} 尚未連接到此工作區。`,
   "extensions.local_provider_model_required": "請填寫模型 ID。",
   "extensions.local_provider_added_status": "已添加 {name}，模型：{modelId}。",

@@ -42,7 +42,6 @@ import { createCanvasSessionKey } from "../infinite-canvas";
 import {
   LazyCodeWorkspaceSidePanel,
   LazyInfiniteCanvasPanel,
-  LazyVoicePanel,
 } from "./lazy-session-side-panels";
 import { installSummonedMarketplaceExpert } from "@/react-app/domains/plugins";
 import { buildPendingAgentFromMarketplaceExpert } from "@/react-app/domains/agents";
@@ -94,7 +93,6 @@ import {
   AGENT_PANEL_DEFAULT_WIDTH,
   AGENT_PANEL_MAX_WIDTH,
   AGENT_PANEL_MIN_WIDTH,
-  GLOBAL_VOICE_SIDE_PANEL_KEY,
   workspaceTaskStatus,
   readAssistantSelectionMemory,
   resolveAssistantSelectionMemory,
@@ -201,7 +199,6 @@ export function AssistantPage(props: AssistantPageProps) {
     hasArtifactTargets,
     activeSidePanel,
     sidePanelOpen,
-    voiceExtensionEnabled,
     handleOpenTargetsChange,
     artifactFocusToken,
     codeWorkspacePath,
@@ -540,7 +537,6 @@ export function AssistantPage(props: AssistantPageProps) {
       );
       // Close any draft-scoped rail before navigating so new-task starts clean.
       setSidePanelState(`assistant-draft:${props.selectedWorkspaceId}`, null);
-      setSidePanelState(GLOBAL_VOICE_SIDE_PANEL_KEY, null);
       if (isElectronRuntime()) {
         void window.__ONMYAGENT_ELECTRON__?.browser?.hide?.();
       }
@@ -617,6 +613,16 @@ export function AssistantPage(props: AssistantPageProps) {
       const name = skill.name.trim().replace(/^\/+/, "");
       if (!name) return;
       openOfficeNewTaskWithDraft(t("session.chat_with_skill_prompt", { name }));
+    },
+    [openOfficeNewTaskWithDraft],
+  );
+
+  /** Connector / artifact “试试这样用” → new task + composer draft. */
+  const handleSelectArtifactPrompt = useCallback(
+    (selection: { pluginId: string; skillId: string; prompt: string }) => {
+      const prompt = selection.prompt.trim();
+      if (!prompt) return;
+      openOfficeNewTaskWithDraft(prompt);
     },
     [openOfficeNewTaskWithDraft],
   );
@@ -727,7 +733,6 @@ export function AssistantPage(props: AssistantPageProps) {
     if (!previous || props.selectedSessionId) return;
     const draftKey = `assistant-draft:${props.selectedWorkspaceId}`;
     setSidePanelState(draftKey, null);
-    setSidePanelState(GLOBAL_VOICE_SIDE_PANEL_KEY, null);
     if (isElectronRuntime()) {
       void window.__ONMYAGENT_ELECTRON__?.browser?.hide?.();
     }
@@ -1303,6 +1308,7 @@ export function AssistantPage(props: AssistantPageProps) {
                           onCreateSkill={handleCreateSkill}
                           onChatWithSkill={handleChatWithSkill}
                           onEditSkill={handleEditSkill}
+                          onSelectArtifactPrompt={handleSelectArtifactPrompt}
                           onOpenCustomConnector={() => openCustomConnector("list")}
                         />
                       ),
@@ -1700,12 +1706,6 @@ export function AssistantPage(props: AssistantPageProps) {
                       <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-dls-background">
                         {props.settingsSlot}
                       </div>
-                    ) : activeSidePanel === "voice" ? (
-                      <LazyVoicePanel
-                        client={props.onmyagentServerClient}
-                        sessionId={props.selectedSessionId}
-                        onClose={closeRightPane}
-                      />
                     ) : (
                       <LazyCodeWorkspaceSidePanel
                         workspacePath={codeWorkspacePath}

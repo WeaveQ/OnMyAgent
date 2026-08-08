@@ -226,41 +226,6 @@ export function useSessionSurfaceComposerHandlers(
     await waitForControl(40);
   }, []);
 
-  useEffect(() => {
-    const handleVoiceTranscript = (event: Event) => {
-      if (!(event instanceof CustomEvent)) return;
-      const detail: unknown = event.detail;
-      if (
-        !detail ||
-        typeof detail !== "object" ||
-        Array.isArray(detail) ||
-        !("text" in detail) ||
-        typeof detail.text !== "string"
-      )
-        return;
-      const text = detail.text;
-      void typeComposerText(text);
-      onDraftChange(buildDraft(text, attachments));
-      recordInspectorEvent("voice.transcript.applied", {
-        workspaceId: workspaceId,
-        sessionId: sessionId,
-        length: text.length,
-      });
-    };
-    window.addEventListener("onmyagent:voice-transcript", handleVoiceTranscript);
-    return () =>
-      window.removeEventListener(
-        "onmyagent:voice-transcript",
-        handleVoiceTranscript,
-      );
-  }, [
-    attachments,
-    buildDraft,
-    onDraftChange,
-    sessionId,
-    workspaceId,
-    typeComposerText,
-  ]);
 
   const listSkills = async (): Promise<SkillCard[]> => {
     const response = await client.listSkills(workspaceId, {

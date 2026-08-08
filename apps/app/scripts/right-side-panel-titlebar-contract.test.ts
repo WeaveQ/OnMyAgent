@@ -16,7 +16,6 @@ describe("right side panel titlebar contract", () => {
       "apps/app/src/react-app/domains/session/artifacts/artifact-panel.tsx",
       "apps/app/src/react-app/domains/session/infinite-canvas/infinite-canvas-panel.tsx",
       "apps/app/src/react-app/domains/session/browser/browser-panel.tsx",
-      "apps/app/src/react-app/domains/session/voice/voice-panel.tsx",
     ];
 
     for (const path of paths) {

@@ -40,7 +40,9 @@ export default {
   "extensions.computer_use_connect_mcp": "连接 Computer Use MCP",
   "extensions.computer_use_name": "Computer Use",
   "extensions.computer_use_description":
-    "通过 Computer Use 控制桌面应用（macOS 为 HandsFree 辅助功能运行时；Windows 为内置 Cua Driver）。",
+    "让 Agent 操控本机桌面应用：点击、输入、切换窗口；适合本地软件与系统级操作（需辅助功能/屏幕录制权限）。",
+  "extensions.computer_use_long":
+    "让 Agent 像人一样操作本机桌面：打开应用、点击菜单、输入文字、切换窗口。适合 Xcode、Finder、本地工具等非浏览器场景。macOS 需辅助功能与屏幕录制；Windows 需启用 Cua MCP。",
   "extensions.computer_use_prompt": "使用 Computer Use 来",
   "extensions.computer_use_suggestion_playlist": "播放一个能帮助我专注的歌单",
   "extensions.computer_use_suggestion_xcode": "构建并运行我已打开的 Xcode 项目，然后测试其中的问题",
@@ -61,7 +63,9 @@ export default {
   "extensions.screen_recording_permission": "屏幕录制权限",
   "extensions.browser_skill_name": "BrowserSkill",
   "extensions.browser_skill_description":
-    "通过腾讯 BrowserSkill 驱动本机真实 Chrome/Edge（含登录态），与应用内浏览器自动化、Computer Use 互补。",
+    "驱动本机真实 Chrome/Edge，复用已登录态完成网页操作、填表与巡检；与应用内浏览器互补。",
+  "extensions.browser_skill_long":
+    "通过本机 Chrome/Edge 与 BrowserSkill 扩展操作真实网页，保留登录态与 Cookie。适合后台、多步表单与需真实浏览器环境的检查。需安装 CLI 与扩展；与应用内「浏览器」插件互补，不替代内置浏览器。",
   "extensions.browser_skill_prompt": "使用 BrowserSkill（bsk）来",
   "extensions.browser_skill_suggestion_summary":
     "打开我已登录的后台页面并总结置顶条目",
@@ -76,17 +80,19 @@ export default {
   "extensions.browser_skill_skill_label": "BrowserSkill Agent 技能",
   "extensions.browser_skill_cli_label": "bsk CLI",
   "extensions.browser_skill_panel_description":
-    "操控你已登录的网站。本机完成三步引导即可，之后 Agent 可直接用。",
+    "操控你已登录的网站。完成本机三步引导后即可在对话中使用。",
   "extensions.browser_skill_desktop_only":
     "BrowserSkill 配置需要 OnMyAgent 桌面端。",
   "extensions.browser_skill_status_installed": "已安装",
   "extensions.browser_skill_status_connected": "已连接",
   "extensions.browser_skill_status_ready": "就绪",
   "extensions.browser_skill_status_setup": "需要配置",
+  "extensions.browser_skill_cli_status": "CLI",
+  "extensions.browser_skill_ext_status": "扩展",
   "extensions.browser_skill_vs_in_app":
-    "选择合适的界面：应用内 Browser（无需真实 Chrome 登录）、BrowserSkill（真实 Chrome/Edge，经 bsk + 扩展）、或 Computer Use（原生桌面应用）。本面板是 BrowserSkill。",
+    "与应用内浏览器、Computer Use 互补：这里使用本机真实 Chrome/Edge。",
   "extensions.browser_skill_choose_surface":
-    "应用内 Browser · BrowserSkill（真实 Chrome）· Computer Use（原生应用）",
+    "应用内 Browser · BrowserSkill · Computer Use",
   "extensions.browser_skill_setup_intro": "按下面三步操作即可，每台机器只需一次。",
   "extensions.browser_skill_step_cli_title": "1. 安装 bsk CLI",
   "extensions.browser_skill_step_cli_desc":
@@ -107,8 +113,8 @@ export default {
   "extensions.browser_skill_extension_opened":
     "已打开 Chrome 网上应用店。安装 BrowserSkill，弹窗变绿后点「复查状态」。",
   "extensions.browser_skill_ready_message":
-    "BrowserSkill 已就绪。Agent 可通过 bsk 使用你的真实浏览器。",
-  "extensions.browser_skill_doctor_details": "Doctor 输出",
+    "已就绪，可在对话中使用真实浏览器。",
+  "extensions.browser_skill_doctor_details": "诊断详情",
   "extensions.openai_image_name": "OpenAI 图片生成",
   "extensions.openai_image_desc": "使用 OpenAI 生成图片。",
   "extensions.openai_image_prompt": "使用 OpenAI 图片生成扩展来",
@@ -128,23 +134,7 @@ export default {
   "extensions.openai_image_missing_data": "OpenAI 没有返回图片数据。",
   "extensions.openai_api_key": "OpenAI API key",
   "extensions.api_key_found_environment": "环境中检测到 API key",
-  "extensions.voice_desc": `通过 Realtime 语音面板与 ${APP_NAME} 对话，并驱动与 ${APP_NAME} UI MCP 相同的语义 UI 控制。`,
-  "extensions.voice_prompt": "使用语音模式来",
-  "extensions.voice_setup": `语音模式使用 OpenAI Realtime。请在 ${APP_NAME} 环境变量中保存 OpenAI API key，然后打开会话侧栏面板，说话或发送文字语音命令。`,
-  "extensions.voice_realtime_title": "Realtime 语音",
-  "extensions.voice_realtime_desc":
-    "语音模式使用 OpenAI Realtime，并复用通过 OnMyAgent UI MCP 暴露的 {app} UI 控制面。",
-  "extensions.voice_env_key_desc":
-    "语音模式会优先使用 OPENAI_REALTIME_API_KEY，否则使用 {app} 环境变量中的 OPENAI_API_KEY。",
   "extensions.openai_key_detected": "检测到 OpenAI key",
-  "extensions.voice_save_openai_key": "保存 OpenAI key",
-  "extensions.voice_test_realtime": "测试 Realtime",
-  "extensions.voice_realtime_client_secret": "Realtime 客户端密钥签发",
-  "extensions.voice_mode": "语音模式",
-  "extensions.voice_openai_api_key_required": "请填写 OpenAI API key。",
-  "extensions.voice_saved_status": "已为语音模式保存 OPENAI_API_KEY。",
-  "extensions.voice_server_not_connected": `${APP_NAME} 尚未连接。`,
-  "extensions.voice_realtime_ready_status": "Realtime 已就绪：{model}（{count} 个 OnMyAgent 工具）。",
   "extensions.local_provider_server_not_connected": `${APP_NAME} 尚未连接到此工作区。`,
   "extensions.local_provider_model_required": "请填写模型 ID。",
   "extensions.local_provider_added_status": "已添加 {name}，模型：{modelId}。",

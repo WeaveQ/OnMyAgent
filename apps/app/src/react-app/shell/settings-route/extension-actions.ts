@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 /**
- * Settings extension install/test handlers (image, voice, local provider).
+ * Settings extension install/test handlers (image, local provider).
  * Extracted from settings-route/render.tsx (mechanical split).
  */
 import { useCallback, type Dispatch, type SetStateAction } from "react";
@@ -41,9 +41,6 @@ export type SettingsExtensionActionsInput = {
   setImageGenerationBusy: Dispatch<SetStateAction<boolean>>;
   setImageGenerationStatus: Dispatch<SetStateAction<string | null>>;
   setImageGenerationError: Dispatch<SetStateAction<string | null>>;
-  setVoiceBusy: Dispatch<SetStateAction<boolean>>;
-  setVoiceStatus: Dispatch<SetStateAction<string | null>>;
-  setVoiceError: Dispatch<SetStateAction<string | null>>;
   setLocalProviderBusy: Dispatch<SetStateAction<boolean>>;
   setLocalProviderStatus: Dispatch<SetStateAction<string | null>>;
   setLocalProviderError: Dispatch<SetStateAction<string | null>>;
@@ -65,9 +62,6 @@ export function useSettingsExtensionActions(input: SettingsExtensionActionsInput
     setImageGenerationBusy,
     setImageGenerationStatus,
     setImageGenerationError,
-    setVoiceBusy,
-    setVoiceStatus,
-    setVoiceError,
     setLocalProviderBusy,
     setLocalProviderStatus,
     setLocalProviderError,
@@ -145,43 +139,6 @@ export function useSettingsExtensionActions(input: SettingsExtensionActionsInput
     }
   }, [onmyagentClient, runtimeWorkspaceId, selectedWorkspaceEndpoint]);
 
-  const saveVoiceApiKey = useCallback(async (apiKey: string) => {
-    const resolvedApiKey = apiKey.trim();
-    if (!onmyagentClient || !resolvedApiKey) {
-      setVoiceError(t("extensions.voice_openai_api_key_required"));
-      return;
-    }
-    setVoiceBusy(true);
-    setVoiceStatus(null);
-    setVoiceError(null);
-    try {
-      await onmyagentClient.upsertUserEnv([{ key: OPENAI_API_KEY_ENV_KEY, value: resolvedApiKey }]);
-      setUserEnvKeys((current) => Array.from(new Set([...current, OPENAI_API_KEY_ENV_KEY])));
-      setVoiceStatus(t("extensions.voice_saved_status"));
-    } catch (error) {
-      setVoiceError(describeRouteError(error));
-    } finally {
-      setVoiceBusy(false);
-    }
-  }, [onmyagentClient]);
-
-  const testVoiceSession = useCallback(async () => {
-    if (!onmyagentClient) {
-      setVoiceError(t("extensions.voice_server_not_connected"));
-      return;
-    }
-    setVoiceBusy(true);
-    setVoiceStatus(null);
-    setVoiceError(null);
-    try {
-      const session = await onmyagentClient.createVoiceRealtimeSession();
-      setVoiceStatus(t("extensions.voice_realtime_ready_status", { model: session.model, count: session.tools.length }));
-    } catch (error) {
-      setVoiceError(describeRouteError(error));
-    } finally {
-      setVoiceBusy(false);
-    }
-  }, [onmyagentClient]);
 
   const installLocalProvider = useCallback(async (input: LocalProviderInstallInput) => {
     const client = selectedWorkspaceEndpoint?.client ?? onmyagentClient;
@@ -243,8 +200,6 @@ export function useSettingsExtensionActions(input: SettingsExtensionActionsInput
   return {
     installOpenAiImageExtension,
     generateOpenAiTestImage,
-    saveVoiceApiKey,
-    testVoiceSession,
     installLocalProvider,
   };
 }

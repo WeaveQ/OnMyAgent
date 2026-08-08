@@ -79,6 +79,30 @@ import type {
   TencentDocsConnectionStatus,
   TencentDocsStartConnectResult,
 } from "@onmyagent/types/tencent-docs-connector";
+import type {
+  BaiduDriveAuthProgress,
+  BaiduDriveConnectionStatus,
+  BaiduDriveStartConnectResult,
+} from "@onmyagent/types/baidu-drive-connector";
+import type {
+  KdocsAuthProgress,
+  KdocsConnectionStatus,
+} from "@onmyagent/types/kdocs-connector";
+import type {
+  DingtalkAuthProgress,
+  DingtalkConnectInput,
+  DingtalkConnectionStatus,
+} from "@onmyagent/types/dingtalk-connector";
+import type {
+  WecomAuthProgress,
+  WecomConnectCredentialsInput,
+  WecomConnectionStatus,
+  WecomStartConnectResult,
+} from "@onmyagent/types/wecom-connector";
+import type {
+  TencentMeetingAuthProgress,
+  TencentMeetingConnectionStatus,
+} from "@onmyagent/types/tencent-meeting-connector";
 
 import type { WorkspaceList } from "./desktop-types";
 import type {
@@ -178,6 +202,46 @@ declare global {
         ) => () => void;
         onAuthProgress?: (
           callback: (progress: TencentDocsAuthProgress) => void,
+        ) => () => void;
+      };
+      baiduDrive?: {
+        onStatus?: (
+          callback: (status: BaiduDriveConnectionStatus) => void,
+        ) => () => void;
+        onAuthProgress?: (
+          callback: (progress: BaiduDriveAuthProgress) => void,
+        ) => () => void;
+      };
+      kdocs?: {
+        onStatus?: (
+          callback: (status: KdocsConnectionStatus) => void,
+        ) => () => void;
+        onAuthProgress?: (
+          callback: (progress: KdocsAuthProgress) => void,
+        ) => () => void;
+      };
+      dingtalk?: {
+        onStatus?: (
+          callback: (status: DingtalkConnectionStatus) => void,
+        ) => () => void;
+        onAuthProgress?: (
+          callback: (progress: DingtalkAuthProgress) => void,
+        ) => () => void;
+      };
+      wecom?: {
+        onStatus?: (
+          callback: (status: WecomConnectionStatus) => void,
+        ) => () => void;
+        onAuthProgress?: (
+          callback: (progress: WecomAuthProgress) => void,
+        ) => () => void;
+      };
+      tencentMeeting?: {
+        onStatus?: (
+          callback: (status: TencentMeetingConnectionStatus) => void,
+        ) => () => void;
+        onAuthProgress?: (
+          callback: (progress: TencentMeetingAuthProgress) => void,
         ) => () => void;
       };
       migration?: {
@@ -900,6 +964,185 @@ export function subscribeTencentDocsAuthProgress(
   return (
     window.__ONMYAGENT_ELECTRON__?.tencentDocs?.onAuthProgress?.(callback) ??
     (() => undefined)
+  );
+}
+
+export const getBaiduDriveStatus = (): Promise<BaiduDriveConnectionStatus> =>
+  invokeDesktopCommand("baiduDriveGetStatus");
+
+export const startBaiduDriveConnect =
+  (): Promise<BaiduDriveStartConnectResult> =>
+    invokeDesktopCommand("baiduDriveStartConnect");
+
+export const completeBaiduDriveConnect = (
+  sessionId: string,
+): Promise<BaiduDriveConnectionStatus> =>
+  invokeDesktopCommand("baiduDriveCompleteConnect", { sessionId });
+
+export const cancelBaiduDriveConnect = (): Promise<{ ok: boolean }> =>
+  invokeDesktopCommand("baiduDriveCancelConnect");
+
+export const disconnectBaiduDrive =
+  (): Promise<BaiduDriveConnectionStatus> =>
+    invokeDesktopCommand("baiduDriveDisconnect");
+
+export const connectBaiduDriveWithToken = (input: {
+  accessToken: string;
+  refreshToken?: string;
+  expiresIn?: number;
+}): Promise<BaiduDriveConnectionStatus> =>
+  invokeDesktopCommand("baiduDriveConnectWithToken", input);
+
+export function subscribeBaiduDriveStatus(
+  callback: (status: BaiduDriveConnectionStatus) => void,
+) {
+  return (
+    window.__ONMYAGENT_ELECTRON__?.baiduDrive?.onStatus?.(callback) ??
+    (() => undefined)
+  );
+}
+
+export function subscribeBaiduDriveAuthProgress(
+  callback: (progress: BaiduDriveAuthProgress) => void,
+) {
+  return (
+    window.__ONMYAGENT_ELECTRON__?.baiduDrive?.onAuthProgress?.(callback) ??
+    (() => undefined)
+  );
+}
+
+export const getKdocsStatus = (): Promise<KdocsConnectionStatus> =>
+  invokeDesktopCommand("kdocsGetStatus");
+
+export const connectKdocsWithToken = (input: {
+  accessToken: string;
+}): Promise<KdocsConnectionStatus> =>
+  invokeDesktopCommand("kdocsConnectWithToken", input);
+
+export const disconnectKdocs = (): Promise<KdocsConnectionStatus> =>
+  invokeDesktopCommand("kdocsDisconnect");
+
+export function subscribeKdocsStatus(
+  callback: (status: KdocsConnectionStatus) => void,
+) {
+  return (
+    window.__ONMYAGENT_ELECTRON__?.kdocs?.onStatus?.(callback) ??
+    (() => undefined)
+  );
+}
+
+export function subscribeKdocsAuthProgress(
+  callback: (progress: KdocsAuthProgress) => void,
+) {
+  return (
+    window.__ONMYAGENT_ELECTRON__?.kdocs?.onAuthProgress?.(callback) ??
+    (() => undefined)
+  );
+}
+
+export const getDingtalkStatus = (): Promise<DingtalkConnectionStatus> =>
+  invokeDesktopCommand("dingtalkGetStatus");
+
+export const connectDingtalkWithCredentials = (
+  input: DingtalkConnectInput,
+): Promise<DingtalkConnectionStatus> =>
+  invokeDesktopCommand("dingtalkConnectWithCredentials", input);
+
+export const disconnectDingtalk = (): Promise<DingtalkConnectionStatus> =>
+  invokeDesktopCommand("dingtalkDisconnect");
+
+export function subscribeDingtalkStatus(
+  callback: (status: DingtalkConnectionStatus) => void,
+) {
+  return (
+    window.__ONMYAGENT_ELECTRON__?.dingtalk?.onStatus?.(callback) ??
+    (() => undefined)
+  );
+}
+
+export function subscribeDingtalkAuthProgress(
+  callback: (progress: DingtalkAuthProgress) => void,
+) {
+  return (
+    window.__ONMYAGENT_ELECTRON__?.dingtalk?.onAuthProgress?.(callback) ??
+    (() => undefined)
+  );
+}
+
+export const getWecomStatus = (): Promise<WecomConnectionStatus> =>
+  invokeDesktopCommand("wecomGetStatus");
+
+export const startWecomConnect = (): Promise<WecomStartConnectResult> =>
+  invokeDesktopCommand("wecomStartConnect");
+
+export const completeWecomConnect = (
+  sessionId: string,
+): Promise<WecomConnectionStatus> =>
+  invokeDesktopCommand("wecomCompleteConnect", { sessionId });
+
+export const cancelWecomConnect = (): Promise<{ ok: boolean }> =>
+  invokeDesktopCommand("wecomCancelConnect");
+
+export const connectWecomWithCredentials = (
+  input: WecomConnectCredentialsInput,
+): Promise<WecomConnectionStatus> =>
+  invokeDesktopCommand("wecomConnectWithCredentials", input);
+
+export const disconnectWecom = (): Promise<WecomConnectionStatus> =>
+  invokeDesktopCommand("wecomDisconnect");
+
+export function subscribeWecomStatus(
+  callback: (status: WecomConnectionStatus) => void,
+) {
+  return (
+    window.__ONMYAGENT_ELECTRON__?.wecom?.onStatus?.(callback) ??
+    (() => undefined)
+  );
+}
+
+export function subscribeWecomAuthProgress(
+  callback: (progress: WecomAuthProgress) => void,
+) {
+  return (
+    window.__ONMYAGENT_ELECTRON__?.wecom?.onAuthProgress?.(callback) ??
+    (() => undefined)
+  );
+}
+
+export const getTencentMeetingStatus =
+  (): Promise<TencentMeetingConnectionStatus> =>
+    invokeDesktopCommand("tencentMeetingGetStatus");
+
+export const connectTencentMeetingWithToken = (input: {
+  accessToken: string;
+}): Promise<TencentMeetingConnectionStatus> =>
+  invokeDesktopCommand("tencentMeetingConnectWithToken", input);
+
+export const openTencentMeetingTokenPage = (): Promise<{
+  ok: boolean;
+  url: string;
+}> => invokeDesktopCommand("tencentMeetingOpenTokenPage");
+
+export const disconnectTencentMeeting =
+  (): Promise<TencentMeetingConnectionStatus> =>
+    invokeDesktopCommand("tencentMeetingDisconnect");
+
+export function subscribeTencentMeetingStatus(
+  callback: (status: TencentMeetingConnectionStatus) => void,
+) {
+  return (
+    window.__ONMYAGENT_ELECTRON__?.tencentMeeting?.onStatus?.(callback) ??
+    (() => undefined)
+  );
+}
+
+export function subscribeTencentMeetingAuthProgress(
+  callback: (progress: TencentMeetingAuthProgress) => void,
+) {
+  return (
+    window.__ONMYAGENT_ELECTRON__?.tencentMeeting?.onAuthProgress?.(
+      callback,
+    ) ?? (() => undefined)
   );
 }
 

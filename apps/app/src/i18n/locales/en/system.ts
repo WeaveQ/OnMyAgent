@@ -30,9 +30,17 @@ export default {
     "Could not start OnMyAgent. Try quitting and opening the app again.",
   "system.boot_server_not_ready":
     "The local service did not finish starting. Quit OnMyAgent and open it again.",
+  "system.boot_config_invalid":
+    "Local engine config is invalid (often incomplete MCP entries). Try “Repair engine config”, then retry.",
   "system.boot_download_latest_hint":
     "If this keeps happening, download the latest version:",
   "system.boot_retry": "Try again",
+  "system.boot_open_config_dir": "Open config folder",
+  "system.boot_repair_config": "Repair engine config",
+  "system.boot_repair_working": "Repairing…",
+  "system.boot_repair_done": "Repaired and backed up old config — try again",
+  "system.boot_repair_failed":
+    "Automatic repair failed. Open the config folder and check manually",
   "system.error_action_retry": "Try again",
   "system.error_action_reload_app": "Restart app",
   "system.error_action_open_ai_settings": "Open model settings",

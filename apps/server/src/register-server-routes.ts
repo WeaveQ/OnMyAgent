@@ -18,7 +18,6 @@ import { registerWorkspaceImportExportRoutes } from "./routes/workspace-import-e
 import { registerExperimentalExtensionRoutes } from "./routes/experimental-extension-routes.js";
 import { registerTokenRoutes } from "./routes/token-routes.js";
 import { registerEnvRoutes } from "./routes/env-routes.js";
-import { registerVoiceRoutes } from "./routes/voice-routes.js";
 import { registerCommandRoutes } from "./routes/command-routes.js";
 import { registerAutomationRoutes } from "./routes/automation-routes.js";
 import { registerPluginRoutes } from "./routes/plugin-routes.js";
@@ -186,7 +185,6 @@ export function registerServerRoutes(input: RegisterServerRoutesInput): void {
     readJsonBody,
   });
 
-  registerVoiceRoutes({ routes, env, readJsonBody });
 
   registerCommandRoutes({
     routes,

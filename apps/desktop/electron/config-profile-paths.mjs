@@ -92,6 +92,31 @@ export function resolveTencentDocsManagedRoot(homeDir) {
   return path.join(resolveLocalManagedToolsRoot(homeDir), "tencent-docs");
 }
 
+/** @param {string | undefined} homeDir */
+export function resolveBaiduDriveManagedRoot(homeDir) {
+  return path.join(resolveLocalManagedToolsRoot(homeDir), "baidu-drive");
+}
+
+/** @param {string | undefined} homeDir */
+export function resolveKdocsManagedRoot(homeDir) {
+  return path.join(resolveLocalManagedToolsRoot(homeDir), "kdocs");
+}
+
+/** @param {string | undefined} homeDir */
+export function resolveDingtalkManagedRoot(homeDir) {
+  return path.join(resolveLocalManagedToolsRoot(homeDir), "dingtalk");
+}
+
+/** @param {string | undefined} homeDir */
+export function resolveWecomManagedRoot(homeDir) {
+  return path.join(resolveLocalManagedToolsRoot(homeDir), "wecom");
+}
+
+/** @param {string | undefined} homeDir */
+export function resolveTencentMeetingManagedRoot(homeDir) {
+  return path.join(resolveLocalManagedToolsRoot(homeDir), "tencent-meeting");
+}
+
 /**
  * Managed remote CLI install root under profiles/local/tools/<pluginId>.
  * @param {string} pluginId
