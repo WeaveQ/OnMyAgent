@@ -112,4 +112,21 @@ describe("workspace activation", () => {
       `directory=${encodeURIComponent(workspaceRoot)}`,
     );
   });
+
+  test("reloads the bound OpenCode engine from the observability endpoint", async () => {
+    const workspaceRoot = await createWorkspaceRoot();
+    const mock = startMockOpencode();
+    const onmyagent = await startOnMyAgentServer({
+      workspaceRoot,
+      opencodeBaseUrl: `http://127.0.0.1:${mock.server.port}`,
+    });
+
+    const response = await fetch(
+      `http://127.0.0.1:${onmyagent.server.port}/workspace/ws_1/engine/reload`,
+      { method: "POST", headers: { Authorization: "Bearer owt_test_token" } },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mock.requests.filter((request) => request.pathname === "/instance/dispose")).toHaveLength(1);
+  });
 });
