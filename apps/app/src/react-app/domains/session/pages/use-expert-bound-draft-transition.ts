@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import type { PendingAgentContext } from "../../agents";
 import { useComposerStateStore } from "../surface/composer-state-store";
@@ -6,6 +6,7 @@ import {
   consumeBoundExpertDraftContext,
   matchesExpertDraftTransaction,
   resolveBoundExpertDraftSession,
+  resolveBoundExpertDraftNavigation,
   resolveReadyBoundExpertDraftSession,
 } from "./expert-draft-session";
 
@@ -24,42 +25,82 @@ export function useExpertBoundDraftTransition(input: {
   setDraftSessionActive: (active: boolean) => void;
   setPendingTabSessionId: (sessionId: string | null) => void;
 }) {
+  const openedSessionIdRef = useRef<string | null>(null);
+  const {
+    activeDraftSessionId,
+    draftAgentContexts,
+    draftAgentId,
+    draftSessionActive,
+    pendingAgent,
+    selectedSessionId,
+    selectedWorkspaceId,
+    sidebarSelectedWorkspaceId,
+    onOpenSession,
+    setDraftAgentContexts,
+    setDraftAgentId,
+    setDraftSessionActive,
+    setPendingTabSessionId,
+  } = input;
   useEffect(() => {
-    const createdSessionId = resolveBoundExpertDraftSession({
-      draftSessionActive: input.draftSessionActive,
-      draftAgentId: input.draftAgentId,
-      pendingAgent: input.pendingAgent,
+    const navigationSessionId = resolveBoundExpertDraftNavigation({
+      contexts: draftAgentContexts,
+      draftSessionActive,
+      draftAgentId,
+      pendingAgent,
+      selectedSessionId,
     });
-    if (!createdSessionId || !input.pendingAgent) return;
+    const createdSessionId = resolveBoundExpertDraftSession({
+      draftSessionActive,
+      draftAgentId,
+      pendingAgent,
+    });
+    if (!createdSessionId || !pendingAgent) return;
     if (!matchesExpertDraftTransaction({
-      contexts: input.draftAgentContexts,
-      agentId: input.pendingAgent.id,
-      conversationStartId: input.pendingAgent.conversationStartId,
+      contexts: draftAgentContexts,
+      agentId: pendingAgent.id,
+      conversationStartId: pendingAgent.conversationStartId,
     })) return;
-    input.setPendingTabSessionId(createdSessionId);
-    if (input.selectedSessionId !== createdSessionId) {
-      input.onOpenSession(input.sidebarSelectedWorkspaceId, createdSessionId);
+    setPendingTabSessionId(createdSessionId);
+    if (navigationSessionId) {
+      if (openedSessionIdRef.current === navigationSessionId) return;
+      openedSessionIdRef.current = navigationSessionId;
+      onOpenSession(sidebarSelectedWorkspaceId, navigationSessionId);
       return;
     }
     const readySessionId = resolveReadyBoundExpertDraftSession({
-      draftSessionActive: input.draftSessionActive,
-      draftAgentId: input.draftAgentId,
-      pendingAgent: input.pendingAgent,
-      selectedSessionId: input.selectedSessionId,
+      draftSessionActive,
+      draftAgentId,
+      pendingAgent,
+      selectedSessionId,
     });
     if (!readySessionId) return;
     const remainingDrafts = consumeBoundExpertDraftContext({
-      contexts: input.draftAgentContexts,
-      agentId: input.pendingAgent.id,
-      conversationStartId: input.pendingAgent.conversationStartId,
+      contexts: draftAgentContexts,
+      agentId: pendingAgent.id,
+      conversationStartId: pendingAgent.conversationStartId,
     });
-    if (remainingDrafts === input.draftAgentContexts) return;
+    if (remainingDrafts === draftAgentContexts) return;
     useComposerStateStore
       .getState()
-      .clearSession(input.activeDraftSessionId ?? `draft:${input.selectedWorkspaceId}`);
-    input.setDraftAgentContexts(remainingDrafts);
-    input.setDraftSessionActive(false);
-    input.setDraftAgentId(null);
-    input.setPendingTabSessionId(null);
-  }, [input]);
+      .clearSession(activeDraftSessionId ?? `draft:${selectedWorkspaceId}`);
+    setDraftAgentContexts(remainingDrafts);
+    setDraftSessionActive(false);
+    setDraftAgentId(null);
+    setPendingTabSessionId(null);
+    openedSessionIdRef.current = null;
+  }, [
+    activeDraftSessionId,
+    draftAgentContexts,
+    draftAgentId,
+    draftSessionActive,
+    onOpenSession,
+    pendingAgent,
+    selectedSessionId,
+    selectedWorkspaceId,
+    setDraftAgentContexts,
+    setDraftAgentId,
+    setDraftSessionActive,
+    setPendingTabSessionId,
+    sidebarSelectedWorkspaceId,
+  ]);
 }
