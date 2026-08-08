@@ -139,6 +139,7 @@ import {
   resolveActiveAgentContext,
   resolveActiveConversationGroup,
   selectRawWorkspaceSessions,
+  shouldExitDraftForExpertSidebarTarget,
 } from "./expert-conversation-model";
 import { useExpertAutomationOffer } from "./use-expert-automation-offer";
 import {
@@ -634,6 +635,14 @@ export function ExpertPage(props: ExpertPageProps) {
       });
       if (!target.sessionId) return;
       if (!target.shouldOpen) {
+        if (shouldExitDraftForExpertSidebarTarget({
+          draftAgentId,
+          draftSessionActive,
+          targetAgentId: agentId,
+        })) {
+          handleOpenExpertSession(workspaceId, target.sessionId);
+          return;
+        }
         openRailView("chat");
         return;
       }
@@ -641,6 +650,8 @@ export function ExpertPage(props: ExpertPageProps) {
     },
     [
       conversationGroups,
+      draftAgentId,
+      draftSessionActive,
       handleOpenExpertSession,
       props.selectedSessionId,
       sessionTabOrderIdsByScope,

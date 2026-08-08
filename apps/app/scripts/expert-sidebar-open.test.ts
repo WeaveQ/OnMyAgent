@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
-import { resolveExpertSidebarOpen } from "../src/react-app/domains/session/pages/expert-conversation-model";
+import {
+  resolveExpertSidebarOpen,
+  shouldExitDraftForExpertSidebarTarget,
+} from "../src/react-app/domains/session/pages/expert-conversation-model";
 
 describe("expert sidebar open target", () => {
   test("opens the remembered ready tab on the first click", () => {
@@ -29,5 +32,27 @@ describe("expert sidebar open target", () => {
       readySessionIds: [],
       selectedSessionId: "session-old",
     })).toEqual({ sessionId: "session-old", shouldOpen: true });
+  });
+
+  test("reopens the real session when a same-expert draft overlays it", () => {
+    const target = resolveExpertSidebarOpen({
+      hintSessionId: "session-real",
+      rememberedSessionId: "session-real",
+      orderIds: ["session-real"],
+      readySessionIds: ["session-real"],
+      selectedSessionId: "session-real",
+    });
+
+    expect(target.shouldOpen).toBe(false);
+    expect(shouldExitDraftForExpertSidebarTarget({
+      draftAgentId: "expert-a",
+      draftSessionActive: true,
+      targetAgentId: "expert-a",
+    })).toBe(true);
+    expect(shouldExitDraftForExpertSidebarTarget({
+      draftAgentId: "expert-b",
+      draftSessionActive: true,
+      targetAgentId: "expert-a",
+    })).toBe(false);
   });
 });
