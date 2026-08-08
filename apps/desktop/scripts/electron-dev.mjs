@@ -11,7 +11,7 @@ import {
   resolveOnMyAgentUserDataDir,
   shouldForceViteOptimize,
 } from "./vite-deps-integrity.mjs";
-import { shouldForceDevPreparation } from "./dev-prepare-freshness.mjs";
+import { resolveDevOrchestratorArtifactPath, shouldForceDevPreparation } from "./dev-prepare-freshness.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(__dirname, "..");
@@ -52,8 +52,19 @@ const devPreparationInputs = [
   resolve(repoRoot, "pnpm-lock.yaml"),
   resolve(repoRoot, "constants.json"),
 ];
+const configuredTargetTriple =
+  process.env.ONMYAGENT_TARGET_TRIPLE ??
+  process.env.TAURI_ENV_TARGET_TRIPLE ??
+  process.env.CARGO_CFG_TARGET_TRIPLE ??
+  process.env.TARGET;
 const sidecarForceRequired = shouldForceDevPreparation({
-  artifactPaths: [resolve(electronSidecarDir, "onmyagent-orchestrator")],
+  artifactPaths: [
+    resolveDevOrchestratorArtifactPath({
+      sidecarDir: electronSidecarDir,
+      platform: process.platform,
+      targetTriple: configuredTargetTriple,
+    }),
+  ],
   inputPaths: [
     ...devPreparationInputs,
     orchestratorSourceDir,

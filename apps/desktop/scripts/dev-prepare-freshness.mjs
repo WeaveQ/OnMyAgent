@@ -1,4 +1,10 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
+import { resolve } from "node:path";
+
+export function resolveDevOrchestratorArtifactPath({ sidecarDir, platform, targetTriple }) {
+  const isWindowsTarget = platform === "win32" || targetTriple?.toLowerCase().includes("windows") === true;
+  return resolve(sidecarDir, `onmyagent-orchestrator${isWindowsTarget ? ".exe" : ""}`);
+}
 
 function newestModificationMs(path) {
   try {
