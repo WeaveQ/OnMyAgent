@@ -73,6 +73,7 @@ import {
   waitForAutomationSession,
   reconcileAutomationRuns,
 } from "./services/automation-runner.js";
+import type { SessionArchiveSyncInput } from "./services/session-archive-sync.js";
 
 export type RegisterServerRoutesInput = {
   routes: Route[];
@@ -104,6 +105,8 @@ export type RegisterServerRoutesInput = {
   persistServerWorkspaceState: (config: ServerConfig) => Promise<boolean>;
   onWorkspacesChanged: () => void;
   reloadOpencodeEngine: (config: ServerConfig, workspace: WorkspaceInfo) => Promise<void>;
+  syncSessionArchive: (input: SessionArchiveSyncInput) => Promise<import("@onmyagent/types/session-archive").SessionArchiveSyncStats>;
+  disposeWorkspaceArchiveSync: (workspace: WorkspaceInfo) => Promise<void>;
   readOpencodeConfig: (workspaceRoot: string) => Promise<Record<string, unknown>>;
   readOnMyAgentConfig: (workspaceRoot: string) => Promise<Record<string, unknown>>;
   writeOnMyAgentConfig: (
@@ -150,6 +153,8 @@ export function registerServerRoutes(input: RegisterServerRoutesInput): void {
     persistServerWorkspaceState,
     onWorkspacesChanged,
     reloadOpencodeEngine,
+    syncSessionArchive,
+    disposeWorkspaceArchiveSync,
     readOpencodeConfig,
     readOnMyAgentConfig,
     writeOnMyAgentConfig,
@@ -311,6 +316,7 @@ export function registerServerRoutes(input: RegisterServerRoutesInput): void {
     routes,
     config,
     resolveWorkspace,
+    syncArchive: syncSessionArchive,
   });
 
   registerWorkspaceSessionRoutes({
@@ -346,6 +352,7 @@ export function registerServerRoutes(input: RegisterServerRoutesInput): void {
     onWorkspacesChanged,
     reloadOpencodeEngine,
     readJsonBody,
+    disposeWorkspaceArchiveSync,
   });
 
   registerWorkspaceConfigRoutes({
