@@ -22,6 +22,43 @@ export function resolveReadyBoundExpertDraftSession(input: {
 }
 
 /**
+ * Consume a draft only when the bound callback belongs to the same creation
+ * transaction. The agent id alone is insufficient because an older create can
+ * finish after the user has started a newer draft for that expert.
+ */
+export function consumeBoundExpertDraftContext<T extends {
+  conversationStartId?: number;
+}>(input: {
+  contexts: Record<string, T>;
+  agentId: string;
+  conversationStartId?: number;
+}): Record<string, T> {
+  if (!matchesExpertDraftTransaction(input)) {
+    return input.contexts;
+  }
+  const agentId = input.agentId.trim();
+  const next = { ...input.contexts };
+  delete next[agentId];
+  return next;
+}
+
+export function matchesExpertDraftTransaction<T extends {
+  conversationStartId?: number;
+}>(input: {
+  contexts: Record<string, T>;
+  agentId: string;
+  conversationStartId?: number;
+}): boolean {
+  const agentId = input.agentId.trim();
+  const current = agentId ? input.contexts[agentId] : undefined;
+  return Boolean(
+    current &&
+      input.conversationStartId !== undefined &&
+      current.conversationStartId === input.conversationStartId,
+  );
+}
+
+/**
  * Whether an unbound "+ 新会话" draft should survive a route session id.
  *
  * Without this, clearing the route (or a recency-based restore of another
