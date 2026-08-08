@@ -102,6 +102,7 @@ export function useSessionRouteSessionLoader(input: Input) {
   const recoveredOriginItems = useRef<
     Map<string, Map<string, SidebarSessionItem>>
   >(new Map());
+  const missingOriginSessionIds = useRef<Map<string, Set<string>>>(new Map());
 
   const rememberPendingCreatedSession = useCallback(
     (workspaceId: string, sessionId: string) => {
@@ -303,6 +304,8 @@ export function useSessionRouteSessionLoader(input: Input) {
                 verifiedItems: Array.from(
                   recoveredOriginItems.current.get(workspace.id)?.values() ?? [],
                 ),
+                verifiedMissingSessionIds:
+                  missingOriginSessionIds.current.get(workspace.id),
                 origins: payload.items,
                 limit: SIDEBAR_SESSION_LIST_LIMIT,
               });
@@ -312,6 +315,14 @@ export function useSessionRouteSessionLoader(input: Input) {
                   new Map<string, SidebarSessionItem>();
                 for (const item of recoveredItems) byId.set(item.id, item);
                 recoveredOriginItems.current.set(workspace.id, byId);
+              }
+              if (recovery.missingSessionIds.length > 0) {
+                const ids = missingOriginSessionIds.current.get(workspace.id) ??
+                  new Set<string>();
+                for (const sessionId of recovery.missingSessionIds) {
+                  ids.add(sessionId);
+                }
+                missingOriginSessionIds.current.set(workspace.id, ids);
               }
               if (recoveredItems.length > 0) {
                 setSessionsByWorkspaceId((current) => {
@@ -363,6 +374,9 @@ export function useSessionRouteSessionLoader(input: Input) {
                 return next;
               });
               recoveredOriginItems.current.delete(workspace.id);
+              const missingSessionIds =
+                missingOriginSessionIds.current.get(workspace.id) ??
+                new Set<string>();
               const realSessionIds = new Set(
                 authoritativeItems.map((item) => item.id),
               );
@@ -370,8 +384,20 @@ export function useSessionRouteSessionLoader(input: Input) {
                 localWorkspaceId: workspace.id,
                 originWorkspaceId: endpoint.workspaceId,
                 realSessionIds,
+                missingSessionIds,
                 origins: payload.items,
               });
+              missingOriginSessionIds.current.delete(workspace.id);
+              if (missingSessionIds.size > 0) {
+                void Promise.allSettled(
+                  Array.from(missingSessionIds, (sessionId) =>
+                    endpoint.client.deleteSessionOrigin(
+                      endpoint.workspaceId,
+                      sessionId,
+                    ),
+                  ),
+                );
+              }
               await migrateLegacySessionOrigins({
                 client: endpoint.client,
                 localWorkspaceId: workspace.id,

@@ -90,6 +90,22 @@ describe("session origin reconciliation", () => {
     expect(readCustomAgentIdForSession("stale")).toBe("agent-stale");
   });
 
+  test("removes local expert identity only for an exact authoritative missing origin", () => {
+    addExpertSession("deleted-expert");
+    writeCustomAgentIdForSession("deleted-expert", "agent-deleted");
+
+    reconcileSessionOrigins({
+      localWorkspaceId: "workspace-a",
+      originWorkspaceId: "workspace-a",
+      realSessionIds: new Set(),
+      missingSessionIds: new Set(["deleted-expert"]),
+      origins: [origin({ sessionId: "deleted-expert", kind: "expert" })],
+    });
+
+    expect(isExpertSession("deleted-expert")).toBe(false);
+    expect(readCustomAgentIdForSession("deleted-expert")).toBeNull();
+  });
+
   test("migrates only explicit legacy expert records and real assistant workspace records", async () => {
     addExpertSession("legacy-expert");
     writeCustomAgentIdForSession("legacy-expert", "agent-expert");
