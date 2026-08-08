@@ -271,6 +271,25 @@ function retainSession(
   );
 }
 
+function retentionTtlForUntrackedSession(
+  input: SyncOptions,
+  sessionId: string,
+) {
+  const queryStatus = getReactQueryClient().getQueryData<SessionStatus>(
+    statusKey(input.workspaceId, sessionId),
+  );
+  if (isLiveStatus(queryStatus)) return retainedSessionTtlMs;
+
+  const activity = useSessionActivityStore
+    .getState()
+    .getStatus(input.workspaceId, sessionId);
+  return activity === "thinking" ||
+    activity === "responding" ||
+    activity === "retrying"
+    ? retainedSessionTtlMs
+    : idleRetainedSessionTtlMs;
+}
+
 function disposeWorkspaceSync(key: string, entry: SyncEntry) {
   if (entry.refs > 0) return;
   if (entry.disposeTimer) {
@@ -281,6 +300,19 @@ function disposeWorkspaceSync(key: string, entry: SyncEntry) {
   entry.retainedSessionTimers.clear();
   entry.dispose();
   if (syncs.get(key) === entry) syncs.delete(key);
+}
+
+/** Immediately release every stream and retained timer owned by a forgotten workspace. */
+export function disposeWorkspaceSessionSyncs(workspaceId: string) {
+  const id = workspaceId.trim();
+  if (!id) return;
+  for (const [key, entry] of [...syncs.entries()]) {
+    if (entry.input.workspaceId !== id) continue;
+    entry.refs = 0;
+    entry.sessionUpdatedListeners.clear();
+    entry.sessionStatusListeners.clear();
+    disposeWorkspaceSync(key, entry);
+  }
 }
 
 function releaseRetainedSessionSoon(
@@ -1400,7 +1432,7 @@ export function ensureWorkspaceSessionSync(input: SyncOptions) {
     if (input.onSessionStatus)
       existing.sessionStatusListeners.add(input.onSessionStatus);
     existing.refs += 1;
-    return () => releaseWorkspaceSessionSync(input);
+    return once(() => releaseWorkspaceSessionSync(input));
   }
 
   syncs.set(key, {
@@ -1424,7 +1456,16 @@ export function ensureWorkspaceSessionSync(input: SyncOptions) {
   const created = syncs.get(key)!;
   created.dispose = startSync(input);
 
-  return () => releaseWorkspaceSessionSync(input);
+  return once(() => releaseWorkspaceSessionSync(input));
+}
+
+function once(action: () => void) {
+  let completed = false;
+  return () => {
+    if (completed) return;
+    completed = true;
+    action();
+  };
 }
 
 function releaseWorkspaceSessionSync(input: SyncOptions) {
@@ -1500,15 +1541,20 @@ export function trackWorkspaceSessionSync(
     (entry.trackedSessionRefs.get(normalizedSessionId) ?? 0) + 1,
   );
 
-  return () => {
+  return once(() => {
     const current = entry.trackedSessionRefs.get(normalizedSessionId) ?? 0;
     if (current <= 1) {
       entry.trackedSessionRefs.delete(normalizedSessionId);
-      retainSession(input, entry, normalizedSessionId);
+      retainSession(
+        input,
+        entry,
+        normalizedSessionId,
+        retentionTtlForUntrackedSession(input, normalizedSessionId),
+      );
       return;
     }
     entry.trackedSessionRefs.set(normalizedSessionId, current - 1);
-  };
+  });
 }
 
 export function trackWorkspaceSessionsSync(
@@ -1538,6 +1584,11 @@ export { selectFullStreamSessionIds, selectStatusOnlySessionIds } from "./stream
 
 export function __createWorkspaceSessionSyncForTest(input: SyncOptions) {
   const key = syncKey(input);
+  const existing = syncs.get(key);
+  if (existing) {
+    existing.refs += 1;
+    return once(() => releaseWorkspaceSessionSync(input));
+  }
   syncs.set(key, {
     input,
     refs: 1,
@@ -1551,14 +1602,7 @@ export function __createWorkspaceSessionSyncForTest(input: SyncOptions) {
     deltaFlushBuffer: [],
     deltaFlushScheduled: false,
   });
-  return () => {
-    const entry = syncs.get(key);
-    if (entry) {
-      for (const timer of entry.retainedSessionTimers.values())
-        clearTimeout(timer);
-    }
-    syncs.delete(key);
-  };
+  return once(() => releaseWorkspaceSessionSync(input));
 }
 
 export function __hasWorkspaceSessionSyncForTest(input: SyncOptions) {
@@ -1571,6 +1615,32 @@ export function __disposeWorkspaceSessionSyncForTest(input: SyncOptions) {
   if (!entry) return;
   entry.refs = 0;
   disposeWorkspaceSync(key, entry);
+}
+
+export function __getWorkspaceSessionSyncResourcesForTest(input: SyncOptions) {
+  const entry = syncs.get(syncKey(input));
+  return {
+    exists: Boolean(entry),
+    refs: entry?.refs ?? 0,
+    trackedSessions: entry?.trackedSessionRefs.size ?? 0,
+    retainedSessions: entry?.retainedSessionTimers.size ?? 0,
+  };
+}
+
+export function __retentionTtlForUntrackedSessionForTest(
+  input: SyncOptions,
+  sessionId: string,
+) {
+  return retentionTtlForUntrackedSession(input, sessionId);
+}
+
+export function __expireRetainedSessionForTest(
+  input: SyncOptions,
+  sessionId: string,
+) {
+  const entry = syncs.get(syncKey(input));
+  if (!entry || !entry.retainedSessionTimers.has(sessionId)) return;
+  clearTrackedSession(input, entry, sessionId);
 }
 
 export function __applySessionSyncEventForTest(
