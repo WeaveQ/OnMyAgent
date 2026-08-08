@@ -1,9 +1,10 @@
 /**
- * Session ids owned by automation runs (running lease + history).
+ * Pure helpers: session ids owned by automation runs (running lease + history).
  * Used by archive sync and completion-owner UI to treat them as non-interactive.
+ *
+ * Keep this module free of imports from automations.ts to avoid circular deps.
  */
 import type { AutomationTaskItem } from "@onmyagent/types/server";
-import { listAutomations } from "./automations.js";
 
 export function collectAutomationOwnedSessionIds(
   items: ReadonlyArray<
@@ -23,16 +24,4 @@ export function collectAutomationOwnedSessionIds(
     }
   }
   return ids;
-}
-
-/** Load automation-owned OpenCode session ids for a workspace root. */
-export async function loadAutomationOwnedSessionIds(
-  workspaceRoot: string,
-): Promise<Set<string>> {
-  try {
-    const items = await listAutomations(workspaceRoot);
-    return collectAutomationOwnedSessionIds(items);
-  } catch {
-    return new Set();
-  }
 }

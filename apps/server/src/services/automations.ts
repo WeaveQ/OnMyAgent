@@ -28,6 +28,7 @@ import {
   isAutomationNextRunStale,
   selectClaimableAutomation,
 } from "./automation-schedule-policy.js";
+import { collectAutomationOwnedSessionIds as collectOwnedSessionIds } from "./automation-owned-sessions.js";
 import { readAutomationTaskItem } from "./automation-store-read.js";
 
 export { nextRunAt } from "./automation-next-run.js";
@@ -35,6 +36,7 @@ export {
   AUTOMATION_DUE_GRACE_MS,
   selectClaimableAutomation,
 } from "./automation-schedule-policy.js";
+export { collectAutomationOwnedSessionIds } from "./automation-owned-sessions.js";
 
 type AutomationStoreFile = {
   version: 1;
@@ -82,10 +84,17 @@ export function parseAutomationPromptCommand(prompt: string): { name: string; ar
   return { name, arguments: match?.[2]?.trim() ?? "" };
 }
 
-export {
-  collectAutomationOwnedSessionIds,
-  loadAutomationOwnedSessionIds,
-} from "./automation-owned-sessions.js";
+/** Load automation-owned OpenCode session ids for a workspace root. */
+export async function loadAutomationOwnedSessionIds(
+  workspaceRoot: string,
+): Promise<Set<string>> {
+  try {
+    const items = await listAutomations(workspaceRoot);
+    return collectOwnedSessionIds(items);
+  } catch {
+    return new Set();
+  }
+}
 
 export function automationStorePath(workspaceRoot: string): string {
   return join(workspaceRoot, ".opencode", "onmyagent", "automations.json");
