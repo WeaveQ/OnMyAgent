@@ -7,6 +7,7 @@ import type {
 import {
   invokeDesktopCommand,
   invokeElectronHelper,
+  type DesktopCommandResultOf,
 } from "./desktop-invoke";
 
 export {
@@ -511,56 +512,18 @@ function isLoopbackUrl(input: RequestInfo | URL): boolean {
   }
 }
 
-export const desktopFetch: typeof globalThis.fetch = async (input, init) => {
-  if (isLoopbackUrl(input)) {
-    return globalThis.fetch(input, init);
-  }
+export const desktopFetch: typeof globalThis.fetch = (input, init) =>
+  desktopFetchWithTimeout(input, init);
 
-  // Extract method/headers/body from either a Request object or the (input, init)
-  // pair. The OpenCode SDK calls fetch(request) (no init), so reading these only
-  // from `init` would silently drop the Authorization header and the POST body
-  // — the remote would then reject every request with "Invalid bearer token".
-  let url: string;
-  let method: string | undefined;
-  let headers: Record<string, string> | undefined;
-  let body: string | undefined;
-
-  if (typeof Request !== "undefined" && input instanceof Request) {
-    url = input.url;
-    method = init?.method ?? input.method;
-    const headersSource = init?.headers ? new Headers(init.headers) : input.headers;
-    headers = Object.fromEntries(headersSource.entries());
-    if (typeof init?.body === "string") {
-      body = init.body;
-    } else if (input.body) {
-      // Request body is a stream — buffer to text so it survives the IPC hop
-      // to the Electron main process.
-      body = await input.clone().text();
-    }
-  } else {
-    url = typeof input === "string" ? input : input.toString();
-    method = init?.method;
-    headers = init?.headers ? Object.fromEntries(new Headers(init.headers).entries()) : undefined;
-    body = typeof init?.body === "string" ? init.body : undefined;
-  }
-
-  const result = await invokeDesktopCommand("__fetch", url, {
-    method,
-    headers,
-    body,
-  });
-
-  // Response constructor rejects bodies for null-body status codes, so we
-  // must pass null instead of an empty string for those.
-  const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
-  const responseBody = NULL_BODY_STATUSES.has(result.status) ? null : result.body;
-
-  return new Response(responseBody, {
-    status: result.status,
-    statusText: result.statusText,
-    headers: result.headers,
-  });
-};
+/** Preserve native cancellation for loopback and enforce a main-process deadline remotely. */
+export async function desktopFetchWithTimeout(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+  timeoutMs?: number,
+): Promise<Response> {
+  if (isLoopbackUrl(input)) return globalThis.fetch(input, init);
+  return desktopFetchViaMain(input, init, timeoutMs);
+}
 
 export async function desktopFetchViaMain(input: RequestInfo | URL, init?: RequestInit, timeoutMs?: number): Promise<Response> {
   let url: string;
@@ -585,12 +548,29 @@ export async function desktopFetchViaMain(input: RequestInfo | URL, init?: Reque
     body = typeof init?.body === "string" ? init.body : undefined;
   }
 
-  const result = await invokeDesktopCommand("__fetch", url, {
-    method,
-    headers,
-    body,
-    timeoutMs,
-  });
+  const requestId = crypto.randomUUID();
+  const signal = init?.signal;
+  if (signal?.aborted) {
+    throw signal.reason instanceof Error
+      ? signal.reason
+      : new DOMException("Request cancelled.", "AbortError");
+  }
+  const cancel = () => {
+    void invokeDesktopCommand("__fetchCancel", requestId).catch(() => undefined);
+  };
+  signal?.addEventListener("abort", cancel, { once: true });
+  let result: DesktopCommandResultOf<"__fetch">;
+  try {
+    result = await invokeDesktopCommand("__fetch", url, {
+      method,
+      headers,
+      body,
+      timeoutMs,
+      requestId,
+    });
+  } finally {
+    signal?.removeEventListener("abort", cancel);
+  }
 
   const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
   const responseBody = NULL_BODY_STATUSES.has(result.status) ? null : result.body;
