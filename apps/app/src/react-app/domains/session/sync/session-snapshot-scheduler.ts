@@ -10,9 +10,11 @@ export type SessionSnapshotScheduleInput<T> = {
 
 type ScheduledTask = {
   requestKey: string;
+  promise: Promise<unknown>;
   execute: () => Promise<void>;
   cancel: () => void;
   isSettled: () => boolean;
+  onSettled: (listener: () => void) => void;
 };
 
 type Lane = {
@@ -26,6 +28,7 @@ type WorkspaceSchedulerState = {
   background: Lane;
   activeExecutions: number;
   executionSlotWaiters: Array<() => void>;
+  tasksByRequestKey: Map<string, ScheduledTask>;
 };
 
 const schedulerByWorkspace = new Map<string, WorkspaceSchedulerState>();
@@ -42,6 +45,7 @@ function createWorkspaceState(): WorkspaceSchedulerState {
     background: createLane(),
     activeExecutions: 0,
     executionSlotWaiters: [],
+    tasksByRequestKey: new Map(),
   };
 }
 
@@ -100,6 +104,7 @@ function createScheduledTask<T>(
   let resolveRequest: (value: T | PromiseLike<T>) => void = () => undefined;
   let rejectRequest: (reason?: unknown) => void = () => undefined;
   let releaseExecution: () => void = () => undefined;
+  let settledListener: (() => void) | null = null;
   const executionReleased = new Promise<void>((resolve) => {
     releaseExecution = resolve;
   });
@@ -112,6 +117,7 @@ function createScheduledTask<T>(
     if (settled) return false;
     settled = true;
     removeAbortListener();
+    settledListener?.();
     return true;
   };
 
@@ -125,9 +131,13 @@ function createScheduledTask<T>(
 
   const task: ScheduledTask = {
     requestKey: input.requestKey,
+    promise: Promise.resolve(),
     execute: async () => undefined,
     cancel,
     isSettled: () => settled,
+    onSettled: (listener) => {
+      settledListener = listener;
+    },
   };
 
   const promise = new Promise<T>((resolve, reject) => {
@@ -139,6 +149,7 @@ function createScheduledTask<T>(
     }
     input.signal?.addEventListener("abort", cancel, { once: true });
   });
+  task.promise = promise;
 
   task.execute = async () => {
     if (settled) return;
@@ -218,10 +229,22 @@ export function scheduleSessionSnapshot<T>(
 
   const state = schedulerByWorkspace.get(workspaceId) ?? createWorkspaceState();
   schedulerByWorkspace.set(workspaceId, state);
+  const existing = state.tasksByRequestKey.get(requestKey);
+  if (existing && !existing.isSettled()) return existing.promise as Promise<T>;
+  if (existing) state.tasksByRequestKey.delete(requestKey);
+
   const { task, promise } = createScheduledTask(
     { ...input, workspaceId, requestKey },
     state,
   );
+  if (!task.isSettled()) {
+    state.tasksByRequestKey.set(requestKey, task);
+    task.onSettled(() => {
+      if (state.tasksByRequestKey.get(requestKey) === task) {
+        state.tasksByRequestKey.delete(requestKey);
+      }
+    });
+  }
   const lane = input.priority === "interactive" ? state.interactive : state.background;
 
   if (input.priority === "interactive") {
