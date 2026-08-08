@@ -21,16 +21,13 @@ import {
   readAssistantSessionWorkspaceChangeOwner,
   readAssistantSessionWorkspaces,
   retryPendingSessionDeletesForWorkspace,
+  SIDEBAR_SESSION_LIST_LIMIT,
 } from "../../domains/session";
 import {
   migrateLegacySessionOrigins,
   reconcileSessionOrigins,
 } from "../../domains/agents";
-import {
-  readLastSessionFor,
-  writeCachedSidebarSessionsForWorkspace,
-  writeLastSessionFor,
-} from "../session-memory";
+import { writeCachedSidebarSessionsForWorkspace } from "../session-memory";
 import {
   describeWorkspaceSessionLoadError,
   isRemoteOnMyAgentWorkspace,
@@ -55,6 +52,7 @@ import {
   collectWorkspaceSessionItems,
   mergeFetchedSessionsWithPending as mergeFetchedSessionsWithPendingState,
   mergeWorkspaceFetchedSessions,
+  recoverOriginDirectorySessionItems,
   type PendingCreatedSessionMap,
 } from "./sessions";
 
@@ -223,22 +221,6 @@ export function useSessionRouteSessionLoader(input: Input) {
             // sidebar before OpenCode finishes indexing.
             const persisted = next[workspace.id] ?? sidebarItems;
             writeCachedSidebarSessionsForWorkspace(workspace.id, persisted);
-            // A successful empty list can be a warming index, not evidence
-            // that a remembered session was deleted. Only reconcile anchors
-            // after a non-empty authoritative list.
-            if (sidebarItems.length > 0) {
-              const liveIds = new Set(persisted.map((item) => item.id));
-              for (const mode of ["assistant", "expert"] as const) {
-                const remembered = readLastSessionFor(workspace.id, mode);
-                if (remembered && !liveIds.has(remembered)) {
-                  writeLastSessionFor(workspace.id, null, mode);
-                }
-              }
-              const legacyRemembered = readLastSessionFor(workspace.id);
-              if (legacyRemembered && !liveIds.has(legacyRemembered)) {
-                writeLastSessionFor(workspace.id, null);
-              }
-            }
             return next;
           });
           setErrorsByWorkspaceId((current) => ({
@@ -264,26 +246,62 @@ export function useSessionRouteSessionLoader(input: Input) {
           // Origins are metadata only: start alongside the session request and
           // reconcile after the real list is available, without delaying the
           // sidebar or turning an origin error into a session-list error.
-          void originsPromise.then((payload) => {
+          void originsPromise.then(async (payload) => {
             if (!payload || originReadInFlight.current.has(workspace.id)) return;
             originReadInFlight.current.add(workspace.id);
-            const realSessionIds = new Set(sidebarItems.map((item) => item.id));
-            reconcileSessionOrigins({
-              localWorkspaceId: workspace.id,
-              originWorkspaceId: endpoint.workspaceId,
-              realSessionIds,
-              origins: payload.items,
-            });
-            void migrateLegacySessionOrigins({
-              client: endpoint.client,
-              localWorkspaceId: workspace.id,
-              originWorkspaceId: endpoint.workspaceId,
-              realSessionIds,
-              origins: payload.items,
-            }).finally(() => {
+            try {
+              // The primary list is intentionally bounded and paints before
+              // origin metadata resolves. Recover only origin ids absent from
+              // that list, using their durable runtime directory in bounded
+              // batches; an omitted page or failed directory remains unknown.
+              const recoveredItems = await recoverOriginDirectorySessionItems({
+                client: endpoint.client,
+                workspaceId: endpoint.workspaceId,
+                originWorkspaceId: endpoint.workspaceId,
+                primaryItems: sidebarItems,
+                origins: payload.items,
+                limit: SIDEBAR_SESSION_LIST_LIMIT,
+              });
+              if (recoveredItems.length > 0) {
+                setSessionsByWorkspaceId((current) => {
+                  const next = mergeWorkspaceFetchedSessions({
+                    current,
+                    workspaceId: workspace.id,
+                    fetched: recoveredItems,
+                    merge: (fetched, currentItems) => [
+                      ...fetched,
+                      ...currentItems,
+                    ],
+                  });
+                  sessionsByWorkspaceIdRef.current = next;
+                  writeCachedSidebarSessionsForWorkspace(
+                    workspace.id,
+                    next[workspace.id] ?? recoveredItems,
+                  );
+                  return next;
+                });
+              }
+              const realSessionIds = new Set([
+                ...sidebarItems.map((item) => item.id),
+                ...recoveredItems.map((item) => item.id),
+              ]);
+              reconcileSessionOrigins({
+                localWorkspaceId: workspace.id,
+                originWorkspaceId: endpoint.workspaceId,
+                realSessionIds,
+                origins: payload.items,
+              });
+              await migrateLegacySessionOrigins({
+                client: endpoint.client,
+                localWorkspaceId: workspace.id,
+                originWorkspaceId: endpoint.workspaceId,
+                realSessionIds,
+                origins: payload.items,
+              });
+            } finally {
               originReadInFlight.current.delete(workspace.id);
               setSessionsByWorkspaceId((current) => ({ ...current }));
-            });
+            }
           });
           // When a workspace returns zero sessions during the initial batch
           // load, OpenCode may still be warming up its index.  Schedule a
