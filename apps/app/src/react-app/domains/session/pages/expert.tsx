@@ -122,7 +122,6 @@ import {
   EXPERT_SIDE_PANEL_MIN_WIDTH,
   NO_EXPERT_CONVERSATIONS_ASSET,
   expertFeatureCategoryForAgent,
-  marketplaceExpertsToStarterItems,
 } from "./expert-page-utils";
 import { useCustomConnectorDialog } from "./use-custom-connector-dialog";
 import { useMyExpertPackages } from "./use-my-expert-packages";
@@ -135,7 +134,6 @@ import {
   buildExpertWorkspaceSessions,
   buildAgentConversationGroups,
   computeHasAnyExpertConversation,
-  listVisibleExpertAgentSessions,
   resolveActiveAgentContext,
   resolveActiveConversationGroup,
   selectRawWorkspaceSessions,
@@ -215,41 +213,19 @@ export function ExpertPage(props: ExpertPageProps) {
       ),
     [props.sidebar.selectedWorkspaceId, props.sidebar.workspaceSessionGroups],
   );
-  const visibleAgentSessions = useMemo(
-    () => listVisibleExpertAgentSessions(),
-    [props.selectedSessionId, props.sidebar.workspaceSessionGroups],
-  );
   const workspaceSessions = useMemo(
     () =>
       buildExpertWorkspaceSessions({
         rawWorkspaceSessions,
-        selectedSessionId: props.selectedSessionId,
-        currentConversationAgentId,
-        visibleAgentSessions,
       }),
-    [
-      currentConversationAgentId,
-      props.selectedSessionId,
-      rawWorkspaceSessions,
-      visibleAgentSessions,
-    ],
+    [rawWorkspaceSessions],
   );
   const sidebarWorkspaceSessionGroups = useMemo(
     () =>
       buildExpertSidebarSessionGroups({
         groups: props.sidebar.workspaceSessionGroups,
-        selectedWorkspaceId: props.sidebar.selectedWorkspaceId,
-        selectedSessionId: props.selectedSessionId,
-        currentConversationAgentId,
-        visibleAgentSessions,
       }),
-    [
-      currentConversationAgentId,
-      props.selectedSessionId,
-      props.sidebar.selectedWorkspaceId,
-      props.sidebar.workspaceSessionGroups,
-      visibleAgentSessions,
-    ],
+    [props.sidebar.workspaceSessionGroups],
   );
   const conversationGroups = useMemo(
     () => buildAgentConversationGroups(workspaceSessions, registry),
@@ -440,10 +416,6 @@ export function ExpertPage(props: ExpertPageProps) {
     enabled: activeSidebarView === "chat" ||
       (activeSidebarView === "store" && storeActiveTab === "experts"),
   });
-  const localExpertStarterItems = useMemo(
-    () => marketplaceExpertsToStarterItems(myExpertPackages),
-    [myExpertPackages],
-  );
   const openExpertSidePanelMenu = openWorkspaceSidePanelMenu;
 
   useReactRenderWatchdog("ExpertPage", {
@@ -1286,7 +1258,6 @@ export function ExpertPage(props: ExpertPageProps) {
                 sessionStatusById={props.sidebar.sessionStatusById}
                 draftAgentGroup={draftAgentGroup}
                 draftAgentGroups={draftAgentGroups}
-                additionalStarterItems={localExpertStarterItems}
                 query={agentSearch}
                 onQueryChange={setAgentSearch}
                 onToggleCollapsed={() =>

@@ -3,7 +3,6 @@ export type AssistantSessionCategory = "office";
 const ASSISTANT_SESSION_KEY = "onmyagent:assistantSessionIds";
 const ASSISTANT_SESSION_CATEGORY_KEY = "onmyagent:assistantSessionCategoryById";
 const EXPERT_SESSION_KEY = "onmyagent:expertSessionIds";
-const AGENT_ID_BY_SESSION_KEY = "onmyagent:customAgentBySessionId";
 
 function readAssistantSessionIds(): Set<string> {
   if (typeof localStorage === "undefined") return new Set();
@@ -65,45 +64,15 @@ export function removeAssistantSession(sessionId: string): void {
   }
 }
 
-function readCustomAgentSessionIds(): string[] {
-  if (typeof localStorage === "undefined") return [];
-  try {
-    const agentRaw = localStorage.getItem(AGENT_ID_BY_SESSION_KEY);
-    if (!agentRaw) return [];
-    const parsed: unknown = JSON.parse(agentRaw);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return [];
-    return Object.entries(parsed).flatMap(([sessionId, agentId]) =>
-      typeof agentId === "string" && agentId ? [sessionId] : [],
-    );
-  } catch {
-    return [];
-  }
-}
-
-function readExpertSessionIds(): Set<string> {
+export function readExpertSessionIds(): Set<string> {
   if (typeof localStorage === "undefined") return new Set();
   try {
-    const agentSessionIds = readCustomAgentSessionIds();
     const raw = localStorage.getItem(EXPERT_SESSION_KEY);
-    if (raw !== null) {
-      const arr = JSON.parse(raw);
-      const ids = new Set(
-        Array.isArray(arr) ? arr.filter((id): id is string => typeof id === "string") : [],
-      );
-      let changed = false;
-      for (const sessionId of agentSessionIds) {
-        if (ids.has(sessionId)) continue;
-        ids.add(sessionId);
-        changed = true;
-      }
-      if (changed) {
-        localStorage.setItem(EXPERT_SESSION_KEY, JSON.stringify(Array.from(ids)));
-      }
-      return ids;
-    }
-    const seeds = agentSessionIds;
-    localStorage.setItem(EXPERT_SESSION_KEY, JSON.stringify(seeds));
-    return new Set(seeds);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(
+      Array.isArray(arr) ? arr.filter((id): id is string => typeof id === "string") : [],
+    );
   } catch {
     return new Set();
   }
