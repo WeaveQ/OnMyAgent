@@ -23,6 +23,10 @@ import {
   retryPendingSessionDeletesForWorkspace,
 } from "../../domains/session";
 import {
+  migrateLegacySessionOrigins,
+  reconcileSessionOrigins,
+} from "../../domains/agents";
+import {
   readLastSessionFor,
   writeCachedSidebarSessionsForWorkspace,
   writeLastSessionFor,
@@ -90,6 +94,7 @@ export function useSessionRouteSessionLoader(input: Input) {
   } = input;
 
   const backgroundSessionLoadInFlight = useRef<Map<string, number>>(new Map());
+  const originReadInFlight = useRef<Set<string>>(new Set());
 
   const rememberPendingCreatedSession = useCallback(
     (workspaceId: string, sessionId: string) => {
@@ -178,6 +183,15 @@ export function useSessionRouteSessionLoader(input: Input) {
             }),
           );
         }
+        const originController = new AbortController();
+        const originTimeout = window.setTimeout(
+          () => originController.abort(),
+          2_000,
+        );
+        const originsPromise = endpoint.client
+          .listSessionOrigins(endpoint.workspaceId, { signal: originController.signal })
+          .catch(() => null)
+          .finally(() => window.clearTimeout(originTimeout));
         try {
           const sidebarItems = await collectWorkspaceSessionItems({
             client: endpoint.client,
@@ -244,6 +258,30 @@ export function useSessionRouteSessionLoader(input: Input) {
           setRetryingWorkspaceIds((current) =>
             removeRetryingWorkspaceId(current, workspace.id),
           );
+          // Origins are metadata only: start alongside the session request and
+          // reconcile after the real list is available, without delaying the
+          // sidebar or turning an origin error into a session-list error.
+          void originsPromise.then((payload) => {
+            if (!payload || originReadInFlight.current.has(workspace.id)) return;
+            originReadInFlight.current.add(workspace.id);
+            const realSessionIds = new Set(sidebarItems.map((item) => item.id));
+            reconcileSessionOrigins({
+              localWorkspaceId: workspace.id,
+              originWorkspaceId: endpoint.workspaceId,
+              realSessionIds,
+              origins: payload.items,
+            });
+            void migrateLegacySessionOrigins({
+              client: endpoint.client,
+              localWorkspaceId: workspace.id,
+              originWorkspaceId: endpoint.workspaceId,
+              realSessionIds,
+              origins: payload.items,
+            }).finally(() => {
+              originReadInFlight.current.delete(workspace.id);
+              setSessionsByWorkspaceId((current) => ({ ...current }));
+            });
+          });
           // When a workspace returns zero sessions during the initial batch
           // load, OpenCode may still be warming up its index.  Schedule a
           // single delayed retry so the sidebar doesn't stay permanently

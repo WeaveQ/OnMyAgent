@@ -1,5 +1,10 @@
 /** Domain methods: Sessions for OnMyAgent server HTTP client. */
 import type { Session } from "@opencode-ai/sdk/v2/client";
+import type {
+  SessionOriginListPayload,
+  SessionOriginRecord,
+  SessionOriginUpsertPayload,
+} from "@onmyagent/types/server";
 import {
   requestJson,
   type OnMyAgentServerClientContext,
@@ -83,5 +88,32 @@ export function createSessionsClientMethods(ctx: OnMyAgentServerClientContext) {
         },
       );
     },
+    listSessionOrigins: (workspaceId: string, options?: { signal?: AbortSignal }) =>
+      requestJson<SessionOriginListPayload>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/session-origins`,
+        {
+          token,
+          hostToken,
+          timeoutMs: timeouts.sessionRead,
+          signal: options?.signal,
+        },
+      ),
+    upsertSessionOrigin: (
+      workspaceId: string,
+      sessionId: string,
+      payload: SessionOriginUpsertPayload,
+    ) =>
+      requestJson<{ item: SessionOriginRecord }>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/session-origins/${encodeURIComponent(sessionId)}`,
+        { token, hostToken, method: "PUT", body: payload, timeoutMs: timeouts.sessionRead },
+      ),
+    deleteSessionOrigin: (workspaceId: string, sessionId: string) =>
+      requestJson<{ ok: true }>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/session-origins/${encodeURIComponent(sessionId)}`,
+        { token, hostToken, method: "DELETE", timeoutMs: timeouts.deleteSession },
+      ),
   };
 }
