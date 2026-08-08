@@ -16,7 +16,7 @@ async function settle() {
 }
 
 describe("session snapshot scheduler", () => {
-  test("runs at most one interactive request per workspace", async () => {
+  test("coalesces an in-flight interactive request with the same key", async () => {
     const first = deferred<string>();
     let active = 0;
     let maximum = 0;
@@ -45,8 +45,41 @@ describe("session snapshot scheduler", () => {
 
     first.resolve("first");
     expect(await firstRequest).toBe("first");
-    expect(await secondRequest).toBe("second");
+    expect(await secondRequest).toBe("first");
     expect(maximum).toBe(1);
+  });
+
+  test("coalesces a queued same-key burst into one background snapshot", async () => {
+    const unblock = deferred<void>();
+    let started = 0;
+    const blocker = scheduleSessionSnapshot({
+      workspaceId: "queued-workspace",
+      requestKey: "blocker",
+      priority: "background",
+      run: async () => {
+        await unblock.promise;
+        return "blocker";
+      },
+    });
+    const requests = Array.from({ length: 20 }, () =>
+      scheduleSessionSnapshot({
+        workspaceId: "queued-workspace",
+        requestKey: "same-session",
+        priority: "background",
+        run: async () => {
+          started += 1;
+          return "snapshot";
+        },
+      }),
+    );
+
+    await settle();
+    unblock.resolve();
+    await blocker;
+    expect(await Promise.all(requests)).toEqual(
+      Array.from({ length: 20 }, () => "snapshot"),
+    );
+    expect(started).toBe(1);
   });
 
   test("new interactive work aborts a different active request", async () => {
