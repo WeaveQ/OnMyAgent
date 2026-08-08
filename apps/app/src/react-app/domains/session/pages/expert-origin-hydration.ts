@@ -39,3 +39,10 @@ export function resolveExpertOriginHydrationView(input: {
     showNoExpertConversation,
   };
 }
+
+export function shouldBlockExpertSurfaceForWorkspaceError(input: {
+  selectedSessionId: string | null;
+  showSelectedWorkspaceError: boolean;
+}): boolean {
+  return input.showSelectedWorkspaceError && !input.selectedSessionId;
+}

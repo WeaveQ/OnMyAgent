@@ -150,7 +150,7 @@ import { useExpertBoundDraftTransition } from "./use-expert-bound-draft-transiti
 import { resolveColdOpenExpertSessionId } from "./order-conversation-groups";
 import { useExpertSessionStarters } from "./use-expert-session-starters";
 import { useExpertWaybillPatch } from "./use-expert-waybill-patch";
-import { resolveExpertOriginHydrationView } from "./expert-origin-hydration";
+import { resolveExpertOriginHydrationView, shouldBlockExpertSurfaceForWorkspaceError } from "./expert-origin-hydration";
 import { ExpertOriginRecoveryNotice } from "./expert-origin-recovery-notice";
 
 import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
@@ -1051,6 +1051,7 @@ export function ExpertPage(props: ExpertPageProps) {
     selectedWorkspaceGroupError ||
     "";
   const showSelectedWorkspaceError = Boolean(selectedWorkspaceErrorMessage);
+  const blockExpertSurfaceForWorkspaceError = shouldBlockExpertSurfaceForWorkspaceError({ selectedSessionId: props.selectedSessionId, showSelectedWorkspaceError });
   const selectedWorkspaceErrorTitle =
     props.selectedWorkspaceDisplay.workspaceType === "remote"
       ? "Remote workspace unavailable"
@@ -1528,6 +1529,7 @@ export function ExpertPage(props: ExpertPageProps) {
                     }
                     primarySession={
                       canRenderReactSurface &&
+                      !blockExpertSurfaceForWorkspaceError &&
                       !showNoExpertConversationEmptyState &&
                       !showExpertOriginHydrationDegraded &&
                       !showExpertOriginHydrationLoading ? (
@@ -1594,7 +1596,7 @@ export function ExpertPage(props: ExpertPageProps) {
                       isPrimarySessionView &&
                       !showNoExpertConversationEmptyState &&
                       !showDelayedSessionLoadingState &&
-                      !canRenderReactSurface &&
+                      (!canRenderReactSurface || blockExpertSurfaceForWorkspaceError) &&
                       !showBlockingStartupSkeleton ? (
                         <div
                           className={`mx-auto max-w-[800px] px-6 ${showWorkspaceSetupEmptyState ? "pt-20" : "pt-10"}`}

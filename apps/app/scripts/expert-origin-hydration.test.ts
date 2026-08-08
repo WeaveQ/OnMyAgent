@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { resolveExpertOriginHydrationView } from "../src/react-app/domains/session/pages/expert-origin-hydration";
+import { resolveExpertOriginHydrationView, shouldBlockExpertSurfaceForWorkspaceError } from "../src/react-app/domains/session/pages/expert-origin-hydration";
 import {
   createSessionOriginHydrationGate,
   getSessionOriginRecoveryRetryDelayMs,
@@ -30,6 +30,17 @@ const base = {
 };
 
 describe("expert origin hydration view", () => {
+  test("shows workspace errors instead of an empty draft surface", () => {
+    expect(shouldBlockExpertSurfaceForWorkspaceError({
+      selectedSessionId: null,
+      showSelectedWorkspaceError: true,
+    })).toBe(true);
+    expect(shouldBlockExpertSurfaceForWorkspaceError({
+      selectedSessionId: "existing-session",
+      showSelectedWorkspaceError: true,
+    })).toBe(false);
+  });
+
   test("keeps a selected existing session mounted while hydration is pending", () => {
     expect(resolveExpertOriginHydrationView({
       ...base,
