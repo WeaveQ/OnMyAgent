@@ -43,9 +43,12 @@ import {
   SESSION_SNAPSHOT_STALE_TIME_MS,
   SessionPage,
   buildSessionSnapshotPrefetchSpec,
+  executePendingSessionDelete,
   isTolerableSessionDeleteFailure,
   markSessionRecentlyDeleted,
   raceSessionDeleteRemote,
+  registerPendingSessionDelete,
+  retryPendingSessionDeletesForWorkspace,
   resetRailBookmarkToPrimary,
   resolveSessionDeleteDirectory,
   scheduleSessionSnapshot,
@@ -976,6 +979,11 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                   // 1) Local-first: tombstone + optimistic remove so dirty rows
                   // leave the UI even if remote DELETE hangs for 12s.
                   markSessionRecentlyDeleted(sessionId);
+                  registerPendingSessionDelete({
+                    workspaceId: selectedWorkspaceId,
+                    sessionId,
+                    ...(directory ? { directory } : {}),
+                  });
                   let nextListForCache: SidebarSessionItem[] | null = null;
                   setSessionsByWorkspaceId((current) => {
                     const list = current[selectedWorkspaceId];
@@ -1021,11 +1029,12 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                   // 2) Remote best-effort with a short UI budget (not full 12s
                   // client timeout) so the confirm dialog never sticks.
                   if (endpoint) {
-                    const remote = endpoint.client
-                      .deleteSession(endpoint.workspaceId, sessionId, {
-                        directory,
-                      })
-                      .catch((error: unknown) => {
+                    const remote = executePendingSessionDelete({
+                      workspaceId: selectedWorkspaceId,
+                      remoteWorkspaceId: endpoint.workspaceId,
+                      sessionId,
+                      client: endpoint.client,
+                    }).catch((error: unknown) => {
                         if (!isTolerableSessionDeleteFailure(error)) {
                           console.warn(
                             "[session-route] deleteSession remote failed; local cleanup already done",
@@ -1039,6 +1048,11 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                             error,
                           );
                         }
+                        void retryPendingSessionDeletesForWorkspace({
+                          workspaceId: selectedWorkspaceId,
+                          remoteWorkspaceId: endpoint.workspaceId,
+                          client: endpoint.client,
+                        });
                       });
                     await raceSessionDeleteRemote(
                       remote,

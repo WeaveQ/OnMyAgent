@@ -20,6 +20,7 @@ import {
   assistantSessionWorkspacesChangedEvent,
   readAssistantSessionWorkspaceChangeOwner,
   readAssistantSessionWorkspaces,
+  retryPendingSessionDeletesForWorkspace,
 } from "../../domains/session";
 import {
   readLastSessionFor,
@@ -154,6 +155,11 @@ export function useSessionRouteSessionLoader(input: Input) {
           }
           return;
         }
+        void retryPendingSessionDeletesForWorkspace({
+          workspaceId: workspace.id,
+          remoteWorkspaceId: endpoint.workspaceId,
+          client: endpoint.client,
+        });
         const startedAt =
           backgroundSessionLoadInFlight.current.get(workspace.id) ?? 0;
         const requestStartedAt = Date.now();

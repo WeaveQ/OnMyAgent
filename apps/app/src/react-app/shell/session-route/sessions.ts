@@ -11,6 +11,7 @@ import {
 import {
   SIDEBAR_ASSISTANT_DIRECTORY_LIST_LIMIT,
   SIDEBAR_SESSION_LIST_LIMIT,
+  filterPendingDeletedSessions,
   filterRecentlyDeletedSessions,
   sessionSnapshotFetchOptions,
   sessionSnapshotQueryKey,
@@ -167,7 +168,10 @@ export async function collectWorkspaceSessionItems(input: {
           }),
       )
     : fetchedItems;
-  return toSidebarSessionItems(items);
+  return filterPendingDeletedSessions({
+    workspaceId: input.workspaceId,
+    items: toSidebarSessionItems(items),
+  });
 }
 
 export function insertSidebarSession(input: {
@@ -290,9 +294,12 @@ export function mergeWorkspaceFetchedSessions(input: {
 }) {
   // Drop ids the user just deleted so a racing listSessions cannot resurrect
   // ghost/dirty rows while remote delete is still in flight or failed soft.
-  const nextItems = filterRecentlyDeletedSessions(
-    input.merge(input.fetched, input.current[input.workspaceId] ?? []),
-  );
+  const nextItems = filterPendingDeletedSessions({
+    workspaceId: input.workspaceId,
+    items: filterRecentlyDeletedSessions(
+      input.merge(input.fetched, input.current[input.workspaceId] ?? []),
+    ),
+  });
   return { ...input.current, [input.workspaceId]: nextItems };
 }
 
