@@ -338,7 +338,7 @@ export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
           </Button>
         </div>
 
-        {/* Same 2-column card grid as System “应用选项” (SystemOptionCard). */}
+        {/* Same 2-column card grid as System option cards (SystemOptionCard). */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {items.map((perm) => {
             const status = (result?.permissions[perm.id] ??
