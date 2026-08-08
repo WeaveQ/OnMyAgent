@@ -24,6 +24,7 @@ import {
   sessionSnapshotFetchOptions,
   sessionSnapshotQueryKey,
 } from "../sync/session-snapshot-query-policy";
+import { scheduleSessionSnapshot } from "../sync/session-snapshot-scheduler";
 import { useSharedQueryState } from "./session-surface-hooks";
 import { EMPTY_TRANSCRIPT, IDLE_STATUS } from "./session-surface-constants";
 
@@ -96,14 +97,24 @@ export function useSessionSurfaceSnapshot(input: SessionSurfaceSnapshotInput) {
   const snapshotQuery = useQuery<OnMyAgentSessionSnapshot>({
     queryKey: snapshotQueryKey,
     enabled: !draftOnly && Boolean(sessionId.trim()),
-    queryFn: async () =>
-      (
-        await client.getSessionSnapshot(
-          workspaceId,
-          sessionId,
-          sessionSnapshotFetchOptions(workspaceRoot),
-        )
-      ).item,
+    queryFn: ({ signal }) =>
+      scheduleSessionSnapshot({
+        workspaceId,
+        requestKey: `${sessionId}:${workspaceRoot}`,
+        priority: "interactive",
+        signal,
+        run: async (requestSignal) =>
+          (
+            await client.getSessionSnapshot(
+              workspaceId,
+              sessionId,
+              {
+                ...sessionSnapshotFetchOptions(workspaceRoot),
+                signal: requestSignal,
+              },
+            )
+          ).item,
+      }),
     staleTime: SESSION_SNAPSHOT_STALE_TIME_MS,
     // Prefetch + revisit within staleTime should paint immediately; longer
     // gc keeps recently switched sessions warm when hopping back.

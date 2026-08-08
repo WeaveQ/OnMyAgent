@@ -48,6 +48,7 @@ import {
   raceSessionDeleteRemote,
   resetRailBookmarkToPrimary,
   resolveSessionDeleteDirectory,
+  scheduleSessionSnapshot,
   type PageMode,
   type SessionAgentManagementIntent,
   type SessionPageSurfaceProps,
@@ -776,14 +777,21 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               void getReactQueryClient().prefetchQuery({
                 queryKey: spec.queryKey,
                 staleTime: spec.staleTime,
-                queryFn: async () =>
-                  (
-                    await endpoint.client.getSessionSnapshot(
-                      endpoint.workspaceId,
-                      sessionId,
-                      spec.fetchOptions,
-                    )
-                  ).item,
+                queryFn: ({ signal }) =>
+                  scheduleSessionSnapshot({
+                    workspaceId: endpoint.workspaceId,
+                    requestKey: `${sessionId}:${directory ?? ""}`,
+                    priority: "prefetch",
+                    signal,
+                    run: async (requestSignal) =>
+                      (
+                        await endpoint.client.getSessionSnapshot(
+                          endpoint.workspaceId,
+                          sessionId,
+                          { ...spec.fetchOptions, signal: requestSignal },
+                        )
+                      ).item,
+                  }),
               });
             },
             onCreateTaskInWorkspace: (workspaceId) => {

@@ -137,6 +137,14 @@ export type {
   SessionSnapshotFetchOptions,
   SessionSnapshotQueryKey,
 } from "./sync/session-snapshot-query-policy";
+/** Cross-session snapshot budget: focused work can preempt bounded prefetches. */
+export {
+  scheduleSessionSnapshot,
+} from "./sync/session-snapshot-scheduler";
+export type {
+  SessionSnapshotPriority,
+  SessionSnapshotScheduleInput,
+} from "./sync/session-snapshot-scheduler";
 /** Delete policy: directory resolution + dirty/ghost remote failure tolerance. */
 export {
   SESSION_DELETE_REMOTE_BUDGET_MS,

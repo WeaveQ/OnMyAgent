@@ -63,7 +63,11 @@ export function createSessionsClientMethods(ctx: OnMyAgentServerClientContext) {
         { token, hostToken, timeoutMs: timeouts.sessionRead },
       );
     },
-    getSessionSnapshot: (workspaceId: string, sessionId: string, options?: { limit?: number; directory?: string }) => {
+    getSessionSnapshot: (
+      workspaceId: string,
+      sessionId: string,
+      options?: { limit?: number; directory?: string; signal?: AbortSignal },
+    ) => {
       const query = new URLSearchParams();
       if (typeof options?.limit === "number") query.set("limit", String(options.limit));
       if (options?.directory?.trim()) query.set("directory", options.directory.trim());
@@ -71,7 +75,12 @@ export function createSessionsClientMethods(ctx: OnMyAgentServerClientContext) {
       return requestJson<{ item: OnMyAgentSessionSnapshot }>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(sessionId)}/snapshot${suffix}`,
-        { token, hostToken, timeoutMs: timeouts.sessionRead },
+        {
+          token,
+          hostToken,
+          timeoutMs: timeouts.sessionRead,
+          signal: options?.signal,
+        },
       );
     },
   };
