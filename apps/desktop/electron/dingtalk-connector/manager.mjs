@@ -90,7 +90,7 @@ export function removeDingtalkMcp(config) {
       (marker &&
         typeof marker === "object" &&
         !Array.isArray(marker) &&
-        marker.pluginId === PLUGIN_ID) ||
+        /** @type {Record<string, unknown>} */ (marker).pluginId === PLUGIN_ID) ||
       cmdStr.includes("dingtalk-mcp")
     ) {
       delete existing[MCP_SERVER_NAME];

@@ -58,8 +58,7 @@ export default {
   "plugins.artifact_skills": "技能",
   "plugins.artifact_excel_unavailable": "Excel即時控制暫不可用，需要先註冊即時服務提供方。",
   "plugins.artifact_plugin_browser_name": "瀏覽器",
-  "plugins.artifact_plugin_browser_desc":
-    "在 OnMyAgent 內建瀏覽器中開啟頁面，導覽、點選、輸入與截圖；適合本機開發頁與輕量自動化。",
+  "plugins.artifact_plugin_browser_desc": "連接應用內瀏覽器，實現網頁自動化。",
   "plugins.artifact_plugin_browser_long":
     "開啟並控制應用內建瀏覽器：導覽、點選、輸入、檢查頁面與截圖。適合本機開發頁與無需真實 Chrome 登入的自動化。系統外掛，預設啟用、不可解除安裝。與 BrowserSkill（真實 Chrome/Edge）互補。",
   "plugins.artifact_plugin_browser_system": "系統外掛 — 不可解除安裝",
@@ -67,24 +66,21 @@ export default {
   "plugins.artifact_plugin_browser_prompt_2": "在應用內瀏覽器裡走一遍這個結帳流程。",
   "plugins.artifact_plugin_browser_prompt_3": "幫目前應用內瀏覽器分頁截一張圖。",
   "plugins.artifact_plugin_documents_name": "文件",
-  "plugins.artifact_plugin_documents_desc":
-    "建立、讀取與修訂本機 Word（DOCX）：起草報告、改結構、審閱批註，對話即可改稿。",
+  "plugins.artifact_plugin_documents_desc": "建立與修訂本機 Word 文件。",
   "plugins.artifact_plugin_documents_long":
     "讀取、建立、編輯並審閱本機 Word（DOCX）：從筆記起草報告、依大綱整理章節、針對性改稿與結構優化。適合週報、方案與說明文件。",
   "plugins.artifact_plugin_documents_prompt_1": "根據我的筆記起草一份精煉的 DOCX 報告。",
   "plugins.artifact_plugin_documents_prompt_2": "審閱這份 Word 文件，給出有針對性的修改建議。",
   "plugins.artifact_plugin_documents_prompt_3": "把這份大綱整理成結構清晰的文件。",
   "plugins.artifact_plugin_pdf_name": "PDF",
-  "plugins.artifact_plugin_pdf_desc":
-    "閱讀、總結與產生 PDF：擷取要點、做講義、檢查版式，支援從現有材料出清稿。",
+  "plugins.artifact_plugin_pdf_desc": "閱讀、總結與產生 PDF。",
   "plugins.artifact_plugin_pdf_long":
     "讀取、建立、擷取並校驗 PDF：總結關鍵發現、產生講義／手冊、檢查版式與可讀性。適合從筆記或網頁材料輸出可分享的 PDF 清稿。",
   "plugins.artifact_plugin_pdf_prompt_1": "總結這份 PDF 的關鍵發現。",
   "plugins.artifact_plugin_pdf_prompt_2": "把這些內容做成一份清晰的 PDF 講義。",
   "plugins.artifact_plugin_pdf_prompt_3": "檢查這些 PDF 頁面是否有版式問題。",
   "plugins.artifact_plugin_spreadsheets_name": "試算表",
-  "plugins.artifact_plugin_spreadsheets_desc":
-    "建立與分析 Excel／試算表：整理資料、寫公式、做彙總與趨勢，適合報表與對帳。",
+  "plugins.artifact_plugin_spreadsheets_desc": "建立與分析試算表資料。",
   "plugins.artifact_plugin_spreadsheets_long":
     "建立、讀取、分析並編輯試算表與活頁簿：清洗資料、撰寫／核對公式、彙總指標與趨勢。適合報表、對帳與從原始資料建表。",
   "plugins.artifact_plugin_spreadsheets_prompt_1": "用這些原始資料建一張清晰的表格。",

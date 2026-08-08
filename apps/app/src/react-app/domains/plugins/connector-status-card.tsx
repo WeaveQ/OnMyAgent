@@ -171,7 +171,7 @@ export function ConnectorStatusCard(props: ConnectorStatusCardProps) {
       </p>
       {props.errorLine ? (
         <p
-          className="mt-auto shrink-0 truncate text-[11px] leading-4 text-dls-status-danger-fg/90"
+          className="mt-auto shrink-0 truncate text-2xs leading-4 text-dls-status-danger-fg/90"
           title={props.errorTitle?.trim() || props.errorLine}
           role="status"
         >

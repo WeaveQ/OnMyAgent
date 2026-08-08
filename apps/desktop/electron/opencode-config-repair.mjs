@@ -292,11 +292,12 @@ export async function repairOpencodeEngineConfigs(options = {}) {
     if (!parsed.ok) {
       const empty = '{\n  "$schema": "https://opencode.ai/config.json"\n}\n';
       await writeFile(filePath, empty, "utf8");
+      const failed = /** @type {{ ok: false; error: string }} */ (parsed);
       results.push({
         path: filePath,
         backupPath,
         action: "reset_empty_invalid_json",
-        parseError: parsed.error,
+        parseError: failed.error,
         removedMcp: [],
         fixedMcp: [],
       });

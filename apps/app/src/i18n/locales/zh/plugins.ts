@@ -58,8 +58,7 @@ export default {
   "plugins.artifact_skills": "技能",
   "plugins.artifact_excel_unavailable": "Excel实时控制暂不可用，需要先注册实时服务提供方。",
   "plugins.artifact_plugin_browser_name": "浏览器",
-  "plugins.artifact_plugin_browser_desc":
-    "在 OnMyAgent 内置浏览器中打开页面，导航、点击、输入与截图；适合本地开发页与轻量自动化。",
+  "plugins.artifact_plugin_browser_desc": "连接应用内浏览器，实现网页自动化。",
   "plugins.artifact_plugin_browser_long":
     "打开并控制应用内置浏览器：导航、点击、输入、检查页面与截图。适合本地开发页与无需真实 Chrome 登录的自动化。系统插件，默认启用、不可卸载；关闭后禁用应用内浏览器能力。与 BrowserSkill（真实 Chrome/Edge）互补。",
   "plugins.artifact_plugin_browser_system": "系统插件 — 不可卸载",
@@ -67,24 +66,21 @@ export default {
   "plugins.artifact_plugin_browser_prompt_2": "在应用内浏览器里走一遍这个结账流程。",
   "plugins.artifact_plugin_browser_prompt_3": "给当前应用内浏览器标签页截一张图。",
   "plugins.artifact_plugin_documents_name": "文档",
-  "plugins.artifact_plugin_documents_desc":
-    "创建、读取与修订本地 Word（DOCX）：起草报告、改结构、审阅批注，对话即可改稿。",
+  "plugins.artifact_plugin_documents_desc": "创建与修订本地 Word 文档。",
   "plugins.artifact_plugin_documents_long":
     "读取、创建、编辑并审阅本地 Word（DOCX）文档：从笔记起草报告、按大纲整理章节、针对性改稿与结构优化。适合周报、方案与说明文档。",
   "plugins.artifact_plugin_documents_prompt_1": "根据我的笔记起草一份精炼的 DOCX 报告。",
   "plugins.artifact_plugin_documents_prompt_2": "审阅这份 Word 文档，给出有针对性的修改建议。",
   "plugins.artifact_plugin_documents_prompt_3": "把这份大纲整理成结构清晰的文档。",
   "plugins.artifact_plugin_pdf_name": "PDF",
-  "plugins.artifact_plugin_pdf_desc":
-    "阅读、总结与生成 PDF：提取要点、做讲义、检查版式，支持从现有材料出清稿。",
+  "plugins.artifact_plugin_pdf_desc": "阅读、总结与生成 PDF。",
   "plugins.artifact_plugin_pdf_long":
     "读取、创建、提取并校验 PDF：总结关键发现、生成讲义/手册、检查版式与可读性。适合从笔记或网页材料输出可分享的 PDF 清稿。",
   "plugins.artifact_plugin_pdf_prompt_1": "总结这份 PDF 的关键发现。",
   "plugins.artifact_plugin_pdf_prompt_2": "把这些内容做成一份清晰的 PDF 讲义。",
   "plugins.artifact_plugin_pdf_prompt_3": "检查这些 PDF 页面是否有版式问题。",
   "plugins.artifact_plugin_spreadsheets_name": "表格",
-  "plugins.artifact_plugin_spreadsheets_desc":
-    "创建与分析 Excel/电子表格：整理数据、写公式、做汇总与趋势，适合报表与对账。",
+  "plugins.artifact_plugin_spreadsheets_desc": "创建与分析电子表格数据。",
   "plugins.artifact_plugin_spreadsheets_long":
     "创建、读取、分析并编辑电子表格与工作簿：清洗数据、编写/核对公式、汇总指标与趋势。适合报表、对账与从原始数据建表。",
   "plugins.artifact_plugin_spreadsheets_prompt_1": "用这些原始数据建一张清晰的表格。",
