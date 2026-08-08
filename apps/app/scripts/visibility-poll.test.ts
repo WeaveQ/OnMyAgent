@@ -158,9 +158,10 @@ describe("deferred high-value network/status poll wiring", () => {
       join(appRoot, "src/react-app/shell/session-route/refresh-hook.ts"),
       "utf8",
     );
-    expect(source).toContain('from "../../infra/visibility-poll"');
-    expect(source).toContain("shouldRunPollTick");
-    expect(source).toContain("isDocumentHidden");
+    expect(source).toContain("shouldRunReloadEventsPoll");
+    expect(source).toContain("const scheduleNextPoll");
+    expect(source).toContain("window.setTimeout");
+    expect(source).not.toContain("window.setInterval");
   });
 
   test("automation-page pauses status poll while hidden", () => {
