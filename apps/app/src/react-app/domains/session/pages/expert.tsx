@@ -135,6 +135,7 @@ import {
   buildExpertWorkspaceSessions,
   buildAgentConversationGroups,
   computeHasAnyExpertConversation,
+  resolveExpertSidebarOpen,
   resolveActiveAgentContext,
   resolveActiveConversationGroup,
   selectRawWorkspaceSessions,
@@ -179,15 +180,11 @@ export function ExpertPage(props: ExpertPageProps) {
     useState<number | null>(null);
   const [draftSessionActive, setDraftSessionActive] = useState(false);
   const [draftAgentId, setDraftAgentId] = useState<string | null>(null);
-  const [pendingTabSessionId, setPendingTabSessionId] = useState<string | null>(
-    null,
-  );
+  const [pendingTabSessionId, setPendingTabSessionId] = useState<string | null>(null);
   const [sessionTabOrderIdsByScope, setSessionTabOrderIdsByScope] = useState<
     Record<string, string[]>
   >({});
-  const [draftAgentContexts, setDraftAgentContexts] = useState<
-    Record<string, PendingAgentContext>
-  >({});
+  const [draftAgentContexts, setDraftAgentContexts] = useState<Record<string, PendingAgentContext>>({});
   const newSessionDraftCleanupRef = useRef({
     active: false,
     workspaceId: props.selectedWorkspaceId,
@@ -624,28 +621,30 @@ export function ExpertPage(props: ExpertPageProps) {
         handleOpenExpertSession(workspaceId, hintSessionId);
         return;
       }
-      if (
-        activeConversationAgentId === agentId &&
-        props.selectedSessionId &&
-        isExpertSession(props.selectedSessionId)
-      ) {
-        openRailView("chat");
-        return;
-      }
       const group = conversationGroups.find((item) => item.agentId === agentId);
       const sessionIds =
         group?.sessions.map((session) => session.id) ??
         (hint ? [hint] : []);
-      const resolved =
-        resolveSessionTabForAgent(agentId, sessionIds) ?? hintSessionId;
-      handleOpenExpertSession(workspaceId, resolved);
+      const scope = `${workspaceId.trim()}:${agentId}`;
+      const target = resolveExpertSidebarOpen({
+        hintSessionId,
+        rememberedSessionId: readExpertSessionSelection(workspaceId, agentId),
+        orderIds: sessionTabOrderIdsByScope[scope] ?? [],
+        readySessionIds: sessionIds,
+        selectedSessionId: props.selectedSessionId,
+      });
+      if (!target.sessionId) return;
+      if (!target.shouldOpen) {
+        openRailView("chat");
+        return;
+      }
+      handleOpenExpertSession(workspaceId, target.sessionId);
     },
     [
-      activeConversationAgentId,
       conversationGroups,
       handleOpenExpertSession,
       props.selectedSessionId,
-      resolveSessionTabForAgent,
+      sessionTabOrderIdsByScope,
     ],
   );
 
