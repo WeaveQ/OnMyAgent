@@ -141,6 +141,7 @@ export default {
   "automation.status_running": "Running",
   "automation.stop_run": "Stop",
   "automation.stop_run_done": "Stopped the current run of “{title}”",
+  "automation.stop_run_failed": "Could not stop “{title}”. It may still be running — try Stop again.",
   "automation.run_started_background": "“{title}” started and is running in the background",
   "automation.running_elapsed": "Running for {elapsed}",
   "automation.running_long_hint": "Running for {elapsed} — open the session to check progress",

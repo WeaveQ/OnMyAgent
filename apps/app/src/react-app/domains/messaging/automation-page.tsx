@@ -469,6 +469,13 @@ function AutomationRiskDialog(props: {
   );
 }
 
+/** Match server `automation_stop_failed` / abort failure copy for retry UX. */
+function isAutomationStopFailedMessage(message: string): boolean {
+  return /automation_stop_failed|stop_failed|Failed to stop|retry stop/i.test(
+    message,
+  );
+}
+
 export function AutomationPage(props: {
   scene: AutomationScene;
   client: OnMyAgentServerClient | null;
@@ -814,7 +821,16 @@ export function AutomationPage(props: {
           title: t("automation.stop_run_done", { title: item.title }),
         });
       })
-      .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)))
+      .catch((cause: unknown) => {
+        const message = cause instanceof Error ? cause.message : String(cause);
+        // Keep running state so the user can retry stop (abort failed, lease held).
+        refreshAutomations({ silent: true });
+        setError(
+          isAutomationStopFailedMessage(message)
+            ? t("automation.stop_run_failed", { title: item.title })
+            : message,
+        );
+      })
       .finally(() => setBusy(false));
   };
 

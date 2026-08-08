@@ -141,6 +141,7 @@ export default {
   "automation.status_running": "执行中",
   "automation.stop_run": "停止",
   "automation.stop_run_done": "已停止「{title}」本次运行",
+  "automation.stop_run_failed": "未能停止「{title}」，可能仍在运行，请再点一次「停止」。",
   "automation.run_started_background": "「{title}」已开始，正在后台运行",
   "automation.running_elapsed": "已运行 {elapsed}",
   "automation.running_long_hint": "已运行 {elapsed}，可打开会话查看进度",
