@@ -17,7 +17,11 @@ import {
 import { dirname, join, resolve } from "path";
 import { tmpdir } from "os";
 import { fileURLToPath } from "url";
-import { shouldDownloadOpencode } from "./prepare-sidecar-policy.mjs";
+import {
+  canReuseSidecarManifest,
+  shouldCopyLocalOpencode,
+  shouldDownloadOpencode,
+} from "./prepare-sidecar-policy.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const readArg = (name) => {
@@ -284,6 +288,24 @@ const sha256File = (filePath) => {
   return hash.digest("hex");
 };
 
+const snapshotFile = (filePath) => {
+  try {
+    const stat = statSync(filePath);
+    return stat.isFile() ? { size: stat.size, mtimeMs: stat.mtimeMs } : null;
+  } catch {
+    return null;
+  }
+};
+
+const readVersionManifest = (filePath) => {
+  try {
+    const value = JSON.parse(readFileSync(filePath, "utf8"));
+    return value && typeof value === "object" ? value : null;
+  } catch {
+    return null;
+  }
+};
+
 const adHocSignDarwin = (filePath) => {
   if (process.platform !== "darwin" || !filePath || !existsSync(filePath)) return;
   const remove = spawnSync("codesign", ["--remove-signature", filePath], {
@@ -308,11 +330,13 @@ const adHocSignDarwin = (filePath) => {
   }
 };
 
-const adHocSignDarwinSidecars = (paths) => {
-  if (process.platform !== "darwin") return;
-  for (const filePath of [...new Set(paths.filter(Boolean))]) {
-    adHocSignDarwin(filePath);
+const hasValidDarwinSignature = (filePath) => {
+  if (process.platform !== "darwin" || !filePath || !existsSync(filePath)) return true;
+  const result = spawnSync("codesign", ["--verify", "--strict", filePath], { encoding: "utf8" });
+  if (result.error?.code === "ENOENT") {
+    throw new Error("codesign is required to prepare runnable macOS sidecars");
   }
+  return result.status === 0;
 };
 
 const parseChecksum = (content, assetName) => {
@@ -378,7 +402,17 @@ const shouldDownloadOpencodeSidecar = shouldDownloadOpencode({
 });
 
 const localOpencode = findLocalOpencodeBinary();
-if (copyLocalOpencodeSidecar(localOpencode, normalizedOpencodeVersion)) {
+const shouldCopyLocalOpencodeSidecar = shouldCopyLocalOpencode({
+  candidateExists: opencodeCandidateExists,
+  candidateIsStub: opencodeCandidateIsStub,
+  localVersion: localOpencode?.version ?? null,
+  pinnedVersion: normalizedOpencodeVersion,
+  preferExisting: preferExistingOpencode,
+});
+let didCopyOpencode = false;
+let didDownloadOpencode = false;
+if (shouldCopyLocalOpencodeSidecar && copyLocalOpencodeSidecar(localOpencode, normalizedOpencodeVersion)) {
+  didCopyOpencode = true;
   existingOpencodeVersion = preparedOpencodeVersion;
 } else if (!shouldDownloadOpencodeSidecar) {
   console.log(`OpenCode sidecar already present (${existingOpencodeVersion}).`);
@@ -473,11 +507,13 @@ if (!preparedOpencodeVersion && shouldDownloadOpencodeSidecar) {
   }
 
   preparedOpencodeVersion = normalizedOpencodeVersion;
+  didDownloadOpencode = true;
   console.log(`OpenCode sidecar updated to ${normalizedOpencodeVersion}.`);
 }
 
 // Build orchestrator sidecar
 let didBuildOrchestrator = false;
+let didCopyOrchestrator = false;
 const shouldBuildOrchestrator =
   forceBuild || !existsSync(orchestratorBuildPath) || isStubBinary(orchestratorBuildPath);
 if (shouldBuildOrchestrator) {
@@ -531,6 +567,7 @@ if (existsSync(orchestratorBuildPath)) {
       // ignore
     }
     copyFileSync(orchestratorBuildPath, orchestratorPath);
+    didCopyOrchestrator = true;
   }
 
   if (orchestratorTargetPath) {
@@ -545,18 +582,32 @@ if (existsSync(orchestratorBuildPath)) {
         // ignore
       }
       copyFileSync(orchestratorBuildPath, orchestratorTargetPath);
+      didCopyOrchestrator = true;
     }
   }
 }
 
-adHocSignDarwinSidecars([
+const changedSidecars = new Set([
+  ...(didCopyOpencode || didDownloadOpencode ? [opencodePath, opencodeTargetPath] : []),
+  ...(didBuildOrchestrator || didCopyOrchestrator
+    ? [orchestratorBuildPath, orchestratorPath, orchestratorTargetPath]
+    : []),
+]);
+const sidecarPaths = [
   opencodePath,
   opencodeTargetPath,
   // onmyagent-server runs in-process — no binary to sign.
   orchestratorBuildPath,
   orchestratorPath,
   orchestratorTargetPath,
-]);
+].filter(Boolean);
+const sidecarsToSign = sidecarPaths.filter(
+  (filePath) => changedSidecars.has(filePath) || !hasValidDarwinSignature(filePath),
+);
+for (const filePath of [...new Set(sidecarsToSign)]) {
+  adHocSignDarwin(filePath);
+}
+const didSignSidecars = sidecarsToSign.length > 0;
 
 const onmyagentServerVersion = (() => {
   try {
@@ -576,20 +627,59 @@ const orchestratorVersion = (() => {
   }
 })();
 
-const versions = {
+const expectedManifestEntries = {
   opencode: {
     version: preparedOpencodeVersion ?? normalizedOpencodeVersion,
-    sha256: opencodeCandidatePath && existsSync(opencodeCandidatePath) ? sha256File(opencodeCandidatePath) : null,
+    file: opencodeCandidatePath ? snapshotFile(opencodeCandidatePath) : null,
+    hasFile: true,
   },
   "onmyagent-server": {
     version: onmyagentServerVersion,
-    sha256: "in-process",
   },
   "onmyagent-orchestrator": {
     version: orchestratorVersion,
-    sha256: existsSync(orchestratorPath) ? sha256File(orchestratorPath) : null,
+    file: snapshotFile(orchestratorPath),
+    hasFile: true,
   },
 };
+
+const versionsPath = join(sidecarDir, "versions.json");
+const targetSuffix = isWindowsTarget ? ".exe" : "";
+const targetVersionsPath = resolvedTargetTriple
+  ? join(sidecarDir, `versions.json-${resolvedTargetTriple}${targetSuffix}`)
+  : null;
+const didMutateSidecars = didCopyOpencode || didDownloadOpencode || didBuildOrchestrator || didCopyOrchestrator || didSignSidecars;
+const existingManifest = readVersionManifest(versionsPath);
+const targetManifest = targetVersionsPath ? readVersionManifest(targetVersionsPath) : existingManifest;
+const canReuseManifest =
+  canReuseSidecarManifest({
+    manifest: existingManifest,
+    expectedEntries: expectedManifestEntries,
+    didMutate: didMutateSidecars,
+  }) &&
+  canReuseSidecarManifest({
+    manifest: targetManifest,
+    expectedEntries: expectedManifestEntries,
+    didMutate: didMutateSidecars,
+  });
+const versions = canReuseManifest
+  ? existingManifest
+  : {
+      opencode: {
+        version: expectedManifestEntries.opencode.version,
+        sha256: opencodeCandidatePath && existsSync(opencodeCandidatePath) ? sha256File(opencodeCandidatePath) : null,
+        ...expectedManifestEntries.opencode.file,
+      },
+      "onmyagent-server": {
+        version: expectedManifestEntries["onmyagent-server"].version,
+        sha256: "in-process",
+      },
+      "onmyagent-orchestrator": {
+        version: expectedManifestEntries["onmyagent-orchestrator"].version,
+        sha256: existsSync(orchestratorPath) ? sha256File(orchestratorPath) : null,
+        ...expectedManifestEntries["onmyagent-orchestrator"].file,
+      },
+    };
 
 const missing = Object.entries(versions)
   .filter(([, info]) => !info.version || !info.sha256)
@@ -600,15 +690,14 @@ if (missing.length) {
   process.exit(1);
 }
 
-const versionsPath = join(sidecarDir, "versions.json");
 try {
-  mkdirSync(sidecarDir, { recursive: true });
-  const content = JSON.stringify(versions, null, 2) + "\n";
-  writeFileSync(versionsPath, content, "utf8");
-  if (resolvedTargetTriple) {
-    const targetSuffix = isWindowsTarget ? ".exe" : "";
-    const targetVersionsPath = join(sidecarDir, `versions.json-${resolvedTargetTriple}${targetSuffix}`);
-    writeFileSync(targetVersionsPath, content, "utf8");
+  if (!canReuseManifest) {
+    mkdirSync(sidecarDir, { recursive: true });
+    const content = JSON.stringify(versions, null, 2) + "\n";
+    writeFileSync(versionsPath, content, "utf8");
+    if (targetVersionsPath) {
+      writeFileSync(targetVersionsPath, content, "utf8");
+    }
   }
 } catch (error) {
   console.error(`Failed to write versions.json: ${error}`);
