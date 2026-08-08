@@ -154,17 +154,6 @@ type TypedServerClientMethodMap = {
     [workspaceId: string, limit?: number],
     { items: AuditEntry[] }
   >;
-  createVoiceRealtimeSession: ServerClientMethodContract<
-    [payload?: { model?: string }],
-    {
-      ok: true;
-      clientSecret: string;
-      expiresAt: number | null;
-      model: string;
-      transcriptionModel: string;
-      tools: string[];
-    }
-  >;
 
   // environment
   listUserEnvKeys: ServerClientMethodContract<[], { keys: string[] }>;

@@ -1,21 +1,12 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Download,
-  RefreshCw,
-  RotateCcw,
-  Trash2,
-} from "lucide-react";
 
 import type {
   OfficeCliProgress,
   OfficeCliStatus,
 } from "@onmyagent/types/officecli";
 
-import { Button } from "@/components/ui/button";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { NoticeBox } from "@/components/ui/notice-box";
-import { StatusBadge, type StatusBadgeTone } from "@/components/ui/status-badge";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
 import {
   getOfficeCliStatus,
@@ -26,24 +17,19 @@ import {
 } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
 import { t } from "@/i18n";
-import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import { cn } from "@/lib/utils";
 
-const OFFICECLI_ICON_SRC = "/connector-icons/officecli.png";
-
+import { ConnectorConnectDialog } from "./connector-connect-dialog";
 import {
-  connectorTileClassName,
-  connectorTileDescClassName,
-  connectorTileFooterClassName,
-  connectorTileHeaderClassName,
-} from "./connector-tile";
+  ConnectorStatusCard,
+  type ConnectorCardStatus,
+} from "./connector-status-card";
 import {
   canUninstallOfficeCli,
   getOfficeCliPrimaryAction,
-  getOfficeCliStatusTone,
   isOfficeCliBusy,
-  type OfficeCliPrimaryAction,
 } from "./officecli-plugin-state";
+
+const OFFICECLI_ICON_SRC = "/connector-icons/officecli.png";
 
 const OFFICECLI_UNSUPPORTED_STATUS = {
   pluginId: "officecli",
@@ -56,17 +42,6 @@ const OFFICECLI_UNSUPPORTED_STATUS = {
   usable: false,
   lastCheckedAt: null,
 } satisfies OfficeCliStatus;
-
-type OfficeCliStatusKey =
-  | "plugins.officecli_status_checking"
-  | "plugins.officecli_status_error"
-  | "plugins.officecli_status_installing"
-  | "plugins.officecli_status_installed"
-  | "plugins.officecli_status_not_installed"
-  | "plugins.officecli_status_uninstalling"
-  | "plugins.officecli_status_unsupported"
-  | "plugins.officecli_status_update_available"
-  | "plugins.officecli_status_updating";
 
 type OfficeCliProgressKey =
   | "plugins.officecli_progress_checking"
@@ -104,29 +79,6 @@ function createErrorStatus(
   };
 }
 
-function statusLabelKey(status: OfficeCliStatus): OfficeCliStatusKey {
-  switch (status.state) {
-    case "checking":
-      return "plugins.officecli_status_checking";
-    case "installing":
-      return "plugins.officecli_status_installing";
-    case "updating":
-      return "plugins.officecli_status_updating";
-    case "uninstalling":
-      return "plugins.officecli_status_uninstalling";
-    case "installed":
-      return "plugins.officecli_status_installed";
-    case "update_available":
-      return "plugins.officecli_status_update_available";
-    case "unsupported":
-      return "plugins.officecli_status_unsupported";
-    case "error":
-      return "plugins.officecli_status_error";
-    case "not_installed":
-      return "plugins.officecli_status_not_installed";
-  }
-}
-
 function progressLabelKey(progress: OfficeCliProgress): OfficeCliProgressKey | null {
   if (progress.operation === "uninstall" && progress.phase === "installing") {
     return "plugins.officecli_progress_uninstalling";
@@ -153,36 +105,25 @@ function progressLabelKey(progress: OfficeCliProgress): OfficeCliProgressKey | n
   }
 }
 
-function primaryActionLabel(action: OfficeCliPrimaryAction): string {
-  switch (action) {
-    case "install":
-      return t("plugins.officecli_install");
-    case "update":
-      return t("plugins.officecli_update");
-    case "retry":
-      return t("plugins.officecli_retry");
-  }
-}
-
-function primaryActionIcon(action: OfficeCliPrimaryAction) {
-  switch (action) {
-    case "install":
-      return Download;
-    case "update":
-      return RefreshCw;
-    case "retry":
-      return RotateCcw;
-  }
+function officecliTryPrompts(): string[] {
+  return [
+    t("plugins.officecli_prompt_1"),
+    t("plugins.officecli_prompt_2"),
+    t("plugins.officecli_prompt_3"),
+  ];
 }
 
 /**
- * OfficeCLI card for the connectors recommended-install grid.
- * Section chrome lives on PluginsPage (no separate "optional enhancements" band).
+ * OfficeCLI card — P1 status card + P0 connect dialog (clickable when installed).
  */
-export function OfficeCliPluginCard() {
+export function OfficeCliPluginCard(props: {
+  onTryPrompt?: (prompt: string) => void;
+}) {
   const [status, setStatus] = useState<OfficeCliStatus | null>(null);
   const [progress, setProgress] = useState<OfficeCliProgress | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [uninstallConfirmOpen, setUninstallConfirmOpen] = useState(false);
+  const [unbinding, setUnbinding] = useState(false);
 
   const refreshStatus = useCallback(async (forceRefresh: boolean) => {
     if (!isDesktopRuntime()) {
@@ -220,23 +161,35 @@ export function OfficeCliPluginCard() {
     [status],
   );
   const busy = status ? isOfficeCliBusy(status) : true;
-  const tone: StatusBadgeTone = status
-    ? getOfficeCliStatusTone(status)
-    : "neutral";
   const canUninstall = status ? canUninstallOfficeCli(status) : false;
+  const installed =
+    Boolean(status?.installedVersion) &&
+    (status?.state === "installed" ||
+      status?.state === "update_available" ||
+      status?.usable === true);
 
-  const handlePrimaryAction = async () => {
+  const cardStatus: ConnectorCardStatus = useMemo(() => {
+    if (!status || busy || progress) return "pending";
+    if (status.state === "error") return "error";
+    if (status.state === "unsupported") return "error";
+    if (installed) return "connected";
+    return "idle";
+  }, [busy, installed, progress, status]);
+
+  const handleInstallOrUpdate = async () => {
     if (!status || !primaryAction || busy) return;
     if (primaryAction === "retry") {
       await refreshStatus(true);
       return;
     }
-
     setProgress({
       operation: primaryAction === "update" ? "update" : "install",
       phase: "checking",
     });
-    setStatus({ ...status, state: primaryAction === "update" ? "updating" : "installing" });
+    setStatus({
+      ...status,
+      state: primaryAction === "update" ? "updating" : "installing",
+    });
     try {
       setStatus(await installOfficeCli());
     } catch (error) {
@@ -249,110 +202,107 @@ export function OfficeCliPluginCard() {
   const handleUninstall = async () => {
     if (!status || busy || !status.installedVersion) return;
     setUninstallConfirmOpen(false);
+    setUnbinding(true);
     setStatus({ ...status, state: "uninstalling" });
     setProgress({ operation: "uninstall", phase: "installing" });
     try {
       setStatus(await uninstallOfficeCli());
+      setDetailOpen(false);
     } catch (error) {
       setStatus(createErrorStatus(status, error));
     } finally {
       setProgress(null);
+      setUnbinding(false);
     }
   };
 
-  const progressLabel = progress ? progressLabelKey(progress) : null;
-  const PrimaryActionIcon = primaryAction ? primaryActionIcon(primaryAction) : null;
+  const tryPrompts = useMemo(() => officecliTryPrompts(), []);
+  const handleTryIt = () => {
+    const prompt = tryPrompts[0];
+    if (!prompt) return;
+    props.onTryPrompt?.(prompt);
+    setDetailOpen(false);
+  };
 
-  // Single grid cell: modal portals but must not become a second grid item.
+  const progressLabel = progress ? progressLabelKey(progress) : null;
+  const footerNote = !isDesktopRuntime()
+    ? t("plugins.officecli_desktop_only")
+    : status?.state === "error"
+      ? t("plugins.officecli_error_hint")
+      : progressLabel
+        ? t(progressLabel)
+        : status && !status.supported
+          ? t("plugins.officecli_unsupported_hint")
+          : installed && status?.installedVersion
+            ? t("plugins.officecli_installed_hint", {
+                version: status.installedVersion,
+              })
+            : null;
+
   return (
     <div className="min-w-0">
-      <article
-        className={cn(connectorTileClassName, "cursor-default")}
+      <ConnectorStatusCard
         data-plugin-id="officecli"
-        aria-busy={busy}
-      >
-        <div className={connectorTileHeaderClassName}>
-          <div className="size-9 shrink-0 overflow-hidden rounded-xl border border-black/5 bg-dls-surface">
-            <img
-              src={resolvePublicAssetUrl(OFFICECLI_ICON_SRC)}
-              alt=""
-              className="size-full object-cover"
-              draggable={false}
-            />
-          </div>
-          <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-            <h3 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">
-              {t("plugins.officecli_title")}
-            </h3>
-            {status ? (
-              <StatusBadge tone={tone} size="tiny">
-                {t(statusLabelKey(status))}
-              </StatusBadge>
-            ) : (
-              <LoadingSpinner size="sm" />
-            )}
-          </div>
-        </div>
+        name={t("plugins.officecli_title")}
+        description={t("plugins.officecli_description")}
+        iconSrc={OFFICECLI_ICON_SRC}
+        status={cardStatus}
+        busy={busy && cardStatus === "pending"}
+        onOpen={() => setDetailOpen(true)}
+        onAction={() => {
+          if (installed) {
+            handleTryIt();
+            return;
+          }
+          setDetailOpen(true);
+        }}
+        footer={
+          status?.state === "error" ? (
+            <NoticeBox tone="error" role="alert" className="mt-1 py-1.5 text-xs">
+              {t("plugins.officecli_error_hint")}
+            </NoticeBox>
+          ) : null
+        }
+      />
 
-        <p
-          className={connectorTileDescClassName}
-          title={t("plugins.officecli_description")}
-        >
-          {t("plugins.officecli_description")}
-        </p>
-
-        <div className={cn(connectorTileFooterClassName, "justify-end gap-1.5")}>
-          {!status || status.state === "checking" ? (
-            <span
-              className="inline-flex items-center gap-1.5 text-xs text-dls-secondary"
-              aria-live="polite"
-            >
-              <LoadingSpinner size="sm" />
-              {t("plugins.officecli_checking")}
-            </span>
-          ) : progressLabel ? (
-            <span
-              className="inline-flex items-center gap-1.5 text-xs text-dls-secondary"
-              aria-live="polite"
-            >
-              <LoadingSpinner size="sm" />
-              {t(progressLabel)}
-            </span>
-          ) : primaryAction && PrimaryActionIcon ? (
-            <Button
-              size="xs"
-              variant="outline"
-              disabled={busy}
-              onClick={() => void handlePrimaryAction()}
-            >
-              <PrimaryActionIcon aria-hidden="true" />
-              {primaryActionLabel(primaryAction)}
-            </Button>
-          ) : canUninstall ? (
-            <Button
-              size="xs"
-              variant="destructive"
-              disabled={busy}
-              onClick={() => setUninstallConfirmOpen(true)}
-            >
-              <Trash2 aria-hidden="true" />
-              {t("plugins.officecli_uninstall")}
-            </Button>
-          ) : (
-            <span className="text-xs text-dls-secondary">
-              {status?.supported
-                ? t("plugins.officecli_desktop_only")
-                : t("plugins.officecli_unsupported_hint")}
-            </span>
-          )}
-        </div>
-
-        {status?.state === "error" ? (
-          <NoticeBox tone="error" role="alert" className="mt-2">
-            {t("plugins.officecli_error_hint")}
-          </NoticeBox>
-        ) : null}
-      </article>
+      <ConnectorConnectDialog
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        name={t("plugins.officecli_title")}
+        description={t("plugins.officecli_description")}
+        iconSrc={OFFICECLI_ICON_SRC}
+        connected={installed}
+        connecting={busy}
+        connectLabel={
+          primaryAction === "update"
+            ? t("plugins.officecli_update")
+            : primaryAction === "retry"
+              ? t("plugins.officecli_retry")
+              : t("plugins.officecli_install")
+        }
+        onConnect={
+          !isDesktopRuntime() || (!primaryAction && installed)
+            ? undefined
+            : () => void handleInstallOrUpdate()
+        }
+        onTryIt={installed ? handleTryIt : undefined}
+        onUnbind={
+          canUninstall ? () => setUninstallConfirmOpen(true) : undefined
+        }
+        unbindLabel={t("plugins.officecli_uninstall")}
+        unbinding={unbinding}
+        tryThisPrompts={tryPrompts}
+        promptsDisabled={!props.onTryPrompt || !installed}
+        onSelectPrompt={
+          installed && props.onTryPrompt
+            ? (prompt) => {
+                props.onTryPrompt?.(prompt);
+                setDetailOpen(false);
+              }
+            : undefined
+        }
+        footerNote={footerNote}
+      />
 
       <ConfirmModal
         open={uninstallConfirmOpen}

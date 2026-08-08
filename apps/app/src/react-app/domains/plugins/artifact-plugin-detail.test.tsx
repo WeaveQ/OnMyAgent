@@ -49,7 +49,7 @@ const spreadsheets = {
 } satisfies ArtifactPluginDetailModel;
 
 describe("ArtifactPluginDetail", () => {
-  test("renders three prompts, plugin and skill switches, disabled affordances, and localized unavailable state", () => {
+  test("renders try-this prompts and status, without skill matrix or plugin toggle chrome", () => {
     const html = renderToString(
       <ArtifactPluginDetail
         plugin={spreadsheets}
@@ -63,20 +63,16 @@ describe("ArtifactPluginDetail", () => {
           disabled: "Disabled",
         }}
         onSelectPrompt={() => undefined}
-        onPluginEnabledChange={async () => undefined}
-        onSkillEnabledChange={async () => undefined}
       />,
     );
 
-    for (const prompt of spreadsheets.manifest.interface.defaultPrompt) {
-      assert.ok(html.includes(prompt));
-    }
     assert.equal(html.match(/data-artifact-prompt=/g)?.length, 3);
-    assert.ok(html.includes('aria-label="Plugin enabled"'));
-    assert.ok(html.includes('aria-label="spreadsheets enabled"'));
-    assert.ok(html.includes('aria-label="excel-live-control enabled"'));
-    assert.ok(html.includes("Excel Live is unavailable until a live provider is registered."));
-    assert.ok(html.includes("disabled"));
+    assert.ok(html.includes("Starter prompts"));
+    assert.ok(html.includes("Enabled"));
+    // No per-skill matrix / plugin toggle chrome in detail.
+    assert.equal(html.includes('aria-label="Plugin enabled"'), false);
+    assert.equal(html.includes('aria-label="spreadsheets enabled"'), false);
+    assert.equal(html.includes("Excel Live is unavailable"), false);
   });
 
   test("starter prompt interaction emits plugin, primary skill, and prompt", () => {

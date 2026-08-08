@@ -713,82 +713,10 @@ export function PersonalAssistantAccessory(props: {
 }
 
 // ============================================================================
-// Error Components
+// Error Components — canonical implementation lives in chrome/personal-assistant.
 // ============================================================================
 
-export function SessionErrorCard({
-  error,
-  onDismiss,
-  onChangeModel,
-  onOpenModelPicker,
-}: {
-  error: { message: string; kind?: string; suggestions?: Array<{ providerID: string; modelID: string }> };
-  onDismiss: () => void;
-  onChangeModel?: (model: { providerID: string; modelID: string }) => void;
-  onOpenModelPicker?: () => void;
-}) {
-  return (
-    <div className="mx-auto max-w-3xl px-3 py-3 sm:px-5">
-      <div className={sessionSurfaceStateClass.errorPanel}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className={sessionSurfaceStateClass.errorText}>
-              {error.message}
-            </div>
-            {error.kind === "model-not-found" ? (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {error.suggestions && error.suggestions.length > 0
-                  ? error.suggestions.map((s) => (
-                      <Button
-                        key={`${s.providerID}/${s.modelID}`}
-                        type="button"
-                        variant="outline"
-                        size="xs"
-                        className="rounded-full text-dls-text hover:bg-dls-hover"
-                        onClick={() => {
-                          onChangeModel?.(s);
-                          onDismiss();
-                        }}
-                      >
-                        Use {s.providerID}/{s.modelID}
-                      </Button>
-                    ))
-                  : null}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="xs"
-                  className="rounded-full text-dls-text hover:bg-dls-hover"
-                  onClick={() => {
-                    onOpenModelPicker?.();
-                    onDismiss();
-                  }}
-                >
-                  Change model
-                </Button>
-              </div>
-            ) : null}
-          </div>
-          <Button variant="ghost" size="icon-xs"
-            type="button"
-            className={sessionSurfaceStateClass.errorDismiss}
-            onClick={onDismiss}
-            aria-label={t("session.dismiss_error")}
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path
-                d="M3.5 3.5l7 7M10.5 3.5l-7 7"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            </svg>
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
+export { SessionErrorCard } from "./chrome/personal-assistant";
 
 // ============================================================================
 // Exports

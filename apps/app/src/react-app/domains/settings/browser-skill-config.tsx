@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { busySpinClass } from "@/components/ui/busy-spin";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 import { registerExtensionConfig } from "../shared";
 
@@ -119,17 +120,10 @@ export function BrowserSkillConfig() {
   const extOk = status?.extensionConnected === true;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-dls-text">
-            {t("extensions.browser_skill_name")}
-          </h3>
-          <p className="mt-1 text-sm text-dls-secondary">
-            {t("extensions.browser_skill_panel_description")}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
+    <div className="space-y-3">
+      {/* Compact status bar — dialog already shows name/description above. */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <StatusBadge
             tone={ready ? "success" : "warning"}
             shape="soft"
@@ -139,17 +133,30 @@ export function BrowserSkillConfig() {
               ? t("extensions.browser_skill_status_ready")
               : t("extensions.browser_skill_status_setup")}
           </StatusBadge>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => void refresh()}
-            disabled={busy}
-            aria-label={t("extensions.browser_skill_run_doctor")}
-          >
-            <RefreshCw className={busySpinClass(busy)} />
-          </Button>
+          <StatusChip
+            label={t("extensions.browser_skill_cli_status")}
+            ok={cliOk}
+          />
+          <StatusChip
+            label={t("extensions.browser_skill_ext_status")}
+            ok={extOk}
+          />
+          {status?.version ? (
+            <span className="truncate text-2xs text-dls-secondary tabular-nums">
+              {status.version}
+            </span>
+          ) : null}
         </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => void refresh()}
+          disabled={busy}
+          aria-label={t("extensions.browser_skill_run_doctor")}
+        >
+          <RefreshCw className={busySpinClass(busy)} />
+        </Button>
       </div>
 
       {error ? (
@@ -165,11 +172,20 @@ export function BrowserSkillConfig() {
       ) : null}
 
       {ready ? (
-        <NoticeBox tone="success" size="content">
-          {status?.message || t("extensions.browser_skill_ready_message")}
-        </NoticeBox>
+        <div className="space-y-2 rounded-xl bg-dls-status-success-soft/60 px-3.5 py-3 ring-1 ring-dls-status-success-border/40">
+          <div className="flex items-start gap-2">
+            <CheckCircle2
+              className="mt-0.5 size-4 shrink-0 text-dls-status-success-fg"
+              aria-hidden
+            />
+            <p className="text-sm leading-relaxed text-dls-status-success-fg">
+              {/* Prefer localized copy — desktop helper returns English status.message. */}
+              {t("extensions.browser_skill_ready_message")}
+            </p>
+          </div>
+        </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           <p className="text-xs text-dls-secondary">
             {t("extensions.browser_skill_setup_intro")}
           </p>
@@ -254,7 +270,7 @@ export function BrowserSkillConfig() {
       )}
 
       {status?.doctorSummary && !ready ? (
-        <details className="rounded-lg border border-dls-border bg-dls-surface-muted p-3">
+        <details className="rounded-lg border border-dls-border/70 bg-dls-surface-muted/50 p-3">
           <summary className="cursor-pointer text-xs font-medium text-dls-text">
             {t("extensions.browser_skill_doctor_details")}
           </summary>
@@ -264,10 +280,34 @@ export function BrowserSkillConfig() {
         </details>
       ) : null}
 
-      <p className="text-xs leading-relaxed text-dls-secondary">
-        {t("extensions.browser_skill_vs_in_app")}
-      </p>
+      {!ready ? (
+        <p className="text-xs leading-relaxed text-dls-secondary">
+          {t("extensions.browser_skill_vs_in_app")}
+        </p>
+      ) : null}
     </div>
+  );
+}
+
+function StatusChip(props: { label: string; ok: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-2xs font-medium",
+        props.ok
+          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+          : "bg-dls-surface-muted text-dls-secondary",
+      )}
+    >
+      <span
+        className={cn(
+          "size-1.5 rounded-full",
+          props.ok ? "bg-emerald-500" : "bg-dls-border-strong",
+        )}
+        aria-hidden
+      />
+      {props.label}
+    </span>
   );
 }
 
@@ -279,9 +319,9 @@ function SetupStep(props: {
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-dls-border bg-dls-surface-muted p-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 flex-1 gap-3">
+    <div className="rounded-xl bg-dls-surface-muted/50 px-3 py-2.5 ring-1 ring-dls-border/50">
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+        <div className="flex min-w-0 flex-1 gap-2.5">
           {props.complete ? (
             <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-dls-accent" />
           ) : (
@@ -291,12 +331,12 @@ function SetupStep(props: {
           )}
           <div className="min-w-0">
             <div className="text-sm font-medium text-dls-text">{props.title}</div>
-            <div className="mt-1 text-xs leading-relaxed text-dls-secondary">
+            <div className="mt-0.5 text-xs leading-relaxed text-dls-secondary">
               {props.description}
             </div>
           </div>
         </div>
-        <div className="w-full min-w-0 sm:w-[min(18rem,48%)]">{props.children}</div>
+        <div className="w-full min-w-0 sm:w-[min(16rem,46%)]">{props.children}</div>
       </div>
     </div>
   );

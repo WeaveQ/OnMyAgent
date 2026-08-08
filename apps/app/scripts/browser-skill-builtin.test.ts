@@ -79,6 +79,7 @@ describe("built-in BrowserSkill (Path B)", () => {
       for (const key of [
         "extensions.browser_skill_name",
         "extensions.browser_skill_description",
+        "extensions.browser_skill_long",
         "extensions.browser_skill_setup",
         "extensions.browser_skill_prompt",
         "extensions.browser_skill_suggestion_summary",

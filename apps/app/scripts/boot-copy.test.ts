@@ -16,7 +16,10 @@ describe("boot phase i18n keys exist", () => {
       "system.boot_starting_server",
       "system.boot_start_runtime_failed",
       "system.boot_server_not_ready",
+      "system.boot_config_invalid",
       "system.boot_download_latest_hint",
+      "system.boot_open_config_dir",
+      "system.boot_repair_config",
       "system.load_opening",
       "system.load_settings_ai",
     ];
@@ -66,6 +69,15 @@ describe("userFacingBootError", () => {
     expect(result.message).not.toContain("at Object.openSync");
     expect(result.technicalDetail).toContain("ENOENT");
   });
+
+  test("maps invalid opencode / mcp config failures to repair-friendly copy", () => {
+    const raw =
+      "Configuration is invalid at /tmp/opencode.jsonc\n↳ Missing key mcp.visitbeijing.enabled";
+    const result = userFacingBootError(raw);
+    expect(result.technicalDetail).toContain("Configuration is invalid");
+    expect(result.message.length).toBeGreaterThan(0);
+    expect(result.message).not.toContain("Missing key mcp");
+  });
 });
 
 describe("progressive boot overlay", () => {
@@ -74,8 +86,9 @@ describe("progressive boot overlay", () => {
       path.join(import.meta.dir, "../src/react-app/shell/boot-state.tsx"),
       "utf8",
     );
-    expect(bootState).toContain("routeReady && phase !== \"error\"");
-    expect(bootState).toContain("Progressive:");
+    // Overlay stays while boot phases block OR while phase is error.
+    expect(bootState).toContain("routeReady && !bootStillBlocking && phase !== \"error\"");
+    expect(bootState).toContain("BOOT_BLOCKING_PHASES");
   });
 
   test("session route marks shell ready after desktop workspaces paint", () => {

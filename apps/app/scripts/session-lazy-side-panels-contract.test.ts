@@ -9,7 +9,7 @@ function read(rel: string) {
 }
 
 describe("session right-rail lazy load (structural)", () => {
-  test("assistant/expert pages use lazy side panel entry, not eager VoicePanel imports", () => {
+  test("assistant/expert pages use lazy side panel entry, not eager heavy panel imports", () => {
     const assistant = read("src/react-app/domains/session/pages/assistant.tsx");
     const expert = read("src/react-app/domains/session/pages/expert.tsx");
     const lazy = read(
@@ -17,17 +17,12 @@ describe("session right-rail lazy load (structural)", () => {
     );
 
     expect(lazy).toContain('lazy(() =>');
-    expect(lazy).toContain("voice-panel");
     expect(lazy).toContain("code-workspace-side-panel");
     expect(lazy).toContain("infinite-canvas");
 
     for (const source of [assistant, expert]) {
-      expect(source).toContain("LazyVoicePanel");
       expect(source).toContain("LazyCodeWorkspaceSidePanel");
       expect(source).toContain("LazyInfiniteCanvasPanel");
-      expect(source).not.toMatch(
-        /import\s*\{\s*VoicePanel\s*\}\s*from\s*["']\.\.\/voice\/voice-panel["']/,
-      );
       expect(source).not.toMatch(
         /import\s*\{\s*CodeWorkspaceSidePanel\s*\}\s*from\s*["']\.\.\/surface\/code-workspace-side-panel["']/,
       );

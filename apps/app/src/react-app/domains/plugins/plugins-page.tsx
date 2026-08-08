@@ -1,13 +1,10 @@
 /** @jsxImportSource react */
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Blocks,
-  ChevronRight,
-  Cloud,
-  Database,
   FileText,
   FolderOpen,
-  Mail,
+  MessageCircle,
+  Plus,
   Search,
   ShoppingBag,
   Upload,
@@ -17,19 +14,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { CodeToken } from "@/components/ui/code-token";
 import { FilterChip, IconTile, SegmentedTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { MARKETPLACE_CARD_GRID_COMPACT } from "@/components/ui/skill-marketplace-card";
-import { BadgeDot, CountBadge, StatusBadge } from "@/components/ui/status-badge";
-import { Switch } from "@/components/ui/switch";
+import { CountBadge, StatusBadge } from "@/components/ui/status-badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,17 +26,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import {
-  hasLobePluginBrandIcon,
-  LobePluginBrandIcon,
-} from "@/react-app/design-system/lobe-brand-icons";
 import type { OnMyAgentServerClient } from "@/app/lib/onmyagent-server";
 import { listLocalSkills } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
 import { t } from "@/i18n";
 import {
   getMcpServerName,
+  isBuiltInOnMyAgentExtension,
   ONMYAGENT_EXTENSION_CATALOG,
   type McpDirectoryInfo,
 } from "@/app/constants";
@@ -65,27 +50,26 @@ import {
   connectorTileClassName,
   connectorTileDescClassName,
   connectorTileEnabledClass,
-  connectorTileFooterClassName,
   connectorTileHeaderClassName,
   connectorTileOrderClass,
 } from "./connector-tile";
+import { loadArtifactPluginCatalog } from "./artifact-plugin-client";
 import {
-  loadArtifactPluginCatalog,
-  loadArtifactPluginDetail,
-  type ArtifactPluginDetail as ArtifactPluginDetailModel,
-} from "./artifact-plugin-client";
-import {
-  ArtifactPluginDetail,
-  type ArtifactPluginDetailLabels,
+  ArtifactPluginIcon,
+  getArtifactPluginConnectCopy,
 } from "./artifact-plugin-detail";
 import { createArtifactPluginState } from "./artifact-plugin-state";
 import { OfficeCliPluginCard } from "./officecli-plugin";
 import { LarkCliPluginCard } from "./larkcli-plugin";
 import { TencentDocsPluginCard } from "./tencent-docs-plugin";
-import { ExtensionDetailModal } from "@/react-app/design-system/extension-detail-modal";
+import { BaiduDrivePluginCard } from "./baidu-drive-plugin";
+import { KdocsPluginCard } from "./kdocs-plugin";
+import { DingtalkPluginCard } from "./dingtalk-plugin";
+import { WecomPluginCard } from "./wecom-plugin";
+import { TencentMeetingPluginCard } from "./tencent-meeting-plugin";
+import { ConnectorConnectDialog } from "./connector-connect-dialog";
 import {
   getExtensionConfigSlot,
-  hasExtensionConfig,
   type ExtensionConfigContext,
 } from "@/react-app/domains/shared";
 import { useLocal } from "@/react-app/kernel/local-provider";
@@ -120,20 +104,7 @@ type PluginsPageProps = {
   onSelectArtifactPrompt?: (selection: ArtifactPluginPromptSelection) => void;
 };
 
-type PluginCategory =
-  | "commerce"
-  | "productivity"
-  | "social"
-  | "communication"
-  | "developer";
 
-type PluginItem = {
-  id: string;
-  name: string;
-  description: string;
-  category: PluginCategory;
-  iconKey: string;
-};
 
 const pluginsTextClass = {
   cardTitle: "truncate text-sm font-medium leading-5 text-dls-text",
@@ -173,8 +144,22 @@ const ARTIFACT_PLUGIN_DISPLAY_ORDER = [
 const BUILTIN_EXTENSION_DISPLAY_ORDER = [
   "computer-use",
   "browser-skill",
-  "onmyagent-voice",
 ] as const;
+
+/** Connector market filter strip (matches expert/skills category chips). */
+type ConnectorFilterId = "all" | "builtin" | "recommended";
+
+const CONNECTOR_FILTERS: ReadonlyArray<{
+  id: ConnectorFilterId;
+  labelKey:
+    | "plugins.filter_all"
+    | "plugins.filter_builtin"
+    | "plugins.filter_recommended";
+}> = [
+  { id: "all", labelKey: "plugins.filter_all" },
+  { id: "recommended", labelKey: "plugins.filter_recommended" },
+  { id: "builtin", labelKey: "plugins.filter_builtin" },
+];
 
 function rankById(order: readonly string[], id: string): number {
   const index = order.indexOf(id);
@@ -183,10 +168,12 @@ function rankById(order: readonly string[], id: string): number {
 
 const pluginsLayoutClass = {
   page: "flex h-full min-h-0 flex-col bg-dls-background",
-  scrollArea: "flex min-h-0 flex-1 overflow-y-auto",
+  // No `flex` here: stretched flex children swallow bottom padding on scroll.
+  // Match skills market — padding lives on the scroll surface itself.
+  scrollArea: "min-h-0 flex-1 overflow-y-auto",
   // Match expert/skills: no max-w-6xl so side gutters match px-6 only.
-  pageContainer: "w-full px-6 pb-10 pt-5",
-  pluginPageContainer: "w-full space-y-8 px-6 pb-10 pt-5",
+  pageContainer: "w-full px-6 pb-16 pt-5",
+  pluginPageContainer: "w-full space-y-8 px-6 pb-16 pt-5",
   section: "space-y-3",
   sectionHeader: "space-y-1",
   sectionTitle: "text-base font-medium leading-6 text-dls-text",
@@ -207,291 +194,6 @@ const pluginsLayoutClass = {
   skillSectionDescription: "mb-3 pl-6",
   originTabs: "mb-3 flex flex-wrap gap-0.5 pl-6",
 };
-
-function getSamplePlugins(): PluginItem[] {
-  // Recommended catalog previews (installable managed CLIs are separate cards).
-  // Feishu preview removed: managed Feishu CLI card covers that surface.
-  return [];
-}
-
-const CONNECTOR_ICON_SRC: Partial<Record<string, string>> = {
-  "tencent-docs": "/connector-icons/tencent-docs.png",
-  "tencent-meeting": "/connector-icons/tencent-meeting.png",
-  wecom: "/connector-icons/wecom.png",
-  "tencent-questionnaire": "/connector-icons/tencent-questionnaire.png",
-  wps: "/connector-icons/wps.png",
-  github: "/connector-icons/github.png",
-  feishu: "/connector-icons/feishu.png",
-  "netease-mail": "/connector-icons/netease-mail.png",
-  "baidu-drive": "/connector-icons/baidu-drive.png",
-};
-
-function PluginLogoLobeOrFallback(props: {
-  iconKey: string;
-  className?: string;
-  shared: string;
-}) {
-  const [failed, setFailed] = useState(false);
-  if (failed) {
-    return (
-      <div className={cn(props.shared, "bg-dls-surface-muted text-dls-text", props.className)}>
-        <Blocks className="size-5" aria-hidden />
-      </div>
-    );
-  }
-  return (
-    <div className={cn(props.shared, "bg-dls-surface p-1.5", props.className)}>
-      <LobePluginBrandIcon
-        iconKey={props.iconKey}
-        className="size-7"
-        onFailed={() => setFailed(true)}
-      />
-    </div>
-  );
-}
-
-function PluginLogo(props: { iconKey: string; className?: string }) {
-  // size-9 matches connector tile header (IconTile default / ArtifactPluginIcon sm).
-  const shared =
-    "flex size-9 shrink-0 items-center justify-center rounded-xl border border-black/5";
-  const uploadedIconSrc = CONNECTOR_ICON_SRC[props.iconKey];
-  if (uploadedIconSrc) {
-    return (
-      <div className={cn(shared, "bg-dls-surface p-1.5", props.className)}>
-        <img
-          src={resolvePublicAssetUrl(uploadedIconSrc)}
-          alt=""
-          className="size-full object-contain"
-          draggable={false}
-        />
-      </div>
-    );
-  }
-
-  // Lobe brand marks for connectors we no longer hand-draw (Notion / M365 / GH / …).
-  if (hasLobePluginBrandIcon(props.iconKey)) {
-    return (
-      <PluginLogoLobeOrFallback
-        iconKey={props.iconKey}
-        className={props.className}
-        shared={shared}
-      />
-    );
-  }
-
-  switch (props.iconKey) {
-    case "wordpress":
-      return (
-        <div className={cn(shared, "bg-dls-surface text-dls-text", props.className)}>
-          <BadgeDot tone="currentOutline" size="logo" className="border-2 font-semibold">
-            W
-          </BadgeDot>
-        </div>
-      );
-    case "yuque":
-      return (
-        <div
-          className={cn(shared, "bg-dls-surface text-transparent", props.className)}
-        >
-          <div className="relative size-8">
-            <div className="absolute inset-0 rounded-lg bg-dls-plugin-gradient [clip-path:polygon(0_70%,34%_25%,58%_25%,33%_75%)]" />
-            <div className="absolute inset-0 rounded-lg bg-dls-plugin-gradient [clip-path:polygon(36%_24%,88%_24%,56%_73%,20%_73%)] opacity-90" />
-          </div>
-        </div>
-      );
-    case "x":
-      return (
-        <div className={cn(shared, "bg-dls-surface text-black", props.className)}>
-          <span className="text-2xl font-semibold tracking-[-0.06em]">
-            X
-          </span>
-        </div>
-      );
-    case "linkedin":
-      return (
-        <div className={cn(shared, "bg-dls-brand-linkedin text-white", props.className)}>
-          <span className="text-xl font-semibold">in</span>
-        </div>
-      );
-    case "gmail":
-      return (
-        <div className={cn(shared, "bg-dls-surface", props.className)}>
-          <Mail className="size-6 text-dls-brand-gmail" />
-        </div>
-      );
-    case "instagram":
-      return (
-        <div
-          className={cn(
-            shared,
-            "bg-dls-instagram-gradient text-white",
-            props.className,
-          )}
-        >
-          <div className="flex size-7 items-center justify-center rounded-lg border-2 border-current">
-            <div className="relative size-3.5 rounded-full border-2 border-current">
-              <span className="absolute right-[-1px] top-[-1px] size-1.5 rounded-full bg-current" />
-            </div>
-          </div>
-        </div>
-      );
-    case "supabase":
-      return (
-        <div
-          className={cn(shared, "bg-dls-brand-notion text-dls-brand-vercel", props.className)}
-        >
-          <Database className="size-6" />
-        </div>
-      );
-    case "cloudflare":
-      return (
-        <div className={cn(shared, "bg-dls-surface text-dls-brand-cloudflare", props.className)}>
-          <Cloud className="size-6" />
-        </div>
-      );
-    case "vercel":
-      return (
-        <div className={cn(shared, "bg-black text-white", props.className)}>
-          <div className="size-0 border-x-[10px] border-b-[18px] border-x-transparent border-b-white" />
-        </div>
-      );
-    case "huggingface":
-      return (
-        <div
-          className={cn(shared, "bg-dls-brand-replit-bg text-dls-brand-replit-fg", props.className)}
-        >
-          <span className="text-2xl">🤗</span>
-        </div>
-      );
-    case "higgsfield":
-      return (
-        <div className={cn(shared, "bg-dls-signal text-black", props.className)}>
-          <span className="text-2xl font-semibold tracking-[-0.08em]">
-            ∞
-          </span>
-        </div>
-      );
-    case "clarity":
-      return (
-        <div
-          className={cn(shared, "bg-dls-brand-web-soft text-dls-brand-web-fg", props.className)}
-        >
-          <div className="size-0 border-x-[12px] border-b-[20px] border-x-transparent border-b-current opacity-90" />
-        </div>
-      );
-    case "calendar":
-      return (
-        <div className={cn(shared, "bg-dls-surface text-dls-brand-google-text", props.className)}>
-          <div className="overflow-hidden rounded-lg border border-dls-brand-google-border">
-            <div className="bg-dls-brand-drive px-2 py-0.5 text-xs font-medium text-white">
-              31
-            </div>
-            <div className="bg-dls-surface px-2 py-1 text-xs font-medium">
-              {t("session.plugins_calendar_label")}
-            </div>
-          </div>
-        </div>
-      );
-    case "youtube":
-      return (
-        <div className={cn(shared, "bg-dls-surface text-dls-brand-linear", props.className)}>
-          <div className="flex h-6 w-9 items-center justify-center rounded-md bg-current">
-            <div className="ml-0.5 size-0 border-y-[5px] border-l-[8px] border-y-transparent border-l-white" />
-          </div>
-        </div>
-      );
-    case "drive":
-      return (
-        <div className={cn(shared, "bg-dls-surface", props.className)}>
-          <div className="relative size-7">
-            <span className="absolute left-0 top-2 size-0 border-l-[8px] border-r-[8px] border-b-[14px] border-l-transparent border-r-transparent border-b-[#34a853]" />
-            <span className="absolute right-0 top-2 size-0 border-l-[8px] border-r-[8px] border-b-[14px] border-l-transparent border-r-transparent border-b-[#4285f4]" />
-            <span className="absolute left-[6px] top-0 size-0 border-l-[8px] border-r-[8px] border-b-[14px] border-l-transparent border-r-transparent border-b-[#fbbc04]" />
-          </div>
-        </div>
-      );
-    case "cafe24":
-      return (
-        <div
-          className={cn(shared, "bg-dls-brand-zapier-soft text-dls-secondary", props.className)}
-        >
-          <span className="text-xs font-semibold tracking-[-0.03em]">
-            cafe24
-          </span>
-        </div>
-      );
-    case "coupang":
-      return (
-        <div
-          className={cn(shared, "bg-dls-brand-aws-soft text-dls-brand-aws-fg", props.className)}
-        >
-          <span className="text-xs font-semibold tracking-[-0.03em]">
-            coupang
-          </span>
-        </div>
-      );
-    case "kakao":
-      return (
-        <div
-          className={cn(shared, "bg-dls-brand-figma-yellow text-dls-brand-coupang", props.className)}
-        >
-          <div className="flex flex-col items-center text-xs font-bold leading-none">
-            <span>TALK</span>
-          </div>
-        </div>
-      );
-    case "line":
-      return (
-        <div className={cn(shared, "bg-dls-brand-figma-green text-white", props.className)}>
-          <span className="text-xs font-bold">LINE</span>
-        </div>
-      );
-    case "reddit":
-      return (
-        <div
-          className={cn(shared, "bg-dls-brand-orange-soft text-dls-brand-orange-fg", props.className)}
-        >
-          <span className="text-xl">⭘</span>
-        </div>
-      );
-    case "tiktok":
-      return (
-        <div className={cn(shared, "bg-dls-surface text-dls-text", props.className)}>
-          <span className="text-2xl font-black">♪</span>
-        </div>
-      );
-    case "odoo":
-      return (
-        <div
-          className={cn(shared, "bg-dls-brand-lovable-soft text-dls-brand-lovable-fg", props.className)}
-        >
-          <span className="text-base font-semibold">odoo</span>
-        </div>
-      );
-    case "shopify":
-      return (
-        <div
-          className={cn(shared, "bg-dls-status-success-soft text-dls-brand-raycast", props.className)}
-        >
-          <span className="text-2xl font-bold">S</span>
-        </div>
-      );
-    case "shopline":
-      return (
-        <div className={cn(shared, "bg-dls-surface text-dls-secondary", props.className)}>
-          <span className="text-xl font-bold">◔</span>
-        </div>
-      );
-    default:
-      return (
-        <div
-          className={cn(shared, "bg-dls-surface-muted text-dls-text", props.className)}
-        >
-          <Blocks className="size-5" />
-        </div>
-      );
-  }
-}
 
 function PluginStoreCard(props: {
   children: ReactNode;
@@ -519,49 +221,6 @@ function PluginStoreCard(props: {
   );
 }
 
-function PluginCard(props: { item: PluginItem }) {
-  // Preview-only under Recommended — same size recipe, no interactive hover/cursor.
-  return (
-    <div
-      className={cn(
-        connectorTileClassName,
-        "cursor-default border-dashed border-dls-border/60 bg-dls-surface/50 shadow-none",
-        "hover:border-dls-border/60 hover:bg-dls-surface/50 hover:shadow-none",
-        "dark:hover:border-dls-border/60 dark:hover:bg-dls-surface/50 dark:hover:shadow-none",
-      )}
-    >
-      <div className={connectorTileHeaderClassName}>
-        <PluginLogo iconKey={props.item.iconKey} className="size-9 rounded-xl" />
-        <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-          <div className={cn(pluginsTextClass.featuredTitle, "min-w-0 font-semibold")}>
-            {props.item.name}
-          </div>
-          <StatusBadge tone="neutral" size="tiny" className="shrink-0">
-            {t("plugins.recommend_badge")}
-          </StatusBadge>
-        </div>
-      </div>
-      <p className={connectorTileDescClassName} title={props.item.description}>
-        {props.item.description || "\u00a0"}
-      </p>
-      {/* Spacer matches View details footer on built-in cards. */}
-      <div className={connectorTileFooterClassName} aria-hidden />
-    </div>
-  );
-}
-
-function artifactPluginLabels(): ArtifactPluginDetailLabels {
-  return {
-    pluginEnabled: t("plugins.artifact_plugin_toggle"),
-    skillEnabled: (name) => t("plugins.artifact_skill_toggle", { name }),
-    starterPrompts: t("plugins.artifact_starter_prompts"),
-    skills: t("plugins.artifact_skills"),
-    unavailable: t("plugins.artifact_excel_unavailable"),
-    enabled: t("plugins.artifact_enabled"),
-    disabled: t("plugins.artifact_disabled"),
-  };
-}
-
 function ArtifactPluginsCatalog(
   props: PluginsPageProps & {
     /** When true, omit section chrome — parent band provides title (Built-in). */
@@ -574,9 +233,6 @@ function ArtifactPluginsCatalog(
   const [loadError, setLoadError] = useState(false);
   const [mutationError, setMutationError] = useState(false);
   const [selectedPluginId, setSelectedPluginId] = useState<string | null>(null);
-  const [selectedDetail, setSelectedDetail] = useState<ArtifactPluginDetailModel | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState(false);
 
   useEffect(
     () => pluginState.subscribe(() => setRevision((revision) => revision + 1)),
@@ -622,30 +278,18 @@ function ArtifactPluginsCatalog(
       return left.id.localeCompare(right.id);
     });
   }, [pluginState, revision]);
-  const selectedPlugin = selectedPluginId ? pluginState.get(selectedPluginId) : undefined;
-  const labels = artifactPluginLabels();
+  const selectedPlugin = selectedPluginId
+    ? pluginState.get(selectedPluginId)
+    : undefined;
 
   const setPluginEnabled = async (pluginId: string, enabled: boolean) => {
     if (!props.client) return;
     setMutationError(false);
     try {
       await pluginState.setPluginEnabled(pluginId, enabled, async () => {
-        await props.client?.setArtifactPluginEnabled(props.workspaceId, pluginId, enabled);
-      });
-    } catch {
-      setMutationError(true);
-    }
-  };
-
-  const setSkillEnabled = async (pluginId: string, skillId: string, enabled: boolean) => {
-    if (!props.client) return;
-    setMutationError(false);
-    try {
-      await pluginState.setSkillEnabled(pluginId, skillId, enabled, async () => {
-        await props.client?.setArtifactPluginSkillEnabled(
+        await props.client?.setArtifactPluginEnabled(
           props.workspaceId,
           pluginId,
-          skillId,
           enabled,
         );
       });
@@ -656,101 +300,112 @@ function ArtifactPluginsCatalog(
 
   const closePluginDetail = () => {
     setSelectedPluginId(null);
-    setSelectedDetail(null);
-    setDetailLoading(false);
-    setDetailError(false);
   };
 
-  const openPlugin = async (pluginId: string) => {
-    if (!props.client) return;
+  const openPlugin = (pluginId: string) => {
     setSelectedPluginId(pluginId);
-    setSelectedDetail(null);
-    setDetailLoading(true);
-    setDetailError(false);
-    try {
-      const detail = await loadArtifactPluginDetail(props.client, props.workspaceId, pluginId);
-      setSelectedDetail(detail);
-    } catch {
-      setDetailError(true);
-    } finally {
-      setDetailLoading(false);
-    }
   };
 
-  const detailTitle =
-    selectedPlugin?.id === "browser"
-      ? t("plugins.artifact_plugin_browser_name")
-      : selectedPlugin?.manifest.interface.displayName
-        ?? selectedDetail?.manifest.interface.displayName
-        ?? t("plugins.artifact_open");
-
-  const detailDescription =
-    selectedDetail?.manifest.interface.longDescription
-    ?? selectedPlugin?.manifest.interface.shortDescription
-    ?? t("plugins.artifact_detail_loading");
+  const connectCopy =
+    selectedPlugin != null
+      ? getArtifactPluginConnectCopy(selectedPlugin)
+      : null;
+  const primarySkillId =
+    selectedPlugin?.skills.find((s) => s.id === selectedPlugin.id)?.id ??
+    selectedPlugin?.skills[0]?.id ??
+    selectedPlugin?.id ??
+    "";
 
   const cards =
     loading || loadError || plugins.length === 0
       ? null
-      : plugins.map((plugin) => (
-          <ArtifactPluginCard
-            key={plugin.id}
-            plugin={plugin}
-            openLabel={t("plugins.artifact_open")}
-            toggleLabel={t("plugins.artifact_card_toggle", {
-              name: plugin.manifest.interface.displayName,
-            })}
-            onOpen={() => void openPlugin(plugin.id)}
-            onEnabledChange={(enabled) => setPluginEnabled(plugin.id, enabled)}
-          />
-        ));
+      : plugins.map((plugin) => {
+          const copy = getArtifactPluginConnectCopy(plugin);
+          const skillId =
+            plugin.skills.find((s) => s.id === plugin.id)?.id ??
+            plugin.skills[0]?.id ??
+            plugin.id;
+          const tryPrompt = copy.prompts[0] ?? copy.longDescription ?? plugin.id;
+          return (
+            <ArtifactPluginCard
+              key={plugin.id}
+              plugin={plugin}
+              openLabel={t("plugins.artifact_open")}
+              onOpen={() => openPlugin(plugin.id)}
+              onTry={
+                plugin.enabled && props.onSelectArtifactPrompt
+                  ? () => {
+                      props.onSelectArtifactPrompt?.({
+                        pluginId: plugin.id,
+                        skillId,
+                        prompt: tryPrompt,
+                      });
+                    }
+                  : undefined
+              }
+            />
+          );
+        });
 
+  // Same Feishu-style shell as recommend connectors (dual logo + try-this).
   const detailDialog = (
-    <Dialog
+    <ConnectorConnectDialog
       open={Boolean(selectedPluginId)}
       onOpenChange={(open) => {
         if (!open) closePluginDetail();
       }}
-    >
-      <DialogContent
-        className="flex max-h-[min(88vh,40rem)] w-full max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
-      >
-        <DialogHeader className="sr-only">
-          <DialogTitle>{detailTitle}</DialogTitle>
-          <DialogDescription>{detailDescription}</DialogDescription>
-        </DialogHeader>
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 pr-12">
-          {detailLoading ? (
-            <div
-              className="flex min-h-32 items-center justify-center"
-              role="status"
-              aria-label={t("plugins.artifact_detail_loading")}
-            >
-              <LoadingSpinner />
-            </div>
-          ) : detailError ? (
-            <NoticeBox tone="error" role="alert">
-              {t("plugins.artifact_load_error")}
-            </NoticeBox>
-          ) : selectedPlugin && selectedDetail ? (
-            <ArtifactPluginDetail
-              plugin={{ ...selectedPlugin, connection: selectedDetail.connection }}
-              labels={labels}
-              onSelectPrompt={(pluginId, skillId, prompt) => {
-                props.onSelectArtifactPrompt?.({ pluginId, skillId, prompt });
-                closePluginDetail();
-              }}
-              starterPromptsDisabled={!props.onSelectArtifactPrompt}
-              onPluginEnabledChange={(enabled) => setPluginEnabled(selectedPlugin.id, enabled)}
-              onSkillEnabledChange={(skillId, enabled) =>
-                setSkillEnabled(selectedPlugin.id, skillId, enabled)
-              }
-            />
-          ) : null}
-        </div>
-      </DialogContent>
-    </Dialog>
+      name={connectCopy?.title ?? t("plugins.artifact_open")}
+      description={connectCopy?.longDescription ?? ""}
+      serviceIconNode={
+        selectedPlugin ? (
+          <ArtifactPluginIcon pluginId={selectedPlugin.id} size="sm" />
+        ) : null
+      }
+      connected={Boolean(selectedPlugin?.enabled)}
+      connectLabel={t("plugins.artifact_enable_action")}
+      onConnect={
+        selectedPlugin
+          ? () => void setPluginEnabled(selectedPlugin.id, true)
+          : undefined
+      }
+      tryItLabel={t("plugins.connector_try_it")}
+      onTryIt={
+        selectedPlugin &&
+        props.onSelectArtifactPrompt &&
+        connectCopy?.prompts[0]
+          ? () => {
+              props.onSelectArtifactPrompt?.({
+                pluginId: selectedPlugin.id,
+                skillId: primarySkillId,
+                prompt: connectCopy.prompts[0],
+              });
+              closePluginDetail();
+            }
+          : undefined
+      }
+      unbindLabel={t("plugins.artifact_disable_action")}
+      onUnbind={
+        selectedPlugin
+          ? () => void setPluginEnabled(selectedPlugin.id, false)
+          : undefined
+      }
+      tryThisPrompts={connectCopy?.prompts}
+      promptsDisabled={
+        !props.onSelectArtifactPrompt || !selectedPlugin?.enabled
+      }
+      onSelectPrompt={
+        selectedPlugin && props.onSelectArtifactPrompt
+          ? (prompt) => {
+              props.onSelectArtifactPrompt?.({
+                pluginId: selectedPlugin.id,
+                skillId: primarySkillId,
+                prompt,
+              });
+              closePluginDetail();
+            }
+          : undefined
+      }
+    />
   );
 
   // Embedded: cards only into parent 4-col grid (no File tools subtitle).
@@ -864,6 +519,7 @@ function BuiltinExtensionsSection(props: {
   client?: OnMyAgentServerClient | null;
   /** When true, omit section chrome — parent band provides title (Built-in). */
   embedded?: boolean;
+  onSelectArtifactPrompt?: PluginsPageProps["onSelectArtifactPrompt"];
 }) {
   const local = useLocal();
   const [revision, setRevision] = useState(0);
@@ -1036,14 +692,6 @@ function BuiltinExtensionsSection(props: {
         onInstall: async () => undefined,
         onTestGenerate: async () => undefined,
       },
-      voiceExtension: {
-        busy: false,
-        status: null,
-        error: null,
-        envKeyDetected: false,
-        onSaveApiKey: async () => undefined,
-        onTestSession: async () => undefined,
-      },
       localProvider: {
         busy: localProviderBusy,
         status: localProviderStatus,
@@ -1093,36 +741,140 @@ function BuiltinExtensionsSection(props: {
       : null;
   const detailEnabled =
     detailEntry != null ? isOnMyAgentExtensionEnabled(detailEntry) : false;
+  const detailManifest = detailEntry?.extensionManifest;
+  const detailId =
+    detailEntry?.id ??
+    detailEntry?.serverName ??
+    detailEntry?.name ??
+    "";
+  const detailLongDescription =
+    detailManifest?.longDescription?.trim() ||
+    detailEntry?.description?.trim() ||
+    detailEntry?.name ||
+    "";
+  const detailTryPrompts =
+    detailManifest?.composer?.suggestions?.filter(Boolean) ??
+    detailEntry?.suggestedPrompts?.filter(Boolean) ??
+    [];
 
-  const cards = entries.map((entry) => (
-    <BuiltinExtensionCard
-      key={entry.id ?? entry.serverName ?? entry.name}
-      entry={entry}
-      onOpenDetails={() => setDetailEntry(entry)}
-    />
-  ));
+  const cards = entries.map((entry) => {
+    const entryId = entry.id ?? entry.serverName ?? entry.name ?? "";
+    const tryPrompts =
+      entry.extensionManifest?.composer?.suggestions?.filter(Boolean) ??
+      entry.suggestedPrompts?.filter(Boolean) ??
+      [];
+    const tryPrompt =
+      tryPrompts[0] ||
+      entry.extensionManifest?.composer?.prompt?.trim() ||
+      entry.description?.trim() ||
+      entry.name;
+    return (
+      <BuiltinExtensionCard
+        key={entryId}
+        entry={entry}
+        onOpenDetails={() => setDetailEntry(entry)}
+        onTry={
+          props.onSelectArtifactPrompt
+            ? () => {
+                props.onSelectArtifactPrompt?.({
+                  pluginId: entryId,
+                  skillId: entryId,
+                  prompt: tryPrompt,
+                });
+              }
+            : undefined
+        }
+      />
+    );
+  });
 
   const detailModal = detailEntry ? (
-    <ExtensionDetailModal
+    <ConnectorConnectDialog
       open
-      onClose={() => setDetailEntry(null)}
+      // Wide shell when embedding the full Computer Use settings card.
+      size={detailConfig ? "wide" : "default"}
+      onOpenChange={(open) => {
+        if (!open) setDetailEntry(null);
+      }}
       name={detailEntry.name}
-      description={detailEntry.description?.trim() || detailEntry.name}
-      kind="extension"
-      preview={detailEntry.preview === true}
-      connected={detailEnabled}
-      connectedLabel={t("plugins.artifact_enabled")}
-      disconnectedLabel={t("plugins.artifact_disabled")}
-      setupInstructions={
-        detailConfig
-          ? undefined
-          : detailEntry.extensionManifest?.setup?.instructions
+      description={detailLongDescription}
+      serviceIconNode={
+        <span
+          className={cn(
+            "flex size-full items-center justify-center rounded-full bg-white",
+            extensionIconTileClassName,
+          )}
+        >
+          {extensionIcon(detailEntry, 22)}
+        </span>
       }
-      showEnablementCard={false}
-      showDetailsCard={!detailConfig}
-      size="wide"
-      configSlot={detailConfig}
-    />
+      connected={detailEnabled}
+      connectLabel={t("plugins.artifact_enable_action")}
+      onConnect={() => {
+        setOnMyAgentExtensionEnabled(detailEntry, true);
+        setRevision((v) => v + 1);
+      }}
+      tryItLabel={t("plugins.connector_try_it")}
+      onTryIt={
+        props.onSelectArtifactPrompt && detailTryPrompts[0]
+          ? () => {
+              props.onSelectArtifactPrompt?.({
+                pluginId: detailId,
+                skillId: detailId,
+                prompt: detailTryPrompts[0],
+              });
+              setDetailEntry(null);
+            }
+          : props.onSelectArtifactPrompt
+            ? () => {
+                const prompt =
+                  detailManifest?.composer?.prompt?.trim() ||
+                  detailLongDescription ||
+                  detailEntry.name;
+                props.onSelectArtifactPrompt?.({
+                  pluginId: detailId,
+                  skillId: detailId,
+                  prompt,
+                });
+                setDetailEntry(null);
+              }
+            : undefined
+      }
+      unbindLabel={t("plugins.artifact_disable_action")}
+      onUnbind={() => {
+        setOnMyAgentExtensionEnabled(detailEntry, false);
+        setRevision((v) => v + 1);
+      }}
+      // Keep try-this light when the body is a full settings card.
+      tryThisPrompts={detailConfig ? [] : detailTryPrompts}
+      promptsDisabled={!props.onSelectArtifactPrompt || !detailEnabled}
+      onSelectPrompt={
+        props.onSelectArtifactPrompt
+          ? (prompt) => {
+              props.onSelectArtifactPrompt?.({
+                pluginId: detailId,
+                skillId: detailId,
+                prompt,
+              });
+              setDetailEntry(null);
+            }
+          : undefined
+      }
+      footerNote={
+        // Built-ins are already installed — never show third-party preview copy.
+        detailEntry.preview && !isBuiltInOnMyAgentExtension(detailEntry)
+          ? t("plugins.connector_connect_preview_note")
+          : null
+      }
+    >
+      {detailConfig ? (
+        detailConfig
+      ) : detailManifest?.setup?.instructions ? (
+        <p className="text-sm leading-relaxed text-dls-secondary">
+          {detailManifest.setup.instructions}
+        </p>
+      ) : null}
+    </ConnectorConnectDialog>
   ) : null;
 
   // Embedded: only cards (parent owns the continuous 4-col grid).
@@ -1152,54 +904,46 @@ function BuiltinExtensionsSection(props: {
 }
 
 /**
- * Match ArtifactPluginCard chrome: icon + title + switch, description,
- * and “View details” when a settings panel is registered (e.g. BrowserSkill).
+ * Recommend-style tile: logo + title·dot + bubble/+, 2-line desc.
+ * Matches ConnectorStatusCard actions (not Switch).
+ * Whole card opens setup / connect detail.
  */
 function BuiltinExtensionCard(props: {
   entry: McpDirectoryInfo;
   onOpenDetails: () => void;
+  /** When enabled — chat bubble “go try”; falls back to open details. */
+  onTry?: () => void;
 }) {
-  const [, setRevision] = useState(0);
+  // Bump when extension enablement changes outside this card (detail dialog).
+  const [revision, setRevision] = useState(0);
   useEffect(() => {
     const refresh = () => setRevision((value) => value + 1);
     window.addEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
     return () => window.removeEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
   }, []);
+  void revision;
   const enabled = isOnMyAgentExtensionEnabled(props.entry);
   const description = props.entry.description?.trim() ?? "";
-  const canOpenDetails = hasExtensionConfig(props.entry);
-
-  const openDetails = canOpenDetails ? props.onOpenDetails : undefined;
 
   return (
     <article
-      role={openDetails ? "button" : undefined}
-      tabIndex={openDetails ? 0 : undefined}
+      role="button"
+      tabIndex={0}
       data-enabled={enabled ? "true" : "false"}
       className={cn(
         connectorTileClassName,
         connectorTileOrderClass(enabled),
         connectorTileEnabledClass(enabled),
-        // No detail panel: keep hover lift but default cursor (switch still works).
-        !openDetails && "cursor-default",
       )}
-      onClick={openDetails}
-      onKeyDown={
-        openDetails
-          ? (event) => {
-              if (event.target !== event.currentTarget) return;
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                openDetails();
-              }
-            }
-          : undefined
-      }
-      aria-label={
-        openDetails
-          ? `${props.entry.name}. ${t("plugins.artifact_open")}`
-          : props.entry.name
-      }
+      onClick={props.onOpenDetails}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          props.onOpenDetails();
+        }
+      }}
+      aria-label={`${props.entry.name}. ${t("plugins.artifact_open")}`}
     >
       <div className={connectorTileHeaderClassName}>
         <IconTile
@@ -1212,112 +956,139 @@ function BuiltinExtensionCard(props: {
           {extensionIcon(props.entry, 18)}
         </IconTile>
         <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-          <h3 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">
-            {props.entry.name}
-          </h3>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h3 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">
+              {props.entry.name}
+            </h3>
+            {enabled ? (
+              <span
+                className="size-1.5 shrink-0 rounded-full bg-emerald-500"
+                aria-hidden
+              />
+            ) : null}
+          </div>
           <div
             className="shrink-0"
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => event.stopPropagation()}
           >
-            <Switch
-              checked={enabled}
-              onCheckedChange={(next) => {
-                setOnMyAgentExtensionEnabled(props.entry, next);
-                setRevision((value) => value + 1);
-              }}
-              aria-label={props.entry.name}
-            />
+            {enabled ? (
+              <button
+                type="button"
+                className={cn(
+                  "inline-flex size-8 items-center justify-center rounded-xl",
+                  "bg-dls-surface-muted text-dls-text/90",
+                  "transition-colors hover:bg-dls-hover hover:text-dls-text",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
+                )}
+                aria-label={t("plugins.connector_try_it")}
+                onClick={() => {
+                  if (props.onTry) props.onTry();
+                  else props.onOpenDetails();
+                }}
+              >
+                <MessageCircle className="size-4" strokeWidth={2} aria-hidden />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={cn(
+                  "inline-flex size-8 items-center justify-center rounded-xl",
+                  "bg-dls-surface-muted text-dls-text",
+                  "shadow-sm ring-1 ring-dls-border/60",
+                  "transition-colors hover:bg-dls-hover hover:ring-dls-border",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
+                )}
+                aria-label={t("plugins.add")}
+                onClick={props.onOpenDetails}
+              >
+                <Plus className="size-4" strokeWidth={2.5} aria-hidden />
+              </button>
+            )}
           </div>
         </div>
       </div>
       <p className={connectorTileDescClassName} title={description || undefined}>
         {description || "\u00a0"}
       </p>
-      <div className={connectorTileFooterClassName}>
-        {canOpenDetails ? (
-          <span className="inline-flex items-center gap-0.5 text-xs text-dls-secondary transition-colors group-hover:text-dls-text">
-            {t("plugins.artifact_open")}
-            <ChevronRight className="size-3.5" aria-hidden="true" />
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-0.5 text-xs leading-5 text-transparent" aria-hidden>
-            {t("plugins.artifact_open")}
-            <ChevronRight className="size-3.5" />
-          </span>
-        )}
-      </div>
+      <div className="mt-auto h-0 shrink-0" aria-hidden />
     </article>
   );
 }
 
 export function PluginsPage(props: PluginsPageProps) {
-  const samplePlugins = useMemo(() => getSamplePlugins(), []);
+  const [filterId, setFilterId] = useState<ConnectorFilterId>("all");
+
+  const showBuiltin = filterId === "all" || filterId === "builtin";
+  const showRecommended = filterId === "all" || filterId === "recommended";
+
+  const tryConnectorPrompt = useCallback(
+    (pluginId: string) => (prompt: string) => {
+      props.onSelectArtifactPrompt?.({
+        pluginId,
+        skillId: pluginId,
+        prompt,
+      });
+    },
+    [props.onSelectArtifactPrompt],
+  );
 
   return (
     <div
       className={pluginsLayoutClass.page}
       data-workspace-id={props.workspaceId}
     >
-      <div className={pluginsLayoutClass.scrollArea}>
-        {/*
-          Two bands:
-          1) Built-in — product extensions + file tools
-          2) Recommended — OfficeCLI (installable) + third-party preview catalog
-        */}
-        <div className={cn(pluginsLayoutClass.pluginPageContainer, "space-y-10")}>
-          <section
-            className={pluginsLayoutClass.section}
-            aria-labelledby="connectors-builtin-heading"
-          >
-            <div className={pluginsLayoutClass.sectionHeader}>
-              <h2
-                id="connectors-builtin-heading"
-                className={pluginsLayoutClass.sectionTitle}
-              >
-                {t("plugins.builtin_section_title")}
-              </h2>
-              <p className={pluginsTextClass.sectionLead}>
-                {t("plugins.builtin_section_hint")}
-              </p>
-            </div>
-            {/* One continuous 4-col grid: product extensions + file tools, no sub-titles. */}
-            <div className={pluginsLayoutClass.connectorCardGrid}>
+      {/*
+        Market-style layout (same chip strip as experts/skills):
+        top filter chips → single scrollable card grid.
+      */}
+      <div className="flex shrink-0 items-center gap-0.5 overflow-x-auto px-6 py-2.5">
+        {CONNECTOR_FILTERS.map((filter) => (
+          <FilterChip
+            key={filter.id}
+            label={t(filter.labelKey)}
+            selected={filterId === filter.id}
+            onClick={() => setFilterId(filter.id)}
+            className="mac:titlebar-no-drag"
+          />
+        ))}
+      </div>
+
+      {/* Padding on the scroll surface (skills market pattern) so bottom gap is real. */}
+      <div className={cn(pluginsLayoutClass.scrollArea, "px-6 pb-16 pt-1")}>
+        <div className={pluginsLayoutClass.connectorCardGrid}>
+          {showRecommended ? (
+            <>
+              <OfficeCliPluginCard onTryPrompt={tryConnectorPrompt("officecli")} />
+              <LarkCliPluginCard onTryPrompt={tryConnectorPrompt("lark-cli")} />
+              <TencentDocsPluginCard
+                onTryPrompt={tryConnectorPrompt("tencent-docs")}
+              />
+              <BaiduDrivePluginCard
+                onTryPrompt={tryConnectorPrompt("baidu-drive")}
+              />
+              <KdocsPluginCard onTryPrompt={tryConnectorPrompt("kdocs")} />
+              <DingtalkPluginCard onTryPrompt={tryConnectorPrompt("dingtalk")} />
+              <WecomPluginCard onTryPrompt={tryConnectorPrompt("wecom")} />
+              <TencentMeetingPluginCard
+                onTryPrompt={tryConnectorPrompt("tencent-meeting")}
+              />
+            </>
+          ) : null}
+          {showBuiltin ? (
+            <>
               <BuiltinExtensionsSection
                 workspaceId={props.workspaceId}
                 client={props.client}
+                onSelectArtifactPrompt={props.onSelectArtifactPrompt}
                 embedded
               />
               <ArtifactPluginsCatalog {...props} embedded />
-            </div>
-          </section>
-
-          <section
-            className={cn(pluginsLayoutClass.section, pluginsLayoutClass.sectionDivider)}
-            aria-labelledby="connectors-recommend-heading"
-          >
-            <div className={pluginsLayoutClass.sectionHeader}>
-              <h2
-                id="connectors-recommend-heading"
-                className={pluginsLayoutClass.sectionTitle}
-              >
-                {t("plugins.sample_section_title")}
-              </h2>
-              <p className={pluginsTextClass.sectionLead}>
-                {t("plugins.sample_section_hint")}
-              </p>
-            </div>
-            <div className={pluginsLayoutClass.connectorCardGrid}>
-              <OfficeCliPluginCard />
-              <LarkCliPluginCard />
-              <TencentDocsPluginCard />
-              {samplePlugins.map((item) => (
-                <PluginCard key={item.id} item={item} />
-              ))}
-            </div>
-          </section>
+            </>
+          ) : null}
         </div>
       </div>
+
     </div>
   );
 }
@@ -1547,8 +1318,8 @@ export function SkillsPage(props: PluginsPageProps) {
       className={pluginsLayoutClass.page}
       data-workspace-id={props.workspaceId}
     >
-      <div className={pluginsLayoutClass.scrollArea}>
-        <div className={pluginsLayoutClass.pageContainer}>
+      <div className={cn(pluginsLayoutClass.scrollArea, "px-6 pb-16 pt-5")}>
+        <div className="w-full">
           <div className="space-y-10">
             {!props.marketOnly ? (
               <div className="flex flex-wrap items-center justify-between gap-3">

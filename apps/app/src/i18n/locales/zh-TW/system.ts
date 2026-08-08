@@ -30,8 +30,15 @@ export default {
     "無法啟動 OnMyAgent。請退出後重新開啟應用再試。",
   "system.boot_server_not_ready":
     "本地服務未完成啟動。請退出 OnMyAgent 後重新開啟。",
+  "system.boot_config_invalid":
+    "本地引擎配置無效（常見於 MCP 條目不完整）。可先「修復引擎配置」再重試。",
   "system.boot_download_latest_hint": "若反覆出現，請下載最新版本：",
   "system.boot_retry": "再試一次",
+  "system.boot_open_config_dir": "打開配置目錄",
+  "system.boot_repair_config": "修復引擎配置",
+  "system.boot_repair_working": "正在修復…",
+  "system.boot_repair_done": "已修復並備份舊配置，請再試一次",
+  "system.boot_repair_failed": "自動修復失敗，請打開配置目錄手動檢查",
   "system.error_action_retry": "再試一次",
   "system.error_action_reload_app": "重新開啟應用",
   "system.error_action_open_ai_settings": "開啟模型設定",

@@ -1,17 +1,17 @@
 /** @jsxImportSource react */
+import { MessageCircle, Plus } from "lucide-react";
 import type { ArtifactPluginCatalogItem } from "@onmyagent/types/server";
-import { ChevronRight } from "lucide-react";
 
-import { Switch } from "@/components/ui/switch";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 import { ArtifactPluginIcon } from "./artifact-plugin-detail";
 import {
+  connectorTileActionClassName,
+  connectorTileActionPlusClassName,
   connectorTileClassName,
   connectorTileDescClassName,
   connectorTileEnabledClass,
-  connectorTileFooterClassName,
   connectorTileHeaderClassName,
   connectorTileOrderClass,
 } from "./connector-tile";
@@ -19,9 +19,13 @@ import {
 export type ArtifactPluginCardProps = {
   plugin: ArtifactPluginCatalogItem;
   openLabel: string;
-  toggleLabel: string;
+  /** @deprecated Kept for call-site compatibility; action is + / chat like recommend cards. */
+  toggleLabel?: string;
   onOpen: () => void;
-  onEnabledChange: (enabled: boolean) => Promise<void>;
+  /** When enabled — chat bubble “go try”; falls back to onOpen. */
+  onTry?: () => void;
+  /** @deprecated Enable/disable is done from the detail dialog (match recommend connectors). */
+  onEnabledChange?: (enabled: boolean) => Promise<void>;
 };
 
 const LOCALIZED_PLUGIN_COPY: Record<string, { nameKey: string; descKey: string }> = {
@@ -58,8 +62,8 @@ function localizedPluginCopy(plugin: ArtifactPluginCatalogItem) {
 }
 
 /**
- * Skill-style vertical card: icon + title + switch, description, bottom
- * “view detail”. Whole card opens detail (cursor + hover like My Skills).
+ * Recommend-style tile: logo + title·status-dot + bubble/+, up to 3-line desc.
+ * Matches ConnectorStatusCard actions (not Switch).
  */
 export function ArtifactPluginCard(props: ArtifactPluginCardProps) {
   const { plugin } = props;
@@ -89,31 +93,51 @@ export function ArtifactPluginCard(props: ArtifactPluginCardProps) {
       <div className={connectorTileHeaderClassName}>
         <ArtifactPluginIcon pluginId={plugin.id} size="sm" />
         <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-          <h3 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">
-            {copy.name}
-          </h3>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h3 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">
+              {copy.name}
+            </h3>
+            {enabled ? (
+              <span
+                className="size-1.5 shrink-0 rounded-full bg-emerald-500"
+                aria-hidden
+              />
+            ) : null}
+          </div>
           <div
             className="shrink-0"
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => event.stopPropagation()}
           >
-            <Switch
-              checked={enabled}
-              aria-label={props.toggleLabel}
-              onCheckedChange={(next) => void props.onEnabledChange(next)}
-            />
+            {enabled ? (
+              <button
+                type="button"
+                className={cn(connectorTileActionClassName, "text-dls-text/90")}
+                aria-label={t("plugins.connector_try_it")}
+                onClick={() => {
+                  if (props.onTry) props.onTry();
+                  else props.onOpen();
+                }}
+              >
+                <MessageCircle className="size-4" strokeWidth={2} aria-hidden />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={connectorTileActionPlusClassName}
+                aria-label={t("plugins.add")}
+                onClick={props.onOpen}
+              >
+                <Plus className="size-4" strokeWidth={2.5} aria-hidden />
+              </button>
+            )}
           </div>
         </div>
       </div>
       <p className={connectorTileDescClassName} title={copy.description}>
         {copy.description || "\u00a0"}
       </p>
-      <div className={connectorTileFooterClassName}>
-        <span className="inline-flex items-center gap-0.5 text-xs text-dls-secondary transition-colors group-hover:text-dls-text">
-          {props.openLabel}
-          <ChevronRight className="size-3.5" aria-hidden="true" />
-        </span>
-      </div>
+      <div className="mt-auto h-0 shrink-0" aria-hidden />
     </article>
   );
 }

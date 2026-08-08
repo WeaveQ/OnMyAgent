@@ -44,7 +44,6 @@ export function shouldShowSessionStartupSkeleton(input: {
   return true;
 }
 
-export const GLOBAL_VOICE_SIDE_PANEL_KEY = "__onmyagent_voice__";
 export const AGENT_PANEL_MIN_WIDTH = 240;
 export const AGENT_PANEL_MAX_WIDTH = 360;
 export const AGENT_PANEL_DEFAULT_WIDTH = 300;
