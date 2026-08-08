@@ -607,7 +607,7 @@ export function CustomConnectorDialog(props: CustomConnectorDialogProps) {
                       <span
                         className={cn(
                           "inline-flex h-5 min-w-5 items-center justify-center rounded-full",
-                          "bg-dls-surface-muted px-1.5 text-[11px] font-medium text-dls-secondary",
+                          "bg-dls-surface-muted px-1.5 text-2xs font-medium text-dls-secondary",
                         )}
                       >
                         {filteredServers.length}

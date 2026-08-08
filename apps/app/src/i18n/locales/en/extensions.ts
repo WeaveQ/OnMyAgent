@@ -39,8 +39,7 @@ export default {
   "extensions.what_this_enables": "What this enables",
   "extensions.computer_use_connect_mcp": "Connect Computer Use MCP",
   "extensions.computer_use_name": "Computer Use",
-  "extensions.computer_use_description":
-    "Let the agent control desktop apps—click, type, switch windows. Best for local software (needs accessibility & screen recording).",
+  "extensions.computer_use_description": "Let AI control your desktop.",
   "extensions.computer_use_long":
     "Drive the desktop like a person: open apps, click menus, type, and switch windows. Ideal for Xcode, Finder, and other non-browser tools. On macOS grant Accessibility and Screen Recording; on Windows enable the Cua MCP when ready.",
   "extensions.computer_use_prompt": "Use Computer Use to ",
@@ -62,8 +61,7 @@ export default {
   "extensions.accessibility_permission": "Accessibility permission",
   "extensions.screen_recording_permission": "Screen Recording permission",
   "extensions.browser_skill_name": "BrowserSkill",
-  "extensions.browser_skill_description":
-    "Drive real Chrome/Edge with your logins for web tasks, forms, and checks—complements the in-app browser.",
+  "extensions.browser_skill_description": "Connect a real browser for web automation.",
   "extensions.browser_skill_long":
     "Control real Chrome or Edge (with cookies and signed-in sessions) via the BrowserSkill extension. Great for dashboards, multi-step forms, and smoke tests. Install the CLI and extension; pairs with—not replaces—the built-in Browser plugin.",
   "extensions.browser_skill_prompt": "Use BrowserSkill (bsk) to ",

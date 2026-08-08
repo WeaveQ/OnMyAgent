@@ -58,8 +58,7 @@ export default {
   "plugins.artifact_skills": "Skills",
   "plugins.artifact_excel_unavailable": "Excel Live is unavailable until a live provider is registered.",
   "plugins.artifact_plugin_browser_name": "Browser",
-  "plugins.artifact_plugin_browser_desc":
-    "Open pages in OnMyAgent’s built-in browser: navigate, click, type, and screenshot—great for local apps.",
+  "plugins.artifact_plugin_browser_desc": "Connect the in-app browser for web automation.",
   "plugins.artifact_plugin_browser_long":
     "Open and control the built-in browser—navigate, click, type, inspect pages, and take screenshots. Best for local pages and automation that does not need a real Chrome login. System plugin: always installed, on by default, not uninstallable. Complements BrowserSkill (real Chrome/Edge).",
   "plugins.artifact_plugin_browser_system": "System plugin — cannot be uninstalled",
@@ -69,8 +68,7 @@ export default {
   "plugins.artifact_plugin_browser_prompt_3":
     "Take a screenshot of the current in-app browser tab.",
   "plugins.artifact_plugin_documents_name": "Documents",
-  "plugins.artifact_plugin_documents_desc":
-    "Create and revise local Word (DOCX): draft reports, restructure, and review in chat.",
+  "plugins.artifact_plugin_documents_desc": "Create and revise local Word documents.",
   "plugins.artifact_plugin_documents_long":
     "Read, create, edit, and review local Word (DOCX)—draft reports from notes, turn outlines into sections, and suggest focused edits. Ideal for weekly updates, proposals, and specs.",
   "plugins.artifact_plugin_documents_prompt_1": "Draft a polished DOCX report from my notes.",
@@ -79,16 +77,14 @@ export default {
   "plugins.artifact_plugin_documents_prompt_3":
     "Turn this outline into a well-structured document.",
   "plugins.artifact_plugin_pdf_name": "PDF",
-  "plugins.artifact_plugin_pdf_desc":
-    "Read, summarize, and produce PDFs—extract insights, make handouts, check layout.",
+  "plugins.artifact_plugin_pdf_desc": "Read, summarize, and create PDFs.",
   "plugins.artifact_plugin_pdf_long":
     "Read, create, extract, and verify PDFs—summarize findings, produce handouts, and check layout. Turn notes or web material into shareable PDF drafts.",
   "plugins.artifact_plugin_pdf_prompt_1": "Summarize the key findings in this PDF.",
   "plugins.artifact_plugin_pdf_prompt_2": "Create a clean PDF handout from this content.",
   "plugins.artifact_plugin_pdf_prompt_3": "Inspect these PDF pages for layout problems.",
   "plugins.artifact_plugin_spreadsheets_name": "Spreadsheets",
-  "plugins.artifact_plugin_spreadsheets_desc":
-    "Build and analyze spreadsheets: clean data, formulas, summaries, and trends.",
+  "plugins.artifact_plugin_spreadsheets_desc": "Build and analyze spreadsheet data.",
   "plugins.artifact_plugin_spreadsheets_long":
     "Create, read, analyze, and edit workbooks—clean data, write or verify formulas, and surface summaries and trends. Useful for reports, reconciliation, and turning raw tables into structured sheets.",
   "plugins.artifact_plugin_spreadsheets_prompt_1": "Build a clear spreadsheet from this raw data.",

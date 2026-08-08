@@ -38,9 +38,8 @@ export default {
   "extensions.visibility": "可见性",
   "extensions.what_this_enables": "启用能力",
   "extensions.computer_use_connect_mcp": "连接 Computer Use MCP",
-  "extensions.computer_use_name": "Computer Use",
-  "extensions.computer_use_description":
-    "让 Agent 操控本机桌面应用：点击、输入、切换窗口；适合本地软件与系统级操作（需辅助功能/屏幕录制权限）。",
+  "extensions.computer_use_name": "计算机控制",
+  "extensions.computer_use_description": "允许 AI 操作本机桌面。",
   "extensions.computer_use_long":
     "让 Agent 像人一样操作本机桌面：打开应用、点击菜单、输入文字、切换窗口。适合 Xcode、Finder、本地工具等非浏览器场景。macOS 需辅助功能与屏幕录制；Windows 需启用 Cua MCP。",
   "extensions.computer_use_prompt": "使用 Computer Use 来",
@@ -61,9 +60,8 @@ export default {
   "extensions.computer_use_verify_mcp": "验证 Computer Use MCP",
   "extensions.accessibility_permission": "辅助功能权限",
   "extensions.screen_recording_permission": "屏幕录制权限",
-  "extensions.browser_skill_name": "BrowserSkill",
-  "extensions.browser_skill_description":
-    "驱动本机真实 Chrome/Edge，复用已登录态完成网页操作、填表与巡检；与应用内浏览器互补。",
+  "extensions.browser_skill_name": "浏览器技能",
+  "extensions.browser_skill_description": "连接真实浏览器，实现网页自动化。",
   "extensions.browser_skill_long":
     "通过本机 Chrome/Edge 与 BrowserSkill 扩展操作真实网页，保留登录态与 Cookie。适合后台、多步表单与需真实浏览器环境的检查。需安装 CLI 与扩展；与应用内「浏览器」插件互补，不替代内置浏览器。",
   "extensions.browser_skill_prompt": "使用 BrowserSkill（bsk）来",

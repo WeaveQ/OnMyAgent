@@ -83,7 +83,7 @@ export function removeKdocsMcp(config) {
       (marker &&
         typeof marker === "object" &&
         !Array.isArray(marker) &&
-        marker.pluginId === PLUGIN_ID) ||
+        /** @type {Record<string, unknown>} */ (marker).pluginId === PLUGIN_ID) ||
       url.startsWith("https://mcp-center.wps.cn/")
     ) {
       delete existing[MCP_SERVER_NAME];

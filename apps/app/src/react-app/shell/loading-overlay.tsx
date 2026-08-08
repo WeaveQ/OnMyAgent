@@ -140,7 +140,7 @@ export function LoadingOverlay() {
               <summary className="cursor-pointer select-none">
                 technical
               </summary>
-              <pre className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap break-all rounded-md bg-dls-surface-muted p-2 text-[11px] leading-4 text-dls-secondary">
+              <pre className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap break-all rounded-md bg-dls-surface-muted p-2 text-2xs leading-4 text-dls-secondary">
                 {detail.trim()}
               </pre>
             </details>
