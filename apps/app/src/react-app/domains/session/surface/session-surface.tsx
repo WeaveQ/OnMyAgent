@@ -272,7 +272,6 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     assistantCategoryId,
     props.personalAssistantHome,
     props.sessionId,
-    setComposerDraft,
   ]);
 
   const chatStreaming = deriveChatStreaming({
@@ -517,7 +516,6 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     setStallRecoveryBySessionId,
     buildDraft,
     clearComposerSession,
-    setComposerDraft,
     updateCollaborationMode,
     onSendDraft: props.onSendDraft,
     onDraftChange: props.onDraftChange,
