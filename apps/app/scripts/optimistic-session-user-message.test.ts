@@ -3,6 +3,7 @@ import type { UIMessage } from "ai";
 
 import {
   addOptimisticSessionUserMessage,
+  adoptEquivalentOptimisticUserTextPart,
   removeOptimisticSessionUserMessage,
 } from "../src/react-app/domains/session/sync/optimistic-session-user-message";
 
@@ -42,6 +43,37 @@ describe("optimistic session user messages", () => {
         createdAt: 42,
       }),
     ).toBe(current);
+  });
+
+  it("lets a canonical skill text part replace its equivalent optimistic placeholder", () => {
+    const text = "[[skill:getworkbuddy]] 召唤专家团 腾讯云技术支持";
+    const optimistic = addOptimisticSessionUserMessage([], {
+      messageId: "msg_skill",
+      text,
+      createdAt: 42,
+    })[0]!;
+    const canonicalPart: UIMessage["parts"][number] = {
+      type: "text",
+      text,
+      state: "done",
+      providerMetadata: { opencode: { partId: "prt_skill" } },
+    };
+
+    expect(adoptEquivalentOptimisticUserTextPart(optimistic, canonicalPart))
+      .toEqual({ ...optimistic, parts: [canonicalPart] });
+  });
+
+  it("does not collapse distinct user text parts", () => {
+    const optimistic = message("msg_user", "user", "first prompt");
+    const canonicalPart: UIMessage["parts"][number] = {
+      type: "text",
+      text: "second prompt",
+      state: "done",
+      providerMetadata: { opencode: { partId: "prt_second" } },
+    };
+
+    expect(adoptEquivalentOptimisticUserTextPart(optimistic, canonicalPart))
+      .toBeNull();
   });
 
   it("removes only the failed optimistic prompt", () => {

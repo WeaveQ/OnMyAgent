@@ -175,6 +175,8 @@ export type {
   ExpertMarketplaceEntry,
   ExpertMarketplaceSummonHandler,
   ExpertRegistryRecord,
+  ExpertTeamWorkflow,
+  ExpertTeamWorkflowStage,
 } from "./expert-marketplace/types";
 
 /** Skills marketplace (catalog + UI). */

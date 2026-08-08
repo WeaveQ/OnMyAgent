@@ -23,6 +23,12 @@ describe("composer skill catalog product model", () => {
       scope: "builtin",
     },
     {
+      name: "getworkbuddy",
+      path: "/home/u/.onmyagent/profiles/local/config/skills/getworkbuddy/SKILL.md",
+      description: "Import local WorkBuddy experts",
+      scope: "onmyagent",
+    },
+    {
       name: "browser-automation",
       path: "/app/bundled-skills/browser-automation/SKILL.md",
       description: "ghost",
@@ -57,6 +63,7 @@ describe("composer skill catalog product model", () => {
       "browser-automation",
       "documents",
       "find-skills",
+      "getworkbuddy",
     ]);
   });
 
@@ -94,12 +101,14 @@ describe("composer skill catalog product model", () => {
       "browser-automation",
       "documents",
       "find-skills",
+      "getworkbuddy",
       "my-cmd",
     ]);
     expect(merged.skillsForState?.map((s) => s.name).sort()).toEqual([
       "browser-automation",
       "documents",
       "find-skills",
+      "getworkbuddy",
     ]);
   });
 });

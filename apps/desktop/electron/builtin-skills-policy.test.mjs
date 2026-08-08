@@ -15,6 +15,7 @@ describe("builtin-skills-policy", () => {
     const {
       isUsableSkillDescriptionText,
       shouldRefreshCoreSkillMarkdown,
+      shouldRefreshCoreSkillPackage,
     } = await import("./builtin-skills-policy.mjs");
     assert.equal(isUsableSkillDescriptionText(">-"), false);
     assert.equal(isUsableSkillDescriptionText("|"), false);
@@ -40,6 +41,22 @@ describe("builtin-skills-policy", () => {
       }),
       false,
     );
+    assert.equal(
+      shouldRefreshCoreSkillPackage({
+        packageName: "getworkbuddy",
+        skillName: "getworkbuddy",
+        destinationExists: true,
+      }),
+      true,
+    );
+    assert.equal(
+      shouldRefreshCoreSkillPackage({
+        packageName: "find-skills",
+        skillName: "find-skills",
+        destinationExists: true,
+      }),
+      false,
+    );
   });
 
   it("core preinstall includes finder, document processing, office pptx, self-improving, and product cores", () => {
@@ -49,6 +66,7 @@ describe("builtin-skills-policy", () => {
       "create-automation",
       "skill-creator",
       "find-skills",
+      "getworkbuddy",
       "document-processing",
       "pptx",
       "self-improving",
@@ -75,6 +93,7 @@ describe("builtin-skills-policy", () => {
     // Policy helper is pure path list — callers must not pass bundled as agent root.
     // Guard: bundled package names stay catalog-only unless installed by name under user root.
     assert.ok(BUNDLED_SKILL_PACKAGE_NAMES.includes("weather"));
+    assert.ok(BUNDLED_SKILL_PACKAGE_NAMES.includes("getworkbuddy"));
   });
 
   it("shouldInstallCoreSkill skips existing destinations", () => {

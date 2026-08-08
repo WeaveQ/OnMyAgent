@@ -211,6 +211,13 @@ type TypedServerClientMethodMap = {
     [workspaceId: string],
     { ok: boolean; created?: number; skipped?: number }
   >;
+  createExpertSessionRuntimeDirectory: ServerClientMethodContract<
+    [
+      workspaceId: string,
+      payload: { agentName: string; agentId?: string; sessionKey?: string },
+    ],
+    { ok: boolean; directory: string; sessionKey: string; agentSegment: string }
+  >;
   readOpencodeConfigFile: ServerClientMethodContract<
     [workspaceId: string, scope?: "project" | "global"],
     OpencodeConfigFile

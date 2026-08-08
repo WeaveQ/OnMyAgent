@@ -1,11 +1,8 @@
 /**
- * Per-expert-session artifact directory helpers.
+ * Per-expert-session directory helpers.
  *
- * When the user does not pick a folder for a new expert conversation, isolate
- * artifacts under: `{workspaceRoot}/experts/{agentName-agentId}/{timestamp}/`
- * so different experts and sessions never share the same dump folder.
- * The agentName-agentId segment is stable across sessions for the same expert;
- * the timestamp is deterministic at send time (no UUID generation race).
+ * New default sessions are allocated by the server under app runtime state.
+ * Workspace-relative helpers remain for legacy sessions and explicit folders.
  */
 
 /** Product layout root for expert archives (see workspace-files-layout). */
@@ -32,7 +29,7 @@ export function createExpertSessionKey(): string {
 }
 
 /**
- * True for auto-isolated expert session dirs:
+ * True for legacy auto-isolated expert session dirs:
  * `{workspaceRoot}/experts/{agentName-agentId}/{Date.now()}/`
  * (legacy without `experts/` also matches by trailing timestamp key).
  *
@@ -83,8 +80,7 @@ export function isSameDirectory(left: string, right: string): boolean {
 export const EXPERT_SESSION_MARKER_NAME = "onmyagent-session.json";
 
 /**
- * Build an isolated session directory under the workspace when the user did
- * not pick an explicit folder.
+ * Build the legacy workspace-relative isolated session directory.
  *
  * Structure: `{workspaceRoot}/experts/{agentName-agentId}/{timestamp}/`
  * - experts/: product layout root for Expert files tab
@@ -93,6 +89,7 @@ export const EXPERT_SESSION_MARKER_NAME = "onmyagent-session.json";
  *
  * Callers must materialize the directory (write the marker file) before
  * binding the opencode session - opencode realPath fails if the path is missing.
+ * @deprecated New default sessions must use createIsolatedExpertSessionRuntimeDirectory.
  */
 export function buildIsolatedExpertSessionDirectory(input: {
   workspaceRoot: string;
@@ -220,6 +217,48 @@ export type ExpertSessionDirectoryWriter = {
     payload: { path: string; content: string; force?: boolean },
   ) => Promise<unknown>;
 };
+
+export type ExpertSessionRuntimeDirectoryClient = {
+  createExpertSessionRuntimeDirectory: (
+    workspaceId: string,
+    payload: { agentName: string; agentId?: string; sessionKey?: string },
+  ) => Promise<{ directory: string; sessionKey: string; agentSegment: string }>;
+};
+
+export async function createIsolatedExpertSessionRuntimeDirectory(input: {
+  client: ExpertSessionRuntimeDirectoryClient | null | undefined;
+  workspaceId: string | null | undefined;
+  workspaceRoot: string;
+  agentName: string;
+  agentId?: string;
+  sessionKey?: string;
+}): Promise<{ directory: string; sessionKey: string; agentSegment: string } | null> {
+  const workspaceId = input.workspaceId?.trim() ?? "";
+  if (!input.client || !workspaceId) return null;
+  try {
+    const result = await input.client.createExpertSessionRuntimeDirectory(workspaceId, {
+      agentName: input.agentName,
+      agentId: input.agentId,
+      sessionKey: input.sessionKey,
+    });
+    const directory = result.directory?.trim() ?? "";
+    const workspace = input.workspaceRoot.trim().replace(/[\\/]+$/, "");
+    const normalizedDirectory = normalizeDirectoryPathValue(directory);
+    const normalizedWorkspace = normalizeDirectoryPathValue(workspace);
+    if (
+      !directory
+      || normalizedDirectory === normalizedWorkspace
+      || normalizedDirectory.startsWith(`${normalizedWorkspace}/`)
+    ) {
+      console.warn("[expert-session] rejected runtime directory inside workspace", directory);
+      return null;
+    }
+    return { ...result, directory };
+  } catch (error) {
+    console.warn("[expert-session] failed to create runtime directory", error);
+    return null;
+  }
+}
 
 /**
  * Ensure a session directory exists on disk by writing the hidden marker.

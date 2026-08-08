@@ -189,6 +189,20 @@ export function createWorkspaceClientMethods(ctx: OnMyAgentServerClientContext) 
           timeoutMs: timeouts.workspaceImport,
         },
       ),
+    createExpertSessionRuntimeDirectory: (
+      workspaceId: string,
+      payload: { agentName: string; agentId?: string; sessionKey?: string },
+    ) =>
+      requestJson<{
+        ok: boolean;
+        directory: string;
+        sessionKey: string;
+        agentSegment: string;
+      }>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/expert-session-directory`,
+        { token, hostToken, method: "POST", body: payload },
+      ),
     readOpencodeConfigFile: (workspaceId: string, scope: "project" | "global" = "project") => {
       const query = `?scope=${scope}`;
       return requestJson<OpencodeConfigFile>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/opencode-config${query}`, {

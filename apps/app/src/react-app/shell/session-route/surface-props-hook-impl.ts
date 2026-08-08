@@ -45,11 +45,10 @@ import {
 } from "../../domains/agents";
 import { usePendingAgentStore } from "../../domains/agents";
 import {
-  buildIsolatedExpertSessionDirectory,
+  createIsolatedExpertSessionRuntimeDirectory,
   clearOptimisticSessionUserMessage,
   dispatchAssistantSessionWorkspacesChanged,
   isSameDirectory,
-  materializeExpertSessionDirectory,
   readAssistantSessionWorkspace,
   seedOptimisticSessionUserMessage,
   shouldIsolateExpertSessionDirectory,
@@ -463,12 +462,10 @@ export function useSessionRouteSurfaceProps(
           taskWorkspaceRoot = selectedWorkspace?.path?.trim() || taskWorkspaceRoot;
         }
 
-        // Expert sessions without a user-picked folder get an isolated artifact
-        // directory: {workspace}/{agentName-agentId}/{timestamp}/ so sessions
-        // never mix outputs. Draft/folder equal to the workspace root still
-        // isolates - otherwise the files panel would scan the entire project tree.
-        // Always use the true workspace path as root - never sessionWorkspaceRoot,
-        // which may already be an isolated subdir (breaks relative marker writes).
+        // Expert sessions without a user-picked folder get an isolated directory
+        // under the server runtime-state root, never inside the selected project.
+        // Draft/folder equal to the workspace root still isolates so the files
+        // panel does not scan or write runtime markers into the project tree.
         const workspaceRootForSession = selectedWorkspace?.path?.trim() || "";
         const ensureClient = selectedWorkspaceEndpoint?.client ?? client;
         const ensureWorkspaceId =
@@ -487,57 +484,25 @@ export function useSessionRouteSurfaceProps(
             // to a different expert and would create artifacts in the wrong dir.
             const agentName = pendingForDir?.name?.trim() || "expert";
             const agentId = pendingForDir?.id?.trim() || "";
-            const isolated = buildIsolatedExpertSessionDirectory({
+            const isolated = await createIsolatedExpertSessionRuntimeDirectory({
+              client: ensureClient,
+              workspaceId: ensureWorkspaceId,
               workspaceRoot: workspaceRootForSession,
               agentName,
               agentId,
             });
-            // Only bind the isolated path when the directory is actually created.
+            // Only bind the external runtime path when the server created it.
             // Otherwise opencode FileSystem.realPath throws ENOENT and the turn dies.
-            const created = await materializeExpertSessionDirectory({
-              client: ensureClient,
-              workspaceId: ensureWorkspaceId,
-              workspaceRoot: workspaceRootForSession,
-              sessionDirectory: isolated.directory,
-            });
-            if (created) {
+            if (isolated) {
               taskWorkspaceRoot = isolated.directory;
               explicitAssistantWorkspace = isolated.directory;
             } else {
-              taskWorkspaceRoot = workspaceRootForSession;
-              explicitAssistantWorkspace = "";
+              throw new Error("Unable to allocate an external expert session directory");
             }
           } else if (explicitFolder) {
             // User-picked folder (not workspace root): bind side panel to that path.
             explicitAssistantWorkspace = explicitFolder;
             taskWorkspaceRoot = explicitFolder;
-          }
-        }
-
-        // Heal every expert send whose bound directory is missing on disk
-        // (broken sessions from earlier builds that bound without mkdir).
-        if (
-          pageMode === "expert" &&
-          taskWorkspaceRoot.trim() &&
-          workspaceRootForSession &&
-          !shouldIsolateExpertSessionDirectory(
-            workspaceRootForSession,
-            taskWorkspaceRoot,
-          )
-        ) {
-          const healed = await materializeExpertSessionDirectory({
-            client: ensureClient,
-            workspaceId: ensureWorkspaceId,
-            workspaceRoot: workspaceRootForSession,
-            sessionDirectory: taskWorkspaceRoot,
-          });
-          if (!healed) {
-            // Last resort: do not keep a non-existent cwd for this turn.
-            console.warn(
-              "[expert-session] session directory missing and could not be created; falling back to workspace root",
-              taskWorkspaceRoot,
-            );
-            taskWorkspaceRoot = workspaceRootForSession;
           }
         }
 
