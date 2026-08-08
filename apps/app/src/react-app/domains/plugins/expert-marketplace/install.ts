@@ -7,8 +7,13 @@ import { createExpertPackageInstallCoordinator } from "./install-coordinator";
 
 const coordinator = createExpertPackageInstallCoordinator(installExpertPackage);
 
+type MarketplaceExpertInstallTarget = Pick<
+  ExpertMarketplaceEntry,
+  "source" | "packageName"
+>;
+
 export async function ensureMarketplaceExpertInstalled(
-  expert: ExpertMarketplaceEntry,
+  expert: MarketplaceExpertInstallTarget,
 ): Promise<void> {
   if (!isElectronRuntime() || expert.source !== "builtin") return;
   await coordinator.ensure({
