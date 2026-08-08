@@ -1351,8 +1351,9 @@ export function AssistantPage(props: AssistantPageProps) {
                           )}
                         />
                       ),
-                      files: (
+                      files: (active) => (
                         <WorkspaceFilesPage
+                          active={active}
                           client={props.onmyagentServerClient}
                           workspaceId={
                             props.runtimeWorkspaceId ??

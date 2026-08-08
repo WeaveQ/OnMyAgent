@@ -1411,8 +1411,8 @@ export function ExpertPage(props: ExpertPageProps) {
                           )}
                         />
                       ),
-                      files: (
-                        <WorkspaceFilesPage
+                      files: (active) => (
+                        <WorkspaceFilesPage active={active}
                           client={props.onmyagentServerClient}
                           workspaceId={
                             props.runtimeWorkspaceId ??
