@@ -88,7 +88,8 @@ export function createSessionOriginHydrationGate(workspaceId: string) {
      * An unavailable primary list is not proof that there are no origin
      * sessions. Keep the state non-definitive until a later load completes.
      */
-    markTerminalFailure: () => undefined,
+    markTerminalFailure: () =>
+      markSessionOriginHydrationDegraded(workspaceId),
   };
 }
 
