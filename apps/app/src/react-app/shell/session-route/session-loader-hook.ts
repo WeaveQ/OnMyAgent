@@ -195,7 +195,8 @@ export function useSessionRouteSessionLoader(input: Input) {
         workspace: RouteWorkspace,
         attempt: number,
       ): Promise<void> => {
-        const scheduleOriginRecoveryRetry = () => {
+        let originRecoveryDegraded = false;
+        const scheduleOriginRecoveryRetry = (onExhausted: () => void) => {
           const workspaceId = workspace.id;
           if (originRecoveryRetryTimers.current.has(workspaceId)) return;
           const retries = originRecoveryRetryAttempts.current.get(workspaceId) ?? 0;
@@ -203,7 +204,12 @@ export function useSessionRouteSessionLoader(input: Input) {
           // attempts keep cached rows and the non-definitive loading state,
           // rather than repeatedly hammering OpenCode or showing an empty page.
           const retryDelayMs = getSessionOriginRecoveryRetryDelayMs(retries);
-          if (retryDelayMs === null) return;
+          if (retryDelayMs === null) {
+            originRecoveryDegraded = true;
+            clearOriginRecoveryState(workspaceId);
+            onExhausted();
+            return;
+          }
           originRecoveryRetryAttempts.current.set(workspaceId, retries + 1);
           const timer = window.setTimeout(() => {
             originRecoveryRetryTimers.current.delete(workspaceId);
@@ -341,7 +347,9 @@ export function useSessionRouteSessionLoader(input: Input) {
               // Metadata failure is not evidence that no expert exists. Keep
               // any cached rows and retry in a bounded, single-flight loop.
               originHydrationGate.markOriginRecoveryFailed();
-              scheduleOriginRecoveryRetry();
+              scheduleOriginRecoveryRetry(
+                originHydrationGate.markOriginRecoveryDegraded,
+              );
               return;
             }
             if (originReadInFlight.current.has(workspace.id)) return;
@@ -399,7 +407,9 @@ export function useSessionRouteSessionLoader(input: Input) {
               }
               if (!recovery.complete) {
                 originHydrationGate.markOriginRecoveryFailed();
-                scheduleOriginRecoveryRetry();
+                scheduleOriginRecoveryRetry(
+                  originHydrationGate.markOriginRecoveryDegraded,
+                );
                 return;
               }
               originRecoveryRetryAttempts.current.delete(workspace.id);
@@ -467,13 +477,18 @@ export function useSessionRouteSessionLoader(input: Input) {
               // like a failed directory pass: preserve the last good sidebar
               // state and leave origin hydration non-definitive.
               originHydrationGate.markOriginRecoveryFailed();
-              scheduleOriginRecoveryRetry();
+              scheduleOriginRecoveryRetry(
+                originHydrationGate.markOriginRecoveryDegraded,
+              );
             } finally {
               originReadInFlight.current.delete(workspace.id);
               // Only a complete origin pass makes the expert list definitive.
               // Failed metadata, directory reads, and partial exact pages stay
               // pending so the page never turns an unknown result into empty.
-              if (originRecoveryRetryAttempts.current.has(workspace.id) === false) {
+              if (
+                !originRecoveryDegraded &&
+                originRecoveryRetryAttempts.current.has(workspace.id) === false
+              ) {
                 originHydrationGate.markOriginRecoverySettled();
               }
               setSessionsByWorkspaceId((current) => ({ ...current }));

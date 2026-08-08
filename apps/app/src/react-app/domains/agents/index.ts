@@ -79,7 +79,9 @@ export {
 export {
   createSessionOriginHydrationGate,
   getSessionOriginRecoveryRetryDelayMs,
+  isSessionOriginHydrationDegraded,
   markSessionOriginHydrated,
+  markSessionOriginHydrationDegraded,
   SESSION_ORIGIN_RECOVERY_MAX_RETRIES,
   useSessionOriginHydrated,
 } from "./session-origin-hydration";

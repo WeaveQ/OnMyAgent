@@ -4,6 +4,7 @@ import { resolveExpertOriginHydrationView } from "../src/react-app/domains/sessi
 import {
   createSessionOriginHydrationGate,
   getSessionOriginRecoveryRetryDelayMs,
+  isSessionOriginHydrationDegraded,
   isSessionOriginHydrated,
   resetSessionOriginHydrationForTests,
 } from "../src/react-app/domains/agents/session-origin-hydration";
@@ -98,5 +99,20 @@ describe("session origin hydration gate", () => {
     expect(getSessionOriginRecoveryRetryDelayMs(1)).toBe(1_000);
     expect(getSessionOriginRecoveryRetryDelayMs(2)).toBe(1_500);
     expect(getSessionOriginRecoveryRetryDelayMs(3)).toBeNull();
+  });
+
+  test("settles in degraded mode after bounded recovery retries and clears it on refresh", () => {
+    resetSessionOriginHydrationForTests();
+    const exhausted = createSessionOriginHydrationGate("workspace-a");
+
+    exhausted.markPrimaryListSettled();
+    exhausted.markOriginRecoveryDegraded();
+    expect(isSessionOriginHydrated("workspace-a")).toBe(true);
+    expect(isSessionOriginHydrationDegraded("workspace-a")).toBe(true);
+
+    const refreshed = createSessionOriginHydrationGate("workspace-a");
+    refreshed.markPrimaryListSettled();
+    refreshed.markOriginRecoverySettled();
+    expect(isSessionOriginHydrationDegraded("workspace-a")).toBe(false);
   });
 });
