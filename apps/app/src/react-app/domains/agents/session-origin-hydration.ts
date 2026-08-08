@@ -103,6 +103,19 @@ export function useSessionOriginHydrated(workspaceId: string): boolean {
   );
 }
 
+export function useSessionOriginHydrationDegraded(
+  workspaceId: string,
+): boolean {
+  return useSyncExternalStore(
+    (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    () => isSessionOriginHydrationDegraded(workspaceId),
+    () => false,
+  );
+}
+
 export function resetSessionOriginHydrationForTests(): void {
   hydratedWorkspaceIds.clear();
   degradedWorkspaceIds.clear();

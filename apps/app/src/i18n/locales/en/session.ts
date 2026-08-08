@@ -30,6 +30,8 @@ export default {
   "session.no_expert_conversations_title": "No expert conversations yet",
   "session.no_expert_conversations_desc": "Choose an expert to start a conversation. It will appear here after the first message.",
   "session.no_expert_conversations_action": "Choose expert",
+  "session.expert_origin_recovery_unavailable_title": "Expert conversations are temporarily unavailable",
+  "session.expert_origin_recovery_unavailable_body": "Your conversations are still preserved. OnMyAgent will try to restore this list again on the next workspace refresh.",
   "session.my_experts": "Experts I created",
   "session.search_experts_placeholder": "Search expert title or description",
   "session.create_expert": "Create expert",
