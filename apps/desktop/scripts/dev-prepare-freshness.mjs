@@ -6,6 +6,36 @@ export function resolveDevOrchestratorArtifactPath({ sidecarDir, platform, targe
   return resolve(sidecarDir, `onmyagent-orchestrator${isWindowsTarget ? ".exe" : ""}`);
 }
 
+/**
+ * The desktop and embedded server resolve package exports through the default
+ * (built) condition in Node. Keep the full tsup entry set as freshness
+ * artifacts: checking only index.js would let a missing runtime subpath break
+ * Electron after we skipped the build.
+ */
+export function resolveDevTypesArtifactPaths(typesDistDir) {
+  return [
+    "index",
+    "den/desktop-app-restrictions",
+    "den/desktop-policies",
+    "den/inference",
+    "server",
+    "server-client-method-map",
+    "desktop-ipc",
+    "session-archive",
+    "browser",
+    "channel",
+    "artifact-plugin",
+    "officecli",
+    "lark-cli-auth",
+    "tencent-docs-connector",
+    "baidu-drive-connector",
+    "kdocs-connector",
+    "dingtalk-connector",
+    "wecom-connector",
+    "tencent-meeting-connector",
+  ].map((entry) => resolve(typesDistDir, `${entry}.js`));
+}
+
 function newestModificationMs(path) {
   try {
     if (!existsSync(path)) return null;
