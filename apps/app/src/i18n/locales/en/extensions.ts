@@ -40,7 +40,9 @@ export default {
   "extensions.computer_use_connect_mcp": "Connect Computer Use MCP",
   "extensions.computer_use_name": "Computer Use",
   "extensions.computer_use_description":
-    "Control desktop apps via Computer Use (macOS HandsFree accessibility runtime; Windows bundled Cua Driver).",
+    "Let the agent control desktop apps—click, type, switch windows. Best for local software (needs accessibility & screen recording).",
+  "extensions.computer_use_long":
+    "Drive the desktop like a person: open apps, click menus, type, and switch windows. Ideal for Xcode, Finder, and other non-browser tools. On macOS grant Accessibility and Screen Recording; on Windows enable the Cua MCP when ready.",
   "extensions.computer_use_prompt": "Use Computer Use to ",
   "extensions.computer_use_suggestion_playlist": "Play a playlist to help me lock in",
   "extensions.computer_use_suggestion_xcode": "Build and run my open Xcode project, then test it for bugs",
@@ -61,7 +63,9 @@ export default {
   "extensions.screen_recording_permission": "Screen Recording permission",
   "extensions.browser_skill_name": "BrowserSkill",
   "extensions.browser_skill_description":
-    "Drive your real Chrome/Edge browser (logins and cookies) via Tencent BrowserSkill — complementary to in-app browser automation and Computer Use.",
+    "Drive real Chrome/Edge with your logins for web tasks, forms, and checks—complements the in-app browser.",
+  "extensions.browser_skill_long":
+    "Control real Chrome or Edge (with cookies and signed-in sessions) via the BrowserSkill extension. Great for dashboards, multi-step forms, and smoke tests. Install the CLI and extension; pairs with—not replaces—the built-in Browser plugin.",
   "extensions.browser_skill_prompt": "Use BrowserSkill (bsk) to ",
   "extensions.browser_skill_suggestion_summary":
     "Open my already-signed-in dashboard and summarize the top items",
@@ -76,17 +80,19 @@ export default {
   "extensions.browser_skill_skill_label": "BrowserSkill agent skill",
   "extensions.browser_skill_cli_label": "bsk CLI",
   "extensions.browser_skill_panel_description":
-    "Control sites you are already signed into. Setup takes three short steps on this machine.",
+    "Control sites you are already signed into. Finish three setup steps once on this machine.",
   "extensions.browser_skill_desktop_only":
     "BrowserSkill setup requires the OnMyAgent desktop app.",
   "extensions.browser_skill_status_installed": "Installed",
   "extensions.browser_skill_status_connected": "Connected",
   "extensions.browser_skill_status_ready": "Ready",
   "extensions.browser_skill_status_setup": "Needs setup",
+  "extensions.browser_skill_cli_status": "CLI",
+  "extensions.browser_skill_ext_status": "Extension",
   "extensions.browser_skill_vs_in_app":
-    "Choose the right surface: in-app Browser (no real Chrome logins), BrowserSkill (real Chrome/Edge via bsk + extension), or Computer Use (native desktop apps). This panel is BrowserSkill.",
+    "Complements the in-app browser and Computer Use—this uses your real Chrome or Edge.",
   "extensions.browser_skill_choose_surface":
-    "In-app Browser · BrowserSkill (real Chrome) · Computer Use (native apps)",
+    "In-app Browser · BrowserSkill · Computer Use",
   "extensions.browser_skill_setup_intro":
     "Finish the steps below. You only need this once per machine.",
   "extensions.browser_skill_step_cli_title": "1. Install bsk CLI",
@@ -109,8 +115,8 @@ export default {
   "extensions.browser_skill_extension_opened":
     "Chrome Web Store opened. Install BrowserSkill, wait for a green popup, then recheck.",
   "extensions.browser_skill_ready_message":
-    "BrowserSkill is ready. Agents can use your real browser via bsk.",
-  "extensions.browser_skill_doctor_details": "Doctor output",
+    "Ready — use your real browser from chat.",
+  "extensions.browser_skill_doctor_details": "Diagnostics",
   "extensions.openai_image_name": "OpenAI Image Gen",
   "extensions.openai_image_desc": "Generate images with OpenAI.",
   "extensions.openai_image_prompt": "Use the OpenAI Image Gen extension to ",
@@ -130,23 +136,7 @@ export default {
   "extensions.openai_image_missing_data": "OpenAI did not return image data.",
   "extensions.openai_api_key": "OpenAI API key",
   "extensions.api_key_found_environment": "API key found in environment",
-  "extensions.voice_desc": `Talk to ${APP_NAME} through a Realtime voice panel that drives the same semantic UI controls as ${APP_NAME} UI MCP.`,
-  "extensions.voice_prompt": "Use Voice Mode to ",
-  "extensions.voice_setup": `Voice Mode uses OpenAI Realtime. Save an OpenAI API key in ${APP_NAME} env vars, then open the session rail panel and speak or send a typed voice command.`,
-  "extensions.voice_realtime_title": "Realtime voice",
-  "extensions.voice_realtime_desc":
-    "Voice Mode uses OpenAI Realtime and the same {app} UI control surface exposed through OnMyAgent UI MCP.",
-  "extensions.voice_env_key_desc":
-    "Voice Mode will use OPENAI_REALTIME_API_KEY when present, otherwise OPENAI_API_KEY from {app} environment variables.",
   "extensions.openai_key_detected": "OpenAI key detected",
-  "extensions.voice_save_openai_key": "Save OpenAI key",
-  "extensions.voice_test_realtime": "Test Realtime",
-  "extensions.voice_realtime_client_secret": "Realtime client-secret minting",
-  "extensions.voice_mode": "Voice Mode",
-  "extensions.voice_openai_api_key_required": "OpenAI API key is required.",
-  "extensions.voice_saved_status": "Saved OPENAI_API_KEY for Voice Mode.",
-  "extensions.voice_server_not_connected": `${APP_NAME} server is not connected.`,
-  "extensions.voice_realtime_ready_status": "Realtime ready with {model} ({count} OnMyAgent tools).",
   "extensions.local_provider_server_not_connected": `${APP_NAME} server is not connected for this workspace.`,
   "extensions.local_provider_model_required": "Model ID is required.",
   "extensions.local_provider_added_status": "Added {name} with {modelId}.",

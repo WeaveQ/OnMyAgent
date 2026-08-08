@@ -4,18 +4,11 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { ONMYAGENT_EXTENSION_CATALOG } from "../../../../app/constants";
-import {
-  getExtensionId,
-  isOnMyAgentExtensionEnabled,
-  ONMYAGENT_EXTENSION_STATE_CHANGED,
-} from "../../shared";
 import {
   isCollectibleArtifactTarget,
   type OpenTarget,
 } from "../artifacts/open-target";
 import {
-  GLOBAL_VOICE_SIDE_PANEL_KEY,
   hiddenAccessibleTargetsStorageKey,
   readHiddenAccessibleTargetIds,
   writeHiddenAccessibleTargetIds,
@@ -41,9 +34,6 @@ export function useSessionHostSidePanel(options: {
       ? (state.sidePanelState[sidePanelScopeId] ?? null)
       : null,
   );
-  const voiceSidePanelOpen = useUiStateStore(
-    (state) => state.sidePanelState[GLOBAL_VOICE_SIDE_PANEL_KEY] === "voice",
-  );
   const setSidePanelState = useUiStateStore((state) => state.setSidePanelState);
   const toggleSidePanelState = useUiStateStore(
     (state) => state.toggleSidePanelState,
@@ -54,7 +44,6 @@ export function useSessionHostSidePanel(options: {
   const [hiddenAccessibleTargetIds, setHiddenAccessibleTargetIds] = useState<
     Set<string>
   >(() => new Set());
-  const [, setExtensionStateVersion] = useState(0);
   const loadedHiddenTargetsKeyRef = useRef<string | null>(null);
 
   const accessibleTargets = useMemo(
@@ -74,27 +63,11 @@ export function useSessionHostSidePanel(options: {
     artifactTarget ?? artifactFileTargets[0] ?? null;
   const artifactTargetCount = artifactFileTargets.length;
   const hasArtifactTargets = artifactTargetCount > 0;
-  const activeSidePanel = voiceSidePanelOpen ? "voice" : sessionSidePanel;
+  const activeSidePanel = sessionSidePanel;
   const sidePanelOpen = activeSidePanel !== null;
-
-  const voiceExtension = useMemo(
-    () =>
-      ONMYAGENT_EXTENSION_CATALOG.find(
-        (entry) => getExtensionId(entry) === "onmyagent-voice",
-      ) ?? null,
-    [],
-  );
-  const voiceExtensionEnabled = voiceExtension
-    ? isOnMyAgentExtensionEnabled(voiceExtension)
-    : false;
 
   const setCurrentSidePanel = useCallback(
     (panel: SidePanelItem | null) => {
-      setSidePanelState(
-        GLOBAL_VOICE_SIDE_PANEL_KEY,
-        panel === "voice" ? "voice" : null,
-      );
-      if (panel === "voice") return;
       if (!sidePanelScopeId) return;
       setSidePanelState(sidePanelScopeId, panel);
     },
@@ -103,15 +76,10 @@ export function useSessionHostSidePanel(options: {
 
   const toggleCurrentSidePanel = useCallback(
     (panel: SidePanelItem) => {
-      if (panel === "voice") {
-        toggleSidePanelState(GLOBAL_VOICE_SIDE_PANEL_KEY, "voice");
-        return;
-      }
       if (!sidePanelScopeId) return;
-      setSidePanelState(GLOBAL_VOICE_SIDE_PANEL_KEY, null);
       toggleSidePanelState(sidePanelScopeId, panel);
     },
-    [setSidePanelState, sidePanelScopeId, toggleSidePanelState],
+    [sidePanelScopeId, toggleSidePanelState],
   );
 
   useEffect(() => {
@@ -163,25 +131,8 @@ export function useSessionHostSidePanel(options: {
     );
   }, []);
 
-  useEffect(() => {
-    const refresh = () => setExtensionStateVersion((value) => value + 1);
-    window.addEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
-    window.addEventListener("storage", refresh);
-    return () => {
-      window.removeEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
-      window.removeEventListener("storage", refresh);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (activeSidePanel === "voice" && !voiceExtensionEnabled) {
-      setCurrentSidePanel(null);
-    }
-  }, [activeSidePanel, setCurrentSidePanel, voiceExtensionEnabled]);
-
   return {
     sessionSidePanel,
-    voiceSidePanelOpen,
     setSidePanelState,
     toggleSidePanelState,
     setCurrentSidePanel,
@@ -199,7 +150,6 @@ export function useSessionHostSidePanel(options: {
     hasArtifactTargets,
     activeSidePanel,
     sidePanelOpen,
-    voiceExtensionEnabled,
     handleOpenTargetsChange,
     removeAccessibleTarget,
   };

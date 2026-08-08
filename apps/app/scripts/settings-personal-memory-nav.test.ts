@@ -54,12 +54,9 @@ describe("settings personal & memory navigation (shipped)", () => {
     expect(getWorkspaceSettingsTabs()).not.toContain("debug");
   });
 
-  test("data group lists usage, recovery, archive", () => {
-    expect(getDataSettingsTabs()).toEqual([
-      "usage",
-      "recovery",
-      "archived-tasks",
-    ]);
+  test("data group lists recovery and archive (usage nav hidden)", () => {
+    expect(getDataSettingsTabs()).toEqual(["recovery", "archived-tasks"]);
+    expect(getDataSettingsTabs()).not.toContain("usage");
   });
 
   test("sidebar and section menu share nav section label keys", () => {
@@ -76,7 +73,8 @@ describe("settings personal & memory navigation (shipped)", () => {
       "settings.group_archived",
     );
     const data = sections.find((s) => s.labelKey === "settings.group_data");
-    expect(data?.tabs).toEqual(["usage", "recovery", "archived-tasks"]);
+    expect(data?.tabs).toEqual(["recovery", "archived-tasks"]);
+    expect(data?.tabs).not.toContain("usage");
     const personal = sections.find(
       (s) => s.labelKey === "settings.group_personal_memory",
     );

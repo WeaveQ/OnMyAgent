@@ -124,7 +124,6 @@ function extensionManifestToDirectoryInfo(id: string): McpDirectoryInfo {
 const BUILT_IN_EXTENSION_IDS = [
   "computer-use",
   "browser-skill",
-  "onmyagent-voice",
 ] as const;
 
 export function isBuiltInOnMyAgentExtension(entry: Pick<McpDirectoryInfo, "kind" | "extensionManifest">): boolean {

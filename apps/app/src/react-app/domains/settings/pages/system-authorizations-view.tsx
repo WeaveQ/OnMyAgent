@@ -338,12 +338,8 @@ export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
           </Button>
         </div>
 
-        <div
-          className={cn(
-            "overflow-hidden rounded-xl border border-dls-border bg-dls-surface",
-            "divide-y divide-dls-border",
-          )}
-        >
+        {/* Same 2-column card grid as System “应用选项” (SystemOptionCard). */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {items.map((perm) => {
             const status = (result?.permissions[perm.id] ??
               "unknown") as PermissionStatus;
@@ -355,7 +351,10 @@ export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
             return (
               <div
                 key={perm.id}
-                className="flex items-center gap-3 px-4 py-3.5"
+                className={cn(
+                  "flex min-h-[4.75rem] items-center gap-3 rounded-xl border border-dls-border",
+                  "bg-dls-surface px-3.5 py-3",
+                )}
               >
                 <IconTile border className="size-9 shrink-0">
                   <Icon size={16} className="text-dls-secondary" />
@@ -368,7 +367,7 @@ export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
                     {perm.description}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
                   {!result || loading ? (
                     <StatusBadge tone="neutral" size="sm">
                       {t("settings.permission_checking")}

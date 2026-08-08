@@ -1,15 +1,15 @@
 /** @jsxImportSource react */
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 import {
   AppWindow,
   FileSpreadsheet,
   FileText,
   FileType,
+  Lightbulb,
+  MessageCircle,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 import { t } from "@/i18n";
@@ -30,8 +30,9 @@ export type ArtifactPluginDetailProps = {
   plugin: ArtifactPluginDetailModel;
   labels: ArtifactPluginDetailLabels;
   onSelectPrompt: (pluginId: string, skillId: string, prompt: string) => void;
-  onPluginEnabledChange: (enabled: boolean) => Promise<void>;
-  onSkillEnabledChange: (skillId: string, enabled: boolean) => Promise<void>;
+  /** Kept for call-site compatibility; enablement is on the market card. */
+  onPluginEnabledChange?: (enabled: boolean) => Promise<void>;
+  onSkillEnabledChange?: (skillId: string, enabled: boolean) => Promise<void>;
   starterPromptsDisabled?: boolean;
 };
 
@@ -110,110 +111,189 @@ export function ArtifactPluginIcon({
   );
 }
 
+/**
+ * “试试这样用” prompt list — full-width quote chips with chat affordance
+ * (matches skill/store try-this UX).
+ */
 export function ArtifactStarterPrompts(props: ArtifactStarterPromptsProps) {
   return (
-    <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
+    <div className="space-y-2">
       {props.prompts.map((prompt) => (
-        <Button
+        <button
           key={prompt}
           type="button"
-          variant="outline"
-          className="h-auto min-h-10 justify-start whitespace-normal py-2 text-left"
           data-artifact-prompt={prompt}
           disabled={props.disabled}
           onClick={() => props.onSelectPrompt(props.pluginId, props.skillId, prompt)}
+          className={cn(
+            "flex w-full items-start gap-3 rounded-2xl px-4 py-3 text-left transition-colors",
+            "bg-dls-surface-muted/70 hover:bg-dls-surface-muted",
+            "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-dls-surface-muted/70",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
+          )}
         >
-          {prompt}
-        </Button>
+          <span className="min-w-0 flex-1 text-sm leading-6 text-dls-secondary">
+            “{prompt}”
+          </span>
+          <MessageCircle
+            className="mt-0.5 size-4 shrink-0 text-dls-secondary/80"
+            aria-hidden
+          />
+        </button>
       ))}
     </div>
   );
 }
 
+/** Shared section chrome for try-this prompt lists (artifact + extension details). */
+export function TryThisPromptsSection(props: {
+  title: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={cn("space-y-3", props.className)}>
+      <h3 className="flex items-center gap-2 text-sm font-medium text-dls-text">
+        <Lightbulb className="size-4 shrink-0 text-dls-secondary" aria-hidden />
+        {props.title}
+      </h3>
+      {props.children}
+    </section>
+  );
+}
+
+/** Locale overlay for manifest English copy (name / long desc / try-this prompts). */
+const LOCALIZED_PLUGIN_DETAIL: Record<
+  string,
+  {
+    nameKey: string;
+    longDescKey: string;
+    promptKeys: readonly [string, string, string];
+  }
+> = {
+  browser: {
+    nameKey: "plugins.artifact_plugin_browser_name",
+    longDescKey: "plugins.artifact_plugin_browser_long",
+    promptKeys: [
+      "plugins.artifact_plugin_browser_prompt_1",
+      "plugins.artifact_plugin_browser_prompt_2",
+      "plugins.artifact_plugin_browser_prompt_3",
+    ],
+  },
+  documents: {
+    nameKey: "plugins.artifact_plugin_documents_name",
+    longDescKey: "plugins.artifact_plugin_documents_long",
+    promptKeys: [
+      "plugins.artifact_plugin_documents_prompt_1",
+      "plugins.artifact_plugin_documents_prompt_2",
+      "plugins.artifact_plugin_documents_prompt_3",
+    ],
+  },
+  pdf: {
+    nameKey: "plugins.artifact_plugin_pdf_name",
+    longDescKey: "plugins.artifact_plugin_pdf_long",
+    promptKeys: [
+      "plugins.artifact_plugin_pdf_prompt_1",
+      "plugins.artifact_plugin_pdf_prompt_2",
+      "plugins.artifact_plugin_pdf_prompt_3",
+    ],
+  },
+  spreadsheets: {
+    nameKey: "plugins.artifact_plugin_spreadsheets_name",
+    longDescKey: "plugins.artifact_plugin_spreadsheets_long",
+    promptKeys: [
+      "plugins.artifact_plugin_spreadsheets_prompt_1",
+      "plugins.artifact_plugin_spreadsheets_prompt_2",
+      "plugins.artifact_plugin_spreadsheets_prompt_3",
+    ],
+  },
+};
+
+function localizedPluginDetail(plugin: ArtifactPluginDetailModel) {
+  const keys = LOCALIZED_PLUGIN_DETAIL[plugin.id];
+  if (!keys) {
+    return {
+      title: plugin.manifest.interface.displayName,
+      longDescription: plugin.manifest.interface.longDescription,
+      prompts: plugin.manifest.interface.defaultPrompt ?? [],
+    };
+  }
+  return {
+    title: t(keys.nameKey),
+    longDescription: t(keys.longDescKey),
+    prompts: keys.promptKeys.map((key) => t(key)),
+  };
+}
+
+/** Shared copy for market card → connect dialog (Feishu-style shell). */
+export function getArtifactPluginConnectCopy(plugin: {
+  id: string;
+  manifest: ArtifactPluginDetailModel["manifest"];
+  enabled?: boolean;
+}): { title: string; longDescription: string; prompts: string[] } {
+  return localizedPluginDetail({
+    ...plugin,
+    id: plugin.id,
+    manifest: plugin.manifest,
+    enabled: plugin.enabled ?? true,
+    skills: [],
+  } as ArtifactPluginDetailModel);
+}
+
 export function ArtifactPluginDetail(props: ArtifactPluginDetailProps) {
   const { plugin, labels } = props;
-  const primarySkillId = plugin.skills.find((skill) => skill.id === plugin.id)?.id
-    ?? plugin.skills[0]?.id;
-  const connectionUnavailable = plugin.connection?.status === "unavailable";
-
-  const title =
-    plugin.id === "browser"
-      ? t("plugins.artifact_plugin_browser_name")
-      : plugin.manifest.interface.displayName;
+  const primarySkillId =
+    plugin.skills.find((skill) => skill.id === plugin.id)?.id ??
+    plugin.skills[0]?.id;
+  const copy = localizedPluginDetail(plugin);
 
   return (
     // Surface chrome comes from the parent dialog; keep body padding-free for scroll layout.
     <article className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 items-start gap-3">
-          <ArtifactPluginIcon pluginId={plugin.id} />
-          <div className="min-w-0">
-            <h2 className="text-lg font-medium leading-7 text-dls-text">{title}</h2>
-            <p className="mt-1 text-sm text-dls-secondary">
-              {plugin.manifest.interface.longDescription}
-            </p>
-            {plugin.id === "browser" ? (
-              <p className="mt-2 text-xs font-medium text-dls-secondary">
-                {t("plugins.artifact_plugin_browser_system")}
-              </p>
+      {/* Clean header: icon + title + status badge. Enable/disable stays on the market card. */}
+      <header className="flex min-w-0 items-start gap-3.5">
+        <ArtifactPluginIcon pluginId={plugin.id} />
+        <div className="min-w-0 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-lg font-semibold leading-7 text-dls-text">
+              {copy.title}
+            </h2>
+            {plugin.enabled ? (
+              <span
+                className="size-1.5 shrink-0 rounded-full bg-emerald-500"
+                aria-hidden
+              />
             ) : null}
+            <StatusBadge
+              tone={plugin.enabled ? "success" : "neutral"}
+              shape="soft"
+              size="tiny"
+            >
+              {plugin.enabled ? labels.enabled : labels.disabled}
+            </StatusBadge>
           </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <StatusBadge tone={plugin.enabled ? "success" : "neutral"} shape="soft" size="tiny">
-            {plugin.enabled ? labels.enabled : labels.disabled}
-          </StatusBadge>
-          <Switch
-            checked={plugin.enabled}
-            aria-label={labels.pluginEnabled}
-            onCheckedChange={(enabled) => void props.onPluginEnabledChange(enabled)}
-          />
+          <p className="max-w-xl text-sm leading-6 text-dls-secondary">
+            {copy.longDescription}
+          </p>
+          {plugin.id === "browser" ? (
+            <p className="text-xs font-medium text-dls-secondary">
+              {t("plugins.artifact_plugin_browser_system")}
+            </p>
+          ) : null}
         </div>
       </header>
 
-      {primarySkillId ? (
-        <section className="space-y-3">
-          <h3 className="text-sm font-medium text-dls-text">{labels.starterPrompts}</h3>
+      {primarySkillId && copy.prompts.length > 0 ? (
+        <TryThisPromptsSection title={labels.starterPrompts}>
           <ArtifactStarterPrompts
             pluginId={plugin.id}
             skillId={primarySkillId}
-            prompts={plugin.manifest.interface.defaultPrompt}
+            prompts={copy.prompts}
             onSelectPrompt={props.onSelectPrompt}
-            disabled={props.starterPromptsDisabled}
+            disabled={props.starterPromptsDisabled || !plugin.enabled}
           />
-        </section>
+        </TryThisPromptsSection>
       ) : null}
-
-      <section className="space-y-3">
-        <h3 className="text-sm font-medium text-dls-text">{labels.skills}</h3>
-        <div className="divide-y divide-dls-border rounded-lg border border-dls-border">
-          {plugin.skills.map((skill) => {
-            const unavailable = connectionUnavailable && skill.id === "excel-live-control";
-            const disabled = !plugin.enabled || unavailable;
-            return (
-              <div key={skill.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-dls-text">{skill.id}</div>
-                  {unavailable ? (
-                    <p className="mt-1 text-xs text-dls-secondary">{labels.unavailable}</p>
-                  ) : null}
-                </div>
-                <div className="flex items-center gap-3">
-                  <StatusBadge tone={skill.enabled && !disabled ? "success" : "neutral"} shape="soft" size="tiny">
-                    {skill.enabled && !disabled ? labels.enabled : labels.disabled}
-                  </StatusBadge>
-                  <Switch
-                    checked={skill.enabled && !disabled}
-                    disabled={disabled}
-                    aria-label={labels.skillEnabled(skill.id)}
-                    onCheckedChange={(enabled) => void props.onSkillEnabledChange(skill.id, enabled)}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
     </article>
   );
 }

@@ -5,7 +5,6 @@ import {
   AGENT_PANEL_MAX_WIDTH,
   AGENT_PANEL_MIN_WIDTH,
   getSidebarInitialLoading,
-  GLOBAL_VOICE_SIDE_PANEL_KEY,
   sessionTitleForId,
   STARTUP_SKELETON_ROWS,
   workspaceTaskStatus,
@@ -86,7 +85,6 @@ describe("session page model", () => {
 
   test("exports stable layout constants used by shared session pages", () => {
     expect(STARTUP_SKELETON_ROWS.map((row) => row.id)).toEqual(["intro", "middle", "final"]);
-    expect(GLOBAL_VOICE_SIDE_PANEL_KEY).toBe("__onmyagent_voice__");
     expect(AGENT_PANEL_MIN_WIDTH).toBeLessThan(AGENT_PANEL_DEFAULT_WIDTH);
     expect(AGENT_PANEL_DEFAULT_WIDTH).toBeLessThan(AGENT_PANEL_MAX_WIDTH);
   });

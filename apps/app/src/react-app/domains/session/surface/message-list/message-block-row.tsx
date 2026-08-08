@@ -40,6 +40,7 @@ import {
   type MessageBlockRowMemoProps,
 } from "./message-block-row-equality";
 import { stripFollowUpMarkers } from "../follow-up-suggestions";
+import { humanizeSessionErrorMessage } from "../session-surface-support";
 
 function messageGroupKey(messageId: string, group: MessageGroup) {
   if (group.kind === "steps") return `${messageId}:steps:${group.id}`;
@@ -302,12 +303,14 @@ function MessageBlockRowInner(props: MessageBlockRowMemoProps) {
   }
 
   if (isSyntheticSessionError) {
-    const messageText = block.renderableParts
-      .map((part) => partToText(part))
-      .join(" ")
-      .replace(/\s*\n+\s*/g, " ")
-      .replace(/\s{2,}/g, " ")
-      .trim();
+    const messageText = humanizeSessionErrorMessage(
+      block.renderableParts
+        .map((part) => partToText(part))
+        .join(" ")
+        .replace(/\s*\n+\s*/g, " ")
+        .replace(/\s{2,}/g, " ")
+        .trim(),
+    );
 
     return (
       <div

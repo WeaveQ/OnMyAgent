@@ -14,7 +14,6 @@ import {
   readHiddenAccessibleTargetIds,
   writeHiddenAccessibleTargetIds,
 } from "./session-page-accessible-targets";
-import { GLOBAL_VOICE_SIDE_PANEL_KEY } from "./session-page-model";
 import { openInAppBrowser } from "../browser/open-in-app-browser";
 import { useAutoOpenBrowserPanel } from "../browser/use-auto-open-browser-panel";
 
@@ -22,8 +21,6 @@ type UseSessionPageSidePanelInput = {
   selectedWorkspaceId: string;
   selectedSessionId: string | null;
   sessionSidePanel: SidePanelItem | null;
-  voiceSidePanelOpen: boolean;
-  voiceExtensionEnabled: boolean;
   browserPanelRef: ReturnType<typeof usePanelRef>;
   setSidePanelState: (sessionId: string | null, panel: SidePanelItem | null) => void;
   toggleSidePanelState: (sessionId: string | null, panel: SidePanelItem) => void;
@@ -39,8 +36,6 @@ export function useSessionPageSidePanel(input: UseSessionPageSidePanelInput) {
     sessionSidePanel,
     setSidePanelState,
     toggleSidePanelState,
-    voiceExtensionEnabled,
-    voiceSidePanelOpen,
   } = input;
   const [artifactTarget, setArtifactTarget] = useState<OpenTarget | null>(null);
   const [openTargets, setOpenTargets] = useState<OpenTarget[]>([]);
@@ -64,9 +59,7 @@ export function useSessionPageSidePanel(input: UseSessionPageSidePanelInput) {
     [accessibleTargets],
   );
   const visibleArtifactTarget = artifactTarget ?? artifactFileTargets[0] ?? null;
-  const activeSidePanel = voiceSidePanelOpen
-    ? "voice"
-    : sessionSidePanel;
+  const activeSidePanel = sessionSidePanel;
   const sidePanelOpen = activeSidePanel !== null;
   const browserRailActive = activeSidePanel === "browser";
   const artifactRailActive = activeSidePanel === "artifacts";
@@ -78,11 +71,6 @@ export function useSessionPageSidePanel(input: UseSessionPageSidePanelInput) {
 
   const setCurrentSidePanel = useCallback(
     (panel: SidePanelItem | null) => {
-      setSidePanelState(
-        GLOBAL_VOICE_SIDE_PANEL_KEY,
-        panel === "voice" ? "voice" : null,
-      );
-      if (panel === "voice") return;
       setSidePanelState(selectedSessionId, panel);
     },
     [selectedSessionId, setSidePanelState],
@@ -90,14 +78,9 @@ export function useSessionPageSidePanel(input: UseSessionPageSidePanelInput) {
 
   const toggleCurrentSidePanel = useCallback(
     (panel: SidePanelItem) => {
-      if (panel === "voice") {
-        toggleSidePanelState(GLOBAL_VOICE_SIDE_PANEL_KEY, "voice");
-        return;
-      }
-      setSidePanelState(GLOBAL_VOICE_SIDE_PANEL_KEY, null);
       toggleSidePanelState(selectedSessionId, panel);
     },
-    [selectedSessionId, setSidePanelState, toggleSidePanelState],
+    [selectedSessionId, toggleSidePanelState],
   );
 
   const openBrowserPanelFromAgent = useCallback(() => {
@@ -280,11 +263,6 @@ export function useSessionPageSidePanel(input: UseSessionPageSidePanelInput) {
       window.removeEventListener("onmyagent-close-right-pane", handler);
   }, [setCurrentSidePanel]);
 
-  useEffect(() => {
-    if (activeSidePanel === "voice" && !voiceExtensionEnabled) {
-      setCurrentSidePanel(null);
-    }
-  }, [activeSidePanel, setCurrentSidePanel, voiceExtensionEnabled]);
 
   return {
     activeSidePanel,

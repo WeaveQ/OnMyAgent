@@ -116,7 +116,10 @@ export type OnMyAgentExtensionManifest = {
   schemaVersion: 1;
   id: string;
   name: string;
+  /** Short market-card line (≈1–2 lines). */
   description: string;
+  /** Longer product blurb for connect/detail dialog. Falls back to description. */
+  longDescription?: string;
   preview?: boolean;
   source: OnMyAgentExtensionSource;
   icon?: {
@@ -171,6 +174,7 @@ export function getBuiltInOnMyAgentExtensionManifests(): OnMyAgentExtensionManif
       id: "computer-use",
       name: t("extensions.computer_use_name"),
       description: t("extensions.computer_use_description"),
+      longDescription: t("extensions.computer_use_long"),
       preview: true,
       source: { format: "onmyagent-builtin", origin: "builtin", trusted: true },
       icon: { src: "/on-my-agent-logo.png" },
@@ -254,6 +258,7 @@ export function getBuiltInOnMyAgentExtensionManifests(): OnMyAgentExtensionManif
       id: "browser-skill",
       name: t("extensions.browser_skill_name"),
       description: t("extensions.browser_skill_description"),
+      longDescription: t("extensions.browser_skill_long"),
       preview: true,
       source: { format: "onmyagent-builtin", origin: "builtin", trusted: true },
       icon: { src: "/on-my-agent-logo.png" },
@@ -321,88 +326,7 @@ export function getBuiltInOnMyAgentExtensionManifests(): OnMyAgentExtensionManif
         detection: ["cli:bsk", "extension:browser-skill"],
       },
       platform: ["darwin", "linux", "windows"],
-    },
-    {
-      schemaVersion: 1,
-      id: "onmyagent-voice",
-      name: t("extensions.voice_mode"),
-      description:
-        t("extensions.voice_desc"),
-      preview: true,
-      source: { format: "onmyagent-builtin", origin: "builtin", trusted: true },
-      icon: { src: "/on-my-agent-logo.png" },
-      composer: { prompt: t("extensions.voice_prompt") },
-      setup: {
-        instructions:
-          t("extensions.voice_setup"),
-        primaryCta: t("extensions.voice_save_openai_key"),
-        secondaryCta: t("extensions.voice_test_realtime"),
-        requiredEnv: ["OPENAI_REALTIME_API_KEY", "OPENAI_API_KEY"],
-        testActionRef: "onmyagent.voice.testRealtime",
-      },
-      resources: [
-        {
-          type: "secret",
-          id: "openai-realtime-api-key",
-          envKey: "OPENAI_REALTIME_API_KEY",
-          required: false,
-        },
-        {
-          type: "secret",
-          id: "openai-api-key",
-          envKey: "OPENAI_API_KEY",
-          required: true,
-        },
-        {
-          type: "local-service",
-          id: "onmyagent-voice-realtime-session",
-          label: t("extensions.voice_realtime_client_secret"),
-          required: true,
-        },
-      ],
-      contributions: [
-        {
-          type: "settings-panel",
-          ref: "onmyagent.voice.settings",
-          location: "settings-detail",
-        },
-        {
-          type: "session-side-panel",
-          ref: "onmyagent.voice.panel",
-          location: "session-right-pane",
-        },
-        {
-          type: "session-rail-item",
-          ref: "onmyagent.voice.rail",
-          label: t("extensions.voice_mode"),
-          location: "session-rail",
-        },
-        {
-          type: "server-route",
-          ref: "POST /voice/realtime/session",
-          location: "server",
-        },
-        { type: "control-actions", ref: "onmyagent.voice.controlActions" },
-        {
-          type: "test-action",
-          ref: "onmyagent.voice.testRealtime",
-          label: t("extensions.voice_test_realtime"),
-        },
-        {
-          type: "composer-prompt",
-          prompt: t("extensions.voice_prompt"),
-          location: "composer",
-        },
-      ],
-      enablement: [
-        { type: "toggle-enabled", ref: "onmyagent-voice", label: t("common.enabled") },
-        { type: "env-set", ref: "OPENAI_API_KEY", label: t("extensions.openai_api_key") },
-      ],
-      lifecycle: {
-        reload: ["config"],
-        detection: ["env:OPENAI_REALTIME_API_KEY", "env:OPENAI_API_KEY"],
-      },
-    },
+    }
   ];
 }
 

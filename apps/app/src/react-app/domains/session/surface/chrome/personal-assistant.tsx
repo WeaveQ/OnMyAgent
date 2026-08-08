@@ -137,9 +137,13 @@ export function SessionErrorCard({
   onOpenModelPicker?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const formattedTime = useMemo(
-    () => error.createdAt ? new Date(error.createdAt).toLocaleString() : null,
+    () => (error.createdAt ? new Date(error.createdAt).toLocaleString() : null),
     [error.createdAt],
+  );
+  const hasMeta = Boolean(
+    error.messageId || error.traceId || error.code || formattedTime,
   );
   const errorDetails = useMemo(() => {
     const lines = [
@@ -166,16 +170,59 @@ export function SessionErrorCard({
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-3 py-3 sm:px-5">
-      <div className="rounded-lg border border-dls-border bg-dls-surface p-3 text-assistant">
-        <div className="flex items-start gap-2">
-          <TriangleAlert className="mt-px size-4 shrink-0 text-dls-status-danger" />
-          <div className="min-w-0 flex-1 space-y-2">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1 break-words font-medium text-dls-status-danger">
+    <div className="mx-auto max-w-3xl px-3 py-2 sm:px-5">
+      {/* Compact soft notice — no raw dump of date / quoted engine strings. */}
+      <div
+        className={cn(
+          "flex items-start gap-2.5 rounded-xl px-3.5 py-2.5",
+          "bg-dls-status-danger-soft/80 ring-1 ring-dls-status-danger-border/50",
+        )}
+        role="alert"
+      >
+        <TriangleAlert className="mt-0.5 size-4 shrink-0 text-dls-status-danger" />
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 space-y-0.5">
+              <p className="text-sm font-medium leading-5 text-dls-status-danger">
                 {error.message}
-                {error.code ? ` (${t("session.error_code", { code: error.code })})` : ""}
-              </div>
+              </p>
+              {error.kind !== "model-not-found" ? (
+                <p className="text-xs leading-4 text-dls-secondary">
+                  {t("session.error_retry_hint")}
+                </p>
+              ) : null}
+            </div>
+            <div className="flex shrink-0 items-center gap-0.5">
+              {hasMeta ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  className={sessionSurfaceStateClass.errorDismiss}
+                  title={
+                    copied
+                      ? t("common.copied")
+                      : t("session.error_copy_details")
+                  }
+                  aria-label={
+                    copied
+                      ? t("common.copied")
+                      : t("session.error_copy_details")
+                  }
+                  onClick={() => {
+                    void navigator.clipboard.writeText(errorDetails).then(() => {
+                      setCopied(true);
+                      window.setTimeout(() => setCopied(false), 2_000);
+                    });
+                  }}
+                >
+                  {copied ? (
+                    <Check className="size-3.5" />
+                  ) : (
+                    <Copy className="size-3.5" />
+                  )}
+                </Button>
+              ) : null}
               <Button
                 variant="ghost"
                 size="icon-xs"
@@ -187,71 +234,81 @@ export function SessionErrorCard({
                 <X className="size-3.5" />
               </Button>
             </div>
-            <div className="space-y-1 border-t border-dls-border pt-2 text-xs leading-4 text-dls-secondary">
-              {error.messageId || error.traceId ? (
-                <div className="flex items-center gap-1.5 break-all text-dls-text">
-                  <span className="min-w-0 flex-1">
-                    {error.messageId
-                      ? `${t("session.error_message_id")}: ${error.messageId}${error.traceId ? ` / ${error.traceId}` : ""}`
-                      : `${t("session.error_trace_id")}: ${error.traceId}`}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    title={copied ? t("common.copied") : t("session.error_copy_details")}
-                    aria-label={copied ? t("common.copied") : t("session.error_copy_details")}
-                    onClick={() => {
-                      void navigator.clipboard.writeText(errorDetails).then(() => {
-                        setCopied(true);
-                        window.setTimeout(() => setCopied(false), 2_000);
-                      });
-                    }}
-                  >
-                    {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-                  </Button>
+          </div>
+
+          {hasMeta ? (
+            <div>
+              <button
+                type="button"
+                className="text-xs font-medium text-dls-secondary underline-offset-2 hover:text-dls-text hover:underline"
+                onClick={() => setDetailsOpen((open) => !open)}
+              >
+                {detailsOpen
+                  ? t("session.error_hide_details")
+                  : t("session.error_show_details")}
+              </button>
+              {detailsOpen ? (
+                <div className="mt-1.5 space-y-0.5 break-all text-2xs leading-4 text-dls-secondary">
+                  {error.code ? (
+                    <div>
+                      {t("session.error_code_label")}: {error.code}
+                    </div>
+                  ) : null}
+                  {error.messageId ? (
+                    <div>
+                      {t("session.error_message_id")}: {error.messageId}
+                    </div>
+                  ) : null}
+                  {error.traceId ? (
+                    <div>
+                      {t("session.error_trace_id")}: {error.traceId}
+                    </div>
+                  ) : null}
+                  {formattedTime ? (
+                    <div>
+                      {t("session.error_date")}: {formattedTime}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
-              {formattedTime ? (
-                <div>{t("session.error_date")}: {formattedTime}</div>
-              ) : null}
             </div>
-            {error.kind === "model-not-found" ? (
-              <div className="flex flex-wrap gap-2">
-                {error.suggestions && error.suggestions.length > 0
-                  ? error.suggestions.map((s) => (
-                      <Button
-                        key={`${s.providerID}/${s.modelID}`}
-                        type="button"
-                        variant="outline"
-                        size="xs"
-                        className="text-dls-text hover:bg-dls-hover"
-                        onClick={() => {
-                          onChangeModel?.(s);
-                          onDismiss();
-                        }}
-                      >
-                        {t("session.error_use_model", {
-                          model: `${s.providerID}/${s.modelID}`,
-                        })}
-                      </Button>
-                    ))
-                  : null}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="xs"
-                  className="text-dls-text hover:bg-dls-hover"
-                  onClick={() => {
-                    onOpenModelPicker?.();
-                    onDismiss();
-                  }}
-                >
-                  {t("session.error_change_model")}
-                </Button>
-              </div>
-            ) : null}
-          </div>
+          ) : null}
+
+          {error.kind === "model-not-found" ? (
+            <div className="flex flex-wrap gap-2 pt-0.5">
+              {error.suggestions && error.suggestions.length > 0
+                ? error.suggestions.map((s) => (
+                    <Button
+                      key={`${s.providerID}/${s.modelID}`}
+                      type="button"
+                      variant="outline"
+                      size="xs"
+                      className="text-dls-text hover:bg-dls-hover"
+                      onClick={() => {
+                        onChangeModel?.(s);
+                        onDismiss();
+                      }}
+                    >
+                      {t("session.error_use_model", {
+                        model: `${s.providerID}/${s.modelID}`,
+                      })}
+                    </Button>
+                  ))
+                : null}
+              <Button
+                type="button"
+                variant="outline"
+                size="xs"
+                className="text-dls-text hover:bg-dls-hover"
+                onClick={() => {
+                  onOpenModelPicker?.();
+                  onDismiss();
+                }}
+              >
+                {t("session.error_change_model")}
+              </Button>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

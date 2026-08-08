@@ -24,9 +24,7 @@ export {
   AGENT_PANEL_MAX_WIDTH,
   AGENT_PANEL_MIN_WIDTH,
   DEFAULT_AGENT_TEMPLATE_ID,
-  GLOBAL_VOICE_SIDE_PANEL_KEY,
   STARTUP_SKELETON_ROWS,
-  isVoiceExtensionEnabled,
   sessionTitleForId,
   shouldShowSessionStartupSkeleton,
 } from "./session-panel-model";
