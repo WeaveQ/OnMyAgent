@@ -8,18 +8,27 @@ export type SessionSnapshotScheduleInput<T> = {
   run: (signal: AbortSignal) => Promise<T>;
 };
 
-type ScheduledTask = {
+type SnapshotSubscriber<T> = {
+  settle: (result: SnapshotResult<T>) => void;
+  signal?: AbortSignal;
+};
+
+type SnapshotResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; error: unknown };
+
+type ScheduledTask<T> = {
   requestKey: string;
-  promise: Promise<unknown>;
   execute: () => Promise<void>;
   cancel: () => void;
   isSettled: () => boolean;
   onSettled: (listener: () => void) => void;
+  subscribe: (signal?: AbortSignal) => Promise<T>;
 };
 
 type Lane = {
-  active: ScheduledTask | null;
-  queue: ScheduledTask[];
+  active: ScheduledTask<unknown> | null;
+  queue: ScheduledTask<unknown>[];
   draining: boolean;
 };
 
@@ -28,7 +37,7 @@ type WorkspaceSchedulerState = {
   background: Lane;
   activeExecutions: number;
   executionSlotWaiters: Array<() => void>;
-  tasksByRequestKey: Map<string, ScheduledTask>;
+  tasksByRequestKey: Map<string, ScheduledTask<unknown>>;
 };
 
 const schedulerByWorkspace = new Map<string, WorkspaceSchedulerState>();
@@ -95,85 +104,99 @@ function acquireExecutionSlot(
 function createScheduledTask<T>(
   input: SessionSnapshotScheduleInput<T>,
   state: WorkspaceSchedulerState,
-): {
-  task: ScheduledTask;
-  promise: Promise<T>;
-} {
+): ScheduledTask<T> {
   const controller = new AbortController();
+  const subscribers = new Set<SnapshotSubscriber<T>>();
   let settled = false;
-  let resolveRequest: (value: T | PromiseLike<T>) => void = () => undefined;
-  let rejectRequest: (reason?: unknown) => void = () => undefined;
   let releaseExecution: () => void = () => undefined;
   let settledListener: (() => void) | null = null;
   const executionReleased = new Promise<void>((resolve) => {
     releaseExecution = resolve;
   });
 
-  const removeAbortListener = () => {
-    input.signal?.removeEventListener("abort", cancel);
-  };
-
-  const settle = (): boolean => {
+  const settle = (result: SnapshotResult<T>): boolean => {
     if (settled) return false;
     settled = true;
-    removeAbortListener();
+    for (const subscriber of subscribers) {
+      subscriber.signal?.removeEventListener("abort", onSubscriberAbort);
+      subscriber.settle(result);
+    }
+    subscribers.clear();
     settledListener?.();
     return true;
   };
 
-  const cancel = () => {
+  const cancelTransportWhenUnobserved = () => {
+    if (settled || subscribers.size > 0) return;
     controller.abort();
-    if (settle()) rejectRequest(abortError());
-    // Do not let an uncooperative transport hold the interactive lane until
-    // its own timeout. Its result remains observed below, but new work can run.
-    releaseExecution();
+    if (settle({ ok: false, error: abortError() })) releaseExecution();
   };
 
-  const task: ScheduledTask = {
+  const onSubscriberAbort = (event: Event) => {
+    const signal = event.target;
+    const abortedSubscribers = [...subscribers].filter(
+      (subscriber) => subscriber.signal === signal,
+    );
+    for (const subscriber of abortedSubscribers) {
+      subscribers.delete(subscriber);
+      subscriber.signal?.removeEventListener("abort", onSubscriberAbort);
+      subscriber.settle({ ok: false, error: abortError() });
+    }
+    cancelTransportWhenUnobserved();
+  };
+
+  const cancel = () => {
+    controller.abort();
+    if (settle({ ok: false, error: abortError() })) releaseExecution();
+  };
+
+  const task: ScheduledTask<T> = {
     requestKey: input.requestKey,
-    promise: Promise.resolve(),
-    execute: async () => undefined,
+    execute: async () => {
+      if (settled) return;
+      const run = (async () => {
+        let releaseSlot: (() => void) | null = null;
+        try {
+          releaseSlot = await acquireExecutionSlot(
+            input.workspaceId,
+            state,
+            controller.signal,
+          );
+          if (settled) return;
+          const value = await input.run(controller.signal);
+          settle({ ok: true, value });
+        } catch (error) {
+          settle({ ok: false, error });
+        } finally {
+          releaseSlot?.();
+        }
+      })();
+      await Promise.race([run, executionReleased]);
+    },
     cancel,
     isSettled: () => settled,
     onSettled: (listener) => {
       settledListener = listener;
     },
+    subscribe: (signal?: AbortSignal) =>
+      new Promise<T>((resolve, reject) => {
+        if (settled || signal?.aborted) {
+          reject(abortError());
+          return;
+        }
+        const subscriber: SnapshotSubscriber<T> = {
+          signal,
+          settle: (result) => {
+            if (result.ok) resolve(result.value);
+            else reject(result.error);
+          },
+        };
+        subscribers.add(subscriber);
+        signal?.addEventListener("abort", onSubscriberAbort, { once: true });
+      }),
   };
 
-  const promise = new Promise<T>((resolve, reject) => {
-    resolveRequest = resolve;
-    rejectRequest = reject;
-    if (input.signal?.aborted) {
-      cancel();
-      return;
-    }
-    input.signal?.addEventListener("abort", cancel, { once: true });
-  });
-  task.promise = promise;
-
-  task.execute = async () => {
-    if (settled) return;
-    const run = (async () => {
-      let releaseSlot: (() => void) | null = null;
-      try {
-        releaseSlot = await acquireExecutionSlot(
-          input.workspaceId,
-          state,
-          controller.signal,
-        );
-        if (settled) return;
-        const value = await input.run(controller.signal);
-        if (settle()) resolveRequest(value);
-      } catch (error) {
-        if (settle()) rejectRequest(error);
-      } finally {
-        releaseSlot?.();
-      }
-    })();
-    await Promise.race([run, executionReleased]);
-  };
-
-  return { task, promise };
+  return task;
 }
 
 function discardSettled(lane: Lane) {
@@ -215,6 +238,25 @@ async function drainWorkspaceLane(
   }
 }
 
+function cancelSupersededInteractiveWork(lane: Lane, requestKey: string) {
+  if (lane.active && lane.active.requestKey !== requestKey) lane.active.cancel();
+  for (const queued of lane.queue) {
+    if (queued.requestKey !== requestKey) queued.cancel();
+  }
+}
+
+function promoteQueuedTask(
+  task: ScheduledTask<unknown>,
+  from: Lane,
+  to: Lane,
+): boolean {
+  const index = from.queue.indexOf(task);
+  if (index < 0) return false;
+  from.queue.splice(index, 1);
+  to.queue.push(task);
+  return true;
+}
+
 export function scheduleSessionSnapshot<T>(
   input: SessionSnapshotScheduleInput<T>,
 ): Promise<T> {
@@ -226,17 +268,28 @@ export function scheduleSessionSnapshot<T>(
   if (!requestKey) {
     return Promise.reject(new Error("requestKey is required."));
   }
+  if (input.signal?.aborted) return Promise.reject(abortError());
 
   const state = schedulerByWorkspace.get(workspaceId) ?? createWorkspaceState();
   schedulerByWorkspace.set(workspaceId, state);
   const existing = state.tasksByRequestKey.get(requestKey);
-  if (existing && !existing.isSettled()) return existing.promise as Promise<T>;
+  if (existing && !existing.isSettled()) {
+    if (input.priority === "interactive") {
+      cancelSupersededInteractiveWork(state.interactive, requestKey);
+      if (promoteQueuedTask(existing, state.background, state.interactive)) {
+        void drainWorkspaceLane(workspaceId, state, state.interactive);
+      }
+    }
+    // requestKey identifies a single snapshot contract within one workspace.
+    // The map intentionally erases that contract so unrelated keys can share
+    // scheduler state; restoring it here is the sole generic boundary.
+    const sharedTask = existing as ScheduledTask<T>;
+    return sharedTask.subscribe(input.signal);
+  }
   if (existing) state.tasksByRequestKey.delete(requestKey);
 
-  const { task, promise } = createScheduledTask(
-    { ...input, workspaceId, requestKey },
-    state,
-  );
+  const task = createScheduledTask({ ...input, workspaceId, requestKey }, state);
+  const promise = task.subscribe(input.signal);
   if (!task.isSettled()) {
     state.tasksByRequestKey.set(requestKey, task);
     task.onSettled(() => {
@@ -248,10 +301,7 @@ export function scheduleSessionSnapshot<T>(
   const lane = input.priority === "interactive" ? state.interactive : state.background;
 
   if (input.priority === "interactive") {
-    if (lane.active && lane.active.requestKey !== requestKey) lane.active.cancel();
-    for (const queued of lane.queue) {
-      if (queued.requestKey !== requestKey) queued.cancel();
-    }
+    cancelSupersededInteractiveWork(lane, requestKey);
   } else {
     discardSettled(lane);
     while (lane.queue.length >= BACKGROUND_QUEUE_LIMIT) {
