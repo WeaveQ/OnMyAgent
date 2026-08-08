@@ -815,16 +815,13 @@ export function ExpertPage(props: ExpertPageProps) {
     [openRailView, props.selectedWorkspaceId, props.sidebar],
   );
 
-  /** Connector / artifact try-this prompt → new expert task + composer draft. */
   const handleSelectArtifactPrompt = useCallback(
-    (selection: { pluginId: string; skillId: string; prompt: string }) => {
-      const prompt = selection.prompt.trim();
-      if (!prompt) return;
-      seedChatDraft(prompt);
+    ({ prompt }: { pluginId: string; skillId: string; prompt: string }) => {
+      const value = prompt.trim();
+      if (value) seedChatDraft(value);
     },
     [seedChatDraft],
   );
-
   const {
     handleStartMarketplaceExpert,
     handleCreateCurrentAgentSession,
