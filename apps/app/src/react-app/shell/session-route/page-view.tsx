@@ -80,6 +80,7 @@ import {
   addExpertSession,
   isExpertSession,
   removeAssistantSession,
+import { writeSessionOriginBestEffort } from "../../domains/agents";
   removeExpertSession,
 } from "../../domains/agents";
 import {
@@ -666,6 +667,14 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               });
               dispatchAssistantSessionWorkspacesChanged(workspaceId);
             }
+            writeSessionOriginBestEffort({
+              client: selectedWorkspaceEndpoint?.client ?? client,
+              workspaceId: selectedWorkspaceEndpoint?.workspaceId ?? workspaceId,
+              sessionId: newSession.id,
+              kind: "expert",
+              agentId: agentToBind?.id,
+              directory: newSession.directory,
+            });
 
             addExpertSession(newSession.id);
 
