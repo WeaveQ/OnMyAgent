@@ -14,6 +14,7 @@ import {
 } from "./vite-deps-integrity.mjs";
 import {
   resolveDevOrchestratorArtifactPath,
+  resolveDevServerArtifactPaths,
   resolveDevTypesArtifactPaths,
   shouldForceDevPreparation,
 } from "./dev-prepare-freshness.mjs";
@@ -94,6 +95,10 @@ const computerUseForceRequired = shouldForceDevPreparation({
   force: process.env.ONMYAGENT_COMPUTER_USE_FORCE_BUILD === "1",
 });
 const typesArtifactPaths = resolveDevTypesArtifactPaths(typesDistDir);
+const serverArtifactPaths = resolveDevServerArtifactPaths({
+  serverSourceDir: resolve(serverRoot, "src"),
+  serverDistDir,
+});
 const typesBuildRequired = shouldForceDevPreparation({
   artifactPaths: typesArtifactPaths,
   inputPaths: [
@@ -106,7 +111,7 @@ const typesBuildRequired = shouldForceDevPreparation({
   force: process.env.ONMYAGENT_FORCE_DEV_BUILD === "1",
 });
 const serverBuildRequired = shouldForceDevPreparation({
-  artifactPaths: [resolve(serverDistDir, "embedded.js")],
+  artifactPaths: serverArtifactPaths,
   inputPaths: [
     resolve(serverRoot, "src"),
     resolve(serverRoot, "package.json"),

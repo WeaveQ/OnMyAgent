@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { join } from "node:path";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   resolveDevOrchestratorArtifactPath,
+  resolveDevServerArtifactPaths,
   resolveDevTypesArtifactPaths,
   shouldForceDevPreparation,
 } from "./dev-prepare-freshness.mjs";
@@ -137,4 +139,44 @@ test("server build is stale when a rebuilt types artifact changes", () => {
     }),
     true,
   );
+});
+
+test("derives every server JavaScript artifact from its TypeScript source tree", () => {
+  const artifacts = resolveDevServerArtifactPaths({
+    serverSourceDir: "/tmp/server/src",
+    serverDistDir: "/tmp/server/dist",
+    sourcePaths: [
+      "/tmp/server/src/embedded.ts",
+      "/tmp/server/src/routes/session.ts",
+      "/tmp/server/src/worker.mts",
+      "/tmp/server/src/legacy.cts",
+      "/tmp/server/src/ambient.d.ts",
+    ],
+  });
+  assert.deepEqual(artifacts, [
+    join("/tmp/server/dist", "embedded.js"),
+    join("/tmp/server/dist", "routes", "session.js"),
+    join("/tmp/server/dist", "worker.mjs"),
+    join("/tmp/server/dist", "legacy.cjs"),
+  ]);
+  assert.equal(
+    shouldForceDevPreparation({
+      artifactPaths: artifacts,
+      inputPaths: ["server-src"],
+      getNewest: fromTimes(Object.fromEntries(artifacts.slice(0, -1).map((artifact) => [artifact, 20]))),
+    }),
+    true,
+  );
+});
+
+test("types dev freshness entries remain aligned with the tsup entry contract", async () => {
+  const source = await readFile(new URL("../../../packages/types/tsup.config.ts", import.meta.url), "utf8");
+  const configuredEntries = [...source.matchAll(/^\s*(?:([A-Za-z][A-Za-z0-9]*)|"([^"\n]+)"):\s*"src\/[^"\n]+",$/gm)]
+    .map((match) => match[1] ?? match[2])
+    .sort();
+  const freshnessEntries = resolveDevTypesArtifactPaths("/tmp/types/dist")
+    .map((path) => path.slice("/tmp/types/dist/".length, -".js".length))
+    .sort();
+
+  assert.deepEqual(freshnessEntries, configuredEntries);
 });
