@@ -32,7 +32,9 @@ test("release preparation still downloads when the existing OpenCode version dif
   );
 });
 
-test("Electron development opts into reusing an existing OpenCode sidecar", async () => {
+test("Electron development leaves sidecar preparation unforced when artifacts are fresh", async () => {
   const source = await readFile(new URL("./electron-dev.mjs", import.meta.url), "utf8");
-  assert.match(source, /prepare-sidecar\.mjs"\), "--force", "--prefer-existing-opencode"/);
+  assert.match(source, /shouldForceDevPreparation\(/);
+  assert.match(source, /if \(sidecarForceRequired\) prepareSidecarArgs\.push\("--force"\)/);
+  assert.match(source, /prepareSidecarArgs\.push\("--prefer-existing-opencode", "--outdir", electronSidecarDir\)/);
 });

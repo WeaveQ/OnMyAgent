@@ -11,6 +11,7 @@ import {
   resolveOnMyAgentUserDataDir,
   shouldForceViteOptimize,
 } from "./vite-deps-integrity.mjs";
+import { shouldForceDevPreparation } from "./dev-prepare-freshness.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(__dirname, "..");
@@ -18,6 +19,8 @@ const repoRoot = resolve(desktopRoot, "../..");
 const electronSidecarDir = resolve(desktopRoot, "resources", "sidecars");
 const electronRuntimeDir = resolve(desktopRoot, "resources", "runtimes");
 const electronHelperDir = resolve(desktopRoot, "resources", "helpers");
+const orchestratorSourceDir = resolve(repoRoot, "apps", "orchestrator");
+const handsfreeSourceDir = resolve(repoRoot, "packages", "handsfree", "native", "HandsFree");
 const defaultDevDataDir = resolve(
   process.env.HOME ?? process.env.USERPROFILE ?? repoRoot,
   ".onmyagent",
@@ -43,6 +46,33 @@ const viteProbeUrls = explicitStartUrl
 function needsShell(command) {
   return process.platform === "win32" && /\.(cmd|bat)$/i.test(command);
 }
+
+const devPreparationInputs = [
+  resolve(repoRoot, "package.json"),
+  resolve(repoRoot, "pnpm-lock.yaml"),
+  resolve(repoRoot, "constants.json"),
+];
+const sidecarForceRequired = shouldForceDevPreparation({
+  artifactPaths: [resolve(electronSidecarDir, "onmyagent-orchestrator")],
+  inputPaths: [
+    ...devPreparationInputs,
+    orchestratorSourceDir,
+    resolve(__dirname, "prepare-sidecar.mjs"),
+    resolve(__dirname, "prepare-sidecar-policy.mjs"),
+  ],
+  force: process.env.ONMYAGENT_SIDECAR_FORCE_BUILD === "1",
+});
+const computerUseForceRequired = shouldForceDevPreparation({
+  artifactPaths: [resolve(electronHelperDir, "OnMyAgent Computer Use.app", "Contents", "MacOS", "ComputerUse")],
+  inputPaths: [
+    ...devPreparationInputs,
+    handsfreeSourceDir,
+    resolve(desktopRoot, "resources", "icons", "icon.icns"),
+    resolve(__dirname, "prepare-computer-use-helper.mjs"),
+    resolve(__dirname, "computer-use-helper-manifest.mjs"),
+  ],
+  force: process.env.ONMYAGENT_COMPUTER_USE_FORCE_BUILD === "1",
+});
 
 function run(command, args, options = {}) {
   return spawn(command, args, {
@@ -218,14 +248,20 @@ async function stopAll(exitCode = 0) {
 process.once("SIGINT", () => void stopAll(130));
 process.once("SIGTERM", () => void stopAll(143));
 
-runSync(nodeCmd, [resolve(__dirname, "prepare-sidecar.mjs"), "--force", "--prefer-existing-opencode", "--outdir", electronSidecarDir], { cwd: desktopRoot });
+const prepareSidecarArgs = [resolve(__dirname, "prepare-sidecar.mjs")];
+if (sidecarForceRequired) prepareSidecarArgs.push("--force");
+prepareSidecarArgs.push("--prefer-existing-opencode", "--outdir", electronSidecarDir);
+runSync(nodeCmd, prepareSidecarArgs, { cwd: desktopRoot });
 const prepareRuntimeArgs = [
   resolve(__dirname, "prepare-runtimes.mjs"),
   "--outdir",
   electronRuntimeDir,
 ];
 runSync(nodeCmd, prepareRuntimeArgs, { cwd: desktopRoot });
-runSync(nodeCmd, [resolve(__dirname, "prepare-computer-use-helper.mjs"), "--force", "--outdir", electronHelperDir], { cwd: desktopRoot });
+const prepareComputerUseArgs = [resolve(__dirname, "prepare-computer-use-helper.mjs")];
+if (computerUseForceRequired) prepareComputerUseArgs.push("--force");
+prepareComputerUseArgs.push("--outdir", electronHelperDir);
+runSync(nodeCmd, prepareComputerUseArgs, { cwd: desktopRoot });
 runSync(nodeCmd, [resolve(__dirname, "prepare-cua-helper.mjs"), "--outdir", electronHelperDir], { cwd: desktopRoot });
 // Patch Electron.app Info.plist so the macOS menu bar and Dock show "OnMyAgent"
 // instead of "Electron" during dev. The bundled Electron binary gets regenerated
