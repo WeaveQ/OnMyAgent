@@ -13,12 +13,15 @@ export function isDesktopIpcUnavailableError(raw: string): boolean {
 
 function isIpcRestartCopy(text: string): boolean {
   if (isDesktopIpcUnavailableError(text)) return true;
-  // Already-localized full restart hint (stored on status.errorMessage).
+  // Already-localized restart hints (compare via i18n — no hard-coded CJK).
+  const full = t("plugins.connector_ipc_restart_hint");
+  const short = t("plugins.connector_ipc_restart_short");
   return (
-    text.includes("完全退出") ||
-    text.includes("Fully quit") ||
-    text.includes("主程序未載入") ||
-    text.includes("main process is missing")
+    text === full ||
+    text === short ||
+    text.includes(full) ||
+    text.includes(short) ||
+    /Fully quit|main process is missing/i.test(text)
   );
 }
 
