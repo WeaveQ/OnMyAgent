@@ -26,6 +26,7 @@ import {
   type PendingCreatedSessionMap,
 } from "../src/react-app/shell/session-route/sessions";
 import type { SidebarSessionItem } from "../src/app/types";
+import { OnMyAgentServerError } from "../src/app/lib/onmyagent-server/client-shared";
 import type { RouteWorkspace } from "../src/react-app/shell/session-route/model";
 import {
   clearExpertCreationEphemeralSessions,
@@ -374,6 +375,27 @@ describe("session route sessions", () => {
     expect(recovery.complete).toBe(true);
   });
 
+  test("treats exact 404s as authoritative stale origins rather than a retry failure", async () => {
+    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
+      client: {
+        listSessions: async () => ({ items: [] }),
+        getSession: async () => {
+          throw new OnMyAgentServerError(404, "not_found", "gone");
+        },
+      },
+      workspaceId: "workspace-a",
+      originWorkspaceId: "workspace-a",
+      primaryItems: [],
+      origins: [
+        { workspaceId: "workspace-a", sessionId: "deleted-session", kind: "expert", directory: "/gone", createdAt: 1, updatedAt: 1 },
+      ],
+      limit: 40,
+    });
+
+    expect(recovery.complete).toBe(true);
+    expect(recovery.missingSessionIds).toEqual(["deleted-session"]);
+  });
+
   test("uses exact bounded pages when origin metadata spans many directories", async () => {
     let listRequests = 0;
     let activeRequests = 0;
@@ -432,6 +454,57 @@ describe("session route sessions", () => {
       origins,
       limit: 40,
     });
+    expect(finalPage.items.map((item) => item.id)).toEqual(["session-40"]);
+    expect(finalPage.complete).toBe(true);
+  });
+
+  test("advances past authoritative missing origins on a later exact page", async () => {
+    const origins = Array.from(
+      { length: SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS + 1 },
+      (_, index) => ({
+        workspaceId: "workspace-a",
+        sessionId: `session-${index}`,
+        kind: "expert" as const,
+        directory: `/expert-${index}`,
+        createdAt: 1,
+        updatedAt: 1,
+      }),
+    );
+    const firstPage = await recoverOriginDirectorySessionItemsWithStatus({
+      client: {
+        listSessions: async () => ({ items: [] }),
+        getSession: async (_workspaceId, sessionId, options) => {
+          if (sessionId === "session-0") {
+            throw new OnMyAgentServerError(404, "not_found", "gone");
+          }
+          return { item: { id: sessionId, directory: options?.directory } };
+        },
+      },
+      workspaceId: "workspace-a",
+      originWorkspaceId: "workspace-a",
+      primaryItems: [],
+      origins,
+      limit: 40,
+    });
+
+    expect(firstPage.complete).toBe(false);
+    expect(firstPage.missingSessionIds).toEqual(["session-0"]);
+    const finalPage = await recoverOriginDirectorySessionItemsWithStatus({
+      client: {
+        listSessions: async () => ({ items: [] }),
+        getSession: async (_workspaceId, sessionId, options) => ({
+          item: { id: sessionId, directory: options?.directory },
+        }),
+      },
+      workspaceId: "workspace-a",
+      originWorkspaceId: "workspace-a",
+      primaryItems: [],
+      verifiedItems: firstPage.items,
+      verifiedMissingSessionIds: new Set(firstPage.missingSessionIds),
+      origins,
+      limit: 40,
+    });
+
     expect(finalPage.items.map((item) => item.id)).toEqual(["session-40"]);
     expect(finalPage.complete).toBe(true);
   });

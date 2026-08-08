@@ -1,6 +1,7 @@
 import { getDisplaySessionTitle } from "../../../app/lib/session-title";
 import type { SidebarSessionItem } from "../../../app/types";
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
+import { OnMyAgentServerError } from "../../../app/lib/onmyagent-server/client-shared";
 import type { ResolvedWorkspaceEndpoint } from "../../../app/lib/workspace-endpoint";
 import type { SessionOriginRecord } from "@onmyagent/types/server";
 import { t } from "../../../i18n";
@@ -54,6 +55,8 @@ export type OriginDirectorySessionRecovery = {
   complete: boolean;
   /** A non-null value asks the caller to run the next bounded exact page. */
   nextOffset: number | null;
+  /** Exact reads that conclusively prove an old origin no longer exists. */
+  missingSessionIds: string[];
 };
 
 type OriginDirectoryRecoveryInput = {
@@ -63,6 +66,8 @@ type OriginDirectoryRecoveryInput = {
   primaryItems: SidebarSessionItem[];
   /** Sessions already verified by earlier exact pages in this recovery cycle. */
   verifiedItems?: SidebarSessionItem[];
+  /** Exact 404/410 results already accepted as stale in earlier pages. */
+  verifiedMissingSessionIds?: ReadonlySet<string>;
   origins: SessionOriginRecord[];
   limit: number;
 };
@@ -87,6 +92,7 @@ export async function recoverOriginDirectorySessionItemsWithStatus(
 
   for (const origin of input.origins) {
     const directory = origin.directory?.trim();
+    if (input.verifiedMissingSessionIds?.has(origin.sessionId)) continue;
     if (
       origin.workspaceId === input.originWorkspaceId &&
       origin.sessionId &&
@@ -161,23 +167,44 @@ export async function recoverOriginDirectorySessionItemsWithStatus(
     (origin) => !knownIds.has(origin.sessionId),
   );
   if (!directoryReadsComplete) {
-    return { items: recovered, complete: false, nextOffset: null };
+    return {
+      items: recovered,
+      complete: false,
+      nextOffset: null,
+      missingSessionIds: [],
+    };
   }
   if (hasUnrecoverableOrigin) {
-    return { items: recovered, complete: false, nextOffset: null };
+    return {
+      items: recovered,
+      complete: false,
+      nextOffset: null,
+      missingSessionIds: [],
+    };
   }
   if (exactCandidates.length === 0) {
-    return { items: recovered, complete: true, nextOffset: null };
+    return {
+      items: recovered,
+      complete: true,
+      nextOffset: null,
+      missingSessionIds: [],
+    };
   }
   const getSession = input.client.getSession;
   if (!getSession) {
-    return { items: recovered, complete: false, nextOffset: null };
+    return {
+      items: recovered,
+      complete: false,
+      nextOffset: null,
+      missingSessionIds: [],
+    };
   }
   const page = exactCandidates.slice(
     0,
     SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS,
   );
   let exactReadsComplete = true;
+  const missingSessionIds: string[] = [];
   for (
     let start = 0;
     start < page.length;
@@ -189,13 +216,22 @@ export async function recoverOriginDirectorySessionItemsWithStatus(
     );
     const results = await Promise.allSettled(
       batch.map(async (origin) => {
-        const response = await getSession(input.workspaceId, origin.sessionId, {
-          directory: origin.directory,
-        });
-        return {
-          expectedId: origin.sessionId,
-          item: toSidebarSessionItem(response.item),
-        };
+        try {
+          const response = await getSession(input.workspaceId, origin.sessionId, {
+            directory: origin.directory,
+          });
+          return {
+            expectedId: origin.sessionId,
+            item: toSidebarSessionItem(response.item),
+            missing: false,
+          };
+        } catch (error) {
+          return {
+            expectedId: origin.sessionId,
+            item: null,
+            missing: isAuthoritativeSessionMissing(error),
+          };
+        }
       }),
     );
     for (const result of results) {
@@ -203,7 +239,11 @@ export async function recoverOriginDirectorySessionItemsWithStatus(
         exactReadsComplete = false;
         continue;
       }
-      const { expectedId, item } = result.value;
+      const { expectedId, item, missing } = result.value;
+      if (missing) {
+        missingSessionIds.push(expectedId);
+        continue;
+      }
       if (!item || item.id !== expectedId) {
         exactReadsComplete = false;
         continue;
@@ -224,7 +264,15 @@ export async function recoverOriginDirectorySessionItemsWithStatus(
         : exactReadsComplete
           ? null
           : 0,
+    missingSessionIds,
   };
+}
+
+function isAuthoritativeSessionMissing(error: unknown): boolean {
+  return (
+    error instanceof OnMyAgentServerError &&
+    (error.status === 404 || error.status === 410)
+  );
 }
 
 export async function recoverOriginDirectorySessionItems(
