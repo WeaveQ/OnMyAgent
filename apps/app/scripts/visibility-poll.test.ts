@@ -6,6 +6,8 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { isAutomationRefreshRequestCurrent } from "../src/react-app/domains/messaging/automation-page";
+
 import {
   DEFAULT_VISIBILITY_POLL_POLICY,
   isDocumentHidden,
@@ -133,6 +135,31 @@ describe("personal-local-agent host poll wiring", () => {
 });
 
 describe("deferred high-value network/status poll wiring", () => {
+  test("automation refresh rejects a stale workspace response after a scope switch", () => {
+    const oldClient = {};
+    const newClient = {};
+    expect(
+      isAutomationRefreshRequestCurrent({
+        requestId: 1,
+        activeRequestId: 2,
+        requestClient: oldClient,
+        activeClient: newClient,
+        requestWorkspaceId: "workspace-old",
+        activeWorkspaceId: "workspace-new",
+      }),
+    ).toBe(false);
+    expect(
+      isAutomationRefreshRequestCurrent({
+        requestId: 2,
+        activeRequestId: 2,
+        requestClient: newClient,
+        activeClient: newClient,
+        requestWorkspaceId: "workspace-new",
+        activeWorkspaceId: "workspace-new",
+      }),
+    ).toBe(true);
+  });
+
   test("messaging-view-state pauses 10s refresh while hidden", () => {
     const source = readFileSync(
       join(appRoot, "src/react-app/domains/settings/state/messaging-view-state.ts"),
@@ -172,6 +199,14 @@ describe("deferred high-value network/status poll wiring", () => {
     expect(source).toContain('from "../../infra/visibility-poll"');
     expect(source).toContain("shouldRunPollTick");
     expect(source).toContain("isDocumentHidden");
+    expect(source).toContain("automationRefreshStateRef");
+    expect(source).toContain("automationRefreshScopeRef");
+    expect(source).toContain("const isCurrentRequest");
+    expect(source).toContain("activeRequestId: refreshState.requestId");
+    expect(source).toContain("const scheduleNextPoll");
+    expect(source).toContain("await refreshAutomations({ silent: true })");
+    expect(source).toContain("window.setTimeout");
+    expect(source).not.toContain("window.setInterval");
   });
 });
 
