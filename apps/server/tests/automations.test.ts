@@ -8,6 +8,7 @@ import {
   bindAutomationRunSession,
   claimDueAutomation,
   claimManualAutomation,
+  collectAutomationOwnedSessionIds,
   createAutomation,
   listAutomationRuns,
   listAutomations,
@@ -35,6 +36,46 @@ describe("automations", () => {
       arguments: "inspect the latest changes",
     });
     expect(parseAutomationPromptCommand("Summarize the latest changes")).toBeNull();
+  });
+
+  test("collects automation-owned session ids from running, lastRun, and history", () => {
+    const ids = collectAutomationOwnedSessionIds([
+      {
+        running: {
+          leaseId: "lease-1",
+          startedAt: 1,
+          expiresAt: 2,
+          attempt: 1,
+          scheduledForAt: 1,
+          sessionId: "ses_running",
+        },
+        lastRun: {
+          status: "success",
+          source: "scheduled",
+          ranAt: 10,
+          sessionId: "ses_last",
+        },
+        runs: [
+          {
+            status: "failed",
+            source: "manual",
+            ranAt: 5,
+            sessionId: "ses_hist",
+          },
+          {
+            status: "skipped",
+            source: "scheduled",
+            ranAt: 6,
+          },
+        ],
+      },
+      {
+        running: null,
+        lastRun: null,
+        runs: [],
+      },
+    ]);
+    expect(ids).toEqual(new Set(["ses_running", "ses_last", "ses_hist"]));
   });
 
   test("creates and persists workspace automation tasks", async () => {
