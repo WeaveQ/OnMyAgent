@@ -155,6 +155,7 @@ import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
 import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
 import { useExpertSkillNavigation } from "./use-expert-skill-navigation";
 import { useSessionExpertCreation } from "./use-session-expert-creation";
+import { useOpenExpertSession } from "./use-open-expert-session";
 
 export type ExpertPageProps = SessionPageProps & {
   onNavigateToMode: (mode: "assistant" | "expert") => void;
@@ -585,22 +586,17 @@ export function ExpertPage(props: ExpertPageProps) {
   );
 
   /** Open a concrete session tab (user click / create). Records by session id. */
-  const handleOpenExpertSession = useCallback(
-    (workspaceId: string, sessionId: string) => {
-      setDraftSessionActive(false);
-      setDraftAgentId(null);
-      openRailView("chat");
-      const trimmed = sessionId.trim();
-      if (trimmed && !trimmed.startsWith("draft:") && isExpertSession(trimmed)) {
-        const agentId = readCustomAgentIdForSession(trimmed);
-        if (agentId) {
-          writeExpertSessionSelection(workspaceId, agentId, trimmed);
-        }
-      }
-      props.sidebar.onOpenSession(workspaceId, sessionId);
-    },
-    [props.sidebar],
-  );
+  const handleOpenExpertSession = useOpenExpertSession({
+    sidebar: props.sidebar,
+    draftAgentContexts,
+    pendingAgent,
+    draftAgentId,
+    draftSessionActive,
+    setDraftAgentContexts,
+    setDraftAgentId,
+    setDraftSessionActive,
+    openRailView,
+  });
 
   /**
    * Open an expert from the left list: restore last tab for that agent

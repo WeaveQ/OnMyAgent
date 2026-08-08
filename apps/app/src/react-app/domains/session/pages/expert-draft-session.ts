@@ -82,6 +82,45 @@ export function resolveBoundExpertDraftNavigation<T extends {
 }
 
 /**
+ * Consume the active draft only when the user explicitly opens a real session
+ * of that same expert. Draft contexts for other experts must remain available.
+ */
+export function consumeActiveExpertDraftForSession<T>(input: {
+  contexts: Record<string, T>;
+  pendingAgent: { id: string } | null;
+  draftAgentId: string | null;
+  draftSessionActive: boolean;
+  targetAgentId: string | null;
+}): {
+  contexts: Record<string, T>;
+  pendingAgent: { id: string } | null;
+  consumed: boolean;
+} {
+  const draftAgentId = input.draftAgentId?.trim() ?? "";
+  const targetAgentId = input.targetAgentId?.trim() ?? "";
+  const consumed =
+    input.draftSessionActive &&
+    Boolean(draftAgentId) &&
+    draftAgentId === targetAgentId;
+  if (!consumed) {
+    return {
+      contexts: input.contexts,
+      pendingAgent: input.pendingAgent,
+      consumed: false,
+    };
+  }
+
+  const contexts = { ...input.contexts };
+  delete contexts[draftAgentId];
+  return {
+    contexts,
+    pendingAgent:
+      input.pendingAgent?.id === draftAgentId ? null : input.pendingAgent,
+    consumed: true,
+  };
+}
+
+/**
  * Whether an unbound "+ 新会话" draft should survive a route session id.
  *
  * Without this, clearing the route (or a recency-based restore of another
