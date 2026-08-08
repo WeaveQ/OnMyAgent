@@ -10,6 +10,7 @@ import type {
 } from "@onmyagent/types/session-archive";
 import type { WorkspaceInfo } from "@onmyagent/types/server";
 
+import type { SessionArchiveSession } from "@onmyagent/types/session-archive";
 import type { SessionArchiveStore } from "./session-archive.js";
 import { findOpenCodeSqliteSource, listOpenCodeSqliteSessions, loadOpenCodeSqliteSession, type OpenCodeSqliteSessionMeta, type OpenCodeSqliteSource } from "./session-archive-sqlite-opencode.js";
 import {
@@ -22,6 +23,7 @@ import {
   shouldRunIncrementalSessionArchiveSync,
   shouldRunPeriodicArchiveSync,
 } from "./automation-schedule-policy.js";
+import { loadAutomationOwnedSessionIds } from "./automations.js";
 import { notifyArchiveDbChanged } from "./archive-change-bus.js";
 import { withSessionArchiveStore } from "./session-archive-store-pool.js";
 
@@ -72,6 +74,32 @@ export function resolveSessionArchiveRuntimePaths(input: {
   return { root, dbPath: join(root, "archive.sqlite") };
 }
 
+/**
+ * Mark archive sessions that belong to automation runs as is_automated.
+ * Preserves prior true (history) even if the run row ages out of automations.json.
+ */
+export function isArchiveSessionAutomationOwned(
+  session: Pick<SessionArchiveSession, "id" | "source_session_id" | "is_automated">,
+  automationOwnedSessionIds: ReadonlySet<string>,
+): boolean {
+  if (session.is_automated) return true;
+  if (automationOwnedSessionIds.has(session.id)) return true;
+  const sourceId = session.source_session_id?.trim();
+  return Boolean(sourceId && automationOwnedSessionIds.has(sourceId));
+}
+
+export function applyAutomationOwnershipToArchiveSession(
+  session: SessionArchiveSession,
+  automationOwnedSessionIds: ReadonlySet<string>,
+  existing: SessionArchiveSession | null | undefined,
+): SessionArchiveSession {
+  const owned =
+    existing?.is_automated === true ||
+    isArchiveSessionAutomationOwned(session, automationOwnedSessionIds);
+  if (session.is_automated === owned) return session;
+  return { ...session, is_automated: owned };
+}
+
 export async function syncSessionArchive(
   input: SessionArchiveSyncInput,
 ): Promise<SessionArchiveSyncStats> {
@@ -79,6 +107,9 @@ export async function syncSessionArchive(
   const watchRoots = sessionArchiveSyncWatchRoots(sourceRoots);
   const limit = normalizeSyncLimit(input.limit);
   const mode = input.mode ?? "incremental";
+  const automationOwnedSessionIds = await loadAutomationOwnedSessionIds(
+    input.workspace.path,
+  );
   return withSessionArchiveStore({ dbPath: input.paths.dbPath }, async (store) => {
     const candidates: SessionArchiveSyncCandidate[] = [];
     let synced = 0;
@@ -184,7 +215,13 @@ export async function syncSessionArchive(
           input.onProgress?.(progress("skip", { currentProject: candidate.source.root, projectsTotal: sourceRoots.length, sessionsTotal: selected.length, sessionsDone: synced + skipped + failed }));
           continue;
         }
-        store.upsertSession(result.session);
+        const existingSession = store.getSessionIncludingDeleted(result.session.id);
+        const session = applyAutomationOwnershipToArchiveSession(
+          result.session,
+          automationOwnedSessionIds,
+          existingSession,
+        );
+        store.upsertSession(session);
         store.replaceSessionMessages(result.session.id, result.messages);
         store.replaceSessionUsageEvents(result.session.id, result.usageEvents);
         store.upsertSourceFile({
@@ -214,6 +251,7 @@ export async function syncSessionArchive(
       mode,
       machine: "local",
       project: input.workspace.name || input.workspace.id,
+      automationOwnedSessionIds,
     });
     synced += opencodeSqliteResult.synced;
     skipped += opencodeSqliteResult.skipped;
@@ -565,6 +603,7 @@ async function syncOpenCodeSqliteSources(input: {
   mode: SessionArchiveSyncMode;
   machine: string;
   project: string;
+  automationOwnedSessionIds: ReadonlySet<string>;
 }): Promise<OpenCodeSqliteSyncResult> {
   const result: OpenCodeSqliteSyncResult = { discovered: 0, synced: 0, skipped: 0, failed: 0, warnings: [] };
   const seen = new Set<string>();
@@ -592,6 +631,7 @@ async function syncOpenCodeSqliteSources(input: {
           mode: input.mode,
           machine: input.machine,
           project: input.project,
+          automationOwnedSessionIds: input.automationOwnedSessionIds,
         });
         if (applied === "synced") result.synced += 1;
         else if (applied === "skipped") result.skipped += 1;
@@ -611,9 +651,26 @@ async function upsertOpenCodeSqliteSession(input: {
   mode: SessionArchiveSyncMode;
   machine: string;
   project: string;
+  automationOwnedSessionIds: ReadonlySet<string>;
 }): Promise<"synced" | "skipped"> {
   const existing = input.store.getSourceFile(input.meta.sourceKey);
   if (input.mode === "incremental" && existing && existing.mtime === input.meta.timeUpdated) {
+    // Still re-apply automation ownership when a known automation session was
+    // previously synced without is_automated (ownership is product-level).
+    const existingSession = existing.session_id
+      ? input.store.getSessionIncludingDeleted(existing.session_id)
+      : null;
+    if (
+      existingSession &&
+      !existingSession.is_automated &&
+      isArchiveSessionAutomationOwned(
+        existingSession,
+        input.automationOwnedSessionIds,
+      )
+    ) {
+      input.store.upsertSession({ ...existingSession, is_automated: true });
+      return "synced";
+    }
     return "skipped";
   }
   const parsed = loadOpenCodeSqliteSession({
@@ -634,7 +691,13 @@ async function upsertOpenCodeSqliteSession(input: {
     });
     return "skipped";
   }
-  input.store.upsertSession(parsed.session);
+  const existingSession = input.store.getSessionIncludingDeleted(parsed.session.id);
+  const session = applyAutomationOwnershipToArchiveSession(
+    parsed.session,
+    input.automationOwnedSessionIds,
+    existingSession,
+  );
+  input.store.upsertSession(session);
   input.store.replaceSessionMessages(parsed.session.id, parsed.messages);
   input.store.replaceSessionUsageEvents(parsed.session.id, parsed.usageEvents);
   input.store.upsertSourceFile({

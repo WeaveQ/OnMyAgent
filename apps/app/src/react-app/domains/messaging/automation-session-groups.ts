@@ -176,11 +176,71 @@ export function readAutomationSessionRecords(workspaceId: string): AutomationSes
   }
 }
 
+/** Session ids owned by automations for one workspace (local index). */
+export function collectAutomationOwnedSessionIds(
+  workspaceId: string,
+): Set<string> {
+  const ids = new Set<string>();
+  for (const record of readAutomationSessionRecords(workspaceId)) {
+    const sessionId = record.sessionId.trim();
+    if (sessionId) ids.add(sessionId);
+  }
+  return ids;
+}
+
+/** Invalidate cross-workspace ownership cache after any automation session index write. */
+let allOwnedSessionIdsCache: ReadonlySet<string> | null = null;
+
+export function invalidateAutomationOwnedSessionIdCache(): void {
+  allOwnedSessionIdsCache = null;
+}
+
+/**
+ * Union of automation-owned session ids across all workspaces in localStorage.
+ * Cached until {@link invalidateAutomationOwnedSessionIdCache} (on sync/remove/rename).
+ */
+export function listAllAutomationOwnedSessionIds(): ReadonlySet<string> {
+  if (allOwnedSessionIdsCache) return allOwnedSessionIdsCache;
+  const ids = new Set<string>();
+  if (typeof window === "undefined") {
+    allOwnedSessionIdsCache = ids;
+    return ids;
+  }
+  try {
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const key = window.localStorage.key(i);
+      if (!key || !key.startsWith(storageKeyPrefix)) continue;
+      const workspaceId = key.slice(storageKeyPrefix.length).trim();
+      if (!workspaceId) continue;
+      for (const sessionId of collectAutomationOwnedSessionIds(workspaceId)) {
+        ids.add(sessionId);
+      }
+    }
+  } catch {
+    // ignore storage failures; treat as empty ownership set
+  }
+  allOwnedSessionIdsCache = ids;
+  return ids;
+}
+
+export function isAutomationOwnedSessionId(
+  sessionId: string,
+  workspaceId?: string,
+): boolean {
+  const id = sessionId.trim();
+  if (!id) return false;
+  if (workspaceId?.trim()) {
+    return collectAutomationOwnedSessionIds(workspaceId).has(id);
+  }
+  return listAllAutomationOwnedSessionIds().has(id);
+}
+
 export function syncAutomationSessionRecords(
   workspaceId: string,
   automations: OnMyAgentAutomationTaskItem[],
 ) {
   if (typeof window === "undefined" || !workspaceId.trim()) return;
+  invalidateAutomationOwnedSessionIdCache();
   const deletedSessionIds = readDeletedSessionIds(workspaceId);
   const existing = readAutomationSessionRecords(workspaceId);
   const liveAutomationIds = new Set(
@@ -268,6 +328,7 @@ export function renameAutomationSessionRecord(
     return { ...record, title: nextTitle };
   });
   if (!changed) return false;
+  invalidateAutomationOwnedSessionIdCache();
   window.localStorage.setItem(storageKey(workspaceId), JSON.stringify(next));
   window.dispatchEvent(new CustomEvent(automationSessionsChangedEvent, {
     detail: { workspaceId },
@@ -289,6 +350,7 @@ export function removeAutomationSessionRecord(
   const next = current.filter((record) => record.sessionId !== id);
   const changed = next.length !== current.length;
   if (changed) {
+    invalidateAutomationOwnedSessionIdCache();
     window.localStorage.setItem(storageKey(workspaceId), JSON.stringify(next));
   }
   window.dispatchEvent(new CustomEvent(automationSessionsChangedEvent, {

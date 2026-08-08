@@ -13,7 +13,7 @@ import type {
   AutomationTaskInput,
   AutomationTaskItem,
 } from "@onmyagent/types/server";
-import { ApiError } from "../core/errors.js";
+import { ApiError, isApiError } from "../core/errors.js";
 import { exists, shortId } from "../core/utils.js";
 import {
   compactEffectiveRange,
@@ -79,6 +79,42 @@ export function parseAutomationPromptCommand(prompt: string): { name: string; ar
   const name = match?.[1]?.trim();
   if (!name) return null;
   return { name, arguments: match?.[2]?.trim() ?? "" };
+}
+
+/**
+ * Session ids owned by automation runs (running lease + history).
+ * Used so archive sync / completion UI can treat them as non-interactive.
+ */
+export function collectAutomationOwnedSessionIds(
+  items: ReadonlyArray<
+    Pick<AutomationTaskItem, "running" | "lastRun" | "runs">
+  >,
+): Set<string> {
+  const ids = new Set<string>();
+  const add = (sessionId: string | undefined) => {
+    const id = sessionId?.trim();
+    if (id) ids.add(id);
+  };
+  for (const item of items) {
+    add(item.running?.sessionId);
+    add(item.lastRun?.sessionId);
+    for (const run of item.runs ?? []) {
+      add(run.sessionId);
+    }
+  }
+  return ids;
+}
+
+/** Load automation-owned OpenCode session ids for a workspace root. */
+export async function loadAutomationOwnedSessionIds(
+  workspaceRoot: string,
+): Promise<Set<string>> {
+  try {
+    const items = await listAutomations(workspaceRoot);
+    return collectAutomationOwnedSessionIds(items);
+  } catch {
+    return new Set();
+  }
 }
 
 export function automationStorePath(workspaceRoot: string): string {
@@ -290,6 +326,21 @@ export async function runAutomationManually(
     }, task.running.leaseId);
     return { ok: true, task, item, execution };
   } catch (error) {
+    // Stop/replace already wrote the terminal outcome for this generation.
+    if (isApiError(error) && error.code === "automation_run_superseded") {
+      const items = await listAutomations(workspaceRoot);
+      const item = items.find((entry) => entry.id === id) ?? null;
+      if (execution) {
+        return { ok: true, task, item, execution };
+      }
+      return {
+        ok: false,
+        task,
+        item,
+        error,
+        message: error.message,
+      };
+    }
     const message = error instanceof Error ? error.message : String(error);
     const item = await recordAutomationRun(workspaceRoot, task.id, {
       status: "failed",
@@ -306,6 +357,15 @@ export async function runAutomationManually(
   }
 }
 
+/**
+ * Append a run outcome. Generation contract:
+ * - While a lease is held, terminal writes that clear `running` MUST pass the
+ *   matching `leaseId`. Mismatched or missing lease → no-op (stale turn).
+ * - After the lease is gone, a write that still carries that `leaseId` is
+ *   treated as a late result and ignored (cannot cover a newer generation).
+ * - History-only appends when nothing is running may omit `leaseId` (tests /
+ *   import paths).
+ */
 export async function recordAutomationRun(
   workspaceRoot: string,
   id: string,
@@ -317,20 +377,30 @@ export async function recordAutomationRun(
     const index = store.items.findIndex((item) => item.id === id);
     if (index < 0) return null;
     const current = store.items[index];
-    if (leaseId && current.running?.leaseId !== leaseId) {
+    const normalizedLease = leaseId?.trim() || undefined;
+
+    if (current.running) {
+      // Active generation: only the holder may finalize / clear the lease.
+      if (!normalizedLease || current.running.leaseId !== normalizedLease) {
+        return current;
+      }
+    } else if (normalizedLease) {
+      // Lease already cleared (cancel or prior success) — ignore late writers.
       return current;
     }
-    const nextEnabled = leaseId && current.schedule.mode === "once" ? false : current.enabled;
-    const nextRunAtValue = leaseId && nextEnabled && lastRun.source === "scheduled" && current.effectiveRange.endDate
+
+    const clearsRunning = Boolean(normalizedLease);
+    const nextEnabled = clearsRunning && current.schedule.mode === "once" ? false : current.enabled;
+    const nextRunAtValue = clearsRunning && nextEnabled && lastRun.source === "scheduled" && current.effectiveRange.endDate
       ? nextRunAt(current.schedule, lastRun.ranAt, current.effectiveRange)
-      : leaseId && !nextEnabled
+      : clearsRunning && !nextEnabled
         ? null
         : current.nextRunAt;
     const item = {
       ...current,
       enabled: nextEnabled,
       nextRunAt: nextRunAtValue,
-      running: leaseId ? null : current.running,
+      running: clearsRunning ? null : current.running,
       lastRun,
       runs: [lastRun, ...current.runs],
       updatedAt: Date.now(),
