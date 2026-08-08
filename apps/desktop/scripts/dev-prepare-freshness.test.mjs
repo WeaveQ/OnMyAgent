@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
+import { join } from "node:path";
 import test from "node:test";
-import { shouldForceDevPreparation } from "./dev-prepare-freshness.mjs";
+import { resolveDevOrchestratorArtifactPath, shouldForceDevPreparation } from "./dev-prepare-freshness.mjs";
 
 function fromTimes(times) {
   return (path) => times[path] ?? null;
@@ -48,5 +49,32 @@ test("explicit force always wins", () => {
       getNewest: fromTimes({ artifact: 100, source: 1 }),
     }),
     true,
+  );
+});
+
+test("resolves the Windows canonical orchestrator artifact and treats it as fresh", () => {
+  const artifact = resolveDevOrchestratorArtifactPath({
+    sidecarDir: "/tmp/sidecars",
+    platform: "win32",
+  });
+  assert.equal(artifact, join("/tmp/sidecars", "onmyagent-orchestrator.exe"));
+  assert.equal(
+    shouldForceDevPreparation({
+      artifactPaths: [artifact],
+      inputPaths: ["source"],
+      getNewest: fromTimes({ [artifact]: 20, source: 19 }),
+    }),
+    false,
+  );
+});
+
+test("uses the Windows artifact suffix for a Windows target override", () => {
+  assert.equal(
+    resolveDevOrchestratorArtifactPath({
+      sidecarDir: "/tmp/sidecars",
+      platform: "darwin",
+      targetTriple: "x86_64-pc-windows-msvc",
+    }),
+    join("/tmp/sidecars", "onmyagent-orchestrator.exe"),
   );
 });
