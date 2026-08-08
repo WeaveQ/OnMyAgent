@@ -22,6 +22,7 @@ function deferred() {
 
 const base = {
   activeChat: true,
+  originDegraded: false,
   hasAnyExpertConversation: false,
   showWorkspaceSetupEmptyState: false,
   showSelectedWorkspaceError: false,
@@ -37,6 +38,7 @@ describe("expert origin hydration view", () => {
     })).toEqual({
       deferColdOpen: true,
       showPendingWithoutSelection: false,
+      showDegradedWithoutSelection: false,
       showNoExpertConversation: false,
     });
   });
@@ -49,6 +51,7 @@ describe("expert origin hydration view", () => {
     })).toEqual({
       deferColdOpen: true,
       showPendingWithoutSelection: true,
+      showDegradedWithoutSelection: false,
       showNoExpertConversation: false,
     });
   });
@@ -61,8 +64,33 @@ describe("expert origin hydration view", () => {
     })).toEqual({
       deferColdOpen: false,
       showPendingWithoutSelection: false,
+      showDegradedWithoutSelection: false,
       showNoExpertConversation: true,
     });
+  });
+
+  test("shows a degraded recovery notice instead of a false empty landing page", () => {
+    expect(resolveExpertOriginHydrationView({
+      ...base,
+      originHydrated: true,
+      originDegraded: true,
+      selectedSessionId: null,
+    })).toEqual({
+      deferColdOpen: false,
+      showPendingWithoutSelection: false,
+      showDegradedWithoutSelection: true,
+      showNoExpertConversation: false,
+    });
+  });
+
+  test("does not cover a workspace error with the degraded recovery notice", () => {
+    expect(resolveExpertOriginHydrationView({
+      ...base,
+      originHydrated: true,
+      originDegraded: true,
+      selectedSessionId: null,
+      showSelectedWorkspaceError: true,
+    }).showDegradedWithoutSelection).toBe(false);
   });
 });
 

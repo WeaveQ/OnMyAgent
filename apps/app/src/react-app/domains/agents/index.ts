@@ -84,6 +84,7 @@ export {
   markSessionOriginHydrationDegraded,
   SESSION_ORIGIN_RECOVERY_MAX_RETRIES,
   useSessionOriginHydrated,
+  useSessionOriginHydrationDegraded,
 } from "./session-origin-hydration";
 export { writeSessionOriginBestEffort } from "./session-origin-write";
 

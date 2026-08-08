@@ -1,6 +1,7 @@
 export function resolveExpertOriginHydrationView(input: {
   activeChat: boolean;
   originHydrated: boolean;
+  originDegraded: boolean;
   selectedSessionId: string | null;
   hasAnyExpertConversation: boolean;
   showWorkspaceSetupEmptyState: boolean;
@@ -9,9 +10,17 @@ export function resolveExpertOriginHydrationView(input: {
 }) {
   const pending = input.activeChat && !input.originHydrated;
   const showPendingWithoutSelection = pending && !input.selectedSessionId;
+  const showDegradedWithoutSelection =
+    input.activeChat &&
+    input.originDegraded &&
+    !input.selectedSessionId &&
+    !input.showWorkspaceSetupEmptyState &&
+    !input.showSelectedWorkspaceError &&
+    !input.showBlockingStartupSkeleton;
   const showNoExpertConversation =
     input.activeChat &&
     input.originHydrated &&
+    !input.originDegraded &&
     !input.selectedSessionId &&
     !input.hasAnyExpertConversation &&
     !input.showWorkspaceSetupEmptyState &&
@@ -21,6 +30,7 @@ export function resolveExpertOriginHydrationView(input: {
   return {
     deferColdOpen: pending,
     showPendingWithoutSelection,
+    showDegradedWithoutSelection,
     showNoExpertConversation,
   };
 }
