@@ -1339,24 +1339,49 @@ function flushDeltas(entry: SyncEntry, workspaceId: string) {
   }
 }
 
-function startSync(input: SyncOptions) {
-  const client = createClient(input.baseUrl, input.directory?.trim() || undefined, {
-    token: input.onmyagentToken,
-    mode: "onmyagent",
-  });
+type SessionSyncSubscription = {
+  stream: AsyncIterable<unknown>;
+};
+
+type SessionSyncConnection = {
+  controller: AbortController;
+  generation: number;
+};
+
+type SessionSyncConnectionLifecycleOptions = {
+  subscribe: (signal: AbortSignal) => Promise<SessionSyncSubscription>;
+  onEvent: (event: unknown) => void;
+  staleStreamMs?: number;
+  watchdogIntervalMs?: number;
+  initialRetryDelayMs?: number;
+};
+
+function createSessionSyncConnectionLifecycle(
+  options: SessionSyncConnectionLifecycleOptions,
+) {
   const controller = new AbortController();
-  const entry = syncs.get(syncKey(input));
   let disposed = false;
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let watchdogTimer: ReturnType<typeof setInterval> | null = null;
-  let activeConnectionController: AbortController | null = null;
+  let activeConnection: SessionSyncConnection | null = null;
   let lastEventAt = Date.now();
-  let retryDelayMs = 1_000;
-  const staleStreamMs = 30_000;
+  let retryDelayMs = options.initialRetryDelayMs ?? 1_000;
+  let nextGeneration = 0;
+  const staleStreamMs = options.staleStreamMs ?? 30_000;
+  const watchdogIntervalMs = options.watchdogIntervalMs ?? 10_000;
 
-  const scheduleRetry = () => {
-    if (disposed || controller.signal.aborted || retryTimer) return;
-    activeConnectionController = null;
+  const isActiveConnection = (connection: SessionSyncConnection) =>
+    activeConnection === connection;
+
+  const scheduleRetry = (connection: SessionSyncConnection) => {
+    if (
+      disposed ||
+      controller.signal.aborted ||
+      retryTimer ||
+      !isActiveConnection(connection)
+    )
+      return;
+    activeConnection = null;
     retryTimer = setTimeout(() => {
       retryTimer = null;
       void connect();
@@ -1365,58 +1390,80 @@ function startSync(input: SyncOptions) {
   };
 
   const connect = async () => {
-    const connectionController = new AbortController();
-    activeConnectionController = connectionController;
+    if (disposed || controller.signal.aborted || activeConnection) return;
+    const connection: SessionSyncConnection = {
+      controller: new AbortController(),
+      generation: nextGeneration + 1,
+    };
+    nextGeneration = connection.generation;
+    activeConnection = connection;
     try {
-      const sub = await client.event.subscribe(undefined, {
-        signal: connectionController.signal,
-      });
-      retryDelayMs = 1_000;
+      const sub = await options.subscribe(connection.controller.signal);
+      if (!isActiveConnection(connection)) return;
+      retryDelayMs = options.initialRetryDelayMs ?? 1_000;
       lastEventAt = Date.now();
       for await (const raw of sub.stream) {
-        if (controller.signal.aborted || connectionController.signal.aborted)
+        if (
+          controller.signal.aborted ||
+          connection.controller.signal.aborted ||
+          !isActiveConnection(connection)
+        )
           return;
         lastEventAt = Date.now();
-        const event = normalizeEvent(raw);
-        if (!event) continue;
-        if (!entry) continue;
-        applyEvent(entry, input.workspaceId, event);
+        options.onEvent(raw);
       }
-      if (
-        !controller.signal.aborted &&
-        activeConnectionController === connectionController
-      )
-        scheduleRetry();
+      scheduleRetry(connection);
     } catch (error) {
       if (
         !controller.signal.aborted &&
-        (connectionController.signal.aborted || shouldRetrySyncSubscribe(error))
+        isActiveConnection(connection) &&
+        (connection.controller.signal.aborted || shouldRetrySyncSubscribe(error))
       ) {
-        scheduleRetry();
+        scheduleRetry(connection);
       }
     } finally {
-      if (activeConnectionController === connectionController)
-        activeConnectionController = null;
+      if (isActiveConnection(connection)) activeConnection = null;
     }
   };
 
   void connect();
-  watchdogTimer = setInterval(() => {
+  const watchdog = () => {
     if (disposed || controller.signal.aborted || retryTimer) return;
-    const active = activeConnectionController;
-    if (!active || active.signal.aborted) return;
+    const active = activeConnection;
+    if (!active || active.controller.signal.aborted) return;
     if (Date.now() - lastEventAt < staleStreamMs) return;
-    active.abort();
-    scheduleRetry();
-  }, 10_000);
+    active.controller.abort();
+    scheduleRetry(active);
+  };
+  watchdogTimer = setInterval(() => {
+    watchdog();
+  }, watchdogIntervalMs);
 
-  return () => {
+  const dispose = () => {
     disposed = true;
     if (retryTimer) clearTimeout(retryTimer);
     if (watchdogTimer) clearInterval(watchdogTimer);
-    activeConnectionController?.abort();
+    activeConnection?.controller.abort();
     controller.abort();
   };
+  return { dispose, watchdog };
+}
+
+function startSync(input: SyncOptions) {
+  const client = createClient(input.baseUrl, input.directory?.trim() || undefined, {
+    token: input.onmyagentToken,
+    mode: "onmyagent",
+  });
+  const entry = syncs.get(syncKey(input));
+  const lifecycle = createSessionSyncConnectionLifecycle({
+    subscribe: (signal) => client.event.subscribe(undefined, { signal }),
+    onEvent: (raw) => {
+      const event = normalizeEvent(raw);
+      if (!event || !entry) return;
+      applyEvent(entry, input.workspaceId, event);
+    },
+  });
+  return lifecycle.dispose;
 }
 
 export function ensureWorkspaceSessionSync(input: SyncOptions) {
@@ -1603,6 +1650,16 @@ export function __createWorkspaceSessionSyncForTest(input: SyncOptions) {
     deltaFlushScheduled: false,
   });
   return once(() => releaseWorkspaceSessionSync(input));
+}
+
+export function __createSessionSyncConnectionForTest(
+  options: SessionSyncConnectionLifecycleOptions,
+) {
+  const lifecycle = createSessionSyncConnectionLifecycle(options);
+  return {
+    dispose: lifecycle.dispose,
+    watchdog: lifecycle.watchdog,
+  };
 }
 
 export function __hasWorkspaceSessionSyncForTest(input: SyncOptions) {

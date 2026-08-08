@@ -7,6 +7,7 @@ import { useSessionActivityStore } from "../src/react-app/domains/session/status
 import { readTranscriptMessageMetadata } from "../src/react-app/domains/session/sync/message-metadata";
 import {
   __applySessionSyncEventForTest,
+  __createSessionSyncConnectionForTest,
   __createWorkspaceSessionSyncForTest,
   __disposeWorkspaceSessionSyncForTest,
   __expireRetainedSessionForTest,
@@ -23,6 +24,21 @@ const syncInput = {
   baseUrl: "http://127.0.0.1:9999/workspace/runtime_ws/opencode",
   onmyagentToken: "test-token",
 };
+
+function deferred<T>() {
+  let reject: (reason?: unknown) => void = () => undefined;
+  let resolve: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, reject, resolve };
+}
+
+async function settle() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
 
 const partUpdatedEvent: OpencodeEvent = {
   type: "message.part.updated",
@@ -50,6 +66,41 @@ afterEach(() => {
 });
 
 describe("session sync tracking", () => {
+  test("does not let a stale watchdog connection schedule a third stream", async () => {
+    const first = deferred<{ stream: AsyncIterable<unknown> }>();
+    const second = deferred<{ stream: AsyncIterable<unknown> }>();
+    const never = deferred<void>();
+    let subscriptions = 0;
+    const sync = __createSessionSyncConnectionForTest({
+      initialRetryDelayMs: 0,
+      staleStreamMs: 0,
+      subscribe: () => {
+        subscriptions += 1;
+        return subscriptions === 1 ? first.promise : second.promise;
+      },
+      onEvent: () => undefined,
+    });
+
+    await settle();
+    expect(subscriptions).toBe(1);
+
+    sync.watchdog();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(subscriptions).toBe(2);
+
+    second.resolve({
+      stream: (async function* () {
+        await never.promise;
+      })(),
+    });
+    await settle();
+    first.reject(new Error("late connection failure"));
+    await settle();
+
+    expect(subscriptions).toBe(2);
+    sync.dispose();
+  });
+
   test("preserves rich metadata from live message updates", () => {
     __createWorkspaceSessionSyncForTest(syncInput);
     const release = trackWorkspaceSessionSync(syncInput, "ses_new");
