@@ -617,7 +617,7 @@ export function AssistantPage(props: AssistantPageProps) {
     [openOfficeNewTaskWithDraft],
   );
 
-  /** Connector / artifact “试试这样用” → new task + composer draft. */
+  /** Connector / artifact try-this prompt → new task + composer draft. */
   const handleSelectArtifactPrompt = useCallback(
     (selection: { pluginId: string; skillId: string; prompt: string }) => {
       const prompt = selection.prompt.trim();

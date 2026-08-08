@@ -22,7 +22,7 @@ const DEFAULT_PRODUCT_ICON = "/on-my-agent-logo.png";
 export type ConnectorConnectDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Target service display name (e.g. 飞书). */
+  /** Target service display name (e.g. Feishu). */
   name: string;
   description: string;
   /** Target service icon (local path or absolute URL). */
@@ -43,7 +43,7 @@ export type ConnectorConnectDialogProps = {
   connectingLabel?: string;
   connecting?: boolean;
   onConnect?: () => void | Promise<void>;
-  /** Connected = show 去试试 + 解绑 instead of 连接. */
+  /** Connected = show try-it + unbind instead of connect. */
   connected?: boolean;
   tryItLabel?: string;
   onTryIt?: () => void;
