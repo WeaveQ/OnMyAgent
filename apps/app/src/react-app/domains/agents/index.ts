@@ -76,6 +76,10 @@ export {
   reconcileSessionOrigins,
   sessionOriginsChangedEvent,
 } from "./session-origin-reconciliation";
+export {
+  markSessionOriginHydrated,
+  useSessionOriginHydrated,
+} from "./session-origin-hydration";
 export { writeSessionOriginBestEffort } from "./session-origin-write";
 
 export * from "./pending-agent-store";
