@@ -80,9 +80,9 @@ import {
   addExpertSession,
   isExpertSession,
   removeAssistantSession,
-import { writeSessionOriginBestEffort } from "../../domains/agents";
   removeExpertSession,
 } from "../../domains/agents";
+import { writeSessionOriginBestEffort } from "../../domains/agents";
 import {
   removeAutomationSessionRecord,
   renameAutomationSessionRecord,
@@ -667,6 +667,8 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               });
               dispatchAssistantSessionWorkspacesChanged(workspaceId);
             }
+
+            addExpertSession(newSession.id);
             writeSessionOriginBestEffort({
               client: selectedWorkspaceEndpoint?.client ?? client,
               workspaceId: selectedWorkspaceEndpoint?.workspaceId ?? workspaceId,
@@ -675,8 +677,6 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               agentId: agentToBind?.id,
               directory: newSession.directory,
             });
-
-            addExpertSession(newSession.id);
 
             // Optimistically append the new session into the workspace list
             // so the left-side agent panel renders the new agent immediately.
@@ -705,7 +705,11 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             sessionStatusById: sidebarSessionStatusById,
             connectingWorkspaceId: null,
             workspaceConnectionStateById,
-            newTaskDisabled: !canCreateTask,
+            // New-task opens a local draft and remains available while
+            // background session-list/model readiness is recovering.
+            newTaskDisabled: !workspaces.some(
+              (workspace) => workspace.id === selectedWorkspaceId,
+            ),
             sidebarHydratedFromCache: Object.values(sessionsByWorkspaceId).some(
               (list) => list.length > 0,
             ),
