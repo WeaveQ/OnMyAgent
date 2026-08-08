@@ -32,6 +32,7 @@ import {
 import { writeCachedSidebarSessionsForWorkspace } from "../session-memory";
 import {
   describeWorkspaceSessionLoadError,
+  findRouteWorkspace,
   isRemoteOnMyAgentWorkspace,
   removeRetryingWorkspaceId,
   shouldClearWorkspaceSessionLoadInFlight,
@@ -104,6 +105,53 @@ export function useSessionRouteSessionLoader(input: Input) {
   >(new Map());
   const missingOriginSessionIds = useRef<Map<string, Set<string>>>(new Map());
 
+  const clearOriginRecoveryState = useCallback((workspaceId: string) => {
+    const retryTimer = originRecoveryRetryTimers.current.get(workspaceId);
+    if (retryTimer !== undefined) window.clearTimeout(retryTimer);
+    originRecoveryRetryTimers.current.delete(workspaceId);
+    originRecoveryRetryAttempts.current.delete(workspaceId);
+    originRecoveryPending.current.delete(workspaceId);
+    originReadInFlight.current.delete(workspaceId);
+    recoveredOriginItems.current.delete(workspaceId);
+    missingOriginSessionIds.current.delete(workspaceId);
+  }, []);
+
+  const clearRemovedOriginRecoveryStates = useCallback(() => {
+    const workspaceIds = new Set(
+      workspacesRef.current.map((workspace) => workspace.id),
+    );
+    const trackedWorkspaceIds = new Set([
+      ...originRecoveryRetryTimers.current.keys(),
+      ...originRecoveryRetryAttempts.current.keys(),
+      ...originRecoveryPending.current,
+      ...originReadInFlight.current,
+      ...recoveredOriginItems.current.keys(),
+      ...missingOriginSessionIds.current.keys(),
+    ]);
+    for (const workspaceId of trackedWorkspaceIds) {
+      if (!workspaceIds.has(workspaceId)) {
+        clearOriginRecoveryState(workspaceId);
+      }
+    }
+  }, [clearOriginRecoveryState, workspacesRef]);
+
+  useEffect(
+    () => () => {
+      const trackedWorkspaceIds = new Set([
+        ...originRecoveryRetryTimers.current.keys(),
+        ...originRecoveryRetryAttempts.current.keys(),
+        ...originRecoveryPending.current,
+        ...originReadInFlight.current,
+        ...recoveredOriginItems.current.keys(),
+        ...missingOriginSessionIds.current.keys(),
+      ]);
+      for (const workspaceId of trackedWorkspaceIds) {
+        clearOriginRecoveryState(workspaceId);
+      }
+    },
+    [clearOriginRecoveryState],
+  );
+
   const rememberPendingCreatedSession = useCallback(
     (workspaceId: string, sessionId: string) => {
       const id = sessionId.trim();
@@ -142,6 +190,7 @@ export function useSessionRouteSessionLoader(input: Input) {
 
   const loadWorkspaceSessionsInBackground = useCallback(
     async (workspaces: RouteWorkspace[]) => {
+      clearRemovedOriginRecoveryStates();
       const fetchOnce = async (
         workspace: RouteWorkspace,
         attempt: number,
@@ -158,7 +207,15 @@ export function useSessionRouteSessionLoader(input: Input) {
           originRecoveryRetryAttempts.current.set(workspaceId, retries + 1);
           const timer = window.setTimeout(() => {
             originRecoveryRetryTimers.current.delete(workspaceId);
-            void fetchOnce(workspace, 0);
+            const currentWorkspace = findRouteWorkspace(
+              workspacesRef.current,
+              workspaceId,
+            );
+            if (!currentWorkspace) {
+              clearOriginRecoveryState(workspaceId);
+              return;
+            }
+            void fetchOnce(currentWorkspace, 0);
           }, retryDelayMs);
           originRecoveryRetryTimers.current.set(workspaceId, timer);
         };
@@ -515,12 +572,15 @@ export function useSessionRouteSessionLoader(input: Input) {
     },
     [
       endpointForWorkspace,
+      clearOriginRecoveryState,
+      clearRemovedOriginRecoveryStates,
       mergeFetchedSessionsWithPending,
       sessionsByWorkspaceIdRef,
       setErrorsByWorkspaceId,
       setRetryingWorkspaceIds,
       setSessionsByWorkspaceId,
       setWorkspaceConnectionOverrides,
+      workspacesRef,
     ],
   );
 
