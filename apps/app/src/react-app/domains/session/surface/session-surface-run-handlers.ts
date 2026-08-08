@@ -97,7 +97,6 @@ export type SessionSurfaceRunHandlersInput = {
   setStallRecoveryBySessionId: Dispatch<SetStateAction<Record<string, boolean>>>;
   buildDraft: (text: string, attachments: ComposerAttachment[]) => ComposerDraft;
   clearComposerSession: (sessionId: string) => void;
-  setComposerDraft: (sessionId: string, draft: string) => void;
   updateCollaborationMode: (mode: ComposerCollaborationMode) => void;
   onSendDraft: (draft: ComposerDraft) => void | Promise<void>;
   onDraftChange: (draft: ComposerDraft) => void;
@@ -117,6 +116,11 @@ export type SessionSurfaceRunHandlersInput = {
 export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInput) {
   const activeRunStartedAtRef = useRef<number | null>(null);
   const activeRunKeyRef = useRef<string | null>(null);
+  // React state updates are asynchronous, so two submit events from the same
+  // click/shortcut turn can both see `sending === false`. Keep this lock local
+  // to the submit promise; it deliberately does not block a later follow-up
+  // once OpenCode has accepted the current turn.
+  const sendInFlightRef = useRef(false);
 
   const {
     sessionId,
@@ -148,7 +152,6 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
     setStallRecoveryBySessionId,
     buildDraft,
     clearComposerSession,
-    setComposerDraft,
     updateCollaborationMode,
     onSendDraft,
     onDraftChange,
@@ -287,6 +290,7 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
   const handleSend = useCallback(async () => {
     const text = draft.trim();
     if (!text && attachments.length === 0) return;
+    if (sendInFlightRef.current) return;
     if (
       shouldBlockCodeDraftSend({
         assistantCodeFeaturesActive,
@@ -307,6 +311,7 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
     // backend can't accept the follow-up it'll surface an error via the
     // catch below. This restores the "append a prompt while it's still
     // talking" behavior that the Solid composer had.
+    sendInFlightRef.current = true;
     setDismissedPlanBySessionId((current) =>
       removeRecordKey(current, sessionId),
     );
@@ -367,9 +372,13 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
           .getState()
           .setError(workspaceId, sessionId, parsed.message);
       }
-      setComposerDraft(sessionId, "");
+      // The composer is intentionally cleared only after acceptance above.
+      // Do not write the captured draft here: the user may have edited the
+      // still-visible composer while this request was pending.
       setAwaitingAssistantBaseline(null);
       setNoVisibleAssistantOutputBaseline(null);
+    } finally {
+      sendInFlightRef.current = false;
       setSending(false);
     }
   }, [
@@ -389,7 +398,6 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
     renderedMessages.length,
     sessionId,
     setAwaitingAssistantBaseline,
-    setComposerDraft,
     setDismissedErrorMessage,
     setDismissedGoalBySessionId,
     setDismissedPlanBySessionId,
