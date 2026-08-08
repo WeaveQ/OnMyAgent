@@ -13,7 +13,7 @@ import type {
   AutomationTaskInput,
   AutomationTaskItem,
 } from "@onmyagent/types/server";
-import { ApiError } from "../core/errors.js";
+import { ApiError, isApiError } from "../core/errors.js";
 import { exists, shortId } from "../core/utils.js";
 import {
   compactEffectiveRange,
@@ -28,12 +28,15 @@ import {
   isAutomationNextRunStale,
   selectClaimableAutomation,
 } from "./automation-schedule-policy.js";
+import { collectAutomationOwnedSessionIds as collectOwnedSessionIds } from "./automation-owned-sessions.js";
+import { readAutomationTaskItem } from "./automation-store-read.js";
 
 export { nextRunAt } from "./automation-next-run.js";
 export {
   AUTOMATION_DUE_GRACE_MS,
   selectClaimableAutomation,
 } from "./automation-schedule-policy.js";
+export { collectAutomationOwnedSessionIds } from "./automation-owned-sessions.js";
 
 type AutomationStoreFile = {
   version: 1;
@@ -79,6 +82,18 @@ export function parseAutomationPromptCommand(prompt: string): { name: string; ar
   const name = match?.[1]?.trim();
   if (!name) return null;
   return { name, arguments: match?.[2]?.trim() ?? "" };
+}
+
+/** Load automation-owned OpenCode session ids for a workspace root. */
+export async function loadAutomationOwnedSessionIds(
+  workspaceRoot: string,
+): Promise<Set<string>> {
+  try {
+    const items = await listAutomations(workspaceRoot);
+    return collectOwnedSessionIds(items);
+  } catch {
+    return new Set();
+  }
 }
 
 export function automationStorePath(workspaceRoot: string): string {
@@ -290,6 +305,21 @@ export async function runAutomationManually(
     }, task.running.leaseId);
     return { ok: true, task, item, execution };
   } catch (error) {
+    // Stop/replace already wrote the terminal outcome for this generation.
+    if (isApiError(error) && error.code === "automation_run_superseded") {
+      const items = await listAutomations(workspaceRoot);
+      const item = items.find((entry) => entry.id === id) ?? null;
+      if (execution) {
+        return { ok: true, task, item, execution };
+      }
+      return {
+        ok: false,
+        task,
+        item,
+        error,
+        message: error.message,
+      };
+    }
     const message = error instanceof Error ? error.message : String(error);
     const item = await recordAutomationRun(workspaceRoot, task.id, {
       status: "failed",
@@ -306,6 +336,15 @@ export async function runAutomationManually(
   }
 }
 
+/**
+ * Append a run outcome. Generation contract:
+ * - While a lease is held, terminal writes that clear `running` MUST pass the
+ *   matching `leaseId`. Mismatched or missing lease → no-op (stale turn).
+ * - After the lease is gone, a write that still carries that `leaseId` is
+ *   treated as a late result and ignored (cannot cover a newer generation).
+ * - History-only appends when nothing is running may omit `leaseId` (tests /
+ *   import paths).
+ */
 export async function recordAutomationRun(
   workspaceRoot: string,
   id: string,
@@ -317,20 +356,30 @@ export async function recordAutomationRun(
     const index = store.items.findIndex((item) => item.id === id);
     if (index < 0) return null;
     const current = store.items[index];
-    if (leaseId && current.running?.leaseId !== leaseId) {
+    const normalizedLease = leaseId?.trim() || undefined;
+
+    if (current.running) {
+      // Active generation: only the holder may finalize / clear the lease.
+      if (!normalizedLease || current.running.leaseId !== normalizedLease) {
+        return current;
+      }
+    } else if (normalizedLease) {
+      // Lease already cleared (cancel or prior success) — ignore late writers.
       return current;
     }
-    const nextEnabled = leaseId && current.schedule.mode === "once" ? false : current.enabled;
-    const nextRunAtValue = leaseId && nextEnabled && lastRun.source === "scheduled" && current.effectiveRange.endDate
+
+    const clearsRunning = Boolean(normalizedLease);
+    const nextEnabled = clearsRunning && current.schedule.mode === "once" ? false : current.enabled;
+    const nextRunAtValue = clearsRunning && nextEnabled && lastRun.source === "scheduled" && current.effectiveRange.endDate
       ? nextRunAt(current.schedule, lastRun.ranAt, current.effectiveRange)
-      : leaseId && !nextEnabled
+      : clearsRunning && !nextEnabled
         ? null
         : current.nextRunAt;
     const item = {
       ...current,
       enabled: nextEnabled,
       nextRunAt: nextRunAtValue,
-      running: leaseId ? null : current.running,
+      running: clearsRunning ? null : current.running,
       lastRun,
       runs: [lastRun, ...current.runs],
       updatedAt: Date.now(),
@@ -703,7 +752,9 @@ async function readAutomationStore(workspaceRoot: string): Promise<AutomationSto
   }
   try {
     const parsed: unknown = JSON.parse(await readFile(path, "utf8"));
-    const items = isRecord(parsed) && Array.isArray(parsed.items) ? parsed.items.flatMap(readAutomationTaskItem) : [];
+    const items = isRecord(parsed) && Array.isArray(parsed.items)
+      ? parsed.items.flatMap(readAutomationTaskItem)
+      : [];
     return { version: 1, items };
   } catch {
     return { version: 1, items: [] };
@@ -736,189 +787,6 @@ async function withAutomationStoreLock<T>(workspaceRoot: string, action: () => P
       storeLocks.delete(path);
     }
   }
-}
-
-function readAutomationTaskItem(value: unknown): AutomationTaskItem[] {
-  if (!isRecord(value)) return [];
-  const record = value;
-  const lastRun = readAutomationRunSummary(record.lastRun);
-  if (!(
-    typeof record.id === "string" &&
-    (record.scene === "office" || record.scene === "code") &&
-    typeof record.title === "string" &&
-    typeof record.prompt === "string" &&
-    typeof record.enabled === "boolean" &&
-    typeof record.createdAt === "number" &&
-    typeof record.updatedAt === "number" &&
-    isAutomationSchedule(record.schedule) &&
-    (record.nextRunAt === null || typeof record.nextRunAt === "number") &&
-    (record.lastRun === null || lastRun !== null)
-  )) {
-    return [];
-  }
-  const runs = (Array.isArray(record.runs)
-    ? record.runs.flatMap((run) => {
-      const summary = readAutomationRunSummary(run);
-      return summary ? [summary] : [];
-    })
-    : lastRun
-      ? [lastRun]
-      : [])
-    .sort((a, b) => b.ranAt - a.ranAt);
-  return [{
-    id: record.id,
-    scene: "office",
-    title: record.title,
-    prompt: record.prompt,
-    ...(typeof record.sourceSessionId === "string" && record.sourceSessionId.trim()
-      ? { sourceSessionId: record.sourceSessionId.trim() }
-      : {}),
-    ...(readAutomationWorkspaceDirectory(record.workspaceDirectory)
-      ? { workspaceDirectory: readAutomationWorkspaceDirectory(record.workspaceDirectory) }
-      : {}),
-    ...(readAutomationModel(record.model) ? { model: readAutomationModel(record.model) } : {}),
-    ...(readAutomationAgent(record.agent) ? { agent: readAutomationAgent(record.agent) } : {}),
-    ...(readAutomationAccessMode(record.accessMode) ? { accessMode: readAutomationAccessMode(record.accessMode) } : {}),
-    schedule: record.schedule,
-    effectiveRange: readAutomationEffectiveRange(record.effectiveRange),
-    enabled: record.enabled,
-    createdAt: record.createdAt,
-    updatedAt: record.updatedAt,
-    nextRunAt: record.nextRunAt,
-    running: readAutomationRunLease(record.running),
-    lastRun,
-    runs,
-  }];
-}
-
-function readAutomationWorkspaceDirectory(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() && isAbsolute(value.trim())
-    ? value.trim()
-    : undefined;
-}
-
-function readAutomationModel(value: unknown): AutomationModelRef | undefined {
-  if (!isRecord(value)) return undefined;
-  const providerID = typeof value.providerID === "string" ? value.providerID.trim() : "";
-  const modelID = typeof value.modelID === "string" ? value.modelID.trim() : "";
-  return providerID && modelID ? { providerID, modelID } : undefined;
-}
-
-function readAutomationAgent(value: unknown): AutomationAgentSelection | undefined {
-  if (!isRecord(value)) return undefined;
-  const id = typeof value.id === "string" ? value.id.trim() : "";
-  const name = typeof value.name === "string" ? value.name.trim() : "";
-  if (!id || !name) return undefined;
-  const description = typeof value.description === "string" ? value.description.trim() : "";
-  const systemPrompt = typeof value.systemPrompt === "string" ? value.systemPrompt.trim() : "";
-  const tools = isRecord(value.tools)
-    ? Object.fromEntries(
-      Object.entries(value.tools).filter((entry): entry is [string, boolean] => (
-        typeof entry[0] === "string" &&
-        entry[0].trim().length > 0 &&
-        typeof entry[1] === "boolean"
-      )),
-    )
-    : undefined;
-  const model = readAutomationModel(value.model);
-  return {
-    id,
-    name,
-    ...(description ? { description } : {}),
-    ...(systemPrompt ? { systemPrompt } : {}),
-    ...(tools && Object.keys(tools).length > 0 ? { tools } : {}),
-    ...(model ? { model } : {}),
-  };
-}
-
-function readAutomationAccessMode(value: unknown): AutomationAccessMode | undefined {
-  return value === "default" || value === "full" ? value : undefined;
-}
-
-function readAutomationEffectiveRange(value: unknown): AutomationEffectiveRange {
-  if (!isRecord(value)) return {};
-  const startDate = typeof value.startDate === "string" && effectiveDateStartAt(value.startDate) !== null
-    ? value.startDate
-    : undefined;
-  const endDate = typeof value.endDate === "string" && effectiveDateEndAt(value.endDate) !== null
-    ? value.endDate
-    : undefined;
-  const startAt = effectiveDateStartAt(startDate);
-  const endAt = effectiveDateEndAt(endDate);
-  if (startAt != null && endAt != null && startAt > endAt) return {};
-  return compactEffectiveRange(startDate, endDate);
-}
-
-function readAutomationRunLease(value: unknown): AutomationRunLease | null {
-  if (value === null || value === undefined) return null;
-  if (!isRecord(value)) return null;
-  if (typeof value.leaseId !== "string") return null;
-  if (typeof value.startedAt !== "number") return null;
-  if (typeof value.expiresAt !== "number") return null;
-  if (typeof value.attempt !== "number") return null;
-  if (typeof value.scheduledForAt !== "number") return null;
-  if (!(value.sessionId === undefined || typeof value.sessionId === "string")) return null;
-  if (!(value.groupName === undefined || typeof value.groupName === "string")) return null;
-  if (!(value.outputDirectory === undefined || typeof value.outputDirectory === "string")) return null;
-  return {
-    leaseId: value.leaseId,
-    startedAt: value.startedAt,
-    expiresAt: value.expiresAt,
-    attempt: value.attempt,
-    scheduledForAt: value.scheduledForAt,
-    sessionId: value.sessionId,
-    groupName: value.groupName,
-    outputDirectory: value.outputDirectory,
-  };
-}
-
-function isAutomationSchedule(value: unknown): value is AutomationSchedule {
-  if (!isRecord(value)) return false;
-  if (typeof value.time !== "string") return false;
-  if (!(
-    (value.mode === "weekly" || value.mode === "interval" || value.mode === "once") &&
-    (
-      value.day === "daily" ||
-      value.day === "weekly" ||
-      value.day === "biweekly" ||
-      value.day === "monthly" ||
-      value.day === "yearly"
-    ) &&
-    parseAutomationScheduleTime(value.time) !== null &&
-    (value.timezone === undefined || typeof value.timezone === "string")
-  )) return false;
-  if (!(value.intervalMinutes === undefined || (
-    typeof value.intervalMinutes === "number" &&
-    Number.isInteger(value.intervalMinutes) &&
-    value.intervalMinutes >= MIN_INTERVAL_MINUTES &&
-    value.intervalMinutes <= MAX_INTERVAL_MINUTES
-  ))) return false;
-  if (!(value.onceAt === undefined || typeof value.onceAt === "number")) return false;
-  if (!(value.weekdays === undefined || (
-    Array.isArray(value.weekdays) &&
-    value.weekdays.every((day) => typeof day === "number" && Number.isInteger(day) && day >= 1 && day <= 7)
-  ))) return false;
-  return true;
-}
-
-function readAutomationRunSummary(value: unknown): AutomationRunSummary | null {
-  if (!isRecord(value)) return null;
-  if (!(value.status === "success" || value.status === "failed" || value.status === "skipped")) return null;
-  if (typeof value.ranAt !== "number") return null;
-  if (!(value.source === undefined || value.source === "scheduled" || value.source === "manual")) return null;
-  if (!(value.sessionId === undefined || typeof value.sessionId === "string")) return null;
-  if (!(value.groupName === undefined || typeof value.groupName === "string")) return null;
-  if (!(value.outputDirectory === undefined || typeof value.outputDirectory === "string")) return null;
-  if (!(value.error === undefined || typeof value.error === "string")) return null;
-  return {
-    status: value.status,
-    source: value.source ?? "scheduled",
-    ranAt: value.ranAt,
-    sessionId: value.sessionId,
-    groupName: value.groupName,
-    outputDirectory: value.outputDirectory,
-    error: value.error,
-  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -213,7 +213,19 @@ export function registerServerRoutes(input: RegisterServerRoutesInput): void {
     runAutomationTask: async (workspace, task, onStarted) => {
       const execution = await startAutomationTask(config, workspace, task);
       await onStarted(execution);
-      await waitForAutomationSession(config, workspace, execution);
+      const leaseId = task.running?.leaseId?.trim();
+      await waitForAutomationSession(
+        config,
+        workspace,
+        execution,
+        leaseId
+          ? {
+              workspaceRoot: workspace.path,
+              automationId: task.id,
+              leaseId,
+            }
+          : undefined,
+      );
       return execution;
     },
     requireApproval,
