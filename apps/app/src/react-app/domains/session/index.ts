@@ -161,6 +161,7 @@ export {
 export { ReactSessionRuntime } from "./sync/runtime-sync";
 export {
   clearOptimisticSessionUserMessage,
+  disposeWorkspaceSessionSyncs,
   permissionKey,
   questionKey,
   seedPermissionState,
