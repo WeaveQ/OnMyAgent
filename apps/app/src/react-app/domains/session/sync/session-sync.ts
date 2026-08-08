@@ -27,6 +27,7 @@ import {
 import { selectFullStreamSessionIds } from "./stream-session-policy";
 import {
   addOptimisticSessionUserMessage,
+  adoptEquivalentOptimisticUserTextPart,
   removeOptimisticSessionUserMessage,
 } from "./optimistic-session-user-message";
 
@@ -698,6 +699,8 @@ function upsertPart(
         getPartMetadataId(part) === partId,
     );
     if (index === -1) {
+      const adopted = adoptEquivalentOptimisticUserTextPart(message, next);
+      if (adopted) return adopted;
       return { ...message, parts: [...message.parts, next] };
     }
     const parts = message.parts.slice();

@@ -4,7 +4,6 @@ import type { PendingAgentContext } from "./pending-agent-store";
 export function buildPendingAgentFromMarketplaceExpert(
   expert: ExpertMarketplaceEntry,
 ): PendingAgentContext {
-  const source = expert.source === "mine" ? "mine" : "builtin";
   return {
     id: expert.id,
     name: expert.displayName,
@@ -19,10 +18,11 @@ export function buildPendingAgentFromMarketplaceExpert(
     systemPrompt: expert.systemPrompt,
     quickPrompts: expert.quickPrompts.slice(0, 3),
     promptTemplates: expert.promptTemplates.slice(0, 3),
+    teamWorkflow: expert.teamWorkflow ?? undefined,
     conversationStartId: Date.now(),
     draftSource: "agent-selection",
     marketplaceExpert: {
-      source,
+      source: expert.source,
       packageName: expert.packageName,
       packagePath: expert.packagePath,
     },

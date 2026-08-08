@@ -17,6 +17,7 @@ export const BUNDLED_SKILL_PACKAGE_NAMES = Object.freeze([
   "document-processing",
   "expert-manager",
   "find-skills",
+  "getworkbuddy",
   // Office-first: engineering packages (github / frontend-design / webapp-testing /
   // web-artifacts-builder) removed from the shipped catalog.
   "pptx",
@@ -39,6 +40,7 @@ export const CORE_PREINSTALL_SKILLS = Object.freeze([
   { packageName: "create-automation", skillName: "create-automation" },
   { packageName: "skill-creator", skillName: "skill-creator" },
   { packageName: "find-skills", skillName: "find-skills" },
+  { packageName: "getworkbuddy", skillName: "getworkbuddy" },
   /** Unified office-document entry; format runtimes are provided by artifact skills and pptx. */
   { packageName: "document-processing", skillName: "document-processing" },
   { packageName: "pptx", skillName: "pptx" },
@@ -133,6 +135,19 @@ export function shouldRefreshCoreSkillMarkdown(input) {
       entry.packageName === input.packageName &&
       entry.skillName === (input.skillName ?? input.packageName),
   );
+}
+
+/**
+ * Deterministic product skills must refresh scripts together with SKILL.md.
+ * @param {{
+ *   packageName: string,
+ *   skillName?: string,
+ *   destinationExists: boolean,
+ * }} input
+ */
+export function shouldRefreshCoreSkillPackage(input) {
+  return input.destinationExists && input.packageName === "getworkbuddy"
+    && (input.skillName ?? input.packageName) === "getworkbuddy";
 }
 
 /**

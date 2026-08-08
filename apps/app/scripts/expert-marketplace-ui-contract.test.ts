@@ -24,9 +24,19 @@ function readMarketplaceFile(path: string): string {
   return readFileSync(join(marketplaceRoot, path), "utf8");
 }
 
+function directoryTreeContainsFiles(path: string): boolean {
+  return readdirSync(path, { withFileTypes: true }).some((entry) =>
+    entry.isFile() ||
+    (entry.isDirectory() && directoryTreeContainsFiles(join(path, entry.name))),
+  );
+}
+
 function builtInPackageNames(): string[] {
   return readdirSync(builtinPluginsRoot)
-    .filter((name) => statSync(join(builtinPluginsRoot, name)).isDirectory())
+    .filter((name) => {
+      const packageRoot = join(builtinPluginsRoot, name);
+      return statSync(packageRoot).isDirectory() && directoryTreeContainsFiles(packageRoot);
+    })
     .sort();
 }
 
@@ -483,18 +493,73 @@ describe("expert marketplace UI contract", () => {
     expect(sessionStarters).toContain("installSummonedMarketplaceExpert(expert)");
     expect(assistantPage).toContain("useSummonMarketplaceExpert");
     expect(summonHook).toContain("installSummonedMarketplaceExpert(expert)");
+    expect(myExpertsHook).toContain('listExpertPackages("experts")');
     expect(myExpertsHook).toContain('listExpertPackages("my-experts")');
+    expect(myExpertsHook).toContain("const entriesByPackageName = new Map(");
+    expect(myExpertsHook).toContain("[...entriesByPackageName.values()]");
     expect(expertPage).toContain("useMyExpertPackages");
+    expect(expertPage).toContain("additionalStarterItems={localExpertStarterItems}");
+    expect(expertPage).toContain("onOpenAgentStarter={handleOpenExpertStarter}");
+    expect(expertPage).toContain('pendingAgent.draftSource !== "agent-selection"');
     expect(installHelper).toContain('expert.source !== "builtin"');
     expect(installHelper).toContain('marketplace: "experts"');
     expect(expertPage).toContain("props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId)");
     expect(expertPage).not.toContain("agentEditRequest");
     expect(expertPage).not.toContain("onOpenAgentSettings={");
     expect(expertPage).not.toContain("<ExpertMarketplaceDialog");
-    expect(pendingAgent).toContain('const source = expert.source === "mine" ? "mine" : "builtin"');
+    expect(pendingAgent).toContain("source: expert.source");
     expect(pendingAgent).toContain('avatarOptionId: "marketplace-expert"');
     expect(pendingAgent).toContain("systemPrompt: expert.systemPrompt");
+    expect(pendingAgent).toContain("teamWorkflow: expert.teamWorkflow ?? undefined");
     expect(pendingAgent).toContain("packagePath: expert.packagePath");
+  });
+
+  test("team expert empty state exposes an honest lead workflow playbook", () => {
+    const emptyState = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/surface/chrome/session-surface-expert-empty.tsx",
+    );
+    const surfaceView = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/surface/session-surface-view.tsx",
+    );
+    const zhSession = readWorkspaceFile("apps/app/src/i18n/locales/zh/session.ts");
+    const enSession = readWorkspaceFile("apps/app/src/i18n/locales/en/session.ts");
+    const zhTwSession = readWorkspaceFile("apps/app/src/i18n/locales/zh-TW/session.ts");
+
+    expect(emptyState).toContain("function TeamWorkflowSummary");
+    expect(emptyState).toContain("<StatusBadge");
+    expect(emptyState).toContain("<StepMarker");
+    expect(emptyState).toContain('t("session.team_workflow_mode")');
+    expect(emptyState).toContain('t("session.team_workflow_honesty_note")');
+    expect(emptyState).not.toContain("shadow-");
+    expect(surfaceView).toContain("teamWorkflow: props.effectiveAgent.teamWorkflow");
+    expect(zhSession).toContain('"session.team_workflow_mode": "主理人工作流"');
+    expect(enSession).toContain('"session.team_workflow_mode": "Lead workflow"');
+    expect(zhTwSession).toContain('"session.team_workflow_mode": "主理人工作流"');
+  });
+
+  test("expert runtime allocation releases its creation lock and never heals into the project", () => {
+    const pageView = readWorkspaceFile(
+      "apps/app/src/react-app/shell/session-route/page-view.tsx",
+    );
+    const surfaceProps = readWorkspaceFile(
+      "apps/app/src/react-app/shell/session-route/surface-props-hook-impl.ts",
+    );
+    const lockStart = pageView.indexOf(
+      "creatingSessionWorkspaceIdsRef.current.add(workspaceId)",
+    );
+    const lockEnd = pageView.indexOf(
+      "creatingSessionWorkspaceIdsRef.current.delete(workspaceId)",
+      lockStart,
+    );
+    const creationBlock = pageView.slice(lockStart, lockEnd);
+
+    expect(lockStart).toBeGreaterThan(-1);
+    expect(lockEnd).toBeGreaterThan(lockStart);
+    expect(creationBlock.indexOf("try {")).toBeLessThan(
+      creationBlock.indexOf("createIsolatedExpertSessionRuntimeDirectory"),
+    );
+    expect(surfaceProps).not.toContain("materializeExpertSessionDirectory");
+    expect(surfaceProps).not.toContain("resolveExpertSessionDirectoryMarker");
   });
 
   test("expert store create expert opens a fresh assistant draft before prefill", () => {

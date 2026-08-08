@@ -13,6 +13,7 @@ import {
   writeComputerUseRuntimeConfig,
 } from "./computer-use-runtime-config.mjs";
 import {
+  resolveLocalExpertsRoot,
   resolveLocalManagedToolsBinRoot,
   resolveLocalSkillsRoot,
 } from "./config-profile-paths.mjs";
@@ -871,6 +872,16 @@ export function createRuntimeManager({
       {
         ONMYAGENT_BUNDLED_SKILLS_DIR: bundledSkillsRootPath() ?? undefined,
         ONMYAGENT_BUNDLED_PLUGINS_DIR: bundledPluginsRootPath() ?? undefined,
+        ONMYAGENT_EXPERTS_DIR: resolveLocalExpertsRoot(resolvedHomeDir, "experts"),
+        ONMYAGENT_EXPERT_SESSION_RUNTIME_ROOT: path.join(userDataDir, "expert-sessions"),
+        ONMYAGENT_WORKBUDDY_EXPERTS_DIR: path.join(
+          resolvedHomeDir,
+          ".workbuddy",
+          "plugins",
+          "marketplaces",
+          "experts",
+          "plugins",
+        ),
         // Same dual-read root as desktop install/listLocalSkills (profile skills).
         OPENCODE_GLOBAL_SKILLS_DIR: onmyagentUserSkillsRoot(),
       },
@@ -916,6 +927,7 @@ export function createRuntimeManager({
       manageOpencode: options.manageOpencode === true,
       opencodeBin: managedOpencode?.path ?? undefined,
       opencodeCwd: managedOpencodeWorkdir(),
+      onGlobalSkillsChanged: refreshSkillLinks,
     });
     inProcessServer = handle;
 

@@ -9,6 +9,7 @@ import {
 import type { ExpertMarketplaceEntry } from "@/react-app/domains/plugins";
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 import type { PendingAgentContext } from "../../agents";
+import type { AgentStarterItem } from "../sidebar/conversation-model";
 
 export const NO_EXPERT_CONVERSATIONS_ASSET = "/empty-states/no-expert-conversations.png";
 export const EXPERT_SIDE_PANEL_DEFAULT_WIDTH = 360;
@@ -50,6 +51,19 @@ export function marketplaceExpertMatchesAgentId(
     normalized === expert.packageName ||
     normalized === expert.leadAgentName
   );
+}
+
+export function marketplaceExpertsToStarterItems(
+  experts: ExpertMarketplaceEntry[],
+): AgentStarterItem[] {
+  return experts.map((expert) => ({
+    key: `marketplace:${expert.id}`,
+    agentId: expert.id,
+    name: expert.displayName,
+    description: expert.description,
+    avatarUrl: expert.avatarUrl,
+    avatarBackground: "var(--ow-primary-light)",
+  }));
 }
 
 export function pendingAgentMatchesMarketplaceExpert(

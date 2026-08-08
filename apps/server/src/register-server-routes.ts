@@ -24,6 +24,7 @@ import { registerAutomationRoutes } from "./routes/automation-routes.js";
 import { registerPluginRoutes } from "./routes/plugin-routes.js";
 import { registerArtifactPluginRoutes } from "./routes/artifact-plugin-routes.js";
 import { registerSkillRoutes } from "./routes/skill-routes.js";
+import { registerWorkBuddyExpertRoutes } from "./routes/workbuddy-expert-routes.js";
 import { registerMcpRoutes } from "./routes/mcp-routes.js";
 import { registerApprovalRoutes } from "./routes/approval-routes.js";
 import { registerWorkspaceObservabilityRoutes } from "./routes/workspace-observability-routes.js";
@@ -123,6 +124,7 @@ export type RegisterServerRoutesInput = {
       revision?: string;
     },
   ) => unknown;
+  onGlobalSkillsChanged?: () => Promise<unknown>;
 };
 
 /**
@@ -153,6 +155,7 @@ export function registerServerRoutes(input: RegisterServerRoutesInput): void {
     writeOnMyAgentConfig,
     materializeBlueprintSessions,
     recordWorkspaceFileEvent,
+    onGlobalSkillsChanged,
   } = input;
 
   registerSystemRoutes({
@@ -254,6 +257,22 @@ export function registerServerRoutes(input: RegisterServerRoutesInput): void {
     readJsonBody,
   });
 
+  registerWorkBuddyExpertRoutes({
+    routes,
+    config,
+    ensureWritable,
+    requireClientScope,
+    readJsonBody,
+    onGlobalSkillsChanged,
+    emitReloadEvent: (reloadEvents, workspace) => {
+      emitReloadEvent(reloadEvents, workspace, "skills", {
+        type: "skill",
+        name: "getworkbuddy",
+        action: "updated",
+      });
+    },
+  });
+
   registerMcpRoutes({
     routes,
     config,
@@ -289,6 +308,7 @@ export function registerServerRoutes(input: RegisterServerRoutesInput): void {
     ensureWritable,
     requireClientScope,
     resolveWorkspace,
+    readJsonBody,
     listWorkspaceSessions,
     readWorkspaceSession,
     readWorkspaceSessionMessages,

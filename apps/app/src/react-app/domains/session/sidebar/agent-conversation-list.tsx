@@ -243,11 +243,20 @@ export function AgentConversationList(props: AgentConversationListProps) {
     sessionUnreadByWorkspace,
   ]);
 
+  const unstartedItems = useMemo(() => {
+    const activeAgentIds = new Set(
+      props.groups.flatMap((group) => (group.agentId ? [group.agentId] : [])),
+    );
+    return (props.starterItems ?? []).filter(
+      (item) => !activeAgentIds.has(item.agentId),
+    );
+  }, [props.groups, props.starterItems]);
+
   if (props.groups.length === 0) {
-    if (props.hasAnyConversation && props.starterItems?.length) {
+    if (unstartedItems.length > 0) {
       return (
         <div className="flex flex-col gap-1">
-          {props.starterItems.map((item) => (
+          {unstartedItems.map((item) => (
             <AgentStarterRow
               key={item.key}
               item={item}
@@ -268,6 +277,13 @@ export function AgentConversationList(props: AgentConversationListProps) {
 
   return (
     <div className="flex flex-col gap-1">
+      {unstartedItems.map((item) => (
+        <AgentStarterRow
+          key={item.key}
+          item={item}
+          onOpenStarter={props.onOpenStarter}
+        />
+      ))}
       {orderedGroups.map(({ group, unread, unreadRecord, unreadCount, pinned }) => (
         <AgentConversationItem
           key={group.key}

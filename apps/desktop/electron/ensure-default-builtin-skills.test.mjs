@@ -27,6 +27,7 @@ describe("ensureDefaultBuiltinSkills", () => {
       "create-automation",
       "skill-creator",
       "find-skills",
+      "getworkbuddy",
       "document-processing",
       "pptx",
       "self-improving",
@@ -46,6 +47,7 @@ describe("ensureDefaultBuiltinSkills", () => {
       "create-automation",
       "skill-creator",
       "find-skills",
+      "getworkbuddy",
       "document-processing",
       "pptx",
       "self-improving",
@@ -56,6 +58,11 @@ describe("ensureDefaultBuiltinSkills", () => {
     }
     assert.equal(result.installed.includes("weather"), false);
 
+    await mkdir(path.join(bundled, "getworkbuddy", "scripts"), { recursive: true });
+    await mkdir(path.join(user, "getworkbuddy", "scripts"), { recursive: true });
+    await writeFile(path.join(bundled, "getworkbuddy", "scripts", "import.mjs"), "v2\n");
+    await writeFile(path.join(user, "getworkbuddy", "scripts", "import.mjs"), "v1\n");
+
     const second = await ensureDefaultBuiltinSkills({
       bundledRoot: bundled,
       userSkillsRoot: user,
@@ -64,6 +71,11 @@ describe("ensureDefaultBuiltinSkills", () => {
     // Core packages re-sync SKILL.md on subsequent boots.
     assert.ok(second.refreshed.includes("pptx"));
     assert.ok(second.refreshed.includes("find-skills"));
+    assert.ok(second.refreshed.includes("getworkbuddy"));
+    assert.equal(
+      await readFile(path.join(user, "getworkbuddy", "scripts", "import.mjs"), "utf8"),
+      "v2\n",
+    );
     assert.equal(second.skipped.includes("pptx"), false);
   });
 

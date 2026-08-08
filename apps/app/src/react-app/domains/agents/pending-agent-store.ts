@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import type { ExpertPromptTemplate } from "@onmyagent/types/desktop-ipc";
+import type { ExpertPromptTemplate, ExpertTeamWorkflow } from "@onmyagent/types/desktop-ipc";
 import { create } from "zustand";
 
 export type AgentAvatarStyle = "pixel" | "adventurer" | "robot" | "lorelei";
@@ -58,10 +58,11 @@ export type PendingAgentContext = {
   tools?: AgentToolAccessMap;
   quickPrompts?: string[];
   promptTemplates?: ExpertPromptTemplate[];
+  teamWorkflow?: ExpertTeamWorkflow;
   conversationStartId?: number;
   draftSource?: "agent-selection" | "new-session";
   marketplaceExpert?: {
-    source: "builtin" | "mine";
+    source: "builtin" | "installed" | "mine";
     packageName: string;
     packagePath: string;
   };

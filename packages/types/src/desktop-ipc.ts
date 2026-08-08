@@ -2,6 +2,8 @@
 // These types are runtime-agnostic and shared by Electron and renderer.
 
 export type { DesktopCommandName } from "./desktop-ipc-commands.mjs";
+import type { ExpertTeamWorkflow } from "./expert-team-workflow.js";
+export type * from "./expert-team-workflow.js";
 
 export type EngineInfo = {
   running: boolean;
@@ -1264,6 +1266,7 @@ export type ExpertPackageListEntry = {
   leadAgentName: string;
   systemPrompt: string;
   version: string | null;
+  teamWorkflow: ExpertTeamWorkflow | null;
 };
 
 export type ExpertRegistryListEntry = {
