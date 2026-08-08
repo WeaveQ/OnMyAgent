@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { resolveExpertOriginHydrationView } from "../src/react-app/domains/session/pages/expert-origin-hydration";
 import {
   createSessionOriginHydrationGate,
+  getSessionOriginRecoveryRetryDelayMs,
   isSessionOriginHydrated,
   resetSessionOriginHydrationForTests,
 } from "../src/react-app/domains/agents/session-origin-hydration";
@@ -80,5 +81,22 @@ describe("session origin hydration gate", () => {
     await primary.promise;
     gate.markPrimaryListSettled();
     expect(isSessionOriginHydrated("workspace-a")).toBe(true);
+  });
+
+  test("keeps an origin failure pending instead of exposing an empty expert state", () => {
+    resetSessionOriginHydrationForTests();
+    const gate = createSessionOriginHydrationGate("workspace-a");
+
+    gate.markPrimaryListSettled();
+    gate.markOriginRecoveryFailed();
+
+    expect(isSessionOriginHydrated("workspace-a")).toBe(false);
+  });
+
+  test("backs off a finite number of origin recovery retries", () => {
+    expect(getSessionOriginRecoveryRetryDelayMs(0)).toBe(500);
+    expect(getSessionOriginRecoveryRetryDelayMs(1)).toBe(1_000);
+    expect(getSessionOriginRecoveryRetryDelayMs(2)).toBe(1_500);
+    expect(getSessionOriginRecoveryRetryDelayMs(3)).toBeNull();
   });
 });

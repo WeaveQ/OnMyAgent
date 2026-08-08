@@ -3,6 +3,16 @@ import { useSyncExternalStore } from "react";
 const hydratedWorkspaceIds = new Set<string>();
 const listeners = new Set<() => void>();
 
+export const SESSION_ORIGIN_RECOVERY_MAX_RETRIES = 3;
+
+/** Returns a bounded retry delay, or null once automatic recovery is exhausted. */
+export function getSessionOriginRecoveryRetryDelayMs(
+  completedRetries: number,
+): number | null {
+  if (completedRetries >= SESSION_ORIGIN_RECOVERY_MAX_RETRIES) return null;
+  return 500 * (completedRetries + 1);
+}
+
 function normalizeWorkspaceId(workspaceId: string): string {
   return workspaceId.trim();
 }
@@ -46,8 +56,13 @@ export function createSessionOriginHydrationGate(workspaceId: string) {
       originRecoverySettled = true;
       completeWhenReady();
     },
-    /** A terminal primary-list failure must not leave the UI loading forever. */
-    markTerminalFailure: () => markSessionOriginHydrated(workspaceId),
+    /** Failed or partial recovery intentionally remains non-definitive. */
+    markOriginRecoveryFailed: () => undefined,
+    /**
+     * An unavailable primary list is not proof that there are no origin
+     * sessions. Keep the state non-definitive until a later load completes.
+     */
+    markTerminalFailure: () => undefined,
   };
 }
 

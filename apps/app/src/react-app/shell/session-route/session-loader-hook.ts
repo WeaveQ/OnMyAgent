@@ -25,6 +25,7 @@ import {
 } from "../../domains/session";
 import {
   createSessionOriginHydrationGate,
+  getSessionOriginRecoveryRetryDelayMs,
   migrateLegacySessionOrigins,
   reconcileSessionOrigins,
 } from "../../domains/agents";
@@ -52,8 +53,9 @@ import {
 import {
   collectWorkspaceSessionItems,
   mergeFetchedSessionsWithPending as mergeFetchedSessionsWithPendingState,
+  mergeRecoveredSessionsWithCurrent,
   mergeWorkspaceFetchedSessions,
-  recoverOriginDirectorySessionItems,
+  recoverOriginDirectorySessionItemsWithStatus,
   type PendingCreatedSessionMap,
 } from "./sessions";
 
@@ -94,6 +96,12 @@ export function useSessionRouteSessionLoader(input: Input) {
 
   const backgroundSessionLoadInFlight = useRef<Map<string, number>>(new Map());
   const originReadInFlight = useRef<Set<string>>(new Set());
+  const originRecoveryRetryAttempts = useRef<Map<string, number>>(new Map());
+  const originRecoveryRetryTimers = useRef<Map<string, number>>(new Map());
+  const originRecoveryPending = useRef<Set<string>>(new Set());
+  const recoveredOriginItems = useRef<
+    Map<string, Map<string, SidebarSessionItem>>
+  >(new Map());
 
   const rememberPendingCreatedSession = useCallback(
     (workspaceId: string, sessionId: string) => {
@@ -124,6 +132,7 @@ export function useSessionRouteSessionLoader(input: Input) {
         current,
         pendingByWorkspaceId: pendingCreatedSessionIdsRef.current,
         explicitAssistantSessionIds,
+        preserveExpertSessions: originRecoveryPending.current.has(workspaceId),
         now: Date.now(),
       });
     },
@@ -136,6 +145,22 @@ export function useSessionRouteSessionLoader(input: Input) {
         workspace: RouteWorkspace,
         attempt: number,
       ): Promise<void> => {
+        const scheduleOriginRecoveryRetry = () => {
+          const workspaceId = workspace.id;
+          if (originRecoveryRetryTimers.current.has(workspaceId)) return;
+          const retries = originRecoveryRetryAttempts.current.get(workspaceId) ?? 0;
+          // Origin recovery is intentionally conservative: after a few failed
+          // attempts keep cached rows and the non-definitive loading state,
+          // rather than repeatedly hammering OpenCode or showing an empty page.
+          const retryDelayMs = getSessionOriginRecoveryRetryDelayMs(retries);
+          if (retryDelayMs === null) return;
+          originRecoveryRetryAttempts.current.set(workspaceId, retries + 1);
+          const timer = window.setTimeout(() => {
+            originRecoveryRetryTimers.current.delete(workspaceId);
+            void fetchOnce(workspace, 0);
+          }, retryDelayMs);
+          originRecoveryRetryTimers.current.set(workspaceId, timer);
+        };
         const remoteOnMyAgentWorkspace = isRemoteOnMyAgentWorkspace(workspace);
         const endpoint = endpointForWorkspace(workspace);
         if (!endpoint) {
@@ -186,6 +211,7 @@ export function useSessionRouteSessionLoader(input: Input) {
         const originHydrationGate = createSessionOriginHydrationGate(
           workspace.id,
         );
+        originRecoveryPending.current.add(workspace.id);
         const originTimeout = window.setTimeout(
           () => originController.abort(),
           2_000,
@@ -254,7 +280,10 @@ export function useSessionRouteSessionLoader(input: Input) {
           // sidebar or turning an origin error into a session-list error.
           void originsPromise.then(async (result) => {
             if (result.failed) {
-              originHydrationGate.markOriginRecoverySettled();
+              // Metadata failure is not evidence that no expert exists. Keep
+              // any cached rows and retry in a bounded, single-flight loop.
+              originHydrationGate.markOriginRecoveryFailed();
+              scheduleOriginRecoveryRetry();
               return;
             }
             if (originReadInFlight.current.has(workspace.id)) return;
@@ -266,24 +295,31 @@ export function useSessionRouteSessionLoader(input: Input) {
               // origin metadata resolves. Recover only origin ids absent from
               // that list, using their durable runtime directory in bounded
               // batches; an omitted page or failed directory remains unknown.
-              const recoveredItems = await recoverOriginDirectorySessionItems({
+              const recovery = await recoverOriginDirectorySessionItemsWithStatus({
                 client: endpoint.client,
                 workspaceId: endpoint.workspaceId,
                 originWorkspaceId: endpoint.workspaceId,
                 primaryItems: sidebarItems,
+                verifiedItems: Array.from(
+                  recoveredOriginItems.current.get(workspace.id)?.values() ?? [],
+                ),
                 origins: payload.items,
                 limit: SIDEBAR_SESSION_LIST_LIMIT,
               });
+              const recoveredItems = recovery.items;
+              if (recoveredItems.length > 0) {
+                const byId = recoveredOriginItems.current.get(workspace.id) ??
+                  new Map<string, SidebarSessionItem>();
+                for (const item of recoveredItems) byId.set(item.id, item);
+                recoveredOriginItems.current.set(workspace.id, byId);
+              }
               if (recoveredItems.length > 0) {
                 setSessionsByWorkspaceId((current) => {
                   const next = mergeWorkspaceFetchedSessions({
                     current,
                     workspaceId: workspace.id,
                     fetched: recoveredItems,
-                    merge: (fetched, currentItems) => [
-                      ...fetched,
-                      ...currentItems,
-                    ],
+                    merge: mergeRecoveredSessionsWithCurrent,
                   });
                   sessionsByWorkspaceIdRef.current = next;
                   writeCachedSidebarSessionsForWorkspace(
@@ -293,10 +329,43 @@ export function useSessionRouteSessionLoader(input: Input) {
                   return next;
                 });
               }
-              const realSessionIds = new Set([
-                ...sidebarItems.map((item) => item.id),
-                ...recoveredItems.map((item) => item.id),
-              ]);
+              if (!recovery.complete) {
+                originHydrationGate.markOriginRecoveryFailed();
+                scheduleOriginRecoveryRetry();
+                return;
+              }
+              originRecoveryRetryAttempts.current.delete(workspace.id);
+              originRecoveryPending.current.delete(workspace.id);
+              const recoveredAcrossPages = Array.from(
+                recoveredOriginItems.current.get(workspace.id)?.values() ?? [],
+              );
+              const authoritativeItems = mergeRecoveredSessionsWithCurrent(
+                sidebarItems,
+                recoveredAcrossPages,
+              );
+              setSessionsByWorkspaceId((current) => {
+                const next = mergeWorkspaceFetchedSessions({
+                  current,
+                  workspaceId: workspace.id,
+                  fetched: authoritativeItems,
+                  merge: (fetched, currentItems) =>
+                    mergeFetchedSessionsWithPending(
+                      workspace.id,
+                      fetched,
+                      currentItems,
+                    ),
+                });
+                sessionsByWorkspaceIdRef.current = next;
+                writeCachedSidebarSessionsForWorkspace(
+                  workspace.id,
+                  next[workspace.id] ?? authoritativeItems,
+                );
+                return next;
+              });
+              recoveredOriginItems.current.delete(workspace.id);
+              const realSessionIds = new Set(
+                authoritativeItems.map((item) => item.id),
+              );
               reconcileSessionOrigins({
                 localWorkspaceId: workspace.id,
                 originWorkspaceId: endpoint.workspaceId,
@@ -310,9 +379,20 @@ export function useSessionRouteSessionLoader(input: Input) {
                 realSessionIds,
                 origins: payload.items,
               });
+            } catch {
+              // This includes an unexpected client failure. Treat it exactly
+              // like a failed directory pass: preserve the last good sidebar
+              // state and leave origin hydration non-definitive.
+              originHydrationGate.markOriginRecoveryFailed();
+              scheduleOriginRecoveryRetry();
             } finally {
               originReadInFlight.current.delete(workspace.id);
-              originHydrationGate.markOriginRecoverySettled();
+              // Only a complete origin pass makes the expert list definitive.
+              // Failed metadata, directory reads, and partial exact pages stay
+              // pending so the page never turns an unknown result into empty.
+              if (originRecoveryRetryAttempts.current.has(workspace.id) === false) {
+                originHydrationGate.markOriginRecoverySettled();
+              }
               setSessionsByWorkspaceId((current) => ({ ...current }));
             }
           });
@@ -393,7 +473,8 @@ export function useSessionRouteSessionLoader(input: Input) {
           setRetryingWorkspaceIds((current) =>
             removeRetryingWorkspaceId(current, workspace.id),
           );
-          originHydrationGate.markTerminalFailure();
+          // No definitive primary list means no definitive expert empty state.
+          // A later route refresh can still resolve the hydration gate.
         } finally {
           if (
             backgroundSessionLoadInFlight.current.get(workspace.id) ===
