@@ -14,7 +14,7 @@ import { classifySpawnErrorStep, mapProbeStepToTestStep } from "./run-helpers.mj
  * @param {object} deps
  * @param {object} deps.legacy                 legacy runtime (normalizeAgent, detectAgent)
  * @param {Record<string, unknown>} deps.injectedAdapters
- * @param {() => Promise<object>} deps.listAgents  bound listAgents (for health-by-id)
+ * @param {(input?: object) => Promise<object>} deps.listAgents  bound listAgents (for health-by-id)
  */
 export function createConnectionProbes(deps) {
   const { legacy, injectedAdapters, listAgents } = deps;
