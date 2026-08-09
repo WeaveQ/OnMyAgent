@@ -77,12 +77,22 @@ describe("workspace session routes", () => {
     const requests = new Set<string>();
     const aborted = new Set<string>();
     let notifyAllStarted: (() => void) | undefined;
+    let notifyAllAborted: (() => void) | undefined;
     const allStarted = new Promise<void>((resolve) => {
       notifyAllStarted = resolve;
     });
-    const upstream = Bun.serve({
-      port: 0,
-      fetch(request) {
+    const allAborted = new Promise<void>((resolve) => {
+      notifyAllAborted = resolve;
+    });
+    const workspace = {
+      ...createWorkspace(`workspace-snapshot-abort-${crypto.randomUUID()}`),
+      baseUrl: "http://opencode.test",
+    };
+    const controller = new AbortController();
+    const originalFetch = globalThis.fetch;
+    const fetchMock: typeof fetch = Object.assign(
+      (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+        const request = input instanceof Request ? input : new Request(input, init);
         const path = new URL(request.url).pathname;
         requests.add(path);
         if (requests.size === 4) notifyAllStarted?.();
@@ -91,20 +101,18 @@ describe("workspace session routes", () => {
             "abort",
             () => {
               aborted.add(path);
+              if (aborted.size === 4) notifyAllAborted?.();
               reject(new DOMException("Cancelled", "AbortError"));
             },
             { once: true },
           );
         });
       },
-    });
-    const workspace = {
-      ...createWorkspace(`workspace-snapshot-abort-${crypto.randomUUID()}`),
-      baseUrl: upstream.url.toString(),
-    };
-    const controller = new AbortController();
+      { preconnect: originalFetch.preconnect },
+    );
 
     try {
+      globalThis.fetch = fetchMock;
       const snapshot = readWorkspaceSessionSnapshot(
         createConfig(workspace),
         workspace,
@@ -119,8 +127,13 @@ describe("workspace session routes", () => {
       ]);
       controller.abort();
 
+      await Promise.race([
+        allAborted,
+        Bun.sleep(1_000).then(() => {
+          throw new Error("OpenCode snapshot requests did not all abort");
+        }),
+      ]);
       await expect(snapshot).rejects.toMatchObject({ name: "AbortError" });
-      await Bun.sleep(20);
       expect(requests).toEqual(
         new Set([
           "/session/session-1",
@@ -131,7 +144,7 @@ describe("workspace session routes", () => {
       );
       expect(aborted).toEqual(requests);
     } finally {
-      upstream.stop(true);
+      globalThis.fetch = originalFetch;
     }
   });
 });
