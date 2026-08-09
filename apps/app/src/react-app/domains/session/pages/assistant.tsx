@@ -25,7 +25,13 @@ import { NoticeBox } from "@/components/ui/notice-box";
 import { ProviderAuthModal } from "../../connections";
 import { SessionSurface } from "../surface/session-surface";
 import { ShareWorkspaceModal } from "../../workspace";
-import { OwDotTicker, type SidePanelItem, useReactRenderWatchdog, useUiStateStore } from "../../../shell";
+import {
+  OwDotTicker,
+  shouldNotifyStaticHomeReady,
+  type SidePanelItem,
+  useReactRenderWatchdog,
+  useUiStateStore,
+} from "../../../shell";
 import {
   isElectronRuntime,
 } from "../../../../app/utils";
@@ -1024,14 +1030,15 @@ export function AssistantPage(props: AssistantPageProps) {
   const sessionSurfaceActive =
     isPrimarySessionView || showAutomationEmbeddedSession;
 
-  // The startup overlay must not dismiss merely because a connection probe
-  // completed. This effect runs after the static home (or real surface) is
-  // committed, so the first uncovered frame always has useful content.
+  // Ideal boot latch: after this route commits, release overlay so the first
+  // uncovered frame has shell chrome. Do not gate on isPrimarySessionView —
+  // cold starts on non-chat rails would never call this and hang the splash.
+  // Fail-safe deadline lives in session-route refresh-hook (boot-shell-ready).
   useLayoutEffect(() => {
-    if (!props.selectedSessionId && isPrimarySessionView) {
+    if (shouldNotifyStaticHomeReady(props.selectedSessionId)) {
       props.onStaticHomeReady?.();
     }
-  }, [isPrimarySessionView, props.onStaticHomeReady, props.selectedSessionId]);
+  }, [props.onStaticHomeReady, props.selectedSessionId]);
   // Workspace side panel only belongs on chat surfaces (not 市场/管理/本地/文件…).
   const sidePanelVisibleOnSession =
     sidePanelVisible && isPrimarySessionView;
