@@ -124,10 +124,13 @@ describe("progressive boot overlay", () => {
     expect(assistant).toContain("<AssistantStartupHome categoryId={assistantCategoryId} />");
     expect(assistant).toContain("isDraftSession && !canRenderReactSurface");
     expect(assistant).toContain("useLayoutEffect");
+    expect(assistant).toContain("shouldNotifyStaticHomeReady");
     expect(assistant).toContain("props.onStaticHomeReady?.()");
     expect(startupHome).toContain("SessionSurfaceDraftHome");
     expect(startupHome).toContain('aria-busy="true"');
     expect(refresh).toContain("waitForStaticHomeFirstPaintRef.current");
+    expect(refresh).toContain("planBootShellReadyAfterRefresh");
+    expect(refresh).toContain("staticHomeDeadlineTimerRef");
     expect(refresh).not.toContain("waitForStaticHomeFirstPaint,\n    routeWorkspaceId");
 
     const overlay = readFileSync(
