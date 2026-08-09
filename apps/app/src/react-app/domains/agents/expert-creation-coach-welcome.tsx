@@ -36,7 +36,7 @@ export function ExpertCreationCoachWelcome(
       )}
     >
       <div className="space-y-2">
-        <p className="text-[15px] font-semibold leading-6 text-dls-text">
+        <p className="text-base font-semibold leading-6 text-dls-text">
           {t("agents.expert_creation_coach_greeting")}
         </p>
         <p className="text-sm leading-6 text-dls-secondary">

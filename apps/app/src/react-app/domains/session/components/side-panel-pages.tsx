@@ -352,7 +352,7 @@ export function StorePage(props: {
   client?: OnMyAgentServerClient | null;
   activeTab?: StorePrimaryTab;
   myExperts?: ExpertMarketplaceEntry[];
-  /** Expert agent ids with sessions (sidebar) — scopes the "已召唤" shelf. */
+  /** Expert agent ids with sessions (sidebar) — scopes the summoned-experts shelf. */
   activeExpertAgentIds?: readonly string[];
   onActiveTabChange?: (tab: StorePrimaryTab) => void;
   onSummonMarketplaceExpert?: ExpertMarketplaceSummonHandler;
