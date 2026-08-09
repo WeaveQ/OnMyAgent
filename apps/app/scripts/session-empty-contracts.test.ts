@@ -176,7 +176,11 @@ describe("session empty / draft / files / composer contracts", () => {
   });
 
   test("expert and assistant share SessionHistorySearchChrome", () => {
-    const expert = read("src/react-app/domains/session/pages/expert.tsx");
+    const expert = [
+      read("src/react-app/domains/session/pages/expert.tsx"),
+      read("src/react-app/domains/session/pages/use-expert-page.tsx"),
+      read("src/react-app/domains/session/pages/expert-page-layout.tsx"),
+    ].join("\n");
     const assistant = read("src/react-app/domains/session/pages/assistant.tsx");
     const chrome = read("src/react-app/domains/session/pages/session-history-search-chrome.tsx");
     expect(chrome).toContain("export function SessionHistorySearchChrome");

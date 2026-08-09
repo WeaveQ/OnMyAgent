@@ -1001,7 +1001,11 @@ describe("open source session + create folder (Sprint A/B)", () => {
 
 describe("C5 expert archive + C1 delete copy contracts", () => {
   test("expert page archives with category expert and filters live list", () => {
-    const expert = readApp("src/react-app/domains/session/pages/expert.tsx");
+    const expert = [
+      readApp("src/react-app/domains/session/pages/expert.tsx"),
+      readApp("src/react-app/domains/session/pages/use-expert-page.tsx"),
+      readApp("src/react-app/domains/session/pages/expert-page-layout.tsx"),
+    ].join("\n");
     const expertDelete = readApp(
       "src/react-app/domains/session/pages/use-expert-session-delete.ts",
     );

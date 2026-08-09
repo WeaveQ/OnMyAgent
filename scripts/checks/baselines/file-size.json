@@ -12,7 +12,7 @@
     "apps/desktop/electron/personal-agent-runtime/index.mjs": 1810,
     "apps/app/src/react-app/domains/settings/state/extensions-store.ts": 1774,
     "packages/types/src/desktop-ipc.ts": 1380,
-    "apps/app/src/react-app/domains/session/pages/expert.tsx": 1832,
+    "apps/app/src/react-app/domains/session/pages/expert.tsx": 14,
     "apps/orchestrator/src/cli-commands/start.ts": 2007,
     "apps/app/src/react-app/domains/messaging/automation-page.tsx": 1628,
     "apps/app/src/react-app/domains/session/surface/session-surface.tsx": 1771,

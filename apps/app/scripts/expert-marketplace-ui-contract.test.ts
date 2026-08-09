@@ -453,7 +453,11 @@ describe("expert marketplace UI contract", () => {
   });
 
   test("store page hosts the expert marketplace and expert icon jumps there", () => {
-    const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
+    const expertPage = [
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-page.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx"),
+    ].join("\n");
     const assistantPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx");
     const summonHook = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/pages/use-summon-marketplace-expert.ts",
@@ -567,7 +571,11 @@ describe("expert marketplace UI contract", () => {
   });
 
   test("expert store create expert opens a fresh assistant draft before prefill", () => {
-    const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
+    const expertPage = [
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-page.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx"),
+    ].join("\n");
     const expertSkillNav = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/pages/use-expert-skill-navigation.ts",
     );
@@ -600,7 +608,11 @@ describe("expert marketplace UI contract", () => {
 
   test("marketplace summon opens a fresh expert draft before agent activation", () => {
     const assistantPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx");
-    const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
+    const expertPage = [
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-page.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx"),
+    ].join("\n");
     const summonHook = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/pages/use-summon-marketplace-expert.ts",
     );
@@ -669,7 +681,11 @@ describe("expert marketplace UI contract", () => {
   });
 
   test("expert chat keeps selected marketplace expert identity across header and new sessions", () => {
-    const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
+    const expertPage = [
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-page.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx"),
+    ].join("\n");
     const conversationModel = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/pages/expert-conversation-model.ts",
     );
@@ -705,7 +721,11 @@ describe("expert marketplace UI contract", () => {
   });
 
   test("expert draft tabs keep multiple unsent experts selectable", () => {
-    const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
+    const expertPage = [
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-page.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx"),
+    ].join("\n");
     const conversationModel = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/pages/expert-conversation-model.ts",
     );
@@ -751,7 +771,11 @@ describe("expert marketplace UI contract", () => {
   });
 
   test("expert page feeds selected route expert sessions back into the left conversation panel", () => {
-    const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
+    const expertPage = [
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-page.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx"),
+    ].join("\n");
     const visibility = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/agent-session-visibility.ts");
     const barrel = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/session-chrome.ts");
 
@@ -768,7 +792,11 @@ describe("expert marketplace UI contract", () => {
   });
 
   test("expert side panel reuses assistant office and code workspace panel", () => {
-    const expertPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
+    const expertPage = [
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-page.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx"),
+    ].join("\n");
     const hostState = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/pages/use-session-page-host-state.ts",
     );
@@ -801,9 +829,11 @@ describe("expert marketplace UI contract", () => {
 
   test("expert session tabs keep pending selection visible while route catches up", () => {
     const tabs = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/agent-session-tabs.tsx");
-    const expertPage = readWorkspaceFile(
-      "apps/app/src/react-app/domains/session/pages/expert.tsx",
-    );
+    const expertPage = [
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-page.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx"),
+    ].join("\n");
     const draftTransition = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/pages/use-expert-bound-draft-transition.ts",
     );

@@ -16,10 +16,20 @@ const panelSource = readFileSync(
   ),
   "utf8",
 );
-const expertPageSource = readFileSync(
-  join(import.meta.dir, "../src/react-app/domains/session/pages/expert.tsx"),
-  "utf8",
-);
+const expertPageSource = [
+  readFileSync(
+    join(import.meta.dir, "../src/react-app/domains/session/pages/expert.tsx"),
+    "utf8",
+  ),
+  readFileSync(
+    join(import.meta.dir, "../src/react-app/domains/session/pages/use-expert-page.tsx"),
+    "utf8",
+  ),
+  readFileSync(
+    join(import.meta.dir, "../src/react-app/domains/session/pages/expert-page-layout.tsx"),
+    "utf8",
+  ),
+].join("\n");
 
 describe("expert create CTA theme contract", () => {
   test("pins summon-experts footer under the expert list, not under search", () => {
