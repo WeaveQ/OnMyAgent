@@ -50,6 +50,29 @@ export function resolveVirtualItemEstimate<T extends { id: string }>(
   return measuredSizes.get(item.id) ?? estimate(item);
 }
 
+/**
+ * Spacer padding for a flow-based virtual window.
+ *
+ * Prefer padding + normal flow over `height: totalSize` + absolute children.
+ * When estimates under-measure tool-heavy turns, absolute content overflows
+ * the fixed shell and paints on top of the detached live tail (stacked/
+ * garbled transcript). Flow keeps natural heights so siblings cannot overlap.
+ */
+export function resolveVirtualWindowPadding(input: {
+  totalSize: number;
+  firstStart: number | undefined;
+  lastEnd: number | undefined;
+}): { paddingTop: number; paddingBottom: number } {
+  const paddingTop = Math.max(0, input.firstStart ?? 0);
+  if (input.lastEnd == null) {
+    return { paddingTop, paddingBottom: 0 };
+  }
+  return {
+    paddingTop,
+    paddingBottom: Math.max(0, input.totalSize - input.lastEnd),
+  };
+}
+
 export function shouldRemeasureVirtualHistory(input: {
   previousCount: number;
   currentCount: number;

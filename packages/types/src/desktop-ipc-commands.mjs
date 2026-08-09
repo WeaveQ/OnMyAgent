@@ -132,7 +132,7 @@ const commandGroups = /** @type {const} */ ({
     "importSkill", "installSkillTemplate", "listLocalSkills",
     "listBuiltinSkillCatalog", "ensureDefaultBuiltinSkills",
     "onmyagentSkillsRoot", "onmyagentMarketplaceRoot", "listExpertPackages",
-    "listExpertRegistryRecords", "installExpertPackage",
+    "listExpertRegistryRecords", "installExpertPackage", "uninstallExpertPackage",
     "installBuiltinSkillPackage", "writeMyExpertPackage", "stageMyExpertKnowledge", "readLocalSkill",
     "writeLocalSkill", "uninstallSkill",
   ],

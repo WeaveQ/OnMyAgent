@@ -250,6 +250,7 @@ export type DesktopCommandName =
   | "listExpertPackages"
   | "listExpertRegistryRecords"
   | "installExpertPackage"
+  | "uninstallExpertPackage"
   | "installBuiltinSkillPackage"
   | "writeMyExpertPackage"
   | "stageMyExpertKnowledge"
