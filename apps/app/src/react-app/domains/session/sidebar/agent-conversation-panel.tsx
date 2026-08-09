@@ -1,9 +1,15 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus } from "lucide-react";
+import { ChevronDown, Plus, Store, UserPlus } from "lucide-react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
 import type { SidebarSessionItem, WorkspaceSessionGroup } from "../../../../app/types";
@@ -1396,22 +1402,65 @@ export function AgentConversationPanel(props: {
           </Button>
         </div>
       ) : null}
-      {mode === "agent" && props.onCreateExpert ? (
+      {mode === "agent" && (props.onCreateExpert || props.onOpenAgents) ? (
         <div className="shrink-0 pt-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sidebar-cta"
-            onClick={() => {
-              clearSearchIfNeeded();
-              props.onCreateExpert?.();
-            }}
-            className={SIDEBAR_FOOTER_CTA_CLASS}
-            data-expert-create="true"
-          >
-            <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-            {t("session.create_expert")}
-          </Button>
+          {/*
+            Summon experts — same pattern as store "Add skill" dropdown:
+            market browse vs self-create (expert creation wizard).
+          */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sidebar-cta"
+                  className={SIDEBAR_FOOTER_CTA_CLASS}
+                  data-expert-create="true"
+                  onClick={() => clearSearchIfNeeded()}
+                >
+                  <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+                  {t("session.summon_experts")}
+                  <ChevronDown
+                    className="size-3.5 shrink-0 opacity-70"
+                    strokeWidth={2}
+                    aria-hidden
+                  />
+                </Button>
+              }
+            />
+            <DropdownMenuContent
+              align="center"
+              side="top"
+              sideOffset={8}
+              className="min-w-[12rem] border border-dls-border bg-dls-surface-solid p-1.5 text-dls-text"
+            >
+              {props.onOpenAgents ? (
+                <DropdownMenuItem
+                  className="cursor-pointer gap-2 text-dls-text focus:bg-dls-hover"
+                  onClick={() => {
+                    clearSearchIfNeeded();
+                    props.onOpenAgents();
+                  }}
+                >
+                  <Store className="size-4 shrink-0 text-dls-secondary" />
+                  {t("session.add_expert_from_market")}
+                </DropdownMenuItem>
+              ) : null}
+              {props.onCreateExpert ? (
+                <DropdownMenuItem
+                  className="cursor-pointer gap-2 text-dls-text focus:bg-dls-hover"
+                  onClick={() => {
+                    clearSearchIfNeeded();
+                    props.onCreateExpert?.();
+                  }}
+                >
+                  <UserPlus className="size-4 shrink-0 text-dls-secondary" />
+                  {t("session.create_expert_yourself")}
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ) : null}
     </aside>
