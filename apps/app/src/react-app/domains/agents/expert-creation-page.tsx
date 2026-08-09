@@ -500,7 +500,7 @@ function BasicInfoPanel(props: {
                 <Plus className="size-3.5" aria-hidden />
               </span>
             </button>
-            <span className="whitespace-nowrap text-center text-[11px] leading-4 text-dls-secondary">
+            <span className="whitespace-nowrap text-center text-2xs leading-4 text-dls-secondary">
               {t("agents.expert_creation_avatar_hint")}
             </span>
             <input
@@ -1832,7 +1832,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
           {/* Fixed h-14 matches coach panel chrome so dual-pane tops line up. */}
           <div className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-dls-border/70 bg-dls-surface px-5">
             <span aria-hidden />
-            {/* density=bare: free-float pills like Files (文件/任务/专家), not the filter track sausage. */}
+            {/* density=bare: free-float pills like Files (files/tasks/experts), not the filter track sausage. */}
             <SegmentedTabGroup
               density="bare"
               aria-label={t("agents.expert_creation_title")}
