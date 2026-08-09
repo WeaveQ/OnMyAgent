@@ -21,7 +21,13 @@ git diff --check
 | [`src/react-app/ARCHITECTURE.md`](./src/react-app/ARCHITECTURE.md) | React 域 / shell / session-route |
 | [`../../AGENTS.md`](../../AGENTS.md) | 全仓铁律、边界、验证矩阵 |
 | [`../../docs/Architecture.md`](../../docs/Architecture.md) | 系统架构 · 双运行时 |
-| [`../../DESIGN.md`](../../DESIGN.md) | UI token / 视觉契约 |
+| [`../../DESIGN.md`](../../DESIGN.md) | **UI SoT**：token、形状、signature 组件、shell chrome（勿在 AGENTS 复述细则） |
+
+## UI 改动入口
+
+- **视觉 / 组件契约** → 只读/只改 [`DESIGN.md`](../../DESIGN.md) + `pnpm task check design`；不要把 pill/`rounded-full`/Tab 细则写回本文件。
+- **文案** → i18n（`pnpm check:i18n:cjk`）；根 AGENTS 硬性禁止。
+- **session/专家行为** → 下文「Experts / Session 不变量」，不是 DESIGN。
 
 ## 热点文件（先拆再改）
 
