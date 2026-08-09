@@ -60,7 +60,8 @@ function OverviewNavCard(props: {
         props.className,
       )}
     >
-      <IconTile border className="size-9 shrink-0">
+      {/* Soft plate only — no stroke (avoids double-frame with card border). */}
+      <IconTile className="size-9 shrink-0">
         <Icon size={16} className="text-dls-secondary" aria-hidden />
       </IconTile>
       <div className="min-w-0 flex-1">
@@ -146,7 +147,7 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
             "bg-dls-surface px-3.5 py-3",
           )}
         >
-          <IconTile border className="size-9 shrink-0">
+          <IconTile className="size-9 shrink-0">
             <LifeBuoy size={16} className="text-dls-secondary" aria-hidden />
           </IconTile>
           <div className="min-w-0 flex-1">

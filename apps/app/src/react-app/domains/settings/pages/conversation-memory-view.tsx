@@ -5,13 +5,9 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  BookOpen,
-  Brain,
   Check,
   ChevronRight,
   FolderOpen,
-  Ghost,
-  User,
   X,
 } from "lucide-react";
 
@@ -502,12 +498,7 @@ export function ConversationMemoryView(props: ConversationMemoryViewProps) {
             }
           />
           <SettingsBlockRow
-            title={
-              <span className="inline-flex items-center gap-2">
-                <Ghost className="size-4 text-dls-secondary" aria-hidden />
-                {t("settings.memory_row_style")}
-              </span>
-            }
+            title={t("settings.memory_row_style")}
             description={
               <span className="space-y-0.5">
                 <span className="block text-sm text-dls-secondary">
@@ -530,12 +521,7 @@ export function ConversationMemoryView(props: ConversationMemoryViewProps) {
             }
           />
           <SettingsBlockRow
-            title={
-              <span className="inline-flex items-center gap-2">
-                <BookOpen className="size-4 text-dls-secondary" aria-hidden />
-                {t("settings.memory_row_handbook")}
-              </span>
-            }
+            title={t("settings.memory_row_handbook")}
             description={
               <span className="space-y-0.5">
                 <span className="block text-sm text-dls-secondary">
@@ -558,12 +544,7 @@ export function ConversationMemoryView(props: ConversationMemoryViewProps) {
             }
           />
           <SettingsBlockRow
-            title={
-              <span className="inline-flex items-center gap-2">
-                <User className="size-4 text-dls-secondary" aria-hidden />
-                {t("settings.memory_row_user")}
-              </span>
-            }
+            title={t("settings.memory_row_user")}
             description={
               <span className="space-y-0.5">
                 <span className="block text-sm text-dls-secondary">
@@ -586,12 +567,7 @@ export function ConversationMemoryView(props: ConversationMemoryViewProps) {
             }
           />
           <SettingsBlockRow
-            title={
-              <span className="inline-flex items-center gap-2">
-                <Brain className="size-4 text-dls-secondary" aria-hidden />
-                {t("settings.memory_row_long_term")}
-              </span>
-            }
+            title={t("settings.memory_row_long_term")}
             description={
               <span className="space-y-0.5">
                 <span className="block text-sm text-dls-secondary">

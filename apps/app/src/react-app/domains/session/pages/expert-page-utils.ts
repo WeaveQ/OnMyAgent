@@ -15,8 +15,11 @@ export {
   EMPTY_STATE_ILLUSTRATION_CLASS,
   NO_EXPERT_CONVERSATIONS_ASSET,
 } from "@/react-app/design-system/empty-state-assets";
-export const EXPERT_SIDE_PANEL_DEFAULT_WIDTH = 360;
-export const EXPERT_SIDE_PANEL_MIN_WIDTH = 300;
+// Keep in sync with DEFAULT/MIN workspace right sidebar (outer rail = browser panel).
+export {
+  DEFAULT_WORKSPACE_RIGHT_SIDEBAR_EXPANDED_WIDTH as EXPERT_SIDE_PANEL_DEFAULT_WIDTH,
+  MIN_WORKSPACE_RIGHT_SIDEBAR_WIDTH as EXPERT_SIDE_PANEL_MIN_WIDTH,
+} from "../../../shell";
 
 export type ExpertGroupDeleteTarget = {
   kind: "expert";

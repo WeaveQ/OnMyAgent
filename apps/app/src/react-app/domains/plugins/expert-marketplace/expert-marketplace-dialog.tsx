@@ -12,7 +12,10 @@ import { isDesktopRuntime } from "@/app/utils";
 import { t } from "../../../../i18n";
 import { FilterChip } from "@/components/ui/action-row";
 import { EXPERT_MARKETPLACE_CATEGORIES } from "./categories";
-import { BUILTIN_MARKETPLACE_EXPERTS } from "./data";
+import {
+  BUILTIN_MARKETPLACE_EXPERTS,
+  filterLocalShelfExperts,
+} from "./data";
 import type {
   ExpertMarketplaceEntry,
   ExpertMarketplaceSummonHandler,
@@ -56,9 +59,21 @@ function ExpertAvatar(props: {
   );
 }
 
+/** Market shelf — up to 5 cols on wide screens. */
+const EXPERT_MARKET_CARD_GRID = cn(MARKETPLACE_CARD_GRID, "auto-rows-fr");
+
+/**
+ * "Experts I created" shelf — cap at 3 cols so 1–2 cards don't look stranded
+ * on a 5-column market track with a huge empty right side.
+ */
+const EXPERT_MINE_CARD_GRID =
+  "grid grid-cols-1 auto-rows-fr items-stretch gap-2.5 sm:grid-cols-2 xl:grid-cols-3";
+
 function ExpertCard(props: {
   expert: ExpertMarketplaceEntry;
   active?: boolean;
+  /** Mine shelf keeps summon visible (few cards, hover affordance is easy to miss). */
+  summonAlwaysVisible?: boolean;
   onOpen: (expert: ExpertMarketplaceEntry) => void;
   onSummon: (expert: ExpertMarketplaceEntry) => void;
 }) {
@@ -67,7 +82,7 @@ function ExpertCard(props: {
       role="button"
       tabIndex={0}
       className={cn(
-        "group min-h-36 cursor-pointer rounded-2xl border border-transparent bg-dls-surface px-4 py-3.5 text-left transition-colors hover:border-dls-border hover:bg-dls-hover focus-visible:border-dls-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30 mac:titlebar-no-drag",
+        "group flex h-full min-h-[8.5rem] cursor-pointer flex-col rounded-2xl border border-transparent bg-dls-surface px-4 py-3.5 text-left transition-colors hover:border-dls-border hover:bg-dls-hover focus-visible:border-dls-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30 mac:titlebar-no-drag",
         props.active && "border-dls-border bg-dls-accent/10",
       )}
       onClick={() => props.onOpen(props.expert)}
@@ -86,16 +101,23 @@ function ExpertCard(props: {
               <div className="truncate text-sm font-semibold leading-5 text-dls-text">
                 {props.expert.displayName}
               </div>
-              <div className="mt-0.5 truncate text-xs leading-5 text-dls-secondary">
-                {props.expert.profession}
-              </div>
+              {props.expert.profession.trim() ? (
+                <div className="mt-0.5 truncate text-xs leading-5 text-dls-secondary">
+                  {props.expert.profession}
+                </div>
+              ) : null}
             </div>
             <Button
               type="button"
               variant="default"
               size="pill-xs"
               tabIndex={-1}
-              className="pointer-events-none shrink-0 border-transparent bg-dls-decision text-white opacity-0 shadow-none transition-opacity hover:bg-dls-decision-hover hover:text-white group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+              className={cn(
+                "shrink-0 border-transparent bg-dls-decision text-white shadow-none transition-opacity hover:bg-dls-decision-hover hover:text-white",
+                props.summonAlwaysVisible
+                  ? "opacity-100"
+                  : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
+              )}
               onClick={(event) => {
                 event.stopPropagation();
                 props.onSummon(props.expert);
@@ -106,11 +128,11 @@ function ExpertCard(props: {
           </div>
         </div>
       </div>
-      <p className="mt-3 line-clamp-2 text-xs leading-5 text-dls-secondary">
+      <p className="mt-3 line-clamp-2 flex-1 text-xs leading-5 text-dls-secondary">
         {props.expert.description}
       </p>
-      {props.expert.tags.length ? (
-        <div className="mt-3 flex flex-wrap gap-1.5">
+      {props.expert.tags.length > 0 ? (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
           {props.expert.tags.slice(0, 3).map((tag) => (
             <StatusBadge key={tag} tone="surface" shape="soft" size="tiny">
               {tag}
@@ -126,6 +148,11 @@ export function ExpertMarketplacePage(props: {
   view?: ExpertMarketplaceView;
   query?: string;
   myExperts: ExpertMarketplaceEntry[];
+  /**
+   * Agent ids from the expert sidebar (session groups). Used to filter
+   * installed packages down to ones the user has actually opened/summoned.
+   */
+  activeExpertAgentIds?: readonly string[];
   onSummonMarketplaceExpert: ExpertMarketplaceSummonHandler;
   onCreateExpert: () => void;
   className?: string;
@@ -198,6 +225,14 @@ export function ExpertMarketplacePage(props: {
       return text.includes(normalizedQuery);
     });
   }, [categoryId, props.query]);
+
+  // Local shelf ("已召唤专家"): self-created + installed packages that match
+  // sidebar session agents — not every pre-seeded package under experts/installed.
+  const shelfExperts = useMemo(
+    () =>
+      filterLocalShelfExperts(props.myExperts, props.activeExpertAgentIds ?? []),
+    [props.activeExpertAgentIds, props.myExperts],
+  );
 
   if (view === "company") {
     const q = (props.query ?? "").trim().toLowerCase();
@@ -273,7 +308,7 @@ export function ExpertMarketplacePage(props: {
               })}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
-              <div className={MARKETPLACE_CARD_GRID}>
+              <div className={EXPERT_MARKET_CARD_GRID}>
                 {filteredExperts.map((expert) => (
                   <ExpertCard
                     key={expert.id}
@@ -287,23 +322,39 @@ export function ExpertMarketplacePage(props: {
             </div>
           </div>
         ) : (
-          <div className="min-h-0 flex-1 overflow-y-auto p-6">
-            {/* Create expert lives in the store header (market view), not here. */}
-            <div className={MARKETPLACE_CARD_GRID}>
-              {props.myExperts.length === 0 ? (
-                <div className="col-span-full rounded-2xl border border-dashed border-dls-border bg-dls-surface px-4 py-8 text-center text-sm text-dls-secondary">
-                  {t("session.no_expert_conversations")}
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {/* Same rhythm as skills installed: tight top, no second page title. */}
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-3">
+              {shelfExperts.length === 0 ? (
+                <div className="flex min-h-[min(22rem,60vh)] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-dls-border/80 bg-dls-surface/60 px-6 py-10 text-center">
+                  <p className="text-sm font-medium text-dls-text">
+                    {t("session.my_experts_empty_title")}
+                  </p>
+                  <p className="max-w-sm text-xs leading-5 text-dls-secondary">
+                    {t("session.my_experts_empty_desc")}
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="mt-1"
+                    onClick={props.onCreateExpert}
+                  >
+                    {t("session.create_expert")}
+                  </Button>
                 </div>
               ) : (
-                props.myExperts.map((expert) => (
-                  <ExpertCard
-                    key={expert.id}
-                    expert={expert}
-                    active={selectedExpert?.id === expert.id}
-                    onOpen={setSelectedExpert}
-                    onSummon={props.onSummonMarketplaceExpert}
-                  />
-                ))
+                <div className={EXPERT_MINE_CARD_GRID}>
+                  {shelfExperts.map((expert) => (
+                    <ExpertCard
+                      key={expert.id}
+                      expert={expert}
+                      summonAlwaysVisible
+                      active={selectedExpert?.id === expert.id}
+                      onOpen={setSelectedExpert}
+                      onSummon={props.onSummonMarketplaceExpert}
+                    />
+                  ))}
+                </div>
               )}
             </div>
           </div>

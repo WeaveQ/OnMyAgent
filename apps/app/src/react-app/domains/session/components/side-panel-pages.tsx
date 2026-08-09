@@ -18,7 +18,7 @@ import {
   Users,
 } from "lucide-react";
 import type { ComponentType } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,7 @@ import {
   PluginsPage,
   SkillsMarketplacePage,
   type ArtifactPluginPromptSelection,
+  filterLocalShelfExperts,
   type ExpertMarketplaceEntry,
   type ExpertMarketplaceSummonHandler,
   type ExpertMarketplaceView,
@@ -351,6 +352,8 @@ export function StorePage(props: {
   client?: OnMyAgentServerClient | null;
   activeTab?: StorePrimaryTab;
   myExperts?: ExpertMarketplaceEntry[];
+  /** Expert agent ids with sessions (sidebar) — scopes the "已召唤" shelf. */
+  activeExpertAgentIds?: readonly string[];
   onActiveTabChange?: (tab: StorePrimaryTab) => void;
   onSummonMarketplaceExpert?: ExpertMarketplaceSummonHandler;
   onCreateExpert?: () => void;
@@ -374,6 +377,14 @@ export function StorePage(props: {
   const [skillImportOpen, setSkillImportOpen] = useState(false);
   const [localCustomConnectorOpen, setLocalCustomConnectorOpen] = useState(false);
   const activeTab = props.activeTab ?? uncontrolledActiveTab;
+  const shelfExperts = useMemo(
+    () =>
+      filterLocalShelfExperts(
+        props.myExperts ?? [],
+        props.activeExpertAgentIds ?? [],
+      ),
+    [props.activeExpertAgentIds, props.myExperts],
+  );
   const openCustomConnector =
     props.onOpenCustomConnector ?? (() => setLocalCustomConnectorOpen(true));
   const customConnectorControlled = Boolean(props.onOpenCustomConnector);
@@ -431,7 +442,7 @@ export function StorePage(props: {
           <StorePrimaryTabs value={activeTab} onChange={handleTabChange} />
         )}
         <div className="flex min-w-0 items-center gap-2 mac:titlebar-no-drag">
-          {/* Search on expert/skill markets (not plugins, not my-experts). */}
+          {/* Search on expert/skill markets (not plugins). Mine view keeps create only. */}
           {activeTab !== "plugins" &&
           !(activeTab === "experts" && expertView === "mine") ? (
             <InputGroup controlSize="sm" radius="md" tone="surface" className="w-64 mac:titlebar-no-drag">
@@ -453,11 +464,15 @@ export function StorePage(props: {
                 variant="outline"
                 size="sm"
                 onClick={() => setExpertView("mine")}
-                className="mac:titlebar-no-drag"
+                className="gap-1.5 text-dls-text mac:titlebar-no-drag"
               >
-                {/* Collection of experts I own — not UserPlus (that is create). */}
-                <Users data-icon="inline-start" className="size-3.5" />
+                <Users className="size-3.5 shrink-0 text-dls-text" strokeWidth={2} aria-hidden />
                 {t("session.my_experts")}
+                {shelfExperts.length > 0 ? (
+                  <CountBadge size="dot" className="ml-0.5">
+                    {shelfExperts.length}
+                  </CountBadge>
+                ) : null}
               </Button>
               <Button
                 type="button"
@@ -466,12 +481,23 @@ export function StorePage(props: {
                 onClick={() =>
                   (props.onCreateExpert ?? showComingSoonToast)()
                 }
-                className="mac:titlebar-no-drag"
+                className="gap-1.5 text-dls-text mac:titlebar-no-drag"
               >
-                <UserPlus data-icon="inline-start" className="size-3.5" />
+                <UserPlus className="size-3.5 shrink-0 text-dls-text" strokeWidth={2} aria-hidden />
                 {t("session.create_expert")}
               </Button>
             </>
+          ) : null}
+          {activeTab === "experts" && expertView === "mine" ? (
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => (props.onCreateExpert ?? showComingSoonToast)()}
+              className="gap-1.5 mac:titlebar-no-drag"
+            >
+              <UserPlus className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+              {t("session.create_expert")}
+            </Button>
           ) : null}
           {activeTab === "skills" && skillView === "market" ? (
             <>
@@ -546,6 +572,7 @@ export function StorePage(props: {
             view={expertView}
             query={query}
             myExperts={props.myExperts ?? []}
+            activeExpertAgentIds={props.activeExpertAgentIds}
             onSummonMarketplaceExpert={(expert, initialPrompt) => {
               props.onSummonMarketplaceExpert?.(expert, initialPrompt);
             }}

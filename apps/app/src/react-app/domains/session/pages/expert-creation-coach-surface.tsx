@@ -38,6 +38,7 @@ import {
   EXPERT_CREATION_COACH_AVATAR_PATH,
   registerExpertCreationEphemeralSession,
 } from "../../agents";
+import { ExpertCreationCoachWelcome } from "../../agents/expert-creation-coach-welcome";
 
 export type ExpertCreationCoachSurfaceProps = {
   surface: SessionSurfaceAssemblyProps;
@@ -284,18 +285,16 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
   const coachTitle = t("agents.expert_creation_coach");
   const coachAvatarSrc = resolvePublicAssetUrl(EXPERT_CREATION_COACH_AVATAR_PATH);
   const coachWelcome = (
-    <div className="space-y-5 px-1 pt-2 text-sm leading-7 text-dls-text">
-      <p>{t("agents.expert_creation_coach_greeting")}</p>
-      <p>{t("agents.expert_creation_coach_intro")}</p>
-      <p>{t("agents.expert_creation_coach_question")}</p>
-      <ol className="list-decimal space-y-1 pl-5">
-        <li>{t("agents.expert_creation_coach_option_1")}</li>
-        <li>{t("agents.expert_creation_coach_option_2")}</li>
-        <li>{t("agents.expert_creation_coach_option_3")}</li>
-        <li>{t("agents.expert_creation_coach_option_4")}</li>
-      </ol>
-      <p>{t("agents.expert_creation_coach_reply_hint")}</p>
-    </div>
+    <ExpertCreationCoachWelcome
+      onPickOption={(reply) => {
+        void onSendDraft({
+          mode: "prompt",
+          text: reply,
+          parts: [{ type: "text", text: reply }],
+          attachments: [],
+        });
+      }}
+    />
   );
   const suggestionAccessory = showSuggestionBar && partition ? (
     <ExpertCreationSuggestionAccessory
@@ -332,17 +331,27 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
   ) : null;
 
   return (
-    <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl bg-dls-surface p-5">
-      <div className="flex shrink-0 items-center gap-3 pb-3">
+    <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-dls-border/40 bg-dls-surface">
+      {/* Match form panel header (h-14 + px-5) so coach / tabs tops align. */}
+      <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-dls-border/70 px-5">
         <img
           src={coachAvatarSrc}
           alt=""
-          className="size-10 shrink-0 rounded-full object-cover"
+          className="size-8 shrink-0 rounded-full object-cover ring-1 ring-dls-border/50"
         />
-        <h2 className="truncate text-base font-semibold text-dls-text">
-          {coachTitle}
-        </h2>
+        <div className="min-w-0 leading-tight">
+          <h2 className="truncate text-sm font-semibold text-dls-text">
+            {coachTitle}
+          </h2>
+          <p className="mt-0.5 truncate text-xs leading-4 text-dls-secondary">
+            {t("agents.expert_creation_coach_desc")}
+          </p>
+        </div>
       </div>
+      {/*
+        No extra host pad: embedded SessionSurface owns horizontal/vertical
+        gutters so we don't double px-4/5 with transcript px-4 md:px-8.
+      */}
       <div className="min-h-0 flex-1 overflow-hidden">
         <SessionSurface
           {...props.surface}

@@ -22,7 +22,7 @@ import {
   type AssistantCategoryId,
   type AssistantScenario,
 } from "../personal-assistant-config";
-import { sessionSurfaceStateClass, sessionSurfaceTextClass } from "../surface-styles";
+import { sessionSurfaceTextClass } from "../surface-styles";
 import type { SessionError } from "../session-surface-support";
 
 export function PersonalAssistantHero() {
@@ -171,11 +171,11 @@ export function SessionErrorCard({
 
   return (
     <div className="mx-auto max-w-3xl px-3 py-2 sm:px-5">
-      {/* Compact soft notice — no raw dump of date / quoted engine strings. */}
+      {/* Quiet recoverable notice — danger only on the icon, not a pink wash. */}
       <div
         className={cn(
-          "flex items-start gap-2.5 rounded-xl px-3.5 py-2.5",
-          "bg-dls-status-danger-soft/80 ring-1 ring-dls-status-danger-border/50",
+          "flex items-start gap-2.5 rounded-xl border border-dls-border bg-dls-surface-solid px-3.5 py-2.5",
+          "shadow-sm",
         )}
         role="alert"
       >
@@ -183,7 +183,7 @@ export function SessionErrorCard({
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 space-y-0.5">
-              <p className="text-sm font-medium leading-5 text-dls-status-danger">
+              <p className="text-sm font-medium leading-5 text-dls-text">
                 {error.message}
               </p>
               {error.kind !== "model-not-found" ? (
@@ -198,7 +198,7 @@ export function SessionErrorCard({
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  className={sessionSurfaceStateClass.errorDismiss}
+                  className="shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
                   title={
                     copied
                       ? t("common.copied")
@@ -227,7 +227,7 @@ export function SessionErrorCard({
                 variant="ghost"
                 size="icon-xs"
                 type="button"
-                className={sessionSurfaceStateClass.errorDismiss}
+                className="shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
                 onClick={onDismiss}
                 aria-label={t("session.dismiss_error")}
               >

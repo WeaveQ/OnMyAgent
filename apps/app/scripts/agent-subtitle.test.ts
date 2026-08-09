@@ -54,4 +54,17 @@ describe("agentSubtitle", () => {
       ),
     ).toBe("2.106.4");
   });
+
+  it("does not restate the agent name when version is missing", () => {
+    expect(
+      agentSubtitle(
+        agent({
+          id: "pi",
+          name: "Pi CLI",
+          version: null,
+          connectionMode: "Pi CLI ACP session",
+        }),
+      ),
+    ).toBe("");
+  });
 });

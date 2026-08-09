@@ -68,13 +68,19 @@ export function resolveComposerLayoutClasses(
   const panelChromeClass = heroHome
     ? `relative overflow-visible bg-dls-surface-solid border border-dls-border/80 shadow-md shadow-black/10 ${panelRoundedClass}`
     : `relative overflow-visible bg-dls-surface-solid ${input.showOuterBorder ? `border border-dls-border shadow-sm${underCardAccessory ? " border-b-0" : ""}` : ""} ${panelRoundedClass}`;
-  const editorPadClass = input.hasAttachments
-    ? heroHome
-      ? "px-5 pb-2.5 pt-3"
-      : "px-4 pb-2 pt-2"
-    : heroHome
-      ? "px-5 pb-2.5 pt-4"
-      : "px-4 pb-2 pt-3";
+  // flushShell (coach): more vertical air so the text field + toolbar
+  // don't feel jammed in a narrow creation column.
+  const editorPadClass = input.flushShell
+    ? input.hasAttachments
+      ? "px-3.5 pb-3 pt-3.5"
+      : "px-3.5 pb-3 pt-4"
+    : input.hasAttachments
+      ? heroHome
+        ? "px-5 pb-2.5 pt-3"
+        : "px-4 pb-2 pt-2"
+      : heroHome
+        ? "px-5 pb-2.5 pt-4"
+        : "px-4 pb-2 pt-3";
 
   const rootChromeClass =
     homeLayout || heroHome || input.flushShell
