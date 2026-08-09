@@ -83,7 +83,22 @@ describe("expert-session-lifecycle contracts", () => {
     removeExpertSession("keep-me");
   });
 
-  test("production call sites import lifecycle helpers", () => {
+  test("production call sites gate real create draft flush", () => {
+    const createPage = readFileSync(
+      path.join(
+        appRoot,
+        "src/react-app/domains/agents/expert-creation-page.tsx",
+      ),
+      "utf8",
+    );
+    expect(createPage).toContain("beginExpertCreateSaveAttempt");
+    expect(createPage).toContain("consumeExpertCreateComposerFlush");
+    expect(createPage).toContain("clearExpertCreationStoredState");
+    // Must consume flush as gate for clear — not void discard.
+    expect(createPage).toMatch(
+      /consumeExpertCreateComposerFlush\(\)[\s\S]{0,120}clearExpertCreationStoredState/,
+    );
+
     const createActions = readFileSync(
       path.join(
         appRoot,
@@ -91,8 +106,10 @@ describe("expert-session-lifecycle contracts", () => {
       ),
       "utf8",
     );
-    expect(createActions).toContain("shouldFlushComposerOnExpertCreate");
-    expect(createActions).toContain("consumeExpertCreateComposerFlush");
+    // saveExpertCreation must not burn the latch without flushing.
+    expect(createActions).not.toMatch(
+      /void consumeExpertCreateComposerFlush\(\)/,
+    );
 
     const surface = readFileSync(
       path.join(
