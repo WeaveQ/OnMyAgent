@@ -60,17 +60,27 @@ describe("right side panel toggle contract", () => {
   });
 
   test("sidebar resize handles do not draw a persistent divider", () => {
-    const sources = [
+    // Chat / local-agent keep a transparent focus-only hairline (no solid rule).
+    const transparentHairlineSources = [
       readWorkspaceFile("apps/app/src/react-app/domains/session/chat/session-page.tsx"),
       readWorkspaceFile("apps/app/src/react-app/domains/local-agents/host/personal-local-agent-page.tsx"),
-      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx"),
-      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
     ];
-
-    for (const source of sources) {
+    for (const source of transparentHairlineSources) {
       expect(source).toContain(
         "bg-transparent transition-colors group-focus-visible:bg-dls-accent",
       );
+      expect(source).not.toContain(
+        "bg-dls-border transition-colors group-hover:bg-dls-border-strong group-focus-visible:bg-dls-accent",
+      );
+    }
+
+    // Assistant / expert right gutter is a 2px hit target with no center rule.
+    const twoPxGutterSources = [
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
+    ];
+    for (const source of twoPxGutterSources) {
+      expect(source).toContain('className="hidden w-[2px] before:hidden lg:flex"');
       expect(source).not.toContain(
         "bg-dls-border transition-colors group-hover:bg-dls-border-strong group-focus-visible:bg-dls-accent",
       );

@@ -55,13 +55,13 @@ export function sessionContentMaxWidthPx(
   return Math.min(SESSION_CONTENT_MAX_WIDTH_PX, Math.max(0, available));
 }
 
-/** Horizontal padding on the scroll/composer column (px-4 / md:px-8). */
-export const SESSION_CONTENT_X_PADDING_CLASS = "px-4 md:px-8" as const;
+/** Horizontal padding on the scroll/composer column (px-4 / md:px-6). */
+export const SESSION_CONTENT_X_PADDING_CLASS = "px-4 md:px-6" as const;
 
 /** md breakpoint (px) used with SESSION_CONTENT_X_PADDING_CLASS gutters. */
 export const SESSION_CONTENT_MD_BREAKPOINT_PX = 768;
 
-/** Horizontal pad in px: 16*2 below md, 32*2 at md+. */
+/** Horizontal pad in px: 16*2 below md, 24*2 at md+. */
 export function sessionContentHorizontalPadPx(containerWidth: number): number {
-  return containerWidth >= SESSION_CONTENT_MD_BREAKPOINT_PX ? 64 : 32;
+  return containerWidth >= SESSION_CONTENT_MD_BREAKPOINT_PX ? 48 : 32;
 }

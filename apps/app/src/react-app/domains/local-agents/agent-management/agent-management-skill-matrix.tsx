@@ -95,15 +95,15 @@ function SkillMatrixSkeletonRows(props: { agentColCount: number }) {
               />
             </div>
           </div>
+          <SkillMatrixActionTrack>
+            <Skeleton className="size-6 rounded-md" />
+            <Skeleton className="size-6 rounded-md" />
+          </SkillMatrixActionTrack>
           {Array.from({ length: agentSlots }, (_, colIndex) => (
             <SkillMatrixAgentTrack key={colIndex} leadRule={colIndex === 0}>
               <Skeleton className="size-5 rounded-md" />
             </SkillMatrixAgentTrack>
           ))}
-          <SkillMatrixActionTrack>
-            <Skeleton className="size-6 rounded-md" />
-            <Skeleton className="size-6 rounded-md" />
-          </SkillMatrixActionTrack>
         </div>
       ))}
     </div>
@@ -136,18 +136,20 @@ function SkillMatrixAgentTrack(props: {
   );
 }
 
-/** Action column track — same structure for header spacer and body buttons. */
+/** Action column track — between skill name and agent pack (always visible). */
 function SkillMatrixActionTrack(props: {
   children?: ReactNode;
   className?: string;
   "aria-hidden"?: boolean | "true" | "false";
+  /** Header spacer: no hairline (avoids empty “ghost” column). */
+  bare?: boolean;
 }) {
   return (
     <div
       aria-hidden={props["aria-hidden"]}
       className={cn(
-        "box-border flex h-full w-full min-w-0 max-w-full items-center justify-center gap-0.5 self-stretch overflow-hidden border-l px-0.5",
-        SKILL_MATRIX_RULE,
+        "box-border flex h-full w-full min-w-0 max-w-full items-center justify-center gap-0.5 self-stretch overflow-hidden px-0.5",
+        !props.bare && `border-l ${SKILL_MATRIX_RULE}`,
         props.className,
       )}
     >
@@ -310,8 +312,8 @@ function SkillMatrixColumnHeader(props: {
                 unavailable
                   ? "cursor-not-allowed opacity-40"
                   : props.active
-                    ? "bg-dls-surface-muted/80 text-dls-text"
-                    : "hover:bg-dls-hover/50",
+                    ? "bg-dls-list-selected text-dls-text"
+                    : "hover:bg-dls-hover",
               )}
               aria-pressed={props.active && !unavailable}
               aria-disabled={unavailable || undefined}
@@ -531,32 +533,8 @@ function SkillMatrixRow(props: {
         </div>
       </MenuRowButton>
 
-      {props.matrixAgents.map((agent, index) => {
-        const { state, tooltip } = getSkillCellState(
-          props.skill,
-          agent,
-          props.busyKey,
-          unavailable.has(agent),
-        );
-        return (
-          <SkillMatrixAgentTrack key={agent} leadRule={index === 0}>
-            <SkillMatrixCell
-              state={state}
-              agent={agent}
-              tooltip={tooltip}
-              onClick={() => {
-                if (state === "native" || state === "unavailable") return;
-                if (state === "managed") props.onSkillAction(props.skill, agent, "disable");
-                else if (state === "available") props.onSkillAction(props.skill, agent, "enable");
-              }}
-            />
-          </SkillMatrixAgentTrack>
-        );
-      })}
-
-      <SkillMatrixActionTrack
-        className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-      >
+      {/* Import / open — always visible, left of agent pack */}
+      <SkillMatrixActionTrack>
         {/* Always two slots so column width never shifts when import is hidden. */}
         {!props.skill.managedByStudioSwitch ? (
           <Tooltip>
@@ -612,6 +590,29 @@ function SkillMatrixRow(props: {
           </TooltipContent>
         </Tooltip>
       </SkillMatrixActionTrack>
+
+      {props.matrixAgents.map((agent, index) => {
+        const { state, tooltip } = getSkillCellState(
+          props.skill,
+          agent,
+          props.busyKey,
+          unavailable.has(agent),
+        );
+        return (
+          <SkillMatrixAgentTrack key={agent} leadRule={index === 0}>
+            <SkillMatrixCell
+              state={state}
+              agent={agent}
+              tooltip={tooltip}
+              onClick={() => {
+                if (state === "native" || state === "unavailable") return;
+                if (state === "managed") props.onSkillAction(props.skill, agent, "disable");
+                else if (state === "available") props.onSkillAction(props.skill, agent, "enable");
+              }}
+            />
+          </SkillMatrixAgentTrack>
+        );
+      })}
     </div>
   );
 }
@@ -875,13 +876,18 @@ export function SkillMatrixPanel(props: {
     >
       <div
         className={cn(
-          "flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border/50 bg-dls-surface",
+          "flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid",
           // When drawer is open, drop right edge so the shared seam is a single hairline on the drawer.
           props.selectedSkill && "lg:rounded-r-none lg:border-r-0",
         )}
       >
         {/* Search + inventory scope stay fixed above the matrix grid. */}
-        <div className={cn("flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2", SKILL_MATRIX_RULE)}>
+        <div
+          className={cn(
+            "flex shrink-0 flex-wrap items-center gap-2 border-b bg-dls-surface-solid px-3 py-1.5",
+            SKILL_MATRIX_RULE,
+          )}
+        >
           <InputGroup controlSize="sm" radius="lg" tone="surface" className="min-w-0 flex-1">
             <InputGroupAddon align="inline-start" inset="tight">
               <Search className="size-3.5" />
@@ -954,15 +960,22 @@ export function SkillMatrixPanel(props: {
         >
           <div
             className={cn(
-              "sticky top-0 z-10 grid items-stretch border-b bg-dls-surface-muted text-xs font-medium text-dls-secondary",
+              // Opaque sticky plate so rows never show through while scrolling.
+              "sticky top-0 z-10 grid items-stretch border-b bg-dls-surface-solid text-xs font-medium text-dls-secondary",
               SKILL_MATRIX_RULE,
             )}
             style={gridStyle}
           >
-            <div className="flex items-center gap-1.5 self-center px-3 py-2">
-              <FileText className="size-3.5" />
-              <span>{t("skills.matrix_skill_source")}</span>
+            <div className="flex h-11 min-w-0 items-center gap-1.5 self-stretch bg-dls-surface-solid px-3">
+              <FileText className="size-3.5 shrink-0" />
+              <span className="truncate">{t("skills.matrix_skill_source")}</span>
             </div>
+            {/* Reserves action-column width only — solid fill, no empty-icon placeholders. */}
+            <SkillMatrixActionTrack
+              bare
+              aria-hidden
+              className="bg-dls-surface-solid"
+            />
             {matrixAgents.map((agent, index) => (
               <SkillMatrixColumnHeader
                 key={agent}
@@ -970,14 +983,11 @@ export function SkillMatrixPanel(props: {
                 active={props.columnFilter.includes(agent)}
                 count={loading ? 0 : (props.countsByAgent[agent] ?? 0)}
                 unavailable={unavailable.has(agent)}
+                // Single seam after skill+actions; body action track already has its own rule.
                 leadRule={index === 0}
                 onToggle={(event) => handleHeaderToggle(agent, event)}
               />
             ))}
-            <SkillMatrixActionTrack aria-hidden>
-              <span className="size-6 shrink-0" />
-              <span className="size-6 shrink-0" />
-            </SkillMatrixActionTrack>
           </div>
 
           {loading && filtered.length === 0 ? (

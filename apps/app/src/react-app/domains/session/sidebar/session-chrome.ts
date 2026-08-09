@@ -30,6 +30,7 @@ export {
 } from "./session-panel-model";
 
 export { AgentConversationPanel } from "./agent-conversation-panel";
+export { AgentPanelResizeHandle } from "./agent-panel-resize-handle";
 export { SidebarPaneCollapseToggle } from "./sidebar-pane-collapse-toggle";
 export {
   AgentSessionTabs,

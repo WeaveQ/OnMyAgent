@@ -356,7 +356,7 @@ export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
                   "bg-dls-surface px-3.5 py-3",
                 )}
               >
-                <IconTile border className="size-9 shrink-0">
+                <IconTile className="size-9 shrink-0">
                   <Icon size={16} className="text-dls-secondary" />
                 </IconTile>
                 <div className="min-w-0 flex-1">

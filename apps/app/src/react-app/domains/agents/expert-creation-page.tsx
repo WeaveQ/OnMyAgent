@@ -115,6 +115,7 @@ import {
   type ExpertCreationComposerProps,
   type ExpertCreationSuggestionApplyOptions,
 } from "./expert-creation-conversation";
+import { ExpertCreationCoachWelcome } from "./expert-creation-coach-welcome";
 import {
   buildExpertCreationCoachSystemPrompt,
   buildExpertCreationCoachToolAccess,
@@ -220,7 +221,10 @@ const BUILTIN_MARKETPLACE_SKILL_BY_NAME = new Map(
   BUILTIN_MARKETPLACE_SKILLS.map((skill) => [skill.skillName, skill]),
 );
 
-const EXPERT_FORM_FIELD_CLASS = "text-sm placeholder:text-dls-secondary/70";
+const EXPERT_FORM_FIELD_CLASS =
+  "text-sm placeholder:text-dls-secondary/65 border-dls-border/80 bg-dls-background shadow-none";
+const EXPERT_FORM_SECTION_CLASS =
+  "rounded-2xl border border-dls-border/60 bg-dls-surface-muted/20 p-5";
 
 function buildInitialDraft(
   registry: AgentRegistry | null,
@@ -336,12 +340,6 @@ function ExpertCoach(props: {
   ) => void;
 }) {
   const coachAgent = resolveExpertCreationCoachAgent(props.registry);
-  const coachOptions = [
-    t("agents.expert_creation_coach_option_1"),
-    t("agents.expert_creation_coach_option_2"),
-    t("agents.expert_creation_coach_option_3"),
-    t("agents.expert_creation_coach_option_4"),
-  ];
   const coachTitle = t("agents.expert_creation_coach");
   const coachSystemPrompt = coachAgent
     ? buildExpertCreationCoachSystemPrompt(coachAgent, props.draft, props.registry.skills)
@@ -367,8 +365,21 @@ function ExpertCoach(props: {
   }
 
   return (
-    <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl bg-dls-surface p-5 sm:p-6">
-      <div className="flex min-h-0 flex-1 flex-col">
+    <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-dls-border/40 bg-dls-surface">
+      <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-dls-border/70 px-5">
+        <img
+          src={resolvePublicAssetUrl("/expert-creation-coach-avatar.png")}
+          alt=""
+          className="size-8 shrink-0 rounded-full object-cover ring-1 ring-dls-border/50"
+        />
+        <div className="min-w-0 leading-tight">
+          <h2 className="truncate text-sm font-semibold text-dls-text">{coachTitle}</h2>
+          <p className="mt-0.5 truncate text-xs leading-4 text-dls-secondary">
+            {t("agents.expert_creation_coach_desc")}
+          </p>
+        </div>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col px-3 pb-3 pt-2">
         <ExpertCreationConversation
           draft={props.draft}
           workspaceRoot={props.workspaceRoot}
@@ -377,26 +388,9 @@ function ExpertCoach(props: {
           selectedModel={props.selectedModel}
           showModelPicker={props.showModelPicker}
           title={coachTitle}
-          avatar={(
-            <img
-              src={resolvePublicAssetUrl("/expert-creation-coach-avatar.png")}
-              alt=""
-              className="size-11 shrink-0 rounded-full object-cover"
-            />
-          )}
-          initialContent={(
-            <>
-              <p>{t("agents.expert_creation_coach_greeting")}</p>
-              <p>{t("agents.expert_creation_coach_intro")}</p>
-              <p>{t("agents.expert_creation_coach_question")}</p>
-              <ol className="list-decimal space-y-1.5 pl-5">
-                {coachOptions.map((option) => (
-                  <li key={option}>{option}</li>
-                ))}
-              </ol>
-              <p>{t("agents.expert_creation_coach_reply_hint")}</p>
-            </>
-          )}
+          hideHeader
+          avatar={null}
+          initialContent={<ExpertCreationCoachWelcome />}
           placeholder={t("agents.expert_creation_coach_placeholder")}
           {...(coachSystemPrompt ? { systemPrompt: coachSystemPrompt } : {})}
           {...(coachTools !== undefined ? { tools: coachTools } : {})}
@@ -413,20 +407,49 @@ function PromptEditor(props: {
   onChange: (value: string) => void;
   placeholder: string;
   ariaLabel: string;
+  /** Optional expandable writing framework under the editor chrome. */
+  framework?: string;
 }) {
+  const [frameworkOpen, setFrameworkOpen] = useState(false);
   return (
-    <div className="flex min-h-0 flex-1 overflow-hidden rounded-xl bg-dls-background focus-within:ring-3 focus-within:ring-ring/30">
-      <Textarea
-        value={props.value}
-        onChange={(event) => props.onChange(event.currentTarget.value)}
-        placeholder={props.placeholder}
-        aria-label={props.ariaLabel}
-        controlSize="editor"
-        className={cn(
-          "min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent px-4 py-4 leading-6 shadow-none focus-visible:ring-0",
-          EXPERT_FORM_FIELD_CLASS,
-        )}
-      />
+    <div className="flex min-h-0 flex-1 flex-col gap-2.5">
+      <div className="flex min-h-0 flex-1 overflow-hidden rounded-xl border border-dls-border/70 bg-dls-background focus-within:border-dls-accent/50 focus-within:ring-3 focus-within:ring-ring/25">
+        <Textarea
+          value={props.value}
+          onChange={(event) => props.onChange(event.currentTarget.value)}
+          placeholder={props.placeholder}
+          aria-label={props.ariaLabel}
+          controlSize="editor"
+          className={cn(
+            "min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent px-4 py-3.5 leading-6 shadow-none focus-visible:ring-0",
+            EXPERT_FORM_FIELD_CLASS,
+          )}
+        />
+      </div>
+      {props.framework ? (
+        <div className="shrink-0">
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 text-xs font-medium text-dls-secondary transition-colors hover:text-dls-text"
+            aria-expanded={frameworkOpen}
+            onClick={() => setFrameworkOpen((open) => !open)}
+          >
+            {frameworkOpen ? (
+              <ChevronDown className="size-3.5" aria-hidden />
+            ) : (
+              <ChevronRight className="size-3.5" aria-hidden />
+            )}
+            {frameworkOpen
+              ? t("agents.expert_creation_role_prompt_hide_framework")
+              : t("agents.expert_creation_role_prompt_show_framework")}
+          </button>
+          {frameworkOpen ? (
+            <pre className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-xl border border-dls-border/50 bg-dls-surface-muted/40 px-3.5 py-3 font-sans text-xs leading-5 text-dls-secondary">
+              {props.framework}
+            </pre>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -453,26 +476,33 @@ function BasicInfoPanel(props: {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-5">
-      <section className="shrink-0 rounded-2xl border border-dls-border/50 bg-dls-surface-muted/25 p-5">
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <section className={cn("shrink-0", EXPERT_FORM_SECTION_CLASS)}>
         <div
           className={cn(
-            "grid items-start gap-5 xl:grid-cols-[5.5rem_minmax(0,1fr)]",
-            !props.compact && "lg:grid-cols-[5.5rem_minmax(0,1fr)]",
+            "grid items-start gap-5 xl:grid-cols-[5.75rem_minmax(0,1fr)]",
+            !props.compact && "lg:grid-cols-[5.75rem_minmax(0,1fr)]",
           )}
         >
-          <div className="flex flex-col items-start gap-3 pt-0.5">
+          <div className="flex flex-col items-center gap-2 pt-0.5">
             <button
               type="button"
-              className="relative rounded-full focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+              className="group relative rounded-full focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
               onClick={() => uploadInputRef.current?.click()}
               aria-label={t("agents.expert_creation_avatar")}
             >
-              <ExpertCreationAvatar registry={props.registry} draft={props.draft} className="size-[4.5rem] text-xl" />
-              <span className="absolute -bottom-0.5 -right-0.5 inline-flex size-5 items-center justify-center rounded-full border-2 border-dls-surface bg-dls-text text-dls-surface">
-                <Plus className="size-3" aria-hidden />
+              <ExpertCreationAvatar
+                registry={props.registry}
+                draft={props.draft}
+                className="size-[4.75rem] text-xl ring-1 ring-dls-border/60 ring-offset-2 ring-offset-dls-surface"
+              />
+              <span className="absolute -bottom-0.5 -right-0.5 inline-flex size-6 items-center justify-center rounded-full border-2 border-dls-surface bg-dls-text text-dls-surface shadow-sm transition-transform group-hover:scale-105">
+                <Plus className="size-3.5" aria-hidden />
               </span>
             </button>
+            <span className="whitespace-nowrap text-center text-2xs leading-4 text-dls-secondary">
+              {t("agents.expert_creation_avatar_hint")}
+            </span>
             <input
               ref={uploadInputRef}
               type="file"
@@ -485,35 +515,55 @@ function BasicInfoPanel(props: {
             />
           </div>
           <div className="min-w-0 space-y-3.5">
-            <Input
-              value={props.draft.name}
-              onChange={(event) => props.onDraftChange("name", event.currentTarget.value)}
-              placeholder={t("agents.expert_creation_name_placeholder")}
-              variant="dls"
-              controlSize="lg"
-              radius="xl"
-              className={cn("border-0 shadow-none", EXPERT_FORM_FIELD_CLASS)}
-              aria-label={t("agents.name")}
-            />
-            <Textarea
-              value={props.draft.description}
-              onChange={(event) => props.onDraftChange("description", event.currentTarget.value)}
-              placeholder={t("agents.expert_creation_intro_placeholder")}
-              className={cn(
-                "min-h-[5.5rem] border-0 shadow-none leading-6",
-                EXPERT_FORM_FIELD_CLASS,
-              )}
-              aria-label={t("agents.expert_creation_intro")}
-            />
+            <label className="block space-y-1.5">
+              <span className="text-xs font-medium text-dls-secondary">
+                {t("agents.name")}
+                <span className="ml-0.5 text-dls-danger" aria-hidden>
+                  *
+                </span>
+              </span>
+              <Input
+                value={props.draft.name}
+                onChange={(event) =>
+                  props.onDraftChange("name", event.currentTarget.value)
+                }
+                placeholder={t("agents.expert_creation_name_placeholder")}
+                variant="dls"
+                controlSize="lg"
+                radius="xl"
+                className={EXPERT_FORM_FIELD_CLASS}
+                aria-label={t("agents.name")}
+                required
+              />
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-xs font-medium text-dls-secondary">
+                {t("agents.expert_creation_intro")}
+              </span>
+              <Textarea
+                value={props.draft.description}
+                onChange={(event) =>
+                  props.onDraftChange("description", event.currentTarget.value)
+                }
+                placeholder={t("agents.expert_creation_intro_placeholder")}
+                className={cn(
+                  "min-h-[5.25rem] leading-6",
+                  EXPERT_FORM_FIELD_CLASS,
+                )}
+                aria-label={t("agents.expert_creation_intro")}
+              />
+            </label>
           </div>
         </div>
       </section>
-      <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-dls-border/50 bg-dls-surface-muted/25 p-5">
-        <div className="mb-4 shrink-0">
+      <section
+        className={cn("flex min-h-0 flex-1 flex-col", EXPERT_FORM_SECTION_CLASS)}
+      >
+        <div className="mb-3 shrink-0">
           <h3 className="text-base font-semibold leading-6 text-dls-text">
             {t("agents.expert_creation_role_prompt")}
           </h3>
-          <p className="mt-1.5 max-w-[52ch] text-sm leading-6 text-dls-secondary">
+          <p className="mt-1 max-w-[52ch] text-sm leading-6 text-dls-secondary">
             {t("agents.expert_creation_role_prompt_desc")}
           </p>
         </div>
@@ -522,6 +572,7 @@ function BasicInfoPanel(props: {
           onChange={(value) => props.onDraftChange("userNote", value)}
           placeholder={t("agents.expert_creation_role_prompt_placeholder")}
           ariaLabel={t("agents.expert_creation_role_prompt")}
+          framework={t("agents.expert_creation_role_prompt_framework")}
         />
       </section>
     </div>
@@ -699,7 +750,7 @@ function SkillsEmptyIllustration() {
     <EmptyStateIllustration
       src={SKILLS_EMPTY_STATE_ASSET}
       size="compact"
-      className="mb-0 h-20 max-w-[8rem]"
+      className="mb-0 h-28 w-[9.5rem] max-w-full bg-dls-secondary/80"
     />
   );
 }
@@ -1698,17 +1749,22 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
 
   return (
     <div className="absolute inset-0 z-50 flex min-h-0 flex-col bg-dls-surface-solid text-dls-text">
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-dls-border bg-dls-surface px-5">
+      {/*
+        Full-screen overlay covers the global mac body::before drag strip.
+        Header must own mac:titlebar-drag so empty chrome can move the window;
+        buttons already use titlebar-no-drag via the Button primitive.
+      */}
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-dls-border bg-dls-surface px-5 mac:titlebar-drag">
         <Button type="button" variant="ghost" size="sm" disabled={submitting} onClick={requestClose}>
           <ArrowLeft data-icon="inline-start" className="size-4" />
           {t("agents.expert_creation_back")}
         </Button>
-        <h1 className="text-sm font-semibold text-dls-text">
+        <h1 className="pointer-events-none text-base font-semibold tracking-tight text-dls-text">
           {props.editingAgent
             ? t("agents.expert_creation_edit_title")
-            : t("common.create")}
+            : t("agents.expert_creation_title")}
         </h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mac:titlebar-no-drag">
           <Button
             type="button"
             size="sm"
@@ -1727,7 +1783,7 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
           </Button>
         </div>
       </header>
-      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1 gap-3 bg-dls-background p-4">
+      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1 gap-1 bg-dls-background p-4">
         <ResizablePanel defaultSize="36%" minSize="320px" maxSize="48%" className="min-w-0">
           <ExpertCoach
             draft={draft}
@@ -1766,12 +1822,21 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
             }}
           />
         </ResizablePanel>
-        <ResizableHandle withHandle aria-label={t("agents.expert_creation_resize_coach")} />
+        <ResizableHandle
+          withHandle
+          aria-label={t("agents.expert_creation_resize_coach")}
+          className="w-2"
+        />
         <ResizablePanel minSize="440px" className="min-w-0">
-        <main className="flex h-full min-w-0 flex-col overflow-hidden rounded-2xl bg-dls-surface">
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-dls-border bg-dls-surface px-5 py-3.5">
+        <main className="flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-dls-border/40 bg-dls-surface">
+          {/* Fixed h-14 matches coach panel chrome so dual-pane tops line up. */}
+          <div className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-dls-border/70 bg-dls-surface px-5">
             <span aria-hidden />
-            <SegmentedTabGroup aria-label={t("agents.expert_creation_title")}>
+            {/* density=bare: free-float pills like Files (files/tasks/experts), not the filter track sausage. */}
+            <SegmentedTabGroup
+              density="bare"
+              aria-label={t("agents.expert_creation_title")}
+            >
               {TABS.map((tab) => (
                 <NavTabButton
                   key={tab.id}
@@ -1786,14 +1851,14 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
               ))}
             </SegmentedTabGroup>
             {!tryOpen ? (
-              <Button type="button" variant="ghost" size="sm" className="justify-self-end" onClick={() => setTryOpen(true)}>
+              <Button type="button" variant="outline" size="sm" className="justify-self-end gap-1.5" onClick={() => setTryOpen(true)}>
                 <ChevronsLeft data-icon="inline-start" className="size-4" />
                 {t("agents.expert_creation_try")}
               </Button>
             ) : null}
           </div>
           <div className="flex min-h-0 flex-1">
-            <section className="min-w-0 flex-1 overflow-y-auto px-5 py-5">
+            <section className="min-w-0 flex-1 overflow-y-auto px-5 py-4">
               <div className="h-full min-h-0 w-full">
                 {submitError ? (
                   <NoticeBox role="alert" tone="error" size="content" className="mb-5">
@@ -1809,12 +1874,17 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
                   />
                 ) : null}
                 {activeTab === "memory" ? (
-                  <section className="flex h-full min-h-0 flex-col rounded-2xl border border-dls-border/50 bg-dls-surface-muted/25 p-5">
-                    <div className="mb-4 shrink-0">
+                  <section
+                    className={cn(
+                      "flex h-full min-h-0 flex-col",
+                      EXPERT_FORM_SECTION_CLASS,
+                    )}
+                  >
+                    <div className="mb-3 shrink-0">
                       <h3 className="text-base font-semibold leading-6 text-dls-text">
                         {t("agents.expert_creation_memory")}
                       </h3>
-                      <p className="mt-1.5 max-w-[52ch] text-sm leading-6 text-dls-secondary">
+                      <p className="mt-1 max-w-[52ch] text-sm leading-6 text-dls-secondary">
                         {t("agents.expert_creation_memory_desc")}
                       </p>
                     </div>
@@ -1855,7 +1925,11 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
         </ResizablePanel>
         {tryOpen ? (
           <>
-            <ResizableHandle withHandle aria-label={t("agents.expert_creation_resize_preview")} />
+            <ResizableHandle
+              withHandle
+              aria-label={t("agents.expert_creation_resize_preview")}
+              className="w-2"
+            />
             <ResizablePanel defaultSize="25%" minSize="280px" maxSize="42%" className="min-w-0">
               <TryEffectPanel
                 draft={draft}

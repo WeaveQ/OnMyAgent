@@ -405,6 +405,12 @@ describe("session transcript layout contract", () => {
     expect(personalAssistant).toContain("navigator.clipboard.writeText(errorDetails)");
     expect(personalAssistant).not.toContain('t("session.error_retry")');
     expect(personalAssistant).not.toContain('className="rounded-full text-dls-text');
+    // Recoverable interrupt: quiet surface, danger only on the icon (not a pink wash).
+    expect(personalAssistant).toContain(
+      "border border-dls-border bg-dls-surface-solid",
+    );
+    expect(personalAssistant).not.toContain("bg-dls-status-danger-soft/80");
+    expect(personalAssistant).toContain('text-sm font-medium leading-5 text-dls-text');
   });
 
   test("localizes WorkBuddy tool details and openable artifact actions", async () => {

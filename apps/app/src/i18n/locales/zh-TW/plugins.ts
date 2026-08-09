@@ -9,7 +9,7 @@ export default {
   "plugins.artifact_tab": "連接器",
   "plugins.artifact_description":
     "瀏覽器與文件/試算表/PDF 等系統檔案能力，隨產品安裝，可單獨開關。",
-  "plugins.custom_connector": "自訂連接器",
+  "plugins.custom_connector": "添加連接器",
   "plugins.custom_connector_title": "MCP 服務管理",
   "plugins.custom_connector_subtitle": "安裝 MCP 服務，為 AI 擴展更多工具能力",
   "plugins.custom_connector_search": "搜尋伺服器…",

@@ -1,6 +1,9 @@
 /** @jsxImportSource react */
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { AGENT_MANAGEMENT_LOADING_ASSET } from "@/react-app/design-system/empty-state-assets";
+import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 
 const AGENT_CARD_GRID =
   "grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5";
@@ -45,6 +48,46 @@ export function AgentManagementFleetSkeleton(props: {
       {Array.from({ length: count }, (_, index) => (
         <AgentManagementCardSkeleton key={index} />
       ))}
+    </div>
+  );
+}
+
+/**
+ * Full-panel loading for agent management first paint.
+ * Replaces the double skeleton wall with a Koboyo mark + spinner.
+ */
+export function AgentManagementPageLoading(props: {
+  label: string;
+  hint?: string;
+  testId?: string;
+}) {
+  return (
+    <div
+      role="status"
+      aria-busy="true"
+      aria-label={props.label}
+      data-testid={props.testId ?? "agent-management-page-loading"}
+      className={cn(
+        "flex min-h-[22rem] flex-col items-center justify-center gap-5",
+        "rounded-2xl border border-dashed border-dls-border/60 bg-dls-surface/50",
+        "px-6 py-16 text-center",
+      )}
+    >
+      <EmptyStateIllustration
+        src={AGENT_MANAGEMENT_LOADING_ASSET}
+        size="default"
+        className="mb-0 opacity-90"
+      />
+      <div className="flex flex-col items-center gap-2.5">
+        <LoadingSpinner size="default" tone="muted" className="size-5" />
+        <p className="text-sm font-medium text-dls-text">{props.label}</p>
+        {props.hint ? (
+          <p className="max-w-sm text-xs leading-5 text-dls-secondary">
+            {props.hint}
+          </p>
+        ) : null}
+      </div>
+      <span className="sr-only">{props.label}</span>
     </div>
   );
 }

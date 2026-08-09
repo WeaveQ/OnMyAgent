@@ -66,7 +66,9 @@ describe("main rail primary icon contract", () => {
     expect(iconSource).toContain('from "lucide-react"');
     expect(iconSource).toContain("House");
     expect(iconSource).toContain("UserRound");
-    expect(iconSource).toMatch(/UserRound[\s\S]*ExpertRailIcon|ExpertRailIcon[\s\S]*UserRound/);
+    expect(iconSource).toMatch(
+      /UserRound[\s\S]*ExpertRailIcon|ExpertRailIcon[\s\S]*UserRound/,
+    );
     expect(iconSource).not.toMatch(/\bBot\b/);
     expect(iconSource).toContain("Folder");
     expect(iconSource).toContain("Briefcase");
