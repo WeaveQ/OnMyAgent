@@ -1,3 +1,35 @@
+import { normalizeAcpUpdate } from "../acp-client.mjs";
+
+const COMPLETE_STOP_REASONS = new Set([
+  "",
+  "end_turn",
+  "stop",
+  "complete",
+  "completed",
+  "done",
+  "success",
+  "succeeded",
+]);
+
+function remotePromptStopReason(result) {
+  const direct = String(
+    result?.stopReason
+      ?? result?.stop_reason
+      ?? result?.reason
+      ?? result?.finishReason
+      ?? result?.finish_reason
+      ?? "",
+  ).trim().toLowerCase();
+  if (direct) return direct;
+  return String(
+    result?.result?.stopReason
+      ?? result?.result?.stop_reason
+      ?? result?.turn?.stopReason
+      ?? result?.turn?.stop_reason
+      ?? "",
+  ).trim().toLowerCase();
+}
+
 function remoteUrlFromAgent(agent) {
   return String(agent?.remote?.webSocketUrl ?? agent?.remote?.url ?? agent?.webSocketUrl ?? agent?.wsUrl ?? "").trim();
 }
@@ -37,7 +69,16 @@ export function createRemoteAcpAdapter({ appendEvent, registerCancel }) {
           return;
         }
         if (message.method === "session/update") {
-          appendEvent?.({ type: "acp_session_update", update: message.params });
+          const { type, data } = normalizeAcpUpdate(message.params?.update ?? message.params);
+          if (type === "context_usage" || type === "usage_update") {
+            appendEvent?.({
+              type: "status",
+              text: `acp_${type}> ${JSON.stringify(data ?? {})}`,
+              model: String(ctx.model ?? "").trim() || null,
+            });
+          } else {
+            appendEvent?.({ type: "acp_session_update", update: message.params });
+          }
           return;
         }
         const entry = pending.get(message.id);
@@ -59,13 +100,39 @@ export function createRemoteAcpAdapter({ appendEvent, registerCancel }) {
         if (!sessionId) throw new Error("remote ACP session/resume returned no sessionId");
         const result = await request("session/prompt", { sessionId, prompt: ctx.prompt, cwd: ctx.workspaceRoot });
         const output = String(result?.output ?? result?.text ?? result?.message ?? "");
+        const stopReason = remotePromptStopReason(result);
+        const truncated = Boolean(stopReason && !COMPLETE_STOP_REASONS.has(stopReason));
+        if (truncated) {
+          const warning = `remote ACP reply did not finish cleanly: stopReason=${stopReason}`;
+          if (!output) {
+            /** @type {Error & { code?: string }} */
+            const error = new Error(warning);
+            error.code = /context/.test(stopReason)
+              ? "context_window_exceeded"
+              : "acp_incomplete_output";
+            throw error;
+          }
+          appendEvent?.({ type: "status", text: warning });
+          appendEvent?.({
+            type: "tips",
+            text: warning,
+            category: "warning",
+            ownership: "agent",
+            resolution: null,
+          });
+        }
         return {
           output,
           command: "remote-acp " + url,
           connectionMode: "Remote ACP WebSocket session",
           providerSessionId: String(result?.sessionId ?? result?.session_id ?? sessionId ?? "").trim() || sessionId,
           resumeKey: String(result?.resumeKey ?? result?.resume_key ?? result?.sessionId ?? result?.session_id ?? sessionId ?? "").trim() || sessionId,
-          metadata: { agent_type: "remote", initialized },
+          metadata: {
+            agent_type: "remote",
+            initialized,
+            stopReason: stopReason || null,
+            truncated,
+          },
         };
       } finally {
         ws.close();
@@ -73,3 +140,5 @@ export function createRemoteAcpAdapter({ appendEvent, registerCancel }) {
     },
   };
 }
+
+export const __test__ = { remotePromptStopReason };

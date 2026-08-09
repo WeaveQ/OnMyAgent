@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { toKeyedLines } from "../src/react-app/capabilities/artifacts/diff-utils";
 
 const conversationRoot = join(
   import.meta.dir,
@@ -13,6 +14,12 @@ function read(rel: string) {
 }
 
 describe("conversation shared UI contract", () => {
+  test("normalizes Windows diff line endings without extra rows", () => {
+    const lines = toKeyedLines("one\r\r\ntwo\r\nthree");
+    expect(lines.map((item) => item.line)).toEqual(["one", "two", "three"]);
+    expect(lines.some((item) => item.line.includes("\r"))).toBe(false);
+  });
+
   test("ui/ directory exports shared presentational components", () => {
     const files = readdirSync(uiRoot).sort();
     expect(files).toContain("tool-item-row.tsx");
@@ -120,6 +127,36 @@ describe("conversation shared UI contract", () => {
     // Rich expandable I/O remains host extension-style only.
     expect(timeline).toContain("toolNeedsRichInputOutputCard");
     expect(timeline).toContain("LocalAgentToolCard");
+    expect(timeline).toContain("acpUpdate?.rawInput");
+    expect(timeline).toContain("acpUpdate?.rawOutput");
+    expect(timeline).toContain("data-testid=\"local-agent-tool-detail\"");
+    expect(timeline).toContain("data-testid=\"local-agent-tool-detail-truncated\"");
+    expect(timeline).toContain("section.truncated");
+    expect(timeline).toContain("max-h-64 overflow-auto whitespace-pre-wrap break-words");
+    expect(timeline).toContain("font-mono text-xs leading-normal");
+    expect(timeline).not.toContain("text-xs leading-6 text-dls-secondary");
+    expect(timeline).not.toContain("grid gap-1 overflow-hidden");
+    expect(timeline).not.toContain("leading-relaxed");
+  });
+
+  test("shared desktop IPC type carries raw ACP tool update fields", () => {
+    const sharedTypes = readFileSync(
+      join(
+        import.meta.dir,
+        "../../../packages/types/src/desktop-ipc-local-agents.ts",
+      ),
+      "utf8",
+    );
+    for (const field of [
+      "tool_call_id?: string | null",
+      "rawInput?: unknown",
+      "raw_input?: unknown",
+      "rawOutput?: unknown",
+      "raw_output?: unknown",
+      "outputTruncated?: boolean",
+    ]) {
+      expect(sharedTypes).toContain(field);
+    }
   });
 
   test("personal host remains under local-agents domain", () => {

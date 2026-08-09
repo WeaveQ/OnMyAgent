@@ -17,12 +17,34 @@ function isAcpPromptFailure(text: string, category?: string | null) {
   return /session\/prompt|session\/new/i.test(text) || /acp.*(prompt|session).*(fail|error|internal)/i.test(text);
 }
 
+function isIncompleteAcpReply(text: string, category?: string | null) {
+  return category === "warning" && /did not finish cleanly|stopReason=(?:max_tokens|length|token_limit|context_length)/i.test(text);
+}
+
+function isProviderContextReset(text: string, category?: string | null) {
+  return category === "warning" && /clean provider session.*context was not replayed/i.test(text);
+}
+
+function isContextWindowFailure(text: string, category?: string | null) {
+  if (category !== "error") return false;
+  return /context[_ -]length[_ -]exceeded|maximum context length|context window.*(?:exceed|full|limit)|(?:prompt|input).*(?:too long|exceeds?.*token)/i.test(text);
+}
+
 function localizeTipText(text: string, category?: string | null) {
   if (isEmptyAssistantFailure(text, category)) {
     return t("local_agent.failure_empty_output", { message: text });
   }
+  if (isContextWindowFailure(text, category)) {
+    return t("local_agent.failure_context_window", { message: text });
+  }
   if (isAcpPromptFailure(text, category)) {
     return t("local_agent.failure_acp_prompt", { message: text });
+  }
+  if (isProviderContextReset(text, category)) {
+    return t("local_agent.context_reset_warning");
+  }
+  if (isIncompleteAcpReply(text, category)) {
+    return t("local_agent.failure_acp_incomplete", { message: text });
   }
   return text;
 }

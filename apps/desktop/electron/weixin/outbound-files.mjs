@@ -137,6 +137,13 @@ function displayName(link, filePath) {
   return path.basename(String(link.label || filePath)) || "未命名文件";
 }
 
+function assertDeliveryActive(signal) {
+  if (!signal?.aborted) return;
+  const error = new Error("Weixin channel stopped during delivery");
+  error.name = "AbortError";
+  throw error;
+}
+
 function isDeniedName(name) {
   const lower = name.toLowerCase();
   return lower.startsWith(".env") || lower.startsWith(".") || SENSITIVE_NAME.test(lower);
@@ -297,18 +304,25 @@ export async function deliverOutboundFiles({
   assertResponse,
   sendText,
   formatReply,
+  signal = null,
 }) {
+  assertDeliveryActive(signal);
   const selection = await selectOutboundFiles({ output, artifacts, allowedRoots });
+  assertDeliveryActive(signal);
   const contextToken = await readContextToken(peerId || chatId);
+  assertDeliveryActive(signal);
   const delivered = [];
   const failures = selection.rejected.map(describeOutboundFileRejection);
   for (const attachment of selection.attachments) {
+    assertDeliveryActive(signal);
     try {
-      const response = await uploadAndSendOutboundFile({ client, account, to: chatId, contextToken, attachment });
+      const response = await uploadAndSendOutboundFile({ client, account, to: chatId, contextToken, attachment, signal });
+      assertDeliveryActive(signal);
       assertResponse(response, `send file ${attachment.name}`);
       delivered.push(attachment.name);
       setSentCount();
     } catch (error) {
+      if (signal?.aborted) throw error;
       const safeError = describeOutboundDeliveryError(error);
       failures.push(`${attachment.name}：${safeError}`);
       appendLog({ type: "error", text: `weixin outbound file failed (${attachment.name}): ${safeError}` });
@@ -319,12 +333,16 @@ export async function deliverOutboundFiles({
     failures.length ? `附件发送失败：\n${failures.map((item) => `- ${item}`).join("\n")}` : "",
   ].filter(Boolean);
   const body = [selection.cleanedOutput.trim(), ...statusLines].filter(Boolean).join("\n\n");
+  assertDeliveryActive(signal);
   await sendText(formatReply({ agent, text: body }), peerId);
+  assertDeliveryActive(signal);
   return { delivered, failures };
 }
 
-export async function uploadAndSendOutboundFile({ client, account, to, contextToken, attachment }) {
+export async function uploadAndSendOutboundFile({ client, account, to, contextToken, attachment, signal = null }) {
+  assertDeliveryActive(signal);
   const plaintext = await readVerifiedOutboundFile(attachment);
+  assertDeliveryActive(signal);
   const fileKey = randomBytes(16).toString("hex");
   const aesKey = randomBytes(16);
   const aesKeyHex = aesKey.toString("hex");
@@ -339,7 +357,9 @@ export async function uploadAndSendOutboundFile({ client, account, to, contextTo
     rawFileMd5: md5,
     encryptedSize: aesEcbPaddedSize(plaintext.length),
     aesKey: aesKeyHex,
+    signal,
   });
+  assertDeliveryActive(signal);
   const ret = Number(uploadResponse?.ret ?? 0);
   const errcode = Number(uploadResponse?.errcode ?? 0);
   if (ret !== 0 || errcode !== 0) {
@@ -351,15 +371,17 @@ export async function uploadAndSendOutboundFile({ client, account, to, contextTo
     ? assertWeixinMediaUrl(fullUploadUrl)
     : buildCdnUploadUrl({ cdnBaseUrl: account.cdnBaseUrl, uploadParam: uploadResponse?.upload_param, fileKey });
   const encrypted = encryptAes128Ecb(plaintext, aesKey);
-  const uploaded = await client.uploadCdn({ uploadUrl, encrypted });
+  const uploaded = await client.uploadCdn({ uploadUrl, encrypted, signal });
+  assertDeliveryActive(signal);
   const encryptedQueryParam = String(uploaded?.encryptedQueryParam ?? "").trim();
   if (!encryptedQueryParam) throw new Error("CDN upload response did not include x-encrypted-param");
-  return await client.sendMessageItem({
+  const response = await client.sendMessageItem({
     baseUrl: account.baseUrl,
     token: account.token,
     to,
     contextToken,
     clientId: `studio-weixin-file-${randomUUID()}`,
+    signal,
     item: {
       type: 4,
       file_item: {
@@ -373,6 +395,8 @@ export async function uploadAndSendOutboundFile({ client, account, to, contextTo
       },
     },
   });
+  assertDeliveryActive(signal);
+  return response;
 }
 
 export function describeOutboundFileRejection(item) {

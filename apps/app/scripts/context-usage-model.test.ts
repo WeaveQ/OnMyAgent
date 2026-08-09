@@ -1,8 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 import {
   DEFAULT_CONTEXT_LIMIT,
   bucketPercentOfTotal,
+  contextUsageExceedsKnownLimit,
+  contextUsageHasKnownLimit,
   contextUsagePercent,
   formatCompactTokens,
   lookupModelContextLimit,
@@ -13,6 +17,7 @@ import {
   buildSessionContextUsage,
   estimateContextUsedFromTokens,
 } from "../src/react-app/capabilities/context-usage/session-context-usage";
+import { ContextUsageIndicator } from "../src/react-app/domains/local-agents/context-usage-indicator";
 
 describe("context usage model", () => {
   test("resolveContextTotal prefers runtime → catalog → table → default", () => {
@@ -46,10 +51,41 @@ describe("context usage model", () => {
     expect(lookupModelContextLimit(null)).toBe(DEFAULT_CONTEXT_LIMIT);
   });
 
-  test("toContextUsageSnapshot raises total when used exceeds total", () => {
-    const snap = toContextUsageSnapshot({ used: 250, total: 100 });
+  test("toContextUsageSnapshot preserves reported total when used exceeds it", () => {
+    const snap = toContextUsageSnapshot({ used: 250, total: 100, totalSource: "runtime" });
     expect(snap?.used).toBe(250);
-    expect(snap?.total).toBe(250);
+    expect(snap?.total).toBe(100);
+    expect(contextUsagePercent(snap?.used ?? 0, snap?.total ?? 0)).toBe(100);
+    expect(snap && contextUsageExceedsKnownLimit(snap)).toBe(true);
+  });
+
+  test("does not claim overflow when the total is only a default estimate", () => {
+    const estimated = toContextUsageSnapshot({
+      used: 250_000,
+      total: DEFAULT_CONTEXT_LIMIT,
+      totalSource: "default",
+    });
+    expect(estimated && contextUsageExceedsKnownLimit(estimated)).toBe(false);
+    expect(estimated && contextUsageHasKnownLimit(estimated)).toBe(false);
+    const html = renderToStaticMarkup(createElement(ContextUsageIndicator, { usage: estimated }));
+    expect(html).toContain('data-percent="unknown"');
+    expect(html).toContain('data-limit-known="false"');
+    expect(html).not.toContain("text-dls-danger");
+    expect(html).not.toContain("250.0K / 200.0K");
+  });
+
+  test("does not turn a below-estimate unknown model into a percentage warning", () => {
+    const estimated = toContextUsageSnapshot({
+      used: 190_000,
+      total: DEFAULT_CONTEXT_LIMIT,
+      totalSource: "default",
+    });
+    const html = renderToStaticMarkup(createElement(ContextUsageIndicator, { usage: estimated }));
+    expect(html).toContain('data-percent="unknown"');
+    expect(html).toContain('data-limit-known="false"');
+    expect(html).not.toContain("text-dls-danger");
+    expect(html).not.toContain("190.0K / 200.0K");
+    expect(html).not.toContain("95.0%");
   });
 
   test("toContextUsageSnapshot keeps valid breakdown", () => {

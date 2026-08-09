@@ -76,23 +76,23 @@ const BUCKET_ALIASES = Object.freeze({
   unknown: "other",
 });
 
+function findModelContextLimit(modelName) {
+  if (!modelName || typeof modelName !== "string") return null;
+  const lower = modelName.toLowerCase();
+  if (MODEL_CONTEXT_LIMITS[lower]) return { limit: MODEL_CONTEXT_LIMITS[lower], key: lower };
+  let bestKey = "";
+  for (const key of Object.keys(MODEL_CONTEXT_LIMITS)) {
+    if (lower.includes(key) && key.length > bestKey.length) bestKey = key;
+  }
+  return bestKey ? { limit: MODEL_CONTEXT_LIMITS[bestKey], key: bestKey } : null;
+}
+
 /**
  * @param {string | null | undefined} modelName
  * @returns {number}
  */
 export function lookupModelContextLimit(modelName) {
-  if (!modelName || typeof modelName !== "string") return DEFAULT_CONTEXT_LIMIT;
-  const lower = modelName.toLowerCase();
-  if (MODEL_CONTEXT_LIMITS[lower]) return MODEL_CONTEXT_LIMITS[lower];
-  let bestKey = "";
-  let bestLimit = DEFAULT_CONTEXT_LIMIT;
-  for (const key of Object.keys(MODEL_CONTEXT_LIMITS)) {
-    if (lower.includes(key) && key.length > bestKey.length) {
-      bestKey = key;
-      bestLimit = MODEL_CONTEXT_LIMITS[key];
-    }
-  }
-  return bestLimit;
+  return findModelContextLimit(modelName)?.limit ?? DEFAULT_CONTEXT_LIMIT;
 }
 
 /**
@@ -120,13 +120,8 @@ export function resolveContextTotal(input = {}) {
       ? input.modelId.trim()
       : null;
   if (modelId) {
-    const table = lookupModelContextLimit(modelId);
-    if (table !== DEFAULT_CONTEXT_LIMIT || MODEL_CONTEXT_LIMITS[modelId.toLowerCase()]) {
-      return { total: table, source: "table" };
-    }
-    // Fuzzy match hit still returns table source when limit differs from pure default
-    // without a model id would be default — with model id, table lookup is the path.
-    return { total: table, source: table === DEFAULT_CONTEXT_LIMIT ? "default" : "table" };
+    const table = findModelContextLimit(modelId);
+    if (table) return { total: table.limit, source: "table" };
   }
   return { total: DEFAULT_CONTEXT_LIMIT, source: "default" };
 }
@@ -207,12 +202,8 @@ export function normalizeContextUsagePayload(payload, modelHint, options = {}) {
     modelId: modelHint,
     catalogContextWindow: options.catalogContextWindow,
   });
-  let total = resolved.total;
-  let totalSource = resolved.source;
-  if (used > total) {
-    total = Math.max(total, used);
-    totalSource = "runtime";
-  }
+  const total = resolved.total;
+  const totalSource = resolved.source;
 
   const rawLabel = typeof body.label === "string" ? body.label.trim() : "";
   const breakdown = normalizeContextUsageBreakdown(

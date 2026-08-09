@@ -159,8 +159,8 @@ test("buildRunSnapshot and buildRunMeta project state fields", () => {
   assert.deepEqual(meta.fileChanges, [{ path: "b.txt" }]);
 });
 
-test("running snapshot compaction preserves cumulative assistant text outside the event tail", () => {
-  const baseState = {
+function runningBaseState() {
+  return {
     status: "running",
     runId: "long-run",
     agentId: "codex",
@@ -185,6 +185,10 @@ test("running snapshot compaction preserves cumulative assistant text outside th
     artifacts: [],
     fileChanges: [],
   };
+}
+
+test("running snapshot compaction preserves cumulative assistant text outside the event tail", () => {
+  const baseState = runningBaseState();
   const events = [
     { type: "user", text: "prompt", at: 1 },
     { type: "assistant_chunk", text: "prefix-", at: 2 },
@@ -236,6 +240,179 @@ test("running snapshot compaction preserves cumulative assistant text outside th
   assert.equal(terminal.conversationMessages.some((message) => message.text === "noise-0"), true);
   assert.equal(terminal.conversationMessages.at(-1)?.type, "finish");
   assert.equal(terminal.conversationMessages.at(-1)?.text, "prefix-already-visible");
+});
+
+test("running snapshot compaction preserves spaces between streamed assistant chunks", () => {
+  const state = runningBaseState();
+  state.events = [
+    { type: "user", text: "prompt", at: 1 },
+    { type: "assistant_chunk", text: "Hello", at: 2 },
+    { type: "assistant_chunk", text: " ", at: 3 },
+    { type: "assistant_chunk", text: "world", at: 4 },
+    ...Array.from({ length: 201 }, (_, index) => ({
+      type: "status",
+      text: `noise-${index}`,
+      at: index + 5,
+    })),
+  ];
+  const compact = buildRunSnapshot(
+    state,
+    { visibleArtifacts: (entries) => entries, runEventsToConversationMessages },
+    { eventLimit: 200, conversationMessageEventLimit: 200 },
+  );
+  assert.equal(
+    compact.conversationMessages.find((message) => message.role === "assistant")?.text,
+    "Hello world",
+  );
+});
+
+test("running snapshot compaction carries ACP tool start metadata into a completion-only tail", () => {
+  const state = runningBaseState();
+  state.status = "running";
+  state.events = [
+    { type: "user", text: "prompt", at: 1 },
+    {
+      type: "acp_tool_call",
+      text: "PowerShell",
+      msgId: "tool-message-long-run",
+      at: 2,
+      update: {
+        tool_call_id: "tool-long-run",
+        title: "PowerShell",
+        kind: "execute",
+        status: "in_progress",
+        rawInput: { command: "Get-ChildItem" },
+      },
+    },
+    ...Array.from({ length: 205 }, (_, index) => ({
+      type: "status",
+      text: `noise-${index}`,
+      at: index + 3,
+    })),
+    {
+      type: "acp_tool_call",
+      text: "",
+      at: 208,
+      update: {
+        tool_call_id: "tool-long-run",
+        status: "completed",
+        rawOutput: "done",
+      },
+    },
+  ];
+
+  const direct = buildRunSnapshot(
+    state,
+    { visibleArtifacts: (value) => value, runEventsToConversationMessages },
+    { eventLimit: 500, conversationMessageEventLimit: 500 },
+  );
+  const directGroup = direct.conversationMessages.find((message) => message.type === "tool_group");
+  assert.equal(directGroup.id, "tool-group-tool-message-long-run");
+
+  const compact = buildRunSnapshot(
+    state,
+    { visibleArtifacts: (value) => value, runEventsToConversationMessages },
+    { eventLimit: 200, conversationMessageEventLimit: 200 },
+  );
+  const group = compact.conversationMessages.find((message) => message.type === "tool_group");
+  assert.ok(group);
+  assert.equal(group.id, directGroup.id);
+  assert.equal(group.msgId, "tool-message-long-run");
+  assert.equal(group.toolCalls.length, 1);
+  assert.equal(group.toolCalls[0].update.title, "PowerShell");
+  assert.equal(group.toolCalls[0].update.rawInput.command, "Get-ChildItem");
+  assert.equal(group.toolCalls[0].update.rawOutput, "done");
+  assert.equal(group.toolCalls[0].status, "completed");
+});
+
+test("running snapshot compaction keeps an active ACP tool after it leaves the raw tail", () => {
+  const state = runningBaseState();
+  state.events = [
+    { type: "user", text: "prompt", at: 1 },
+    {
+      type: "acp_tool_call",
+      text: "PowerShell",
+      msgId: "active-tool-message",
+      at: 2,
+      update: {
+        tool_call_id: "active-tool",
+        title: "PowerShell",
+        kind: "execute",
+        status: "in_progress",
+        rawInput: { command: "Get-ChildItem" },
+      },
+    },
+    ...Array.from({ length: 205 }, (_, index) => ({
+      type: "status",
+      text: `noise-${index}`,
+      at: index + 3,
+    })),
+  ];
+  const compact = buildRunSnapshot(
+    state,
+    { visibleArtifacts: (entries) => entries, runEventsToConversationMessages },
+    { eventLimit: 200, conversationMessageEventLimit: 200 },
+  );
+  const toolGroup = compact.conversationMessages.find((message) => message.type === "tool_group");
+  assert.equal(toolGroup?.id, "tool-group-active-tool-message");
+  assert.equal(toolGroup?.toolCalls?.[0]?.update?.status, "in_progress");
+  assert.equal(toolGroup?.toolCalls?.[0]?.update?.rawInput?.command, "Get-ChildItem");
+});
+
+test("running snapshot compaction bounds active ACP tools outside the raw tail", () => {
+  const state = runningBaseState();
+  state.events = [
+    { type: "user", text: "prompt", at: 1 },
+    ...Array.from({ length: 5_000 }, (_, index) => ({
+      type: "acp_tool_call",
+      text: `Tool ${index}`,
+      at: index + 2,
+      update: {
+        tool_call_id: `active-tool-${index}`,
+        title: `Tool ${index}`,
+        status: "in_progress",
+      },
+    })),
+    ...Array.from({ length: 201 }, (_, index) => ({
+      type: "status",
+      text: `noise-${index}`,
+      at: index + 5_002,
+    })),
+  ];
+  const compact = buildRunSnapshot(
+    state,
+    { visibleArtifacts: (entries) => entries, runEventsToConversationMessages },
+    { eventLimit: 200, conversationMessageEventLimit: 200 },
+  );
+  const toolGroups = compact.conversationMessages.filter((message) => message.type === "tool_group");
+  assert.equal(toolGroups.length, 50);
+  assert.equal(compact.events.length, 200);
+  assert.equal(JSON.stringify(compact).length < 100_000, true);
+});
+
+test("conversation tool identifiers do not merge across user turns", () => {
+  const messages = runEventsToConversationMessages([
+    { type: "user", text: "first", at: 1 },
+    {
+      type: "acp_tool_call",
+      text: "First tool",
+      at: 2,
+      update: { tool_call_id: "tool-1", title: "First tool", status: "completed", rawOutput: "one" },
+    },
+    { type: "finish", text: "first answer", at: 3 },
+    { type: "user", text: "second", at: 4 },
+    {
+      type: "acp_tool_call",
+      text: "Second tool",
+      at: 5,
+      update: { tool_call_id: "tool-1", title: "Second tool", status: "completed", rawOutput: "two" },
+    },
+    { type: "finish", text: "second answer", at: 6 },
+  ]);
+  const toolGroups = messages.filter((message) => message.type === "tool_group");
+  assert.equal(toolGroups.length, 2);
+  assert.equal(toolGroups[0].toolCalls[0].update.title, "First tool");
+  assert.equal(toolGroups[1].toolCalls[0].update.title, "Second tool");
 });
 
 test("buildApprovalRecord uses defaults and clock hooks", () => {
