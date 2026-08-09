@@ -63,7 +63,7 @@ import {
   writeActiveWorkspaceId,
 } from "../session-memory";
 import { scheduleIdleWork } from "./prewarm-schedule";
-import { planBootShellReadyAfterRefresh } from "./boot-shell-ready";
+import { planBootShellReadyAfterRefresh } from "../boot-shell-ready";
 
 type EndpointForWorkspace = (
   workspace: RouteWorkspace | null | undefined,

@@ -6,7 +6,7 @@ import {
   BOOT_STATIC_HOME_DEADLINE_MS,
   planBootShellReadyAfterRefresh,
   shouldNotifyStaticHomeReady,
-} from "../src/react-app/shell/session-route/boot-shell-ready";
+} from "../src/react-app/shell/boot-shell-ready";
 
 describe("planBootShellReadyAfterRefresh", () => {
   test("marks immediately when not waiting for static home", () => {

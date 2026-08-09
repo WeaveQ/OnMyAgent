@@ -25,7 +25,13 @@ import { NoticeBox } from "@/components/ui/notice-box";
 import { ProviderAuthModal } from "../../connections";
 import { SessionSurface } from "../surface/session-surface";
 import { ShareWorkspaceModal } from "../../workspace";
-import { OwDotTicker, type SidePanelItem, useReactRenderWatchdog, useUiStateStore } from "../../../shell";
+import {
+  OwDotTicker,
+  shouldNotifyStaticHomeReady,
+  type SidePanelItem,
+  useReactRenderWatchdog,
+  useUiStateStore,
+} from "../../../shell";
 import {
   isElectronRuntime,
 } from "../../../../app/utils";
@@ -119,7 +125,6 @@ import {
   SessionRailKeepAliveStack,
 } from "./session-page-shell";
 import { AssistantStartupHome } from "./assistant-startup-home";
-import { shouldNotifyStaticHomeReady } from "../../../shell/session-route/boot-shell-ready";
 import {
   BillingPage,
   DevicesPage,
