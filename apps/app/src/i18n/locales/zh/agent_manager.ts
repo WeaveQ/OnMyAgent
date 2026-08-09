@@ -80,7 +80,6 @@ export default {
   "agent_manager.discover_empty": "没有更多可添加的智能体。",
   "agent_manager.discover_collapse": "收起",
   "agent_manager.discover_expand": "展开",
-  "agent_manager.extensions_loading": "正在加载扩展…",
   "agent_manager.metric_pending": "—",
   "agent_manager.custom_agents": "自定义 Agent",
   "agent_manager.custom_agents_add": "添加智能体",

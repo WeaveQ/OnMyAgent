@@ -50,6 +50,13 @@ export {
   loadUpdatesView,
   loadUsageView,
 } from "./lazy-pages";
+
+export {
+  COMMON_SETTINGS_PREFETCH_TABS,
+  prefetchCommonSettingsTabs,
+  prefetchSettingsTab,
+  schedulePrefetchCommonSettingsTabs,
+} from "./settings-tab-prefetch";
 export {
   ChipGroupLabel,
   FieldLabel,

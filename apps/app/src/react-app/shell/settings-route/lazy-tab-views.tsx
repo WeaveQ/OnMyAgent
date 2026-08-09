@@ -105,8 +105,12 @@ export const LazyAuthorizedFoldersPanel = lazy(() =>
   })),
 );
 
-// Prefetch on module evaluate so Settings → 模型 first open skips the chunk wait.
+// Warm AI + common tabs as soon as settings host chrome is evaluated.
+// Full warm for general/system/shortcuts also runs on Settings mount (idle).
 void loadAiSettingsView();
+void loadGeneralSettingsView();
+void loadShortcutsView();
+void loadSystemSettingsView();
 
 export const LazyAiSettingsView = lazy(() =>
   loadAiSettingsView().then((module) => ({
