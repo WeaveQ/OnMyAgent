@@ -66,9 +66,17 @@ describe("session visual and file contracts", () => {
     const filesPage = readWorkspaceFile(
       "apps/app/src/react-app/domains/workspace/workspace-files-page.tsx",
     );
-    const uploadsPanel = readWorkspaceFile(
-      "apps/app/src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
-    );
+    const uploadsPanel = [
+      readWorkspaceFile(
+        "apps/app/src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
+      ),
+      readWorkspaceFile(
+        "apps/app/src/react-app/domains/workspace/use-workspace-files-uploads-panel.ts",
+      ),
+      readWorkspaceFile(
+        "apps/app/src/react-app/domains/workspace/workspace-files-uploads-sections.tsx",
+      ),
+    ].join("\n");
     const browserPanel = readWorkspaceFile(
       "apps/app/src/react-app/domains/workspace/workspace-files-browser-panel.tsx",
     );
@@ -134,7 +142,7 @@ describe("session visual and file contracts", () => {
 
   test("every filename-bearing app surface uses the shared type-aware file icon", () => {
     const expectedUsageByFile = new Map<string, string>([
-      ["apps/app/src/react-app/domains/workspace/workspace-files-uploads-panel.tsx", "name={row.name}"],
+      ["apps/app/src/react-app/domains/workspace/workspace-files-uploads-sections.tsx", "name={row.name}"],
       ["apps/app/src/react-app/domains/workspace/workspace-files-browser-panel.tsx", "name={props.node.name}"],
       ["apps/app/src/react-app/domains/session/surface/code-workspace-side-panel.tsx", "name={props.node.name}"],
       ["apps/app/src/react-app/domains/session/artifacts/artifact-panel.tsx", "name={item.name || item.value}"],

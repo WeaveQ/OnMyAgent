@@ -220,13 +220,22 @@ describe("empty-state Koboyo local illustrations", () => {
   });
 
   test("wave-3 live empty consumers wire shared illustrations", () => {
-    const filesUploads = readFileSync(
-      resolve(
-        root,
-        "apps/app/src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
+    const filesUploads = [
+      readFileSync(
+        resolve(
+          root,
+          "apps/app/src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
+        ),
+        "utf8",
       ),
-      "utf8",
-    );
+      readFileSync(
+        resolve(
+          root,
+          "apps/app/src/react-app/domains/workspace/workspace-files-uploads-sections.tsx",
+        ),
+        "utf8",
+      ),
+    ].join("\n");
     const filesBrowser = readFileSync(
       resolve(
         root,

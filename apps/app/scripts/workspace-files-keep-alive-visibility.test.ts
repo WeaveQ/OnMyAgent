@@ -30,9 +30,10 @@ describe("workspace Files keep-alive visibility", () => {
 
   test("hidden Files panels do not start catalog, migration, or preview work", () => {
     const page = read("src/react-app/domains/workspace/workspace-files-page.tsx");
-    const uploads = read(
-      "src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
-    );
+    const uploads = [
+      read("src/react-app/domains/workspace/workspace-files-uploads-panel.tsx"),
+      read("src/react-app/domains/workspace/use-workspace-files-uploads-panel.ts"),
+    ].join("\n");
     const browser = read(
       "src/react-app/domains/workspace/workspace-files-browser-panel.tsx",
     );
