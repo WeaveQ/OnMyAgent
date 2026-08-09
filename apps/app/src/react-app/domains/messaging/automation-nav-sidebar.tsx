@@ -237,10 +237,10 @@ export function AutomationNavSidebar(props: {
         </div>
 
         {/*
-          Stack under search matches expert list-lane:
-          AgentConversationPanel uses overflow-y-auto + pt-1.5 + gap-1 list.
+          Stack under search: +2px vs expert list-lane (pt-1.5 → pt-2) so
+          全部任务 has a bit more air under the search field.
         */}
-        <div className="min-h-0 flex-1 overflow-y-auto pr-0.5 pt-1.5">
+        <div className="min-h-0 flex-1 overflow-y-auto pr-0.5 pt-2">
           {visibleNavItems.length > 0 ? (
             <nav className="flex flex-col gap-1" aria-label={t("nav.automation")}>
               {visibleNavItems.map((item) => {
