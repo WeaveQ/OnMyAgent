@@ -1198,36 +1198,13 @@ export type SandboxStopResult = ShellCommandResult;
 // Skills / expert marketplace
 // ---------------------------------------------------------------------------
 
-export type ExpertMarketplaceName = "experts" | "my-experts";
-
-export type ExpertPackageInstallInput = {
-  source: "builtin";
-  marketplace: ExpertMarketplaceName;
-  packageName: string;
-};
-
-export type ExpertPackageInstallResult = {
-  ok: true;
-  path: string;
-  packageName: string;
-  marketplace: ExpertMarketplaceName;
-};
-
-export type ExpertPackageUninstallInput = {
-  marketplace: ExpertMarketplaceName;
-  packageName: string;
-};
-
-export type ExpertPackageUninstallResult = {
-  ok: true;
-  path: string;
-  packageName: string;
-  marketplace: ExpertMarketplaceName;
-  /** Package-owned skills removed from the user skills root. */
-  removedSkills: string[];
-  /** False when the package directory was already absent. */
-  removedPackage: boolean;
-};
+export type {
+  ExpertMarketplaceName,
+  ExpertPackageInstallInput,
+  ExpertPackageInstallResult,
+  ExpertPackageUninstallInput,
+  ExpertPackageUninstallResult,
+} from "./desktop-ipc-experts.js";
 
 export type BuiltinSkillPackageInstallInput = {
   source: "builtin";
