@@ -93,26 +93,15 @@ type LoadSurfaceProps = {
 function BootBrandMark() {
   return (
     <div className={surfaceClass.brandMark} aria-hidden="true">
-      <svg
-        width="36"
-        height="36"
-        viewBox="0 0 36 36"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          d="M6 21.5C6 17.9101 8.91015 15 12.5 15C15.2896 15 17.669 16.7574 18.589 19.228"
-          stroke="#005DFF"
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
-        <path
-          d="M30 14.5C30 18.0899 27.0899 21 23.5 21C20.7104 21 18.3309 19.2426 17.411 16.772"
-          stroke="#005DFF"
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
-      </svg>
+      {/* Compact monogram tile — avoid decoding the large product logo PNG. */}
+      <img
+        src="/onmyagent-boot-mark.png"
+        width={40}
+        height={40}
+        alt=""
+        draggable={false}
+        className="size-10 object-contain"
+      />
     </div>
   );
 }
