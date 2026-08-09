@@ -43,6 +43,31 @@ git diff --check
 - **Personal Local Agent** = 桌面辅轨（`domains/local-agents`），不是第二套主引擎。
 - **禁止**交叉写对方 store / archive。细则：根 AGENTS「双运行时主辅」+ `docs/Architecture.md` → Dual Runtime Boundary。
 
+## Experts / Session 不变量
+
+改 `domains/session`、`shell/session-route`、专家 draft/origin 时必须遵守。违反即回归。契约入口：`apps/app/scripts/expert-session-invariants.test.ts`（并引用下列专项测试）。
+
+1. **空壳禁止 startRun**  
+   仅创建空专家会话壳（`onCreateFreshSessionForAgent` 等）**不得** `startRun`。只有首条真实 prompt / 已有 run 路径才能标 busy。  
+   禁止：无消息却 thinking / 永久「准备中」。  
+   测试：`expert-preparing-jank.test.ts` · `expert-session-invariants.test.ts`
+
+2. **Origin 水合权威**  
+   专家列表 / 空落地页必须以 origin hydration 完成（或 degraded）为准；水合中不得假装「无专家会话」。workspace 错误优先于 degraded 空态。自动重试有界，耗尽后停止假 loading。  
+   测试：`expert-origin-hydration.test.ts` · `expert-session-invariants.test.ts`
+
+3. **Bound draft 事务消费**  
+   打开同专家真实 session 时消费对应 draft，禁止跨专家误消费、禁止已绑定 draft 幽灵新会话 tab、禁止重复导航。  
+   测试：`expert-draft-session.test.ts` · `expert-session-invariants.test.ts`
+
+4. **首发冷路径可见**  
+   新建 session 发送：隔离目录 / create 期间须有本地乐观用户气泡；`seedOptimisticSessionUserMessage` 必须在 `activateCreatedSessionRoute` 之前；marketplace install 可与 create 重叠，空壳 create **不得** await 装包挡导航。busy 时 composer 显示 Stop 而非蓝发送。  
+   测试：`expert-preparing-jank.test.ts` · `expert-session-invariants.test.ts`
+
+5. **Snapshot / SSE 代际隔离**  
+   切会话、重连、停流时取消过期 subscriber / 用 generation 丢弃过期事件，禁止串台写错 session 的 transcript 或状态。  
+   测试：`expert-session-invariants.test.ts`（源码契约）+ session-sync / activity 相关单测
+
 ## 本包边界速记
 
 - `shell/**` 只 import `domains/<domain>` 一级 barrel，不深链子路径（`pnpm check:boundaries`）。
