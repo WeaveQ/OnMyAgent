@@ -23,27 +23,27 @@
 
 Merged PR history (~#170–#255) shows the same themes reopened repeatedly:
 
-1. **Expert** create / CTA / search / delete / multi-tab / virtualization  
-2. **Multi-session + cold start + switch perf** (same story, different titles)  
-3. **OfficeCLI / managed CLI / recommended shelf** (placement + copy thrash)  
-4. **Skills** load paths / marketplace / bad frontmatter  
-5. **UI chrome** (rail / density / tray) trailing every feature  
+1. **Expert** create / CTA / search / delete / multi-tab / virtualization
+2. **Multi-session + cold start + switch perf** (same story, different titles)
+3. **OfficeCLI / managed CLI / recommended shelf** (placement + copy thrash)
+4. **Skills** load paths / marketplace / bad frontmatter
+5. **UI chrome** (rail / density / tray) trailing every feature
 
 Goal: **one SoT per topic + engineering alignment + light process**, not more polish PR spam.
 
 **Out of scope for this plan (defer):**
 
-- Chrome freeze announcement (process-only; optional later)  
-- Linux packaging removal (builder/matrix/feed) — separate PR  
-- New Files / Automation / Computer Use features  
+- Chrome freeze announcement (process-only; optional later)
+- Linux packaging removal (builder/matrix/feed) — separate PR
+- New Files / Automation / Computer Use features
 
 **In scope:**
 
-- Doc hierarchy fix + platform/skills hard constraints in Architecture  
-- Expert / multi-session lifecycle contract → code + tests  
-- Cold-path budget + thrash bans  
-- Capability shelf matrix → config-driven UI  
-- Skills write/scan SoT + observability  
+- Doc hierarchy fix + platform/skills hard constraints in Architecture
+- Expert / multi-session lifecycle contract → code + tests
+- Cold-path budget + thrash bans
+- Capability shelf matrix → config-driven UI
+- Skills write/scan SoT + observability
 
 ---
 
@@ -85,7 +85,7 @@ Goal: **one SoT per topic + engineering alignment + light process**, not more po
 | B4 | Switch + transcript virtualization boundaries | No fight with recovery |
 | B5 | 3–5 contract tests (E2E optional) | CI green |
 
-**Code hotspots (indicative):**  
+**Code hotspots (indicative):**
 `domains/session/*`, expert marketplace/host, hard-delete helpers, transcript virtualization, session recovery.
 
 ### Phase C — Cold start / switch budget (engineering)
@@ -169,11 +169,11 @@ Week 3 buffer
 
 ## 6. Checklist for every convergence PR
 
-- [ ] Touches the correct SoT file(s) (Architecture / React ARCHITECTURE / design)  
-- [ ] No changelog bullets dumped into Architecture  
-- [ ] Tests for contract changes  
-- [ ] `git diff --check`; relevant package tests  
-- [ ] PR description links this plan section (B/C/D)  
+- [ ] Touches the correct SoT file(s) (Architecture / React ARCHITECTURE / design)
+- [ ] No changelog bullets dumped into Architecture
+- [ ] Tests for contract changes
+- [ ] `git diff --check`; relevant package tests
+- [ ] PR description links this plan section (B/C/D)
 
 ---
 
