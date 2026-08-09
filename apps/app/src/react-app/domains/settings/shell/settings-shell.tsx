@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/sidebar";
 import { t } from "../../../../i18n";
 import type { SettingsTab } from "../../../../app/types";
+import { prefetchSettingsTab } from "../settings-tab-prefetch";
 import {
   SettingsPage,
   SettingsSidebar,
@@ -260,6 +261,8 @@ function SettingsSectionMenu(
                 <DropdownMenuItem
                   key={tab}
                   onClick={() => props.onSelectTab(tab)}
+                  onPointerEnter={() => prefetchSettingsTab(tab)}
+                  onFocus={() => prefetchSettingsTab(tab)}
                   className={
                     props.activeTab === tab
                       ? "bg-foreground/10 text-accent-foreground"

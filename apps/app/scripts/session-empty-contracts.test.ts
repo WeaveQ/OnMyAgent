@@ -92,11 +92,19 @@ describe("session empty / draft / files / composer contracts", () => {
       "src/react-app/domains/local-agents/agent-management/agent-management-page.tsx",
     );
     expect(page).toContain("const snapshotPending = loading && !snapshot");
-    // First paint: illustrated page loading (not inventory-empty copy).
+    // First paint: card-grid skeleton loading (not inventory-empty copy).
     expect(page).toMatch(
       /\{snapshotPending \? \([\s\S]*?AgentManagementPageLoading[\s\S]*?\) : managedAgents\.length === 0 \?[\s\S]*?agent_manager\.fleet_empty/,
     );
     expect(page).toContain("agent_manager.page_loading");
+    const fleetSkeleton = read(
+      "src/react-app/domains/local-agents/agent-management/agent-management-fleet-skeleton.tsx",
+    );
+    expect(fleetSkeleton).toContain("AgentManagementFleetSkeleton");
+    expect(fleetSkeleton).toContain("AgentManagementCardSkeleton");
+    // No full-page empty-state robot mark on the loading path.
+    expect(fleetSkeleton).not.toContain("AGENT_MANAGEMENT_LOADING_ASSET");
+    expect(fleetSkeleton).not.toContain("EmptyStateIllustration");
     // Discover body is deferred until snapshot is ready (no empty copy while loading).
     expect(page).toMatch(
       /!snapshotPending \? \([\s\S]*?discoverAgents\.length === 0 \?[\s\S]*?agent_manager\.discover_empty/,
@@ -104,11 +112,10 @@ describe("session empty / draft / files / composer contracts", () => {
     // Models/providers tab removed from management chrome.
     expect(page).not.toContain("agent_manager.tab_providers");
     expect(page).not.toContain("AgentManagementProviderPanel");
-
-    const extensions = read("src/react-app/domains/local-agents/extension-list-panel.tsx");
-    expect(extensions).toMatch(
-      /busy && extensions\.length === 0 \?[\s\S]*?common\.loading[\s\S]*?\) : extensions\.length === 0 \?[\s\S]*?extensions_empty/,
-    );
+    // Extension strip removed from agent management UI (runtime APIs may remain).
+    expect(page).not.toContain("ExtensionListPanel");
+    expect(page).not.toContain("AgentManagementExtensionSkeleton");
+    expect(page).not.toContain("agent_manager.extensions_loading");
   });
 
   test("session chrome has no text-[Npx] arbitrary font sizes", () => {
