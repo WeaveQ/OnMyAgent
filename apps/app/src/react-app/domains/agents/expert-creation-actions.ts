@@ -40,7 +40,10 @@ import {
 } from "./expert-creation-save-model";
 import { deleteExpertCreationEphemeralSession } from "./expert-creation-ephemeral-sessions";
 import type { ExpertCreationComposerProps } from "./expert-creation-conversation";
-import { shouldFlushComposerOnExpertCreate } from "./expert-session-lifecycle";
+export {
+  beginExpertCreateSaveAttempt,
+  consumeExpertCreateComposerFlush,
+} from "./expert-creation-flush";
 
 async function encodeFileAsBase64(file: File): Promise<string> {
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -91,26 +94,6 @@ export type ExpertCreationControllerInput = {
   }) => void;
   onCreatedAgent: (agent: PendingAgentContext) => void;
 };
-
-/** Module-level create-flush latch for the current save attempt. */
-let expertCreateComposerFlushDone = false;
-
-/** Call when opening a create-save path so flush can run at most once. */
-export function beginExpertCreateSaveAttempt(): void {
-  expertCreateComposerFlushDone = false;
-}
-
-/**
- * Returns true the first time per save attempt (composer shell flush).
- * Subsequent calls in the same attempt return false.
- */
-export function consumeExpertCreateComposerFlush(): boolean {
-  if (!shouldFlushComposerOnExpertCreate(expertCreateComposerFlushDone)) {
-    return false;
-  }
-  expertCreateComposerFlushDone = true;
-  return true;
-}
 
 export async function saveExpertCreation(
   input: SaveExpertCreationInput,
