@@ -105,7 +105,7 @@ function RailBrandMark(props: { onClick: () => void }) {
       )}
     >
       <img
-        src={resolvePublicAssetUrl("/onmyagent-logo.png")}
+        src={resolvePublicAssetUrl("/onmyagent-logo.webp")}
         alt=""
         width={24}
         height={24}

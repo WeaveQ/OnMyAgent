@@ -9,6 +9,7 @@ import {
 import type { McpDirectoryInfo } from "@/app/constants";
 import { resolveExtensionIconSrc } from "@/react-app/design-system/extension-icon-src";
 import { ProviderIcon } from "@/react-app/design-system/provider-icon";
+import { resolveSimpleIconUrl } from "@/react-app/design-system/simple-icon";
 import { cn } from "@/lib/utils";
 
 /**
@@ -78,7 +79,7 @@ export function extensionIcon(entry: McpDirectoryInfo, size = 16) {
   if (entry.iconSlug) {
     return (
       <img
-        src={`https://cdn.simpleicons.org/${entry.iconSlug}`}
+        src={resolveSimpleIconUrl(entry.iconSlug)}
         alt=""
         width={size}
         height={size}
