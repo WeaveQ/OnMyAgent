@@ -1198,20 +1198,13 @@ export type SandboxStopResult = ShellCommandResult;
 // Skills / expert marketplace
 // ---------------------------------------------------------------------------
 
-export type ExpertMarketplaceName = "experts" | "my-experts";
-
-export type ExpertPackageInstallInput = {
-  source: "builtin";
-  marketplace: ExpertMarketplaceName;
-  packageName: string;
-};
-
-export type ExpertPackageInstallResult = {
-  ok: true;
-  path: string;
-  packageName: string;
-  marketplace: ExpertMarketplaceName;
-};
+export type {
+  ExpertMarketplaceName,
+  ExpertPackageInstallInput,
+  ExpertPackageInstallResult,
+  ExpertPackageUninstallInput,
+  ExpertPackageUninstallResult,
+} from "./desktop-ipc-experts.js";
 
 export type BuiltinSkillPackageInstallInput = {
   source: "builtin";

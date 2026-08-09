@@ -121,3 +121,12 @@ export {
   isCreationExpertEditable,
   updateExpertRecordFromDraft,
 } from "./expert-creation-save-model";
+export {
+  EXPERT_PACKAGES_CHANGED_EVENT,
+  canHardDeleteExpert,
+  clearExpertLocalSessionBindings,
+  notifyExpertPackagesChanged,
+  packageNameCandidatesForAgent,
+  removeExpertFromRegistry,
+  uninstallExpertPackagesForAgent,
+} from "./expert-hard-delete";

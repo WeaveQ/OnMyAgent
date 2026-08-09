@@ -63,6 +63,7 @@ import {
   useExpertSessionDelete,
   type ExpertGroupDeleteTarget,
 } from "./use-expert-session-delete";
+import { useExpertHardDeleteUi } from "./use-expert-hard-delete-ui";
 import {
   AgentConversationPanel,
   AgentSessionTabs,
@@ -955,6 +956,7 @@ export function ExpertPage(props: ExpertPageProps) {
     activeConversationAgentId,
     currentAgentSessions,
     onDeleteSession: props.onDeleteSession,
+    registry,
   });
 
   const {
@@ -983,17 +985,11 @@ export function ExpertPage(props: ExpertPageProps) {
     requireGroupSessionIds: false,
   });
 
-  const openDeleteExpertModal = useCallback(
-    (target: { agentId: string; name: string; sessionIds: string[] }) => {
-      openDeleteGroupModal({
-        kind: "expert",
-        agentId: target.agentId.trim(),
-        name: target.name.trim(),
-        sessionIds: target.sessionIds,
-      });
-    },
-    [openDeleteGroupModal],
-  );
+  const { openDeleteExpertModal, deletableExpertIds } = useExpertHardDeleteUi({
+    registry,
+    conversationGroups,
+    openDeleteGroupModal,
+  });
 
   const {
     title: expertDeleteTitle,
@@ -1272,6 +1268,7 @@ export function ExpertPage(props: ExpertPageProps) {
                 }
                 onOpenAgents={openExpertMarket}
                 onCreateExpert={openExpertCreation} onEditExpert={handleEditExpert} editableExpertIds={editableExpertIds}
+                deletableExpertIds={deletableExpertIds}
                 onOpenAgentStarter={handleOpenExpertStarter}
                 onCreateTask={handleCreateCurrentAgentSession}
                 onOpenSession={handleOpenExpertFromSidebar}
