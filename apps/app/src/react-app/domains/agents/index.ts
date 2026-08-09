@@ -130,3 +130,11 @@ export {
   removeExpertFromRegistry,
   uninstallExpertPackagesForAgent,
 } from "./expert-hard-delete";
+export {
+  EXPERT_SESSION_LIFECYCLE_RULES,
+  isDraftSessionId,
+  remainingExpertSessionIdsAfterDelete,
+  shouldApplyExpertSelection,
+  shouldClearLocalBindingOnDelete,
+  shouldFlushComposerOnExpertCreate,
+} from "./expert-session-lifecycle";

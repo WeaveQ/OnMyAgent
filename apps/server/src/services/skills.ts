@@ -18,6 +18,37 @@ import {
 
 type SkillScope = SkillItem["scope"];
 
+/** Observability: skills skipped while listing (bad YAML / validation). */
+let skippedSkillCount = 0;
+const skippedSkillNames: string[] = [];
+
+export function getSkippedSkillStats(): {
+  count: number;
+  names: readonly string[];
+} {
+  return { count: skippedSkillCount, names: [...skippedSkillNames] };
+}
+
+export function resetSkippedSkillStats(): void {
+  skippedSkillCount = 0;
+  skippedSkillNames.length = 0;
+}
+
+function recordSkippedSkill(name: string, reason: string): void {
+  skippedSkillCount += 1;
+  if (skippedSkillNames.length < 50) {
+    skippedSkillNames.push(name);
+  }
+  if (typeof console !== "undefined" && typeof console.warn === "function") {
+    console.warn(`[skills] skipped ${name}: ${reason}`);
+  }
+}
+
+/** Write target for new installs (profile tree, or OPENCODE_GLOBAL_SKILLS_DIR). */
+export function skillsInstallWriteRoot(): string {
+  return globalSkillsDir();
+}
+
 const extractTriggerFromBody = (body: string) => {
   const lines = body.split(/\r?\n/);
   let inWhenSection = false;
@@ -55,6 +86,7 @@ async function parseSkillEntry(
     content = await readFile(skillPath, "utf8");
   } catch {
     // Unreadable skill file — skip so one bad entry cannot blank the whole list.
+    recordSkippedSkill(entryName, "unreadable");
     return null;
   }
 
@@ -64,6 +96,7 @@ async function parseSkillEntry(
     ({ data, body } = parseFrontmatter(content));
   } catch {
     // Invalid YAML frontmatter (e.g. unquoted "TL;DR: ...") — skip this skill.
+    recordSkippedSkill(entryName, "invalid_frontmatter");
     return null;
   }
 
@@ -79,9 +112,13 @@ async function parseSkillEntry(
     validateSkillName(name);
     validateDescription(description);
   } catch {
+    recordSkippedSkill(entryName, "validation");
     return null;
   }
-  if (name !== entryName) return null;
+  if (name !== entryName) {
+    recordSkippedSkill(entryName, "name_mismatch");
+    return null;
+  }
   const item: SkillItem = {
     name,
     description,

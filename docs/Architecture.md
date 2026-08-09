@@ -83,11 +83,32 @@ packages/
 | --- | --- |
 | OpenCode 主轨 vs Personal 辅轨 | 下文 **Dual Runtime Boundary** |
 | Session goal 生命周期 | 下文 **Session Goal Lifecycle** + `domains/session` 代码/测试 |
-| Expert 创建 / 选中 / 删除 / 多 tab | `domains/session` + expert marketplace；实现细节与状态归属见 [`../apps/app/src/react-app/ARCHITECTURE.md`](../apps/app/src/react-app/ARCHITECTURE.md) |
-| Shell 冷启动 / prewarm / title cache | 同上 **Shell load / boot**；禁止 cold path 与 first `listSessions`/snapshot 竞态 |
-| Skills 列表 / 安装写路径 | 上文 Product phase 硬约束；server `listSkills` + profile skills dir |
-| OfficeCLI / managed CLI 发布 | [`officecli-oss-release.md`](./officecli-oss-release.md)；UI 货架位改动须同步产品矩阵（settings / plugins / composer），勿只改一处文案 |
+| Expert 创建 / 选中 / 删除 / 多 tab | 下表 **Expert lifecycle hard rules** + `expert-session-lifecycle.ts` / `expert-hard-delete.ts`；UI 域见 [`../apps/app/src/react-app/ARCHITECTURE.md`](../apps/app/src/react-app/ARCHITECTURE.md) |
+| Shell 冷启动 / prewarm / title cache | `cold-path-budget.ts` + **Shell load / boot** in React ARCHITECTURE；prewarm 仅 idle |
+| Skills 列表 / 安装写路径 | 上文 Product phase；server `skillsInstallWriteRoot()` / `listSkills` skip stats |
+| Capability shelf | [`design/2026-08-09-capability-shelf.md`](./design/2026-08-09-capability-shelf.md) + `capability-shelf.ts` |
+| OfficeCLI / managed CLI 发布 | [`officecli-oss-release.md`](./officecli-oss-release.md)；货架位改动须改 shelf registry |
 | Files 三来源 | [`design/files-module-product-spec.md`](./design/files-module-product-spec.md) |
+
+### Expert lifecycle hard rules
+
+| Action | Rule | Code |
+| --- | --- | --- |
+| **hard_delete** | Clears local expert session tags + agent bindings for real session ids | `clearExpertLocalSessionBindings` + `shouldClearLocalBindingOnDelete` |
+| **hard_delete** | Never clears `draft:*` sessions | `isDraftSessionId` |
+| **hard_delete** | Refuses product builtins (creation coach) | `canHardDeleteExpert` |
+| **hard_delete** | Remaining expert session id set must not retain deleted ids (no ghost tabs) | `remainingExpertSessionIdsAfterDelete` |
+| **create** | Composer flush at most once per save path | `shouldFlushComposerOnExpertCreate` |
+| **select** | No-op when expert id unchanged | `shouldApplyExpertSelection` |
+
+### Cold-path budget (numeric)
+
+| Metric | Budget | Code |
+| --- | --- | --- |
+| listSessions on cold enter | ≤ 1 | `COLD_PATH_BUDGET.maxListSessionsOnColdEnter` |
+| titleSnapshot on empty selected chip | 0 (thrash ban) | `isTitleSnapshotAllowedOnColdEnter` |
+| sync inventory prewarm on cold enter | 0 (idle only) | `scheduleIdleWork` + `isSyncPrewarmAllowedOnColdEnter` |
+| prewarm idle timeout / fallback | 8000 / 4000 ms | `COLD_PATH_BUDGET.prewarmIdleTimeoutMs` / `prewarmFallbackDelayMs` |
 
 ## React App Domains
 

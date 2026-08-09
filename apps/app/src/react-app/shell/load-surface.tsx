@@ -27,15 +27,19 @@ const surfaceClass = {
   fullVisible: "pointer-events-auto opacity-100",
   fullFading: "pointer-events-none opacity-0",
   inset: "flex min-h-[12rem] w-full items-center justify-center py-10",
+  // Hero monogram + airy stack (not a cramped loading card).
   content:
-    "flex w-full max-w-[22rem] flex-col items-center gap-6 px-8 text-center",
+    "flex w-full max-w-[24rem] flex-col items-center gap-11 px-8 text-center",
   contentInset: "flex flex-col items-center",
-  brandMark:
-    "flex size-16 items-center justify-center rounded-2xl border border-dls-border bg-dls-surface-solid shadow-[0_8px_28px_rgba(15,23,42,0.06)] dark:shadow-[0_8px_28px_rgba(0,0,0,0.35)]",
-  brandTitle: "text-sm font-semibold tracking-tight text-dls-text",
-  message: "text-sm leading-6 text-dls-secondary",
+  brandMark: "flex size-[7.5rem] items-center justify-center bg-transparent",
+  brandTitle:
+    "text-[1.0625rem] font-semibold tracking-tight text-dls-text",
+  message: "text-[0.8125rem] leading-5 tracking-wide text-dls-secondary/90",
   messageInset: "mt-3 text-xs leading-5 text-dls-secondary",
-  statusRow: "flex flex-col items-center gap-3",
+  statusRow: "flex flex-col items-center gap-5",
+  progressRow: "flex flex-col items-center gap-3.5",
+  bootDots: "flex h-3 items-center gap-2",
+  bootDot: "ow-dot-ticker size-[0.3125rem] rounded-full bg-dls-secondary/55",
 };
 
 /** Solid boot fill — independent of vibrancy tokens. */
@@ -93,15 +97,26 @@ type LoadSurfaceProps = {
 function BootBrandMark() {
   return (
     <div className={surfaceClass.brandMark} aria-hidden="true">
-      {/* Compact monogram tile — avoid decoding the large product logo PNG. */}
+      {/* Compact monogram — avoid decoding the large product logo PNG. */}
       <img
         src="/onmyagent-boot-mark.png"
-        width={40}
-        height={40}
+        width={112}
+        height={112}
         alt=""
         draggable={false}
-        className="size-10 object-contain"
+        className="size-[6.5rem] object-contain"
       />
+    </div>
+  );
+}
+
+/** Quiet three-dot pulse — calmer than the 3×3 grid on a full-screen splash. */
+function BootProgressDots() {
+  return (
+    <div className={surfaceClass.bootDots} aria-hidden="true">
+      <span className={surfaceClass.bootDot} style={{ animationDelay: "0s" }} />
+      <span className={surfaceClass.bootDot} style={{ animationDelay: "0.2s" }} />
+      <span className={surfaceClass.bootDot} style={{ animationDelay: "0.4s" }} />
     </div>
   );
 }
@@ -135,8 +150,10 @@ export function LoadSurface(props: LoadSurfaceProps) {
           <BootBrandMark />
           <div className={surfaceClass.statusRow}>
             <div className={surfaceClass.brandTitle}>{APP_NAME}</div>
-            <OwDotTicker size={size} className="text-dls-secondary" />
-            <div className={surfaceClass.message}>{message}</div>
+            <div className={surfaceClass.progressRow}>
+              <BootProgressDots />
+              <div className={surfaceClass.message}>{message}</div>
+            </div>
           </div>
           {props.children}
         </div>
