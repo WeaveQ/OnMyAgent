@@ -122,13 +122,14 @@ export default {
     "按需安裝 OfficeCLI。檔案保存在使用者目錄，不會增加桌面端安裝包體積；安裝完成後，新的普通會話和專家會話都可以直接使用。",
   "plugins.officecli_title": "OfficeCLI",
   "plugins.officecli_description":
-    "透過對話或 Agent 建立、分析、校對和修改 Office 文件（.docx、.xlsx、.pptx）",
+    "透過對話建立、分析、校對和修改 Word / Excel / PPT。安裝後辦公文件優先用它；與內建「文件 / 表格」並存不衝突，純 PDF 等仍走內建能力。",
   "plugins.officecli_prompt_1": "根據這份會議紀要生成一份 Word 週報，並套用清晰標題結構。",
   "plugins.officecli_prompt_2": "打開這份 Excel，彙總本月銷售額並標出異常列。",
   "plugins.officecli_prompt_3": "把大綱做成 8 頁 PPT，每頁有標題、要點和備註。",
   "plugins.officecli_checking": "正在檢查 OfficeCLI 狀態",
   "plugins.officecli_not_installed_hint": "尚未安裝，點擊安裝即可啟用。",
-  "plugins.officecli_installed_hint": "已安裝版本 {version}，新的會話可直接使用。",
+  "plugins.officecli_installed_hint":
+    "已安裝版本 {version}。新會話可直接使用；辦公文件會優先走 OfficeCLI，內建文件/表格作後備。",
   "plugins.officecli_update_hint": "目前版本 {installed}，可更新至 {latest}。",
   "plugins.officecli_install": "安裝",
   "plugins.officecli_update": "更新",
