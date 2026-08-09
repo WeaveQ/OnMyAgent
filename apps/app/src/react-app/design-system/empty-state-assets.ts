@@ -44,10 +44,19 @@ export const ARCHIVE_EMPTY_STATE_ASSET =
 export const COMPANY_EMPTY_STATE_ASSET =
   "/illustrations/koboyo/office-building.svg";
 
-/** Shared class for empty-state Koboyo marks: height-driven, not square-forced. */
+/**
+ * Shared class for empty-state Koboyo marks.
+ * Painted via background + CSS mask (see EmptyStateIllustration) so dark mode
+ * inherits dls-secondary instead of black currentColor from external <img>.
+ * Explicit width keeps the mask box from collapsing (no SVG intrinsic size).
+ */
 export const EMPTY_STATE_ILLUSTRATION_CLASS =
-  "mb-5 h-[min(11rem,40vw)] w-auto max-w-[min(14rem,70vw)] select-none object-contain text-dls-secondary";
+  "mb-5 inline-block h-[min(11rem,40vw)] w-[min(14rem,70vw)] max-w-full shrink-0 select-none bg-dls-secondary " +
+  "[mask-image:var(--empty-illust)] [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center] " +
+  "[-webkit-mask-image:var(--empty-illust)] [-webkit-mask-size:contain] [-webkit-mask-repeat:no-repeat] [-webkit-mask-position:center]";
 
 /** Smaller mark for compact EmptyStateBox columns. */
 export const EMPTY_STATE_ILLUSTRATION_COMPACT_CLASS =
-  "mx-auto mb-3 h-16 w-auto max-w-[7rem] select-none object-contain text-dls-secondary";
+  "mx-auto mb-3 inline-block h-16 w-[7rem] max-w-full shrink-0 select-none bg-dls-secondary " +
+  "[mask-image:var(--empty-illust)] [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center] " +
+  "[-webkit-mask-image:var(--empty-illust)] [-webkit-mask-size:contain] [-webkit-mask-repeat:no-repeat] [-webkit-mask-position:center]";

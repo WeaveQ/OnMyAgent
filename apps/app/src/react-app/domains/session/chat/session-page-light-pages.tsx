@@ -3,10 +3,8 @@ import { FileText, PanelRight } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
-import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import {
   ARTIFACTS_EMPTY_STATE_ASSET,
-  EMPTY_STATE_ILLUSTRATION_CLASS,
   PROJECTS_PLACEHOLDER_ASSET,
 } from "@/react-app/design-system/empty-state-assets";
 import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
@@ -19,12 +17,7 @@ export function ProjectsComingSoonPage() {
   return (
     <div className="flex h-full items-center justify-center bg-dls-background px-6 text-center">
       <div className="flex max-w-sm flex-col items-center gap-6">
-        <img
-          src={resolvePublicAssetUrl(PROJECTS_PLACEHOLDER_ASSET)}
-          alt=""
-          className={EMPTY_STATE_ILLUSTRATION_CLASS}
-          draggable={false}
-        />
+        <EmptyStateIllustration src={PROJECTS_PLACEHOLDER_ASSET} />
         <div className="space-y-1.5">
           <div className={lightPagesTextClass.panelTitle}>
             {t("session.projects_coming_soon_title")}

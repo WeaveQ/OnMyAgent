@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { useMemo, type CSSProperties } from "react";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { cn } from "@/lib/utils";
 import {
@@ -15,19 +16,34 @@ type EmptyStateIllustrationProps = {
 
 /**
  * Local Koboyo (or other) monochrome illustration for empty surfaces.
- * Height-driven so non-square viewBoxes do not get squashed into a square.
+ *
+ * External SVG `<img>` ignores CSS `color` / `currentColor`, so marks paint
+ * black and vanish on dark backgrounds. We paint with `background-color`
+ * (theme token) and mask the SVG shape so light/dark both stay legible.
+ *
+ * Size classes stay height-driven with an explicit max width so the mask box
+ * does not collapse (unlike img intrinsic sizing).
  */
 export function EmptyStateIllustration(props: EmptyStateIllustrationProps) {
   const sizeClass =
     props.size === "compact"
       ? EMPTY_STATE_ILLUSTRATION_COMPACT_CLASS
       : EMPTY_STATE_ILLUSTRATION_CLASS;
+  const url = resolvePublicAssetUrl(props.src);
+  const style = useMemo(
+    (): CSSProperties =>
+      ({
+        ["--empty-illust" as string]: `url(${JSON.stringify(url)})`,
+      }),
+    [url],
+  );
+
   return (
-    <img
-      src={resolvePublicAssetUrl(props.src)}
-      alt=""
+    <span
+      role="img"
+      aria-hidden
       className={cn(sizeClass, props.className)}
-      draggable={false}
+      style={style}
     />
   );
 }

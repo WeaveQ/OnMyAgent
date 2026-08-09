@@ -1,11 +1,11 @@
+/** @jsxImportSource react */
 import { StatusBadge } from "@/components/ui/status-badge";
 import { t } from "@/i18n";
-import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import {
   DEVICES_EMPTY_STATE_ASSET,
-  EMPTY_STATE_ILLUSTRATION_CLASS,
   SCHEDULED_TASKS_PREVIEW_ASSET,
 } from "@/react-app/design-system/empty-state-assets";
+import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 
 type FeaturePreviewPlaceholderProps = {
   kind: "scheduledTasks" | "devices";
@@ -15,26 +15,22 @@ function ScheduledTasksIllustration() {
   return (
     <div className="relative flex h-48 w-full max-w-[360px] items-center justify-center overflow-hidden rounded-xl bg-transparent">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,var(--dls-hover)_0%,transparent_65%)]" />
-      <img
-        src={resolvePublicAssetUrl(SCHEDULED_TASKS_PREVIEW_ASSET)}
-        alt=""
-        className={`${EMPTY_STATE_ILLUSTRATION_CLASS} relative mb-0`}
-        draggable={false}
+      <EmptyStateIllustration
+        src={SCHEDULED_TASKS_PREVIEW_ASSET}
+        className="relative mb-0"
       />
     </div>
   );
 }
 
-/** Vendored Koboyo desktop illustration — height-driven, not square-forced. */
+/** Vendored Koboyo desktop illustration — theme-aware mask paint. */
 function DevicesIllustration() {
   return (
     <div className="relative flex h-48 w-full max-w-[360px] items-center justify-center overflow-hidden rounded-xl bg-transparent">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,var(--dls-hover)_0%,transparent_65%)]" />
-      <img
-        src={resolvePublicAssetUrl(DEVICES_EMPTY_STATE_ASSET)}
-        alt=""
-        className={`${EMPTY_STATE_ILLUSTRATION_CLASS} relative mb-0`}
-        draggable={false}
+      <EmptyStateIllustration
+        src={DEVICES_EMPTY_STATE_ASSET}
+        className="relative mb-0"
       />
     </div>
   );

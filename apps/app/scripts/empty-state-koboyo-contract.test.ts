@@ -63,16 +63,30 @@ describe("empty-state Koboyo local illustrations", () => {
     }
   });
 
-  test("layout classes are height-driven (not square-forced)", () => {
+  test("layout classes are height-driven mask paints (theme-aware dark mode)", () => {
     for (const cls of [
       EMPTY_STATE_ILLUSTRATION_CLASS,
       EMPTY_STATE_ILLUSTRATION_COMPACT_CLASS,
     ]) {
       expect(cls).toContain("h-");
-      expect(cls).toContain("w-auto");
+      // Explicit width + mask (external <img> cannot recolor currentColor).
+      expect(cls).toContain("bg-dls-secondary");
+      expect(cls).toContain("mask-image");
+      expect(cls).toContain("-webkit-mask-image");
       expect(cls).not.toContain("object-cover");
       expect(cls).not.toMatch(/\bsize-\[/);
     }
+    const illustration = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/design-system/empty-state-illustration.tsx",
+      ),
+      "utf8",
+    );
+    expect(illustration).toContain("--empty-illust");
+    expect(illustration).toContain("EMPTY_STATE_ILLUSTRATION_CLASS");
+    // Must not paint via external <img> (black currentColor on dark).
+    expect(illustration).not.toMatch(/return \(\s*<img/);
   });
 
   test("obsolete empty-states raster directory is gone or empty of product refs", () => {
@@ -169,6 +183,40 @@ describe("empty-state Koboyo local illustrations", () => {
     expect(skills).toContain("EmptyStateIllustration");
     expect(preview).toContain("SCHEDULED_TASKS_PREVIEW_ASSET");
     expect(preview).toContain("DEVICES_EMPTY_STATE_ASSET");
+    expect(preview).toContain("EmptyStateIllustration");
+    expect(preview).not.toMatch(/<img[\s\S]*DEVICES_EMPTY_STATE_ASSET/);
+  });
+
+  test("projects / expert empty pages use EmptyStateIllustration (not raw img)", () => {
+    const light = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/session/chat/session-page-light-pages.tsx",
+      ),
+      "utf8",
+    );
+    const sidePanel = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/session/components/side-panel-pages.tsx",
+      ),
+      "utf8",
+    );
+    const expert = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/session/pages/expert.tsx",
+      ),
+      "utf8",
+    );
+    for (const src of [light, sidePanel]) {
+      expect(src).toContain("PROJECTS_PLACEHOLDER_ASSET");
+      expect(src).toContain("EmptyStateIllustration");
+      expect(src).not.toMatch(/<img[\s\S]{0,120}PROJECTS_PLACEHOLDER/);
+    }
+    expect(expert).toContain("NO_EXPERT_CONVERSATIONS_ASSET");
+    expect(expert).toContain("EmptyStateIllustration");
+    expect(expert).not.toMatch(/<img[\s\S]{0,120}NO_EXPERT_CONVERSATIONS/);
   });
 
   test("wave-3 live empty consumers wire shared illustrations", () => {
