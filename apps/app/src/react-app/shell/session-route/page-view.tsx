@@ -118,6 +118,7 @@ import {
   insertSidebarSession,
   sessionListOwnsSession,
 } from "./sessions";
+import { shouldPrefetchSessionSnapshotOnColdPath } from "./cold-path-budget";
 import {
   activateDesktopSessionWorkspaceInBackground,
 } from "./workspace-actions";
@@ -812,6 +813,22 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                 (item) => item.id === workspaceId,
               );
               if (!workspace) return;
+              const row = (sessionsByWorkspaceId[workspaceId] ?? []).find(
+                (item) => item.id === sessionId,
+              );
+              const titleEmpty = !(row?.title ?? "").trim();
+              const isSelectedSession =
+                workspaceId === selectedWorkspaceId &&
+                sessionId === selectedSessionId;
+              // Cold-path thrash ban: empty selected chips must not prefetch.
+              if (
+                !shouldPrefetchSessionSnapshotOnColdPath({
+                  isSelectedSession,
+                  titleEmpty,
+                })
+              ) {
+                return;
+              }
               const endpoint = resolveWorkspaceEndpoint(workspace, {
                 baseUrl,
                 token,

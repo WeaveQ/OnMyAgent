@@ -23,7 +23,7 @@ import { getSessionStatus, isActiveSessionStatus } from "./state";
 import type { SessionOption as PaletteSessionOption } from "../command-palette";
 import {
   recordColdPathEvent,
-  tryRecordColdTitleSnapshot,
+  shouldPrefetchSessionSnapshotOnColdPath,
 } from "./cold-path-budget";
 
 export type PendingCreatedSessionMap = Record<string, Record<string, number>>;
@@ -744,23 +744,13 @@ export async function refreshCreatedSessionSnapshotWithRetries(input: {
   sessionId: string;
   setQueryData: (queryKey: readonly unknown[], value: unknown) => void;
   seedSessionState: (workspaceId: string, snapshot: CreatedSessionSnapshot) => void;
-  /** When true, treat as selected empty-title cold enter (thrash ban after first). */
-  coldEnterEmptyTitle?: boolean;
 }) {
+  // Post-create snapshot: not cold-enter title thrash (empty selected chip ban).
+  // Thrash ban is enforced on sidebar prefetch via shouldPrefetchSessionSnapshotOnColdPath.
   const delays = [0, 120, 360, 900];
-  let snapshotted = false;
   for (const delay of delays) {
     if (delay > 0) {
       await new Promise((resolve) => window.setTimeout(resolve, delay));
-    }
-    // Cold-enter thrash ban: empty selected chips must not keep polling titles.
-    if (input.coldEnterEmptyTitle) {
-      const allowed = tryRecordColdTitleSnapshot({
-        isSelectedSession: true,
-        titleEmpty: true,
-        alreadySnapshotted: snapshotted,
-      });
-      if (!allowed) return;
     }
     try {
       const snapshot = (
@@ -770,7 +760,6 @@ export async function refreshCreatedSessionSnapshotWithRetries(input: {
           sessionSnapshotFetchOptions(input.directory),
         )
       ).item;
-      snapshotted = true;
       input.setQueryData(
         sessionSnapshotQueryKey(input.endpoint.workspaceId, input.sessionId),
         snapshot,
