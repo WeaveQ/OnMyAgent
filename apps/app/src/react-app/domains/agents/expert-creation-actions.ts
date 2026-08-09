@@ -115,9 +115,8 @@ export function consumeExpertCreateComposerFlush(): boolean {
 export async function saveExpertCreation(
   input: SaveExpertCreationInput,
 ): Promise<SaveExpertCreationResult> {
-  beginExpertCreateSaveAttempt();
-  // Product contract: at most one create-path composer flush per save.
-  void consumeExpertCreateComposerFlush();
+  // Flush latch is owned by the create UI (submit): begin before save, consume
+  // only when clearing stored creation draft after success — not here.
   const baseRegistry = input.registry ?? createDefaultAgentRegistry();
   const nowIso = new Date().toISOString();
   const createdAgent = createExpertRecordForSave(

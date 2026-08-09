@@ -107,6 +107,10 @@ import {
   writeExpertCreationStoredState,
 } from "./expert-creation-draft-storage";
 import {
+  beginExpertCreateSaveAttempt,
+  consumeExpertCreateComposerFlush,
+} from "./expert-creation-actions";
+import {
   ExpertCreationConversation,
   type ExpertCreationComposerProps,
   type ExpertCreationSuggestionApplyOptions,
@@ -1620,6 +1624,8 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
     setSubmitError(null);
     setSubmitting(true);
     try {
+      // Lifecycle: at most one create-path draft flush per save attempt.
+      beginExpertCreateSaveAttempt();
       await props.onDone(
         draft,
         knowledge,
@@ -1627,7 +1633,11 @@ export function ExpertCreationPage(props: ExpertCreationPageProps) {
         draftPackageId,
         coachSessionId,
       );
-      if (!props.editingAgent) {
+      if (
+        !props.editingAgent &&
+        consumeExpertCreateComposerFlush()
+      ) {
+        // Real flush: clear persisted creation draft/composer state once.
         clearExpertCreationStoredState(props.workspaceId);
       }
     } catch (error) {
