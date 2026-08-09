@@ -62,21 +62,14 @@ describe("main rail primary icon contract", () => {
     expect(railSource).toContain("icon: AutomationRailIcon");
     expect(railSource).toContain('id: "company"');
 
-    // Mostly Lucide outline; Experts is Koboyo user-star (inline SVG).
+    // Outline set — no solid fill glyphs in the primary rail icon module.
     expect(iconSource).toContain('from "lucide-react"');
     expect(iconSource).toContain("House");
-    expect(iconSource).toContain("ExpertRailIcon");
-    expect(iconSource).toContain("UserStarIcon");
+    expect(iconSource).toContain("UserRound");
     expect(iconSource).toMatch(
-      /function ExpertRailIcon[\s\S]*UserStarIcon/,
+      /UserRound[\s\S]*ExpertRailIcon|ExpertRailIcon[\s\S]*UserRound/,
     );
-    expect(iconSource).toContain("RAIL_EXPERT_ICON_W");
-    // Experts must not fall back to Lucide person / bot glyphs.
-    expect(iconSource).not.toMatch(/\bUserRound\b/);
     expect(iconSource).not.toMatch(/\bBot\b/);
-    expect(iconSource).not.toMatch(
-      /function ExpertRailIcon[\s\S]*?return <(UserRound|Bot|Users)\b/,
-    );
     expect(iconSource).toContain("Folder");
     expect(iconSource).toContain("Briefcase");
     expect(iconSource).not.toContain("SquareDashed");
