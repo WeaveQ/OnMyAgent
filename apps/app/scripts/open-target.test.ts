@@ -357,6 +357,20 @@ describe("deriveOpenTargets", () => {
     expect(isCollectibleArtifactTarget({ ...target, exists: true })).toBe(true);
   });
 
+  it("does not mint a file card before the candidate is verified to exist", () => {
+    const messages = [
+      toolMessage(
+        "msg_tool",
+        "write",
+        { filePath: "output/pending.xlsx" },
+        { filePath: "output/pending.xlsx" },
+      ),
+      message("msg_final", "assistant", "The workbook is ready."),
+    ] satisfies UIMessage[];
+
+    expect(selectTurnOpenTargets(messages, [])).toEqual([]);
+  });
+
   it("shows verified text files as generated artifacts", () => {
     const messages = [
       toolMessage(
@@ -381,7 +395,7 @@ describe("deriveOpenTargets", () => {
     ).toEqual(["reports/customer-message.txt"]);
   });
 
-  it("does not treat an assistant file mention without write provenance as a generated artifact", () => {
+  it("shows a verified user-facing file explicitly claimed as generated", () => {
     const messages = [
       message(
         "msg_final",
@@ -397,7 +411,173 @@ describe("deriveOpenTargets", () => {
       size: 7_884,
     }];
 
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value),
+    ).toEqual([
+      "/Users/demo/work/货运客服专家/1785423406407/发货需求与报价补充.xlsx",
+    ]);
+  });
+
+  it("shows a verified file linked with the explicit artifact scheme", () => {
+    const messages = [
+      message(
+        "msg_final",
+        "assistant",
+        "已完成，[查看对账表](artifact:output/运单对账表.xlsx)。",
+      ),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("/workspace/output/运单对账表.xlsx", "sheet"), exists: true },
+    ];
+
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value),
+    ).toEqual(["/workspace/output/运单对账表.xlsx"]);
+  });
+
+  it("shows verified prose deliverables after Chinese or ASCII colons", () => {
+    const messages = [
+      message(
+        "msg_final",
+        "assistant",
+        "已生成：report.xlsx\n输出文件: summary.pdf",
+      ),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("report.xlsx", "sheet"), exists: true },
+      { ...fileTarget("summary.pdf", "pdf"), exists: true },
+    ];
+
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value).sort(),
+    ).toEqual(["report.xlsx", "summary.pdf"]);
+  });
+
+  it("matches percent-encoded artifact links to verified Unicode paths", () => {
+    const messages = [
+      message(
+        "msg_final",
+        "assistant",
+        "[查看对账表](artifact:output/%E8%BF%90%E5%8D%95%E5%AF%B9%E8%B4%A6%E8%A1%A8.xlsx)",
+      ),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("output/运单对账表.xlsx", "sheet"), exists: true },
+    ];
+
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value),
+    ).toEqual(["output/运单对账表.xlsx"]);
+  });
+
+  it("prefers the current turn path over an earlier same-named verified file", () => {
+    const messages = [
+      toolMessage(
+        "msg_write",
+        "write",
+        { filePath: "new/output/report.xlsx" },
+        { filePath: "new/output/report.xlsx" },
+      ),
+      message("msg_final", "assistant", "已生成 new/output/report.xlsx"),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("old/output/report.xlsx", "sheet"), exists: true },
+      { ...fileTarget("new/output/report.xlsx", "sheet"), exists: true },
+    ];
+
+    expect(selectTurnOpenTargets(messages, verified).map((target) => target.value)).toEqual([
+      "new/output/report.xlsx",
+    ]);
+  });
+
+  it("does not mint a basename-only claim when verified files are ambiguous", () => {
+    const messages = [
+      message("msg_final", "assistant", "已生成 report.xlsx"),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("old/output/report.xlsx", "sheet"), exists: true },
+      { ...fileTarget("new/output/report.xlsx", "sheet"), exists: true },
+    ];
+
     expect(selectTurnOpenTargets(messages, verified)).toEqual([]);
+  });
+
+  it("keeps an attached user file out when selecting the complete current turn", () => {
+    const messages = [
+      {
+        id: "msg_user",
+        role: "user",
+        parts: [{
+          type: "file",
+          filename: "source.xlsx",
+          mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          url: "https://example.test/source.xlsx",
+        }],
+      },
+      message("msg_final", "assistant", "已生成 source.xlsx"),
+    ] satisfies UIMessage[];
+    const verified = [{ ...fileTarget("output/source.xlsx", "sheet"), exists: true }];
+
+    expect(selectTurnOpenTargets(messages, verified)).toEqual([]);
+  });
+
+  it("does not treat a user-pasted localhost URL as an assistant preview", () => {
+    const messages = [
+      message("msg_user", "user", "Please inspect http://localhost:5173"),
+      message("msg_final", "assistant", "I will inspect the supplied preview."),
+    ] satisfies UIMessage[];
+
+    expect(selectTurnOpenTargets(messages, [])).toEqual([]);
+  });
+
+  it("shows every verified deliverable from the turn instead of truncating after four", () => {
+    const paths = [
+      "output/01.xlsx",
+      "output/02.docx",
+      "output/03.pdf",
+      "output/04.png",
+      "output/05.md",
+    ];
+    const messages = [
+      ...paths.map((path, index) => toolMessage(
+        `msg_tool_${index}`,
+        "write",
+        { filePath: path },
+        { filePath: path },
+      )),
+      message("msg_final", "assistant", "五个产物都已生成。"),
+    ] satisfies UIMessage[];
+    const verified = paths.map((path) => ({ ...fileTarget(path), exists: true }));
+
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value),
+    ).toEqual(paths);
+  });
+
+  it("keeps hidden temporary data files out of the user-facing artifact cards", () => {
+    const messages = [
+      toolMessage(
+        "msg_tmp",
+        "write",
+        { filePath: ".opencode/tmp/intermediate.json" },
+        { filePath: ".opencode/tmp/intermediate.json" },
+      ),
+      toolMessage(
+        "msg_final_file",
+        "write",
+        { filePath: "output/report.xlsx" },
+        { filePath: "output/report.xlsx" },
+      ),
+      message("msg_final", "assistant", "报表已生成。"),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget(".opencode/tmp/intermediate.json", "text"), exists: true },
+      { ...fileTarget("output/report.xlsx", "sheet"), exists: true },
+    ];
+
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value),
+    ).toEqual(["output/report.xlsx"]);
   });
 
   it("shows only files written in the current assistant turn", () => {
@@ -816,7 +996,7 @@ describe("deriveOpenTargets", () => {
     ).toEqual(["回单核对.pdf", "客户通知草稿.md", "进度看板.html"].sort());
   });
 
-  it("still hides soft prose claims without write provenance on follow-up turns", () => {
+  it("shows verified soft prose claims when tool provenance is unavailable", () => {
     const messages = [
       message(
         "msg_followup",
@@ -827,7 +1007,9 @@ describe("deriveOpenTargets", () => {
     const verified = [
       { ...fileTarget("运单账单合并对账表.xlsx", "sheet"), exists: true, size: 18_400 },
     ];
-    expect(selectTurnOpenTargets(messages, verified)).toEqual([]);
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value),
+    ).toEqual(["运单账单合并对账表.xlsx"]);
   });
 });
 

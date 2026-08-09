@@ -73,6 +73,32 @@ function openTargetDisplay(target: OpenTarget): { title: string; detail?: string
   };
 }
 
+type ArtifactHue = "image" | "code" | "document" | "data" | "plot" | "audio" | "video" | "3d";
+
+function openTargetPresentation(target: OpenTarget): {
+  hue: ArtifactHue;
+  label: string;
+} {
+  const extension = target.name.match(/\.([a-z0-9]+)$/i)?.[1];
+  const hue: ArtifactHue = target.kind === "url"
+    ? "code"
+    : target.preview === "image"
+      ? "image"
+      : target.preview === "sheet"
+        ? "data"
+        : target.preview === "audio"
+          ? "audio"
+          : target.preview === "video"
+            ? "video"
+            : target.preview === "text" || target.preview === "html"
+              ? "code"
+              : "document";
+  return {
+    hue,
+    label: target.kind === "url" ? "WEB" : (extension?.toUpperCase() || target.preview.toUpperCase()),
+  };
+}
+
 function OpenableTargetsStrip(props: {
   targets: OpenTarget[];
   onOpenTarget: (target: OpenTarget) => void;
@@ -87,17 +113,19 @@ function OpenableTargetsStrip(props: {
     >
       {props.targets.map((target) => {
         const { title, detail } = openTargetDisplay(target);
+        const presentation = openTargetPresentation(target);
         return (
           <button
             key={target.id}
             type="button"
             className={cn(
-              "session-generated-artifact-card group flex min-h-16 w-full min-w-0 items-center gap-3 rounded-md border border-dls-border bg-dls-surface p-3 text-left transition-colors",
+              "session-generated-artifact-card group flex min-h-16 w-full min-w-0 items-center gap-3 rounded-md border border-dls-border border-l-2 bg-dls-surface p-3 text-left transition-colors",
               "hover:bg-dls-hover/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
             )}
             title={target.value}
             aria-label={detail ? `${title} · ${detail}` : title}
             onClick={() => props.onOpenTarget(target)}
+            style={{ borderLeftColor: `var(--dls-artifact-hue-${presentation.hue})` }}
           >
             <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-dls-surface text-dls-secondary">
               <ArtifactIcon
@@ -116,6 +144,17 @@ function OpenableTargetsStrip(props: {
                 </span>
               ) : null}
             </span>
+            <StatusBadge
+              size="fileType"
+              shape="soft"
+              className="border-0"
+              style={{
+                backgroundColor: `color-mix(in srgb, var(--dls-artifact-hue-${presentation.hue}) 20%, transparent)`,
+                color: `var(--dls-artifact-hue-${presentation.hue})`,
+              }}
+            >
+              {presentation.label}
+            </StatusBadge>
             <ArrowUpRight
               className="size-4 shrink-0 text-dls-secondary opacity-60 transition-opacity group-hover:opacity-100"
               aria-hidden
