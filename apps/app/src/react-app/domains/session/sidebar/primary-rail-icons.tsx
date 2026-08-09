@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 /**
- * Primary app-rail icons — unified Lucide outline language (stroke, not solid fill)
- * to match denser product rails (icon-above-label + free-float selected pill).
+ * Primary app-rail icons — Lucide outline language for most destinations;
+ * Experts uses a vendored Koboyo consultant-badge (hand-drawn specialist mark).
  */
 import {
   Briefcase,
@@ -14,8 +14,10 @@ import {
   MonitorSmartphone,
   Settings2,
   ShoppingBag,
-  UserRound,
 } from "lucide-react";
+
+import { KoboyoIcon } from "@/react-app/design-system/koboyo-icon";
+import { KOBOYO_CONSULTANT_BADGE } from "@/react-app/design-system/koboyo-product-icons";
 
 type PrimaryRailIconProps = {
   className?: string;
@@ -24,6 +26,9 @@ type PrimaryRailIconProps = {
 
 /** Shared stroke weight — thin line icons read like the reference rail. */
 const RAIL_ICON_STROKE = 1.5;
+
+/** Rail glyph paint box — matches `size-5.5` (22px) on TopRailButton. */
+const RAIL_KOBOYO_SIZE = 22;
 
 function railIconProps(className?: string) {
   return {
@@ -39,12 +44,21 @@ export function AssistantRailIcon(props: PrimaryRailIconProps) {
   return <House {...railIconProps(props.className)} />;
 }
 
-/** Experts — person silhouette (marketplace specialists; not the old robot head). */
+/**
+ * Experts — Koboyo consultant-badge (person + credential).
+ * Painted via CSS mask so rail currentColor (idle / selected) still applies.
+ */
 export function ExpertRailIcon(props: PrimaryRailIconProps) {
-  return <UserRound {...railIconProps(props.className)} />;
+  return (
+    <KoboyoIcon
+      src={KOBOYO_CONSULTANT_BADGE}
+      size={RAIL_KOBOYO_SIZE}
+      className={props.className}
+    />
+  );
 }
 
-/** Local agent — device / monitor outline (distinct from Expert UserRound). */
+/** Local agent — device / monitor outline (distinct from Expert Koboyo mark). */
 export function LocalAgentRailIcon(props: PrimaryRailIconProps) {
   return <MonitorSmartphone {...railIconProps(props.className)} />;
 }
