@@ -271,16 +271,19 @@ export function mergeAcpToolCallUpdate(previous, next) {
   return merged;
 }
 
-function acpToolConversationEntry(update, normalized, at) {
+function acpToolConversationEntry(update, normalized, at, identity) {
   const callId = acpToolCallId(update);
+  const status = textValue(update?.status ?? update?.state) || "running";
   return {
-    id: callId ? `acp-tool-${callId}` : `acp-tool-${at}`,
+    id: `acp-tool-${identity}`,
     type: "acp_tool_call",
     role: "tool",
-    text: normalized.text || textValue(update?.title ?? update?.kind),
+    text: normalized.text
+      || textValue(update?.title ?? update?.kind)
+      || (status === "failed" ? callId : ""),
     createdAt: at,
     sourceEventType: normalized.type,
-    status: textValue(update?.status ?? update?.state) || "running",
+    status,
     update,
     at,
   };
@@ -298,6 +301,13 @@ export function runEventsToConversationMessages(events = []) {
   // start + completed pair with only tool_call_id; keep a turn-wide index so
   // the pair updates one card instead of creating duplicate/empty rows.
   const acpToolMessageById = new Map();
+  // ACP tool_call_id/msg_id values are only turn-scoped. Keep an explicit,
+  // deterministic turn namespace so historical cards never reuse React IDs
+  // when a provider starts counting from tool-1 again on the next prompt.
+  let acpTurnSeq = 0;
+  let acpTurnIdentity = "turn-0";
+  const acpTurnIdentityCounts = new Map();
+  let acpToolEventSeq = 0;
   const closeAssistantTurn = () => {
     liveAssistantIndex = -1;
     assistantText = "";
@@ -319,6 +329,15 @@ export function runEventsToConversationMessages(events = []) {
       // new turn's tool cards into historical groups.
       toolMessageById.clear();
       acpToolMessageById.clear();
+      acpTurnSeq += 1;
+      const turnIdentityBase = Number(event?.at) > 0
+        ? `turn-${Number(event.at)}`
+        : `turn-sequence-${acpTurnSeq}`;
+      const turnIdentityCount = (acpTurnIdentityCounts.get(turnIdentityBase) ?? 0) + 1;
+      acpTurnIdentityCounts.set(turnIdentityBase, turnIdentityCount);
+      acpTurnIdentity = turnIdentityCount === 1
+        ? turnIdentityBase
+        : `${turnIdentityBase}-${turnIdentityCount}`;
       if (normalized.text) {
         pushConversationMessage(messages, {
           type: "text",
@@ -495,6 +514,7 @@ export function runEventsToConversationMessages(events = []) {
       const msgId = event?.msgId ?? normalized.msgId ?? null;
       const update = event?.update ?? normalized.update ?? null;
       if (!update) continue;
+      acpToolEventSeq += 1;
       const callId = acpToolCallId(update);
       const indexed = callId ? acpToolMessageById.get(callId) : null;
       if (indexed) {
@@ -531,7 +551,10 @@ export function runEventsToConversationMessages(events = []) {
           if (message?.type !== "tool_group") break;
         }
       }
-      const entry = acpToolConversationEntry(update, normalized, at);
+      const entryIdentity = callId
+        ? `${acpTurnIdentity}-call-${callId}`
+        : `${acpTurnIdentity}-event-${acpToolEventSeq}`;
+      const entry = acpToolConversationEntry(update, normalized, at, entryIdentity);
       if (existingIndex >= 0) {
         const previous = messages[existingIndex];
         const nextCalls = [...previous.toolCalls];
@@ -561,13 +584,13 @@ export function runEventsToConversationMessages(events = []) {
       } else {
         pushConversationMessage(messages, {
           ...(msgId
-            ? { id: `tool-group-${msgId}` }
+            ? { id: `tool-group-${acpTurnIdentity}-message-${msgId}` }
             : callId
-              ? { id: `tool-group-${callId}` }
-              : {}),
+              ? { id: `tool-group-${acpTurnIdentity}-call-${callId}` }
+              : { id: `tool-group-${acpTurnIdentity}-event-${acpToolEventSeq}` }),
           type: "tool_group",
           role: "tool",
-          text: normalized.text || "",
+          text: normalized.text || entry.text,
           createdAt: at,
           sourceEventType: normalized.type,
           msgId,
