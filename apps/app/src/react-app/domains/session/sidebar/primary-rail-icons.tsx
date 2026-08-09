@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 /**
  * Primary app-rail icons — Lucide outline language for most destinations;
- * Experts uses a vendored Koboyo consultant-badge (hand-drawn specialist mark).
+ * Experts uses Koboyo user-star (compact person + star, readable at rail size).
  */
 import {
   Briefcase,
@@ -16,7 +16,7 @@ import {
   ShoppingBag,
 } from "lucide-react";
 
-import { ConsultantBadgeIcon } from "@/react-app/design-system/consultant-badge-icon";
+import { UserStarIcon } from "@/react-app/design-system/user-star-icon";
 import { cn } from "@/lib/utils";
 
 type PrimaryRailIconProps = {
@@ -27,11 +27,8 @@ type PrimaryRailIconProps = {
 /** Shared stroke weight — thin line icons read like the reference rail. */
 const RAIL_ICON_STROKE = 1.5;
 
-/**
- * consultant-badge is tall (~159×229). Inline SVG at 28px height (not a
- * 22² square mask) keeps the silhouette readable on the primary rail.
- */
-const RAIL_EXPERT_ICON_H = 28;
+/** user-star is landscape (~182×126); width-driven box next to Lucide size-5.5. */
+const RAIL_EXPERT_ICON_W = 26;
 
 function railIconProps(className?: string) {
   return {
@@ -48,18 +45,17 @@ export function AssistantRailIcon(props: PrimaryRailIconProps) {
 }
 
 /**
- * Experts — Koboyo consultant-badge (person + credential).
- * Inline SVG (not CSS mask) for sharper edges at rail size; overrides
- * TopRailButton `size-5.5` so the tall glyph is not squashed.
+ * Experts — Koboyo user-star (person + star).
+ * Simpler single-path landscape mark; stays clear at ~26px rail width.
  */
 export function ExpertRailIcon(props: PrimaryRailIconProps) {
   return (
-    <ConsultantBadgeIcon
-      height={RAIL_EXPERT_ICON_H}
+    <UserStarIcon
+      width={RAIL_EXPERT_ICON_W}
       className={cn(
         props.className,
-        // After parent size-5.5 so tall glyph is not forced into a 22² square.
-        "!size-auto !h-7 !w-auto max-w-none",
+        // After parent size-5.5 so landscape glyph is not forced into 22².
+        "!size-auto !h-auto !w-[26px] max-w-none",
       )}
     />
   );
