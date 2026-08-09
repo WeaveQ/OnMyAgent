@@ -339,6 +339,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
         <SessionSurfaceBody personalAssistantDraftHome={Boolean(personalAssistantDraftHome)}>
         <SessionSurfaceTranscriptPane
           hidden={Boolean(personalAssistantDraftHome)}
+          compactInset={props.chrome === "embedded"}
           sessionId={props.sessionId}
           scrollRef={props.scrollRef}
           contentRef={props.contentRef}
@@ -532,7 +533,11 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
               homeLayout={homeComposerLayout}
               heroHome={Boolean(personalAssistantDraftHome)}
               topAccessory={props.composerAccessory}
-              hideAccessPermissionSelect={draftWorkspaceAccessoryActive}
+              // Coach / try-preview column is narrow — drop permission chip so
+              // model + send keep room (permission is not the task here).
+              hideAccessPermissionSelect={
+                draftWorkspaceAccessoryActive || props.chrome === "embedded"
+              }
               bottomAccessory={
                 draftWorkspaceAccessoryActive ? (
                   <SessionDraftWorkspaceAccessory

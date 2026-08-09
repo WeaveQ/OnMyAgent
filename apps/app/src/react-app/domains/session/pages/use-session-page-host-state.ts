@@ -12,6 +12,7 @@ import type { OpenTarget } from "../artifacts/open-target";
 import { openInAppBrowser } from "../browser/open-in-app-browser";
 import { useAutoOpenBrowserPanel } from "../browser/use-auto-open-browser-panel";
 import {
+  DEFAULT_BROWSER_SIDE_PANEL_WIDTH,
   useWorkspaceShellLayout,
 } from "../../../shell";
 import { useComposerStateStore } from "../surface/composer-state-store";
@@ -127,17 +128,6 @@ export function useSessionPageHostState(options: SessionPageHostStateOptions) {
       ? options.historyComposerSessionId
       : selectedSessionId;
 
-  const openBrowserPanelFromAgent = useCallback(() => {
-    if (preserveSidePanelOnPanelOpenRef.current) {
-      preserveSidePanelOnPanelOpenRef.current = false;
-      return;
-    }
-    // Only auto-open for a real chat session — never for draft / new-task.
-    if (!selectedSessionId) return;
-    setCurrentSidePanel("browser");
-  }, [selectedSessionId, setCurrentSidePanel]);
-  useAutoOpenBrowserPanel(openBrowserPanelFromAgent, selectedSessionId);
-
   const { setRightSidebarExpandedWidth: setBrowserPanelWidth } =
     useWorkspaceShellLayout({
       expandedRightWidth: sidePanelDefaultWidth,
@@ -145,12 +135,41 @@ export function useSessionPageHostState(options: SessionPageHostStateOptions) {
     });
   const sidePanelWidthRef = useRef(sidePanelDefaultWidth);
 
+  const snapSidePanelWidth = useCallback(
+    (width: number) => {
+      sidePanelWidthRef.current = width;
+      setBrowserPanelWidth(width);
+      // Imperative resize so an already-mounted panel snaps immediately.
+      browserPanelRef.current?.resize(`${width}px`);
+    },
+    [browserPanelRef, setBrowserPanelWidth],
+  );
+
+  const snapToMenuWidth = useCallback(() => {
+    snapSidePanelWidth(sidePanelDefaultWidth);
+  }, [sidePanelDefaultWidth, snapSidePanelWidth]);
+
+  const snapToBrowserWidth = useCallback(() => {
+    snapSidePanelWidth(DEFAULT_BROWSER_SIDE_PANEL_WIDTH);
+  }, [snapSidePanelWidth]);
+
+  const openBrowserPanelFromAgent = useCallback(() => {
+    if (preserveSidePanelOnPanelOpenRef.current) {
+      preserveSidePanelOnPanelOpenRef.current = false;
+      return;
+    }
+    // Only auto-open for a real chat session — never for draft / new-task.
+    if (!selectedSessionId) return;
+    snapToBrowserWidth();
+    setCurrentSidePanel("browser");
+  }, [selectedSessionId, setCurrentSidePanel, snapToBrowserWidth]);
+  useAutoOpenBrowserPanel(openBrowserPanelFromAgent, selectedSessionId);
+
   const openWorkspaceSidePanelMenu = useCallback(() => {
-    sidePanelWidthRef.current = sidePanelDefaultWidth;
-    setBrowserPanelWidth(sidePanelDefaultWidth);
+    snapToMenuWidth();
     // Right rail stays workspace tools (not history — history is a header popover).
     setCurrentSidePanel("codeMenu");
-  }, [setBrowserPanelWidth, setCurrentSidePanel, sidePanelDefaultWidth]);
+  }, [setCurrentSidePanel, snapToMenuWidth]);
 
   const handleHistorySelectPrompt = useCallback(
     (text: string) => {
@@ -219,6 +238,7 @@ export function useSessionPageHostState(options: SessionPageHostStateOptions) {
     async (target: OpenTarget, options?: { auto?: boolean }) => {
       if (target.kind === "url" || target.preview === "browser") {
         const url = browserUrlForTarget(target);
+        snapToBrowserWidth();
         await openInAppBrowser({
           openSidePanel: () => setCurrentSidePanel("browser"),
           url,
@@ -238,6 +258,7 @@ export function useSessionPageHostState(options: SessionPageHostStateOptions) {
       selectedSessionId,
       setArtifactTarget,
       setCurrentSidePanel,
+      snapToBrowserWidth,
     ],
   );
 
@@ -320,6 +341,8 @@ export function useSessionPageHostState(options: SessionPageHostStateOptions) {
     browserPanelRef,
     preserveSidePanelOnPanelOpenRef,
     openWorkspaceSidePanelMenu,
+    /** Expand the right rail for embedded browser (520) — used by code-workspace empty menu. */
+    snapToBrowserWidth,
     handleHistorySelectPrompt,
     openHistorySearch,
     closeHistorySearch,

@@ -23,12 +23,14 @@ describe("session visual and file contracts", () => {
     expect(markdown).toContain("rounded-xl border border-dls-mist bg-dls-surface-muted");
     // Table frame border lives on the outer shell; cells use internal grid only.
     expect(markdown).toContain(
-      'class="session-markdown-table my-4 overflow-x-auto rounded-xl border"',
+      'class="session-markdown-table my-4 w-full max-w-full min-w-0 overflow-x-auto rounded-xl border"',
     );
     expect(markdown).toContain(
-      "session-markdown-table-header px-4 py-2 text-left font-semibold",
+      "session-markdown-table-header px-4 py-2 text-left font-semibold whitespace-nowrap",
     );
-    expect(markdown).toContain("session-markdown-table-cell px-4 py-2 align-top");
+    expect(markdown).toContain(
+      "session-markdown-table-cell px-4 py-2 align-top whitespace-nowrap",
+    );
     expect(markdown).not.toContain(
       "session-markdown-table-header border px-4 py-2 text-left font-semibold",
     );

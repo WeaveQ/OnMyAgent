@@ -201,6 +201,72 @@ function resolveAvatarUrl(packageName: string, avatarPath: string | null | undef
   return firstPath ? avatarModules[firstPath] ?? null : null;
 }
 
+/**
+ * Whether a package belongs on the local shelf candidate set (not builtin catalog).
+ */
+export function isLocalShelfPackage(
+  entry: Pick<ExpertMarketplaceEntry, "source">,
+): boolean {
+  return entry.source === "mine" || entry.source === "installed";
+}
+
+/**
+ * Match a local package to a live expert agent id (session / sidebar group).
+ * Session agent ids often embed packageName, e.g.
+ * `媒介专家-kol-media-specialistkol-media-specialist`.
+ */
+export function expertPackageMatchesAgentId(
+  expert: Pick<
+    ExpertMarketplaceEntry,
+    "id" | "packageName" | "leadAgentName" | "source"
+  >,
+  agentId: string | null | undefined,
+): boolean {
+  const normalized = agentId?.trim();
+  if (!normalized) return false;
+  if (
+    normalized === expert.id ||
+    normalized === expert.packageName ||
+    normalized === expert.leadAgentName
+  ) {
+    return true;
+  }
+  const pkg = expert.packageName?.trim();
+  if (pkg && pkg.length >= 3 && normalized.includes(pkg)) return true;
+  const lead = expert.leadAgentName?.trim();
+  if (lead && lead.length >= 2 && normalized.includes(lead)) return true;
+  return false;
+}
+
+/**
+ * "已召唤专家" shelf:
+ * - always include self-created (`mine`)
+ * - include marketplace installs only when the user has an active expert agent
+ *   (sidebar session group) for that package — not every pre-seeded install dir
+ *
+ * Disk may hold 10+ migrated/preinstalled packages; sidebar only shows experts
+ * with sessions. The shelf must track the latter, not the whole install root.
+ */
+export function filterLocalShelfExperts(
+  experts: readonly ExpertMarketplaceEntry[],
+  activeAgentIds: readonly string[] = [],
+): ExpertMarketplaceEntry[] {
+  const ids = activeAgentIds.map((id) => id.trim()).filter(Boolean);
+  return experts.filter((expert) => {
+    if (expert.source === "mine") return true;
+    if (expert.source !== "installed") return false;
+    if (ids.length === 0) return false;
+    return ids.some((id) => expertPackageMatchesAgentId(expert, id));
+  });
+}
+
+/** @deprecated Use filterLocalShelfExperts — installed alone is not "summoned". */
+export function isLocalShelfExpert(
+  entry: Pick<ExpertMarketplaceEntry, "source">,
+): boolean {
+  return isLocalShelfPackage(entry);
+}
+
 export function listBuiltinMarketplaceExperts(): ExpertMarketplaceEntry[] {
   return Object.entries(manifestModules)
     .map(([manifestPath, rawManifest]) => {

@@ -6,6 +6,7 @@ import {
   isWorkBuddyEmbeddedPath,
   KNOWN_DISCOVERABLE_AGENTS,
   discoverableAgentDrafts,
+  resolveDiscoverableAcpArgs,
 } from "./detect-local-agents.mjs";
 
 test("isWorkBuddyEmbeddedPath detects macOS app bundle paths", () => {
@@ -101,4 +102,54 @@ test("Grok catalog uses well-known paths and enriched PATH resolution", () => {
   assert.match(src, /enrichedPath/);
   assert.match(src, /wellKnownPaths/);
   assert.match(src, /from "\.\.\/runtime-path-env\.mjs"/);
+});
+
+test("Pi catalog prefers pi-acp then pi, with protocol-aware acpArgs", () => {
+  const pi = KNOWN_DISCOVERABLE_AGENTS.find((item) => item.id === "pi");
+  assert.ok(pi, "pi catalog entry present");
+  assert.deepEqual(pi.commands, ["pi-acp", "pi"]);
+  assert.deepEqual(pi.acpArgs, ["--mode", "rpc"]);
+  assert.ok(Array.isArray(pi.wellKnownPaths) && pi.wellKnownPaths.some((p) => String(p).endsWith("pi")));
+  assert.ok(
+    Array.isArray(pi.wellKnownPaths) && pi.wellKnownPaths.some((p) => String(p).endsWith("pi-acp")),
+  );
+  assert.ok(
+    Array.isArray(pi.skillsDirs) && pi.skillsDirs.some((dir) => String(dir).includes(".pi")),
+  );
+
+  assert.deepEqual(resolveDiscoverableAcpArgs(pi, "/opt/homebrew/bin/pi"), ["--mode", "rpc"]);
+  assert.deepEqual(resolveDiscoverableAcpArgs(pi, "/usr/local/bin/pi-acp"), []);
+  assert.deepEqual(resolveDiscoverableAcpArgs(pi, "/opt/homebrew/bin/pi-acp"), []);
+  assert.deepEqual(resolveDiscoverableAcpArgs(pi, "C:\\Users\\me\\bin\\pi-acp.cmd"), []);
+
+  const drafts = discoverableAgentDrafts();
+  const draft = drafts.find((item) => item.id === "pi");
+  assert.ok(draft, "pi draft present in discoverable catalog");
+  assert.equal(draft.name, "Pi CLI");
+  assert.equal(draft.provider, "custom");
+  assert.equal(draft.supportsAcp, true);
+});
+
+test("preferPiAcpAgent upgrades native pi path when pi-acp is preferred", async () => {
+  const { preferPiAcpAgent } = await import("./detect-local-agents.mjs");
+  // Already on pi-acp: only clear stale acpArgs.
+  const already = preferPiAcpAgent({
+    id: "pi",
+    executablePath: "/opt/homebrew/bin/pi-acp",
+    acpArgs: ["--mode", "rpc"],
+  });
+  assert.equal(already.executablePath, "/opt/homebrew/bin/pi-acp");
+  assert.deepEqual(already.acpArgs, []);
+
+  // Non-pi agents unchanged.
+  const other = preferPiAcpAgent({ id: "claude", executablePath: "/usr/bin/claude" });
+  assert.equal(other.executablePath, "/usr/bin/claude");
+});
+
+test("pickPiDisplayVersion prefers native pi release over empty/adapter versions", async () => {
+  const { pickPiDisplayVersion } = await import("./detect-local-agents.mjs");
+  assert.equal(pickPiDisplayVersion("", "0.84.1"), "0.84.1");
+  assert.equal(pickPiDisplayVersion("0.0.33", "0.84.1"), "0.84.1");
+  assert.equal(pickPiDisplayVersion("0.0.33", ""), null);
+  assert.equal(pickPiDisplayVersion("1.2.3", ""), "1.2.3");
 });

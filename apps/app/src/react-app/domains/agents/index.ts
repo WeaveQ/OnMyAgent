@@ -45,6 +45,10 @@ export {
   buildExpertCreationCoachWorkflowInstructions,
   validateExpertCreationRolePrompt,
 } from "./expert-creation-coach-contract";
+export {
+  ExpertCreationCoachWelcome,
+  type ExpertCreationCoachWelcomeProps,
+} from "./expert-creation-coach-welcome";
 export { isExpertCreationPreviewReady } from "./expert-creation-lifecycle";
 export { buildExpertChatPromptParts } from "./expert-creation-chat-attachments";
 export {

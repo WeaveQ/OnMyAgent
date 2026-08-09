@@ -816,13 +816,56 @@ export function createAgentManagementProviders(options = {}) {
     await writeJsonFileAtomic(configPath, config);
   }
 
-  async function removeOpenCodeProviderLive(providerId) {
+  function workspaceOpencodeConfigCandidates(workspaceRoot) {
+    const root = String(workspaceRoot ?? "").trim();
+    if (!root) return [];
+    return [
+      path.join(root, "opencode.jsonc"),
+      path.join(root, "opencode.json"),
+      path.join(root, ".opencode", "opencode.jsonc"),
+      path.join(root, ".opencode", "opencode.json"),
+    ];
+  }
+
+  /**
+   * Drop a provider from an opencode config object (mutates + returns whether
+   * anything changed). Shared by global ~/.config and workspace project files.
+   */
+  function stripProviderFromOpencodeConfig(config, providerId) {
+    if (!config || typeof config !== "object") return false;
+    let changed = false;
+    if (config.provider && typeof config.provider === "object" && providerId in config.provider) {
+      delete config.provider[providerId];
+      changed = true;
+    }
+    if (typeof config.model === "string" && config.model.startsWith(`${providerId}/`)) {
+      delete config.model;
+      changed = true;
+    }
+    if (typeof config.small_model === "string" && config.small_model.startsWith(`${providerId}/`)) {
+      delete config.small_model;
+      changed = true;
+    }
+    return changed;
+  }
+
+  async function removeOpenCodeProviderLive(providerId, workspaceRoot = "") {
+    // 1) Global ~/.config/opencode/opencode.json (agent-management live store)
     const configPath = agentManagementConfigPath("opencode");
     const config = await readAgentManagementJsonConfig("opencode");
-    if (config.provider && typeof config.provider === "object") delete config.provider[providerId];
-    if (typeof config.model === "string" && config.model.startsWith(`${providerId}/`)) delete config.model;
-    if (typeof config.small_model === "string" && config.small_model.startsWith(`${providerId}/`)) delete config.small_model;
-    await writeJsonFileAtomic(configPath, config);
+    if (stripProviderFromOpencodeConfig(config, providerId)) {
+      await writeJsonFileAtomic(configPath, config);
+    }
+
+    // 2) Workspace project config — Ollama / connector installs land here via
+    // patchConfig, so deleting only the global file leaves the row in the UI.
+    for (const candidate of workspaceOpencodeConfigCandidates(workspaceRoot)) {
+      if (!existsSync(candidate)) continue;
+      const projectConfig = await readJsonLikeFile(candidate);
+      if (!stripProviderFromOpencodeConfig(projectConfig, providerId)) continue;
+      await writeJsonFileAtomic(candidate, projectConfig);
+      break;
+    }
   }
 
   async function writeOpenClawProviderLive(provider) {
@@ -1007,8 +1050,8 @@ export function createAgentManagementProviders(options = {}) {
     throw new Error("Unsupported live sync app");
   }
 
-  async function removeAgentManagementProviderLive(appType, providerId) {
-    if (appType === "opencode") return removeOpenCodeProviderLive(providerId);
+  async function removeAgentManagementProviderLive(appType, providerId, workspaceRoot = "") {
+    if (appType === "opencode") return removeOpenCodeProviderLive(providerId, workspaceRoot);
     if (appType === "openclaw") return removeOpenClawProviderLive(providerId);
     if (appType === "hermes") return removeHermesProviderLive(providerId);
     return null;
@@ -1262,8 +1305,9 @@ export function createAgentManagementProviders(options = {}) {
     }
 
     if (action === "delete") {
+      const workspaceRoot = String(input?.workspaceRoot ?? "").trim();
       if (AGENT_MANAGEMENT_ADDITIVE_PROVIDER_APPS.has(appType)) {
-        await removeAgentManagementProviderLive(appType, providerId);
+        await removeAgentManagementProviderLive(appType, providerId, workspaceRoot);
       } else {
         const provider = readStudioSwitchProviders(appType).find((item) => item.id === providerId);
         if (provider?.isCurrent) throw new Error("无法删除当前正在使用的供应商");

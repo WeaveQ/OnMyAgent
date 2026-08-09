@@ -12,7 +12,6 @@ import {
   CirclePlus,
   Cloud,
   Copy,
-  FileSearch,
   FileStack,
   Folder,
   FolderOpen,
@@ -41,7 +40,6 @@ import {
   Empty,
   EmptyDescription,
   EmptyHeader,
-  EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
@@ -51,6 +49,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { FILES_EMPTY_STATE_ASSET } from "@/react-app/design-system/empty-state-assets";
+import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import { typeScale } from "@/react-app/design-system/type-scale";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
 import {
@@ -172,7 +172,6 @@ function FilesListEmptyState(props: {
   filtered: boolean;
   sessionScoped: boolean;
 }) {
-  const Icon = props.filtered ? FileSearch : props.sessionScoped ? FileStack : FolderOpen;
   const title = props.filtered
     ? t("files.no_matching_files")
     : props.sessionScoped
@@ -188,12 +187,11 @@ function FilesListEmptyState(props: {
     <div className="flex min-h-56 flex-1 items-center justify-center px-6 py-12">
       <Empty className="max-w-sm flex-none border-0 bg-transparent p-0" variant="ghost">
         <EmptyHeader>
-          <EmptyMedia
-            variant="icon"
-            className="mb-3 size-14 rounded-2xl bg-dls-surface-muted/80 text-dls-secondary shadow-sm ring-1 ring-dls-border/60 [&_svg]:size-7"
-          >
-            <Icon aria-hidden="true" strokeWidth={1.5} />
-          </EmptyMedia>
+          <EmptyStateIllustration
+            src={FILES_EMPTY_STATE_ASSET}
+            size="compact"
+            className="mb-3"
+          />
           <EmptyTitle className="text-sm font-medium text-dls-text">
             {title}
           </EmptyTitle>

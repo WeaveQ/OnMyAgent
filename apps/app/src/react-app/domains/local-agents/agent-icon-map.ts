@@ -19,6 +19,7 @@ import mimoIconUrl from "../../../assets/agent-icons/mimo.svg";
 import nanobotIconUrl from "../../../assets/agent-icons/nanobot.svg";
 import openclawIconUrl from "../../../assets/agent-icons/claw.svg";
 import opencodeIconUrl from "../../../assets/agent-icons/opencode-logo-light.svg";
+import piIconUrl from "../../../assets/agent-icons/pi.svg";
 import qoderIconUrl from "../../../assets/agent-icons/qoder.svg";
 import qwenIconUrl from "../../../assets/agent-icons/qwen.svg";
 import snowIconUrl from "../../../assets/agent-icons/snow.svg";
@@ -52,6 +53,8 @@ const AGENT_ICON_BY_ID: Record<string, string> = {
   mimo: mimoIconUrl,
   mimocode: mimoIconUrl,
   grok: grokIconUrl,
+  // Pi coding agent (pi.dev / @earendil-works/pi-coding-agent) — Lobe "pi" mark.
+  pi: piIconUrl,
   onmyagent: onmyagentIconUrl,
 };
 

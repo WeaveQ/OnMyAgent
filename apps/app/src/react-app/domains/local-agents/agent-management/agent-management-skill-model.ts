@@ -26,6 +26,7 @@ export const SKILL_AGENT_LABELS: Record<string, string> = {
   nanobot: "Nano Bot",
   snow: "Snow",
   augment: "Augment",
+  pi: "Pi",
   unknown: t("agent_manager.skill_agent_unknown"),
 };
 

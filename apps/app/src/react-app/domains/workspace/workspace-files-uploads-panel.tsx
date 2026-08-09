@@ -16,7 +16,6 @@ import {
   ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
-  FileUp,
   Folder,
   FolderPlus,
   Loader2,
@@ -31,7 +30,6 @@ import {
   Empty,
   EmptyDescription,
   EmptyHeader,
-  EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
@@ -42,6 +40,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { FILES_EMPTY_STATE_ASSET } from "@/react-app/design-system/empty-state-assets";
+import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import { typeScale } from "@/react-app/design-system/type-scale";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
 import { revealDesktopItemInDir } from "../../../app/lib/desktop";
@@ -1219,9 +1219,11 @@ export function WorkspaceFilesUploadsPanel(props: {
       {!canLoad ? (
         <Empty className="min-h-[280px] border border-dashed border-dls-border">
           <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <FileUp className="size-5" aria-hidden />
-            </EmptyMedia>
+            <EmptyStateIllustration
+              src={FILES_EMPTY_STATE_ASSET}
+              size="compact"
+              className="mb-2"
+            />
             <EmptyTitle>{t("files.no_tool_folder")}</EmptyTitle>
             <EmptyDescription>{t("files.no_tool_folder_hint")}</EmptyDescription>
           </EmptyHeader>
@@ -1261,9 +1263,11 @@ export function WorkspaceFilesUploadsPanel(props: {
           {showEmpty ? (
             <Empty className="min-h-[280px] border-0">
               <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <FileUp className="size-5" aria-hidden />
-                </EmptyMedia>
+                <EmptyStateIllustration
+                  src={FILES_EMPTY_STATE_ASSET}
+                  size="compact"
+                  className="mb-2"
+                />
                 <EmptyTitle>
                   {filterActive
                     ? t("files.no_matching_files")

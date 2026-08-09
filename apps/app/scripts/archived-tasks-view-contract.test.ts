@@ -113,4 +113,26 @@ describe("archived-tasks-view filter UX contract", () => {
     // C1: permanent delete removes session-owned workspace files.
     expect(source).toContain("deleteSessionOwnedWorkspaceFiles");
   });
+
+  test("row primary action is restore; permanent delete is overflow + confirm", () => {
+    // Restore is the only co-equal pill control on the row.
+    expect(source).toContain('data-archive-row-restore="true"');
+    expect(source).toContain('t("settings.archived_tasks_unarchive")');
+    // Delete is not a sibling outline Button of restore.
+    expect(source).toContain('data-archive-row-menu="true"');
+    expect(source).toContain('data-archive-row-delete="true"');
+    expect(source).toContain('variant="destructive"');
+    expect(source).toContain('t("settings.archived_tasks_delete")');
+    // Delete still routes through ConfirmModal (setPendingDeleteRow).
+    expect(source).toContain("setPendingDeleteRow");
+    expect(source).toContain("ConfirmModal");
+    // No second outline Button labeled permanent-delete next to restore.
+    const rowFn = source.slice(source.indexOf("function ArchivedTaskRow"));
+    const outlineButtons = rowFn.match(/variant="outline"/g) ?? [];
+    expect(outlineButtons.length).toBe(1);
+    expect(rowFn).toContain("DropdownMenuItem");
+    expect(rowFn).toContain("text-dls-danger");
+    expect(rowFn).toContain("onClick={props.onDelete}");
+    expect(rowFn).toContain("onClick={props.onRestore}");
+  });
 });
