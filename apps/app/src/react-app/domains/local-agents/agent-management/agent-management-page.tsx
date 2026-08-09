@@ -926,7 +926,12 @@ export function AgentManagementPage(props: {
                         label={t("agent_manager.filter_issue")}
                       />
                     </div>
-                    <Button variant="default" size="sm" onClick={openAddCustomAgent}>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={openAddCustomAgent}
+                      disabled={snapshotPending}
+                    >
                       <Plus className="mr-1.5 size-3.5" />
                       {t("agent_manager.custom_agents_add")}
                     </Button>
