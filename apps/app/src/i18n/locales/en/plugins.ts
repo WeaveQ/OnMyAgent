@@ -130,7 +130,7 @@ export default {
     "Install OfficeCLI when you need it. The files stay in the user directory, so the desktop installer stays small; new regular and expert sessions can use it immediately after installation.",
   "plugins.officecli_title": "OfficeCLI",
   "plugins.officecli_description":
-    "Create, analyze, and edit Word, Excel, and PowerPoint files in chat.",
+    "Create, analyze, and edit Word, Excel, and PowerPoint in chat. Once installed, office files prefer this tool; it coexists with built-in Documents/Spreadsheets (no conflict). Pure PDF and similar still use built-in tools.",
   "plugins.officecli_prompt_1":
     "Turn these meeting notes into a Word weekly report with clear headings.",
   "plugins.officecli_prompt_2":
@@ -139,7 +139,8 @@ export default {
     "Build an 8-slide PPT from this outline with titles, bullets, and speaker notes.",
   "plugins.officecli_checking": "Checking OfficeCLI status",
   "plugins.officecli_not_installed_hint": "Not installed yet. Install it to enable the tool.",
-  "plugins.officecli_installed_hint": "Version {version} is installed and ready for new sessions.",
+  "plugins.officecli_installed_hint":
+    "Version {version} is installed and ready for new sessions. Office document tasks prefer OfficeCLI; built-in Documents/Spreadsheets remain as fallback.",
   "plugins.officecli_update_hint": "Version {installed} is installed; update to {latest}.",
   "plugins.officecli_install": "Install",
   "plugins.officecli_update": "Update",
