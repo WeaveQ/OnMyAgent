@@ -65,7 +65,7 @@ export function toConversationItems(run: PersonalLocalAgentRunResult | null | un
 type LocalAgentToolStatus = "running" | "completed" | "failed" | "pending";
 
 type LocalAgentTimelineItem =
-  | { kind: "message"; message: PersonalLocalAgentConversationMessage }
+  | { kind: "message"; id: string; message: PersonalLocalAgentConversationMessage }
   | { kind: "tool_group"; id: string; messages: PersonalLocalAgentConversationMessage[] };
 
 // Precise status mapping (mirrors Upstream normalizeAcpStatus / normalizeToolCallStatus).
@@ -303,10 +303,9 @@ type LocalAgentToolDisplay = {
 };
 
 // Normalize a tool message into a display record. Returns null when the message
-// carries no usable information at all (no name, no kind, no input, no output,
-// no title). A tool that only has a toolCallId and a status is considered
-// empty — mirroring Upstream's normalizeAcpToolCall which returns undefined for
-// empty updates, so the renderer can skip it entirely.
+// carries no usable information at all. A failed terminal update with only an
+// ID remains visible: otherwise the user sees neither which tool failed nor its
+// terminal state.
 function localAgentToolDisplay(message: PersonalLocalAgentConversationMessage, runStatus?: string): LocalAgentToolDisplay | null {
   const tool = message.toolCall;
   const acpUpdate = message.update;
@@ -318,6 +317,9 @@ function localAgentToolDisplay(message: PersonalLocalAgentConversationMessage, r
   const meaningfulOutput = hasMeaningfulToolValue(rawOutput);
   const meaningfulContent = hasMeaningfulToolValue(acpUpdate?.content);
   const meaningfulLocations = hasMeaningfulToolValue(acpUpdate?.locations);
+  const toolCallId = tool?.id ?? acpUpdate?.toolCallId ?? acpUpdate?.tool_call_id ?? "";
+  const status = resolveLocalAgentToolStatus(message, runStatus);
+  const meaningfulFailure = status === "failed" && Boolean(toolCallId);
   const paramSummary = extractParamSummary(rawKind, rawInput);
   const compactRawName = compactToolSummary(rawName);
   const rawNameLooksLikePayload = Boolean(
@@ -334,11 +336,11 @@ function localAgentToolDisplay(message: PersonalLocalAgentConversationMessage, r
     && !meaningfulOutput
     && !meaningfulContent
     && !meaningfulLocations
+    && !meaningfulFailure
   ) {
     return null;
   }
 
-  const toolCallId = tool?.id ?? acpUpdate?.toolCallId ?? acpUpdate?.tool_call_id ?? "";
   let title: string;
   if (rawName && !rawNameLooksLikePayload && !GENERIC_TOOL_NAMES.has(rawName.toLowerCase())) {
     title = compactRawName;
@@ -375,28 +377,58 @@ function localAgentToolDisplay(message: PersonalLocalAgentConversationMessage, r
   return {
     title,
     description,
-    status: resolveLocalAgentToolStatus(message, runStatus),
+    status,
     detail: detailSections.length ? detailSections : [],
+  };
+}
+
+function createStableRenderKeyAllocator() {
+  const usedKeys = new Set<string>();
+  const nextSuffixByBase = new Map<string, number>();
+  return (candidate: string | null | undefined, fallback: string): string => {
+    const base = candidate?.trim() || fallback;
+    let key = base;
+    if (usedKeys.has(key)) {
+      let suffix = nextSuffixByBase.get(base) ?? 2;
+      do {
+        key = `${base}#${suffix}`;
+        suffix += 1;
+      } while (usedKeys.has(key));
+      nextSuffixByBase.set(base, suffix);
+    } else {
+      nextSuffixByBase.set(base, 2);
+    }
+    usedKeys.add(key);
+    return key;
   };
 }
 
 export function groupLocalAgentTimeline(messages: PersonalLocalAgentConversationMessage[]): LocalAgentTimelineItem[] {
   const items: LocalAgentTimelineItem[] = [];
+  const allocateItemId = createStableRenderKeyAllocator();
   let toolBuffer: PersonalLocalAgentConversationMessage[] = [];
+  let toolBufferId: string | null = null;
   const flushTools = () => {
     if (!toolBuffer.length) return;
     const visibleTools = toolBuffer.filter((message) => localAgentToolDisplay(message) !== null);
     if (visibleTools.length) {
       items.push({
         kind: "tool_group",
-        id: visibleTools.map((message) => message.id).join("-"),
+        // Keep the first source row/group ID. Appending another streaming tool
+        // must not change this React key and remount every existing tool card.
+        id: allocateItemId(
+          toolBufferId ?? visibleTools[0]!.id,
+          `tool-group-${items.length + 1}`,
+        ),
         messages: visibleTools,
       });
     }
     toolBuffer = [];
+    toolBufferId = null;
   };
   for (const message of messages) {
     if (message.type === "tool") {
+      toolBufferId ??= message.id;
       toolBuffer.push(message);
       continue;
     }
@@ -404,18 +436,33 @@ export function groupLocalAgentTimeline(messages: PersonalLocalAgentConversation
       const visibleTools = (message.toolCalls ?? []).filter(
         (toolMessage) => localAgentToolDisplay(toolMessage) !== null,
       );
+      if (visibleTools.length) toolBufferId ??= message.id;
       toolBuffer.push(...visibleTools);
       continue;
     }
     if (message.type === "acp_tool_call") {
+      toolBufferId ??= message.id;
       toolBuffer.push(message);
       continue;
     }
     flushTools();
-    items.push({ kind: "message", message });
+    items.push({
+      kind: "message",
+      id: allocateItemId(message.id, `message-${items.length + 1}`),
+      message,
+    });
   }
   flushTools();
   return items;
+}
+
+export function localAgentToolRenderKeys(
+  messages: PersonalLocalAgentConversationMessage[],
+): string[] {
+  const allocateKey = createStableRenderKeyAllocator();
+  return messages.map((message, index) => (
+    allocateKey(message.id, `tool-${index + 1}`)
+  ));
 }
 
 function normalizeLocalToolText(value: string) {
@@ -557,8 +604,13 @@ function sharedToolItemFromMessage(
 export function LocalAgentToolGroupSummary(props: { messages: PersonalLocalAgentConversationMessage[]; runStatus?: string }) {
   // Prefer shared ConversationItemView for compact tool rows. Keep the rich
   // LocalAgentToolCard only when expandable Input/Output is present.
+  const renderKeys = localAgentToolRenderKeys(props.messages);
   const tools = props.messages
-    .map((message) => ({ message, display: localAgentToolDisplay(message, props.runStatus) }))
+    .map((message, index) => ({
+      message,
+      renderKey: renderKeys[index]!,
+      display: localAgentToolDisplay(message, props.runStatus),
+    }))
     .filter((entry) => entry.display !== null);
 
   if (tools.length === 0) return null;
@@ -570,7 +622,7 @@ export function LocalAgentToolGroupSummary(props: { messages: PersonalLocalAgent
         if (toolNeedsRichInputOutputCard(display)) {
           return (
             <LocalAgentToolCard
-              key={entry.message.id}
+              key={entry.renderKey}
               message={entry.message}
               runStatus={props.runStatus}
             />
@@ -578,7 +630,7 @@ export function LocalAgentToolGroupSummary(props: { messages: PersonalLocalAgent
         }
         const item = sharedToolItemFromMessage(entry.message, display);
         if (!item) return null;
-        return <ConversationItemView key={entry.message.id} item={item} />;
+        return <ConversationItemView key={entry.renderKey} item={item} />;
       })}
     </div>
   );

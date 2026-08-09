@@ -360,6 +360,319 @@ test("stop cancels a run that finishes starting after the channel is stopped", a
   assert.equal(store.runs.size, 0);
 });
 
+test("stop during the initial active-run write cancels the late run and removes its lock", async () => {
+  const runKey = "chat-1::agent:opencode/opencode";
+  const store = createStore();
+  const writeEntered = deferred();
+  const writeGate = deferred();
+  const originalWriteActiveRun = store.writeActiveRun.bind(store);
+  store.writeActiveRun = async (...args) => {
+    if (args[2]?.runId === "late-write-run") {
+      writeEntered.resolve();
+      await writeGate.promise;
+    }
+    return await originalWriteActiveRun(...args);
+  };
+  const cancelled = [];
+  const dispatcher = createDispatcher({
+    store,
+    runtime: {
+      async startMessage() {
+        return { runId: "late-write-run", status: "running" };
+      },
+      async getRun() {
+        return { status: "running" };
+      },
+      async cancelRun(runId, options) {
+        cancelled.push({ runId, options });
+        return { ok: true };
+      },
+    },
+    sendTextTo: async () => ({ ok: true }),
+  });
+  await startDispatcher(dispatcher);
+  await dispatcher.processInbound(inbound("stop during write", "late-write-message"));
+  await writeEntered.promise;
+
+  await dispatcher.stop({ persist: false });
+  writeGate.resolve();
+  await waitFor(() => cancelled.length === 1, () => `cancelled=${JSON.stringify(cancelled)}`);
+
+  assert.deepEqual(cancelled, [{
+    runId: "late-write-run",
+    options: { reason: "test-channel_stopped" },
+  }]);
+  assert.equal(store.runs.has(runKey), false);
+});
+
+test("stop after the initial write returns keeps the durable run resumable in the same dispatcher", async () => {
+  const runKey = "chat-1::agent:opencode/opencode";
+  const store = createStore();
+  const stopped = deferred();
+  const pollGate = deferred();
+  let dispatcher;
+  let stopQueued = false;
+  const originalWriteActiveRun = store.writeActiveRun.bind(store);
+  store.writeActiveRun = async (...args) => {
+    const stored = await originalWriteActiveRun(...args);
+    if (args[2]?.runId !== "durable-before-stop-run") return stored;
+    return new Proxy(stored, {
+      ownKeys(target) {
+        if (!stopQueued) {
+          stopQueued = true;
+          queueMicrotask(async () => {
+            await dispatcher.stop({ persist: false });
+            stopped.resolve();
+          });
+        }
+        return Reflect.ownKeys(target);
+      },
+    });
+  };
+  let startCalls = 0;
+  let getRunCalls = 0;
+  dispatcher = createDispatcher({
+    store,
+    runtime: {
+      async startMessage() {
+        startCalls += 1;
+        return { runId: "durable-before-stop-run", status: "running" };
+      },
+      async getRun() {
+        getRunCalls += 1;
+        return await pollGate.promise;
+      },
+    },
+    sendTextTo: async () => ({ ok: true, messageId: "message-1" }),
+  });
+  await startDispatcher(dispatcher);
+  await dispatcher.processInbound(inbound("durable before stop", "durable-before-stop-message"));
+  await stopped.promise;
+  assert.equal(store.runs.get(runKey)?.runId, "durable-before-stop-run");
+
+  await startDispatcher(dispatcher);
+  await waitFor(() => getRunCalls === 1, () => `getRunCalls=${getRunCalls}`);
+  await dispatcher.processInbound(inbound("must stay busy", "durable-before-stop-second-message"));
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  assert.equal(startCalls, 1);
+
+  pollGate.resolve({ runId: "durable-before-stop-run", status: "completed", output: "resumed" });
+  await waitFor(() => !store.runs.has(runKey));
+  await dispatcher.stop({ persist: false });
+});
+
+test("stop after a durable terminal claim but before transport preserves and resumes the reply", async () => {
+  const runKey = "chat-1::agent:opencode/opencode";
+  const store = createStore({ records: [activeRecord()] });
+  const claimPersisted = deferred();
+  const claimReturnGate = deferred();
+  const originalWriteActiveRun = store.writeActiveRun.bind(store);
+  store.writeActiveRun = async (...args) => {
+    const stored = await originalWriteActiveRun(...args);
+    if (args[2]?.terminalDeliveryClaimedRunId === "run-1") {
+      claimPersisted.resolve();
+      await claimReturnGate.promise;
+    }
+    return stored;
+  };
+  const sent = [];
+  const dispatcher = createDispatcher({
+    store,
+    runtime: {
+      async getRun({ runId }) {
+        return { runId, status: "completed", output: "resume after zero attempts" };
+      },
+    },
+    sendTextTo: async (_chatId, text) => {
+      sent.push(text);
+      return { ok: true, messageId: `message-${sent.length}` };
+    },
+  });
+  await startDispatcher(dispatcher);
+  await claimPersisted.promise;
+
+  await dispatcher.stop({ persist: false });
+  claimReturnGate.resolve();
+  await waitFor(
+    () => store.runs.has(runKey) && store.runs.get(runKey)?.terminalDeliveryClaimedRunId == null,
+    () => JSON.stringify(store.runs.get(runKey)),
+  );
+  assert.equal(sent.length, 0);
+
+  await startDispatcher(dispatcher);
+  await waitFor(() => sent.length === 1 && !store.runs.has(runKey));
+  assert.match(sent[0], /resume after zero attempts/);
+  assert.equal(store.appendedHistories.length, 1);
+  await dispatcher.stop({ persist: false });
+});
+
+test("stop while the first transport marker is pending prevents a post-stop send and resumes later", async () => {
+  const runKey = "chat-1::agent:opencode/opencode";
+  const store = createStore({ records: [activeRecord()] });
+  const markerPersisted = deferred();
+  const markerReturnGate = deferred();
+  const originalWriteActiveRun = store.writeActiveRun.bind(store);
+  store.writeActiveRun = async (...args) => {
+    const stored = await originalWriteActiveRun(...args);
+    if (args[2]?.terminalDeliveryAttemptedTransports === 1) {
+      markerPersisted.resolve();
+      await markerReturnGate.promise;
+    }
+    return stored;
+  };
+  const sent = [];
+  const dispatcher = createDispatcher({
+    store,
+    runtime: {
+      async getRun({ runId }) {
+        return { runId, status: "completed", output: "resume after marker stop" };
+      },
+    },
+    sendTextTo: async (_chatId, text) => {
+      sent.push(text);
+      return { ok: true, messageId: `message-${sent.length}` };
+    },
+  });
+  await startDispatcher(dispatcher);
+  await markerPersisted.promise;
+
+  await dispatcher.stop({ persist: false });
+  markerReturnGate.resolve();
+  await waitFor(
+    () => store.runs.has(runKey) && store.runs.get(runKey)?.terminalDeliveryClaimedRunId == null,
+    () => JSON.stringify(store.runs.get(runKey)),
+  );
+  assert.equal(sent.length, 0);
+
+  await startDispatcher(dispatcher);
+  await waitFor(() => sent.length === 1 && !store.runs.has(runKey));
+  assert.match(sent[0], /resume after marker stop/);
+  await dispatcher.stop({ persist: false });
+});
+
+test("a fresh dispatcher retries a zero-attempt terminal claim when release persistence fails", async () => {
+  const runKey = "chat-1::agent:opencode/opencode";
+  const store = createStore({ records: [activeRecord()] });
+  const claimPersisted = deferred();
+  const claimReturnGate = deferred();
+  const releaseFailed = deferred();
+  const originalWriteActiveRun = store.writeActiveRun.bind(store);
+  let failRelease = true;
+  store.writeActiveRun = async (...args) => {
+    if (args[2]?.terminalDeliveryClaimedRunId == null && failRelease) {
+      failRelease = false;
+      releaseFailed.resolve();
+      throw new Error("terminal claim release is locked");
+    }
+    const stored = await originalWriteActiveRun(...args);
+    if (args[2]?.terminalDeliveryClaimedRunId === "run-1") {
+      claimPersisted.resolve();
+      await claimReturnGate.promise;
+    }
+    return stored;
+  };
+  const runtime = { async getRun({ runId }) { return { runId, status: "completed", output: "fresh retry" }; } };
+  let sends = 0;
+  const sendTextTo = async () => ({ ok: true, messageId: `message-${++sends}` });
+  const first = createDispatcher({ store, runtime, sendTextTo });
+  await startDispatcher(first);
+  await claimPersisted.promise;
+  await first.stop({ persist: false });
+  claimReturnGate.resolve();
+  await releaseFailed.promise;
+  assert.equal(store.runs.get(runKey)?.terminalDeliveryAttemptedTransports, 0);
+
+  const second = createDispatcher({ store, runtime, sendTextTo });
+  await startDispatcher(second);
+  await waitFor(() => !store.runs.has(runKey));
+  assert.equal(sends, 1);
+  assert.equal(store.appendedHistories.length, 1);
+  await second.stop({ persist: false });
+});
+
+test("a stale active-run read cannot resurrect a cancelled lock", async () => {
+  const runKey = "chat-1::agent:opencode/opencode";
+  const store = createStore();
+  const staleReadEntered = deferred();
+  const staleReadGate = deferred();
+  const originalReadActiveRun = store.readActiveRun.bind(store);
+  let reads = 0;
+  store.readActiveRun = async (...args) => {
+    reads += 1;
+    const snapshot = await originalReadActiveRun(...args);
+    if (reads === 1) {
+      staleReadEntered.resolve();
+      await staleReadGate.promise;
+    }
+    return snapshot;
+  };
+  let startCalls = 0;
+  const dispatcher = createDispatcher({
+    store,
+    runtime: {
+      async startMessage() {
+        startCalls += 1;
+        return { runId: "replacement-run", status: "running" };
+      },
+      async getRun({ runId }) {
+        return { runId, status: "completed", output: "replacement completed" };
+      },
+      async cancelRun() {
+        return { ok: true };
+      },
+    },
+    sendTextTo: async () => ({ ok: true, messageId: "message" }),
+  });
+  await startDispatcher(dispatcher);
+  store.runs.set(runKey, activeRecord());
+
+  const staleStatus = dispatcher.processInbound(inbound("#status", "stale-status"));
+  await staleReadEntered.promise;
+  await dispatcher.processInbound(inbound("#cancel", "stale-cancel"));
+  staleReadGate.resolve();
+  await staleStatus;
+
+  await dispatcher.processInbound(inbound("replacement", "stale-replacement"));
+  await waitFor(() => startCalls === 1, () => `startCalls=${startCalls}`);
+  await waitFor(() => !store.runs.has(runKey));
+  await dispatcher.stop({ persist: false });
+});
+
+test("stop while the initial active-run read is pending prevents the first runtime start", async () => {
+  const store = createStore();
+  const readEntered = deferred();
+  const readGate = deferred();
+  store.readActiveRun = async () => {
+    readEntered.resolve();
+    await readGate.promise;
+    return null;
+  };
+  let startCalls = 0;
+  const dispatcher = createDispatcher({
+    store,
+    runtime: {
+      async startMessage() {
+        startCalls += 1;
+        return { runId: "must-not-start", status: "running" };
+      },
+      async getRun() {
+        return { status: "running" };
+      },
+    },
+    sendTextTo: async () => ({ ok: true }),
+  });
+  await startDispatcher(dispatcher);
+  await dispatcher.processInbound(inbound("pending read", "pending-read-message"));
+  await readEntered.promise;
+
+  await dispatcher.stop({ persist: false });
+  readGate.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 25));
+
+  assert.equal(startCalls, 0);
+  assert.equal(store.runs.size, 0);
+});
+
 test("active-run polling deduplicates pending nudges while terminal delivery is in flight", async () => {
   const store = createStore({ records: [activeRecord()] });
   const deliveryGate = deferred();
@@ -482,6 +795,48 @@ test("stop during terminal delivery prevents later chunks and history writes", a
   assert.equal(sends, 1);
   assert.equal(store.appendedHistories.length, 0);
   assert.equal(store.runs.size, 0);
+});
+
+test("same-dispatcher restart releases a claimed run without letting its late delivery delete the replacement", async () => {
+  const runKey = "chat-1::agent:opencode/opencode";
+  const store = createStore({ records: [activeRecord()] });
+  const firstSendGate = deferred();
+  let oldSendAttempts = 0;
+  let replacementStarts = 0;
+  const dispatcher = createDispatcher({
+    store,
+    runtime: {
+      async startMessage() {
+        replacementStarts += 1;
+        return { runId: "replacement-run", status: "running" };
+      },
+      async getRun({ runId }) {
+        if (runId === "run-1") return { runId, status: "completed", output: "old terminal output" };
+        return { runId, status: "running" };
+      },
+    },
+    sendTextTo: async (_chatId, text) => {
+      if (text.includes("old terminal output")) {
+        oldSendAttempts += 1;
+        return await firstSendGate.promise;
+      }
+      return { ok: true, messageId: "message" };
+    },
+  });
+  await startDispatcher(dispatcher);
+  await waitFor(() => oldSendAttempts === 1, () => `oldSendAttempts=${oldSendAttempts}`);
+
+  await dispatcher.stop({ persist: false });
+  await startDispatcher(dispatcher);
+  await waitFor(() => !store.runs.has(runKey));
+
+  await dispatcher.processInbound(inbound("replacement", "replacement-after-restart"));
+  await waitFor(() => replacementStarts === 1 && store.runs.get(runKey)?.runId === "replacement-run");
+  firstSendGate.resolve({ ok: true, messageId: "old-message" });
+  await new Promise((resolve) => setTimeout(resolve, 25));
+
+  assert.equal(store.runs.get(runKey)?.runId, "replacement-run");
+  await dispatcher.stop({ persist: false });
 });
 
 test("terminal output waits for a durable claim before delivery", async () => {

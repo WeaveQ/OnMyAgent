@@ -27,25 +27,43 @@ const sidebarZh = [
   {
     text: "功能指南",
     collapsed: false,
-    // Order mirrors product UI: main rail → marketplace → account menu → settings
-    // Rail: 首页 · 专家 · 自动 · 文件 · 市场 · 项目；账号: Agent 对话 / 管理 / 设置
+    // Order mirrors product UI: main rail → channels → account menu → settings.
+    // Rail: 首页 · 专家 · 自动 · 文件 · 市场 · Company · 项目；bottom: 消息渠道。
     items: [
       { text: "界面与工作区", link: "/guide/overview" },
+      { text: "工作区", link: "/guide/workspaces" },
       { text: "会话", link: "/guide/sessions" },
       { text: "专家", link: "/guide/experts" },
       { text: "自动化", link: "/guide/automation" },
       { text: "文件与产物", link: "/guide/files" },
       { text: "技能", link: "/guide/skills" },
       { text: "MCP / 连接", link: "/guide/mcp" },
-      { text: "Agent 对话", link: "/guide/agent-chat" },
+      { text: "连接器与托管工具", link: "/guide/connectors" },
+      { text: "企业连接", link: "/guide/company" },
+      { text: "项目（即将推出）", link: "/guide/projects" },
+      {
+        text: "消息渠道",
+        collapsed: true,
+        items: [
+          { text: "渠道总览", link: "/guide/channels" },
+          { text: "微信", link: "/guide/channels-weixin" },
+          { text: "飞书", link: "/guide/channels-feishu" },
+          { text: "Telegram", link: "/guide/channels-telegram" },
+          { text: "Discord", link: "/guide/channels-discord" },
+        ],
+      },
       { text: "Agent 管理", link: "/guide/agent-management" },
+      { text: "Agent 对话", link: "/guide/agent-chat" },
+      { text: "归档、搜索与导入", link: "/guide/archive" },
+      { text: "浏览器与 Computer Use", link: "/guide/browser-computer-use" },
       { text: "审批与权限", link: "/guide/approvals" },
       { text: "模型与 BYOK", link: "/guide/models" },
       { text: "记忆 / 个人", link: "/guide/memory" },
+      { text: "远程运行与沙箱", link: "/guide/remote-runtime" },
       { text: "设置", link: "/guide/settings" },
+      { text: "功能与平台状态", link: "/guide/capability-status" },
     ],
   },
-  // 平台文档暂不在侧栏展示（页面仍可直链访问）
   {
     text: "场景与实践",
     collapsed: false,
@@ -83,13 +101,117 @@ const sidebarZh = [
       { text: "FAQ", link: "/faq" },
     ],
   },
+  {
+    text: "产品套件",
+    collapsed: true,
+    items: [
+      { text: "产品套件总览", link: "/platform/" },
+      { text: "OnMyAgent", link: "/platform/onmyagent" },
+      { text: "OnMyBuddy", link: "/platform/onmybuddy" },
+      { text: "OnMyCompany", link: "/platform/onmycompany" },
+      { text: "试点组合 A / B / C", link: "/platform/pilot-combos" },
+    ],
+  },
 ];
 
-/** English — skeleton: intro only (more pages later) */
+/** English — full route parity with the Chinese handbook */
 const sidebarEn = [
   {
     text: "Get started",
-    items: [{ text: "Introduction", link: "/" }],
+    items: [
+      { text: "Introduction", link: "/en/" },
+      { text: "Quick start", link: "/en/quickstart" },
+      { text: "Your first task", link: "/en/first-task" },
+      { text: "Tips for working efficiently", link: "/en/guide/efficient-tips" },
+      { text: "Download and installation", link: "/en/download" },
+      { text: "Changelog", link: "/en/changelog" },
+    ],
+  },
+  {
+    text: "Feature guides",
+    collapsed: false,
+    items: [
+      { text: "Interface and workspaces", link: "/en/guide/overview" },
+      { text: "Workspaces", link: "/en/guide/workspaces" },
+      { text: "Sessions", link: "/en/guide/sessions" },
+      { text: "Experts", link: "/en/guide/experts" },
+      { text: "Automation", link: "/en/guide/automation" },
+      { text: "Files and deliverables", link: "/en/guide/files" },
+      { text: "Skills", link: "/en/guide/skills" },
+      { text: "MCP and connections", link: "/en/guide/mcp" },
+      { text: "Connectors and managed tools", link: "/en/guide/connectors" },
+      { text: "Company connection", link: "/en/guide/company" },
+      { text: "Projects (coming soon)", link: "/en/guide/projects" },
+      {
+        text: "Messaging channels",
+        collapsed: true,
+        items: [
+          { text: "Channel overview", link: "/en/guide/channels" },
+          { text: "WeChat", link: "/en/guide/channels-weixin" },
+          { text: "Feishu", link: "/en/guide/channels-feishu" },
+          { text: "Telegram", link: "/en/guide/channels-telegram" },
+          { text: "Discord", link: "/en/guide/channels-discord" },
+        ],
+      },
+      { text: "Agent management", link: "/en/guide/agent-management" },
+      { text: "Agent chat", link: "/en/guide/agent-chat" },
+      { text: "Archive, search, and import", link: "/en/guide/archive" },
+      { text: "Browser and Computer Use", link: "/en/guide/browser-computer-use" },
+      { text: "Approvals and permissions", link: "/en/guide/approvals" },
+      { text: "Models and BYOK", link: "/en/guide/models" },
+      { text: "Personal and memory", link: "/en/guide/memory" },
+      { text: "Remote runtimes and sandboxing", link: "/en/guide/remote-runtime" },
+      { text: "Settings", link: "/en/guide/settings" },
+      { text: "Feature and platform status", link: "/en/guide/capability-status" },
+    ],
+  },
+  {
+    text: "Scenarios and practices",
+    collapsed: false,
+    items: [
+      { text: "How to use scenarios", link: "/en/scenarios/usage-guide" },
+      { text: "Practice overview", link: "/en/scenarios/practice/" },
+      { text: "1. Identify and organize files", link: "/en/scenarios/practice/files" },
+      { text: "2. Create and edit documents", link: "/en/scenarios/practice/docs" },
+      { text: "3. Analyze and summarize spreadsheets", link: "/en/scenarios/practice/data" },
+      { text: "4. Plan and distribute content", link: "/en/scenarios/practice/content" },
+      { text: "5. Automate daily and weekly briefings", link: "/en/scenarios/practice/daily-brief" },
+      { text: "6. Create and evolve skills", link: "/en/scenarios/practice/skills-evolve" },
+      { text: "7. Keep work moving with automation", link: "/en/scenarios/practice/self-drive" },
+      { text: "8. Meeting notes and action items", link: "/en/scenarios/practice/meetings" },
+      { text: "9. Cloud document collaboration", link: "/en/scenarios/practice/tencent-docs" },
+      { text: "Reports and meeting notes", link: "/en/scenarios/office-docs" },
+      { text: "Scheduled digests", link: "/en/scenarios/automation-digest" },
+      { text: "Team pilot", link: "/en/scenarios/team-pilot" },
+    ],
+  },
+  {
+    text: "Installation",
+    collapsed: true,
+    items: [
+      { text: "macOS", link: "/en/install/macos" },
+      { text: "Windows", link: "/en/install/windows" },
+      { text: "Troubleshooting", link: "/en/install/troubleshooting" },
+    ],
+  },
+  {
+    text: "Security and FAQ",
+    collapsed: true,
+    items: [
+      { text: "Security and data", link: "/en/security" },
+      { text: "FAQ", link: "/en/faq" },
+    ],
+  },
+  {
+    text: "Product suite",
+    collapsed: true,
+    items: [
+      { text: "Product suite overview", link: "/en/platform/" },
+      { text: "OnMyAgent", link: "/en/platform/onmyagent" },
+      { text: "OnMyBuddy", link: "/en/platform/onmybuddy" },
+      { text: "OnMyCompany", link: "/en/platform/onmycompany" },
+      { text: "Pilot configurations A / B / C", link: "/en/platform/pilot-combos" },
+    ],
   },
 ];
 
@@ -195,10 +317,14 @@ export default defineConfig({
       link: "/en/",
       title: "OnMyAgent",
       description:
-        "Local-first office Agent workbench: intro, guides, and more (EN skeleton).",
+        "Local-first office Agent workbench: setup, feature guides, scenarios, security, and product status.",
       themeConfig: {
         siteTitle: "OnMyAgent",
-        nav: [{ text: "Introduction", link: "/" }],
+        nav: [
+          { text: "Introduction", link: "/en/" },
+          { text: "Quick start", link: "/en/quickstart" },
+          { text: "Download", link: "/en/download" },
+        ],
         sidebar: sidebarEn,
         outline: {
           level: [2, 3],

@@ -319,7 +319,13 @@ export function createChannelAgentDispatcher(options = {}) {
     // without transport or persistence side effects after stop returns.
     activeRunInFlight.clear();
     activeRunPollTasks.clear();
-    for (const key of activeRunReservations.keys()) bumpActiveRunGeneration(key);
+    for (const key of activeRunReservations.keys()) {
+      bumpActiveRunGeneration(key);
+      // A startMessage result may already be waiting for its first durable
+      // write. Tombstone the optimistic overlay so that late write is removed
+      // again and the caller takes the aborted-session cancel path.
+      activeRunRecords.set(key, null);
+    }
     activeRunReservations.clear();
     activeRunErrorNoticeAt.clear();
     unsubscribeStudioRelay();
@@ -452,7 +458,11 @@ export function createChannelAgentDispatcher(options = {}) {
     if (reserved) return reserved;
     const key = activeRunGuardKey(accountId, runKey);
     if (activeRunRecords.has(key)) return activeRunRecords.get(key);
+    const generation = activeRunGenerations.get(key) ?? 0;
     const stored = await store.readActiveRun(accountId, runKey).catch(() => null);
+    if ((activeRunGenerations.get(key) ?? 0) !== generation) {
+      return activeRunRecords.get(key) ?? null;
+    }
     if (stored) activeRunRecords.set(key, stored);
     return stored;
   }
@@ -530,18 +540,22 @@ export function createChannelAgentDispatcher(options = {}) {
   }
 
   async function dispatchToAgent(session, event) {
+    if (session.controller?.signal.aborted) return null;
     if (!runtime?.runMessage && (!runtime?.startMessage || !runtime?.getRun)) {
       throw new Error("personal agent runtime is unavailable");
     }
     const agent = event.agentSnapshot ?? await currentAgentForChat(platformType, session, event.chatId);
+    if (session.controller?.signal.aborted) return null;
     if (agent.provider === ONMYAGENT_ASSISTANT_PROVIDER) {
       return await runChannelAssistantBridgeTurn(session, event);
     }
     const promptMode = await currentPromptModeForChat(session, event.chatId);
+    if (session.controller?.signal.aborted) return null;
     const historyKey = chatAgentHistoryKey(event.chatId, agent);
     const runKey = activeRunKey(event.chatId, agent);
     const accountId = session.account.accountId;
     const existingRun = await readActiveRunWithReservation(accountId, runKey);
+    if (session.controller?.signal.aborted) return null;
     if (existingRun) {
       if (existingRun.runId) scheduleActiveRunPoll(session, existingRun, 0);
       await notifyAgentBusy(session, event, agent, runKey);
@@ -563,10 +577,13 @@ export function createChannelAgentDispatcher(options = {}) {
     try {
       const runtimeAgent = scopedRuntimeAgent(platformType, platformName, agent, event);
       const channelSession = await getChannelSession(session, event, agent);
+      if (session.controller?.signal.aborted) return null;
       const history = await store.readChatHistory(accountId, historyKey, session.options.historyLimit).catch(() => []);
+      if (session.controller?.signal.aborted) return null;
       const prompt = buildPrompt(platformName, event, { mode: promptMode, history, agent });
       if (typeof runtime.startMessage !== "function" || typeof runtime.getRun !== "function") {
         const legacyModel = await currentModelForChat(session, event.chatId);
+        if (session.controller?.signal.aborted) return null;
         const result = await runAgentTurn(runtime, {
           workspaceRoot: session.options.workspaceRoot,
           accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
@@ -582,6 +599,7 @@ export function createChannelAgentDispatcher(options = {}) {
         return result;
       }
       const chatModel = await currentModelForChat(session, event.chatId);
+      if (session.controller?.signal.aborted) return null;
       const started = await runtime.startMessage({
         workspaceRoot: session.options.workspaceRoot,
         accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
@@ -638,6 +656,14 @@ export function createChannelAgentDispatcher(options = {}) {
         }
         return trackedRun;
       }
+      if (session.controller?.signal.aborted) {
+        const current = activeRunRecords.get(pollKey);
+        const replacement = reservationFor(accountId, runKey);
+        if (!replacement && (!current || String(current.runId ?? "") === String(trackedRun.runId))) {
+          activeRunRecords.set(pollKey, trackedRun);
+        }
+        return trackedRun;
+      }
       clearedActiveRunKeys.delete(pollKey);
       scheduleActiveRunPoll(session, trackedRun, 0);
       return trackedRun;
@@ -672,26 +698,50 @@ export function createChannelAgentDispatcher(options = {}) {
 
   async function resumeActiveRuns(session) {
     const runs = await listActiveRunsSafely(session.account.accountId);
-    for (const run of runs) scheduleActiveRunPoll(session, run, 0);
+    for (const run of runs) {
+      // clearActiveRunPoll is scoped to a service session. A durable run that
+      // survives stop must be eligible again when the same dispatcher starts.
+      clearedActiveRunKeys.delete(activeRunGuardKey(session.account.accountId, run.runKey));
+      scheduleActiveRunPoll(session, run, 0);
+    }
   }
 
-  async function claimTerminalDelivery(session, runKey, record) {
+  async function releaseUnattemptedTerminalClaim(session, runKey, record) {
+    const pollKey = activeRunGuardKey(session.account.accountId, runKey);
+    try {
+      return await writeActiveRunSafely(session.account.accountId, runKey, {
+        status: record?.status === "terminal_delivery_claimed" ? "running" : (record?.status ?? "running"),
+        terminalDeliveryClaimedRunId: null,
+        terminalDeliveryClaimedAt: null,
+        terminalDeliveryAttemptedTransports: null,
+      }, record, true);
+    } finally {
+      terminalDeliveryClaims.delete(pollKey);
+      clearedActiveRunKeys.delete(pollKey);
+    }
+  }
+
+  async function claimTerminalDelivery(session, runKey, record, trackTransportAttempts = false) {
     const pollKey = activeRunGuardKey(session.account.accountId, runKey);
     const runId = String(record?.runId ?? "").trim();
     if (!runId || clearedActiveRunKeys.has(pollKey)) return { shouldDeliver: false, shouldCleanup: false };
     clearActiveRunPoll(session.account.accountId, runKey);
-    if (
-      terminalDeliveryClaims.get(pollKey) === runId
-      || String(record?.terminalDeliveryClaimedRunId ?? "").trim() === runId
-    ) {
-      terminalDeliveryClaims.set(pollKey, runId);
+    if (terminalDeliveryClaims.get(pollKey) === runId) {
       return { shouldDeliver: false, shouldCleanup: true };
+    }
+    if (String(record?.terminalDeliveryClaimedRunId ?? "").trim() === runId) {
+      terminalDeliveryClaims.set(pollKey, runId);
+      return {
+        shouldDeliver: trackTransportAttempts && record?.terminalDeliveryAttemptedTransports === 0,
+        shouldCleanup: true,
+      };
     }
     try {
       const claimed = await writeActiveRunSafely(session.account.accountId, runKey, {
         status: "terminal_delivery_claimed",
         terminalDeliveryClaimedRunId: runId,
         terminalDeliveryClaimedAt: Date.now(),
+        ...(trackTransportAttempts ? { terminalDeliveryAttemptedTransports: 0 } : {}),
       }, record, true);
       if (String(claimed?.terminalDeliveryClaimedRunId ?? "").trim() !== runId) {
         return { shouldDeliver: false, shouldCleanup: false };
@@ -709,12 +759,37 @@ export function createChannelAgentDispatcher(options = {}) {
     }
   }
 
+  async function markTerminalDeliveryAttempted(session, runKey, record) {
+    try {
+      const updated = await writeActiveRunSafely(session.account.accountId, runKey, {
+        terminalDeliveryAttemptedTransports: 1,
+      }, record, true);
+      if (updated?.terminalDeliveryAttemptedTransports !== 1) throw new Error("terminal delivery attempt marker lost its run");
+      return updated;
+    } catch (error) {
+      throw Object.assign(error instanceof Error ? error : new Error(String(error)), {
+        retryTerminalDelivery: true,
+        attemptedTransports: 0,
+      });
+    }
+  }
+
   async function finalizeActiveRun(session, runKey, record) {
     const pollKey = activeRunGuardKey(session.account.accountId, runKey);
+    const runId = String(record?.runId ?? "").trim();
+    const reserved = reservationFor(session.account.accountId, runKey);
+    const current = activeRunRecords.get(pollKey);
+    if (
+      (reserved && String(reserved?.runId ?? "").trim() !== runId)
+      || (current && String(current?.runId ?? "").trim() !== runId)
+    ) {
+      return false;
+    }
     clearActiveRunPoll(session.account.accountId, runKey);
     agentBusyNoticeAt.delete(pollKey);
     await deleteActiveRunSafely(session.account.accountId, runKey);
-    terminalDeliveryClaims.delete(pollKey);
+    if (terminalDeliveryClaims.get(pollKey) === runId) terminalDeliveryClaims.delete(pollKey);
+    return true;
   }
 
   function scheduleActiveRunPoll(session, run, delayMs = ACTIVE_RUN_POLL_INTERVAL_MS) {
@@ -799,27 +874,41 @@ export function createChannelAgentDispatcher(options = {}) {
     setState({ lastRunId: record.runId });
     const resultState = getChannelRunSnapshotState(result);
     if (resultState.isCompletedWithOutput) {
-      const claim = await claimTerminalDelivery(session, runKey, record);
+      const claim = await claimTerminalDelivery(session, runKey, record, true);
       if (!claim.shouldDeliver) {
         if (claim.shouldCleanup) await finalizeActiveRun(session, runKey, record);
         return;
       }
       const deliveredOutput = formatAgentResultOutput(result);
+      let preserveForResume = false;
       try {
         const delivery = await deliverReply(
           session,
           record.chatId,
           record.senderId,
           formatAgentReply({ agent: record.agent, text: deliveredOutput }),
+          { beforeFirstTransport: () => markTerminalDeliveryAttempted(session, runKey, record) },
         );
+        if (delivery?.cancelled === true && delivery.attemptedTransports === 0) {
+          preserveForResume = true;
+          await releaseUnattemptedTerminalClaim(session, runKey, record);
+          return;
+        }
         if (delivery?.ok !== false) {
           await appendAgentHistory(session, record.historyKey, record.userText, deliveredOutput, record.agent, record.historyStoreLimit ?? session.options.historyStoreLimit);
           await appendChannelSessionHistoryById(record.channelSessionId, record.userText, deliveredOutput, record.agent);
         }
+      } catch (error) {
+        if (error?.retryTerminalDelivery === true) {
+          preserveForResume = true;
+          terminalDeliveryClaims.delete(pollKey);
+          clearedActiveRunKeys.delete(pollKey);
+        }
+        throw error;
       } finally {
         // A transport may accept an earlier chunk before a later send/edit
         // fails. Claim and clear instead of replaying a completed snapshot.
-        await finalizeActiveRun(session, runKey, record);
+        if (!preserveForResume) await finalizeActiveRun(session, runKey, record);
       }
       return;
     }
@@ -877,7 +966,7 @@ export function createChannelAgentDispatcher(options = {}) {
    * may patch the current message. Once the accumulated body would cross the
    * platform limit, delivery rolls over to a new message instead.
    */
-  async function deliverReply(session, chatId, peerId, text) {
+  async function deliverReply(session, chatId, peerId, text, { beforeFirstTransport = null } = {}) {
     const chunks = splitTextForPlatform(text, maxMessageLength);
     if (chunks.length === 0) return null;
     let messageId = null;
@@ -908,6 +997,8 @@ export function createChannelAgentDispatcher(options = {}) {
       const chunk = chunks[index];
       const editedText = currentMessageText ? `${currentMessageText}\n${chunk}` : chunk;
       const canEditCurrent = Boolean(editMessageTo && messageId && editedText.length <= maxMessageLength);
+      if (attemptedTransports === 0 && beforeFirstTransport) await beforeFirstTransport();
+      if (session.controller?.signal.aborted) return cancelledResult();
       if (canEditCurrent) {
         attemptedTransports += 1;
         const edited = await editMessageTo(chatId, messageId, editedText)
