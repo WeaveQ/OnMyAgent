@@ -22,6 +22,46 @@ import {
   shouldRetryWorkspaceSessionSnapshot,
 } from "./session-snapshot-policy.js";
 
+export type WorkspaceSessionSnapshotReads<
+  Session,
+  Messages,
+  Todos,
+  Statuses,
+> = {
+  session: (signal?: AbortSignal) => Promise<Session>;
+  messages: (signal?: AbortSignal) => Promise<Messages>;
+  todos: (signal?: AbortSignal) => Promise<Todos>;
+  statuses: (signal?: AbortSignal) => Promise<Statuses>;
+};
+
+/**
+ * Starts all snapshot reads together and gives each one the caller's signal.
+ * Kept separate from the OpenCode client so cancellation behavior stays
+ * directly testable without an HTTP server or a global fetch override.
+ */
+export async function readWorkspaceSessionSnapshotReads<
+  Session,
+  Messages,
+  Todos,
+  Statuses,
+>(
+  reads: WorkspaceSessionSnapshotReads<Session, Messages, Todos, Statuses>,
+  signal?: AbortSignal,
+): Promise<{
+  session: Session;
+  messages: Messages;
+  todos: Todos;
+  statuses: Statuses;
+}> {
+  const [session, messages, todos, statuses] = await Promise.all([
+    reads.session(signal),
+    reads.messages(signal),
+    reads.todos(signal),
+    reads.statuses(signal),
+  ]);
+  return { session, messages, todos, statuses };
+}
+
 function remapSessionReadError(error: unknown): never {
   if (isApiError(error) && error.code === "opencode_request_failed") {
     const details = error.details;
@@ -191,39 +231,46 @@ export async function readWorkspaceSessionSnapshot(
 ) {
   try {
     const opencode = getWorkspaceOpencodeClient(config, workspace, input.directory);
-    const [session, messages, todos, statuses] = await Promise.all([
-      opencode.session
-        .get({ sessionID: sessionId }, { signal: input.signal })
-        .then((result) =>
-          unwrapOpencodeResult(
-            result,
-            `/session/${encodeURIComponent(sessionId)}`,
-          ),
-        ),
-      opencode.session
-        .messages(
-          { sessionID: sessionId, limit: input.limit },
-          { signal: input.signal },
-        )
-        .then((result) =>
-          unwrapOpencodeResult(
-            result,
-            `/session/${encodeURIComponent(sessionId)}/message`,
-          ),
-        ),
-      opencode.session
-        .todo({ sessionID: sessionId }, { signal: input.signal })
-        .then((result) =>
-          unwrapOpencodeResult(
-            result,
-            `/session/${encodeURIComponent(sessionId)}/todo`,
-          ),
-        ),
-      opencode.session
-        .status(undefined, { signal: input.signal })
-        .then((result) => unwrapOpencodeResult(result, "/session/status")),
-    ]);
-    return buildSessionSnapshot({ session, messages, todos, statuses });
+    const snapshot = await readWorkspaceSessionSnapshotReads(
+      {
+        session: (signal) =>
+          opencode.session
+            .get({ sessionID: sessionId }, { signal })
+            .then((result) =>
+              unwrapOpencodeResult(
+                result,
+                `/session/${encodeURIComponent(sessionId)}`,
+              ),
+            ),
+        messages: (signal) =>
+          opencode.session
+            .messages(
+              { sessionID: sessionId, limit: input.limit },
+              { signal },
+            )
+            .then((result) =>
+              unwrapOpencodeResult(
+                result,
+                `/session/${encodeURIComponent(sessionId)}/message`,
+              ),
+            ),
+        todos: (signal) =>
+          opencode.session
+            .todo({ sessionID: sessionId }, { signal })
+            .then((result) =>
+              unwrapOpencodeResult(
+                result,
+                `/session/${encodeURIComponent(sessionId)}/todo`,
+              ),
+            ),
+        statuses: (signal) =>
+          opencode.session
+            .status(undefined, { signal })
+            .then((result) => unwrapOpencodeResult(result, "/session/status")),
+      },
+      input.signal,
+    );
+    return buildSessionSnapshot(snapshot);
   } catch (error) {
     try {
       remapSessionReadError(error);
