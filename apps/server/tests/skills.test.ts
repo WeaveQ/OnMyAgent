@@ -4,7 +4,12 @@ import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { ServerConfig, WorkspaceInfo } from "@onmyagent/types/server";
 
-import { listSkills } from "../src/services/skills.js";
+import {
+  getSkippedSkillStats,
+  listSkills,
+  resetSkippedSkillStats,
+  skillsInstallWriteRoot,
+} from "../src/services/skills.js";
 import { updatePluginEnablement } from "../src/services/artifact-plugin-enablement.js";
 import { registerSkillRoutes } from "../src/routes/skill-routes.js";
 import type { RequestContext, Route } from "../src/routes/route-core.js";
@@ -76,6 +81,7 @@ describe("skills", () => {
     const workspace = join(tempRoot, "workspace");
     const onmyagent = join(tempRoot, "onmyagent-skills");
     process.env.OPENCODE_GLOBAL_SKILLS_DIR = onmyagent;
+    resetSkippedSkillStats();
 
     await writeSkill(onmyagent, "good-skill", "A valid skill description");
     const badDir = join(onmyagent, "bad-skill");
@@ -91,6 +97,15 @@ describe("skills", () => {
     const names = new Set(items.map((item) => item.name));
     expect(names.has("good-skill")).toBe(true);
     expect(names.has("bad-skill")).toBe(false);
+    const skipped = getSkippedSkillStats();
+    expect(skipped.count).toBeGreaterThanOrEqual(1);
+    expect(skipped.names.includes("bad-skill")).toBe(true);
+  });
+
+  test("skills install write root is the profile global skills dir", () => {
+    const onmyagent = join(tempRoot, "profile-skills-root");
+    process.env.OPENCODE_GLOBAL_SKILLS_DIR = onmyagent;
+    expect(skillsInstallWriteRoot()).toBe(onmyagent);
   });
 
   test("exposes the bundled artifact plugins to workspace sessions", async () => {

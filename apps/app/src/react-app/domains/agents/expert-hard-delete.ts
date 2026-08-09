@@ -19,6 +19,7 @@ import {
 } from "./agent-registry-store";
 import { removeExpertSession } from "./agent-session-state";
 import type { AgentRegistry } from "./agent-registry-types";
+import { shouldClearLocalBindingOnDelete } from "./expert-session-lifecycle";
 
 export const EXPERT_PACKAGES_CHANGED_EVENT = "onmyagent.expert-packages-changed";
 
@@ -102,8 +103,8 @@ export async function uninstallExpertPackagesForAgent(input: {
 /** Clear session↔agent bindings and expert session tags for deleted sessions. */
 export function clearExpertLocalSessionBindings(sessionIds: readonly string[]) {
   for (const sessionId of sessionIds) {
+    if (!shouldClearLocalBindingOnDelete(sessionId)) continue;
     const id = sessionId.trim();
-    if (!id || id.startsWith("draft:")) continue;
     writeCustomAgentIdForSession(id, null);
     writeSessionAgentSnapshot(id, null);
     removeExpertSession(id);
