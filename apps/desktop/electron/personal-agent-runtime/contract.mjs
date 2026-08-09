@@ -51,13 +51,17 @@ function stripSkillCatalogDump(text) {
  */
 export function normalizeRunEvent(event = {}) {
   const rawType = String(event.type ?? "log").trim();
+  const rawText = event.text === undefined || event.text === null ? "" : String(event.text);
   let type = rawType;
-  let text = textValue(event.text);
+  let text = textValue(rawText);
 
-  if (rawType === "chunk") type = "assistant_chunk";
-  if (rawType === "log" && /^assistant_chunk>\s*/.test(text)) {
+  if (rawType === "chunk" || rawType === "assistant_chunk") {
     type = "assistant_chunk";
-    text = text.replace(/^assistant_chunk>\s*/, "").trim();
+    text = rawText;
+  }
+  if (rawType === "log" && /^assistant_chunk>/.test(rawText)) {
+    type = "assistant_chunk";
+    text = rawText.replace(/^assistant_chunk>[ \t]?/, "");
   }
   if (rawType === "log" && /^tool_(?:start|result|update)>\s*/.test(text)) {
     type = "tool";
@@ -228,6 +232,60 @@ function pushConversationMessage(messages, message) {
   messages.push({ id: nextMessageId(messages), ...message });
 }
 
+function acpToolCallId(update) {
+  return textValue(update?.tool_call_id ?? update?.toolCallId ?? update?.id);
+}
+
+const ACP_TOOL_IDENTITY_FIELDS = new Set([
+  "title",
+  "name",
+  "kind",
+  "input",
+  "rawInput",
+  "raw_input",
+]);
+
+function isEmptyAcpToolIdentityValue(value) {
+  if (typeof value === "string") return value.trim().length === 0;
+  if (Array.isArray(value)) return value.length === 0;
+  return Boolean(value && typeof value === "object" && Object.keys(value).length === 0);
+}
+
+export function mergeAcpToolCallUpdate(previous, next) {
+  const merged = { ...(previous ?? {}) };
+  for (const [key, value] of Object.entries(next ?? {})) {
+    // Incremental ACP updates frequently omit the original title/input. A
+    // null or empty-schema placeholder must not erase useful data from the
+    // start event. Status/output remain allowed to carry empty values because
+    // those fields describe the new update rather than tool identity.
+    if (value === undefined || value === null) continue;
+    if (
+      ACP_TOOL_IDENTITY_FIELDS.has(key)
+      && isEmptyAcpToolIdentityValue(value)
+      && !isEmptyAcpToolIdentityValue(merged[key])
+    ) {
+      continue;
+    }
+    merged[key] = value;
+  }
+  return merged;
+}
+
+function acpToolConversationEntry(update, normalized, at) {
+  const callId = acpToolCallId(update);
+  return {
+    id: callId ? `acp-tool-${callId}` : `acp-tool-${at}`,
+    type: "acp_tool_call",
+    role: "tool",
+    text: normalized.text || textValue(update?.title ?? update?.kind),
+    createdAt: at,
+    sourceEventType: normalized.type,
+    status: textValue(update?.status ?? update?.state) || "running",
+    update,
+    at,
+  };
+}
+
 export function runEventsToConversationMessages(events = []) {
   const messages = [];
   let assistantText = "";
@@ -236,6 +294,10 @@ export function runEventsToConversationMessages(events = []) {
   let liveAssistantIndex = -1;
   let liveMsgSeq = 0;
   const toolMessageById = new Map();
+  // ACP does not require msg_id on tool updates. Codex ACP commonly emits a
+  // start + completed pair with only tool_call_id; keep a turn-wide index so
+  // the pair updates one card instead of creating duplicate/empty rows.
+  const acpToolMessageById = new Map();
   const closeAssistantTurn = () => {
     liveAssistantIndex = -1;
     assistantText = "";
@@ -252,6 +314,11 @@ export function runEventsToConversationMessages(events = []) {
       // which have no renderer-side optimistic user input — show the user's
       // message in the Studio conversation view alongside the agent reply.
       if (liveAssistantIndex !== -1) closeAssistantTurn();
+      // Tool call identifiers are only unique inside one turn. Providers may
+      // reuse values such as `tool-1` on the next prompt, so do not merge a
+      // new turn's tool cards into historical groups.
+      toolMessageById.clear();
+      acpToolMessageById.clear();
       if (normalized.text) {
         pushConversationMessage(messages, {
           type: "text",
@@ -428,6 +495,30 @@ export function runEventsToConversationMessages(events = []) {
       const msgId = event?.msgId ?? normalized.msgId ?? null;
       const update = event?.update ?? normalized.update ?? null;
       if (!update) continue;
+      const callId = acpToolCallId(update);
+      const indexed = callId ? acpToolMessageById.get(callId) : null;
+      if (indexed) {
+        const previousGroup = messages[indexed.messageIndex];
+        const previousCall = previousGroup?.toolCalls?.[indexed.callIndex];
+        if (previousGroup?.type === "tool_group" && previousCall) {
+          const mergedUpdate = mergeAcpToolCallUpdate(previousCall.update, update);
+          const nextCalls = [...previousGroup.toolCalls];
+          nextCalls[indexed.callIndex] = {
+            ...previousCall,
+            text: normalized.text || previousCall.text,
+            createdAt: at,
+            status: textValue(mergedUpdate?.status ?? mergedUpdate?.state) || previousCall.status,
+            update: mergedUpdate,
+            at,
+          };
+          messages[indexed.messageIndex] = {
+            ...previousGroup,
+            toolCalls: nextCalls,
+            createdAt: at,
+          };
+          continue;
+        }
+      }
       let existingIndex = -1;
       if (msgId) {
         for (let i = messages.length - 1; i >= 0; i -= 1) {
@@ -440,19 +531,40 @@ export function runEventsToConversationMessages(events = []) {
           if (message?.type !== "tool_group") break;
         }
       }
-      const entry = { update, at };
+      const entry = acpToolConversationEntry(update, normalized, at);
       if (existingIndex >= 0) {
         const previous = messages[existingIndex];
         const nextCalls = [...previous.toolCalls];
-        const callId = update?.tool_call_id ?? update?.toolCallId ?? null;
         const dupIndex = callId
-          ? nextCalls.findIndex((c) => (c.update?.tool_call_id ?? c.update?.toolCallId ?? null) === callId)
+          ? nextCalls.findIndex((call) => acpToolCallId(call.update) === callId)
           : -1;
-        if (dupIndex >= 0) nextCalls[dupIndex] = { ...nextCalls[dupIndex], update: { ...nextCalls[dupIndex].update, ...update }, at };
-        else nextCalls.push(entry);
+        if (dupIndex >= 0) {
+          const previousCall = nextCalls[dupIndex];
+          nextCalls[dupIndex] = {
+            ...previousCall,
+            text: normalized.text || previousCall.text,
+            createdAt: at,
+            status: entry.status || previousCall.status,
+            update: mergeAcpToolCallUpdate(previousCall.update, update),
+            at,
+          };
+        } else {
+          nextCalls.push(entry);
+        }
         messages[existingIndex] = { ...previous, toolCalls: nextCalls, createdAt: at };
+        if (callId) {
+          acpToolMessageById.set(callId, {
+            messageIndex: existingIndex,
+            callIndex: dupIndex >= 0 ? dupIndex : nextCalls.length - 1,
+          });
+        }
       } else {
         pushConversationMessage(messages, {
+          ...(msgId
+            ? { id: `tool-group-${msgId}` }
+            : callId
+              ? { id: `tool-group-${callId}` }
+              : {}),
           type: "tool_group",
           role: "tool",
           text: normalized.text || "",
@@ -461,6 +573,12 @@ export function runEventsToConversationMessages(events = []) {
           msgId,
           toolCalls: [entry],
         });
+        if (callId) {
+          acpToolMessageById.set(callId, {
+            messageIndex: messages.length - 1,
+            callIndex: 0,
+          });
+        }
       }
     } else if (normalized.type === "tips") {
       pushConversationMessage(messages, {

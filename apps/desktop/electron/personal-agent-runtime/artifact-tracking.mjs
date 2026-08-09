@@ -12,11 +12,64 @@ const MIN_RUN_TIMEOUT_MS = 30_000;
 const MAX_RUN_TIMEOUT_MS = 12 * 60 * 60 * 1000;
 
 const ACP_TOOL_EVENT_PREVIEW_CHARS = 4000;
+const ACP_TOOL_EVENT_TOTAL_PREVIEW_CHARS = 16_000;
+const ACP_TOOL_EVENT_PREVIEW_NODES = 256;
+const ACP_TOOL_EVENT_PREVIEW_DEPTH = 4;
 function previewClamp(value, limit = ACP_TOOL_EVENT_PREVIEW_CHARS) {
   const text = typeof value === "string" ? value : (value == null ? "" : String(value));
   if (!text || text.length <= limit) return { text, truncated: false };
   return { text: text.slice(0, limit) + "\n...", truncated: true };
 }
+
+function previewOutputValue(value, budget, depth = 0) {
+  budget.nodes += 1;
+  if (budget.nodes > ACP_TOOL_EVENT_PREVIEW_NODES || budget.remaining <= 0) {
+    return { value: "[preview omitted]", truncated: true };
+  }
+  if (typeof value === "string") {
+    const preview = previewClamp(value, Math.min(ACP_TOOL_EVENT_PREVIEW_CHARS, budget.remaining));
+    budget.remaining = Math.max(0, budget.remaining - preview.text.length);
+    return { value: preview.text, truncated: preview.truncated };
+  }
+  if (!value || typeof value !== "object") {
+    return { value, truncated: false };
+  }
+  if (depth >= ACP_TOOL_EVENT_PREVIEW_DEPTH) {
+    return { value: "[nested preview omitted]", truncated: true };
+  }
+  if (Array.isArray(value)) {
+    let truncated = false;
+    const items = [];
+    for (const item of value) {
+      if (budget.nodes >= ACP_TOOL_EVENT_PREVIEW_NODES || budget.remaining <= 0) {
+        truncated = true;
+        break;
+      }
+      const preview = previewOutputValue(item, budget, depth + 1);
+      truncated ||= preview.truncated;
+      items.push(preview.value);
+    }
+    if (items.length < value.length) truncated = true;
+    return { value: items, truncated };
+  }
+  let truncated = false;
+  const result = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (budget.nodes >= ACP_TOOL_EVENT_PREVIEW_NODES || budget.remaining <= 0) {
+      truncated = true;
+      break;
+    }
+    const previewKey = key.length > 128 ? `${key.slice(0, 128)}...` : key;
+    budget.remaining = Math.max(0, budget.remaining - previewKey.length);
+    if (previewKey !== key) truncated = true;
+    const preview = previewOutputValue(item, budget, depth + 1);
+    truncated ||= preview.truncated;
+    result[previewKey] = preview.value;
+  }
+  if (Object.keys(result).length < Object.keys(value).length) truncated = true;
+  return { value: result, truncated };
+}
+
 export function sanitizeAcpToolCallEvent(event) {
   if (!event || event.type !== "acp_tool_call") return event;
   const next = { ...event };
@@ -28,6 +81,7 @@ export function sanitizeAcpToolCallEvent(event) {
   }
   const update = event.update && typeof event.update === "object" ? { ...event.update } : null;
   if (update) {
+    const outputBudget = { remaining: ACP_TOOL_EVENT_TOTAL_PREVIEW_CHARS, nodes: 0 };
     const meta = update._meta && typeof update._meta === "object" ? { ...update._meta } : null;
     if (meta) {
       const delta = meta.terminal_output_delta;
@@ -39,6 +93,15 @@ export function sanitizeAcpToolCallEvent(event) {
         }
       }
       update._meta = meta;
+    }
+    for (const key of ["rawOutput", "raw_output", "output", "result", "content"]) {
+      if (!Object.prototype.hasOwnProperty.call(update, key)) continue;
+      const preview = previewOutputValue(update[key], outputBudget);
+      update[key] = preview.value;
+      if (preview.truncated) {
+        update.outputTruncated = true;
+        truncated = true;
+      }
     }
     next.update = update;
   }

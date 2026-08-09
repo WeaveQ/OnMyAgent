@@ -3,6 +3,10 @@
  * Safe to unit-test without spawning agents or Electron.
  */
 
+import { mergeAcpToolCallUpdate } from "./contract.mjs";
+
+const MAX_COMPACTED_ACTIVE_TOOL_CARRY = 50;
+
 /**
  * @param {unknown} value
  * @returns {"auto" | "ask" | "read-only-auto"}
@@ -126,13 +130,64 @@ export function buildRunMeta(state, deps) {
 
 function assistantChunkText(event) {
   const type = String(event?.type ?? "");
-  const text = String(event?.text ?? "").trim();
-  if (!text) return "";
+  if (event?.text === undefined || event?.text === null) return "";
+  const text = String(event.text);
+  if (!text.length) return "";
   if (type === "assistant_chunk" || type === "chunk") return text;
-  if (type === "log" && /^assistant_chunk>\s*/.test(text)) {
-    return text.replace(/^assistant_chunk>\s*/, "").trim();
+  if (type === "log" && /^assistant_chunk>/.test(text)) {
+    // Strip only the log protocol delimiter. The remainder is a streamed text
+    // delta, so leading/trailing spaces can be the boundary between words.
+    const payload = text.replace(/^assistant_chunk>[ \t]?/, "");
+    return payload.length ? payload : "";
   }
   return "";
+}
+
+function acpToolCallId(event) {
+  if (String(event?.type ?? "") !== "acp_tool_call") return "";
+  const update = event?.update;
+  return String(update?.tool_call_id ?? update?.toolCallId ?? update?.id ?? "").trim();
+}
+
+function mergeDefinedFields(previous, next) {
+  const merged = { ...(previous ?? {}) };
+  for (const [key, value] of Object.entries(next ?? {})) {
+    if (value !== undefined && value !== null) merged[key] = value;
+  }
+  return merged;
+}
+
+function compactedToolCarryEvents(allEvents, tailStart, tail) {
+  const idsInTail = new Set(tail.map(acpToolCallId).filter(Boolean));
+  const carried = new Map();
+  for (let index = 0; index < tailStart; index += 1) {
+    const event = allEvents[index];
+    const callId = acpToolCallId(event);
+    if (!callId) continue;
+    const previous = carried.get(callId);
+    const mergedEvent = mergeDefinedFields(previous, event);
+    if (!String(mergedEvent.text ?? "") && String(previous?.text ?? "")) {
+      mergedEvent.text = previous.text;
+    }
+    carried.set(callId, {
+      ...mergedEvent,
+      update: mergeAcpToolCallUpdate(previous?.update, event?.update),
+      compacted: true,
+    });
+  }
+  const entries = [...carried.entries()];
+  const requiredForTail = entries.filter(([callId]) => idsInTail.has(callId));
+  const activeOutsideTail = entries.filter(([callId, event]) => {
+    if (idsInTail.has(callId)) return false;
+    const status = String(event?.update?.status ?? event?.update?.state ?? "").trim().toLowerCase();
+    return !["completed", "failed", "cancelled", "canceled", "done"].includes(status);
+  });
+  return [
+    ...requiredForTail,
+    ...activeOutsideTail.slice(-MAX_COMPACTED_ACTIVE_TOOL_CARRY),
+  ]
+    .sort((left, right) => Number(left[1]?.at ?? 0) - Number(right[1]?.at ?? 0))
+    .map(([, event]) => event);
 }
 
 function compactRunningMessageEvents(allEvents, eventLimit) {
@@ -160,6 +215,7 @@ function compactRunningMessageEvents(allEvents, eventLimit) {
       compacted: true,
     });
   }
+  messageEvents.push(...compactedToolCarryEvents(allEvents, tailStart, tail));
   messageEvents.push(...tail);
   return messageEvents;
 }

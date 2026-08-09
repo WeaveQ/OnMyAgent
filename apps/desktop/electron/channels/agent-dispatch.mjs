@@ -32,7 +32,7 @@ import {
   createOnMyAgentAssistantAgent,
   runAssistantBridgeTurn,
 } from "./assistant-bridge.mjs";
-import { formatAgentReply } from "./AgentReplyHeader.mjs";
+import { formatAgentReply, formatAgentResultOutput } from "./AgentReplyHeader.mjs";
 import { CHANNEL_EVENTS } from "./ChannelEventBus.mjs";
 
 const DEFAULT_TEXT_BATCH_DELAY_MS = 3_000;
@@ -75,14 +75,28 @@ function getChannelRunSnapshotState(snapshot) {
 function splitTextForPlatform(text, maxLength = 2000) {
   const raw = String(text ?? "").trim();
   if (!raw) return [];
-  if (raw.length <= maxLength) return [raw];
+  const limit = Number.isFinite(Number(maxLength)) ? Math.max(2, Math.floor(Number(maxLength))) : 2000;
+  if (raw.length <= limit) return [raw];
   const chunks = [];
   let rest = raw;
-  while (rest.length > maxLength) {
-    let cut = rest.lastIndexOf("\n\n", maxLength);
-    if (cut < maxLength * 0.5) cut = rest.lastIndexOf("\n", maxLength);
-    if (cut < maxLength * 0.5) cut = rest.lastIndexOf("。", maxLength);
-    if (cut < maxLength * 0.5) cut = maxLength;
+  while (rest.length > limit) {
+    let cut = rest.lastIndexOf("\n\n", limit);
+    if (cut < limit * 0.5) cut = rest.lastIndexOf("\n", limit);
+    if (cut < limit * 0.5) cut = rest.lastIndexOf("。", limit);
+    if (cut < limit * 0.5) cut = limit;
+    // JavaScript string offsets count UTF-16 code units. Moving a fallback
+    // split one unit left keeps emoji and other supplementary characters from
+    // being emitted as two invalid lone surrogates across transport calls.
+    if (
+      cut > 0
+      && cut < rest.length
+      && rest.charCodeAt(cut - 1) >= 0xD800
+      && rest.charCodeAt(cut - 1) <= 0xDBFF
+      && rest.charCodeAt(cut) >= 0xDC00
+      && rest.charCodeAt(cut) <= 0xDFFF
+    ) {
+      cut -= 1;
+    }
     chunks.push(rest.slice(0, cut).trim());
     rest = rest.slice(cut).trim();
   }
@@ -125,7 +139,9 @@ export function createChannelAgentDispatcher(options = {}) {
   const channelAssistantBindingStore = options.channelAssistantBindingStore ?? null;
   const appendLog = typeof options.appendLog === "function" ? options.appendLog : () => undefined;
   const defaultWorkspaceRoot = String(options.defaultWorkspaceRoot ?? "").trim();
-  const maxMessageLength = Number.isFinite(Number(options.maxMessageLength)) ? Number(options.maxMessageLength) : 2000;
+  const maxMessageLength = Number.isFinite(Number(options.maxMessageLength))
+    ? Math.max(2, Math.floor(Number(options.maxMessageLength)))
+    : 2000;
   const textBatchDelayMs = Number.isFinite(Number(options.textBatchDelayMs)) ? Math.max(0, Number(options.textBatchDelayMs)) : DEFAULT_TEXT_BATCH_DELAY_MS;
   const sendChunkDelayMs = Number.isFinite(Number(options.sendChunkDelayMs)) ? Math.max(0, Number(options.sendChunkDelayMs)) : 1500;
 
@@ -133,6 +149,14 @@ export function createChannelAgentDispatcher(options = {}) {
   const pendingBatches = new Map();
   const agentBusyNoticeAt = new Map();
   const activeRunPollers = new Map();
+  const activeRunPollTasks = new Set();
+  const activeRunInFlight = new Map();
+  const activeRunPendingSchedules = new Map();
+  const activeRunReservations = new Map();
+  const activeRunRecords = new Map();
+  const activeRunGenerations = new Map();
+  const terminalDeliveryClaims = new Map();
+  const activeRunErrorNoticeAt = new Map();
   const clearedActiveRunKeys = new Set();
   const agentByChat = new Map();
   const promptModeByChat = new Map();
@@ -289,6 +313,15 @@ export function createChannelAgentDispatcher(options = {}) {
     pendingBatches.clear();
     for (const timer of activeRunPollers.values()) clearTimeout(timer);
     activeRunPollers.clear();
+    activeRunPendingSchedules.clear();
+    // Do not await getRun/startMessage here: provider calls may be long-lived.
+    // Their guarded continuations observe the aborted session and settle
+    // without transport or persistence side effects after stop returns.
+    activeRunInFlight.clear();
+    activeRunPollTasks.clear();
+    for (const key of activeRunReservations.keys()) bumpActiveRunGeneration(key);
+    activeRunReservations.clear();
+    activeRunErrorNoticeAt.clear();
     unsubscribeStudioRelay();
     setState({ status: "stopped", botUsername: undefined, hasToken: false });
     return { ok: true, status: snapshot() };
@@ -372,8 +405,128 @@ export function createChannelAgentDispatcher(options = {}) {
       platformLabel: platformType,
       appendLog,
       readChatSetting: storeSafeReadChatSetting,
-      deliverReply: (s, e, text) => deliverReply(s, e.chatId, e.senderId, text),
+      deliverReply: async (s, e, text) => {
+        await deliverReply(s, e.chatId, e.senderId, text);
+      },
     });
+  }
+
+  function reservationFor(accountId, runKey) {
+    return activeRunReservations.get(activeRunGuardKey(accountId, runKey))?.record ?? null;
+  }
+
+  function bumpActiveRunGeneration(key) {
+    const generation = (activeRunGenerations.get(key) ?? 0) + 1;
+    activeRunGenerations.set(key, generation);
+    return generation;
+  }
+
+  function reserveActiveRun(accountId, runKey, record) {
+    const pollKey = activeRunGuardKey(accountId, runKey);
+    const existing = activeRunReservations.get(pollKey);
+    if (existing) return { acquired: false, record: existing.record, token: null };
+    const token = Symbol("channel-active-run-reservation");
+    const reserved = {
+      ...record,
+      accountId,
+      runKey,
+      status: "starting",
+      startedAt: record.startedAt ?? Date.now(),
+    };
+    bumpActiveRunGeneration(pollKey);
+    activeRunReservations.set(pollKey, { token, record: reserved });
+    return { acquired: true, record: reserved, token };
+  }
+
+  function releaseActiveRunReservation(accountId, runKey, token) {
+    const pollKey = activeRunGuardKey(accountId, runKey);
+    const current = activeRunReservations.get(pollKey);
+    if (current?.token === token) {
+      bumpActiveRunGeneration(pollKey);
+      activeRunReservations.delete(pollKey);
+    }
+  }
+
+  async function readActiveRunWithReservation(accountId, runKey) {
+    const reserved = reservationFor(accountId, runKey);
+    if (reserved) return reserved;
+    const key = activeRunGuardKey(accountId, runKey);
+    if (activeRunRecords.has(key)) return activeRunRecords.get(key);
+    const stored = await store.readActiveRun(accountId, runKey).catch(() => null);
+    if (stored) activeRunRecords.set(key, stored);
+    return stored;
+  }
+
+  async function listActiveRunsSafely(accountId) {
+    const stored = await store.listActiveRuns(accountId).catch(() => []);
+    const combined = new Map(stored.map((record) => [String(record?.runKey ?? ""), record]));
+    const prefix = `${String(accountId)}:`;
+    for (const [key, record] of activeRunRecords) {
+      if (!key.startsWith(prefix)) continue;
+      const runKey = key.slice(prefix.length);
+      if (record) combined.set(runKey, record);
+      else combined.delete(runKey);
+    }
+    return [...combined.values()].filter(Boolean);
+  }
+
+  async function writeActiveRunSafely(accountId, runKey, value, fallback = undefined, required = false) {
+    const key = activeRunGuardKey(accountId, runKey);
+    const generation = activeRunGenerations.get(key) ?? 0;
+    const prior = activeRunRecords.get(key);
+    const base = prior && typeof prior === "object" ? prior : fallback && typeof fallback === "object" ? fallback : {};
+    const record = { ...base, ...value, accountId: String(accountId), runKey: String(runKey) };
+    delete record.reservationToken;
+    activeRunRecords.set(key, record);
+    try {
+      const stored = await store.writeActiveRun(accountId, runKey, record);
+      if ((activeRunGenerations.get(key) ?? 0) !== generation) {
+        const current = activeRunRecords.get(key);
+        if (current === null || current === undefined) await store.deleteActiveRun(accountId, runKey).catch(() => undefined);
+        return current;
+      }
+      const durable = stored && typeof stored === "object" ? { ...record, ...stored } : record;
+      activeRunRecords.set(key, durable);
+      return durable;
+    } catch (error) {
+      if ((activeRunGenerations.get(key) ?? 0) !== generation) return activeRunRecords.get(key);
+      appendLog({ type: "error", text: `${platformType} active run persistence failed: ${error instanceof Error ? error.message : String(error)}` });
+      if (required) {
+        if (prior === undefined) activeRunRecords.delete(key);
+        else activeRunRecords.set(key, prior);
+        throw error;
+      }
+      activeRunRecords.set(key, record);
+      return record;
+    }
+  }
+
+  async function deleteActiveRunSafely(accountId, runKey) {
+    const key = activeRunGuardKey(accountId, runKey);
+    bumpActiveRunGeneration(key);
+    activeRunRecords.set(key, null);
+    try {
+      const deleted = await store.deleteActiveRun(accountId, runKey);
+      if (activeRunRecords.get(key) === null) activeRunRecords.delete(key);
+      return deleted;
+    } catch (error) {
+      appendLog({ type: "error", text: `${platformType} active run cleanup failed: ${error instanceof Error ? error.message : String(error)}` });
+      return false;
+    }
+  }
+
+  async function notifyAgentBusy(session, event, agent, runKey) {
+    const busyKey = activeRunGuardKey(session.account.accountId, runKey);
+    const nowTs = Date.now();
+    const lastAt = agentBusyNoticeAt.get(busyKey) ?? 0;
+    if (nowTs - lastAt < AGENT_BUSY_NOTICE_INTERVAL_MS) return;
+    agentBusyNoticeAt.set(busyKey, nowTs);
+    await deliverReply(
+      session,
+      event.chatId,
+      event.senderId,
+      `${agentLabel(agent)} 还在处理上一条消息，请稍后再试。发送 #status 查看进度，或 #cancel 取消后再重发。`,
+    ).catch(() => undefined);
   }
 
   async function dispatchToAgent(session, event) {
@@ -387,78 +540,110 @@ export function createChannelAgentDispatcher(options = {}) {
     const promptMode = await currentPromptModeForChat(session, event.chatId);
     const historyKey = chatAgentHistoryKey(event.chatId, agent);
     const runKey = activeRunKey(event.chatId, agent);
-    const existingRun = await store.readActiveRun(session.account.accountId, runKey).catch(() => null);
-    if (existingRun?.runId) {
-      scheduleActiveRunPoll(session, existingRun, 0);
-      const busyKey = `${session.account.accountId}:${runKey}`;
-      const nowTs = Date.now();
-      const lastAt = agentBusyNoticeAt.get(busyKey) ?? 0;
-      if (nowTs - lastAt >= AGENT_BUSY_NOTICE_INTERVAL_MS) {
-        agentBusyNoticeAt.set(busyKey, nowTs);
-        await deliverReply(session, event.chatId, event.senderId, `${agentLabel(agent)} 还在处理上一条消息，请稍后再试。发送 #status 查看进度，或 #cancel 取消后再重发。`).catch(() => undefined);
-      }
+    const accountId = session.account.accountId;
+    const existingRun = await readActiveRunWithReservation(accountId, runKey);
+    if (existingRun) {
+      if (existingRun.runId) scheduleActiveRunPoll(session, existingRun, 0);
+      await notifyAgentBusy(session, event, agent, runKey);
       return existingRun;
     }
-    const runtimeAgent = scopedRuntimeAgent(platformType, platformName, agent, event);
-    const channelSession = await getChannelSession(session, event, agent);
-    const history = await store.readChatHistory(session.account.accountId, historyKey, session.options.historyLimit).catch(() => []);
-    const prompt = buildPrompt(platformName, event, { mode: promptMode, history, agent });
-    if (typeof runtime.startMessage !== "function" || typeof runtime.getRun !== "function") {
-      const legacyModel = await currentModelForChat(session, event.chatId);
-      const result = await runAgentTurn(runtime, {
+    const reservation = reserveActiveRun(accountId, runKey, {
+      chatId: event.chatId,
+      senderId: event.senderId,
+      agent,
+      historyKey,
+      userText: event.text,
+      startedAt: Date.now(),
+    });
+    if (!reservation.acquired) {
+      if (reservation.record?.runId) scheduleActiveRunPoll(session, reservation.record, 0);
+      await notifyAgentBusy(session, event, agent, runKey);
+      return reservation.record;
+    }
+    try {
+      const runtimeAgent = scopedRuntimeAgent(platformType, platformName, agent, event);
+      const channelSession = await getChannelSession(session, event, agent);
+      const history = await store.readChatHistory(accountId, historyKey, session.options.historyLimit).catch(() => []);
+      const prompt = buildPrompt(platformName, event, { mode: promptMode, history, agent });
+      if (typeof runtime.startMessage !== "function" || typeof runtime.getRun !== "function") {
+        const legacyModel = await currentModelForChat(session, event.chatId);
+        const result = await runAgentTurn(runtime, {
+          workspaceRoot: session.options.workspaceRoot,
+          accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
+          prompt,
+          agent: runtimeAgent,
+          model: legacyModel || undefined,
+          approvalMode: session.options.approvalMode,
+          timeoutMs: session.options.timeoutMs,
+        });
+        if (session.controller?.signal.aborted) return result;
+        setState({ lastRunId: result?.runId ?? null });
+        await handleSynchronousAgentResult(session, event, { agent, historyKey, result, channelSession });
+        return result;
+      }
+      const chatModel = await currentModelForChat(session, event.chatId);
+      const started = await runtime.startMessage({
         workspaceRoot: session.options.workspaceRoot,
         accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
         prompt,
+        // Raw user text (without the channel transport header) so the runtime can
+        // record it as the user message in the run log / conversation view.
+        userText: event.text,
         agent: runtimeAgent,
-        model: legacyModel || undefined,
+        model: chatModel || undefined,
         approvalMode: session.options.approvalMode,
         timeoutMs: session.options.timeoutMs,
       });
-      setState({ lastRunId: result?.runId ?? null });
-      await handleSynchronousAgentResult(session, event, { agent, historyKey, result, channelSession });
-      return result;
+      if (session.controller?.signal.aborted) {
+        if (started?.runId && typeof runtime.cancelRun === "function") {
+          await runtime.cancelRun(started.runId, { reason: `${platformType}_stopped` }).catch((error) => {
+            appendLog({ type: "error", text: `${platformType} late-start cleanup failed: ${error instanceof Error ? error.message : String(error)}` });
+          });
+        }
+        return started;
+      }
+      setState({ lastRunId: started?.runId ?? null });
+      if (!started?.runId) {
+        await handleSynchronousAgentResult(session, event, { agent, historyKey, result: started, channelSession });
+        return started;
+      }
+      if (session.controller?.signal.aborted) return started;
+      const pollKey = activeRunGuardKey(accountId, runKey);
+      terminalDeliveryClaims.delete(pollKey);
+      const trackedRun = await writeActiveRunSafely(accountId, runKey, {
+        status: started.status ?? "running",
+        accountId,
+        chatId: event.chatId,
+        senderId: event.senderId,
+        runId: started.runId,
+        workspaceRoot: session.options.workspaceRoot,
+        accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
+        agent,
+        runtimeAgent,
+        historyKey,
+        promptMode,
+        prompt,
+        userText: event.text,
+        approvalMode: session.options.approvalMode,
+        historyStoreLimit: session.options.historyStoreLimit,
+        channelSessionId: channelSession?.id ?? null,
+        pendingApprovalNotifiedAt: null,
+        terminalDeliveryClaimedRunId: null,
+        terminalDeliveryClaimedAt: null,
+        startedAt: Date.now(),
+      }, reservation.record);
+      if (!trackedRun?.runId) {
+        if (session.controller?.signal.aborted && typeof runtime.cancelRun === "function") {
+          await runtime.cancelRun(started.runId, { reason: `${platformType}_stopped` }).catch(() => undefined);
+        }
+        return trackedRun;
+      }
+      clearedActiveRunKeys.delete(pollKey);
+      scheduleActiveRunPoll(session, trackedRun, 0);
+      return trackedRun;
+    } finally {
+      releaseActiveRunReservation(accountId, runKey, reservation.token);
     }
-    const chatModel = await currentModelForChat(session, event.chatId);
-    const started = await runtime.startMessage({
-      workspaceRoot: session.options.workspaceRoot,
-      accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
-      prompt,
-      // Raw user text (without the channel transport header) so the runtime can
-      // record it as the user message in the run log / conversation view.
-      userText: event.text,
-      agent: runtimeAgent,
-      model: chatModel || undefined,
-      approvalMode: session.options.approvalMode,
-      timeoutMs: session.options.timeoutMs,
-    });
-    setState({ lastRunId: started?.runId ?? null });
-    if (!started?.runId) {
-      await handleSynchronousAgentResult(session, event, { agent, historyKey, result: started, channelSession });
-      return started;
-    }
-    const trackedRun = await store.writeActiveRun(session.account.accountId, runKey, {
-      status: started.status ?? "running",
-      accountId: session.account.accountId,
-      chatId: event.chatId,
-      senderId: event.senderId,
-      runId: started.runId,
-      workspaceRoot: session.options.workspaceRoot,
-      accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
-      agent,
-      runtimeAgent,
-      historyKey,
-      promptMode,
-      prompt,
-      userText: event.text,
-      approvalMode: session.options.approvalMode,
-      historyStoreLimit: session.options.historyStoreLimit,
-      channelSessionId: channelSession?.id ?? null,
-      pendingApprovalNotifiedAt: null,
-      startedAt: Date.now(),
-    });
-    clearedActiveRunKeys.delete(activeRunGuardKey(session.account.accountId, runKey));
-    scheduleActiveRunPoll(session, trackedRun, 0);
-    return trackedRun;
   }
 
   async function handleSynchronousAgentResult(session, event, { agent, historyKey, result, channelSession }) {
@@ -471,9 +656,11 @@ export function createChannelAgentDispatcher(options = {}) {
       await deliverReply(session, event.chatId, event.senderId, "本次处理失败，请在 Studio 查看本地 Agent 日志。");
       return;
     }
-    await deliverReply(session, event.chatId, event.senderId, formatAgentReply({ agent, text: result.output }));
-    await appendAgentHistory(session, historyKey, event.text, result.output, agent, session.options.historyStoreLimit);
-    await appendChannelSessionHistory(channelSession, event.text, result.output, agent);
+    const deliveredOutput = formatAgentResultOutput(result);
+    const delivery = await deliverReply(session, event.chatId, event.senderId, formatAgentReply({ agent, text: deliveredOutput }));
+    if (delivery?.ok === false) return;
+    await appendAgentHistory(session, historyKey, event.text, deliveredOutput, agent, session.options.historyStoreLimit);
+    await appendChannelSessionHistory(channelSession, event.text, deliveredOutput, agent);
   }
 
   async function appendAgentHistory(session, historyKey, userText, output, agent, limit) {
@@ -484,23 +671,93 @@ export function createChannelAgentDispatcher(options = {}) {
   }
 
   async function resumeActiveRuns(session) {
-    const runs = await store.listActiveRuns(session.account.accountId).catch(() => []);
+    const runs = await listActiveRunsSafely(session.account.accountId);
     for (const run of runs) scheduleActiveRunPoll(session, run, 0);
   }
 
+  async function claimTerminalDelivery(session, runKey, record) {
+    const pollKey = activeRunGuardKey(session.account.accountId, runKey);
+    const runId = String(record?.runId ?? "").trim();
+    if (!runId || clearedActiveRunKeys.has(pollKey)) return { shouldDeliver: false, shouldCleanup: false };
+    clearActiveRunPoll(session.account.accountId, runKey);
+    if (
+      terminalDeliveryClaims.get(pollKey) === runId
+      || String(record?.terminalDeliveryClaimedRunId ?? "").trim() === runId
+    ) {
+      terminalDeliveryClaims.set(pollKey, runId);
+      return { shouldDeliver: false, shouldCleanup: true };
+    }
+    try {
+      const claimed = await writeActiveRunSafely(session.account.accountId, runKey, {
+        status: "terminal_delivery_claimed",
+        terminalDeliveryClaimedRunId: runId,
+        terminalDeliveryClaimedAt: Date.now(),
+      }, record, true);
+      if (String(claimed?.terminalDeliveryClaimedRunId ?? "").trim() !== runId) {
+        return { shouldDeliver: false, shouldCleanup: false };
+      }
+      terminalDeliveryClaims.set(pollKey, runId);
+      return { shouldDeliver: true, shouldCleanup: true };
+    } catch (error) {
+      if (terminalDeliveryClaims.get(pollKey) === runId) terminalDeliveryClaims.delete(pollKey);
+      clearedActiveRunKeys.delete(pollKey);
+      appendLog({
+        type: "error",
+        text: `${platformType} terminal delivery claim persistence failed: ${error instanceof Error ? error.message : String(error)}`,
+      });
+      throw error;
+    }
+  }
+
+  async function finalizeActiveRun(session, runKey, record) {
+    const pollKey = activeRunGuardKey(session.account.accountId, runKey);
+    clearActiveRunPoll(session.account.accountId, runKey);
+    agentBusyNoticeAt.delete(pollKey);
+    await deleteActiveRunSafely(session.account.accountId, runKey);
+    terminalDeliveryClaims.delete(pollKey);
+  }
+
   function scheduleActiveRunPoll(session, run, delayMs = ACTIVE_RUN_POLL_INTERVAL_MS) {
-    if (!run?.runKey || !run?.runId || !runtime?.getRun) return;
-    const pollKey = `${session.account.accountId}:${run.runKey}`;
+    if (session.controller?.signal.aborted || !run?.runKey || !run?.runId || !runtime?.getRun) return;
+    const pollKey = activeRunGuardKey(session.account.accountId, run.runKey);
     if (clearedActiveRunKeys.has(pollKey)) return;
+    if (activeRunInFlight.has(pollKey)) {
+      const priorPending = activeRunPendingSchedules.get(pollKey);
+      const normalizedDelay = Math.max(0, delayMs);
+      if (!priorPending || normalizedDelay < priorPending.delayMs) {
+        activeRunPendingSchedules.set(pollKey, { session, run, delayMs: normalizedDelay });
+      }
+      return;
+    }
     const prior = activeRunPollers.get(pollKey);
     if (prior) clearTimeout(prior);
     const timer = setTimeout(() => {
       activeRunPollers.delete(pollKey);
-      void pollActiveRun(session, run.runKey).catch((error) => {
+      let task;
+      task = pollActiveRun(session, run.runKey).catch((error) => {
+        if (session.controller?.signal.aborted) return;
         const message = error instanceof Error ? error.message : String(error);
         setState({ lastError: message });
-        void deliverReply(session, run.chatId, run.senderId, `任务状态查询失败：${message}`).catch(() => undefined);
+        appendLog({ type: "error", text: `${platformType} active run poll failed: ${message}` });
+        const nowTs = Date.now();
+        const lastNoticeAt = activeRunErrorNoticeAt.get(pollKey) ?? 0;
+        if (!clearedActiveRunKeys.has(pollKey) && nowTs - lastNoticeAt >= 30_000) {
+          activeRunErrorNoticeAt.set(pollKey, nowTs);
+          void deliverReply(session, run.chatId, run.senderId, `任务状态查询失败：${message}`).catch(() => undefined);
+        }
+        if (clearedActiveRunKeys.has(pollKey)) return;
+        scheduleActiveRunPoll(session, run, ACTIVE_RUN_POLL_INTERVAL_MS);
+      }).finally(() => {
+        activeRunPollTasks.delete(task);
+        if (activeRunInFlight.get(pollKey) === task) activeRunInFlight.delete(pollKey);
+        const pending = activeRunPendingSchedules.get(pollKey);
+        activeRunPendingSchedules.delete(pollKey);
+        if (pending && !clearedActiveRunKeys.has(pollKey)) {
+          scheduleActiveRunPoll(pending.session, pending.run, pending.delayMs);
+        }
       });
+      activeRunPollTasks.add(task);
+      activeRunInFlight.set(pollKey, task);
     }, Math.max(0, delayMs));
     activeRunPollers.set(pollKey, timer);
   }
@@ -511,19 +768,22 @@ export function createChannelAgentDispatcher(options = {}) {
     const prior = activeRunPollers.get(pollKey);
     if (prior) clearTimeout(prior);
     activeRunPollers.delete(pollKey);
+    activeRunPendingSchedules.delete(pollKey);
+    activeRunErrorNoticeAt.delete(pollKey);
   }
 
   async function pollActiveRun(session, runKey) {
     if (!session.controller || session.controller.signal.aborted) return;
     const pollKey = activeRunGuardKey(session.account.accountId, runKey);
-    const record = await store.readActiveRun(session.account.accountId, runKey).catch(() => null);
+    const record = await readActiveRunWithReservation(session.account.accountId, runKey);
     if (!record?.runId) return;
     if (clearedActiveRunKeys.has(pollKey)) return;
     const result = await runtime.getRun(
       { runId: record.runId, workspaceRoot: record.workspaceRoot },
       { eventLimit: 200, conversationMessageEventLimit: 200 },
     );
-    if (clearedActiveRunKeys.has(pollKey)) return;
+    if (session.controller.signal.aborted || clearedActiveRunKeys.has(pollKey)) return;
+    activeRunErrorNoticeAt.delete(pollKey);
     // The runtime no longer tracks this run (process restarted, orphaned, or
     // already finalized as failed). Treat it as dead so the conversation lock
     // is released — otherwise getChannelRunSnapshotState maps a `null` snapshot
@@ -531,62 +791,81 @@ export function createChannelAgentDispatcher(options = {}) {
     // phantom task.
     if (!result) {
       const message = "本次本地 Agent 任务已不在运行（可能主进程重启/崩溃后遗留，或已超时中断）。已自动清除会话锁，可重新发送消息。";
-      await deliverReply(session, record.chatId, record.senderId, message).catch(() => undefined);
-      clearActiveRunPoll(session.account.accountId, runKey);
-      agentBusyNoticeAt.delete(`${session.account.accountId}:${runKey}`);
-      await store.deleteActiveRun(session.account.accountId, runKey).catch(() => undefined);
+      const claim = await claimTerminalDelivery(session, runKey, record);
+      if (claim.shouldDeliver) await deliverReply(session, record.chatId, record.senderId, message).catch(() => undefined);
+      if (claim.shouldCleanup) await finalizeActiveRun(session, runKey, record);
       return;
     }
     setState({ lastRunId: record.runId });
     const resultState = getChannelRunSnapshotState(result);
     if (resultState.isCompletedWithOutput) {
-      await deliverReply(session, record.chatId, record.senderId, formatAgentReply({ agent: record.agent, text: result.output }));
-      await appendAgentHistory(session, record.historyKey, record.userText, result.output, record.agent, record.historyStoreLimit ?? session.options.historyStoreLimit);
-      await appendChannelSessionHistoryById(record.channelSessionId, record.userText, result.output, record.agent);
-      clearActiveRunPoll(session.account.accountId, runKey);
-      agentBusyNoticeAt.delete(`${session.account.accountId}:${runKey}`);
-      await store.deleteActiveRun(session.account.accountId, runKey);
+      const claim = await claimTerminalDelivery(session, runKey, record);
+      if (!claim.shouldDeliver) {
+        if (claim.shouldCleanup) await finalizeActiveRun(session, runKey, record);
+        return;
+      }
+      const deliveredOutput = formatAgentResultOutput(result);
+      try {
+        const delivery = await deliverReply(
+          session,
+          record.chatId,
+          record.senderId,
+          formatAgentReply({ agent: record.agent, text: deliveredOutput }),
+        );
+        if (delivery?.ok !== false) {
+          await appendAgentHistory(session, record.historyKey, record.userText, deliveredOutput, record.agent, record.historyStoreLimit ?? session.options.historyStoreLimit);
+          await appendChannelSessionHistoryById(record.channelSessionId, record.userText, deliveredOutput, record.agent);
+        }
+      } finally {
+        // A transport may accept an earlier chunk before a later send/edit
+        // fails. Claim and clear instead of replaying a completed snapshot.
+        await finalizeActiveRun(session, runKey, record);
+      }
       return;
     }
     if (resultState.isTerminal) {
       const message = resultState.status === "cancelled" ? "本次本地 Agent 任务已取消。" : `本次处理失败，请在 Studio 查看本地 Agent 日志。${result?.error ? `\n${result.error}` : ""}`;
-      await deliverReply(session, record.chatId, record.senderId, message);
-      clearActiveRunPoll(session.account.accountId, runKey);
-      agentBusyNoticeAt.delete(`${session.account.accountId}:${runKey}`);
-      await store.deleteActiveRun(session.account.accountId, runKey);
+      const claim = await claimTerminalDelivery(session, runKey, record);
+      try {
+        if (claim.shouldDeliver) await deliverReply(session, record.chatId, record.senderId, message);
+      } finally {
+        if (claim.shouldCleanup) await finalizeActiveRun(session, runKey, record);
+      }
       return;
     }
     // Apply the backstop to every non-terminal state, including approval
     // waits, so a stale pending snapshot cannot hold the chat lock forever.
     if (Date.now() - (record.startedAt ?? 0) > ACTIVE_RUN_MAX_AGE_MS) {
       const message = `本次本地 Agent 任务运行已超过上限（约 ${Math.round(ACTIVE_RUN_MAX_AGE_MS / 3_600_000)} 小时），已自动超时并清除会话锁。可重新发送消息。`;
-      await deliverReply(session, record.chatId, record.senderId, message).catch(() => undefined);
-      clearActiveRunPoll(session.account.accountId, runKey);
-      agentBusyNoticeAt.delete(`${session.account.accountId}:${runKey}`);
-      await store.deleteActiveRun(session.account.accountId, runKey).catch(() => undefined);
+      const claim = await claimTerminalDelivery(session, runKey, record);
+      if (claim.shouldDeliver) await deliverReply(session, record.chatId, record.senderId, message).catch(() => undefined);
+      if (claim.shouldCleanup) await finalizeActiveRun(session, runKey, record);
       return;
     }
     const pendingApprovals = resultState.pendingApprovals;
     if (pendingApprovals.length && !record.pendingApprovalNotifiedAt) {
       if (clearedActiveRunKeys.has(pollKey)) return;
-      const updated = await store.writeActiveRun(session.account.accountId, runKey, {
+      const updated = await writeActiveRunSafely(session.account.accountId, runKey, {
         status: "pending_approval",
         pendingApprovalNotifiedAt: Date.now(),
         pendingApprovals,
-      });
+      }, record);
+      if (!updated || clearedActiveRunKeys.has(pollKey)) return;
       await deliverReply(session, record.chatId, record.senderId, renderApprovalPrompt(updated, pendingApprovals));
       scheduleActiveRunPoll(session, updated, ACTIVE_RUN_PENDING_POLL_INTERVAL_MS);
       return;
     }
     if (pendingApprovals.length) {
       if (clearedActiveRunKeys.has(pollKey)) return;
-      const updated = await store.writeActiveRun(session.account.accountId, runKey, { status: "pending_approval", pendingApprovals });
+      const updated = await writeActiveRunSafely(session.account.accountId, runKey, { status: "pending_approval", pendingApprovals }, record);
+      if (!updated || clearedActiveRunKeys.has(pollKey)) return;
       scheduleActiveRunPoll(session, updated, ACTIVE_RUN_PENDING_POLL_INTERVAL_MS);
       return;
     }
     if (resultState.isRunning) {
       if (clearedActiveRunKeys.has(pollKey)) return;
-      const updated = await store.writeActiveRun(session.account.accountId, runKey, { status: "running", pendingApprovals: [] });
+      const updated = await writeActiveRunSafely(session.account.accountId, runKey, { status: "running", pendingApprovals: [] }, record);
+      if (!updated || clearedActiveRunKeys.has(pollKey)) return;
       scheduleActiveRunPoll(session, updated, ACTIVE_RUN_POLL_INTERVAL_MS);
       return;
     }
@@ -594,56 +873,64 @@ export function createChannelAgentDispatcher(options = {}) {
 
   /**
    * Deliver a reply to an IM chat. When an edit-capable transport is available
-   * (Telegram editMessageText / Discord message.edit) the reply streams by
-   * sending the first chunk and then patching that same message with the
-   * accumulated text (parity: streaming patch via ChannelStreamRelay.edit).
+   * (Telegram editMessageText / Discord message.edit), short adjacent chunks
+   * may patch the current message. Once the accumulated body would cross the
+   * platform limit, delivery rolls over to a new message instead.
    */
   async function deliverReply(session, chatId, peerId, text) {
     const chunks = splitTextForPlatform(text, maxMessageLength);
     if (chunks.length === 0) return null;
-    if (chunks.length === 1) {
-      const result = await sendTextTo(chatId, chunks[0], peerId).catch((error) => ({ ok: false, error: error?.message ?? String(error) }));
-      if (result?.ok === false) {
-        const message = `reply send failed: ${result.error ?? "unknown error"}`;
-        setState({ lastError: message });
-        appendLog({ type: "error", text: `${platformType} ${message}` });
-        return result;
-      }
-      setState({ sentCount: state.sentCount + 1 });
-      return result;
-    }
     let messageId = null;
-    let accumulated = "";
-    let failed = false;
-    for (let index = 0; index < chunks.length; index += 1) {
-      if (index === 0) {
-        const result = await sendTextTo(chatId, chunks[0], peerId).catch((error) => ({ ok: false, error: error?.message ?? String(error) }));
-        if (result?.ok === false) {
-          failed = true;
-          const message = `reply send failed: ${result.error ?? "unknown error"}`;
-          setState({ lastError: message });
-          appendLog({ type: "error", text: `${platformType} ${message}` });
-          break;
-        }
-        messageId = result?.messageId ?? null;
-        accumulated = chunks[0];
-      } else if (editMessageTo && messageId) {
-        accumulated += (index > 0 ? "\n" : "") + chunks[index];
-        await editMessageTo(chatId, messageId, accumulated).catch(() => undefined);
-      } else {
-        const result = await sendTextTo(chatId, chunks[index], peerId).catch((error) => ({ ok: false, error: error?.message ?? String(error) }));
-        if (result?.ok === false) {
-          failed = true;
-          const message = `reply send failed: ${result.error ?? "unknown error"}`;
-          setState({ lastError: message });
-          appendLog({ type: "error", text: `${platformType} ${message}` });
-          break;
-        }
-      }
-      if (index < chunks.length - 1) await sleep(sendChunkDelayMs);
+    let currentMessageText = "";
+    let successfulSends = 0;
+    let attemptedTransports = 0;
+
+    function cancelledResult() {
+      setState({ sentCount: state.sentCount + successfulSends });
+      successfulSends = 0;
+      return { ok: false, cancelled: true, attemptedTransports, error: "channel stopped" };
     }
-    if (!failed) setState({ sentCount: state.sentCount + chunks.length });
-    return failed ? { ok: false, error: state.lastError } : { ok: true, messageId };
+
+    function failureResult(action, result) {
+      const error = result?.error ?? "unknown error";
+      const message = `reply ${action} failed: ${error}`;
+      setState({
+        lastError: message,
+        sentCount: state.sentCount + successfulSends,
+      });
+      successfulSends = 0;
+      appendLog({ type: "error", text: `${platformType} ${message}` });
+      return { ok: false, error: message };
+    }
+
+    for (let index = 0; index < chunks.length; index += 1) {
+      if (session.controller?.signal.aborted) return cancelledResult();
+      const chunk = chunks[index];
+      const editedText = currentMessageText ? `${currentMessageText}\n${chunk}` : chunk;
+      const canEditCurrent = Boolean(editMessageTo && messageId && editedText.length <= maxMessageLength);
+      if (canEditCurrent) {
+        attemptedTransports += 1;
+        const edited = await editMessageTo(chatId, messageId, editedText)
+          .catch((error) => ({ ok: false, error: error?.message ?? String(error) }));
+        if (edited?.ok === false) return failureResult("edit", edited);
+        currentMessageText = editedText;
+      } else {
+        attemptedTransports += 1;
+        const sent = await sendTextTo(chatId, chunk, peerId)
+          .catch((error) => ({ ok: false, error: error?.message ?? String(error) }));
+        if (sent?.ok === false) return failureResult("send", sent);
+        successfulSends += 1;
+        messageId = sent?.messageId ?? null;
+        currentMessageText = chunk;
+      }
+      if (session.controller?.signal.aborted) return cancelledResult();
+      if (index < chunks.length - 1) {
+        await sleep(sendChunkDelayMs);
+        if (session.controller?.signal.aborted) return cancelledResult();
+      }
+    }
+    setState({ sentCount: state.sentCount + successfulSends });
+    return { ok: true, messageId };
   }
 
   async function ensureChannelUserAuthorized(session, input) {
@@ -925,7 +1212,7 @@ export function createChannelAgentDispatcher(options = {}) {
     let priorRun = null;
     try {
       const priorRunKey = priorAgent ? activeRunKey(event.chatId, priorAgent) : null;
-      if (priorRunKey) priorRun = await store.readActiveRun(session.account.accountId, priorRunKey).catch(() => null);
+      if (priorRunKey) priorRun = await readActiveRunWithReservation(session.account.accountId, priorRunKey);
     } catch { /* noop */ }
     const suffix = priorRun?.runId ? `\n上一个任务（${priorAgent ? agentLabel(priorAgent) : "旧 Agent"}）仍在运行，其结果会异步返回；新消息将由新 Agent 处理。` : "";
     await deliverReply(session, event.chatId, event.senderId, `已切换当前${platformName}会话的回复 Agent：${agentLabel(nextAgent)}${suffix}`).catch((error) => {
@@ -936,16 +1223,19 @@ export function createChannelAgentDispatcher(options = {}) {
 
   async function handleRunCommand(session, event, command) {
     if (command.name === "runs") {
-      const runs = await store.listActiveRuns(session.account.accountId).catch(() => []);
+      const runs = await listActiveRunsSafely(session.account.accountId);
       await deliverReply(session, event.chatId, event.senderId, renderRunsList(platformName, runs));
       return;
     }
     const agent = await currentAgentForChat(platformType, session, event.chatId);
     const runKey = activeRunKey(event.chatId, agent);
-    const run = await store.readActiveRun(session.account.accountId, runKey).catch(() => null);
+    const run = await readActiveRunWithReservation(session.account.accountId, runKey);
     if (command.name === "new") {
-      if (run?.runId) {
-        await deliverReply(session, event.chatId, event.senderId, `当前${platformName}会话和 Agent 还有运行中的任务。请等待完成，或先发送 #cancel 后再开启新会话。`);
+      if (run) {
+        const message = run.runId
+          ? `当前${platformName}会话和 Agent 还有运行中的任务。请等待完成，或先发送 #cancel 后再开启新会话。`
+          : `当前${platformName}会话和 Agent 的任务正在启动。请稍后再发送 #cancel 或 #new。`;
+        await deliverReply(session, event.chatId, event.senderId, message);
         return;
       }
       const runtimeAgent = scopedRuntimeAgent(platformType, platformName, agent, event);
@@ -968,17 +1258,27 @@ export function createChannelAgentDispatcher(options = {}) {
       return;
     }
     if (command.name === "cancel") {
-      if (!run?.runId) {
+      if (run && !run.runId) {
+        await deliverReply(session, event.chatId, event.senderId, `当前${platformName}会话和 Agent 的任务正在启动，暂时无法取消。请稍后重试 #cancel。`);
+        return;
+      }
+      if (!run) {
         await deliverReply(session, event.chatId, event.senderId, `当前${platformName}会话和 Agent 没有可取消的任务。`);
         return;
       }
-      const cancelled = typeof runtime?.cancelRun === "function"
-        ? await runtime.cancelRun(run.runId, { reason: platformType })
-        : { ok: false, error: "runtime cancel is unavailable" };
       clearActiveRunPoll(session.account.accountId, runKey);
       agentBusyNoticeAt.delete(`${session.account.accountId}:${runKey}`);
-      await store.deleteActiveRun(session.account.accountId, runKey);
-      await deliverReply(session, event.chatId, event.senderId, cancelled?.ok === false ? `已清理${platformName}侧任务记录，但本地取消失败：${cancelled.error ?? "unknown error"}` : `已取消当前${platformName}会话的本地 Agent 任务。`);
+      // Establish the local cancellation tombstone before awaiting the
+      // provider. A completed poll may already be waiting on its durable
+      // terminal claim; bumping the generation here makes that late claim lose
+      // ownership, even when cancelRun itself is slow.
+      const deleteTask = deleteActiveRunSafely(session.account.accountId, runKey);
+      const cancelTask = typeof runtime?.cancelRun === "function"
+        ? Promise.resolve().then(() => runtime.cancelRun(run.runId, { reason: platformType })).catch((error) => ({ ok: false, error: error instanceof Error ? error.message : String(error) }))
+        : Promise.resolve({ ok: false, error: "runtime cancel is unavailable" });
+      const [deleted, cancelled] = await Promise.all([deleteTask, cancelTask]);
+      const cleanupSuffix = deleted === false ? "（持久记录清理将在重启后重试）" : "";
+      await deliverReply(session, event.chatId, event.senderId, cancelled?.ok === false ? `已清理${platformName}侧任务记录，但本地取消失败：${cancelled.error ?? "unknown error"}${cleanupSuffix}` : `已取消当前${platformName}会话的本地 Agent 任务。${cleanupSuffix}`);
     }
   }
 
@@ -1011,12 +1311,12 @@ export function createChannelAgentDispatcher(options = {}) {
         resolvedCount += 1;
       }
       const remaining = command.all ? [] : approvals.slice(1);
-      const updated = await store.writeActiveRun(session.account.accountId, run.runKey, {
+      const updated = await writeActiveRunSafely(session.account.accountId, run.runKey, {
         status: remaining.length ? "pending_approval" : "running",
         pendingApprovals: remaining,
         pendingApprovalNotifiedAt: remaining.length ? run.pendingApprovalNotifiedAt : null,
-      });
-      scheduleActiveRunPoll(session, updated, 0);
+      }, run);
+      if (updated) scheduleActiveRunPoll(session, updated, 0);
     }
     if (!resolvedCount && errors.length) {
       await deliverReply(session, event.chatId, event.senderId, `审批处理失败：\n${errors.join("\n")}`);
@@ -1028,7 +1328,7 @@ export function createChannelAgentDispatcher(options = {}) {
   }
 
   async function pendingApprovalRunsForChat(session, chatId) {
-    const runs = await store.listActiveRuns(session.account.accountId).catch(() => []);
+    const runs = await listActiveRunsSafely(session.account.accountId);
     return runs
       .filter((run) => String(run.chatId ?? "") === String(chatId ?? ""))
       .filter((run) => Array.isArray(run.pendingApprovals) && run.pendingApprovals.length > 0)

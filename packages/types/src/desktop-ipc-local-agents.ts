@@ -55,6 +55,7 @@ export type PersonalLocalAgentErrorInfo = {
     | "timeout"
     | "empty_output"
     | "acp_incomplete_output"
+    | "context_window_exceeded"
     | "acp_prompt_failed"
     | "cancelled"
     | "codex_acp_model_format"
@@ -226,12 +227,18 @@ export type PersonalLocalAgentPlanEntry = {
 
 export type PersonalLocalAgentAcpToolCallUpdate = {
   toolCallId?: string | null;
+  tool_call_id?: string | null;
   status?: "pending" | "in_progress" | "completed" | "failed" | string;
   title?: string | null;
   kind?: "read" | "edit" | "execute" | string | null;
   content?: unknown[];
-  input?: string | null;
-  output?: string | null;
+  input?: unknown;
+  rawInput?: unknown;
+  raw_input?: unknown;
+  output?: unknown;
+  rawOutput?: unknown;
+  raw_output?: unknown;
+  outputTruncated?: boolean;
   locations?: Array<{ path?: string | null } | string>;
 };
 

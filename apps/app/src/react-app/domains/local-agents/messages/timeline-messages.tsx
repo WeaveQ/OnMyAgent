@@ -113,8 +113,13 @@ function resolveLocalAgentToolStatus(
   if (mapped === "completed" || mapped === "failed") return mapped;
 
   // Output without a terminal status still means the tool ran to completion.
-  const output = message.toolCall?.output ?? message.update?.output;
-  if (output != null && `${output}`.trim().length > 0) return "completed";
+  const output = firstMeaningfulToolValue(
+    message.toolCall?.output,
+    message.update?.output,
+    message.update?.rawOutput,
+    message.update?.raw_output,
+  );
+  if (hasMeaningfulToolValue(output)) return "completed";
 
   // The run has already finished, but this tool only ever reported a
   // non-terminal status (or none at all — many ACP servers emit "in_progress"
@@ -150,6 +155,13 @@ const LOCAL_AGENT_TOOL_KIND_LABELS: Record<string, string> = {
 };
 
 const GENERIC_TOOL_NAMES = new Set(["tool", "tool_call", "unknown", "untitled"]);
+const TOOL_PARAM_SUMMARY_MAX_CHARS = 80;
+
+function compactToolSummary(value: string): string {
+  const singleLine = value.replace(/\s+/g, " ").trim();
+  if (singleLine.length <= TOOL_PARAM_SUMMARY_MAX_CHARS) return singleLine;
+  return `${singleLine.slice(0, TOOL_PARAM_SUMMARY_MAX_CHARS - 1)}…`;
+}
 
 function getKindDisplayName(kind?: string): string {
   if (!kind) return "Tool";
@@ -185,11 +197,11 @@ function extractParamSummary(kind: string | null | undefined, input?: unknown): 
 
   if (k === "read" || k === "edit" || k === "write") {
     const file = raw.file_path ?? raw.path ?? raw.file_name ?? raw.filePath ?? raw.filename;
-    if (typeof file === "string" && file.trim()) return file.trim();
+    if (typeof file === "string" && file.trim()) return compactToolSummary(file);
   }
   if (k === "execute" || k === "command" || k === "shell" || k === "bash") {
     const cmd = raw.command ?? raw.cmd;
-    if (typeof cmd === "string" && cmd.trim()) return cmd.trim();
+    if (typeof cmd === "string" && cmd.trim()) return compactToolSummary(cmd);
   }
   if (k === "search" || k === "grep" || k === "glob") {
     const parts: string[] = [];
@@ -197,17 +209,17 @@ function extractParamSummary(kind: string | null | undefined, input?: unknown): 
     if (typeof pattern === "string" && pattern.trim()) parts.push(`"${pattern.trim()}"`);
     const path = raw.path ?? raw.glob ?? raw.cwd;
     if (typeof path === "string" && path.trim()) parts.push(`in ${path.trim()}`);
-    if (parts.length) return parts.join(" ");
+    if (parts.length) return compactToolSummary(parts.join(" "));
   }
   if (k === "fetch" || k === "webfetch") {
     const url = raw.url ?? raw.href;
-    if (typeof url === "string" && url.trim()) return url.trim();
+    if (typeof url === "string" && url.trim()) return compactToolSummary(url);
   }
 
   // Generic fallback: try common keys.
   for (const key of ["file_path", "command", "path", "pattern", "query", "url", "file_name", "cmd"]) {
     const val = raw[key];
-    if (typeof val === "string" && val.trim()) return val.trim();
+    if (typeof val === "string" && val.trim()) return compactToolSummary(val);
   }
   return null;
 }
@@ -243,6 +255,41 @@ function stringifyToolField(value?: unknown): string {
   }
 }
 
+function stringifyToolOutput(value?: unknown): string {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return stringifyToolField(value);
+  }
+  for (const key of ["formatted_output", "formattedOutput", "output", "result", "text"]) {
+    const candidate = Reflect.get(value, key);
+    if (typeof candidate === "string" && candidate.length > 0) return candidate;
+  }
+  return stringifyToolField(value);
+}
+
+function hasMeaningfulToolValue(value: unknown, seen = new Set<object>()): boolean {
+  if (value == null) return false;
+  if (typeof value === "string") return value.trim().length > 0;
+  if (typeof value !== "object") return true;
+  if (seen.has(value)) return false;
+  seen.add(value);
+  if (Array.isArray(value)) {
+    return value.some((item) => hasMeaningfulToolValue(item, seen));
+  }
+  return Object.values(value).some((item) => hasMeaningfulToolValue(item, seen));
+}
+
+function firstMeaningfulToolValue(...values: unknown[]): unknown {
+  return values.find((value) => hasMeaningfulToolValue(value));
+}
+
+function firstNonEmptyToolString(...values: Array<string | null | undefined>): string {
+  for (const value of values) {
+    const normalized = value?.trim() ?? "";
+    if (normalized) return normalized;
+  }
+  return "";
+}
+
 function shortToolId(id?: string | null) {
   if (!id) return "";
   return id.length > 8 ? id.slice(-6) : id;
@@ -263,21 +310,38 @@ type LocalAgentToolDisplay = {
 function localAgentToolDisplay(message: PersonalLocalAgentConversationMessage, runStatus?: string): LocalAgentToolDisplay | null {
   const tool = message.toolCall;
   const acpUpdate = message.update;
-  const rawName = tool?.name?.trim() ?? acpUpdate?.title?.trim() ?? "";
-  const rawKind = tool?.kind?.trim() ?? acpUpdate?.kind?.trim() ?? "";
-  const rawInput = tool?.input ?? acpUpdate?.input ?? undefined;
-  const rawOutput = tool?.output ?? acpUpdate?.output ?? undefined;
+  const rawName = firstNonEmptyToolString(tool?.name, acpUpdate?.title);
+  const rawKind = firstNonEmptyToolString(tool?.kind, acpUpdate?.kind);
+  const rawInput = firstMeaningfulToolValue(tool?.input, acpUpdate?.input, acpUpdate?.rawInput, acpUpdate?.raw_input);
+  const rawOutput = firstMeaningfulToolValue(tool?.output, acpUpdate?.output, acpUpdate?.rawOutput, acpUpdate?.raw_output);
+  const meaningfulInput = hasMeaningfulToolValue(rawInput);
+  const meaningfulOutput = hasMeaningfulToolValue(rawOutput);
+  const meaningfulContent = hasMeaningfulToolValue(acpUpdate?.content);
+  const meaningfulLocations = hasMeaningfulToolValue(acpUpdate?.locations);
   const paramSummary = extractParamSummary(rawKind, rawInput);
+  const compactRawName = compactToolSummary(rawName);
+  const rawNameLooksLikePayload = Boolean(
+    rawName
+      && (rawName.length > TOOL_PARAM_SUMMARY_MAX_CHARS || compactRawName === paramSummary),
+  );
 
   // Filter out completely empty tool calls (Upstream pattern).
-  if (!rawName && !rawKind && !paramSummary && !rawInput && !rawOutput) {
+  if (
+    !rawName
+    && !rawKind
+    && !paramSummary
+    && !meaningfulInput
+    && !meaningfulOutput
+    && !meaningfulContent
+    && !meaningfulLocations
+  ) {
     return null;
   }
 
-  const toolCallId = tool?.id ?? acpUpdate?.toolCallId ?? "";
+  const toolCallId = tool?.id ?? acpUpdate?.toolCallId ?? acpUpdate?.tool_call_id ?? "";
   let title: string;
-  if (rawName && !GENERIC_TOOL_NAMES.has(rawName.toLowerCase())) {
-    title = rawName;
+  if (rawName && !rawNameLooksLikePayload && !GENERIC_TOOL_NAMES.has(rawName.toLowerCase())) {
+    title = compactRawName;
   } else if (rawKind) {
     title = getKindDisplayName(rawKind);
   } else if (paramSummary) {
@@ -291,20 +355,20 @@ function localAgentToolDisplay(message: PersonalLocalAgentConversationMessage, r
   if (paramSummary) {
     description = paramSummary;
   } else if (tool?.description?.trim()) {
-    description = tool.description.trim();
+    description = compactToolSummary(tool.description);
   } else if (rawKind) {
     description = getKindDisplayName(rawKind);
   } else {
     const textBody = (message.text ?? "").replace(/^acp_tool_call(_update)?[>:\s-]*/i, "").trim();
-    description = textBody.slice(0, 80) || (toolCallId ? `ID ${toolCallId}` : title);
+    description = compactToolSummary(textBody) || (toolCallId ? `ID ${toolCallId}` : title);
   }
 
   const detailSections: Array<{ label: string; value: string; truncated?: boolean }> = [];
-  const input = stringifyToolField(rawInput);
-  const output = stringifyToolField(rawOutput);
+  const input = meaningfulInput ? stringifyToolField(rawInput) : "";
+  const output = meaningfulOutput ? stringifyToolOutput(rawOutput) : "";
   if (input) detailSections.push({ label: "Input", value: input, truncated: tool?.inputTruncated });
-  if (output) detailSections.push({ label: "Output", value: output, truncated: tool?.outputTruncated });
-  if (Array.isArray(acpUpdate?.content) && acpUpdate.content.length) detailSections.push({ label: "Content", value: JSON.stringify(acpUpdate.content, null, 2) });
+  if (output) detailSections.push({ label: "Output", value: output, truncated: tool?.outputTruncated ?? acpUpdate?.outputTruncated });
+  if (meaningfulContent && Array.isArray(acpUpdate?.content)) detailSections.push({ label: "Content", value: JSON.stringify(acpUpdate.content, null, 2) });
   const locations = (acpUpdate?.locations ?? []).map((item) => typeof item === "string" ? item : item.path).filter(Boolean).join("\n");
   if (locations) detailSections.push({ label: "Locations", value: locations });
 
@@ -321,7 +385,14 @@ export function groupLocalAgentTimeline(messages: PersonalLocalAgentConversation
   let toolBuffer: PersonalLocalAgentConversationMessage[] = [];
   const flushTools = () => {
     if (!toolBuffer.length) return;
-    items.push({ kind: "tool_group", id: toolBuffer.map((message) => message.id).join("-"), messages: toolBuffer });
+    const visibleTools = toolBuffer.filter((message) => localAgentToolDisplay(message) !== null);
+    if (visibleTools.length) {
+      items.push({
+        kind: "tool_group",
+        id: visibleTools.map((message) => message.id).join("-"),
+        messages: visibleTools,
+      });
+    }
     toolBuffer = [];
   };
   for (const message of messages) {
@@ -330,8 +401,10 @@ export function groupLocalAgentTimeline(messages: PersonalLocalAgentConversation
       continue;
     }
     if (message.type === "tool_group") {
-      flushTools();
-      items.push({ kind: "tool_group", id: message.id, messages: message.toolCalls ?? [] });
+      const visibleTools = (message.toolCalls ?? []).filter(
+        (toolMessage) => localAgentToolDisplay(toolMessage) !== null,
+      );
+      toolBuffer.push(...visibleTools);
       continue;
     }
     if (message.type === "acp_tool_call") {
@@ -346,7 +419,12 @@ export function groupLocalAgentTimeline(messages: PersonalLocalAgentConversation
 }
 
 function normalizeLocalToolText(value: string) {
-  return value.replace(/(?:\r?\n\s*)+$/, "");
+  return value
+    // Some Windows command wrappers produce CRCRLF. Treat the whole sequence
+    // as one line ending so every output line does not acquire a blank row.
+    .replace(/\r+\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/\n+$/, "");
 }
 
 // Card-style tool call that mirrors the expert/assistant `ToolCallView`:
@@ -383,46 +461,64 @@ function LocalAgentToolCard(props: { message: PersonalLocalAgentConversationMess
         }}
       >
         <div className="min-w-0 space-y-1">
-          <div className="text-xs font-medium text-dls-text">{tool.title}</div>
+          <div className="truncate text-xs font-medium text-dls-text" title={tool.title}>{tool.title}</div>
           {tool.description && tool.description !== tool.title ? (
-            <div className="text-xs text-dls-secondary">{tool.description}</div>
+            <div className="truncate font-mono text-xs text-dls-secondary" title={tool.description}>{tool.description}</div>
           ) : null}
         </div>
         <StatusBadge tone={tone} shape="pill" size="tiny">{tool.status}</StatusBadge>
       </button>
       {expanded && hasDetail ? (
-        <div className="mt-2 space-y-3">
+        <div className="mt-2 space-y-2">
           {tool.detail.map((section) => {
+            const displayValue = normalizeLocalToolText(section.value);
             const isOutput = section.label === "Output";
-            const diff = isOutput ? extractDiff(section.value) : null;
+            const diff = isOutput ? extractDiff(displayValue) : null;
             const diffLines = diff ? toKeyedLines(normalizeLocalToolText(diff)) : [];
             return (
               <div key={section.label} className="min-w-0">
                 <div className="mb-1 flex items-center justify-between gap-2">
-                  <div className="text-xs font-medium text-dls-secondary">{section.label}</div>
+                  <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-dls-secondary">
+                    <span>{section.label}</span>
+                    {section.truncated ? (
+                      <StatusBadge
+                        tone="warning"
+                        shape="pill"
+                        size="tiny"
+                        data-testid="local-agent-tool-detail-truncated"
+                      >
+                        {t("local_agent.tool_output_preview_truncated")}
+                      </StatusBadge>
+                    ) : null}
+                  </div>
                   <Button
                     type="button"
                     variant="outline"
                     size="xs"
-                    className="rounded-full text-dls-text hover:bg-dls-hover"
+                    className="text-dls-text hover:bg-dls-hover"
                     onClick={() => void copyText(section.value)}
                   >
                     {t("session.copy")}
                   </Button>
                 </div>
                 {Boolean(diff) ? (
-                  <div className="grid gap-1 overflow-hidden rounded-md">
+                  <div className="max-h-64 overflow-auto rounded-md border border-dls-mist bg-dls-surface">
                     {diffLines.map(({ key, line }) => (
                       <div
                         key={key}
-                        className={`whitespace-pre-wrap break-words px-2 py-0.5 font-mono text-xs leading-relaxed ${diffLineClass(line)}`}
+                        className={`whitespace-pre-wrap break-words px-2 font-mono text-xs leading-normal ${diffLineClass(line)}`}
                       >
                         {line || " "}
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <pre className="overflow-x-auto rounded-xl border border-dls-mist bg-dls-surface px-4 py-3 text-xs leading-6 text-dls-secondary">{section.value}</pre>
+                  <pre
+                    className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md border border-dls-mist bg-dls-surface px-3 py-2 font-mono text-xs leading-normal text-dls-secondary"
+                    data-testid="local-agent-tool-detail"
+                  >
+                    {displayValue}
+                  </pre>
                 )}
               </div>
             );
@@ -468,7 +564,7 @@ export function LocalAgentToolGroupSummary(props: { messages: PersonalLocalAgent
   if (tools.length === 0) return null;
 
   return (
-    <div className="max-w-full flex flex-col gap-2">
+    <div className="flex max-w-full flex-col gap-1">
       {tools.map((entry) => {
         const display = entry.display!;
         if (toolNeedsRichInputOutputCard(display)) {
@@ -545,6 +641,9 @@ export function LocalAgentTimelineMessage(props: {
   runStatus?: string;
   onResolveTip?: (message: PersonalLocalAgentConversationMessage) => void;
 }) {
+  if (props.message.type === "tips") {
+    return <MessageTips message={props.message} onResolve={props.onResolveTip} />;
+  }
   // Shared conversation UI for tool / thinking / plan / approval / error / tips
   // (tips with resolution keep MessageTips for the action button).
   if (
@@ -555,11 +654,7 @@ export function LocalAgentTimelineMessage(props: {
     || props.message.type === "tool"
     || props.message.type === "acp_tool_call"
     || props.message.type === "system"
-    || props.message.type === "tips"
   ) {
-    if (props.message.type === "tips" && props.message.resolution) {
-      return <MessageTips message={props.message} onResolve={props.onResolveTip} />;
-    }
     return (
       <PersonalConversationItem
         message={props.message}

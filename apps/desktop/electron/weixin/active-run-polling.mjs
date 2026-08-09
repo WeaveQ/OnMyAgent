@@ -1,3 +1,7 @@
+import { formatAgentResultOutput } from "../channels/AgentReplyHeader.mjs";
+
+class RetryActiveRunPollError extends Error {}
+
 export function createWeixinActiveRunPolling(options) {
   const queryErrorNoticeIntervalMs = 5 * 60_000;
   const queryErrorRetryMaxMs = 30_000;
@@ -5,6 +9,7 @@ export function createWeixinActiveRunPolling(options) {
   const tasks = new Set();
   const inFlightPolls = new Map();
   const pendingSchedules = new Map();
+  const activeRunGenerations = new Map();
   // Persistence is best-effort on Windows because antivirus/indexer locks can
   // temporarily reject atomic renames. Keep an authoritative in-process
   // overlay so a failed write never drops the conversation lock and allows a
@@ -13,6 +18,12 @@ export function createWeixinActiveRunPolling(options) {
 
   function recordKey(accountId, runKey) {
     return `${String(accountId)}:${String(runKey)}`;
+  }
+
+  function bumpActiveRunGeneration(key) {
+    const generation = (activeRunGenerations.get(key) ?? 0) + 1;
+    activeRunGenerations.set(key, generation);
+    return generation;
   }
 
   function syntheticRecord(accountId, runKey, value, fallback = undefined) {
@@ -42,6 +53,7 @@ export function createWeixinActiveRunPolling(options) {
     const token = Symbol("weixin-active-run-reservation");
     const record = syntheticRecord(accountId, runKey, { ...value, status: "starting", reservationToken: token });
     record.reservationToken = token;
+    bumpActiveRunGeneration(key);
     activeRunRecords.set(key, record);
     return { acquired: true, record, token };
   }
@@ -49,7 +61,10 @@ export function createWeixinActiveRunPolling(options) {
   function releaseActiveRunReservation(accountId, runKey, token) {
     const key = recordKey(accountId, runKey);
     const current = activeRunRecords.get(key);
-    if (current?.reservationToken === token) activeRunRecords.delete(key);
+    if (current?.reservationToken === token) {
+      bumpActiveRunGeneration(key);
+      activeRunRecords.delete(key);
+    }
   }
 
   async function readActiveRunSafely(accountId, runKey) {
@@ -75,6 +90,7 @@ export function createWeixinActiveRunPolling(options) {
 
   async function writeActiveRunSafely(accountId, runKey, value, fallback = undefined) {
     const key = recordKey(accountId, runKey);
+    const generation = activeRunGenerations.get(key) ?? 0;
     const synthetic = syntheticRecord(accountId, runKey, value, fallback);
     try {
       // Persist the fully merged overlay, not just the latest status patch. If
@@ -83,10 +99,16 @@ export function createWeixinActiveRunPolling(options) {
       // chat/workspace metadata, and the original user turn as well.
       const stored = await options.store.writeActiveRun(accountId, runKey, synthetic);
       const record = stored && typeof stored === "object" ? { ...synthetic, ...stored } : synthetic;
+      if ((activeRunGenerations.get(key) ?? 0) !== generation) {
+        const current = activeRunRecords.get(key);
+        if (current === null || current === undefined) await options.store.deleteActiveRun(accountId, runKey).catch(() => undefined);
+        return current;
+      }
       activeRunRecords.set(key, record);
       return record;
     } catch (error) {
       options.appendLog({ type: "error", text: `weixin active run persistence failed: ${error instanceof Error ? error.message : String(error)}` });
+      if ((activeRunGenerations.get(key) ?? 0) !== generation) return activeRunRecords.get(key);
       activeRunRecords.set(key, synthetic);
       return synthetic;
     }
@@ -96,6 +118,7 @@ export function createWeixinActiveRunPolling(options) {
     const key = recordKey(accountId, runKey);
     // Tombstone first so a failed disk cleanup cannot resurrect a completed
     // record during this process lifetime. A later new run overwrites it.
+    bumpActiveRunGeneration(key);
     activeRunRecords.set(key, null);
     try {
       const deleted = await options.store.deleteActiveRun(accountId, runKey);
@@ -106,6 +129,40 @@ export function createWeixinActiveRunPolling(options) {
     } catch (error) {
       options.appendLog({ type: "error", text: `weixin active run cleanup failed: ${error instanceof Error ? error.message : String(error)}` });
       return false;
+    }
+  }
+
+  async function claimTerminalDelivery(session, runKey, record) {
+    const accountId = session.account.accountId;
+    const pollKey = `${accountId}:${runKey}`;
+    const runId = String(record?.runId ?? "").trim();
+    if (!runId || options.clearedActiveRunKeys.has(pollKey)) {
+      return { shouldDeliver: false, shouldCleanup: false };
+    }
+    clearActiveRunPoll(accountId, runKey);
+    if (String(record?.terminalDeliveryClaimedRunId ?? "").trim() === runId) {
+      return { shouldDeliver: false, shouldCleanup: true };
+    }
+    const key = recordKey(accountId, runKey);
+    const generation = activeRunGenerations.get(key) ?? 0;
+    const claimed = syntheticRecord(accountId, runKey, {
+      status: "terminal_delivery_claimed",
+      terminalDeliveryClaimedRunId: runId,
+      terminalDeliveryClaimedAt: Date.now(),
+    }, record);
+    try {
+      const stored = await options.store.writeActiveRun(accountId, runKey, claimed);
+      if ((activeRunGenerations.get(key) ?? 0) !== generation) {
+        const current = activeRunRecords.get(key);
+        if (current === null || current === undefined) await options.store.deleteActiveRun(accountId, runKey).catch(() => undefined);
+        return { shouldDeliver: false, shouldCleanup: false };
+      }
+      activeRunRecords.set(key, stored && typeof stored === "object" ? { ...claimed, ...stored } : claimed);
+      return { shouldDeliver: true, shouldCleanup: true };
+    } catch (error) {
+      options.clearedActiveRunKeys.delete(pollKey);
+      options.appendLog({ type: "error", text: `weixin terminal delivery claim persistence failed: ${error instanceof Error ? error.message : String(error)}` });
+      throw new RetryActiveRunPollError(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -150,9 +207,13 @@ export function createWeixinActiveRunPolling(options) {
     }
     if (session.controller.signal.aborted || options.clearedActiveRunKeys.has(pollKey)) return;
     if (!result) {
+      const claim = await claimTerminalDelivery(session, runKey, record);
+      if (!claim.shouldDeliver) {
+        if (claim.shouldCleanup) await deleteActiveRunSafely(session.account.accountId, runKey);
+        return;
+      }
       const message = "本次本地 Agent 任务已不在运行（可能主进程重启/崩溃后遗留，或已超时中断）。已自动清除会话锁，可重新发送消息。";
       await options.sendText(session, record.chatId, message, record.senderId).catch(() => undefined);
-      options.clearedActiveRunKeys.add(pollKey);
       options.agentBusyNoticeAt.delete(pollKey);
       await deleteActiveRunSafely(session.account.accountId, runKey);
       return;
@@ -160,8 +221,19 @@ export function createWeixinActiveRunPolling(options) {
     options.setLastRunId(record.runId);
     const resultState = options.getRunSnapshotState(result);
     if (resultState.isCompletedWithOutput) {
+      const claim = await claimTerminalDelivery(session, runKey, record);
+      if (!claim.shouldDeliver) {
+        if (claim.shouldCleanup) await deleteActiveRunSafely(session.account.accountId, runKey);
+        return;
+      }
+      const deliveredOutput = formatAgentResultOutput(result);
       try {
-        await options.deliverAgentOutput(session, { chatId: record.chatId, peerId: record.senderId, agent: record.agent, result });
+        await options.deliverAgentOutput(session, {
+          chatId: record.chatId,
+          peerId: record.senderId,
+          agent: record.agent,
+          result: { ...result, output: deliveredOutput },
+        });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         options.setLastError(message);
@@ -174,14 +246,19 @@ export function createWeixinActiveRunPolling(options) {
         await deleteActiveRunSafely(session.account.accountId, runKey);
         return;
       }
-      await options.appendAgentHistory(session, record.historyKey, record.userText, result.output, record.agent, record.historyStoreLimit ?? session.options.historyStoreLimit);
-      await options.appendChannelSessionHistoryById(record.channelSessionId, record.userText, result.output, record.agent);
+      await options.appendAgentHistory(session, record.historyKey, record.userText, deliveredOutput, record.agent, record.historyStoreLimit ?? session.options.historyStoreLimit);
+      await options.appendChannelSessionHistoryById(record.channelSessionId, record.userText, deliveredOutput, record.agent);
       clearActiveRunPoll(session.account.accountId, runKey);
       options.agentBusyNoticeAt.delete(pollKey);
       await deleteActiveRunSafely(session.account.accountId, runKey);
       return;
     }
     if (resultState.isTerminal) {
+      const claim = await claimTerminalDelivery(session, runKey, record);
+      if (!claim.shouldDeliver) {
+        if (claim.shouldCleanup) await deleteActiveRunSafely(session.account.accountId, runKey);
+        return;
+      }
       const message = resultState.status === "cancelled"
         ? "本次本地 Agent 任务已取消。"
         : `本次处理失败，请在 Studio 查看本地 Agent 日志。${result?.error ? `\n${result.error}` : ""}`;
@@ -200,9 +277,13 @@ export function createWeixinActiveRunPolling(options) {
     // waits. Otherwise a stale pending snapshot can hold the conversation
     // lock forever.
     if (Date.now() - (record.startedAt ?? 0) > options.activeRunMaxAgeMs) {
+      const claim = await claimTerminalDelivery(session, runKey, record);
+      if (!claim.shouldDeliver) {
+        if (claim.shouldCleanup) await deleteActiveRunSafely(session.account.accountId, runKey);
+        return;
+      }
       const message = `本次本地 Agent 任务运行已超过上限（约 ${Math.round(options.activeRunMaxAgeMs / 3_600_000)} 小时），已自动超时并清除会话锁。可重新发送消息。`;
       await options.sendText(session, record.chatId, message, record.senderId).catch(() => undefined);
-      options.clearedActiveRunKeys.add(pollKey);
       options.agentBusyNoticeAt.delete(pollKey);
       await deleteActiveRunSafely(session.account.accountId, runKey);
       return;
@@ -217,6 +298,7 @@ export function createWeixinActiveRunPolling(options) {
         { status: "pending_approval", pendingApprovalNotifiedAt, pendingApprovals, statusQueryFailureCount: 0 },
         { ...record, status: "pending_approval", pendingApprovalNotifiedAt, pendingApprovals, statusQueryFailureCount: 0 },
       );
+      if (!updated || options.clearedActiveRunKeys.has(pollKey)) return;
       try {
         await options.sendText(session, record.chatId, options.renderApprovalPrompt(updated, pendingApprovals), record.senderId);
       } finally {
@@ -234,6 +316,7 @@ export function createWeixinActiveRunPolling(options) {
         { status: "pending_approval", pendingApprovals, statusQueryFailureCount: 0 },
         { ...record, status: "pending_approval", pendingApprovals, statusQueryFailureCount: 0 },
       );
+      if (!updated || options.clearedActiveRunKeys.has(pollKey)) return;
       scheduleActiveRunPoll(session, updated, options.pendingPollIntervalMs);
       return;
     }
@@ -244,6 +327,7 @@ export function createWeixinActiveRunPolling(options) {
       { status: "running", pendingApprovals: [], statusQueryFailureCount: 0 },
       { ...record, status: "running", pendingApprovals: [], statusQueryFailureCount: 0 },
     );
+    if (!updated || options.clearedActiveRunKeys.has(pollKey)) return;
     scheduleActiveRunPoll(session, updated, options.pollIntervalMs);
   }
 
@@ -270,6 +354,9 @@ export function createWeixinActiveRunPolling(options) {
         // already have reached the recipient before a later text send fails;
         // retrying the completed snapshot would duplicate that attachment.
         options.appendLog({ type: "error", text: `weixin active run delivery failed: ${message}` });
+        if (error instanceof RetryActiveRunPollError && !options.clearedActiveRunKeys.has(pollKey)) {
+          scheduleActiveRunPoll(session, run, options.pollIntervalMs);
+        }
       }).finally(() => {
         tasks.delete(task);
         if (inFlightPolls.get(pollKey) === task) inFlightPolls.delete(pollKey);
@@ -301,7 +388,18 @@ export function createWeixinActiveRunPolling(options) {
     for (const timer of pollers.values()) clearTimeout(timer);
     pollers.clear();
     pendingSchedules.clear();
-    await Promise.allSettled([currentTask, ...tasks].filter(Boolean));
+    for (const [key, record] of activeRunRecords) {
+      if (record?.reservationToken) {
+        bumpActiveRunGeneration(key);
+        activeRunRecords.delete(key);
+      }
+    }
+    // The channel poll loop is abort-aware, but provider getRun calls may not
+    // settle promptly. Their continuations check the session signal before
+    // transport or persistence side effects, so do not block stop on them.
+    await Promise.allSettled([currentTask].filter(Boolean));
+    tasks.clear();
+    inFlightPolls.clear();
   }
 
   return {
