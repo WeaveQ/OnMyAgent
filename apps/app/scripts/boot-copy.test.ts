@@ -151,7 +151,7 @@ describe("boot/desktop wiring", () => {
     expect(indexHtml).toContain("html[data-theme=\"dark\"] body");
     expect(indexHtml).toContain("background: #2c2c2c");
     expect(indexHtml).toContain("Starting OnMyAgent…");
-    expect(indexHtml).toContain("<svg width=\"36\"");
+    expect(indexHtml).toContain("onmyagent-boot-mark.png");
     expect(indexHtml).toContain("@keyframes onmyagent-static-boot-pulse");
   });
 
@@ -170,14 +170,20 @@ describe("boot/desktop wiring", () => {
     expect(entry).toContain("React.useLayoutEffect");
   });
 
-  test("boot chrome does not decode the large public logo on the critical path", () => {
+  test("boot chrome uses compact monogram, not the large product logo", () => {
     const surface = readFileSync(
       path.join(import.meta.dir, "../src/react-app/shell/load-surface.tsx"),
       "utf8",
     );
-    expect(surface).toContain('<svg');
+    const indexHtml = readFileSync(
+      path.join(import.meta.dir, "../index.html"),
+      "utf8",
+    );
+    expect(surface).toContain("onmyagent-boot-mark.png");
     expect(surface).not.toContain("onmyagent-logo.png");
     expect(surface).not.toContain("resolvePublicAssetUrl");
+    expect(indexHtml).toContain("onmyagent-boot-mark.png");
+    expect(indexHtml).not.toContain('src="/onmyagent-logo.png"');
   });
 
   test("renderer shell lazy-loads the heavy session route", () => {
