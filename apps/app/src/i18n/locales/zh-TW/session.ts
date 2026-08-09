@@ -31,6 +31,7 @@ export default {
   "session.expert_origin_recovery_unavailable_body": "你的會話仍然保留。OnMyAgent 會在下次工作區重新整理時再次嘗試恢復清單。",
   "session.my_experts": "我創建的專家",
   "session.search_experts_placeholder": "搜尋專家職稱或描述",
+  "session.search_tasks_placeholder": "搜尋任務標題",
   "session.create_expert": "創建專家",
   "session.create_expert_prompt": "/expert-manager 幫我創建一個 XXX 專家，擅長 XXXXX。我的經驗是：[請補充你的行業背景、相關經驗]",
   "session.create_skill_prompt": "請幫我創建一個可以實現 <描述你的需求> 的 skill",

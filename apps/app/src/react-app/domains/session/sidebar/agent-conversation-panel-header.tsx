@@ -37,14 +37,36 @@ type AgentConversationPanelHeaderProps = {
 };
 
 export function AgentConversationPanelHeader(props: AgentConversationPanelHeaderProps) {
-  // Assistant: create CTA is pinned to the panel footer (expert layout parity).
+  // Home + experts: search stays top; create CTA is pinned to panel footer.
   if (props.mode === "assistant") {
-    return null;
+    return (
+      <div
+        className="relative flex w-full shrink-0 flex-col pt-1.5"
+        data-assistant-search="true"
+      >
+        <InputGroup
+          controlSize="lg"
+          radius="lg"
+          tone="surface"
+          className="w-full"
+        >
+          <InputGroupAddon align="inline-start" inset="tight">
+            <Search className="size-4" />
+          </InputGroupAddon>
+          <InputGroupInput
+            value={props.query}
+            onChange={(event) => props.onQueryChange(event.target.value)}
+            placeholder={t("session.search_tasks_placeholder")}
+            aria-label={t("session.search_tasks_placeholder")}
+            className="text-sm placeholder:text-dls-secondary/75"
+          />
+        </InputGroup>
+      </div>
+    );
   }
 
   return (
     <div className="relative flex w-full shrink-0 flex-col pt-1.5">
-      {/* Expert list: search stays top; create CTA is pinned to panel footer. */}
       <InputGroup
         controlSize="lg"
         radius="lg"

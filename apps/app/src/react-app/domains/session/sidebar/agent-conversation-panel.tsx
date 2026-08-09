@@ -588,6 +588,17 @@ export function AgentConversationPanel(props: {
           })
         : visibleAgentGroups;
     if (!normalizedQuery) return base;
+    // Home: match task title (description / session title), not assistant product name.
+    if (mode === "assistant") {
+      return base.filter((item) => {
+        const title = (
+          item.description ||
+          item.latestSession?.title ||
+          ""
+        ).toLowerCase();
+        return title.includes(normalizedQuery);
+      });
+    }
     return base.filter((item) =>
       `${item.name} ${item.description} ${item.preview ?? ""}`
         .toLowerCase()
