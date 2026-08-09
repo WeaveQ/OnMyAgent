@@ -10,6 +10,8 @@ OnMyAgent — 面向 agentic 工作流的桌面控制台，基于 OpenCode。本
 
 | 权威文档 | 用途 |
 |----------|------|
+| [`docs/Architecture.md`](docs/Architecture.md) | Monorepo SoT：平台、双运行时、skills 写路径、域指针 |
+| [`docs/design/2026-08-09-architecture-convergence-plan.md`](docs/design/2026-08-09-architecture-convergence-plan.md) | Expert/session/冷启动/货架收敛执行计划 |
 | [`docs/design/2026-08-02-phase-2-enterprise-prep.md`](docs/design/2026-08-02-phase-2-enterprise-prep.md) | 阶段二路线图、双模式决策 D1/B1/C1、桌面/企业轨道边界 |
 | [`docs/design/2026-08-02-config-consistency.md`](docs/design/2026-08-02-config-consistency.md) | `profiles/local` 迁移与 dual-read（2a 已落地代码） |
 | [`docs/design/2026-08-02-work-memory-plan.md`](docs/design/2026-08-02-work-memory-plan.md) | 记忆正文路径；与双模式写入规则 |
@@ -52,7 +54,7 @@ packages/handsfree macOS Computer Use（HandsFree AX/Skysight；Win/Linux 不打
 packages/onmyagent-ui-mcp UI 控制面 MCP server
 ```
 
-**Computer Use 跨平台：** macOS = HandsFree helper；Windows = 桌面侧 bundled **Cua Driver**（`prepare-cua-helper` / `computer-use-runtime-config`，MCP 默认关）。Appshot 全桌面平台走 Electron `desktopCapturer`。细节见 `docs/windows-compat.md`。
+**Computer Use 跨平台：** macOS = HandsFree helper；Windows = 桌面侧 bundled **Cua Driver**（`prepare-cua-helper` / `computer-use-runtime-config`，MCP 默认关）。Appshot 在 **macOS / Windows** 走 Electron `desktopCapturer`（Linux 桌面非产品目标）。细节见 `docs/windows-compat.md` + `docs/Architecture.md` Product platforms。
 
 默认忽略：`ee/*`、Den Web/API、landing page、cloud dashboard。完整架构、数据流、包边界只维护在 `docs/Architecture.md`；React 域细节只维护在 `apps/app/src/react-app/ARCHITECTURE.md`。
 
