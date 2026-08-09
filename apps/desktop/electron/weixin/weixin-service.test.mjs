@@ -1109,7 +1109,7 @@ describe("weixin service", () => {
       await waitFor(() => sent.some((item) => item.text.includes("任务状态查询失败：transient IPC")), () => JSON.stringify({ getRunCalls, sent }));
       await waitFor(() => sent.some((item) => item.text.endsWith("\n\nreply after retry")), () => JSON.stringify({ getRunCalls, sent }));
       assert.equal(getRunCalls, 2);
-      assert.equal((await store.listActiveRuns("acct")).length, 0);
+      await waitFor(async () => (await store.listActiveRuns("acct")).length === 0);
     } finally {
       await cleanup(root);
     }
