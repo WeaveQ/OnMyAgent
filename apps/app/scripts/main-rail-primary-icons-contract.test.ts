@@ -23,6 +23,11 @@ describe("main rail primary icon contract", () => {
     // Prefer lighter webp over the multi-hundred-KB PNG.
     expect(railSource).toContain("onmyagent-logo.webp");
     expect(railSource).not.toContain("onmyagent-logo.png");
+    // Dark rail: near-black tile + blue mark — not a pure-white flash plate.
+    expect(railSource).toContain("dark:bg-neutral-950");
+    expect(railSource).not.toMatch(
+      /function RailBrandMark[\s\S]*?dark:bg-white/,
+    );
   });
 
   test("top rail entries use unified Lucide outline icons (stroke language)", () => {
