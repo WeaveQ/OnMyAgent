@@ -49,11 +49,18 @@ describe("rail idle primary ink contract", () => {
     expect(compactBlock).not.toContain("hover:text-dls-accent");
   });
 
-  test("home and automation primary CTAs share outline lg + strong border surface", () => {
+  test("home, experts, and automation create CTAs share footer soft-surface style", () => {
     const header = readFileSync(
       resolve(
         root,
         "apps/app/src/react-app/domains/session/sidebar/agent-conversation-panel-header.tsx",
+      ),
+      "utf8",
+    );
+    const panel = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/session/sidebar/agent-conversation-panel.tsx",
       ),
       "utf8",
     );
@@ -65,25 +72,41 @@ describe("rail idle primary ink contract", () => {
       "utf8",
     );
 
-    expect(header).toContain("SIDEBAR_PRIMARY_CTA_CLASS");
-    expect(header).toContain("SIDEBAR_PRIMARY_HEADER_CLASS");
-    expect(header).toContain('from "@/components/ui/sidebar-chrome"');
-    expect(header).toContain('size="sidebar-cta"');
-    expect(header).toContain("session.new_task");
-    expect(header).toContain("onCreateTask");
+    // Home: search top + create footer (expert layout parity).
+    expect(header).not.toContain("session.new_task");
+    expect(header).toContain('data-assistant-search="true"');
+    expect(header).toContain("session.search_tasks_placeholder");
+    expect(panel).toContain('data-assistant-create="true"');
+    expect(panel).toContain("session.new_task");
+    expect(panel).toContain("SIDEBAR_FOOTER_CTA_CLASS");
+    expect(panel).toContain('size="sidebar-cta"');
+    expect(panel).toContain('variant="ghost"');
+    // Home search filters by task title, not product name.
+    expect(panel).toContain("mode === \"assistant\"");
+    expect(panel).toContain("item.description");
+    expect(panel).toContain("item.latestSession?.title");
 
-    expect(automation).toContain("SIDEBAR_PRIMARY_CTA_CLASS");
-    expect(automation).toContain("SIDEBAR_PRIMARY_HEADER_CLASS");
-    expect(automation).toContain('from "@/components/ui/sidebar-chrome"');
+    // Automation: search top + create footer (home/expert parity).
+    expect(automation).toContain("SIDEBAR_FOOTER_CTA_CLASS");
+    expect(automation).toContain('data-automation-create="true"');
+    expect(automation).toContain('data-automation-search="true"');
+    expect(automation).toContain("session.search_tasks_placeholder");
     expect(automation).toContain('size="sidebar-cta"');
+    expect(automation).toContain('variant="ghost"');
     expect(automation).toContain("automation.add");
+    expect(automation).not.toContain("SIDEBAR_PRIMARY_HEADER_CLASS");
+    // Title filter on groups + sessions.
+    expect(automation).toContain("group.title.toLowerCase()");
+    expect(automation).toContain("session.title.toLowerCase()");
 
     // Shared chrome token module (single source of truth).
     const chrome = readFileSync(
       resolve(root, "apps/app/src/components/ui/sidebar-chrome.ts"),
       "utf8",
     );
-    expect(chrome).toContain("border border-dls-border bg-dls-surface-solid");
+    expect(chrome).toContain("SIDEBAR_FOOTER_CTA_CLASS");
+    expect(chrome).toContain("bg-dls-active");
+    expect(chrome).toContain("dark:bg-dls-surface-muted");
     expect(chrome).toContain('LIST_LANE_HEADER_CLASS = "flex h-14 shrink-0 items-center"');
     expect(chrome).toContain("SIDEBAR_PRIMARY_HEADER_CLASS");
     expect(chrome).toContain("pt-1.5");
@@ -151,8 +174,8 @@ describe("rail idle primary ink contract", () => {
       "utf8",
     );
 
-    // Home CTA + expert list band both use SIDEBAR_PRIMARY_HEADER_CLASS.
-    expect(header).toContain("SIDEBAR_PRIMARY_HEADER_CLASS");
+    // Expert list search band still lives in the header module (footer CTA is separate).
+    expect(header).toContain("InputGroup");
     expect(header).not.toMatch(/flex h-14 shrink-0 items-center pt-2/);
     // Automation content header + session surface use LIST_LANE_HEADER_CLASS.
     expect(automationPage).toContain("LIST_LANE_HEADER_CLASS");

@@ -5,7 +5,7 @@ export default {
   "automation.add_from_template": "Add from cases",
   "automation.add_task_title": "Add automation task",
   "automation.add_with_plus": "+ Add",
-  "automation.tab_tasks": "Scheduled tasks",
+  "automation.tab_tasks": "Tasks",
   "automation.tab_runs": "Run list",
   "automation.nav_all_tasks": "All tasks",
   "automation.section_current": "Current",
