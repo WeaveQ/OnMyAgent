@@ -21,7 +21,10 @@ import { useExpertUnreadStore } from "../status/expert-unread-store";
 import {
   canHardDeleteExpert,
   clearExpertLocalSessionBindings,
+  readExpertSessionIds,
+  remainingExpertSessionIdsAfterDelete,
   removeExpertFromRegistry,
+  removeExpertSession,
   uninstallExpertPackagesForAgent,
 } from "../../agents";
 
@@ -131,6 +134,14 @@ export function useExpertSessionDelete(input: {
           .filter((entry) => entry.agentId === target.agentId)
           .map((entry) => entry.sessionId);
         clearExpertLocalSessionBindings(leftover);
+        // Ghost-tab contract: remaining expert tags must not include deleted ids.
+        const remaining = remainingExpertSessionIdsAfterDelete(
+          readExpertSessionIds(),
+          [...target.sessionIds, ...leftover],
+        );
+        for (const id of readExpertSessionIds()) {
+          if (!remaining.includes(id)) removeExpertSession(id);
+        }
       } catch {
         // Best effort.
       }

@@ -21,6 +21,10 @@ import {
 import type { RouteWorkspace } from "./model";
 import { getSessionStatus, isActiveSessionStatus } from "./state";
 import type { SessionOption as PaletteSessionOption } from "../command-palette";
+import {
+  recordColdPathEvent,
+  tryRecordColdTitleSnapshot,
+} from "./cold-path-budget";
 
 export type PendingCreatedSessionMap = Record<string, Record<string, number>>;
 
@@ -351,6 +355,8 @@ export async function collectWorkspaceSessionItems(input: {
   includeAssistantDirectories?: boolean;
 }) {
   const limit = input.limit ?? SIDEBAR_SESSION_LIST_LIMIT;
+  // Cold-path budget: count primary listSessions (see cold-path-budget.ts).
+  recordColdPathEvent("listSessions");
   const response = await input.client.listSessions(input.workspaceId, {
     limit,
   });
@@ -738,11 +744,23 @@ export async function refreshCreatedSessionSnapshotWithRetries(input: {
   sessionId: string;
   setQueryData: (queryKey: readonly unknown[], value: unknown) => void;
   seedSessionState: (workspaceId: string, snapshot: CreatedSessionSnapshot) => void;
+  /** When true, treat as selected empty-title cold enter (thrash ban after first). */
+  coldEnterEmptyTitle?: boolean;
 }) {
   const delays = [0, 120, 360, 900];
+  let snapshotted = false;
   for (const delay of delays) {
     if (delay > 0) {
       await new Promise((resolve) => window.setTimeout(resolve, delay));
+    }
+    // Cold-enter thrash ban: empty selected chips must not keep polling titles.
+    if (input.coldEnterEmptyTitle) {
+      const allowed = tryRecordColdTitleSnapshot({
+        isSelectedSession: true,
+        titleEmpty: true,
+        alreadySnapshotted: snapshotted,
+      });
+      if (!allowed) return;
     }
     try {
       const snapshot = (
@@ -752,6 +770,7 @@ export async function refreshCreatedSessionSnapshotWithRetries(input: {
           sessionSnapshotFetchOptions(input.directory),
         )
       ).item;
+      snapshotted = true;
       input.setQueryData(
         sessionSnapshotQueryKey(input.endpoint.workspaceId, input.sessionId),
         snapshot,
