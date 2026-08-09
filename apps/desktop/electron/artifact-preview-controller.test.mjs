@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -12,7 +12,7 @@ import {
 
 process.env.ONMYAGENT_ELECTRON_START_URL ??= "http://localhost:5173";
 
-function createPreviewHarness(workspaceRoot) {
+function createPreviewHarness(workspaceRoot, managedRoots = []) {
   const views = [];
   const openedPaths = [];
   const watchedPaths = [];
@@ -54,6 +54,7 @@ function createPreviewHarness(workspaceRoot) {
   const controller = createArtifactPreviewController({
     WebContentsView: FakeWebContentsView,
     listWorkspaceRoots: async () => [workspaceRoot],
+    listManagedRoots: async () => managedRoots,
     preloadPath: "/tmp/artifact-preview-preload.cjs",
     openPath: async (filePath) => { openedPaths.push(filePath); return ""; },
     watchFile: (filePath, _options, callback) => {
@@ -155,6 +156,76 @@ test("artifact preview opens only validated workspace files for editing", async 
   await assert.rejects(
     harness.controller.openForEditing({ filePath: outsidePath }),
     /registered local workspaces/,
+  );
+});
+
+test("artifact preview opens files in the managed expert session runtime root", async (t) => {
+  const workspaceRoot = await createTempWorkspace(t);
+  const userDataRoot = await createTempWorkspace(t);
+  const expertRoot = path.join(userDataRoot, "expert-sessions");
+  const filePath = path.join(expertRoot, "agent-1", "session-1", "report.docx");
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, "expert report");
+  const harness = createPreviewHarness(workspaceRoot, [expertRoot]);
+
+  assert.deepEqual(
+    await harness.controller.show({
+      filePath,
+      bounds: { x: 0, y: 0, width: 600, height: 400 },
+    }),
+    { ok: true, kind: "office" },
+  );
+});
+
+test("artifact preview rejects files outside workspace and managed expert roots", async (t) => {
+  const workspaceRoot = await createTempWorkspace(t);
+  const userDataRoot = await createTempWorkspace(t);
+  const expertRoot = path.join(userDataRoot, "expert-sessions");
+  const outsidePath = path.join(userDataRoot, "untrusted", "outside.docx");
+  await mkdir(path.dirname(outsidePath), { recursive: true });
+  await writeFile(outsidePath, "outside");
+  const harness = createPreviewHarness(workspaceRoot, [expertRoot]);
+
+  await assert.rejects(
+    harness.controller.show({
+      filePath: outsidePath,
+      bounds: { x: 0, y: 0, width: 600, height: 400 },
+    }),
+    /registered local workspaces/,
+  );
+});
+
+test("artifact preview rejects a managed expert root symlink that resolves to user data", async (t) => {
+  const workspaceRoot = await createTempWorkspace(t);
+  const userDataRoot = await createTempWorkspace(t);
+  const expertRoot = path.join(userDataRoot, "expert-sessions");
+  const outsidePath = path.join(userDataRoot, "untrusted", "outside.docx");
+  await mkdir(path.dirname(outsidePath), { recursive: true });
+  await writeFile(outsidePath, "outside");
+  await symlink(userDataRoot, expertRoot, process.platform === "win32" ? "junction" : "dir");
+  const harness = createPreviewHarness(workspaceRoot, [expertRoot]);
+
+  await assert.rejects(
+    harness.controller.show({
+      filePath: outsidePath,
+      bounds: { x: 0, y: 0, width: 600, height: 400 },
+    }),
+    /registered local workspaces/,
+  );
+});
+
+test("artifact preview ignores a missing managed root while previewing workspace files", async (t) => {
+  const workspaceRoot = await createTempWorkspace(t);
+  const filePath = path.join(workspaceRoot, "report.docx");
+  await writeFile(filePath, "workspace report");
+  const harness = createPreviewHarness(workspaceRoot, [path.join(workspaceRoot, "missing-expert-sessions")]);
+
+  assert.deepEqual(
+    await harness.controller.show({
+      filePath,
+      bounds: { x: 0, y: 0, width: 600, height: 400 },
+    }),
+    { ok: true, kind: "office" },
   );
 });
 

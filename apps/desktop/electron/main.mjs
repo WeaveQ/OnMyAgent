@@ -100,6 +100,7 @@ import { createDesktopPaths } from "./desktop-paths.mjs";
 import { createDesktopWindowController } from "./desktop-window.mjs";
 import { registerDesktopBrowserIpc } from "./desktop-ipc-browser.mjs";
 import { createArtifactPreviewController } from "./artifact-preview-controller.mjs";
+import { resolveExpertSessionRuntimeRoot } from "./expert-session-runtime-path.mjs";
 import { createOfficeCliManager } from "./managed-tools/officecli-manager.mjs";
 import { createLarkCliManager } from "./managed-tools/lark-cli-manager.mjs";
 import { createLarkCliAuthService } from "./managed-tools/lark-cli-auth.mjs";
@@ -425,6 +426,7 @@ const listLocalWorkspacePaths = async () =>
 const artifactPreviewController = createArtifactPreviewController({
   WebContentsView,
   listWorkspaceRoots: listLocalWorkspacePaths,
+  listManagedRoots: () => [resolveExpertSessionRuntimeRoot(app.getPath("userData"))],
   openPath: (filePath) => shell.openPath(filePath),
   preloadPath: path.join(__dirname, "artifact-preview-preload.cjs"),
 });
