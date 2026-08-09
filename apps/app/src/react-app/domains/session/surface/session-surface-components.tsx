@@ -7,9 +7,9 @@
 import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import {
+  Briefcase,
   Check,
   Clock3,
-  BookOpenCheck,
   Goal,
   Minimize2,
   Pause,
@@ -89,12 +89,11 @@ const AGENT_AVATAR_PALETTES = [
 // Avatar Components
 // ============================================================================
 
-export function AssistantDraftHomeMark(props: { categoryId: AssistantCategoryId }) {
-  const Icon = BookOpenCheck;
-
+/** Legacy export kept in sync with chrome/avatars (draft home uses chrome). */
+export function AssistantDraftHomeMark(_props: { categoryId: AssistantCategoryId }) {
   return (
     <span className="inline-flex size-6 shrink-0 items-center justify-center text-current">
-      <Icon className="size-6" strokeWidth={1.7} />
+      <Briefcase className="size-6" strokeWidth={1.7} aria-hidden />
     </span>
   );
 }

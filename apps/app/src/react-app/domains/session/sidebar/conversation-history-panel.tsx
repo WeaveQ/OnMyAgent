@@ -9,6 +9,8 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { EmptyStateBox } from "@/components/ui/notice-box";
+import { CONVERSATION_HISTORY_EMPTY_STATE_ASSET } from "@/react-app/design-system/empty-state-assets";
+import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type {
@@ -214,6 +216,10 @@ export function ConversationHistoryPanel(props: {
           ) : entries.length === 0 ? (
             <div className="px-2 py-8">
               <EmptyStateBox size="comfortable" tone="muted" className="text-sm">
+                <EmptyStateIllustration
+                  src={CONVERSATION_HISTORY_EMPTY_STATE_ASSET}
+                  size="compact"
+                />
                 {t("session.conversation_history_empty")}
               </EmptyStateBox>
             </div>

@@ -32,7 +32,7 @@ export function AgentManagementFleetSkeleton(props: {
   label: string;
   testId?: string;
 }) {
-  const count = props.count ?? 4;
+  const count = props.count ?? 6;
   return (
     <div
       className={cn(AGENT_CARD_GRID, props.className)}
@@ -49,31 +49,43 @@ export function AgentManagementFleetSkeleton(props: {
   );
 }
 
-/** Single wide row skeleton for the extensions strip under the fleet. */
-export function AgentManagementExtensionSkeleton(props: { label: string }) {
+/**
+ * First-paint loading for agent management: same card grid as the real fleet
+ * so the layout does not jump. Optional hint sits above the grid (compact).
+ */
+export function AgentManagementPageLoading(props: {
+  label: string;
+  hint?: string;
+  testId?: string;
+  count?: number;
+}) {
   return (
-    <section className="space-y-3" aria-busy="true" aria-label={props.label}>
-      <div className="flex items-center gap-2">
-        <Skeleton className="h-4 w-12" />
-        <Skeleton className="h-3 w-16" />
-        <Skeleton className="ml-auto h-8 w-16 rounded-lg" />
+    <div
+      role="status"
+      aria-busy="true"
+      aria-label={props.label}
+      data-testid={props.testId ?? "agent-management-page-loading"}
+      className="space-y-3"
+    >
+      <div className="flex items-center gap-2 px-0.5">
+        <Skeleton className="size-3.5 shrink-0 rounded-full" />
+        <p className="text-xs text-dls-secondary">{props.label}</p>
+        {props.hint ? (
+          <p className="hidden text-xs text-dls-secondary/70 sm:inline">
+            · {props.hint}
+          </p>
+        ) : null}
       </div>
-      <div className="rounded-lg border border-dls-border bg-dls-surface p-3">
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1 space-y-2">
-            <div className="flex items-center gap-2">
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-4 w-14 rounded-full" />
-              <Skeleton className="h-3 w-10" />
-            </div>
-            <Skeleton className="h-3 w-full max-w-md" />
-            <Skeleton className="h-3 w-48" />
-          </div>
-          <Skeleton className="h-5 w-14 shrink-0 rounded-full" />
-        </div>
-      </div>
-      <span className="sr-only">{props.label}</span>
-    </section>
+      <AgentManagementFleetSkeleton
+        count={props.count ?? 6}
+        label={props.label}
+        testId={
+          props.testId
+            ? `${props.testId}-grid`
+            : "agent-management-page-loading-grid"
+        }
+      />
+    </div>
   );
 }
 

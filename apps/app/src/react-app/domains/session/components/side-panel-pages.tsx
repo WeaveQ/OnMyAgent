@@ -4,22 +4,21 @@ import {
   ChevronDown,
   ChevronLeft,
   Clock3,
-  FileText,
+  HardDrive,
   LayoutDashboard,
-  MonitorSmartphone,
-  Network,
+  MessagesSquare,
   Package,
+  Plug,
   Plus,
-  Puzzle,
   Search,
   Sparkles,
   Upload,
   UserPlus,
   UserRound,
-  Zap,
+  Users,
 } from "lucide-react";
 import type { ComponentType } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
@@ -44,11 +43,14 @@ import {
   PluginsPage,
   SkillsMarketplacePage,
   type ArtifactPluginPromptSelection,
+  filterLocalShelfExperts,
   type ExpertMarketplaceEntry,
   type ExpertMarketplaceSummonHandler,
   type ExpertMarketplaceView,
 } from "@/react-app/domains/plugins";
 import { useStatusToasts } from "../../shell-feedback";
+import { PROJECTS_PLACEHOLDER_ASSET } from "@/react-app/design-system/empty-state-assets";
+import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import { FeaturePreviewPlaceholder } from "./feature-preview-placeholder";
 
 const sidePanelTextClass = {
@@ -81,11 +83,12 @@ export const SIDEBAR_VIEW_ICONS: Record<
   billing: Sparkles,
   usage: LayoutDashboard,
   agents: Bot,
-  skills: FileText,
-  connectors: Zap,
-  devices: MonitorSmartphone,
+  skills: Sparkles,
+  connectors: Plug,
+  // Distinct from LocalAgent monitor glyph used elsewhere in the shell.
+  devices: HardDrive,
   scheduledTasks: Clock3,
-  channels: Network,
+  channels: MessagesSquare,
   personalAssistant: LayoutDashboard,
 };
 
@@ -312,7 +315,8 @@ function StorePrimaryTabs(props: {
     icon: ComponentType<{ className?: string }>;
   }> = [
     { id: "experts", label: t("store.experts_tab"), icon: UserRound },
-    { id: "skills", label: t("store.skills_tab"), icon: Puzzle },
+    // Sparkles — same skills glyph as sidebar / nav maps (not puzzle piece).
+    { id: "skills", label: t("store.skills_tab"), icon: Sparkles },
     { id: "plugins", label: t("plugins.artifact_tab"), icon: Package },
   ];
 
@@ -348,6 +352,8 @@ export function StorePage(props: {
   client?: OnMyAgentServerClient | null;
   activeTab?: StorePrimaryTab;
   myExperts?: ExpertMarketplaceEntry[];
+  /** Expert agent ids with sessions (sidebar) — scopes the summoned-experts shelf. */
+  activeExpertAgentIds?: readonly string[];
   onActiveTabChange?: (tab: StorePrimaryTab) => void;
   onSummonMarketplaceExpert?: ExpertMarketplaceSummonHandler;
   onCreateExpert?: () => void;
@@ -371,6 +377,14 @@ export function StorePage(props: {
   const [skillImportOpen, setSkillImportOpen] = useState(false);
   const [localCustomConnectorOpen, setLocalCustomConnectorOpen] = useState(false);
   const activeTab = props.activeTab ?? uncontrolledActiveTab;
+  const shelfExperts = useMemo(
+    () =>
+      filterLocalShelfExperts(
+        props.myExperts ?? [],
+        props.activeExpertAgentIds ?? [],
+      ),
+    [props.activeExpertAgentIds, props.myExperts],
+  );
   const openCustomConnector =
     props.onOpenCustomConnector ?? (() => setLocalCustomConnectorOpen(true));
   const customConnectorControlled = Boolean(props.onOpenCustomConnector);
@@ -428,7 +442,7 @@ export function StorePage(props: {
           <StorePrimaryTabs value={activeTab} onChange={handleTabChange} />
         )}
         <div className="flex min-w-0 items-center gap-2 mac:titlebar-no-drag">
-          {/* Search on expert/skill markets (not plugins, not my-experts). */}
+          {/* Search on expert/skill markets (not plugins). Mine view keeps create only. */}
           {activeTab !== "plugins" &&
           !(activeTab === "experts" && expertView === "mine") ? (
             <InputGroup controlSize="sm" radius="md" tone="surface" className="w-64 mac:titlebar-no-drag">
@@ -450,10 +464,15 @@ export function StorePage(props: {
                 variant="outline"
                 size="sm"
                 onClick={() => setExpertView("mine")}
-                className="mac:titlebar-no-drag"
+                className="gap-1.5 text-dls-text mac:titlebar-no-drag"
               >
-                <UserPlus data-icon="inline-start" className="size-3.5" />
+                <Users className="size-3.5 shrink-0 text-dls-text" strokeWidth={2} aria-hidden />
                 {t("session.my_experts")}
+                {shelfExperts.length > 0 ? (
+                  <CountBadge size="dot" className="ml-0.5">
+                    {shelfExperts.length}
+                  </CountBadge>
+                ) : null}
               </Button>
               <Button
                 type="button"
@@ -462,12 +481,23 @@ export function StorePage(props: {
                 onClick={() =>
                   (props.onCreateExpert ?? showComingSoonToast)()
                 }
-                className="mac:titlebar-no-drag"
+                className="gap-1.5 text-dls-text mac:titlebar-no-drag"
               >
-                <Plus data-icon="inline-start" className="size-3.5" />
+                <UserPlus className="size-3.5 shrink-0 text-dls-text" strokeWidth={2} aria-hidden />
                 {t("session.create_expert")}
               </Button>
             </>
+          ) : null}
+          {activeTab === "experts" && expertView === "mine" ? (
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => (props.onCreateExpert ?? showComingSoonToast)()}
+              className="gap-1.5 mac:titlebar-no-drag"
+            >
+              <UserPlus className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+              {t("session.create_expert")}
+            </Button>
           ) : null}
           {activeTab === "skills" && skillView === "market" ? (
             <>
@@ -542,6 +572,7 @@ export function StorePage(props: {
             view={expertView}
             query={query}
             myExperts={props.myExperts ?? []}
+            activeExpertAgentIds={props.activeExpertAgentIds}
             onSummonMarketplaceExpert={(expert, initialPrompt) => {
               props.onSummonMarketplaceExpert?.(expert, initialPrompt);
             }}
@@ -589,20 +620,11 @@ export function StorePage(props: {
   );
 }
 
-const PROJECTS_PLACEHOLDER_ASSET = "/empty-states/projects-placeholder.jpg";
-
 export function ProjectsComingSoonPage() {
   return (
     <div className="flex h-full items-center justify-center bg-dls-background px-6 text-center">
       <div className="flex max-w-sm flex-col items-center gap-6">
-        <img
-          src={PROJECTS_PLACEHOLDER_ASSET}
-          alt=""
-          width={280}
-          height={280}
-          className="size-[min(17.5rem,56vw)] max-w-full select-none rounded-2xl object-cover shadow-sm ring-1 ring-dls-border/50"
-          draggable={false}
-        />
+        <EmptyStateIllustration src={PROJECTS_PLACEHOLDER_ASSET} />
         <div className="space-y-1.5">
           <div className={sidePanelTextClass.panelTitle}>
             {t("session.projects_coming_soon_title")}

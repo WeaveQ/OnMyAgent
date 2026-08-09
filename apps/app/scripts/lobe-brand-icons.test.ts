@@ -17,6 +17,8 @@ describe("resolveLobeProviderKey", () => {
     expect(resolveLobeProviderKey("google")).toBe("google");
     expect(resolveLobeProviderKey("xai")).toBe("xai");
     expect(resolveLobeProviderKey("opencode")).toBe("opencode");
+    expect(resolveLobeProviderKey("pi")).toBe("pi");
+    expect(resolveLobeProviderKey(null, "Pi 1")).toBe("pi");
   });
 
   test("maps via display name when id is opaque", () => {
@@ -39,6 +41,7 @@ describe("agent / plugin lobe ids", () => {
     expect(resolveLobeAgentIconId("openclaw")).toBe("openclaw");
     expect(resolveLobeAgentIconId("opencode")).toBe("opencode");
     expect(resolveLobeAgentIconId("mimo")).toBe("xiaomimimo");
+    expect(resolveLobeAgentIconId("pi")).toBe("pi");
     expect(resolveLobeAgentIconId("onmyagent")).toBeNull();
     expect(resolveLobeAgentIconId("cursor-agent")).toBeNull();
   });

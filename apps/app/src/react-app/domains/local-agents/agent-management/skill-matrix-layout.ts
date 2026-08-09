@@ -21,11 +21,14 @@ export type SkillCellState =
 export const SKILL_MATRIX_AGENT_COL = "48px";
 export const SKILL_MATRIX_ACTION_COL = "64px";
 
-/** Header + body must share one overflow scroller for sticky alignment. */
+/**
+ * Header + body must share one overflow scroller for sticky alignment.
+ * Column order: skill (flex) | actions (fixed, always visible) | agents (fixed, right-aligned pack).
+ */
 export function skillMatrixGridStyle(agentColCount: number) {
   const n = Math.max(1, agentColCount);
   return {
-    gridTemplateColumns: `minmax(12rem,1fr) repeat(${n}, ${SKILL_MATRIX_AGENT_COL}) ${SKILL_MATRIX_ACTION_COL}`,
+    gridTemplateColumns: `minmax(12rem,1fr) ${SKILL_MATRIX_ACTION_COL} repeat(${n}, ${SKILL_MATRIX_AGENT_COL})`,
   } as const;
 }
 

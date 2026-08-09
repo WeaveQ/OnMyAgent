@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { t } from "../../../../i18n";
+import { resolveSimpleIconUrl } from "../../../design-system/simple-icon";
 import {
   type OnMyAgentServerClient,
   type OnMyAgentServerStatus,
@@ -63,7 +64,13 @@ import {
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ShareWorkspaceModal } from "../../workspace";
 import type { StatusBarProps } from "../components/status-bar";
-import { OwDotTicker, type SidePanelItem, useReactRenderWatchdog, useUiStateStore } from "../../../shell";
+import {
+  DEFAULT_BROWSER_SIDE_PANEL_WIDTH,
+  OwDotTicker,
+  type SidePanelItem,
+  useReactRenderWatchdog,
+  useUiStateStore,
+} from "../../../shell";
 import type { AgentCardItem, AgentRegistry } from "../../agents";
 import {
   buildAgentToolAccess,
@@ -170,8 +177,8 @@ function CodeSidePanelMenu(props: {
           <PanelRight className="size-3.5" />
         </Button>
       </header>
-      <div className="flex min-h-0 flex-1 items-center justify-center px-6">
-        <div className="w-full max-w-[520px] space-y-2">
+      <div className="flex min-h-0 flex-1 items-center justify-center px-3 py-6">
+        <div className="w-full space-y-2">
           {[...codeRailItems]
             .map((item, index) => ({
               item,
@@ -1008,7 +1015,7 @@ export function SessionPage(props: SessionPageProps) {
                                     }}
                                   >
                                     <img
-                                      src="https://cdn.simpleicons.org/googlesheets"
+                                      src={resolveSimpleIconUrl("googlesheets")}
                                       alt=""
                                       width={20}
                                       height={20}
@@ -1059,7 +1066,7 @@ export function SessionPage(props: SessionPageProps) {
                                     }}
                                   >
                                     <img
-                                      src="https://cdn.simpleicons.org/hackthebox"
+                                      src={resolveSimpleIconUrl("hackthebox")}
                                       alt=""
                                       width={20}
                                       height={20}
@@ -1089,12 +1096,21 @@ export function SessionPage(props: SessionPageProps) {
                   <ResizableHandle withHandle className="hidden lg:flex" />
                   <ResizablePanel
                     panelRef={browserPanelRef}
-                    defaultSize={`${activeSidePanel === "extensions" ? Math.max(browserPanelDefaultWidth, 480) : browserPanelDefaultWidth}px`}
+                    defaultSize={`${
+                      activeSidePanel === "extensions"
+                        ? Math.max(browserPanelDefaultWidth, 480)
+                        : activeSidePanel === "browser"
+                          ? Math.max(
+                              browserPanelDefaultWidth,
+                              DEFAULT_BROWSER_SIDE_PANEL_WIDTH,
+                            )
+                          : browserPanelDefaultWidth
+                    }px`}
                     minSize={
-                      activeSidePanel === "extensions" ? "420px" : "320px"
+                      activeSidePanel === "extensions" ? "420px" : "300px"
                     }
                     maxSize="70%"
-                    className="min-h-0 overflow-hidden bg-dls-surface lg:flex lg:flex-col"
+                    className="min-h-0 overflow-hidden bg-dls-background lg:flex lg:flex-col"
                   >
                     {activeSidePanel === "codeMenu" ? (
                       <CodeSidePanelMenu

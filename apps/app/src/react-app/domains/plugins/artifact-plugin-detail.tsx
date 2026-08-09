@@ -1,15 +1,10 @@
 /** @jsxImportSource react */
-import type { ComponentType, ReactNode } from "react";
-import {
-  AppWindow,
-  FileSpreadsheet,
-  FileText,
-  FileType,
-  Lightbulb,
-  MessageCircle,
-} from "lucide-react";
+import type { ReactNode } from "react";
+import { FileText, Lightbulb, MessageCircle } from "lucide-react";
 
 import { StatusBadge } from "@/components/ui/status-badge";
+import { BUILTIN_PLUGIN_ICON_PNG_BY_ID } from "@/react-app/design-system/koboyo-product-icons";
+import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { cn } from "@/lib/utils";
 
 import { t } from "@/i18n";
@@ -45,41 +40,14 @@ export type ArtifactStarterPromptsProps = {
 };
 
 /**
- * Solid brand-color tiles (white glyph) so they sit with connector logos below
- * instead of washed monochrome accent chips.
+ * Soft-UI full-color app marks (Imagine PNGs). Fall back to solid brand tiles
+ * only when no product PNG is mapped.
  */
-const PLUGIN_ICON_META: Record<
-  string,
-  {
-    Icon: ComponentType<{ className?: string; "aria-hidden"?: boolean | "true"; strokeWidth?: number }>;
-    tile: string;
-  }
-> = {
-  browser: {
-    Icon: AppWindow,
-    // Chromium-ish sky
-    tile: "bg-[#4285F4] text-white shadow-sm shadow-sky-500/25",
-  },
-  documents: {
-    Icon: FileText,
-    // Word blue
-    tile: "bg-[#2B579A] text-white shadow-sm shadow-blue-900/20",
-  },
-  pdf: {
-    Icon: FileType,
-    // Adobe-ish red
-    tile: "bg-[#E5252A] text-white shadow-sm shadow-red-600/25",
-  },
-  spreadsheets: {
-    Icon: FileSpreadsheet,
-    // Excel green
-    tile: "bg-[#217346] text-white shadow-sm shadow-emerald-900/20",
-  },
-};
-
-const DEFAULT_PLUGIN_ICON = {
-  Icon: FileText,
-  tile: "bg-dls-text text-dls-background",
+const PLUGIN_FALLBACK_TILE: Record<string, string> = {
+  browser: "bg-[#4285F4] text-white shadow-sm shadow-sky-500/25",
+  documents: "bg-[#2B579A] text-white shadow-sm shadow-blue-900/20",
+  pdf: "bg-[#E5252A] text-white shadow-sm shadow-red-600/25",
+  spreadsheets: "bg-[#217346] text-white shadow-sm shadow-emerald-900/20",
 };
 
 export function ArtifactPluginIcon({
@@ -91,22 +59,35 @@ export function ArtifactPluginIcon({
   size?: "sm" | "md";
   className?: string;
 }) {
-  const meta = PLUGIN_ICON_META[pluginId] ?? DEFAULT_PLUGIN_ICON;
-  const { Icon } = meta;
-  const box = size === "sm" ? "size-9 rounded-xl" : "size-11 rounded-2xl";
-  const iconSize = size === "sm" ? "size-4" : "size-5";
+  // Match skills marketplace marks: size-9 + rounded-md (not soft-UI squircle xl).
+  const box = size === "sm" ? "size-9 rounded-md" : "size-11 rounded-lg";
+  const pngSrc = BUILTIN_PLUGIN_ICON_PNG_BY_ID[pluginId];
 
+  if (pngSrc) {
+    return (
+      <img
+        src={resolvePublicAssetUrl(pngSrc)}
+        alt=""
+        loading="lazy"
+        className={cn(box, "shrink-0 object-cover", className)}
+        aria-hidden="true"
+      />
+    );
+  }
+
+  const tile =
+    PLUGIN_FALLBACK_TILE[pluginId] ?? "bg-dls-text text-dls-background";
   return (
     <span
       className={cn(
         "inline-flex shrink-0 items-center justify-center",
         box,
-        meta.tile,
+        tile,
         className,
       )}
       aria-hidden="true"
     >
-      <Icon className={cn(iconSize, "text-white")} strokeWidth={2} />
+      <FileText className="size-4 text-white" strokeWidth={2} />
     </span>
   );
 }

@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { usePanelRef } from "react-resizable-panels";
 
-import { isElectronRuntime } from "../../../../app/utils";
-import { useWorkspaceShellLayout } from "../../../shell";
-import type { SidePanelItem } from "../../../shell";
+import {
+  DEFAULT_BROWSER_SIDE_PANEL_WIDTH,
+  DEFAULT_WORKSPACE_RIGHT_SIDEBAR_EXPANDED_WIDTH,
+  MIN_WORKSPACE_RIGHT_SIDEBAR_WIDTH,
+  useWorkspaceShellLayout,
+  type SidePanelItem,
+} from "../../../shell";
 import {
   isCollectibleArtifactTarget,
   type OpenTarget,
@@ -83,25 +87,46 @@ export function useSessionPageSidePanel(input: UseSessionPageSidePanelInput) {
     [selectedSessionId, toggleSidePanelState],
   );
 
+  const {
+    rightSidebarExpandedWidth: browserPanelWidth,
+    setRightSidebarExpandedWidth: setBrowserPanelWidth,
+  } = useWorkspaceShellLayout({
+    // Same default as assistant/expert hosts and outer workspace rail.
+    expandedRightWidth: DEFAULT_WORKSPACE_RIGHT_SIDEBAR_EXPANDED_WIDTH,
+    minRightWidth: MIN_WORKSPACE_RIGHT_SIDEBAR_WIDTH,
+  });
+  const [browserPanelDefaultWidth, setBrowserPanelDefaultWidth] =
+    useState(browserPanelWidth);
+
+  /** Snap outer rail + ResizablePanel defaultSize to an explicit pixel width. */
+  const snapSidePanelWidth = useCallback(
+    (width: number) => {
+      setBrowserPanelWidth(width);
+      setBrowserPanelDefaultWidth(width);
+      browserPanelRef.current?.resize(`${width}px`);
+    },
+    [browserPanelRef, setBrowserPanelWidth],
+  );
+
+  const snapToMenuWidth = useCallback(() => {
+    snapSidePanelWidth(DEFAULT_WORKSPACE_RIGHT_SIDEBAR_EXPANDED_WIDTH);
+  }, [snapSidePanelWidth]);
+
+  /** Browser needs more room than the compact tool menu (360). */
+  const snapToBrowserWidth = useCallback(() => {
+    snapSidePanelWidth(DEFAULT_BROWSER_SIDE_PANEL_WIDTH);
+  }, [snapSidePanelWidth]);
+
   const openBrowserPanelFromAgent = useCallback(() => {
     if (preserveSidePanelOnPanelOpenRef.current) {
       preserveSidePanelOnPanelOpenRef.current = false;
       return;
     }
     if (!selectedSessionId) return;
+    snapToBrowserWidth();
     setCurrentSidePanel("browser");
-  }, [selectedSessionId, setCurrentSidePanel]);
+  }, [selectedSessionId, setCurrentSidePanel, snapToBrowserWidth]);
   useAutoOpenBrowserPanel(openBrowserPanelFromAgent, selectedSessionId);
-
-  const {
-    rightSidebarExpandedWidth: browserPanelWidth,
-    setRightSidebarExpandedWidth: setBrowserPanelWidth,
-  } = useWorkspaceShellLayout({
-    expandedRightWidth: 520,
-    minRightWidth: 320,
-  });
-  const [browserPanelDefaultWidth, setBrowserPanelDefaultWidth] =
-    useState(browserPanelWidth);
 
   useEffect(() => {
     if (sidePanelOpen) return;
@@ -158,6 +183,7 @@ export function useSessionPageSidePanel(input: UseSessionPageSidePanelInput) {
     async (target: OpenTarget, options?: { auto?: boolean }) => {
       if (target.kind === "url" || target.preview === "browser") {
         const url = browserUrlForTarget(target);
+        snapToBrowserWidth();
         await openInAppBrowser({
           openSidePanel: () => setCurrentSidePanel("browser"),
           url,
@@ -175,6 +201,7 @@ export function useSessionPageSidePanel(input: UseSessionPageSidePanelInput) {
       browserUrlForTarget,
       selectedSessionId,
       setCurrentSidePanel,
+      snapToBrowserWidth,
     ],
   );
 
@@ -197,6 +224,8 @@ export function useSessionPageSidePanel(input: UseSessionPageSidePanelInput) {
   const openBrowserRailPane = useCallback(() => {
     // User clicked 浏览器: seed Baidu only when this session has no page tabs yet.
     // Agent open / openTarget(url) must not go through seedHomeWhenEmpty.
+    // Expand to browser default (520) — tool menu stays compact at 360.
+    snapToBrowserWidth();
     void openInAppBrowser({
       openSidePanel: () => setCurrentSidePanel("browser"),
       sessionId: selectedSessionId,
@@ -204,7 +233,7 @@ export function useSessionPageSidePanel(input: UseSessionPageSidePanelInput) {
     }).catch(() => {
       setCurrentSidePanel("browser");
     });
-  }, [selectedSessionId, setCurrentSidePanel]);
+  }, [selectedSessionId, setCurrentSidePanel, snapToBrowserWidth]);
 
   const openArtifactRailPane = useCallback(() => {
     if (!artifactRailActive) {
@@ -222,8 +251,10 @@ export function useSessionPageSidePanel(input: UseSessionPageSidePanelInput) {
   }, [setCurrentSidePanel]);
 
   const openCodeMenuRailPane = useCallback(() => {
+    // Tool list is compact; keep 360 so it doesn’t leave a dead gap.
+    snapToMenuWidth();
     setCurrentSidePanel("codeMenu");
-  }, [setCurrentSidePanel]);
+  }, [setCurrentSidePanel, snapToMenuWidth]);
 
   const removeAccessibleTarget = useCallback((target: OpenTarget) => {
     setHiddenAccessibleTargetIds((current) => new Set(current).add(target.id));

@@ -14,6 +14,7 @@ import { t } from "@/i18n";
 import { APP_NAME } from "@/i18n/locales/brand";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { cn } from "@/lib/utils";
+import { resolveSimpleIconUrl } from "@/react-app/design-system/simple-icon";
 
 import { TryThisPromptsSection } from "./artifact-plugin-detail";
 
@@ -84,7 +85,7 @@ function ConnectorLogo(props: {
   const resolved = props.src
     ? resolvePublicAssetUrl(props.src)
     : props.slug
-      ? `https://cdn.simpleicons.org/${props.slug}`
+      ? resolveSimpleIconUrl(props.slug)
       : null;
 
   return (

@@ -1214,9 +1214,9 @@ export function AutomationPage(props: {
           </NoticeBox>
         ) : null}
         {showListLoading ? (
-          <div className="mb-4 flex items-center gap-2 text-sm text-dls-secondary">
-            <LoadingSpinner />
-            {t("automation.loading")}
+          <div className="mb-4 flex items-center gap-2 text-sm leading-none text-dls-secondary">
+            <LoadingSpinner className="size-4 shrink-0" />
+            <span className="leading-5">{t("automation.loading")}</span>
           </div>
         ) : null}
 

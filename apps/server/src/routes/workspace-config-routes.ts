@@ -225,7 +225,12 @@ async function patchOpencodeConfig(
 
   const providerUpdate = ensurePlainObject(provider);
   for (const [providerId, providerConfig] of Object.entries(providerUpdate)) {
-    await updateJsoncPath(configPath, ["provider", providerId], providerConfig);
+    // null/undefined = remove provider key (JSON cannot encode undefined over the wire).
+    const nextValue =
+      providerConfig === null || providerConfig === undefined
+        ? undefined
+        : providerConfig;
+    await updateJsoncPath(configPath, ["provider", providerId], nextValue);
   }
 
   const permissionUpdate = ensurePlainObject(permission);

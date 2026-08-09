@@ -13,6 +13,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { KoboyoIcon } from "@/react-app/design-system/koboyo-icon";
+import { KOBOYO_BADGE_PLUS } from "@/react-app/design-system/koboyo-product-icons";
 
 import {
   readOpencodeConfig,
@@ -512,18 +514,7 @@ export function CustomConnectorDialog(props: CustomConnectorDialogProps) {
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
-              {view === "list" ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5"
-                  onClick={() => setView("config")}
-                >
-                  <Sparkles className="size-3.5" aria-hidden />
-                  {t("plugins.custom_connector_configure")}
-                </Button>
-              ) : null}
+              {/* Configure CTA lives in empty state / list section — avoid duplicate header chip. */}
               <Button
                 type="button"
                 variant="ghost"
@@ -591,10 +582,11 @@ export function CustomConnectorDialog(props: CustomConnectorDialogProps) {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="mt-1"
+                    className="mt-1 gap-1.5"
                     onClick={() => setView("config")}
                   >
-                    {t("plugins.custom_connector_configure_cta")}
+                    <Sparkles className="size-3.5" aria-hidden />
+                    {t("plugins.custom_connector_configure")}
                   </Button>
                 </div>
               ) : (
@@ -613,23 +605,35 @@ export function CustomConnectorDialog(props: CustomConnectorDialogProps) {
                         {filteredServers.length}
                       </span>
                     </div>
-                    <span className="shrink-0 text-xs text-dls-secondary">
-                      <span>
-                        {t("plugins.custom_connector_summary_enabled", {
-                          count: statusSummary.enabled,
-                        })}
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="text-xs text-dls-secondary">
+                        <span>
+                          {t("plugins.custom_connector_summary_enabled", {
+                            count: statusSummary.enabled,
+                          })}
+                        </span>
+                        {statusSummary.failed > 0 ? (
+                          <>
+                            <span className="mx-1 text-dls-secondary/60">·</span>
+                            <span className="text-rose-400">
+                              {t("plugins.custom_connector_summary_failed", {
+                                count: statusSummary.failed,
+                              })}
+                            </span>
+                          </>
+                        ) : null}
                       </span>
-                      {statusSummary.failed > 0 ? (
-                        <>
-                          <span className="mx-1 text-dls-secondary/60">·</span>
-                          <span className="text-rose-400">
-                            {t("plugins.custom_connector_summary_failed", {
-                              count: statusSummary.failed,
-                            })}
-                          </span>
-                        </>
-                      ) : null}
-                    </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => setView("config")}
+                      >
+                        <Sparkles className="size-3.5" aria-hidden />
+                        {t("plugins.custom_connector_configure")}
+                      </Button>
+                    </div>
                   </div>
                   <ul className="space-y-2">
                     {filteredServers.map((entry) => {
@@ -898,16 +902,20 @@ export function CustomConnectorEntryButton(props: {
   onClick: () => void;
   className?: string;
 }) {
-  // Match store header chrome for "My installed" (outline sm + rounded-md), keep +.
+  // Match store header chrome; Koboyo badge-plus instead of bare Lucide +.
   return (
     <Button
       type="button"
       variant="outline"
       size="sm"
-      className={cn("gap-1.5 rounded-md mac:titlebar-no-drag", props.className)}
+      className={cn("gap-1.5 rounded-lg mac:titlebar-no-drag", props.className)}
       onClick={props.onClick}
     >
-      <Plus className="size-3.5" aria-hidden />
+      <KoboyoIcon
+        src={KOBOYO_BADGE_PLUS}
+        size={14}
+        className="text-dls-secondary bg-current"
+      />
       {t("plugins.custom_connector")}
     </Button>
   );

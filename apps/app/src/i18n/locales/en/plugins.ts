@@ -9,7 +9,7 @@ export default {
   "plugins.artifact_tab": "Connectors",
   "plugins.artifact_description":
     "Browser and document / spreadsheet / PDF capabilities shipped with the app. Toggle individually.",
-  "plugins.custom_connector": "Custom connector",
+  "plugins.custom_connector": "Add connector",
   "plugins.custom_connector_title": "MCP services",
   "plugins.custom_connector_subtitle": "Install MCP servers to extend AI with more tools",
   "plugins.custom_connector_search": "Search servers…",

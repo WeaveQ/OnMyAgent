@@ -43,6 +43,11 @@ function TranscriptJumpToLatestChip(props: {
 export function SessionSurfaceTranscriptPane(props: {
   /** When true (assistant draft home), the pane is not shown. */
   hidden?: boolean;
+  /**
+   * Expert-creation coach etc.: tighter gutters so a narrow embedded column
+   * does not stack host pad + full session px-4/md:px-8.
+   */
+  compactInset?: boolean;
   sessionId?: string | null;
   scrollRef: RefObject<HTMLDivElement | null>;
   contentRef: RefObject<HTMLDivElement | null>;
@@ -70,9 +75,11 @@ export function SessionSurfaceTranscriptPane(props: {
         onPointerDown={props.onPointerDown}
         onScroll={props.onScroll}
         className={cn(
-          "absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-y-contain py-5",
+          "session-transcript-scroll absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-y-contain",
           // Match composer horizontal inset so content + input share one column.
-          SESSION_CONTENT_X_PADDING_CLASS,
+          props.compactInset
+            ? "px-3 py-3"
+            : cn(SESSION_CONTENT_X_PADDING_CLASS, "py-5"),
           // Promote the scroll layer so compositor can scroll without
           // re-painting the whole session chrome on every wheel tick.
           "[transform:translateZ(0)]",
