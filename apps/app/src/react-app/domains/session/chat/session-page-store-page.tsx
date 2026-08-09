@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import type { ComponentType } from "react";
 import { useState } from "react";
-import { Puzzle, UserRound } from "lucide-react";
+import { Sparkles, UserRound } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
@@ -25,9 +25,9 @@ export function StorePage(props: {
   const tabs: StorePrimaryTabItem[] = props.expertsSlot
     ? [
         { id: "experts", label: t("store.experts_tab"), icon: UserRound },
-        { id: "skills", label: t("store.skills_tab"), icon: Puzzle },
+        { id: "skills", label: t("store.skills_tab"), icon: Sparkles },
       ]
-    : [{ id: "skills", label: t("store.skills_tab"), icon: Puzzle }];
+    : [{ id: "skills", label: t("store.skills_tab"), icon: Sparkles }];
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background">

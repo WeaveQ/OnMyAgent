@@ -34,6 +34,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { SKILLS_EMPTY_STATE_ASSET } from "@/react-app/design-system/empty-state-assets";
+import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1650,7 +1652,11 @@ export function SkillsMarketplacePage(props: {
               })}
             </div>
           ) : (
-            <div className="flex h-full min-h-0 items-center justify-center px-6 text-center text-sm text-dls-secondary">
+            <div className="flex h-full min-h-0 flex-col items-center justify-center gap-2 px-6 text-center text-sm text-dls-secondary">
+              <EmptyStateIllustration
+                src={SKILLS_EMPTY_STATE_ASSET}
+                size="compact"
+              />
               {emptyForSubTab
                 ? installedSubTab === "builtin"
                   ? t("skills.mine_builtin_empty")

@@ -3,25 +3,21 @@ import { FileText, PanelRight } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
+import {
+  ARTIFACTS_EMPTY_STATE_ASSET,
+  PROJECTS_PLACEHOLDER_ASSET,
+} from "@/react-app/design-system/empty-state-assets";
+import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 
 const lightPagesTextClass = {
   panelTitle: "text-base font-medium text-dls-text",
 };
 
-const PROJECTS_PLACEHOLDER_ASSET = "/empty-states/projects-placeholder.jpg";
-
 export function ProjectsComingSoonPage() {
   return (
     <div className="flex h-full items-center justify-center bg-dls-background px-6 text-center">
       <div className="flex max-w-sm flex-col items-center gap-6">
-        <img
-          src={PROJECTS_PLACEHOLDER_ASSET}
-          alt=""
-          width={280}
-          height={280}
-          className="size-[min(17.5rem,56vw)] max-w-full select-none rounded-2xl object-cover shadow-sm ring-1 ring-dls-border/50"
-          draggable={false}
-        />
+        <EmptyStateIllustration src={PROJECTS_PLACEHOLDER_ASSET} />
         <div className="space-y-1.5">
           <div className={lightPagesTextClass.panelTitle}>
             {t("session.projects_coming_soon_title")}
@@ -57,7 +53,11 @@ export function EmptyArtifactsPanel(props: { onClose: () => void }) {
       <div className="flex min-h-0 flex-1 flex-col">
         <section className="flex min-h-[180px] items-center justify-center border-b border-dls-border px-6 text-center">
           <div className="space-y-3 text-dls-secondary">
-            <FileText className="mx-auto size-8 opacity-45" />
+            <EmptyStateIllustration
+              src={ARTIFACTS_EMPTY_STATE_ASSET}
+              size="compact"
+              className="mx-auto mb-0"
+            />
             <div className="text-sm">{t("files.no_session_files")}</div>
           </div>
         </section>

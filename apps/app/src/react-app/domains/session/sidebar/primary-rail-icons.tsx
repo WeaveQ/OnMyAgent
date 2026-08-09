@@ -8,6 +8,7 @@ import {
   Building2,
   CalendarClock,
   Folder,
+  HardDrive,
   House,
   MessagesSquare,
   MonitorSmartphone,
@@ -83,7 +84,7 @@ export function AutomationRailIcon(props: PrimaryRailIconProps) {
   return <CalendarClock {...railIconProps(props.className)} />;
 }
 
-/** Devices — same monitor glyph as local agent family. */
+/** Devices — storage/device rack outline (distinct from LocalAgent monitor). */
 export function DevicesRailIcon(props: PrimaryRailIconProps) {
-  return <MonitorSmartphone {...railIconProps(props.className)} />;
+  return <HardDrive {...railIconProps(props.className)} />;
 }

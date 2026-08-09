@@ -20,7 +20,14 @@ describe("main rail primary icon contract", () => {
     expect(railSource).not.toContain("w-[68px]");
     // Brand mark above destinations (peer-app style app icon tile).
     expect(railSource).toContain("RailBrandMark");
-    expect(railSource).toContain("onmyagent-logo.png");
+    // Prefer lighter webp over the multi-hundred-KB PNG.
+    expect(railSource).toContain("onmyagent-logo.webp");
+    expect(railSource).not.toContain("onmyagent-logo.png");
+    // Dark rail: near-black tile + blue mark — not a pure-white flash plate.
+    expect(railSource).toContain("dark:bg-neutral-950");
+    expect(railSource).not.toMatch(
+      /function RailBrandMark[\s\S]*?dark:bg-white/,
+    );
   });
 
   test("top rail entries use unified Lucide outline icons (stroke language)", () => {
@@ -69,6 +76,17 @@ describe("main rail primary icon contract", () => {
     expect(iconSource).toContain("Building2");
     expect(iconSource).toContain("Settings2");
     expect(iconSource).toContain("MonitorSmartphone");
+    // Devices must not share LocalAgent's MonitorSmartphone glyph.
+    expect(iconSource).toContain("HardDrive");
+    expect(iconSource).toMatch(
+      /DevicesRailIcon[\s\S]*HardDrive|HardDrive[\s\S]*DevicesRailIcon/,
+    );
+    expect(iconSource).toMatch(
+      /function DevicesRailIcon[\s\S]*return <HardDrive/,
+    );
+    expect(iconSource).not.toMatch(
+      /function DevicesRailIcon[\s\S]*return <MonitorSmartphone/,
+    );
     expect(iconSource).toContain("MessagesSquare");
     expect(iconSource).toContain("CalendarClock");
     expect(iconSource).toContain("RAIL_ICON_STROKE");
@@ -84,5 +102,46 @@ describe("main rail primary icon contract", () => {
     expect(iconSource).toContain("export function ManageRailIcon");
     expect(iconSource).toContain("export function DevicesRailIcon");
     expect(iconSource).toContain("export function AutomationRailIcon");
+  });
+
+  test("live Devices UI uses HardDrive, not LocalAgent MonitorSmartphone", () => {
+    const sidebar = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/session/sidebar/app-sidebar.tsx",
+      ),
+      "utf8",
+    );
+    const viewModel = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/session/chat/session-page-sidebar-view-model.ts",
+      ),
+      "utf8",
+    );
+    const sidePanel = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/session/components/side-panel-pages.tsx",
+      ),
+      "utf8",
+    );
+
+    // Account footer Devices button (visible chrome).
+    expect(sidebar).toMatch(
+      /onOpenPrimaryView\("devices"\)[\s\S]*?<HardDrive className="size-5" \/>/,
+    );
+    expect(sidebar).not.toMatch(
+      /onOpenPrimaryView\("devices"\)[\s\S]*?<MonitorSmartphone/,
+    );
+
+    // Sidebar feature icon map used by feature placeholders / panels.
+    expect(viewModel).toMatch(/devices:\s*HardDrive/);
+    expect(viewModel).toMatch(/localAgent:\s*MonitorSmartphone/);
+    expect(viewModel).not.toMatch(/devices:\s*MonitorSmartphone/);
+
+    // Side-panel SIDEBAR_VIEW_ICONS devices entry.
+    expect(sidePanel).toMatch(/devices:\s*HardDrive/);
+    expect(sidePanel).not.toMatch(/devices:\s*MonitorSmartphone/);
   });
 });

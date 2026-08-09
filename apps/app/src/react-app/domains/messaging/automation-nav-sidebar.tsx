@@ -18,11 +18,11 @@ import {
   ChevronDown,
   ChevronRight,
   LayoutTemplate,
+  ListPlus,
   MoreHorizontal,
   Pencil,
   Pin,
   PinOff,
-  Plus,
   Search,
   Trash2,
 } from "lucide-react";
@@ -355,7 +355,7 @@ export function AutomationNavSidebar(props: {
             onClick={props.onCreate}
             data-automation-create="true"
           >
-            <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+            <ListPlus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
             {t("automation.add")}
           </Button>
         </div>

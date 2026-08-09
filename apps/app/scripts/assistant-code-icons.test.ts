@@ -20,6 +20,8 @@ describe("assistant code icons", () => {
     expect(sidebarControls).not.toContain("function AssistantCodeTabIcon");
     expect(sidebarControls).not.toContain('id: "code"');
     expect(avatars).not.toContain("function AssistantCodeDraftHomeIcon");
-    expect(avatars).toContain("BookOpenCheck");
+    // Office draft-home mark — briefcase, not checked-document glyph.
+    expect(avatars).toContain("Briefcase");
+    expect(avatars).not.toContain("BookOpenCheck");
   });
 });

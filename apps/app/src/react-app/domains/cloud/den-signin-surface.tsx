@@ -14,6 +14,7 @@ import { DEFAULT_DEN_BASE_URL } from "../../../app/lib/den";
 import { Button } from "@/components/ui/button";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { LabeledInput } from "../../design-system/labeled-input";
+import { resolveSimpleIconUrl } from "../../design-system/simple-icon";
 
 export type DenSignInSurfaceVariant = "panel" | "fullscreen";
 
@@ -45,13 +46,13 @@ const settingsPanelSoftClass = "rounded-xl border border-dls-border bg-dls-sideb
 const headerBadgeClass =
   "inline-flex min-h-8 items-center gap-2 rounded-xl border border-dls-border bg-dls-hover px-3 text-sm font-medium text-dls-text";
 /* ------------------------------------------------------------------ */
-/*  Brand icon via Simple Icons CDN                                    */
+/*  Brand icon via local simple-icons assets (offline-safe)            */
 /* ------------------------------------------------------------------ */
 
 function BrandIcon({ slug, size = 18 }: { slug: string; size?: number }) {
   return (
     <img
-      src={`https://cdn.simpleicons.org/${slug}`}
+      src={resolveSimpleIconUrl(slug)}
       alt=""
       width={size}
       height={size}
