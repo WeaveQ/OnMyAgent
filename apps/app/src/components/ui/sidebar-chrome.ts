@@ -19,8 +19,8 @@ export const SIDEBAR_PRIMARY_CTA_CLASS =
   "border border-dls-border bg-dls-surface-solid text-dls-text shadow-none hover:bg-dls-hover hover:border-dls-border before:rounded-lg";
 
 /**
- * Footer create CTA shared by home (新建任务), experts (创建专家), and
- * automation (添加) — filled soft surface, no outline border.
+ * Footer create CTA shared by home (New task), experts (Create expert), and
+ * automation (Add) — filled soft surface, no outline border.
  * Pair with Button variant="ghost" size="sidebar-cta".
  */
 export const SIDEBAR_FOOTER_CTA_CLASS =
