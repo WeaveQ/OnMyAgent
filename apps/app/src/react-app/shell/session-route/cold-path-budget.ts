@@ -78,8 +78,8 @@ export function isSyncPrewarmAllowedOnColdEnter(): boolean {
 }
 
 /**
- * Gate + count a cold-enter title snapshot. Returns false when thrash-banned
- * (callers must skip the network pull).
+ * Gate + count a cold-enter title/snapshot pull. Returns false when thrash-banned
+ * (callers must skip the network pull). Empty selected chips never pull on cold path.
  */
 export function tryRecordColdTitleSnapshot(input: {
   isSelectedSession: boolean;
@@ -89,4 +89,19 @@ export function tryRecordColdTitleSnapshot(input: {
   if (!isTitleSnapshotAllowedOnColdEnter(input)) return false;
   recordColdPathEvent("titleSnapshot");
   return true;
+}
+
+/**
+ * Sidebar/session snapshot prefetch on cold path. Empty selected chips are banned
+ * (title thrash). Other prefetches are allowed without burning thrash budget counters.
+ */
+export function shouldPrefetchSessionSnapshotOnColdPath(input: {
+  isSelectedSession: boolean;
+  titleEmpty: boolean;
+}): boolean {
+  return isTitleSnapshotAllowedOnColdEnter({
+    isSelectedSession: input.isSelectedSession,
+    titleEmpty: input.titleEmpty,
+    alreadySnapshotted: false,
+  });
 }

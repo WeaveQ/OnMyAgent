@@ -10,7 +10,7 @@ import {
   isTitleSnapshotAllowedOnColdEnter,
   recordColdPathEvent,
   resetColdPathCounters,
-  tryRecordColdTitleSnapshot,
+  shouldPrefetchSessionSnapshotOnColdPath,
 } from "../src/react-app/shell/session-route/cold-path-budget";
 import {
   SESSION_PREWARM_FALLBACK_DELAY_MS,
@@ -90,22 +90,36 @@ describe("cold-path budget (shipped helpers)", () => {
     expect(isColdPathWithinBudget()).toBe(true);
   });
 
-  test("production sessions.ts records listSessions and gates title snapshots", () => {
+  test("production paths record listSessions and gate empty-selected prefetch", () => {
     const sessions = readFileSync(
       path.join(appRoot, "src/react-app/shell/session-route/sessions.ts"),
       "utf8",
     );
     expect(sessions).toContain('recordColdPathEvent("listSessions")');
-    expect(sessions).toContain("tryRecordColdTitleSnapshot");
+    // Create-path snapshot must not use empty-title thrash ban (post-create needs pull).
+    expect(sessions).not.toContain("coldEnterEmptyTitle");
 
-    // First empty selected snapshot is banned by budget (max 0) after any prior record,
-    // and first attempt with alreadySnapshotted=false still banned when title empty selected.
+    const pageView = readFileSync(
+      path.join(appRoot, "src/react-app/shell/session-route/page-view.tsx"),
+      "utf8",
+    );
+    expect(pageView).toContain("shouldPrefetchSessionSnapshotOnColdPath");
+    expect(pageView).toContain("onPrefetchSession");
+
+    // Empty selected chip: ban (product thrash rule).
     expect(
-      tryRecordColdTitleSnapshot({
+      shouldPrefetchSessionSnapshotOnColdPath({
         isSelectedSession: true,
         titleEmpty: true,
-        alreadySnapshotted: false,
       }),
     ).toBe(false);
+    // Non-empty title may prefetch (does not burn thrash counter).
+    expect(
+      shouldPrefetchSessionSnapshotOnColdPath({
+        isSelectedSession: true,
+        titleEmpty: false,
+      }),
+    ).toBe(true);
+    expect(getColdPathCounters().titleSnapshot).toBe(0);
   });
 });
