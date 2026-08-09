@@ -66,8 +66,6 @@ type OriginDirectoryRecoveryInput = {
   primaryItems: SidebarSessionItem[];
   /** Sessions already verified by earlier exact pages in this recovery cycle. */
   verifiedItems?: SidebarSessionItem[];
-  /** Exact 404/410 results already accepted as stale in earlier pages. */
-  verifiedMissingSessionIds?: ReadonlySet<string>;
   origins: SessionOriginRecord[];
   limit: number;
 };
@@ -92,7 +90,6 @@ export async function recoverOriginDirectorySessionItemsWithStatus(
 
   for (const origin of input.origins) {
     const directory = origin.directory?.trim();
-    if (input.verifiedMissingSessionIds?.has(origin.sessionId)) continue;
     if (
       origin.workspaceId === input.originWorkspaceId &&
       origin.sessionId &&
@@ -254,12 +251,16 @@ export async function recoverOriginDirectorySessionItemsWithStatus(
     }
   }
   const hasNextPage = exactCandidates.length > page.length;
+  // OpenCode can briefly return 404/410 while a session directory is warming
+  // or switching. That is not an authoritative delete signal: leave the
+  // origin identity untouched and let the bounded recovery loop try again.
+  const hasTransientMissing = missingSessionIds.length > 0;
   return {
     items: recovered,
     complete:
-      exactReadsComplete && !hasNextPage,
+      exactReadsComplete && !hasNextPage && !hasTransientMissing,
     nextOffset:
-      exactReadsComplete && hasNextPage
+      exactReadsComplete && (hasNextPage || hasTransientMissing)
         ? 0
         : exactReadsComplete
           ? null

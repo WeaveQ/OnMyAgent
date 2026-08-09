@@ -90,7 +90,7 @@ describe("session origin reconciliation", () => {
     expect(readCustomAgentIdForSession("stale")).toBe("agent-stale");
   });
 
-  test("removes local expert identity only for an exact authoritative missing origin", () => {
+  test("keeps expert identity when a recovery pass reports a transient missing origin", () => {
     addExpertSession("deleted-expert");
     writeCustomAgentIdForSession("deleted-expert", "agent-deleted");
 
@@ -98,12 +98,11 @@ describe("session origin reconciliation", () => {
       localWorkspaceId: "workspace-a",
       originWorkspaceId: "workspace-a",
       realSessionIds: new Set(),
-      missingSessionIds: new Set(["deleted-expert"]),
       origins: [origin({ sessionId: "deleted-expert", kind: "expert" })],
     });
 
-    expect(isExpertSession("deleted-expert")).toBe(false);
-    expect(readCustomAgentIdForSession("deleted-expert")).toBeNull();
+    expect(isExpertSession("deleted-expert")).toBe(true);
+    expect(readCustomAgentIdForSession("deleted-expert")).toBe("agent-deleted");
   });
 
   test("migrates only explicit legacy expert records and real assistant workspace records", async () => {

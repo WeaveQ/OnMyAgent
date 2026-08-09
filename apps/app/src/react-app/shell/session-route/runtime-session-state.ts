@@ -4,6 +4,33 @@
  */
 import type { SidebarSessionItem } from "../../../app/types";
 
+export type SidebarRuntimeUpdate =
+  | {
+      kind: "info";
+      workspaceId: string;
+      update: { sessionId: string; info: Record<string, unknown> };
+    }
+  | {
+      kind: "status";
+      workspaceId: string;
+      update: { sessionId: string; status: unknown };
+    };
+
+/** Apply ordered runtime updates without crossing workspace boundaries. */
+export function applyRuntimeSidebarUpdates(
+  current: Record<string, SidebarSessionItem[]>,
+  updates: readonly SidebarRuntimeUpdate[],
+): Record<string, SidebarSessionItem[]> {
+  let next = current;
+  for (const event of updates) {
+    next =
+      event.kind === "info"
+        ? applyRuntimeSessionInfoUpdate(next, event.workspaceId, event.update)
+        : applyRuntimeSessionStatusUpdate(next, event.workspaceId, event.update);
+  }
+  return next;
+}
+
 /**
  * Merge runtime session metadata into the workspace list.
  * Returns the same `current` reference when nothing changed.
@@ -16,17 +43,95 @@ export function applyRuntimeSessionInfoUpdate(
   const list = current[workspaceId] ?? [];
   const index = list.findIndex((session) => session.id === update.sessionId);
   if (index < 0) return current;
-  const nextSession = {
-    ...list[index],
-    ...update.info,
-    id: update.sessionId,
-  } as SidebarSessionItem;
-  if (JSON.stringify(nextSession) === JSON.stringify(list[index])) {
+  const previous = list[index];
+  const nextSession = mergeSidebarSessionMetadata(previous, update);
+  if (nextSession === previous) {
     return current;
   }
   const nextList = [...list];
   nextList[index] = nextSession;
   return { ...current, [workspaceId]: nextList };
+}
+
+/**
+ * Keep the sidebar's compact metadata contract small. OpenCode's
+ * `session.updated` payload can carry fields irrelevant to the rail; copying
+ * and JSON-stringifying those payloads on every event made busy workspaces
+ * repeatedly block the renderer.
+ */
+function mergeSidebarSessionMetadata(
+  previous: SidebarSessionItem,
+  update: { sessionId: string; info: Record<string, unknown> },
+): SidebarSessionItem {
+  const info = update.info;
+  const title = typeof info.title === "string" ? info.title : previous.title;
+  const slug = readNullableString(info.slug, previous.slug);
+  const parentID = readNullableString(info.parentID, previous.parentID);
+  const directory = readNullableString(info.directory, previous.directory);
+  const status = Object.hasOwn(info, "status") ? info.status : previous.status;
+  const state = Object.hasOwn(info, "state") ? info.state : previous.state;
+  const runStatus = Object.hasOwn(info, "runStatus")
+    ? info.runStatus
+    : previous.runStatus;
+  const time = readSidebarTime(info.time, previous.time);
+
+  if (
+    previous.id === update.sessionId &&
+    previous.title === title &&
+    previous.slug === slug &&
+    previous.parentID === parentID &&
+    previous.directory === directory &&
+    previous.status === status &&
+    previous.state === state &&
+    previous.runStatus === runStatus &&
+    sameSidebarTime(previous.time, time)
+  ) {
+    return previous;
+  }
+
+  return {
+    ...previous,
+    id: update.sessionId,
+    title,
+    slug,
+    parentID,
+    directory,
+    status,
+    state,
+    runStatus,
+    time,
+  };
+}
+
+function readNullableString(
+  value: unknown,
+  fallback: string | null | undefined,
+): string | null | undefined {
+  if (typeof value === "string" || value === null) return value;
+  return fallback;
+}
+
+function readSidebarTime(
+  value: unknown,
+  fallback: SidebarSessionItem["time"],
+): SidebarSessionItem["time"] {
+  if (!value || typeof value !== "object") return fallback;
+  const updated = "updated" in value ? value.updated : fallback?.updated;
+  const created = "created" in value ? value.created : fallback?.created;
+  if (
+    (updated !== null && typeof updated !== "number") ||
+    (created !== null && typeof created !== "number")
+  ) {
+    return fallback;
+  }
+  return { updated, created };
+}
+
+function sameSidebarTime(
+  left: SidebarSessionItem["time"],
+  right: SidebarSessionItem["time"],
+): boolean {
+  return left?.updated === right?.updated && left?.created === right?.created;
 }
 
 /**

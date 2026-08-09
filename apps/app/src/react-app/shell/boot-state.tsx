@@ -230,17 +230,16 @@ export function useBootState(): BootStateContextValue {
 
 /**
  * Boot overlay hide policy (product):
- * 1. Keep covering while runtime is still bootstrapping / starting the engine
- *    — otherwise users see a washed empty home behind a half-ready shell.
+ * 1. Keep covering only while the workspace shell itself is bootstrapping.
+ *    OpenCode/server warm-up is intentionally not blocking: once the route has
+ *    painted cached workspace/session chrome, runtime-dependent controls own
+ *    their local preparing state instead of holding the whole app hostage.
  * 2. Also wait for `routeReady` (workspace chrome can paint).
  * 3. Hold a minimum time so we never flash the empty shell for a few frames.
  * Errors keep the overlay so retry chrome stays visible.
  */
 const BOOT_BLOCKING_PHASES: ReadonlySet<BootPhaseId> = new Set([
   "bootstrapping-workspaces",
-  "starting-onmyagent-server",
-  "starting-engine",
-  "activating-workspace",
 ]);
 
 /** Minimum overlay visibility after first paint (ms). */
