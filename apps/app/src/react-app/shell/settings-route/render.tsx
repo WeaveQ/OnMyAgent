@@ -24,6 +24,7 @@ import { OpenCodeProviderConfigDialog, ModelPickerModal, workspaceSwatchColor } 
 import {
   CloudSessionProvider,
   SettingsShell,
+  schedulePrefetchCommonSettingsTabs,
   useAiProvidersController,
   useCloudSession,
   useDebugViewModel,
@@ -588,6 +589,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     local.setUi((previous) => ({ ...previous, view: "settings", tab: route.tab }));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- local is stable via context
   }, [route.tab]);
+
+  // Warm high-traffic tab chunks on idle so 系统设置 → 快捷键 does not flash Suspense.
+  useEffect(() => schedulePrefetchCommonSettingsTabs(), []);
 
   useEffect(() => {
     writeStoredBoolean(SETTINGS_HIDE_TITLEBAR_KEY, hideTitlebar);
