@@ -34,6 +34,7 @@ docs/
     2026-08-02-work-memory-plan.md  ← 个人/记忆 + 专家域记忆（awareness）路径 SoT
     2026-08-02-config-consistency.md  ← local/company isomorphic config + migrate (Phase 2a)
     2026-08-09-architecture-convergence-plan.md  ← **active** expert/session/cold/shelf convergence plan
+    2026-08-09-capability-shelf.md  ← recommended vs built-in placement matrix
     preview.html / preview-dark.html / preview.css  ← visual catalog; DESIGN.md wins on drift
   windows-compat.md         ← Windows preflight, NSIS, CU (Cua) / Appshot, remaining gaps
   windows-remote-debug-from-mac.md  ← remote Windows debug from macOS
@@ -78,6 +79,7 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | Config profile migrate / resolve | `design/2026-08-02-config-consistency.md` |
 | Work memory / awareness | `design/2026-08-02-work-memory-plan.md` |
 | **Architecture convergence plan** | `design/2026-08-09-architecture-convergence-plan.md` |
+| Capability shelf (recommended placement) | `design/2026-08-09-capability-shelf.md` + `capability-shelf.ts` |
 | Windows / Computer Use / Appshot | `windows-compat.md` |
 | Agent operating rules | `../AGENTS.md` + `loop/rules.md` |
 | Local packaging | `../BUILD.md` |

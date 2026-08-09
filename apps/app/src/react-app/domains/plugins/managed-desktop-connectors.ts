@@ -18,6 +18,7 @@ import {
 } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
 import { t } from "@/i18n";
+import { recommendedManagedConnectorIds } from "./capability-shelf";
 
 export type ManagedDesktopConnectorId =
   | "officecli"
@@ -218,16 +219,34 @@ function toItem(
 }
 
 /**
+ * Catalog entries that appear on the capability shelf as recommended
+ * (plugins + composer). Order follows capability-shelf registry.
+ */
+export function orderedRecommendedCatalogEntries(): CatalogEntry[] {
+  const byId = new Map(
+    MANAGED_DESKTOP_CONNECTOR_CATALOG.map((entry) => [entry.id, entry]),
+  );
+  const ordered: CatalogEntry[] = [];
+  for (const id of recommendedManagedConnectorIds()) {
+    const entry = byId.get(id as ManagedDesktopConnectorId);
+    if (entry) ordered.push(entry);
+  }
+  return ordered;
+}
+
+/**
  * Probe desktop-managed recommended connectors and return only connected ones.
  * No-op (empty) outside Electron — market cards already gate on desktop.
+ * Placement order comes from capability-shelf registry.
  */
 export async function listConnectedManagedDesktopConnectors(): Promise<
   ManagedDesktopConnectorItem[]
 > {
   if (!isDesktopRuntime()) return [];
 
+  const catalog = orderedRecommendedCatalogEntries();
   const results = await Promise.all(
-    MANAGED_DESKTOP_CONNECTOR_CATALOG.map(async (entry) => {
+    catalog.map(async (entry) => {
       try {
         const result = await entry.isConnected();
         if (!result.connected) return null;
