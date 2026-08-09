@@ -9,11 +9,18 @@
 | **Monorepo SoT** | [`Architecture.md`](Architecture.md) | Platforms, dual runtime, archive, package boundaries, command surface, **pointers** to design/React |
 | **React SoT** | [`../apps/app/src/react-app/ARCHITECTURE.md`](../apps/app/src/react-app/ARCHITECTURE.md) | Domains, state ownership, shell cold start / prewarm |
 | **Topic SoT** | `design/*`, `windows-compat.md`, `officecli-oss-release.md`, … | Roadmap, files, config, memory, Windows, OfficeCLI CDN |
-| **Agent handbook** | [`../AGENTS.md`](../AGENTS.md) | Iron rules + links; not a second architecture |
-| **Visual tokens** | [`../DESIGN.md`](../DESIGN.md) | Tokens / components; not product behavior |
+| **Agent handbook** | [`../AGENTS.md`](../AGENTS.md) | Iron rules, verify matrix, path gates; **not** visual SoT |
+| **App agent handbook** | [`../apps/app/AGENTS.md`](../apps/app/AGENTS.md) | App verify entry + **Experts/Session invariants** |
+| **Visual tokens** | [`../DESIGN.md`](../DESIGN.md) | Tokens / shapes / signature components; **not** session product behavior |
 | **Ship notes** | [`../CHANGELOG.md`](../CHANGELOG.md) | What shipped — **not** architecture changelog bullets |
 
-**Rules:** one SoT per topic; Architecture links out instead of duplicating long specs; do not invent parallel `docs/expert-*.md` roots without linking from Architecture.
+**Rules:**
+
+- **One SoT per topic.** Architecture / DESIGN / package AGENTS link out; do not re-copy long specs.
+- **AGENTS.md** = agent runbook (gates, path permissions, Phase-2 hard entry, verify entry). **Not** visual encyclopedia (→ DESIGN) and **not** dual-runtime deep dive (→ Architecture).
+- **DESIGN.md** = visual / component SoT only. **Not** session product behavior (→ `apps/app/AGENTS.md`).
+- **apps/app/AGENTS.md** experts/session **behavior** invariants ≠ Architecture expert **lifecycle/budget** tables — both apply; do not merge into one list.
+- Do not invent parallel `docs/expert-*.md` roots without linking from Architecture.
 
 ## Layout
 
@@ -52,7 +59,8 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | AI coding agent | [`../AGENTS.md`](../AGENTS.md) |
 | Architecture change | [`Architecture.md`](Architecture.md) |
 | React domain change | [`../apps/app/src/react-app/ARCHITECTURE.md`](../apps/app/src/react-app/ARCHITECTURE.md) |
-| UI / tokens | [`../DESIGN.md`](../DESIGN.md) |
+| UI / tokens / component shape | [`../DESIGN.md`](../DESIGN.md) |
+| Expert / session product behavior | [`../apps/app/AGENTS.md`](../apps/app/AGENTS.md) |
 | Local packaging | [`../BUILD.md`](../BUILD.md) |
 | Release / tags | [`release.md`](release.md) |
 | OfficeCLI OSS 发布 | [`officecli-oss-release.md`](officecli-oss-release.md) |
@@ -70,9 +78,12 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | Skills write/scan roots + list resilience | `Architecture.md` Product phase hard constraints + server `listSkills` |
 | React domains + shell load/boot UX | `apps/app/src/react-app/ARCHITECTURE.md` (+ **Shell load / boot**) + `domains/*/README.md` |
 | Expert / session UI ownership | `react-app/ARCHITECTURE.md` + `Architecture.md` **Session / Expert / cold-path pointers** |
+| Expert lifecycle delete/create/select + cold-path **budgets** | `Architecture.md` Expert lifecycle hard rules + Cold-path budget |
+| Expert / session **product behavior** (busy shell, origin, draft, first-send) | `../apps/app/AGENTS.md` invariants + contract tests |
 | Release notes (human) | root `CHANGELOG.md` + GitHub Releases |
-| Visual tokens / components | `../DESIGN.md` |
+| Visual tokens / components | `../DESIGN.md` (only) |
 | Design philosophy only | `design/theme-system.md` |
+| Experts / session behavior invariants | `../apps/app/AGENTS.md` + `apps/app/scripts/expert-session-invariants.test.ts` |
 | UI primitive refactor habits | `design/ui-primitive-refactor-best-practices.md` |
 | Files module (三来源) | `design/files-module-product-spec.md` |
 | **Phase 2 + B-side prep** | `design/2026-08-02-phase-2-enterprise-prep.md` |
