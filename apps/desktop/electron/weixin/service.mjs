@@ -15,7 +15,7 @@ import {
   createOnMyAgentAssistantAgent,
   runAssistantBridgeTurn,
 } from "../channels/assistant-bridge.mjs";
-import { formatAgentReply } from "../channels/AgentReplyHeader.mjs";
+import { formatAgentReply, formatAgentResultOutput } from "../channels/AgentReplyHeader.mjs";
 
 const SESSION_EXPIRED_ERRCODE = -14;
 const RATE_LIMIT_ERRCODE = -2;
@@ -109,6 +109,8 @@ function splitTextForWeixin(text, maxLength = 2000) {
     if (cut < maxLength * 0.5) cut = rest.lastIndexOf("\n", maxLength);
     if (cut < maxLength * 0.5) cut = rest.lastIndexOf("。", maxLength);
     if (cut < maxLength * 0.5) cut = maxLength;
+    const splitSurrogatePair = /[\uD800-\uDBFF]/u.test(rest[cut - 1] ?? "") && /[\uDC00-\uDFFF]/u.test(rest[cut] ?? "");
+    if (splitSurrogatePair) cut -= 1;
     chunks.push(rest.slice(0, cut).trim());
     rest = rest.slice(cut).trim();
   }
@@ -450,10 +452,7 @@ export function createWeixinService(options = {}) {
       const runKey = activeRunKey(event.chatId, agent);
       const existingRun = await readActiveRunSafely(session.account.accountId, runKey);
       if (existingRun) {
-        // Same chat + same agent is already busy. Nudge the poller, then
-        // reply with a short busy notice so the user knows the message
-        // is not being dropped. Rate-limit so a burst of user messages
-        // does not spam the chat.
+        // Nudge the poller and rate-limit the busy notice for this chat+agent.
         if (existingRun.runId) scheduleActiveRunPoll(session, existingRun, 0);
         const busyKey = `${session.account.accountId}:${runKey}`;
         const nowTs = Date.now();
@@ -486,10 +485,6 @@ export function createWeixinService(options = {}) {
       let reservationPromoted = false;
       try {
         const runtimeAgent = scopedWeixinRuntimeAgent(agent, event);
-        // The channel binding must use the same chat-scoped runtime agent that
-        // executes the turn. Binding `codex/codex` while invoking
-        // `codex-weixin-…` creates two unrelated conversation stores, so the
-        // next Weixin message appears to lose the prior turn's context.
         const channelSession = await getChannelSession(session, event, runtimeAgent);
         const history = await store.readChatHistory(session.account.accountId, historyKey, session.options.historyLimit).catch(() => []);
         const prompt = buildPrompt(event, { mode: promptMode, history, agent });
@@ -505,6 +500,7 @@ export function createWeixinService(options = {}) {
             approvalMode: session.options.approvalMode,
             timeoutMs: session.options.timeoutMs,
           });
+          if (session.controller.signal.aborted) return result;
           setState({ lastRunId: result?.runId ?? null });
           await handleSynchronousAgentResult(session, event, { agent, historyKey, result, channelSession });
           return result;
@@ -514,8 +510,6 @@ export function createWeixinService(options = {}) {
           workspaceRoot: session.options.workspaceRoot,
           accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
           prompt,
-          // Raw user text (without the channel transport header) so the runtime
-          // records it as the user message in the run log / conversation view.
           userText: event.text,
           agent: runtimeAgent,
           conversationId: channelSession?.conversationId ?? undefined,
@@ -523,10 +517,13 @@ export function createWeixinService(options = {}) {
           approvalMode: session.options.approvalMode,
           timeoutMs: session.options.timeoutMs,
         });
+        if (session.controller.signal.aborted) {
+          if (started?.runId && typeof runtime.cancelRun === "function") await runtime.cancelRun(started.runId, { reason: "weixin_stopped" }).catch(() => undefined);
+          return started;
+        }
         setState({ lastRunId: started?.runId ?? null });
         if (!started?.runId) {
-          await handleSynchronousAgentResult(session, event, { agent, historyKey, result: started, channelSession });
-          return started;
+          await handleSynchronousAgentResult(session, event, { agent, historyKey, result: started, channelSession }); return started;
         }
         const trackedRun = await writeActiveRunSafely(session.account.accountId, runKey, {
           status: started.status ?? "running",
@@ -548,17 +545,19 @@ export function createWeixinService(options = {}) {
           pendingApprovalNotifiedAt: null,
           startedAt: Date.now(),
         });
+        if (!trackedRun?.runId) {
+          if (session.controller.signal.aborted && typeof runtime.cancelRun === "function") await runtime.cancelRun(started.runId, { reason: "weixin_stopped" }).catch(() => undefined);
+          return trackedRun;
+        }
         reservationPromoted = true;
         clearedActiveRunKeys.delete(activeRunGuardKey(session.account.accountId, runKey));
         scheduleActiveRunPoll(session, trackedRun, 0);
         return trackedRun;
       } finally {
-        if (!reservationPromoted) {
-          releaseActiveRunReservation(session.account.accountId, runKey, reservation.token);
-        }
+        if (!reservationPromoted) releaseActiveRunReservation(session.account.accountId, runKey, reservation.token);
       }
     } finally {
-      await maybeSendTyping(session, event.chatId, TYPING_STOP);
+      if (!session.controller.signal.aborted) await maybeSendTyping(session, event.chatId, TYPING_STOP);
     }
   }
 
@@ -572,14 +571,15 @@ export function createWeixinService(options = {}) {
       await sendText(session, event.chatId, "本次处理失败，请在 Studio 查看本地 Agent 日志。", event.senderId);
       return;
     }
+    const deliveredOutput = formatAgentResultOutput(result);
     await deliverAgentOutput(session, {
       chatId: event.chatId,
       peerId: event.senderId,
       agent,
-      result,
+      result: { ...result, output: deliveredOutput },
     });
-    await appendAgentHistory(session, historyKey, event.text, result.output, agent, session.options.historyStoreLimit);
-    await appendChannelSessionHistory(channelSession, event.text, result.output, agent);
+    await appendAgentHistory(session, historyKey, event.text, deliveredOutput, agent, session.options.historyStoreLimit);
+    await appendChannelSessionHistory(channelSession, event.text, deliveredOutput, agent);
   }
 
   async function appendAgentHistory(session, historyKey, userText, output, agent, limit) {
@@ -594,6 +594,7 @@ export function createWeixinService(options = {}) {
     const chunks = splitTextForWeixin(text);
     let lastResponse = null;
     for (let index = 0; index < chunks.length; index += 1) {
+      if (session.controller.signal.aborted) throw new Error("Weixin channel stopped during delivery");
       lastResponse = await client.sendMessage({
         baseUrl: session.account.baseUrl,
         token: session.account.token,
@@ -603,6 +604,7 @@ export function createWeixinService(options = {}) {
         clientId: `studio-weixin-${randomUUID()}`,
       });
       assertIlinkOk(lastResponse, "sendmessage");
+      if (session.controller.signal.aborted) throw new Error("Weixin channel stopped during delivery");
       if (index < chunks.length - 1) await sleep(session.options.sendChunkDelayMs);
     }
     setState({ sentCount: state.sentCount + chunks.length });
@@ -618,6 +620,7 @@ export function createWeixinService(options = {}) {
       setSentCount: () => setState({ sentCount: state.sentCount + 1 }), appendLog,
       assertResponse: assertIlinkOk,
       sendText: (text, targetPeer) => sendText(session, chatId, text, targetPeer), formatReply: formatAgentReply,
+      signal: session.controller.signal,
     });
   }
 
@@ -1066,7 +1069,7 @@ export function createWeixinService(options = {}) {
         pendingApprovals: remaining,
         pendingApprovalNotifiedAt: remaining.length ? run.pendingApprovalNotifiedAt : null,
       }, { ...run, status: remaining.length ? "pending_approval" : "running", pendingApprovals: remaining, pendingApprovalNotifiedAt: remaining.length ? run.pendingApprovalNotifiedAt : null });
-      scheduleActiveRunPoll(session, updated, 0);
+      if (updated) scheduleActiveRunPoll(session, updated, 0);
     }
     if (!resolvedCount && errors.length) {
       await sendText(session, event.chatId, `审批处理失败：\n${errors.join("\n")}`, event.senderId);

@@ -22,8 +22,9 @@ export function extractDiff(output: unknown) {
 }
 
 export function toKeyedLines(value: string) {
+  const normalized = value.replace(/\r+\n/g, "\n").replace(/\r/g, "\n");
   let offset = 0;
-  return value.split("\n").map((line) => {
+  return normalized.split("\n").map((line) => {
     const key = `${offset}:${line}`;
     offset += line.length + 1;
     return { key, line };

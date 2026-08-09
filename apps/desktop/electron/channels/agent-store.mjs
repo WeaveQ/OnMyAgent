@@ -40,6 +40,7 @@ export function createChannelStore(options = {}) {
   const root = path.join(rootDir, platformDir);
   const accountRoot = path.join(root, "accounts");
   const configPath = path.join(root, "config.json");
+  const fileMutationQueues = new Map();
 
   function accountFile(accountId) {
     const id = safeId(accountId);
@@ -60,6 +61,21 @@ export function createChannelStore(options = {}) {
     const id = safeId(accountId);
     if (!id) throw new Error("accountId is required");
     return path.join(accountRoot, `${id}.active-runs.json`);
+  }
+
+  function enqueueFileMutation(filePath, operation) {
+    const prior = fileMutationQueues.get(filePath) ?? Promise.resolve();
+    const task = prior.catch(() => undefined).then(operation);
+    const barrier = task.catch(() => undefined);
+    const tracked = barrier.finally(() => {
+      if (fileMutationQueues.get(filePath) === tracked) fileMutationQueues.delete(filePath);
+    });
+    fileMutationQueues.set(filePath, tracked);
+    return task;
+  }
+
+  async function waitForFileMutations(filePath) {
+    await fileMutationQueues.get(filePath)?.catch(() => undefined);
   }
 
   async function saveAccount(input = {}) {
@@ -146,62 +162,85 @@ export function createChannelStore(options = {}) {
   // workspaceRoot / chatId — which would otherwise make the next poll bail and
   // silently strand the conversation lock ("还在处理上一条消息" forever).
   async function readActiveRun(accountId, runKey) {
-    const all = (await readJsonFile(activeRunsFile(accountId), {})) ?? {};
+    const filePath = activeRunsFile(accountId);
+    await waitForFileMutations(filePath);
+    const all = (await readJsonFile(filePath, {})) ?? {};
     const record = all[runKey] ?? null;
     return record ? { ...record, runKey } : null;
   }
   async function writeActiveRun(accountId, runKey, record) {
-    const all = (await readJsonFile(activeRunsFile(accountId), {})) ?? {};
-    const merged = { ...(all[runKey] ?? {}), ...record, runKey };
-    all[runKey] = merged;
-    await writeJsonFile(activeRunsFile(accountId), all);
-    return merged;
+    const filePath = activeRunsFile(accountId);
+    return await enqueueFileMutation(filePath, async () => {
+      const all = (await readJsonFile(filePath, {})) ?? {};
+      const merged = { ...(all[runKey] ?? {}), ...record, runKey };
+      all[runKey] = merged;
+      await writeJsonFile(filePath, all);
+      return merged;
+    });
   }
   async function deleteActiveRun(accountId, runKey) {
-    const all = (await readJsonFile(activeRunsFile(accountId), {})) ?? {};
-    if (!(runKey in all)) return false;
-    delete all[runKey];
-    await writeJsonFile(activeRunsFile(accountId), all);
-    return true;
+    const filePath = activeRunsFile(accountId);
+    return await enqueueFileMutation(filePath, async () => {
+      const all = (await readJsonFile(filePath, {})) ?? {};
+      if (!(runKey in all)) return false;
+      delete all[runKey];
+      await writeJsonFile(filePath, all);
+      return true;
+    });
   }
   async function listActiveRuns(accountId) {
-    const all = (await readJsonFile(activeRunsFile(accountId), {})) ?? {};
+    const filePath = activeRunsFile(accountId);
+    await waitForFileMutations(filePath);
+    const all = (await readJsonFile(filePath, {})) ?? {};
     return Object.entries(all).map(([runKey, record]) => ({ ...record, runKey }));
   }
 
   // --- per-chat history ---
   async function readChatHistory(accountId, key, limit) {
-    const all = (await readJsonFile(chatHistoryFile(accountId), {})) ?? {};
+    const filePath = chatHistoryFile(accountId);
+    await waitForFileMutations(filePath);
+    const all = (await readJsonFile(filePath, {})) ?? {};
     const entries = Array.isArray(all[key]) ? all[key] : [];
     return limit ? entries.slice(-limit) : entries;
   }
   async function appendChatHistory(accountId, key, entries, limit = 100) {
-    const all = (await readJsonFile(chatHistoryFile(accountId), {})) ?? {};
-    const current = Array.isArray(all[key]) ? all[key] : [];
-    const next = [...current, ...entries];
-    all[key] = limit ? next.slice(-limit) : next;
-    await writeJsonFile(chatHistoryFile(accountId), all);
-    return all[key];
+    const filePath = chatHistoryFile(accountId);
+    return await enqueueFileMutation(filePath, async () => {
+      const all = (await readJsonFile(filePath, {})) ?? {};
+      const current = Array.isArray(all[key]) ? all[key] : [];
+      const next = [...current, ...entries];
+      all[key] = limit ? next.slice(-limit) : next;
+      await writeJsonFile(filePath, all);
+      return all[key];
+    });
   }
   async function clearChatHistory(accountId, key) {
-    const all = (await readJsonFile(chatHistoryFile(accountId), {})) ?? {};
-    if (key in all) {
-      delete all[key];
-      await writeJsonFile(chatHistoryFile(accountId), all);
-    }
-    return true;
+    const filePath = chatHistoryFile(accountId);
+    return await enqueueFileMutation(filePath, async () => {
+      const all = (await readJsonFile(filePath, {})) ?? {};
+      if (key in all) {
+        delete all[key];
+        await writeJsonFile(filePath, all);
+      }
+      return true;
+    });
   }
 
   // --- per-chat settings ---
   async function readChatSetting(accountId, chatId) {
-    const all = (await readJsonFile(chatSettingsFile(accountId), {})) ?? {};
+    const filePath = chatSettingsFile(accountId);
+    await waitForFileMutations(filePath);
+    const all = (await readJsonFile(filePath, {})) ?? {};
     return all[chatId] ?? null;
   }
   async function writeChatSetting(accountId, chatId, setting) {
-    const all = (await readJsonFile(chatSettingsFile(accountId), {})) ?? {};
-    all[chatId] = { ...(all[chatId] ?? {}), ...setting };
-    await writeJsonFile(chatSettingsFile(accountId), all);
-    return all[chatId];
+    const filePath = chatSettingsFile(accountId);
+    return await enqueueFileMutation(filePath, async () => {
+      const all = (await readJsonFile(filePath, {})) ?? {};
+      all[chatId] = { ...(all[chatId] ?? {}), ...setting };
+      await writeJsonFile(filePath, all);
+      return all[chatId];
+    });
   }
 
   return {

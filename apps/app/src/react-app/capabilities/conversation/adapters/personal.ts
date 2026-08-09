@@ -203,7 +203,7 @@ export function filterPersonalTimelineMessages(
     if (message.type === "agent_status") return false;
     if (message.type === "available_commands" || message.type === "context_usage") return false;
     if (message.type === "tool" && !message.toolCall?.id) return false;
-    if (message.type === "acp_tool_call" && !message.update?.toolCallId) return false;
+    if (message.type === "acp_tool_call" && !(message.update?.toolCallId ?? message.update?.tool_call_id)) return false;
     return true;
   });
 }

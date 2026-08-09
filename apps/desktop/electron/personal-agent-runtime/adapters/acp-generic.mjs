@@ -6,7 +6,8 @@ import { extractAcpSessionId, normalizeAcpSessionList, normalizeAcpUpdate, spawn
 import { readSession, writeSession } from "../session-store.mjs";
 import { createExecHelpers, stringifyAgentCommand, terminateProcessTree, waitForExit } from "../utils.mjs";
 import { ensureProviderWorkdir } from "../workdir.mjs";
-import { extractPromptUsageTotals, lookupModelContextLimit } from "../context-usage.mjs";
+import { extractPromptUsageTotals } from "../context-usage.mjs";
+import { buildProviderContextResetEvents } from "../error-diagnostics.mjs";
 
 // Long-running coding tasks can legitimately spend hours in tool calls or
 // sub-agent coordination. Keep a finite safety ceiling for abandoned turns,
@@ -308,10 +309,21 @@ function acpToolCallFromUpdate(type, data) {
 
 function shouldResumeProviderSession(provider, ctx, stored) {
   if (provider === "hermes") return false;
-  if (provider !== "codex") return true;
-  if (stored?.health === "unhealthy") return false;
-  if (ctx.providerSessionId || ctx.resumeKey) return true;
-  return false;
+  const explicitSessionId = normalizeExplicitSessionId(
+    provider,
+    ctx.resumeKey ?? ctx.providerSessionId,
+  );
+  if (!explicitSessionId) return false;
+  const unhealthySessionId = String(stored?.sessionId ?? "").trim();
+  if (stored?.health === "unhealthy" && unhealthySessionId === explicitSessionId) {
+    return false;
+  }
+  // The provider session belongs to a conversation, not to the agent as a
+  // whole. A freshly-created conversation intentionally has no pointer and
+  // must receive a fresh context instead of inheriting session-store history.
+  // Agent-level health from another conversation must not quarantine this
+  // conversation's own explicit provider session.
+  return true;
 }
 
 function normalizeExplicitSessionId(provider, value) {
@@ -512,10 +524,22 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
   const active = new Map();
   async function createOrResumeSession(ctx, client, workdir, provider) {
     let sessionId = "";
+    let resumeFailureMessage = "";
     let sessionMetadata = extractAcpSessionMetadata(await client.initialize()) ?? null;
     const stored = await readSession(ctx.workspaceRoot, provider, ctx.agent.id);
     const explicitSessionId = normalizeExplicitSessionId(provider, ctx.resumeKey ?? ctx.providerSessionId);
-    const storedSessionId = shouldResumeProviderSession(provider, ctx, stored) ? String(explicitSessionId || stored.sessionId || "").trim() : "";
+    const shouldResume = shouldResumeProviderSession(provider, ctx, stored);
+    const storedSessionId = shouldResume ? String(explicitSessionId || stored.sessionId || "").trim() : "";
+    if (
+      provider !== "hermes"
+      && explicitSessionId
+      && !shouldResume
+      && stored?.health === "unhealthy"
+      && String(stored.sessionId ?? "").trim() === explicitSessionId
+    ) {
+      resumeFailureMessage = `${provider} ACP stored session is unhealthy; creating a clean session.`;
+      appendEvent({ type: "log", text: resumeFailureMessage });
+    }
     const modelId = normalizeModelId(provider, ctx.model);
     if (storedSessionId) {
       try {
@@ -524,7 +548,8 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
         sessionMetadata = extractAcpSessionMetadata(resumed) ?? sessionMetadata;
         appendEvent({ type: "log", text: `${provider} ACP session resumed ${sessionId}` });
       } catch (error) {
-        appendEvent({ type: "log", text: `${provider} ACP resume failed; creating new session: ${error.message}` });
+        resumeFailureMessage = `${provider} ACP resume failed; creating new session: ${error.message}`;
+        appendEvent({ type: "log", text: resumeFailureMessage });
       }
     }
     if (!sessionId) {
@@ -533,6 +558,14 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
       if (!sessionId) throw new Error(`${provider} ACP session/new returned no sessionId`);
       sessionMetadata = extractAcpSessionMetadata(created) ?? sessionMetadata;
       appendEvent({ type: "log", text: `${provider} ACP session created ${sessionId}` });
+    }
+    if (resumeFailureMessage) {
+      for (const event of buildProviderContextResetEvents(
+        provider,
+        `${provider} ACP resume failed; created a clean session ${sessionId}.`,
+      )) {
+        appendEvent(event);
+      }
     }
     if (sessionMetadata) appendEvent({ type: "status", text: `acp_session_metadata> ${JSON.stringify(sessionMetadata)}` });
     if (provider === "codex") {
@@ -763,6 +796,7 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
       }
       const thinking = createThinkingTracker(appendEvent);
       let sawContextUsage = false;
+      let activeModelId = normalizeModelId(provider, ctx.model);
       const { child, client } = spawnAcpClient({
         command: executablePath,
         args,
@@ -864,7 +898,14 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
             }
           }
           if (type === "available_commands") appendEvent({ type: "status", text: `acp_available_commands> ${JSON.stringify(data?.commands ?? data?.availableCommands ?? data ?? [])}` });
-          if (type === "context_usage" || type === "usage_update") { sawContextUsage = true; appendEvent({ type: "status", text: `acp_${type}> ${JSON.stringify(data ?? {})}` }); }
+          if (type === "context_usage" || type === "usage_update") {
+            sawContextUsage = true;
+            appendEvent({
+              type: "status",
+              text: `acp_${type}> ${JSON.stringify(data ?? {})}`,
+              model: activeModelId || null,
+            });
+          }
           if (type === "error") { thinking.finishOnBoundary("error"); appendEvent({ type: "error", text: textFromAcpContent(data) || JSON.stringify(data ?? {}) }); }
         },
         onRequest: async (message, client) => {
@@ -907,6 +948,7 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
         sessionId = warm.sessionId;
         const sessionMetadata = warm.sessionMetadata;
         const modelId = warm.modelId;
+        activeModelId = modelId;
         // One turn = one ACP session/prompt request/response. We faithfully read
         // `stopReason` and never guess truncation from text or auto-continue.
         const promptResult = await client.request("session/prompt", { sessionId, prompt: [{ type: "text", text: ctx.prompt }] }, DEFAULT_TURN_TIMEOUT_MS);
@@ -914,8 +956,11 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
         if (!sawContextUsage) {
           const fallbackUsage = extractPromptUsageTotals(promptResult);
           if (fallbackUsage) {
-            const total = lookupModelContextLimit(modelId);
-            appendEvent({ type: "status", text: `acp_context_usage> ${JSON.stringify({ used: fallbackUsage.used, total })}` });
+            appendEvent({
+              type: "status",
+              text: `acp_context_usage> ${JSON.stringify({ used: fallbackUsage.used })}`,
+              model: modelId || null,
+            });
           }
         }
         let output = outputParts.join("").trim();
@@ -958,6 +1003,12 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
           }
         }
         if (!output) {
+          if (!completion.ok) {
+            const incompleteCode = /context/.test(completion.stopReason)
+              ? "context_window_exceeded"
+              : completion.code;
+            throw acpFailureError(provider, incompleteCode, completion.message);
+          }
           const stopHint = completion.stopReason ? ` stopReason=${completion.stopReason}` : "";
           throw acpFailureError(
             provider,
@@ -967,8 +1018,17 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
         }
         if (!completion.ok) {
           // Truncated output is preserved and shown as-is; the incomplete-output
-          // warning lets the frontend render a truncation indicator.
+          // warning is a visible timeline item. Keep the status event as a
+          // debug breadcrumb, but do not rely on it: status rows are hidden by
+          // the transcript renderer.
           appendEvent({ type: "status", text: completion.message });
+          appendEvent({
+            type: "tips",
+            text: completion.message,
+            category: "warning",
+            ownership: "agent",
+            resolution: null,
+          });
         }
         return {
           output,

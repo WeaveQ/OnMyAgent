@@ -14,7 +14,7 @@ import {
   createOnMyAgentAssistantAgent,
   runAssistantBridgeTurn,
 } from "../channels/assistant-bridge.mjs";
-import { formatAgentReply } from "../channels/AgentReplyHeader.mjs";
+import { formatAgentReply, formatAgentResultOutput } from "../channels/AgentReplyHeader.mjs";
 
 const RETRY_DELAY_SECONDS = 2;
 const DEFAULT_TEXT_BATCH_DELAY_MS = 3_000;
@@ -51,19 +51,42 @@ function safeCompare(a, b) {
 function splitTextForFeishu(text, maxLength = 7800) {
   const raw = String(text ?? "").trim();
   if (!raw) return [];
-  if (raw.length <= maxLength) return [raw];
+  const limit = Number.isFinite(Number(maxLength)) ? Math.max(1, Math.floor(Number(maxLength))) : 7800;
+  if (raw.length <= limit) return [raw];
   const chunks = [];
   let rest = raw;
-  while (rest.length > maxLength) {
-    let cut = rest.lastIndexOf("\n\n", maxLength);
-    if (cut < maxLength * 0.5) cut = rest.lastIndexOf("\n", maxLength);
-    if (cut < maxLength * 0.5) cut = rest.lastIndexOf("。", maxLength);
-    if (cut < maxLength * 0.5) cut = maxLength;
+  while (rest.length > limit) {
+    let cut = rest.lastIndexOf("\n\n", limit);
+    if (cut < limit * 0.5) cut = rest.lastIndexOf("\n", limit);
+    if (cut < limit * 0.5) cut = rest.lastIndexOf("。", limit);
+    if (cut < limit * 0.5) cut = limit;
+    // JavaScript string offsets count UTF-16 code units. Never split between
+    // an emoji's high/low surrogate pair, even when the fallback cut lands on
+    // the nominal transport limit.
+    if (
+      cut > 0
+      && cut < rest.length
+      && isHighSurrogate(rest.charCodeAt(cut - 1))
+      && isLowSurrogate(rest.charCodeAt(cut))
+    ) {
+      cut -= 1;
+    }
+    // A one-code-unit test limit cannot contain a surrogate pair. Keep the
+    // scalar intact and allow this single chunk to exceed the synthetic limit.
+    if (cut === 0 && rest.length >= 2 && isHighSurrogate(rest.charCodeAt(0)) && isLowSurrogate(rest.charCodeAt(1))) cut = 2;
     chunks.push(rest.slice(0, cut).trim());
     rest = rest.slice(cut).trim();
   }
   if (rest) chunks.push(rest);
   return chunks.filter(Boolean);
+}
+
+function isHighSurrogate(code) {
+  return code >= 0xD800 && code <= 0xDBFF;
+}
+
+function isLowSurrogate(code) {
+  return code >= 0xDC00 && code <= 0xDFFF;
 }
 
 class TtlSet {
@@ -97,6 +120,11 @@ export function createFeishuService(options = {}) {
   const pendingBatches = new Map();
   const agentBusyNoticeAt = new Map(); // busyKey -> lastNoticeAt (ms)
   const activeRunPollers = new Map();
+  const activeRunPollTasks = new Set();
+  const activeRunPollsInFlight = new Map();
+  const activeRunPendingSchedules = new Map();
+  const activeRunRecords = new Map();
+  const activeRunGenerations = new Map();
   const clearedActiveRunKeys = new Set();
   const agentByChat = new Map();
   const promptModeByChat = new Map();
@@ -134,6 +162,118 @@ export function createFeishuService(options = {}) {
   function setState(patch) {
     state = { ...state, ...patch };
     return snapshot();
+  }
+
+  function activeRunRecordKey(accountId, runKey) {
+    return activeRunGuardKey(accountId, runKey);
+  }
+
+  function bumpActiveRunGeneration(key) {
+    const generation = (activeRunGenerations.get(key) ?? 0) + 1;
+    activeRunGenerations.set(key, generation);
+    return generation;
+  }
+
+  function syntheticActiveRun(accountId, runKey, value = {}, fallback = undefined) {
+    const now = Date.now();
+    const prior = activeRunRecords.get(activeRunRecordKey(accountId, runKey));
+    const base = prior && typeof prior === "object"
+      ? prior
+      : fallback && typeof fallback === "object"
+        ? fallback
+        : {};
+    const record = {
+      ...base,
+      ...value,
+      runKey: String(runKey),
+      accountId: String(accountId),
+      updatedAt: now,
+      createdAt: base.createdAt ?? value?.createdAt ?? now,
+    };
+    delete record.reservationToken;
+    return record;
+  }
+
+  function reserveActiveRun(accountId, runKey, value = {}) {
+    const key = activeRunRecordKey(accountId, runKey);
+    const existing = activeRunRecords.get(key);
+    if (existing) return { acquired: false, record: existing, token: null };
+    const token = Symbol("feishu-active-run-reservation");
+    const record = syntheticActiveRun(accountId, runKey, { ...value, status: "starting" });
+    record.reservationToken = token;
+    bumpActiveRunGeneration(key);
+    activeRunRecords.set(key, record);
+    return { acquired: true, record, token };
+  }
+
+  function releaseActiveRunReservation(accountId, runKey, token) {
+    const key = activeRunRecordKey(accountId, runKey);
+    if (activeRunRecords.get(key)?.reservationToken === token) activeRunRecords.delete(key);
+  }
+
+  async function readActiveRunSafely(accountId, runKey) {
+    const key = activeRunRecordKey(accountId, runKey);
+    if (activeRunRecords.has(key)) return activeRunRecords.get(key);
+    const stored = await store.readActiveRun(accountId, runKey).catch(() => null);
+    if (stored) activeRunRecords.set(key, stored);
+    return stored;
+  }
+
+  async function listActiveRunsSafely(accountId) {
+    const stored = await store.listActiveRuns(accountId).catch(() => []);
+    const combined = new Map(stored.map((record) => [String(record?.runKey ?? ""), record]));
+    const prefix = `${String(accountId)}:`;
+    for (const [key, record] of activeRunRecords) {
+      if (!key.startsWith(prefix)) continue;
+      const runKey = key.slice(prefix.length);
+      if (record) combined.set(runKey, record);
+      else combined.delete(runKey);
+    }
+    return [...combined.values()].filter(Boolean);
+  }
+
+  async function writeActiveRunSafely(accountId, runKey, value, fallback = undefined) {
+    const key = activeRunRecordKey(accountId, runKey);
+    const generation = activeRunGenerations.get(key) ?? 0;
+    const synthetic = syntheticActiveRun(accountId, runKey, value, fallback);
+    try {
+      const stored = await store.writeActiveRun(accountId, runKey, synthetic);
+      const record = stored && typeof stored === "object" ? { ...synthetic, ...stored } : synthetic;
+      if ((activeRunGenerations.get(key) ?? 0) !== generation) {
+        const current = activeRunRecords.get(key);
+        if (current === null || current === undefined) {
+          // A concurrent terminal cleanup won the generation race. Remove the
+          // stale write again so it cannot resurrect after an app restart.
+          await store.deleteActiveRun(accountId, runKey).catch((error) => {
+            appendLog({ type: "error", text: `feishu stale active run cleanup failed: ${error instanceof Error ? error.message : String(error)}` });
+          });
+        }
+        return current;
+      }
+      activeRunRecords.set(key, record);
+      return record;
+    } catch (error) {
+      appendLog({ type: "error", text: `feishu active run persistence failed: ${error instanceof Error ? error.message : String(error)}` });
+      if ((activeRunGenerations.get(key) ?? 0) !== generation) {
+        return activeRunRecords.get(key);
+      }
+      activeRunRecords.set(key, synthetic);
+      return synthetic;
+    }
+  }
+
+  async function deleteActiveRunSafely(accountId, runKey) {
+    const key = activeRunRecordKey(accountId, runKey);
+    bumpActiveRunGeneration(key);
+    activeRunRecords.set(key, null);
+    try {
+      const deleted = await store.deleteActiveRun(accountId, runKey);
+      if (activeRunRecords.get(key) === null) activeRunRecords.delete(key);
+      return deleted;
+    } catch (error) {
+      appendLog({ type: "error", text: `feishu active run cleanup failed: ${error instanceof Error ? error.message : String(error)}` });
+      return false;
+    }
   }
 
   function runtimeOptions(input = {}) {
@@ -224,6 +364,16 @@ export function createFeishuService(options = {}) {
     pendingBatches.clear();
     for (const timer of activeRunPollers.values()) clearTimeout(timer);
     activeRunPollers.clear();
+    activeRunPendingSchedules.clear();
+    // Provider getRun calls may be long-lived. Poll continuations check the
+    // aborted signal before any transport or persistence side effect.
+    activeRunPollTasks.clear();
+    activeRunPollsInFlight.clear();
+    for (const [key, record] of activeRunRecords) {
+      if (!record?.reservationToken) continue;
+      bumpActiveRunGeneration(key);
+      activeRunRecords.delete(key);
+    }
     current.wsClient?.stop?.();
     await closeWebhookServer(current.server);
     unsubscribeStudioRelay();
@@ -387,6 +537,18 @@ export function createFeishuService(options = {}) {
     });
   }
 
+  async function reportBusyRun(session, event, agent, runKey, run) {
+    if (run?.runId) scheduleActiveRunPoll(session, run, 0);
+    const busyKey = activeRunGuardKey(session.account.accountId, runKey);
+    const nowTs = Date.now();
+    const lastAt = agentBusyNoticeAt.get(busyKey) ?? 0;
+    if (nowTs - lastAt >= AGENT_BUSY_NOTICE_INTERVAL_MS) {
+      agentBusyNoticeAt.set(busyKey, nowTs);
+      await sendText(session, event.chatId, `${agentLabel(agent)} 还在处理上一条消息，请稍后再试。发送 #status 查看进度，或 #cancel 取消后再重发。`).catch(() => undefined);
+    }
+    return run;
+  }
+
   async function dispatchToAgent(session, event) {
     if (!runtime?.runMessage && (!runtime?.startMessage || !runtime?.getRun)) throw new Error("personal agent runtime is unavailable");
     const agent = event.agentSnapshot ?? await currentAgentForChat(session, event.chatId);
@@ -396,83 +558,106 @@ export function createFeishuService(options = {}) {
     const promptMode = await currentPromptModeForChat(session, event.chatId);
     const historyKey = chatAgentHistoryKey(event.chatId, agent);
     const runKey = activeRunKey(event.chatId, agent);
-    const existingRun = await store.readActiveRun(session.account.accountId, runKey).catch(() => null);
-    if (existingRun?.runId) {
-      // Same chat + same agent is already busy. See weixin/service.mjs.
-      scheduleActiveRunPoll(session, existingRun, 0);
-      const busyKey = `${session.account.accountId}:${runKey}`;
-      const nowTs = Date.now();
-      const lastAt = agentBusyNoticeAt.get(busyKey) ?? 0;
-      if (nowTs - lastAt >= AGENT_BUSY_NOTICE_INTERVAL_MS) {
-        agentBusyNoticeAt.set(busyKey, nowTs);
-        await sendText(session, event.chatId, `${agentLabel(agent)} 还在处理上一条消息，请稍后再试。发送 #status 查看进度，或 #cancel 取消后再重发。`).catch(() => undefined);
-      }
-      return existingRun;
-    }
-    const runtimeAgent = scopedFeishuRuntimeAgent(agent, event);
-    const channelSession = await getChannelSession(session, event, agent);
-    const history = await store.readChatHistory(session.account.accountId, historyKey, session.options.historyLimit).catch(() => []);
-    const prompt = buildPrompt(event, { mode: promptMode, history, agent });
-    if (typeof runtime.startMessage !== "function" || typeof runtime.getRun !== "function") {
-      const legacyModel = await currentModelForChat(session, event.chatId);
-      const result = await runAgentTurn(runtime, {
-        workspaceRoot: session.options.workspaceRoot,
-        accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
-        prompt,
-        agent: runtimeAgent,
-        model: legacyModel || undefined,
-        approvalMode: session.options.approvalMode,
-        timeoutMs: session.options.timeoutMs,
-      });
-      setState({ lastRunId: result?.runId ?? null });
-      await handleSynchronousAgentResult(session, event, { agent, historyKey, result, channelSession });
-      return result;
-    }
-    const chatModel = await currentModelForChat(session, event.chatId);
-    const started = await runtime.startMessage({
-      workspaceRoot: session.options.workspaceRoot,
-      accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
-      prompt,
-      // Raw user text (without the channel transport header) so the runtime
-      // records it as the user message in the run log / conversation view.
-      userText: event.text,
-      agent: runtimeAgent,
-      model: chatModel || undefined,
-      approvalMode: session.options.approvalMode,
-      timeoutMs: session.options.timeoutMs,
-    });
-    setState({ lastRunId: started?.runId ?? null });
-    if (started?.status && started.status !== "running") {
-      await handleSynchronousAgentResult(session, event, { agent, historyKey, result: started, channelSession });
-      return started;
-    }
-    if (!started?.runId) {
-      await handleSynchronousAgentResult(session, event, { agent, historyKey, result: started, channelSession });
-      return started;
-    }
-    const trackedRun = await store.writeActiveRun(session.account.accountId, runKey, {
-      status: started.status ?? "running",
+    const existingRun = await readActiveRunSafely(session.account.accountId, runKey);
+    if (existingRun) return await reportBusyRun(session, event, agent, runKey, existingRun);
+    const reservation = reserveActiveRun(session.account.accountId, runKey, {
       accountId: session.account.accountId,
       chatId: event.chatId,
       senderId: event.senderId,
-      runId: started.runId,
-      workspaceRoot: session.options.workspaceRoot,
-      accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
       agent,
-      runtimeAgent,
       historyKey,
-      promptMode,
-      prompt,
-      userText: event.text,
-      approvalMode: session.options.approvalMode,
-      historyStoreLimit: session.options.historyStoreLimit,
-      channelSessionId: channelSession?.id ?? null,
-      pendingApprovalNotifiedAt: null,
       startedAt: Date.now(),
     });
-    clearedActiveRunKeys.delete(activeRunGuardKey(session.account.accountId, runKey));
-    scheduleActiveRunPoll(session, trackedRun, 0);
-    return trackedRun;
+    if (!reservation.acquired) {
+      return await reportBusyRun(session, event, agent, runKey, reservation.record);
+    }
+    let reservationPromoted = false;
+    try {
+      const runtimeAgent = scopedFeishuRuntimeAgent(agent, event);
+      const channelSession = await getChannelSession(session, event, agent);
+      const history = await store.readChatHistory(session.account.accountId, historyKey, session.options.historyLimit).catch(() => []);
+      const prompt = buildPrompt(event, { mode: promptMode, history, agent });
+      if (typeof runtime.startMessage !== "function" || typeof runtime.getRun !== "function") {
+        const legacyModel = await currentModelForChat(session, event.chatId);
+        const result = await runAgentTurn(runtime, {
+          workspaceRoot: session.options.workspaceRoot,
+          accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
+          prompt,
+          agent: runtimeAgent,
+          model: legacyModel || undefined,
+          approvalMode: session.options.approvalMode,
+          timeoutMs: session.options.timeoutMs,
+        });
+        if (session.controller.signal.aborted) return result;
+        setState({ lastRunId: result?.runId ?? null });
+        await handleSynchronousAgentResult(session, event, { agent, historyKey, result, channelSession });
+        return result;
+      }
+      const chatModel = await currentModelForChat(session, event.chatId);
+      const started = await runtime.startMessage({
+        workspaceRoot: session.options.workspaceRoot,
+        accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
+        prompt,
+        // Raw user text (without the channel transport header) so the runtime
+        // records it as the user message in the run log / conversation view.
+        userText: event.text,
+        agent: runtimeAgent,
+        model: chatModel || undefined,
+        approvalMode: session.options.approvalMode,
+        timeoutMs: session.options.timeoutMs,
+      });
+      if (session.controller.signal.aborted) {
+        if (started?.runId && typeof runtime.cancelRun === "function") {
+          await runtime.cancelRun(started.runId, { reason: "feishu_stopped" }).catch((error) => {
+            appendLog({ type: "error", text: `feishu late-start cleanup failed: ${error instanceof Error ? error.message : String(error)}` });
+          });
+        }
+        return started;
+      }
+      setState({ lastRunId: started?.runId ?? null });
+      if (started?.status && started.status !== "running") {
+        await handleSynchronousAgentResult(session, event, { agent, historyKey, result: started, channelSession });
+        return started;
+      }
+      if (!started?.runId) {
+        await handleSynchronousAgentResult(session, event, { agent, historyKey, result: started, channelSession });
+        return started;
+      }
+      const trackedRun = await writeActiveRunSafely(session.account.accountId, runKey, {
+        status: started.status ?? "running",
+        accountId: session.account.accountId,
+        chatId: event.chatId,
+        senderId: event.senderId,
+        runId: started.runId,
+        workspaceRoot: session.options.workspaceRoot,
+        accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
+        agent,
+        runtimeAgent,
+        historyKey,
+        promptMode,
+        prompt,
+        userText: event.text,
+        approvalMode: session.options.approvalMode,
+        historyStoreLimit: session.options.historyStoreLimit,
+        channelSessionId: channelSession?.id ?? null,
+        pendingApprovalNotifiedAt: null,
+        startedAt: Date.now(),
+      }, reservation.record);
+      if (!trackedRun?.runId) {
+        if (session.controller.signal.aborted && typeof runtime.cancelRun === "function") {
+          await runtime.cancelRun(started.runId, { reason: "feishu_stopped" }).catch(() => undefined);
+        }
+        return trackedRun;
+      }
+      reservationPromoted = true;
+      clearedActiveRunKeys.delete(activeRunGuardKey(session.account.accountId, runKey));
+      scheduleActiveRunPoll(session, trackedRun, 0);
+      return trackedRun;
+    } finally {
+      if (!reservationPromoted) {
+        releaseActiveRunReservation(session.account.accountId, runKey, reservation.token);
+      }
+    }
   }
 
   async function handleSynchronousAgentResult(session, event, { agent, historyKey, result, channelSession }) {
@@ -485,9 +670,10 @@ export function createFeishuService(options = {}) {
       await sendText(session, event.chatId, "本次处理失败，请在 Studio 查看本地 Agent 日志。");
       return;
     }
-    await sendText(session, event.chatId, formatAgentReply({ agent, text: result.output }));
-    await appendAgentHistory(session, historyKey, event.text, result.output, agent, session.options.historyStoreLimit);
-    await appendChannelSessionHistory(channelSession, event.text, result.output, agent);
+    const deliveredOutput = formatAgentResultOutput(result);
+    await sendText(session, event.chatId, formatAgentReply({ agent, text: deliveredOutput }));
+    await appendAgentHistory(session, historyKey, event.text, deliveredOutput, agent, session.options.historyStoreLimit);
+    await appendChannelSessionHistory(channelSession, event.text, deliveredOutput, agent);
   }
 
   async function appendAgentHistory(session, historyKey, userText, output, agent, limit) {
@@ -498,84 +684,198 @@ export function createFeishuService(options = {}) {
   }
 
   async function resumeActiveRuns(session) {
-    const runs = await store.listActiveRuns(session.account.accountId).catch(() => []);
+    const runs = await listActiveRunsSafely(session.account.accountId);
     for (const run of runs) scheduleActiveRunPoll(session, run, 0);
   }
 
   function scheduleActiveRunPoll(session, run, delayMs = ACTIVE_RUN_POLL_INTERVAL_MS) {
-    if (!run?.runKey || !run?.runId || !runtime?.getRun) return;
-    const pollKey = `${session.account.accountId}:${run.runKey}`;
+    if (session.controller.signal.aborted || !run?.runKey || !run?.runId || !runtime?.getRun) return;
+    const pollKey = activeRunGuardKey(session.account.accountId, run.runKey);
     if (clearedActiveRunKeys.has(pollKey)) return;
+    const normalizedDelayMs = Number.isFinite(Number(delayMs)) ? Math.max(0, Number(delayMs)) : ACTIVE_RUN_POLL_INTERVAL_MS;
+    if (activeRunPollsInFlight.has(pollKey)) {
+      const priorPending = activeRunPendingSchedules.get(pollKey);
+      if (!priorPending || normalizedDelayMs < priorPending.delayMs) {
+        activeRunPendingSchedules.set(pollKey, { session, run, delayMs: normalizedDelayMs });
+      }
+      return;
+    }
     const prior = activeRunPollers.get(pollKey);
     if (prior) clearTimeout(prior);
     const timer = setTimeout(() => {
       activeRunPollers.delete(pollKey);
-      void pollActiveRun(session, run.runKey).catch((error) => setState({ lastError: error?.message ?? String(error) }));
-    }, Math.max(0, delayMs));
+      const task = pollActiveRun(session, run.runKey, run).catch((error) => {
+        if (session.controller.signal.aborted) return;
+        const message = error instanceof Error ? error.message : String(error);
+        setState({ lastError: message });
+        appendLog({ type: "error", text: `feishu active run delivery failed: ${message}` });
+        if (!clearedActiveRunKeys.has(pollKey)) {
+          scheduleActiveRunPoll(session, run, ACTIVE_RUN_POLL_INTERVAL_MS);
+        }
+      }).finally(() => {
+        activeRunPollTasks.delete(task);
+        if (activeRunPollsInFlight.get(pollKey) === task) activeRunPollsInFlight.delete(pollKey);
+        const pending = activeRunPendingSchedules.get(pollKey);
+        activeRunPendingSchedules.delete(pollKey);
+        if (pending) scheduleActiveRunPoll(pending.session, pending.run, pending.delayMs);
+      });
+      activeRunPollTasks.add(task);
+      activeRunPollsInFlight.set(pollKey, task);
+    }, normalizedDelayMs);
     activeRunPollers.set(pollKey, timer);
   }
 
-  async function pollActiveRun(session, runKey) {
+  function claimActiveRunPoll(accountId, runKey) {
+    const pollKey = activeRunGuardKey(accountId, runKey);
+    if (clearedActiveRunKeys.has(pollKey)) return false;
+    clearedActiveRunKeys.add(pollKey);
+    const prior = activeRunPollers.get(pollKey);
+    if (prior) clearTimeout(prior);
+    activeRunPollers.delete(pollKey);
+    activeRunPendingSchedules.delete(pollKey);
+    return true;
+  }
+
+  async function claimTerminalDelivery(session, runKey, record) {
+    const accountId = session.account.accountId;
+    const pollKey = activeRunGuardKey(accountId, runKey);
+    const runId = String(record?.runId ?? "").trim();
+    if (!runId || !claimActiveRunPoll(accountId, runKey)) {
+      return { shouldDeliver: false, shouldCleanup: false };
+    }
+    if (String(record?.terminalDeliveryClaimedRunId ?? "").trim() === runId) {
+      return { shouldDeliver: false, shouldCleanup: true };
+    }
+    const key = activeRunRecordKey(accountId, runKey);
+    const generation = activeRunGenerations.get(key) ?? 0;
+    const claimed = syntheticActiveRun(accountId, runKey, {
+      status: "terminal_delivery_claimed",
+      terminalDeliveryClaimedRunId: runId,
+      terminalDeliveryClaimedAt: Date.now(),
+    }, record);
+    try {
+      const stored = await store.writeActiveRun(accountId, runKey, claimed);
+      if ((activeRunGenerations.get(key) ?? 0) !== generation) {
+        const current = activeRunRecords.get(key);
+        if (current === null || current === undefined) await store.deleteActiveRun(accountId, runKey).catch(() => undefined);
+        return { shouldDeliver: false, shouldCleanup: false };
+      }
+      activeRunRecords.set(key, stored && typeof stored === "object" ? { ...claimed, ...stored } : claimed);
+      return { shouldDeliver: true, shouldCleanup: true };
+    } catch (error) {
+      clearedActiveRunKeys.delete(pollKey);
+      appendLog({ type: "error", text: `feishu terminal delivery claim persistence failed: ${error instanceof Error ? error.message : String(error)}` });
+      throw error;
+    }
+  }
+
+  async function cleanupClaimedActiveRun(session, runKey) {
+    const pollKey = activeRunGuardKey(session.account.accountId, runKey);
+    agentBusyNoticeAt.delete(pollKey);
+    await deleteActiveRunSafely(session.account.accountId, runKey);
+  }
+
+  async function pollActiveRun(session, runKey, fallbackRecord = null) {
     if (session.controller.signal.aborted) return;
-    const record = await store.readActiveRun(session.account.accountId, runKey).catch(() => null);
+    const record = await readActiveRunSafely(session.account.accountId, runKey) ?? fallbackRecord;
     if (!record?.runId) return;
     const pollKey = activeRunGuardKey(session.account.accountId, runKey);
     if (clearedActiveRunKeys.has(pollKey)) return;
     const result = await runtime.getRun({ runId: record.runId, workspaceRoot: record.workspaceRoot });
-    if (clearedActiveRunKeys.has(pollKey)) return;
+    if (session.controller.signal.aborted || clearedActiveRunKeys.has(pollKey)) return;
     if (!result) {
+      const claim = await claimTerminalDelivery(session, runKey, record);
+      if (!claim.shouldDeliver) {
+        if (claim.shouldCleanup) await cleanupClaimedActiveRun(session, runKey);
+        return;
+      }
       const message = "本次本地 Agent 任务已不在运行（可能主进程重启/崩溃后遗留，或已超时中断）。已自动清除会话锁，可重新发送消息。";
-      await sendText(session, record.chatId, message).catch(() => undefined);
-      clearedActiveRunKeys.add(pollKey);
-      agentBusyNoticeAt.delete(`${session.account.accountId}:${runKey}`);
-      await store.deleteActiveRun(session.account.accountId, runKey).catch(() => undefined);
+      try {
+        await sendText(session, record.chatId, message).catch(() => undefined);
+      } finally {
+        await cleanupClaimedActiveRun(session, runKey);
+      }
       return;
     }
     setState({ lastRunId: record.runId });
     const resultState = getChannelRunSnapshotState(result);
     if (resultState.isCompletedWithOutput) {
-      await sendText(session, record.chatId, formatAgentReply({ agent: record.agent, text: result.output }));
-      await appendAgentHistory(session, record.historyKey, record.userText, result.output, record.agent, record.historyStoreLimit ?? session.options.historyStoreLimit);
-      await appendChannelSessionHistoryById(record.channelSessionId, record.userText, result.output, record.agent);
-      clearedActiveRunKeys.add(pollKey);
-      agentBusyNoticeAt.delete(`${session.account.accountId}:${runKey}`);
-      await store.deleteActiveRun(session.account.accountId, runKey);
+      const claim = await claimTerminalDelivery(session, runKey, record);
+      if (!claim.shouldDeliver) {
+        if (claim.shouldCleanup) await cleanupClaimedActiveRun(session, runKey);
+        return;
+      }
+      const deliveredOutput = formatAgentResultOutput(result);
+      try {
+        await sendText(session, record.chatId, formatAgentReply({ agent: record.agent, text: deliveredOutput }));
+        await appendAgentHistory(session, record.historyKey, record.userText, deliveredOutput, record.agent, record.historyStoreLimit ?? session.options.historyStoreLimit);
+        await appendChannelSessionHistoryById(record.channelSessionId, record.userText, deliveredOutput, record.agent);
+      } finally {
+        // A later chunk may fail after earlier chunks were accepted. Claim and
+        // clear the terminal snapshot exactly once instead of replaying it.
+        await cleanupClaimedActiveRun(session, runKey);
+      }
       return;
     }
     if (resultState.isTerminal) {
+      const claim = await claimTerminalDelivery(session, runKey, record);
+      if (!claim.shouldDeliver) {
+        if (claim.shouldCleanup) await cleanupClaimedActiveRun(session, runKey);
+        return;
+      }
       const message = resultState.status === "cancelled" ? "本次本地 Agent 任务已取消。" : `本次处理失败，请在 Studio 查看本地 Agent 日志。${result?.error ? `\n${result.error}` : ""}`;
-      await sendText(session, record.chatId, message);
-      clearedActiveRunKeys.add(pollKey);
-      agentBusyNoticeAt.delete(`${session.account.accountId}:${runKey}`);
-      await store.deleteActiveRun(session.account.accountId, runKey);
+      try {
+        await sendText(session, record.chatId, message);
+      } finally {
+        await cleanupClaimedActiveRun(session, runKey);
+      }
       return;
     }
     // Apply the backstop to every non-terminal state, including approval
     // waits, so a stale pending snapshot cannot hold the chat lock forever.
     if (Date.now() - (record.startedAt ?? 0) > ACTIVE_RUN_MAX_AGE_MS) {
+      const claim = await claimTerminalDelivery(session, runKey, record);
+      if (!claim.shouldDeliver) {
+        if (claim.shouldCleanup) await cleanupClaimedActiveRun(session, runKey);
+        return;
+      }
       const message = `本次本地 Agent 任务运行已超过上限（约 ${Math.round(ACTIVE_RUN_MAX_AGE_MS / 3_600_000)} 小时），已自动超时并清除会话锁。可重新发送消息。`;
-      await sendText(session, record.chatId, message).catch(() => undefined);
-      clearedActiveRunKeys.add(pollKey);
-      agentBusyNoticeAt.delete(`${session.account.accountId}:${runKey}`);
-      await store.deleteActiveRun(session.account.accountId, runKey).catch(() => undefined);
+      try {
+        await sendText(session, record.chatId, message).catch(() => undefined);
+      } finally {
+        await cleanupClaimedActiveRun(session, runKey);
+      }
       return;
     }
     const pendingApprovals = resultState.pendingApprovals;
     if (pendingApprovals.length && !record.pendingApprovalNotifiedAt) {
       if (clearedActiveRunKeys.has(pollKey)) return;
-      const updated = await store.writeActiveRun(session.account.accountId, runKey, { status: "pending_approval", pendingApprovalNotifiedAt: Date.now(), pendingApprovals });
-      await sendText(session, record.chatId, renderApprovalPrompt(updated, pendingApprovals));
-      scheduleActiveRunPoll(session, updated, ACTIVE_RUN_PENDING_POLL_INTERVAL_MS);
+      const updated = await writeActiveRunSafely(
+        session.account.accountId,
+        runKey,
+        { status: "pending_approval", pendingApprovalNotifiedAt: Date.now(), pendingApprovals },
+        record,
+      );
+      if (!updated || clearedActiveRunKeys.has(pollKey)) return;
+      try {
+        await sendText(session, record.chatId, renderApprovalPrompt(updated, pendingApprovals));
+      } finally {
+        // The prompt is advisory. Keep observing the live run even when Feishu
+        // rejects this notification.
+        scheduleActiveRunPoll(session, updated, ACTIVE_RUN_PENDING_POLL_INTERVAL_MS);
+      }
       return;
     }
     if (pendingApprovals.length) {
       if (clearedActiveRunKeys.has(pollKey)) return;
-      const updated = await store.writeActiveRun(session.account.accountId, runKey, { status: "pending_approval", pendingApprovals });
+      const updated = await writeActiveRunSafely(session.account.accountId, runKey, { status: "pending_approval", pendingApprovals }, record);
+      if (!updated || clearedActiveRunKeys.has(pollKey)) return;
       scheduleActiveRunPoll(session, updated, ACTIVE_RUN_PENDING_POLL_INTERVAL_MS);
       return;
     }
-    if (clearedActiveRunKeys.has(pollKey)) return;
-    const updated = await store.writeActiveRun(session.account.accountId, runKey, { status: "running", pendingApprovals: [] });
+    if (!resultState.isRunning || clearedActiveRunKeys.has(pollKey)) return;
+    const updated = await writeActiveRunSafely(session.account.accountId, runKey, { status: "running", pendingApprovals: [] }, record);
+    if (!updated || clearedActiveRunKeys.has(pollKey)) return;
     scheduleActiveRunPoll(session, updated, ACTIVE_RUN_POLL_INTERVAL_MS);
   }
 
@@ -583,6 +883,7 @@ export function createFeishuService(options = {}) {
     const chunks = splitTextForFeishu(text);
     let lastResponse = null;
     for (let index = 0; index < chunks.length; index += 1) {
+      if (session.controller.signal.aborted) throw new Error("Feishu channel stopped during delivery");
       lastResponse = await client.sendText({
         baseUrl: session.account.baseUrl,
         appId: session.account.appId,
@@ -592,7 +893,11 @@ export function createFeishuService(options = {}) {
         text: chunks[index],
         uuid: `studio-feishu-${randomUUID()}`,
       });
-      if (index < chunks.length - 1) await sleep(session.options.sendChunkDelayMs);
+      if (session.controller.signal.aborted) throw new Error("Feishu channel stopped during delivery");
+      if (index < chunks.length - 1) {
+        await sleep(session.options.sendChunkDelayMs);
+        if (session.controller.signal.aborted) throw new Error("Feishu channel stopped during delivery");
+      }
     }
     setState({ sentCount: state.sentCount + chunks.length });
     return lastResponse;
@@ -775,7 +1080,7 @@ export function createFeishuService(options = {}) {
     let priorRun = null;
     try {
       const priorRunKey = priorAgent ? activeRunKey(event.chatId, priorAgent) : null;
-      if (priorRunKey) priorRun = await store.readActiveRun(session.account.accountId, priorRunKey).catch(() => null);
+      if (priorRunKey) priorRun = await readActiveRunSafely(session.account.accountId, priorRunKey);
     } catch { /* noop */ }
     const suffix = priorRun?.runId ? `\n上一个任务（${priorAgent ? agentLabel(priorAgent) : "旧 Agent"}）仍在运行，其结果会异步返回；新消息将由新 Agent 处理。` : "";
     appendLog({ type: "debug", text: `feishu agent-switch: switched ${priorAgent ? priorAgent.id : "<none>"} -> ${nextAgent.id} priorRun=${priorRun?.runId ?? "none"}` });
@@ -790,15 +1095,15 @@ export function createFeishuService(options = {}) {
 
   async function handleRunCommand(session, event, command) {
     if (command.name === "runs") {
-      const runs = await store.listActiveRuns(session.account.accountId).catch(() => []);
+      const runs = await listActiveRunsSafely(session.account.accountId);
       await sendText(session, event.chatId, renderRunsList(runs));
       return;
     }
     const agent = await currentAgentForChat(session, event.chatId);
     const runKey = activeRunKey(event.chatId, agent);
-    const run = await store.readActiveRun(session.account.accountId, runKey).catch(() => null);
+    const run = await readActiveRunSafely(session.account.accountId, runKey);
     if (command.name === "new") {
-      if (run?.runId) {
+      if (run) {
         await sendText(session, event.chatId, "当前飞书会话和 Agent 还有运行中的任务。请等待完成，或先发送 #cancel 后再开启新会话。");
         return;
       }
@@ -822,14 +1127,26 @@ export function createFeishuService(options = {}) {
       return;
     }
     if (command.name === "cancel") {
+      if (run && !run.runId) {
+        await sendText(session, event.chatId, "当前飞书会话和 Agent 的任务正在启动，请稍后再发送 #cancel。");
+        return;
+      }
       if (!run?.runId) {
         await sendText(session, event.chatId, "当前飞书会话和 Agent 没有可取消的任务。");
         return;
       }
-      const cancelled = typeof runtime?.cancelRun === "function" ? await runtime.cancelRun(run.runId, { reason: "feishu" }) : { ok: false, error: "runtime cancel is unavailable" };
-      clearedActiveRunKeys.add(activeRunGuardKey(session.account.accountId, runKey));
-      agentBusyNoticeAt.delete(`${session.account.accountId}:${runKey}`);
-      await store.deleteActiveRun(session.account.accountId, runKey);
+      if (!claimActiveRunPoll(session.account.accountId, runKey)) {
+        await sendText(session, event.chatId, "当前飞书会话和 Agent 的任务已在结束处理中。");
+        return;
+      }
+      let cancelled;
+      try {
+        cancelled = typeof runtime?.cancelRun === "function"
+          ? await runtime.cancelRun(run.runId, { reason: "feishu" }).catch((error) => ({ ok: false, error: error instanceof Error ? error.message : String(error) }))
+          : { ok: false, error: "runtime cancel is unavailable" };
+      } finally {
+        await cleanupClaimedActiveRun(session, runKey);
+      }
       await sendText(session, event.chatId, cancelled?.ok === false ? `已清理飞书侧任务记录，但本地取消失败：${cancelled.error ?? "unknown error"}` : "已取消当前飞书会话的本地 Agent 任务。");
     }
   }
@@ -859,11 +1176,11 @@ export function createFeishuService(options = {}) {
         resolvedCount += 1;
       }
       const remaining = command.all ? [] : approvals.slice(1);
-      const updated = await store.writeActiveRun(session.account.accountId, run.runKey, {
+      const updated = await writeActiveRunSafely(session.account.accountId, run.runKey, {
         status: remaining.length ? "pending_approval" : "running",
         pendingApprovals: remaining,
         pendingApprovalNotifiedAt: remaining.length ? run.pendingApprovalNotifiedAt : null,
-      });
+      }, run);
       scheduleActiveRunPoll(session, updated, 0);
     }
     if (!resolvedCount && errors.length) {
@@ -876,7 +1193,7 @@ export function createFeishuService(options = {}) {
   }
 
   async function pendingApprovalRunsForChat(session, chatId) {
-    const runs = await store.listActiveRuns(session.account.accountId).catch(() => []);
+    const runs = await listActiveRunsSafely(session.account.accountId);
     return runs
       .filter((run) => String(run.chatId ?? "") === String(chatId ?? ""))
       .filter((run) => Array.isArray(run.pendingApprovals) && run.pendingApprovals.length > 0)

@@ -1,14 +1,193 @@
 import { describe, expect, test } from "bun:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 import {
   mapOpenCodeReasoningPartToItem,
   mapOpenCodeToolPartToItem,
   mapPersonalEventToMessages,
+  filterPersonalTimelineMessages,
   toOpenCodeConversationItems,
   toPersonalConversationItems,
 } from "../src/react-app/capabilities/conversation";
+import {
+  LocalAgentToolGroupSummary,
+  groupLocalAgentTimeline,
+} from "../src/react-app/domains/local-agents/messages/timeline-messages";
 
 describe("personal conversation adapter", () => {
+  test("drops empty ACP tool groups and keeps raw Windows tool details", () => {
+    const empty = groupLocalAgentTimeline([
+      {
+        id: "empty-group",
+        type: "tool_group",
+        role: "tool",
+        text: "",
+        createdAt: 1,
+        toolCalls: [
+          {
+            id: "empty-update",
+            type: "acp_tool_call",
+            role: "tool",
+            text: "",
+            createdAt: 1,
+            update: {
+              toolCallId: "empty",
+              status: "completed",
+              rawInput: {},
+              rawOutput: {},
+              content: [],
+              locations: [],
+            },
+          },
+        ],
+      },
+    ]);
+    expect(empty).toEqual([]);
+
+    const visible = groupLocalAgentTimeline([
+      {
+        id: "windows-group",
+        type: "tool_group",
+        role: "tool",
+        text: "PowerShell",
+        createdAt: 2,
+        toolCalls: [
+          {
+            id: "windows-update",
+            type: "acp_tool_call",
+            role: "tool",
+            text: "PowerShell",
+            createdAt: 2,
+            update: {
+              toolCallId: "windows",
+              title: "PowerShell",
+              kind: "execute",
+              status: "completed",
+              rawInput: { command: "Get-ChildItem" },
+              rawOutput: "one\r\r\ntwo",
+            },
+          },
+        ],
+      },
+    ]);
+    expect(visible).toHaveLength(1);
+    expect(visible[0]?.kind).toBe("tool_group");
+  });
+
+  test("keeps a long PowerShell command to one compact collapsed summary", () => {
+    const command = `Get-ChildItem \\\\server\\${"deep\\".repeat(20)}report.txt\r\n| Select-Object FullName`;
+    const message: Parameters<typeof LocalAgentToolGroupSummary>[0]["messages"][number] = {
+      id: "long-powershell",
+      type: "acp_tool_call",
+      role: "tool",
+      text: command,
+      createdAt: 1,
+      update: {
+        toolCallId: "powershell-long-path",
+        title: command,
+        kind: "execute",
+        status: "completed",
+        rawInput: { command },
+        rawOutput: "done",
+      },
+    };
+    const html = renderToStaticMarkup(createElement(LocalAgentToolGroupSummary, {
+      messages: [message],
+      runStatus: "completed",
+    }));
+    expect(html).toContain("Shell Command");
+    expect(html).toContain("truncate font-mono text-xs");
+    expect(html).toContain("…");
+    expect(html).not.toContain(command);
+  });
+
+  test("keeps a running tool running when ACP sends an empty output placeholder", () => {
+    const message: Parameters<typeof LocalAgentToolGroupSummary>[0]["messages"][number] = {
+      id: "running-powershell",
+      type: "acp_tool_call",
+      role: "tool",
+      text: "PowerShell",
+      createdAt: 1,
+      status: "running",
+      update: {
+        toolCallId: "powershell-running",
+        title: "PowerShell",
+        kind: "execute",
+        status: "running",
+        rawInput: { command: "Start-Sleep 30" },
+        rawOutput: {},
+      },
+    };
+    const html = renderToStaticMarkup(createElement(LocalAgentToolGroupSummary, {
+      messages: [message],
+      runStatus: "running",
+    }));
+    expect(html).toContain("running");
+    expect(html).not.toContain("completed");
+  });
+
+  test("meaningful raw ACP aliases win over empty normalized placeholders", () => {
+    const message: Parameters<typeof LocalAgentToolGroupSummary>[0]["messages"][number] = {
+      id: "mixed-aliases",
+      type: "acp_tool_call",
+      role: "tool",
+      text: "",
+      createdAt: 1,
+      update: {
+        toolCallId: "mixed-aliases",
+        input: {},
+        rawInput: { command: "Get-ChildItem" },
+        output: "",
+        rawOutput: "SUCCESS",
+      },
+    };
+    expect(groupLocalAgentTimeline([message])).toHaveLength(1);
+    const html = renderToStaticMarkup(createElement(LocalAgentToolGroupSummary, {
+      messages: [message],
+      runStatus: "running",
+    }));
+    expect(html).toContain("completed");
+    expect(html).not.toBe("");
+  });
+
+  test("coalesces adjacent ACP tool groups into one compact timeline block", () => {
+    const toolGroup = (id: string, title: string) => ({
+      id: `group-${id}`,
+      type: "tool_group" as const,
+      role: "tool" as const,
+      text: title,
+      createdAt: 1,
+      toolCalls: [{
+        id,
+        type: "acp_tool_call" as const,
+        role: "tool" as const,
+        text: title,
+        createdAt: 1,
+        update: { toolCallId: id, title, status: "completed" },
+      }],
+    });
+    const grouped = groupLocalAgentTimeline([
+      toolGroup("tool-1", "PowerShell"),
+      toolGroup("tool-2", "Read file"),
+    ]);
+    expect(grouped).toHaveLength(1);
+    expect(grouped[0]?.kind).toBe("tool_group");
+    if (grouped[0]?.kind === "tool_group") expect(grouped[0].messages).toHaveLength(2);
+  });
+
+  test("keeps snake-case ACP tool identifiers from the shared IPC contract", () => {
+    const messages = filterPersonalTimelineMessages([{
+      id: "snake-tool",
+      type: "acp_tool_call",
+      role: "tool",
+      text: "PowerShell",
+      createdAt: 1,
+      update: { tool_call_id: "snake-id", title: "PowerShell" },
+    }]);
+    expect(messages).toHaveLength(1);
+  });
+
   test("maps assistant_chunk, tool, and error events to items", () => {
     const items = toPersonalConversationItems({
       events: [

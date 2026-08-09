@@ -2,6 +2,16 @@ export function classifyErrorInfo(error) {
   const message = error instanceof Error ? error.message : String(error);
   const lower = message.toLowerCase();
   let code = typeof error?.code === "string" && error.code.trim() ? error.code.trim() : "unknown";
+  const diagnosticText = `${code} ${lower}`;
+  const contextWindowExceeded =
+    /context[_ -]length[_ -]exceeded/.test(diagnosticText)
+    || /maximum context length/.test(diagnosticText)
+    || /context window.*(?:exceed|full|limit|maximum)/.test(diagnosticText)
+    || /(?:prompt|input).*(?:too long|too large|exceeds?.*token)/.test(diagnosticText)
+    || /too many (?:input )?tokens/.test(diagnosticText);
+  if (contextWindowExceeded) {
+    return { code: "context_window_exceeded", message, debug: message || null };
+  }
   if (code !== "unknown") return { code, message, debug: message || null };
   if (/unsupported format of modelid|expected: modelid\[effort\]|set_model failed/.test(lower)) code = "codex_acp_model_format";
   else if (/set_mode failed|modeid|codex_acp_mode_failed/.test(lower)) code = "codex_acp_mode_failed";
@@ -34,6 +44,19 @@ export function classifyErrorInfo(error) {
   return { code, message, debug: message || null };
 }
 
+export function buildProviderContextResetEvents(provider, statusText) {
+  return [
+    { type: "status", text: statusText },
+    {
+      type: "tips",
+      text: `${provider} started a clean provider session; earlier conversation context was not replayed.`,
+      category: "warning",
+      ownership: "agent",
+      resolution: null,
+    },
+  ];
+}
+
 export function buildErrorTip(errorInfo) {
   const code = String(errorInfo?.code ?? "unknown");
   const message = String(errorInfo?.message ?? "Unknown local agent error");
@@ -44,6 +67,10 @@ export function buildErrorTip(errorInfo) {
     ownership = "agent";
     target = "agent_settings";
     kind = code === "auth_required" ? "authenticate" : "configure";
+  } else if (code === "context_window_exceeded") {
+    ownership = "agent";
+    target = null;
+    kind = null;
   } else if (code === "empty_output" || code === "acp_incomplete_output" || code === "acp_prompt_failed") {
     // Empty/truncated ACP replies and session/prompt Internal errors are
     // agent/protocol issues, not cloud provider outages.
@@ -59,5 +86,11 @@ export function buildErrorTip(errorInfo) {
     target = "runtime";
     kind = "inspect";
   }
-  return { type: "tips", text: message, category: "error", ownership, resolution: { target, kind, message } };
+  return {
+    type: "tips",
+    text: message,
+    category: "error",
+    ownership,
+    resolution: target && kind ? { target, kind, message } : null,
+  };
 }

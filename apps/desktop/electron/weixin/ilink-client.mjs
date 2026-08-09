@@ -145,7 +145,7 @@ export function createIlinkClient(options = {}) {
       if (contextToken) msg.context_token = String(contextToken);
       return apiPost({ baseUrl, endpoint: EP_SEND_MESSAGE, payload: { msg }, token, timeoutMs });
     },
-    sendMessageItem({ baseUrl, token, to, item, contextToken, clientId, timeoutMs = API_TIMEOUT_MS }) {
+    sendMessageItem({ baseUrl, token, to, item, contextToken, clientId, timeoutMs = API_TIMEOUT_MS, signal = null }) {
       if (!item || typeof item !== "object") throw new Error("Weixin sendMessageItem item is required");
       const msg = {
         from_user_id: "",
@@ -156,9 +156,9 @@ export function createIlinkClient(options = {}) {
         item_list: [item],
       };
       if (contextToken) msg.context_token = String(contextToken);
-      return apiPost({ baseUrl, endpoint: EP_SEND_MESSAGE, payload: { msg }, token, timeoutMs });
+      return apiPost({ baseUrl, endpoint: EP_SEND_MESSAGE, payload: { msg }, token, timeoutMs, signal });
     },
-    getUploadUrl({ baseUrl, token, fileKey, mediaType, toUserId, rawSize, rawFileMd5, encryptedSize, aesKey, timeoutMs = API_TIMEOUT_MS }) {
+    getUploadUrl({ baseUrl, token, fileKey, mediaType, toUserId, rawSize, rawFileMd5, encryptedSize, aesKey, timeoutMs = API_TIMEOUT_MS, signal = null }) {
       return apiPost({
         baseUrl,
         endpoint: EP_GET_UPLOAD_URL,
@@ -174,9 +174,10 @@ export function createIlinkClient(options = {}) {
         },
         token,
         timeoutMs,
+        signal,
       });
     },
-    async uploadCdn({ uploadUrl, encrypted, timeoutMs = 60_000 }) {
+    async uploadCdn({ uploadUrl, encrypted, timeoutMs = 60_000, signal = null }) {
       const target = String(uploadUrl ?? "").trim();
       if (!target) throw new Error("Weixin CDN upload URL is required");
       let lastError = null;
@@ -186,7 +187,7 @@ export function createIlinkClient(options = {}) {
             method: "POST",
             headers: { "Content-Type": "application/octet-stream" },
             body: new Uint8Array(encrypted),
-          }, timeoutMs);
+          }, timeoutMs, signal);
           const errorMessage = response.headers.get("x-error-message") ?? "";
           if (response.status >= 400 && response.status < 500) {
             throw new Error(`Weixin CDN upload rejected HTTP ${response.status}${errorMessage ? `: ${errorMessage}` : ""}`);
@@ -199,6 +200,7 @@ export function createIlinkClient(options = {}) {
           return { encryptedQueryParam };
         } catch (error) {
           lastError = error;
+          if (signal?.aborted || error?.name === "AbortError") throw error;
           if (String(error?.message ?? "").includes("upload rejected") || attempt === 3) throw error;
         }
       }
