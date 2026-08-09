@@ -86,13 +86,18 @@ describe("rail idle primary ink contract", () => {
     expect(panel).toContain("item.description");
     expect(panel).toContain("item.latestSession?.title");
 
-    // Automation create is footer-pinned with the same token.
+    // Automation: search top + create footer (home/expert parity).
     expect(automation).toContain("SIDEBAR_FOOTER_CTA_CLASS");
     expect(automation).toContain('data-automation-create="true"');
+    expect(automation).toContain('data-automation-search="true"');
+    expect(automation).toContain("session.search_tasks_placeholder");
     expect(automation).toContain('size="sidebar-cta"');
     expect(automation).toContain('variant="ghost"');
     expect(automation).toContain("automation.add");
     expect(automation).not.toContain("SIDEBAR_PRIMARY_HEADER_CLASS");
+    // Title filter on groups + sessions.
+    expect(automation).toContain("group.title.toLowerCase()");
+    expect(automation).toContain("session.title.toLowerCase()");
 
     // Shared chrome token module (single source of truth).
     const chrome = readFileSync(
