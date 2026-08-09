@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 import {
   CAPABILITY_SHELF,
@@ -8,6 +10,9 @@ import {
   shelfEntryById,
 } from "../src/react-app/domains/plugins/capability-shelf";
 import { orderedRecommendedCatalogEntries } from "../src/react-app/domains/plugins/managed-desktop-connectors";
+import { renderRecommendedPluginCards } from "../src/react-app/domains/plugins/plugins-page";
+
+const appRoot = path.join(import.meta.dir, "..");
 
 describe("capability-shelf registry (shipped)", () => {
   test("matrix covers built-in docs, officecli, connectors, skills", () => {
@@ -46,5 +51,23 @@ describe("capability-shelf registry (shipped)", () => {
     const plugins = shelfEntriesForSurface("plugins").filter((e) => e.recommended);
     expect(plugins.some((e) => e.id === "officecli")).toBe(true);
     expect(plugins.some((e) => e.kind === "builtin-docs")).toBe(false);
+  });
+
+  test("plugins-page recommended grid is driven by shelf (shipped path)", () => {
+    const page = readFileSync(
+      path.join(appRoot, "src/react-app/domains/plugins/plugins-page.tsx"),
+      "utf8",
+    );
+    expect(page).toContain("renderRecommendedPluginCards");
+    expect(page).toContain("recommendedManagedConnectorIds");
+    // Must not hard-code a fixed JSX list of eight cards without shelf order.
+    expect(page).not.toMatch(
+      /showRecommended \? \(\s*<>\s*<OfficeCliPluginCard/,
+    );
+
+    const nodes = renderRecommendedPluginCards({
+      onTryPrompt: () => () => undefined,
+    });
+    expect(nodes.length).toBe(recommendedManagedConnectorIds().length);
   });
 });

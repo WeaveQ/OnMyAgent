@@ -1,4 +1,6 @@
 import { describe, expect, test, beforeEach } from "bun:test";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 import {
   COLD_PATH_BUDGET,
@@ -8,12 +10,15 @@ import {
   isTitleSnapshotAllowedOnColdEnter,
   recordColdPathEvent,
   resetColdPathCounters,
+  tryRecordColdTitleSnapshot,
 } from "../src/react-app/shell/session-route/cold-path-budget";
 import {
   SESSION_PREWARM_FALLBACK_DELAY_MS,
   SESSION_PREWARM_IDLE_TIMEOUT_MS,
   scheduleIdleWork,
 } from "../src/react-app/shell/session-route/prewarm-schedule";
+
+const appRoot = path.join(import.meta.dir, "..");
 
 describe("cold-path budget (shipped helpers)", () => {
   beforeEach(() => {
@@ -83,5 +88,24 @@ describe("cold-path budget (shipped helpers)", () => {
     expect(ran).toBe(false);
     expect(getColdPathCounters().syncPrewarm).toBe(0);
     expect(isColdPathWithinBudget()).toBe(true);
+  });
+
+  test("production sessions.ts records listSessions and gates title snapshots", () => {
+    const sessions = readFileSync(
+      path.join(appRoot, "src/react-app/shell/session-route/sessions.ts"),
+      "utf8",
+    );
+    expect(sessions).toContain('recordColdPathEvent("listSessions")');
+    expect(sessions).toContain("tryRecordColdTitleSnapshot");
+
+    // First empty selected snapshot is banned by budget (max 0) after any prior record,
+    // and first attempt with alreadySnapshotted=false still banned when title empty selected.
+    expect(
+      tryRecordColdTitleSnapshot({
+        isSelectedSession: true,
+        titleEmpty: true,
+        alreadySnapshotted: false,
+      }),
+    ).toBe(false);
   });
 });
