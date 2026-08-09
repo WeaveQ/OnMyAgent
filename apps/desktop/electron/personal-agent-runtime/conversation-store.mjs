@@ -8,11 +8,12 @@ import {
   CONVERSATION_DIR,
   conversationRoot,
   normalizeConversation,
+  nowTitle,
 } from "./conversation-paths.mjs";
 // Re-export the pure path/normalize helpers so existing importers of this module
 // keep working; they live in conversation-paths.mjs to avoid an import cycle
 // with conversation-lookup.mjs.
-export { CONVERSATION_DIR, conversationRoot, normalizeConversation } from "./conversation-paths.mjs";
+export { CONVERSATION_DIR, conversationRoot, normalizeConversation, nowTitle } from "./conversation-paths.mjs";
 // Local import (in addition to the re-export below) so internal callers such as
 // `listConversationsByProvider` can reference `listChannelConversations`.
 import { listChannelConversations } from "./conversation-lookup.mjs";

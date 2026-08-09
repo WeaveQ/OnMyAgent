@@ -16,7 +16,7 @@ export function conversationRoot(workspaceRoot) {
   return path.join(personalAgentRoot(workspaceRoot), CONVERSATION_DIR);
 }
 
-function nowTitle(timestamp) {
+export function nowTitle(timestamp) {
   return `Conversation ${new Date(timestamp).toISOString().replace("T", " ").slice(0, 19)}`;
 }
 
