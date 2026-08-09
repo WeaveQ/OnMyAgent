@@ -1,13 +1,12 @@
 import {
   Bot,
+  ChartNoAxesColumn,
   Clock3,
-  FileText,
   HardDrive,
+  MessagesSquare,
   MonitorSmartphone,
-  Network,
+  Plug,
   Sparkles,
-  UserRound,
-  Zap,
   type LucideIcon,
 } from "lucide-react";
 
@@ -42,14 +41,17 @@ export const SIDEBAR_VIEW_LABELS: Record<SidebarFeatureView, string> = {
 
 export const SIDEBAR_VIEW_ICONS: Record<SidebarFeatureView, LucideIcon> = {
   billing: Sparkles,
-  usage: UserRound,
+  usage: ChartNoAxesColumn,
   agents: Bot,
-  skills: FileText,
-  connectors: Zap,
+  // Skills — capability/magic, not a document.
+  skills: Sparkles,
+  // Connectors / MCP — plug into tools, not keys or lightning.
+  connectors: Plug,
   // Distinct from localAgent (MonitorSmartphone) — devices = storage/device rack.
   devices: HardDrive,
   scheduledTasks: Clock3,
-  channels: Network,
-  personalAssistant: UserRound,
+  // Messaging channels — chat bubbles, not network topology.
+  channels: MessagesSquare,
+  personalAssistant: Sparkles,
   localAgent: MonitorSmartphone,
 };

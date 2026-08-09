@@ -4,8 +4,8 @@ import {
   Bot,
   Clock3,
   Folder,
+  MessagesSquare,
   MonitorSmartphone,
-  Network,
   ShoppingBag,
   UserRound,
 } from "lucide-react";
@@ -36,7 +36,7 @@ const TOP_RAIL_ITEMS: RailItem[] = [
 
 const BOTTOM_RAIL_ITEMS: RailItem[] = [
   { id: "scheduledTasks", label: "", icon: Clock3 },
-  { id: "channels", label: "", icon: Network },
+  { id: "channels", label: "", icon: MessagesSquare },
 ];
 
 export function OnMyAgentRail(props: {

@@ -8,21 +8,22 @@ import {
   ChevronRight,
   Clock3,
   CircleHelp,
-  FileText,
-  Info,
   HardDrive,
-  KeyRound,
+  Info,
+  MessageSquarePlus,
+  MessagesSquare,
   MoreHorizontal,
   Palette,
   Pencil,
-  Plus,
+  Plug,
   Power,
   Trash2,
   RefreshCw,
   RotateCcw,
   Settings,
   Settings2,
-  Network,
+  Smartphone,
+  Sparkles,
   UserRound,
 } from "lucide-react";
 
@@ -432,32 +433,69 @@ type SidebarMenuConfig = {
 };
 
 const PRIMARY_MENU_ITEMS: SidebarMenuConfig[] = [
-  { id: "chat", get label() { return t("session.new_task"); }, icon: Plus },
-  { id: "agents", get label() { return t("nav.agents"); }, get description() { return t("nav.agents_desc"); }, icon: Bot },
-  { id: "skills", get label() { return t("nav.skills"); }, get description() { return t("nav.skills_desc"); }, icon: FileText },
+  {
+    id: "chat",
+    get label() {
+      return t("session.new_task");
+    },
+    icon: MessageSquarePlus,
+  },
+  {
+    id: "agents",
+    get label() {
+      return t("nav.agents");
+    },
+    get description() {
+      return t("nav.agents_desc");
+    },
+    icon: Bot,
+  },
+  {
+    id: "skills",
+    get label() {
+      return t("nav.skills");
+    },
+    get description() {
+      return t("nav.skills_desc");
+    },
+    icon: Sparkles,
+  },
   {
     id: "connectors",
-    get label() { return t("nav.connectors"); },
-    get description() { return t("nav.connectors_desc"); },
-    icon: KeyRound,
+    get label() {
+      return t("nav.connectors");
+    },
+    get description() {
+      return t("nav.connectors_desc");
+    },
+    icon: Plug,
   },
   {
     id: "scheduledTasks",
     label: "",
-    get description() { return t("nav.automation_desc"); },
+    get description() {
+      return t("nav.automation_desc");
+    },
     icon: Clock3,
   },
   {
     id: "channels",
     label: "",
-    get description() { return t("nav.channels_desc"); },
-    icon: Network,
+    get description() {
+      return t("nav.channels_desc");
+    },
+    icon: MessagesSquare,
   },
   {
     id: "personalAssistant",
-    get label() { return t("nav.personal_assistant"); },
-    get description() { return t("nav.personal_assistant_desc"); },
-    icon: UserRound,
+    get label() {
+      return t("nav.personal_assistant");
+    },
+    get description() {
+      return t("nav.personal_assistant_desc");
+    },
+    // Local entry / cloud-phone — not the same person glyph as Experts.
+    icon: Smartphone,
   },
 ];
 

@@ -4,11 +4,11 @@ import {
   ChevronDown,
   ChevronLeft,
   Clock3,
-  FileText,
   HardDrive,
   LayoutDashboard,
-  Network,
+  MessagesSquare,
   Package,
+  Plug,
   Plus,
   Puzzle,
   Search,
@@ -16,7 +16,6 @@ import {
   Upload,
   UserPlus,
   UserRound,
-  Zap,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { useEffect, useState } from "react";
@@ -81,12 +80,12 @@ export const SIDEBAR_VIEW_ICONS: Record<
   billing: Sparkles,
   usage: LayoutDashboard,
   agents: Bot,
-  skills: FileText,
-  connectors: Zap,
+  skills: Sparkles,
+  connectors: Plug,
   // Distinct from LocalAgent monitor glyph used elsewhere in the shell.
   devices: HardDrive,
   scheduledTasks: Clock3,
-  channels: Network,
+  channels: MessagesSquare,
   personalAssistant: LayoutDashboard,
 };
 
@@ -465,7 +464,7 @@ export function StorePage(props: {
                 }
                 className="mac:titlebar-no-drag"
               >
-                <Plus data-icon="inline-start" className="size-3.5" />
+                <UserPlus data-icon="inline-start" className="size-3.5" />
                 {t("session.create_expert")}
               </Button>
             </>
