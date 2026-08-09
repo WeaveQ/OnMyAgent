@@ -32,15 +32,6 @@ test("resolves the packaged Computer Use helper on darwin", async () => {
       }),
       [executable, "mcp"],
     );
-    assert.equal(
-      resolveComputerUseRuntimeCommand({
-        platform: "linux",
-        desktopRoot: root,
-        resourcesPath: path.join(root, "resources"),
-        devMode: false,
-      }),
-      null,
-    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

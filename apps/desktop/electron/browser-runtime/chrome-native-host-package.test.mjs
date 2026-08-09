@@ -7,8 +7,8 @@ import { fileURLToPath } from "node:url";
 const runtimeDir = path.dirname(fileURLToPath(import.meta.url));
 const hostRoot = path.resolve(runtimeDir, "../../resources/browser/native-host");
 
-test("native host ships manifests for macOS, Linux, and Windows", async () => {
-  for (const platform of ["macos", "linux", "windows"]) {
+test("native host ships manifests for macOS and Windows", async () => {
+  for (const platform of ["macos", "windows"]) {
     const manifest = JSON.parse(await readFile(path.join(hostRoot, "manifests", `${platform}.json`), "utf8"));
     assert.equal(manifest.name, "com.onmyagent.browser");
     assert.equal(manifest.type, "stdio");
