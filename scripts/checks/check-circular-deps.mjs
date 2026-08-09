@@ -14,11 +14,15 @@
 //   node scripts/checks/check-circular-deps.mjs --write         # refresh baseline
 //   node scripts/checks/check-circular-deps.mjs --list          # print all cycles
 
-import { existsSync, lstatSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const repoRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))))
+// Default to the repo derived from this script's location. Tests and sandboxes
+// override it via CIRCULAR_DEPS_ROOT so the gate can run against a fixture tree.
+const repoRoot = process.env.CIRCULAR_DEPS_ROOT
+  ? resolve(process.env.CIRCULAR_DEPS_ROOT)
+  : dirname(dirname(dirname(fileURLToPath(import.meta.url))))
 
 const sourceExtensions = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.mts', '.cjs', '.cts']
 const ignoredDirs = new Set([
@@ -145,6 +149,7 @@ if (mode === 'list') {
 }
 
 if (mode === 'write') {
+  mkdirSync(dirname(baselinePath), { recursive: true })
   const payload = {
     $schema: './circular-deps.schema.json',
     description:
@@ -323,9 +328,19 @@ function resolveImportSpecifier(fromFile, spec) {
 }
 
 function resolveWithExtensions(base) {
-  // If base already has a recognized extension, return as-is.
-  if (sourceExtensions.includes(extname(base))) {
-    return existsSync(base) ? base : null
+  // If base already has a recognized extension, try it directly. TypeScript ESM
+  // writes specifiers with a ".js" extension that map to a ".ts" source file,
+  // so when the literal file is absent also probe the TS variants before
+  // giving up. Same for ".mjs" -> ".mts" and ".cjs" -> ".cts".
+  const ext = extname(base)
+  if (sourceExtensions.includes(ext)) {
+    if (existsSync(base)) return base
+    const tsTwin = tsTwinExtensions(ext)
+    for (const twin of tsTwin) {
+      const p = base.slice(0, -ext.length) + twin
+      if (existsSync(p)) return p
+    }
+    return null
   }
   for (const ext of sourceExtensions) {
     const p = base + ext
@@ -336,6 +351,20 @@ function resolveWithExtensions(base) {
     if (existsSync(p)) return p
   }
   return null
+}
+
+// The TS source-extension twins that compile to a given runtime extension.
+function tsTwinExtensions(ext) {
+  switch (ext) {
+    case '.js':
+      return ['.ts', '.tsx', '.jsx']
+    case '.mjs':
+      return ['.mts']
+    case '.cjs':
+      return ['.cts']
+    default:
+      return []
+  }
 }
 
 function toPosix(p) {

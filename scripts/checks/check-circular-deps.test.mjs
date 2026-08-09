@@ -17,6 +17,9 @@ function run(args, cwd) {
       cwd,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
+      // The script derives its repo root from its own location by default, so
+      // point it at the sandbox explicitly for the fixture test.
+      env: { ...process.env, CIRCULAR_DEPS_ROOT: cwd },
     });
     return { status: 0, stdout, stderr: "" };
   } catch (err) {
