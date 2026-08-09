@@ -1637,10 +1637,11 @@ platform substitution in render is the only sanctioned flow.
   `box-shadow` for hierarchy are all forbidden.
 - Elevation is expressed via surface color (`surface` on top of `background`
   on top of `app-bg`), borders, and hover / active states.
-- Scrollbars are weak, WeChat-style: hidden by default, briefly visible on
-  pointer movement or active scroll, fading back to transparent.
-  Consume `--dls-scrollbar-thumb` / `--dls-scrollbar-thumb-active`; do not
-  introduce component-level scrollbar colors unless the browser forces it.
+- Scrollbars are weak, WeChat-style: a faint thumb stays visible when content
+  overflows so long surfaces (transcript, lists) remain discoverable; the thumb
+  strengthens on pointer movement or active scroll via
+  `--dls-scrollbar-thumb` / `--dls-scrollbar-thumb-active`. Do not introduce
+  component-level scrollbar colors unless the browser forces it.
 
 ### Decorative Depth
 

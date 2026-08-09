@@ -334,6 +334,9 @@ select:disabled {
   --dls-active: #E6E6E8;
   --dls-list-selected: #D4D4D4;
   --dls-list-hover: #E8E8E8;
+  /* Weak WeChat-style thumbs (always faintly visible when overflow exists). */
+  --dls-scrollbar-thumb: rgb(15 23 42 / 0.18);
+  --dls-scrollbar-thumb-active: rgb(15 23 42 / 0.32);
   --dls-decision-bg: var(--ow-primary);
   --dls-decision-hover: var(--ow-primary-hover);
   --dls-decision-fg: #FFFFFF;
@@ -549,8 +552,9 @@ select:disabled {
   --dls-active: #3A3A3A;
   --dls-list-selected: #454545;
   --dls-list-hover: #323232;
-  --dls-scrollbar-thumb: rgb(248 250 252 / 0.12);
-  --dls-scrollbar-thumb-active: rgb(248 250 252 / 0.18);
+  /* Dark thumbs: raised from 0.12/0.18 — too faint to discover on long chats. */
+  --dls-scrollbar-thumb: rgb(248 250 252 / 0.22);
+  --dls-scrollbar-thumb-active: rgb(248 250 252 / 0.38);
   --dls-decision-bg: var(--ow-primary);
   --dls-decision-hover: var(--ow-primary-hover);
   --dls-decision-fg: #FFFFFF;
@@ -642,9 +646,14 @@ select:disabled {
 }
 
 @layer base {
+  /*
+   * Scrollbars: weak always-on when content overflows, stronger while
+   * scrolling / pointer-active (see useTransientScrollbars). Fully
+   * transparent defaults made long transcripts look non-scrollable.
+   */
   * {
     scrollbar-width: thin;
-    scrollbar-color: transparent transparent;
+    scrollbar-color: var(--dls-scrollbar-thumb) transparent;
   }
 
   *::-webkit-scrollbar {
@@ -661,21 +670,30 @@ select:disabled {
     min-height: 32px;
     border: 2px solid transparent;
     border-radius: 999px;
-    background-color: transparent;
+    background-color: var(--dls-scrollbar-thumb);
     background-clip: content-box;
   }
 
   *.is-scrolling,
   *.is-pointer-active {
-    scrollbar-color: var(--dls-scrollbar-thumb) transparent;
+    scrollbar-color: var(--dls-scrollbar-thumb-active) transparent;
   }
 
   *.is-scrolling::-webkit-scrollbar-thumb,
   *.is-pointer-active::-webkit-scrollbar-thumb {
-    background-color: var(--dls-scrollbar-thumb);
+    background-color: var(--dls-scrollbar-thumb-active);
   }
 
   *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--dls-scrollbar-thumb-active);
+  }
+
+  /* Main chat transcript: strengthen on pane hover (no JS required). */
+  .session-transcript-scroll:hover {
+    scrollbar-color: var(--dls-scrollbar-thumb-active) transparent;
+  }
+
+  .session-transcript-scroll:hover::-webkit-scrollbar-thumb {
     background-color: var(--dls-scrollbar-thumb-active);
   }
 

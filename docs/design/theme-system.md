@@ -142,17 +142,16 @@ Closing a gap is documented in § 13 Iteration Guide.
 ## Scrollbars
 
 Global scrollbars feel like a weak WeChat-style affordance: hidden by
-default, briefly visible while the pointer moves or the region scrolls,
-and never visually competing with content.
+default (faint when content overflows), stronger while the pointer moves
+or the region scrolls, and never visually competing with content.
 
 Rules:
 
 - Do not add component-level scrollbar colors unless a native browser
   limitation requires it.
 - Keep tracks transparent and thumbs rounded with weak opacity.
-- Scrollbars may appear on pointer movement over a scrollable region or
-  during active scrolling; they should fade back to transparent
-  afterward.
+- A faint thumb stays visible when overflow exists so long surfaces remain
+  discoverable; it strengthens on pointer movement or active scroll.
 
 Concrete `--dls-scrollbar-thumb` / `--dls-scrollbar-thumb-active` values
 are in [`DESIGN.md`](../../DESIGN.md) YAML.
