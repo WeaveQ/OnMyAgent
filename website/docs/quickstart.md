@@ -25,6 +25,8 @@ title: 快速开始
 
 安装后启动 **OnMyAgent**。默认进入首页会话区，可直接 **+ 新建任务**。
 
+
+
 ![首页与新建任务](/images/home-session.png)
 
 ## 3. 工作区
@@ -41,6 +43,8 @@ title: 快速开始
 3. **连接模型服务商**，填写 API Key 或兼容 Base URL / 本机模型  
 
 密钥由你保管，不会以「必须上云」为前提。详见 [模型与 BYOK](./guide/models)。
+
+
 
 ![设置 · 模型](/images/settings-ai.png)
 
@@ -63,6 +67,8 @@ title: 快速开始
 - 对话区查看过程与结论  
 - 若生成了文件，到 **文件** 页预览或用系统应用打开  
 
+
+
 ![文件区产物列表](/images/files-list.png)
 
 ## 下一步
@@ -73,6 +79,6 @@ title: 快速开始
 | 通用场景工作法 | [场景使用说明](./scenarios/usage-guide) |
 | 10 条上手习惯 | [高效使用技巧](./guide/efficient-tips) |
 | 熟悉布局 | [界面与工作区](./guide/overview) |
-| 装专家 / 技能 | [专家](./guide/experts) · [技能](./guide/skills) · [市场](./guide/overview#市场) |
+| 装专家 / 技能 | [专家](./guide/experts) · [技能](./guide/skills) · [市场与界面](./guide/overview) |
 | 定时任务 | [自动化](./guide/automation) |
 | 团队 / IM / 管控 | [平台三分](./platform/) |

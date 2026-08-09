@@ -14,6 +14,8 @@ title: 实践 2：文档生成与编辑
 | 已有长文要改短、改语气 | 另存新版本，不覆盖原件 |
 | 要汇报幻灯片 | 生成 pptx 或大纲再扩写 |
 
+
+
 ![主界面：新建任务与输入区](/images/home-session.png)
 
 ## 从零生成
@@ -38,7 +40,7 @@ title: 实践 2：文档生成与编辑
 输出 deliverables/客户A-汇报.pptx。每页标题 + 3 条要点。
 ```
 
-办公能力见 [技能 · 办公文档](../../guide/skills#办公文档四件套)（`document-processing` / `pptx` / OfficeCLI）。
+办公能力见 [技能 · 办公文档](../../guide/skills)（`document-processing` / `pptx` / OfficeCLI）。
 
 ## 分步建议（对标「小步快跑」）
 

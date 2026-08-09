@@ -16,6 +16,8 @@ title: 实践 4：内容选题与分发
 
 可配合 [专家](../../guide/experts)（内容/达人运营类）或自建「编导专家」。
 
+
+
 ![市场：专家 / 技能入口](/images/marketplace.png)
 
 ## 示例：周选题
@@ -45,4 +47,4 @@ title: 实践 4：内容选题与分发
 
 ## 相关
 
-- [专家](../../guide/experts) · [报告与纪要](../office-docs) · [技能 · 浏览器](../../guide/skills#浏览器-agent-browser)（需读网页时）  
+- [专家](../../guide/experts) · [报告与纪要](../office-docs) · [浏览器](../../guide/browser-computer-use)（需读网页时）
