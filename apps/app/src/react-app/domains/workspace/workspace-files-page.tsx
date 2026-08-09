@@ -1,11 +1,7 @@
 /** @jsxImportSource react */
 /**
- * Primary-rail Files page (three-source IA).
- * Rail: Mine / Tasks / Experts / Projects (Projects coming soon, disabled)
- * - Mine: uploads/ catalog + import-by-copy + folder browse
- * - Tasks: conversation outline of non-expert workspace files
- * - Experts: conversation outline of expert agent folders
- * - Projects: not yet open
+ * Primary-rail Files page (three-source IA): Mine / Tasks / Experts / Projects.
+ * Projects rail stays disabled until the surface opens.
  */
 import { useCallback, useState } from "react";
 import { Briefcase, Folder, MessageSquare, UserRound } from "lucide-react";
@@ -31,20 +27,16 @@ import {
 
 export { resolveToolWorkspaceFileRoot } from "./workspace-files-model";
 
-/** Source pills — match primary-rail semantics (Folder / task chat / expert person / projects). */
+/** Source pills — Folder / MessageSquare / UserRound / Briefcase (matches main rail). */
 function filesSourceTabIcon(tab: (typeof FILES_SOURCE_RAIL_TABS)[number]) {
   switch (tab) {
     case "uploads":
-      // My files library — not FileUp (import CTA stays on toolbar).
       return Folder;
     case "task":
-      // Task conversation outputs.
       return MessageSquare;
     case "expert":
-      // Same person glyph as Expert rail + marketplace.
       return UserRound;
     case "project":
-      // Same briefcase as Projects rail.
       return Briefcase;
   }
 }
@@ -101,7 +93,6 @@ export function WorkspaceFilesPage(props: {
   return (
     <div className="flex h-full w-full min-h-0 flex-col bg-dls-background text-dls-text">
       <div className={cn(shellChrome.pageHeaderSimple, "border-b-0 pb-2")}>
-        {/* Free-float source pills — NavTab active fill only (no raw bg-white). */}
         <SegmentedTabGroup density="bare" role="tablist">
           {FILES_SOURCE_RAIL_TABS.map((tab) => {
             const Icon = filesSourceTabIcon(tab);
@@ -115,9 +106,7 @@ export function WorkspaceFilesPage(props: {
                 role="tab"
                 disabled={!enabled}
                 title={
-                  enabled
-                    ? undefined
-                    : t("files.source_project_coming_soon")
+                  enabled ? undefined : t("files.source_project_coming_soon")
                 }
                 onClick={() => {
                   if (!enabled) return;
