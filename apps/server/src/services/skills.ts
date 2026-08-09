@@ -50,8 +50,23 @@ async function parseSkillEntry(
   entryName: string,
   scope: SkillScope,
 ): Promise<SkillItem | null> {
-  const content = await readFile(skillPath, "utf8");
-  const { data, body } = parseFrontmatter(content);
+  let content: string;
+  try {
+    content = await readFile(skillPath, "utf8");
+  } catch {
+    // Unreadable skill file — skip so one bad entry cannot blank the whole list.
+    return null;
+  }
+
+  let data: Record<string, unknown>;
+  let body: string;
+  try {
+    ({ data, body } = parseFrontmatter(content));
+  } catch {
+    // Invalid YAML frontmatter (e.g. unquoted "TL;DR: ...") — skip this skill.
+    return null;
+  }
+
   const name = typeof data.name === "string" ? data.name : entryName;
   const description = typeof data.description === "string" ? data.description : "";
   const trigger =
