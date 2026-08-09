@@ -40,4 +40,17 @@ for (const ent of entries) {
 // GitHub Pages: skip Jekyll so _* assets are published
 await writeFile(resolve(distDir, ".nojekyll"), "");
 
+// Pages only runs this build command. Keep the handbook quality gate in the
+// build path so a broken locale route, local image, or generated link
+// cannot be uploaded merely because VitePress itself rendered successfully.
+const check = spawnSync(
+  process.platform === "win32" ? "pnpm.cmd" : "pnpm",
+  ["run", "check:dist"],
+  { cwd: root, stdio: "inherit", env: process.env },
+);
+if ((check.status ?? 1) !== 0) {
+  console.error("[website] handbook check failed with status", check.status);
+  process.exit(check.status ?? 1);
+}
+
 console.log(`[website] built ${distDir} (landing + docs)`);

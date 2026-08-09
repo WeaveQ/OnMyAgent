@@ -970,13 +970,59 @@ describe("personal agent normalized conversation message stream", () => {
 
     assert.equal(messages.length, 1);
     assert.equal(messages[0].type, "tool_group");
-    assert.equal(messages[0].id, "tool-group-tool-win-1");
+    assert.equal(messages[0].id, "tool-group-turn-0-call-tool-win-1");
     assert.equal(messages[0].toolCalls.length, 1);
-    assert.equal(messages[0].toolCalls[0].id, "acp-tool-tool-win-1");
+    assert.equal(messages[0].toolCalls[0].id, "acp-tool-turn-0-call-tool-win-1");
     assert.equal(messages[0].toolCalls[0].status, "completed");
     assert.equal(messages[0].toolCalls[0].update.title, "PowerShell");
     assert.equal(messages[0].toolCalls[0].update.raw_input.command, "Get-ChildItem");
     assert.equal(messages[0].toolCalls[0].update.rawOutput, "one\r\ntwo");
+  });
+
+  it("keeps turn-scoped ACP IDs unique and stable as later events stream in", () => {
+    const prefix = [
+      { type: "user", text: "first", at: 1 },
+      {
+        type: "acp_tool_call",
+        at: 2,
+        update: { tool_call_id: "tool-1", title: "Read", status: "completed" },
+      },
+      { type: "finish", text: "first answer", at: 3 },
+    ];
+    const firstPass = runEventsToConversationMessages(prefix);
+    const secondPass = runEventsToConversationMessages([
+      ...prefix,
+      { type: "user", text: "second", at: 4 },
+      {
+        type: "acp_tool_call",
+        at: 5,
+        update: { tool_call_id: "tool-1", title: "Read", status: "completed" },
+      },
+    ]);
+    const firstGroups = firstPass.filter((message) => message.type === "tool_group");
+    const secondGroups = secondPass.filter((message) => message.type === "tool_group");
+
+    assert.equal(secondGroups.length, 2);
+    assert.equal(firstGroups[0].id, secondGroups[0].id);
+    assert.equal(firstGroups[0].toolCalls[0].id, secondGroups[0].toolCalls[0].id);
+    assert.notEqual(secondGroups[0].id, secondGroups[1].id);
+    assert.notEqual(secondGroups[0].toolCalls[0].id, secondGroups[1].toolCalls[0].id);
+  });
+
+  it("keeps an ID-only failed ACP terminal update visible to the renderer", () => {
+    const messages = runEventsToConversationMessages([
+      { type: "user", text: "run it", at: 1 },
+      {
+        type: "acp_tool_call",
+        at: 2,
+        update: { tool_call_id: "failed-tool-7", status: "failed" },
+      },
+    ]);
+    const group = messages.find((message) => message.type === "tool_group");
+
+    assert.equal(group?.text, "failed-tool-7");
+    assert.equal(group?.toolCalls?.[0]?.text, "failed-tool-7");
+    assert.equal(group?.toolCalls?.[0]?.status, "failed");
   });
 
   it("maps ACP context usage updates into structured conversation messages", () => {

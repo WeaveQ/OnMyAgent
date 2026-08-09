@@ -6,6 +6,7 @@ import {
   mapOpenCodeReasoningPartToItem,
   mapOpenCodeToolPartToItem,
   mapPersonalEventToMessages,
+  mapPersonalRunToMessages,
   filterPersonalTimelineMessages,
   toOpenCodeConversationItems,
   toPersonalConversationItems,
@@ -13,37 +14,38 @@ import {
 import {
   LocalAgentToolGroupSummary,
   groupLocalAgentTimeline,
+  localAgentToolRenderKeys,
 } from "../src/react-app/domains/local-agents/messages/timeline-messages";
 
 describe("personal conversation adapter", () => {
   test("drops empty ACP tool groups and keeps raw Windows tool details", () => {
-    const empty = groupLocalAgentTimeline([
-      {
-        id: "empty-group",
-        type: "tool_group",
-        role: "tool",
-        text: "",
-        createdAt: 1,
-        toolCalls: [
-          {
-            id: "empty-update",
-            type: "acp_tool_call",
-            role: "tool",
-            text: "",
-            createdAt: 1,
-            update: {
-              toolCallId: "empty",
-              status: "completed",
-              rawInput: {},
-              rawOutput: {},
-              content: [],
-              locations: [],
-            },
+    const emptyGroup = {
+      id: "empty-group",
+      type: "tool_group" as const,
+      role: "tool" as const,
+      text: "",
+      createdAt: 1,
+      toolCalls: [
+        {
+          id: "empty-update",
+          type: "acp_tool_call" as const,
+          role: "tool" as const,
+          text: "",
+          createdAt: 1,
+          update: {
+            toolCallId: "empty",
+            status: "completed",
+            rawInput: {},
+            rawOutput: {},
+            content: [],
+            locations: [],
           },
-        ],
-      },
-    ]);
-    expect(empty).toEqual([]);
+        },
+      ],
+    };
+    const emptyMessages = mapPersonalRunToMessages({ conversationMessages: [emptyGroup] });
+    expect(emptyMessages).toEqual([]);
+    expect(groupLocalAgentTimeline(emptyMessages)).toEqual([]);
 
     const visible = groupLocalAgentTimeline([
       {
@@ -73,6 +75,36 @@ describe("personal conversation adapter", () => {
     ]);
     expect(visible).toHaveLength(1);
     expect(visible[0]?.kind).toBe("tool_group");
+  });
+
+  test("keeps an ID-only failed ACP terminal update visible", () => {
+    const failedGroup = {
+      id: "failed-group",
+      type: "tool_group" as const,
+      role: "tool" as const,
+      text: "",
+      createdAt: 3,
+      toolCalls: [{
+        id: "failed-entry",
+        type: "acp_tool_call" as const,
+        role: "tool" as const,
+        text: "",
+        createdAt: 3,
+        update: { toolCallId: "failed-tool-7", status: "failed" },
+      }],
+    };
+    const timelineMessages = mapPersonalRunToMessages({ conversationMessages: [failedGroup] });
+    expect(timelineMessages[0]?.text).toBe("");
+    expect(timelineMessages[0]?.toolCalls?.[0]?.text).toBe("");
+    const grouped = groupLocalAgentTimeline(timelineMessages);
+    expect(grouped).toHaveLength(1);
+    expect(grouped[0]?.kind).toBe("tool_group");
+    if (grouped[0]?.kind !== "tool_group") throw new Error("expected failed tool group");
+    const html = renderToStaticMarkup(createElement(LocalAgentToolGroupSummary, {
+      messages: grouped[0].messages,
+    }));
+    expect(html).toContain("failed");
+    expect(html).toContain("failed-tool-7");
   });
 
   test("keeps a long PowerShell command to one compact collapsed summary", () => {
@@ -167,13 +199,74 @@ describe("personal conversation adapter", () => {
         update: { toolCallId: id, title, status: "completed" },
       }],
     });
-    const grouped = groupLocalAgentTimeline([
-      toolGroup("tool-1", "PowerShell"),
-      toolGroup("tool-2", "Read file"),
-    ]);
+    const first = toolGroup("tool-1", "PowerShell");
+    const prefix = groupLocalAgentTimeline([first]);
+    const grouped = groupLocalAgentTimeline([first, toolGroup("tool-2", "Read file")]);
     expect(grouped).toHaveLength(1);
     expect(grouped[0]?.kind).toBe("tool_group");
-    if (grouped[0]?.kind === "tool_group") expect(grouped[0].messages).toHaveLength(2);
+    if (prefix[0]?.kind === "tool_group" && grouped[0]?.kind === "tool_group") {
+      expect(grouped[0].messages).toHaveLength(2);
+      expect(grouped[0].id).toBe(prefix[0].id);
+      expect(grouped[0].id).toBe("group-tool-1");
+    }
+  });
+
+  test("assigns stable unique child keys when legacy tool IDs collide", () => {
+    const message = (id: string) => ({
+      id,
+      type: "acp_tool_call" as const,
+      role: "tool" as const,
+      text: id,
+      createdAt: 1,
+      update: { toolCallId: id, title: id, status: "completed" },
+    });
+    const prefix = [message("duplicate"), message("duplicate")];
+    const prefixKeys = localAgentToolRenderKeys(prefix);
+    const streamedKeys = localAgentToolRenderKeys([...prefix, message("duplicate#2")]);
+    expect(prefixKeys).toEqual(["duplicate", "duplicate#2"]);
+    expect(streamedKeys).toEqual(["duplicate", "duplicate#2", "duplicate#2#2"]);
+    expect(new Set(streamedKeys).size).toBe(streamedKeys.length);
+    expect(streamedKeys.slice(0, prefixKeys.length)).toEqual(prefixKeys);
+  });
+
+  test("assigns stable unique top-level keys to separated legacy tool groups", () => {
+    const toolGroup = (toolId: string) => ({
+      id: "legacy-group",
+      type: "tool_group" as const,
+      role: "tool" as const,
+      text: toolId,
+      createdAt: 1,
+      toolCalls: [{
+        id: toolId,
+        type: "acp_tool_call" as const,
+        role: "tool" as const,
+        text: toolId,
+        createdAt: 1,
+        update: { toolCallId: toolId, title: toolId, status: "completed" },
+      }],
+    });
+    const separator = {
+      id: "separator",
+      type: "tips" as const,
+      role: "system" as const,
+      text: "separator",
+      createdAt: 2,
+    };
+    const prefix = groupLocalAgentTimeline([toolGroup("first"), separator]);
+    const streamed = groupLocalAgentTimeline([
+      toolGroup("first"),
+      separator,
+      toolGroup("second"),
+    ]);
+    expect(prefix.map((item) => item.id)).toEqual(["legacy-group", "separator"]);
+    expect(streamed.map((item) => item.id)).toEqual([
+      "legacy-group",
+      "separator",
+      "legacy-group#2",
+    ]);
+    expect(streamed.slice(0, prefix.length).map((item) => item.id)).toEqual(
+      prefix.map((item) => item.id),
+    );
   });
 
   test("keeps snake-case ACP tool identifiers from the shared IPC contract", () => {
