@@ -23,7 +23,7 @@ import {
   clearExpertLocalSessionBindings,
   removeExpertFromRegistry,
   uninstallExpertPackagesForAgent,
-} from "./expert-hard-delete";
+} from "../../agents";
 
 export type ExpertGroupDeleteTarget = {
   kind: "expert";

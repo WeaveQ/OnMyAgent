@@ -75,7 +75,7 @@ import {
 } from "../connections";
 import type { ProviderListItem } from "../../../app/types";
 import { useAgentRegistryStore } from "./agent-registry-store";
-import { uninstallExpertPackagesForAgent } from "../session/pages/expert-hard-delete";
+import { uninstallExpertPackagesForAgent } from "./expert-hard-delete";
 import {
   classifySkillScope,
   SKILL_SCOPE_LABELS,

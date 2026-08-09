@@ -58,7 +58,7 @@ import { AgentManagementPage } from "../../local-agents";
 import { MessagingChannelsPage } from "../../messaging";
 import { WorkspaceFilesPage } from "../../workspace";
 import { buildFilesOpenSessionMeta } from "./session-files-open-meta";
-import { canHardDeleteExpert } from "./expert-hard-delete";
+import { canHardDeleteExpert } from "../../agents";
 import {
   resolveExpertDeleteCopy,
   useExpertSessionDelete,
