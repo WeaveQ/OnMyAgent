@@ -280,7 +280,7 @@ export function AutomationNavSidebar(props: {
 
           {filteredGroups.length > 0 ? (
             <div className={cn(visibleNavItems.length > 0 ? "mt-4" : "mt-0")}>
-              {/* Match home "最近" section label: text-sm medium, not 2xs caps. */}
+              {/* Match home Recent section label: text-sm medium, not 2xs caps. */}
               <div className="flex h-[34px] min-h-[34px] max-h-[34px] items-center px-2 text-sm font-medium leading-none tracking-wide text-dls-secondary">
                 {t("automation.tab_tasks")}
               </div>
