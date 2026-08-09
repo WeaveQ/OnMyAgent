@@ -2,6 +2,17 @@
  * Plugins / skills catalog domain.
  */
 export {
+  CAPABILITY_SHELF,
+  isRecommendedOnSurface,
+  recommendedIdsForSurface,
+  recommendedManagedConnectorIds,
+  shelfEntriesForSurface,
+  shelfEntryById,
+  type CapabilityKind,
+  type CapabilityShelfEntry,
+  type ShelfSurface,
+} from "./capability-shelf";
+export {
   ConnectorsPage,
   PluginsPage,
   SkillsPage,
