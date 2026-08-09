@@ -72,7 +72,7 @@ const AgentsPage = lazy(() =>
 );
 import { isDesktopProviderBlocked } from "../../../app/cloud/desktop-app-restrictions";
 import type { DesktopAppRestrictionChecker } from "../../../app/cloud/desktop-app-restrictions";
-import { ReactSessionRuntime, useSessionActivityStore } from "../../domains/session";
+import { ReactSessionRuntime } from "../../domains/session";
 import { usePendingAgentStore } from "../../domains/agents";
 import {
   writeCustomAgentIdForSession,
@@ -650,9 +650,10 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                 }),
               );
               newSession.directory = sessionDirectory;
-              useSessionActivityStore
-                .getState()
-                .startRun(workspaceId, newSession.id);
+              // Do NOT startRun here: this path only opens an empty expert
+              // session shell. Marking runActive without a prompt leaves the
+              // transcript stuck on "准备中 / thinking" forever (no messages,
+              // never idle). Real runs start when the first draft is sent.
             } finally {
               creatingSessionWorkspaceIdsRef.current.delete(workspaceId);
             }
@@ -680,7 +681,9 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               );
               writeCustomAgentIdForSession(newSession.id, agentToBind.id);
               writeSessionAgentSnapshot(newSession.id, agentToBind);
-              await installMarketplaceExpertAfterSessionCreated(agentToBind);
+              // Empty session shell: do not block navigation/UI on package
+              // install. First prompt (and summon) join the same coordinator.
+              void installMarketplaceExpertAfterSessionCreated(agentToBind);
             }
             if (bindDirectory) {
               writeAssistantSessionWorkspace({

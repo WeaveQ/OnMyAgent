@@ -90,12 +90,19 @@ import {
 } from "./session-surface-permission-chrome";
 import { useSessionSurfaceMentionLoaders } from "./session-surface-mention-loaders";
 import { useSessionSurfaceSessionEffects } from "./session-surface-session-effects";
+import { addOptimisticSessionUserMessage } from "../sync/optimistic-session-user-message";
 
 export type { SessionSurfaceProps } from "./session-surface-types";
 import type { SessionSurfaceProps } from "./session-surface-types";
 import { flattenSessionSurfaceProps } from "./session-surface-types";
 import { useSessionSurfaceSearch } from "./session-surface-search";
 import { stripExpertDraftSuggestionFromText } from "../../agents";
+
+type PendingOutgoingUserMessage = {
+  id: string;
+  text: string;
+  createdAt: number;
+};
 
 export function SessionSurface(bagProps: SessionSurfaceProps) {
   const props = flattenSessionSurfaceProps(bagProps);
@@ -228,6 +235,8 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
   const [error, setError] = useState<SessionError | null>(null);
   const [dismissedErrorMessage, setDismissedErrorMessage] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [pendingOutgoingUserMessage, setPendingOutgoingUserMessage] =
+    useState<PendingOutgoingUserMessage | null>(null);
   const [showDelayedLoading, setShowDelayedLoading] = useState(false);
   const [awaitingAssistantBaseline, setAwaitingAssistantBaseline] = useState<
     number | null
@@ -300,25 +309,56 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     sessionActivityStatus,
     autoApprovedPermissionNoticeId: props.autoApprovedPermissionNoticeId,
   });
-  const renderedMessages = useMemo(() => {
-    const filtered = filterCompactionMessages(rawRenderedMessages, compactBoundary);
-    // Creation-coach embed: never paint machine form payloads in the transcript.
-    if (props.chrome !== "embedded") return filtered;
-    return filtered.map((message) => {
-      if (message.role !== "assistant") return message;
-      let changed = false;
-      const parts = message.parts.map((part) => {
-        if (part.type !== "text") return part;
-        const text = typeof part.text === "string" ? part.text : "";
-        if (!text) return part;
-        const stripped = stripExpertDraftSuggestionFromText(text);
-        if (stripped === text) return part;
-        changed = true;
-        return { ...part, text: stripped };
-      });
-      return changed ? { ...message, parts } : message;
+  // Drop local optimistic bubble once the real transcript catches the same turn
+  // (or any later user message), so we never stack duplicates after navigate/SSE.
+  useEffect(() => {
+    if (!pendingOutgoingUserMessage) return;
+    const pendingText = pendingOutgoingUserMessage.text;
+    const matched = rawRenderedMessages.some((message) => {
+      if (message.role !== "user") return false;
+      if (message.id === pendingOutgoingUserMessage.id) return true;
+      return message.parts.some(
+        (part) => part.type === "text" && part.text === pendingText,
+      );
     });
-  }, [compactBoundary, props.chrome, rawRenderedMessages]);
+    if (matched) setPendingOutgoingUserMessage(null);
+  }, [pendingOutgoingUserMessage, rawRenderedMessages]);
+
+  useEffect(() => {
+    setPendingOutgoingUserMessage(null);
+  }, [props.sessionId]);
+
+  const renderedMessages = useMemo(() => {
+    let filtered = filterCompactionMessages(rawRenderedMessages, compactBoundary);
+    // Creation-coach embed: never paint machine form payloads in the transcript.
+    if (props.chrome === "embedded") {
+      filtered = filtered.map((message) => {
+        if (message.role !== "assistant") return message;
+        let changed = false;
+        const parts = message.parts.map((part) => {
+          if (part.type !== "text") return part;
+          const text = typeof part.text === "string" ? part.text : "";
+          if (!text) return part;
+          const stripped = stripExpertDraftSuggestionFromText(text);
+          if (stripped === text) return part;
+          changed = true;
+          return { ...part, text: stripped };
+        });
+        return changed ? { ...message, parts } : message;
+      });
+    }
+    if (!pendingOutgoingUserMessage) return filtered;
+    return addOptimisticSessionUserMessage(filtered, {
+      messageId: pendingOutgoingUserMessage.id,
+      text: pendingOutgoingUserMessage.text,
+      createdAt: pendingOutgoingUserMessage.createdAt,
+    });
+  }, [
+    compactBoundary,
+    pendingOutgoingUserMessage,
+    props.chrome,
+    rawRenderedMessages,
+  ]);
   const scrollToMessageByIdRef = useRef<
     ((messageId: string, behavior?: ScrollBehavior) => boolean) | null
   >(null);
@@ -514,6 +554,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     setTranscriptNoticesBySessionId,
     stallRecoveryBySessionId,
     setStallRecoveryBySessionId,
+    setPendingOutgoingUserMessage,
     buildDraft,
     clearComposerSession,
     updateCollaborationMode,
