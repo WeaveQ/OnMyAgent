@@ -90,6 +90,24 @@ describe("reload-events + session snapshot quiet policy (shipped)", () => {
     expect(historyPopover).toContain("CONVERSATION_HISTORY_SNAPSHOT_LIMIT");
     expect(historyPopover).not.toMatch(/limit:\s*200/);
   });
+
+  test("session navigation does not recreate the route refresh callback", () => {
+    const refresh = readFileSync(
+      join(appRoot, "src/react-app/shell/session-route/refresh-hook.ts"),
+      "utf8",
+    );
+    expect(refresh).toContain(
+      "const selectedSessionIdRef = useRef(selectedSessionId)",
+    );
+    expect(refresh).toContain(
+      "selectedSessionId: selectedSessionIdRef.current",
+    );
+    const callback = refresh.slice(
+      refresh.indexOf("const refreshRouteState = useCallback"),
+      refresh.indexOf("refreshRouteStateRef.current = refreshRouteState"),
+    );
+    expect(callback).not.toMatch(/\n\s+selectedSessionId,\n/);
+  });
 });
 
 describe("sidebar cold-start policy re-exports", () => {

@@ -89,6 +89,10 @@ describe("progressive boot overlay", () => {
     // Overlay stays while boot phases block OR while phase is error.
     expect(bootState).toContain("routeReady && !bootStillBlocking && phase !== \"error\"");
     expect(bootState).toContain("BOOT_BLOCKING_PHASES");
+    expect(bootState).toContain('"bootstrapping-workspaces"');
+    expect(bootState).not.toContain('  "starting-engine",');
+    expect(bootState).not.toContain('  "starting-onmyagent-server",');
+    expect(bootState).not.toContain('  "activating-workspace",');
   });
 
   test("session route marks shell ready after desktop workspaces paint", () => {
@@ -103,9 +107,98 @@ describe("progressive boot overlay", () => {
     expect(refresh).toContain("readCachedSidebarSessionsByWorkspace");
     expect(refresh).toContain("scheduleStartupConnectionRetry");
   });
+
+  test("assistant draft home commits before it releases the boot overlay", () => {
+    const assistant = readFileSync(
+      path.join(import.meta.dir, "../src/react-app/domains/session/pages/assistant.tsx"),
+      "utf8",
+    );
+    const startupHome = readFileSync(
+      path.join(import.meta.dir, "../src/react-app/domains/session/pages/assistant-startup-home.tsx"),
+      "utf8",
+    );
+    const refresh = readFileSync(
+      path.join(import.meta.dir, "../src/react-app/shell/session-route/refresh-hook.ts"),
+      "utf8",
+    );
+    expect(assistant).toContain("<AssistantStartupHome categoryId={assistantCategoryId} />");
+    expect(assistant).toContain("isDraftSession && !canRenderReactSurface");
+    expect(assistant).toContain("useLayoutEffect");
+    expect(assistant).toContain("props.onStaticHomeReady?.()");
+    expect(startupHome).toContain("SessionSurfaceDraftHome");
+    expect(startupHome).toContain('aria-busy="true"');
+    expect(refresh).toContain("waitForStaticHomeFirstPaintRef.current");
+    expect(refresh).not.toContain("waitForStaticHomeFirstPaint,\n    routeWorkspaceId");
+
+    const overlay = readFileSync(
+      path.join(import.meta.dir, "../src/react-app/shell/loading-overlay.tsx"),
+      "utf8",
+    );
+    expect(overlay).not.toContain('fading={fading}');
+  });
 });
 
 describe("boot/desktop wiring", () => {
+  test("the parser-time document contains a self-contained boot surface", () => {
+    const indexHtml = readFileSync(
+      path.join(import.meta.dir, "../index.html"),
+      "utf8",
+    );
+    expect(indexHtml).toContain("onmyagent-static-boot");
+    expect(indexHtml).toContain('id="onmyagent-static-boot"');
+    expect(indexHtml).toContain('<div id="root"></div>');
+    expect(indexHtml).toContain("Sibling, not a child of #root");
+    expect(indexHtml).toContain("html[data-theme=\"dark\"] body");
+    expect(indexHtml).toContain("background: #2c2c2c");
+    expect(indexHtml).toContain("Starting OnMyAgent…");
+    expect(indexHtml).toContain("<svg width=\"36\"");
+    expect(indexHtml).toContain("@keyframes onmyagent-static-boot-pulse");
+  });
+
+  test("React keeps the parser surface until the deferred app shell commits", () => {
+    const entry = readFileSync(
+      path.join(import.meta.dir, "../src/index.react.tsx"),
+      "utf8",
+    );
+    expect(entry).toContain('import("./react-app/shell/renderer-app")');
+    expect(entry).toContain('const denBootstrapPromise = import("./app/lib/den")');
+    expect(entry).toContain("module.initializeDenBootstrapConfig()");
+    expect(entry).toContain("<React.Suspense fallback={null}>");
+    expect(entry).not.toContain("function BootstrapFallback()");
+    expect(entry).toContain("function StaticBootHandoff()");
+    expect(entry).toContain("parserBootSurface?.remove()");
+    expect(entry).toContain("React.useLayoutEffect");
+  });
+
+  test("boot chrome does not decode the large public logo on the critical path", () => {
+    const surface = readFileSync(
+      path.join(import.meta.dir, "../src/react-app/shell/load-surface.tsx"),
+      "utf8",
+    );
+    expect(surface).toContain('<svg');
+    expect(surface).not.toContain("onmyagent-logo.png");
+    expect(surface).not.toContain("resolvePublicAssetUrl");
+  });
+
+  test("renderer shell lazy-loads the heavy session route", () => {
+    const appRoot = readFileSync(
+      path.join(import.meta.dir, "../src/react-app/shell/app-root.tsx"),
+      "utf8",
+    );
+    expect(appRoot).toContain('import("./session-route")');
+    expect(appRoot).not.toContain('import { SessionRoute } from "./session-route"');
+  });
+
+  test("post-boot desktop monitors stay out of the renderer bootstrap chunk", () => {
+    const providers = readFileSync(
+      path.join(import.meta.dir, "../src/react-app/shell/providers.tsx"),
+      "utf8",
+    );
+    expect(providers).toContain('import("./deferred-desktop-monitor-runtime")');
+    expect(providers).not.toContain('from "./automation-run-desktop-notification-monitor"');
+    expect(providers).not.toContain('from "./agent-ready-desktop-notification-monitor"');
+  });
+
   test("desktop boot uses userFacingBootError; no raw English setError literals", () => {
     const boot = readFileSync(
       path.join(

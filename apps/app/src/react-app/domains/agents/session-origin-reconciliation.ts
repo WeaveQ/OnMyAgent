@@ -25,16 +25,10 @@ export function reconcileSessionOrigins(input: {
   localWorkspaceId: string;
   originWorkspaceId: string;
   realSessionIds: ReadonlySet<string>;
-  missingSessionIds?: ReadonlySet<string>;
   origins: SessionOriginRecord[];
 }) {
   for (const origin of input.origins) {
     if (origin.workspaceId !== input.originWorkspaceId) continue;
-    if (input.missingSessionIds?.has(origin.sessionId)) {
-      removeExpertSession(origin.sessionId);
-      writeCustomAgentIdForSession(origin.sessionId, null);
-      continue;
-    }
     if (!input.realSessionIds.has(origin.sessionId)) {
       // Sidebar lists are bounded and the cold path intentionally skips some
       // assistant directories. Absence here is unknown, not an authoritative

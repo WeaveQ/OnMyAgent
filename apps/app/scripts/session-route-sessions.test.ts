@@ -327,6 +327,35 @@ describe("session route sessions", () => {
     ]);
   });
 
+  test("treats a transient exact 404 as incomplete recovery instead of a deletion", async () => {
+    const result = await recoverOriginDirectorySessionItemsWithStatus({
+      client: {
+        listSessions: async () => ({ items: [] }),
+        getSession: async () => {
+          throw new OnMyAgentServerError(404, "session_not_found", "warming");
+        },
+      },
+      workspaceId: "workspace-a",
+      originWorkspaceId: "workspace-a",
+      primaryItems: [],
+      origins: [
+        {
+          workspaceId: "workspace-a",
+          sessionId: "expert-session",
+          kind: "expert",
+          agentId: "agent-a",
+          directory: "/tmp/expert",
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+      limit: 40,
+    });
+
+    expect(result.complete).toBe(false);
+    expect(result.missingSessionIds).toEqual(["expert-session"]);
+  });
+
   test("does not declare origin recovery complete when a directory read fails", async () => {
     const recovery = await recoverOriginDirectorySessionItemsWithStatus({
       client: {
@@ -375,7 +404,7 @@ describe("session route sessions", () => {
     expect(recovery.complete).toBe(true);
   });
 
-  test("treats exact 404s as authoritative stale origins rather than a retry failure", async () => {
+  test("treats exact 404s as transient recovery failures", async () => {
     const recovery = await recoverOriginDirectorySessionItemsWithStatus({
       client: {
         listSessions: async () => ({ items: [] }),
@@ -392,7 +421,7 @@ describe("session route sessions", () => {
       limit: 40,
     });
 
-    expect(recovery.complete).toBe(true);
+    expect(recovery.complete).toBe(false);
     expect(recovery.missingSessionIds).toEqual(["deleted-session"]);
   });
 
@@ -458,7 +487,7 @@ describe("session route sessions", () => {
     expect(finalPage.complete).toBe(true);
   });
 
-  test("advances past authoritative missing origins on a later exact page", async () => {
+  test("retries a transient missing origin and restores it with the next exact page", async () => {
     const origins = Array.from(
       { length: SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS + 1 },
       (_, index) => ({
@@ -500,12 +529,11 @@ describe("session route sessions", () => {
       originWorkspaceId: "workspace-a",
       primaryItems: [],
       verifiedItems: firstPage.items,
-      verifiedMissingSessionIds: new Set(firstPage.missingSessionIds),
       origins,
       limit: 40,
     });
 
-    expect(finalPage.items.map((item) => item.id)).toEqual(["session-40"]);
+    expect(finalPage.items.map((item) => item.id)).toEqual(["session-0", "session-40"]);
     expect(finalPage.complete).toBe(true);
   });
 

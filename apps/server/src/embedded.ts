@@ -33,8 +33,42 @@ export type EmbeddedServerHandle = {
   /** The resolved server config (with OpenCode URLs populated). */
   config: ServerConfig;
   /** Stop the HTTP server and managed OpenCode (if any). */
-  stop: () => void;
+  stop: () => Promise<void>;
 };
+
+const DEFERRED_WORKSPACE_SYNC_GRACE_MS = 2_000;
+
+/**
+ * Schedule non-active workspace maintenance after the first interactive
+ * server window. The returned stop function cancels an unstarted timer and
+ * makes the continuation predicate false for an already-running sync.
+ */
+export function scheduleDeferredWorkspaceSync(input: {
+  delayMs?: number;
+  run: (shouldContinue: () => boolean) => Promise<void>;
+  onError: (error: unknown) => void;
+}): () => Promise<void> {
+  let accepting = true;
+  let running: Promise<void> | null = null;
+  let timer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+    timer = null;
+    if (!accepting) return;
+    const task = input.run(() => accepting).catch(input.onError);
+    running = task;
+    void task.then(() => {
+      if (running === task) running = null;
+    });
+  }, input.delayMs ?? DEFERRED_WORKSPACE_SYNC_GRACE_MS);
+
+  return async () => {
+    accepting = false;
+    if (timer !== null) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    await running;
+  };
+}
 
 export async function startEmbeddedServer(options: EmbeddedServerOptions): Promise<EmbeddedServerHandle> {
   const config = await resolveServerConfig(options);
@@ -46,10 +80,12 @@ export async function startEmbeddedServer(options: EmbeddedServerOptions): Promi
   // Spawn managed OpenCode if requested and no explicit base URL was provided.
   let managedOpencode: ManagedOpencodeServer | null = null;
 
-  // Desktop restart / server boot: re-sync managed `.opencode` agents + tools
-  // for every known workspace so product updates are not stuck on stale files.
+  // Desktop restart / server boot: make the active workspace ready before the
+  // managed OpenCode/server path starts.  Re-syncing every known workspace is
+  // retained below as deferred maintenance; doing it serially here made cold
+  // start scale with the total number of saved workspaces.
   if (!config.readOnly) {
-    await ensureAllWorkspaceFiles(config.workspaces, {
+    await ensureAllWorkspaceFiles(config.workspaces.slice(0, 1), {
       log: (level, message, meta) => {
         const detail = meta ? ` ${JSON.stringify(meta)}` : "";
         console[level === "warn" ? "warn" : "log"](
@@ -98,13 +134,46 @@ export async function startEmbeddedServer(options: EmbeddedServerOptions): Promi
     onGlobalSkillsChanged: options.onGlobalSkillsChanged,
   });
 
+  let stopDeferredWorkspaceSync: () => Promise<void> = async () => undefined;
+  if (!config.readOnly && config.workspaces.length > 1) {
+    // Keep product updates eventually consistent for every saved workspace,
+    // without keeping the first usable server response behind unrelated disk
+    // work. The loop checks the latch before each workspace, so stop() never
+    // expands the maintenance work after shutdown begins.
+    stopDeferredWorkspaceSync = scheduleDeferredWorkspaceSync({
+      run: async (shouldContinue) => {
+        await ensureAllWorkspaceFiles(config.workspaces.slice(1), {
+          shouldContinue,
+          log: (level, message, meta) => {
+            const detail = meta ? ` ${JSON.stringify(meta)}` : "";
+            console[level === "warn" ? "warn" : "log"](
+              `[onmyagent-server] deferred ${message}${detail}`,
+            );
+          },
+        });
+      },
+      onError: (error) => {
+        console.warn(
+          "[onmyagent-server] deferred workspace refresh failed",
+          error,
+        );
+      },
+    });
+  }
+
+  let stopping: Promise<void> | null = null;
   return {
     port: server.port,
     url: `http://${config.host === "0.0.0.0" ? "127.0.0.1" : config.host}:${server.port}`,
     config,
     stop() {
-      managedOpencode?.close();
-      server.stop();
+      if (stopping) return stopping;
+      stopping = (async () => {
+        await stopDeferredWorkspaceSync();
+        managedOpencode?.close();
+        await server.stop();
+      })();
+      return stopping;
     },
   };
 }

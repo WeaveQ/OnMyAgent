@@ -39,7 +39,7 @@ function relaunchOrReload() {
  */
 export function LoadingOverlay() {
   const visible = useBootOverlayVisible();
-  const { phase, message, error, detail } = useBootState();
+  const { message, error, detail } = useBootState();
   const { top, detail: routeDetail, busy: routeBusy } = useRouteLoadTop();
   const [repairStatus, setRepairStatus] = useState<
     "idle" | "working" | "done" | "failed"
@@ -48,7 +48,6 @@ export function LoadingOverlay() {
 
   if (!visible) return null;
 
-  const fading = phase === "ready" && !error;
   // Prefer specific route load copy when something is actively loading under the overlay.
   const displayMessage =
     routeBusy && top
@@ -92,7 +91,7 @@ export function LoadingOverlay() {
   };
 
   return (
-    <LoadSurface variant="full" fading={fading} message={displayMessage}>
+    <LoadSurface variant="full" message={displayMessage}>
       {error ? (
         <div className={errorClass.wrap}>
           <div className="text-sm font-medium">{error}</div>
