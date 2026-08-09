@@ -421,8 +421,9 @@ describe("expert marketplace UI contract", () => {
     expect(dialog).toContain("myExperts: ExpertMarketplaceEntry[]");
     expect(dialog).toContain("onOpen={setSelectedExpert}");
     expect(dialog).toContain("onSummon={props.onSummonMarketplaceExpert}");
-    // Create expert CTA is on the store market header, not mine grid.
-    expect(dialog).not.toContain('t("session.create_expert")');
+    // Create expert: store header + mine empty-state CTA (not the mine card grid).
+    expect(dialog).toContain('t("session.create_expert")');
+    expect(dialog).toContain("my_experts_empty");
     expect(storePage).toContain('t("session.create_expert")');
     expect(storePage).toContain("onCreateExpert");
     expect(dialog).toContain('t("session.summon")');
