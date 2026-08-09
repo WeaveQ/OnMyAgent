@@ -268,7 +268,7 @@ export function AssistantPage(props: AssistantPageProps) {
     onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
     onNavigateToMode: props.onNavigateToMode,
   });
-  const [agentSearch] = useState("");
+  const [agentSearch, setAgentSearch] = useState("");
   const [agentPanelCollapsed, setAgentPanelCollapsed] = useState(false);
   const { agentPanelWidth, setAgentPanelWidth, startAgentPanelResize } =
     useAgentPanelResize(AGENT_PANEL_DEFAULT_WIDTH);
@@ -1182,7 +1182,7 @@ export function AssistantPage(props: AssistantPageProps) {
                 selectedSessionId={props.sidebar.selectedSessionId}
                 sessionStatusById={props.sidebar.sessionStatusById}
                 query={agentSearch}
-                onQueryChange={() => {}}
+                onQueryChange={setAgentSearch}
                 onToggleCollapsed={() =>
                   setAgentPanelCollapsed((value) => !value)
                 }
