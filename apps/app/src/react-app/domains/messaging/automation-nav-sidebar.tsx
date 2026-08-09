@@ -236,9 +236,13 @@ export function AutomationNavSidebar(props: {
           </InputGroup>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto pt-1.5">
+        {/*
+          Stack under search matches expert list-lane:
+          AgentConversationPanel uses overflow-y-auto + pt-1.5 + gap-1 list.
+        */}
+        <div className="min-h-0 flex-1 overflow-y-auto pr-0.5 pt-1.5">
           {visibleNavItems.length > 0 ? (
-            <nav className="flex flex-col gap-0.5" aria-label={t("nav.automation")}>
+            <nav className="flex flex-col gap-1" aria-label={t("nav.automation")}>
               {visibleNavItems.map((item) => {
                 const Icon = item.icon;
                 const active = props.active === item.key;
@@ -249,7 +253,8 @@ export function AutomationNavSidebar(props: {
                     onClick={() => props.onChange(item.key)}
                     aria-pressed={active}
                     className={cn(
-                      "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm transition-colors",
+                      // Expert row uses px-2.5; keep single-line nav at list rhythm (h-10).
+                      "flex h-10 w-full items-center gap-2.5 rounded-xl px-2.5 text-left text-sm transition-colors",
                       active
                         ? "bg-dls-list-selected font-medium text-dls-text"
                         : "text-dls-text hover:bg-dls-hover",
