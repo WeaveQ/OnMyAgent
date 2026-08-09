@@ -22,7 +22,7 @@ import {
 import { AssistantConversationSections } from "./assistant-conversation-sections";
 import {
   AgentConversationPanelHeader,
-  EXPERT_CREATE_CTA_CLASS,
+  SIDEBAR_FOOTER_CTA_CLASS,
 } from "./agent-conversation-panel-header";
 import { AgentConversationList } from "./agent-conversation-list";
 import {
@@ -1366,6 +1366,25 @@ export function AgentConversationPanel(props: {
         )}
       </div>
 
+      {/* Footer create CTA — same placement/style for home + experts. */}
+      {mode === "assistant" && props.onCreateTask ? (
+        <div className="shrink-0 pt-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sidebar-cta"
+            onClick={() => {
+              clearSearchIfNeeded();
+              props.onCreateTask?.();
+            }}
+            className={SIDEBAR_FOOTER_CTA_CLASS}
+            data-assistant-create="true"
+          >
+            <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+            {t("session.new_task")}
+          </Button>
+        </div>
+      ) : null}
       {mode === "agent" && props.onCreateExpert ? (
         <div className="shrink-0 pt-2">
           <Button
@@ -1376,7 +1395,7 @@ export function AgentConversationPanel(props: {
               clearSearchIfNeeded();
               props.onCreateExpert?.();
             }}
-            className={EXPERT_CREATE_CTA_CLASS}
+            className={SIDEBAR_FOOTER_CTA_CLASS}
             data-expert-create="true"
           >
             <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />

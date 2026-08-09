@@ -32,10 +32,15 @@ describe("expert create CTA theme contract", () => {
   test("uses a slightly darker light surface while preserving the dark treatment", () => {
     expect(createButtonSource).toContain('variant="ghost"');
     expect(createButtonSource).toContain('size="sidebar-cta"');
-    expect(headerSource).toContain("bg-dls-active");
-    expect(headerSource).toContain("dark:bg-dls-surface-muted");
-    expect(headerSource).toContain("text-dls-text");
-    expect(headerSource).toContain("hover:bg-dls-hover");
-    expect(headerSource).not.toContain("bg-dls-decision");
+    expect(createButtonSource).toContain("SIDEBAR_FOOTER_CTA_CLASS");
+    const chromeSource = readFileSync(
+      join(import.meta.dir, "../src/components/ui/sidebar-chrome.ts"),
+      "utf8",
+    );
+    expect(chromeSource).toContain("bg-dls-active");
+    expect(chromeSource).toContain("dark:bg-dls-surface-muted");
+    expect(chromeSource).toContain("text-dls-text");
+    expect(chromeSource).toContain("hover:bg-dls-hover");
+    expect(chromeSource).not.toContain("bg-dls-decision");
   });
 });
