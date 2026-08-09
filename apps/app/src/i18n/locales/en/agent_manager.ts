@@ -80,7 +80,6 @@ export default {
   "agent_manager.discover_empty": "No more agents to add.",
   "agent_manager.discover_collapse": "Collapse",
   "agent_manager.discover_expand": "Expand",
-  "agent_manager.extensions_loading": "Loading extensions…",
   "agent_manager.metric_pending": "—",
   "agent_manager.custom_agents": "Custom agents",
   "agent_manager.custom_agents_add": "Add custom agent",

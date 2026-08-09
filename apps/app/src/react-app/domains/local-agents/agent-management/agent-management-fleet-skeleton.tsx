@@ -89,32 +89,4 @@ export function AgentManagementPageLoading(props: {
   );
 }
 
-/** Single wide row skeleton for the extensions strip under the fleet. */
-export function AgentManagementExtensionSkeleton(props: { label: string }) {
-  return (
-    <section className="space-y-3" aria-busy="true" aria-label={props.label}>
-      <div className="flex items-center gap-2">
-        <Skeleton className="h-4 w-12" />
-        <Skeleton className="h-3 w-16" />
-        <Skeleton className="ml-auto h-8 w-16 rounded-lg" />
-      </div>
-      <div className="rounded-lg border border-dls-border bg-dls-surface p-3">
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1 space-y-2">
-            <div className="flex items-center gap-2">
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-4 w-14 rounded-full" />
-              <Skeleton className="h-3 w-10" />
-            </div>
-            <Skeleton className="h-3 w-full max-w-md" />
-            <Skeleton className="h-3 w-48" />
-          </div>
-          <Skeleton className="h-5 w-14 shrink-0 rounded-full" />
-        </div>
-      </div>
-      <span className="sr-only">{props.label}</span>
-    </section>
-  );
-}
-
 export { AGENT_CARD_GRID };
