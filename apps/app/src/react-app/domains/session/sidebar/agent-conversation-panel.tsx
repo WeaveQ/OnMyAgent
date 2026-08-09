@@ -106,7 +106,7 @@ const snapshotNotFoundUntilBySessionId = new Map<string, number>();
 /**
  * Merge engine sessions with local automation run records, dropping archived /
  * soft-deleted automation sessions so archive from the runs list stays in sync
- * with the 定时 sidebar.
+ * with the automation sidebar.
  */
 export function mergeAutomationSessions(
   sessions: WorkspaceSessionGroup["sessions"],
