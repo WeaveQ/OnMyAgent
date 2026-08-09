@@ -48,11 +48,8 @@ import {
   type ExpertMarketplaceView,
 } from "@/react-app/domains/plugins";
 import { useStatusToasts } from "../../shell-feedback";
-import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import {
-  EMPTY_STATE_ILLUSTRATION_CLASS,
-  PROJECTS_PLACEHOLDER_ASSET,
-} from "@/react-app/design-system/empty-state-assets";
+import { PROJECTS_PLACEHOLDER_ASSET } from "@/react-app/design-system/empty-state-assets";
+import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import { FeaturePreviewPlaceholder } from "./feature-preview-placeholder";
 
 const sidePanelTextClass = {
@@ -600,12 +597,7 @@ export function ProjectsComingSoonPage() {
   return (
     <div className="flex h-full items-center justify-center bg-dls-background px-6 text-center">
       <div className="flex max-w-sm flex-col items-center gap-6">
-        <img
-          src={resolvePublicAssetUrl(PROJECTS_PLACEHOLDER_ASSET)}
-          alt=""
-          className={EMPTY_STATE_ILLUSTRATION_CLASS}
-          draggable={false}
-        />
+        <EmptyStateIllustration src={PROJECTS_PLACEHOLDER_ASSET} />
         <div className="space-y-1.5">
           <div className={sidePanelTextClass.panelTitle}>
             {t("session.projects_coming_soon_title")}
