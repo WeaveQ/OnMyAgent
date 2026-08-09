@@ -634,11 +634,13 @@ function toCachedSidebarSessionItem(
 
 /**
  * Persist a workspace's sidebar sessions after a successful live fetch.
- * Empty list clears that workspace's cache entry.
+ * An ordinary empty list is transient during OpenCode startup, so it retains
+ * an existing cache entry. Explicit user deletion may opt into clearing it.
  */
 export function writeCachedSidebarSessionsForWorkspace(
   workspaceId: string,
   sessions: SidebarSessionItem[],
+  options?: { clearWhenEmpty?: boolean },
 ): void {
   const wsId = workspaceId?.trim();
   if (!wsId) return;
@@ -650,6 +652,7 @@ export function writeCachedSidebarSessionsForWorkspace(
     })
     .slice(0, SIDEBAR_SESSIONS_CACHE_MAX_PER_WORKSPACE);
   if (trimmed.length === 0) {
+    if (!options?.clearWhenEmpty) return;
     if (!(wsId in current)) return;
     delete current[wsId];
   } else {

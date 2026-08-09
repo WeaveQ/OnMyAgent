@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import type { OnMyAgentAutomationTaskItem } from "../src/app/lib/onmyagent-server";
 import {
@@ -17,6 +19,12 @@ import {
   renameAutomationSessionRecord,
   syncAutomationSessionRecords,
 } from "../src/react-app/domains/messaging/automation-session-groups";
+import {
+  buildExpertSidebarSessionGroups,
+  buildExpertWorkspaceSessions,
+  listVisibleExpertAgentSessions,
+} from "../src/react-app/domains/session/pages/expert-conversation-model";
+import { writeCustomAgentIdForSession } from "../src/react-app/domains/session/sidebar/conversation-model";
 
 const storageKeys = [
   "onmyagent:assistantSessionIds",
@@ -95,13 +103,13 @@ describe("shared agent session state", () => {
     expect(readAssistantSessionCategory("unknown")).toBe("office");
   });
 
-  test("persists expert sessions and migrates from custom-agent map", () => {
+  test("does not classify an automation custom-agent mapping as an expert", () => {
     localStorage.setItem(
       "onmyagent:customAgentBySessionId",
-      JSON.stringify({ "expert-from-agent": "agent-1" }),
+      JSON.stringify({ "automation-session": "agent-1" }),
     );
 
-    expect(isExpertSession("expert-from-agent")).toBe(true);
+    expect(isExpertSession("automation-session")).toBe(false);
 
     addExpertSession("expert-explicit");
     expect(isExpertSession("expert-explicit")).toBe(true);
@@ -110,21 +118,54 @@ describe("shared agent session state", () => {
     expect(isExpertSession("expert-explicit")).toBe(false);
   });
 
-  test("backfills custom-agent sessions when expert session index already exists", () => {
+  test("keeps explicit expert index independent from custom-agent mappings", () => {
     localStorage.setItem(
       "onmyagent:expertSessionIds",
       JSON.stringify(["expert-existing"]),
     );
     localStorage.setItem(
       "onmyagent:customAgentBySessionId",
-      JSON.stringify({ "expert-restored": "agent-2" }),
+      JSON.stringify({ "automation-session": "agent-2" }),
     );
 
     expect(isExpertSession("expert-existing")).toBe(true);
-    expect(isExpertSession("expert-restored")).toBe(true);
+    expect(isExpertSession("automation-session")).toBe(false);
     expect(localStorage.getItem("onmyagent:expertSessionIds")).toBe(
-      JSON.stringify(["expert-existing", "expert-restored"]),
+      JSON.stringify(["expert-existing"]),
     );
+  });
+
+  test("scopes expert entries to real sessions in the selected workspace", () => {
+    addExpertSession("expert-in-a");
+    addExpertSession("expert-stale");
+    writeCustomAgentIdForSession("expert-in-a", "agent-a");
+    writeCustomAgentIdForSession("expert-stale", "agent-stale");
+
+    const workspaceASessions = [{ id: "expert-in-a", title: "A" }];
+    const workspaceBSessions = [{ id: "session-in-b", title: "B" }];
+    expect(listVisibleExpertAgentSessions(workspaceASessions)).toEqual([
+      { sessionId: "expert-in-a", agentId: "agent-a" },
+    ]);
+    expect(listVisibleExpertAgentSessions(workspaceBSessions)).toEqual([]);
+    expect(
+      buildExpertWorkspaceSessions({ rawWorkspaceSessions: workspaceBSessions }),
+    ).toBe(workspaceBSessions);
+
+    const groups = [{
+      workspace: { id: "workspace-b", name: "B", path: "/tmp/b", preset: "local", workspaceType: "local" },
+      sessions: workspaceBSessions,
+      status: "ready" as const,
+    }];
+    expect(buildExpertSidebarSessionGroups({ groups })).toBe(groups);
+  });
+
+  test("does not mix unsummoned starter experts into the conversation list", () => {
+    const panelSource = readFileSync(
+      resolve(import.meta.dir, "../src/react-app/domains/session/sidebar/agent-conversation-panel.tsx"),
+      "utf8",
+    );
+    expect(panelSource).not.toContain("additionalStarterItems");
+    expect(panelSource).not.toContain("buildAgentStarterItems");
   });
 
   test("indexes each automation run as its own assistant session record", () => {

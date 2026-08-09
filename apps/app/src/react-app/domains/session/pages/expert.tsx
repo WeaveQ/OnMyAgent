@@ -51,6 +51,8 @@ import {
   resolveAgentAvatarUrl,
   useAgentRegistryStore,
   usePendingAgentStore,
+  useSessionOriginHydrationDegraded,
+  useSessionOriginHydrated,
 } from "../../agents";
 import { AgentManagementPage } from "../../local-agents";
 import { MessagingChannelsPage } from "../../messaging";
@@ -122,7 +124,6 @@ import {
   EXPERT_SIDE_PANEL_MIN_WIDTH,
   NO_EXPERT_CONVERSATIONS_ASSET,
   expertFeatureCategoryForAgent,
-  marketplaceExpertsToStarterItems,
 } from "./expert-page-utils";
 import { useCustomConnectorDialog } from "./use-custom-connector-dialog";
 import { useMyExpertPackages } from "./use-my-expert-packages";
@@ -135,25 +136,28 @@ import {
   buildExpertWorkspaceSessions,
   buildAgentConversationGroups,
   computeHasAnyExpertConversation,
-  listVisibleExpertAgentSessions,
+  resolveExpertSidebarOpen,
   resolveActiveAgentContext,
   resolveActiveConversationGroup,
   selectRawWorkspaceSessions,
+  shouldExitDraftForExpertSidebarTarget,
 } from "./expert-conversation-model";
 import { useExpertAutomationOffer } from "./use-expert-automation-offer";
 import {
-  resolveBoundExpertDraftSession,
-  resolveReadyBoundExpertDraftSession,
   shouldKeepUnboundExpertDraft,
 } from "./expert-draft-session";
+import { useExpertBoundDraftTransition } from "./use-expert-bound-draft-transition";
 import { resolveColdOpenExpertSessionId } from "./order-conversation-groups";
 import { useExpertSessionStarters } from "./use-expert-session-starters";
 import { useExpertWaybillPatch } from "./use-expert-waybill-patch";
+import { resolveExpertOriginHydrationView, shouldBlockExpertSurfaceForWorkspaceError } from "./expert-origin-hydration";
+import { ExpertOriginRecoveryNotice } from "./expert-origin-recovery-notice";
 
 import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
 import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
 import { useExpertSkillNavigation } from "./use-expert-skill-navigation";
 import { useSessionExpertCreation } from "./use-session-expert-creation";
+import { useOpenExpertSession } from "./use-open-expert-session";
 
 export type ExpertPageProps = SessionPageProps & {
   onNavigateToMode: (mode: "assistant" | "expert") => void;
@@ -179,15 +183,11 @@ export function ExpertPage(props: ExpertPageProps) {
     useState<number | null>(null);
   const [draftSessionActive, setDraftSessionActive] = useState(false);
   const [draftAgentId, setDraftAgentId] = useState<string | null>(null);
-  const [pendingTabSessionId, setPendingTabSessionId] = useState<string | null>(
-    null,
-  );
+  const [pendingTabSessionId, setPendingTabSessionId] = useState<string | null>(null);
   const [sessionTabOrderIdsByScope, setSessionTabOrderIdsByScope] = useState<
     Record<string, string[]>
   >({});
-  const [draftAgentContexts, setDraftAgentContexts] = useState<
-    Record<string, PendingAgentContext>
-  >({});
+  const [draftAgentContexts, setDraftAgentContexts] = useState<Record<string, PendingAgentContext>>({});
   const newSessionDraftCleanupRef = useRef({
     active: false,
     workspaceId: props.selectedWorkspaceId,
@@ -195,6 +195,8 @@ export function ExpertPage(props: ExpertPageProps) {
   });
   const registry = useAgentRegistryStore((state) => state.registry);
   const pendingAgent = usePendingAgentStore((state) => state.agent);
+  const sessionOriginHydrated = useSessionOriginHydrated(props.selectedWorkspaceId);
+  const sessionOriginHydrationDegraded = useSessionOriginHydrationDegraded(props.selectedWorkspaceId);
   const pendingAgentDraftSource = pendingAgent?.draftSource;
   const currentConversationAgentId = props.selectedSessionId
     ? readCustomAgentIdForSession(props.selectedSessionId)
@@ -215,41 +217,19 @@ export function ExpertPage(props: ExpertPageProps) {
       ),
     [props.sidebar.selectedWorkspaceId, props.sidebar.workspaceSessionGroups],
   );
-  const visibleAgentSessions = useMemo(
-    () => listVisibleExpertAgentSessions(),
-    [props.selectedSessionId, props.sidebar.workspaceSessionGroups],
-  );
   const workspaceSessions = useMemo(
     () =>
       buildExpertWorkspaceSessions({
         rawWorkspaceSessions,
-        selectedSessionId: props.selectedSessionId,
-        currentConversationAgentId,
-        visibleAgentSessions,
       }),
-    [
-      currentConversationAgentId,
-      props.selectedSessionId,
-      rawWorkspaceSessions,
-      visibleAgentSessions,
-    ],
+    [rawWorkspaceSessions],
   );
   const sidebarWorkspaceSessionGroups = useMemo(
     () =>
       buildExpertSidebarSessionGroups({
         groups: props.sidebar.workspaceSessionGroups,
-        selectedWorkspaceId: props.sidebar.selectedWorkspaceId,
-        selectedSessionId: props.selectedSessionId,
-        currentConversationAgentId,
-        visibleAgentSessions,
       }),
-    [
-      currentConversationAgentId,
-      props.selectedSessionId,
-      props.sidebar.selectedWorkspaceId,
-      props.sidebar.workspaceSessionGroups,
-      visibleAgentSessions,
-    ],
+    [props.sidebar.workspaceSessionGroups],
   );
   const conversationGroups = useMemo(
     () => buildAgentConversationGroups(workspaceSessions, registry),
@@ -440,10 +420,6 @@ export function ExpertPage(props: ExpertPageProps) {
     enabled: activeSidebarView === "chat" ||
       (activeSidebarView === "store" && storeActiveTab === "experts"),
   });
-  const localExpertStarterItems = useMemo(
-    () => marketplaceExpertsToStarterItems(myExpertPackages),
-    [myExpertPackages],
-  );
   const openExpertSidePanelMenu = openWorkspaceSidePanelMenu;
 
   useReactRenderWatchdog("ExpertPage", {
@@ -456,6 +432,7 @@ export function ExpertPage(props: ExpertPageProps) {
   });
 
   useEffect(() => {
+    if (!sessionOriginHydrated || sessionOriginHydrationDegraded) return;
     if (activeSidebarView !== "chat") return;
     if (draftSessionActive || draftAgentId) return;
     if (
@@ -495,6 +472,8 @@ export function ExpertPage(props: ExpertPageProps) {
     pendingAgent?.boundSessionId,
     pendingAgent?.conversationStartId,
     pendingAgent?.draftSource,
+    sessionOriginHydrated,
+    sessionOriginHydrationDegraded,
     sessionTabOrderIdsByScope,
   ]);
 
@@ -609,22 +588,17 @@ export function ExpertPage(props: ExpertPageProps) {
   );
 
   /** Open a concrete session tab (user click / create). Records by session id. */
-  const handleOpenExpertSession = useCallback(
-    (workspaceId: string, sessionId: string) => {
-      setDraftSessionActive(false);
-      setDraftAgentId(null);
-      openRailView("chat");
-      const trimmed = sessionId.trim();
-      if (trimmed && !trimmed.startsWith("draft:") && isExpertSession(trimmed)) {
-        const agentId = readCustomAgentIdForSession(trimmed);
-        if (agentId) {
-          writeExpertSessionSelection(workspaceId, agentId, trimmed);
-        }
-      }
-      props.sidebar.onOpenSession(workspaceId, sessionId);
-    },
-    [props.sidebar],
-  );
+  const handleOpenExpertSession = useOpenExpertSession({
+    sidebar: props.sidebar,
+    draftAgentContexts,
+    pendingAgent,
+    draftAgentId,
+    draftSessionActive,
+    setDraftAgentContexts,
+    setDraftAgentId,
+    setDraftSessionActive,
+    openRailView,
+  });
 
   /**
    * Open an expert from the left list: restore last tab for that agent
@@ -645,28 +619,40 @@ export function ExpertPage(props: ExpertPageProps) {
         handleOpenExpertSession(workspaceId, hintSessionId);
         return;
       }
-      if (
-        activeConversationAgentId === agentId &&
-        props.selectedSessionId &&
-        isExpertSession(props.selectedSessionId)
-      ) {
-        openRailView("chat");
-        return;
-      }
       const group = conversationGroups.find((item) => item.agentId === agentId);
       const sessionIds =
         group?.sessions.map((session) => session.id) ??
         (hint ? [hint] : []);
-      const resolved =
-        resolveSessionTabForAgent(agentId, sessionIds) ?? hintSessionId;
-      handleOpenExpertSession(workspaceId, resolved);
+      const scope = `${workspaceId.trim()}:${agentId}`;
+      const target = resolveExpertSidebarOpen({
+        hintSessionId,
+        rememberedSessionId: readExpertSessionSelection(workspaceId, agentId),
+        orderIds: sessionTabOrderIdsByScope[scope] ?? [],
+        readySessionIds: sessionIds,
+        selectedSessionId: props.selectedSessionId,
+      });
+      if (!target.sessionId) return;
+      if (!target.shouldOpen) {
+        if (shouldExitDraftForExpertSidebarTarget({
+          draftAgentId,
+          draftSessionActive,
+          targetAgentId: agentId,
+        })) {
+          handleOpenExpertSession(workspaceId, target.sessionId);
+          return;
+        }
+        openRailView("chat");
+        return;
+      }
+      handleOpenExpertSession(workspaceId, target.sessionId);
     },
     [
-      activeConversationAgentId,
       conversationGroups,
+      draftAgentId,
+      draftSessionActive,
       handleOpenExpertSession,
       props.selectedSessionId,
-      resolveSessionTabForAgent,
+      sessionTabOrderIdsByScope,
     ],
   );
 
@@ -679,38 +665,21 @@ export function ExpertPage(props: ExpertPageProps) {
     if (!agentId) return;
     writeExpertSessionSelection(props.selectedWorkspaceId, agentId, sessionId);
   }, [props.selectedSessionId, props.selectedWorkspaceId]);
-  useEffect(() => {
-    const createdSessionId = resolveBoundExpertDraftSession({
-      draftSessionActive,
-      draftAgentId,
-      pendingAgent,
-    });
-    if (!createdSessionId) return;
-    setPendingTabSessionId(createdSessionId);
-    if (props.selectedSessionId !== createdSessionId) {
-      props.sidebar.onOpenSession(
-        props.sidebar.selectedWorkspaceId,
-        createdSessionId,
-      );
-      return;
-    }
-    const readySessionId = resolveReadyBoundExpertDraftSession({
-      draftSessionActive,
-      draftAgentId,
-      pendingAgent,
-      selectedSessionId: props.selectedSessionId,
-    });
-    if (!readySessionId) return;
-    setDraftSessionActive(false);
-    setDraftAgentId(null);
-  }, [
+  useExpertBoundDraftTransition({
+    activeDraftSessionId,
+    draftAgentContexts,
     draftAgentId,
     draftSessionActive,
     pendingAgent,
-    props.selectedSessionId,
-    props.sidebar.onOpenSession,
-    props.sidebar.selectedWorkspaceId,
-  ]);
+    selectedSessionId: props.selectedSessionId,
+    selectedWorkspaceId: props.selectedWorkspaceId,
+    sidebarSelectedWorkspaceId: props.sidebar.selectedWorkspaceId,
+    onOpenSession: props.sidebar.onOpenSession,
+    setDraftAgentContexts,
+    setDraftAgentId,
+    setDraftSessionActive,
+    setPendingTabSessionId,
+  });
   const handleStartAgentConversation = useCallback(
     (
       item: AgentCardItem,
@@ -1082,6 +1051,7 @@ export function ExpertPage(props: ExpertPageProps) {
     selectedWorkspaceGroupError ||
     "";
   const showSelectedWorkspaceError = Boolean(selectedWorkspaceErrorMessage);
+  const blockExpertSurfaceForWorkspaceError = shouldBlockExpertSurfaceForWorkspaceError({ selectedSessionId: props.selectedSessionId, showSelectedWorkspaceError });
   const selectedWorkspaceErrorTitle =
     props.selectedWorkspaceDisplay.workspaceType === "remote"
       ? "Remote workspace unavailable"
@@ -1109,13 +1079,22 @@ export function ExpertPage(props: ExpertPageProps) {
     props.surface,
   );
   const showBlockingStartupSkeleton = showStartupSkeleton && !canRenderReactSurface;
+  const expertOriginHydrationView = resolveExpertOriginHydrationView({
+    activeChat: activeSidebarView === "chat" && !draftSessionActive,
+    originHydrated: sessionOriginHydrated,
+    originDegraded: sessionOriginHydrationDegraded,
+    selectedSessionId: props.selectedSessionId,
+    hasAnyExpertConversation,
+    showWorkspaceSetupEmptyState,
+    showSelectedWorkspaceError,
+    showBlockingStartupSkeleton,
+  });
   const showNoExpertConversationEmptyState =
-    activeSidebarView === "chat" &&
-    !draftSessionActive &&
-    !hasAnyExpertConversation &&
-    !showWorkspaceSetupEmptyState &&
-    !showSelectedWorkspaceError &&
-    !showBlockingStartupSkeleton;
+    expertOriginHydrationView.showNoExpertConversation;
+  const showExpertOriginHydrationLoading =
+    expertOriginHydrationView.showPendingWithoutSelection;
+  const showExpertOriginHydrationDegraded =
+    expertOriginHydrationView.showDegradedWithoutSelection;
   const activePlaceholderView = isPrimaryOrHostedRailView(activeSidebarView)
     ? null
     : activeSidebarView;
@@ -1286,7 +1265,6 @@ export function ExpertPage(props: ExpertPageProps) {
                 sessionStatusById={props.sidebar.sessionStatusById}
                 draftAgentGroup={draftAgentGroup}
                 draftAgentGroups={draftAgentGroups}
-                additionalStarterItems={localExpertStarterItems}
                 query={agentSearch}
                 onQueryChange={setAgentSearch}
                 onToggleCollapsed={() =>
@@ -1411,8 +1389,8 @@ export function ExpertPage(props: ExpertPageProps) {
                           )}
                         />
                       ),
-                      files: (
-                        <WorkspaceFilesPage
+                      files: (active) => (
+                        <WorkspaceFilesPage active={active}
                           client={props.onmyagentServerClient}
                           workspaceId={
                             props.runtimeWorkspaceId ??
@@ -1482,6 +1460,25 @@ export function ExpertPage(props: ExpertPageProps) {
                         <SessionStartupSkeleton />
                       ) : null}
 
+                      {isPrimarySessionView && showExpertOriginHydrationLoading ? (
+                        <div className="px-6 py-16">
+                          <div
+                            className="mx-auto flex max-w-[320px] flex-col items-center gap-3 text-center"
+                            role="status"
+                            aria-live="polite"
+                          >
+                            <OwDotTicker size="md" />
+                            <div className="text-xs leading-5 text-dls-secondary">
+                              {t("session.loading_detail")}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {isPrimarySessionView && showExpertOriginHydrationDegraded ? (
+                        <ExpertOriginRecoveryNotice />
+                      ) : null}
+
                       {isPrimarySessionView &&
                       showNoExpertConversationEmptyState ? (
                         <div className="flex h-full min-h-0 items-center justify-center px-8 py-10">
@@ -1532,7 +1529,10 @@ export function ExpertPage(props: ExpertPageProps) {
                     }
                     primarySession={
                       canRenderReactSurface &&
-                      !showNoExpertConversationEmptyState ? (
+                      !blockExpertSurfaceForWorkspaceError &&
+                      !showNoExpertConversationEmptyState &&
+                      !showExpertOriginHydrationDegraded &&
+                      !showExpertOriginHydrationLoading ? (
                           <SessionSurface
                             // Workspace-stable key: session switches are prop-driven.
                             key={props.runtimeWorkspaceId ?? "expert-surface"}
@@ -1596,7 +1596,7 @@ export function ExpertPage(props: ExpertPageProps) {
                       isPrimarySessionView &&
                       !showNoExpertConversationEmptyState &&
                       !showDelayedSessionLoadingState &&
-                      !canRenderReactSurface &&
+                      (!canRenderReactSurface || blockExpertSurfaceForWorkspaceError) &&
                       !showBlockingStartupSkeleton ? (
                         <div
                           className={`mx-auto max-w-[800px] px-6 ${showWorkspaceSetupEmptyState ? "pt-20" : "pt-10"}`}

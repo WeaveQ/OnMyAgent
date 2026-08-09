@@ -71,6 +71,22 @@ export {
 } from "./agent-registry-store";
 export { buildPendingAgentFromMarketplaceExpert } from "./marketplace-pending-agent";
 export * from "./agent-session-state";
+export {
+  migrateLegacySessionOrigins,
+  reconcileSessionOrigins,
+  sessionOriginsChangedEvent,
+} from "./session-origin-reconciliation";
+export {
+  createSessionOriginHydrationGate,
+  getSessionOriginRecoveryRetryDelayMs,
+  isSessionOriginHydrationDegraded,
+  markSessionOriginHydrated,
+  markSessionOriginHydrationDegraded,
+  SESSION_ORIGIN_RECOVERY_MAX_RETRIES,
+  useSessionOriginHydrated,
+  useSessionOriginHydrationDegraded,
+} from "./session-origin-hydration";
+export { writeSessionOriginBestEffort } from "./session-origin-write";
 
 export * from "./pending-agent-store";
 export { AgentPromptSuggestions } from "./agent-prompt-suggestions";

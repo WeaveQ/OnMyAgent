@@ -96,9 +96,10 @@ export function canCreateTaskInRouteWorkspace<TWorkspace extends OnMyAgentWorksp
   loading: boolean;
   retryingWorkspaceIds: string[];
 }) {
-  return !!findRouteWorkspace(input.workspaces, input.workspaceId) &&
-    !input.loading &&
-    !input.retryingWorkspaceIds.includes(input.workspaceId);
+  // Opening an empty draft is local navigation. Session-list loading/retries
+  // must not make the "+ new task" control look dead; send readiness is
+  // checked separately when the user submits the draft.
+  return !!findRouteWorkspace(input.workspaces, input.workspaceId);
 }
 
 export function normalizePickedDirectory(value: unknown) {

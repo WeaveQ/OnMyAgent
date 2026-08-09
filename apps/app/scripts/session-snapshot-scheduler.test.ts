@@ -1,0 +1,434 @@
+import { describe, expect, test } from "bun:test";
+
+import { scheduleSessionSnapshot } from "../src/react-app/domains/session/sync/session-snapshot-scheduler";
+
+function deferred<T>() {
+  let resolve: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return { promise, resolve };
+}
+
+async function settle() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+describe("session snapshot scheduler", () => {
+  test("coalesces an in-flight interactive request with the same key", async () => {
+    const first = deferred<string>();
+    let active = 0;
+    let maximum = 0;
+    const run = (value: string) => async () => {
+      active += 1;
+      maximum = Math.max(maximum, active);
+      if (value === "first") await first.promise;
+      active -= 1;
+      return value;
+    };
+
+    const firstRequest = scheduleSessionSnapshot({
+      workspaceId: "workspace",
+      requestKey: "same",
+      priority: "interactive",
+      run: run("first"),
+    });
+    const secondRequest = scheduleSessionSnapshot({
+      workspaceId: "workspace",
+      requestKey: "same",
+      priority: "interactive",
+      run: run("second"),
+    });
+    await settle();
+    expect(maximum).toBe(1);
+
+    first.resolve("first");
+    expect(await firstRequest).toBe("first");
+    expect(await secondRequest).toBe("first");
+    expect(maximum).toBe(1);
+  });
+
+  test("coalesces a queued same-key burst into one background snapshot", async () => {
+    const unblock = deferred<void>();
+    let started = 0;
+    const blocker = scheduleSessionSnapshot({
+      workspaceId: "queued-workspace",
+      requestKey: "blocker",
+      priority: "background",
+      run: async () => {
+        await unblock.promise;
+        return "blocker";
+      },
+    });
+    const requests = Array.from({ length: 20 }, () =>
+      scheduleSessionSnapshot({
+        workspaceId: "queued-workspace",
+        requestKey: "same-session",
+        priority: "background",
+        run: async () => {
+          started += 1;
+          return "snapshot";
+        },
+      }),
+    );
+
+    await settle();
+    unblock.resolve();
+    await blocker;
+    expect(await Promise.all(requests)).toEqual(
+      Array.from({ length: 20 }, () => "snapshot"),
+    );
+    expect(started).toBe(1);
+  });
+
+  test("promotes queued background work when an interactive caller joins it", async () => {
+    const unblockBackground = deferred<void>();
+    let started = 0;
+    const blocker = scheduleSessionSnapshot({
+      workspaceId: "priority-workspace",
+      requestKey: "blocker",
+      priority: "background",
+      run: async () => {
+        await unblockBackground.promise;
+        return "blocker";
+      },
+    });
+    const queued = scheduleSessionSnapshot({
+      workspaceId: "priority-workspace",
+      requestKey: "same",
+      priority: "background",
+      run: async () => {
+        started += 1;
+        return "snapshot";
+      },
+    });
+
+    await settle();
+    expect(started).toBe(0);
+    const interactive = scheduleSessionSnapshot({
+      workspaceId: "priority-workspace",
+      requestKey: "same",
+      priority: "interactive",
+      run: async () => "unexpected duplicate",
+    });
+
+    expect(await interactive).toBe("snapshot");
+    expect(await queued).toBe("snapshot");
+    expect(started).toBe(1);
+    unblockBackground.resolve();
+    await blocker;
+  });
+
+  test("first caller abort does not cancel a later same-key caller", async () => {
+    const firstAbort = new AbortController();
+    const finish = deferred<string>();
+    let transportAborted = false;
+    const first = scheduleSessionSnapshot({
+      workspaceId: "subscriber-workspace-first",
+      requestKey: "same",
+      priority: "interactive",
+      signal: firstAbort.signal,
+      run: (signal) => {
+        signal.addEventListener("abort", () => {
+          transportAborted = true;
+        });
+        return finish.promise;
+      },
+    });
+    const later = scheduleSessionSnapshot({
+      workspaceId: "subscriber-workspace-first",
+      requestKey: "same",
+      priority: "interactive",
+      run: async () => "unexpected duplicate",
+    });
+
+    await settle();
+    firstAbort.abort();
+    await expect(first).rejects.toMatchObject({ name: "AbortError" });
+    expect(transportAborted).toBe(false);
+    finish.resolve("snapshot");
+    expect(await later).toBe("snapshot");
+  });
+
+  test("later caller abort does not cancel the first same-key caller", async () => {
+    const laterAbort = new AbortController();
+    const finish = deferred<string>();
+    let transportAborted = false;
+    const first = scheduleSessionSnapshot({
+      workspaceId: "subscriber-workspace-later",
+      requestKey: "same",
+      priority: "interactive",
+      run: (signal) => {
+        signal.addEventListener("abort", () => {
+          transportAborted = true;
+        });
+        return finish.promise;
+      },
+    });
+    const later = scheduleSessionSnapshot({
+      workspaceId: "subscriber-workspace-later",
+      requestKey: "same",
+      priority: "interactive",
+      signal: laterAbort.signal,
+      run: async () => "unexpected duplicate",
+    });
+
+    await settle();
+    laterAbort.abort();
+    await expect(later).rejects.toMatchObject({ name: "AbortError" });
+    expect(transportAborted).toBe(false);
+    finish.resolve("snapshot");
+    expect(await first).toBe("snapshot");
+  });
+
+  test("aborts the shared transport when every same-key caller cancels", async () => {
+    const firstAbort = new AbortController();
+    const secondAbort = new AbortController();
+    let transportAborted = false;
+    const run = (signal: AbortSignal) =>
+      new Promise<string>((_resolve, reject) => {
+        signal.addEventListener(
+          "abort",
+          () => {
+            transportAborted = true;
+            reject(new Error("transport aborted"));
+          },
+          { once: true },
+        );
+      });
+    const first = scheduleSessionSnapshot({
+      workspaceId: "subscriber-workspace-all",
+      requestKey: "same",
+      priority: "interactive",
+      signal: firstAbort.signal,
+      run,
+    });
+    const second = scheduleSessionSnapshot({
+      workspaceId: "subscriber-workspace-all",
+      requestKey: "same",
+      priority: "interactive",
+      signal: secondAbort.signal,
+      run,
+    });
+
+    await settle();
+    firstAbort.abort();
+    await expect(first).rejects.toMatchObject({ name: "AbortError" });
+    expect(transportAborted).toBe(false);
+    secondAbort.abort();
+    await expect(second).rejects.toMatchObject({ name: "AbortError" });
+    expect(transportAborted).toBe(true);
+  });
+
+  test("new interactive work aborts a different active request", async () => {
+    let firstAborted = false;
+    const firstRequest = scheduleSessionSnapshot({
+      workspaceId: "workspace",
+      requestKey: "first",
+      priority: "interactive",
+      run: (signal) =>
+        new Promise<string>((_resolve, reject) => {
+          signal.addEventListener(
+            "abort",
+            () => {
+              firstAborted = true;
+              reject(new Error("aborted"));
+            },
+            { once: true },
+          );
+        }),
+    });
+    await settle();
+    const secondRequest = scheduleSessionSnapshot({
+      workspaceId: "workspace",
+      requestKey: "second",
+      priority: "interactive",
+      run: async () => "second",
+    });
+
+    await expect(firstRequest).rejects.toMatchObject({ name: "AbortError" });
+    expect(await secondRequest).toBe("second");
+    expect(firstAborted).toBe(true);
+  });
+
+  test("starts replacement work even when the cancelled transport ignores abort", async () => {
+    const stuck = deferred<string>();
+    let secondStarted = false;
+    const firstRequest = scheduleSessionSnapshot({
+      workspaceId: "workspace",
+      requestKey: "stuck",
+      priority: "interactive",
+      run: async () => stuck.promise,
+    });
+    await settle();
+    const secondRequest = scheduleSessionSnapshot({
+      workspaceId: "workspace",
+      requestKey: "replacement",
+      priority: "interactive",
+      run: async () => {
+        secondStarted = true;
+        return "replacement";
+      },
+    });
+
+    await expect(firstRequest).rejects.toMatchObject({ name: "AbortError" });
+    expect(await secondRequest).toBe("replacement");
+    expect(secondStarted).toBe(true);
+    stuck.resolve("late");
+  });
+
+  test("caps real transport executions when cancelled requests ignore abort", async () => {
+    const first = deferred<string>();
+    const second = deferred<string>();
+    let active = 0;
+    let maximum = 0;
+    let thirdStarted = false;
+    const uncooperative = (pending: Promise<string>) => async () => {
+      active += 1;
+      maximum = Math.max(maximum, active);
+      const value = await pending;
+      active -= 1;
+      return value;
+    };
+    const firstRequest = scheduleSessionSnapshot({
+      workspaceId: "bounded-workspace",
+      requestKey: "first",
+      priority: "interactive",
+      run: uncooperative(first.promise),
+    });
+    const firstOutcome = firstRequest.catch((error: unknown) => error);
+    await settle();
+    const secondRequest = scheduleSessionSnapshot({
+      workspaceId: "bounded-workspace",
+      requestKey: "second",
+      priority: "interactive",
+      run: uncooperative(second.promise),
+    });
+    const secondOutcome = secondRequest.catch((error: unknown) => error);
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(maximum).toBe(2);
+    const thirdRequest = scheduleSessionSnapshot({
+      workspaceId: "bounded-workspace",
+      requestKey: "third",
+      priority: "interactive",
+      run: async () => {
+        thirdStarted = true;
+        return "third";
+      },
+    });
+
+    expect(await firstOutcome).toMatchObject({ name: "AbortError" });
+    expect(await secondOutcome).toMatchObject({ name: "AbortError" });
+    await settle();
+    expect(thirdStarted).toBe(false);
+    first.resolve("late-first");
+    expect(await thirdRequest).toBe("third");
+    expect(maximum).toBe(2);
+    second.resolve("late-second");
+  });
+
+  test("keeps only the two newest waiting background requests", async () => {
+    const first = deferred<void>();
+    const started: string[] = [];
+    const firstRequest = scheduleSessionSnapshot({
+      workspaceId: "workspace",
+      requestKey: "one",
+      priority: "background",
+      run: async () => {
+        started.push("one");
+        await first.promise;
+        return "one";
+      },
+    });
+    const secondRequest = scheduleSessionSnapshot({
+      workspaceId: "workspace",
+      requestKey: "two",
+      priority: "prefetch",
+      run: async () => {
+        started.push("two");
+        return "two";
+      },
+    });
+    const thirdRequest = scheduleSessionSnapshot({
+      workspaceId: "workspace",
+      requestKey: "three",
+      priority: "background",
+      run: async () => {
+        started.push("three");
+        return "three";
+      },
+    });
+    const fourthRequest = scheduleSessionSnapshot({
+      workspaceId: "workspace",
+      requestKey: "four",
+      priority: "prefetch",
+      run: async () => {
+        started.push("four");
+        return "four";
+      },
+    });
+
+    await expect(secondRequest).rejects.toMatchObject({ name: "AbortError" });
+    first.resolve();
+    expect(await firstRequest).toBe("one");
+    expect(await thirdRequest).toBe("three");
+    expect(await fourthRequest).toBe("four");
+    expect(started).toEqual(["one", "three", "four"]);
+  });
+
+  test("caller abort cancels queued work before its run starts", async () => {
+    const first = deferred<void>();
+    let secondStarted = false;
+    const firstRequest = scheduleSessionSnapshot({
+      workspaceId: "workspace",
+      requestKey: "first",
+      priority: "background",
+      run: async () => {
+        await first.promise;
+        return "first";
+      },
+    });
+    const abort = new AbortController();
+    const secondRequest = scheduleSessionSnapshot({
+      workspaceId: "workspace",
+      requestKey: "second",
+      priority: "background",
+      signal: abort.signal,
+      run: async () => {
+        secondStarted = true;
+        return "second";
+      },
+    });
+
+    abort.abort();
+    await expect(secondRequest).rejects.toMatchObject({ name: "AbortError" });
+    first.resolve();
+    await firstRequest;
+    expect(secondStarted).toBe(false);
+  });
+
+  test("a twenty-session hover burst executes only the active and two newest snapshots", async () => {
+    const releaseFirst = deferred<void>();
+    const started: string[] = [];
+    const outcomes = Array.from({ length: 20 }, (_, index) => {
+      const requestKey = `session-${index}`;
+      return scheduleSessionSnapshot({
+        workspaceId: "burst-workspace",
+        requestKey,
+        priority: "prefetch",
+        run: async () => {
+          started.push(requestKey);
+          if (index === 0) await releaseFirst.promise;
+          return requestKey;
+        },
+      }).catch((error: unknown) => error);
+    });
+
+    await settle();
+    expect(started).toEqual(["session-0"]);
+    releaseFirst.resolve();
+    await Promise.all(outcomes);
+    expect(started).toEqual(["session-0", "session-18", "session-19"]);
+  });
+});

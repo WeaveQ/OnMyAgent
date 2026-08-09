@@ -36,6 +36,7 @@ import {
 } from "./automation-schedule-policy.js";
 import { decideAutomationWaitTick } from "./automation-wait-policy.js";
 import { defaultOpencodeClientPool } from "./opencode-client-pool.js";
+import { upsertSessionOrigin } from "./session-origins.js";
 
 export type AutomationExecution = {
   sessionId: string;
@@ -286,6 +287,13 @@ export async function startAutomationTask(
   if (!sessionId) {
     throw new ApiError(502, "opencode_failed", "OpenCode session did not return an id");
   }
+  await upsertSessionOrigin(workspace, sessionId, {
+    kind: "automation",
+    ...(task.agent?.id?.trim() ? { agentId: task.agent.id.trim() } : {}),
+    directory: outputDirectory,
+  }).catch((error) => {
+    console.warn("[automation] unable to persist session origin", sessionId, error);
+  });
 
   const system = automationSystemPrompt(task);
   const executionPrompt = [

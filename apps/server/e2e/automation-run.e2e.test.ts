@@ -155,6 +155,11 @@ describe("automation run", () => {
       scene: "office",
       title: "Empty response success",
       prompt: "Write a result.",
+      agent: {
+        id: "automation-expert",
+        name: "Automation expert",
+        description: "Writes automation reports.",
+      },
       schedule: { mode: "weekly", day: "daily", time: "09:00" },
     });
 
@@ -183,6 +188,20 @@ describe("automation run", () => {
     expect(await readFile(join(outputDirectory, "执行结果.md"), "utf8")).toBe(
       "Detailed artifact.\n",
     );
+    const originsResponse = await fetch(
+      `http://127.0.0.1:${server.port}/workspace/ws_automation/session-origins`,
+      { headers: { Authorization: `Bearer ${config.token}` } },
+    );
+    expect(originsResponse.status).toBe(200);
+    expect(await originsResponse.json()).toMatchObject({
+      items: [{
+        workspaceId: "ws_automation",
+        sessionId: "ses_automation_204",
+        kind: "automation",
+        agentId: "automation-expert",
+        directory: outputDirectory,
+      }],
+    });
     const promptRequest = requests.find(
       (request) => request.pathname === "/session/ses_automation_204/prompt_async",
     );

@@ -43,11 +43,15 @@ import {
   SESSION_SNAPSHOT_STALE_TIME_MS,
   SessionPage,
   buildSessionSnapshotPrefetchSpec,
+  executePendingSessionDelete,
   isTolerableSessionDeleteFailure,
   markSessionRecentlyDeleted,
   raceSessionDeleteRemote,
+  registerPendingSessionDelete,
+  retryPendingSessionDeletesForWorkspace,
   resetRailBookmarkToPrimary,
   resolveSessionDeleteDirectory,
+  scheduleSessionSnapshot,
   type PageMode,
   type SessionAgentManagementIntent,
   type SessionPageSurfaceProps,
@@ -78,6 +82,7 @@ import {
   removeAssistantSession,
   removeExpertSession,
 } from "../../domains/agents";
+import { writeSessionOriginBestEffort } from "../../domains/agents";
 import {
   removeAutomationSessionRecord,
   renameAutomationSessionRecord,
@@ -664,6 +669,14 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             }
 
             addExpertSession(newSession.id);
+            writeSessionOriginBestEffort({
+              client: selectedWorkspaceEndpoint?.client ?? client,
+              workspaceId: selectedWorkspaceEndpoint?.workspaceId ?? workspaceId,
+              sessionId: newSession.id,
+              kind: "expert",
+              agentId: agentToBind?.id,
+              directory: newSession.directory,
+            });
 
             // Optimistically append the new session into the workspace list
             // so the left-side agent panel renders the new agent immediately.
@@ -692,7 +705,11 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             sessionStatusById: sidebarSessionStatusById,
             connectingWorkspaceId: null,
             workspaceConnectionStateById,
-            newTaskDisabled: !canCreateTask,
+            // New-task opens a local draft and remains available while
+            // background session-list/model readiness is recovering.
+            newTaskDisabled: !workspaces.some(
+              (workspace) => workspace.id === selectedWorkspaceId,
+            ),
             sidebarHydratedFromCache: Object.values(sessionsByWorkspaceId).some(
               (list) => list.length > 0,
             ),
@@ -776,14 +793,21 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               void getReactQueryClient().prefetchQuery({
                 queryKey: spec.queryKey,
                 staleTime: spec.staleTime,
-                queryFn: async () =>
-                  (
-                    await endpoint.client.getSessionSnapshot(
-                      endpoint.workspaceId,
-                      sessionId,
-                      spec.fetchOptions,
-                    )
-                  ).item,
+                queryFn: ({ signal }) =>
+                  scheduleSessionSnapshot({
+                    workspaceId: endpoint.workspaceId,
+                    requestKey: `${sessionId}:${directory ?? ""}`,
+                    priority: "prefetch",
+                    signal,
+                    run: async (requestSignal) =>
+                      (
+                        await endpoint.client.getSessionSnapshot(
+                          endpoint.workspaceId,
+                          sessionId,
+                          { ...spec.fetchOptions, signal: requestSignal },
+                        )
+                      ).item,
+                  }),
               });
             },
             onCreateTaskInWorkspace: (workspaceId) => {
@@ -968,6 +992,11 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                   // 1) Local-first: tombstone + optimistic remove so dirty rows
                   // leave the UI even if remote DELETE hangs for 12s.
                   markSessionRecentlyDeleted(sessionId);
+                  registerPendingSessionDelete({
+                    workspaceId: selectedWorkspaceId,
+                    sessionId,
+                    ...(directory ? { directory } : {}),
+                  });
                   let nextListForCache: SidebarSessionItem[] | null = null;
                   setSessionsByWorkspaceId((current) => {
                     const list = current[selectedWorkspaceId];
@@ -987,6 +1016,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                     writeCachedSidebarSessionsForWorkspace(
                       selectedWorkspaceId,
                       nextListForCache,
+                      { clearWhenEmpty: true },
                     );
                   }
 
@@ -1013,11 +1043,12 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                   // 2) Remote best-effort with a short UI budget (not full 12s
                   // client timeout) so the confirm dialog never sticks.
                   if (endpoint) {
-                    const remote = endpoint.client
-                      .deleteSession(endpoint.workspaceId, sessionId, {
-                        directory,
-                      })
-                      .catch((error: unknown) => {
+                    const remote = executePendingSessionDelete({
+                      workspaceId: selectedWorkspaceId,
+                      remoteWorkspaceId: endpoint.workspaceId,
+                      sessionId,
+                      client: endpoint.client,
+                    }).catch((error: unknown) => {
                         if (!isTolerableSessionDeleteFailure(error)) {
                           console.warn(
                             "[session-route] deleteSession remote failed; local cleanup already done",
@@ -1031,6 +1062,11 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                             error,
                           );
                         }
+                        void retryPendingSessionDeletesForWorkspace({
+                          workspaceId: selectedWorkspaceId,
+                          remoteWorkspaceId: endpoint.workspaceId,
+                          client: endpoint.client,
+                        });
                       });
                     await raceSessionDeleteRemote(
                       remote,

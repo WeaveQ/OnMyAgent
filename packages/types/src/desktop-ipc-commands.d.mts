@@ -75,6 +75,7 @@ export type DesktopCommandName =
   | "__openPath"
   | "__revealItemInDir"
   | "__fetch"
+  | "__fetchCancel"
   | "__homeDir"
   | "__joinPath"
   | "__setZoomFactor"

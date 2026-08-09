@@ -1,12 +1,95 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  consumeActiveExpertDraftForSession,
+  consumeBoundExpertDraftContext,
+  matchesExpertDraftTransaction,
+  resolveBoundExpertDraftNavigation,
   resolveBoundExpertDraftSession,
   resolveReadyBoundExpertDraftSession,
   shouldKeepUnboundExpertDraft,
 } from "../src/react-app/domains/session/pages/expert-draft-session";
 
 describe("expert draft session activation", () => {
+  test("consumes only the same-expert draft when opening its real session", () => {
+    const contexts = {
+      "order-entry": { label: "active draft" },
+      fulfillment: { label: "other draft" },
+    };
+    expect(
+      consumeActiveExpertDraftForSession({
+        contexts,
+        pendingAgent: { id: "order-entry" },
+        draftAgentId: "order-entry",
+        draftSessionActive: true,
+        targetAgentId: "order-entry",
+      }),
+    ).toEqual({
+      contexts: { fulfillment: { label: "other draft" } },
+      pendingAgent: null,
+      consumed: true,
+    });
+  });
+
+  test("does not consume a different expert's pending draft", () => {
+    const contexts = { fulfillment: { label: "active draft" } };
+    const pendingAgent = { id: "fulfillment" };
+    expect(
+      consumeActiveExpertDraftForSession({
+        contexts,
+        pendingAgent,
+        draftAgentId: "fulfillment",
+        draftSessionActive: true,
+        targetAgentId: "order-entry",
+      }),
+    ).toEqual({ contexts, pendingAgent, consumed: false });
+  });
+
+  test("consumes the bound draft so no ghost new-session tab remains", () => {
+    const contexts = {
+      "order-entry": { conversationStartId: 101, label: "draft" },
+    };
+    expect(consumeBoundExpertDraftContext({
+      contexts,
+      agentId: "order-entry",
+      conversationStartId: 101,
+    })).toEqual({});
+  });
+
+  test("requests navigation once only while the bound session is not selected", () => {
+    const input = {
+      contexts: { "order-entry": { conversationStartId: 101 } },
+      draftAgentId: "order-entry",
+      draftSessionActive: true,
+      pendingAgent: {
+        id: "order-entry",
+        conversationStartId: 101,
+        boundSessionId: "ses_created",
+      },
+    };
+    expect(resolveBoundExpertDraftNavigation({
+      ...input,
+      selectedSessionId: "ses_previous",
+    })).toBe("ses_created");
+    expect(resolveBoundExpertDraftNavigation({
+      ...input,
+      selectedSessionId: "ses_created",
+    })).toBeNull();
+  });
+
+  test("does not let an older binding consume a newer draft for the same agent", () => {
+    const contexts = {
+      "order-entry": { conversationStartId: 202, label: "newer draft" },
+    };
+    const oldBinding = {
+      contexts,
+      agentId: "order-entry",
+      conversationStartId: 101,
+    };
+    expect(matchesExpertDraftTransaction(oldBinding)).toBe(false);
+    expect(consumeBoundExpertDraftContext(oldBinding)).toBe(contexts);
+  });
+
   test("activates the real session bound by the first draft send", () => {
     expect(resolveBoundExpertDraftSession({
       draftSessionActive: true,
