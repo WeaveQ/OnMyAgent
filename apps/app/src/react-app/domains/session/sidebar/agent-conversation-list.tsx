@@ -37,6 +37,8 @@ type AgentConversationListProps = {
   onPrefetchSession?: (workspaceId: string, sessionId: string) => void;
   onEditExpert?: (agentId: string) => void;
   editableExpertIds?: ReadonlySet<string>;
+  /** When set, only these experts show hard-delete (system builtins excluded). */
+  deletableExpertIds?: ReadonlySet<string>;
   onDeleteExpert?: (target: {
     agentId: string;
     name: string;
@@ -314,7 +316,12 @@ export function AgentConversationList(props: AgentConversationListProps) {
           onTogglePinned={togglePinned}
           onMarkUnread={handleMarkUnread}
           onMarkRead={handleMarkRead}
-          onDeleteExpert={props.onDeleteExpert}
+          onDeleteExpert={
+            !props.deletableExpertIds ||
+            props.deletableExpertIds.has(group.agentId ?? "")
+              ? props.onDeleteExpert
+              : undefined
+          }
         />
       ))}
     </div>

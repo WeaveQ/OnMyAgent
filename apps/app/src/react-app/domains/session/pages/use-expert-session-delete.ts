@@ -1,9 +1,13 @@
 /**
- * Expert permanent-delete: C1 workspace file purge + session/group delete.
+ * Expert permanent-delete: sessions + workspace files + registry + packages.
  */
 import { useCallback } from "react";
 import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
 import { t } from "../../../../i18n";
+import {
+  readCustomAgentSessionEntries,
+  type AgentRegistry,
+} from "../../agents";
 import {
   permanentlyRemoveAssistantArchivedTask,
   readAssistantArchivedTasks,
@@ -14,6 +18,12 @@ import {
   writeExpertPinnedAgentIds,
 } from "../sidebar/conversation-model";
 import { useExpertUnreadStore } from "../status/expert-unread-store";
+import {
+  canHardDeleteExpert,
+  clearExpertLocalSessionBindings,
+  removeExpertFromRegistry,
+  uninstallExpertPackagesForAgent,
+} from "./expert-hard-delete";
 
 export type ExpertGroupDeleteTarget = {
   kind: "expert";
@@ -36,6 +46,8 @@ export function useExpertSessionDelete(input: {
     directory?: string | null;
   }>;
   onDeleteSession?: (sessionId: string) => void | Promise<void>;
+  /** Live agent registry for hard-delete (definition + packages). */
+  registry?: AgentRegistry | null;
 }) {
   const purgeExpertSessionFiles = useCallback(
     async (sessionId: string, agentSlug?: string | null) => {
@@ -87,9 +99,16 @@ export function useExpertSessionDelete(input: {
           input.workspaceId,
           target.sessionId,
         );
+        clearExpertLocalSessionBindings([target.sessionId]);
         await input.onDeleteSession?.(target.sessionId);
         return;
       }
+
+      // Product builtins (e.g. creation coach) cannot be fully removed.
+      if (!canHardDeleteExpert(target.agentId, input.registry ?? null)) {
+        throw new Error("This system expert cannot be deleted");
+      }
+
       if (input.onDeleteSession) {
         const deleteOne = input.onDeleteSession;
         await Promise.allSettled(
@@ -103,6 +122,37 @@ export function useExpertSessionDelete(input: {
           }),
         );
       }
+
+      clearExpertLocalSessionBindings(target.sessionIds);
+
+      // Also clear any leftover session↔agent bindings for this expert.
+      try {
+        const leftover = readCustomAgentSessionEntries()
+          .filter((entry) => entry.agentId === target.agentId)
+          .map((entry) => entry.sessionId);
+        clearExpertLocalSessionBindings(leftover);
+      } catch {
+        // Best effort.
+      }
+
+      try {
+        await uninstallExpertPackagesForAgent({
+          agentId: target.agentId,
+          registry: input.registry ?? null,
+        });
+      } catch (error) {
+        console.warn("[expert] package uninstall failed", target.agentId, error);
+      }
+
+      try {
+        await removeExpertFromRegistry({
+          agentId: target.agentId,
+          registry: input.registry ?? null,
+        });
+      } catch (error) {
+        console.warn("[expert] registry remove failed", target.agentId, error);
+      }
+
       try {
         const pinned = readExpertPinnedAgentIds(input.workspaceId);
         if (pinned.includes(target.agentId)) {
@@ -121,6 +171,7 @@ export function useExpertSessionDelete(input: {
     [
       input.activeConversationAgentId,
       input.onDeleteSession,
+      input.registry,
       input.workspaceId,
       purgeExpertSessionFiles,
     ],
