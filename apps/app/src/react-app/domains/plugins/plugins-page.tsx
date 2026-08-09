@@ -19,8 +19,8 @@ import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
 import {
   CONNECTORS_EMPTY_STATE_ASSET,
   SKILLS_EMPTY_STATE_ASSET,
-} from "@/react-app/domains/session/empty-state-assets";
-import { EmptyStateIllustration } from "@/react-app/domains/session/empty-state-illustration";
+} from "@/react-app/design-system/empty-state-assets";
+import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { MARKETPLACE_CARD_GRID_COMPACT } from "@/components/ui/skill-marketplace-card";
 import { CountBadge, StatusBadge } from "@/components/ui/status-badge";

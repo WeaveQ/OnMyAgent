@@ -7,7 +7,7 @@ import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import {
   EMPTY_STATE_ILLUSTRATION_CLASS,
   PROJECTS_PLACEHOLDER_ASSET,
-} from "../empty-state-assets";
+} from "@/react-app/design-system/empty-state-assets";
 
 const lightPagesTextClass = {
   panelTitle: "text-base font-medium text-dls-text",

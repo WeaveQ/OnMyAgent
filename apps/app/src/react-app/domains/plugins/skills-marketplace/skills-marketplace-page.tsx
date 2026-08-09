@@ -34,8 +34,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { SKILLS_EMPTY_STATE_ASSET } from "@/react-app/domains/session/empty-state-assets";
-import { EmptyStateIllustration } from "@/react-app/domains/session/empty-state-illustration";
+import { SKILLS_EMPTY_STATE_ASSET } from "@/react-app/design-system/empty-state-assets";
+import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import {
   DropdownMenu,
   DropdownMenuContent,
