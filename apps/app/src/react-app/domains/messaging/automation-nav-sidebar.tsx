@@ -37,8 +37,7 @@ import { t } from "../../../i18n";
 
 import {
   positionTaskContextMenu,
-  SIDEBAR_PRIMARY_CTA_CLASS,
-  SIDEBAR_PRIMARY_HEADER_CLASS,
+  SIDEBAR_FOOTER_CTA_CLASS,
   TASK_CONTEXT_MENU_CLASS,
   TASK_CONTEXT_MENU_ITEM_CLASS,
   TASK_CONTEXT_MENU_SEPARATOR_CLASS,
@@ -168,23 +167,10 @@ export function AutomationNavSidebar(props: {
   return (
     <TooltipProvider>
       <aside
-        className="flex h-full min-h-0 shrink-0 flex-col border-r border-dls-border bg-dls-surface text-dls-text"
+        className="flex h-full min-h-0 shrink-0 flex-col border-r border-dls-border bg-dls-surface px-2.5 pb-5 text-dls-text"
         style={{ width: props.width }}
       >
-        <div className={cn(SIDEBAR_PRIMARY_HEADER_CLASS, "px-3")}>
-          <Button
-            type="button"
-            variant="outline"
-            size="sidebar-cta"
-            className={SIDEBAR_PRIMARY_CTA_CLASS}
-            onClick={props.onCreate}
-          >
-            <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-            {t("automation.add")}
-          </Button>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4 pt-1">
+        <div className="min-h-0 flex-1 overflow-y-auto pt-1.5">
           <nav className="flex flex-col gap-0.5" aria-label={t("nav.automation")}>
             {items.map((item) => {
               const Icon = item.icon;
@@ -230,7 +216,6 @@ export function AutomationNavSidebar(props: {
                   const groupLabel = t("automation.session_group_title", {
                     title: group.title,
                   });
-                  const Chevron = expanded ? ChevronDown : ChevronRight;
                   return (
                     <div key={group.id} className="flex min-w-0 flex-col gap-0.5">
                       <AutomationNavGroupHeader
@@ -281,6 +266,20 @@ export function AutomationNavSidebar(props: {
               </div>
             </div>
           ) : null}
+        </div>
+
+        <div className="shrink-0 pt-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sidebar-cta"
+            className={SIDEBAR_FOOTER_CTA_CLASS}
+            onClick={props.onCreate}
+            data-automation-create="true"
+          >
+            <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+            {t("automation.add")}
+          </Button>
         </div>
       </aside>
     </TooltipProvider>
