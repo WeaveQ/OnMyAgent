@@ -9,8 +9,13 @@ type KoboyoIconProps = {
   /**
    * Square paint box in px (SVG is mask-contained — non-square viewBoxes stay
    * legible). Default 16 to match Lucide tile glyphs.
+   * Prefer `width`/`height` for tall marks (e.g. rail person glyphs).
    */
   size?: number;
+  /** Explicit box width in px (overrides `size` width). */
+  width?: number;
+  /** Explicit box height in px (overrides `size` height). */
+  height?: number;
   className?: string;
 };
 
@@ -22,15 +27,17 @@ type KoboyoIconProps = {
  * (white ink) both work. Prefer `text-*` + `bg-current`, or an explicit `bg-*`.
  */
 export function KoboyoIcon(props: KoboyoIconProps) {
-  const size = props.size ?? 16;
+  const fallback = props.size ?? 16;
+  const width = props.width ?? fallback;
+  const height = props.height ?? fallback;
   const url = resolvePublicAssetUrl(props.src);
   const style = useMemo(
     (): CSSProperties => ({
-      width: size,
-      height: size,
+      width,
+      height,
       ["--k-icon" as string]: `url(${JSON.stringify(url)})`,
     }),
-    [url, size],
+    [url, width, height],
   );
 
   return (
