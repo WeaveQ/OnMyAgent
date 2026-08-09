@@ -63,6 +63,7 @@ import {
   writeActiveWorkspaceId,
 } from "../session-memory";
 import { scheduleIdleWork } from "./prewarm-schedule";
+import { planBootShellReadyAfterRefresh } from "./boot-shell-ready";
 
 type EndpointForWorkspace = (
   workspace: RouteWorkspace | null | undefined,
@@ -77,7 +78,10 @@ type Input = {
   ) => Promise<void>;
   localServerRef: MutableRefObject<SessionLocalServerRefValue>;
   markBootRouteReady: () => void;
-  /** Assistant draft home owns the first-paint boot latch. */
+  /**
+   * Prefer waiting for assistant static-home first paint before routeReady.
+   * Always paired with a hard deadline so the overlay cannot hang forever.
+   */
   waitForStaticHomeFirstPaint: boolean;
   onmyagentServerSettings: { remoteAccessEnabled?: boolean };
   routeWorkspaceId: string;
@@ -160,6 +164,25 @@ export function useSessionRouteRefresh(input: Input) {
   selectedSessionIdRef.current = selectedSessionId;
   const waitForStaticHomeFirstPaintRef = useRef(waitForStaticHomeFirstPaint);
   waitForStaticHomeFirstPaintRef.current = waitForStaticHomeFirstPaint;
+  // Fail-safe timer when we defer markShellReady for static home paint.
+  const staticHomeDeadlineTimerRef = useRef<number | null>(null);
+
+  const markShellReady = useCallback(() => {
+    if (staticHomeDeadlineTimerRef.current != null) {
+      window.clearTimeout(staticHomeDeadlineTimerRef.current);
+      staticHomeDeadlineTimerRef.current = null;
+    }
+    markBootRouteReady();
+  }, [markBootRouteReady]);
+
+  useEffect(() => {
+    return () => {
+      if (staticHomeDeadlineTimerRef.current != null) {
+        window.clearTimeout(staticHomeDeadlineTimerRef.current);
+        staticHomeDeadlineTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const scheduleStartupConnectionRetry = useCallback(() => {
     if (startupRetryTimerRef.current !== null) return;
@@ -187,14 +210,6 @@ export function useSessionRouteRefresh(input: Input) {
       ReturnType<typeof loadDesktopSessionWorkspaces>
     >["desktopList"] = null;
     let desktopWorkspaces = workspacesRef.current;
-    let shellReadyMarked = false;
-    const markShellReady = () => {
-      if (shellReadyMarked) return;
-      shellReadyMarked = true;
-      // Only dismiss boot overlay after the first connection attempt finishes
-      // (success or scheduled retry). Cache can paint under the overlay first.
-      markBootRouteReady();
-    };
     try {
       const desktopBootstrap = await loadDesktopSessionWorkspaces({
         fallbackWorkspaces: workspacesRef.current,
@@ -398,15 +413,25 @@ export function useSessionRouteRefresh(input: Input) {
     } finally {
       setLoading(false);
       refreshInFlightRef.current = false;
-      // Ensure overlay can dismiss even if desktop workspace list was empty
-      // (first-run / no local workspaces yet).
-      if (!waitForStaticHomeFirstPaintRef.current) markShellReady();
+      // Shell latch after refresh: immediate, or wait for static home + deadline.
+      // Ideal path: assistant onStaticHomeReady; fail-safe: deadline below.
+      const shellPlan = planBootShellReadyAfterRefresh(
+        waitForStaticHomeFirstPaintRef.current,
+      );
+      if (shellPlan.type === "mark-immediately") {
+        markShellReady();
+      } else if (staticHomeDeadlineTimerRef.current == null) {
+        staticHomeDeadlineTimerRef.current = window.setTimeout(() => {
+          staticHomeDeadlineTimerRef.current = null;
+          markShellReady();
+        }, shellPlan.deadlineMs);
+      }
     }
   }, [
     endpointForWorkspace,
     loadWorkspaceSessionsInBackground,
     localServerRef,
-    markBootRouteReady,
+    markShellReady,
     routeWorkspaceId,
     scheduleStartupConnectionRetry,
     sessionsByWorkspaceIdRef,
