@@ -1036,7 +1036,7 @@ export function AutomationPage(props: {
             {error}
           </NoticeBox>
         ) : null}
-        {isElectronRuntime() && local.prefs.keepSystemAwake !== true ? (
+        {isElectronRuntime() ? (
           <NoticeBox
             tone="info"
             size="content"
@@ -1053,12 +1053,11 @@ export function AutomationPage(props: {
               <span>{t("automation.keep_awake_toggle")}</span>
               <Switch
                 size="sm"
-                checked={false}
+                checked={local.prefs.keepSystemAwake === true}
                 onCheckedChange={(enabled) => {
-                  if (!enabled) return;
                   local.setPrefs((previous) => ({
                     ...previous,
-                    keepSystemAwake: true,
+                    keepSystemAwake: enabled,
                   }));
                 }}
                 aria-label={t("automation.keep_awake_toggle")}
