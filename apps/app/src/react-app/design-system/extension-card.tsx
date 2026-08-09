@@ -10,11 +10,12 @@ import { ActionRowButton, IconTile } from "@/components/ui/action-row";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { resolveExtensionIconSrc } from "./extension-icon-src";
 import { ExtensionMeshAvatar } from "./extension-mesh-avatar";
+import { resolveSimpleIconUrl } from "./simple-icon";
 
 export type ExtensionCardProps = {
   name: string;
   description: string;
-  /** Simple Icons slug for brand icon. When set, loads from CDN. */
+  /** Simple Icons slug for brand icon (resolved via local simple-icons assets). */
   iconSlug?: string;
   /** Direct icon URL (e.g. local SVG). Takes priority over iconSlug. */
   iconSrc?: string;
@@ -152,7 +153,7 @@ export function ExtensionCard(props: ExtensionCardProps) {
               />
             ) : iconSlug ? (
               <img
-                src={`https://cdn.simpleicons.org/${iconSlug}`}
+                src={resolveSimpleIconUrl(iconSlug)}
                 alt=""
                 width={16}
                 height={16}

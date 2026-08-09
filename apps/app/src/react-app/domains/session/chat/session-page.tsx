@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { t } from "../../../../i18n";
+import { resolveSimpleIconUrl } from "../../../design-system/simple-icon";
 import {
   type OnMyAgentServerClient,
   type OnMyAgentServerStatus,
@@ -1008,7 +1009,7 @@ export function SessionPage(props: SessionPageProps) {
                                     }}
                                   >
                                     <img
-                                      src="https://cdn.simpleicons.org/googlesheets"
+                                      src={resolveSimpleIconUrl("googlesheets")}
                                       alt=""
                                       width={20}
                                       height={20}
@@ -1059,7 +1060,7 @@ export function SessionPage(props: SessionPageProps) {
                                     }}
                                   >
                                     <img
-                                      src="https://cdn.simpleicons.org/hackthebox"
+                                      src={resolveSimpleIconUrl("hackthebox")}
                                       alt=""
                                       width={20}
                                       height={20}

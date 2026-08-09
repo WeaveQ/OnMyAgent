@@ -278,7 +278,7 @@ function OnboardingShell(props: {
       <div className={welcomeLayoutClass.panel}>
         <div aria-hidden="true" className={welcomeLayoutClass.ambient}>
           <img
-            src={resolvePublicAssetUrl("/onmyagent-logo.png")}
+            src={resolvePublicAssetUrl("/onmyagent-logo.webp")}
             alt=""
             className={welcomeLayoutClass.ambientLogo}
           />
@@ -543,7 +543,7 @@ export function WelcomeRoute() {
         <div className="mx-auto flex h-full max-w-5xl flex-col items-center justify-center px-8 pb-12 text-center">
           <div className={welcomeLayoutClass.logoTile}>
             <img
-              src={resolvePublicAssetUrl("/onmyagent-logo.png")}
+              src={resolvePublicAssetUrl("/onmyagent-logo.webp")}
               alt="OnMyAgent"
               className="size-full rounded-lg object-contain"
             />

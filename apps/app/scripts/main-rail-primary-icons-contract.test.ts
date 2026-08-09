@@ -20,7 +20,9 @@ describe("main rail primary icon contract", () => {
     expect(railSource).not.toContain("w-[68px]");
     // Brand mark above destinations (peer-app style app icon tile).
     expect(railSource).toContain("RailBrandMark");
-    expect(railSource).toContain("onmyagent-logo.png");
+    // Prefer lighter webp over the multi-hundred-KB PNG.
+    expect(railSource).toContain("onmyagent-logo.webp");
+    expect(railSource).not.toContain("onmyagent-logo.png");
   });
 
   test("top rail entries use unified Lucide outline icons (stroke language)", () => {
@@ -69,6 +71,17 @@ describe("main rail primary icon contract", () => {
     expect(iconSource).toContain("Building2");
     expect(iconSource).toContain("Settings2");
     expect(iconSource).toContain("MonitorSmartphone");
+    // Devices must not share LocalAgent's MonitorSmartphone glyph.
+    expect(iconSource).toContain("HardDrive");
+    expect(iconSource).toMatch(
+      /DevicesRailIcon[\s\S]*HardDrive|HardDrive[\s\S]*DevicesRailIcon/,
+    );
+    expect(iconSource).toMatch(
+      /function DevicesRailIcon[\s\S]*return <HardDrive/,
+    );
+    expect(iconSource).not.toMatch(
+      /function DevicesRailIcon[\s\S]*return <MonitorSmartphone/,
+    );
     expect(iconSource).toContain("MessagesSquare");
     expect(iconSource).toContain("CalendarClock");
     expect(iconSource).toContain("RAIL_ICON_STROKE");
