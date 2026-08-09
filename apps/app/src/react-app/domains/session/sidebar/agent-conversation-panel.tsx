@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Plus, Store, UserPlus } from "lucide-react";
+import { ChevronDown, Plus, Store, UserPlus, Users } from "lucide-react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
@@ -1419,7 +1419,7 @@ export function AgentConversationPanel(props: {
                   data-expert-create="true"
                   onClick={() => clearSearchIfNeeded()}
                 >
-                  <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+                  <Users className="size-4 shrink-0" strokeWidth={2} aria-hidden />
                   {t("session.summon_experts")}
                   <ChevronDown
                     className="size-3.5 shrink-0 opacity-70"
