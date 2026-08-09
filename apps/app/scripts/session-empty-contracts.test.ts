@@ -112,11 +112,10 @@ describe("session empty / draft / files / composer contracts", () => {
     // Models/providers tab removed from management chrome.
     expect(page).not.toContain("agent_manager.tab_providers");
     expect(page).not.toContain("AgentManagementProviderPanel");
-
-    const extensions = read("src/react-app/domains/local-agents/extension-list-panel.tsx");
-    expect(extensions).toMatch(
-      /busy && extensions\.length === 0 \?[\s\S]*?common\.loading[\s\S]*?\) : extensions\.length === 0 \?[\s\S]*?extensions_empty/,
-    );
+    // Extension strip removed from agent management UI (runtime APIs may remain).
+    expect(page).not.toContain("ExtensionListPanel");
+    expect(page).not.toContain("AgentManagementExtensionSkeleton");
+    expect(page).not.toContain("agent_manager.extensions_loading");
   });
 
   test("session chrome has no text-[Npx] arbitrary font sizes", () => {
