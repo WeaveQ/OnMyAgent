@@ -7,7 +7,7 @@ import type { ServerConfig, WorkspaceInfo } from "@onmyagent/types/server";
 import { startServer } from "../src/server.js";
 import { registerWorkspaceSessionRoutes } from "../src/routes/workspace-session-routes.js";
 import type { RequestContext, Route } from "../src/routes/route-core.js";
-import { readWorkspaceSessionSnapshot } from "../src/services/workspace-sessions.js";
+import { readWorkspaceSessionSnapshotReads } from "../src/services/workspace-sessions.js";
 
 describe("workspace session routes", () => {
   test("returns an empty list when OpenCode base URL is not configured", async () => {
@@ -73,9 +73,10 @@ describe("workspace session routes", () => {
     expect(signals).toEqual([controller.signal, controller.signal, controller.signal, controller.signal]);
   });
 
-  test("aborts all OpenCode snapshot reads without converting the abort into an OpenCode failure", async () => {
-    const requests = new Set<string>();
+  test("aborts all snapshot reads without converting the abort into an OpenCode failure", async () => {
+    const started = new Set<string>();
     const aborted = new Set<string>();
+    const signals: AbortSignal[] = [];
     let notifyAllStarted: (() => void) | undefined;
     let notifyAllAborted: (() => void) | undefined;
     const allStarted = new Promise<void>((resolve) => {
@@ -84,45 +85,39 @@ describe("workspace session routes", () => {
     const allAborted = new Promise<void>((resolve) => {
       notifyAllAborted = resolve;
     });
-    const workspace = {
-      ...createWorkspace(`workspace-snapshot-abort-${crypto.randomUUID()}`),
-      baseUrl: "http://opencode.test",
-    };
     const controller = new AbortController();
-    const originalFetch = globalThis.fetch;
-    const fetchMock: typeof fetch = Object.assign(
-      (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
-        const request = input instanceof Request ? input : new Request(input, init);
-        const path = new URL(request.url).pathname;
-        requests.add(path);
-        if (requests.size === 4) notifyAllStarted?.();
-        return new Promise<Response>((_resolve, reject) => {
-          request.signal.addEventListener(
-            "abort",
-            () => {
-              aborted.add(path);
-              if (aborted.size === 4) notifyAllAborted?.();
-              reject(new DOMException("Cancelled", "AbortError"));
-            },
-            { once: true },
-          );
-        });
+    const createRead = (name: string) => (signal?: AbortSignal) => {
+      if (!signal) throw new Error("Expected snapshot read signal");
+      started.add(name);
+      signals.push(signal);
+      if (started.size === 4) notifyAllStarted?.();
+      return new Promise<string>((_resolve, reject) => {
+        signal.addEventListener(
+          "abort",
+          () => {
+            aborted.add(name);
+            if (aborted.size === 4) notifyAllAborted?.();
+            reject(new DOMException("Cancelled", "AbortError"));
+          },
+          { once: true },
+        );
+      });
+    };
+    const snapshot = readWorkspaceSessionSnapshotReads(
+      {
+        session: createRead("session"),
+        messages: createRead("messages"),
+        todos: createRead("todos"),
+        statuses: createRead("statuses"),
       },
-      { preconnect: originalFetch.preconnect },
+      controller.signal,
     );
 
     try {
-      globalThis.fetch = fetchMock;
-      const snapshot = readWorkspaceSessionSnapshot(
-        createConfig(workspace),
-        workspace,
-        "session-1",
-        { signal: controller.signal },
-      );
       await Promise.race([
         allStarted,
         Bun.sleep(1_000).then(() => {
-          throw new Error("OpenCode snapshot requests did not all start");
+          throw new Error("Snapshot reads did not all start");
         }),
       ]);
       controller.abort();
@@ -130,21 +125,16 @@ describe("workspace session routes", () => {
       await Promise.race([
         allAborted,
         Bun.sleep(1_000).then(() => {
-          throw new Error("OpenCode snapshot requests did not all abort");
+          throw new Error("Snapshot reads did not all abort");
         }),
       ]);
       await expect(snapshot).rejects.toMatchObject({ name: "AbortError" });
-      expect(requests).toEqual(
-        new Set([
-          "/session/session-1",
-          "/session/session-1/message",
-          "/session/session-1/todo",
-          "/session/status",
-        ]),
-      );
-      expect(aborted).toEqual(requests);
+      expect(started).toEqual(new Set(["session", "messages", "todos", "statuses"]));
+      expect(signals).toEqual([controller.signal, controller.signal, controller.signal, controller.signal]);
+      expect(aborted).toEqual(started);
     } finally {
-      globalThis.fetch = originalFetch;
+      controller.abort();
+      await snapshot.catch(() => undefined);
     }
   });
 });
