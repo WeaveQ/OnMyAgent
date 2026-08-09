@@ -92,11 +92,19 @@ describe("session empty / draft / files / composer contracts", () => {
       "src/react-app/domains/local-agents/agent-management/agent-management-page.tsx",
     );
     expect(page).toContain("const snapshotPending = loading && !snapshot");
-    // First paint: illustrated page loading (not inventory-empty copy).
+    // First paint: card-grid skeleton loading (not inventory-empty copy).
     expect(page).toMatch(
       /\{snapshotPending \? \([\s\S]*?AgentManagementPageLoading[\s\S]*?\) : managedAgents\.length === 0 \?[\s\S]*?agent_manager\.fleet_empty/,
     );
     expect(page).toContain("agent_manager.page_loading");
+    const fleetSkeleton = read(
+      "src/react-app/domains/local-agents/agent-management/agent-management-fleet-skeleton.tsx",
+    );
+    expect(fleetSkeleton).toContain("AgentManagementFleetSkeleton");
+    expect(fleetSkeleton).toContain("AgentManagementCardSkeleton");
+    // No full-page empty-state robot mark on the loading path.
+    expect(fleetSkeleton).not.toContain("AGENT_MANAGEMENT_LOADING_ASSET");
+    expect(fleetSkeleton).not.toContain("EmptyStateIllustration");
     // Discover body is deferred until snapshot is ready (no empty copy while loading).
     expect(page).toMatch(
       /!snapshotPending \? \([\s\S]*?discoverAgents\.length === 0 \?[\s\S]*?agent_manager\.discover_empty/,

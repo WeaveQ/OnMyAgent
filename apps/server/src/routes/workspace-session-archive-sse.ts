@@ -27,6 +27,88 @@ export function sseResponse(events: string[]): Response {
   });
 }
 
+/**
+ * Safe SSE pump helpers. Client disconnect cancels the stream without going
+ * through our close() first — enqueue after that throws ERR_INVALID_STATE and
+ * was taking down the whole desktop process via uncaughtException.
+ */
+function createSsePump(input: {
+  controller: ReadableStreamDefaultController<Uint8Array>;
+  dbPath: string;
+  encoder: TextEncoder;
+  maxEvents: number;
+  signal: AbortSignal;
+}) {
+  let sent = 0;
+  let closed = false;
+  let timer: ReturnType<typeof setInterval> | null = null;
+  let unsubscribe: (() => void) | null = null;
+
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    if (timer) {
+      clearInterval(timer);
+      timer = null;
+    }
+    try {
+      unsubscribe?.();
+    } catch {
+      // ignore unsubscribe races
+    }
+    unsubscribe = null;
+    try {
+      defaultSessionArchiveStorePool.release({ dbPath: input.dbPath });
+    } catch {
+      // ignore pool release races
+    }
+    try {
+      input.controller.close();
+    } catch {
+      // already closed by cancel / peer
+    }
+  };
+
+  const send = (event: string, data: unknown): boolean => {
+    if (closed || input.signal.aborted) {
+      close();
+      return false;
+    }
+    try {
+      input.controller.enqueue(input.encoder.encode(sseEvent(event, data)));
+      sent += 1;
+      return true;
+    } catch {
+      // Controller already closed (client gone) — tear down cleanly.
+      close();
+      return false;
+    }
+  };
+
+  const closeIfDone = (): boolean => {
+    if (input.maxEvents > 0 && sent >= input.maxEvents) {
+      close();
+      return true;
+    }
+    return false;
+  };
+
+  return {
+    close,
+    send,
+    closeIfDone,
+    setTimer: (fn: () => void, ms: number) => {
+      timer = setInterval(fn, ms);
+    },
+    setUnsubscribe: (fn: () => void) => {
+      unsubscribe = fn;
+    },
+    get closed() {
+      return closed;
+    },
+  };
+}
+
 export function persistentSessionArchiveWatchResponse(input: {
   store: SessionArchiveStore;
   dbPath: string;
@@ -38,40 +120,27 @@ export function persistentSessionArchiveWatchResponse(input: {
   signal: AbortSignal;
 }): Response {
   const encoder = new TextEncoder();
-  let sent = 0;
   let lastVersion = archiveSessionWatchVersion(input.session, input.timing);
+  let tearDown: (() => void) | null = null;
+
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
-      let timer: ReturnType<typeof setInterval> | null = null;
-      let closed = false;
-      let unsubscribe: (() => void) | null = null;
-      const send = (event: string, data: unknown) => {
-        if (closed) return;
-        controller.enqueue(encoder.encode(sseEvent(event, data)));
-        sent += 1;
-      };
-      const close = () => {
-        if (closed) return;
-        closed = true;
-        if (timer) clearInterval(timer);
-        unsubscribe?.();
-        defaultSessionArchiveStorePool.release({ dbPath: input.dbPath });
-        controller.close();
-      };
-      const closeIfDone = () => {
-        if (input.maxEvents > 0 && sent >= input.maxEvents) {
-          close();
-          return true;
-        }
-        return false;
-      };
-      send("session.timing", input.timing);
-      send("heartbeat", new Date().toISOString());
-      if (closeIfDone()) return;
+      const pump = createSsePump({
+        controller,
+        dbPath: input.dbPath,
+        encoder,
+        maxEvents: input.maxEvents,
+        signal: input.signal,
+      });
+      tearDown = () => pump.close();
+
+      if (!pump.send("session.timing", input.timing)) return;
+      if (!pump.send("heartbeat", new Date().toISOString())) return;
+      if (pump.closeIfDone()) return;
 
       const pushIfChanged = () => {
-        if (closed || input.signal.aborted) {
-          close();
+        if (pump.closed || input.signal.aborted) {
+          pump.close();
           return;
         }
         const session = input.store.getSession(input.sessionId);
@@ -79,25 +148,32 @@ export function persistentSessionArchiveWatchResponse(input: {
         const version = archiveSessionWatchVersion(session, timing);
         if (session && timing && version !== lastVersion) {
           lastVersion = version;
-          send("session.timing", timing);
-          send("session_updated", { session_id: input.sessionId, session });
-        } else {
-          send("heartbeat", new Date().toISOString());
+          if (!pump.send("session.timing", timing)) return;
+          if (!pump.send("session_updated", { session_id: input.sessionId, session })) return;
+        } else if (!pump.send("heartbeat", new Date().toISOString())) {
+          return;
         }
-        closeIfDone();
+        pump.closeIfDone();
       };
 
       // Change-driven push (sync/notify) + long-interval poll fallback.
       // Store is connection-scoped — never open/close SQLite inside the timer.
-      // Version tokens use archiveSessionWatchVersion (not full-object JSON.stringify).
-      unsubscribe = subscribeArchiveDbChanges(input.dbPath, pushIfChanged);
-      timer = setInterval(pushIfChanged, input.pollMs);
+      pump.setUnsubscribe(subscribeArchiveDbChanges(input.dbPath, pushIfChanged));
+      pump.setTimer(pushIfChanged, input.pollMs);
 
-      input.signal.addEventListener("abort", () => {
-        close();
-      }, { once: true });
+      input.signal.addEventListener(
+        "abort",
+        () => {
+          pump.close();
+        },
+        { once: true },
+      );
+    },
+    cancel() {
+      tearDown?.();
     },
   });
+
   return new Response(stream, {
     status: 200,
     headers: {
@@ -118,61 +194,72 @@ export function persistentSessionArchiveEventsResponse(input: {
   signal: AbortSignal;
 }): Response {
   const encoder = new TextEncoder();
-  let sent = 0;
   let lastVersion = archiveStatsVersion(input.stats);
+  let tearDown: (() => void) | null = null;
+
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
-      let timer: ReturnType<typeof setInterval> | null = null;
-      let closed = false;
-      let unsubscribe: (() => void) | null = null;
-      const send = (event: string, data: unknown) => {
-        if (closed) return;
-        controller.enqueue(encoder.encode(sseEvent(event, data)));
-        sent += 1;
-      };
-      const close = () => {
-        if (closed) return;
-        closed = true;
-        if (timer) clearInterval(timer);
-        unsubscribe?.();
-        defaultSessionArchiveStorePool.release({ dbPath: input.dbPath });
-        controller.close();
-      };
-      const closeIfDone = () => {
-        if (input.maxEvents > 0 && sent >= input.maxEvents) {
-          close();
-          return true;
-        }
-        return false;
-      };
-      send("data_changed", { scope: "session-archive.archive", workspace_id: input.workspaceId, stats: input.stats });
-      send("heartbeat", new Date().toISOString());
-      if (closeIfDone()) return;
+      const pump = createSsePump({
+        controller,
+        dbPath: input.dbPath,
+        encoder,
+        maxEvents: input.maxEvents,
+        signal: input.signal,
+      });
+      tearDown = () => pump.close();
+
+      if (
+        !pump.send("data_changed", {
+          scope: "session-archive.archive",
+          workspace_id: input.workspaceId,
+          stats: input.stats,
+        })
+      ) {
+        return;
+      }
+      if (!pump.send("heartbeat", new Date().toISOString())) return;
+      if (pump.closeIfDone()) return;
 
       const pushIfChanged = () => {
-        if (closed || input.signal.aborted) {
-          close();
+        if (pump.closed || input.signal.aborted) {
+          pump.close();
           return;
         }
         const stats = input.store.stats();
         const version = archiveStatsVersion(stats);
         if (version !== lastVersion) {
           lastVersion = version;
-          send("data_changed", { scope: "session-archive.archive", workspace_id: input.workspaceId, stats });
-        } else {
-          send("heartbeat", new Date().toISOString());
+          if (
+            !pump.send("data_changed", {
+              scope: "session-archive.archive",
+              workspace_id: input.workspaceId,
+              stats,
+            })
+          ) {
+            return;
+          }
+        } else if (!pump.send("heartbeat", new Date().toISOString())) {
+          return;
         }
-        closeIfDone();
+        pump.closeIfDone();
       };
 
-      unsubscribe = subscribeArchiveDbChanges(input.dbPath, pushIfChanged);
-      timer = setInterval(pushIfChanged, input.pollMs);
+      pump.setUnsubscribe(subscribeArchiveDbChanges(input.dbPath, pushIfChanged));
+      pump.setTimer(pushIfChanged, input.pollMs);
 
-      input.signal.addEventListener("abort", () => {
-        close();
-      }, { once: true });
+      input.signal.addEventListener(
+        "abort",
+        () => {
+          pump.close();
+        },
+        { once: true },
+      );
+    },
+    cancel() {
+      tearDown?.();
     },
   });
+
   return new Response(stream, {
     status: 200,
     headers: {
