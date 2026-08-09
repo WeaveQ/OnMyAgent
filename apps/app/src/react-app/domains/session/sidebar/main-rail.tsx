@@ -97,9 +97,9 @@ function RailBrandMark(props: { onClick: () => void }) {
       className={cn(
         // 44px tile / 24px mark — 2px under prior 46 / 26.
         "flex size-[44px] shrink-0 items-center justify-center rounded-2xl shadow-sm",
-        // Light: black tile; dark: white tile so the blue mark stays readable.
+        // Both themes: near-black tile + blue mark (readable without a pure-white flash on dark rails).
         "bg-black ring-1 ring-black/20 hover:bg-neutral-900",
-        "dark:bg-white dark:ring-white/30 dark:hover:bg-neutral-100",
+        "dark:bg-neutral-950 dark:ring-white/12 dark:hover:bg-neutral-900",
         "transition-colors focus-visible:outline-none",
         "focus-visible:ring-3 focus-visible:ring-ring/30",
       )}
