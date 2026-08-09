@@ -33,6 +33,8 @@ export default {
   "session.search_experts_placeholder": "搜索专家职称或描述",
   "session.search_tasks_placeholder": "搜索任务标题",
   "session.create_expert": "创建专家",
+  "session.add_expert_from_market": "市场添加",
+  "session.create_expert_yourself": "自行创建",
   "session.create_expert_prompt": "/expert-manager 帮我创建一个 XXX 专家，擅长 XXXXX。我的经验是：[请补充你的行业背景、相关经验]",
   "session.create_skill_prompt": "请帮我创建一个可以实现 <描述你的需求> 的 skill",
   "session.chat_with_skill_prompt": "/{name} ",

@@ -36,6 +36,8 @@ export default {
   "session.search_experts_placeholder": "Search expert title or description",
   "session.search_tasks_placeholder": "Search task title",
   "session.create_expert": "Create expert",
+  "session.add_expert_from_market": "Add from market",
+  "session.create_expert_yourself": "Create yourself",
   "session.create_expert_prompt": "/expert-manager Help me create a XXX expert skilled in XXXXX. My experience: [add your industry background and relevant experience]",
   "session.create_skill_prompt": "Please help me create a skill that can <describe your need>",
   "session.chat_with_skill_prompt": "/{name} ",
