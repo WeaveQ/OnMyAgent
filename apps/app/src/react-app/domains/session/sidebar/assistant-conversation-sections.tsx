@@ -87,7 +87,7 @@ function IconHoverTip(props: {
 
 type SectionId = "pinned" | "recent" | "spaces" | "automations";
 /** Recent list preview before "show more". */
-const RECENT_PREVIEW_LIMIT = 12;
+const RECENT_PREVIEW_LIMIT = 10;
 /** Per space/automation folder: show "show more" when children exceed this. */
 const FOLDER_TASK_PREVIEW_LIMIT = 5;
 
