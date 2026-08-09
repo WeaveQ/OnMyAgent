@@ -48,7 +48,7 @@ import { cleanupRegisteredAgentProcesses, getAgentProcess, listAgentProcesses, r
 import { createCustomAgent, deleteCustomAgent, getAgentOverrides, listCustomAgents, setAgentOverrides, updateCustomAgent } from "./custom-agent-store.mjs";
 import { personalAgentCapability, personalLocalAgentConnectionMode } from "./provider-registry.mjs";
 import { adapterToCustomAgent, loadExtensions, setExtensionEnabled } from "./extension-registry.mjs";
-import { buildErrorTip, classifyErrorInfo } from "./error-diagnostics.mjs";
+import { buildErrorTip, buildProviderContextResetEvents, classifyErrorInfo } from "./error-diagnostics.mjs";
 import { getStoredApprovalDecision, listRememberedApprovalDecisions, rememberApprovalDecision } from "./approval-store.mjs";
 import { buildMcpStatus, buildPermissionStatus, buildSkillStatus } from "./host-status.mjs";
 import { readNativeMcpConfig, resolveNativeSkillRoots } from "./host-status-sources.mjs";
@@ -88,6 +88,7 @@ const runSnapshotDeps = {
   visibleArtifacts,
   runEventsToConversationMessages,
 };
+
 export function createPersonalAgentRuntime(options) {
   configurePersonalAgentRuntimeState(options ?? {});
   // Capture the reconcile cutoff at runtime start so orphaned "running" logs
@@ -553,10 +554,7 @@ export function createPersonalAgentRuntime(options) {
             ].filter(Boolean).join("\n");
           }
           if (error?.code === "acp_bridge_interrupted" && detected.provider === "codex") {
-            appendContractEvent(events, {
-              type: "status",
-              text: "Codex ACP bridge interrupted; retrying once with a clean session.",
-            });
+            for (const event of buildProviderContextResetEvents(detected.provider, "Codex ACP bridge interrupted; retrying once with a clean session.")) appendContractEvent(events, event);
             await resetConversationPointer(workspaceRoot, detected.provider, detected.id, conversation.id);
             await clearSession(workspaceRoot, detected.provider, detected.id).catch(() => undefined);
             sendContext = {
@@ -573,10 +571,7 @@ export function createPersonalAgentRuntime(options) {
               throw retryError;
             }
           } else if (isStaleNativeSessionError(detected.provider, error) && (sendContext.resumeKey || sendContext.providerSessionId)) {
-            appendContractEvent(events, {
-              type: "status",
-              text: staleNativeSessionResetMessage(detected.provider),
-            });
+            for (const event of buildProviderContextResetEvents(detected.provider, staleNativeSessionResetMessage(detected.provider))) appendContractEvent(events, event);
             await resetConversationPointer(workspaceRoot, detected.provider, detected.id, conversation.id);
             await clearSession(workspaceRoot, detected.provider, detected.id).catch(() => undefined);
             sendContext = {

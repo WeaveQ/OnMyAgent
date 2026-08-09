@@ -5,7 +5,9 @@ let sessionCounter = 0;
 const noSetModel = process.argv.includes("--no-set-model");
 const failToolAfterAssistant = process.argv.includes("--fail-tool-after-assistant");
 const truncatedReply = process.argv.includes("--truncated-reply");
+const emptyReply = process.argv.includes("--empty-reply");
 const maxTokensStop = process.argv.includes("--max-tokens-stop");
+const contextLengthStop = process.argv.includes("--context-length-stop");
 const continuationCompletes = process.argv.includes("--continuation-completes");
 const authRequired = process.argv.includes("--auth-required");
 const emitThoughtStream = process.argv.includes("--emit-thought-stream");
@@ -52,7 +54,9 @@ function handleRequest(message) {
     const sessionId = params?.sessionId || "unknown";
     const promptText = Array.isArray(params?.prompt) && params.prompt[0]?.text ? params.prompt[0].text : "unknown";
     const isContinuation = /previous response appears incomplete|continue exactly from where it stopped/i.test(promptText);
-    let response = continuationCompletes && isContinuation
+    let response = emptyReply
+      ? ""
+      : continuationCompletes && isContinuation
       ? "，后续补齐内容，形成完整结论。"
       : truncatedReply
         ? "**3. AI 对就业影响成为主流议题**"
@@ -94,7 +98,11 @@ function handleRequest(message) {
         },
       });
     }
-    const stopReason = maxTokensStop && (!continuationCompletes || promptCounter === 1) ? "max_tokens" : "end_turn";
+    const stopReason = contextLengthStop
+      ? "context_length"
+      : maxTokensStop && (!continuationCompletes || promptCounter === 1)
+        ? "max_tokens"
+        : "end_turn";
     sendResponse(id, { stopReason, usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 } });
     return;
   }

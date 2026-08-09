@@ -11,6 +11,8 @@ import {
   type ContextUsageBucketId,
   type ContextUsageSnapshot,
   bucketPercentOfTotal,
+  contextUsageExceedsKnownLimit,
+  contextUsageHasKnownLimit,
   contextUsagePercent,
   formatCompactTokens,
   formatExactTokens,
@@ -99,12 +101,15 @@ export function ContextUsageIndicator(props: {
   if (!usage) return null;
   const size = props.size ?? 22;
   const percent = contextUsagePercent(usage.used, usage.total);
+  const hasKnownLimit = contextUsageHasKnownLimit(usage);
+  const displayPercent = hasKnownLimit ? percent : 0;
   const stroke = 2.5;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
-  const dashOffset = circumference - (percent / 100) * circumference;
-  const isDanger = percent >= CONTEXT_USAGE_DANGER_PERCENT;
-  const isWarn = percent >= CONTEXT_USAGE_WARN_PERCENT;
+  const dashOffset = circumference - (displayPercent / 100) * circumference;
+  const hasUnknownLimit = !hasKnownLimit;
+  const isDanger = hasKnownLimit && percent >= CONTEXT_USAGE_DANGER_PERCENT;
+  const isWarn = hasKnownLimit && percent >= CONTEXT_USAGE_WARN_PERCENT;
   const ringClass = isDanger
     ? "text-dls-danger"
     : isWarn
@@ -115,14 +120,18 @@ export function ContextUsageIndicator(props: {
     : isWarn
       ? "bg-dls-warning"
       : "bg-dls-accent";
-  const title = t("local_agent.context_usage_tooltip", {
-    used: formatCompactTokens(usage.used),
-    total: formatCompactTokens(usage.total),
-    percent: percent.toFixed(1),
-  });
+  const title = hasUnknownLimit
+    ? `${t("local_agent.context_usage_used_unknown", { used: formatCompactTokens(usage.used) })} · ${t("local_agent.context_usage_limit_unknown")}`
+    : t("local_agent.context_usage_tooltip", {
+        used: formatCompactTokens(usage.used),
+        total: formatCompactTokens(usage.total),
+        percent: percent.toFixed(1),
+      });
   const remaining = Math.max(0, usage.total - usage.used);
+  const isOverLimit = contextUsageExceedsKnownLimit(usage);
   const breakdown = usage.breakdown;
   const hasBreakdown = Boolean(breakdown && breakdown.length > 0);
+  const showBreakdown = hasBreakdown && hasKnownLimit;
 
   return (
     <Popover>
@@ -137,7 +146,8 @@ export function ContextUsageIndicator(props: {
             title={title}
             aria-label={title}
             data-testid="local-agent-context-usage"
-            data-percent={percent.toFixed(1)}
+            data-percent={hasUnknownLimit ? "unknown" : percent.toFixed(1)}
+            data-limit-known={String(hasKnownLimit)}
           >
             <svg
               width={size}
@@ -186,24 +196,37 @@ export function ContextUsageIndicator(props: {
         <div className="space-y-1.5">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <span className={cn("text-xl font-semibold tabular-nums", ringClass)}>
-              {percent.toFixed(1)}%
+              {hasUnknownLimit ? "—" : `${percent.toFixed(1)}%`}
             </span>
             <span className="text-xs text-dls-secondary">
-              {t("local_agent.context_usage_used_of", {
-                used: formatCompactTokens(usage.used),
-                total: formatCompactTokens(usage.total),
-              })}
+              {hasUnknownLimit
+                ? t("local_agent.context_usage_used_unknown", { used: formatCompactTokens(usage.used) })
+                : t("local_agent.context_usage_used_of", {
+                    used: formatCompactTokens(usage.used),
+                    total: formatCompactTokens(usage.total),
+                  })}
             </span>
           </div>
-          <SegmentedUsageBar
-            used={usage.used}
-            total={usage.total}
-            breakdown={breakdown}
-            toneClass={barToneClass}
-          />
+          {hasUnknownLimit ? (
+            <div className="text-xs leading-4 text-dls-secondary" data-testid="local-agent-context-usage-limit-unknown">
+              {t("local_agent.context_usage_limit_unknown")}
+            </div>
+          ) : (
+            <SegmentedUsageBar
+              used={usage.used}
+              total={usage.total}
+              breakdown={breakdown}
+              toneClass={barToneClass}
+            />
+          )}
+          {isOverLimit ? (
+            <div className="text-xs leading-4 text-dls-status-danger-fg" data-testid="local-agent-context-usage-exceeded">
+              {t("local_agent.context_usage_exceeded")}
+            </div>
+          ) : null}
         </div>
 
-        {hasBreakdown ? (
+        {showBreakdown ? (
           <ul className="flex flex-col gap-1.5" data-testid="context-usage-breakdown">
             {CONTEXT_USAGE_BUCKET_ORDER.map((id) => {
               const item = breakdown!.find((b) => b.id === id);
@@ -231,7 +254,7 @@ export function ContextUsageIndicator(props: {
               );
             })}
           </ul>
-        ) : (
+        ) : hasUnknownLimit ? null : (
           <div className="flex items-center justify-between text-xs text-dls-secondary">
             <span>
               {t("local_agent.context_usage_remaining", {
@@ -244,7 +267,7 @@ export function ContextUsageIndicator(props: {
           </div>
         )}
 
-        {hasBreakdown ? (
+        {showBreakdown ? (
           <div className="text-2xs text-dls-secondary">
             {t("local_agent.context_usage_remaining", {
               remaining: formatExactTokens(remaining),

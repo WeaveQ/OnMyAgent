@@ -182,9 +182,8 @@ export function toContextUsageSnapshot(
   if (!Number.isFinite(usage.used) || !Number.isFinite(usage.total) || usage.total <= 0) {
     return null;
   }
-  let total = Math.round(usage.total);
+  const total = Math.round(usage.total);
   const used = Math.round(usage.used);
-  if (used > total) total = used;
   const breakdown = Array.isArray(usage.breakdown)
     ? usage.breakdown
         .map((item) => {
@@ -205,6 +204,18 @@ export function toContextUsageSnapshot(
     breakdownSource: asUsageSource(usage.breakdownSource),
     modelId: usage.modelId ?? null,
   };
+}
+
+export function contextUsageHasKnownLimit(usage: ContextUsageSnapshot): boolean {
+  return (
+    usage.totalSource === "runtime"
+    || usage.totalSource === "catalog"
+    || usage.totalSource === "table"
+  );
+}
+
+export function contextUsageExceedsKnownLimit(usage: ContextUsageSnapshot): boolean {
+  return contextUsageHasKnownLimit(usage) && usage.used > usage.total;
 }
 
 export function formatCompactTokens(value: number): string {

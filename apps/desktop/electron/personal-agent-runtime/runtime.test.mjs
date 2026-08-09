@@ -85,7 +85,16 @@ async function withTinyWebSocketServer(handler) {
       const message = JSON.parse(text);
       const result = handler(message);
       const response = Buffer.from(JSON.stringify({ jsonrpc: "2.0", id: message.id, result }), "utf8");
-      socket.write(Buffer.concat([Buffer.from([0x81, response.length]), response]));
+      const header = response.length < 126
+        ? Buffer.from([0x81, response.length])
+        : (() => {
+            const extended = Buffer.alloc(4);
+            extended[0] = 0x81;
+            extended[1] = 126;
+            extended.writeUInt16BE(response.length, 2);
+            return extended;
+          })();
+      socket.write(Buffer.concat([header, response]));
     });
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
@@ -813,6 +822,21 @@ describe("personal agent normalized conversation message stream", () => {
     assert.deepEqual(messages, []);
   });
 
+  it("preserves assistant chunk boundary spaces through contract normalization", () => {
+    const events = [];
+    appendContractEvent(events, { type: "assistant_chunk", text: "Hello" });
+    appendContractEvent(events, { type: "assistant_chunk", text: " " });
+    appendContractEvent(events, { type: "assistant_chunk", text: "world" });
+    assert.deepEqual(events.map((event) => event.text), ["Hello", " ", "world"]);
+    const messages = runEventsToConversationMessages(events);
+    assert.equal(messages.find((message) => message.role === "assistant")?.text, "Hello world");
+
+    const logEvents = [];
+    appendContractEvent(logEvents, { type: "log", text: "assistant_chunk> Hello " });
+    appendContractEvent(logEvents, { type: "log", text: "assistant_chunk> world" });
+    assert.equal(runEventsToConversationMessages(logEvents).find((message) => message.role === "assistant")?.text, "Hello world");
+  });
+
   it("preserves boundary status and tool completion semantics", () => {
     const messages = runEventsToConversationMessages([
       { type: "log", text: "assistant_chunk> partial", at: 1 },
@@ -916,6 +940,45 @@ describe("personal agent normalized conversation message stream", () => {
     assert.equal(messages[3].resolution.kind, "retry");
   });
 
+  it("coalesces ACP tool start and completion by toolCallId without msgId", () => {
+    const messages = runEventsToConversationMessages([
+      {
+        type: "acp_tool_call",
+        at: 1,
+        text: "PowerShell",
+        update: {
+          tool_call_id: "tool-win-1",
+          title: "PowerShell",
+          kind: "execute",
+          status: "in_progress",
+          raw_input: { command: "Get-ChildItem" },
+        },
+      },
+      {
+        type: "acp_tool_call",
+        at: 2,
+        update: {
+          tool_call_id: "tool-win-1",
+          title: "",
+          kind: "",
+          raw_input: {},
+          status: "completed",
+          rawOutput: "one\r\ntwo",
+        },
+      },
+    ]);
+
+    assert.equal(messages.length, 1);
+    assert.equal(messages[0].type, "tool_group");
+    assert.equal(messages[0].id, "tool-group-tool-win-1");
+    assert.equal(messages[0].toolCalls.length, 1);
+    assert.equal(messages[0].toolCalls[0].id, "acp-tool-tool-win-1");
+    assert.equal(messages[0].toolCalls[0].status, "completed");
+    assert.equal(messages[0].toolCalls[0].update.title, "PowerShell");
+    assert.equal(messages[0].toolCalls[0].update.raw_input.command, "Get-ChildItem");
+    assert.equal(messages[0].toolCalls[0].update.rawOutput, "one\r\ntwo");
+  });
+
   it("maps ACP context usage updates into structured conversation messages", () => {
     const messages = runEventsToConversationMessages([
       { type: "status", text: 'acp_context_usage> {"used":10,"total":100}', at: 1 },
@@ -951,6 +1014,21 @@ describe("personal agent normalized conversation message stream", () => {
     assert.equal(sonnet.total, 1_000_000);
     assert.equal(sonnet.totalSource, "table");
 
+    const sonnetBelowLimit = normalizeContextUsagePayload({ used: 220_000 }, "claude-sonnet-4.5");
+    assert.equal(sonnetBelowLimit.total, 1_000_000);
+    assert.equal(sonnetBelowLimit.totalSource, "table");
+
+    const unknownModel = normalizeContextUsagePayload({ used: 220_000 }, "custom-unknown-model");
+    assert.equal(unknownModel.total, 200_000);
+    assert.equal(unknownModel.totalSource, "default");
+
+    const fuzzyO3 = normalizeContextUsagePayload({ used: 210_000 }, "openai/o3[medium]");
+    assert.equal(fuzzyO3.total, 200_000);
+    assert.equal(fuzzyO3.totalSource, "table");
+    const fuzzyClaude = normalizeContextUsagePayload({ used: 210_000 }, "anthropic/claude-opus-4");
+    assert.equal(fuzzyClaude.total, 200_000);
+    assert.equal(fuzzyClaude.totalSource, "table");
+
     const codex = normalizeContextUsagePayload({ total_tokens: 42, label: "codex" }, "gpt-5");
     assert.equal(codex.used, 42);
     assert.equal(codex.total, 400_000);
@@ -980,6 +1058,10 @@ describe("personal agent normalized conversation message stream", () => {
       { id: "messages", tokens: 50 },
     ]);
     assert.equal(withBreakdown.breakdownSource, "runtime");
+
+    const overLimit = normalizeContextUsagePayload({ used: 220_000, total: 200_000 }, null);
+    assert.equal(overLimit.used, 220_000);
+    assert.equal(overLimit.total, 200_000);
 
     assert.equal(normalizeContextUsagePayload(null, null), null);
     assert.equal(normalizeContextUsagePayload({}, null), null);
@@ -3245,6 +3327,90 @@ describe("personal agent runtime timeout & artifacts", () => {
     assert.match(result.message, /stopReason=max_tokens/);
   });
 
+  it("only resumes provider context when the conversation has an explicit session pointer", () => {
+    for (const provider of ["codex", "claude", "opencode", "openclaw", "custom"]) {
+      assert.equal(acpGenericTest.shouldResumeProviderSession(provider, {}, { sessionId: "agent-stale" }), false);
+      assert.equal(acpGenericTest.shouldResumeProviderSession(provider, { resumeKey: "conversation-session" }, { sessionId: "agent-stale" }), true);
+      assert.equal(acpGenericTest.shouldResumeProviderSession(provider, { resumeKey: "conversation-session" }, { sessionId: "agent-stale", health: "unhealthy" }), true);
+      assert.equal(acpGenericTest.shouldResumeProviderSession(provider, { resumeKey: "conversation-session" }, { sessionId: "conversation-session", health: "unhealthy" }), false);
+    }
+    assert.equal(acpGenericTest.shouldResumeProviderSession("hermes", { resumeKey: "conversation-session" }, { sessionId: "agent-stale" }), false);
+  });
+
+  it("warns when an explicit ACP session cannot resume and a clean session is created", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const fixture = path.join(path.dirname(new URL(import.meta.url).pathname), "fixtures", "fake-acp-cli.mjs");
+      const events = [];
+      const adapter = acpGenericTest.createGenericAcpAdapterForTest({
+        appendEvent: (event) => events.push(event),
+        registerCancel: () => undefined,
+      });
+      const result = await adapter.sendMessage({
+        workspaceRoot,
+        prompt: "resume-fallback",
+        resumeKey: "missing-provider-session",
+        approvalMode: "ask",
+        agent: {
+          id: "custom-resume-test",
+          name: "Custom resume test",
+          provider: "custom",
+          executablePath: process.execPath,
+          customArgs: [fixture],
+        },
+      });
+      assert.equal(result.output, "Fake response to: resume-fallback");
+      assert.equal(
+        events.some((event) => event.type === "tips"
+          && event.category === "warning"
+          && /earlier conversation context was not replayed/.test(String(event.text ?? ""))),
+        true,
+      );
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("warns when an explicit unhealthy ACP session is quarantined before resume", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const fixture = path.join(path.dirname(new URL(import.meta.url).pathname), "fixtures", "fake-acp-cli.mjs");
+      const agentId = "custom-quarantined-resume-test";
+      await writeSession(workspaceRoot, "custom", agentId, {
+        sessionId: "quarantined-session",
+        health: "unhealthy",
+      });
+      const events = [];
+      const adapter = acpGenericTest.createGenericAcpAdapterForTest({
+        appendEvent: (event) => events.push(event),
+        registerCancel: () => undefined,
+      });
+      const result = await adapter.sendMessage({
+        workspaceRoot,
+        prompt: "quarantined-resume-fallback",
+        resumeKey: "quarantined-session",
+        approvalMode: "ask",
+        agent: {
+          id: agentId,
+          name: "Custom quarantined resume test",
+          provider: "custom",
+          executablePath: process.execPath,
+          customArgs: [fixture],
+        },
+      });
+      assert.equal(result.output, "Fake response to: quarantined-resume-fallback");
+      assert.notEqual(result.providerSessionId, "quarantined-session");
+      assert.equal(
+        events.some((event) => event.type === "tips"
+          && event.category === "warning"
+          && /earlier conversation context was not replayed/.test(String(event.text ?? ""))),
+        true,
+      );
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
   it("does not guess truncation from Markdown shape when the ACP stop reason is clean", () => {
     // A clean stopReason means
     // complete, even if the assistant text ends on a bold heading.
@@ -3283,6 +3449,62 @@ describe("personal agent runtime timeout & artifacts", () => {
       assert.equal(events.filter((event) => event.type === "assistant_chunk").length, 2);
       assert.equal(events.some((event) => event.type === "status" && /requesting continuation/.test(String(event.text ?? ""))), false);
       assert.equal(events.some((event) => event.type === "status" && /did not finish cleanly/.test(String(event.text ?? ""))), true);
+      assert.equal(events.some((event) => event.type === "tips" && event.category === "warning" && /did not finish cleanly/.test(String(event.text ?? ""))), true);
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("classifies an empty context-limited ACP turn as context overflow", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const fixture = path.join(path.dirname(new URL(import.meta.url).pathname), "fixtures", "fake-acp-cli.mjs");
+      const adapter = acpGenericTest.createGenericAcpAdapterForTest({
+        appendEvent: () => undefined,
+        registerCancel: () => undefined,
+      });
+      await assert.rejects(
+        adapter.sendMessage({
+          workspaceRoot,
+          prompt: "overflow",
+          model: "gpt-test[medium]",
+          approvalMode: "ask",
+          agent: {
+            id: "codex",
+            name: "Codex",
+            provider: "codex",
+            executablePath: process.execPath,
+            customArgs: [fixture, "--empty-reply", "--context-length-stop"],
+            managedAcpTool: { id: "codex-acp-test" },
+          },
+        }),
+        (error) => {
+          assert.equal(error.code, "context_window_exceeded");
+          assert.match(error.message, /stopReason=context_length/);
+          return true;
+        },
+      );
+      await assert.rejects(
+        adapter.sendMessage({
+          workspaceRoot,
+          prompt: "token-limit",
+          model: "gpt-test[medium]",
+          approvalMode: "ask",
+          agent: {
+            id: "codex",
+            name: "Codex",
+            provider: "codex",
+            executablePath: process.execPath,
+            customArgs: [fixture, "--empty-reply", "--max-tokens-stop"],
+            managedAcpTool: { id: "codex-acp-test" },
+          },
+        }),
+        (error) => {
+          assert.equal(error.code, "acp_incomplete_output");
+          assert.match(error.message, /stopReason=max_tokens/);
+          return true;
+        },
+      );
     } finally {
       await cleanup(workspaceRoot);
     }
@@ -3293,7 +3515,7 @@ describe("personal agent runtime timeout & artifacts", () => {
     try {
       assert.equal(acpGenericTest.shouldResumeProviderSession("codex", {}, { sessionId: "stored" }), false);
       assert.equal(acpGenericTest.shouldResumeProviderSession("codex", { resumeKey: "chosen" }, { sessionId: "stored" }), true);
-      assert.equal(acpGenericTest.shouldResumeProviderSession("codex", { resumeKey: "chosen" }, { sessionId: "stored", health: "unhealthy" }), false);
+      assert.equal(acpGenericTest.shouldResumeProviderSession("codex", { resumeKey: "chosen" }, { sessionId: "chosen", health: "unhealthy" }), false);
       const runtime = createPersonalAgentRuntime({
         legacy: makeFakeLegacy("codex"),
         adapters: {
@@ -3356,6 +3578,14 @@ describe("personal agent runtime timeout & artifacts", () => {
       assert.equal(calls, 2);
       assert.deepEqual(seenSessionIds, [null, null]);
       assert.equal(final.events.some((event) => /retrying once with a clean session/.test(String(event.text ?? ""))), true);
+      assert.equal(
+        final.events.some(
+          (event) => event.type === "tips"
+            && event.category === "warning"
+            && /context was not replayed/.test(String(event.text ?? "")),
+        ),
+        true,
+      );
     } finally {
       await cleanup(workspaceRoot);
     }
@@ -3367,6 +3597,7 @@ describe("personal agent runtime timeout & artifacts", () => {
     assert.equal(runtime.classifyErrorForTest(new Error("codex ACP set_mode failed: modeId invalid")).code, "codex_acp_mode_failed");
     assert.equal(runtime.classifyErrorForTest(new Error("acp_bridge_interrupted_after_retry")).code, "acp_bridge_interrupted_after_retry");
     assert.equal(runtime.classifyErrorForTest(new Error("curl: (6) Could not resolve host: example.com")).code, "sandbox_or_network_refusal");
+    assert.equal(runtime.classifyErrorForTest(new Error("session/prompt: maximum context length exceeded")).code, "context_window_exceeded");
   });
 
   it("classifies send failures with ownership and resolution diagnostics", () => {
@@ -3423,6 +3654,86 @@ describe("personal agent runtime timeout & artifacts", () => {
     }
   });
 
+  it("preserves remote ACP partial output and exposes an incomplete warning", async () => {
+    const workspaceRoot = await tempWorkspace();
+    const server = await withTinyWebSocketServer((message) => {
+      if (message.method === "initialize") return { capabilities: { remote: true } };
+      if (message.method === "session/new") return { sessionId: "remote-context-session" };
+      if (message.method === "session/prompt") {
+        return {
+          sessionId: "remote-context-session",
+          output: "partial answer",
+          stopReason: "context_length",
+        };
+      }
+      return {};
+    });
+    try {
+      const runtime = createPersonalAgentRuntime({ legacy: makeFakeLegacy("remote") });
+      const started = await runtime.startMessage({
+        workspaceRoot,
+        prompt: "continue",
+        agent: { provider: "remote", remote: { url: server.url } },
+      });
+      const final = await waitForRun(runtime, started.runId);
+      assert.equal(final.status, "completed");
+      assert.equal(final.output, "partial answer");
+      assert.equal(final.metadata?.stopReason, "context_length");
+      assert.equal(final.metadata?.truncated, true);
+      assert.equal(
+        final.conversationMessages.some(
+          (message) => message.type === "tips"
+            && message.category === "warning"
+            && /stopReason=context_length/.test(message.text),
+        ),
+        true,
+      );
+      assert.equal(
+        final.conversationMessages.some(
+          (message) => message.type === "finish" && message.truncated === true,
+        ),
+        true,
+      );
+    } finally {
+      await server.close();
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("fails an empty remote ACP context-limited turn with context guidance", async () => {
+    const workspaceRoot = await tempWorkspace();
+    const server = await withTinyWebSocketServer((message) => {
+      if (message.method === "initialize") return { capabilities: { remote: true } };
+      if (message.method === "session/new") return { sessionId: "remote-empty-session" };
+      if (message.method === "session/prompt") {
+        return { sessionId: "remote-empty-session", output: "", stopReason: "context_length" };
+      }
+      return {};
+    });
+    try {
+      const runtime = createPersonalAgentRuntime({ legacy: makeFakeLegacy("remote") });
+      const started = await runtime.startMessage({
+        workspaceRoot,
+        prompt: "overflow",
+        agent: { provider: "remote", remote: { url: server.url } },
+      });
+      const final = await waitForRun(runtime, started.runId);
+      assert.equal(final.status, "failed");
+      assert.equal(final.errorInfo?.code, "context_window_exceeded");
+      assert.equal(
+        final.conversationMessages.some(
+          (message) => message.type === "tips"
+            && message.category === "error"
+            && message.resolution === null,
+        ),
+        true,
+      );
+    } finally {
+      await server.close();
+      await cleanup(workspaceRoot);
+    }
+  });
+
   it("checks provider health and managed agent health by id", async () => {
     const workspaceRoot = await tempWorkspace();
     try {
@@ -3471,6 +3782,7 @@ describe("personal agent runtime timeout & artifacts", () => {
                   tool_call_id: "tool-large-output",
                   status: "in_progress",
                   title: "Bash",
+                  rawOutput: { formatted_output: "z".repeat(12_000), exit_code: 0 },
                   _meta: { terminal_output_delta: { data: "y".repeat(12_000), terminal_id: "tool-large-output" } },
                 },
               });
@@ -3487,6 +3799,8 @@ describe("personal agent runtime timeout & artifacts", () => {
       assert.ok(event.text.length < 4_100);
       assert.equal(event.update._meta.terminal_output_delta.truncated, true);
       assert.ok(event.update._meta.terminal_output_delta.data.length < 4_100);
+      assert.equal(event.update.outputTruncated, true);
+      assert.ok(event.update.rawOutput.formatted_output.length < 4_100);
     } finally {
       await cleanup(workspaceRoot);
     }
