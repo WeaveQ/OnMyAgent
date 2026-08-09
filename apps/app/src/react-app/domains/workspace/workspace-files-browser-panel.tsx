@@ -1082,7 +1082,7 @@ export function WorkspaceFilesBrowserPanel(props: {
 
   // Title/subtitle left · tools right (task + expert share this panel).
   return (
-    <div className="flex h-full min-h-0 w-full flex-col px-6 pb-10 pt-5">
+    <div className="flex h-full min-h-0 w-full flex-col px-6 pb-10 pt-4">
           <div className="mb-3 flex w-full min-w-0 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-3">
             <div className="min-w-0 flex-1 text-left">
               <div className="flex min-w-0 items-center gap-1">
