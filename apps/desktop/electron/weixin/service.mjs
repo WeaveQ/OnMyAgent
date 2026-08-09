@@ -6,7 +6,7 @@ import { createIlinkClient, ILINK_BASE_URL, LONG_POLL_TIMEOUT_MS, TYPING_START, 
 import { createQrSvgDataUrl, getChannelRunSnapshotState } from "./local-qr.mjs";
 import { downloadAndDecryptMedia, mediaReference, mediaUrlFromReference } from "./media.mjs";
 import { createWeixinActiveRunPolling } from "./active-run-polling.mjs";
-import { deliverOutboundFiles } from "./outbound-files.mjs";
+import { createStoppedWeixinDeliveryError, deliverOutboundFiles } from "./outbound-files.mjs";
 import { createWeixinStore, sanitizeAccount } from "./store.mjs";
 import { normalizePersonalLocalAgent } from "../personal-agent-runtime/provider-registry.mjs";
 import {
@@ -442,15 +442,17 @@ export function createWeixinService(options = {}) {
       throw new Error("personal agent runtime is unavailable");
     }
     await maybeSendTyping(session, event.chatId, TYPING_START);
+    if (session.controller.signal.aborted) return null;
     try {
       const agent = event.agentSnapshot ?? await currentAgentForChat(session, event.chatId);
       if (agent.provider === ONMYAGENT_ASSISTANT_PROVIDER) {
+        if (session.controller.signal.aborted) return null;
         return await runWeixinAssistantBridgeTurn(session, event);
       }
       const promptMode = await currentPromptModeForChat(session, event.chatId);
-      const historyKey = chatAgentHistoryKey(event.chatId, agent);
-      const runKey = activeRunKey(event.chatId, agent);
+      const historyKey = chatAgentHistoryKey(event.chatId, agent), runKey = activeRunKey(event.chatId, agent);
       const existingRun = await readActiveRunSafely(session.account.accountId, runKey);
+      if (session.controller.signal.aborted) return null;
       if (existingRun) {
         // Nudge the poller and rate-limit the busy notice for this chat+agent.
         if (existingRun.runId) scheduleActiveRunPoll(session, existingRun, 0);
@@ -490,6 +492,7 @@ export function createWeixinService(options = {}) {
         const prompt = buildPrompt(event, { mode: promptMode, history, agent });
         if (typeof runtime.startMessage !== "function" || typeof runtime.getRun !== "function") {
           const legacyModel = await validatedModelForAgent(session, event.chatId, agent, { store, appendLog });
+          if (session.controller.signal.aborted) return null;
           const result = await runAgentTurn(runtime, {
             workspaceRoot: session.options.workspaceRoot,
             accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
@@ -506,6 +509,7 @@ export function createWeixinService(options = {}) {
           return result;
         }
         const chatModel = await validatedModelForAgent(session, event.chatId, agent, { store, appendLog });
+        if (session.controller.signal.aborted) return null;
         const started = await runtime.startMessage({
           workspaceRoot: session.options.workspaceRoot,
           accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
@@ -588,30 +592,26 @@ export function createWeixinService(options = {}) {
       { role: "assistant", text: output, at: Date.now(), agentId: agent.id, agentProvider: agent.provider },
     ], limit).catch(() => undefined);
   }
-
-  async function sendText(session, chatId, text, peerId = chatId) {
+  async function sendText(session, chatId, text, peerId = chatId, beforeFirstTransport = null) {
     const contextToken = await store.readContextToken(session.account.accountId, peerId || chatId);
     const chunks = splitTextForWeixin(text);
-    let lastResponse = null;
+    let lastResponse = null, attemptedTransports = 0;
     for (let index = 0; index < chunks.length; index += 1) {
-      if (session.controller.signal.aborted) throw new Error("Weixin channel stopped during delivery");
+      if (session.controller.signal.aborted) throw createStoppedWeixinDeliveryError(attemptedTransports);
+      if (attemptedTransports === 0 && beforeFirstTransport) { await beforeFirstTransport(); if (session.controller.signal.aborted) throw createStoppedWeixinDeliveryError(attemptedTransports); }
+      attemptedTransports += 1;
       lastResponse = await client.sendMessage({
-        baseUrl: session.account.baseUrl,
-        token: session.account.token,
-        to: chatId,
-        text: chunks[index],
-        contextToken,
-        clientId: `studio-weixin-${randomUUID()}`,
-      });
+        baseUrl: session.account.baseUrl, token: session.account.token, to: chatId,
+        text: chunks[index], contextToken, clientId: `studio-weixin-${randomUUID()}`,
+      }).catch((error) => { throw Object.assign(error, { attemptedTransports }); });
       assertIlinkOk(lastResponse, "sendmessage");
-      if (session.controller.signal.aborted) throw new Error("Weixin channel stopped during delivery");
+      if (session.controller.signal.aborted) throw createStoppedWeixinDeliveryError(attemptedTransports);
       if (index < chunks.length - 1) await sleep(session.options.sendChunkDelayMs);
     }
     setState({ sentCount: state.sentCount + chunks.length });
     return lastResponse;
   }
-
-  async function deliverAgentOutput(session, { chatId, peerId, agent, result }) {
+  async function deliverAgentOutput(session, { chatId, peerId, agent, result, beforeFirstTransport = null }) {
     return deliverOutboundFiles({
       output: result.output, artifacts: result.artifacts,
       allowedRoots: [session.options.workspaceRoot, ...session.options.accessibleWorkspaceRoots],
@@ -619,8 +619,8 @@ export function createWeixinService(options = {}) {
       readContextToken: (peer) => store.readContextToken(session.account.accountId, peer),
       setSentCount: () => setState({ sentCount: state.sentCount + 1 }), appendLog,
       assertResponse: assertIlinkOk,
-      sendText: (text, targetPeer) => sendText(session, chatId, text, targetPeer), formatReply: formatAgentReply,
-      signal: session.controller.signal,
+      sendText: (text, targetPeer, beforeTransport) => sendText(session, chatId, text, targetPeer, beforeTransport), formatReply: formatAgentReply,
+      signal: session.controller.signal, beforeFirstTransport,
     });
   }
 

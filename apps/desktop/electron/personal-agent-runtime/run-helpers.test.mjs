@@ -307,7 +307,7 @@ test("running snapshot compaction carries ACP tool start metadata into a complet
     { eventLimit: 500, conversationMessageEventLimit: 500 },
   );
   const directGroup = direct.conversationMessages.find((message) => message.type === "tool_group");
-  assert.equal(directGroup.id, "tool-group-tool-message-long-run");
+  assert.equal(directGroup.id, "tool-group-turn-1-message-tool-message-long-run");
 
   const compact = buildRunSnapshot(
     state,
@@ -354,7 +354,7 @@ test("running snapshot compaction keeps an active ACP tool after it leaves the r
     { eventLimit: 200, conversationMessageEventLimit: 200 },
   );
   const toolGroup = compact.conversationMessages.find((message) => message.type === "tool_group");
-  assert.equal(toolGroup?.id, "tool-group-active-tool-message");
+  assert.equal(toolGroup?.id, "tool-group-turn-1-message-active-tool-message");
   assert.equal(toolGroup?.toolCalls?.[0]?.update?.status, "in_progress");
   assert.equal(toolGroup?.toolCalls?.[0]?.update?.rawInput?.command, "Get-ChildItem");
 });
@@ -413,6 +413,12 @@ test("conversation tool identifiers do not merge across user turns", () => {
   assert.equal(toolGroups.length, 2);
   assert.equal(toolGroups[0].toolCalls[0].update.title, "First tool");
   assert.equal(toolGroups[1].toolCalls[0].update.title, "Second tool");
+  assert.notEqual(toolGroups[0].id, toolGroups[1].id);
+  assert.notEqual(toolGroups[0].toolCalls[0].id, toolGroups[1].toolCalls[0].id);
+  assert.equal(toolGroups[0].id, "tool-group-turn-1-call-tool-1");
+  assert.equal(toolGroups[1].id, "tool-group-turn-4-call-tool-1");
+  assert.equal(toolGroups[0].toolCalls[0].id, "acp-tool-turn-1-call-tool-1");
+  assert.equal(toolGroups[1].toolCalls[0].id, "acp-tool-turn-4-call-tool-1");
 });
 
 test("buildApprovalRecord uses defaults and clock hooks", () => {

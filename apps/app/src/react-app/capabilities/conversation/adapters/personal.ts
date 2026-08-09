@@ -59,6 +59,21 @@ function runEventString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
 }
 
+function isFailedAcpToolMessage(message: PersonalAdapterMessage): boolean {
+  if (message.type !== "acp_tool_call") return false;
+  const toolCallId = runEventString(message.update?.toolCallId)
+    ?? runEventString(message.update?.tool_call_id);
+  const status = runEventString(message.update?.status)
+    ?? runEventString(message.status);
+  return Boolean(toolCallId) && status?.toLowerCase() === "failed";
+}
+
+function containsFailedAcpToolMessage(message: PersonalAdapterMessage): boolean {
+  if (isFailedAcpToolMessage(message)) return true;
+  return message.type === "tool_group"
+    && Boolean(message.toolCalls?.some(isFailedAcpToolMessage));
+}
+
 function runEventPlanEntries(event: PersonalAdapterRunEvent): unknown[] {
   if (Array.isArray(event.plan?.entries)) return event.plan.entries;
   const entries = event.data?.entries;
@@ -194,6 +209,7 @@ export function filterPersonalTimelineMessages(
     if (
       !message.text.trim()
       && !(message.type === "thinking" && (message.status === "done" || message.status === "completed"))
+      && !containsFailedAcpToolMessage(message)
     ) {
       return false;
     }
