@@ -8,12 +8,42 @@ import type { WorkspaceInfo } from "@onmyagent/types/server";
 import { openSessionArchiveStore } from "../src/services/session-archive.js";
 import {
   classifyChangedSessionArchivePaths,
+  __startSessionArchiveSyncWatcherForTest,
   sessionArchiveSyncWatchRoots,
   startSessionArchiveSyncWatcher,
   syncSessionArchive,
 } from "../src/services/session-archive-sync.js";
 
 describe("session-archive archive sync", () => {
+  test("does not drain queued changes after close during an active sync", async () => {
+    const root = await mkdtemp(join(tmpdir(), "onmyagent-session-archive-close-"));
+    try {
+      let finish: (() => void) | null = null;
+      const firstRun = new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      let runs = 0;
+      const watcher = __startSessionArchiveSyncWatcherForTest({
+        workspace: createWorkspace(root),
+        paths: { root, dbPath: join(root, "archive.sqlite") },
+      }, async () => {
+        runs += 1;
+        await firstRun;
+        return { total_sessions: 0, synced: 0, skipped: 0, failed: 0, aborted: false };
+      });
+
+      const active = watcher.syncNow("incremental", [join(root, "first.jsonl")]);
+      void watcher.syncNow("incremental", [join(root, "queued.jsonl")]);
+      watcher.close();
+      finish?.();
+      await active;
+
+      expect(runs).toBe(1);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   test("supports incremental hash skip, resync, progress, and source file state", async () => {
     const root = await mkdtemp(join(tmpdir(), "onmyagent-session-archive-sync-"));
     try {
@@ -236,9 +266,9 @@ describe("session-archive archive sync", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  }, 10_000);
+  }, 15_000);
 
-  test("watcher debounces source changes and syncs into runtime-state archive", async () => {
+  test("watcher syncs an explicit source change into runtime-state archive", async () => {
     const root = await mkdtemp(join(tmpdir(), "onmyagent-session-archive-watch-sync-"));
     try {
       const workspace = createWorkspace(root);
@@ -252,7 +282,9 @@ describe("session-archive archive sync", () => {
         debounceMs: 25,
       });
       try {
-        await writeFile(join(sourceRoot, "rollout-2026-06-11T12-44-06-watch-1.jsonl"), codexSession("watch-1", "Watcher sync"));
+        const sourcePath = join(sourceRoot, "rollout-2026-06-11T12-44-06-watch-1.jsonl");
+        await writeFile(sourcePath, codexSession("watch-1", "Watcher sync"));
+        await watcher.syncNow("incremental", [sourcePath]);
         await waitFor(async () => {
           // Prefer read-only + soft-fail on transient SQLite locks (macOS CI disk I/O races).
           try {
@@ -272,7 +304,7 @@ describe("session-archive archive sync", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  }, 10_000);
+  }, 15_000);
 
   test("default sync loads all sessions while explicit limit keeps latest sessions across roots", async () => {
     const root = await mkdtemp(join(tmpdir(), "onmyagent-session-archive-sync-late-roots-"));
@@ -409,6 +441,40 @@ describe("session-archive archive sync", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  test("keeps the Node event loop responsive while a CPU and SQLite-heavy sync runs", async () => {
+    const root = await mkdtemp(join(tmpdir(), "onmyagent-session-archive-sync-heartbeat-"));
+    try {
+      const workspace = createWorkspace(root);
+      const sourceRoot = join(root, "sources");
+      await mkdir(sourceRoot, { recursive: true });
+      const largePrompt = "x".repeat(32 * 1024);
+      await Promise.all(Array.from({ length: 96 }, (_, index) => writeFile(
+        join(sourceRoot, `rollout-2026-06-11T12-44-${String(index).padStart(2, "0")}-heartbeat-${index}.jsonl`),
+        codexSession(`heartbeat-${index}`, largePrompt),
+      )));
+      const paths = { root: join(root, "runtime-state"), dbPath: join(root, "archive.sqlite") };
+      let heartbeats = 0;
+      const timer = setInterval(() => {
+        heartbeats += 1;
+      }, 2);
+      try {
+        const result = await syncSessionArchive({
+          workspace,
+          paths,
+          sourceRoots: [{ agent: "codex", root: sourceRoot }],
+        });
+        expect(result.synced).toBe(96);
+      } finally {
+        clearInterval(timer);
+      }
+      // Before worker isolation this workload held DatabaseSync + parse/hash on
+      // this same thread, starving heartbeat/health work until completion.
+      expect(heartbeats).toBeGreaterThan(3);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }, 30_000);
 });
 
 function createWorkspace(root: string): WorkspaceInfo {

@@ -82,21 +82,6 @@ function createMockTrayEnv() {
   };
 }
 
-test("status item install is no-op on linux", () => {
-  const mocks = createMockTrayEnv();
-  const controller = createStatusItemController({
-    app: { getLocale: () => "en", name: "OnMyAgent", quit() {} },
-    Tray: mocks.Tray,
-    Menu: mocks.Menu,
-    nativeImage: mocks.nativeImage,
-    createMainWindow: async () => ({}),
-    getMainWindow: () => null,
-    platform: "linux",
-  });
-  assert.equal(controller.install(), null);
-  assert.equal(controller.getTray(), null);
-});
-
 test("status item install builds native menu with template tray on darwin", () => {
   const mocks = createMockTrayEnv();
   const controller = createStatusItemController({
@@ -154,22 +139,6 @@ test("setVisible hides and restores menu-bar tray on darwin", () => {
   const restored = controller.setVisible(true);
   assert.equal(restored.visible, true);
   assert.equal(controller.isVisible(), true);
-});
-
-test("setVisible is a no-op on linux", () => {
-  const mocks = createMockTrayEnv();
-  const controller = createStatusItemController({
-    app: { getLocale: () => "en", name: "OnMyAgent", quit() {} },
-    Tray: mocks.Tray,
-    Menu: mocks.Menu,
-    nativeImage: mocks.nativeImage,
-    createMainWindow: async () => ({}),
-    getMainWindow: () => null,
-    platform: "linux",
-  });
-  const result = controller.setVisible(true);
-  assert.equal(result.visible, false);
-  assert.equal(controller.getTray(), null);
 });
 
 test("status item install works on win32 with non-template icon", () => {

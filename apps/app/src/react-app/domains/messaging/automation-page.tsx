@@ -11,7 +11,7 @@ import {
   Trash2,
 } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ModelRef } from "@/app/types";
 import { pickDirectory } from "@/app/lib/desktop";
@@ -478,6 +478,21 @@ function isAutomationStopFailedMessage(message: string): boolean {
   );
 }
 
+export function isAutomationRefreshRequestCurrent(input: {
+  requestId: number;
+  activeRequestId: number;
+  requestClient: unknown;
+  activeClient: unknown;
+  requestWorkspaceId: string;
+  activeWorkspaceId: string;
+}) {
+  return (
+    input.requestId === input.activeRequestId &&
+    input.requestClient === input.activeClient &&
+    input.requestWorkspaceId === input.activeWorkspaceId
+  );
+}
+
 export function AutomationPage(props: {
   scene: AutomationScene;
   client: OnMyAgentServerClient | null;
@@ -536,6 +551,28 @@ export function AutomationPage(props: {
     onCreateRequest: openBlankDialog,
   });
   const [listReady, setListReady] = useState(false);
+  const automationRefreshStateRef = useRef<{
+    client: OnMyAgentServerClient | null;
+    workspaceId: string;
+    inFlight: boolean;
+    requestId: number;
+  }>({
+    client: null,
+    workspaceId: "",
+    inFlight: false,
+    requestId: 0,
+  });
+  const automationRefreshScopeRef = useRef({
+    client: props.client,
+    workspaceId: props.workspaceId.trim(),
+  });
+  // Keep the active scope current during render so an old request resolving
+  // between a workspace prop change and its effect cleanup cannot repaint the
+  // new workspace with stale automation rows.
+  automationRefreshScopeRef.current = {
+    client: props.client,
+    workspaceId: props.workspaceId.trim(),
+  };
   const [archivedRunKeys, setArchivedRunKeys] = useState<string[]>(() =>
     readArchivedAutomationRunKeys(props.workspaceId),
   );
@@ -615,54 +652,109 @@ export function AutomationPage(props: {
     templateViewOpen,
   });
 
-  const refreshAutomations = (options?: { silent?: boolean }) => {
+  const refreshAutomations = async (options?: { silent?: boolean }) => {
     const workspaceId = props.workspaceId.trim();
+    const refreshState = automationRefreshStateRef.current;
+    if (
+      refreshState.client !== props.client ||
+      refreshState.workspaceId !== workspaceId
+    ) {
+      // A new scope must start immediately even while the old workspace's
+      // request is still settling. Its request id invalidates that stale reply.
+      refreshState.client = props.client;
+      refreshState.workspaceId = workspaceId;
+      refreshState.inFlight = false;
+      refreshState.requestId += 1;
+    }
+    if (refreshState.inFlight) return;
     if (!props.client || !workspaceId) {
       setAutomations([]);
       setListReady(true);
       setLoading(false);
       return;
     }
+    refreshState.inFlight = true;
+    const requestId = ++refreshState.requestId;
+    const isCurrentRequest = () => {
+      const scope = automationRefreshScopeRef.current;
+      return isAutomationRefreshRequestCurrent({
+        requestId,
+        activeRequestId: refreshState.requestId,
+        requestClient: props.client,
+        activeClient: scope.client,
+        requestWorkspaceId: workspaceId,
+        activeWorkspaceId: scope.workspaceId,
+      });
+    };
     if (!options?.silent) setLoading(true);
     if (!options?.silent) setError(null);
-    void props.client.listAutomations(workspaceId)
-      .then((result) => {
-        setAutomations(result.items);
-        syncAutomationSessionRecords(workspaceId, result.items);
-        // Background poll recovered — clear transient timeout banners only.
-        if (options?.silent) {
-          setError((current) =>
-            current && /timed out/i.test(current) ? null : current,
-          );
-        }
-      })
-      .catch((cause: unknown) => {
-        // Silent polls must not paint a red banner over a still-usable list
-        // (e.g. 2s poll while a long run is open).
-        if (options?.silent) return;
-        const message = cause instanceof Error ? cause.message : String(cause);
-        setError(message.trim() || t("automation.list_load_failed"));
-      })
-      .finally(() => {
-        setLoading(false);
-        setListReady(true);
-      });
+    try {
+      const result = await props.client.listAutomations(workspaceId);
+      if (!isCurrentRequest()) return;
+      setAutomations(result.items);
+      syncAutomationSessionRecords(workspaceId, result.items);
+      // Background poll recovered — clear transient timeout banners only.
+      if (options?.silent) {
+        setError((current) =>
+          current && /timed out/i.test(current) ? null : current,
+        );
+      }
+    } catch (cause) {
+      if (!isCurrentRequest()) return;
+      // Silent polls must not paint a red banner over a still-usable list
+      // (e.g. 2s poll while a long run is open).
+      if (options?.silent) return;
+      const message = cause instanceof Error ? cause.message : String(cause);
+      setError(message.trim() || t("automation.list_load_failed"));
+    } finally {
+      if (!isCurrentRequest()) return;
+      refreshState.inFlight = false;
+      setLoading(false);
+      setListReady(true);
+    }
   };
 
   useEffect(() => {
+    const client = props.client;
+    const workspaceId = props.workspaceId.trim();
     setListReady(false);
     setArchivedRunKeys(readArchivedAutomationRunKeys(props.workspaceId));
-    refreshAutomations();
+    void refreshAutomations();
+    return () => {
+      const refreshState = automationRefreshStateRef.current;
+      if (
+        refreshState.client === client &&
+        refreshState.workspaceId === workspaceId
+      ) {
+        refreshState.requestId += 1;
+        refreshState.inFlight = false;
+      }
+    };
   }, [props.client, props.workspaceId]);
   useEffect(() => {
-    const timer = window.setInterval(
-      () => {
+    let cancelled = false;
+    let timer: number | null = null;
+    const delayMs = running.length > 0 ? 2_000 : 15_000;
+    const scheduleNextPoll = () => {
+      if (cancelled) return;
+      timer = window.setTimeout(() => {
+        timer = null;
+        void runPoll();
+      }, delayMs);
+    };
+    const runPoll = async () => {
+      try {
         if (!shouldRunPollTick(isDocumentHidden())) return;
-        refreshAutomations({ silent: true });
-      },
-      running.length > 0 ? 2_000 : 15_000,
-    );
-    return () => window.clearInterval(timer);
+        await refreshAutomations({ silent: true });
+      } finally {
+        scheduleNextPoll();
+      }
+    };
+    scheduleNextPoll();
+    return () => {
+      cancelled = true;
+      if (timer !== null) window.clearTimeout(timer);
+    };
   }, [props.client, props.workspaceId, running.length]);
   useEffect(() => {
     const onArchived = (event: Event) => {

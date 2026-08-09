@@ -3,7 +3,10 @@
  * Factories receive services/helpers constructed in main.mjs.
  */
 
-import { materializeExpertPackageSkillsAndRefresh } from "../expert-package-skills.mjs";
+import {
+  dematerializeExpertPackageSkillsAndRefresh,
+  materializeExpertPackageSkillsAndRefresh,
+} from "../expert-package-skills.mjs";
 
 export const HANDLER_COMMAND_NAMES = Object.freeze([
   "importSkill",
@@ -16,6 +19,7 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "listExpertPackages",
   "listExpertRegistryRecords",
   "installExpertPackage",
+  "uninstallExpertPackage",
   "installBuiltinSkillPackage",
   "writeMyExpertPackage",
   "stageMyExpertKnowledge",
@@ -199,6 +203,32 @@ export function createSkillsDomainHandlers({
       packageName: safePackage,
       marketplace,
       skills,
+    };
+  },
+
+  uninstallExpertPackage: async (event, args) => {
+    const input = args[0] ?? {};
+    const marketplace = validateExpertMarketplaceName(input.marketplace ?? "my-experts");
+    const safePackage = validateExpertPackageName(input.packageName ?? input.id);
+    const destinationRoot = onmyagentMarketplaceRoot(marketplace);
+    const destination = path.join(destinationRoot, safePackage);
+    const packageExists = existsSync(destination);
+    let removedSkills = [];
+    if (packageExists) {
+      removedSkills = await dematerializeExpertPackageSkillsAndRefresh({
+        packageDir: destination,
+        skillsRoot: onmyagentUserSkillsRoot(),
+        refreshSkillLinks: refreshRuntimeSkillLinks,
+      });
+      await rm(destination, { recursive: true, force: true });
+    }
+    return {
+      ok: true,
+      path: destination,
+      packageName: safePackage,
+      marketplace,
+      removedSkills,
+      removedPackage: packageExists,
     };
   },
 

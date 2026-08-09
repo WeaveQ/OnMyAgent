@@ -127,6 +127,49 @@ export async function materializeExpertPackageSkillsAndRefresh(input) {
   return installed;
 }
 
+/**
+ * Remove skills that this expert package previously materialized into skillsRoot.
+ * Only removes package-owned skill folders (plugin.json skills entries); never
+ * deletes arbitrary user skills by skillIds references.
+ * @param {{ packageDir: string, skillsRoot: string }} input
+ * @returns {Promise<string[]>} removed skill names
+ */
+export async function dematerializeExpertPackageSkills(input) {
+  const packageDir = String(input?.packageDir ?? "").trim();
+  const skillsRoot = String(input?.skillsRoot ?? "").trim();
+  if (!packageDir || !skillsRoot) return [];
+
+  const sources = await listExpertPackageSkillSources(packageDir);
+  const removed = [];
+  for (const { skillName } of sources) {
+    const destination = path.join(skillsRoot, skillName);
+    if (!existsSync(destination)) continue;
+    await rm(destination, { recursive: true, force: true });
+    removed.push(skillName);
+  }
+  const retired = await removeRetiredExpertPackageSkills(input);
+  for (const name of retired) {
+    if (!removed.includes(name)) removed.push(name);
+  }
+  return removed;
+}
+
+/**
+ * @param {{
+ *   packageDir: string,
+ *   skillsRoot: string,
+ *   refreshSkillLinks?: () => Promise<unknown>,
+ * }} input
+ * @returns {Promise<string[]>}
+ */
+export async function dematerializeExpertPackageSkillsAndRefresh(input) {
+  const removed = await dematerializeExpertPackageSkills(input);
+  if (removed.length > 0 && typeof input?.refreshSkillLinks === "function") {
+    await input.refreshSkillLinks();
+  }
+  return removed;
+}
+
 function isSafeSkillFolderName(value) {
   const name = String(value ?? "").trim();
   return Boolean(name) && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name) && name !== "." && name !== "..";

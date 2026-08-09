@@ -95,9 +95,15 @@ export type SessionSurfaceRunHandlersInput = {
   >;
   stallRecoveryBySessionId: Record<string, boolean>;
   setStallRecoveryBySessionId: Dispatch<SetStateAction<Record<string, boolean>>>;
+  /**
+   * Local optimistic user bubble while the cold path (create session / install /
+   * prompt) is still running and the transcript query is empty.
+   */
+  setPendingOutgoingUserMessage: Dispatch<
+    SetStateAction<{ id: string; text: string; createdAt: number } | null>
+  >;
   buildDraft: (text: string, attachments: ComposerAttachment[]) => ComposerDraft;
   clearComposerSession: (sessionId: string) => void;
-  setComposerDraft: (sessionId: string, draft: string) => void;
   updateCollaborationMode: (mode: ComposerCollaborationMode) => void;
   onSendDraft: (draft: ComposerDraft) => void | Promise<void>;
   onDraftChange: (draft: ComposerDraft) => void;
@@ -117,6 +123,11 @@ export type SessionSurfaceRunHandlersInput = {
 export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInput) {
   const activeRunStartedAtRef = useRef<number | null>(null);
   const activeRunKeyRef = useRef<string | null>(null);
+  // React state updates are asynchronous, so two submit events from the same
+  // click/shortcut turn can both see `sending === false`. Keep this lock local
+  // to the submit promise; it deliberately does not block a later follow-up
+  // once OpenCode has accepted the current turn.
+  const sendInFlightRef = useRef(false);
 
   const {
     sessionId,
@@ -146,9 +157,9 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
     setTranscriptNoticesBySessionId,
     stallRecoveryBySessionId,
     setStallRecoveryBySessionId,
+    setPendingOutgoingUserMessage,
     buildDraft,
     clearComposerSession,
-    setComposerDraft,
     updateCollaborationMode,
     onSendDraft,
     onDraftChange,
@@ -287,6 +298,7 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
   const handleSend = useCallback(async () => {
     const text = draft.trim();
     if (!text && attachments.length === 0) return;
+    if (sendInFlightRef.current) return;
     if (
       shouldBlockCodeDraftSend({
         assistantCodeFeaturesActive,
@@ -307,6 +319,7 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
     // backend can't accept the follow-up it'll surface an error via the
     // catch below. This restores the "append a prompt while it's still
     // talking" behavior that the Solid composer had.
+    sendInFlightRef.current = true;
     setDismissedPlanBySessionId((current) =>
       removeRecordKey(current, sessionId),
     );
@@ -330,6 +343,15 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
     setSending(true);
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
+    // Paint a local user bubble immediately so draft / empty-session cold paths
+    // never sit on a blank "准备中" page while create+prompt is still running.
+    if (text) {
+      setPendingOutgoingUserMessage({
+        id: `msg_local_${crypto.randomUUID()}`,
+        text,
+        createdAt: startedAt,
+      });
+    }
     try {
       const stallKey = sessionId;
       const hadStallRecovery = Boolean(stallRecoveryBySessionId[stallKey]);
@@ -367,9 +389,13 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
           .getState()
           .setError(workspaceId, sessionId, parsed.message);
       }
-      setComposerDraft(sessionId, "");
+      // Drop the local bubble on failure; keep the composer draft so the user
+      // can edit and retry (composer is only cleared after acceptance above).
+      setPendingOutgoingUserMessage(null);
       setAwaitingAssistantBaseline(null);
       setNoVisibleAssistantOutputBaseline(null);
+    } finally {
+      sendInFlightRef.current = false;
       setSending(false);
     }
   }, [
@@ -389,12 +415,12 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
     renderedMessages.length,
     sessionId,
     setAwaitingAssistantBaseline,
-    setComposerDraft,
     setDismissedErrorMessage,
     setDismissedGoalBySessionId,
     setDismissedPlanBySessionId,
     setError,
     setNoVisibleAssistantOutputBaseline,
+    setPendingOutgoingUserMessage,
     setSending,
     setShowFolderRequiredBubble,
     setStallRecoveryBySessionId,

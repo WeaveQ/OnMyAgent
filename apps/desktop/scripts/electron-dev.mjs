@@ -9,8 +9,15 @@ import {
   resolveAppViteCacheDir,
   resolveAppViteDepsDir,
   resolveOnMyAgentUserDataDir,
+  shouldResetElectronDevCaches,
   shouldForceViteOptimize,
 } from "./vite-deps-integrity.mjs";
+import {
+  resolveDevOrchestratorArtifactPath,
+  resolveDevServerArtifactPaths,
+  resolveDevTypesArtifactPaths,
+  shouldForceDevPreparation,
+} from "./dev-prepare-freshness.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(__dirname, "..");
@@ -18,6 +25,12 @@ const repoRoot = resolve(desktopRoot, "../..");
 const electronSidecarDir = resolve(desktopRoot, "resources", "sidecars");
 const electronRuntimeDir = resolve(desktopRoot, "resources", "runtimes");
 const electronHelperDir = resolve(desktopRoot, "resources", "helpers");
+const orchestratorSourceDir = resolve(repoRoot, "apps", "orchestrator");
+const handsfreeSourceDir = resolve(repoRoot, "packages", "handsfree", "native", "HandsFree");
+const typesRoot = resolve(repoRoot, "packages", "types");
+const typesDistDir = resolve(typesRoot, "dist");
+const serverRoot = resolve(repoRoot, "apps", "server");
+const serverDistDir = resolve(serverRoot, "dist");
 const defaultDevDataDir = resolve(
   process.env.HOME ?? process.env.USERPROFILE ?? repoRoot,
   ".onmyagent",
@@ -43,6 +56,71 @@ const viteProbeUrls = explicitStartUrl
 function needsShell(command) {
   return process.platform === "win32" && /\.(cmd|bat)$/i.test(command);
 }
+
+const devPreparationInputs = [
+  resolve(repoRoot, "package.json"),
+  resolve(repoRoot, "pnpm-lock.yaml"),
+  resolve(repoRoot, "constants.json"),
+];
+const configuredTargetTriple =
+  process.env.ONMYAGENT_TARGET_TRIPLE ??
+  process.env.TAURI_ENV_TARGET_TRIPLE ??
+  process.env.CARGO_CFG_TARGET_TRIPLE ??
+  process.env.TARGET;
+const sidecarForceRequired = shouldForceDevPreparation({
+  artifactPaths: [
+    resolveDevOrchestratorArtifactPath({
+      sidecarDir: electronSidecarDir,
+      platform: process.platform,
+      targetTriple: configuredTargetTriple,
+    }),
+  ],
+  inputPaths: [
+    ...devPreparationInputs,
+    orchestratorSourceDir,
+    resolve(__dirname, "prepare-sidecar.mjs"),
+    resolve(__dirname, "prepare-sidecar-policy.mjs"),
+  ],
+  force: process.env.ONMYAGENT_SIDECAR_FORCE_BUILD === "1",
+});
+const computerUseForceRequired = shouldForceDevPreparation({
+  artifactPaths: [resolve(electronHelperDir, "OnMyAgent Computer Use.app", "Contents", "MacOS", "ComputerUse")],
+  inputPaths: [
+    ...devPreparationInputs,
+    handsfreeSourceDir,
+    resolve(desktopRoot, "resources", "icons", "icon.icns"),
+    resolve(__dirname, "prepare-computer-use-helper.mjs"),
+    resolve(__dirname, "computer-use-helper-manifest.mjs"),
+  ],
+  force: process.env.ONMYAGENT_COMPUTER_USE_FORCE_BUILD === "1",
+});
+const typesArtifactPaths = resolveDevTypesArtifactPaths(typesDistDir);
+const serverArtifactPaths = resolveDevServerArtifactPaths({
+  serverSourceDir: resolve(serverRoot, "src"),
+  serverDistDir,
+});
+const typesBuildRequired = shouldForceDevPreparation({
+  artifactPaths: typesArtifactPaths,
+  inputPaths: [
+    resolve(typesRoot, "src"),
+    resolve(typesRoot, "package.json"),
+    resolve(typesRoot, "tsconfig.json"),
+    resolve(typesRoot, "tsup.config.ts"),
+    resolve(repoRoot, "pnpm-lock.yaml"),
+  ],
+  force: process.env.ONMYAGENT_FORCE_DEV_BUILD === "1",
+});
+const serverBuildRequired = shouldForceDevPreparation({
+  artifactPaths: serverArtifactPaths,
+  inputPaths: [
+    resolve(serverRoot, "src"),
+    resolve(serverRoot, "package.json"),
+    resolve(serverRoot, "tsconfig.json"),
+    resolve(repoRoot, "pnpm-lock.yaml"),
+    ...typesArtifactPaths,
+  ],
+  force: process.env.ONMYAGENT_FORCE_DEV_BUILD === "1",
+});
 
 function run(command, args, options = {}) {
   return spawn(command, args, {
@@ -218,14 +296,20 @@ async function stopAll(exitCode = 0) {
 process.once("SIGINT", () => void stopAll(130));
 process.once("SIGTERM", () => void stopAll(143));
 
-runSync(nodeCmd, [resolve(__dirname, "prepare-sidecar.mjs"), "--force", "--prefer-existing-opencode", "--outdir", electronSidecarDir], { cwd: desktopRoot });
+const prepareSidecarArgs = [resolve(__dirname, "prepare-sidecar.mjs")];
+if (sidecarForceRequired) prepareSidecarArgs.push("--force");
+prepareSidecarArgs.push("--prefer-existing-opencode", "--outdir", electronSidecarDir);
+runSync(nodeCmd, prepareSidecarArgs, { cwd: desktopRoot });
 const prepareRuntimeArgs = [
   resolve(__dirname, "prepare-runtimes.mjs"),
   "--outdir",
   electronRuntimeDir,
 ];
 runSync(nodeCmd, prepareRuntimeArgs, { cwd: desktopRoot });
-runSync(nodeCmd, [resolve(__dirname, "prepare-computer-use-helper.mjs"), "--force", "--outdir", electronHelperDir], { cwd: desktopRoot });
+const prepareComputerUseArgs = [resolve(__dirname, "prepare-computer-use-helper.mjs")];
+if (computerUseForceRequired) prepareComputerUseArgs.push("--force");
+prepareComputerUseArgs.push("--outdir", electronHelperDir);
+runSync(nodeCmd, prepareComputerUseArgs, { cwd: desktopRoot });
 runSync(nodeCmd, [resolve(__dirname, "prepare-cua-helper.mjs"), "--outdir", electronHelperDir], { cwd: desktopRoot });
 // Patch Electron.app Info.plist so the macOS menu bar and Dock show "OnMyAgent"
 // instead of "Electron" during dev. The bundled Electron binary gets regenerated
@@ -240,11 +324,19 @@ runSync(nodeCmd, [resolve(__dirname, "patch-electron-name.mjs")], {
 });
 
 // Shared packages must be built before Electron loads workspace deps from dist/.
-console.log("[electron-dev] Building @onmyagent/types...");
-runSync(pnpmCmd, ["--filter", "@onmyagent/types", "build"], { cwd: repoRoot });
-// Build the server TS → JS so Electron can import it in-process
-console.log("[electron-dev] Building onmyagent-server (tsc)...");
-runSync(pnpmCmd, ["--filter", "onmyagent-server", "build"], { cwd: repoRoot });
+if (typesBuildRequired) {
+  console.log("[electron-dev] Building @onmyagent/types...");
+  runSync(pnpmCmd, ["--filter", "@onmyagent/types", "build"], { cwd: repoRoot });
+} else {
+  console.log("[electron-dev] Reusing fresh @onmyagent/types build.");
+}
+// Build the server TS → JS so Electron can import it in-process.
+if (serverBuildRequired || typesBuildRequired) {
+  console.log("[electron-dev] Building onmyagent-server (tsc)...");
+  runSync(pnpmCmd, ["--filter", "onmyagent-server", "build"], { cwd: repoRoot });
+} else {
+  console.log("[electron-dev] Reusing fresh onmyagent-server build.");
+}
 
 // Stale Vite optimize-deps (missing chunk-*.js) blanks the Electron renderer.
 // Detect and force a clean re-optimize before we attach the main window.
@@ -267,17 +359,24 @@ if (forceViteOptimize) {
   }
 }
 
-// Drop Chromium HTTP/Code caches so the renderer cannot keep requesting deleted
-// chunk files under the same ?v=<browserHash>.
+// A re-optimize can replace chunk files without changing the browserHash, so
+// its old Chromium HTTP/Code cache must not survive. Healthy warmed starts keep
+// those caches for a faster first paint.
+const resetElectronDevCaches = shouldResetElectronDevCaches({
+  forceViteOptimize,
+  forceEnv: process.env.ONMYAGENT_FORCE_ELECTRON_CACHE_RESET,
+});
 const electronUserDataDir = resolveOnMyAgentUserDataDir({
   isDevMode: true,
   override: process.env.ONMYAGENT_ELECTRON_USERDATA,
 });
-const electronCacheClear = clearElectronDevHttpCaches(electronUserDataDir);
-if (electronCacheClear.cleared.length > 0) {
-  console.log(
-    `[electron-dev] Cleared Electron cache dirs (${electronCacheClear.cleared.join(", ")}) under ${electronCacheClear.path}`,
-  );
+if (resetElectronDevCaches) {
+  const electronCacheClear = clearElectronDevHttpCaches(electronUserDataDir);
+  if (electronCacheClear.cleared.length > 0) {
+    console.log(
+      `[electron-dev] Cleared Electron cache dirs (${electronCacheClear.cleared.join(", ")}) under ${electronCacheClear.path}`,
+    );
+  }
 }
 
 const initialProbeUrls = [startUrl, ...viteProbeUrls].filter(Boolean);
@@ -399,8 +498,8 @@ if (depsInspection.ok) {
 
 const extraLaunchArgs = [
   process.env.ELECTRON_EXTRA_LAUNCH_ARGS?.trim() ?? "",
-  // Prevent Chromium from reusing deleted Vite chunk modules across restarts.
-  "--disable-http-cache",
+  // Prevent Chromium from reusing deleted Vite chunks after a re-optimize.
+  resetElectronDevCaches ? "--disable-http-cache" : "",
 ]
   .filter(Boolean)
   .join(" ");

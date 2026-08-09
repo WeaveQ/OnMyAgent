@@ -14,6 +14,7 @@ import {
   inspectViteDeps,
   clearViteDepsCache,
   clearElectronDevHttpCaches,
+  shouldResetElectronDevCaches,
   shouldForceViteOptimize,
   resolveOnMyAgentUserDataDir,
   ELECTRON_DEV_CACHE_DIR_NAMES,
@@ -159,6 +160,24 @@ test("shouldForceViteOptimize honors force env even when inspection is ok", () =
   );
 });
 
+test("shouldResetElectronDevCaches preserves healthy warmed caches", () => {
+  assert.equal(
+    shouldResetElectronDevCaches({ forceViteOptimize: false }),
+    false,
+  );
+  assert.equal(
+    shouldResetElectronDevCaches({ forceViteOptimize: true }),
+    true,
+  );
+  assert.equal(
+    shouldResetElectronDevCaches({
+      forceViteOptimize: false,
+      forceEnv: "true",
+    }),
+    true,
+  );
+});
+
 test("resolveOnMyAgentUserDataDir uses the dev identifier by default", () => {
   const dir = resolveOnMyAgentUserDataDir({
     appData: "/tmp/fake-app-data",
@@ -167,11 +186,13 @@ test("resolveOnMyAgentUserDataDir uses the dev identifier by default", () => {
   assert.equal(dir, join("/tmp/fake-app-data", "com.differentai.onmyagent.dev"));
 });
 
-test("electron-dev wires vite deps integrity + cache clear before launch", async () => {
+test("electron-dev resets Chromium caches only with a forced Vite rebuild", async () => {
   const source = await import("node:fs/promises").then((fs) =>
     fs.readFile(new URL("./electron-dev.mjs", import.meta.url), "utf8"),
   );
   assert.match(source, /vite-deps-integrity\.mjs/);
   assert.match(source, /inspectViteDeps|clearViteDepsCache|clearElectronDevHttpCaches/);
-  assert.match(source, /disable-http-cache|ELECTRON_EXTRA_LAUNCH_ARGS/);
+  assert.match(source, /shouldResetElectronDevCaches/);
+  assert.match(source, /ONMYAGENT_FORCE_ELECTRON_CACHE_RESET/);
+  assert.match(source, /resetElectronDevCaches \? "--disable-http-cache" : ""/);
 });

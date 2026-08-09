@@ -19,6 +19,7 @@ import {
   writeCustomAgentIdForSession,
 } from "../src/react-app/domains/session/sidebar/conversation-model";
 import { createDefaultAgentRegistry } from "../src/react-app/domains/agents/agent-default-registry";
+import { buildCurrentAgentSessions } from "../src/react-app/domains/session/pages/expert-conversation-model";
 
 function createLocalStorage() {
   const store = new Map<string, string>();
@@ -225,6 +226,39 @@ describe("conversation model agent groups", () => {
       "This agent configuration has not loaded or was deleted",
       "该智能体的配置尚未加载或已被删除",
     ]).toContain(groups[1].description);
+  });
+
+  test("uses only real current-workspace explicit expert sessions", () => {
+    addExpertSession("expert-selected-old");
+    addExpertSession("expert-deleted");
+    addAssistantSession("assistant-in-a");
+    writeCustomAgentIdForSession("expert-selected-old", "agent_a");
+    writeCustomAgentIdForSession("expert-deleted", "agent_a");
+    writeCustomAgentIdForSession("automation-in-a", "agent_a");
+
+    const workspaceA = [
+      { id: "expert-selected-old", title: "Old expert", time: { created: 1, updated: 2 } },
+      { id: "assistant-in-a", title: "Assistant", time: { created: 3, updated: 4 } },
+      { id: "automation-in-a", title: "Automation", time: { created: 5, updated: 6 } },
+    ];
+    const workspaceB = [
+      { id: "assistant-in-b", title: "Other workspace", time: { created: 7, updated: 8 } },
+    ];
+
+    expect(buildAgentConversationGroups(workspaceA, registry)).toMatchObject([
+      { agentId: "agent_a", sessions: [{ id: "expert-selected-old" }] },
+    ]);
+    expect(buildAgentConversationGroups(workspaceB, registry)).toEqual([]);
+    expect(
+      buildCurrentAgentSessions({
+        workspaceSessions: workspaceA,
+        activeConversationAgentId: null,
+        selectedSessionId: "expert-selected-old",
+        selectedWorkspaceId: "workspace-a",
+        draftSessionActive: false,
+        activeDraftSessionId: null,
+      }).map((session) => session.id),
+    ).toEqual(["expert-selected-old"]);
   });
 
   test("builds default starter items without requiring persisted expert sessions", () => {

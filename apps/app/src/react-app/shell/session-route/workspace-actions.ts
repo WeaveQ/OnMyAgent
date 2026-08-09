@@ -21,6 +21,7 @@ import {
   type RouteWorkspace,
 } from "./model";
 import { recordInspectorEvent } from "../app-inspector";
+import { disposeWorkspaceSessionSyncs } from "../../domains/session";
 
 export type DesktopSessionWorkspaceBootstrapResult = {
   desktopList: WorkspaceList | null;
@@ -223,6 +224,7 @@ export async function forgetSessionWorkspace(input: {
   if (input.onmyagentClient) {
     await input.onmyagentClient.deleteWorkspace(input.workspaceId).catch(() => undefined);
   }
+  disposeWorkspaceSessionSyncs(input.workspaceId);
 }
 
 export async function forgetSessionWorkspaceAndRefresh(input: {

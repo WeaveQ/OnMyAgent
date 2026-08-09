@@ -59,6 +59,8 @@ import type {
   ExpertPackageInstallInput,
   ExpertPackageInstallResult,
   ExpertPackageListEntry,
+  ExpertPackageUninstallInput,
+  ExpertPackageUninstallResult,
   ExpertRegistryListEntry,
   ExecResult,
   FeishuAccountStatus,
@@ -493,9 +495,10 @@ type TypedDesktopCommandMap = {
     { ok: boolean; path?: string; reason?: string }
   >;
   __fetch: DesktopCommandContract<
-    [string, { method?: string; headers?: Record<string, string>; body?: string; timeoutMs?: number }?],
+    [string, { method?: string; headers?: Record<string, string>; body?: string; timeoutMs?: number; requestId?: string }?],
     DesktopFetchResult
   >;
+  __fetchCancel: DesktopCommandContract<[string], { ok: boolean }>;
   __homeDir: DesktopCommandContract<[], string>;
   __joinPath: DesktopCommandContract<string[], string>;
   __setZoomFactor: DesktopCommandContract<[number], boolean>;
@@ -1136,6 +1139,10 @@ type TypedDesktopCommandMap = {
   installExpertPackage: DesktopCommandContract<
     [ExpertPackageInstallInput],
     ExpertPackageInstallResult
+  >;
+  uninstallExpertPackage: DesktopCommandContract<
+    [ExpertPackageUninstallInput],
+    ExpertPackageUninstallResult
   >;
   installBuiltinSkillPackage: DesktopCommandContract<
     [BuiltinSkillPackageInstallInput],

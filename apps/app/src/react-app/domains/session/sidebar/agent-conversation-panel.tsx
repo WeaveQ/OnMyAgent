@@ -1,9 +1,15 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus } from "lucide-react";
+import { ChevronDown, Plus, Store, UserPlus, Users } from "lucide-react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
 import type { SidebarSessionItem, WorkspaceSessionGroup } from "../../../../app/types";
@@ -22,13 +28,12 @@ import {
 import { AssistantConversationSections } from "./assistant-conversation-sections";
 import {
   AgentConversationPanelHeader,
-  EXPERT_CREATE_CTA_CLASS,
+  SIDEBAR_FOOTER_CTA_CLASS,
 } from "./agent-conversation-panel-header";
 import { AgentConversationList } from "./agent-conversation-list";
 import {
   automationLocalPinScope,
   buildAgentConversationGroups,
-  buildAgentStarterItems,
   buildAssistantConversationGroups,
   readAssistantGlobalPins,
   writeAssistantGlobalPins,
@@ -101,7 +106,7 @@ const snapshotNotFoundUntilBySessionId = new Map<string, number>();
 /**
  * Merge engine sessions with local automation run records, dropping archived /
  * soft-deleted automation sessions so archive from the runs list stays in sync
- * with the 定时 sidebar.
+ * with the automation sidebar.
  */
 export function mergeAutomationSessions(
   sessions: WorkspaceSessionGroup["sessions"],
@@ -148,7 +153,6 @@ export function AgentConversationPanel(props: {
   sessionStatusById: Record<string, string>;
   draftAgentGroup?: AgentConversationGroup | null;
   draftAgentGroups?: AgentConversationGroup[];
-  additionalStarterItems?: AgentStarterItem[];
   query: string;
   onQueryChange: (value: string) => void;
   onOpenSession: (workspaceId: string, sessionId: string) => void;
@@ -157,6 +161,8 @@ export function AgentConversationPanel(props: {
   onPrefetchSession?: (workspaceId: string, sessionId: string) => void;
   onEditExpert?: (agentId: string) => void;
   editableExpertIds?: ReadonlySet<string>;
+  /** When set, only these experts show hard-delete (system builtins excluded). */
+  deletableExpertIds?: ReadonlySet<string>;
   onToggleCollapsed: () => void;
   onOpenAgents: () => void;
   onCreateExpert?: () => void;
@@ -571,21 +577,7 @@ export function AgentConversationPanel(props: {
       ? [...visibleDraftGroups, ...agentGroups]
       : agentGroups;
   }, [agentGroups, mode, props.draftAgentGroup, props.draftAgentGroups]);
-  const starterItems = useMemo(() => {
-    if (mode === "assistant") return [];
-    const byAgentId = new Map(
-      [
-        ...buildAgentStarterItems(registry),
-        ...(props.additionalStarterItems ?? []),
-      ].map((item) => [item.agentId, item]),
-    );
-    return [...byAgentId.values()].filter((item) => {
-      if (!normalizedQuery) return true;
-      return `${item.name} ${item.description}`
-        .toLowerCase()
-        .includes(normalizedQuery);
-    });
-  }, [mode, normalizedQuery, props.additionalStarterItems, registry]);
+  const starterItems: AgentStarterItem[] = [];
   const filteredAgentGroups = useMemo(() => {
     // Soft-archived sessions disappear from expert list (same store as settings archive).
     const base =
@@ -602,6 +594,17 @@ export function AgentConversationPanel(props: {
           })
         : visibleAgentGroups;
     if (!normalizedQuery) return base;
+    // Home: match task title (description / session title), not assistant product name.
+    if (mode === "assistant") {
+      return base.filter((item) => {
+        const title = (
+          item.description ||
+          item.latestSession?.title ||
+          ""
+        ).toLowerCase();
+        return title.includes(normalizedQuery);
+      });
+    }
     return base.filter((item) =>
       `${item.name} ${item.description} ${item.preview ?? ""}`
         .toLowerCase()
@@ -1374,12 +1377,14 @@ export function AgentConversationPanel(props: {
             onPrefetchSession={props.onPrefetchSession}
             onEditExpert={props.onEditExpert}
             editableExpertIds={props.editableExpertIds}
+            deletableExpertIds={props.deletableExpertIds}
             onDeleteExpert={props.onDeleteExpert}
           />
         )}
       </div>
 
-      {mode === "agent" && props.onCreateExpert ? (
+      {/* Footer create CTA — same placement/style for home + experts. */}
+      {mode === "assistant" && props.onCreateTask ? (
         <div className="shrink-0 pt-2">
           <Button
             type="button"
@@ -1387,14 +1392,75 @@ export function AgentConversationPanel(props: {
             size="sidebar-cta"
             onClick={() => {
               clearSearchIfNeeded();
-              props.onCreateExpert?.();
+              props.onCreateTask?.();
             }}
-            className={EXPERT_CREATE_CTA_CLASS}
-            data-expert-create="true"
+            className={SIDEBAR_FOOTER_CTA_CLASS}
+            data-assistant-create="true"
           >
             <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-            {t("session.create_expert")}
+            {t("session.new_task")}
           </Button>
+        </div>
+      ) : null}
+      {mode === "agent" && (props.onCreateExpert || props.onOpenAgents) ? (
+        <div className="shrink-0 pt-2">
+          {/*
+            Summon experts — same pattern as store "Add skill" dropdown:
+            market browse vs self-create (expert creation wizard).
+          */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sidebar-cta"
+                  className={SIDEBAR_FOOTER_CTA_CLASS}
+                  data-expert-create="true"
+                  onClick={() => clearSearchIfNeeded()}
+                >
+                  <Users className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+                  {t("session.summon_experts")}
+                  <ChevronDown
+                    className="size-3.5 shrink-0 opacity-70"
+                    strokeWidth={2}
+                    aria-hidden
+                  />
+                </Button>
+              }
+            />
+            <DropdownMenuContent
+              align="center"
+              side="top"
+              sideOffset={8}
+              className="min-w-[12rem] border border-dls-border bg-dls-surface-solid p-1.5 text-dls-text"
+            >
+              {props.onOpenAgents ? (
+                <DropdownMenuItem
+                  className="cursor-pointer gap-2 text-dls-text focus:bg-dls-hover"
+                  onClick={() => {
+                    clearSearchIfNeeded();
+                    props.onOpenAgents();
+                  }}
+                >
+                  <Store className="size-4 shrink-0 text-dls-secondary" />
+                  {t("session.add_expert_from_market")}
+                </DropdownMenuItem>
+              ) : null}
+              {props.onCreateExpert ? (
+                <DropdownMenuItem
+                  className="cursor-pointer gap-2 text-dls-text focus:bg-dls-hover"
+                  onClick={() => {
+                    clearSearchIfNeeded();
+                    props.onCreateExpert?.();
+                  }}
+                >
+                  <UserPlus className="size-4 shrink-0 text-dls-secondary" />
+                  {t("session.create_expert_yourself")}
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ) : null}
     </aside>

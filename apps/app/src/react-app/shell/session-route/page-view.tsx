@@ -6,6 +6,8 @@
 import {
   lazy,
   Suspense,
+  useEffect,
+  useState,
   type Dispatch,
   type MutableRefObject,
   type SetStateAction,
@@ -36,18 +38,22 @@ import { isDesktopRuntime, safeStringify } from "../../../app/utils";
 import { t } from "../../../i18n";
 import { usePlatform } from "../../kernel/platform";
 import type { LocalPreferences } from "../../kernel/local-provider";
-import { useBootOverlayVisible } from "../boot-state";
+import { useBootOverlayVisible, useBootState } from "../boot-state";
 import { useColdBootShell } from "./cold-boot-shell";
 import {
   SESSION_DELETE_REMOTE_BUDGET_MS,
   SESSION_SNAPSHOT_STALE_TIME_MS,
   SessionPage,
   buildSessionSnapshotPrefetchSpec,
+  executePendingSessionDelete,
   isTolerableSessionDeleteFailure,
   markSessionRecentlyDeleted,
   raceSessionDeleteRemote,
+  registerPendingSessionDelete,
+  retryPendingSessionDeletesForWorkspace,
   resetRailBookmarkToPrimary,
   resolveSessionDeleteDirectory,
+  scheduleSessionSnapshot,
   type PageMode,
   type SessionAgentManagementIntent,
   type SessionPageSurfaceProps,
@@ -66,7 +72,7 @@ const AgentsPage = lazy(() =>
 );
 import { isDesktopProviderBlocked } from "../../../app/cloud/desktop-app-restrictions";
 import type { DesktopAppRestrictionChecker } from "../../../app/cloud/desktop-app-restrictions";
-import { ReactSessionRuntime, useSessionActivityStore } from "../../domains/session";
+import { ReactSessionRuntime } from "../../domains/session";
 import { usePendingAgentStore } from "../../domains/agents";
 import {
   writeCustomAgentIdForSession,
@@ -78,6 +84,7 @@ import {
   removeAssistantSession,
   removeExpertSession,
 } from "../../domains/agents";
+import { writeSessionOriginBestEffort } from "../../domains/agents";
 import {
   removeAutomationSessionRecord,
   renameAutomationSessionRecord,
@@ -111,6 +118,7 @@ import {
   insertSidebarSession,
   sessionListOwnsSession,
 } from "./sessions";
+import { shouldPrefetchSessionSnapshotOnColdPath } from "./cold-path-budget";
 import {
   activateDesktopSessionWorkspaceInBackground,
 } from "./workspace-actions";
@@ -288,6 +296,7 @@ export type SessionRoutePageViewProps = {
 
 export function SessionRoutePageView(props: SessionRoutePageViewProps) {
   const bootOverlayVisible = useBootOverlayVisible();
+  const { markRouteReady } = useBootState();
   const coldBootShell = useColdBootShell();
   const {
     activePermission,
@@ -397,6 +406,25 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
     workspaceSessionGroups,
     workspaces,
   } = props;
+  const [optimisticSidebarSelection, setOptimisticSidebarSelection] = useState<{
+    workspaceId: string;
+    sessionId: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!optimisticSidebarSelection) return;
+    if (
+      optimisticSidebarSelection.workspaceId === selectedWorkspaceId &&
+      optimisticSidebarSelection.sessionId === selectedSessionId
+    ) {
+      setOptimisticSidebarSelection(null);
+    }
+  }, [optimisticSidebarSelection, selectedSessionId, selectedWorkspaceId]);
+
+  const sidebarSelectedWorkspaceId =
+    optimisticSidebarSelection?.workspaceId ?? selectedWorkspaceId;
+  const sidebarSelectedSessionId =
+    optimisticSidebarSelection?.sessionId ?? selectedSessionId;
 
   const platform = usePlatform();
 
@@ -495,6 +523,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
           }
           startupPhase={effectiveLoading ? "nativeInit" : "ready"}
           coldBootShell={coldBootShell}
+          onStaticHomeReady={markRouteReady}
           providerConnectedIds={providerConnectedIds}
           providers={providers}
           renderAgentsPage={(agentsPageProps) => (
@@ -622,9 +651,10 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                 }),
               );
               newSession.directory = sessionDirectory;
-              useSessionActivityStore
-                .getState()
-                .startRun(workspaceId, newSession.id);
+              // Do NOT startRun here: this path only opens an empty expert
+              // session shell. Marking runActive without a prompt leaves the
+              // transcript stuck on "准备中 / thinking" forever (no messages,
+              // never idle). Real runs start when the first draft is sent.
             } finally {
               creatingSessionWorkspaceIdsRef.current.delete(workspaceId);
             }
@@ -652,7 +682,9 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               );
               writeCustomAgentIdForSession(newSession.id, agentToBind.id);
               writeSessionAgentSnapshot(newSession.id, agentToBind);
-              await installMarketplaceExpertAfterSessionCreated(agentToBind);
+              // Empty session shell: do not block navigation/UI on package
+              // install. First prompt (and summon) join the same coordinator.
+              void installMarketplaceExpertAfterSessionCreated(agentToBind);
             }
             if (bindDirectory) {
               writeAssistantSessionWorkspace({
@@ -664,6 +696,14 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             }
 
             addExpertSession(newSession.id);
+            writeSessionOriginBestEffort({
+              client: selectedWorkspaceEndpoint?.client ?? client,
+              workspaceId: selectedWorkspaceEndpoint?.workspaceId ?? workspaceId,
+              sessionId: newSession.id,
+              kind: "expert",
+              agentId: agentToBind?.id,
+              directory: newSession.directory,
+            });
 
             // Optimistically append the new session into the workspace list
             // so the left-side agent panel renders the new agent immediately.
@@ -680,19 +720,27 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               sessionsByWorkspaceIdRef.current = next;
               return next;
             });
+            setOptimisticSidebarSelection({
+              workspaceId,
+              sessionId: newSession.id,
+            });
             navigateToWorkspaceSession(workspaceId, newSession.id);
             focusPromptSoon();
             void refreshRouteState();
           }}
           sidebar={{
             workspaceSessionGroups,
-            selectedWorkspaceId,
-            selectedSessionId,
+            selectedWorkspaceId: sidebarSelectedWorkspaceId,
+            selectedSessionId: sidebarSelectedSessionId,
             developerMode: false,
             sessionStatusById: sidebarSessionStatusById,
             connectingWorkspaceId: null,
             workspaceConnectionStateById,
-            newTaskDisabled: !canCreateTask,
+            // New-task opens a local draft and remains available while
+            // background session-list/model readiness is recovering.
+            newTaskDisabled: !workspaces.some(
+              (workspace) => workspace.id === selectedWorkspaceId,
+            ),
             sidebarHydratedFromCache: Object.values(sessionsByWorkspaceId).some(
               (list) => list.length > 0,
             ),
@@ -744,10 +792,15 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                 sessionsByWorkspaceId,
                 workspaceId,
               });
+              setOptimisticSidebarSelection({
+                workspaceId,
+                sessionId: targetSessionId,
+              });
               navigateToWorkspaceSession(workspaceId, targetSessionId);
               return true;
             },
             onOpenSession: (workspaceId, sessionId) => {
+              setOptimisticSidebarSelection({ workspaceId, sessionId });
               setLegacySelectedWorkspaceId(workspaceId);
               writeActiveWorkspaceId(workspaceId || null);
               writeLastSessionFor(workspaceId, sessionId, pageMode);
@@ -760,6 +813,22 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                 (item) => item.id === workspaceId,
               );
               if (!workspace) return;
+              const row = (sessionsByWorkspaceId[workspaceId] ?? []).find(
+                (item) => item.id === sessionId,
+              );
+              const titleEmpty = !(row?.title ?? "").trim();
+              const isSelectedSession =
+                workspaceId === selectedWorkspaceId &&
+                sessionId === selectedSessionId;
+              // Cold-path thrash ban: empty selected chips must not prefetch.
+              if (
+                !shouldPrefetchSessionSnapshotOnColdPath({
+                  isSelectedSession,
+                  titleEmpty,
+                })
+              ) {
+                return;
+              }
               const endpoint = resolveWorkspaceEndpoint(workspace, {
                 baseUrl,
                 token,
@@ -776,14 +845,21 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               void getReactQueryClient().prefetchQuery({
                 queryKey: spec.queryKey,
                 staleTime: spec.staleTime,
-                queryFn: async () =>
-                  (
-                    await endpoint.client.getSessionSnapshot(
-                      endpoint.workspaceId,
-                      sessionId,
-                      spec.fetchOptions,
-                    )
-                  ).item,
+                queryFn: ({ signal }) =>
+                  scheduleSessionSnapshot({
+                    workspaceId: endpoint.workspaceId,
+                    requestKey: `${sessionId}:${directory ?? ""}`,
+                    priority: "prefetch",
+                    signal,
+                    run: async (requestSignal) =>
+                      (
+                        await endpoint.client.getSessionSnapshot(
+                          endpoint.workspaceId,
+                          sessionId,
+                          { ...spec.fetchOptions, signal: requestSignal },
+                        )
+                      ).item,
+                  }),
               });
             },
             onCreateTaskInWorkspace: (workspaceId) => {
@@ -968,6 +1044,11 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                   // 1) Local-first: tombstone + optimistic remove so dirty rows
                   // leave the UI even if remote DELETE hangs for 12s.
                   markSessionRecentlyDeleted(sessionId);
+                  registerPendingSessionDelete({
+                    workspaceId: selectedWorkspaceId,
+                    sessionId,
+                    ...(directory ? { directory } : {}),
+                  });
                   let nextListForCache: SidebarSessionItem[] | null = null;
                   setSessionsByWorkspaceId((current) => {
                     const list = current[selectedWorkspaceId];
@@ -987,6 +1068,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                     writeCachedSidebarSessionsForWorkspace(
                       selectedWorkspaceId,
                       nextListForCache,
+                      { clearWhenEmpty: true },
                     );
                   }
 
@@ -1013,11 +1095,12 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                   // 2) Remote best-effort with a short UI budget (not full 12s
                   // client timeout) so the confirm dialog never sticks.
                   if (endpoint) {
-                    const remote = endpoint.client
-                      .deleteSession(endpoint.workspaceId, sessionId, {
-                        directory,
-                      })
-                      .catch((error: unknown) => {
+                    const remote = executePendingSessionDelete({
+                      workspaceId: selectedWorkspaceId,
+                      remoteWorkspaceId: endpoint.workspaceId,
+                      sessionId,
+                      client: endpoint.client,
+                    }).catch((error: unknown) => {
                         if (!isTolerableSessionDeleteFailure(error)) {
                           console.warn(
                             "[session-route] deleteSession remote failed; local cleanup already done",
@@ -1031,6 +1114,11 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                             error,
                           );
                         }
+                        void retryPendingSessionDeletesForWorkspace({
+                          workspaceId: selectedWorkspaceId,
+                          remoteWorkspaceId: endpoint.workspaceId,
+                          client: endpoint.client,
+                        });
                       });
                     await raceSessionDeleteRemote(
                       remote,

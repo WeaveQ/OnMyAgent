@@ -63,13 +63,11 @@ function writeFilesTabToUrl(tab: FilesSourceTab) {
 }
 
 export function WorkspaceFilesPage(props: {
+  active?: boolean;
   client: OnMyAgentServerClient | null;
   workspaceId: string;
   workspaceRoot: string;
-  /**
-   * Directory to list. Callers should pass the OnMyAgent-selected workspace
-   * folder (`workspaceRoot`).
-   */
+  /** Directory to list; callers pass the selected OnMyAgent workspace root. */
   fileRoot?: string | null;
   activeSessionIds?: ReadonlySet<string> | readonly string[] | null;
   archivedSessionIds?: ReadonlySet<string> | readonly string[] | null;
@@ -97,7 +95,7 @@ export function WorkspaceFilesPage(props: {
 
   return (
     <div className="flex h-full w-full min-h-0 flex-col bg-dls-background text-dls-text">
-      <div className={cn(shellChrome.pageHeaderSimple, "border-b-0")}>
+      <div className={cn(shellChrome.pageHeaderSimple, "border-b-0 pb-2")}>
         {/* Free-float source pills — NavTab active fill only (no raw bg-white). */}
         <SegmentedTabGroup density="bare" role="tablist">
           {FILES_SOURCE_RAIL_TABS.map((tab) => {
@@ -141,6 +139,7 @@ export function WorkspaceFilesPage(props: {
       <div className="min-h-0 flex-1 overflow-hidden">
         {activeTab === "uploads" ? (
           <WorkspaceFilesUploadsPanel
+            active={props.active}
             client={props.client}
             workspaceId={props.workspaceId}
             workspaceRoot={props.workspaceRoot}
@@ -150,6 +149,7 @@ export function WorkspaceFilesPage(props: {
           />
         ) : (
           <WorkspaceFilesBrowserPanel
+            active={props.active}
             client={props.client}
             workspaceId={props.workspaceId}
             workspaceRoot={props.workspaceRoot}

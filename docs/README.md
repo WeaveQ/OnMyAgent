@@ -2,6 +2,26 @@
 
 **Only full index for `docs/`.** Link here instead of copying nav tables.
 
+## Hierarchy (read this first)
+
+| Layer | File | Holds |
+| --- | --- | --- |
+| **Monorepo SoT** | [`Architecture.md`](Architecture.md) | Platforms, dual runtime, archive, package boundaries, command surface, **pointers** to design/React |
+| **React SoT** | [`../apps/app/src/react-app/ARCHITECTURE.md`](../apps/app/src/react-app/ARCHITECTURE.md) | Domains, state ownership, shell cold start / prewarm |
+| **Topic SoT** | `design/*`, `windows-compat.md`, `officecli-oss-release.md`, … | Roadmap, files, config, memory, Windows, OfficeCLI CDN |
+| **Agent handbook** | [`../AGENTS.md`](../AGENTS.md) | Iron rules, verify matrix, path gates; **not** visual SoT |
+| **App agent handbook** | [`../apps/app/AGENTS.md`](../apps/app/AGENTS.md) | App verify entry + **Experts/Session invariants** |
+| **Visual tokens** | [`../DESIGN.md`](../DESIGN.md) | Tokens / shapes / signature components; **not** session product behavior |
+| **Ship notes** | [`../CHANGELOG.md`](../CHANGELOG.md) | What shipped — **not** architecture changelog bullets |
+
+**Rules:**
+
+- **One SoT per topic.** Architecture / DESIGN / package AGENTS link out; do not re-copy long specs.
+- **AGENTS.md** = agent runbook (gates, path permissions, Phase-2 hard entry, verify entry). **Not** visual encyclopedia (→ DESIGN) and **not** dual-runtime deep dive (→ Architecture).
+- **DESIGN.md** = visual / component SoT only. **Not** session product behavior (→ `apps/app/AGENTS.md`).
+- **apps/app/AGENTS.md** experts/session **behavior** invariants ≠ Architecture expert **lifecycle/budget** tables — both apply; do not merge into one list.
+- Do not invent parallel `docs/expert-*.md` roots without linking from Architecture.
+
 ## Layout
 
 ```text
@@ -20,10 +40,12 @@ docs/
     2026-08-02-phase-2-enterprise-prep.md  ← **Phase 2 roadmap + B-side (OnMyCompany) prep SoT**
     2026-08-02-work-memory-plan.md  ← 个人/记忆 + 专家域记忆（awareness）路径 SoT
     2026-08-02-config-consistency.md  ← local/company isomorphic config + migrate (Phase 2a)
+    2026-08-09-architecture-convergence-plan.md  ← **active** expert/session/cold/shelf convergence plan
+    2026-08-09-capability-shelf.md  ← recommended vs built-in placement matrix
     preview.html / preview-dark.html / preview.css  ← visual catalog; DESIGN.md wins on drift
   windows-compat.md         ← Windows preflight, NSIS, CU (Cua) / Appshot, remaining gaps
   windows-remote-debug-from-mac.md  ← remote Windows debug from macOS
-  x-project-bp/             ← product/strategy notes (not engineering SoT)
+  x-project-bp/             ← product/strategy notes (**gitignored**, not engineering SoT)
 ```
 
 Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `BUILD.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md`, …
@@ -37,7 +59,8 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | AI coding agent | [`../AGENTS.md`](../AGENTS.md) |
 | Architecture change | [`Architecture.md`](Architecture.md) |
 | React domain change | [`../apps/app/src/react-app/ARCHITECTURE.md`](../apps/app/src/react-app/ARCHITECTURE.md) |
-| UI / tokens | [`../DESIGN.md`](../DESIGN.md) |
+| UI / tokens / component shape | [`../DESIGN.md`](../DESIGN.md) |
+| Expert / session product behavior | [`../apps/app/AGENTS.md`](../apps/app/AGENTS.md) |
 | Local packaging | [`../BUILD.md`](../BUILD.md) |
 | Release / tags | [`release.md`](release.md) |
 | OfficeCLI OSS 发布 | [`officecli-oss-release.md`](officecli-oss-release.md) |
@@ -51,15 +74,23 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | Commands (`dev` / `task` / checks) | root `package.json`, `scripts/cli/*`, summarized in `Architecture.md` |
 | Monorepo & package boundaries | `Architecture.md` |
 | Dual runtime (OpenCode 主 / Personal 辅) + archive 热路径 | `Architecture.md` → **Dual Runtime Boundary**, **Server Archive Runtime** |
+| Product platforms (mac / win / not Linux packages) | `Architecture.md` Product phase + root `README*` / `BUILD.md` |
+| Skills write/scan roots + list resilience | `Architecture.md` Product phase hard constraints + server `listSkills` |
 | React domains + shell load/boot UX | `apps/app/src/react-app/ARCHITECTURE.md` (+ **Shell load / boot**) + `domains/*/README.md` |
+| Expert / session UI ownership | `react-app/ARCHITECTURE.md` + `Architecture.md` **Session / Expert / cold-path pointers** |
+| Expert lifecycle delete/create/select + cold-path **budgets** | `Architecture.md` Expert lifecycle hard rules + Cold-path budget |
+| Expert / session **product behavior** (busy shell, origin, draft, first-send) | `../apps/app/AGENTS.md` invariants + contract tests |
 | Release notes (human) | root `CHANGELOG.md` + GitHub Releases |
-| Visual tokens / components | `../DESIGN.md` |
+| Visual tokens / components | `../DESIGN.md` (only) |
 | Design philosophy only | `design/theme-system.md` |
+| Experts / session behavior invariants | `../apps/app/AGENTS.md` + `apps/app/scripts/expert-session-invariants.test.ts` |
 | UI primitive refactor habits | `design/ui-primitive-refactor-best-practices.md` |
 | Files module (三来源) | `design/files-module-product-spec.md` |
 | **Phase 2 + B-side prep** | `design/2026-08-02-phase-2-enterprise-prep.md` |
 | Config profile migrate / resolve | `design/2026-08-02-config-consistency.md` |
 | Work memory / awareness | `design/2026-08-02-work-memory-plan.md` |
+| **Architecture convergence plan** | `design/2026-08-09-architecture-convergence-plan.md` |
+| Capability shelf (recommended placement) | `design/2026-08-09-capability-shelf.md` + `capability-shelf.ts` |
 | Windows / Computer Use / Appshot | `windows-compat.md` |
 | Agent operating rules | `../AGENTS.md` + `loop/rules.md` |
 | Local packaging | `../BUILD.md` |

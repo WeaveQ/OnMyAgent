@@ -14,17 +14,22 @@ import { DevProfiler, DevProfilerOverlay } from "./dev-profiler";
 import { ReactRenderWatchdogOverlay } from "./react-render-watchdog-overlay";
 import { AppMenuProvider } from "./app-menu";
 import { OnMyAgentControlProvider, OnMyAgentRouteControlActions } from "./control/control-provider";
-import { SessionRoute } from "./session-route";
 import { ShellConfigProvider } from "./shell-config";
 import { currentLocale, subscribeToLocale, t } from "../../i18n";
 
-// Heavy secondary routes: code-split so the main session UX stays on the eager path.
+// Route screens are code-split so the shell and boot feedback paint first.
 // Cloud sign-in/onboarding stay eager (gate + shared barrel already on critical path).
 const SettingsRoute = lazy(() =>
   import("./settings-route").then((module) => ({ default: module.SettingsRoute })),
 );
 const WelcomeRoute = lazy(() =>
   import("./welcome-route").then((module) => ({ default: module.WelcomeRoute })),
+);
+// The session domain is the primary UX, but it is also the largest route tree.
+// Split it from the renderer bootstrap so the loading shell can paint before
+// Chromium parses Expert, marketplace, transcript, and workspace modules.
+const SessionRoute = lazy(() =>
+  import("./session-route").then((module) => ({ default: module.SessionRoute })),
 );
 
 
@@ -238,7 +243,7 @@ export function AppRoot() {
                     </DevProfiler>
                   }
                 />
-                {/* Session stays eager — primary UX path. */}
+                {/* Session loads immediately after the shell's first paint. */}
                 <Route
                   path="/session"
                   element={

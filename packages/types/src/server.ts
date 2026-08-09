@@ -11,6 +11,28 @@ export type ApprovalMode = "manual" | "auto";
 
 export type TokenScope = "owner" | "collaborator" | "viewer";
 
+export type SessionOriginKind = "assistant" | "expert" | "automation";
+
+export interface SessionOriginRecord {
+  workspaceId: string;
+  sessionId: string;
+  kind: SessionOriginKind;
+  agentId?: string;
+  directory?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface SessionOriginListPayload {
+  items: SessionOriginRecord[];
+}
+
+export interface SessionOriginUpsertPayload {
+  kind: SessionOriginKind;
+  agentId?: string;
+  directory?: string;
+}
+
 export type SandboxBackend = "none" | "docker" | "container";
 
 export type ProviderPlacement = "in-sandbox" | "host-machine" | "client-machine" | "external";

@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -25,7 +25,13 @@ import { NoticeBox } from "@/components/ui/notice-box";
 import { ProviderAuthModal } from "../../connections";
 import { SessionSurface } from "../surface/session-surface";
 import { ShareWorkspaceModal } from "../../workspace";
-import { OwDotTicker, type SidePanelItem, useReactRenderWatchdog, useUiStateStore } from "../../../shell";
+import {
+  OwDotTicker,
+  shouldNotifyStaticHomeReady,
+  type SidePanelItem,
+  useReactRenderWatchdog,
+  useUiStateStore,
+} from "../../../shell";
 import {
   isElectronRuntime,
 } from "../../../../app/utils";
@@ -118,7 +124,7 @@ import {
   SessionPageMainColumn,
   SessionRailKeepAliveStack,
 } from "./session-page-shell";
-import { SessionStartupSkeleton } from "./session-startup-skeleton";
+import { AssistantStartupHome } from "./assistant-startup-home";
 import {
   BillingPage,
   DevicesPage,
@@ -262,7 +268,7 @@ export function AssistantPage(props: AssistantPageProps) {
     onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
     onNavigateToMode: props.onNavigateToMode,
   });
-  const [agentSearch] = useState("");
+  const [agentSearch, setAgentSearch] = useState("");
   const [agentPanelCollapsed, setAgentPanelCollapsed] = useState(false);
   const { agentPanelWidth, setAgentPanelWidth, startAgentPanelResize } =
     useAgentPanelResize(AGENT_PANEL_DEFAULT_WIDTH);
@@ -994,8 +1000,12 @@ export function AssistantPage(props: AssistantPageProps) {
     reactSessionToken &&
     props.surface,
   );
-  const showBlockingStartupSkeleton =
-    showStartupSkeleton && !canRenderReactSurface;
+  // A draft home is useful before the runtime tuple exists. Keep this
+  // runtime-independent first frame mounted until the real SessionSurface can
+  // replace it in the same slot; connection probes finishing alone must not
+  // turn the main column blank.
+  const showRuntimeIndependentDraftHome =
+    isDraftSession && !canRenderReactSurface;
   const activePlaceholderView =
     activeSidebarView === "chat" ||
     activeSidebarView === "assistant" ||
@@ -1019,6 +1029,16 @@ export function AssistantPage(props: AssistantPageProps) {
   // rail switches (e.g. 自动 → 首页). Loading skeleton still shows in `middle`.
   const sessionSurfaceActive =
     isPrimarySessionView || showAutomationEmbeddedSession;
+
+  // Ideal boot latch: after this route commits, release overlay so the first
+  // uncovered frame has shell chrome. Do not gate on isPrimarySessionView —
+  // cold starts on non-chat rails would never call this and hang the splash.
+  // Fail-safe deadline lives in session-route refresh-hook (boot-shell-ready).
+  useLayoutEffect(() => {
+    if (shouldNotifyStaticHomeReady(props.selectedSessionId)) {
+      props.onStaticHomeReady?.();
+    }
+  }, [props.onStaticHomeReady, props.selectedSessionId]);
   // Workspace side panel only belongs on chat surfaces (not 市场/管理/本地/文件…).
   const sidePanelVisibleOnSession =
     sidePanelVisible && isPrimarySessionView;
@@ -1162,7 +1182,7 @@ export function AssistantPage(props: AssistantPageProps) {
                 selectedSessionId={props.sidebar.selectedSessionId}
                 sessionStatusById={props.sidebar.sessionStatusById}
                 query={agentSearch}
-                onQueryChange={() => {}}
+                onQueryChange={setAgentSearch}
                 onToggleCollapsed={() =>
                   setAgentPanelCollapsed((value) => !value)
                 }
@@ -1351,8 +1371,9 @@ export function AssistantPage(props: AssistantPageProps) {
                           )}
                         />
                       ),
-                      files: (
+                      files: (active) => (
                         <WorkspaceFilesPage
+                          active={active}
                           client={props.onmyagentServerClient}
                           workspaceId={
                             props.runtimeWorkspaceId ??
@@ -1481,8 +1502,8 @@ export function AssistantPage(props: AssistantPageProps) {
                         />
                       ) : null}
 
-                      {isPrimarySessionView && showBlockingStartupSkeleton ? (
-                        <SessionStartupSkeleton />
+                      {isPrimarySessionView && showRuntimeIndependentDraftHome ? (
+                        <AssistantStartupHome categoryId={assistantCategoryId} />
                       ) : null}
 
                       {isPrimarySessionView &&

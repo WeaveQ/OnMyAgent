@@ -107,6 +107,8 @@ export type SessionPageProps = {
    * cache-hydrated. False for settings "Back to app" remounts.
    */
   coldBootShell?: boolean;
+  /** Called after the assistant's runtime-independent draft home commits. */
+  onStaticHomeReady?: () => void;
   providerConnectedIds: string[];
   providers?: ProviderListItem[];
   mcpConnectedCount: number;

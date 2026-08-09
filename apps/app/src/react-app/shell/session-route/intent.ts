@@ -1,6 +1,6 @@
 /** Session route navigation-state helpers for agent-management deep links + expert install. */
-import { installExpertPackage } from "../../../app/lib/desktop";
 import type { PendingAgentContext } from "../../domains/agents";
+import { ensureMarketplaceExpertInstalled } from "../../domains/plugins";
 import type { SessionAgentManagementIntent } from "../../domains/session";
 
 export function readStringStateField(state: unknown, key: string) {
@@ -40,18 +40,27 @@ export function clearSessionAgentManagementIntentState(state: unknown) {
   return next;
 }
 
+/**
+ * Ensure a marketplace expert package is installed.
+ *
+ * Deduped by the install coordinator: safe to kick off early (on send / summon)
+ * and join again later — concurrent callers share one in-flight promise, and
+ * already-installed packages resolve immediately.
+ */
 export async function installMarketplaceExpertAfterSessionCreated(
   agent: PendingAgentContext,
 ) {
   const marketplaceExpert = agent.marketplaceExpert;
-  if (!marketplaceExpert || marketplaceExpert.source !== "builtin") return;
+  if (!marketplaceExpert) return;
   try {
-    await installExpertPackage({
-      source: "builtin",
-      marketplace: "experts",
-      packageName: marketplaceExpert.packageName,
-    });
+    await ensureMarketplaceExpertInstalled(marketplaceExpert);
   } catch (error) {
     console.warn("[expert-marketplace] failed to install expert package", error);
   }
+}
+
+/** Fire-and-forget install; errors are logged inside the await helper. */
+export function kickoffMarketplaceExpertInstall(agent: PendingAgentContext | null | undefined) {
+  if (!agent?.marketplaceExpert) return Promise.resolve();
+  return installMarketplaceExpertAfterSessionCreated(agent);
 }

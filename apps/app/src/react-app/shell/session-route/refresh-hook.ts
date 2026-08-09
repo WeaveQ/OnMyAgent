@@ -16,10 +16,6 @@ import type { ResolvedWorkspaceEndpoint } from "../../../app/lib/workspace-endpo
 import type { OnMyAgentServerInfo } from "../../../app/lib/desktop";
 import type { SidebarSessionItem } from "../../../app/types";
 import { getReactQueryClient } from "../../infra/query-client";
-import {
-  isDocumentHidden,
-  shouldRunPollTick,
-} from "../../infra/visibility-poll";
 import { refreshProviderListQueries } from "../../domains/connections";
 import { useRemoteAccessRestart } from "../../domains/workspace";
 import {
@@ -67,6 +63,7 @@ import {
   writeActiveWorkspaceId,
 } from "../session-memory";
 import { scheduleIdleWork } from "./prewarm-schedule";
+import { planBootShellReadyAfterRefresh } from "../boot-shell-ready";
 
 type EndpointForWorkspace = (
   workspace: RouteWorkspace | null | undefined,
@@ -81,6 +78,11 @@ type Input = {
   ) => Promise<void>;
   localServerRef: MutableRefObject<SessionLocalServerRefValue>;
   markBootRouteReady: () => void;
+  /**
+   * Prefer waiting for assistant static-home first paint before routeReady.
+   * Always paired with a hard deadline so the overlay cannot hang forever.
+   */
+  waitForStaticHomeFirstPaint: boolean;
   onmyagentServerSettings: { remoteAccessEnabled?: boolean };
   routeWorkspaceId: string;
   selectedSessionId: string | null;
@@ -120,6 +122,7 @@ export function useSessionRouteRefresh(input: Input) {
     loadWorkspaceSessionsInBackground,
     localServerRef,
     markBootRouteReady,
+    waitForStaticHomeFirstPaint,
     onmyagentServerSettings,
     routeWorkspaceId,
     selectedSessionId,
@@ -154,6 +157,32 @@ export function useSessionRouteRefresh(input: Input) {
   const startupRetryTimerRef = useRef<number | null>(null);
   const startupRetryAttemptsRef = useRef(0);
   const refreshRouteStateRef = useRef<(() => Promise<void>) | null>(null);
+  // Session navigation must not recreate refreshRouteState: doing so reran the
+  // route effect and revalidated every durable expert directory on each click.
+  // Explicit refreshes still read the latest route session through this ref.
+  const selectedSessionIdRef = useRef(selectedSessionId);
+  selectedSessionIdRef.current = selectedSessionId;
+  const waitForStaticHomeFirstPaintRef = useRef(waitForStaticHomeFirstPaint);
+  waitForStaticHomeFirstPaintRef.current = waitForStaticHomeFirstPaint;
+  // Fail-safe timer when we defer markShellReady for static home paint.
+  const staticHomeDeadlineTimerRef = useRef<number | null>(null);
+
+  const markShellReady = useCallback(() => {
+    if (staticHomeDeadlineTimerRef.current != null) {
+      window.clearTimeout(staticHomeDeadlineTimerRef.current);
+      staticHomeDeadlineTimerRef.current = null;
+    }
+    markBootRouteReady();
+  }, [markBootRouteReady]);
+
+  useEffect(() => {
+    return () => {
+      if (staticHomeDeadlineTimerRef.current != null) {
+        window.clearTimeout(staticHomeDeadlineTimerRef.current);
+        staticHomeDeadlineTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const scheduleStartupConnectionRetry = useCallback(() => {
     if (startupRetryTimerRef.current !== null) return;
@@ -181,14 +210,6 @@ export function useSessionRouteRefresh(input: Input) {
       ReturnType<typeof loadDesktopSessionWorkspaces>
     >["desktopList"] = null;
     let desktopWorkspaces = workspacesRef.current;
-    let shellReadyMarked = false;
-    const markShellReady = () => {
-      if (shellReadyMarked) return;
-      shellReadyMarked = true;
-      // Only dismiss boot overlay after the first connection attempt finishes
-      // (success or scheduled retry). Cache can paint under the overlay first.
-      markBootRouteReady();
-    };
     try {
       const desktopBootstrap = await loadDesktopSessionWorkspaces({
         fallbackWorkspaces: workspacesRef.current,
@@ -294,7 +315,7 @@ export function useSessionRouteRefresh(input: Input) {
         workspaceOrderIds: workspaceOrderIdsRef.current,
         sessionsByWorkspaceId: sessionsByWorkspaceIdRef.current,
         routeWorkspaceId,
-        selectedSessionId,
+        selectedSessionId: selectedSessionIdRef.current,
         persistedActiveId: readActiveWorkspaceId() || "",
         desktopSelectedId:
           resolveSelectedDesktopSessionWorkspaceId(desktopList),
@@ -392,18 +413,27 @@ export function useSessionRouteRefresh(input: Input) {
     } finally {
       setLoading(false);
       refreshInFlightRef.current = false;
-      // Ensure overlay can dismiss even if desktop workspace list was empty
-      // (first-run / no local workspaces yet).
-      markShellReady();
+      // Shell latch after refresh: immediate, or wait for static home + deadline.
+      // Ideal path: assistant onStaticHomeReady; fail-safe: deadline below.
+      const shellPlan = planBootShellReadyAfterRefresh(
+        waitForStaticHomeFirstPaintRef.current,
+      );
+      if (shellPlan.type === "mark-immediately") {
+        markShellReady();
+      } else if (staticHomeDeadlineTimerRef.current == null) {
+        staticHomeDeadlineTimerRef.current = window.setTimeout(() => {
+          staticHomeDeadlineTimerRef.current = null;
+          markShellReady();
+        }, shellPlan.deadlineMs);
+      }
     }
   }, [
     endpointForWorkspace,
     loadWorkspaceSessionsInBackground,
     localServerRef,
-    markBootRouteReady,
+    markShellReady,
     routeWorkspaceId,
     scheduleStartupConnectionRetry,
-    selectedSessionId,
     sessionsByWorkspaceIdRef,
     setBaseUrl,
     setClient,
@@ -506,7 +536,9 @@ export function useSessionRouteRefresh(input: Input) {
     let cancelled = false;
 
     const pollReloadEvents = async () => {
-      // Keep the interval installed while hidden; skip work until visible again.
+      // Keep the poller installed while hidden; skip this round until visible
+      // again. The next round is scheduled from `finally`, never from a fixed
+      // interval, so a slow server cannot accumulate concurrent list calls.
       if (!shouldRunReloadEventsPoll()) return;
       const currentCursor =
         reloadEventCursorByWorkspaceRef.current[selectedWorkspaceId];
@@ -536,14 +568,26 @@ export function useSessionRouteRefresh(input: Input) {
       }
     };
 
-    void pollReloadEvents();
-    const interval = window.setInterval(() => {
-      if (!shouldRunPollTick(isDocumentHidden())) return;
-      void pollReloadEvents();
-    }, RELOAD_EVENTS_POLL_INTERVAL_MS);
+    let timer: number | null = null;
+    const scheduleNextPoll = () => {
+      if (cancelled) return;
+      timer = window.setTimeout(() => {
+        timer = null;
+        void runPoll();
+      }, RELOAD_EVENTS_POLL_INTERVAL_MS);
+    };
+    const runPoll = async () => {
+      try {
+        await pollReloadEvents();
+      } finally {
+        scheduleNextPoll();
+      }
+    };
+
+    void runPoll();
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      if (timer !== null) window.clearTimeout(timer);
     };
   }, [
     client,

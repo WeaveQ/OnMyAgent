@@ -35,6 +35,7 @@ import type { SessionPageSurfaceProps } from "../../domains/session";
 import {
   addAssistantSession,
   addExpertSession,
+  shouldApplyExpertSelection,
   writeAssistantSessionCategory,
 } from "../../domains/agents";
 import {
@@ -44,6 +45,7 @@ import {
   writeSessionAgentSnapshot,
 } from "../../domains/agents";
 import { usePendingAgentStore } from "../../domains/agents";
+import { writeSessionOriginBestEffort } from "../../domains/agents";
 import {
   createIsolatedExpertSessionRuntimeDirectory,
   clearOptimisticSessionUserMessage,
@@ -99,7 +101,10 @@ import {
   registerCreatedSessionStartIntent,
   resolvePendingAgentForPrompt,
 } from "./agent-context";
-import { installMarketplaceExpertAfterSessionCreated } from "./intent";
+import {
+  installMarketplaceExpertAfterSessionCreated,
+  kickoffMarketplaceExpertInstall,
+} from "./intent";
 import { activateCreatedSessionRoute } from "./created-session-actions";
 import {
   type RouteWorkspace,
@@ -471,6 +476,13 @@ export function useSessionRouteSurfaceProps(
         const ensureWorkspaceId =
           selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
 
+        // Overlap marketplace package install with isolate-dir + session.create.
+        // Summon already kickoffs install; coordinator makes this a no-op / join.
+        const pendingForColdPath = usePendingAgentStore.getState().getAgent();
+        const marketplaceInstallPromise = kickoffMarketplaceExpertInstall(
+          pendingForColdPath,
+        );
+
         if (pageMode === "expert" && sendPlan.needsNewSession) {
           const explicitFolder = explicitAssistantWorkspace.trim();
           const isolate = shouldIsolateExpertSessionDirectory(
@@ -478,7 +490,7 @@ export function useSessionRouteSurfaceProps(
             explicitFolder || taskWorkspaceRoot,
           );
           if (isolate && workspaceRootForSession) {
-            const pendingForDir = usePendingAgentStore.getState().getAgent();
+            const pendingForDir = pendingForColdPath;
             // New session: use the pending agent name + id. Never fall back to
             // the previously selected session's agent snapshot - that belongs
             // to a different expert and would create artifacts in the wrong dir.
@@ -583,6 +595,12 @@ export function useSessionRouteSurfaceProps(
           }
         }
         if (!sessionId) return;
+        // Stable id for optimistic user bubble + promptAsync messageID so the
+        // transcript never flashes empty between create and the real SSE turn.
+        let optimisticMessageId: string | null =
+          createdSession && !draft.messageID
+            ? `msg_${crypto.randomUUID()}`
+            : null;
         if (createdSession) {
           // ExpertPage keeps its draft surface mounted until the created
           // session is bound to the intended expert. Bind before navigating:
@@ -610,6 +628,19 @@ export function useSessionRouteSurfaceProps(
               writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot);
             }
           }
+          // Seed the user turn into the new session transcript *before* route
+          // navigation / marketplace install so the surface never lands on a
+          // blank "准备中" page after the draft → real session hop.
+          if (optimisticMessageId && text) {
+            seedOptimisticSessionUserMessage({
+              workspaceId:
+                selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId,
+              sessionId,
+              messageId: optimisticMessageId,
+              text,
+              createdAt: Date.now(),
+            });
+          }
           setSessionsByWorkspaceId((current) => {
             const next = insertCreatedSessionForWorkspace({
               current,
@@ -618,6 +649,17 @@ export function useSessionRouteSurfaceProps(
             });
             sessionsByWorkspaceIdRef.current = next;
             return next;
+          });
+          writeSessionOriginBestEffort({
+            client: selectedWorkspaceEndpoint?.client ?? client,
+            workspaceId: selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId,
+            sessionId,
+            kind: pageMode === "expert" ? "expert" : "assistant",
+            agentId:
+              pageMode === "expert"
+                ? readCustomAgentIdForSession(sessionId)
+                : undefined,
+            directory: createdSession.directory ?? explicitAssistantWorkspace,
           });
           activateCreatedSessionRoute({
             selectedWorkspaceId,
@@ -847,10 +889,6 @@ export function useSessionRouteSurfaceProps(
           pid: onmyagentServerHostInfoState?.pid ?? null,
           port: onmyagentServerHostInfoState?.port ?? null,
         });
-        const envSystemContext = await buildOnMyAgentEnvSystemContext(client, {
-          cacheKey: sessionId,
-          runtimeKey: envRuntimeKey,
-        });
         // When the session was started from an agent card, the pending
         // agent store carries a system prompt (persona, tone, constraints).
         // Merge it with the env context so both reach the model in one
@@ -887,10 +925,20 @@ export function useSessionRouteSurfaceProps(
           // and name when the user re-opens this session later.
           writeCustomAgentIdForSession(sessionId, pendingAgentSnapshot.id);
           writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot);
-          await installMarketplaceExpertAfterSessionCreated(
-            pendingAgentSnapshot,
-          );
         }
+        // Join marketplace install with env context prep — install was kicked
+        // off before isolate/create so this usually has little/no remaining wait.
+        // Coordinator dedupes when the resolved agent matches the early kickoff.
+        const installBeforePrompt = pendingAgentSnapshot
+          ? installMarketplaceExpertAfterSessionCreated(pendingAgentSnapshot)
+          : marketplaceInstallPromise;
+        const [envSystemContext] = await Promise.all([
+          buildOnMyAgentEnvSystemContext(client, {
+            cacheKey: sessionId,
+            runtimeKey: envRuntimeKey,
+          }),
+          installBeforePrompt,
+        ]);
         const selectedPromptModel =
           sessionModelOverrideById[composerModeSessionId] ??
           pendingAgentSnapshot?.model ??
@@ -940,15 +988,13 @@ export function useSessionRouteSurfaceProps(
           draft.hiddenSystemPrompt,
           buildLanguageSystemPrompt(localeSnapshot),
         ]);
-        const optimisticMessageId =
-          createdSession && !draft.messageID
-            ? `msg_${crypto.randomUUID()}`
-            : null;
         const runtimeMessageId = draft.messageID ?? optimisticMessageId;
         const runtimeWorkspaceId =
           selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
         const userTurnText = resolveDraftText(promptDraft);
-        if (optimisticMessageId && userTurnText) {
+        // Refresh seed text if skill rewrite changed the visible prompt; same
+        // messageId keeps addOptimistic idempotent on id.
+        if (optimisticMessageId && userTurnText && userTurnText !== text) {
           seedOptimisticSessionUserMessage({
             workspaceId: runtimeWorkspaceId,
             sessionId,
@@ -1037,7 +1083,19 @@ export function useSessionRouteSurfaceProps(
           (agent) => !agent.hidden && agent.mode !== "subagent",
         );
       },
-      onSelectAgent: (agent: string | null) => setSelectedAgent(agent),
+      onSelectAgent: (agent: string | null) => {
+        const next = agent?.trim() ? agent.trim() : null;
+        if (
+          next &&
+          !shouldApplyExpertSelection({
+            nextExpertId: next,
+            selectedExpertId: selectedAgent,
+          })
+        ) {
+          return;
+        }
+        setSelectedAgent(next);
+      },
       listCommands: listSlashCommands,
       recentFiles: [],
       searchFiles: async (query: string) => {

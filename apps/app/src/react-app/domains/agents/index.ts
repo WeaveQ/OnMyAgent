@@ -15,7 +15,9 @@ export type {
   ExpertCreationSuggestionApplyOptions,
 } from "./expert-creation-conversation";
 export {
+  beginExpertCreateSaveAttempt,
   buildExpertCreationPreview,
+  consumeExpertCreateComposerFlush,
   saveExpertCreation,
   updateExpertCreation,
   useExpertCreationController,
@@ -71,6 +73,22 @@ export {
 } from "./agent-registry-store";
 export { buildPendingAgentFromMarketplaceExpert } from "./marketplace-pending-agent";
 export * from "./agent-session-state";
+export {
+  migrateLegacySessionOrigins,
+  reconcileSessionOrigins,
+  sessionOriginsChangedEvent,
+} from "./session-origin-reconciliation";
+export {
+  createSessionOriginHydrationGate,
+  getSessionOriginRecoveryRetryDelayMs,
+  isSessionOriginHydrationDegraded,
+  markSessionOriginHydrated,
+  markSessionOriginHydrationDegraded,
+  SESSION_ORIGIN_RECOVERY_MAX_RETRIES,
+  useSessionOriginHydrated,
+  useSessionOriginHydrationDegraded,
+} from "./session-origin-hydration";
+export { writeSessionOriginBestEffort } from "./session-origin-write";
 
 export * from "./pending-agent-store";
 export { AgentPromptSuggestions } from "./agent-prompt-suggestions";
@@ -105,3 +123,20 @@ export {
   isCreationExpertEditable,
   updateExpertRecordFromDraft,
 } from "./expert-creation-save-model";
+export {
+  EXPERT_PACKAGES_CHANGED_EVENT,
+  canHardDeleteExpert,
+  clearExpertLocalSessionBindings,
+  notifyExpertPackagesChanged,
+  packageNameCandidatesForAgent,
+  removeExpertFromRegistry,
+  uninstallExpertPackagesForAgent,
+} from "./expert-hard-delete";
+export {
+  EXPERT_SESSION_LIFECYCLE_RULES,
+  isDraftSessionId,
+  remainingExpertSessionIdsAfterDelete,
+  shouldApplyExpertSelection,
+  shouldClearLocalBindingOnDelete,
+  shouldFlushComposerOnExpertCreate,
+} from "./expert-session-lifecycle";

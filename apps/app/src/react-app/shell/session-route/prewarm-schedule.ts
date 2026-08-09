@@ -2,15 +2,24 @@
  * Schedule non-critical session-route prewarm work after first paint.
  * Prefer requestIdleCallback; fall back to setTimeout so cold listSessions /
  * selected-session snapshot are not racing inventory prewarm.
+ *
+ * Timing SoT: cold-path-budget.ts (COLD_PATH_BUDGET).
  */
+import {
+  COLD_PATH_BUDGET,
+  isSyncPrewarmAllowedOnColdEnter,
+  recordColdPathEvent,
+} from "./cold-path-budget";
 
 /**
  * Long enough that cold listSessions + first surface snapshot finish first.
  * First-install OpenCode index warm often takes several seconds.
  */
-export const SESSION_PREWARM_IDLE_TIMEOUT_MS = 8_000;
+export const SESSION_PREWARM_IDLE_TIMEOUT_MS =
+  COLD_PATH_BUDGET.prewarmIdleTimeoutMs;
 /** Fallback when requestIdleCallback is unavailable. */
-export const SESSION_PREWARM_FALLBACK_DELAY_MS = 4_000;
+export const SESSION_PREWARM_FALLBACK_DELAY_MS =
+  COLD_PATH_BUDGET.prewarmFallbackDelayMs;
 
 export type ScheduleIdleWorkInput = {
   run: () => void;
@@ -59,6 +68,11 @@ function defaultHost(): NonNullable<ScheduleIdleWorkInput["host"]> {
  * callers use this so mount effects do not immediately thrash OpenCode.
  */
 export function scheduleIdleWork(input: ScheduleIdleWorkInput): ScheduledIdleWork {
+  // Cold enter must never run inventory prewarm synchronously.
+  if (isSyncPrewarmAllowedOnColdEnter()) {
+    recordColdPathEvent("syncPrewarm");
+  }
+
   const host = input.host ?? defaultHost();
   const idleTimeoutMs =
     input.idleTimeoutMs ?? SESSION_PREWARM_IDLE_TIMEOUT_MS;

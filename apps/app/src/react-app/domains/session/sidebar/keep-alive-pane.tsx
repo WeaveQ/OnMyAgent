@@ -60,7 +60,7 @@ function setsEqual<T>(a: Set<T>, b: Set<T>): boolean {
 export function KeepAlivePane(props: {
   active: boolean;
   mounted: boolean;
-  children: ReactNode;
+  children: ReactNode | ((active: boolean) => ReactNode);
   className?: string;
 }) {
   if (!props.mounted) return null;
@@ -74,7 +74,9 @@ export function KeepAlivePane(props: {
       aria-hidden={!props.active}
       {...(!props.active ? ({ inert: "" } as Record<string, string>) : {})}
     >
-      {props.children}
+      {typeof props.children === "function"
+        ? props.children(props.active)
+        : props.children}
     </div>
   );
 }

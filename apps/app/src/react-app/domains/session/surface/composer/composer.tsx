@@ -5,6 +5,7 @@ import type { CloudImportedPluginFile } from "../../../../../app/cloud/import-st
 import type { SlashCommandOption } from "../../../../../app/types";
 import type { McpDirectoryInfo } from "../../../../../app/constants";
 import { t } from "../../../../../i18n";
+import type { ManagedDesktopConnectorItem } from "@/react-app/domains/plugins";
 import { useDesktopRestriction } from "../../../shared";
 import { ModelBehaviorSelect } from "../../../../../components/model-behavior-select";
 import { ModelSelectContainer } from "../../components/model-select";
@@ -53,6 +54,8 @@ export function ReactSessionComposer(props: ComposerProps) {
   const [toolMenuSection, setToolMenuSection] = useState<ToolMenuSection>("files");
   const [selectedPromptTemplateId, setSelectedPromptTemplateId] = useState<string | null>(null);
   const [selectedComposerExtension, setSelectedComposerExtension] = useState<McpDirectoryInfo | null>(null);
+  const [selectedManagedConnector, setSelectedManagedConnector] =
+    useState<ManagedDesktopConnectorItem | null>(null);
   const [skillSearchQuery, setSkillSearchQuery] = useState("");
   const [connectorSearchQuery, setConnectorSearchQuery] = useState("");
   const [showDefaultCollaborationChip, setShowDefaultCollaborationChip] = useState(false);
@@ -270,8 +273,25 @@ export function ReactSessionComposer(props: ComposerProps) {
   const applyExtensionSuggestion = (entry: McpDirectoryInfo, prompt: string) => {
     props.onDraftChange(`${entry.composerPrompt ?? `Use ${entry.name} to `}${prompt}`);
     setSelectedComposerExtension(null);
+    setSelectedManagedConnector(null);
     setToolMenuOpen(false);
   };
+
+  const applyManagedConnectorPrompt = (
+    connector: ManagedDesktopConnectorItem,
+    prompt: string,
+  ) => {
+    props.onDraftChange(prompt);
+    setSelectedManagedConnector(null);
+    setSelectedComposerExtension(null);
+    setToolMenuOpen(false);
+  };
+
+  useEffect(() => {
+    if (!toolMenuOpen || toolMenuSection !== "mcps") {
+      setSelectedManagedConnector(null);
+    }
+  }, [toolMenuOpen, toolMenuSection]);
 
   const openToolMenuSettings = () => {
     props.onOpenSkillsMarketplace?.();
@@ -721,6 +741,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                       filteredPluginSkillFiles={catalogs.filteredPluginSkillFiles}
                       filteredMcpItems={catalogs.filteredMcpItems}
                       filteredComposerExtensions={catalogs.filteredComposerExtensions}
+                      filteredManagedConnectors={catalogs.filteredManagedConnectors}
                       hasSkillMatches={catalogs.hasSkillMatches}
                       hasSkills={catalogs.hasSkills}
                       hasConnectorMatches={catalogs.hasConnectorMatches}
@@ -738,8 +759,11 @@ export function ReactSessionComposer(props: ComposerProps) {
                       applyPluginFileSelection={applyPluginFileSelection}
                       applyExtensionSelection={applyExtensionSelection}
                       applyExtensionSuggestion={applyExtensionSuggestion}
+                      applyManagedConnectorPrompt={applyManagedConnectorPrompt}
                       selectedComposerExtension={selectedComposerExtension}
                       setSelectedComposerExtension={setSelectedComposerExtension}
+                      selectedManagedConnector={selectedManagedConnector}
+                      setSelectedManagedConnector={setSelectedManagedConnector}
                       openToolMenuSettings={openToolMenuSettings}
                       openConnectorsConfigure={openConnectorsConfigure}
                       openCustomConnectorOrMarketplace={openCustomConnectorOrMarketplace}
@@ -826,7 +850,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                     disabled={props.busy}
                   />
                 ) : null}
-                {props.busy && !canSend ? (
+                {props.busy ? (
                   <Button variant="destructive" size="icon-lg"
                     type="button"
                     onClick={props.onStop}
@@ -842,14 +866,12 @@ export function ReactSessionComposer(props: ComposerProps) {
                     onClick={
                       canSend && !props.modelUnavailable
                         ? props.onSend
-                        : props.busy
-                          ? props.onStop
-                          : undefined
+                        : undefined
                     }
                     disabled={
                       props.disabled ||
                       props.modelUnavailable ||
-                      (!canSend && !props.busy)
+                      !canSend
                     }
                     title={
                       props.modelUnavailable

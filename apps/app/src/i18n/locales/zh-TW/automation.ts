@@ -5,7 +5,7 @@ export default {
   "automation.add_from_template": "從案例添加",
   "automation.add_task_title": "添加自動化任務",
   "automation.add_with_plus": "+ 添加",
-  "automation.tab_tasks": "定時任務",
+  "automation.tab_tasks": "任務",
   "automation.tab_runs": "運行列表",
   "automation.nav_all_tasks": "全部任務",
   "automation.section_current": "當前",

@@ -271,6 +271,25 @@ function retainSession(
   );
 }
 
+function retentionTtlForUntrackedSession(
+  input: SyncOptions,
+  sessionId: string,
+) {
+  const queryStatus = getReactQueryClient().getQueryData<SessionStatus>(
+    statusKey(input.workspaceId, sessionId),
+  );
+  if (isLiveStatus(queryStatus)) return retainedSessionTtlMs;
+
+  const activity = useSessionActivityStore
+    .getState()
+    .getStatus(input.workspaceId, sessionId);
+  return activity === "thinking" ||
+    activity === "responding" ||
+    activity === "retrying"
+    ? retainedSessionTtlMs
+    : idleRetainedSessionTtlMs;
+}
+
 function disposeWorkspaceSync(key: string, entry: SyncEntry) {
   if (entry.refs > 0) return;
   if (entry.disposeTimer) {
@@ -281,6 +300,19 @@ function disposeWorkspaceSync(key: string, entry: SyncEntry) {
   entry.retainedSessionTimers.clear();
   entry.dispose();
   if (syncs.get(key) === entry) syncs.delete(key);
+}
+
+/** Immediately release every stream and retained timer owned by a forgotten workspace. */
+export function disposeWorkspaceSessionSyncs(workspaceId: string) {
+  const id = workspaceId.trim();
+  if (!id) return;
+  for (const [key, entry] of [...syncs.entries()]) {
+    if (entry.input.workspaceId !== id) continue;
+    entry.refs = 0;
+    entry.sessionUpdatedListeners.clear();
+    entry.sessionStatusListeners.clear();
+    disposeWorkspaceSync(key, entry);
+  }
 }
 
 function releaseRetainedSessionSoon(
@@ -1307,24 +1339,54 @@ function flushDeltas(entry: SyncEntry, workspaceId: string) {
   }
 }
 
-function startSync(input: SyncOptions) {
-  const client = createClient(input.baseUrl, input.directory?.trim() || undefined, {
-    token: input.onmyagentToken,
-    mode: "onmyagent",
-  });
+type SessionSyncSubscription = {
+  stream: AsyncIterable<unknown>;
+};
+
+type SessionSyncConnection = {
+  controller: AbortController;
+  generation: number;
+  startedAt: number;
+  establishedAt: number | null;
+  lastActivityAt: number | null;
+};
+
+type SessionSyncConnectionLifecycleOptions = {
+  subscribe: (signal: AbortSignal) => Promise<SessionSyncSubscription>;
+  onEvent: (event: unknown) => void;
+  staleStreamMs?: number;
+  watchdogIntervalMs?: number;
+  handshakeWindowMs?: number;
+  initialRetryDelayMs?: number;
+};
+
+function createSessionSyncConnectionLifecycle(
+  options: SessionSyncConnectionLifecycleOptions,
+) {
   const controller = new AbortController();
-  const entry = syncs.get(syncKey(input));
   let disposed = false;
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let watchdogTimer: ReturnType<typeof setInterval> | null = null;
-  let activeConnectionController: AbortController | null = null;
-  let lastEventAt = Date.now();
-  let retryDelayMs = 1_000;
-  const staleStreamMs = 30_000;
+  let activeConnection: SessionSyncConnection | null = null;
+  let retryDelayMs = options.initialRetryDelayMs ?? 1_000;
+  let nextGeneration = 0;
+  const staleStreamMs = options.staleStreamMs ?? 30_000;
+  const watchdogIntervalMs = options.watchdogIntervalMs ?? 10_000;
+  const handshakeWindowMs =
+    options.handshakeWindowMs ?? Math.max(staleStreamMs, watchdogIntervalMs * 2);
 
-  const scheduleRetry = () => {
-    if (disposed || controller.signal.aborted || retryTimer) return;
-    activeConnectionController = null;
+  const isActiveConnection = (connection: SessionSyncConnection) =>
+    activeConnection === connection;
+
+  const scheduleRetry = (connection: SessionSyncConnection) => {
+    if (
+      disposed ||
+      controller.signal.aborted ||
+      retryTimer ||
+      !isActiveConnection(connection)
+    )
+      return;
+    activeConnection = null;
     retryTimer = setTimeout(() => {
       retryTimer = null;
       void connect();
@@ -1333,58 +1395,91 @@ function startSync(input: SyncOptions) {
   };
 
   const connect = async () => {
-    const connectionController = new AbortController();
-    activeConnectionController = connectionController;
+    if (disposed || controller.signal.aborted || activeConnection) return;
+    const connection: SessionSyncConnection = {
+      controller: new AbortController(),
+      generation: nextGeneration + 1,
+      startedAt: Date.now(),
+      establishedAt: null,
+      lastActivityAt: null,
+    };
+    nextGeneration = connection.generation;
+    activeConnection = connection;
     try {
-      const sub = await client.event.subscribe(undefined, {
-        signal: connectionController.signal,
-      });
-      retryDelayMs = 1_000;
-      lastEventAt = Date.now();
+      const sub = await options.subscribe(connection.controller.signal);
+      if (!isActiveConnection(connection)) return;
+      retryDelayMs = options.initialRetryDelayMs ?? 1_000;
+      connection.establishedAt = Date.now();
+      connection.lastActivityAt = connection.establishedAt;
       for await (const raw of sub.stream) {
-        if (controller.signal.aborted || connectionController.signal.aborted)
+        if (
+          controller.signal.aborted ||
+          connection.controller.signal.aborted ||
+          !isActiveConnection(connection)
+        )
           return;
-        lastEventAt = Date.now();
-        const event = normalizeEvent(raw);
-        if (!event) continue;
-        if (!entry) continue;
-        applyEvent(entry, input.workspaceId, event);
+        connection.lastActivityAt = Date.now();
+        options.onEvent(raw);
       }
-      if (
-        !controller.signal.aborted &&
-        activeConnectionController === connectionController
-      )
-        scheduleRetry();
+      scheduleRetry(connection);
     } catch (error) {
       if (
         !controller.signal.aborted &&
-        (connectionController.signal.aborted || shouldRetrySyncSubscribe(error))
+        isActiveConnection(connection) &&
+        (connection.controller.signal.aborted || shouldRetrySyncSubscribe(error))
       ) {
-        scheduleRetry();
+        scheduleRetry(connection);
       }
     } finally {
-      if (activeConnectionController === connectionController)
-        activeConnectionController = null;
+      if (isActiveConnection(connection)) activeConnection = null;
     }
   };
 
   void connect();
-  watchdogTimer = setInterval(() => {
+  const watchdog = () => {
     if (disposed || controller.signal.aborted || retryTimer) return;
-    const active = activeConnectionController;
-    if (!active || active.signal.aborted) return;
-    if (Date.now() - lastEventAt < staleStreamMs) return;
-    active.abort();
-    scheduleRetry();
-  }, 10_000);
+    const active = activeConnection;
+    if (!active || active.controller.signal.aborted) return;
+    if (active.establishedAt === null) {
+      if (Date.now() - active.startedAt < handshakeWindowMs) return;
+    } else if (
+      active.lastActivityAt !== null &&
+      Date.now() - active.lastActivityAt < staleStreamMs
+    ) {
+      return;
+    }
+    active.controller.abort();
+    scheduleRetry(active);
+  };
+  watchdogTimer = setInterval(() => {
+    watchdog();
+  }, watchdogIntervalMs);
 
-  return () => {
+  const dispose = () => {
     disposed = true;
     if (retryTimer) clearTimeout(retryTimer);
     if (watchdogTimer) clearInterval(watchdogTimer);
-    activeConnectionController?.abort();
+    activeConnection?.controller.abort();
     controller.abort();
   };
+  return { dispose, watchdog };
+}
+
+function startSync(input: SyncOptions) {
+  const client = createClient(input.baseUrl, input.directory?.trim() || undefined, {
+    token: input.onmyagentToken,
+    mode: "onmyagent",
+  });
+  const entry = syncs.get(syncKey(input));
+  const lifecycle = createSessionSyncConnectionLifecycle({
+    subscribe: (signal) => client.event.subscribe(undefined, { signal }),
+    onEvent: (raw) => {
+      const event = normalizeEvent(raw);
+      if (!event || !entry) return;
+      applyEvent(entry, input.workspaceId, event);
+    },
+  });
+  return lifecycle.dispose;
 }
 
 export function ensureWorkspaceSessionSync(input: SyncOptions) {
@@ -1400,7 +1495,7 @@ export function ensureWorkspaceSessionSync(input: SyncOptions) {
     if (input.onSessionStatus)
       existing.sessionStatusListeners.add(input.onSessionStatus);
     existing.refs += 1;
-    return () => releaseWorkspaceSessionSync(input);
+    return once(() => releaseWorkspaceSessionSync(input));
   }
 
   syncs.set(key, {
@@ -1424,7 +1519,16 @@ export function ensureWorkspaceSessionSync(input: SyncOptions) {
   const created = syncs.get(key)!;
   created.dispose = startSync(input);
 
-  return () => releaseWorkspaceSessionSync(input);
+  return once(() => releaseWorkspaceSessionSync(input));
+}
+
+function once(action: () => void) {
+  let completed = false;
+  return () => {
+    if (completed) return;
+    completed = true;
+    action();
+  };
 }
 
 function releaseWorkspaceSessionSync(input: SyncOptions) {
@@ -1500,15 +1604,20 @@ export function trackWorkspaceSessionSync(
     (entry.trackedSessionRefs.get(normalizedSessionId) ?? 0) + 1,
   );
 
-  return () => {
+  return once(() => {
     const current = entry.trackedSessionRefs.get(normalizedSessionId) ?? 0;
     if (current <= 1) {
       entry.trackedSessionRefs.delete(normalizedSessionId);
-      retainSession(input, entry, normalizedSessionId);
+      retainSession(
+        input,
+        entry,
+        normalizedSessionId,
+        retentionTtlForUntrackedSession(input, normalizedSessionId),
+      );
       return;
     }
     entry.trackedSessionRefs.set(normalizedSessionId, current - 1);
-  };
+  });
 }
 
 export function trackWorkspaceSessionsSync(
@@ -1538,6 +1647,11 @@ export { selectFullStreamSessionIds, selectStatusOnlySessionIds } from "./stream
 
 export function __createWorkspaceSessionSyncForTest(input: SyncOptions) {
   const key = syncKey(input);
+  const existing = syncs.get(key);
+  if (existing) {
+    existing.refs += 1;
+    return once(() => releaseWorkspaceSessionSync(input));
+  }
   syncs.set(key, {
     input,
     refs: 1,
@@ -1551,13 +1665,16 @@ export function __createWorkspaceSessionSyncForTest(input: SyncOptions) {
     deltaFlushBuffer: [],
     deltaFlushScheduled: false,
   });
-  return () => {
-    const entry = syncs.get(key);
-    if (entry) {
-      for (const timer of entry.retainedSessionTimers.values())
-        clearTimeout(timer);
-    }
-    syncs.delete(key);
+  return once(() => releaseWorkspaceSessionSync(input));
+}
+
+export function __createSessionSyncConnectionForTest(
+  options: SessionSyncConnectionLifecycleOptions,
+) {
+  const lifecycle = createSessionSyncConnectionLifecycle(options);
+  return {
+    dispose: lifecycle.dispose,
+    watchdog: lifecycle.watchdog,
   };
 }
 
@@ -1571,6 +1688,32 @@ export function __disposeWorkspaceSessionSyncForTest(input: SyncOptions) {
   if (!entry) return;
   entry.refs = 0;
   disposeWorkspaceSync(key, entry);
+}
+
+export function __getWorkspaceSessionSyncResourcesForTest(input: SyncOptions) {
+  const entry = syncs.get(syncKey(input));
+  return {
+    exists: Boolean(entry),
+    refs: entry?.refs ?? 0,
+    trackedSessions: entry?.trackedSessionRefs.size ?? 0,
+    retainedSessions: entry?.retainedSessionTimers.size ?? 0,
+  };
+}
+
+export function __retentionTtlForUntrackedSessionForTest(
+  input: SyncOptions,
+  sessionId: string,
+) {
+  return retentionTtlForUntrackedSession(input, sessionId);
+}
+
+export function __expireRetainedSessionForTest(
+  input: SyncOptions,
+  sessionId: string,
+) {
+  const entry = syncs.get(syncKey(input));
+  if (!entry || !entry.retainedSessionTimers.has(sessionId)) return;
+  clearTrackedSession(input, entry, sessionId);
 }
 
 export function __applySessionSyncEventForTest(
