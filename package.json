@@ -19,7 +19,7 @@
     "check:i18n:hardcoded": "node scripts/checks/i18n-audit.mjs --hardcoded",
     "check:i18n:cjk": "node scripts/checks/check-i18n-cjk.mjs",
     "check:security": "node scripts/checks/security-smoke.mjs",
-    "check:boundaries": "node scripts/checks/check-boundaries.mjs",
+    "check:boundaries": "node scripts/checks/check-boundaries.mjs && node scripts/checks/check-circular-deps.mjs",
     "check:architecture-paths": "node scripts/checks/architecture-paths.mjs",
     "check:forbidden-types": "node scripts/checks/check-forbidden-types.mjs",
     "test:rename-consistency": "node scripts/checks/rename-consistency.test.mjs",
