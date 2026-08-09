@@ -754,7 +754,6 @@ export function ExpertPage(props: ExpertPageProps) {
     openRailView("store");
   }, []);
   const {
-    handleCreateExpert,
     handleCreateSkill,
     handleChatWithSkill,
     handleEditSkill,
@@ -1350,7 +1349,7 @@ export function ExpertPage(props: ExpertPageProps) {
                           myExperts={myExpertPackages}
                           onActiveTabChange={setStoreActiveTab}
                           onSummonMarketplaceExpert={handleStartMarketplaceExpert}
-                          onCreateExpert={handleCreateExpert}
+                          onCreateExpert={openExpertCreation}
                           onCreateSkill={handleCreateSkill}
                           onChatWithSkill={handleChatWithSkill}
                           onEditSkill={handleEditSkill}

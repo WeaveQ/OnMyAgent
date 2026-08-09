@@ -16,26 +16,40 @@ const panelSource = readFileSync(
   ),
   "utf8",
 );
-const createButtonStart = panelSource.indexOf('data-expert-create="true"');
-const createButtonSource = panelSource.slice(
-  panelSource.lastIndexOf("      <Button", createButtonStart),
-  panelSource.indexOf("      </Button>", createButtonStart),
+const expertPageSource = readFileSync(
+  join(import.meta.dir, "../src/react-app/domains/session/pages/expert.tsx"),
+  "utf8",
 );
 
 describe("expert create CTA theme contract", () => {
-  test("pins create CTA under the expert list, not under search", () => {
+  test("pins summon-experts footer under the expert list, not under search", () => {
     expect(headerSource).not.toContain("data-expert-create");
     expect(panelSource).toContain('data-expert-create="true"');
-    expect(panelSource).toContain('mode === "agent" && props.onCreateExpert');
+    expect(panelSource).toContain("session.summon_experts");
+    expect(panelSource).toContain("session.add_expert_from_market");
+    expect(panelSource).toContain("session.create_expert_yourself");
+    expect(panelSource).toContain("DropdownMenu");
   });
 
   test("uses a slightly darker light surface while preserving the dark treatment", () => {
-    expect(createButtonSource).toContain('variant="ghost"');
-    expect(createButtonSource).toContain('size="sidebar-cta"');
-    expect(headerSource).toContain("bg-dls-active");
-    expect(headerSource).toContain("dark:bg-dls-surface-muted");
-    expect(headerSource).toContain("text-dls-text");
-    expect(headerSource).toContain("hover:bg-dls-hover");
-    expect(headerSource).not.toContain("bg-dls-decision");
+    expect(panelSource).toContain('size="sidebar-cta"');
+    expect(panelSource).toContain("SIDEBAR_FOOTER_CTA_CLASS");
+    const chromeSource = readFileSync(
+      join(import.meta.dir, "../src/components/ui/sidebar-chrome.ts"),
+      "utf8",
+    );
+    expect(chromeSource).toContain("bg-dls-active");
+    expect(chromeSource).toContain("dark:bg-dls-surface-muted");
+    expect(chromeSource).toContain("text-dls-text");
+    expect(chromeSource).toContain("hover:bg-dls-hover");
+    expect(chromeSource).not.toContain("bg-dls-decision");
+  });
+
+  test("self-create opens the expert creation wizard, not the office chat prompt", () => {
+    // Sidebar footer + store both use openExpertCreation (ExpertCreationPage).
+    expect(expertPageSource).toContain("onCreateExpert={openExpertCreation}");
+    expect(expertPageSource).not.toMatch(
+      /onCreateExpert=\{handleCreateExpert\}/,
+    );
   });
 });

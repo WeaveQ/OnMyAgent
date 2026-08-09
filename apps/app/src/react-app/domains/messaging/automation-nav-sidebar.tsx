@@ -7,6 +7,7 @@
 import {
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactElement,
@@ -22,10 +23,16 @@ import {
   Pin,
   PinOff,
   Plus,
+  Search,
   Trash2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import {
   Tooltip,
   TooltipContent,
@@ -37,8 +44,7 @@ import { t } from "../../../i18n";
 
 import {
   positionTaskContextMenu,
-  SIDEBAR_PRIMARY_CTA_CLASS,
-  SIDEBAR_PRIMARY_HEADER_CLASS,
+  SIDEBAR_FOOTER_CTA_CLASS,
   TASK_CONTEXT_MENU_CLASS,
   TASK_CONTEXT_MENU_ITEM_CLASS,
   TASK_CONTEXT_MENU_SEPARATOR_CLASS,
@@ -122,7 +128,26 @@ export function AutomationNavSidebar(props: {
   onToggleSessionPinned?: (groupId: string, sessionId: string) => void;
 }) {
   const groups = props.groups ?? [];
+  const [query, setQuery] = useState("");
+  const normalizedQuery = query.trim().toLowerCase();
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
+
+  const filteredGroups = useMemo(() => {
+    if (!normalizedQuery) return groups;
+    return groups
+      .map((group) => {
+        const groupTitleHit = group.title.toLowerCase().includes(normalizedQuery);
+        const sessions = group.sessions.filter((session) =>
+          session.title.toLowerCase().includes(normalizedQuery),
+        );
+        // Keep whole group when title matches; otherwise only matching sessions.
+        if (groupTitleHit) return group;
+        if (sessions.length === 0) return null;
+        return { ...group, sessions };
+      })
+      .filter((group): group is AutomationNavGroupRow => group != null);
+  }, [groups, normalizedQuery]);
+
   useEffect(() => {
     if (groups.length === 0) return;
     setExpandedIds((current) => {
@@ -138,24 +163,41 @@ export function AutomationNavSidebar(props: {
     });
   }, [groups]);
 
-  const items: Array<{
-    key: AutomationNavKey;
-    label: string;
-    icon: typeof CalendarClock;
-    count?: number;
-  }> = [
-    {
-      key: "tasks",
-      label: t("automation.nav_all_tasks"),
-      icon: CalendarClock,
-      count: props.taskCount,
-    },
-    {
-      key: "templates",
-      label: t("automation.nav_templates"),
-      icon: LayoutTemplate,
-    },
-  ];
+  // While searching, auto-expand groups that still have visible sessions.
+  useEffect(() => {
+    if (!normalizedQuery) return;
+    setExpandedIds(filteredGroups.map((group) => group.id));
+  }, [filteredGroups, normalizedQuery]);
+
+  const items = useMemo(
+    () =>
+      [
+        {
+          key: "tasks" as const,
+          label: t("automation.nav_all_tasks"),
+          icon: CalendarClock,
+          count: props.taskCount,
+        },
+        {
+          key: "templates" as const,
+          label: t("automation.nav_templates"),
+          icon: LayoutTemplate,
+        },
+      ] satisfies Array<{
+        key: AutomationNavKey;
+        label: string;
+        icon: typeof CalendarClock;
+        count?: number;
+      }>,
+    [props.taskCount],
+  );
+
+  const visibleNavItems = useMemo(() => {
+    if (!normalizedQuery) return items;
+    return items.filter((item) =>
+      item.label.toLowerCase().includes(normalizedQuery),
+    );
+  }, [items, normalizedQuery]);
 
   const toggleExpanded = (groupId: string) => {
     setExpandedIds((current) =>
@@ -168,71 +210,92 @@ export function AutomationNavSidebar(props: {
   return (
     <TooltipProvider>
       <aside
-        className="flex h-full min-h-0 shrink-0 flex-col border-r border-dls-border bg-dls-surface text-dls-text"
+        className="flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-r border-dls-border bg-dls-sidebar px-2.5 pb-5 text-dls-text mac:bg-dls-sidebar mac:titlebar-no-drag"
         style={{ width: props.width }}
       >
-        <div className={cn(SIDEBAR_PRIMARY_HEADER_CLASS, "px-3")}>
-          <Button
-            type="button"
-            variant="outline"
-            size="sidebar-cta"
-            className={SIDEBAR_PRIMARY_CTA_CLASS}
-            onClick={props.onCreate}
+        <div
+          className="relative flex w-full shrink-0 flex-col pt-2"
+          data-automation-search="true"
+        >
+          <InputGroup
+            controlSize="lg"
+            radius="lg"
+            tone="surface"
+            className="w-full"
           >
-            <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-            {t("automation.add")}
-          </Button>
+            <InputGroupAddon align="inline-start" inset="tight">
+              <Search className="size-4" />
+            </InputGroupAddon>
+            <InputGroupInput
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("session.search_tasks_placeholder")}
+              aria-label={t("session.search_tasks_placeholder")}
+              className="text-sm placeholder:text-dls-secondary/75"
+            />
+          </InputGroup>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4 pt-1">
-          <nav className="flex flex-col gap-0.5" aria-label={t("nav.automation")}>
-            {items.map((item) => {
-              const Icon = item.icon;
-              const active = props.active === item.key;
-              return (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => props.onChange(item.key)}
-                  aria-pressed={active}
-                  className={cn(
-                    "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm transition-colors",
-                    active
-                      ? "bg-dls-list-selected font-medium text-dls-text"
-                      : "text-dls-text hover:bg-dls-hover",
-                  )}
-                >
-                  <Icon className="size-4 shrink-0" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                  {typeof item.count === "number" ? (
-                    <span
-                      className={cn(
-                        "tabular-nums text-xs font-medium",
-                        active ? "opacity-70" : "text-dls-text",
-                      )}
-                    >
-                      {item.count}
-                    </span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </nav>
+        {/*
+          Stack under search: +2px vs expert list-lane (pt-1.5 to pt-2) so
+          All tasks has a bit more air under the search field.
+        */}
+        <div className="min-h-0 flex-1 overflow-y-auto pr-0.5 pt-2">
+          {visibleNavItems.length > 0 ? (
+            <nav className="flex flex-col gap-1" aria-label={t("nav.automation")}>
+              {visibleNavItems.map((item) => {
+                const Icon = item.icon;
+                const active = props.active === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => props.onChange(item.key)}
+                    aria-pressed={active}
+                    className={cn(
+                      // Expert row uses px-2.5; keep single-line nav at list rhythm (h-10).
+                      "flex h-10 w-full items-center gap-2.5 rounded-xl px-2.5 text-left text-sm transition-colors",
+                      active
+                        ? "bg-dls-list-selected font-medium text-dls-text"
+                        : "text-dls-text hover:bg-dls-hover",
+                    )}
+                  >
+                    <Icon className="size-4 shrink-0" aria-hidden />
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    {typeof item.count === "number" ? (
+                      <span
+                        className={cn(
+                          "tabular-nums text-xs font-medium",
+                          active ? "opacity-70" : "text-dls-text",
+                        )}
+                      >
+                        {item.count}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </nav>
+          ) : null}
 
-          {groups.length > 0 ? (
-            <div className="mt-4">
-              <div className="px-2 pb-1.5 pt-1 text-2xs font-semibold uppercase tracking-wide text-dls-secondary">
+          {filteredGroups.length > 0 ? (
+            <div className={cn(visibleNavItems.length > 0 ? "mt-4" : "mt-0")}>
+              {/* Match home Recent section label: text-sm medium, not 2xs caps. */}
+              <div className="flex h-[34px] min-h-[34px] max-h-[34px] items-center px-2 text-sm font-medium leading-none tracking-wide text-dls-secondary">
                 {t("automation.tab_tasks")}
               </div>
               <div className="flex flex-col gap-0.5">
-                {groups.map((group) => {
-                  const expanded = expandedIds.includes(group.id);
+                {filteredGroups.map((group) => {
+                  const expanded =
+                    Boolean(normalizedQuery) || expandedIds.includes(group.id);
                   const groupLabel = t("automation.session_group_title", {
                     title: group.title,
                   });
-                  const Chevron = expanded ? ChevronDown : ChevronRight;
                   return (
-                    <div key={group.id} className="flex min-w-0 flex-col gap-0.5">
+                    <div
+                      key={group.id}
+                      className="flex min-w-0 flex-col gap-0.5"
+                    >
                       <AutomationNavGroupHeader
                         title={groupLabel}
                         groupId={group.id}
@@ -281,6 +344,20 @@ export function AutomationNavSidebar(props: {
               </div>
             </div>
           ) : null}
+        </div>
+
+        <div className="shrink-0 pt-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sidebar-cta"
+            className={SIDEBAR_FOOTER_CTA_CLASS}
+            onClick={props.onCreate}
+            data-automation-create="true"
+          >
+            <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+            {t("automation.add")}
+          </Button>
         </div>
       </aside>
     </TooltipProvider>
@@ -351,17 +428,21 @@ function AutomationNavSessionRowView(props: {
           }
         }}
         className={cn(
-          "group flex w-full cursor-pointer items-center gap-1 rounded-xl py-1 pl-7 pr-1.5 text-left text-sm transition-colors",
+          // Match home task rows (LIST_ROW_H 34px) — avoid short py-1 rows
+          // that look undersized under the group header.
+          "group flex h-[34px] min-h-[34px] max-h-[34px] w-full shrink-0 cursor-pointer items-center gap-1 overflow-hidden rounded-lg py-0 pl-7 pr-1.5 text-left text-sm leading-none transition-colors",
           props.selected
             ? "bg-dls-list-selected font-medium text-dls-text"
             : "text-dls-text hover:bg-dls-hover",
           menuOpen && "bg-dls-list-hover text-dls-text",
         )}
       >
-        <span className="min-w-0 flex-1 truncate">{props.session.title}</span>
+        <span className="min-w-0 flex-1 truncate leading-none">
+          {props.session.title}
+        </span>
         <span
           className={cn(
-            "shrink-0 tabular-nums text-2xs text-dls-secondary group-hover:hidden",
+            "shrink-0 tabular-nums text-2xs leading-none text-dls-secondary group-hover:hidden",
             menuOpen && "hidden",
           )}
         >
@@ -370,7 +451,7 @@ function AutomationNavSessionRowView(props: {
         {hasActions ? (
           <div
             className={cn(
-              "hidden shrink-0 items-center gap-0 group-hover:flex",
+              "hidden h-full shrink-0 items-center gap-0 group-hover:flex",
               menuOpen && "flex",
             )}
             onClick={(event) => event.stopPropagation()}
@@ -590,14 +671,14 @@ function AutomationNavGroupHeader(props: {
     <>
       <div
         className={cn(
-          "group flex w-full items-center gap-1 rounded-xl px-1 py-1 text-sm text-dls-text transition-colors hover:bg-dls-hover",
+          "group flex h-[34px] min-h-[34px] max-h-[34px] w-full shrink-0 items-center gap-1 overflow-hidden rounded-lg px-1 py-0 text-sm leading-none text-dls-text transition-colors hover:bg-dls-hover",
           menuOpen && "bg-dls-list-hover",
         )}
       >
         <button
           type="button"
           onClick={props.onToggle}
-          className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1 py-0.5 text-left"
+          className="flex h-full min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1 text-left"
           aria-expanded={props.expanded}
         >
           {props.expanded ? (

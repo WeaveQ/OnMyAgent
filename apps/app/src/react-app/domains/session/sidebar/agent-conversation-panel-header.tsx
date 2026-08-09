@@ -1,8 +1,8 @@
 /** @jsxImportSource react */
-import { LayoutGrid, Plus, Search } from "lucide-react";
+import { LayoutGrid, Search } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import {
+  SIDEBAR_FOOTER_CTA_CLASS,
   SIDEBAR_PRIMARY_CTA_CLASS,
   SIDEBAR_PRIMARY_HEADER_CLASS,
 } from "@/components/ui/sidebar-chrome";
@@ -15,14 +15,15 @@ import {
 import { t } from "../../../../i18n";
 
 // Re-export for callers that imported chrome from this header module.
-export { SIDEBAR_PRIMARY_CTA_CLASS, SIDEBAR_PRIMARY_HEADER_CLASS };
+export {
+  SIDEBAR_FOOTER_CTA_CLASS,
+  SIDEBAR_PRIMARY_CTA_CLASS,
+  SIDEBAR_PRIMARY_HEADER_CLASS,
+};
 
-/**
- * Expert create CTA (footer of expert list): slightly deepen the light-theme
- * surface while keeping the original dark-theme surface unchanged.
- */
-export const EXPERT_CREATE_CTA_CLASS =
-  "mac:titlebar-no-drag border-0 bg-dls-active dark:bg-dls-surface-muted text-dls-text shadow-none hover:bg-dls-hover hover:text-dls-text before:rounded-lg";
+/** @deprecated Prefer SIDEBAR_FOOTER_CTA_CLASS — same token for home/expert/automation. */
+export const EXPERT_CREATE_CTA_CLASS = SIDEBAR_FOOTER_CTA_CLASS;
+
 type AgentConversationPanelHeaderProps = {
   mode: "agent" | "assistant";
   query: string;
@@ -36,33 +37,36 @@ type AgentConversationPanelHeaderProps = {
 };
 
 export function AgentConversationPanelHeader(props: AgentConversationPanelHeaderProps) {
+  // Home + experts: search stays top; create CTA is pinned to panel footer.
   if (props.mode === "assistant") {
     return (
       <div
-        className={SIDEBAR_PRIMARY_HEADER_CLASS}
-        data-assistant-primary-actions="true"
+        className="relative flex w-full shrink-0 flex-col pt-2"
+        data-assistant-search="true"
       >
-        {/*
-          Full-width outline CTA in shared h-14 strip (SessionSurfaceHeader /
-          automation CTA baseline — DESIGN.md sidebar-primary-cta).
-        */}
-        <Button
-          type="button"
-          variant="outline"
-          size="sidebar-cta"
-          onClick={props.onCreateTask}
-          className={SIDEBAR_PRIMARY_CTA_CLASS}
+        <InputGroup
+          controlSize="lg"
+          radius="lg"
+          tone="surface"
+          className="w-full"
         >
-          <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-          {t("session.new_task")}
-        </Button>
+          <InputGroupAddon align="inline-start" inset="tight">
+            <Search className="size-4" />
+          </InputGroupAddon>
+          <InputGroupInput
+            value={props.query}
+            onChange={(event) => props.onQueryChange(event.target.value)}
+            placeholder={t("session.search_tasks_placeholder")}
+            aria-label={t("session.search_tasks_placeholder")}
+            className="text-sm placeholder:text-dls-secondary/75"
+          />
+        </InputGroup>
       </div>
     );
   }
 
   return (
-    <div className="relative flex w-full shrink-0 flex-col pt-1.5">
-      {/* Expert list: search stays top; create CTA is pinned to panel footer. */}
+    <div className="relative flex w-full shrink-0 flex-col pt-2">
       <InputGroup
         controlSize="lg"
         radius="lg"
