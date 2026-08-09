@@ -84,11 +84,13 @@ packages/
 | OpenCode 主轨 vs Personal 辅轨 | 下文 **Dual Runtime Boundary** |
 | Session goal 生命周期 | 下文 **Session Goal Lifecycle** + `domains/session` 代码/测试 |
 | Expert 创建 / 选中 / 删除 / 多 tab | 下表 **Expert lifecycle hard rules** + `expert-session-lifecycle.ts` / `expert-hard-delete.ts`；UI 域见 [`../apps/app/src/react-app/ARCHITECTURE.md`](../apps/app/src/react-app/ARCHITECTURE.md) |
+| **Expert / session 产品行为**（空壳 busy、origin 水合、bound draft、首发可见、SSE 代际） | [`../apps/app/AGENTS.md`](../apps/app/AGENTS.md) **Experts / Session 不变量** + `apps/app/scripts/expert-session-invariants.test.ts`（**不是** DESIGN） |
 | Shell 冷启动 / prewarm / title cache | `cold-path-budget.ts` + **Shell load / boot** in React ARCHITECTURE；prewarm 仅 idle |
 | Skills 列表 / 安装写路径 | 上文 Product phase；server `skillsInstallWriteRoot()` / `listSkills` skip stats |
 | Capability shelf | [`design/2026-08-09-capability-shelf.md`](./design/2026-08-09-capability-shelf.md) + `capability-shelf.ts` |
 | OfficeCLI / managed CLI 发布 | [`officecli-oss-release.md`](./officecli-oss-release.md)；货架位改动须改 shelf registry |
 | Files 三来源 | [`design/files-module-product-spec.md`](./design/files-module-product-spec.md) |
+| 视觉 token / 组件形状 | [`../DESIGN.md`](../DESIGN.md) only |
 
 ### Expert lifecycle hard rules
 
