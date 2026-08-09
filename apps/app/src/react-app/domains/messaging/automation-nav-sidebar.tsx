@@ -210,7 +210,7 @@ export function AutomationNavSidebar(props: {
   return (
     <TooltipProvider>
       <aside
-        className="flex h-full min-h-0 shrink-0 flex-col border-r border-dls-border bg-dls-surface px-2.5 pb-5 text-dls-text"
+        className="flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-r border-dls-border bg-dls-sidebar px-2.5 pb-5 text-dls-text mac:bg-dls-sidebar mac:titlebar-no-drag"
         style={{ width: props.width }}
       >
         <div
