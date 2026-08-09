@@ -55,6 +55,10 @@ export default {
   "session.team_workflow_stage_deliver": "Synthesize and deliver",
   "session.team_workflow_lead_stage": "Lead synthesis",
   "session.team_workflow_honesty_note": "Roles define responsibilities; they are not independently dispatched agents.",
+  /** Short spoken intro for logistics + KOL experts whose persona bans I/O tables. */
+  "session.short_colleague_self_intro_prompt":
+    "Introduce yourself — what can you help me with?",
+  /** @deprecated Use session.short_colleague_self_intro_prompt */
   "session.logistics_expert_self_intro_prompt": "Introduce yourself — what can you help me with?",
   "session.try_ask_expert": "Try asking",
   "session.summon": "Summon",

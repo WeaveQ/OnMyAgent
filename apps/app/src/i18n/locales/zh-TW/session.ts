@@ -52,6 +52,9 @@ export default {
   "session.team_workflow_stage_deliver": "整合與交付",
   "session.team_workflow_lead_stage": "主理人整合",
   "session.team_workflow_honesty_note": "成員代表職責視角，不會被當作獨立智慧代理調度。",
+  /** Short spoken intro for logistics + KOL experts whose persona bans I/O tables. */
+  "session.short_colleague_self_intro_prompt": "介紹一下你自己，你能幫我做什麼？",
+  /** @deprecated Use session.short_colleague_self_intro_prompt */
   "session.logistics_expert_self_intro_prompt": "介紹一下你自己，你能幫我做什麼？",
   "session.try_ask_expert": "試試這樣問我",
   "session.summon": "召喚",

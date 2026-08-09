@@ -127,18 +127,30 @@ function getTemplatePrompts(): PromptTemplates {
 }
 
 const EXPERT_PROMPT_ICONS = [Sparkles, FileText, Target];
-const LOGISTICS_COLLEAGUE_INTRO_EXPERT_IDS = new Set([
+
+/**
+ * Experts whose persona forbids long “how to use me” tables on intro.
+ * Use the short colleague self-intro prompt so the UI question matches the
+ * agent.md hard cap (short bullets / 3 paragraphs — no I/O comparison table).
+ *
+ * - Logistics 4: short spoken intro
+ * - KOL media / content-ops / project-review: hard 4-segment intro, no tables
+ */
+const SHORT_COLLEAGUE_SELF_INTRO_EXPERT_IDS = new Set([
   "order-dispatch-specialist",
   "fleet-management-specialist",
   "fulfillment-specialist",
   "logistics-finance-specialist",
+  "kol-media-specialist",
+  "kol-content-ops-specialist",
+  "kol-project-review-specialist",
 ]);
 
-function isLogisticsColleagueIntroExpert(
+function usesShortColleagueSelfIntroPrompt(
   agentId: string | null | undefined,
 ): boolean {
   if (!agentId) return false;
-  return [...LOGISTICS_COLLEAGUE_INTRO_EXPERT_IDS].some(
+  return [...SHORT_COLLEAGUE_SELF_INTRO_EXPERT_IDS].some(
     (expertId) => agentId === expertId || agentId.endsWith(`:${expertId}`),
   );
 }
@@ -241,8 +253,8 @@ function promptsFromExpertQuickPrompts(
       title: t("session.expert_self_intro_prompt_title"),
       description: t("session.expert_self_intro_prompt_description"),
       prompt: t(
-        isLogisticsColleagueIntroExpert(agentId)
-          ? "session.logistics_expert_self_intro_prompt"
+        usesShortColleagueSelfIntroPrompt(agentId)
+          ? "session.short_colleague_self_intro_prompt"
           : "session.expert_self_intro_prompt",
       ),
       icon: MessageSquare,
