@@ -28,6 +28,22 @@ export const CONNECTORS_EMPTY_STATE_ASSET =
 export const SCHEDULED_TASKS_PREVIEW_ASSET =
   "/illustrations/koboyo/backup-schedule.svg";
 
+/** Wave-3: files library / uploads empties. */
+export const FILES_EMPTY_STATE_ASSET =
+  "/illustrations/koboyo/empty-folder.svg";
+
+/** Session artifacts / document stack empties. */
+export const ARTIFACTS_EMPTY_STATE_ASSET =
+  "/illustrations/koboyo/stack-papers.svg";
+
+/** Session archive + settings archived-tasks empties. */
+export const ARCHIVE_EMPTY_STATE_ASSET =
+  "/illustrations/koboyo/archive-box.svg";
+
+/** Company market not-connected / org empty lists. */
+export const COMPANY_EMPTY_STATE_ASSET =
+  "/illustrations/koboyo/office-building.svg";
+
 /** Shared class for empty-state Koboyo marks: height-driven, not square-forced. */
 export const EMPTY_STATE_ILLUSTRATION_CLASS =
   "mb-5 h-[min(11rem,40vw)] w-auto max-w-[min(14rem,70vw)] select-none object-contain text-dls-secondary";

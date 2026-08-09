@@ -91,6 +91,10 @@ describe("semantic nav/menu/CTA icon contracts (live call sites)", () => {
     expect(sidePanel).toMatch(
       /UserPlus data-icon="inline-start"[\s\S]{0,120}session\.create_expert/,
     );
+    // 我的专家 is a collection view — Users, not UserPlus (create).
+    expect(sidePanel).toMatch(
+      /Users data-icon="inline-start"[\s\S]{0,120}session\.my_experts/,
+    );
 
     // Expert self-create menu item already person-oriented.
     expect(assistantPanel).toContain("UserPlus");
@@ -106,5 +110,38 @@ describe("semantic nav/menu/CTA icon contracts (live call sites)", () => {
 
     // Command-palette style new-task menu entry
     expect(appSidebar).toMatch(/id: "chat"[\s\S]*?icon: MessageSquarePlus/);
+  });
+
+  test("files source pills + store market tabs use label-matching Lucide", () => {
+    const filesPage = read(
+      "apps/app/src/react-app/domains/workspace/workspace-files-page.tsx",
+    );
+    const sidePanel = read(
+      "apps/app/src/react-app/domains/session/components/side-panel-pages.tsx",
+    );
+    const storePage = read(
+      "apps/app/src/react-app/domains/session/chat/session-page-store-page.tsx",
+    );
+
+    // Files source rail: Folder / MessageSquare / UserRound / Briefcase.
+    expect(filesPage).toMatch(/case "uploads":[\s\S]*?return Folder/);
+    expect(filesPage).toMatch(/case "task":[\s\S]*?return MessageSquare/);
+    expect(filesPage).toMatch(/case "expert":[\s\S]*?return UserRound/);
+    expect(filesPage).toMatch(/case "project":[\s\S]*?return Briefcase/);
+    expect(filesPage).not.toMatch(/return FileUp/);
+    expect(filesPage).not.toMatch(/return FileStack/);
+    expect(filesPage).not.toMatch(/return FolderKanban/);
+    // Expert tab is person silhouette, not robot (Bot reserved for agent maps).
+    expect(filesPage).not.toMatch(/case "expert":[\s\S]*?return Bot/);
+
+    // Store market primary tabs: experts person, skills Sparkles, plugins Package.
+    expect(sidePanel).toMatch(
+      /id: "experts"[\s\S]*?icon: UserRound/,
+    );
+    expect(sidePanel).toMatch(/id: "skills"[\s\S]*?icon: Sparkles/);
+    expect(sidePanel).toMatch(/id: "plugins"[\s\S]*?icon: Package/);
+    expect(sidePanel).not.toMatch(/id: "skills"[\s\S]*?icon: Puzzle/);
+    expect(storePage).toMatch(/id: "skills"[\s\S]*?icon: Sparkles/);
+    expect(storePage).not.toMatch(/icon: Puzzle/);
   });
 });
