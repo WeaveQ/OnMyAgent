@@ -109,6 +109,13 @@ export {
   type LarkCliStatusTone,
 } from "./larkcli-plugin-state";
 export {
+  filterManagedDesktopConnectors,
+  listConnectedManagedDesktopConnectors,
+  managedDesktopConnectorMcpServerNames,
+  type ManagedDesktopConnectorId,
+  type ManagedDesktopConnectorItem,
+} from "./managed-desktop-connectors";
+export {
   recommendBrowserSurface,
   type BrowserSurfaceId,
   type BrowserSurfaceIntent,

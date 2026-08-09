@@ -82,6 +82,7 @@ export default {
     "Keep working toward the goal and check progress",
   "composer.prompt_templates_short": "Prompts",
   "composer.connectors_label": "Connectors",
+  "composer.connectors_group_connected": "Connected",
   "composer.connectors_group_builtin": "Built-in extensions",
   "composer.connectors_group_mcp": "Configured MCP",
   "composer.pin_skill": "Pin skill",
