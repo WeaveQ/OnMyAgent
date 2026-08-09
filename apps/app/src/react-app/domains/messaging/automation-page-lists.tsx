@@ -20,6 +20,8 @@ import { EmptyStateBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { OnMyAgentAutomationTaskItem } from "../../../app/lib/onmyagent-server";
 import { t } from "../../../i18n";
+import { AUTOMATION_EMPTY_STATE_ASSET } from "../session/empty-state-assets";
+import { EmptyStateIllustration } from "../session/empty-state-illustration";
 import {
   resolveRunDayLabel,
   type CompletedRunEntry,
@@ -356,6 +358,10 @@ export function AutomationTasksListBody(props: {
       ) : null}
       {props.taskCount === 0 ? (
         <EmptyStateBox size="default" tone="muted" className="text-sm">
+          <EmptyStateIllustration
+            src={AUTOMATION_EMPTY_STATE_ASSET}
+            size="compact"
+          />
           {t("automation.empty_tasks_title")}
         </EmptyStateBox>
       ) : null}
@@ -424,6 +430,10 @@ export function AutomationRunsListBody(props: {
       ) : null}
       {props.running.length === 0 && props.runCount === 0 ? (
         <EmptyStateBox size="default" tone="muted" className="text-sm">
+          <EmptyStateIllustration
+            src={AUTOMATION_EMPTY_STATE_ASSET}
+            size="compact"
+          />
           {t("automation.empty_runs_title")}
         </EmptyStateBox>
       ) : null}

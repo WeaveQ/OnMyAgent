@@ -16,6 +16,11 @@ import { CodeToken } from "@/components/ui/code-token";
 import { FilterChip, IconTile, SegmentedTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
+import {
+  CONNECTORS_EMPTY_STATE_ASSET,
+  SKILLS_EMPTY_STATE_ASSET,
+} from "@/react-app/domains/session/empty-state-assets";
+import { EmptyStateIllustration } from "@/react-app/domains/session/empty-state-illustration";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { MARKETPLACE_CARD_GRID_COMPACT } from "@/components/ui/skill-marketplace-card";
 import { CountBadge, StatusBadge } from "@/components/ui/status-badge";
@@ -509,7 +514,13 @@ function ArtifactPluginsCatalog(
           {t("plugins.artifact_load_error")}
         </NoticeBox>
       ) : plugins.length === 0 ? (
-        <EmptyStateBox size="comfortable">{t("plugins.artifact_empty")}</EmptyStateBox>
+        <EmptyStateBox size="comfortable" className="text-sm">
+          <EmptyStateIllustration
+            src={CONNECTORS_EMPTY_STATE_ASSET}
+            size="compact"
+          />
+          {t("plugins.artifact_empty")}
+        </EmptyStateBox>
       ) : (
         <div className={pluginsLayoutClass.artifactCardGrid}>{cards}</div>
       )}
@@ -1420,6 +1431,10 @@ function ScannedSkillsView(props: {
     return (
       <>
         <EmptyStateBox size="spacious">
+          <EmptyStateIllustration
+            src={SKILLS_EMPTY_STATE_ASSET}
+            size="compact"
+          />
           <div className={pluginsTextClass.emptyTitle}>
             {t("store.no_skills_installed")}
           </div>
@@ -1624,6 +1639,10 @@ export function ConnectorsPage(props: PluginsPageProps) {
         <div className="w-full px-8 pb-10 pt-7">
           <div className="space-y-6">
             <EmptyStateBox size="spacious">
+              <EmptyStateIllustration
+                src={CONNECTORS_EMPTY_STATE_ASSET}
+                size="compact"
+              />
               <div className={pluginsTextClass.emptyTitle}>
                 {t("store.no_connectors_installed")}
               </div>
