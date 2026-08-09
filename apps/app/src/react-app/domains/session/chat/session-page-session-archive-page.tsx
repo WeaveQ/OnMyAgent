@@ -762,7 +762,11 @@ export function SessionArchivePage(props: Props) {
             </>
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center text-xs text-dls-secondary">
-              <MessageSquare className="size-9 opacity-30" />
+              <EmptyStateIllustration
+                src={ARCHIVE_EMPTY_STATE_ASSET}
+                size="compact"
+                className="mb-1"
+              />
               <span className="text-sm text-dls-text">
                 {t("session_archive.select_session")}
               </span>
