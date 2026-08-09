@@ -30,8 +30,8 @@ const surfaceClass = {
   content:
     "flex w-full max-w-[22rem] flex-col items-center gap-6 px-8 text-center",
   contentInset: "flex flex-col items-center",
-  brandMark:
-    "flex size-16 items-center justify-center rounded-2xl border border-dls-border bg-dls-surface-solid shadow-[0_8px_28px_rgba(15,23,42,0.06)] dark:shadow-[0_8px_28px_rgba(0,0,0,0.35)]",
+  // Bare monogram (no rounded tile / border / shadow) — larger visual weight.
+  brandMark: "flex size-[5.5rem] items-center justify-center bg-transparent",
   brandTitle: "text-sm font-semibold tracking-tight text-dls-text",
   message: "text-sm leading-6 text-dls-secondary",
   messageInset: "mt-3 text-xs leading-5 text-dls-secondary",
@@ -93,14 +93,14 @@ type LoadSurfaceProps = {
 function BootBrandMark() {
   return (
     <div className={surfaceClass.brandMark} aria-hidden="true">
-      {/* Compact monogram tile — avoid decoding the large product logo PNG. */}
+      {/* Compact monogram — avoid decoding the large product logo PNG. */}
       <img
         src="/onmyagent-boot-mark.png"
-        width={40}
-        height={40}
+        width={72}
+        height={72}
         alt=""
         draggable={false}
-        className="size-10 object-contain"
+        className="size-[4.5rem] object-contain"
       />
     </div>
   );
