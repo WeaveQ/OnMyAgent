@@ -135,14 +135,18 @@ Tailwind / TypeScript / React / shadcn+BaseUI / TanStack Query / Zustand / Zod(v
 
 ### UI 与文案
 
-**视觉 / token / 组件形状 / 动效 / 键位展示 SoT = 根目录 [`DESIGN.md`](DESIGN.md)**（YAML front matter + §4–§11）。  
-AGENTS 只保留**流程门禁**；细则（`SegmentedTabGroup`、`rounded-full` 白名单、`mac:titlebar-no-drag`、signature 组件、颜色阶梯等）以 DESIGN 为准，**禁止在本文件复述或分叉**。代码与 DESIGN 冲突时以 DESIGN 为准。
+| 归属 | 内容 | 权威 |
+|------|------|------|
+| **视觉 SoT** | token、形状、signature 组件、shell chrome、动效、键位展示 | [`DESIGN.md`](DESIGN.md)（YAML + §4–§11；文内 Task router） |
+| **工程门禁** | i18n 三语 `t()`、`check:i18n:cjk` | 本文件「硬性禁止」 |
+| **产品行为** | 专家/会话 busy、draft、origin、冷路径 | [`apps/app/AGENTS.md`](apps/app/AGENTS.md) 不变量 |
 
+- **禁止**在 AGENTS 复述/分叉 DESIGN 细则（`SegmentedTabGroup`、`rounded-full` 白名单等）。冲突以 DESIGN 为准。
 - 最小 diff；假设最终用户非技术用户。
-- 改/生成 UI 前：先读 `DESIGN.md`（可用文内 Task router）；改 token/CSS/tailwind 后跑 `pnpm task check design`（CI：`--strict --baseline scripts/checks/baselines/design-drift.json`）。
-- 组件：优先 `apps/app/src/components`（shadcn + Base UI）；新原始件先对 DESIGN `components.contracts`。
-- **i18n 门禁**（可执行，非视觉）：renderer 用户可见文案走 `t()` + `locales/{en,zh,zh-TW}`（见上文 `check:i18n:cjk`）。
-- 桌面 titlebar 可点区域：交互控件加 `mac:titlebar-no-drag`（细则见 DESIGN flags / § shell chrome）。
+- 改 UI：先读 DESIGN → 改完 `pnpm task check design`（CI：`--strict --baseline scripts/checks/baselines/design-drift.json`）。
+- 组件落点：`apps/app/src/components`（shadcn + Base UI）；新原始件先对 DESIGN `components.contracts`。
+- Titlebar 可点区域：`mac:titlebar-no-drag`（细节只在 DESIGN）。
+
 ### 分层依赖
 
 ```text
@@ -223,7 +227,8 @@ pnpm task check types        # 改 packages/types 或全量 typecheck 时
 | 本文件之后的系统架构 | `docs/Architecture.md` |
 | 改 app / desktop / server / orchestrator / types | 对应包级 `AGENTS.md`（见上「包级手册」） |
 | React 域 / 路由身份 | `apps/app/src/react-app/ARCHITECTURE.md` |
-| UI 视觉契约 | `DESIGN.md` |
+| **UI 视觉 / token / 组件形状** | **`DESIGN.md` only**（勿把细则写回 AGENTS） |
+| **专家/会话行为不变量** | **`apps/app/AGENTS.md`** + `scripts/expert-session-invariants.test.ts` |
 | 重 loop / kill switch / graphify | `docs/loop/rules.md` |
 | 本地打包 | `BUILD.md` |
 | 发版 / tag | `docs/release.md` |

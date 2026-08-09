@@ -12,7 +12,14 @@ pnpm check:file-size
 git diff --check
 ```
 
-触及 session / UI 行为时，按需再加：`pnpm task test sessions` 或 `pnpm test:ui`。
+触及 session / UI 行为时，按需再加：
+
+```bash
+# 专家/会话不变量契约（改 session-route / draft / origin 时优先）
+cd apps/app && bun test scripts/expert-session-invariants.test.ts
+pnpm task test sessions   # 或更广的 UI 专项
+pnpm test:ui
+```
 
 ## 必读链接
 
@@ -21,14 +28,18 @@ git diff --check
 | [`src/react-app/ARCHITECTURE.md`](./src/react-app/ARCHITECTURE.md) | React 域 / shell / session-route |
 | [`../../AGENTS.md`](../../AGENTS.md) | 全仓铁律、边界、验证矩阵 |
 | [`../../docs/Architecture.md`](../../docs/Architecture.md) | 系统架构 · 双运行时 |
-| [`../../DESIGN.md`](../../DESIGN.md) | **UI SoT**：token、形状、signature 组件、shell chrome（勿在 AGENTS 复述细则） |
+| [`../../DESIGN.md`](../../DESIGN.md) | **UI SoT**（token / 形状 / signature；**勿在本文件复述**） |
+| [`../../docs/README.md`](../../docs/README.md) | 文档地图 / SoT 表 |
 
-## UI 改动入口
+## 改什么读什么
 
-- **视觉 / 组件契约** → 只读/只改 [`DESIGN.md`](../../DESIGN.md) + `pnpm task check design`；不要把 pill/`rounded-full`/Tab 细则写回本文件。
-- **文案** → i18n（`pnpm check:i18n:cjk`）；根 AGENTS 硬性禁止。
-- **session/专家行为** → 下文「Experts / Session 不变量」，不是 DESIGN。
-
+| 你在改… | 读 | 验证 |
+|---------|----|------|
+| 颜色、圆角、Tab/CTA 形状、shell chrome | `DESIGN.md` | `pnpm task check design` |
+| 用户可见文案 | i18n locales | `pnpm check:i18n:cjk` |
+| 专家/会话 busy、draft、origin、首发、SSE | 下文不变量 | `bun test scripts/expert-session-invariants.test.ts` |
+| 域拆分 / shell import | `ARCHITECTURE.md` + 根 AGENTS 边界 | `pnpm check:boundaries` |
+| 大页（expert/assistant/render） | 下文热点文件 | `pnpm check:file-size` |
 ## 热点文件（先拆再改）
 
 下列文件贴近 `pnpm check:file-size` 基线，**禁止为功能直接抬高 baseline**：
