@@ -58,12 +58,12 @@ import { AgentManagementPage } from "../../local-agents";
 import { MessagingChannelsPage } from "../../messaging";
 import { WorkspaceFilesPage } from "../../workspace";
 import { buildFilesOpenSessionMeta } from "./session-files-open-meta";
-import { canHardDeleteExpert } from "../../agents";
 import {
   resolveExpertDeleteCopy,
   useExpertSessionDelete,
   type ExpertGroupDeleteTarget,
 } from "./use-expert-session-delete";
+import { useExpertHardDeleteUi } from "./use-expert-hard-delete-ui";
 import {
   AgentConversationPanel,
   AgentSessionTabs,
@@ -985,31 +985,11 @@ export function ExpertPage(props: ExpertPageProps) {
     requireGroupSessionIds: false,
   });
 
-  const openDeleteExpertModal = useCallback(
-    (target: { agentId: string; name: string; sessionIds: string[] }) => {
-      const agentId = target.agentId.trim();
-      // System builtins (creation coach) cannot be hard-deleted.
-      if (!canHardDeleteExpert(agentId, registry)) return;
-      openDeleteGroupModal({
-        kind: "expert",
-        agentId,
-        name: target.name.trim(),
-        sessionIds: target.sessionIds,
-      });
-    },
-    [openDeleteGroupModal, registry],
-  );
-
-  const deletableExpertIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const group of conversationGroups) {
-      const agentId = group.agentId?.trim() ?? "";
-      if (agentId && canHardDeleteExpert(agentId, registry)) {
-        ids.add(agentId);
-      }
-    }
-    return ids;
-  }, [conversationGroups, registry]);
+  const { openDeleteExpertModal, deletableExpertIds } = useExpertHardDeleteUi({
+    registry,
+    conversationGroups,
+    openDeleteGroupModal,
+  });
 
   const {
     title: expertDeleteTitle,
