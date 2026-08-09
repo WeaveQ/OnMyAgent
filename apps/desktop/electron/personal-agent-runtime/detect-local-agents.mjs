@@ -234,6 +234,35 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
     // (installed via `npm install -g @xai-official/grok`, binary: `grok`)
     acpArgs: ["agent", "stdio"],
   },
+  {
+    // Pi coding agent (pi.dev / @earendil-works/pi-coding-agent). Binary: `pi`.
+    // Prefer `pi-acp` (npm: pi-acp) when present — true ACP adapter for editors
+    // and OnMyAgent. Native `pi --mode rpc` is Pi's JSON-RPC protocol (not ACP);
+    // resolveDiscoverableAcpArgs switches args based on which binary wins.
+    id: "pi",
+    displayName: "Pi CLI",
+    commands: ["pi-acp", "pi"],
+    skillsDirs: [
+      join(HOME, ".pi", "agent", "skills"),
+      join(HOME, ".pi", "skills"),
+    ],
+    wellKnownPaths: [
+      join(HOME, ".local", "bin", "pi-acp"),
+      join(HOME, ".local", "bin", "pi"),
+      join(HOME, ".bun", "bin", "pi-acp"),
+      join(HOME, ".bun", "bin", "pi"),
+      join(HOME, ".npm-global", "bin", "pi-acp"),
+      join(HOME, ".npm-global", "bin", "pi"),
+      join(HOME, "npm", "bin", "pi"),
+      // Prefer ACP adapter over native `pi` when probing PATH is short (Electron).
+      "/opt/homebrew/bin/pi-acp",
+      "/usr/local/bin/pi-acp",
+      "/opt/homebrew/bin/pi",
+      "/usr/local/bin/pi",
+    ],
+    // Default when binary is native `pi` (see resolveDiscoverableAcpArgs).
+    acpArgs: ["--mode", "rpc"],
+  },
 ];
 
 /**
@@ -271,6 +300,120 @@ function resolveKnownAgentBinary(def) {
 }
 
 /**
+ * Per-binary ACP argv. Pi ships two entrypoints with different protocols:
+ * - `pi-acp` — ACP JSON-RPC (empty args)
+ * - `pi` — native `--mode rpc` (Pi's own RPC, not ACP; probe may stay offline)
+ */
+export function resolveDiscoverableAcpArgs(def, binaryPath) {
+  const base = Array.isArray(def?.acpArgs) ? def.acpArgs : ["--acp"];
+  const id = String(def?.id ?? "").trim().toLowerCase();
+  const file = String(binaryPath ?? "")
+    .replace(/\\/g, "/")
+    .split("/")
+    .pop()
+    ?.toLowerCase() ?? "";
+  if (id === "pi" && (file === "pi-acp" || file.startsWith("pi-acp."))) {
+    return [];
+  }
+  return base;
+}
+
+function binaryBasename(binaryPath) {
+  return (
+    String(binaryPath ?? "")
+      .replace(/\\/g, "/")
+      .split("/")
+      .pop()
+      ?.toLowerCase() ?? ""
+  );
+}
+
+/**
+ * If a stored Pi agent still points at native `pi` (non-ACP RPC) but `pi-acp`
+ * is installed, rewrite path + acpArgs so health probes can go online.
+ */
+export function preferPiAcpAgent(agent) {
+  if (!agent || typeof agent !== "object") return agent;
+  const id = String(agent.id ?? "").trim().toLowerCase();
+  if (id !== "pi") return agent;
+  const current = String(agent.executablePath ?? agent.command ?? "").trim();
+  const file = binaryBasename(current);
+  if (file === "pi-acp" || file.startsWith("pi-acp.")) {
+    // Ensure empty ACP args even if an older config kept --mode rpc.
+    const acpArgs = Array.isArray(agent.acpArgs) ? agent.acpArgs : [];
+    if (acpArgs.length === 0) return agent;
+    return { ...agent, acpArgs: [] };
+  }
+  const def = KNOWN_DISCOVERABLE_AGENTS.find((item) => item.id === "pi");
+  if (!def) return agent;
+  const preferred = resolveKnownAgentBinary(def);
+  if (!preferred) return agent;
+  const preferredFile = binaryBasename(preferred);
+  if (preferredFile !== "pi-acp" && !preferredFile.startsWith("pi-acp.")) {
+    return agent;
+  }
+  return {
+    ...agent,
+    executablePath: preferred,
+    command: preferred,
+    acpArgs: [],
+  };
+}
+
+/**
+ * Native `pi` binary (product version). `pi-acp` is only an ACP adapter —
+ * its `--version` is empty or the adapter package version (0.0.x), not the
+ * coding-agent release users expect in the sidebar (e.g. 0.84.1).
+ */
+export function resolvePiNativeBinary(excludePath = "") {
+  const exclude = resolveRealPath(excludePath) || String(excludePath ?? "").trim();
+  const candidates = [];
+  const onPath = resolveOnPath("pi");
+  if (onPath) candidates.push(onPath);
+  for (const candidate of [
+    join(HOME, ".local", "bin", "pi"),
+    join(HOME, ".bun", "bin", "pi"),
+    join(HOME, ".npm-global", "bin", "pi"),
+    join(HOME, "npm", "bin", "pi"),
+    "/opt/homebrew/bin/pi",
+    "/usr/local/bin/pi",
+  ]) {
+    try {
+      if (existsSync(candidate)) candidates.push(candidate);
+    } catch {
+      // ignore
+    }
+  }
+  for (const candidate of candidates) {
+    const file = binaryBasename(candidate);
+    // Only native product binary — never the ACP adapter.
+    if (!(file === "pi" || file === "pi.exe" || file === "pi.cmd" || file === "pi.bat")) {
+      continue;
+    }
+    const real = resolveRealPath(candidate) || candidate;
+    if (exclude && real === exclude) continue;
+    return candidate;
+  }
+  return null;
+}
+
+/**
+ * Pick a display version for Pi agents.
+ * Prefer native `pi --version` over adapter output.
+ *
+ * @param {string | null | undefined} adapterVersionText from the executable we spawn
+ * @param {string | null | undefined} nativeVersionText from `pi --version`
+ */
+export function pickPiDisplayVersion(adapterVersionText, nativeVersionText) {
+  const native = String(nativeVersionText ?? "").trim().split("\n")[0]?.trim() ?? "";
+  if (native && /\d/.test(native)) return native;
+  const adapter = String(adapterVersionText ?? "").trim().split("\n")[0]?.trim() ?? "";
+  // Adapter package versions (0.0.x) are not the product release — hide them.
+  if (adapter && /\d/.test(adapter) && !/^0\.0\./.test(adapter)) return adapter;
+  return null;
+}
+
+/**
  * When WorkBuddy and CodeBuddy resolve to the same real binary, keep WorkBuddy
  * and drop the CodeBuddy draft so the catalog shows one product card.
  * Standalone CodeBuddy (npm / ~/.local/bin) still appears on its own.
@@ -294,20 +437,23 @@ export function dedupeCodebuddyWorkbuddyAgents(agents, pathKey = "command") {
 }
 
 export function discoverableAgentDrafts() {
-  const drafts = KNOWN_DISCOVERABLE_AGENTS.map((def) => ({
-    id: def.id,
-    name: def.displayName,
-    provider: /** @type {"custom"} */ ("custom"),
-    executablePath:
+  const drafts = KNOWN_DISCOVERABLE_AGENTS.map((def) => {
+    const executablePath =
       resolveKnownAgentBinary(def) ??
-      (Array.isArray(def.commands) && def.commands[0] ? def.commands[0] : def.id),
-    connectionType: /** @type {"cli"} */ ("cli"),
-    supportsAcp: true,
-    acpArgs: Array.isArray(def.acpArgs) ? def.acpArgs : ["--acp"],
-    nativeSkillsDirs: (def.skillsDirs ?? []).filter(
-      (dir) => typeof dir === "string" && dir.length > 0,
-    ),
-  }));
+      (Array.isArray(def.commands) && def.commands[0] ? def.commands[0] : def.id);
+    return {
+      id: def.id,
+      name: def.displayName,
+      provider: /** @type {"custom"} */ ("custom"),
+      executablePath,
+      connectionType: /** @type {"cli"} */ ("cli"),
+      supportsAcp: true,
+      acpArgs: resolveDiscoverableAcpArgs(def, executablePath),
+      nativeSkillsDirs: (def.skillsDirs ?? []).filter(
+        (dir) => typeof dir === "string" && dir.length > 0,
+      ),
+    };
+  });
   // Prefer WorkBuddy card when both would point at the same embedded binary.
   return dedupeCodebuddyWorkbuddyAgents(drafts, "executablePath");
 }
@@ -404,7 +550,7 @@ export async function detectAvailableLocalAgents(input = {}) {
       command: resolved,
       connectionType: /** @type {"cli" | "raw"} */ ("cli"),
       supportsAcp: true,
-      acpArgs: Array.isArray(def.acpArgs) ? def.acpArgs : ["--acp"],
+      acpArgs: resolveDiscoverableAcpArgs(def, resolved),
       nativeSkillsDirs: (def.skillsDirs ?? []).filter(
         (dir) => typeof dir === "string" && dir.length > 0,
       ),

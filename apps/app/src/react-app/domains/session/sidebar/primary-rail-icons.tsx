@@ -39,7 +39,7 @@ export function AssistantRailIcon(props: PrimaryRailIconProps) {
   return <House {...railIconProps(props.className)} />;
 }
 
-/** Experts — person silhouette (marketplace specialists; not the old robot head). */
+/** Experts — person silhouette (marketplace specialists). */
 export function ExpertRailIcon(props: PrimaryRailIconProps) {
   return <UserRound {...railIconProps(props.className)} />;
 }

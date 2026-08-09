@@ -18,7 +18,13 @@ import { SessionSurface } from "../surface/session-surface";
 import { useComposerStateStore } from "../surface/composer-state-store";
 import { COMPOSER_TEMPLATE_EVENTS } from "../surface/composer/capability-template";
 import { ShareWorkspaceModal } from "../../workspace";
-import { OwDotTicker, type SidePanelItem, useReactRenderWatchdog, useUiStateStore } from "../../../shell";
+import {
+  DEFAULT_BROWSER_SIDE_PANEL_WIDTH,
+  OwDotTicker,
+  type SidePanelItem,
+  useReactRenderWatchdog,
+  useUiStateStore,
+} from "../../../shell";
 import { cn } from "@/lib/utils";
 import { PersonalLocalAgentPage } from "../../local-agents";
 import { ConversationHistoryPopover } from "../sidebar/conversation-history-popover";
@@ -70,6 +76,7 @@ import {
   readExpertSessionSelection,
   resolveExpertSessionSelection,
   writeExpertSessionSelection,
+  AgentPanelResizeHandle,
   SidebarPaneCollapseToggle,
   OnMyAgentRail,
   AGENT_PANEL_DEFAULT_WIDTH,
@@ -396,6 +403,7 @@ export function ExpertPage(props: ExpertPageProps) {
     historySearchInputRef,
     browserPanelRef,
     openWorkspaceSidePanelMenu,
+    snapToBrowserWidth,
     handleHistorySelectPrompt,
     openHistorySearch,
     closeHistorySearch,
@@ -1287,30 +1295,17 @@ export function ExpertPage(props: ExpertPageProps) {
               />
             ) : null}
             {activeSidebarView === "chat" && !agentPanelCollapsed ? (
-              <div
-                role="separator"
-                aria-label={t("session.resize_agent_list")}
-                aria-orientation="vertical"
-                tabIndex={0}
+              <AgentPanelResizeHandle
                 onPointerDown={startAgentPanelResize}
-                onKeyDown={(event) => {
-                  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-                    event.preventDefault();
-                    setAgentPanelWidth((width) =>
-                      Math.min(
-                        AGENT_PANEL_MAX_WIDTH,
-                        Math.max(
-                          AGENT_PANEL_MIN_WIDTH,
-                          width + (event.key === "ArrowLeft" ? -16 : 16),
-                        ),
-                      ),
-                    );
-                  }
-                }}
-                className="group relative z-10 cursor-col-resize touch-none outline-none"
-              >
-                <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors group-focus-visible:bg-dls-accent" />
-              </div>
+                onKeyNudge={(delta) =>
+                  setAgentPanelWidth((width) =>
+                    Math.min(
+                      AGENT_PANEL_MAX_WIDTH,
+                      Math.max(AGENT_PANEL_MIN_WIDTH, width + delta),
+                    ),
+                  )
+                }
+              />
             ) : null}
             <ResizablePanelGroup
               orientation="horizontal"
@@ -1347,6 +1342,9 @@ export function ExpertPage(props: ExpertPageProps) {
                           client={props.onmyagentServerClient}
                           activeTab={storeActiveTab}
                           myExperts={myExpertPackages}
+                          activeExpertAgentIds={conversationGroups
+                            .map((group) => group.agentId)
+                            .filter((id): id is string => Boolean(id?.trim()))}
                           onActiveTabChange={setStoreActiveTab}
                           onSummonMarketplaceExpert={handleStartMarketplaceExpert}
                           onCreateExpert={openExpertCreation}
@@ -1705,17 +1703,22 @@ export function ExpertPage(props: ExpertPageProps) {
               </ResizablePanel>
               {sidePanelOpen && isPrimarySessionView ? (
                 <>
-                  {/* Single 1px rule — avoid base bg-border + before: double line. */}
-                  <ResizableHandle className="hidden lg:flex" />
+                  {/* 2px gutter only — no center hairline (reads as a double seam). */}
+                  <ResizableHandle className="hidden w-[2px] before:hidden lg:flex" />
                   <ResizablePanel
                     key="office-side-panel"
                     panelRef={browserPanelRef}
-                    defaultSize={`${EXPERT_SIDE_PANEL_DEFAULT_WIDTH}px`}
+                    defaultSize={`${
+                      activeSidePanel === "browser"
+                        ? DEFAULT_BROWSER_SIDE_PANEL_WIDTH
+                        : EXPERT_SIDE_PANEL_DEFAULT_WIDTH
+                    }px`}
                     minSize={
                       `${EXPERT_SIDE_PANEL_MIN_WIDTH}px`
                     }
                     maxSize="70%"
-                    className="min-h-0 overflow-hidden bg-dls-surface lg:flex lg:flex-col"
+                    // Match main workspace bg so the handle seam stays quiet.
+                    className="min-h-0 overflow-hidden bg-dls-background lg:flex lg:flex-col"
                   >
                     {activeSidePanel === "canvas" ? (
                       <LazyInfiniteCanvasPanel
@@ -1750,6 +1753,7 @@ export function ExpertPage(props: ExpertPageProps) {
                                   : null
                         }
                         onClose={closeRightPane}
+                        onBrowserOpen={snapToBrowserWidth}
                         onViewAutomation={openCreatedAutomation}
                         hiddenKinds={
                           activeExpertFeatureCategoryId === "office"

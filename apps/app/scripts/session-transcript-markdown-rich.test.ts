@@ -57,6 +57,10 @@ describe("session transcript rich markdown", () => {
     ].join("\n"));
 
     expect(html).toContain("session-markdown-table");
+    expect(html).toContain("max-w-full");
+    expect(html).toContain("min-w-0");
+    expect(html).toContain("overflow-x-auto");
+    expect(html).toContain("whitespace-nowrap");
     expect(html).toContain("session-markdown-table-header");
     expect(html).toContain("session-markdown-table-cell");
     expect(html).not.toContain("bg-dls-surface-muted px-4 py-2 text-left");

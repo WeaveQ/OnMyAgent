@@ -223,6 +223,32 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
                   ctx.reloadCoordinator.clearReloadRequired(),
                 markReloadRequired: (kind, detail) =>
                   ctx.reloadCoordinator.markReloadRequired(kind, detail),
+                // Connector installs (Ollama) live in workspace opencode.jsonc.
+                removeWorkspaceProvider: async (providerId) => {
+                  const client = ctx.activeClient as
+                    | {
+                        patchConfig?: (
+                          workspaceId: string,
+                          payload: {
+                            opencode?: Record<string, unknown>;
+                          },
+                        ) => Promise<unknown>;
+                      }
+                    | null
+                    | undefined;
+                  const workspaceId = String(
+                    ctx.selectedWorkspaceId ?? ctx.runtimeWorkspaceId ?? "",
+                  ).trim();
+                  if (!client?.patchConfig || !workspaceId) return;
+                  // null survives JSON; server maps null → remove provider key
+                  await client.patchConfig(workspaceId, {
+                    opencode: {
+                      provider: {
+                        [providerId]: null,
+                      },
+                    },
+                  });
+                },
               });
             }}
             cloudProviderIds={new Set(

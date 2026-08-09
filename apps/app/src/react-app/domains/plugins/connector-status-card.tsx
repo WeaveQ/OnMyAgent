@@ -104,7 +104,7 @@ export function ConnectorStatusCard(props: ConnectorStatusCardProps) {
       aria-label={`${props.name}. ${t("plugins.artifact_open")}`}
     >
       <div className={connectorTileHeaderClassName}>
-        <div className="size-9 shrink-0 overflow-hidden rounded-xl border border-black/5 bg-dls-surface">
+        <div className="size-9 shrink-0 overflow-hidden rounded-md border border-black/5 bg-dls-surface">
           {props.iconSrc ? (
             <img
               src={resolvePublicAssetUrl(props.iconSrc)}

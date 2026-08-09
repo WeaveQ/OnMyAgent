@@ -84,6 +84,7 @@ export const AGENT_TYPE_LABELS_BY_ID: Record<string, string> = {
   trae: "Trae CLI",
   mimo: "MiMo Code CLI",
   grok: "Grok Build CLI",
+  pi: "Pi CLI",
 };
 
 export function localAgentTypeLabel(agent: { id?: string; provider?: string; name?: string }): string {

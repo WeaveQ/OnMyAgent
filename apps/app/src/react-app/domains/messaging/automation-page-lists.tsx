@@ -121,7 +121,7 @@ export function ScheduledAutomationRow(props: {
             <Pencil className="size-3.5" />
             {t("automation.edit")}
           </Button>
-          <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+          <div className="flex items-center gap-0.5">
             <Button
               type="button"
               variant="ghost"
@@ -357,12 +357,18 @@ export function AutomationTasksListBody(props: {
         </div>
       ) : null}
       {props.taskCount === 0 ? (
-        <EmptyStateBox size="default" tone="muted" className="text-sm">
+        <EmptyStateBox
+          size="default"
+          tone="muted"
+          className="flex flex-col items-center justify-center gap-0 text-sm"
+        >
           <EmptyStateIllustration
             src={AUTOMATION_EMPTY_STATE_ASSET}
             size="compact"
           />
-          {t("automation.empty_tasks_title")}
+          <p className="text-sm leading-5 text-dls-secondary">
+            {t("automation.empty_tasks_title")}
+          </p>
         </EmptyStateBox>
       ) : null}
     </div>
@@ -429,12 +435,18 @@ export function AutomationRunsListBody(props: {
         </div>
       ) : null}
       {props.running.length === 0 && props.runCount === 0 ? (
-        <EmptyStateBox size="default" tone="muted" className="text-sm">
+        <EmptyStateBox
+          size="default"
+          tone="muted"
+          className="flex flex-col items-center justify-center gap-0 text-sm"
+        >
           <EmptyStateIllustration
             src={AUTOMATION_EMPTY_STATE_ASSET}
             size="compact"
           />
-          {t("automation.empty_runs_title")}
+          <p className="text-sm leading-5 text-dls-secondary">
+            {t("automation.empty_runs_title")}
+          </p>
         </EmptyStateBox>
       ) : null}
     </div>

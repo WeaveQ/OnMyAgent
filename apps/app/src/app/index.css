@@ -805,8 +805,14 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
   }
 
   .session-markdown-table {
+    /* Bound width so overflow-x-auto can scroll instead of expanding ancestors. */
+    box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
     border-color: var(--session-content-border, var(--dls-border));
     background: var(--session-content-cell, var(--dls-surface));
+    /* Thin scrollbar so wide tables stay discoverable without dominating chrome. */
+    scrollbar-width: thin;
   }
 
   /* Internal grid only — outer frame is the wrapper border (no double edge). */
@@ -815,6 +821,10 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     border-color: var(--session-content-border, var(--dls-border));
     border-style: solid;
     border-width: 0 1px 1px 0;
+    /* Full cell text; wide tables scroll horizontally (no ellipsis clip). */
+    overflow: visible;
+    text-overflow: clip;
+    vertical-align: top;
   }
 
   .session-markdown-table th:last-child,
@@ -970,6 +980,9 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     /* No side pad — body column width must match the composer card (1120). */
     padding-inline: 0;
     width: 100%;
+    /* Allow wide markdown tables to scroll inside, not expand the row. */
+    min-width: 0;
+    max-width: 100%;
   }
 
   .session-transcript-assistant-turn {
@@ -978,6 +991,8 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
 
   .session-transcript-assistant-message-row {
     padding-bottom: 12px;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .session-transcript-assistant-header {
@@ -1002,9 +1017,16 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
 
   .session-transcript-assistant-copy {
     max-width: none;
+    min-width: 0;
+    width: 100%;
     background: transparent;
     font-size: var(--session-transcript-font-size);
     line-height: var(--session-transcript-line-height);
+  }
+
+  .session-transcript-assistant-copy .markdown-content {
+    min-width: 0;
+    max-width: 100%;
   }
 
   .session-transcript-assistant-copy .markdown-content,
