@@ -72,14 +72,19 @@ describe("rail idle primary ink contract", () => {
       "utf8",
     );
 
-    // Home create is footer-pinned (not top header strip).
+    // Home: search top + create footer (expert layout parity).
     expect(header).not.toContain("session.new_task");
-    expect(header).toContain("return null");
+    expect(header).toContain('data-assistant-search="true"');
+    expect(header).toContain("session.search_tasks_placeholder");
     expect(panel).toContain('data-assistant-create="true"');
     expect(panel).toContain("session.new_task");
     expect(panel).toContain("SIDEBAR_FOOTER_CTA_CLASS");
     expect(panel).toContain('size="sidebar-cta"');
     expect(panel).toContain('variant="ghost"');
+    // Home search filters by task title, not product name.
+    expect(panel).toContain("mode === \"assistant\"");
+    expect(panel).toContain("item.description");
+    expect(panel).toContain("item.latestSession?.title");
 
     // Automation create is footer-pinned with the same token.
     expect(automation).toContain("SIDEBAR_FOOTER_CTA_CLASS");

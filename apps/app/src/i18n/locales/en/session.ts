@@ -34,6 +34,7 @@ export default {
   "session.expert_origin_recovery_unavailable_body": "Your conversations are still preserved. OnMyAgent will try to restore this list again on the next workspace refresh.",
   "session.my_experts": "Experts I created",
   "session.search_experts_placeholder": "Search expert title or description",
+  "session.search_tasks_placeholder": "Search task title",
   "session.create_expert": "Create expert",
   "session.create_expert_prompt": "/expert-manager Help me create a XXX expert skilled in XXXXX. My experience: [add your industry background and relevant experience]",
   "session.create_skill_prompt": "Please help me create a skill that can <describe your need>",
