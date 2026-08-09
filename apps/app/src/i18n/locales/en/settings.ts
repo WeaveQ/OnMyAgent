@@ -151,6 +151,7 @@ export default {
   "settings.archived_tasks_delete_project_all_confirm":
     "Permanently delete {count} archived tasks in “{project}”. This cannot be undone.",
   "settings.archived_tasks_project_menu": "Project actions",
+  "settings.archived_tasks_row_menu": "Task actions",
   "settings.archived_tasks_unarchive": "Unarchive",
   "settings.archived_tasks_loading": "Loading archived tasks…",
   "settings.archived_tasks_empty": "No archived tasks",
@@ -642,7 +643,7 @@ export default {
     "Local agent runtime used by OnMyAgent to run tasks",
   "settings.tab_general": "Overview",
   "settings.tab_recovery": "Reset",
-  "settings.tab_memory": "Personal",
+  "settings.tab_memory": "Profile",
   "settings.tab_description_memory":
     "Tone, custom instructions, personal info, and work habits",
   "settings.tab_conversation_memory": "Memory",

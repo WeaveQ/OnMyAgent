@@ -1000,10 +1000,14 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
   );
 }
 
-/** Shared archive row actions: restore first, permanent delete second (same pills). */
-const archiveRowActionBtnClass =
+/** Primary row action: restore/unarchive only (not co-equal with delete). */
+const archiveRowRestoreBtnClass =
   "h-7 rounded-full border-dls-border bg-dls-surface-muted/40 px-3 text-xs font-medium text-dls-text hover:bg-dls-surface-muted";
 
+/**
+ * Archive list row: restore is the only same-weight pill.
+ * Permanent delete lives in the overflow menu and still opens ConfirmModal.
+ */
 function ArchivedTaskRow(props: {
   row: UnifiedRow;
   bordered: boolean;
@@ -1019,6 +1023,7 @@ function ArchivedTaskRow(props: {
         ARCHIVE_ROW_INSET,
         props.bordered && "border-t border-dls-border",
       )}
+      data-archived-task-row="true"
     >
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium leading-5 text-dls-text">
@@ -1030,33 +1035,52 @@ function ArchivedTaskRow(props: {
           </div>
         ) : null}
       </div>
-      <div className="flex shrink-0 items-center gap-1.5">
+      <div className="flex shrink-0 items-center gap-1">
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={props.onRestore}
           disabled={props.busy}
-          className={archiveRowActionBtnClass}
+          className={archiveRowRestoreBtnClass}
+          data-archive-row-restore="true"
         >
           {props.busy ? (
             <LoadingSpinner size="sm" className="me-1.5" />
           ) : null}
           {t("settings.archived_tasks_unarchive")}
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={props.onDelete}
-          disabled={props.busy}
-          className={cn(
-            archiveRowActionBtnClass,
-            "text-dls-danger hover:border-dls-danger/40 hover:bg-dls-danger-soft hover:text-dls-danger",
-          )}
-        >
-          {t("settings.archived_tasks_delete")}
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="size-7 rounded-full text-dls-secondary hover:bg-dls-surface-muted hover:text-dls-text"
+                disabled={props.busy}
+                aria-label={t("settings.archived_tasks_row_menu")}
+                data-archive-row-menu="true"
+              >
+                <MoreHorizontal className="size-3.5" />
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="end" className="w-auto min-w-max">
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={props.busy}
+              onClick={props.onDelete}
+              className="whitespace-nowrap text-dls-danger focus:text-dls-danger"
+              data-archive-row-delete="true"
+            >
+              <Trash2 className="size-3.5 shrink-0 text-dls-danger" />
+              <span className="text-dls-danger">
+                {t("settings.archived_tasks_delete")}
+              </span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </li>
   );
