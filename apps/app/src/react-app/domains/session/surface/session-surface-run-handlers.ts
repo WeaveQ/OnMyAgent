@@ -95,6 +95,13 @@ export type SessionSurfaceRunHandlersInput = {
   >;
   stallRecoveryBySessionId: Record<string, boolean>;
   setStallRecoveryBySessionId: Dispatch<SetStateAction<Record<string, boolean>>>;
+  /**
+   * Local optimistic user bubble while the cold path (create session / install /
+   * prompt) is still running and the transcript query is empty.
+   */
+  setPendingOutgoingUserMessage: Dispatch<
+    SetStateAction<{ id: string; text: string; createdAt: number } | null>
+  >;
   buildDraft: (text: string, attachments: ComposerAttachment[]) => ComposerDraft;
   clearComposerSession: (sessionId: string) => void;
   updateCollaborationMode: (mode: ComposerCollaborationMode) => void;
@@ -150,6 +157,7 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
     setTranscriptNoticesBySessionId,
     stallRecoveryBySessionId,
     setStallRecoveryBySessionId,
+    setPendingOutgoingUserMessage,
     buildDraft,
     clearComposerSession,
     updateCollaborationMode,
@@ -335,6 +343,15 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
     setSending(true);
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
+    // Paint a local user bubble immediately so draft / empty-session cold paths
+    // never sit on a blank "准备中" page while create+prompt is still running.
+    if (text) {
+      setPendingOutgoingUserMessage({
+        id: `msg_local_${crypto.randomUUID()}`,
+        text,
+        createdAt: startedAt,
+      });
+    }
     try {
       const stallKey = sessionId;
       const hadStallRecovery = Boolean(stallRecoveryBySessionId[stallKey]);
@@ -372,9 +389,9 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
           .getState()
           .setError(workspaceId, sessionId, parsed.message);
       }
-      // The composer is intentionally cleared only after acceptance above.
-      // Do not write the captured draft here: the user may have edited the
-      // still-visible composer while this request was pending.
+      // Drop the local bubble on failure; keep the composer draft so the user
+      // can edit and retry (composer is only cleared after acceptance above).
+      setPendingOutgoingUserMessage(null);
       setAwaitingAssistantBaseline(null);
       setNoVisibleAssistantOutputBaseline(null);
     } finally {
@@ -403,6 +420,7 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
     setDismissedPlanBySessionId,
     setError,
     setNoVisibleAssistantOutputBaseline,
+    setPendingOutgoingUserMessage,
     setSending,
     setShowFolderRequiredBubble,
     setStallRecoveryBySessionId,

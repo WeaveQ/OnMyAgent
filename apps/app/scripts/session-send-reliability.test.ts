@@ -24,6 +24,17 @@ describe("session send reliability", () => {
     expect(source).toContain("clearComposerSession(sessionId);");
     expect(source).toContain("onDraftChange(buildDraft(\"\", []));");
     expect(source).not.toContain("setComposerDraft(sessionId, draft);");
-    expect(source).toContain("Do not write the captured draft here");
+    // Local optimistic bubble is painted immediately; dropped on failure so the
+    // still-visible composer draft remains the recovery path.
+    expect(source).toContain("setPendingOutgoingUserMessage");
+    expect(source).toContain("setPendingOutgoingUserMessage(null)");
+  });
+
+  test("paints a local user bubble before the cold create/prompt path finishes", async () => {
+    const source = await readFile(handlerPath, "utf8");
+
+    expect(source).toContain("setSending(true);");
+    expect(source).toContain("setPendingOutgoingUserMessage({");
+    expect(source).toContain("msg_local_");
   });
 });

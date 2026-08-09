@@ -850,7 +850,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                     disabled={props.busy}
                   />
                 ) : null}
-                {props.busy && !canSend ? (
+                {props.busy ? (
                   <Button variant="destructive" size="icon-lg"
                     type="button"
                     onClick={props.onStop}
@@ -866,14 +866,12 @@ export function ReactSessionComposer(props: ComposerProps) {
                     onClick={
                       canSend && !props.modelUnavailable
                         ? props.onSend
-                        : props.busy
-                          ? props.onStop
-                          : undefined
+                        : undefined
                     }
                     disabled={
                       props.disabled ||
                       props.modelUnavailable ||
-                      (!canSend && !props.busy)
+                      !canSend
                     }
                     title={
                       props.modelUnavailable
