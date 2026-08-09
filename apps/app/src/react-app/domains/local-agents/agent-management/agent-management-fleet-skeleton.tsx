@@ -1,9 +1,6 @@
 /** @jsxImportSource react */
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { AGENT_MANAGEMENT_LOADING_ASSET } from "@/react-app/design-system/empty-state-assets";
-import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 
 const AGENT_CARD_GRID =
   "grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5";
@@ -35,7 +32,7 @@ export function AgentManagementFleetSkeleton(props: {
   label: string;
   testId?: string;
 }) {
-  const count = props.count ?? 4;
+  const count = props.count ?? 6;
   return (
     <div
       className={cn(AGENT_CARD_GRID, props.className)}
@@ -53,13 +50,14 @@ export function AgentManagementFleetSkeleton(props: {
 }
 
 /**
- * Full-panel loading for agent management first paint.
- * Replaces the double skeleton wall with a Koboyo mark + spinner.
+ * First-paint loading for agent management: same card grid as the real fleet
+ * so the layout does not jump. Optional hint sits above the grid (compact).
  */
 export function AgentManagementPageLoading(props: {
   label: string;
   hint?: string;
   testId?: string;
+  count?: number;
 }) {
   return (
     <div
@@ -67,56 +65,27 @@ export function AgentManagementPageLoading(props: {
       aria-busy="true"
       aria-label={props.label}
       data-testid={props.testId ?? "agent-management-page-loading"}
-      className={cn(
-        "flex min-h-[22rem] flex-col items-center justify-center gap-5",
-        "rounded-2xl border border-dashed border-dls-border/60 bg-dls-surface/50",
-        "px-6 py-16 text-center",
-      )}
+      className="space-y-3"
     >
-      <EmptyStateIllustration
-        src={AGENT_MANAGEMENT_LOADING_ASSET}
-        size="default"
-        className="mb-0 opacity-90"
-      />
-      <div className="flex flex-col items-center gap-2.5">
-        <LoadingSpinner size="default" tone="muted" className="size-5" />
-        <p className="text-sm font-medium text-dls-text">{props.label}</p>
+      <div className="flex items-center gap-2 px-0.5">
+        <Skeleton className="size-3.5 shrink-0 rounded-full" />
+        <p className="text-xs text-dls-secondary">{props.label}</p>
         {props.hint ? (
-          <p className="max-w-sm text-xs leading-5 text-dls-secondary">
-            {props.hint}
+          <p className="hidden text-xs text-dls-secondary/70 sm:inline">
+            · {props.hint}
           </p>
         ) : null}
       </div>
-      <span className="sr-only">{props.label}</span>
+      <AgentManagementFleetSkeleton
+        count={props.count ?? 6}
+        label={props.label}
+        testId={
+          props.testId
+            ? `${props.testId}-grid`
+            : "agent-management-page-loading-grid"
+        }
+      />
     </div>
-  );
-}
-
-/** Single wide row skeleton for the extensions strip under the fleet. */
-export function AgentManagementExtensionSkeleton(props: { label: string }) {
-  return (
-    <section className="space-y-3" aria-busy="true" aria-label={props.label}>
-      <div className="flex items-center gap-2">
-        <Skeleton className="h-4 w-12" />
-        <Skeleton className="h-3 w-16" />
-        <Skeleton className="ml-auto h-8 w-16 rounded-lg" />
-      </div>
-      <div className="rounded-lg border border-dls-border bg-dls-surface p-3">
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1 space-y-2">
-            <div className="flex items-center gap-2">
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-4 w-14 rounded-full" />
-              <Skeleton className="h-3 w-10" />
-            </div>
-            <Skeleton className="h-3 w-full max-w-md" />
-            <Skeleton className="h-3 w-48" />
-          </div>
-          <Skeleton className="h-5 w-14 shrink-0 rounded-full" />
-        </div>
-      </div>
-      <span className="sr-only">{props.label}</span>
-    </section>
   );
 }
 
