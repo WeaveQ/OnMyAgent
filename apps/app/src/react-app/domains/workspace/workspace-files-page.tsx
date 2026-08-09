@@ -95,7 +95,6 @@ export function WorkspaceFilesPage(props: {
 
   return (
     <div className="flex h-full w-full min-h-0 flex-col bg-dls-background text-dls-text">
-      {/* pb-2: tighter air under source tabs before the page title. */}
       <div className={cn(shellChrome.pageHeaderSimple, "border-b-0 pb-2")}>
         {/* Free-float source pills — NavTab active fill only (no raw bg-white). */}
         <SegmentedTabGroup density="bare" role="tablist">
