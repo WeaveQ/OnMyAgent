@@ -334,6 +334,9 @@ select:disabled {
   --dls-active: #E6E6E8;
   --dls-list-selected: #D4D4D4;
   --dls-list-hover: #E8E8E8;
+  /* Weak WeChat-style thumbs — shown on hover / scroll only. */
+  --dls-scrollbar-thumb: rgb(15 23 42 / 0.22);
+  --dls-scrollbar-thumb-active: rgb(15 23 42 / 0.36);
   --dls-decision-bg: var(--ow-primary);
   --dls-decision-hover: var(--ow-primary-hover);
   --dls-decision-fg: #FFFFFF;
@@ -549,8 +552,9 @@ select:disabled {
   --dls-active: #3A3A3A;
   --dls-list-selected: #454545;
   --dls-list-hover: #323232;
-  --dls-scrollbar-thumb: rgb(248 250 252 / 0.12);
-  --dls-scrollbar-thumb-active: rgb(248 250 252 / 0.18);
+  /* Dark thumbs — readable when hover/scroll reveals them. */
+  --dls-scrollbar-thumb: rgb(248 250 252 / 0.28);
+  --dls-scrollbar-thumb-active: rgb(248 250 252 / 0.42);
   --dls-decision-bg: var(--ow-primary);
   --dls-decision-hover: var(--ow-primary-hover);
   --dls-decision-fg: #FFFFFF;
@@ -642,6 +646,11 @@ select:disabled {
 }
 
 @layer base {
+  /*
+   * Scrollbars: hidden by default; reveal on pointer hover or active
+   * scroll (is-scrolling from useTransientScrollbars). Keep thumb contrast
+   * high enough to read once shown.
+   */
   * {
     scrollbar-width: thin;
     scrollbar-color: transparent transparent;
@@ -665,11 +674,14 @@ select:disabled {
     background-clip: content-box;
   }
 
+  /* Hover the scroll region (or any descendant → ancestor :hover). */
+  *:hover,
   *.is-scrolling,
   *.is-pointer-active {
     scrollbar-color: var(--dls-scrollbar-thumb) transparent;
   }
 
+  *:hover::-webkit-scrollbar-thumb,
   *.is-scrolling::-webkit-scrollbar-thumb,
   *.is-pointer-active::-webkit-scrollbar-thumb {
     background-color: var(--dls-scrollbar-thumb);
@@ -793,8 +805,14 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
   }
 
   .session-markdown-table {
+    /* Bound width so overflow-x-auto can scroll instead of expanding ancestors. */
+    box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
     border-color: var(--session-content-border, var(--dls-border));
     background: var(--session-content-cell, var(--dls-surface));
+    /* Thin scrollbar so wide tables stay discoverable without dominating chrome. */
+    scrollbar-width: thin;
   }
 
   /* Internal grid only — outer frame is the wrapper border (no double edge). */
@@ -803,6 +821,10 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     border-color: var(--session-content-border, var(--dls-border));
     border-style: solid;
     border-width: 0 1px 1px 0;
+    /* Full cell text; wide tables scroll horizontally (no ellipsis clip). */
+    overflow: visible;
+    text-overflow: clip;
+    vertical-align: top;
   }
 
   .session-markdown-table th:last-child,
@@ -958,6 +980,9 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     /* No side pad — body column width must match the composer card (1120). */
     padding-inline: 0;
     width: 100%;
+    /* Allow wide markdown tables to scroll inside, not expand the row. */
+    min-width: 0;
+    max-width: 100%;
   }
 
   .session-transcript-assistant-turn {
@@ -966,6 +991,8 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
 
   .session-transcript-assistant-message-row {
     padding-bottom: 12px;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .session-transcript-assistant-header {
@@ -990,9 +1017,16 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
 
   .session-transcript-assistant-copy {
     max-width: none;
+    min-width: 0;
+    width: 100%;
     background: transparent;
     font-size: var(--session-transcript-font-size);
     line-height: var(--session-transcript-line-height);
+  }
+
+  .session-transcript-assistant-copy .markdown-content {
+    min-width: 0;
+    max-width: 100%;
   }
 
   .session-transcript-assistant-copy .markdown-content,

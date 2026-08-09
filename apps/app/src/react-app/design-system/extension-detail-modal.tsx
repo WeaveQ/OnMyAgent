@@ -23,6 +23,7 @@ import { MarkdownBlock } from "../capabilities/artifacts/markdown";
 import { modalBodyClass } from "./modal-styles";
 import { resolveExtensionIconSrc } from "./extension-icon-src";
 import { ExtensionMeshAvatar } from "./extension-mesh-avatar";
+import { resolveSimpleIconUrl } from "./simple-icon";
 import { APP_NAME, APP_NAME_LOWER } from "../../i18n/locales/brand";
 
 const extensionDetailTextClass = {
@@ -293,7 +294,7 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
                 ) : iconSlug ? (
                   <IconTile tone="surface" shape="md">
                     <img
-                      src={`https://cdn.simpleicons.org/${iconSlug}`}
+                      src={resolveSimpleIconUrl(iconSlug)}
                       alt=""
                       width={20}
                       height={20}

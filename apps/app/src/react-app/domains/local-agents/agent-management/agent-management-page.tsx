@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Cpu, MessagesSquare, Monitor, Plus, Puzzle, RefreshCw } from "lucide-react";
+import { Library, MessagesSquare, Monitor, PackagePlus, Plus, Puzzle, RefreshCw } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
@@ -28,12 +28,10 @@ import {
 import { AgentManagementAgentCard } from "./agent-management-agent-card";
 import {
   AGENT_CARD_GRID,
-  AgentManagementExtensionSkeleton,
-  AgentManagementFleetSkeleton,
+  AgentManagementPageLoading,
 } from "./agent-management-fleet-skeleton";
 import { InlineAgentEditor, type InlineAgentEditorValue } from "../inline-agent-editor";
 import { AgentManagementRepairDialog } from "../agent-management-repair-dialog";
-import { ExtensionListPanel } from "../extension-list-panel";
 import {
   type AgentManagementHealthResult,
 } from "./agent-management-health";
@@ -348,8 +346,11 @@ export function AgentManagementPage(props: {
     });
   }, [activePanel, cacheKey, healthResults, selectedSkillKey, skillColumnFilter, skillSearch]);
 
-  /** Mutually exclusive filters aligned with card badges: healthy / needs-auth / offline / not-installed. */
-  const [agentFilter, setAgentFilter] = useState<"all" | "online" | "needs_auth" | "offline" | "missing">("all");
+  /**
+   * Compact fleet filters (was 5 chips — too dense for the toolbar).
+   * 全部 | 健康 | 异常 — 「异常」covers needs_auth / offline / missing / error.
+   */
+  const [agentFilter, setAgentFilter] = useState<"all" | "online" | "issue">("all");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingAgent, setEditingAgent] = useState<AgentManagementAgent | null>(null);
   const [editorBusy, setEditorBusy] = useState(false);
@@ -371,11 +372,15 @@ export function AgentManagementPage(props: {
   );
   const managedAgents = fleetParts.managed;
   const discoverAgents = fleetParts.discover;
-  // Status chips (健康 / 需登录 / 离线 / 未安装) only filter「我的智能体」.
-  // Discover catalog always lists the full installable set.
+  // Status chips only filter「我的智能体」; discover stays full catalog.
   const filteredManagedAgents = useMemo(() => {
     if (agentFilter === "all") return managedAgents;
-    return managedAgents.filter((agent) => agentDisplayStatus(agent, healthResults[agent.id]) === agentFilter);
+    return managedAgents.filter((agent) => {
+      const status = agentDisplayStatus(agent, healthResults[agent.id]);
+      if (agentFilter === "online") return status === "online";
+      // issue = anything not healthy
+      return status !== "online";
+    });
   }, [agentFilter, managedAgents, healthResults]);
 
   const openAddCustomAgent = useCallback(() => {
@@ -858,17 +863,16 @@ export function AgentManagementPage(props: {
       */}
       <div
         className={cn(
-          "min-h-0 flex-1 px-6 py-4",
-          activePanel === "archive" ||
-            activePanel === "skills"
-            ? "overflow-hidden"
-            : "overflow-y-auto",
+          "min-h-0 flex-1 px-6",
+          // Skills / 会话 fill the pane — tight top gutter (tab bar already breathes).
+          activePanel === "skills" || activePanel === "archive"
+            ? "overflow-hidden pb-3 pt-1.5"
+            : "overflow-y-auto py-4",
         )}
       >
         <div
           className={cn(
             "flex h-full min-h-0 w-full flex-col",
-            activePanel === "skills" && "gap-4",
             activePanel === "agents" && "space-y-4",
           )}
         >
@@ -885,7 +889,7 @@ export function AgentManagementPage(props: {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <Bot className="size-4 text-dls-secondary" />
+                      <Library className="size-4 text-dls-secondary" strokeWidth={1.75} aria-hidden />
                       <h3 className="text-sm font-medium">{t("agent_manager.fleet_title")}</h3>
                       <span className="text-xs tabular-nums text-dls-secondary">
                         {snapshotPending
@@ -915,36 +919,28 @@ export function AgentManagementPage(props: {
                         label={t("agent_manager.filter_online")}
                       />
                       <FilterChip
-                        selected={agentFilter === "needs_auth"}
-                        onClick={() => setAgentFilter("needs_auth")}
-                        label={t("agent_manager.filter_needs_auth")}
-                      />
-                      <FilterChip
-                        selected={agentFilter === "offline"}
-                        onClick={() => setAgentFilter("offline")}
-                        label={t("agent_manager.filter_offline")}
-                      />
-                      <FilterChip
-                        selected={agentFilter === "missing"}
-                        onClick={() => setAgentFilter("missing")}
-                        label={t("agent_manager.filter_missing")}
+                        selected={agentFilter === "issue"}
+                        onClick={() => setAgentFilter("issue")}
+                        label={t("agent_manager.filter_issue")}
                       />
                     </div>
-                    <Button variant="default" size="sm" onClick={openAddCustomAgent}>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={openAddCustomAgent}
+                      disabled={snapshotPending}
+                    >
                       <Plus className="mr-1.5 size-3.5" />
                       {t("agent_manager.custom_agents_add")}
                     </Button>
                   </div>
                 </div>
                 {snapshotPending ? (
-                  <div className="space-y-2">
-                    <p className="text-xs text-dls-secondary">{t("agent_manager.fleet_loading")}</p>
-                    <AgentManagementFleetSkeleton
-                      count={4}
-                      label={t("agent_manager.fleet_loading")}
-                      testId="agent-management-fleet-skeleton"
-                    />
-                  </div>
+                  <AgentManagementPageLoading
+                    label={t("agent_manager.page_loading")}
+                    hint={t("agent_manager.page_loading_hint")}
+                    testId="agent-management-page-loading"
+                  />
                 ) : managedAgents.length === 0 ? (
                   <EmptyStateBox size="spacious" tone="surface" className="text-sm">
                     {t("agent_manager.fleet_empty")}
@@ -980,7 +976,8 @@ export function AgentManagementPage(props: {
                 )}
               </div>
 
-              {/* Secondary: discover / install catalog */}
+              {/* Secondary: discover / install catalog — hide body while first snapshot loads */}
+              {!snapshotPending ? (
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <button
@@ -988,12 +985,11 @@ export function AgentManagementPage(props: {
                     className="flex min-w-0 items-center gap-2 text-left"
                     onClick={() => setDiscoverOpen((open) => !open)}
                     aria-expanded={discoverOpen}
-                    disabled={snapshotPending}
                   >
-                    <Cpu className="size-4 shrink-0 text-dls-secondary" />
+                    <PackagePlus className="size-4 shrink-0 text-dls-secondary" strokeWidth={1.75} aria-hidden />
                     <h3 className="text-sm font-medium text-dls-text">{t("agent_manager.discover_title")}</h3>
                     <span className="text-xs tabular-nums text-dls-secondary">
-                      {snapshotPending ? t("agent_manager.metric_pending") : discoverAgents.length}
+                      {discoverAgents.length}
                     </span>
                     <span className="text-xs text-dls-secondary">
                       {discoverOpen ? t("agent_manager.discover_collapse") : t("agent_manager.discover_expand")}
@@ -1003,17 +999,9 @@ export function AgentManagementPage(props: {
                 {discoverOpen ? (
                   <>
                     <p className="text-xs text-dls-secondary">
-                      {snapshotPending
-                        ? t("agent_manager.discover_loading")
-                        : t("agent_manager.discover_desc")}
+                      {t("agent_manager.discover_desc")}
                     </p>
-                    {snapshotPending ? (
-                      <AgentManagementFleetSkeleton
-                        count={5}
-                        label={t("agent_manager.discover_loading")}
-                        testId="agent-management-discover-skeleton"
-                      />
-                    ) : discoverAgents.length === 0 ? (
+                    {discoverAgents.length === 0 ? (
                       <EmptyStateBox size="spacious" tone="surface" className="text-sm">
                         {t("agent_manager.discover_empty")}
                       </EmptyStateBox>
@@ -1036,14 +1024,7 @@ export function AgentManagementPage(props: {
                   </>
                 ) : null}
               </div>
-
-              {/* Hold extensions until core list paints so the page does not flash
-                  a finished extensions strip under empty fleet spinners. */}
-              {snapshotPending ? (
-                <AgentManagementExtensionSkeleton label={t("agent_manager.extensions_loading")} />
-              ) : (
-                <ExtensionListPanel />
-              )}
+              ) : null}
             </section>
           ) : (
             <SkillMatrixPanel

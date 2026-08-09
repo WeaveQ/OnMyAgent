@@ -26,7 +26,10 @@ describe("session empty / draft / files / composer contracts", () => {
     const src = readSessionSurfaceSources();
     expect(host).toContain("export function SessionSurface");
     expect(src).toContain("personalAssistantDraftHome");
-    expect(src).toMatch(/!personalAssistantDraftHome\s*\?\s*\(\s*\n\s*<SessionSurfaceHeader/);
+    // Header mounts only when not draft-home and not embedded chrome.
+    expect(src).toMatch(
+      /!personalAssistantDraftHome\s*&&\s*props\.chrome\s*!==\s*["']embedded["']\s*\?\s*\(\s*\n\s*<SessionSurfaceHeader/,
+    );
   });
 
   test("composer homeLayout covers assistant + expert empty", () => {
@@ -54,7 +57,7 @@ describe("session empty / draft / files / composer contracts", () => {
     const shellInset = read(
       "src/react-app/domains/session/surface/composer-shell-inset.ts",
     );
-    expect(shellInset).toContain("px-4 md:px-8");
+    expect(shellInset).toContain("px-4 md:px-6");
     expect(composer).not.toContain("max-w-4xl");
     const layout = read("src/react-app/domains/session/surface/session-surface-layout.tsx");
     expect(layout).toContain("homeComposerLayout");
@@ -89,21 +92,30 @@ describe("session empty / draft / files / composer contracts", () => {
       "src/react-app/domains/local-agents/agent-management/agent-management-page.tsx",
     );
     expect(page).toContain("const snapshotPending = loading && !snapshot");
-    // Fleet/discover: skeleton branch before inventory-empty copy.
+    // First paint: card-grid skeleton loading (not inventory-empty copy).
     expect(page).toMatch(
-      /\{snapshotPending \? \([\s\S]*?AgentManagementFleetSkeleton[\s\S]*?\) : managedAgents\.length === 0 \?[\s\S]*?agent_manager\.fleet_empty/,
+      /\{snapshotPending \? \([\s\S]*?AgentManagementPageLoading[\s\S]*?\) : managedAgents\.length === 0 \?[\s\S]*?agent_manager\.fleet_empty/,
     );
+    expect(page).toContain("agent_manager.page_loading");
+    const fleetSkeleton = read(
+      "src/react-app/domains/local-agents/agent-management/agent-management-fleet-skeleton.tsx",
+    );
+    expect(fleetSkeleton).toContain("AgentManagementFleetSkeleton");
+    expect(fleetSkeleton).toContain("AgentManagementCardSkeleton");
+    // No full-page empty-state robot mark on the loading path.
+    expect(fleetSkeleton).not.toContain("AGENT_MANAGEMENT_LOADING_ASSET");
+    expect(fleetSkeleton).not.toContain("EmptyStateIllustration");
+    // Discover body is deferred until snapshot is ready (no empty copy while loading).
     expect(page).toMatch(
-      /snapshotPending \? \([\s\S]*?AgentManagementFleetSkeleton[\s\S]*?\) : discoverAgents\.length === 0 \?[\s\S]*?agent_manager\.discover_empty/,
+      /!snapshotPending \? \([\s\S]*?discoverAgents\.length === 0 \?[\s\S]*?agent_manager\.discover_empty/,
     );
     // Models/providers tab removed from management chrome.
     expect(page).not.toContain("agent_manager.tab_providers");
     expect(page).not.toContain("AgentManagementProviderPanel");
-
-    const extensions = read("src/react-app/domains/local-agents/extension-list-panel.tsx");
-    expect(extensions).toMatch(
-      /busy && extensions\.length === 0 \?[\s\S]*?common\.loading[\s\S]*?\) : extensions\.length === 0 \?[\s\S]*?extensions_empty/,
-    );
+    // Extension strip removed from agent management UI (runtime APIs may remain).
+    expect(page).not.toContain("ExtensionListPanel");
+    expect(page).not.toContain("AgentManagementExtensionSkeleton");
+    expect(page).not.toContain("agent_manager.extensions_loading");
   });
 
   test("session chrome has no text-[Npx] arbitrary font sizes", () => {

@@ -19,7 +19,6 @@ import {
   type PersonalLocalAgentTestConnectionResult,
 } from "../../../app/lib/desktop";
 import { InlineAgentEditor, type InlineAgentEditorValue } from "./inline-agent-editor";
-import { ExtensionListPanel } from "./extension-list-panel";
 import { LocalAgentCard } from "./local-agent-card";
 import { resolveAgentIconUrlFor } from "./agent-icon-map";
 import { LocalAgentRepairPanel, type LocalAgentRepairAction } from "./local-agent-repair-panel";
@@ -333,8 +332,6 @@ export const LocalAgentManagementPanel = memo(function LocalAgentManagementPanel
           {t("local_agent.filter_empty")}
         </EmptyStateBox>
       )}
-
-      <ExtensionListPanel />
 
       {selectedAgent ? (
         <LocalAgentRepairPanel

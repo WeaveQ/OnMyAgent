@@ -38,6 +38,8 @@ export function resolveLobeProviderKey(
     { key: "zhipu", test: (s) => /\bzhipu\b|\bglm\b|\bchatglm\b/.test(s) },
     { key: "volcengine", test: (s) => /\bvolc\b|\bdoubao\b|\bbytedance\b/.test(s) },
     { key: "siliconcloud", test: (s) => /\bsilicon\b/.test(s) },
+    // Pi coding agent (agent id / display name "Pi")
+    { key: "pi", test: (s) => /(^|[\s/_-])pi([\s/_-]|$)/.test(s) },
   ];
 
   for (const rule of rules) {
@@ -72,6 +74,8 @@ export const LOBE_AGENT_ICON_ID: Record<string, string> = {
   trae: "trae",
   codebuddy: "codebuddy",
   qoder: "qoder",
+  // Pi coding agent — @lobehub/icons-static-svg icons/pi.svg
+  pi: "pi",
 };
 
 export const LOBE_PLUGIN_ICON_ID: Record<string, string> = {

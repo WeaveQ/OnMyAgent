@@ -180,6 +180,10 @@ export {
   expertRegistryRecordFromEntry,
   isBuiltinMarketplaceExpertAgentId,
   findBuiltinMarketplaceExpertById,
+  isLocalShelfPackage,
+  isLocalShelfExpert,
+  expertPackageMatchesAgentId,
+  filterLocalShelfExperts,
 } from "./expert-marketplace/data";
 export {
   ensureMarketplaceExpertInstalled,

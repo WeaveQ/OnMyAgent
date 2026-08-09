@@ -35,10 +35,14 @@ export function SidebarPaneCollapseToggle(props: {
               aria-label={title}
               aria-expanded={!props.collapsed}
               className={cn(
-                "absolute top-1/2 z-30 h-14 w-2.5 -translate-y-1/2 overflow-visible rounded-l-none rounded-r-md px-0 text-dls-secondary shadow-none transition-[width,color] duration-150 before:absolute before:-left-px before:inset-y-0 before:w-px hover:w-4 hover:text-dls-text mac:titlebar-no-drag",
-                props.collapsed
-                  ? "bg-dls-rail before:bg-dls-rail"
-                  : "bg-dls-sidebar before:bg-dls-sidebar",
+                // Sit on the list/workspace seam as a small chevron grip — not a
+                // second full-height divider (the resize handle owns that line).
+                "absolute top-1/2 z-30 h-10 w-3 -translate-y-1/2 overflow-visible rounded-r-md rounded-l-none px-0",
+                "border border-l-0 border-dls-mist/80 bg-dls-surface-solid text-dls-secondary shadow-sm",
+                "transition-[width,color,background-color] duration-150",
+                "hover:w-4 hover:border-dls-border hover:text-dls-text",
+                "mac:titlebar-no-drag",
+                props.collapsed && "border-l border-dls-mist/80",
                 props.className,
               )}
               style={props.style}

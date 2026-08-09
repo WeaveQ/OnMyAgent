@@ -34,12 +34,17 @@ describe("assistant draft home brand contract", () => {
     expect(draftHome).not.toContain("opacity-10");
     expect(draftHome).toContain("AssistantDraftHomeMark");
 
+    const avatars = readSurface("chrome/avatars.tsx");
+    expect(avatars).toMatch(/function AssistantDraftHomeMark[\s\S]*?Briefcase/);
+    expect(avatars).not.toContain("BookOpenCheck");
+
     expect(surface).toContain("export function SessionSurface");
     expect(surface).toMatch(
       /subtitle=\{(?:props\.)?assistantDraftHomeSubtitle\}/,
     );
     expect(layoutMode).toContain('t("session.assistant_work_subtitle")');
-    expect(layoutMode).toContain('t("session.assistant_code_subtitle")');
+    // Code track removed — office-only work subtitle.
+    expect(layoutMode).not.toContain('t("session.assistant_code_subtitle")');
     // Title stays max-w-2xl; composer width matches in-session (1120). Hero only grows height.
     expect(layout).toContain("max-w-2xl");
     expect(surface).toMatch(/homeLayout=\{(?:props\.)?homeComposerLayout\}/);

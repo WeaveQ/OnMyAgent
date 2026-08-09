@@ -19,6 +19,11 @@ import {
   personalAgentCapability,
   personalLocalAgentConnectionMode,
 } from "./provider-registry.mjs";
+import {
+  pickPiDisplayVersion,
+  preferPiAcpAgent,
+  resolvePiNativeBinary,
+} from "./detect-local-agents.mjs";
 import { readSession, writeSession } from "./session-store.mjs";
 import {
   appendRunEvent,
@@ -367,7 +372,8 @@ export function createPersonalAgentLegacyHarness(options = {}) {
   }
 
   async function detectPersonalLocalAgent(agentInput, workspaceRoot = "", detectOptions = {}) {
-    const agent = normalizePersonalLocalAgent(agentInput);
+    // Prefer pi-acp over native `pi --mode rpc` when the ACP adapter is installed.
+    const agent = preferPiAcpAgent(normalizePersonalLocalAgent(agentInput));
     const providerSpec = PERSONAL_LOCAL_AGENT_PROVIDERS[agent.provider] ?? PERSONAL_LOCAL_AGENT_PROVIDERS.custom;
     let executablePath = await exec.resolveExecutable(agent.executablePath || providerSpec.executable || "");
     // R1: missing binary / not on PATH → status "missing" (未安装), never "offline".
@@ -384,11 +390,24 @@ export function createPersonalAgentLegacyHarness(options = {}) {
     }
     const checked = { ...agent, executablePath };
     if (!version.ok) return personalAgentStatus(checked, "missing", { error: (version.stderr || version.stdout || "命令不可用").trim(), errorCode: "missing_binary", minVersionOk: false });
+    let versionText = (version.stdout || version.stderr).trim().split("\n")[0] || null;
+    // Pi ACP adapter has empty/--adapter --version; surface the coding-agent release instead.
+    if (String(checked.id ?? "").toLowerCase() === "pi") {
+      const nativePi = resolvePiNativeBinary(executablePath);
+      let nativeText = null;
+      if (nativePi) {
+        const nativeVersion = await exec.runCommandCapture(nativePi, ["--version"], { timeoutMs: 5000 });
+        if (nativeVersion.ok) {
+          nativeText = (nativeVersion.stdout || nativeVersion.stderr).trim().split("\n")[0] || null;
+        }
+      }
+      versionText = pickPiDisplayVersion(versionText, nativeText);
+    }
     if (checked.provider === "openclaw") {
       const detectedVersion = parseOpenClawVersionText(version.stdout || version.stderr);
       if (!detectedVersion || compareVersionTuple(detectedVersion, [2026, 5, 5]) < 0) {
         return personalAgentStatus(checked, "offline", {
-          version: (version.stdout || version.stderr).trim().split("\n")[0] || null,
+          version: versionText,
           error: "OpenClaw 版本低于 2026.5.5，当前版本的 --json 输出格式不稳定。请运行 `openclaw update` 后重试。",
           errorCode: "version_unsupported",
           minVersionOk: false,
@@ -398,7 +417,7 @@ export function createPersonalAgentLegacyHarness(options = {}) {
     const includeModels = detectOptions.includeModels !== false;
     const modelInfo = includeModels ? await listPersonalLocalAgentModelOptions(checked, workspaceRoot) : { modelOptions: [], defaultModel: agent.model ?? null };
     const effectiveChecked = { ...checked, model: checked.model || (checked.provider === "hermes" ? null : modelInfo.defaultModel) || null };
-    return applyAgentManagementSelection(personalAgentStatus(effectiveChecked, "online", { version: (version.stdout || version.stderr).trim().split("\n")[0] || null, ...modelInfo }), workspaceRoot);
+    return applyAgentManagementSelection(personalAgentStatus(effectiveChecked, "online", { version: versionText, ...modelInfo }), workspaceRoot);
   }
 
   async function listPersonalLocalAgents(input = {}) {

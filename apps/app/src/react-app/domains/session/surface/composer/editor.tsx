@@ -57,6 +57,8 @@ type EditorProps = {
   placeholder: string;
   /** Shorter empty-state min height (draft home). */
   compact?: boolean;
+  /** Expert-creation coach / try-preview: taller empty field in a narrow column. */
+  embedded?: boolean;
   /** Assistant new-task hero: taller empty field under the brand title. */
   hero?: boolean;
   onChange: (value: string) => void;
@@ -1066,7 +1068,9 @@ export function LexicalPromptEditor(props: EditorProps) {
               className={
                 props.hero
                   ? "min-h-28 max-h-80 w-full resize-none overflow-y-auto bg-transparent text-composer text-dls-text outline-none placeholder:text-dls-secondary [&_p]:min-h-6 [&_p]:m-0"
-                  : "min-h-16 max-h-72 w-full resize-none overflow-y-auto bg-transparent text-composer text-dls-text outline-none placeholder:text-dls-secondary [&_p]:min-h-6 [&_p]:m-0"
+                  : props.embedded
+                    ? "min-h-20 max-h-72 w-full resize-none overflow-y-auto bg-transparent text-composer text-dls-text outline-none placeholder:text-dls-secondary [&_p]:min-h-6 [&_p]:m-0"
+                    : "min-h-16 max-h-72 w-full resize-none overflow-y-auto bg-transparent text-composer text-dls-text outline-none placeholder:text-dls-secondary [&_p]:min-h-6 [&_p]:m-0"
               }
               aria-placeholder={props.placeholder}
               placeholder={<span />}

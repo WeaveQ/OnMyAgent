@@ -12,14 +12,14 @@ import {
   Cog,
   FolderLock,
   Keyboard,
-  MonitorSmartphone,
+  Monitor,
   RefreshCcw,
   RotateCcw,
   SlidersHorizontal,
   Store,
   Terminal,
   UserCircle,
-  Zap,
+  Cpu,
 } from "lucide-react";
 
 import {
@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/sidebar";
 import { t } from "../../../../i18n";
 import type { SettingsTab } from "../../../../app/types";
+import { prefetchSettingsTab } from "../settings-tab-prefetch";
 import {
   SettingsPanel,
   SettingsPanelContent,
@@ -59,13 +60,15 @@ const settingsNavButtonClass =
 export function getSettingsTabIcon(tab: SettingsTab) {
   switch (tab) {
     case "ai":
-      return Zap;
+      // Models / providers — compute, not a generic lightning bolt.
+      return Cpu;
     case "preferences":
       return SlidersHorizontal;
     case "permissions":
       return FolderLock;
     case "system":
-      return MonitorSmartphone;
+      // OS/app system prefs — not the LocalAgent monitor-phone glyph.
+      return Monitor;
     case "company":
       return Building2;
     case "shortcuts":
@@ -317,6 +320,8 @@ function SettingsNavGroup(props: {
                   type="button"
                   isActive={props.activeTab === tab}
                   onClick={() => props.onSelectTab(tab)}
+                  onPointerEnter={() => prefetchSettingsTab(tab)}
+                  onFocus={() => prefetchSettingsTab(tab)}
                   size="settings"
                   className={settingsNavButtonClass}
                 >
