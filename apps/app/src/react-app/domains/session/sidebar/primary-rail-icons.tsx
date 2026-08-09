@@ -16,8 +16,8 @@ import {
   ShoppingBag,
 } from "lucide-react";
 
-import { KoboyoIcon } from "@/react-app/design-system/koboyo-icon";
-import { KOBOYO_CONSULTANT_BADGE } from "@/react-app/design-system/koboyo-product-icons";
+import { ConsultantBadgeIcon } from "@/react-app/design-system/consultant-badge-icon";
+import { cn } from "@/lib/utils";
 
 type PrimaryRailIconProps = {
   className?: string;
@@ -27,8 +27,11 @@ type PrimaryRailIconProps = {
 /** Shared stroke weight — thin line icons read like the reference rail. */
 const RAIL_ICON_STROKE = 1.5;
 
-/** Rail glyph paint box — matches `size-5.5` (22px) on TopRailButton. */
-const RAIL_KOBOYO_SIZE = 22;
+/**
+ * consultant-badge is tall (~159×229). Inline SVG at 28px height (not a
+ * 22² square mask) keeps the silhouette readable on the primary rail.
+ */
+const RAIL_EXPERT_ICON_H = 28;
 
 function railIconProps(className?: string) {
   return {
@@ -46,14 +49,18 @@ export function AssistantRailIcon(props: PrimaryRailIconProps) {
 
 /**
  * Experts — Koboyo consultant-badge (person + credential).
- * Painted via CSS mask so rail currentColor (idle / selected) still applies.
+ * Inline SVG (not CSS mask) for sharper edges at rail size; overrides
+ * TopRailButton `size-5.5` so the tall glyph is not squashed.
  */
 export function ExpertRailIcon(props: PrimaryRailIconProps) {
   return (
-    <KoboyoIcon
-      src={KOBOYO_CONSULTANT_BADGE}
-      size={RAIL_KOBOYO_SIZE}
-      className={props.className}
+    <ConsultantBadgeIcon
+      height={RAIL_EXPERT_ICON_H}
+      className={cn(
+        props.className,
+        // After parent size-5.5 so tall glyph is not forced into a 22² square.
+        "!size-auto !h-7 !w-auto max-w-none",
+      )}
     />
   );
 }
