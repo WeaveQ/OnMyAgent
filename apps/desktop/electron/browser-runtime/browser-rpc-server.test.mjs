@@ -66,7 +66,7 @@ test("browser RPC endpoint falls back to a short tmpdir path when the runtime di
 
 test("browser RPC server authenticates the peer-scoped capability before dispatch", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "onmyagent-browser-rpc-"));
-  const endpoint = path.join(root, "browser.sock");
+  const endpoint = resolveBrowserRpcEndpoint({ platform: process.platform, runtimeDir: root, instanceId: path.basename(root) });
   const authority = createBrowserCapabilityAuthority({ secret: Buffer.alloc(32, 5) });
   const calls = [];
   const server = createBrowserRpcServer({
@@ -96,13 +96,13 @@ test("browser RPC server authenticates the peer-scoped capability before dispatc
     assert.equal(calls.length, 1);
   } finally {
     await server.close();
-    await rm(root, { recursive: true, force: true });
+    await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 25 });
   }
 });
 
 test("browser RPC server rejects invalid capabilities without dispatching", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "onmyagent-browser-rpc-"));
-  const endpoint = path.join(root, "browser.sock");
+  const endpoint = resolveBrowserRpcEndpoint({ platform: process.platform, runtimeDir: root, instanceId: path.basename(root) });
   let dispatched = false;
   const server = createBrowserRpcServer({
     authority: createBrowserCapabilityAuthority({ secret: Buffer.alloc(32, 6) }),
@@ -122,7 +122,7 @@ test("browser RPC server rejects invalid capabilities without dispatching", asyn
     assert.equal(dispatched, false);
   } finally {
     await server.close();
-    await rm(root, { recursive: true, force: true });
+    await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 25 });
   }
 });
 

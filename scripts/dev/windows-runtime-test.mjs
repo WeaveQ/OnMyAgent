@@ -27,6 +27,7 @@ function importFromPath(absPath) {
 
 const testFiles = [
   resolve(desktopRoot, "electron/personal-agent-runtime/utils.test.mjs"),
+  resolve(desktopRoot, "electron/personal-agent-runtime/windows-spawn.test.mjs"),
   resolve(desktopRoot, "electron/code-workspace-actions.test.mjs"),
 ];
 

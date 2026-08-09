@@ -5,6 +5,7 @@ import {
   clearDownloadQuarantine,
   movePreparedRuntimeTree,
   preparedRuntimeRoot,
+  resolveRuntimeTarExtraction,
 } from "./runtime-archive.mjs";
 
 test("clears recursive macOS quarantine before extracting a runtime archive", () => {
@@ -67,4 +68,54 @@ test("uses an executable prepared directory instead of the blocked staging suffi
     preparedRuntimeRoot("/runtime/aarch64-apple-darwin"),
     "/runtime/aarch64-apple-darwin.prepared",
   );
+});
+
+test("uses Windows inbox bsdtar with native absolute paths", () => {
+  const plan = resolveRuntimeTarExtraction(
+    "D:\\cache\\python.tar.gz",
+    "D:\\work\\python",
+    { platform: "win32", env: { SystemRoot: "C:\\Windows" } },
+  );
+  assert.equal(plan.command, "C:\\Windows\\System32\\tar.exe");
+  assert.deepEqual(plan.args, [
+    "-xzf",
+    "D:\\cache\\python.tar.gz",
+    "-C",
+    "D:\\work\\python",
+  ]);
+  assert.equal(plan.args.includes("--force-local"), false);
+});
+
+test("honors a non-default Windows system root without PATH lookup", () => {
+  const plan = resolveRuntimeTarExtraction(
+    "runtime.tar.gz",
+    "runtime",
+    {
+      platform: "win32",
+      env: { SYSTEMROOT: "E:\\Windows" },
+      cwd: "D:\\build",
+    },
+  );
+  assert.equal(plan.command, "E:\\Windows\\System32\\tar.exe");
+  assert.deepEqual(plan.args, [
+    "-xzf",
+    "D:\\build\\runtime.tar.gz",
+    "-C",
+    "D:\\build\\runtime",
+  ]);
+});
+
+test("keeps PATH tar behavior on POSIX hosts", () => {
+  const plan = resolveRuntimeTarExtraction(
+    "runtime.tar.gz",
+    "runtime",
+    { platform: "darwin", cwd: "/tmp/onmyagent" },
+  );
+  assert.equal(plan.command, "tar");
+  assert.deepEqual(plan.args, [
+    "-xzf",
+    "/tmp/onmyagent/runtime.tar.gz",
+    "-C",
+    "/tmp/onmyagent/runtime",
+  ]);
 });

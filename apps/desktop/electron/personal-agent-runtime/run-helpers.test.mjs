@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { runEventsToConversationMessages } from "./contract.mjs";
+
 import {
   assistantTextFromEvents,
   buildApprovalRecord,
@@ -135,10 +137,105 @@ test("buildRunSnapshot and buildRunMeta project state fields", () => {
   assert.notEqual(snap.pendingApprovals, state.pendingApprovals);
   assert.deepEqual(snap.conversationMessages, [{ role: "assistant", text: "hi" }]);
 
+  const compact = buildRunSnapshot({ ...state, status: "running", events: [
+    { type: "user", text: "prompt" },
+    { type: "assistant", text: "one" },
+    { type: "assistant", text: "two" },
+    { type: "assistant", text: "three" },
+  ] }, deps, { eventLimit: 2, conversationMessageEventLimit: 2 });
+  assert.deepEqual(compact.events.map((event) => event.text), ["two", "three"]);
+  assert.deepEqual(compact.conversationMessages.map((message) => message.text), ["prompt", "two", "three"]);
+
+  const terminal = buildRunSnapshot({ ...state, status: "completed", events: [
+    { type: "assistant", text: "one" },
+    { type: "assistant", text: "two" },
+    { type: "assistant", text: "three" },
+  ] }, deps, { eventLimit: 2, conversationMessageEventLimit: 2 });
+  assert.deepEqual(terminal.conversationMessages.map((message) => message.text), ["one", "two", "three"]);
+
   const meta = buildRunMeta(state, { visibleArtifacts: (e) => e });
   assert.equal(meta.type, "run_meta");
   assert.equal(meta.runId, "r1");
   assert.deepEqual(meta.fileChanges, [{ path: "b.txt" }]);
+});
+
+test("running snapshot compaction preserves cumulative assistant text outside the event tail", () => {
+  const baseState = {
+    status: "running",
+    runId: "long-run",
+    agentId: "codex",
+    agentProvider: "codex",
+    connectionMode: "Codex ACP session",
+    startedAt: 1,
+    finishedAt: null,
+    pid: 9,
+    command: "codex",
+    outputParts: [],
+    error: null,
+    logPath: "/tmp/long-run.jsonl",
+    conversationId: "conversation-1",
+    providerSessionId: "provider-session-1",
+    resumeKey: "provider-session-1",
+    metadata: null,
+    workdir: "/ws",
+    debugSummary: null,
+    errorInfo: null,
+    approvalMode: "ask",
+    pendingApprovals: [],
+    artifacts: [],
+    fileChanges: [],
+  };
+  const events = [
+    { type: "user", text: "prompt", at: 1 },
+    { type: "assistant_chunk", text: "prefix-", at: 2 },
+    { type: "assistant_chunk", text: "already-visible", at: 3 },
+    ...Array.from({ length: 201 }, (_, index) => ({
+      type: "status",
+      text: `noise-${index}`,
+      at: 4 + index,
+    })),
+  ];
+  const deps = {
+    visibleArtifacts: (entries) => entries,
+    runEventsToConversationMessages,
+  };
+  const compact = buildRunSnapshot(
+    { ...baseState, events },
+    deps,
+    { eventLimit: 200, conversationMessageEventLimit: 200 },
+  );
+  assert.equal(compact.events.length, 200);
+  assert.equal(compact.events[0].text, "noise-1");
+  assert.equal(compact.conversationMessages.find((message) => message.role === "user")?.text, "prompt");
+  const assistant = compact.conversationMessages.find((message) => message.role === "assistant");
+  assert.equal(assistant?.id, "msg-2");
+  assert.equal(assistant?.text, "prefix-already-visible");
+
+  const next = buildRunSnapshot(
+    { ...baseState, events: [...events, { type: "assistant_chunk", text: "-continued", at: 205 }] },
+    deps,
+    { eventLimit: 200, conversationMessageEventLimit: 200 },
+  );
+  const nextAssistant = next.conversationMessages.find((message) => message.role === "assistant");
+  assert.equal(nextAssistant?.id, "msg-2");
+  assert.equal(nextAssistant?.text, "prefix-already-visible-continued");
+
+  const terminal = buildRunSnapshot(
+    {
+      ...baseState,
+      status: "completed",
+      events: [...events, { type: "finish", text: "prefix-already-visible", at: 205 }],
+    },
+    deps,
+    { eventLimit: 200, conversationMessageEventLimit: 200 },
+  );
+  // Raw IPC events stay bounded, while the durable terminal transcript is not
+  // rebuilt from the tail and therefore still contains the earliest status.
+  assert.equal(terminal.events.length, 200);
+  assert.equal(terminal.conversationMessages[0]?.text, "prompt");
+  assert.equal(terminal.conversationMessages.some((message) => message.text === "noise-0"), true);
+  assert.equal(terminal.conversationMessages.at(-1)?.type, "finish");
+  assert.equal(terminal.conversationMessages.at(-1)?.text, "prefix-already-visible");
 });
 
 test("buildApprovalRecord uses defaults and clock hooks", () => {

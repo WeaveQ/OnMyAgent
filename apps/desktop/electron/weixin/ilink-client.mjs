@@ -8,6 +8,7 @@ export const ILINK_APP_CLIENT_VERSION = (2 << 16) | (2 << 8) | 0;
 
 export const EP_GET_UPDATES = "ilink/bot/getupdates";
 export const EP_SEND_MESSAGE = "ilink/bot/sendmessage";
+export const EP_GET_UPLOAD_URL = "ilink/bot/getuploadurl";
 export const EP_SEND_TYPING = "ilink/bot/sendtyping";
 export const EP_GET_CONFIG = "ilink/bot/getconfig";
 export const EP_GET_BOT_QR = "ilink/bot/get_bot_qrcode";
@@ -19,6 +20,7 @@ export const CONFIG_TIMEOUT_MS = 10_000;
 export const QR_TIMEOUT_MS = 35_000;
 
 export const ITEM_TEXT = 1;
+export const ITEM_FILE = 4;
 export const MSG_TYPE_BOT = 2;
 export const MSG_STATE_FINISH = 2;
 export const TYPING_START = 1;
@@ -57,13 +59,17 @@ function normalizeBaseUrl(baseUrl) {
   return String(baseUrl || ILINK_BASE_URL).trim().replace(/\/+$/, "") || ILINK_BASE_URL;
 }
 
-async function fetchWithTimeout(fetchFn, url, options, timeoutMs) {
+async function fetchWithTimeout(fetchFn, url, options, timeoutMs, externalSignal = null) {
   const controller = new AbortController();
+  const abortFromExternal = () => controller.abort(externalSignal?.reason);
+  if (externalSignal?.aborted) abortFromExternal();
+  else externalSignal?.addEventListener("abort", abortFromExternal, { once: true });
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetchFn(url, { ...options, signal: controller.signal });
   } finally {
     clearTimeout(timer);
+    externalSignal?.removeEventListener("abort", abortFromExternal);
   }
 }
 
@@ -73,14 +79,14 @@ export function createIlinkClient(options = {}) {
     throw new Error("Weixin iLink client requires fetch support");
   }
 
-  async function apiPost({ baseUrl, endpoint, payload, token, timeoutMs = API_TIMEOUT_MS }) {
+  async function apiPost({ baseUrl, endpoint, payload, token, timeoutMs = API_TIMEOUT_MS, signal = null }) {
     const body = jsonBody(payload ?? {});
     const url = `${normalizeBaseUrl(baseUrl)}/${endpoint}`;
     const response = await fetchWithTimeout(fetchFn, url, {
       method: "POST",
       headers: ilinkHeaders(token, body),
       body,
-    }, timeoutMs);
+    }, timeoutMs, signal);
     const raw = await response.text();
     if (!response.ok) {
       throw new Error(`iLink POST ${endpoint} HTTP ${response.status}: ${raw.slice(0, 200)}`);
@@ -110,7 +116,7 @@ export function createIlinkClient(options = {}) {
     getQrStatus({ qrcode, baseUrl = ILINK_BASE_URL, timeoutMs = QR_TIMEOUT_MS }) {
       return apiGet({ baseUrl, endpoint: `${EP_GET_QR_STATUS}?qrcode=${encodeURIComponent(String(qrcode ?? ""))}`, timeoutMs });
     },
-    async getUpdates({ baseUrl, token, syncBuf = "", timeoutMs = LONG_POLL_TIMEOUT_MS }) {
+    async getUpdates({ baseUrl, token, syncBuf = "", timeoutMs = LONG_POLL_TIMEOUT_MS, signal = null }) {
       try {
         return await apiPost({
           baseUrl,
@@ -118,6 +124,7 @@ export function createIlinkClient(options = {}) {
           payload: { get_updates_buf: syncBuf },
           token,
           timeoutMs,
+          signal,
         });
       } catch (error) {
         if (error?.name === "AbortError") return { ret: 0, msgs: [], get_updates_buf: syncBuf };
@@ -137,6 +144,65 @@ export function createIlinkClient(options = {}) {
       };
       if (contextToken) msg.context_token = String(contextToken);
       return apiPost({ baseUrl, endpoint: EP_SEND_MESSAGE, payload: { msg }, token, timeoutMs });
+    },
+    sendMessageItem({ baseUrl, token, to, item, contextToken, clientId, timeoutMs = API_TIMEOUT_MS }) {
+      if (!item || typeof item !== "object") throw new Error("Weixin sendMessageItem item is required");
+      const msg = {
+        from_user_id: "",
+        to_user_id: String(to ?? ""),
+        client_id: String(clientId ?? ""),
+        message_type: MSG_TYPE_BOT,
+        message_state: MSG_STATE_FINISH,
+        item_list: [item],
+      };
+      if (contextToken) msg.context_token = String(contextToken);
+      return apiPost({ baseUrl, endpoint: EP_SEND_MESSAGE, payload: { msg }, token, timeoutMs });
+    },
+    getUploadUrl({ baseUrl, token, fileKey, mediaType, toUserId, rawSize, rawFileMd5, encryptedSize, aesKey, timeoutMs = API_TIMEOUT_MS }) {
+      return apiPost({
+        baseUrl,
+        endpoint: EP_GET_UPLOAD_URL,
+        payload: {
+          filekey: String(fileKey ?? ""),
+          media_type: Number(mediaType),
+          to_user_id: String(toUserId ?? ""),
+          rawsize: Number(rawSize),
+          rawfilemd5: String(rawFileMd5 ?? ""),
+          filesize: Number(encryptedSize),
+          no_need_thumb: true,
+          aeskey: String(aesKey ?? ""),
+        },
+        token,
+        timeoutMs,
+      });
+    },
+    async uploadCdn({ uploadUrl, encrypted, timeoutMs = 60_000 }) {
+      const target = String(uploadUrl ?? "").trim();
+      if (!target) throw new Error("Weixin CDN upload URL is required");
+      let lastError = null;
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        try {
+          const response = await fetchWithTimeout(fetchFn, target, {
+            method: "POST",
+            headers: { "Content-Type": "application/octet-stream" },
+            body: new Uint8Array(encrypted),
+          }, timeoutMs);
+          const errorMessage = response.headers.get("x-error-message") ?? "";
+          if (response.status >= 400 && response.status < 500) {
+            throw new Error(`Weixin CDN upload rejected HTTP ${response.status}${errorMessage ? `: ${errorMessage}` : ""}`);
+          }
+          if (response.status !== 200) {
+            throw new Error(`Weixin CDN upload failed HTTP ${response.status}${errorMessage ? `: ${errorMessage}` : ""}`);
+          }
+          const encryptedQueryParam = String(response.headers.get("x-encrypted-param") ?? "").trim();
+          if (!encryptedQueryParam) throw new Error("Weixin CDN upload response missing x-encrypted-param");
+          return { encryptedQueryParam };
+        } catch (error) {
+          lastError = error;
+          if (String(error?.message ?? "").includes("upload rejected") || attempt === 3) throw error;
+        }
+      }
+      throw lastError ?? new Error("Weixin CDN upload failed");
     },
     getConfig({ baseUrl, token, userId, contextToken, timeoutMs = CONFIG_TIMEOUT_MS }) {
       const payload = { ilink_user_id: String(userId ?? "") };

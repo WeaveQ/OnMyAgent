@@ -26,9 +26,9 @@ const ACTIVE_RUN_PENDING_POLL_INTERVAL_MS = 3_000;
 // Minimum spacing between "agent still busy" replies for the same chat+agent.
 const AGENT_BUSY_NOTICE_INTERVAL_MS = 15_000;
 // Backstop ceiling for a single channel conversation lock. The personal agent
-// runtime already enforces its own run timeout (max 6h), but that timer lives
+// runtime already enforces its own run timeout (max 12h), but that timer lives
 // in the runtime process and is lost if the desktop app restarts.
-const ACTIVE_RUN_MAX_AGE_MS = 6 * 60 * 60 * 1000 + 15 * 60 * 1000;
+const ACTIVE_RUN_MAX_AGE_MS = 12 * 60 * 60 * 1000 + 15 * 60 * 1000;
 const WEBHOOK_MAX_BODY_BYTES = 1024 * 1024;
 
 function sleep(ms) {
@@ -550,6 +550,16 @@ export function createFeishuService(options = {}) {
       await store.deleteActiveRun(session.account.accountId, runKey);
       return;
     }
+    // Apply the backstop to every non-terminal state, including approval
+    // waits, so a stale pending snapshot cannot hold the chat lock forever.
+    if (Date.now() - (record.startedAt ?? 0) > ACTIVE_RUN_MAX_AGE_MS) {
+      const message = `本次本地 Agent 任务运行已超过上限（约 ${Math.round(ACTIVE_RUN_MAX_AGE_MS / 3_600_000)} 小时），已自动超时并清除会话锁。可重新发送消息。`;
+      await sendText(session, record.chatId, message).catch(() => undefined);
+      clearedActiveRunKeys.add(pollKey);
+      agentBusyNoticeAt.delete(`${session.account.accountId}:${runKey}`);
+      await store.deleteActiveRun(session.account.accountId, runKey).catch(() => undefined);
+      return;
+    }
     const pendingApprovals = resultState.pendingApprovals;
     if (pendingApprovals.length && !record.pendingApprovalNotifiedAt) {
       if (clearedActiveRunKeys.has(pollKey)) return;
@@ -565,14 +575,6 @@ export function createFeishuService(options = {}) {
       return;
     }
     if (clearedActiveRunKeys.has(pollKey)) return;
-    if (Date.now() - (record.startedAt ?? 0) > ACTIVE_RUN_MAX_AGE_MS) {
-      const message = `本次本地 Agent 任务运行已超过上限（约 ${Math.round(ACTIVE_RUN_MAX_AGE_MS / 3_600_000)} 小时），已自动超时并清除会话锁。可重新发送消息。`;
-      await sendText(session, record.chatId, message).catch(() => undefined);
-      clearedActiveRunKeys.add(pollKey);
-      agentBusyNoticeAt.delete(`${session.account.accountId}:${runKey}`);
-      await store.deleteActiveRun(session.account.accountId, runKey).catch(() => undefined);
-      return;
-    }
     const updated = await store.writeActiveRun(session.account.accountId, runKey, { status: "running", pendingApprovals: [] });
     scheduleActiveRunPoll(session, updated, ACTIVE_RUN_POLL_INTERVAL_MS);
   }
@@ -1418,6 +1420,7 @@ async function runAgentTurn(runtime, input) {
 }
 
 export const __test__ = {
+  ACTIVE_RUN_MAX_AGE_MS,
   splitTextForFeishu,
   buildPrompt,
   isAllowed,

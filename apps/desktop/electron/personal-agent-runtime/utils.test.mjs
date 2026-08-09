@@ -4,11 +4,26 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
+  createExecHelpers,
   forceKillProcessTree,
   resolveProcessTreeKillPlan,
   waitForExit,
   writeJsonFile,
 } from "./utils.mjs";
+
+test("runCommandCapture settles after timing out a long-lived process", async () => {
+  const startedAt = Date.now();
+  const result = await createExecHelpers().runCommandCapture(
+    process.execPath,
+    ["-e", "setInterval(() => undefined, 1_000)"],
+    { timeoutMs: 50 },
+  );
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 1);
+  assert.equal(result.timedOut, true);
+  assert.match(result.stderr, /timed out after 50ms/i);
+  assert.ok(Date.now() - startedAt < 3_000, "timeout result should settle within a bounded interval");
+});
 
 test("writeJsonFile survives concurrent writers to same target (no ENOENT rename race)", async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), "onmyagent-writejson-"));
