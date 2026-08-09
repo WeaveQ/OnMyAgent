@@ -234,8 +234,11 @@ export function useBootState(): BootStateContextValue {
  *    OpenCode/server warm-up is intentionally not blocking: once the route has
  *    painted cached workspace/session chrome, runtime-dependent controls own
  *    their local preparing state instead of holding the whole app hostage.
- * 2. Also wait for `routeReady` (workspace chrome can paint).
+ * 2. Also wait for `routeReady` (workspace chrome can paint). `phase: ready`
+ *    only changes the splash copy; it does NOT dismiss the overlay.
  * 3. Hold a minimum time so we never flash the empty shell for a few frames.
+ * 4. routeReady must always arrive: ideal path = static home paint; fail-safe =
+ *    hard deadline after route refresh (see boot-shell-ready.ts). Never hang.
  * Errors keep the overlay so retry chrome stays visible.
  */
 const BOOT_BLOCKING_PHASES: ReadonlySet<BootPhaseId> = new Set([
