@@ -52,7 +52,7 @@ import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import {
   EMPTY_STATE_ILLUSTRATION_CLASS,
   PROJECTS_PLACEHOLDER_ASSET,
-} from "../empty-state-assets";
+} from "@/react-app/design-system/empty-state-assets";
 import { FeaturePreviewPlaceholder } from "./feature-preview-placeholder";
 
 const sidePanelTextClass = {

@@ -20,8 +20,8 @@ import { EmptyStateBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { OnMyAgentAutomationTaskItem } from "../../../app/lib/onmyagent-server";
 import { t } from "../../../i18n";
-import { AUTOMATION_EMPTY_STATE_ASSET } from "../session/empty-state-assets";
-import { EmptyStateIllustration } from "../session/empty-state-illustration";
+import { AUTOMATION_EMPTY_STATE_ASSET } from "@/react-app/design-system/empty-state-assets";
+import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import {
   resolveRunDayLabel,
   type CompletedRunEntry,

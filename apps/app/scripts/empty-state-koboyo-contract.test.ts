@@ -13,7 +13,7 @@ import {
   PROJECTS_PLACEHOLDER_ASSET,
   SCHEDULED_TASKS_PREVIEW_ASSET,
   SKILLS_EMPTY_STATE_ASSET,
-} from "../src/react-app/domains/session/empty-state-assets";
+} from "../src/react-app/design-system/empty-state-assets";
 
 const root = resolve(import.meta.dir, "../../..");
 

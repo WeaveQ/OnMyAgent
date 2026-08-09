@@ -14,7 +14,7 @@ import type { AgentStarterItem } from "../sidebar/conversation-model";
 export {
   EMPTY_STATE_ILLUSTRATION_CLASS,
   NO_EXPERT_CONVERSATIONS_ASSET,
-} from "../empty-state-assets";
+} from "@/react-app/design-system/empty-state-assets";
 export const EXPERT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 export const EXPERT_SIDE_PANEL_MIN_WIDTH = 300;
 

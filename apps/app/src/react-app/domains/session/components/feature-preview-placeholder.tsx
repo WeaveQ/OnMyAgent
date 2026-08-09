@@ -5,7 +5,7 @@ import {
   DEVICES_EMPTY_STATE_ASSET,
   EMPTY_STATE_ILLUSTRATION_CLASS,
   SCHEDULED_TASKS_PREVIEW_ASSET,
-} from "../empty-state-assets";
+} from "@/react-app/design-system/empty-state-assets";
 
 type FeaturePreviewPlaceholderProps = {
   kind: "scheduledTasks" | "devices";
