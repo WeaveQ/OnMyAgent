@@ -19,13 +19,18 @@ import {
 import type { ComposerPromptTemplate, ToolMenuSection } from "./composer-helpers";
 import { mergeSlashCommandsWithSkills } from "./slash-command-merge";
 import {
+  filterManagedDesktopConnectors,
+  listConnectedManagedDesktopConnectors,
+  managedDesktopConnectorMcpServerNames,
   readPinnedSkillIds,
   writePinnedSkillIds,
+  type ManagedDesktopConnectorItem,
 } from "@/react-app/domains/plugins";
 import {
   buildActiveMcpItems,
   buildCombinedSkillItems,
   buildOnmyagentInstalledNames,
+  builtInExtensionMcpServerNames,
   collectPluginSkillFiles,
   filterComposerExtensions,
   filterMcpMenuItems,
@@ -78,6 +83,10 @@ export function useComposerCatalogs(input: UseComposerCatalogsInput) {
   const [mcpServers, setMcpServers] = useState<McpServerEntry[]>(input.mcpServersProp ?? []);
   const [mcpStatus, setMcpStatus] = useState<string | null>(input.mcpStatusProp ?? null);
   const [mcpStatuses, setMcpStatuses] = useState<McpStatusMap>(input.mcpStatusesProp ?? {});
+  const [managedConnectors, setManagedConnectors] = useState<
+    ManagedDesktopConnectorItem[]
+  >([]);
+  const [managedConnectorsLoaded, setManagedConnectorsLoaded] = useState(false);
   const [importedPlugins, setImportedPlugins] = useState<CloudImportedPlugin[]>(
     input.importedPluginsProp ?? [],
   );
@@ -100,6 +109,7 @@ export function useComposerCatalogs(input: UseComposerCatalogsInput) {
     commands: false,
     skills: false,
     mcps: false,
+    managedConnectors: false,
     plugins: false,
   });
 
@@ -211,11 +221,13 @@ export function useComposerCatalogs(input: UseComposerCatalogsInput) {
       commands: false,
       skills: false,
       mcps: false,
+      managedConnectors: false,
       plugins: false,
     };
     setCommandsLoaded(false);
     setSkillsLoaded(Boolean(input.skillsProp));
     setMcpLoaded(Boolean(input.mcpServersProp));
+    setManagedConnectorsLoaded(false);
     // Match original deps: only re-run when the tool menu opens/closes.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
   }, [input.toolMenuOpen]);
@@ -350,30 +362,58 @@ export function useComposerCatalogs(input: UseComposerCatalogsInput) {
         cancelled = true;
       };
     }
-    if (input.toolMenuSection === "mcps" && listMcp && !toolMenuLoadRef.current.mcps) {
+    if (input.toolMenuSection === "mcps") {
       let cancelled = false;
-      toolMenuLoadRef.current.mcps = true;
-      setMcpLoading(true);
-      void listMcp()
-        .then((next) => {
-          if (cancelled || toolMenuLoadRef.current.openId !== openId) return;
-          setMcpServers(next.servers);
-          setMcpStatuses(next.statuses);
-          setMcpStatus(next.status);
-          setMcpLoaded(true);
-        })
-        .catch(() => {
-          if (cancelled || toolMenuLoadRef.current.openId !== openId) return;
-          setMcpServers([]);
-          setMcpStatuses({});
-          setMcpLoaded(true);
-        })
-        .finally(() => {
-          if (!cancelled && toolMenuLoadRef.current.openId === openId) setMcpLoading(false);
+      const loadMcp = Boolean(listMcp) && !toolMenuLoadRef.current.mcps;
+      const loadManaged = !toolMenuLoadRef.current.managedConnectors;
+
+      if (loadMcp || loadManaged) {
+        if (loadMcp) toolMenuLoadRef.current.mcps = true;
+        if (loadManaged) toolMenuLoadRef.current.managedConnectors = true;
+        setMcpLoading(true);
+
+        const mcpPromise =
+          loadMcp && listMcp
+            ? listMcp()
+                .then((next) => {
+                  if (cancelled || toolMenuLoadRef.current.openId !== openId) return;
+                  setMcpServers(next.servers);
+                  setMcpStatuses(next.statuses);
+                  setMcpStatus(next.status);
+                  setMcpLoaded(true);
+                })
+                .catch(() => {
+                  if (cancelled || toolMenuLoadRef.current.openId !== openId) return;
+                  setMcpServers([]);
+                  setMcpStatuses({});
+                  setMcpLoaded(true);
+                })
+            : Promise.resolve();
+
+        const managedPromise = loadManaged
+          ? listConnectedManagedDesktopConnectors()
+              .then((next) => {
+                if (cancelled || toolMenuLoadRef.current.openId !== openId) return;
+                setManagedConnectors(next);
+                setManagedConnectorsLoaded(true);
+              })
+              .catch(() => {
+                if (cancelled || toolMenuLoadRef.current.openId !== openId) return;
+                setManagedConnectors([]);
+                setManagedConnectorsLoaded(true);
+              })
+          : Promise.resolve();
+
+        void Promise.all([mcpPromise, managedPromise]).finally(() => {
+          if (!cancelled && toolMenuLoadRef.current.openId === openId) {
+            setMcpLoading(false);
+          }
         });
-      return () => {
-        cancelled = true;
-      };
+
+        return () => {
+          cancelled = true;
+        };
+      }
     }
     return undefined;
   }, [input.toolMenuOpen, input.toolMenuSection]);
@@ -410,10 +450,20 @@ export function useComposerCatalogs(input: UseComposerCatalogsInput) {
     [input.builtInExtensionsDisabled, extensionStateVersion],
   );
 
-  const activeMcpItems = useMemo(
-    () => buildActiveMcpItems(mcpServers, mcpStatuses),
-    [mcpServers, mcpStatuses],
+  const managedMcpExcludeNames = useMemo(
+    () => managedDesktopConnectorMcpServerNames(managedConnectors),
+    [managedConnectors],
   );
+
+  const activeMcpItems = useMemo(() => {
+    // Drop MCP rows already represented by built-in extension tiles or by
+    // connected recommended connectors so 连接器(N) counts unique products.
+    const exclude = new Set<string>([
+      ...builtInExtensionMcpServerNames(composerExtensions),
+      ...managedMcpExcludeNames,
+    ]);
+    return buildActiveMcpItems(mcpServers, mcpStatuses, exclude);
+  }, [composerExtensions, managedMcpExcludeNames, mcpServers, mcpStatuses]);
   // + menu reuses the same catalog/order as `/` (already pin-sorted).
   const filteredSkillItems = filterSkillMenuItems(skillCatalogOrdered, input.skillSearchQuery);
   const filteredPluginSkillFiles = filterPluginSkillFiles(pluginSkillFiles, input.skillSearchQuery);
@@ -422,11 +472,20 @@ export function useComposerCatalogs(input: UseComposerCatalogsInput) {
     composerExtensions,
     input.connectorSearchQuery,
   );
+  const filteredManagedConnectors = filterManagedDesktopConnectors(
+    managedConnectors,
+    input.connectorSearchQuery,
+  );
   const hasSkills = combinedSkillItems.length > 0 || pluginSkillFiles.length > 0;
   const hasSkillMatches = filteredSkillItems.length > 0 || filteredPluginSkillFiles.length > 0;
-  const hasConnectors = activeMcpItems.length > 0 || composerExtensions.length > 0;
+  const hasConnectors =
+    activeMcpItems.length > 0 ||
+    composerExtensions.length > 0 ||
+    managedConnectors.length > 0;
   const hasConnectorMatches =
-    filteredMcpItems.length > 0 || filteredComposerExtensions.length > 0;
+    filteredMcpItems.length > 0 ||
+    filteredComposerExtensions.length > 0 ||
+    filteredManagedConnectors.length > 0;
 
   const handleTogglePinnedSkill = useCallback((command: SlashCommandOption) => {
     setPinnedSkillIds((current) => {
@@ -448,6 +507,8 @@ export function useComposerCatalogs(input: UseComposerCatalogsInput) {
     mcpServers,
     mcpStatus,
     mcpStatuses,
+    managedConnectors,
+    managedConnectorsLoaded,
     importedPlugins,
     pinnedSkillIds,
     combinedSkillItems,
@@ -460,6 +521,7 @@ export function useComposerCatalogs(input: UseComposerCatalogsInput) {
     filteredPluginSkillFiles,
     filteredMcpItems,
     filteredComposerExtensions,
+    filteredManagedConnectors,
     hasSkills,
     hasSkillMatches,
     hasConnectors,

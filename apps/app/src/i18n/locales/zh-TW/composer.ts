@@ -75,6 +75,7 @@ export default {
   "composer.collaboration_pursue_goal_desc": "持續圍繞目標推進並檢查進度",
   "composer.prompt_templates_short": "提示詞",
   "composer.connectors_label": "連接器",
+  "composer.connectors_group_connected": "已連接",
   "composer.connectors_group_builtin": "內建擴展",
   "composer.connectors_group_mcp": "已設定 MCP",
   "composer.pin_skill": "釘住技能",

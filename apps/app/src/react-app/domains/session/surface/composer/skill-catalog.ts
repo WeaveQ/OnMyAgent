@@ -8,7 +8,10 @@ import type {
   SkillCard,
   SlashCommandOption,
 } from "../../../../../app/types";
-import type { McpDirectoryInfo } from "../../../../../app/constants";
+import {
+  getMcpServerName,
+  type McpDirectoryInfo,
+} from "../../../../../app/constants";
 import {
   filterToolMenuItems,
   pluginSkillFileSearchText,
@@ -214,14 +217,40 @@ export type ActiveMcpItem = {
   status: McpServerStatus;
 };
 
+/**
+ * MCP server names owned by built-in extension tiles (e.g. computer-use).
+ * Those must not also appear under "Configured MCP" or the connector count
+ * double-counts the same capability.
+ */
+export function builtInExtensionMcpServerNames(
+  extensions: McpDirectoryInfo[],
+): Set<string> {
+  const names = new Set<string>();
+  for (const entry of extensions) {
+    names.add(getMcpServerName(entry));
+    if (entry.id) names.add(entry.id);
+    for (const resource of entry.extensionManifest?.resources ?? []) {
+      if (resource.type === "mcp" && resource.mcpServerName) {
+        names.add(resource.mcpServerName);
+      }
+    }
+  }
+  return names;
+}
+
 export function buildActiveMcpItems(
   mcpServers: McpServerEntry[],
   mcpStatuses: McpStatusMap,
+  excludeServerNames?: Iterable<string>,
 ): ActiveMcpItem[] {
-  return mcpServers.map((entry) => ({
-    entry,
-    status: toReactMcpStatus(entry.name, entry, mcpStatuses),
-  }));
+  const exclude =
+    excludeServerNames != null ? new Set(excludeServerNames) : null;
+  return mcpServers
+    .filter((entry) => !exclude?.has(entry.name))
+    .map((entry) => ({
+      entry,
+      status: toReactMcpStatus(entry.name, entry, mcpStatuses),
+    }));
 }
 
 export function filterMcpMenuItems(
