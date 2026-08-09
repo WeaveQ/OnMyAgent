@@ -132,7 +132,7 @@ test("starts a Feishu app and dispatches inbound text to the selected local agen
     assert.equal(inbound.ok, true);
     await new Promise((resolve) => setTimeout(resolve, 20));
     assert.equal(sent.at(-1).receiveId, "oc_chat");
-    assert.equal(sent.at(-1).text, "reply:ping");
+    assert.match(sent.at(-1).text, /^▎OpenCode · \d{2}:\d{2}\n\nreply:ping$/);
     const run = runs.get("run-1");
     assert.equal(run.input.workspaceRoot, "/tmp/studio");
     assert.equal(run.input.agent.id.startsWith("opencode-feishu-"), true);
@@ -203,6 +203,10 @@ test("defaults Feishu connection mode to websocket like Hermes", () => {
   assert.equal(__test__.normalizeConnectionMode("unknown"), "websocket");
 });
 
+test("keeps Feishu active-run locks within the 12-hour runtime ceiling", () => {
+  assert.equal(__test__.ACTIVE_RUN_MAX_AGE_MS, 12 * 60 * 60 * 1000 + 15 * 60 * 1000);
+});
+
 test("receives Feishu websocket frame, dispatches to local agent, and acks", async () => {
   FakeWebSocket.instances = [];
   const runs = new Map();
@@ -231,7 +235,7 @@ test("receives Feishu websocket frame, dispatches to local agent, and acks", asy
     });
     await new Promise((resolve) => setTimeout(resolve, 30));
     assert.equal(sent.at(-1).receiveId, "oc_ws_chat");
-    assert.equal(sent.at(-1).text, "ws-reply:hello ws");
+    assert.match(sent.at(-1).text, /^▎OpenCode · \d{2}:\d{2}\n\nws-reply:hello ws$/);
     const ack = wsTest.decodeFeishuFrame(ws.sent.at(-1));
     assert.equal(ack.method, wsTest.FRAME_DATA);
     assert.equal(JSON.parse(ack.payload.toString("utf8")).code, 200);
@@ -293,7 +297,7 @@ test("reports pending approval and resolves it from Feishu command", async () =>
     assert.match(sent.at(-1).text, /本地 Agent 请求权限审批/);
     await service.simulateInbound({ accountId: "cli_xxx", chatId: "oc_chat", fromUserId: "ou_user", text: "#approve" });
     await new Promise((resolve) => setTimeout(resolve, 30));
-    assert.equal(sent.at(-1).text, "approved output");
+    assert.match(sent.at(-1).text, /^▎OpenCode · \d{2}:\d{2}\n\napproved output$/);
   }, { runtime });
 });
 

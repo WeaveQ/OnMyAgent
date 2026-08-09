@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 
 import { statSync } from "node:fs";
 import { personalAgentRuntimeStateRoot } from "./runtime-state.mjs";
+import { buildWindowsCmdSpawnSpec, isWindowsCmdShim } from "./windows-spawn.mjs";
 
 // Known host-cache runtime-state roots. Tests + fresh workspaces re-point
 // personalAgentRuntimeStateRoot() to a tmp dir, but managed ACP binaries are
@@ -68,7 +69,7 @@ function resolveHostCacheBin(spec) {
 }
 
 export const MANAGED_ACP_TOOLS = Object.freeze({
-  codex: Object.freeze({ id: "codex-acp", packageName: "@agentclientprotocol/codex-acp", version: "1.0.1", binName: "codex-acp" }),
+  codex: Object.freeze({ id: "codex-acp", packageName: "@agentclientprotocol/codex-acp", version: "1.1.13", binName: "codex-acp" }),
   claude: Object.freeze({ id: "claude-agent-acp", packageName: "@agentclientprotocol/claude-agent-acp", version: "0.52.0", binName: "claude-agent-acp" }),
 });
 
@@ -105,7 +106,16 @@ async function exists(file) {
 
 function run(command, args, cwd) {
   return new Promise((resolve) => {
-    const child = spawn(command, args, { cwd, env: process.env, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+    const resolvedCommand = resolveWindowsCommand(command);
+    const windowsShim = isWindowsCmdShim(resolvedCommand);
+    const spawnSpec = windowsShim ? buildWindowsCmdSpawnSpec(resolvedCommand, args, { env: process.env }) : { command: resolvedCommand, args, windowsVerbatimArguments: false };
+    const child = spawn(spawnSpec.command, spawnSpec.args, {
+      cwd,
+      env: process.env,
+      windowsVerbatimArguments: spawnSpec.windowsVerbatimArguments,
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     let stdout = "";
     let stderr = "";
     child.stdout?.on("data", (chunk) => { stdout += chunk.toString("utf8"); });
@@ -113,6 +123,21 @@ function run(command, args, cwd) {
     child.once("error", (error) => resolve({ ok: false, code: null, stdout, stderr: error.message }));
     child.once("close", (code) => resolve({ ok: code === 0, code, stdout, stderr }));
   });
+}
+
+function resolveWindowsCommand(command) {
+  if (process.platform !== "win32" || /[\\/]/.test(command) || /\.[A-Za-z0-9]+$/.test(command)) return command;
+  const entries = String(process.env.PATH ?? "")
+    .split(path.delimiter)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  for (const entry of entries) {
+    for (const extension of [".cmd", ".exe", ".bat"]) {
+      const candidate = path.join(entry, `${command}${extension}`);
+      if (existsSyncSafe(candidate)) return candidate;
+    }
+  }
+  return command;
 }
 
 export async function ensureManagedAcpTool(provider) {

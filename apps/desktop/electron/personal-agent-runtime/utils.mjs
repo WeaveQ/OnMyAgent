@@ -4,6 +4,10 @@ import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import { buildWindowsCmdSpawnSpec, isWindowsCmdShim } from "./windows-spawn.mjs";
+
+const jsonWriteQueues = new Map();
+
 export function createExecHelpers(options = {}) {
   const extraPathEntries = () => {
     if (typeof options.extraPathEntries === "function") return options.extraPathEntries();
@@ -44,17 +48,49 @@ export function createExecHelpers(options = {}) {
 
   function runCommandCapture(command, args, options = {}) {
     return new Promise((resolve) => {
-      const child = spawn(command, args, {
+      const explicitShell = Object.hasOwn(options, "shell") && options.shell !== undefined;
+      const windowsShim = !explicitShell && isWindowsCmdShim(command);
+      const spawnEnv = options.env ?? processEnv();
+      const spawnSpec = windowsShim ? buildWindowsCmdSpawnSpec(command, args, { env: spawnEnv }) : { command, args, windowsVerbatimArguments: false };
+      const child = spawn(spawnSpec.command, spawnSpec.args, {
         cwd: options.cwd,
-        env: options.env ?? processEnv(),
-        shell: options.shell ?? false,
+        env: spawnEnv,
+        ...(explicitShell ? { shell: options.shell } : {}),
+        windowsVerbatimArguments: spawnSpec.windowsVerbatimArguments,
         windowsHide: true,
         stdio: ["ignore", "pipe", "pipe"],
       });
       let stdout = "";
       let stderr = "";
       const timeoutMs = Number(options.timeoutMs ?? 0);
-      const timeout = timeoutMs > 0 ? setTimeout(() => child.kill("SIGTERM"), timeoutMs) : null;
+      let settled = false;
+      let timedOut = false;
+      let timeout = null;
+      const settle = (result) => {
+        if (settled) return;
+        settled = true;
+        if (timeout) clearTimeout(timeout);
+        resolve(result);
+      };
+      if (timeoutMs > 0) {
+        timeout = setTimeout(() => {
+          timedOut = true;
+          const timeoutText = `Command timed out after ${timeoutMs}ms`;
+          const terminate = child.pid
+            ? terminateProcessTreeByPid({ pid: child.pid, graceMs: 0 })
+            : Promise.resolve().then(() => forceKillProcessTree(child));
+          void terminate.catch(() => forceKillProcessTree(child)).finally(() => {
+            settle({
+              ok: false,
+              status: 1,
+              signal: child.signalCode ?? null,
+              stdout,
+              stderr: stderr ? `${stderr.trimEnd()}\n${timeoutText}` : timeoutText,
+              timedOut: true,
+            });
+          });
+        }, timeoutMs);
+      }
       child.stdout?.on("data", (chunk) => {
         stdout += chunk.toString("utf8");
       });
@@ -62,12 +98,12 @@ export function createExecHelpers(options = {}) {
         stderr += chunk.toString("utf8");
       });
       child.on("error", (error) => {
-        if (timeout) clearTimeout(timeout);
-        resolve({ ok: false, status: 1, stdout, stderr: stderr || error.message });
+        if (timedOut) return;
+        settle({ ok: false, status: 1, stdout, stderr: stderr || error.message });
       });
       child.on("close", (code, signal) => {
-        if (timeout) clearTimeout(timeout);
-        resolve({
+        if (timedOut) return;
+        settle({
           ok: code === 0,
           status: typeof code === "number" ? code : 1,
           signal: signal ?? null,
@@ -99,13 +135,26 @@ export function createExecHelpers(options = {}) {
     const shellResolved = await resolveCommandFromLoginShell([name]);
     const resolvedPath = shellResolved.get(name);
     if (resolvedPath) return resolvedPath;
+    const candidates = process.platform === "win32"
+      ? [name, ...(process.env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD").split(";").map((ext) => `${name}${ext.toLowerCase()}`)]
+      : [name];
     for (const entry of pathEntries()) {
-      const candidate = path.join(entry, name);
-      try {
-        const info = await stat(candidate);
-        if (info.isFile()) return candidate;
-      } catch {
-        // Continue probing fallback PATH entries.
+      for (const candidateName of candidates) {
+        const candidate = path.join(entry, candidateName);
+        try {
+          const info = await stat(candidate);
+          if (info.isFile()) {
+            // Windows npm installs often leave an extensionless POSIX shim
+            // beside the real .cmd launcher. Node cannot spawn that shim on
+            // Windows, so prefer a PATHEXT launcher when both exist.
+            if (process.platform === "win32" && candidateName === name && candidates.length > 1) {
+              continue;
+            }
+            return candidate;
+          }
+        } catch {
+          // Continue probing fallback PATH entries.
+        }
       }
     }
     return name;
@@ -139,6 +188,17 @@ export async function readJsonLikeFile(targetPath) {
 }
 
 export async function writeJsonFile(targetPath, data) {
+  const previous = jsonWriteQueues.get(targetPath) ?? Promise.resolve();
+  const current = previous.catch(() => undefined).then(() => writeJsonFileAtomic(targetPath, data));
+  jsonWriteQueues.set(targetPath, current);
+  try {
+    await current;
+  } finally {
+    if (jsonWriteQueues.get(targetPath) === current) jsonWriteQueues.delete(targetPath);
+  }
+}
+
+async function writeJsonFileAtomic(targetPath, data) {
   await mkdir(path.dirname(targetPath), { recursive: true });
   // Atomic write: tmp+rename so a crash mid-serialize cannot leave a partial
   // JSON file on disk that would break the next boot's parse. The tmp
@@ -146,8 +206,9 @@ export async function writeJsonFile(targetPath, data) {
   // do not race on a shared `<target>.tmp` (the previous fixed suffix caused
   // spurious ENOENT during rename when two writes overlapped).
   //
-  // Windows: concurrent rename-over-existing often throws EPERM/EACCES/EBUSY.
-  // Retry with short backoff; if dest is locked, remove it then rename again.
+  // Windows: antivirus/indexer locks can briefly reject rename-over-existing.
+  // Same-process writers are serialized above; retry without deleting the last
+  // known-good destination so a failed replacement cannot erase durable state.
   const suffix = randomBytes(6).toString("hex");
   const tmpPath = `${targetPath}.${suffix}.tmp`;
   await writeFile(tmpPath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
@@ -167,13 +228,6 @@ export async function writeJsonFile(targetPath, data) {
         code === "EEXIST" ||
         code === "ENOENT";
       if (!retryable || attempt === attempts - 1) break;
-      if (process.platform === "win32" && (code === "EPERM" || code === "EACCES" || code === "EEXIST")) {
-        try {
-          await rm(targetPath, { force: true });
-        } catch {
-          /* dest may already be gone or still locked */
-        }
-      }
       await new Promise((resolveDelay) => setTimeout(resolveDelay, 8 * (attempt + 1)));
     }
   }
