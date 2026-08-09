@@ -66,9 +66,11 @@ describe("capability template editor", () => {
     const editor = readApp(
       "src/react-app/domains/session/surface/composer/editor.tsx",
     );
-    const expert = readApp(
-      "src/react-app/domains/session/pages/expert.tsx",
-    );
+    const expert = [
+      readApp("src/react-app/domains/session/pages/expert.tsx"),
+      readApp("src/react-app/domains/session/pages/use-expert-page.tsx"),
+      readApp("src/react-app/domains/session/pages/expert-page-layout.tsx"),
+    ].join("\n");
     const visual = readApp(
       "src/react-app/domains/session/surface/transcript/inline-visual.tsx",
     );

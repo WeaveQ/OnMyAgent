@@ -11,7 +11,11 @@ function read(rel: string) {
 describe("session right-rail lazy load (structural)", () => {
   test("assistant/expert pages use lazy side panel entry, not eager heavy panel imports", () => {
     const assistant = read("src/react-app/domains/session/pages/assistant.tsx");
-    const expert = read("src/react-app/domains/session/pages/expert.tsx");
+    const expert = [
+      read("src/react-app/domains/session/pages/expert.tsx"),
+      read("src/react-app/domains/session/pages/use-expert-page.tsx"),
+      read("src/react-app/domains/session/pages/expert-page-layout.tsx"),
+    ].join("\n");
     const lazy = read(
       "src/react-app/domains/session/pages/lazy-session-side-panels.tsx",
     );

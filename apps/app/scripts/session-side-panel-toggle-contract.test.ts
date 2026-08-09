@@ -83,8 +83,10 @@ describe("right side panel toggle contract", () => {
     // Assistant / expert right gutter is a 2px hit target with no center rule.
     const twoPxGutterSources = [
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx"),
-      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
-      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx"),
+      [
+        readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
+        readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx"),
+      ].join("\n"),
     ];
     for (const source of twoPxGutterSources) {
       expect(source).toContain('className="hidden w-[2px] before:hidden lg:flex"');

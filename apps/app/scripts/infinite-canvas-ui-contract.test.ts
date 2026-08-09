@@ -17,7 +17,11 @@ describe("infinite canvas UI contract", () => {
 
   test("assistant and expert pages expose no-drag canvas buttons", () => {
     const assistant = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx");
-    const expert = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
+    const expert = [
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-page.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx"),
+    ].join("\n");
 
     for (const source of [assistant, expert]) {
       expect(source).toContain("InfiniteCanvasPanel");

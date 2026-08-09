@@ -86,9 +86,11 @@ describe("session visual and file contracts", () => {
     const assistantPage = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/pages/assistant.tsx",
     );
-    const expertPage = readWorkspaceFile(
-      "apps/app/src/react-app/domains/session/pages/expert.tsx",
-    );
+    const expertPage = [
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-page.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx"),
+    ].join("\n");
 
     expect(filesPage).toContain("FILES_SOURCE_RAIL_TABS");
     expect(filesPage).toContain("WorkspaceFilesUploadsPanel");
