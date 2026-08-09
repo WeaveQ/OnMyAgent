@@ -11,7 +11,10 @@ import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 import type { PendingAgentContext } from "../../agents";
 import type { AgentStarterItem } from "../sidebar/conversation-model";
 
-export const NO_EXPERT_CONVERSATIONS_ASSET = "/empty-states/no-expert-conversations.png";
+export {
+  EMPTY_STATE_ILLUSTRATION_CLASS,
+  NO_EXPERT_CONVERSATIONS_ASSET,
+} from "../empty-state-assets";
 export const EXPERT_SIDE_PANEL_DEFAULT_WIDTH = 360;
 export const EXPERT_SIDE_PANEL_MIN_WIDTH = 300;
 

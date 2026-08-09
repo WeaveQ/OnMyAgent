@@ -8,10 +8,6 @@ const root = resolve(import.meta.dir, "../../..");
 const MAX_BYTES: Record<string, number> = {
   "apps/app/public/connector-icons/officecli.png": 50_000,
   "apps/app/src/assets/agent-icons/hermes.png": 40_000,
-  "apps/app/public/empty-states/no-expert-conversations.png": 80_000,
-  "apps/app/public/empty-states/cloud-drive-placeholder.png": 100_000,
-  "apps/app/public/empty-states/devices-placeholder.png": 80_000,
-  "apps/app/public/empty-states/projects-placeholder.jpg": 40_000,
 };
 
 describe("icon asset cleanup contracts", () => {
