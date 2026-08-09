@@ -2,6 +2,19 @@
 
 **Only full index for `docs/`.** Link here instead of copying nav tables.
 
+## Hierarchy (read this first)
+
+| Layer | File | Holds |
+| --- | --- | --- |
+| **Monorepo SoT** | [`Architecture.md`](Architecture.md) | Platforms, dual runtime, archive, package boundaries, command surface, **pointers** to design/React |
+| **React SoT** | [`../apps/app/src/react-app/ARCHITECTURE.md`](../apps/app/src/react-app/ARCHITECTURE.md) | Domains, state ownership, shell cold start / prewarm |
+| **Topic SoT** | `design/*`, `windows-compat.md`, `officecli-oss-release.md`, … | Roadmap, files, config, memory, Windows, OfficeCLI CDN |
+| **Agent handbook** | [`../AGENTS.md`](../AGENTS.md) | Iron rules + links; not a second architecture |
+| **Visual tokens** | [`../DESIGN.md`](../DESIGN.md) | Tokens / components; not product behavior |
+| **Ship notes** | [`../CHANGELOG.md`](../CHANGELOG.md) | What shipped — **not** architecture changelog bullets |
+
+**Rules:** one SoT per topic; Architecture links out instead of duplicating long specs; do not invent parallel `docs/expert-*.md` roots without linking from Architecture.
+
 ## Layout
 
 ```text
@@ -20,10 +33,11 @@ docs/
     2026-08-02-phase-2-enterprise-prep.md  ← **Phase 2 roadmap + B-side (OnMyCompany) prep SoT**
     2026-08-02-work-memory-plan.md  ← 个人/记忆 + 专家域记忆（awareness）路径 SoT
     2026-08-02-config-consistency.md  ← local/company isomorphic config + migrate (Phase 2a)
+    2026-08-09-architecture-convergence-plan.md  ← **active** expert/session/cold/shelf convergence plan
     preview.html / preview-dark.html / preview.css  ← visual catalog; DESIGN.md wins on drift
   windows-compat.md         ← Windows preflight, NSIS, CU (Cua) / Appshot, remaining gaps
   windows-remote-debug-from-mac.md  ← remote Windows debug from macOS
-  x-project-bp/             ← product/strategy notes (not engineering SoT)
+  x-project-bp/             ← product/strategy notes (**gitignored**, not engineering SoT)
 ```
 
 Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `BUILD.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md`, …
@@ -51,7 +65,10 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | Commands (`dev` / `task` / checks) | root `package.json`, `scripts/cli/*`, summarized in `Architecture.md` |
 | Monorepo & package boundaries | `Architecture.md` |
 | Dual runtime (OpenCode 主 / Personal 辅) + archive 热路径 | `Architecture.md` → **Dual Runtime Boundary**, **Server Archive Runtime** |
+| Product platforms (mac / win / not Linux packages) | `Architecture.md` Product phase + root `README*` / `BUILD.md` |
+| Skills write/scan roots + list resilience | `Architecture.md` Product phase hard constraints + server `listSkills` |
 | React domains + shell load/boot UX | `apps/app/src/react-app/ARCHITECTURE.md` (+ **Shell load / boot**) + `domains/*/README.md` |
+| Expert / session UI ownership | `react-app/ARCHITECTURE.md` + `Architecture.md` **Session / Expert / cold-path pointers** |
 | Release notes (human) | root `CHANGELOG.md` + GitHub Releases |
 | Visual tokens / components | `../DESIGN.md` |
 | Design philosophy only | `design/theme-system.md` |
@@ -60,6 +77,7 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | **Phase 2 + B-side prep** | `design/2026-08-02-phase-2-enterprise-prep.md` |
 | Config profile migrate / resolve | `design/2026-08-02-config-consistency.md` |
 | Work memory / awareness | `design/2026-08-02-work-memory-plan.md` |
+| **Architecture convergence plan** | `design/2026-08-09-architecture-convergence-plan.md` |
 | Windows / Computer Use / Appshot | `windows-compat.md` |
 | Agent operating rules | `../AGENTS.md` + `loop/rules.md` |
 | Local packaging | `../BUILD.md` |
