@@ -10,8 +10,8 @@ import {
   CircleHelp,
   FileText,
   Info,
+  HardDrive,
   KeyRound,
-  MonitorSmartphone,
   MoreHorizontal,
   Palette,
   Pencil,
@@ -762,7 +762,7 @@ export function AppSidebar(props: AppSidebarProps) {
                 aria-label={t("nav.devices")}
                 aria-pressed={props.activeView === "devices"}
               >
-                <MonitorSmartphone className="size-5" />
+                <HardDrive className="size-5" />
               </Button>
             </div>
           </div>

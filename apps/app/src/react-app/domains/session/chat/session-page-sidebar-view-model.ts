@@ -2,6 +2,7 @@ import {
   Bot,
   Clock3,
   FileText,
+  HardDrive,
   MonitorSmartphone,
   Network,
   Sparkles,
@@ -45,7 +46,8 @@ export const SIDEBAR_VIEW_ICONS: Record<SidebarFeatureView, LucideIcon> = {
   agents: Bot,
   skills: FileText,
   connectors: Zap,
-  devices: MonitorSmartphone,
+  // Distinct from localAgent (MonitorSmartphone) — devices = storage/device rack.
+  devices: HardDrive,
   scheduledTasks: Clock3,
   channels: Network,
   personalAssistant: UserRound,
