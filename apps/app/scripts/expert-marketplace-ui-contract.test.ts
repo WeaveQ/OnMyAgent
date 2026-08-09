@@ -498,7 +498,10 @@ describe("expert marketplace UI contract", () => {
     expect(myExpertsHook).toContain("const entriesByPackageName = new Map(");
     expect(myExpertsHook).toContain("[...entriesByPackageName.values()]");
     expect(expertPage).toContain("useMyExpertPackages");
-    expect(expertPage).toContain("additionalStarterItems={localExpertStarterItems}");
+    // The expert page owns real summoned sessions; it must not synthesize
+    // starter entries into the sidebar from local package metadata.
+    expect(expertPage).not.toContain("additionalStarterItems=");
+    expect(expertPage).not.toContain("localExpertStarterItems");
     expect(expertPage).toContain("onOpenAgentStarter={handleOpenExpertStarter}");
     expect(expertPage).toContain('pendingAgent.draftSource !== "agent-selection"');
     expect(installHelper).toContain('expert.source !== "builtin"');
@@ -800,6 +803,9 @@ describe("expert marketplace UI contract", () => {
     const expertPage = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/pages/expert.tsx",
     );
+    const draftTransition = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/use-expert-bound-draft-transition.ts",
+    );
     const surfaceProps = readWorkspaceFile(
       "apps/app/src/react-app/shell/session-route/surface-props-hook-impl.ts",
     );
@@ -809,8 +815,11 @@ describe("expert marketplace UI contract", () => {
     expect(expertPage).toContain("const [sessionTabOrderIdsByScope, setSessionTabOrderIdsByScope]");
     expect(expertPage).toContain("orderIds={sessionTabOrderIds}");
     expect(expertPage).toContain("pendingSessionId={pendingTabSessionId}");
-    expect(expertPage).toContain("setPendingTabSessionId(createdSessionId)");
-    expect(expertPage).toContain("resolveBoundExpertDraftSession({");
+    // Bound-draft navigation owns the transition after its extraction from
+    // ExpertPage, while ExpertPage remains the state host and tab renderer.
+    expect(expertPage).toContain("useExpertBoundDraftTransition({");
+    expect(draftTransition).toContain("resolveBoundExpertDraftSession({");
+    expect(draftTransition).toContain("setPendingTabSessionId(createdSessionId)");
     expect(expertPage).toContain("props.sidebar.onOpenSession(");
     expect(tabs).toContain("const activeSessionId = pendingSessionIsVisible");
     expect(tabs).toContain("scrollTabIntoViewIfNeeded(tabRefs.current[activeSessionId])");
@@ -887,23 +896,36 @@ describe("expert marketplace UI contract", () => {
   });
 
   test("keeps built-in package installation delayed until a real session exists", () => {
+    const pageView = readWorkspaceFile("apps/app/src/react-app/shell/session-route/page-view.tsx");
     const sessionRoute = [
-      readWorkspaceFile("apps/app/src/react-app/shell/session-route/page-view.tsx"),
+      pageView,
       // Assembly lives in impl; thin surface-props-hook.ts only re-exports.
       readWorkspaceFile("apps/app/src/react-app/shell/session-route/surface-props-hook.ts"),
       readWorkspaceFile("apps/app/src/react-app/shell/session-route/surface-props-hook-impl.ts"),
       readWorkspaceFile("apps/app/src/react-app/shell/session-route/intent.ts"),
     ].join("\n");
     const agentContext = readWorkspaceFile("apps/app/src/react-app/shell/session-route/agent-context.ts");
+    const installIntent = readWorkspaceFile("apps/app/src/react-app/shell/session-route/intent.ts");
+    const installHelper = readWorkspaceFile(
+      "apps/app/src/react-app/domains/plugins/expert-marketplace/install.ts",
+    );
 
     expect(sessionRoute).toContain("installMarketplaceExpertAfterSessionCreated");
-    expect(sessionRoute).toContain('marketplaceExpert.source !== "builtin"');
-    expect(sessionRoute).toContain("installExpertPackage({");
+    expect(installIntent).toContain("await ensureMarketplaceExpertInstalled(marketplaceExpert)");
+    expect(installHelper).toContain('expert.source !== "builtin"');
+    expect(installHelper).toContain("coordinator.ensure({");
+    expect(installHelper).toContain('marketplace: "experts"');
     expect(sessionRoute).toContain("bindPendingAgentToSession({");
     expect(sessionRoute).toContain("sessionId: newSession.id");
     expect(sessionRoute).toContain("writeCustomAgentIdForSession(sessionId, pendingAgentSnapshot.id)");
     expect(sessionRoute).toContain("writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot)");
     expect(sessionRoute).toContain("await installMarketplaceExpertAfterSessionCreated");
+    const sessionCreatedGuardIndex = pageView.indexOf("if (!newSession) return;");
+    const installAfterCreationIndex = pageView.indexOf(
+      "await installMarketplaceExpertAfterSessionCreated(agentToBind)",
+    );
+    expect(sessionCreatedGuardIndex).toBeGreaterThan(-1);
+    expect(installAfterCreationIndex).toBeGreaterThan(sessionCreatedGuardIndex);
     // Binding goes through helper; agent-context stamps boundSessionId from sessionId.
     expect(agentContext).toContain("boundSessionId: input.sessionId");
   });
