@@ -449,6 +449,8 @@ function FileRowActionsMenu(props: {
 }
 
 export function WorkspaceFilesBrowserPanel(props: {
+  /** Hidden keep-alive rails retain data but must not start I/O. */
+  active?: boolean;
   client: OnMyAgentServerClient | null;
   workspaceId: string;
   workspaceRoot: string;
@@ -549,6 +551,7 @@ export function WorkspaceFilesBrowserPanel(props: {
   }, [fileRoot, selectedFile]);
 
   useEffect(() => {
+    if (props.active === false) return;
     if (!fileRoot.trim()) {
       setEntries([]);
       setError(null);
@@ -626,7 +629,7 @@ export function WorkspaceFilesBrowserPanel(props: {
     return () => {
       cancelled = true;
     };
-  }, [fileRoot, hasScopedFileRoot, props.client, props.workspaceId, refreshKey]);
+  }, [fileRoot, hasScopedFileRoot, props.active, props.client, props.workspaceId, refreshKey]);
 
   useEffect(() => {
     return () => {
@@ -653,16 +656,23 @@ export function WorkspaceFilesBrowserPanel(props: {
     target: OpenTarget | null;
   }>({ file: null, target: null });
   useEffect(() => {
+    if (props.active === false) return;
     const handle = window.setTimeout(() => {
       setPreviewSelection({ file: selectedFile, target: selectedTarget });
     }, FILE_PREVIEW_SELECTION_DEBOUNCE_MS);
     return () => window.clearTimeout(handle);
-  }, [selectedFile, selectedTarget]);
+  }, [props.active, selectedFile, selectedTarget]);
 
   useEffect(() => {
     const activeFile = previewSelection.file;
     const activeTarget = previewSelection.target;
-    if (!props.client || !props.workspaceId.trim() || !activeTarget || !activeFile) {
+    if (
+      props.active === false ||
+      !props.client ||
+      !props.workspaceId.trim() ||
+      !activeTarget ||
+      !activeFile
+    ) {
       setPreviewState({ status: "idle" });
       return;
     }
@@ -750,7 +760,7 @@ export function WorkspaceFilesBrowserPanel(props: {
     return () => {
       cancelled = true;
     };
-  }, [fileRoot, previewSelection, props.client, props.workspaceId]);
+  }, [fileRoot, previewSelection, props.active, props.client, props.workspaceId]);
 
   const visibleFileTree = useMemo(() => {
     // Hide system markers, then drop empty dirs (e.g. expert sessions with only

@@ -95,7 +95,7 @@ describe("session route control", () => {
     ).toBe("/tmp/expert-code");
   });
 
-  test("keeps assistant workspace record ahead of session directory", () => {
+  test("keeps the server session directory ahead of the legacy workspace record", () => {
     expect(
       buildSelectedWorkspaceRouteState({
         selectedWorkspace: workspace("ws_a", { path: "/tmp/root" }),
@@ -109,7 +109,7 @@ describe("session route control", () => {
         errorsByWorkspaceId: {},
         sessionsByWorkspaceId: { ws_a: [session("ses_assistant")] },
       }).sessionWorkspaceRoot,
-    ).toBe("/tmp/assistant-record");
+    ).toBe("/tmp/session-directory");
   });
 
   test("resolves workspace-aware and legacy session routes", () => {
@@ -138,7 +138,7 @@ describe("session route control", () => {
     ).toBe("fallback");
   });
 
-  test("blocks create-task navigation while loading or retrying workspace", () => {
+  test("allows local create-task navigation while the session list recovers", () => {
     expect(
       resolveCreateTaskWorkspaceNavigation({
         loading: false,
@@ -154,12 +154,20 @@ describe("session route control", () => {
         workspaceId: "ws_a",
         workspaces: [workspace("ws_a")],
       }),
-    ).toBeNull();
+    ).toEqual({ activeWorkspaceId: "ws_a", workspaceId: "ws_a" });
     expect(
       resolveCreateTaskWorkspaceNavigation({
         loading: false,
         retryingWorkspaceIds: ["ws_a"],
         workspaceId: "ws_a",
+        workspaces: [workspace("ws_a")],
+      }),
+    ).toEqual({ activeWorkspaceId: "ws_a", workspaceId: "ws_a" });
+    expect(
+      resolveCreateTaskWorkspaceNavigation({
+        loading: false,
+        retryingWorkspaceIds: [],
+        workspaceId: "missing",
         workspaces: [workspace("ws_a")],
       }),
     ).toBeNull();
@@ -204,7 +212,7 @@ describe("session route control", () => {
     ).toEqual({ type: "reset-suppression" });
   });
 
-  test("restores remembered session only when it belongs to current page mode", () => {
+  test("keeps the clean draft route even when a remembered session exists", () => {
     expect(
       resolveSessionRouteRestoreNavigation({
         firstSessionIdForPageMode: () => null,
@@ -220,7 +228,7 @@ describe("session route control", () => {
         suppressRestoreSession: false,
         workspaces: [workspace("ws_a")],
       }),
-    ).toEqual({ type: "workspace", workspaceId: "ws_a", sessionId: "ses_remembered" });
+    ).toEqual({ type: "none" });
 
     expect(
       resolveSessionRouteRestoreNavigation({

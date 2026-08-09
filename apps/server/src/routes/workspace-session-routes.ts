@@ -1,6 +1,7 @@
 import type { ServerConfig, TokenScope, WorkspaceInfo } from "@onmyagent/types/server";
 import { ApiError } from "../core/errors.js";
 import { createExpertSessionRuntimeDirectory } from "../services/expert-session-runtime.js";
+import { deleteSessionOrigin } from "../services/session-origins.js";
 import { addRoute, systemJsonResponse, type RequestContext, type Route } from "./route-core.js";
 
 type SessionListInput = {
@@ -9,11 +10,13 @@ type SessionListInput = {
   search?: string;
   limit?: number;
   directory?: string;
+  signal?: AbortSignal;
 };
 
 type SessionMessagesInput = {
   limit?: number;
   directory?: string;
+  signal?: AbortSignal;
 };
 
 export function registerWorkspaceSessionRoutes(input: {
@@ -33,6 +36,7 @@ export function registerWorkspaceSessionRoutes(input: {
     workspace: WorkspaceInfo,
     sessionId: string,
     directory?: string,
+    signal?: AbortSignal,
   ) => Promise<unknown>;
   readWorkspaceSessionMessages: (
     config: ServerConfig,
@@ -105,6 +109,7 @@ export function registerWorkspaceSessionRoutes(input: {
         "limit",
       ),
       directory: ctx.url.searchParams.get("directory")?.trim() || undefined,
+      signal: ctx.request.signal,
     });
     return systemJsonResponse({ items });
   });
@@ -122,6 +127,7 @@ export function registerWorkspaceSessionRoutes(input: {
         workspace,
         sessionId,
         ctx.url.searchParams.get("directory")?.trim() || undefined,
+        ctx.request.signal,
       );
       return systemJsonResponse({ item });
     },
@@ -145,6 +151,7 @@ export function registerWorkspaceSessionRoutes(input: {
             "limit",
           ),
           directory: ctx.url.searchParams.get("directory")?.trim() || undefined,
+          signal: ctx.request.signal,
         },
       );
       return systemJsonResponse({ items });
@@ -169,6 +176,7 @@ export function registerWorkspaceSessionRoutes(input: {
             "limit",
           ),
           directory: ctx.url.searchParams.get("directory")?.trim() || undefined,
+          signal: ctx.request.signal,
         },
       );
       return systemJsonResponse({ item });
@@ -191,6 +199,12 @@ export function registerWorkspaceSessionRoutes(input: {
         sessionId,
         ctx.url.searchParams.get("directory")?.trim() || undefined,
       );
+      // deleteWorkspaceSession already treats OpenCode's defined missing/empty
+      // responses as idempotent success. Do not remove identity metadata when
+      // an upstream delete actually failed.
+      await deleteSessionOrigin(workspace, sessionId).catch((error) => {
+        console.warn("[session-origin] delete cleanup failed", sessionId, error);
+      });
       return systemJsonResponse({ ok: true });
     },
   );

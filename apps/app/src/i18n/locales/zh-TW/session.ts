@@ -27,6 +27,8 @@ export default {
   "session.no_expert_conversations_title": "暫無專家會話",
   "session.no_expert_conversations_desc": "先選擇一位專家開始對話；產生會話後會在這裡繼續。",
   "session.no_expert_conversations_action": "選擇專家",
+  "session.expert_origin_recovery_unavailable_title": "暫時無法載入專家會話",
+  "session.expert_origin_recovery_unavailable_body": "你的會話仍然保留。OnMyAgent 會在下次工作區重新整理時再次嘗試恢復清單。",
   "session.my_experts": "我創建的專家",
   "session.search_experts_placeholder": "搜尋專家職稱或描述",
   "session.create_expert": "創建專家",

@@ -161,4 +161,19 @@ describe("sidebar load policy", () => {
     expect(tabs).toContain("TAB_TITLE_SNAPSHOT_DEFER_MS");
     expect(tabs).toContain("TAB_TITLE_SNAPSHOT_MAX");
   });
+
+  test("origin recovery retries are canceled when their workspace is no longer live", () => {
+    const loader = readFileSync(
+      join(appRoot, "src/react-app/shell/session-route/session-loader-hook.ts"),
+      "utf8",
+    );
+    expect(loader).toContain("clearOriginRecoveryState");
+    expect(loader).toContain("clearRemovedOriginRecoveryStates");
+    expect(loader).toContain("window.clearTimeout(retryTimer)");
+    expect(loader).toContain("findRouteWorkspace(");
+    expect(loader).toContain("void fetchOnce(currentWorkspace, 0)");
+    expect(loader).toContain("originHydrationGate.markOriginRecoveryDegraded");
+    expect(loader).toContain("originHydrationGate.markTerminalFailure()");
+    expect(loader).toContain("clearOriginRecoveryState(workspaceId)");
+  });
 });

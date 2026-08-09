@@ -72,15 +72,15 @@ type SessionArchiveSyncJob = {
   promise: Promise<SessionArchiveSyncStats>;
 };
 
-const sessionArchiveSyncJobs = new Map<string, SessionArchiveSyncJob>();
-
 function scheduleSessionArchiveAutoSync(input: {
   workspace: WorkspaceInfo;
   paths: SessionArchiveRuntimePaths;
   sourceRoots?: SessionArchiveSourceRoot[];
+  jobs: Map<string, SessionArchiveSyncJob>;
+  syncArchive: typeof syncSessionArchive;
 }): void {
   const jobKey = sessionArchiveSyncJobKey(input.workspace.id, input.paths.dbPath);
-  const existing = sessionArchiveSyncJobs.get(jobKey);
+  const existing = input.jobs.get(jobKey);
   if (existing?.status === "running") return;
   if (existing?.finished_at) {
     const finishedAtMs = Date.parse(existing.finished_at);
@@ -101,7 +101,7 @@ function scheduleSessionArchiveAutoSync(input: {
     error: null,
     promise: Promise.resolve({ total_sessions: 0, synced: 0, skipped: 0, failed: 0 }),
   };
-  job.promise = syncSessionArchive({
+  job.promise = input.syncArchive({
     workspace: input.workspace,
     paths: input.paths,
     sourceRoots: input.sourceRoots,
@@ -124,10 +124,9 @@ function scheduleSessionArchiveAutoSync(input: {
       job.stats = { total_sessions: 0, synced: 0, skipped: 0, failed: 1, warnings: [job.error], aborted: true };
       return job.stats;
     });
-  sessionArchiveSyncJobs.set(jobKey, job);
+  input.jobs.set(jobKey, job);
   void job.promise;
 }
-
 
 export function registerWorkspaceSessionArchiveRoutes(input: {
   routes: Route[];
@@ -135,14 +134,13 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
   resolveWorkspace: (config: ServerConfig, id: string) => Promise<WorkspaceInfo>;
   resolveArchivePaths?: (workspace: WorkspaceInfo) => SessionArchiveRuntimePaths;
   sourceRoots?: SessionArchiveSourceRoot[];
+  syncArchive?: typeof syncSessionArchive;
 }) {
-  const {
-    routes,
-    config,
-    resolveWorkspace,
-    resolveArchivePaths = (workspace) => resolveSessionArchiveRuntimePaths({ workspace }),
-    sourceRoots,
-  } = input;
+  const { routes, config, resolveWorkspace, sourceRoots } = input;
+  const resolveArchivePaths = input.resolveArchivePaths ?? ((workspace) => resolveSessionArchiveRuntimePaths({ workspace }));
+  const syncArchive = input.syncArchive ?? syncSessionArchive;
+  // Job state belongs to this server instance, not a restart-stale module singleton.
+  const sessionArchiveSyncJobs = new Map<string, SessionArchiveSyncJob>();
 
   const withResolvedWorkspaceArchiveStore = async (
     ctx: RequestContext,
@@ -156,7 +154,7 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
   addRoute(routes, "GET", "/workspace/:id/session-archive/sessions", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     const paths = resolveArchivePaths(workspace);
-    scheduleSessionArchiveAutoSync({ workspace, paths, sourceRoots });
+    scheduleSessionArchiveAutoSync({ workspace, paths, sourceRoots, jobs: sessionArchiveSyncJobs, syncArchive });
     return withSessionArchiveStore({ dbPath: paths.dbPath }, async (store) => {
       return systemJsonResponse(store.listSessions({
         cursor: ctx.url.searchParams.get("cursor")?.trim() || undefined,
@@ -712,7 +710,7 @@ export function registerWorkspaceSessionArchiveRoutes(input: {
       error: null,
       promise: Promise.resolve({ total_sessions: 0, synced: 0, skipped: 0, failed: 0 }),
     };
-    job.promise = syncSessionArchive({
+    job.promise = syncArchive({
       workspace,
       paths,
       sourceRoots,

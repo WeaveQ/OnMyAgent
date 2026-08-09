@@ -7,12 +7,20 @@ import { join } from "node:path";
 
 import {
   SESSION_DELETE_REMOTE_BUDGET_MS,
+  SESSION_PENDING_DELETE_MAX_ATTEMPTS,
   clearRecentlyDeletedSessionsForTests,
+  executePendingSessionDelete,
+  filterPendingDeletedSessions,
   filterRecentlyDeletedSessions,
+  getPendingSessionDeleteForTests,
+  isSessionPendingDelete,
   isSessionRecentlyDeleted,
   isTolerableSessionDeleteFailure,
   markSessionRecentlyDeleted,
   raceSessionDeleteRemote,
+  registerPendingSessionDelete,
+  resetPendingDeleteRetryBudgetForTests,
+  retryPendingSessionDeletesForWorkspace,
   resolveSessionDeleteDirectory,
   shouldContinueLocalSessionCleanupAfterRemoteDelete,
 } from "../src/react-app/domains/session/sync/session-delete-policy";
@@ -123,6 +131,138 @@ describe("recently-deleted tombstones (shipped)", () => {
   });
 });
 
+describe("persistent pending delete tombstones", () => {
+  test("filters by workspace until remote deletion confirms success", async () => {
+    registerPendingSessionDelete({
+      workspaceId: "ws_a",
+      sessionId: "ses_deleted",
+      directory: "/tmp/expert",
+      nowMs: 1,
+    });
+    expect(isSessionPendingDelete("ws_a", "ses_deleted")).toBe(true);
+    expect(
+      filterPendingDeletedSessions({
+        workspaceId: "ws_a",
+        items: [{ id: "ses_deleted" }, { id: "ses_keep" }],
+      }),
+    ).toEqual([{ id: "ses_keep" }]);
+    expect(
+      filterPendingDeletedSessions({
+        workspaceId: "ws_b",
+        items: [{ id: "ses_deleted" }],
+      }),
+    ).toEqual([{ id: "ses_deleted" }]);
+
+    const calls: Array<{ workspaceId: string; sessionId: string; directory?: string }> = [];
+    await executePendingSessionDelete({
+      workspaceId: "ws_a",
+      remoteWorkspaceId: "runtime_ws_a",
+      sessionId: "ses_deleted",
+      client: {
+        deleteSession: async (workspaceId, sessionId, options) => {
+          calls.push({ workspaceId, sessionId, directory: options?.directory });
+        },
+      },
+    });
+    expect(calls).toEqual([
+      {
+        workspaceId: "runtime_ws_a",
+        sessionId: "ses_deleted",
+        directory: "/tmp/expert",
+      },
+    ]);
+    expect(isSessionPendingDelete("ws_a", "ses_deleted")).toBe(false);
+  });
+
+  test("404 confirms deletion while transient failure keeps an attempted tombstone", async () => {
+    registerPendingSessionDelete({ workspaceId: "ws", sessionId: "ses_missing" });
+    await executePendingSessionDelete({
+      workspaceId: "ws",
+      remoteWorkspaceId: "runtime_ws",
+      sessionId: "ses_missing",
+      client: { deleteSession: async () => Promise.reject({ status: 404 }) },
+    });
+    expect(isSessionPendingDelete("ws", "ses_missing")).toBe(false);
+
+    registerPendingSessionDelete({ workspaceId: "ws", sessionId: "ses_timeout" });
+    await expect(
+      executePendingSessionDelete({
+        workspaceId: "ws",
+        remoteWorkspaceId: "runtime_ws",
+        sessionId: "ses_timeout",
+        client: { deleteSession: async () => Promise.reject(new Error("timeout")) },
+      }),
+    ).rejects.toThrow("timeout");
+    expect(getPendingSessionDeleteForTests("ws", "ses_timeout")?.attempt).toBe(1);
+    expect(SESSION_PENDING_DELETE_MAX_ATTEMPTS).toBeGreaterThan(1);
+  });
+
+  test("retries pending deletes once per workspace with at most two requests", async () => {
+    for (const sessionId of ["ses_1", "ses_2", "ses_3"]) {
+      registerPendingSessionDelete({ workspaceId: "ws", sessionId });
+    }
+    let concurrent = 0;
+    let maximumConcurrent = 0;
+    const client = {
+      deleteSession: async () => {
+        concurrent += 1;
+        maximumConcurrent = Math.max(maximumConcurrent, concurrent);
+        await new Promise<void>((resolve) => setTimeout(resolve, 5));
+        concurrent -= 1;
+      },
+    };
+    const first = retryPendingSessionDeletesForWorkspace({
+      workspaceId: "ws",
+      remoteWorkspaceId: "runtime_ws",
+      client,
+    });
+    const second = retryPendingSessionDeletesForWorkspace({
+      workspaceId: "ws",
+      remoteWorkspaceId: "runtime_ws",
+      client,
+    });
+    expect(second).toBe(first);
+    await first;
+    expect(maximumConcurrent).toBe(2);
+    expect(isSessionPendingDelete("ws", "ses_1")).toBe(false);
+    expect(isSessionPendingDelete("ws", "ses_2")).toBe(false);
+    expect(isSessionPendingDelete("ws", "ses_3")).toBe(false);
+  });
+
+  test("caps automatic retries per process and resumes with a fresh restart budget", async () => {
+    registerPendingSessionDelete({ workspaceId: "ws", sessionId: "ses_retry" });
+    let calls = 0;
+    const failingClient = {
+      deleteSession: async () => {
+        calls += 1;
+        throw new Error("still offline");
+      },
+    };
+    for (let attempt = 0; attempt < SESSION_PENDING_DELETE_MAX_ATTEMPTS; attempt += 1) {
+      await retryPendingSessionDeletesForWorkspace({
+        workspaceId: "ws",
+        remoteWorkspaceId: "runtime_ws",
+        client: failingClient,
+      });
+    }
+    expect(calls).toBe(SESSION_PENDING_DELETE_MAX_ATTEMPTS);
+    await retryPendingSessionDeletesForWorkspace({
+      workspaceId: "ws",
+      remoteWorkspaceId: "runtime_ws",
+      client: failingClient,
+    });
+    expect(calls).toBe(SESSION_PENDING_DELETE_MAX_ATTEMPTS);
+
+    resetPendingDeleteRetryBudgetForTests();
+    await retryPendingSessionDeletesForWorkspace({
+      workspaceId: "ws",
+      remoteWorkspaceId: "runtime_ws",
+      client: { deleteSession: async () => undefined },
+    });
+    expect(isSessionPendingDelete("ws", "ses_retry")).toBe(false);
+  }, 15_000);
+});
+
 describe("raceSessionDeleteRemote (shipped)", () => {
   test("resolves when remote is slow beyond budget", async () => {
     expect(SESSION_DELETE_REMOTE_BUDGET_MS).toBeLessThanOrEqual(5_000);
@@ -155,6 +295,8 @@ describe("page-view + group delete wiring", () => {
     );
     expect(pageView).toContain("resolveSessionDeleteDirectory");
     expect(pageView).toContain("markSessionRecentlyDeleted");
+    expect(pageView).toContain("registerPendingSessionDelete");
+    expect(pageView).toContain("executePendingSessionDelete");
     expect(pageView).toContain("raceSessionDeleteRemote");
     expect(pageView).toContain("SESSION_DELETE_REMOTE_BUDGET_MS");
     expect(pageView).toContain("writeCachedSidebarSessionsForWorkspace");
@@ -170,18 +312,19 @@ describe("page-view + group delete wiring", () => {
       "utf8",
     );
     expect(sessions).toContain("filterRecentlyDeletedSessions");
+    expect(sessions).toContain("filterPendingDeletedSessions");
   });
 
   test("expert and assistant group deletes run sessions in parallel", () => {
-    const expert = readFileSync(
-      join(appRoot, "src/react-app/domains/session/pages/expert.tsx"),
+    const expertDelete = readFileSync(
+      join(appRoot, "src/react-app/domains/session/pages/use-expert-session-delete.ts"),
       "utf8",
     );
     const assistant = readFileSync(
       join(appRoot, "src/react-app/domains/session/pages/assistant.tsx"),
       "utf8",
     );
-    expect(expert).toContain("Promise.allSettled");
+    expect(expertDelete).toContain("Promise.allSettled");
     expect(assistant).toContain("Promise.allSettled");
   });
 });

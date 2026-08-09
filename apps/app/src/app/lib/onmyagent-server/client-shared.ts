@@ -88,7 +88,7 @@ import type {
   WorkspaceImportPreviewResponse,
 } from "@onmyagent/types/server";
 import type { ArtifactPluginConnectionState } from "@onmyagent/types/artifact-plugin";
-import { desktopFetch } from "../desktop";
+import { desktopFetch, desktopFetchWithTimeout } from "../desktop";
 import { isDesktopRuntime } from "../../utils";
 import type { ExecResult, OpencodeConfigFile, WorkspaceInfo, WorkspaceList } from "../desktop";
 
@@ -159,14 +159,6 @@ export type OnMyAgentHubRepo = {
 
 export type OnMyAgentWorkspaceFileContent = WorkspaceFileContentResponse;
 export type OnMyAgentWorkspaceFileWriteResult = WorkspaceFileWriteResponse;
-
-function readErrorName(error: unknown): string {
-  if (error && typeof error === "object" && "name" in error) {
-    const value = (error as { name?: unknown }).name;
-    return typeof value === "string" ? value : "";
-  }
-  return "";
-}
 
 export function arrayBufferToBase64(data: ArrayBuffer): string {
   const bytes = new Uint8Array(data);
@@ -681,39 +673,78 @@ async function fetchWithTimeout(
     return fetchImpl(url, init);
   }
 
-  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-  const signal = controller?.signal;
-  const initWithSignal = signal && !init.signal ? { ...init, signal } : init;
+  const controller = new AbortController();
+  const callerSignal = init.signal;
+  let timedOut = false;
+  let callerAborted = false;
+  let onCallerAbort: (() => void) | null = null;
+
+  const callerAbortPromise = new Promise<never>((_resolve, reject) => {
+    if (!callerSignal) return;
+    onCallerAbort = () => {
+      callerAborted = true;
+      const reason: unknown = callerSignal.reason;
+      const error = reason instanceof Error
+        ? reason
+        : new DOMException("Request cancelled.", "AbortError");
+      controller.abort(error);
+      reject(error);
+    };
+    if (callerSignal.aborted) {
+      onCallerAbort();
+      return;
+    }
+    callerSignal.addEventListener("abort", onCallerAbort, { once: true });
+  });
 
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
-      try {
-        controller?.abort();
-      } catch {
-        // ignore
-      }
-      reject(new Error("Request timed out."));
+      timedOut = true;
+      const error = new Error("Request timed out.");
+      controller.abort(error);
+      reject(error);
     }, timeoutMs);
   });
 
   try {
-    return await Promise.race([fetchImpl(url, initWithSignal), timeoutPromise]);
+    return await Promise.race([
+      fetchImpl === desktopFetch
+        ? desktopFetchWithTimeout(
+            url,
+            { ...init, signal: controller.signal },
+          )
+        : fetchImpl(url, { ...init, signal: controller.signal }),
+      timeoutPromise,
+      callerAbortPromise,
+    ]);
   } catch (error) {
-    const name = readErrorName(error);
-    if (name === "AbortError") {
+    if (timedOut) {
       throw new Error("Request timed out.");
     }
+    if (callerAborted) throw error;
     throw error;
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
+    if (callerSignal && onCallerAbort) {
+      callerSignal.removeEventListener("abort", onCallerAbort);
+    }
   }
 }
+
+type RequestOptions = {
+  method?: string;
+  token?: string;
+  hostToken?: string;
+  body?: unknown;
+  timeoutMs?: number;
+  signal?: AbortSignal;
+};
 
 export async function requestJson<T>(
   baseUrl: string,
   path: string,
-  options: { method?: string; token?: string; hostToken?: string; body?: unknown; timeoutMs?: number } = {},
+  options: RequestOptions = {},
 ): Promise<T> {
   const url = `${baseUrl}${path}`;
   const fetchImpl = resolveFetch(url);
@@ -724,6 +755,7 @@ export async function requestJson<T>(
       method: options.method ?? "GET",
       headers: buildHeaders(options.token, options.hostToken),
       body: options.body ? JSON.stringify(options.body) : undefined,
+      signal: options.signal,
     },
     options.timeoutMs ?? DEFAULT_ONMYAGENT_SERVER_TIMEOUT_MS,
   );
@@ -743,7 +775,7 @@ export async function requestJson<T>(
 export async function requestText(
   baseUrl: string,
   path: string,
-  options: { method?: string; token?: string; hostToken?: string; body?: unknown; timeoutMs?: number } = {},
+  options: RequestOptions = {},
 ): Promise<string> {
   const url = `${baseUrl}${path}`;
   const fetchImpl = resolveFetch(url);
@@ -754,6 +786,7 @@ export async function requestText(
       method: options.method ?? "GET",
       headers: buildHeaders(options.token, options.hostToken),
       body: options.body ? JSON.stringify(options.body) : undefined,
+      signal: options.signal,
     },
     options.timeoutMs ?? DEFAULT_ONMYAGENT_SERVER_TIMEOUT_MS,
   );

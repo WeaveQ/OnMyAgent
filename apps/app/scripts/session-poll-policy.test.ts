@@ -58,10 +58,14 @@ describe("reload-events + session snapshot quiet policy (shipped)", () => {
     );
     expect(refresh).toContain("RELOAD_EVENTS_POLL_INTERVAL_MS");
     expect(refresh).toContain("shouldRunReloadEventsPoll");
+    expect(refresh).toContain("const scheduleNextPoll");
+    expect(refresh).toContain("await pollReloadEvents()");
+    expect(refresh).toContain("window.setTimeout");
+    expect(refresh).not.toContain("window.setInterval");
     expect(refresh).not.toMatch(/setInterval\(\s*\(\)\s*=>\s*void pollReloadEvents\(\),\s*3000\s*\)/);
 
     const surface = readFileSync(
-      join(appRoot, "src/react-app/domains/session/surface/session-surface.tsx"),
+      join(appRoot, "src/react-app/domains/session/surface/session-surface-snapshot.ts"),
       "utf8",
     );
     expect(surface).toContain("SESSION_SNAPSHOT_STALE_TIME_MS");

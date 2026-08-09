@@ -163,7 +163,10 @@ export {
   isBuiltinMarketplaceExpertAgentId,
   findBuiltinMarketplaceExpertById,
 } from "./expert-marketplace/data";
-export { installSummonedMarketplaceExpert } from "./expert-marketplace/install";
+export {
+  ensureMarketplaceExpertInstalled,
+  installSummonedMarketplaceExpert,
+} from "./expert-marketplace/install";
 export {
   resolveMarketplaceExpertStartPrompt,
   type MarketplaceExpertStartPrompt,

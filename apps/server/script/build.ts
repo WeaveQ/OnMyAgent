@@ -88,11 +88,11 @@ function outputName(filename: string, target?: string) {
   return `${filename}${suffix}${ext}`;
 }
 
-async function buildOnce(entrypoint: string, outdir: string, filename: string, target?: string) {
+async function buildOnce(entrypoint: string, workerEntrypoint: string, outdir: string, filename: string, target?: string) {
   mkdirSync(outdir, { recursive: true });
   const outfile = join(outdir, outputName(filename, target));
 
-  const args = ["build", entrypoint, "--compile", "--outfile", outfile];
+  const args = ["build", entrypoint, workerEntrypoint, "--compile", "--outfile", outfile];
   if (target) {
     args.push("--target", target);
   }
@@ -105,8 +105,9 @@ async function buildOnce(entrypoint: string, outdir: string, filename: string, t
 
 const options = readArgs(bun.argv.slice(2));
 const entrypoint = resolve("src", "cli.ts");
+const workerEntrypoint = resolve("src", "services", "session-archive-sync-worker.ts");
 const targets = options.targets.length ? options.targets : [undefined];
 
 for (const target of targets) {
-  await buildOnce(entrypoint, options.outdir, options.filename, target);
+  await buildOnce(entrypoint, workerEntrypoint, options.outdir, options.filename, target);
 }

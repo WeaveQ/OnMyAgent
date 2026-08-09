@@ -216,3 +216,15 @@ export function shouldForceViteOptimize(input) {
   if (!input.inspection?.ok) return true;
   return false;
 }
+
+/**
+ * Decide whether the Chromium caches must be reset alongside a Vite
+ * optimize-deps rebuild. A healthy dependency graph keeps its warmed browser
+ * cache, while a forced rebuild cannot safely reuse modules from the old graph.
+ * @param {{ forceViteOptimize: boolean, forceEnv?: string | null }} input
+ */
+export function shouldResetElectronDevCaches(input) {
+  if (input.forceViteOptimize) return true;
+  const forceEnv = String(input.forceEnv ?? "").trim().toLowerCase();
+  return forceEnv === "1" || forceEnv === "true";
+}

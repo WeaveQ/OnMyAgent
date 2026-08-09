@@ -341,7 +341,22 @@ describe("session memory", () => {
       ws_b: [{ id: "ses_2", title: "Other" }],
     });
 
+    // An ordinary successful empty list is ambiguous during runtime startup;
+    // it must not erase the cold-start cache.
     writeCachedSidebarSessionsForWorkspace("ws_a", []);
+    expect(readCachedSidebarSessionsByWorkspace()).toEqual({
+      ws_a: [
+        {
+          id: "ses_1",
+          title: "Hello",
+          time: { updated: 100, created: 50 },
+          directory: "/tmp/a",
+        },
+      ],
+      ws_b: [{ id: "ses_2", title: "Other"}],
+    });
+
+    writeCachedSidebarSessionsForWorkspace("ws_a", [], { clearWhenEmpty: true });
     expect(readCachedSidebarSessionsByWorkspace()).toEqual({
       ws_b: [{ id: "ses_2", title: "Other" }],
     });

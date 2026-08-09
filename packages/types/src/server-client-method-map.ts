@@ -38,6 +38,9 @@ import type {
   WorkspaceFileWriteResponse,
   WorkspaceImportPreviewResponse,
   WorkspaceInfo,
+  SessionOriginListPayload,
+  SessionOriginRecord,
+  SessionOriginUpsertPayload,
 } from "./server";
 import type { ArtifactPluginConnectionState } from "./artifact-plugin";
 import type {
@@ -312,6 +315,18 @@ type TypedServerClientMethodMap = {
       options?: { limit?: number; directory?: string },
     ],
     { item: unknown }
+  >;
+  listSessionOrigins: ServerClientMethodContract<
+    [workspaceId: string],
+    SessionOriginListPayload
+  >;
+  upsertSessionOrigin: ServerClientMethodContract<
+    [workspaceId: string, sessionId: string, payload: SessionOriginUpsertPayload],
+    { item: SessionOriginRecord }
+  >;
+  deleteSessionOrigin: ServerClientMethodContract<
+    [workspaceId: string, sessionId: string],
+    { ok: true }
   >;
 
   // extensions — plugins / skills / MCP / commands / automations
