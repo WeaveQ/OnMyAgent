@@ -30,6 +30,8 @@ const INSTALL_GUIDE_BY_ID: Record<string, AgentInstallGuide> = {
   trae: { url: "https://www.trae.ai" },
   mimo: { url: "https://www.npmjs.com/package/@mimo-ai/cli" },
   grok: { url: "https://www.npmjs.com/package/@xai-official/grok" },
+  // Pi coding agent (CLI). For OnMyAgent ACP chat, also install `pi-acp`.
+  pi: { url: "https://pi.dev" },
 };
 
 export function agentInstallGuideFor(agent: { id?: string | null; provider?: string | null }): AgentInstallGuide | null {

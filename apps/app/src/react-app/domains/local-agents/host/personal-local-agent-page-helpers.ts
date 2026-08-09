@@ -89,9 +89,17 @@ export function agentSubtitle(agent: PersonalLocalAgent) {
   }
   const mode = String(agent.connectionMode ?? "").trim();
   // Strip protocol chrome ("… ACP session"); keep a short product label when useful.
+  // Skip when it only restates the row title (e.g. Pi with empty adapter --version).
   if (mode && !mode.includes("/") && !mode.includes("\\")) {
     const cleaned = mode.replace(/\s*ACP session\s*/i, "").trim();
-    if (cleaned && !isGenericCustomLabel(cleaned)) return cleaned;
+    const name = String(agent.name ?? "").trim();
+    if (
+      cleaned &&
+      !isGenericCustomLabel(cleaned) &&
+      cleaned.toLowerCase() !== name.toLowerCase()
+    ) {
+      return cleaned;
+    }
   }
   return "";
 }

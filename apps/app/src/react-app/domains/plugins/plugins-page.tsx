@@ -48,6 +48,8 @@ import {
   setOnMyAgentExtensionEnabled,
 } from "@/react-app/domains/shared";
 import { extensionIcon, extensionIconTileClassName } from "./extension-icon";
+import { BUILTIN_PLUGIN_ICON_PNG_BY_ID } from "@/react-app/design-system/koboyo-product-icons";
+import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { classifySkillScope, classifyLocalOrigin, SKILL_SCOPE_LABELS, LOCAL_ORIGIN_LABELS, type SkillScope, type LocalSkillOrigin } from "./skill-scope";
 import { resolveBundledSkillDisplay } from "./bundled-skill-locale";
 import { ArtifactPluginCard } from "./artifact-plugin-card";
@@ -846,16 +848,36 @@ function BuiltinExtensionsSection(props: {
       }}
       name={detailEntry.name}
       description={detailLongDescription}
-      serviceIconNode={
-        <span
-          className={cn(
-            "flex size-full items-center justify-center rounded-full bg-white",
-            extensionIconTileClassName,
-          )}
-        >
-          {extensionIcon(detailEntry, 22)}
-        </span>
-      }
+      serviceIconNode={(() => {
+        const detailKey = (
+          detailEntry.id ??
+          detailEntry.serverName ??
+          detailEntry.name
+        )
+          .trim()
+          .toLowerCase();
+        const detailPng = BUILTIN_PLUGIN_ICON_PNG_BY_ID[detailKey];
+        if (detailPng) {
+          return (
+            <img
+              src={resolvePublicAssetUrl(detailPng)}
+              alt=""
+              className="size-full rounded-md object-cover"
+              loading="lazy"
+            />
+          );
+        }
+        return (
+          <span
+            className={cn(
+              "flex size-full items-center justify-center rounded-full bg-white",
+              extensionIconTileClassName,
+            )}
+          >
+            {extensionIcon(detailEntry, 22)}
+          </span>
+        );
+      })()}
       connected={detailEnabled}
       connectLabel={t("plugins.artifact_enable_action")}
       onConnect={() => {
@@ -972,6 +994,14 @@ function BuiltinExtensionCard(props: {
   void revision;
   const enabled = isOnMyAgentExtensionEnabled(props.entry);
   const description = props.entry.description?.trim() ?? "";
+  const entryKey = (
+    props.entry.id ??
+    props.entry.serverName ??
+    props.entry.name
+  )
+    .trim()
+    .toLowerCase();
+  const productPng = BUILTIN_PLUGIN_ICON_PNG_BY_ID[entryKey];
 
   return (
     <article
@@ -994,15 +1024,24 @@ function BuiltinExtensionCard(props: {
       aria-label={`${props.entry.name}. ${t("plugins.artifact_open")}`}
     >
       <div className={connectorTileHeaderClassName}>
-        <IconTile
-          size="default"
-          shape="xl"
-          tone="surface"
-          border
-          className={cn("overflow-hidden", extensionIconTileClassName)}
-        >
-          {extensionIcon(props.entry, 18)}
-        </IconTile>
+        {productPng ? (
+          <img
+            src={resolvePublicAssetUrl(productPng)}
+            alt=""
+            className="size-9 shrink-0 rounded-md object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <IconTile
+            size="default"
+            shape="xl"
+            tone="surface"
+            border
+            className={cn("overflow-hidden", extensionIconTileClassName)}
+          >
+            {extensionIcon(props.entry, 18)}
+          </IconTile>
+        )}
         <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-1.5">
             <h3 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">

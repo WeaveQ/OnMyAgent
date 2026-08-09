@@ -340,7 +340,10 @@ const baseMarkedOptions = {
       // Outer shell owns the rounded frame border once; cells only draw
       // internal grid lines (see .session-markdown-table in index.css) so
       // edges don't stack as double borders.
-      return `<div class="session-markdown-table my-4 overflow-x-auto rounded-xl border"><table class="w-full min-w-max border-collapse border-0"><thead>${this.tablerow({ text: header })}</thead><tbody>${body}</tbody></table></div>`;
+      // max-w-full + min-w-0 keeps the scrollport inside the transcript column
+      // (parent uses overflow-x-hidden; without a bounded width the table
+      // expands the flex min-content and gets clipped with no scrollbar).
+      return `<div class="session-markdown-table my-4 w-full max-w-full min-w-0 overflow-x-auto rounded-xl border"><table class="w-max min-w-full border-collapse border-0"><thead>${this.tablerow({ text: header })}</thead><tbody>${body}</tbody></table></div>`;
     },
     tablerow({ text }) {
       return `<tr>${text}</tr>`;
@@ -348,8 +351,8 @@ const baseMarkedOptions = {
     tablecell({ tokens, header, align }) {
       const tag = header ? "th" : "td";
       const className = header
-        ? "session-markdown-table-header px-4 py-2 text-left font-semibold"
-        : "session-markdown-table-cell px-4 py-2 align-top";
+        ? "session-markdown-table-header px-4 py-2 text-left font-semibold whitespace-nowrap"
+        : "session-markdown-table-cell px-4 py-2 align-top whitespace-nowrap";
       return `<${tag}${alignAttribute(align)} class="${className}">${this.parser.parseInline(tokens)}</${tag}>`;
     },
     hr() {

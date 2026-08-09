@@ -29,7 +29,7 @@ describe("composer shell bottom inset", () => {
     expect(normal).toContain(COMPOSER_SHELL_BOTTOM_PAD_CLASS);
   });
 
-  test("flushShell zeros sticky inset for embedded hosts (expert creation)", () => {
+  test("flushShell uses compact embedded pad (expert creation coach)", () => {
     const flush = resolveComposerShellPadClass({ flushShell: true });
     const flushWithCompact = resolveComposerShellPadClass({
       flushShell: true,
@@ -37,6 +37,9 @@ describe("composer shell bottom inset", () => {
     });
     expect(flush).toBe(COMPOSER_SHELL_FLUSH_PAD_CLASS);
     expect(flushWithCompact).toBe(COMPOSER_SHELL_FLUSH_PAD_CLASS);
+    // Modest pad — not full session gutters, not zero (that jammed the input).
+    expect(flush).toContain("px-3");
+    expect(flush).toContain("pb-4");
     expect(flush.includes(COMPOSER_SHELL_X_PAD_CLASS)).toBe(false);
     expect(flush.includes(COMPOSER_SHELL_BOTTOM_PAD_CLASS)).toBe(false);
   });

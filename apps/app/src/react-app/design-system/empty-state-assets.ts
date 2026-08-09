@@ -20,7 +20,8 @@ export const AUTOMATION_EMPTY_STATE_ASSET =
 export const CONVERSATION_HISTORY_EMPTY_STATE_ASSET =
   "/illustrations/koboyo/pair-chat-bubbles.svg";
 
-export const SKILLS_EMPTY_STATE_ASSET = "/illustrations/koboyo/wand.svg";
+/** Wand + sparkles — fuller mark than plain wand (reads less like a pencil). */
+export const SKILLS_EMPTY_STATE_ASSET = "/illustrations/koboyo/wand-sparkles.svg";
 
 export const CONNECTORS_EMPTY_STATE_ASSET =
   "/illustrations/koboyo/plugin-socket.svg";
@@ -44,19 +45,25 @@ export const ARCHIVE_EMPTY_STATE_ASSET =
 export const COMPANY_EMPTY_STATE_ASSET =
   "/illustrations/koboyo/office-building.svg";
 
+/** Agent management page loading (local agents fleet scan). */
+export const AGENT_MANAGEMENT_LOADING_ASSET =
+  "/illustrations/koboyo/agent-robot.svg";
+
 /**
  * Shared class for empty-state Koboyo marks.
  * Painted via background + CSS mask (see EmptyStateIllustration) so dark mode
  * inherits dls-secondary instead of black currentColor from external <img>.
  * Explicit width keeps the mask box from collapsing (no SVG intrinsic size).
  */
+// `block` (not inline-block): keeps title/desc stacked under the mark instead of
+// sitting on the same line to the right of the illustration.
 export const EMPTY_STATE_ILLUSTRATION_CLASS =
-  "mb-5 inline-block h-[min(11rem,40vw)] w-[min(14rem,70vw)] max-w-full shrink-0 select-none bg-dls-secondary " +
+  "mx-auto mb-5 block h-[min(11rem,40vw)] w-[min(14rem,70vw)] max-w-full shrink-0 select-none bg-dls-secondary " +
   "[mask-image:var(--empty-illust)] [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center] " +
   "[-webkit-mask-image:var(--empty-illust)] [-webkit-mask-size:contain] [-webkit-mask-repeat:no-repeat] [-webkit-mask-position:center]";
 
 /** Smaller mark for compact EmptyStateBox columns. */
 export const EMPTY_STATE_ILLUSTRATION_COMPACT_CLASS =
-  "mx-auto mb-3 inline-block h-16 w-[7rem] max-w-full shrink-0 select-none bg-dls-secondary " +
+  "mx-auto mb-3 block h-16 w-[7rem] max-w-full shrink-0 select-none bg-dls-secondary " +
   "[mask-image:var(--empty-illust)] [mask-size:contain] [mask-repeat:no-repeat] [mask-position:center] " +
   "[-webkit-mask-image:var(--empty-illust)] [-webkit-mask-size:contain] [-webkit-mask-repeat:no-repeat] [-webkit-mask-position:center]";

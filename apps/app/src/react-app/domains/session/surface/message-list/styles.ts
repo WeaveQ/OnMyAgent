@@ -12,8 +12,8 @@ export const messageTextClass = {
   userMessageBubble: "bg-dls-chat-user-bg text-dls-text",
   nestedUserMessageBubble: "max-w-[92%] rounded-xl px-3.5 py-2",
   rootUserMessageBubble: "session-transcript-user-bubble",
-  assistantMessageBubble: "w-full antialiased group",
-  rootAssistantMessageBubble: "session-transcript-assistant-copy",
+  assistantMessageBubble: "w-full min-w-0 antialiased group",
+  rootAssistantMessageBubble: "session-transcript-assistant-copy min-w-0",
 };
 
 export const messageStateClass = {

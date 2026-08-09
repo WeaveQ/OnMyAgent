@@ -348,7 +348,9 @@ const iconTileVariants = cva(
         "3xl": "size-24",
       },
       tone: {
-        neutral: "bg-dls-hover text-dls-secondary",
+        // Dark: soft lift so the plate reads without needing a hard stroke.
+        neutral:
+          "bg-dls-hover text-dls-secondary dark:bg-white/[0.06]",
         accent: "bg-dls-decision-soft text-dls-accent",
         softAccent: "bg-dls-accent/10 text-dls-accent",
         info: "bg-dls-accent/10 text-dls-accent",
@@ -361,7 +363,9 @@ const iconTileVariants = cva(
         circle: "rounded-full",
       },
       border: {
-        true: "border border-dls-border",
+        // Dark: hairline white instead of solid mist (#3A3A3A), which
+        // doubles the parent card frame and looks harsh.
+        true: "border border-dls-border/70 dark:border-white/10",
         false: "",
       },
     },

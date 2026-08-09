@@ -23,14 +23,17 @@ export const COMPOSER_SHELL_BOTTOM_PAD_CLASS = "pb-5";
 export const COMPOSER_COLUMN_BOTTOM_PAD_CLASS = "pb-0";
 
 /** Horizontal pad shared with SESSION_CONTENT_X_PADDING_CLASS. */
-export const COMPOSER_SHELL_X_PAD_CLASS = "px-4 md:px-8";
+export const COMPOSER_SHELL_X_PAD_CLASS = "px-4 md:px-6";
 
-/** Embedded / parent-padded hosts: no sticky-shell breathing room. */
-export const COMPOSER_SHELL_FLUSH_PAD_CLASS = "px-0 pt-0 pb-0";
+/**
+ * Embedded hosts (expert-creation coach): modest pad only — not full chat
+ * gutters (px-4 md:px-6) and not zero (that jammed the input against the card).
+ */
+export const COMPOSER_SHELL_FLUSH_PAD_CLASS = "px-3 pt-2.5 pb-4";
 
 /**
  * Sticky composer root padding (width unchanged; bottom always chat-level).
- * flushShell: zero inset when the parent already owns padding (e.g. expert creation).
+ * flushShell: compact embedded inset (coach sidebar), not parent-double pad.
  */
 export function resolveComposerShellPadClass(input: {
   compactTopSpacing?: boolean;
