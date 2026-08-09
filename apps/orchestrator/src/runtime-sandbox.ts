@@ -1,4 +1,4 @@
-import { access } from "node:fs/promises";
+import { access, chmod } from "node:fs/promises";
 import { delimiter, join } from "node:path";
 
 import { spawnProcess } from "./runtime-services.js";
@@ -11,6 +11,16 @@ export async function isExecutable(path: string): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+/** Best-effort `chmod +x`. No-op on Windows and on failure. */
+export async function ensureExecutable(path: string): Promise<void> {
+  if (process.platform === "win32") return;
+  try {
+    await chmod(path, 0o755);
+  } catch {
+    // ignore
   }
 }
 

@@ -8,7 +8,7 @@ import type {
   SessionArchiveRuntimePaths,
   SessionArchiveSourceRoot,
   SessionArchiveSyncMode,
-} from "./session-archive-sync.js";
+} from "./session-archive-sync-types.js";
 
 export type SessionArchiveSyncWorkerInput = {
   workspace: WorkspaceInfo;

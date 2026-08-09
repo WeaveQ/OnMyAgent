@@ -77,6 +77,12 @@ const importPatterns = [
   /\bexport\s+[^'";]*\bfrom\s+["']([^"']+)["']/g,
 ]
 
+// Matches whole-statement type-only imports/exports, which are erased by the TS
+// compiler and therefore cannot cause a real (runtime) import cycle. Inline
+// `type` specifiers inside a mixed import (e.g. `import { type A, b }`) are
+// intentionally left alone because the statement still carries value bindings.
+const typeOnlyStatement = /\b(?:import|export)\s+type\s+[^'";]*?\bfrom\s+["'][^"']+["']\s*;?/g
+
 // Strip block comments only. Line comments and string contents are left intact
 // because import specifiers live inside string literals; we only need to
 // neutralize `/* ... */` blocks that could span an import statement.
@@ -288,7 +294,7 @@ function buildGraph(fileList) {
 }
 
 function extractImports(source) {
-  const stripped = stripComments(source)
+  const stripped = stripTypeOnlyImports(stripComments(source))
   const specs = new Set()
   for (const pattern of importPatterns) {
     pattern.lastIndex = 0
@@ -300,6 +306,13 @@ function extractImports(source) {
     }
   }
   return [...specs]
+}
+
+// Remove whole-statement `import type ...` / `export type ...` so type-only
+// edges don't register as real dependencies.
+function stripTypeOnlyImports(source) {
+  typeOnlyStatement.lastIndex = 0
+  return source.replace(typeOnlyStatement, (match) => ' '.repeat(match.length))
 }
 
 function isBarePackage(spec) {

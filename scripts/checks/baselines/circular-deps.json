@@ -1,12 +1,6 @@
 {
   "$schema": "./circular-deps.schema.json",
   "description": "Frozen circular-dependency signatures (sorted, rooted at the lexicographically smallest file). Only shrink this list. Run `node scripts/checks/check-circular-deps.mjs --write` only after refactoring to break one of the listed cycles.",
-  "generatedAt": "2026-08-09T13:23:31.749Z",
-  "entries": [
-    "apps/app/src/react-app/domains/settings/lazy-pages.ts -> apps/app/src/react-app/domains/settings/pages/general-view.tsx -> apps/app/src/react-app/domains/settings/shell/settings-page.tsx -> apps/app/src/react-app/domains/settings/settings-tab-prefetch.ts -> apps/app/src/react-app/domains/settings/lazy-pages.ts",
-    "apps/orchestrator/src/cli-binary-resolve.ts -> apps/orchestrator/src/cli-shared.ts -> apps/orchestrator/src/cli-sandbox-runtime.ts -> apps/orchestrator/src/cli-binary-resolve.ts",
-    "apps/server/src/services/session-archive-open.ts -> apps/server/src/services/session-archive.ts -> apps/server/src/services/session-archive-open.ts",
-    "apps/server/src/services/session-archive-sync-worker-runner.ts -> apps/server/src/services/session-archive-sync.ts -> apps/server/src/services/session-archive-sync-worker-runner.ts",
-    "packages/types/src/desktop-ipc-command-map.ts -> packages/types/src/desktop-ipc.ts -> packages/types/src/desktop-ipc-command-map.ts"
-  ]
+  "generatedAt": "2026-08-09T13:36:34.456Z",
+  "entries": []
 }
