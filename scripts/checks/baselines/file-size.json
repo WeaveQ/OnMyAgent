@@ -25,7 +25,7 @@
     "apps/desktop/electron/weixin/service.mjs": 608,
     "apps/app/src/react-app/domains/workspace/workspace-files-page.tsx": 172,
     "apps/app/src/react-app/domains/workspace/workspace-files-browser-panel.tsx": 1752,
-    "apps/app/src/react-app/domains/workspace/workspace-files-uploads-panel.tsx": 1901,
+    "apps/app/src/react-app/domains/workspace/workspace-files-uploads-panel.tsx": 267,
     "apps/app/src/react-app/domains/workspace/workspace-files-tree-outline.ts": 322,
     "apps/app/src/react-app/domains/workspace/workspace-files-uploads-catalog.ts": 366,
     "apps/app/src/react-app/domains/workspace/workspace-files-source-tabs.ts": 348,
