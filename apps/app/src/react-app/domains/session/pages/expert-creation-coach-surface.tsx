@@ -36,9 +36,9 @@ import {
   type ExpertDraftSuggestion,
   type ExpertDraftSuggestionField,
   EXPERT_CREATION_COACH_AVATAR_PATH,
+  ExpertCreationCoachWelcome,
   registerExpertCreationEphemeralSession,
 } from "../../agents";
-import { ExpertCreationCoachWelcome } from "../../agents/expert-creation-coach-welcome";
 
 export type ExpertCreationCoachSurfaceProps = {
   surface: SessionSurfaceAssemblyProps;
