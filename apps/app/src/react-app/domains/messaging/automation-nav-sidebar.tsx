@@ -292,7 +292,10 @@ export function AutomationNavSidebar(props: {
                     title: group.title,
                   });
                   return (
-                    <div key={group.id} className="flex min-w-0 flex-col gap-0.5">
+                    <div
+                      key={group.id}
+                      className="flex min-w-0 flex-col gap-0.5"
+                    >
                       <AutomationNavGroupHeader
                         title={groupLabel}
                         groupId={group.id}
@@ -425,17 +428,21 @@ function AutomationNavSessionRowView(props: {
           }
         }}
         className={cn(
-          "group flex w-full cursor-pointer items-center gap-1 rounded-xl py-1 pl-7 pr-1.5 text-left text-sm transition-colors",
+          // Match home task rows (LIST_ROW_H 34px) — avoid short py-1 rows
+          // that look undersized under the group header.
+          "group flex h-[34px] min-h-[34px] max-h-[34px] w-full shrink-0 cursor-pointer items-center gap-1 overflow-hidden rounded-lg py-0 pl-7 pr-1.5 text-left text-sm leading-none transition-colors",
           props.selected
             ? "bg-dls-list-selected font-medium text-dls-text"
             : "text-dls-text hover:bg-dls-hover",
           menuOpen && "bg-dls-list-hover text-dls-text",
         )}
       >
-        <span className="min-w-0 flex-1 truncate">{props.session.title}</span>
+        <span className="min-w-0 flex-1 truncate leading-none">
+          {props.session.title}
+        </span>
         <span
           className={cn(
-            "shrink-0 tabular-nums text-2xs text-dls-secondary group-hover:hidden",
+            "shrink-0 tabular-nums text-2xs leading-none text-dls-secondary group-hover:hidden",
             menuOpen && "hidden",
           )}
         >
@@ -444,7 +451,7 @@ function AutomationNavSessionRowView(props: {
         {hasActions ? (
           <div
             className={cn(
-              "hidden shrink-0 items-center gap-0 group-hover:flex",
+              "hidden h-full shrink-0 items-center gap-0 group-hover:flex",
               menuOpen && "flex",
             )}
             onClick={(event) => event.stopPropagation()}
@@ -664,14 +671,14 @@ function AutomationNavGroupHeader(props: {
     <>
       <div
         className={cn(
-          "group flex w-full items-center gap-1 rounded-xl px-1 py-1 text-sm text-dls-text transition-colors hover:bg-dls-hover",
+          "group flex h-[34px] min-h-[34px] max-h-[34px] w-full shrink-0 items-center gap-1 overflow-hidden rounded-lg px-1 py-0 text-sm leading-none text-dls-text transition-colors hover:bg-dls-hover",
           menuOpen && "bg-dls-list-hover",
         )}
       >
         <button
           type="button"
           onClick={props.onToggle}
-          className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1 py-0.5 text-left"
+          className="flex h-full min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1 text-left"
           aria-expanded={props.expanded}
         >
           {props.expanded ? (
