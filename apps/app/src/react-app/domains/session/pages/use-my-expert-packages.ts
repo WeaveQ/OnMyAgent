@@ -11,7 +11,7 @@ import {
   isVisibleExpertPackageEntry,
   packageEntryToMarketplaceExpert,
 } from "./shared-page-utils";
-import { EXPERT_PACKAGES_CHANGED_EVENT } from "./expert-hard-delete";
+import { EXPERT_PACKAGES_CHANGED_EVENT } from "../../agents";
 
 export function useMyExpertPackages(options: {
   enabled: boolean;

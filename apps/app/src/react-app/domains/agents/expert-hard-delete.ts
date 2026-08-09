@@ -5,18 +5,20 @@
 import {
   uninstallExpertPackage,
   writeUserAgentRegistry,
-} from "../../../../app/lib/desktop";
-import { isElectronRuntime } from "../../../../app/utils";
+} from "../../../app/lib/desktop";
+import { isElectronRuntime } from "../../../app/utils";
 import {
   isBuiltinAgentId,
   isBuiltinAgentRecord,
-  removeExpertSession,
-  serializeUserAgentRegistry,
+} from "./agent-builtin";
+import { serializeUserAgentRegistry } from "./agent-registry";
+import {
   useAgentRegistryStore,
   writeCustomAgentIdForSession,
   writeSessionAgentSnapshot,
-  type AgentRegistry,
-} from "../../agents";
+} from "./agent-registry-store";
+import { removeExpertSession } from "./agent-session-state";
+import type { AgentRegistry } from "./agent-registry-types";
 
 export const EXPERT_PACKAGES_CHANGED_EVENT = "onmyagent.expert-packages-changed";
 
@@ -25,7 +27,10 @@ export function notifyExpertPackagesChanged() {
   window.dispatchEvent(new CustomEvent(EXPERT_PACKAGES_CHANGED_EVENT));
 }
 
-export function canHardDeleteExpert(agentId: string, registry: AgentRegistry | null): boolean {
+export function canHardDeleteExpert(
+  agentId: string,
+  registry: AgentRegistry | null,
+): boolean {
   const id = agentId.trim();
   if (!id) return false;
   if (isBuiltinAgentId(id)) return false;

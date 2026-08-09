@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   canHardDeleteExpert,
   packageNameCandidatesForAgent,
-} from "../src/react-app/domains/session/pages/expert-hard-delete";
+} from "../src/react-app/domains/agents/expert-hard-delete";
 import type { AgentRegistry } from "../src/react-app/domains/agents";
 import { EXPERT_CREATION_COACH_AGENT_ID } from "../src/react-app/domains/agents";
 
