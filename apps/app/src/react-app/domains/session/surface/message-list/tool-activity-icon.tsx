@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Cloud,
+  Compass,
   Database,
   Eye,
   Folder,
@@ -40,7 +41,8 @@ export function ToolActivityIcon(props: { category?: string }) {
     case "search":
       return <Search className={className} strokeWidth={1.9} />;
     case "browser":
-      return <Eye className={className} strokeWidth={1.7} />;
+      // Distinct from read/viewed (Eye) — real browser navigation, not inspect.
+      return <Compass className={className} strokeWidth={1.8} />;
     case "web":
       return <Globe className={className} strokeWidth={1.8} />;
     case "image":

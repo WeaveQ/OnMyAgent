@@ -1,6 +1,13 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Plus, Store, UserPlus, Users } from "lucide-react";
+import {
+  ChevronDown,
+  MessageSquarePlus,
+  Plus,
+  Store,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
@@ -1397,7 +1404,11 @@ export function AgentConversationPanel(props: {
             className={SIDEBAR_FOOTER_CTA_CLASS}
             data-assistant-create="true"
           >
-            <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+            <MessageSquarePlus
+              className="size-4 shrink-0"
+              strokeWidth={2}
+              aria-hidden
+            />
             {t("session.new_task")}
           </Button>
         </div>

@@ -5,6 +5,7 @@ import type { CloudImportedPluginFile } from "../../../../../app/cloud/import-st
 import type { SlashCommandOption } from "../../../../../app/types";
 import type { McpDirectoryInfo } from "../../../../../app/constants";
 import { t } from "../../../../../i18n";
+import { cn } from "@/lib/utils";
 import type { ManagedDesktopConnectorItem } from "@/react-app/domains/plugins";
 import { useDesktopRestriction } from "../../../shared";
 import { ModelBehaviorSelect } from "../../../../../components/model-behavior-select";
@@ -574,6 +575,7 @@ export function ReactSessionComposer(props: ComposerProps) {
               disabled={props.disabled}
               compact={homeLayout && !heroHome}
               hero={heroHome}
+              embedded={Boolean(props.flushShell)}
               placeholder={props.placeholder ?? t("composer.placeholder")}
               onChange={handleDraftChange}
               onSubmit={props.onSend}
@@ -655,9 +657,20 @@ export function ReactSessionComposer(props: ComposerProps) {
               }}
             />
 
-            {/* Action row — tools left; reasoning + model + send as a tight right cluster */}
-            <div className="mt-2 flex items-end justify-between gap-2">
-              <div className="flex min-w-0 flex-nowrap items-center gap-0.5 overflow-visible">
+            {/* Action row — tools left; model + send as trailing cluster */}
+            <div
+              className={cn(
+                "flex items-end justify-between",
+                props.flushShell ? "mt-3 gap-2.5" : "mt-2 gap-2",
+              )}
+            >
+              <div
+                className={cn(
+                  "flex min-w-0 flex-nowrap items-center overflow-visible",
+                  // Embedded coach is narrow — give chips room to breathe.
+                  props.flushShell ? "gap-1.5" : "gap-0.5",
+                )}
+              >
                 <input
                   ref={(element) => {
                     fileInputRef.current = element;
@@ -801,8 +814,14 @@ export function ReactSessionComposer(props: ComposerProps) {
 
               {/* Model controls + send stay as a tight trailing cluster so
                   “深度 / reasoning” is not stranded mid-toolbar with empty flex. */}
-              <div className="ml-auto flex min-w-0 shrink-0 items-center gap-0.5">
-                {props.modelUnavailable ? null : (
+              <div
+                className={cn(
+                  "ml-auto flex min-w-0 shrink-0 items-center",
+                  props.flushShell ? "gap-1.5" : "gap-0.5",
+                )}
+              >
+                {/* Reasoning / context chips eat width in the coach column — keep full chat only. */}
+                {props.flushShell || props.modelUnavailable ? null : (
                   <ModelBehaviorSelect
                     value={props.modelVariant}
                     label={props.modelVariantLabel}
@@ -834,13 +853,13 @@ export function ReactSessionComposer(props: ComposerProps) {
                     </span>
                   </button>
                 ) : null}
-                {props.contextUsage ? (
+                {props.flushShell || !props.contextUsage ? null : (
                   <ContextUsageIndicator
                     usage={props.contextUsage}
                     size={16}
                     className="p-0.5"
                   />
-                ) : null}
+                )}
                 {props.modelPickerVisible !== false ? (
                   <ModelSelectContainer
                     open={props.modelPickerOpen}

@@ -3,6 +3,8 @@ import { FileText, PanelRight } from "lucide-react";
 
 import { t } from "../../../../../i18n";
 import { Button } from "@/components/ui/button";
+import { ARTIFACTS_EMPTY_STATE_ASSET } from "@/react-app/design-system/empty-state-assets";
+import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 
 export function EmptyArtifactsPanel(props: { onClose: () => void }) {
   return (
@@ -26,7 +28,11 @@ export function EmptyArtifactsPanel(props: { onClose: () => void }) {
       <div className="flex min-h-0 flex-1 flex-col">
         <section className="flex min-h-[180px] items-center justify-center border-b border-dls-border px-6 text-center">
           <div className="space-y-3 text-dls-secondary">
-            <FileText className="mx-auto size-8 opacity-45" />
+            <EmptyStateIllustration
+              src={ARTIFACTS_EMPTY_STATE_ASSET}
+              size="compact"
+              className="mx-auto mb-0"
+            />
             <div className="text-sm">{t("files.no_session_files")}</div>
           </div>
         </section>

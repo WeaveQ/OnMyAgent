@@ -26,6 +26,9 @@ import { ProviderAuthModal } from "../../connections";
 import { SessionSurface } from "../surface/session-surface";
 import { ShareWorkspaceModal } from "../../workspace";
 import {
+  DEFAULT_BROWSER_SIDE_PANEL_WIDTH,
+  DEFAULT_WORKSPACE_RIGHT_SIDEBAR_EXPANDED_WIDTH,
+  MIN_WORKSPACE_RIGHT_SIDEBAR_WIDTH,
   OwDotTicker,
   shouldNotifyStaticHomeReady,
   type SidePanelItem,
@@ -93,6 +96,7 @@ import {
 import { buildFilesOpenSessionMeta } from "./session-files-open-meta";
 import {
   AgentConversationPanel,
+  AgentPanelResizeHandle,
   SidebarPaneCollapseToggle,
   shouldShowSessionStartupSkeleton,
   OnMyAgentRail,
@@ -162,8 +166,10 @@ import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
 import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
 import { isStreamingSessionStatus } from "../sidebar/utils";
 
-const ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH = 360;
-const ASSISTANT_SIDE_PANEL_MIN_WIDTH = 300;
+// Keep in sync with DEFAULT/MIN workspace right sidebar (outer rail = browser panel).
+const ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH =
+  DEFAULT_WORKSPACE_RIGHT_SIDEBAR_EXPANDED_WIDTH;
+const ASSISTANT_SIDE_PANEL_MIN_WIDTH = MIN_WORKSPACE_RIGHT_SIDEBAR_WIDTH;
 const CREATE_EXPERT_SKILL_NAME = "expert-manager";
 const CREATE_SKILL_PACKAGE_NAME = "skill-creator";
 
@@ -219,6 +225,7 @@ export function AssistantPage(props: AssistantPageProps) {
     historySearchInputRef,
     browserPanelRef,
     openWorkspaceSidePanelMenu,
+    snapToBrowserWidth,
     handleHistorySelectPrompt,
     openHistorySearch,
     closeHistorySearch,
@@ -1272,30 +1279,17 @@ export function AssistantPage(props: AssistantPageProps) {
               activeSidebarView === "assistant" ||
               isAutomationRailView(activeSidebarView)) &&
             !agentPanelCollapsed ? (
-              <div
-                role="separator"
-                aria-label={t("session.resize_agent_list")}
-                aria-orientation="vertical"
-                tabIndex={0}
+              <AgentPanelResizeHandle
                 onPointerDown={startAgentPanelResize}
-                onKeyDown={(event) => {
-                  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-                    event.preventDefault();
-                    setAgentPanelWidth((width) =>
-                      Math.min(
-                        AGENT_PANEL_MAX_WIDTH,
-                        Math.max(
-                          AGENT_PANEL_MIN_WIDTH,
-                          width + (event.key === "ArrowLeft" ? -16 : 16),
-                        ),
-                      ),
-                    );
-                  }
-                }}
-                className="group relative z-10 cursor-col-resize touch-none outline-none"
-              >
-                <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors group-focus-visible:bg-dls-accent" />
-              </div>
+                onKeyNudge={(delta) =>
+                  setAgentPanelWidth((width) =>
+                    Math.min(
+                      AGENT_PANEL_MAX_WIDTH,
+                      Math.max(AGENT_PANEL_MIN_WIDTH, width + delta),
+                    ),
+                  )
+                }
+              />
             ) : null}
             <ResizablePanelGroup
               orientation="horizontal"
@@ -1706,17 +1700,21 @@ export function AssistantPage(props: AssistantPageProps) {
               </ResizablePanel>
               {sidePanelVisibleOnSession ? (
                 <>
-                  {/* Single 1px rule — base handle also paints bg-border; avoid before: double line. */}
-                  <ResizableHandle className="hidden lg:flex" />
+                  {/* 2px gutter only — no center hairline (reads as a double seam). */}
+                  <ResizableHandle className="hidden w-[2px] before:hidden lg:flex" />
                   <ResizablePanel
                     key="office-side-panel"
                     panelRef={browserPanelRef}
-                    defaultSize={`${ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH}px`}
+                    defaultSize={`${
+                      activeSidePanel === "browser"
+                        ? DEFAULT_BROWSER_SIDE_PANEL_WIDTH
+                        : ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH
+                    }px`}
                     minSize={
                       `${ASSISTANT_SIDE_PANEL_MIN_WIDTH}px`
                     }
                     maxSize="70%"
-                    className="min-h-0 overflow-hidden bg-dls-surface lg:flex lg:flex-col"
+                    className="min-h-0 overflow-hidden bg-dls-background lg:flex lg:flex-col"
                   >
                     {activeSidePanel === "canvas" ? (
                       <LazyInfiniteCanvasPanel
@@ -1755,6 +1753,7 @@ export function AssistantPage(props: AssistantPageProps) {
                                   : null
                         }
                         onClose={closeRightPane}
+                        onBrowserOpen={snapToBrowserWidth}
                         onViewAutomation={openCreatedAutomation}
                         hiddenKinds={
                           assistantCategoryId === "office"

@@ -58,6 +58,11 @@ export async function deleteOpenCodeManagedProvider(input: {
   }) => Promise<AgentManagementManagedProvider[]>;
   clearReloadRequired: () => void;
   markReloadRequired: (reason: ReloadReason, trigger?: ReloadTrigger) => void;
+  /**
+   * Also drop the provider from the active workspace opencode.json(c)
+   * (connector / Ollama installs land there via patchConfig).
+   */
+  removeWorkspaceProvider?: (providerId: string) => Promise<void>;
 }): Promise<void> {
   input.setBusyId(input.providerId);
   input.setSyncBusy(true);
@@ -69,6 +74,9 @@ export async function deleteOpenCodeManagedProvider(input: {
       providerId: input.providerId,
       workspaceRoot: input.workspaceRoot,
     });
+    // Workspace project file (e.g. Ollama from connectors) — independent of
+    // the global ~/.config/opencode write above.
+    await input.removeWorkspaceProvider?.(input.providerId).catch(() => null);
     input.setOpenCodeManagedProviders((current) =>
       current.filter((item) => item.id !== input.providerId),
     );

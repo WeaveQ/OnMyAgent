@@ -18,6 +18,7 @@ import grokIconUrl from "@/assets/agent-icons/grok.svg";
 import qoderIconUrl from "@/assets/agent-icons/qoder.svg";
 import codebuddyIconUrl from "@/assets/agent-icons/codebuddy.svg";
 import nanobotIconUrl from "@/assets/agent-icons/nanobot.svg";
+import piIconUrl from "@/assets/agent-icons/pi.svg";
 import traeIconUrl from "@/assets/agent-icons/trae.svg";
 import snowIconUrl from "@/assets/agent-icons/snow.svg";
 import augmentIconUrl from "@/assets/agent-icons/augment.svg";
@@ -56,6 +57,8 @@ const ICONS: Record<string, string> = {
   snow: snowIconUrl,
   cortex: snowIconUrl,
   augment: augmentIconUrl,
+  // Pi coding agent (pi.dev) — monochrome Lobe mark.
+  pi: piIconUrl,
 };
 
 export function AgentSkillIcon(props: { agent: AgentIconId; className?: string }) {

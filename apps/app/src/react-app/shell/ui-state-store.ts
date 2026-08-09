@@ -15,9 +15,21 @@ export const DEFAULT_WORKSPACE_LEFT_SIDEBAR_WIDTH = 260;
 export const MIN_WORKSPACE_LEFT_SIDEBAR_WIDTH = 220;
 export const MAX_WORKSPACE_LEFT_SIDEBAR_WIDTH = 420;
 export const DEFAULT_WORKSPACE_RIGHT_SIDEBAR_COLLAPSED_WIDTH = 72;
-export const DEFAULT_WORKSPACE_RIGHT_SIDEBAR_EXPANDED_WIDTH = 520;
-export const MIN_WORKSPACE_RIGHT_SIDEBAR_WIDTH = 420;
+/**
+ * Default open width for the right tool menu (终端 / 文件 / 浏览器 / … list).
+ * Compact — not meant for web content.
+ */
+export const DEFAULT_WORKSPACE_RIGHT_SIDEBAR_EXPANDED_WIDTH = 360;
+/**
+ * Default open width when the embedded browser is shown.
+ * Wider than the tool menu so desktop pages (e.g. Baidu) are usable.
+ */
+export const DEFAULT_BROWSER_SIDE_PANEL_WIDTH = 520;
+export const MIN_WORKSPACE_RIGHT_SIDEBAR_WIDTH = 300;
 export const MAX_WORKSPACE_RIGHT_SIDEBAR_WIDTH = 960;
+/** Previous single default before menu=360 / browser=520 split; migrate once. */
+const LEGACY_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH = 520;
+const RIGHT_SIDEBAR_WIDTH_DEFAULT_MIGRATION_KEY = "onmyagent:right-sidebar-width-default-v360";
 
 export const SIDE_PANEL_ITEMS = [
   "browser",
@@ -144,6 +156,33 @@ function readSidebarCookieOpen(): boolean | null {
   return cookie.slice(prefix.length) === "true";
 }
 
+/**
+ * One-shot: if the user still has the old 520px default (never custom-resized
+ * away from it), snap to the current 360 default so browser matches the outer rail.
+ */
+function migrateLegacyRightSidebarDefaultWidth(width: number): number {
+  if (globalThis.window === undefined) {
+    return width;
+  }
+
+  const migrated = window.localStorage.getItem(RIGHT_SIDEBAR_WIDTH_DEFAULT_MIGRATION_KEY) === "1";
+  if (migrated) {
+    return width;
+  }
+
+  try {
+    window.localStorage.setItem(RIGHT_SIDEBAR_WIDTH_DEFAULT_MIGRATION_KEY, "1");
+  } catch {
+    // ignore quota / private mode
+  }
+
+  if (width === LEGACY_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH) {
+    return DEFAULT_WORKSPACE_RIGHT_SIDEBAR_EXPANDED_WIDTH;
+  }
+
+  return width;
+}
+
 function readPersistedUiState(): UiState {
   if (globalThis.window === undefined) {
     return initialState;
@@ -155,6 +194,10 @@ function readPersistedUiState(): UiState {
     const legacyLayoutState = readLegacyWorkspaceLayoutState();
 
     if (!raw) {
+      const rightWidth = migrateLegacyRightSidebarDefaultWidth(
+        legacyLayoutState.workspaceRightSidebarExpandedWidth ??
+          initialState.workspaceRightSidebarExpandedWidth,
+      );
       return {
         ...initialState,
         sidebarOpen,
@@ -163,13 +206,21 @@ function readPersistedUiState(): UiState {
           legacyLayoutState.workspaceLeftSidebarWidth ?? initialState.workspaceLeftSidebarWidth,
         workspaceRightSidebarExpanded:
           legacyLayoutState.workspaceRightSidebarExpanded ?? initialState.workspaceRightSidebarExpanded,
-        workspaceRightSidebarExpandedWidth:
-          legacyLayoutState.workspaceRightSidebarExpandedWidth ?? initialState.workspaceRightSidebarExpandedWidth,
+        workspaceRightSidebarExpandedWidth: rightWidth,
       };
     }
 
     const parsed: PersistedUiState = JSON.parse(raw);
     const sidePanelState = normalizeSidePanelState(parsed.sidePanelState);
+    const rightWidth = migrateLegacyRightSidebarDefaultWidth(
+      normalizeNumber(
+        parsed.workspaceRightSidebarExpandedWidth,
+        MIN_WORKSPACE_RIGHT_SIDEBAR_WIDTH,
+        MAX_WORKSPACE_RIGHT_SIDEBAR_WIDTH,
+      ) ??
+        legacyLayoutState.workspaceRightSidebarExpandedWidth ??
+        initialState.workspaceRightSidebarExpandedWidth,
+    );
 
     return {
       ...initialState,
@@ -185,11 +236,7 @@ function readPersistedUiState(): UiState {
         parsed.workspaceRightSidebarExpanded ??
         legacyLayoutState.workspaceRightSidebarExpanded ??
         initialState.workspaceRightSidebarExpanded,
-      workspaceRightSidebarExpandedWidth: normalizeNumber(
-        parsed.workspaceRightSidebarExpandedWidth,
-        MIN_WORKSPACE_RIGHT_SIDEBAR_WIDTH,
-        MAX_WORKSPACE_RIGHT_SIDEBAR_WIDTH,
-      ) ?? legacyLayoutState.workspaceRightSidebarExpandedWidth ?? initialState.workspaceRightSidebarExpandedWidth,
+      workspaceRightSidebarExpandedWidth: rightWidth,
     };
   } catch {
     return initialState;

@@ -1134,6 +1134,8 @@ export function CodeWorkspaceSidePanel(props: {
   onClose: () => void;
   onViewAutomation?: (task: OnMyAgentAutomationTaskItem) => void;
   hiddenKinds?: ToolKind[];
+  /** Called when the browser tool is opened so the host can expand the rail (520). */
+  onBrowserOpen?: () => void;
 }) {
   const cacheKey = workspacePanelCacheKey(props.sessionId, props.workspaceId);
   const cacheKeyRef = useRef(cacheKey);
@@ -1241,6 +1243,10 @@ export function CodeWorkspaceSidePanel(props: {
       // page tabs live *inside* BrowserPanel, not as duplicate tool chips.
       if (kind !== "terminal") {
         setTerminalError(null);
+        // Expand the host rail before mounting the browser viewport.
+        if (kind === "browser") {
+          props.onBrowserOpen?.();
+        }
         // User open browser: ensure a session page tab *before* mounting BrowserPanel
         // so the viewport activates on first paint (no empty shell → late show race).
         if (kind === "browser" && options?.seedHomeWhenEmpty && props.sessionId) {
@@ -1310,6 +1316,7 @@ export function CodeWorkspaceSidePanel(props: {
     [
       props.fileRoot,
       props.hiddenKinds,
+      props.onBrowserOpen,
       props.sessionId,
       props.workspaceCatalogRoot,
       props.workspacePath,
@@ -1438,7 +1445,16 @@ export function CodeWorkspaceSidePanel(props: {
                 return (
                   <PanelTabItem key={tab.id} value={tab.id} id={tab.id} className="w-40">
                     <div className="relative">
-                      <PanelTab active={tab.id === activeId} onClick={() => setActiveId(tab.id)} title={tab.label}>
+                      <PanelTab
+                        active={tab.id === activeId}
+                        onClick={() => {
+                          if (tab.kind === "browser") {
+                            props.onBrowserOpen?.();
+                          }
+                          setActiveId(tab.id);
+                        }}
+                        title={tab.label}
+                      >
                         <Icon />
                         <span className="truncate">{tab.label}</span>
                       </PanelTab>
@@ -1515,8 +1531,9 @@ export function CodeWorkspaceSidePanel(props: {
       ) : null}
       <div className="min-h-0 flex-1">
         {activeTab ? content : (
-          <div className="flex h-full items-center justify-center p-6">
-            <div className="w-full max-w-md space-y-2">
+          // Center the empty tool menu in the right pane (matches CodeSidePanelMenu).
+          <div className="flex h-full items-center justify-center px-3 py-6">
+            <div className="w-full space-y-2">
               {visibleToolItems.map((item) => {
                 const Icon = item.icon;
                 const isTerminal = item.kind === "terminal";

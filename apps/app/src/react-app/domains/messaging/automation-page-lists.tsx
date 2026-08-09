@@ -20,6 +20,8 @@ import { EmptyStateBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { OnMyAgentAutomationTaskItem } from "../../../app/lib/onmyagent-server";
 import { t } from "../../../i18n";
+import { AUTOMATION_EMPTY_STATE_ASSET } from "@/react-app/design-system/empty-state-assets";
+import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import {
   resolveRunDayLabel,
   type CompletedRunEntry,
@@ -119,7 +121,7 @@ export function ScheduledAutomationRow(props: {
             <Pencil className="size-3.5" />
             {t("automation.edit")}
           </Button>
-          <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+          <div className="flex items-center gap-0.5">
             <Button
               type="button"
               variant="ghost"
@@ -355,8 +357,18 @@ export function AutomationTasksListBody(props: {
         </div>
       ) : null}
       {props.taskCount === 0 ? (
-        <EmptyStateBox size="default" tone="muted" className="text-sm">
-          {t("automation.empty_tasks_title")}
+        <EmptyStateBox
+          size="default"
+          tone="muted"
+          className="flex flex-col items-center justify-center gap-0 text-sm"
+        >
+          <EmptyStateIllustration
+            src={AUTOMATION_EMPTY_STATE_ASSET}
+            size="compact"
+          />
+          <p className="text-sm leading-5 text-dls-secondary">
+            {t("automation.empty_tasks_title")}
+          </p>
         </EmptyStateBox>
       ) : null}
     </div>
@@ -423,8 +435,18 @@ export function AutomationRunsListBody(props: {
         </div>
       ) : null}
       {props.running.length === 0 && props.runCount === 0 ? (
-        <EmptyStateBox size="default" tone="muted" className="text-sm">
-          {t("automation.empty_runs_title")}
+        <EmptyStateBox
+          size="default"
+          tone="muted"
+          className="flex flex-col items-center justify-center gap-0 text-sm"
+        >
+          <EmptyStateIllustration
+            src={AUTOMATION_EMPTY_STATE_ASSET}
+            size="compact"
+          />
+          <p className="text-sm leading-5 text-dls-secondary">
+            {t("automation.empty_runs_title")}
+          </p>
         </EmptyStateBox>
       ) : null}
     </div>

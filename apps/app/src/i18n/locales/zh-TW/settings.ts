@@ -166,6 +166,7 @@ export default {
   "settings.archived_tasks_delete_project_all_confirm":
     "將永久刪除「{project}」中的 {count} 個已歸檔任務，此操作無法撤銷。",
   "settings.archived_tasks_project_menu": "項目操作",
+  "settings.archived_tasks_row_menu": "任務操作",
   "settings.archived_tasks_unarchive": "取消歸檔",
   "settings.archived_tasks_loading": "正在加載已歸檔任務…",
   "settings.archived_tasks_empty": "暫無已歸檔任務",
@@ -543,7 +544,7 @@ export default {
     "OnMyAgent 用於執行任務的本地智能體運行時",
   "settings.tab_general": "總覽",
   "settings.tab_recovery": "重置",
-  "settings.tab_memory": "個人",
+  "settings.tab_memory": "資料",
   "settings.tab_description_memory": "語氣、自定義指令與個人資訊、職業角色",
   "settings.tab_conversation_memory": "記憶",
   "settings.tab_description_conversation_memory":
