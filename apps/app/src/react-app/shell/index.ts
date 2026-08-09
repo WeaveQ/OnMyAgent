@@ -14,6 +14,12 @@ export {
   type BootPhaseId,
   type BootStateSnapshot,
 } from "./boot-state";
+export {
+  BOOT_STATIC_HOME_DEADLINE_MS,
+  planBootShellReadyAfterRefresh,
+  shouldNotifyStaticHomeReady,
+  type BootShellReadyAction,
+} from "./boot-shell-ready";
 export * from "./route-load-registry";
 export {
   LoadSurface,

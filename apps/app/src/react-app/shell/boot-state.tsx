@@ -238,7 +238,7 @@ export function useBootState(): BootStateContextValue {
  *    only changes the splash copy; it does NOT dismiss the overlay.
  * 3. Hold a minimum time so we never flash the empty shell for a few frames.
  * 4. routeReady must always arrive: ideal path = static home paint; fail-safe =
- *    hard deadline after route refresh (see boot-shell-ready.ts). Never hang.
+ *    hard deadline after route refresh (see ./boot-shell-ready.ts). Never hang.
  * Errors keep the overlay so retry chrome stays visible.
  */
 const BOOT_BLOCKING_PHASES: ReadonlySet<BootPhaseId> = new Set([
