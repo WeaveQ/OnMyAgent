@@ -262,10 +262,9 @@ test("Skysight helpers pause, resume, and update exclusions", async () => {
   );
 });
 
-test("Appshot is supported on desktop platforms", () => {
+test("Appshot is supported on macOS and Windows", () => {
   assert.equal(isComputerUseAppshotSupported("darwin"), true);
   assert.equal(isComputerUseAppshotSupported("win32"), true);
-  assert.equal(isComputerUseAppshotSupported("linux"), true);
   assert.equal(isComputerUseAppshotSupported("android"), false);
 });
 

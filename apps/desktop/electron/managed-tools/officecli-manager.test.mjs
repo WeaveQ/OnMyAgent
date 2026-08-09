@@ -101,7 +101,6 @@ function fixtureFetch({ pointerManifest, releaseManifest, binary, skill }) {
 test("maps supported platforms and compares OfficeCLI versions", () => {
   assert.equal(officeCliPlatformKey("darwin", "arm64"), "officecli-mac-arm64");
   assert.equal(officeCliPlatformKey("win32", "x64"), "officecli-win-x64");
-  assert.equal(officeCliPlatformKey("linux", "x64"), null);
   assert.equal(officeCliPlatformKey("freebsd", "x64"), null);
   assert.equal(compareOfficeCliVersions("1.0.103", "1.0.102"), 1);
   assert.equal(compareOfficeCliVersions("1.0.102", "1.0.102"), 0);

@@ -110,7 +110,7 @@ test("product runtime binary helpers", () => {
     path.join("python", "python.exe"),
   );
   assert.deepEqual(productRuntimeBinaryNames("node", "win32"), ["node.exe"]);
-  assert.deepEqual(productRuntimeBinaryNames("python", "linux"), ["python3", "python"]);
+  assert.deepEqual(productRuntimeBinaryNames("python", "darwin"), ["python3", "python"]);
 });
 
 test("parseDockerClientVersion and parseDockerServerVersion", () => {

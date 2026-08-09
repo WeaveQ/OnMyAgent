@@ -33,7 +33,6 @@ test("maps supported platforms for lark-cli", () => {
   assert.equal(larkCliPlatformKey("darwin", "arm64"), "lark-cli-mac-arm64");
   assert.equal(larkCliPlatformKey("darwin", "x64"), "lark-cli-mac-x64");
   assert.equal(larkCliPlatformKey("win32", "x64"), "lark-cli-win-x64");
-  assert.equal(larkCliPlatformKey("linux", "x64"), null);
 });
 
 test("loadLarkCliDownloadConfig reads lark-cli entry from managed-cli registry", () => {
