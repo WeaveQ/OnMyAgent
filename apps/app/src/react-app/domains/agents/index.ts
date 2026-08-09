@@ -15,7 +15,9 @@ export type {
   ExpertCreationSuggestionApplyOptions,
 } from "./expert-creation-conversation";
 export {
+  beginExpertCreateSaveAttempt,
   buildExpertCreationPreview,
+  consumeExpertCreateComposerFlush,
   saveExpertCreation,
   updateExpertCreation,
   useExpertCreationController,

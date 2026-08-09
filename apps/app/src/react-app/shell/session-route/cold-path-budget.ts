@@ -76,3 +76,17 @@ export function isColdPathWithinBudget(
 export function isSyncPrewarmAllowedOnColdEnter(): boolean {
   return COLD_PATH_BUDGET.maxSyncPrewarmOnColdEnter > 0;
 }
+
+/**
+ * Gate + count a cold-enter title snapshot. Returns false when thrash-banned
+ * (callers must skip the network pull).
+ */
+export function tryRecordColdTitleSnapshot(input: {
+  isSelectedSession: boolean;
+  titleEmpty: boolean;
+  alreadySnapshotted: boolean;
+}): boolean {
+  if (!isTitleSnapshotAllowedOnColdEnter(input)) return false;
+  recordColdPathEvent("titleSnapshot");
+  return true;
+}

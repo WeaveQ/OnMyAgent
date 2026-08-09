@@ -35,6 +35,7 @@ import type { SessionPageSurfaceProps } from "../../domains/session";
 import {
   addAssistantSession,
   addExpertSession,
+  shouldApplyExpertSelection,
   writeAssistantSessionCategory,
 } from "../../domains/agents";
 import {
@@ -1082,7 +1083,19 @@ export function useSessionRouteSurfaceProps(
           (agent) => !agent.hidden && agent.mode !== "subagent",
         );
       },
-      onSelectAgent: (agent: string | null) => setSelectedAgent(agent),
+      onSelectAgent: (agent: string | null) => {
+        const next = agent?.trim() ? agent.trim() : null;
+        if (
+          next &&
+          !shouldApplyExpertSelection({
+            nextExpertId: next,
+            selectedExpertId: selectedAgent,
+          })
+        ) {
+          return;
+        }
+        setSelectedAgent(next);
+      },
       listCommands: listSlashCommands,
       recentFiles: [],
       searchFiles: async (query: string) => {
