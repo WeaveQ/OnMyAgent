@@ -37,8 +37,9 @@
       html[data-theme="dark"] body { background: #2c2c2c; color: #f8fafc; }
       .onmyagent-static-boot { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; background: inherit; }
       .onmyagent-static-boot__content { display: flex; width: 100%; max-width: 22rem; flex-direction: column; align-items: center; gap: 1.5rem; padding: 2rem; text-align: center; }
-      .onmyagent-static-boot__mark { display: flex; width: 4rem; height: 4rem; align-items: center; justify-content: center; border: 1px solid #e5e7eb; border-radius: 0.875rem; background: #fff; box-shadow: 0 8px 28px rgba(15, 23, 42, .06); }
-      html[data-theme="dark"] .onmyagent-static-boot__mark { border-color: #3a3a3a; background: #2c2c2c; box-shadow: 0 8px 28px rgba(0, 0, 0, .35); }
+      /* Bare monogram — no tile border/shadow so the mark reads larger. */
+      .onmyagent-static-boot__mark { display: flex; width: 5.5rem; height: 5.5rem; align-items: center; justify-content: center; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+      html[data-theme="dark"] .onmyagent-static-boot__mark { border: 0; background: transparent; box-shadow: none; }
       .onmyagent-static-boot__title { font-size: .875rem; font-weight: 600; letter-spacing: -.01em; }
       .onmyagent-static-boot__status { display: flex; flex-direction: column; align-items: center; gap: .75rem; }
       .onmyagent-static-boot__dots { display: flex; gap: .375rem; height: 1rem; align-items: center; }
@@ -59,11 +60,11 @@
           <!-- Compact brand monogram (not the 2k product logo) for first paint. -->
           <img
             src="/onmyagent-boot-mark.png"
-            width="40"
-            height="40"
+            width="72"
+            height="72"
             alt=""
             draggable="false"
-            style="display:block;width:2.5rem;height:2.5rem;object-fit:contain"
+            style="display:block;width:4.5rem;height:4.5rem;object-fit:contain"
           />
         </div>
         <div class="onmyagent-static-boot__status">
