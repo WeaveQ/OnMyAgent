@@ -115,6 +115,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
 
   const scheduleLoginRefresh = useCallback(() => {
     if (loginRefreshTimerRef.current != null) return;
+    // DESIGN.md state-timings.instant-ms (200)
     loginRefreshTimerRef.current = window.setTimeout(() => {
       loginRefreshTimerRef.current = null;
       loginStartedRef.current = false;
@@ -122,18 +123,19 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
       setLoginUrl(null);
       setLoginQr(null);
       setLoginRefreshKey((key) => key + 1);
-    }, 400);
+    }, 200);
   }, []);
 
   const scheduleConfigRefresh = useCallback(() => {
     if (configRefreshTimerRef.current != null) return;
+    // DESIGN.md state-timings.instant-ms (200)
     configRefreshTimerRef.current = window.setTimeout(() => {
       configRefreshTimerRef.current = null;
       setError(null);
       setConfigUrl(null);
       setConfigQr(null);
       setConfigRefreshKey((key) => key + 1);
-    }, 400);
+    }, 200);
   }, []);
 
   useEffect(() => {

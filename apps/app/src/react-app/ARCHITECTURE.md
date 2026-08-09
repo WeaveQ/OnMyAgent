@@ -175,6 +175,9 @@ Rules for implementers:
   cached sidebar titles); do not wait for full engine warm-up to dismiss the overlay.
 - Prewarm is **idle / deferred only** (e.g. `requestIdleCallback` + timeout fallback). Do not block
   first paint or re-issue a full `provider.list` that duplicates the cold session path.
+- **Cold path must not thrash tab titles / session snapshots** for empty or selected-only chips
+  (no tight poll that re-hits OpenCode for title on every enter). Prefer deferred / idle work after
+  first paint; see monorepo summary in `docs/Architecture.md` **Session / Expert / cold-path pointers**.
 - User-visible load copy keys live under `system.load_*` / `system.boot_*` in i18n — do not reuse
   session message-pulling copy for workspace/route loads.
 - Product errors: classify through `kernel/user-error` before showing route banners; wire recovery
