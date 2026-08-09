@@ -28,9 +28,9 @@ describe("session-route folder facade contract", () => {
     expect(source).toContain('from "./render"');
   });
 
-  test("app-root imports the folder facade", () => {
+  test("app-root lazy-loads the folder facade", () => {
     const appRoot = readFileSync(join(shell, "app-root.tsx"), "utf8");
-    expect(appRoot).toContain('from "./session-route"');
+    expect(appRoot).toContain('import("./session-route")');
   });
 
   test("cleared shared-pages directory stays gone", () => {

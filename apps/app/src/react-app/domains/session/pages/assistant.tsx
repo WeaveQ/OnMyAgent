@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -118,7 +118,7 @@ import {
   SessionPageMainColumn,
   SessionRailKeepAliveStack,
 } from "./session-page-shell";
-import { SessionStartupSkeleton } from "./session-startup-skeleton";
+import { AssistantStartupHome } from "./assistant-startup-home";
 import {
   BillingPage,
   DevicesPage,
@@ -994,8 +994,12 @@ export function AssistantPage(props: AssistantPageProps) {
     reactSessionToken &&
     props.surface,
   );
-  const showBlockingStartupSkeleton =
-    showStartupSkeleton && !canRenderReactSurface;
+  // A draft home is useful before the runtime tuple exists. Keep this
+  // runtime-independent first frame mounted until the real SessionSurface can
+  // replace it in the same slot; connection probes finishing alone must not
+  // turn the main column blank.
+  const showRuntimeIndependentDraftHome =
+    isDraftSession && !canRenderReactSurface;
   const activePlaceholderView =
     activeSidebarView === "chat" ||
     activeSidebarView === "assistant" ||
@@ -1019,6 +1023,15 @@ export function AssistantPage(props: AssistantPageProps) {
   // rail switches (e.g. 自动 → 首页). Loading skeleton still shows in `middle`.
   const sessionSurfaceActive =
     isPrimarySessionView || showAutomationEmbeddedSession;
+
+  // The startup overlay must not dismiss merely because a connection probe
+  // completed. This effect runs after the static home (or real surface) is
+  // committed, so the first uncovered frame always has useful content.
+  useLayoutEffect(() => {
+    if (!props.selectedSessionId && isPrimarySessionView) {
+      props.onStaticHomeReady?.();
+    }
+  }, [isPrimarySessionView, props.onStaticHomeReady, props.selectedSessionId]);
   // Workspace side panel only belongs on chat surfaces (not 市场/管理/本地/文件…).
   const sidePanelVisibleOnSession =
     sidePanelVisible && isPrimarySessionView;
@@ -1482,8 +1495,8 @@ export function AssistantPage(props: AssistantPageProps) {
                         />
                       ) : null}
 
-                      {isPrimarySessionView && showBlockingStartupSkeleton ? (
-                        <SessionStartupSkeleton />
+                      {isPrimarySessionView && showRuntimeIndependentDraftHome ? (
+                        <AssistantStartupHome categoryId={assistantCategoryId} />
                       ) : null}
 
                       {isPrimarySessionView &&

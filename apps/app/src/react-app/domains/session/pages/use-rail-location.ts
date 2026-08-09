@@ -9,7 +9,7 @@
  * a secondary bookmark (e.g. files) after the user left that rail via mode
  * switch. Session-level keys survive remounts for this SPA lifetime.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import type { OnMyAgentPrimaryView } from "../sidebar/main-rail";
@@ -119,6 +119,11 @@ export function useRailLocation(input: {
 
   const openRailView = useCallback(
     (view: OnMyAgentPrimaryView) => {
+      // Paint the pressed rail state in the current event before the route
+      // begins mounting a potentially expensive page. The URL remains the
+      // durable source of truth and reconciles this optimistic state once the
+      // transition commits.
+      setActiveSidebarView(view);
       // Bookmark for next cold start only — history uses the URL.
       writeRailView(input.mode, input.workspaceId, view);
       const next = buildPathWithRailView({
@@ -129,9 +134,10 @@ export function useRailLocation(input: {
       });
       const current = `${location.pathname}${location.search}`;
       if (next !== current) {
-        navigate(next);
+        startTransition(() => {
+          navigate(next);
+        });
       }
-      setActiveSidebarView(view);
     },
     [
       input.mode,
