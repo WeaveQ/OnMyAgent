@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 
-const { clearDevLogs, formatDevLogLine, formatDevLogText, readDevLogs, recordDevLog } = await import(
-  "../src/app/lib/dev-log.ts"
-);
+const {
+  clearDevLogs,
+  createDevLogger,
+  formatDevLogLine,
+  formatDevLogText,
+  readDevLogs,
+  recordDevLog,
+} = await import("../src/app/lib/dev-log.ts");
 
 const results = {
   ok: true,
@@ -50,6 +55,30 @@ try {
     const text = formatDevLogText(0);
     assert.match(text, /DEBUG workspace:connect:start/);
     assert.match(text, /WARN session:stream:error/);
+  });
+
+  step("createDevLogger records level + source + label without console", () => {
+    clearDevLogs();
+    const log = createDevLogger("fetch-policy");
+    const entry = log.info("classify", { route: "via-main" });
+    assert.ok(entry);
+    assert.equal(entry?.level, "info");
+    assert.equal(entry?.source, "fetch-policy");
+    assert.equal(entry?.label, "classify");
+    assert.equal((entry?.payload as { route: string }).route, "via-main");
+    const errEntry = log.error("blocked", { reason: "blocked-scheme" });
+    assert.equal(errEntry?.level, "error");
+    const logs = readDevLogs(0);
+    assert.equal(logs.length, 2);
+    assert.equal(logs[0]?.source, "fetch-policy");
+    assert.equal(logs[1]?.label, "blocked");
+  });
+
+  step("createDevLogger can be disabled", () => {
+    clearDevLogs();
+    const log = createDevLogger("quiet", { enabled: false });
+    assert.equal(log.debug("noop"), undefined);
+    assert.equal(readDevLogs(0).length, 0);
   });
 
   console.log(JSON.stringify(results, null, 2));
