@@ -20,7 +20,7 @@ const listModelSource = readFileSync(
 
 describe("assistant task list scroll contract", () => {
   test("previews recent tasks before showing the disclosure action", () => {
-    expect(sectionsSource).toContain("const RECENT_PREVIEW_LIMIT = 12;");
+    expect(sectionsSource).toContain("const RECENT_PREVIEW_LIMIT = 10;");
   });
 
   test("splits the list into collapsible sections without a separate 任务 block", () => {
