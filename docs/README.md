@@ -14,7 +14,13 @@
 | **Visual tokens** | [`../DESIGN.md`](../DESIGN.md) | Tokens / shapes / signature components; **not** session product behavior |
 | **Ship notes** | [`../CHANGELOG.md`](../CHANGELOG.md) | What shipped — **not** architecture changelog bullets |
 
-**Rules:** one SoT per topic; Architecture links out instead of duplicating long specs; do not invent parallel `docs/expert-*.md` roots without linking from Architecture.
+**Rules:**
+
+- **One SoT per topic.** Architecture / DESIGN / package AGENTS link out; do not re-copy long specs.
+- **AGENTS.md** = agent runbook (gates, path permissions, Phase-2 hard entry, verify entry). **Not** visual encyclopedia (→ DESIGN) and **not** dual-runtime deep dive (→ Architecture).
+- **DESIGN.md** = visual / component SoT only. **Not** session product behavior (→ `apps/app/AGENTS.md`).
+- **apps/app/AGENTS.md** experts/session **behavior** invariants ≠ Architecture expert **lifecycle/budget** tables — both apply; do not merge into one list.
+- Do not invent parallel `docs/expert-*.md` roots without linking from Architecture.
 
 ## Layout
 

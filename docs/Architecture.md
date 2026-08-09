@@ -4,6 +4,8 @@ OnMyAgent 是面向 agentic 工作流的桌面控制台，基于 OpenCode。本�
 
 ## Product phase (Phase 2)
 
+> **Agent hard entry** (six Phase-2 constraints agents must not violate) lives in root [`AGENTS.md`](../AGENTS.md). This section is engineering context + pointers; do not fork a second constraint list here.
+
 | | |
 | --- | --- |
 | **Current product phase** | **Phase 2** — desktop config foundation + **B-side (enterprise control) prep** |
@@ -27,7 +29,7 @@ OnMyAgent 是面向 agentic 工作流的桌面控制台，基于 OpenCode。本�
 | **Windows** | Supported Electron shell; NSIS **unsigned** developer preview — see [`windows-compat.md`](./windows-compat.md) |
 | **Linux desktop packages** | **Not a product target** (no AppImage/AUR ship). CI may still use `ubuntu-latest` as a host; Docker **sandbox** may still pull linux sidecars — that is not “Linux client support”. |
 
-**Hard constraints for engineering:**
+**Hard constraints for engineering** (must stay consistent with root `AGENTS.md` Phase-2 hard entry; change both when policy changes):
 
 - Mode A (logged-out) remains full local use — **no login wall**, no company HTTP without `companyBaseUrl` + session.
 - Config trees for `local` and future `company` share **one isomorphic schema** under `~/.onmyagent/profiles/{local\|company}/config/`.
