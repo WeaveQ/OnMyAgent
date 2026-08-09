@@ -1,14 +1,18 @@
 /** @jsxImportSource react */
-import { BookOpenCheck } from "lucide-react";
+import { Briefcase } from "lucide-react";
 
 import { t } from "../../../../../i18n";
 import { cn } from "@/lib/utils";
 import type { AssistantCategoryId } from "../personal-assistant-config";
 
+/**
+ * Draft-home title mark — office briefcase for “work with OnMyAgent”.
+ * categoryId kept for call-site stability; product is office-only today.
+ */
 export function AssistantDraftHomeMark(_props: { categoryId: AssistantCategoryId }) {
   return (
     <span className="inline-flex size-9 shrink-0 items-center justify-center text-dls-text sm:size-10">
-      <BookOpenCheck className="size-8 sm:size-9" strokeWidth={1.6} />
+      <Briefcase className="size-8 sm:size-9" strokeWidth={1.6} aria-hidden />
     </span>
   );
 }

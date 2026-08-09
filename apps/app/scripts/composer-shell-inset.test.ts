@@ -41,16 +41,17 @@ describe("composer shell bottom inset", () => {
     expect(flush.includes(COMPOSER_SHELL_BOTTOM_PAD_CLASS)).toBe(false);
   });
 
-  test("draft-home column keeps bottom pad instead of pb-0", () => {
+  test("column bottom is zero so shell pb-5 alone matches sidebar CTA baseline", () => {
     const homeColumn = resolveComposerColumnShellClass({
       collapseTopSpacing: true,
     });
     const chatColumn = resolveComposerColumnShellClass({
       collapseTopSpacing: false,
     });
+    expect(COMPOSER_COLUMN_BOTTOM_PAD_CLASS).toBe("pb-0");
+    expect(COMPOSER_SHELL_BOTTOM_PAD_CLASS).toBe("pb-5");
     expect(homeColumn).toContain(COMPOSER_COLUMN_BOTTOM_PAD_CLASS);
     expect(chatColumn).toContain(COMPOSER_COLUMN_BOTTOM_PAD_CLASS);
-    expect(homeColumn.includes("pb-0")).toBe(false);
     expect(homeColumn).toContain("pt-0");
     expect(chatColumn).toContain("pt-2");
   });

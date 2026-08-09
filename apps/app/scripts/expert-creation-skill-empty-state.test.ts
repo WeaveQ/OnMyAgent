@@ -26,10 +26,10 @@ describe("expert creation skill empty state", () => {
     expect(emptyStateSource).not.toContain("expert_creation_import_skill");
   });
 
-  test("uses a quiet file-search placeholder without accent chrome", () => {
-    expect(illustrationSource).toContain("FileSearch");
-    expect(illustrationSource).toContain("text-dls-secondary/60");
-    expect(illustrationSource).toContain("strokeWidth={1.25}");
+  test("uses shared Koboyo skills wand illustration without accent chrome", () => {
+    expect(illustrationSource).toContain("EmptyStateIllustration");
+    expect(illustrationSource).toContain("SKILLS_EMPTY_STATE_ASSET");
+    expect(illustrationSource).not.toContain("FileSearch");
     expect(illustrationSource).not.toContain("<IconTile");
     expect(illustrationSource).not.toContain("BookOpenCheck");
     expect(illustrationSource).not.toContain("<Blocks");

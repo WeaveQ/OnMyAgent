@@ -20,7 +20,6 @@ import { COMPOSER_TEMPLATE_EVENTS } from "../surface/composer/capability-templat
 import { ShareWorkspaceModal } from "../../workspace";
 import { OwDotTicker, type SidePanelItem, useReactRenderWatchdog, useUiStateStore } from "../../../shell";
 import { cn } from "@/lib/utils";
-import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { PersonalLocalAgentPage } from "../../local-agents";
 import { ConversationHistoryPopover } from "../sidebar/conversation-history-popover";
 import { SessionHistorySearchChrome } from "./session-history-search-chrome";
@@ -126,6 +125,7 @@ import {
   NO_EXPERT_CONVERSATIONS_ASSET,
   expertFeatureCategoryForAgent,
 } from "./expert-page-utils";
+import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import { useCustomConnectorDialog } from "./use-custom-connector-dialog";
 import { useMyExpertPackages } from "./use-my-expert-packages";
 import { useAgentPanelResize } from "./use-agent-panel-resize";
@@ -1479,11 +1479,8 @@ export function ExpertPage(props: ExpertPageProps) {
                       showNoExpertConversationEmptyState ? (
                         <div className="flex h-full min-h-0 items-center justify-center px-8 py-10">
                           <div className="flex max-w-md flex-col items-center text-center">
-                            <img
-                              src={resolvePublicAssetUrl(NO_EXPERT_CONVERSATIONS_ASSET)}
-                              alt=""
-                              className="mb-5 w-full max-w-[220px] select-none object-contain"
-                              draggable={false}
+                            <EmptyStateIllustration
+                              src={NO_EXPERT_CONVERSATIONS_ASSET}
                             />
                             <h2 className="text-lg font-medium tracking-tight text-dls-text">
                               {t("session.no_expert_conversations_title")}

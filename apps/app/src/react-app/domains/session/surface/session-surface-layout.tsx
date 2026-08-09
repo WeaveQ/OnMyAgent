@@ -70,7 +70,7 @@ export function SessionSurfaceTranscriptPane(props: {
         onPointerDown={props.onPointerDown}
         onScroll={props.onScroll}
         className={cn(
-          "absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-y-contain py-5",
+          "session-transcript-scroll absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-y-contain py-5",
           // Match composer horizontal inset so content + input share one column.
           SESSION_CONTENT_X_PADDING_CLASS,
           // Promote the scroll layer so compositor can scroll without

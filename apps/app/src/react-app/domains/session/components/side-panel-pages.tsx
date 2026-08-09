@@ -4,19 +4,18 @@ import {
   ChevronDown,
   ChevronLeft,
   Clock3,
-  FileText,
+  HardDrive,
   LayoutDashboard,
-  MonitorSmartphone,
-  Network,
+  MessagesSquare,
   Package,
+  Plug,
   Plus,
-  Puzzle,
   Search,
   Sparkles,
   Upload,
   UserPlus,
   UserRound,
-  Zap,
+  Users,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { useEffect, useState } from "react";
@@ -49,6 +48,8 @@ import {
   type ExpertMarketplaceView,
 } from "@/react-app/domains/plugins";
 import { useStatusToasts } from "../../shell-feedback";
+import { PROJECTS_PLACEHOLDER_ASSET } from "@/react-app/design-system/empty-state-assets";
+import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import { FeaturePreviewPlaceholder } from "./feature-preview-placeholder";
 
 const sidePanelTextClass = {
@@ -81,11 +82,12 @@ export const SIDEBAR_VIEW_ICONS: Record<
   billing: Sparkles,
   usage: LayoutDashboard,
   agents: Bot,
-  skills: FileText,
-  connectors: Zap,
-  devices: MonitorSmartphone,
+  skills: Sparkles,
+  connectors: Plug,
+  // Distinct from LocalAgent monitor glyph used elsewhere in the shell.
+  devices: HardDrive,
   scheduledTasks: Clock3,
-  channels: Network,
+  channels: MessagesSquare,
   personalAssistant: LayoutDashboard,
 };
 
@@ -312,7 +314,8 @@ function StorePrimaryTabs(props: {
     icon: ComponentType<{ className?: string }>;
   }> = [
     { id: "experts", label: t("store.experts_tab"), icon: UserRound },
-    { id: "skills", label: t("store.skills_tab"), icon: Puzzle },
+    // Sparkles — same skills glyph as sidebar / nav maps (not puzzle piece).
+    { id: "skills", label: t("store.skills_tab"), icon: Sparkles },
     { id: "plugins", label: t("plugins.artifact_tab"), icon: Package },
   ];
 
@@ -452,7 +455,8 @@ export function StorePage(props: {
                 onClick={() => setExpertView("mine")}
                 className="mac:titlebar-no-drag"
               >
-                <UserPlus data-icon="inline-start" className="size-3.5" />
+                {/* Collection of experts I own — not UserPlus (that is create). */}
+                <Users data-icon="inline-start" className="size-3.5" />
                 {t("session.my_experts")}
               </Button>
               <Button
@@ -464,7 +468,7 @@ export function StorePage(props: {
                 }
                 className="mac:titlebar-no-drag"
               >
-                <Plus data-icon="inline-start" className="size-3.5" />
+                <UserPlus data-icon="inline-start" className="size-3.5" />
                 {t("session.create_expert")}
               </Button>
             </>
@@ -589,20 +593,11 @@ export function StorePage(props: {
   );
 }
 
-const PROJECTS_PLACEHOLDER_ASSET = "/empty-states/projects-placeholder.jpg";
-
 export function ProjectsComingSoonPage() {
   return (
     <div className="flex h-full items-center justify-center bg-dls-background px-6 text-center">
       <div className="flex max-w-sm flex-col items-center gap-6">
-        <img
-          src={PROJECTS_PLACEHOLDER_ASSET}
-          alt=""
-          width={280}
-          height={280}
-          className="size-[min(17.5rem,56vw)] max-w-full select-none rounded-2xl object-cover shadow-sm ring-1 ring-dls-border/50"
-          draggable={false}
-        />
+        <EmptyStateIllustration src={PROJECTS_PLACEHOLDER_ASSET} />
         <div className="space-y-1.5">
           <div className={sidePanelTextClass.panelTitle}>
             {t("session.projects_coming_soon_title")}
