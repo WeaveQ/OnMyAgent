@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 /**
- * Primary app-rail icons — Lucide outline language for most destinations;
- * Experts uses Koboyo user-star (compact person + star, readable at rail size).
+ * Primary app-rail icons — unified Lucide outline language (stroke, not solid fill)
+ * to match denser product rails (icon-above-label + free-float selected pill).
  */
 import {
   Briefcase,
@@ -14,10 +14,8 @@ import {
   MonitorSmartphone,
   Settings2,
   ShoppingBag,
+  UserRound,
 } from "lucide-react";
-
-import { UserStarIcon } from "@/react-app/design-system/user-star-icon";
-import { cn } from "@/lib/utils";
 
 type PrimaryRailIconProps = {
   className?: string;
@@ -26,9 +24,6 @@ type PrimaryRailIconProps = {
 
 /** Shared stroke weight — thin line icons read like the reference rail. */
 const RAIL_ICON_STROKE = 1.5;
-
-/** user-star is landscape (~182×126); width-driven box next to Lucide size-5.5. */
-const RAIL_EXPERT_ICON_W = 26;
 
 function railIconProps(className?: string) {
   return {
@@ -44,24 +39,12 @@ export function AssistantRailIcon(props: PrimaryRailIconProps) {
   return <House {...railIconProps(props.className)} />;
 }
 
-/**
- * Experts — Koboyo user-star (person + star).
- * Simpler single-path landscape mark; stays clear at ~26px rail width.
- */
+/** Experts — person silhouette (marketplace specialists). */
 export function ExpertRailIcon(props: PrimaryRailIconProps) {
-  return (
-    <UserStarIcon
-      width={RAIL_EXPERT_ICON_W}
-      className={cn(
-        props.className,
-        // After parent size-5.5 so landscape glyph is not forced into 22².
-        "!size-auto !h-auto !w-[26px] max-w-none",
-      )}
-    />
-  );
+  return <UserRound {...railIconProps(props.className)} />;
 }
 
-/** Local agent — device / monitor outline (distinct from Expert Koboyo mark). */
+/** Local agent — device / monitor outline (distinct from Expert UserRound). */
 export function LocalAgentRailIcon(props: PrimaryRailIconProps) {
   return <MonitorSmartphone {...railIconProps(props.className)} />;
 }
