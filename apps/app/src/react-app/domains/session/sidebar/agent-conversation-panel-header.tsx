@@ -41,7 +41,7 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
   if (props.mode === "assistant") {
     return (
       <div
-        className="relative flex w-full shrink-0 flex-col pt-1.5"
+        className="relative flex w-full shrink-0 flex-col pt-2"
         data-assistant-search="true"
       >
         <InputGroup
@@ -66,7 +66,7 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
   }
 
   return (
-    <div className="relative flex w-full shrink-0 flex-col pt-1.5">
+    <div className="relative flex w-full shrink-0 flex-col pt-2">
       <InputGroup
         controlSize="lg"
         radius="lg"
