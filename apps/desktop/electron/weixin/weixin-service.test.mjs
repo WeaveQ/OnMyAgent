@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createCipheriv } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -19,7 +19,7 @@ async function tempRoot() {
 }
 
 async function cleanup(root) {
-  await rm(root, { recursive: true, force: true });
+  await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 25 });
 }
 
 describe("weixin iLink client", () => {
@@ -57,6 +57,27 @@ describe("weixin iLink client", () => {
     assert.equal(calls[0].body.msg.context_token, "ctx-1");
     assert.equal(calls[0].body.msg.item_list[0].text_item.text, "hello");
   });
+
+  it("aborts a long poll when the Weixin service stops", async () => {
+    const controller = new AbortController();
+    const client = createIlinkClient({
+      fetchFn: async (_url, options) => await new Promise((_resolve, reject) => {
+        options.signal.addEventListener("abort", () => {
+          const error = new Error("aborted");
+          error.name = "AbortError";
+          reject(error);
+        }, { once: true });
+      }),
+    });
+    const pending = client.getUpdates({
+      baseUrl: "https://weixin.example.com/",
+      token: "tok",
+      timeoutMs: 60_000,
+      signal: controller.signal,
+    });
+    controller.abort();
+    assert.deepEqual(await pending, { ret: 0, msgs: [], get_updates_buf: "" });
+  });
 });
 
 describe("weixin store", () => {
@@ -80,6 +101,55 @@ describe("weixin store", () => {
       assert.deepEqual((await store.listAccounts()).map((account) => account.accountId), ["acct@im.bot"]);
       assert.equal((await store.loadDefaultAccount()).accountId, "acct@im.bot");
       assert.equal(await store.deleteActiveRun("acct@im.bot", "user-1::agent:opencode/opencode"), true);
+    } finally {
+      await cleanup(root);
+    }
+  });
+
+  it("preserves independently updated config fields when saving an account", async () => {
+    const root = await tempRoot();
+    try {
+      const store = createWeixinStore(root);
+      await store.writeConfig({ autoStart: false, workspaceRoot: "/workspace/current", customFlag: "keep" });
+      await store.saveAccount({ accountId: "acct", token: "token", baseUrl: "https://base/" });
+      const config = await store.readConfig();
+      assert.equal(config.defaultAccountId, "acct");
+      assert.equal(config.autoStart, false);
+      assert.equal(config.workspaceRoot, "/workspace/current");
+      assert.equal(config.customFlag, "keep");
+
+      await Promise.all([
+        store.writeConfig({ autoStart: true, concurrentAlpha: "alpha" }),
+        store.writeConfig({ workspaceRoot: "/workspace/concurrent", concurrentBeta: "beta" }),
+      ]);
+      const concurrent = await store.readConfig();
+      assert.equal(concurrent.autoStart, true);
+      assert.equal(concurrent.concurrentAlpha, "alpha");
+      assert.equal(concurrent.workspaceRoot, "/workspace/concurrent");
+      assert.equal(concurrent.concurrentBeta, "beta");
+    } finally {
+      await cleanup(root);
+    }
+  });
+
+  it("serializes concurrent active-run writes to one account file", async () => {
+    const root = await tempRoot();
+    try {
+      const store = createWeixinStore(root);
+      const runKey = "user-1::agent:codex/codex";
+      await Promise.all(Array.from({ length: 24 }, (_, index) => store.writeActiveRun("acct", runKey, { runId: `run-${index}`, status: "running" })));
+      const active = await store.listActiveRuns("acct");
+      assert.equal(active.length, 1);
+      assert.match(active[0].runId, /^run-\d+$/);
+
+      await Promise.all(Array.from({ length: 24 }, (_, index) => store.writeActiveRun(
+        "acct",
+        `parallel-user-${index}::agent:codex/codex`,
+        { runId: `parallel-${index}`, status: "running" },
+      )));
+      const parallel = await store.listActiveRuns("acct");
+      assert.equal(parallel.length, 25);
+      assert.equal(parallel.filter((entry) => String(entry.runId).startsWith("parallel-")).length, 24);
     } finally {
       await cleanup(root);
     }
@@ -195,6 +265,38 @@ describe("weixin service", () => {
     }
   });
 
+  it("stops promptly while the update loop is in retry backoff", async () => {
+    const root = await tempRoot();
+    let service = null;
+    try {
+      const store = createWeixinStore(root);
+      await store.saveAccount({ accountId: "acct", token: "tok", baseUrl: "https://weixin.example.com", userId: "owner" });
+      let attempts = 0;
+      service = createWeixinService({
+        store,
+        client: {
+          getUpdates: async () => {
+            attempts += 1;
+            throw new Error("network unavailable");
+          },
+        },
+        personalAgentRuntime: {},
+      });
+      const started = await service.start({ accountId: "acct", workspaceRoot: root, autoStart: false });
+      assert.equal(started.ok, true);
+      await waitFor(() => service.status().status === "backoff", () => JSON.stringify(service.status()));
+
+      const stopStartedAt = Date.now();
+      await service.stop({ persist: false });
+      const stopElapsedMs = Date.now() - stopStartedAt;
+      assert.equal(attempts >= 1, true);
+      assert.equal(stopElapsedMs < 1_000, true, `stop waited ${stopElapsedMs}ms for retry backoff`);
+    } finally {
+      await service?.stop({ persist: false }).catch(() => undefined);
+      await cleanup(root);
+    }
+  });
+
   it("runs an inbound text through the local agent runtime and replies via iLink", async () => {
     const root = await tempRoot();
     try {
@@ -240,9 +342,185 @@ describe("weixin service", () => {
       assert.equal(prompts[0], "ping");
       assert.equal(sent.length, 1);
       assert.equal(sent[0].to, "user-1");
-      assert.equal(sent[0].text, "agent reply");
+      assert.match(sent[0].text, /^▎OpenCode CLI · \d{2}:\d{2}\n\nagent reply$/);
       assert.equal(sent[0].contextToken, "ctx-1");
     } finally {
+      await cleanup(root);
+    }
+  });
+
+  it("sends a synchronous Agent artifact as a real Weixin file before the truthful text summary", async () => {
+    const root = await tempRoot();
+    try {
+      const artifactPath = path.join(root, "同步报告.md");
+      await writeFile(artifactPath, "sync report", "utf8");
+      const store = createWeixinStore(root);
+      await store.saveAccount({ accountId: "acct", token: "tok", baseUrl: "https://weixin.example.com", userId: "owner" });
+      await store.writeContextToken("acct", "user-1", "ctx-1");
+      const events = [];
+      const service = createWeixinService({
+        store,
+        client: {
+          getConfig: async () => ({ typing_ticket: "" }),
+          getUploadUrl: async () => ({ upload_full_url: "https://novac2c.cdn.weixin.qq.com/c2c/upload?ticket=sync" }),
+          uploadCdn: async ({ encrypted }) => {
+            assert.equal(Buffer.isBuffer(encrypted), true);
+            return { encryptedQueryParam: "sync-download-param" };
+          },
+          sendMessageItem: async (payload) => {
+            events.push({ kind: "file", payload });
+            return { ret: 0 };
+          },
+          sendMessage: async (payload) => {
+            events.push({ kind: "text", payload });
+            return { ret: 0 };
+          },
+        },
+        personalAgentRuntime: {
+          runMessage: async () => ({
+            status: "completed",
+            output: `报告已生成：[同步报告](<${artifactPath.replaceAll("\\", "/")}>)`,
+            artifacts: [{ id: "artifact-sync", kind: "file", name: "同步报告.md" }],
+          }),
+        },
+      });
+
+      await service.simulateInbound({
+        accountId: "acct",
+        fromUserId: "user-1",
+        text: "生成并发送同步报告",
+        messageId: "sync-file-1",
+        workspaceRoot: root,
+        dmPolicy: "allowlist",
+        allowedUsers: ["user-1"],
+        textBatchDelayMs: 0,
+        agent: { id: "codex", name: "Codex", provider: "codex", executablePath: "codex" },
+      });
+      await waitFor(() => events.length === 2, () => JSON.stringify(events));
+
+      assert.deepEqual(events.map((event) => event.kind), ["file", "text"]);
+      assert.equal(events[0].payload.item.type, 4);
+      assert.equal(events[0].payload.item.file_item.file_name, "同步报告.md");
+      assert.equal(events[0].payload.contextToken, "ctx-1");
+      assert.match(events[1].payload.text, /附件已发送：同步报告\.md/);
+      assert.doesNotMatch(events[1].payload.text, /[A-Za-z]:[\\/]/);
+    } finally {
+      await cleanup(root);
+    }
+  });
+
+  it("reports a synchronous attachment transport failure without claiming delivery", async () => {
+    const root = await tempRoot();
+    try {
+      const artifactPath = path.join(root, "失败报告.txt");
+      await writeFile(artifactPath, "failed report", "utf8");
+      const store = createWeixinStore(root);
+      await store.saveAccount({ accountId: "acct", token: "tok", baseUrl: "https://weixin.example.com", userId: "owner" });
+      const sent = [];
+      const service = createWeixinService({
+        store,
+        client: {
+          getConfig: async () => ({ typing_ticket: "" }),
+          getUploadUrl: async () => ({ upload_full_url: "https://novac2c.cdn.weixin.qq.com/c2c/upload?ticket=fail" }),
+          uploadCdn: async () => ({ encryptedQueryParam: "fail-download-param" }),
+          sendMessageItem: async () => {
+            throw new Error("transport unavailable");
+          },
+          sendMessage: async (payload) => {
+            sent.push(payload);
+            return { ret: 0 };
+          },
+        },
+        personalAgentRuntime: {
+          runMessage: async () => ({
+            status: "completed",
+            output: `文件：[失败报告](<${artifactPath.replaceAll("\\", "/")}>)`,
+            artifacts: [{ id: "artifact-fail", kind: "file", name: "失败报告.txt" }],
+          }),
+        },
+      });
+
+      await service.simulateInbound({
+        accountId: "acct",
+        fromUserId: "user-1",
+        text: "发送失败测试",
+        messageId: "sync-file-fail",
+        workspaceRoot: root,
+        dmPolicy: "allowlist",
+        allowedUsers: ["user-1"],
+        textBatchDelayMs: 0,
+        agent: { id: "codex", name: "Codex", provider: "codex", executablePath: "codex" },
+      });
+      await waitFor(() => sent.length === 1, () => JSON.stringify(sent));
+
+      assert.match(sent[0].text, /附件发送失败/);
+      assert.match(sent[0].text, /失败报告\.txt：微信附件传输失败，请稍后重试/);
+      assert.doesNotMatch(sent[0].text, /附件已发送/);
+      assert.doesNotMatch(sent[0].text, /[A-Za-z]:[\\/]/);
+    } finally {
+      await cleanup(root);
+    }
+  });
+
+  it("binds Weixin turns to the scoped agent's active conversation", async () => {
+    const root = await tempRoot();
+    let sessionStore;
+    try {
+      const store = createWeixinStore(root);
+      sessionStore = new ChannelSessionStore({ userDataDir: root });
+      await sessionStore.initialize();
+      await store.saveAccount({ accountId: "acct", token: "tok", baseUrl: "https://weixin.example.com", userId: "owner" });
+      const inputs = [];
+      const sent = [];
+      const service = createWeixinService({
+        store,
+        channelSessionStore: sessionStore,
+        client: {
+          sendMessage: async (payload) => {
+            sent.push(payload);
+            return { ret: 0 };
+          },
+          getConfig: async () => ({ typing_ticket: "" }),
+        },
+        personalAgentRuntime: {
+          listConversations: async () => ({
+            activeConversationId: "conv-existing-weixin",
+            conversations: [{ id: "conv-existing-weixin" }],
+          }),
+          createConversation: async () => {
+            throw new Error("existing scoped conversation should be reused");
+          },
+          startMessage: async (input) => {
+            inputs.push(input);
+            return { runId: "run-scoped", status: "running" };
+          },
+          getRun: ({ runId }) => ({ runId, status: "completed", output: "continued" }),
+        },
+      });
+
+      await service.simulateInbound({
+        accountId: "acct",
+        fromUserId: "user-1",
+        text: "continue the previous task",
+        messageId: "scoped-conversation",
+        workspaceRoot: root,
+        dmPolicy: "allowlist",
+        allowedUsers: ["user-1"],
+        textBatchDelayMs: 0,
+        agent: { id: "codex", name: "Codex", provider: "codex", executablePath: "codex" },
+      });
+      await waitFor(() => inputs.length === 1, () => JSON.stringify(service.status()));
+      await waitFor(() => sent.length === 1, () => JSON.stringify(service.status()));
+
+      assert.match(inputs[0].agent.id, /^codex-weixin-/);
+      assert.equal(inputs[0].conversationId, "conv-existing-weixin");
+      const sessions = sessionStore.getSessionsByUser("wechat", "user-1");
+      assert.equal(sessions.length, 1);
+      assert.match(sessions[0].agentType, /^codex\/codex-weixin-/);
+      assert.equal(sessions[0].conversationId, "conv-existing-weixin");
+      await service.stop({ persist: false });
+    } finally {
+      await sessionStore?.dispose();
       await cleanup(root);
     }
   });
@@ -492,11 +770,511 @@ describe("weixin service", () => {
 
       completed = true;
       await waitFor(() => sent.length === 1, () => JSON.stringify(service.status()));
-      assert.equal(sent[0].text, "background reply");
+      assert.match(sent[0].text, /^▎OpenCode · \d{2}:\d{2}\n\nbackground reply$/);
       await waitFor(() => store.listActiveRuns("acct").then((runs) => runs.length === 0), () => JSON.stringify(service.status()));
       assert.equal((await store.listActiveRuns("acct")).length, 0);
       const history = await store.readChatHistory("acct", "user-1::agent:opencode/opencode", 4);
       assert.deepEqual(history.map((entry) => entry.text), ["long task", "background reply"]);
+    } finally {
+      await cleanup(root);
+    }
+  });
+
+  it("sends artifacts discovered when a background Agent run completes", async () => {
+    const root = await tempRoot();
+    try {
+      const artifactPath = path.join(root, "后台结果.json");
+      await writeFile(artifactPath, JSON.stringify({ ok: true }), "utf8");
+      const store = createWeixinStore(root);
+      await store.saveAccount({ accountId: "acct", token: "tok", baseUrl: "https://weixin.example.com", userId: "owner" });
+      const events = [];
+      const service = createWeixinService({
+        store,
+        client: {
+          getConfig: async () => ({ typing_ticket: "" }),
+          getUploadUrl: async () => ({ upload_full_url: "https://novac2c.cdn.weixin.qq.com/c2c/upload?ticket=background" }),
+          uploadCdn: async () => ({ encryptedQueryParam: "background-download-param" }),
+          sendMessageItem: async (payload) => {
+            events.push({ kind: "file", payload });
+            return { ret: 0 };
+          },
+          sendMessage: async (payload) => {
+            events.push({ kind: "text", payload });
+            return { ret: 0 };
+          },
+        },
+        personalAgentRuntime: {
+          startMessage: async () => ({ runId: "run-background-file", status: "running" }),
+          getRun: async ({ runId }) => ({
+            runId,
+            status: "completed",
+            output: `后台任务完成：[后台结果](<${artifactPath.replaceAll("\\", "/")}>)`,
+            artifacts: [{ id: "artifact-background", kind: "file", name: "后台结果.json" }],
+          }),
+        },
+      });
+
+      await service.simulateInbound({
+        accountId: "acct",
+        fromUserId: "user-1",
+        text: "运行长任务并发送结果",
+        messageId: "background-file-1",
+        workspaceRoot: root,
+        dmPolicy: "allowlist",
+        allowedUsers: ["user-1"],
+        textBatchDelayMs: 0,
+        agent: { id: "codex", name: "Codex", provider: "codex", executablePath: "codex" },
+      });
+      await waitFor(() => events.length === 2, () => JSON.stringify(events));
+
+      assert.deepEqual(events.map((event) => event.kind), ["file", "text"]);
+      assert.equal(events[0].payload.item.file_item.file_name, "后台结果.json");
+      assert.match(events[1].payload.text, /附件已发送：后台结果\.json/);
+      await waitFor(async () => (await store.listActiveRuns("acct")).length === 0);
+    } finally {
+      await cleanup(root);
+    }
+  });
+
+  it("keeps the conversation locked in memory when active-run persistence is temporarily locked", async () => {
+    const root = await tempRoot();
+    try {
+      const store = createWeixinStore(root);
+      await store.saveAccount({ accountId: "acct", token: "tok", baseUrl: "https://weixin.example.com", userId: "owner" });
+      store.writeActiveRun = async () => {
+        const error = new Error("operation not permitted");
+        error.code = "EPERM";
+        throw error;
+      };
+      const sent = [];
+      const logs = [];
+      const starts = [];
+      let completed = false;
+      const service = createWeixinService({
+        store,
+        appendLog: (entry) => logs.push(entry),
+        client: {
+          sendMessage: async (payload) => {
+            sent.push(payload);
+            return { ret: 0 };
+          },
+          getConfig: async () => ({ typing_ticket: "" }),
+        },
+        personalAgentRuntime: {
+          startMessage: async (input) => {
+            starts.push(input);
+            return { runId: `run-memory-fallback-${starts.length}`, status: "running" };
+          },
+          getRun: async ({ runId }) => completed
+            ? { runId, status: "completed", output: "fallback reply" }
+            : { runId, status: "running" },
+        },
+      });
+
+      const common = {
+        accountId: "acct",
+        fromUserId: "user-1",
+        workspaceRoot: root,
+        dmPolicy: "allowlist",
+        allowedUsers: ["user-1"],
+        textBatchDelayMs: 0,
+        agent: { id: "opencode", name: "OpenCode", provider: "opencode", executablePath: "opencode" },
+      };
+      await service.simulateInbound({ ...common, text: "locked persistence", messageId: "locked-1" });
+      await waitFor(() => starts.length === 1, () => JSON.stringify({ starts, sent, logs }));
+
+      await service.simulateInbound({ ...common, text: "must stay locked", messageId: "locked-2" });
+      await waitFor(() => sent.some((item) => item.text.includes("还在处理上一条消息")), () => JSON.stringify({ starts, sent, logs }));
+      assert.equal(starts.length, 1, "a failed persistence write must not allow a duplicate run");
+
+      completed = true;
+      await waitFor(() => sent.some((item) => item.text.endsWith("\n\nfallback reply")), () => JSON.stringify({ starts, sent, logs }));
+      assert.equal(logs.some((entry) => String(entry.text).includes("active run persistence failed")), true);
+    } finally {
+      await cleanup(root);
+    }
+  });
+
+  it("durably recovers the full active run after a transient persistence failure", async () => {
+    const root = await tempRoot();
+    try {
+      const store = createWeixinStore(root);
+      await store.saveAccount({ accountId: "acct", token: "tok", baseUrl: "https://weixin.example.com", userId: "owner" });
+      const originalWriteActiveRun = store.writeActiveRun.bind(store);
+      let writeCalls = 0;
+      store.writeActiveRun = async (...args) => {
+        writeCalls += 1;
+        if (writeCalls === 1) {
+          const error = new Error("operation not permitted");
+          error.code = "EPERM";
+          throw error;
+        }
+        return await originalWriteActiveRun(...args);
+      };
+      const sent = [];
+      let getRunCalls = 0;
+      const service = createWeixinService({
+        store,
+        client: {
+          sendMessage: async (payload) => {
+            sent.push(payload);
+            return { ret: 0 };
+          },
+          getConfig: async () => ({ typing_ticket: "" }),
+        },
+        personalAgentRuntime: {
+          startMessage: async () => ({ runId: "run-transient-write", status: "running" }),
+          getRun: async ({ runId }) => {
+            getRunCalls += 1;
+            return getRunCalls === 1
+              ? { runId, status: "running" }
+              : { runId, status: "completed", output: "recovered reply" };
+          },
+        },
+      });
+
+      await service.simulateInbound({
+        accountId: "acct",
+        fromUserId: "user-1",
+        text: "recover persistence",
+        messageId: "transient-write-1",
+        workspaceRoot: root,
+        dmPolicy: "allowlist",
+        allowedUsers: ["user-1"],
+        textBatchDelayMs: 0,
+        agent: { id: "opencode", name: "OpenCode", provider: "opencode", executablePath: "opencode" },
+      });
+
+      await waitFor(() => sent.some((item) => item.text.endsWith("\n\nrecovered reply")), () => JSON.stringify({ writeCalls, getRunCalls, sent }));
+      assert.equal(writeCalls >= 2, true);
+      assert.equal(getRunCalls >= 2, true);
+      await waitFor(async () => (await store.listActiveRuns("acct")).length === 0);
+    } finally {
+      await cleanup(root);
+    }
+  });
+
+  it("reserves a conversation before startMessage settles and blocks reset or duplicate starts", async () => {
+    const root = await tempRoot();
+    const startGate = Promise.withResolvers();
+    try {
+      const store = createWeixinStore(root);
+      await store.saveAccount({ accountId: "acct", token: "tok", baseUrl: "https://weixin.example.com", userId: "owner" });
+      const sent = [];
+      const starts = [];
+      let resets = 0;
+      const service = createWeixinService({
+        store,
+        client: {
+          sendMessage: async (payload) => {
+            sent.push(payload);
+            return { ret: 0 };
+          },
+          getConfig: async () => ({ typing_ticket: "" }),
+        },
+        personalAgentRuntime: {
+          resetConversation: async () => {
+            resets += 1;
+            return { ok: true };
+          },
+          startMessage: async (input) => {
+            starts.push(input);
+            await startGate.promise;
+            return { runId: "run-reserved-start", status: "running" };
+          },
+          getRun: async ({ runId }) => ({ runId, status: "completed", output: "reserved reply" }),
+        },
+      });
+      const common = {
+        accountId: "acct",
+        fromUserId: "user-1",
+        workspaceRoot: root,
+        dmPolicy: "allowlist",
+        allowedUsers: ["user-1"],
+        textBatchDelayMs: 0,
+        agent: { id: "opencode", name: "OpenCode", provider: "opencode", executablePath: "opencode" },
+      };
+
+      await service.simulateInbound({ ...common, text: "first", messageId: "reservation-first" });
+      await waitFor(() => starts.length === 1, () => JSON.stringify({ starts, sent }));
+      await service.simulateInbound({ ...common, text: "#new", messageId: "reservation-new" });
+      await waitFor(() => sent.some((item) => item.text.includes("还有运行中的任务")), () => JSON.stringify(sent));
+      await service.simulateInbound({ ...common, text: "second", messageId: "reservation-second" });
+      await waitFor(() => sent.some((item) => item.text.includes("还在处理上一条消息")), () => JSON.stringify(sent));
+      await service.simulateInbound({ ...common, text: "#cancel", messageId: "reservation-cancel" });
+      await waitFor(() => sent.some((item) => item.text.includes("任务正在启动")), () => JSON.stringify(sent));
+      assert.equal(starts.length, 1);
+      assert.equal(resets, 0);
+
+      startGate.resolve();
+      await waitFor(() => sent.some((item) => item.text.endsWith("\n\nreserved reply")), () => JSON.stringify(sent));
+    } finally {
+      startGate.resolve();
+      await cleanup(root);
+    }
+  });
+
+  it("deduplicates an in-flight active-run poll and terminal delivery", async () => {
+    const root = await tempRoot();
+    const pollGate = Promise.withResolvers();
+    try {
+      const store = createWeixinStore(root);
+      await store.saveAccount({ accountId: "acct", token: "tok", baseUrl: "https://weixin.example.com", userId: "owner" });
+      const sent = [];
+      let getRunCalls = 0;
+      const service = createWeixinService({
+        store,
+        client: {
+          sendMessage: async (payload) => {
+            sent.push(payload);
+            return { ret: 0 };
+          },
+          getConfig: async () => ({ typing_ticket: "" }),
+        },
+        personalAgentRuntime: {
+          startMessage: async () => ({ runId: "run-poll-dedupe", status: "running" }),
+          getRun: async ({ runId }) => {
+            getRunCalls += 1;
+            await pollGate.promise;
+            return { runId, status: "completed", output: "single terminal reply" };
+          },
+        },
+      });
+      const common = {
+        accountId: "acct",
+        fromUserId: "user-1",
+        workspaceRoot: root,
+        dmPolicy: "allowlist",
+        allowedUsers: ["user-1"],
+        textBatchDelayMs: 0,
+        agent: { id: "opencode", name: "OpenCode", provider: "opencode", executablePath: "opencode" },
+      };
+
+      await service.simulateInbound({ ...common, text: "long poll", messageId: "poll-dedupe-start" });
+      await waitFor(() => getRunCalls === 1, () => JSON.stringify({ getRunCalls, sent }));
+      await service.simulateInbound({ ...common, text: "#status", messageId: "poll-dedupe-status" });
+      await waitFor(() => sent.some((item) => item.text.includes("当前任务：")), () => JSON.stringify(sent));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      assert.equal(getRunCalls, 1);
+
+      pollGate.resolve();
+      await waitFor(() => sent.some((item) => item.text.endsWith("\n\nsingle terminal reply")), () => JSON.stringify(sent));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      assert.equal(getRunCalls, 1);
+      assert.equal(sent.filter((item) => item.text.endsWith("\n\nsingle terminal reply")).length, 1);
+    } finally {
+      pollGate.resolve();
+      await cleanup(root);
+    }
+  });
+
+  it("retries a transient active-run status failure and still delivers the terminal result", async () => {
+    const root = await tempRoot();
+    try {
+      const store = createWeixinStore(root);
+      await store.saveAccount({ accountId: "acct", token: "tok", baseUrl: "https://weixin.example.com", userId: "owner" });
+      const sent = [];
+      let getRunCalls = 0;
+      const service = createWeixinService({
+        store,
+        client: {
+          sendMessage: async (payload) => {
+            sent.push(payload);
+            return { ret: 0 };
+          },
+          getConfig: async () => ({ typing_ticket: "" }),
+        },
+        personalAgentRuntime: {
+          startMessage: async () => ({ runId: "run-transient-poll", status: "running" }),
+          getRun: async ({ runId }) => {
+            getRunCalls += 1;
+            if (getRunCalls === 1) throw new Error("transient IPC");
+            return { runId, status: "completed", output: "reply after retry" };
+          },
+        },
+      });
+
+      await service.simulateInbound({
+        accountId: "acct",
+        fromUserId: "user-1",
+        text: "retry status",
+        messageId: "transient-poll-start",
+        workspaceRoot: root,
+        dmPolicy: "allowlist",
+        allowedUsers: ["user-1"],
+        textBatchDelayMs: 0,
+        agent: { id: "opencode", name: "OpenCode", provider: "opencode", executablePath: "opencode" },
+      });
+
+      await waitFor(() => sent.some((item) => item.text.includes("任务状态查询失败：transient IPC")), () => JSON.stringify({ getRunCalls, sent }));
+      await waitFor(() => sent.some((item) => item.text.endsWith("\n\nreply after retry")), () => JSON.stringify({ getRunCalls, sent }));
+      assert.equal(getRunCalls, 2);
+      await waitFor(async () => (await store.listActiveRuns("acct")).length === 0);
+    } finally {
+      await cleanup(root);
+    }
+  });
+
+  it("backs off repeated status failures without flooding the chat", async () => {
+    const root = await tempRoot();
+    try {
+      const store = createWeixinStore(root);
+      await store.saveAccount({ accountId: "acct", token: "tok", baseUrl: "https://weixin.example.com", userId: "owner" });
+      const sent = [];
+      let getRunCalls = 0;
+      let failing = true;
+      const service = createWeixinService({
+        store,
+        client: {
+          sendMessage: async (payload) => { sent.push(payload); return { ret: 0 }; },
+          getConfig: async () => ({ typing_ticket: "" }),
+        },
+        personalAgentRuntime: {
+          startMessage: async () => ({ runId: "run-status-backoff", status: "running" }),
+          getRun: async ({ runId }) => {
+            getRunCalls += 1;
+            if (failing) throw new Error("runtime unavailable");
+            return { runId, status: "completed", output: "recovered after outage" };
+          },
+        },
+      });
+
+      await service.simulateInbound({
+        accountId: "acct", fromUserId: "user-1", text: "retry with backoff", messageId: "status-backoff-1",
+        workspaceRoot: root, dmPolicy: "allowlist", allowedUsers: ["user-1"], textBatchDelayMs: 0,
+        agent: { id: "opencode", name: "OpenCode", provider: "opencode", executablePath: "opencode" },
+      });
+
+      await waitFor(() => getRunCalls >= 2, () => JSON.stringify({ getRunCalls, sent }));
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      assert.equal(sent.filter((item) => item.text.includes("任务状态查询失败：runtime unavailable")).length, 1);
+      assert.equal(getRunCalls, 2, "the second failure should back off instead of polling every second");
+      failing = false;
+      await waitFor(() => sent.some((item) => item.text.endsWith("\n\nrecovered after outage")), () => JSON.stringify({ getRunCalls, sent }));
+      assert.equal(getRunCalls, 3);
+    } finally {
+      await cleanup(root);
+    }
+  });
+
+  it("does not replay an attachment when terminal text delivery fails", async () => {
+    const root = await tempRoot();
+    try {
+      const artifactPath = path.join(root, "single-delivery.txt");
+      await writeFile(artifactPath, "only once", "utf8");
+      const store = createWeixinStore(root);
+      await store.saveAccount({ accountId: "acct", token: "tok", baseUrl: "https://weixin.example.com", userId: "owner" });
+      let fileSends = 0;
+      let textAttempts = 0;
+      let getRunCalls = 0;
+      const service = createWeixinService({
+        store,
+        client: {
+          getConfig: async () => ({ typing_ticket: "" }),
+          getUploadUrl: async () => ({ upload_full_url: "https://novac2c.cdn.weixin.qq.com/c2c/upload?ticket=single" }),
+          uploadCdn: async () => ({ encryptedQueryParam: "single-param" }),
+          sendMessageItem: async () => { fileSends += 1; return { ret: 0 }; },
+          sendMessage: async () => { textAttempts += 1; throw new Error("text transport failed"); },
+        },
+        personalAgentRuntime: {
+          startMessage: async () => ({ runId: "run-single-delivery", status: "running" }),
+          getRun: async ({ runId }) => {
+            getRunCalls += 1;
+            return {
+              runId, status: "completed",
+              output: `Result: [single-delivery](<${artifactPath.replaceAll("\\", "/")}>)`,
+              artifacts: [{ id: "artifact-single", kind: "file", name: "single-delivery.txt", path: artifactPath }],
+            };
+          },
+        },
+      });
+
+      await service.simulateInbound({
+        accountId: "acct", fromUserId: "user-1", text: "deliver once", messageId: "single-delivery-1",
+        workspaceRoot: root, dmPolicy: "allowlist", allowedUsers: ["user-1"], textBatchDelayMs: 0,
+        agent: { id: "opencode", name: "OpenCode", provider: "opencode", executablePath: "opencode" },
+      });
+
+      await waitFor(() => fileSends === 1 && textAttempts === 1, () => JSON.stringify({ fileSends, textAttempts, getRunCalls }));
+      await new Promise((resolve) => setTimeout(resolve, 2_250));
+      assert.equal(fileSends, 1);
+      assert.equal(textAttempts, 1);
+      assert.equal(getRunCalls, 1);
+      assert.equal((await store.listActiveRuns("acct")).length, 0, "a failed terminal delivery must not leave the chat locked");
+    } finally {
+      await cleanup(root);
+    }
+  });
+
+  it("clears a terminal run even when its cancellation notice cannot be sent", async () => {
+    const root = await tempRoot();
+    try {
+      const store = createWeixinStore(root);
+      await store.saveAccount({ accountId: "acct", token: "tok", baseUrl: "https://weixin.example.com", userId: "owner" });
+      let getRunCalls = 0;
+      const service = createWeixinService({
+        store,
+        client: {
+          sendMessage: async () => { throw new Error("notice transport failed"); },
+          getConfig: async () => ({ typing_ticket: "" }),
+        },
+        personalAgentRuntime: {
+          startMessage: async () => ({ runId: "run-cancelled-notice", status: "running" }),
+          getRun: async ({ runId }) => { getRunCalls += 1; return { runId, status: "cancelled" }; },
+        },
+      });
+
+      await service.simulateInbound({
+        accountId: "acct", fromUserId: "user-1", text: "cancelled result", messageId: "cancelled-notice-1",
+        workspaceRoot: root, dmPolicy: "allowlist", allowedUsers: ["user-1"], textBatchDelayMs: 0,
+        agent: { id: "opencode", name: "OpenCode", provider: "opencode", executablePath: "opencode" },
+      });
+
+      await waitFor(async () => getRunCalls === 1 && (await store.listActiveRuns("acct")).length === 0);
+    } finally {
+      await cleanup(root);
+    }
+  });
+
+  it("keeps polling after an approval prompt transport failure", async () => {
+    const root = await tempRoot();
+    try {
+      const store = createWeixinStore(root);
+      await store.saveAccount({ accountId: "acct", token: "tok", baseUrl: "https://weixin.example.com", userId: "owner" });
+      const sent = [];
+      let sendAttempts = 0;
+      let getRunCalls = 0;
+      const service = createWeixinService({
+        store,
+        client: {
+          sendMessage: async (payload) => {
+            sendAttempts += 1;
+            if (sendAttempts === 1) throw new Error("approval prompt transport failed");
+            sent.push(payload);
+            return { ret: 0 };
+          },
+          getConfig: async () => ({ typing_ticket: "" }),
+        },
+        personalAgentRuntime: {
+          startMessage: async () => ({ runId: "run-approval-send-failure", status: "running" }),
+          getRun: async ({ runId }) => {
+            getRunCalls += 1;
+            return getRunCalls === 1
+              ? { runId, status: "running", pendingApprovals: [{ id: "approval-1", title: "Allow tool" }] }
+              : { runId, status: "completed", output: "completed despite prompt failure" };
+          },
+        },
+      });
+
+      await service.simulateInbound({
+        accountId: "acct", fromUserId: "user-1", text: "approval prompt", messageId: "approval-send-failure-1",
+        workspaceRoot: root, dmPolicy: "allowlist", allowedUsers: ["user-1"], textBatchDelayMs: 0,
+        agent: { id: "opencode", name: "OpenCode", provider: "opencode", executablePath: "opencode" },
+      });
+
+      await waitFor(() => sent.some((item) => item.text.endsWith("\n\ncompleted despite prompt failure")), () => JSON.stringify({ sendAttempts, getRunCalls, sent }));
+      assert.equal(getRunCalls, 2);
+      await waitFor(async () => (await store.listActiveRuns("acct")).length === 0);
     } finally {
       await cleanup(root);
     }
@@ -545,7 +1323,7 @@ describe("weixin service", () => {
       assert.equal((await store.listActiveRuns("acct"))[0].status, "pending_approval");
       approved = true;
       await waitFor(() => sent.length === 2, () => JSON.stringify(service.status()));
-      assert.equal(sent[1].text, "approved reply");
+      assert.match(sent[1].text, /^▎OpenCode · \d{2}:\d{2}\n\napproved reply$/);
       await waitFor(() => store.listActiveRuns("acct").then((runs) => runs.length === 0), () => JSON.stringify(service.status()));
       assert.equal((await store.listActiveRuns("acct")).length, 0);
     } finally {
@@ -652,7 +1430,7 @@ describe("weixin service", () => {
         approvalId: "approval-weixin-1",
         decision: "accept",
       });
-      await waitFor(() => sent.some((item) => item.text === "approved from weixin"), () => JSON.stringify({ sent, status: service.status() }));
+      await waitFor(() => sent.some((item) => item.text.endsWith("\n\napproved from weixin")), () => JSON.stringify({ sent, status: service.status() }));
       assert.equal((await store.listActiveRuns("acct")).length, 0);
     } finally {
       await cleanup(root);
@@ -760,10 +1538,69 @@ describe("weixin service", () => {
       const started = await service.autoStart();
       assert.equal(started.ok, true);
       await waitFor(() => sent.length === 1, () => JSON.stringify(service.status()));
-      assert.equal(sent[0].text, "restored reply");
+      assert.match(sent[0].text, /^▎OpenCode · \d{2}:\d{2}\n\nrestored reply$/);
+      await waitFor(async () => (await store.listActiveRuns("acct")).length === 0);
       assert.equal((await store.listActiveRuns("acct")).length, 0);
       await service.stop({ persist: false });
     } finally {
+      await cleanup(root);
+    }
+  });
+
+  it("expires an over-age persisted run even when approval is still pending", async () => {
+    const root = await tempRoot();
+    let service = null;
+    try {
+      const store = createWeixinStore(root);
+      await store.saveAccount({ accountId: "acct", token: "tok", baseUrl: "https://weixin.example.com", userId: "owner" });
+      await store.writeConfig({
+        autoStart: true,
+        defaultAccountId: "acct",
+        lastStartOptions: {
+          workspaceRoot: root,
+          dmPolicy: "open",
+          textBatchDelayMs: 0,
+          agent: { id: "opencode", name: "OpenCode", provider: "opencode", executablePath: "opencode" },
+        },
+      });
+      await store.writeActiveRun("acct", "user-1::agent:opencode/opencode", {
+        status: "pending_approval",
+        chatId: "user-1",
+        senderId: "user-1",
+        runId: "run-expired-approval",
+        workspaceRoot: root,
+        agent: { id: "opencode", name: "OpenCode", provider: "opencode", executablePath: "opencode" },
+        historyKey: "user-1::agent:opencode/opencode",
+        userText: "stale approval",
+        pendingApprovals: [{ id: "approval-stale" }],
+        startedAt: Date.now() - serviceTest.ACTIVE_RUN_MAX_AGE_MS - 1_000,
+      });
+      const sent = [];
+      service = createWeixinService({
+        store,
+        client: {
+          getUpdates: async () => {
+            await new Promise((resolve) => setTimeout(resolve, 5));
+            return { ret: 0, get_updates_buf: "", msgs: [] };
+          },
+          sendMessage: async (payload) => {
+            sent.push(payload);
+            return { ret: 0 };
+          },
+          getConfig: async () => ({ typing_ticket: "" }),
+        },
+        personalAgentRuntime: {
+          getRun: async ({ runId }) => ({ runId, status: "running", pendingApprovals: [{ id: "approval-stale" }] }),
+        },
+      });
+
+      assert.equal((await service.autoStart()).ok, true);
+      await waitFor(() => sent.length === 1, () => JSON.stringify({ sent, status: service.status() }));
+      assert.match(sent[0].text, /运行已超过上限/);
+      assert.doesNotMatch(sent[0].text, /#approve/);
+      await waitFor(async () => (await store.listActiveRuns("acct")).length === 0);
+    } finally {
+      await service?.stop({ persist: false }).catch(() => undefined);
       await cleanup(root);
     }
   });
@@ -825,7 +1662,7 @@ describe("weixin service", () => {
       await waitFor(() => sent.length === 3, () => JSON.stringify(restored.status()));
       assert.equal(runtimeInputs.length, 1);
       assert.equal(runtimeInputs[0].agent.provider, "codex");
-      assert.equal(sent[2].text, "reply from codex");
+      assert.match(sent[2].text, /^▎Codex CLI · \d{2}:\d{2}\n\nreply from codex$/);
     } finally {
       await cleanup(root);
     }
@@ -876,7 +1713,10 @@ describe("weixin service", () => {
       assert.equal(runtimeInputs[0].agent.provider, "codex");
       assert.match(runtimeInputs[0].agent.id, /^codex-weixin-/);
       assert.match(sent[0].text, /已切换.*Agent：Claude Code \(claude\)/);
-      assert.equal(sent[1].text, "reply from codex");
+      assert.match(sent[1].text, /^▎Codex CLI · \d{2}:\d{2}\n\nreply from codex$/);
+      await waitFor(async () => (
+        await store.readChatHistory("acct", "user-1::agent:codex/codex", 4)
+      ).length === 2, () => JSON.stringify({ sent, runtimeInputs, status: service.status() }));
       const codexHistory = await store.readChatHistory("acct", "user-1::agent:codex/codex", 4);
       const claudeHistory = await store.readChatHistory("acct", "user-1::agent:claude/claude", 4);
       assert.deepEqual(codexHistory.map((entry) => entry.text), ["codex queued message", "reply from codex"]);
@@ -950,7 +1790,7 @@ describe("weixin service", () => {
       await waitFor(() => sent.length === 2, () => JSON.stringify(service.status()));
       assert.equal(runtimeInputs.length, 1);
       assert.doesNotMatch(runtimeInputs[0].prompt, /old codex question/);
-      assert.equal(sent[1].text, "fresh reply");
+      assert.match(sent[1].text, /^▎Codex CLI · \d{2}:\d{2}\n\nfresh reply$/);
     } finally {
       await cleanup(root);
     }
@@ -1173,7 +2013,7 @@ describe("weixin channel infrastructure", () => {
       await waitFor(() => sessionStore.getSessionsByUser("wechat", "user-1").some((session) => session.messages.length === 2));
       const sessions = sessionStore.getSessionsByUser("wechat", "user-1");
       assert.equal(sessions.length, 1);
-      assert.equal(sessions[0].agentType, "opencode/opencode");
+      assert.match(sessions[0].agentType, /^opencode\/opencode-weixin-[a-f0-9]+$/);
       assert.equal(sessions[0].messages[0].content, "ping after approve");
       await service.stop({ persist: false });
     } finally {

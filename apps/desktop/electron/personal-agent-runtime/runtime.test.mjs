@@ -644,7 +644,7 @@ describe("personal agent ACP JSON-RPC client", () => {
   it("resolves managed ACP bridge locations outside project repositories", () => {
     assert.equal(MANAGED_ACP_TOOLS.codex.packageName, "@agentclientprotocol/codex-acp");
     assert.equal(MANAGED_ACP_TOOLS.claude.packageName, "@agentclientprotocol/claude-agent-acp");
-    assert.match(managedAcpToolRoot("codex"), /managed-resources\/acp\/codex-acp\/1\.0\.1/);
+    assert.match(managedAcpToolRoot("codex"), /managed-resources\/acp\/codex-acp\/1\.1\.13/);
     assert.match(managedAcpBinPath("claude"), /managed-resources\/acp\/claude-agent-acp\/0\.52\.0\/.*\/node_modules\/\.bin\/claude-agent-acp/);
   });
 

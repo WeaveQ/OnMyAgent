@@ -3,8 +3,9 @@ import assert from "node:assert/strict";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import http from "node:http";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const repoRoot = resolve(new URL("../../..", import.meta.url).pathname);
+const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 const evidenceRoot = resolve(repoRoot, ".loop/evidence/personal-agent-codex-acp-stability");
 const workspaceRoot = process.env.ONMYAGENT_CODEX_ACP_SMOKE_WORKSPACE || repoRoot;
 const cdpPort = Number(process.env.ONMYAGENT_ELECTRON_REMOTE_DEBUG_PORT || 9823);

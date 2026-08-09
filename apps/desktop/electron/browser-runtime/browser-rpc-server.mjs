@@ -13,7 +13,10 @@ const MAX_UNIX_SOCKET_PATH_BYTES = 100;
 
 export function resolveBrowserRpcEndpoint({ platform, runtimeDir, instanceId }) {
   if (platform === "win32") return `\\\\.\\pipe\\onmyagent-browser-${instanceId}`;
-  const candidate = path.join(runtimeDir, `browser-${instanceId}.sock`);
+  // The explicit platform parameter is also used by cross-platform contract
+  // tests. Build a POSIX socket path for POSIX targets even when tests run on
+  // a Windows host.
+  const candidate = path.posix.join(runtimeDir, `browser-${instanceId}.sock`);
   if (Buffer.byteLength(candidate, "utf8") <= MAX_UNIX_SOCKET_PATH_BYTES) return candidate;
   const digest = createHash("sha256").update(candidate).digest("hex").slice(0, 16);
   return path.join(os.tmpdir(), `onmyagent-browser-${digest}`, "browser.sock");

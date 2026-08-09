@@ -124,6 +124,46 @@ export function buildRunMeta(state, deps) {
   };
 }
 
+function assistantChunkText(event) {
+  const type = String(event?.type ?? "");
+  const text = String(event?.text ?? "").trim();
+  if (!text) return "";
+  if (type === "assistant_chunk" || type === "chunk") return text;
+  if (type === "log" && /^assistant_chunk>\s*/.test(text)) {
+    return text.replace(/^assistant_chunk>\s*/, "").trim();
+  }
+  return "";
+}
+
+function compactRunningMessageEvents(allEvents, eventLimit) {
+  const tailStart = Math.max(0, allEvents.length - eventLimit);
+  const tail = allEvents.slice(tailStart);
+  const messageEvents = [];
+  const firstUserEvent = allEvents.find((event) => String(event?.type ?? "") === "user");
+  if (firstUserEvent && !tail.includes(firstUserEvent)) messageEvents.push(firstUserEvent);
+
+  let assistantPrefix = "";
+  /** @type {number | null} */
+  let assistantPrefixAt = null;
+  for (let index = 0; index < tailStart; index += 1) {
+    const event = allEvents[index];
+    const chunk = assistantChunkText(event);
+    if (!chunk) continue;
+    assistantPrefix += chunk;
+    assistantPrefixAt = Number(event?.at) || assistantPrefixAt;
+  }
+  if (assistantPrefix) {
+    messageEvents.push({
+      type: "assistant_chunk",
+      text: assistantPrefix,
+      at: assistantPrefixAt ?? 1,
+      compacted: true,
+    });
+  }
+  messageEvents.push(...tail);
+  return messageEvents;
+}
+
 /**
  * @param {object} state
  * @param {{
@@ -131,7 +171,20 @@ export function buildRunMeta(state, deps) {
  *   runEventsToConversationMessages: (events: unknown[]) => unknown,
  * }} deps
  */
-export function buildRunSnapshot(state, deps) {
+export function buildRunSnapshot(state, deps, options = {}) {
+  const eventLimit = Number(options.eventLimit);
+  const conversationMessageEventLimit = Number(options.conversationMessageEventLimit);
+  const allEvents = Array.isArray(state.events) ? state.events : [];
+  const events = Number.isSafeInteger(eventLimit) && eventLimit > 0 && allEvents.length > eventLimit
+    ? allEvents.slice(-eventLimit)
+    : [...allEvents];
+  const compactRunningMessages = state.status === "running"
+    && Number.isSafeInteger(conversationMessageEventLimit)
+    && conversationMessageEventLimit > 0
+    && allEvents.length > conversationMessageEventLimit;
+  const messageEvents = compactRunningMessages
+    ? compactRunningMessageEvents(allEvents, conversationMessageEventLimit)
+    : allEvents;
   return {
     ok: state.status === "completed",
     runId: state.runId,
@@ -145,8 +198,11 @@ export function buildRunSnapshot(state, deps) {
     command: state.command,
     output: state.outputParts.join("\n").trim(),
     error: state.error,
-    events: [...state.events],
-    conversationMessages: deps.runEventsToConversationMessages(state.events),
+    events,
+    // Running polling keeps the user prompt, cumulative assistant text, and a
+    // recent structured-event tail. Terminal/direct snapshots still receive
+    // the complete durable transcript exactly once.
+    conversationMessages: deps.runEventsToConversationMessages(messageEvents),
     logPath: state.logPath,
     conversationId: state.conversationId ?? null,
     providerSessionId: state.providerSessionId,

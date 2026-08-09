@@ -21,7 +21,7 @@ import { randomUUID } from "node:crypto";
 // Backstop ceiling — mirror of agent-dispatch.mjs ACTIVE_RUN_MAX_AGE_MS. The
 // runtime's own run timeout lives in the runtime process and is lost on
 // restart; this guarantees an active-run lock is never stuck "running" forever.
-const ACTIVE_RUN_MAX_AGE_MS = 6 * 60 * 60 * 1000 + 15 * 60 * 1000;
+const ACTIVE_RUN_MAX_AGE_MS = 12 * 60 * 60 * 1000 + 15 * 60 * 1000;
 
 // Channel platforms that persist active-run locks under <userDataDir>/<platform>/accounts.
 const CHANNEL_PLATFORMS = ["telegram", "discord"];

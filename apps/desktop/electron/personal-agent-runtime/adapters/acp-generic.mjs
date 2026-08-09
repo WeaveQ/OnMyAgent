@@ -8,7 +8,10 @@ import { createExecHelpers, stringifyAgentCommand, terminateProcessTree, waitFor
 import { ensureProviderWorkdir } from "../workdir.mjs";
 import { extractPromptUsageTotals, lookupModelContextLimit } from "../context-usage.mjs";
 
-const DEFAULT_TURN_TIMEOUT_MS = 10 * 60_000;
+// Long-running coding tasks can legitimately spend hours in tool calls or
+// sub-agent coordination. Keep a finite safety ceiling for abandoned turns,
+// while allowing an unattended overnight LOOP to finish one ACP turn.
+const DEFAULT_TURN_TIMEOUT_MS = 12 * 60 * 60_000;
 const DEFAULT_CODEX_REASONING_EFFORT = "medium";
 const OPENCLAW_DEFAULT_GATEWAY_PORT = 18789;
 const COMPLETE_STOP_REASONS = new Set(["", "end_turn", "stop", "complete", "completed", "done", "success", "succeeded"]);

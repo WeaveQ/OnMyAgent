@@ -487,8 +487,12 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       // Local history is best-effort; quota errors should not break chat.
     }
   }, [activeRunIdByAgent, draftsByAgent, errorsByAgent, healthResults, messagesByAgent, props.workspaceRoot, selectedAgentId, selectedConversationIdByAgent]);
-    const loadConversationsForAgent = useCallback(async (agent: PersonalLocalAgent) => {
+  const loadConversationsForAgent = useCallback(async (agent: PersonalLocalAgent) => {
     setLoadingConversationsByAgent((current) => ({ ...current, [agent.id]: true }));
+    if (!effectiveWorkspaceRoot) {
+      setLoadingConversationsByAgent((current) => ({ ...current, [agent.id]: false }));
+      return;
+    }
     try {
       const result = await personalLocalAgentConversationsListByProvider({ workspaceRoot: effectiveWorkspaceRoot, agent });
       setConversationsByAgent((current) => ({ ...current, [agent.id]: result.conversations }));
@@ -516,6 +520,11 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   // from the runtime (which scans every partition for source:"channel").
   const loadChannelConversations = useCallback(async () => {
     setLoadingChannelConversations(true);
+    if (!effectiveWorkspaceRoot) {
+      setChannelConversations([]);
+      setLoadingChannelConversations(false);
+      return;
+    }
     try {
       const result = await personalLocalAgentChannelConversationsList({ workspaceRoot: effectiveWorkspaceRoot });
       setChannelConversations(result.conversations ?? []);
@@ -557,6 +566,11 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     setErrorsByAgent,
   });
   const loadHeartbeats = useCallback(async () => {
+    if (!effectiveWorkspaceRoot) {
+      setHeartbeatJobs([]);
+      setHeartbeatError(null);
+      return;
+    }
     try {
       const result = await personalLocalAgentHeartbeatsList({ workspaceRoot: effectiveWorkspaceRoot });
       setHeartbeatJobs(result.jobs);
@@ -564,7 +578,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     } catch (nextError) {
       setHeartbeatError(nextError instanceof Error ? nextError.message : String(nextError));
     }
-  }, [props.workspaceRoot]);
+  }, [effectiveWorkspaceRoot]);
   useEffect(() => {
     void loadHeartbeats();
   }, [loadHeartbeats]);
@@ -764,10 +778,13 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       }));
     }
   }, []);
+  const activeRunPollsRef = useRef(new Set<string>());
   useEffect(() => {
     const activeEntries = Object.entries(activeRunIdByAgent).filter(([, runId]) => Boolean(runId));
     if (!activeEntries.length) return;
     const pollRun = (chatKey: string, runId: string) => {
+      if (activeRunPollsRef.current.has(runId)) return;
+      activeRunPollsRef.current.add(runId);
       void personalLocalAgentStatus({ runId, workspaceRoot: effectiveWorkspaceRoot })
         .then((snapshot) => {
           const agentId = chatKey.split("::")[0] ?? chatKey;
@@ -834,6 +851,9 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
             ...current,
             [agentId]: nextError instanceof Error ? nextError.message : String(nextError),
           }));
+        })
+        .finally(() => {
+          activeRunPollsRef.current.delete(runId);
         });
     };
     for (const [chatKey, runId] of activeEntries) {
@@ -846,7 +866,7 @@ export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       }
     }, 1500);
     return () => window.clearInterval(timer);
-  }, [activeRunIdByAgent, agents, rememberRunResult, selectedAgent]);
+  }, [activeRunIdByAgent, agents, effectiveWorkspaceRoot, rememberRunResult, selectedAgent]);
   const startAgentRun = useCallback(async (prompt: string, options?: { healthCheck?: boolean }) => {
     if (!prompt || !selectedAgent || selectedAgent.status !== "online" || running) return;
     const runAgent = selectedAgent;

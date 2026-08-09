@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-
 import { createCodexAdapter } from "./adapters/codex.mjs";
 import { createClaudeAdapter } from "./adapters/claude.mjs";
 import { createHermesAdapter } from "./adapters/hermes.mjs";
@@ -53,7 +52,7 @@ import { buildErrorTip, classifyErrorInfo } from "./error-diagnostics.mjs";
 import { getStoredApprovalDecision, listRememberedApprovalDecisions, rememberApprovalDecision } from "./approval-store.mjs";
 import { buildMcpStatus, buildPermissionStatus, buildSkillStatus } from "./host-status.mjs";
 import { readNativeMcpConfig, resolveNativeSkillRoots } from "./host-status-sources.mjs";
-
+import { createRunPersistence } from "./run-persistence.mjs";
 import {
   sanitizeAcpToolCallEvent,
   visibleArtifacts,
@@ -85,12 +84,10 @@ import {
   resolveAdapterFactoryForProvider,
   rewriteOrphanRunLogContent,
 } from "./run-helpers.mjs";
-
 const runSnapshotDeps = {
   visibleArtifacts,
   runEventsToConversationMessages,
 };
-
 export function createPersonalAgentRuntime(options) {
   configurePersonalAgentRuntimeState(options ?? {});
   // Capture the reconcile cutoff at runtime start so orphaned "running" logs
@@ -136,7 +133,6 @@ export function createPersonalAgentRuntime(options) {
     remote: createRemoteAcpAdapter,
     ...injectedAdapters,
   };
-
   function adapterFactoryForProvider(provider, agent = null) {
     return resolveAdapterFactoryForProvider(
       provider,
@@ -166,8 +162,10 @@ export function createPersonalAgentRuntime(options) {
     }
   }
 
-  function snapshot(state) {
-    return buildRunSnapshot(state, runSnapshotDeps);
+  const { schedulePersistRun, flushPersistRun, retainCompletedRunBriefly } = createRunPersistence({ persistRun, runs });
+
+  function snapshot(state, options = {}) {
+    return buildRunSnapshot(state, runSnapshotDeps, options);
   }
 
   function isProcessAlive(pid) {
@@ -285,7 +283,7 @@ export function createPersonalAgentRuntime(options) {
         storedApprovalKey: stored.key,
       });
       state.updatedAt = Date.now();
-      state.lastApprovalPersist = persistRun(state);
+      state.lastApprovalPersist = flushPersistRun(state, true);
       void state.lastApprovalPersist;
       return { decision: "acceptForSession", approval, stored: true };
     }
@@ -304,7 +302,7 @@ export function createPersonalAgentRuntime(options) {
     const decision = new Promise((resolve) => {
       state.approvalResolvers.set(approval.id, resolve);
     });
-    state.lastApprovalPersist = persistRun(state);
+    state.lastApprovalPersist = flushPersistRun(state, true);
     void state.lastApprovalPersist;
     return decision;
   }
@@ -330,7 +328,7 @@ export function createPersonalAgentRuntime(options) {
       approval,
     });
     state.updatedAt = Date.now();
-    await persistRun(state);
+    await flushPersistRun(state, true);
     const resolver = state.approvalResolvers?.get(approvalId);
     state.approvalResolvers?.delete(approvalId);
     resolver?.({ decision, approval });
@@ -417,7 +415,7 @@ export function createPersonalAgentRuntime(options) {
     appendContractEvent(events, { type: "user", text: String(input.userText ?? prompt ?? "").trim() });
     appendContractEvent(events, { type: "status", text: `${provider} ACP flow started` });
     state.updatedAt = Date.now();
-    void persistRun(state);
+    schedulePersistRun(state);
 
     if (detected.status !== "online") {
       state.status = "failed";
@@ -426,7 +424,7 @@ export function createPersonalAgentRuntime(options) {
       state.finishedAt = Date.now();
       appendContractEvent(events, { type: "error", text: state.error });
       appendContractEvent(events, buildErrorTip(state.errorInfo));
-      await persistRun(state);
+      await flushPersistRun(state, true);
       return snapshot(state);
     }
     if ((provider === "codex" || provider === "claude") && !Object.prototype.hasOwnProperty.call(injectedAdapters, provider)) {
@@ -443,7 +441,7 @@ export function createPersonalAgentRuntime(options) {
         state.finishedAt = Date.now();
         appendContractEvent(events, { type: "error", text: state.error });
         appendContractEvent(events, buildErrorTip(state.errorInfo));
-        await persistRun(state);
+        await flushPersistRun(state, true);
         return snapshot(state);
       }
     }
@@ -512,7 +510,7 @@ export function createPersonalAgentRuntime(options) {
               recordFileChangeFromAcpUpdate(state, update);
             }
             markBootReady();
-            void persistRun(state);
+            schedulePersistRun(state);
             return normalized;
           },
           registerCancel: (handler) => {
@@ -647,6 +645,7 @@ export function createPersonalAgentRuntime(options) {
         state.status = "completed";
         state.error = null;
         state.errorInfo = null;
+        schedulePersistRun(state);
       } catch (error) {
         if (state.status !== "running" || state.cancelRequested) return;
         state.status = "failed";
@@ -673,6 +672,7 @@ export function createPersonalAgentRuntime(options) {
           },
         });
         state.updatedAt = Date.now();
+        schedulePersistRun(state);
       } finally {
         markBootReady();
         unregisterAgentProcess(state.runId);
@@ -682,7 +682,8 @@ export function createPersonalAgentRuntime(options) {
           clearTimeout(state.timeoutTimer);
           state.timeoutTimer = null;
         }
-        await persistRun(state);
+        await flushPersistRun(state, true);
+        retainCompletedRunBriefly(state);
       }
     })();
 
@@ -709,7 +710,7 @@ export function createPersonalAgentRuntime(options) {
     });
   }
 
-  function status(input) {
+  function status(input, options = {}) {
     const { runId: id, workspaceRoot } = parseStatusInput(input);
     const state = runs.get(id);
     if (state) {
@@ -722,9 +723,9 @@ export function createPersonalAgentRuntime(options) {
         appendContractEvent(state.events, { type: "error", text: state.error });
         appendContractEvent(state.events, buildErrorTip(state.errorInfo));
         state.updatedAt = Date.now();
-        void persistRun(state);
+        schedulePersistRun(state);
       }
-      return snapshot(state);
+      return snapshot(state, options);
     }
     const restored = snapshotFromLog(workspaceRoot, id);
     if (restored) return restored;
@@ -769,7 +770,7 @@ export function createPersonalAgentRuntime(options) {
       state.finishedAt = Date.now();
       state.updatedAt = Date.now();
       appendContractEvent(state.events, { type: isTimeout ? "error" : "status", text: isTimeout ? state.error : `${state.agentProvider} run cancelled` });
-      await persistRun(state);
+      await flushPersistRun(state, true);
       return { ok: true };
     } catch (error) {
       state.cancelRequested = null;
