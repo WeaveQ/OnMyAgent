@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/sidebar";
 import { t } from "../../../../i18n";
 import type { SettingsTab } from "../../../../app/types";
+import { prefetchSettingsTab } from "../settings-tab-prefetch";
 import {
   SettingsPanel,
   SettingsPanelContent,
@@ -319,6 +320,8 @@ function SettingsNavGroup(props: {
                   type="button"
                   isActive={props.activeTab === tab}
                   onClick={() => props.onSelectTab(tab)}
+                  onPointerEnter={() => prefetchSettingsTab(tab)}
+                  onFocus={() => prefetchSettingsTab(tab)}
                   size="settings"
                   className={settingsNavButtonClass}
                 >

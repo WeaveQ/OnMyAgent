@@ -28,12 +28,10 @@ import {
 import { AgentManagementAgentCard } from "./agent-management-agent-card";
 import {
   AGENT_CARD_GRID,
-  AgentManagementExtensionSkeleton,
   AgentManagementPageLoading,
 } from "./agent-management-fleet-skeleton";
 import { InlineAgentEditor, type InlineAgentEditorValue } from "../inline-agent-editor";
 import { AgentManagementRepairDialog } from "../agent-management-repair-dialog";
-import { ExtensionListPanel } from "../extension-list-panel";
 import {
   type AgentManagementHealthResult,
 } from "./agent-management-health";
@@ -926,7 +924,12 @@ export function AgentManagementPage(props: {
                         label={t("agent_manager.filter_issue")}
                       />
                     </div>
-                    <Button variant="default" size="sm" onClick={openAddCustomAgent}>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={openAddCustomAgent}
+                      disabled={snapshotPending}
+                    >
                       <Plus className="mr-1.5 size-3.5" />
                       {t("agent_manager.custom_agents_add")}
                     </Button>
@@ -1022,14 +1025,6 @@ export function AgentManagementPage(props: {
                 ) : null}
               </div>
               ) : null}
-
-              {/* Hold extensions until core list paints so the page does not flash
-                  a finished extensions strip under empty fleet spinners. */}
-              {snapshotPending ? (
-                <AgentManagementExtensionSkeleton label={t("agent_manager.extensions_loading")} />
-              ) : (
-                <ExtensionListPanel />
-              )}
             </section>
           ) : (
             <SkillMatrixPanel
