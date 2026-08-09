@@ -15,7 +15,7 @@
  * });
  *
  * console.log(`Server at ${handle.url}`);
- * handle.stop();
+ * await handle.stop();
  * ```
  */
 export { startEmbeddedServer, type EmbeddedServerHandle, type EmbeddedServerOptions } from "./embedded.js";

@@ -77,6 +77,8 @@ type Input = {
   ) => Promise<void>;
   localServerRef: MutableRefObject<SessionLocalServerRefValue>;
   markBootRouteReady: () => void;
+  /** Assistant draft home owns the first-paint boot latch. */
+  waitForStaticHomeFirstPaint: boolean;
   onmyagentServerSettings: { remoteAccessEnabled?: boolean };
   routeWorkspaceId: string;
   selectedSessionId: string | null;
@@ -116,6 +118,7 @@ export function useSessionRouteRefresh(input: Input) {
     loadWorkspaceSessionsInBackground,
     localServerRef,
     markBootRouteReady,
+    waitForStaticHomeFirstPaint,
     onmyagentServerSettings,
     routeWorkspaceId,
     selectedSessionId,
@@ -150,6 +153,13 @@ export function useSessionRouteRefresh(input: Input) {
   const startupRetryTimerRef = useRef<number | null>(null);
   const startupRetryAttemptsRef = useRef(0);
   const refreshRouteStateRef = useRef<(() => Promise<void>) | null>(null);
+  // Session navigation must not recreate refreshRouteState: doing so reran the
+  // route effect and revalidated every durable expert directory on each click.
+  // Explicit refreshes still read the latest route session through this ref.
+  const selectedSessionIdRef = useRef(selectedSessionId);
+  selectedSessionIdRef.current = selectedSessionId;
+  const waitForStaticHomeFirstPaintRef = useRef(waitForStaticHomeFirstPaint);
+  waitForStaticHomeFirstPaintRef.current = waitForStaticHomeFirstPaint;
 
   const scheduleStartupConnectionRetry = useCallback(() => {
     if (startupRetryTimerRef.current !== null) return;
@@ -290,7 +300,7 @@ export function useSessionRouteRefresh(input: Input) {
         workspaceOrderIds: workspaceOrderIdsRef.current,
         sessionsByWorkspaceId: sessionsByWorkspaceIdRef.current,
         routeWorkspaceId,
-        selectedSessionId,
+        selectedSessionId: selectedSessionIdRef.current,
         persistedActiveId: readActiveWorkspaceId() || "",
         desktopSelectedId:
           resolveSelectedDesktopSessionWorkspaceId(desktopList),
@@ -390,7 +400,7 @@ export function useSessionRouteRefresh(input: Input) {
       refreshInFlightRef.current = false;
       // Ensure overlay can dismiss even if desktop workspace list was empty
       // (first-run / no local workspaces yet).
-      markShellReady();
+      if (!waitForStaticHomeFirstPaintRef.current) markShellReady();
     }
   }, [
     endpointForWorkspace,
@@ -399,7 +409,6 @@ export function useSessionRouteRefresh(input: Input) {
     markBootRouteReady,
     routeWorkspaceId,
     scheduleStartupConnectionRetry,
-    selectedSessionId,
     sessionsByWorkspaceIdRef,
     setBaseUrl,
     setClient,

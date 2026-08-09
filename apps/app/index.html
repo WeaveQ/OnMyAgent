@@ -25,9 +25,49 @@
         }
       })();
     </script>
+    <!--
+      Electron reveals the native window as soon as this document can paint,
+      which is earlier than the external CSS bundle and React entry module.
+      Keep this tiny first frame self-contained so cold starts never expose an
+      empty root while the application bundle is being parsed.
+    -->
+    <style>
+      html, body, #root { height: 100%; margin: 0; }
+      body { background: #fff; color: #0f172a; font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      html[data-theme="dark"] body { background: #2c2c2c; color: #f8fafc; }
+      .onmyagent-static-boot { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; background: inherit; }
+      .onmyagent-static-boot__content { display: flex; width: 100%; max-width: 22rem; flex-direction: column; align-items: center; gap: 1.5rem; padding: 2rem; text-align: center; }
+      .onmyagent-static-boot__mark { display: flex; width: 4rem; height: 4rem; align-items: center; justify-content: center; border: 1px solid #e5e7eb; border-radius: 0.875rem; background: #fff; box-shadow: 0 8px 28px rgba(15, 23, 42, .06); }
+      html[data-theme="dark"] .onmyagent-static-boot__mark { border-color: #3a3a3a; background: #2c2c2c; box-shadow: 0 8px 28px rgba(0, 0, 0, .35); }
+      .onmyagent-static-boot__title { font-size: .875rem; font-weight: 600; letter-spacing: -.01em; }
+      .onmyagent-static-boot__status { display: flex; flex-direction: column; align-items: center; gap: .75rem; }
+      .onmyagent-static-boot__dots { display: flex; gap: .375rem; height: 1rem; align-items: center; }
+      .onmyagent-static-boot__dot { width: .375rem; height: .375rem; border-radius: 999px; background: #64748b; animation: onmyagent-static-boot-pulse 1.2s ease-in-out infinite; }
+      .onmyagent-static-boot__dot:nth-child(2) { animation-delay: .15s; }
+      .onmyagent-static-boot__dot:nth-child(3) { animation-delay: .3s; }
+      .onmyagent-static-boot__message { color: #64748b; font-size: .875rem; line-height: 1.5rem; }
+      @keyframes onmyagent-static-boot-pulse { 0%, 80%, 100% { opacity: .28; transform: scale(.8); } 40% { opacity: 1; transform: scale(1); } }
+      @media (prefers-reduced-motion: reduce) { .onmyagent-static-boot__dot { animation: none; opacity: .7; } }
+    </style>
   </head>
   <body class="bg-dls-surface text-dls-text mac:bg-transparent">
     <div id="root"></div>
+    <!-- Sibling, not a child of #root: createRoot clears #root before its first commit. -->
+    <div id="onmyagent-static-boot" class="onmyagent-static-boot" role="status" aria-live="polite" aria-busy="true">
+      <div class="onmyagent-static-boot__content">
+        <div class="onmyagent-static-boot__mark" aria-hidden="true">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M6 21.5C6 17.9101 8.91015 15 12.5 15C15.2896 15 17.669 16.7574 18.589 19.228" stroke="#005DFF" stroke-width="3" stroke-linecap="round"/>
+            <path d="M30 14.5C30 18.0899 27.0899 21 23.5 21C20.7104 21 18.3309 19.2426 17.411 16.772" stroke="#005DFF" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="onmyagent-static-boot__status">
+          <div class="onmyagent-static-boot__title">OnMyAgent</div>
+          <div class="onmyagent-static-boot__dots" aria-hidden="true"><span class="onmyagent-static-boot__dot"></span><span class="onmyagent-static-boot__dot"></span><span class="onmyagent-static-boot__dot"></span></div>
+          <div class="onmyagent-static-boot__message">Starting OnMyAgent…</div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/index.react.tsx"></script>
   </body>
 </html>

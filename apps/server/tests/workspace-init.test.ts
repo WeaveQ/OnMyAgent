@@ -59,6 +59,27 @@ describe("ensureWorkspaceFiles", () => {
     }
   });
 
+  test("stops deferred workspace maintenance before starting the next workspace", async () => {
+    const first = await mkdtemp(join(tmpdir(), "onmyagent-ensure-stop-first-"));
+    const second = await mkdtemp(join(tmpdir(), "onmyagent-ensure-stop-second-"));
+    let checks = 0;
+    try {
+      const result = await ensureAllWorkspaceFiles(
+        [
+          { path: first, preset: "starter", id: "ws_first" },
+          { path: second, preset: "starter", id: "ws_second" },
+        ],
+        { shouldContinue: () => ++checks === 1 },
+      );
+      expect(result.ok).toBe(1);
+      await expect(stat(join(first, ".opencode"))).resolves.toBeDefined();
+      await expect(stat(join(second, ".opencode"))).rejects.toBeDefined();
+    } finally {
+      await rm(first, { recursive: true, force: true });
+      await rm(second, { recursive: true, force: true });
+    }
+  });
+
   test("creates default agent with artifact guidance for new workspaces", async () => {
     await withWorkspace(async (root) => {
       const result = await ensureWorkspaceFiles(root, "starter");

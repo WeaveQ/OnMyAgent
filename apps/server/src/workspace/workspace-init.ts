@@ -731,6 +731,11 @@ export async function ensureAllWorkspaceFiles(
   workspaces: Array<{ path: string; preset?: string | null; id?: string }>,
   options?: {
     log?: (level: "info" | "warn", message: string, meta?: Record<string, unknown>) => void;
+    /**
+     * Checked before starting each workspace.  Embedded startup uses this to
+     * stop deferred maintenance after its server has been stopped.
+     */
+    shouldContinue?: () => boolean;
   },
 ): Promise<{
   ok: number;
@@ -743,6 +748,7 @@ export async function ensureAllWorkspaceFiles(
   let changed = 0;
   const errors: Array<{ path: string; message: string }> = [];
   for (const workspace of workspaces) {
+    if (options?.shouldContinue && !options.shouldContinue()) break;
     const workspacePath = String(workspace.path ?? "").trim();
     if (!workspacePath) continue;
     try {

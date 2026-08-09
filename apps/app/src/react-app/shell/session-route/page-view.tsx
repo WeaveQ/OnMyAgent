@@ -6,6 +6,8 @@
 import {
   lazy,
   Suspense,
+  useEffect,
+  useState,
   type Dispatch,
   type MutableRefObject,
   type SetStateAction,
@@ -36,7 +38,7 @@ import { isDesktopRuntime, safeStringify } from "../../../app/utils";
 import { t } from "../../../i18n";
 import { usePlatform } from "../../kernel/platform";
 import type { LocalPreferences } from "../../kernel/local-provider";
-import { useBootOverlayVisible } from "../boot-state";
+import { useBootOverlayVisible, useBootState } from "../boot-state";
 import { useColdBootShell } from "./cold-boot-shell";
 import {
   SESSION_DELETE_REMOTE_BUDGET_MS,
@@ -293,6 +295,7 @@ export type SessionRoutePageViewProps = {
 
 export function SessionRoutePageView(props: SessionRoutePageViewProps) {
   const bootOverlayVisible = useBootOverlayVisible();
+  const { markRouteReady } = useBootState();
   const coldBootShell = useColdBootShell();
   const {
     activePermission,
@@ -402,6 +405,25 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
     workspaceSessionGroups,
     workspaces,
   } = props;
+  const [optimisticSidebarSelection, setOptimisticSidebarSelection] = useState<{
+    workspaceId: string;
+    sessionId: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!optimisticSidebarSelection) return;
+    if (
+      optimisticSidebarSelection.workspaceId === selectedWorkspaceId &&
+      optimisticSidebarSelection.sessionId === selectedSessionId
+    ) {
+      setOptimisticSidebarSelection(null);
+    }
+  }, [optimisticSidebarSelection, selectedSessionId, selectedWorkspaceId]);
+
+  const sidebarSelectedWorkspaceId =
+    optimisticSidebarSelection?.workspaceId ?? selectedWorkspaceId;
+  const sidebarSelectedSessionId =
+    optimisticSidebarSelection?.sessionId ?? selectedSessionId;
 
   const platform = usePlatform();
 
@@ -500,6 +522,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
           }
           startupPhase={effectiveLoading ? "nativeInit" : "ready"}
           coldBootShell={coldBootShell}
+          onStaticHomeReady={markRouteReady}
           providerConnectedIds={providerConnectedIds}
           providers={providers}
           renderAgentsPage={(agentsPageProps) => (
@@ -693,14 +716,18 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               sessionsByWorkspaceIdRef.current = next;
               return next;
             });
+            setOptimisticSidebarSelection({
+              workspaceId,
+              sessionId: newSession.id,
+            });
             navigateToWorkspaceSession(workspaceId, newSession.id);
             focusPromptSoon();
             void refreshRouteState();
           }}
           sidebar={{
             workspaceSessionGroups,
-            selectedWorkspaceId,
-            selectedSessionId,
+            selectedWorkspaceId: sidebarSelectedWorkspaceId,
+            selectedSessionId: sidebarSelectedSessionId,
             developerMode: false,
             sessionStatusById: sidebarSessionStatusById,
             connectingWorkspaceId: null,
@@ -761,10 +788,15 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                 sessionsByWorkspaceId,
                 workspaceId,
               });
+              setOptimisticSidebarSelection({
+                workspaceId,
+                sessionId: targetSessionId,
+              });
               navigateToWorkspaceSession(workspaceId, targetSessionId);
               return true;
             },
             onOpenSession: (workspaceId, sessionId) => {
+              setOptimisticSidebarSelection({ workspaceId, sessionId });
               setLegacySelectedWorkspaceId(workspaceId);
               writeActiveWorkspaceId(workspaceId || null);
               writeLastSessionFor(workspaceId, sessionId, pageMode);
