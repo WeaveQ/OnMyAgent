@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -54,6 +54,108 @@ function auth(token: string) {
 }
 
 describe("artifact file routes", () => {
+  test("does not fall back to the workspace for an invalid explicit session root", async () => {
+    const workspaceRoot = await createWorkspaceRoot();
+    const runtimeRoot = await mkdtemp(join(tmpdir(), "onmyagent-expert-runtime-"));
+    const externalRoot = await mkdtemp(join(tmpdir(), "onmyagent-external-session-"));
+    roots.push(runtimeRoot, externalRoot);
+    await writeFile(join(externalRoot, "linked.md"), "# Linked workspace artifact\n", "utf8");
+    await symlink(join(externalRoot, "linked.md"), join(workspaceRoot, "reports", "linked.md"));
+    const wrongWorkspaceRoot = join(runtimeRoot, "managed", "wrong-workspace");
+    await mkdir(wrongWorkspaceRoot, { recursive: true });
+    await writeFile(
+      join(wrongWorkspaceRoot, "onmyagent-session.json"),
+      JSON.stringify({ kind: "expert-session", workspaceId: "ws_other" }),
+      "utf8",
+    );
+    const previousRuntimeRoot = process.env.ONMYAGENT_EXPERT_SESSION_RUNTIME_ROOT;
+    process.env.ONMYAGENT_EXPERT_SESSION_RUNTIME_ROOT = runtimeRoot;
+    try {
+      const { base, token } = await startOnMyAgentServer(workspaceRoot);
+      const resolve = async (sessionRoot?: string, value = "reports/artifact-eval.md") => {
+        const response = await fetch(`${base}/workspace/ws_1/artifacts/resolve`, {
+          method: "POST",
+          headers: auth(token),
+          body: JSON.stringify({
+            ...(sessionRoot === undefined ? {} : { sessionRoot }),
+            targets: [{ kind: "file", value, confidence: 95 }],
+          }),
+        });
+        expect(response.status).toBe(200);
+        return await response.json() as { items: Array<{ value: string; exists: boolean }> };
+      };
+
+      expect((await resolve()).items).toContainEqual(
+        expect.objectContaining({ value: "reports/artifact-eval.md", exists: true }),
+      );
+      expect((await resolve(workspaceRoot)).items).toContainEqual(
+        expect.objectContaining({ value: "reports/artifact-eval.md", exists: true }),
+      );
+      expect((await resolve(undefined, "reports/linked.md")).items).toContainEqual(
+        expect.objectContaining({ value: "reports/linked.md", exists: true }),
+      );
+      expect((await resolve(workspaceRoot, "reports/linked.md")).items).toContainEqual(
+        expect.objectContaining({ value: "reports/linked.md", exists: true }),
+      );
+      expect((await resolve(externalRoot)).items).toEqual([]);
+      expect((await resolve(wrongWorkspaceRoot)).items).toEqual([]);
+    } finally {
+      if (previousRuntimeRoot === undefined) {
+        delete process.env.ONMYAGENT_EXPERT_SESSION_RUNTIME_ROOT;
+      } else {
+        process.env.ONMYAGENT_EXPERT_SESSION_RUNTIME_ROOT = previousRuntimeRoot;
+      }
+    }
+  });
+
+  test("resolves artifacts from a validated expert session runtime directory only", async () => {
+    const workspaceRoot = await createWorkspaceRoot();
+    const runtimeRoot = await mkdtemp(join(tmpdir(), "onmyagent-expert-runtime-"));
+    roots.push(runtimeRoot);
+    const allowedSessionRoot = join(runtimeRoot, "managed", "session-1");
+    await mkdir(allowedSessionRoot, { recursive: true });
+    await writeFile(join(allowedSessionRoot, "result.md"), "# Expert result\n", "utf8");
+    await writeFile(
+      join(allowedSessionRoot, "onmyagent-session.json"),
+      JSON.stringify({ kind: "expert-session", workspaceId: "ws_1" }),
+      "utf8",
+    );
+    const outsideRoot = await mkdtemp(join(tmpdir(), "onmyagent-expert-artifact-outside-"));
+    roots.push(outsideRoot);
+    await writeFile(join(outsideRoot, "escaped.md"), "# Escaped result\n", "utf8");
+    await symlink(join(outsideRoot, "escaped.md"), join(allowedSessionRoot, "escaped.md"));
+    const previousRuntimeRoot = process.env.ONMYAGENT_EXPERT_SESSION_RUNTIME_ROOT;
+    process.env.ONMYAGENT_EXPERT_SESSION_RUNTIME_ROOT = runtimeRoot;
+    try {
+      const { base, token } = await startOnMyAgentServer(workspaceRoot);
+      const resolve = async (sessionRoot: string, value = "result.md") => {
+        const response = await fetch(`${base}/workspace/ws_1/artifacts/resolve`, {
+          method: "POST",
+          headers: auth(token),
+          body: JSON.stringify({
+            sessionRoot,
+            targets: [{ kind: "file", value, confidence: 95 }],
+          }),
+        });
+        expect(response.status).toBe(200);
+        return await response.json() as { items: Array<{ value: string; exists: boolean }> };
+      };
+
+      expect((await resolve(allowedSessionRoot)).items).toContainEqual(
+        expect.objectContaining({ value: "result.md", exists: true }),
+      );
+      expect((await resolve(allowedSessionRoot, "escaped.md")).items).toContainEqual(
+        expect.objectContaining({ value: "escaped.md", exists: false }),
+      );
+    } finally {
+      if (previousRuntimeRoot === undefined) {
+        delete process.env.ONMYAGENT_EXPERT_SESSION_RUNTIME_ROOT;
+      } else {
+        process.env.ONMYAGENT_EXPERT_SESSION_RUNTIME_ROOT = previousRuntimeRoot;
+      }
+    }
+  });
+
   test("resolve, read, write, and download markdown/csv/xlsx/html artifacts", async () => {
     const root = await createWorkspaceRoot();
     const { base, token } = await startOnMyAgentServer(root);
