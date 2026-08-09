@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 import {
   EXPERT_SESSION_LIFECYCLE_RULES,
@@ -8,12 +10,18 @@ import {
   shouldClearLocalBindingOnDelete,
   shouldFlushComposerOnExpertCreate,
 } from "../src/react-app/domains/agents/expert-session-lifecycle";
+import {
+  beginExpertCreateSaveAttempt,
+  consumeExpertCreateComposerFlush,
+} from "../src/react-app/domains/agents/expert-creation-actions";
 import { clearExpertLocalSessionBindings } from "../src/react-app/domains/agents/expert-hard-delete";
 import {
   addExpertSession,
   isExpertSession,
   removeExpertSession,
 } from "../src/react-app/domains/agents/agent-session-state";
+
+const appRoot = path.join(import.meta.dir, "..");
 
 describe("expert-session-lifecycle contracts", () => {
   test("draft sessions are never cleared on hard-delete", () => {
@@ -73,5 +81,39 @@ describe("expert-session-lifecycle contracts", () => {
     expect(isExpertSession("keep-me")).toBe(true);
     expect(isExpertSession("drop-me")).toBe(false);
     removeExpertSession("keep-me");
+  });
+
+  test("production call sites import lifecycle helpers", () => {
+    const createActions = readFileSync(
+      path.join(
+        appRoot,
+        "src/react-app/domains/agents/expert-creation-actions.ts",
+      ),
+      "utf8",
+    );
+    expect(createActions).toContain("shouldFlushComposerOnExpertCreate");
+    expect(createActions).toContain("consumeExpertCreateComposerFlush");
+
+    const surface = readFileSync(
+      path.join(
+        appRoot,
+        "src/react-app/shell/session-route/surface-props-hook-impl.ts",
+      ),
+      "utf8",
+    );
+    expect(surface).toContain("shouldApplyExpertSelection");
+
+    const deleteHook = readFileSync(
+      path.join(
+        appRoot,
+        "src/react-app/domains/session/pages/use-expert-session-delete.ts",
+      ),
+      "utf8",
+    );
+    expect(deleteHook).toContain("remainingExpertSessionIdsAfterDelete");
+
+    beginExpertCreateSaveAttempt();
+    expect(consumeExpertCreateComposerFlush()).toBe(true);
+    expect(consumeExpertCreateComposerFlush()).toBe(false);
   });
 });
