@@ -911,6 +911,7 @@ describe("expert marketplace UI contract", () => {
     );
 
     expect(sessionRoute).toContain("installMarketplaceExpertAfterSessionCreated");
+    expect(sessionRoute).toContain("kickoffMarketplaceExpertInstall");
     expect(installIntent).toContain("await ensureMarketplaceExpertInstalled(marketplaceExpert)");
     expect(installHelper).toContain('expert.source !== "builtin"');
     expect(installHelper).toContain("coordinator.ensure({");
@@ -919,10 +920,13 @@ describe("expert marketplace UI contract", () => {
     expect(sessionRoute).toContain("sessionId: newSession.id");
     expect(sessionRoute).toContain("writeCustomAgentIdForSession(sessionId, pendingAgentSnapshot.id)");
     expect(sessionRoute).toContain("writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot)");
-    expect(sessionRoute).toContain("await installMarketplaceExpertAfterSessionCreated");
+    // First prompt joins install (started earlier) with env prep — not a serial
+    // await after bind. Empty-shell create fire-and-forgets install.
+    expect(sessionRoute).toContain("installMarketplaceExpertAfterSessionCreated");
+    expect(sessionRoute).toContain("Promise.all([");
     const sessionCreatedGuardIndex = pageView.indexOf("if (!newSession) return;");
     const installAfterCreationIndex = pageView.indexOf(
-      "await installMarketplaceExpertAfterSessionCreated(agentToBind)",
+      "void installMarketplaceExpertAfterSessionCreated(agentToBind)",
     );
     expect(sessionCreatedGuardIndex).toBeGreaterThan(-1);
     expect(installAfterCreationIndex).toBeGreaterThan(sessionCreatedGuardIndex);
