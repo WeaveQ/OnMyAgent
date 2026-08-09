@@ -214,7 +214,7 @@ export function AutomationNavSidebar(props: {
         style={{ width: props.width }}
       >
         <div
-          className="relative flex w-full shrink-0 flex-col pt-1.5"
+          className="relative flex w-full shrink-0 flex-col pt-2"
           data-automation-search="true"
         >
           <InputGroup
