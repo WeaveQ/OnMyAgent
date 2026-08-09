@@ -78,6 +78,10 @@ packages/onmyagent-ui-mcp UI 控制面 MCP server
 - 可共享 conversation **展示**合同；**禁止**交叉写对方 store / archive。细则与决策启发式：`docs/Architecture.md` → **Dual Runtime Boundary**。
 - 主轨 archive 热路径：store pool + change-bus + SSE 策略（同文档 **Server Archive Runtime**）；新增代码勿绕过 pool 裸 open。
 
+### Experts / Session 不变量（摘要）
+
+专家空壳、origin 水合、bound draft 消费、首发冷路径可见性、snapshot/SSE 代际隔离等 **行为铁律** 写在 [`apps/app/AGENTS.md`](apps/app/AGENTS.md) → **Experts / Session 不变量**。改相关代码前必读；契约：`apps/app/scripts/expert-session-invariants.test.ts`。
+
 ## 构建与启动
 
 ```bash
