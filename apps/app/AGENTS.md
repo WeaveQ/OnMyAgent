@@ -56,13 +56,15 @@ pnpm test:ui
 
 ## 双运行时
 
-- **OpenCode** = 产品主运行时与主会话真相源（`domains/session` + server archive / SSE）。
-- **Personal Local Agent** = 桌面辅轨（`domains/local-agents`），不是第二套主引擎。
-- **禁止**交叉写对方 store / archive。细则：根 AGENTS「双运行时主辅」+ `docs/Architecture.md` → Dual Runtime Boundary。
+一句话：OpenCode 主 · Personal 辅 · 禁止交叉写 store/archive。长文只在 [`docs/Architecture.md`](../../docs/Architecture.md) Dual Runtime Boundary。
 
 ## Experts / Session 不变量
 
-改 `domains/session`、`shell/session-route`、专家 draft/origin 时必须遵守。违反即回归。契约入口：`apps/app/scripts/expert-session-invariants.test.ts`（并引用下列专项测试）。
+改 `domains/session`、`shell/session-route`、专家 draft/origin 时必须遵守。违反即回归。
+
+**与 Architecture 分工：** 本表 = **产品行为**（水合/草稿/首发/SSE）；`docs/Architecture.md` Expert lifecycle / Cold-path budget = **删除/创建/选中硬规则 + 数值预算**。两边都要遵守，不要把一边抄进另一边。
+
+契约入口：`scripts/expert-session-invariants.test.ts`（并引用下列专项测试）。
 
 1. **空壳禁止 startRun**  
    仅创建空专家会话壳（`onCreateFreshSessionForAgent` 等）**不得** `startRun`。只有首条真实 prompt / 已有 run 路径才能标 busy。  

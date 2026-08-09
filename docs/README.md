@@ -72,6 +72,8 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | Skills write/scan roots + list resilience | `Architecture.md` Product phase hard constraints + server `listSkills` |
 | React domains + shell load/boot UX | `apps/app/src/react-app/ARCHITECTURE.md` (+ **Shell load / boot**) + `domains/*/README.md` |
 | Expert / session UI ownership | `react-app/ARCHITECTURE.md` + `Architecture.md` **Session / Expert / cold-path pointers** |
+| Expert lifecycle delete/create/select + cold-path **budgets** | `Architecture.md` Expert lifecycle hard rules + Cold-path budget |
+| Expert / session **product behavior** (busy shell, origin, draft, first-send) | `../apps/app/AGENTS.md` invariants + contract tests |
 | Release notes (human) | root `CHANGELOG.md` + GitHub Releases |
 | Visual tokens / components | `../DESIGN.md` (only) |
 | Design philosophy only | `design/theme-system.md` |

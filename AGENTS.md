@@ -54,9 +54,9 @@ packages/handsfree macOS Computer Use（HandsFree AX/Skysight；Win/Linux 不打
 packages/onmyagent-ui-mcp UI 控制面 MCP server
 ```
 
-**Computer Use 跨平台：** macOS = HandsFree helper；Windows = 桌面侧 bundled **Cua Driver**（`prepare-cua-helper` / `computer-use-runtime-config`，MCP 默认关）。Appshot 在 **macOS / Windows** 走 Electron `desktopCapturer`（Linux 桌面非产品目标）。细节见 `docs/windows-compat.md` + `docs/Architecture.md` Product platforms。
+**平台 / Computer Use / Appshot：** 产品事实见 `docs/Architecture.md`（Product platforms）与 `docs/windows-compat.md`；勿在本文件展开平台矩阵。
 
-默认忽略：`ee/*`、Den Web/API、landing page、cloud dashboard。完整架构、数据流、包边界只维护在 `docs/Architecture.md`；React 域细节只维护在 `apps/app/src/react-app/ARCHITECTURE.md`。
+默认忽略：`ee/*`、Den Web/API、landing page、cloud dashboard。完整架构、数据流、包边界 → `docs/Architecture.md`；React 域 → `apps/app/src/react-app/ARCHITECTURE.md`。
 
 ### 包级手册
 
@@ -71,45 +71,33 @@ packages/onmyagent-ui-mcp UI 控制面 MCP server
 | `apps/orchestrator` | [`apps/orchestrator/AGENTS.md`](apps/orchestrator/AGENTS.md) |
 | `packages/types` | [`packages/types/AGENTS.md`](packages/types/AGENTS.md) |
 
-### 双运行时主辅（硬事实）
+### 双运行时主辅（硬入口）
 
-- **OpenCode** = 产品主运行时与主会话真相源（server / archive / SSE / `domains/session`）。
-- **Personal Local Agent** = 桌面辅轨：本机 CLI/ACP agent harness（`personal-agent-runtime` + `domains/local-agents`），**不是**第二套主引擎。
-- 可共享 conversation **展示**合同；**禁止**交叉写对方 store / archive。细则与决策启发式：`docs/Architecture.md` → **Dual Runtime Boundary**。
-- 主轨 archive 热路径：store pool + change-bus + SSE 策略（同文档 **Server Archive Runtime**）；新增代码勿绕过 pool 裸 open。
+- **OpenCode 主轨** · **Personal Local Agent 辅轨**（不是第二主引擎）。
+- **禁止**交叉写对方 store / archive。
+- 细则、决策启发式、archive 热路径 → **`docs/Architecture.md`**（Dual Runtime Boundary + Server Archive Runtime）。勿在 AGENTS 展开 adapter/IPC 长文。
 
-### Experts / Session 不变量（摘要）
+### Experts / Session（两层 SoT，勿混）
 
-专家空壳、origin 水合、bound draft 消费、首发冷路径可见性、snapshot/SSE 代际隔离等 **行为铁律** 写在 [`apps/app/AGENTS.md`](apps/app/AGENTS.md) → **Experts / Session 不变量**。改相关代码前必读；契约：`apps/app/scripts/expert-session-invariants.test.ts`。
+| 层 | 内容 | 权威 |
+|----|------|------|
+| **产品行为不变量** | 空壳 startRun、origin 水合、bound draft、冷路径可见、SSE 代际 | [`apps/app/AGENTS.md`](apps/app/AGENTS.md) + `expert-session-invariants.test.ts` |
+| **生命周期 / 冷启动预算** | hard_delete、create flush、select no-op、listSessions 预算 | [`docs/Architecture.md`](docs/Architecture.md) Expert lifecycle + Cold-path budget + 代码表 |
 
 ## 构建与启动
 
+命令面 SoT：`package.json` + `scripts/cli/*`；完整矩阵见 `docs/Architecture.md` → **Dev Command Surface**。下列为 Agent 日常最短入口：
+
 ```bash
-pnpm dev                  # 默认启动桌面端（Electron + UI + server）
-pnpm dev -- app           # 统一入口：仅 UI（Vite renderer）
-pnpm dev -- server        # 统一入口：本地 HTTP API
-pnpm dev -- orchestrator  # 统一入口：runtime/orchestrator CLI
-pnpm dev -- headless      # 统一入口：无 Electron 的 Web + server smoke 模式
-pnpm check:type           # 全 workspace TypeScript 基线
-pnpm check:types:all      # 显式全量类型门禁：types/ui/app/server/desktop/orchestrator
-pnpm task check app       # 低频专项检查入口：app renderer 类型检查
-pnpm task check server    # 低频专项检查入口：server 类型检查
-pnpm task check desktop   # 低频专项检查入口：desktop Electron 类型检查
-pnpm task check orchestrator # 低频专项检查入口：orchestrator 类型检查
-pnpm task check design    # 低频专项检查入口：DESIGN.md YAML 与代码 token 漂移检测
-pnpm check:boundaries     # 架构边界 + shell-import-depth 门禁
-pnpm check:forbidden-types # any / as any / as unknown as 类型逃逸门禁
-pnpm check:file-size      # 大文件体量基线（只减不增）
-pnpm check:i18n:cjk       # renderer 层中日韩硬编码字符串门禁
-pnpm test:unit            # server + orchestrator 单元/集成测试
-pnpm test:api             # server HTTP/API e2e 测试
-pnpm test:runtime         # Electron bridge + orchestrator runtime smoke
-pnpm test:ui              # app version gate + UI/e2e smoke
-pnpm task test sessions   # 低频 app 专项测试入口
-pnpm task build app       # UI 构建
+pnpm dev                  # 桌面端（Electron + UI + server）
+pnpm check:type           # 全仓类型基线
+pnpm task check <app|server|desktop|orchestrator|design>
+pnpm check                # type + i18n + security + boundaries + file-size 等门禁合集
+pnpm test:unit | test:api | test:runtime | test:ui
+pnpm task test sessions   # app session 专项
 ```
 
-环境要求：Node（见 `.nvmrc`）、pnpm 10.27.0、本地 opencode binary。只用 pnpm，不用 npm / yarn。
+环境：Node（`.nvmrc`）、pnpm 10.27.0、本地 opencode。只用 pnpm。打包 → `BUILD.md`；发版 → `docs/release.md`（勿在 AGENTS 写 notarize 流程）。
 
 ## 编码规约
 
