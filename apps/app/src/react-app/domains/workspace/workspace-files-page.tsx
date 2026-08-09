@@ -8,7 +8,7 @@
  * - Projects: not yet open
  */
 import { useCallback, useState } from "react";
-import { Bot, FileStack, FileUp, FolderKanban } from "lucide-react";
+import { Briefcase, Folder, MessageSquare, UserRound } from "lucide-react";
 
 import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { cn } from "@/lib/utils";
@@ -31,16 +31,21 @@ import {
 
 export { resolveToolWorkspaceFileRoot } from "./workspace-files-model";
 
+/** Source pills — match primary-rail semantics (Folder / task chat / expert person / projects). */
 function filesSourceTabIcon(tab: (typeof FILES_SOURCE_RAIL_TABS)[number]) {
   switch (tab) {
     case "uploads":
-      return FileUp;
+      // My files library — not FileUp (import CTA stays on toolbar).
+      return Folder;
     case "task":
-      return FileStack;
+      // Task conversation outputs.
+      return MessageSquare;
     case "expert":
-      return Bot;
+      // Same person glyph as Expert rail + marketplace.
+      return UserRound;
     case "project":
-      return FolderKanban;
+      // Same briefcase as Projects rail.
+      return Briefcase;
   }
 }
 

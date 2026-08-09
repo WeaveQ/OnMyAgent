@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MessageSquare, PlayCircle, RefreshCw, Search, Trash2 } from "lucide-react";
+import { PlayCircle, RefreshCw, Search, Trash2 } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import type {
@@ -16,6 +16,8 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { cn } from "@/lib/utils";
+import { ARCHIVE_EMPTY_STATE_ASSET } from "@/react-app/design-system/empty-state-assets";
+import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import type { SessionArchiveResumeRequest } from "./session-archive-helpers";
 import {
   agentLabel,
@@ -495,7 +497,11 @@ export function SessionArchivePage(props: Props) {
             ) : null}
             {!loadingList && !syncing && flatSessions.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 px-4 py-16 text-center text-xs text-dls-secondary">
-                <MessageSquare className="size-8 opacity-30" />
+                <EmptyStateIllustration
+                  src={ARCHIVE_EMPTY_STATE_ASSET}
+                  size="compact"
+                  className="mb-1"
+                />
                 <span>{t("session_archive.empty")}</span>
                 <span className="max-w-[16rem] text-2xs leading-relaxed text-dls-secondary/80">
                   {t("session_archive.empty_hint")}
@@ -697,7 +703,11 @@ export function SessionArchivePage(props: Props) {
                   </div>
                 ) : displayMessages.length === 0 ? (
                   <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-xs text-dls-secondary">
-                    <MessageSquare className="size-8 opacity-30" />
+                    <EmptyStateIllustration
+                      src={ARCHIVE_EMPTY_STATE_ASSET}
+                      size="compact"
+                      className="mb-1"
+                    />
                     <span>{t("session_archive.no_messages")}</span>
                   </div>
                 ) : (

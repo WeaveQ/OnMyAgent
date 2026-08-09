@@ -10,12 +10,12 @@ import {
   Package,
   Plug,
   Plus,
-  Puzzle,
   Search,
   Sparkles,
   Upload,
   UserPlus,
   UserRound,
+  Users,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { useEffect, useState } from "react";
@@ -317,7 +317,8 @@ function StorePrimaryTabs(props: {
     icon: ComponentType<{ className?: string }>;
   }> = [
     { id: "experts", label: t("store.experts_tab"), icon: UserRound },
-    { id: "skills", label: t("store.skills_tab"), icon: Puzzle },
+    // Sparkles — same skills glyph as sidebar / nav maps (not puzzle piece).
+    { id: "skills", label: t("store.skills_tab"), icon: Sparkles },
     { id: "plugins", label: t("plugins.artifact_tab"), icon: Package },
   ];
 
@@ -457,7 +458,8 @@ export function StorePage(props: {
                 onClick={() => setExpertView("mine")}
                 className="mac:titlebar-no-drag"
               >
-                <UserPlus data-icon="inline-start" className="size-3.5" />
+                {/* Collection of experts I own — not UserPlus (that is create). */}
+                <Users data-icon="inline-start" className="size-3.5" />
                 {t("session.my_experts")}
               </Button>
               <Button

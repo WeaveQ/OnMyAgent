@@ -25,6 +25,8 @@ import {
 import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
 import { desktopBridge } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
+import { COMPANY_EMPTY_STATE_ASSET } from "@/react-app/design-system/empty-state-assets";
+import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import { shellChrome } from "@/react-app/design-system/type-scale";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
@@ -65,6 +67,11 @@ function CompanyEmptyState(props: { title: string; desc: string }) {
       tone="muted"
       className="flex h-full min-h-[200px] flex-col items-center justify-center gap-2 px-6"
     >
+      <EmptyStateIllustration
+        src={COMPANY_EMPTY_STATE_ASSET}
+        size="compact"
+        className="mb-1"
+      />
       <p className="text-base font-medium text-dls-text">{props.title}</p>
       <p className="max-w-sm text-xs leading-5">{props.desc}</p>
     </EmptyStateBox>
@@ -306,7 +313,11 @@ export function CompanyStorePage(props: {
 
         {!connected ? (
           <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-3 text-center">
-            <Building2 className="size-10 text-dls-secondary/60" />
+            <EmptyStateIllustration
+              src={COMPANY_EMPTY_STATE_ASSET}
+              size="compact"
+              className="mb-0"
+            />
             <p className="text-base font-medium text-dls-text">
               {t("store.company_not_connected_title")}
             </p>

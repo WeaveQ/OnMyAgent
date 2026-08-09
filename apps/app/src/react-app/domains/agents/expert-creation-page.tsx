@@ -7,7 +7,6 @@ import {
   ChevronDown,
   ChevronRight,
   FileText,
-  FileSearch,
   Folder,
   FolderPlus,
   MoreHorizontal,
@@ -45,9 +44,10 @@ import {
   Empty,
   EmptyDescription,
   EmptyHeader,
-  EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { SKILLS_EMPTY_STATE_ASSET } from "@/react-app/design-system/empty-state-assets";
+import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import { Textarea } from "@/components/ui/textarea";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -695,7 +695,13 @@ function SkillPickerPopover(props: {
 }
 
 function SkillsEmptyIllustration() {
-  return <FileSearch className="size-16 text-dls-secondary/60" strokeWidth={1.25} aria-hidden />;
+  return (
+    <EmptyStateIllustration
+      src={SKILLS_EMPTY_STATE_ASSET}
+      size="compact"
+      className="mb-0 h-20 max-w-[8rem]"
+    />
+  );
 }
 
 function SkillImportDialog(props: {
@@ -874,9 +880,7 @@ function SkillsPanel(props: {
           className="min-h-[calc(100dvh-12rem)] rounded-xl bg-dls-surface px-6"
         >
           <EmptyHeader className="max-w-lg gap-4">
-            <EmptyMedia>
-              <SkillsEmptyIllustration />
-            </EmptyMedia>
+            <SkillsEmptyIllustration />
             <EmptyTitle className="text-base font-semibold">
               {t("agents.expert_creation_no_skills")}
             </EmptyTitle>

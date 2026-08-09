@@ -3,12 +3,16 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 
 import {
+  ARCHIVE_EMPTY_STATE_ASSET,
+  ARTIFACTS_EMPTY_STATE_ASSET,
   AUTOMATION_EMPTY_STATE_ASSET,
+  COMPANY_EMPTY_STATE_ASSET,
   CONNECTORS_EMPTY_STATE_ASSET,
   CONVERSATION_HISTORY_EMPTY_STATE_ASSET,
   DEVICES_EMPTY_STATE_ASSET,
   EMPTY_STATE_ILLUSTRATION_CLASS,
   EMPTY_STATE_ILLUSTRATION_COMPACT_CLASS,
+  FILES_EMPTY_STATE_ASSET,
   NO_EXPERT_CONVERSATIONS_ASSET,
   PROJECTS_PLACEHOLDER_ASSET,
   SCHEDULED_TASKS_PREVIEW_ASSET,
@@ -35,9 +39,16 @@ const WAVE2_ASSETS = [
   SCHEDULED_TASKS_PREVIEW_ASSET,
 ] as const;
 
+const WAVE3_ASSETS = [
+  FILES_EMPTY_STATE_ASSET,
+  ARTIFACTS_EMPTY_STATE_ASSET,
+  ARCHIVE_EMPTY_STATE_ASSET,
+  COMPANY_EMPTY_STATE_ASSET,
+] as const;
+
 describe("empty-state Koboyo local illustrations", () => {
   test("all exported illustration paths exist as local monochrome SVGs", () => {
-    const assets = [...WAVE1_ASSETS, ...WAVE2_ASSETS];
+    const assets = [...WAVE1_ASSETS, ...WAVE2_ASSETS, ...WAVE3_ASSETS];
     expect(new Set(assets).size).toBe(assets.length);
     for (const asset of assets) {
       expect(asset.startsWith("/illustrations/koboyo/")).toBe(true);
@@ -158,5 +169,97 @@ describe("empty-state Koboyo local illustrations", () => {
     expect(skills).toContain("EmptyStateIllustration");
     expect(preview).toContain("SCHEDULED_TASKS_PREVIEW_ASSET");
     expect(preview).toContain("DEVICES_EMPTY_STATE_ASSET");
+  });
+
+  test("wave-3 live empty consumers wire shared illustrations", () => {
+    const filesUploads = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
+      ),
+      "utf8",
+    );
+    const filesBrowser = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/workspace/workspace-files-browser-panel.tsx",
+      ),
+      "utf8",
+    );
+    const artifactsChrome = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/session/surface/chrome/empty-artifacts-panel.tsx",
+      ),
+      "utf8",
+    );
+    const artifactsLight = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/session/chat/session-page-light-pages.tsx",
+      ),
+      "utf8",
+    );
+    const archivePage = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/session/chat/session-page-session-archive-page.tsx",
+      ),
+      "utf8",
+    );
+    const archivedTasks = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/settings/pages/archived-tasks-view.tsx",
+      ),
+      "utf8",
+    );
+    const expertCreation = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/agents/expert-creation-page.tsx",
+      ),
+      "utf8",
+    );
+    const companyStore = readFileSync(
+      resolve(
+        root,
+        "apps/app/src/react-app/domains/plugins/company-store-page.tsx",
+      ),
+      "utf8",
+    );
+
+    for (const src of [filesUploads, filesBrowser]) {
+      expect(src).toContain("FILES_EMPTY_STATE_ASSET");
+      expect(src).toContain("EmptyStateIllustration");
+      expect(src).not.toMatch(/EmptyMedia[\s\S]{0,80}<FileUp/);
+    }
+    expect(filesBrowser).not.toMatch(
+      /EmptyMedia[\s\S]{0,120}(FileSearch|FileStack|FolderOpen)/,
+    );
+
+    for (const src of [artifactsChrome, artifactsLight]) {
+      expect(src).toContain("ARTIFACTS_EMPTY_STATE_ASSET");
+      expect(src).toContain("EmptyStateIllustration");
+      expect(src).not.toMatch(/FileText className="mx-auto size-8/);
+    }
+
+    expect(archivePage).toContain("ARCHIVE_EMPTY_STATE_ASSET");
+    expect(archivePage).toContain("EmptyStateIllustration");
+    expect(archivePage).not.toMatch(/MessageSquare className="size-8 opacity/);
+
+    expect(archivedTasks).toContain("ARCHIVE_EMPTY_STATE_ASSET");
+    expect(archivedTasks).toContain("EmptyStateIllustration");
+    expect(archivedTasks).not.toMatch(/Archive className="size-8 opacity/);
+
+    expect(expertCreation).toContain("SKILLS_EMPTY_STATE_ASSET");
+    expect(expertCreation).toContain("EmptyStateIllustration");
+    expect(expertCreation).not.toMatch(
+      /function SkillsEmptyIllustration\(\)[\s\S]{0,200}FileSearch/,
+    );
+
+    expect(companyStore).toContain("COMPANY_EMPTY_STATE_ASSET");
+    expect(companyStore).toContain("EmptyStateIllustration");
+    expect(companyStore).not.toMatch(/Building2 className="size-10/);
   });
 });

@@ -7,7 +7,6 @@ import {
   type ComponentType,
 } from "react";
 import {
-  Archive,
   ChevronDown,
   Folder,
   ListFilter,
@@ -43,6 +42,8 @@ import {
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
 import { cn } from "@/lib/utils";
+import { ARCHIVE_EMPTY_STATE_ASSET } from "@/react-app/design-system/empty-state-assets";
+import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import { LayoutStack } from "../settings-layout";
 import {
@@ -813,7 +814,11 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
       {empty ? (
         <EmptyStateBox size="spacious" tone="surface" className="text-sm">
           <div className="flex flex-col items-center gap-2 py-4">
-            <Archive className="size-8 opacity-40" />
+            <EmptyStateIllustration
+              src={ARCHIVE_EMPTY_STATE_ASSET}
+              size="compact"
+              className="mb-1"
+            />
             <div className="font-medium text-dls-text">
               {!hasAny
                 ? t("settings.archived_tasks_empty")
