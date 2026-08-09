@@ -58,6 +58,7 @@ import { AgentManagementPage } from "../../local-agents";
 import { MessagingChannelsPage } from "../../messaging";
 import { WorkspaceFilesPage } from "../../workspace";
 import { buildFilesOpenSessionMeta } from "./session-files-open-meta";
+import { canHardDeleteExpert } from "./expert-hard-delete";
 import {
   resolveExpertDeleteCopy,
   useExpertSessionDelete,
@@ -955,6 +956,7 @@ export function ExpertPage(props: ExpertPageProps) {
     activeConversationAgentId,
     currentAgentSessions,
     onDeleteSession: props.onDeleteSession,
+    registry,
   });
 
   const {
@@ -985,15 +987,29 @@ export function ExpertPage(props: ExpertPageProps) {
 
   const openDeleteExpertModal = useCallback(
     (target: { agentId: string; name: string; sessionIds: string[] }) => {
+      const agentId = target.agentId.trim();
+      // System builtins (creation coach) cannot be hard-deleted.
+      if (!canHardDeleteExpert(agentId, registry)) return;
       openDeleteGroupModal({
         kind: "expert",
-        agentId: target.agentId.trim(),
+        agentId,
         name: target.name.trim(),
         sessionIds: target.sessionIds,
       });
     },
-    [openDeleteGroupModal],
+    [openDeleteGroupModal, registry],
   );
+
+  const deletableExpertIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const group of conversationGroups) {
+      const agentId = group.agentId?.trim() ?? "";
+      if (agentId && canHardDeleteExpert(agentId, registry)) {
+        ids.add(agentId);
+      }
+    }
+    return ids;
+  }, [conversationGroups, registry]);
 
   const {
     title: expertDeleteTitle,
@@ -1272,6 +1288,7 @@ export function ExpertPage(props: ExpertPageProps) {
                 }
                 onOpenAgents={openExpertMarket}
                 onCreateExpert={openExpertCreation} onEditExpert={handleEditExpert} editableExpertIds={editableExpertIds}
+                deletableExpertIds={deletableExpertIds}
                 onOpenAgentStarter={handleOpenExpertStarter}
                 onCreateTask={handleCreateCurrentAgentSession}
                 onOpenSession={handleOpenExpertFromSidebar}

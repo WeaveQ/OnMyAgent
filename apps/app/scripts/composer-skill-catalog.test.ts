@@ -1,9 +1,13 @@
 import { describe, expect, test } from "bun:test";
 
 import type { SkillCard, SlashCommandOption } from "../src/app/types";
+import type { McpDirectoryInfo } from "../src/app/constants";
+import type { McpServerEntry } from "../src/app/types";
 import {
+  buildActiveMcpItems,
   buildCombinedSkillItems,
   buildOnmyagentInstalledNames,
+  builtInExtensionMcpServerNames,
   isComposerManagedSkill,
 } from "../src/react-app/domains/session/surface/composer/skill-catalog";
 import { mergeSlashCommandsWithSkills } from "../src/react-app/domains/session/surface/composer/slash-command-merge";
@@ -110,5 +114,46 @@ describe("composer skill catalog product model", () => {
       "find-skills",
       "getworkbuddy",
     ]);
+  });
+
+  test("connector menu excludes MCP servers owned by built-in extensions", () => {
+    const extensions: McpDirectoryInfo[] = [
+      {
+        id: "computer-use",
+        name: "计算机控制",
+        serverName: "computer-use",
+        description: "desktop",
+        oauth: false,
+        kind: "extension",
+        extensionManifest: {
+          schemaVersion: 1,
+          id: "computer-use",
+          name: "计算机控制",
+          description: "desktop",
+          source: { format: "onmyagent-builtin", origin: "builtin", trusted: true },
+          resources: [
+            {
+              type: "mcp",
+              id: "computer-use-mcp",
+              mcpServerName: "computer-use",
+            },
+          ],
+        },
+      },
+    ];
+    const servers: McpServerEntry[] = [
+      {
+        name: "computer-use",
+        config: { type: "local", command: ["npx", "handsfree"], enabled: true },
+      },
+      {
+        name: "custom-mcp",
+        config: { type: "local", command: ["echo"], enabled: true },
+      },
+    ];
+    const exclude = builtInExtensionMcpServerNames(extensions);
+    expect(exclude.has("computer-use")).toBe(true);
+    const items = buildActiveMcpItems(servers, {}, exclude);
+    expect(items.map((item) => item.entry.name)).toEqual(["custom-mcp"]);
   });
 });

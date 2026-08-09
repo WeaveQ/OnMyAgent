@@ -155,6 +155,8 @@ export function AgentConversationPanel(props: {
   onPrefetchSession?: (workspaceId: string, sessionId: string) => void;
   onEditExpert?: (agentId: string) => void;
   editableExpertIds?: ReadonlySet<string>;
+  /** When set, only these experts show hard-delete (system builtins excluded). */
+  deletableExpertIds?: ReadonlySet<string>;
   onToggleCollapsed: () => void;
   onOpenAgents: () => void;
   onCreateExpert?: () => void;
@@ -1358,6 +1360,7 @@ export function AgentConversationPanel(props: {
             onPrefetchSession={props.onPrefetchSession}
             onEditExpert={props.onEditExpert}
             editableExpertIds={props.editableExpertIds}
+            deletableExpertIds={props.deletableExpertIds}
             onDeleteExpert={props.onDeleteExpert}
           />
         )}

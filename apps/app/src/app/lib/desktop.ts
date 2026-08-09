@@ -826,6 +826,11 @@ export const listExpertRegistryRecords = (marketplace: ExpertMarketplaceName) =>
 export const writeMyExpertPackage = (input: MyExpertPackageWriteInput) =>
   invokeDesktopCommand("writeMyExpertPackage", input);
 
+export const uninstallExpertPackage = (input: {
+  marketplace: ExpertMarketplaceName;
+  packageName: string;
+}) => invokeDesktopCommand("uninstallExpertPackage", input);
+
 export const stageMyExpertKnowledge = (input: MyExpertKnowledgeStageInput) =>
   invokeDesktopCommand("stageMyExpertKnowledge", input);
 

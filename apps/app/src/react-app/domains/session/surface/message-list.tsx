@@ -86,6 +86,7 @@ import { blockIsActivelyStreaming } from "./message-list/message-block-row-equal
 import {
   activeTurnReserveStyle,
   resolveVirtualItemEstimate,
+  resolveVirtualWindowPadding,
   shouldRemeasureVirtualHistory,
   shouldVirtualizeTranscript,
   TRANSCRIPT_VIRTUALIZATION_THRESHOLD,
@@ -733,10 +734,18 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
   });
   const virtualRows = shouldVirtualize ? virtualizer.getVirtualItems() : [];
   const firstVirtualRow = virtualRows[0];
+  const lastVirtualRow = virtualRows[virtualRows.length - 1];
   // When the scroll parent is not ready, getVirtualItems() is empty but
   // getTotalSize() still sums estimates — a fixed-height empty shell looks like
   // multi-screen blank space above the live message. Fall back to normal flow.
   const useVirtualWindow = shouldVirtualize && virtualRows.length > 0;
+  const virtualWindowPadding = useVirtualWindow
+    ? resolveVirtualWindowPadding({
+        totalSize: virtualizer.getTotalSize(),
+        firstStart: firstVirtualRow?.start,
+        lastEnd: lastVirtualRow?.end,
+      })
+    : null;
   const scrollBlocksMeasure = !measureWhileScrolling;
   const allowVirtualMeasure = shouldAttachVirtualMeasure({
     isStreaming: props.isStreaming,
@@ -1004,48 +1013,48 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     >
       {useVirtualWindow ? (
         <>
+          {/*
+            Flow + top/bottom padding (not height+absolute). Absolute rows inside
+            an estimate-sized shell overflow and paint over the detached live turn
+            when tool-heavy history is taller than estimateSize.
+          */}
           <div
-            className="relative"
-            style={{
-              height: `${Math.max(virtualizer.getTotalSize(), 1)}px`,
-              width: "100%",
-            }}
+            className="w-full"
+            style={
+              virtualWindowPadding
+                ? {
+                    paddingTop: virtualWindowPadding.paddingTop,
+                    paddingBottom: virtualWindowPadding.paddingBottom,
+                  }
+                : undefined
+            }
           >
-            {firstVirtualRow ? (
-              <div
-                className="absolute left-0 top-0 w-full"
-                style={{
-                  transform: `translateY(${firstVirtualRow.start}px)`,
-                }}
-              >
-                {virtualRows.map((virtualRow) => {
-                  const item = virtualRenderItems[virtualRow.index];
-                  if (!item) return null;
-                  const rowMeasure = resolveVirtualRowMeasurePolicy({
-                    isStreaming: props.isStreaming,
-                    scrollBlocksMeasure,
-                    activeTurnVirtualIndex,
-                    virtualIndex: virtualRow.index,
-                  });
-                  return (
-                    <div
-                      key={virtualRow.key}
-                      data-index={virtualRow.index}
-                      // Streaming: active turn, or visible history when the live
-                      // turn is detached. Idle: all unless scroll-blocked.
-                      ref={
-                        allowVirtualMeasure && rowMeasure.shouldMeasure
-                          ? virtualizer.measureElement
-                          : undefined
-                      }
-                      className="w-full"
-                    >
-                      {renderTranscriptItem(item)}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : null}
+            {virtualRows.map((virtualRow) => {
+              const item = virtualRenderItems[virtualRow.index];
+              if (!item) return null;
+              const rowMeasure = resolveVirtualRowMeasurePolicy({
+                isStreaming: props.isStreaming,
+                scrollBlocksMeasure,
+                activeTurnVirtualIndex,
+                virtualIndex: virtualRow.index,
+              });
+              return (
+                <div
+                  key={virtualRow.key}
+                  data-index={virtualRow.index}
+                  // Streaming: active turn, or visible history when the live
+                  // turn is detached. Idle: all unless scroll-blocked.
+                  ref={
+                    allowVirtualMeasure && rowMeasure.shouldMeasure
+                      ? virtualizer.measureElement
+                      : undefined
+                  }
+                  className="w-full"
+                >
+                  {renderTranscriptItem(item)}
+                </div>
+              );
+            })}
           </div>
           {detachedTailRenderItem
             ? (

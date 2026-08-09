@@ -11,6 +11,7 @@ import {
   isVisibleExpertPackageEntry,
   packageEntryToMarketplaceExpert,
 } from "./shared-page-utils";
+import { EXPERT_PACKAGES_CHANGED_EVENT } from "./expert-hard-delete";
 
 export function useMyExpertPackages(options: {
   enabled: boolean;
@@ -19,6 +20,16 @@ export function useMyExpertPackages(options: {
   const [myExpertPackages, setMyExpertPackages] = useState<
     ExpertMarketplaceEntry[]
   >([]);
+  const [reloadToken, setReloadToken] = useState(0);
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const onChanged = () => setReloadToken((value) => value + 1);
+    window.addEventListener(EXPERT_PACKAGES_CHANGED_EVENT, onChanged);
+    return () => {
+      window.removeEventListener(EXPERT_PACKAGES_CHANGED_EVENT, onChanged);
+    };
+  }, [enabled]);
 
   useEffect(() => {
     if (!enabled) {
@@ -56,7 +67,7 @@ export function useMyExpertPackages(options: {
     return () => {
       cancelled = true;
     };
-  }, [enabled]);
+  }, [enabled, reloadToken]);
 
   return myExpertPackages;
 }
