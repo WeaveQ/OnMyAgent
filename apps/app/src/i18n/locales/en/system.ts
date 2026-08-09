@@ -24,7 +24,7 @@ export default {
   "system.boot_loading_workspaces": "Loading your workspaces…",
   "system.boot_starting_server": "Starting the local service…",
   "system.boot_activating_workspace": "Activating your workspace…",
-  "system.boot_ready": "Ready",
+  "system.boot_ready": "Almost ready",
   "system.boot_error": "Something went wrong",
   "system.boot_start_runtime_failed":
     "Could not start OnMyAgent. Try quitting and opening the app again.",

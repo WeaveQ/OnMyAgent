@@ -24,7 +24,7 @@ export default {
   "system.boot_loading_workspaces": "正在載入工作區…",
   "system.boot_starting_server": "正在啟動本地服務…",
   "system.boot_activating_workspace": "正在啟用你的工作區…",
-  "system.boot_ready": "已就緒",
+  "system.boot_ready": "即將就緒",
   "system.boot_error": "出了點問題",
   "system.boot_start_runtime_failed":
     "無法啟動 OnMyAgent。請退出後重新開啟應用再試。",
