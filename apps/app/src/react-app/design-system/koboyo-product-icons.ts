@@ -16,7 +16,9 @@ export const KOBOYO_USERS_ROUND = "/illustrations/koboyo/users-round.svg";
 export const KOBOYO_USER_PLUS = "/illustrations/koboyo/user-plus.svg";
 /** Store chrome: add connector CTA. */
 export const KOBOYO_BADGE_PLUS = "/illustrations/koboyo/badge-plus.svg";
-/** Primary rail: Experts — consultant with badge (Koboyo consultant-badge). */
+/** Primary rail: Experts — person + star (Koboyo user-star; clear at small size). */
+export const KOBOYO_USER_STAR = "/illustrations/koboyo/user-star.svg";
+/** @deprecated Prefer KOBOYO_USER_STAR for rail; kept for any leftover imports. */
 export const KOBOYO_CONSULTANT_BADGE =
   "/illustrations/koboyo/consultant-badge.svg";
 
