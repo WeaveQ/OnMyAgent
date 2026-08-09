@@ -4,22 +4,40 @@ OnMyAgent 是面向 agentic 工作流的桌面控制台，基于 OpenCode。本�
 
 ## Product phase (Phase 2)
 
+> **Agent hard entry** (six Phase-2 constraints agents must not violate) lives in root [`AGENTS.md`](../AGENTS.md). This section is engineering context + pointers; do not fork a second constraint list here.
+
 | | |
 | --- | --- |
 | **Current product phase** | **Phase 2** — desktop config foundation + **B-side (enterprise control) prep** |
+| Doc map | [`README.md`](./README.md) (what lives under `docs/` and which file is SoT) |
 | Roadmap SoT | [`design/2026-08-02-phase-2-enterprise-prep.md`](./design/2026-08-02-phase-2-enterprise-prep.md) |
 | Config foundation (2a) | [`design/2026-08-02-config-consistency.md`](./design/2026-08-02-config-consistency.md) |
 | Work memory paths | [`design/2026-08-02-work-memory-plan.md`](./design/2026-08-02-work-memory-plan.md) |
+| Files module (三来源) | [`design/files-module-product-spec.md`](./design/files-module-product-spec.md) |
+| OfficeCLI CDN contract | [`officecli-oss-release.md`](./officecli-oss-release.md) |
+| Windows product gaps | [`windows-compat.md`](./windows-compat.md) |
+| React domains / cold start | [`../apps/app/src/react-app/ARCHITECTURE.md`](../apps/app/src/react-app/ARCHITECTURE.md) |
+| Convergence plan (expert / cold / shelf / skills) | [`design/2026-08-09-architecture-convergence-plan.md`](./design/2026-08-09-architecture-convergence-plan.md) |
 
 **Layering (fixed):** **OnMyAgent** = desktop; **OnMyCompany** = intranet enterprise control plane (identity / isolation / policy / approval / audit / gateway). OpenConnector-class gateway is an **implementation detail inside OnMyCompany**, not a third product line.
 
-**Hard constraints for engineering:**
+**Product platforms (fixed):**
+
+| Platform | Product stance |
+| --- | --- |
+| **macOS** | Primary release + dogfood (signed / notarized path) |
+| **Windows** | Supported Electron shell; NSIS **unsigned** developer preview — see [`windows-compat.md`](./windows-compat.md) |
+| **Linux desktop packages** | **Not a product target** (no AppImage/AUR ship). CI may still use `ubuntu-latest` as a host; Docker **sandbox** may still pull linux sidecars — that is not “Linux client support”. |
+
+**Hard constraints for engineering** (must stay consistent with root `AGENTS.md` Phase-2 hard entry; change both when policy changes):
 
 - Mode A (logged-out) remains full local use — **no login wall**, no company HTTP without `companyBaseUrl` + session.
 - Config trees for `local` and future `company` share **one isomorphic schema** under `~/.onmyagent/profiles/{local\|company}/config/`.
 - Migration **copies** skills/experts into `profiles/local/config`; **never deletes** legacy `~/.onmyagent/skills` or `marketplaces/`.
+- **Skills write target** is the profile tree (`profiles/local/config/skills`); legacy `~/.onmyagent/skills` is read/scan only for compatibility. Bad `SKILL.md` frontmatter must not fail the whole list API (skip + keep listing).
 - This monorepo is still **desktop + local server**. Do not invent a second policy source of truth inside Electron that bypasses a future company server.
 - Provider **secrets must not** be returned to the desktop from any gateway path.
+- **Do not append release-changelog bullets to this file.** Shipped waves go in root `CHANGELOG.md` / GitHub Releases. This file holds **current** boundaries and pointers.
 
 Desktop modules already on the 2a path: `apps/desktop/electron/config-profile-paths.mjs`, `ensure-local-config-migrated.mjs`, wired from `desktop-paths.mjs`, `expert-marketplace.mjs`, and `runtime.mjs` skill materialization.
 
@@ -47,17 +65,54 @@ packages/
   onmyagent-ui-mcp/ MCP stdio server：暴露 UI 控制面给外部 MCP 客户端
 ```
 
-**Computer Use / Appshot（跨平台摘要）：**
+**Computer Use / Appshot（产品平台摘要）：**
 
-| 能力 | macOS | Windows | Linux |
+| 能力 | macOS | Windows | Linux desktop (not shipped) |
 | --- | --- | --- | --- |
-| Agent Computer Use MCP | HandsFree helper（默认开，helper 就绪时） | Bundled **Cua Driver**（staged；MCP **默认关**） | 无 helper |
-| Composer Appshot | Electron `desktopCapturer` | 同左 | 同左 |
+| Agent Computer Use MCP | HandsFree helper（默认开，helper 就绪时） | Bundled **Cua Driver**（staged；MCP **默认关**） | 无产品包 / 无 helper |
+| Composer Appshot | Electron `desktopCapturer` | 同左 | 非产品目标（实现层或仍有 `platform===linux` 分支，勿当支持承诺） |
 | HandsFree AX / Skysight | ✓ | — | — |
 
 实现入口：`apps/desktop/electron/computer-use-desktop.mjs`、`computer-use-runtime-config.mjs`、`prepare-cua-helper.mjs`、`computer-use-appshot.mjs`。详表见 [`windows-compat.md`](./windows-compat.md)。
 
 默认忽略：`ee/*`、Den Web/API、landing page、cloud dashboard。
+
+## Session / Expert / cold-path pointers
+
+跨包硬边界写在本文件；**UI 域归属与冷启动细则**以 React 架构为准，避免在 `docs/` 再复制一长篇。
+
+| 主题 | SoT |
+| --- | --- |
+| OpenCode 主轨 vs Personal 辅轨 | 下文 **Dual Runtime Boundary** |
+| Session goal 生命周期 | 下文 **Session Goal Lifecycle** + `domains/session` 代码/测试 |
+| Expert 创建 / 选中 / 删除 / 多 tab | 下表 **Expert lifecycle hard rules** + `expert-session-lifecycle.ts` / `expert-hard-delete.ts`；UI 域见 [`../apps/app/src/react-app/ARCHITECTURE.md`](../apps/app/src/react-app/ARCHITECTURE.md) |
+| **Expert / session 产品行为**（空壳 busy、origin 水合、bound draft、首发可见、SSE 代际） | [`../apps/app/AGENTS.md`](../apps/app/AGENTS.md) **Experts / Session 不变量** + `apps/app/scripts/expert-session-invariants.test.ts`（**不是** DESIGN） |
+| Shell 冷启动 / prewarm / title cache | `cold-path-budget.ts` + **Shell load / boot** in React ARCHITECTURE；prewarm 仅 idle |
+| Skills 列表 / 安装写路径 | 上文 Product phase；server `skillsInstallWriteRoot()` / `listSkills` skip stats |
+| Capability shelf | [`design/2026-08-09-capability-shelf.md`](./design/2026-08-09-capability-shelf.md) + `capability-shelf.ts` |
+| OfficeCLI / managed CLI 发布 | [`officecli-oss-release.md`](./officecli-oss-release.md)；货架位改动须改 shelf registry |
+| Files 三来源 | [`design/files-module-product-spec.md`](./design/files-module-product-spec.md) |
+| 视觉 token / 组件形状 | [`../DESIGN.md`](../DESIGN.md) only |
+
+### Expert lifecycle hard rules
+
+| Action | Rule | Code |
+| --- | --- | --- |
+| **hard_delete** | Clears local expert session tags + agent bindings for real session ids | `clearExpertLocalSessionBindings` + `shouldClearLocalBindingOnDelete` |
+| **hard_delete** | Never clears `draft:*` sessions | `isDraftSessionId` |
+| **hard_delete** | Refuses product builtins (creation coach) | `canHardDeleteExpert` |
+| **hard_delete** | Remaining expert session id set must not retain deleted ids (no ghost tabs) | `remainingExpertSessionIdsAfterDelete` |
+| **create** | Composer flush at most once per save path | `shouldFlushComposerOnExpertCreate` |
+| **select** | No-op when expert id unchanged | `shouldApplyExpertSelection` |
+
+### Cold-path budget (numeric)
+
+| Metric | Budget | Code |
+| --- | --- | --- |
+| listSessions on cold enter | ≤ 1 | `COLD_PATH_BUDGET.maxListSessionsOnColdEnter` |
+| titleSnapshot on empty selected chip | 0 (thrash ban) | `isTitleSnapshotAllowedOnColdEnter` |
+| sync inventory prewarm on cold enter | 0 (idle only) | `scheduleIdleWork` + `isSyncPrewarmAllowedOnColdEnter` |
+| prewarm idle timeout / fallback | 8000 / 4000 ms | `COLD_PATH_BUDGET.prewarmIdleTimeoutMs` / `prewarmFallbackDelayMs` |
 
 ## React App Domains
 
@@ -431,20 +486,16 @@ scripts/release/      release review, prepare, ship, and asset publishing
 
 新增 root-level 命令时优先扩展 `scripts/cli/task.mjs` 或 `scripts/cli/dev.mjs`，不要重新把长命令链塞回 `package.json`。
 
-边界演进优先级：
+**Current engineering constraints（边界，不是 changelog）：**
 
-1. 已开始：server API contract 迁入 `@onmyagent/types/server`，server 旧 `types.ts` 只保留兼容 re-export。
-2. 已完成一轮：server `src` 已按 `core/`、`routes/`、`services/`、`workspace/` 分组；路由统一在 `apps/server/src/routes/` 注册，`server.ts` 当前不再直接 `addRoute`。
-3. **已完成一轮（主轨 perf）**：archive **store pool** + SSE 长连接 + **change-bus** 推送钩子 + analytics TTL 全量失效 + OpenCode client pool；见 **Server Archive Runtime**。**lifecycle 已改走 pool**；HTTP 写路径（rename/trash/star/pin/import/config/POST sync 等）在成功后 `notifyArchiveDbChanged`。
-4. **已落文档**：双运行时主辅（OpenCode 主 / Personal 辅）见 **Dual Runtime Boundary**；实现层收敛（统一 open API、禁交叉写）仍按该节执行。
-5. **已完成一轮（tech-wave-complete）**：`register-server-routes.ts` 薄 composition；`session-archive-open` 抽出；archive analytics routes / helpers 拆分；session list default limit + slow log；snapshot 404 no-retry 策略；automations due helpers；archive periodic sync due-based + change-bus；OpenCode pin **v1.17.20**（`constants.json`；PATH 上旧 binary 不得盖住 pin/sidecar）。`pnpm check:file-size` 防回胀。
-6. **已完成一轮（session host-thin）**：`use-session-page-host-state` 共享 expert/assistant host；`session-surface` activity/transcript-notices 抽出；composer-layout；rail keep-alive LRU（secondary max=3）；virtual measure 流式策略。
-7. **已完成一轮（orchestrator/desktop lifecycle）**：`runtime-spawn.ts`、`runtime-opencode-lifecycle.mjs`、personal-agent `conversation-runtime-api.mjs`；env-paths / data-dir / sidecar-config / version-manifest / sandbox-mounts 仍为 spawn 前置模块。
-8. 已完成一轮：Electron helper 模块化（`architecture-info` / `application-menu` / `startup-flags` / `computer-use-desktop` / `code-workspace-actions` / `browser-runtime/` / `ui-control-server` / agent-management providers·skills / `expert-marketplace` / lightweight `updater.mjs`）。**Desktop IPC 域 handlers 已物理迁入** `apps/desktop/electron/desktop-handlers/`（workspace、system、local-agents、messaging、agent-management、opencode、runtime、skills），由 `createAllDesktopDomainHandlers` 组装；`desktop-command-router.mjs` 按 `@onmyagent/types` 的 `desktopCommandGroups` 路由；`DesktopCommandMap` 在 `packages/types` 提供 typed args/result。`main.mjs` 保留 composition root（services 创建、窗口、少量桥接），新命令优先加 domain handler + types map，而不是继续堆在 main。**P1-D 追加**：workspace id / skill-command 纯函数 → `desktop-workspace-ids.mjs`；engine/server/orchestrator state → `runtime-engine-state.mjs`。
-9. **已完成一轮（shell 冷启动 / 加载 UX）**：`route-load-registry` + `LoadSurface` 统一 boot/route 加载文案；progressive boot（壳可画即收全屏遮罩）；侧栏会话标题 localStorage 缓存；`kernel/user-error` 主失败路径模板 + 设置错误条恢复动作；settings AI 列表 skeleton / `useAiProvidersController` + `mergeConnectedProviders`。细节见 `apps/app/src/react-app/ARCHITECTURE.md` **Shell load / boot**。
-10. **已完成一轮（P1-C import cycles）**：`madge --circular` 在 `apps/app/src` 与 `apps/server/src` 为 **0**。主要断环：pool↔proxy → `opencode-workspace-client.ts`；den↔events → `den-types.ts`；shared/kernel → 直引 profile-option-aliases；session pages / sidebar / shell-feedback / local-agent composer → leaf types；`types.ts` 不再 type-import `./lib/opencode`。
-11. **已完成一轮（P2 hygiene）**：`den-url-parse.ts` 抽出纯 URL 归一化；message-list 已模块化在 `message-list/*`。agents-page / extensions-store 大体量页仍可继续拆。
-12. **已完成一轮（0.4.10–0.4.15）**：automation wait policy（busy→idle settle）+ automation UX；session/settings **idle prewarm**；`capabilities/layout`；**BrowserSkill Path B**（`browser-skill-desktop` 探测/引导 + `bundled-skills/browser-skill`，与 in-app `browser-runtime` 并列）；cold-start boot overlay / first-screen load polish。
+1. Server API contract 在 `@onmyagent/types/server`；`server.ts` 为 composition root，路由在 `apps/server/src/routes/`。
+2. Archive 热路径走 **store pool + change-bus**（见 **Server Archive Runtime**）；写路径成功后 `notifyArchiveDbChanged`。
+3. 双运行时主辅与禁交叉写见 **Dual Runtime Boundary**。
+4. Desktop 新 IPC：优先 `desktop-handlers/*` + `DesktopCommandMap` / `desktopCommandGroups`，勿堆 `main.mjs`。
+5. OpenCode pin 以根 `constants.json` 为准；PATH 旧 binary 不得盖住 pin/sidecar。
+6. `pnpm check:file-size` 防回胀；`madge --circular` 在 app/server 应为 0。
+7. Shell 冷启动 / prewarm 规则见 `react-app/ARCHITECTURE.md` **Shell load / boot**。
+8. **历史已合 PR 的拆文件清单不要继续堆在本节** — 见 `CHANGELOG.md` / git history。
 
 ## Personal Local Agent Runtime
 

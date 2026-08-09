@@ -119,4 +119,20 @@ describe("rail mode switch bookmark (files → expert → assistant)", () => {
     expect(src).toContain("railBookmarkHydratedKeys");
     expect(src).toContain("resetRailBookmarkToPrimary");
   });
+
+  test("rail selection commits before its background route transition", () => {
+    const src = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/pages/use-rail-location.ts",
+      ),
+      "utf8",
+    );
+    const selection = src.indexOf("setActiveSidebarView(view);");
+    const bookmark = src.indexOf("writeRailView(input.mode, input.workspaceId, view);");
+    const transition = src.indexOf("startTransition(() => {");
+    expect(selection).toBeGreaterThan(-1);
+    expect(bookmark).toBeGreaterThan(selection);
+    expect(transition).toBeGreaterThan(bookmark);
+  });
 });

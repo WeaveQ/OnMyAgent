@@ -58,10 +58,14 @@ describe("reload-events + session snapshot quiet policy (shipped)", () => {
     );
     expect(refresh).toContain("RELOAD_EVENTS_POLL_INTERVAL_MS");
     expect(refresh).toContain("shouldRunReloadEventsPoll");
+    expect(refresh).toContain("const scheduleNextPoll");
+    expect(refresh).toContain("await pollReloadEvents()");
+    expect(refresh).toContain("window.setTimeout");
+    expect(refresh).not.toContain("window.setInterval");
     expect(refresh).not.toMatch(/setInterval\(\s*\(\)\s*=>\s*void pollReloadEvents\(\),\s*3000\s*\)/);
 
     const surface = readFileSync(
-      join(appRoot, "src/react-app/domains/session/surface/session-surface.tsx"),
+      join(appRoot, "src/react-app/domains/session/surface/session-surface-snapshot.ts"),
       "utf8",
     );
     expect(surface).toContain("SESSION_SNAPSHOT_STALE_TIME_MS");
@@ -85,6 +89,24 @@ describe("reload-events + session snapshot quiet policy (shipped)", () => {
     expect(historyPanel).not.toMatch(/limit:\s*200/);
     expect(historyPopover).toContain("CONVERSATION_HISTORY_SNAPSHOT_LIMIT");
     expect(historyPopover).not.toMatch(/limit:\s*200/);
+  });
+
+  test("session navigation does not recreate the route refresh callback", () => {
+    const refresh = readFileSync(
+      join(appRoot, "src/react-app/shell/session-route/refresh-hook.ts"),
+      "utf8",
+    );
+    expect(refresh).toContain(
+      "const selectedSessionIdRef = useRef(selectedSessionId)",
+    );
+    expect(refresh).toContain(
+      "selectedSessionId: selectedSessionIdRef.current",
+    );
+    const callback = refresh.slice(
+      refresh.indexOf("const refreshRouteState = useCallback"),
+      refresh.indexOf("refreshRouteStateRef.current = refreshRouteState"),
+    );
+    expect(callback).not.toMatch(/\n\s+selectedSessionId,\n/);
   });
 });
 

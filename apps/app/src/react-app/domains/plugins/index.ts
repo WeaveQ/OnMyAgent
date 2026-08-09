@@ -2,6 +2,17 @@
  * Plugins / skills catalog domain.
  */
 export {
+  CAPABILITY_SHELF,
+  isRecommendedOnSurface,
+  recommendedIdsForSurface,
+  recommendedManagedConnectorIds,
+  shelfEntriesForSurface,
+  shelfEntryById,
+  type CapabilityKind,
+  type CapabilityShelfEntry,
+  type ShelfSurface,
+} from "./capability-shelf";
+export {
   ConnectorsPage,
   PluginsPage,
   SkillsPage,
@@ -109,6 +120,13 @@ export {
   type LarkCliStatusTone,
 } from "./larkcli-plugin-state";
 export {
+  filterManagedDesktopConnectors,
+  listConnectedManagedDesktopConnectors,
+  managedDesktopConnectorMcpServerNames,
+  type ManagedDesktopConnectorId,
+  type ManagedDesktopConnectorItem,
+} from "./managed-desktop-connectors";
+export {
   recommendBrowserSurface,
   type BrowserSurfaceId,
   type BrowserSurfaceIntent,
@@ -163,7 +181,10 @@ export {
   isBuiltinMarketplaceExpertAgentId,
   findBuiltinMarketplaceExpertById,
 } from "./expert-marketplace/data";
-export { installSummonedMarketplaceExpert } from "./expert-marketplace/install";
+export {
+  ensureMarketplaceExpertInstalled,
+  installSummonedMarketplaceExpert,
+} from "./expert-marketplace/install";
 export {
   resolveMarketplaceExpertStartPrompt,
   type MarketplaceExpertStartPrompt,

@@ -4,6 +4,7 @@ import {
   activeTurnReserveStyle,
   resolveVirtualItemKey,
   resolveVirtualItemEstimate,
+  resolveVirtualWindowPadding,
   selectVirtualRenderWindow,
   shouldRemeasureVirtualHistory,
   shouldVirtualizeTranscript,
@@ -117,5 +118,30 @@ describe("session transcript virtual window (shipped helpers)", () => {
       currentCount: 20,
       shouldVirtualize: false,
     })).toBe(false);
+  });
+
+  test("resolveVirtualWindowPadding uses flow spacers instead of absolute shell", () => {
+    expect(
+      resolveVirtualWindowPadding({
+        totalSize: 4000,
+        firstStart: 1200,
+        lastEnd: 2800,
+      }),
+    ).toEqual({ paddingTop: 1200, paddingBottom: 1200 });
+    expect(
+      resolveVirtualWindowPadding({
+        totalSize: 1000,
+        firstStart: 0,
+        lastEnd: 1000,
+      }),
+    ).toEqual({ paddingTop: 0, paddingBottom: 0 });
+    // Never emit negative padding when lastEnd drifts past totalSize.
+    expect(
+      resolveVirtualWindowPadding({
+        totalSize: 500,
+        firstStart: 100,
+        lastEnd: 800,
+      }),
+    ).toEqual({ paddingTop: 100, paddingBottom: 0 });
   });
 });

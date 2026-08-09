@@ -14,15 +14,21 @@
  */
 export const LIST_LANE_HEADER_CLASS = "flex h-14 shrink-0 items-center";
 
-/** Surface/border for full-width list-lane create CTA. */
+/** Surface/border for full-width list-lane create CTA (legacy top-strip style). */
 export const SIDEBAR_PRIMARY_CTA_CLASS =
   "border border-dls-border bg-dls-surface-solid text-dls-text shadow-none hover:bg-dls-hover hover:border-dls-border before:rounded-lg";
 
 /**
- * Top strip for sidebar primary CTA — same h-14 as SessionSurfaceHeader
- * so list-lane create and main title row share one baseline.
- * Slight pt bias so the h-10 CTA sits slightly below vertical center
- * (less titlebar-tight).
+ * Footer create CTA shared by home (New task), experts (Create expert), and
+ * automation (Add) — filled soft surface, no outline border.
+ * Pair with Button variant="ghost" size="sidebar-cta".
+ */
+export const SIDEBAR_FOOTER_CTA_CLASS =
+  "mac:titlebar-no-drag border-0 bg-dls-active dark:bg-dls-surface-muted text-dls-text shadow-none hover:bg-dls-hover hover:text-dls-text before:rounded-lg";
+
+/**
+ * Top strip for residual list-lane headers (search band, content headers).
+ * Slight pt bias so h-10 controls sit slightly below vertical center.
  */
 export const SIDEBAR_PRIMARY_HEADER_CLASS = `${LIST_LANE_HEADER_CLASS} pt-1.5`;
 

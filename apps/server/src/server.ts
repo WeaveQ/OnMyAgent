@@ -43,6 +43,7 @@ import {
 import {
   resolveWorkspaceOpencodeConnection,
 } from "./services/opencode-connection.js";
+import { createOpencodeEngineReloader } from "./services/opencode-engine-reload.js";
 import { seedOpencodeSessionMessages } from "./services/opencode-db.js";
 import { type AuthMode, type RequestContext, type Route } from "./routes/route-core.js";
 import { serve, type ServeResult } from "./serve-node.js";
@@ -65,6 +66,8 @@ import { getWorkspaceOpencodeClient } from "./services/opencode-client-pool.js";
 import {
   startAutomationScheduler,
 } from "./services/automation-runner.js";
+import { createSessionArchiveSyncWorkerRunner } from "./services/session-archive-sync-worker-runner.js";
+import { resolveSessionArchiveRuntimePaths, syncSessionArchiveWithRunner } from "./services/session-archive-sync.js";
 
 // Public API re-exports (tests/cli import these from server)
 export { createServerLogger } from "./core/server-logger.js";
@@ -82,6 +85,10 @@ const reloadBaselineRefreshers = new WeakMap<
   ServerConfig,
   (workspaceId: string, reasons?: ReloadReason[]) => Promise<void>
 >();
+const opencodeEngineReloaders = new WeakMap<
+  ServerConfig,
+  ReturnType<typeof createOpencodeEngineReloader>
+>();
 export type ServerRuntimeHooks = { onGlobalSkillsChanged?: () => Promise<unknown> };
 export async function startServer(config: ServerConfig, runtimeHooks: ServerRuntimeHooks = {}): Promise<ServeResult> {
   const approvals = new ApprovalService(config.approval);
@@ -89,6 +96,9 @@ export async function startServer(config: ServerConfig, runtimeHooks: ServerRunt
   const tokens = new TokenService(config);
   const env = new EnvService();
   const logger = createServerLogger(config);
+  const sessionArchiveSyncRunner = createSessionArchiveSyncWorkerRunner();
+  const opencodeEngineReloader = createOpencodeEngineReloader();
+  opencodeEngineReloaders.set(config, opencodeEngineReloader);
   let watcherHandle = startReloadWatchers({ config, reloadEvents, logger });
   const automationScheduler = startAutomationScheduler(config, logger);
   const refreshWorkspaceReloadBaseline = (
@@ -107,6 +117,11 @@ export async function startServer(config: ServerConfig, runtimeHooks: ServerRunt
     env,
     restartReloadWatchers,
     runtimeHooks,
+    (workspace) => opencodeEngineReloader.reload(config, workspace),
+    (input) => syncSessionArchiveWithRunner(input, sessionArchiveSyncRunner),
+    (workspace) => sessionArchiveSyncRunner.dispose(
+      resolveSessionArchiveRuntimePaths({ workspace }).dbPath,
+    ),
   );
 
   const serverOptions: {
@@ -285,6 +300,7 @@ export async function startServer(config: ServerConfig, runtimeHooks: ServerRunt
       automationScheduler.close();
       watcherHandle.close();
       reloadBaselineRefreshers.delete(config);
+      await sessionArchiveSyncRunner.disposeAll();
       await server.stop();
     },
   };
@@ -434,6 +450,9 @@ function createRoutes(
   env: EnvService,
   onWorkspacesChanged: () => void,
   runtimeHooks: ServerRuntimeHooks,
+  reloadEngine: (workspace: WorkspaceInfo) => Promise<void>,
+  syncSessionArchive: Parameters<typeof registerServerRoutes>[0]["syncSessionArchive"],
+  disposeWorkspaceArchiveSync: Parameters<typeof registerServerRoutes>[0]["disposeWorkspaceArchiveSync"],
 ): Route[] {
   const routes: Route[] = [];
   const fileSessions = new FileSessionStore();
@@ -467,7 +486,9 @@ function createRoutes(
     buildConfigTrigger,
     persistServerWorkspaceState,
     onWorkspacesChanged,
-    reloadOpencodeEngine,
+    reloadOpencodeEngine: (_config, workspace) => reloadEngine(workspace),
+    syncSessionArchive,
+    disposeWorkspaceArchiveSync,
     readOpencodeConfig,
     readOnMyAgentConfig,
     writeOnMyAgentConfig,
@@ -671,64 +692,16 @@ async function readOnMyAgentConfig(
   }
 }
 
-function buildOpencodeReloadUrl(
-  baseUrl: string,
-  directory?: string | null,
-): string {
-  try {
-    const url = new URL(baseUrl);
-    url.pathname = "/instance/dispose";
-    url.search = "";
-    if (directory) {
-      url.searchParams.set("directory", directory);
-    }
-    return url.toString();
-  } catch {
-    throw new ApiError(
-      400,
-      "opencode_url_invalid",
-      "OpenCode base URL is invalid",
-    );
-  }
-}
-
-function parseOpencodeErrorBody(input: string): unknown {
-  const trimmed = input.trim();
-  if (!trimmed) return null;
-  try {
-    return JSON.parse(trimmed) as unknown;
-  } catch {
-    return trimmed;
-  }
-}
-
 async function reloadOpencodeEngine(
   config: ServerConfig,
   workspace: WorkspaceInfo,
 ): Promise<void> {
-  const connection = resolveWorkspaceOpencodeConnection(config, workspace);
-  const baseUrl = connection.baseUrl?.trim() ?? "";
-  if (!baseUrl) {
-    throw new ApiError(
-      400,
-      "opencode_unconfigured",
-      "OpenCode base URL is missing for this workspace",
-    );
+  let reloader = opencodeEngineReloaders.get(config);
+  if (!reloader) {
+    reloader = createOpencodeEngineReloader();
+    opencodeEngineReloaders.set(config, reloader);
   }
-
-  const directory = resolveOpencodeDirectory(workspace);
-  const targetUrl = buildOpencodeReloadUrl(baseUrl, directory);
-  const headers: Record<string, string> = {};
-  const auth = connection.authHeader ?? null;
-  if (auth) headers.Authorization = auth;
-
-  const response = await fetch(targetUrl, { method: "POST", headers });
-  if (response.ok) return;
-  const body = parseOpencodeErrorBody(await response.text());
-  throw new ApiError(502, "opencode_reload_failed", "OpenCode reload failed", {
-    status: response.status,
-    body,
-  });
+  await reloader.reload(config, workspace);
 }
 
 async function writeOnMyAgentConfig(

@@ -19,7 +19,8 @@ export type OnMyAgentWorkspaceClient = Pick<OnMyAgentServerClient,
 
 export type OnMyAgentSessionClient = Pick<OnMyAgentServerClient,
   | "deleteSession" | "listSessions" | "getSession" | "getSessionMessages"
-  | "getSessionSnapshot"
+  | "getSessionSnapshot" | "listSessionOrigins" | "upsertSessionOrigin"
+  | "deleteSessionOrigin"
 >;
 
 export type OnMyAgentExtensionClient = Pick<OnMyAgentServerClient,

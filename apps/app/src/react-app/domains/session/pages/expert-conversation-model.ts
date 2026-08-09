@@ -12,13 +12,10 @@ import {
 } from "../../agents";
 import {
   buildAgentConversationGroups,
-  ensureAgentSessionGroupVisible,
-  ensureAgentSessionsVisible,
-  ensureSelectedAgentSessionGroupVisible,
-  ensureSelectedAgentSessionVisible,
   type AgentConversationGroup,
 } from "../sidebar/session-chrome";
 import { findBuiltinMarketplaceExpertById } from "@/react-app/domains/plugins";
+import { resolveExpertSessionSelection } from "../sidebar/expert-session-selection-memory";
 
 export { buildAgentConversationGroups };
 
@@ -32,45 +29,28 @@ export function selectRawWorkspaceSessions(
   return group?.sessions ?? [];
 }
 
-export function listVisibleExpertAgentSessions() {
-  return readCustomAgentSessionEntries().filter((entry) =>
-    isExpertSession(entry.sessionId),
+export function listVisibleExpertAgentSessions(
+  rawWorkspaceSessions: SidebarSessionItem[],
+) {
+  const workspaceSessionIds = new Set(
+    rawWorkspaceSessions.map((session) => session.id),
+  );
+  return readCustomAgentSessionEntries().filter(
+    (entry) =>
+      workspaceSessionIds.has(entry.sessionId) && isExpertSession(entry.sessionId),
   );
 }
 
 export function buildExpertWorkspaceSessions(input: {
   rawWorkspaceSessions: SidebarSessionItem[];
-  selectedSessionId: string | null;
-  currentConversationAgentId: string | null;
-  visibleAgentSessions: ReturnType<typeof listVisibleExpertAgentSessions>;
 }): SidebarSessionItem[] {
-  return ensureAgentSessionsVisible({
-    sessions: ensureSelectedAgentSessionVisible({
-      sessions: input.rawWorkspaceSessions,
-      selectedSessionId: input.selectedSessionId,
-      selectedAgentId: input.currentConversationAgentId,
-    }),
-    agentSessions: input.visibleAgentSessions,
-  });
+  return input.rawWorkspaceSessions;
 }
 
 export function buildExpertSidebarSessionGroups(input: {
   groups: WorkspaceSessionGroup[];
-  selectedWorkspaceId: string;
-  selectedSessionId: string | null;
-  currentConversationAgentId: string | null;
-  visibleAgentSessions: ReturnType<typeof listVisibleExpertAgentSessions>;
 }) {
-  return ensureAgentSessionGroupVisible({
-    groups: ensureSelectedAgentSessionGroupVisible({
-      groups: input.groups,
-      selectedWorkspaceId: input.selectedWorkspaceId,
-      selectedSessionId: input.selectedSessionId,
-      selectedAgentId: input.currentConversationAgentId,
-    }),
-    selectedWorkspaceId: input.selectedWorkspaceId,
-    agentSessions: input.visibleAgentSessions,
-  });
+  return input.groups;
 }
 
 export function buildDraftAgentGroups(
@@ -225,5 +205,50 @@ export function computeHasAnyExpertConversation(
     (session) =>
       isExpertSession(session.id) &&
       Boolean(readCustomAgentIdForSession(session.id)),
+  );
+}
+
+/**
+ * Resolve an expert-list click against sessions that are currently ready in
+ * its group. A stale selected id is deliberately not treated as a no-op: the
+ * caller still needs to issue the open so route state can recover.
+ */
+export function resolveExpertSidebarOpen(input: {
+  hintSessionId: string;
+  rememberedSessionId: string | null;
+  orderIds: readonly string[];
+  readySessionIds: readonly string[];
+  selectedSessionId: string | null;
+}): { sessionId: string | null; shouldOpen: boolean } {
+  const sessionId =
+    resolveExpertSessionSelection({
+      rememberedSessionId: input.rememberedSessionId,
+      sessionIds: input.readySessionIds,
+      orderIds: input.orderIds,
+    }) ?? (input.hintSessionId.trim() || null);
+  const isReady = sessionId
+    ? input.readySessionIds.some((id) => id.trim() === sessionId)
+    : false;
+  return {
+    sessionId,
+    shouldOpen: !(
+      isReady && sessionId === (input.selectedSessionId?.trim() ?? "")
+    ),
+  };
+}
+
+/**
+ * A draft can be layered over an already selected real session. In that case a
+ * same-expert sidebar click must resolve the real tab, not be swallowed as an
+ * apparent no-op just because the route still points at that tab.
+ */
+export function shouldExitDraftForExpertSidebarTarget(input: {
+  draftAgentId: string | null;
+  draftSessionActive: boolean;
+  targetAgentId: string;
+}): boolean {
+  return (
+    input.draftSessionActive &&
+    input.draftAgentId === input.targetAgentId
   );
 }

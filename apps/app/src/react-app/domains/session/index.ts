@@ -137,22 +137,37 @@ export type {
   SessionSnapshotFetchOptions,
   SessionSnapshotQueryKey,
 } from "./sync/session-snapshot-query-policy";
+/** Cross-session snapshot budget: focused work can preempt bounded prefetches. */
+export {
+  scheduleSessionSnapshot,
+} from "./sync/session-snapshot-scheduler";
+export type {
+  SessionSnapshotPriority,
+  SessionSnapshotScheduleInput,
+} from "./sync/session-snapshot-scheduler";
 /** Delete policy: directory resolution + dirty/ghost remote failure tolerance. */
 export {
   SESSION_DELETE_REMOTE_BUDGET_MS,
+  SESSION_PENDING_DELETE_MAX_ATTEMPTS,
   SESSION_RECENTLY_DELETED_TTL_MS,
   clearRecentlyDeletedSessionsForTests,
+  executePendingSessionDelete,
+  filterPendingDeletedSessions,
   filterRecentlyDeletedSessions,
+  isSessionPendingDelete,
   isSessionRecentlyDeleted,
   isTolerableSessionDeleteFailure,
   markSessionRecentlyDeleted,
   raceSessionDeleteRemote,
+  registerPendingSessionDelete,
+  retryPendingSessionDeletesForWorkspace,
   resolveSessionDeleteDirectory,
   shouldContinueLocalSessionCleanupAfterRemoteDelete,
 } from "./sync/session-delete-policy";
 export { ReactSessionRuntime } from "./sync/runtime-sync";
 export {
   clearOptimisticSessionUserMessage,
+  disposeWorkspaceSessionSyncs,
   permissionKey,
   questionKey,
   seedPermissionState,

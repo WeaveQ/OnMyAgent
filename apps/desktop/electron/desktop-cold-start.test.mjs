@@ -181,6 +181,14 @@ describe("MAIN_WINDOW_EAGER_BLANK_BROWSER_TAB contract", () => {
     );
   });
 
+  test("desktop-window does not clear Chromium cache on every dev launch", () => {
+    const source = readFileSync(
+      path.join(__dirname, "desktop-window.mjs"),
+      "utf8",
+    );
+    assert.doesNotMatch(source, /session\.defaultSession\.clearCache\(/);
+  });
+
   test("main.mjs uses runDesktopWhenReady and does not double prepareFreshRuntime on cold bootstrap", () => {
     const source = readFileSync(path.join(__dirname, "main.mjs"), "utf8");
     assert.match(source, /runDesktopWhenReady/);

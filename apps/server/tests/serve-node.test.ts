@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { Agent, request as nodeRequest } from "node:http";
+import { connect } from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
 import { serve } from "../src/serve-node.js";
 
@@ -47,6 +49,112 @@ describe("serve", () => {
       expect(await health.json()).toEqual({ ok: true });
     } finally {
       process.off("uncaughtException", onUncaughtException);
+      await server.stop();
+    }
+  });
+
+  test("aborts and cancels a response stream when the TCP client disconnects", async () => {
+    let aborted = false;
+    let cancelCalls = 0;
+    let activeResources = 0;
+    let releaseResource = () => undefined;
+    const encoder = new TextEncoder();
+    const server = await serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: (request) => {
+        activeResources += 1;
+        let released = false;
+        releaseResource = () => {
+          if (released) return;
+          released = true;
+          activeResources -= 1;
+        };
+        request.signal.addEventListener("abort", () => {
+          aborted = true;
+          releaseResource();
+        }, { once: true });
+        return new Response(new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(encoder.encode("connected"));
+          },
+          cancel() {
+            cancelCalls += 1;
+            releaseResource();
+          },
+        }));
+      },
+    });
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const socket = connect({ host: "127.0.0.1", port: server.port });
+        socket.once("error", reject);
+        socket.once("connect", () => {
+          socket.write("GET /stream HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: keep-alive\r\n\r\n");
+        });
+        socket.once("data", () => {
+          socket.destroy();
+          resolve();
+        });
+      });
+
+      await delay(25);
+
+      expect(aborted).toBe(true);
+      expect(cancelCalls).toBe(1);
+      expect(activeResources).toBe(0);
+    } finally {
+      releaseResource();
+      await server.stop();
+    }
+  });
+
+  test("keeps a completed request alive across a normal keep-alive connection reuse", async () => {
+    const signals: AbortSignal[] = [];
+    const server = await serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: (request) => {
+        signals.push(request.signal);
+        return Response.json({ request: signals.length });
+      },
+    });
+    const agent = new Agent({ keepAlive: true, maxSockets: 1 });
+    const get = () => new Promise<{ status: number; body: string }>((resolve, reject) => {
+      const request = nodeRequest({
+        hostname: "127.0.0.1",
+        port: server.port,
+        path: "/health",
+        method: "GET",
+        agent,
+      }, (response) => {
+        const chunks: Uint8Array[] = [];
+        response.on("data", (chunk: Uint8Array) => chunks.push(chunk));
+        response.once("error", reject);
+        response.once("end", () => {
+          resolve({ status: response.statusCode ?? 0, body: Buffer.concat(chunks).toString("utf8") });
+        });
+      });
+      request.once("error", reject);
+      request.end();
+    });
+
+    try {
+      const first = await get();
+      expect(first.status).toBe(200);
+      expect(first.body).toBe('{"request":1}');
+      expect(signals).toHaveLength(1);
+      expect(signals[0]?.aborted).toBe(false);
+
+      const second = await get();
+      expect(second.status).toBe(200);
+      expect(second.body).toBe('{"request":2}');
+      expect(signals).toHaveLength(2);
+      expect(signals[0]?.aborted).toBe(false);
+      expect(signals[1]?.aborted).toBe(false);
+    } finally {
+      agent.destroy();
       await server.stop();
     }
   });

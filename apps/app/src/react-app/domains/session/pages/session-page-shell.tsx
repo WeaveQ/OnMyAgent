@@ -58,6 +58,12 @@ export function SessionPageMainColumn(props: {
   );
 }
 
+type SessionRailKeepAlivePanes =
+  Partial<Record<Exclude<SessionRailPaneKey, "files">, ReactNode>> & {
+    /** Files receives visibility so retained panes can suspend background I/O. */
+    files?: ReactNode | ((active: boolean) => ReactNode);
+  };
+
 export type SessionRailKeepAliveStackProps = {
   activeSidebarView: string;
   visitedRailViews: Set<string>;
@@ -69,7 +75,7 @@ export type SessionRailKeepAliveStackProps = {
   /** KeepAlivePane active for SessionSurface (primary + not delayed loading). */
   primarySessionActive: boolean;
   /** Optional bodies per keep-alive rail key; omit a key to skip that pane. */
-  panes: Partial<Record<SessionRailPaneKey, ReactNode>>;
+  panes: SessionRailKeepAlivePanes;
   /**
    * Non-keep-alive content between secondary rails and primary surface
    * (scheduled tasks, placeholders, skeletons, empty/loading states).

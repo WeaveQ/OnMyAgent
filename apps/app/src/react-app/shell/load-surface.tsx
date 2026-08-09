@@ -5,8 +5,6 @@
  */
 import { useSyncExternalStore, type ReactNode } from "react";
 
-import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import { APP_NAME } from "../../i18n/locales/brand";
 import { t } from "../../i18n";
 import { OwDotTicker } from "./dot-ticker";
 import {
@@ -28,15 +26,18 @@ const surfaceClass = {
   fullVisible: "pointer-events-auto opacity-100",
   fullFading: "pointer-events-none opacity-0",
   inset: "flex min-h-[12rem] w-full items-center justify-center py-10",
+  // Hero monogram + quiet progress (product name lives in the status line).
   content:
-    "flex w-full max-w-[22rem] flex-col items-center gap-6 px-8 text-center",
+    "flex w-full max-w-[24rem] flex-col items-center gap-12 px-8 text-center",
   contentInset: "flex flex-col items-center",
   brandMark:
-    "flex size-16 items-center justify-center rounded-2xl border border-dls-border bg-dls-surface-solid shadow-[0_8px_28px_rgba(15,23,42,0.06)] dark:shadow-[0_8px_28px_rgba(0,0,0,0.35)]",
-  brandTitle: "text-sm font-semibold tracking-tight text-dls-text",
-  message: "text-sm leading-6 text-dls-secondary",
+    "relative flex size-[9.5rem] items-center justify-center bg-transparent",
+  brandMarkRing:
+    "pointer-events-none absolute inset-0 rounded-full animate-[oma-boot-spin_1.05s_linear_infinite] motion-reduce:animate-none motion-reduce:opacity-40",
+  brandMarkImg:
+    "size-[6.75rem] object-contain animate-[oma-boot-breathe_2.6s_ease-in-out_infinite] motion-reduce:animate-none",
+  message: "text-[0.8125rem] leading-5 tracking-wide text-dls-secondary/90",
   messageInset: "mt-3 text-xs leading-5 text-dls-secondary",
-  statusRow: "flex flex-col items-center gap-3",
 };
 
 /** Solid boot fill — independent of vibrancy tokens. */
@@ -93,14 +94,23 @@ type LoadSurfaceProps = {
 
 function BootBrandMark() {
   return (
-    <div className={surfaceClass.brandMark}>
+    <div className={surfaceClass.brandMark} aria-hidden="true">
+      {/* Soft spinner ring — common load pattern; no white sweep. */}
+      <span
+        className={surfaceClass.brandMarkRing}
+        style={{
+          border: "1.5px solid rgba(0, 93, 255, 0.1)",
+          borderTopColor: "rgba(0, 93, 255, 0.65)",
+          borderRightColor: "rgba(0, 93, 255, 0.22)",
+        }}
+      />
       <img
-        src={resolvePublicAssetUrl("/onmyagent-logo.png")}
+        src="/onmyagent-boot-mark.png"
+        width={128}
+        height={128}
         alt=""
-        width={36}
-        height={36}
-        className="size-9 object-contain"
         draggable={false}
+        className={surfaceClass.brandMarkImg}
       />
     </div>
   );
@@ -133,11 +143,7 @@ export function LoadSurface(props: LoadSurfaceProps) {
       >
         <div className={surfaceClass.content}>
           <BootBrandMark />
-          <div className={surfaceClass.statusRow}>
-            <div className={surfaceClass.brandTitle}>{APP_NAME}</div>
-            <OwDotTicker size={size} className="text-dls-secondary" />
-            <div className={surfaceClass.message}>{message}</div>
-          </div>
+          <div className={surfaceClass.message}>{message}</div>
           {props.children}
         </div>
       </div>
@@ -180,14 +186,10 @@ export function RouteChunkFallback(props: {
     >
       <div className={surfaceClass.content}>
         <BootBrandMark />
-        <div className={surfaceClass.statusRow}>
-          <div className={surfaceClass.brandTitle}>{APP_NAME}</div>
-          <OwDotTicker size="lg" className="text-dls-secondary" />
-          <div className={surfaceClass.message}>
-            {props.messageKey
-              ? t(props.messageKey)
-              : t("system.boot_preparing_workspace")}
-          </div>
+        <div className={surfaceClass.message}>
+          {props.messageKey
+            ? t(props.messageKey)
+            : t("system.boot_preparing_workspace")}
         </div>
       </div>
     </div>

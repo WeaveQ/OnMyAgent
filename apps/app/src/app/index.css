@@ -156,6 +156,25 @@ select:disabled {
   background-color: rgba(var(--dls-secondary-rgb, 120, 120, 120), 0.22);
 }
 
+/* Full-screen boot monogram: soft breathe + thin spinner ring. */
+@keyframes oma-boot-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes oma-boot-breathe {
+  0%,
+  100% {
+    opacity: 0.92;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.025);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ow-dot-ticker {
     animation: none;

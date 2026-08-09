@@ -30,9 +30,14 @@ export default {
   "session.no_expert_conversations_title": "No expert conversations yet",
   "session.no_expert_conversations_desc": "Choose an expert to start a conversation. It will appear here after the first message.",
   "session.no_expert_conversations_action": "Choose expert",
+  "session.expert_origin_recovery_unavailable_title": "Expert conversations are temporarily unavailable",
+  "session.expert_origin_recovery_unavailable_body": "Your conversations are still preserved. OnMyAgent will try to restore this list again on the next workspace refresh.",
   "session.my_experts": "Experts I created",
   "session.search_experts_placeholder": "Search expert title or description",
+  "session.search_tasks_placeholder": "Search task title",
   "session.create_expert": "Create expert",
+  "session.add_expert_from_market": "Add from market",
+  "session.create_expert_yourself": "Create yourself",
   "session.create_expert_prompt": "/expert-manager Help me create a XXX expert skilled in XXXXX. My experience: [add your industry background and relevant experience]",
   "session.create_skill_prompt": "Please help me create a skill that can <describe your need>",
   "session.chat_with_skill_prompt": "/{name} ",
@@ -53,6 +58,10 @@ export default {
   "session.team_workflow_stage_deliver": "Synthesize and deliver",
   "session.team_workflow_lead_stage": "Lead synthesis",
   "session.team_workflow_honesty_note": "Roles define responsibilities; they are not independently dispatched agents.",
+  /** Short spoken intro for logistics + KOL experts whose persona bans I/O tables. */
+  "session.short_colleague_self_intro_prompt":
+    "Introduce yourself — what can you help me with?",
+  /** @deprecated Use session.short_colleague_self_intro_prompt */
   "session.logistics_expert_self_intro_prompt": "Introduce yourself — what can you help me with?",
   "session.try_ask_expert": "Try asking",
   "session.summon": "Summon",

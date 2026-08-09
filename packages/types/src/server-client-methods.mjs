@@ -21,7 +21,8 @@ const methodGroups = /** @type {const} */ ({
   ],
   sessions: [
     "deleteSession", "listSessions", "getSession", "getSessionMessages",
-    "getSessionSnapshot",
+    "getSessionSnapshot", "listSessionOrigins", "upsertSessionOrigin",
+    "deleteSessionOrigin",
   ],
   extensions: [
     "listPlugins", "addPlugin", "removePlugin", "listSkills", "listHubSkills",

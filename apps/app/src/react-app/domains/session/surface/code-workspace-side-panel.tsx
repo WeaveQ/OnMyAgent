@@ -896,7 +896,10 @@ function TerminalPanel(props: { terminal: CodeWorkspaceTerminal }) {
 
   useEffect(() => {
     let disposed = false;
+    let inFlight = false;
     const refresh = async () => {
+      if (disposed || inFlight) return;
+      inFlight = true;
       try {
         const next = await getCodeWorkspaceTerminalSnapshot({ terminalId: props.terminal.terminalId });
         if (disposed) return;
@@ -911,9 +914,10 @@ function TerminalPanel(props: { terminal: CodeWorkspaceTerminal }) {
         outputLengthRef.current = next.output.length;
       } catch (nextError) {
         if (!disposed) setError(nextError instanceof Error ? nextError.message : String(nextError));
+      } finally {
+        inFlight = false;
       }
     };
-    void refresh();
     // Always install while mounted — visibility only gates each tick so a
     // panel that mounted while the tab was hidden resumes when visible again.
     const intervalMs = codeTerminalSnapshotIntervalMs({ mounted: true });
@@ -922,10 +926,23 @@ function TerminalPanel(props: { terminal: CodeWorkspaceTerminal }) {
         disposed = true;
       };
     }
-    const timer = window.setInterval(() => {
-      if (!shouldRunActivePoll({ enabled: true })) return;
-      void refresh();
-    }, intervalMs);
+    let timer: number | null = null;
+    const scheduleNext = () => {
+      if (disposed) return;
+      timer = window.setTimeout(() => {
+        timer = null;
+        void runPoll();
+      }, intervalMs);
+    };
+    const runPoll = async () => {
+      try {
+        if (!shouldRunActivePoll({ enabled: true })) return;
+        await refresh();
+      } finally {
+        scheduleNext();
+      }
+    };
+    void runPoll();
     const onVisibility = () => {
       if (!shouldRunActivePoll({ enabled: true })) return;
       void refresh();
@@ -933,7 +950,7 @@ function TerminalPanel(props: { terminal: CodeWorkspaceTerminal }) {
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       disposed = true;
-      window.clearInterval(timer);
+      if (timer !== null) window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [props.terminal.terminalId]);
@@ -976,7 +993,7 @@ function SessionAutomationsPanel(props: {
     }
 
     let cancelled = false;
-    let intervalId: number | undefined;
+    let pollTimer: number | null = null;
     // 15s while focused; pause while the document is hidden.
     const policy: VisibilityPollPolicy = {
       focusedIntervalMs: 15_000,
@@ -997,24 +1014,29 @@ function SessionAutomationsPanel(props: {
       }
     };
 
-    const run = () => {
-      if (cancelled) return;
-      if (!shouldRunPollTick(isDocumentHidden())) return;
-      void load(false);
-    };
-
-    const clearPollInterval = () => {
-      if (intervalId !== undefined) {
-        window.clearInterval(intervalId);
-        intervalId = undefined;
-      }
+    const clearPollTimer = () => {
+      if (pollTimer === null) return;
+      window.clearTimeout(pollTimer);
+      pollTimer = null;
     };
 
     const schedulePoll = () => {
-      clearPollInterval();
+      clearPollTimer();
       const delayMs = nextPollDelayMs(policy, isDocumentHidden());
       if (delayMs == null) return;
-      intervalId = window.setInterval(run, delayMs);
+      pollTimer = window.setTimeout(() => {
+        pollTimer = null;
+        void run();
+      }, delayMs);
+    };
+
+    const run = async () => {
+      try {
+        if (cancelled || !shouldRunPollTick(isDocumentHidden())) return;
+        await load(false);
+      } finally {
+        schedulePoll();
+      }
     };
 
     const onVisibilityChange = () => {
@@ -1022,12 +1044,12 @@ function SessionAutomationsPanel(props: {
       const hidden = isDocumentHidden();
       if (hidden) {
         // Pause while hidden (hiddenIntervalMs === 0).
-        clearPollInterval();
+        clearPollTimer();
         return;
       }
       // Visible again: run once and restart focused interval.
-      run();
-      schedulePoll();
+      clearPollTimer();
+      void run();
     };
 
     void load(true);
@@ -1035,7 +1057,7 @@ function SessionAutomationsPanel(props: {
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       cancelled = true;
-      clearPollInterval();
+      clearPollTimer();
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [props.client, props.sessionId, props.workspaceId]);

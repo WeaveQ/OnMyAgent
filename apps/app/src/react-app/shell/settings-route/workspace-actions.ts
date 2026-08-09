@@ -22,6 +22,7 @@ import {
   resolveSettingsWorkspaceIdAfterRemoval,
   type RouteWorkspace,
 } from "./model";
+import { disposeWorkspaceSessionSyncs } from "../../domains/session";
 
 export async function selectDesktopSettingsWorkspace(workspaceId: string) {
   if (!workspaceId) return;
@@ -187,6 +188,7 @@ export async function forgetSettingsWorkspace(input: {
   if (input.onmyagentClient) {
     await input.onmyagentClient.deleteWorkspace(input.workspaceId).catch(() => undefined);
   }
+  disposeWorkspaceSessionSyncs(input.workspaceId);
 }
 
 export async function forgetSettingsWorkspaceAndRefresh(input: {

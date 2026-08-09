@@ -119,6 +119,9 @@ export function unwrapOpencodeResult<T, E>(
       { path },
     );
   }
+  if (isAbortError(result.error)) {
+    throw result.error;
+  }
   const status =
     result.response && typeof result.response === "object" && "status" in result.response
       ? Number((result.response as { status?: unknown }).status)
@@ -132,6 +135,13 @@ export function unwrapOpencodeResult<T, E>(
       body: result.error,
       path,
     },
+  );
+}
+
+function isAbortError(error: unknown): error is Error {
+  return (
+    error instanceof Error &&
+    (error.name === "AbortError" || error.name === "TimeoutError")
   );
 }
 
@@ -321,6 +331,7 @@ export async function proxyOpencodeRequest(input: {
     method,
     headers,
     body,
+    signal: input.request.signal,
   });
 
   return sanitizeProxyResponse(response);

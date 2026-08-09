@@ -26,6 +26,10 @@ import {
 import { loadAutomationOwnedSessionIds } from "./automations.js";
 import { notifyArchiveDbChanged } from "./archive-change-bus.js";
 import { withSessionArchiveStore } from "./session-archive-store-pool.js";
+import {
+  defaultSessionArchiveSyncWorkerRunner,
+  type SessionArchiveSyncWorkerInput,
+} from "./session-archive-sync-worker-runner.js";
 
 export {
   DEFAULT_SESSION_ARCHIVE_PERIODIC_MS,
@@ -103,8 +107,34 @@ export function applyAutomationOwnershipToArchiveSession(
 export async function syncSessionArchive(
   input: SessionArchiveSyncInput,
 ): Promise<SessionArchiveSyncStats> {
+  return syncSessionArchiveWithRunner(input, defaultSessionArchiveSyncWorkerRunner);
+}
+
+export function syncSessionArchiveWithRunner(
+  input: SessionArchiveSyncInput,
+  runner: Pick<typeof defaultSessionArchiveSyncWorkerRunner, "run">,
+): Promise<SessionArchiveSyncStats> {
   const sourceRoots = input.sourceRoots ?? defaultSessionArchiveSourceRoots(input.sourceConfig);
-  const watchRoots = sessionArchiveSyncWatchRoots(sourceRoots);
+  return runner.run({
+    workspace: input.workspace,
+    paths: input.paths,
+    sourceRoots,
+    ...(input.limit === undefined ? {} : { limit: input.limit }),
+    ...(input.mode === undefined ? {} : { mode: input.mode }),
+    ...(input.changedPaths === undefined ? {} : { changedPaths: input.changedPaths }),
+  }, input.onProgress);
+}
+
+/**
+ * Synchronous-SQLite archive implementation. This must only be invoked from
+ * the archive worker, never from HTTP request handling on the Node main thread.
+ */
+export async function syncSessionArchiveInProcess(
+  input: SessionArchiveSyncWorkerInput & {
+    onProgress?: (progress: SessionArchiveSyncProgress) => void;
+  },
+): Promise<SessionArchiveSyncStats> {
+  const sourceRoots = input.sourceRoots;
   const limit = normalizeSyncLimit(input.limit);
   const mode = input.mode ?? "incremental";
   const automationOwnedSessionIds = await loadAutomationOwnedSessionIds(
@@ -325,6 +355,13 @@ export function startSessionArchiveSyncWatcher(input: {
   changedPaths?: string[];
   onProgress?: (progress: SessionArchiveSyncProgress) => void;
 }): SessionArchiveWatcher {
+  return createSessionArchiveSyncWatcher(input, syncSessionArchive);
+}
+
+function createSessionArchiveSyncWatcher(
+  input: Parameters<typeof startSessionArchiveSyncWatcher>[0],
+  runSync: (input: SessionArchiveSyncInput) => Promise<SessionArchiveSyncStats>,
+): SessionArchiveWatcher {
   const sourceRoots = input.sourceRoots ?? defaultSessionArchiveSourceRoots(input.sourceConfig);
   const watchRoots = sessionArchiveSyncWatchRoots(sourceRoots);
   const debounceMs = input.debounceMs ?? 750;
@@ -334,17 +371,19 @@ export function startSessionArchiveSyncWatcher(input: {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let periodicTimer: ReturnType<typeof setInterval> | null = null;
   let running: Promise<SessionArchiveSyncStats> | null = null;
+  let closed = false;
   /** Last completed sync attempt (ms). 0 = never — used for due-based periodic ticks. */
   let lastPeriodicRunMs = 0;
 
   let pendingChangedPaths = new Set<string>(input.changedPaths ?? []);
 
   const syncNow = async (mode: SessionArchiveSyncMode = "incremental", changedPaths: string[] = []) => {
-    if (running) return running;
+    if (closed) return emptySessionArchiveSyncStats();
     for (const path of changedPaths) pendingChangedPaths.add(path);
+    if (running) return running;
     const pathsForRun = mode === "incremental" ? [...pendingChangedPaths] : [];
     pendingChangedPaths = new Set<string>();
-    running = syncSessionArchive({
+    running = runSync({
       workspace: input.workspace,
       paths: input.paths,
       sourceRoots,
@@ -356,18 +395,22 @@ export function startSessionArchiveSyncWatcher(input: {
       .then((stats) => {
         lastPeriodicRunMs = Date.now();
         // Notify change-bus so SSE clients refresh after successful watcher sync.
-        if (!stats.aborted) {
+        if (!closed && !stats.aborted) {
           notifyArchiveDbChanged(input.paths.dbPath);
         }
         return stats;
       })
       .finally(() => {
         running = null;
+        // Files changed while the worker was active are not part of that
+        // worker's cloned input. Drain them in one follow-up run.
+        if (!closed && pendingChangedPaths.size > 0) void syncNow("incremental");
       });
     return running;
   };
 
   const schedule = (path?: string) => {
+    if (closed) return;
     if (path) pendingChangedPaths.add(path);
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
@@ -391,6 +434,7 @@ export function startSessionArchiveSyncWatcher(input: {
     // Tick at most every periodicMs (or 5s floor for the setInterval cadence).
     const tickMs = Math.max(5_000, Math.min(periodicMs, DEFAULT_SESSION_ARCHIVE_PERIODIC_MS));
     periodicTimer = setInterval(() => {
+      if (closed) return;
       const nowMs = Date.now();
       if (!shouldRunPeriodicArchiveSync(lastPeriodicRunMs, nowMs, periodicMs)) return;
       if (pendingChangedPaths.size === 0) return;
@@ -406,11 +450,31 @@ export function startSessionArchiveSyncWatcher(input: {
 
   return {
     close: () => {
+      if (closed) return;
+      closed = true;
+      pendingChangedPaths.clear();
       if (timer) clearTimeout(timer);
       if (periodicTimer) clearInterval(periodicTimer);
       for (const watcher of watchers) watcher.close();
     },
     syncNow,
+  };
+}
+
+export function __startSessionArchiveSyncWatcherForTest(
+  input: Parameters<typeof startSessionArchiveSyncWatcher>[0],
+  runSync: (input: SessionArchiveSyncInput) => Promise<SessionArchiveSyncStats>,
+) {
+  return createSessionArchiveSyncWatcher(input, runSync);
+}
+
+function emptySessionArchiveSyncStats(): SessionArchiveSyncStats {
+  return {
+    total_sessions: 0,
+    synced: 0,
+    skipped: 0,
+    failed: 0,
+    aborted: false,
   };
 }
 
@@ -711,4 +775,3 @@ async function upsertOpenCodeSqliteSession(input: {
   });
   return "synced";
 }
-

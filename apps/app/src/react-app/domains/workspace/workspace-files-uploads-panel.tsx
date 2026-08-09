@@ -124,6 +124,8 @@ export type WorkspaceFilesToastInput = {
 };
 
 export function WorkspaceFilesUploadsPanel(props: {
+  /** Hidden keep-alive rails retain data but must not start I/O. */
+  active?: boolean;
   client: OnMyAgentServerClient | null;
   workspaceId: string;
   /** Catalog workspace root — required for local Office preview / reveal. */
@@ -172,7 +174,7 @@ export function WorkspaceFilesUploadsPanel(props: {
     () => new Set(),
   );
   const [moveTarget, setMoveTarget] = useState<UserUploadRow | null>(null);
-  const migrateOnceRef = useRef(false);
+  const migratedWorkspaceIdRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const previewObjectUrlRef = useRef<string | null>(null);
   const manualRefreshRef = useRef(false);
@@ -183,6 +185,7 @@ export function WorkspaceFilesUploadsPanel(props: {
   const canLoad = Boolean(props.client && workspaceId);
 
   useEffect(() => {
+    if (props.active === false) return;
     if (!canLoad || !props.client) {
       setRows([]);
       setLoading(false);
@@ -195,10 +198,10 @@ export function WorkspaceFilesUploadsPanel(props: {
     void (async () => {
       try {
         const client = props.client!;
-        if (!migrateOnceRef.current) {
-          migrateOnceRef.current = true;
+        if (migratedWorkspaceIdRef.current !== workspaceId) {
           try {
             const inboxList = await client.listInbox(workspaceId);
+            if (cancelled) return;
             const plan = planInboxToUploadsMigration(
               (inboxList.items ?? []).map(
                 (item: { path?: string; name?: string }) =>
@@ -206,6 +209,7 @@ export function WorkspaceFilesUploadsPanel(props: {
               ),
             );
             for (const item of plan) {
+              if (cancelled) return;
               try {
                 await client.renameWorkspaceFile(
                   workspaceId,
@@ -217,6 +221,8 @@ export function WorkspaceFilesUploadsPanel(props: {
             }
           } catch {
           }
+          if (cancelled) return;
+          migratedWorkspaceIdRef.current = workspaceId;
         }
 
         const catalog = await client.listWorkspaceFiles(workspaceId, {
@@ -252,7 +258,7 @@ export function WorkspaceFilesUploadsPanel(props: {
     return () => {
       cancelled = true;
     };
-  }, [canLoad, currentFolderPath, props.client, refreshKey, workspaceId]);
+  }, [canLoad, currentFolderPath, props.active, props.client, refreshKey, workspaceId]);
 
   const filterActive = typeFilter !== "all" || Boolean(query.trim());
 
@@ -378,11 +384,12 @@ export function WorkspaceFilesUploadsPanel(props: {
     target: ReturnType<typeof workspaceFileOpenTarget> | null;
   }>({ row: null, target: null });
   useEffect(() => {
+    if (props.active === false) return;
     const handle = window.setTimeout(() => {
       setPreviewSelection({ row: selectedRow, target: selectedTarget });
     }, FILE_PREVIEW_SELECTION_DEBOUNCE_MS);
     return () => window.clearTimeout(handle);
-  }, [selectedRow, selectedTarget]);
+  }, [props.active, selectedRow, selectedTarget]);
 
   // Load preview for selected inbox file (same modes as Task browser).
   useEffect(() => {
@@ -392,7 +399,13 @@ export function WorkspaceFilesUploadsPanel(props: {
     }
     const activeRow = previewSelection.row;
     const activeTarget = previewSelection.target;
-    if (!activeRow || !activeTarget || !props.client || !workspaceId) {
+    if (
+      props.active === false ||
+      !activeRow ||
+      !activeTarget ||
+      !props.client ||
+      !workspaceId
+    ) {
       setPreviewState({ status: "idle" });
       return;
     }
@@ -534,7 +547,7 @@ export function WorkspaceFilesUploadsPanel(props: {
     return () => {
       cancelled = true;
     };
-  }, [previewSelection, props.client, workspaceId, workspaceRoot]);
+  }, [previewSelection, props.active, props.client, workspaceId, workspaceRoot]);
 
   const importFiles = useCallback(
     async (fileList: FileList | File[]) => {
@@ -961,7 +974,7 @@ export function WorkspaceFilesUploadsPanel(props: {
   // Same gutters as marketplace pluginsLayoutClass.pageContainer
   // Title/subtitle left · tools right (align task/expert); breadcrumb only when nested.
   return (
-    <div className="flex h-full min-h-0 w-full flex-col px-6 pb-10 pt-5">
+    <div className="flex h-full min-h-0 w-full flex-col px-6 pb-10 pt-3">
       <div className="mb-3 flex w-full min-w-0 shrink-0 flex-col gap-2">
         <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-3">
           <div className="min-w-0 flex-1 text-left">

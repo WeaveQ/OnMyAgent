@@ -32,7 +32,9 @@ import { t } from "../../../../../i18n";
 import type { McpDirectoryInfo } from "../../../../../app/constants";
 import type { CloudImportedPluginFile } from "../../../../../app/cloud/import-state";
 import type { McpServerEntry, SlashCommandOption } from "../../../../../app/types";
+import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { SkillGlyphIcon } from "../../../../design-system/skill-glyph-icon";
+import type { ManagedDesktopConnectorItem } from "@/react-app/domains/plugins";
 import {
   isOnMyAgentExtensionEnabled,
   setOnMyAgentExtensionEnabled,
@@ -82,6 +84,7 @@ export type ComposerToolMenuProps = {
   filteredPluginSkillFiles: CloudImportedPluginFile[];
   filteredMcpItems: McpMenuItem[];
   filteredComposerExtensions: McpDirectoryInfo[];
+  filteredManagedConnectors: ManagedDesktopConnectorItem[];
   hasSkillMatches: boolean;
   hasSkills: boolean;
   hasConnectorMatches: boolean;
@@ -99,8 +102,16 @@ export type ComposerToolMenuProps = {
   applyPluginFileSelection: (file: CloudImportedPluginFile) => void;
   applyExtensionSelection: (ext: McpDirectoryInfo) => void;
   applyExtensionSuggestion: (ext: McpDirectoryInfo, prompt: string) => void;
+  applyManagedConnectorPrompt: (
+    connector: ManagedDesktopConnectorItem,
+    prompt: string,
+  ) => void;
   selectedComposerExtension: McpDirectoryInfo | null;
   setSelectedComposerExtension: (ext: McpDirectoryInfo | null) => void;
+  selectedManagedConnector: ManagedDesktopConnectorItem | null;
+  setSelectedManagedConnector: (
+    connector: ManagedDesktopConnectorItem | null,
+  ) => void;
   openToolMenuSettings: () => void;
   openConnectorsConfigure: () => void;
   openCustomConnectorOrMarketplace: () => void;
@@ -134,6 +145,7 @@ export function ComposerToolMenu(props: ComposerToolMenuProps) {
     filteredPluginSkillFiles,
     filteredMcpItems,
     filteredComposerExtensions,
+    filteredManagedConnectors,
     hasSkillMatches,
     hasSkills,
     hasConnectorMatches,
@@ -151,8 +163,11 @@ export function ComposerToolMenu(props: ComposerToolMenuProps) {
     applyPluginFileSelection,
     applyExtensionSelection,
     applyExtensionSuggestion,
+    applyManagedConnectorPrompt,
     selectedComposerExtension,
     setSelectedComposerExtension,
+    selectedManagedConnector,
+    setSelectedManagedConnector,
     openToolMenuSettings,
     openConnectorsConfigure,
     openCustomConnectorOrMarketplace,
@@ -330,7 +345,11 @@ export function ComposerToolMenu(props: ComposerToolMenuProps) {
               {t("composer.connectors_label")}
               <span className="tabular-nums font-medium text-dls-secondary">
                 {" "}
-                ({filteredMcpItems.length + filteredComposerExtensions.length})
+                (
+                {filteredMcpItems.length +
+                  filteredComposerExtensions.length +
+                  filteredManagedConnectors.length}
+                )
               </span>
             </div>
             <Button
@@ -616,9 +635,110 @@ export function ComposerToolMenu(props: ComposerToolMenuProps) {
           hasConnectorMatches ? (
             <TooltipProvider delay={280}>
               <div className="grid min-w-0 gap-0.5">
-                {filteredComposerExtensions.length > 0 ? (
+                {filteredManagedConnectors.length > 0 ? (
                   <>
                     <div className="px-2 pb-0.5 pt-1 text-2xs font-medium uppercase tracking-wide text-dls-secondary">
+                      {t("composer.connectors_group_connected")}
+                    </div>
+                    {filteredManagedConnectors.map((connector) => {
+                      const description = connector.description?.trim() ?? "";
+                      const hasPrompts = connector.tryPrompts.length > 0;
+                      const rowBody = (
+                        <div
+                          className={cn(
+                            "flex w-full min-w-0 items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-dls-hover",
+                            selectedManagedConnector?.id === connector.id &&
+                              "bg-dls-hover",
+                          )}
+                          onMouseEnter={() => {
+                            setSelectedComposerExtension(null);
+                            setSelectedManagedConnector(
+                              hasPrompts ? connector : null,
+                            );
+                          }}
+                        >
+                          <IconTile
+                            size="sm"
+                            shape="lg"
+                            tone="surface"
+                            border
+                            className={cn(
+                              extensionIconTileClassName,
+                              "overflow-hidden",
+                            )}
+                          >
+                            <img
+                              src={resolvePublicAssetUrl(connector.iconSrc)}
+                              alt=""
+                              className="size-4 object-contain"
+                              draggable={false}
+                            />
+                          </IconTile>
+                          <button
+                            type="button"
+                            className="min-w-0 flex-1 overflow-hidden text-left"
+                            onClick={() => {
+                              if (hasPrompts) {
+                                setSelectedComposerExtension(null);
+                                setSelectedManagedConnector(connector);
+                                return;
+                              }
+                              openConnectorsConfigure();
+                            }}
+                          >
+                            <div className="truncate text-sm font-medium text-dls-text">
+                              {connector.name}
+                            </div>
+                            {description ? (
+                              <div className="truncate text-xs text-dls-secondary">
+                                {description}
+                              </div>
+                            ) : null}
+                          </button>
+                          <Switch
+                            size="sm"
+                            className="shrink-0"
+                            checked
+                            onCheckedChange={() => {
+                              // Disconnect / manage lives on the market card.
+                              openConnectorsConfigure();
+                            }}
+                            aria-label={connector.name}
+                          />
+                        </div>
+                      );
+                      if (!description) {
+                        return <div key={connector.id}>{rowBody}</div>;
+                      }
+                      return (
+                        <Tooltip key={connector.id}>
+                          <TooltipTrigger
+                            render={<div className="min-w-0" />}
+                            className="min-w-0"
+                          >
+                            {rowBody}
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="bottom"
+                            align="start"
+                            sideOffset={6}
+                            className="max-w-[18rem] whitespace-normal text-left leading-5"
+                          >
+                            {description}
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    })}
+                  </>
+                ) : null}
+                {filteredComposerExtensions.length > 0 ? (
+                  <>
+                    <div
+                      className={cn(
+                        "px-2 pb-0.5 text-2xs font-medium uppercase tracking-wide text-dls-secondary",
+                        filteredManagedConnectors.length > 0 ? "pt-2" : "pt-1",
+                      )}
+                    >
                       {t("composer.connectors_group_builtin")}
                     </div>
                     {filteredComposerExtensions.map((entry) => {
@@ -632,9 +752,12 @@ export function ComposerToolMenu(props: ComposerToolMenuProps) {
                             "flex w-full min-w-0 items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-dls-hover",
                             selectedComposerExtension === entry && "bg-dls-hover",
                           )}
-                          onMouseEnter={() =>
-                            setSelectedComposerExtension(hasPrompts ? entry : null)
-                          }
+                          onMouseEnter={() => {
+                            setSelectedManagedConnector(null);
+                            setSelectedComposerExtension(
+                              hasPrompts ? entry : null,
+                            );
+                          }}
                         >
                           <IconTile
                             size="sm"
@@ -650,6 +773,7 @@ export function ComposerToolMenu(props: ComposerToolMenuProps) {
                             className="min-w-0 flex-1 overflow-hidden text-left"
                             onClick={() => {
                               if (hasPrompts) {
+                                setSelectedManagedConnector(null);
                                 setSelectedComposerExtension(entry);
                                 return;
                               }
@@ -817,7 +941,40 @@ export function ComposerToolMenu(props: ComposerToolMenuProps) {
       </div>
     </div>
   ) : null}
-  {toolMenuSection === "mcps" && selectedComposerExtension?.suggestedPrompts?.length ? (
+  {toolMenuSection === "mcps" && selectedManagedConnector?.tryPrompts?.length ? (
+    <div
+      className="absolute bottom-0 left-[calc(11rem+17.5rem-2px)] flex w-[min(calc(100vw-30rem),16rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid"
+      style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}
+    >
+      <div className="flex min-h-9 shrink-0 items-center border-b border-dls-border px-3 py-1.5 text-sm font-medium text-dls-text">
+        <span className="truncate">{selectedManagedConnector.name}</span>
+      </div>
+      <div className="max-h-48 overflow-x-hidden overflow-y-auto p-1.5">
+        <div className="grid gap-0.5">
+          {selectedManagedConnector.tryPrompts.map((prompt) => (
+            <MenuRowButton
+              key={prompt}
+              type="button"
+              align="start"
+              density="compact"
+              className="gap-2"
+              onClick={() =>
+                applyManagedConnectorPrompt(selectedManagedConnector, prompt)
+              }
+            >
+              <MessageCircle className="mt-0.5 size-3.5 shrink-0 text-dls-secondary" />
+              <span className="line-clamp-2 text-sm leading-5 text-dls-text">
+                {prompt}
+              </span>
+            </MenuRowButton>
+          ))}
+        </div>
+      </div>
+    </div>
+  ) : null}
+  {toolMenuSection === "mcps" &&
+  !selectedManagedConnector &&
+  selectedComposerExtension?.suggestedPrompts?.length ? (
     <div
       className="absolute bottom-0 left-[calc(11rem+17.5rem-2px)] flex w-[min(calc(100vw-30rem),16rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid"
       style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}

@@ -75,6 +75,7 @@ import {
 } from "../connections";
 import type { ProviderListItem } from "../../../app/types";
 import { useAgentRegistryStore } from "./agent-registry-store";
+import { uninstallExpertPackagesForAgent } from "./expert-hard-delete";
 import {
   classifySkillScope,
   SKILL_SCOPE_LABELS,
@@ -623,6 +624,14 @@ export function AgentsPage(props: AgentsPageProps) {
         t("agents.delete_confirm", { name: item.agent.name }),
       );
       if (!confirmed) return;
+      try {
+        await uninstallExpertPackagesForAgent({
+          agentId: item.agent.id,
+          registry,
+        });
+      } catch (error) {
+        console.warn("[agents] package uninstall failed", item.agent.id, error);
+      }
       const nowIso = new Date().toISOString();
       const nextRegistry: AgentRegistry = {
         ...registry,
@@ -630,6 +639,7 @@ export function AgentsPage(props: AgentsPageProps) {
         agents: registry.agents.filter((a) => a.id !== item.id),
       };
       await persistRegistry(nextRegistry);
+      useAgentRegistryStore.getState().setRegistry(nextRegistry);
       showToast({
         title: t("agents.deleted_title", { name: item.agent.name }),
         tone: "success",

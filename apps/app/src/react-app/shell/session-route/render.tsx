@@ -115,12 +115,11 @@ import {
   shouldRedirectSessionRouteToWelcome,
 } from "./control";
 import {
-  applyRuntimeSessionInfoUpdate,
-  applyRuntimeSessionStatusUpdate,
   resolveSessionRouteCanCreateTask,
   resolveSessionRouteShowPreparingStatus,
 } from "./runtime-session-state";
 import { useSessionRouteProviderAuth } from "./provider-auth-hook";
+import { useBufferedSidebarRuntimeUpdates } from "./sidebar-runtime-update-hook";
 
 export function SessionRouteRender() {
   const {
@@ -355,6 +354,8 @@ export function SessionRouteRender() {
     loadWorkspaceSessionsInBackground,
     localServerRef,
     markBootRouteReady,
+    waitForStaticHomeFirstPaint:
+      pageMode === "assistant" && selectedSessionId === null,
     onmyagentServerSettings,
     routeWorkspaceId,
     selectedSessionId,
@@ -378,39 +379,34 @@ export function SessionRouteRender() {
     workspacesRef,
   });
 
+  const enqueueSidebarRuntimeUpdate = useBufferedSidebarRuntimeUpdates({
+    sessionsByWorkspaceIdRef,
+    setSessionsByWorkspaceId,
+  });
+
   const handleRuntimeSessionUpdated = useCallback(
     (update: { sessionId: string; info: Record<string, unknown> }) => {
       if (!selectedWorkspaceId) return;
-      setSessionsByWorkspaceId((current) => {
-        const next = applyRuntimeSessionInfoUpdate(
-          current,
-          selectedWorkspaceId,
-          update,
-        );
-        if (next === current) return current;
-        sessionsByWorkspaceIdRef.current = next;
-        return next;
+      enqueueSidebarRuntimeUpdate({
+        kind: "info",
+        workspaceId: selectedWorkspaceId,
+        update,
       });
     },
-    [selectedWorkspaceId, sessionsByWorkspaceIdRef],
+    [enqueueSidebarRuntimeUpdate, selectedWorkspaceId],
   );
 
   /** Keep list-row `status` in sync with SSE so seed + activeSessionIds don't lag. */
   const handleRuntimeSessionStatus = useCallback(
     (update: { sessionId: string; status: unknown }) => {
       if (!selectedWorkspaceId) return;
-      setSessionsByWorkspaceId((current) => {
-        const next = applyRuntimeSessionStatusUpdate(
-          current,
-          selectedWorkspaceId,
-          update,
-        );
-        if (next === current) return current;
-        sessionsByWorkspaceIdRef.current = next;
-        return next;
+      enqueueSidebarRuntimeUpdate({
+        kind: "status",
+        workspaceId: selectedWorkspaceId,
+        update,
       });
     },
-    [selectedWorkspaceId, sessionsByWorkspaceIdRef],
+    [enqueueSidebarRuntimeUpdate, selectedWorkspaceId],
   );
 
   useEffect(() => {

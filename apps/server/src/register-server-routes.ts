@@ -29,6 +29,7 @@ import { registerApprovalRoutes } from "./routes/approval-routes.js";
 import { registerWorkspaceObservabilityRoutes } from "./routes/workspace-observability-routes.js";
 import { registerWorkspaceSessionArchiveRoutes } from "./routes/workspace-session-archive-routes.js";
 import { registerWorkspaceSessionRoutes } from "./routes/workspace-session-routes.js";
+import { registerWorkspaceSessionOriginRoutes } from "./routes/workspace-session-origin-routes.js";
 import { registerWorkspaceRoutes } from "./routes/workspace-routes.js";
 import { registerWorkspaceConfigRoutes } from "./routes/workspace-config-routes.js";
 import { registerWorkspaceArtifactRoutes } from "./routes/workspace-artifact-routes.js";
@@ -72,6 +73,7 @@ import {
   waitForAutomationSession,
   reconcileAutomationRuns,
 } from "./services/automation-runner.js";
+import type { SessionArchiveSyncInput } from "./services/session-archive-sync.js";
 
 export type RegisterServerRoutesInput = {
   routes: Route[];
@@ -103,6 +105,8 @@ export type RegisterServerRoutesInput = {
   persistServerWorkspaceState: (config: ServerConfig) => Promise<boolean>;
   onWorkspacesChanged: () => void;
   reloadOpencodeEngine: (config: ServerConfig, workspace: WorkspaceInfo) => Promise<void>;
+  syncSessionArchive: (input: SessionArchiveSyncInput) => Promise<import("@onmyagent/types/session-archive").SessionArchiveSyncStats>;
+  disposeWorkspaceArchiveSync: (workspace: WorkspaceInfo) => Promise<void>;
   readOpencodeConfig: (workspaceRoot: string) => Promise<Record<string, unknown>>;
   readOnMyAgentConfig: (workspaceRoot: string) => Promise<Record<string, unknown>>;
   writeOnMyAgentConfig: (
@@ -149,6 +153,8 @@ export function registerServerRoutes(input: RegisterServerRoutesInput): void {
     persistServerWorkspaceState,
     onWorkspacesChanged,
     reloadOpencodeEngine,
+    syncSessionArchive,
+    disposeWorkspaceArchiveSync,
     readOpencodeConfig,
     readOnMyAgentConfig,
     writeOnMyAgentConfig,
@@ -310,6 +316,7 @@ export function registerServerRoutes(input: RegisterServerRoutesInput): void {
     routes,
     config,
     resolveWorkspace,
+    syncArchive: syncSessionArchive,
   });
 
   registerWorkspaceSessionRoutes({
@@ -326,6 +333,15 @@ export function registerServerRoutes(input: RegisterServerRoutesInput): void {
     deleteWorkspaceSession,
   });
 
+  registerWorkspaceSessionOriginRoutes({
+    routes,
+    config,
+    ensureWritable,
+    requireClientScope,
+    resolveWorkspace,
+    readJsonBody,
+  });
+
   registerWorkspaceRoutes({
     routes,
     config,
@@ -336,6 +352,7 @@ export function registerServerRoutes(input: RegisterServerRoutesInput): void {
     onWorkspacesChanged,
     reloadOpencodeEngine,
     readJsonBody,
+    disposeWorkspaceArchiveSync,
   });
 
   registerWorkspaceConfigRoutes({

@@ -67,7 +67,44 @@ import { KdocsPluginCard } from "./kdocs-plugin";
 import { DingtalkPluginCard } from "./dingtalk-plugin";
 import { WecomPluginCard } from "./wecom-plugin";
 import { TencentMeetingPluginCard } from "./tencent-meeting-plugin";
+import { recommendedManagedConnectorIds } from "./capability-shelf";
 import { ConnectorConnectDialog } from "./connector-connect-dialog";
+
+/** Recommended plugin cards keyed by capability-shelf id. */
+const RECOMMENDED_PLUGIN_CARDS: Record<
+  string,
+  (props: { onTryPrompt: (prompt: string) => void }) => ReactNode
+> = {
+  officecli: (props) => <OfficeCliPluginCard onTryPrompt={props.onTryPrompt} />,
+  "lark-cli": (props) => <LarkCliPluginCard onTryPrompt={props.onTryPrompt} />,
+  "tencent-docs": (props) => (
+    <TencentDocsPluginCard onTryPrompt={props.onTryPrompt} />
+  ),
+  "baidu-drive": (props) => (
+    <BaiduDrivePluginCard onTryPrompt={props.onTryPrompt} />
+  ),
+  kdocs: (props) => <KdocsPluginCard onTryPrompt={props.onTryPrompt} />,
+  dingtalk: (props) => <DingtalkPluginCard onTryPrompt={props.onTryPrompt} />,
+  wecom: (props) => <WecomPluginCard onTryPrompt={props.onTryPrompt} />,
+  "tencent-meeting": (props) => (
+    <TencentMeetingPluginCard onTryPrompt={props.onTryPrompt} />
+  ),
+};
+
+/** Render recommended connector cards in shelf registry order. */
+export function renderRecommendedPluginCards(input: {
+  onTryPrompt: (pluginId: string) => (prompt: string) => void;
+}): ReactNode[] {
+  return recommendedManagedConnectorIds().flatMap((id) => {
+    const render = RECOMMENDED_PLUGIN_CARDS[id];
+    if (!render) return [];
+    return [
+      <span key={id} className="contents">
+        {render({ onTryPrompt: input.onTryPrompt(id) })}
+      </span>,
+    ];
+  });
+}
 import {
   getExtensionConfigSlot,
   type ExtensionConfigContext,
@@ -1057,24 +1094,9 @@ export function PluginsPage(props: PluginsPageProps) {
       {/* Padding on the scroll surface (skills market pattern) so bottom gap is real. */}
       <div className={cn(pluginsLayoutClass.scrollArea, "px-6 pb-16 pt-1")}>
         <div className={pluginsLayoutClass.connectorCardGrid}>
-          {showRecommended ? (
-            <>
-              <OfficeCliPluginCard onTryPrompt={tryConnectorPrompt("officecli")} />
-              <LarkCliPluginCard onTryPrompt={tryConnectorPrompt("lark-cli")} />
-              <TencentDocsPluginCard
-                onTryPrompt={tryConnectorPrompt("tencent-docs")}
-              />
-              <BaiduDrivePluginCard
-                onTryPrompt={tryConnectorPrompt("baidu-drive")}
-              />
-              <KdocsPluginCard onTryPrompt={tryConnectorPrompt("kdocs")} />
-              <DingtalkPluginCard onTryPrompt={tryConnectorPrompt("dingtalk")} />
-              <WecomPluginCard onTryPrompt={tryConnectorPrompt("wecom")} />
-              <TencentMeetingPluginCard
-                onTryPrompt={tryConnectorPrompt("tencent-meeting")}
-              />
-            </>
-          ) : null}
+          {showRecommended
+            ? renderRecommendedPluginCards({ onTryPrompt: tryConnectorPrompt })
+            : null}
           {showBuiltin ? (
             <>
               <BuiltinExtensionsSection

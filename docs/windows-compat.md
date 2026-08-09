@@ -1,10 +1,14 @@
 # Windows compatibility
 
-OnMyAgent's primary target is macOS. Linux and Windows are supported at the
-architecture layer (`process.platform` branches, `electron-builder` targets),
-but macOS is where release engineering and daily dogfooding happen. This doc
-captures the concrete gotchas we already know about so a first-time Windows
-run has a fighting chance.
+OnMyAgent's **product** targets are **macOS** (primary release / dogfood) and
+**Windows** (Electron shell + NSIS developer preview). **Linux desktop packages
+are not a product target** (no AppImage/AUR ship; see root `README` / `BUILD.md`).
+
+Some runtime code still has `process.platform === "linux"` branches and CI still
+runs on `ubuntu-latest` as a cheap host (including mocked Windows contracts).
+That is **CI infrastructure**, not Linux product support.
+
+This doc captures Windows gotchas so a first-time Windows run has a fighting chance.
 
 ## CI gate (PR required)
 

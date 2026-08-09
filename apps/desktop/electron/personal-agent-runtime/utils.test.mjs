@@ -55,12 +55,10 @@ test("resolveProcessTreeKillPlan soft taskkill omits /F when force=false", () =>
   assert.ok(!plan.args.includes("/F"));
 });
 
-test("resolveProcessTreeKillPlan uses posix process-group signals off Windows", () => {
-  for (const platform of ["darwin", "linux"]) {
-    const plan = resolveProcessTreeKillPlan({ platform, pid: 1001, force: true });
-    assert.equal(plan.kind, "posix-group");
-    assert.deepEqual(plan.signals, ["SIGTERM", "SIGKILL"]);
-  }
+test("resolveProcessTreeKillPlan uses posix process-group signals on darwin", () => {
+  const plan = resolveProcessTreeKillPlan({ platform: "darwin", pid: 1001, force: true });
+  assert.equal(plan.kind, "posix-group");
+  assert.deepEqual(plan.signals, ["SIGTERM", "SIGKILL"]);
 });
 
 test("resolveProcessTreeKillPlan is noop without pid", () => {

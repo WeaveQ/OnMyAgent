@@ -1,5 +1,10 @@
 /** Domain methods: Sessions for OnMyAgent server HTTP client. */
 import type { Session } from "@opencode-ai/sdk/v2/client";
+import type {
+  SessionOriginListPayload,
+  SessionOriginRecord,
+  SessionOriginUpsertPayload,
+} from "@onmyagent/types/server";
 import {
   requestJson,
   type OnMyAgentServerClientContext,
@@ -63,7 +68,11 @@ export function createSessionsClientMethods(ctx: OnMyAgentServerClientContext) {
         { token, hostToken, timeoutMs: timeouts.sessionRead },
       );
     },
-    getSessionSnapshot: (workspaceId: string, sessionId: string, options?: { limit?: number; directory?: string }) => {
+    getSessionSnapshot: (
+      workspaceId: string,
+      sessionId: string,
+      options?: { limit?: number; directory?: string; signal?: AbortSignal },
+    ) => {
       const query = new URLSearchParams();
       if (typeof options?.limit === "number") query.set("limit", String(options.limit));
       if (options?.directory?.trim()) query.set("directory", options.directory.trim());
@@ -71,8 +80,40 @@ export function createSessionsClientMethods(ctx: OnMyAgentServerClientContext) {
       return requestJson<{ item: OnMyAgentSessionSnapshot }>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(sessionId)}/snapshot${suffix}`,
-        { token, hostToken, timeoutMs: timeouts.sessionRead },
+        {
+          token,
+          hostToken,
+          timeoutMs: timeouts.sessionRead,
+          signal: options?.signal,
+        },
       );
     },
+    listSessionOrigins: (workspaceId: string, options?: { signal?: AbortSignal }) =>
+      requestJson<SessionOriginListPayload>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/session-origins`,
+        {
+          token,
+          hostToken,
+          timeoutMs: timeouts.sessionRead,
+          signal: options?.signal,
+        },
+      ),
+    upsertSessionOrigin: (
+      workspaceId: string,
+      sessionId: string,
+      payload: SessionOriginUpsertPayload,
+    ) =>
+      requestJson<{ item: SessionOriginRecord }>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/session-origins/${encodeURIComponent(sessionId)}`,
+        { token, hostToken, method: "PUT", body: payload, timeoutMs: timeouts.sessionRead },
+      ),
+    deleteSessionOrigin: (workspaceId: string, sessionId: string) =>
+      requestJson<{ ok: true }>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/session-origins/${encodeURIComponent(sessionId)}`,
+        { token, hostToken, method: "DELETE", timeoutMs: timeouts.deleteSession },
+      ),
   };
 }

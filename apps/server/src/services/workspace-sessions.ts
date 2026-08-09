@@ -22,6 +22,46 @@ import {
   shouldRetryWorkspaceSessionSnapshot,
 } from "./session-snapshot-policy.js";
 
+export type WorkspaceSessionSnapshotReads<
+  Session,
+  Messages,
+  Todos,
+  Statuses,
+> = {
+  session: (signal?: AbortSignal) => Promise<Session>;
+  messages: (signal?: AbortSignal) => Promise<Messages>;
+  todos: (signal?: AbortSignal) => Promise<Todos>;
+  statuses: (signal?: AbortSignal) => Promise<Statuses>;
+};
+
+/**
+ * Starts all snapshot reads together and gives each one the caller's signal.
+ * Kept separate from the OpenCode client so cancellation behavior stays
+ * directly testable without an HTTP server or a global fetch override.
+ */
+export async function readWorkspaceSessionSnapshotReads<
+  Session,
+  Messages,
+  Todos,
+  Statuses,
+>(
+  reads: WorkspaceSessionSnapshotReads<Session, Messages, Todos, Statuses>,
+  signal?: AbortSignal,
+): Promise<{
+  session: Session;
+  messages: Messages;
+  todos: Todos;
+  statuses: Statuses;
+}> {
+  const [session, messages, todos, statuses] = await Promise.all([
+    reads.session(signal),
+    reads.messages(signal),
+    reads.todos(signal),
+    reads.statuses(signal),
+  ]);
+  return { session, messages, todos, statuses };
+}
+
 function remapSessionReadError(error: unknown): never {
   if (isApiError(error) && error.code === "opencode_request_failed") {
     const details = error.details;
@@ -47,7 +87,14 @@ function remapSessionReadError(error: unknown): never {
 export async function listWorkspaceSessions(
   config: ServerConfig,
   workspace: WorkspaceInfo,
-  input: { roots?: boolean; start?: number; search?: string; limit?: number; directory?: string },
+  input: {
+    roots?: boolean;
+    start?: number;
+    search?: string;
+    limit?: number;
+    directory?: string;
+    signal?: AbortSignal;
+  },
 ) {
   const started = performance.now();
   const normalized = normalizeWorkspaceSessionListInput(input);
@@ -63,12 +110,15 @@ export async function listWorkspaceSessions(
     );
     const items = buildSessionList(
       unwrapOpencodeResult(
-        await opencode.session.list({
-          roots: normalized.roots,
-          start: normalized.start,
-          search: normalized.search,
-          limit: normalized.limit,
-        }),
+        await opencode.session.list(
+          {
+            roots: normalized.roots,
+            start: normalized.start,
+            search: normalized.search,
+            limit: normalized.limit,
+          },
+          { signal: input.signal },
+        ),
         "/session",
       ),
     );
@@ -96,12 +146,13 @@ export async function readWorkspaceSession(
   workspace: WorkspaceInfo,
   sessionId: string,
   directory?: string,
+  signal?: AbortSignal,
 ) {
   try {
     const opencode = getWorkspaceOpencodeClient(config, workspace, directory);
     return buildSession(
       unwrapOpencodeResult(
-        await opencode.session.get({ sessionID: sessionId }),
+        await opencode.session.get({ sessionID: sessionId }, { signal }),
         `/session/${encodeURIComponent(sessionId)}`,
       ),
     );
@@ -114,16 +165,19 @@ export async function readWorkspaceSessionMessages(
   config: ServerConfig,
   workspace: WorkspaceInfo,
   sessionId: string,
-  input: { limit?: number; directory?: string },
+  input: { limit?: number; directory?: string; signal?: AbortSignal },
 ) {
   try {
     const opencode = getWorkspaceOpencodeClient(config, workspace, input.directory);
     return buildSessionMessages(
       unwrapOpencodeResult(
-        await opencode.session.messages({
-          sessionID: sessionId,
-          limit: input.limit,
-        }),
+        await opencode.session.messages(
+          {
+            sessionID: sessionId,
+            limit: input.limit,
+          },
+          { signal: input.signal },
+        ),
         `/session/${encodeURIComponent(sessionId)}/message`,
       ),
     );
@@ -136,12 +190,13 @@ export async function readWorkspaceSessionTodos(
   config: ServerConfig,
   workspace: WorkspaceInfo,
   sessionId: string,
+  signal?: AbortSignal,
 ) {
   try {
     const opencode = getWorkspaceOpencodeClient(config, workspace);
     return buildSessionTodos(
       unwrapOpencodeResult(
-        await opencode.session.todo({ sessionID: sessionId }),
+        await opencode.session.todo({ sessionID: sessionId }, { signal }),
         `/session/${encodeURIComponent(sessionId)}/todo`,
       ),
     );
@@ -153,11 +208,15 @@ export async function readWorkspaceSessionTodos(
 export async function readWorkspaceSessionStatuses(
   config: ServerConfig,
   workspace: WorkspaceInfo,
+  signal?: AbortSignal,
 ) {
   try {
     const opencode = getWorkspaceOpencodeClient(config, workspace);
     return buildSessionStatuses(
-      unwrapOpencodeResult(await opencode.session.status(), "/session/status"),
+      unwrapOpencodeResult(
+        await opencode.session.status(undefined, { signal }),
+        "/session/status",
+      ),
     );
   } catch (error) {
     remapSessionReadError(error);
@@ -168,40 +227,50 @@ export async function readWorkspaceSessionSnapshot(
   config: ServerConfig,
   workspace: WorkspaceInfo,
   sessionId: string,
-  input: { limit?: number; directory?: string },
+  input: { limit?: number; directory?: string; signal?: AbortSignal },
 ) {
   try {
     const opencode = getWorkspaceOpencodeClient(config, workspace, input.directory);
-    const [session, messages, todos, statuses] = await Promise.all([
-      opencode.session
-        .get({ sessionID: sessionId })
-        .then((result) =>
-          unwrapOpencodeResult(
-            result,
-            `/session/${encodeURIComponent(sessionId)}`,
-          ),
-        ),
-      opencode.session
-        .messages({ sessionID: sessionId, limit: input.limit })
-        .then((result) =>
-          unwrapOpencodeResult(
-            result,
-            `/session/${encodeURIComponent(sessionId)}/message`,
-          ),
-        ),
-      opencode.session
-        .todo({ sessionID: sessionId })
-        .then((result) =>
-          unwrapOpencodeResult(
-            result,
-            `/session/${encodeURIComponent(sessionId)}/todo`,
-          ),
-        ),
-      opencode.session
-        .status()
-        .then((result) => unwrapOpencodeResult(result, "/session/status")),
-    ]);
-    return buildSessionSnapshot({ session, messages, todos, statuses });
+    const snapshot = await readWorkspaceSessionSnapshotReads(
+      {
+        session: (signal) =>
+          opencode.session
+            .get({ sessionID: sessionId }, { signal })
+            .then((result) =>
+              unwrapOpencodeResult(
+                result,
+                `/session/${encodeURIComponent(sessionId)}`,
+              ),
+            ),
+        messages: (signal) =>
+          opencode.session
+            .messages(
+              { sessionID: sessionId, limit: input.limit },
+              { signal },
+            )
+            .then((result) =>
+              unwrapOpencodeResult(
+                result,
+                `/session/${encodeURIComponent(sessionId)}/message`,
+              ),
+            ),
+        todos: (signal) =>
+          opencode.session
+            .todo({ sessionID: sessionId }, { signal })
+            .then((result) =>
+              unwrapOpencodeResult(
+                result,
+                `/session/${encodeURIComponent(sessionId)}/todo`,
+              ),
+            ),
+        statuses: (signal) =>
+          opencode.session
+            .status(undefined, { signal })
+            .then((result) => unwrapOpencodeResult(result, "/session/status")),
+      },
+      input.signal,
+    );
+    return buildSessionSnapshot(snapshot);
   } catch (error) {
     try {
       remapSessionReadError(error);
