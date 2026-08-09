@@ -1,8 +1,10 @@
-import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
 import { ILINK_BASE_URL, WEIXIN_CDN_BASE_URL } from "./ilink-client.mjs";
+
+const writeQueues = new Map();
 
 function safeAccountId(value) {
   return String(value ?? "").trim().replace(/[^A-Za-z0-9_.@-]/g, "_");
@@ -16,11 +18,51 @@ async function readJsonFile(filePath, fallback = null) {
   }
 }
 
-async function writeJsonFile(filePath, value, mode = 0o600) {
+function enqueueFileOperation(filePath, operation) {
+  const previous = writeQueues.get(filePath) ?? Promise.resolve();
+  const current = previous.catch(() => undefined).then(operation);
+  writeQueues.set(filePath, current);
+  return current.finally(() => {
+    if (writeQueues.get(filePath) === current) writeQueues.delete(filePath);
+  });
+}
+
+async function atomicWriteJsonFile(filePath, value, mode = 0o600) {
   await mkdir(path.dirname(filePath), { recursive: true });
   const tmp = `${filePath}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`;
   await writeFile(tmp, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf8", mode });
-  await rename(tmp, filePath);
+  const attempts = process.platform === "win32" ? 12 : 3;
+  let lastError = null;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      await rename(tmp, filePath);
+      return;
+    } catch (error) {
+      lastError = error;
+      const code = error && typeof error === "object" ? error.code : undefined;
+      const retryable = code === "EPERM" || code === "EACCES" || code === "EBUSY" || code === "EEXIST" || code === "ENOENT";
+      if (!retryable || attempt === attempts - 1) break;
+      // Concurrent writers are serialized above. A remaining Windows error is
+      // normally a short-lived antivirus/indexer lock, so wait without deleting
+      // the last known-good destination file.
+      await new Promise((resolve) => setTimeout(resolve, 8 * (attempt + 1)));
+    }
+  }
+  await rm(tmp, { force: true }).catch(() => undefined);
+  throw lastError;
+}
+
+async function writeJsonFile(filePath, value, mode = 0o600) {
+  await enqueueFileOperation(filePath, () => atomicWriteJsonFile(filePath, value, mode));
+}
+
+async function updateJsonFile(filePath, fallback, update, mode = 0o600) {
+  return await enqueueFileOperation(filePath, async () => {
+    const current = await readJsonFile(filePath, fallback);
+    const next = await update(current);
+    await atomicWriteJsonFile(filePath, next, mode);
+    return next;
+  });
 }
 
 export function createWeixinStore(rootDir) {
@@ -78,7 +120,10 @@ export function createWeixinStore(rootDir) {
       savedAt: new Date().toISOString(),
     };
     await writeJsonFile(accountFile(accountId), payload);
-    await writeConfig({ ...(await readConfig()), defaultAccountId: accountId, updatedAt: Date.now() });
+    // writeConfig performs its own queued read-modify-write. Passing a config
+    // snapshot read outside that queue can overwrite a concurrent stop/save
+    // update with stale fields.
+    await writeConfig({ defaultAccountId: accountId });
     return sanitizeAccount(payload);
   }
 
@@ -117,8 +162,7 @@ export function createWeixinStore(rootDir) {
   }
 
   async function writeConfig(value = {}) {
-    const prior = await readConfig();
-    await writeJsonFile(configPath, { ...prior, ...value, updatedAt: Date.now() });
+    await updateJsonFile(configPath, {}, (prior) => ({ ...prior, ...value, updatedAt: Date.now() }));
   }
 
   async function loadDefaultAccount() {
@@ -148,9 +192,10 @@ export function createWeixinStore(rootDir) {
   async function writeContextToken(accountId, peerId, token) {
     const peer = String(peerId ?? "").trim();
     if (!peer || !token) return;
-    const raw = await readContextTokens(accountId);
-    raw[peer] = { contextToken: String(token), updatedAt: Date.now() };
-    await writeJsonFile(contextFile(accountId), raw);
+    await updateJsonFile(contextFile(accountId), {}, (raw) => {
+      raw[peer] = { contextToken: String(token), updatedAt: Date.now() };
+      return raw;
+    });
   }
 
   async function readContextToken(accountId, peerId) {
@@ -175,11 +220,13 @@ export function createWeixinStore(rootDir) {
   async function writeChatSetting(accountId, chatId, patch = {}) {
     const chat = String(chatId ?? "").trim();
     if (!chat) return null;
-    const raw = await readChatSettings(accountId);
-    const prior = raw[chat] && typeof raw[chat] === "object" ? raw[chat] : {};
-    const next = { ...prior, ...patch, updatedAt: Date.now() };
-    raw[chat] = next;
-    await writeJsonFile(chatSettingsFile(accountId), raw);
+    let next = null;
+    await updateJsonFile(chatSettingsFile(accountId), {}, (raw) => {
+      const prior = raw[chat] && typeof raw[chat] === "object" ? raw[chat] : {};
+      next = { ...prior, ...patch, updatedAt: Date.now() };
+      raw[chat] = next;
+      return raw;
+    });
     return next;
   }
 
@@ -188,18 +235,18 @@ export function createWeixinStore(rootDir) {
   // should become the new default for ALL chats, discarding any per-chat agent
   // that was previously pinned via #agent or older sessions.
   async function clearAllChatAgentOverrides(accountId) {
-    const raw = await readChatSettings(accountId);
-    if (!raw || typeof raw !== "object") return 0;
     let changed = 0;
-    for (const chat of Object.keys(raw)) {
-      const entry = raw[chat];
-      if (entry && typeof entry === "object" && "agent" in entry) {
-        const { agent, ...rest } = entry;
-        raw[chat] = rest;
-        changed += 1;
+    await updateJsonFile(chatSettingsFile(accountId), {}, (raw) => {
+      for (const chat of Object.keys(raw)) {
+        const entry = raw[chat];
+        if (entry && typeof entry === "object" && "agent" in entry) {
+          const { agent, ...rest } = entry;
+          raw[chat] = rest;
+          changed += 1;
+        }
       }
-    }
-    if (changed > 0) await writeJsonFile(chatSettingsFile(accountId), raw);
+      return raw;
+    });
     return changed;
   }
 
@@ -215,8 +262,6 @@ export function createWeixinStore(rootDir) {
   async function appendChatHistory(accountId, chatId, entries = [], limit = 24) {
     const chat = String(chatId ?? "").trim();
     if (!chat) return [];
-    const raw = await readJsonFile(chatHistoryFile(accountId), {});
-    const current = raw && typeof raw === "object" && Array.isArray(raw[chat]) ? raw[chat] : [];
     const now = Date.now();
     const nextEntries = (Array.isArray(entries) ? entries : [entries]).map((entry) => ({
       role: String(entry?.role ?? "user"),
@@ -226,19 +271,28 @@ export function createWeixinStore(rootDir) {
       agentProvider: entry?.agentProvider ? String(entry.agentProvider) : undefined,
     })).filter((entry) => entry.text.trim());
     const max = Number.isFinite(Number(limit)) ? Math.max(1, Number(limit)) : 24;
-    raw[chat] = [...current, ...nextEntries].slice(-max);
-    await writeJsonFile(chatHistoryFile(accountId), raw);
-    return raw[chat];
+    let history = [];
+    await updateJsonFile(chatHistoryFile(accountId), {}, (raw) => {
+      const current = Array.isArray(raw[chat]) ? raw[chat] : [];
+      history = [...current, ...nextEntries].slice(-max);
+      raw[chat] = history;
+      return raw;
+    });
+    return history;
   }
 
   async function clearChatHistory(accountId, chatId) {
     const chat = String(chatId ?? "").trim();
     if (!chat) return false;
-    const raw = await readJsonFile(chatHistoryFile(accountId), {});
-    if (!raw || typeof raw !== "object" || !Array.isArray(raw[chat])) return false;
-    delete raw[chat];
-    await writeJsonFile(chatHistoryFile(accountId), raw);
-    return true;
+    let cleared = false;
+    await updateJsonFile(chatHistoryFile(accountId), {}, (raw) => {
+      if (Array.isArray(raw[chat])) {
+        delete raw[chat];
+        cleared = true;
+      }
+      return raw;
+    });
+    return cleared;
   }
 
   async function readActiveRuns(accountId) {
@@ -261,23 +315,29 @@ export function createWeixinStore(rootDir) {
   async function writeActiveRun(accountId, runKey, value = {}) {
     const key = String(runKey ?? "").trim();
     if (!key) return null;
-    const raw = await readActiveRuns(accountId);
-    const prior = raw[key] && typeof raw[key] === "object" ? raw[key] : {};
-    const now = Date.now();
-    const next = { ...prior, ...value, runKey: key, accountId: String(accountId), updatedAt: now, createdAt: prior.createdAt ?? value.createdAt ?? now };
-    raw[key] = next;
-    await writeJsonFile(activeRunsFile(accountId), raw);
+    let next = null;
+    await updateJsonFile(activeRunsFile(accountId), {}, (raw) => {
+      const prior = raw[key] && typeof raw[key] === "object" ? raw[key] : {};
+      const now = Date.now();
+      next = { ...prior, ...value, runKey: key, accountId: String(accountId), updatedAt: now, createdAt: prior.createdAt ?? value.createdAt ?? now };
+      raw[key] = next;
+      return raw;
+    });
     return next;
   }
 
   async function deleteActiveRun(accountId, runKey) {
     const key = String(runKey ?? "").trim();
     if (!key) return false;
-    const raw = await readActiveRuns(accountId);
-    if (!Object.hasOwn(raw, key)) return false;
-    delete raw[key];
-    await writeJsonFile(activeRunsFile(accountId), raw);
-    return true;
+    let deleted = false;
+    await updateJsonFile(activeRunsFile(accountId), {}, (raw) => {
+      if (Object.hasOwn(raw, key)) {
+        delete raw[key];
+        deleted = true;
+      }
+      return raw;
+    });
+    return deleted;
   }
 
   return {
@@ -324,4 +384,6 @@ export function sanitizeAccount(account) {
 export const __test__ = {
   safeAccountId,
   readJsonFile,
+  writeJsonFile,
+  updateJsonFile,
 };

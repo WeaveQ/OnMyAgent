@@ -7,9 +7,9 @@ import { statSync } from "node:fs";
 import path from "node:path";
 
 
-const DEFAULT_RUN_TIMEOUT_MS = 15 * 60 * 1000;
+const DEFAULT_RUN_TIMEOUT_MS = 12 * 60 * 60 * 1000;
 const MIN_RUN_TIMEOUT_MS = 30_000;
-const MAX_RUN_TIMEOUT_MS = 6 * 60 * 60 * 1000;
+const MAX_RUN_TIMEOUT_MS = 12 * 60 * 60 * 1000;
 
 const ACP_TOOL_EVENT_PREVIEW_CHARS = 4000;
 function previewClamp(value, limit = ACP_TOOL_EVENT_PREVIEW_CHARS) {
@@ -322,4 +322,3 @@ export function normalizeAccessibleWorkspaceRoots(value, workspaceRoot = "") {
   }
   return normalized;
 }
-

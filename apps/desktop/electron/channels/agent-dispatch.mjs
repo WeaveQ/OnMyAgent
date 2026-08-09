@@ -44,10 +44,10 @@ const ACTIVE_RUN_PENDING_POLL_INTERVAL_MS = 3_000;
 const AGENT_BUSY_NOTICE_INTERVAL_MS = 15_000;
 const MESSAGE_DEDUP_TTL_MS = 5 * 60_000;
 // Backstop ceiling for a single channel conversation lock. The personal agent
-// runtime already enforces its own run timeout (max 6h), but that timer lives
+// runtime already enforces its own run timeout (max 12h), but that timer lives
 // in the runtime process and is lost if the desktop app restarts. This
 // guarantees a conversation is never stuck behind a "running" task forever.
-const ACTIVE_RUN_MAX_AGE_MS = 6 * 60 * 60 * 1000 + 15 * 60 * 1000;
+const ACTIVE_RUN_MAX_AGE_MS = 12 * 60 * 60 * 1000 + 15 * 60 * 1000;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -519,7 +519,10 @@ export function createChannelAgentDispatcher(options = {}) {
     const record = await store.readActiveRun(session.account.accountId, runKey).catch(() => null);
     if (!record?.runId) return;
     if (clearedActiveRunKeys.has(pollKey)) return;
-    const result = await runtime.getRun({ runId: record.runId, workspaceRoot: record.workspaceRoot });
+    const result = await runtime.getRun(
+      { runId: record.runId, workspaceRoot: record.workspaceRoot },
+      { eventLimit: 200, conversationMessageEventLimit: 200 },
+    );
     if (clearedActiveRunKeys.has(pollKey)) return;
     // The runtime no longer tracks this run (process restarted, orphaned, or
     // already finalized as failed). Treat it as dead so the conversation lock
@@ -553,6 +556,16 @@ export function createChannelAgentDispatcher(options = {}) {
       await store.deleteActiveRun(session.account.accountId, runKey);
       return;
     }
+    // Apply the backstop to every non-terminal state, including approval
+    // waits, so a stale pending snapshot cannot hold the chat lock forever.
+    if (Date.now() - (record.startedAt ?? 0) > ACTIVE_RUN_MAX_AGE_MS) {
+      const message = `本次本地 Agent 任务运行已超过上限（约 ${Math.round(ACTIVE_RUN_MAX_AGE_MS / 3_600_000)} 小时），已自动超时并清除会话锁。可重新发送消息。`;
+      await deliverReply(session, record.chatId, record.senderId, message).catch(() => undefined);
+      clearActiveRunPoll(session.account.accountId, runKey);
+      agentBusyNoticeAt.delete(`${session.account.accountId}:${runKey}`);
+      await store.deleteActiveRun(session.account.accountId, runKey).catch(() => undefined);
+      return;
+    }
     const pendingApprovals = resultState.pendingApprovals;
     if (pendingApprovals.length && !record.pendingApprovalNotifiedAt) {
       if (clearedActiveRunKeys.has(pollKey)) return;
@@ -573,17 +586,6 @@ export function createChannelAgentDispatcher(options = {}) {
     }
     if (resultState.isRunning) {
       if (clearedActiveRunKeys.has(pollKey)) return;
-      // Backstop: never let a conversation stay locked behind a "running" task
-      // beyond the runtime's own ceiling. If the runtime's timeout/cancel was
-      // lost (e.g. desktop app restarted), force-release the lock here.
-      if (Date.now() - (record.startedAt ?? 0) > ACTIVE_RUN_MAX_AGE_MS) {
-        const message = `本次本地 Agent 任务运行已超过上限（约 ${Math.round(ACTIVE_RUN_MAX_AGE_MS / 3_600_000)} 小时），已自动超时并清除会话锁。可重新发送消息。`;
-        await deliverReply(session, record.chatId, record.senderId, message).catch(() => undefined);
-        clearActiveRunPoll(session.account.accountId, runKey);
-        agentBusyNoticeAt.delete(`${session.account.accountId}:${runKey}`);
-        await store.deleteActiveRun(session.account.accountId, runKey).catch(() => undefined);
-        return;
-      }
       const updated = await store.writeActiveRun(session.account.accountId, runKey, { status: "running", pendingApprovals: [] });
       scheduleActiveRunPoll(session, updated, ACTIVE_RUN_POLL_INTERVAL_MS);
       return;

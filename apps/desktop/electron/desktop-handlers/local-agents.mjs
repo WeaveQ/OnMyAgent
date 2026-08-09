@@ -324,7 +324,13 @@ export function createLocalAgentsDomainHandlers({
   },
 
   personalLocalAgentStatus: async (event, args) => {
-    return personalAgentRuntime.getRun(args[0]);
+    // Terminal runs expose the complete transcript. While a run is active,
+    // polling keeps the prompt plus a recent transcript/event tail so repeated
+    // 1.5s IPC round-trips cannot grow without bound.
+    return personalAgentRuntime.getRun(args[0], {
+      eventLimit: 200,
+      conversationMessageEventLimit: 200,
+    });
   },
 
   personalLocalAgentRun: async (event, args) => {
