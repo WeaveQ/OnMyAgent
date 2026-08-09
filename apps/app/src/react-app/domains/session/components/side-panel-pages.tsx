@@ -48,6 +48,11 @@ import {
   type ExpertMarketplaceView,
 } from "@/react-app/domains/plugins";
 import { useStatusToasts } from "../../shell-feedback";
+import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
+import {
+  EMPTY_STATE_ILLUSTRATION_CLASS,
+  PROJECTS_PLACEHOLDER_ASSET,
+} from "../empty-state-assets";
 import { FeaturePreviewPlaceholder } from "./feature-preview-placeholder";
 
 const sidePanelTextClass = {
@@ -589,18 +594,14 @@ export function StorePage(props: {
   );
 }
 
-const PROJECTS_PLACEHOLDER_ASSET = "/empty-states/projects-placeholder.jpg";
-
 export function ProjectsComingSoonPage() {
   return (
     <div className="flex h-full items-center justify-center bg-dls-background px-6 text-center">
       <div className="flex max-w-sm flex-col items-center gap-6">
         <img
-          src={PROJECTS_PLACEHOLDER_ASSET}
+          src={resolvePublicAssetUrl(PROJECTS_PLACEHOLDER_ASSET)}
           alt=""
-          width={280}
-          height={280}
-          className="size-[min(17.5rem,56vw)] max-w-full select-none rounded-2xl object-cover shadow-sm ring-1 ring-dls-border/50"
+          className={EMPTY_STATE_ILLUSTRATION_CLASS}
           draggable={false}
         />
         <div className="space-y-1.5">

@@ -121,6 +121,7 @@ import {
 } from "./shared-page-utils";
 import { buildAskAgentFileInstruction } from "../../../capabilities/artifacts/file-preview-policy";
 import {
+  EMPTY_STATE_ILLUSTRATION_CLASS,
   EXPERT_SIDE_PANEL_DEFAULT_WIDTH,
   EXPERT_SIDE_PANEL_MIN_WIDTH,
   NO_EXPERT_CONVERSATIONS_ASSET,
@@ -1482,7 +1483,7 @@ export function ExpertPage(props: ExpertPageProps) {
                             <img
                               src={resolvePublicAssetUrl(NO_EXPERT_CONVERSATIONS_ASSET)}
                               alt=""
-                              className="mb-5 w-full max-w-[220px] select-none object-contain"
+                              className={EMPTY_STATE_ILLUSTRATION_CLASS}
                               draggable={false}
                             />
                             <h2 className="text-lg font-medium tracking-tight text-dls-text">

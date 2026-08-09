@@ -12,14 +12,14 @@ import {
   Cog,
   FolderLock,
   Keyboard,
-  MonitorSmartphone,
+  Monitor,
   RefreshCcw,
   RotateCcw,
   SlidersHorizontal,
   Store,
   Terminal,
   UserCircle,
-  Zap,
+  Cpu,
 } from "lucide-react";
 
 import {
@@ -59,13 +59,15 @@ const settingsNavButtonClass =
 export function getSettingsTabIcon(tab: SettingsTab) {
   switch (tab) {
     case "ai":
-      return Zap;
+      // Models / providers — compute, not a generic lightning bolt.
+      return Cpu;
     case "preferences":
       return SlidersHorizontal;
     case "permissions":
       return FolderLock;
     case "system":
-      return MonitorSmartphone;
+      // OS/app system prefs — not the LocalAgent monitor-phone glyph.
+      return Monitor;
     case "company":
       return Building2;
     case "shortcuts":
