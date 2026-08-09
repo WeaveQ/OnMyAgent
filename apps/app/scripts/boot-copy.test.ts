@@ -152,7 +152,9 @@ describe("boot/desktop wiring", () => {
     expect(indexHtml).toContain("background: #2c2c2c");
     expect(indexHtml).toContain("Starting OnMyAgent…");
     expect(indexHtml).toContain("onmyagent-boot-mark.png");
-    expect(indexHtml).toContain("@keyframes onmyagent-static-boot-pulse");
+    expect(indexHtml).toContain("@keyframes onmyagent-static-boot-spin");
+    expect(indexHtml).toContain("onmyagent-static-boot__ring");
+    expect(indexHtml).not.toContain("onmyagent-static-boot__dot");
   });
 
   test("React keeps the parser surface until the deferred app shell commits", () => {
