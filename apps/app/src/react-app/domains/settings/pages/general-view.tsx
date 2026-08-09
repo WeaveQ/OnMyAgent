@@ -20,7 +20,7 @@ import {
   getSettingsTabIcon,
   getSettingsTabLabel,
   getWorkspaceSettingsTabs,
-} from "../shell/settings-page";
+} from "../settings-tab-meta";
 
 export type GeneralSettingsViewProps = {
   onNavigateTab: (tab: SettingsTab) => void;

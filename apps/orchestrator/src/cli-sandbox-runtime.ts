@@ -7,7 +7,6 @@ import { copyFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { LogFormat, OpencodeHotReload } from "./cli-args.js";
-import { ensureExecutable } from "./cli-binary-resolve.js";
 import type { Logger } from "./cli-logging.js";
 import { loadUserEnvFile } from "./env-paths.js";
 import {
@@ -17,6 +16,7 @@ import {
 import {
   addEnvPassThroughArgs,
   ensureAppleContainerSystemReady,
+  ensureExecutable,
   sandboxEnvPassThroughNames,
   shQuote,
 } from "./runtime-sandbox.js";
@@ -32,7 +32,7 @@ import {
   SANDBOX_INTERNAL_OPENCODE_ROUTER_HEALTH_PORT,
   SANDBOX_OPENCODE_GLOBAL_CONFIG_CONTAINER_PATH,
   SANDBOX_OPENCODE_GLOBAL_DATA_IMPORT_CONTAINER_PATH,
-} from "./cli-shared.js";
+} from "./sandbox-constants.js";
 
 
 

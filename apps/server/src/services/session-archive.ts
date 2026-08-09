@@ -26,8 +26,6 @@ export type {
   SessionArchiveUsageTopSessionsInput,
 } from "./session-archive-types.js";
 
-export { openSessionArchiveStore } from "./session-archive-open.js";
-
 export function createSessionArchiveStore(
   dbPath: string,
   db: SqliteDatabase,

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { WorkspaceInfo, ServerConfig } from "@onmyagent/types/server";
 
-import { openSessionArchiveStore } from "../src/services/session-archive.js";
+import { openSessionArchiveStore } from "../src/services/session-archive-open.js";
 import { registerWorkspaceSessionArchiveRoutes } from "../src/routes/workspace-session-archive-routes.js";
 import type { RequestContext, Route } from "../src/routes/route-core.js";
 
