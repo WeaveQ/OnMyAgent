@@ -33,10 +33,18 @@ export function useSummonMarketplaceExpert(options: {
           error,
         );
       });
+      // Bind pending agent BEFORE create-task: that path clears pendingAgent
+      // synchronously, which used to drop the expert id on race.
+      const pending = buildPendingAgentFromMarketplaceExpert(expert);
+      usePendingAgentStore.getState().setAgent(pending);
       onCreateTaskInWorkspace(selectedWorkspaceId);
-      usePendingAgentStore
-        .getState()
-        .setAgent(buildPendingAgentFromMarketplaceExpert(expert));
+      // Re-assert after create-task's setAgent(null).
+      usePendingAgentStore.getState().setAgent({
+        ...pending,
+        boundSessionId: undefined,
+        conversationStartId: Date.now(),
+        draftSource: "agent-selection",
+      });
       // Prefill only explicit quick-prompt or logistics templates (not default intro).
       if (startPrompt?.template) {
         setExpertComposerTemplateAfterNewTask(
