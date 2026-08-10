@@ -28,6 +28,8 @@ import {
   getSessionOriginRecoveryRetryDelayMs,
   migrateLegacySessionOrigins,
   reconcileSessionOrigins,
+  removeExpertSession,
+  writeCustomAgentIdForSession,
 } from "../../domains/agents";
 import { writeCachedSidebarSessionsForWorkspace } from "../session-memory";
 import {
@@ -53,6 +55,7 @@ import {
 } from "./sidebar-model";
 import {
   collectWorkspaceSessionItems,
+  mergeAuthoritativeOriginSessions,
   mergeFetchedSessionsWithPending as mergeFetchedSessionsWithPendingState,
   mergeRecoveredSessionsWithCurrent,
   mergeWorkspaceFetchedSessions,
@@ -103,6 +106,8 @@ export function useSessionRouteSessionLoader(input: Input) {
   const recoveredOriginItems = useRef<
     Map<string, Map<string, SidebarSessionItem>>
   >(new Map());
+  /** Authoritative-missing origin ids accounted across incomplete recovery pages. */
+  const recoveredOriginMissingIds = useRef<Map<string, Set<string>>>(new Map());
 
   const clearOriginRecoveryState = useCallback((workspaceId: string) => {
     const retryTimer = originRecoveryRetryTimers.current.get(workspaceId);
@@ -112,6 +117,7 @@ export function useSessionRouteSessionLoader(input: Input) {
     originRecoveryPending.current.delete(workspaceId);
     originReadInFlight.current.delete(workspaceId);
     recoveredOriginItems.current.delete(workspaceId);
+    recoveredOriginMissingIds.current.delete(workspaceId);
   }, []);
 
   const clearRemovedOriginRecoveryStates = useCallback(() => {
@@ -124,6 +130,7 @@ export function useSessionRouteSessionLoader(input: Input) {
       ...originRecoveryPending.current,
       ...originReadInFlight.current,
       ...recoveredOriginItems.current.keys(),
+      ...recoveredOriginMissingIds.current.keys(),
     ]);
     for (const workspaceId of trackedWorkspaceIds) {
       if (!workspaceIds.has(workspaceId)) {
@@ -140,6 +147,7 @@ export function useSessionRouteSessionLoader(input: Input) {
         ...originRecoveryPending.current,
         ...originReadInFlight.current,
         ...recoveredOriginItems.current.keys(),
+        ...recoveredOriginMissingIds.current.keys(),
       ]);
       for (const workspaceId of trackedWorkspaceIds) {
         clearOriginRecoveryState(workspaceId);
@@ -357,6 +365,9 @@ export function useSessionRouteSessionLoader(input: Input) {
               // origin metadata resolves. Recover only origin ids absent from
               // that list, using their durable runtime directory in bounded
               // batches; an omitted page or failed directory remains unknown.
+              const priorMissing =
+                recoveredOriginMissingIds.current.get(workspace.id) ??
+                new Set<string>();
               const recovery = await recoverOriginDirectorySessionItemsWithStatus({
                 client: endpoint.client,
                 workspaceId: endpoint.workspaceId,
@@ -365,6 +376,7 @@ export function useSessionRouteSessionLoader(input: Input) {
                 verifiedItems: Array.from(
                   recoveredOriginItems.current.get(workspace.id)?.values() ?? [],
                 ),
+                verifiedMissingIds: Array.from(priorMissing),
                 origins: payload.items,
                 limit: SIDEBAR_SESSION_LIST_LIMIT,
               });
@@ -374,6 +386,38 @@ export function useSessionRouteSessionLoader(input: Input) {
                   new Map<string, SidebarSessionItem>();
                 for (const item of recoveredItems) byId.set(item.id, item);
                 recoveredOriginItems.current.set(workspace.id, byId);
+              }
+              // Prune only **confirmed** tombstones (404/410 + directory list
+              // lacks id). Bare getSession 404 is soft-fail and must not wipe
+              // live multi-expert sidebars.
+              const tombstoneIds = recovery.missingSessionIds.filter(Boolean);
+              const tombstoneSet = new Set(tombstoneIds);
+              if (tombstoneIds.length > 0) {
+                const missingByWorkspace =
+                  recoveredOriginMissingIds.current.get(workspace.id) ??
+                  new Set<string>();
+                for (const sessionId of tombstoneIds) {
+                  missingByWorkspace.add(sessionId);
+                }
+                recoveredOriginMissingIds.current.set(
+                  workspace.id,
+                  missingByWorkspace,
+                );
+                await Promise.allSettled(
+                  tombstoneIds.map(async (sessionId) => {
+                    try {
+                      await endpoint.client.deleteSessionOrigin(
+                        endpoint.workspaceId,
+                        sessionId,
+                      );
+                    } catch {
+                      // Best-effort origin prune.
+                    }
+                    // Clear local expert index only for confirmed-missing ids.
+                    removeExpertSession(sessionId);
+                    writeCustomAgentIdForSession(sessionId, null);
+                  }),
+                );
               }
               if (recoveredItems.length > 0) {
                 setSessionsByWorkspaceId((current) => {
@@ -426,11 +470,19 @@ export function useSessionRouteSessionLoader(input: Input) {
                   workspaceId: workspace.id,
                   fetched: authoritativeItems,
                   merge: (fetched, currentItems) =>
-                    mergeFetchedSessionsWithPending(
-                      workspace.id,
+                    mergeAuthoritativeOriginSessions({
+                      workspaceId: workspace.id,
                       fetched,
-                      currentItems,
-                    ),
+                      current: currentItems,
+                      pendingByWorkspaceId: pendingCreatedSessionIdsRef.current,
+                      explicitAssistantSessionIds: new Set(
+                        readAssistantSessionWorkspaces(workspace.id).map(
+                          (item) => item.sessionId,
+                        ),
+                      ),
+                      tombstoneSessionIds: tombstoneSet,
+                      now: Date.now(),
+                    }),
                 });
                 sessionsByWorkspaceIdRef.current = next;
                 writeCachedSidebarSessionsForWorkspace(
@@ -440,6 +492,7 @@ export function useSessionRouteSessionLoader(input: Input) {
                 return next;
               });
               recoveredOriginItems.current.delete(workspace.id);
+              recoveredOriginMissingIds.current.delete(workspace.id);
               const realSessionIds = new Set(
                 authoritativeItems.map((item) => item.id),
               );

@@ -11,9 +11,13 @@ import {
   mergeFetchedSessionsWithPending,
   mergeRecoveredSessionsWithCurrent,
   mergeWorkspaceFetchedSessions,
+  isAuthoritativeEmptyOriginRecovery,
+  mergeAuthoritativeOriginSessions,
   recoverOriginDirectorySessionItems,
   recoverOriginDirectorySessionItemsWithStatus,
+  resolveExactOriginSession,
   SESSION_ORIGIN_DIRECTORY_RECOVERY_CONCURRENCY,
+  SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_PAGES,
   SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS,
   sessionBelongsToAnotherWorkspace,
   sessionListOwnsSession,
@@ -33,6 +37,10 @@ import {
   registerExpertCreationEphemeralSession,
 } from "../src/react-app/domains/agents/expert-creation-ephemeral-sessions";
 import { writeSessionAgentSnapshot } from "../src/react-app/domains/agents/agent-registry-store";
+import {
+  addExpertSession,
+  removeExpertSession,
+} from "../src/react-app/domains/agents/agent-session-state";
 import { EXPERT_CREATION_COACH_AGENT_ID } from "../src/react-app/domains/agents/agent-builtin";
 
 class MemoryStorage implements Storage {
@@ -327,7 +335,7 @@ describe("session route sessions", () => {
     ]);
   });
 
-  test("treats a transient exact 404 as incomplete recovery instead of a deletion", async () => {
+  test("treats authoritative exact 404 as complete empty with tombstone ids", async () => {
     const result = await recoverOriginDirectorySessionItemsWithStatus({
       client: {
         listSessions: async () => ({ items: [] }),
@@ -352,8 +360,12 @@ describe("session route sessions", () => {
       limit: 40,
     });
 
-    expect(result.complete).toBe(false);
+    // 404/410 is a tombstone: recovery may settle empty and callers prune.
+    expect(result.complete).toBe(true);
+    expect(result.softFailure).toBe(false);
+    expect(result.items).toEqual([]);
     expect(result.missingSessionIds).toEqual(["expert-session"]);
+    expect(isAuthoritativeEmptyOriginRecovery(result)).toBe(true);
   });
 
   test("does not declare origin recovery complete when a directory read fails", async () => {
@@ -404,7 +416,7 @@ describe("session route sessions", () => {
     expect(recovery.complete).toBe(true);
   });
 
-  test("treats exact 404s as transient recovery failures", async () => {
+  test("treats exact 404s as authoritative missing ready to prune", async () => {
     const recovery = await recoverOriginDirectorySessionItemsWithStatus({
       client: {
         listSessions: async () => ({ items: [] }),
@@ -421,14 +433,17 @@ describe("session route sessions", () => {
       limit: 40,
     });
 
-    expect(recovery.complete).toBe(false);
+    expect(recovery.complete).toBe(true);
+    expect(recovery.softFailure).toBe(false);
+    expect(recovery.items).toEqual([]);
     expect(recovery.missingSessionIds).toEqual(["deleted-session"]);
   });
 
-  test("uses exact bounded pages when origin metadata spans many directories", async () => {
+  test("uses exact bounded concurrency while multi-page exact recovery completes in one call", async () => {
     let listRequests = 0;
     let activeRequests = 0;
     let maximumActiveRequests = 0;
+    let getCalls = 0;
     const origins = Array.from(
       { length: SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS + 1 },
       (_, index) => ({
@@ -447,6 +462,7 @@ describe("session route sessions", () => {
           return { items: [] };
         },
         getSession: async (_workspaceId, sessionId, options) => {
+          getCalls += 1;
           activeRequests += 1;
           maximumActiveRequests = Math.max(maximumActiveRequests, activeRequests);
           await new Promise((resolve) => setTimeout(resolve, 2));
@@ -461,33 +477,20 @@ describe("session route sessions", () => {
       limit: 40,
     });
 
+    // Many directories force exact mode (no list fan-out); pages run sequential
+    // with bounded concurrency and tombstones/live ids account so all finish.
     expect(listRequests).toBe(0);
-    expect(recovery.items).toHaveLength(SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS);
-    expect(recovery.complete).toBe(false);
-    expect(recovery.nextOffset).toBe(0);
+    expect(getCalls).toBe(SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS + 1);
+    expect(recovery.items).toHaveLength(SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS + 1);
+    expect(recovery.complete).toBe(true);
+    expect(recovery.softFailure).toBe(false);
+    expect(recovery.nextOffset).toBeNull();
     expect(maximumActiveRequests).toBeLessThanOrEqual(
       SESSION_ORIGIN_DIRECTORY_RECOVERY_CONCURRENCY,
     );
-
-    const finalPage = await recoverOriginDirectorySessionItemsWithStatus({
-      client: {
-        listSessions: async () => ({ items: [] }),
-        getSession: async (_workspaceId, sessionId, options) => ({
-          item: { id: sessionId, directory: options?.directory },
-        }),
-      },
-      workspaceId: "workspace-a",
-      originWorkspaceId: "workspace-a",
-      primaryItems: [],
-      verifiedItems: recovery.items,
-      origins,
-      limit: 40,
-    });
-    expect(finalPage.items.map((item) => item.id)).toEqual(["session-40"]);
-    expect(finalPage.complete).toBe(true);
   });
 
-  test("retries a transient missing origin and restores it with the next exact page", async () => {
+  test("advances past authoritative 404 tombstones to recover a trailing live origin", async () => {
     const origins = Array.from(
       { length: SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS + 1 },
       (_, index) => ({
@@ -499,11 +502,12 @@ describe("session route sessions", () => {
         updatedAt: 1,
       }),
     );
-    const firstPage = await recoverOriginDirectorySessionItemsWithStatus({
+    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
       client: {
         listSessions: async () => ({ items: [] }),
         getSession: async (_workspaceId, sessionId, options) => {
-          if (sessionId === "session-0") {
+          // First MAX_TARGETS are gone ghosts; last id is still live.
+          if (sessionId !== `session-${SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS}`) {
             throw new OnMyAgentServerError(404, "not_found", "gone");
           }
           return { item: { id: sessionId, directory: options?.directory } };
@@ -516,25 +520,327 @@ describe("session route sessions", () => {
       limit: 40,
     });
 
-    expect(firstPage.complete).toBe(false);
-    expect(firstPage.missingSessionIds).toEqual(["session-0"]);
-    const finalPage = await recoverOriginDirectorySessionItemsWithStatus({
+    expect(recovery.complete).toBe(true);
+    expect(recovery.softFailure).toBe(false);
+    expect(recovery.items.map((item) => item.id)).toEqual([
+      `session-${SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS}`,
+    ]);
+    expect(recovery.missingSessionIds).toHaveLength(
+      SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS,
+    );
+    expect(recovery.missingSessionIds).toEqual(
+      Array.from(
+        { length: SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS },
+        (_, index) => `session-${index}`,
+      ),
+    );
+  });
+
+  test("completes all-authoritative-missing when origins exceed one exact page", async () => {
+    const ghostCount = SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS + 5;
+    const origins = Array.from({ length: ghostCount }, (_, index) => ({
+      workspaceId: "workspace-a",
+      sessionId: `ghost-${index}`,
+      kind: "expert" as const,
+      directory: `/ghost-${index}`,
+      createdAt: 1,
+      updatedAt: 1,
+    }));
+    const requested = new Set<string>();
+    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
       client: {
         listSessions: async () => ({ items: [] }),
-        getSession: async (_workspaceId, sessionId, options) => ({
-          item: { id: sessionId, directory: options?.directory },
-        }),
+        getSession: async (_workspaceId, sessionId) => {
+          requested.add(sessionId);
+          throw new OnMyAgentServerError(404, "not_found", "gone");
+        },
       },
       workspaceId: "workspace-a",
       originWorkspaceId: "workspace-a",
       primaryItems: [],
-      verifiedItems: firstPage.items,
       origins,
       limit: 40,
     });
 
-    expect(finalPage.items.map((item) => item.id)).toEqual(["session-0", "session-40"]);
-    expect(finalPage.complete).toBe(true);
+    expect(requested.size).toBe(ghostCount);
+    expect(recovery.complete).toBe(true);
+    expect(recovery.softFailure).toBe(false);
+    expect(recovery.items).toEqual([]);
+    expect(recovery.missingSessionIds).toHaveLength(ghostCount);
+    expect(new Set(recovery.missingSessionIds).size).toBe(ghostCount);
+    expect(isAuthoritativeEmptyOriginRecovery(recovery)).toBe(true);
+  });
+
+  test("verifiedMissingIds advances paging across incomplete recovery calls", async () => {
+    const origins = Array.from(
+      { length: SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS + 3 },
+      (_, index) => ({
+        workspaceId: "workspace-a",
+        sessionId: `session-${index}`,
+        kind: "expert" as const,
+        directory: `/expert-${index}`,
+        createdAt: 1,
+        updatedAt: 1,
+      }),
+    );
+    // Simulate a prior pass that already tombstoned the first page.
+    const priorMissing = Array.from(
+      { length: SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS },
+      (_, index) => `session-${index}`,
+    );
+    const requested: string[] = [];
+    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
+      client: {
+        listSessions: async () => ({ items: [] }),
+        getSession: async (_workspaceId, sessionId, options) => {
+          requested.push(sessionId);
+          return { item: { id: sessionId, directory: options?.directory } };
+        },
+      },
+      workspaceId: "workspace-a",
+      originWorkspaceId: "workspace-a",
+      primaryItems: [],
+      verifiedMissingIds: priorMissing,
+      origins,
+      limit: 40,
+    });
+
+    expect(requested).toEqual([
+      `session-${SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS}`,
+      `session-${SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS + 1}`,
+      `session-${SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS + 2}`,
+    ]);
+    expect(recovery.complete).toBe(true);
+    expect(recovery.items.map((item) => item.id)).toEqual(requested);
+    expect(recovery.missingSessionIds).toEqual([]);
+  });
+
+  test("page budget leaves recovery incomplete with partial tombstones for prune", async () => {
+    const overBudget =
+      SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_PAGES *
+        SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS +
+      3;
+    const origins = Array.from({ length: overBudget }, (_, index) => ({
+      workspaceId: "workspace-a",
+      sessionId: `session-${index}`,
+      kind: "expert" as const,
+      directory: `/expert-${index}`,
+      createdAt: 1,
+      updatedAt: 1,
+    }));
+    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
+      client: {
+        listSessions: async () => ({ items: [] }),
+        getSession: async (_workspaceId, sessionId) => {
+          throw new OnMyAgentServerError(404, "not_found", "gone");
+        },
+      },
+      workspaceId: "workspace-a",
+      originWorkspaceId: "workspace-a",
+      primaryItems: [],
+      origins,
+      limit: 40,
+    });
+
+    const accounted =
+      SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_PAGES *
+      SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS;
+    expect(recovery.complete).toBe(false);
+    expect(recovery.softFailure).toBe(false);
+    expect(recovery.missingSessionIds).toHaveLength(accounted);
+    expect(recovery.nextOffset).toBe(0);
+  });
+
+  test("keeps recovery incomplete on soft exact-read failures", async () => {
+    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
+      client: {
+        listSessions: async () => ({ items: [] }),
+        getSession: async () => {
+          throw new OnMyAgentServerError(503, "unavailable", "timeout");
+        },
+      },
+      workspaceId: "workspace-a",
+      originWorkspaceId: "workspace-a",
+      primaryItems: [],
+      origins: [
+        {
+          workspaceId: "workspace-a",
+          sessionId: "soft-fail-session",
+          kind: "expert",
+          directory: "/tmp/soft",
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+      limit: 40,
+    });
+
+    expect(recovery.complete).toBe(false);
+    expect(recovery.softFailure).toBe(true);
+    expect(recovery.missingSessionIds).toEqual([]);
+    expect(recovery.items).toEqual([]);
+  });
+
+  test("does not tombstone a 404 when the origin directory list still has the session", async () => {
+    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
+      client: {
+        listSessions: async () => ({
+          items: [{ id: "live-expert", directory: "/expert-a", title: "A" }],
+        }),
+        getSession: async () => {
+          throw new OnMyAgentServerError(404, "not_found", "warming");
+        },
+      },
+      workspaceId: "workspace-a",
+      originWorkspaceId: "workspace-a",
+      primaryItems: [],
+      origins: [
+        {
+          workspaceId: "workspace-a",
+          sessionId: "live-expert",
+          kind: "expert",
+          agentId: "agent-a",
+          directory: "/expert-a",
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+      limit: 40,
+    });
+
+    expect(recovery.complete).toBe(true);
+    expect(recovery.softFailure).toBe(false);
+    expect(recovery.missingSessionIds).toEqual([]);
+    expect(recovery.items.map((item) => item.id)).toEqual(["live-expert"]);
+  });
+
+  test("treats 404 as soft failure when directory list cannot confirm missing", async () => {
+    const resolved = await resolveExactOriginSession({
+      client: {
+        listSessions: async () => {
+          throw new Error("directory offline");
+        },
+      },
+      workspaceId: "workspace-a",
+      sessionId: "maybe-live",
+      directory: "/expert-a",
+      limit: 40,
+      getSession: async () => {
+        throw new OnMyAgentServerError(404, "not_found", "gone?");
+      },
+    });
+    expect(resolved).toEqual({ kind: "soft_failure", expectedId: "maybe-live" });
+
+    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
+      client: {
+        listSessions: async () => {
+          throw new Error("directory offline");
+        },
+        getSession: async () => {
+          throw new OnMyAgentServerError(404, "not_found", "gone?");
+        },
+      },
+      workspaceId: "workspace-a",
+      originWorkspaceId: "workspace-a",
+      primaryItems: [],
+      origins: [
+        {
+          workspaceId: "workspace-a",
+          sessionId: "maybe-live",
+          kind: "expert",
+          directory: "/expert-a",
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+      limit: 40,
+    });
+    expect(recovery.complete).toBe(false);
+    expect(recovery.softFailure).toBe(true);
+    expect(recovery.missingSessionIds).toEqual([]);
+  });
+
+  test("recovers one live expert while confirming a sibling ghost missing", async () => {
+    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
+      client: {
+        listSessions: async (_workspaceId, options) => {
+          if (options?.directory === "/expert-live") {
+            return {
+              items: [{ id: "ses-live", directory: "/expert-live", title: "Live" }],
+            };
+          }
+          return { items: [] };
+        },
+        getSession: async (_workspaceId, sessionId, options) => {
+          if (sessionId === "ses-live") {
+            return { item: { id: sessionId, directory: options?.directory } };
+          }
+          throw new OnMyAgentServerError(404, "not_found", "gone");
+        },
+      },
+      workspaceId: "workspace-a",
+      originWorkspaceId: "workspace-a",
+      primaryItems: [],
+      origins: [
+        {
+          workspaceId: "workspace-a",
+          sessionId: "ses-ghost",
+          kind: "expert",
+          agentId: "agent-ghost",
+          directory: "/expert-ghost",
+          createdAt: 1,
+          updatedAt: 1,
+        },
+        {
+          workspaceId: "workspace-a",
+          sessionId: "ses-live",
+          kind: "expert",
+          agentId: "agent-live",
+          directory: "/expert-live",
+          createdAt: 2,
+          updatedAt: 2,
+        },
+      ],
+      limit: 40,
+    });
+
+    expect(recovery.complete).toBe(true);
+    expect(recovery.softFailure).toBe(false);
+    expect(recovery.items.map((item) => item.id)).toEqual(["ses-live"]);
+    expect(recovery.missingSessionIds).toEqual(["ses-ghost"]);
+  });
+
+  test("authoritative merge keeps prior experts unless they are tombstoned", () => {
+    const pendingByWorkspaceId: Record<string, Record<string, number>> = {};
+    const current = [
+      session({ id: "ses-expert-a", title: "A" }),
+      session({ id: "ses-expert-b", title: "B" }),
+      session({ id: "ses-assistant", title: "Home" }),
+    ];
+    localStorage.clear();
+    addExpertSession("ses-expert-a");
+    addExpertSession("ses-expert-b");
+    try {
+      const merged = mergeAuthoritativeOriginSessions({
+        workspaceId: "workspace-a",
+        fetched: [
+          session({ id: "ses-assistant", title: "Home" }),
+          session({ id: "ses-expert-b", title: "B2" }),
+        ],
+        current,
+        pendingByWorkspaceId,
+        explicitAssistantSessionIds: new Set(["ses-assistant"]),
+        tombstoneSessionIds: new Set(["ses-expert-a"]),
+        now: Date.now(),
+      });
+      const ids = merged.map((item) => item.id).sort();
+      expect(ids).toEqual(["ses-assistant", "ses-expert-b"].sort());
+      expect(merged.find((item) => item.id === "ses-expert-b")?.title).toBe("B2");
+    } finally {
+      removeExpertSession("ses-expert-a");
+      removeExpertSession("ses-expert-b");
+      localStorage.clear();
+    }
   });
 
   test("keeps recovered session merges idempotent across refreshes", () => {
