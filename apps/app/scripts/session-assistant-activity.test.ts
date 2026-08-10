@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { UIMessage } from "ai";
 
 import {
+  assistantActivityAllowsLoadingTips,
   deriveAssistantActivity,
   deriveAssistantActivityPhase,
   getAssistantActivityPhaseLabel,
@@ -39,6 +40,35 @@ describe("root assistant activity phase", () => {
     }
   });
 
+  test("hides product loading tips during concrete tool / wait phases", () => {
+    // Vague model wait — tips OK.
+    for (const phase of [
+      "preparing",
+      "model-requesting",
+      "model-streaming",
+      "model-done",
+      "retrying",
+      "compacting",
+    ] as const) {
+      expect(assistantActivityAllowsLoadingTips(phase)).toBe(true);
+    }
+    // Concrete work — tips must not append after the phase label.
+    expect(
+      assistantActivityAllowsLoadingTips({
+        phase: "tool-executing",
+        toolIntent: "web",
+      }),
+    ).toBe(false);
+    expect(
+      assistantActivityAllowsLoadingTips({
+        phase: "tool-preparing",
+        toolIntent: "read",
+      }),
+    ).toBe(false);
+    expect(assistantActivityAllowsLoadingTips("waiting-permission")).toBe(false);
+    expect(assistantActivityAllowsLoadingTips("waiting-user")).toBe(false);
+  });
+
   test("selects loading tips randomly without immediate repetition", () => {
     const originalRandom = Math.random;
     Math.random = () => 0;
@@ -54,8 +84,8 @@ describe("root assistant activity phase", () => {
 
   test("ports the complete localized WorkBuddy loading-tip pools", () => {
     expect(enLoadingTips).toHaveLength(184);
-    expect(zhLoadingTips).toHaveLength(275);
-    expect(zhTWLoadingTips).toHaveLength(275);
+    expect(zhLoadingTips).toHaveLength(274);
+    expect(zhTWLoadingTips).toHaveLength(274);
     expect(zhLoadingTips).toContain("论据和论点正在确认眼神");
     expect(zhLoadingTips).toContain("CPU 已起飞，风扇在劝它冷静");
     expect(zhLoadingTips.some((tip) => tip.includes("WorkBuddy"))).toBe(false);
@@ -74,6 +104,7 @@ describe("root assistant activity phase", () => {
     expect(source).toContain("const LOADING_TIP_DELAY_MS = 4_000");
     expect(source).toContain("const LOADING_TIP_ROTATION_MS = 10_000");
     expect(source).toContain("const locale = currentLocale()");
+    expect(source).toContain("showTips");
     expect(source).not.toContain("LOADING_TIPS_DISMISSED_KEY");
     expect(source).not.toContain("tipsDismissed");
     expect(source).not.toContain("loading_tip_dismiss");

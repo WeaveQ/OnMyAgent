@@ -28,6 +28,8 @@ export function SessionSurfaceTranscriptContent(props: {
   personalAssistantHome?: boolean;
   expertEmpty: ReactNode | null;
   waitingLabel: string;
+  /** When false, waiting card shows phase only (no rotating product tips). */
+  waitingShowTips?: boolean;
   transcript: ReactNode;
   onDismissError: () => void;
   onChangeModel?: (model: { providerID: string; modelID: string }) => void;
@@ -67,7 +69,10 @@ export function SessionSurfaceTranscriptContent(props: {
   ) {
     return (
       <div className="px-6 py-12">
-        <AssistantWaitingCard label={props.waitingLabel} />
+        <AssistantWaitingCard
+          label={props.waitingLabel}
+          showTips={props.waitingShowTips !== false}
+        />
       </div>
     );
   }

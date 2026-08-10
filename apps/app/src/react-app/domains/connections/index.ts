@@ -28,7 +28,12 @@ export {
   type MergeConnectedProvidersInput,
 } from "./merge-connected-providers";
 export {
+  CONNECTED_PROVIDER_ORDER_KEY,
+  defaultConnectedProviderOrderIds,
   moveConnectedProviderInOrder,
   orderConnectedProviders,
+  readConnectedProviderOrderIds,
+  reorderConnectedProviderIds,
+  writeConnectedProviderOrderIds,
   type OrderableProvider,
 } from "./order-connected-providers";
