@@ -68,6 +68,16 @@ export function humanizeSessionErrorMessage(raw: string): string {
   if (/rate limit|too many requests|429\b/.test(lower)) {
     return t("session.error_rate_limit");
   }
+  // Provider plan / token-plan quota (async stream often surfaces as AI_APICallError).
+  // Must be explicit so the UI ends the run instead of hanging on preparing.
+  // CJK provider messages matched via unicode escapes (check-i18n-cjk gate).
+  if (
+    /quota|token-plan|token plan|exhausted|billing|insufficient.?credit|insufficient.?quota|out of credits|\u989d\u5ea6|\u914d\u989d|\u5957\u9910.*\u7528\u5c3d|\u4f59\u989d\u4e0d\u8db3|\u989d\u5ea6\u5df2\u7528|\u7528\u5c3d/.test(
+      lower,
+    )
+  ) {
+    return t("session.error_quota_exhausted");
+  }
   if (/unauthorized|401\b|invalid api key|authentication/.test(lower)) {
     return t("session.error_auth");
   }
@@ -75,6 +85,33 @@ export function humanizeSessionErrorMessage(raw: string): string {
     return t("session.error_model_unavailable");
   }
   return text;
+}
+
+/** Extract a displayable error string from an opencode assistant message error blob. */
+export function extractAssistantMessageErrorText(error: unknown): string | null {
+  if (!error) return null;
+  if (typeof error === "string") {
+    const trimmed = error.trim();
+    return trimmed || null;
+  }
+  if (typeof error !== "object") return null;
+  const record = error as Record<string, unknown>;
+  const data =
+    record.data && typeof record.data === "object"
+      ? (record.data as Record<string, unknown>)
+      : null;
+  const nested =
+    (typeof data?.message === "string" && data.message.trim()) ||
+    (typeof record.message === "string" && record.message.trim()) ||
+    (typeof record.detail === "string" && record.detail.trim()) ||
+    null;
+  if (nested) return nested;
+  try {
+    const serialized = JSON.stringify(error);
+    return serialized && serialized !== "{}" ? serialized : null;
+  } catch {
+    return null;
+  }
 }
 
 export function parseSessionError(thrown: unknown): SessionError {
@@ -150,6 +187,8 @@ export function readSnapshotSessionError(
   }
   const error = message.info.error;
   if (!error) return null;
+  // Full envelope so parseSessionError keeps code / messageId / traceId;
+  // nested data.message is humanized (incl. quota) inside parseSessionError.
   const parsed = parseSessionError(
     typeof error === "string" ? error : JSON.stringify(error),
   );

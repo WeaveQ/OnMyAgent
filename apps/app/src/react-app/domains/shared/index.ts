@@ -5,6 +5,7 @@
 export {
   buildOnMyAgentEnvSystemContext,
   clearOnMyAgentEnvSystemContextCache,
+  prewarmOnMyAgentEnvSystemContext,
 } from "./env-context";
 export {
   ONMYAGENT_EXTENSION_STATE_CHANGED,

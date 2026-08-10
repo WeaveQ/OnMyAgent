@@ -3,7 +3,80 @@ import { describe, expect, test } from "bun:test";
 import type { OnMyAgentSessionSnapshot } from "../src/app/lib/onmyagent-server";
 import { readSnapshotSessionError } from "../src/react-app/domains/session/surface/session-surface-support";
 
+import {
+  extractAssistantMessageErrorText,
+  humanizeSessionErrorMessage,
+} from "../src/react-app/domains/session/surface/session-surface-support";
+
+describe("humanizeSessionErrorMessage quota / plan", () => {
+  test("maps token-plan quota exhaustion to a clear user message", () => {
+    const raw =
+      "AI_APICallError: Your token-plan 1-week quota has been exhausted. The quota will reset at 08-15 06:20:00 UTC.";
+    const humanized = humanizeSessionErrorMessage(raw);
+    expect(humanized).not.toContain("AI_APICallError");
+    expect(humanized.toLowerCase()).toMatch(/quota|额度|額度|plan|套餐/);
+  });
+});
+
+describe("extractAssistantMessageErrorText", () => {
+  test("reads nested data.message from API error envelopes", () => {
+    expect(
+      extractAssistantMessageErrorText({
+        name: "UnknownError",
+        data: {
+          message:
+            "Your token-plan 1-week quota has been exhausted. The quota will reset at 08-15 06:20:00 UTC.",
+        },
+      }),
+    ).toContain("token-plan");
+  });
+});
+
 describe("readSnapshotSessionError", () => {
+  test("maps async quota errors into a humanized session error", () => {
+    const snapshot = {
+      session: { id: "session" },
+      messages: [
+        {
+          info: {
+            id: "assistant",
+            sessionID: "session",
+            role: "assistant",
+            parentID: "user",
+            modelID: "deepseek-v4-flash-0731",
+            providerID: "aliyuncs",
+            mode: "build",
+            agent: "assistant",
+            path: { cwd: "/", root: "/" },
+            cost: 0,
+            tokens: {
+              input: 0,
+              output: 0,
+              reasoning: 0,
+              cache: { read: 0, write: 0 },
+            },
+            time: { created: 1, completed: 2 },
+            error: {
+              name: "UnknownError",
+              data: {
+                message:
+                  "Your token-plan 1-week quota has been exhausted. The quota will reset at 08-15 06:20:00 UTC.",
+              },
+            },
+          },
+          parts: [],
+        },
+      ],
+      todos: [],
+      status: { type: "idle" },
+    } satisfies OnMyAgentSessionSnapshot;
+
+    const err = readSnapshotSessionError(snapshot);
+    expect(err).not.toBeNull();
+    expect(err!.message.toLowerCase()).toMatch(/quota|额度|額度|plan|套餐/);
+    expect(err!.createdAt).toBe(1);
+  });
+
   test("extracts asynchronous assistant API errors", () => {
     const snapshot = {
       session: { id: "session" },

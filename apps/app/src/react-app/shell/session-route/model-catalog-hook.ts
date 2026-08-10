@@ -57,6 +57,10 @@ import { readWindowSeenProviderIds } from "./storage";
 import { refreshCreatedSessionSnapshotWithRetries } from "./sessions";
 import { workspaceSettingsRoute } from "../workspace-routes";
 import { useSessionRoutePrewarm } from "./prewarm-hook";
+import {
+  loadOpenCodeManagedProvidersForWorkspace,
+  peekOpenCodeManagedProvidersCache,
+} from "../../domains/settings";
 
 /**
  * Session-scoped dedupe for "previous model unavailable" toasts.
@@ -341,6 +345,24 @@ export function useSessionRouteModelCatalog(input: Input) {
       ],
     );
 
+  const buildDisplayNameByProviderId = useCallback(async () => {
+    const root = sessionWorkspaceRoot?.trim() || "";
+    if (!root) return {} as Record<string, string>;
+    let managed = peekOpenCodeManagedProvidersCache(root);
+    if (!managed || managed.length === 0) {
+      managed = await loadOpenCodeManagedProvidersForWorkspace(root).catch(
+        () => [],
+      );
+    }
+    const map: Record<string, string> = {};
+    for (const provider of managed) {
+      const id = provider.id?.trim();
+      const name = provider.name?.trim();
+      if (id && name) map[id] = name;
+    }
+    return map;
+  }, [sessionWorkspaceRoot]);
+
   // Keep composer/full picker options in sync whenever the connected provider
   // catalog changes (e.g. custom provider deleted in Settings). Without this,
   // modelOptions can retain deleted providers until a full page reload.
@@ -349,35 +371,53 @@ export function useSessionRouteModelCatalog(input: Input) {
       setModelOptions([]);
       return;
     }
-    setModelOptions(
-      buildConnectedModelOptions({
-        data: providerListData,
-        seenProviderIds: readWindowSeenProviderIds(),
-        recentProviderIds,
-      }),
-    );
-  }, [providerListData, recentProviderIds, setModelOptions]);
+    let cancelled = false;
+    void (async () => {
+      const displayNameByProviderId = await buildDisplayNameByProviderId();
+      if (cancelled) return;
+      setModelOptions(
+        buildConnectedModelOptions({
+          data: providerListData,
+          seenProviderIds: readWindowSeenProviderIds(),
+          recentProviderIds,
+          displayNameByProviderId,
+        }),
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    buildDisplayNameByProviderId,
+    providerListData,
+    recentProviderIds,
+    setModelOptions,
+  ]);
 
   // When either the compact or full model menu opens, force a fresh provider
-  // list so we never show providers that were just removed.
+  // list so we never show providers that were just removed / renamed.
   useEffect(() => {
     const pickerOpen = modelPickerOpen || compactModelPickerOpen;
     if (!pickerOpen || !opencodeClient) return;
     let cancelled = false;
     void (async () => {
       try {
-        const data = await ensureProviderListQuery(getReactQueryClient(), {
-          client: opencodeClient,
-          baseUrl: opencodeBaseUrl,
-          directory: sessionWorkspaceRoot || undefined,
-          force: true,
-        });
+        const [data, displayNameByProviderId] = await Promise.all([
+          ensureProviderListQuery(getReactQueryClient(), {
+            client: opencodeClient,
+            baseUrl: opencodeBaseUrl,
+            directory: sessionWorkspaceRoot || undefined,
+            force: true,
+          }),
+          buildDisplayNameByProviderId(),
+        ]);
         if (cancelled || !data?.all) return;
         setModelOptions(
           buildConnectedModelOptions({
             data,
             seenProviderIds: readWindowSeenProviderIds(),
             recentProviderIds,
+            displayNameByProviderId,
           }),
         );
       } catch {
@@ -388,6 +428,7 @@ export function useSessionRouteModelCatalog(input: Input) {
       cancelled = true;
     };
   }, [
+    buildDisplayNameByProviderId,
     compactModelPickerOpen,
     modelPickerOpen,
     opencodeBaseUrl,

@@ -66,6 +66,9 @@ export default {
   "session.summon": "召唤",
   "session.summon_experts": "召唤专家",
   "session.summon_expert": "召唤 {name}",
+  /** Mine shelf CTA — expert already summoned; open a chat/new task. */
+  "session.open_chat": "去聊天",
+  "session.open_chat_with": "与 {name} 聊天",
   "session.expert_marketplace_category_all": "全部",
   "session.expert_marketplace_category_opc": "OPC-一人公司",
   "session.expert_marketplace_category_product_development": "产品研发",
@@ -207,6 +210,8 @@ export default {
   "session.error_network": "网络异常，请检查连接后重试。",
   "session.error_timeout": "请求超时，请重试。",
   "session.error_rate_limit": "请求过于频繁，请稍后再试。",
+  "session.error_quota_exhausted":
+    "当前模型套餐额度已用尽，请更换模型或等待额度重置后重试。",
   "session.error_auth": "模型服务鉴权失败，请检查 API Key 或登录状态。",
   "session.error_model_unavailable": "当前模型不可用，请更换模型后重试。",
   "session.error_model_unavailable_named": "模型 {model} 不可用，请更换模型后重试。",

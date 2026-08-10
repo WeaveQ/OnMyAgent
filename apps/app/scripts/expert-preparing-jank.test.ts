@@ -70,15 +70,20 @@ describe("expert preparing jank guards", () => {
   test("marketplace install kickoffs early and joins env prep instead of serial pre-prompt wait", async () => {
     const source = await readFile(surfacePropsPath, "utf8");
     const kickoffIdx = source.indexOf("kickoffMarketplaceExpertInstall(");
+    const envKickoffIdx = source.indexOf("envSystemContextPromise = buildOnMyAgentEnvSystemContext(");
     const isolateIdx = source.indexOf(
       "createIsolatedExpertSessionRuntimeDirectory({",
     );
-    const joinIdx = source.indexOf("Join marketplace install with env context prep");
+    const joinIdx = source.indexOf("Join early install + env prep");
     expect(kickoffIdx).toBeGreaterThan(0);
-    expect(isolateIdx).toBeGreaterThan(kickoffIdx);
+    expect(envKickoffIdx).toBeGreaterThan(kickoffIdx);
+    expect(isolateIdx).toBeGreaterThan(envKickoffIdx);
     expect(joinIdx).toBeGreaterThan(isolateIdx);
     expect(source).toContain("installBeforePrompt");
+    expect(source).toContain("envSystemContextPromise");
     expect(source).toContain("Promise.all([");
+    // Env must not re-fetch per sessionId (that stretched 准备中).
+    expect(source).not.toContain("cacheKey: sessionId");
   });
 
   test("empty expert shell create does not await marketplace install", async () => {

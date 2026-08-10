@@ -491,11 +491,12 @@ export function StorePage(props: {
           {activeTab === "experts" && expertView === "mine" ? (
             <Button
               type="button"
+              variant="outline"
               size="sm"
               onClick={() => (props.onCreateExpert ?? showComingSoonToast)()}
-              className="gap-1.5 mac:titlebar-no-drag"
+              className="gap-1.5 text-dls-text mac:titlebar-no-drag"
             >
-              <UserPlus className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+              <UserPlus className="size-3.5 shrink-0 text-dls-text" strokeWidth={2} aria-hidden />
               {t("session.create_expert")}
             </Button>
           ) : null}

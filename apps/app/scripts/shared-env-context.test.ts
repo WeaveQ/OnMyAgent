@@ -27,7 +27,7 @@ describe("shared env context contract", () => {
     await expect(buildOnMyAgentEnvSystemContext(null)).resolves.toBeUndefined();
   });
 
-  test("normalizes env keys and caches by runtime key", async () => {
+  test("normalizes env keys and caches by stable default key", async () => {
     clearOnMyAgentEnvSystemContextCache();
     const { client, calls } = createClient(["OPENAI_API_KEY", " bad-key ", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"]);
 
@@ -45,5 +45,23 @@ describe("shared env context contract", () => {
     expect(first).toContain("ANTHROPIC_API_KEY");
     expect(first).toContain("OPENAI_API_KEY");
     expect(first).not.toContain("bad-key");
+  });
+
+  test("session-scoped cacheKey re-fetches; default key reuses across sends", async () => {
+    clearOnMyAgentEnvSystemContextCache();
+    const { client, calls } = createClient(["OPENAI_API_KEY"]);
+    await buildOnMyAgentEnvSystemContext(client, {
+      cacheKey: "session-a",
+      readPendingChanges: () => false,
+    });
+    await buildOnMyAgentEnvSystemContext(client, {
+      cacheKey: "session-b",
+      readPendingChanges: () => false,
+    });
+    expect(calls()).toBe(2);
+    // Cold path should omit cacheKey so every send reuses one entry.
+    await buildOnMyAgentEnvSystemContext(client, { readPendingChanges: () => false });
+    await buildOnMyAgentEnvSystemContext(client, { readPendingChanges: () => false });
+    expect(calls()).toBe(3);
   });
 });
