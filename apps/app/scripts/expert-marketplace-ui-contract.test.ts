@@ -616,7 +616,7 @@ describe("expert marketplace UI contract", () => {
     expect(enSession).toContain("/expert-manager Help me create");
   });
 
-  test("marketplace summon opens a fresh expert draft before agent activation", () => {
+  test("marketplace summon binds pending agent around create-task then opens expert draft", () => {
     const assistantPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx");
     const expertPage = [
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
@@ -630,10 +630,20 @@ describe("expert marketplace UI contract", () => {
       "apps/app/src/react-app/domains/session/pages/use-expert-session-starters.ts",
     );
 
-    // Assistant summon path: shared hook creates task + pending agent, then switches mode.
+    // Assistant summon path: bind pending agent before create-task (which
+    // clears pending), re-assert after, then switch to expert mode.
     expect(assistantPage).toContain("useSummonMarketplaceExpert");
+    expect(summonHook).toContain("buildPendingAgentFromMarketplaceExpert(expert)");
+    expect(summonHook).toContain("usePendingAgentStore.getState().setAgent(pending)");
     expect(summonHook).toContain("onCreateTaskInWorkspace(selectedWorkspaceId)");
-    expect(summonHook).toContain("setAgent(buildPendingAgentFromMarketplaceExpert(expert))");
+    // Re-assert after create-task's synchronous setAgent(null).
+    expect(summonHook).toContain("draftSource: \"agent-selection\"");
+    expect(summonHook.indexOf("setAgent(pending)")).toBeLessThan(
+      summonHook.indexOf("onCreateTaskInWorkspace(selectedWorkspaceId)"),
+    );
+    expect(summonHook.indexOf("onCreateTaskInWorkspace(selectedWorkspaceId)")).toBeLessThan(
+      summonHook.indexOf("draftSource: \"agent-selection\""),
+    );
     expect(summonHook).toContain(
       "setExpertComposerDraftAfterNewTask(",
     );
