@@ -476,12 +476,24 @@ export function useSessionRouteSurfaceProps(
         const ensureWorkspaceId =
           selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
 
-        // Overlap marketplace package install with isolate-dir + session.create.
+        // Overlap marketplace install + env context with isolate-dir + session.create.
         // Summon already kickoffs install; coordinator makes this a no-op / join.
+        // Env keys are process-stable — do NOT key the cache by sessionId (that
+        // re-fetched listUserEnvKeys on every new expert chat and stretched 准备中).
         const pendingForColdPath = usePendingAgentStore.getState().getAgent();
         const marketplaceInstallPromise = kickoffMarketplaceExpertInstall(
           pendingForColdPath,
         );
+        const envRuntimeKey = buildOnMyAgentEnvRuntimeKey({
+          baseUrl: client?.baseUrl ?? null,
+          pid: onmyagentServerHostInfoState?.pid ?? null,
+          port: onmyagentServerHostInfoState?.port ?? null,
+        });
+        // Stable cache (default key): env names are not session-scoped. Kicked
+        // off before isolate/create so this usually finishes in the background.
+        const envSystemContextPromise = buildOnMyAgentEnvSystemContext(client, {
+          runtimeKey: envRuntimeKey,
+        });
 
         if (pageMode === "expert" && sendPlan.needsNewSession) {
           const explicitFolder = explicitAssistantWorkspace.trim();
@@ -884,11 +896,6 @@ export function useSessionRouteSurfaceProps(
           inboxWorkspaceRoot:
             workspaceRootForSession || taskWorkspaceRoot || undefined,
         });
-        const envRuntimeKey = buildOnMyAgentEnvRuntimeKey({
-          baseUrl: client?.baseUrl ?? null,
-          pid: onmyagentServerHostInfoState?.pid ?? null,
-          port: onmyagentServerHostInfoState?.port ?? null,
-        });
         // When the session was started from an agent card, the pending
         // agent store carries a system prompt (persona, tone, constraints).
         // Merge it with the env context so both reach the model in one
@@ -926,17 +933,13 @@ export function useSessionRouteSurfaceProps(
           writeCustomAgentIdForSession(sessionId, pendingAgentSnapshot.id);
           writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot);
         }
-        // Join marketplace install with env context prep — install was kicked
-        // off before isolate/create so this usually has little/no remaining wait.
-        // Coordinator dedupes when the resolved agent matches the early kickoff.
+        // Join early install + env prep (started before isolate/create).
+        // Coordinator dedupes install; env cache is stable per server runtime.
         const installBeforePrompt = pendingAgentSnapshot
           ? installMarketplaceExpertAfterSessionCreated(pendingAgentSnapshot)
           : marketplaceInstallPromise;
         const [envSystemContext] = await Promise.all([
-          buildOnMyAgentEnvSystemContext(client, {
-            cacheKey: sessionId,
-            runtimeKey: envRuntimeKey,
-          }),
+          envSystemContextPromise,
           installBeforePrompt,
         ]);
         const selectedPromptModel =

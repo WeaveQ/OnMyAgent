@@ -428,6 +428,11 @@ describe("expert marketplace UI contract", () => {
     expect(storePage).toContain("onCreateExpert");
     expect(dialog).toContain('t("session.summon")');
     expect(dialog).toContain('t("session.summon_expert"');
+    // Mine shelf uses open-chat CTA (already summoned); market keeps summon.
+    expect(dialog).toContain('t("session.open_chat")');
+    expect(dialog).toContain('t("session.open_chat_with"');
+    expect(dialog).toContain('shelf="mine"');
+    expect(dialog).toContain('shelf="market"');
     expect(dialog).toContain("max-h-[calc(100vh-48px)]");
     expect(dialog).toContain("quickPrompts.slice(0, 2)");
     expect(dialog).toContain("MARKETPLACE_DIALOG_EXIT_DURATION_MS = 200");
@@ -508,7 +513,12 @@ describe("expert marketplace UI contract", () => {
     expect(expertPage).not.toContain("additionalStarterItems=");
     expect(expertPage).not.toContain("localExpertStarterItems");
     expect(expertPage).toContain("onOpenAgentStarter={handleOpenExpertStarter}");
-    expect(expertPage).toContain('pendingAgent.draftSource !== "agent-selection"');
+    // Cold-open defers while unbound agent-selection draft is active.
+    expect(expertPage).toContain('pendingAgent.draftSource === "agent-selection"');
+    // Do not re-activate draft on null route gaps (multi-switch blank).
+    expect(expertPage).toContain(
+      "Do NOT re-activate agent-selection draft when selectedSessionId is",
+    );
     expect(installHelper).toContain('expert.source !== "builtin"');
     expect(installHelper).toContain('marketplace: "experts"');
     expect(expertPage).toContain("props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId)");
@@ -634,14 +644,19 @@ describe("expert marketplace UI contract", () => {
     expect(summonHook).toContain('onNavigateToMode("expert")');
     expect(expertPage).toContain("const openFreshExpertDraft = useCallback");
     expect(expertPage).toContain("useExpertSessionStarters");
-    // Build pending first, activate, open draft (new-task clears pending), re-activate.
+    // Always fresh draft — never reopen latest history session for 「去聊天」/召唤.
     expect(sessionStarters).toContain("buildPendingAgentFromMarketplaceExpert(expert)");
     expect(sessionStarters).toContain("input.activateDraftAgent(pendingWithStart)");
     expect(sessionStarters).toContain("input.openFreshExpertDraft()");
+    // Must leave 市场 immediately so UI does not stall on the store rail.
+    expect(sessionStarters).toContain('input.openRailView("chat")');
     expect(sessionStarters).toContain("resolveMarketplaceExpertStartPrompt(");
-    expect(sessionStarters).toContain("setComposerTemplateAfterNavigation(");
+    expect(sessionStarters).not.toContain("setComposerTemplateAfterNavigation(");
+    expect(sessionStarters).not.toContain("existingConversationGroup");
     expect(sessionStarters).toContain("setExpertComposerDraftAfterNewTask(");
     expect(sessionStarters).toContain("setExpertComposerTemplateAfterNewTask(");
+    // Prefill only explicit quick-prompt or logistics templates.
+    expect(sessionStarters).toContain("initialPrompt?.trim()");
   });
 
   test("vite regenerates marketplace manifests from desktop resources", () => {
@@ -845,12 +860,19 @@ describe("expert marketplace UI contract", () => {
     expect(expertPage).toContain("const [pendingTabSessionId, setPendingTabSessionId]");
     expect(expertPage).toContain("const [sessionTabOrderIdsByScope, setSessionTabOrderIdsByScope]");
     expect(expertPage).toContain("orderIds={sessionTabOrderIds}");
-    expect(expertPage).toContain("pendingSessionId={pendingTabSessionId}");
+    // Pending tab highlight: local override or surface-mode creatingSessionId.
+    expect(expertPage).toContain("pendingSessionId={");
+    expect(expertPage).toContain("expertSurfaceMode.creatingSessionId");
+    // Single surface mode owns draftOnly / sessionId / force-nav.
+    expect(expertPage).toContain("resolveExpertSurfaceMode({");
+    expect(expertPage).toContain("draftOnly={isDraftSession}");
     // Bound-draft navigation owns the transition after its extraction from
     // ExpertPage, while ExpertPage remains the state host and tab renderer.
     expect(expertPage).toContain("useExpertBoundDraftTransition({");
-    expect(draftTransition).toContain("resolveBoundExpertDraftSession({");
-    expect(draftTransition).toContain("setPendingTabSessionId(createdSessionId)");
+    expect(draftTransition).toContain("resolveExpertSurfaceMode({");
+    expect(draftTransition).toContain("shouldDropDraftIntentForRoute({");
+    expect(draftTransition).toContain("mode.mayForceNavToBound");
+    expect(draftTransition).toContain("setPendingTabSessionId(mode.creatingSessionId ?? createdSessionId)");
     expect(expertPage).toContain("props.sidebar.onOpenSession(");
     expect(tabs).toContain("const activeSessionId = pendingSessionIsVisible");
     expect(tabs).toContain("scrollTabIntoViewIfNeeded(tabRefs.current[activeSessionId])");

@@ -33,6 +33,19 @@ describe("deriveSessionSurfaceLayoutMode", () => {
     expect(mode.personalAssistantDraftHome).toBe(false);
     expect(mode.expertEmptyComposer).toBe(true);
     expect(mode.homeComposerLayout).toBe(true);
+    // Expert must not show assistant workspace/permission foot row.
+    expect(mode.draftWorkspaceAccessoryActive).toBe(false);
+  });
+
+  test("expert draft with feature category still hides workspace accessory", () => {
+    const mode = deriveSessionSurfaceLayoutMode({
+      ...base,
+      personalAssistantHome: false,
+      draftOnly: true,
+      hasAgentContext: true,
+      assistantFeatureCategoryId: "office",
+    });
+    expect(mode.draftWorkspaceAccessoryActive).toBe(false);
   });
 
   test("not draft home once messages exist", () => {
@@ -55,5 +68,7 @@ describe("deriveSessionSurfaceLayoutMode", () => {
       activityIdle: false,
     });
     expect(mode.personalAssistantDraftHome).toBe(false);
+    // Foot row also hides during send so 准备中 does not show 选择工作空间.
+    expect(mode.draftWorkspaceAccessoryActive).toBe(false);
   });
 });

@@ -72,11 +72,15 @@ const EXPERT_MINE_CARD_GRID =
 function ExpertCard(props: {
   expert: ExpertMarketplaceEntry;
   active?: boolean;
-  /** Mine shelf keeps summon visible (few cards, hover affordance is easy to miss). */
-  summonAlwaysVisible?: boolean;
+  /**
+   * Mine shelf: CTA always visible; label is “去聊天” (already summoned).
+   * Market shelf: hover-reveal “召唤”.
+   */
+  shelf?: "market" | "mine";
   onOpen: (expert: ExpertMarketplaceEntry) => void;
   onSummon: (expert: ExpertMarketplaceEntry) => void;
 }) {
+  const isMine = props.shelf === "mine";
   return (
     <div
       role="button"
@@ -109,21 +113,21 @@ function ExpertCard(props: {
             </div>
             <Button
               type="button"
-              variant="default"
+              variant={isMine ? "outline" : "default"}
               size="pill-xs"
               tabIndex={-1}
               className={cn(
-                "shrink-0 border-transparent bg-dls-decision text-white shadow-none transition-opacity hover:bg-dls-decision-hover hover:text-white",
-                props.summonAlwaysVisible
-                  ? "opacity-100"
-                  : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
+                "shrink-0 shadow-none transition-opacity",
+                isMine
+                  ? "border-dls-border bg-dls-surface text-dls-text opacity-100 hover:bg-dls-hover hover:text-dls-text"
+                  : "pointer-events-none border-transparent bg-dls-decision text-white opacity-0 hover:bg-dls-decision-hover hover:text-white group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
               )}
               onClick={(event) => {
                 event.stopPropagation();
                 props.onSummon(props.expert);
               }}
             >
-              {t("session.summon")}
+              {isMine ? t("session.open_chat") : t("session.summon")}
             </Button>
           </div>
         </div>
@@ -313,6 +317,7 @@ export function ExpertMarketplacePage(props: {
                   <ExpertCard
                     key={expert.id}
                     expert={expert}
+                    shelf="market"
                     active={selectedExpert?.id === expert.id}
                     onOpen={setSelectedExpert}
                     onSummon={props.onSummonMarketplaceExpert}
@@ -335,8 +340,9 @@ export function ExpertMarketplacePage(props: {
                   </p>
                   <Button
                     type="button"
+                    variant="outline"
                     size="sm"
-                    className="mt-1"
+                    className="mt-1 gap-1.5 text-dls-text"
                     onClick={props.onCreateExpert}
                   >
                     {t("session.create_expert")}
@@ -348,7 +354,7 @@ export function ExpertMarketplacePage(props: {
                     <ExpertCard
                       key={expert.id}
                       expert={expert}
-                      summonAlwaysVisible
+                      shelf="mine"
                       active={selectedExpert?.id === expert.id}
                       onOpen={setSelectedExpert}
                       onSummon={props.onSummonMarketplaceExpert}
@@ -369,6 +375,12 @@ export function ExpertMarketplacePage(props: {
       >
         <DialogContent className="max-h-[calc(100vh-48px)] !max-w-[520px] overflow-y-auto rounded-xl bg-dls-surface p-5">
           {selectedExpert ? (
+            (() => {
+              // Mine shelf + already-installed package → open chat, not “summon”.
+              const selectedIsMine =
+                view === "mine" ||
+                shelfExperts.some((item) => item.id === selectedExpert.id);
+              return (
             <div>
               <div className="flex items-start gap-4 pr-8">
                 <ExpertAvatar
@@ -446,11 +458,17 @@ export function ExpertMarketplacePage(props: {
                   }, MARKETPLACE_DIALOG_EXIT_DURATION_MS);
                 }}
               >
-                {t("session.summon_expert", {
-                  name: selectedExpert.displayName,
-                })}
+                {selectedIsMine
+                  ? t("session.open_chat_with", {
+                      name: selectedExpert.displayName,
+                    })
+                  : t("session.summon_expert", {
+                      name: selectedExpert.displayName,
+                    })}
               </Button>
             </div>
+              );
+            })()
           ) : null}
         </DialogContent>
       </Dialog>

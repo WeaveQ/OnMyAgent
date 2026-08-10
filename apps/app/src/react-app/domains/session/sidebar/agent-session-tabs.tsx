@@ -334,7 +334,16 @@ export function AgentSessionTabs(props: {
   /** Hover/focus warm-up for non-active session chips. */
   onPrefetchSession?: (workspaceId: string, sessionId: string) => void;
   onCreateSession: () => void;
-  onRenameSession: (sessionId: string, title: string) => void;
+  /**
+   * Persist a new title (silent promote from message preview, or other commits).
+   * Must be the real rename API — not the open-modal handler.
+   */
+  onRenameSession: (
+    sessionId: string,
+    title: string,
+  ) => void | Promise<void>;
+  /** Open the rename dialog (context menu). Distinct from onRenameSession. */
+  onRequestRename?: (sessionId: string, currentTitle: string) => void;
   /** Soft-archive (parity with assistant tasks). Optional when host has no archive path. */
   onArchiveSession?: (sessionId: string, title: string) => void;
   onDeleteSession: (sessionId: string) => void;
@@ -572,6 +581,9 @@ export function AgentSessionTabs(props: {
     }),
   });
 
+  // Titles are display-only from snapshot/render. Do NOT auto-call
+  // onRenameSession here (session.update + refreshRouteState freezes the UI
+  // under SSE / tab switches). Persist only via onRequestRename → modal.
   const togglePinSession = useCallback(
     (sessionId: string) => {
       const id = sessionId.trim();
@@ -881,17 +893,19 @@ export function AgentSessionTabs(props: {
               </button>
             )
           ) : null}
-          <button
-            type="button"
-            className={TASK_CONTEXT_MENU_ITEM_CLASS}
-            onClick={() => {
-              props.onRenameSession(menuState.sessionId, menuState.title);
-              setMenuState(null);
-            }}
-          >
-            <Pencil strokeWidth={1.75} />
-            {t("session.agent_tab_rename")}
-          </button>
+          {props.onRequestRename ? (
+            <button
+              type="button"
+              className={TASK_CONTEXT_MENU_ITEM_CLASS}
+              onClick={() => {
+                props.onRequestRename?.(menuState.sessionId, menuState.title);
+                setMenuState(null);
+              }}
+            >
+              <Pencil strokeWidth={1.75} />
+              {t("session.agent_tab_rename")}
+            </button>
+          ) : null}
           {props.onArchiveSession ? (
             <button
               type="button"

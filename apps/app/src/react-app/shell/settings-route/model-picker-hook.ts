@@ -92,17 +92,44 @@ export function useSettingsModelPicker(input: SettingsModelPickerInput) {
         } catch {
           seenIds = new Set();
         }
+        // Prefer Settings inventory names so renames (阿里TokenPlan / 火山)
+        // match the Models list instead of npm defaults (千问).
+        const displayNameByProviderId: Record<string, string> = {};
+        try {
+          const {
+            loadOpenCodeManagedProvidersForWorkspace,
+            peekOpenCodeManagedProvidersCache,
+          } = await import("../../domains/settings");
+          const root = selectedWorkspaceRoot || "";
+          let managed = root
+            ? peekOpenCodeManagedProvidersCache(root)
+            : null;
+          if (root && (!managed || managed.length === 0)) {
+            managed = await loadOpenCodeManagedProvidersForWorkspace(root);
+          }
+          for (const provider of managed ?? []) {
+            const id = provider.id?.trim();
+            const name = provider.name?.trim();
+            if (id && name) displayNameByProviderId[id] = name;
+          }
+        } catch {
+          // best-effort label overlay
+        }
         const options: ModelOption[] = [];
         for (const provider of getConnectedProviderItems(data)) {
           const modelIds = Object.keys(provider.models);
           const isNew = !seenIds.has(provider.id);
+          const displayName =
+            displayNameByProviderId[provider.id]?.trim() ||
+            provider.name ||
+            provider.id;
           for (const id of modelIds) {
             const model = provider.models[id];
             options.push({
               providerID: provider.id,
               modelID: id,
               title: model.name || id,
-              description: provider.name,
+              description: displayName,
               behaviorTitle: t("settings.model_reasoning"),
               behaviorLabel: t("settings.default_label"),
               behaviorDescription: "",

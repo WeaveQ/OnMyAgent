@@ -66,6 +66,9 @@ export default {
   "session.summon": "召喚",
   "session.summon_experts": "召喚專家",
   "session.summon_expert": "召喚 {name}",
+  /** Mine shelf CTA — expert already summoned; open a chat/new task. */
+  "session.open_chat": "去聊天",
+  "session.open_chat_with": "與 {name} 聊天",
   "session.expert_marketplace_category_all": "全部",
   "session.expert_marketplace_category_opc": "OPC-一人公司",
   "session.expert_marketplace_category_product_development": "產品研發",
@@ -207,6 +210,8 @@ export default {
   "session.error_network": "網路異常，請檢查連線後重試。",
   "session.error_timeout": "請求逾時，請重試。",
   "session.error_rate_limit": "請求過於頻繁，請稍後再試。",
+  "session.error_quota_exhausted":
+    "目前模型套餐額度已用盡，請更換模型或等待額度重置後重試。",
   "session.error_auth": "模型服務鑑權失敗，請檢查 API Key 或登入狀態。",
   "session.error_model_unavailable": "目前模型不可用，請更換模型後重試。",
   "session.error_model_unavailable_named": "模型 {model} 不可用，請更換模型後重試。",

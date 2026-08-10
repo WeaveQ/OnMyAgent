@@ -86,20 +86,30 @@ export function buildConnectedModelOptions(input: {
   data: ProviderListResponse | null | undefined;
   seenProviderIds: Set<string>;
   recentProviderIds: Set<string>;
+  /**
+   * Optional display names from agent-management / Settings inventory.
+   * Prefer these over raw OpenCode provider.name so the composer picker
+   * matches Settings after the user renames a custom provider (e.g.
+   * aliyuncs → 阿里TokenPlan instead of npm default 千问).
+   */
+  displayNameByProviderId?: Readonly<Record<string, string>>;
 }): ModelOption[] {
   const options: ModelOption[] = [];
+  const displayNames = input.displayNameByProviderId ?? {};
   for (const provider of getConnectedProviderItems(input.data)) {
     const modelIds = Object.keys(provider.models);
     const isNew =
       !input.seenProviderIds.has(provider.id) ||
       input.recentProviderIds.has(provider.id);
+    const displayName =
+      displayNames[provider.id]?.trim() || provider.name || provider.id;
     for (const id of modelIds) {
       const model = provider.models[id];
       options.push({
         providerID: provider.id,
         modelID: id,
         title: model.name || id,
-        description: provider.name,
+        description: displayName,
         behaviorTitle: t("settings.model_reasoning"),
         behaviorLabel: t("settings.default_label"),
         behaviorDescription: "",
