@@ -170,6 +170,11 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
             providerSummary={ctx.providerSummary}
             providerConnected={ctx.connectedProviders.length > 0}
             connectedProviders={ctx.connectedProviders}
+            onMoveProvider={
+              typeof ctx.moveConnectedProvider === "function"
+                ? ctx.moveConnectedProvider
+                : undefined
+            }
             disconnectingProviderId={ctx.providerActionBusyId}
             providerConnectError={
               ctx.providerAuthSnapshot.providerAuthError

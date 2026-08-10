@@ -77,15 +77,16 @@ describe("moveConnectedProviderInOrder", () => {
 });
 
 describe("settings provider order + badge UI contracts", () => {
-  test("ai-view has no provider reorder controls", () => {
+  test("ai-view exposes keyboard-friendly move up/down reorder", () => {
     const aiView = readFileSync(
       join(appRoot, "src/react-app/domains/settings/pages/ai-view.tsx"),
       "utf8",
     );
-    expect(aiView).not.toContain("onMoveProvider");
-    expect(aiView).not.toContain("provider_move_up");
-    expect(aiView).not.toContain("provider_move_down");
-    expect(aiView).not.toMatch(/onDrag|dnd-kit|useSortable|DragDropContext/);
+    expect(aiView).toContain("onMoveProvider");
+    expect(aiView).toContain("provider_move_up");
+    expect(aiView).toContain("provider_move_down");
+    // Prefer explicit buttons over HTML5/dnd-kit drag (Windows touch).
+    expect(aiView).not.toMatch(/dnd-kit|useSortable|DragDropContext/);
     // Zen free-only; custom never labeled OpenCode engine.
     expect(aiView).toContain('provider.id === "opencode"');
     expect(aiView).toContain('provider.source ===');
@@ -123,8 +124,9 @@ describe("settings provider order + badge UI contracts", () => {
       ),
       "utf8",
     );
-    // Move-up/down UI removed; order helpers remain for legacy preference file.
-    expect(controller).not.toContain("moveConnectedProvider");
+    // Move-up/down persists order for Settings + model pickers.
+    expect(controller).toContain("moveConnectedProvider");
+    expect(controller).toContain("writeConnectedProviderOrderIds");
     expect(controller).toContain("readConnectedProviderOrderIds");
     expect(controller).toContain("orderConnectedProviders");
   });

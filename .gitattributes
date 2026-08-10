@@ -1,0 +1,33 @@
+# Normalize text files to LF in the repo. Avoids CRLF surprises on Windows
+# checkouts for shell scripts, CI, and cross-platform greps.
+# After adding this file, optional one-time renormalize:
+#   git add --renormalize .
+* text=auto eol=lf
+
+# Windows shell entrypoints should keep CRLF for cmd.exe compatibility.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary assets — never treat as text.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.icns binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.zip binary
+*.7z binary
+*.gz binary
+*.tgz binary
+*.exe binary
+*.dll binary
+*.node binary
+*.pdf binary
+*.mp4 binary
+*.mp3 binary

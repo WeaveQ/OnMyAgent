@@ -7,6 +7,7 @@ import {
   dematerializeExpertPackageSkillsAndRefresh,
   materializeExpertPackageSkillsAndRefresh,
 } from "../expert-package-skills.mjs";
+import { toPortableRelativePath } from "../lib/portable-path.mjs";
 
 export const HANDLER_COMMAND_NAMES = Object.freeze([
   "importSkill",
@@ -62,17 +63,11 @@ export function createSkillsDomainHandlers({
   refreshRuntimeSkillLinks,
 } = {}) {
   const normalizeKnowledgePath = (value) => {
-    const normalized = String(value ?? "").replaceAll("\\", "/").trim();
-    const segments = normalized.split("/").filter(Boolean);
-    if (
-      !normalized ||
-      normalized.startsWith("/") ||
-      /^[A-Za-z]:\//.test(normalized) ||
-      segments.some((segment) => segment === "." || segment === ".." || segment.includes("\0"))
-    ) {
+    const normalized = toPortableRelativePath(value);
+    if (!normalized) {
       throw new Error("Invalid expert knowledge path");
     }
-    return segments.join("/");
+    return normalized;
   };
   const parseAvatarDataUrl = (value) => {
     const match = String(value ?? "").match(/^data:(image\/(?:png|jpeg|webp|svg\+xml));base64,([A-Za-z0-9+/=]+)$/);
