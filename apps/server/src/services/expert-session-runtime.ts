@@ -1,15 +1,35 @@
 import { createHash } from "node:crypto";
-import { lstat, mkdir, readFile, readdir, realpath, stat, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import {
+  cp,
+  lstat,
+  mkdir,
+  readFile,
+  readdir,
+  realpath,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import type { WorkspaceInfo } from "@onmyagent/types/server";
 
+import { globalSkillsDir } from "../workspace/workspace-files.js";
+
 const EXPERT_SESSION_MARKER_NAME = "onmyagent-session.json";
+/** Lightweight default agent — never Sisyphus / oh-my-openagent orchestrator. */
+export const EXPERT_SESSION_DEFAULT_AGENT = "onmyagent";
+export const EXPERT_SESSION_ISOLATION_VERSION = 1;
 
 export type ExpertSessionRuntimeDirectory = {
   directory: string;
   sessionKey: string;
   agentSegment: string;
+  /** Skill folders copied into the session-local skills root. */
+  installedSkills: string[];
+  isolationVersion: number;
+  defaultAgent: string;
 };
 
 export type AuthorizedArtifactResolutionRoot = {
@@ -96,12 +116,92 @@ export async function resolveAuthorizedArtifactResolutionRoot(input: {
     : null;
 }
 
+/**
+ * Project-local OpenCode config for an expert session directory.
+ * Keeps default_agent light and declares no home plugins; combined with
+ * promptAsync agent forcing this prevents Sisyphus from owning the run.
+ */
+export function buildExpertSessionOpencodeConfig(input?: {
+  defaultAgent?: string;
+}): Record<string, unknown> {
+  const defaultAgent =
+    input?.defaultAgent?.trim() || EXPERT_SESSION_DEFAULT_AGENT;
+  return {
+    $schema: "https://opencode.ai/config.json",
+    default_agent: defaultAgent,
+    // Empty list: do not inherit oh-my-openagent / superpowers from project
+    // merge when OpenCode prefers project plugin declaration.
+    plugin: [],
+    instructions: [],
+  };
+}
+
+/**
+ * Copy only allowlisted skill folders from the OnMyAgent skills root into
+ * `targetDir/.opencode/skills/<name>`. Unknown or unsafe names are skipped.
+ */
+export async function materializeExpertSessionSkills(input: {
+  skillNames: readonly string[] | undefined;
+  targetDirectory: string;
+  skillsSourceRoot?: string;
+}): Promise<string[]> {
+  const targetDirectory = resolve(input.targetDirectory);
+  const sourceRoot = resolve(
+    input.skillsSourceRoot?.trim() || globalSkillsDir(),
+  );
+  const names = normalizeSkillNameList(input.skillNames);
+  if (names.length === 0) return [];
+
+  const skillsDir = join(targetDirectory, ".opencode", "skills");
+  await mkdir(skillsDir, { recursive: true });
+  const installed: string[] = [];
+  for (const skillName of names) {
+    const source = join(sourceRoot, skillName);
+    const skillMd = join(source, "SKILL.md");
+    if (!existsSync(skillMd)) continue;
+    const destination = join(skillsDir, skillName);
+    await rm(destination, { recursive: true, force: true });
+    await cp(source, destination, { recursive: true });
+    installed.push(skillName);
+  }
+  return installed;
+}
+
+export function normalizeSkillNameList(
+  skillNames: readonly string[] | undefined,
+): string[] {
+  if (!skillNames?.length) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of skillNames) {
+    const name = String(raw ?? "").trim();
+    if (!isSafeSkillFolderName(name) || seen.has(name)) continue;
+    seen.add(name);
+    out.push(name);
+  }
+  return out;
+}
+
+function isSafeSkillFolderName(value: string): boolean {
+  return (
+    Boolean(value) &&
+    /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value) &&
+    value !== "." &&
+    value !== ".."
+  );
+}
+
 export async function createExpertSessionRuntimeDirectory(input: {
   workspace: WorkspaceInfo;
   agentName: string;
   agentId?: string;
   sessionKey?: string;
   runtimeRoot?: string;
+  /** Declared expert skills (frontmatter / package). Only these are linked. */
+  skillNames?: readonly string[];
+  /** Override skills source root (tests). Defaults to OPENCODE_GLOBAL_SKILLS_DIR / profile. */
+  skillsSourceRoot?: string;
+  defaultAgent?: string;
 }): Promise<ExpertSessionRuntimeDirectory> {
   const runtimeRoot = resolve(input.runtimeRoot?.trim() || resolveExpertSessionRuntimeRoot());
   const workspaceRoot = resolve(input.workspace.path);
@@ -121,6 +221,22 @@ export async function createExpertSessionRuntimeDirectory(input: {
     throw new Error("Unsafe expert session runtime directory");
   }
   await mkdir(directory, { recursive: true });
+
+  const defaultAgent =
+    input.defaultAgent?.trim() || EXPERT_SESSION_DEFAULT_AGENT;
+  const opencodeConfig = buildExpertSessionOpencodeConfig({ defaultAgent });
+  await writeFile(
+    join(directory, "opencode.json"),
+    `${JSON.stringify(opencodeConfig, null, 2)}\n`,
+    "utf8",
+  );
+
+  const installedSkills = await materializeExpertSessionSkills({
+    skillNames: input.skillNames,
+    targetDirectory: directory,
+    skillsSourceRoot: input.skillsSourceRoot,
+  });
+
   await writeFile(
     join(directory, EXPERT_SESSION_MARKER_NAME),
     `${JSON.stringify({
@@ -129,10 +245,20 @@ export async function createExpertSessionRuntimeDirectory(input: {
       agent: agentSegment,
       sessionKey,
       runtime: true,
+      isolationVersion: EXPERT_SESSION_ISOLATION_VERSION,
+      defaultAgent,
+      installedSkills,
     }, null, 2)}\n`,
     "utf8",
   );
-  return { directory, sessionKey, agentSegment };
+  return {
+    directory,
+    sessionKey,
+    agentSegment,
+    installedSkills,
+    isolationVersion: EXPERT_SESSION_ISOLATION_VERSION,
+    defaultAgent,
+  };
 }
 
 function normalizeSessionKey(value?: string): string {

@@ -116,6 +116,48 @@ describe("expert session runtime directory", () => {
     expect(result.directory.startsWith(workspace.path)).toBe(false);
     expect(await readFile(join(result.directory, "onmyagent-session.json"), "utf8"))
       .toContain('"runtime": true');
+    expect(result.defaultAgent).toBe("onmyagent");
+    expect(result.isolationVersion).toBe(1);
+    const opencode = JSON.parse(
+      await readFile(join(result.directory, "opencode.json"), "utf8"),
+    ) as { default_agent?: string; plugin?: unknown[] };
+    expect(opencode.default_agent).toBe("onmyagent");
+    expect(opencode.plugin).toEqual([]);
+  });
+
+  test("materializes only declared skills into the session skills root", async () => {
+    const workspace = testWorkspace(join(tempRoot, "project"));
+    const runtimeRoot = join(tempRoot, "app-user-data", "expert-sessions");
+    const skillsSource = join(tempRoot, "skills-source");
+    await mkdir(workspace.path, { recursive: true });
+    await mkdir(join(skillsSource, "kol-script-risk-review"), { recursive: true });
+    await mkdir(join(skillsSource, "unrelated-global-skill"), { recursive: true });
+    await writeFile(join(skillsSource, "kol-script-risk-review", "SKILL.md"), "---\nname: kol-script-risk-review\n---\n# ok\n");
+    await writeFile(join(skillsSource, "unrelated-global-skill", "SKILL.md"), "---\nname: unrelated-global-skill\n---\n# no\n");
+
+    const result = await createExpertSessionRuntimeDirectory({
+      workspace,
+      runtimeRoot,
+      agentName: "达人运营专家",
+      agentId: "kol-content-ops-specialist",
+      sessionKey: "1753456789001",
+      skillNames: ["kol-script-risk-review", "missing-skill", "../escape"],
+      skillsSourceRoot: skillsSource,
+    });
+
+    expect(result.installedSkills).toEqual(["kol-script-risk-review"]);
+    expect(
+      await readFile(
+        join(result.directory, ".opencode", "skills", "kol-script-risk-review", "SKILL.md"),
+        "utf8",
+      ),
+    ).toContain("kol-script-risk-review");
+    await expect(
+      readFile(
+        join(result.directory, ".opencode", "skills", "unrelated-global-skill", "SKILL.md"),
+        "utf8",
+      ),
+    ).rejects.toThrow();
   });
 
   test("rejects a runtime root inside the workspace", async () => {

@@ -57,6 +57,10 @@ import {
   trackWorkspaceSessionSync,
   writeAssistantSessionWorkspace,
 } from "../../domains/session";
+import {
+  parseSkillNamesFromAgentMarkdown,
+  resolveExpertPromptAgent,
+} from "../../capabilities/session-identity/expert-prompt-agent";
 import { useSessionActivityStore } from "../../domains/session";
 import {
   buildOnMyAgentEnvSystemContext,
@@ -508,12 +512,16 @@ export function useSessionRouteSurfaceProps(
             // to a different expert and would create artifacts in the wrong dir.
             const agentName = pendingForDir?.name?.trim() || "expert";
             const agentId = pendingForDir?.id?.trim() || "";
+            const skillNames = parseSkillNamesFromAgentMarkdown(
+              pendingForDir?.systemPrompt ?? "",
+            );
             const isolated = await createIsolatedExpertSessionRuntimeDirectory({
               client: ensureClient,
               workspaceId: ensureWorkspaceId,
               workspaceRoot: workspaceRootForSession,
               agentName,
               agentId,
+              skillNames,
             });
             // Only bind the external runtime path when the server created it.
             // Otherwise opencode FileSystem.realPath throws ENOENT and the turn dies.
@@ -1027,7 +1035,11 @@ export function useSessionRouteSurfaceProps(
               // Never modify `pendingAgentSnapshot.model` — the agent's configured model
               // is owned by the agent page edit dialog.
               model: selectedPromptModel,
-              agent: selectedAgent ?? undefined,
+              // Expert isolation: never fall through to home default (Sisyphus).
+              agent:
+                pageMode === "expert" || boundExpertId
+                  ? resolveExpertPromptAgent(selectedAgent)
+                  : selectedAgent ?? undefined,
               ...(modelVariantValue ? { variant: modelVariantValue } : {}),
               ...(runtimeToolAccess ? { tools: runtimeToolAccess } : {}),
               ...(combinedSystem ? { system: combinedSystem } : {}),

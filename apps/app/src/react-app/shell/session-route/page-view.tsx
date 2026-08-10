@@ -98,6 +98,7 @@ import {
   shouldIsolateExpertSessionDirectory,
   writeAssistantSessionWorkspace,
 } from "../../domains/session";
+import { parseSkillNamesFromAgentMarkdown } from "../../capabilities/session-identity/expert-prompt-agent";
 import { CloudSessionProvider } from "../../domains/settings";
 import { installMarketplaceExpertAfterSessionCreated } from "./intent";
 import {
@@ -636,6 +637,9 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                   workspaceRoot,
                   agentName: pendingAgentSnapshot?.name?.trim() || "expert",
                   agentId: pendingAgentSnapshot?.id?.trim() || "",
+                  skillNames: parseSkillNamesFromAgentMarkdown(
+                    pendingAgentSnapshot?.systemPrompt ?? "",
+                  ),
                 });
                 if (!isolated) {
                   throw new Error(
