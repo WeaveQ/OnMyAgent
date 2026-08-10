@@ -24,18 +24,32 @@ Expert sessions only injected persona via `system` while OpenCode still:
 | Lazy ensure | `POST .../expert-session-isolation` upgrades old dirs before next prompt |
 | Marker | `isolationVersion` (current **2**), `defaultAgent`, `installedSkills` on `onmyagent-session.json` |
 
-## Known limits
+## Path B — OpenCode process HOME sandbox (landed)
 
-- Shared `opencode serve` may still **read** `~/.opencode/opencode.json` for process-level plugins. Project `plugin: []` + **forced agent** + lean agent file is the reliable Sisyphus block; full HOME sandbox is path B if dogfood still shows global skill dumps.
-- `OPENCODE_GLOBAL_SKILLS_DIR` remains process-wide; isolation is by **not** dumping the catalog into the expert agent context (light agent) and by session-local skill folders for `load_skill`.
+Desktop `buildChildEnv` prepares `userData/opencode-sandbox/` and sets
+`HOME` + `XDG_*` for the managed OpenCode/server children:
+
+- Mirrors **providers only** (and `auth.json`) from the real user home
+- Forces `plugin: []` (no oh-my-openagent / Sisyphus)
+- Empty of `~/.claude` / `~/.agents` skill trees
+
+Opt-out for debugging: `ONMYAGENT_OPENCODE_USE_REAL_HOME=1`.
+
+### Dogfood numbers (2026-08-10)
+
+| Setup | agent | first-turn input |
+| --- | --- | --- |
+| Real HOME + force onmyagent | onmyagent | ~78k |
+| Real HOME default | Sisyphus | ~90k (or cache-masked) |
+| **Sandbox HOME + onmyagent + full kol expert system** | **onmyagent** | **~4.8k** |
 
 ## Acceptance
 
 - New expert assistant message: `agent` is `onmyagent` (or other non-Sisyphus).
 - First-turn input tokens for 达人运营-class experts target **&lt;10k** (soft **&lt;15k** if system prompt is long).
-- Unit: materialize skills + agent file + ensure upgrade + resolveExpertPromptAgent.
+- Unit: materialize skills + agent file + ensure upgrade + resolveExpertPromptAgent + sandbox config strip.
 
 ## Follow-ups
 
-- Path B: session-scoped HOME if home plugins still inflate context after this cut.
 - Optional: register package agent name as OpenCode agent file under the session dir.
+- Optional: per-session skill-only `OPENCODE_GLOBAL_SKILLS_DIR` (profile root is modest vs ~/.claude).

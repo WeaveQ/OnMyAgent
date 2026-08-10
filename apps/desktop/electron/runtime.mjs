@@ -22,6 +22,10 @@ import {
   chooseProductRuntimeBinary,
 } from "./opencode-binary-policy.mjs";
 import { prepareOnMyAgentOpencodeConfigDir } from "./opencode-config-dir.mjs";
+import {
+  applyOpencodeSandboxEnv,
+  prepareOpencodeSandboxHome,
+} from "./opencode-sandbox-home.mjs";
 import { resolveExpertSessionRuntimeRoot } from "./expert-session-runtime-path.mjs";
 import { createRuntimeSandbox } from "./runtime-sandbox.mjs";
 export {
@@ -430,6 +434,8 @@ export function createRuntimeManager({
       const devPaths = await ensureDevModePaths();
       const localOpencodeConfigDir = resolveLocalOpencodeConfigDir();
       env.ONMYAGENT_DEV_MODE = "1";
+      // Real HOME is only a fallback before sandbox apply below. Do not leave
+      // OpenCode on the user's home (loads ~/.opencode + ~/.claude skills).
       env.HOME = env.HOME?.trim() ? env.HOME : devPaths.homeDir;
       env.USERPROFILE = env.USERPROFILE?.trim() ? env.USERPROFILE : devPaths.homeDir;
       env.XDG_CONFIG_HOME = env.XDG_CONFIG_HOME?.trim() ? env.XDG_CONFIG_HOME : devPaths.xdgConfigHome;
@@ -472,6 +478,18 @@ export function createRuntimeManager({
           },
         );
       }
+    }
+
+    // Path B: isolate OpenCode from the real user HOME so ~/.opencode plugins
+    // (Sisyphus) and ~/.claude|~/.agents skill catalogs never enter product
+    // sessions. Providers/auth are mirrored into the sandbox.
+    // Opt out: ONMYAGENT_OPENCODE_USE_REAL_HOME=1 (debug only).
+    if (process.env.ONMYAGENT_OPENCODE_USE_REAL_HOME !== "1") {
+      const sandbox = await prepareOpencodeSandboxHome({
+        userDataDir,
+        realHomeDir: resolvedHomeDir,
+      });
+      applyOpencodeSandboxEnv(env, sandbox);
     }
     return env;
   }
