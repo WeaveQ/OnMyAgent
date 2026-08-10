@@ -35,11 +35,19 @@ export type PendingCreatedSessionMap = Record<string, Record<string, number>>;
  */
 export const SESSION_ORIGIN_DIRECTORY_RECOVERY_CONCURRENCY = 2;
 /**
- * A workspace can contain many isolated expert directories. Bound one recovery
- * pass so a stale or unusually large origin index cannot turn cold start into
- * an unbounded request fan-out.
+ * A workspace can contain many isolated expert directories. Bound concurrent
+ * exact gets per page so a stale or unusually large origin index cannot fan
+ * out unbounded requests at once. Multiple pages run sequentially in one
+ * recovery call so authoritative 404 tombstones advance the cursor instead of
+ * re-scanning the same first page forever.
  */
 export const SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS = 40;
+/**
+ * Safety cap on exact pages per recovery call (MAX_TARGETS each). Beyond this
+ * remaining candidates stay incomplete so the loader can prune known tombstones
+ * and retry without hanging cold start on a multi-thousand ghost index.
+ */
+export const SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_PAGES = 25;
 
 type SessionDirectoryListClient = {
   listSessions: (
@@ -55,12 +63,21 @@ type SessionDirectoryListClient = {
 
 export type OriginDirectorySessionRecovery = {
   items: SidebarSessionItem[];
-  /** False means a durable origin is still unknown; callers must not show an empty state. */
+  /**
+   * True when every outstanding origin is accounted for (recovered, paged, or
+   * authoritative-missing). Soft failures keep this false so callers do not
+   * claim a permanent empty expert list.
+   */
   complete: boolean;
   /** A non-null value asks the caller to run the next bounded exact page. */
   nextOffset: number | null;
-  /** Exact reads that conclusively prove an old origin no longer exists. */
+  /**
+   * Exact reads that prove an origin no longer exists (404/410). Safe to prune
+   * from durable session-origins — does **not** make recovery incomplete.
+   */
   missingSessionIds: string[];
+  /** Directory list / non-404 get failures remain unknown. */
+  softFailure: boolean;
 };
 
 type OriginDirectoryRecoveryInput = {
@@ -70,6 +87,11 @@ type OriginDirectoryRecoveryInput = {
   primaryItems: SidebarSessionItem[];
   /** Sessions already verified by earlier exact pages in this recovery cycle. */
   verifiedItems?: SidebarSessionItem[];
+  /**
+   * Authoritative-missing ids already tombstoned earlier in this cycle (or a
+   * prior incomplete pass). Excluded from exact candidates so paging advances.
+   */
+  verifiedMissingIds?: readonly string[];
   origins: SessionOriginRecord[];
   limit: number;
 };
@@ -87,6 +109,13 @@ export async function recoverOriginDirectorySessionItemsWithStatus(
     ...input.primaryItems.map((item) => item.id),
     ...(input.verifiedItems ?? []).map((item) => item.id),
   ]);
+  // Accounted ids include live known sessions and prior authoritative missing
+  // tombstones so exact paging never re-scans the same ghost page forever.
+  const accountedIds = new Set<string>(knownIds);
+  for (const id of input.verifiedMissingIds ?? []) {
+    const trimmed = id?.trim();
+    if (trimmed) accountedIds.add(trimmed);
+  }
   const expectedIdsByDirectory = new Map<string, Set<string>>();
   const expectedOrigins: Array<{ sessionId: string; directory: string }> = [];
   const expectedOriginIds = new Set<string>();
@@ -97,7 +126,7 @@ export async function recoverOriginDirectorySessionItemsWithStatus(
     if (
       origin.workspaceId === input.originWorkspaceId &&
       origin.sessionId &&
-      !knownIds.has(origin.sessionId) &&
+      !accountedIds.has(origin.sessionId) &&
       !directory
     ) {
       hasUnrecoverableOrigin = true;
@@ -107,7 +136,7 @@ export async function recoverOriginDirectorySessionItemsWithStatus(
       origin.workspaceId !== input.originWorkspaceId ||
       !directory ||
       !origin.sessionId ||
-      knownIds.has(origin.sessionId)
+      accountedIds.has(origin.sessionId)
     ) {
       continue;
     }
@@ -153,7 +182,8 @@ export async function recoverOriginDirectorySessionItemsWithStatus(
           continue;
         }
         for (const item of result.value) {
-          if (knownIds.has(item.id)) continue;
+          if (accountedIds.has(item.id)) continue;
+          accountedIds.add(item.id);
           knownIds.add(item.id);
           recovered.push(item);
         }
@@ -161,18 +191,16 @@ export async function recoverOriginDirectorySessionItemsWithStatus(
     }
   }
 
-  // A directory list is still a bounded page. Any known origin id it did not
-  // return is recovered by its exact id, including the important case where a
-  // single expert directory contains more sessions than `limit`.
-  const exactCandidates = expectedOrigins.filter(
-    (origin) => !knownIds.has(origin.sessionId),
-  );
+  // Directory list is still a bounded page. Any origin id it did not return is
+  // recovered by exact id. Authoritative 404/410 tombstones count as accounted
+  // so multi-page ghost indexes advance past the first MAX_TARGETS.
   if (!directoryReadsComplete) {
     return {
       items: recovered,
       complete: false,
       nextOffset: null,
       missingSessionIds: [],
+      softFailure: true,
     };
   }
   if (hasUnrecoverableOrigin) {
@@ -181,102 +209,240 @@ export async function recoverOriginDirectorySessionItemsWithStatus(
       complete: false,
       nextOffset: null,
       missingSessionIds: [],
+      softFailure: true,
     };
   }
-  if (exactCandidates.length === 0) {
+  const getSession = input.client.getSession;
+  const initialExactCandidates = expectedOrigins.filter(
+    (origin) => !accountedIds.has(origin.sessionId),
+  );
+  if (initialExactCandidates.length === 0) {
     return {
       items: recovered,
       complete: true,
       nextOffset: null,
       missingSessionIds: [],
+      softFailure: false,
     };
   }
-  const getSession = input.client.getSession;
   if (!getSession) {
     return {
       items: recovered,
       complete: false,
       nextOffset: null,
       missingSessionIds: [],
+      softFailure: true,
     };
   }
-  const page = exactCandidates.slice(
-    0,
-    SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS,
-  );
+
   let exactReadsComplete = true;
   const missingSessionIds: string[] = [];
-  for (
-    let start = 0;
-    start < page.length;
-    start += SESSION_ORIGIN_DIRECTORY_RECOVERY_CONCURRENCY
-  ) {
-    const batch = page.slice(
-      start,
-      start + SESSION_ORIGIN_DIRECTORY_RECOVERY_CONCURRENCY,
+  let pagesProcessed = 0;
+  let stoppedForPageBudget = false;
+
+  while (pagesProcessed < SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_PAGES) {
+    const exactCandidates = expectedOrigins.filter(
+      (origin) => !accountedIds.has(origin.sessionId),
     );
-    const results = await Promise.allSettled(
-      batch.map(async (origin) => {
-        try {
-          const response = await getSession(input.workspaceId, origin.sessionId, {
+    if (exactCandidates.length === 0) break;
+
+    const page = exactCandidates.slice(
+      0,
+      SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS,
+    );
+    pagesProcessed += 1;
+
+    for (
+      let start = 0;
+      start < page.length;
+      start += SESSION_ORIGIN_DIRECTORY_RECOVERY_CONCURRENCY
+    ) {
+      const batch = page.slice(
+        start,
+        start + SESSION_ORIGIN_DIRECTORY_RECOVERY_CONCURRENCY,
+      );
+      const results = await Promise.allSettled(
+        batch.map(async (origin) =>
+          resolveExactOriginSession({
+            client: input.client,
+            workspaceId: input.workspaceId,
+            sessionId: origin.sessionId,
             directory: origin.directory,
-          });
-          return {
-            expectedId: origin.sessionId,
-            item: toSidebarSessionItem(response.item),
-            missing: false,
-          };
-        } catch (error) {
-          return {
-            expectedId: origin.sessionId,
-            item: null,
-            missing: isAuthoritativeSessionMissing(error),
-          };
+            limit: input.limit,
+            getSession,
+          }),
+        ),
+      );
+      for (const result of results) {
+        if (result.status !== "fulfilled") {
+          exactReadsComplete = false;
+          continue;
         }
-      }),
+        const resolved = result.value;
+        if (resolved.kind === "soft_failure") {
+          // Warm-up / transport / inconclusive directory list — do not tombstone.
+          exactReadsComplete = false;
+          continue;
+        }
+        if (resolved.kind === "missing") {
+          // Confirmed gone (404/410 + directory list lacks the id).
+          if (!accountedIds.has(resolved.expectedId)) {
+            accountedIds.add(resolved.expectedId);
+            missingSessionIds.push(resolved.expectedId);
+          }
+          continue;
+        }
+        const item = resolved.item;
+        if (!item || item.id !== resolved.expectedId) {
+          exactReadsComplete = false;
+          continue;
+        }
+        if (accountedIds.has(item.id)) continue;
+        accountedIds.add(item.id);
+        knownIds.add(item.id);
+        recovered.push(item);
+      }
+    }
+
+    if (!exactReadsComplete) break;
+
+    const remainingAfterPage = expectedOrigins.filter(
+      (origin) => !accountedIds.has(origin.sessionId),
     );
-    for (const result of results) {
-      if (result.status !== "fulfilled") {
-        exactReadsComplete = false;
-        continue;
-      }
-      const { expectedId, item, missing } = result.value;
-      if (missing) {
-        missingSessionIds.push(expectedId);
-        continue;
-      }
-      if (!item || item.id !== expectedId) {
-        exactReadsComplete = false;
-        continue;
-      }
-      if (knownIds.has(item.id)) continue;
-      knownIds.add(item.id);
-      recovered.push(item);
+    if (remainingAfterPage.length === 0) break;
+    if (pagesProcessed >= SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_PAGES) {
+      stoppedForPageBudget = true;
+      break;
     }
   }
-  const hasNextPage = exactCandidates.length > page.length;
-  // OpenCode can briefly return 404/410 while a session directory is warming
-  // or switching. That is not an authoritative delete signal: leave the
-  // origin identity untouched and let the bounded recovery loop try again.
-  const hasTransientMissing = missingSessionIds.length > 0;
+
+  const remainingCandidates = expectedOrigins.filter(
+    (origin) => !accountedIds.has(origin.sessionId),
+  );
+  // 404/410 tombstones are accounted; soft failures and page-budget leftovers
+  // keep complete=false so callers do not claim a permanent empty list.
+  const softFailure = !exactReadsComplete;
+  const hasMore = remainingCandidates.length > 0;
+  const complete = !softFailure && !hasMore;
   return {
     items: recovered,
-    complete:
-      exactReadsComplete && !hasNextPage && !hasTransientMissing,
+    complete,
     nextOffset:
-      exactReadsComplete && (hasNextPage || hasTransientMissing)
+      !softFailure && (hasMore || stoppedForPageBudget)
         ? 0
-        : exactReadsComplete
-          ? null
-          : 0,
+        : softFailure
+          ? 0
+          : null,
     missingSessionIds,
+    softFailure,
   };
 }
 
-function isAuthoritativeSessionMissing(error: unknown): boolean {
+export function isAuthoritativeSessionMissing(error: unknown): boolean {
   return (
     error instanceof OnMyAgentServerError &&
     (error.status === 404 || error.status === 410)
+  );
+}
+
+type ExactOriginResolution =
+  | { kind: "recovered"; expectedId: string; item: SidebarSessionItem }
+  | { kind: "missing"; expectedId: string }
+  | { kind: "soft_failure"; expectedId: string };
+
+/**
+ * Resolve one durable origin by exact id. A bare 404/410 is **not** enough to
+ * tombstone: OpenCode can 404 while a directory list still has the session
+ * (warm-up / project index lag). Confirm missing only when the origin
+ * directory list succeeds and does not contain the session id.
+ */
+export async function resolveExactOriginSession(input: {
+  client: SessionDirectoryListClient;
+  workspaceId: string;
+  sessionId: string;
+  directory: string;
+  limit: number;
+  getSession: NonNullable<SessionDirectoryListClient["getSession"]>;
+}): Promise<ExactOriginResolution> {
+  const expectedId = input.sessionId;
+  try {
+    const response = await input.getSession(input.workspaceId, expectedId, {
+      directory: input.directory,
+    });
+    const item = toSidebarSessionItem(response.item);
+    if (item && item.id === expectedId) {
+      return { kind: "recovered", expectedId, item };
+    }
+    return { kind: "soft_failure", expectedId };
+  } catch (error) {
+    if (!isAuthoritativeSessionMissing(error)) {
+      return { kind: "soft_failure", expectedId };
+    }
+  }
+
+  // Confirm 404/410 against a directory list before pruning live experts.
+  try {
+    const listed = await input.client.listSessions(input.workspaceId, {
+      limit: input.limit,
+      directory: input.directory,
+    });
+    const listedItems = toSidebarSessionItems(listed.items);
+    const found = listedItems.find((item) => item.id === expectedId);
+    if (found) {
+      return { kind: "recovered", expectedId, item: found };
+    }
+    return { kind: "missing", expectedId };
+  } catch {
+    return { kind: "soft_failure", expectedId };
+  }
+}
+
+/**
+ * After origin recovery settles, keep cached expert rows that were not
+ * confirmed missing. Primary workspace-root lists never observe isolated
+ * expert directories — dropping them on complete wiped every prior expert
+ * when only the newest origin survived prune.
+ */
+export function mergeAuthoritativeOriginSessions(input: {
+  workspaceId: string;
+  fetched: SidebarSessionItem[];
+  current: SidebarSessionItem[];
+  pendingByWorkspaceId: PendingCreatedSessionMap;
+  explicitAssistantSessionIds: Set<string>;
+  tombstoneSessionIds: ReadonlySet<string>;
+  now: number;
+}): SidebarSessionItem[] {
+  const tombstones = input.tombstoneSessionIds;
+  const fetched = input.fetched.filter(
+    (session) => session.id && !tombstones.has(session.id),
+  );
+  const merged = mergeFetchedSessionsWithPending({
+    workspaceId: input.workspaceId,
+    fetched,
+    current: input.current,
+    pendingByWorkspaceId: input.pendingByWorkspaceId,
+    explicitAssistantSessionIds: input.explicitAssistantSessionIds,
+    // Keep isolated experts that recovery did not re-list, unless tombstoned.
+    preserveExpertSessions: true,
+    now: input.now,
+  });
+  return merged.filter((session) => session.id && !tombstones.has(session.id));
+}
+
+/**
+ * Whether origin recovery may settle as a definitive empty expert list
+ * (callers hydrate, not degrade). Soft failures must not use this path.
+ */
+export function isAuthoritativeEmptyOriginRecovery(
+  recovery: Pick<
+    OriginDirectorySessionRecovery,
+    "complete" | "items" | "missingSessionIds" | "softFailure"
+  >,
+): boolean {
+  return (
+    recovery.complete &&
+    !recovery.softFailure &&
+    recovery.items.length === 0
   );
 }
 
