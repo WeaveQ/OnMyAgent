@@ -88,6 +88,14 @@ Use a Developer Mode shell (or admin) so junctions work, then:
 Unix-only debug helpers (`scripts/dev/onmyagent-debug.sh`, bash maintenance scripts)
 are **not** supported on Windows — use preflight, Event Viewer, and `pnpm check:windows`.
 
+### Path and tilde notes
+
+- Workspace-relative paths accept both `\` and `/` (see `toPortableRelativePath`).
+- Sandbox allowlist `~/Documents` expands with `expandTildePath` to
+  `%USERPROFILE%\Documents` on Windows (also `~\Documents`).
+- Prefer `scripts/lib/run-command.mjs` (`resolveCommand` / `spawnCommandSync`) when
+  spawning `pnpm` / `npm` / `npx` so Windows `.cmd` shims resolve correctly.
+
 ## Preflight
 
 ```bat
