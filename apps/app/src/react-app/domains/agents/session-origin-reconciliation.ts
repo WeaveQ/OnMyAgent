@@ -11,6 +11,7 @@ import {
   readCustomAgentIdForSession,
   writeCustomAgentIdForSession,
 } from "./agent-registry-store";
+import { inferExpertAgentIdFromDirectory } from "./infer-expert-agent-id";
 
 export const sessionOriginsChangedEvent = "onmyagent:session-origins-changed";
 
@@ -19,6 +20,18 @@ function notifySessionOriginsChanged(workspaceId: string) {
   window.dispatchEvent(new CustomEvent(sessionOriginsChangedEvent, {
     detail: { workspaceId },
   }));
+}
+
+/**
+ * Resolve agentId for an expert origin: durable field first, then directory
+ * inference for older records written without agentId.
+ */
+export function resolveExpertOriginAgentId(
+  origin: Pick<SessionOriginRecord, "agentId" | "directory">,
+): string | null {
+  const explicit = origin.agentId?.trim();
+  if (explicit) return explicit;
+  return inferExpertAgentIdFromDirectory(origin.directory);
 }
 
 export function reconcileSessionOrigins(input: {
@@ -37,8 +50,9 @@ export function reconcileSessionOrigins(input: {
     }
     if (origin.kind === "expert") {
       addExpertSession(origin.sessionId);
-      if (origin.agentId?.trim()) {
-        writeCustomAgentIdForSession(origin.sessionId, origin.agentId.trim());
+      const agentId = resolveExpertOriginAgentId(origin);
+      if (agentId) {
+        writeCustomAgentIdForSession(origin.sessionId, agentId);
       }
       continue;
     }

@@ -421,9 +421,10 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
                           client={props.onmyagentServerClient}
                           activeTab={storeActiveTab}
                           myExperts={myExpertPackages}
-                          activeExpertAgentIds={conversationGroups
-                            .map((group) => group.agentId)
-                            .filter((id): id is string => Boolean(id?.trim()))}
+                          activeExpertAgentIds={[
+                            ...conversationGroups.map((group) => group.agentId),
+                            ...draftAgentGroups.map((group) => group.agentId),
+                          ].filter((id): id is string => Boolean(id?.trim()))}
                           onActiveTabChange={setStoreActiveTab}
                           onSummonMarketplaceExpert={handleStartMarketplaceExpert}
                           onCreateExpert={openExpertCreation}

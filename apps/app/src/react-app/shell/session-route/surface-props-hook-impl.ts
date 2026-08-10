@@ -45,7 +45,7 @@ import {
   writeSessionAgentSnapshot,
 } from "../../domains/agents";
 import { usePendingAgentStore } from "../../domains/agents";
-import { writeSessionOriginBestEffort } from "../../domains/agents";
+import { writeSessionOriginDurable } from "../../domains/agents";
 import {
   createIsolatedExpertSessionRuntimeDirectory,
   clearOptimisticSessionUserMessage,
@@ -662,17 +662,28 @@ export function useSessionRouteSurfaceProps(
             sessionsByWorkspaceIdRef.current = next;
             return next;
           });
-          writeSessionOriginBestEffort({
-            client: selectedWorkspaceEndpoint?.client ?? client,
-            workspaceId: selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId,
-            sessionId,
-            kind: pageMode === "expert" ? "expert" : "assistant",
-            agentId:
-              pageMode === "expert"
-                ? readCustomAgentIdForSession(sessionId)
-                : undefined,
-            directory: createdSession.directory ?? explicitAssistantWorkspace,
-          });
+          if (pageMode === "expert") {
+            void writeSessionOriginDurable({
+              client: selectedWorkspaceEndpoint?.client ?? client,
+              workspaceId:
+                selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId,
+              sessionId,
+              kind: "expert",
+              agentId: readCustomAgentIdForSession(sessionId),
+              directory:
+                createdSession.directory ?? explicitAssistantWorkspace,
+            });
+          } else {
+            void writeSessionOriginDurable({
+              client: selectedWorkspaceEndpoint?.client ?? client,
+              workspaceId:
+                selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId,
+              sessionId,
+              kind: "assistant",
+              directory:
+                createdSession.directory ?? explicitAssistantWorkspace,
+            });
+          }
           activateCreatedSessionRoute({
             selectedWorkspaceId,
             sessionId,

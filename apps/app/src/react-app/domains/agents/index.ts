@@ -80,6 +80,7 @@ export * from "./agent-session-state";
 export {
   migrateLegacySessionOrigins,
   reconcileSessionOrigins,
+  resolveExpertOriginAgentId,
   sessionOriginsChangedEvent,
 } from "./session-origin-reconciliation";
 export {
@@ -92,7 +93,11 @@ export {
   useSessionOriginHydrated,
   useSessionOriginHydrationDegraded,
 } from "./session-origin-hydration";
-export { writeSessionOriginBestEffort } from "./session-origin-write";
+export {
+  writeSessionOriginBestEffort,
+  writeSessionOriginDurable,
+} from "./session-origin-write";
+export { inferExpertAgentIdFromDirectory } from "./infer-expert-agent-id";
 
 export * from "./pending-agent-store";
 export { AgentPromptSuggestions } from "./agent-prompt-suggestions";
