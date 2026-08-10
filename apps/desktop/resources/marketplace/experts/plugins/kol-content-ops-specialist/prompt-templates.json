@@ -1,128 +1,42 @@
 [
   {
-    "id": "kol-script-risk-review",
-    "title": {
-      "zh": "脚本初审与风险检查",
-      "en": "Script risk review"
-    },
-    "description": {
-      "zh": "五维问题 + 修改建议",
-      "en": "Five-dimension issues + fixes"
-    },
-    "template": {
-      "zh": "请按 <检查维度或模板> 初审这份 <脚本>，从卖点清晰度、表达自然度、种草感、平台风险、功效夸大风险列出问题并给修改建议；客户偏好：<可选>。",
-      "en": "Review <Script> with <Checklist/template> across clarity, natural tone, seeding feel, platform risk, and claim risk; preferences: <optional>."
-    },
-    "requiredSlots": {
-      "zh": [
-        "脚本"
-      ],
-      "en": [
-        "Script"
-      ]
-    },
-    "conditionalSlots": {
-      "zh": [
-        "检查维度或模板",
-        "可选"
-      ],
-      "en": [
-        "Checklist/template",
-        "optional"
-      ]
-    }
+    "id": "xhs-script-assistant",
+    "title": { "zh": "审核并修改达人脚本", "en": "Review and revise creator scripts" },
+    "description": { "zh": "快扫、留痕改稿或批量交付", "en": "Scan, tracked revision, or batch delivery" },
+    "template": { "zh": "请按 <客户 Brief 与产品资料> 审核 <达人脚本>，结合 <客户偏好或过审样稿> 选择快速扫描、正式审核或批量审核。", "en": "Review <Creator script> against <Client brief and product materials>, using <Client preferences or approved samples> in the requested mode." },
+    "requiredSlots": { "zh": ["客户 Brief 与产品资料", "达人脚本"], "en": ["Client brief and product materials", "Creator script"] },
+    "conditionalSlots": { "zh": ["客户偏好或过审样稿"], "en": ["Client preferences or approved samples"] }
+  },
+  {
+    "id": "kol-content-delivery-tracker",
+    "title": { "zh": "整理内容履约和发布台账", "en": "Track content delivery" },
+    "description": { "zh": "版本、审核、发布和验收", "en": "Versions, approvals, publishing, acceptance" },
+    "template": { "zh": "请把 <脚本版本与沟通记录> 按 <项目排期与验收标准> 整理成内容履约和发布验收台账。", "en": "Turn <Script versions and communication records> into a delivery tracker using <Project schedule and acceptance rules>." },
+    "requiredSlots": { "zh": ["脚本版本与沟通记录"], "en": ["Script versions and communication records"] },
+    "conditionalSlots": { "zh": ["项目排期与验收标准"], "en": ["Project schedule and acceptance rules"] }
+  },
+  {
+    "id": "rebate-contract-generator",
+    "title": { "zh": "批量生成返点合同", "en": "Generate rebate contracts" },
+    "description": { "zh": "批准模板填充、日志和待补材料", "en": "Approved template, log, and missing items" },
+    "template": { "zh": "请根据 <对公返点信息表> 和 <业务批准的合同模板> 批量生成合同，并输出生成日志和待补材料。", "en": "Generate rebate contracts from <Corporate rebate sheet> and <Business-approved contract template>, with a generation log and missing items." },
+    "requiredSlots": { "zh": ["对公返点信息表", "业务批准的合同模板"], "en": ["Corporate rebate sheet", "Business-approved contract template"] },
+    "conditionalSlots": { "zh": [], "en": [] }
+  },
+  {
+    "id": "rebate-contract-checker",
+    "title": { "zh": "核对返点协议与开票", "en": "Reconcile rebate and invoice data" },
+    "description": { "zh": "开票、协议、计划单三方核对", "en": "Three-way invoice, contract, and plan check" },
+    "template": { "zh": "请核对 <开票申请、返点协议和项目计划单>，按 <金额容差或列名映射> 输出核对清单、摘要和待处理事项。", "en": "Reconcile <Invoice applications, rebate contracts, and project plans> using <Amount tolerance or column mapping>, with checklist, summary, and action items." },
+    "requiredSlots": { "zh": ["开票申请、返点协议和项目计划单"], "en": ["Invoice applications, rebate contracts, and project plans"] },
+    "conditionalSlots": { "zh": ["金额容差或列名映射"], "en": ["Amount tolerance or column mapping"] }
   },
   {
     "id": "kol-reputation-monitor",
-    "title": {
-      "zh": "口碑检测辅助",
-      "en": "Reputation assist"
-    },
-    "description": {
-      "zh": "声量/情感/负面/干预建议",
-      "en": "Volume, sentiment, negatives, actions"
-    },
-    "template": {
-      "zh": "这些是 <评论导出或反馈材料>。请做口碑辅助监测：声量、情感、负面与高危点，并给出人工干预建议；按 <报告模板> 输出。",
-      "en": "From <Comments/feedback>, summarize volume, sentiment, negatives/high-risk items, and intervention suggestions using <Report template>."
-    },
-    "requiredSlots": {
-      "zh": [
-        "评论导出或反馈材料"
-      ],
-      "en": [
-        "Comments/feedback"
-      ]
-    },
-    "conditionalSlots": {
-      "zh": [
-        "报告模板"
-      ],
-      "en": [
-        "Report template"
-      ]
-    }
-  },
-  {
-    "id": "kol-rebate-invoice-audit",
-    "title": {
-      "zh": "返点合同与发票核对",
-      "en": "Rebate/invoice audit"
-    },
-    "description": {
-      "zh": "提取字段 + 匹配精度 + 待确认",
-      "en": "Extract, match precision, open items"
-    },
-    "template": {
-      "zh": "请从 <返点合同和发票资料> 提取关键信息，整理开票/核对清单，标注精确或模糊匹配，并列出待人工确认项；模板：<可选>。",
-      "en": "Extract key fields from <Rebate contract and invoice materials>, build a checklist with exact/fuzzy match flags, and list human-confirm items."
-    },
-    "requiredSlots": {
-      "zh": [
-        "返点合同和发票资料"
-      ],
-      "en": [
-        "Rebate contract and invoice materials"
-      ]
-    },
-    "conditionalSlots": {
-      "zh": [
-        "可选"
-      ],
-      "en": [
-        "optional"
-      ]
-    }
-  },
-  {
-    "id": "kol-content-risk-checklist",
-    "title": {
-      "zh": "内容风控与遗漏检查",
-      "en": "Content risk checklist"
-    },
-    "description": {
-      "zh": "发布前排雷",
-      "en": "Pre-publish risk scan"
-    },
-    "template": {
-      "zh": "请检查这份 <通知/话术/稿件> 的风控与遗漏项，按 <检查清单> 输出问题与修改建议。",
-      "en": "Risk-check <Notice/script/copy> against <Checklist> and list issues with fixes."
-    },
-    "requiredSlots": {
-      "zh": [
-        "通知/话术/稿件"
-      ],
-      "en": [
-        "Notice/script/copy"
-      ]
-    },
-    "conditionalSlots": {
-      "zh": [
-        "检查清单"
-      ],
-      "en": [
-        "Checklist"
-      ]
-    }
+    "title": { "zh": "整理发布后口碑风险", "en": "Review post-publish reputation" },
+    "description": { "zh": "评论样本、负面高危和人工建议", "en": "Comment sample, high-risk negatives, actions" },
+    "template": { "zh": "请根据 <评论或反馈材料> 和 <监测周期与重点> 整理口碑摘要、负面高危项和人工干预建议。", "en": "Summarize reputation, high-risk negatives, and manual actions from <Comments or feedback> for <Monitoring period and focus>." },
+    "requiredSlots": { "zh": ["评论或反馈材料"], "en": ["Comments or feedback"] },
+    "conditionalSlots": { "zh": ["监测周期与重点"], "en": ["Monitoring period and focus"] }
   }
 ]
