@@ -42,7 +42,14 @@ export function formatExpertFolderDisplayName(folderName: string): string {
   if (withDisplay?.[1]?.trim()) return withDisplay[1].trim();
   return n;
 }
-
+export function formatExpertRuntimeTreeNames(root: WorkspaceFileTreeNode): WorkspaceFileTreeNode {
+  return { ...root, children: root.children.map((a) => ({ ...a, name: formatExpertFolderDisplayName(a.name), children: a.children.map((s) => ({ ...s, name: formatExpertSessionKeyDisplay(s.name) })) })) };
+}
+export function formatExpertSessionKeyDisplay(name: string): string {
+  if (!/^\d{10,16}$/.test(name)) return name;
+  const d = new Date(Number(name)), p = (n: number) => String(n).padStart(2, "0");
+  return Number.isNaN(+d) ? name : `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 /** Session isolation dirs: Date.now() ms, short hex, or 2026-07-23_155052. */
 export function isLikelySessionFolderName(name: string): boolean {
   const n = name.trim();
