@@ -59,3 +59,45 @@ export function resolveColdOpenExpertSessionId(input: {
       : null) ?? firstGroup.latestSession.id
   );
 }
+
+/**
+ * Decide cold-open navigation once origin inventory is ready.
+ *
+ * While sessions are still catching up (or the user just switched experts),
+ * a selected id can briefly be missing from `liveSessionIds`. Stealing focus
+ * back to the first conversation group or clearing the route mid-switch
+ * blanks the surface and feels like a desktop crash during startup.
+ *
+ * Keep any selection that is still marked as an expert session in local
+ * identity. Only clear ghosts after hard-delete (`isExpertSession` false).
+ */
+export type ExpertColdOpenNavigation =
+  | { action: "keep" }
+  | { action: "open"; sessionId: string }
+  | { action: "clear-route" }
+  | { action: "create-task" };
+
+export function resolveExpertColdOpenNavigation(input: {
+  selectedSessionId: string | null | undefined;
+  routeSessionLive: boolean;
+  isExpertSession: (sessionId: string) => boolean;
+  coldOpenSessionId: string | null;
+}): ExpertColdOpenNavigation {
+  const selectedId = input.selectedSessionId?.trim() ?? "";
+  if (selectedId && input.isExpertSession(selectedId)) {
+    // Live in inventory, or still indexed as expert while list lags: never
+    // cold-open/clear over the user's choice.
+    return { action: "keep" };
+  }
+  if (!selectedId) {
+    if (input.coldOpenSessionId?.trim()) {
+      return { action: "open", sessionId: input.coldOpenSessionId.trim() };
+    }
+    return { action: "keep" };
+  }
+  // Non-expert residual route (assistant id / hard-deleted ghost).
+  if (!input.routeSessionLive) {
+    return { action: "clear-route" };
+  }
+  return { action: "create-task" };
+}
