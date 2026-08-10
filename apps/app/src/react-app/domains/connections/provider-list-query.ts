@@ -4,6 +4,10 @@ import type { Client, ModelRef, ProviderListItem } from "../../../app/types";
 import { unwrap } from "../../../app/lib/opencode";
 import { dispatchNewProviders } from "../../../app/lib/provider-events";
 import type { ProviderListResponse } from "@opencode-ai/sdk/v2/client";
+import {
+  orderConnectedProviders,
+  readConnectedProviderOrderIds,
+} from "./order-connected-providers";
 
 export const PROVIDER_LIST_CACHE_MS = 5 * 60 * 1000;
 const PROVIDER_LIST_QUERY_ROOT = ["opencode-provider-list"] as const;
@@ -56,11 +60,13 @@ export async function fetchProviderList(input: {
 
 export function getConnectedProviderItems(value: ProviderListResponse | null | undefined) {
   const connected = new Set(value?.connected ?? []);
-  return (value?.all ?? []).filter(
+  const items = (value?.all ?? []).filter(
     (provider) =>
       connected.has(provider.id) &&
       (provider.source !== "custom" || provider.id === "opencode" || Object.keys(provider.models ?? {}).length > 0),
   );
+  // Same preference as Settings → Models (custom-first default + user drag order).
+  return orderConnectedProviders(items, readConnectedProviderOrderIds());
 }
 
 export function getConnectedProviderSnapshot(value: ProviderListResponse | null | undefined): ConnectedProviderSnapshot {

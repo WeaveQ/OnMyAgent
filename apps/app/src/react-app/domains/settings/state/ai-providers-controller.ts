@@ -22,12 +22,11 @@ import {
   mergeConnectedProviders,
   moveConnectedProviderInOrder,
   orderConnectedProviders,
+  readConnectedProviderOrderIds,
+  reorderConnectedProviderIds,
+  writeConnectedProviderOrderIds,
   type MergedConnectedProvider,
 } from "../../connections";
-import {
-  readConnectedProviderOrderIds,
-  writeConnectedProviderOrderIds,
-} from "../../../shell";
 
 /** Match provider-list React Query TTL so list + inventory stay coherent. */
 export const OPENCODE_INVENTORY_CACHE_MS = 5 * 60 * 1000;
@@ -67,7 +66,9 @@ export type AiProvidersController = {
   findManagedProvider: (
     providerId: string,
   ) => AgentManagementManagedProvider | null;
-  /** Move a connected provider one step up/down and persist order. */
+  /** Drag-and-drop reorder; persists to session-memory. */
+  reorderConnectedProviders: (fromId: string, toId: string) => void;
+  /** Keyboard / touch-friendly one-step reorder. */
   moveConnectedProvider: (providerId: string, direction: "up" | "down") => void;
 };
 
@@ -247,7 +248,8 @@ export function useAiProvidersController(
     root,
   ]);
 
-  // Persisted display order (Settings → Models move up/down).
+  // Persisted display order (drag-reorder in Settings → Models). Empty
+  // preference → custom providers first via orderConnectedProviders.
   const [providerOrderIds, setProviderOrderIds] = useState(() =>
     readConnectedProviderOrderIds(),
   );
@@ -267,6 +269,29 @@ export function useAiProvidersController(
     opencodeManagedProviders,
     providerOrderIds,
   ]);
+
+  const reorderConnectedProviders = useCallback(
+    (fromId: string, toId: string) => {
+      if (!fromId || !toId || fromId === toId) return;
+      setProviderOrderIds((prev) => {
+        const merged = mergeConnectedProviders({
+          sdkProviders: input.sdkProviders,
+          connectedIds: input.connectedIds,
+          managedProviders: opencodeManagedProviders,
+          isBlocked: input.isBlocked,
+        });
+        const next = reorderConnectedProviderIds(prev, merged, fromId, toId);
+        writeConnectedProviderOrderIds(next);
+        return next;
+      });
+    },
+    [
+      input.connectedIds,
+      input.isBlocked,
+      input.sdkProviders,
+      opencodeManagedProviders,
+    ],
+  );
 
   const moveConnectedProvider = useCallback(
     (providerId: string, direction: "up" | "down") => {
@@ -307,6 +332,7 @@ export function useAiProvidersController(
     inventorySyncing,
     loadOpenCodeManagedProviders,
     findManagedProvider,
+    reorderConnectedProviders,
     moveConnectedProvider,
   };
 }

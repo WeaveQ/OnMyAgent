@@ -52,6 +52,7 @@ import {
   type SessionTranscriptDivider,
 } from "./message-list";
 import {
+  assistantActivityAllowsLoadingTips,
   getAssistantActivityPhaseLabel,
   type AssistantActivity,
 } from "./chrome/assistant-activity";
@@ -403,6 +404,9 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
               ) : null)
             }
             waitingLabel={getAssistantActivityPhaseLabel(props.assistantActivity)}
+            waitingShowTips={assistantActivityAllowsLoadingTips(
+              props.assistantActivity,
+            )}
             onDismissError={props.onDismissError}
             onChangeModel={props.onChangeModel}
             onOpenModelPicker={props.onOpenModelPicker}

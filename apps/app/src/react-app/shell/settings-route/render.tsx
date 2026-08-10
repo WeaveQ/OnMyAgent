@@ -714,6 +714,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     inventorySyncing,
     loadOpenCodeManagedProviders,
     findManagedProvider,
+    reorderConnectedProviders,
     moveConnectedProvider,
   } = aiProviders;
 
@@ -892,6 +893,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     providerStatusStyle,
     providerSummary,
     connectedProviders,
+    reorderConnectedProviders,
     moveConnectedProvider,
     providerActionBusyId,
     providerActionError,
