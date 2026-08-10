@@ -578,6 +578,18 @@ export function WorkspaceFilesBrowserPanel(props: {
     // shallow list (top-level dirs only) so every badge said "0 files" and
     // expand showed no children. Navigation is client-side via the tree.
     const load = async (): Promise<OnMyAgentWorkspaceFileCatalogEntry[]> => {
+      // Expert tab reads managed runtime artifacts (outside the workspace) via
+      // the server API; the workspace filesystem never holds these files.
+      if (sourceTab === "expert") {
+        if (!props.client || !props.workspaceId.trim()) {
+          throw new Error(t("files.load_failed"));
+        }
+        const result = await props.client.listExpertSessionFiles(
+          props.workspaceId,
+        );
+        return result.items;
+      }
+
       if (isElectronRuntime()) {
         const result = await listCodeWorkspaceFiles({
           workspacePath: fileRoot,
@@ -627,7 +639,7 @@ export function WorkspaceFilesBrowserPanel(props: {
     return () => {
       cancelled = true;
     };
-  }, [fileRoot, hasScopedFileRoot, props.active, props.client, props.workspaceId, refreshKey]);
+  }, [fileRoot, hasScopedFileRoot, props.active, props.client, props.workspaceId, refreshKey, sourceTab]);
 
   useEffect(() => {
     return () => {
@@ -708,8 +720,11 @@ export function WorkspaceFilesBrowserPanel(props: {
 
     if (activeTarget.preview === "image") {
       let objectUrl: string | null = null;
-      void props.client
-        .downloadWorkspaceFile(props.workspaceId, activeTarget.value)
+      const downloadPromise =
+        sourceTab === "expert"
+          ? props.client.downloadExpertSessionFile(props.workspaceId, activeTarget.value)
+          : props.client.downloadWorkspaceFile(props.workspaceId, activeTarget.value);
+      void downloadPromise
         .then((result) => {
           if (cancelled) return;
           objectUrl = URL.createObjectURL(new Blob([result.data], {
@@ -731,17 +746,27 @@ export function WorkspaceFilesBrowserPanel(props: {
       };
     }
 
+    const isExpertSource = sourceTab === "expert";
     const previewRequest = usesLocalFileRenderer(activeTarget)
-      ? Promise.resolve({
-          status: "local" as const,
-          filePath: activeFile.path.startsWith("/")
-            ? activeFile.path
-            : `${fileRoot.replace(/[/\\]+$/, "")}/${activeFile.path.replace(/^[/\\]+/, "")}`,
-          revision: activeTarget.updatedAt ?? Date.now(),
-        })
-      : props.client
-          .readWorkspaceFile(props.workspaceId, activeTarget.value)
-          .then((result) => ({ status: "ready" as const, content: result.content }));
+      ? (isExpertSource
+          ? props.client
+              .resolveExpertSessionFile(props.workspaceId, activeTarget.value)
+              .then((r) => ({
+                status: "local" as const,
+                filePath: r.absolutePath,
+                revision: activeTarget.updatedAt ?? Date.now(),
+              }))
+          : Promise.resolve({
+              status: "local" as const,
+              filePath: activeFile.path.startsWith("/")
+                ? activeFile.path
+                : `${fileRoot.replace(/[/\\]+$/, "")}/${activeFile.path.replace(/^[/\\]+/, "")}`,
+              revision: activeTarget.updatedAt ?? Date.now(),
+            }))
+      : (isExpertSource
+          ? props.client.readExpertSessionFile(props.workspaceId, activeTarget.value)
+          : props.client.readWorkspaceFile(props.workspaceId, activeTarget.value)
+        ).then((result) => ({ status: "ready" as const, content: result.content }));
 
     void previewRequest
       .then((state) => {
@@ -758,7 +783,7 @@ export function WorkspaceFilesBrowserPanel(props: {
     return () => {
       cancelled = true;
     };
-  }, [fileRoot, previewSelection, props.active, props.client, props.workspaceId]);
+  }, [fileRoot, previewSelection, props.active, props.client, props.workspaceId, sourceTab]);
 
   const visibleFileTree = useMemo(() => {
     // Hide system markers, then drop empty dirs (e.g. expert sessions with only

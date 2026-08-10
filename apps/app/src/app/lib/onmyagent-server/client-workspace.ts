@@ -203,6 +203,51 @@ export function createWorkspaceClientMethods(ctx: OnMyAgentServerClientContext) 
         `/workspace/${encodeURIComponent(workspaceId)}/expert-session-directory`,
         { token, hostToken, method: "POST", body: payload },
       ),
+    listExpertSessionFiles: async (workspaceId: string) => {
+      const id = workspaceId.trim();
+      if (!id) throw new Error("workspaceId is required");
+      const result = await requestJson<{
+        items: Array<{
+          path: string;
+          kind: "file" | "dir";
+          size: number;
+          mtimeMs: number;
+        }>;
+      }>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(id)}/expert-session-files`,
+        { token, hostToken },
+      );
+      return {
+        items: result.items.map(
+          (item): OnMyAgentWorkspaceFileCatalogEntry => ({
+            path: item.path,
+            kind: item.kind,
+            size: item.size,
+            mtimeMs: item.mtimeMs,
+            revision: "",
+          }),
+        ),
+      };
+    },
+    readExpertSessionFile: (workspaceId: string, path: string) =>
+      requestJson<OnMyAgentWorkspaceFileContent>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/expert-session-files/content?path=${encodeURIComponent(path)}`,
+        { token, hostToken },
+      ),
+    downloadExpertSessionFile: (workspaceId: string, path: string) =>
+      requestBinary(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/expert-session-files/raw?path=${encodeURIComponent(path)}`,
+        { token, hostToken, timeoutMs: timeouts.binary },
+      ),
+    resolveExpertSessionFile: (workspaceId: string, path: string) =>
+      requestJson<{ absolutePath: string; size: number; updatedAt: number }>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/expert-session-files/resolve?path=${encodeURIComponent(path)}`,
+        { token, hostToken },
+      ),
     readOpencodeConfigFile: (workspaceId: string, scope: "project" | "global" = "project") => {
       const query = `?scope=${scope}`;
       return requestJson<OpencodeConfigFile>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/opencode-config${query}`, {
