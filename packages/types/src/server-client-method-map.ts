@@ -32,6 +32,7 @@ import type {
   SkillContentResponse,
   SkillItem,
   WorkspaceExportResponse,
+  WorkspaceFileCatalogEntry,
   WorkspaceFileCatalogResponse,
   WorkspaceFileContentResponse,
   WorkspaceFileStatResponse,
@@ -221,6 +222,10 @@ type TypedServerClientMethodMap = {
     ],
     { ok: boolean; directory: string; sessionKey: string; agentSegment: string }
   >;
+  listExpertSessionFiles: ServerClientMethodContract<[workspaceId: string], { items: WorkspaceFileCatalogEntry[] }>;
+  readExpertSessionFile: ServerClientMethodContract<[workspaceId: string, path: string], WorkspaceFileContentResponse>;
+  downloadExpertSessionFile: ServerClientMethodContract<[workspaceId: string, path: string], BinaryDownloadResult>;
+  resolveExpertSessionFile: ServerClientMethodContract<[workspaceId: string, path: string], { absolutePath: string; size: number; updatedAt: number }>;
   readOpencodeConfigFile: ServerClientMethodContract<
     [workspaceId: string, scope?: "project" | "global"],
     OpencodeConfigFile
