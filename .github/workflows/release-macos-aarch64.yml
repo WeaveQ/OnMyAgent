@@ -542,7 +542,14 @@ jobs:
         id: source-date
         shell: bash
         run: |
-          epoch=$(git show -s --format=%ct "${RELEASE_TAG}")
+          # Dereference annotated tags: `git show -s --format=%ct <tag>` on an
+          # annotated tag prints the tag header/message before the epoch, which
+          # would produce a multi-line $GITHUB_OUTPUT value and break parsing.
+          epoch=$(git show -s --format=%ct "${RELEASE_TAG}^{commit}")
+          if ! [[ "$epoch" =~ ^[0-9]+$ ]]; then
+            echo "::error::Invalid SOURCE_DATE_EPOCH from ${RELEASE_TAG}: ${epoch}"
+            exit 1
+          fi
           echo "epoch=$epoch" >> "$GITHUB_OUTPUT"
 
       - name: Check onmyagent-orchestrator release
