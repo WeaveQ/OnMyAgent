@@ -137,11 +137,30 @@ function displayName(link, filePath) {
   return path.basename(String(link.label || filePath)) || "未命名文件";
 }
 
-function assertDeliveryActive(signal) {
+function withAttemptedTransports(error, attemptedTransports) {
+  const deliveryError = error instanceof Error ? error : new Error(String(error));
+  const priorAttempts = error && typeof error === "object" && "attemptedTransports" in error
+    ? Number(error.attemptedTransports ?? 0)
+    : 0;
+  return Object.assign(deliveryError, { attemptedTransports: Math.max(
+    priorAttempts,
+    Number(attemptedTransports ?? 0),
+  ) });
+}
+
+export function createStoppedWeixinDeliveryError(attemptedTransports) {
+  return Object.assign(new Error("Weixin channel stopped during delivery"), { name: "AbortError", attemptedTransports });
+}
+
+function assertDeliveryActive(signal, deliveryState = null) {
   if (!signal?.aborted) return;
-  const error = new Error("Weixin channel stopped during delivery");
-  error.name = "AbortError";
-  throw error;
+  throw createStoppedWeixinDeliveryError(Number(deliveryState?.attemptedTransports ?? 0));
+}
+
+async function beginTransportAttempt(deliveryState, beforeFirstTransport, signal) {
+  if (deliveryState?.attemptedTransports === 0 && beforeFirstTransport) await beforeFirstTransport();
+  assertDeliveryActive(signal, deliveryState);
+  if (deliveryState) deliveryState.attemptedTransports += 1;
 }
 
 function isDeniedName(name) {
@@ -305,24 +324,27 @@ export async function deliverOutboundFiles({
   sendText,
   formatReply,
   signal = null,
+  beforeFirstTransport = null,
 }) {
-  assertDeliveryActive(signal);
+  const deliveryState = { attemptedTransports: 0 };
+  assertDeliveryActive(signal, deliveryState);
   const selection = await selectOutboundFiles({ output, artifacts, allowedRoots });
-  assertDeliveryActive(signal);
+  assertDeliveryActive(signal, deliveryState);
   const contextToken = await readContextToken(peerId || chatId);
-  assertDeliveryActive(signal);
+  assertDeliveryActive(signal, deliveryState);
   const delivered = [];
   const failures = selection.rejected.map(describeOutboundFileRejection);
   for (const attachment of selection.attachments) {
-    assertDeliveryActive(signal);
+    assertDeliveryActive(signal, deliveryState);
     try {
-      const response = await uploadAndSendOutboundFile({ client, account, to: chatId, contextToken, attachment, signal });
-      assertDeliveryActive(signal);
+      const response = await uploadAndSendOutboundFile({ client, account, to: chatId, contextToken, attachment, signal, deliveryState, beforeFirstTransport });
+      assertDeliveryActive(signal, deliveryState);
       assertResponse(response, `send file ${attachment.name}`);
       delivered.push(attachment.name);
       setSentCount();
     } catch (error) {
-      if (signal?.aborted) throw error;
+      if (error?.retryTerminalDelivery === true) throw error;
+      if (signal?.aborted) throw withAttemptedTransports(error, deliveryState.attemptedTransports);
       const safeError = describeOutboundDeliveryError(error);
       failures.push(`${attachment.name}：${safeError}`);
       appendLog({ type: "error", text: `weixin outbound file failed (${attachment.name}): ${safeError}` });
@@ -333,16 +355,25 @@ export async function deliverOutboundFiles({
     failures.length ? `附件发送失败：\n${failures.map((item) => `- ${item}`).join("\n")}` : "",
   ].filter(Boolean);
   const body = [selection.cleanedOutput.trim(), ...statusLines].filter(Boolean).join("\n\n");
-  assertDeliveryActive(signal);
-  await sendText(formatReply({ agent, text: body }), peerId);
-  assertDeliveryActive(signal);
+  assertDeliveryActive(signal, deliveryState);
+  try {
+    await sendText(
+      formatReply({ agent, text: body }),
+      peerId,
+      deliveryState.attemptedTransports === 0 ? beforeFirstTransport : null,
+    );
+    deliveryState.attemptedTransports = Math.max(1, deliveryState.attemptedTransports);
+  } catch (error) {
+    throw withAttemptedTransports(error, deliveryState.attemptedTransports);
+  }
+  assertDeliveryActive(signal, deliveryState);
   return { delivered, failures };
 }
 
-export async function uploadAndSendOutboundFile({ client, account, to, contextToken, attachment, signal = null }) {
-  assertDeliveryActive(signal);
+export async function uploadAndSendOutboundFile({ client, account, to, contextToken, attachment, signal = null, deliveryState = null, beforeFirstTransport = null }) {
+  assertDeliveryActive(signal, deliveryState);
   const plaintext = await readVerifiedOutboundFile(attachment);
-  assertDeliveryActive(signal);
+  assertDeliveryActive(signal, deliveryState);
   const fileKey = randomBytes(16).toString("hex");
   const aesKey = randomBytes(16);
   const aesKeyHex = aesKey.toString("hex");
@@ -359,7 +390,7 @@ export async function uploadAndSendOutboundFile({ client, account, to, contextTo
     aesKey: aesKeyHex,
     signal,
   });
-  assertDeliveryActive(signal);
+  assertDeliveryActive(signal, deliveryState);
   const ret = Number(uploadResponse?.ret ?? 0);
   const errcode = Number(uploadResponse?.errcode ?? 0);
   if (ret !== 0 || errcode !== 0) {
@@ -372,9 +403,10 @@ export async function uploadAndSendOutboundFile({ client, account, to, contextTo
     : buildCdnUploadUrl({ cdnBaseUrl: account.cdnBaseUrl, uploadParam: uploadResponse?.upload_param, fileKey });
   const encrypted = encryptAes128Ecb(plaintext, aesKey);
   const uploaded = await client.uploadCdn({ uploadUrl, encrypted, signal });
-  assertDeliveryActive(signal);
+  assertDeliveryActive(signal, deliveryState);
   const encryptedQueryParam = String(uploaded?.encryptedQueryParam ?? "").trim();
   if (!encryptedQueryParam) throw new Error("CDN upload response did not include x-encrypted-param");
+  await beginTransportAttempt(deliveryState, beforeFirstTransport, signal);
   const response = await client.sendMessageItem({
     baseUrl: account.baseUrl,
     token: account.token,
@@ -395,7 +427,7 @@ export async function uploadAndSendOutboundFile({ client, account, to, contextTo
       },
     },
   });
-  assertDeliveryActive(signal);
+  assertDeliveryActive(signal, deliveryState);
   return response;
 }
 

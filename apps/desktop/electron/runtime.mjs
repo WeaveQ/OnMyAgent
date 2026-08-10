@@ -22,6 +22,7 @@ import {
   chooseProductRuntimeBinary,
 } from "./opencode-binary-policy.mjs";
 import { prepareOnMyAgentOpencodeConfigDir } from "./opencode-config-dir.mjs";
+import { resolveExpertSessionRuntimeRoot } from "./expert-session-runtime-path.mjs";
 import { createRuntimeSandbox } from "./runtime-sandbox.mjs";
 export {
   createDesktopPersonalRuntimeServices,
@@ -866,7 +867,7 @@ export function createRuntimeManager({
         ONMYAGENT_BUNDLED_SKILLS_DIR: bundledSkillsRootPath() ?? undefined,
         ONMYAGENT_BUNDLED_PLUGINS_DIR: bundledPluginsRootPath() ?? undefined,
         ONMYAGENT_EXPERTS_DIR: resolveLocalExpertsRoot(resolvedHomeDir, "experts"),
-        ONMYAGENT_EXPERT_SESSION_RUNTIME_ROOT: path.join(userDataDir, "expert-sessions"),
+        ONMYAGENT_EXPERT_SESSION_RUNTIME_ROOT: resolveExpertSessionRuntimeRoot(userDataDir),
         ONMYAGENT_WORKBUDDY_EXPERTS_DIR: path.join(
           resolvedHomeDir,
           ".workbuddy",

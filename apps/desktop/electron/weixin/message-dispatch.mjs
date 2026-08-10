@@ -86,15 +86,18 @@ export function createMessageDispatch({
       throw new Error("personal agent runtime is unavailable");
     }
     await maybeSendTyping(session, event.chatId, TYPING_START);
+    if (session.controller.signal.aborted) return null;
     try {
       const agent = event.agentSnapshot ?? await currentAgentForChat(session, event.chatId);
       if (agent.provider === ONMYAGENT_ASSISTANT_PROVIDER) {
+        if (session.controller.signal.aborted) return null;
         return await runWeixinAssistantBridgeTurn(session, event);
       }
       const promptMode = await currentPromptModeForChat(session, event.chatId);
       const historyKey = chatAgentHistoryKey(event.chatId, agent);
       const runKey = activeRunKey(event.chatId, agent);
       const existingRun = await readActiveRunSafely(session.account.accountId, runKey);
+      if (session.controller.signal.aborted) return null;
       if (existingRun) {
         // Nudge the poller and rate-limit the busy notice for this chat+agent.
         if (existingRun.runId) scheduleActiveRunPoll(session, existingRun, 0);
@@ -134,6 +137,7 @@ export function createMessageDispatch({
         const prompt = buildPrompt(event, { mode: promptMode, history, agent });
         if (typeof runtime.startMessage !== "function" || typeof runtime.getRun !== "function") {
           const legacyModel = await validatedModelForAgent(session, event.chatId, agent, { store, appendLog });
+          if (session.controller.signal.aborted) return null;
           const result = await runAgentTurn(runtime, {
             workspaceRoot: session.options.workspaceRoot,
             accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
@@ -150,6 +154,7 @@ export function createMessageDispatch({
           return result;
         }
         const chatModel = await validatedModelForAgent(session, event.chatId, agent, { store, appendLog });
+        if (session.controller.signal.aborted) return null;
         const started = await runtime.startMessage({
           workspaceRoot: session.options.workspaceRoot,
           accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,

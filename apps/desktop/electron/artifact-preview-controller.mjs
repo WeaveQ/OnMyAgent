@@ -1,5 +1,5 @@
 import { unwatchFile, watchFile } from "node:fs";
-import { readFile, realpath, stat } from "node:fs/promises";
+import { lstat, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -98,13 +98,33 @@ export function createArtifactPreviewController(options) {
     if (typeof requestedPath !== "string" || !path.isAbsolute(requestedPath)) {
       throw new Error("Artifact preview requires an absolute local file path.");
     }
-    const [candidate, roots] = await Promise.all([
+    const [candidate, workspaceRoots, managedRoots = []] = await Promise.all([
       realpath(requestedPath),
       options.listWorkspaceRoots(),
+      options.listManagedRoots?.() ?? [],
     ]);
-    const realRoots = await Promise.all(
-      roots.filter((root) => typeof root === "string" && root.trim()).map((root) => realpath(root)),
-    );
+    const resolveExistingRoot = async (root, rejectSymlink) => {
+      try {
+        if (rejectSymlink && (await lstat(root)).isSymbolicLink()) return null;
+        return await realpath(root);
+      } catch (error) {
+        if (error?.code === "ENOENT") return null;
+        throw error;
+      }
+    };
+    const [realWorkspaceRoots, realManagedRoots] = await Promise.all([
+      Promise.all(
+        workspaceRoots
+          .filter((root) => typeof root === "string" && root.trim())
+          .map((root) => resolveExistingRoot(root, false)),
+      ),
+      Promise.all(
+        managedRoots
+          .filter((root) => typeof root === "string" && root.trim())
+          .map((root) => resolveExistingRoot(root, true)),
+      ),
+    ]);
+    const realRoots = [...realWorkspaceRoots, ...realManagedRoots].filter(Boolean);
     if (!realRoots.some((root) => isWithinRoot(candidate, root))) {
       throw new Error("Artifact preview is limited to registered local workspaces.");
     }

@@ -8,6 +8,8 @@ title: 场景使用说明
 
 一句话：**说清目标 → 给材料 → 小步执行 → 文件验收 → 能重复的再自动化。**
 
+
+
 ![首页：新建任务、会话列表与输入区](/images/home-session.png)
 
 ---
@@ -96,7 +98,7 @@ title: 场景使用说明
 | 洗表、汇总、出结论 | `@` 表格 + 办公技能 | [实践三 · 表格](./practice/data) |
 | 选题、脚本、多平台文案 | 会话或内容向专家 | [实践四 · 内容](./practice/content) |
 | 每天/每周固定简报 | 手动跑通 → 自动化 | [实践五 · 简报](./practice/daily-brief) |
-| 网页必须点开才看得见 | 浏览器类技能 | [技能 · 浏览器](../guide/skills#浏览器-agent-browser) |
+| 网页必须点开才看得见 | 浏览器类技能 | [浏览器与 Computer Use](../guide/browser-computer-use) |
 | 固定岗位方法论 | 市场专家 / 创建专家 | [专家](../guide/experts) |
 | 沉淀成可复用能力 | find-skills / skill-creator | [实践 6 · 技能](./practice/skills-evolve) |
 | 定时自转 | 自动 + 自包含提示词 | [实践 7 · 自驱动](./practice/self-drive) |

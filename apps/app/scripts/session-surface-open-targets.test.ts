@@ -74,6 +74,32 @@ describe("auto-open session state (pure)", () => {
 });
 
 describe("open-targets hook source contract", () => {
+  test("passes the current session workspace root to artifact resolution", () => {
+    const hook = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/surface/session-surface-open-targets.ts",
+      ),
+      "utf8",
+    );
+    expect(hook).toContain("{ sessionRoot: input.sessionRoot }");
+
+    const host = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/surface/session-surface.tsx",
+      ),
+      "utf8",
+    );
+    expect(host).toContain("sessionRoot: props.workspaceRoot");
+
+    const client = readFileSync(
+      join(import.meta.dir, "../src/app/lib/onmyagent-server/client-workspace.ts"),
+      "utf8",
+    );
+    expect(client).toContain("sessionRoot: options?.sessionRoot");
+  });
+
   test("session reset effect is declared before the verify effect", () => {
     const source = readFileSync(
       join(

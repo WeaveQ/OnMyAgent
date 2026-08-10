@@ -197,7 +197,7 @@ export const ChatBubble = memo(function ChatBubble(props: {
         {!isUser && timelineItems.length ? (
           <div className={cn("flex flex-col gap-2.5", throttledThought ? "mt-2" : "")} data-testid="local-agent-timeline-body">
             {timelineItems.map((item) => (
-              <div key={item.kind === "tool_group" ? item.id : item.message.id} className="min-w-0">
+              <div key={item.id} className="min-w-0">
                 {item.kind === "tool_group" ? (
                   <LocalAgentToolGroupSummary messages={item.messages} runStatus={run?.status} />
                 ) : (

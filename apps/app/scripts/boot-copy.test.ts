@@ -33,6 +33,21 @@ describe("boot phase i18n keys exist", () => {
       }
     }
   });
+
+  test("ready phase stays transitional until the boot overlay exits", () => {
+    const expectedCopy = {
+      en: "Almost ready",
+      zh: "即将就绪",
+      "zh-TW": "即將就緒",
+    } as const;
+    for (const [locale, copy] of Object.entries(expectedCopy)) {
+      const src = readFileSync(
+        path.join(localeRoot, locale, "system.ts"),
+        "utf8",
+      );
+      expect(src).toContain(`"system.boot_ready": "${copy}"`);
+    }
+  });
 });
 
 describe("bootPhaseMessage", () => {

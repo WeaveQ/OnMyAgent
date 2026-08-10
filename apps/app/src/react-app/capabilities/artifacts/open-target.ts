@@ -626,8 +626,12 @@ const HARD_DECLARED_PATH_PATTERNS = [
 ];
 
 const SOFT_DECLARED_PATH_PATTERNS = [
-  /(?:已生成|已写出|已保存|保存为|输出为|交付文件|输出文件)\s*[`「"'“]?([^\s`」"'”]+?\.[a-z][a-z0-9]{0,9})[`」"'”]?/gi,
+  /(?:已生成|生成了|已写出|已保存|保存为|输出为|交付文件|输出文件)\s*(?:[:：]\s*)?[`「"'“]?([^\s`」"'”]+?\.[a-z][a-z0-9]{0,9})[`」"'”]?/gi,
   /(?:Created|Wrote|Saved)\s+[`"'“]?([^\s`"'”]+?\.[a-z][a-z0-9]{0,9})[`"'”]?/gi,
+];
+
+const EXPLICIT_ARTIFACT_LINK_PATTERNS = [
+  /\]\((?:artifact|preview):\/?([^\s)]+)\)/gi,
 ];
 
 /**
@@ -648,6 +652,17 @@ export function extractDeclaredDeliverablePaths(text: string): string[] {
     ...HARD_DECLARED_PATH_PATTERNS,
     ...SOFT_DECLARED_PATH_PATTERNS,
   ]);
+}
+
+/** Explicit markdown artifact/preview links are intentional card provenance. */
+export function extractExplicitArtifactLinkPaths(text: string): string[] {
+  return collectDeclaredPathsFromPatterns(text, EXPLICIT_ARTIFACT_LINK_PATTERNS).map((path) => {
+    try {
+      return decodeURIComponent(path);
+    } catch {
+      return path;
+    }
+  });
 }
 
 function collectFileMetadataValues(value: unknown) {
