@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { lstat, mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, readdir, realpath, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import type { WorkspaceInfo } from "@onmyagent/types/server";
@@ -191,4 +191,94 @@ async function resolveCanonicalDirectoryWithinRoot(input: {
   } catch {
     return null;
   }
+}
+
+export type ExpertSessionRuntimeFileEntry = {
+  path: string;
+  kind: "file" | "dir";
+  size: number;
+  mtimeMs: number;
+  agentSegment: string;
+  sessionKey: string;
+};
+
+/**
+ * List every managed expert session artifact under the current workspace's
+ * runtime directory. Returns flat entries whose `path` is
+ * `<agentSegment>/<sessionKey>/<fileName>` so the UI can build an
+ * agent -> session -> file outline from the existing file-tree helpers.
+ *
+ * Marker files (`onmyagent-session.json`), dotfiles and OS junk are filtered
+ * server-side; the UI also hides them via `shouldHideEntry`.
+ */
+export async function listExpertSessionRuntimeFiles(input: {
+  workspace: WorkspaceInfo;
+  runtimeRoot?: string;
+}): Promise<ExpertSessionRuntimeFileEntry[]> {
+  const runtimeRoot = resolve(
+    input.runtimeRoot?.trim() || resolveExpertSessionRuntimeRoot(),
+  );
+  const workspaceRoot = resolve(input.workspace.path);
+  const workspaceSegment = createHash("sha256")
+    .update(`${input.workspace.id}\0${workspaceRoot}`)
+    .digest("hex")
+    .slice(0, 16);
+  const workspaceDir = join(runtimeRoot, workspaceSegment);
+
+  const entries: ExpertSessionRuntimeFileEntry[] = [];
+  let agentEntries: import("node:fs").Dirent[];
+  try {
+    agentEntries = await readdir(workspaceDir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+
+  for (const agentEntry of agentEntries) {
+    if (!agentEntry.isDirectory()) continue;
+    const agentSegment = agentEntry.name;
+    const agentDir = join(workspaceDir, agentSegment);
+
+    let sessionEntries: import("node:fs").Dirent[];
+    try {
+      sessionEntries = await readdir(agentDir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const sessionEntry of sessionEntries) {
+      if (!sessionEntry.isDirectory()) continue;
+      const sessionKey = sessionEntry.name;
+      const sessionDir = join(agentDir, sessionKey);
+
+      let fileEntries: import("node:fs").Dirent[];
+      try {
+        fileEntries = await readdir(sessionDir, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const fileEntry of fileEntries) {
+        if (!fileEntry.isFile()) continue;
+        const fileName = fileEntry.name;
+        if (fileName === EXPERT_SESSION_MARKER_NAME) continue;
+        if (fileName === ".DS_Store" || fileName.startsWith(".")) continue;
+        const abs = join(sessionDir, fileName);
+        let info;
+        try {
+          info = await stat(abs);
+        } catch {
+          continue;
+        }
+        entries.push({
+          path: `${agentSegment}/${sessionKey}/${fileName}`,
+          kind: "file",
+          size: info.size,
+          mtimeMs: info.mtimeMs,
+          agentSegment,
+          sessionKey,
+        });
+      }
+    }
+  }
+
+  entries.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return entries;
 }

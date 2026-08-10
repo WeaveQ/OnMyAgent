@@ -1,6 +1,6 @@
 import type { ServerConfig, TokenScope, WorkspaceInfo } from "@onmyagent/types/server";
 import { ApiError } from "../core/errors.js";
-import { createExpertSessionRuntimeDirectory } from "../services/expert-session-runtime.js";
+import { createExpertSessionRuntimeDirectory, listExpertSessionRuntimeFiles } from "../services/expert-session-runtime.js";
 import { deleteSessionOrigin } from "../services/session-origins.js";
 import { addRoute, systemJsonResponse, type RequestContext, type Route } from "./route-core.js";
 
@@ -92,6 +92,18 @@ export function registerWorkspaceSessionRoutes(input: {
         sessionKey: typeof body.sessionKey === "string" ? body.sessionKey : undefined,
       });
       return systemJsonResponse({ ok: true, ...result }, 201);
+    },
+  );
+
+  addRoute(
+    routes,
+    "GET",
+    "/workspace/:id/expert-session-files",
+    "client",
+    async (ctx) => {
+      const workspace = await resolveWorkspace(config, ctx.params.id);
+      const items = await listExpertSessionRuntimeFiles({ workspace });
+      return systemJsonResponse({ items });
     },
   );
 
