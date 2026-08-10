@@ -142,6 +142,11 @@ const buildTargets = new Map([
   ['web', { command: 'pnpm', args: ['--filter', '@onmyagent/app', 'build'] }],
 ])
 
+const graphifyTargets = new Map([
+  // AST-only graph refresh (no LLM key). See scripts/cli/graphify-build.mjs.
+  ['build', { command: 'node', args: ['scripts/cli/graphify-build.mjs'] }],
+])
+
 const groups = new Map([
   ['check', checkTargets],
   ['test', testTargets],
@@ -149,6 +154,7 @@ const groups = new Map([
   ['version', bumpTargets],
   ['website', websiteTargets],
   ['build', buildTargets],
+  ['graphify', graphifyTargets],
 ])
 
 function printUsage() {
@@ -159,7 +165,8 @@ Groups:
   test     unit|api|runtime|release-smoke|ui|health|sessions|refactor|events|todos|permissions|automation-model|extensions-store|expert-marketplace-ui-contract|infinite-canvas-model|infinite-canvas-ui-contract|infinite-canvas-ui-smoke|personal-local-agent-acp-ui-smoke|local-agent-workspace-picker-ui-smoke|personal-local-agent-codex-acp-tool-smoke|remote-diagnostics|open-target|session-sync|session-render-state|session-process-summary|assistant-selection-memory|session-shared-pages-layout|session-route-workspace-actions|shared-skills-catalog|shared-status-toasts|shared-provider-list|shared-modal-styles|shared-onmyagent-server-store|titlebar-hit-targets|shared-extension-state|shared-workspace-modal-types|shared-add-mcp-modal|shared-den-help-link|shared-share-workspace-modal|shared-provider-auth-modal|shared-env-context|shared-agent-prompt-suggestions|shared-plugins-page|orchestrator:cli-args|orchestrator:cli-entry|orchestrator:runtime-auth|orchestrator:runtime-health|orchestrator:runtime-sandbox|orchestrator:runtime-services|orchestrator:sidecar-config|e2e|version-gate|orchestrator|server:archive|server:automation|server:routes|server:workspace
   build    app|web|desktop
   bump     patch|minor|major|set
-  website  dev|build|check|preview`)
+  website  dev|build|check|preview
+  graphify build   AST-only graphify-out/graph.json (no LLM key)`)
 }
 
 if (!group || group === 'help' || group === '--help' || group === '-h') {

@@ -217,9 +217,17 @@ describe("files three-source tabs (P0)", () => {
     const page = read(
       "apps/app/src/react-app/domains/workspace/workspace-files-page.tsx",
     );
-    const uploads = read(
-      "apps/app/src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
-    );
+    const uploads = [
+      read(
+        "apps/app/src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
+      ),
+      read(
+        "apps/app/src/react-app/domains/workspace/use-workspace-files-uploads-panel.ts",
+      ),
+      read(
+        "apps/app/src/react-app/domains/workspace/workspace-files-uploads-sections.tsx",
+      ),
+    ].join("\n");
 
     expect(page).toContain("FILES_SOURCE_RAIL_TABS");
     expect(page).toContain("DEFAULT_FILES_SOURCE_TAB");

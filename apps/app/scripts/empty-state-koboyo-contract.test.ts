@@ -202,13 +202,29 @@ describe("empty-state Koboyo local illustrations", () => {
       ),
       "utf8",
     );
-    const expert = readFileSync(
-      resolve(
-        root,
-        "apps/app/src/react-app/domains/session/pages/expert.tsx",
+    const expert = [
+      readFileSync(
+        resolve(
+          root,
+          "apps/app/src/react-app/domains/session/pages/expert.tsx",
+        ),
+        "utf8",
       ),
-      "utf8",
-    );
+      readFileSync(
+        resolve(
+          root,
+          "apps/app/src/react-app/domains/session/pages/use-expert-page.tsx",
+        ),
+        "utf8",
+      ),
+      readFileSync(
+        resolve(
+          root,
+          "apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx",
+        ),
+        "utf8",
+      ),
+    ].join("\n");
     for (const src of [light, sidePanel]) {
       expect(src).toContain("PROJECTS_PLACEHOLDER_ASSET");
       expect(src).toContain("EmptyStateIllustration");
@@ -220,13 +236,22 @@ describe("empty-state Koboyo local illustrations", () => {
   });
 
   test("wave-3 live empty consumers wire shared illustrations", () => {
-    const filesUploads = readFileSync(
-      resolve(
-        root,
-        "apps/app/src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
+    const filesUploads = [
+      readFileSync(
+        resolve(
+          root,
+          "apps/app/src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
+        ),
+        "utf8",
       ),
-      "utf8",
-    );
+      readFileSync(
+        resolve(
+          root,
+          "apps/app/src/react-app/domains/workspace/workspace-files-uploads-sections.tsx",
+        ),
+        "utf8",
+      ),
+    ].join("\n");
     const filesBrowser = readFileSync(
       resolve(
         root,

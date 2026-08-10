@@ -27,13 +27,23 @@ describe("agent panel resize handle contract", () => {
   });
 
   test("expert and assistant hosts use AgentPanelResizeHandle", () => {
-    for (const path of [
-      "src/react-app/domains/session/pages/expert.tsx",
-      "src/react-app/domains/session/pages/assistant.tsx",
-    ]) {
-      const source = read(path);
-      expect(source, path).toContain("AgentPanelResizeHandle");
-      expect(source, path).not.toContain(
+    const sources: Array<[string, string]> = [
+      [
+        "expert-host",
+        [
+          read("src/react-app/domains/session/pages/expert.tsx"),
+          read("src/react-app/domains/session/pages/use-expert-page.tsx"),
+          read("src/react-app/domains/session/pages/expert-page-layout.tsx"),
+        ].join("\n"),
+      ],
+      [
+        "assistant",
+        read("src/react-app/domains/session/pages/assistant.tsx"),
+      ],
+    ];
+    for (const [label, source] of sources) {
+      expect(source, label).toContain("AgentPanelResizeHandle");
+      expect(source, label).not.toContain(
         "absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent",
       );
     }

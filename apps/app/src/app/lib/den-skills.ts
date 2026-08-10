@@ -1,4 +1,10 @@
-import { createDenClient, readDenSettings, writeDenSettings } from "./den";
+/**
+ * Org skill helpers + active-org session glue built on the Den client.
+ */
+
+import type { DenOrgSkillCard } from "../types";
+import { createDenClient } from "./den-client";
+import { readDenSettings, writeDenSettings } from "./den-session";
 
 export async function saveInstalledSkillToOnMyAgentOrg(input: {
   skillText: string;
@@ -48,4 +54,78 @@ export async function saveInstalledSkillToOnMyAgentOrg(input: {
   }
 
   return { skillId: created.id, orgId, orgName };
+}
+
+export async function fetchDenOrgSkillsCatalog(
+  client: ReturnType<typeof createDenClient>,
+  orgId: string,
+): Promise<DenOrgSkillCard[]> {
+  const [hubs, flatSkills] = await Promise.all([client.listOrgSkillHubs(orgId), client.listOrgSkills(orgId)]);
+  const hubNameBySkillId = new Map<string, string>();
+  for (const hub of hubs) {
+    for (const skill of hub.skills) {
+      if (!hubNameBySkillId.has(skill.id)) {
+        hubNameBySkillId.set(skill.id, hub.name);
+      }
+    }
+  }
+  const byId = new Map<string, DenOrgSkillCard>();
+  for (const skill of flatSkills) {
+    byId.set(skill.id, {
+      ...skill,
+      hubName: hubNameBySkillId.get(skill.id) ?? null,
+    });
+  }
+  return Array.from(byId.values()).toSorted((a, b) => a.title.localeCompare(b.title));
+}
+
+export async function ensureDenActiveOrganization(options?: { forceServerSync?: boolean }) {
+  const settings = readDenSettings();
+  const token = settings.authToken?.trim() ?? "";
+  if (!token) {
+    return null;
+  }
+
+  const client = createDenClient({
+    baseUrl: settings.baseUrl,
+    apiBaseUrl: settings.apiBaseUrl,
+    token,
+  });
+
+  const response = await client.listOrgs();
+  const selectedOrgId = settings.activeOrgId?.trim() ?? "";
+  const selectedOrgSlug = settings.activeOrgSlug?.trim() ?? "";
+  const targetOrg =
+    response.orgs.find((org) => org.id === selectedOrgId) ??
+    response.orgs.find((org) => org.slug === selectedOrgSlug) ??
+    response.orgs.find((org) => org.id === response.activeOrgId) ??
+    response.orgs.find((org) => org.slug === response.activeOrgSlug) ??
+    response.orgs[0] ??
+    null;
+
+  if (!targetOrg) {
+    writeDenSettings({
+      ...settings,
+      activeOrgId: null,
+      activeOrgSlug: null,
+      activeOrgName: null,
+    }, { persistBootstrap: false });
+    return null;
+  }
+
+  if (
+    options?.forceServerSync &&
+    (!response.activeOrgId || response.activeOrgId !== targetOrg.id)
+  ) {
+    await client.setActiveOrganization({ organizationId: targetOrg.id });
+  }
+
+  writeDenSettings({
+    ...settings,
+    activeOrgId: targetOrg.id,
+    activeOrgSlug: targetOrg.slug,
+    activeOrgName: targetOrg.name,
+  }, { persistBootstrap: false });
+
+  return targetOrg;
 }

@@ -1,139 +1,62 @@
-import { createHash, randomUUID } from "node:crypto";
-import os from "node:os";
 import path from "node:path";
 
-import { createIlinkClient, ILINK_BASE_URL, LONG_POLL_TIMEOUT_MS, TYPING_START, TYPING_STOP } from "./ilink-client.mjs";
-import { createQrSvgDataUrl, getChannelRunSnapshotState } from "./local-qr.mjs";
-import { downloadAndDecryptMedia, mediaReference, mediaUrlFromReference } from "./media.mjs";
+import { createIlinkClient, ILINK_BASE_URL, LONG_POLL_TIMEOUT_MS } from "./ilink-client.mjs";
+import { getChannelRunSnapshotState } from "./local-qr.mjs";
 import { createWeixinActiveRunPolling } from "./active-run-polling.mjs";
-import { createStoppedWeixinDeliveryError, deliverOutboundFiles } from "./outbound-files.mjs";
 import { createWeixinStore, sanitizeAccount } from "./store.mjs";
-import { normalizePersonalLocalAgent } from "../personal-agent-runtime/provider-registry.mjs";
 import {
-  ONMYAGENT_ASSISTANT_AGENT_ID,
-  ONMYAGENT_ASSISTANT_PROVIDER,
-  createOnMyAgentAssistantAgent,
-  runAssistantBridgeTurn,
-} from "../channels/assistant-bridge.mjs";
-import { formatAgentReply, formatAgentResultOutput } from "../channels/AgentReplyHeader.mjs";
-
-const SESSION_EXPIRED_ERRCODE = -14;
-const RATE_LIMIT_ERRCODE = -2;
-const RETRY_DELAY_SECONDS = 2;
-const BACKOFF_DELAY_SECONDS = 30;
-const MESSAGE_DEDUP_TTL_MS = 5 * 60_000;
-const DEFAULT_TEXT_BATCH_DELAY_MS = 3_000;
-const DEFAULT_WORKSPACE_ROOT = path.join(os.homedir(), ".onmyagent", "weixin-workspace");
-const DEFAULT_HISTORY_LIMIT = 12;
-const DEFAULT_HISTORY_STORE_LIMIT = 24;
-const ACTIVE_RUN_POLL_INTERVAL_MS = 1_000;
-const ACTIVE_RUN_PENDING_POLL_INTERVAL_MS = 3_000;
-// Minimum spacing between "agent still busy" replies for the same chat+agent,
-// so quickly re-sending messages does not flood the IM chat with duplicates.
-const AGENT_BUSY_NOTICE_INTERVAL_MS = 15_000;
-// Backstop ceiling for a single channel conversation lock. The personal agent
-// runtime already enforces its own run timeout (max 12h), but that timer lives
-// in the runtime process and is lost if the desktop app restarts.
-const ACTIVE_RUN_MAX_AGE_MS = 12 * 60 * 60 * 1000 + 15 * 60 * 1000;
-
-function sleep(ms, signal = null) {
-  if (!signal) return new Promise((resolve) => setTimeout(resolve, ms));
-  if (signal.aborted) return Promise.resolve();
-  return new Promise((resolve) => {
-    const onAbort = () => { clearTimeout(timer); resolve(); };
-    const timer = setTimeout(() => { signal.removeEventListener("abort", onAbort); resolve(); }, ms);
-    signal.addEventListener("abort", onAbort, { once: true });
-  });
-}
-
-function safeId(value, keep = 8) {
-  const raw = String(value ?? "").trim();
-  if (!raw) return "?";
-  return raw.length <= keep ? raw : raw.slice(0, keep);
-}
-
-function isStaleSessionRet(ret, errcode, errmsg) {
-  if (ret !== RATE_LIMIT_ERRCODE && errcode !== RATE_LIMIT_ERRCODE) return false;
-  return String(errmsg ?? "").toLowerCase() === "unknown error";
-}
-
-function createQrImageDataUrl(scanData) {
-  const cleanData = String(scanData ?? "").trim();
-  if (!cleanData) return { dataUrl: "", error: "missing QR scan data" };
-  if (cleanData.startsWith("data:image/")) return { dataUrl: cleanData, error: null };
-  try {
-    return { dataUrl: createQrSvgDataUrl(cleanData), error: null };
-  } catch (error) {
-    return { dataUrl: "", error: error instanceof Error ? error.message : String(error) };
-  }
-}
-
-function extractText(itemList = []) {
-  for (const item of itemList) {
-    if (item?.type === 1) {
-      const text = String(item?.text_item?.text ?? "");
-      const refItem = item?.ref_msg?.message_item;
-      if (refItem?.type) {
-        const refText = extractText([refItem]);
-        const title = item?.ref_msg?.title ? String(item.ref_msg.title) : "";
-        if (refText || title) return `[引用: ${[title, refText].filter(Boolean).join(" | ")}]\n${text}`.trim();
-      }
-      return text;
-    }
-  }
-  for (const item of itemList) {
-    if (item?.type === 3) {
-      const voiceText = String(item?.voice_item?.text ?? "");
-      if (voiceText) return voiceText;
-    }
-  }
-  return "";
-}
-
-function guessChatType(message, accountId) {
-  const roomId = String(message?.room_id ?? message?.chat_room_id ?? "").trim();
-  const toUserId = String(message?.to_user_id ?? "").trim();
-  const isGroup = Boolean(roomId) || (toUserId && accountId && toUserId !== accountId && message?.msg_type === 1);
-  if (isGroup) return { chatType: "group", chatId: roomId || toUserId || String(message?.from_user_id ?? "") };
-  return { chatType: "dm", chatId: String(message?.from_user_id ?? "") };
-}
-
-function splitTextForWeixin(text, maxLength = 2000) {
-  const raw = String(text ?? "").trim();
-  if (!raw) return [];
-  if (raw.length <= maxLength) return [raw];
-  const chunks = [];
-  let rest = raw;
-  while (rest.length > maxLength) {
-    let cut = rest.lastIndexOf("\n\n", maxLength);
-    if (cut < maxLength * 0.5) cut = rest.lastIndexOf("\n", maxLength);
-    if (cut < maxLength * 0.5) cut = rest.lastIndexOf("。", maxLength);
-    if (cut < maxLength * 0.5) cut = maxLength;
-    const splitSurrogatePair = /[\uD800-\uDBFF]/u.test(rest[cut - 1] ?? "") && /[\uDC00-\uDFFF]/u.test(rest[cut] ?? "");
-    if (splitSurrogatePair) cut -= 1;
-    chunks.push(rest.slice(0, cut).trim());
-    rest = rest.slice(cut).trim();
-  }
-  if (rest) chunks.push(rest);
-  return chunks.filter(Boolean);
-}
-
-class TtlSet {
-  constructor(ttlMs) {
-    this.ttlMs = ttlMs;
-    this.items = new Map();
-  }
-
-  hasOrAdd(key) {
-    const now = Date.now();
-    for (const [item, at] of this.items) {
-      if (now - at > this.ttlMs) this.items.delete(item);
-    }
-    if (this.items.has(key)) return true;
-    this.items.set(key, now);
-    return false;
-  }
-}
+  renderApprovalPrompt,
+} from "./agent-context.mjs";
+import {
+  isAllowed,
+  normalizeAccessibleWorkspaceRoots,
+  normalizeApprovalMode,
+  normalizePromptMode,
+  normalizeRuntimeOptions,
+} from "./chat-policy.mjs";
+import {
+  parseAgentSwitchCommand,
+  parseApprovalCommand,
+  parseModeCommand,
+  parseModelSwitchCommand,
+  parseRunCommand,
+} from "./commands.mjs";
+import { createWeixinChannelSessions } from "./channel-sessions.mjs";
+import { createWeixinControlCommands } from "./control-commands.mjs";
+import {
+  ACTIVE_RUN_MAX_AGE_MS,
+  ACTIVE_RUN_PENDING_POLL_INTERVAL_MS,
+  ACTIVE_RUN_POLL_INTERVAL_MS,
+  BACKOFF_DELAY_SECONDS,
+  MESSAGE_DEDUP_TTL_MS,
+  RETRY_DELAY_SECONDS,
+  SESSION_EXPIRED_ERRCODE,
+  TtlSet,
+  createQrImageDataUrl,
+  extractText,
+  guessChatType,
+  isStaleSessionRet,
+  safeId,
+  sleep,
+  splitTextForWeixin,
+  activeRunKey,
+  activeRunGuardKey,
+  mimeFromFilename,
+} from "./helpers.mjs";
+import { createInboundMediaCollector } from "./inbound-media.mjs";
+import { createMessageDispatch } from "./message-dispatch.mjs";
+import { createOutboundDelivery } from "./outbound-delivery.mjs";
+import {
+  buildPrompt,
+  currentAgentForChat,
+  currentPromptModeForChat,
+  resolveAgentAlias,
+  renderAgentHelp,
+  renderModeHelp,
+  renderRunStatus,
+  renderRunsList,
+  runAgentTurn,
+} from "./agent-context.mjs";
 
 export function createWeixinService(options = {}) {
   const userDataDir = String(options.userDataDir ?? "").trim();
@@ -192,6 +115,41 @@ export function createWeixinService(options = {}) {
   }
 
   const {
+    sendText,
+    deliverAgentOutput,
+    maybeSendTyping,
+  } = createOutboundDelivery({
+    client,
+    store,
+    setState,
+    getSentCount: () => state.sentCount,
+    appendLog,
+  });
+
+  const {
+    getChannelSession,
+    appendChannelSessionHistory,
+    appendChannelSessionHistoryById,
+    closeChannelSessionForAgent,
+    subscribeStudioRelay,
+    unsubscribeStudioRelay,
+  } = createWeixinChannelSessions({
+    runtime,
+    channelSessionStore,
+    channelEventBus,
+    appendLog,
+    getActive: () => active,
+    sendText,
+  });
+
+  async function appendAgentHistory(session, historyKey, userText, output, agent, limit) {
+    await store.appendChatHistory(session.account.accountId, historyKey, [
+      { role: "user", text: userText, at: Date.now() },
+      { role: "assistant", text: output, at: Date.now(), agentId: agent.id, agentProvider: agent.provider },
+    ], limit).catch(() => undefined);
+  }
+
+  const {
     clearActiveRunPoll,
     deleteActiveRunSafely,
     listActiveRunsSafely,
@@ -212,6 +170,50 @@ export function createWeixinService(options = {}) {
     sendText, renderApprovalPrompt,
     setLastRunId: (runId) => setState({ lastRunId: runId }),
     setLastError: (message) => setState({ lastError: message }),
+  });
+
+  const { collectMediaFiles } = createInboundMediaCollector({
+    mediaFetchFn,
+    mediaCacheDir,
+    appendLog,
+  });
+
+  const {
+    maybeHandleControlCommand,
+  } = createWeixinControlCommands({
+    runtime,
+    store,
+    appendLog,
+    setState,
+    sendText,
+    agentBusyNoticeAt,
+    readActiveRunSafely,
+    listActiveRunsSafely,
+    writeActiveRunSafely,
+    deleteActiveRunSafely,
+    scheduleActiveRunPoll,
+    clearActiveRunPoll,
+    closeChannelSessionForAgent,
+  });
+
+  const { enqueueText } = createMessageDispatch({
+    runtime,
+    store,
+    appendLog,
+    setState,
+    sendText,
+    deliverAgentOutput,
+    maybeSendTyping,
+    agentBusyNoticeAt,
+    clearedActiveRunKeys,
+    pendingBatches,
+    readActiveRunSafely,
+    writeActiveRunSafely,
+    reserveActiveRun,
+    releaseActiveRunReservation,
+    scheduleActiveRunPoll,
+    getChannelSession,
+    appendChannelSessionHistory,
   });
 
   function runtimeOptions(input = {}) {
@@ -397,347 +399,21 @@ export function createWeixinService(options = {}) {
     return event;
   }
 
-  async function enqueueText(session, event) {
-    const agent = await currentAgentForChat(session, event.chatId);
-    const key = `${event.accountId}:${event.chatId}:${agent.provider}/${agent.id}`;
-    const prior = pendingBatches.get(key);
-    if (prior) {
-      clearTimeout(prior.timer);
-      prior.event.text = `${prior.event.text}\n${event.text}`;
-      prior.event.messageId = event.messageId || prior.event.messageId;
+  async function ensureChannelUserAuthorized(session, input) {
+    if (!channelPairingService) return true;
+    if (channelPairingService.isUserAuthorized(input.platformType, input.platformUserId)) {
+      channelPairingService.updateUserActivity(input.platformType, input.platformUserId);
+      return true;
     }
-    const batchEvent = prior?.event ?? { ...event, agentSnapshot: agent };
-    const timer = setTimeout(() => {
-      pendingBatches.delete(key);
-      void dispatchToAgent(session, batchEvent).catch((error) => {
-        const message = error instanceof Error ? error.message : String(error);
-        setState({ lastError: message });
-        appendLog({ type: "error", text: `weixin dispatch failed: ${message}` });
-        // Surface dispatch failures to the user instead of failing silently so
-        // a broken agent runtime does not look like "the bot ignores me".
-        void sendText(session, batchEvent.chatId, `处理失败：${message}\n\n请检查 Studio 中微信通道的本地 Agent 配置。`, batchEvent.senderId).catch(() => undefined);
-      });
-    }, session.options.textBatchDelayMs);
-    pendingBatches.set(key, { event: batchEvent, agent, timer });
-  }
-
-  // Routes an IM chat bound to the `onmyagent` pseudo-agent to the desktop
-  // assistant tab via the shared AssistantBridge helper. Pure additive path —
-  // only provider `onmyagent-assistant` reaches here.
-  function runWeixinAssistantBridgeTurn(session, event) {
-    return runAssistantBridgeTurn({
-      runtime,
-      store,
-      session,
-      event,
-      platformLabel: "weixin",
-      appendLog,
-      readChatSetting: storeSafeReadChatSetting,
-      deliverReply: (s, e, text) => sendText(s, e.chatId, text, e.senderId),
-    });
-  }
-
-  async function dispatchToAgent(session, event) {
-    if (!runtime?.runMessage && (!runtime?.startMessage || !runtime?.getRun)) {
-      throw new Error("personal agent runtime is unavailable");
+    const result = await channelPairingService.requestPairing(input);
+    const code = result?.pairingRequest?.code;
+    if (code) {
+      await sendText(session, input.chatId, `需要先在 Studio 本机批准配对。配对码：${code}`, input.platformUserId).catch(() => undefined);
+      appendLog({ type: "warn", text: `weixin pairing requested for ${input.platformUserId}, code=${code}` });
+    } else {
+      appendLog({ type: "warn", text: `weixin pairing request returned no code for ${input.platformUserId}` });
     }
-    await maybeSendTyping(session, event.chatId, TYPING_START);
-    if (session.controller.signal.aborted) return null;
-    try {
-      const agent = event.agentSnapshot ?? await currentAgentForChat(session, event.chatId);
-      if (agent.provider === ONMYAGENT_ASSISTANT_PROVIDER) {
-        if (session.controller.signal.aborted) return null;
-        return await runWeixinAssistantBridgeTurn(session, event);
-      }
-      const promptMode = await currentPromptModeForChat(session, event.chatId);
-      const historyKey = chatAgentHistoryKey(event.chatId, agent), runKey = activeRunKey(event.chatId, agent);
-      const existingRun = await readActiveRunSafely(session.account.accountId, runKey);
-      if (session.controller.signal.aborted) return null;
-      if (existingRun) {
-        // Nudge the poller and rate-limit the busy notice for this chat+agent.
-        if (existingRun.runId) scheduleActiveRunPoll(session, existingRun, 0);
-        const busyKey = `${session.account.accountId}:${runKey}`;
-        const nowTs = Date.now();
-        const lastAt = agentBusyNoticeAt.get(busyKey) ?? 0;
-        if (nowTs - lastAt >= AGENT_BUSY_NOTICE_INTERVAL_MS) {
-          agentBusyNoticeAt.set(busyKey, nowTs);
-          await sendText(session, event.chatId, `${agentLabel(agent)} 还在处理上一条消息，请稍后再试。发送 #status 查看进度，或 #cancel 取消后再重发。`, event.senderId).catch(() => undefined);
-        }
-        return existingRun;
-      }
-      const reservation = reserveActiveRun(session.account.accountId, runKey, {
-        accountId: session.account.accountId,
-        chatId: event.chatId,
-        senderId: event.senderId,
-        agent,
-        historyKey,
-        startedAt: Date.now(),
-      });
-      if (!reservation.acquired) {
-        if (reservation.record?.runId) scheduleActiveRunPoll(session, reservation.record, 0);
-        const busyKey = `${session.account.accountId}:${runKey}`;
-        const nowTs = Date.now();
-        const lastAt = agentBusyNoticeAt.get(busyKey) ?? 0;
-        if (nowTs - lastAt >= AGENT_BUSY_NOTICE_INTERVAL_MS) {
-          agentBusyNoticeAt.set(busyKey, nowTs);
-          await sendText(session, event.chatId, `${agentLabel(agent)} 还在处理上一条消息，请稍后再试。发送 #status 查看进度，或 #cancel 取消后再重发。`, event.senderId).catch(() => undefined);
-        }
-        return reservation.record;
-      }
-      let reservationPromoted = false;
-      try {
-        const runtimeAgent = scopedWeixinRuntimeAgent(agent, event);
-        const channelSession = await getChannelSession(session, event, runtimeAgent);
-        const history = await store.readChatHistory(session.account.accountId, historyKey, session.options.historyLimit).catch(() => []);
-        const prompt = buildPrompt(event, { mode: promptMode, history, agent });
-        if (typeof runtime.startMessage !== "function" || typeof runtime.getRun !== "function") {
-          const legacyModel = await validatedModelForAgent(session, event.chatId, agent, { store, appendLog });
-          if (session.controller.signal.aborted) return null;
-          const result = await runAgentTurn(runtime, {
-            workspaceRoot: session.options.workspaceRoot,
-            accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
-            prompt,
-            agent: runtimeAgent,
-            conversationId: channelSession?.conversationId ?? undefined,
-            model: legacyModel || undefined,
-            approvalMode: session.options.approvalMode,
-            timeoutMs: session.options.timeoutMs,
-          });
-          if (session.controller.signal.aborted) return result;
-          setState({ lastRunId: result?.runId ?? null });
-          await handleSynchronousAgentResult(session, event, { agent, historyKey, result, channelSession });
-          return result;
-        }
-        const chatModel = await validatedModelForAgent(session, event.chatId, agent, { store, appendLog });
-        if (session.controller.signal.aborted) return null;
-        const started = await runtime.startMessage({
-          workspaceRoot: session.options.workspaceRoot,
-          accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
-          prompt,
-          userText: event.text,
-          agent: runtimeAgent,
-          conversationId: channelSession?.conversationId ?? undefined,
-          model: chatModel || undefined,
-          approvalMode: session.options.approvalMode,
-          timeoutMs: session.options.timeoutMs,
-        });
-        if (session.controller.signal.aborted) {
-          if (started?.runId && typeof runtime.cancelRun === "function") await runtime.cancelRun(started.runId, { reason: "weixin_stopped" }).catch(() => undefined);
-          return started;
-        }
-        setState({ lastRunId: started?.runId ?? null });
-        if (!started?.runId) {
-          await handleSynchronousAgentResult(session, event, { agent, historyKey, result: started, channelSession }); return started;
-        }
-        const trackedRun = await writeActiveRunSafely(session.account.accountId, runKey, {
-          status: started.status ?? "running",
-          accountId: session.account.accountId,
-          chatId: event.chatId,
-          senderId: event.senderId,
-          runId: started.runId,
-          workspaceRoot: session.options.workspaceRoot,
-          accessibleWorkspaceRoots: session.options.accessibleWorkspaceRoots,
-          agent,
-          runtimeAgent,
-          historyKey,
-          promptMode,
-          prompt,
-          userText: event.text,
-          approvalMode: session.options.approvalMode,
-          historyStoreLimit: session.options.historyStoreLimit,
-          channelSessionId: channelSession?.id ?? null,
-          pendingApprovalNotifiedAt: null,
-          startedAt: Date.now(),
-        });
-        if (!trackedRun?.runId) {
-          if (session.controller.signal.aborted && typeof runtime.cancelRun === "function") await runtime.cancelRun(started.runId, { reason: "weixin_stopped" }).catch(() => undefined);
-          return trackedRun;
-        }
-        reservationPromoted = true;
-        clearedActiveRunKeys.delete(activeRunGuardKey(session.account.accountId, runKey));
-        scheduleActiveRunPoll(session, trackedRun, 0);
-        return trackedRun;
-      } finally {
-        if (!reservationPromoted) releaseActiveRunReservation(session.account.accountId, runKey, reservation.token);
-      }
-    } finally {
-      if (!session.controller.signal.aborted) await maybeSendTyping(session, event.chatId, TYPING_STOP);
-    }
-  }
-
-  async function handleSynchronousAgentResult(session, event, { agent, historyKey, result, channelSession }) {
-    const resultState = getChannelRunSnapshotState(result);
-    if (resultState.status === "running" && resultState.hasPendingApprovals) {
-      await sendText(session, event.chatId, "需要在 Studio 中审批后继续处理。", event.senderId);
-      return;
-    }
-    if (!resultState.isCompletedWithOutput) {
-      await sendText(session, event.chatId, "本次处理失败，请在 Studio 查看本地 Agent 日志。", event.senderId);
-      return;
-    }
-    const deliveredOutput = formatAgentResultOutput(result);
-    await deliverAgentOutput(session, {
-      chatId: event.chatId,
-      peerId: event.senderId,
-      agent,
-      result: { ...result, output: deliveredOutput },
-    });
-    await appendAgentHistory(session, historyKey, event.text, deliveredOutput, agent, session.options.historyStoreLimit);
-    await appendChannelSessionHistory(channelSession, event.text, deliveredOutput, agent);
-  }
-
-  async function appendAgentHistory(session, historyKey, userText, output, agent, limit) {
-    await store.appendChatHistory(session.account.accountId, historyKey, [
-      { role: "user", text: userText, at: Date.now() },
-      { role: "assistant", text: output, at: Date.now(), agentId: agent.id, agentProvider: agent.provider },
-    ], limit).catch(() => undefined);
-  }
-  async function sendText(session, chatId, text, peerId = chatId, beforeFirstTransport = null) {
-    const contextToken = await store.readContextToken(session.account.accountId, peerId || chatId);
-    const chunks = splitTextForWeixin(text);
-    let lastResponse = null, attemptedTransports = 0;
-    for (let index = 0; index < chunks.length; index += 1) {
-      if (session.controller.signal.aborted) throw createStoppedWeixinDeliveryError(attemptedTransports);
-      if (attemptedTransports === 0 && beforeFirstTransport) { await beforeFirstTransport(); if (session.controller.signal.aborted) throw createStoppedWeixinDeliveryError(attemptedTransports); }
-      attemptedTransports += 1;
-      lastResponse = await client.sendMessage({
-        baseUrl: session.account.baseUrl, token: session.account.token, to: chatId,
-        text: chunks[index], contextToken, clientId: `studio-weixin-${randomUUID()}`,
-      }).catch((error) => { throw Object.assign(error, { attemptedTransports }); });
-      assertIlinkOk(lastResponse, "sendmessage");
-      if (session.controller.signal.aborted) throw createStoppedWeixinDeliveryError(attemptedTransports);
-      if (index < chunks.length - 1) await sleep(session.options.sendChunkDelayMs);
-    }
-    setState({ sentCount: state.sentCount + chunks.length });
-    return lastResponse;
-  }
-  async function deliverAgentOutput(session, { chatId, peerId, agent, result, beforeFirstTransport = null }) {
-    return deliverOutboundFiles({
-      output: result.output, artifacts: result.artifacts,
-      allowedRoots: [session.options.workspaceRoot, ...session.options.accessibleWorkspaceRoots],
-      client, account: session.account, chatId, peerId, agent,
-      readContextToken: (peer) => store.readContextToken(session.account.accountId, peer),
-      setSentCount: () => setState({ sentCount: state.sentCount + 1 }), appendLog,
-      assertResponse: assertIlinkOk,
-      sendText: (text, targetPeer, beforeTransport) => sendText(session, chatId, text, targetPeer, beforeTransport), formatReply: formatAgentReply,
-      signal: session.controller.signal, beforeFirstTransport,
-    });
-  }
-
-  async function maybeSendTyping(session, chatId, status) {
-    const contextToken = await store.readContextToken(session.account.accountId, chatId);
-    try {
-      const config = await client.getConfig({
-        baseUrl: session.account.baseUrl,
-        token: session.account.token,
-        userId: chatId,
-        contextToken,
-      });
-      const typingTicket = String(config?.typing_ticket ?? "").trim();
-      if (!typingTicket) return;
-      await client.sendTyping({
-        baseUrl: session.account.baseUrl,
-        token: session.account.token,
-        toUserId: chatId,
-        typingTicket,
-        status,
-      });
-    } catch {
-      // Typing indicators are opportunistic; message delivery should continue.
-    }
-  }
-
-  async function collectMediaFiles(session, itemList) {
-    const files = [];
-    for (const item of itemList) {
-      const direct = await collectMediaFile(session, item).catch((error) => {
-        appendLog({ type: "error", text: `weixin media download failed: ${error.message}` });
-        return null;
-      });
-      if (direct) files.push(direct);
-      const refItem = item?.ref_msg?.message_item;
-      if (refItem) {
-        const ref = await collectMediaFile(session, refItem).catch(() => null);
-        if (ref) files.push(ref);
-      }
-    }
-    return files;
-  }
-
-  async function collectMediaFile(session, item) {
-    if (item?.type === 1) return null;
-    if (item?.type === 3 && item?.voice_item?.text) return null;
-    const descriptor = mediaDescriptorForItem(session, item);
-    if (!descriptor) return null;
-    const outputPath = await downloadAndDecryptMedia({
-      fetchFn: mediaFetchFn,
-      url: descriptor.url,
-      aesKey: descriptor.aesKey,
-      outputDir: mediaCacheDir,
-      filename: descriptor.filename,
-    });
-    return { path: outputPath, mimeType: descriptor.mimeType, kind: descriptor.kind };
-  }
-
-  function mediaDescriptorForItem(session, item) {
-    if (item?.type === 2) {
-      const media = mediaReference(item, "image_item");
-      const aeskeyHex = String(item?.image_item?.aeskey ?? "").trim();
-      return {
-        kind: "image",
-        mimeType: "image/jpeg",
-        filename: `weixin-image-${Date.now()}.jpg`,
-        url: mediaUrlFromReference({ cdnBaseUrl: session.account.cdnBaseUrl, media }),
-        aesKey: aeskeyHex ? Buffer.from(aeskeyHex, "hex").toString("base64") : media?.aes_key,
-      };
-    }
-    if (item?.type === 4) {
-      const fileItem = item?.file_item ?? {};
-      const filename = String(fileItem.file_name ?? `weixin-file-${Date.now()}.bin`);
-      const media = fileItem.media ?? {};
-      return {
-        kind: "file",
-        mimeType: mimeFromFilename(filename),
-        filename,
-        url: mediaUrlFromReference({ cdnBaseUrl: session.account.cdnBaseUrl, media }),
-        aesKey: media?.aes_key,
-      };
-    }
-    if (item?.type === 5) {
-      const media = mediaReference(item, "video_item");
-      return {
-        kind: "video",
-        mimeType: "video/mp4",
-        filename: `weixin-video-${Date.now()}.mp4`,
-        url: mediaUrlFromReference({ cdnBaseUrl: session.account.cdnBaseUrl, media }),
-        aesKey: media?.aes_key,
-      };
-    }
-    if (item?.type === 3) {
-      const media = mediaReference(item, "voice_item");
-      return {
-        kind: "voice",
-        mimeType: "audio/silk",
-        filename: `weixin-voice-${Date.now()}.silk`,
-        url: mediaUrlFromReference({ cdnBaseUrl: session.account.cdnBaseUrl, media }),
-        aesKey: media?.aes_key,
-      };
-    }
-    return null;
-  }
-
-  function assertIlinkOk(response, operation) {
-    const ret = response?.ret ?? 0;
-    const errcode = response?.errcode ?? 0;
-    if (ret === 0 && errcode === 0) return;
-    const errmsg = String(response?.errmsg ?? response?.message ?? "").trim();
-    if (ret === SESSION_EXPIRED_ERRCODE || errcode === SESSION_EXPIRED_ERRCODE || isStaleSessionRet(ret, errcode, errmsg)) {
-      setState({ status: "needs_login", lastError: `Weixin iLink session expired during ${operation}` });
-      throw new Error(`Weixin iLink session expired during ${operation}`);
-    }
-    const message = `Weixin iLink ${operation} failed ret=${ret} errcode=${errcode}${errmsg ? `: ${errmsg}` : ""}`;
-    setState({ lastError: message });
-    throw new Error(message);
+    return false;
   }
 
   async function loginStart(input = {}) {
@@ -871,370 +547,6 @@ export function createWeixinService(options = {}) {
     return { ok: true, event, status: snapshot() };
   }
 
-  async function maybeHandleControlCommand(session, event) {
-    const approvalCommand = parseApprovalCommand(event.text);
-    if (approvalCommand) {
-      await handleApprovalCommand(session, event, approvalCommand);
-      return true;
-    }
-
-    const runCommand = parseRunCommand(event.text);
-    if (runCommand) {
-      await handleRunCommand(session, event, runCommand);
-      return true;
-    }
-
-    const modeCommand = parseModeCommand(event.text);
-    if (modeCommand) {
-      if (!modeCommand.target) {
-        await sendText(session, event.chatId, renderModeHelp(session, event.chatId), event.senderId);
-        return true;
-      }
-      const nextMode = normalizePromptMode(modeCommand.target);
-      if (nextMode !== modeCommand.target.trim().toLowerCase()) {
-        await sendText(session, event.chatId, `未知微信转发模式：${modeCommand.target}\n\n${renderModeHelp(session, event.chatId)}`, event.senderId);
-        return true;
-      }
-      session.options.promptModeByChat.set(event.chatId, nextMode);
-      await store.writeChatSetting(session.account.accountId, event.chatId, { promptMode: nextMode });
-      await sendText(session, event.chatId, `已切换当前微信会话的转发模式：${nextMode}`, event.senderId);
-      return true;
-    }
-
-    const modelCommand = parseModelSwitchCommand(event.text);
-    if (modelCommand) {
-      const boundAgent = await currentAgentForChat(session, event.chatId);
-      const enrichedAgent = await enrichAgentModelOptions(runtime, session, boundAgent).catch(() => boundAgent);
-      const currentModel = await currentModelForChat(session, event.chatId);
-      const rawTarget = modelCommand.target;
-      if (!rawTarget) {
-        await sendText(session, event.chatId, renderModelHelp(enrichedAgent, currentModel), event.senderId).catch((error) => {
-          appendLog({ type: "error", text: `weixin model-switch help send failed: ${error?.message ?? error}` });
-        });
-        return true;
-      }
-      const lowered = rawTarget.toLowerCase();
-      if (lowered === "default" || lowered === "reset" || lowered === "清除" || lowered === "重置") {
-        session.options.modelByChat.set(event.chatId, "");
-        await store.writeChatSetting(session.account.accountId, event.chatId, { model: "" }).catch((error) => {
-          appendLog({ type: "error", text: `weixin model-switch: writeChatSetting failed: ${error?.message ?? error}` });
-        });
-        await sendText(session, event.chatId, `已恢复当前微信会话的默认模型（${agentLabel(enrichedAgent)}）。`, event.senderId).catch(() => undefined);
-        return true;
-      }
-      const resolved = resolveAgentModelId(enrichedAgent, rawTarget);
-      if (!resolved) {
-        await sendText(session, event.chatId, `未在当前 Agent 的模型列表中找到：${rawTarget}\n\n${renderModelHelp(enrichedAgent, currentModel)}`, event.senderId).catch(() => undefined);
-        return true;
-      }
-      session.options.modelByChat.set(event.chatId, resolved);
-      await store.writeChatSetting(session.account.accountId, event.chatId, { model: resolved }).catch((error) => {
-        appendLog({ type: "error", text: `weixin model-switch: writeChatSetting failed: ${error?.message ?? error}` });
-      });
-      await sendText(session, event.chatId, `已切换当前微信会话的模型：${resolved}`, event.senderId).catch(() => undefined);
-      return true;
-    }
-
-    const agentCommand = parseAgentSwitchCommand(event.text);
-    if (!agentCommand) return false;
-    const availableIds = (session.options.availableAgents ?? []).map((a) => `${a.provider}/${a.id}`);
-    appendLog({ type: "debug", text: `weixin agent-switch: raw=${JSON.stringify(event.text)} target=${JSON.stringify(agentCommand.target)} chat=${event.chatId} available=[${availableIds.join(",")}]` });
-    if (!agentCommand.target) {
-      appendLog({ type: "debug", text: "weixin agent-switch: empty target, sending help" });
-      await sendText(session, event.chatId, renderAgentHelp(session, event.chatId), event.senderId).catch((error) => {
-        appendLog({ type: "error", text: `weixin agent-switch help send failed: ${error?.message ?? error}` });
-      });
-      return true;
-    }
-    const nextAgent = resolveAgentAlias(session.options.availableAgents, agentCommand.target);
-    if (!nextAgent) {
-      appendLog({ type: "warn", text: `weixin agent-switch: target=${agentCommand.target} did not match any available agent alias; sending not-found` });
-      await sendText(session, event.chatId, `未找到可切换的本地 Agent：${agentCommand.target}\n\n${renderAgentHelp(session, event.chatId)}`, event.senderId).catch((error) => {
-        appendLog({ type: "error", text: `weixin agent-switch not-found send failed: ${error?.message ?? error}` });
-      });
-      return true;
-    }
-    const priorAgent = session.options.agentByChat.get(event.chatId) ?? null;
-    session.options.agentByChat.set(event.chatId, nextAgent);
-    try {
-      await store.writeChatSetting(session.account.accountId, event.chatId, { agent: nextAgent });
-    } catch (error) {
-      appendLog({ type: "error", text: `weixin agent-switch: writeChatSetting failed: ${error?.message ?? error}` });
-    }
-    if (session.options.channelAssistantBindingStore) {
-      await session.options.channelAssistantBindingStore
-        .setChatAssistant("wechat", event.chatId, { assistant_id: nextAgent.id })
-        .catch((error) => appendLog({ text: `Failed to persist chat binding: ${error?.message ?? error}` }));
-    }
-    setState({ activeAgentId: nextAgent.id, lastError: null });
-    let priorRun = null;
-    try {
-      const priorRunKey = priorAgent ? activeRunKey(event.chatId, priorAgent) : null;
-      if (priorRunKey) priorRun = await readActiveRunSafely(session.account.accountId, priorRunKey);
-    } catch { /* noop */ }
-    const suffix = priorRun?.runId ? `\n上一个任务（${priorAgent ? agentLabel(priorAgent) : "旧 Agent"}）仍在运行，其结果会异步返回；新消息将由新 Agent 处理。` : "";
-    appendLog({ type: "debug", text: `weixin agent-switch: switched ${priorAgent ? priorAgent.id : "<none>"} -> ${nextAgent.id} priorRun=${priorRun?.runId ?? "none"}` });
-    try {
-      await sendText(session, event.chatId, `已切换当前微信会话的回复 Agent：${agentLabel(nextAgent)}${suffix}`, event.senderId);
-      appendLog({ type: "debug", text: `weixin agent-switch: ack delivered to chat=${event.chatId}` });
-    } catch (error) {
-      appendLog({ type: "error", text: `weixin agent-switch ack send failed: ${error?.message ?? error}` });
-    }
-    return true;
-  }
-
-  async function handleRunCommand(session, event, command) {
-    if (command.name === "runs") {
-      const runs = await listActiveRunsSafely(session.account.accountId);
-      await sendText(session, event.chatId, renderRunsList(runs), event.senderId);
-      return;
-    }
-    const agent = await currentAgentForChat(session, event.chatId);
-    const runKey = activeRunKey(event.chatId, agent);
-    const run = await readActiveRunSafely(session.account.accountId, runKey);
-    if (command.name === "new") {
-      if (run) {
-        await sendText(session, event.chatId, "当前微信会话和 Agent 还有运行中的任务。请等待完成，或先发送 #cancel 后再开启新会话。", event.senderId);
-        return;
-      }
-      const runtimeAgent = scopedWeixinRuntimeAgent(agent, event);
-      const historyKey = chatAgentHistoryKey(event.chatId, agent);
-      await store.clearChatHistory?.(session.account.accountId, historyKey).catch(() => false);
-      await closeChannelSessionForAgent(session, event, runtimeAgent);
-      const reset = typeof runtime?.resetConversation === "function"
-        ? await runtime.resetConversation({ workspaceRoot: session.options.workspaceRoot, agent: runtimeAgent }).catch((error) => ({ ok: false, error: error instanceof Error ? error.message : String(error) }))
-        : { ok: false, error: "runtime reset is unavailable" };
-      if (reset?.ok === false) {
-        await sendText(session, event.chatId, `已清空微信侧历史，但本地 Agent 会话重置失败：${reset.error ?? "unknown error"}`, event.senderId);
-        return;
-      }
-      await sendText(session, event.chatId, `已为当前微信会话开启新的 ${agentLabel(agent)} 对话。后续消息不会带入该 Agent 之前的微信历史或本地 provider session。`, event.senderId);
-      return;
-    }
-    if (command.name === "status" || command.name === "continue") {
-      if (run) scheduleActiveRunPoll(session, run, 0);
-      await sendText(session, event.chatId, run ? renderRunStatus(run) : "当前微信会话和 Agent 没有运行中的任务。", event.senderId);
-      return;
-    }
-    if (command.name === "cancel") {
-      if (run && !run.runId) {
-        await sendText(session, event.chatId, "当前微信会话和 Agent 的任务正在启动，请稍后再发送 #cancel。", event.senderId);
-        return;
-      }
-      if (!run?.runId) {
-        await sendText(session, event.chatId, "当前微信会话和 Agent 没有可取消的任务。", event.senderId);
-        return;
-      }
-      const cancelled = typeof runtime?.cancelRun === "function"
-        ? await runtime.cancelRun(run.runId, { reason: "weixin" })
-        : { ok: false, error: "runtime cancel is unavailable" };
-      clearActiveRunPoll(session.account.accountId, runKey);
-      agentBusyNoticeAt.delete(`${session.account.accountId}:${runKey}`);
-      await deleteActiveRunSafely(session.account.accountId, runKey);
-      await sendText(session, event.chatId, cancelled?.ok === false ? `已清理微信侧任务记录，但本地取消失败：${cancelled.error ?? "unknown error"}` : "已取消当前微信会话的本地 Agent 任务。", event.senderId);
-    }
-  }
-
-  async function handleApprovalCommand(session, event, command) {
-    if (typeof runtime?.resolveApproval !== "function") {
-      await sendText(session, event.chatId, "当前本地 Agent runtime 不支持微信内审批。请在 Studio 中处理审批。", event.senderId);
-      return;
-    }
-    const pendingRuns = await pendingApprovalRunsForChat(session, event.chatId);
-    if (!pendingRuns.length) {
-      await sendText(session, event.chatId, "当前微信会话没有等待审批的本地 Agent 任务。", event.senderId);
-      return;
-    }
-    const targets = command.all ? pendingRuns : [pendingRuns[0]];
-    let resolvedCount = 0;
-    const errors = [];
-    for (const run of targets) {
-      const approvals = Array.isArray(run.pendingApprovals) ? run.pendingApprovals : [];
-      const approvalTargets = command.all ? approvals : approvals.slice(0, 1);
-      for (const approval of approvalTargets) {
-        const result = await runtime.resolveApproval({
-          runId: run.runId,
-          approvalId: approval.id,
-          decision: command.decision,
-        }).catch((error) => ({ ok: false, error: error instanceof Error ? error.message : String(error) }));
-        if (result?.ok === false) {
-          errors.push(`${safeId(run.runId, 12)}: ${result.error ?? "unknown error"}`);
-          continue;
-        }
-        resolvedCount += 1;
-      }
-      const remaining = command.all ? [] : approvals.slice(1);
-      const updated = await writeActiveRunSafely(session.account.accountId, run.runKey, {
-        status: remaining.length ? "pending_approval" : "running",
-        pendingApprovals: remaining,
-        pendingApprovalNotifiedAt: remaining.length ? run.pendingApprovalNotifiedAt : null,
-      }, { ...run, status: remaining.length ? "pending_approval" : "running", pendingApprovals: remaining, pendingApprovalNotifiedAt: remaining.length ? run.pendingApprovalNotifiedAt : null });
-      if (updated) scheduleActiveRunPoll(session, updated, 0);
-    }
-    if (!resolvedCount && errors.length) {
-      await sendText(session, event.chatId, `审批处理失败：\n${errors.join("\n")}`, event.senderId);
-      return;
-    }
-    const action = command.decision === "decline" ? "拒绝" : "批准";
-    const suffix = errors.length ? `\n部分审批失败：\n${errors.join("\n")}` : "";
-    await sendText(session, event.chatId, `已${action} ${resolvedCount} 个审批请求，Agent 将继续处理。${suffix}`, event.senderId);
-  }
-
-  async function pendingApprovalRunsForChat(session, chatId) {
-    const runs = await listActiveRunsSafely(session.account.accountId);
-    return runs
-      .filter((run) => String(run.chatId ?? "") === String(chatId ?? ""))
-      .filter((run) => Array.isArray(run.pendingApprovals) && run.pendingApprovals.length > 0)
-      .sort((a, b) => Number(a.startedAt ?? a.createdAt ?? 0) - Number(b.startedAt ?? b.createdAt ?? 0));
-  }
-
-  async function ensureChannelUserAuthorized(session, input) {
-    if (!channelPairingService) return true;
-    if (channelPairingService.isUserAuthorized(input.platformType, input.platformUserId)) {
-      channelPairingService.updateUserActivity(input.platformType, input.platformUserId);
-      return true;
-    }
-    const result = await channelPairingService.requestPairing(input);
-    const code = result?.pairingRequest?.code;
-    if (code) {
-      await sendText(session, input.chatId, `需要先在 Studio 本机批准配对。配对码：${code}`, input.platformUserId).catch(() => undefined);
-      appendLog({ type: "warn", text: `weixin pairing requested for ${input.platformUserId}, code=${code}` });
-    } else {
-      appendLog({ type: "warn", text: `weixin pairing request returned no code for ${input.platformUserId}` });
-    }
-    return false;
-  }
-
-  async function getChannelSession(session, event, agent) {
-    if (!channelSessionStore) return null;
-    const channelSession = await channelSessionStore.getOrCreateSession({
-      platformType: "wechat",
-      platformUserId: event.senderId,
-      agentType: `${agent.provider}/${agent.id}`,
-      workspace: session.options.workspaceRoot,
-      chatId: event.chatId,
-    }).catch(() => null);
-    if (!channelSession) return null;
-    // Parity with Upstream create_conversation_for_session + bind_conversation:
-    // lazily create (once) a Studio conversation tagged source:"channel" and
-    // persist the mapping on the channel session so the same chat always
-    // reuses the same conversation and Studio can recognize its origin.
-    //
-    // Self-healing guard (regression fix): a channel session may already carry
-    // a non-empty conversationId that points at a missing/orphaned conversation
-    // file (e.g. left behind after a runtime restart). The original
-    // `!channelSession.conversationId` check would never re-bind such a stale
-    // pointer, leaving the UI showing an empty, unselectable session. We now
-    // also rebuild the binding when the bound conversation no longer exists.
-    const needBind = await shouldBindConversation({ session, event, agent, channelSession });
-    if (needBind) {
-      try {
-        // A chat-scoped agent can predate this binding (for example, an
-        // existing Weixin task after an app restart). Reuse its active
-        // conversation before creating another one, so upgrading this code
-        // preserves the actual Codex context instead of starting blank.
-        const listed = await runtime?.listConversations?.({
-          workspaceRoot: session.options.workspaceRoot,
-          agent: { provider: agent.provider, id: agent.id },
-        });
-        let conversationId = listed?.conversations?.find(
-          (conversation) => String(conversation?.id ?? "") === String(listed?.activeConversationId ?? ""),
-        )?.id ?? null;
-        if (!conversationId && runtime?.createConversation) {
-          const created = await runtime.createConversation({
-            workspaceRoot: session.options.workspaceRoot,
-            agent: { provider: agent.provider, id: agent.id },
-            source: "channel",
-            title: `微信 ${event.senderId}@${event.chatId}`,
-            metadata: {
-              channelChatId: event.chatId,
-              platformType: "wechat",
-              platformUserId: event.senderId,
-            },
-          });
-          conversationId = created?.conversation?.id ?? created?.id ?? null;
-        }
-        if (conversationId) {
-          await channelSessionStore.bindConversation(channelSession.id, conversationId);
-          if (channelSession.conversationId) {
-            appendLog({ type: "warn", text: `weixin healed orphaned conversationId ${channelSession.conversationId} -> ${conversationId}` });
-          }
-        }
-      } catch (error) {
-        appendLog({ type: "warn", text: `weixin conversation bind failed: ${error?.message ?? String(error)}` });
-      }
-    }
-    return channelSessionStore.getSession(channelSession.id) ?? channelSession;
-
-    async function shouldBindConversation({ session, event, agent, channelSession }) {
-      const boundId = String(channelSession.conversationId ?? "").trim();
-      if (!boundId) return true;
-      // Non-empty binding: verify the conversation still exists. If the
-      // runtime/facade is unavailable, fail safe to "do not rebind" (the old
-      // behavior) so we never clobber a valid mapping on a transient error.
-      //
-      // NOTE: we must match by exact id. `getAgentConversation` falls back to
-      // the active/first conversation when the id is missing, so it would
-      // wrongly report a stale, orphaned id as "found". `listConversations`
-      // returns the raw list and lets us test id membership strictly.
-      if (!runtime?.listConversations) return false;
-      try {
-        const listed = await runtime.listConversations({
-          workspaceRoot: session.options.workspaceRoot,
-          agent: { provider: agent.provider, id: agent.id },
-        });
-        const conversations = listed?.conversations ?? [];
-        return !conversations.some((c) => String(c?.id ?? "") === boundId);
-      } catch {
-        return false;
-      }
-    }
-  }
-
-  // Parity S4 (reverse relay): when Studio sends a message on a conversation
-  // that this channel has bound to an IM chat, push it back to that chat.
-  // Subscribes to the bus event emitted by channel-runtime.relayStudioMessage;
-  // only acts when the target platform matches this service (wechat).
-  let _studioRelayUnsub = null;
-  function subscribeStudioRelay() {
-    if (!channelEventBus || _studioRelayUnsub) return;
-    _studioRelayUnsub = channelEventBus.subscribe("channel:conversation:message:from-studio", (event) => {
-      const payload = event?.payload ?? event ?? {};
-      if (String(payload?.platformType ?? "").toLowerCase() !== "wechat") return;
-      const chatId = String(payload?.chatId ?? "").trim();
-      const text = String(payload?.text ?? "").trim();
-      if (!chatId || !text) return;
-      void sendText(active, chatId, text, chatId).catch((error) => {
-        appendLog({ type: "error", text: `weixin studio-relay send failed: ${error?.message ?? String(error)}` });
-      });
-    });
-  }
-  function unsubscribeStudioRelay() {
-    if (_studioRelayUnsub) {
-      try { _studioRelayUnsub(); } catch { /* noop */ }
-      _studioRelayUnsub = null;
-    }
-  }
-
-  async function appendChannelSessionHistory(channelSession, userText, output, agent) {
-    if (!channelSessionStore || !channelSession?.id) return;
-    const at = Date.now();
-    await channelSessionStore.addSessionMessage(channelSession.id, { role: "user", content: userText, timestamp: at, metadata: { agentId: agent.id, agentProvider: agent.provider } }).catch(() => undefined);
-    await channelSessionStore.addSessionMessage(channelSession.id, { role: "assistant", content: output, timestamp: Date.now(), metadata: { agentId: agent.id, agentProvider: agent.provider } }).catch(() => undefined);
-  }
-
-  async function appendChannelSessionHistoryById(sessionId, userText, output, agent) {
-    if (!channelSessionStore || !sessionId) return;
-    const channelSession = channelSessionStore.getSession(sessionId);
-    await appendChannelSessionHistory(channelSession, userText, output, agent);
-  }
-
-  async function closeChannelSessionForAgent(session, event, agent) {
-    if (!channelSessionStore) return;
-    const channelSession = await getChannelSession(session, event, agent);
-    if (channelSession?.id) await channelSessionStore.closeSession(channelSession.id).catch(() => undefined);
-  }
-
   async function probe(input = {}) {
     const accountId = String(input.accountId ?? state.accountId ?? "").trim();
     const account = accountId ? await store.loadAccount(accountId).catch(() => null) : await store.loadDefaultAccount().catch(() => null);
@@ -1263,453 +575,6 @@ export function createWeixinService(options = {}) {
       return processMessage(session, message);
     },
   };
-}
-
-function normalizeRuntimeOptions(input = {}) {
-  const agent = normalizePersonalLocalAgent(input.agent ?? { provider: "opencode" });
-  const availableAgents = normalizeAvailableAgents(input.availableAgents ?? input.agents, agent);
-  const allowedUsers = normalizeList(input.allowedUsers ?? input.allowFrom);
-  const allowedGroups = normalizeList(input.allowedGroups ?? input.groupAllowFrom);
-  const dmPolicy = normalizePolicy(input.dmPolicy, allowedUsers, "allowlist");
-  const groupPolicy = normalizePolicy(input.groupPolicy, allowedGroups, "disabled");
-  return {
-    workspaceRoot: String(input.workspaceRoot ?? DEFAULT_WORKSPACE_ROOT),
-    accessibleWorkspaceRoots: normalizeAccessibleWorkspaceRoots(input.accessibleWorkspaceRoots, input.workspaceRoot ?? DEFAULT_WORKSPACE_ROOT),
-    agent,
-    availableAgents,
-    agentByChat: new Map(),
-    modelByChat: new Map(),
-    promptModeByChat: new Map(),
-    approvalMode: normalizeApprovalMode(input.approvalMode),
-    promptMode: normalizePromptMode(input.promptMode),
-    dmPolicy,
-    allowedUsers,
-    groupPolicy,
-    allowedGroups,
-    textBatchDelayMs: Number.isFinite(Number(input.textBatchDelayMs)) ? Math.max(0, Number(input.textBatchDelayMs)) : DEFAULT_TEXT_BATCH_DELAY_MS,
-    sendChunkDelayMs: Number.isFinite(Number(input.sendChunkDelayMs)) ? Math.max(0, Number(input.sendChunkDelayMs)) : 1500,
-    timeoutMs: Number.isFinite(Number(input.timeoutMs)) ? Number(input.timeoutMs) : undefined,
-    historyLimit: Number.isFinite(Number(input.historyLimit)) ? Math.max(0, Number(input.historyLimit)) : DEFAULT_HISTORY_LIMIT,
-    historyStoreLimit: Number.isFinite(Number(input.historyStoreLimit)) ? Math.max(1, Number(input.historyStoreLimit)) : DEFAULT_HISTORY_STORE_LIMIT,
-  };
-}
-
-function normalizeApprovalMode(value) {
-  const mode = String(value ?? "ask").trim();
-  if (mode === "auto" || mode === "ask" || mode === "read-only-auto") return mode;
-  return "ask";
-}
-
-function normalizeAccessibleWorkspaceRoots(value, workspaceRoot = "") {
-  const primary = String(workspaceRoot ?? "").trim();
-  const source = Array.isArray(value) ? value : String(value ?? "").split(",");
-  const seen = new Set();
-  const roots = [];
-  for (const item of source) {
-    const root = String(item ?? "").trim();
-    if (!root || root === primary || seen.has(root)) continue;
-    seen.add(root);
-    roots.push(root);
-  }
-  return roots;
-}
-
-function normalizePromptMode(value) {
-  const mode = String(value ?? "raw").trim().toLowerCase();
-  if (mode === "debug") return "debug";
-  return "raw";
-}
-
-function normalizeAvailableAgents(value, fallbackAgent) {
-  const source = Array.isArray(value) ? value : [];
-  const byId = new Map();
-  for (const item of [fallbackAgent, ...source]) {
-    const agent = normalizePersonalLocalAgent(item);
-    byId.set(agent.id, agent);
-  }
-  if (!byId.has(ONMYAGENT_ASSISTANT_AGENT_ID)) {
-    byId.set(ONMYAGENT_ASSISTANT_AGENT_ID, createOnMyAgentAssistantAgent());
-  }
-  return [...byId.values()];
-}
-
-function normalizeList(value) {
-  if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
-  return String(value ?? "").split(",").map((item) => item.trim()).filter(Boolean);
-}
-
-function normalizePolicy(value, allowlist, fallback) {
-  const policy = String(value ?? fallback).trim();
-  if (policy === "allowlist" && allowlist.length === 0) return "open";
-  if (policy === "open" || policy === "disabled" || policy === "allowlist") return policy;
-  return fallback;
-}
-
-function isAllowed(options, chat, senderId) {
-  if (chat.chatType === "group") {
-    if (options.groupPolicy === "disabled") return false;
-    if (options.groupPolicy === "allowlist") return options.allowedGroups.includes(chat.chatId);
-    return true;
-  }
-  if (options.dmPolicy === "disabled") return false;
-  if (options.dmPolicy === "allowlist") return options.allowedUsers.includes(senderId);
-  return true;
-}
-
-async function currentAgentForChat(session, chatId) {
-  const memoryAgent = session.options.agentByChat.get(chatId);
-  if (memoryAgent) return memoryAgent;
-  const setting = await storeSafeReadChatSetting(session, chatId);
-  const storedAgent = setting?.agent ? normalizePersonalLocalAgent(setting.agent) : null;
-  if (storedAgent) {
-    const available = resolveAgentAlias(session.options.availableAgents, storedAgent.id) ?? storedAgent;
-    session.options.agentByChat.set(chatId, available);
-    return available;
-  }
-  const bindingStore = session.options.channelAssistantBindingStore;
-  if (bindingStore) {
-    const chatBinding = bindingStore.getChatAssistant("wechat", chatId);
-    const platformBinding = chatBinding ?? bindingStore.getPlatformSettings("wechat")?.assistant ?? null;
-    const bindingId = platformBinding?.assistant_id ?? platformBinding?.custom_agent_id;
-    if (bindingId) {
-      const alias = resolveAgentAlias(session.options.availableAgents, bindingId);
-      if (alias) {
-        session.options.agentByChat.set(chatId, alias);
-        return alias;
-      }
-    }
-  }
-  return session.options.agent;
-}
-
-async function currentPromptModeForChat(session, chatId) {
-  const memoryMode = session.options.promptModeByChat.get(chatId);
-  if (memoryMode) return memoryMode;
-  const setting = await storeSafeReadChatSetting(session, chatId);
-  const mode = normalizePromptMode(setting?.promptMode ?? session.options.promptMode);
-  session.options.promptModeByChat.set(chatId, mode);
-  return mode;
-}
-
-async function currentModelForChat(session, chatId) {
-  const memory = session.options.modelByChat.get(chatId);
-  if (memory !== undefined) return memory;
-  const setting = await storeSafeReadChatSetting(session, chatId);
-  const stored = typeof setting?.model === "string" ? setting.model.trim() : "";
-  session.options.modelByChat.set(chatId, stored);
-  return stored;
-}
-
-// Returns the per-chat model only if it is actually offered by the current
-// agent. When the user switches agents (e.g. from CodeBuddy which accepts
-// "auto" to Codex which requires a "modelId[effort]" form), a stale per-chat
-// model from the previous agent must not be forwarded — otherwise the runtime
-// rejects it (e.g. "Unknown model auto[medium]"). We drop the stale override
-// from memory and persisted settings so the agent falls back to its default.
-async function validatedModelForAgent(session, chatId, agent, { store, appendLog }) {
-  const model = await currentModelForChat(session, chatId);
-  if (!model) return "";
-  const options = agentModelOptionsFor(agent);
-  if (options.length === 0) {
-    // Agent exposes no model list: only forward the per-chat model when the
-    // agent itself was configured with this model as its default (so we don't
-    // pass an arbitrary string to a provider that can't validate it).
-    return agent?.model === model ? model : "";
-  }
-  const ok = options.some((option) => option.id === model)
-    || options.some((option) => option.id.toLowerCase() === model.toLowerCase());
-  if (ok) return model;
-  // Stale model from a different agent — clear it so we stop failing.
-  session.options.modelByChat.set(chatId, "");
-  await store.writeChatSetting(session.account.accountId, chatId, { model: "" }).catch(() => undefined);
-  appendLog({ type: "debug", text: `weixin: dropped stale per-chat model "${model}" (not in ${agent?.id ?? "unknown"} model list)` });
-  return "";
-}
-
-async function enrichAgentModelOptions(runtime, session, agent) {
-  if (!agent) return agent;
-  const existing = agentModelOptionsFor(agent);
-  if (existing.length > 0) return agent;
-  if (!runtime || typeof runtime.listAgents !== "function") return agent;
-  try {
-    const workspaceRoot = session?.options?.workspaceRoot ?? "";
-    const accessibleWorkspaceRoots = session?.options?.accessibleWorkspaceRoots ?? [];
-    const listed = await runtime.listAgents({ workspaceRoot, accessibleWorkspaceRoots, includeModels: true });
-    const list = Array.isArray(listed?.agents) ? listed.agents : [];
-    const match = list.find((item) => item?.id === agent.id)
-      || list.find((item) => item?.provider === agent.provider);
-    if (!match) return agent;
-    const options = Array.isArray(match.modelOptions) ? match.modelOptions : [];
-    const defaultModel = typeof match.defaultModel === "string" ? match.defaultModel : agent.defaultModel;
-    return { ...agent, modelOptions: options, defaultModel };
-  } catch {
-    return agent;
-  }
-}
-
-function agentModelOptionsFor(agent) {
-  if (!agent) return [];
-  const options = Array.isArray(agent.modelOptions) ? agent.modelOptions : [];
-  return options
-    .map((option) => {
-      if (option && typeof option === "object") {
-        const id = String(option.id ?? option.value ?? option.name ?? "").trim();
-        if (!id) return null;
-        const label = String(option.label ?? option.name ?? id).trim() || id;
-        return { id, label };
-      }
-      const id = String(option ?? "").trim();
-      return id ? { id, label: id } : null;
-    })
-    .filter(Boolean);
-}
-
-function resolveAgentModelId(agent, target) {
-  const raw = String(target ?? "").trim();
-  if (!raw) return null;
-  const options = agentModelOptionsFor(agent);
-  const exact = options.find((option) => option.id === raw);
-  if (exact) return exact.id;
-  const lower = raw.toLowerCase();
-  const ci = options.find((option) => option.id.toLowerCase() === lower || option.label.toLowerCase() === lower);
-  if (ci) return ci.id;
-  return options.length === 0 ? raw : null;
-}
-
-function renderModelHelp(agent, currentModel) {
-  const label = agent ? agentLabel(agent) : "unknown";
-  const options = agentModelOptionsFor(agent);
-  const current = currentModel ? currentModel : (agent?.defaultModel || agent?.model || "");
-  const header = current
-    ? `当前 ${label} 使用模型：${current}`
-    : `当前 ${label} 使用默认模型`;
-  if (options.length === 0) {
-    return [
-      header,
-      "该 Agent 未提供可选模型列表。可发送 #model <模型名> 手动切换；发送 #model default 恢复默认。",
-    ].join("\n");
-  }
-  return [
-    header,
-    "可用模型：",
-    ...options.map((option) => `- ${option.id}${option.label && option.label !== option.id ? ` (${option.label})` : ""}`),
-    "",
-    "发送 #model <id> 切换当前微信会话的模型；发送 #model default 恢复默认。",
-  ].join("\n");
-}
-
-async function storeSafeReadChatSetting(session, chatId) {
-  try {
-    return await session.store.readChatSetting(session.account.accountId, chatId);
-  } catch {
-    return null;
-  }
-}
-
-function parseAgentSwitchCommand(text) {
-  const raw = String(text ?? "").trim();
-  const match = raw.match(/^(?:#agent|\/agent|切换agent|切换Agent|切换代理)(?:\s+(.+))?$/i);
-  if (!match) return null;
-  return { target: String(match[1] ?? "").trim() };
-}
-
-function parseModeCommand(text) {
-  const raw = String(text ?? "").trim();
-  const match = raw.match(/^(?:#mode|\/mode|#prompt|\/prompt|切换模式)(?:\s+(.+))?$/i);
-  if (!match) return null;
-  return { target: String(match[1] ?? "").trim() };
-}
-
-function parseModelSwitchCommand(text) {
-  const raw = String(text ?? "").trim();
-  const match = raw.match(/^(?:#model|\/model|切换模型)(?:\s+(.+))?$/i);
-  if (!match) return null;
-  return { target: String(match[1] ?? "").trim() };
-}
-
-function parseRunCommand(text) {
-  const raw = String(text ?? "").trim().toLowerCase();
-  if (raw === "#status" || raw === "/status" || raw === "状态") return { name: "status" };
-  if (raw === "#runs" || raw === "/runs" || raw === "任务") return { name: "runs" };
-  if (raw === "#cancel" || raw === "/cancel" || raw === "取消") return { name: "cancel" };
-  if (raw === "#continue" || raw === "/continue" || raw === "继续") return { name: "continue" };
-  if (["#new", "/new", "#new session", "/new session", "#reset", "/reset", "#reset session", "/reset session", "新会话", "重置会话"].includes(raw)) return { name: "new" };
-  return null;
-}
-
-function parseApprovalCommand(text) {
-  const raw = String(text ?? "").trim().toLowerCase();
-  const match = raw.match(/^(?:#|\/)?(approve|allow|yes|批准|同意|通过|deny|reject|no|拒绝|不同意)(?:\s+(.+))?$/i);
-  if (!match) return null;
-  const verb = String(match[1] ?? "").toLowerCase();
-  const args = String(match[2] ?? "").toLowerCase().split(/\s+/).filter(Boolean);
-  const accept = ["approve", "allow", "yes", "批准", "同意", "通过"].includes(verb);
-  const session = args.some((arg) => ["session", "always", "本次", "本轮"].includes(arg));
-  return {
-    decision: accept ? (session ? "acceptForSession" : "accept") : "decline",
-    all: args.includes("all") || args.includes("全部"),
-  };
-}
-
-function agentLabel(agent) {
-  return `${agent.name || agent.id} (${agent.provider}${agent.id && agent.id !== agent.provider ? `/${agent.id}` : ""})`;
-}
-
-function agentAliases(agent) {
-  return [agent.id, agent.provider, agent.name]
-    .map((item) => String(item ?? "").trim().toLowerCase())
-    .filter(Boolean);
-}
-
-function resolveAgentAlias(agents, target) {
-  const normalized = String(target ?? "").trim().toLowerCase();
-  if (!normalized) return null;
-  return agents.find((agent) => agentAliases(agent).includes(normalized)) ?? null;
-}
-
-function stableHash(value) {
-  return createHash("sha256").update(String(value ?? "")).digest("hex").slice(0, 12);
-}
-
-function safeSegment(value) {
-  return String(value ?? "").trim().replace(/[^A-Za-z0-9_.@-]/g, "_").slice(0, 48) || "default";
-}
-
-function chatAgentHistoryKey(chatId, agent) {
-  return `${String(chatId ?? "").trim()}::agent:${agent.provider}/${agent.id}`;
-}
-
-function activeRunKey(chatId, agent) {
-  return `${String(chatId ?? "").trim()}::agent:${agent.provider}/${agent.id}`;
-}
-
-function activeRunGuardKey(accountId, runKey) {
-  return `${String(accountId ?? "").trim()}:${String(runKey ?? "").trim()}`;
-}
-
-function scopedWeixinRuntimeAgent(agent, event) {
-  const scopeHash = stableHash(`${event.accountId}\n${event.chatId}\n${agent.provider}\n${agent.id}`);
-  return {
-    ...agent,
-    id: `${safeSegment(agent.id)}-weixin-${scopeHash}`,
-    name: agent.name ? `${agent.name} · Weixin` : `${agent.provider} · Weixin`,
-  };
-}
-
-function renderAgentHelp(session, chatId) {
-  const current = session.options.agentByChat.get(chatId) ?? session.options.agent;
-  const lines = [
-    `当前回复 Agent：${agentLabel(current)}`,
-    "可用 Agent：",
-    ...session.options.availableAgents.map((agent) => `- ${agent.id}: ${agentLabel(agent)}`),
-    "",
-    "发送 #agent <id> 切换，例如：#agent codex 或 #agent onmyagent（连接本地助理）",
-  ];
-  return lines.join("\n");
-}
-
-function renderModeHelp(session, chatId) {
-  const current = session.options.promptModeByChat.get(chatId) ?? session.options.promptMode;
-  return [
-    `当前转发模式：${current}`,
-    "可用模式：raw、debug",
-    "发送 #mode raw 使用原文直通；发送 #mode debug 使用调试上下文。",
-  ].join("\n");
-}
-
-function renderRunStatus(run) {
-  const agent = run?.agent ? agentLabel(run.agent) : "unknown";
-  const status = String(run?.status ?? "running");
-  const runIdValue = safeId(run?.runId, 12);
-  const startedAt = run?.startedAt ? new Date(run.startedAt).toISOString().replace("T", " ").slice(0, 19) : "unknown";
-  const approval = Array.isArray(run?.pendingApprovals) && run.pendingApprovals.length ? `\n待审批：${run.pendingApprovals.length}` : "";
-  return [`当前任务：${status}`, `Agent：${agent}`, `runId：${runIdValue}`, `开始时间：${startedAt}${approval}`].join("\n");
-}
-
-function renderApprovalPrompt(run, pendingApprovals) {
-  const approvals = Array.isArray(pendingApprovals) ? pendingApprovals : [];
-  const first = approvals[0] ?? {};
-  const lines = [
-    "本地 Agent 请求权限审批。",
-    `Agent：${run?.agent ? agentLabel(run.agent) : "unknown"}`,
-    `runId：${safeId(run?.runId, 12)}`,
-    first.title ? `标题：${first.title}` : null,
-    first.summary ? `说明：${first.summary}` : null,
-    first.command ? `命令：${first.command}` : null,
-    first.cwd ? `目录：${first.cwd}` : null,
-    approvals.length > 1 ? `待审批数量：${approvals.length}` : null,
-    "",
-    "回复 #approve 批准一次；#approve session 批准本轮；#deny 拒绝。",
-    approvals.length > 1 ? "可用 #approve all 或 #deny all 处理全部。" : null,
-  ];
-  return lines.filter(Boolean).join("\n");
-}
-
-function renderRunsList(runs) {
-  const items = Array.isArray(runs) ? runs : [];
-  if (!items.length) return "当前账号没有运行中的微信本地 Agent 任务。";
-  return [
-    "当前账号运行中的任务：",
-    ...items.map((run) => `- ${String(run.chatId ?? "?")} / ${run?.agent?.id ?? "unknown"}: ${String(run.status ?? "running")} (${safeId(run.runId, 12)})`),
-  ].join("\n");
-}
-
-function buildPrompt(event, options = {}) {
-  const mode = normalizePromptMode(options.mode);
-  const mediaLines = Array.isArray(event.mediaFiles) && event.mediaFiles.length
-    ? ["", "本地媒体附件:", ...event.mediaFiles.map((file) => `- ${file.kind || "file"} ${file.mimeType || "application/octet-stream"}: ${file.path}`)]
-    : [];
-  if (mode === "raw") {
-    return [event.text, ...mediaLines].filter(Boolean).join("\n").trim();
-  }
-  const history = Array.isArray(options.history) ? options.history : [];
-  const historyLines = history.length
-    ? ["", "最近对话:", ...history.map((item) => `- ${item.role || "unknown"}${item.agentId ? `/${item.agentId}` : ""}: ${String(item.text ?? "").trim()}`)]
-    : [];
-  const agent = options.agent ?? {};
-  return [
-    `来源: Weixin/iLink`,
-    `chat_id: ${event.chatId}`,
-    `user_id: ${event.senderId}`,
-    event.messageId ? `message_id: ${event.messageId}` : null,
-    agent.id ? `agent: ${agent.provider || "unknown"}/${agent.id}` : null,
-    `prompt_mode: ${mode}`,
-    ...historyLines,
-    "",
-    "用户消息:",
-    event.text,
-    ...mediaLines,
-  ].filter((line) => line !== null).join("\n");
-}
-
-function mimeFromFilename(filename) {
-  const lower = String(filename ?? "").toLowerCase();
-  if (/\.(jpe?g)$/.test(lower)) return "image/jpeg";
-  if (/\.png$/.test(lower)) return "image/png";
-  if (/\.gif$/.test(lower)) return "image/gif";
-  if (/\.webp$/.test(lower)) return "image/webp";
-  if (/\.mp4$/.test(lower)) return "video/mp4";
-  if (/\.pdf$/.test(lower)) return "application/pdf";
-  if (/\.txt$/.test(lower)) return "text/plain";
-  return "application/octet-stream";
-}
-
-async function runAgentTurn(runtime, input) {
-  if (typeof runtime.startMessage !== "function" || typeof runtime.getRun !== "function") {
-    return await runtime.runMessage(input);
-  }
-  const started = await runtime.startMessage(input);
-  const runId = started?.runId;
-  if (!runId) return started;
-  const deadline = Date.now() + Math.max(30_000, Number(input.timeoutMs ?? 15 * 60_000));
-  while (Date.now() < deadline) {
-    const snapshot = await runtime.getRun({ runId, workspaceRoot: input.workspaceRoot });
-    const snapshotState = getChannelRunSnapshotState(snapshot);
-    if (snapshotState.hasPendingApprovals) return snapshot;
-    if (snapshotState.isTerminal) return snapshot;
-    await sleep(250);
-  }
-  return await runtime.getRun({ runId, workspaceRoot: input.workspaceRoot });
 }
 
 export const __test__ = {

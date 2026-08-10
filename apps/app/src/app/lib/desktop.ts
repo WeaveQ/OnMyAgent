@@ -9,6 +9,17 @@ import {
   invokeElectronHelper,
   type DesktopCommandResultOf,
 } from "./desktop-invoke";
+import {
+  classifyDesktopFetchDestination,
+  DesktopFetchPolicyError,
+} from "./desktop-fetch-policy";
+
+export {
+  classifyDesktopFetchDestination,
+  DesktopFetchPolicyError,
+  type DesktopFetchDecision,
+  type DesktopFetchRoute,
+} from "./desktop-fetch-policy";
 
 export {
   invokeDesktopCommand,
@@ -499,18 +510,8 @@ export function subscribeSoftwareEnvironmentProgress(
 }
 
 // ---------------------------------------------------------------------------
-// desktopFetch — proxies non-loopback requests through Electron main process
+// desktopFetch — policy-gated: loopback direct, else main-process proxy
 // ---------------------------------------------------------------------------
-
-function isLoopbackUrl(input: RequestInfo | URL): boolean {
-  const raw = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-  try {
-    const url = new URL(raw);
-    return url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname === "[::1]";
-  } catch {
-    return false;
-  }
-}
 
 export const desktopFetch: typeof globalThis.fetch = (input, init) =>
   desktopFetchWithTimeout(input, init);
@@ -521,7 +522,13 @@ export async function desktopFetchWithTimeout(
   init?: RequestInit,
   timeoutMs?: number,
 ): Promise<Response> {
-  if (isLoopbackUrl(input)) return globalThis.fetch(input, init);
+  const decision = classifyDesktopFetchDestination(input);
+  if (decision.route === "reject") {
+    throw new DesktopFetchPolicyError(decision);
+  }
+  if (decision.route === "direct") {
+    return globalThis.fetch(input, init);
+  }
   return desktopFetchViaMain(input, init, timeoutMs);
 }
 

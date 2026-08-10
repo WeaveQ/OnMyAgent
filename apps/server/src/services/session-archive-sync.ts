@@ -4,7 +4,6 @@ import { createHash } from "node:crypto";
 import { basename, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { homedir } from "node:os";
 import type {
-  SessionArchiveAgent,
   SessionArchiveSyncProgress,
   SessionArchiveSyncStats,
 } from "@onmyagent/types/session-archive";
@@ -26,6 +25,11 @@ import {
 import { loadAutomationOwnedSessionIds } from "./automations.js";
 import { notifyArchiveDbChanged } from "./archive-change-bus.js";
 import { withSessionArchiveStore } from "./session-archive-store-pool.js";
+import type {
+  SessionArchiveRuntimePaths,
+  SessionArchiveSyncMode,
+  SessionArchiveSourceRoot,
+} from "./session-archive-sync-types.js";
 import {
   defaultSessionArchiveSyncWorkerRunner,
   type SessionArchiveSyncWorkerInput,
@@ -36,10 +40,11 @@ export {
   shouldRunPeriodicArchiveSync,
 } from "./automation-schedule-policy.js";
 
-export type SessionArchiveRuntimePaths = {
-  root: string;
-  dbPath: string;
-};
+export type {
+  SessionArchiveRuntimePaths,
+  SessionArchiveSyncMode,
+  SessionArchiveSourceRoot,
+} from "./session-archive-sync-types.js";
 
 export type SessionArchiveSyncInput = {
   workspace: WorkspaceInfo;
@@ -50,13 +55,6 @@ export type SessionArchiveSyncInput = {
   mode?: SessionArchiveSyncMode;
   changedPaths?: string[];
   onProgress?: (progress: SessionArchiveSyncProgress) => void;
-};
-
-export type SessionArchiveSyncMode = "incremental" | "resync";
-
-export type SessionArchiveSourceRoot = {
-  agent: SessionArchiveAgent;
-  root: string;
 };
 
 export type SessionArchiveWatcher = {

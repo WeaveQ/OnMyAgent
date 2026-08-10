@@ -63,7 +63,13 @@ describe("right side panel toggle contract", () => {
     // Chat / local-agent keep a transparent focus-only hairline (no solid rule).
     const transparentHairlineSources = [
       readWorkspaceFile("apps/app/src/react-app/domains/session/chat/session-page.tsx"),
-      readWorkspaceFile("apps/app/src/react-app/domains/local-agents/host/personal-local-agent-page.tsx"),
+      // List-pane resize hairline lives in sections after the P1-5 page split.
+      [
+        "apps/app/src/react-app/domains/local-agents/host/personal-local-agent-page.tsx",
+        "apps/app/src/react-app/domains/local-agents/host/personal-local-agent-page-sections.tsx",
+      ]
+        .map((path) => readWorkspaceFile(path))
+        .join("\n"),
     ];
     for (const source of transparentHairlineSources) {
       expect(source).toContain(
@@ -77,7 +83,10 @@ describe("right side panel toggle contract", () => {
     // Assistant / expert right gutter is a 2px hit target with no center rule.
     const twoPxGutterSources = [
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx"),
-      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
+      [
+        readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
+        readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx"),
+      ].join("\n"),
     ];
     for (const source of twoPxGutterSources) {
       expect(source).toContain('className="hidden w-[2px] before:hidden lg:flex"');
@@ -91,7 +100,10 @@ describe("right side panel toggle contract", () => {
     const sources = [
       readWorkspaceFile("apps/app/src/react-app/domains/session/chat/session-page.tsx"),
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx"),
-      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
+      [
+        readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
+        readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx"),
+      ].join("\n"),
     ];
 
     for (const source of sources) {
@@ -119,7 +131,11 @@ describe("right side panel toggle contract", () => {
 
   test("assistant and expert pages hide the header toggle while the right panel is expanded", () => {
     const assistant = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx");
-    const expert = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx");
+    const expert = [
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-page.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx"),
+    ].join("\n");
     const sharedChrome = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/pages/session-history-search-chrome.tsx",
     );

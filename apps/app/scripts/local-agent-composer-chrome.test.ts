@@ -13,13 +13,13 @@ describe("local agent composer chrome aligns with workbench", () => {
       ),
       "utf8",
     );
-    const page = readFileSync(
-      join(
-        repoRoot,
-        "apps/app/src/react-app/domains/local-agents/host/personal-local-agent-page.tsx",
-      ),
-      "utf8",
-    );
+    const page = [
+      "apps/app/src/react-app/domains/local-agents/host/personal-local-agent-page.tsx",
+      "apps/app/src/react-app/domains/local-agents/host/personal-local-agent-page-sections.tsx",
+      "apps/app/src/react-app/domains/local-agents/host/use-personal-local-agent-page.ts",
+    ]
+      .map((path) => readFileSync(join(repoRoot, path), "utf8"))
+      .join("\n");
     const footnote = readFileSync(
       join(
         repoRoot,
@@ -29,19 +29,20 @@ describe("local agent composer chrome aligns with workbench", () => {
     );
 
     expect(composer).toContain("bottomAccessory");
-    expect(composer).toContain("border-dls-mist");
-    expect(composer).toContain("rounded-t-xl rounded-b-none");
+    expect(composer).toContain("border-dls-border");
+    expect(composer).toContain("rounded-t-xl");
     expect(composer).toContain("data-local-agent-composer-footer");
     expect(composer).not.toContain("ring-2 ring-dls-accent/15");
 
     expect(page).toContain('density="compact"');
     expect(page).toContain("bottomAccessory=");
-    expect(page).toContain("bg-gradient-to-t from-dls-background");
+    // Solid footer plate (no gradient glass wash).
+    expect(page).toContain("Solid footer plate");
     expect(page).toContain("overflow-x-hidden");
     // Workspace + approval live under the card (workbench pattern).
     expect(page).toMatch(/bottomAccessory=\{[\s\S]*WorkspaceFootnote[\s\S]*SelectMenu/);
     // Approval select must not force w-full (was causing horizontal scrollbar).
-    expect(page).toContain('className="w-auto max-w-[12rem] shrink-0"');
+    expect(page).toContain("w-auto min-w-[9.5rem] max-w-[14rem] shrink-0");
 
     expect(footnote).toContain('density?: "default" | "compact"');
     expect(footnote).toContain('density === "compact"');

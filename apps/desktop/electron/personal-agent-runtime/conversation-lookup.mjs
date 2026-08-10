@@ -7,7 +7,7 @@ import {
   CONVERSATION_DIR,
   conversationRoot,
   normalizeConversation,
-} from "./conversation-store.mjs";
+} from "./conversation-paths.mjs";
 
 /**
  * @typedef {Object} ConversationSummary
