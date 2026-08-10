@@ -290,6 +290,7 @@ describe("expert marketplace UI contract", () => {
         "./skills/kol-reputation-monitor",
         "./skills/kol-rebate-invoice-audit",
         "./skills/kol-content-risk-checklist",
+        "./skills/rebate-contract-checker",
       ],
       "kol-project-review-specialist": [
         "./skills/kol-project-review-framework",
@@ -345,6 +346,21 @@ describe("expert marketplace UI contract", () => {
       expect(entry?.manifest?.quickPrompts?.length).toBeGreaterThanOrEqual(4);
       expect(entry?.manifest?.profession?.zh).toBe(creatorProfessions[packageName]);
       expect(entry?.manifest?.displayName?.zh).toBe(creatorProfessions[packageName]);
+
+      if (packageName === "kol-content-ops-specialist") {
+        const rebateCheckerRoot = join(packageRoot, "skills/rebate-contract-checker");
+        expect(
+          existsSync(join(rebateCheckerRoot, "scripts/check_rebate_contracts.py")),
+        ).toBe(true);
+        expect(existsSync(join(rebateCheckerRoot, "references/usage_guide.md"))).toBe(
+          true,
+        );
+        const agentMarkdown = readFileSync(
+          join(packageRoot, "agents/kol-content-ops-specialist.md"),
+          "utf8",
+        );
+        expect(agentMarkdown).toContain("rebate-contract-checker");
+      }
       const cats = [
         ...(entry?.manifest?.categoryId ? [entry.manifest.categoryId] : []),
         ...(Array.isArray(entry?.manifest?.categoryIds) ? entry.manifest.categoryIds : []),

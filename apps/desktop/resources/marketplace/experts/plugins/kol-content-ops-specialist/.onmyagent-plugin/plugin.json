@@ -15,7 +15,8 @@
     "./skills/kol-script-risk-review",
     "./skills/kol-reputation-monitor",
     "./skills/kol-rebate-invoice-audit",
-    "./skills/kol-content-risk-checklist"
+    "./skills/kol-content-risk-checklist",
+    "./skills/rebate-contract-checker"
   ],
   "displayName": {
     "en": "Creator Ops Specialist",
