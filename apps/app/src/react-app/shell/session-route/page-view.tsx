@@ -84,7 +84,7 @@ import {
   removeAssistantSession,
   removeExpertSession,
 } from "../../domains/agents";
-import { writeSessionOriginBestEffort } from "../../domains/agents";
+import { writeSessionOriginDurable } from "../../domains/agents";
 import {
   removeAutomationSessionRecord,
   renameAutomationSessionRecord,
@@ -696,7 +696,9 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             }
 
             addExpertSession(newSession.id);
-            writeSessionOriginBestEffort({
+            // Await durable origin so reload recovery has agentId + directory.
+            // Do not block navigation on the promise beyond microtask settle.
+            void writeSessionOriginDurable({
               client: selectedWorkspaceEndpoint?.client ?? client,
               workspaceId: selectedWorkspaceEndpoint?.workspaceId ?? workspaceId,
               sessionId: newSession.id,

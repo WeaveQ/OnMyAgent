@@ -109,11 +109,9 @@ export async function createExpertSessionRuntimeDirectory(input: {
     throw new Error("Expert session runtime root must be outside the workspace");
   }
   const sessionKey = normalizeSessionKey(input.sessionKey);
-  const nameSegment = sanitizePathSegment(input.agentName, "expert");
-  const idSegment = input.agentId?.trim()
-    ? sanitizePathSegment(input.agentId, "")
-    : "";
-  const agentSegment = idSegment ? `${nameSegment}-${idSegment}` : nameSegment;
+  // Prefer stable package/agent id only (not displayName-id doubles like
+  // "项目复盘专家-kol-…kol-…"). Fall back to sanitized display name.
+  const agentSegment = resolveExpertAgentSegment(input.agentName, input.agentId);
   const workspaceSegment = createHash("sha256")
     .update(`${input.workspace.id}\0${workspaceRoot}`)
     .digest("hex")
@@ -140,6 +138,28 @@ export async function createExpertSessionRuntimeDirectory(input: {
 function normalizeSessionKey(value?: string): string {
   const candidate = value?.trim() || Date.now().toString();
   return /^\d{10,16}$/.test(candidate) ? candidate : Date.now().toString();
+}
+
+/**
+ * Build a stable path segment for an expert agent.
+ * Marketplace ids look like `pkg:pkg`; using only the package token avoids
+ * doubled segments when displayName already contains the package slug.
+ */
+export function resolveExpertAgentSegment(
+  agentName: string,
+  agentId?: string,
+): string {
+  const idRaw = agentId?.trim() ?? "";
+  const packageToken = idRaw
+    ? (idRaw.includes(":")
+        ? idRaw.split(":").map((part) => part.trim()).filter(Boolean).pop()
+        : idRaw)
+    : "";
+  const fromId = packageToken
+    ? sanitizePathSegment(packageToken, "")
+    : "";
+  if (fromId) return fromId;
+  return sanitizePathSegment(agentName, "expert");
 }
 
 function sanitizePathSegment(raw: string, fallback: string): string {
