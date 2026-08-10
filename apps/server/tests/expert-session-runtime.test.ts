@@ -146,3 +146,43 @@ async function writeMarker(directory: string, workspaceId: string) {
     "utf8",
   );
 }
+
+describe("resolveExpertAgentSegment", () => {
+  test("uses package token only for marketplace ids", async () => {
+    const { resolveExpertAgentSegment } = await import(
+      "../src/services/expert-session-runtime.js"
+    );
+    expect(
+      resolveExpertAgentSegment(
+        "项目复盘专家",
+        "kol-project-review-specialist:kol-project-review-specialist",
+      ),
+    ).toBe("kol-project-review-specialist");
+    expect(resolveExpertAgentSegment("Media Specialist", "kol-media-specialist")).toBe(
+      "kol-media-specialist",
+    );
+    expect(resolveExpertAgentSegment("Custom Expert", "")).toBe("Custom-Expert");
+  });
+
+  test("createExpertSessionRuntimeDirectory does not double package slug", async () => {
+    const runtimeRoot = join(tempRoot, "runtime");
+    const workspace = testWorkspace(join(tempRoot, "project-create"));
+    await mkdir(workspace.path, { recursive: true });
+    const result = await createExpertSessionRuntimeDirectory({
+      workspace,
+      agentName: "项目复盘专家",
+      agentId: "kol-project-review-specialist:kol-project-review-specialist",
+      sessionKey: "1786347548004",
+      runtimeRoot,
+    });
+    expect(result.agentSegment).toBe("kol-project-review-specialist");
+    expect(result.directory.endsWith("/kol-project-review-specialist/1786347548004")).toBe(
+      true,
+    );
+    expect(result.directory.includes("kol-project-review-specialistkol")).toBe(false);
+    const marker = JSON.parse(
+      await readFile(join(result.directory, "onmyagent-session.json"), "utf8"),
+    );
+    expect(marker.agent).toBe("kol-project-review-specialist");
+  });
+});

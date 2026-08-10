@@ -391,6 +391,25 @@ export function useSessionRouteSessionLoader(input: Input) {
                   return next;
                 });
               }
+              // Always reconcile identities for sessions we already know
+              // (primary + recovered), even when the full origin pass is
+              // incomplete. Waiting for complete left experts ungrouped.
+              const recoveredAcrossPages = Array.from(
+                recoveredOriginItems.current.get(workspace.id)?.values() ?? [],
+              );
+              const knownItems = mergeRecoveredSessionsWithCurrent(
+                sidebarItems,
+                recoveredAcrossPages,
+              );
+              const knownSessionIds = new Set(
+                knownItems.map((item) => item.id).filter(Boolean),
+              );
+              reconcileSessionOrigins({
+                localWorkspaceId: workspace.id,
+                originWorkspaceId: endpoint.workspaceId,
+                realSessionIds: knownSessionIds,
+                origins: payload.items,
+              });
               if (!recovery.complete) {
                 originHydrationGate.markOriginRecoveryFailed();
                 scheduleOriginRecoveryRetry(
@@ -400,13 +419,7 @@ export function useSessionRouteSessionLoader(input: Input) {
               }
               originRecoveryRetryAttempts.current.delete(workspace.id);
               originRecoveryPending.current.delete(workspace.id);
-              const recoveredAcrossPages = Array.from(
-                recoveredOriginItems.current.get(workspace.id)?.values() ?? [],
-              );
-              const authoritativeItems = mergeRecoveredSessionsWithCurrent(
-                sidebarItems,
-                recoveredAcrossPages,
-              );
+              const authoritativeItems = knownItems;
               setSessionsByWorkspaceId((current) => {
                 const next = mergeWorkspaceFetchedSessions({
                   current,
@@ -430,6 +443,7 @@ export function useSessionRouteSessionLoader(input: Input) {
               const realSessionIds = new Set(
                 authoritativeItems.map((item) => item.id),
               );
+              // Final pass after authoritative merge (idempotent).
               reconcileSessionOrigins({
                 localWorkspaceId: workspace.id,
                 originWorkspaceId: endpoint.workspaceId,
