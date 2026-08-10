@@ -6,6 +6,8 @@ import type { WorkspaceInfo } from "@onmyagent/types/server";
 
 import {
   createExpertSessionRuntimeDirectory,
+  ensureExpertSessionRuntimeIsolation,
+  EXPERT_SESSION_ISOLATION_VERSION,
   resolveAuthorizedArtifactResolutionRoot,
   resolveAuthorizedExpertSessionRuntimeDirectory,
 } from "../src/services/expert-session-runtime.js";
@@ -117,12 +119,18 @@ describe("expert session runtime directory", () => {
     expect(await readFile(join(result.directory, "onmyagent-session.json"), "utf8"))
       .toContain('"runtime": true');
     expect(result.defaultAgent).toBe("onmyagent");
-    expect(result.isolationVersion).toBe(1);
+    expect(result.isolationVersion).toBe(EXPERT_SESSION_ISOLATION_VERSION);
     const opencode = JSON.parse(
       await readFile(join(result.directory, "opencode.json"), "utf8"),
     ) as { default_agent?: string; plugin?: unknown[] };
     expect(opencode.default_agent).toBe("onmyagent");
     expect(opencode.plugin).toEqual([]);
+    const agentMd = await readFile(
+      join(result.directory, ".opencode", "agents", "onmyagent.md"),
+      "utf8",
+    );
+    expect(agentMd).toContain("mode: primary");
+    expect(agentMd).toContain("expert session");
   });
 
   test("materializes only declared skills into the session skills root", async () => {
@@ -158,6 +166,55 @@ describe("expert session runtime directory", () => {
         "utf8",
       ),
     ).rejects.toThrow();
+  });
+
+  test("ensure upgrades a pre-isolation expert session directory", async () => {
+    const workspace = testWorkspace(join(tempRoot, "project"));
+    const runtimeRoot = join(tempRoot, "app-user-data", "expert-sessions");
+    await mkdir(workspace.path, { recursive: true });
+    const created = await createExpertSessionRuntimeDirectory({
+      workspace,
+      runtimeRoot,
+      agentName: "legacy",
+      agentId: "legacy-id",
+      sessionKey: "1753456789002",
+    });
+    // Simulate old marker without isolation + missing agent file.
+    await writeFile(
+      join(created.directory, "onmyagent-session.json"),
+      JSON.stringify({
+        kind: "expert-session",
+        workspaceId: "ws_test",
+        agent: created.agentSegment,
+        sessionKey: created.sessionKey,
+        runtime: true,
+      }),
+      "utf8",
+    );
+    await rm(join(created.directory, ".opencode", "agents", "onmyagent.md"), {
+      force: true,
+    });
+
+    const ensured = await ensureExpertSessionRuntimeIsolation({
+      workspace,
+      directory: created.directory,
+      runtimeRoot,
+    });
+    expect(ensured?.upgraded).toBe(true);
+    expect(ensured?.isolationVersion).toBe(EXPERT_SESSION_ISOLATION_VERSION);
+    expect(
+      await readFile(
+        join(created.directory, ".opencode", "agents", "onmyagent.md"),
+        "utf8",
+      ),
+    ).toContain("mode: primary");
+
+    const again = await ensureExpertSessionRuntimeIsolation({
+      workspace,
+      directory: created.directory,
+      runtimeRoot,
+    });
+    expect(again?.upgraded).toBe(false);
   });
 
   test("rejects a runtime root inside the workspace", async () => {

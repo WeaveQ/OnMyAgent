@@ -499,6 +499,9 @@ export function useSessionRouteSurfaceProps(
           runtimeKey: envRuntimeKey,
         });
 
+        const expertSkillNames = parseSkillNamesFromAgentMarkdown(
+          pendingForColdPath?.systemPrompt ?? "",
+        );
         if (pageMode === "expert" && sendPlan.needsNewSession) {
           const explicitFolder = explicitAssistantWorkspace.trim();
           const isolate = shouldIsolateExpertSessionDirectory(
@@ -512,16 +515,13 @@ export function useSessionRouteSurfaceProps(
             // to a different expert and would create artifacts in the wrong dir.
             const agentName = pendingForDir?.name?.trim() || "expert";
             const agentId = pendingForDir?.id?.trim() || "";
-            const skillNames = parseSkillNamesFromAgentMarkdown(
-              pendingForDir?.systemPrompt ?? "",
-            );
             const isolated = await createIsolatedExpertSessionRuntimeDirectory({
               client: ensureClient,
               workspaceId: ensureWorkspaceId,
               workspaceRoot: workspaceRootForSession,
               agentName,
               agentId,
-              skillNames,
+              skillNames: expertSkillNames,
             });
             // Only bind the external runtime path when the server created it.
             // Otherwise opencode FileSystem.realPath throws ENOENT and the turn dies.
@@ -535,6 +535,22 @@ export function useSessionRouteSurfaceProps(
             // User-picked folder (not workspace root): bind side panel to that path.
             explicitAssistantWorkspace = explicitFolder;
             taskWorkspaceRoot = explicitFolder;
+          }
+        } else if (
+          pageMode === "expert" &&
+          taskWorkspaceRoot &&
+          ensureClient &&
+          typeof ensureClient.ensureExpertSessionIsolation === "function"
+        ) {
+          // Upgrade pre-isolation expert dirs (marker without isolationVersion /
+          // missing lean agent file) before the first prompt of the turn.
+          try {
+            await ensureClient.ensureExpertSessionIsolation(ensureWorkspaceId, {
+              directory: taskWorkspaceRoot,
+              ...(expertSkillNames.length ? { skillNames: expertSkillNames } : {}),
+            });
+          } catch (error) {
+            console.warn("[expert-session] isolation ensure failed", error);
           }
         }
 

@@ -18,20 +18,22 @@ Expert sessions only injected persona via `system` while OpenCode still:
 | Layer | Behavior |
 | --- | --- |
 | Session directory | Write `opencode.json` with `default_agent: onmyagent`, `plugin: []` |
-| Skills | Copy **only** declared skill names from profile/`OPENCODE_GLOBAL_SKILLS_DIR` into `<session>/.opencode/skills/` |
+| Agent file | Lean `.opencode/agents/onmyagent.md` so default_agent always resolves (v2) |
+| Skills | Copy **only** declared skill names from profile / `OPENCODE_GLOBAL_SKILLS_DIR` / legacy into `<session>/.opencode/skills/` |
 | Prompt | Expert / bound-expert turns force `agent` via `resolveExpertPromptAgent` (never Sisyphus) |
-| Marker | `isolationVersion`, `defaultAgent`, `installedSkills` on `onmyagent-session.json` |
+| Lazy ensure | `POST .../expert-session-isolation` upgrades old dirs before next prompt |
+| Marker | `isolationVersion` (current **2**), `defaultAgent`, `installedSkills` on `onmyagent-session.json` |
 
 ## Known limits
 
-- Shared `opencode serve` may still **read** `~/.opencode/opencode.json` for process-level plugins. Project `plugin: []` + **forced agent** is the reliable Sisyphus block; full HOME sandbox is path B if dogfood still shows global skill dumps.
+- Shared `opencode serve` may still **read** `~/.opencode/opencode.json` for process-level plugins. Project `plugin: []` + **forced agent** + lean agent file is the reliable Sisyphus block; full HOME sandbox is path B if dogfood still shows global skill dumps.
 - `OPENCODE_GLOBAL_SKILLS_DIR` remains process-wide; isolation is by **not** dumping the catalog into the expert agent context (light agent) and by session-local skill folders for `load_skill`.
 
 ## Acceptance
 
 - New expert assistant message: `agent` is `onmyagent` (or other non-Sisyphus).
 - First-turn input tokens for 达人运营-class experts target **&lt;10k** (soft **&lt;15k** if system prompt is long).
-- Unit: materialize skills + resolveExpertPromptAgent.
+- Unit: materialize skills + agent file + ensure upgrade + resolveExpertPromptAgent.
 
 ## Follow-ups
 
