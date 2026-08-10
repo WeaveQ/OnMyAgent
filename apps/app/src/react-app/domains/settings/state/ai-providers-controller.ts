@@ -20,10 +20,14 @@ import { agentManagementSnapshot } from "../../../../app/lib/desktop";
 import type { ProviderListItem } from "../../../../app/types";
 import {
   mergeConnectedProviders,
+  moveConnectedProviderInOrder,
   orderConnectedProviders,
   type MergedConnectedProvider,
 } from "../../connections";
-import { readConnectedProviderOrderIds } from "../../../shell";
+import {
+  readConnectedProviderOrderIds,
+  writeConnectedProviderOrderIds,
+} from "../../../shell";
 
 /** Match provider-list React Query TTL so list + inventory stay coherent. */
 export const OPENCODE_INVENTORY_CACHE_MS = 5 * 60 * 1000;
@@ -63,6 +67,8 @@ export type AiProvidersController = {
   findManagedProvider: (
     providerId: string,
   ) => AgentManagementManagedProvider | null;
+  /** Move a connected provider one step up/down and persist order. */
+  moveConnectedProvider: (providerId: string, direction: "up" | "down") => void;
 };
 
 /** Module-level single-flight for in-progress inventory IPC per workspace root. */
@@ -241,8 +247,10 @@ export function useAiProvidersController(
     root,
   ]);
 
-  // Optional persisted order (legacy); no UI to change order anymore.
-  const providerOrderIds = useMemo(() => readConnectedProviderOrderIds(), []);
+  // Persisted display order (Settings → Models move up/down).
+  const [providerOrderIds, setProviderOrderIds] = useState(() =>
+    readConnectedProviderOrderIds(),
+  );
 
   const connectedProviders = useMemo(() => {
     const merged = mergeConnectedProviders({
@@ -259,6 +267,24 @@ export function useAiProvidersController(
     opencodeManagedProviders,
     providerOrderIds,
   ]);
+
+  const moveConnectedProvider = useCallback(
+    (providerId: string, direction: "up" | "down") => {
+      if (!providerId) return;
+      setProviderOrderIds((prev) => {
+        const present = connectedProviders.map((item) => item.id);
+        const next = moveConnectedProviderInOrder(
+          prev,
+          present,
+          providerId,
+          direction,
+        );
+        writeConnectedProviderOrderIds(next);
+        return next;
+      });
+    },
+    [connectedProviders],
+  );
 
   const providersDiscovering =
     input.activeClient && !providerListHydrated;
@@ -281,5 +307,6 @@ export function useAiProvidersController(
     inventorySyncing,
     loadOpenCodeManagedProviders,
     findManagedProvider,
+    moveConnectedProvider,
   };
 }

@@ -397,6 +397,10 @@ export default {
   "settings.provider_default_label": "Provider default",
   "settings.provider_source_config": "Config",
   "settings.provider_source_custom": "Custom",
+  "settings.provider_move_up": "Move up",
+  "settings.provider_move_down": "Move down",
+  "settings.provider_reorder_hint": "Use the arrows to reorder providers",
+
   "settings.provider_source_env": "Environment",
   "settings.provider_badge_cloud": "Cloud",
   "settings.providers_dialog_title": "Model providers",

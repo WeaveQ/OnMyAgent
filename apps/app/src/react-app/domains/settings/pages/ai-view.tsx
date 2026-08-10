@@ -7,7 +7,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { FileCode, Pencil, Trash2, Unplug } from "lucide-react";
+import { ChevronDown, ChevronUp, FileCode, Pencil, Trash2, Unplug } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { t } from "@/i18n";
@@ -82,6 +82,11 @@ export type AiSettingsViewProps = {
    * List is shown; custom OpenCode inventory is still merging in the background.
    */
   inventorySyncing?: boolean;
+  /**
+   * Move a connected provider one step in the list (persisted order).
+   * Prefer buttons over HTML5 drag for keyboard / Windows touch accessibility.
+   */
+  onMoveProvider?: (providerId: string, direction: "up" | "down") => void;
 };
 
 function providerSourceLabel(source?: AiSettingsConnectedProvider["source"]) {
@@ -210,7 +215,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
 
         <SettingsBlock>
           {props.connectedProviders.length > 0 ? (
-            props.connectedProviders.map((provider) => {
+            props.connectedProviders.map((provider, providerIndex) => {
               const sourceLabel = providerSourceLabel(provider.source);
               const isCloud = props.cloudProviderIds?.has(provider.id) === true;
               const rowBusy =
@@ -220,6 +225,13 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                 provider.modelCount > 0
                   ? provider.modelCount
                   : null;
+              const canMove =
+                typeof props.onMoveProvider === "function" &&
+                props.connectedProviders.length > 1 &&
+                !actionsDisabled;
+              const canMoveUp = canMove && providerIndex > 0;
+              const canMoveDown =
+                canMove && providerIndex < props.connectedProviders.length - 1;
 
               return (
                 <SettingsBlockRow
@@ -281,9 +293,64 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                     </span>
                   }
                   actions={
-                    !isCloud ? (
+                    !isCloud || canMove ? (
                       <div className="inline-flex items-center gap-0.5">
-                        {props.canEditProvider?.(provider) ? (
+                        {canMove ? (
+                          <>
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={(
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    className="text-dls-secondary"
+                                    disabled={!canMoveUp || props.busy || rowBusy}
+                                    onClick={() =>
+                                      props.onMoveProvider?.(provider.id, "up")
+                                    }
+                                    aria-label={t("settings.provider_move_up")}
+                                    title={t("settings.provider_reorder_hint")}
+                                  >
+                                    <ChevronUp aria-hidden="true" className="size-3.5" />
+                                  </Button>
+                                )}
+                              />
+                              <TooltipContent>
+                                {t("settings.provider_move_up")}
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={(
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    className="text-dls-secondary"
+                                    disabled={
+                                      !canMoveDown || props.busy || rowBusy
+                                    }
+                                    onClick={() =>
+                                      props.onMoveProvider?.(provider.id, "down")
+                                    }
+                                    aria-label={t("settings.provider_move_down")}
+                                    title={t("settings.provider_reorder_hint")}
+                                  >
+                                    <ChevronDown
+                                      aria-hidden="true"
+                                      className="size-3.5"
+                                    />
+                                  </Button>
+                                )}
+                              />
+                              <TooltipContent>
+                                {t("settings.provider_move_down")}
+                              </TooltipContent>
+                            </Tooltip>
+                          </>
+                        ) : null}
+                        {!isCloud && props.canEditProvider?.(provider) ? (
                           <Tooltip>
                             <TooltipTrigger
                               render={(
@@ -309,7 +376,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                             </TooltipContent>
                           </Tooltip>
                         ) : null}
-                        {props.canDeleteProvider?.(provider) ? (
+                        {!isCloud && props.canDeleteProvider?.(provider) ? (
                           <Tooltip>
                             <TooltipTrigger
                               render={(
@@ -337,7 +404,8 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                         ) : null}
                         {/* Only real disconnectable (e.g. OAuth/API) rows — never a
                             status-looking Unplug on custom/env/OpenCode entries. */}
-                        {!props.canEditProvider?.(provider) &&
+                        {!isCloud &&
+                        !props.canEditProvider?.(provider) &&
                         !props.canDeleteProvider?.(provider) &&
                         props.canDisconnectProvider(provider) ? (
                           <Tooltip>
