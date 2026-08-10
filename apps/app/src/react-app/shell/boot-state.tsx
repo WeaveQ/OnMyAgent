@@ -41,6 +41,30 @@ type BootStateContextValue = BootStateSnapshot & {
   markRouteReady: () => void;
 };
 
+/**
+ * Boot error kinds drive which recovery actions the overlay offers.
+ * - `config-invalid`: user-repairable opencode config → show Repair + Open folder.
+ * - `package-missing`: installed bundle is missing a module (packaging defect);
+ *   Repair cannot fix it, so hide those actions and emphasize upgrade.
+ * - `generic`: retry + (on desktop) the repair/open actions.
+ */
+export type BootErrorKind =
+  | "generic"
+  | "config-invalid"
+  | "package-missing";
+
+export function classifyBootError(detail: string | null): BootErrorKind {
+  if (!detail) return "generic";
+  const text = detail.trim();
+  if (/Cannot find package|ERR_MODULE_NOT_FOUND|Cannot find module/i.test(text)) {
+    return "package-missing";
+  }
+  if (/Configuration is invalid|Missing key mcp\.|opencode\.jsonc/i.test(text)) {
+    return "config-invalid";
+  }
+  return "generic";
+}
+
 const DEFAULT_STATE: BootStateSnapshot = {
   phase: "idle",
   message: "",
@@ -115,6 +139,16 @@ export function userFacingBootError(
           technicalDetail: trimmed,
         };
       }
+      if (
+        /Cannot find package|ERR_MODULE_NOT_FOUND|Cannot find module/i.test(
+          trimmed,
+        )
+      ) {
+        return {
+          message: t("system.boot_package_missing"),
+          technicalDetail: trimmed,
+        };
+      }
       return { message: trimmed, technicalDetail: null };
     }
     return {
@@ -123,7 +157,11 @@ export function userFacingBootError(
           trimmed,
         )
           ? "system.boot_config_invalid"
-          : fallbackKey,
+          : /Cannot find package|ERR_MODULE_NOT_FOUND|Cannot find module/i.test(
+              trimmed,
+            )
+            ? "system.boot_package_missing"
+            : fallbackKey,
       ),
       technicalDetail: trimmed || null,
     };

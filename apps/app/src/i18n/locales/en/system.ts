@@ -32,6 +32,8 @@ export default {
     "The local service did not finish starting. Quit OnMyAgent and open it again.",
   "system.boot_config_invalid":
     "Local engine config is invalid (often incomplete MCP entries). Try “Repair engine config”, then retry.",
+  "system.boot_package_missing":
+    "This install is missing a component it needs to run (packaging defect). Retrying usually won’t help — please update to the latest version.",
   "system.boot_download_latest_hint":
     "If this keeps happening, download the latest version:",
   "system.boot_retry": "Try again",

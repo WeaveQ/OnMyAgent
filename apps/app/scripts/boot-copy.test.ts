@@ -4,6 +4,7 @@ import path from "node:path";
 
 import {
   bootPhaseMessage,
+  classifyBootError,
   userFacingBootError,
 } from "../src/react-app/shell/boot-state";
 
@@ -17,6 +18,7 @@ describe("boot phase i18n keys exist", () => {
       "system.boot_start_runtime_failed",
       "system.boot_server_not_ready",
       "system.boot_config_invalid",
+      "system.boot_package_missing",
       "system.boot_download_latest_hint",
       "system.boot_open_config_dir",
       "system.boot_repair_config",
@@ -92,6 +94,28 @@ describe("userFacingBootError", () => {
     expect(result.technicalDetail).toContain("Configuration is invalid");
     expect(result.message.length).toBeGreaterThan(0);
     expect(result.message).not.toContain("Missing key mcp");
+  });
+
+  test("classifies ERR_MODULE_NOT_FOUND / missing package as package-missing", () => {
+    // The packaged "Cannot find package 'jsonc-parser'" boot crash must not
+    // offer "Repair engine config" (it cannot fix a missing bundle file).
+    const missingPkg =
+      "Cannot find package 'jsonc-parser' imported from /Applications/OnMyAgent.app/Contents/Resources/app.asar/server/dist/core/jsonc.js";
+    expect(classifyBootError(missingPkg)).toBe("package-missing");
+    expect(classifyBootError("Error [ERR_MODULE_NOT_FOUND]: ...")).toBe(
+      "package-missing",
+    );
+    expect(classifyBootError("Cannot find module 'x'")).toBe("package-missing");
+
+    const configErr =
+      "Configuration is invalid: Missing key mcp.foo";
+    expect(classifyBootError(configErr)).toBe("config-invalid");
+    expect(classifyBootError("ECONNREFUSED 127.0.0.1:1234")).toBe("generic");
+    expect(classifyBootError(null)).toBe("generic");
+
+    const result = userFacingBootError(missingPkg);
+    expect(result.message).not.toContain("Cannot find package");
+    expect(result.technicalDetail).toContain("Cannot find package");
   });
 });
 
