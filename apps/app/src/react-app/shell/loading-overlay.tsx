@@ -9,7 +9,11 @@ import {
   relaunchDesktopApp,
 } from "../../app/lib/desktop";
 import { isElectronRuntime } from "../../app/utils";
-import { useBootState, useBootOverlayVisible } from "./boot-state";
+import {
+  classifyBootError,
+  useBootState,
+  useBootOverlayVisible,
+} from "./boot-state";
 import { LoadSurface, useRouteLoadTop } from "./load-surface";
 
 const RELEASES_URL = "https://github.com/WeaveQ/onmyagent/releases";
@@ -56,6 +60,8 @@ export function LoadingOverlay() {
       : message || t("system.boot_preparing_workspace");
 
   const desktop = isElectronRuntime();
+  const errorKind = classifyBootError(detail);
+  const showRepairActions = desktop && errorKind !== "package-missing";
 
   const onOpenConfigDir = async () => {
     if (!desktop) return;
@@ -105,26 +111,30 @@ export function LoadingOverlay() {
             </Button>
             {desktop ? (
               <>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={busyAction !== null}
-                  onClick={() => void onRepairConfig()}
-                >
-                  {busyAction === "repair"
-                    ? t("system.boot_repair_working")
-                    : t("system.boot_repair_config")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  disabled={busyAction !== null}
-                  onClick={() => void onOpenConfigDir()}
-                >
-                  {t("system.boot_open_config_dir")}
-                </Button>
+                {showRepairActions ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={busyAction !== null}
+                    onClick={() => void onRepairConfig()}
+                  >
+                    {busyAction === "repair"
+                      ? t("system.boot_repair_working")
+                      : t("system.boot_repair_config")}
+                  </Button>
+                ) : null}
+                {showRepairActions ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={busyAction !== null}
+                    onClick={() => void onOpenConfigDir()}
+                  >
+                    {t("system.boot_open_config_dir")}
+                  </Button>
+                ) : null}
               </>
             ) : null}
           </div>

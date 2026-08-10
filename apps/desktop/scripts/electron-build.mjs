@@ -116,12 +116,46 @@ if (patched !== serverJsSrc) {
   writeFileSync(serverJsPath, patched, "utf8");
 }
 rmSync(packagedServerRoot, { recursive: true, force: true });
+// Stage the server with its production node_modules (jsonc-parser, minimatch,
+// yaml, zod, @opencode-ai/sdk, @onmyagent/types, better-sqlite3). tsc emits
+// bare ESM imports, so dist alone cannot resolve packages at runtime — this is
+// what caused the packaged "Cannot find package 'jsonc-parser'" boot crash.
+// `pnpm deploy --prod` materializes a self-contained install (same pattern as
+// the artifact-runtime deploy above). We then overwrite its dist/ with the
+// locally built (and constants-patched) output so the shipped bundle matches
+// this build exactly.
+run(
+  pnpmCmd,
+  [
+    "--prefer-offline",
+    "--filter",
+    "onmyagent-server",
+    "deploy",
+    "--legacy",
+    "--prod",
+    packagedServerRoot,
+  ],
+  repoRoot,
+);
+// pnpm deploy leaves a workspace self-link under node_modules/ pointing back
+// into the source checkout; it is unused at runtime and breaks after signing.
+const deployedSelfLink = resolve(
+  packagedServerRoot,
+  "node_modules",
+  ".pnpm",
+  "node_modules",
+  "onmyagent-server",
+);
+rmSync(deployedSelfLink, { recursive: true, force: true });
+rmSync(resolve(packagedServerRoot, "dist"), { recursive: true, force: true });
 cpSync(serverDistDir, resolve(packagedServerRoot, "dist"), { recursive: true });
-copyFileSync(resolve(repoRoot, "apps", "server", "package.json"), resolve(packagedServerRoot, "package.json"));
 for (const fileName of readdirSync(electronRoot).filter((name) => name.endsWith(".mjs")).sort()) {
   run(nodeCmd, ["--check", resolve(electronRoot, fileName)], repoRoot);
 }
 run(nodeCmd, [resolve(__dirname, "check-electron-bridge.mjs")], repoRoot);
+// Guard against a packaged "Cannot find package 'x'" boot crash: every bare
+// import in the staged server/dist must resolve against its deployed node_modules.
+run(nodeCmd, [resolve(__dirname, "check-server-runtime-deps.mjs")], desktopRoot);
 
 process.stdout.write(
   `${JSON.stringify(
