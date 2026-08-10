@@ -1,126 +1,42 @@
 [
   {
-    "id": "kol-project-review-framework",
-    "title": {
-      "zh": "生成项目复盘框架",
-      "en": "Build review framework"
-    },
-    "description": {
-      "zh": "背景到优化建议的完整结构",
-      "en": "Full structure from background to next actions"
-    },
-    "template": {
-      "zh": "请根据 <项目目标、执行过程、数据与客户反馈>，按 <复盘模板> 生成完整复盘框架（背景、目标完成、亮点、问题、原因、优化建议）。",
-      "en": "From <Goals, execution, data, feedback>, build a full review using <Review template>."
-    },
-    "requiredSlots": {
-      "zh": [
-        "项目目标、执行过程、数据与客户反馈"
-      ],
-      "en": [
-        "Goals, execution, data, feedback"
-      ]
-    },
-    "conditionalSlots": {
-      "zh": [
-        "复盘模板"
-      ],
-      "en": [
-        "Review template"
-      ]
-    }
+    "id": "kol-data-clean-merge",
+    "title": { "zh": "清洗复盘数据", "en": "Clean review data" },
+    "description": { "zh": "多表对齐、去重并保留清洗日志", "en": "Align and deduplicate sheets with an audit log" },
+    "template": { "zh": "请清洗并合并 <项目数据文件>，按 <主键与列映射> 保留冲突、缺失和重复记录的清洗日志。", "en": "Clean and merge <Project data files> using <Keys and column mappings>, preserving an audit log." },
+    "requiredSlots": { "zh": ["项目数据文件"], "en": ["Project data files"] },
+    "conditionalSlots": { "zh": ["主键与列映射"], "en": ["Keys and column mappings"] }
   },
   {
     "id": "kol-margin-effect-analysis",
-    "title": {
-      "zh": "毛利与效果三层分析",
-      "en": "Margin & effect analysis"
-    },
-    "description": {
-      "zh": "纯K / 投流潜力 / 总投入",
-      "en": "Pure-K / amplification / total investment"
-    },
-    "template": {
-      "zh": "请用 <收入、K金额、广告金额、返点、其他成本与效果数据> 做纯K前端、投流潜力、总投入效果三层分析，给出结论与风险；模板：<可选>。",
-      "en": "Using <Revenue, K cost, ads, rebate, other costs, effect data>, analyze pure-K, amplification potential, and total-investment effect with risks."
-    },
-    "requiredSlots": {
-      "zh": [
-        "收入、K金额、广告金额、返点、其他成本与效果数据"
-      ],
-      "en": [
-        "Revenue, K cost, ads, rebate, other costs, effect data"
-      ]
-    },
-    "conditionalSlots": {
-      "zh": [
-        "可选"
-      ],
-      "en": [
-        "optional"
-      ]
-    }
+    "title": { "zh": "分析毛利与效果", "en": "Analyze margin and performance" },
+    "description": { "zh": "统一口径、行级结论与复投建议", "en": "Metric definitions, row decisions, and retest recommendations" },
+    "template": { "zh": "请根据 <项目费用与效果数据> 和 <业务阈值/分组口径> 分析纯 K、投流潜力和总投入效果；未定义口径先列待确认。", "en": "Analyze <Cost and performance data> using <Business thresholds/grouping rules>; flag undefined metrics first." },
+    "requiredSlots": { "zh": ["项目费用与效果数据"], "en": ["Cost and performance data"] },
+    "conditionalSlots": { "zh": ["业务阈值/分组口径"], "en": ["Business thresholds/grouping rules"] }
   },
   {
-    "id": "kol-data-clean-merge",
-    "title": {
-      "zh": "复盘数据准备",
-      "en": "Review data prep"
-    },
-    "description": {
-      "zh": "结案前多表清洗对齐与基础指标",
-      "en": "Pre-review sheet clean/align and basic metrics"
-    },
-    "template": {
-      "zh": "请把这些 <复盘相关多表> 清洗合并，按 <对齐字段> 去重统一格式，并输出基础可量化指标，方便写复盘。",
-      "en": "Clean/merge <Review-related sheets> by <Join keys> and output basic metrics for the review."
-    },
-    "requiredSlots": {
-      "zh": [
-        "复盘相关多表"
-      ],
-      "en": [
-        "Review-related sheets"
-      ]
-    },
-    "conditionalSlots": {
-      "zh": [
-        "对齐字段"
-      ],
-      "en": [
-        "Join keys"
-      ]
-    }
+    "id": "kol-content-performance-attribution",
+    "title": { "zh": "做内容效能归因", "en": "Analyze content performance" },
+    "description": { "zh": "周环比、内容×人群和搜索词×内容矩阵", "en": "Weekly comparison and evidence matrices" },
+    "template": { "zh": "请用 <本周与上周投放明细> 生成内容×人群、搜索词×内容矩阵，并基于 <内容切角标签> 输出有来源的相关性观察。", "en": "Use <Current and prior week delivery data> to build content-audience and search-content matrices with evidence-based observations." },
+    "requiredSlots": { "zh": ["本周与上周投放明细"], "en": ["Current and prior week delivery data"] },
+    "conditionalSlots": { "zh": ["内容切角标签"], "en": ["Content angle labels"] }
   },
   {
-    "id": "kol-content-risk-checklist",
-    "title": {
-      "zh": "检查复盘报告",
-      "en": "Check review report"
-    },
-    "description": {
-      "zh": "风险与遗漏终检",
-      "en": "Final risk and gap check"
-    },
-    "template": {
-      "zh": "请检查这份 <复盘报告> 的风险与遗漏项，按 <检查清单> 列出问题与修改建议。",
-      "en": "Risk-check <Review report> against <Checklist> and list issues with fixes."
-    },
-    "requiredSlots": {
-      "zh": [
-        "复盘报告"
-      ],
-      "en": [
-        "Review report"
-      ]
-    },
-    "conditionalSlots": {
-      "zh": [
-        "检查清单"
-      ],
-      "en": [
-        "Checklist"
-      ]
-    }
+    "id": "kol-project-review-framework",
+    "title": { "zh": "生成八维复盘", "en": "Build an eight-dimension review" },
+    "description": { "zh": "目录、逐页建议、缺数与可用初稿", "en": "Outline, page guidance, gaps, and usable draft" },
+    "template": { "zh": "请根据 <项目 Brief、执行记录、数据与反馈> 生成八维项目复盘，输出目录、逐页建议、缺失数据和可直接使用的初稿；参考 <历史复盘/模板>。", "en": "Build an eight-dimension review from <Brief, execution, data, and feedback>, using <Historical review/template> when provided." },
+    "requiredSlots": { "zh": ["项目 Brief、执行记录、数据与反馈"], "en": ["Brief, execution, data, and feedback"] },
+    "conditionalSlots": { "zh": ["历史复盘/模板"], "en": ["Historical review/template"] }
+  },
+  {
+    "id": "kol-review-report-audit",
+    "title": { "zh": "终检复盘报告", "en": "Audit the review report" },
+    "description": { "zh": "核查来源、口径、结论和缺失项", "en": "Audit sources, metrics, conclusions, and gaps" },
+    "template": { "zh": "请终检 <复盘报告与源数据>，逐项核查数据来源、公式口径、相关性/因果措辞和缺失项，输出问题清单。", "en": "Audit <Review report and source data> for provenance, metric definitions, causal wording, and missing items." },
+    "requiredSlots": { "zh": ["复盘报告与源数据"], "en": ["Review report and source data"] },
+    "conditionalSlots": { "zh": [], "en": [] }
   }
 ]
