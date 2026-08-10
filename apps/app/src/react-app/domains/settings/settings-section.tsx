@@ -190,6 +190,11 @@ export interface SettingsBlockRowProps {
   className?: string;
   /** Align control with first line (center) or top of multi-line copy. */
   align?: "center" | "start";
+  /**
+   * Props applied to the row root (e.g. HTML5 drag handlers for reorderable
+   * provider lists). Kept explicit so callers do not spread arbitrary attrs.
+   */
+  rootProps?: Omit<React.HTMLAttributes<HTMLDivElement>, "className" | "children">;
 }
 
 export function SettingsBlockRow({
@@ -199,6 +204,7 @@ export function SettingsBlockRow({
   children,
   className,
   align = "center",
+  rootProps,
 }: SettingsBlockRowProps) {
   // When children exist (e.g. full-width textarea), stack: header row then body,
   // so extra content spans the full card width under the trailing action.
@@ -207,6 +213,7 @@ export function SettingsBlockRow({
       <div
         data-slot="settings-block-row"
         className={cn("flex w-full flex-col gap-3 px-4 py-3.5", className)}
+        {...rootProps}
       >
         <div
           className={cn(
@@ -249,6 +256,7 @@ export function SettingsBlockRow({
         align === "center" ? "items-center" : "items-start",
         className,
       )}
+      {...rootProps}
     >
       <div className="min-w-0 flex-1 space-y-1 pr-2">
         <div className="text-sm font-medium leading-5 text-dls-text">{title}</div>
