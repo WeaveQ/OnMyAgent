@@ -27,10 +27,16 @@ export function AssistantWaitingCard({
   label = t("session.assistant_thinking"),
   collapseLayout = false,
   detail,
+  /**
+   * When false, only the phase label is shown. Use during concrete tool
+   * execution so random product tips do not look like part of the status.
+   */
+  showTips = true,
 }: {
   label?: string;
   collapseLayout?: boolean;
   detail?: string;
+  showTips?: boolean;
 }) {
   const locale = currentLocale();
   const tips = locale === "en"
@@ -38,25 +44,31 @@ export function AssistantWaitingCard({
     : locale === "zh-TW"
       ? zhTWLoadingTips
       : zhLoadingTips;
+  const tipsEnabled = showTips !== false && tips.length > 0;
   const [tipsVisible, setTipsVisible] = useState(false);
   const [tipsPaused, setTipsPaused] = useState(false);
   const [tipIndex, setTipIndex] = useState<number | null>(null);
 
   useEffect(() => {
+    if (!tipsEnabled) {
+      setTipsVisible(false);
+      setTipIndex(null);
+      return;
+    }
     const timeout = window.setTimeout(() => {
       setTipIndex(nextLoadingTipIndex(null, tips.length));
       setTipsVisible(true);
     }, LOADING_TIP_DELAY_MS);
     return () => window.clearTimeout(timeout);
-  }, [tips.length]);
+  }, [tips.length, tipsEnabled]);
 
   useEffect(() => {
-    if (!tipsVisible || tipsPaused || tips.length < 2) return;
+    if (!tipsEnabled || !tipsVisible || tipsPaused || tips.length < 2) return;
     const interval = window.setInterval(() => {
       setTipIndex((current) => nextLoadingTipIndex(current, tips.length));
     }, LOADING_TIP_ROTATION_MS);
     return () => window.clearInterval(interval);
-  }, [tips.length, tipsPaused, tipsVisible]);
+  }, [tips.length, tipsEnabled, tipsPaused, tipsVisible]);
 
   const content = (
     <div
@@ -67,7 +79,7 @@ export function AssistantWaitingCard({
       <div className="session-transcript-loading-line">
         <span className="session-transcript-loading-shimmer">{label}</span>
         {detail ? <span className="text-dls-text-tertiary">{detail}</span> : null}
-        {tipsVisible && tipIndex !== null ? (
+        {tipsEnabled && tipsVisible && tipIndex !== null ? (
           <span
             className="session-transcript-loading-tip"
             onMouseEnter={() => setTipsPaused(true)}

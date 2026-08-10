@@ -6,6 +6,7 @@
 import { useMemo, type ReactNode } from "react";
 import type { UIMessage } from "ai";
 import {
+  assistantActivityAllowsLoadingTips,
   getAssistantActivityPhaseLabel,
   type AssistantActivity,
 } from "./chrome/assistant-activity";
@@ -55,6 +56,7 @@ export function useSessionSurfaceAssistantStatusFooter(
         <AssistantWaitingCard
           collapseLayout
           label={getAssistantActivityPhaseLabel(assistantActivity)}
+          showTips={assistantActivityAllowsLoadingTips(assistantActivity)}
         />
       );
     }
