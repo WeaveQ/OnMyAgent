@@ -351,4 +351,40 @@ describe("root assistant activity phase", () => {
       messages: [completedAssistant],
     })).toBe("idle");
   });
+
+  test("does not stick on model-requesting when assistant text is already visible under thinking/waiting", () => {
+    const streamingAssistant = assistantMessage([
+      { type: "text", text: "你好！我是阿里云智能体专家。" },
+    ]);
+    const completedAssistant: UIMessage = {
+      id: "assistant-completed",
+      role: "assistant",
+      metadata: createTranscriptMessageMetadata({
+        time: { created: 1_000, completed: 2_000 },
+      }),
+      parts: [{ type: "text", text: "Final answer" }],
+    };
+
+    expect(deriveAssistantActivityPhase({
+      status: "thinking",
+      sending: false,
+      hasActivePermission: false,
+      hasActiveQuestion: false,
+      messages: [streamingAssistant],
+    })).toBe("model-streaming");
+    expect(deriveAssistantActivityPhase({
+      status: "waiting",
+      sending: false,
+      hasActivePermission: false,
+      hasActiveQuestion: false,
+      messages: [streamingAssistant],
+    })).toBe("model-streaming");
+    expect(deriveAssistantActivityPhase({
+      status: "thinking",
+      sending: false,
+      hasActivePermission: false,
+      hasActiveQuestion: false,
+      messages: [completedAssistant],
+    })).toBe("model-done");
+  });
 });
