@@ -18,7 +18,7 @@ export function useExpertBoundDraftTransition(input: {
   activeDraftSessionId: string | null;
   draftAgentContexts: Record<string, PendingAgentContext>;
   draftAgentId: string | null;
-  /** User intent flag (新会话 / 去聊天). Surface mode is derived, not this alone. */
+  /** User intent flag (new session / open chat). Surface mode is derived, not this alone. */
   draftSessionActive: boolean;
   pendingAgent: PendingAgentContext | null;
   selectedSessionId: string | null;
