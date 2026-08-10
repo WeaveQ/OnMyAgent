@@ -11,6 +11,7 @@ export type OnMyAgentWorkspaceClient = Pick<OnMyAgentServerClient,
   | "activateWorkspace" | "deleteWorkspace" | "exportWorkspace"
   | "importWorkspace" | "previewWorkspaceImport" | "materializeBlueprintSessions"
   | "createExpertSessionRuntimeDirectory"
+  | "ensureExpertSessionIsolation"
   | "readOpencodeConfigFile" | "writeOpencodeConfigFile" | "readWorkspaceFile"
   | "statWorkspaceFile" | "writeWorkspaceFile" | "writeWorkspaceBinaryFile"
   | "downloadWorkspaceFile" | "listWorkspaceFiles"

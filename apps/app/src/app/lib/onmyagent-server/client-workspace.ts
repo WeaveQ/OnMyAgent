@@ -211,6 +211,22 @@ export function createWorkspaceClientMethods(ctx: OnMyAgentServerClientContext) 
         `/workspace/${encodeURIComponent(workspaceId)}/expert-session-directory`,
         { token, hostToken, method: "POST", body: payload },
       ),
+    ensureExpertSessionIsolation: (
+      workspaceId: string,
+      payload: { directory: string; skillNames?: string[] },
+    ) =>
+      requestJson<{
+        ok: boolean;
+        directory: string;
+        upgraded: boolean;
+        installedSkills: string[];
+        isolationVersion: number;
+        defaultAgent: string;
+      }>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/expert-session-isolation`,
+        { token, hostToken, method: "POST", body: payload },
+      ),
     listExpertSessionFiles: async (workspaceId: string) => {
       const id = workspaceId.trim();
       if (!id) throw new Error("workspaceId is required");
