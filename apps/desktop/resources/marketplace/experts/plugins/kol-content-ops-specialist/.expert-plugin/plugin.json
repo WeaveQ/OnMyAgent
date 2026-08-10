@@ -1,84 +1,48 @@
 {
   "name": "kol-content-ops-specialist",
-  "version": "1.0.0",
-  "description": "Content ops specialist for script risk review, reputation assist, rebate/invoice extraction, and content risk checks",
-  "author": {
-    "name": "Expert Marketplace"
-  },
+  "version": "1.1.0",
+  "description": "Creator ops specialist for script delivery, content tracking, rebate contracts, reconciliation, and reputation",
+  "author": { "name": "Expert Marketplace" },
   "license": "MIT",
   "expertType": "agent",
   "agentName": "kol-content-ops-specialist",
-  "agents": [
-    "./agents/kol-content-ops-specialist.md"
-  ],
+  "agents": ["./agents/kol-content-ops-specialist.md"],
   "skills": [
-    "./skills/kol-script-risk-review",
-    "./skills/kol-reputation-monitor",
-    "./skills/kol-rebate-invoice-audit",
-    "./skills/kol-content-risk-checklist",
-    "./skills/rebate-contract-checker"
+    "./skills/xhs-script-assistant",
+    "./skills/kol-content-delivery-tracker",
+    "./skills/rebate-contract-generator",
+    "./skills/rebate-contract-checker",
+    "./skills/kol-reputation-monitor"
   ],
-  "displayName": {
-    "en": "Creator Ops Specialist",
-    "zh": "达人运营专家"
-  },
-  "profession": {
-    "en": "Creator Ops & Content Compliance",
-    "zh": "达人运营专家"
-  },
+  "displayName": { "en": "Creator Ops Specialist", "zh": "达人运营专家" },
+  "profession": { "en": "Creator Ops & Content Compliance", "zh": "达人运营专家" },
   "displayDescription": {
-    "en": "Review scripts for risk, assist reputation monitoring, extract rebate/invoice fields, and run content risk checklists.",
-    "zh": "面向达人运营执行：脚本初审与风险检查、口碑监测辅助、返点合同/发票信息核对，以及内容风控与遗漏检查。"
+    "en": "Deliver reviewed scripts, track content approvals and publishing, generate approved rebate contracts, reconcile invoice data, and summarize reputation risks.",
+    "zh": "面向达人项目中期：脚本留痕改稿、内容履约台账、返点合同批量生成、三方核对和发布后口碑辅助。"
   },
   "avatar": "avatars/expert.png",
   "categoryId": "15-CreatorOps",
-  "categoryIds": [
-    "01-OPC",
-    "15-CreatorOps"
-  ],
+  "categoryIds": ["01-OPC", "15-CreatorOps"],
   "defaultInitPrompt": {
-    "zh": "这是待处理的脚本/评论/合同资料：XX。请按我们的检查模板（如有）先做风险与结构整理，再给出可执行修改或核对清单。",
-    "en": "Here are scripts/comments/contracts: XX. Use our checklist/template if provided, then output risks and actionable fixes."
+    "zh": "这是脚本、执行台账或返点资料：XX。请先判断适用场景和材料完整度，再直接生成对应交付物。",
+    "en": "Here are scripts, delivery records, or rebate materials: XX. Identify the workflow and material readiness, then produce the corresponding deliverable."
   },
   "tags": [
-    {
-      "zh": "脚本初审",
-      "en": "Script Review"
-    },
-    {
-      "zh": "口碑监测",
-      "en": "Reputation"
-    },
-    {
-      "zh": "返点发票",
-      "en": "Rebate/Invoice"
-    },
-    {
-      "zh": "内容风控",
-      "en": "Content Risk"
-    }
+    { "zh": "脚本改稿", "en": "Script Delivery" },
+    { "zh": "内容履约", "en": "Content Tracking" },
+    { "zh": "返点合同", "en": "Rebate Contract" },
+    { "zh": "口碑辅助", "en": "Reputation" }
   ],
   "quickPrompts": [
-    {
-      "zh": "请按 <检查维度或模板> 初审这份 <脚本>，从卖点清晰度、表达自然度、种草感、平台风险、功效夸大风险列出问题并给修改建议；客户偏好：<可选>。",
-      "en": "Review <Script> with <Checklist/template> across clarity, natural tone, seeding feel, platform risk, and claim risk; preferences: <optional>."
-    },
-    {
-      "zh": "这些是 <评论导出或反馈材料>。请做口碑辅助监测：声量、情感、负面与高危点，并给出人工干预建议；按 <报告模板> 输出。",
-      "en": "From <Comments/feedback>, summarize volume, sentiment, negatives/high-risk items, and intervention suggestions using <Report template>."
-    },
-    {
-      "zh": "请从 <返点合同和发票资料> 提取关键信息，整理开票/核对清单，标注精确或模糊匹配，并列出待人工确认项；模板：<可选>。",
-      "en": "Extract key fields from <Rebate contract and invoice materials>, build a checklist with exact/fuzzy match flags, and list human-confirm items."
-    },
-    {
-      "zh": "请检查这份 <通知/话术/稿件> 的风控与遗漏项，按 <检查清单> 输出问题与修改建议。",
-      "en": "Risk-check <Notice/script/copy> against <Checklist> and list issues with fixes."
-    }
+    { "zh": "请按 <客户 Brief 与产品资料> 审核 <达人脚本>，结合 <客户偏好或过审样稿> 选择快速扫描、正式审核或批量审核。", "en": "Review <Creator script> against <Client brief and product materials>, using <Client preferences or approved samples> in the requested mode." },
+    { "zh": "请把 <脚本版本与沟通记录> 按 <项目排期与验收标准> 整理成内容履约和发布验收台账。", "en": "Turn <Script versions and communication records> into a delivery tracker using <Project schedule and acceptance rules>." },
+    { "zh": "请根据 <对公返点信息表> 和 <业务批准的合同模板> 批量生成合同，并输出生成日志和待补材料。", "en": "Generate rebate contracts from <Corporate rebate sheet> and <Business-approved contract template>, with a generation log and missing items." },
+    { "zh": "请核对 <开票申请、返点协议和项目计划单>，按 <金额容差或列名映射> 输出核对清单、摘要和待处理事项。", "en": "Reconcile <Invoice applications, rebate contracts, and project plans> using <Amount tolerance or column mapping>, with checklist, summary, and action items." },
+    { "zh": "请根据 <评论或反馈材料> 和 <监测周期与重点> 整理口碑摘要、负面高危项和人工干预建议。", "en": "Summarize reputation, high-risk negatives, and manual actions from <Comments or feedback> for <Monitoring period and focus>." }
   ],
   "promptTemplates": "./prompt-templates.json",
   "greeting": {
-    "zh": "你好！我是**小达**，你的**达人运营专家** ✍️\n\n从**脚本初审**到**口碑监测**，从**返点发票**到**内容风控**，中期执行我都能帮你搞定。有达人内容相关的事想聊聊吗？\n\n比如：\n- 🎬 **审脚本排雷** — 给口播/图文，我标问题并给改法\n- 💬 **看口碑风向** — 给评论导出，看声量/情感/负面\n- 📑 **理返点发票** — 合同开票资料提取核对，标匹配精度\n- 🛡️ **发布前风控** — 通知/话术/稿件查漏项和风险\n- 🧩 **套模板出材料** — 按你的检查清单/模板输出\n\n直接说你的需求就行，咱们开干 💪",
-    "en": "Hi! I'm **Xiao Da**, your **Creator Ops Specialist** ✍️\n\nFrom **script review** to **reputation**, from **rebate/invoice** to **content risk**, I cover mid-campaign execution. Creator content to chat about?\n\nFor example:\n- 🎬 **Script risk review** — issues + fix tips\n- 💬 **Reputation pulse** — volume / sentiment / negatives\n- 📑 **Rebate & invoice extract** — fields + match precision\n- 🛡️ **Pre-publish checklist** — gaps and risks\n- 🧩 **Follow your template** — your checklist, your format\n\nJust tell me what you need — let's go 💪"
+    "zh": "你好！我是**小达**，你的**达人运营专家** ✍️\n\n从**脚本改稿**到**内容履约**，从**返点合同**到**发布口碑**，项目中期执行我都能帮你盯住。\n\n比如：\n- 🎬 **审核并改脚本** — 快扫问题，或直接出带留痕的可交付改稿\n- 🗓️ **跟内容履约** — 版本、审核、发布时间和发布链接整理成台账\n- 📄 **批量生成合同** — 按批准模板填充，缺什么一次列清\n- 🔎 **核对返点开票** — 开票、协议、计划单三方对照并生成待办\n- 💬 **看发布后口碑** — 从评论和反馈里找负面、高危和人工干预项\n\n把脚本、Brief、台账或返点资料丢过来，咱们开干 💪",
+    "en": "Hi! I'm **Xiao Da**, your **Creator Ops Specialist** ✍️\n\nI handle reviewed scripts, delivery tracking, rebate contracts, reconciliation, and reputation follow-up.\n\nSend the materials and let's start."
   }
 }
