@@ -62,9 +62,17 @@ export function useSessionSurfaceActivityModel(input: {
     assistantOutputAfterAwaitStart &&
     input.chatStreaming;
 
+  // If the store is still "thinking" but transcript already has assistant
+  // output after the await baseline, promote to responding so the footer
+  // does not stick on model-requesting under a fully rendered answer.
+  const storeStatus: SessionActivityStatus =
+    input.sessionActivityStatus === "thinking" && assistantOutputAfterAwaitStart
+      ? "responding"
+      : input.sessionActivityStatus;
+
   const effectiveActivityStatus: SessionActivityStatus =
-    input.sessionActivityStatus !== "idle"
-      ? input.sessionActivityStatus
+    storeStatus !== "idle"
+      ? storeStatus
       : showAssistantWaitState
         ? "thinking"
         : showAssistantRespondingState
