@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  promoteSessionTitleFromPreview,
   sessionNeedsTabTitleFallback,
   sessionShouldFetchTabTitleSnapshot,
   resolvedSessionSnapshotTitle,
@@ -30,10 +31,14 @@ describe("expert session tab titles", () => {
     expect(
       summarizeTabTitle(session, undefined, { summarizing: true }),
     ).toMatch(/总结中|Summarizing/);
+    // Message preview wins over summarizing so remount does not re-enter 总结中.
     expect(
-      summarizeTabTitle(session, "[工具] bash", { summarizing: true }),
-    ).toMatch(/总结中|Summarizing/);
+      summarizeTabTitle(session, "请帮我查一下库存异常", { summarizing: true }),
+    ).toContain("库存");
     expect(summarizeTabTitle(session, "请帮我查一下库存异常")).toContain("库存");
+    expect(promoteSessionTitleFromPreview("请帮我查一下库存异常情况并出报告")).toContain(
+      "库存",
+    );
   });
 
   test("placeholder session without title or time shows loading, not new session", () => {

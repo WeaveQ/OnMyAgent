@@ -115,8 +115,8 @@ export function shouldShowExpertTabSummarizing(
  * Tab label for an expert session chip.
  * - Prefer a real human title when OpenCode has assigned one.
  * - Else prefer a short preview from messages (when a light snapshot is available).
- * - Else show "新会话", never stick on "总结中" forever (that label implied work in
- *   progress after tab snapshots were disabled on cold start).
+ * - "总结中" only while we are actively waiting for the first message/title —
+ *   never when a message-derived fallback already exists.
  */
 export function summarizeTabTitle(
   session: WorkspaceSessionGroup["sessions"][number],
@@ -126,11 +126,13 @@ export function summarizeTabTitle(
   if (!sessionNeedsTabTitleFallback(session)) {
     return session.title!.trim();
   }
-  if (options?.summarizing) {
-    return t("session.agent_tab_summarizing");
-  }
+  // Message-derived title wins over the transient "summarizing" chip so a
+  // finished conversation does not re-enter "总结中" on remount.
   if (generatedFallback?.trim()) {
     return compactTabTitle(generatedFallback);
+  }
+  if (options?.summarizing) {
+    return t("session.agent_tab_summarizing");
   }
   // When the cold-start snapshot has not arrived yet, use the last activity
   // time as a placeholder so history sessions are not mislabeled "新会话".
@@ -143,14 +145,26 @@ export function summarizeTabTitle(
   return t("session.agent_tab_loading");
 }
 
-function compactTabTitle(input: string) {
-  const cleaned = input
+function cleanSessionTitleSource(input: string) {
+  return input
     .replace(/\u7528\u6237\u53d1\u9001\u4e86|The user|I should|This is/gi, "")
     .replace(/["""''.。？?！!,，:：；;]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function compactTabTitle(input: string) {
+  const cleaned = cleanSessionTitleSource(input);
   const source = cleaned || input.trim() || t("session.agent_tab_new_session");
   return source.length > 10 ? source.slice(0, 10) : source;
+}
+
+/** Longer form used when promoting a message preview into a real session title. */
+export function promoteSessionTitleFromPreview(input: string) {
+  const cleaned = cleanSessionTitleSource(input);
+  const source = cleaned || input.trim();
+  if (!source) return "";
+  return source.length > 40 ? source.slice(0, 40) : source;
 }
 
 /**
@@ -380,9 +394,9 @@ export function AgentSessionTabs(props: {
   const activeSessionId = pendingSessionIsVisible
     ? props.pendingSessionId
     : props.selectedSessionId;
-  const knownSessionIdsRef = useRef(
-    new Set(props.sessions.map((session) => session.id)),
-  );
+  const knownSessionIdsRef = useRef(new Set<string>());
+  /** After first inventory hydrate, only true newcomers enter "summarizing". */
+  const titlePendingHydratedRef = useRef(false);
   const [titlePendingSessionIds, setTitlePendingSessionIds] = useState<
     Set<string>
   >(() => new Set());
@@ -390,6 +404,13 @@ export function AgentSessionTabs(props: {
   const [pinnedSessionIds, setPinnedSessionIds] = useState(() =>
     readAgentSessionTabPinnedIds(props.workspaceId),
   );
+
+  // Workspace switch resets title-pending bookkeeping (new inventory).
+  useEffect(() => {
+    knownSessionIdsRef.current = new Set();
+    titlePendingHydratedRef.current = false;
+    setTitlePendingSessionIds(new Set());
+  }, [props.workspaceId]);
   const byWorkspace = useExpertUnreadStore((state) => state.byWorkspace);
   const sessionUnreadByWorkspace = useExpertUnreadStore(
     (state) => state.sessionUnreadByWorkspace,
@@ -432,27 +453,49 @@ export function AgentSessionTabs(props: {
     return stable;
   }, [props.orderIds, props.sessions]);
 
-  // Only sessions that appear after this tab strip mounted enter the title
-  // generation state. Cold-start history keeps its legacy fallback instead of
-  // being mislabeled as actively summarizing forever.
+  // Only sessions that appear *after* the first inventory hydrate enter the
+  // title-generation ("总结中") state. Cold-start history must not all look
+  // newly created just because knownSessionIds was empty on first paint.
   useLayoutEffect(() => {
     const visibleIds = new Set(orderedSessions.map((session) => session.id));
     setTitlePendingSessionIds((current) => {
       const next = new Set(current);
-      for (const session of orderedSessions) {
-        const newlyCreated = !knownSessionIdsRef.current.has(session.id);
-        knownSessionIdsRef.current.add(session.id);
-        if (
-          !session.id.startsWith("draft:") &&
-          sessionNeedsTabTitleFallback(session) &&
-          (newlyCreated || props.pendingSessionId === session.id)
-        ) {
-          next.add(session.id);
+      const known = knownSessionIdsRef.current;
+
+      if (!titlePendingHydratedRef.current) {
+        if (orderedSessions.length === 0) {
+          return current;
         }
-        if (!sessionNeedsTabTitleFallback(session)) {
-          next.delete(session.id);
+        for (const session of orderedSessions) {
+          known.add(session.id);
+          if (!sessionNeedsTabTitleFallback(session)) {
+            next.delete(session.id);
+          }
+        }
+        // Explicit just-created selection can still summarize on first paint.
+        const pendingId = props.pendingSessionId;
+        if (pendingId && !pendingId.startsWith("draft:")) {
+          const pending = orderedSessions.find((s) => s.id === pendingId);
+          if (pending && sessionNeedsTabTitleFallback(pending)) {
+            next.add(pendingId);
+          }
+        }
+        titlePendingHydratedRef.current = true;
+      } else {
+        for (const session of orderedSessions) {
+          const newlyCreated = !known.has(session.id);
+          known.add(session.id);
+          if (session.id.startsWith("draft:")) continue;
+          if (!sessionNeedsTabTitleFallback(session)) {
+            next.delete(session.id);
+            continue;
+          }
+          if (newlyCreated || props.pendingSessionId === session.id) {
+            next.add(session.id);
+          }
         }
       }
+
       for (const sessionId of next) {
         if (!visibleIds.has(sessionId)) next.delete(sessionId);
       }
@@ -584,6 +627,7 @@ export function AgentSessionTabs(props: {
   // Titles are display-only from snapshot/render. Do NOT auto-call
   // onRenameSession here (session.update + refreshRouteState freezes the UI
   // under SSE / tab switches). Persist only via onRequestRename → modal.
+  // Message preview still wins over the summarizing chip in summarizeTabTitle.
   const togglePinSession = useCallback(
     (sessionId: string) => {
       const id = sessionId.trim();
