@@ -191,13 +191,21 @@ export function createWorkspaceClientMethods(ctx: OnMyAgentServerClientContext) 
       ),
     createExpertSessionRuntimeDirectory: (
       workspaceId: string,
-      payload: { agentName: string; agentId?: string; sessionKey?: string },
+      payload: {
+        agentName: string;
+        agentId?: string;
+        sessionKey?: string;
+        skillNames?: string[];
+      },
     ) =>
       requestJson<{
         ok: boolean;
         directory: string;
         sessionKey: string;
         agentSegment: string;
+        installedSkills?: string[];
+        isolationVersion?: number;
+        defaultAgent?: string;
       }>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/expert-session-directory`,

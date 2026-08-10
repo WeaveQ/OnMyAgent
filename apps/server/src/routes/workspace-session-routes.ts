@@ -94,11 +94,15 @@ export function registerWorkspaceSessionRoutes(input: {
       if (!agentName) {
         throw new ApiError(400, "expert_agent_name_required", "Expert agent name is required");
       }
+      const skillNames = Array.isArray(body.skillNames)
+        ? body.skillNames.filter((item: unknown): item is string => typeof item === "string")
+        : undefined;
       const result = await createExpertSessionRuntimeDirectory({
         workspace,
         agentName,
         agentId: typeof body.agentId === "string" ? body.agentId : undefined,
         sessionKey: typeof body.sessionKey === "string" ? body.sessionKey : undefined,
+        skillNames,
       });
       return systemJsonResponse({ ok: true, ...result }, 201);
     },
