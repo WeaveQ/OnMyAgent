@@ -57,6 +57,10 @@ import {
   trackWorkspaceSessionSync,
   writeAssistantSessionWorkspace,
 } from "../../domains/session";
+import {
+  parseSkillNamesFromAgentMarkdown,
+  resolveExpertPromptAgent,
+} from "../../capabilities/session-identity/expert-prompt-agent";
 import { useSessionActivityStore } from "../../domains/session";
 import {
   buildOnMyAgentEnvSystemContext,
@@ -495,6 +499,9 @@ export function useSessionRouteSurfaceProps(
           runtimeKey: envRuntimeKey,
         });
 
+        const expertSkillNames = parseSkillNamesFromAgentMarkdown(
+          pendingForColdPath?.systemPrompt ?? "",
+        );
         if (pageMode === "expert" && sendPlan.needsNewSession) {
           const explicitFolder = explicitAssistantWorkspace.trim();
           const isolate = shouldIsolateExpertSessionDirectory(
@@ -514,6 +521,7 @@ export function useSessionRouteSurfaceProps(
               workspaceRoot: workspaceRootForSession,
               agentName,
               agentId,
+              skillNames: expertSkillNames,
             });
             // Only bind the external runtime path when the server created it.
             // Otherwise opencode FileSystem.realPath throws ENOENT and the turn dies.
@@ -527,6 +535,22 @@ export function useSessionRouteSurfaceProps(
             // User-picked folder (not workspace root): bind side panel to that path.
             explicitAssistantWorkspace = explicitFolder;
             taskWorkspaceRoot = explicitFolder;
+          }
+        } else if (
+          pageMode === "expert" &&
+          taskWorkspaceRoot &&
+          ensureClient &&
+          typeof ensureClient.ensureExpertSessionIsolation === "function"
+        ) {
+          // Upgrade pre-isolation expert dirs (marker without isolationVersion /
+          // missing lean agent file) before the first prompt of the turn.
+          try {
+            await ensureClient.ensureExpertSessionIsolation(ensureWorkspaceId, {
+              directory: taskWorkspaceRoot,
+              ...(expertSkillNames.length ? { skillNames: expertSkillNames } : {}),
+            });
+          } catch (error) {
+            console.warn("[expert-session] isolation ensure failed", error);
           }
         }
 
@@ -1027,7 +1051,11 @@ export function useSessionRouteSurfaceProps(
               // Never modify `pendingAgentSnapshot.model` — the agent's configured model
               // is owned by the agent page edit dialog.
               model: selectedPromptModel,
-              agent: selectedAgent ?? undefined,
+              // Expert isolation: never fall through to home default (Sisyphus).
+              agent:
+                pageMode === "expert" || boundExpertId
+                  ? resolveExpertPromptAgent(selectedAgent)
+                  : selectedAgent ?? undefined,
               ...(modelVariantValue ? { variant: modelVariantValue } : {}),
               ...(runtimeToolAccess ? { tools: runtimeToolAccess } : {}),
               ...(combinedSystem ? { system: combinedSystem } : {}),
