@@ -133,7 +133,7 @@ describe("reorderConnectedProviderIds", () => {
 });
 
 describe("settings provider order + badge UI contracts", () => {
-  test("ai-view wires HTML5 drag reorder", () => {
+  test("ai-view wires HTML5 drag reorder and move up/down buttons", () => {
     const aiView = readFileSync(
       join(appRoot, "src/react-app/domains/settings/pages/ai-view.tsx"),
       "utf8",
@@ -141,8 +141,13 @@ describe("settings provider order + badge UI contracts", () => {
     expect(aiView).toContain("onReorderProviders");
     expect(aiView).toContain("onDragStart");
     expect(aiView).toContain("onDrop");
+    expect(aiView).toContain("getData");
     expect(aiView).toContain("GripVertical");
     expect(aiView).toContain("provider_reorder_hint");
+    // Keyboard / touch a11y (Windows-friendly).
+    expect(aiView).toContain("onMoveProvider");
+    expect(aiView).toContain("provider_move_up");
+    expect(aiView).toContain("provider_move_down");
     // Zen free-only; custom never labeled OpenCode engine.
     expect(aiView).toContain('provider.id === "opencode"');
     expect(aiView).toContain('provider.source ===');
@@ -182,6 +187,8 @@ describe("settings provider order + badge UI contracts", () => {
     );
     expect(controller).toContain("reorderConnectedProviders");
     expect(controller).toContain("reorderConnectedProviderIds");
+    expect(controller).toContain("moveConnectedProvider");
+    expect(controller).toContain("moveConnectedProviderInOrder");
     expect(controller).toContain("writeConnectedProviderOrderIds");
     expect(controller).toContain("readConnectedProviderOrderIds");
     expect(controller).toContain("orderConnectedProviders");

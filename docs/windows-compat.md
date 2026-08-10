@@ -56,6 +56,46 @@ node scripts/dev/windows-preflight.mjs --ci
 When your PR touches archive parsers, workspace file roots, or desktop bridges but
 is not auto-selected, add label `ci:windows` or run `pnpm check:windows` before merge.
 
+**PR template:** the default pull request template lists the path filter and requires
+a Testing checkbox for Windows host / `ci:windows` / `pnpm check:windows`.
+
+### Local gate commands (copy-paste)
+
+```bat
+:: After pnpm install — environment / electron / native modules
+node scripts/dev/windows-preflight.mjs --ci
+
+:: Mocked win32 contracts (any host) + Windows host preflight when on windows-2022
+pnpm check:windows
+
+:: Mocked contracts only
+pnpm test:windows-runtime
+```
+
+### Desktop smoke (≈15 min, real Windows machine)
+
+Use a Developer Mode shell (or admin) so junctions work, then:
+
+1. **Install & preflight** — `pnpm install` then `node scripts/dev/windows-preflight.mjs --ci` (fix only).
+2. **Start** — `scripts\dev\windows.cmd` (or `pnpm dev -- desktop`); app window + tray appear.
+3. **Workspace** — open an existing workspace; create or switch once; no crash.
+4. **Terminal** — open code workspace terminal; confirm shell (wt / PowerShell / cmd cascade).
+5. **Local agents** — 本地 → 我的智能体 loads (skeleton then list or empty); no hard hang.
+6. **Settings → Models** — list providers; if ≥2, **move up/down** (or drag) reorder and survives reload.
+7. **Session archive** — open 归档 / archive surface once; no process exit.
+8. **Quit cleanly** — File/Quit or tray quit; no orphan Electron (Task Manager).
+
+Unix-only debug helpers (`scripts/dev/onmyagent-debug.sh`, bash maintenance scripts)
+are **not** supported on Windows — use preflight, Event Viewer, and `pnpm check:windows`.
+
+### Path and tilde notes
+
+- Workspace-relative paths accept both `\` and `/` (see `toPortableRelativePath`).
+- Sandbox allowlist `~/Documents` expands with `expandTildePath` to
+  `%USERPROFILE%\Documents` on Windows (also `~\Documents`).
+- Prefer `scripts/lib/run-command.mjs` (`resolveCommand` / `spawnCommandSync`) when
+  spawning `pnpm` / `npm` / `npx` so Windows `.cmd` shims resolve correctly.
+
 ## Preflight
 
 ```bat

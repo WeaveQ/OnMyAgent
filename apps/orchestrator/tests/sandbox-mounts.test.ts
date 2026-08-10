@@ -4,7 +4,10 @@ import { realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { homedir } from "node:os";
+
 import {
+  expandTildePath,
   resolveHostOpencodeGlobalConfigDir,
   resolveHostOpencodeGlobalDataDir,
   resolveSandboxExtraMounts,
@@ -32,6 +35,33 @@ afterEach(() => {
   else process.env.XDG_CONFIG_HOME = originalXdgConfigHome;
   if (originalXdgDataHome === undefined) delete process.env.XDG_DATA_HOME;
   else process.env.XDG_DATA_HOME = originalXdgDataHome;
+});
+
+describe("expandTildePath", () => {
+  test("expands ~ and ~/… under home", () => {
+    expect(expandTildePath("~")).toBe(homedir());
+    expect(expandTildePath("~/Documents")).toBe(join(homedir(), "Documents"));
+    expect(expandTildePath("~/projects/app")).toBe(
+      join(homedir(), "projects", "app"),
+    );
+  });
+
+  test("expands Windows-style ~\\ paths", () => {
+    if (process.platform !== "win32") {
+      // Logic still accepts ~\ when platform is win32 only; off-win leave as-is.
+      expect(expandTildePath("~\\Documents")).toBe("~\\Documents");
+      return;
+    }
+    expect(expandTildePath("~\\Documents")).toBe(join(homedir(), "Documents"));
+    expect(expandTildePath("~\\Documents\\notes")).toBe(
+      join(homedir(), "Documents", "notes"),
+    );
+  });
+
+  test("leaves non-tilde paths unchanged", () => {
+    expect(expandTildePath("/tmp/x")).toBe("/tmp/x");
+    expect(expandTildePath("  ")).toBe("");
+  });
 });
 
 describe("opencode sandbox global config/data dirs", () => {

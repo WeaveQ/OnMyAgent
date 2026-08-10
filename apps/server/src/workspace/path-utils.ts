@@ -13,6 +13,9 @@ import {
 } from "node:path";
 import { ApiError } from "../core/errors.js";
 import { exists } from "../core/utils.js";
+import { toPortableRelativePath } from "./portable-path.js";
+
+export { toPortableRelativePath, portableRelativeSegments } from "./portable-path.js";
 
 export function resolveInboxDir(workspaceRoot: string): string {
   return join(workspaceRoot, ".opencode", "onmyagent", "inbox");
@@ -48,19 +51,18 @@ export function normalizeWorkspaceRelativePath(
   normalized = normalized.replace(/^workspace\//, "");
   normalized = normalized.replace(/^\/+/, "");
 
-  const parts = normalized.split("/").filter(Boolean);
-  if (!parts.length) {
+  if (!normalized.trim()) {
     throw new ApiError(400, "invalid_path", "Path is required");
   }
-  if (!options.allowSubdirs && parts.length > 1) {
+  // Shared portable relative path (Windows `\` already folded above).
+  const portable = toPortableRelativePath(normalized);
+  if (!portable) {
+    throw new ApiError(400, "invalid_path", "Path traversal is not allowed");
+  }
+  if (!options.allowSubdirs && portable.includes("/")) {
     throw new ApiError(400, "invalid_path", "Subdirectories are not allowed");
   }
-  for (const part of parts) {
-    if (part === "." || part === "..") {
-      throw new ApiError(400, "invalid_path", "Path traversal is not allowed");
-    }
-  }
-  return parts.join("/");
+  return portable;
 }
 
 export function isSupportedWorkspaceTextFilePath(

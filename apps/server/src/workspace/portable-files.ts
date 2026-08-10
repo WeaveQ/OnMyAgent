@@ -3,6 +3,7 @@ import { dirname, join, resolve } from "node:path";
 
 import { ApiError } from "../core/errors.js";
 import { ensureDir, exists } from "../core/utils.js";
+import { toPortableRelativePath } from "./portable-path.js";
 
 export type PortableFile = {
   path: string;
@@ -30,26 +31,18 @@ const MANAGED_PORTABLE_FILES = new Set([
 const RESERVED_PORTABLE_SEGMENTS = new Set([".DS_Store", "Thumbs.db", "node_modules"]);
 
 function normalizePortablePath(input: unknown): string {
-  const normalized = String(input ?? "")
-    .replaceAll("\\", "/")
-    .replace(/\/+/g, "/")
-    .replace(/^\.\//, "")
-    .replace(/^\/+/, "")
-    .trim();
-
+  const normalized = toPortableRelativePath(input);
   if (!normalized) {
-    throw new ApiError(400, "invalid_portable_file_path", "Portable file path is required");
+    const raw = String(input ?? "").trim();
+    if (!raw) {
+      throw new ApiError(400, "invalid_portable_file_path", "Portable file path is required");
+    }
+    throw new ApiError(
+      400,
+      "invalid_portable_file_path",
+      `Portable file path is invalid: ${raw}`,
+    );
   }
-
-  if (normalized.includes("\0")) {
-    throw new ApiError(400, "invalid_portable_file_path", `Portable file path contains an invalid byte: ${normalized}`);
-  }
-
-  const segments = normalized.split("/");
-  if (segments.some((segment) => !segment || segment === "." || segment === "..")) {
-    throw new ApiError(400, "invalid_portable_file_path", `Portable file path is invalid: ${normalized}`);
-  }
-
   return normalized;
 }
 

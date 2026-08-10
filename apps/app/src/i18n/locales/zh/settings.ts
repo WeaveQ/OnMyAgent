@@ -393,9 +393,11 @@ export default {
   "settings.provider_default_label": "模型服务商默认",
   "settings.provider_source_config": "配置",
   "settings.provider_source_custom": "自定义",
+  "settings.provider_move_up": "上移",
+  "settings.provider_move_down": "下移",
   "settings.provider_source_env": "环境变量",
   "settings.provider_badge_cloud": "云端",
-  "settings.provider_reorder_hint": "拖拽调整顺序",
+  "settings.provider_reorder_hint": "拖拽手柄或使用箭头调整顺序",
   "settings.provider_reorder_aria": "调整模型服务商顺序",
   "settings.providers_dialog_title": "模型服务商",
   "settings.providers_dialog_description":

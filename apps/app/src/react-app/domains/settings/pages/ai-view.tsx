@@ -8,7 +8,15 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { FileCode, GripVertical, Pencil, Trash2, Unplug } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  FileCode,
+  GripVertical,
+  Pencil,
+  Trash2,
+  Unplug,
+} from "lucide-react";
 import {
   useRef,
   useState,
@@ -93,6 +101,10 @@ export type AiSettingsViewProps = {
    * When omitted (or fewer than 2 rows), rows are not draggable.
    */
   onReorderProviders?: (fromId: string, toId: string) => void;
+  /**
+   * Move one step up/down (keyboard / Windows touch accessible).
+   */
+  onMoveProvider?: (providerId: string, direction: "up" | "down") => void;
 };
 
 /** Interactive controls that must not start a row drag. */
@@ -196,7 +208,15 @@ export function AiSettingsView(props: AiSettingsViewProps) {
   ) => {
     if (!canReorder) return;
     event.preventDefault();
-    const fromId = dragFromIdRef.current;
+    let fromId = dragFromIdRef.current;
+    // Windows Chromium: prefer dataTransfer when ref was cleared mid-drag.
+    if (!fromId) {
+      try {
+        fromId = event.dataTransfer.getData("text/plain") || null;
+      } catch {
+        fromId = null;
+      }
+    }
     clearDragState();
     if (!fromId || fromId === providerId) return;
     props.onReorderProviders?.(fromId, providerId);
@@ -289,7 +309,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
 
         <SettingsBlock>
           {props.connectedProviders.length > 0 ? (
-            props.connectedProviders.map((provider) => {
+            props.connectedProviders.map((provider, providerIndex) => {
               const sourceLabel = providerSourceLabel(provider.source);
               const isCloud = props.cloudProviderIds?.has(provider.id) === true;
               const rowBusy =
@@ -302,6 +322,13 @@ export function AiSettingsView(props: AiSettingsViewProps) {
               const isDragging = dragFromId === provider.id;
               const isDropTarget =
                 dropTargetId === provider.id && dragFromId !== provider.id;
+              const canMove =
+                typeof props.onMoveProvider === "function" &&
+                props.connectedProviders.length > 1 &&
+                !actionsDisabled;
+              const canMoveUp = canMove && providerIndex > 0;
+              const canMoveDown =
+                canMove && providerIndex < props.connectedProviders.length - 1;
 
               return (
                 <SettingsBlockRow
@@ -392,9 +419,65 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                     </span>
                   }
                   actions={
-                    !isCloud ? (
+                    !isCloud || canMove ? (
                       <div className="inline-flex items-center gap-0.5">
-                        {props.canEditProvider?.(provider) ? (
+                        {canMove ? (
+                          <>
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={(
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    className="text-dls-secondary"
+                                    disabled={!canMoveUp || props.busy || rowBusy}
+                                    onClick={() =>
+                                      props.onMoveProvider?.(provider.id, "up")
+                                    }
+                                    aria-label={t("settings.provider_move_up")}
+                                  >
+                                    <ChevronUp
+                                      aria-hidden="true"
+                                      className="size-3.5"
+                                    />
+                                  </Button>
+                                )}
+                              />
+                              <TooltipContent>
+                                {t("settings.provider_move_up")}
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={(
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    className="text-dls-secondary"
+                                    disabled={
+                                      !canMoveDown || props.busy || rowBusy
+                                    }
+                                    onClick={() =>
+                                      props.onMoveProvider?.(provider.id, "down")
+                                    }
+                                    aria-label={t("settings.provider_move_down")}
+                                  >
+                                    <ChevronDown
+                                      aria-hidden="true"
+                                      className="size-3.5"
+                                    />
+                                  </Button>
+                                )}
+                              />
+                              <TooltipContent>
+                                {t("settings.provider_move_down")}
+                              </TooltipContent>
+                            </Tooltip>
+                          </>
+                        ) : null}
+                        {!isCloud && props.canEditProvider?.(provider) ? (
                           <Tooltip>
                             <TooltipTrigger
                               render={(
@@ -420,7 +503,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                             </TooltipContent>
                           </Tooltip>
                         ) : null}
-                        {props.canDeleteProvider?.(provider) ? (
+                        {!isCloud && props.canDeleteProvider?.(provider) ? (
                           <Tooltip>
                             <TooltipTrigger
                               render={(
@@ -448,7 +531,8 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                         ) : null}
                         {/* Only real disconnectable (e.g. OAuth/API) rows — never a
                             status-looking Unplug on custom/env/OpenCode entries. */}
-                        {!props.canEditProvider?.(provider) &&
+                        {!isCloud &&
+                        !props.canEditProvider?.(provider) &&
                         !props.canDeleteProvider?.(provider) &&
                         props.canDisconnectProvider(provider) ? (
                           <Tooltip>
