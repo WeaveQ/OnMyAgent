@@ -948,9 +948,11 @@ describe("open source session + create folder (Sprint A/B)", () => {
     const browser = readApp(
       "src/react-app/domains/workspace/workspace-files-browser-panel.tsx",
     );
-    const uploads = readApp(
-      "src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
-    );
+    const uploads = [
+      readApp("src/react-app/domains/workspace/workspace-files-uploads-panel.tsx"),
+      readApp("src/react-app/domains/workspace/use-workspace-files-uploads-panel.ts"),
+      readApp("src/react-app/domains/workspace/workspace-files-uploads-sections.tsx"),
+    ].join("\n");
     const page = readApp(
       "src/react-app/domains/workspace/workspace-files-page.tsx",
     );
@@ -999,7 +1001,11 @@ describe("open source session + create folder (Sprint A/B)", () => {
 
 describe("C5 expert archive + C1 delete copy contracts", () => {
   test("expert page archives with category expert and filters live list", () => {
-    const expert = readApp("src/react-app/domains/session/pages/expert.tsx");
+    const expert = [
+      readApp("src/react-app/domains/session/pages/expert.tsx"),
+      readApp("src/react-app/domains/session/pages/use-expert-page.tsx"),
+      readApp("src/react-app/domains/session/pages/expert-page-layout.tsx"),
+    ].join("\n");
     const expertDelete = readApp(
       "src/react-app/domains/session/pages/use-expert-session-delete.ts",
     );
@@ -1037,9 +1043,11 @@ describe("C5 expert archive + C1 delete copy contracts", () => {
   });
 
   test("Mine uploads panel has Hope-style toolbar without storage capacity UI", () => {
-    const uploads = readApp(
-      "src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
-    );
+    const uploads = [
+      readApp("src/react-app/domains/workspace/workspace-files-uploads-panel.tsx"),
+      readApp("src/react-app/domains/workspace/use-workspace-files-uploads-panel.ts"),
+      readApp("src/react-app/domains/workspace/workspace-files-uploads-sections.tsx"),
+    ].join("\n");
     // Title left · tools right; path breadcrumb only when nested under uploads root.
     expect(uploads).toContain('data-files-mine-toolbar="true"');
     expect(uploads).toContain('data-files-mine-pathbar="true"');

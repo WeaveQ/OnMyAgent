@@ -57,6 +57,15 @@ function readPage(name: string) {
   );
 }
 
+/** Expert host split into assembly + hook + layout (P1-5 residual). */
+function readExpertHost() {
+  return [
+    readPage("expert.tsx"),
+    readPage("use-expert-page.tsx"),
+    readPage("expert-page-layout.tsx"),
+  ].join("\n");
+}
+
 describe("rail navigation memory", () => {
   test("persists rail view per mode and workspace", () => {
     expect(readRailView("assistant", "ws-1", "assistant")).toBe("assistant");
@@ -103,7 +112,7 @@ describe("rail keep-alive contract", () => {
       "utf8",
     );
     const assistant = readPage("assistant.tsx") + "\n" + shell + "\n" + hostState;
-    const expert = readPage("expert.tsx") + "\n" + shell + "\n" + hostState;
+    const expert = readExpertHost() + "\n" + shell + "\n" + hostState;
     for (const source of [assistant, expert]) {
       expect(source).toContain("KeepAlivePane");
       expect(source).toContain("useVisitedRailViews");
@@ -131,7 +140,7 @@ describe("rail keep-alive contract", () => {
     expect(assistant).toContain("writeAssistantCategoryMemory");
     expect(assistant).toContain("readAssistantCategoryMemory");
     // Expert rail return must not create a task
-    const expertHost = readPage("expert.tsx");
+    const expertHost = readExpertHost();
     const expertRail = expertHost.slice(
       expertHost.indexOf("onOpenView={(view) => {"),
       expertHost.indexOf("onOpenAccountSettings="),
@@ -173,13 +182,13 @@ describe("rail keep-alive contract", () => {
       "utf8",
     );
     const assistantHost = readPage("assistant.tsx");
-    const expertHost = readPage("expert.tsx");
+    const expertHost = readExpertHost();
     expect(hostState).toContain("isPrimarySessionRailView");
     expect(hostState).toContain("isPrimarySessionView");
     // Expert: primary only when chat rail is selected.
     expect(expertHost).toContain("isPrimarySessionView");
     expect(expertHost).toMatch(
-      /primarySessionActive=\{\s*isPrimarySessionView\s*&&/,
+      /primarySessionActive=\{\s*isPrimarySessionView\s*\}/,
     );
     // Assistant: primary home OR embedded automation run (sessionSurfaceActive).
     expect(assistantHost).toContain("isPrimarySessionView");

@@ -50,8 +50,8 @@ describe("session goal isolation", () => {
         key: "key={renderedSessionId}",
       },
       {
-        path: "domains/session/pages/expert.tsx",
-        key: "key={renderedSessionId}",
+        path: "domains/session/pages/expert-page-layout.tsx",
+        key: 'key={props.runtimeWorkspaceId ?? "expert-surface"}',
       },
     ];
 

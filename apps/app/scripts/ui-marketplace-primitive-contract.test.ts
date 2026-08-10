@@ -99,9 +99,14 @@ describe("CountBadge meta + file count chips", () => {
     const tree = read(
       "apps/app/src/react-app/domains/workspace/workspace-files-tree-dir-row.tsx",
     );
-    const uploads = read(
-      "apps/app/src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
-    );
+    const uploads = [
+      read(
+        "apps/app/src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
+      ),
+      read(
+        "apps/app/src/react-app/domains/workspace/workspace-files-uploads-sections.tsx",
+      ),
+    ].join("\n");
     expect(tree).toContain("CountBadge");
     expect(tree).toContain('size="meta"');
     expect(tree).not.toContain(HAND_ROLLED_FILE_CHIP);

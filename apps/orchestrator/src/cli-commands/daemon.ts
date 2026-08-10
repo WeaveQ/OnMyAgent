@@ -80,7 +80,6 @@ import {
   requestRouter,
   resolveCliVersion,
   resolveInternalDevMode,
-  resolveOpencodeBin,
   resolveOpencodeLogLevel,
   resolveOpencodeStateLayout,
   resolvePort,
@@ -91,6 +90,7 @@ import {
   workspaceIdForLocal,
   workspaceIdForRemote,
 } from "../cli-shared.js";
+import { resolveOpencodeBin } from "../cli-binary-resolve.js";
 
 export async function runDaemonCommand(args: ParsedArgs) {
   const outputJson = readBool(args.flags, "json", false);

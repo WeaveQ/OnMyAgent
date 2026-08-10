@@ -36,9 +36,13 @@ describe("Electron titlebar hit targets", () => {
     const helpers = readWorkspaceFile(
       "apps/app/src/react-app/domains/local-agents/host/personal-local-agent-page-helpers.ts",
     );
-    const page = readWorkspaceFile(
+    const page = [
       "apps/app/src/react-app/domains/local-agents/host/personal-local-agent-page.tsx",
-    );
+      "apps/app/src/react-app/domains/local-agents/host/personal-local-agent-page-sections.tsx",
+      "apps/app/src/react-app/domains/local-agents/host/use-personal-local-agent-page.ts",
+    ]
+      .map((path) => readWorkspaceFile(path))
+      .join("\n");
     const statusRail = readWorkspaceFile(
       "apps/app/src/react-app/domains/local-agents/local-agent-status-rail.tsx",
     );
