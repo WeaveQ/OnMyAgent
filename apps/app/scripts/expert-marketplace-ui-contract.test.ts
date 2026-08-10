@@ -283,20 +283,22 @@ describe("expert marketplace UI contract", () => {
         "./skills/kol-brief-structuring",
         "./skills/kol-talent-ranking",
         "./skills/kol-data-clean-merge",
-        "./skills/kol-content-risk-checklist",
+        "./skills/kol-media-execution-board",
+        "./skills/kol-pitch-readiness-check",
       ],
       "kol-content-ops-specialist": [
-        "./skills/kol-script-risk-review",
-        "./skills/kol-reputation-monitor",
-        "./skills/kol-rebate-invoice-audit",
-        "./skills/kol-content-risk-checklist",
+        "./skills/xhs-script-assistant",
+        "./skills/kol-content-delivery-tracker",
+        "./skills/rebate-contract-generator",
         "./skills/rebate-contract-checker",
+        "./skills/kol-reputation-monitor",
       ],
       "kol-project-review-specialist": [
-        "./skills/kol-project-review-framework",
-        "./skills/kol-margin-effect-analysis",
         "./skills/kol-data-clean-merge",
-        "./skills/kol-content-risk-checklist",
+        "./skills/kol-margin-effect-analysis",
+        "./skills/kol-content-performance-attribution",
+        "./skills/kol-project-review-framework",
+        "./skills/kol-review-report-audit",
       ],
     };
     const creatorProfessions: Record<string, string> = {
@@ -355,11 +357,25 @@ describe("expert marketplace UI contract", () => {
         expect(existsSync(join(rebateCheckerRoot, "references/usage_guide.md"))).toBe(
           true,
         );
+        expect(
+          existsSync(join(packageRoot, "skills/kol-rebate-invoice-audit")),
+        ).toBe(false);
+        const xhsScriptRoot = join(packageRoot, "skills/xhs-script-assistant");
+        expect(existsSync(join(xhsScriptRoot, "references/script-template.md"))).toBe(
+          true,
+        );
+        expect(existsSync(join(xhsScriptRoot, "references/docx-template.py"))).toBe(
+          true,
+        );
+        expect(existsSync(join(packageRoot, "skills/kol-script-risk-review"))).toBe(
+          false,
+        );
         const agentMarkdown = readFileSync(
           join(packageRoot, "agents/kol-content-ops-specialist.md"),
           "utf8",
         );
         expect(agentMarkdown).toContain("rebate-contract-checker");
+        expect(agentMarkdown).toContain("xhs-script-assistant");
       }
       const cats = [
         ...(entry?.manifest?.categoryId ? [entry.manifest.categoryId] : []),
