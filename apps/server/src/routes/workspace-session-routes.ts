@@ -6,6 +6,7 @@ import { ApiError } from "../core/errors.js";
 import { nodeReadableToWebStream } from "../core/node-web-stream.js";
 import {
   createExpertSessionRuntimeDirectory,
+  ensureExpertSessionRuntimeIsolation,
   listExpertSessionRuntimeFiles,
   resolveExpertSessionRuntimeFile,
 } from "../services/expert-session-runtime.js";
@@ -94,13 +95,50 @@ export function registerWorkspaceSessionRoutes(input: {
       if (!agentName) {
         throw new ApiError(400, "expert_agent_name_required", "Expert agent name is required");
       }
+      const skillNames = Array.isArray(body.skillNames)
+        ? body.skillNames.filter((item: unknown): item is string => typeof item === "string")
+        : undefined;
       const result = await createExpertSessionRuntimeDirectory({
         workspace,
         agentName,
         agentId: typeof body.agentId === "string" ? body.agentId : undefined,
         sessionKey: typeof body.sessionKey === "string" ? body.sessionKey : undefined,
+        skillNames,
       });
       return systemJsonResponse({ ok: true, ...result }, 201);
+    },
+  );
+
+  addRoute(
+    routes,
+    "POST",
+    "/workspace/:id/expert-session-isolation",
+    "client",
+    async (ctx) => {
+      ensureWritable(config);
+      requireClientScope(ctx, "collaborator");
+      const workspace = await resolveWorkspace(config, ctx.params.id);
+      const body = await readJsonBody(ctx.request);
+      const directory = typeof body.directory === "string" ? body.directory.trim() : "";
+      if (!directory) {
+        throw new ApiError(400, "expert_session_directory_required", "Expert session directory is required");
+      }
+      const skillNames = Array.isArray(body.skillNames)
+        ? body.skillNames.filter((item: unknown): item is string => typeof item === "string")
+        : undefined;
+      const result = await ensureExpertSessionRuntimeIsolation({
+        workspace,
+        directory,
+        skillNames,
+      });
+      if (!result) {
+        throw new ApiError(
+          403,
+          "expert_session_directory_forbidden",
+          "Directory is not a managed expert session for this workspace",
+        );
+      }
+      return systemJsonResponse({ ok: true, ...result });
     },
   );
 

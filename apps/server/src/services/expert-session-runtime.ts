@@ -1,15 +1,58 @@
 import { createHash } from "node:crypto";
-import { lstat, mkdir, readFile, readdir, realpath, stat, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import {
+  cp,
+  lstat,
+  mkdir,
+  readFile,
+  readdir,
+  realpath,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import type { WorkspaceInfo } from "@onmyagent/types/server";
 
+import {
+  globalSkillsDir,
+  legacyOnmyagentSkillsDir,
+} from "../workspace/workspace-files.js";
+
 const EXPERT_SESSION_MARKER_NAME = "onmyagent-session.json";
+/** Lightweight default agent — never Sisyphus / oh-my-openagent orchestrator. */
+export const EXPERT_SESSION_DEFAULT_AGENT = "onmyagent";
+/**
+ * v1: opencode.json + declared skills
+ * v2: lean .opencode/agents/onmyagent.md so default_agent always resolves
+ */
+export const EXPERT_SESSION_ISOLATION_VERSION = 2;
+
+/** Minimal primary agent — persona comes from expert system prompt at prompt time. */
+export const EXPERT_SESSION_AGENT_MARKDOWN = `---
+description: OnMyAgent expert session agent
+mode: primary
+temperature: 0.2
+---
+
+You are a helpful AI assistant. Your name, role, and persona are defined by the calling system for this expert session — always follow those instructions instead of inventing an identity.
+
+Working style:
+- Prefer skills available under this project when they match the task.
+- Work safely with files in this session directory.
+- Keep answers practical and concise.
+- If required inputs are missing, ask one targeted question and continue.
+`;
 
 export type ExpertSessionRuntimeDirectory = {
   directory: string;
   sessionKey: string;
   agentSegment: string;
+  /** Skill folders copied into the session-local skills root. */
+  installedSkills: string[];
+  isolationVersion: number;
+  defaultAgent: string;
 };
 
 export type AuthorizedArtifactResolutionRoot = {
@@ -96,12 +139,278 @@ export async function resolveAuthorizedArtifactResolutionRoot(input: {
     : null;
 }
 
+/**
+ * Project-local OpenCode config for an expert session directory.
+ * Keeps default_agent light and declares no home plugins; combined with
+ * promptAsync agent forcing this prevents Sisyphus from owning the run.
+ */
+export function buildExpertSessionOpencodeConfig(input?: {
+  defaultAgent?: string;
+}): Record<string, unknown> {
+  const defaultAgent =
+    input?.defaultAgent?.trim() || EXPERT_SESSION_DEFAULT_AGENT;
+  return {
+    $schema: "https://opencode.ai/config.json",
+    default_agent: defaultAgent,
+    // Empty list: do not inherit oh-my-openagent / superpowers from project
+    // merge when OpenCode prefers project plugin declaration.
+    plugin: [],
+    instructions: [],
+  };
+}
+
+export function buildExpertSessionAgentMarkdown(): string {
+  return EXPERT_SESSION_AGENT_MARKDOWN.endsWith("\n")
+    ? EXPERT_SESSION_AGENT_MARKDOWN
+    : `${EXPERT_SESSION_AGENT_MARKDOWN}\n`;
+}
+
+/** Ordered skill roots: override → OPENCODE_GLOBAL_SKILLS_DIR → profile → legacy. */
+export function resolveExpertSkillSourceRoots(override?: string): string[] {
+  if (override?.trim()) return [resolve(override.trim())];
+  const roots: string[] = [];
+  const seen = new Set<string>();
+  for (const candidate of [
+    process.env.OPENCODE_GLOBAL_SKILLS_DIR?.trim(),
+    globalSkillsDir(),
+    legacyOnmyagentSkillsDir(),
+  ]) {
+    if (!candidate) continue;
+    const resolved = resolve(candidate);
+    if (seen.has(resolved)) continue;
+    seen.add(resolved);
+    roots.push(resolved);
+  }
+  return roots;
+}
+
+function findSkillSourceDir(
+  skillName: string,
+  sourceRoots: readonly string[],
+): string | null {
+  for (const root of sourceRoots) {
+    const source = join(root, skillName);
+    if (existsSync(join(source, "SKILL.md"))) return source;
+  }
+  return null;
+}
+
+/**
+ * Copy only allowlisted skill folders into `targetDir/.opencode/skills/<name>`.
+ * Searches profile / global / legacy skill roots. Unknown names are skipped.
+ */
+export async function materializeExpertSessionSkills(input: {
+  skillNames: readonly string[] | undefined;
+  targetDirectory: string;
+  skillsSourceRoot?: string;
+}): Promise<string[]> {
+  const targetDirectory = resolve(input.targetDirectory);
+  const sourceRoots = resolveExpertSkillSourceRoots(input.skillsSourceRoot);
+  const names = normalizeSkillNameList(input.skillNames);
+  if (names.length === 0) return [];
+
+  const skillsDir = join(targetDirectory, ".opencode", "skills");
+  await mkdir(skillsDir, { recursive: true });
+  const installed: string[] = [];
+  for (const skillName of names) {
+    const source = findSkillSourceDir(skillName, sourceRoots);
+    if (!source) continue;
+    const destination = join(skillsDir, skillName);
+    await rm(destination, { recursive: true, force: true });
+    await cp(source, destination, { recursive: true });
+    installed.push(skillName);
+  }
+  return installed;
+}
+
+/**
+ * Write opencode.json + lean agent file + optional skills into an expert
+ * session directory (create or upgrade).
+ */
+export async function applyExpertSessionIsolation(input: {
+  directory: string;
+  workspaceId: string;
+  agentSegment?: string;
+  sessionKey?: string;
+  skillNames?: readonly string[];
+  skillsSourceRoot?: string;
+  defaultAgent?: string;
+  /** Preserve existing marker fields when upgrading. */
+  existingMarker?: Record<string, unknown> | null;
+}): Promise<{
+  installedSkills: string[];
+  isolationVersion: number;
+  defaultAgent: string;
+}> {
+  const directory = resolve(input.directory);
+  await mkdir(directory, { recursive: true });
+
+  const defaultAgent =
+    input.defaultAgent?.trim() || EXPERT_SESSION_DEFAULT_AGENT;
+  const opencodeConfig = buildExpertSessionOpencodeConfig({ defaultAgent });
+  await writeFile(
+    join(directory, "opencode.json"),
+    `${JSON.stringify(opencodeConfig, null, 2)}\n`,
+    "utf8",
+  );
+
+  const agentsDir = join(directory, ".opencode", "agents");
+  await mkdir(agentsDir, { recursive: true });
+  await writeFile(
+    join(agentsDir, `${defaultAgent}.md`),
+    buildExpertSessionAgentMarkdown(),
+    "utf8",
+  );
+
+  const installedSkills = await materializeExpertSessionSkills({
+    skillNames: input.skillNames,
+    targetDirectory: directory,
+    skillsSourceRoot: input.skillsSourceRoot,
+  });
+
+  const prior = input.existingMarker && typeof input.existingMarker === "object"
+    ? input.existingMarker
+    : {};
+  const priorSkills = Array.isArray(prior.installedSkills)
+    ? prior.installedSkills.filter((item): item is string => typeof item === "string")
+    : [];
+  const mergedSkills = normalizeSkillNameList([...priorSkills, ...installedSkills]);
+
+  await writeFile(
+    join(directory, EXPERT_SESSION_MARKER_NAME),
+    `${JSON.stringify({
+      ...prior,
+      kind: "expert-session",
+      workspaceId: input.workspaceId,
+      agent:
+        input.agentSegment?.trim() ||
+        (typeof prior.agent === "string" ? prior.agent : "expert"),
+      sessionKey:
+        input.sessionKey?.trim() ||
+        (typeof prior.sessionKey === "string" ? prior.sessionKey : undefined),
+      runtime: true,
+      isolationVersion: EXPERT_SESSION_ISOLATION_VERSION,
+      defaultAgent,
+      installedSkills: mergedSkills.length > 0 ? mergedSkills : installedSkills,
+    }, null, 2)}\n`,
+    "utf8",
+  );
+
+  return {
+    installedSkills: mergedSkills.length > 0 ? mergedSkills : installedSkills,
+    isolationVersion: EXPERT_SESSION_ISOLATION_VERSION,
+    defaultAgent,
+  };
+}
+
+/**
+ * Upgrade an existing expert session dir when isolation is missing or stale.
+ * Safe no-op when already at current isolationVersion and agent file exists
+ * (still refreshes declared skills if skillNames provided).
+ */
+export async function ensureExpertSessionRuntimeIsolation(input: {
+  workspace: WorkspaceInfo;
+  directory: string;
+  skillNames?: readonly string[];
+  skillsSourceRoot?: string;
+  runtimeRoot?: string;
+}): Promise<{
+  directory: string;
+  upgraded: boolean;
+  installedSkills: string[];
+  isolationVersion: number;
+  defaultAgent: string;
+} | null> {
+  const authorized = await resolveAuthorizedExpertSessionRuntimeDirectory({
+    workspaceId: input.workspace.id,
+    sessionRoot: input.directory,
+    runtimeRoot: input.runtimeRoot,
+  });
+  if (!authorized) return null;
+
+  let existingMarker: Record<string, unknown> | null = null;
+  let currentVersion = 0;
+  try {
+    existingMarker = JSON.parse(
+      await readFile(join(authorized, EXPERT_SESSION_MARKER_NAME), "utf8"),
+    ) as Record<string, unknown>;
+    if (typeof existingMarker.isolationVersion === "number") {
+      currentVersion = existingMarker.isolationVersion;
+    }
+  } catch {
+    existingMarker = null;
+  }
+
+  const agentPath = join(
+    authorized,
+    ".opencode",
+    "agents",
+    `${EXPERT_SESSION_DEFAULT_AGENT}.md`,
+  );
+  const needsUpgrade =
+    currentVersion < EXPERT_SESSION_ISOLATION_VERSION || !existsSync(agentPath);
+  const hasSkillRequest = normalizeSkillNameList(input.skillNames).length > 0;
+  if (!needsUpgrade && !hasSkillRequest) {
+    return {
+      directory: authorized,
+      upgraded: false,
+      installedSkills: Array.isArray(existingMarker?.installedSkills)
+        ? (existingMarker!.installedSkills as string[])
+        : [],
+      isolationVersion: currentVersion || EXPERT_SESSION_ISOLATION_VERSION,
+      defaultAgent: EXPERT_SESSION_DEFAULT_AGENT,
+    };
+  }
+
+  const applied = await applyExpertSessionIsolation({
+    directory: authorized,
+    workspaceId: input.workspace.id,
+    skillNames: input.skillNames,
+    skillsSourceRoot: input.skillsSourceRoot,
+    existingMarker,
+  });
+  return {
+    directory: authorized,
+    upgraded: true,
+    ...applied,
+  };
+}
+
+export function normalizeSkillNameList(
+  skillNames: readonly string[] | undefined,
+): string[] {
+  if (!skillNames?.length) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of skillNames) {
+    const name = String(raw ?? "").trim();
+    if (!isSafeSkillFolderName(name) || seen.has(name)) continue;
+    seen.add(name);
+    out.push(name);
+  }
+  return out;
+}
+
+function isSafeSkillFolderName(value: string): boolean {
+  return (
+    Boolean(value) &&
+    /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value) &&
+    value !== "." &&
+    value !== ".."
+  );
+}
+
 export async function createExpertSessionRuntimeDirectory(input: {
   workspace: WorkspaceInfo;
   agentName: string;
   agentId?: string;
   sessionKey?: string;
   runtimeRoot?: string;
+  /** Declared expert skills (frontmatter / package). Only these are linked. */
+  skillNames?: readonly string[];
+  /** Override skills source root (tests). Defaults to OPENCODE_GLOBAL_SKILLS_DIR / profile. */
+  skillsSourceRoot?: string;
+  defaultAgent?: string;
 }): Promise<ExpertSessionRuntimeDirectory> {
   const runtimeRoot = resolve(input.runtimeRoot?.trim() || resolveExpertSessionRuntimeRoot());
   const workspaceRoot = resolve(input.workspace.path);
@@ -121,18 +430,25 @@ export async function createExpertSessionRuntimeDirectory(input: {
     throw new Error("Unsafe expert session runtime directory");
   }
   await mkdir(directory, { recursive: true });
-  await writeFile(
-    join(directory, EXPERT_SESSION_MARKER_NAME),
-    `${JSON.stringify({
-      kind: "expert-session",
-      workspaceId: input.workspace.id,
-      agent: agentSegment,
-      sessionKey,
-      runtime: true,
-    }, null, 2)}\n`,
-    "utf8",
-  );
-  return { directory, sessionKey, agentSegment };
+
+  const applied = await applyExpertSessionIsolation({
+    directory,
+    workspaceId: input.workspace.id,
+    agentSegment,
+    sessionKey,
+    skillNames: input.skillNames,
+    skillsSourceRoot: input.skillsSourceRoot,
+    defaultAgent: input.defaultAgent,
+  });
+
+  return {
+    directory,
+    sessionKey,
+    agentSegment,
+    installedSkills: applied.installedSkills,
+    isolationVersion: applied.isolationVersion,
+    defaultAgent: applied.defaultAgent,
+  };
 }
 
 function normalizeSessionKey(value?: string): string {

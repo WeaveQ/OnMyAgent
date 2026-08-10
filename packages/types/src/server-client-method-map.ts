@@ -218,9 +218,37 @@ type TypedServerClientMethodMap = {
   createExpertSessionRuntimeDirectory: ServerClientMethodContract<
     [
       workspaceId: string,
-      payload: { agentName: string; agentId?: string; sessionKey?: string },
+      payload: {
+        agentName: string;
+        agentId?: string;
+        sessionKey?: string;
+        /** Declared expert skills only — materialized into the session dir. */
+        skillNames?: string[];
+      },
     ],
-    { ok: boolean; directory: string; sessionKey: string; agentSegment: string }
+    {
+      ok: boolean;
+      directory: string;
+      sessionKey: string;
+      agentSegment: string;
+      installedSkills?: string[];
+      isolationVersion?: number;
+      defaultAgent?: string;
+    }
+  >;
+  ensureExpertSessionIsolation: ServerClientMethodContract<
+    [
+      workspaceId: string,
+      payload: { directory: string; skillNames?: string[] },
+    ],
+    {
+      ok: boolean;
+      directory: string;
+      upgraded: boolean;
+      installedSkills: string[];
+      isolationVersion: number;
+      defaultAgent: string;
+    }
   >;
   listExpertSessionFiles: ServerClientMethodContract<[workspaceId: string], { items: WorkspaceFileCatalogEntry[] }>;
   readExpertSessionFile: ServerClientMethodContract<[workspaceId: string, path: string], WorkspaceFileContentResponse>;
