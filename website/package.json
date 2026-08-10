@@ -8,9 +8,10 @@
     "dev:docs": "vitepress dev docs --port 5173",
     "build": "node scripts/build.mjs",
     "build:docs": "vitepress build docs",
-    "check": "node scripts/check.mjs",
+    "check": "node --test scripts/check-helpers.test.mjs && node scripts/check.mjs --source-only",
+    "check:dist": "node --test scripts/check-helpers.test.mjs && node scripts/check.mjs --require-dist",
     "preview": "node scripts/serve.mjs --dist",
-    "test": "node scripts/check.mjs"
+    "test": "pnpm run check"
   },
   "devDependencies": {
     "vitepress": "^1.6.3"

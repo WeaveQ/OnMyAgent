@@ -16,6 +16,8 @@ title: 实践 1：文件识别与整理
 
 涉及读取或改写本地文件时，使用较严 [权限](../../guide/approvals)，高风险动作先确认。
 
+
+
 ![文件区：工作区列表与类型](/images/files-list.png)
 
 ## 批量重命名（先预览）
@@ -60,4 +62,4 @@ title: 实践 1：文件识别与整理
 
 ## 相关
 
-- [高效使用技巧 · 备份与小步](../../guide/efficient-tips) · [文件](../../guide/files) · [技能 · 办公](../../guide/skills#办公文档四件套)  
+- [高效使用技巧 · 备份与小步](../../guide/efficient-tips) · [文件](../../guide/files) · [技能 · 办公](../../guide/skills)

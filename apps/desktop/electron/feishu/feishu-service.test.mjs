@@ -50,7 +50,7 @@ async function withService(fn, options = {}) {
   const service = createFeishuService({ store, client, personalAgentRuntime: runtime, WebSocketCtor: options.WebSocketCtor, wsReconnectIntervalMs: 50, wsEndpointRetryMs: 50 });
   try {
     await store.saveAccount({ appId: "cli_xxx", appSecret: "secret", baseUrl: "https://open.feishu.cn" });
-    return await fn({ service, store, sent, runs, runtime, dir });
+    return await fn({ service, store, sent, runs, runtime, dir, client });
   } finally {
     await service.stop({ persist: false }).catch(() => undefined);
     await rm(dir, { recursive: true, force: true });
@@ -566,6 +566,234 @@ test("stop during the initial active-run write cancels the untracked Feishu run"
     });
     const runKey = __test__.activeRunKey("oc_stop_write", basicStartInput().agent);
     assert.equal(await store.readActiveRun("cli_xxx", runKey), null);
+  }, { runtime });
+});
+
+test("stop after a durable Feishu terminal claim but before transport preserves and resumes the reply", async () => {
+  const claimPersisted = deferred();
+  const claimReturnGate = deferred();
+  const agent = basicStartInput().agent;
+  const runtime = {
+    async startMessage() {
+      return { status: "running", runId: "feishu-zero-attempt-run" };
+    },
+    async getRun() {
+      return { status: "completed", output: "Feishu resumed after zero attempts" };
+    },
+  };
+  await withService(async ({ service, store, sent }) => {
+    const originalWriteActiveRun = store.writeActiveRun.bind(store);
+    store.writeActiveRun = async (...args) => {
+      const stored = await originalWriteActiveRun(...args);
+      if (args[2]?.terminalDeliveryClaimedRunId === "feishu-zero-attempt-run") {
+        claimPersisted.resolve();
+        await claimReturnGate.promise;
+      }
+      return stored;
+    };
+    await service.start(basicStartInput());
+    await service.simulateInbound({
+      accountId: "cli_xxx",
+      chatId: "oc_zero_attempt",
+      fromUserId: "ou_user",
+      text: "preserve reply",
+    });
+    await claimPersisted.promise;
+
+    await service.stop({ persist: false });
+    claimReturnGate.resolve();
+    const runKey = __test__.activeRunKey("oc_zero_attempt", agent);
+    await waitForFeishu(async () => {
+      const record = await store.readActiveRun("cli_xxx", runKey);
+      return Boolean(record && record.terminalDeliveryClaimedRunId == null);
+    });
+    assert.equal(sent.length, 0);
+
+    await service.start(basicStartInput());
+    await waitForFeishu(async () => sent.length === 1 && (await store.readActiveRun("cli_xxx", runKey)) === null);
+    assert.match(sent[0].text, /Feishu resumed after zero attempts/);
+    assert.equal((await store.readChatHistory("cli_xxx", runKey, 10)).filter((item) => item.role === "assistant").length, 1);
+  }, { runtime });
+});
+
+test("stop while the Feishu transport marker is pending prevents a post-stop send and resumes later", async () => {
+  const markerPersisted = deferred();
+  const markerReturnGate = deferred();
+  const agent = basicStartInput().agent;
+  const runtime = {
+    async getRun() {
+      return { status: "completed", output: "Feishu resumed after marker stop" };
+    },
+  };
+  await withService(async ({ service, store, sent }) => {
+    const runKey = __test__.activeRunKey("oc_marker_stop", agent);
+    await store.writeActiveRun("cli_xxx", runKey, {
+      runId: "feishu-marker-stop-run", chatId: "oc_marker_stop", senderId: "ou_user",
+      workspaceRoot: "/tmp/studio", historyKey: runKey, userText: "marker stop",
+      agent, status: "running", startedAt: Date.now(),
+    });
+    const originalWriteActiveRun = store.writeActiveRun.bind(store);
+    store.writeActiveRun = async (...args) => {
+      const stored = await originalWriteActiveRun(...args);
+      if (args[2]?.terminalDeliveryAttemptedTransports === 1) {
+        markerPersisted.resolve();
+        await markerReturnGate.promise;
+      }
+      return stored;
+    };
+    await service.start(basicStartInput());
+    await markerPersisted.promise;
+
+    await service.stop({ persist: false });
+    markerReturnGate.resolve();
+    await waitForFeishu(async () => {
+      const record = await store.readActiveRun("cli_xxx", runKey);
+      return Boolean(record && record.terminalDeliveryClaimedRunId == null);
+    });
+    assert.equal(sent.length, 0);
+
+    await service.start(basicStartInput());
+    await waitForFeishu(async () => sent.length === 1 && (await store.readActiveRun("cli_xxx", runKey)) === null);
+    assert.match(sent[0].text, /Feishu resumed after marker stop/);
+  }, { runtime });
+});
+
+test("a fresh Feishu service retries a zero-attempt claim when release persistence fails", async () => {
+  const claimPersisted = deferred();
+  const claimReturnGate = deferred();
+  const releaseFailed = deferred();
+  const runtime = {
+    async getRun() { return { status: "completed", output: "Feishu fresh retry" }; },
+  };
+  await withService(async ({ service, store, sent, client }) => {
+    const runKey = __test__.activeRunKey("oc_release_failure", basicStartInput().agent);
+    await store.writeActiveRun("cli_xxx", runKey, {
+      runId: "feishu-release-failure-run", chatId: "oc_release_failure", senderId: "ou_user",
+      workspaceRoot: "/tmp/studio", historyKey: runKey, userText: "fresh retry",
+      agent: basicStartInput().agent, status: "running", startedAt: Date.now(),
+    });
+    const originalWriteActiveRun = store.writeActiveRun.bind(store);
+    let failRelease = true;
+    store.writeActiveRun = async (...args) => {
+      if (args[2]?.terminalDeliveryClaimedRunId == null && failRelease) {
+        failRelease = false;
+        releaseFailed.resolve();
+        throw new Error("terminal claim release is locked");
+      }
+      const stored = await originalWriteActiveRun(...args);
+      if (args[2]?.terminalDeliveryClaimedRunId === "feishu-release-failure-run") {
+        claimPersisted.resolve();
+        await claimReturnGate.promise;
+      }
+      return stored;
+    };
+    await service.start(basicStartInput());
+    await claimPersisted.promise;
+    await service.stop({ persist: false });
+    claimReturnGate.resolve();
+    await releaseFailed.promise;
+    assert.equal((await store.readActiveRun("cli_xxx", runKey))?.terminalDeliveryAttemptedTransports, 0);
+
+    const second = createFeishuService({ store, client, personalAgentRuntime: runtime });
+    try {
+      await second.start(basicStartInput());
+      await waitForFeishu(async () => (await store.readActiveRun("cli_xxx", runKey)) === null);
+      assert.equal(sent.length, 1);
+      assert.match(sent[0].text, /Feishu fresh retry/);
+    } finally {
+      await second.stop({ persist: false }).catch(() => undefined);
+    }
+  }, { runtime });
+});
+
+test("a stale Feishu active-run read cannot resurrect a cancelled lock", async () => {
+  const agent = basicStartInput().agent;
+  const runKey = __test__.activeRunKey("oc_stale_read", agent);
+  const staleReadEntered = deferred();
+  const staleReadGate = deferred();
+  let startCalls = 0;
+  const runtime = {
+    async startMessage() {
+      startCalls += 1;
+      return { status: "running", runId: "feishu-replacement-run" };
+    },
+    async getRun() {
+      return { status: "completed", output: "Feishu replacement completed" };
+    },
+    async cancelRun() {
+      return { ok: true };
+    },
+  };
+  await withService(async ({ service, store }) => {
+    await service.start(basicStartInput());
+    await store.writeActiveRun("cli_xxx", runKey, {
+      runId: "feishu-old-run",
+      chatId: "oc_stale_read",
+      senderId: "ou_user",
+      workspaceRoot: "/tmp/studio",
+      agent,
+      status: "running",
+      startedAt: Date.now(),
+    });
+    const originalReadActiveRun = store.readActiveRun.bind(store);
+    let reads = 0;
+    store.readActiveRun = async (...args) => {
+      reads += 1;
+      const snapshot = await originalReadActiveRun(...args);
+      if (reads === 1) {
+        staleReadEntered.resolve();
+        await staleReadGate.promise;
+      }
+      return snapshot;
+    };
+
+    const staleStatus = service.simulateInbound({
+      accountId: "cli_xxx", chatId: "oc_stale_read", fromUserId: "ou_user", messageId: "feishu-stale-status", text: "#status",
+    });
+    await staleReadEntered.promise;
+    await service.simulateInbound({
+      accountId: "cli_xxx", chatId: "oc_stale_read", fromUserId: "ou_user", messageId: "feishu-stale-cancel", text: "#cancel",
+    });
+    staleReadGate.resolve();
+    await staleStatus;
+
+    await service.simulateInbound({
+      accountId: "cli_xxx", chatId: "oc_stale_read", fromUserId: "ou_user", messageId: "feishu-stale-replacement", text: "replacement",
+    });
+    await waitForFeishu(() => startCalls === 1);
+    await waitForFeishu(async () => (await store.readActiveRun("cli_xxx", runKey)) === null);
+  }, { runtime });
+});
+
+test("stop while the first Feishu active-run read is pending prevents startMessage", async () => {
+  const readEntered = deferred();
+  const readGate = deferred();
+  let startCalls = 0;
+  const runtime = {
+    async startMessage() {
+      startCalls += 1;
+      return { status: "running", runId: "feishu-must-not-start" };
+    },
+    async getRun() {
+      return { status: "running" };
+    },
+  };
+  await withService(async ({ service, store }) => {
+    await service.start(basicStartInput());
+    store.readActiveRun = async () => {
+      readEntered.resolve();
+      await readGate.promise;
+      return null;
+    };
+    await service.simulateInbound({
+      accountId: "cli_xxx", chatId: "oc_pending_read", fromUserId: "ou_user", text: "pending read",
+    });
+    await readEntered.promise;
+
+    await service.stop({ persist: false });
+    readGate.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.equal(startCalls, 0);
   }, { runtime });
 });
 

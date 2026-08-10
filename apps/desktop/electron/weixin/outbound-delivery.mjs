@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { formatAgentReply } from "../channels/AgentReplyHeader.mjs";
-import { deliverOutboundFiles } from "./outbound-files.mjs";
+import { createStoppedWeixinDeliveryError, deliverOutboundFiles } from "./outbound-files.mjs";
 import {
   isStaleSessionRet,
   SESSION_EXPIRED_ERRCODE,
@@ -30,12 +30,18 @@ export function createOutboundDelivery({
     throw new Error(message);
   }
 
-  async function sendText(session, chatId, text, peerId = chatId) {
+  async function sendText(session, chatId, text, peerId = chatId, beforeFirstTransport = null) {
     const contextToken = await store.readContextToken(session.account.accountId, peerId || chatId);
     const chunks = splitTextForWeixin(text);
     let lastResponse = null;
+    let attemptedTransports = 0;
     for (let index = 0; index < chunks.length; index += 1) {
-      if (session.controller.signal.aborted) throw new Error("Weixin channel stopped during delivery");
+      if (session.controller.signal.aborted) throw createStoppedWeixinDeliveryError(attemptedTransports);
+      if (attemptedTransports === 0 && beforeFirstTransport) {
+        await beforeFirstTransport();
+        if (session.controller.signal.aborted) throw createStoppedWeixinDeliveryError(attemptedTransports);
+      }
+      attemptedTransports += 1;
       lastResponse = await client.sendMessage({
         baseUrl: session.account.baseUrl,
         token: session.account.token,
@@ -43,16 +49,18 @@ export function createOutboundDelivery({
         text: chunks[index],
         contextToken,
         clientId: `studio-weixin-${randomUUID()}`,
+      }).catch((error) => {
+        throw Object.assign(error, { attemptedTransports });
       });
       assertIlinkOk(lastResponse, "sendmessage");
-      if (session.controller.signal.aborted) throw new Error("Weixin channel stopped during delivery");
+      if (session.controller.signal.aborted) throw createStoppedWeixinDeliveryError(attemptedTransports);
       if (index < chunks.length - 1) await sleep(session.options.sendChunkDelayMs);
     }
     setState({ sentCount: getSentCount() + chunks.length });
     return lastResponse;
   }
 
-  async function deliverAgentOutput(session, { chatId, peerId, agent, result }) {
+  async function deliverAgentOutput(session, { chatId, peerId, agent, result, beforeFirstTransport = null }) {
     return deliverOutboundFiles({
       output: result.output, artifacts: result.artifacts,
       allowedRoots: [session.options.workspaceRoot, ...session.options.accessibleWorkspaceRoots],
@@ -60,8 +68,10 @@ export function createOutboundDelivery({
       readContextToken: (peer) => store.readContextToken(session.account.accountId, peer),
       setSentCount: () => setState({ sentCount: getSentCount() + 1 }), appendLog,
       assertResponse: assertIlinkOk,
-      sendText: (text, targetPeer) => sendText(session, chatId, text, targetPeer), formatReply: formatAgentReply,
+      sendText: (text, targetPeer, beforeTransport) => sendText(session, chatId, text, targetPeer, beforeTransport),
+      formatReply: formatAgentReply,
       signal: session.controller.signal,
+      beforeFirstTransport,
     });
   }
 

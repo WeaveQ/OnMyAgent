@@ -6,6 +6,8 @@ title: 实践 6：创建与进化技能
 
 把重复流程沉淀为可调用技能，并让系统记住你的偏好。入口在主栏 **市场 · 技能**（也可 `/` 调用）。
 
+
+
 ![市场 · 技能相关入口](/images/marketplace.png)
 
 ## 场景与目标
@@ -23,7 +25,7 @@ title: 实践 6：创建与进化技能
 并说明 browser-automation 与 browser-skill 的区别。
 ```
 
-见 [技能](../../guide/skills) · [浏览器](../../guide/skills#浏览器-agent-browser)。
+见 [技能](../../guide/skills) · [浏览器](../../guide/browser-computer-use)。
 
 ## 路径 B：创建/改进技能
 
@@ -52,4 +54,4 @@ title: 实践 6：创建与进化技能
 
 ## 相关
 
-- [技能](../../guide/skills) · [专家创建](../../guide/experts#三创建自己的专家) · [高效技巧](../../guide/efficient-tips)  
+- [技能](../../guide/skills) · [专家创建](../../guide/experts) · [高效技巧](../../guide/efficient-tips)

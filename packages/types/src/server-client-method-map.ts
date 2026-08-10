@@ -507,6 +507,7 @@ type TypedServerClientMethodMap = {
         confidence?: number;
         reason?: string;
       }>,
+      options?: { sessionRoot?: string },
     ],
     { items: ResolvedArtifactTarget[] }
   >;

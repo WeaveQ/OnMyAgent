@@ -19,12 +19,14 @@ export type SessionSurfaceOpenTargetsClient = {
   resolveArtifacts: (
     workspaceId: string,
     targets: OpenTarget[],
+    options?: { sessionRoot?: string },
   ) => Promise<{ items: OpenTarget[] }>;
 };
 
 export type UseSessionSurfaceOpenTargetsInput = {
   sessionId: string;
   workspaceId: string;
+  sessionRoot: string;
   client: SessionSurfaceOpenTargetsClient;
   openTargets: OpenTarget[];
   /** Stable fingerprint so effect does not re-fire on referential churn. */
@@ -129,6 +131,7 @@ export function useSessionSurfaceOpenTargets(
         const response = await input.client.resolveArtifacts(
           input.workspaceId,
           input.openTargets,
+          { sessionRoot: input.sessionRoot },
         );
         if (!cancelled) {
           const nextTargets = response.items as OpenTarget[];
@@ -163,6 +166,7 @@ export function useSessionSurfaceOpenTargets(
     input.client,
     input.sessionId,
     input.workspaceId,
+    input.sessionRoot,
     input.openTargets,
   ]);
 

@@ -500,11 +500,17 @@ export function createWorkspaceClientMethods(ctx: OnMyAgentServerClientContext) 
         confidence?: number;
         reason?: string;
       }>,
+      options?: { sessionRoot?: string },
     ) =>
       requestJson<{ items: OnMyAgentResolvedArtifactTarget[] }>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/artifacts/resolve`,
-        { token, hostToken, method: "POST", body: { targets } },
+        {
+          token,
+          hostToken,
+          method: "POST",
+          body: { targets, sessionRoot: options?.sessionRoot },
+        },
       ),
 
     downloadArtifact: (workspaceId: string, artifactId: string) =>

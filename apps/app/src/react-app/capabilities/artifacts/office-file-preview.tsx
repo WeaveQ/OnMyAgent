@@ -1,7 +1,9 @@
 /** @jsxImportSource react */
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
+import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { PreviewError } from "./preview";
 
 type Bounds = { x: number; y: number; width: number; height: number };
 
@@ -28,31 +30,45 @@ export function OfficeFilePreview(props: {
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const lastBoundsRef = useRef<Bounds | null>(null);
+  const [previewError, setPreviewError] = useState(false);
 
   useLayoutEffect(() => {
+    setPreviewError(false);
     const preview = window.__ONMYAGENT_ELECTRON__?.artifactPreview;
     const container = containerRef.current;
     if (!preview || !container || !props.filePath) return;
     let frame: number | null = null;
     let shown = false;
     let lastAttachAt = 0;
+    let active = true;
+    let failed = false;
+    const reportPreviewFailure = () => {
+      if (!active) return;
+      failed = true;
+      setPreviewError(true);
+      shown = false;
+      void Promise.resolve(preview.hide?.()).catch(() => undefined);
+    };
     const sync = () => {
+      if (failed) return;
       const bounds = computeBounds(container);
       const now = performance.now();
       if (bounds.width < 1 || bounds.height < 1) {
-        if (shown) void preview.hide?.();
+        if (shown) void Promise.resolve(preview.hide?.()).catch(() => undefined);
         shown = false;
         return;
       }
       if (!shown) {
         const theme = document.documentElement.classList.contains("dark") || document.documentElement.dataset.theme === "dark" ? "dark" : "light";
         const locale = document.documentElement.lang || navigator.language;
-        void preview.show?.({ filePath: props.filePath, bounds, theme, locale }).then(() => preview.setBounds?.(bounds));
+        void Promise.resolve(preview.show?.({ filePath: props.filePath, bounds, theme, locale }))
+          .then(() => preview.setBounds?.(bounds))
+          .catch(reportPreviewFailure);
         shown = true;
         lastAttachAt = now;
         lastBoundsRef.current = bounds;
       } else if (!sameBounds(lastBoundsRef.current, bounds) || now - lastAttachAt >= 500) {
-        void preview.setBounds?.(bounds);
+        void Promise.resolve(preview.setBounds?.(bounds)).catch(reportPreviewFailure);
         lastAttachAt = now;
         lastBoundsRef.current = bounds;
       }
@@ -65,14 +81,19 @@ export function OfficeFilePreview(props: {
     window.addEventListener("resize", sync);
     window.addEventListener("scroll", sync, true);
     return () => {
+      active = false;
       observer.disconnect();
       window.removeEventListener("resize", sync);
       window.removeEventListener("scroll", sync, true);
       if (frame !== null) window.cancelAnimationFrame(frame);
-      void preview.hide?.();
+      void Promise.resolve(preview.hide?.()).catch(() => undefined);
       lastBoundsRef.current = null;
     };
   }, [props.filePath, props.revision]);
 
-  return <div ref={containerRef} className={cn("h-full min-h-0 overflow-hidden bg-dls-surface-muted/30", props.className)} data-office-file-preview={props.name} />;
+  return (
+    <div ref={containerRef} className={cn("h-full min-h-0 overflow-hidden bg-dls-surface-muted/30", props.className)} data-office-file-preview={props.name}>
+      {previewError ? <PreviewError message={t("files.preview_failed")} /> : null}
+    </div>
+  );
 }

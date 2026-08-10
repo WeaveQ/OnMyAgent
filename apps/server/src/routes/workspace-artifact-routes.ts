@@ -10,6 +10,7 @@ import type {
   WorkspaceInfo,
 } from "@onmyagent/types/server";
 import { recordAudit } from "../services/audit.js";
+import { resolveAuthorizedArtifactResolutionRoot } from "../services/expert-session-runtime.js";
 import {
   resolveInboxEnabled,
   resolveInboxMaxBytes,
@@ -43,6 +44,7 @@ export function registerWorkspaceArtifactRoutes(input: {
   resolveWorkspaceArtifactTargets: (
     workspaceRoot: string,
     targets: unknown,
+    options?: { canonicalRoot?: string },
   ) => Promise<unknown[]>;
   readJsonBody: (request: Request) => Promise<Record<string, unknown>>;
 }) {
@@ -211,9 +213,22 @@ export function registerWorkspaceArtifactRoutes(input: {
     async (ctx) => {
       const workspace = await resolveWorkspace(config, ctx.params.id);
       const body = await readJsonBody(ctx.request);
+      const sessionRootProvided = Object.hasOwn(body, "sessionRoot");
+      const artifactRoot = sessionRootProvided
+        ? await resolveAuthorizedArtifactResolutionRoot({
+          workspace,
+          sessionRoot: typeof body.sessionRoot === "string" ? body.sessionRoot : undefined,
+        })
+        : null;
+      if (sessionRootProvided && !artifactRoot) {
+        return systemJsonResponse({ items: [] });
+      }
       const items = await resolveWorkspaceArtifactTargets(
-        workspace.path,
+        artifactRoot?.root ?? workspace.path,
         body.targets,
+        artifactRoot?.source === "expert-runtime"
+          ? { canonicalRoot: artifactRoot.canonicalRoot }
+          : undefined,
       );
       return systemJsonResponse({ items });
     },
