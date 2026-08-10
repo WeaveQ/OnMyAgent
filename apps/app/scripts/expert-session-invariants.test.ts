@@ -180,7 +180,7 @@ describe("invariant 4: first-send cold path stays visible", () => {
     expect(seedIdx).toBeGreaterThan(0);
     expect(activateIdx).toBeGreaterThan(seedIdx);
     expect(source).toContain("kickoffMarketplaceExpertInstall(");
-    expect(source).toContain("Join marketplace install with env context prep");
+    expect(source).toContain("Join early install + env prep");
   });
 
   test("empty shell create fire-and-forgets marketplace install", async () => {

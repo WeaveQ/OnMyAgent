@@ -19,6 +19,7 @@ import {
   DELAYED_SESSION_LOADING_MS,
   NO_VISIBLE_ASSISTANT_OUTPUT_DELAY_MS,
 } from "./session-surface-helpers";
+import { useSessionActivityStore } from "../status/session-activity-store";
 
 export function useSessionSurfaceSessionEffects(input: {
   workspaceId: string;
@@ -37,6 +38,10 @@ export function useSessionSurfaceSessionEffects(input: {
   setAwaitingAssistantBaseline: Dispatch<SetStateAction<number | null>>;
   setNoVisibleAssistantOutputBaseline: Dispatch<SetStateAction<number | null>>;
   setDismissedErrorMessage: Dispatch<SetStateAction<string | null>>;
+  /** Clear local optimistic bubble when leaving the session that owned it. */
+  setPendingOutgoingUserMessage?: Dispatch<
+    SetStateAction<{ id: string; text: string; createdAt: number } | null>
+  >;
   resetHydrationKey: () => void;
   resetActiveRunRefs: () => void;
   pendingSessionLoad: boolean;
@@ -65,6 +70,7 @@ export function useSessionSurfaceSessionEffects(input: {
     setAwaitingAssistantBaseline,
     setNoVisibleAssistantOutputBaseline,
     setDismissedErrorMessage,
+    setPendingOutgoingUserMessage,
     resetHydrationKey,
     resetActiveRunRefs,
     pendingSessionLoad,
@@ -85,6 +91,10 @@ export function useSessionSurfaceSessionEffects(input: {
     setAwaitingAssistantBaseline(null);
     setNoVisibleAssistantOutputBaseline(null);
     resetActiveRunRefs();
+    // Optimistic bubble is per-session local state; drop it on tab switch so it
+    // cannot stick to the next empty draft/session (seeded cache still holds
+    // the real send session when the user returns).
+    setPendingOutgoingUserMessage?.(null);
     // Composer draft state lives in the shared store keyed by session id, so
     // switching sessions preserves each session's own in-progress composer.
     setNotice(null);
@@ -160,11 +170,18 @@ export function useSessionSurfaceSessionEffects(input: {
     setSending(false);
     setAwaitingAssistantBaseline(null);
     setNoVisibleAssistantOutputBaseline(null);
+    // End activity run even when the failure only appears on the snapshot
+    // (async stream after promptAsync 200) so「准备中」does not stick.
+    useSessionActivityStore
+      .getState()
+      .setError(workspaceId, sessionId, snapshotSessionError.message);
   }, [
     snapshotSessionError,
+    sessionId,
     setAwaitingAssistantBaseline,
     setNoVisibleAssistantOutputBaseline,
     setSending,
+    workspaceId,
   ]);
 
   useEffect(() => {

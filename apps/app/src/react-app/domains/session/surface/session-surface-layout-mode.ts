@@ -60,9 +60,14 @@ export function deriveSessionSurfaceLayoutMode(
   const homeComposerLayout =
     personalAssistantDraftHome || expertDraftHome || expertEmptyComposer;
 
+  // Workspace/permission foot row is **assistant draft home only**.
+  // Expert always gets assistantFeatureCategoryId ("office") for side panels, but
+  // must not show "选择工作空间" — experts isolate runtime dirs automatically.
+  // Also require idle so the bar does not stick under a mid-send 准备中 shell.
   const draftWorkspaceAccessoryActive =
-    Boolean(input.personalAssistantHome || input.assistantFeatureCategoryId) &&
-    Boolean(input.draftOnly);
+    Boolean(input.personalAssistantHome) &&
+    Boolean(input.draftOnly) &&
+    input.activityIdle;
 
   const assistantDraftHomeTitle = t("session.assistant_work_title");
   const assistantDraftHomeSubtitle = t("session.assistant_work_subtitle");

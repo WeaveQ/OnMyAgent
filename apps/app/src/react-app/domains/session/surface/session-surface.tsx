@@ -590,6 +590,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     setAwaitingAssistantBaseline,
     setNoVisibleAssistantOutputBaseline,
     setDismissedErrorMessage,
+    setPendingOutgoingUserMessage,
     resetHydrationKey,
     resetActiveRunRefs,
     pendingSessionLoad,

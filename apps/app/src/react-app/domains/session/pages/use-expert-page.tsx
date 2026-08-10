@@ -73,6 +73,7 @@ import {
   type ExpertGroupDeleteTarget,
 } from "./use-expert-session-delete";
 import { useExpertHardDeleteUi } from "./use-expert-hard-delete-ui";
+import { prewarmOnMyAgentEnvSystemContext } from "../../shared";
 import {
   AgentConversationPanel,
   AgentSessionTabs,
@@ -158,6 +159,11 @@ import { useExpertAutomationOffer } from "./use-expert-automation-offer";
 import {
   shouldKeepUnboundExpertDraft,
 } from "./expert-draft-session";
+import {
+  isLiveExpertSessionSelection,
+  readRealSessionId,
+  resolveExpertSurfaceMode,
+} from "./expert-surface-mode";
 import { useExpertBoundDraftTransition } from "./use-expert-bound-draft-transition";
 import { resolveColdOpenExpertSessionId } from "./order-conversation-groups";
 import { useExpertSessionStarters } from "./use-expert-session-starters";
@@ -194,6 +200,9 @@ export function useExpertPage(props: ExpertPageProps) {
   } = useCustomConnectorDialog();
   const [agentCreateRequestKey, setAgentCreateRequestKey] =
     useState<number | null>(null);
+  // draftSessionActive is **intent** only (用户点了新会话/去聊天). Surface chrome
+  // (draftOnly / tab / force-nav) comes from resolveExpertSurfaceMode — never
+  // treat this boolean as draftOnly by itself.
   const [draftSessionActive, setDraftSessionActive] = useState(false);
   const [draftAgentId, setDraftAgentId] = useState<string | null>(null);
   const [pendingTabSessionId, setPendingTabSessionId] = useState<string | null>(null);
@@ -211,17 +220,6 @@ export function useExpertPage(props: ExpertPageProps) {
   const sessionOriginHydrated = useSessionOriginHydrated(props.selectedWorkspaceId);
   const sessionOriginHydrationDegraded = useSessionOriginHydrationDegraded(props.selectedWorkspaceId);
   const pendingAgentDraftSource = pendingAgent?.draftSource;
-  const currentConversationAgentId = props.selectedSessionId
-    ? readCustomAgentIdForSession(props.selectedSessionId)
-    : null;
-
-  const activeConversationAgentId = draftSessionActive
-    ? draftAgentId
-    : currentConversationAgentId;
-  const activeDraftSessionId =
-    draftSessionActive && draftAgentId
-      ? `draft:${props.selectedWorkspaceId}:${draftAgentId}`
-      : null;
   const rawWorkspaceSessions = useMemo(
     () =>
       selectRawWorkspaceSessions(
@@ -248,6 +246,50 @@ export function useExpertPage(props: ExpertPageProps) {
     () => buildAgentConversationGroups(workspaceSessions, registry),
     [registry, workspaceSessions],
   );
+  const liveExpertSessionIds = useMemo(
+    () => workspaceSessions.map((session) => session.id),
+    [workspaceSessions],
+  );
+  // After expert/session hard-delete the URL can still hold a removed ses_*.
+  // Inventory-ready + missing from list → treat as no selection (avoids 404 blank).
+  const routeSessionLive = isLiveExpertSessionSelection({
+    selectedSessionId: props.selectedSessionId,
+    liveSessionIds: liveExpertSessionIds,
+    inventoryReady: sessionOriginHydrated && !sessionOriginHydrationDegraded,
+  });
+  const effectiveSelectedSessionId = routeSessionLive
+    ? props.selectedSessionId
+    : null;
+  const routeRealSessionId = readRealSessionId(effectiveSelectedSessionId);
+  const currentConversationAgentId = routeRealSessionId
+    ? readCustomAgentIdForSession(routeRealSessionId)
+    : null;
+
+  const expertSurfaceMode = useMemo(
+    () =>
+      resolveExpertSurfaceMode({
+        selectedSessionId: effectiveSelectedSessionId,
+        workspaceId: props.selectedWorkspaceId,
+        draftIntent: draftSessionActive,
+        draftAgentId,
+        pendingAgentId: pendingAgent?.id ?? null,
+        pendingBoundSessionId: pendingAgent?.boundSessionId,
+        selectedSessionAgentId: currentConversationAgentId,
+      }),
+    [
+      currentConversationAgentId,
+      draftAgentId,
+      draftSessionActive,
+      effectiveSelectedSessionId,
+      pendingAgent?.boundSessionId,
+      pendingAgent?.id,
+      props.selectedWorkspaceId,
+    ],
+  );
+  const activeConversationAgentId = expertSurfaceMode.conversationAgentId;
+  const activeDraftSessionId = expertSurfaceMode.draftTabSessionId;
+  /** UI draft chrome (sidebar draft row / hide history chrome). Derived. */
+  const showDraftChrome = expertSurfaceMode.showDraftChrome;
   const draftAgentGroups = useMemo(
     () => buildDraftAgentGroups(draftAgentContexts, props.selectedWorkspaceId),
     [draftAgentContexts, props.selectedWorkspaceId],
@@ -279,9 +321,9 @@ export function useExpertPage(props: ExpertPageProps) {
     const sessions = buildCurrentAgentSessions({
       workspaceSessions,
       activeConversationAgentId,
-      selectedSessionId: props.selectedSessionId,
+      selectedSessionId: effectiveSelectedSessionId,
       selectedWorkspaceId: props.selectedWorkspaceId,
-      draftSessionActive,
+      draftSessionActive: showDraftChrome,
       activeDraftSessionId,
     });
     return sessions.filter((session) => !archivedExpertSessionIds.has(session.id));
@@ -289,9 +331,9 @@ export function useExpertPage(props: ExpertPageProps) {
     activeConversationAgentId,
     activeDraftSessionId,
     archivedExpertSessionIds,
-    draftSessionActive,
-    props.selectedSessionId,
+    effectiveSelectedSessionId,
     props.selectedWorkspaceId,
+    showDraftChrome,
     workspaceSessions,
   ]);
 
@@ -373,7 +415,7 @@ export function useExpertPage(props: ExpertPageProps) {
     ],
   );
 
-  const expertHistorySessionId = draftSessionActive
+  const expertHistorySessionId = showDraftChrome
     ? activeDraftSessionId
     : props.selectedSessionId;
   const {
@@ -461,7 +503,11 @@ export function useExpertPage(props: ExpertPageProps) {
     if (!workspaceId) return;
 
     const selectedId = props.selectedSessionId?.trim() ?? "";
-    if (selectedId && isExpertSession(selectedId)) return;
+    // Only keep the route selection when it is still a *live* expert session.
+    // After hard-delete, localStorage expert-id set is cleared first so
+    // isExpertSession(deleted) is false while URL still has ses_* — the old
+    // branch then called onCreateTaskInWorkspace and left a blank shell.
+    if (selectedId && routeSessionLive && isExpertSession(selectedId)) return;
 
     const resolved = resolveColdOpenExpertSessionId({
       workspaceId,
@@ -470,6 +516,13 @@ export function useExpertPage(props: ExpertPageProps) {
     });
     if (resolved) {
       props.sidebar.onOpenSession(workspaceId, resolved);
+      return;
+    }
+
+    // Ghost / non-expert selection: clear route to workspace root so empty or
+    // market CTA can show — never create-task on a deleted expert ses id.
+    if (selectedId && !routeSessionLive) {
+      props.sidebar.onOpenSession(workspaceId, "");
       return;
     }
 
@@ -486,29 +539,16 @@ export function useExpertPage(props: ExpertPageProps) {
     pendingAgent?.boundSessionId,
     pendingAgent?.conversationStartId,
     pendingAgent?.draftSource,
+    routeSessionLive,
     sessionOriginHydrated,
     sessionOriginHydrationDegraded,
     sessionTabOrderIdsByScope,
   ]);
 
-  useEffect(() => {
-    if (!pendingAgent?.conversationStartId || pendingAgent.boundSessionId) return;
-    if (pendingAgent.draftSource !== "agent-selection") return;
-    if (draftSessionActive && draftAgentId === pendingAgent.id) return;
-    setDraftAgentContexts((current) => ({
-      ...current,
-      [pendingAgent.id]: pendingAgent,
-    }));
-    setDraftAgentId(pendingAgent.id);
-    setDraftSessionActive(true);
-  }, [
-    draftAgentId,
-    draftSessionActive,
-    pendingAgent?.boundSessionId,
-    pendingAgent?.conversationStartId,
-    pendingAgent?.draftSource,
-    pendingAgent?.id,
-  ]);
+  // NOTE: Do NOT re-activate agent-selection draft when selectedSessionId is
+  // briefly null during tab navigation. That gap + stuck draftIntent used to
+  // force idle_draft/draftOnly and blank the surface after multi-switch.
+  // Marketplace / 去聊天 already double-activate after openFresh.
 
   useEffect(() => {
     if (activeSidebarView === "chat") return;
@@ -572,7 +612,9 @@ export function useExpertPage(props: ExpertPageProps) {
     usePendingAgentStore.getState().setAgent(agent);
     setDraftAgentId(agent.id);
     setDraftSessionActive(true);
-  }, []);
+    // Prewarm while user types first message — shortens 准备中 on first send.
+    prewarmOnMyAgentEnvSystemContext(props.onmyagentServerClient);
+  }, [props.onmyagentServerClient]);
   const openFreshExpertDraft = useCallback(() => {
     props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
   }, [props.selectedWorkspaceId, props.sidebar]);
@@ -688,6 +730,7 @@ export function useExpertPage(props: ExpertPageProps) {
     selectedSessionId: props.selectedSessionId,
     selectedWorkspaceId: props.selectedWorkspaceId,
     sidebarSelectedWorkspaceId: props.sidebar.selectedWorkspaceId,
+    selectedSessionAgentId: currentConversationAgentId,
     onOpenSession: props.sidebar.onOpenSession,
     setDraftAgentContexts,
     setDraftAgentId,
@@ -842,7 +885,7 @@ export function useExpertPage(props: ExpertPageProps) {
     runtimeWorkspaceId: props.runtimeWorkspaceId,
     selectedSessionId: props.selectedSessionId,
     selectedModel: props.surface?.model.selectedModel,
-    draftSessionActive,
+    draftSessionActive: showDraftChrome,
     draftAgentId,
     activeDraftSessionId,
     codeWorkspaceCatalogRoot,
@@ -1023,8 +1066,9 @@ export function useExpertPage(props: ExpertPageProps) {
     coldBootShell: props.coldBootShell === true,
   });
   const showSessionLoadingState =
-    Boolean(props.selectedSessionId) &&
-    !draftSessionActive &&
+    Boolean(routeRealSessionId) &&
+    !showDraftChrome &&
+    expertSurfaceMode.kind === "real_session" &&
     props.sessionLoadingById(props.selectedSessionId) &&
     !showWorkspaceSetupEmptyState;
   const taskStatus = useMemo(
@@ -1069,11 +1113,9 @@ export function useExpertPage(props: ExpertPageProps) {
     props.onmyagentServerToken?.trim() ||
     props.onmyagentServerClient?.token?.trim() ||
     "";
-  const draftSessionId = `draft:${props.selectedWorkspaceId}`;
-  const renderedSessionId = draftSessionActive
-    ? (activeDraftSessionId ?? draftSessionId)
-    : (props.selectedSessionId ?? draftSessionId);
-  const isDraftSession = draftSessionActive || !props.selectedSessionId;
+  // Single surface mode owns sessionId + draftOnly (see expert-surface-mode.ts).
+  const renderedSessionId = expertSurfaceMode.sessionId;
+  const isDraftSession = expertSurfaceMode.draftOnly;
   const canvasSessionKey = createCanvasSessionKey({
     workspaceId: props.selectedWorkspaceId,
     sessionId: renderedSessionId,
@@ -1088,10 +1130,11 @@ export function useExpertPage(props: ExpertPageProps) {
   );
   const showBlockingStartupSkeleton = showStartupSkeleton && !canRenderReactSurface;
   const expertOriginHydrationView = resolveExpertOriginHydrationView({
-    activeChat: activeSidebarView === "chat" && !draftSessionActive,
+    activeChat: activeSidebarView === "chat" && !showDraftChrome,
     originHydrated: sessionOriginHydrated,
     originDegraded: sessionOriginHydrationDegraded,
-    selectedSessionId: props.selectedSessionId,
+    // Ghost deleted ses_* must not block empty-market / cold-open CTAs.
+    selectedSessionId: effectiveSelectedSessionId,
     hasAnyExpertConversation,
     showWorkspaceSetupEmptyState,
     showSelectedWorkspaceError,
@@ -1197,17 +1240,26 @@ export function useExpertPage(props: ExpertPageProps) {
     [currentAgentSessions, props.selectedSessionId, props.selectedWorkspaceId, showToast],
   );
 
+  // Modal save still uses the real rename API (update + refresh). Auto-promote
+  // no longer calls this on every tab snapshot (that path froze the UI).
+  const commitExpertSessionTitle = useCallback(
+    (sessionId: string, title: string) => {
+      void props.onRenameSession?.(sessionId, title);
+    },
+    [props.onRenameSession],
+  );
+
   const conversationTabs =
     activeSidebarView === "chat" ? (
       <AgentSessionTabs
         client={props.onmyagentServerClient}
         workspaceId={props.selectedWorkspaceId}
-        selectedSessionId={
-          draftSessionActive ? activeDraftSessionId : props.selectedSessionId
-        }
+        selectedSessionId={expertSurfaceMode.sessionId}
         sessions={currentAgentSessions}
         orderIds={sessionTabOrderIds}
-        pendingSessionId={pendingTabSessionId}
+        pendingSessionId={
+          pendingTabSessionId ?? expertSurfaceMode.creatingSessionId
+        }
         onPendingSessionIdChange={setPendingTabSessionId}
         agentId={activeConversationAgentId}
         sessionStatusById={props.sidebar.sessionStatusById}
@@ -1215,7 +1267,8 @@ export function useExpertPage(props: ExpertPageProps) {
         onOpenDraftSession={handleOpenDraftSession}
         onPrefetchSession={props.sidebar.onPrefetchSession}
         onCreateSession={handleCreateCurrentAgentSession}
-        onRenameSession={openRenameModal}
+        onRenameSession={commitExpertSessionTitle}
+        onRequestRename={openRenameModal}
         onArchiveSession={handleArchiveExpertSession}
         onDeleteSession={openDeleteModal}
       />
@@ -1262,7 +1315,9 @@ export function useExpertPage(props: ExpertPageProps) {
     deleteOpen,
     draftAgentGroup,
     draftAgentGroups,
-    draftSessionActive,
+    // Layout/sidebar: derived chrome, not the raw intent flag.
+    draftSessionActive: showDraftChrome,
+    expertSurfaceMode,
     editableExpertIds,
     effectiveActiveQuestion,
     effectiveRespondQuestion,
