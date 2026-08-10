@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { resolveExpertOriginHydrationView, shouldBlockExpertSurfaceForWorkspaceError } from "../src/react-app/domains/session/pages/expert-origin-hydration";
+import {
+  resolveExpertOriginHydrationView,
+  shouldBlockExpertSurfaceForWorkspaceError,
+  shouldMountExpertSessionSurface,
+} from "../src/react-app/domains/session/pages/expert-origin-hydration";
 import {
   createSessionOriginHydrationGate,
   getSessionOriginRecoveryRetryDelayMs,
@@ -112,6 +116,84 @@ describe("expert origin hydration view", () => {
       selectedSessionId: null,
       showSelectedWorkspaceError: true,
     }).showPendingWithoutSelection).toBe(false);
+  });
+
+  test("summon/draft chrome suppresses degraded empty banner", () => {
+    expect(resolveExpertOriginHydrationView({
+      ...base,
+      originHydrated: true,
+      originDegraded: true,
+      selectedSessionId: null,
+      showDraftChrome: true,
+    })).toEqual({
+      deferColdOpen: false,
+      showPendingWithoutSelection: false,
+      showDegradedWithoutSelection: false,
+      showNoExpertConversation: false,
+    });
+  });
+
+  test("settled empty (not degraded) shows genuine no-expert landing", () => {
+    expect(resolveExpertOriginHydrationView({
+      ...base,
+      originHydrated: true,
+      originDegraded: false,
+      selectedSessionId: null,
+      hasAnyExpertConversation: false,
+    }).showDegradedWithoutSelection).toBe(false);
+    expect(resolveExpertOriginHydrationView({
+      ...base,
+      originHydrated: true,
+      originDegraded: false,
+      selectedSessionId: null,
+      hasAnyExpertConversation: false,
+    }).showNoExpertConversation).toBe(true);
+  });
+});
+
+describe("shouldMountExpertSessionSurface", () => {
+  const mountBase = {
+    canRenderReactSurface: true,
+    blockForWorkspaceError: false,
+    showNoExpertConversationEmptyState: false,
+    showExpertOriginHydrationDegraded: false,
+    showExpertOriginHydrationLoading: false,
+    isDraftSession: false,
+    showDraftChrome: false,
+    surfaceSessionId: null as string | null,
+  };
+
+  test("blocks empty degraded without draft intent", () => {
+    expect(shouldMountExpertSessionSurface({
+      ...mountBase,
+      showExpertOriginHydrationDegraded: true,
+    })).toBe(false);
+  });
+
+  test("allows summon draft chrome while origin recovery is degraded", () => {
+    expect(shouldMountExpertSessionSurface({
+      ...mountBase,
+      showExpertOriginHydrationDegraded: true,
+      isDraftSession: true,
+      showDraftChrome: true,
+      surfaceSessionId: "draft:ws:agent-a",
+    })).toBe(true);
+  });
+
+  test("allows creating/real surface id even when degraded banner would show", () => {
+    expect(shouldMountExpertSessionSurface({
+      ...mountBase,
+      showExpertOriginHydrationDegraded: true,
+      surfaceSessionId: "ses_creating_1",
+    })).toBe(true);
+  });
+
+  test("does not treat cold empty draft: id as concrete surface", () => {
+    expect(shouldMountExpertSessionSurface({
+      ...mountBase,
+      showExpertOriginHydrationDegraded: true,
+      surfaceSessionId: "draft:workspace",
+    })).toBe(false);
   });
 });
 
