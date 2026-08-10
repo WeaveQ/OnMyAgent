@@ -51,12 +51,22 @@ function resolveSandboxAllowlistPath(): string {
   return join(homedir(), ".config", "onmyagent", "sandbox-mount-allowlist.json");
 }
 
-function expandTildePath(input: string): string {
+/**
+ * Expand `~` / `~/…` (and Windows `~\…`) under the user home directory.
+ * On Windows, `~/Documents` → `%USERPROFILE%\Documents` via `path.join(homedir(), …)`.
+ */
+export function expandTildePath(input: string): string {
   const trimmed = input.trim();
   if (!trimmed) return trimmed;
   if (trimmed === "~") return homedir();
-  if (trimmed.startsWith("~/")) return join(homedir(), trimmed.slice(2));
-  return trimmed;
+
+  const isTildeChild =
+    trimmed.startsWith("~/") ||
+    (process.platform === "win32" && /^~[\\/]/.test(trimmed));
+  if (!isTildeChild) return trimmed;
+
+  const rest = trimmed.slice(2).replace(/\\/g, "/");
+  return join(homedir(), ...rest.split("/").filter(Boolean));
 }
 
 async function isDir(input: string): Promise<boolean> {

@@ -12,6 +12,8 @@ import {
 } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 
+import { toPortableRelativePath } from "../workspace/portable-path.js";
+
 const BLOCKED_DIRECTORY_NAMES = new Set([".git", ".hg", ".svn", "__pycache__"]);
 const BLOCKED_FILE_NAMES = new Set([".ds_store", ".npmrc", ".pypirc"]);
 
@@ -47,22 +49,7 @@ export function isSafePackageSegment(value: string): boolean {
 }
 
 export function normalizePackageRelativePath(value: unknown): string | null {
-  const normalized = typeof value === "string"
-    ? value.trim().replaceAll("\\", "/").replace(/^\.\//, "")
-    : "";
-  if (
-    !normalized ||
-    normalized.startsWith("/") ||
-    /^[A-Za-z]:\//.test(normalized) ||
-    normalized.includes("\0")
-  ) {
-    return null;
-  }
-  const segments = normalized.split("/").filter(Boolean);
-  if (segments.length === 0 || segments.some((segment) => segment === "." || segment === "..")) {
-    return null;
-  }
-  return segments.join("/");
+  return toPortableRelativePath(value);
 }
 
 export function isPathInside(root: string, candidate: string): boolean {

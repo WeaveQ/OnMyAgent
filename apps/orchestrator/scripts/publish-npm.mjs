@@ -41,11 +41,13 @@ function run(cmd, args, cwd) {
 }
 
 function packageVersionExists(name) {
+  // Windows: npm is npm.cmd — use shell so spawn finds the shim.
   const res = spawnSync("npm", ["view", `${name}@${version}`, "version"], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"],
+    shell: process.platform === "win32",
   })
-  return res.status === 0 && res.stdout.trim() === version
+  return res.status === 0 && String(res.stdout ?? "").trim() === version
 }
 
 function writeJson(filepath, data) {

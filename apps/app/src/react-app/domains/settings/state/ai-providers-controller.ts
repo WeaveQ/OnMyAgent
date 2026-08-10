@@ -20,6 +20,7 @@ import { agentManagementSnapshot } from "../../../../app/lib/desktop";
 import type { ProviderListItem } from "../../../../app/types";
 import {
   mergeConnectedProviders,
+  moveConnectedProviderInOrder,
   orderConnectedProviders,
   readConnectedProviderOrderIds,
   reorderConnectedProviderIds,
@@ -67,6 +68,8 @@ export type AiProvidersController = {
   ) => AgentManagementManagedProvider | null;
   /** Drag-and-drop reorder; persists to session-memory. */
   reorderConnectedProviders: (fromId: string, toId: string) => void;
+  /** Keyboard / touch-friendly one-step reorder. */
+  moveConnectedProvider: (providerId: string, direction: "up" | "down") => void;
 };
 
 /** Module-level single-flight for in-progress inventory IPC per workspace root. */
@@ -290,6 +293,24 @@ export function useAiProvidersController(
     ],
   );
 
+  const moveConnectedProvider = useCallback(
+    (providerId: string, direction: "up" | "down") => {
+      if (!providerId) return;
+      setProviderOrderIds((prev) => {
+        const present = connectedProviders.map((item) => item.id);
+        const next = moveConnectedProviderInOrder(
+          prev,
+          present,
+          providerId,
+          direction,
+        );
+        writeConnectedProviderOrderIds(next);
+        return next;
+      });
+    },
+    [connectedProviders],
+  );
+
   const providersDiscovering =
     input.activeClient && !providerListHydrated;
   const inventorySyncing =
@@ -312,5 +333,6 @@ export function useAiProvidersController(
     loadOpenCodeManagedProviders,
     findManagedProvider,
     reorderConnectedProviders,
+    moveConnectedProvider,
   };
 }
