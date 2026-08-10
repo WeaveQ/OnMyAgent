@@ -1129,9 +1129,15 @@ function applyEvent(
     const part = props.part;
     if (!part?.sessionID || !part.messageID) return;
     if (partHasVisibleAssistantOutput(part)) {
+      // Same as message.part.delta: parts can arrive before message.updated
+      // has registered the role. Without allowUnknownMessageRole, visible
+      // assistant text never flips activity thinking → responding, so the
+      // footer stays on model-requesting under an already-rendered answer.
       useSessionActivityStore
         .getState()
-        .markAssistantOutput(workspaceId, part.sessionID, part.messageID);
+        .markAssistantOutput(workspaceId, part.sessionID, part.messageID, {
+          allowUnknownMessageRole: true,
+        });
       // Expert / assistant list unread (blue dot) — local cursor only.
       useExpertUnreadStore
         .getState()
