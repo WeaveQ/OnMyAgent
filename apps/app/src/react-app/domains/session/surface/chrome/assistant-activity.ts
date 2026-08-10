@@ -183,6 +183,19 @@ function latestToolIntent(messages: UIMessage[]): AssistantToolIntent | null {
   return null;
 }
 
+function hasVisibleAssistantText(messages: UIMessage[]) {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message) continue;
+    if (message.role === "user") return false;
+    if (message.role !== "assistant") continue;
+    return message.parts.some(
+      (part) => part.type === "text" && part.text.trim().length > 0,
+    );
+  }
+  return false;
+}
+
 function hasCompletedFinalAssistantText(messages: UIMessage[]) {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
@@ -195,6 +208,17 @@ function hasCompletedFinalAssistantText(messages: UIMessage[]) {
     return hasText && readTranscriptMessageMetadata(message.metadata).completed !== null;
   }
   return false;
+}
+
+/** Model phase when run is still active and no tool/wait is in progress. */
+function modelPhaseWhileActive(messages: UIMessage[]): AssistantActivity {
+  if (hasCompletedFinalAssistantText(messages)) {
+    return { phase: "model-done", toolIntent: null };
+  }
+  if (hasVisibleAssistantText(messages)) {
+    return { phase: "model-streaming", toolIntent: null };
+  }
+  return { phase: "model-requesting", toolIntent: null };
 }
 
 export function deriveAssistantActivity(input: AssistantActivityInput): AssistantActivity {
@@ -215,15 +239,16 @@ export function deriveAssistantActivity(input: AssistantActivityInput): Assistan
   }
   if (input.status === "idle") return { phase: "idle", toolIntent: null };
   if (input.status === "thinking") {
-    return {
-      phase: input.sending ? "preparing" : "model-requesting",
-      toolIntent: null,
-    };
+    // Prefer message content over the activity-store flag. Part updates can
+    // render text before markAssistantOutput flips thinking → responding.
+    if (input.sending) return { phase: "preparing", toolIntent: null };
+    return modelPhaseWhileActive(input.messages);
   }
   const activeTool = activeToolActivity(input.messages);
   if (activeTool) return activeTool;
   if (input.status === "waiting") {
-    return { phase: "model-requesting", toolIntent: null };
+    // Unclassified wait (no permission/question): still honor visible text.
+    return modelPhaseWhileActive(input.messages);
   }
   if (hasCompletedFinalAssistantText(input.messages)) {
     return { phase: "model-done", toolIntent: null };
