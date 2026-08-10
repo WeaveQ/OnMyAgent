@@ -36,14 +36,22 @@ describe("frontend host thin modules", () => {
       expect(existsSync(join(root, h))).toBe(true);
       expect(read(h)).toContain("export function");
     }
-    const expert = read("src/react-app/domains/session/pages/expert.tsx");
+    const expert = [
+      read("src/react-app/domains/session/pages/expert.tsx"),
+      read("src/react-app/domains/session/pages/use-expert-page.tsx"),
+      read("src/react-app/domains/session/pages/expert-page-layout.tsx"),
+    ].join("\n");
     const assistant = read("src/react-app/domains/session/pages/assistant.tsx");
-    expect(expert).toContain("useSessionHostSidePanel");
+    expect(expert).toContain("useSessionPageHostState");
     expect(expert).toContain("useMyExpertPackages");
     expect(expert).toContain("useAgentPanelResize");
     expect(expert).toContain("useExpertAutomationOffer");
     expect(expert).toContain("from \"./expert-conversation-model\"");
-    expect(assistant).toContain("useSessionHostSidePanel");
+    // Side panel state is owned by the shared page host hook (not re-imported in page hosts).
+    expect(read("src/react-app/domains/session/pages/use-session-page-host-state.ts")).toContain(
+      "useSessionHostSidePanel",
+    );
+    expect(assistant).toContain("useSessionPageHostState");
     expect(assistant).toContain("useMyExpertPackages");
     expect(assistant).toContain("useSummonMarketplaceExpert");
   });
@@ -66,7 +74,9 @@ describe("frontend host thin modules", () => {
 
   test("host page line counts are below pre-optimization baseline", () => {
     // Pre-goal baselines from branch-gate / audit
-    expect(lineCount("src/react-app/domains/session/pages/expert.tsx")).toBeLessThan(2560);
+    expect(lineCount("src/react-app/domains/session/pages/expert.tsx")).toBeLessThan(200);
+    expect(lineCount("src/react-app/domains/session/pages/use-expert-page.tsx")).toBeLessThan(1600);
+    expect(lineCount("src/react-app/domains/session/pages/expert-page-layout.tsx")).toBeLessThan(1200);
     expect(lineCount("src/react-app/domains/session/pages/assistant.tsx")).toBeLessThan(1660);
     expect(
       lineCount("src/react-app/shell/session-route/surface-props-hook.ts"),

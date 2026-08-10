@@ -5,7 +5,7 @@ import { join } from "node:path";
 import type { SessionArchiveSyncProgress } from "@onmyagent/types/session-archive";
 import type { WorkspaceInfo } from "@onmyagent/types/server";
 
-import { openSessionArchiveStore } from "../src/services/session-archive.js";
+import { openSessionArchiveStore } from "../src/services/session-archive-open.js";
 import {
   classifyChangedSessionArchivePaths,
   __startSessionArchiveSyncWatcherForTest,

@@ -4,18 +4,21 @@ import path from "node:path";
 import { readSession, writeSession } from "./session-store.mjs";
 import { legacyPersonalAgentRoot, personalAgentRoot, personalAgentRuntimeStateRoot } from "./runtime-state.mjs";
 import { readJsonLikeFile, runId, writeJsonFile } from "./utils.mjs";
+import {
+  CONVERSATION_DIR,
+  conversationRoot,
+  normalizeConversation,
+  nowTitle,
+} from "./conversation-paths.mjs";
+// Re-export the pure path/normalize helpers so existing importers of this module
+// keep working; they live in conversation-paths.mjs to avoid an import cycle
+// with conversation-lookup.mjs.
+export { CONVERSATION_DIR, conversationRoot, normalizeConversation, nowTitle } from "./conversation-paths.mjs";
 // Local import (in addition to the re-export below) so internal callers such as
-// `listConversationsByProvider` can reference `listChannelConversations`. The
-// ESM cycle with `conversation-lookup.mjs` is safe because every cross-module
-// reference is resolved at call time, never during module evaluation.
+// `listConversationsByProvider` can reference `listChannelConversations`.
 import { listChannelConversations } from "./conversation-lookup.mjs";
 
-export const CONVERSATION_DIR = "conversations";
 const CONVERSATION_EVENTS_DIR = "conversation-events";
-
-export function conversationRoot(workspaceRoot) {
-  return path.join(personalAgentRoot(workspaceRoot), CONVERSATION_DIR);
-}
 
 export function conversationFile(workspaceRoot, provider, agentId = "default") {
   return path.join(conversationRoot(workspaceRoot), `${provider}-${agentId}.json`);
@@ -28,33 +31,6 @@ export function legacyConversationFile(workspaceRoot, provider, agentId = "defau
 export function conversationEventsFile(workspaceRoot, provider, agentId = "default", conversationId = "default") {
   const id = String(conversationId ?? "").trim() || "default";
   return path.join(personalAgentRoot(workspaceRoot), CONVERSATION_EVENTS_DIR, `${provider}-${agentId}-${id}.json`);
-}
-
-function nowTitle(timestamp) {
-  return `Conversation ${new Date(timestamp).toISOString().replace("T", " ").slice(0, 19)}`;
-}
-
-export function normalizeConversation(item, provider, agentId) {
-  if (!item || typeof item !== "object") return null;
-  const id = String(item.id ?? "").trim();
-  if (!id) return null;
-  const createdAt = Number(item.createdAt) || Date.now();
-  const updatedAt = Number(item.updatedAt) || createdAt;
-  return {
-    id,
-    provider,
-    agentId,
-    title: String(item.title ?? "").trim() || nowTitle(createdAt),
-    providerSessionId: String(item.providerSessionId ?? item.sessionId ?? "").trim() || null,
-    resumeKey: String(item.resumeKey ?? item.providerSessionId ?? item.sessionId ?? "").trim() || null,
-    workdir: String(item.workdir ?? "").trim() || null,
-    createdAt,
-    updatedAt,
-    lastRunId: String(item.lastRunId ?? "").trim() || null,
-    lastStatus: String(item.lastStatus ?? "").trim() || null,
-    source: String(item.source ?? "studio-created").trim() || "studio-created",
-    metadata: item.metadata && typeof item.metadata === "object" ? item.metadata : null,
-  };
 }
 
 async function readConversationState(workspaceRoot, provider, agentId = "default") {

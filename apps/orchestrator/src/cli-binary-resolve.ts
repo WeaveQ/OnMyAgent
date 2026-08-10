@@ -4,7 +4,6 @@
  */
 import { createHash, randomUUID } from "node:crypto";
 import {
-  chmod,
   copyFile,
   mkdir,
   mkdtemp,
@@ -31,7 +30,7 @@ import {
   type RemoteSidecarManifest,
   type SidecarName,
 } from "./cli-shared.js";
-import { isExecutable } from "./runtime-sandbox.js";
+import { isExecutable, ensureExecutable } from "./runtime-sandbox.js";
 import {
   resolveSidecarTarget,
   type SidecarConfig,
@@ -99,14 +98,10 @@ export async function downloadToPath(url: string, dest: string): Promise<void> {
   await rename(tmpPath, dest);
 }
 
-export async function ensureExecutable(path: string): Promise<void> {
-  if (process.platform === "win32") return;
-  try {
-    await chmod(path, 0o755);
-  } catch {
-    // ignore
-  }
-}
+// ensureExecutable lives in runtime-sandbox (alongside isExecutable) so that
+// cli-sandbox-runtime can use it without importing this module, which would
+// create a cycle through cli-shared. Re-exported here for the public surface.
+export { ensureExecutable } from "./runtime-sandbox.js";
 
 export async function downloadSidecarBinary(options: {
   name: SidecarName;

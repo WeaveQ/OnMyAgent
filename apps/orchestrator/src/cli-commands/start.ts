@@ -113,7 +113,6 @@ import {
   DEFAULT_OPENCODE_HOT_RELOAD_COOLDOWN_MS,
   DEFAULT_OPENCODE_HOT_RELOAD_DEBOUNCE_MS,
   SANDBOX_INTERNAL_OPENCODE_PORT,
-  assertSandboxBinaryFile,
   buildAttachCommand,
   buildRuntimeServiceSnapshot,
   copyToClipboard,
@@ -131,9 +130,6 @@ import {
   resolveConnectUrl,
   resolveInternalDevMode,
   resolveOnMyAgentRemoteAccess,
-  resolveOnMyAgentServerBin,
-  resolveOpenCodeRouterBin,
-  resolveOpencodeBin,
   resolveOpencodeLogLevel,
   resolveOpencodeRouterEnabled,
   resolveOpencodeStateLayout,
@@ -148,6 +144,7 @@ import {
   verifyOpencodeVersion,
   workspaceIdForLocal,
 } from "../cli-shared.js";
+import { assertSandboxBinaryFile, resolveOnMyAgentServerBin, resolveOpenCodeRouterBin, resolveOpencodeBin } from "../cli-binary-resolve.js";
 
 export async function runStart(args: ParsedArgs) {
   const outputJson = readBool(args.flags, "json", false);

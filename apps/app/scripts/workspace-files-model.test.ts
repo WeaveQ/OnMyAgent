@@ -237,13 +237,22 @@ describe("workspace-files-page host keeps required UI surfaces (structural)", ()
       ),
       "utf8",
     );
-    const uploads = require("node:fs").readFileSync(
-      require("node:path").join(
-        import.meta.dir,
-        "../src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
+    const uploads = [
+      require("node:fs").readFileSync(
+        require("node:path").join(
+          import.meta.dir,
+          "../src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
+        ),
+        "utf8",
       ),
-      "utf8",
-    );
+      require("node:fs").readFileSync(
+        require("node:path").join(
+          import.meta.dir,
+          "../src/react-app/domains/workspace/use-workspace-files-uploads-panel.ts",
+        ),
+        "utf8",
+      ),
+    ].join("\n");
     const browser = require("node:fs").readFileSync(
       require("node:path").join(
         import.meta.dir,

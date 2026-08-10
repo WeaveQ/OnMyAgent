@@ -143,10 +143,20 @@ describe("primary rail + assistant wiring", () => {
   });
 
   test("expert rail opens assistant automation URL (does not crash on expert)", () => {
-    const expert = readFileSync(
-      join(appRoot, "src/react-app/domains/session/pages/expert.tsx"),
-      "utf8",
-    );
+    const expert = [
+      readFileSync(
+        join(appRoot, "src/react-app/domains/session/pages/expert.tsx"),
+        "utf8",
+      ),
+      readFileSync(
+        join(appRoot, "src/react-app/domains/session/pages/use-expert-page.tsx"),
+        "utf8",
+      ),
+      readFileSync(
+        join(appRoot, "src/react-app/domains/session/pages/expert-page-layout.tsx"),
+        "utf8",
+      ),
+    ].join("\n");
     const openRail = readFileSync(
       join(appRoot, "src/react-app/domains/session/pages/open-automation-rail.ts"),
       "utf8",

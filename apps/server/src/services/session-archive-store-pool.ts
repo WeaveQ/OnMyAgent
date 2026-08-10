@@ -1,5 +1,5 @@
 import type { SessionArchiveStore } from "./session-archive-types.js";
-import { openSessionArchiveStore } from "./session-archive.js";
+import { openSessionArchiveStore } from "./session-archive-open.js";
 
 export type SessionArchiveStoreOpener = (input: {
   dbPath: string;

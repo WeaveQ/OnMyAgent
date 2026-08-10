@@ -1,0 +1,6 @@
+{
+  "$schema": "./circular-deps.schema.json",
+  "description": "Frozen circular-dependency signatures (sorted, rooted at the lexicographically smallest file). Only shrink this list. Run `node scripts/checks/check-circular-deps.mjs --write` only after refactoring to break one of the listed cycles.",
+  "generatedAt": "2026-08-09T13:36:34.456Z",
+  "entries": []
+}
