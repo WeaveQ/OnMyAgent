@@ -1,128 +1,42 @@
 [
   {
     "id": "kol-brief-structuring",
-    "title": {
-      "zh": "拆解客户 Brief",
-      "en": "Structure a client brief"
-    },
-    "description": {
-      "zh": "把原始 Brief 拆成目标/需求/风险/下一步",
-      "en": "Turn a raw brief into goals, needs, risks, next steps"
-    },
-    "template": {
-      "zh": "这是客户发来的 <Brief 或需求材料>。请按 <我们的 Brief 模板> 拆成目标、核心需求、已明确、待确认、风险和下一步，并标出还要问客户什么。",
-      "en": "Using <Client brief materials> and <Our brief template>, structure goals, needs, confirmed items, open questions, risks, and next steps."
-    },
-    "requiredSlots": {
-      "zh": [
-        "Brief 或需求材料"
-      ],
-      "en": [
-        "Client brief materials"
-      ]
-    },
-    "conditionalSlots": {
-      "zh": [
-        "我们的 Brief 模板"
-      ],
-      "en": [
-        "Our brief template"
-      ]
-    }
+    "title": { "zh": "拆解九字段 Brief", "en": "Structure a nine-part brief" },
+    "description": { "zh": "已明确、待补充、动作和来源", "en": "Knowns, gaps, actions, and sources" },
+    "template": { "zh": "请把 <客户 Brief 或需求材料> 按九个业务模块拆解，并结合 <历史案例或模板> 输出已明确、待补充、建议动作和来源。", "en": "Structure <Client brief or requirements> into nine business modules using <Historical example or template>, with knowns, gaps, actions, and sources." },
+    "requiredSlots": { "zh": ["客户 Brief 或需求材料"], "en": ["Client brief or requirements"] },
+    "conditionalSlots": { "zh": ["历史案例或模板"], "en": ["Historical example or template"] }
   },
   {
     "id": "kol-talent-ranking",
-    "title": {
-      "zh": "筛选并分级达人",
-      "en": "Rank talents"
-    },
-    "description": {
-      "zh": "优先/备选/不建议 + 理由",
-      "en": "Priority / backup / not recommended with reasons"
-    },
-    "template": {
-      "zh": "这是 <达人列表或数据表>。请按 <品牌调性、人群和内容方向> 分成优先推荐、可备选、不建议三类，说明理由，并按 <提报模板> 输出。",
-      "en": "Rank <Talent list/sheet> for <Brand/audience/content fit> into priority / backup / not recommended with reasons, using <Pitch template> if any."
-    },
-    "requiredSlots": {
-      "zh": [
-        "达人列表或数据表",
-        "品牌调性、人群和内容方向"
-      ],
-      "en": [
-        "Talent list/sheet",
-        "Brand/audience/content fit"
-      ]
-    },
-    "conditionalSlots": {
-      "zh": [
-        "提报模板"
-      ],
-      "en": [
-        "Pitch template"
-      ]
-    }
+    "title": { "zh": "筛选并分级达人", "en": "Rank talents" },
+    "description": { "zh": "优先、备选、不建议及理由", "en": "Priority, backup, or not recommended" },
+    "template": { "zh": "请根据 <达人池> 和 <品牌与目标人群要求> 分成优先、备选、不建议，并按 <提报模板> 输出理由。", "en": "Rank <Talent pool> against <Brand and audience requirements> and format it with <Pitch template>." },
+    "requiredSlots": { "zh": ["达人池", "品牌与目标人群要求"], "en": ["Talent pool", "Brand and audience requirements"] },
+    "conditionalSlots": { "zh": ["提报模板"], "en": ["Pitch template"] }
   },
   {
     "id": "kol-data-clean-merge",
-    "title": {
-      "zh": "清洗合并达人数据",
-      "en": "Clean and merge data"
-    },
-    "description": {
-      "zh": "多表对齐去重与基础指标",
-      "en": "Align sheets, dedupe, basic metrics"
-    },
-    "template": {
-      "zh": "请把这些 <多份达人/合作/报价表> 清洗合并成一张表，按 <主键或对齐字段> 去重对齐，并给出基础可量化指标。",
-      "en": "Clean and merge <Multiple talent/coop/rate sheets> by <Join keys>, dedupe, and summarize basic metrics."
-    },
-    "requiredSlots": {
-      "zh": [
-        "多份达人/合作/报价表"
-      ],
-      "en": [
-        "Multiple talent/coop/rate sheets"
-      ]
-    },
-    "conditionalSlots": {
-      "zh": [
-        "主键或对齐字段"
-      ],
-      "en": [
-        "Join keys"
-      ]
-    }
+    "title": { "zh": "清洗达人和报价数据", "en": "Clean talent and rate data" },
+    "description": { "zh": "多表去重、对齐和冲突保留", "en": "Dedupe, align, and preserve conflicts" },
+    "template": { "zh": "请把 <达人、报价和历史合作表> 按 <对齐字段> 清洗合并，保留冲突、来源和清洗日志。", "en": "Clean and merge <Talent, rate, and history sheets> by <Join fields>, preserving conflicts, sources, and a cleanup log." },
+    "requiredSlots": { "zh": ["达人、报价和历史合作表"], "en": ["Talent, rate, and history sheets"] },
+    "conditionalSlots": { "zh": ["对齐字段"], "en": ["Join fields"] }
   },
   {
-    "id": "kol-content-risk-checklist",
-    "title": {
-      "zh": "检查提报材料风险与遗漏",
-      "en": "Check pitch risks and gaps"
-    },
-    "description": {
-      "zh": "风控 + 遗漏项清单",
-      "en": "Risk and omission checklist"
-    },
-    "template": {
-      "zh": "请检查这份 <提报材料或需求文档> 有没有风控问题和遗漏项，按 <检查清单或模板> 列出问题与修改建议。",
-      "en": "Risk-check <Pitch or requirement doc> against <Checklist/template> and list issues plus fixes."
-    },
-    "requiredSlots": {
-      "zh": [
-        "提报材料或需求文档"
-      ],
-      "en": [
-        "Pitch or requirement doc"
-      ]
-    },
-    "conditionalSlots": {
-      "zh": [
-        "检查清单或模板"
-      ],
-      "en": [
-        "Checklist/template"
-      ]
-    }
+    "id": "kol-media-execution-board",
+    "title": { "zh": "整理邀约报价排期", "en": "Build an outreach board" },
+    "description": { "zh": "邀约状态、报价、档期和待推进", "en": "Outreach, rates, availability, and actions" },
+    "template": { "zh": "请把 <达人邀约、报价和档期材料> 按 <项目时间节点> 整理成执行台账和待推进事项。", "en": "Turn <Outreach, rate, and availability materials> into an execution board against <Project milestones>." },
+    "requiredSlots": { "zh": ["达人邀约、报价和档期材料"], "en": ["Outreach, rate, and availability materials"] },
+    "conditionalSlots": { "zh": ["项目时间节点"], "en": ["Project milestones"] }
+  },
+  {
+    "id": "kol-pitch-readiness-check",
+    "title": { "zh": "检查提报并生成交接包", "en": "Check pitch and handoff" },
+    "description": { "zh": "提报完整性与达人运营交接", "en": "Pitch readiness and creator-ops handoff" },
+    "template": { "zh": "请检查 <提报材料> 是否满足 <客户检查清单>，并整理媒介到达人运营的交接包。", "en": "Check <Pitch materials> against <Client checklist> and prepare a media-to-creator-ops handoff." },
+    "requiredSlots": { "zh": ["提报材料"], "en": ["Pitch materials"] },
+    "conditionalSlots": { "zh": ["客户检查清单"], "en": ["Client checklist"] }
   }
 ]

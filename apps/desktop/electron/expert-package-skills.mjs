@@ -8,14 +8,42 @@
  */
 
 import { existsSync } from "node:fs";
-import { cp, mkdir, readFile, rm } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+
+const EXPERT_OWNERS_FILE = ".onmyagent-expert-owners.json";
 
 const RETIRED_EXPERT_PACKAGE_SKILLS = new Map([
   ["order-dispatch-specialist", ["introduce-order-dispatch"]],
   ["fleet-management-specialist", ["introduce-fleet-management"]],
   ["fulfillment-specialist", ["introduce-fulfillment"]],
   ["logistics-finance-specialist", ["introduce-logistics-finance"]],
+  ["kol-media-specialist", ["kol-content-risk-checklist"]],
+  [
+    "kol-content-ops-specialist",
+    [
+      "kol-content-risk-checklist",
+      "kol-rebate-invoice-audit",
+      "kol-script-risk-review",
+    ],
+  ],
+  ["kol-project-review-specialist", ["kol-content-risk-checklist"]],
+]);
+
+const RETIRED_CREATOR_OPS_SKILL_SHA256 = new Map([
+  [
+    "kol-content-risk-checklist",
+    "6c9f0a7b9c5cfca359211889609e607fa0e946132af1114a08ea4c03d4505af9",
+  ],
+  [
+    "kol-rebate-invoice-audit",
+    "5e34b69711d53394abf7a6e2b7c69352350ade3b8ffc165a00b1383f7bbe1fed",
+  ],
+  [
+    "kol-script-risk-review",
+    "0bc260648e73b7272c1ed1ec99819ba1d05ac766f56bd0fd86d3685b5d96f57f",
+  ],
 ]);
 
 /**
@@ -72,10 +100,19 @@ export async function materializeExpertPackageSkills(input) {
 
   await mkdir(skillsRoot, { recursive: true });
   const installed = [];
+  const packageName = path.basename(packageDir);
   for (const { skillName, sourceDir } of sources) {
     const destination = path.join(skillsRoot, skillName);
+    const owners = await readExpertOwners(destination);
+    const otherOwners = owners.filter((owner) => owner !== packageName);
+    if (otherOwners.length > 0 && !(await skillTreesMatch(sourceDir, destination))) {
+      throw new Error(
+        `Expert skill collision for ${skillName}: ${packageName} differs from ${otherOwners.join(", ")}`,
+      );
+    }
     await rm(destination, { recursive: true, force: true });
     await cp(sourceDir, destination, { recursive: true });
+    await writeExpertOwners(destination, [...otherOwners, packageName]);
     installed.push(skillName);
   }
   return installed;
@@ -99,10 +136,30 @@ export async function removeRetiredExpertPackageSkills(input) {
   for (const skillName of retiredSkills) {
     const destination = path.join(skillsRoot, skillName);
     if (!existsSync(destination)) continue;
+    if (
+      packageName.startsWith("kol-") &&
+      !(await matchesRetiredCreatorOpsSkill(destination, skillName))
+    ) {
+      continue;
+    }
     await rm(destination, { recursive: true, force: true });
     removed.push(skillName);
   }
   return removed;
+}
+
+async function matchesRetiredCreatorOpsSkill(destination, skillName) {
+  const expectedHash = RETIRED_CREATOR_OPS_SKILL_SHA256.get(skillName);
+  if (!expectedHash) return false;
+  try {
+    const entries = await readdir(destination);
+    if (entries.length !== 1 || entries[0] !== "SKILL.md") return false;
+    const markdown = await readFile(path.join(destination, "SKILL.md"), "utf8");
+    const actualHash = createHash("sha256").update(markdown).digest("hex");
+    return actualHash === expectedHash;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -141,9 +198,19 @@ export async function dematerializeExpertPackageSkills(input) {
 
   const sources = await listExpertPackageSkillSources(packageDir);
   const removed = [];
+  const packageName = path.basename(packageDir);
   for (const { skillName } of sources) {
     const destination = path.join(skillsRoot, skillName);
     if (!existsSync(destination)) continue;
+    const owners = await readExpertOwners(destination);
+    if (owners.length > 0) {
+      if (!owners.includes(packageName)) continue;
+      const remainingOwners = owners.filter((owner) => owner !== packageName);
+      if (remainingOwners.length > 0) {
+        await writeExpertOwners(destination, remainingOwners);
+        continue;
+      }
+    }
     await rm(destination, { recursive: true, force: true });
     removed.push(skillName);
   }
@@ -203,4 +270,65 @@ async function readSkillFrontmatterName(skillMdPath) {
   } catch {
     return "";
   }
+}
+
+async function readExpertOwners(destination) {
+  try {
+    const raw = await readFile(path.join(destination, EXPERT_OWNERS_FILE), "utf8");
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed?.owners)) return [];
+    return parsed.owners
+      .map((owner) => String(owner ?? "").trim())
+      .filter((owner) => isSafeSkillFolderName(owner));
+  } catch {
+    return [];
+  }
+}
+
+async function writeExpertOwners(destination, owners) {
+  const uniqueOwners = [...new Set(owners)].sort();
+  await writeFile(
+    path.join(destination, EXPERT_OWNERS_FILE),
+    `${JSON.stringify({ owners: uniqueOwners }, null, 2)}\n`,
+    "utf8",
+  );
+}
+
+async function skillTreesMatch(sourceDir, destination) {
+  try {
+    const [sourceFingerprint, installedFingerprint] = await Promise.all([
+      skillTreeFingerprint(sourceDir),
+      skillTreeFingerprint(destination),
+    ]);
+    return sourceFingerprint === installedFingerprint;
+  } catch {
+    return false;
+  }
+}
+
+async function skillTreeFingerprint(root) {
+  const hash = createHash("sha256");
+
+  async function visit(directory, relativeRoot = "") {
+    const entries = await readdir(directory, { withFileTypes: true });
+    entries.sort((left, right) => left.name.localeCompare(right.name));
+    for (const entry of entries) {
+      if (!relativeRoot && entry.name === EXPERT_OWNERS_FILE) continue;
+      const relativePath = path.posix.join(relativeRoot, entry.name);
+      const absolutePath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        hash.update(`D\0${relativePath}\0`);
+        await visit(absolutePath, relativePath);
+      } else if (entry.isFile()) {
+        hash.update(`F\0${relativePath}\0`);
+        hash.update(await readFile(absolutePath));
+        hash.update("\0");
+      } else {
+        throw new Error(`Unsupported skill entry: ${relativePath}`);
+      }
+    }
+  }
+
+  await visit(root);
+  return hash.digest("hex");
 }
