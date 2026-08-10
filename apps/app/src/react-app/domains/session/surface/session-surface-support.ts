@@ -69,9 +69,10 @@ export function humanizeSessionErrorMessage(raw: string): string {
     return t("session.error_rate_limit");
   }
   // Provider plan / token-plan quota (async stream often surfaces as AI_APICallError).
-  // Must be explicit so the UI ends the run instead of hanging on「准备中」.
+  // Must be explicit so the UI ends the run instead of hanging on preparing.
+  // CJK provider messages matched via unicode escapes (check-i18n-cjk gate).
   if (
-    /quota|token-plan|token plan|exhausted|billing|insufficient.?credit|insufficient.?quota|out of credits|额度|配额|套餐.*用尽|余额不足|额度已用|用尽/.test(
+    /quota|token-plan|token plan|exhausted|billing|insufficient.?credit|insufficient.?quota|out of credits|\u989d\u5ea6|\u914d\u989d|\u5957\u9910.*\u7528\u5c3d|\u4f59\u989d\u4e0d\u8db3|\u989d\u5ea6\u5df2\u7528|\u7528\u5c3d/.test(
       lower,
     )
   ) {

@@ -54,7 +54,7 @@ export function buildExpertDraftTabSessionId(
 export function resolveExpertSurfaceMode(input: {
   selectedSessionId: string | null | undefined;
   workspaceId: string;
-  /** User activated 新会话 / 去聊天 / agent draft (intent, not surface mode). */
+  /** User activated new-session / open-chat / agent draft (intent, not surface mode). */
   draftIntent: boolean;
   draftAgentId: string | null;
   pendingAgentId: string | null;
