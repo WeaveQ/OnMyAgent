@@ -1,5 +1,6 @@
 import {
   readdir,
+  realpath,
   stat,
 } from "node:fs/promises";
 import {
@@ -222,10 +223,14 @@ function normalizeUrlTarget(value: string): string | null {
 export async function resolveWorkspaceArtifactTargets(
   workspaceRoot: string,
   input: unknown,
+  options?: { canonicalRoot?: string },
 ): Promise<Array<Record<string, unknown>>> {
   const targets = Array.isArray(input) ? input.slice(0, 80) : [];
   const results = new Map<string, Record<string, unknown>>();
   const workspaceResolved = resolve(workspaceRoot);
+  const canonicalRoot = options?.canonicalRoot
+    ? await realpath(options.canonicalRoot).catch(() => null)
+    : null;
 
   for (const item of targets) {
     if (!item || typeof item !== "object") continue;
@@ -295,11 +300,16 @@ export async function resolveWorkspaceArtifactTargets(
     let updatedAt: number | undefined;
     let kindValue: "file" | "dir" | "other" | undefined;
     if (await exists(absPath)) {
-      const info = await stat(absPath);
-      kindValue = info.isFile() ? "file" : info.isDirectory() ? "dir" : "other";
-      existsFile = info.isFile();
-      size = info.size;
-      updatedAt = info.mtimeMs;
+      const resolvedArtifactPath = canonicalRoot
+        ? await realpath(absPath).catch(() => null)
+        : absPath;
+      if (!canonicalRoot || (resolvedArtifactPath && isPathInside(canonicalRoot, resolvedArtifactPath))) {
+        const info = await stat(absPath);
+        kindValue = info.isFile() ? "file" : info.isDirectory() ? "dir" : "other";
+        existsFile = info.isFile();
+        size = info.size;
+        updatedAt = info.mtimeMs;
+      }
     }
     const next = {
       id: key,
@@ -321,6 +331,13 @@ export async function resolveWorkspaceArtifactTargets(
   }
 
   return Array.from(results.values());
+}
+
+function isPathInside(root: string, candidate: string): boolean {
+  const normalizedRoot = resolve(root);
+  const normalizedCandidate = resolve(candidate);
+  return normalizedCandidate === normalizedRoot
+    || normalizedCandidate.startsWith(`${normalizedRoot}${sep}`);
 }
 
 export function encodeInboxId(path: string): string {

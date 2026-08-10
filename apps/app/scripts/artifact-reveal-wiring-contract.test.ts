@@ -36,19 +36,27 @@ describe("artifact reveal wiring contract", () => {
     expect(list).toContain("session-generated-artifact-card");
     expect(list).toContain("props.targets.length > 1 && \"sm:grid-cols-2\"");
     expect(list).toContain("<ArrowUpRight");
+    expect(list).toContain("<StatusBadge");
+    expect(list).toContain("borderLeftColor: `var(--dls-artifact-hue-${presentation.hue})`");
+    expect(list).toContain("backgroundColor: `color-mix(in srgb, var(--dls-artifact-hue-${presentation.hue}) 20%, transparent)`");
     expect(list).not.toContain("const openInFolder = async");
   });
 
-  test("generated file cards require current-turn write provenance", () => {
+  test("generated file cards do not treat arbitrary file mentions as provenance", () => {
     const targetSelection = read(
       "src/react-app/domains/session/surface/message-list/open-targets.ts",
     );
     expect(targetSelection).toContain(
-      "deriveOpenTargets(messages, { includeFileMentions: false })",
+      "deriveOpenTargets(assistantMessages, { includeFileMentions: false })",
     );
     expect(targetSelection).not.toContain(
       "deriveOpenTargets(messages, { includeFileMentions: true })",
     );
+  });
+
+  test("turn card selection keeps user attachments in the current-turn input", () => {
+    const list = read("src/react-app/domains/session/surface/message-list.tsx");
+    expect(list).toContain("selectTurnOpenTargets(turn.messages, props.openTargets)");
   });
 
   test("markdown reveal keeps multi-candidate desktop reveal as a separate action", () => {
