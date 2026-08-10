@@ -18,6 +18,10 @@ const desktopWindow = readFileSync(
   resolve(appRoot, "../desktop/electron/desktop-window.mjs"),
   "utf8",
 );
+const officePreview = readFileSync(
+  resolve(appRoot, "src/react-app/capabilities/artifacts/office-file-preview.tsx"),
+  "utf8",
+);
 
 test("adds local Office and media preview inside the existing session Files tool", () => {
   expect(sessionPanel).toContain('import { OfficeFilePreview }');
@@ -75,12 +79,25 @@ test("workspace Files browser keeps local Office/media preview under Task files"
     "utf8",
   );
   expect(uploads).toContain("FilePreviewDrawer");
-  expect(uploads).toContain("absoluteInboxFilePath");
+  expect(uploads).toContain("const abs = (() => {");
+  expect(uploads).toContain("filePath: abs");
 });
 
 test("detaches the native preview before a full renderer reload", () => {
   expect(desktopWindow).toContain('webContents.on("did-start-navigation"');
   expect(desktopWindow).toContain("if (isMainFrame) artifactPreviewController.hide()");
+});
+
+test("shows the existing localized preview error when the native preview bridge rejects", () => {
+  expect(officePreview).toContain('import { t }');
+  expect(officePreview).toContain("PreviewError");
+  expect(officePreview).toContain('t("files.preview_failed")');
+  expect(officePreview).toContain("Promise.resolve(preview.show?.(");
+  expect(officePreview).toContain("Promise.resolve(preview.setBounds?.(bounds)).catch");
+  expect(officePreview).toContain("Promise.resolve(preview.hide?.()).catch");
+  expect(officePreview).toContain("setPreviewError(false)");
+  expect(officePreview).toContain("let failed = false");
+  expect(officePreview).toContain("if (failed) return;");
 });
 
 test("session artifact panel uses OfficeFilePreview for local binary sheets", () => {

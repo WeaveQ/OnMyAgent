@@ -2,7 +2,7 @@ import type { UIMessage } from "ai";
 import {
   deriveOpenTargets,
   extractDeclaredDeliverablePaths,
-  extractHardDeclaredDeliverablePaths,
+  extractExplicitArtifactLinkPaths,
   isCollectibleArtifactTarget,
   isLikelyUserUploadArtifactPath,
   isUserFacingLocalPreviewTarget,
@@ -54,7 +54,6 @@ const CONTENT_DELIVERABLE_EXTENSIONS = new Set([
   ".txt",
   ".text",
   ".rtf",
-  ".json",
   ".zip",
 ]);
 
@@ -152,6 +151,21 @@ function isBlockedUserPath(path: string, userBasenames: Set<string>): boolean {
   );
 }
 
+/** Hidden, system, and temporary paths are execution plumbing, never cards. */
+function isProcessArtifactPath(path: string): boolean {
+  const normalized = normalizePathKey(path);
+  if (!normalized) return true;
+  if (
+    /(^|\/)(?:tmp|temp|temps|cache|node_modules)(\/|$)/i.test(normalized)
+    || /^(?:\/|[a-z]:\/)(?:tmp|var\/folders|private|system|library|usr)(?:\/|$)/i.test(normalized)
+  ) {
+    return true;
+  }
+  return normalized.split("/").some(
+    (segment) => segment.startsWith(".") && segment !== ".onmyagent",
+  );
+}
+
 function findVerifiedFile(
   path: string,
   verifiedById: Map<string, OpenTarget>,
@@ -161,16 +175,22 @@ function findVerifiedFile(
   const byId = verifiedById.get(`file:${normalizedCandidate.toLowerCase()}`)
     ?? verifiedById.get(`file:${path.toLowerCase()}`);
   if (byId) return byId;
-  return verifiedFiles.find((target) => {
+  const exact = verifiedFiles.find((target) => (
+    normalizePathKey(target.value) === normalizedCandidate
+  ));
+  if (exact) return exact;
+  const suffixMatches = verifiedFiles.filter((target) => {
     const normalizedTarget = normalizePathKey(target.value);
-    return (
-      normalizedTarget === normalizedCandidate
-      || normalizedTarget.endsWith(`/${normalizedCandidate}`)
+    return normalizedTarget.endsWith(`/${normalizedCandidate}`)
       || normalizedCandidate.endsWith(`/${normalizedTarget}`)
-      || basenameOf(normalizedTarget).toLowerCase()
-        === basenameOf(normalizedCandidate).toLowerCase()
-    );
   });
+  if (suffixMatches.length === 1) return suffixMatches[0];
+  if (suffixMatches.length > 1) return undefined;
+
+  const basenameMatches = verifiedFiles.filter((target) => (
+    basenameOf(target.value).toLowerCase() === basenameOf(normalizedCandidate).toLowerCase()
+  ));
+  return basenameMatches.length === 1 ? basenameMatches[0] : undefined;
 }
 
 function assistantTextBlob(messages: UIMessage[]): string {
@@ -245,6 +265,7 @@ export function shouldShowAsTurnDeliverable(
     hasContentDeliverableInTurn: boolean;
   },
 ): boolean {
+  if (isProcessArtifactPath(path)) return false;
   if (isProcessHelperScript(path)) return false;
   if (context.executedScriptBasenames.has(basenameOf(path).toLowerCase())) {
     // Ran in this turn → treat as process helper unless it is also the only
@@ -257,7 +278,7 @@ export function shouldShowAsTurnDeliverable(
     // .js/.py products: only when assistant explicitly declares them.
     return pathMatchesDeclared(path, context.declaredPaths);
   }
-  // Unknown extension: only if explicitly declared as deliverable.
+  // JSON and unknown extensions: only if explicitly declared as deliverable.
   return pathMatchesDeclared(path, context.declaredPaths);
 }
 
@@ -269,20 +290,20 @@ export function selectTurnOpenTargets(
   const verifiedFiles = (verifiedTargets ?? []).filter(
     (target) => target.kind === "file" && target.exists === true,
   );
+  const assistantMessages = messages.filter((message) => message.role === "assistant");
   const userBasenames = userAttachmentBasenames(messages);
   const inlineTargets = new Map<string, OpenTarget>();
   const assistantBlob = assistantTextBlob(messages);
-  // Soft mentions (`已生成 foo.xlsx`) count for intentional-code matching only.
+  // Explicit assistant delivery claims are eligible after server verification.
   const declaredPaths = extractDeclaredDeliverablePaths(assistantBlob);
-  // Hard `文件路径:` may mint cards without write-tool provenance.
-  const hardDeclaredPaths = extractHardDeclaredDeliverablePaths(assistantBlob);
+  const explicitArtifactLinkPaths = extractExplicitArtifactLinkPaths(assistantBlob);
   const executedScriptBasenames = scriptsExecutedInTurn(messages);
 
   const candidatePaths: string[] = [];
-  for (const candidate of deriveOpenTargets(messages, { includeFileMentions: false })) {
+  for (const candidate of deriveOpenTargets(assistantMessages, { includeFileMentions: false })) {
     if (candidate.kind === "file") candidatePaths.push(candidate.value);
   }
-  for (const declared of hardDeclaredPaths) candidatePaths.push(declared);
+  for (const declared of [...declaredPaths, ...explicitArtifactLinkPaths]) candidatePaths.push(declared);
 
   const hasContentDeliverableInTurn = candidatePaths.some(
     (path) =>
@@ -297,33 +318,32 @@ export function selectTurnOpenTargets(
     hasContentDeliverableInTurn,
   };
 
-  const addVerifiedFile = (candidatePath: string, candidate?: OpenTarget) => {
+  const addVerifiedFile = (candidatePath: string) => {
+    if (isProcessArtifactPath(candidatePath)) return;
     if (isBlockedUserPath(candidatePath, userBasenames)) return;
     if (!shouldShowAsTurnDeliverable(candidatePath, showContext)) return;
-    const verified = findVerifiedFile(candidatePath, verifiedById, verifiedFiles)
-      ?? (candidate && isCollectibleArtifactTarget({ ...candidate, exists: true })
-        ? { ...candidate, exists: true as const }
-        : undefined);
+    const verified = findVerifiedFile(candidatePath, verifiedById, verifiedFiles);
     if (!verified || !isCollectibleArtifactTarget(verified)) return;
+    if (isProcessArtifactPath(verified.value)) return;
     if (isBlockedUserPath(verified.value, userBasenames)) return;
     if (!shouldShowAsTurnDeliverable(verified.value, showContext)) return;
     inlineTargets.set(verified.id, verified);
   };
 
-  for (const candidate of deriveOpenTargets(messages, { includeFileMentions: false })) {
+  for (const candidate of deriveOpenTargets(assistantMessages, { includeFileMentions: false })) {
     if (candidate.kind === "url" && isUserFacingLocalPreviewTarget(candidate)) {
       inlineTargets.set(candidate.id, candidate);
       continue;
     }
     if (candidate.kind === "file") {
-      addVerifiedFile(candidate.value, candidate);
+      addVerifiedFile(candidate.value);
     }
   }
 
-  // Explicit "文件路径:" lines are deliverable provenance even without a write tool.
-  for (const declared of hardDeclaredPaths) {
+  // Explicit claims and artifact links are deliverable provenance without a tool entry.
+  for (const declared of [...declaredPaths, ...explicitArtifactLinkPaths]) {
     addVerifiedFile(declared);
   }
 
-  return Array.from(inlineTargets.values()).slice(0, 4);
+  return Array.from(inlineTargets.values());
 }
