@@ -284,6 +284,26 @@ function toolActivityLabel(phase: "tool-preparing" | "tool-executing", intent: A
   return t("session.assistant_phase_tool_executing");
 }
 
+/**
+ * Product loading tips (context cost, shortcuts, …) only fit vague wait
+ * states. Concrete tool phases already say what is happening — appending a
+ * random tip reads as a broken status line
+ * (e.g. "Fetching the web · screenshots count as context").
+ */
+export function assistantActivityAllowsLoadingTips(
+  activity: AssistantActivity | AssistantActivityPhase,
+): boolean {
+  const phase = typeof activity === "string" ? activity : activity.phase;
+  return (
+    phase === "preparing" ||
+    phase === "model-requesting" ||
+    phase === "model-streaming" ||
+    phase === "model-done" ||
+    phase === "retrying" ||
+    phase === "compacting"
+  );
+}
+
 export function getAssistantActivityPhaseLabel(activity: AssistantActivity | AssistantActivityPhase) {
   const phase = typeof activity === "string" ? activity : activity.phase;
   const toolIntent = typeof activity === "string" ? null : activity.toolIntent;
