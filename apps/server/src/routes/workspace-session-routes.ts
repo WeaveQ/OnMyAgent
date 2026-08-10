@@ -1,8 +1,17 @@
+import { createReadStream } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { basename } from "node:path";
 import type { ServerConfig, TokenScope, WorkspaceInfo } from "@onmyagent/types/server";
 import { ApiError } from "../core/errors.js";
-import { createExpertSessionRuntimeDirectory, listExpertSessionRuntimeFiles } from "../services/expert-session-runtime.js";
+import { nodeReadableToWebStream } from "../core/node-web-stream.js";
+import {
+  createExpertSessionRuntimeDirectory,
+  listExpertSessionRuntimeFiles,
+  resolveExpertSessionRuntimeFile,
+} from "../services/expert-session-runtime.js";
 import { deleteSessionOrigin } from "../services/session-origins.js";
 import { addRoute, systemJsonResponse, type RequestContext, type Route } from "./route-core.js";
+import { contentTypeForPath, isSupportedWorkspaceTextFilePath } from "../workspace/path-utils.js";
 
 type SessionListInput = {
   roots?: boolean;
@@ -104,6 +113,69 @@ export function registerWorkspaceSessionRoutes(input: {
       const workspace = await resolveWorkspace(config, ctx.params.id);
       const items = await listExpertSessionRuntimeFiles({ workspace });
       return systemJsonResponse({ items });
+    },
+  );
+
+  addRoute(
+    routes,
+    "GET",
+    "/workspace/:id/expert-session-files/content",
+    "client",
+    async (ctx) => {
+      const workspace = await resolveWorkspace(config, ctx.params.id);
+      const relPath = (ctx.url.searchParams.get("path") ?? "").trim();
+      if (!isSupportedWorkspaceTextFilePath(relPath)) {
+        throw new ApiError(400, "invalid_path", "Only supported text artifact files can be read inline");
+      }
+      const resolved = await resolveExpertSessionRuntimeFile({ workspace, relPath });
+      if (!resolved) throw new ApiError(404, "file_not_found", "File not found");
+      if (resolved.size > 8 * 1024 * 1024) {
+        throw new ApiError(413, "file_too_large", "File exceeds size limit");
+      }
+      const content = await readFile(resolved.absPath, "utf8");
+      return systemJsonResponse({
+        path: relPath,
+        content,
+        bytes: resolved.size,
+        updatedAt: resolved.mtimeMs,
+      });
+    },
+  );
+
+  addRoute(
+    routes,
+    "GET",
+    "/workspace/:id/expert-session-files/raw",
+    "client",
+    async (ctx) => {
+      const workspace = await resolveWorkspace(config, ctx.params.id);
+      const relPath = (ctx.url.searchParams.get("path") ?? "").trim();
+      const resolved = await resolveExpertSessionRuntimeFile({ workspace, relPath });
+      if (!resolved) throw new ApiError(404, "file_not_found", "File not found");
+      const headers = new Headers();
+      headers.set("Content-Type", contentTypeForPath(relPath));
+      headers.set("Content-Length", String(resolved.size));
+      headers.set("Content-Disposition", `inline; filename="${basename(relPath)}"`);
+      const stream = nodeReadableToWebStream(createReadStream(resolved.absPath));
+      return new Response(stream, { status: 200, headers });
+    },
+  );
+
+  addRoute(
+    routes,
+    "GET",
+    "/workspace/:id/expert-session-files/resolve",
+    "client",
+    async (ctx) => {
+      const workspace = await resolveWorkspace(config, ctx.params.id);
+      const relPath = (ctx.url.searchParams.get("path") ?? "").trim();
+      const resolved = await resolveExpertSessionRuntimeFile({ workspace, relPath });
+      if (!resolved) throw new ApiError(404, "file_not_found", "File not found");
+      return systemJsonResponse({
+        absolutePath: resolved.absPath,
+        size: resolved.size,
+        updatedAt: resolved.mtimeMs,
+      });
     },
   );
 

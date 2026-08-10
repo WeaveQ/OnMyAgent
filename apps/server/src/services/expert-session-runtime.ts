@@ -282,3 +282,43 @@ export async function listExpertSessionRuntimeFiles(input: {
   entries.sort((a, b) => b.mtimeMs - a.mtimeMs);
   return entries;
 }
+
+/**
+ * Resolve a single managed expert session artifact by its runtime-relative path
+ * (`<agent>/<session>/<file>`). Returns the absolute path + stat when the file
+ * exists inside the workspace's runtime directory, else null.
+ *
+ * Used by the runtime file read/download/resolve routes so the Files > Expert
+ * tab can preview artifacts that live outside the workspace.
+ */
+export async function resolveExpertSessionRuntimeFile(input: {
+  workspace: WorkspaceInfo;
+  relPath: string;
+  runtimeRoot?: string;
+}): Promise<{ absPath: string; size: number; mtimeMs: number } | null> {
+  const runtimeRoot = resolve(
+    input.runtimeRoot?.trim() || resolveExpertSessionRuntimeRoot(),
+  );
+  const workspaceRoot = resolve(input.workspace.path);
+  const workspaceSegment = createHash("sha256")
+    .update(`${input.workspace.id}\0${workspaceRoot}`)
+    .digest("hex")
+    .slice(0, 16);
+  const workspaceDir = join(runtimeRoot, workspaceSegment);
+
+  const cleaned = String(input.relPath ?? "").trim().replace(/\\/g, "/");
+  const parts = cleaned.split("/").filter(Boolean);
+  if (parts.length === 0) return null;
+  for (const part of parts) {
+    if (part === "." || part === "..") return null;
+  }
+  const absPath = resolve(join(workspaceDir, ...parts));
+  if (!isPathInside(workspaceDir, absPath)) return null;
+  try {
+    const info = await stat(absPath);
+    if (!info.isFile()) return null;
+    return { absPath, size: info.size, mtimeMs: info.mtimeMs };
+  } catch {
+    return null;
+  }
+}
