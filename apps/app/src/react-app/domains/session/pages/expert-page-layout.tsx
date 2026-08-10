@@ -202,6 +202,7 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
     canRenderReactSurface,
     canSaveRename,
     canvasSessionKey,
+    mountExpertSessionSurface,
     closeDeleteModal,
     closeExpertCreation,
     closeExpertCreationThen,
@@ -599,11 +600,7 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
                       </>
                     }
                     primarySession={
-                      canRenderReactSurface &&
-                      !blockExpertSurfaceForWorkspaceError &&
-                      !showNoExpertConversationEmptyState &&
-                      !showExpertOriginHydrationDegraded &&
-                      !showExpertOriginHydrationLoading ? (
+                      mountExpertSessionSurface ? (
                           <SessionSurface
                             // Workspace-stable key: session switches are prop-driven.
                             key={props.runtimeWorkspaceId ?? "expert-surface"}

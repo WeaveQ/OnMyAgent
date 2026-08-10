@@ -168,7 +168,11 @@ import { useExpertBoundDraftTransition } from "./use-expert-bound-draft-transiti
 import { resolveColdOpenExpertSessionId } from "./order-conversation-groups";
 import { useExpertSessionStarters } from "./use-expert-session-starters";
 import { useExpertWaybillPatch } from "./use-expert-waybill-patch";
-import { resolveExpertOriginHydrationView, shouldBlockExpertSurfaceForWorkspaceError } from "./expert-origin-hydration";
+import {
+  resolveExpertOriginHydrationView,
+  shouldBlockExpertSurfaceForWorkspaceError,
+  shouldMountExpertSessionSurface,
+} from "./expert-origin-hydration";
 import { ExpertOriginRecoveryNotice } from "./expert-origin-recovery-notice";
 
 import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
@@ -1139,6 +1143,7 @@ export function useExpertPage(props: ExpertPageProps) {
     showWorkspaceSetupEmptyState,
     showSelectedWorkspaceError,
     showBlockingStartupSkeleton,
+    showDraftChrome,
   });
   const showNoExpertConversationEmptyState =
     expertOriginHydrationView.showNoExpertConversation;
@@ -1146,6 +1151,16 @@ export function useExpertPage(props: ExpertPageProps) {
     expertOriginHydrationView.showPendingWithoutSelection;
   const showExpertOriginHydrationDegraded =
     expertOriginHydrationView.showDegradedWithoutSelection;
+  const mountExpertSessionSurface = shouldMountExpertSessionSurface({
+    canRenderReactSurface,
+    blockForWorkspaceError: blockExpertSurfaceForWorkspaceError,
+    showNoExpertConversationEmptyState,
+    showExpertOriginHydrationDegraded,
+    showExpertOriginHydrationLoading,
+    isDraftSession,
+    showDraftChrome,
+    surfaceSessionId: renderedSessionId,
+  });
   const activePlaceholderView = isPrimaryOrHostedRailView(activeSidebarView)
     ? null
     : activeSidebarView;
@@ -1297,6 +1312,7 @@ export function useExpertPage(props: ExpertPageProps) {
     canRenderReactSurface,
     canSaveRename,
     canvasSessionKey,
+    mountExpertSessionSurface,
     closeDeleteModal,
     closeExpertCreation,
     closeExpertCreationThen,
