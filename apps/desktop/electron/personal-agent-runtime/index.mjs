@@ -1,5 +1,4 @@
-import { createHash } from "node:crypto";
-import { readFileSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createCodexAdapter } from "./adapters/codex.mjs";
@@ -10,15 +9,7 @@ import { createOpenCodeAdapter } from "./adapters/opencode.mjs";
 import { createGenericAcpAdapter } from "./adapters/acp-generic.mjs";
 import { createRemoteAcpAdapter } from "./adapters/remote-acp.mjs";
 import {
-  normalizeAgentStatus,
-  personalAgentAvailableMetadataList,
-  personalAgentMetadataList,
-  personalAgentMetadataFromAgent,
-} from "./agent-metadata.mjs";
-import {
   detectAvailableLocalAgents,
-  discoverableAgentDrafts,
-  mergeCatalogNativeSkillDirs,
 } from "./detect-local-agents.mjs";
 import { appendContractEvent, normalizeAdapterResult, runEventsToConversationMessages } from "./contract.mjs";
 import {
@@ -31,27 +22,19 @@ import {
   updateConversation,
   writeConversationEvents,
 } from "./conversation-store.mjs";
-import { clearSession, readSession, writeSession } from "./session-store.mjs";
-import {
-  createConversationRuntimeApi,
-  extractProbeMetadata,
-} from "./conversation-runtime-api.mjs";
+import { clearSession } from "./session-store.mjs";
+import { createConversationRuntimeApi } from "./conversation-runtime-api.mjs";
 import { runId, isProcessTreeAlive, terminateProcessTreeByPid } from "./utils.mjs";
 import { configurePersonalAgentRuntimeState, personalAgentRuntimeStateRoot } from "./runtime-state.mjs";
-import { readAgentHandshakeCache, writeAgentHandshakeCache } from "./agent-handshake-cache.mjs";
 import { reconcileChannelActiveRuns } from "./reconcile-channel-active-runs.mjs";
-import { ensureManagedAcpTool, resolveManagedAcpTool } from "./managed-acp-tools.mjs";
-import { probeAcpCommand } from "./acp-probe.mjs";
+import { ensureManagedAcpTool } from "./managed-acp-tools.mjs";
 import { ensureRunLogPath, legacyPersonalAssistantRunLogRoot, legacyRunLogRoot, runLogRoot } from "./workdir.mjs";
 import { isStaleNativeSessionError, staleNativeSessionResetMessage } from "./native-sessions.mjs";
-import { cleanupRegisteredAgentProcesses, getAgentProcess, listAgentProcesses, recoverAgentProcesses, registerAgentProcess, unregisterAgentProcess, updateAgentProcess } from "./process-registry.mjs";
-import { createCustomAgent, deleteCustomAgent, getAgentOverrides, listCustomAgents, setAgentOverrides, updateCustomAgent } from "./custom-agent-store.mjs";
-import { personalAgentCapability, personalLocalAgentConnectionMode } from "./provider-registry.mjs";
-import { adapterToCustomAgent, loadExtensions, setExtensionEnabled } from "./extension-registry.mjs";
+import { cleanupRegisteredAgentProcesses, getAgentProcess, recoverAgentProcesses, registerAgentProcess, unregisterAgentProcess } from "./process-registry.mjs";
+import { createCustomAgent, deleteCustomAgent, getAgentOverrides, setAgentOverrides, updateCustomAgent } from "./custom-agent-store.mjs";
+import { setExtensionEnabled } from "./extension-registry.mjs";
 import { buildErrorTip, buildProviderContextResetEvents, classifyErrorInfo } from "./error-diagnostics.mjs";
-import { getStoredApprovalDecision, listRememberedApprovalDecisions, rememberApprovalDecision } from "./approval-store.mjs";
-import { buildMcpStatus, buildPermissionStatus, buildSkillStatus } from "./host-status.mjs";
-import { readNativeMcpConfig, resolveNativeSkillRoots } from "./host-status-sources.mjs";
+import { getStoredApprovalDecision, rememberApprovalDecision } from "./approval-store.mjs";
 import { createRunPersistence } from "./run-persistence.mjs";
 import {
   sanitizeAcpToolCallEvent,
@@ -72,18 +55,18 @@ import {
   buildStartupStalledDebugSummary,
   buildStartupStalledErrorInfo,
   classifyRestoredRunMeta,
-  classifySpawnErrorStep,
-  collectSkillRootOverrides,
   defaultConnectionMode,
   isStartupStalled,
-  mapProbeStepToTestStep,
-  mergeMcpServers,
   normalizeApprovalMode,
   parseRunLogContent,
   parseStatusInput,
   resolveAdapterFactoryForProvider,
   rewriteOrphanRunLogContent,
 } from "./run-helpers.mjs";
+import { createAgentCatalog } from "./agent-catalog.mjs";
+import { createConnectionProbes } from "./connection-probes.mjs";
+import { createHostStatusService } from "./host-status-service.mjs";
+import { createSessionOperations } from "./session-operations.mjs";
 const runSnapshotDeps = {
   visibleArtifacts,
   runEventsToConversationMessages,
@@ -773,236 +756,20 @@ export function createPersonalAgentRuntime(options) {
     }
   }
 
-  async function warmupConversation(input = {}) {
-    const agent = await legacy.normalizeAgent(input.agent ?? {});
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    const detected = await legacy.detectAgent(agent, workspaceRoot);
-    const provider = detected.provider ?? agent.provider;
-    const agentId = detected.id ?? agent.id ?? provider;
-    const adapterFactory = adapterFactoryForProvider(provider, detected);
-    if (!adapterFactory) return { ok: false, unsupportedReason: "adapter_not_supported" };
-    if (detected.status !== "online") return { ok: false, error: detected.error || `${detected.name ?? provider} is not online` };
-    if ((provider === "codex" || provider === "claude") && !Object.prototype.hasOwnProperty.call(injectedAdapters, provider)) {
-      const tool = await ensureManagedAcpTool(provider);
-      detected.executablePath = tool.binPath;
-      detected.managedAcpTool = tool;
-      detected.connectionMode = defaultConnectionMode(provider, detected);
-    }
-    const conversation = await getOrCreateConversation(workspaceRoot, provider, agentId, input.conversationId);
-    const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
-    if (typeof adapter.warmupConversation !== "function") return { ok: false, conversation, unsupportedReason: "warmup_not_supported" };
-    try {
-      const warmed = await adapter.warmupConversation({
-        runId: `warmup-${Date.now()}`,
-        workspaceRoot,
-        accessibleWorkspaceRoots: normalizeAccessibleWorkspaceRoots(input.accessibleWorkspaceRoots, workspaceRoot),
-        conversationId: conversation.id,
-        providerSessionId: conversation.providerSessionId,
-        resumeKey: conversation.resumeKey,
-        conversationWorkdir: conversation.workdir,
-        agent: detected,
-        model: input.model ?? detected.model,
-        approvalMode: normalizeApprovalMode(input.approvalMode),
-      });
-      // Persist warmup-derived ACP session metadata (available_commands,
-      // available models, config options) so listAgents can hydrate the
-      // handshake before the user sends a message. codex-acp publishes
-      // available_commands asynchronously after newSession returns; without
-      // this the slash-menu is empty on cold agent switches and only
-      // populated after the first message triggers a live event stream.
-      const warmSessionMetadata = warmed.sessionMetadata && typeof warmed.sessionMetadata === "object"
-        ? warmed.sessionMetadata
-        : null;
-      if (warmSessionMetadata) {
-        try {
-          const priorSession = await readSession(workspaceRoot, provider, agentId).catch(() => ({}));
-          await writeSession(workspaceRoot, provider, agentId, {
-            ...(priorSession && typeof priorSession === "object" ? priorSession : {}),
-            sessionId: warmed.sessionId ?? warmed.providerSessionId ?? priorSession?.sessionId ?? "",
-            workdir: warmed.workdir ?? priorSession?.workdir ?? conversation.workdir ?? null,
-            sessionMetadata: warmSessionMetadata,
-            handshakeAt: Date.now(),
-          });
-          // Custom agents are stored with provider="custom" but warmed up
-          // via their detected adapter provider (e.g. CodeBuddy detects as
-          // "opencode"). listAgents hydrates with agent.provider ("custom"),
-          // so mirror the session metadata under the original provider key
-          // too, otherwise the handshake stays cold and the model selector
-          // never appears for custom ACP agents.
-          const originalProvider = String(input.agent?.provider ?? agent.provider ?? "").trim();
-          if (originalProvider && originalProvider !== provider) {
-            try {
-              const priorOriginal = await readSession(workspaceRoot, originalProvider, agentId).catch(() => ({}));
-              await writeSession(workspaceRoot, originalProvider, agentId, {
-                ...(priorOriginal && typeof priorOriginal === "object" ? priorOriginal : {}),
-                sessionMetadata: warmSessionMetadata,
-                handshakeAt: Date.now(),
-              });
-            } catch {
-              // best-effort mirror; the primary write above already succeeded.
-            }
-          }
-          // Also cache the handshake at the agent level (independent of
-          // workspace) so channels using a different workspaceRoot (e.g.
-          // WeChat) can hydrate the model list without re-warming-up. An
-          // agent's advertised models are an agent property, not a workspace
-          // property, so this global cache is correct and avoids scanning
-          // other workspaces' private session data.
-          const cacheProvider = originalProvider || provider;
-          await writeAgentHandshakeCache(cacheProvider, agentId, {
-            sessionMetadata: warmSessionMetadata,
-            handshakeAt: Date.now(),
-          }).catch(() => undefined);
-        } catch (error) {
-          // eslint-disable-next-line no-console
-          console.warn(`[personal-agent-runtime] warmup session-store write failed: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      }
-      const updated = await updateConversation(workspaceRoot, provider, agentId, conversation.id, {
-        providerSessionId: warmed.providerSessionId ?? warmed.sessionId ?? conversation.providerSessionId,
-        resumeKey: warmed.resumeKey ?? warmed.providerSessionId ?? warmed.sessionId ?? conversation.resumeKey,
-        workdir: warmed.workdir ?? conversation.workdir,
-        metadata: { ...(conversation.metadata ?? {}), warmupAt: Date.now(), warmupStatus: "ready", sessionMetadata: warmSessionMetadata },
-      });
-      return { ok: true, conversation: updated, providerSessionId: updated.providerSessionId, resumeKey: updated.resumeKey };
-    } catch (error) {
-      return { ok: false, conversation, error: error instanceof Error ? error.message : String(error) };
-    }
-  }
-
-  async function listAgentProviderSessions(input = {}) {
-    const agent = await legacy.normalizeAgent(input.agent ?? {});
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    const adapterFactory = adapterFactoryForProvider(agent.provider, agent);
-    if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
-    const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
-    if (typeof adapter.listSessions !== "function") return { sessions: [], unsupportedReason: "session_list_not_supported" };
-    return adapter.listSessions({ ...input, workspaceRoot, agent });
-  }
-
-  async function loadAgentProviderSession(input = {}) {
-    const agent = await legacy.normalizeAgent(input.agent ?? {});
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    const adapterFactory = adapterFactoryForProvider(agent.provider, agent);
-    if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
-    const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
-    if (typeof adapter.loadSession !== "function") throw new Error(`${agent.provider} does not support session/load`);
-    const loaded = await adapter.loadSession({ ...input, workspaceRoot, agent });
-    const sessionId = loaded.sessionId || input.providerSessionId || input.resumeKey;
-    // Reuse an existing conversation with the same providerSessionId instead
-    // of always creating a duplicate. This preserves previously persisted
-    // events (e.g. imported from archive) so the user sees the full history.
-    let conversation = null;
-    if (sessionId) {
-      const listed = await listConversations(workspaceRoot, agent.provider, agent.id);
-      conversation = listed.conversations.find(
-        (item) => item.providerSessionId === sessionId || item.resumeKey === sessionId,
-      ) ?? null;
-    }
-    if (!conversation) {
-      conversation = await createConversation(workspaceRoot, agent.provider, agent.id, {
-        title: input.title ?? `Loaded ${loaded.sessionId}`,
-        providerSessionId: loaded.sessionId,
-        resumeKey: loaded.sessionId,
-        source: "provider-session-load",
-        metadata: loaded.raw ?? null,
-      });
-    }
-    if (Array.isArray(loaded.conversationMessages) && loaded.conversationMessages.length) {
-      await writeConversationEvents(workspaceRoot, agent.provider, agent.id, conversation.id, [], loaded.conversationMessages);
-    }
-    return { ...loaded, conversation };
-  }
-
-  async function closeAgentProviderSession(input = {}) {
-    const agent = await legacy.normalizeAgent(input.agent ?? {});
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    const sessionId = String(input.sessionId ?? input.providerSessionId ?? input.resumeKey ?? "").trim();
-    if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    if (!sessionId) throw new Error("sessionId is required");
-    const adapterFactory = adapterFactoryForProvider(agent.provider, agent);
-    if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
-    const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
-    if (typeof adapter.closeSession !== "function") throw new Error(`${agent.provider} does not support session/close`);
-    const result = await adapter.closeSession({ ...input, sessionId, workspaceRoot, agent });
-    const listed = await listConversations(workspaceRoot, agent.provider, agent.id);
-    const closedConversations = listed.conversations.filter((conversation) => {
-      if (input.conversationId && conversation.id === input.conversationId) return true;
-      return conversation.providerSessionId === sessionId || conversation.resumeKey === sessionId;
-    });
-    for (const conversation of closedConversations) {
-      await updateConversation(workspaceRoot, agent.provider, agent.id, conversation.id, {
-        providerSessionId: null,
-        resumeKey: null,
-        lastStatus: "closed",
-        metadata: {
-          ...(conversation.metadata ?? {}),
-          closedProviderSessionId: sessionId,
-          closedAt: Date.now(),
-        },
-      });
-      for (const state of runs.values()) {
-        if (state.workspaceRoot === workspaceRoot && state.agentProvider === agent.provider && state.agentId === agent.id && state.conversationId === conversation.id && state.status === "running") {
-          await cancel(state.runId, { reason: "provider-session-closed" }).catch(() => undefined);
-        }
-      }
-    }
-    return { ...result, closedConversationIds: closedConversations.map((conversation) => conversation.id) };
-  }
-
-  async function forkAgentProviderSession(input = {}) {
-    const agent = await legacy.normalizeAgent(input.agent ?? {});
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    const adapterFactory = adapterFactoryForProvider(agent.provider, agent);
-    if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
-    const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
-    if (typeof adapter.forkSession !== "function") throw new Error(`${agent.provider} does not support session/fork`);
-    const forked = await adapter.forkSession({ ...input, workspaceRoot, agent });
-    const conversation = await createConversation(workspaceRoot, agent.provider, agent.id, {
-      title: input.title ?? `Fork ${forked.sessionId}`,
-      providerSessionId: forked.sessionId,
-      resumeKey: forked.sessionId,
-      source: "provider-session-fork",
-      metadata: forked.raw ?? null,
-    });
-    return { ...forked, conversation };
-  }
-
-  async function setAgentConfigOption(input = {}) {
-    const agent = await legacy.normalizeAgent(input.agent ?? {});
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    const optionId = String(input.optionId ?? input.configOptionId ?? input.id ?? "").trim();
-    if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    if (!optionId) throw new Error("optionId is required");
-    // Custom agents are stored with provider="custom" but their ACP adapter
-    // is resolved via detectAgent (e.g. CodeBuddy detects as "opencode").
-    // Without detecting, adapterFactoryForProvider("custom", agent) returns
-    // null because the normalized agent lacks connectionType/supportsAcp,
-    // and setConfigOption fails with "No adapter for custom". Aligns with
-    // warmupConversation which uses detected.provider.
-    const detected = await legacy.detectAgent(agent, workspaceRoot).catch(() => agent);
-    const provider = detected.provider ?? agent.provider;
-    const adapterFactory = adapterFactoryForProvider(provider, detected);
-    if (!adapterFactory) throw new Error(`No adapter for ${provider}`);
-    // codex/claude ship their ACP entrypoint as a managed npm package
-    // (`codex-acp`, `claude-acp`); the raw `codex` / `claude` CLIs run a TUI
-    // and exit 1 when spawned as an ACP subprocess (no TTY). Mirror the
-    // warmup/start paths so `#model` / model dropdown reach the correct
-    // binary instead of ACP-crashing with `ACP process exited: 1`.
-    if ((provider === "codex" || provider === "claude") && !Object.prototype.hasOwnProperty.call(injectedAdapters, provider)) {
-      const tool = await ensureManagedAcpTool(provider);
-      detected.executablePath = tool.binPath;
-      detected.managedAcpTool = tool;
-      detected.connectionMode = defaultConnectionMode(provider, detected);
-    }
-    const adapter = adapterFactory({ appendEvent: () => undefined, registerCancel: () => undefined });
-    if (typeof adapter.setConfigOption !== "function") throw new Error(`${provider} does not support config/set`);
-    return adapter.setConfigOption({ ...input, optionId, workspaceRoot, agent: detected });
-  }
+  const {
+    warmupConversation,
+    listAgentProviderSessions,
+    loadAgentProviderSession,
+    closeAgentProviderSession,
+    forkAgentProviderSession,
+    setAgentConfigOption,
+  } = createSessionOperations({
+    legacy,
+    injectedAdapters,
+    adapterFactoryForProvider,
+    runs,
+    cancel,
+  });
 
   async function getConversationStatus(input = {}) {
     const agent = await legacy.normalizeAgent(input.agent ?? {});
@@ -1059,699 +826,51 @@ export function createPersonalAgentRuntime(options) {
     return resolveApproval({ ...input, runId: statusResult.activeRun.runId, approvalId });
   }
 
-  async function loadExtensionAdapters() {
-    try {
-      const { enabledAdapters } = await loadExtensions({ bundledRoots: bundledExtensionRoots });
-      return enabledAdapters.map((adapter) => adapterToCustomAgent(adapter));
-    } catch {
-      return [];
-    }
-  }
-
-  // Two-step ACP probe result → { status, error, step } for a CLI+ACP agent.
-  // Used by both the discoverable catalog and CLI+ACP custom agents so
-  // entries whose binary exists but who fail `initialize` (unsupported CLI,
-  // e.g. GitHub Copilot) or `session/new` (未登陆, e.g. Kimi CLI) do not
-  // surface as `online` in the 本地 tab picker. The management tab still
-  // sees them (via `listAgents` without the `available` filter) with the
-  // right diagnostic.
-  async function probeCliAcpAgent(command, acpArgs, workspaceRoot) {
-    try {
-      const probe = await probeAcpCommand({
-        command,
-        args: Array.isArray(acpArgs) ? acpArgs : [],
-        cwd: workspaceRoot || process.cwd(),
-        timeoutMs: 8_000,
-      });
-      if (probe.ok) return { status: "online", error: null, step: probe.step };
-      if (probe.step === "needs_auth") return { status: "needs_auth", error: probe.error ?? "authentication required", step: probe.step };
-      if (probe.step === "fail_cli") return { status: "missing", error: probe.error ?? null, step: probe.step };
-      return { status: "offline", error: probe.error ?? "ACP handshake failed", step: probe.step };
-    } catch (probeError) {
-      const message = probeError instanceof Error ? probeError.message : String(probeError);
-      return { status: "offline", error: message, step: "fail_acp" };
-    }
-  }
-
-  // Resolve the discoverable catalog into agent cards for the management page.
-  // Each draft is run through the normal detection layer so status (online /
-  // offline / missing), version and connectionMode are computed the same way as
-  // the 5 built-ins. Not-installed agents resolve to offline/missing but are
-  // still returned (that's the whole point) with `discoverable: true` so the UI
-  // can render them read-only (no edit/delete) yet still test-connectable.
-  async function buildDiscoverableAgents(workspaceRoot, registeredAgents, includeModels) {
-    const existingIds = new Set();
-    for (const agent of Array.isArray(registeredAgents) ? registeredAgents : []) {
-      if (agent?.id) existingIds.add(String(agent.id).toLowerCase());
-      if (agent?.provider) existingIds.add(String(agent.provider).toLowerCase());
-      const exe = String(agent?.executablePath ?? "").split(/[\\/]/).pop();
-      if (exe) existingIds.add(exe.toLowerCase());
-    }
-    const drafts = discoverableAgentDrafts().filter(
-      (draft) => !existingIds.has(String(draft.id).toLowerCase()),
-    );
-    return Promise.all(
-      drafts.map(async (draft) => {
-        let detected = null;
-        try {
-          detected = await legacy.detectAgent(
-            {
-              id: draft.id,
-              name: draft.name,
-              provider: "custom",
-              executablePath: draft.executablePath,
-              connectionType: "cli",
-              supportsAcp: true,
-              acpArgs: draft.acpArgs,
-            },
-            workspaceRoot,
-            { includeModels },
-          );
-        } catch {
-          detected = null;
-        }
-        const base = detected && typeof detected === "object" ? detected : {};
-        // A discoverable catalog entry is either installed (detectAgent resolves
-        // it to "online" with a real version) or not installed. Anything that is
-        // not "online" is treated as not-installed: surface it as "missing" with
-        // no error so the card shows a clean "未安装" state instead of a red
-        // error box / raw "spawn X ENOENT" (the whole point is "listed even when
-        // not installed", not "broken").
-        const versionOk = base.status === "online";
-        // `--version` succeeded only proves the binary exists. To keep entries
-        // like Kimi (未登陆) or Copilot (不支持 ACP) out of the 本地 tab,
-        // additionally run a 2-step ACP probe: `initialize` + `session/new`.
-        // Only draft agents that pass both steps are treated as truly online;
-        // anything else (`needs_auth` / `fail_acp` / `fail_cli`) is downgraded
-        // so `personalAgentAvailableMetadataList`'s `available` filter drops
-        // them from the runtime picker but the management tab still surfaces
-        // them read-only with the right diagnostic.
-        let effectiveStatus = versionOk ? "online" : "missing";
-        let effectiveError = versionOk ? (base.error ?? null) : null;
-        let acpProbeStep = null;
-        if (versionOk) {
-          const probeResult = await probeCliAcpAgent(draft.executablePath, draft.acpArgs, workspaceRoot);
-          effectiveStatus = probeResult.status;
-          effectiveError = probeResult.error;
-          acpProbeStep = probeResult.step;
-        }
-        // Force identity/kind fields back to the catalog values: detectAgent may
-        // normalize a not-installed custom draft in ways that drop our metadata.
-        return {
-          ...base,
-          id: draft.id,
-          name: draft.name,
-          provider: "custom",
-          connectionType: "cli",
-          supportsAcp: true,
-          acpArgs: draft.acpArgs,
-          nativeSkillsDirs: draft.nativeSkillsDirs,
-          discoverable: true,
-          status: effectiveStatus,
-          error: effectiveError,
-          acpProbeStep,
-        };
-      }),
-    );
-  }
-
-  async function listAgents(input = {}) {
-    const result = await legacy.listAgents(input);
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    const customAgentsRaw = workspaceRoot ? await listCustomAgents(workspaceRoot) : [];
-    // Custom agents come straight from the store without going through the
-    // legacy detector, so `capability` / `connectionMode` were never
-    // populated. Compute them here (Upstream-aligned: cli + supportsAcp => ACP)
-    // so `agent_type` becomes "acp", the ACP warmup path kicks in, and the
-    // UI's model selector sees supportsModelOverride based on the handshake
-    // instead of the raw stored bool.
-    const customAgents = await Promise.all(customAgentsRaw.map(async (agent) => {
-      // Probe CLI+ACP custom agents so 未登录 / ACP 失败 get offline|needs_auth
-      // (still 已安装). Non-ACP or raw-cmd agents keep their stored status.
-      const isCliAcp = agent?.connectionType === "cli" && agent?.supportsAcp !== false;
-      let status = agent?.status === "offline" ? "offline" : "online";
-      let error = agent?.error ?? null;
-      let acpProbeStep = agent?.acpProbeStep ?? null;
-      // Detect binary version the same way as built-ins (`--version`). Custom
-      // agents used to skip this path, so the sidebar showed "Custom" instead
-      // of e.g. "0.2.106" / "0.1.0".
-      let version = agent?.version ?? null;
-      if (agent?.executablePath) {
-        try {
-          const detected = await legacy.detectAgent(agent, workspaceRoot, { includeModels: false });
-          if (detected && typeof detected === "object") {
-            const detectedVersion = String(detected.version ?? "").trim();
-            if (detectedVersion) version = detectedVersion.split("\n")[0].trim();
-            // Prefer detect status when ACP probe is not applicable.
-            if (!isCliAcp && detected.status) {
-              status = detected.status;
-              error = detected.error ?? null;
-            }
-          }
-        } catch {
-          // keep stored status / null version
-        }
-      }
-      if (isCliAcp && agent?.executablePath) {
-        const probeResult = await probeCliAcpAgent(agent.executablePath, agent.acpArgs, workspaceRoot);
-        status = probeResult.status;
-        error = probeResult.error;
-        acpProbeStep = probeResult.step;
-      }
-      const capability = personalAgentCapability(agent.provider, status, { customAgent: agent });
-      // Always recompute connection mode so named custom agents never stick on
-      // the legacy stored "Custom ACP session" label.
-      const connectionMode = personalLocalAgentConnectionMode(agent.provider, agent);
-      // Backfill catalog skill roots (WorkBuddy often only stored ~/.codebuddy/skills
-      // while the bulk of user skills live under ~/.workbuddy/skills).
-      const nativeSkillsDirs = mergeCatalogNativeSkillDirs(agent);
-      // Store-backed agents are fleet members (mine), never catalog drafts.
-      return {
-        ...agent,
-        version,
-        nativeSkillsDirs,
-        capability,
-        connectionMode,
-        discoverable: false,
-        status,
-        error,
-        acpProbeStep,
-        agent_source: agent.agent_source ?? agent.agentSource ?? "custom",
-      };
-    }));
-    const extensionAgents = await loadExtensionAdapters();
-    const registeredAgents = [...(Array.isArray(result?.agents) ? result.agents : []), ...customAgents, ...extensionAgents];
-    // Management page only: always list the known-but-not-installed agent
-    // catalog (Upstream-style "十多个都显示，没装也在") so users can test-connect
-    // any of them. Gated behind includeDiscoverable so the runtime/session
-    // dropdowns (which call listAgents without the flag) stay unaffected.
-    const discoverableAgents = input.includeDiscoverable
-      ? await buildDiscoverableAgents(workspaceRoot, registeredAgents, input.includeModels !== false)
-      : [];
-    const agents = [...registeredAgents, ...discoverableAgents];
-    // Merge handshake-advertised models into agent.modelOptions so all
-    // channels (WeChat #model, Feishu, local page) share the same dynamic
-    // model list. Static modelOptions (from CLI probes for built-in providers)
-    // take priority; handshake models fill gaps for custom/CodeBuddy agents.
-    function mergeHandshakeModelsIntoOptions(existingOptions, handshake) {
-      const base = Array.isArray(existingOptions) ? existingOptions.filter((o) => o && typeof o.id === "string" && o.id.trim()) : [];
-      const seen = new Set(base.map((o) => o.id.trim().toLowerCase()));
-      const merged = [...base];
-      // From config_options (category === "model")
-      const configOptions = Array.isArray(handshake?.config_options) ? handshake.config_options : [];
-      for (const item of configOptions) {
-        if (!item || typeof item !== "object") continue;
-        const category = typeof item.category === "string" ? item.category : "";
-        const itemId = typeof item.id === "string" ? item.id : typeof item.name === "string" ? item.name : "";
-        if (category !== "model" && !/model/i.test(itemId)) continue;
-        const opts = Array.isArray(item.options) ? item.options : [];
-        for (const opt of opts) {
-          if (!opt || typeof opt !== "object") continue;
-          const id = String(opt.value ?? opt.id ?? opt.name ?? "").trim();
-          if (!id || seen.has(id.toLowerCase())) continue;
-          seen.add(id.toLowerCase());
-          merged.push({ id, label: String(opt.name ?? opt.label ?? opt.value ?? id).trim() || id });
-        }
-      }
-      // From available_models
-      const availableModels = Array.isArray(handshake?.available_models) ? handshake.available_models : [];
-      for (const item of availableModels) {
-        if (item && typeof item === "object") {
-          const id = String(item.id ?? item.modelId ?? item.model_id ?? item.name ?? "").trim();
-          if (!id || seen.has(id.toLowerCase())) continue;
-          seen.add(id.toLowerCase());
-          merged.push({ id, label: String(item.label ?? item.name ?? item.displayName ?? id).trim() || id });
-        } else if (typeof item === "string" && item.trim()) {
-          const id = item.trim();
-          if (seen.has(id.toLowerCase())) continue;
-          seen.add(id.toLowerCase());
-          merged.push({ id, label: id });
-        }
-      }
-      return merged;
-    }
-
-    // Hydrate ACP session metadata cached from the last warmup so the
-    // handshake exposes available_commands / config options / models before
-    // the user sends a message. Falls back to the raw agent when the
-    // session-store has nothing for that provider/agent yet.
-    const accessibleRoots = Array.isArray(input.accessibleWorkspaceRoots)
-      ? input.accessibleWorkspaceRoots.map((r) => String(r ?? "").trim()).filter(Boolean)
-      : [];
-    const hydratedAgents = workspaceRoot
-      ? await Promise.all(agents.map(async (agent) => {
-          const provider = String(agent?.provider ?? "").trim();
-          const agentId = String(agent?.id ?? provider).trim();
-          if (!provider || !agentId) return agent;
-          try {
-            // Custom ACP agents are stored with provider="custom" but warmed
-            // up via their detected adapter provider (e.g. CodeBuddy is
-            // detected as the "opencode" provider). The warmup path mirrors
-            // the session metadata under the original provider key, but as a
-            // safety net also try the backend / "opencode" keys.
-            const candidateProviders = [provider];
-            const backend = String(agent?.backend ?? "").trim();
-            if (backend && !candidateProviders.includes(backend)) candidateProviders.push(backend);
-            if (!candidateProviders.includes("opencode")) candidateProviders.push("opencode");
-            // Search the primary workspace first, then fall back to any
-            // accessible workspace roots. This lets channels (e.g. WeChat)
-            // that use a different workspaceRoot still pick up handshake
-            // metadata captured in another workspace where the agent was
-            // actually warmed up.
-            const candidateRoots = [workspaceRoot, ...accessibleRoots.filter((r) => r !== workspaceRoot)];
-            let stored = null;
-            for (const root of candidateRoots) {
-              for (const candidate of candidateProviders) {
-                stored = await readSession(root, candidate, agentId);
-                if (stored?.sessionMetadata && typeof stored.sessionMetadata === "object") break;
-              }
-              if (stored?.sessionMetadata && typeof stored.sessionMetadata === "object") break;
-            }
-            // Final fallback: read the agent-level global handshake cache.
-            // This is populated by warmupConversation whenever any workspace
-            // warms up the agent, so channels using a different workspaceRoot
-            // (e.g. WeChat) can still hydrate the model list. Unlike scanning
-            // other workspaces' session files, this cache only contains
-            // handshake metadata (models/commands/config options) that the
-            // agent itself advertised, so no cross-workspace data leaks.
-            if (!stored?.sessionMetadata || typeof stored.sessionMetadata !== "object") {
-              for (const candidate of candidateProviders) {
-                const cached = await readAgentHandshakeCache(candidate, agentId);
-                if (cached?.sessionMetadata && typeof cached.sessionMetadata === "object") {
-                  stored = cached;
-                  break;
-                }
-              }
-            }
-            const meta = stored?.sessionMetadata;
-            if (!meta || typeof meta !== "object") return agent;
-            const nextAvailableCommands = Array.isArray(meta.availableCommands) && meta.availableCommands.length
-              ? meta.availableCommands
-              : (Array.isArray(agent?.availableCommands) ? agent.availableCommands : []);
-            // Merge warmup-captured config options / models into the agent
-            // handshake so acpConfigOptions() and the renderer's
-            // useAcpModelInfo can see them without waiting for the first
-            // message. Aligns with Upstream's preload_advertised_catalogs
-            // which seeds advertised models/modes from the agent handshake.
-            const handshake = { ...(agent.handshake ?? {}) };
-            if (Array.isArray(meta.configOptions) && meta.configOptions.length && !Array.isArray(handshake.config_options)) {
-              handshake.config_options = meta.configOptions;
-            }
-            if (Array.isArray(meta.availableModels) && meta.availableModels.length && !(Array.isArray(handshake.available_models) && handshake.available_models.length)) {
-              handshake.available_models = meta.availableModels;
-            }
-            if (meta.currentModelId && !handshake.current_model_id) {
-              handshake.current_model_id = meta.currentModelId;
-            }
-            // Plan 3: merge handshake-advertised models into agent.modelOptions
-            // so all channels (WeChat #model, Feishu, local page) share the
-            // same dynamic model list without each channel re-implementing
-            // handshake parsing. Static modelOptions (from CLI probes) take
-            // priority; handshake models fill in the gaps for custom/CodeBuddy
-            // agents that only advertise models via ACP handshake.
-            const hydratedModelOptions = mergeHandshakeModelsIntoOptions(agent.modelOptions, handshake);
-            return { ...agent, handshake, sessionMetadata: meta, availableCommands: nextAvailableCommands, modelOptions: hydratedModelOptions };
-          } catch {
-            return agent;
-          }
-        }))
-      : agents;
-    // R1: coerce missing_binary / not-installed signals to status "missing"
-    // before the management UI partitions 我的 vs 可添加.
-    const normalizedAgents = hydratedAgents.map((agent) => {
-      const status = normalizeAgentStatus(agent);
-      if (status === agent?.status) return agent;
-      const installed = status === "online" || status === "offline" || status === "needs_auth";
-      const capability =
-        agent?.capability && typeof agent.capability === "object"
-          ? { ...agent.capability, installed }
-          : agent?.capability;
-      return { ...agent, status, capability };
-    });
-    return {
-      ...result,
-      agents: normalizedAgents,
-      metadata: personalAgentMetadataList(normalizedAgents),
-    };
-  }
-
-  async function createAgent(input = {}) {
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    return createCustomAgent(workspaceRoot, input.agent ?? input);
-  }
-
-  async function updateAgent(input = {}) {
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    const id = String(input.id ?? input.agent?.id ?? "").trim();
-    if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    if (!id) throw new Error("agent id is required");
-    return updateCustomAgent(workspaceRoot, id, input.agent ?? input);
-  }
-
-  async function deleteAgent(input = {}) {
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    const id = String(input.id ?? input.agentId ?? "").trim();
-    if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    if (!id) throw new Error("agent id is required");
-    return deleteCustomAgent(workspaceRoot, id);
-  }
-
-  async function listAgentMetadata(input = {}) {
-    const result = await listAgents(input);
-    return { agents: result.metadata };
-  }
-
-  async function listAvailableAgentMetadata(input = {}) {
-    // Reuse the hydrated listAgents pipeline so ACP handshake commands /
-    // models / config options captured during warmup are exposed to the
-    // renderer via handshake.available_commands. Directly calling
-    // `legacy.listAgents` would return raw agent objects and drop the
-    // session-store hydration.
-    //
-    // Force `includeDiscoverable: true` here so any binary from the built-in
-    // discoverable catalog (grok / kimi / goose / trae / mimo / codebuddy...)
-    // that is already installed on PATH auto-surfaces in the 本地 tab as an
-    // online agent. `personalAgentAvailableMetadataList` filters by
-    // `enabled && available`, so not-installed drafts (status: "missing")
-    // are dropped and only actually-usable ones make it into the picker.
-    const result = await listAgents({ ...input, includeDiscoverable: true });
-    const agents = Array.isArray(result?.agents) ? result.agents : [];
-    return { agents: personalAgentAvailableMetadataList(agents) };
-  }
+  // Agent catalog (list/CRUD/metadata/ACP config) and ACP connection probes
+  // live in their own modules and receive the closure deps they need.
+  const catalog = createAgentCatalog({ legacy, bundledExtensionRoots });
+  const {
+    listAgents,
+    createAgent,
+    updateAgent,
+    deleteAgent,
+    listAgentMetadata,
+    listAvailableAgentMetadata,
+    acpHealth,
+    acpConfigOptions,
+    listProcesses,
+    listExtensions,
+    setExtensionEnabled: setExtensionEnabledMethod,
+  } = catalog;
+  const {
+    testConnection,
+    testCustomAgent,
+    checkProviderHealth,
+    checkManagedAgentHealthById,
+  } = createConnectionProbes({ legacy, injectedAdapters, listAgents });
+  const getHostStatus = createHostStatusService({ legacy, getConversationStatus });
 
   async function listAcpAgents(input = {}) {
     return listAvailableAgentMetadata(input);
   }
-
   async function refreshAcpAgents(input = {}) {
     return listAvailableAgentMetadata({ ...input, refresh: true });
   }
-
-  async function acpHealth(input = {}) {
-    const result = await listAgents(input);
-    const agents = Array.isArray(result.metadata) ? result.metadata : [];
-    return {
-      ok: true,
-      agents: agents.map((agent) => ({
-        id: agent.id,
-        backend: agent.backend,
-        agent_type: agent.agent_type,
-        available: agent.available,
-        connectionMode: agent.connectionMode,
-        error: agent.error ?? null,
-      })),
-    };
-  }
-
   async function acpSendMessage(input = {}) {
     return start(input);
   }
-
   async function acpCancel(input = {}) {
     return cancel(input.runId ?? input.id ?? input);
   }
-
   async function acpResolveApproval(input = {}) {
     return resolveApproval(input);
-  }
-
-  async function acpConfigOptions(input = {}) {
-    const result = await listAgentMetadata(input);
-    const agentId = String(input.agent?.id ?? input.agentId ?? "").trim();
-    const provider = String(input.agent?.provider ?? input.provider ?? "").trim();
-    const agent = result.agents.find((item) => item.id === agentId || item.backend === provider) ?? result.agents[0] ?? null;
-    const availableModels = Array.isArray(agent?.handshake?.available_models) ? agent.handshake.available_models : [];
-    const configOptions = Array.isArray(agent?.handshake?.config_options) ? agent.handshake.config_options : [];
-    const availableCommands = Array.isArray(agent?.handshake?.available_commands) ? agent.handshake.available_commands : [];
-    const supportsModelOverride = Boolean(agent?.handshake?.agent_capabilities?._meta?.supportsModelOverride);
-    const supportsModeOverride = configOptions.some((option) => /mode/i.test(String(option?.id ?? option?.name ?? "")));
-    return {
-      configOptions,
-      availableModels: supportsModelOverride ? availableModels : [],
-      availableCommands,
-      capabilities: {
-        supportsConfigOptions: configOptions.length > 0,
-        supportsModelOverride: supportsModelOverride && availableModels.length > 0,
-        supportsModeOverride,
-      },
-      unsupportedReason: !agent
-        ? "agent_not_found"
-        : !configOptions.length && !(supportsModelOverride && availableModels.length)
-          ? "provider_does_not_expose_config_options"
-          : null,
-    };
-  }
-
-  function listProcesses(input = {}) {
-    return { processes: listAgentProcesses(input) };
-  }
-
-  // Run a two-step ACP probe (CLI spawn -> initialize -> session/new) against
-  // an agent and return a structured connection result the
-  // UI can render (status color, capabilities, models, config options).
-  async function testConnection(input = {}) {
-    const checkedAt = Date.now();
-    const agent = await legacy.normalizeAgent(input.agent ?? {});
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    const detected = await legacy.detectAgent(agent, workspaceRoot).catch((error) => ({
-      ...agent,
-      status: "offline",
-      error: error instanceof Error ? error.message : String(error),
-    }));
-    if (detected.status && detected.status !== "online") {
-      // Collapse legacy "error" status into "offline" so the 5-state model
-      // (online / needs_auth / offline / missing / unknown) is always returned.
-      const rawStatus = detected.status === "error" ? "offline" : detected.status;
-      const errorText = String(detected.error ?? "");
-      const errorCode = detected.errorInfo?.code ?? detected.errorCode ?? "";
-      // A missing binary (not installed) is reported as "missing" with a clean
-      // human message — never the raw "spawn X ENOENT" / "未配置可执行命令".
-      const isMissing =
-        rawStatus === "missing" ||
-        String(errorCode).toLowerCase() === "missing_binary" ||
-        /enoent|not found|command not found|no such file|未配置|未安装/i.test(errorText);
-      let status = rawStatus;
-      if (isMissing) {
-        status = "missing";
-      } else if (rawStatus === "offline" && /auth|login|unauthorized|forbidden|api key|credential|认证|登录|未授权|凭证/i.test(errorText)) {
-        status = "needs_auth";
-      }
-      return {
-        ok: false,
-        status,
-        step: status === "missing" ? "fail_cli" : status === "needs_auth" ? "needs_auth" : "fail_cli",
-        error: isMissing ? `${detected.name ?? agent.name ?? agent.provider} 未安装` : (detected.error ?? `${detected.name ?? agent.name ?? agent.provider} unavailable`),
-        capabilities: null,
-        models: [],
-        configOptions: [],
-        checkedAt,
-      };
-    }
-    const provider = detected.provider ?? agent.provider;
-    let executablePath = detected.executablePath || provider;
-    // Built-in providers expose ACP via the `acp` subcommand, but custom / cli
-    // agents (incl. the discoverable catalog like CodeBuddy/Gemini) switch into
-    // ACP mode via their own flag (e.g. `--acp`) carried on `acpArgs`. Using the
-    // hard-coded `acp` subcommand for those would spawn the wrong process.
-    const detectedAcpArgs = Array.isArray(detected.acpArgs) ? detected.acpArgs.filter(Boolean) : [];
-    const detectedCustomArgs = Array.isArray(detected.customArgs) ? detected.customArgs : [];
-    let args =
-      (provider === "custom" || detected.connectionType === "cli") && detectedAcpArgs.length
-        ? [...detectedAcpArgs, ...detectedCustomArgs]
-        : ["acp", ...detectedCustomArgs];
-    try {
-      if (provider === "codex" || provider === "claude") {
-        const tool = await resolveManagedAcpTool(provider);
-        if (tool?.installed && tool.binPath) {
-          executablePath = tool.binPath;
-          args = [...(Array.isArray(detected.customArgs) ? detected.customArgs : [])];
-        }
-      }
-      const probe = await probeAcpCommand({ command: executablePath, args, cwd: workspaceRoot || process.cwd(), timeoutMs: Number(input.timeoutMs) || 12_000 });
-      const meta = probe.sessionResult ? extractProbeMetadata(probe.sessionResult, probe.initialized) : extractProbeMetadata(probe.initialized);
-      // If the probe determined the binary is simply not installed, replace the
-      // raw "spawn X ENOENT" with a clean "未安装" message.
-      const probeMissing = probe.status === "missing";
-      return {
-        ok: probe.ok,
-        status: probe.status,
-        step: probe.step,
-        error: probeMissing ? `${detected.name ?? agent.name ?? agent.provider} 未安装` : (probe.error ?? null),
-        capabilities: probe.initialized?.capabilities ?? null,
-        models: meta.models,
-        configOptions: meta.configOptions,
-        checkedAt,
-      };
-    } catch (error) {
-      return {
-        ok: false,
-        status: "offline",
-        step: "fail_cli",
-        error: error instanceof Error ? error.message : String(error),
-        capabilities: null,
-        models: [],
-        configOptions: [],
-        checkedAt,
-      };
-    }
-  }
-
-  // Test a custom agent configuration before saving.
-  // Runs a two-step ACP probe (CLI spawn -> initialize -> session/new) with
-  // the provided command/args/env and returns a three-state result:
-  // success / fail_cli / fail_acp.
-  async function testCustomAgent(input = {}) {
-    const command = String(input.command ?? "").trim();
-    if (!command) {
-      return { step: "fail_cli", error: "command is required", durationMs: 0 };
-    }
-    const args = Array.isArray(input.args) ? input.args.filter(Boolean) : [];
-    const acpArgs = Array.isArray(input.acpArgs) ? input.acpArgs.filter(Boolean) : [];
-    const env = input.env && typeof input.env === "object" && !Array.isArray(input.env) ? input.env : {};
-    const timeoutMs = Math.max(1000, Math.min(30000, Number(input.timeoutMs) || 8000));
-    const cwd = String(input.cwd ?? process.cwd()).trim();
-    const startedAt = Date.now();
-    try {
-      const probe = await probeAcpCommand({ command, args: acpArgs.length > 0 ? acpArgs : args, cwd, timeoutMs, env });
-      const durationMs = Date.now() - startedAt;
-      // Map probeAcpCommand's 4-state result to the 3-state contract:
-      // - "online" -> "success"
-      // - "fail_cli" -> "fail_cli"
-      // - "fail_acp" -> "fail_acp"
-      // - "needs_auth" -> "fail_acp" (auth error is still an ACP-layer issue)
-      const step = mapProbeStepToTestStep(probe.step);
-      return { step, error: probe.error ?? null, durationMs };
-    } catch (error) {
-      const durationMs = Date.now() - startedAt;
-      const message = error instanceof Error ? error.message : String(error);
-      // Spawn errors are CLI-layer; JSON-RPC errors are ACP-layer.
-      return { step: classifySpawnErrorStep(message), error: message, durationMs };
-    }
-  }
-
-  async function checkProviderHealth(input = {}) {
-    const checkedAt = Date.now();
-    try {
-      const agent = await legacy.normalizeAgent(input.agent ?? {});
-      if (Object.prototype.hasOwnProperty.call(injectedAdapters, agent.provider)) {
-        // Injected adapters are not health-checked by sending a real user prompt,
-        // because that would pollute the conversation context. We rely on the
-        // detection layer (executable / managed tool / availability) instead.
-        const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-        const detected = await legacy.detectAgent(agent, workspaceRoot).catch((error) => ({
-          ...agent,
-          status: "offline",
-          error: error instanceof Error ? error.message : String(error),
-        }));
-        const healthy = detected.status === "online";
-        return {
-          ok: true,
-          healthy,
-          status: healthy ? "online" : "offline",
-          reason: detected.error ?? null,
-          step: healthy ? "online" : "fail_detect",
-          checkedAt,
-          capabilities: null,
-          models: [],
-          configOptions: [],
-        };
-      }
-      const result = await testConnection(input);
-      return {
-        ok: true,
-        healthy: Boolean(result.ok),
-        status: result.status ?? (result.ok ? "online" : "offline"),
-        reason: result.error ?? null,
-        step: result.step ?? null,
-        checkedAt,
-        capabilities: result.capabilities ?? null,
-        models: result.models ?? [],
-        configOptions: result.configOptions ?? [],
-      };
-    } catch (error) {
-      return {
-        ok: false,
-        healthy: false,
-        status: "offline",
-        reason: error instanceof Error ? error.message : String(error),
-        step: "failed",
-        checkedAt,
-        capabilities: null,
-        models: [],
-        configOptions: [],
-      };
-    }
-  }
-
-  async function checkManagedAgentHealthById(input = {}) {
-    const id = String(input.id ?? input.agentId ?? input.provider ?? "").trim();
-    if (!id) return { ok: false, healthy: false, status: "unknown", reason: "agent id is required", checkedAt: Date.now() };
-    const agents = await listAgents({ workspaceRoot: input.workspaceRoot });
-    const agent = (agents.agents ?? []).find((item) => item.id === id || item.provider === id);
-    if (!agent) return { ok: false, healthy: false, status: "missing", reason: `agent ${id} was not found`, checkedAt: Date.now() };
-    return checkProviderHealth({ ...input, agent });
-  }
-
-  async function getHostStatus(input = {}) {
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    const agent = input.agent ? await legacy.normalizeAgent(input.agent).catch(() => null) : null;
-    // Skill roots come from three sources (HR2-B):
-    // 1. per-provider defaults resolved against workspace + $HOME
-    //    (~/.codex/skills, ~/.claude/skills, ~/.opencode/skills, ~/.gemini)
-    // 2. explicit overrides on the agent metadata (native_skills_dirs)
-    // 3. additionalSkillRoots the caller wants scanned
-    const agentMetadata = agent ? personalAgentMetadataFromAgent(agent) : null;
-    const overrides = collectSkillRootOverrides(
-      agentMetadata?.native_skills_dirs,
-      input.additionalSkillRoots,
-    );
-    const nativeSkillsDirs = agent
-      ? await resolveNativeSkillRoots(agent, workspaceRoot, overrides)
-      : [];
-    // Live event stream + handshake commands feed the MCP view-model.
-    const status = agent && input.conversationId
-      ? await getConversationStatus({ workspaceRoot, agent, conversationId: input.conversationId }).catch(() => null)
-      : null;
-    const conversationMessages = status?.conversationMessages ?? [];
-    const availableCommands = Array.isArray(agentMetadata?.handshake?.available_commands)
-      ? agentMetadata.handshake.available_commands
-      : [];
-    const remembered = workspaceRoot ? await listRememberedApprovalDecisions(workspaceRoot) : [];
-    const nativeMcp = agent
-      ? await readNativeMcpConfig(agent, workspaceRoot).catch((error) => ({ servers: [], errors: [{ file: "<readNativeMcpConfig>", message: String(error?.message || error) }] }))
-      : { servers: [], errors: [] };
-    const [skill, liveMcp, permission] = await Promise.all([
-      buildSkillStatus({ nativeSkillsDirs }),
-      Promise.resolve(buildMcpStatus({ conversationMessages, availableCommands })),
-      Promise.resolve(buildPermissionStatus({
-        pendingApprovals: status?.activeRun?.pendingApprovals ?? [],
-        conversationMessages,
-        rememberedDecisions: remembered,
-      })),
-    ]);
-    // Merge config-file MCP servers with live tool-call observations.
-    // Config wins on transport; live wins on toolCount + connected.
-    const mcp = {
-      servers: mergeMcpServers(nativeMcp.servers, liveMcp.servers),
-      error: liveMcp.error || null,
-      sourceErrors: nativeMcp.errors,
-    };
-    return {
-      workspaceRoot,
-      agentId: agent?.id ?? null,
-      conversationId: status?.conversation?.id ?? input.conversationId ?? null,
-      skill,
-      mcp,
-      permission,
-    };
   }
 
   return {
     listAgents,
     listAgentMetadata,
-    listExtensions: async () => loadExtensions({ bundledRoots: bundledExtensionRoots }),
-    setExtensionEnabled: async (input = {}) => setExtensionEnabled(String(input.name ?? input.extensionName ?? "").trim(), input.enabled !== false),
+    listExtensions,
+    setExtensionEnabled: setExtensionEnabledMethod,
     listAcpAgents,
     refreshAcpAgents,
     acpHealth,

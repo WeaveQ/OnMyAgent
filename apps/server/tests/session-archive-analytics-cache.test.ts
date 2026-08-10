@@ -9,7 +9,7 @@ import { join } from "node:path";
 
 import type { SessionArchiveMessage, SessionArchiveSession } from "@onmyagent/types/session-archive";
 import { ANALYTICS_CACHE_TTL_MS } from "../src/services/analytics-cache-policy.js";
-import { openSessionArchiveStore } from "../src/services/session-archive.js";
+import { openSessionArchiveStore } from "../src/services/session-archive-open.js";
 
 function sampleSession(input: Partial<SessionArchiveSession> = {}): SessionArchiveSession {
   return {

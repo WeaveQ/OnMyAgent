@@ -120,31 +120,38 @@ import {
   type LoggerChild,
 } from "./cli-logging.js";
 
-export type ApprovalMode = "manual" | "auto";
+import {
+  type ApprovalMode,
+  DEFAULT_ONMYAGENT_PORT,
+  SANDBOX_INTERNAL_ONMYAGENT_PORT,
+  SANDBOX_INTERNAL_OPENCODE_PORT,
+  SANDBOX_INTERNAL_OPENCODE_ROUTER_HEALTH_PORT,
+  SANDBOX_OPENCODE_GLOBAL_CONFIG_CONTAINER_PATH,
+  SANDBOX_OPENCODE_GLOBAL_DATA_IMPORT_CONTAINER_PATH,
+} from "./sandbox-constants.js";
+
+// Re-export sandbox constants for the public surface / backward compatibility.
+export {
+  type ApprovalMode,
+  DEFAULT_ONMYAGENT_PORT,
+  SANDBOX_INTERNAL_ONMYAGENT_PORT,
+  SANDBOX_INTERNAL_OPENCODE_PORT,
+  SANDBOX_INTERNAL_OPENCODE_ROUTER_HEALTH_PORT,
+  SANDBOX_OPENCODE_GLOBAL_CONFIG_CONTAINER_PATH,
+  SANDBOX_OPENCODE_GLOBAL_DATA_IMPORT_CONTAINER_PATH,
+} from "./sandbox-constants.js";
 
 export const FALLBACK_VERSION = "0.1.0";
 
 declare const __ONMYAGENT_ORCHESTRATOR_VERSION__: string | undefined;
 declare const __ONMYAGENT_PINNED_OPENCODE_VERSION__: string | undefined;
-export const DEFAULT_ONMYAGENT_PORT = 8787;
 export const DEFAULT_APPROVAL_TIMEOUT = 30000;
 export const DEFAULT_OPENCODE_HOT_RELOAD_DEBOUNCE_MS = 700;
 export const DEFAULT_OPENCODE_HOT_RELOAD_COOLDOWN_MS = 1500;
 export const DEFAULT_ACTIVITY_WINDOW_MS = 5 * 60_000;
 export const DEFAULT_ACTIVITY_HEARTBEAT_INTERVAL_MS = 5 * 60_000;
 
-export const SANDBOX_INTERNAL_OPENCODE_PORT = 4096;
-export const SANDBOX_INTERNAL_ONMYAGENT_PORT = DEFAULT_ONMYAGENT_PORT;
-// OpenCodeRouter defaults its health server to 3005 when not overridden. In sandbox
-// mode we keep the *internal* port stable and only vary the published host
-// port to avoid collisions.
-export const SANDBOX_INTERNAL_OPENCODE_ROUTER_HEALTH_PORT = 3005;
 export const ONMYAGENT_DEV_DATA_DIR = "onmyagent-dev-data";
-
-export const SANDBOX_OPENCODE_GLOBAL_CONFIG_CONTAINER_PATH =
-  "/persist/.config/opencode";
-export const SANDBOX_OPENCODE_GLOBAL_DATA_IMPORT_CONTAINER_PATH =
-  "/persist/.onmyagent-host-opencode-data";
 export const CLI_SOURCE_DIR = dirname(fileURLToPath(import.meta.url));
 export const ORCHESTRATOR_ROOT_DIR = resolve(CLI_SOURCE_DIR, "..");
 export const REPO_ROOT_DIR = resolve(ORCHESTRATOR_ROOT_DIR, "..", "..");
@@ -1727,24 +1734,3 @@ export {
   startAppleContainerSandbox,
 } from "./cli-sandbox-runtime.js";
 
-// Binary resolution helpers (extracted module; re-exported for compat).
-export {
-  remoteManifestCache,
-  fetchRemoteManifest,
-  resolveAssetUrl,
-  resolveAssetName,
-  downloadToPath,
-  ensureExecutable,
-  downloadSidecarBinary,
-  resolveOpencodeAsset,
-  resolveOpencodeDownload,
-  sha256File,
-  verifyBinary,
-  resolveBundledBinary,
-  resolveBinPath,
-  isPathLikeBinary,
-  assertSandboxBinaryFile,
-  resolveOnMyAgentServerBin,
-  resolveOpencodeBin,
-  resolveOpenCodeRouterBin,
-} from "./cli-binary-resolve.js";

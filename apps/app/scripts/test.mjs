@@ -125,6 +125,7 @@ const testTargets = new Map([
   ['shared-agent-registry-helpers', ['bun', ['test', 'scripts/shared-agent-registry-helpers.test.ts']]],
   ['shared-agent-default-registry', ['bun', ['test', 'scripts/shared-agent-default-registry.test.ts']]],
   ['dev-log', ['bun', ['scripts/dev-log.ts']]],
+  ['desktop-fetch-policy', ['bun', ['scripts/desktop-fetch-policy.test.ts']]],
   ['session-error-recovery', ['bun', ['scripts/session-error-recovery.ts']]],
   ['session-draft-store', ['bun', ['test', 'scripts/session-draft-store.test.ts']]],
   ['session-scope', ['bun', ['scripts/session-scope.ts']]],

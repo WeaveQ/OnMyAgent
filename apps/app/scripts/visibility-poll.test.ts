@@ -105,13 +105,14 @@ describe("server-provider health poll wiring", () => {
 
 describe("personal-local-agent host poll wiring", () => {
   test("page uses visibility-aware interval helpers for heartbeats and run polls", () => {
-    const page = readFileSync(
-      join(
-        appRoot,
-        "src/react-app/domains/local-agents/host/personal-local-agent-page.tsx",
-      ),
-      "utf8",
-    );
+    // Poll wiring lives in the host hook after the P1-5 page split.
+    const page = [
+      "src/react-app/domains/local-agents/host/personal-local-agent-page.tsx",
+      "src/react-app/domains/local-agents/host/personal-local-agent-page-sections.tsx",
+      "src/react-app/domains/local-agents/host/use-personal-local-agent-page.ts",
+    ]
+      .map((rel) => readFileSync(join(appRoot, rel), "utf8"))
+      .join("\n");
     expect(page).toContain('from "../../../infra/visibility-poll"');
     expect(page).toContain("shouldRunPollTick");
     expect(page).toContain("isDocumentHidden");

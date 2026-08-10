@@ -17,7 +17,11 @@ describe("workspace Files keep-alive visibility", () => {
       "src/react-app/domains/session/pages/session-page-shell.tsx",
     );
     const assistant = read("src/react-app/domains/session/pages/assistant.tsx");
-    const expert = read("src/react-app/domains/session/pages/expert.tsx");
+    const expert = [
+      read("src/react-app/domains/session/pages/expert.tsx"),
+      read("src/react-app/domains/session/pages/use-expert-page.tsx"),
+      read("src/react-app/domains/session/pages/expert-page-layout.tsx"),
+    ].join("\n");
 
     expect(keepAlive).toContain("(active: boolean) => ReactNode");
     expect(keepAlive).toContain("props.children(props.active)");
@@ -30,9 +34,10 @@ describe("workspace Files keep-alive visibility", () => {
 
   test("hidden Files panels do not start catalog, migration, or preview work", () => {
     const page = read("src/react-app/domains/workspace/workspace-files-page.tsx");
-    const uploads = read(
-      "src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
-    );
+    const uploads = [
+      read("src/react-app/domains/workspace/workspace-files-uploads-panel.tsx"),
+      read("src/react-app/domains/workspace/use-workspace-files-uploads-panel.ts"),
+    ].join("\n");
     const browser = read(
       "src/react-app/domains/workspace/workspace-files-browser-panel.tsx",
     );

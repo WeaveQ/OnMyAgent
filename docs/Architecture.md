@@ -323,7 +323,7 @@ src/react-app/domains/ → 业务域，通过 kernel store 交互，不跨域直
 pnpm check:boundaries
 ```
 
-`check:boundaries` 目前执行两组门禁：
+`check:boundaries` 目前执行三组门禁：
 
 - **Package + domain boundaries**：`packages/types`、`packages/ui`、`apps/server`、`apps/desktop`
   不得反向依赖上层包；业务域只能按 `domain-boundary-policy.mjs` 的显式依赖图引用目标域
@@ -335,6 +335,9 @@ pnpm check:boundaries
   历史深链清理完之后运行
   `node scripts/checks/check-boundaries.mjs --write-shell-depth-baseline`
   刷新 baseline，`--list-shell-depth` 打印当前所有深链。
+- **Circular dependencies**：`scripts/checks/check-circular-deps.mjs`（零依赖 Tarjan SCC）；baseline
+  `scripts/checks/baselines/circular-deps.json` **只减不增**（当前目标：**0 环**）。测试：
+  `node --test scripts/checks/check-circular-deps.test.mjs`。
 
 `pnpm check:forbidden-types` 是配套的**类型逃逸门禁**：扫描 `apps/**/src`、
 `packages/**/src` 里的 `any` 类型注解、`as any` 断言和 `as unknown as` 双转，
@@ -493,7 +496,7 @@ scripts/release/      release review, prepare, ship, and asset publishing
 3. 双运行时主辅与禁交叉写见 **Dual Runtime Boundary**。
 4. Desktop 新 IPC：优先 `desktop-handlers/*` + `DesktopCommandMap` / `desktopCommandGroups`，勿堆 `main.mjs`。
 5. OpenCode pin 以根 `constants.json` 为准；PATH 旧 binary 不得盖住 pin/sidecar。
-6. `pnpm check:file-size` 防回胀；`madge --circular` 在 app/server 应为 0。
+6. `pnpm check:file-size` 防回胀；`pnpm check:boundaries` 内置循环依赖门禁（`scripts/checks/check-circular-deps.mjs`，Tarjan SCC + 只减不增 baseline `scripts/checks/baselines/circular-deps.json`）。**禁止新增环**；存量环按 P1 计划拆除，baseline 只缩不长。
 7. Shell 冷启动 / prewarm 规则见 `react-app/ARCHITECTURE.md` **Shell load / boot**。
 8. **历史已合 PR 的拆文件清单不要继续堆在本节** — 见 `CHANGELOG.md` / git history。
 
@@ -515,8 +518,18 @@ scripts/release/      release review, prepare, ship, and asset publishing
 
 ## Graphify Baseline
 
-- `graphify-out/graph.json` 是当前源码级图谱（生成产物，默认不手改）。规模会随代码库增长；当前量级约 **5.9 万节点 / 8.4 万边**（以本地 `graph.json` 为准，勿把旧数字写死进 PR 说明）。
-- 推荐阅读入口：`graphify-out/GRAPH_REPORT.md`（文本报告）与 `graphify query` / `graphify affected` CLI。完整交互 HTML（如 `graph.html` / `GRAPH_TREE.html`）对超大图不稳定，**不是**当前必需产物。
-- 没有 `GEMINI_API_KEY` / `GOOGLE_API_KEY` 时，Graphify 主要维护 AST/结构关系；配置 LLM key 后可增加 docs/images/语义关系抽取。
-- 修改代码后按 `AGENTS.md` 规则运行 `graphify update .`；如果无法运行，必须记录原因到本地 `.loop/runs/YYYY-MM-DD.md` 或 `.loop/state/intent-debt.md`。
-- 大型重构后本地再跑一次 `graphify update .`（输出在 gitignored 的 `graphify-out/`）。
+- `graphify-out/graph.json` 是当前源码级图谱（生成产物，默认不手改）。规模随代码库变化，**不在文档里硬编码节点/边数**。
+- **AST-only 一条命令（无需 LLM key）**：`pnpm task graphify build` → `scripts/cli/graphify-build.mjs`
+  （`graphify update . --force --no-cluster`，校验 `graphify-out/graph.json`；CLI 缺失时非零退出 + 明确错误；可设 `GRAPHIFY_BIN`）。
+- 推荐阅读入口：`graphify-out/GRAPH_REPORT.md` 与 `graphify query` / `graphify path`。完整交互 HTML 不是必需产物。
+- 修改代码后优先 `pnpm task graphify build`；无法运行时记入本地 `.loop/`。
+
+## Renderer network & logging（P0）
+
+- **desktopFetch 策略**：`apps/app/src/app/lib/desktop-fetch-policy.ts` — loopback/相对路径直连；非 loopback http(s) **强制** main `__fetch`；协议相对 `//host` 按绝对 authority 处理；非 http(s) 拒绝。测试：`pnpm test:app desktop-fetch-policy`。
+- **结构化日志**：`apps/app/src/app/lib/dev-log.ts` 的 `recordDevLog` / `createDevLogger`（level + source + label）。测试：`pnpm test:app dev-log`。
+
+## Dual-runtime process gate（P2）
+
+- 静态门禁：`scripts/checks/check-dual-runtime-boundary.mjs`（接入 `check:boundaries`）禁止 renderer / app 源码 import `personal-agent-runtime/**`，并禁止 personal-agent-runtime 直接 import server archive 热路径模块。
+- 与上文 **Dual Runtime Boundary** 禁止交叉写一致；单元测试覆盖 fixture 违规失败。

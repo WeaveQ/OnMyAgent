@@ -71,13 +71,29 @@ test("workspace Files browser keeps local Office/media preview under Task files"
   expect(drawer).toContain("ExternalOpenPlaceholder");
   expect(drawer).toContain("open_with_default_app_action");
   expect(drawer).toContain("onOpen={onOpenExternally}");
-  const uploads = readFileSync(
-    resolve(
-      appRoot,
-      "src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
+  const uploads = [
+    readFileSync(
+      resolve(
+        appRoot,
+        "src/react-app/domains/workspace/workspace-files-uploads-panel.tsx",
+      ),
+      "utf8",
     ),
-    "utf8",
-  );
+    readFileSync(
+      resolve(
+        appRoot,
+        "src/react-app/domains/workspace/use-workspace-files-uploads-panel.ts",
+      ),
+      "utf8",
+    ),
+    readFileSync(
+      resolve(
+        appRoot,
+        "src/react-app/domains/workspace/workspace-files-uploads-catalog.ts",
+      ),
+      "utf8",
+    ),
+  ].join("\n");
   expect(uploads).toContain("FilePreviewDrawer");
   expect(uploads).toContain("const abs = (() => {");
   expect(uploads).toContain("filePath: abs");

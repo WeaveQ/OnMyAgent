@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import type { SessionArchiveMessage, SessionArchiveSession } from "@onmyagent/types/session-archive";
 import { Database } from "../src/core/sqlite.js";
-import { openSessionArchiveStore } from "../src/services/session-archive.js";
+import { openSessionArchiveStore } from "../src/services/session-archive-open.js";
 import {
   backendsStatusFromConfig,
   duckDbConfigFromConfig,

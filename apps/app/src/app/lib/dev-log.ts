@@ -1,4 +1,4 @@
-export type DevLogLevel = "debug" | "warn" | "perf";
+export type DevLogLevel = "debug" | "info" | "warn" | "error" | "perf";
 
 export type DevLogRecord = {
   id: number;
@@ -27,16 +27,22 @@ const payloadText = (value: unknown) => {
   }
 };
 
+export type DevLogInput = {
+  level: DevLogLevel;
+  source: string;
+  label: string;
+  payload?: unknown;
+};
+
+/**
+ * Single structured logger entry for renderer diagnostics.
+ * Prefer this (or createDevLogger) over ad-hoc console.* for new paths.
+ */
 export const recordDevLog = (
   enabled: boolean,
-  input: {
-    level: DevLogLevel;
-    source: string;
-    label: string;
-    payload?: unknown;
-  },
-) => {
-  if (!enabled) return;
+  input: DevLogInput,
+): DevLogRecord | undefined => {
+  if (!enabled) return undefined;
 
   const root = globalThis as DevRoot;
   const id = (root.__onmyagentDevLogSeq ?? 0) + 1;
@@ -58,7 +64,26 @@ export const recordDevLog = (
     logs.splice(0, logs.length - DEV_LOG_LIMIT);
   }
   root.__onmyagentDevLogs = logs;
+  return entry;
 };
+
+/** Bound logger for a fixed source/label surface (levels + optional enable flag). */
+export function createDevLogger(
+  source: string,
+  options: { enabled?: boolean } = {},
+) {
+  const enabled = () => options.enabled !== false;
+  const write = (level: DevLogLevel, label: string, payload?: unknown) =>
+    recordDevLog(enabled(), { level, source, label, payload });
+  return {
+    source,
+    debug: (label: string, payload?: unknown) => write("debug", label, payload),
+    info: (label: string, payload?: unknown) => write("info", label, payload),
+    warn: (label: string, payload?: unknown) => write("warn", label, payload),
+    error: (label: string, payload?: unknown) => write("error", label, payload),
+    perf: (label: string, payload?: unknown) => write("perf", label, payload),
+  };
+}
 
 export const readDevLogs = (limit = 200) => {
   const root = globalThis as DevRoot;
