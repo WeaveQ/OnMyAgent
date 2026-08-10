@@ -165,7 +165,10 @@ import {
   resolveExpertSurfaceMode,
 } from "./expert-surface-mode";
 import { useExpertBoundDraftTransition } from "./use-expert-bound-draft-transition";
-import { resolveColdOpenExpertSessionId } from "./order-conversation-groups";
+import {
+  resolveColdOpenExpertSessionId,
+  resolveExpertColdOpenNavigation,
+} from "./order-conversation-groups";
 import { useExpertSessionStarters } from "./use-expert-session-starters";
 import { useExpertWaybillPatch } from "./use-expert-waybill-patch";
 import {
@@ -507,30 +510,30 @@ export function useExpertPage(props: ExpertPageProps) {
     if (!workspaceId) return;
 
     const selectedId = props.selectedSessionId?.trim() ?? "";
-    // Only keep the route selection when it is still a *live* expert session.
-    // After hard-delete, localStorage expert-id set is cleared first so
-    // isExpertSession(deleted) is false while URL still has ses_* — the old
-    // branch then called onCreateTaskInWorkspace and left a blank shell.
-    if (selectedId && routeSessionLive && isExpertSession(selectedId)) return;
-
-    const resolved = resolveColdOpenExpertSessionId({
-      workspaceId,
-      conversationGroups,
-      sessionTabOrderIdsByScope,
+    // After hard-delete, localStorage expert-id is cleared so isExpertSession
+    // is false while URL may still hold ses_*. During startup / switch, a
+    // still-indexed expert can briefly miss inventory — keep it, do not steal
+    // focus back to cold-open or blank the shell.
+    const decision = resolveExpertColdOpenNavigation({
+      selectedSessionId: selectedId,
+      routeSessionLive,
+      isExpertSession,
+      coldOpenSessionId: resolveColdOpenExpertSessionId({
+        workspaceId,
+        conversationGroups,
+        sessionTabOrderIdsByScope,
+      }),
     });
-    if (resolved) {
-      props.sidebar.onOpenSession(workspaceId, resolved);
+    if (decision.action === "keep") return;
+    if (decision.action === "open") {
+      props.sidebar.onOpenSession(workspaceId, decision.sessionId);
       return;
     }
-
-    // Ghost / non-expert selection: clear route to workspace root so empty or
-    // market CTA can show — never create-task on a deleted expert ses id.
-    if (selectedId && !routeSessionLive) {
+    if (decision.action === "clear-route") {
       props.sidebar.onOpenSession(workspaceId, "");
       return;
     }
-
-    if (selectedId && !isExpertSession(selectedId)) {
+    if (decision.action === "create-task") {
       props.sidebar.onCreateTaskInWorkspace(workspaceId);
     }
   }, [
