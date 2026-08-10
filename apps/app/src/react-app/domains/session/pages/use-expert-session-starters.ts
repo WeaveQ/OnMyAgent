@@ -1,10 +1,8 @@
 import { useCallback } from "react";
-import { useComposerStateStore } from "../surface/composer-state-store";
 import {
   buildPendingAgentFromRecord,
   type AgentRegistry,
   type PendingAgentContext,
-  usePendingAgentStore,
 } from "../../agents";
 import { buildPendingAgentFromMarketplaceExpert } from "@/react-app/domains/agents";
 import { installSummonedMarketplaceExpert } from "@/react-app/domains/plugins";
@@ -19,7 +17,6 @@ import {
   pendingAgentMatchesMarketplaceExpert,
 } from "./expert-page-utils";
 import {
-  setComposerTemplateAfterNavigation,
   setExpertComposerDraftAfterNewTask,
   setExpertComposerTemplateAfterNewTask,
 } from "./shared-page-utils";
@@ -50,51 +47,19 @@ export function useExpertSessionStarters(input: {
 }) {
   const handleStartMarketplaceExpert = useCallback(
     (expert: ExpertMarketplaceEntry, initialPrompt?: string) => {
+      // Always open a **fresh** expert draft (「去聊天」/「召唤」).
+      // Re-opening the latest history session left users on an old auto-title
+      // (often first-message text) instead of a clean new chat; resume stays
+      // on the conversation list.
       const startPrompt = resolveMarketplaceExpertStartPrompt(
         expert,
         initialPrompt,
       );
-      const existingConversationGroup = input.conversationGroups.find((group) =>
-        marketplaceExpertMatchesAgentId(expert, group.agentId),
-      );
-      if (existingConversationGroup) {
-        usePendingAgentStore.getState().setAgent(null);
-        const agentId = existingConversationGroup.agentId?.trim() ?? "";
-        const sessionIds = existingConversationGroup.sessions.map(
-          (session) => session.id,
-        );
-        const resolvedSessionId =
-          (agentId
-            ? input.resolveSessionTabForAgent(agentId, sessionIds)
-            : null) ?? existingConversationGroup.latestSession.id;
-        input.handleOpenExpertSession(
-          input.sidebarSelectedWorkspaceId,
-          resolvedSessionId,
-        );
-        if (startPrompt?.template) {
-          setComposerTemplateAfterNavigation(
-            resolvedSessionId,
-            startPrompt.prompt,
-          );
-        } else if (startPrompt) {
-          useComposerStateStore
-            .getState()
-            .setDraft(resolvedSessionId, startPrompt.prompt);
-        }
-        void installSummonedMarketplaceExpert(expert).catch((error) => {
-          console.warn(
-            "[expert-marketplace] failed to install expert package",
-            error,
-          );
-        });
-        return;
-      }
 
       const existingDraftAgent = Object.values(input.draftAgentContexts).find(
         (agent) => pendingAgentMatchesMarketplaceExpert(agent, expert),
       );
-      // Build pending first. onCreateTaskInWorkspace clears pendingAgent for
-      // plain new-task, so we re-apply the draft agent after that clear.
+      // Build pending first. openFreshExpertDraft may clear pending; re-assert after.
       const pending =
         existingDraftAgent ?? buildPendingAgentFromMarketplaceExpert(expert);
       const pendingWithStart: PendingAgentContext = {
@@ -104,22 +69,28 @@ export function useExpertSessionStarters(input: {
         draftSource: "agent-selection",
       };
       input.activateDraftAgent(pendingWithStart);
+      // Leave 市场 immediately — without this, UI stays on store while draft
+      // state churns (felt like a freeze after 「去聊天」). Matches expert-create.
+      input.openRailView("chat");
       input.openFreshExpertDraft();
       // Re-assert after create-task's synchronous setAgent(null).
       input.activateDraftAgent(pendingWithStart);
+      // Prefill only for explicit quick-prompt pick or logistics templates —
+      // never dump a default intro into a blank new chat.
       if (startPrompt?.template) {
         setExpertComposerTemplateAfterNewTask(
           input.selectedWorkspaceId,
           pendingWithStart.id,
           startPrompt.prompt,
         );
-      } else if (startPrompt) {
+      } else if (startPrompt && initialPrompt?.trim()) {
         setExpertComposerDraftAfterNewTask(
           input.selectedWorkspaceId,
           pendingWithStart.id,
           startPrompt.prompt,
         );
       }
+      // Already-installed packages resolve instantly via coordinator cache.
       void installSummonedMarketplaceExpert(expert).catch((error) => {
         console.warn(
           "[expert-marketplace] failed to install expert package",

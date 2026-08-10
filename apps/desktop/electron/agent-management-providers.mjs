@@ -165,12 +165,21 @@ export function createAgentManagementProviders(options = {}) {
   }
 
   function sanitizeProviderKey(value) {
-    return String(value ?? "")
-      .trim()
+    const raw = String(value ?? "").trim();
+    const cleaned = raw
       .toLowerCase()
       .replace(/[^a-z0-9_.-]+/g, "-")
       .replace(/^-+|-+$/g, "")
       .slice(0, 80);
+    // Chinese-only display names used to sanitize to "" and throw
+    // "Provider id is required" on save — fall back so edits still persist.
+    if (cleaned) return cleaned;
+    if (!raw) return "";
+    let hash = 0;
+    for (let i = 0; i < raw.length; i += 1) {
+      hash = (hash * 31 + raw.charCodeAt(i)) >>> 0;
+    }
+    return `custom-${hash.toString(16).slice(0, 12)}`;
   }
 
   function positiveInteger(value) {

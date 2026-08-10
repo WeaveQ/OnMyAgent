@@ -71,6 +71,9 @@ export default {
   "session.summon": "Summon",
   "session.summon_experts": "Summon experts",
   "session.summon_expert": "Summon {name}",
+  /** Mine shelf CTA — expert already summoned; open a chat/new task. */
+  "session.open_chat": "Chat",
+  "session.open_chat_with": "Chat with {name}",
   "session.expert_marketplace_category_all": "All",
   "session.expert_marketplace_category_opc": "OPC Solo Company",
   "session.expert_marketplace_category_product_development": "Product R&D",
@@ -214,6 +217,8 @@ export default {
   "session.error_network": "Network error. Check your connection and try again.",
   "session.error_timeout": "The request timed out. Please try again.",
   "session.error_rate_limit": "Too many requests. Please wait and try again.",
+  "session.error_quota_exhausted":
+    "This model's plan quota is exhausted. Switch models or wait for the quota to reset.",
   "session.error_auth": "Authentication failed. Check your API key or sign-in.",
   "session.error_model_unavailable": "This model is unavailable. Choose another model.",
   "session.error_model_unavailable_named":

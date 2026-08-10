@@ -30,6 +30,7 @@ import {
   adoptEquivalentOptimisticUserTextPart,
   removeOptimisticSessionUserMessage,
 } from "./optimistic-session-user-message";
+import { humanizeSessionErrorMessage } from "../surface/session-surface-support";
 
 type SyncOptions = {
   workspaceId: string;
@@ -162,6 +163,11 @@ function eventErrorMessage(properties: unknown) {
   }
   const message = record.message ?? record.detail ?? record.reason;
   return typeof message === "string" && message.trim() ? message.trim() : null;
+}
+
+/** Assistant message.info.error blob → text for activity setError. */
+function extractMessageErrorText(error: unknown): string | null {
+  return eventErrorMessage({ error });
 }
 
 function isTrackedSession(entry: SyncEntry, sessionId: string) {
@@ -878,10 +884,16 @@ function applyEvent(
 
   if (event.type === "session.error") {
     const sessionId = sessionIdFromProperties(event.properties);
-    if (sessionId)
+    if (sessionId) {
+      const raw = eventErrorMessage(event.properties);
       useSessionActivityStore
         .getState()
-        .setError(workspaceId, sessionId, eventErrorMessage(event.properties));
+        .setError(
+          workspaceId,
+          sessionId,
+          raw ? humanizeSessionErrorMessage(raw) : raw,
+        );
+    }
     return;
   }
 
@@ -1067,6 +1079,8 @@ function applyEvent(
         id?: string;
         role?: UIMessage["role"] | string;
         sessionID?: string;
+        /** Async stream failures land here (quota, provider errors) before snapshot refresh. */
+        error?: unknown;
       } & TranscriptMessageSourceInfo;
     };
     const info = props.info;
@@ -1082,6 +1096,20 @@ function applyEvent(
     useSessionActivityStore
       .getState()
       .markMessageRole(workspaceId, info.sessionID, info.id, info.role);
+    // Assistant message with error: end the run immediately so UI does not
+    // hang on「准备中」after promptAsync already returned 200.
+    if (info.role === "assistant" && info.error) {
+      const raw = extractMessageErrorText(info.error);
+      if (raw) {
+        useSessionActivityStore
+          .getState()
+          .setError(
+            workspaceId,
+            info.sessionID,
+            humanizeSessionErrorMessage(raw),
+          );
+      }
+    }
     if (!isTrackedSession(entry, info.sessionID)) return;
     const next = {
       id: info.id,

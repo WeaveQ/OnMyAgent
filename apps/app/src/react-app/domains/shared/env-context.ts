@@ -21,6 +21,19 @@ function normalizeEnvKeys(keys: string[]): string[] {
   ).sort((a, b) => a.localeCompare(b));
 }
 
+/**
+ * Fire-and-forget prewarm so expert first-send cold path can join a warm cache.
+ * Safe to call from draft activation / rail open.
+ */
+export function prewarmOnMyAgentEnvSystemContext(
+  client: OnMyAgentServerClient | null,
+  options: {
+    runtimeKey?: string | null;
+  } = {},
+): void {
+  void buildOnMyAgentEnvSystemContext(client, options);
+}
+
 export async function buildOnMyAgentEnvSystemContext(
   client: OnMyAgentServerClient | null,
   options: {
@@ -34,6 +47,8 @@ export async function buildOnMyAgentEnvSystemContext(
     (() => readOnMyAgentEnvPendingChanges(options.runtimeKey));
   if (readPendingChanges()) return undefined;
 
+  // Prefer a stable default key: env names are not session-scoped. Callers that
+  // used sessionId as cacheKey re-fetched listUserEnvKeys every new expert chat.
   const cacheKey = `${client.baseUrl}:${options.cacheKey ?? DEFAULT_CACHE_KEY}`;
   if (envSystemContextCache.has(cacheKey)) {
     return envSystemContextCache.get(cacheKey);

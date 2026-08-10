@@ -37,13 +37,14 @@ export function useSummonMarketplaceExpert(options: {
       usePendingAgentStore
         .getState()
         .setAgent(buildPendingAgentFromMarketplaceExpert(expert));
+      // Prefill only explicit quick-prompt or logistics templates (not default intro).
       if (startPrompt?.template) {
         setExpertComposerTemplateAfterNewTask(
           selectedWorkspaceId,
           expert.id,
           startPrompt.prompt,
         );
-      } else if (startPrompt) {
+      } else if (startPrompt && initialPrompt?.trim()) {
         setExpertComposerDraftAfterNewTask(
           selectedWorkspaceId,
           expert.id,
