@@ -15,7 +15,7 @@ import {
   isWorkspaceSystemTopDir,
   resolveProductWriteRelativePath,
 } from "./workspace-files-layout";
-import { formatExpertFolderDisplayName } from "./workspace-files-tree-outline";
+import { formatExpertFolderDisplayName, formatExpertRuntimeTreeNames } from "./workspace-files-tree-outline";
 
 export {
   WORKSPACE_EXPERTS_DIR,
@@ -235,24 +235,14 @@ export function filterWorkspaceTreeBySourceTab(
   tab: "task" | "expert",
   knownPackageSlugs: readonly string[] = [],
 ): WorkspaceFileTreeNode {
-  const expertsRoot = findTopDir(root, WORKSPACE_EXPERTS_DIR);
   const tasksRoot = findTopDir(root, WORKSPACE_TASKS_DIR);
   const projectsRoot = findTopDir(root, WORKSPACE_PROJECTS_DIR);
 
   if (tab === "expert") {
-    const children: WorkspaceFileTreeNode[] = [];
-    if (expertsRoot) {
-      children.push(...expertsRoot.children.filter((c) => c.kind === "dir" || c.kind === "file"));
-    }
-    // Legacy unmigrated expert archives still at workspace root
-    for (const child of root.children) {
-      if (child.kind !== "dir") continue;
-      if (isWorkspaceLayoutTopDir(child.name)) continue;
-      if (isLikelyExpertAgentFolderName(child.name, knownPackageSlugs)) {
-        children.push(child);
-      }
-    }
-    return { ...root, children: mergeExpertSiblingFolders(children) };
+    // Data already comes from the managed runtime API as agent -> session -> file.
+    // The workspace `experts/` directory and legacy flat-root heuristics are no
+    // longer scanned; normalize display names for agents/sessions only.
+    return formatExpertRuntimeTreeNames(root);
   }
 
   // task tab: spaces (projects/) first in source order; sort layer keeps them above automation.

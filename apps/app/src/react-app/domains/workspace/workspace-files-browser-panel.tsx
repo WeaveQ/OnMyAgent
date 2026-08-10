@@ -578,6 +578,18 @@ export function WorkspaceFilesBrowserPanel(props: {
     // shallow list (top-level dirs only) so every badge said "0 files" and
     // expand showed no children. Navigation is client-side via the tree.
     const load = async (): Promise<OnMyAgentWorkspaceFileCatalogEntry[]> => {
+      // Expert tab reads managed runtime artifacts (outside the workspace) via
+      // the server API; the workspace filesystem never holds these files.
+      if (sourceTab === "expert") {
+        if (!props.client || !props.workspaceId.trim()) {
+          throw new Error(t("files.load_failed"));
+        }
+        const result = await props.client.listExpertSessionFiles(
+          props.workspaceId,
+        );
+        return result.items;
+      }
+
       if (isElectronRuntime()) {
         const result = await listCodeWorkspaceFiles({
           workspacePath: fileRoot,
@@ -627,7 +639,7 @@ export function WorkspaceFilesBrowserPanel(props: {
     return () => {
       cancelled = true;
     };
-  }, [fileRoot, hasScopedFileRoot, props.active, props.client, props.workspaceId, refreshKey]);
+  }, [fileRoot, hasScopedFileRoot, props.active, props.client, props.workspaceId, refreshKey, sourceTab]);
 
   useEffect(() => {
     return () => {

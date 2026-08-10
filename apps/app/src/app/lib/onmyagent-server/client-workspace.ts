@@ -203,6 +203,33 @@ export function createWorkspaceClientMethods(ctx: OnMyAgentServerClientContext) 
         `/workspace/${encodeURIComponent(workspaceId)}/expert-session-directory`,
         { token, hostToken, method: "POST", body: payload },
       ),
+    listExpertSessionFiles: async (workspaceId: string) => {
+      const id = workspaceId.trim();
+      if (!id) throw new Error("workspaceId is required");
+      const result = await requestJson<{
+        items: Array<{
+          path: string;
+          kind: "file" | "dir";
+          size: number;
+          mtimeMs: number;
+        }>;
+      }>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(id)}/expert-session-files`,
+        { token, hostToken },
+      );
+      return {
+        items: result.items.map(
+          (item): OnMyAgentWorkspaceFileCatalogEntry => ({
+            path: item.path,
+            kind: item.kind,
+            size: item.size,
+            mtimeMs: item.mtimeMs,
+            revision: "",
+          }),
+        ),
+      };
+    },
     readOpencodeConfigFile: (workspaceId: string, scope: "project" | "global" = "project") => {
       const query = `?scope=${scope}`;
       return requestJson<OpencodeConfigFile>(baseUrl, `/workspace/${encodeURIComponent(workspaceId)}/opencode-config${query}`, {
