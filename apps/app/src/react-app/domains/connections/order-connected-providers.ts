@@ -1,13 +1,65 @@
 /**
- * Pure helpers for settings connected-provider display order.
- * Preference storage lives in session-memory; this module only reorders lists.
+ * Connected-provider display order: pure reorder helpers + localStorage
+ * preference (shared by Settings → Models and home/session model pickers).
  */
+
+/** Must stay in sync with historical shell session-memory key. */
+export const CONNECTED_PROVIDER_ORDER_KEY =
+  "onmyagent.react.connectedProviderOrder.v1";
 
 export type OrderableProvider = {
   id: string;
   /** When present, used for default ordering (custom first). */
   source?: string | null;
 };
+
+function safeGet(key: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeSet(key: string, value: string | null): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (value === null || value === "") {
+      window.localStorage.removeItem(key);
+      return;
+    }
+    window.localStorage.setItem(key, value);
+  } catch {
+    // ignore storage errors (quota, privacy modes, etc.)
+  }
+}
+
+export function readConnectedProviderOrderIds(): string[] {
+  const raw = safeGet(CONNECTED_PROVIDER_ORDER_KEY);
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.flatMap((value) => {
+      const trimmed = typeof value === "string" ? value.trim() : "";
+      return trimmed ? [trimmed] : [];
+    });
+  } catch {
+    return [];
+  }
+}
+
+export function writeConnectedProviderOrderIds(ids: string[]): void {
+  const normalized = ids.flatMap((id) => {
+    const trimmed = id.trim();
+    return trimmed ? [trimmed] : [];
+  });
+  safeSet(
+    CONNECTED_PROVIDER_ORDER_KEY,
+    normalized.length ? JSON.stringify(normalized) : null,
+  );
+}
 
 function isCustomProvider(provider: OrderableProvider): boolean {
   return provider.source === "custom";

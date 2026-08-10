@@ -109,9 +109,10 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
     );
   }, [props.options, props.query]);
 
-  // Group by provider
+  // Group by provider — preserve option order (Settings → Models drag order).
   const providerGroups = useMemo<ProviderGroup[]>(() => {
     const map = new Map<string, ProviderGroup>();
+    const seenOrder: string[] = [];
     for (const opt of filteredOptions) {
       let group = map.get(opt.providerID);
       if (!group) {
@@ -126,6 +127,7 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
           other: [],
         };
         map.set(opt.providerID, group);
+        seenOrder.push(opt.providerID);
       }
       if (isRecommendedModel(opt.modelID)) {
         group.recommended.push(opt);
@@ -136,11 +138,11 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
         group.hasCurrent = true;
       }
     }
+    const orderIndex = new Map(seenOrder.map((id, index) => [id, index]));
     return [...map.values()].sort((a, b) => {
+      // Disabled providers stay at the bottom; otherwise keep user order.
       if (a.isDisabled !== b.isDisabled) return a.isDisabled ? 1 : -1;
-      if (a.isNew !== b.isNew) return a.isNew ? -1 : 1;
-      if (a.hasCurrent !== b.hasCurrent) return a.hasCurrent ? -1 : 1;
-      return a.name.localeCompare(b.name);
+      return (orderIndex.get(a.id) ?? 0) - (orderIndex.get(b.id) ?? 0);
     });
   }, [filteredOptions, props.current, disabledSet]);
 

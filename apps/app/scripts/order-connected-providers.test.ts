@@ -186,4 +186,20 @@ describe("settings provider order + badge UI contracts", () => {
     expect(controller).toContain("readConnectedProviderOrderIds");
     expect(controller).toContain("orderConnectedProviders");
   });
+
+  test("home/session pickers share order via getConnectedProviderItems", () => {
+    const query = readFileSync(
+      join(appRoot, "src/react-app/domains/connections/provider-list-query.ts"),
+      "utf8",
+    );
+    expect(query).toContain("orderConnectedProviders");
+    expect(query).toContain("readConnectedProviderOrderIds");
+    const picker = readFileSync(
+      join(appRoot, "src/react-app/domains/session/modals/model-picker-modal.tsx"),
+      "utf8",
+    );
+    // Groups must preserve option order, not re-sort by name.
+    expect(picker).toContain("seenOrder");
+    expect(picker).not.toMatch(/return a\.name\.localeCompare\(b\.name\)/);
+  });
 });

@@ -65,11 +65,13 @@ describe("shared provider list query contract", () => {
     ]);
   });
 
-  test("filters connected providers while preserving usable custom providers", () => {
+  test("filters connected providers and applies custom-first display order", () => {
+    // Empty preference → custom providers first (stable), then the rest.
+    // custom-empty is dropped (no models); opencode keeps empty-catalog exception.
     expect(getConnectedProviderItems(providerList).map((provider) => provider.id)).toEqual([
-      "anthropic",
       "custom-ready",
       "opencode",
+      "anthropic",
     ]);
   });
 
