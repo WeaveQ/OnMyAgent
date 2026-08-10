@@ -393,6 +393,8 @@ export default {
   "settings.provider_source_custom": "自定義",
   "settings.provider_source_env": "環境變量",
   "settings.provider_badge_cloud": "雲端",
+  "settings.provider_reorder_hint": "拖曳調整順序",
+  "settings.provider_reorder_aria": "調整模型服務商順序",
   "settings.providers_dialog_title": "模型服務商",
   "settings.providers_dialog_description":
     "選擇服務商並填寫金鑰，僅保存在本機。",

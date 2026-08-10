@@ -7,8 +7,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { FileCode, Pencil, Trash2, Unplug } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { cn } from "@/lib/utils";
+import { FileCode, GripVertical, Pencil, Trash2, Unplug } from "lucide-react";
+import {
+  useRef,
+  useState,
+  type DragEvent,
+  type ReactNode,
+} from "react";
 
 import { t } from "@/i18n";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
@@ -82,7 +88,22 @@ export type AiSettingsViewProps = {
    * List is shown; custom OpenCode inventory is still merging in the background.
    */
   inventorySyncing?: boolean;
+  /**
+   * Drag-and-drop reorder. Called with source and drop-target provider ids.
+   * When omitted (or fewer than 2 rows), rows are not draggable.
+   */
+  onReorderProviders?: (fromId: string, toId: string) => void;
 };
+
+/** Interactive controls that must not start a row drag. */
+function isDragBlockedTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return Boolean(
+    target.closest(
+      "button, a, input, textarea, select, [role='button'], [data-no-drag]",
+    ),
+  );
+}
 
 function providerSourceLabel(source?: AiSettingsConnectedProvider["source"]) {
   if (source === "env") return t("settings.provider_source_env");
@@ -122,6 +143,64 @@ export function AiSettingsView(props: AiSettingsViewProps) {
     useState<AiSettingsConnectedProvider | null>(null);
   const showListSkeleton =
     providersLoading && props.connectedProviders.length === 0;
+
+  const canReorder =
+    typeof props.onReorderProviders === "function" &&
+    props.connectedProviders.length > 1 &&
+    !actionsDisabled;
+  const dragFromIdRef = useRef<string | null>(null);
+  const [dragFromId, setDragFromId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+
+  const clearDragState = () => {
+    dragFromIdRef.current = null;
+    setDragFromId(null);
+    setDropTargetId(null);
+  };
+
+  const handleRowDragStart = (
+    event: DragEvent<HTMLDivElement>,
+    providerId: string,
+  ) => {
+    if (!canReorder) return;
+    if (isDragBlockedTarget(event.target)) {
+      event.preventDefault();
+      return;
+    }
+    dragFromIdRef.current = providerId;
+    setDragFromId(providerId);
+    try {
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", providerId);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleRowDragOver = (
+    event: DragEvent<HTMLDivElement>,
+    providerId: string,
+  ) => {
+    if (!canReorder || dragFromIdRef.current === null) return;
+    if (dragFromIdRef.current === providerId) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setDropTargetId((current) =>
+      current === providerId ? current : providerId,
+    );
+  };
+
+  const handleRowDrop = (
+    event: DragEvent<HTMLDivElement>,
+    providerId: string,
+  ) => {
+    if (!canReorder) return;
+    event.preventDefault();
+    const fromId = dragFromIdRef.current;
+    clearDragState();
+    if (!fromId || fromId === providerId) return;
+    props.onReorderProviders?.(fromId, providerId);
+  };
 
   if (showListSkeleton) {
     return <AiSettingsProvidersSkeleton />;
@@ -220,12 +299,44 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                 provider.modelCount > 0
                   ? provider.modelCount
                   : null;
+              const isDragging = dragFromId === provider.id;
+              const isDropTarget =
+                dropTargetId === provider.id && dragFromId !== provider.id;
 
               return (
                 <SettingsBlockRow
                   key={provider.id}
+                  className={cn(
+                    canReorder && "select-none",
+                    isDragging && "opacity-50",
+                    isDropTarget &&
+                      "relative before:absolute before:inset-x-3 before:top-0 before:h-0.5 before:rounded-full before:bg-dls-accent",
+                  )}
+                  rootProps={
+                    canReorder
+                      ? {
+                          draggable: true,
+                          onDragStart: (event) =>
+                            handleRowDragStart(event, provider.id),
+                          onDragOver: (event) =>
+                            handleRowDragOver(event, provider.id),
+                          onDrop: (event) => handleRowDrop(event, provider.id),
+                          onDragEnd: clearDragState,
+                          "aria-grabbed": isDragging || undefined,
+                        }
+                      : undefined
+                  }
                   title={
                     <span className="inline-flex min-w-0 items-center gap-2.5">
+                      {canReorder ? (
+                        <span
+                          className="inline-flex shrink-0 cursor-grab text-dls-secondary active:cursor-grabbing"
+                          aria-hidden="true"
+                          title={t("settings.provider_reorder_hint")}
+                        >
+                          <GripVertical className="size-3.5" />
+                        </span>
+                      ) : null}
                       <ProviderIcon
                         providerId={provider.id}
                         size={16}

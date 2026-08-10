@@ -399,6 +399,8 @@ export default {
   "settings.provider_source_custom": "Custom",
   "settings.provider_source_env": "Environment",
   "settings.provider_badge_cloud": "Cloud",
+  "settings.provider_reorder_hint": "Drag to reorder",
+  "settings.provider_reorder_aria": "Reorder model providers",
   "settings.providers_dialog_title": "Model providers",
   "settings.providers_dialog_description":
     "Pick a provider and enter its key. Keys stay on this device only.",

@@ -1,38 +1,61 @@
 /**
- * Pure order helpers for settings connected-provider list (move up/down).
+ * Pure order helpers for settings connected-provider list (drag reorder +
+ * custom-first default).
  */
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
+  defaultConnectedProviderOrderIds,
   moveConnectedProviderInOrder,
   orderConnectedProviders,
+  reorderConnectedProviderIds,
 } from "../src/react-app/domains/connections/order-connected-providers";
 
 const appRoot = join(import.meta.dir, "..");
 
 describe("orderConnectedProviders", () => {
-  test("applies stored order and appends unknown providers", () => {
+  test("applies stored order and appends unknown providers (custom first)", () => {
     const providers = [
-      { id: "b", name: "B" },
-      { id: "a", name: "A" },
-      { id: "c", name: "C" },
+      { id: "b", name: "B", source: "api" as const },
+      { id: "a", name: "A", source: "custom" as const },
+      { id: "c", name: "C", source: "custom" as const },
     ];
-    expect(orderConnectedProviders(providers, ["a", "c"]).map((p) => p.id)).toEqual([
+    expect(orderConnectedProviders(providers, ["a"]).map((p) => p.id)).toEqual([
       "a",
-      "c",
+      "c", // unknown custom before unknown non-custom
       "b",
     ]);
   });
 
-  test("ignores missing/stale order ids and empty order", () => {
+  test("empty order defaults to custom first (stable within groups)", () => {
+    const providers = [
+      { id: "opencode", name: "OpenCode Zen" },
+      { id: "aliyuncs", name: "千问", source: "custom" as const },
+      { id: "openai", name: "OpenAI", source: "api" as const },
+      { id: "local", name: "Local", source: "custom" as const },
+    ];
+    expect(orderConnectedProviders(providers, []).map((p) => p.id)).toEqual([
+      "aliyuncs",
+      "local",
+      "opencode",
+      "openai",
+    ]);
+    expect(defaultConnectedProviderOrderIds(providers)).toEqual([
+      "aliyuncs",
+      "local",
+      "opencode",
+      "openai",
+    ]);
+  });
+
+  test("ignores missing/stale order ids", () => {
     const providers = [{ id: "x" }, { id: "y" }];
     expect(orderConnectedProviders(providers, ["gone", "y", "x"]).map((p) => p.id)).toEqual([
       "y",
       "x",
     ]);
-    expect(orderConnectedProviders(providers, []).map((p) => p.id)).toEqual(["x", "y"]);
   });
 
   test("dedupes order ids", () => {
@@ -76,16 +99,50 @@ describe("moveConnectedProviderInOrder", () => {
   });
 });
 
+describe("reorderConnectedProviderIds", () => {
+  test("moves fromId onto toId index", () => {
+    const present = [
+      { id: "a", source: "custom" as const },
+      { id: "b" },
+      { id: "c", source: "custom" as const },
+    ];
+    // empty preference → custom first: a, c, b
+    expect(reorderConnectedProviderIds([], present, "b", "a")).toEqual([
+      "b",
+      "a",
+      "c",
+    ]);
+    expect(reorderConnectedProviderIds(["a", "b", "c"], present, "a", "c")).toEqual([
+      "b",
+      "c",
+      "a",
+    ]);
+  });
+
+  test("no-op when ids missing or identical", () => {
+    const present = [{ id: "a" }, { id: "b" }];
+    expect(reorderConnectedProviderIds(["a", "b"], present, "a", "a")).toEqual([
+      "a",
+      "b",
+    ]);
+    expect(reorderConnectedProviderIds(["a", "b"], present, "missing", "a")).toEqual([
+      "a",
+      "b",
+    ]);
+  });
+});
+
 describe("settings provider order + badge UI contracts", () => {
-  test("ai-view has no provider reorder controls", () => {
+  test("ai-view wires HTML5 drag reorder", () => {
     const aiView = readFileSync(
       join(appRoot, "src/react-app/domains/settings/pages/ai-view.tsx"),
       "utf8",
     );
-    expect(aiView).not.toContain("onMoveProvider");
-    expect(aiView).not.toContain("provider_move_up");
-    expect(aiView).not.toContain("provider_move_down");
-    expect(aiView).not.toMatch(/onDrag|dnd-kit|useSortable|DragDropContext/);
+    expect(aiView).toContain("onReorderProviders");
+    expect(aiView).toContain("onDragStart");
+    expect(aiView).toContain("onDrop");
+    expect(aiView).toContain("GripVertical");
+    expect(aiView).toContain("provider_reorder_hint");
     // Zen free-only; custom never labeled OpenCode engine.
     expect(aiView).toContain('provider.id === "opencode"');
     expect(aiView).toContain('provider.source ===');
@@ -115,7 +172,7 @@ describe("settings provider order + badge UI contracts", () => {
     expect(probeBody).not.toContain("updateDraft({ models");
   });
 
-  test("controller still applies optional stored provider order", () => {
+  test("controller persists drag reorder order", () => {
     const controller = readFileSync(
       join(
         appRoot,
@@ -123,8 +180,9 @@ describe("settings provider order + badge UI contracts", () => {
       ),
       "utf8",
     );
-    // Move-up/down UI removed; order helpers remain for legacy preference file.
-    expect(controller).not.toContain("moveConnectedProvider");
+    expect(controller).toContain("reorderConnectedProviders");
+    expect(controller).toContain("reorderConnectedProviderIds");
+    expect(controller).toContain("writeConnectedProviderOrderIds");
     expect(controller).toContain("readConnectedProviderOrderIds");
     expect(controller).toContain("orderConnectedProviders");
   });
