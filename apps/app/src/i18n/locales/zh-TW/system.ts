@@ -32,6 +32,8 @@ export default {
     "本地服務未完成啟動。請退出 OnMyAgent 後重新開啟。",
   "system.boot_config_invalid":
     "本地引擎配置無效（常見於 MCP 條目不完整）。可先「修復引擎配置」再重試。",
+  "system.boot_package_missing":
+    "目前安裝缺少執行所需的元件（打包異常）。重試通常無效，請升級到最新版本。",
   "system.boot_download_latest_hint": "若反覆出現，請下載最新版本：",
   "system.boot_retry": "再試一次",
   "system.boot_open_config_dir": "打開配置目錄",
