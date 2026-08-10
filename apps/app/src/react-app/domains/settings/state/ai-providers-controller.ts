@@ -21,13 +21,11 @@ import type { ProviderListItem } from "../../../../app/types";
 import {
   mergeConnectedProviders,
   orderConnectedProviders,
+  readConnectedProviderOrderIds,
   reorderConnectedProviderIds,
+  writeConnectedProviderOrderIds,
   type MergedConnectedProvider,
 } from "../../connections";
-import {
-  readConnectedProviderOrderIds,
-  writeConnectedProviderOrderIds,
-} from "../../../shell";
 
 /** Match provider-list React Query TTL so list + inventory stay coherent. */
 export const OPENCODE_INVENTORY_CACHE_MS = 5 * 60 * 1000;

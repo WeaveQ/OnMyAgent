@@ -19,9 +19,6 @@ const SESSION_BY_WORKSPACE_KEY = "onmyagent.react.sessionByWorkspace";
 /** Mode-scoped last session so assistant/expert each restore their own page. */
 const SESSION_BY_WORKSPACE_MODE_KEY = "onmyagent.react.sessionByWorkspaceMode.v1";
 const WORKSPACE_ORDER_KEY = "onmyagent.react.workspaceOrder";
-/** Settings → Models connected provider display order (provider ids). */
-const CONNECTED_PROVIDER_ORDER_KEY =
-  "onmyagent.react.connectedProviderOrder.v1";
 /** Lightweight sidebar session titles for instant cold-start paint. */
 const SIDEBAR_SESSIONS_CACHE_KEY =
   "onmyagent.react.sidebarSessionsByWorkspace.v1";
@@ -92,31 +89,11 @@ export function writeWorkspaceOrderIds(ids: string[]): void {
   safeSet(WORKSPACE_ORDER_KEY, normalized.length ? JSON.stringify(normalized) : null);
 }
 
-export function readConnectedProviderOrderIds(): string[] {
-  const raw = safeGet(CONNECTED_PROVIDER_ORDER_KEY);
-  if (!raw) return [];
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.flatMap((value) => {
-      const trimmed = typeof value === "string" ? value.trim() : "";
-      return trimmed ? [trimmed] : [];
-    });
-  } catch {
-    return [];
-  }
-}
-
-export function writeConnectedProviderOrderIds(ids: string[]): void {
-  const normalized = ids.flatMap((id) => {
-    const trimmed = id.trim();
-    return trimmed ? [trimmed] : [];
-  });
-  safeSet(
-    CONNECTED_PROVIDER_ORDER_KEY,
-    normalized.length ? JSON.stringify(normalized) : null,
-  );
-}
+// Provider order storage lives in connections (shared by Settings + pickers).
+export {
+  readConnectedProviderOrderIds,
+  writeConnectedProviderOrderIds,
+} from "../domains/connections";
 
 type SessionByWorkspace = Record<string, string>;
 
