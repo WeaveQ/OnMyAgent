@@ -1,6 +1,5 @@
 import { createReadStream } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { basename } from "node:path";
 import type {
   ServerConfig,
   TokenScope,
@@ -17,7 +16,11 @@ import {
 } from "../services/expert-session-runtime.js";
 import { deleteSessionOrigin } from "../services/session-origins.js";
 import { addRoute, systemJsonResponse, type RequestContext, type Route } from "./route-core.js";
-import { contentTypeForPath, isSupportedWorkspaceTextFilePath } from "../workspace/path-utils.js";
+import {
+  contentDispositionHeader,
+  contentTypeForPath,
+  isSupportedWorkspaceTextFilePath,
+} from "../workspace/path-utils.js";
 
 type SessionListInput = {
   scope?: WorkspaceSessionScope;
@@ -212,7 +215,7 @@ export function registerWorkspaceSessionRoutes(input: {
       const headers = new Headers();
       headers.set("Content-Type", contentTypeForPath(relPath));
       headers.set("Content-Length", String(resolved.size));
-      headers.set("Content-Disposition", `inline; filename="${basename(relPath)}"`);
+      headers.set("Content-Disposition", contentDispositionHeader("inline", relPath));
       const stream = nodeReadableToWebStream(createReadStream(resolved.absPath));
       return new Response(stream, { status: 200, headers });
     },

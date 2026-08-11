@@ -6,6 +6,7 @@ import { t } from "../../../i18n";
 import {
   addAssistantSession,
   isExpertCreationEphemeralSession,
+  writeAssistantSessionCategory,
 } from "../../domains/agents";
 import {
   filterPendingDeletedSessions,
@@ -170,18 +171,60 @@ export async function collectWorkspaceSessionItemsWithStatus(input: {
   return { items: filteredItems, complete, failures };
 }
 
+/**
+ * Register newly created Assistant sessions in the legacy Assistant-only
+ * sidebar membership. Expert membership is derived from the server Directory;
+ * its create paths optimistically upsert that derived identity instead of
+ * restoring a second renderer-owned truth source.
+ */
+export function registerSidebarSessionPageMode(
+  sessionId: string,
+  pageMode?: "assistant" | "expert" | null,
+): void {
+  const id = sessionId.trim();
+  if (!id) return;
+  if (pageMode === "expert") return;
+  // Default to assistant: office home + quick-capture + first-send.
+  if (pageMode === "assistant" || pageMode == null) {
+    addAssistantSession(id);
+    writeAssistantSessionCategory(id, "office");
+  }
+}
+
 export function insertSidebarSession(input: {
   current: Record<string, SidebarSessionItem[]>;
   workspaceId: string;
   session: unknown;
+  /**
+   * When set (or omitted for assistant default), register Assistant session
+   * membership. Expert callers already upsert Directory-derived identity.
+   */
+  pageMode?: "assistant" | "expert" | null;
+  /** Set false only when caller already registered via registerCreatedSessionStartIntent. */
+  registerPageMode?: boolean;
 }) {
   const existing = input.current[input.workspaceId] ?? [];
   const insertedSession = toSidebarSessionItem(input.session);
-  if (!insertedSession || existing.some((session) => session.id === insertedSession.id)) {
+  if (!insertedSession) {
+    return input.current;
+  }
+  if (existing.some((session) => session.id === insertedSession.id)) {
+    // Session already listed but may lack isAssistantSession membership.
+    // Register + clone the array so React re-renders and the filter re-runs.
+    if (input.registerPageMode !== false) {
+      registerSidebarSessionPageMode(insertedSession.id, input.pageMode);
+      return {
+        ...input.current,
+        [input.workspaceId]: [...existing],
+      };
+    }
     return input.current;
   }
   if (isExpertCreationEphemeralSession(insertedSession.id)) {
     return input.current;
+  }
+  if (input.registerPageMode !== false) {
+    registerSidebarSessionPageMode(insertedSession.id, input.pageMode);
   }
   return {
     ...input.current,
@@ -206,11 +249,16 @@ export function insertCreatedSessionForWorkspace(input: {
   current: Record<string, SidebarSessionItem[]>;
   createdSession: unknown;
   workspaceId: string;
+  pageMode?: "assistant" | "expert" | null;
+  /** Default true; first-send may pass false after registerCreatedSessionStartIntent. */
+  registerPageMode?: boolean;
 }) {
   return insertSidebarSession({
     current: input.current,
     workspaceId: input.workspaceId,
     session: input.createdSession,
+    pageMode: input.pageMode,
+    registerPageMode: input.registerPageMode,
   });
 }
 

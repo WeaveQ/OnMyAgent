@@ -933,6 +933,10 @@ export function useSessionRouteSurfaceProps(
               current,
               createdSession,
               workspaceId: selectedWorkspaceId,
+              // registerCreatedSessionStartIntent already ran; insert still
+              // clones membership for any race where list had the id early.
+              pageMode,
+              registerPageMode: true,
             });
             sessionsByWorkspaceIdRef.current = next;
             return next;

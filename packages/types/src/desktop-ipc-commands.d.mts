@@ -54,6 +54,7 @@ export type DesktopCommandName =
   | "setKeepSystemAwake"
   | "setDockUnreadBadge"
   | "getAgentReadySoundPath"
+  | "showDesktopNotification"
   | "setStatusItemVisible"
   | "getStatusItemVisible"
   | "registerAppSnapshotHotkey"

@@ -782,6 +782,9 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                 current,
                 workspaceId,
                 session: newSession,
+                pageMode: "expert",
+                // Directory-derived identity was optimistically upserted above.
+                registerPageMode: false,
               });
               sessionsByWorkspaceIdRef.current = next;
               return next;
@@ -977,6 +980,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                       current,
                       workspaceId,
                       session,
+                      pageMode,
                     }),
                   );
                   navigateToWorkspaceSession(workspaceId, session.id);

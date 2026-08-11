@@ -1,24 +1,46 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'" />
   <title>Quick Capture</title>
   <style>
-    :root {
+    :root,
+    html[data-theme="dark"] {
       color-scheme: dark;
       --surface: #2c2c2c;
-      --surface-muted: #333333;
-      --border: #3a3a3a;
+      --surface-muted: #3a3a3a;
+      --surface-elevated: #404040;
+      --border: #4a4a4a;
       --text: #f8fafc;
       --secondary: #94a3b8;
+      --placeholder: #64748b;
       --primary: #2f7bff;
       --primary-hover: #5b96ff;
+      --primary-soft: rgba(47, 123, 255, 0.16);
       --danger: #f87171;
-      --radius: 12px;
-      --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
-        "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+      --shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+      --option-hover: rgba(255, 255, 255, 0.06);
+      --option-active: rgba(47, 123, 255, 0.2);
+      --chevron: #94a3b8;
+    }
+    html[data-theme="light"] {
+      color-scheme: light;
+      --surface: #ffffff;
+      --surface-muted: #f4f4f5;
+      --surface-elevated: #ffffff;
+      --border: #e4e4e7;
+      --text: #18181b;
+      --secondary: #71717a;
+      --placeholder: #a1a1aa;
+      --primary: #2f7bff;
+      --primary-hover: #1d6ef0;
+      --primary-soft: rgba(47, 123, 255, 0.12);
+      --danger: #dc2626;
+      --shadow: 0 16px 48px rgba(15, 23, 42, 0.14);
+      --option-hover: rgba(24, 24, 27, 0.05);
+      --option-active: rgba(47, 123, 255, 0.12);
+      --chevron: #71717a;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
@@ -27,7 +49,8 @@
       overflow: hidden;
       background: transparent;
       color: var(--text);
-      font-family: var(--font);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+        "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
       -webkit-font-smoothing: antialiased;
       -webkit-user-select: none;
       user-select: none;
@@ -38,9 +61,11 @@
       flex-direction: column;
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
-      overflow: hidden;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      /* visible so the model menu can extend past the header without clipping */
+      overflow: visible;
+      position: relative;
     }
     .top {
       display: flex;
@@ -55,45 +80,141 @@
       font-weight: 600;
       color: var(--text);
       letter-spacing: -0.01em;
+      flex-shrink: 0;
     }
     .model-wrap {
       min-width: 0;
-      max-width: 58%;
+      max-width: 62%;
       -webkit-app-region: no-drag;
       position: relative;
     }
-    select#modelSelect {
+    .model-trigger {
       appearance: none;
       -webkit-appearance: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
       max-width: 100%;
-      width: auto;
-      min-width: 120px;
-      max-width: 100%;
+      min-width: 132px;
       height: 32px;
-      padding: 0 28px 0 12px;
+      padding: 0 10px 0 12px;
       border-radius: 999px;
       border: 1px solid var(--border);
-      background: var(--surface-muted)
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M3 4.5L6 8l3-3.5'/%3E%3C/svg%3E")
-        no-repeat right 10px center;
+      background: var(--surface-muted);
       color: var(--text);
       font-family: inherit;
       font-size: 13px;
       font-weight: 500;
-      line-height: 32px;
+      line-height: 1;
       outline: none;
       cursor: pointer;
+      /* Do not clip the chevron — only the label ellipsizes. */
+      overflow: visible;
+    }
+    .model-trigger:hover:not(:disabled) {
+      border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+    }
+    .model-trigger:focus-visible {
+      border-color: rgba(47, 123, 255, 0.55);
+      box-shadow: 0 0 0 3px var(--primary-soft);
+    }
+    .model-trigger:disabled {
+      opacity: 0.55;
+      cursor: default;
+    }
+    .model-trigger-label {
+      min-width: 0;
+      flex: 1 1 auto;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      text-align: left;
+      line-height: 32px;
     }
-    select#modelSelect:focus {
-      border-color: rgba(47, 123, 255, 0.55);
-      box-shadow: 0 0 0 3px rgba(47, 123, 255, 0.18);
+    .model-trigger-caret {
+      flex: 0 0 14px;
+      width: 14px;
+      height: 14px;
+      margin-left: 2px;
+      position: relative;
+      color: var(--chevron);
+      transition: transform 0.12s ease, color 0.12s ease;
     }
-    select#modelSelect:disabled {
-      opacity: 0.55;
+    /* CSS triangle — always visible even if SVG fails to paint. */
+    .model-trigger-caret::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 0;
+      height: 0;
+      margin-left: -5px;
+      margin-top: -2px;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 6px solid currentColor;
+    }
+    .model-wrap.open .model-trigger-caret {
+      transform: rotate(180deg);
+      color: var(--text);
+    }
+    .model-menu {
+      display: none;
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      z-index: 20;
+      min-width: 100%;
+      width: max-content;
+      max-width: min(280px, 70vw);
+      max-height: 180px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 6px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface-elevated);
+      box-shadow: var(--shadow);
+      -webkit-app-region: no-drag;
+    }
+    .model-wrap.open .model-menu {
+      display: block;
+    }
+    .model-option {
+      display: block;
+      width: 100%;
+      appearance: none;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      text-align: left;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.3;
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .model-option:hover:not(:disabled),
+    .model-option[data-active="true"] {
+      background: var(--option-hover);
+    }
+    .model-option[data-selected="true"] {
+      background: var(--option-active);
+      color: var(--primary);
+    }
+    .model-option:disabled {
+      opacity: 0.45;
       cursor: default;
+    }
+    .model-empty {
+      padding: 8px 10px;
+      font-size: 12px;
+      color: var(--secondary);
     }
     .body {
       flex: 1;
@@ -118,7 +239,7 @@
       -webkit-user-select: text;
       user-select: text;
     }
-    textarea::placeholder { color: #64748b; font-size: 16px; }
+    textarea::placeholder { color: var(--placeholder); font-size: 16px; }
     .bar {
       display: flex;
       align-items: center;
@@ -130,10 +251,10 @@
     }
     .hint {
       font-size: 12px;
-      color: #64748b;
+      color: var(--placeholder);
     }
     .hint kbd {
-      font-family: var(--mono);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
       font-size: 11px;
       color: var(--secondary);
       background: var(--surface-muted);
@@ -189,10 +310,20 @@
   <div class="panel">
     <div class="top">
       <div class="top-label">快捷对话</div>
-      <div class="model-wrap">
-        <select id="modelSelect" aria-label="选择模型" disabled>
-          <option value="">默认模型</option>
-        </select>
+      <div class="model-wrap" id="modelWrap">
+        <button
+          type="button"
+          class="model-trigger"
+          id="modelTrigger"
+          aria-label="选择模型"
+          aria-haspopup="listbox"
+          aria-expanded="false"
+          disabled
+        >
+          <span class="model-trigger-label" id="modelTriggerLabel">默认模型</span>
+          <span class="model-trigger-caret" aria-hidden="true" title="展开模型列表"></span>
+        </button>
+        <div class="model-menu" id="modelMenu" role="listbox" aria-label="模型列表" hidden></div>
       </div>
     </div>
     <div class="body">
@@ -219,8 +350,15 @@
     const input = document.getElementById("input");
     const sendBtn = document.getElementById("sendBtn");
     const errorEl = document.getElementById("error");
-    const modelSelect = document.getElementById("modelSelect");
+    const modelWrap = document.getElementById("modelWrap");
+    const modelTrigger = document.getElementById("modelTrigger");
+    const modelTriggerLabel = document.getElementById("modelTriggerLabel");
+    const modelMenu = document.getElementById("modelMenu");
     let submitting = false;
+    /** @type {{ providerID: string, modelID: string, title: string, disabled?: boolean }[]} */
+    let modelOptions = [];
+    /** @type {string} */
+    let selectedModelKey = "";
 
     function modelKey(providerID, modelID) {
       return `${providerID || ""}::${modelID || ""}`;
@@ -236,41 +374,121 @@
       return { providerID, modelID };
     }
 
+    function applyTheme(theme) {
+      const resolved = theme === "light" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", resolved);
+      document.documentElement.style.colorScheme = resolved;
+    }
+
+    function closeModelMenu() {
+      modelWrap.classList.remove("open");
+      modelTrigger.setAttribute("aria-expanded", "false");
+      modelMenu.hidden = true;
+    }
+
+    function openModelMenu() {
+      if (modelTrigger.disabled) return;
+      modelWrap.classList.add("open");
+      modelTrigger.setAttribute("aria-expanded", "true");
+      modelMenu.hidden = false;
+      const selected = modelMenu.querySelector('[data-selected="true"]');
+      if (selected && typeof selected.scrollIntoView === "function") {
+        selected.scrollIntoView({ block: "nearest" });
+      }
+    }
+
+    function toggleModelMenu() {
+      if (modelWrap.classList.contains("open")) closeModelMenu();
+      else openModelMenu();
+    }
+
+    function setSelectedModel(key, title) {
+      selectedModelKey = key || "";
+      modelTriggerLabel.textContent = title || "默认模型";
+      for (const btn of modelMenu.querySelectorAll(".model-option")) {
+        btn.setAttribute(
+          "data-selected",
+          btn.dataset.value === selectedModelKey ? "true" : "false",
+        );
+      }
+    }
+
+    function renderModelMenu() {
+      modelMenu.innerHTML = "";
+      if (!modelOptions.length) {
+        const empty = document.createElement("div");
+        empty.className = "model-empty";
+        empty.textContent = "暂无可用模型";
+        modelMenu.appendChild(empty);
+        modelTrigger.disabled = true;
+        return;
+      }
+      modelTrigger.disabled = false;
+      for (const m of modelOptions) {
+        const key = modelKey(m.providerID, m.modelID);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "model-option";
+        btn.role = "option";
+        btn.dataset.value = key;
+        btn.textContent = m.title || m.modelID;
+        btn.disabled = m.disabled === true;
+        btn.setAttribute(
+          "data-selected",
+          key === selectedModelKey ? "true" : "false",
+        );
+        btn.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (btn.disabled) return;
+          setSelectedModel(key, m.title || m.modelID);
+          closeModelMenu();
+          input.focus();
+        });
+        modelMenu.appendChild(btn);
+      }
+    }
+
     function applyContext(ctx) {
       if (!ctx) return;
+      if (ctx.theme === "light" || ctx.theme === "dark") {
+        applyTheme(ctx.theme);
+      }
+
       const models = Array.isArray(ctx.models) ? ctx.models : [];
-      const selected =
+      modelOptions = models
+        .map((m) => ({
+          providerID: String(m.providerID || "").trim(),
+          modelID: String(m.modelID || "").trim(),
+          title: String(m.title || m.modelID || "").trim(),
+          disabled: m.disabled === true,
+        }))
+        .filter((m) => m.providerID && m.modelID);
+
+      const preferred =
         ctx.selectedModelKey ||
         (ctx.selectedProviderID && ctx.selectedModelID
           ? modelKey(ctx.selectedProviderID, ctx.selectedModelID)
           : "");
 
-      modelSelect.innerHTML = "";
-      if (!models.length) {
-        const opt = document.createElement("option");
-        opt.value = "";
-        opt.textContent = (ctx.modelLabel && String(ctx.modelLabel).trim()) || "默认模型";
-        modelSelect.appendChild(opt);
-        modelSelect.disabled = true;
-        return;
+      let nextKey = "";
+      let nextTitle = "";
+      if (modelOptions.some((m) => modelKey(m.providerID, m.modelID) === preferred)) {
+        const hit = modelOptions.find(
+          (m) => modelKey(m.providerID, m.modelID) === preferred,
+        );
+        nextKey = preferred;
+        nextTitle = (hit && (hit.title || hit.modelID)) || preferred;
+      } else if (modelOptions.length) {
+        nextKey = modelKey(modelOptions[0].providerID, modelOptions[0].modelID);
+        nextTitle = modelOptions[0].title || modelOptions[0].modelID;
+      } else {
+        nextTitle = (ctx.modelLabel && String(ctx.modelLabel).trim()) || "默认模型";
       }
 
-      modelSelect.disabled = false;
-      for (const m of models) {
-        const providerID = String(m.providerID || "").trim();
-        const modelID = String(m.modelID || "").trim();
-        if (!providerID || !modelID) continue;
-        const opt = document.createElement("option");
-        opt.value = modelKey(providerID, modelID);
-        opt.textContent = String(m.title || modelID).trim() || modelID;
-        if (m.disabled) opt.disabled = true;
-        modelSelect.appendChild(opt);
-      }
-      if ([...modelSelect.options].some((o) => o.value === selected)) {
-        modelSelect.value = selected;
-      } else if (modelSelect.options.length) {
-        modelSelect.selectedIndex = 0;
-      }
+      renderModelMenu();
+      setSelectedModel(nextKey, nextTitle);
+      closeModelMenu();
     }
 
     function setError(msg) {
@@ -292,7 +510,8 @@
       submitting = true;
       syncSendEnabled();
       setError("");
-      const model = parseModelKey(modelSelect.value);
+      closeModelMenu();
+      const model = parseModelKey(selectedModelKey);
       try {
         const result = await window.quickCapture.submit({
           text,
@@ -325,13 +544,25 @@
     sendBtn.addEventListener("click", () => void submit());
     input.addEventListener("input", syncSendEnabled);
 
-    // Don't close the panel when interacting with the native select.
-    modelSelect.addEventListener("mousedown", (e) => e.stopPropagation());
-    modelSelect.addEventListener("click", (e) => e.stopPropagation());
+    modelTrigger.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleModelMenu();
+    });
+    modelWrap.addEventListener("mousedown", (e) => e.stopPropagation());
+    modelMenu.addEventListener("mousedown", (e) => e.stopPropagation());
+
+    document.addEventListener("mousedown", (event) => {
+      if (!modelWrap.contains(event.target)) closeModelMenu();
+    });
 
     input.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
+        if (modelWrap.classList.contains("open")) {
+          closeModelMenu();
+          return;
+        }
         void window.quickCapture.close();
         return;
       }
@@ -344,6 +575,11 @@
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
+        if (modelWrap.classList.contains("open")) {
+          closeModelMenu();
+          modelTrigger.focus();
+          return;
+        }
         void window.quickCapture.close();
       }
     });
@@ -354,6 +590,7 @@
         submitting = false;
         setError("");
         syncSendEnabled();
+        closeModelMenu();
         input.focus();
         input.select();
       });

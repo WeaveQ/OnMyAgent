@@ -178,6 +178,27 @@ export function contentTypeForPath(path: string): string {
   return "application/octet-stream";
 }
 
+/**
+ * Build a Content-Disposition header safe for the Fetch Headers ByteString rules.
+ * Non-ASCII filenames (e.g. CJK) cannot be placed raw in `filename="…"` — Node's
+ * undici throws: "Cannot convert argument to a ByteString…". Use an ASCII
+ * fallback plus RFC 5987 `filename*`.
+ */
+export function contentDispositionHeader(
+  disposition: "inline" | "attachment",
+  filePathOrName: string,
+): string {
+  const name = basename(String(filePathOrName ?? "").trim()) || "download";
+  const ascii =
+    name.replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_") || "download";
+  // RFC 5987: percent-encode UTF-8 octets (encodeURIComponent is close enough).
+  const encoded = encodeURIComponent(name).replace(
+    /[!'()*]/g,
+    (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `${disposition}; filename="${ascii}"; filename*=UTF-8''${encoded}`;
+}
+
 export function contentKindForPath(path: string): "text" | "image" | "pdf" | "binary" {
   const lowered = path.toLowerCase();
   if (isSupportedWorkspaceTextFilePath(path)) return "text";

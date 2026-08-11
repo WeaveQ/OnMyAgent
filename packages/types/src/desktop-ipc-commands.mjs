@@ -31,7 +31,7 @@ const commandGroups = /** @type {const} */ ({
     "checkSystemPermissions", "openSystemPermissionSettings",
     "getLaunchAtLogin", "setLaunchAtLogin",
     "getKeepSystemAwake", "setKeepSystemAwake",
-    "setDockUnreadBadge", "getAgentReadySoundPath",
+    "setDockUnreadBadge", "getAgentReadySoundPath", "showDesktopNotification",
     "setStatusItemVisible", "getStatusItemVisible",
     "registerAppSnapshotHotkey", "unregisterAppSnapshotHotkey",
     "registerQuickCaptureHotkey", "unregisterQuickCaptureHotkey",

@@ -12,17 +12,27 @@ export const QUICK_CAPTURE_SUBMIT_EVENT = "onmyagent:quick-capture:submit";
 export const QUICK_CAPTURE_OPEN_EVENT = "onmyagent:quick-capture:open";
 
 /**
- * @param {object} input
- * @param {typeof import("electron").BrowserWindow} input.BrowserWindow
- * @param {() => Promise<import("electron").BrowserWindow | null | undefined> | import("electron").BrowserWindow | null | undefined} input.getMainWindow
- * @param {() => Promise<import("electron").BrowserWindow>} [input.createMainWindow]
- * @param {() => {
+ * @typedef {{
  *   workspaceLabel?: string;
  *   modelLabel?: string;
  *   selectedProviderID?: string;
  *   selectedModelID?: string;
- *   models?: Array<{ providerID: string; modelID: string; title: string; disabled?: boolean }>;
- * }} [input.getCaptureContext]
+ *   theme?: "light" | "dark";
+ *   models?: Array<{
+ *     providerID: string;
+ *     modelID: string;
+ *     title: string;
+ *     disabled?: boolean;
+ *   }>;
+ * }} QuickCaptureContext
+ */
+
+/**
+ * @param {object} input
+ * @param {typeof import("electron").BrowserWindow} input.BrowserWindow
+ * @param {() => Promise<import("electron").BrowserWindow | null | undefined> | import("electron").BrowserWindow | null | undefined} input.getMainWindow
+ * @param {() => Promise<import("electron").BrowserWindow>} [input.createMainWindow]
+ * @param {() => QuickCaptureContext | null | undefined} [input.getCaptureContext]
  * @param {string} [input.preloadPath]
  * @param {string} [input.htmlPath]
  */
@@ -31,7 +41,7 @@ export function createQuickCaptureWindowController(input) {
     BrowserWindow,
     getMainWindow,
     createMainWindow,
-    getCaptureContext = () => ({}),
+    getCaptureContext = () => (/** @type {QuickCaptureContext} */ ({})),
   } = input;
 
   const preloadPath =
@@ -43,10 +53,33 @@ export function createQuickCaptureWindowController(input) {
   /** @type {import("electron").BrowserWindow | null} */
   let captureWindow = null;
 
+  /**
+   * Resolve static panel HTML for both electron-dev and packaged asar builds.
+   * Packaged layout (preferred): app.asar/resources/quick-capture/index.html
+   * Fallback: process.resourcesPath/quick-capture (extraResources).
+   */
   function resolveHtmlPath() {
-    if (existsSync(htmlPath)) return htmlPath;
-    const alt = path.join(__dirname, "../resources/quick-capture.html");
-    return existsSync(alt) ? alt : htmlPath;
+    const resourcesPath =
+      typeof process !== "undefined" && typeof process.resourcesPath === "string"
+        ? process.resourcesPath
+        : "";
+    const candidates = [
+      htmlPath,
+      path.join(__dirname, "../resources/quick-capture/index.html"),
+      path.join(__dirname, "../resources/quick-capture.html"),
+      resourcesPath ? path.join(resourcesPath, "quick-capture", "index.html") : "",
+      resourcesPath
+        ? path.join(resourcesPath, "app.asar.unpacked", "resources", "quick-capture", "index.html")
+        : "",
+    ].filter(Boolean);
+    for (const candidate of candidates) {
+      if (existsSync(candidate)) return candidate;
+    }
+    console.error(
+      "[quick-capture] panel HTML not found; tried:",
+      candidates.join(" | "),
+    );
+    return htmlPath;
   }
 
   function isVisible() {
@@ -74,7 +107,8 @@ export function createQuickCaptureWindowController(input) {
 
     captureWindow = new BrowserWindow({
       width: 520,
-      height: 220,
+      // Taller so the custom model menu can open inside the panel without clipping.
+      height: 280,
       show: false,
       frame: false,
       resizable: false,
@@ -96,19 +130,29 @@ export function createQuickCaptureWindowController(input) {
 
     captureWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     captureWindow.on("blur", () => {
-      // Delay: native <select> menus briefly steal focus and would otherwise
-      // destroy the panel before the user can pick a model.
+      // Delay: native menus / custom dropdown can briefly steal focus; don't
+      // destroy the panel mid-pick. Also tolerate destroy races.
       setTimeout(() => {
-        if (!captureWindow || captureWindow.isDestroyed()) return;
-        if (captureWindow.isFocused()) return;
-        hide();
+        try {
+          if (!captureWindow || captureWindow.isDestroyed()) return;
+          if (captureWindow.isFocused()) return;
+          hide();
+        } catch {
+          // already destroyed
+        }
       }, 180);
     });
     captureWindow.on("closed", () => {
       captureWindow = null;
     });
 
-    void captureWindow.loadFile(resolveHtmlPath());
+    const resolvedHtml = resolveHtmlPath();
+    captureWindow.webContents.on("did-fail-load", (_e, code, desc, url) => {
+      console.error("[quick-capture] did-fail-load", { code, desc, url, resolvedHtml });
+    });
+    void captureWindow.loadFile(resolvedHtml).catch((error) => {
+      console.error("[quick-capture] loadFile failed", resolvedHtml, error);
+    });
     return captureWindow;
   }
 
@@ -128,17 +172,68 @@ export function createQuickCaptureWindowController(input) {
       // ignore placement errors
     }
 
-    const context = getCaptureContext() ?? {};
-    try {
-      win.webContents.send("onmyagent:quick-capture:context", context);
-    } catch {
-      // window may still be loading
+    // Wait for first load so a missing HTML path surfaces as a log, not a blank flash.
+    // Guard against hide()/destroy() racing the load timeout (uncaught "Object has been destroyed").
+    if (
+      !win.isDestroyed() &&
+      (win.webContents.isLoadingMainFrame?.() || win.webContents.isLoading())
+    ) {
+      await new Promise((resolve) => {
+        let settled = false;
+        const done = () => {
+          if (settled) return;
+          settled = true;
+          try {
+            if (!win.isDestroyed()) {
+              win.webContents.removeListener("did-finish-load", done);
+              win.webContents.removeListener("did-fail-load", done);
+            }
+          } catch {
+            // window already gone
+          }
+          resolve(undefined);
+        };
+        try {
+          win.webContents.once("did-finish-load", done);
+          win.webContents.once("did-fail-load", done);
+        } catch {
+          done();
+          return;
+        }
+        setTimeout(done, 2500);
+      });
     }
 
+    if (win.isDestroyed()) return null;
+
+    /** @type {QuickCaptureContext} */
+    const context = getCaptureContext() ?? {};
+    // Prefer renderer-pushed theme; fall back to OS/app native theme.
+    let theme = context.theme === "light" || context.theme === "dark" ? context.theme : null;
+    if (!theme) {
+      try {
+        const { nativeTheme } = await import("electron");
+        theme = nativeTheme.shouldUseDarkColors ? "dark" : "light";
+      } catch {
+        theme = "dark";
+      }
+    }
+    const payload = { ...context, theme };
+    try {
+      if (!win.isDestroyed()) {
+        win.webContents.send("onmyagent:quick-capture:context", payload);
+      }
+    } catch {
+      // window may still be loading or destroyed
+    }
+
+    if (win.isDestroyed()) return null;
     if (!win.isVisible()) win.show();
     win.focus();
     try {
-      win.webContents.send("onmyagent:quick-capture:focus");
+      if (!win.isDestroyed()) {
+        win.webContents.send("onmyagent:quick-capture:focus");
+      }
     } catch {
       // ignore
     }

@@ -69,6 +69,7 @@ import {
   setKeepSystemAwake,
   setDockUnreadBadge,
   getAgentReadySoundPath,
+  showDesktopNotification,
   registerAppSnapshotHotkey,
   unregisterAppSnapshotHotkey,
   registerQuickCaptureHotkey,
@@ -437,6 +438,8 @@ let quickCaptureContext = {
   modelLabel: "",
   selectedProviderID: "",
   selectedModelID: "",
+  /** @type {"light" | "dark"} */
+  theme: nativeTheme.shouldUseDarkColors ? "dark" : "light",
   models: /** @type {Array<{ providerID: string; modelID: string; title: string; disabled?: boolean }>} */ (
     []
   ),
@@ -1395,6 +1398,7 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   setStatusItemVisible: (v) => statusItem.setVisible(v),
   getStatusItemVisible: () => ({ visible: statusItem.isVisible(), platform: process.platform }),
   getAgentReadySoundPath,
+  showDesktopNotification,
   registerAppSnapshotHotkey,
   unregisterAppSnapshotHotkey,
   registerQuickCaptureHotkey,
@@ -1430,13 +1434,33 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
           }))
           .filter((entry) => entry.providerID && entry.modelID)
       : [];
+    const themeRaw = String(next?.theme ?? "").trim();
+    const theme =
+      themeRaw === "light" || themeRaw === "dark"
+        ? themeRaw
+        : nativeTheme.shouldUseDarkColors
+          ? "dark"
+          : "light";
     quickCaptureContext = {
       workspaceLabel: String(next?.workspaceLabel ?? "").trim(),
       modelLabel: String(next?.modelLabel ?? "").trim(),
       selectedProviderID: String(next?.selectedProviderID ?? "").trim(),
       selectedModelID: String(next?.selectedModelID ?? "").trim(),
+      theme,
       models,
     };
+    // Keep an open panel in sync (theme / model list) without reopening.
+    try {
+      if (quickCapture?.isVisible?.()) {
+        const win =
+          typeof quickCapture.ensureWindow === "function"
+            ? quickCapture.ensureWindow()
+            : null;
+        win?.webContents?.send?.("onmyagent:quick-capture:context", quickCaptureContext);
+      }
+    } catch {
+      // ignore
+    }
     return { ok: true, ...quickCaptureContext };
   },
   toggleQuickCapture: () => quickCapture.toggle(),
