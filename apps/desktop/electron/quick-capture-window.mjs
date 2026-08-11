@@ -12,18 +12,27 @@ export const QUICK_CAPTURE_SUBMIT_EVENT = "onmyagent:quick-capture:submit";
 export const QUICK_CAPTURE_OPEN_EVENT = "onmyagent:quick-capture:open";
 
 /**
- * @param {object} input
- * @param {typeof import("electron").BrowserWindow} input.BrowserWindow
- * @param {() => Promise<import("electron").BrowserWindow | null | undefined> | import("electron").BrowserWindow | null | undefined} input.getMainWindow
- * @param {() => Promise<import("electron").BrowserWindow>} [input.createMainWindow]
- * @param {() => {
+ * @typedef {{
  *   workspaceLabel?: string;
  *   modelLabel?: string;
  *   selectedProviderID?: string;
  *   selectedModelID?: string;
  *   theme?: "light" | "dark";
- *   models?: Array<{ providerID: string; modelID: string; title: string; disabled?: boolean }>;
- * }} [input.getCaptureContext]
+ *   models?: Array<{
+ *     providerID: string;
+ *     modelID: string;
+ *     title: string;
+ *     disabled?: boolean;
+ *   }>;
+ * }} QuickCaptureContext
+ */
+
+/**
+ * @param {object} input
+ * @param {typeof import("electron").BrowserWindow} input.BrowserWindow
+ * @param {() => Promise<import("electron").BrowserWindow | null | undefined> | import("electron").BrowserWindow | null | undefined} input.getMainWindow
+ * @param {() => Promise<import("electron").BrowserWindow>} [input.createMainWindow]
+ * @param {() => QuickCaptureContext | null | undefined} [input.getCaptureContext]
  * @param {string} [input.preloadPath]
  * @param {string} [input.htmlPath]
  */
@@ -32,7 +41,7 @@ export function createQuickCaptureWindowController(input) {
     BrowserWindow,
     getMainWindow,
     createMainWindow,
-    getCaptureContext = () => ({}),
+    getCaptureContext = () => (/** @type {QuickCaptureContext} */ ({})),
   } = input;
 
   const preloadPath =
@@ -197,6 +206,7 @@ export function createQuickCaptureWindowController(input) {
 
     if (win.isDestroyed()) return null;
 
+    /** @type {QuickCaptureContext} */
     const context = getCaptureContext() ?? {};
     // Prefer renderer-pushed theme; fall back to OS/app native theme.
     let theme = context.theme === "light" || context.theme === "dark" ? context.theme : null;
