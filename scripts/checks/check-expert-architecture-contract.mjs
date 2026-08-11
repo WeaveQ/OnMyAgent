@@ -26,14 +26,20 @@ const REMOVED_RENDERER_PATHS = [
   "apps/app/src/react-app/domains/session/sync/expert-session-directory.ts",
 ];
 
-const EXPERT_INVENTORY_CONSUMERS = new Set([
-  "apps/app/src/react-app/capabilities/session-identity/expert-directory-query.ts",
-  "apps/app/src/react-app/capabilities/session-identity/expert-directory-page-model.ts",
-  "apps/app/src/react-app/capabilities/session-identity/expert-directory-store.ts",
-  "apps/app/src/react-app/shell/session-route/session-loader-hook.ts",
-  "apps/app/src/react-app/shell/session-route/sessions.ts",
-  "apps/app/src/react-app/domains/session/pages/use-expert-page.tsx",
-]);
+const EXPERT_INVENTORY_CONSUMER_ROOTS = [
+  {
+    path: "apps/app/src/react-app/capabilities/session-identity",
+    reason: "Expert Directory identity/query/cache consumers",
+  },
+  {
+    path: "apps/app/src/react-app/shell/session-route",
+    reason: "session-route aggregate loading and Expert session consumers",
+  },
+  {
+    path: "apps/app/src/react-app/domains/session/pages",
+    reason: "Expert/session page consumers of the authoritative directory",
+  },
+];
 
 const CUSTOM_AGENT_IDENTITY_OWNER_PATHS = new Set([
   "apps/app/src/react-app/domains/agents/agent-registry-store.ts",
@@ -185,10 +191,16 @@ function evaluateCacheWriter(repoRoot, sources, failures, checks) {
   checks.push({ name: "one Expert Directory cache writer", ok, definitions, writerPaths });
 }
 
+function isExpertInventoryConsumer(relativePath) {
+  return EXPERT_INVENTORY_CONSUMER_ROOTS.some(({ path }) =>
+    relativePath === path || relativePath.startsWith(`${path}/`),
+  );
+}
+
 function evaluateNo404DeletionInference(sources, failures, checks) {
   const inferencePattern = /(?:status|code)\s*(?:===?|!==?)\s*404|session_not_found|HTTP\s*404/i;
   const hits = sources.filter(
-    (source) => EXPERT_INVENTORY_CONSUMERS.has(source.relativePath) && inferencePattern.test(source.text),
+    (source) => isExpertInventoryConsumer(source.relativePath) && inferencePattern.test(source.text),
   );
   for (const source of hits) {
     addFailure(
@@ -202,6 +214,7 @@ function evaluateNo404DeletionInference(sources, failures, checks) {
     name: "no 404-derived Expert/session deletion",
     ok: hits.length === 0,
     hits: hits.map((source) => source.relativePath),
+    consumerRoots: EXPERT_INVENTORY_CONSUMER_ROOTS,
   });
 }
 

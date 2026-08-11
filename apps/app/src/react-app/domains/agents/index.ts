@@ -116,16 +116,20 @@ export {
   updateExpertRecordFromDraft,
 } from "./expert-creation-save-model";
 export {
-  EXPERT_PACKAGES_CHANGED_EVENT,
   canHardDeleteExpert,
   clearExpertLocalSessionBindings,
   deleteExpertPackageForAgent,
   deleteExpertPackagesForAgent,
-  notifyExpertPackagesChanged,
   packageNameCandidatesForAgent,
   packageNameForAgent,
   removeExpertFromRegistry,
 } from "./expert-hard-delete";
+export {
+  EXPERT_PACKAGE_QUERY_KEY,
+  invalidateExpertPackageQuery,
+  refreshExpertPackageQuery,
+  useExpertPackageQuery,
+} from "./expert-package-query";
 export {
   EXPERT_SESSION_LIFECYCLE_RULES,
   isDraftSessionId,

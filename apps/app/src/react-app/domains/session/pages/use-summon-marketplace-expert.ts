@@ -3,7 +3,11 @@
  */
 import { useCallback } from "react";
 
-import { createExpertOperationId, usePendingAgentStore } from "../../agents";
+import {
+  createExpertOperationId,
+  refreshExpertPackageQuery,
+  usePendingAgentStore,
+} from "../../agents";
 import { installSummonedMarketplaceExpert } from "@/react-app/domains/plugins";
 import { buildPendingAgentFromMarketplaceExpert } from "@/react-app/domains/agents";
 import { resolveMarketplaceExpertStartPrompt } from "@/react-app/domains/plugins";
@@ -27,12 +31,14 @@ export function useSummonMarketplaceExpert(options: {
         expert,
         initialPrompt,
       );
-      void installSummonedMarketplaceExpert(expert).catch((error) => {
-        console.warn(
-          "[expert-marketplace] failed to install expert package",
-          error,
-        );
-      });
+      void installSummonedMarketplaceExpert(expert)
+        .then(() => refreshExpertPackageQuery())
+        .catch((error) => {
+          console.warn(
+            "[expert-marketplace] failed to install expert package",
+            error,
+          );
+        });
       // Bind pending agent BEFORE create-task: that path clears pendingAgent
       // synchronously, which used to drop the expert id on race.
       const pending = buildPendingAgentFromMarketplaceExpert(expert);

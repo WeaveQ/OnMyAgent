@@ -92,6 +92,26 @@ describe("expert directory projection", () => {
     expect(projection.records[0]).toMatchObject({ runtimeMissing: true, sessionIds: ["session-origin"] });
   });
 
+  test("durable ghost origin is marked session-missing without renderer pruning", async () => {
+    const current = await workspace("ghost-origin");
+    await upsertSessionOrigin(current, "session-ghost", {
+      kind: "expert",
+      agentId: "expert-a",
+      packageName: "expert-package",
+      directory: "/external/runtime/session-ghost",
+    });
+    const projection = await buildExpertDirectory(current, {
+      runtimeRoot: join(tmpdir(), "onmyagent-no-runtime-root"),
+      readSessions: async () => [],
+    });
+    expect(projection.complete).toBe(true);
+    expect(projection.records[0]).toMatchObject({
+      runtimeMissing: true,
+      sessionMissing: true,
+      sessionIds: ["session-ghost"],
+    });
+  });
+
   test("legacy marker binds to OpenCode directory, never marker sessionKey", async () => {
     const current = await workspace("legacy-binding");
     const marker = await markerRoot(current, "legacy-agent", "real-session-id");

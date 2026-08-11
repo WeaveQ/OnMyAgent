@@ -43,6 +43,7 @@ import {
 } from "./expert-creation-save-model";
 import { deleteExpertCreationEphemeralSession } from "./expert-creation-ephemeral-sessions";
 import type { ExpertCreationComposerProps } from "./expert-creation-conversation";
+import { refreshExpertPackageQuery } from "./expert-package-query";
 export {
   beginExpertCreateSaveAttempt,
   consumeExpertCreateComposerFlush,
@@ -138,6 +139,7 @@ export async function saveExpertCreation(
         : {}),
       ...(input.draftId ? { draftId: input.draftId } : {}),
     });
+    await refreshExpertPackageQuery();
     agent = {
       ...createdAgent,
       marketplaceSource: "mine",
@@ -206,6 +208,7 @@ export async function updateExpertCreation(
         ? { avatarDataUrl: updatedDraftAgent.customAvatarDataUrl }
         : {}),
     });
+    await refreshExpertPackageQuery();
     agent = {
       ...updatedDraftAgent,
       marketplaceSource: "mine",

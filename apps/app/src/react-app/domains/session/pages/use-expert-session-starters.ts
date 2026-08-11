@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import {
   buildPendingAgentFromRecord,
   createExpertOperationId,
+  refreshExpertPackageQuery,
   type AgentRegistry,
   type PendingAgentContext,
 } from "../../agents";
@@ -93,12 +94,14 @@ export function useExpertSessionStarters(input: {
         );
       }
       // Already-installed packages resolve instantly via coordinator cache.
-      void installSummonedMarketplaceExpert(expert).catch((error) => {
-        console.warn(
-          "[expert-marketplace] failed to install expert package",
-          error,
-        );
-      });
+      void installSummonedMarketplaceExpert(expert)
+        .then(() => refreshExpertPackageQuery())
+        .catch((error) => {
+          console.warn(
+            "[expert-marketplace] failed to install expert package",
+            error,
+          );
+        });
     },
     [input],
   );

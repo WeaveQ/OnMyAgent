@@ -4,6 +4,7 @@ import {
   createExpertSurfaceInitialState,
   reduceExpertSurface,
   selectExpertSurfaceNavigation,
+  shouldDropExpertSurfaceDraft,
   type ExpertSurfaceEvent,
   type ExpertSurfaceState,
 } from "../src/react-app/domains/session/pages/expert-surface-machine";
@@ -16,20 +17,29 @@ const events: ExpertSurfaceEvent[] = [
   { type: "CREATE_BOUND", operationId: "stale", sessionId: "ses-stale" },
   { type: "REQUEST_NAVIGATION", operationId: "op-a" },
   { type: "REQUEST_NAVIGATION", operationId: "op-b" },
-  { type: "OPEN_REAL_SESSION", workspaceId: "ws", agentId: "a", sessionId: "ses-a" },
-  { type: "OPEN_REAL_SESSION", workspaceId: "ws", agentId: "b", sessionId: "ses-b" },
+  { type: "SYNC_ROUTE", workspaceId: "ws", agentId: "a", sessionId: "ses-a" },
+  { type: "SYNC_ROUTE", workspaceId: "ws", agentId: "b", sessionId: "ses-b" },
+  { type: "SET_PENDING_TAB", sessionId: "ses-a" },
+  { type: "CLEAR_DRAFT" },
   { type: "CREATE_FAILED", operationId: "op-a" },
   { type: "RESET", workspaceId: "ws" },
 ];
 
+function assertRealSessionId(sessionId: string) {
+  expect(sessionId.trim()).not.toBe("");
+  expect(sessionId.startsWith("draft:")).toBe(false);
+}
+
 function assertValid(state: ExpertSurfaceState) {
-  if (state.kind === "real_session" || state.kind === "creating") {
-    expect(state.sessionId.trim()).not.toBe("");
-    expect(state.sessionId.startsWith("draft:")).toBe(false);
-  }
-  if (state.kind === "creating") {
-    expect(state.operationId.trim()).not.toBe("");
-    expect(state.agentId.trim()).not.toBe("");
+  expect(state.workspaceId.trim()).not.toBe("");
+  if (state.route) assertRealSessionId(state.route.sessionId);
+  if (state.pendingTabSessionId) assertRealSessionId(state.pendingTabSessionId);
+  if (state.draft) {
+    expect(state.draft.operationId.trim()).not.toBe("");
+    expect(state.draft.agentId.trim()).not.toBe("");
+    if (state.draft.boundSessionId) {
+      assertRealSessionId(state.draft.boundSessionId);
+    }
   }
 }
 
@@ -56,7 +66,7 @@ describe("expert surface finite-state machine", () => {
       operationId: "old-op",
       sessionId: "ses-old",
     });
-    expect(state.kind).toBe("idle_draft");
+    expect(state.draft?.boundSessionId).toBeNull();
 
     state = reduceExpertSurface(state, {
       type: "CREATE_BOUND",
@@ -80,7 +90,7 @@ describe("expert surface finite-state machine", () => {
     ).toBe(state);
   });
 
-  test("explicit real-tab selection wins over a late create", () => {
+  test("explicit real-tab selection wins over a late create without losing its transaction", () => {
     let state = reduceExpertSurface(createExpertSurfaceInitialState("ws"), {
       type: "OPEN_DRAFT",
       workspaceId: "ws",
@@ -88,7 +98,7 @@ describe("expert surface finite-state machine", () => {
       operationId: "op-a",
     });
     state = reduceExpertSurface(state, {
-      type: "OPEN_REAL_SESSION",
+      type: "SYNC_ROUTE",
       workspaceId: "ws",
       agentId: "b",
       sessionId: "ses-b",
@@ -98,11 +108,34 @@ describe("expert surface finite-state machine", () => {
       operationId: "op-a",
       sessionId: "ses-a",
     });
-    expect(state).toEqual({
-      kind: "real_session",
-      workspaceId: "ws",
+    expect(state.route).toEqual({ agentId: "b", sessionId: "ses-b" });
+    expect(state.draft?.boundSessionId).toBe("ses-a");
+    expect(shouldDropExpertSurfaceDraft(state)).toBe(true);
+  });
+
+  test("switching workspace clears the old draft and pending tab atomically", () => {
+    let state = reduceExpertSurface(createExpertSurfaceInitialState("ws-a"), {
+      type: "OPEN_DRAFT",
+      workspaceId: "ws-a",
+      agentId: "a",
+      operationId: "op-a",
+    });
+    state = reduceExpertSurface(state, {
+      type: "CREATE_BOUND",
+      operationId: "op-a",
+      sessionId: "ses-a",
+    });
+    state = reduceExpertSurface(state, {
+      type: "SYNC_ROUTE",
+      workspaceId: "ws-b",
       agentId: "b",
       sessionId: "ses-b",
+    });
+    expect(state).toEqual({
+      workspaceId: "ws-b",
+      route: { agentId: "b", sessionId: "ses-b" },
+      draft: null,
+      pendingTabSessionId: null,
     });
   });
 });

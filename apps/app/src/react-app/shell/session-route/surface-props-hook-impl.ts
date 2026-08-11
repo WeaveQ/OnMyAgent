@@ -29,7 +29,7 @@ import type {
   SidebarSessionItem,
   TodoItem,
 } from "../../../app/types";
-import { isSandboxWorkspace } from "../../../app/utils";
+import { isElectronRuntime, isSandboxWorkspace } from "../../../app/utils";
 import { t, type Language } from "../../../i18n";
 import type { LocalPreferences } from "../../kernel/local-provider";
 import type { PageMode } from "../../domains/session";
@@ -62,10 +62,13 @@ import {
   shouldIsolateExpertSessionDirectory,
 } from "../../capabilities/session-identity/expert-session-directory";
 import {
-  resolveExpertPromptAgent,
+  filterExpertPromptAgentOptions,
+  normalizeExpertPromptAgentSelection,
+  previewExpertPromptAgent,
 } from "../../capabilities/session-identity/expert-prompt-agent";
 import { useExpertDirectoryStore } from "../../capabilities/session-identity/expert-directory-store";
 import { useSessionActivityStore } from "../../domains/session";
+import { useExpertPackageQuery } from "../../domains/agents";
 import {
   buildOnMyAgentEnvSystemContext,
   applyAutoCaptureMemory,
@@ -291,6 +294,72 @@ export function useSessionRouteSurfaceProps(
   selectedSessionIdRef.current = selectedSessionId;
 
   const pendingAgentForPrewarm = usePendingAgentStore((state) => state.agent);
+  const expertSessionIdentity = useExpertDirectoryStore((state) =>
+    state.getIdentity(selectedWorkspaceId),
+  );
+  const expertPackageQuery = useExpertPackageQuery(pageMode === "expert");
+  const activeExpertAgentId =
+    (selectedSessionId
+      ? expertSessionIdentity.agentIdBySessionId.get(selectedSessionId)
+      : pendingAgentForPrewarm?.id) ?? null;
+  const activePendingAgent =
+    pendingAgentForPrewarm &&
+    (!selectedSessionId ||
+      pendingAgentForPrewarm.boundSessionId === selectedSessionId ||
+      pendingAgentForPrewarm.draftSource)
+      ? pendingAgentForPrewarm
+      : null;
+  const activeExpertPackage = useMemo(() => {
+    const packageName = activePendingAgent?.marketplaceExpert?.packageName?.trim();
+    const agentId = activeExpertAgentId?.trim();
+    if (!packageName && !agentId) return null;
+    return (
+      expertPackageQuery.data?.find(
+        (entry) =>
+          (packageName && entry.packageName === packageName) ||
+          (agentId &&
+            (entry.id === agentId ||
+              entry.packageName === agentId ||
+              entry.leadAgentName === agentId)),
+      ) ?? null
+    );
+  }, [
+    activeExpertAgentId,
+    activePendingAgent,
+    expertPackageQuery.data,
+  ]);
+  const expertApprovedAgentIds = useMemo(() => {
+    return [
+      ...new Set([
+        ...(activePendingAgent?.approvedAgentIds ?? []),
+        ...(activeExpertPackage?.approvedAgentIds ?? []),
+      ]),
+    ];
+  }, [activeExpertPackage?.approvedAgentIds, activePendingAgent?.approvedAgentIds]);
+  const expertPackageMetadataReady =
+    !isElectronRuntime() ||
+    activePendingAgent?.approvedAgentIds !== undefined ||
+    expertPackageQuery.isFetched;
+
+  useEffect(() => {
+    if (pageMode !== "expert" || !selectedAgent?.trim()) return;
+    if (!expertPackageMetadataReady) return;
+    if (
+      normalizeExpertPromptAgentSelection(
+        selectedAgent,
+        expertApprovedAgentIds,
+      ) === null
+    ) {
+      setSelectedAgent(null);
+    }
+  }, [
+    expertApprovedAgentIds,
+    expertPackageMetadataReady,
+    pageMode,
+    selectedAgent,
+    setSelectedAgent,
+  ]);
+
   // Backup prewarm on the *same* client/workspaceId as send (claim key match).
   // activateDraftAgent also prewarms; getOrStart dedupes identical keys.
   useEffect(() => {
@@ -1276,11 +1345,11 @@ export function useSessionRouteSurfaceProps(
               // Expert isolation: never fall through to home default (Sisyphus).
               agent:
                 pageMode === "expert" || boundExpertId
-                  ? resolveExpertPromptAgent(
+                  ? previewExpertPromptAgent(
                       selectedAgent,
                       pendingAgentSnapshot?.approvedAgentIds ??
                         currentPendingAgent?.approvedAgentIds ??
-                        [],
+                        expertApprovedAgentIds,
                     )
                   : selectedAgent ?? undefined,
               ...(modelVariantValue ? { variant: modelVariantValue } : {}),
@@ -1348,22 +1417,32 @@ export function useSessionRouteSurfaceProps(
       selectedAgent,
       listAgents: async () => {
         const list = unwrap(await opencodeClient.app.agents());
-        return list.filter(
+        const visible = list.filter(
           (agent) => !agent.hidden && agent.mode !== "subagent",
         );
+        return pageMode === "expert"
+          ? filterExpertPromptAgentOptions(visible, expertApprovedAgentIds)
+          : visible;
       },
       onSelectAgent: (agent: string | null) => {
         const next = agent?.trim() ? agent.trim() : null;
+        const normalized =
+          pageMode === "expert"
+            ? normalizeExpertPromptAgentSelection(
+                next,
+                expertApprovedAgentIds,
+              )
+            : next;
         if (
-          next &&
+          normalized &&
           !shouldApplyExpertSelection({
-            nextExpertId: next,
+            nextExpertId: normalized,
             selectedExpertId: selectedAgent,
           })
         ) {
           return;
         }
-        setSelectedAgent(next);
+        setSelectedAgent(normalized);
       },
       listCommands: listSlashCommands,
       recentFiles: [],
@@ -1481,6 +1560,7 @@ export function useSessionRouteSurfaceProps(
     assistantDraftWorkspaceRoot,
     compactModelPickerOpen,
     effectiveModelRef,
+    expertApprovedAgentIds,
     handleRuntimeSessionUpdated,
     handleRuntimeSessionStatus,
     handleOpenSettings,

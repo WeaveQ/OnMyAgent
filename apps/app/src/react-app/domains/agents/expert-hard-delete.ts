@@ -19,13 +19,7 @@ import {
 } from "./agent-registry-store";
 import type { AgentRegistry } from "./agent-registry-types";
 import { shouldClearLocalBindingOnDelete } from "./expert-session-lifecycle";
-
-export const EXPERT_PACKAGES_CHANGED_EVENT = "onmyagent.expert-packages-changed";
-
-export function notifyExpertPackagesChanged() {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent(EXPERT_PACKAGES_CHANGED_EVENT));
-}
+import { invalidateExpertPackageQuery } from "./expert-package-query";
 
 export function canHardDeleteExpert(
   agentId: string,
@@ -141,7 +135,7 @@ export async function deleteExpertPackagesForAgent(input: {
     agentId: input.agentId.trim(),
     packageName,
   });
-  notifyExpertPackagesChanged();
+  await invalidateExpertPackageQuery();
 }
 
 /** Clear session↔agent bindings and expert session tags for deleted sessions. */

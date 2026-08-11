@@ -92,11 +92,38 @@ test("architecture contract rejects a second Expert Directory cache writer", () 
   }
 });
 
-test("architecture contract rejects 404-derived Expert deletion inference", () => {
+test("architecture contract rejects 404-derived Expert deletion inference in a newly added consumer", () => {
   const root = passingFixture();
   try {
-    writeFixtureFile(root, "apps/app/src/react-app/shell/session-route/session-loader-hook.ts", `
+    writeFixtureFile(root, "apps/app/src/react-app/shell/session-route/new-expert-consumer.ts", `
 export function recover(error) { if (error.status === 404) return "delete"; }
+`);
+    const result = evaluateExpertArchitectureContracts(root);
+    assert.equal(result.ok, false);
+    assert.ok(result.failures.some((failure) => failure.code === "expert-404-deletion-inference"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("architecture contract ignores 404 handling outside Expert/session consumer roots", () => {
+  const root = passingFixture();
+  try {
+    writeFixtureFile(root, "apps/app/src/react-app/domains/settings/unrelated-error.ts", `
+export function recover(error) { if (error.status === 404) return "ignore"; }
+`);
+    const result = evaluateExpertArchitectureContracts(root);
+    assert.equal(result.ok, true, result.failures.map((failure) => failure.message).join("\n"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("architecture contract rejects session_not_found inference in a newly added identity consumer", () => {
+  const root = passingFixture();
+  try {
+    writeFixtureFile(root, "apps/app/src/react-app/capabilities/session-identity/new-directory-consumer.ts", `
+export function recover(error) { if (error.code === "session_not_found") return "delete"; }
 `);
     const result = evaluateExpertArchitectureContracts(root);
     assert.equal(result.ok, false);

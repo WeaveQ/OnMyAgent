@@ -12,8 +12,7 @@ export function useExpertDraftCleanup(input: {
   pendingAgentDraftSource: PendingAgentContext["draftSource"] | undefined;
   workspaceId: string;
   setDraftAgentContexts: Dispatch<SetStateAction<DraftContexts>>;
-  setDraftSessionActive: Dispatch<SetStateAction<boolean>>;
-  setDraftAgentId: Dispatch<SetStateAction<string | null>>;
+  clearSurfaceDraft: () => void;
 }) {
   const cleanupRef = useRef({
     active: false,
@@ -44,16 +43,14 @@ export function useExpertDraftCleanup(input: {
         return next;
       });
     }
-    input.setDraftSessionActive(false);
-    input.setDraftAgentId(null);
+    input.clearSurfaceDraft();
   }, [
     input.activeDraftSessionId,
     input.activeSidebarView,
     input.draftSessionActive,
     input.pendingAgentDraftSource,
     input.setDraftAgentContexts,
-    input.setDraftAgentId,
-    input.setDraftSessionActive,
+    input.clearSurfaceDraft,
     input.workspaceId,
   ]);
 

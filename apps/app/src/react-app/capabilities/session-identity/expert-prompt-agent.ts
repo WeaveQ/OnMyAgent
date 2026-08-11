@@ -2,9 +2,6 @@
 
 export const EXPERT_PROMPT_DEFAULT_AGENT = "onmyagent";
 
-export const EXPERT_RUNTIME_CONTRACT_ERROR_CODE =
-  "expert_runtime_contract_violated";
-
 function normalizeApprovedAgentIds(
   approvedAgentIds: readonly string[],
 ): Set<string> {
@@ -14,18 +11,50 @@ function normalizeApprovedAgentIds(
 }
 
 /**
- * Resolve the OpenCode `agent` field for promptAsync on expert turns.
- * - Permit an explicitly package-approved composer selection.
- * - Otherwise use the light default.
- * - Fail closed for every other id; the server repeats this assertion.
+ * Preview the renderer's Expert selection. This is intentionally not the
+ * runtime contract: the server remains the sole authoritative throwing
+ * enforcement for promptAsync requests.
+ *
+ * A null result means the selection is empty or stale and callers should use
+ * the default/null path rather than forwarding an undeclared id.
  */
-export function resolveExpertPromptAgent(
+export function normalizeExpertPromptAgentSelection(
+  selectedAgent: string | null | undefined,
+  approvedAgentIds: readonly string[] = [],
+): string | null {
+  const selected = selectedAgent?.trim() ?? "";
+  if (!selected) return null;
+  if (selected === EXPERT_PROMPT_DEFAULT_AGENT) return selected;
+  return normalizeApprovedAgentIds(approvedAgentIds).has(selected)
+    ? selected
+    : null;
+}
+
+/**
+ * Return a safe renderer preview value for an Expert prompt. The fallback is
+ * only a UI/send-path normalization; server validation still owns rejection.
+ */
+export function previewExpertPromptAgent(
   selectedAgent: string | null | undefined,
   approvedAgentIds: readonly string[] = [],
 ): string {
-  const selected = selectedAgent?.trim() ?? "";
-  if (!selected) return EXPERT_PROMPT_DEFAULT_AGENT;
-  if (selected === EXPERT_PROMPT_DEFAULT_AGENT) return selected;
-  if (normalizeApprovedAgentIds(approvedAgentIds).has(selected)) return selected;
-  throw new Error(EXPERT_RUNTIME_CONTRACT_ERROR_CODE);
+  return (
+    normalizeExpertPromptAgentSelection(selectedAgent, approvedAgentIds) ??
+    EXPERT_PROMPT_DEFAULT_AGENT
+  );
+}
+
+/**
+ * Filter composer options to the Expert package's declared ids. Generic
+ * assistant mode must skip this helper and retain the ordinary agent list.
+ */
+export function filterExpertPromptAgentOptions<T extends { name?: string | null }>(
+  agents: readonly T[],
+  approvedAgentIds: readonly string[] = [],
+): T[] {
+  const allowed = normalizeApprovedAgentIds([
+    EXPERT_PROMPT_DEFAULT_AGENT,
+    ...approvedAgentIds,
+  ]);
+  return agents.filter((agent) => allowed.has(agent.name?.trim() ?? ""));
 }

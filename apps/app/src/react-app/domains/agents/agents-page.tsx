@@ -37,6 +37,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/i18n";
 import { useStatusToasts } from "../shell-feedback";
+import { refreshExpertPackageQuery } from "./expert-package-query";
 import { SelectMenu } from "../../design-system/select-menu";
 import {
   AGENT_AVATAR_STYLES,
@@ -669,6 +670,7 @@ export function AgentsPage(props: AgentsPageProps) {
         quote: createdAgent.quote,
         skills: [...createdAgent.skillIds],
       });
+      await refreshExpertPackageQuery();
       agent = {
         ...createdAgent,
         marketplaceSource: "mine",

@@ -15,8 +15,12 @@ export function useOpenExpertSession(input: {
   draftAgentId: string | null;
   draftSessionActive: boolean;
   setDraftAgentContexts: Dispatch<SetStateAction<Record<string, PendingAgentContext>>>;
-  setDraftAgentId: Dispatch<SetStateAction<string | null>>;
-  setDraftSessionActive: Dispatch<SetStateAction<boolean>>;
+  clearSurfaceDraft: () => void;
+  onOpenRealSession: (
+    workspaceId: string,
+    agentId: string,
+    sessionId: string,
+  ) => void;
   openRailView: (view: "chat") => void;
   expertDirectoryIdentity: ExpertDirectoryIdentityIndex;
 }) {
@@ -50,10 +54,12 @@ export function useOpenExpertSession(input: {
           usePendingAgentStore.getState().setAgent(null);
         }
       }
-      input.setDraftSessionActive(false);
-      input.setDraftAgentId(null);
+      input.clearSurfaceDraft();
       input.openRailView("chat");
-      if (targetAgentId) writeExpertSessionSelection(workspaceId, targetAgentId, trimmed);
+      if (targetAgentId) {
+        input.onOpenRealSession(workspaceId, targetAgentId, trimmed);
+        writeExpertSessionSelection(workspaceId, targetAgentId, trimmed);
+      }
       input.sidebar.onOpenSession(workspaceId, sessionId);
     },
     [input],

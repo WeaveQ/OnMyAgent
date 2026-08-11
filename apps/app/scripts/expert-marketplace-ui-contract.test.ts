@@ -37,6 +37,16 @@ const EXPERT_PAGE_SEAM_FILES = [
   "apps/app/src/react-app/domains/session/pages/use-expert-draft-cleanup.ts",
   "apps/app/src/react-app/domains/session/pages/use-expert-route-lifecycle.ts",
   "apps/app/src/react-app/domains/session/pages/use-expert-session-tab-order.ts",
+  "apps/app/src/react-app/domains/session/pages/use-expert-page-identity.ts",
+  "apps/app/src/react-app/domains/session/pages/use-expert-page-navigation.ts",
+  "apps/app/src/react-app/domains/session/pages/use-expert-page-view-model.tsx",
+  "apps/app/src/react-app/domains/session/pages/use-expert-page-modals.ts",
+  "apps/app/src/react-app/domains/session/pages/use-expert-page-session-effects.ts",
+  "apps/app/src/react-app/domains/session/pages/use-expert-conversation-tabs.tsx",
+  "apps/app/src/react-app/domains/session/pages/use-expert-surface-controller.ts",
+  "apps/app/src/react-app/domains/session/pages/expert-surface-machine.ts",
+  "apps/app/src/react-app/domains/session/pages/expert-surface-mode.ts",
+  "apps/app/src/react-app/domains/session/pages/use-expert-bound-draft-transition.ts",
 ].map(readWorkspaceFile);
 
 function readExpertPageSource() {
@@ -64,6 +74,14 @@ function builtInPackageNames(): string[] {
 }
 
 describe("expert marketplace UI contract", () => {
+  test("refreshes the shared Expert package query after route-level install", () => {
+    const routeIntent = readWorkspaceFile(
+      "apps/app/src/react-app/shell/session-route/intent.ts",
+    );
+    expect(routeIntent).toContain("ensureMarketplaceExpertInstalled(marketplaceExpert)");
+    expect(routeIntent).toContain("await refreshExpertPackageQuery()");
+  });
+
   test("does not ship the retired minimax-docx marketplace capability", () => {
     expect(existsSync(retiredMinimaxDocxSkillRoot)).toBe(false);
 
@@ -559,10 +577,8 @@ describe("expert marketplace UI contract", () => {
     expect(sessionStarters).toContain("installSummonedMarketplaceExpert(expert)");
     expect(assistantPage).toContain("useSummonMarketplaceExpert");
     expect(summonHook).toContain("installSummonedMarketplaceExpert(expert)");
-    expect(myExpertsHook).toContain('listExpertPackages("experts")');
-    expect(myExpertsHook).toContain('listExpertPackages("my-experts")');
-    expect(myExpertsHook).toContain("const entriesByPackageName = new Map(");
-    expect(myExpertsHook).toContain("[...entriesByPackageName.values()]");
+    expect(myExpertsHook).toContain("useExpertPackageQuery(enabled)");
+    expect(myExpertsHook).not.toContain("EXPERT_PACKAGES_CHANGED_EVENT");
     expect(expertPage).toContain("useMyExpertPackages");
     // The expert page owns real summoned sessions; it must not synthesize
     // starter entries into the sidebar from local package metadata.
@@ -865,10 +881,10 @@ describe("expert marketplace UI contract", () => {
     expect(expertPage).toContain("draftAgentContexts");
     expect(conversationModel).toContain("export function buildDraftAgentGroups");
     expect(expertHost).toContain("`draft:${selectedWorkspaceId}:${agent.id}`");
-    expect(expertPage).toContain("onOpenDraftSession={handleOpenDraftSession}");
+    expect(expertPage).toContain("onOpenDraftSession={input.handleOpenDraftSession}");
     expect(expertPage).toContain("draftAgentGroups={draftAgentGroups}");
     expect(expertPage).toContain("selectedAgentId={activeConversationAgentId}");
-    expect(expertPage).toContain("onOpenSession={handleOpenExpertSession}");
+    expect(expertPage).toContain("onOpenSession={input.handleOpenExpertSession}");
     expect(tabs).toContain("onOpenDraftSession?: (sessionId: string) => void");
     expect(tabs).toContain("if (isDraft) props.onOpenDraftSession?.(session.id)");
     expect(panel).toContain("draftAgentGroups?: AgentConversationGroup[]");
@@ -974,22 +990,27 @@ describe("expert marketplace UI contract", () => {
     );
     const actionRow = readWorkspaceFile("apps/app/src/components/ui/action-row.tsx");
 
-    expect(expertPage).toContain("const [pendingTabSessionId, setPendingTabSessionId]");
+    expect(expertPage).toContain("useExpertSurfaceController({");
+    expect(expertPage).toContain("pendingTabSessionId,");
+    expect(expertPage).not.toContain("setDraftSessionActive");
+    expect(expertPage).not.toContain("setDraftAgentId");
     expect(expertPage).toContain("const [sessionTabOrderIdsByScope, setSessionTabOrderIdsByScope]");
-    expect(expertPage).toContain("orderIds={sessionTabOrderIds}");
+    expect(expertPage).toContain("orderIds={input.sessionTabOrderIds}");
     // Pending tab highlight: local override or surface-mode creatingSessionId.
     expect(expertPage).toContain("pendingSessionId={");
-    expect(expertPage).toContain("expertSurfaceMode.creatingSessionId");
-    // Single surface mode owns draftOnly / sessionId / force-nav.
-    expect(expertPage).toContain("resolveExpertSurfaceMode({");
+    expect(expertPage).toContain("input.surfaceMode.creatingSessionId");
+    // One reducer owns route, draft transaction, and pending-tab state; its
+    // single projection owns draftOnly / sessionId / force-nav.
+    expect(expertPage).toContain("mode: expertSurfaceMode");
     expect(expertPage).toContain("draftOnly={isDraftSession}");
     // Bound-draft navigation owns the transition after its extraction from
     // ExpertPage, while ExpertPage remains the state host and tab renderer.
     expect(expertPage).toContain("useExpertBoundDraftTransition({");
-    expect(draftTransition).toContain("resolveExpertSurfaceMode({");
-    expect(draftTransition).toContain("shouldDropDraftIntentForRoute({");
+    expect(draftTransition).toContain("selectExpertSurfaceMode(surfaceState)");
+    expect(draftTransition).toContain("shouldDropExpertSurfaceDraft(surfaceState)");
+    expect(draftTransition).not.toContain("useReducer(");
     expect(draftTransition).toContain("mode.mayForceNavToBound");
-    expect(draftTransition).toContain("setPendingTabSessionId(mode.creatingSessionId ?? createdSessionId)");
+    expect(draftTransition).toContain('type: "CREATE_BOUND"');
     expect(expertPage).toContain("props.sidebar.onOpenSession(");
     expect(tabs).toContain("const activeSessionId = pendingSessionIsVisible");
     expect(tabs).toContain("scrollTabIntoViewIfNeeded(tabRefs.current[activeSessionId])");
