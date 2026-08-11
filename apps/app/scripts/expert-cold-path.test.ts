@@ -10,7 +10,7 @@ import {
   resetExpertColdPathForTests,
   skillNamesFingerprint,
   startExpertColdPrewarm,
-} from "../src/react-app/shell/session-route/expert-cold-path";
+} from "../src/react-app/domains/session/sync/expert-cold-path";
 
 describe("expert cold path queue + prewarm", () => {
   beforeEach(() => {

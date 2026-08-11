@@ -77,7 +77,7 @@ import { prewarmOnMyAgentEnvSystemContext } from "../../shared";
 import { createClient, unwrap } from "../../../../app/lib/opencode";
 import { parseSkillNamesFromAgentMarkdown } from "../../../capabilities/session-identity/expert-prompt-agent";
 import { createIsolatedExpertSessionRuntimeDirectory } from "../sync/expert-session-directory";
-import { startExpertColdPrewarm } from "../../../shell/session-route/expert-cold-path";
+import { startExpertColdPrewarm } from "../sync/expert-cold-path";
 import {
   AgentConversationPanel,
   AgentSessionTabs,

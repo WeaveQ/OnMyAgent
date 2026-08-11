@@ -49,6 +49,7 @@ import {
 import { usePendingAgentStore } from "../../domains/agents";
 import { writeSessionOriginDurable } from "../../domains/agents";
 import {
+  claimOrCreateExpertColdSession,
   createIsolatedExpertSessionRuntimeDirectory,
   clearOptimisticSessionUserMessage,
   dispatchAssistantSessionWorkspacesChanged,
@@ -56,8 +57,10 @@ import {
   readAssistantSessionWorkspace,
   seedOptimisticSessionUserMessage,
   shouldIsolateExpertSessionDirectory,
+  startExpertColdPrewarm,
   trackWorkspaceSessionSync,
   writeAssistantSessionWorkspace,
+  type ExpertColdPathResult,
 } from "../../domains/session";
 import {
   parseSkillNamesFromAgentMarkdown,
@@ -115,11 +118,6 @@ import {
   activateCreatedSessionRoute,
   shouldNavigateToCreatedSession,
 } from "./created-session-actions";
-import {
-  claimOrCreateExpertColdSession,
-  startExpertColdPrewarm,
-  type ExpertColdPathResult,
-} from "./expert-cold-path";
 import {
   type RouteWorkspace,
   serializeSDKError,
