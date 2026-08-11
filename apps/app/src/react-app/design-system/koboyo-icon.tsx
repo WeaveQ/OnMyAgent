@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { useMemo, type CSSProperties } from "react";
 
-import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
+import { resolvePublicAssetAbsoluteUrl } from "@/lib/public-asset-url";
 import { cn } from "@/lib/utils";
 
 type KoboyoIconProps = {
@@ -30,7 +30,7 @@ export function KoboyoIcon(props: KoboyoIconProps) {
   const fallback = props.size ?? 16;
   const width = props.width ?? fallback;
   const height = props.height ?? fallback;
-  const url = resolvePublicAssetUrl(props.src);
+  const url = resolvePublicAssetAbsoluteUrl(props.src);
   const style = useMemo(
     (): CSSProperties => ({
       width,
