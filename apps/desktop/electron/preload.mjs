@@ -272,7 +272,7 @@ contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
     installAndRestart() {
       return ipcRenderer.invoke("onmyagent:updater:installAndRestart");
     },
-    /** Subscribe to incremental download progress. Retained for legacy renderer paths; the lightweight update flow never emits progress. */
+    /** Subscribe to incremental download progress / ready-to-install events from electron-updater. */
     onDownloadProgress(callback) {
       const handler = (_event, data) => callback(data);
       ipcRenderer.on("onmyagent:updater:download-progress", handler);
