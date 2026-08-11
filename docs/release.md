@@ -131,15 +131,17 @@ Use this flow before Apple signing and notarization are configured.
    build_electron: true
    ```
 
-4. Confirm the generated GitHub Release contains the macOS artifacts.
+4. Confirm the generated GitHub Release contains the desktop artifacts. The
+   workflow builds a matrix (macOS arm64/x64 and Windows x64), so each release
+   carries all of the following:
 
-   Expected assets include:
-
-   - `onmyagent-mac-arm64-<version>.dmg`
-   - `onmyagent-mac-arm64-<version>.zip`
-   - `onmyagent-mac-x64-<version>.dmg`
-   - `onmyagent-mac-x64-<version>.zip`
-   - `latest-mac.yml`
+   - `onmyagent-mac-arm64-<version>.dmg` (+ `.dmg.blockmap`)
+   - `onmyagent-mac-arm64-<version>.zip` (+ `.zip.blockmap`)
+   - `onmyagent-mac-x64-<version>.dmg` (+ `.dmg.blockmap`)
+   - `onmyagent-mac-x64-<version>.zip` (+ `.zip.blockmap`)
+   - `onmyagent-win-x64-<version>.exe` (+ `.exe.blockmap`)
+   - `latest-mac.yml` (macOS auto-update metadata)
+   - `latest.yml` (Windows auto-update metadata)
 
 ## Production Release Requirements
 
