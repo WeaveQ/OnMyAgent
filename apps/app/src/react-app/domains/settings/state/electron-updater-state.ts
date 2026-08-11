@@ -15,11 +15,18 @@ export type SettingsUpdateStatus = {
   notes?: string;
   totalBytes?: number | null;
   downloadedBytes?: number;
+  /** 0–100 download progress; only meaningful while state === "downloading". */
+  percent?: number;
+  bytesPerSecond?: number;
   message?: string;
   /** Soft notice (network/timeout/no release) — UI uses neutral alert, not destructive. */
   soft?: boolean;
   /** When true, show "Open release page" next to the soft notice. */
   showOpenReleasePage?: boolean;
+  /** "in-app" = download + restart-to-install; "open-browser" = fallback. */
+  platformFlow?: "in-app" | "open-browser";
+  /** True when main reports the macOS unnotarized-build Gatekeeper caveat. */
+  macQuarantineNotice?: boolean;
 } | null;
 
 type UpdateAvailabilityPayload = {
@@ -32,15 +39,24 @@ type UpdateAvailabilityPayload = {
   reasonCode?: string | null;
   soft?: boolean;
   releaseUrl?: string | null;
+  platformFlow?: "in-app" | "open-browser";
+  readyToInstall?: boolean;
+  macQuarantineNotice?: boolean;
+};
+
+type UpdateDownloadProgressPayload = {
+  platformFlow?: "in-app" | "open-browser";
+  state?: "downloading" | "ready" | "error";
+  percent?: number;
+  transferred?: number;
+  total?: number;
+  bytesPerSecond?: number;
+  readyToInstall?: boolean;
+  error?: string;
 };
 
 type ElectronUpdaterBridge = NonNullable<Window["__ONMYAGENT_ELECTRON__"]>["updater"] & {
-  onDownloadProgress?: (callback: (data: {
-    transferred: number;
-    total: number;
-    percent: number;
-    bytesPerSecond: number;
-  }) => void) => (() => void);
+  onDownloadProgress?: (callback: (data: UpdateDownloadProgressPayload) => void) => (() => void);
   onAvailable?: (callback: (payload: UpdateAvailabilityPayload) => void) => (() => void);
   getLastKnown?: () => Promise<UpdateAvailabilityPayload>;
 };
@@ -163,29 +179,30 @@ function statusFromAvailability(
         message: localizeCheckReason(result),
         soft: true,
         showOpenReleasePage: true,
+        platformFlow: result.platformFlow,
       };
     }
     return {
       state: "error",
       lastCheckedAt: Date.now(),
       message: localizeCheckReason(result) ?? result.reason,
+      platformFlow: result.platformFlow,
     };
   }
+  const base = {
+    lastCheckedAt: Date.now(),
+    version: result.latestVersion ?? undefined,
+    date: result.releaseDate ?? undefined,
+    notes: releaseNotesToText(result.releaseNotes),
+    platformFlow: result.platformFlow,
+    macQuarantineNotice: result.macQuarantineNotice,
+  };
+  if (result.readyToInstall) {
+    return { ...base, state: "ready", percent: 100 };
+  }
   return availableAllowed
-    ? {
-        state: "available",
-        lastCheckedAt: Date.now(),
-        version: result.latestVersion ?? undefined,
-        date: result.releaseDate ?? undefined,
-        notes: releaseNotesToText(result.releaseNotes),
-      }
-    : {
-        state: "idle",
-        lastCheckedAt: Date.now(),
-        version: result.latestVersion ?? undefined,
-        date: result.releaseDate ?? undefined,
-        notes: releaseNotesToText(result.releaseNotes),
-      };
+    ? { ...base, state: "available" }
+    : { ...base, state: "idle" };
 }
 
 export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions) {
@@ -251,6 +268,12 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
       if (payload.currentVersion) {
         dispatchEnvState({ type: "app-version", appVersion: payload.currentVersion });
       }
+      // A "ready to install" payload supersedes availability regardless of
+      // gating — the update is already on disk.
+      if (payload.readyToInstall) {
+        setUpdateStatus(statusFromAvailability(payload, true));
+        return;
+      }
       if (!payload.available) return;
       void (async () => {
         // Stable feed is trusted from main; only alpha would need Den gating
@@ -264,28 +287,140 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
     });
   }, [desktopConfig, releaseChannel]);
 
-  /**
-   * Open the GitHub release page in the browser. Does not download or install.
-   * Status stays on "available" (never "ready") so we don't imply an install finished.
-   */
-  const downloadUpdate = useCallback(async () => {
+  // Subscribe to in-app download progress / ready-to-install events.
+  useEffect(() => {
+    if (!isElectronRuntime()) return;
     const bridge = electronUpdaterBridge();
-    if (!bridge?.download) {
-      const message = "Opening the release page is only available in the Electron desktop app.";
+    if (!bridge?.onDownloadProgress) return;
+    return bridge.onDownloadProgress((progress) => {
+      if (progress.state === "ready" || progress.readyToInstall) {
+        setUpdateStatus((current) => ({
+          ...(current ?? {}),
+          state: "ready",
+          percent: 100,
+          downloadedBytes: progress.transferred ?? current?.downloadedBytes,
+          totalBytes: progress.total ?? current?.totalBytes,
+          bytesPerSecond: progress.bytesPerSecond,
+          message: undefined,
+        }));
+        return;
+      }
+      if (progress.state === "error") {
+        setUpdateStatus((current) => ({
+          ...(current ?? {}),
+          state: "available",
+          message: progress.error || undefined,
+          soft: true,
+          showOpenReleasePage: true,
+        }));
+        return;
+      }
+      if (progress.state === "downloading") {
+        setUpdateStatus((current) => ({
+          ...(current ?? {}),
+          state: "downloading",
+          percent:
+            typeof progress.percent === "number" ? progress.percent : current?.percent ?? 0,
+          downloadedBytes: progress.transferred ?? current?.downloadedBytes,
+          totalBytes: progress.total ?? current?.totalBytes,
+          bytesPerSecond: progress.bytesPerSecond,
+          platformFlow: progress.platformFlow ?? current?.platformFlow,
+          message: undefined,
+        }));
+      }
+    });
+  }, []);
+
+  // On mount, ask main for the last known state so a download that completed
+  // before the renderer mounted (e.g. background auto-download) is reflected.
+  useEffect(() => {
+    if (!isElectronRuntime()) return;
+    const bridge = electronUpdaterBridge();
+    if (!bridge?.getLastKnown) return;
+    let cancelled = false;
+    void bridge.getLastKnown().then((payload) => {
+      if (cancelled) return;
+      if (payload.readyToInstall && payload.latestVersion) {
+        setUpdateStatus(statusFromAvailability(payload, true));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /**
+   * Quit and install the downloaded update (in-app path only). On the
+   * fallback path (Linux/dev), this opens the release page instead.
+   */
+  const installUpdateAndRestart = useCallback(async () => {
+    const bridge = electronUpdaterBridge();
+    if (!bridge?.installAndRestart) {
+      const message = "Installing updates is only available in the Electron desktop app.";
       setUpdateStatus({ state: "error", message });
       setError(message);
       return;
     }
     try {
-      const result = await bridge.download();
+      const result = await bridge.installAndRestart();
       if (!result?.ok) {
         setUpdateStatus({
           state: "error",
-          message: result?.reason ?? "Failed to open the release page.",
+          message: result?.reason ?? "Failed to restart and install the update.",
+        });
+      }
+      // On success the app quits; nothing else to update.
+    } catch (error) {
+      setUpdateStatus({ state: "error", message: describeError(error) });
+    }
+  }, [setError]);
+
+  /**
+   * Trigger the update flow. In-app path: start the background download and
+   * let progress events drive the UI to "downloading" → "ready". Fallback
+   * path (Linux/dev/init failure): open the GitHub release page.
+   */
+  const downloadUpdate = useCallback(async () => {
+    const bridge = electronUpdaterBridge();
+    if (!bridge?.download) {
+      const message = "Updating is only available in the Electron desktop app.";
+      setUpdateStatus({ state: "error", message });
+      setError(message);
+      return;
+    }
+    try {
+      // If already downloaded, a click means "install".
+      if (updateStatus?.state === "ready") {
+        await installUpdateAndRestart();
+        return;
+      }
+      const result = await bridge.download();
+      if (result?.readyToInstall) {
+        setUpdateStatus((current) => ({
+          ...(current ?? {}),
+          state: "ready",
+          percent: 100,
+        }));
+        return;
+      }
+      if (result?.downloading) {
+        setUpdateStatus((current) => ({
+          ...(current ?? {}),
+          state: "downloading",
+          percent: current?.percent ?? 0,
+          platformFlow: result.platformFlow ?? current?.platformFlow,
+          message: undefined,
+        }));
+        return;
+      }
+      if (!result?.ok) {
+        setUpdateStatus({
+          state: "error",
+          message: result?.reason ?? "Failed to start the update download.",
         });
         return;
       }
-      // Stay on available — browser open is not an install.
+      // Fallback "open-browser" path: browser opened; stay on available.
       setUpdateStatus((current) => ({
         ...(current ?? {}),
         state: "available",
@@ -294,7 +429,7 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
     } catch (error) {
       setUpdateStatus({ state: "error", message: describeError(error) });
     }
-  }, [setError]);
+  }, [installUpdateAndRestart, setError, updateStatus?.state]);
 
   const checkForUpdates = useCallback(async () => {
     const bridge = electronUpdaterBridge();
@@ -361,11 +496,6 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
     autoCheckKeyRef.current = key;
     void checkForUpdates();
   }, [appVersion, checkForUpdates, releaseChannel, updateAutoCheck, updateEnv?.supported]);
-
-  const installUpdateAndRestart = useCallback(async () => {
-    // Same as open release page — there is no in-app install.
-    await downloadUpdate();
-  }, [downloadUpdate]);
 
   const setReleaseChannel = useCallback(
     async (next: ReleaseChannel) => {

@@ -270,6 +270,8 @@ declare global {
           feedUrl: string;
           currentVersion: string;
           alphaSupported?: boolean;
+          /** "in-app" = download + restart-to-install; "open-browser" = fallback. */
+          platformFlow?: "in-app" | "open-browser";
         }>;
         setChannel?: (channel: "stable" | "alpha") => Promise<{
           channel: "stable" | "alpha";
@@ -278,6 +280,7 @@ declare global {
           alphaSupported?: boolean;
           requestedChannel?: "stable" | "alpha";
           reason?: string;
+          platformFlow?: "in-app" | "open-browser";
         }>;
         check?: (channel?: "stable" | "alpha") => Promise<{
           available: boolean;
@@ -291,9 +294,22 @@ declare global {
           reasonCode?: string;
           soft?: boolean;
           releaseUrl?: string;
+          platformFlow?: "in-app" | "open-browser";
+          readyToInstall?: boolean;
+          macQuarantineNotice?: boolean;
         }>;
-        download?: () => Promise<{ ok: boolean; reason?: string }>;
-        installAndRestart?: () => Promise<{ ok: boolean; reason?: string }>;
+        download?: () => Promise<{
+          ok: boolean;
+          reason?: string;
+          platformFlow?: "in-app" | "open-browser";
+          downloading?: boolean;
+          readyToInstall?: boolean;
+        }>;
+        installAndRestart?: () => Promise<{
+          ok: boolean;
+          reason?: string;
+          platformFlow?: "in-app" | "open-browser";
+        }>;
         getLastKnown?: () => Promise<{
           available: boolean;
           currentVersion?: string;
@@ -301,7 +317,22 @@ declare global {
           releaseDate?: string | null;
           releaseNotes?: unknown;
           reason?: string | null;
+          platformFlow?: "in-app" | "open-browser";
+          readyToInstall?: boolean;
+          macQuarantineNotice?: boolean;
         }>;
+        onDownloadProgress?: (
+          callback: (payload: {
+            platformFlow?: "in-app" | "open-browser";
+            state?: "downloading" | "ready" | "error";
+            percent?: number;
+            transferred?: number;
+            total?: number;
+            bytesPerSecond?: number;
+            readyToInstall?: boolean;
+            error?: string;
+          }) => void,
+        ) => () => void;
         onAvailable?: (
           callback: (payload: {
             available: boolean;
@@ -311,6 +342,9 @@ declare global {
             releaseNotes?: unknown;
             reason?: string | null;
             releaseUrl?: string | null;
+            platformFlow?: "in-app" | "open-browser";
+            readyToInstall?: boolean;
+            macQuarantineNotice?: boolean;
           }) => void,
         ) => () => void;
       };
