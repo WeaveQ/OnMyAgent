@@ -2,59 +2,48 @@ import { describe, expect, test } from "bun:test";
 
 import {
   EXPERT_PROMPT_DEFAULT_AGENT,
-  parseSkillNamesFromAgentMarkdown,
-  resolveExpertPromptAgent,
+  filterExpertPromptAgentOptions,
+  normalizeExpertPromptAgentSelection,
+  previewExpertPromptAgent,
 } from "../src/react-app/capabilities/session-identity/expert-prompt-agent";
 
-describe("resolveExpertPromptAgent", () => {
-  test("defaults to onmyagent when selection is empty", () => {
-    expect(resolveExpertPromptAgent(null)).toBe(EXPERT_PROMPT_DEFAULT_AGENT);
-    expect(resolveExpertPromptAgent(undefined)).toBe(EXPERT_PROMPT_DEFAULT_AGENT);
-    expect(resolveExpertPromptAgent("  ")).toBe(EXPERT_PROMPT_DEFAULT_AGENT);
-  });
+const agent = (name: string) => ({ name, hidden: false, mode: "primary" });
 
-  test("blocks heavy orchestrator agents from home oh-my-openagent", () => {
-    expect(resolveExpertPromptAgent("Sisyphus - ultraworker")).toBe(
+describe("Expert prompt preview/filter helpers", () => {
+  test("custom Expert with an empty allowlist exposes only onmyagent", () => {
+    expect(
+      filterExpertPromptAgentOptions(
+        [agent("onmyagent"), agent("custom-agent"), agent("sisyphus")],
+        [],
+      ).map((item) => item.name),
+    ).toEqual(["onmyagent"]);
+    expect(previewExpertPromptAgent("custom-agent", [])).toBe(
       EXPERT_PROMPT_DEFAULT_AGENT,
     );
-    expect(resolveExpertPromptAgent("sisyphus")).toBe(EXPERT_PROMPT_DEFAULT_AGENT);
-    expect(resolveExpertPromptAgent("Oh-My-OpenAgent")).toBe(
-      EXPERT_PROMPT_DEFAULT_AGENT,
+  });
+
+  test("marketplace allowlist keeps exact approved ids and the default", () => {
+    expect(
+      filterExpertPromptAgentOptions(
+        [agent("onmyagent"), agent("package-agent"), agent("sisyphus")],
+        [" package-agent "],
+      ).map((item) => item.name),
+    ).toEqual(["onmyagent", "package-agent"]);
+    expect(previewExpertPromptAgent("package-agent", ["package-agent"])).toBe(
+      "package-agent",
     );
   });
 
-  test("keeps a safe explicit agent selection", () => {
-    expect(resolveExpertPromptAgent("onmyagent")).toBe("onmyagent");
-    expect(resolveExpertPromptAgent("build")).toBe("build");
-  });
-});
-
-describe("parseSkillNamesFromAgentMarkdown", () => {
-  test("parses bracket skills from frontmatter", () => {
-    const md = `---
-name: kol-content-ops-specialist
-skills: [kol-script-risk-review, kol-reputation-monitor, document-processing]
----
-# body
-`;
-    expect(parseSkillNamesFromAgentMarkdown(md)).toEqual([
-      "kol-script-risk-review",
-      "kol-reputation-monitor",
-      "document-processing",
-    ]);
+  test("stale selections normalize to null and preview as the default", () => {
+    expect(normalizeExpertPromptAgentSelection("stale-agent", [])).toBeNull();
+    expect(previewExpertPromptAgent("stale-agent", [])).toBe("onmyagent");
+    expect(normalizeExpertPromptAgentSelection("  ", ["package-agent"])).toBeNull();
   });
 
-  test("parses YAML list skills and drops unsafe names", () => {
-    const md = `---
-skills:
-  - kol-brief-structuring
-  - ../escape
-  - ok-skill
----
-`;
-    expect(parseSkillNamesFromAgentMarkdown(md)).toEqual([
-      "kol-brief-structuring",
-      "ok-skill",
-    ]);
+  test("ordinary assistant lists are unchanged when Expert filtering is skipped", () => {
+    const ordinary = [agent("onmyagent"), agent("sisyphus"), agent("build")];
+    expect(ordinary.filter((item) => !item.hidden && item.mode !== "subagent")).toEqual(
+      ordinary,
+    );
   });
 });

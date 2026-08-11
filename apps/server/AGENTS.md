@@ -23,3 +23,5 @@ git diff --check
 - `apps/server/src/**` 属 Human gate：改前说明原因，改后完整验证。
 - 主轨 archive 热路径走 store pool + change-bus + SSE；新增代码勿绕过 pool 裸 open（见 Architecture · Server Archive Runtime）。
 - 会话真相源在 OpenCode / server 主轨；禁止与 Personal Local Agent 辅轨交叉写 archive。
+- Expert identity/list 的权威读模型是 revisioned origins + marker inventory + workspace session aggregate 生成的 `Expert Directory`。renderer 不得承担 origin 恢复、404 删除推断或路径身份推断。
+- Expert runtime 写入、heal、prompt contract 与删除 saga 都是 server owner；写入必须 revision-checked、路径授权、失败闭合。生命周期诊断只记录 allow-listed 计数/枚举/单向 hash，不得记录 prompt、message body、token、secret、原始 home path 或用户文件内容。

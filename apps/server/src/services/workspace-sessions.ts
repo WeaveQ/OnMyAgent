@@ -1,4 +1,10 @@
-import type { ServerConfig, WorkspaceInfo } from "@onmyagent/types/server";
+import { createHash } from "node:crypto";
+import type {
+  ServerConfig,
+  WorkspaceInfo,
+  WorkspaceSessionListFailure,
+  WorkspaceSessionListPayload,
+} from "@onmyagent/types/server";
 import { ApiError, isApiError } from "../core/errors.js";
 import { resolveWorkspaceOpencodeConnection } from "./opencode-connection.js";
 import { getWorkspaceOpencodeClient } from "./opencode-client-pool.js";
@@ -11,11 +17,20 @@ import {
   buildSessionStatuses,
   buildSessionTodos,
 } from "./session-read-model.js";
+import type { SessionInfoReadModel } from "./session-read-model.js";
 import {
   formatWorkspaceSessionListTiming,
+  formatWorkspaceSessionDirectoryTiming,
+  assertWorkspaceSessionAggregateWindow,
+  MAX_WORKSPACE_SESSION_DIRECTORIES,
+  WORKSPACE_SESSION_DIRECTORY_CONCURRENCY,
   normalizeWorkspaceSessionListInput,
+  shouldLogSlowWorkspaceSessionDirectory,
   shouldLogSlowWorkspaceSessionList,
+  type NormalizedWorkspaceSessionListInput,
+  type WorkspaceSessionListInput,
 } from "./workspace-session-list-policy.js";
+import { scanWorkspaceExpertSessionMarkers } from "./workspace-session-marker-inventory.js";
 import {
   isSessionNotFoundApiError,
   sessionNotFoundError,
@@ -87,17 +102,14 @@ function remapSessionReadError(error: unknown): never {
 export async function listWorkspaceSessions(
   config: ServerConfig,
   workspace: WorkspaceInfo,
-  input: {
-    roots?: boolean;
-    start?: number;
-    search?: string;
-    limit?: number;
-    directory?: string;
-    signal?: AbortSignal;
-  },
+  input: WorkspaceSessionListInput & { signal?: AbortSignal },
 ) {
   const started = performance.now();
   const normalized = normalizeWorkspaceSessionListInput(input);
+  assertWorkspaceSessionAggregateWindow(normalized);
+  if (normalized.scope === "workspace") {
+    return listWorkspaceSessionsAggregated(config, workspace, normalized, input.signal);
+  }
   try {
     const connection = resolveWorkspaceOpencodeConnection(config, workspace);
     if (!connection.baseUrl?.trim()) {
@@ -139,6 +151,227 @@ export async function listWorkspaceSessions(
   } catch (error) {
     remapSessionReadError(error);
   }
+}
+
+export type WorkspaceSessionAggregateSource = {
+  directory: string;
+  source: "workspace-root" | "expert-runtime";
+  key: string;
+  index: number;
+};
+
+export type WorkspaceSessionAggregateReadInput = {
+  directory: string;
+  roots?: boolean;
+  start: number;
+  search?: string;
+  limit: number;
+  signal?: AbortSignal;
+};
+
+/**
+ * Aggregate already-authorized source directories with bounded fan-out.
+ * Kept injectable so pagination, dedupe, abort, and concurrency remain unit-testable.
+ */
+export async function aggregateWorkspaceSessionLists(input: {
+  sources: readonly WorkspaceSessionAggregateSource[];
+  normalized: NormalizedWorkspaceSessionListInput;
+  initialFailures?: readonly WorkspaceSessionListFailure[];
+  signal?: AbortSignal;
+  read: (
+    source: WorkspaceSessionAggregateSource,
+    request: WorkspaceSessionAggregateReadInput,
+  ) => Promise<SessionInfoReadModel[]>;
+}): Promise<WorkspaceSessionListPayload> {
+  assertWorkspaceSessionAggregateWindow(input.normalized);
+  throwIfAborted(input.signal);
+  const start = input.normalized.start ?? 0;
+  const window = start + input.normalized.limit;
+  const results: SessionInfoReadModel[][] = [];
+  const failures: WorkspaceSessionListFailure[] = [
+    ...(input.initialFailures ?? []),
+  ];
+  let cursor = 0;
+
+  const worker = async () => {
+    while (true) {
+      throwIfAborted(input.signal);
+      const sourceIndex = cursor;
+      cursor += 1;
+      const source = input.sources[sourceIndex];
+      if (!source) return;
+      const started = performance.now();
+      try {
+        const items = await input.read(source, {
+          directory: source.directory,
+          roots: input.normalized.roots,
+          start: 0,
+          ...(input.normalized.search ? { search: input.normalized.search } : {}),
+          limit: window,
+          signal: input.signal,
+        });
+        results[sourceIndex] = items.slice(0, window);
+        const durationMs = performance.now() - started;
+        if (shouldLogSlowWorkspaceSessionDirectory(durationMs)) {
+          console.info(
+            formatWorkspaceSessionDirectoryTiming({
+              source: source.source,
+              key: redactSourceKey(source.key),
+              index: source.index,
+              durationMs,
+              itemCount: results[sourceIndex].length,
+            }),
+          );
+        }
+      } catch (error) {
+        if (isAbortError(error) || input.signal?.aborted) throw error;
+        failures.push({
+          source: source.source,
+          key: redactSourceKey(source.key),
+          index: source.index,
+          code: "directory_read_failed",
+        });
+        results[sourceIndex] = [];
+      }
+    }
+  };
+
+  const workerCount = Math.min(WORKSPACE_SESSION_DIRECTORY_CONCURRENCY, input.sources.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  throwIfAborted(input.signal);
+
+  const byId = new Map<string, { item: SessionInfoReadModel; sourceIndex: number }>();
+  for (const [sourceIndex, items] of results.entries()) {
+    for (const item of items ?? []) {
+      if (!item.id) continue;
+      const existing = byId.get(item.id);
+      if (!existing || isNewerSession(item, existing.item, sourceIndex, existing.sourceIndex)) {
+        byId.set(item.id, { item, sourceIndex });
+      }
+    }
+  }
+  const items = Array.from(byId.values())
+    .sort((left, right) => compareSessions(left.item, right.item, left.sourceIndex, right.sourceIndex))
+    .slice(start, window)
+    .map(({ item }) => item);
+  failures.sort((left, right) => left.index - right.index || left.key.localeCompare(right.key));
+  return {
+    scope: "workspace",
+    items,
+    complete: failures.length === 0,
+    failures,
+  };
+}
+
+export async function listWorkspaceSessionsAggregated(
+  config: ServerConfig,
+  workspace: WorkspaceInfo,
+  normalized: NormalizedWorkspaceSessionListInput,
+  signal?: AbortSignal,
+): Promise<WorkspaceSessionListPayload> {
+  const inventory = await scanWorkspaceExpertSessionMarkers({
+    workspace,
+    signal,
+    maxDirectories: MAX_WORKSPACE_SESSION_DIRECTORIES,
+  });
+  // Workspace scope always starts at the routed workspace root. The legacy
+  // `directory` override belongs only to directory scope; honoring it here
+  // could replace the root source with an arbitrary client-provided path.
+  const rootDirectory = workspace.directory?.trim() || workspace.path;
+  const seenDirectories = new Set<string>([rootDirectory]);
+  const sources: WorkspaceSessionAggregateSource[] = [
+    {
+      directory: rootDirectory,
+      source: "workspace-root",
+      key: redactSourceKey("workspace-root"),
+      index: 0,
+    },
+    ...inventory.entries.flatMap((entry, index) => {
+      if (seenDirectories.has(entry.directory)) return [];
+      seenDirectories.add(entry.directory);
+      return [{
+        directory: entry.directory,
+        source: "expert-runtime" as const,
+        key: entry.key,
+        index: index + 1,
+      }];
+    }),
+  ];
+  return aggregateWorkspaceSessionLists({
+    sources,
+    normalized,
+    initialFailures: inventory.failures,
+    signal,
+    read: async (source, request) => {
+      const connection = resolveWorkspaceOpencodeConnection(config, workspace);
+      if (!connection.baseUrl?.trim()) {
+        throw new ApiError(503, "opencode_unavailable", "OpenCode base URL is not configured");
+      }
+      const opencode = getWorkspaceOpencodeClient(config, workspace, request.directory);
+      try {
+        return buildSessionList(
+          unwrapOpencodeResult(
+            await opencode.session.list(
+              {
+                roots: request.roots,
+                start: request.start,
+                search: request.search,
+                limit: request.limit,
+              },
+              { signal: request.signal },
+            ),
+            "/session",
+          ),
+        );
+      } catch (error) {
+        remapSessionReadError(error);
+      }
+    },
+  });
+}
+
+function isNewerSession(
+  candidate: SessionInfoReadModel,
+  existing: SessionInfoReadModel,
+  candidateSourceIndex: number,
+  existingSourceIndex: number,
+): boolean {
+  const candidateUpdated = sessionUpdatedAt(candidate);
+  const existingUpdated = sessionUpdatedAt(existing);
+  return candidateUpdated > existingUpdated ||
+    (candidateUpdated === existingUpdated && candidateSourceIndex < existingSourceIndex);
+}
+
+function compareSessions(
+  left: SessionInfoReadModel,
+  right: SessionInfoReadModel,
+  leftSourceIndex: number,
+  rightSourceIndex: number,
+): number {
+  const byUpdated = sessionUpdatedAt(right) - sessionUpdatedAt(left);
+  if (byUpdated !== 0) return byUpdated;
+  const byId = left.id.localeCompare(right.id);
+  return byId !== 0 ? byId : leftSourceIndex - rightSourceIndex;
+}
+
+function sessionUpdatedAt(item: SessionInfoReadModel): number {
+  return typeof item.time?.updated === "number" && Number.isFinite(item.time.updated)
+    ? item.time.updated
+    : 0;
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return;
+  throw new DOMException("The operation was aborted", "AbortError");
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+function redactSourceKey(value: string): string {
+  if (value === "root" || /^[a-f0-9]{12}$/.test(value)) return value;
+  return createHash("sha256").update(value).digest("hex").slice(0, 12);
 }
 
 export async function readWorkspaceSession(

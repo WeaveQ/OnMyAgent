@@ -96,6 +96,36 @@ are **not** supported on Windows — use preflight, Event Viewer, and `pnpm chec
 - Prefer `scripts/lib/run-command.mjs` (`resolveCommand` / `spawnCommandSync`) when
   spawning `pnpm` / `npm` / `npx` so Windows `.cmd` shims resolve correctly.
 
+### Expert marker v3 migration smoke
+
+Expert runtime directories live outside the repository and use an
+`onmyagent-session.json` marker. Marker v3 binds `workspaceId`, `agentId`,
+`packageName`, and the real OpenCode `sessionId`; it must not derive session
+identity from a directory key. The server accepts older markers for migration,
+but upgrades only after the authoritative identity is available and only inside
+the configured Expert runtime root.
+
+Before a Windows release that changes Expert/session code, run the normal host
+gate plus this disposable-data smoke:
+
+1. Point `ONMYAGENT_EXPERT_SESSION_RUNTIME_ROOT` and server userData/config to
+   temporary directories outside the repository; never use an existing profile.
+2. Create one legacy marker, bind it to a real disposable OpenCode session, and
+   verify the resulting marker is v3 with all four identities preserved.
+3. Repeat under a path containing spaces and a long nested segment. Confirm
+   canonical/real-path authorization accepts the intended directory and rejects
+   a junction/symlink escape.
+4. Remove write permission from the disposable marker directory, run ensure/heal,
+   and verify it fails closed without truncating the previous marker. Restore
+   permission before cleanup.
+5. Restart the app and verify Expert Directory reports the same session and does
+   not show a false empty state. Export the redacted lifecycle diagnostics; it
+   must contain hashes/counts only, not `%USERPROFILE%` or raw paths.
+
+The mocked path/permission fixtures run on every host, but they do not replace
+this real Windows ACL/realpath smoke. Record it as an external release gate when
+no Windows machine is available.
+
 ## Preflight
 
 ```bat

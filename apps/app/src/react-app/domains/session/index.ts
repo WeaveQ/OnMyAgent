@@ -72,18 +72,6 @@ export {
 } from "./sync/assistant-session-workspaces";
 export type { AssistantSessionWorkspace } from "./sync/assistant-session-workspaces";
 export {
-  buildIsolatedExpertSessionDirectory,
-  createIsolatedExpertSessionRuntimeDirectory,
-  createExpertSessionKey,
-  isSameDirectory,
-  joinWorkspacePath,
-  materializeExpertSessionDirectory,
-  resolveExpertSessionDirectoryMarker,
-  resolveSelectedSessionFileRoot,
-  sanitizePathSegment,
-  shouldIsolateExpertSessionDirectory,
-} from "./sync/expert-session-directory";
-export {
   buildExpertColdPrewarmKey,
   claimOrCreateExpertColdSession,
   enqueueExpertColdPath,

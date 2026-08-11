@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import {
   addAssistantSession,
-  addExpertSession,
 } from "../src/react-app/domains/agents/agent-session-state";
 import type { AgentRegistry } from "../src/react-app/domains/agents/agent-registry-types";
 import {
@@ -16,7 +15,6 @@ import {
   readAssistantSpaceLocalPins,
   writeAssistantSpaceLocalPins,
   sortGroupsByPinnedSessionIds,
-  writeCustomAgentIdForSession,
 } from "../src/react-app/domains/session/sidebar/conversation-model";
 import { createDefaultAgentRegistry } from "../src/react-app/domains/agents/agent-default-registry";
 import { buildCurrentAgentSessions } from "../src/react-app/domains/session/pages/expert-conversation-model";
@@ -206,14 +204,15 @@ describe("conversation model assistant groups", () => {
 
 describe("conversation model agent groups", () => {
   test("groups expert sessions by agent id and tracks the latest session", () => {
-    addExpertSession("expert_a_old");
-    addExpertSession("expert_a_new");
-    addExpertSession("expert_missing");
-    writeCustomAgentIdForSession("expert_a_old", "agent_a");
-    writeCustomAgentIdForSession("expert_a_new", "agent_a");
-    writeCustomAgentIdForSession("expert_missing", "missing_agent");
-
-    const groups = buildAgentConversationGroups(sessions, registry);
+    const identity = {
+      sessionIds: new Set(["expert_a_old", "expert_a_new", "expert_missing"]),
+      agentIdBySessionId: new Map([
+        ["expert_a_old", "agent_a"],
+        ["expert_a_new", "agent_a"],
+        ["expert_missing", "missing_agent"],
+      ]),
+    };
+    const groups = buildAgentConversationGroups(sessions, registry, identity);
 
     expect(groups.map((group) => group.key)).toEqual(["agent:agent_a", "agent:missing_agent"]);
     expect(groups[0].name).toBe("Agent Alpha");
@@ -229,12 +228,7 @@ describe("conversation model agent groups", () => {
   });
 
   test("uses only real current-workspace explicit expert sessions", () => {
-    addExpertSession("expert-selected-old");
-    addExpertSession("expert-deleted");
     addAssistantSession("assistant-in-a");
-    writeCustomAgentIdForSession("expert-selected-old", "agent_a");
-    writeCustomAgentIdForSession("expert-deleted", "agent_a");
-    writeCustomAgentIdForSession("automation-in-a", "agent_a");
 
     const workspaceA = [
       { id: "expert-selected-old", title: "Old expert", time: { created: 1, updated: 2 } },
@@ -245,10 +239,17 @@ describe("conversation model agent groups", () => {
       { id: "assistant-in-b", title: "Other workspace", time: { created: 7, updated: 8 } },
     ];
 
-    expect(buildAgentConversationGroups(workspaceA, registry)).toMatchObject([
+    const identity = {
+      sessionIds: new Set(["expert-selected-old", "expert-deleted"]),
+      agentIdBySessionId: new Map([
+        ["expert-selected-old", "agent_a"],
+        ["expert-deleted", "agent_a"],
+      ]),
+    };
+    expect(buildAgentConversationGroups(workspaceA, registry, identity)).toMatchObject([
       { agentId: "agent_a", sessions: [{ id: "expert-selected-old" }] },
     ]);
-    expect(buildAgentConversationGroups(workspaceB, registry)).toEqual([]);
+    expect(buildAgentConversationGroups(workspaceB, registry, identity)).toEqual([]);
     expect(
       buildCurrentAgentSessions({
         workspaceSessions: workspaceA,
@@ -257,6 +258,7 @@ describe("conversation model agent groups", () => {
         selectedWorkspaceId: "workspace-a",
         draftSessionActive: false,
         activeDraftSessionId: null,
+        identity,
       }).map((session) => session.id),
     ).toEqual(["expert-selected-old"]);
   });

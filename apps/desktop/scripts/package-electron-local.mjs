@@ -43,7 +43,9 @@ const builderArgs = [
   "--arm64",
   "--publish",
   "never",
-  ...extraArgs.filter((arg) => arg !== "--dir"),
+  // pnpm 10 preserves the argument delimiter when scripts are invoked as
+  // `pnpm ... -- --dir`; never forward that delimiter ahead of builder flags.
+  ...extraArgs.filter((arg) => arg !== "--dir" && arg !== "--"),
 ];
 if (dirOnly) builderArgs.push("--dir");
 

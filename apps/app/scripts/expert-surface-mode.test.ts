@@ -4,9 +4,35 @@ import {
   buildExpertDraftTabSessionId,
   isLiveExpertSessionSelection,
   readRealSessionId,
-  resolveExpertSurfaceMode,
-  shouldDropDraftIntentForRoute,
+  selectExpertSurfaceMode,
 } from "../src/react-app/domains/session/pages/expert-surface-mode";
+import {
+  shouldDropExpertSurfaceDraft,
+  type ExpertSurfaceState,
+} from "../src/react-app/domains/session/pages/expert-surface-machine";
+
+function surfaceState(input: {
+  routeSessionId?: string;
+  routeAgentId?: string;
+  draftAgentId?: string;
+  boundSessionId?: string;
+}): ExpertSurfaceState {
+  return {
+    workspaceId: "ws1",
+    route: input.routeSessionId
+      ? { sessionId: input.routeSessionId, agentId: input.routeAgentId ?? null }
+      : null,
+    draft: input.draftAgentId
+      ? {
+          agentId: input.draftAgentId,
+          operationId: "op-1",
+          boundSessionId: input.boundSessionId ?? null,
+          navigation: "pending",
+        }
+      : null,
+    pendingTabSessionId: input.boundSessionId ?? null,
+  };
+}
 
 describe("readRealSessionId", () => {
   test("rejects empty and draft ids", () => {
@@ -17,162 +43,108 @@ describe("readRealSessionId", () => {
   });
 });
 
-describe("resolveExpertSurfaceMode", () => {
-  const base = {
-    workspaceId: "ws1",
-    draftAgentId: "order-entry" as string | null,
-    pendingAgentId: "order-entry" as string | null,
-    selectedSessionAgentId: null as string | null,
-  };
-
-  test("idle_draft: user opened 去聊天 / 新会话 with no bind yet", () => {
-    const mode = resolveExpertSurfaceMode({
-      ...base,
-      selectedSessionId: null,
-      draftIntent: true,
-      pendingBoundSessionId: undefined,
-    });
+describe("selectExpertSurfaceMode", () => {
+  test("projects an unbound draft without a route", () => {
+    const mode = selectExpertSurfaceMode(surfaceState({ draftAgentId: "order-entry" }));
     expect(mode.kind).toBe("idle_draft");
     expect(mode.draftOnly).toBe(true);
     expect(mode.showDraftChrome).toBe(true);
     expect(mode.sessionId).toBe("draft:ws1:order-entry");
-    expect(mode.mayForceNavToBound).toBe(false);
-    expect(mode.creatingSessionId).toBeNull();
   });
 
-  test("unbound draftIntent with a real route never draftOnly (multi-switch blank guard)", () => {
-    // Stuck draftIntent used to ignore route → draftOnly + white surface.
-    // Route owns paint; draft chrome may still show until openFresh clears route.
-    const mode = resolveExpertSurfaceMode({
-      ...base,
-      selectedSessionId: "ses_old",
-      selectedSessionAgentId: "other-agent",
-      draftIntent: true,
-      pendingBoundSessionId: undefined,
-    });
+  test("keeps the real route painted while an unbound draft chip exists", () => {
+    const mode = selectExpertSurfaceMode(surfaceState({
+      routeSessionId: "ses_old",
+      routeAgentId: "other-agent",
+      draftAgentId: "order-entry",
+    }));
     expect(mode.kind).toBe("real_session");
-    expect(mode.draftOnly).toBe(false);
     expect(mode.sessionId).toBe("ses_old");
     expect(mode.showDraftChrome).toBe(true);
     expect(mode.conversationAgentId).toBe("order-entry");
   });
 
-  test("creating: first send bound, route not yet on bound → force-nav allowed", () => {
-    const mode = resolveExpertSurfaceMode({
-      ...base,
-      selectedSessionId: null,
-      draftIntent: true,
-      pendingBoundSessionId: "ses_new",
-    });
+  test("projects a bound create before route activation", () => {
+    const mode = selectExpertSurfaceMode(surfaceState({
+      draftAgentId: "order-entry",
+      boundSessionId: "ses_new",
+    }));
     expect(mode.kind).toBe("creating");
-    expect(mode.draftOnly).toBe(false);
-    expect(mode.showDraftChrome).toBe(false);
     expect(mode.sessionId).toBe("ses_new");
     expect(mode.creatingSessionId).toBe("ses_new");
     expect(mode.mayForceNavToBound).toBe(true);
   });
 
-  test("real_session after route lands on bound create", () => {
-    const mode = resolveExpertSurfaceMode({
-      ...base,
-      selectedSessionId: "ses_new",
-      selectedSessionAgentId: "order-entry",
-      draftIntent: true,
-      pendingBoundSessionId: "ses_new",
-    });
+  test("projects the bound session once its route arrives", () => {
+    const mode = selectExpertSurfaceMode(surfaceState({
+      routeSessionId: "ses_new",
+      routeAgentId: "order-entry",
+      draftAgentId: "order-entry",
+      boundSessionId: "ses_new",
+    }));
     expect(mode.kind).toBe("real_session");
-    expect(mode.draftOnly).toBe(false);
-    expect(mode.showDraftChrome).toBe(false);
     expect(mode.sessionId).toBe("ses_new");
-    expect(mode.mayForceNavToBound).toBe(false);
     expect(mode.creatingSessionId).toBeNull();
+    expect(mode.mayForceNavToBound).toBe(false);
   });
 
-  test("user left creating: route on other real tab → no force-nav, no draft chrome", () => {
-    const mode = resolveExpertSurfaceMode({
-      ...base,
-      selectedSessionId: "ses_other",
-      selectedSessionAgentId: "order-entry",
-      draftIntent: true,
-      pendingBoundSessionId: "ses_new",
-    });
+  test("projects an explicitly selected other route over a late create", () => {
+    const mode = selectExpertSurfaceMode(surfaceState({
+      routeSessionId: "ses_other",
+      routeAgentId: "other-agent",
+      draftAgentId: "order-entry",
+      boundSessionId: "ses_new",
+    }));
     expect(mode.kind).toBe("real_session");
     expect(mode.sessionId).toBe("ses_other");
-    expect(mode.draftOnly).toBe(false);
-    expect(mode.showDraftChrome).toBe(false);
-    expect(mode.mayForceNavToBound).toBe(false);
     expect(mode.creatingSessionId).toBe("ses_new");
+    expect(mode.mayForceNavToBound).toBe(false);
   });
 
-  test("real_session without draft intent", () => {
-    const mode = resolveExpertSurfaceMode({
-      ...base,
-      selectedSessionId: "ses_hist",
-      selectedSessionAgentId: "order-entry",
-      draftIntent: false,
-      draftAgentId: null,
-      pendingAgentId: null,
-      pendingBoundSessionId: undefined,
-    });
+  test("projects a route without a draft", () => {
+    const mode = selectExpertSurfaceMode(surfaceState({
+      routeSessionId: "ses_hist",
+      routeAgentId: "order-entry",
+    }));
     expect(mode.kind).toBe("real_session");
     expect(mode.sessionId).toBe("ses_hist");
-    expect(mode.draftOnly).toBe(false);
-    expect(mode.showDraftChrome).toBe(false);
     expect(mode.conversationAgentId).toBe("order-entry");
   });
 
-  test("empty route without intent is empty idle shell without draft chrome", () => {
-    const mode = resolveExpertSurfaceMode({
-      ...base,
-      selectedSessionId: null,
-      draftIntent: false,
-      draftAgentId: null,
-      pendingAgentId: null,
-      pendingBoundSessionId: undefined,
-      selectedSessionAgentId: null,
-    });
+  test("projects an empty shell without draft chrome", () => {
+    const mode = selectExpertSurfaceMode(surfaceState({}));
     expect(mode.kind).toBe("idle_draft");
     expect(mode.draftOnly).toBe(true);
     expect(mode.showDraftChrome).toBe(false);
   });
 });
 
-describe("shouldDropDraftIntentForRoute", () => {
-  test("does not drop unbound draft on residual real route (openFresh lag)", () => {
-    expect(
-      shouldDropDraftIntentForRoute({
-        draftIntent: true,
-        selectedSessionId: "ses_hist",
-        pendingBoundSessionId: undefined,
-      }),
-    ).toBe(false);
+describe("shouldDropExpertSurfaceDraft", () => {
+  test("keeps unbound drafts while route activation catches up", () => {
+    expect(shouldDropExpertSurfaceDraft(surfaceState({
+      routeSessionId: "ses_hist",
+      draftAgentId: "a",
+    }))).toBe(false);
   });
 
-  test("drops creating draft when user opens a different real tab", () => {
-    expect(
-      shouldDropDraftIntentForRoute({
-        draftIntent: true,
-        selectedSessionId: "ses_other",
-        pendingBoundSessionId: "ses_new",
-      }),
-    ).toBe(true);
+  test("drops a bound draft after the user opens another real tab", () => {
+    expect(shouldDropExpertSurfaceDraft(surfaceState({
+      routeSessionId: "ses_other",
+      draftAgentId: "a",
+      boundSessionId: "ses_new",
+    }))).toBe(true);
   });
 
-  test("keeps draft when route is empty or still on bound create", () => {
-    expect(
-      shouldDropDraftIntentForRoute({
-        draftIntent: true,
-        selectedSessionId: null,
-        pendingBoundSessionId: "ses_new",
-      }),
-    ).toBe(false);
-    expect(
-      shouldDropDraftIntentForRoute({
-        draftIntent: true,
-        selectedSessionId: "ses_new",
-        pendingBoundSessionId: "ses_new",
-      }),
-    ).toBe(false);
+  test("keeps a bound draft with an empty or matching route", () => {
+    expect(shouldDropExpertSurfaceDraft(surfaceState({
+      draftAgentId: "a",
+      boundSessionId: "ses_new",
+    }))).toBe(false);
+    expect(shouldDropExpertSurfaceDraft(surfaceState({
+      routeSessionId: "ses_new",
+      draftAgentId: "a",
+      boundSessionId: "ses_new",
+    }))).toBe(false);
   });
 });
 
@@ -184,30 +156,24 @@ describe("buildExpertDraftTabSessionId", () => {
 });
 
 describe("isLiveExpertSessionSelection", () => {
-  test("treats deleted ses id as dead once inventory is ready (delete → white guard)", () => {
-    expect(
-      isLiveExpertSessionSelection({
-        selectedSessionId: "ses_deleted",
-        liveSessionIds: ["ses_other"],
-        inventoryReady: true,
-      }),
-    ).toBe(false);
-    expect(
-      isLiveExpertSessionSelection({
-        selectedSessionId: "ses_other",
-        liveSessionIds: ["ses_other"],
-        inventoryReady: true,
-      }),
-    ).toBe(true);
+  test("treats deleted ses id as dead once inventory is ready", () => {
+    expect(isLiveExpertSessionSelection({
+      selectedSessionId: "ses_deleted",
+      liveSessionIds: ["ses_other"],
+      inventoryReady: true,
+    })).toBe(false);
+    expect(isLiveExpertSessionSelection({
+      selectedSessionId: "ses_other",
+      liveSessionIds: ["ses_other"],
+      inventoryReady: true,
+    })).toBe(true);
   });
 
   test("keeps selection while inventory is still loading", () => {
-    expect(
-      isLiveExpertSessionSelection({
-        selectedSessionId: "ses_maybe",
-        liveSessionIds: [],
-        inventoryReady: false,
-      }),
-    ).toBe(true);
+    expect(isLiveExpertSessionSelection({
+      selectedSessionId: "ses_maybe",
+      liveSessionIds: [],
+      inventoryReady: false,
+    })).toBe(true);
   });
 });

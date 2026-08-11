@@ -11,7 +11,8 @@ export type OnMyAgentWorkspaceClient = Pick<OnMyAgentServerClient,
   | "activateWorkspace" | "deleteWorkspace" | "exportWorkspace"
   | "importWorkspace" | "previewWorkspaceImport" | "materializeBlueprintSessions"
   | "createExpertSessionRuntimeDirectory"
-  | "ensureExpertSessionIsolation"
+  | "ensureExpertSessionIsolation" | "getExpertDirectory" | "healExpertDirectory"
+  | "recordExpertDirectoryShadowDiff"
   | "readOpencodeConfigFile" | "writeOpencodeConfigFile" | "readWorkspaceFile"
   | "statWorkspaceFile" | "writeWorkspaceFile" | "writeWorkspaceBinaryFile"
   | "downloadWorkspaceFile" | "listWorkspaceFiles"
@@ -21,7 +22,7 @@ export type OnMyAgentWorkspaceClient = Pick<OnMyAgentServerClient,
 export type OnMyAgentSessionClient = Pick<OnMyAgentServerClient,
   | "deleteSession" | "listSessions" | "getSession" | "getSessionMessages"
   | "getSessionSnapshot" | "listSessionOrigins" | "upsertSessionOrigin"
-  | "deleteSessionOrigin"
+  | "deleteSessionOrigin" | "deleteExpert"
 >;
 
 export type OnMyAgentExtensionClient = Pick<OnMyAgentServerClient,

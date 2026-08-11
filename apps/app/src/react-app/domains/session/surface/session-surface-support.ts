@@ -49,6 +49,9 @@ export function humanizeSessionErrorMessage(raw: string): string {
   if (!text) return t("session.send_prompt_failed");
 
   const lower = text.toLowerCase();
+  if (/expert_runtime_contract_violated/.test(lower)) {
+    return t("session.error_expert_runtime_contract");
+  }
   if (
     /streaming response failed/.test(lower) ||
     /failed to stream response/.test(lower)
@@ -134,6 +137,12 @@ export function parseSessionError(thrown: unknown): SessionError {
       ...(messageId ? { messageId } : {}),
       ...(traceId ? { traceId } : {}),
     };
+    if (code === "expert_runtime_contract_violated") {
+      return {
+        message: t("session.error_expert_runtime_contract"),
+        ...details,
+      };
+    }
     if (name === "ProviderModelNotFoundError" && data) {
       const failedModel = readModel(data);
       const suggestionsValue = data.suggestions;

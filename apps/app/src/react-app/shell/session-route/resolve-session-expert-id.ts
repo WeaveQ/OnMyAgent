@@ -5,7 +5,7 @@
  * Paths:
  * - create: pendingAgentSnapshot / currentAgent at create time
  * - continue: currentAgent bound to this session, or persisted session agent id
- * - reopen: persisted custom agent id / session agent snapshot id only
+ * - reopen: Expert Directory identity (with snapshot only as content fallback)
  */
 export function resolveSessionExpertId(input: {
   sessionId: string;
@@ -16,7 +16,7 @@ export function resolveSessionExpertId(input: {
    */
   currentAgentId?: string | null;
   currentAgentBoundSessionId?: string | null;
-  /** From readCustomAgentIdForSession / snapshot.id for this sessionId. */
+  /** From the Expert Directory identity index for this sessionId. */
   sessionAgentId?: string | null;
 }): string | null {
   const sessionId = input.sessionId?.trim() ?? "";

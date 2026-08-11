@@ -1,5 +1,8 @@
 /** Session route navigation-state helpers for agent-management deep links + expert install. */
-import type { PendingAgentContext } from "../../domains/agents";
+import {
+  refreshExpertPackageQuery,
+  type PendingAgentContext,
+} from "../../domains/agents";
 import { ensureMarketplaceExpertInstalled } from "../../domains/plugins";
 import type { SessionAgentManagementIntent } from "../../domains/session";
 
@@ -54,6 +57,7 @@ export async function installMarketplaceExpertAfterSessionCreated(
   if (!marketplaceExpert) return;
   try {
     await ensureMarketplaceExpertInstalled(marketplaceExpert);
+    await refreshExpertPackageQuery();
   } catch (error) {
     console.warn("[expert-marketplace] failed to install expert package", error);
   }

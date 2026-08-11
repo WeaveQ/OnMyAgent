@@ -24,15 +24,11 @@ import {
 } from "../../agents";
 import { findBuiltinMarketplaceExpertById } from "@/react-app/domains/plugins";
 import {
-  readCustomAgentIdForSession,
   readSessionAgentSnapshot,
   useAgentRegistryStore,
   writeCustomAgentIdForSession,
 } from "../../agents";
-import {
-  isAssistantSession,
-  isExpertSession,
-} from "../../agents";
+import { isAssistantSession } from "../../agents";
 import {
   ONMYAGENT_ASSISTANT_AVATAR,
   onmyagentAssistantName,
@@ -729,13 +725,18 @@ export function compactConversationPreview(input: string | undefined): string {
 export function buildAgentConversationGroups(
   sessions: WorkspaceSessionGroup["sessions"],
   registry: AgentRegistry | null,
+  identity: {
+    sessionIds: ReadonlySet<string>;
+    agentIdBySessionId: ReadonlyMap<string, string>;
+  },
   previewBySessionId?: Map<string, string>,
 ): AgentConversationGroup[] {
   const groups = new Map<string, AgentConversationGroup>();
   for (const session of sessions) {
-    if (!isExpertSession(session.id)) continue;
+    const isExpert = identity.sessionIds.has(session.id);
+    if (!isExpert) continue;
     const fallbackTitle = getDisplaySessionTitle(session.title);
-    const agentId = readCustomAgentIdForSession(session.id);
+    const agentId = identity.agentIdBySessionId.get(session.id) ?? null;
     if (!agentId) continue;
     const agent =
       registry && agentId

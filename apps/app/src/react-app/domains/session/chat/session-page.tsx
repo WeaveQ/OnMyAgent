@@ -75,13 +75,14 @@ import type { AgentCardItem, AgentRegistry } from "../../agents";
 import {
   buildAgentToolAccess,
   buildAgentSystemPrompt,
+  createExpertOperationId,
   usePendingAgentStore,
 } from "../../agents";
 import { buildPendingAgentFromRecord } from "../../agents";
 import {
-  readCustomAgentIdForSession,
   useAgentRegistryStore,
 } from "../../agents";
+import { useExpertDirectoryStore } from "../../../capabilities/session-identity/expert-directory-store";
 import {
   friendlyModelNameToModelRef,
   isValidSdkModelRef,
@@ -341,6 +342,9 @@ export function SessionPage(props: SessionPageProps) {
     onDeleteSession: props.onDeleteSession,
   });
   const browserPanelRef = usePanelRef();
+  const expertDirectoryIdentity = useExpertDirectoryStore((state) =>
+    state.getIdentity(props.selectedWorkspaceId),
+  );
 
   const resolveConversationDisplay = useCallback(
     (session: WorkspaceSessionGroup["sessions"][number]) => {
@@ -348,7 +352,8 @@ export function SessionPage(props: SessionPageProps) {
         props.sidebar.workspaceSessionGroups,
         session.id,
       ) || t("session.default_title");
-      const agentId = readCustomAgentIdForSession(session.id);
+      const agentId =
+        expertDirectoryIdentity.agentIdBySessionId.get(session.id) ?? null;
       const agent =
         agentRegistry && agentId
           ? (agentRegistry.agents.find((item) => item.id === agentId) ??
@@ -364,7 +369,11 @@ export function SessionPage(props: SessionPageProps) {
         avatarBackground: restoredAgent?.avatar.avatarBackground,
       };
     },
-    [agentRegistry, props.sidebar.workspaceSessionGroups],
+    [
+      agentRegistry,
+      expertDirectoryIdentity.agentIdBySessionId,
+      props.sidebar.workspaceSessionGroups,
+    ],
   );
 
   const handleStartAgentConversation = useCallback(
@@ -408,7 +417,8 @@ export function SessionPage(props: SessionPageProps) {
         model: modelRef ?? undefined,
         // Fresh conversation start — always a new nonce, even if the user
         // clicks "对话" on the same agent card multiple times.
-        conversationStartId: Date.now(),
+        operationId: createExpertOperationId(),
+        draftCreatedAt: Date.now(),
       };
       // If the user is already inside a session, navigate to the "+新任务"
       // (no-session) state so SessionSurface renders the agent welcome card

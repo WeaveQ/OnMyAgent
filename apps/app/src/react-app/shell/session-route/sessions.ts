@@ -1,22 +1,17 @@
 import { getDisplaySessionTitle } from "../../../app/lib/session-title";
 import type { SidebarSessionItem } from "../../../app/types";
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
-import { OnMyAgentServerError } from "../../../app/lib/onmyagent-server/client-shared";
 import type { ResolvedWorkspaceEndpoint } from "../../../app/lib/workspace-endpoint";
-import type { SessionOriginRecord } from "@onmyagent/types/server";
 import { t } from "../../../i18n";
 import {
   addAssistantSession,
-  addExpertSession,
   isExpertCreationEphemeralSession,
-  isExpertSession,
   writeAssistantSessionCategory,
 } from "../../domains/agents";
 import {
-  SIDEBAR_ASSISTANT_DIRECTORY_LIST_LIMIT,
-  SIDEBAR_SESSION_LIST_LIMIT,
   filterPendingDeletedSessions,
   filterRecentlyDeletedSessions,
+  SIDEBAR_SESSION_LIST_LIMIT,
   sessionSnapshotFetchOptions,
   sessionSnapshotQueryKey,
 } from "../../domains/session";
@@ -29,431 +24,6 @@ import {
 } from "./cold-path-budget";
 
 export type PendingCreatedSessionMap = Record<string, Record<string, number>>;
-
-/**
- * Origin-directory recovery is deliberately a second phase of cold start.
- * Keep it small: primary list paint must not wait for arbitrary expert and
- * assistant directories, and a large origin file must not fan out requests.
- */
-export const SESSION_ORIGIN_DIRECTORY_RECOVERY_CONCURRENCY = 2;
-/**
- * A workspace can contain many isolated expert directories. Bound concurrent
- * exact gets per page so a stale or unusually large origin index cannot fan
- * out unbounded requests at once. Multiple pages run sequentially in one
- * recovery call so authoritative 404 tombstones advance the cursor instead of
- * re-scanning the same first page forever.
- */
-export const SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS = 40;
-/**
- * Safety cap on exact pages per recovery call (MAX_TARGETS each). Beyond this
- * remaining candidates stay incomplete so the loader can prune known tombstones
- * and retry without hanging cold start on a multi-thousand ghost index.
- */
-export const SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_PAGES = 25;
-
-type SessionDirectoryListClient = {
-  listSessions: (
-    workspaceId: string,
-    options?: { limit?: number; directory?: string },
-  ) => Promise<{ items: unknown[] }>;
-  getSession?: (
-    workspaceId: string,
-    sessionId: string,
-    options?: { directory?: string },
-  ) => Promise<{ item: unknown }>;
-};
-
-export type OriginDirectorySessionRecovery = {
-  items: SidebarSessionItem[];
-  /**
-   * True when every outstanding origin is accounted for (recovered, paged, or
-   * authoritative-missing). Soft failures keep this false so callers do not
-   * claim a permanent empty expert list.
-   */
-  complete: boolean;
-  /** A non-null value asks the caller to run the next bounded exact page. */
-  nextOffset: number | null;
-  /**
-   * Exact reads that prove an origin no longer exists (404/410). Safe to prune
-   * from durable session-origins — does **not** make recovery incomplete.
-   */
-  missingSessionIds: string[];
-  /** Directory list / non-404 get failures remain unknown. */
-  softFailure: boolean;
-};
-
-type OriginDirectoryRecoveryInput = {
-  client: SessionDirectoryListClient;
-  workspaceId: string;
-  originWorkspaceId: string;
-  primaryItems: SidebarSessionItem[];
-  /** Sessions already verified by earlier exact pages in this recovery cycle. */
-  verifiedItems?: SidebarSessionItem[];
-  /**
-   * Authoritative-missing ids already tombstoned earlier in this cycle (or a
-   * prior incomplete pass). Excluded from exact candidates so paging advances.
-   */
-  verifiedMissingIds?: readonly string[];
-  origins: SessionOriginRecord[];
-  limit: number;
-};
-
-/**
- * Recover the exact sessions recorded in durable origin metadata. Normal
- * workspaces use one bounded list per directory; large directory sets switch
- * to exact gets in pages so a single cold-start pass never creates thousands
- * of simultaneous requests.
- */
-export async function recoverOriginDirectorySessionItemsWithStatus(
-  input: OriginDirectoryRecoveryInput,
-): Promise<OriginDirectorySessionRecovery> {
-  const knownIds = new Set([
-    ...input.primaryItems.map((item) => item.id),
-    ...(input.verifiedItems ?? []).map((item) => item.id),
-  ]);
-  // Accounted ids include live known sessions and prior authoritative missing
-  // tombstones so exact paging never re-scans the same ghost page forever.
-  const accountedIds = new Set<string>(knownIds);
-  for (const id of input.verifiedMissingIds ?? []) {
-    const trimmed = id?.trim();
-    if (trimmed) accountedIds.add(trimmed);
-  }
-  const expectedIdsByDirectory = new Map<string, Set<string>>();
-  const expectedOrigins: Array<{ sessionId: string; directory: string }> = [];
-  const expectedOriginIds = new Set<string>();
-  let hasUnrecoverableOrigin = false;
-
-  for (const origin of input.origins) {
-    const directory = origin.directory?.trim();
-    if (
-      origin.workspaceId === input.originWorkspaceId &&
-      origin.sessionId &&
-      !accountedIds.has(origin.sessionId) &&
-      !directory
-    ) {
-      hasUnrecoverableOrigin = true;
-      continue;
-    }
-    if (
-      origin.workspaceId !== input.originWorkspaceId ||
-      !directory ||
-      !origin.sessionId ||
-      accountedIds.has(origin.sessionId)
-    ) {
-      continue;
-    }
-    const expectedIds = expectedIdsByDirectory.get(directory) ?? new Set<string>();
-    expectedIds.add(origin.sessionId);
-    expectedIdsByDirectory.set(directory, expectedIds);
-    if (!expectedOriginIds.has(origin.sessionId)) {
-      expectedOriginIds.add(origin.sessionId);
-      expectedOrigins.push({ sessionId: origin.sessionId, directory });
-    }
-  }
-
-  const directoryEntries = Array.from(expectedIdsByDirectory.entries());
-  const recovered: SidebarSessionItem[] = [];
-  const useExactPages =
-    directoryEntries.length > SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS;
-  let directoryReadsComplete = true;
-
-  if (!useExactPages) {
-    for (
-      let start = 0;
-      start < directoryEntries.length;
-      start += SESSION_ORIGIN_DIRECTORY_RECOVERY_CONCURRENCY
-    ) {
-      const batch = directoryEntries.slice(
-        start,
-        start + SESSION_ORIGIN_DIRECTORY_RECOVERY_CONCURRENCY,
-      );
-      const results = await Promise.allSettled(
-        batch.map(async ([directory, expectedIds]) => {
-          const response = await input.client.listSessions(input.workspaceId, {
-            limit: input.limit,
-            directory,
-          });
-          return toSidebarSessionItems(response.items).filter((item) =>
-            expectedIds.has(item.id),
-          );
-        }),
-      );
-      for (const result of results) {
-        if (result.status !== "fulfilled") {
-          directoryReadsComplete = false;
-          continue;
-        }
-        for (const item of result.value) {
-          if (accountedIds.has(item.id)) continue;
-          accountedIds.add(item.id);
-          knownIds.add(item.id);
-          recovered.push(item);
-        }
-      }
-    }
-  }
-
-  // Directory list is still a bounded page. Any origin id it did not return is
-  // recovered by exact id. Authoritative 404/410 tombstones count as accounted
-  // so multi-page ghost indexes advance past the first MAX_TARGETS.
-  if (!directoryReadsComplete) {
-    return {
-      items: recovered,
-      complete: false,
-      nextOffset: null,
-      missingSessionIds: [],
-      softFailure: true,
-    };
-  }
-  if (hasUnrecoverableOrigin) {
-    return {
-      items: recovered,
-      complete: false,
-      nextOffset: null,
-      missingSessionIds: [],
-      softFailure: true,
-    };
-  }
-  const getSession = input.client.getSession;
-  const initialExactCandidates = expectedOrigins.filter(
-    (origin) => !accountedIds.has(origin.sessionId),
-  );
-  if (initialExactCandidates.length === 0) {
-    return {
-      items: recovered,
-      complete: true,
-      nextOffset: null,
-      missingSessionIds: [],
-      softFailure: false,
-    };
-  }
-  if (!getSession) {
-    return {
-      items: recovered,
-      complete: false,
-      nextOffset: null,
-      missingSessionIds: [],
-      softFailure: true,
-    };
-  }
-
-  let exactReadsComplete = true;
-  const missingSessionIds: string[] = [];
-  let pagesProcessed = 0;
-  let stoppedForPageBudget = false;
-
-  while (pagesProcessed < SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_PAGES) {
-    const exactCandidates = expectedOrigins.filter(
-      (origin) => !accountedIds.has(origin.sessionId),
-    );
-    if (exactCandidates.length === 0) break;
-
-    const page = exactCandidates.slice(
-      0,
-      SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS,
-    );
-    pagesProcessed += 1;
-
-    for (
-      let start = 0;
-      start < page.length;
-      start += SESSION_ORIGIN_DIRECTORY_RECOVERY_CONCURRENCY
-    ) {
-      const batch = page.slice(
-        start,
-        start + SESSION_ORIGIN_DIRECTORY_RECOVERY_CONCURRENCY,
-      );
-      const results = await Promise.allSettled(
-        batch.map(async (origin) =>
-          resolveExactOriginSession({
-            client: input.client,
-            workspaceId: input.workspaceId,
-            sessionId: origin.sessionId,
-            directory: origin.directory,
-            limit: input.limit,
-            getSession,
-          }),
-        ),
-      );
-      for (const result of results) {
-        if (result.status !== "fulfilled") {
-          exactReadsComplete = false;
-          continue;
-        }
-        const resolved = result.value;
-        if (resolved.kind === "soft_failure") {
-          // Warm-up / transport / inconclusive directory list — do not tombstone.
-          exactReadsComplete = false;
-          continue;
-        }
-        if (resolved.kind === "missing") {
-          // Confirmed gone (404/410 + directory list lacks the id).
-          if (!accountedIds.has(resolved.expectedId)) {
-            accountedIds.add(resolved.expectedId);
-            missingSessionIds.push(resolved.expectedId);
-          }
-          continue;
-        }
-        const item = resolved.item;
-        if (!item || item.id !== resolved.expectedId) {
-          exactReadsComplete = false;
-          continue;
-        }
-        if (accountedIds.has(item.id)) continue;
-        accountedIds.add(item.id);
-        knownIds.add(item.id);
-        recovered.push(item);
-      }
-    }
-
-    if (!exactReadsComplete) break;
-
-    const remainingAfterPage = expectedOrigins.filter(
-      (origin) => !accountedIds.has(origin.sessionId),
-    );
-    if (remainingAfterPage.length === 0) break;
-    if (pagesProcessed >= SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_PAGES) {
-      stoppedForPageBudget = true;
-      break;
-    }
-  }
-
-  const remainingCandidates = expectedOrigins.filter(
-    (origin) => !accountedIds.has(origin.sessionId),
-  );
-  // 404/410 tombstones are accounted; soft failures and page-budget leftovers
-  // keep complete=false so callers do not claim a permanent empty list.
-  const softFailure = !exactReadsComplete;
-  const hasMore = remainingCandidates.length > 0;
-  const complete = !softFailure && !hasMore;
-  return {
-    items: recovered,
-    complete,
-    nextOffset:
-      !softFailure && (hasMore || stoppedForPageBudget)
-        ? 0
-        : softFailure
-          ? 0
-          : null,
-    missingSessionIds,
-    softFailure,
-  };
-}
-
-export function isAuthoritativeSessionMissing(error: unknown): boolean {
-  return (
-    error instanceof OnMyAgentServerError &&
-    (error.status === 404 || error.status === 410)
-  );
-}
-
-type ExactOriginResolution =
-  | { kind: "recovered"; expectedId: string; item: SidebarSessionItem }
-  | { kind: "missing"; expectedId: string }
-  | { kind: "soft_failure"; expectedId: string };
-
-/**
- * Resolve one durable origin by exact id. A bare 404/410 is **not** enough to
- * tombstone: OpenCode can 404 while a directory list still has the session
- * (warm-up / project index lag). Confirm missing only when the origin
- * directory list succeeds and does not contain the session id.
- */
-export async function resolveExactOriginSession(input: {
-  client: SessionDirectoryListClient;
-  workspaceId: string;
-  sessionId: string;
-  directory: string;
-  limit: number;
-  getSession: NonNullable<SessionDirectoryListClient["getSession"]>;
-}): Promise<ExactOriginResolution> {
-  const expectedId = input.sessionId;
-  try {
-    const response = await input.getSession(input.workspaceId, expectedId, {
-      directory: input.directory,
-    });
-    const item = toSidebarSessionItem(response.item);
-    if (item && item.id === expectedId) {
-      return { kind: "recovered", expectedId, item };
-    }
-    return { kind: "soft_failure", expectedId };
-  } catch (error) {
-    if (!isAuthoritativeSessionMissing(error)) {
-      return { kind: "soft_failure", expectedId };
-    }
-  }
-
-  // Confirm 404/410 against a directory list before pruning live experts.
-  try {
-    const listed = await input.client.listSessions(input.workspaceId, {
-      limit: input.limit,
-      directory: input.directory,
-    });
-    const listedItems = toSidebarSessionItems(listed.items);
-    const found = listedItems.find((item) => item.id === expectedId);
-    if (found) {
-      return { kind: "recovered", expectedId, item: found };
-    }
-    return { kind: "missing", expectedId };
-  } catch {
-    return { kind: "soft_failure", expectedId };
-  }
-}
-
-/**
- * After origin recovery settles, keep cached expert rows that were not
- * confirmed missing. Primary workspace-root lists never observe isolated
- * expert directories — dropping them on complete wiped every prior expert
- * when only the newest origin survived prune.
- */
-export function mergeAuthoritativeOriginSessions(input: {
-  workspaceId: string;
-  fetched: SidebarSessionItem[];
-  current: SidebarSessionItem[];
-  pendingByWorkspaceId: PendingCreatedSessionMap;
-  explicitAssistantSessionIds: Set<string>;
-  tombstoneSessionIds: ReadonlySet<string>;
-  now: number;
-}): SidebarSessionItem[] {
-  const tombstones = input.tombstoneSessionIds;
-  const fetched = input.fetched.filter(
-    (session) => session.id && !tombstones.has(session.id),
-  );
-  const merged = mergeFetchedSessionsWithPending({
-    workspaceId: input.workspaceId,
-    fetched,
-    current: input.current,
-    pendingByWorkspaceId: input.pendingByWorkspaceId,
-    explicitAssistantSessionIds: input.explicitAssistantSessionIds,
-    // Keep isolated experts that recovery did not re-list, unless tombstoned.
-    preserveExpertSessions: true,
-    now: input.now,
-  });
-  return merged.filter((session) => session.id && !tombstones.has(session.id));
-}
-
-/**
- * Whether origin recovery may settle as a definitive empty expert list
- * (callers hydrate, not degrade). Soft failures must not use this path.
- */
-export function isAuthoritativeEmptyOriginRecovery(
-  recovery: Pick<
-    OriginDirectorySessionRecovery,
-    "complete" | "items" | "missingSessionIds" | "softFailure"
-  >,
-): boolean {
-  return (
-    recovery.complete &&
-    !recovery.softFailure &&
-    recovery.items.length === 0
-  );
-}
-
-export async function recoverOriginDirectorySessionItems(
-  input: OriginDirectoryRecoveryInput,
-): Promise<SidebarSessionItem[]> {
-  const result = await recoverOriginDirectorySessionItemsWithStatus(input);
-  return result.items;
-}
 
 export function toSidebarSessionItem(value: unknown): SidebarSessionItem | null {
   if (!value || typeof value !== "object") return null;
@@ -503,7 +73,6 @@ export function shouldKeepWorkspaceSessionItem(input: {
   // Coach / try-preview sessions from expert creation are disposable.
   if (isExpertCreationEphemeralSession(input.sessionId)) return false;
   if (input.assistantSessionIds.has(input.sessionId)) return true;
-  if (isExpertSession(input.sessionId)) return true;
   return (
     input.normalizeDirectoryPath(input.directory ?? "") ===
     input.normalizedWorkspaceRoot
@@ -519,58 +88,46 @@ export async function collectWorkspaceSessionItems(input: {
   normalizeDirectoryPath: (path: string) => string;
   /** Override list page size (defaults to sidebar cold-start limit). */
   limit?: number;
-  /** When false, skip per-directory follow-up lists (faster cold path). */
-  includeAssistantDirectories?: boolean;
 }) {
+  return (await collectWorkspaceSessionItemsWithStatus(input)).items;
+}
+
+export type WorkspaceSessionCollectionResult = {
+  items: SidebarSessionItem[];
+  complete: boolean;
+  failures: readonly unknown[];
+};
+
+export async function collectWorkspaceSessionItemsWithStatus(input: {
+  client: OnMyAgentServerClient;
+  workspaceId: string;
+  workspaceRoot: string;
+  isRemoteOnMyAgentWorkspace: boolean;
+  assistantSessionRecords: Array<{ sessionId: string; directory: string }>;
+  normalizeDirectoryPath: (path: string) => string;
+  limit?: number;
+}): Promise<WorkspaceSessionCollectionResult> {
   const limit = input.limit ?? SIDEBAR_SESSION_LIST_LIMIT;
-  // Cold-path budget: count primary listSessions (see cold-path-budget.ts).
+  // The workspace aggregate is the only canonical session read for a refresh.
+  // It already scans authorized expert runtime markers server-side; renderer
+  // code must not fan out over origins or assistant directories.
   recordColdPathEvent("listSessions");
   const response = await input.client.listSessions(input.workspaceId, {
+    scope: "workspace",
     limit,
   });
   const assistantSessionIds = new Set(
     input.assistantSessionRecords.map((item) => item.sessionId),
   );
-  const includeAssistantDirectories = input.includeAssistantDirectories !== false;
-  const assistantDirectories = includeAssistantDirectories
-    ? Array.from(
-        new Set(
-          input.assistantSessionRecords.map((item) => item.directory.trim()),
-        ),
-      )
-        .filter(Boolean)
-        .slice(0, SIDEBAR_ASSISTANT_DIRECTORY_LIST_LIMIT)
-    : [];
-  const primaryIds = new Set(
-    (response.items ?? []).map((item) => item.id).filter(Boolean),
-  );
-  // Only directory-list for assistant sessions missing from the primary page.
-  const missingAssistant = input.assistantSessionRecords.some(
-    (record) =>
-      record.sessionId &&
-      !primaryIds.has(record.sessionId) &&
-      record.directory?.trim(),
-  );
-  const assistantDirectoryResults =
-    missingAssistant && assistantDirectories.length > 0
-      ? await Promise.allSettled(
-          assistantDirectories.map(async (directory) => {
-            const result = await input.client.listSessions(input.workspaceId, {
-              limit,
-              directory,
-            });
-            return result.items.filter((item) =>
-              assistantSessionIds.has(item.id),
-            );
-          }),
-        )
-      : [];
-  const assistantDirectoryItems = assistantDirectoryResults.flatMap(
-    (result) => (result.status === "fulfilled" ? result.value : []),
-  );
   const fetchedItems = Array.from(
-    [...(response.items ?? []), ...assistantDirectoryItems].reduce(
-      (items, item) => items.set(item.id, item),
+    (response.items ?? []).reduce(
+      (items, item) => {
+        if (item && typeof item === "object" && "id" in item) {
+          const id = (item as { id?: unknown }).id;
+          if (typeof id === "string" && id.trim()) items.set(id, item);
+        }
+        return items;
+      },
       new Map<string, (typeof response.items)[number]>(),
     ).values(),
   );
@@ -591,29 +148,34 @@ export async function collectWorkspaceSessionItems(input: {
       }
     }
   }
-  const items = normalizedWorkspaceRoot && !input.isRemoteOnMyAgentWorkspace
-    ? fetchedItems.filter(
-        (session) =>
-          shouldKeepWorkspaceSessionItem({
-            sessionId: session?.id ?? "",
-            directory: session?.directory,
-            assistantSessionIds,
-            normalizedWorkspaceRoot,
-            normalizeDirectoryPath: input.normalizeDirectoryPath,
-          }),
-      )
-    : fetchedItems;
-  return filterPendingDeletedSessions({
+  // A workspace-scoped response is already authorized by the server's marker
+  // inventory. Keep every non-ephemeral item, including isolated Expert
+  // directories; root filtering would hide them again in the renderer.
+  const items = fetchedItems.filter((session) =>
+    !isExpertCreationEphemeralSession(session?.id ?? ""),
+  );
+  const filteredItems = filterPendingDeletedSessions({
     workspaceId: input.workspaceId,
     items: toSidebarSessionItems(items),
   });
+  const complete =
+    typeof response === "object" && response !== null &&
+    "complete" in response && typeof response.complete === "boolean"
+      ? response.complete
+      : true;
+  const failures =
+    typeof response === "object" && response !== null &&
+    "failures" in response && Array.isArray(response.failures)
+      ? response.failures
+      : [];
+  return { items: filteredItems, complete, failures };
 }
 
 /**
- * Register a newly created session so assistant/expert sidebar filters
- * (`isAssistantSession` / `isExpertSession`) include it immediately.
- * Without this, rows only appear after a listSessions refresh auto-registers
- * by directory (e.g. after deleting another task).
+ * Register newly created Assistant sessions in the legacy Assistant-only
+ * sidebar membership. Expert membership is derived from the server Directory;
+ * its create paths optimistically upsert that derived identity instead of
+ * restoring a second renderer-owned truth source.
  */
 export function registerSidebarSessionPageMode(
   sessionId: string,
@@ -621,10 +183,7 @@ export function registerSidebarSessionPageMode(
 ): void {
   const id = sessionId.trim();
   if (!id) return;
-  if (pageMode === "expert") {
-    addExpertSession(id);
-    return;
-  }
+  if (pageMode === "expert") return;
   // Default to assistant: office home + quick-capture + first-send.
   if (pageMode === "assistant" || pageMode == null) {
     addAssistantSession(id);
@@ -637,9 +196,8 @@ export function insertSidebarSession(input: {
   workspaceId: string;
   session: unknown;
   /**
-   * When set (or omitted for assistant default), register the session id so
-   * the page-mode sidebar filter keeps the new row visible.
-   * Pass `pageMode: "expert"` for expert creates; omit/`assistant` for office.
+   * When set (or omitted for assistant default), register Assistant session
+   * membership. Expert callers already upsert Directory-derived identity.
    */
   pageMode?: "assistant" | "expert" | null;
   /** Set false only when caller already registered via registerCreatedSessionStartIntent. */
@@ -736,13 +294,11 @@ export function mergeFetchedSessionsWithPending(input: {
   current: SidebarSessionItem[];
   pendingByWorkspaceId: PendingCreatedSessionMap;
   explicitAssistantSessionIds: Set<string>;
-  /** Preserve cached isolated experts only while durable origin recovery runs. */
-  preserveExpertSessions?: boolean;
   now: number;
 }) {
   const pending = input.pendingByWorkspaceId[input.workspaceId];
   const pendingIds = Object.keys(pending ?? {});
-  if (pendingIds.length === 0 && !input.preserveExpertSessions) {
+  if (pendingIds.length === 0) {
     return input.fetched;
   }
 
@@ -759,10 +315,6 @@ export function mergeFetchedSessionsWithPending(input: {
   const preserved = input.current.filter((session) => {
     const id = session.id;
     if (!id || fetchedIds.has(id)) return false;
-    // A primary workspace-root list cannot observe isolated expert directories.
-    // Keep the cached expert row until durable origin recovery proves its
-    // current state; explicit delete removes this local expert identity first.
-    if (input.preserveExpertSessions && isExpertSession(id)) return true;
     if (input.explicitAssistantSessionIds.has(id)) return true;
     const createdAt = pending?.[id];
     if (typeof createdAt !== "number") return false;
@@ -778,18 +330,6 @@ export function mergeFetchedSessionsWithPending(input: {
   }
 
   return preserved.length > 0 ? [...preserved, ...input.fetched] : input.fetched;
-}
-
-/** Keep recovery idempotent when origin hydration retries overlap a fresh list. */
-export function mergeRecoveredSessionsWithCurrent(
-  recovered: SidebarSessionItem[],
-  current: SidebarSessionItem[],
-): SidebarSessionItem[] {
-  const byId = new Map<string, SidebarSessionItem>();
-  for (const item of [...recovered, ...current]) {
-    if (item.id && !byId.has(item.id)) byId.set(item.id, item);
-  }
-  return Array.from(byId.values());
 }
 
 export function mergeWorkspaceFetchedSessions(input: {

@@ -47,23 +47,23 @@ describe("expert draft session activation", () => {
 
   test("consumes the bound draft so no ghost new-session tab remains", () => {
     const contexts = {
-      "order-entry": { conversationStartId: 101, label: "draft" },
+      "order-entry": { operationId: "operation-101", label: "draft" },
     };
     expect(consumeBoundExpertDraftContext({
       contexts,
       agentId: "order-entry",
-      conversationStartId: 101,
+      operationId: "operation-101",
     })).toEqual({});
   });
 
   test("requests navigation once only while the bound session is not selected", () => {
     const input = {
-      contexts: { "order-entry": { conversationStartId: 101 } },
+      contexts: { "order-entry": { operationId: "operation-101" } },
       draftAgentId: "order-entry",
       draftSessionActive: true,
       pendingAgent: {
         id: "order-entry",
-        conversationStartId: 101,
+        operationId: "operation-101",
         boundSessionId: "ses_created",
       },
     };
@@ -79,12 +79,12 @@ describe("expert draft session activation", () => {
 
   test("does not let an older binding consume a newer draft for the same agent", () => {
     const contexts = {
-      "order-entry": { conversationStartId: 202, label: "newer draft" },
+      "order-entry": { operationId: "operation-202", label: "newer draft" },
     };
     const oldBinding = {
       contexts,
       agentId: "order-entry",
-      conversationStartId: 101,
+      operationId: "operation-101",
     };
     expect(matchesExpertDraftTransaction(oldBinding)).toBe(false);
     expect(consumeBoundExpertDraftContext(oldBinding)).toBe(contexts);

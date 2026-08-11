@@ -444,6 +444,11 @@ export default {
   "settings.running_probe": "正在运行探测…",
   "settings.runtime_debug_desc": "可读的诊断快照，支持一键导出",
   "settings.runtime_debug_title": "运行时调试报告",
+  "settings.expert_lifecycle_events_title": "专家生命周期事件",
+  "settings.expert_lifecycle_events_desc":
+    "进程内最多保留 512 条脱敏事件，当前 {count} 条。",
+  "settings.expert_lifecycle_events_copied": "已复制专家生命周期事件。",
+  "settings.expert_lifecycle_events_exported": "已导出专家生命周期事件。",
   "settings.sandbox_error": "错误",
   "settings.sandbox_export_hint": "使用上方运行时调试报告中的导出功能",
   "settings.sandbox_probe_desc": "运行临时Docker沙箱启动检查并",

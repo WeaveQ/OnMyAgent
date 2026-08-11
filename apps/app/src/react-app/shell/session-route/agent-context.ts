@@ -1,9 +1,6 @@
 import type { SessionStartIntent } from "../../../app/types";
 import type { PendingAgentContext } from "../../domains/agents";
-import {
-  readCustomAgentIdForSession,
-  readSessionAgentSnapshot,
-} from "../../domains/agents";
+import { readSessionAgentSnapshot } from "../../domains/agents";
 
 /**
  * Rebuild a pending agent from a prior session's local expert binding.
@@ -12,12 +9,13 @@ import {
  */
 export function inheritPendingAgentFromSession(
   sessionId: string | null | undefined,
+  agentId: string | null | undefined,
 ): PendingAgentContext | null {
   const id = sessionId?.trim() ?? "";
   if (!id || id.startsWith("draft:")) return null;
 
-  const agentId = readCustomAgentIdForSession(id);
-  if (!agentId) return null;
+  const expertId = agentId?.trim() ?? "";
+  if (!expertId) return null;
 
   const snapshot = readSessionAgentSnapshot(id);
   if (snapshot) {
@@ -39,8 +37,8 @@ export function inheritPendingAgentFromSession(
   // Id-only fallback: still binds the new session to the expert so the list
   // groups correctly and the header can restore from registry/marketplace.
   return {
-    id: agentId,
-    name: agentId,
+    id: expertId,
+    name: expertId,
     description: "",
     systemPrompt: "",
     avatar: {
@@ -63,6 +61,8 @@ export function resolvePendingAgentForPrompt(input: {
    * so the new chat does not fall back to "默认智能体".
    */
   inheritFromSessionId?: string | null;
+  /** Authoritative Expert Directory identity for inheritFromSessionId. */
+  inheritAgentId?: string | null;
 }) {
   let pendingAgentSnapshot: PendingAgentContext | null = input.createdSession
     ? input.currentAgent
@@ -75,6 +75,7 @@ export function resolvePendingAgentForPrompt(input: {
   ) {
     pendingAgentSnapshot = inheritPendingAgentFromSession(
       input.inheritFromSessionId,
+      input.inheritAgentId,
     );
   }
 
@@ -109,7 +110,6 @@ export function registerCreatedSessionStartIntent(input: {
    */
   pageMode?: "assistant" | "expert";
   addAssistantSession: (sessionId: string) => void;
-  addExpertSession: (sessionId: string) => void;
   writeAssistantSessionCategory: (
     sessionId: string,
     category: "office",
@@ -129,8 +129,5 @@ export function registerCreatedSessionStartIntent(input: {
         ? input.intent.assistantCategory
         : "office",
     );
-  }
-  if (mode === "expert") {
-    input.addExpertSession(input.sessionId);
   }
 }

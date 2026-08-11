@@ -8,13 +8,23 @@ export type SessionOriginWriteInput = {
   sessionId: string;
   kind: "assistant" | "expert";
   agentId?: string | null;
+  packageName?: string | null;
   directory?: string | null;
+  onFailure?: (failure: SessionOriginWriteFailure) => void;
+};
+
+export type SessionOriginWriteFailure = {
+  code: "origin_write_failed";
+  attempts: number;
+  workspaceId: string;
+  sessionId: string;
 };
 
 function buildOriginPayload(input: SessionOriginWriteInput) {
   return {
     kind: input.kind,
     ...(input.agentId?.trim() ? { agentId: input.agentId.trim() } : {}),
+    ...(input.packageName?.trim() ? { packageName: input.packageName.trim() } : {}),
     ...(input.directory?.trim() ? { directory: input.directory.trim() } : {}),
   };
 }
@@ -29,7 +39,9 @@ export function writeSessionOriginBestEffort(input: SessionOriginWriteInput) {
       sessionId,
       buildOriginPayload(input),
     )
-    .catch(() => undefined);
+    .catch(() => {
+      emitOriginWriteFailure(input, sessionId, 1);
+    });
 }
 
 /**
@@ -55,7 +67,25 @@ export async function writeSessionOriginDurable(
       // retry once
     }
   }
-  // Last resort: fire-and-forget so a later settle may still land.
-  writeSessionOriginBestEffort(input);
+  emitOriginWriteFailure(input, sessionId, 2);
   return false;
+}
+
+function emitOriginWriteFailure(
+  input: SessionOriginWriteInput,
+  sessionId: string,
+  attempts: number,
+) {
+  const failure: SessionOriginWriteFailure = {
+    code: "origin_write_failed",
+    attempts,
+    workspaceId: input.workspaceId,
+    sessionId,
+  };
+  input.onFailure?.(failure);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("onmyagent:session-origin-write-failed", {
+      detail: failure,
+    }));
+  }
 }

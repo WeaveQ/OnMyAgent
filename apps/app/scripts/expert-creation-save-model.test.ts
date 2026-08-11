@@ -46,13 +46,19 @@ describe("expert creation save model", () => {
     );
     const nextRegistry = { ...registry, agents: [agent, ...registry.agents] };
 
-    const pending = buildSavedExpertPendingContext(agent, nextRegistry, 1234);
+    const pending = buildSavedExpertPendingContext(
+      agent,
+      nextRegistry,
+      "operation-1234",
+      1234,
+    );
 
     expect(pending).toMatchObject({
       id: agent.id,
       name: "Research expert",
       description: "Works from evidence.",
-      conversationStartId: 1234,
+      operationId: "operation-1234",
+      draftCreatedAt: 1234,
       draftSource: "agent-selection",
     });
     expect(pending?.systemPrompt).toContain("Cite the source.");

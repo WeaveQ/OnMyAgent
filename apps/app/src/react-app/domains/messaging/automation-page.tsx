@@ -86,6 +86,7 @@ import {
 import {
   buildPendingAgentFromRecord,
   createDefaultAgentRegistry,
+  refreshExpertPackageQuery,
   useAgentRegistryStore,
   type AgentRegistry,
 } from "../agents";
@@ -1067,6 +1068,7 @@ export function AutomationPage(props: {
             marketplace: "experts",
             packageName: plan.defaultAutoInstallExpert,
           });
+          await refreshExpertPackageQuery();
         } catch {
           // Expert install is best-effort (desktop only); automations still apply.
         }

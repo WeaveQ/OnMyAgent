@@ -19,6 +19,34 @@ env:
   TURBO_TEAM: ${{ vars.TURBO_TEAM }}
 
 jobs:
+  per-commit-types:
+    name: Per-commit type gate
+    if: >
+      github.event_name != 'pull_request' ||
+      (github.event.action != 'labeled' && github.event.action != 'unlabeled')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full commit range
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.27.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Check every introduced commit
+        run: pnpm check:commit-types --max-commits 20
+
   # Path filter / label: skip expensive windows-2022 when PR is unrelated.
   # Force with PR label `ci:windows` (Phase A Windows gate).
   changes:

@@ -10,6 +10,8 @@ export type ExpertColdPathRequest = {
   workspaceId: string;
   agentId: string;
   agentName: string;
+  packageName?: string;
+  approvedAgentIds?: readonly string[];
   skillNames?: readonly string[];
 };
 
@@ -73,7 +75,11 @@ function requestKey(request: ExpertColdPathRequest): string {
 }
 
 function requestFingerprint(request: ExpertColdPathRequest): string {
-  return skillNamesFingerprint(request.skillNames);
+  return [
+    request.packageName?.trim() ?? "",
+    skillNamesFingerprint(request.approvedAgentIds),
+    skillNamesFingerprint(request.skillNames),
+  ].join("\u0001");
 }
 
 async function runColdCreate(

@@ -39,6 +39,13 @@ export function createDesktopPaths(options) {
    * 因此我们用 platform 和 process.env.USER 直接构造真实家目录路径。
    */
   function getRealHomeDir() {
+    const homeOverride = process.env.ONMYAGENT_REAL_HOME?.trim();
+    if (homeOverride) {
+      if (!path.isAbsolute(homeOverride)) {
+        throw new Error("ONMYAGENT_REAL_HOME must be an absolute path");
+      }
+      return path.resolve(homeOverride);
+    }
     const user = process.env.USER || os.userInfo().username;
     if (user) {
       if (process.platform === "darwin") {

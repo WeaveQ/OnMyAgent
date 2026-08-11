@@ -283,7 +283,7 @@ describe("session route control", () => {
       resolveSessionRouteModeSwitchPath({
         currentMode: "assistant",
         findFirstSessionIdMatching: () => "ses_first_expert",
-        isExpertSession: (id) => id.startsWith("expert"),
+        isExpertSessionInDirectory: (id) => id.startsWith("expert"),
         readLastSessionFor: (_ws, mode) =>
           mode === "expert" ? "expert_remembered" : null,
         sessionListOwnsSession: owns,
@@ -300,7 +300,7 @@ describe("session route control", () => {
         currentMode: "expert",
         findFirstSessionIdMatching: (sessions, predicate) =>
           sessions.find((item) => predicate(item.id))?.id ?? null,
-        isExpertSession: (id) => id.startsWith("expert"),
+        isExpertSessionInDirectory: (id) => id.startsWith("expert"),
         readLastSessionFor: (_ws, mode) =>
           mode === "assistant" ? "assistant_remembered" : "expert_other",
         sessionListOwnsSession: owns,
@@ -319,7 +319,7 @@ describe("session route control", () => {
         currentMode: "expert",
         findFirstSessionIdMatching: (sessions, predicate) =>
           sessions.find((item) => predicate(item.id))?.id ?? null,
-        isExpertSession: (id) => id.startsWith("expert"),
+        isExpertSessionInDirectory: (id) => id.startsWith("expert"),
         readLastSessionFor: () => null,
         sessionListOwnsSession: owns,
         sessionsByWorkspaceId: {
@@ -336,7 +336,7 @@ describe("session route control", () => {
       resolveSessionRouteModeSwitchPath({
         currentMode: "assistant",
         findFirstSessionIdMatching: () => "expert_first",
-        isExpertSession: (id) => id.startsWith("expert"),
+        isExpertSessionInDirectory: (id) => id.startsWith("expert"),
         // Legacy single-slot would return assistant id; mode-scoped returns expert.
         readLastSessionFor: (_ws, mode) =>
           mode === "expert" ? "expert_remembered" : "assistant_remembered",

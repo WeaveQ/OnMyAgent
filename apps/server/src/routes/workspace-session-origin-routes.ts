@@ -32,8 +32,8 @@ export function registerWorkspaceSessionOriginRoutes(input: {
     ensureWritable(config);
     requireClientScope(ctx, "collaborator");
     const workspace = await resolveWorkspace(config, ctx.params.id);
-    await deleteSessionOrigin(workspace, readSessionId(ctx));
-    return systemJsonResponse({ ok: true });
+    const expectedRevision = readExpectedRevision(ctx.url.searchParams.get("expectedRevision"));
+    return systemJsonResponse(await deleteSessionOrigin(workspace, readSessionId(ctx), { expectedRevision }));
   });
 }
 
@@ -51,6 +51,19 @@ function parseUpsertPayload(body: Record<string, unknown>): SessionOriginUpsertP
   return {
     kind,
     ...(typeof body.agentId === "string" ? { agentId: body.agentId } : {}),
+    ...(typeof body.packageName === "string" ? { packageName: body.packageName } : {}),
     ...(typeof body.directory === "string" ? { directory: body.directory } : {}),
+    ...(body.expectedRevision !== undefined
+      ? { expectedRevision: readExpectedRevision(body.expectedRevision) }
+      : {}),
   };
+}
+
+function readExpectedRevision(value: unknown): number | undefined {
+  if (value === null || value === undefined || value === "") return undefined;
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 0) {
+    throw new ApiError(400, "session_origins_revision_invalid", "expectedRevision must be a non-negative integer");
+  }
+  return parsed;
 }

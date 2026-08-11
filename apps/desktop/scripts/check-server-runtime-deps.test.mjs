@@ -91,6 +91,34 @@ describe("check-server-runtime-deps", () => {
     expect(result.stderr).toContain("dist/core/jsonc.js");
   });
 
+  test("accepts an ESM-only package subpath export from staged node_modules", () => {
+    writeFile(
+      "desktop/server/dist/services/client.js",
+      'import { createClient } from "@example/sdk/v2/client";\nexport { createClient };\n',
+    );
+    const pkgDir = join(desktopRoot, "server", "node_modules", "@example", "sdk");
+    mkdirSync(join(pkgDir, "dist", "v2"), { recursive: true });
+    writeFileSync(
+      join(pkgDir, "package.json"),
+      JSON.stringify({
+        name: "@example/sdk",
+        version: "1.0.0",
+        type: "module",
+        exports: {
+          "./v2/client": { import: "./dist/v2/client.js" },
+        },
+      }),
+    );
+    writeFileSync(
+      join(pkgDir, "dist", "v2", "client.js"),
+      "export const createClient = () => ({});\n",
+    );
+
+    const result = runGate();
+    expect(result.status, result.stderr + result.stdout).toBe(0);
+    expect(result.stdout).toContain("@example/sdk/v2/client");
+  });
+
   test("ignores generated plugin-source string literals that quote @opencode-ai/plugin", () => {
     // browser-tool-source.js emits an array of source lines; the host module
     // does not statically import @opencode-ai/plugin, so it must not be flagged.

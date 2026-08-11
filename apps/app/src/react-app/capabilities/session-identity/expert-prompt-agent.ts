@@ -1,69 +1,60 @@
-/**
- * Expert sessions must run on a light OpenCode agent, never the home
- * oh-my-openagent default (Sisyphus - ultraworker) which dumps global skill
- * catalogs into ~100k input tokens.
- */
+/** Expert sessions may use only the light default or package-approved ids. */
 
 export const EXPERT_PROMPT_DEFAULT_AGENT = "onmyagent";
 
-const HEAVY_ORCHESTRATOR_AGENT_PATTERN =
-  /sisyphus|ultraworker|oh-my-openagent|oh-my-opencode/i;
+function normalizeApprovedAgentIds(
+  approvedAgentIds: readonly string[],
+): Set<string> {
+  return new Set(
+    approvedAgentIds.map((agentId) => agentId.trim()).filter(Boolean),
+  );
+}
 
 /**
- * Resolve the OpenCode `agent` field for promptAsync on expert turns.
- * - Prefer a safe composer selection when set.
- * - Otherwise use the light default.
- * - Never pass through heavy orchestrator agent ids.
+ * Preview the renderer's Expert selection. This is intentionally not the
+ * runtime contract: the server remains the sole authoritative throwing
+ * enforcement for promptAsync requests.
+ *
+ * A null result means the selection is empty or stale and callers should use
+ * the default/null path rather than forwarding an undeclared id.
  */
-export function resolveExpertPromptAgent(
+export function normalizeExpertPromptAgentSelection(
   selectedAgent: string | null | undefined,
-): string {
+  approvedAgentIds: readonly string[] = [],
+): string | null {
   const selected = selectedAgent?.trim() ?? "";
-  if (!selected) return EXPERT_PROMPT_DEFAULT_AGENT;
-  if (HEAVY_ORCHESTRATOR_AGENT_PATTERN.test(selected)) {
-    return EXPERT_PROMPT_DEFAULT_AGENT;
-  }
-  return selected;
+  if (!selected) return null;
+  if (selected === EXPERT_PROMPT_DEFAULT_AGENT) return selected;
+  return normalizeApprovedAgentIds(approvedAgentIds).has(selected)
+    ? selected
+    : null;
 }
 
 /**
- * Parse `skills: [a, b, c]` from agent markdown frontmatter (YAML-ish).
+ * Return a safe renderer preview value for an Expert prompt. The fallback is
+ * only a UI/send-path normalization; server validation still owns rejection.
  */
-export function parseSkillNamesFromAgentMarkdown(markdown: string): string[] {
-  const raw = markdown ?? "";
-  const fence = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  const body = fence?.[1] ?? raw;
-  // skills: [foo, bar] or skills: [foo]
-  const bracket = body.match(/^skills:\s*\[([^\]]*)\]/m);
-  if (bracket) {
-    return uniqueSafeSkillNames(
-      bracket[1]
-        .split(",")
-        .map((part) => part.trim().replace(/^["']|["']$/g, "")),
-    );
-  }
-  // skills:\n  - foo\n  - bar
-  const listBlock = body.match(/^skills:\s*\n((?:[ \t]*-[ \t]*.+\n?)+)/m);
-  if (listBlock) {
-    return uniqueSafeSkillNames(
-      listBlock[1]
-        .split(/\r?\n/)
-        .map((line) => line.replace(/^[ \t]*-[ \t]*/, "").trim().replace(/^["']|["']$/g, ""))
-        .filter(Boolean),
-    );
-  }
-  return [];
+export function previewExpertPromptAgent(
+  selectedAgent: string | null | undefined,
+  approvedAgentIds: readonly string[] = [],
+): string {
+  return (
+    normalizeExpertPromptAgentSelection(selectedAgent, approvedAgentIds) ??
+    EXPERT_PROMPT_DEFAULT_AGENT
+  );
 }
 
-function uniqueSafeSkillNames(names: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const name of names) {
-    const trimmed = name.trim();
-    if (!trimmed || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(trimmed)) continue;
-    if (seen.has(trimmed)) continue;
-    seen.add(trimmed);
-    out.push(trimmed);
-  }
-  return out;
+/**
+ * Filter composer options to the Expert package's declared ids. Generic
+ * assistant mode must skip this helper and retain the ordinary agent list.
+ */
+export function filterExpertPromptAgentOptions<T extends { name?: string | null }>(
+  agents: readonly T[],
+  approvedAgentIds: readonly string[] = [],
+): T[] {
+  const allowed = normalizeApprovedAgentIds([
+    EXPERT_PROMPT_DEFAULT_AGENT,
+    ...approvedAgentIds,
+  ]);
+  return agents.filter((agent) => allowed.has(agent.name?.trim() ?? ""));
 }

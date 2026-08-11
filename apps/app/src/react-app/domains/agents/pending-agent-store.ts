@@ -1,5 +1,9 @@
 /** @jsxImportSource react */
-import type { ExpertPromptTemplate, ExpertTeamWorkflow } from "@onmyagent/types/desktop-ipc";
+import type {
+  ExpertIntroStyle,
+  ExpertPromptTemplate,
+  ExpertTeamWorkflow,
+} from "@onmyagent/types/desktop-ipc";
 import { create } from "zustand";
 
 export type AgentAvatarStyle = "pixel" | "adventurer" | "robot" | "lorelei";
@@ -59,7 +63,14 @@ export type PendingAgentContext = {
   quickPrompts?: string[];
   promptTemplates?: ExpertPromptTemplate[];
   teamWorkflow?: ExpertTeamWorkflow;
-  conversationStartId?: number;
+  /** Canonical package metadata projected into the create/runtime path. */
+  skillIds?: string[];
+  introStyle?: ExpertIntroStyle;
+  approvedAgentIds?: string[];
+  /** Stable lifecycle transaction id, generated once at the user action. */
+  operationId?: string;
+  /** Presentation ordering only; never used as transaction identity. */
+  draftCreatedAt?: number;
   draftSource?: "agent-selection" | "new-session";
   marketplaceExpert?: {
     source: "builtin" | "installed" | "mine";
@@ -80,6 +91,10 @@ export const usePendingAgentStore = create<PendingAgentStore>((set, get) => ({
   setAgent: (agent) => set({ agent }),
   getAgent: () => get().agent,
 }));
+
+export function createExpertOperationId(): string {
+  return globalThis.crypto.randomUUID();
+}
 
 export function buildAgentSystemPrompt(agent: {
   name?: string;

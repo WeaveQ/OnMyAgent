@@ -290,7 +290,7 @@ describe("empty-state Koboyo local illustrations", () => {
     const expertCreation = readFileSync(
       resolve(
         root,
-        "apps/app/src/react-app/domains/agents/expert-creation-page.tsx",
+        "apps/app/src/react-app/domains/agents/expert-creation-skills-tab.tsx",
       ),
       "utf8",
     );
