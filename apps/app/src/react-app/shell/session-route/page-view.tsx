@@ -90,6 +90,7 @@ import {
   renameAutomationSessionRecord,
 } from "../../domains/session";
 import {
+  claimOrCreateExpertColdSession,
   createIsolatedExpertSessionRuntimeDirectory,
   dispatchAssistantSessionWorkspacesChanged,
   readAssistantSessionWorkspace,
@@ -98,7 +99,6 @@ import {
   shouldIsolateExpertSessionDirectory,
   writeAssistantSessionWorkspace,
 } from "../../domains/session";
-import { claimOrCreateExpertColdSession } from "./expert-cold-path";
 import { parseSkillNamesFromAgentMarkdown } from "../../capabilities/session-identity/expert-prompt-agent";
 import { CloudSessionProvider } from "../../domains/settings";
 import { installMarketplaceExpertAfterSessionCreated } from "./intent";
