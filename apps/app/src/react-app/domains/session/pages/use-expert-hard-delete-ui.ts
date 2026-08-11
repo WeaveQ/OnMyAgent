@@ -16,17 +16,24 @@ export function useExpertHardDeleteUi(input: {
     agentId: string;
     name: string;
     sessionIds: string[];
+    packageName?: string;
+    operationId: string;
   }) => void;
 }) {
   const openDeleteExpertModal = useCallback(
     (target: { agentId: string; name: string; sessionIds: string[] }) => {
       const agentId = target.agentId.trim();
       if (!canHardDeleteExpert(agentId, input.registry)) return;
+      const packageName = input.registry?.agents.find((agent) => agent.id === agentId)?.marketplacePackageName?.trim();
+      if (!globalThis.crypto?.randomUUID) return;
+      const operationId = globalThis.crypto.randomUUID();
       input.openDeleteGroupModal({
         kind: "expert",
         agentId,
         name: target.name.trim(),
         sessionIds: target.sessionIds,
+        ...(packageName ? { packageName } : {}),
+        operationId,
       });
     },
     [input],

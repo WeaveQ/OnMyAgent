@@ -21,6 +21,8 @@ describe("workspace Files keep-alive visibility", () => {
       read("src/react-app/domains/session/pages/expert.tsx"),
       read("src/react-app/domains/session/pages/use-expert-page.tsx"),
       read("src/react-app/domains/session/pages/expert-page-layout.tsx"),
+      read("src/react-app/domains/session/pages/expert-page-main-surface.tsx"),
+      read("src/react-app/domains/session/pages/expert-page-side-panel.tsx"),
     ].join("\n");
 
     expect(keepAlive).toContain("(active: boolean) => ReactNode");

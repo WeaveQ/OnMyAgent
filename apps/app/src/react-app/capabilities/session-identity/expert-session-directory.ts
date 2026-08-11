@@ -224,7 +224,10 @@ export type ExpertSessionRuntimeDirectoryClient = {
     payload: {
       agentName: string;
       agentId?: string;
+      packageName?: string;
+      sessionId?: string;
       sessionKey?: string;
+      approvedAgentIds?: string[];
       skillNames?: string[];
     },
   ) => Promise<{
@@ -232,6 +235,8 @@ export type ExpertSessionRuntimeDirectoryClient = {
     sessionKey: string;
     agentSegment: string;
     installedSkills?: string[];
+    declaredSkills?: string[];
+    missingSkills?: string[];
     isolationVersion?: number;
     defaultAgent?: string;
   }>;
@@ -243,7 +248,10 @@ export async function createIsolatedExpertSessionRuntimeDirectory(input: {
   workspaceRoot: string;
   agentName: string;
   agentId?: string;
+  packageName?: string;
+  sessionId?: string;
   sessionKey?: string;
+  approvedAgentIds?: string[];
   /** Declared expert skills only (frontmatter / package). */
   skillNames?: string[];
 }): Promise<{ directory: string; sessionKey: string; agentSegment: string } | null> {
@@ -253,7 +261,10 @@ export async function createIsolatedExpertSessionRuntimeDirectory(input: {
     const result = await input.client.createExpertSessionRuntimeDirectory(workspaceId, {
       agentName: input.agentName,
       agentId: input.agentId,
+      packageName: input.packageName,
+      sessionId: input.sessionId,
       sessionKey: input.sessionKey,
+      ...(input.approvedAgentIds?.length ? { approvedAgentIds: input.approvedAgentIds } : {}),
       ...(input.skillNames?.length ? { skillNames: input.skillNames } : {}),
     });
     const directory = result.directory?.trim() ?? "";

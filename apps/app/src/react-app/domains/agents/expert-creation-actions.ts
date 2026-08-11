@@ -27,7 +27,10 @@ import type {
   AgentSkillItem,
   AgentWizardDraft,
 } from "./agent-registry-types";
-import type { PendingAgentContext } from "./pending-agent-store";
+import {
+  createExpertOperationId,
+  type PendingAgentContext,
+} from "./pending-agent-store";
 import {
   ExpertCreationPage,
   type ExpertKnowledgeEntry,
@@ -128,7 +131,7 @@ export async function saveExpertCreation(
       quote: createdAgent.quote,
       rolePrompt: createdAgent.userNote,
       memory: createdAgent.agentMemory,
-      skillIds: createdAgent.skillIds,
+      skills: [...createdAgent.skillIds],
       knowledge,
       ...(createdAgent.customAvatarDataUrl
         ? { avatarDataUrl: createdAgent.customAvatarDataUrl }
@@ -197,7 +200,7 @@ export async function updateExpertCreation(
       quote: updatedDraftAgent.quote,
       rolePrompt: updatedDraftAgent.userNote,
       memory: updatedDraftAgent.agentMemory,
-      skillIds: updatedDraftAgent.skillIds,
+      skills: [...updatedDraftAgent.skillIds],
       preserveKnowledge: true,
       ...(updatedDraftAgent.customAvatarDataUrl
         ? { avatarDataUrl: updatedDraftAgent.customAvatarDataUrl }
@@ -247,7 +250,8 @@ export function buildExpertCreationPreview(
   if (!pending) return null;
   return {
     ...pending,
-    conversationStartId: Date.now(),
+    operationId: createExpertOperationId(),
+    draftCreatedAt: Date.now(),
     draftSource: "agent-selection",
   };
 }

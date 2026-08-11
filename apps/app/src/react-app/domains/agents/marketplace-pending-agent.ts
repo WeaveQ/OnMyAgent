@@ -1,5 +1,8 @@
 import type { ExpertMarketplaceEntry } from "../plugins";
-import type { PendingAgentContext } from "./pending-agent-store";
+import {
+  createExpertOperationId,
+  type PendingAgentContext,
+} from "./pending-agent-store";
 
 export function buildPendingAgentFromMarketplaceExpert(
   expert: ExpertMarketplaceEntry,
@@ -19,7 +22,11 @@ export function buildPendingAgentFromMarketplaceExpert(
     quickPrompts: expert.quickPrompts.slice(0, 3),
     promptTemplates: expert.promptTemplates.slice(0, 3),
     teamWorkflow: expert.teamWorkflow ?? undefined,
-    conversationStartId: Date.now(),
+    skillIds: [...expert.skills],
+    introStyle: expert.introStyle,
+    approvedAgentIds: [...expert.approvedAgentIds],
+    operationId: createExpertOperationId(),
+    draftCreatedAt: Date.now(),
     draftSource: "agent-selection",
     marketplaceExpert: {
       source: expert.source,

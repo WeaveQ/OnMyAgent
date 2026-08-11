@@ -16,6 +16,7 @@ function readSessionSurfaceSources() {
   return [
     readSource("domains/session/surface/session-surface.tsx"),
     readSource("domains/session/surface/session-surface-view.tsx"),
+    readSource("domains/session/surface/session-surface-run-handlers.ts"),
   ].join("\n");
 }
 
@@ -43,21 +44,21 @@ describe("session goal isolation", () => {
     const hosts = [
       {
         path: "domains/session/chat/session-page.tsx",
-        key: "key={pageView.renderedSessionId}",
+        key: 'key={props.runtimeWorkspaceId ?? "session-surface"}',
       },
       {
         path: "domains/session/pages/assistant.tsx",
-        key: "key={renderedSessionId}",
+        key: 'key={props.runtimeWorkspaceId ?? "assistant-surface"}',
       },
       {
-        path: "domains/session/pages/expert-page-layout.tsx",
-        key: 'key={props.runtimeWorkspaceId ?? "expert-surface"}',
+        path: "domains/session/pages/expert-page-main-surface.tsx",
+        key: 'key={runtimeWorkspaceId ?? "expert-surface"}',
       },
     ];
 
     for (const host of hosts) {
       const hostSource = readSource(host.path);
-      const surfaceStart = hostSource.indexOf("<SessionSurface");
+      const surfaceStart = hostSource.lastIndexOf("<SessionSurface");
       const surfaceEnd = hostSource.indexOf("/>", surfaceStart);
       const surfaceElement = hostSource.slice(surfaceStart, surfaceEnd);
 
@@ -71,7 +72,7 @@ describe("session goal isolation", () => {
     const resumeEnd = surfaceSource.indexOf("const stopActiveRun", resumeStart);
     const resumeBlock = surfaceSource.slice(resumeStart, resumeEnd);
 
-    expect(resumeBlock).toContain("isGoalIntentRuntime(props.goalRuntime)");
+    expect(resumeBlock).toContain("isGoalIntentRuntime(goalRuntime)");
     expect(resumeBlock).not.toContain("isGoalIntentRuntime(goalRuntimeRef.current)");
   });
 
@@ -80,7 +81,7 @@ describe("session goal isolation", () => {
     const recordEnd = surfaceSource.indexOf("useEffect(() => {", recordStart);
     const recordBlock = surfaceSource.slice(recordStart, recordEnd);
 
-    expect(recordBlock).toContain("goalRuntime?.lastRunStartedAt");
+    expect(recordBlock).toContain("goalRuntimeArg?.lastRunStartedAt");
     expect(recordBlock).not.toContain("goalRuntimeRef.current?.lastRunStartedAt");
   });
 

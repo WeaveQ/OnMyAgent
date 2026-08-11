@@ -5,7 +5,7 @@
 
 import {
   dematerializeExpertPackageSkillsAndRefresh,
-  materializeExpertPackageSkillsAndRefresh,
+  materializeExpertPackageSkillsStateAndRefresh,
 } from "../expert-package-skills.mjs";
 import { toPortableRelativePath } from "../lib/portable-path.mjs";
 
@@ -21,6 +21,7 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "listExpertRegistryRecords",
   "installExpertPackage",
   "uninstallExpertPackage",
+  "deleteExpertPackage",
   "installBuiltinSkillPackage",
   "writeMyExpertPackage",
   "stageMyExpertKnowledge",
@@ -61,6 +62,9 @@ export function createSkillsDomainHandlers({
   findSkillFile,
   isBundledSkillPath,
   refreshRuntimeSkillLinks,
+  expertDeleteJournalPath,
+  userAgentRegistryPath,
+  rename,
 } = {}) {
   const normalizeKnowledgePath = (value) => {
     const normalized = toPortableRelativePath(value);
@@ -187,7 +191,7 @@ export function createSkillsDomainHandlers({
     await copyDirectoryRecursive(sourceDir, destination);
     // Expert-owned skills (e.g. order-entry on order-entry-clerk) must also land
     // in the user skills root so load_skill / listSkills resolve them by name.
-    const skills = await materializeExpertPackageSkillsAndRefresh({
+    const skillState = await materializeExpertPackageSkillsStateAndRefresh({
       packageDir: destination,
       skillsRoot: onmyagentUserSkillsRoot(),
       refreshSkillLinks: refreshRuntimeSkillLinks,
@@ -197,7 +201,10 @@ export function createSkillsDomainHandlers({
       path: destination,
       packageName: safePackage,
       marketplace,
-      skills,
+      skills: skillState.installed,
+      declaredSkills: skillState.declared,
+      installedSkills: skillState.installed,
+      missingSkills: skillState.missing,
     };
   },
 
@@ -225,6 +232,194 @@ export function createSkillsDomainHandlers({
       removedSkills,
       removedPackage: packageExists,
     };
+  },
+
+  deleteExpertPackage: async (event, args) => {
+    const input = args[0] ?? {};
+    const operationId = String(input.operationId ?? "").trim();
+    const agentId = String(input.agentId ?? "").trim();
+    const safePackage = validateExpertPackageName(input.packageName ?? input.id);
+    if (!operationId || operationId.length > 160) throw new Error("operationId is required");
+    if (!agentId || agentId.length > 160) throw new Error("agentId is required");
+    if (String(input.marketplace ?? "") !== "my-experts") {
+      throw new Error("Built-in expert packages cannot be deleted");
+    }
+    const journalPath = String(expertDeleteJournalPath ?? "").trim();
+    if (!journalPath) throw new Error("Expert delete journal is unavailable");
+    const isNonEmpty = (value, max = 512) =>
+      typeof value === "string" && value.trim().length > 0 && value.length <= max;
+    const isStepState = (value) =>
+      value === "pending" || value === "completed" || value === "skipped" || value === "failed";
+    const isResultState = (value) => value === "partial" || value === "completed";
+    const isDeleteJournalEntry = (entry) => {
+      if (!entry || typeof entry !== "object" || entry.version !== 1 ||
+        !isNonEmpty(entry.operationId, 160) || !isNonEmpty(entry.agentId, 160) ||
+        !isNonEmpty(entry.packageName, 160) || !isResultState(entry.state) ||
+        !entry.result || typeof entry.result !== "object" ||
+        entry.result.ok !== true || entry.result.operationId !== entry.operationId ||
+        entry.result.packageName !== entry.packageName ||
+        !isResultState(entry.result.state) || entry.result.state !== entry.state ||
+        !Array.isArray(entry.result.steps) || !Array.isArray(entry.result.removedSkills)) return false;
+      if (entry.result.agentId !== undefined && entry.result.agentId !== entry.agentId) return false;
+      if (entry.result.removedSkills.some((skill) => !isNonEmpty(skill, 160))) return false;
+      const targets = new Set();
+      for (const step of entry.result.steps) {
+        if (!step || typeof step !== "object" ||
+          !["my-experts", "experts", "registry", "skills"].includes(step.target) ||
+          targets.has(step.target) || !isStepState(step.state) ||
+          (step.code !== undefined && !isNonEmpty(step.code, 160))) return false;
+        targets.add(step.target);
+      }
+      return targets.size === 4;
+    };
+    const readJournal = async () => {
+      try {
+        const parsed = JSON.parse(await readFile(journalPath, "utf8"));
+        const seen = new Set();
+        if (!Array.isArray(parsed) || parsed.some((entry) => {
+          if (!isDeleteJournalEntry(entry) || seen.has(entry.operationId)) return true;
+          seen.add(entry.operationId);
+          return false;
+        })) throw new Error("Expert delete journal is corrupt");
+        return parsed;
+      } catch (error) {
+        if (error?.code === "ENOENT") return [];
+        if (error instanceof SyntaxError) throw new Error("Expert delete journal is corrupt");
+        throw error;
+      }
+    };
+    const persistJournal = async (entries) => {
+      await mkdir(path.dirname(journalPath), { recursive: true });
+      const temporary = `${journalPath}.tmp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      try {
+        await writeFile(temporary, `${JSON.stringify(entries.slice(-32), null, 2)}\n`, "utf8");
+        await rename(temporary, journalPath);
+      } finally {
+        await rm(temporary, { recursive: true, force: true }).catch(() => undefined);
+      }
+    };
+    const journal = await readJournal();
+    const conflicting = journal.find((entry) =>
+      entry.operationId === operationId &&
+      (entry.agentId !== agentId || entry.packageName !== safePackage),
+    );
+    if (conflicting) throw new Error("Expert delete operation belongs to another package");
+    const previous = journal.find((entry) =>
+      entry?.version === 1 && entry.operationId === operationId && entry.packageName === safePackage && entry.agentId === agentId,
+    );
+    if (previous?.state === "completed") return previous.result;
+    const result = previous?.result ?? {
+      ok: true,
+      operationId,
+      agentId,
+      packageName: safePackage,
+      state: "partial",
+      steps: [
+        { target: "my-experts", state: "pending" },
+        { target: "experts", state: "pending" },
+        { target: "registry", state: "pending" },
+        { target: "skills", state: "pending" },
+      ],
+      removedSkills: [],
+    };
+    const record = { version: 1, operationId, agentId, packageName: safePackage, state: "partial", result };
+    const checkpoint = async () => persistJournal(journal.filter((entry) => entry !== previous).concat(record));
+    await checkpoint();
+
+    const update = (target, state, code) => {
+      const step = result.steps.find((entry) => entry.target === target);
+      if (!step) return;
+      step.state = state;
+      if (code) step.code = code;
+      else delete step.code;
+    };
+    const customRoot = onmyagentMarketplaceRoot("my-experts");
+    const customPackageDir = path.join(customRoot, safePackage);
+    const customStep = result.steps.find((entry) => entry.target === "my-experts");
+    if (customStep?.state === "pending" || customStep?.state === "failed") {
+      try {
+        if (!existsSync(customPackageDir)) {
+          update("my-experts", "skipped", "package_missing");
+        } else {
+          const removedSkills = await dematerializeExpertPackageSkillsAndRefresh({
+            packageDir: customPackageDir,
+            skillsRoot: onmyagentUserSkillsRoot(),
+            refreshSkillLinks: refreshRuntimeSkillLinks,
+          });
+          result.removedSkills = [...new Set([...result.removedSkills, ...removedSkills])];
+          await rm(customPackageDir, { recursive: true, force: true });
+          update("my-experts", "completed");
+        }
+      } catch {
+        update("my-experts", "failed", "package_delete_failed");
+      }
+      await checkpoint();
+    }
+
+    const builtinPackageDir = path.join(onmyagentMarketplaceRoot("experts"), safePackage);
+    if (existsSync(builtinPackageDir)) {
+      update("experts", "skipped", "builtin_protected");
+    } else {
+      update("experts", "skipped", "marketplace_missing");
+    }
+    const packageBlocked = customStep?.state === "failed" || customStep?.state === "pending";
+    const registryStep = result.steps.find((entry) => entry.target === "registry");
+    if (!packageBlocked && (registryStep?.state === "pending" || registryStep?.state === "failed")) {
+      try {
+        const registryPath = typeof userAgentRegistryPath === "function" ? userAgentRegistryPath() : "";
+        if (!registryPath) {
+          update("registry", "skipped", "registry_missing");
+        } else {
+          let registry;
+          try {
+            registry = JSON.parse(await readFile(registryPath, "utf8"));
+          } catch (error) {
+            if (error?.code === "ENOENT") {
+              update("registry", "skipped", "registry_missing");
+            } else {
+              throw new Error("Expert registry is corrupt");
+            }
+          }
+          if (registry) {
+            if (!Array.isArray(registry.agents)) throw new Error("Expert registry is corrupt");
+            const matching = registry.agents.filter((entry) => entry && entry.id === agentId);
+            if (matching.some((entry) => entry.builtin === true)) {
+              update("registry", "failed", "builtin_protected");
+            } else if (matching.length === 0) {
+              update("registry", "skipped", "registry_missing");
+            } else {
+              const next = {
+                ...registry,
+                updatedAt: new Date().toISOString(),
+                agents: registry.agents.filter((entry) => !(entry && entry.id === agentId)),
+              };
+              const registryTmp = `${registryPath}.tmp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+              await mkdir(path.dirname(registryPath), { recursive: true });
+              try {
+                await writeFile(registryTmp, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+                await rename(registryTmp, registryPath);
+              } finally {
+                await rm(registryTmp, { recursive: true, force: true }).catch(() => undefined);
+              }
+              update("registry", "completed");
+            }
+          }
+        }
+      } catch {
+        update("registry", "failed", "registry_delete_failed");
+      }
+      await checkpoint();
+    }
+    const skillsStep = result.steps.find((entry) => entry.target === "skills");
+    if (!packageBlocked && (skillsStep?.state === "pending" || skillsStep?.state === "failed")) {
+      update("skills", "completed", result.removedSkills.length > 0 ? undefined : "no_owned_skills");
+    }
+    const failed = result.steps.some((step) => step.state === "failed");
+    const pending = result.steps.some((step) => step.state === "pending");
+    result.state = failed || pending ? "partial" : "completed";
+    record.state = result.state;
+    await checkpoint();
+    return result;
   },
 
   installBuiltinSkillPackage: async (event, args) => {

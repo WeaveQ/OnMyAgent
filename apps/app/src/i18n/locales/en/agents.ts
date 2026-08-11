@@ -218,6 +218,7 @@ export default {
   "agents.help_user_memory": "Long-term facts about you: identity, preferences, common projects, tech stack. Included in every chat.",
   "agents.coming_soon_desc": "Coming soon — stay tuned.",
   "agents.delete_confirm": "Delete agent “{name}”? This cannot be undone.",
+  "agents.delete_failed_title": "The agent could not be fully deleted. Retry to resume safely.",
   "agents.deleted_title": "Deleted agent: {name}",
   "agents.created_title": "Created agent: {name}",
   "agents.updated_agent_title": "Updated agent: {name}",

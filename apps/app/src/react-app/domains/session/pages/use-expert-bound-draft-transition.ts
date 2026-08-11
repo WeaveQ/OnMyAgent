@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useReducer } from "react";
 
 import type { PendingAgentContext } from "../../agents";
 import { useComposerStateStore } from "../surface/composer-state-store";
@@ -13,6 +13,11 @@ import {
   resolveExpertSurfaceMode,
   shouldDropDraftIntentForRoute,
 } from "./expert-surface-mode";
+import {
+  createExpertSurfaceInitialState,
+  reduceExpertSurface,
+  selectExpertSurfaceNavigation,
+} from "./expert-surface-machine";
 
 export function useExpertBoundDraftTransition(input: {
   activeDraftSessionId: string | null;
@@ -31,7 +36,11 @@ export function useExpertBoundDraftTransition(input: {
   setDraftSessionActive: (active: boolean) => void;
   setPendingTabSessionId: (sessionId: string | null) => void;
 }) {
-  const openedSessionIdRef = useRef<string | null>(null);
+  const [machine, dispatchMachine] = useReducer(
+    reduceExpertSurface,
+    input.selectedWorkspaceId,
+    createExpertSurfaceInitialState,
+  );
   const {
     activeDraftSessionId,
     draftAgentContexts,
@@ -48,6 +57,40 @@ export function useExpertBoundDraftTransition(input: {
     setDraftSessionActive,
     setPendingTabSessionId,
   } = input;
+
+  useEffect(() => {
+    dispatchMachine({ type: "RESET", workspaceId: selectedWorkspaceId });
+  }, [selectedWorkspaceId]);
+
+  useEffect(() => {
+    const operationId = pendingAgent?.operationId?.trim() ?? "";
+    const agentId = draftAgentId?.trim() ?? "";
+    if (
+      !draftSessionActive ||
+      !operationId ||
+      !agentId ||
+      pendingAgent?.id !== agentId ||
+      draftAgentContexts[agentId]?.operationId !== operationId
+    ) return;
+    const sameOperation =
+      (machine.kind === "idle_draft" || machine.kind === "creating") &&
+      machine.operationId === operationId &&
+      machine.agentId === agentId;
+    if (sameOperation) return;
+    dispatchMachine({
+      type: "OPEN_DRAFT",
+      workspaceId: selectedWorkspaceId,
+      agentId,
+      operationId,
+    });
+  }, [
+    draftAgentId,
+    draftAgentContexts,
+    draftSessionActive,
+    machine,
+    pendingAgent?.operationId,
+    selectedWorkspaceId,
+  ]);
 
   useEffect(() => {
     const draftIntent = draftSessionActive;
@@ -70,11 +113,19 @@ export function useExpertBoundDraftTransition(input: {
         pendingBoundSessionId: pendingAgent?.boundSessionId,
       })
     ) {
+      if (
+        pendingAgent &&
+        !matchesExpertDraftTransaction({
+          contexts: draftAgentContexts,
+          agentId: pendingAgent.id,
+          operationId: pendingAgent.operationId,
+        })
+      ) return;
       if (pendingAgent) {
         const remainingDrafts = consumeBoundExpertDraftContext({
           contexts: draftAgentContexts,
           agentId: pendingAgent.id,
-          conversationStartId: pendingAgent.conversationStartId,
+          operationId: pendingAgent.operationId,
         });
         if (remainingDrafts !== draftAgentContexts) {
           useComposerStateStore
@@ -88,7 +139,14 @@ export function useExpertBoundDraftTransition(input: {
       setDraftSessionActive(false);
       setDraftAgentId(null);
       setPendingTabSessionId(null);
-      openedSessionIdRef.current = null;
+      if (selectedSessionId) {
+        dispatchMachine({
+          type: "OPEN_REAL_SESSION",
+          workspaceId: selectedWorkspaceId,
+          agentId: selectedSessionAgentId,
+          sessionId: selectedSessionId,
+        });
+      }
       return;
     }
 
@@ -101,8 +159,25 @@ export function useExpertBoundDraftTransition(input: {
     if (!matchesExpertDraftTransaction({
       contexts: draftAgentContexts,
       agentId: pendingAgent.id,
-      conversationStartId: pendingAgent.conversationStartId,
+      operationId: pendingAgent.operationId,
     })) return;
+
+    if (
+      machine.kind === "idle_draft" &&
+      machine.operationId === pendingAgent.operationId
+    ) {
+      dispatchMachine({
+        type: "CREATE_BOUND",
+        operationId: pendingAgent.operationId ?? "",
+        sessionId: createdSessionId,
+      });
+      return;
+    }
+    if (
+      machine.kind !== "creating" ||
+      machine.operationId !== pendingAgent.operationId ||
+      machine.sessionId !== createdSessionId
+    ) return;
 
     setPendingTabSessionId(mode.creatingSessionId ?? createdSessionId);
 
@@ -115,8 +190,12 @@ export function useExpertBoundDraftTransition(input: {
         selectedSessionId,
       });
       if (navigationSessionId) {
-        if (openedSessionIdRef.current === navigationSessionId) return;
-        openedSessionIdRef.current = navigationSessionId;
+        const navigation = selectExpertSurfaceNavigation(machine);
+        if (!navigation || navigation.sessionId !== navigationSessionId) return;
+        dispatchMachine({
+          type: "REQUEST_NAVIGATION",
+          operationId: navigation.operationId,
+        });
         onOpenSession(sidebarSelectedWorkspaceId, navigationSessionId);
         return;
       }
@@ -134,7 +213,7 @@ export function useExpertBoundDraftTransition(input: {
     const remainingDrafts = consumeBoundExpertDraftContext({
       contexts: draftAgentContexts,
       agentId: pendingAgent.id,
-      conversationStartId: pendingAgent.conversationStartId,
+      operationId: pendingAgent.operationId,
     });
     if (remainingDrafts === draftAgentContexts) return;
     useComposerStateStore
@@ -144,12 +223,18 @@ export function useExpertBoundDraftTransition(input: {
     setDraftSessionActive(false);
     setDraftAgentId(null);
     setPendingTabSessionId(null);
-    openedSessionIdRef.current = null;
+    dispatchMachine({
+      type: "OPEN_REAL_SESSION",
+      workspaceId: selectedWorkspaceId,
+      agentId: pendingAgent.id,
+      sessionId: readySessionId,
+    });
   }, [
     activeDraftSessionId,
     draftAgentContexts,
     draftAgentId,
     draftSessionActive,
+    machine,
     onOpenSession,
     pendingAgent,
     selectedSessionAgentId,

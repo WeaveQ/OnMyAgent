@@ -79,10 +79,7 @@ import {
   writeSessionAgentSnapshot,
 } from "../../domains/agents";
 import {
-  addExpertSession,
-  isExpertSession,
   removeAssistantSession,
-  removeExpertSession,
 } from "../../domains/agents";
 import { writeSessionOriginDurable } from "../../domains/agents";
 import {
@@ -90,15 +87,17 @@ import {
   renameAutomationSessionRecord,
 } from "../../domains/session";
 import {
-  createIsolatedExpertSessionRuntimeDirectory,
   dispatchAssistantSessionWorkspacesChanged,
   readAssistantSessionWorkspace,
   removeAssistantSessionWorkspace,
   saveSessionDraft,
-  shouldIsolateExpertSessionDirectory,
   writeAssistantSessionWorkspace,
 } from "../../domains/session";
-import { parseSkillNamesFromAgentMarkdown } from "../../capabilities/session-identity/expert-prompt-agent";
+import {
+  createIsolatedExpertSessionRuntimeDirectory,
+  shouldIsolateExpertSessionDirectory,
+} from "../../capabilities/session-identity/expert-session-directory";
+import { useExpertDirectoryStore } from "../../capabilities/session-identity/expert-directory-store";
 import { CloudSessionProvider } from "../../domains/settings";
 import { installMarketplaceExpertAfterSessionCreated } from "./intent";
 import {
@@ -258,6 +257,7 @@ export type SessionRoutePageViewProps = {
   selectedWorkspaceId: string;
   selectedWorkspaceRoot: string;
   selectedWorkspaceServerToken: string;
+  isExpertSessionInDirectory: (sessionId: string) => boolean;
   sessionMatchesPageMode: (sessionId: string) => boolean;
   sessionProviderAuthSnapshot: ProviderAuthSnapshot;
   sessionProviderAuthStore: ProviderAuthStore;
@@ -375,6 +375,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
     selectedWorkspaceId,
     selectedWorkspaceRoot,
     selectedWorkspaceServerToken,
+    isExpertSessionInDirectory,
     sessionMatchesPageMode,
     sessionProviderAuthSnapshot,
     sessionProviderAuthStore,
@@ -474,7 +475,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             const path = resolveSessionRouteModeSwitchPath({
               currentMode: pageMode,
               findFirstSessionIdMatching,
-              isExpertSession,
+              isExpertSessionInDirectory,
               readLastSessionFor,
               sessionListOwnsSession,
               sessionsByWorkspaceId,
@@ -637,9 +638,9 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                   workspaceRoot,
                   agentName: pendingAgentSnapshot?.name?.trim() || "expert",
                   agentId: pendingAgentSnapshot?.id?.trim() || "",
-                  skillNames: parseSkillNamesFromAgentMarkdown(
-                    pendingAgentSnapshot?.systemPrompt ?? "",
-                  ),
+                  packageName: pendingAgentSnapshot?.marketplaceExpert?.packageName || pendingAgentSnapshot?.id?.trim() || "",
+                  approvedAgentIds: pendingAgentSnapshot?.approvedAgentIds ?? [],
+                  skillNames: pendingAgentSnapshot?.skillIds ?? [],
                 });
                 if (!isolated) {
                   throw new Error(
@@ -676,6 +677,12 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                 createdSession: true,
                 sessionId: newSession.id,
                 inheritFromSessionId: selectedSessionId,
+                inheritAgentId: selectedSessionId
+                  ? useExpertDirectoryStore
+                      .getState()
+                      .getIdentity(workspaceId)
+                      .agentIdBySessionId.get(selectedSessionId)
+                  : null,
               });
             if (agentToBind) {
               usePendingAgentStore.getState().setAgent(
@@ -684,7 +691,9 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                   sessionId: newSession.id,
                 }),
               );
-              writeCustomAgentIdForSession(newSession.id, agentToBind.id);
+              useExpertDirectoryStore
+                .getState()
+                .upsertIdentity(workspaceId, newSession.id, agentToBind.id);
               writeSessionAgentSnapshot(newSession.id, agentToBind);
               // Empty session shell: do not block navigation/UI on package
               // install. First prompt (and summon) join the same coordinator.
@@ -699,7 +708,23 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               dispatchAssistantSessionWorkspacesChanged(workspaceId);
             }
 
-            addExpertSession(newSession.id);
+            const markerClient = selectedWorkspaceEndpoint?.client ?? client;
+            const markerWorkspaceId = selectedWorkspaceEndpoint?.workspaceId ?? workspaceId;
+            const markerAgentId = agentToBind?.id?.trim() || undefined;
+            const markerPackageName = agentToBind?.marketplaceExpert?.packageName || markerAgentId;
+            if (newSession.directory && markerClient) {
+              try {
+                await markerClient.ensureExpertSessionIsolation(markerWorkspaceId, {
+                  directory: newSession.directory,
+                  agentId: markerAgentId,
+                  packageName: markerPackageName,
+                  sessionId: newSession.id,
+                  approvedAgentIds: agentToBind?.approvedAgentIds ?? [],
+                });
+              } catch (error) {
+                console.warn("[expert-session] marker identity upgrade failed", error);
+              }
+            }
             // Await durable origin so reload recovery has agentId + directory.
             // Do not block navigation on the promise beyond microtask settle.
             void writeSessionOriginDurable({
@@ -708,8 +733,13 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               sessionId: newSession.id,
               kind: "expert",
               agentId: agentToBind?.id,
+              packageName: agentToBind?.marketplaceExpert?.packageName || agentToBind?.id,
               directory: newSession.directory,
-            });
+            }).then(() =>
+              getReactQueryClient().invalidateQueries({
+                queryKey: ["expert-directory", workspaceId],
+              }),
+            );
 
             // Optimistically append the new session into the workspace list
             // so the left-side agent panel renders the new agent immediately.
@@ -1079,7 +1109,6 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                   }
 
                   removeAssistantSession(sessionId);
-                  removeExpertSession(sessionId);
                   writeCustomAgentIdForSession(sessionId, null);
                   writeSessionAgentSnapshot(sessionId, null);
                   if (assistantSessionWorkspace?.ownerWorkspaceId) {

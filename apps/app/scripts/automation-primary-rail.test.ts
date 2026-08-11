@@ -156,6 +156,10 @@ describe("primary rail + assistant wiring", () => {
         join(appRoot, "src/react-app/domains/session/pages/expert-page-layout.tsx"),
         "utf8",
       ),
+      readFileSync(
+        join(appRoot, "src/react-app/domains/session/pages/expert-page-rail.tsx"),
+        "utf8",
+      ),
     ].join("\n");
     const openRail = readFileSync(
       join(appRoot, "src/react-app/domains/session/pages/open-automation-rail.ts"),

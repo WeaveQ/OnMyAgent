@@ -11,7 +11,9 @@ import path from "node:path";
 import {
   dematerializeExpertPackageSkills,
   listExpertPackageSkillSources,
+  listExpertPackageSkillDeclarations,
   materializeExpertPackageSkills,
+  materializeExpertPackageSkillsState,
   materializeExpertPackageSkillsAndRefresh,
   removeRetiredExpertPackageSkills,
 } from "./expert-package-skills.mjs";
@@ -83,6 +85,36 @@ describe("expert-package-skills", () => {
       assert.equal(
         existsSync(path.join(skillsRoot, "order-entry", "notes.txt")),
         true,
+      );
+    });
+  });
+
+  it("returns declared, installed, and missing skill lists from canonical metadata", async () => {
+    await withTempDir(async (root) => {
+      const packageDir = path.join(root, "declared");
+      const skillsRoot = path.join(root, ".onmyagent", "skills");
+      await writeExpertPackage(packageDir, "present-skill");
+      const manifest = JSON.parse(
+        await readFile(path.join(packageDir, ".onmyagent-plugin", "plugin.json"), "utf8"),
+      );
+      manifest.skills.push("./skills/missing-skill");
+      await writeFile(
+        path.join(packageDir, ".onmyagent-plugin", "plugin.json"),
+        JSON.stringify(manifest),
+        "utf8",
+      );
+
+      assert.deepEqual(
+        await listExpertPackageSkillDeclarations(packageDir),
+        ["present-skill", "missing-skill"],
+      );
+      assert.deepEqual(
+        await materializeExpertPackageSkillsState({ packageDir, skillsRoot }),
+        {
+          declared: ["present-skill", "missing-skill"],
+          installed: ["present-skill"],
+          missing: ["missing-skill"],
+        },
       );
     });
   });
@@ -266,6 +298,27 @@ describe("expert-package-skills", () => {
       });
       assert.deepEqual(secondRemoved, ["kol-data-clean-merge"]);
       assert.equal(existsSync(destination), false);
+    });
+  });
+
+  it("rejects conflicting declarations that reuse an owned skill name", async () => {
+    await withTempDir(async (root) => {
+      const skillsRoot = path.join(root, ".onmyagent", "skills");
+      const firstPackage = path.join(root, "first-expert");
+      const secondPackage = path.join(root, "second-expert");
+      await writeExpertPackage(firstPackage, "shared-skill");
+      await writeExpertPackage(secondPackage, "shared-skill");
+      await writeFile(
+        path.join(secondPackage, "skills", "shared-skill", "SKILL.md"),
+        "---\nname: shared-skill\ndescription: conflicting implementation\n---\n\n# Different\n",
+        "utf8",
+      );
+
+      await materializeExpertPackageSkills({ packageDir: firstPackage, skillsRoot });
+      await assert.rejects(
+        () => materializeExpertPackageSkills({ packageDir: secondPackage, skillsRoot }),
+        /Expert skill collision for shared-skill/,
+      );
     });
   });
 

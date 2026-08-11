@@ -799,6 +799,7 @@
         },
         "license": "MIT",
         "expertType": "agent",
+        "introStyle": "short-colleague",
         "agentName": "fleet-management-specialist",
         "agents": [
           "./agents/fleet-management-specialist.md"
@@ -1023,6 +1024,7 @@
         },
         "license": "MIT",
         "expertType": "agent",
+        "introStyle": "short-colleague",
         "agentName": "fulfillment-specialist",
         "agents": [
           "./agents/fulfillment-specialist.md"
@@ -1577,6 +1579,7 @@
         },
         "license": "MIT",
         "expertType": "agent",
+        "introStyle": "short-colleague",
         "agentName": "kol-content-ops-specialist",
         "agents": [
           "./agents/kol-content-ops-specialist.md"
@@ -1828,6 +1831,7 @@
         },
         "license": "MIT",
         "expertType": "agent",
+        "introStyle": "short-colleague",
         "agentName": "kol-media-specialist",
         "agents": [
           "./agents/kol-media-specialist.md"
@@ -2081,6 +2085,7 @@
         },
         "license": "MIT",
         "expertType": "agent",
+        "introStyle": "short-colleague",
         "agentName": "kol-project-review-specialist",
         "agents": [
           "./agents/kol-project-review-specialist.md"
@@ -2485,6 +2490,7 @@
         },
         "license": "MIT",
         "expertType": "agent",
+        "introStyle": "short-colleague",
         "agentName": "logistics-finance-specialist",
         "agents": [
           "./agents/logistics-finance-specialist.md"
@@ -3006,6 +3012,7 @@
         },
         "license": "MIT",
         "expertType": "agent",
+        "introStyle": "short-colleague",
         "agentName": "order-dispatch-specialist",
         "agents": [
           "./agents/order-dispatch-specialist.md"

@@ -42,6 +42,16 @@ import type {
   SessionOriginListPayload,
   SessionOriginRecord,
   SessionOriginUpsertPayload,
+  SessionOriginDeleteResult,
+  ExpertDirectoryProjection,
+  ExpertDirectoryHealRequest,
+  ExpertDirectoryHealResponse,
+  ExpertDirectoryShadowDiffRequest,
+  ExpertDirectoryShadowDiffResponse,
+  ExpertDeleteRequest,
+  ExpertDeleteResult,
+  WorkspaceSessionListPayload,
+  WorkspaceSessionScope,
 } from "./server";
 import type { ArtifactPluginConnectionState } from "./artifact-plugin";
 import type {
@@ -221,7 +231,10 @@ type TypedServerClientMethodMap = {
       payload: {
         agentName: string;
         agentId?: string;
+        packageName?: string;
+        sessionId?: string;
         sessionKey?: string;
+        approvedAgentIds?: string[];
         /** Declared expert skills only — materialized into the session dir. */
         skillNames?: string[];
       },
@@ -232,6 +245,8 @@ type TypedServerClientMethodMap = {
       sessionKey: string;
       agentSegment: string;
       installedSkills?: string[];
+      declaredSkills?: string[];
+      missingSkills?: string[];
       isolationVersion?: number;
       defaultAgent?: string;
     }
@@ -239,16 +254,37 @@ type TypedServerClientMethodMap = {
   ensureExpertSessionIsolation: ServerClientMethodContract<
     [
       workspaceId: string,
-      payload: { directory: string; skillNames?: string[] },
+      payload: {
+        directory: string;
+        agentId?: string;
+        packageName?: string;
+        sessionId?: string;
+        approvedAgentIds?: string[];
+        skillNames?: string[];
+      },
     ],
     {
       ok: boolean;
       directory: string;
       upgraded: boolean;
       installedSkills: string[];
+      declaredSkills: string[];
+      missingSkills: string[];
       isolationVersion: number;
       defaultAgent: string;
     }
+  >;
+  getExpertDirectory: ServerClientMethodContract<
+    [workspaceId: string],
+    ExpertDirectoryProjection
+  >;
+  healExpertDirectory: ServerClientMethodContract<
+    [workspaceId: string, payload?: ExpertDirectoryHealRequest],
+    ExpertDirectoryHealResponse
+  >;
+  recordExpertDirectoryShadowDiff: ServerClientMethodContract<
+    [workspaceId: string, payload: ExpertDirectoryShadowDiffRequest],
+    ExpertDirectoryShadowDiffResponse
   >;
   listExpertSessionFiles: ServerClientMethodContract<[workspaceId: string], { items: WorkspaceFileCatalogEntry[] }>;
   readExpertSessionFile: ServerClientMethodContract<[workspaceId: string, path: string], WorkspaceFileContentResponse>;
@@ -320,14 +356,16 @@ type TypedServerClientMethodMap = {
     [
       workspaceId: string,
       options?: {
+        scope?: WorkspaceSessionScope;
         roots?: boolean;
         start?: number;
         search?: string;
         limit?: number;
         directory?: string;
+        signal?: AbortSignal;
       },
     ],
-    { items: unknown[] }
+    { items: unknown[] } | WorkspaceSessionListPayload
   >;
   getSession: ServerClientMethodContract<
     [workspaceId: string, sessionId: string, options?: { directory?: string }],
@@ -358,8 +396,12 @@ type TypedServerClientMethodMap = {
     { item: SessionOriginRecord }
   >;
   deleteSessionOrigin: ServerClientMethodContract<
-    [workspaceId: string, sessionId: string],
-    { ok: true }
+    [workspaceId: string, sessionId: string, options?: { expectedRevision?: number }],
+    SessionOriginDeleteResult
+  >;
+  deleteExpert: ServerClientMethodContract<
+    [workspaceId: string, request: ExpertDeleteRequest],
+    ExpertDeleteResult
   >;
 
   // extensions — plugins / skills / MCP / commands / automations

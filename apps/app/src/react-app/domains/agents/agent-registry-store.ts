@@ -246,5 +246,7 @@ export function buildPendingAgentFromRecord(
     systemPrompt: buildAgentSystemPrompt(agent),
     model: modelRef ?? undefined,
     tools: buildAgentToolAccess(agent),
+    skillIds: [...agent.skillIds],
+    ...(agent.introStyle ? { introStyle: agent.introStyle } : {}),
   };
 }

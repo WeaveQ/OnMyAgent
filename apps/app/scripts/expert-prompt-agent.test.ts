@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   EXPERT_PROMPT_DEFAULT_AGENT,
-  parseSkillNamesFromAgentMarkdown,
+  EXPERT_RUNTIME_CONTRACT_ERROR_CODE,
   resolveExpertPromptAgent,
 } from "../src/react-app/capabilities/session-identity/expert-prompt-agent";
 
@@ -13,48 +13,21 @@ describe("resolveExpertPromptAgent", () => {
     expect(resolveExpertPromptAgent("  ")).toBe(EXPERT_PROMPT_DEFAULT_AGENT);
   });
 
-  test("blocks heavy orchestrator agents from home oh-my-openagent", () => {
-    expect(resolveExpertPromptAgent("Sisyphus - ultraworker")).toBe(
-      EXPERT_PROMPT_DEFAULT_AGENT,
-    );
-    expect(resolveExpertPromptAgent("sisyphus")).toBe(EXPERT_PROMPT_DEFAULT_AGENT);
-    expect(resolveExpertPromptAgent("Oh-My-OpenAgent")).toBe(
-      EXPERT_PROMPT_DEFAULT_AGENT,
-    );
+  test("fails closed for every undeclared agent", () => {
+    for (const agentId of ["Sisyphus - ultraworker", "sisyphus", "build"]) {
+      expect(() => resolveExpertPromptAgent(agentId)).toThrow(
+        EXPERT_RUNTIME_CONTRACT_ERROR_CODE,
+      );
+    }
   });
 
-  test("keeps a safe explicit agent selection", () => {
+  test("keeps the default and exact package-approved selections", () => {
     expect(resolveExpertPromptAgent("onmyagent")).toBe("onmyagent");
-    expect(resolveExpertPromptAgent("build")).toBe("build");
-  });
-});
-
-describe("parseSkillNamesFromAgentMarkdown", () => {
-  test("parses bracket skills from frontmatter", () => {
-    const md = `---
-name: kol-content-ops-specialist
-skills: [kol-script-risk-review, kol-reputation-monitor, document-processing]
----
-# body
-`;
-    expect(parseSkillNamesFromAgentMarkdown(md)).toEqual([
-      "kol-script-risk-review",
-      "kol-reputation-monitor",
-      "document-processing",
-    ]);
-  });
-
-  test("parses YAML list skills and drops unsafe names", () => {
-    const md = `---
-skills:
-  - kol-brief-structuring
-  - ../escape
-  - ok-skill
----
-`;
-    expect(parseSkillNamesFromAgentMarkdown(md)).toEqual([
-      "kol-brief-structuring",
-      "ok-skill",
-    ]);
+    expect(resolveExpertPromptAgent("package-agent", ["package-agent"])).toBe(
+      "package-agent",
+    );
+    expect(() =>
+      resolveExpertPromptAgent("package-agent", ["pkg:package-agent"]),
+    ).toThrow(EXPERT_RUNTIME_CONTRACT_ERROR_CODE);
   });
 });

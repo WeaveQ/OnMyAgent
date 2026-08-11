@@ -34,33 +34,32 @@ import type { PageMode } from "../../domains/session";
 import type { SessionPageSurfaceProps } from "../../domains/session";
 import {
   addAssistantSession,
-  addExpertSession,
   shouldApplyExpertSelection,
   writeAssistantSessionCategory,
 } from "../../domains/agents";
 import {
-  readCustomAgentIdForSession,
   readSessionAgentSnapshot,
-  writeCustomAgentIdForSession,
   writeSessionAgentSnapshot,
 } from "../../domains/agents";
 import { usePendingAgentStore } from "../../domains/agents";
 import { writeSessionOriginDurable } from "../../domains/agents";
 import {
-  createIsolatedExpertSessionRuntimeDirectory,
   clearOptimisticSessionUserMessage,
   dispatchAssistantSessionWorkspacesChanged,
-  isSameDirectory,
   readAssistantSessionWorkspace,
   seedOptimisticSessionUserMessage,
-  shouldIsolateExpertSessionDirectory,
   trackWorkspaceSessionSync,
   writeAssistantSessionWorkspace,
 } from "../../domains/session";
 import {
-  parseSkillNamesFromAgentMarkdown,
+  createIsolatedExpertSessionRuntimeDirectory,
+  isSameDirectory,
+  shouldIsolateExpertSessionDirectory,
+} from "../../capabilities/session-identity/expert-session-directory";
+import {
   resolveExpertPromptAgent,
 } from "../../capabilities/session-identity/expert-prompt-agent";
+import { useExpertDirectoryStore } from "../../capabilities/session-identity/expert-directory-store";
 import { useSessionActivityStore } from "../../domains/session";
 import {
   buildOnMyAgentEnvSystemContext,
@@ -499,9 +498,7 @@ export function useSessionRouteSurfaceProps(
           runtimeKey: envRuntimeKey,
         });
 
-        const expertSkillNames = parseSkillNamesFromAgentMarkdown(
-          pendingForColdPath?.systemPrompt ?? "",
-        );
+        const expertSkillNames = pendingForColdPath?.skillIds ?? [];
         if (pageMode === "expert" && sendPlan.needsNewSession) {
           const explicitFolder = explicitAssistantWorkspace.trim();
           const isolate = shouldIsolateExpertSessionDirectory(
@@ -521,6 +518,8 @@ export function useSessionRouteSurfaceProps(
               workspaceRoot: workspaceRootForSession,
               agentName,
               agentId,
+              packageName: pendingForDir?.marketplaceExpert?.packageName || agentId,
+              approvedAgentIds: pendingForDir?.approvedAgentIds ?? [],
               skillNames: expertSkillNames,
             });
             // Only bind the external runtime path when the server created it.
@@ -547,6 +546,7 @@ export function useSessionRouteSurfaceProps(
           try {
             await ensureClient.ensureExpertSessionIsolation(ensureWorkspaceId, {
               directory: taskWorkspaceRoot,
+              approvedAgentIds: pendingForColdPath?.approvedAgentIds ?? [],
               ...(expertSkillNames.length ? { skillNames: expertSkillNames } : {}),
             });
           } catch (error) {
@@ -625,7 +625,6 @@ export function useSessionRouteSurfaceProps(
               intent: draft.sessionStartIntent,
               pageMode,
               addAssistantSession,
-              addExpertSession,
               writeAssistantSessionCategory,
             });
           }
@@ -649,6 +648,12 @@ export function useSessionRouteSurfaceProps(
               createdSession: true,
               sessionId,
               inheritFromSessionId: selectedSessionId,
+              inheritAgentId: selectedSessionId
+                ? useExpertDirectoryStore
+                    .getState()
+                    .getIdentity(selectedWorkspaceId)
+                    .agentIdBySessionId.get(selectedSessionId)
+                : null,
             });
             if (pendingAgentSnapshot) {
               usePendingAgentStore.getState().setAgent(
@@ -657,11 +662,29 @@ export function useSessionRouteSurfaceProps(
                   sessionId,
                 }),
               );
-              writeCustomAgentIdForSession(
-                sessionId,
-                pendingAgentSnapshot.id,
-              );
+              useExpertDirectoryStore
+                .getState()
+                .upsertIdentity(
+                  selectedWorkspaceId,
+                  sessionId,
+                  pendingAgentSnapshot.id,
+                );
               writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot);
+            }
+          }
+          if (pageMode === "expert" && createdSession.directory && ensureClient) {
+            const markerAgentId = pendingForColdPath?.id?.trim() || undefined;
+            const markerPackageName = pendingForColdPath?.marketplaceExpert?.packageName || markerAgentId;
+            try {
+              await ensureClient.ensureExpertSessionIsolation(ensureWorkspaceId, {
+                directory: createdSession.directory,
+                agentId: markerAgentId,
+                packageName: markerPackageName,
+                sessionId,
+                approvedAgentIds: pendingForColdPath?.approvedAgentIds ?? [],
+              });
+            } catch (error) {
+              console.warn("[expert-session] marker identity upgrade failed", error);
             }
           }
           // Seed the user turn into the new session transcript *before* route
@@ -693,10 +716,20 @@ export function useSessionRouteSurfaceProps(
                 selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId,
               sessionId,
               kind: "expert",
-              agentId: readCustomAgentIdForSession(sessionId),
+              agentId: pendingForColdPath?.id,
+              packageName:
+                pendingForColdPath?.marketplaceExpert?.packageName ||
+                pendingForColdPath?.id,
               directory:
                 createdSession.directory ?? explicitAssistantWorkspace,
-            });
+            }).then(() =>
+              getReactQueryClient().invalidateQueries({
+                queryKey: [
+                  "expert-directory",
+                  selectedWorkspaceId,
+                ],
+              }),
+            );
           } else {
             void writeSessionOriginDurable({
               client: selectedWorkspaceEndpoint?.client ?? client,
@@ -948,6 +981,12 @@ export function useSessionRouteSurfaceProps(
             createdSession: Boolean(createdSession),
             sessionId,
             inheritFromSessionId,
+            inheritAgentId: inheritFromSessionId
+              ? useExpertDirectoryStore
+                  .getState()
+                  .getIdentity(selectedWorkspaceId)
+                  .agentIdBySessionId.get(inheritFromSessionId)
+              : null,
           });
         const runtimeToolAccess = resolveComposerRuntimeTools(
           agentToolAccess,
@@ -965,7 +1004,13 @@ export function useSessionRouteSurfaceProps(
           );
           // Persist the custom agent ID so we can restore the agent's avatar
           // and name when the user re-opens this session later.
-          writeCustomAgentIdForSession(sessionId, pendingAgentSnapshot.id);
+          useExpertDirectoryStore
+            .getState()
+            .upsertIdentity(
+              selectedWorkspaceId,
+              sessionId,
+              pendingAgentSnapshot.id,
+            );
           writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot);
         }
         // Join early install + env prep (started before isolate/create).
@@ -991,7 +1036,10 @@ export function useSessionRouteSurfaceProps(
             : undefined;
         const currentPendingAgent = usePendingAgentStore.getState().getAgent();
         const storedSessionAgentId =
-          readCustomAgentIdForSession(sessionId) ||
+          useExpertDirectoryStore
+            .getState()
+            .getIdentity(selectedWorkspaceId)
+            .agentIdBySessionId.get(sessionId) ||
           readSessionAgentSnapshot(sessionId)?.id ||
           null;
         const boundExpertId = resolveSessionExpertId({
@@ -1054,7 +1102,12 @@ export function useSessionRouteSurfaceProps(
               // Expert isolation: never fall through to home default (Sisyphus).
               agent:
                 pageMode === "expert" || boundExpertId
-                  ? resolveExpertPromptAgent(selectedAgent)
+                  ? resolveExpertPromptAgent(
+                      selectedAgent,
+                      pendingAgentSnapshot?.approvedAgentIds ??
+                        currentPendingAgent?.approvedAgentIds ??
+                        [],
+                    )
                   : selectedAgent ?? undefined,
               ...(modelVariantValue ? { variant: modelVariantValue } : {}),
               ...(runtimeToolAccess ? { tools: runtimeToolAccess } : {}),

@@ -2,6 +2,7 @@ import type {
   AgentAvatarStyle,
   AgentToolCategoryId,
 } from "./pending-agent-store";
+import type { ExpertIntroStyle } from "@onmyagent/types/desktop-ipc";
 
 export type AgentTone =
   | "professional"
@@ -52,6 +53,7 @@ export type AgentTemplate = {
   sdkModelID?: string;
   enabledToolIds: AgentToolCategoryId[];
   skillIds: string[];
+  introStyle?: ExpertIntroStyle;
   preferredName: string;
   preferredLanguage: string;
   userNote: string;
@@ -78,6 +80,7 @@ export type AgentRecord = {
   enabledToolIds: AgentToolCategoryId[];
   defaultWorkspace: string;
   skillIds: string[];
+  introStyle?: ExpertIntroStyle;
   preferredName: string;
   preferredLanguage: string;
   userNote: string;

@@ -33,6 +33,7 @@ export function buildCapabilities(input: {
     mcp: { read: true, write: writeEnabled },
     commands: { read: true, write: writeEnabled },
     config: { read: true, write: writeEnabled },
+    expertDirectory: { read: true, shadow: true },
     approvals: {
       mode: config.approval.mode,
       timeoutMs: config.approval.timeoutMs,

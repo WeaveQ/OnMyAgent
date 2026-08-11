@@ -3,7 +3,7 @@
  */
 import { useCallback } from "react";
 
-import { usePendingAgentStore } from "../../agents";
+import { createExpertOperationId, usePendingAgentStore } from "../../agents";
 import { installSummonedMarketplaceExpert } from "@/react-app/domains/plugins";
 import { buildPendingAgentFromMarketplaceExpert } from "@/react-app/domains/agents";
 import { resolveMarketplaceExpertStartPrompt } from "@/react-app/domains/plugins";
@@ -42,7 +42,8 @@ export function useSummonMarketplaceExpert(options: {
       usePendingAgentStore.getState().setAgent({
         ...pending,
         boundSessionId: undefined,
-        conversationStartId: Date.now(),
+        operationId: createExpertOperationId(),
+        draftCreatedAt: Date.now(),
         draftSource: "agent-selection",
       });
       // Prefill only explicit quick-prompt or logistics templates (not default intro).

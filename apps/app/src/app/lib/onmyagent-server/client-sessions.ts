@@ -3,7 +3,12 @@ import type { Session } from "@opencode-ai/sdk/v2/client";
 import type {
   SessionOriginListPayload,
   SessionOriginRecord,
+  SessionOriginDeleteResult,
   SessionOriginUpsertPayload,
+  WorkspaceSessionListPayload,
+  WorkspaceSessionScope,
+  ExpertDeleteRequest,
+  ExpertDeleteResult,
 } from "@onmyagent/types/server";
 import {
   requestJson,
@@ -11,6 +16,10 @@ import {
   type OnMyAgentSessionMessage,
   type OnMyAgentSessionSnapshot,
 } from "./client-shared";
+
+type SessionListResponse =
+  | { items: Session[] }
+  | (Omit<WorkspaceSessionListPayload, "items"> & { items: Session[] });
 
 export function createSessionsClientMethods(ctx: OnMyAgentServerClientContext) {
   const { baseUrl, token, hostToken, timeouts, requestOpenCodeRouter, routerPath } = ctx;
@@ -30,19 +39,28 @@ export function createSessionsClientMethods(ctx: OnMyAgentServerClientContext) {
     },
     listSessions: (
       workspaceId: string,
-      options?: { roots?: boolean; start?: number; search?: string; limit?: number; directory?: string },
+      options?: {
+        scope?: WorkspaceSessionScope;
+        roots?: boolean;
+        start?: number;
+        search?: string;
+        limit?: number;
+        directory?: string;
+        signal?: AbortSignal;
+      },
     ) => {
       const query = new URLSearchParams();
+      if (options?.scope) query.set("scope", options.scope);
       if (typeof options?.roots === "boolean") query.set("roots", String(options.roots));
       if (typeof options?.start === "number") query.set("start", String(options.start));
       if (options?.search?.trim()) query.set("search", options.search.trim());
       if (typeof options?.limit === "number") query.set("limit", String(options.limit));
       if (options?.directory?.trim()) query.set("directory", options.directory.trim());
       const suffix = query.size ? `?${query.toString()}` : "";
-      return requestJson<{ items: Session[] }>(
+      return requestJson<SessionListResponse>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/sessions${suffix}`,
-        { token, hostToken, timeoutMs: timeouts.sessionRead },
+        { token, hostToken, timeoutMs: timeouts.sessionRead, signal: options?.signal },
       );
     },
     getSession: (workspaceId: string, sessionId: string, options?: { directory?: string }) => {
@@ -109,11 +127,33 @@ export function createSessionsClientMethods(ctx: OnMyAgentServerClientContext) {
         `/workspace/${encodeURIComponent(workspaceId)}/session-origins/${encodeURIComponent(sessionId)}`,
         { token, hostToken, method: "PUT", body: payload, timeoutMs: timeouts.sessionRead },
       ),
-    deleteSessionOrigin: (workspaceId: string, sessionId: string) =>
-      requestJson<{ ok: true }>(
+    deleteSessionOrigin: (
+      workspaceId: string,
+      sessionId: string,
+      options?: { expectedRevision?: number },
+    ) => {
+      const query = new URLSearchParams();
+      if (typeof options?.expectedRevision === "number") {
+        query.set("expectedRevision", String(options.expectedRevision));
+      }
+      const suffix = query.size ? `?${query.toString()}` : "";
+      return requestJson<SessionOriginDeleteResult>(
         baseUrl,
-        `/workspace/${encodeURIComponent(workspaceId)}/session-origins/${encodeURIComponent(sessionId)}`,
+        `/workspace/${encodeURIComponent(workspaceId)}/session-origins/${encodeURIComponent(sessionId)}${suffix}`,
         { token, hostToken, method: "DELETE", timeoutMs: timeouts.deleteSession },
+      );
+    },
+    deleteExpert: (workspaceId: string, request: ExpertDeleteRequest) =>
+      requestJson<ExpertDeleteResult>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/expert-delete`,
+        {
+          token,
+          hostToken,
+          method: "POST",
+          body: request,
+          timeoutMs: timeouts.deleteSession,
+        },
       ),
   };
 }

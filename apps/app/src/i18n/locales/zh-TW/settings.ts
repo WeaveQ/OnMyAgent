@@ -442,6 +442,11 @@ export default {
   "settings.running_probe": "正在運行探測…",
   "settings.runtime_debug_desc": "可讀的診斷快照，支持一鍵導出",
   "settings.runtime_debug_title": "運行時調試報告",
+  "settings.expert_lifecycle_events_title": "專家生命週期事件",
+  "settings.expert_lifecycle_events_desc":
+    "程序內最多保留 512 筆去識別事件，目前 {count} 筆。",
+  "settings.expert_lifecycle_events_copied": "已複製專家生命週期事件。",
+  "settings.expert_lifecycle_events_exported": "已匯出專家生命週期事件。",
   "settings.sandbox_error": "錯誤",
   "settings.sandbox_export_hint": "使用上方運行時調試報告中的導出功能",
   "settings.sandbox_probe_desc": "運行臨時Docker沙箱啟動檢查並",

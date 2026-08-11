@@ -13,13 +13,9 @@ import {
   resolveBoundExpertDraftNavigation,
 } from "../src/react-app/domains/session/pages/expert-draft-session";
 import {
-  resolveExpertOriginHydrationView,
+  resolveExpertDirectoryView,
   shouldBlockExpertSurfaceForWorkspaceError,
-} from "../src/react-app/domains/session/pages/expert-origin-hydration";
-import {
-  getSessionOriginRecoveryRetryDelayMs,
-  resetSessionOriginHydrationForTests,
-} from "../src/react-app/domains/agents/session-origin-hydration";
+} from "../src/react-app/domains/session/pages/expert-directory-view";
 
 const pageViewPath = new URL(
   "../src/react-app/shell/session-route/page-view.tsx",
@@ -37,6 +33,14 @@ const sessionLoaderPath = new URL(
   "../src/react-app/shell/session-route/session-loader-hook.ts",
   import.meta.url,
 );
+const sessionRouteSessionsPath = new URL(
+  "../src/react-app/shell/session-route/sessions.ts",
+  import.meta.url,
+);
+const agentSessionStatePath = new URL(
+  "../src/react-app/domains/agents/agent-session-state.ts",
+  import.meta.url,
+);
 const appAgentsPath = new URL("../AGENTS.md", import.meta.url);
 
 describe("experts/session invariants index", () => {
@@ -44,7 +48,7 @@ describe("experts/session invariants index", () => {
     const agents = await readFile(appAgentsPath, "utf8");
     expect(agents).toContain("## Experts / Session 不变量");
     expect(agents).toContain("空壳禁止 startRun");
-    expect(agents).toContain("Origin 水合权威");
+    expect(agents).toContain("Expert Directory 权威");
     expect(agents).toContain("Bound draft 事务消费");
     expect(agents).toContain("首发冷路径可见");
     expect(agents).toContain("Snapshot / SSE 代际隔离");
@@ -68,8 +72,8 @@ describe("invariant 1: empty expert shell must not startRun", () => {
   });
 });
 
-describe("invariant 2: origin hydration is authoritative for empty landing", () => {
-  test("workspace error blocks empty draft; hydration pending defers cold open", () => {
+describe("invariant 2: Expert Directory is authoritative for empty landing", () => {
+  test("workspace error blocks empty draft; directory loading defers cold open", () => {
     expect(
       shouldBlockExpertSurfaceForWorkspaceError({
         selectedSessionId: null,
@@ -77,10 +81,9 @@ describe("invariant 2: origin hydration is authoritative for empty landing", () 
       }),
     ).toBe(true);
     expect(
-      resolveExpertOriginHydrationView({
+      resolveExpertDirectoryView({
         activeChat: true,
-        originHydrated: false,
-        originDegraded: false,
+        directoryState: "loading",
         hasAnyExpertConversation: false,
         showWorkspaceSetupEmptyState: false,
         showSelectedWorkspaceError: false,
@@ -89,14 +92,13 @@ describe("invariant 2: origin hydration is authoritative for empty landing", () 
       }),
     ).toMatchObject({
       deferColdOpen: true,
-      showPendingWithoutSelection: true,
+      showLoadingWithoutSelection: true,
       showNoExpertConversation: false,
     });
     expect(
-      resolveExpertOriginHydrationView({
+      resolveExpertDirectoryView({
         activeChat: true,
-        originHydrated: true,
-        originDegraded: true,
+        directoryState: "incomplete",
         hasAnyExpertConversation: false,
         showWorkspaceSetupEmptyState: false,
         showSelectedWorkspaceError: false,
@@ -104,20 +106,11 @@ describe("invariant 2: origin hydration is authoritative for empty landing", () 
         selectedSessionId: null,
       }),
     ).toMatchObject({
-      showDegradedWithoutSelection: true,
+      showIncompleteWithoutSelection: true,
       showNoExpertConversation: false,
     });
   });
 
-  test("origin recovery retries are bounded (eventually null delay)", () => {
-    resetSessionOriginHydrationForTests();
-    const delays: Array<number | null> = [];
-    for (let i = 0; i < 12; i += 1) {
-      delays.push(getSessionOriginRecoveryRetryDelayMs(i));
-    }
-    expect(delays.some((d) => d === null)).toBe(true);
-    expect(delays.filter((d) => typeof d === "number").length).toBeGreaterThan(0);
-  });
 });
 
 describe("invariant 3: bound draft is consumed for the same expert only", () => {
@@ -146,12 +139,12 @@ describe("invariant 3: bound draft is consumed for the same expert only", () => 
     ).toBe(false);
 
     const navInput = {
-      contexts: { "order-entry": { conversationStartId: 101 } },
+      contexts: { "order-entry": { operationId: "operation-101" } },
       draftAgentId: "order-entry",
       draftSessionActive: true,
       pendingAgent: {
         id: "order-entry",
-        conversationStartId: 101,
+        operationId: "operation-101",
         boundSessionId: "ses_created",
       },
     };
@@ -204,10 +197,27 @@ describe("invariant 5: snapshot/SSE generation isolation", () => {
     expect(source).toMatch(/isActiveConnection/);
   });
 
-  test("session loader origin recovery uses AbortController and authoritative merge", async () => {
+  test("session loader uses one workspace aggregate and preserves partial state", async () => {
     const source = await readFile(sessionLoaderPath, "utf8");
-    expect(source).toContain("const originController = new AbortController()");
-    expect(source).toContain("authoritativeItems");
-    expect(source).toContain("mergeRecoveredSessionsWithCurrent");
+    const sessionHelpers = await readFile(sessionRouteSessionsPath, "utf8");
+    expect(source).toContain("collectWorkspaceSessionItemsWithStatus");
+    expect(sessionHelpers).toContain('scope: "workspace"');
+    expect(source).not.toContain("deleteSessionOrigin");
+    expect(source).not.toContain("listSessionOrigins");
+    expect(source).not.toContain("mergeRecoveredSessionsWithCurrent");
+    expect(source).not.toContain("recoverOriginDirectory");
+    expect(source).not.toContain("getSession(");
+  });
+
+  test("expert identity no longer uses renderer-owned local membership", async () => {
+    const [pageView, surface, state] = await Promise.all([
+      readFile(pageViewPath, "utf8"),
+      readFile(surfacePropsPath, "utf8"),
+      readFile(agentSessionStatePath, "utf8"),
+    ]);
+    expect(pageView).not.toContain("writeCustomAgentIdForSession(newSession.id");
+    expect(surface).not.toContain("readCustomAgentIdForSession");
+    expect(surface).not.toContain("writeCustomAgentIdForSession");
+    expect(state).not.toContain("onmyagent:expertSessionIds");
   });
 });

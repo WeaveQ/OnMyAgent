@@ -16,10 +16,11 @@ import {
 } from "../src/react-app/domains/agents/expert-creation-actions";
 import { clearExpertLocalSessionBindings } from "../src/react-app/domains/agents/expert-hard-delete";
 import {
-  addExpertSession,
-  isExpertSession,
-  removeExpertSession,
-} from "../src/react-app/domains/agents/agent-session-state";
+  readCustomAgentIdForSession,
+  readSessionAgentSnapshot,
+  writeCustomAgentIdForSession,
+  writeSessionAgentSnapshot,
+} from "../src/react-app/domains/agents/agent-registry-store";
 
 const appRoot = path.join(import.meta.dir, "..");
 
@@ -64,23 +65,26 @@ describe("expert-session-lifecycle contracts", () => {
   });
 
   test("clearExpertLocalSessionBindings uses lifecycle filter (shipped path)", () => {
-    if (typeof localStorage === "undefined") {
-      // jsdom-less bun: exercise pure filter via remainingExpertSessionIdsAfterDelete only
-      const after = remainingExpertSessionIdsAfterDelete(
-        new Set(["keep-me", "drop-me"]),
-        ["drop-me", "draft:ignored"],
-      );
-      expect(after.includes("keep-me")).toBe(true);
-      expect(after.includes("drop-me")).toBe(false);
-      return;
-    }
-
-    addExpertSession("keep-me");
-    addExpertSession("drop-me");
+    if (typeof localStorage === "undefined") return;
+    writeCustomAgentIdForSession("keep-me", "agent-keep");
+    writeCustomAgentIdForSession("drop-me", "agent-drop");
+    writeSessionAgentSnapshot("drop-me", {
+      id: "agent-drop",
+      name: "Drop",
+      description: "",
+      avatar: {
+        avatarStyle: "robot",
+        avatarOptionId: "drop",
+        customAvatarDataUrl: null,
+        avatarUrl: null,
+        avatarBackground: null,
+      },
+      systemPrompt: "",
+    });
     clearExpertLocalSessionBindings(["drop-me", "draft:should-not-matter"]);
-    expect(isExpertSession("keep-me")).toBe(true);
-    expect(isExpertSession("drop-me")).toBe(false);
-    removeExpertSession("keep-me");
+    expect(readCustomAgentIdForSession("keep-me")).toBe("agent-keep");
+    expect(readCustomAgentIdForSession("drop-me")).toBeNull();
+    expect(readSessionAgentSnapshot("drop-me")).toBeNull();
   });
 
   test("production call sites gate real create draft flush", () => {
@@ -127,7 +131,8 @@ describe("expert-session-lifecycle contracts", () => {
       ),
       "utf8",
     );
-    expect(deleteHook).toContain("remainingExpertSessionIdsAfterDelete");
+    expect(deleteHook).not.toContain("remainingExpertSessionIdsAfterDelete");
+    expect(deleteHook).not.toContain("removeExpertSession");
 
     beginExpertCreateSaveAttempt();
     expect(consumeExpertCreateComposerFlush()).toBe(true);

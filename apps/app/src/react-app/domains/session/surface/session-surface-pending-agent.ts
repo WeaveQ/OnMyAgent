@@ -6,16 +6,17 @@ import { useEffect } from "react";
 
 import {
   buildPendingAgentFromRecord,
-  readCustomAgentIdForSession,
   useAgentRegistryStore,
   usePendingAgentStore,
   type PendingAgentContext,
 } from "../../agents";
+import type { ExpertDirectoryIdentityIndex } from "../../../capabilities/session-identity/expert-directory-store";
 
 export type SessionSurfacePendingAgentInput = {
   personalAssistantHome?: boolean;
   sessionId: string;
   agentContext?: PendingAgentContext | null;
+  expertDirectoryIdentity: ExpertDirectoryIdentityIndex;
 };
 
 export function useSessionSurfacePendingAgent(
@@ -39,7 +40,9 @@ export function useSessionSurfacePendingAgent(
     if (current && current.boundSessionId === input.sessionId) {
       return;
     }
-    const agentId = readCustomAgentIdForSession(input.sessionId);
+    const agentId =
+      input.expertDirectoryIdentity.agentIdBySessionId.get(input.sessionId) ??
+      null;
     if (!agentId) return;
     // The current pending agent either doesn't match this session's agent
     // (navigation to a different agent) — overwrite with the correct agent.
@@ -67,7 +70,7 @@ export function useSessionSurfacePendingAgent(
         boundSessionId: input.sessionId,
       });
     }
-  }, [input.sessionId, registry]);
+  }, [input.expertDirectoryIdentity.agentIdBySessionId, input.sessionId, registry]);
 
   // Only use the pending agent if it's either unbound (draft-only state,
   // session doesn't exist yet) or bound to the session we're currently

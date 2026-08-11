@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  collectWorkspaceSessionItemsWithStatus,
   findFirstSessionIdMatching,
   findWorkspaceIdOwningSession,
   filterExpertCreationEphemeralSessionsByWorkspace,
@@ -9,16 +10,7 @@ import {
   insertSidebarSession,
   maxSequence,
   mergeFetchedSessionsWithPending,
-  mergeRecoveredSessionsWithCurrent,
   mergeWorkspaceFetchedSessions,
-  isAuthoritativeEmptyOriginRecovery,
-  mergeAuthoritativeOriginSessions,
-  recoverOriginDirectorySessionItems,
-  recoverOriginDirectorySessionItemsWithStatus,
-  resolveExactOriginSession,
-  SESSION_ORIGIN_DIRECTORY_RECOVERY_CONCURRENCY,
-  SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_PAGES,
-  SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS,
   sessionBelongsToAnotherWorkspace,
   sessionListOwnsSession,
   shouldKeepWorkspaceSessionItem,
@@ -30,45 +22,22 @@ import {
   type PendingCreatedSessionMap,
 } from "../src/react-app/shell/session-route/sessions";
 import type { SidebarSessionItem } from "../src/app/types";
-import { OnMyAgentServerError } from "../src/app/lib/onmyagent-server/client-shared";
 import type { RouteWorkspace } from "../src/react-app/shell/session-route/model";
 import {
   clearExpertCreationEphemeralSessions,
   registerExpertCreationEphemeralSession,
 } from "../src/react-app/domains/agents/expert-creation-ephemeral-sessions";
 import { writeSessionAgentSnapshot } from "../src/react-app/domains/agents/agent-registry-store";
-import {
-  addExpertSession,
-  removeExpertSession,
-} from "../src/react-app/domains/agents/agent-session-state";
 import { EXPERT_CREATION_COACH_AGENT_ID } from "../src/react-app/domains/agents/agent-builtin";
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();
-
-  get length() {
-    return this.values.size;
-  }
-
-  clear() {
-    this.values.clear();
-  }
-
-  getItem(key: string) {
-    return this.values.get(key) ?? null;
-  }
-
-  key(index: number) {
-    return Array.from(this.values.keys())[index] ?? null;
-  }
-
-  removeItem(key: string) {
-    this.values.delete(key);
-  }
-
-  setItem(key: string, value: string) {
-    this.values.set(key, value);
-  }
+  get length() { return this.values.size; }
+  clear() { this.values.clear(); }
+  getItem(key: string) { return this.values.get(key) ?? null; }
+  key(index: number) { return Array.from(this.values.keys())[index] ?? null; }
+  removeItem(key: string) { this.values.delete(key); }
+  setItem(key: string, value: string) { this.values.set(key, value); }
 }
 
 function session(input: Partial<SidebarSessionItem> & { id: string }): SidebarSessionItem {
@@ -97,7 +66,7 @@ function workspace(input: Partial<RouteWorkspace> & { id: string }): RouteWorksp
   };
 }
 
-describe("session route sessions", () => {
+describe("session route aggregate loader", () => {
   Object.defineProperty(globalThis, "localStorage", {
     configurable: true,
     value: new MemoryStorage(),
@@ -105,793 +74,129 @@ describe("session route sessions", () => {
 
   test("normalizes raw session payloads and filters invalid items", () => {
     expect(toSidebarSessionItem({ id: "ses_1", title: "Title", directory: "/tmp/ws" })).toMatchObject({
-      id: "ses_1",
-      title: "Title",
-      directory: "/tmp/ws",
+      id: "ses_1", title: "Title", directory: "/tmp/ws",
     });
     expect(toSidebarSessionItem({ title: "missing id" })).toBeNull();
     expect(toSidebarSessionItems([{ id: "ses_1" }, null, { id: 123 }, { id: "ses_2" }]).map((item) => item.id))
       .toEqual(["ses_1", "ses_2"]);
   });
 
-  test("inserts new sidebar sessions without duplicating existing ids", () => {
-    const current = { ws_a: [session({ id: "ses_existing" })] };
-    const inserted = insertSidebarSession({ current, workspaceId: "ws_a", session: { id: "ses_new", title: "New" } });
-
-    expect(inserted.ws_a?.map((item) => item.id)).toEqual(["ses_new", "ses_existing"]);
-    expect(insertSidebarSession({ current: inserted, workspaceId: "ws_a", session: { id: "ses_new" } }))
-      .toBe(inserted);
-  });
-
-  test("never inserts an expert-creation ephemeral session into Home", () => {
-    clearExpertCreationEphemeralSessions();
-    registerExpertCreationEphemeralSession("preview-session");
-    const current = { ws_a: [session({ id: "existing" })] };
-
-    const result = insertSidebarSession({
-      current,
-      workspaceId: "ws_a",
-      session: { id: "preview-session", title: "Preview" },
-    });
-
-    expect(result).toBe(current);
-    clearExpertCreationEphemeralSessions();
-  });
-
-  test("hides legacy creation sessions identified by their saved agent snapshot", () => {
-    localStorage.clear();
-    writeSessionAgentSnapshot("legacy-coach-session", {
-      id: EXPERT_CREATION_COACH_AGENT_ID,
-      name: "Expert coach",
-      description: "Creates experts",
-      avatar: {
-        avatarStyle: "robot",
-        avatarOptionId: "robot-1",
-        customAvatarDataUrl: null,
-        avatarUrl: null,
-        avatarBackground: null,
+  test("uses exactly one workspace aggregate request and preserves partial rows", async () => {
+    let calls = 0;
+    const result = await collectWorkspaceSessionItemsWithStatus({
+      client: {
+        listSessions: async (_workspaceId, options) => {
+          calls += 1;
+          expect(options?.scope).toBe("workspace");
+          return {
+            scope: "workspace" as const,
+            complete: false,
+            failures: [{ source: "expert-runtime", key: "hash", index: 1, code: "directory_read_failed" }],
+            items: [
+              { id: "root-session", directory: "/tmp/workspace" },
+              { id: "expert-session", directory: "/tmp/expert" },
+            ],
+          };
+        },
       },
-      systemPrompt: "Help create an expert.",
+      workspaceId: "workspace-a",
+      workspaceRoot: "/tmp/workspace",
+      isRemoteOnMyAgentWorkspace: false,
+      assistantSessionRecords: [],
+      normalizeDirectoryPath: (path) => path,
     });
-
-    expect(
-      shouldKeepWorkspaceSessionItem({
-        sessionId: "legacy-coach-session",
-        directory: "/tmp/workspace",
-        assistantSessionIds: new Set(),
-        normalizedWorkspaceRoot: "/tmp/workspace",
-        normalizeDirectoryPath: (path) => path,
-      }),
-    ).toBe(false);
-    expect(
-      filterExpertCreationEphemeralSessionsByWorkspace({
-        ws_a: [
-          session({ id: "legacy-coach-session" }),
-          session({ id: "normal-session" }),
-        ],
-      }).ws_a?.map((item) => item.id),
-    ).toEqual(["normal-session"]);
-
-    localStorage.clear();
+    expect(calls).toBe(1);
+    expect(result.complete).toBe(false);
+    expect(result.failures).toHaveLength(1);
+    expect(result.items.map((item) => item.id)).toEqual(["root-session", "expert-session"]);
   });
 
-  test("keeps registered expert sessions even when their directory differs from workspace root", () => {
-    localStorage.clear();
-    localStorage.setItem(
-      "onmyagent:expertSessionIds",
-      JSON.stringify(["expert-outside-workspace"]),
-    );
-
-    const normalizeDirectoryPath = (path: string) => path.replace(/\/+$/, "");
-    const assistantSessionIds = new Set<string>();
-
-    expect(
-      shouldKeepWorkspaceSessionItem({
-        sessionId: "expert-outside-workspace",
-        directory: "/tmp/builtin-experts/document-generation-expert",
-        assistantSessionIds,
-        normalizedWorkspaceRoot: "/Users/me/project",
-        normalizeDirectoryPath,
-      }),
-    ).toBe(true);
-    expect(
-      shouldKeepWorkspaceSessionItem({
-        sessionId: "plain-outside-workspace",
-        directory: "/tmp/builtin-experts/document-generation-expert",
-        assistantSessionIds,
-        normalizedWorkspaceRoot: "/Users/me/project",
-        normalizeDirectoryPath,
-      }),
-    ).toBe(false);
-
-    localStorage.clear();
+  test("does not fan out assistant directories", async () => {
+    let calls = 0;
+    const result = await collectWorkspaceSessionItemsWithStatus({
+      client: {
+        listSessions: async () => {
+          calls += 1;
+          return { scope: "workspace" as const, complete: true, failures: [], items: [{ id: "assistant", directory: "/assistant" }] };
+        },
+      },
+      workspaceId: "workspace-a",
+      workspaceRoot: "/root",
+      isRemoteOnMyAgentWorkspace: false,
+      assistantSessionRecords: [{ sessionId: "assistant", directory: "/assistant" }],
+      normalizeDirectoryPath: (path) => path,
+    });
+    expect(calls).toBe(1);
+    expect(result.items.map((item) => item.id)).toEqual(["assistant"]);
   });
 
-  test("collects active session ids and reload blockers", () => {
-    const sessions = [
-      session({ id: " running ", title: "Running", status: "running" }),
-      session({ id: "busy", slug: "Busy Slug", runStatus: "busy", title: "" }),
-      session({ id: "done", status: "done" }),
-    ];
-
-    expect(getActiveSessionIds(sessions)).toEqual(["running", "busy"]);
-    expect(getActiveReloadBlockingSessions({ ws_a: sessions })).toEqual([
-      { id: "running", title: "Running" },
-      { id: "busy", title: "Busy Slug" },
-    ]);
-  });
-
-  test("preserves pending sessions until fetched or expired", () => {
+  test("preserves pending sessions until aggregate includes them", () => {
     const pendingByWorkspaceId: PendingCreatedSessionMap = {
-      ws_a: { pending_keep: 1_000, pending_expired: 1_000, fetched: 1_000 },
+      ws_a: { pending_keep: 1_000, pending_expired: 1_000 },
     };
     const merged = mergeFetchedSessionsWithPending({
       workspaceId: "ws_a",
       fetched: [session({ id: "fetched" })],
-      current: [session({ id: "pending_keep" }), session({ id: "assistant_keep" }), session({ id: "fetched" })],
-      pendingByWorkspaceId,
-      explicitAssistantSessionIds: new Set(["assistant_keep"]),
-      now: 20_000,
-    });
-
-    expect(merged.map((item) => item.id)).toEqual(["pending_keep", "assistant_keep", "fetched"]);
-    expect(pendingByWorkspaceId.ws_a).toEqual({ pending_keep: 1_000, pending_expired: 1_000 });
-
-    const expired = mergeFetchedSessionsWithPending({
-      workspaceId: "ws_a",
-      fetched: [],
-      current: [session({ id: "pending_expired" })],
+      current: [session({ id: "pending_keep" }), session({ id: "fetched" })],
       pendingByWorkspaceId,
       explicitAssistantSessionIds: new Set(),
-      now: 32_001,
+      now: 20_000,
     });
-
-    expect(expired).toEqual([]);
-    expect(pendingByWorkspaceId.ws_a).toEqual({ pending_keep: 1_000 });
+    expect(merged.map((item) => item.id)).toEqual(["pending_keep", "fetched"]);
+    expect(pendingByWorkspaceId.ws_a).toEqual({ pending_keep: 1_000, pending_expired: 1_000 });
   });
 
-  test("keeps cached experts only while origin recovery is non-definitive", () => {
-    localStorage.clear();
-    localStorage.setItem("onmyagent:expertSessionIds", JSON.stringify(["expert-cache"]));
-    const base = {
-      workspaceId: "ws_a",
-      fetched: [session({ id: "root-session" })],
-      current: [session({ id: "expert-cache" })],
-      pendingByWorkspaceId: {},
-      explicitAssistantSessionIds: new Set<string>(),
-      now: 1,
-    };
-
-    expect(mergeFetchedSessionsWithPending({ ...base, preserveExpertSessions: true })
-      .map((item) => item.id)).toEqual(["expert-cache", "root-session"]);
-    expect(mergeFetchedSessionsWithPending({ ...base, preserveExpertSessions: false })
-      .map((item) => item.id)).toEqual(["root-session"]);
-    localStorage.clear();
-  });
-
-  test("merges fetched sessions for one workspace without touching others", () => {
+  test("merges one workspace without touching another and keeps warming rows", () => {
     const next = mergeWorkspaceFetchedSessions({
       current: { ws_a: [session({ id: "old" })], ws_b: [session({ id: "other" })] },
       workspaceId: "ws_a",
       fetched: [session({ id: "new" })],
       merge: (fetched, current) => [...fetched, ...current],
     });
-
     expect(next.ws_a?.map((item) => item.id)).toEqual(["new", "old"]);
     expect(next.ws_b?.map((item) => item.id)).toEqual(["other"]);
-  });
-
-  test("retains loaded sessions when a warming index returns an empty list", () => {
-    const next = mergeWorkspaceFetchedSessions({
+    const warm = mergeWorkspaceFetchedSessions({
       current: { ws_a: [session({ id: "existing" })] },
       workspaceId: "ws_a",
       fetched: [],
       merge: () => [],
     });
-
-    expect(next.ws_a?.map((item) => item.id)).toEqual(["existing"]);
+    expect(warm.ws_a?.map((item) => item.id)).toEqual(["existing"]);
   });
 
-  test("recovers durable-origin sessions outside the primary page with bounded directory concurrency", async () => {
-    let activeRequests = 0;
-    let maximumActiveRequests = 0;
-    const requestedDirectories: string[] = [];
-    const recovered = await recoverOriginDirectorySessionItems({
-      client: {
-        listSessions: async (_workspaceId, options) => {
-          const directory = options?.directory ?? "";
-          requestedDirectories.push(directory);
-          activeRequests += 1;
-          maximumActiveRequests = Math.max(maximumActiveRequests, activeRequests);
-          await new Promise((resolve) => setTimeout(resolve, 2));
-          activeRequests -= 1;
-          return { items: [{ id: `session-${directory}`, directory }] };
-        },
-      },
-      workspaceId: "workspace-a",
-      originWorkspaceId: "workspace-a",
-      primaryItems: [session({ id: "primary", directory: "/primary" })],
-      origins: [
-        { workspaceId: "workspace-a", sessionId: "primary", kind: "assistant", directory: "/primary", createdAt: 1, updatedAt: 1 },
-        { workspaceId: "workspace-a", sessionId: "session-/a", kind: "assistant", directory: "/a", createdAt: 1, updatedAt: 1 },
-        { workspaceId: "workspace-a", sessionId: "session-/b", kind: "expert", directory: "/b", createdAt: 1, updatedAt: 1 },
-        { workspaceId: "workspace-a", sessionId: "session-/c", kind: "automation", directory: "/c", createdAt: 1, updatedAt: 1 },
-        { workspaceId: "workspace-a", sessionId: "session-/d", kind: "expert", directory: "/d", createdAt: 1, updatedAt: 1 },
-        { workspaceId: "workspace-a", sessionId: "missing-directory", kind: "expert", createdAt: 1, updatedAt: 1 },
-        { workspaceId: "another-workspace", sessionId: "elsewhere", kind: "expert", directory: "/elsewhere", createdAt: 1, updatedAt: 1 },
-      ],
-      limit: 40,
-    });
-
-    expect(requestedDirectories).toEqual(["/a", "/b", "/c", "/d"]);
-    expect(maximumActiveRequests).toBeLessThanOrEqual(
-      SESSION_ORIGIN_DIRECTORY_RECOVERY_CONCURRENCY,
-    );
-    expect(recovered.map((item) => item.id)).toEqual([
-      "session-/a",
-      "session-/b",
-      "session-/c",
-      "session-/d",
-    ]);
-  });
-
-  test("treats authoritative exact 404 as complete empty with tombstone ids", async () => {
-    const result = await recoverOriginDirectorySessionItemsWithStatus({
-      client: {
-        listSessions: async () => ({ items: [] }),
-        getSession: async () => {
-          throw new OnMyAgentServerError(404, "session_not_found", "warming");
-        },
-      },
-      workspaceId: "workspace-a",
-      originWorkspaceId: "workspace-a",
-      primaryItems: [],
-      origins: [
-        {
-          workspaceId: "workspace-a",
-          sessionId: "expert-session",
-          kind: "expert",
-          agentId: "agent-a",
-          directory: "/tmp/expert",
-          createdAt: 1,
-          updatedAt: 1,
-        },
-      ],
-      limit: 40,
-    });
-
-    // 404/410 is a tombstone: recovery may settle empty and callers prune.
-    expect(result.complete).toBe(true);
-    expect(result.softFailure).toBe(false);
-    expect(result.items).toEqual([]);
-    expect(result.missingSessionIds).toEqual(["expert-session"]);
-    expect(isAuthoritativeEmptyOriginRecovery(result)).toBe(true);
-  });
-
-  test("does not declare origin recovery complete when a directory read fails", async () => {
-    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
-      client: {
-        listSessions: async (_workspaceId, options) => {
-          if (options?.directory === "/failed") throw new Error("offline");
-          return { items: [{ id: "session-/ready", directory: "/ready" }] };
-        },
-      },
-      workspaceId: "workspace-a",
-      originWorkspaceId: "workspace-a",
-      primaryItems: [],
-      origins: [
-        { workspaceId: "workspace-a", sessionId: "session-/ready", kind: "expert", directory: "/ready", createdAt: 1, updatedAt: 1 },
-        { workspaceId: "workspace-a", sessionId: "session-/failed", kind: "expert", directory: "/failed", createdAt: 1, updatedAt: 1 },
-      ],
-      limit: 40,
-    });
-
-    expect(recovery.items.map((item) => item.id)).toEqual(["session-/ready"]);
-    expect(recovery.complete).toBe(false);
-  });
-
-  test("exactly recovers an old origin omitted by a single directory list page", async () => {
-    const requestedSessionIds: string[] = [];
-    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
-      client: {
-        listSessions: async () => ({
-          items: [{ id: "newer-session", directory: "/one-expert" }],
-        }),
-        getSession: async (_workspaceId, sessionId, options) => {
-          requestedSessionIds.push(sessionId);
-          return { item: { id: sessionId, directory: options?.directory } };
-        },
-      },
-      workspaceId: "workspace-a",
-      originWorkspaceId: "workspace-a",
-      primaryItems: [],
-      origins: [
-        { workspaceId: "workspace-a", sessionId: "older-session", kind: "expert", directory: "/one-expert", createdAt: 1, updatedAt: 1 },
-      ],
-      limit: 1,
-    });
-
-    expect(requestedSessionIds).toEqual(["older-session"]);
-    expect(recovery.items.map((item) => item.id)).toEqual(["older-session"]);
-    expect(recovery.complete).toBe(true);
-  });
-
-  test("treats exact 404s as authoritative missing ready to prune", async () => {
-    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
-      client: {
-        listSessions: async () => ({ items: [] }),
-        getSession: async () => {
-          throw new OnMyAgentServerError(404, "not_found", "gone");
-        },
-      },
-      workspaceId: "workspace-a",
-      originWorkspaceId: "workspace-a",
-      primaryItems: [],
-      origins: [
-        { workspaceId: "workspace-a", sessionId: "deleted-session", kind: "expert", directory: "/gone", createdAt: 1, updatedAt: 1 },
-      ],
-      limit: 40,
-    });
-
-    expect(recovery.complete).toBe(true);
-    expect(recovery.softFailure).toBe(false);
-    expect(recovery.items).toEqual([]);
-    expect(recovery.missingSessionIds).toEqual(["deleted-session"]);
-  });
-
-  test("uses exact bounded concurrency while multi-page exact recovery completes in one call", async () => {
-    let listRequests = 0;
-    let activeRequests = 0;
-    let maximumActiveRequests = 0;
-    let getCalls = 0;
-    const origins = Array.from(
-      { length: SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS + 1 },
-      (_, index) => ({
-        workspaceId: "workspace-a",
-        sessionId: `session-${index}`,
-        kind: "expert" as const,
-        directory: `/expert-${index}`,
-        createdAt: 1,
-        updatedAt: 1,
-      }),
-    );
-    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
-      client: {
-        listSessions: async () => {
-          listRequests += 1;
-          return { items: [] };
-        },
-        getSession: async (_workspaceId, sessionId, options) => {
-          getCalls += 1;
-          activeRequests += 1;
-          maximumActiveRequests = Math.max(maximumActiveRequests, activeRequests);
-          await new Promise((resolve) => setTimeout(resolve, 2));
-          activeRequests -= 1;
-          return { item: { id: sessionId, directory: options?.directory } };
-        },
-      },
-      workspaceId: "workspace-a",
-      originWorkspaceId: "workspace-a",
-      primaryItems: [],
-      origins,
-      limit: 40,
-    });
-
-    // Many directories force exact mode (no list fan-out); pages run sequential
-    // with bounded concurrency and tombstones/live ids account so all finish.
-    expect(listRequests).toBe(0);
-    expect(getCalls).toBe(SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS + 1);
-    expect(recovery.items).toHaveLength(SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS + 1);
-    expect(recovery.complete).toBe(true);
-    expect(recovery.softFailure).toBe(false);
-    expect(recovery.nextOffset).toBeNull();
-    expect(maximumActiveRequests).toBeLessThanOrEqual(
-      SESSION_ORIGIN_DIRECTORY_RECOVERY_CONCURRENCY,
-    );
-  });
-
-  test("advances past authoritative 404 tombstones to recover a trailing live origin", async () => {
-    const origins = Array.from(
-      { length: SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS + 1 },
-      (_, index) => ({
-        workspaceId: "workspace-a",
-        sessionId: `session-${index}`,
-        kind: "expert" as const,
-        directory: `/expert-${index}`,
-        createdAt: 1,
-        updatedAt: 1,
-      }),
-    );
-    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
-      client: {
-        listSessions: async () => ({ items: [] }),
-        getSession: async (_workspaceId, sessionId, options) => {
-          // First MAX_TARGETS are gone ghosts; last id is still live.
-          if (sessionId !== `session-${SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS}`) {
-            throw new OnMyAgentServerError(404, "not_found", "gone");
-          }
-          return { item: { id: sessionId, directory: options?.directory } };
-        },
-      },
-      workspaceId: "workspace-a",
-      originWorkspaceId: "workspace-a",
-      primaryItems: [],
-      origins,
-      limit: 40,
-    });
-
-    expect(recovery.complete).toBe(true);
-    expect(recovery.softFailure).toBe(false);
-    expect(recovery.items.map((item) => item.id)).toEqual([
-      `session-${SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS}`,
-    ]);
-    expect(recovery.missingSessionIds).toHaveLength(
-      SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS,
-    );
-    expect(recovery.missingSessionIds).toEqual(
-      Array.from(
-        { length: SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS },
-        (_, index) => `session-${index}`,
-      ),
-    );
-  });
-
-  test("completes all-authoritative-missing when origins exceed one exact page", async () => {
-    const ghostCount = SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS + 5;
-    const origins = Array.from({ length: ghostCount }, (_, index) => ({
-      workspaceId: "workspace-a",
-      sessionId: `ghost-${index}`,
-      kind: "expert" as const,
-      directory: `/ghost-${index}`,
-      createdAt: 1,
-      updatedAt: 1,
-    }));
-    const requested = new Set<string>();
-    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
-      client: {
-        listSessions: async () => ({ items: [] }),
-        getSession: async (_workspaceId, sessionId) => {
-          requested.add(sessionId);
-          throw new OnMyAgentServerError(404, "not_found", "gone");
-        },
-      },
-      workspaceId: "workspace-a",
-      originWorkspaceId: "workspace-a",
-      primaryItems: [],
-      origins,
-      limit: 40,
-    });
-
-    expect(requested.size).toBe(ghostCount);
-    expect(recovery.complete).toBe(true);
-    expect(recovery.softFailure).toBe(false);
-    expect(recovery.items).toEqual([]);
-    expect(recovery.missingSessionIds).toHaveLength(ghostCount);
-    expect(new Set(recovery.missingSessionIds).size).toBe(ghostCount);
-    expect(isAuthoritativeEmptyOriginRecovery(recovery)).toBe(true);
-  });
-
-  test("verifiedMissingIds advances paging across incomplete recovery calls", async () => {
-    const origins = Array.from(
-      { length: SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS + 3 },
-      (_, index) => ({
-        workspaceId: "workspace-a",
-        sessionId: `session-${index}`,
-        kind: "expert" as const,
-        directory: `/expert-${index}`,
-        createdAt: 1,
-        updatedAt: 1,
-      }),
-    );
-    // Simulate a prior pass that already tombstoned the first page.
-    const priorMissing = Array.from(
-      { length: SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS },
-      (_, index) => `session-${index}`,
-    );
-    const requested: string[] = [];
-    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
-      client: {
-        listSessions: async () => ({ items: [] }),
-        getSession: async (_workspaceId, sessionId, options) => {
-          requested.push(sessionId);
-          return { item: { id: sessionId, directory: options?.directory } };
-        },
-      },
-      workspaceId: "workspace-a",
-      originWorkspaceId: "workspace-a",
-      primaryItems: [],
-      verifiedMissingIds: priorMissing,
-      origins,
-      limit: 40,
-    });
-
-    expect(requested).toEqual([
-      `session-${SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS}`,
-      `session-${SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS + 1}`,
-      `session-${SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS + 2}`,
-    ]);
-    expect(recovery.complete).toBe(true);
-    expect(recovery.items.map((item) => item.id)).toEqual(requested);
-    expect(recovery.missingSessionIds).toEqual([]);
-  });
-
-  test("page budget leaves recovery incomplete with partial tombstones for prune", async () => {
-    const overBudget =
-      SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_PAGES *
-        SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS +
-      3;
-    const origins = Array.from({ length: overBudget }, (_, index) => ({
-      workspaceId: "workspace-a",
-      sessionId: `session-${index}`,
-      kind: "expert" as const,
-      directory: `/expert-${index}`,
-      createdAt: 1,
-      updatedAt: 1,
-    }));
-    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
-      client: {
-        listSessions: async () => ({ items: [] }),
-        getSession: async (_workspaceId, sessionId) => {
-          throw new OnMyAgentServerError(404, "not_found", "gone");
-        },
-      },
-      workspaceId: "workspace-a",
-      originWorkspaceId: "workspace-a",
-      primaryItems: [],
-      origins,
-      limit: 40,
-    });
-
-    const accounted =
-      SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_PAGES *
-      SESSION_ORIGIN_DIRECTORY_RECOVERY_MAX_TARGETS;
-    expect(recovery.complete).toBe(false);
-    expect(recovery.softFailure).toBe(false);
-    expect(recovery.missingSessionIds).toHaveLength(accounted);
-    expect(recovery.nextOffset).toBe(0);
-  });
-
-  test("keeps recovery incomplete on soft exact-read failures", async () => {
-    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
-      client: {
-        listSessions: async () => ({ items: [] }),
-        getSession: async () => {
-          throw new OnMyAgentServerError(503, "unavailable", "timeout");
-        },
-      },
-      workspaceId: "workspace-a",
-      originWorkspaceId: "workspace-a",
-      primaryItems: [],
-      origins: [
-        {
-          workspaceId: "workspace-a",
-          sessionId: "soft-fail-session",
-          kind: "expert",
-          directory: "/tmp/soft",
-          createdAt: 1,
-          updatedAt: 1,
-        },
-      ],
-      limit: 40,
-    });
-
-    expect(recovery.complete).toBe(false);
-    expect(recovery.softFailure).toBe(true);
-    expect(recovery.missingSessionIds).toEqual([]);
-    expect(recovery.items).toEqual([]);
-  });
-
-  test("does not tombstone a 404 when the origin directory list still has the session", async () => {
-    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
-      client: {
-        listSessions: async () => ({
-          items: [{ id: "live-expert", directory: "/expert-a", title: "A" }],
-        }),
-        getSession: async () => {
-          throw new OnMyAgentServerError(404, "not_found", "warming");
-        },
-      },
-      workspaceId: "workspace-a",
-      originWorkspaceId: "workspace-a",
-      primaryItems: [],
-      origins: [
-        {
-          workspaceId: "workspace-a",
-          sessionId: "live-expert",
-          kind: "expert",
-          agentId: "agent-a",
-          directory: "/expert-a",
-          createdAt: 1,
-          updatedAt: 1,
-        },
-      ],
-      limit: 40,
-    });
-
-    expect(recovery.complete).toBe(true);
-    expect(recovery.softFailure).toBe(false);
-    expect(recovery.missingSessionIds).toEqual([]);
-    expect(recovery.items.map((item) => item.id)).toEqual(["live-expert"]);
-  });
-
-  test("treats 404 as soft failure when directory list cannot confirm missing", async () => {
-    const resolved = await resolveExactOriginSession({
-      client: {
-        listSessions: async () => {
-          throw new Error("directory offline");
-        },
-      },
-      workspaceId: "workspace-a",
-      sessionId: "maybe-live",
-      directory: "/expert-a",
-      limit: 40,
-      getSession: async () => {
-        throw new OnMyAgentServerError(404, "not_found", "gone?");
-      },
-    });
-    expect(resolved).toEqual({ kind: "soft_failure", expectedId: "maybe-live" });
-
-    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
-      client: {
-        listSessions: async () => {
-          throw new Error("directory offline");
-        },
-        getSession: async () => {
-          throw new OnMyAgentServerError(404, "not_found", "gone?");
-        },
-      },
-      workspaceId: "workspace-a",
-      originWorkspaceId: "workspace-a",
-      primaryItems: [],
-      origins: [
-        {
-          workspaceId: "workspace-a",
-          sessionId: "maybe-live",
-          kind: "expert",
-          directory: "/expert-a",
-          createdAt: 1,
-          updatedAt: 1,
-        },
-      ],
-      limit: 40,
-    });
-    expect(recovery.complete).toBe(false);
-    expect(recovery.softFailure).toBe(true);
-    expect(recovery.missingSessionIds).toEqual([]);
-  });
-
-  test("recovers one live expert while confirming a sibling ghost missing", async () => {
-    const recovery = await recoverOriginDirectorySessionItemsWithStatus({
-      client: {
-        listSessions: async (_workspaceId, options) => {
-          if (options?.directory === "/expert-live") {
-            return {
-              items: [{ id: "ses-live", directory: "/expert-live", title: "Live" }],
-            };
-          }
-          return { items: [] };
-        },
-        getSession: async (_workspaceId, sessionId, options) => {
-          if (sessionId === "ses-live") {
-            return { item: { id: sessionId, directory: options?.directory } };
-          }
-          throw new OnMyAgentServerError(404, "not_found", "gone");
-        },
-      },
-      workspaceId: "workspace-a",
-      originWorkspaceId: "workspace-a",
-      primaryItems: [],
-      origins: [
-        {
-          workspaceId: "workspace-a",
-          sessionId: "ses-ghost",
-          kind: "expert",
-          agentId: "agent-ghost",
-          directory: "/expert-ghost",
-          createdAt: 1,
-          updatedAt: 1,
-        },
-        {
-          workspaceId: "workspace-a",
-          sessionId: "ses-live",
-          kind: "expert",
-          agentId: "agent-live",
-          directory: "/expert-live",
-          createdAt: 2,
-          updatedAt: 2,
-        },
-      ],
-      limit: 40,
-    });
-
-    expect(recovery.complete).toBe(true);
-    expect(recovery.softFailure).toBe(false);
-    expect(recovery.items.map((item) => item.id)).toEqual(["ses-live"]);
-    expect(recovery.missingSessionIds).toEqual(["ses-ghost"]);
-  });
-
-  test("authoritative merge keeps prior experts unless they are tombstoned", () => {
-    const pendingByWorkspaceId: Record<string, Record<string, number>> = {};
-    const current = [
-      session({ id: "ses-expert-a", title: "A" }),
-      session({ id: "ses-expert-b", title: "B" }),
-      session({ id: "ses-assistant", title: "Home" }),
-    ];
+  test("filters creation ephemerals and keeps explicit expert helper behavior", () => {
     localStorage.clear();
-    addExpertSession("ses-expert-a");
-    addExpertSession("ses-expert-b");
-    try {
-      const merged = mergeAuthoritativeOriginSessions({
-        workspaceId: "workspace-a",
-        fetched: [
-          session({ id: "ses-assistant", title: "Home" }),
-          session({ id: "ses-expert-b", title: "B2" }),
-        ],
-        current,
-        pendingByWorkspaceId,
-        explicitAssistantSessionIds: new Set(["ses-assistant"]),
-        tombstoneSessionIds: new Set(["ses-expert-a"]),
-        now: Date.now(),
-      });
-      const ids = merged.map((item) => item.id).sort();
-      expect(ids).toEqual(["ses-assistant", "ses-expert-b"].sort());
-      expect(merged.find((item) => item.id === "ses-expert-b")?.title).toBe("B2");
-    } finally {
-      removeExpertSession("ses-expert-a");
-      removeExpertSession("ses-expert-b");
-      localStorage.clear();
-    }
-  });
-
-  test("keeps recovered session merges idempotent across refreshes", () => {
-    const existing = [session({ id: "existing" }), session({ id: "recovered" })];
-    const recovered = [session({ id: "recovered", title: "Newest" }), session({ id: "other" })];
-
-    expect(mergeRecoveredSessionsWithCurrent(recovered, existing).map((item) => item.id))
-      .toEqual(["recovered", "other", "existing"]);
-  });
-
-  test("resolves session ownership helpers", () => {
-    const sessionsByWorkspaceId = {
-      ws_a: [session({ id: "ses_a" })],
-      ws_b: [session({ id: "ses_b" })],
-    };
-
-    expect(sessionListOwnsSession({ sessions: sessionsByWorkspaceId.ws_a, sessionId: "ses_a" })).toBe(true);
-    expect(findWorkspaceIdOwningSession({ sessionsByWorkspaceId, sessionId: "ses_b" })).toBe("ws_b");
-    expect(findWorkspaceIdOwningSession({ sessionsByWorkspaceId, sessionId: "ses_b", excludeWorkspaceId: "ws_b" }))
-      .toBeNull();
-    expect(sessionBelongsToAnotherWorkspace({ sessionsByWorkspaceId, selectedSessionId: "ses_b", selectedWorkspaceId: "ws_a" }))
-      .toBe(true);
-    expect(findFirstSessionIdMatching([session({ id: "a" }), session({ id: "expert_1" })], (id) => id.startsWith("expert")))
-      .toBe("expert_1");
-  });
-
-  test("builds inspector, control, and palette entries", () => {
-    const sessionsByWorkspaceId = {
-      ws_a: [session({ id: "ses_a", title: "Alpha", directory: "/tmp/a", time: { created: 1, updated: 3 } })],
-      ws_b: [session({ id: "ses_b", title: "Beta", time: { created: 2 } })],
-    };
-
-    expect(toInspectorSessionEntries(sessionsByWorkspaceId)).toEqual({
-      ws_a: [{ id: "ses_a", title: "Alpha", directory: "/tmp/a" }],
-      ws_b: [{ id: "ses_b", title: "Beta", directory: null }],
+    registerExpertCreationEphemeralSession("preview-session");
+    expect(filterExpertCreationEphemeralSessionsByWorkspace({ ws_a: [session({ id: "preview-session" }), session({ id: "normal" })] }).ws_a?.map((item) => item.id))
+      .toEqual(["normal"]);
+    clearExpertCreationEphemeralSessions();
+    writeSessionAgentSnapshot("legacy-coach", {
+      id: EXPERT_CREATION_COACH_AGENT_ID,
+      name: "Expert coach",
+      description: "Creates experts",
+      avatar: { avatarStyle: "robot", avatarOptionId: "robot-1", customAvatarDataUrl: null, avatarUrl: null, avatarBackground: null },
+      systemPrompt: "Help create an expert.",
     });
-    expect(toControlSessionEntries(sessionsByWorkspaceId).ws_a?.[0]).toEqual({
-      id: "ses_a",
-      title: "Alpha",
-      time: { created: 1, updated: 3 },
-    });
-    expect(
-      toPaletteSessionOptions({
-        workspaces: [workspace({ id: "ws_a", displayName: " Workspace A " }), workspace({ id: "ws_b" })],
-        sessionsByWorkspaceId,
-        selectedWorkspaceId: "ws_b",
-      }).map((item) => `${item.workspaceId}:${item.sessionId}:${item.isActive}`),
-    ).toEqual(["ws_b:ses_b:true", "ws_a:ses_a:false"]);
+    expect(shouldKeepWorkspaceSessionItem({
+      sessionId: "legacy-coach",
+      directory: "/tmp/root",
+      assistantSessionIds: new Set(),
+      normalizedWorkspaceRoot: "/tmp/root",
+      normalizeDirectoryPath: (path) => path,
+    })).toBe(false);
   });
 
-  test("computes max sequence from mixed event payloads", () => {
-    expect(maxSequence([{ seq: 2 }, { seq: "5" }, null, { seq: Number.NaN }])).toBe(5);
+  test("keeps ownership and projection helper output stable", () => {
+    const items = [session({ id: "a", time: { updated: 4 } }), session({ id: "b" })];
+    expect(sessionListOwnsSession({ sessions: items, sessionId: "a" })).toBe(true);
+    expect(findWorkspaceIdOwningSession({ sessionsByWorkspaceId: { ws_a: items }, sessionId: "a" })).toBe("ws_a");
+    expect(sessionBelongsToAnotherWorkspace({ selectedSessionId: "a", selectedWorkspaceId: "ws_b", sessionsByWorkspaceId: { ws_a: items } })).toBe(true);
+    expect(findFirstSessionIdMatching(items, (id) => id === "b")).toBe("b");
+    expect(toInspectorSessionEntries({ ws_a: items }).ws_a).toHaveLength(2);
+    expect(toControlSessionEntries({ ws_a: items }).ws_a).toHaveLength(2);
+    expect(toPaletteSessionOptions({ workspaces: [workspace({ id: "ws_a" })], sessionsByWorkspaceId: { ws_a: items }, selectedWorkspaceId: "ws_a" })).toHaveLength(2);
+    expect(maxSequence([{ seq: 2 }, { seq: "4" }, {}])).toBe(4);
+    expect(getActiveSessionIds([session({ id: "busy", runStatus: "busy" }), session({ id: "done" })])).toEqual(["busy"]);
+    expect(getActiveReloadBlockingSessions({ ws_a: [session({ id: "busy", runStatus: "busy" })] })).toHaveLength(1);
   });
 });

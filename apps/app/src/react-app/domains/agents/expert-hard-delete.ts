@@ -3,7 +3,7 @@
  * Product builtins (creation coach) are refused.
  */
 import {
-  uninstallExpertPackage,
+  deleteExpertPackage,
   writeUserAgentRegistry,
 } from "../../../app/lib/desktop";
 import { isElectronRuntime } from "../../../app/utils";
@@ -17,7 +17,6 @@ import {
   writeCustomAgentIdForSession,
   writeSessionAgentSnapshot,
 } from "./agent-registry-store";
-import { removeExpertSession } from "./agent-session-state";
 import type { AgentRegistry } from "./agent-registry-types";
 import { shouldClearLocalBindingOnDelete } from "./expert-session-lifecycle";
 
@@ -54,6 +53,48 @@ export function packageNameCandidatesForAgent(input: {
   return [...names];
 }
 
+export function packageNameForAgent(input: {
+  agentId: string;
+  registry: AgentRegistry | null;
+}): string | null {
+  const candidates = packageNameCandidatesForAgent(input);
+  return candidates.at(-1) ?? null;
+}
+
+const pendingPackageDeleteOperationIds = new Map<string, string>();
+
+export async function deleteExpertPackageForAgent(
+  input: {
+    agentId: string;
+    packageName: string;
+  },
+  dependencies: {
+    deletePackage?: typeof deleteExpertPackage;
+    createOperationId?: () => string;
+    operationIds?: Map<string, string>;
+  } = {},
+): Promise<void> {
+  const deletePackage = dependencies.deletePackage ?? deleteExpertPackage;
+  const createOperationId = dependencies.createOperationId ?? (() => crypto.randomUUID());
+  const operationIds = dependencies.operationIds ?? pendingPackageDeleteOperationIds;
+  const identityKey = `${input.agentId}\0${input.packageName}`;
+  const operationId = operationIds.get(identityKey) ?? createOperationId();
+  operationIds.set(identityKey, operationId);
+  const result = await deletePackage({
+    operationId,
+    agentId: input.agentId,
+    packageName: input.packageName,
+    marketplace: "my-experts",
+  });
+  if (result.state !== "completed") {
+    const failedStep = result.steps.find(
+      (step) => step.state === "failed" || step.state === "pending",
+    );
+    throw new Error(failedStep?.code ?? "expert_package_delete_incomplete");
+  }
+  operationIds.delete(identityKey);
+}
+
 /**
  * Remove expert definition from local registry (disk + in-memory store).
  */
@@ -81,22 +122,25 @@ export async function removeExpertFromRegistry(input: {
 }
 
 /**
- * Uninstall marketplace packages for this agent from both local marketplaces.
+ * Delete custom marketplace packages through the replay-safe desktop saga.
+ *
+ * The marketplace package name is authoritative when present, with the agent id
+ * retained only as the legacy fallback. A partial result keeps its operation id
+ * for retry and is intentionally fatal so callers do not remove the registry
+ * row while package cleanup is incomplete.
  */
-export async function uninstallExpertPackagesForAgent(input: {
+export async function deleteExpertPackagesForAgent(input: {
   agentId: string;
   registry: AgentRegistry | null;
 }): Promise<void> {
   if (!isElectronRuntime()) return;
-  const candidates = packageNameCandidatesForAgent(input);
-  if (candidates.length === 0) return;
+  const packageName = packageNameForAgent(input);
+  if (!packageName) return;
 
-  await Promise.allSettled(
-    candidates.flatMap((packageName) => [
-      uninstallExpertPackage({ marketplace: "my-experts", packageName }),
-      uninstallExpertPackage({ marketplace: "experts", packageName }),
-    ]),
-  );
+  await deleteExpertPackageForAgent({
+    agentId: input.agentId.trim(),
+    packageName,
+  });
   notifyExpertPackagesChanged();
 }
 
@@ -107,6 +151,5 @@ export function clearExpertLocalSessionBindings(sessionIds: readonly string[]) {
     const id = sessionId.trim();
     writeCustomAgentIdForSession(id, null);
     writeSessionAgentSnapshot(id, null);
-    removeExpertSession(id);
   }
 }

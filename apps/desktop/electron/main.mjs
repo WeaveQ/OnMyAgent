@@ -1356,6 +1356,7 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   findSkillFile,
   isBundledSkillPath,
   refreshRuntimeSkillLinks,
+  expertDeleteJournalPath: path.join(app.getPath("userData"), "expert-package-delete-operations.json"),
   officeCliManager,
   larkCliManager,
   larkCliAuth,

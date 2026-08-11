@@ -29,6 +29,7 @@ git diff --check
 - **Zod v4 only**。
 - 新增 Electron IPC 命令：改 `src/desktop-ipc-commands.mjs`（运行时命令名 SoT）+ 对应 `desktop-ipc*.ts` 载荷类型；renderer 与 Electron dispatch 都消费该表。
 - 新增 server HTTP client 方法：改 `src/server-client-methods.mjs` / `server-client-method-map.ts` 与 `server.ts` 对齐。
+- Expert Directory、origins v2 / marker v3、delete saga、runtime contract 与 lifecycle diagnostics 的跨包 payload 统一定义在 `src/server.ts`；运行时校验和文件操作仍留在 server/desktop，types 包不得形成第二实现。
 - 本包路径在 Allowlist；改契约等于跨包 API 变更——默认小步、可类型检查，避免 silent shape 漂移。
 
 ## 热点入口（改前先定位）

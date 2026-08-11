@@ -2,7 +2,6 @@ export type AssistantSessionCategory = "office";
 
 const ASSISTANT_SESSION_KEY = "onmyagent:assistantSessionIds";
 const ASSISTANT_SESSION_CATEGORY_KEY = "onmyagent:assistantSessionCategoryById";
-const EXPERT_SESSION_KEY = "onmyagent:expertSessionIds";
 
 function readAssistantSessionIds(): Set<string> {
   if (typeof localStorage === "undefined") return new Set();
@@ -60,46 +59,6 @@ export function removeAssistantSession(sessionId: string): void {
     if (!ids.has(sessionId)) return;
     ids.delete(sessionId);
     localStorage.setItem(ASSISTANT_SESSION_KEY, JSON.stringify(Array.from(ids)));
-  } catch {
-  }
-}
-
-export function readExpertSessionIds(): Set<string> {
-  if (typeof localStorage === "undefined") return new Set();
-  try {
-    const raw = localStorage.getItem(EXPERT_SESSION_KEY);
-    if (!raw) return new Set();
-    const arr = JSON.parse(raw);
-    return new Set(
-      Array.isArray(arr) ? arr.filter((id): id is string => typeof id === "string") : [],
-    );
-  } catch {
-    return new Set();
-  }
-}
-
-export function isExpertSession(sessionId: string): boolean {
-  return readExpertSessionIds().has(sessionId);
-}
-
-export function addExpertSession(sessionId: string): void {
-  if (typeof localStorage === "undefined") return;
-  try {
-    const ids = readExpertSessionIds();
-    if (ids.has(sessionId)) return;
-    ids.add(sessionId);
-    localStorage.setItem(EXPERT_SESSION_KEY, JSON.stringify(Array.from(ids)));
-  } catch {
-  }
-}
-
-export function removeExpertSession(sessionId: string): void {
-  if (typeof localStorage === "undefined") return;
-  try {
-    const ids = readExpertSessionIds();
-    if (!ids.has(sessionId)) return;
-    ids.delete(sessionId);
-    localStorage.setItem(EXPERT_SESSION_KEY, JSON.stringify(Array.from(ids)));
   } catch {
   }
 }

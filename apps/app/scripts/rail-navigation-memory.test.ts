@@ -77,11 +77,21 @@ describe("rail navigation memory", () => {
     expect(readRailView("assistant", "ws-2", "assistant")).toBe("store");
   });
 
-  test("persists assistant office/code category per workspace", () => {
+  test("keeps the office-only assistant category per workspace", () => {
     expect(readAssistantCategoryMemory("ws-1")).toBe("office");
-    writeAssistantCategoryMemory("ws-1", "code");
+    writeAssistantCategoryMemory("ws-1", "office");
     writeAssistantCategoryMemory("ws-2", "office");
-    expect(readAssistantCategoryMemory("ws-1")).toBe("code");
+    expect(readAssistantCategoryMemory("ws-1")).toBe("office");
+    expect(readAssistantCategoryMemory("ws-2")).toBe("office");
+  });
+
+  test("normalizes unknown assistant category values to office", () => {
+    localStorage.setItem(
+      "onmyagent.assistantCategory.v1",
+      JSON.stringify({ "ws-1": "code", "ws-2": "unknown" }),
+    );
+    expect(readAssistantCategoryMemory("ws-1")).toBe("office");
+    expect(readAssistantCategoryMemory("ws-1", "office")).toBe("office");
     expect(readAssistantCategoryMemory("ws-2")).toBe("office");
   });
 
@@ -196,7 +206,7 @@ describe("rail keep-alive contract", () => {
       /primarySessionActive=\{sessionSurfaceActive\}/,
     );
     expect(assistantHost).toMatch(
-      /sessionSurfaceActive\s*=\s*\n?\s*\(isPrimarySessionView\s*\|\|\s*showAutomationEmbeddedSession\)/,
+      /sessionSurfaceActive\s*=\s*\n?\s*isPrimarySessionView\s*\|\|\s*showAutomationEmbeddedSession/,
     );
     for (const host of [assistantHost, expertHost]) {
       expect(host).toContain("SessionSurface");

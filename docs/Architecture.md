@@ -86,7 +86,7 @@ packages/
 | OpenCode 主轨 vs Personal 辅轨 | 下文 **Dual Runtime Boundary** |
 | Session goal 生命周期 | 下文 **Session Goal Lifecycle** + `domains/session` 代码/测试 |
 | Expert 创建 / 选中 / 删除 / 多 tab | 下表 **Expert lifecycle hard rules** + `expert-session-lifecycle.ts` / `expert-hard-delete.ts`；UI 域见 [`../apps/app/src/react-app/ARCHITECTURE.md`](../apps/app/src/react-app/ARCHITECTURE.md) |
-| **Expert / session 产品行为**（空壳 busy、origin 水合、bound draft、首发可见、SSE 代际） | [`../apps/app/AGENTS.md`](../apps/app/AGENTS.md) **Experts / Session 不变量** + `apps/app/scripts/expert-session-invariants.test.ts`（**不是** DESIGN） |
+| **Expert / session 产品行为**（Directory 状态、空壳 busy、bound draft、首发可见、SSE 代际） | [`../apps/app/AGENTS.md`](../apps/app/AGENTS.md) **Experts / Session 不变量** + `apps/app/scripts/expert-session-invariants.test.ts`（**不是** DESIGN） |
 | Shell 冷启动 / prewarm / title cache | `cold-path-budget.ts` + **Shell load / boot** in React ARCHITECTURE；prewarm 仅 idle |
 | Skills 列表 / 安装写路径 | 上文 Product phase；server `skillsInstallWriteRoot()` / `listSkills` skip stats |
 | Capability shelf | [`design/2026-08-09-capability-shelf.md`](./design/2026-08-09-capability-shelf.md) + `capability-shelf.ts` |
@@ -98,18 +98,20 @@ packages/
 
 | Action | Rule | Code |
 | --- | --- | --- |
-| **hard_delete** | Clears local expert session tags + agent bindings for real session ids | `clearExpertLocalSessionBindings` + `shouldClearLocalBindingOnDelete` |
-| **hard_delete** | Never clears `draft:*` sessions | `isDraftSessionId` |
-| **hard_delete** | Refuses product builtins (creation coach) | `canHardDeleteExpert` |
-| **hard_delete** | Remaining expert session id set must not retain deleted ids (no ghost tabs) | `remainingExpertSessionIdsAfterDelete` |
+| **identity / list** | Server Expert Directory projects revisioned origins v2 + marker v3 + workspace session aggregate; renderer consumes the projection and never repairs identity from local cache, 404 observation, or path heuristics | `expert-directory.ts` + `workspace-session-marker-inventory.ts` + `expert-directory-query.ts` |
+| **hard_delete** | Server saga snapshots the origin revision, deletes OpenCode + authorized runtime directories, then writes tombstones; desktop saga removes only user-owned package/skill materialization. Both journals replay by one operation id | `expert-delete-saga.ts` + `deleteExpertPackage` + `expert-hard-delete.ts` |
+| **hard_delete** | Never clears `draft:*` sessions and refuses product builtins (creation coach) | `isDraftSessionId` + `canHardDeleteExpert` |
+| **hard_delete** | Local UI cleanup runs only after the server/desktop sagas and remaining Expert session ids must not retain deleted ids | `clearExpertLocalSessionBindings` + `remainingExpertSessionIdsAfterDelete` |
 | **create** | Composer flush at most once per save path | `shouldFlushComposerOnExpertCreate` |
 | **select** | No-op when expert id unchanged | `shouldApplyExpertSelection` |
+| **skills / intro** | Package manifest metadata is the declaration SoT for `skills`, `introStyle`, and `approvedAgentIds`; marker v3 reports declared / physically installed / missing skills | `expert-marketplace.mjs` + `expert-session-runtime.ts` |
+| **prompt** | Every managed Expert `prompt_async` request must pass the same runtime contract: authorized directory, marker/workspace/session identity, `onmyagent` or manifest-approved agent, empty plugin list, physical skills, and bounded first request | `expert-runtime-contract.ts` + `opencode-proxy.ts` |
 
 ### Cold-path budget (numeric)
 
 | Metric | Budget | Code |
 | --- | --- | --- |
-| listSessions on cold enter | ≤ 1 | `COLD_PATH_BUDGET.maxListSessionsOnColdEnter` |
+| workspace-scoped listSessions on cold enter | ≤ 1 renderer request; bounded server fan-out ≤ 4 | `COLD_PATH_BUDGET.maxListSessionsOnColdEnter` + `workspace-session-list-policy.ts` |
 | titleSnapshot on empty selected chip | 0 (thrash ban) | `isTitleSnapshotAllowedOnColdEnter` |
 | sync inventory prewarm on cold enter | 0 (idle only) | `scheduleIdleWork` + `isSyncPrewarmAllowedOnColdEnter` |
 | prewarm idle timeout / fallback | 8000 / 4000 ms | `COLD_PATH_BUDGET.prewarmIdleTimeoutMs` / `prewarmFallbackDelayMs` |

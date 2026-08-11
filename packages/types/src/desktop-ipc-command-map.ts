@@ -61,6 +61,8 @@ import type {
   ExpertPackageListEntry,
   ExpertPackageUninstallInput,
   ExpertPackageUninstallResult,
+  ExpertPackageDeleteInput,
+  ExpertPackageDeleteResult,
   ExpertRegistryListEntry,
   ExecResult,
   FeishuAccountStatus,
@@ -1143,6 +1145,10 @@ type TypedDesktopCommandMap = {
   uninstallExpertPackage: DesktopCommandContract<
     [ExpertPackageUninstallInput],
     ExpertPackageUninstallResult
+  >;
+  deleteExpertPackage: DesktopCommandContract<
+    [ExpertPackageDeleteInput],
+    ExpertPackageDeleteResult
   >;
   installBuiltinSkillPackage: DesktopCommandContract<
     [BuiltinSkillPackageInstallInput],

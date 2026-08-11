@@ -5,6 +5,7 @@
  */
 import { useSyncExternalStore, type ReactNode } from "react";
 
+import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { t } from "../../i18n";
 import { OwDotTicker } from "./dot-ticker";
 import {
@@ -105,7 +106,7 @@ function BootBrandMark() {
         }}
       />
       <img
-        src="/onmyagent-boot-mark.png"
+        src={resolvePublicAssetUrl("/onmyagent-boot-mark.png")}
         width={128}
         height={128}
         alt=""

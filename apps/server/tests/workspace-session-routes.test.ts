@@ -48,7 +48,9 @@ describe("workspace session routes", () => {
       readJsonBody: async () => ({}),
       listWorkspaceSessions: async (_config, _workspace, input) => {
         signals.push(input.signal);
-        return [];
+        return input.scope === "workspace"
+          ? { scope: "workspace", items: [], complete: true, failures: [] }
+          : [];
       },
       readWorkspaceSession: async (_config, _workspace, _sessionId, _directory, signal) => {
         signals.push(signal);
@@ -66,11 +68,39 @@ describe("workspace session routes", () => {
     });
 
     await callRoute(routes, workspace, "GET", "/workspace/workspace-route-signal/sessions", controller.signal);
+    const workspaceResponse = await callRoute(
+      routes,
+      workspace,
+      "GET",
+      "/workspace/workspace-route-signal/sessions?scope=workspace",
+      controller.signal,
+    );
+    expect(await workspaceResponse.json()).toEqual({
+      scope: "workspace",
+      items: [],
+      complete: true,
+      failures: [],
+    });
+    await expect(
+      callRoute(
+        routes,
+        workspace,
+        "GET",
+        "/workspace/workspace-route-signal/sessions?scope=not-a-scope",
+        controller.signal,
+      ),
+    ).rejects.toMatchObject({ status: 400, code: "invalid_query" });
     await callRoute(routes, workspace, "GET", "/workspace/workspace-route-signal/sessions/session-1", controller.signal, "session-1");
     await callRoute(routes, workspace, "GET", "/workspace/workspace-route-signal/sessions/session-1/messages", controller.signal, "session-1");
     await callRoute(routes, workspace, "GET", "/workspace/workspace-route-signal/sessions/session-1/snapshot", controller.signal, "session-1");
 
-    expect(signals).toEqual([controller.signal, controller.signal, controller.signal, controller.signal]);
+    expect(signals).toEqual([
+      controller.signal,
+      controller.signal,
+      controller.signal,
+      controller.signal,
+      controller.signal,
+    ]);
   });
 
   test("aborts all snapshot reads without converting the abort into an OpenCode failure", async () => {
@@ -163,7 +193,7 @@ async function callRoute(
   );
   expect(route).toBeTruthy();
   if (!route) throw new Error(`Missing route ${method} ${path}`);
-  await route.handler({
+  return route.handler({
     request: new Request(url, { method, signal }),
     url,
     params: { id: workspace.id, ...(sessionId ? { sessionId } : {}) },

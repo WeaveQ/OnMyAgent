@@ -19,6 +19,8 @@ describe("expert creation dual-pane header align", () => {
     );
     const page = read(
       "src/react-app/domains/agents/expert-creation-page.tsx",
+    ) + read(
+      "src/react-app/domains/agents/expert-creation-coach-preview.tsx",
     );
 
     expect(coach).toContain("flex h-14 shrink-0 items-center");

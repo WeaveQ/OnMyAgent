@@ -97,6 +97,50 @@ After a merge to `main`, the same mainline branch is the source for automated CI
 - `onmyagent-ui-mcp` runs on `main` pushes that touch the MCP package and still publishes only from `onmyagent-ui-mcp-v*` tags.
 - `Alpha Channel (macOS arm64)` publishes the rolling alpha channel from `main`; use `Release App` for tagged preview or stable releases.
 
+## Expert migration rollout and rollback
+
+Expert identity, deletion, and runtime isolation use a compatibility train. Do
+not collapse these steps into one release, and do not enable destructive user
+data paths from a source-only verification result.
+
+1. **R0 reader first** — ship a server that tolerantly reads origins v1/v2,
+   preserves parseable future records, and fails closed on unsafe mutation.
+   Prove it can read the fixture set before any v2 writer is released.
+2. **Dual-write + shadow** — ship origins v2, marker v3, workspace aggregation,
+   Expert Directory/heal, and the renderer shadow comparison. Keep deletion
+   disabled. Soak at least one agreed release window and export the process-local,
+   redacted lifecycle ring for unexplained directory/contract differences.
+3. **Primary cutover** — make Expert Directory authoritative only after the four
+   scenarios below are clean. Retain the rollback flag and keep deprecated
+   readers for the supported downgrade window.
+4. **Delete enablement** — enable the server/desktop sagas only after a stable
+   version has no unclassified shadow/contract events. Keep an emergency kill
+   switch; run destructive smoke exclusively against isolated disposable
+   userData/runtime roots.
+5. **Cleanup** — remove temporary shadow and deprecated migration readers only
+   after the accepted soak/downgrade window. Their presence before then is an
+   intentional rollback dependency, not permission to use them as renderer
+   authority.
+
+Required release scenarios:
+
+- reset/empty profile: loading or incomplete never becomes a false empty result;
+- multiple Experts: stable grouping, identity, missing-skill visibility, and one
+  renderer workspace aggregate request;
+- delete then restart: replay-safe OpenCode/runtime/package cleanup and origin
+  tombstones leave no ghost tab;
+- legacy/damaged (#283 class): dry-run heal is byte-stable, explicit apply binds
+  the real session, and tombstones remain protected unless explicitly restored.
+
+Rollback proof is mandatory: downgrade the R1/R2 data set to the R0-compatible
+build and verify Expert identities are retained without rewriting v2 into an
+empty v1 state. A rollback drill that only starts the app is insufficient.
+
+Diagnostics exports must keep schema/version and contain only allow-listed
+enums, counters, durations, error codes, and one-way identifier hashes. Prompts,
+message bodies, token values, secrets, raw home paths, and user file content are
+release blockers if present.
+
 ## Preview Release Flow
 
 Use this flow before Apple signing and notarization are configured.

@@ -11,9 +11,10 @@
 // resolver is the authority — we use import.meta.resolve against a file URL
 // inside the staged dist so the exact packaged layout is exercised.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = process.env.ONMYAGENT_DESKTOP_ROOT
@@ -125,21 +126,8 @@ function resolvableFromStaged(spec) {
     requireFromStaged.resolve(spec);
     return true;
   } catch {
-    // Fall through to ESM resolution.
+    return importResolvableFromStaged.has(spec);
   }
-  // Node 20+ supports the parentURL second argument to import.meta.resolve,
-  // which honors ESM "exports" maps (e.g. @opencode-ai/sdk/v2/client) from the
-  // staged tree rather than from this script's own location.
-  try {
-    if (typeof import.meta.resolve === "function") {
-      const anchor = pathToFileURL(join(serverDistDir, "core", "jsonc.js")).href;
-      import.meta.resolve(spec, anchor);
-      return true;
-    }
-  } catch {
-    // Not resolvable.
-  }
-  return false;
 }
 
 const files = walk(serverDistDir);
@@ -150,6 +138,26 @@ for (const file of files) {
     allSpecs.get(spec).add(file.replace(packagedServerRoot + "/", ""));
   }
 }
+
+// createRequire.resolve uses the `require` export condition, so it rejects
+// valid ESM-only packages such as @opencode-ai/sdk/v2/client. Run one inert
+// import.meta.resolve probe with cwd anchored inside the staged dist. For an
+// eval module Node uses cwd as the parent URL, which exercises the packaged
+// node_modules tree without importing or executing dependency code.
+const importProbe = spawnSync(
+  process.execPath,
+  [
+    "--input-type=module",
+    "--eval",
+    `const specs=${JSON.stringify([...allSpecs.keys()])};const ok=[];for(const spec of specs){try{import.meta.resolve(spec);ok.push(spec)}catch{}}process.stdout.write(JSON.stringify(ok))`,
+  ],
+  { cwd: serverDistDir, encoding: "utf8" },
+);
+const importResolvableFromStaged = new Set(
+  importProbe.status === 0
+    ? JSON.parse(importProbe.stdout || "[]")
+    : [],
+);
 
 const missing = [];
 for (const spec of [...allSpecs.keys()].sort()) {

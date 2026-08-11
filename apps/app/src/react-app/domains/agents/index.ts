@@ -78,26 +78,9 @@ export {
 export { buildPendingAgentFromMarketplaceExpert } from "./marketplace-pending-agent";
 export * from "./agent-session-state";
 export {
-  migrateLegacySessionOrigins,
-  reconcileSessionOrigins,
-  resolveExpertOriginAgentId,
-  sessionOriginsChangedEvent,
-} from "./session-origin-reconciliation";
-export {
-  createSessionOriginHydrationGate,
-  getSessionOriginRecoveryRetryDelayMs,
-  isSessionOriginHydrationDegraded,
-  markSessionOriginHydrated,
-  markSessionOriginHydrationDegraded,
-  SESSION_ORIGIN_RECOVERY_MAX_RETRIES,
-  useSessionOriginHydrated,
-  useSessionOriginHydrationDegraded,
-} from "./session-origin-hydration";
-export {
   writeSessionOriginBestEffort,
   writeSessionOriginDurable,
 } from "./session-origin-write";
-export { inferExpertAgentIdFromDirectory } from "./infer-expert-agent-id";
 
 export * from "./pending-agent-store";
 export { AgentPromptSuggestions } from "./agent-prompt-suggestions";
@@ -136,10 +119,12 @@ export {
   EXPERT_PACKAGES_CHANGED_EVENT,
   canHardDeleteExpert,
   clearExpertLocalSessionBindings,
+  deleteExpertPackageForAgent,
+  deleteExpertPackagesForAgent,
   notifyExpertPackagesChanged,
   packageNameCandidatesForAgent,
+  packageNameForAgent,
   removeExpertFromRegistry,
-  uninstallExpertPackagesForAgent,
 } from "./expert-hard-delete";
 export {
   EXPERT_SESSION_LIFECYCLE_RULES,

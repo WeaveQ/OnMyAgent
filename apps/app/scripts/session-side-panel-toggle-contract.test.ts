@@ -86,6 +86,8 @@ describe("right side panel toggle contract", () => {
       [
         readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
         readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx"),
+        readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-side-panel.tsx"),
+        readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-main-surface.tsx"),
       ].join("\n"),
     ];
     for (const source of twoPxGutterSources) {
@@ -135,6 +137,7 @@ describe("right side panel toggle contract", () => {
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-page.tsx"),
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-main-surface.tsx"),
     ].join("\n");
     const sharedChrome = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/pages/session-history-search-chrome.tsx",
