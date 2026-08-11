@@ -41,6 +41,18 @@ function hasDesktopBridge() {
   );
 }
 
+/** Broadcast doctor result so plugins cards/dialogs update fullyConnected UI. */
+export function emitBrowserSkillStatusChanged(detail: {
+  ok: boolean;
+  installed?: boolean;
+  extensionConnected?: boolean;
+}) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("onmyagent:browser-skill-status-changed", { detail }),
+  );
+}
+
 registerExtensionConfig("browser-skill", () => <BrowserSkillConfig />);
 registerExtensionConfig("onmyagent.browserSkill.settings", () => (
   <BrowserSkillConfig />
@@ -64,11 +76,21 @@ export function BrowserSkillConfig() {
     try {
       const raw = (await desktopBridge.checkBrowserSkillStatus()) as BrowserSkillStatus;
       setStatus(raw);
+      emitBrowserSkillStatusChanged({
+        ok: raw.ok === true,
+        installed: raw.installed === true,
+        extensionConnected: raw.extensionConnected === true,
+      });
     } catch (cause) {
       setStatus(null);
       setError(
         cause instanceof Error ? cause.message : t("settings.unreadable_response"),
       );
+      emitBrowserSkillStatusChanged({
+        ok: false,
+        installed: false,
+        extensionConnected: false,
+      });
     } finally {
       setBusy(false);
     }
