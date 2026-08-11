@@ -29,5 +29,7 @@ test("quick-capture source assets exist in the desktop package tree", async () =
   const preload = path.join(root, "electron/quick-capture-preload.cjs");
   const body = await readFile(html, "utf8");
   assert.match(body, /quick-capture|textarea|input/i);
+  assert.match(body, /data-theme/, "panel must support light/dark theme tokens");
+  assert.match(body, /model-menu|modelTrigger|listbox/i, "model picker must expose a dropdown");
   await readFile(preload, "utf8");
 });

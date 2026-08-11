@@ -50,6 +50,7 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "setStatusItemVisible",
   "getStatusItemVisible",
   "getAgentReadySoundPath",
+  "showDesktopNotification",
   "registerAppSnapshotHotkey",
   "unregisterAppSnapshotHotkey",
   "registerQuickCaptureHotkey",
@@ -133,6 +134,7 @@ export function createSystemDomainHandlers({
   setStatusItemVisible,
   getStatusItemVisible,
   getAgentReadySoundPath,
+  showDesktopNotification,
   registerAppSnapshotHotkey,
   unregisterAppSnapshotHotkey,
   registerQuickCaptureHotkey,
@@ -313,6 +315,25 @@ export function createSystemDomainHandlers({
     setStatusItemVisible(Boolean(args[0])),
   getStatusItemVisible: async () => getStatusItemVisible(),
   getAgentReadySoundPath: async () => getAgentReadySoundPath(),
+  showDesktopNotification: async (event, args) => {
+    const payload = args[0] ?? {};
+    return showDesktopNotification(payload, {
+      getMainWindow: () => {
+        try {
+          const fromSender = BrowserWindow?.fromWebContents?.(event.sender);
+          if (fromSender && !fromSender.isDestroyed()) return fromSender;
+        } catch {
+          // ignore
+        }
+        try {
+          const windows = BrowserWindow?.getAllWindows?.() ?? [];
+          return windows.find((win) => win && !win.isDestroyed()) ?? null;
+        } catch {
+          return null;
+        }
+      },
+    });
+  },
   registerAppSnapshotHotkey: async (event, args) =>
     registerAppSnapshotHotkey(args[0], () => {
       try {

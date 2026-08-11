@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { isSupportedWorkspaceTextFilePath, normalizeWorkspaceRelativePath } from "../src/server.js";
-import { contentKindForPath, contentTypeForPath } from "../src/workspace/path-utils.js";
+import {
+  contentDispositionHeader,
+  contentKindForPath,
+  contentTypeForPath,
+} from "../src/workspace/path-utils.js";
 
 describe("normalizeWorkspaceRelativePath", () => {
   test("accepts a plain workspace-relative path", () => {
@@ -80,5 +84,20 @@ describe("workspace media metadata", () => {
   test("keeps media files outside the text-reading path", () => {
     expect(contentKindForPath("recordings/meeting.mp3")).toBe("binary");
     expect(contentKindForPath("videos/demo.mp4")).toBe("binary");
+  });
+
+  test("Content-Disposition stays ByteString-safe for CJK filenames", () => {
+    const header = contentDispositionHeader(
+      "inline",
+      "uploads/屏幕截图 2026-07-20 072506.png",
+    );
+    expect(header.startsWith('inline; filename="')).toBe(true);
+    // ASCII fallback only in filename=
+    const asciiPart = header.match(/filename="([^"]+)"/)?.[1] ?? "";
+    for (let i = 0; i < asciiPart.length; i++) {
+      expect(asciiPart.charCodeAt(i)).toBeLessThanOrEqual(255);
+    }
+    expect(header).toContain("filename*=UTF-8''");
+    expect(header).toContain(encodeURIComponent("屏幕截图 2026-07-20 072506.png"));
   });
 });

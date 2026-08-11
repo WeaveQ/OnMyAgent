@@ -39,10 +39,30 @@ import {
   SettingsAiTabSuspense,
   SettingsTabSuspense,
 } from "./lazy-tab-views";
+import { desktopBridge } from "../../../app/lib/desktop";
 import { readLocalAuthUser } from "../../../app/lib/local-auth";
 import { t } from "../../../i18n";
 import { userErrorFromRaw } from "../../kernel/user-error";
 import { isDesktopRuntime } from "../../../app/utils";
+
+/** First enable of desktop alerts: prompt while we still have a user gesture. */
+function requestDesktopNotificationPermission(): void {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (Notification.permission !== "default") return;
+  void Notification.requestPermission().catch(() => undefined);
+}
+
+/** Fire a forced sample toast so Windows users can verify the OS path works. */
+function previewDesktopNotification(): void {
+  if (!isDesktopRuntime()) return;
+  void desktopBridge
+    .showDesktopNotification({
+      title: t("settings.agent_ready_notification_title"),
+      body: t("settings.agent_ready_notifications_label"),
+      force: true,
+    })
+    .catch(() => undefined);
+}
 
 export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
   switch (ctx.tab) {
@@ -100,6 +120,9 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
                   ...previous,
                   desktopNotificationsEnabled: enabled,
                 }));
+                if (enabled) {
+                  requestDesktopNotificationPermission();
+                }
               }}
               onSoundNotifyOnAgentReadyChange={(enabled) => {
                 ctx.local.setPrefs((previous) => ({
@@ -112,6 +135,10 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
                   ...previous,
                   desktopNotifyOnAgentReady: enabled,
                 }));
+                if (enabled) {
+                  requestDesktopNotificationPermission();
+                  previewDesktopNotification();
+                }
               }}
             />
             <LazySystemAuthorizationsView
@@ -125,6 +152,10 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
                   ...previous,
                   desktopNotifyOnAgentReady: enabled,
                 }));
+                if (enabled) {
+                  requestDesktopNotificationPermission();
+                  previewDesktopNotification();
+                }
               }}
             />
             <LazyAuthorizedFoldersPanel

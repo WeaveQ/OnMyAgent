@@ -1,24 +1,26 @@
 /**
  * Session-route shortcut listeners:
  * - KEYMAP_EVENT_NEW_TASK from unified keymap dispatcher (⌘/Ctrl+N)
- * - Quick capture submit (global mini panel → create task with prompt)
  * - Tray "continue last session"
  * - Cmd/Ctrl+K command palette (not in settings keymap table)
+ *
+ * Quick-capture submit is handled by shell `QuickCaptureSubmitBridge` +
+ * pending queue consumed in `useSessionRouteQuickCapture` (SessionRoute may
+ * be unmounted on settings).
  */
 import { useEffect, useEffectEvent, type Dispatch, type SetStateAction } from "react";
 
 import {
   KEYMAP_EVENT_NEW_TASK,
   NATIVE_MENU_RECENT_SESSION_EVENT,
-  QUICK_CAPTURE_SUBMIT_EVENT,
 } from "../keymap-dispatcher";
 import { resolveSessionRouteGlobalShortcut } from "./control";
 
 type Input = {
   canCreateTask: boolean;
   handleCreateTaskInWorkspace: (workspaceId: string) => void | Promise<void>;
-  /** Create a session and seed the composer draft with prompt text. */
-  handleCreateTaskWithPrompt: (
+  /** @deprecated kept for call-site compat; quick-capture no longer uses this hook */
+  handleCreateTaskWithPrompt?: (
     workspaceId: string,
     prompt: string,
     model?: { providerID: string; modelID: string } | null,
@@ -31,45 +33,18 @@ type Input = {
 
 export function useSessionRouteGlobalShortcuts(input: Input) {
   const {
-    canCreateTask,
     handleCreateTaskInWorkspace,
-    handleCreateTaskWithPrompt,
     handleOpenRecentSession,
     selectedWorkspaceId,
     setCommandPaletteOpen,
   } = input;
 
   const onNewTaskFromKeymap = useEffectEvent(() => {
-    if (!canCreateTask || !selectedWorkspaceId) return;
+    // New-task shortcut only needs a workspace; model readiness is checked on send.
+    // (canCreateTask / model availability must not block opening a draft.)
+    if (!selectedWorkspaceId) return;
     void handleCreateTaskInWorkspace(selectedWorkspaceId);
   });
-
-  const onQuickCaptureSubmit = useEffectEvent(
-    (event: Event) => {
-      const detail = (
-        event as CustomEvent<{
-          text?: string;
-          mode?: string;
-          model?: { providerID?: string; modelID?: string };
-        }>
-      ).detail;
-      const text = String(detail?.text ?? "").trim();
-      if (!text) return;
-      if (!canCreateTask || !selectedWorkspaceId) {
-        // No workspace yet — open empty new-task flow so user can pick context.
-        if (selectedWorkspaceId) {
-          void handleCreateTaskInWorkspace(selectedWorkspaceId);
-        }
-        return;
-      }
-      const providerID = String(detail?.model?.providerID ?? "").trim();
-      const modelID = String(detail?.model?.modelID ?? "").trim();
-      const model =
-        providerID && modelID ? { providerID, modelID } : undefined;
-      // mode=todo reserved for a future inbox path; treat as agent for now.
-      void handleCreateTaskWithPrompt(selectedWorkspaceId, text, model);
-    },
-  );
 
   const onRecentSession = useEffectEvent(() => {
     void handleOpenRecentSession?.();
@@ -97,16 +72,11 @@ export function useSessionRouteGlobalShortcuts(input: Input) {
   useEffect(() => {
     const onNewTask = () => onNewTaskFromKeymap();
     window.addEventListener(KEYMAP_EVENT_NEW_TASK, onNewTask);
-    window.addEventListener(QUICK_CAPTURE_SUBMIT_EVENT, onQuickCaptureSubmit);
     window.addEventListener(NATIVE_MENU_RECENT_SESSION_EVENT, onRecentSession);
     const onKeyDown = (event: KeyboardEvent) => handlePaletteShortcut(event);
     window.addEventListener("keydown", onKeyDown);
     return () => {
       window.removeEventListener(KEYMAP_EVENT_NEW_TASK, onNewTask);
-      window.removeEventListener(
-        QUICK_CAPTURE_SUBMIT_EVENT,
-        onQuickCaptureSubmit,
-      );
       window.removeEventListener(
         NATIVE_MENU_RECENT_SESSION_EVENT,
         onRecentSession,

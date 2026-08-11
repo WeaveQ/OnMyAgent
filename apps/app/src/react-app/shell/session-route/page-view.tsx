@@ -746,6 +746,9 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                 current,
                 workspaceId,
                 session: newSession,
+                pageMode: "expert",
+                // addExpertSession already ran above; still safe to re-register.
+                registerPageMode: true,
               });
               sessionsByWorkspaceIdRef.current = next;
               return next;
@@ -941,6 +944,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                       current,
                       workspaceId,
                       session,
+                      pageMode,
                     }),
                   );
                   navigateToWorkspaceSession(workspaceId, session.id);
