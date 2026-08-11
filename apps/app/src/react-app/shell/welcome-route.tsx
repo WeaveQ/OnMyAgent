@@ -543,9 +543,14 @@ export function WelcomeRoute() {
         <div className="mx-auto flex h-full max-w-5xl flex-col items-center justify-center px-8 pb-12 text-center">
           <div className={welcomeLayoutClass.logoTile}>
             <img
+              src={resolvePublicAssetUrl("/onmyagent-boot-mark.png")}
+              alt="OnMyAgent"
+              className="size-full object-contain dark:hidden"
+            />
+            <img
               src={resolvePublicAssetUrl("/onmyagent-logo.webp")}
               alt="OnMyAgent"
-              className="size-full rounded-lg object-contain"
+              className="hidden size-full rounded-lg object-contain dark:block"
             />
           </div>
           <div className={welcomeTextClass.heroTitle}>

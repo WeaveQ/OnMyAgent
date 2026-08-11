@@ -16,7 +16,7 @@ export function AssistantStartupHome(props: {
 }) {
   return (
     <div
-      className="flex h-full min-h-0 flex-col items-center justify-end px-6 pb-8 pt-20"
+      className="flex h-full min-h-0 flex-col items-center justify-center px-6 pb-8 pt-20"
       aria-busy="true"
       aria-live="polite"
     >
