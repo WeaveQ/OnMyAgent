@@ -263,7 +263,7 @@ export function useSessionRouteQuickCapture(input: Input) {
     };
 
     pushContext();
-    let unsubscribe = () => undefined;
+    let unsubscribe: () => void = () => {};
     void import("../../../app/theme")
       .then((themeApi) => {
         unsubscribe = themeApi.subscribeToTheme(pushContext);

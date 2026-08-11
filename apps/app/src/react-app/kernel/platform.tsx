@@ -103,12 +103,15 @@ export function createDefaultPlatform(): Platform {
       // Renderer HTML5 Notification often fails silently under Electron/Windows.
       if (isDesktopRuntime()) {
         try {
-          const result = await desktopBridge.showDesktopNotification({
+          const result = (await desktopBridge.showDesktopNotification({
             title,
             body: description ?? "",
             force: options?.force === true,
             href: href ?? undefined,
-          });
+          })) as {
+            ok?: boolean;
+            skipped?: boolean;
+          } | null;
           // ok or intentionally skipped (app focused) — do not double-fire HTML5.
           if (result && (result.ok === true || result.skipped === true)) {
             return;
