@@ -1,6 +1,7 @@
 /** Surface props (composer + session chat controls) for SessionPage. */
 import {
   useMemo,
+  useRef,
   type Dispatch,
   type MutableRefObject,
   type SetStateAction,
@@ -109,7 +110,10 @@ import {
   installMarketplaceExpertAfterSessionCreated,
   kickoffMarketplaceExpertInstall,
 } from "./intent";
-import { activateCreatedSessionRoute } from "./created-session-actions";
+import {
+  activateCreatedSessionRoute,
+  shouldNavigateToCreatedSession,
+} from "./created-session-actions";
 import {
   type RouteWorkspace,
   serializeSDKError,
@@ -277,6 +281,11 @@ export function useSessionRouteSurfaceProps(
     suppressRestoreSessionRef,
     token,
   } = input;
+
+  // Live route selection for mid-create abandon checks (useMemo closure is stale
+  // across the long await of session.create during「准备中」).
+  const selectedSessionIdRef = useRef(selectedSessionId);
+  selectedSessionIdRef.current = selectedSessionId;
 
   return useMemo(() => {
     if (
@@ -590,6 +599,8 @@ export function useSessionRouteSurfaceProps(
 
         let sessionId = sendPlan.initialSessionId;
         let createdSession: { id: string; directory?: string } | null = null;
+        // Capture before awaits: user may switch expert/page while「准备中」.
+        const sessionIdAtSendStart = selectedSessionId;
         if (!sessionId) {
           if (creatingSessionWorkspaceIdsRef.current.has(selectedWorkspaceId))
             return;
@@ -638,6 +649,13 @@ export function useSessionRouteSurfaceProps(
             ? `msg_${crypto.randomUUID()}`
             : null;
         if (createdSession) {
+          // Mid-create switch (「准备中」→ other expert/page): keep sidebar
+          // recovery but never force-nav / bound-draft yank back.
+          const shouldNavigate = shouldNavigateToCreatedSession({
+            sessionIdAtSendStart,
+            currentSelectedSessionId: selectedSessionIdRef.current,
+            createdSessionId: sessionId,
+          });
           // ExpertPage keeps its draft surface mounted until the created
           // session is bound to the intended expert. Bind before navigating:
           // navigating first briefly renders the real route with draft state,
@@ -651,17 +669,28 @@ export function useSessionRouteSurfaceProps(
               inheritFromSessionId: selectedSessionId,
             });
             if (pendingAgentSnapshot) {
-              usePendingAgentStore.getState().setAgent(
-                bindPendingAgentToSession({
-                  agent: pendingAgentSnapshot,
-                  sessionId,
-                }),
-              );
               writeCustomAgentIdForSession(
                 sessionId,
                 pendingAgentSnapshot.id,
               );
               writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot);
+              if (shouldNavigate) {
+                usePendingAgentStore.getState().setAgent(
+                  bindPendingAgentToSession({
+                    agent: pendingAgentSnapshot,
+                    sessionId,
+                  }),
+                );
+              } else {
+                // Drop draft intent so bound-draft force-nav cannot steal focus.
+                const currentPending = usePendingAgentStore.getState().getAgent();
+                if (
+                  currentPending?.id === pendingAgentSnapshot.id &&
+                  !currentPending.boundSessionId
+                ) {
+                  usePendingAgentStore.getState().setAgent(null);
+                }
+              }
             }
           }
           // Seed the user turn into the new session transcript *before* route
@@ -720,6 +749,7 @@ export function useSessionRouteSurfaceProps(
             navigateToWorkspaceSession,
             setAssistantDraftWorkspaceRoot,
             focusPromptSoon,
+            navigate: shouldNavigate,
           });
         }
         setSessionAccessModeById((current) =>
@@ -955,18 +985,24 @@ export function useSessionRouteSurfaceProps(
         );
         // Bind the pending agent to the session we just created so the
         // avatar/system prompt don't bleed into unrelated sessions the
-        // user may navigate to later.
+        // user may navigate to later. Re-check abandon after install/env awaits:
+        // user may have switched experts during「准备中」.
         if (pendingAgentSnapshot && sessionId) {
-          usePendingAgentStore.getState().setAgent(
-            bindPendingAgentToSession({
-              agent: pendingAgentSnapshot,
-              sessionId,
-            }),
-          );
-          // Persist the custom agent ID so we can restore the agent's avatar
-          // and name when the user re-opens this session later.
           writeCustomAgentIdForSession(sessionId, pendingAgentSnapshot.id);
           writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot);
+          const stillOwnsSurface = shouldNavigateToCreatedSession({
+            sessionIdAtSendStart,
+            currentSelectedSessionId: selectedSessionIdRef.current,
+            createdSessionId: sessionId,
+          });
+          if (stillOwnsSurface || !createdSession) {
+            usePendingAgentStore.getState().setAgent(
+              bindPendingAgentToSession({
+                agent: pendingAgentSnapshot,
+                sessionId,
+              }),
+            );
+          }
         }
         // Join early install + env prep (started before isolate/create).
         // Coordinator dedupes install; env cache is stable per server runtime.
