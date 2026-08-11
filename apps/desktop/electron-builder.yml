@@ -16,6 +16,9 @@ files:
   - electron/**/*
   - server/**/*
   - package.json
+  # Frameless quick-capture panel (⌘B). loadFile needs these next to electron/ in asar.
+  - from: resources/quick-capture
+    to: resources/quick-capture
 extraResources:
   - from: ../app/dist
     to: app-dist
@@ -41,6 +44,9 @@ extraResources:
     filter:
       - icon.png
       - icon.ico
+  # Fallback path when asar unpack / path resolution needs process.resourcesPath.
+  - from: resources/quick-capture
+    to: quick-capture
 asar: true
 npmRebuild: false
 afterPack: scripts/electron-after-pack.cjs
