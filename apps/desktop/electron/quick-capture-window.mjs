@@ -43,10 +43,33 @@ export function createQuickCaptureWindowController(input) {
   /** @type {import("electron").BrowserWindow | null} */
   let captureWindow = null;
 
+  /**
+   * Resolve static panel HTML for both electron-dev and packaged asar builds.
+   * Packaged layout (preferred): app.asar/resources/quick-capture/index.html
+   * Fallback: process.resourcesPath/quick-capture (extraResources).
+   */
   function resolveHtmlPath() {
-    if (existsSync(htmlPath)) return htmlPath;
-    const alt = path.join(__dirname, "../resources/quick-capture.html");
-    return existsSync(alt) ? alt : htmlPath;
+    const resourcesPath =
+      typeof process !== "undefined" && typeof process.resourcesPath === "string"
+        ? process.resourcesPath
+        : "";
+    const candidates = [
+      htmlPath,
+      path.join(__dirname, "../resources/quick-capture/index.html"),
+      path.join(__dirname, "../resources/quick-capture.html"),
+      resourcesPath ? path.join(resourcesPath, "quick-capture", "index.html") : "",
+      resourcesPath
+        ? path.join(resourcesPath, "app.asar.unpacked", "resources", "quick-capture", "index.html")
+        : "",
+    ].filter(Boolean);
+    for (const candidate of candidates) {
+      if (existsSync(candidate)) return candidate;
+    }
+    console.error(
+      "[quick-capture] panel HTML not found; tried:",
+      candidates.join(" | "),
+    );
+    return htmlPath;
   }
 
   function isVisible() {
@@ -108,7 +131,13 @@ export function createQuickCaptureWindowController(input) {
       captureWindow = null;
     });
 
-    void captureWindow.loadFile(resolveHtmlPath());
+    const resolvedHtml = resolveHtmlPath();
+    captureWindow.webContents.on("did-fail-load", (_e, code, desc, url) => {
+      console.error("[quick-capture] did-fail-load", { code, desc, url, resolvedHtml });
+    });
+    void captureWindow.loadFile(resolvedHtml).catch((error) => {
+      console.error("[quick-capture] loadFile failed", resolvedHtml, error);
+    });
     return captureWindow;
   }
 
@@ -126,6 +155,20 @@ export function createQuickCaptureWindowController(input) {
       );
     } catch {
       // ignore placement errors
+    }
+
+    // Wait for first load so a missing HTML path surfaces as a log, not a blank flash.
+    if (win.webContents.isLoadingMainFrame?.() || win.webContents.isLoading()) {
+      await new Promise((resolve) => {
+        const done = () => {
+          win.webContents.removeListener("did-finish-load", done);
+          win.webContents.removeListener("did-fail-load", done);
+          resolve(undefined);
+        };
+        win.webContents.once("did-finish-load", done);
+        win.webContents.once("did-fail-load", done);
+        setTimeout(done, 2500);
+      });
     }
 
     const context = getCaptureContext() ?? {};
