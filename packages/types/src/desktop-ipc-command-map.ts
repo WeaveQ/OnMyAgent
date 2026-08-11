@@ -414,6 +414,25 @@ type TypedDesktopCommandMap = {
     { visible: boolean; platform: string }
   >;
   getAgentReadySoundPath: DesktopCommandContract<[], string | null>;
+  /** Main-process OS notification (Windows-reliable; used by agent-ready / automation). */
+  showDesktopNotification: DesktopCommandContract<
+    [
+      {
+        title: string;
+        body?: string;
+        /** When true, show even if the main window is focused. */
+        force?: boolean;
+        /** Optional in-app route to open on notification click. */
+        href?: string;
+      },
+    ],
+    {
+      ok: boolean;
+      skipped?: boolean;
+      reason?: string;
+      error?: string;
+    }
+  >;
   registerAppSnapshotHotkey: DesktopCommandContract<
     [string | null | undefined],
     { ok: boolean; registered?: boolean; mode?: string; note?: string; error?: string }
@@ -431,6 +450,8 @@ type TypedDesktopCommandMap = {
         modelLabel?: string;
         selectedProviderID?: string;
         selectedModelID?: string;
+        /** Resolved app theme for the mini panel (follows user preference). */
+        theme?: "light" | "dark";
         models?: Array<{
           providerID: string;
           modelID: string;
@@ -445,6 +466,7 @@ type TypedDesktopCommandMap = {
       modelLabel?: string;
       selectedProviderID?: string;
       selectedModelID?: string;
+      theme?: "light" | "dark";
       models?: Array<{
         providerID: string;
         modelID: string;

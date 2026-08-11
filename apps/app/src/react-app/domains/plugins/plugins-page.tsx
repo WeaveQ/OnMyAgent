@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { OnMyAgentServerClient } from "@/app/lib/onmyagent-server";
-import { listLocalSkills } from "@/app/lib/desktop";
+import { desktopBridge, listLocalSkills } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
 import { t } from "@/i18n";
 import {
@@ -564,6 +564,75 @@ async function resolveComputerUseMcpCommand(entry: McpDirectoryInfo): Promise<st
   return [...COMPUTER_USE_MCP_FALLBACK_COMMAND];
 }
 
+/** Catalog id for the BrowserSkill built-in (CLI + Chrome extension runtime). */
+const BROWSER_SKILL_EXTENSION_ID = "browser-skill";
+
+function isBrowserSkillExtensionEntry(entry: McpDirectoryInfo | null): boolean {
+  if (!entry) return false;
+  const id = (entry.id ?? entry.serverName ?? "").trim().toLowerCase();
+  return id === BROWSER_SKILL_EXTENSION_ID;
+}
+
+function emitBrowserSkillStatus(detail: {
+  ok: boolean;
+  installed?: boolean;
+  extensionConnected?: boolean;
+}) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("onmyagent:browser-skill-status-changed", { detail }),
+  );
+}
+
+/**
+ * Enable + doctor; if not ready, open CLI or extension install. Returns
+ * whether BrowserSkill is fully ready after this pass.
+ */
+async function connectBrowserSkillRuntime(): Promise<boolean> {
+  if (!isDesktopRuntime()) return false;
+  try {
+    let status = (await desktopBridge.checkBrowserSkillStatus()) as {
+      ok?: boolean;
+      installed?: boolean;
+      extensionConnected?: boolean;
+    };
+    emitBrowserSkillStatus({
+      ok: status?.ok === true,
+      installed: status?.installed === true,
+      extensionConnected: status?.extensionConnected === true,
+    });
+    if (status?.ok === true) return true;
+
+    // Guide the missing piece: CLI first, then extension store.
+    const target =
+      status?.installed === true ? ("extension" as const) : ("cli" as const);
+    try {
+      await desktopBridge.openBrowserSkillInstallPage(target);
+    } catch {
+      // Install page open is best-effort; settings panel still shows steps.
+    }
+
+    status = (await desktopBridge.checkBrowserSkillStatus()) as {
+      ok?: boolean;
+      installed?: boolean;
+      extensionConnected?: boolean;
+    };
+    emitBrowserSkillStatus({
+      ok: status?.ok === true,
+      installed: status?.installed === true,
+      extensionConnected: status?.extensionConnected === true,
+    });
+    return status?.ok === true;
+  } catch {
+    emitBrowserSkillStatus({
+      ok: false,
+      installed: false,
+      extensionConnected: false,
+    });
+    return false;
+  }
+}
+
 function BuiltinExtensionsSection(props: {
   workspaceId: string;
   client?: OnMyAgentServerClient | null;
@@ -579,12 +648,45 @@ function BuiltinExtensionsSection(props: {
   const [localProviderError, setLocalProviderError] = useState<string | null>(null);
   const [computerUseConnected, setComputerUseConnected] = useState(false);
   const [computerUseConnecting, setComputerUseConnecting] = useState(false);
+  /** BrowserSkill CLI + extension ready (not the same as "extension toggle on"). */
+  const [browserSkillReady, setBrowserSkillReady] = useState(false);
+  const [browserSkillConnecting, setBrowserSkillConnecting] = useState(false);
 
   useEffect(() => {
     const refresh = () => setRevision((value) => value + 1);
     window.addEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
     return () => window.removeEventListener(ONMYAGENT_EXTENSION_STATE_CHANGED, refresh);
   }, []);
+
+  // BrowserSkill readiness is independent of the enable toggle. Refresh on mount
+  // (card Try buttons) and when the settings dialog reports a doctor refresh.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (!isDesktopRuntime()) {
+        if (!cancelled) setBrowserSkillReady(false);
+        return;
+      }
+      try {
+        const status = (await desktopBridge.checkBrowserSkillStatus()) as {
+          ok?: boolean;
+        };
+        if (!cancelled) setBrowserSkillReady(status?.ok === true);
+      } catch {
+        if (!cancelled) setBrowserSkillReady(false);
+      }
+    };
+    void load();
+    const onStatus = (event: Event) => {
+      const detail = (event as CustomEvent<{ ok?: boolean }>).detail;
+      if (!cancelled) setBrowserSkillReady(detail?.ok === true);
+    };
+    window.addEventListener("onmyagent:browser-skill-status-changed", onStatus);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("onmyagent:browser-skill-status-changed", onStatus);
+    };
+  }, [detailEntry]);
 
   const refreshComputerUseMcp = useCallback(async () => {
     const client = props.client;
@@ -806,6 +908,12 @@ function BuiltinExtensionsSection(props: {
     detailManifest?.composer?.suggestions?.filter(Boolean) ??
     detailEntry?.suggestedPrompts?.filter(Boolean) ??
     [];
+  // Enabled toggle ≠ runtime ready. BrowserSkill needs CLI + extension before
+  // "connected" UI (chat bubble / 去试试). Match other connectors' fullyConnected.
+  const detailFullyConnected =
+    detailEnabled &&
+    (!isBrowserSkillExtensionEntry(detailEntry) || browserSkillReady);
+  const detailTryAllowed = detailFullyConnected;
 
   const cards = entries.map((entry) => {
     const entryId = entry.id ?? entry.serverName ?? entry.name ?? "";
@@ -818,13 +926,19 @@ function BuiltinExtensionsSection(props: {
       entry.extensionManifest?.composer?.prompt?.trim() ||
       entry.description?.trim() ||
       entry.name;
+    const entryEnabled = isOnMyAgentExtensionEnabled(entry);
+    // Card chat bubble only when fully ready (not merely toggled on).
+    const cardFullyConnected =
+      entryEnabled &&
+      (!isBrowserSkillExtensionEntry(entry) || browserSkillReady);
     return (
       <BuiltinExtensionCard
         key={entryId}
         entry={entry}
+        fullyConnected={cardFullyConnected}
         onOpenDetails={() => setDetailEntry(entry)}
         onTry={
-          props.onSelectArtifactPrompt
+          props.onSelectArtifactPrompt && cardFullyConnected
             ? () => {
                 props.onSelectArtifactPrompt?.({
                   pluginId: entryId,
@@ -878,15 +992,32 @@ function BuiltinExtensionsSection(props: {
           </span>
         );
       })()}
-      connected={detailEnabled}
-      connectLabel={t("plugins.artifact_enable_action")}
+      // fullyConnected (not mere enable toggle) — uninstalled BrowserSkill shows 连接.
+      connected={detailFullyConnected}
+      connecting={
+        isBrowserSkillExtensionEntry(detailEntry) ? browserSkillConnecting : false
+      }
+      connectLabel={
+        isBrowserSkillExtensionEntry(detailEntry)
+          ? t("common.connect")
+          : t("plugins.artifact_enable_action")
+      }
       onConnect={() => {
         setOnMyAgentExtensionEnabled(detailEntry, true);
         setRevision((v) => v + 1);
+        if (!isBrowserSkillExtensionEntry(detailEntry)) return;
+        setBrowserSkillConnecting(true);
+        void connectBrowserSkillRuntime()
+          .then((ready) => {
+            setBrowserSkillReady(ready);
+          })
+          .finally(() => {
+            setBrowserSkillConnecting(false);
+          });
       }}
       tryItLabel={t("plugins.connector_try_it")}
       onTryIt={
-        props.onSelectArtifactPrompt && detailTryPrompts[0]
+        detailTryAllowed && props.onSelectArtifactPrompt && detailTryPrompts[0]
           ? () => {
               props.onSelectArtifactPrompt?.({
                 pluginId: detailId,
@@ -895,7 +1026,7 @@ function BuiltinExtensionsSection(props: {
               });
               setDetailEntry(null);
             }
-          : props.onSelectArtifactPrompt
+          : detailTryAllowed && props.onSelectArtifactPrompt
             ? () => {
                 const prompt =
                   detailManifest?.composer?.prompt?.trim() ||
@@ -911,13 +1042,17 @@ function BuiltinExtensionsSection(props: {
             : undefined
       }
       unbindLabel={t("plugins.artifact_disable_action")}
-      onUnbind={() => {
-        setOnMyAgentExtensionEnabled(detailEntry, false);
-        setRevision((v) => v + 1);
-      }}
+      onUnbind={
+        detailFullyConnected
+          ? () => {
+              setOnMyAgentExtensionEnabled(detailEntry, false);
+              setRevision((v) => v + 1);
+            }
+          : undefined
+      }
       // Keep try-this light when the body is a full settings card.
       tryThisPrompts={detailConfig ? [] : detailTryPrompts}
-      promptsDisabled={!props.onSelectArtifactPrompt || !detailEnabled}
+      promptsDisabled={!props.onSelectArtifactPrompt || !detailTryAllowed}
       onSelectPrompt={
         props.onSelectArtifactPrompt
           ? (prompt) => {
@@ -977,11 +1112,17 @@ function BuiltinExtensionsSection(props: {
  * Recommend-style tile: logo + title·dot + bubble/+, 2-line desc.
  * Matches ConnectorStatusCard actions (not Switch).
  * Whole card opens setup / connect detail.
+ *
+ * fullyConnected drives green dot + chat bubble (same as ConnectorStatusCard
+ * status==="connected"). Not merely localStorage enabled — BrowserSkill needs
+ * CLI + extension before showing 去对话.
  */
 function BuiltinExtensionCard(props: {
   entry: McpDirectoryInfo;
+  /** Runtime-ready + enabled; chat bubble only when true. */
+  fullyConnected: boolean;
   onOpenDetails: () => void;
-  /** When enabled — chat bubble “go try”; falls back to open details. */
+  /** When fully connected — chat bubble “go try”. */
   onTry?: () => void;
 }) {
   // Bump when extension enablement changes outside this card (detail dialog).
@@ -993,6 +1134,8 @@ function BuiltinExtensionCard(props: {
   }, []);
   void revision;
   const enabled = isOnMyAgentExtensionEnabled(props.entry);
+  // Prefer parent fullyConnected (includes BrowserSkill readiness).
+  const fullyConnected = props.fullyConnected;
   const description = props.entry.description?.trim() ?? "";
   const entryKey = (
     props.entry.id ??
@@ -1008,10 +1151,12 @@ function BuiltinExtensionCard(props: {
       role="button"
       tabIndex={0}
       data-enabled={enabled ? "true" : "false"}
+      data-connected={fullyConnected ? "true" : "false"}
       className={cn(
         connectorTileClassName,
-        connectorTileOrderClass(enabled),
-        connectorTileEnabledClass(enabled),
+        // Sort / surface: prefer connected look only when fully ready.
+        connectorTileOrderClass(fullyConnected),
+        connectorTileEnabledClass(fullyConnected),
       )}
       onClick={props.onOpenDetails}
       onKeyDown={(event) => {
@@ -1047,7 +1192,7 @@ function BuiltinExtensionCard(props: {
             <h3 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">
               {props.entry.name}
             </h3>
-            {enabled ? (
+            {fullyConnected ? (
               <span
                 className="size-1.5 shrink-0 rounded-full bg-emerald-500"
                 aria-hidden
@@ -1059,7 +1204,7 @@ function BuiltinExtensionCard(props: {
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => event.stopPropagation()}
           >
-            {enabled ? (
+            {fullyConnected ? (
               <button
                 type="button"
                 className={cn(

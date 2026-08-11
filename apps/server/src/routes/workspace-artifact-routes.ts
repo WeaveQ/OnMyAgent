@@ -1,6 +1,6 @@
 import { createReadStream } from "node:fs";
 import { writeFile, rename, stat } from "node:fs/promises";
-import { basename, dirname } from "node:path";
+import { dirname } from "node:path";
 import { Readable } from "node:stream";
 import { nodeReadableToWebStream } from "../core/node-web-stream.js";
 import type {
@@ -19,6 +19,7 @@ import {
 import { ApiError } from "../core/errors.js";
 import { addRoute, systemJsonResponse, type RequestContext, type Route } from "./route-core.js";
 import { ensureDir, exists, shortId } from "../core/utils.js";
+import { contentDispositionHeader } from "../workspace/path-utils.js";
 
 export function registerWorkspaceArtifactRoutes(input: {
   routes: Route[];
@@ -245,7 +246,7 @@ function fileDownloadResponse(
   headers.set("Content-Length", String(size));
   headers.set(
     "Content-Disposition",
-    `attachment; filename="${basename(relativePath)}"`,
+    contentDispositionHeader("attachment", relativePath),
   );
   const stream = nodeReadableToWebStream(createReadStream(absPath));
   return new Response(stream, { status: 200, headers });

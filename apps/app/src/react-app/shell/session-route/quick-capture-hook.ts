@@ -3,21 +3,35 @@
  * - create session + seed composer + optional auto-send
  * - push model catalog into the desktop mini panel
  * - tray "continue last session"
+ * - consume shell pending queue (settings page → navigate → mount)
  */
-import { useCallback, useEffect, type Dispatch, type SetStateAction } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 
 import { createClient, unwrap } from "../../../app/lib/opencode";
 import { resolveWorkspaceEndpoint } from "../../../app/lib/workspace-endpoint";
 import {
+  clearSessionDraft,
   saveSessionDraft,
   setComposerDraftAfterNewTask,
   useComposerStateStore,
 } from "../../domains/session";
 import {
+  readActiveWorkspaceId,
   readLastSessionFor,
   writeActiveWorkspaceId,
   writeLastSessionFor,
 } from "../session-memory";
+import {
+  peekPendingQuickCapture,
+  subscribePendingQuickCapture,
+  takePendingQuickCapture,
+} from "../quick-capture-pending";
 import { isDesktopRuntime } from "../../../app/utils";
 import { focusPromptSoon } from "./state";
 import {
@@ -114,24 +128,6 @@ export function useSessionRouteQuickCapture(input: Input) {
             directory: workspace.path?.trim() || undefined,
           }),
         );
-        // Composer UI reads Zustand composer-state-store (not saveSessionDraft alone).
-        const seedComposer = () => {
-          useComposerStateStore.getState().setDraft(session.id, text);
-        };
-        seedComposer();
-        if (typeof window !== "undefined") {
-          window.setTimeout(seedComposer, 0);
-          window.requestAnimationFrame(() => {
-            window.requestAnimationFrame(seedComposer);
-          });
-          // Late retries: session surface may mount after navigate.
-          window.setTimeout(seedComposer, 120);
-          window.setTimeout(seedComposer, 200);
-        }
-        saveSessionDraft(workspaceId, session.id, {
-          text,
-          mode: "prompt",
-        });
         writeActiveWorkspaceId(workspaceId || null);
         writeLastSessionFor(workspaceId, session.id, pageMode);
         rememberPendingCreatedSession(workspaceId, session.id);
@@ -140,17 +136,32 @@ export function useSessionRouteQuickCapture(input: Input) {
             current,
             workspaceId,
             session,
+            pageMode,
           }),
         );
         navigateToWorkspaceSession(workspaceId, session.id);
-        focusPromptSoon();
 
         // Prefer model chosen in the quick-capture panel; fall back to session default.
         const model =
           modelOverride?.providerID && modelOverride?.modelID
             ? modelOverride
             : effectiveModelRef;
+
+        // Quick-capture should auto-send without leaving the capture text in the
+        // composer. Prefill only when auto-send is impossible (no model / failed).
+        const seedComposerForManualSend = () => {
+          useComposerStateStore.getState().setDraft(session.id, text);
+          saveSessionDraft(workspaceId, session.id, {
+            text,
+            mode: "prompt",
+          });
+          focusPromptSoon();
+        };
+
         if (model?.providerID && model?.modelID) {
+          // Ensure composer is empty while the turn streams in.
+          useComposerStateStore.getState().setDraft(session.id, "");
+          clearSessionDraft(workspaceId, session.id);
           void (async () => {
             try {
               await workspaceClient.session.promptAsync({
@@ -161,18 +172,20 @@ export function useSessionRouteQuickCapture(input: Input) {
                 },
                 parts: [{ type: "text", text }],
               });
-              // Clear draft after successful send so composer does not re-show it.
+              // Re-clear in case surface remount rehydrated a draft.
               useComposerStateStore.getState().setDraft(session.id, "");
+              clearSessionDraft(workspaceId, session.id);
             } catch (error) {
-              // Keep draft in composer so the user can press send manually.
               console.warn(
                 "[quick-capture] auto-send failed; draft left in composer",
                 error,
               );
-              seedComposer();
-              focusPromptSoon();
+              seedComposerForManualSend();
             }
           })();
+        } else {
+          // No model yet — leave text in composer so the user can send after pick.
+          seedComposerForManualSend();
         }
       } catch (error) {
         console.warn("[quick-capture] create session failed", error);
@@ -219,29 +232,88 @@ export function useSessionRouteQuickCapture(input: Input) {
     sessionsByWorkspaceId,
   ]);
 
-  // Keep quick-capture model picker in sync with available models / default.
+  // Keep quick-capture model picker + theme in sync with the main app.
   useEffect(() => {
     if (!isDesktopRuntime()) return;
-    const models = (allowedModelOptions ?? [])
-      .filter((option) => option?.providerID && option?.modelID)
-      .slice(0, 80)
-      .map((option) => ({
-        providerID: option.providerID,
-        modelID: option.modelID,
-        title: option.title?.trim() || option.modelID,
-        disabled: option.disabled === true,
-      }));
-    void import("../../../app/lib/desktop")
-      .then(({ desktopBridge }) =>
-        desktopBridge.setQuickCaptureContext({
-          modelLabel: modelLabel?.trim() || "",
-          selectedProviderID: effectiveModelRef?.providerID ?? "",
-          selectedModelID: effectiveModelRef?.modelID ?? "",
-          models,
-        }),
-      )
+
+    const pushContext = () => {
+      const models = (allowedModelOptions ?? [])
+        .filter((option) => option?.providerID && option?.modelID)
+        .slice(0, 80)
+        .map((option) => ({
+          providerID: option.providerID,
+          modelID: option.modelID,
+          title: option.title?.trim() || option.modelID,
+          disabled: option.disabled === true,
+        }));
+      void Promise.all([
+        import("../../../app/lib/desktop"),
+        import("../../../app/theme"),
+      ])
+        .then(([{ desktopBridge }, themeApi]) =>
+          desktopBridge.setQuickCaptureContext({
+            modelLabel: modelLabel?.trim() || "",
+            selectedProviderID: effectiveModelRef?.providerID ?? "",
+            selectedModelID: effectiveModelRef?.modelID ?? "",
+            theme: themeApi.getResolvedThemeMode(),
+            models,
+          }),
+        )
+        .catch(() => undefined);
+    };
+
+    pushContext();
+    let unsubscribe: () => void = () => {};
+    void import("../../../app/theme")
+      .then((themeApi) => {
+        unsubscribe = themeApi.subscribeToTheme(pushContext);
+      })
       .catch(() => undefined);
+    return () => unsubscribe();
   }, [allowedModelOptions, effectiveModelRef, modelLabel]);
+
+  // Shell bridge enqueues while SessionRoute may be unmounted. Consume when we
+  // have a workspace (do not wait on model readiness — draft/send handles that).
+  const selectedWorkspaceIdRef = useRef(selectedWorkspaceId);
+  selectedWorkspaceIdRef.current = selectedWorkspaceId;
+  const createWithPromptRef = useRef(handleCreateTaskWithPrompt);
+  createWithPromptRef.current = handleCreateTaskWithPrompt;
+
+  useEffect(() => {
+    const consume = () => {
+      // Prefer live selection; fall back to last active workspace from memory.
+      const workspaceId =
+        selectedWorkspaceIdRef.current.trim() ||
+        readActiveWorkspaceId()?.trim() ||
+        "";
+      if (!workspaceId) {
+        // Keep pending until a workspace is available (bridge already navigated).
+        if (peekPendingQuickCapture()) {
+          console.info(
+            "[quick-capture] pending submit waiting for workspace",
+          );
+        }
+        return;
+      }
+      const pending = takePendingQuickCapture();
+      if (!pending) return;
+      console.info("[quick-capture] consuming pending submit", {
+        workspaceId,
+        textLength: pending.text.length,
+        hasModel: Boolean(pending.model),
+      });
+      void createWithPromptRef.current(
+        workspaceId,
+        pending.text,
+        pending.model ?? null,
+      );
+    };
+
+    // Mount / workspace ready.
+    consume();
+    // Late enqueue while already on SessionRoute.
+    return subscribePendingQuickCapture(consume);
+  }, [selectedWorkspaceId]);
 
   return { handleCreateTaskWithPrompt, handleOpenRecentSession };
 }

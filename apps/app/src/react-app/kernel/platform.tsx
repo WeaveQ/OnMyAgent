@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { createContext, use, type ReactNode } from "react";
 
-import { openDesktopUrl, relaunchDesktopApp } from "../../app/lib/desktop";
+import { desktopBridge, openDesktopUrl, relaunchDesktopApp } from "../../app/lib/desktop";
 import { isDesktopRuntime } from "../../app/utils";
 
 export type SyncStorage = {
@@ -99,6 +99,28 @@ export function createDefaultPlatform(): Platform {
       window.location.reload();
     },
     notify: async (title, description, href, options) => {
+      // Desktop: main-process Electron Notification (reliable on Windows).
+      // Renderer HTML5 Notification often fails silently under Electron/Windows.
+      if (isDesktopRuntime()) {
+        try {
+          const result = (await desktopBridge.showDesktopNotification({
+            title,
+            body: description ?? "",
+            force: options?.force === true,
+            href: href ?? undefined,
+          })) as {
+            ok?: boolean;
+            skipped?: boolean;
+          } | null;
+          // ok or intentionally skipped (app focused) — do not double-fire HTML5.
+          if (result && (result.ok === true || result.skipped === true)) {
+            return;
+          }
+        } catch {
+          // IPC missing/failed — fall through to HTML5 path.
+        }
+      }
+
       if (!("Notification" in window)) return;
 
       const permission =
