@@ -16,13 +16,18 @@ function readLocale(locale: string): string {
 }
 
 describe("resolveAiProvidersUiPhase", () => {
-  test("loading while discovering", () => {
+  test("loading while discovering only when list is still empty", () => {
     expect(
       resolveAiProvidersUiPhase({ discovering: true, providerCount: 0 }),
     ).toBe("loading");
+  });
+
+  test("ready when rows exist even if discovery still in flight", () => {
+    // Avoid multi-minute "Loading providers…" badge when custom providers
+    // already painted but OpenCode /provider is slow after cold start.
     expect(
       resolveAiProvidersUiPhase({ discovering: true, providerCount: 2 }),
-    ).toBe("loading");
+    ).toBe("ready");
   });
 
   test("empty finished is empty, not a disconnected phase", () => {

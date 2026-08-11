@@ -541,13 +541,17 @@ export type AiProvidersUiPhase = "loading" | "empty" | "ready";
 /**
  * Resolve list header phase. Empty finished state is "empty" (not-configured),
  * never the disconnected badge used for failed connections.
+ *
+ * When discovery is still in flight but we already have rows (SDK cache / custom
+ * OpenCode providers), paint as "ready" so the header does not stick on
+ * "Loading providers…" for a multi-minute cold OpenCode /provider hang.
  */
 export function resolveAiProvidersUiPhase(input: {
   discovering: boolean;
   providerCount: number;
 }): AiProvidersUiPhase {
-  if (input.discovering) return "loading";
   if (input.providerCount > 0) return "ready";
+  if (input.discovering) return "loading";
   return "empty";
 }
 
