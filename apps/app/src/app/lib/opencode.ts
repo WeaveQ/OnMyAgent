@@ -1,6 +1,6 @@
 import { createOpencodeClient, type Message, type OutputFormat, type Part, type Session, type Todo } from "@opencode-ai/sdk/v2/client";
 
-import { desktopFetch } from "./desktop";
+import { desktopFetchWithTimeout } from "./desktop";
 import { createOnMyAgentServerClient, OnMyAgentServerError } from "./onmyagent-server";
 import { isDesktopRuntime } from "../utils";
 
@@ -63,7 +63,7 @@ export type OpencodeAuth = {
 };
 
 const DEFAULT_OPENCODE_REQUEST_TIMEOUT_MS = 10_000;
-/** Expert isolated dirs cold-start OpenCode project+skill scan; 10s is too short. */
+/** Expert isolated dirs cold-start OpenCode project + skill index; 10s is too short. */
 const SESSION_CREATE_REQUEST_TIMEOUT_MS = 60_000;
 const OAUTH_OPENCODE_REQUEST_TIMEOUT_MS = 5 * 60_000;
 const MCP_AUTH_OPENCODE_REQUEST_TIMEOUT_MS = 90_000;
@@ -91,9 +91,9 @@ function resolveRequestTimeoutMs(input: RequestInfo | URL, fallbackMs: number): 
   if (SESSION_LONG_RUNNING_URL_RE.test(url)) {
     return 0;
   }
-  // First expert send: isolated directory forces a cold OpenCode project boot
-  // (skills/index). Default 10s aborts with「请求超时」while UI still shows
-  // 准备中 and keeps the composer text.
+  // First expert send / prewarm: isolated directory forces a cold OpenCode
+  // project boot (skills/index). Default 10s aborts with「请求超时」while UI
+  // still shows 准备中 — often felt as a crash or hang.
   if (SESSION_CREATE_URL_RE.test(url)) {
     return Math.max(fallbackMs, SESSION_CREATE_REQUEST_TIMEOUT_MS);
   }
@@ -310,31 +310,31 @@ const createDesktopFetch = (auth?: OpencodeAuth) => {
     // Streams must go through the webview's native fetch to avoid the
     // desktop IPC bridge blocking on never-closing bodies.
     const shouldStream = requestIsStreaming(input, init);
-    const underlyingFetch = shouldStream
-      ? nativeFetchRef()
-      : desktopFetch;
     // Streams should never be timed out at the transport layer; the caller
     // aborts via AbortSignal when the subscription unmounts.
-    const timeoutMs = shouldStream ? 0 : DEFAULT_OPENCODE_REQUEST_TIMEOUT_MS;
+    // Non-stream: resolve per-URL (session.create → 60s) before hitting main.
+    const timeoutMs = shouldStream
+      ? 0
+      : resolveRequestTimeoutMs(input, DEFAULT_OPENCODE_REQUEST_TIMEOUT_MS);
 
     if (input instanceof Request) {
       const headers = new Headers(input.headers);
       addAuth(headers);
       const request = new Request(input, { headers });
-      return fetchWithTimeout(underlyingFetch, request, undefined, timeoutMs);
+      if (shouldStream) {
+        return fetchWithTimeout(nativeFetchRef(), request, undefined, 0);
+      }
+      // Pass effective timeout into main-process __fetch (not only AbortSignal).
+      return desktopFetchWithTimeout(request, undefined, timeoutMs);
     }
 
     const headers = new Headers(init?.headers);
     addAuth(headers);
-    return fetchWithTimeout(
-      underlyingFetch,
-      input,
-      {
-        ...init,
-        headers,
-      },
-      timeoutMs,
-    );
+    const nextInit = { ...init, headers };
+    if (shouldStream) {
+      return fetchWithTimeout(nativeFetchRef(), input, nextInit, 0);
+    }
+    return desktopFetchWithTimeout(input, nextInit, timeoutMs);
   };
 };
 

@@ -98,6 +98,7 @@ import {
   shouldIsolateExpertSessionDirectory,
   writeAssistantSessionWorkspace,
 } from "../../domains/session";
+import { claimOrCreateExpertColdSession } from "./expert-cold-path";
 import { parseSkillNamesFromAgentMarkdown } from "../../capabilities/session-identity/expert-prompt-agent";
 import { CloudSessionProvider } from "../../domains/settings";
 import { installMarketplaceExpertAfterSessionCreated } from "./intent";
@@ -630,31 +631,54 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               // Treat empty draft and "draft == workspace root" as no real folder pick.
               // Default sessions must bind to the external runtime-state directory.
               if (shouldIsolateExpertSessionDirectory(workspaceRoot, draftRoot)) {
-                const isolated = await createIsolatedExpertSessionRuntimeDirectory({
-                  client: selectedWorkspaceEndpoint?.client ?? client,
-                  workspaceId:
-                    selectedWorkspaceEndpoint?.workspaceId ?? workspaceId,
-                  workspaceRoot,
-                  agentName: pendingAgentSnapshot?.name?.trim() || "expert",
-                  agentId: pendingAgentSnapshot?.id?.trim() || "",
-                  skillNames: parseSkillNamesFromAgentMarkdown(
-                    pendingAgentSnapshot?.systemPrompt ?? "",
-                  ),
-                });
-                if (!isolated) {
-                  throw new Error(
-                    "Unable to allocate an external expert session directory",
-                  );
-                }
-                sessionDirectory = isolated.directory;
-                bindDirectory = isolated.directory;
+                const agentName =
+                  pendingAgentSnapshot?.name?.trim() || "expert";
+                const agentId = pendingAgentSnapshot?.id?.trim() || "";
+                const skillNames = parseSkillNamesFromAgentMarkdown(
+                  pendingAgentSnapshot?.systemPrompt ?? "",
+                );
+                const ensureWorkspaceId =
+                  selectedWorkspaceEndpoint?.workspaceId ?? workspaceId;
+                // A+B: claim draft prewarm or create under global cold queue.
+                const cold = await claimOrCreateExpertColdSession(
+                  {
+                    workspaceId: ensureWorkspaceId,
+                    agentId,
+                    agentName,
+                    skillNames,
+                  },
+                  {
+                    createIsolatedDirectory: () =>
+                      createIsolatedExpertSessionRuntimeDirectory({
+                        client: selectedWorkspaceEndpoint?.client ?? client,
+                        workspaceId: ensureWorkspaceId,
+                        workspaceRoot,
+                        agentName,
+                        agentId,
+                        skillNames,
+                      }),
+                    createSession: async (directory) => {
+                      const created = unwrap(
+                        await opencodeClient.session.create({ directory }),
+                      );
+                      return { id: created.id };
+                    },
+                  },
+                );
+                sessionDirectory = cold.directory;
+                bindDirectory = cold.directory;
+                newSession = {
+                  id: cold.sessionId,
+                  directory: cold.directory,
+                };
+              } else {
+                newSession = unwrap(
+                  await opencodeClient.session.create({
+                    directory: sessionDirectory,
+                  }),
+                );
+                newSession.directory = sessionDirectory;
               }
-              newSession = unwrap(
-                await opencodeClient.session.create({
-                  directory: sessionDirectory,
-                }),
-              );
-              newSession.directory = sessionDirectory;
               // Do NOT startRun here: this path only opens an empty expert
               // session shell. Marking runActive without a prompt leaves the
               // transcript stuck on "准备中 / thinking" forever (no messages,
