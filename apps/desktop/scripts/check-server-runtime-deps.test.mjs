@@ -3,6 +3,7 @@ import {
   mkdtempSync,
   mkdirSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -144,6 +145,87 @@ describe("check-server-runtime-deps", () => {
     const result = runGate();
     expect(result.status, result.stderr + result.stdout).toBe(0);
     expect(result.stdout).not.toContain("@opencode-ai/plugin");
+  });
+
+  test("fails when the staged tree contains pnpm-style symlinks even if they resolve on disk", () => {
+    // app.asar stores symlinks verbatim and Node's ESM resolver cannot follow
+    // them inside the archive, so a tree that resolves on disk still crashes
+    // the packaged app (v0.4.20 regression). The gate must reject any symlink
+    // under the staged server tree.
+    writeFile(
+      "desktop/server/dist/core/jsonc.js",
+      'import { parse } from "jsonc-parser";\nexport const x = parse("{}");\n',
+    );
+    const realPkgDir = join(
+      desktopRoot,
+      "server",
+      "node_modules",
+      ".pnpm",
+      "jsonc-parser@3.3.1",
+      "node_modules",
+      "jsonc-parser",
+    );
+    writePackage(realPkgDir, "jsonc-parser");
+    symlinkSync(
+      join("..", ".pnpm", "jsonc-parser@3.3.1", "node_modules", "jsonc-parser"),
+      join(desktopRoot, "server", "node_modules", "jsonc-parser"),
+    );
+
+    const result = runGate();
+    expect(result.status, result.stderr + result.stdout).toBe(1);
+    expect(result.stderr).toContain("symlink");
+    expect(result.stderr).toContain("jsonc-parser");
+  });
+
+  test("fails when a staged package's own runtime dependency is missing from the tree", () => {
+    // Dist-level imports resolving is not enough: minimatch imports
+    // brace-expansion at runtime, and inside app.asar nothing outside the
+    // staged tree can satisfy it (the follow-up v0.4.20 crash after a flat
+    // symlink materialization dropped pnpm's .pnpm sibling scopes).
+    writeFile(
+      "desktop/server/dist/core/glob.js",
+      'import { minimatch } from "minimatch";\nexport const m = minimatch;\n',
+    );
+    const minimatchDir = join(desktopRoot, "server", "node_modules", "minimatch");
+    mkdirSync(minimatchDir, { recursive: true });
+    writeFileSync(
+      join(minimatchDir, "package.json"),
+      JSON.stringify({
+        name: "minimatch",
+        version: "10.2.3",
+        type: "module",
+        dependencies: { "brace-expansion": "^4.0.0" },
+      }),
+    );
+    writeFileSync(join(minimatchDir, "index.js"), "export const minimatch = () => true;\n");
+
+    const result = runGate();
+    expect(result.status, result.stderr + result.stdout).toBe(1);
+    expect(result.stderr).toContain("brace-expansion");
+    expect(result.stderr).toContain("minimatch");
+  });
+
+  test("passes when a staged package's runtime dependency is nested inside it", () => {
+    writeFile(
+      "desktop/server/dist/core/glob.js",
+      'import { minimatch } from "minimatch";\nexport const m = minimatch;\n',
+    );
+    const minimatchDir = join(desktopRoot, "server", "node_modules", "minimatch");
+    mkdirSync(minimatchDir, { recursive: true });
+    writeFileSync(
+      join(minimatchDir, "package.json"),
+      JSON.stringify({
+        name: "minimatch",
+        version: "10.2.3",
+        type: "module",
+        dependencies: { "brace-expansion": "^4.0.0" },
+      }),
+    );
+    writeFileSync(join(minimatchDir, "index.js"), "export const minimatch = () => true;\n");
+    writePackage(join(minimatchDir, "node_modules", "brace-expansion"), "brace-expansion");
+
+    const result = runGate();
+    expect(result.status, result.stderr + result.stdout).toBe(0);
   });
 
   test("ignores node: and bun: builtins and relative imports", () => {

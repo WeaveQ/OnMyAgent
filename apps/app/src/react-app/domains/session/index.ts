@@ -72,6 +72,22 @@ export {
 } from "./sync/assistant-session-workspaces";
 export type { AssistantSessionWorkspace } from "./sync/assistant-session-workspaces";
 export {
+  buildExpertColdPrewarmKey,
+  claimOrCreateExpertColdSession,
+  enqueueExpertColdPath,
+  getExpertColdPrewarmDebugSnapshot,
+  getOrStartExpertColdSession,
+  invalidateExpertColdPrewarm,
+  resetExpertColdPathForTests,
+  skillNamesFingerprint,
+  startExpertColdPrewarm,
+} from "./sync/expert-cold-path";
+export type {
+  ExpertColdPathRequest,
+  ExpertColdPathResult,
+  ExpertColdPathRunner,
+} from "./sync/expert-cold-path";
+export {
   clearSessionDraft,
   getSessionDraft,
   saveSessionDraft,

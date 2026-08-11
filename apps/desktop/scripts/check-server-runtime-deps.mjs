@@ -56,6 +56,108 @@ function walk(dir, out = []) {
   return out;
 }
 
+// app.asar stores pnpm symlinks verbatim, but Node's ESM resolver cannot
+// follow symlinks inside an asar archive: imports fail at boot with
+// ERR_MODULE_NOT_FOUND even though the dependency files are present (the
+// v0.4.20 "Cannot find package 'jsonc-parser'" regression). electron-build
+// materializes the deploy tree; this scan keeps it honest.
+function findSymlinks(dir, out = []) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isSymbolicLink()) {
+      out.push(full);
+    } else if (entry.isDirectory()) {
+      findSymlinks(full, out);
+    }
+  }
+  return out;
+}
+
+const stagedSymlinks = findSymlinks(packagedServerRoot);
+if (stagedSymlinks.length > 0) {
+  console.error(
+    "[check-server-runtime-deps] Staged server tree contains symlinks; they " +
+      "cannot be resolved from inside app.asar and will crash the packaged " +
+      "app at boot (ERR_MODULE_NOT_FOUND):",
+  );
+  for (const link of stagedSymlinks.slice(0, 20)) {
+    console.error(`  - ${link.replace(packagedServerRoot + "/", "")}`);
+  }
+  if (stagedSymlinks.length > 20) {
+    console.error(`  … and ${stagedSymlinks.length - 20} more`);
+  }
+  console.error(
+    "\nFix: electron-build.mjs must materialize the pnpm deploy output into " +
+      "real directories (nested tree) before electron-builder packs it.",
+  );
+  process.exit(1);
+}
+
+// Transitive-dependency integrity: every staged package's declared runtime
+// dependencies must resolve from that package's own location within the
+// staged tree. A layout that satisfies only the dist-level imports can still
+// crash at boot when a dependency imports one of ITS OWN dependencies —
+// exactly the follow-up v0.4.20 crash ("Cannot find package 'brace-expansion'
+// imported from …/minimatch/dist/esm/index.js") after a flat materialization
+// dropped pnpm's .pnpm sibling scopes.
+const stagedNodeModules = resolve(packagedServerRoot, "node_modules");
+function collectPackageJsonDirs(dir, out = []) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isSymbolicLink()) continue;
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (existsSync(join(full, "package.json"))) out.push(full);
+      collectPackageJsonDirs(full, out);
+    }
+  }
+  return out;
+}
+function resolvesWithinStagedTree(fromDir, depName) {
+  let dir = fromDir;
+  for (;;) {
+    if (existsSync(join(dir, "node_modules", depName))) return true;
+    if (dir === packagedServerRoot) return false;
+    const parent = dirname(dir);
+    if (parent === dir) return false;
+    dir = parent;
+  }
+}
+if (existsSync(stagedNodeModules)) {
+  const unresolved = [];
+  for (const pkgDir of collectPackageJsonDirs(stagedNodeModules)) {
+    let manifest;
+    try {
+      manifest = JSON.parse(readFileSync(join(pkgDir, "package.json"), "utf8"));
+    } catch {
+      continue; // unreadable manifests are not a packaging-layout concern
+    }
+    for (const dep of Object.keys(manifest.dependencies ?? {})) {
+      if (!resolvesWithinStagedTree(pkgDir, dep)) {
+        unresolved.push(`${manifest.name ?? pkgDir} -> ${dep}`);
+      }
+    }
+  }
+  if (unresolved.length > 0) {
+    console.error(
+      "[check-server-runtime-deps] Staged server tree has packages whose " +
+        "declared runtime dependencies do not resolve inside the tree; the " +
+        "packaged app will crash at boot with ERR_MODULE_NOT_FOUND:",
+    );
+    for (const item of unresolved.slice(0, 20)) {
+      console.error(`  - ${item}`);
+    }
+    if (unresolved.length > 20) {
+      console.error(`  … and ${unresolved.length - 20} more`);
+    }
+    console.error(
+      "\nFix: electron-build.mjs must materialize the pnpm deploy output as a " +
+        "nested tree (each package carries its own runtime deps), not just " +
+        "flatten top-level symlinks.",
+    );
+    process.exit(1);
+  }
+}
+
 // Strip comments and template literals before scanning. We deliberately keep
 // single- and double-quoted strings because import/export specifiers are
 // themselves string literals. Generated plugin source is emitted via array

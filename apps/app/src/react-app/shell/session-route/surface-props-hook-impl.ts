@@ -1,6 +1,8 @@
 /** Surface props (composer + session chat controls) for SessionPage. */
 import {
+  useEffect,
   useMemo,
+  useRef,
   type Dispatch,
   type MutableRefObject,
   type SetStateAction,
@@ -44,12 +46,15 @@ import {
 import { usePendingAgentStore } from "../../domains/agents";
 import { writeSessionOriginDurable } from "../../domains/agents";
 import {
+  claimOrCreateExpertColdSession,
   clearOptimisticSessionUserMessage,
   dispatchAssistantSessionWorkspacesChanged,
   readAssistantSessionWorkspace,
   seedOptimisticSessionUserMessage,
+  startExpertColdPrewarm,
   trackWorkspaceSessionSync,
   writeAssistantSessionWorkspace,
+  type ExpertColdPathResult,
 } from "../../domains/session";
 import {
   createIsolatedExpertSessionRuntimeDirectory,
@@ -108,7 +113,10 @@ import {
   installMarketplaceExpertAfterSessionCreated,
   kickoffMarketplaceExpertInstall,
 } from "./intent";
-import { activateCreatedSessionRoute } from "./created-session-actions";
+import {
+  activateCreatedSessionRoute,
+  shouldNavigateToCreatedSession,
+} from "./created-session-actions";
 import {
   type RouteWorkspace,
   serializeSDKError,
@@ -276,6 +284,85 @@ export function useSessionRouteSurfaceProps(
     suppressRestoreSessionRef,
     token,
   } = input;
+
+  // Live route selection for mid-create abandon checks (useMemo closure is stale
+  // across the long await of session.create during「准备中」).
+  const selectedSessionIdRef = useRef(selectedSessionId);
+  selectedSessionIdRef.current = selectedSessionId;
+
+  const pendingAgentForPrewarm = usePendingAgentStore((state) => state.agent);
+  // Backup prewarm on the *same* client/workspaceId as send (claim key match).
+  // activateDraftAgent also prewarms; getOrStart dedupes identical keys.
+  useEffect(() => {
+    if (pageMode !== "expert") return;
+    if (!client || !opencodeClient || !selectedWorkspaceId) return;
+    const pending = pendingAgentForPrewarm;
+    if (!pending?.id?.trim()) return;
+    // Real bound chat: no cold create needed until force-new.
+    if (
+      selectedSessionId &&
+      pending.boundSessionId &&
+      pending.boundSessionId === selectedSessionId
+    ) {
+      return;
+    }
+    // Viewing an existing session without draft intent — skip.
+    if (selectedSessionId && !pending.draftSource && pending.boundSessionId) {
+      return;
+    }
+    const workspaceRoot = selectedWorkspace?.path?.trim() || "";
+    if (!workspaceRoot) return;
+    const ensureWorkspaceId =
+      selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
+    const agentId = pending.id.trim();
+    const agentName = pending.name?.trim() || "expert";
+    const skillNames = pending.skillIds ?? [];
+    const packageName = pending.marketplaceExpert?.packageName || agentId;
+    const approvedAgentIds = pending.approvedAgentIds ?? [];
+    const timer = window.setTimeout(() => {
+      const still = usePendingAgentStore.getState().getAgent();
+      if (!still || still.id?.trim() !== agentId) return;
+      startExpertColdPrewarm(
+        {
+          workspaceId: ensureWorkspaceId,
+          agentId,
+          agentName,
+          packageName,
+          approvedAgentIds,
+          skillNames,
+        },
+        {
+          createIsolatedDirectory: () =>
+            createIsolatedExpertSessionRuntimeDirectory({
+              client: selectedWorkspaceEndpoint?.client ?? client,
+              workspaceId: ensureWorkspaceId,
+              workspaceRoot,
+              agentName,
+              agentId,
+              packageName,
+              approvedAgentIds,
+              skillNames,
+            }),
+          createSession: async (directory) => {
+            const created = unwrap(
+              await opencodeClient.session.create({ directory }),
+            );
+            return { id: created.id };
+          },
+        },
+      );
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [
+    client,
+    opencodeClient,
+    pageMode,
+    pendingAgentForPrewarm,
+    selectedSessionId,
+    selectedWorkspace,
+    selectedWorkspaceEndpoint,
+    selectedWorkspaceId,
+  ]);
 
   return useMemo(() => {
     if (
@@ -499,6 +586,9 @@ export function useSessionRouteSurfaceProps(
         });
 
         const expertSkillNames = pendingForColdPath?.skillIds ?? [];
+        // A+B: isolate + session.create claimed from draft prewarm, or created
+        // under the global expert cold-path queue (never parallel cold boots).
+        let expertColdClaim: ExpertColdPathResult | null = null;
         if (pageMode === "expert" && sendPlan.needsNewSession) {
           const explicitFolder = explicitAssistantWorkspace.trim();
           const isolate = shouldIsolateExpertSessionDirectory(
@@ -512,24 +602,40 @@ export function useSessionRouteSurfaceProps(
             // to a different expert and would create artifacts in the wrong dir.
             const agentName = pendingForDir?.name?.trim() || "expert";
             const agentId = pendingForDir?.id?.trim() || "";
-            const isolated = await createIsolatedExpertSessionRuntimeDirectory({
-              client: ensureClient,
-              workspaceId: ensureWorkspaceId,
-              workspaceRoot: workspaceRootForSession,
-              agentName,
-              agentId,
-              packageName: pendingForDir?.marketplaceExpert?.packageName || agentId,
-              approvedAgentIds: pendingForDir?.approvedAgentIds ?? [],
-              skillNames: expertSkillNames,
-            });
-            // Only bind the external runtime path when the server created it.
-            // Otherwise opencode FileSystem.realPath throws ENOENT and the turn dies.
-            if (isolated) {
-              taskWorkspaceRoot = isolated.directory;
-              explicitAssistantWorkspace = isolated.directory;
-            } else {
-              throw new Error("Unable to allocate an external expert session directory");
-            }
+            const packageName =
+              pendingForDir?.marketplaceExpert?.packageName || agentId;
+            const approvedAgentIds = pendingForDir?.approvedAgentIds ?? [];
+            expertColdClaim = await claimOrCreateExpertColdSession(
+              {
+                workspaceId: ensureWorkspaceId,
+                agentId,
+                agentName,
+                packageName,
+                approvedAgentIds,
+                skillNames: expertSkillNames,
+              },
+              {
+                createIsolatedDirectory: () =>
+                  createIsolatedExpertSessionRuntimeDirectory({
+                    client: ensureClient,
+                    workspaceId: ensureWorkspaceId,
+                    workspaceRoot: workspaceRootForSession,
+                    agentName,
+                    agentId,
+                    packageName,
+                    approvedAgentIds,
+                    skillNames: expertSkillNames,
+                  }),
+                createSession: async (directory) => {
+                  const created = unwrap(
+                    await opencodeClient.session.create({ directory }),
+                  );
+                  return { id: created.id };
+                },
+              },
+            );
+            taskWorkspaceRoot = expertColdClaim.directory;
+            explicitAssistantWorkspace = expertColdClaim.directory;
           } else if (explicitFolder) {
             // User-picked folder (not workspace root): bind side panel to that path.
             explicitAssistantWorkspace = explicitFolder;
@@ -590,7 +696,36 @@ export function useSessionRouteSurfaceProps(
 
         let sessionId = sendPlan.initialSessionId;
         let createdSession: { id: string; directory?: string } | null = null;
-        if (!sessionId) {
+        // Capture before awaits: user may switch expert/page while「准备中」.
+        const sessionIdAtSendStart = selectedSessionId;
+        if (!sessionId && expertColdClaim) {
+          createdSession = {
+            id: expertColdClaim.sessionId,
+            directory: expertColdClaim.directory,
+          };
+          sessionId = expertColdClaim.sessionId;
+          if (explicitAssistantWorkspace) {
+            writeAssistantSessionWorkspace({
+              sessionId,
+              ownerWorkspaceId: selectedWorkspaceId,
+              directory: explicitAssistantWorkspace,
+            });
+            dispatchAssistantSessionWorkspacesChanged(selectedWorkspaceId);
+          }
+          const activityStore = useSessionActivityStore.getState();
+          activityStore.startRun(selectedWorkspaceId, sessionId);
+          const runtimeWorkspaceId = selectedWorkspaceEndpoint?.workspaceId;
+          if (runtimeWorkspaceId && runtimeWorkspaceId !== selectedWorkspaceId) {
+            activityStore.startRun(runtimeWorkspaceId, sessionId);
+          }
+          registerCreatedSessionStartIntent({
+            sessionId,
+            intent: draft.sessionStartIntent,
+            pageMode,
+            addAssistantSession,
+            writeAssistantSessionCategory,
+          });
+        } else if (!sessionId) {
           if (creatingSessionWorkspaceIdsRef.current.has(selectedWorkspaceId))
             return;
           creatingSessionWorkspaceIdsRef.current.add(selectedWorkspaceId);
@@ -637,6 +772,13 @@ export function useSessionRouteSurfaceProps(
             ? `msg_${crypto.randomUUID()}`
             : null;
         if (createdSession) {
+          // Mid-create switch (「准备中」→ other expert/page): keep sidebar
+          // recovery but never force-nav / bound-draft yank back.
+          const shouldNavigate = shouldNavigateToCreatedSession({
+            sessionIdAtSendStart,
+            currentSelectedSessionId: selectedSessionIdRef.current,
+            createdSessionId: sessionId,
+          });
           // ExpertPage keeps its draft surface mounted until the created
           // session is bound to the intended expert. Bind before navigating:
           // navigating first briefly renders the real route with draft state,
@@ -670,6 +812,23 @@ export function useSessionRouteSurfaceProps(
                   pendingAgentSnapshot.id,
                 );
               writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot);
+              if (shouldNavigate) {
+                usePendingAgentStore.getState().setAgent(
+                  bindPendingAgentToSession({
+                    agent: pendingAgentSnapshot,
+                    sessionId,
+                  }),
+                );
+              } else {
+                // Drop draft intent so bound-draft force-nav cannot steal focus.
+                const currentPending = usePendingAgentStore.getState().getAgent();
+                if (
+                  currentPending?.id === pendingAgentSnapshot.id &&
+                  !currentPending.boundSessionId
+                ) {
+                  usePendingAgentStore.getState().setAgent(null);
+                }
+              }
             }
           }
           if (pageMode === "expert" && createdSession.directory && ensureClient) {
@@ -753,6 +912,7 @@ export function useSessionRouteSurfaceProps(
             navigateToWorkspaceSession,
             setAssistantDraftWorkspaceRoot,
             focusPromptSoon,
+            navigate: shouldNavigate,
           });
         }
         setSessionAccessModeById((current) =>
@@ -994,7 +1154,8 @@ export function useSessionRouteSurfaceProps(
         );
         // Bind the pending agent to the session we just created so the
         // avatar/system prompt don't bleed into unrelated sessions the
-        // user may navigate to later.
+        // user may navigate to later. Re-check abandon after install/env awaits:
+        // user may have switched experts during「准备中」.
         if (pendingAgentSnapshot && sessionId) {
           usePendingAgentStore.getState().setAgent(
             bindPendingAgentToSession({
@@ -1012,6 +1173,19 @@ export function useSessionRouteSurfaceProps(
               pendingAgentSnapshot.id,
             );
           writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot);
+          const stillOwnsSurface = shouldNavigateToCreatedSession({
+            sessionIdAtSendStart,
+            currentSelectedSessionId: selectedSessionIdRef.current,
+            createdSessionId: sessionId,
+          });
+          if (stillOwnsSurface || !createdSession) {
+            usePendingAgentStore.getState().setAgent(
+              bindPendingAgentToSession({
+                agent: pendingAgentSnapshot,
+                sessionId,
+              }),
+            );
+          }
         }
         // Join early install + env prep (started before isolate/create).
         // Coordinator dedupes install; env cache is stable per server runtime.

@@ -39,6 +39,9 @@ import {
 } from "./use-expert-session-delete";
 import { useExpertHardDeleteUi } from "./use-expert-hard-delete-ui";
 import { prewarmOnMyAgentEnvSystemContext } from "../../shared";
+import { createClient, unwrap } from "../../../../app/lib/opencode";
+import { createIsolatedExpertSessionRuntimeDirectory } from "../../../capabilities/session-identity/expert-session-directory";
+import { startExpertColdPrewarm } from "../sync/expert-cold-path";
 import {
   AgentSessionTabs,
   readExpertSessionSelection,
@@ -469,7 +472,75 @@ export function useExpertPage(props: ExpertPageProps) {
     setDraftSessionActive(true);
     // Prewarm while user types first message — shortens 准备中 on first send.
     prewarmOnMyAgentEnvSystemContext(props.onmyagentServerClient);
-  }, [props.onmyagentServerClient]);
+    // A: isolate dir + session.create under global cold queue (B) before send.
+    // Must use the *registry* workspace path (workspaceFilesRoot), not
+    // selectedWorkspaceRoot which page-view sets to the session-scoped root.
+    // Key must match send path: endpoint workspaceId + pending agent id.
+    const workspaceId =
+      props.runtimeWorkspaceId?.trim() ||
+      props.selectedWorkspaceId?.trim() ||
+      "";
+    const workspaceRoot =
+      props.workspaceFilesRoot?.trim() ||
+      props.selectedWorkspaceRoot?.trim() ||
+      "";
+    const baseUrl = props.opencodeBaseUrl?.trim() ?? "";
+    const token = props.onmyagentServerToken?.trim() ?? "";
+    const client = props.onmyagentServerClient;
+    if (!workspaceId || !workspaceRoot || !baseUrl || !client) return;
+    const agentId = agent.id?.trim() || "";
+    const agentName = agent.name?.trim() || "expert";
+    const skillNames = agent.skillIds ?? [];
+    const packageName = agent.marketplaceExpert?.packageName || agentId;
+    const approvedAgentIds = agent.approvedAgentIds ?? [];
+    // Defer past draft open paint so prewarm disk/OpenCode work does not
+    // hitch the first frame of 「准备中」 chrome.
+    window.setTimeout(() => {
+      const still = usePendingAgentStore.getState().getAgent();
+      if (!still || still.id?.trim() !== agentId) return;
+      startExpertColdPrewarm(
+        {
+          workspaceId,
+          agentId,
+          agentName,
+          packageName,
+          approvedAgentIds,
+          skillNames,
+        },
+        {
+          createIsolatedDirectory: () =>
+            createIsolatedExpertSessionRuntimeDirectory({
+              client,
+              workspaceId,
+              workspaceRoot,
+              agentName,
+              agentId,
+              packageName,
+              approvedAgentIds,
+              skillNames,
+            }),
+          createSession: async (directory) => {
+            const opencode = createClient(baseUrl, directory || undefined, {
+              mode: "onmyagent",
+              token: token || undefined,
+            });
+            const created = unwrap(
+              await opencode.session.create({ directory }),
+            );
+            return { id: created.id };
+          },
+        },
+      );
+    }, 400);
+  }, [
+    props.onmyagentServerClient,
+    props.onmyagentServerToken,
+    props.opencodeBaseUrl,
+    props.runtimeWorkspaceId,
+    props.selectedWorkspaceId,
+    props.selectedWorkspaceRoot,
+    props.workspaceFilesRoot,
+  ]);
   const openFreshExpertDraft = useCallback(() => {
     props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId);
   }, [props.selectedWorkspaceId, props.sidebar]);

@@ -2,7 +2,10 @@ import { useEffect } from "react";
 import type { PendingAgentContext } from "../../agents";
 import type { AgentConversationGroup } from "../sidebar/session-chrome";
 import type { ExpertDirectoryIdentityIndex } from "./expert-conversation-model";
-import { resolveColdOpenExpertSessionId } from "./order-conversation-groups";
+import {
+  resolveColdOpenExpertSessionId,
+  resolveExpertColdOpenNavigation,
+} from "./order-conversation-groups";
 
 export function useExpertRouteLifecycle(input: {
   expertDirectoryReady: boolean;
@@ -33,30 +36,28 @@ export function useExpertRouteLifecycle(input: {
     const workspaceId = input.selectedWorkspaceId.trim();
     if (!workspaceId) return;
     const selectedId = input.selectedSessionId?.trim() ?? "";
-    if (
-      selectedId &&
-      input.routeSessionLive &&
-      input.expertDirectoryIdentity.sessionIds.has(selectedId)
-    ) {
-      return;
-    }
-    const resolved = resolveColdOpenExpertSessionId({
+    const coldOpenSessionId = resolveColdOpenExpertSessionId({
       workspaceId,
       conversationGroups: input.conversationGroups,
       sessionTabOrderIdsByScope: input.sessionTabOrderIdsByScope,
     });
-    if (resolved) {
-      input.onOpenSession(workspaceId, resolved);
+    const decision = resolveExpertColdOpenNavigation({
+      selectedSessionId: selectedId,
+      routeSessionLive: input.routeSessionLive,
+      isExpertSession: (sessionId) =>
+        input.expertDirectoryIdentity.sessionIds.has(sessionId),
+      coldOpenSessionId,
+    });
+    if (decision.action === "keep") return;
+    if (decision.action === "open") {
+      input.onOpenSession(workspaceId, decision.sessionId);
       return;
     }
-    if (selectedId && !input.routeSessionLive) {
+    if (decision.action === "clear-route") {
       input.onOpenSession(workspaceId, "");
       return;
     }
-    if (
-      selectedId &&
-      !input.expertDirectoryIdentity.sessionIds.has(selectedId)
-    ) {
+    if (decision.action === "create-task") {
       input.onCreateTaskInWorkspace(workspaceId);
     }
   }, [
