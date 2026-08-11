@@ -1,5 +1,6 @@
 import type { ServerConfig, WorkspaceInfo } from "@onmyagent/types/server";
 import { buildCapabilities } from "../core/capabilities.js";
+import { getExpertLifecycleEventsSnapshot } from "../services/expert-lifecycle-events.js";
 import { addRoute, systemJsonResponse, type Route } from "./route-core.js";
 
 export function registerSystemRoutes(input: {
@@ -33,6 +34,7 @@ export function registerSystemRoutes(input: {
       client: config.tokenSource,
       host: config.hostTokenSource,
     },
+    expertLifecycleEvents: getExpertLifecycleEventsSnapshot(),
   });
 
   addRoute(routes, "GET", "/health", "none", async () => systemJsonResponse({

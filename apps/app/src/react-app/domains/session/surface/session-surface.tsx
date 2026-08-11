@@ -55,6 +55,7 @@ import { useSessionSurfaceControlActions } from "./session-surface-control-actio
 import { useSessionSurfaceComposerHandlers } from "./session-surface-composer-handlers";
 import { useSessionSurfaceCollaboration } from "./session-surface-collaboration";
 import { useSessionSurfacePendingAgent } from "./session-surface-pending-agent";
+import { useExpertDirectoryStore } from "../../../capabilities/session-identity/expert-directory-store";
 import { useSessionSurfaceOpenTargets } from "./session-surface-open-targets";
 import { useSessionSurfaceActivityStall } from "./session-surface-activity-stall";
 import { useSessionSurfacePlanGoalEffects } from "./session-surface-plan-goal-effects";
@@ -226,10 +227,14 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     if (draft.includes(assistantScenarioDraftToken(assistantScenarioId))) return;
     setAssistantScenarioId(null);
   }, [assistantScenarioId, draft]);
+  const expertDirectoryIdentity = useExpertDirectoryStore((state) =>
+    state.getIdentity(props.workspaceId),
+  );
   const { effectiveAgent } = useSessionSurfacePendingAgent({
     personalAssistantHome: props.personalAssistantHome,
     sessionId: props.sessionId,
     agentContext: props.agentContext,
+    expertDirectoryIdentity,
   });
   const [notice, setNotice] = useState<ReactComposerNotice | null>(null);
   const [error, setError] = useState<SessionError | null>(null);

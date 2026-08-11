@@ -476,6 +476,13 @@ export default {
   "settings.runtime_debug_desc":
     "Readable diagnostics snapshot with one-click export",
   "settings.runtime_debug_title": "Runtime debug report",
+  "settings.expert_lifecycle_events_title": "Expert lifecycle events",
+  "settings.expert_lifecycle_events_desc":
+    "{count} redacted events retained in a process-local 512-event ring.",
+  "settings.expert_lifecycle_events_copied":
+    "Copied Expert lifecycle events.",
+  "settings.expert_lifecycle_events_exported":
+    "Exported Expert lifecycle events.",
   "settings.sandbox_error": "Error",
   "settings.sandbox_export_hint": "Use Export in Runtime debug report above to",
   "settings.sandbox_probe_desc":

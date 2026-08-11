@@ -21,13 +21,14 @@ describe("infinite canvas UI contract", () => {
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-page.tsx"),
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-side-panel.tsx"),
     ].join("\n");
 
     for (const source of [assistant, expert]) {
-      expect(source).toContain("InfiniteCanvasPanel");
-      expect(source).toContain('toggleCurrentSidePanel("canvas")');
-      expect(source).toContain("mac:titlebar-no-drag");
-      expect(source).toContain('t("infinite_canvas.open")');
+      expect(source).toContain("LazyInfiniteCanvasPanel");
+      expect(source).toContain('activeSidePanel === "canvas"');
+      expect(source).toContain("canvasKey={canvasSessionKey}");
+      expect(source).toContain("onClose={closeRightPane}");
     }
   });
 

@@ -1,5 +1,12 @@
 /** Domain methods: Workspace for OnMyAgent server HTTP client. */
 import type { ExecResult, OpencodeConfigFile, WorkspaceInfo, WorkspaceList } from "../desktop";
+import type {
+  ExpertDirectoryHealRequest,
+  ExpertDirectoryHealResponse,
+  ExpertDirectoryProjection,
+  ExpertDirectoryShadowDiffRequest,
+  ExpertDirectoryShadowDiffResponse,
+} from "@onmyagent/types/server";
 import {
   arrayBufferToBase64,
   OnMyAgentServerError,
@@ -194,7 +201,10 @@ export function createWorkspaceClientMethods(ctx: OnMyAgentServerClientContext) 
       payload: {
         agentName: string;
         agentId?: string;
+        packageName?: string;
+        sessionId?: string;
         sessionKey?: string;
+        approvedAgentIds?: string[];
         skillNames?: string[];
       },
     ) =>
@@ -204,6 +214,8 @@ export function createWorkspaceClientMethods(ctx: OnMyAgentServerClientContext) 
         sessionKey: string;
         agentSegment: string;
         installedSkills?: string[];
+        declaredSkills?: string[];
+        missingSkills?: string[];
         isolationVersion?: number;
         defaultAgent?: string;
       }>(
@@ -213,18 +225,51 @@ export function createWorkspaceClientMethods(ctx: OnMyAgentServerClientContext) 
       ),
     ensureExpertSessionIsolation: (
       workspaceId: string,
-      payload: { directory: string; skillNames?: string[] },
+      payload: {
+        directory: string;
+        agentId?: string;
+        packageName?: string;
+        sessionId?: string;
+        approvedAgentIds?: string[];
+        skillNames?: string[];
+      },
     ) =>
       requestJson<{
         ok: boolean;
         directory: string;
         upgraded: boolean;
         installedSkills: string[];
+        declaredSkills: string[];
+        missingSkills: string[];
         isolationVersion: number;
         defaultAgent: string;
       }>(
         baseUrl,
         `/workspace/${encodeURIComponent(workspaceId)}/expert-session-isolation`,
+        { token, hostToken, method: "POST", body: payload },
+      ),
+    getExpertDirectory: (workspaceId: string) =>
+      requestJson<ExpertDirectoryProjection>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/expert-directory`,
+        { token, hostToken },
+      ),
+    healExpertDirectory: (
+      workspaceId: string,
+      payload?: ExpertDirectoryHealRequest,
+    ) =>
+      requestJson<ExpertDirectoryHealResponse>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/expert-directory/heal`,
+        { token, hostToken, method: "POST", body: payload ?? {} },
+      ),
+    recordExpertDirectoryShadowDiff: (
+      workspaceId: string,
+      payload: ExpertDirectoryShadowDiffRequest,
+    ) =>
+      requestJson<ExpertDirectoryShadowDiffResponse>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/expert-directory/shadow-diff`,
         { token, hostToken, method: "POST", body: payload },
       ),
     listExpertSessionFiles: async (workspaceId: string) => {

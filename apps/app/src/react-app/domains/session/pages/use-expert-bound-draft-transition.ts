@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 import type { PendingAgentContext } from "../../agents";
 import { useComposerStateStore } from "../surface/composer-state-store";
@@ -9,10 +9,13 @@ import {
   resolveBoundExpertDraftNavigation,
   resolveReadyBoundExpertDraftSession,
 } from "./expert-draft-session";
+import { selectExpertSurfaceMode } from "./expert-surface-mode";
 import {
-  resolveExpertSurfaceMode,
-  shouldDropDraftIntentForRoute,
-} from "./expert-surface-mode";
+  selectExpertSurfaceNavigation,
+  shouldDropExpertSurfaceDraft,
+  type ExpertSurfaceEvent,
+  type ExpertSurfaceState,
+} from "./expert-surface-machine";
 
 export function useExpertBoundDraftTransition(input: {
   activeDraftSessionId: string | null;
@@ -24,14 +27,12 @@ export function useExpertBoundDraftTransition(input: {
   selectedSessionId: string | null;
   selectedWorkspaceId: string;
   sidebarSelectedWorkspaceId: string;
-  selectedSessionAgentId: string | null;
   onOpenSession: (workspaceId: string, sessionId: string) => void;
+  surfaceState: ExpertSurfaceState;
+  dispatchSurface: (event: ExpertSurfaceEvent) => void;
+  clearSurfaceDraft: () => void;
   setDraftAgentContexts: (contexts: Record<string, PendingAgentContext>) => void;
-  setDraftAgentId: (agentId: string | null) => void;
-  setDraftSessionActive: (active: boolean) => void;
-  setPendingTabSessionId: (sessionId: string | null) => void;
 }) {
-  const openedSessionIdRef = useRef<string | null>(null);
   const {
     activeDraftSessionId,
     draftAgentContexts,
@@ -41,40 +42,35 @@ export function useExpertBoundDraftTransition(input: {
     selectedSessionId,
     selectedWorkspaceId,
     sidebarSelectedWorkspaceId,
-    selectedSessionAgentId,
     onOpenSession,
+    surfaceState,
+    dispatchSurface,
+    clearSurfaceDraft,
     setDraftAgentContexts,
-    setDraftAgentId,
-    setDraftSessionActive,
-    setPendingTabSessionId,
   } = input;
 
   useEffect(() => {
     const draftIntent = draftSessionActive;
-    const mode = resolveExpertSurfaceMode({
-      selectedSessionId,
-      workspaceId: selectedWorkspaceId,
-      draftIntent,
-      draftAgentId,
-      pendingAgentId: pendingAgent?.id ?? null,
-      pendingBoundSessionId: pendingAgent?.boundSessionId,
-      selectedSessionAgentId,
-    });
+    const mode = selectExpertSurfaceMode(surfaceState);
 
     // User is on a different real tab than the in-flight create: drop draft
     // chrome and never force-nav back (mode.mayForceNavToBound is false).
     if (
-      shouldDropDraftIntentForRoute({
-        draftIntent,
-        selectedSessionId,
-        pendingBoundSessionId: pendingAgent?.boundSessionId,
-      })
+      shouldDropExpertSurfaceDraft(surfaceState)
     ) {
+      if (
+        pendingAgent &&
+        !matchesExpertDraftTransaction({
+          contexts: draftAgentContexts,
+          agentId: pendingAgent.id,
+          operationId: pendingAgent.operationId,
+        })
+      ) return;
       if (pendingAgent) {
         const remainingDrafts = consumeBoundExpertDraftContext({
           contexts: draftAgentContexts,
           agentId: pendingAgent.id,
-          conversationStartId: pendingAgent.conversationStartId,
+          operationId: pendingAgent.operationId,
         });
         if (remainingDrafts !== draftAgentContexts) {
           useComposerStateStore
@@ -85,10 +81,7 @@ export function useExpertBoundDraftTransition(input: {
           setDraftAgentContexts(remainingDrafts);
         }
       }
-      setDraftSessionActive(false);
-      setDraftAgentId(null);
-      setPendingTabSessionId(null);
-      openedSessionIdRef.current = null;
+      clearSurfaceDraft();
       return;
     }
 
@@ -101,10 +94,27 @@ export function useExpertBoundDraftTransition(input: {
     if (!matchesExpertDraftTransaction({
       contexts: draftAgentContexts,
       agentId: pendingAgent.id,
-      conversationStartId: pendingAgent.conversationStartId,
+      operationId: pendingAgent.operationId,
     })) return;
 
-    setPendingTabSessionId(mode.creatingSessionId ?? createdSessionId);
+    const surfaceDraft = surfaceState.draft;
+    if (
+      surfaceDraft &&
+      surfaceDraft.operationId === pendingAgent.operationId &&
+      !surfaceDraft.boundSessionId
+    ) {
+      dispatchSurface({
+        type: "CREATE_BOUND",
+        operationId: pendingAgent.operationId ?? "",
+        sessionId: createdSessionId,
+      });
+      return;
+    }
+    if (
+      !surfaceDraft ||
+      surfaceDraft.operationId !== pendingAgent.operationId ||
+      surfaceDraft.boundSessionId !== createdSessionId
+    ) return;
 
     if (mode.mayForceNavToBound) {
       const navigationSessionId = resolveBoundExpertDraftNavigation({
@@ -115,8 +125,12 @@ export function useExpertBoundDraftTransition(input: {
         selectedSessionId,
       });
       if (navigationSessionId) {
-        if (openedSessionIdRef.current === navigationSessionId) return;
-        openedSessionIdRef.current = navigationSessionId;
+        const navigation = selectExpertSurfaceNavigation(surfaceState);
+        if (!navigation || navigation.sessionId !== navigationSessionId) return;
+        dispatchSurface({
+          type: "REQUEST_NAVIGATION",
+          operationId: navigation.operationId,
+        });
         onOpenSession(sidebarSelectedWorkspaceId, navigationSessionId);
         return;
       }
@@ -134,31 +148,27 @@ export function useExpertBoundDraftTransition(input: {
     const remainingDrafts = consumeBoundExpertDraftContext({
       contexts: draftAgentContexts,
       agentId: pendingAgent.id,
-      conversationStartId: pendingAgent.conversationStartId,
+      operationId: pendingAgent.operationId,
     });
     if (remainingDrafts === draftAgentContexts) return;
     useComposerStateStore
       .getState()
       .clearSession(activeDraftSessionId ?? `draft:${selectedWorkspaceId}`);
     setDraftAgentContexts(remainingDrafts);
-    setDraftSessionActive(false);
-    setDraftAgentId(null);
-    setPendingTabSessionId(null);
-    openedSessionIdRef.current = null;
+    clearSurfaceDraft();
   }, [
     activeDraftSessionId,
     draftAgentContexts,
     draftAgentId,
     draftSessionActive,
+    clearSurfaceDraft,
+    dispatchSurface,
     onOpenSession,
     pendingAgent,
-    selectedSessionAgentId,
     selectedSessionId,
     selectedWorkspaceId,
     setDraftAgentContexts,
-    setDraftAgentId,
-    setDraftSessionActive,
-    setPendingTabSessionId,
     sidebarSelectedWorkspaceId,
+    surfaceState,
   ]);
 }

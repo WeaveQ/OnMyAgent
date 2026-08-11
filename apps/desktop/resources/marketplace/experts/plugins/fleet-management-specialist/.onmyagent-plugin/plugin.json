@@ -7,6 +7,7 @@
   },
   "license": "MIT",
   "expertType": "agent",
+  "introStyle": "short-colleague",
   "agentName": "fleet-management-specialist",
   "agents": [
     "./agents/fleet-management-specialist.md"

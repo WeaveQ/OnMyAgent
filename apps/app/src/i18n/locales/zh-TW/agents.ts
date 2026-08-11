@@ -213,6 +213,7 @@ export default {
   "agents.help_user_memory": "關於你本人的長期信息：身份、偏好、常用項目、技術棧等。每次對話都會帶上。",
   "agents.coming_soon_desc": "開發中，敬請期待",
   "agents.delete_confirm": "確定要刪除智能體「{name}」嗎？此操作不可撤銷。",
+  "agents.delete_failed_title": "智能體未能完整刪除，請重試以安全恢復。",
   "agents.deleted_title": "已刪除智能體：{name}",
   "agents.created_title": "已創建智能體：{name}",
   "agents.updated_agent_title": "已更新智能體：{name}",

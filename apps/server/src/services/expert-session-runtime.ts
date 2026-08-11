@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import {
   cp,
@@ -7,6 +7,7 @@ import {
   readFile,
   readdir,
   realpath,
+  rename,
   rm,
   stat,
   writeFile,
@@ -19,6 +20,7 @@ import {
   globalSkillsDir,
   legacyOnmyagentSkillsDir,
 } from "../workspace/workspace-files.js";
+import { recordExpertLifecycleEvent } from "./expert-lifecycle-events.js";
 
 const EXPERT_SESSION_MARKER_NAME = "onmyagent-session.json";
 /** Lightweight default agent — never Sisyphus / oh-my-openagent orchestrator. */
@@ -26,8 +28,11 @@ export const EXPERT_SESSION_DEFAULT_AGENT = "onmyagent";
 /**
  * v1: opencode.json + declared skills
  * v2: lean .opencode/agents/onmyagent.md so default_agent always resolves
+ * v3: explicit agent/package/session identity + declared/installed/missing skills
  */
-export const EXPERT_SESSION_ISOLATION_VERSION = 2;
+export const EXPERT_SESSION_ISOLATION_VERSION = 3;
+/** A directory allocated before OpenCode returns a real session id stays v2. */
+const EXPERT_SESSION_PENDING_ISOLATION_VERSION = 2;
 
 /** Minimal primary agent — persona comes from expert system prompt at prompt time. */
 export const EXPERT_SESSION_AGENT_MARKDOWN = `---
@@ -49,10 +54,36 @@ export type ExpertSessionRuntimeDirectory = {
   directory: string;
   sessionKey: string;
   agentSegment: string;
+  agentId?: string;
+  packageName?: string;
+  sessionId?: string;
+  approvedAgentIds: string[];
+  declaredSkills: string[];
   /** Skill folders copied into the session-local skills root. */
   installedSkills: string[];
+  missingSkills: string[];
   isolationVersion: number;
   defaultAgent: string;
+};
+
+/** Validated marker view; legacy fields stay opaque so upgrades preserve them. */
+export type ExpertSessionMarker = {
+  kind: "expert-session";
+  workspaceId: string;
+  isolationVersion?: number;
+  agentId?: string;
+  packageName?: string;
+  sessionId?: string;
+  agent?: string;
+  sessionKey?: string;
+  runtime?: boolean;
+  defaultAgent?: string;
+  /** Package-declared prompt agents allowed inside this Expert runtime. */
+  approvedAgentIds?: string[];
+  declaredSkills?: string[];
+  installedSkills?: string[];
+  missingSkills?: string[];
+  [key: string]: unknown;
 };
 
 export type AuthorizedArtifactResolutionRoot = {
@@ -61,8 +92,8 @@ export type AuthorizedArtifactResolutionRoot = {
   source: "workspace" | "expert-runtime";
 };
 
-export function resolveExpertSessionRuntimeRoot(): string {
-  return process.env.ONMYAGENT_EXPERT_SESSION_RUNTIME_ROOT?.trim()
+export function resolveExpertSessionRuntimeRoot(override?: string): string {
+  return override?.trim() || process.env.ONMYAGENT_EXPERT_SESSION_RUNTIME_ROOT?.trim()
     || join(homedir(), ".onmyagent", "runtime", "expert-sessions");
 }
 
@@ -98,9 +129,10 @@ export async function resolveAuthorizedExpertSessionRuntimeDirectory(input: {
     ) {
       return null;
     }
-    const marker = JSON.parse(
-      await readFile(join(resolvedDirectory, EXPERT_SESSION_MARKER_NAME), "utf8"),
-    ) as unknown;
+    const markerPath = join(resolvedDirectory, EXPERT_SESSION_MARKER_NAME);
+    const markerInfo = await lstat(markerPath);
+    if (!markerInfo.isFile() || markerInfo.isSymbolicLink()) return null;
+    const marker = JSON.parse(await readFile(markerPath, "utf8")) as unknown;
     if (!isExpertSessionMarkerForWorkspace(marker, input.workspaceId)) return null;
     return directory;
   } catch {
@@ -207,20 +239,53 @@ export async function materializeExpertSessionSkills(input: {
   const targetDirectory = resolve(input.targetDirectory);
   const sourceRoots = resolveExpertSkillSourceRoots(input.skillsSourceRoot);
   const names = normalizeSkillNameList(input.skillNames);
-  if (names.length === 0) return [];
-
   const skillsDir = join(targetDirectory, ".opencode", "skills");
-  await mkdir(skillsDir, { recursive: true });
   const installed: string[] = [];
-  for (const skillName of names) {
-    const source = findSkillSourceDir(skillName, sourceRoots);
-    if (!source) continue;
-    const destination = join(skillsDir, skillName);
-    await rm(destination, { recursive: true, force: true });
-    await cp(source, destination, { recursive: true });
-    installed.push(skillName);
+  try {
+    await mkdir(skillsDir, { recursive: true });
+    // Lazy repair converges physical skills to the package declaration. Stale
+    // folders from a previous Expert must not survive into marker v3.
+    const existing = await readdir(skillsDir, { withFileTypes: true });
+    await Promise.all(
+      existing
+        .filter((entry) => !names.includes(entry.name))
+        .map((entry) => rm(join(skillsDir, entry.name), { recursive: true, force: true })),
+    );
+  } catch {
+    // The following copy/write operation reports a real filesystem failure.
   }
-  return installed;
+  try {
+    for (const skillName of names) {
+      const source = findSkillSourceDir(skillName, sourceRoots);
+      if (!source) continue;
+      const destination = join(skillsDir, skillName);
+      await rm(destination, { recursive: true, force: true });
+      await cp(source, destination, { recursive: true });
+      installed.push(skillName);
+    }
+    recordExpertLifecycleEvent({
+      kind: "materialize",
+      source: "runtime",
+      phase: "complete",
+      outcome: "succeeded",
+      declaredSkillCount: names.length,
+      installedSkillCount: installed.length,
+      missingSkillCount: names.length - installed.length,
+    });
+    return installed;
+  } catch (error) {
+    recordExpertLifecycleEvent({
+      kind: "materialize",
+      source: "runtime",
+      phase: "complete",
+      outcome: "failed",
+      code: "materialize_failed",
+      declaredSkillCount: names.length,
+      installedSkillCount: installed.length,
+      missingSkillCount: names.length - installed.length,
+    });
+    throw error;
+  }
 }
 
 /**
@@ -230,15 +295,26 @@ export async function materializeExpertSessionSkills(input: {
 export async function applyExpertSessionIsolation(input: {
   directory: string;
   workspaceId: string;
+  agentId?: string;
+  packageName?: string;
+  sessionId?: string;
   agentSegment?: string;
   sessionKey?: string;
   skillNames?: readonly string[];
+  declaredSkills?: readonly string[];
+  approvedAgentIds?: readonly string[];
   skillsSourceRoot?: string;
   defaultAgent?: string;
   /** Preserve existing marker fields when upgrading. */
   existingMarker?: Record<string, unknown> | null;
 }): Promise<{
+  agentId?: string;
+  packageName?: string;
+  sessionId?: string;
+  declaredSkills: string[];
+  approvedAgentIds: string[];
   installedSkills: string[];
+  missingSkills: string[];
   isolationVersion: number;
   defaultAgent: string;
 }> {
@@ -263,7 +339,7 @@ export async function applyExpertSessionIsolation(input: {
   );
 
   const installedSkills = await materializeExpertSessionSkills({
-    skillNames: input.skillNames,
+    skillNames: input.declaredSkills ?? input.skillNames,
     targetDirectory: directory,
     skillsSourceRoot: input.skillsSourceRoot,
   });
@@ -271,17 +347,58 @@ export async function applyExpertSessionIsolation(input: {
   const prior = input.existingMarker && typeof input.existingMarker === "object"
     ? input.existingMarker
     : {};
-  const priorSkills = Array.isArray(prior.installedSkills)
-    ? prior.installedSkills.filter((item): item is string => typeof item === "string")
-    : [];
-  const mergedSkills = normalizeSkillNameList([...priorSkills, ...installedSkills]);
+  const declaredSkills = normalizeSkillNameList(
+    input.declaredSkills ?? input.skillNames ??
+      (Array.isArray(prior.declaredSkills)
+        ? prior.declaredSkills.filter((item): item is string => typeof item === "string")
+        : []),
+  );
+  // The marker must describe the current physical materialization, not stale
+  // claims carried by an older marker. A missing source remains missing until
+  // a later ensure actually copies it into this runtime directory.
+  const effectiveInstalledSkills = installedSkills.filter((skill) =>
+    declaredSkills.includes(skill),
+  );
+  const missingSkills = declaredSkills.filter(
+    (skill) => !effectiveInstalledSkills.includes(skill),
+  );
+  if (missingSkills.length > 0) {
+    recordExpertLifecycleEvent({
+      kind: "missing_skills",
+      source: "runtime",
+      phase: "ensure",
+      outcome: "partial",
+      code: "skills_missing",
+      declaredSkillCount: declaredSkills.length,
+      missingSkillCount: missingSkills.length,
+    });
+  }
+  const approvedAgentIds = normalizeAgentIdList(
+    input.approvedAgentIds ??
+      (Array.isArray(prior.approvedAgentIds)
+        ? prior.approvedAgentIds.filter((item): item is string => typeof item === "string")
+        : []),
+  );
+  const migratingLegacyMarker =
+    typeof prior.isolationVersion !== "number" || prior.isolationVersion < EXPERT_SESSION_ISOLATION_VERSION;
+  const agentId = input.agentId?.trim() ||
+    (typeof prior.agentId === "string" && prior.agentId.trim() ? prior.agentId.trim() : undefined) ||
+    (migratingLegacyMarker && typeof prior.agent === "string" && prior.agent.trim()
+      ? prior.agent.trim() : undefined);
+  const packageName = input.packageName?.trim() ||
+    (typeof prior.packageName === "string" && prior.packageName.trim() ? prior.packageName.trim() : undefined) ||
+    (migratingLegacyMarker && agentId ? agentId : undefined);
+  const sessionId = input.sessionId?.trim() ||
+    (typeof prior.sessionId === "string" && prior.sessionId.trim() ? prior.sessionId.trim() : undefined);
+  const hasCompleteIdentity = Boolean(agentId && packageName && sessionId);
 
-  await writeFile(
-    join(directory, EXPERT_SESSION_MARKER_NAME),
-    `${JSON.stringify({
+  await writeMarkerAtomically(join(directory, EXPERT_SESSION_MARKER_NAME), {
       ...prior,
       kind: "expert-session",
       workspaceId: input.workspaceId,
+      ...(agentId ? { agentId } : {}),
+      ...(packageName ? { packageName } : {}),
+      ...(sessionId ? { sessionId } : {}),
       agent:
         input.agentSegment?.trim() ||
         (typeof prior.agent === "string" ? prior.agent : "expert"),
@@ -289,16 +406,27 @@ export async function applyExpertSessionIsolation(input: {
         input.sessionKey?.trim() ||
         (typeof prior.sessionKey === "string" ? prior.sessionKey : undefined),
       runtime: true,
-      isolationVersion: EXPERT_SESSION_ISOLATION_VERSION,
+      isolationVersion: hasCompleteIdentity
+        ? EXPERT_SESSION_ISOLATION_VERSION
+        : EXPERT_SESSION_PENDING_ISOLATION_VERSION,
       defaultAgent,
-      installedSkills: mergedSkills.length > 0 ? mergedSkills : installedSkills,
-    }, null, 2)}\n`,
-    "utf8",
-  );
+      approvedAgentIds,
+      declaredSkills,
+      installedSkills: effectiveInstalledSkills,
+      missingSkills,
+    });
 
   return {
-    installedSkills: mergedSkills.length > 0 ? mergedSkills : installedSkills,
-    isolationVersion: EXPERT_SESSION_ISOLATION_VERSION,
+    ...(agentId ? { agentId } : {}),
+    ...(packageName ? { packageName } : {}),
+    ...(sessionId ? { sessionId } : {}),
+    approvedAgentIds,
+    declaredSkills,
+    installedSkills: effectiveInstalledSkills,
+    missingSkills,
+    isolationVersion: hasCompleteIdentity
+      ? EXPERT_SESSION_ISOLATION_VERSION
+      : EXPERT_SESSION_PENDING_ISOLATION_VERSION,
     defaultAgent,
   };
 }
@@ -311,13 +439,23 @@ export async function applyExpertSessionIsolation(input: {
 export async function ensureExpertSessionRuntimeIsolation(input: {
   workspace: WorkspaceInfo;
   directory: string;
+  agentId?: string;
+  packageName?: string;
+  sessionId?: string;
   skillNames?: readonly string[];
+  approvedAgentIds?: readonly string[];
   skillsSourceRoot?: string;
   runtimeRoot?: string;
 }): Promise<{
   directory: string;
   upgraded: boolean;
+  agentId?: string;
+  packageName?: string;
+  sessionId?: string;
+  approvedAgentIds: string[];
+  declaredSkills: string[];
   installedSkills: string[];
+  missingSkills: string[];
   isolationVersion: number;
   defaultAgent: string;
 } | null> {
@@ -347,16 +485,75 @@ export async function ensureExpertSessionRuntimeIsolation(input: {
     "agents",
     `${EXPERT_SESSION_DEFAULT_AGENT}.md`,
   );
+  const requestedCompleteIdentity = Boolean(
+    input.agentId?.trim() && input.packageName?.trim() && input.sessionId?.trim(),
+  );
+  const existingCompleteIdentity = Boolean(
+    typeof existingMarker?.agentId === "string" && existingMarker.agentId.trim() &&
+    typeof existingMarker?.packageName === "string" && existingMarker.packageName.trim() &&
+    typeof existingMarker?.sessionId === "string" && existingMarker.sessionId.trim(),
+  );
+  const canBindLegacyIdentity = Boolean(
+    input.sessionId?.trim() && (
+      input.agentId?.trim() ||
+      input.packageName?.trim() ||
+      (typeof existingMarker?.agent === "string" && existingMarker.agent.trim())
+    ),
+  );
   const needsUpgrade =
-    currentVersion < EXPERT_SESSION_ISOLATION_VERSION || !existsSync(agentPath);
-  const hasSkillRequest = normalizeSkillNameList(input.skillNames).length > 0;
-  if (!needsUpgrade && !hasSkillRequest) {
+    !existsSync(agentPath) ||
+    (currentVersion < EXPERT_SESSION_ISOLATION_VERSION &&
+      (requestedCompleteIdentity || existingCompleteIdentity || canBindLegacyIdentity));
+  // An explicit empty declaration is meaningful: it asks a lazy repair to
+  // remove stale materialized skill folders. Checking only list length would
+  // leave rogue folders behind when an Expert declares no skills.
+  const hasSkillRequest = input.skillNames !== undefined;
+  const identityMismatch = [
+    [input.agentId, existingMarker?.agentId],
+    [input.packageName, existingMarker?.packageName],
+    [input.sessionId, existingMarker?.sessionId],
+  ].some(([requested, existing]) =>
+    typeof requested === "string" && requested.trim() && requested.trim() !== existing,
+  );
+  const existingApprovedAgentIds = Array.isArray(existingMarker?.approvedAgentIds)
+    ? normalizeAgentIdList(existingMarker.approvedAgentIds.filter((item): item is string => typeof item === "string"))
+    : [];
+  const requestedApprovedAgentIds = input.approvedAgentIds === undefined
+    ? null
+    : normalizeAgentIdList(input.approvedAgentIds);
+  const approvedAgentMismatch = requestedApprovedAgentIds !== null &&
+    !sameAgentIdList(existingApprovedAgentIds, requestedApprovedAgentIds);
+  if (!needsUpgrade && !hasSkillRequest && !identityMismatch && !approvedAgentMismatch) {
+    const declaredSkills = Array.isArray(existingMarker?.declaredSkills)
+      ? normalizeSkillNameList(existingMarker.declaredSkills.filter((item): item is string => typeof item === "string"))
+      : [];
+    const installedSkills = await readPhysicalInstalledSkills(authorized, declaredSkills);
+    const missingSkills = declaredSkills.filter((skill) => !installedSkills.includes(skill));
+    if (missingSkills.length > 0) {
+      recordExpertLifecycleEvent({
+        kind: "missing_skills",
+        source: "runtime",
+        phase: "ensure",
+        outcome: "partial",
+        code: "skills_missing",
+        declaredSkillCount: declaredSkills.length,
+        missingSkillCount: missingSkills.length,
+      });
+    }
+    const approvedAgentIds = existingApprovedAgentIds;
     return {
       directory: authorized,
       upgraded: false,
-      installedSkills: Array.isArray(existingMarker?.installedSkills)
-        ? (existingMarker!.installedSkills as string[])
-        : [],
+      ...(typeof existingMarker?.agentId === "string" && existingMarker.agentId.trim()
+        ? { agentId: existingMarker.agentId.trim() } : {}),
+      ...(typeof existingMarker?.packageName === "string" && existingMarker.packageName.trim()
+        ? { packageName: existingMarker.packageName.trim() } : {}),
+      ...(typeof existingMarker?.sessionId === "string" && existingMarker.sessionId.trim()
+        ? { sessionId: existingMarker.sessionId.trim() } : {}),
+      approvedAgentIds,
+      declaredSkills,
+      installedSkills,
+      missingSkills,
       isolationVersion: currentVersion || EXPERT_SESSION_ISOLATION_VERSION,
       defaultAgent: EXPERT_SESSION_DEFAULT_AGENT,
     };
@@ -365,7 +562,11 @@ export async function ensureExpertSessionRuntimeIsolation(input: {
   const applied = await applyExpertSessionIsolation({
     directory: authorized,
     workspaceId: input.workspace.id,
+    agentId: input.agentId,
+    packageName: input.packageName,
+    sessionId: input.sessionId,
     skillNames: input.skillNames,
+    approvedAgentIds: input.approvedAgentIds,
     skillsSourceRoot: input.skillsSourceRoot,
     existingMarker,
   });
@@ -391,6 +592,45 @@ export function normalizeSkillNameList(
   return out;
 }
 
+function normalizeAgentIdList(
+  agentIds: readonly string[] | undefined,
+): string[] {
+  if (!agentIds?.length) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of agentIds) {
+    const value = String(raw ?? "").trim();
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    out.push(value);
+  }
+  return out;
+}
+
+function sameAgentIdList(left: readonly string[], right: readonly string[]): boolean {
+  return [...left].sort().join("\u0000") === [...right].sort().join("\u0000");
+}
+
+async function readPhysicalInstalledSkills(
+  directory: string,
+  declaredSkills: readonly string[],
+): Promise<string[]> {
+  const skillsRoot = join(directory, ".opencode", "skills");
+  try {
+    const entries = await readdir(skillsRoot, { withFileTypes: true });
+    const folders = new Set(
+      entries
+        .filter((entry) => entry.isDirectory() && isSafeSkillFolderName(entry.name))
+        .map((entry) => entry.name),
+    );
+    return declaredSkills.filter((skill) =>
+      folders.has(skill) && existsSync(join(skillsRoot, skill, "SKILL.md")),
+    );
+  } catch {
+    return [];
+  }
+}
+
 function isSafeSkillFolderName(value: string): boolean {
   return (
     Boolean(value) &&
@@ -404,10 +644,14 @@ export async function createExpertSessionRuntimeDirectory(input: {
   workspace: WorkspaceInfo;
   agentName: string;
   agentId?: string;
+  packageName?: string;
+  sessionId?: string;
   sessionKey?: string;
   runtimeRoot?: string;
   /** Declared expert skills (frontmatter / package). Only these are linked. */
   skillNames?: readonly string[];
+  declaredSkills?: readonly string[];
+  approvedAgentIds?: readonly string[];
   /** Override skills source root (tests). Defaults to OPENCODE_GLOBAL_SKILLS_DIR / profile. */
   skillsSourceRoot?: string;
   defaultAgent?: string;
@@ -434,9 +678,13 @@ export async function createExpertSessionRuntimeDirectory(input: {
   const applied = await applyExpertSessionIsolation({
     directory,
     workspaceId: input.workspace.id,
+    agentId: input.agentId,
+    packageName: input.packageName?.trim() || input.agentId?.trim(),
+    sessionId: input.sessionId,
     agentSegment,
     sessionKey,
     skillNames: input.skillNames,
+    approvedAgentIds: input.approvedAgentIds,
     skillsSourceRoot: input.skillsSourceRoot,
     defaultAgent: input.defaultAgent,
   });
@@ -445,7 +693,13 @@ export async function createExpertSessionRuntimeDirectory(input: {
     directory,
     sessionKey,
     agentSegment,
+    ...(applied.agentId ? { agentId: applied.agentId } : {}),
+    ...(applied.packageName ? { packageName: applied.packageName } : {}),
+    ...(applied.sessionId ? { sessionId: applied.sessionId } : {}),
+    approvedAgentIds: applied.approvedAgentIds,
+    declaredSkills: applied.declaredSkills,
     installedSkills: applied.installedSkills,
+    missingSkills: applied.missingSkills,
     isolationVersion: applied.isolationVersion,
     defaultAgent: applied.defaultAgent,
   };
@@ -499,13 +753,55 @@ function isPathInside(root: string, candidate: string): boolean {
     || normalizedCandidate.startsWith(`${normalizedRoot}${sep}`);
 }
 
+async function writeMarkerAtomically(path: string, marker: Record<string, unknown>): Promise<void> {
+  const temporaryPath = `${path}.tmp-${process.pid}-${randomUUID()}`;
+  try {
+    await writeFile(temporaryPath, `${JSON.stringify(marker, null, 2)}\n`, "utf8");
+    await rename(temporaryPath, path);
+  } finally {
+    await rm(temporaryPath, { force: true }).catch(() => undefined);
+  }
+}
+
+export function parseExpertSessionMarker(
+  marker: unknown,
+  workspaceId: string,
+): ExpertSessionMarker | null {
+  if (!marker || typeof marker !== "object") return null;
+  const value = marker as Record<string, unknown>;
+  if (value.kind !== "expert-session" || value.workspaceId !== workspaceId) return null;
+  const version = value.isolationVersion;
+  if (version === undefined) return value as ExpertSessionMarker;
+  if (typeof version !== "number" || !Number.isSafeInteger(version) || version < 1 || version > EXPERT_SESSION_ISOLATION_VERSION) {
+    return null;
+  }
+  if (version < EXPERT_SESSION_ISOLATION_VERSION) return value as ExpertSessionMarker;
+  if (!["agentId", "packageName", "sessionId"].every(
+    (field) => typeof value[field] === "string" && String(value[field]).trim(),
+  )) return null;
+  if (!["declaredSkills", "installedSkills", "missingSkills"].every(
+    (field) => Array.isArray(value[field]) &&
+      (value[field] as unknown[]).every((item) => typeof item === "string" && isSafeSkillFolderName(item)),
+  )) return null;
+  if (value.approvedAgentIds !== undefined &&
+    (!Array.isArray(value.approvedAgentIds) ||
+      !(value.approvedAgentIds as unknown[]).every(
+        (item) => typeof item === "string" && item.trim(),
+      ))) return null;
+  const declared = new Set(value.declaredSkills as string[]);
+  const installed = new Set(value.installedSkills as string[]);
+  const missing = new Set(value.missingSkills as string[]);
+  if (!( [...installed].every((skill) => declared.has(skill)) &&
+    [...missing].every((skill) => declared.has(skill)) &&
+    [...installed].every((skill) => !missing.has(skill)))) return null;
+  return value as ExpertSessionMarker;
+}
+
 function isExpertSessionMarkerForWorkspace(
   marker: unknown,
   workspaceId: string,
 ): boolean {
-  if (!marker || typeof marker !== "object") return false;
-  const value = marker as Record<string, unknown>;
-  return value.kind === "expert-session" && value.workspaceId === workspaceId;
+  return parseExpertSessionMarker(marker, workspaceId) !== null;
 }
 
 async function resolveCanonicalDirectoryWithinRoot(input: {

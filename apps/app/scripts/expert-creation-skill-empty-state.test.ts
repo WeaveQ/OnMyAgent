@@ -7,12 +7,16 @@ const pageSource = readFileSync(
   join(appRoot, "src/react-app/domains/agents/expert-creation-page.tsx"),
   "utf8",
 );
-const emptyStateStart = pageSource.indexOf("        <Empty\n          variant=\"ghost\"");
-const emptyStateEnd = pageSource.indexOf("        </Empty>", emptyStateStart);
-const emptyStateSource = pageSource.slice(emptyStateStart, emptyStateEnd);
-const illustrationStart = pageSource.indexOf("function SkillsEmptyIllustration()");
-const illustrationEnd = pageSource.indexOf("function SkillImportDialog", illustrationStart);
-const illustrationSource = pageSource.slice(illustrationStart, illustrationEnd);
+const skillsSource = readFileSync(
+  join(appRoot, "src/react-app/domains/agents/expert-creation-skills-tab.tsx"),
+  "utf8",
+);
+const emptyStateStart = skillsSource.indexOf("        <Empty\n          variant=\"ghost\"");
+const emptyStateEnd = skillsSource.indexOf("        </Empty>", emptyStateStart);
+const emptyStateSource = skillsSource.slice(emptyStateStart, emptyStateEnd);
+const illustrationStart = skillsSource.indexOf("function SkillsEmptyIllustration()");
+const illustrationEnd = skillsSource.indexOf("function SkillImportDialog", illustrationStart);
+const illustrationSource = skillsSource.slice(illustrationStart, illustrationEnd);
 
 describe("expert creation skill empty state", () => {
   test("uses an illustration, title, and guidance without inline actions", () => {
@@ -37,7 +41,7 @@ describe("expert creation skill empty state", () => {
   });
 
   test("keeps the add-skill action in the panel header", () => {
-    const panelHeader = pageSource.slice(0, emptyStateStart);
+    const panelHeader = skillsSource.slice(0, emptyStateStart);
     expect(panelHeader).toContain("<SkillPickerPopover");
     expect(panelHeader).toContain("expert_creation_add_skill");
   });

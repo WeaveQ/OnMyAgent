@@ -163,6 +163,11 @@ export type DebugViewProps = {
   opencodeConnectCard: OpenCodeConnectDebugCard;
   onmyagentCard: RuntimeServiceCard;
   onmyagentServerDiagnostics: OnMyAgentServerDiagnostics | null;
+  expertLifecycleEventCount: number;
+  expertLifecycleEventsJson: string;
+  expertLifecycleStatus: string | null;
+  onCopyExpertLifecycleEvents: () => void | Promise<void>;
+  onExportExpertLifecycleEvents: () => void | Promise<void>;
   runtimeWorkspaceId: string | null;
   onmyagentServerCapabilities: OnMyAgentServerCapabilities | null;
   pendingPermissions: unknown;
@@ -569,6 +574,45 @@ export function DebugView(props: DebugViewProps) {
           ) : (
             <div className={debugLayoutClass.mutedText}>{t("settings.capabilities_unavailable")}</div>
           )}
+        </div>
+
+        <div className={subCardClass}>
+          <div className={debugLayoutClass.headerRow}>
+            <div className="min-w-0">
+              <div className={subSectionTitleClass}>
+                {t("settings.expert_lifecycle_events_title")}
+              </div>
+              <div className={debugLayoutClass.mutedText}>
+                {t("settings.expert_lifecycle_events_desc", {
+                  count: String(props.expertLifecycleEventCount),
+                })}
+              </div>
+            </div>
+            <div className={debugLayoutClass.actionRow}>
+              <Button
+                variant="outline"
+                size="xs"
+                onClick={() => void props.onCopyExpertLifecycleEvents()}
+              >
+                <Copy size={12} className="mr-1.5" />
+                {t("settings.copy_json")}
+              </Button>
+              <Button
+                variant="outline"
+                size="xs"
+                onClick={() => void props.onExportExpertLifecycleEvents()}
+              >
+                <Download size={12} className="mr-1.5" />
+                {t("settings.export")}
+              </Button>
+            </div>
+          </div>
+          <pre className={debugLayoutClass.preCompact}>
+            {props.expertLifecycleEventsJson}
+          </pre>
+          {props.expertLifecycleStatus ? (
+            <StatusBanner tone="info" message={props.expertLifecycleStatus} />
+          ) : null}
         </div>
       </div>
 

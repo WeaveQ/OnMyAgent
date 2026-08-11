@@ -1,12 +1,14 @@
 import { describe, expect, test, beforeEach } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 /**
- * Page-mode membership (localStorage) drives assistant "最近" visibility.
- * insertSidebarSession must call these register helpers on create.
+ * Assistant page-mode membership drives assistant "最近" visibility. Expert
+ * identity is server Directory-derived and must never regain a localStorage
+ * membership owner.
  */
 
 const ASSISTANT_SESSION_KEY = "onmyagent:assistantSessionIds";
-const EXPERT_SESSION_KEY = "onmyagent:expertSessionIds";
 
 function memoryStorage() {
   const map = new Map<string, string>();
@@ -48,15 +50,13 @@ describe("assistant/expert session membership (sidebar filter source)", () => {
     expect(localStorage.getItem(ASSISTANT_SESSION_KEY)).toContain("ses_new");
   });
 
-  test("addExpertSession makes isExpertSession true", async () => {
-    const { addExpertSession, isExpertSession } = await import(
+  test("does not restore renderer-owned Expert membership", async () => {
+    const sessionState = await import(
       "../src/react-app/domains/agents/agent-session-state"
     );
-
-    expect(isExpertSession("ses_exp")).toBe(false);
-    addExpertSession("ses_exp");
-    expect(isExpertSession("ses_exp")).toBe(true);
-    expect(localStorage.getItem(EXPERT_SESSION_KEY)).toContain("ses_exp");
+    expect("addExpertSession" in sessionState).toBe(false);
+    expect("isExpertSession" in sessionState).toBe(false);
+    expect(localStorage.getItem("onmyagent:expertSessionIds")).toBeNull();
   });
 
   test("registerSidebarSessionPageMode defaults to assistant", async () => {
@@ -65,9 +65,7 @@ describe("assistant/expert session membership (sidebar filter source)", () => {
     // matching registerSidebarSessionPageMode behavior.
     const {
       addAssistantSession,
-      addExpertSession,
       isAssistantSession,
-      isExpertSession,
       writeAssistantSessionCategory,
     } = await import("../src/react-app/domains/agents/agent-session-state");
 
@@ -77,10 +75,7 @@ describe("assistant/expert session membership (sidebar filter source)", () => {
     ): void {
       const id = sessionId.trim();
       if (!id) return;
-      if (pageMode === "expert") {
-        addExpertSession(id);
-        return;
-      }
+      if (pageMode === "expert") return;
       if (pageMode === "assistant" || pageMode == null) {
         addAssistantSession(id);
         writeAssistantSessionCategory(id, "office");
@@ -91,7 +86,12 @@ describe("assistant/expert session membership (sidebar filter source)", () => {
     expect(isAssistantSession("ses_a")).toBe(true);
 
     registerSidebarSessionPageMode("ses_e", "expert");
-    expect(isExpertSession("ses_e")).toBe(true);
     expect(isAssistantSession("ses_e")).toBe(false);
+
+    const routeSource = readFileSync(
+      join(import.meta.dir, "../src/react-app/shell/session-route/page-view.tsx"),
+      "utf8",
+    );
+    expect(routeSource).toContain(".upsertIdentity(workspaceId, newSession.id, agentToBind.id)");
   });
 });

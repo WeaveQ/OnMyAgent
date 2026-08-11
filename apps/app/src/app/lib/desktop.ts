@@ -75,6 +75,8 @@ export type {
   ExpertMarketplaceName,
   ExpertPackageInstallInput,
   ExpertPackageInstallResult,
+  ExpertPackageDeleteInput,
+  ExpertPackageDeleteResult,
   ExpertPackageListEntry,
   ExpertRegistryListEntry,
   MyExpertPackageWriteInput,
@@ -126,6 +128,8 @@ import type {
   ExpertMarketplaceName,
   ExpertPackageInstallInput,
   ExpertPackageInstallResult,
+  ExpertPackageDeleteInput,
+  ExpertPackageDeleteResult,
   MessagingChannelStatus,
   MyExpertKnowledgeStageInput,
   MyExpertPackageWriteInput,
@@ -833,10 +837,10 @@ export const listExpertRegistryRecords = (marketplace: ExpertMarketplaceName) =>
 export const writeMyExpertPackage = (input: MyExpertPackageWriteInput) =>
   invokeDesktopCommand("writeMyExpertPackage", input);
 
-export const uninstallExpertPackage = (input: {
-  marketplace: ExpertMarketplaceName;
-  packageName: string;
-}) => invokeDesktopCommand("uninstallExpertPackage", input);
+export const deleteExpertPackage = (
+  input: ExpertPackageDeleteInput,
+): Promise<ExpertPackageDeleteResult> =>
+  invokeDesktopCommand("deleteExpertPackage", input);
 
 export const stageMyExpertKnowledge = (input: MyExpertKnowledgeStageInput) =>
   invokeDesktopCommand("stageMyExpertKnowledge", input);

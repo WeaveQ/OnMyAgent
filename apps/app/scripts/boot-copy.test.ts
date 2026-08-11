@@ -225,8 +225,10 @@ describe("boot/desktop wiring", () => {
     );
     expect(surface).toContain("onmyagent-boot-mark.png");
     expect(surface).not.toContain("onmyagent-logo.png");
-    expect(surface).not.toContain("resolvePublicAssetUrl");
+    expect(surface).toContain("resolvePublicAssetUrl");
     expect(indexHtml).toContain("onmyagent-boot-mark.png");
+    expect(indexHtml).toContain('src="./onmyagent-boot-mark.png"');
+    expect(indexHtml).not.toContain('src="/onmyagent-boot-mark.png"');
     expect(indexHtml).not.toContain('src="/onmyagent-logo.png"');
   });
 

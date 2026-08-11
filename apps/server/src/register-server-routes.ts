@@ -30,6 +30,8 @@ import { registerWorkspaceObservabilityRoutes } from "./routes/workspace-observa
 import { registerWorkspaceSessionArchiveRoutes } from "./routes/workspace-session-archive-routes.js";
 import { registerWorkspaceSessionRoutes } from "./routes/workspace-session-routes.js";
 import { registerWorkspaceSessionOriginRoutes } from "./routes/workspace-session-origin-routes.js";
+import { registerWorkspaceExpertDirectoryRoutes } from "./routes/workspace-expert-directory-routes.js";
+import { registerWorkspaceExpertDeleteRoutes } from "./routes/workspace-expert-delete-routes.js";
 import { registerWorkspaceRoutes } from "./routes/workspace-routes.js";
 import { registerWorkspaceConfigRoutes } from "./routes/workspace-config-routes.js";
 import { registerWorkspaceArtifactRoutes } from "./routes/workspace-artifact-routes.js";
@@ -334,6 +336,25 @@ export function registerServerRoutes(input: RegisterServerRoutesInput): void {
   });
 
   registerWorkspaceSessionOriginRoutes({
+    routes,
+    config,
+    ensureWritable,
+    requireClientScope,
+    resolveWorkspace,
+    readJsonBody,
+  });
+
+  registerWorkspaceExpertDirectoryRoutes({
+    routes,
+    config,
+    ensureWritable,
+    requireClientScope,
+    resolveWorkspace,
+    readJsonBody,
+    listWorkspaceSessions,
+  });
+
+  registerWorkspaceExpertDeleteRoutes({
     routes,
     config,
     ensureWritable,

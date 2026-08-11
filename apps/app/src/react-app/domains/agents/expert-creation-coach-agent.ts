@@ -15,6 +15,7 @@ import type {
 import { buildExpertCreationCoachWorkflowInstructions } from "./expert-creation-coach-contract";
 import {
   buildAgentToolAccess,
+  createExpertOperationId,
   type AgentToolAccessMap,
   type PendingAgentContext,
 } from "./pending-agent-store";
@@ -117,7 +118,8 @@ export function buildExpertCreationCoachPendingContext(
     },
     systemPrompt: buildExpertCreationCoachSystemPrompt(coach, draft, registry.skills),
     tools: buildExpertCreationCoachToolAccess(coach),
-    conversationStartId: Date.now(),
+    operationId: createExpertOperationId(),
+    draftCreatedAt: Date.now(),
     draftSource: "agent-selection",
   };
 }

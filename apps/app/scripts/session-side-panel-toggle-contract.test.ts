@@ -86,6 +86,8 @@ describe("right side panel toggle contract", () => {
       [
         readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
         readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx"),
+        readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-side-panel.tsx"),
+        readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-main-surface.tsx"),
       ].join("\n"),
     ];
     for (const source of twoPxGutterSources) {
@@ -135,6 +137,8 @@ describe("right side panel toggle contract", () => {
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-page.tsx"),
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-main-surface.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-page-view-model.tsx"),
     ].join("\n");
     const sharedChrome = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/pages/session-history-search-chrome.tsx",
@@ -151,11 +155,12 @@ describe("right side panel toggle contract", () => {
     );
     expect(sharedChrome).toContain('<PanelRight className="size-3.5" />');
 
-    for (const source of [assistant, expert]) {
-      expect(source).toContain("SessionHistorySearchChrome");
-      expect(source).toContain("sidePanelOpen={sidePanelOpen}");
-      expect(source).toMatch(/headerActions=\{[^}]*headerPanelControls\}/);
-    }
+    expect(assistant).toContain("SessionHistorySearchChrome");
+    expect(assistant).toContain("sidePanelOpen={sidePanelOpen}");
+    expect(assistant).toMatch(/headerActions=\{[^}]*headerPanelControls\}/);
+    expect(expert).toContain("SessionHistorySearchChrome");
+    expect(expert).toContain("sidePanelOpen={hostState.sidePanelOpen}");
+    expect(expert).toMatch(/headerActions=\{[^}]*headerPanelControls\}/);
   });
 
   test("expanded code side panels expose an explicit close affordance", () => {

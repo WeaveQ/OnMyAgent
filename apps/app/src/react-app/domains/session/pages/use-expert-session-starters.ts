@@ -1,6 +1,8 @@
 import { useCallback } from "react";
 import {
   buildPendingAgentFromRecord,
+  createExpertOperationId,
+  refreshExpertPackageQuery,
   type AgentRegistry,
   type PendingAgentContext,
 } from "../../agents";
@@ -65,7 +67,8 @@ export function useExpertSessionStarters(input: {
       const pendingWithStart: PendingAgentContext = {
         ...pending,
         boundSessionId: undefined,
-        conversationStartId: Date.now(),
+        operationId: createExpertOperationId(),
+        draftCreatedAt: Date.now(),
         draftSource: "agent-selection",
       };
       input.activateDraftAgent(pendingWithStart);
@@ -91,12 +94,14 @@ export function useExpertSessionStarters(input: {
         );
       }
       // Already-installed packages resolve instantly via coordinator cache.
-      void installSummonedMarketplaceExpert(expert).catch((error) => {
-        console.warn(
-          "[expert-marketplace] failed to install expert package",
-          error,
-        );
-      });
+      void installSummonedMarketplaceExpert(expert)
+        .then(() => refreshExpertPackageQuery())
+        .catch((error) => {
+          console.warn(
+            "[expert-marketplace] failed to install expert package",
+            error,
+          );
+        });
     },
     [input],
   );
@@ -118,7 +123,8 @@ export function useExpertSessionStarters(input: {
       nextAgent = {
         ...input.activeAgentContext,
         boundSessionId: undefined,
-        conversationStartId: Date.now(),
+        operationId: createExpertOperationId(),
+        draftCreatedAt: Date.now(),
         draftSource: "new-session",
       };
     } else if (input.registry) {
@@ -131,7 +137,8 @@ export function useExpertSessionStarters(input: {
       if (restored) {
         nextAgent = {
           ...restored,
-          conversationStartId: Date.now(),
+          operationId: createExpertOperationId(),
+          draftCreatedAt: Date.now(),
           draftSource: "new-session",
         };
       }
@@ -140,7 +147,8 @@ export function useExpertSessionStarters(input: {
       nextAgent = {
         ...input.pendingAgent,
         boundSessionId: undefined,
-        conversationStartId: Date.now(),
+        operationId: createExpertOperationId(),
+        draftCreatedAt: Date.now(),
         draftSource: "new-session",
       };
     }

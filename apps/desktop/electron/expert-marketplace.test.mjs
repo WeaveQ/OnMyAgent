@@ -13,7 +13,8 @@ test("my expert packages preserve role prompt, memory, and selected skills", () 
     description: "Helps compare options.",
     rolePrompt: "Ask for constraints before making a recommendation.",
     memory: "Remember the user's preferred risk level.",
-    skillIds: ["research", "planning"],
+    skills: ["research", "planning"],
+    introStyle: "short-colleague",
   }, "decision-coach");
 
   assert.deepEqual(files.plugin.agentConfig, {
@@ -21,6 +22,8 @@ test("my expert packages preserve role prompt, memory, and selected skills", () 
     memory: "Remember the user's preferred risk level.",
     skillIds: ["research", "planning"],
   });
+  assert.deepEqual(files.plugin.skills, ["./skills/research", "./skills/planning"]);
+  assert.equal(files.plugin.introStyle, "short-colleague");
   assert.match(files.agentMarkdown, /## 角色提示词/);
   assert.match(files.agentMarkdown, /Ask for constraints/);
   assert.match(files.agentMarkdown, /## 专家记忆/);
@@ -66,4 +69,36 @@ test("imported team packages expose their single-lead workflow", async (context)
   assert.equal(entry.teamWorkflow.mode, "lead-workflow");
   assert.equal(entry.teamWorkflow.stages[0].title, "澄清与规划");
   assert.deepEqual(entry.teamWorkflow.stages[0].members, ["产品经理"]);
+});
+
+test("legacy frontmatter skills are a one-train fallback behind manifest ownership", async (context) => {
+  const root = await mkdtemp(join(tmpdir(), "onmyagent-legacy-skills-"));
+  context.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, ".expert-plugin"), { recursive: true });
+  await mkdir(join(root, "agents"), { recursive: true });
+  await writeFile(join(root, ".expert-plugin", "plugin.json"), JSON.stringify({
+    name: "legacy-expert",
+    agents: ["./agents/legacy-expert.md"],
+  }));
+  await writeFile(join(root, "agents", "legacy-expert.md"), [
+    "---",
+    "name: legacy-expert",
+    "skills:",
+    "  - ./skills/legacy-one",
+    "  - legacy-two",
+    "---",
+    "# Legacy expert",
+  ].join("\n"));
+
+  const marketplace = createExpertMarketplace({ getRealHomeDir: () => "/tmp/onmyagent-test-home" });
+  const fallbackEntry = marketplace.expertPackageEntryFromDirectory(root, "legacy-expert", "experts");
+  assert.deepEqual(fallbackEntry.skills, ["legacy-one", "legacy-two"]);
+
+  await writeFile(join(root, ".expert-plugin", "plugin.json"), JSON.stringify({
+    name: "legacy-expert",
+    agents: ["./agents/legacy-expert.md"],
+    skills: [],
+  }));
+  const manifestEntry = marketplace.expertPackageEntryFromDirectory(root, "legacy-expert", "experts");
+  assert.deepEqual(manifestEntry.skills, []);
 });

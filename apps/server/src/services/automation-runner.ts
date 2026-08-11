@@ -27,6 +27,10 @@ import {
   unwrapOpencodeResult,
 } from "./opencode-proxy.js";
 import {
+  ExpertRuntimeContractError,
+  resolveExpertRuntimeDirectoryCandidate,
+} from "./expert-runtime-contract.js";
+import {
   buildSessionMessages,
   buildSessionStatuses,
 } from "./session-read-model.js";
@@ -266,6 +270,18 @@ export async function startAutomationTask(
   }
 
   const workspaceRoot = task.workspaceDirectory?.trim() || workspace.path;
+  const expertRuntimeTarget = await resolveExpertRuntimeDirectoryCandidate({
+    workspaceId: workspace.id,
+    sessionRoot: workspaceRoot,
+    allowWorkspaceMismatch: true,
+  });
+  if (expertRuntimeTarget) {
+    throw new ExpertRuntimeContractError(
+      "authorized_directory",
+      { workspace, sessionId: "", directory: workspaceRoot },
+      "Automation cannot target an Expert runtime directory",
+    );
+  }
   const { groupName, outputDirectory } = await createAutomationOutputDirectory(workspaceRoot);
   const opencode = defaultOpencodeClientPool.get(config, workspace, outputDirectory);
   await writeFile(

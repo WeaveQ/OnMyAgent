@@ -153,7 +153,7 @@ export function resolveSessionRouteModeSwitchPath(input: {
     sessions: SidebarSessionItem[],
     predicate: (sessionId: string) => boolean,
   ) => string | null;
-  isExpertSession: (sessionId: string) => boolean;
+  isExpertSessionInDirectory: (sessionId: string) => boolean;
   /** Prefer mode-scoped memory: readLastSessionFor(workspaceId, mode). */
   readLastSessionFor: (
     workspaceId: string,
@@ -176,13 +176,13 @@ export function resolveSessionRouteModeSwitchPath(input: {
     if (
       remembered &&
       input.sessionListOwnsSession({ sessions, sessionId: remembered }) &&
-      !input.isExpertSession(remembered)
+      !input.isExpertSessionInDirectory(remembered)
     ) {
       return workspaceAssistantRoute(workspaceId, remembered);
     }
     const firstAssistantId = input.findFirstSessionIdMatching(
       sessions,
-      (sessionId) => !input.isExpertSession(sessionId),
+      (sessionId) => !input.isExpertSessionInDirectory(sessionId),
     );
     return firstAssistantId
       ? workspaceAssistantRoute(workspaceId, firstAssistantId)
@@ -194,11 +194,14 @@ export function resolveSessionRouteModeSwitchPath(input: {
   if (
     remembered &&
     input.sessionListOwnsSession({ sessions, sessionId: remembered }) &&
-    input.isExpertSession(remembered)
+    input.isExpertSessionInDirectory(remembered)
   ) {
     return workspaceSessionRoute(workspaceId, remembered);
   }
-  const firstExpertId = input.findFirstSessionIdMatching(sessions, input.isExpertSession);
+  const firstExpertId = input.findFirstSessionIdMatching(
+    sessions,
+    input.isExpertSessionInDirectory,
+  );
   return firstExpertId
     ? workspaceSessionRoute(workspaceId, firstExpertId)
     : workspaceSessionRoute(workspaceId);

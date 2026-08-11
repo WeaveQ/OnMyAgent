@@ -1,11 +1,12 @@
 /**
  * Expert permanent-delete: sessions + workspace files + registry + packages.
  */
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
+import { deleteExpertPackage } from "../../../../app/lib/desktop";
+import { getReactQueryClient } from "../../../infra/query-client";
 import { t } from "../../../../i18n";
 import {
-  readCustomAgentSessionEntries,
   type AgentRegistry,
 } from "../../agents";
 import {
@@ -21,19 +22,51 @@ import { useExpertUnreadStore } from "../status/expert-unread-store";
 import {
   canHardDeleteExpert,
   clearExpertLocalSessionBindings,
-  readExpertSessionIds,
-  remainingExpertSessionIdsAfterDelete,
-  removeExpertFromRegistry,
-  removeExpertSession,
-  uninstallExpertPackagesForAgent,
 } from "../../agents";
+import { isElectronRuntime } from "../../../../app/utils";
+import { useAgentRegistryStore } from "../../agents";
+import type { ExpertDeleteResult } from "@onmyagent/types/server";
+import type { ExpertPackageDeleteResult } from "@onmyagent/types/desktop-ipc";
 
 export type ExpertGroupDeleteTarget = {
   kind: "expert";
   agentId: string;
   name: string;
   sessionIds: string[];
+  packageName?: string;
+  operationId: string;
 };
+
+export type ExpertDeleteProgress = {
+  status: "idle" | "running" | "completed" | "failed";
+  operationId?: string;
+  server?: ExpertDeleteResult;
+  desktop?: ExpertPackageDeleteResult;
+  error?: string;
+};
+
+const DELETE_STEP_STATES = ["openCode", "runtime", "tombstone"] as const;
+
+/** Redacted actionable progress details for the retry dialog. */
+export function summarizeExpertDeleteProgress(
+  progress: Pick<ExpertDeleteProgress, "server" | "desktop" | "error">,
+): string {
+  const details: string[] = [];
+  for (const step of progress.server?.steps ?? []) {
+    for (const field of DELETE_STEP_STATES) {
+      const state = step[field];
+      if (state === "failed" || state === "pending") {
+        details.push(`server:${step.sessionId}:${field}:${step.code ?? state}`);
+      }
+    }
+  }
+  for (const step of progress.desktop?.steps ?? []) {
+    if (step.state === "failed" || step.state === "pending") {
+      details.push(`desktop:${step.target}:${step.code ?? step.state}`);
+    }
+  }
+  return details.length > 0 ? details.slice(0, 6).join(", ") : "unknown";
+}
 
 export type ExpertSessionDeleteTarget =
   | { kind: "session"; sessionId: string }
@@ -52,6 +85,7 @@ export function useExpertSessionDelete(input: {
   /** Live agent registry for hard-delete (definition + packages). */
   registry?: AgentRegistry | null;
 }) {
+  const [deleteProgress, setDeleteProgress] = useState<ExpertDeleteProgress>({ status: "idle" });
   const purgeExpertSessionFiles = useCallback(
     async (sessionId: string, agentSlug?: string | null) => {
       const client = input.client;
@@ -65,22 +99,14 @@ export function useExpertSessionDelete(input: {
         (task) => task.sessionId === id,
       );
       const directory = match?.directory ?? archived?.directory ?? null;
-      try {
-        await deleteSessionOwnedWorkspaceFiles({
-          client,
-          workspaceId,
-          sessionId: id,
-          directory,
-          agentSlug: agentSlug ?? input.activeConversationAgentId ?? null,
-          workspaceRoot: input.workspaceRoot,
-        });
-      } catch (error) {
-        console.warn(
-          "[expert] best-effort session file cleanup failed",
-          id,
-          error,
-        );
-      }
+      await deleteSessionOwnedWorkspaceFiles({
+        client,
+        workspaceId,
+        sessionId: id,
+        directory,
+        agentSlug: agentSlug ?? input.activeConversationAgentId ?? null,
+        workspaceRoot: input.workspaceRoot,
+      });
     },
     [
       input.activeConversationAgentId,
@@ -112,56 +138,62 @@ export function useExpertSessionDelete(input: {
         throw new Error("This system expert cannot be deleted");
       }
 
-      if (input.onDeleteSession) {
-        const deleteOne = input.onDeleteSession;
-        await Promise.allSettled(
-          target.sessionIds.map(async (sessionId) => {
-            await purgeExpertSessionFiles(sessionId, target.agentId);
-            permanentlyRemoveAssistantArchivedTask(
-              input.workspaceId,
-              sessionId,
-            );
-            return deleteOne(sessionId);
-          }),
-        );
-      }
-
-      clearExpertLocalSessionBindings(target.sessionIds);
-
-      // Also clear any leftover session↔agent bindings for this expert.
+      const client = input.client;
+      if (!client) throw new Error("Expert delete requires the server client");
+      if (!isElectronRuntime()) throw new Error("Expert package cleanup requires the desktop runtime");
+      const packageName = target.packageName?.trim() || input.registry?.agents.find(
+        (agent) => agent.id === target.agentId,
+      )?.marketplacePackageName?.trim() || target.agentId;
+      const operationId = target.operationId?.trim();
+      if (!operationId) throw new Error("Expert delete operation id is missing");
+      setDeleteProgress({ status: "running", operationId });
       try {
-        const leftover = readCustomAgentSessionEntries()
-          .filter((entry) => entry.agentId === target.agentId)
-          .map((entry) => entry.sessionId);
-        clearExpertLocalSessionBindings(leftover);
-        // Ghost-tab contract: remaining expert tags must not include deleted ids.
-        const remaining = remainingExpertSessionIdsAfterDelete(
-          readExpertSessionIds(),
-          [...target.sessionIds, ...leftover],
-        );
-        for (const id of readExpertSessionIds()) {
-          if (!remaining.includes(id)) removeExpertSession(id);
+        const serverResult = await client.deleteExpert(input.workspaceId, {
+          operationId,
+          agentId: target.agentId,
+          packageName,
+          marketplace: "my-experts",
+          sessionIds: target.sessionIds,
+        });
+        setDeleteProgress({ status: "running", operationId, server: serverResult });
+        if (serverResult.state !== "completed") {
+          const error = summarizeExpertDeleteProgress({ server: serverResult });
+          setDeleteProgress({ status: "failed", operationId, server: serverResult, error });
+          throw new Error(error);
         }
-      } catch {
-        // Best effort.
-      }
-
-      try {
-        await uninstallExpertPackagesForAgent({
+        const desktopResult = await deleteExpertPackage({
+          operationId,
           agentId: target.agentId,
-          registry: input.registry ?? null,
+          packageName,
+          marketplace: "my-experts",
         });
+        setDeleteProgress({ status: "running", operationId, server: serverResult, desktop: desktopResult });
+        if (desktopResult.state !== "completed") {
+          const error = summarizeExpertDeleteProgress({ server: serverResult, desktop: desktopResult });
+          setDeleteProgress({ status: "failed", operationId, server: serverResult, desktop: desktopResult, error });
+          throw new Error(error);
+        }
+        await getReactQueryClient().invalidateQueries({ queryKey: ["expert-directory", input.workspaceId] });
+        clearExpertLocalSessionBindings(target.sessionIds);
+        for (const sessionId of target.sessionIds) {
+          permanentlyRemoveAssistantArchivedTask(input.workspaceId, sessionId);
+        }
+        const registry = input.registry;
+        if (registry) {
+          useAgentRegistryStore.getState().setRegistry({
+            ...registry,
+            agents: registry.agents.filter((agent) => agent.id !== target.agentId),
+          });
+        }
+        setDeleteProgress({ status: "completed", operationId, server: serverResult, desktop: desktopResult });
       } catch (error) {
-        console.warn("[expert] package uninstall failed", target.agentId, error);
-      }
-
-      try {
-        await removeExpertFromRegistry({
-          agentId: target.agentId,
-          registry: input.registry ?? null,
-        });
-      } catch (error) {
-        console.warn("[expert] registry remove failed", target.agentId, error);
+        setDeleteProgress((current) => ({
+          ...current,
+          status: "failed",
+          operationId,
+          error: current.error ?? (error instanceof Error ? error.message : "expert_delete_failed"),
+        }));
+        throw error;
       }
 
       try {
@@ -184,11 +216,14 @@ export function useExpertSessionDelete(input: {
       input.onDeleteSession,
       input.registry,
       input.workspaceId,
+      deleteExpertPackage,
+      getReactQueryClient,
+      isElectronRuntime,
       purgeExpertSessionFiles,
     ],
   );
 
-  return { purgeExpertSessionFiles, executeExpertDelete };
+  return { purgeExpertSessionFiles, executeExpertDelete, deleteProgress };
 }
 
 /** Copy for the expert delete confirm dialog (session vs whole expert). */
@@ -196,13 +231,14 @@ export function resolveExpertDeleteCopy(input: {
   deleteTarget: ExpertSessionDeleteTarget | null | undefined;
   sessionActionTitle: string;
   deleteBusy: boolean;
+  deleteProgress?: ExpertDeleteProgress;
 }): { title: string; message: string; confirmLabel: string } {
   const target = input.deleteTarget;
   const title =
     target?.kind === "expert"
       ? t("session.delete_expert_title")
       : t("session.delete_session_title");
-  const message =
+  const baseMessage =
     target?.kind === "expert"
       ? target.name
         ? t("session.delete_named_expert_message", { name: target.name })
@@ -212,8 +248,18 @@ export function resolveExpertDeleteCopy(input: {
             title: input.sessionActionTitle.trim(),
           })
         : t("session.delete_session_generic");
+  const failed = input.deleteProgress?.status === "failed" &&
+    target?.kind === "expert" &&
+    input.deleteProgress.operationId === target.operationId;
+  const message = failed
+    ? `${baseMessage} ${t("session.delete_partial_message", {
+        error: summarizeExpertDeleteProgress(input.deleteProgress ?? {}),
+      })}`
+    : baseMessage;
   const confirmLabel = input.deleteBusy
     ? t("session.deleting")
-    : t("session.delete");
+    : failed
+      ? t("session.delete_retry")
+      : t("session.delete");
   return { title, message, confirmLabel };
 }

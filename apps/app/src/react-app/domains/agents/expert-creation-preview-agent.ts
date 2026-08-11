@@ -6,6 +6,7 @@ import type { AgentRegistry, AgentWizardDraft } from "./agent-registry-types";
 import { buildExpertPreviewSystemPrompt } from "./expert-creation-preview-runtime";
 import {
   buildAgentToolAccess,
+  createExpertOperationId,
   type AgentToolAccessMap,
   type PendingAgentContext,
 } from "./pending-agent-store";
@@ -35,7 +36,8 @@ export function buildExpertCreationPreviewPendingContext(
     description: draft.description.trim(),
     systemPrompt: buildExpertPreviewSystemPrompt(draft, knowledgePaths),
     tools: buildAgentToolAccess(draft),
-    conversationStartId: Date.now(),
+    operationId: createExpertOperationId(),
+    draftCreatedAt: Date.now(),
     draftSource: "agent-selection",
   };
 }

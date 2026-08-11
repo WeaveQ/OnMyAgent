@@ -423,10 +423,10 @@ export function AgentSessionTabs(props: {
 
   const resolveTabAgentId = useCallback(
     (sessionId: string) =>
-      resolveAgentIdForSession(sessionId) ??
+      resolveAgentIdForSession(props.workspaceId, sessionId) ??
       props.agentId?.trim() ??
       null,
-    [props.agentId],
+    [props.agentId, props.workspaceId],
   );
 
   useEffect(() => {

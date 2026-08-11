@@ -1,6 +1,11 @@
 import { createReadStream } from "node:fs";
 import { readFile } from "node:fs/promises";
-import type { ServerConfig, TokenScope, WorkspaceInfo } from "@onmyagent/types/server";
+import type {
+  ServerConfig,
+  TokenScope,
+  WorkspaceInfo,
+  WorkspaceSessionScope,
+} from "@onmyagent/types/server";
 import { ApiError } from "../core/errors.js";
 import { nodeReadableToWebStream } from "../core/node-web-stream.js";
 import {
@@ -18,6 +23,7 @@ import {
 } from "../workspace/path-utils.js";
 
 type SessionListInput = {
+  scope?: WorkspaceSessionScope;
   roots?: boolean;
   start?: number;
   search?: string;
@@ -101,11 +107,17 @@ export function registerWorkspaceSessionRoutes(input: {
       const skillNames = Array.isArray(body.skillNames)
         ? body.skillNames.filter((item: unknown): item is string => typeof item === "string")
         : undefined;
+      const approvedAgentIds = Array.isArray(body.approvedAgentIds)
+        ? body.approvedAgentIds.filter((item: unknown): item is string => typeof item === "string")
+        : undefined;
       const result = await createExpertSessionRuntimeDirectory({
         workspace,
         agentName,
         agentId: typeof body.agentId === "string" ? body.agentId : undefined,
+        packageName: typeof body.packageName === "string" ? body.packageName : undefined,
+        sessionId: typeof body.sessionId === "string" ? body.sessionId : undefined,
         sessionKey: typeof body.sessionKey === "string" ? body.sessionKey : undefined,
+        approvedAgentIds,
         skillNames,
       });
       return systemJsonResponse({ ok: true, ...result }, 201);
@@ -129,9 +141,16 @@ export function registerWorkspaceSessionRoutes(input: {
       const skillNames = Array.isArray(body.skillNames)
         ? body.skillNames.filter((item: unknown): item is string => typeof item === "string")
         : undefined;
+      const approvedAgentIds = Array.isArray(body.approvedAgentIds)
+        ? body.approvedAgentIds.filter((item: unknown): item is string => typeof item === "string")
+        : undefined;
       const result = await ensureExpertSessionRuntimeIsolation({
         workspace,
         directory,
+        agentId: typeof body.agentId === "string" ? body.agentId : undefined,
+        packageName: typeof body.packageName === "string" ? body.packageName : undefined,
+        sessionId: typeof body.sessionId === "string" ? body.sessionId : undefined,
+        approvedAgentIds,
         skillNames,
       });
       if (!result) {
@@ -222,7 +241,9 @@ export function registerWorkspaceSessionRoutes(input: {
 
   addRoute(routes, "GET", "/workspace/:id/sessions", "client", async (ctx) => {
     const workspace = await resolveWorkspace(config, ctx.params.id);
-    const items = await listWorkspaceSessions(config, workspace, {
+    const scope = parseOptionalSessionScope(ctx.url.searchParams.get("scope"));
+    const result = await listWorkspaceSessions(config, workspace, {
+      scope,
       roots: parseOptionalBoolean(ctx.url.searchParams.get("roots"), "roots"),
       start: parseOptionalNonNegativeInteger(
         ctx.url.searchParams.get("start"),
@@ -236,7 +257,7 @@ export function registerWorkspaceSessionRoutes(input: {
       directory: ctx.url.searchParams.get("directory")?.trim() || undefined,
       signal: ctx.request.signal,
     });
-    return systemJsonResponse({ items });
+    return systemJsonResponse(scope === "workspace" ? result : { items: result });
   });
 
   addRoute(
@@ -380,4 +401,13 @@ function parseOptionalBoolean(
   if (["1", "true", "yes", "on"].includes(normalized)) return true;
   if (["0", "false", "no", "off"].includes(normalized)) return false;
   throw new ApiError(400, "invalid_query", `${name} must be a boolean`);
+}
+
+function parseOptionalSessionScope(value: string | null): WorkspaceSessionScope | undefined {
+  if (value == null || value.trim() === "") return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "directory" || normalized === "workspace") {
+    return normalized;
+  }
+  throw new ApiError(400, "invalid_query", "scope must be directory or workspace");
 }

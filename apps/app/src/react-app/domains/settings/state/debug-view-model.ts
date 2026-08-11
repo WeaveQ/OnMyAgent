@@ -239,6 +239,7 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
   const [engineInfoState, setEngineInfoState] = useState<EngineInfo | null>(null);
   const [appBuild, setAppBuild] = useState<AppBuildInfo | null>(null);
   const [runtimeDebugStatus, setRuntimeDebugStatus] = useState<string | null>(null);
+  const [expertLifecycleStatus, setExpertLifecycleStatus] = useState<string | null>(null);
   const [sandboxProbeBusy, setSandboxProbeBusy] = useState(false);
   const [sandboxProbeResult, setSandboxProbeResult] = useState<SandboxDebugProbeResult | null>(null);
   const [sandboxProbeStatus, setSandboxProbeStatus] = useState<string | null>(null);
@@ -394,6 +395,44 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       setRuntimeDebugStatus(error instanceof Error ? error.message : safeStringify(error));
     }
   }, [runtimeDebugReportJson]);
+
+  const expertLifecycleEvents =
+    onmyagentServerSnapshot.onmyagentServerDiagnostics?.expertLifecycleEvents ??
+    null;
+  const expertLifecycleEventsJson = useMemo(
+    () => safeStringify(expertLifecycleEvents ?? {
+      schema: "onmyagent.expert-lifecycle-events",
+      version: 1,
+      capacity: 512,
+      nextSequence: 1,
+      events: [],
+    }),
+    [expertLifecycleEvents],
+  );
+  const onCopyExpertLifecycleEvents = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(expertLifecycleEventsJson);
+      setExpertLifecycleStatus(t("settings.expert_lifecycle_events_copied"));
+    } catch (error) {
+      setExpertLifecycleStatus(
+        error instanceof Error ? error.message : safeStringify(error),
+      );
+    }
+  }, [expertLifecycleEventsJson]);
+  const onExportExpertLifecycleEvents = useCallback(() => {
+    try {
+      downloadTextAsFile(
+        `onmyagent-expert-lifecycle-${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
+        expertLifecycleEventsJson,
+        "application/json",
+      );
+      setExpertLifecycleStatus(t("settings.expert_lifecycle_events_exported"));
+    } catch (error) {
+      setExpertLifecycleStatus(
+        error instanceof Error ? error.message : safeStringify(error),
+      );
+    }
+  }, [expertLifecycleEventsJson]);
 
   const onClearDeveloperLog = useCallback(() => {
     setDeveloperLog([]);
@@ -960,6 +999,11 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       opencodeConnectCard,
       onmyagentCard,
       onmyagentServerDiagnostics: onmyagentServerSnapshot.onmyagentServerDiagnostics,
+      expertLifecycleEventCount: expertLifecycleEvents?.events.length ?? 0,
+      expertLifecycleEventsJson,
+      expertLifecycleStatus,
+      onCopyExpertLifecycleEvents,
+      onExportExpertLifecycleEvents,
       runtimeWorkspaceId,
       onmyagentServerCapabilities: onmyagentServerSnapshot.onmyagentServerCapabilities,
       pendingPermissions: {},
@@ -987,6 +1031,9 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       electronMigrationSha512,
       electronMigrationStatus,
       electronMigrationUrl,
+      expertLifecycleEvents,
+      expertLifecycleEventsJson,
+      expertLifecycleStatus,
       electronAlphaUpdaterBusy,
       electronAlphaUpdaterChannel,
       electronAlphaUpdaterStatus,
@@ -999,8 +1046,10 @@ export function useDebugViewModel(options: UseDebugViewModelOptions) {
       onClearEngineCustomBinPath,
       onClearWorkspaceDebugEvents,
       onCopyDeveloperLog,
+      onCopyExpertLifecycleEvents,
       onCopyRuntimeDebugReport,
       onExportDeveloperLog,
+      onExportExpertLifecycleEvents,
       onExportRuntimeDebugReport,
       onInstallElectronPreviewFromLegacy,
       onCheckElectronAlphaUpdates,

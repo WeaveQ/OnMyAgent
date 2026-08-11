@@ -28,6 +28,8 @@ describe("workspace session origin routes", () => {
       kind: "expert",
       workspaceId: "forged-workspace",
       agentId: "expert-a",
+      packageName: "expert-package",
+      directory: "/external/runtime/session-1",
     });
     expect(created).toMatchObject({
       item: { workspaceId: workspace.id, sessionId: "session-1", kind: "expert", agentId: "expert-a" },
@@ -36,8 +38,8 @@ describe("workspace session origin routes", () => {
     expect(await call(routes, workspace, "GET")).toMatchObject({
       items: [{ workspaceId: workspace.id, sessionId: "session-1" }],
     });
-    expect(await call(routes, workspace, "DELETE", "session-1")).toEqual({ ok: true });
-    expect(await call(routes, workspace, "GET")).toEqual({ items: [] });
+    expect(await call(routes, workspace, "DELETE", "session-1")).toMatchObject({ ok: true, revision: 2 });
+    expect(await call(routes, workspace, "GET")).toMatchObject({ items: [], complete: true, version: 2 });
 
     await expect(call(routes, workspace, "PUT", "session-2", { kind: "assistant" }, "viewer"))
       .rejects.toMatchObject({ status: 403 });
@@ -70,7 +72,12 @@ describe("workspace session origin routes", () => {
 
   test("preserves the origin when the upstream session delete fails", async () => {
     const workspace = await createWorkspace();
-    await upsertSessionOrigin(workspace, "still-present", { kind: "expert" });
+    await upsertSessionOrigin(workspace, "still-present", {
+      kind: "expert",
+      agentId: "expert-a",
+      packageName: "expert-package",
+      directory: "/external/runtime/still-present",
+    });
     const routes: Route[] = [];
     registerWorkspaceSessionRoutes({
       routes,

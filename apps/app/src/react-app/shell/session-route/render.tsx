@@ -55,7 +55,8 @@ import {
   toPaletteSessionOptions,
   type PendingCreatedSessionMap,
 } from "./sessions";
-import { isAssistantSession, isExpertSession, useEnsureAgentRegistry } from "../../domains/agents";
+import { isAssistantSession, useEnsureAgentRegistry } from "../../domains/agents";
+import { useExpertDirectoryStore } from "../../capabilities/session-identity/expert-directory-store";
 import type { OnMyAgentServerInfo } from "../../../app/lib/desktop";
 import type {
   PendingPermission,
@@ -90,11 +91,11 @@ import { ensureDesktopLocalOnMyAgentConnection } from "../desktop-local-onmyagen
 import { useStatusToasts } from "../../domains/shell-feedback";
 import {
   readAssistantSessionWorkspace,
-  resolveSelectedSessionFileRoot,
   seedPermissionState,
   seedQuestionState,
   useSessionActivityStore,
 } from "../../domains/session";
+import { resolveSelectedSessionFileRoot } from "../../capabilities/session-identity/expert-session-directory";
 import { useProviderListQuery } from "../../domains/connections";
 import { useSessionRouteNavigation } from "./navigation-hook";
 import { useSessionRouteChromeState } from "./chrome-state-hook";
@@ -168,6 +169,9 @@ export function SessionRouteRender() {
   const [legacySelectedWorkspaceId, setLegacySelectedWorkspaceId] =
     useState<string>(() => readActiveWorkspaceId() ?? "");
   const selectedWorkspaceId = routeWorkspaceId || legacySelectedWorkspaceId;
+  const expertDirectoryIdentity = useExpertDirectoryStore((state) =>
+    state.getIdentity(selectedWorkspaceId),
+  );
   const selectedWorkspace = useMemo(
     () =>
       workspaces.find((workspace) => workspace.id === selectedWorkspaceId) ??
@@ -204,8 +208,8 @@ export function SessionRouteRender() {
     (sessionId: string) =>
       pageMode === "assistant"
         ? isAssistantSession(sessionId)
-        : isExpertSession(sessionId),
-    [pageMode],
+        : expertDirectoryIdentity.sessionIds.has(sessionId),
+    [expertDirectoryIdentity.sessionIds, pageMode],
   );
   const firstSessionIdForPageMode = useCallback(
     (workspaceId: string) =>
@@ -1157,6 +1161,8 @@ export function SessionRouteRender() {
       selectedWorkspaceId={selectedWorkspaceId}
       selectedWorkspaceRoot={selectedWorkspaceRoot}
       selectedWorkspaceServerToken={selectedWorkspaceServerToken}
+      isExpertSessionInDirectory={(sessionId) =>
+        expertDirectoryIdentity.sessionIds.has(sessionId)}
       sessionMatchesPageMode={sessionMatchesPageMode}
       sessionProviderAuthSnapshot={sessionProviderAuthSnapshot}
       sessionProviderAuthStore={sessionProviderAuthStore}

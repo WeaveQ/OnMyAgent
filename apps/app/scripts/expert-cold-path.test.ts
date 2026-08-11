@@ -143,6 +143,31 @@ describe("expert cold path queue + prewarm", () => {
     expect(getExpertColdPrewarmDebugSnapshot()[0]?.phase).toBe("ready");
   });
 
+  test("canonical package and approved-agent metadata invalidate stale prewarm", async () => {
+    let creates = 0;
+    const runner = {
+      createIsolatedDirectory: async () => ({ directory: `/tmp/meta-${++creates}` }),
+      createSession: async () => ({ id: `ses_${creates}` }),
+    };
+    await getOrStartExpertColdSession({
+      workspaceId: "ws",
+      agentId: "expert",
+      agentName: "Expert",
+      packageName: "package-a",
+      approvedAgentIds: ["agent-a"],
+      skillNames: ["skill-a"],
+    }, runner);
+    await getOrStartExpertColdSession({
+      workspaceId: "ws",
+      agentId: "expert",
+      agentName: "Expert",
+      packageName: "package-b",
+      approvedAgentIds: ["agent-b"],
+      skillNames: ["skill-a"],
+    }, runner);
+    expect(creates).toBe(2);
+  });
+
   test("buildExpertColdPrewarmKey trims ids", () => {
     expect(buildExpertColdPrewarmKey(" ws ", " ag ")).toBe("ws\0ag");
   });
@@ -159,6 +184,9 @@ describe("expert cold path wiring contracts", () => {
     );
     expect(source).toContain("claimOrCreateExpertColdSession(");
     expect(source).toContain("expertColdClaim");
+    expect(source).toContain("pendingForColdPath?.skillIds ?? []");
+    expect(source).toContain("approvedAgentIds");
+    expect(source).not.toContain("parseSkillNamesFromAgentMarkdown");
   });
 
   test("draft activation starts expert cold prewarm", async () => {
