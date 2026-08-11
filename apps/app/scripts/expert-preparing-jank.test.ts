@@ -71,9 +71,8 @@ describe("expert preparing jank guards", () => {
     const source = await readFile(surfacePropsPath, "utf8");
     const kickoffIdx = source.indexOf("kickoffMarketplaceExpertInstall(");
     const envKickoffIdx = source.indexOf("envSystemContextPromise = buildOnMyAgentEnvSystemContext(");
-    const isolateIdx = source.indexOf(
-      "createIsolatedExpertSessionRuntimeDirectory({",
-    );
+    // Send-path cold claim (prewarm effect also references createIsolated earlier).
+    const isolateIdx = source.indexOf("claimOrCreateExpertColdSession(");
     const joinIdx = source.indexOf("Join early install + env prep");
     expect(kickoffIdx).toBeGreaterThan(0);
     expect(envKickoffIdx).toBeGreaterThan(kickoffIdx);
