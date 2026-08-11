@@ -84,6 +84,22 @@ export {
   shouldIsolateExpertSessionDirectory,
 } from "./sync/expert-session-directory";
 export {
+  buildExpertColdPrewarmKey,
+  claimOrCreateExpertColdSession,
+  enqueueExpertColdPath,
+  getExpertColdPrewarmDebugSnapshot,
+  getOrStartExpertColdSession,
+  invalidateExpertColdPrewarm,
+  resetExpertColdPathForTests,
+  skillNamesFingerprint,
+  startExpertColdPrewarm,
+} from "./sync/expert-cold-path";
+export type {
+  ExpertColdPathRequest,
+  ExpertColdPathResult,
+  ExpertColdPathRunner,
+} from "./sync/expert-cold-path";
+export {
   clearSessionDraft,
   getSessionDraft,
   saveSessionDraft,
