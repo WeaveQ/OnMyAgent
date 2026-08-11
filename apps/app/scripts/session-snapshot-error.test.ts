@@ -6,6 +6,7 @@ import { readSnapshotSessionError } from "../src/react-app/domains/session/surfa
 import {
   extractAssistantMessageErrorText,
   humanizeSessionErrorMessage,
+  parseSessionError,
 } from "../src/react-app/domains/session/surface/session-surface-support";
 
 describe("humanizeSessionErrorMessage quota / plan", () => {
@@ -15,6 +16,24 @@ describe("humanizeSessionErrorMessage quota / plan", () => {
     const humanized = humanizeSessionErrorMessage(raw);
     expect(humanized).not.toContain("AI_APICallError");
     expect(humanized.toLowerCase()).toMatch(/quota|额度|額度|plan|套餐/);
+  });
+
+  test("maps Expert runtime contract violations to localized product copy", () => {
+    const humanized = humanizeSessionErrorMessage(
+      '{"code":"expert_runtime_contract_violated"}',
+    );
+    expect(humanized).not.toContain("expert_runtime_contract_violated");
+    expect(humanized).toMatch(/Expert runtime|专家运行环境|專家執行環境/);
+  });
+
+  test("uses the typed server code even when its message is generic", () => {
+    const parsed = parseSessionError(JSON.stringify({
+      code: "expert_runtime_contract_violated",
+      message: "The selected agent is not declared by this package",
+    }));
+    expect(parsed.code).toBe("expert_runtime_contract_violated");
+    expect(parsed.message).not.toContain("selected agent");
+    expect(parsed.message).toMatch(/Expert runtime|专家运行环境|專家執行環境/);
   });
 });
 

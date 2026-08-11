@@ -9,24 +9,31 @@ const pageSource = readFileSync(
   ),
   "utf8",
 );
-const pickerStart = pageSource.indexOf("function SkillPickerPopover");
-const pickerSource = pageSource.slice(
+const pickerSource = readFileSync(
+  join(
+    import.meta.dir,
+    "../src/react-app/domains/agents/expert-creation-skills-tab.tsx",
+  ),
+  "utf8",
+);
+const pickerStart = pickerSource.indexOf("function SkillPickerPopover");
+const pickerBody = pickerSource.slice(
   pickerStart,
-  pageSource.indexOf("function SkillsEmptyIllustration", pickerStart),
+  pickerSource.indexOf("function SkillsEmptyIllustration", pickerStart),
 );
 
 describe("expert creation skill picker UI contract", () => {
   test("offers searchable mine and market tabs with a market install action", () => {
-    expect(pickerSource).toContain("SegmentedTabGroup");
-    expect(pickerSource).toContain(
+    expect(pickerBody).toContain("SegmentedTabGroup");
+    expect(pickerBody).toContain(
       't("agents.expert_creation_skill_picker_my_skills")',
     );
-    expect(pickerSource).toContain(
+    expect(pickerBody).toContain(
       't("agents.expert_creation_skill_picker_market")',
     );
-    expect(pickerSource).toContain("filterExpertCreationSkills");
-    expect(pickerSource).toContain("onInstall");
-    expect(pickerSource).toContain("installingSkillId");
+    expect(pickerBody).toContain("filterExpertCreationSkills");
+    expect(pickerBody).toContain("onInstall");
+    expect(pickerBody).toContain("installingSkillId");
   });
 
   test("loads the built-in marketplace catalog for expert creation", () => {

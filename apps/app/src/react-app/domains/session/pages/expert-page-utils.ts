@@ -26,6 +26,7 @@ export type ExpertGroupDeleteTarget = {
   agentId: string;
   name: string;
   sessionIds: string[];
+  operationId: string;
 };
 
 export function expertFeatureCategoryForCategoryId(

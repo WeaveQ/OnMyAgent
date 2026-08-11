@@ -6,7 +6,10 @@ import type {
   AgentSkillItem,
   AgentWizardDraft,
 } from "./agent-registry-types";
-import type { PendingAgentContext } from "./pending-agent-store";
+import {
+  createExpertOperationId,
+  type PendingAgentContext,
+} from "./pending-agent-store";
 
 export function isCreationExpertEditable(agent: AgentRecord): boolean {
   return agent.marketplaceSource === "mine" && agent.builtin !== true;
@@ -61,14 +64,16 @@ export function updateExpertRecordFromDraft(
 export function buildSavedExpertPendingContext(
   agent: AgentRecord,
   registry: AgentRegistry,
-  conversationStartId = Date.now(),
+  operationId = createExpertOperationId(),
+  draftCreatedAt = Date.now(),
 ): PendingAgentContext | null {
   const pending = buildPendingAgentFromRecord(agent, registry);
   if (!pending) return null;
   return {
     ...pending,
     boundSessionId: undefined,
-    conversationStartId,
+    operationId,
+    draftCreatedAt,
     draftSource: "agent-selection",
   };
 }

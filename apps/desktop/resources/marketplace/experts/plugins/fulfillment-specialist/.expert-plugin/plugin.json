@@ -7,6 +7,7 @@
   },
   "license": "MIT",
   "expertType": "agent",
+  "introStyle": "short-colleague",
   "agentName": "fulfillment-specialist",
   "agents": [
     "./agents/fulfillment-specialist.md"

@@ -62,7 +62,8 @@ describe("shared pending agent store contract", () => {
       },
       systemPrompt: "hello",
       model: { providerID: "openai", modelID: "gpt-4.1" },
-      conversationStartId: 42,
+      operationId: "operation-42",
+      draftCreatedAt: 42,
       boundSessionId: "ses-1",
     });
 

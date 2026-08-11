@@ -9,7 +9,10 @@ import {
   PenLine,
   MessageSquare,
 } from "lucide-react";
-import type { ExpertPromptTemplate } from "@onmyagent/types/desktop-ipc";
+import type {
+  ExpertIntroStyle,
+  ExpertPromptTemplate,
+} from "@onmyagent/types/desktop-ipc";
 import type { ComponentType } from "react";
 import { ActionRowButton, IconTile } from "@/components/ui/action-row";
 import { t } from "@/i18n";
@@ -128,31 +131,10 @@ function getTemplatePrompts(): PromptTemplates {
 
 const EXPERT_PROMPT_ICONS = [Sparkles, FileText, Target];
 
-/**
- * Experts whose persona forbids long “how to use me” tables on intro.
- * Use the short colleague self-intro prompt so the UI question matches the
- * agent.md hard cap (short bullets / 3 paragraphs — no I/O comparison table).
- *
- * - Logistics 4: short spoken intro
- * - KOL media / content-ops / project-review: hard 4-segment intro, no tables
- */
-const SHORT_COLLEAGUE_SELF_INTRO_EXPERT_IDS = new Set([
-  "order-dispatch-specialist",
-  "fleet-management-specialist",
-  "fulfillment-specialist",
-  "logistics-finance-specialist",
-  "kol-media-specialist",
-  "kol-content-ops-specialist",
-  "kol-project-review-specialist",
-]);
-
 function usesShortColleagueSelfIntroPrompt(
-  agentId: string | null | undefined,
+  introStyle: ExpertIntroStyle | null | undefined,
 ): boolean {
-  if (!agentId) return false;
-  return [...SHORT_COLLEAGUE_SELF_INTRO_EXPERT_IDS].some(
-    (expertId) => agentId === expertId || agentId.endsWith(`:${expertId}`),
-  );
+  return introStyle === "short-colleague";
 }
 
 function getCodePrompts(): PromptSuggestion[] {
@@ -239,6 +221,7 @@ function resolvePrompts(
 
 function promptsFromExpertQuickPrompts(
   agentId: string | null | undefined,
+  introStyle: ExpertIntroStyle | null | undefined,
   quickPrompts: string[] | undefined,
   promptTemplates: ExpertPromptTemplate[] | undefined,
 ): PromptSuggestion[] | null {
@@ -253,7 +236,7 @@ function promptsFromExpertQuickPrompts(
       title: t("session.expert_self_intro_prompt_title"),
       description: t("session.expert_self_intro_prompt_description"),
       prompt: t(
-        usesShortColleagueSelfIntroPrompt(agentId)
+        usesShortColleagueSelfIntroPrompt(introStyle)
           ? "session.short_colleague_self_intro_prompt"
           : "session.expert_self_intro_prompt",
       ),
@@ -277,6 +260,7 @@ function promptsFromExpertQuickPrompts(
 
 export function AgentPromptSuggestions(props: {
   agentId: string | null | undefined;
+  introStyle?: ExpertIntroStyle;
   quickPrompts?: string[];
   promptTemplates?: ExpertPromptTemplate[];
   onSelect: (prompt: string, template: boolean) => void;
@@ -285,6 +269,7 @@ export function AgentPromptSuggestions(props: {
   const prompts =
     promptsFromExpertQuickPrompts(
       props.agentId,
+      props.introStyle,
       props.quickPrompts,
       props.promptTemplates,
     ) ??

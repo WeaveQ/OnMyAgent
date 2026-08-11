@@ -891,7 +891,7 @@ export function AssistantConversationSections(
   useEffect(() => {
     const sessionId = props.selectedSessionId?.trim() || null;
     const scopeId = sessionId
-      ? resolveUnreadAgentIdForSession(sessionId)
+      ? resolveUnreadAgentIdForSession(props.workspaceId, sessionId)
       : null;
     setFocusedAgent(props.workspaceId, scopeId);
   }, [props.selectedSessionId, props.workspaceId, setFocusedAgent]);

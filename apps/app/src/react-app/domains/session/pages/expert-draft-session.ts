@@ -27,11 +27,11 @@ export function resolveReadyBoundExpertDraftSession(input: {
  * finish after the user has started a newer draft for that expert.
  */
 export function consumeBoundExpertDraftContext<T extends {
-  conversationStartId?: number;
+  operationId?: string;
 }>(input: {
   contexts: Record<string, T>;
   agentId: string;
-  conversationStartId?: number;
+  operationId?: string;
 }): Record<string, T> {
   if (!matchesExpertDraftTransaction(input)) {
     return input.contexts;
@@ -43,23 +43,23 @@ export function consumeBoundExpertDraftContext<T extends {
 }
 
 export function matchesExpertDraftTransaction<T extends {
-  conversationStartId?: number;
+  operationId?: string;
 }>(input: {
   contexts: Record<string, T>;
   agentId: string;
-  conversationStartId?: number;
+  operationId?: string;
 }): boolean {
   const agentId = input.agentId.trim();
   const current = agentId ? input.contexts[agentId] : undefined;
   return Boolean(
     current &&
-      input.conversationStartId !== undefined &&
-      current.conversationStartId === input.conversationStartId,
+      Boolean(input.operationId?.trim()) &&
+      current.operationId === input.operationId,
   );
 }
 
 export function resolveBoundExpertDraftNavigation<T extends {
-  conversationStartId?: number;
+  operationId?: string;
 }>(input: {
   contexts: Record<string, T>;
   draftAgentId: string | null;
@@ -67,7 +67,7 @@ export function resolveBoundExpertDraftNavigation<T extends {
   pendingAgent: {
     id: string;
     boundSessionId?: string;
-    conversationStartId?: number;
+    operationId?: string;
   } | null;
   selectedSessionId: string | null;
 }): string | null {
@@ -76,7 +76,7 @@ export function resolveBoundExpertDraftNavigation<T extends {
   if (!matchesExpertDraftTransaction({
     contexts: input.contexts,
     agentId: input.pendingAgent.id,
-    conversationStartId: input.pendingAgent.conversationStartId,
+    operationId: input.pendingAgent.operationId,
   })) return null;
   return input.selectedSessionId === sessionId ? null : sessionId;
 }

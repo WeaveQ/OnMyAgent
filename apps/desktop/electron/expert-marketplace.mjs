@@ -85,6 +85,94 @@ export function createExpertMarketplace(options = {}) {
     return [];
   }
 
+  function manifestSkillNames(value) {
+    const refs = Array.isArray(value) ? value : [];
+    return [...new Set(refs
+      .map((item) => String(item ?? "").trim().replace(/\\/g, "/").replace(/\/$/, ""))
+      .map((item) => item.split("/").filter(Boolean).pop() ?? "")
+      .filter((item) => /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(item)))];
+  }
+
+  /**
+   * One-train migration reader for legacy agent markdown frontmatter.
+   * @deprecated Package manifests are the canonical source for declared skills.
+   * @param {string} markdown
+   * @returns {string[]}
+   */
+  function legacyFrontmatterSkillNames(markdown) {
+    const match = String(markdown ?? "").match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+    if (!match) return [];
+
+    const lines = match[1].split(/\r?\n/);
+    const values = [];
+    let collectingBlock = false;
+    let skillsIndent = 0;
+
+    const parseInlineList = (value) => {
+      const trimmed = value.trim();
+      if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) return null;
+      const inner = trimmed.slice(1, -1).trim();
+      if (!inner) return [];
+      return inner.split(",").map((item) => {
+        const token = item.trim();
+        if (!token) return "";
+        if (
+          (token.startsWith('"') && token.endsWith('"')) ||
+          (token.startsWith("'") && token.endsWith("'"))
+        ) {
+          return token.slice(1, -1).trim();
+        }
+        return token;
+      });
+    };
+
+    for (const line of lines) {
+      const keyMatch = line.match(/^(\s*)skills\s*:\s*(.*?)\s*$/i);
+      if (keyMatch) {
+        collectingBlock = false;
+        skillsIndent = keyMatch[1].length;
+        const value = keyMatch[2].trim();
+        if (!value) {
+          collectingBlock = true;
+          continue;
+        }
+        const inlineValues = parseInlineList(value);
+        if (inlineValues === null) return [];
+        values.push(...inlineValues);
+        continue;
+      }
+
+      if (!collectingBlock) continue;
+      const listMatch = line.match(/^(\s*)-\s*(.*?)\s*$/);
+      if (!listMatch || listMatch[1].length <= skillsIndent) {
+        collectingBlock = false;
+        continue;
+      }
+      const token = listMatch[2].trim();
+      if (
+        (token.startsWith('"') && token.endsWith('"')) ||
+        (token.startsWith("'") && token.endsWith("'"))
+      ) {
+        values.push(token.slice(1, -1).trim());
+      } else {
+        values.push(token);
+      }
+    }
+
+    return manifestSkillNames(values);
+  }
+
+  function manifestIntroStyle(value) {
+    return value === "short-colleague" ? "short-colleague" : "default";
+  }
+
+  function manifestApprovedAgentIds(value) {
+    if (!Array.isArray(value)) return [];
+    return [...new Set(value
+      .map((item) => String(item ?? "").trim())
+      .filter(Boolean))];
+  }
+
   function localizedExpertPromptTemplates(packagePath, value) {
     const source =
       typeof value === "string"
@@ -248,6 +336,7 @@ export function createExpertMarketplace(options = {}) {
     const manifest = readJsonIfExists(path.join(packagePath, ".expert-plugin", "plugin.json"));
     const readme = readTextIfExists(path.join(packagePath, "README.md"));
     const agentMarkdown = resolvePackageAgentMarkdown(packagePath, manifest);
+    const hasManifestSkills = Object.prototype.hasOwnProperty.call(manifest, "skills");
     const fallbackName = titleFromMarkdown(readme, titleFromMarkdown(agentMarkdown, packageName));
     const displayName =
       localizedExpertValue(manifest.profession) ||
@@ -292,6 +381,11 @@ export function createExpertMarketplace(options = {}) {
         ? manifest.version.trim()
         : null,
       teamWorkflow: expertTeamWorkflow(manifest.teamWorkflow),
+      skills: hasManifestSkills
+        ? manifestSkillNames(manifest.skills)
+        : legacyFrontmatterSkillNames(agentMarkdown),
+      introStyle: manifestIntroStyle(manifest.introStyle),
+      approvedAgentIds: manifestApprovedAgentIds(manifest.approvedAgentIds),
     };
   }
 
@@ -335,9 +429,10 @@ export function createExpertMarketplace(options = {}) {
     const quote = String(input.quote ?? description).trim();
     const rolePrompt = String(input.rolePrompt ?? "").trim();
     const memory = String(input.memory ?? "").trim();
-    const skillIds = Array.isArray(input.skillIds)
-      ? input.skillIds.map((item) => String(item ?? "").trim()).filter(Boolean)
-      : [];
+    const skillNames = manifestSkillNames(input.skills ?? input.skillIds);
+    const skills = skillNames.map((skillName) => `./skills/${skillName}`);
+    const introStyle = manifestIntroStyle(input.introStyle);
+    const approvedAgentIds = manifestApprovedAgentIds(input.approvedAgentIds);
     const now = new Date().toISOString();
     const plugin = {
       name: packageName,
@@ -355,10 +450,13 @@ export function createExpertMarketplace(options = {}) {
       tags: [],
       quickPrompts: [],
       promptTemplates: [],
+      skills,
+      introStyle,
+      ...(approvedAgentIds.length > 0 ? { approvedAgentIds } : {}),
       agentConfig: {
         rolePrompt,
         memory,
-        skillIds,
+        skillIds: skillNames,
       },
       createdAt: now,
     };
@@ -386,9 +484,9 @@ export function createExpertMarketplace(options = {}) {
 
   ${memory}
 
-  ` : ""}${skillIds.length > 0 ? `## 已配置技能
+  ` : ""}${skillNames.length > 0 ? `## 已配置技能
 
-  仅在需要时优先使用以下已安装技能：${skillIds.map((skillId) => `\`${skillId}\``).join("、")}。
+  仅在需要时优先使用以下已安装技能：${skillNames.map((skillId) => `\`${skillId}\``).join("、")}。
   ` : ""}
   `;
     const readme = `# ${name}

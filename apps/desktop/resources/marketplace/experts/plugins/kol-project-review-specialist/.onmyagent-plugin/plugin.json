@@ -5,6 +5,7 @@
   "author": { "name": "Expert Marketplace" },
   "license": "MIT",
   "expertType": "agent",
+  "introStyle": "short-colleague",
   "agentName": "kol-project-review-specialist",
   "agents": ["./agents/kol-project-review-specialist.md"],
   "skills": [

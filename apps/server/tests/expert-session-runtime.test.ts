@@ -11,6 +11,7 @@ import {
   resolveAuthorizedArtifactResolutionRoot,
   resolveAuthorizedExpertSessionRuntimeDirectory,
 } from "../src/services/expert-session-runtime.js";
+import { getExpertLifecycleEventsSnapshot, resetExpertLifecycleEventsForTest } from "../src/services/expert-lifecycle-events.js";
 
 let tempRoot = "";
 
@@ -20,6 +21,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await rm(tempRoot, { recursive: true, force: true });
+  resetExpertLifecycleEventsForTest();
 });
 
 describe("expert session runtime directory", () => {
@@ -112,6 +114,7 @@ describe("expert session runtime directory", () => {
       agentName: "高级开发工程师",
       agentId: "senior-developer",
       sessionKey: "1753456789000",
+      approvedAgentIds: ["onmyagent", "custom-safe-agent"],
     });
 
     expect(result.directory.startsWith(runtimeRoot)).toBe(true);
@@ -119,7 +122,14 @@ describe("expert session runtime directory", () => {
     expect(await readFile(join(result.directory, "onmyagent-session.json"), "utf8"))
       .toContain('"runtime": true');
     expect(result.defaultAgent).toBe("onmyagent");
-    expect(result.isolationVersion).toBe(EXPERT_SESSION_ISOLATION_VERSION);
+    // OpenCode has not returned a real session id yet; marker remains a
+    // pending v2 identity and is upgraded after session.create.
+    expect(result.isolationVersion).toBe(2);
+    expect(result.packageName).toBe("senior-developer");
+    expect(result.approvedAgentIds).toEqual(["onmyagent", "custom-safe-agent"]);
+    expect(await readFile(join(result.directory, "onmyagent-session.json"), "utf8"))
+      .toContain('"approvedAgentIds"');
+    expect(result.sessionId).toBeUndefined();
     const opencode = JSON.parse(
       await readFile(join(result.directory, "opencode.json"), "utf8"),
     ) as { default_agent?: string; plugin?: unknown[] };
@@ -154,6 +164,11 @@ describe("expert session runtime directory", () => {
     });
 
     expect(result.installedSkills).toEqual(["kol-script-risk-review"]);
+    expect(getExpertLifecycleEventsSnapshot().events.some((event) =>
+      event.kind === "materialize" && event.declaredSkillCount === 2 && event.missingSkillCount === 1,
+    )).toBe(true);
+    expect(getExpertLifecycleEventsSnapshot().events.some((event) => event.kind === "missing_skills")).toBe(true);
+    expect(JSON.stringify(getExpertLifecycleEventsSnapshot())).not.toContain(result.directory);
     expect(
       await readFile(
         join(result.directory, ".opencode", "skills", "kol-script-risk-review", "SKILL.md"),
@@ -166,6 +181,43 @@ describe("expert session runtime directory", () => {
         "utf8",
       ),
     ).rejects.toThrow();
+  });
+
+  test("does not report stale marker skills as physically installed", async () => {
+    const workspace = testWorkspace(join(tempRoot, "project-stale-skills"));
+    const runtimeRoot = join(tempRoot, "app-user-data", "expert-sessions");
+    const skillsSource = join(tempRoot, "skills-source-stale");
+    await mkdir(workspace.path, { recursive: true });
+    await mkdir(join(skillsSource, "declared-skill"), { recursive: true });
+    await writeFile(
+      join(skillsSource, "declared-skill", "SKILL.md"),
+      "---\nname: declared-skill\n---\n# installed once\n",
+    );
+    const created = await createExpertSessionRuntimeDirectory({
+      workspace,
+      runtimeRoot,
+      agentName: "stale skill expert",
+      agentId: "stale-skill-agent",
+      packageName: "stale-skill-package",
+      sessionKey: "1753456789011",
+      skillNames: ["declared-skill"],
+      skillsSourceRoot: skillsSource,
+    });
+    expect(created.installedSkills).toEqual(["declared-skill"]);
+    await rm(join(created.directory, ".opencode", "skills", "declared-skill"), {
+      recursive: true,
+      force: true,
+    });
+
+    const ensured = await ensureExpertSessionRuntimeIsolation({
+      workspace,
+      directory: created.directory,
+      runtimeRoot,
+      skillNames: ["declared-skill"],
+      skillsSourceRoot: join(tempRoot, "missing-skills-source"),
+    });
+    expect(ensured?.installedSkills).toEqual([]);
+    expect(ensured?.missingSkills).toEqual(["declared-skill"]);
   });
 
   test("ensure upgrades a pre-isolation expert session directory", async () => {
@@ -201,7 +253,8 @@ describe("expert session runtime directory", () => {
       runtimeRoot,
     });
     expect(ensured?.upgraded).toBe(true);
-    expect(ensured?.isolationVersion).toBe(EXPERT_SESSION_ISOLATION_VERSION);
+    expect(ensured?.isolationVersion).toBe(2);
+    expect(ensured?.sessionId).toBeUndefined();
     expect(
       await readFile(
         join(created.directory, ".opencode", "agents", "onmyagent.md"),
@@ -215,6 +268,77 @@ describe("expert session runtime directory", () => {
       runtimeRoot,
     });
     expect(again?.upgraded).toBe(false);
+  });
+
+  test("upgrades pending marker to v3 only with an explicit session identity", async () => {
+    const workspace = testWorkspace(join(tempRoot, "project-v3"));
+    const runtimeRoot = join(tempRoot, "app-user-data", "expert-sessions");
+    await mkdir(workspace.path, { recursive: true });
+    const created = await createExpertSessionRuntimeDirectory({
+      workspace,
+      runtimeRoot,
+      agentName: "runtime expert",
+      agentId: "agent-v3",
+      packageName: "package-v3",
+      sessionKey: "1753456789010",
+      skillNames: ["missing-skill"],
+    });
+    const pending = JSON.parse(await readFile(join(created.directory, "onmyagent-session.json"))) as Record<string, unknown>;
+    expect(pending.isolationVersion).toBe(2);
+    expect(pending.sessionId).toBeUndefined();
+
+    const upgraded = await ensureExpertSessionRuntimeIsolation({
+      workspace,
+      directory: created.directory,
+      runtimeRoot,
+      agentId: "agent-v3",
+      packageName: "package-v3",
+      sessionId: "session-v3",
+      skillNames: ["missing-skill"],
+    });
+    expect(upgraded).toMatchObject({
+      upgraded: true,
+      isolationVersion: EXPERT_SESSION_ISOLATION_VERSION,
+      agentId: "agent-v3",
+      packageName: "package-v3",
+      sessionId: "session-v3",
+      declaredSkills: ["missing-skill"],
+      installedSkills: [],
+      missingSkills: ["missing-skill"],
+    });
+    const marker = JSON.parse(await readFile(join(created.directory, "onmyagent-session.json"))) as Record<string, unknown>;
+    expect(marker).toMatchObject({
+      isolationVersion: 3,
+      agentId: "agent-v3",
+      packageName: "package-v3",
+      sessionId: "session-v3",
+      declaredSkills: ["missing-skill"],
+      installedSkills: [],
+      missingSkills: ["missing-skill"],
+    });
+  });
+
+  test("rejects malformed v3 markers instead of authorizing their directory", async () => {
+    const workspace = testWorkspace(join(tempRoot, "project-invalid-v3"));
+    const runtimeRoot = join(tempRoot, "app-user-data", "expert-sessions");
+    const directory = join(runtimeRoot, "managed", "invalid");
+    await mkdir(directory, { recursive: true });
+    await writeFile(join(directory, "onmyagent-session.json"), JSON.stringify({
+      kind: "expert-session",
+      workspaceId: workspace.id,
+      isolationVersion: 3,
+      agentId: "agent-invalid",
+      packageName: "package-invalid",
+      sessionId: "session-invalid",
+      declaredSkills: ["valid-skill"],
+      installedSkills: ["valid-skill"],
+      missingSkills: ["valid-skill"],
+    }), "utf8");
+    await expect(resolveAuthorizedExpertSessionRuntimeDirectory({
+      workspaceId: workspace.id,
+      sessionRoot: directory,
+      runtimeRoot,
+    })).resolves.toBeNull();
   });
 
   test("rejects a runtime root inside the workspace", async () => {

@@ -4,6 +4,17 @@ import type { ExpertTeamWorkflow } from "./expert-team-workflow.js";
 
 export type ExpertMarketplaceName = "experts" | "my-experts";
 
+/** Canonical metadata shared by package manifests, runtime markers, and UI. */
+export type ExpertIntroStyle = "default" | "short-colleague";
+
+export type ExpertPackageManifest = {
+  /** Package skill declarations are names or package-relative skill refs. */
+  skills: string[];
+  introStyle?: ExpertIntroStyle;
+  /** Optional OpenCode agent ids explicitly approved by the package. */
+  approvedAgentIds?: string[];
+};
+
 export type ExpertPackageInstallInput = {
   source: "builtin";
   marketplace: ExpertMarketplaceName;
@@ -15,6 +26,11 @@ export type ExpertPackageInstallResult = {
   path: string;
   packageName: string;
   marketplace: ExpertMarketplaceName;
+  /** Canonical package skill declarations and materialization outcome. */
+  skills?: string[];
+  declaredSkills?: string[];
+  installedSkills?: string[];
+  missingSkills?: string[];
 };
 
 export type ExpertPackageUninstallInput = {
@@ -31,6 +47,29 @@ export type ExpertPackageUninstallResult = {
   removedSkills: string[];
   /** False when the package directory was already absent. */
   removedPackage: boolean;
+};
+
+export type ExpertPackageDeleteInput = {
+  operationId: string;
+  agentId: string;
+  packageName: string;
+  /** Custom Expert packages are the only deletable marketplace entries. */
+  marketplace: "my-experts";
+};
+
+export type ExpertPackageDeleteStep = {
+  target: "my-experts" | "experts" | "registry" | "skills";
+  state: "pending" | "completed" | "skipped" | "failed";
+  code?: string;
+};
+
+export type ExpertPackageDeleteResult = {
+  ok: true;
+  operationId: string;
+  packageName: string;
+  state: "completed" | "partial";
+  steps: ExpertPackageDeleteStep[];
+  removedSkills: string[];
 };
 
 export type ExpertPromptTemplate = { id: string; title: string; description: string; template: string; requiredSlots: string[]; conditionalSlots: string[] };
@@ -52,6 +91,9 @@ export type ExpertPackageListEntry = {
   systemPrompt: string;
   version: string | null;
   teamWorkflow: ExpertTeamWorkflow | null;
+  skills: string[];
+  introStyle: ExpertIntroStyle;
+  approvedAgentIds: string[];
 };
 
 export type ExpertRegistryListEntry = {
@@ -70,10 +112,15 @@ export type MyExpertPackageWriteInput = {
   quote: string;
   rolePrompt?: string;
   memory?: string;
-  skillIds?: string[];
   draftId?: string;
   avatarDataUrl?: string;
   preserveKnowledge?: boolean;
+  /** Canonical package skill declarations. */
+  skills: string[];
+  introStyle?: ExpertIntroStyle;
+  approvedAgentIds?: string[];
+  /** @deprecated one-train compatibility for pre-P8 callers. */
+  skillIds?: string[];
   knowledge?: Array<{
     kind: "file" | "directory";
     relativePath: string;

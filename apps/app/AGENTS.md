@@ -55,7 +55,7 @@ OpenCode 主 · Personal 辅 · 禁止交叉写 store/archive。
 
 ## Experts / Session 不变量
 
-改 `domains/session`、`shell/session-route`、专家 draft/origin 时必须遵守。
+改 `domains/session`、`shell/session-route`、专家 draft/directory 时必须遵守。
 
 | 层 | 内容 | 权威 |
 |----|------|------|
@@ -69,9 +69,11 @@ OpenCode 主 · Personal 辅 · 禁止交叉写 store/archive。
    禁止：无消息却 thinking / 永久「准备中」。  
    测试：`expert-preparing-jank.test.ts` · `expert-session-invariants.test.ts`
 
-2. **Origin 水合权威**  
-   专家列表 / 空落地页必须以 origin hydration 完成（或 degraded）为准；水合中不得假装「无专家会话」。workspace 错误优先于 degraded 空态。自动重试有界，耗尽后停止假 loading。  
-   测试：`expert-origin-hydration.test.ts` · `expert-session-invariants.test.ts`
+2. **Expert Directory 权威**
+   专家列表 / 空落地页必须以 server Expert Directory 的 `loading / ready / incomplete / error` 状态为准；未 ready 时不得假装「无专家会话」。workspace 错误优先于 incomplete 空态；完整 revision cache 可维持稳定展示，但 renderer 不得自行恢复 origin。
+   测试：`expert-directory.test.ts` · `expert-session-invariants.test.ts`
+
+   Expert prompt 只能选择 `onmyagent` 或 package manifest 明确声明的 `approvedAgentIds`；contract violation 走三语 typed error。renderer shadow diff 只上传结构化 change/count，不上传 id、path、prompt 或 content；完整 lifecycle ring 只从 Settings diagnostics 导出。
 
 3. **Bound draft 事务消费**  
    打开同专家真实 session 时消费对应 draft；禁止跨专家误消费、幽灵新会话 tab、重复导航。  

@@ -52,7 +52,7 @@ describe("marketplace card grid single-source", () => {
       "apps/app/src/react-app/domains/plugins/company-store-page.tsx",
       "apps/app/src/react-app/domains/plugins/expert-marketplace/expert-marketplace-dialog.tsx",
       "apps/app/src/react-app/domains/plugins/plugins-page.tsx",
-      "apps/app/src/react-app/domains/agents/expert-creation-page.tsx",
+      "apps/app/src/react-app/domains/agents/expert-creation-skills-tab.tsx",
     ];
     for (const rel of consumers) {
       const src = read(rel);

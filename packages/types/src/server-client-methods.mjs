@@ -15,6 +15,7 @@ const methodGroups = /** @type {const} */ ({
     "previewWorkspaceImport", "materializeBlueprintSessions",
     "createExpertSessionRuntimeDirectory",
     "ensureExpertSessionIsolation",
+    "getExpertDirectory", "healExpertDirectory", "recordExpertDirectoryShadowDiff",
     "listExpertSessionFiles", "readExpertSessionFile",
     "downloadExpertSessionFile", "resolveExpertSessionFile",
     "readOpencodeConfigFile", "writeOpencodeConfigFile", "readWorkspaceFile",
@@ -25,7 +26,7 @@ const methodGroups = /** @type {const} */ ({
   sessions: [
     "deleteSession", "listSessions", "getSession", "getSessionMessages",
     "getSessionSnapshot", "listSessionOrigins", "upsertSessionOrigin",
-    "deleteSessionOrigin",
+    "deleteSessionOrigin", "deleteExpert",
   ],
   extensions: [
     "listPlugins", "addPlugin", "removePlugin", "listSkills", "listHubSkills",

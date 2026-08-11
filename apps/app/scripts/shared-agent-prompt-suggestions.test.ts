@@ -44,15 +44,11 @@ describe("shared agent prompt suggestions contract", () => {
       'description: t("session.expert_self_intro_prompt_description")',
     );
     expect(source).toContain('"session.expert_self_intro_prompt"');
-    expect(source).toContain("SHORT_COLLEAGUE_SELF_INTRO_EXPERT_IDS");
     expect(source).toContain("usesShortColleagueSelfIntroPrompt");
-    expect(source).toContain('agentId.endsWith(`:${expertId}`)');
+    expect(source).toContain("introStyle");
+    expect(source).toContain('introStyle === "short-colleague"');
     expect(source).toContain('"session.short_colleague_self_intro_prompt"');
-    // KOL trio + logistics four share the short intro path.
-    expect(source).toContain('"kol-project-review-specialist"');
-    expect(source).toContain('"kol-media-specialist"');
-    expect(source).toContain('"kol-content-ops-specialist"');
-    expect(source).toContain('"order-dispatch-specialist"');
+    expect(source).not.toContain("SHORT_COLLEAGUE_SELF_INTRO_EXPERT_IDS");
     expect(source).not.toContain("CAPABILITY_MAP_EXPERT_IDS");
     expect(source).not.toContain("expert_self_intro_capability_map");
 

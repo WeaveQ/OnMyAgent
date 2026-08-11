@@ -5,8 +5,8 @@
  */
 import { useSyncExternalStore, type ReactNode } from "react";
 
+import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { t } from "../../i18n";
-import { resolvePublicAssetUrl } from "../../lib/public-asset-url";
 import { OwDotTicker } from "./dot-ticker";
 import {
   getRouteLoadSnapshot,

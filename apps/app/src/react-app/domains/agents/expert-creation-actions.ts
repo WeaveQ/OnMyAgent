@@ -27,7 +27,10 @@ import type {
   AgentSkillItem,
   AgentWizardDraft,
 } from "./agent-registry-types";
-import type { PendingAgentContext } from "./pending-agent-store";
+import {
+  createExpertOperationId,
+  type PendingAgentContext,
+} from "./pending-agent-store";
 import {
   ExpertCreationPage,
   type ExpertKnowledgeEntry,
@@ -40,6 +43,7 @@ import {
 } from "./expert-creation-save-model";
 import { deleteExpertCreationEphemeralSession } from "./expert-creation-ephemeral-sessions";
 import type { ExpertCreationComposerProps } from "./expert-creation-conversation";
+import { refreshExpertPackageQuery } from "./expert-package-query";
 export {
   beginExpertCreateSaveAttempt,
   consumeExpertCreateComposerFlush,
@@ -128,13 +132,14 @@ export async function saveExpertCreation(
       quote: createdAgent.quote,
       rolePrompt: createdAgent.userNote,
       memory: createdAgent.agentMemory,
-      skillIds: createdAgent.skillIds,
+      skills: [...createdAgent.skillIds],
       knowledge,
       ...(createdAgent.customAvatarDataUrl
         ? { avatarDataUrl: createdAgent.customAvatarDataUrl }
         : {}),
       ...(input.draftId ? { draftId: input.draftId } : {}),
     });
+    await refreshExpertPackageQuery();
     agent = {
       ...createdAgent,
       marketplaceSource: "mine",
@@ -197,12 +202,13 @@ export async function updateExpertCreation(
       quote: updatedDraftAgent.quote,
       rolePrompt: updatedDraftAgent.userNote,
       memory: updatedDraftAgent.agentMemory,
-      skillIds: updatedDraftAgent.skillIds,
+      skills: [...updatedDraftAgent.skillIds],
       preserveKnowledge: true,
       ...(updatedDraftAgent.customAvatarDataUrl
         ? { avatarDataUrl: updatedDraftAgent.customAvatarDataUrl }
         : {}),
     });
+    await refreshExpertPackageQuery();
     agent = {
       ...updatedDraftAgent,
       marketplaceSource: "mine",
@@ -247,7 +253,8 @@ export function buildExpertCreationPreview(
   if (!pending) return null;
   return {
     ...pending,
-    conversationStartId: Date.now(),
+    operationId: createExpertOperationId(),
+    draftCreatedAt: Date.now(),
     draftSource: "agent-selection",
   };
 }

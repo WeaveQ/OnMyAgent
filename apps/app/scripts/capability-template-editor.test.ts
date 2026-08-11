@@ -70,6 +70,7 @@ describe("capability template editor", () => {
       readApp("src/react-app/domains/session/pages/expert.tsx"),
       readApp("src/react-app/domains/session/pages/use-expert-page.tsx"),
       readApp("src/react-app/domains/session/pages/expert-page-layout.tsx"),
+      readApp("src/react-app/domains/session/pages/use-expert-composer-template-events.ts"),
     ].join("\n");
     const visual = readApp(
       "src/react-app/domains/session/surface/transcript/inline-visual.tsx",

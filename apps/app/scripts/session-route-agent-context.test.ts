@@ -6,10 +6,7 @@ import {
   registerCreatedSessionStartIntent,
   resolvePendingAgentForPrompt,
 } from "../src/react-app/shell/session-route/agent-context";
-import {
-  writeCustomAgentIdForSession,
-  writeSessionAgentSnapshot,
-} from "../src/react-app/domains/agents";
+import { writeSessionAgentSnapshot } from "../src/react-app/domains/agents";
 import type { PendingAgentContext } from "../src/react-app/domains/agents/pending-agent-store";
 
 function pendingAgent(input: Partial<PendingAgentContext> = {}): PendingAgentContext {
@@ -112,12 +109,10 @@ describe("session route agent context", () => {
 
   test("registers a created session in exactly the category carried by its start intent", () => {
     const assistantSessions: string[] = [];
-    const expertSessions: string[] = [];
     const assistantCategories: Array<{ sessionId: string; category: string }> = [];
 
     registerCreatedSessionStartIntent({
       addAssistantSession: (sessionId) => assistantSessions.push(sessionId),
-      addExpertSession: (sessionId) => expertSessions.push(sessionId),
       intent: { mode: "assistant", assistantCategory: "code" },
       sessionId: "ses_assistant",
       writeAssistantSessionCategory: (sessionId, category) =>
@@ -125,7 +120,6 @@ describe("session route agent context", () => {
     });
     registerCreatedSessionStartIntent({
       addAssistantSession: (sessionId) => assistantSessions.push(sessionId),
-      addExpertSession: (sessionId) => expertSessions.push(sessionId),
       intent: { mode: "expert" },
       sessionId: "ses_expert",
       writeAssistantSessionCategory: (sessionId, category) =>
@@ -133,19 +127,18 @@ describe("session route agent context", () => {
     });
 
     expect(assistantSessions).toEqual(["ses_assistant"]);
-    expect(expertSessions).toEqual(["ses_expert"]);
+    // Expert sessions are now indexed by the server directory projection;
+    // this helper only persists the assistant category.
     expect(assistantCategories).toEqual([
-      { sessionId: "ses_assistant", category: "office" },
+      { sessionId: "ses_assistant", category: "code" },
     ]);
   });
 
   test("does not register a session without an explicit start intent or pageMode", () => {
     const assistantSessions: string[] = [];
-    const expertSessions: string[] = [];
 
     registerCreatedSessionStartIntent({
       addAssistantSession: (sessionId) => assistantSessions.push(sessionId),
-      addExpertSession: (sessionId) => expertSessions.push(sessionId),
       sessionId: "ses_both",
       writeAssistantSessionCategory: () => {
         throw new Error("a session without an intent must not receive a category");
@@ -153,7 +146,6 @@ describe("session route agent context", () => {
     });
 
     expect(assistantSessions).toEqual([]);
-    expect(expertSessions).toEqual([]);
   });
 
   test("falls back to pageMode when start intent is missing", () => {
@@ -162,7 +154,6 @@ describe("session route agent context", () => {
 
     registerCreatedSessionStartIntent({
       addAssistantSession: (sessionId) => assistantSessions.push(sessionId),
-      addExpertSession: () => {},
       pageMode: "assistant",
       sessionId: "ses_force_new",
       writeAssistantSessionCategory: (_id, category) => categories.push(category),
@@ -178,10 +169,9 @@ describe("session route agent context", () => {
       name: "运力调配作业",
       systemPrompt: "You are a logistics expert.",
     });
-    writeCustomAgentIdForSession("ses_old", source.id);
     writeSessionAgentSnapshot("ses_old", source);
 
-    const inherited = inheritPendingAgentFromSession("ses_old");
+    const inherited = inheritPendingAgentFromSession("ses_old", source.id);
     expect(inherited?.id).toBe("expert_capacity");
     expect(inherited?.name).toBe("运力调配作业");
     expect(inherited?.systemPrompt).toBe("You are a logistics expert.");
@@ -192,6 +182,7 @@ describe("session route agent context", () => {
         createdSession: true,
         sessionId: "ses_new",
         inheritFromSessionId: "ses_old",
+        inheritAgentId: source.id,
       }).pendingAgentSnapshot?.id,
     ).toBe("expert_capacity");
 
@@ -217,8 +208,10 @@ describe("session route agent context", () => {
   });
 
   test("inherits id-only when snapshot is missing but agent id mapping exists", () => {
-    writeCustomAgentIdForSession("ses_id_only", "agent_bare");
-    const inherited = inheritPendingAgentFromSession("ses_id_only");
+    const inherited = inheritPendingAgentFromSession(
+      "ses_id_only",
+      "agent_bare",
+    );
     expect(inherited?.id).toBe("agent_bare");
     expect(inherited?.systemPrompt).toBe("");
   });

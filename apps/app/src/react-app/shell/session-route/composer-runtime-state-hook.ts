@@ -79,7 +79,7 @@ export function useSessionRouteComposerRuntimeState(input: {
       delete next[draftSessionId];
       return next;
     });
-  }, [pendingAgent?.conversationStartId, input.selectedWorkspaceId]);
+  }, [pendingAgent?.operationId, input.selectedWorkspaceId]);
 
   return {
     permissionReplyBusy,

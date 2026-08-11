@@ -37,6 +37,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/i18n";
 import { useStatusToasts } from "../shell-feedback";
+import { refreshExpertPackageQuery } from "./expert-package-query";
 import { SelectMenu } from "../../design-system/select-menu";
 import {
   AGENT_AVATAR_STYLES,
@@ -75,7 +76,7 @@ import {
 } from "../connections";
 import type { ProviderListItem } from "../../../app/types";
 import { useAgentRegistryStore } from "./agent-registry-store";
-import { uninstallExpertPackagesForAgent } from "./expert-hard-delete";
+import { deleteExpertPackagesForAgent } from "./expert-hard-delete";
 import {
   classifySkillScope,
   SKILL_SCOPE_LABELS,
@@ -625,12 +626,18 @@ export function AgentsPage(props: AgentsPageProps) {
       );
       if (!confirmed) return;
       try {
-        await uninstallExpertPackagesForAgent({
+        await deleteExpertPackagesForAgent({
           agentId: item.agent.id,
           registry,
         });
       } catch (error) {
-        console.warn("[agents] package uninstall failed", item.agent.id, error);
+        console.warn("[agents] package delete saga incomplete", item.agent.id, error);
+        showToast({
+          title: t("agents.delete_failed_title"),
+          tone: "error",
+          durationMs: 5000,
+        });
+        return;
       }
       const nowIso = new Date().toISOString();
       const nextRegistry: AgentRegistry = {
@@ -661,7 +668,9 @@ export function AgentsPage(props: AgentsPageProps) {
         name: createdAgent.name,
         description: createdAgent.description,
         quote: createdAgent.quote,
+        skills: [...createdAgent.skillIds],
       });
+      await refreshExpertPackageQuery();
       agent = {
         ...createdAgent,
         marketplaceSource: "mine",

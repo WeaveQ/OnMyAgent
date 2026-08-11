@@ -67,6 +67,11 @@ import {
 } from "../sync/session-snapshot-fetch-policy";
 import { useDeferredSidebarPreviews } from "./use-deferred-sidebar-previews";
 
+const EMPTY_EXPERT_DIRECTORY_IDENTITY = {
+  sessionIds: new Set<string>(),
+  agentIdBySessionId: new Map<string, string>(),
+} as const;
+
 import {
   buildAssistantSidebarModel,
   buildAutomationLocalPinsMap,
@@ -157,6 +162,10 @@ export function AgentConversationPanel(props: {
   selectedWorkspaceId: string;
   selectedSessionId: string | null;
   selectedAgentId?: string | null;
+  expertDirectoryIdentity?: {
+    sessionIds: ReadonlySet<string>;
+    agentIdBySessionId: ReadonlyMap<string, string>;
+  };
   sessionStatusById: Record<string, string>;
   draftAgentGroup?: AgentConversationGroup | null;
   draftAgentGroups?: AgentConversationGroup[];
@@ -453,7 +462,11 @@ export function AgentConversationPanel(props: {
   // Expert list: one snapshot per expert’s latest session → last-message subtitle.
   const expertLatestSessions = useMemo(() => {
     if (mode !== "agent") return [];
-    const groups = buildAgentConversationGroups(sessions, registry);
+    const groups = buildAgentConversationGroups(
+      sessions,
+      registry,
+      props.expertDirectoryIdentity ?? EMPTY_EXPERT_DIRECTORY_IDENTITY,
+    );
     const seen = new Set<string>();
     const list: WorkspaceSessionGroup["sessions"] = [];
     for (const group of groups) {
@@ -465,7 +478,7 @@ export function AgentConversationPanel(props: {
       list.push(session);
     }
     return list;
-  }, [mode, registry, sessions]);
+  }, [mode, props.expertDirectoryIdentity, registry, sessions]);
 
   const { previewSessionIds: expertPreviewIds } = useDeferredSidebarPreviews({
     enabled: mode === "agent" && Boolean(props.client),
@@ -559,12 +572,14 @@ export function AgentConversationPanel(props: {
         : buildAgentConversationGroups(
             sessions,
             registry,
+            props.expertDirectoryIdentity ?? EMPTY_EXPERT_DIRECTORY_IDENTITY,
             expertPreviewBySessionId,
           ),
     [
       assistantPreviewBySessionId,
       assistantTitleFallbacks,
       expertPreviewBySessionId,
+      props.expertDirectoryIdentity,
       mode,
       registry,
       sessions,

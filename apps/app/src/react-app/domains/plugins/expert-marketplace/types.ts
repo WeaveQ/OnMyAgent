@@ -1,4 +1,7 @@
-import type { ExpertTeamWorkflow } from "@onmyagent/types/desktop-ipc";
+import type {
+  ExpertIntroStyle,
+  ExpertTeamWorkflow,
+} from "@onmyagent/types/desktop-ipc";
 
 export type LocalizedText = {
   zh?: string;
@@ -37,9 +40,16 @@ export type ExpertMarketplaceEntry = {
   systemPrompt: string;
   version: string | null;
   teamWorkflow: ExpertTeamWorkflow | null;
+  skills: string[];
+  introStyle: ExpertIntroStyle;
+  approvedAgentIds: string[];
 };
 
-export type { ExpertTeamWorkflow, ExpertTeamWorkflowStage } from "@onmyagent/types/desktop-ipc";
+export type {
+  ExpertIntroStyle,
+  ExpertTeamWorkflow,
+  ExpertTeamWorkflowStage,
+} from "@onmyagent/types/desktop-ipc";
 
 export type ExpertMarketplaceSummonHandler = (
   expert: ExpertMarketplaceEntry,

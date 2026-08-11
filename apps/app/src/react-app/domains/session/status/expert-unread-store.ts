@@ -17,10 +17,7 @@
  */
 import { create } from "zustand";
 
-import {
-  readCustomAgentIdForSession,
-  readSessionAgentSnapshot,
-} from "../../agents";
+import { useExpertDirectoryStore } from "../../../capabilities/session-identity/expert-directory-store";
 import { useSessionActivityStore } from "./session-activity-store";
 
 const STORAGE_KEY = "onmyagent.expert-unread.v2";
@@ -247,14 +244,18 @@ function schedulePersist(
   }, 300);
 }
 
-export function resolveAgentIdForSession(sessionId: string): string | null {
+export function resolveAgentIdForSession(
+  workspaceId: string,
+  sessionId: string,
+): string | null {
   const id = normalizeId(sessionId);
   if (!id || id.startsWith("draft:")) return null;
-  const custom = readCustomAgentIdForSession(id);
-  if (custom?.trim()) return custom.trim();
-  const snapshot = readSessionAgentSnapshot(id);
-  if (snapshot?.id?.trim()) return snapshot.id.trim();
-  return null;
+  return (
+    useExpertDirectoryStore
+      .getState()
+      .getIdentity(workspaceId)
+      .agentIdBySessionId.get(id) ?? null
+  );
 }
 
 /**
@@ -263,11 +264,12 @@ export function resolveAgentIdForSession(sessionId: string): string | null {
  * agent binding, so each session is its own scope (`assistant-session:<id>`).
  */
 export function resolveUnreadAgentIdForSession(
+  workspaceId: string,
   sessionId: string,
 ): string | null {
   const id = normalizeId(sessionId);
   if (!id || id.startsWith("draft:")) return null;
-  return resolveAgentIdForSession(id) ?? `assistant-session:${id}`;
+  return resolveAgentIdForSession(workspaceId, id) ?? `assistant-session:${id}`;
 }
 
 function isUnreadRecord(record: ExpertUnreadRecord | undefined): boolean {
@@ -418,7 +420,7 @@ export const useExpertUnreadStore = create<ExpertUnreadStore>((set, get) => ({
   noteAssistantActivityForSession: (workspaceId, sessionId, at = Date.now()) => {
     // Pure assistant sessions have no expert agentId — still track unread so
     // the task list can show a blue unread dot after a reply finishes.
-    const agentId = resolveUnreadAgentIdForSession(sessionId);
+    const agentId = resolveUnreadAgentIdForSession(workspaceId, sessionId);
     if (!agentId) return;
     const runKey =
       useSessionActivityStore.getState().getRunIdentity(workspaceId, sessionId)

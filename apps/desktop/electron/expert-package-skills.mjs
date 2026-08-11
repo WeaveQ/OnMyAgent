@@ -86,6 +86,25 @@ export async function listExpertPackageSkillSources(packageDir) {
 }
 
 /**
+ * Read the canonical package manifest declarations without requiring every
+ * source directory to exist. Missing declarations remain visible to callers.
+ * @param {string} packageDir
+ * @returns {Promise<string[]>}
+ */
+export async function listExpertPackageSkillDeclarations(packageDir) {
+  const root = String(packageDir ?? "").trim();
+  if (!root) return [];
+  const plugin =
+    (await readJsonIfExists(path.join(root, ".onmyagent-plugin", "plugin.json"))) ??
+    (await readJsonIfExists(path.join(root, ".expert-plugin", "plugin.json"))) ??
+    {};
+  return [...new Set((Array.isArray(plugin.skills) ? plugin.skills : [])
+    .map((ref) => String(ref ?? "").trim().replace(/\\/g, "/").replace(/\/$/, ""))
+    .map((ref) => ref.split("/").filter(Boolean).pop() ?? "")
+    .filter((name) => isSafeSkillFolderName(name)))];
+}
+
+/**
  * Copy each package skill into skillsRoot/<skillName>.
  * @param {{ packageDir: string, skillsRoot: string }} input
  * @returns {Promise<string[]>} installed skill names
@@ -116,6 +135,22 @@ export async function materializeExpertPackageSkills(input) {
     installed.push(skillName);
   }
   return installed;
+}
+
+/**
+ * Materialize canonical declarations while preserving an explicit missing
+ * list for recovery UI and marker projection.
+ * @param {{ packageDir: string, skillsRoot: string }} input
+ * @returns {Promise<{ declared: string[], installed: string[], missing: string[] }>}
+ */
+export async function materializeExpertPackageSkillsState(input) {
+  const declared = await listExpertPackageSkillDeclarations(input?.packageDir);
+  const installed = await materializeExpertPackageSkills(input);
+  return {
+    declared,
+    installed,
+    missing: declared.filter((name) => !installed.includes(name)),
+  };
 }
 
 /**
@@ -182,6 +217,29 @@ export async function materializeExpertPackageSkillsAndRefresh(input) {
     await input.refreshSkillLinks();
   }
   return installed;
+}
+
+/**
+ * Materialize expert-owned skills and retain the declaration state for marker
+ * and recovery consumers. Missing declarations are intentionally preserved;
+ * callers can surface them without treating a partial package as complete.
+ * @param {{
+ *   packageDir: string,
+ *   skillsRoot: string,
+ *   refreshSkillLinks?: () => Promise<unknown>,
+ * }} input
+ * @returns {Promise<{declared: string[], installed: string[], missing: string[]}>}
+ */
+export async function materializeExpertPackageSkillsStateAndRefresh(input) {
+  const removed = await removeRetiredExpertPackageSkills(input);
+  const state = await materializeExpertPackageSkillsState(input);
+  if (
+    (state.installed.length > 0 || removed.length > 0) &&
+    typeof input?.refreshSkillLinks === "function"
+  ) {
+    await input.refreshSkillLinks();
+  }
+  return state;
 }
 
 /**

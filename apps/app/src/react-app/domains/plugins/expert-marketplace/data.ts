@@ -3,6 +3,7 @@ import {
   normalizeExpertMarketplaceCategoryId,
 } from "./categories";
 import type {
+  ExpertIntroStyle,
   ExpertMarketplaceEntry,
   ExpertPromptTemplate,
   ExpertRegistryRecord,
@@ -70,6 +71,9 @@ type ExpertPackageManifest = {
   expertType?: string | null;
   agentName?: string | null;
   runtime?: string | null;
+  skills?: string[] | null;
+  introStyle?: ExpertIntroStyle | null;
+  approvedAgentIds?: string[] | null;
 };
 
 type LocalizedTextList = {
@@ -88,6 +92,23 @@ type LocalizedExpertPromptTemplate = {
 
 function packageNameFromPath(path: string): string {
   return path.match(/builtin-experts\/plugins\/([^/]+)\//)?.[1] ?? path;
+}
+
+function manifestSkillNames(value: string[] | null | undefined): string[] {
+  return [...new Set((Array.isArray(value) ? value : [])
+    .map((item) => String(item ?? "").trim().replace(/\\/g, "/").replace(/\/$/, ""))
+    .map((item) => item.split("/").filter(Boolean).pop() ?? "")
+    .filter((item) => /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(item)))];
+}
+
+function manifestIntroStyle(value: ExpertIntroStyle | null | undefined): ExpertIntroStyle {
+  return value === "short-colleague" ? value : "default";
+}
+
+function manifestApprovedAgentIds(value: string[] | null | undefined): string[] {
+  return [...new Set((Array.isArray(value) ? value : [])
+    .map((item) => item.trim())
+    .filter(Boolean))];
 }
 
 function parseJson(input: string): ExpertPackageManifest {
@@ -333,6 +354,9 @@ export function listBuiltinMarketplaceExperts(): ExpertMarketplaceEntry[] {
         systemPrompt: agentMarkdown || readme,
         version: manifest.version?.trim() || null,
         teamWorkflow: null,
+        skills: manifestSkillNames(manifest.skills),
+        introStyle: manifestIntroStyle(manifest.introStyle),
+        approvedAgentIds: manifestApprovedAgentIds(manifest.approvedAgentIds),
       };
     })
     .sort((left, right) => left.displayName.localeCompare(right.displayName, "zh-Hans-CN"));

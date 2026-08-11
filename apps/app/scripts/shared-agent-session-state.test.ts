@@ -5,12 +5,9 @@ import { resolve } from "node:path";
 import type { OnMyAgentAutomationTaskItem } from "../src/app/lib/onmyagent-server";
 import {
   addAssistantSession,
-  addExpertSession,
   isAssistantSession,
-  isExpertSession,
   readAssistantSessionCategory,
   removeAssistantSession,
-  removeExpertSession,
   writeAssistantSessionCategory,
 } from "../src/react-app/domains/agents/agent-session-state";
 import {
@@ -24,13 +21,10 @@ import {
   buildExpertWorkspaceSessions,
   listVisibleExpertAgentSessions,
 } from "../src/react-app/domains/session/pages/expert-conversation-model";
-import { writeCustomAgentIdForSession } from "../src/react-app/domains/session/sidebar/conversation-model";
 
 const storageKeys = [
   "onmyagent:assistantSessionIds",
   "onmyagent:assistantSessionCategoryById",
-  "onmyagent:expertSessionIds",
-  "onmyagent:customAgentBySessionId",
   "onmyagent.automationSessions.v1:workspace-1",
   "onmyagent.deletedAutomationSessions.v1:workspace-1",
   "onmyagent.assistantSessionWorkspaces.v1",
@@ -103,50 +97,20 @@ describe("shared agent session state", () => {
     expect(readAssistantSessionCategory("unknown")).toBe("office");
   });
 
-  test("does not classify an automation custom-agent mapping as an expert", () => {
-    localStorage.setItem(
-      "onmyagent:customAgentBySessionId",
-      JSON.stringify({ "automation-session": "agent-1" }),
-    );
-
-    expect(isExpertSession("automation-session")).toBe(false);
-
-    addExpertSession("expert-explicit");
-    expect(isExpertSession("expert-explicit")).toBe(true);
-
-    removeExpertSession("expert-explicit");
-    expect(isExpertSession("expert-explicit")).toBe(false);
-  });
-
-  test("keeps explicit expert index independent from custom-agent mappings", () => {
-    localStorage.setItem(
-      "onmyagent:expertSessionIds",
-      JSON.stringify(["expert-existing"]),
-    );
-    localStorage.setItem(
-      "onmyagent:customAgentBySessionId",
-      JSON.stringify({ "automation-session": "agent-2" }),
-    );
-
-    expect(isExpertSession("expert-existing")).toBe(true);
-    expect(isExpertSession("automation-session")).toBe(false);
-    expect(localStorage.getItem("onmyagent:expertSessionIds")).toBe(
-      JSON.stringify(["expert-existing"]),
-    );
-  });
-
   test("scopes expert entries to real sessions in the selected workspace", () => {
-    addExpertSession("expert-in-a");
-    addExpertSession("expert-stale");
-    writeCustomAgentIdForSession("expert-in-a", "agent-a");
-    writeCustomAgentIdForSession("expert-stale", "agent-stale");
-
     const workspaceASessions = [{ id: "expert-in-a", title: "A" }];
     const workspaceBSessions = [{ id: "session-in-b", title: "B" }];
-    expect(listVisibleExpertAgentSessions(workspaceASessions)).toEqual([
+    const identity = {
+      sessionIds: new Set(["expert-in-a", "expert-stale"]),
+      agentIdBySessionId: new Map([
+        ["expert-in-a", "agent-a"],
+        ["expert-stale", "agent-stale"],
+      ]),
+    };
+    expect(listVisibleExpertAgentSessions(workspaceASessions, identity)).toEqual([
       { sessionId: "expert-in-a", agentId: "agent-a" },
     ]);
-    expect(listVisibleExpertAgentSessions(workspaceBSessions)).toEqual([]);
+    expect(listVisibleExpertAgentSessions(workspaceBSessions, identity)).toEqual([]);
     expect(
       buildExpertWorkspaceSessions({ rawWorkspaceSessions: workspaceBSessions }),
     ).toBe(workspaceBSessions);

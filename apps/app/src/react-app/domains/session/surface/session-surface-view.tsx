@@ -390,6 +390,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
                   promptSuggestions={
                     <AgentPromptSuggestions
                       agentId={props.effectiveAgent.id}
+                      introStyle={props.effectiveAgent.introStyle}
                       quickPrompts={props.effectiveAgent.quickPrompts}
                       promptTemplates={props.effectiveAgent.promptTemplates}
                       onSelect={(prompt, template) =>

@@ -6,9 +6,6 @@ import type { SidebarSessionItem, WorkspaceSessionGroup } from "../../../../app/
 import type { PendingAgentContext, AgentRegistry } from "../../agents";
 import {
   buildPendingAgentFromRecord,
-  isExpertSession,
-  readCustomAgentIdForSession,
-  readCustomAgentSessionEntries,
 } from "../../agents";
 import {
   buildAgentConversationGroups,
@@ -18,6 +15,11 @@ import { findBuiltinMarketplaceExpertById } from "@/react-app/domains/plugins";
 import { resolveExpertSessionSelection } from "../sidebar/expert-session-selection-memory";
 
 export { buildAgentConversationGroups };
+
+export type ExpertDirectoryIdentityIndex = {
+  sessionIds: ReadonlySet<string>;
+  agentIdBySessionId: ReadonlyMap<string, string>;
+};
 
 export function selectRawWorkspaceSessions(
   groups: WorkspaceSessionGroup[],
@@ -31,14 +33,13 @@ export function selectRawWorkspaceSessions(
 
 export function listVisibleExpertAgentSessions(
   rawWorkspaceSessions: SidebarSessionItem[],
+  identity: ExpertDirectoryIdentityIndex,
 ) {
-  const workspaceSessionIds = new Set(
-    rawWorkspaceSessions.map((session) => session.id),
-  );
-  return readCustomAgentSessionEntries().filter(
-    (entry) =>
-      workspaceSessionIds.has(entry.sessionId) && isExpertSession(entry.sessionId),
-  );
+  return rawWorkspaceSessions.flatMap((session) => {
+    if (!identity.sessionIds.has(session.id)) return [];
+    const agentId = identity.agentIdBySessionId.get(session.id);
+    return agentId ? [{ sessionId: session.id, agentId }] : [];
+  });
 }
 
 export function buildExpertWorkspaceSessions(input: {
@@ -62,10 +63,10 @@ export function buildDraftAgentGroups(
     const draftSession: SidebarSessionItem = {
       id: `draft:${selectedWorkspaceId}:${agent.id}`,
       title: agent.name,
-      time: agent.conversationStartId
+      time: agent.draftCreatedAt
         ? {
-            created: agent.conversationStartId,
-            updated: agent.conversationStartId,
+            created: agent.draftCreatedAt,
+            updated: agent.draftCreatedAt,
           }
         : undefined,
     };
@@ -93,18 +94,22 @@ export function buildCurrentAgentSessions(input: {
   selectedWorkspaceId: string;
   draftSessionActive: boolean;
   activeDraftSessionId: string | null;
+  identity: ExpertDirectoryIdentityIndex;
 }): SidebarSessionItem[] {
+  const isExpert = (sessionId: string) => input.identity.sessionIds.has(sessionId);
+  const agentIdForSession = (sessionId: string) =>
+    input.identity.agentIdBySessionId.get(sessionId);
   let sessions: SidebarSessionItem[];
   if (!input.activeConversationAgentId) {
     sessions = input.workspaceSessions.filter(
       (session) =>
-        session.id === input.selectedSessionId && isExpertSession(session.id),
+        session.id === input.selectedSessionId && isExpert(session.id),
     );
   } else {
     sessions = input.workspaceSessions.filter(
       (session) =>
-        readCustomAgentIdForSession(session.id) ===
-          input.activeConversationAgentId && isExpertSession(session.id),
+        agentIdForSession(session.id) ===
+          input.activeConversationAgentId && isExpert(session.id),
     );
   }
   if (input.draftSessionActive) {
@@ -175,6 +180,9 @@ export function resolveActiveAgentContext(input: {
       systemPrompt: marketplaceExpert.systemPrompt,
       quickPrompts: marketplaceExpert.quickPrompts.slice(0, 3),
       promptTemplates: marketplaceExpert.promptTemplates.slice(0, 3),
+      skillIds: [...marketplaceExpert.skills],
+      introStyle: marketplaceExpert.introStyle,
+      approvedAgentIds: [...marketplaceExpert.approvedAgentIds],
       marketplaceExpert: {
         source: "builtin",
         packageName: marketplaceExpert.packageName,
@@ -200,11 +208,14 @@ export function resolveActiveAgentContext(input: {
 
 export function computeHasAnyExpertConversation(
   workspaceSessions: SidebarSessionItem[],
+  identity: ExpertDirectoryIdentityIndex,
 ): boolean {
   return workspaceSessions.some(
-    (session) =>
-      isExpertSession(session.id) &&
-      Boolean(readCustomAgentIdForSession(session.id)),
+    (session) => {
+      const isExpert = identity.sessionIds.has(session.id);
+      const agentId = identity.agentIdBySessionId.get(session.id);
+      return isExpert && Boolean(agentId);
+    },
   );
 }
 
