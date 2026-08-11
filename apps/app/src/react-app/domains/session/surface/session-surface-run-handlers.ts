@@ -343,21 +343,29 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
     setSending(true);
     setAwaitingAssistantBaseline(renderedMessages.length);
     setNoVisibleAssistantOutputBaseline(null);
-    // Paint a local user bubble immediately so draft / empty-session cold paths
-    // never sit on a blank "准备中" page while create+prompt is still running.
-    if (text) {
+    // Capture draft for the network path, then clear the composer immediately.
+    // First expert send can wait many seconds on isolated-dir session.create;
+    // leaving the text in the box makes 准备中 feel stuck and confuses retry.
+    const sendText = text;
+    const sendAttachments = attachments;
+    const nextDraftBase = buildDraft(sendText, sendAttachments);
+    if (sendText) {
       setPendingOutgoingUserMessage({
         id: `msg_local_${crypto.randomUUID()}`,
-        text,
+        text: sendText,
         createdAt: startedAt,
       });
     }
+    // Clear the box immediately (text + chips). Revoke blob previews only after
+    // the network path accepts, so failure can restore the draft intact.
+    clearComposerSession(sessionId);
+    onDraftChange(buildDraft("", []));
     try {
       const stallKey = sessionId;
       const hadStallRecovery = Boolean(stallRecoveryBySessionId[stallKey]);
       const { draft: nextDraft, nextGoalRuntime } = applySendDraftIntents({
-        draft: buildDraft(text, attachments),
-        text,
+        draft: nextDraftBase,
+        text: sendText,
         messageBaseline: renderedMessages.length,
         startedAt,
         effectiveCollaborationMode,
@@ -376,9 +384,7 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
         onGoalRuntimeChange?.(nextGoalRuntime);
       }
       await onSendDraft(nextDraft);
-      attachments.forEach(revokeAttachmentPreview);
-      clearComposerSession(sessionId);
-      onDraftChange(buildDraft("", []));
+      sendAttachments.forEach(revokeAttachmentPreview);
       setSending(false);
     } catch (nextError) {
       const parsed = parseSessionError(nextError);
@@ -389,9 +395,10 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
           .getState()
           .setError(workspaceId, sessionId, parsed.message);
       }
-      // Drop the local bubble on failure; keep the composer draft so the user
-      // can edit and retry (composer is only cleared after acceptance above).
+      // Drop the local bubble on failure; restore composer so the user can
+      // edit and retry (we cleared optimistically before the network path).
       setPendingOutgoingUserMessage(null);
+      onDraftChange(nextDraftBase);
       setAwaitingAssistantBaseline(null);
       setNoVisibleAssistantOutputBaseline(null);
     } finally {

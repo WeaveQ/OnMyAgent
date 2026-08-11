@@ -63,9 +63,13 @@ export type OpencodeAuth = {
 };
 
 const DEFAULT_OPENCODE_REQUEST_TIMEOUT_MS = 10_000;
+/** Expert isolated dirs cold-start OpenCode project+skill scan; 10s is too short. */
+const SESSION_CREATE_REQUEST_TIMEOUT_MS = 60_000;
 const OAUTH_OPENCODE_REQUEST_TIMEOUT_MS = 5 * 60_000;
 const MCP_AUTH_OPENCODE_REQUEST_TIMEOUT_MS = 90_000;
 const SESSION_LONG_RUNNING_URL_RE = /\/session\/[^/?#]+\/(?:command|prompt_async|summarize)(?:[?#]|$)/;
+/** POST create is `/session` or `/…/opencode/session` without a session id segment. */
+const SESSION_CREATE_URL_RE = /\/(?:opencode\/)?session\/?(?:\?[^#]*)?(?:#.*)?$/i;
 
 function readErrorName(error: unknown): string {
   if (error && typeof error === "object" && "name" in error) {
@@ -87,6 +91,12 @@ function resolveRequestTimeoutMs(input: RequestInfo | URL, fallbackMs: number): 
   if (SESSION_LONG_RUNNING_URL_RE.test(url)) {
     return 0;
   }
+  // First expert send: isolated directory forces a cold OpenCode project boot
+  // (skills/index). Default 10s aborts with「请求超时」while UI still shows
+  // 准备中 and keeps the composer text.
+  if (SESSION_CREATE_URL_RE.test(url)) {
+    return Math.max(fallbackMs, SESSION_CREATE_REQUEST_TIMEOUT_MS);
+  }
   if (/\/provider\/oauth\//.test(url) || /\/mcp\/auth\/callback\b/.test(url)) {
     return Math.max(fallbackMs, OAUTH_OPENCODE_REQUEST_TIMEOUT_MS);
   }
@@ -94,6 +104,14 @@ function resolveRequestTimeoutMs(input: RequestInfo | URL, fallbackMs: number): 
     return Math.max(fallbackMs, MCP_AUTH_OPENCODE_REQUEST_TIMEOUT_MS);
   }
   return fallbackMs;
+}
+
+/** Exported for unit tests of create-timeout classification. */
+export function resolveOpencodeRequestTimeoutMsForTests(
+  url: string,
+  fallbackMs: number = DEFAULT_OPENCODE_REQUEST_TIMEOUT_MS,
+): number {
+  return resolveRequestTimeoutMs(url, fallbackMs);
 }
 
 
