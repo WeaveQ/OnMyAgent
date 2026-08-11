@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useMemo, type CSSProperties } from "react";
-import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
+import { resolvePublicAssetAbsoluteUrl } from "@/lib/public-asset-url";
 import { cn } from "@/lib/utils";
 import {
   EMPTY_STATE_ILLUSTRATION_CLASS,
@@ -29,7 +29,7 @@ export function EmptyStateIllustration(props: EmptyStateIllustrationProps) {
     props.size === "compact"
       ? EMPTY_STATE_ILLUSTRATION_COMPACT_CLASS
       : EMPTY_STATE_ILLUSTRATION_CLASS;
-  const url = resolvePublicAssetUrl(props.src);
+  const url = resolvePublicAssetAbsoluteUrl(props.src);
   const style = useMemo(
     (): CSSProperties =>
       ({
