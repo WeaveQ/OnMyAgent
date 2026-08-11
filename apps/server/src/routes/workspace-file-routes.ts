@@ -1,6 +1,6 @@
 import { createReadStream } from "node:fs";
 import { readFile, rename, stat, writeFile } from "node:fs/promises";
-import { basename, dirname } from "node:path";
+import { dirname } from "node:path";
 import { Readable } from "node:stream";
 import { nodeReadableToWebStream } from "../core/node-web-stream.js";
 import type {
@@ -13,6 +13,7 @@ import { recordAudit } from "../services/audit.js";
 import { ApiError } from "../core/errors.js";
 import { addRoute, systemJsonResponse, type RequestContext, type Route } from "./route-core.js";
 import { ensureDir, exists, shortId } from "../core/utils.js";
+import { contentDispositionHeader } from "../workspace/path-utils.js";
 
 export function registerWorkspaceFileRoutes(input: {
   routes: Route[];
@@ -153,7 +154,7 @@ export function registerWorkspaceFileRoutes(input: {
     headers.set("Content-Length", String(info.size));
     headers.set(
       "Content-Disposition",
-      `inline; filename="${basename(relativePath)}"`,
+      contentDispositionHeader("inline", relativePath),
     );
     const stream = nodeReadableToWebStream(createReadStream(absPath));
     return new Response(stream, { status: 200, headers });
