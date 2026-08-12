@@ -1005,9 +1005,11 @@ describe("expert marketplace UI contract", () => {
     expect(expertPage).not.toContain("setDraftAgentId");
     expect(expertPage).toContain("const [sessionTabOrderIdsByScope, setSessionTabOrderIdsByScope]");
     expect(expertPage).toContain("orderIds={input.sessionTabOrderIds}");
-    // Pending tab highlight: local override or surface-mode creatingSessionId.
-    expect(expertPage).toContain("pendingSessionId={");
-    expect(expertPage).toContain("input.surfaceMode.creatingSessionId");
+    // Pending tab highlight is surface pendingTabSessionId only — never
+    // creatingSessionId (that path could not be cleared and caused max-update-depth).
+    expect(expertPage).toContain("pendingSessionId={tabHighlightSessionId}");
+    expect(expertPage).not.toContain("pendingSessionId={input.surfaceMode.creatingSessionId}");
+    expect(expertPage).toContain("creatingSessionId: expertSurfaceMode.creatingSessionId");
     // One reducer owns route, draft transaction, and pending-tab state; its
     // single projection owns draftOnly / sessionId / force-nav.
     expect(expertPage).toContain("mode: expertSurfaceMode");
