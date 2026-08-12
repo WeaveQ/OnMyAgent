@@ -128,13 +128,16 @@ function startWorkspaceReloadWatcher(input: {
     if (existing) {
       clearTimeout(existing.timer);
     }
+    // Prefer an explicit trigger over a later empty FSEvents callback so
+    // macOS coalesced watch events do not drop `trigger.name` metadata.
+    const mergedTrigger = trigger ?? existing?.trigger;
 
     const timer = setTimeout(() => {
       const pending = pendingChecks.get(reason);
       pendingChecks.delete(reason);
-      void checkReason(reason, pending?.trigger ?? trigger);
+      void checkReason(reason, pending?.trigger ?? mergedTrigger);
     }, debounceMs);
-    pendingChecks.set(reason, { timer, trigger });
+    pendingChecks.set(reason, { timer, trigger: mergedTrigger });
   };
 
   const ensureOpencodeRootWatcher = () => {
@@ -206,7 +209,25 @@ function startWorkspaceReloadWatcher(input: {
           const raw = filename ? filename.toString() : "";
           const name = raw.trim();
           if (!name) {
-            scheduleReasonCheck("config");
+            // macOS FSEvents often omits filename; still attach a config trigger
+            // when the workspace root holds opencode.json(c) so e2e/API events
+            // keep a stable `trigger.name` (parity with .opencode root watcher).
+            const inferredConfigPath = existsSync(join(root, "opencode.jsonc"))
+              ? join(root, "opencode.jsonc")
+              : existsSync(join(root, "opencode.json"))
+                ? join(root, "opencode.json")
+                : null;
+            scheduleReasonCheck(
+              "config",
+              inferredConfigPath
+                ? {
+                    type: "config",
+                    name: basename(inferredConfigPath),
+                    action: "updated",
+                    path: inferredConfigPath,
+                  }
+                : undefined,
+            );
             scheduleReasonCheck("agents");
             for (const tree of trees) tree.scheduleRescan();
             return;
