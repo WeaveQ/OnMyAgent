@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { AlertTriangle, CheckCircle2, CircleAlert, Info, X } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -12,6 +13,8 @@ export type StatusToastProps = {
   onAction?: () => void;
   dismissLabel?: string;
   onDismiss: () => void;
+  icon?: LucideIcon;
+  spinIcon?: boolean;
 };
 
 const statusToastToneClass = {
@@ -37,7 +40,8 @@ const statusToastLayoutClass = {
   description: "mt-1 text-sm leading-relaxed text-dls-secondary",
   dismissButton: "rounded-lg text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
   actionRow: "mt-3 flex items-center gap-2",
-  primaryAction: "rounded-lg bg-dls-accent text-dls-accent-fg hover:bg-dls-accent-hover",
+  primaryAction:
+    "bg-dls-decision text-white shadow-sm hover:bg-dls-decision-hover",
   secondaryAction: "rounded-lg text-dls-text hover:bg-dls-hover",
   /** Inline text action next to title (Hope "View" link). */
   inlineAction:
@@ -55,7 +59,7 @@ export function StatusToast(props: StatusToastProps) {
 
   const tileClass = statusToastToneClass[tone];
 
-  const Icon =
+  const DefaultIcon =
     tone === "success"
       ? CheckCircle2
       : tone === "warning"
@@ -63,6 +67,7 @@ export function StatusToast(props: StatusToastProps) {
         : tone === "error"
           ? CircleAlert
           : Info;
+  const Icon: LucideIcon = props.icon ?? DefaultIcon;
 
   if (compact) {
     return (
@@ -99,7 +104,7 @@ export function StatusToast(props: StatusToastProps) {
         <div
           className={`${statusToastLayoutClass.iconTile} ${tileClass}`.trim()}
         >
-          <Icon size={16} />
+          <Icon size={16} className={props.spinIcon ? "animate-spin" : undefined} />
         </div>
 
         <div className={statusToastLayoutClass.content}>
@@ -131,7 +136,7 @@ export function StatusToast(props: StatusToastProps) {
             <div className={statusToastLayoutClass.actionRow}>
               <Button
                 type="button"
-                size="xs"
+                size="sm"
                 className={statusToastLayoutClass.primaryAction}
                 onClick={() => props.onAction?.()}
               >
@@ -140,7 +145,7 @@ export function StatusToast(props: StatusToastProps) {
               <Button
                 type="button"
                 variant="ghost"
-                size="xs"
+                size="sm"
                 className={statusToastLayoutClass.secondaryAction}
                 onClick={props.onDismiss}
               >
