@@ -51,17 +51,24 @@ export function agentDisplayStatus(
   agent: { status?: string | null; error?: string | null; errorInfo?: { code?: string | null } | null; errorCode?: string | null; capability?: { installed?: boolean | null } | null },
   health?: AgentManagementHealthResult | null,
 ): AgentDisplayStatus {
-  // User-initiated probe wins.
+  const base = installOnlyStatus(agent);
+
+  // Successful "测试连接" always lifts to online.
   if (health?.status === "passed") return "online";
+
+  // Live listAgents is authoritative when the agent is currently online.
+  // Stale healthResults (needs_auth / failed) used to pin 需登录 forever after
+  // the user logged in or a later list probe recovered.
+  if (base === "online") return "online";
+
+  // User-initiated probe for non-online base states.
   if (health?.status === "needs_auth") return "needs_auth";
   if (health?.status === "missing") return "missing";
   if (health?.status === "failed") return "offline";
   // health.running → card shows checking; keep optimistic base for filters.
-  if (health?.status === "running") {
-    return installOnlyStatus(agent);
-  }
+  if (health?.status === "running") return base;
 
-  return installOnlyStatus(agent);
+  return base;
 }
 
 function looksLikeMissingBinary(agent: {

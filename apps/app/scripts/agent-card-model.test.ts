@@ -29,4 +29,34 @@ describe("agentDisplayStatus R1/R2", () => {
     expect(agentDisplayStatus({ status: "online" })).toBe("online");
     expect(agentDisplayStatus({ status: "needs_auth" })).toBe("needs_auth");
   });
+
+  it("online list status wins over stale needs_auth healthResults", () => {
+    expect(
+      agentDisplayStatus(
+        { status: "online" },
+        {
+          status: "needs_auth",
+          at: Date.now(),
+          runId: null,
+          output: "authentication required",
+          error: "login",
+        },
+      ),
+    ).toBe("online");
+  });
+
+  it("passed health still lifts offline/needs_auth agent to online", () => {
+    expect(
+      agentDisplayStatus(
+        { status: "needs_auth" },
+        {
+          status: "passed",
+          at: Date.now(),
+          runId: null,
+          output: "ok",
+          error: null,
+        },
+      ),
+    ).toBe("online");
+  });
 });

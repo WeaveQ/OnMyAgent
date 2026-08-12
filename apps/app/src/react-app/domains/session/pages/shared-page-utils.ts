@@ -24,10 +24,15 @@ import { dispatchComposerTemplate } from "../surface/composer/capability-templat
 
 /**
  * 判断专家包是否可见（过滤掉.expert-plugin目录）
+ * Non-string / empty fields are treated as visible-safe so a partial IPC
+ * payload cannot throw during ExpertPage render (full-window white screen).
  */
 export function isVisibleExpertPackageEntry(entry: ExpertPackageListEntry): boolean {
   const values = [entry.packageName, entry.displayName, entry.packagePath];
-  return values.every((value) => !value.split(/[\\/]/).includes(".expert-plugin"));
+  return values.every((value) => {
+    if (typeof value !== "string" || !value) return true;
+    return !value.split(/[\\/]/).includes(".expert-plugin");
+  });
 }
 
 /**
