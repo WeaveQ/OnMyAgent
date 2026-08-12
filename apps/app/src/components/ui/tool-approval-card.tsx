@@ -67,6 +67,7 @@ function ToolApprovalCardFooter({
   onDeny,
   onAllowOnce,
   onAllowAlways,
+  children,
   ...props
 }: ComponentProps<"div"> & {
   risk?: ToolApprovalRisk
@@ -82,27 +83,51 @@ function ToolApprovalCardFooter({
   return (
     <div
       data-slot="tool-approval-footer"
-      className={cn("flex flex-wrap items-center justify-end gap-2 border-t border-dls-border px-4 py-3", className)}
+      className={cn(
+        "flex flex-col gap-2.5 border-t border-dls-border/70 px-4 py-3",
+        className,
+      )}
       {...props}
     >
-      <Button type="button" variant="outline" size="sm" disabled={busy} onClick={onDeny} autoFocus={risk === "destructive"}>
-        {denyLabel}
-      </Button>
-      {allowAlwaysLabel && onAllowAlways ? (
-        <Button type="button" variant="outline" size="sm" disabled={busy} onClick={onAllowAlways}>
-          {allowAlwaysLabel}
-        </Button>
+      {children ? (
+        <div className="min-w-0 text-xs leading-5 text-dls-secondary">
+          {children}
+        </div>
       ) : null}
-      <Button
-        type="button"
-        variant={primaryVariant}
-        size="sm"
-        disabled={busy}
-        onClick={onAllowOnce}
-        autoFocus={risk !== "destructive"}
-      >
-        {allowOnceLabel}
-      </Button>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-dls-status-danger-fg hover:bg-dls-status-danger-soft hover:text-dls-status-danger-fg"
+          disabled={busy}
+          onClick={onDeny}
+          autoFocus={risk === "destructive"}
+        >
+          {denyLabel}
+        </Button>
+        {allowAlwaysLabel && onAllowAlways ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={onAllowAlways}
+          >
+            {allowAlwaysLabel}
+          </Button>
+        ) : null}
+        <Button
+          type="button"
+          variant={primaryVariant}
+          size="sm"
+          disabled={busy}
+          onClick={onAllowOnce}
+          autoFocus={risk !== "destructive"}
+        >
+          {allowOnceLabel}
+        </Button>
+      </div>
     </div>
   )
 }

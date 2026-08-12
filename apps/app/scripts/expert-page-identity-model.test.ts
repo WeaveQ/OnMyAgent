@@ -32,4 +32,17 @@ describe("collectExpertMissingSkills", () => {
       "vehicle-candidate-ranking",
     ]);
   });
+
+  test("tolerates missing missingSkills arrays without throwing", () => {
+    expect(
+      collectExpertMissingSkills(
+        [
+          { agentId: "a", missingSkills: null },
+          { agentId: "b" },
+          { agentId: "c", missingSkills: ["ok"] },
+        ] as Array<{ agentId: string; missingSkills?: readonly string[] | null }>,
+        null,
+      ),
+    ).toEqual(["ok"]);
+  });
 });

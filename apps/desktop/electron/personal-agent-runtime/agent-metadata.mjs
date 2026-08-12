@@ -16,8 +16,14 @@ export function normalizeAgentStatus(agent) {
   if (code === "missing_binary" || capability?.installed === false || /not found|no such file|command not found|未配置|命令不可用|not installed/.test(errorText)) {
     return "missing";
   }
-  // Authentication / login required.
-  if (code === "auth_required" || capability?.authenticated === false || /auth|login|unauthorized|forbidden|api key|credential|认证|登录|未授权/.test(errorText)) {
+  // Authentication / login required (avoid bare "auth" substring false-positives).
+  if (
+    code === "auth_required" ||
+    capability?.authenticated === false ||
+    /unauthorized|forbidden|not\s+logged\s+in|sign[\s-]?in|api[\s_-]?key|credential|authentication\s+required|login\s+required|认证|登录|未授权/.test(
+      errorText,
+    )
+  ) {
     return "needs_auth";
   }
   if (raw === "offline" || raw === "error") return "offline";

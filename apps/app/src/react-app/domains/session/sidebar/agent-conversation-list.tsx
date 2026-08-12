@@ -278,7 +278,7 @@ export function AgentConversationList(props: AgentConversationListProps) {
   }
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex select-none flex-col gap-1">
       {unstartedItems.map((item) => (
         <AgentStarterRow
           key={item.key}

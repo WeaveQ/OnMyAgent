@@ -3,6 +3,7 @@ import type { UIMessage } from "ai";
 
 import type { OpencodeEvent } from "../src/app/types";
 import { getReactQueryClient } from "../src/react-app/infra/query-client";
+import { useExpertUnreadStore } from "../src/react-app/domains/session/status/expert-unread-store";
 import { useSessionActivityStore } from "../src/react-app/domains/session/status/session-activity-store";
 import { readTranscriptMessageMetadata } from "../src/react-app/domains/session/sync/message-metadata";
 import {
@@ -58,6 +59,11 @@ beforeEach(() => {
   useSessionActivityStore.setState({
     recordsByWorkspaceId: {},
     statusesByWorkspaceId: {},
+  });
+  useExpertUnreadStore.setState({
+    byWorkspace: {},
+    sessionUnreadByWorkspace: {},
+    focused: null,
   });
 });
 
@@ -377,5 +383,80 @@ describe("session sync tracking", () => {
     expect(
       __retentionTtlForUntrackedSessionForTest(syncInput, "ses_compacting"),
     ).toBe(10_000);
+  });
+
+  test("defers expert unread until run ends, not mid-stream assistant parts", () => {
+    const input = { ...syncInput, directory: "/tmp/unread-defer" };
+    const releaseWorkspace = __createWorkspaceSessionSyncForTest(input);
+    const sessionId = "ses_unread_defer";
+
+    useSessionActivityStore
+      .getState()
+      .startRun(input.workspaceId, sessionId);
+
+    // Mid-run tool/text parts must not bump the list badge yet.
+    __applySessionSyncEventForTest(input, {
+      type: "message.part.updated",
+      properties: {
+        part: {
+          id: "part_tool",
+          type: "tool",
+          sessionID: sessionId,
+          messageID: "msg_assistant",
+        },
+      },
+    });
+    __applySessionSyncEventForTest(input, {
+      type: "message.part.updated",
+      properties: {
+        part: {
+          id: "part_text",
+          type: "text",
+          text: "still working…",
+          sessionID: sessionId,
+          messageID: "msg_assistant",
+        },
+      },
+    });
+    expect(
+      useExpertUnreadStore
+        .getState()
+        .isSessionUnread(input.workspaceId, sessionId),
+    ).toBe(false);
+
+    // Full turn finished → +1 once.
+    __applySessionSyncEventForTest(input, {
+      type: "session.idle",
+      properties: { sessionID: sessionId },
+    });
+    expect(
+      useExpertUnreadStore
+        .getState()
+        .isSessionUnread(input.workspaceId, sessionId),
+    ).toBe(true);
+    expect(
+      useExpertUnreadStore
+        .getState()
+        .getUnreadCount(
+          input.workspaceId,
+          `assistant-session:${sessionId}`,
+        ),
+    ).toBe(1);
+
+    // Duplicate idle / status-idle must not double-count the same run.
+    __applySessionSyncEventForTest(input, {
+      type: "session.status",
+      properties: { sessionID: sessionId, status: { type: "idle" } },
+    });
+    expect(
+      useExpertUnreadStore
+        .getState()
+        .getUnreadCount(
+          input.workspaceId,
+          `assistant-session:${sessionId}`,
+        ),
+    ).toBe(1);
+
+    releaseWorkspace();
   });
 });

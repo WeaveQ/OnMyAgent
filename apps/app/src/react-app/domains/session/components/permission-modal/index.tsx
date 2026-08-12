@@ -1,5 +1,15 @@
 /** @jsxImportSource react */
-import { Check, ChevronRight, Clock3, HardDrive, RefreshCcw, ShieldCheck, Trash2, XCircle } from "lucide-react";
+import {
+  Check,
+  ChevronRight,
+  Clock3,
+  FolderOpen,
+  HardDrive,
+  RefreshCcw,
+  ShieldCheck,
+  X,
+  XCircle,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, type KeyboardEvent } from "react";
 
 import {
@@ -14,7 +24,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/action-row";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { ToolApprovalCard } from "@/components/ui/tool-approval-card";
+import {
+  ToolApprovalCard,
+  ToolApprovalCardBody,
+  ToolApprovalCardFooter,
+  ToolApprovalCardHeader,
+} from "@/components/ui/tool-approval-card";
+import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 import type { PendingPermission } from "@/app/types";
 
@@ -59,22 +75,20 @@ const permissionLayoutClass = {
   details: "group rounded-xl border border-dls-border bg-dls-surface px-4 py-3",
   summary: "flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-dls-text",
   metadataPre: "mt-3 max-h-44 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-dls-border bg-dls-surface-muted px-3 py-2.5 text-xs leading-5 text-dls-secondary",
-  panelShell: "overflow-hidden border-x-0 border-b border-t border-dls-border bg-transparent",
-  panelHeader: "flex items-start justify-between gap-4 px-4 py-3.5",
-  panelTitleWrap: "flex min-w-0 items-start gap-3",
-  panelTitle: "text-sm font-medium leading-5 text-dls-text",
-  panelMessage: "mt-0.5 text-xs leading-5 text-dls-secondary",
-  panelNote: "mt-1 text-xs leading-5 text-dls-secondary",
-  panelBody: "border-t border-dls-border bg-dls-surface-muted/40 px-4 py-3",
-  panelScopeLabel: "flex items-center gap-1.5 text-xs font-medium text-dls-secondary",
-  panelScope: "mt-1.5 truncate rounded-lg border border-dls-border bg-dls-surface px-3 py-2 font-mono text-xs leading-5 text-dls-text",
-  panelDetails: "group mt-2.5 rounded-lg border border-dls-border bg-dls-surface",
-  panelSummary: "flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-xs font-medium text-dls-secondary hover:text-dls-text",
-  panelPre: "max-h-32 overflow-auto whitespace-pre-wrap break-words border-t border-dls-border px-3 py-2.5 text-xs leading-5 text-dls-secondary",
-  panelDecision: "flex flex-col gap-3 border-t border-dls-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between",
-  panelHint: "max-w-xl text-xs leading-5 text-dls-secondary",
-  panelActions: "flex shrink-0 flex-wrap items-center justify-end gap-2",
-  dangerButton: "text-dls-status-danger-fg hover:bg-dls-status-danger-soft hover:text-dls-status-danger-fg",
+  // Inline panel above composer: one surface, light separators, no nested box soup.
+  panelShell:
+    "overflow-hidden rounded-2xl border border-dls-border bg-dls-surface shadow-sm",
+  panelTitle: "text-sm font-semibold leading-5 tracking-tight text-dls-text",
+  panelMessage: "mt-1 text-xs leading-5 text-dls-secondary",
+  panelNote: "mt-1.5 text-xs leading-5 text-dls-secondary",
+  panelScope:
+    "flex min-w-0 items-start gap-2 rounded-xl bg-dls-surface-muted/70 px-3 py-2.5 font-mono text-xs leading-5 text-dls-text",
+  panelDetails:
+    "group overflow-hidden rounded-xl bg-dls-surface-muted/50",
+  panelSummary:
+    "flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-xs font-medium text-dls-secondary transition-colors hover:text-dls-text",
+  panelPre:
+    "max-h-32 overflow-auto whitespace-pre-wrap break-words border-t border-dls-border/60 px-3 py-2.5 text-xs leading-5 text-dls-secondary",
 };
 
 const metadataDetailKeys: Array<{ key: string; labelKey: string; multiline?: boolean }> = [
@@ -420,104 +434,119 @@ export function PermissionApprovalPanel(props: PermissionApprovalModalProps) {
   const presentation = useMemo(() => describePermissionRequest(props.permission), [props.permission]);
   const metadata = isRecordStringUnknown(props.permission.metadata) ? props.permission.metadata : {};
   const hasMetadata = Object.keys(metadata).length > 0;
-  const Icon = presentation.isDoomLoop ? RefreshCcw : ShieldCheck;
+  const isExternalDirectory = props.permission.permission === "external_directory";
+  const Icon = presentation.isDoomLoop
+    ? RefreshCcw
+    : isExternalDirectory
+      ? FolderOpen
+      : ShieldCheck;
 
   const risk = permissionRiskTier(props.permission, presentation.isDoomLoop);
   const badgeTone =
     risk === "destructive" ? "danger" : risk === "careful" ? "warning" : "neutral";
+  // IconTile tones are limited; risk color is applied via className.
+  const iconClass =
+    risk === "destructive"
+      ? "bg-dls-status-danger-soft text-dls-status-danger-fg"
+      : risk === "careful"
+        ? "bg-dls-status-warning-soft text-dls-status-warning-fg"
+        : undefined;
+  const busy = props.busy || !props.respondPermission;
 
   return (
     <ToolApprovalCard risk={risk} className={permissionLayoutClass.panelShell}>
-      <div className={permissionLayoutClass.panelHeader}>
-        <div className={permissionLayoutClass.panelTitleWrap}>
-          <IconTile className="mt-0.5" shape="xl" tone="neutral" border>
-            <Icon size={16} strokeWidth={1.9} />
-          </IconTile>
-          <div className="min-w-0">
+      <ToolApprovalCardHeader className="items-start gap-3 px-4 pb-1 pt-3.5">
+        <IconTile
+          className={cn("mt-0.5 shrink-0", iconClass)}
+          shape="xl"
+          tone="neutral"
+          border={!iconClass}
+        >
+          <Icon size={16} strokeWidth={1.9} />
+        </IconTile>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <div className={permissionLayoutClass.panelTitle}>{presentation.title}</div>
-            <div className={permissionLayoutClass.panelMessage}>{presentation.message}</div>
-            {presentation.note ? (
-              <div className={permissionLayoutClass.panelNote}>{presentation.note}</div>
-            ) : null}
+            <StatusBadge tone={badgeTone} shape="soft" size="sm" className="shrink-0">
+              {presentation.permissionLabel}
+            </StatusBadge>
           </div>
+          <div className={permissionLayoutClass.panelMessage}>{presentation.message}</div>
+          {presentation.note ? (
+            <div className={permissionLayoutClass.panelNote}>{presentation.note}</div>
+          ) : null}
         </div>
-        <StatusBadge tone={badgeTone} shape="soft" size="sm">
-          {presentation.permissionLabel}
-        </StatusBadge>
         <Button
           type="button"
           size="icon-xs"
           variant="ghost"
           className="shrink-0 text-dls-secondary hover:text-dls-text"
-          onClick={() =>
-            props.respondPermission?.(props.permission.id, "reject")
-          }
-          disabled={props.busy || !props.respondPermission}
-          aria-label={t("session.goal_runtime_clear")}
+          onClick={() => props.respondPermission?.(props.permission.id, "reject")}
+          disabled={busy}
+          aria-label={t("session.deny")}
         >
-          <Trash2 size={12} />
+          <X size={14} strokeWidth={2} />
         </Button>
-      </div>
+      </ToolApprovalCardHeader>
 
-      <div className={permissionLayoutClass.panelBody}>
-        <div className={permissionLayoutClass.panelScopeLabel}>
-          <HardDrive size={12} />
-          {presentation.scopeLabel}
-        </div>
-        <div className={permissionLayoutClass.panelScope} title={presentation.scopeValue}>
-          {presentation.scopeValue}
+      <ToolApprovalCardBody className="space-y-2.5 px-4 py-2.5">
+        <div
+          className={permissionLayoutClass.panelScope}
+          title={presentation.scopeValue}
+        >
+          <HardDrive
+            size={13}
+            strokeWidth={1.75}
+            className="mt-0.5 shrink-0 text-dls-secondary"
+          />
+          <span className="min-w-0 flex-1 break-all">{presentation.scopeValue}</span>
         </div>
 
         {hasMetadata ? (
           <details className={permissionLayoutClass.panelDetails}>
             <summary className={permissionLayoutClass.panelSummary}>
               <span>{t("session.details_label")}</span>
-              <ChevronRight size={14} className="transition-transform group-open:rotate-90" />
+              <ChevronRight
+                size={14}
+                className="shrink-0 transition-transform group-open:rotate-90"
+              />
             </summary>
             <pre className={permissionLayoutClass.panelPre}>
               {stringifyMetadata(metadata, props.safeStringify)}
             </pre>
           </details>
         ) : null}
-      </div>
+      </ToolApprovalCardBody>
 
-      <div className={permissionLayoutClass.panelDecision}>
-        <p className={permissionLayoutClass.panelHint}>
-          {t("session.permission_decision_hint")}
-        </p>
-        <div className={permissionLayoutClass.panelActions}>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className={permissionLayoutClass.dangerButton}
-            onClick={() => props.respondPermission?.(props.permission.id, "reject")}
-            disabled={props.busy || !props.respondPermission}
-          >
+      <ToolApprovalCardFooter
+        risk={risk}
+        busy={busy}
+        denyLabel={
+          <>
             <XCircle data-icon="inline-start" />
             {t("session.deny")}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => props.respondPermission?.(props.permission.id, "always")}
-            disabled={props.busy || !props.respondPermission}
-          >
+          </>
+        }
+        allowAlwaysLabel={
+          <>
             <Check data-icon="inline-start" />
             {t("session.allow_for_session")}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => props.respondPermission?.(props.permission.id, "once")}
-            disabled={props.busy || !props.respondPermission}
-          >
+          </>
+        }
+        allowOnceLabel={
+          <>
             <Clock3 data-icon="inline-start" />
             {t("session.allow_once")}
-          </Button>
-        </div>
-      </div>
+          </>
+        }
+        onDeny={() => props.respondPermission?.(props.permission.id, "reject")}
+        onAllowAlways={() =>
+          props.respondPermission?.(props.permission.id, "always")
+        }
+        onAllowOnce={() => props.respondPermission?.(props.permission.id, "once")}
+      >
+        {t("session.permission_decision_hint")}
+      </ToolApprovalCardFooter>
     </ToolApprovalCard>
   );
 }
