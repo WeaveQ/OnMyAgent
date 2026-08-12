@@ -220,6 +220,114 @@ describe("expert session runtime directory", () => {
     expect(ensured?.missingSkills).toEqual(["declared-skill"]);
   });
 
+  test("ensure rematerializes missing skills without an explicit skillNames request", async () => {
+    const workspace = testWorkspace(join(tempRoot, "project-repair-skills"));
+    const runtimeRoot = join(tempRoot, "app-user-data", "expert-sessions");
+    const skillsSource = join(tempRoot, "skills-source-repair");
+    await mkdir(workspace.path, { recursive: true });
+    await mkdir(join(skillsSource, "fleet-data-consolidation"), { recursive: true });
+    await writeFile(
+      join(skillsSource, "fleet-data-consolidation", "SKILL.md"),
+      "---\nname: fleet-data-consolidation\n---\n# fleet\n",
+    );
+    const created = await createExpertSessionRuntimeDirectory({
+      workspace,
+      runtimeRoot,
+      agentName: "fleet",
+      agentId: "fleet-management-specialist:fleet-management-specialist",
+      packageName: "fleet-management-specialist",
+      sessionId: "ses_repair_skills",
+      sessionKey: "1753456789020",
+      skillNames: ["fleet-data-consolidation"],
+      skillsSourceRoot: skillsSource,
+    });
+    expect(created.installedSkills).toEqual(["fleet-data-consolidation"]);
+    expect(created.isolationVersion).toBe(EXPERT_SESSION_ISOLATION_VERSION);
+    await rm(join(created.directory, ".opencode", "skills", "fleet-data-consolidation"), {
+      recursive: true,
+      force: true,
+    });
+
+    // No skillNames → previously early-returned with missingSkills and never re-copied.
+    const repaired = await ensureExpertSessionRuntimeIsolation({
+      workspace,
+      directory: created.directory,
+      runtimeRoot,
+      skillsSourceRoot: skillsSource,
+    });
+    expect(repaired?.upgraded).toBe(true);
+    expect(repaired?.installedSkills).toEqual(["fleet-data-consolidation"]);
+    expect(repaired?.missingSkills).toEqual([]);
+    expect(
+      await readFile(
+        join(created.directory, ".opencode", "skills", "fleet-data-consolidation", "SKILL.md"),
+        "utf8",
+      ),
+    ).toContain("fleet-data-consolidation");
+    const marker = JSON.parse(
+      await readFile(join(created.directory, "onmyagent-session.json"), "utf8"),
+    ) as { installedSkills?: string[]; missingSkills?: string[] };
+    expect(marker.installedSkills).toEqual(["fleet-data-consolidation"]);
+    expect(marker.missingSkills).toEqual([]);
+  });
+
+  test("materialize falls back to package-local skills when global root lacks them", async () => {
+    const workspace = testWorkspace(join(tempRoot, "project-package-skills"));
+    const runtimeRoot = join(tempRoot, "app-user-data", "expert-sessions");
+    const emptyGlobal = join(tempRoot, "empty-global-skills");
+    const expertsInstalled = join(tempRoot, "experts-installed");
+    const packageSkills = join(
+      expertsInstalled,
+      "fleet-management-specialist",
+      "skills",
+      "vehicle-candidate-ranking",
+    );
+    await mkdir(workspace.path, { recursive: true });
+    await mkdir(emptyGlobal, { recursive: true });
+    await mkdir(packageSkills, { recursive: true });
+    await writeFile(
+      join(packageSkills, "SKILL.md"),
+      "---\nname: vehicle-candidate-ranking\n---\n# rank\n",
+    );
+    const previousExpertsDir = process.env.ONMYAGENT_EXPERTS_DIR;
+    const previousGlobalSkills = process.env.OPENCODE_GLOBAL_SKILLS_DIR;
+    process.env.ONMYAGENT_EXPERTS_DIR = expertsInstalled;
+    process.env.OPENCODE_GLOBAL_SKILLS_DIR = emptyGlobal;
+    try {
+      const result = await createExpertSessionRuntimeDirectory({
+        workspace,
+        runtimeRoot,
+        agentName: "fleet",
+        agentId: "fleet-management-specialist",
+        packageName: "fleet-management-specialist",
+        sessionKey: "1753456789021",
+        skillNames: ["vehicle-candidate-ranking"],
+        skillsSourceRoot: emptyGlobal,
+      });
+      // Explicit override root wins alone — package fallback is not used.
+      expect(result.installedSkills).toEqual([]);
+      expect(result.missingSkills).toEqual(["vehicle-candidate-ranking"]);
+
+      // Without override: empty global env + package skills under ONMYAGENT_EXPERTS_DIR.
+      const viaPackage = await createExpertSessionRuntimeDirectory({
+        workspace,
+        runtimeRoot,
+        agentName: "fleet-2",
+        agentId: "fleet-management-specialist",
+        packageName: "fleet-management-specialist",
+        sessionKey: "1753456789022",
+        skillNames: ["vehicle-candidate-ranking"],
+      });
+      expect(viaPackage.installedSkills).toEqual(["vehicle-candidate-ranking"]);
+      expect(viaPackage.missingSkills).toEqual([]);
+    } finally {
+      if (previousExpertsDir === undefined) delete process.env.ONMYAGENT_EXPERTS_DIR;
+      else process.env.ONMYAGENT_EXPERTS_DIR = previousExpertsDir;
+      if (previousGlobalSkills === undefined) delete process.env.OPENCODE_GLOBAL_SKILLS_DIR;
+      else process.env.OPENCODE_GLOBAL_SKILLS_DIR = previousGlobalSkills;
+    }
+  });
+
   test("ensure upgrades a pre-isolation expert session directory", async () => {
     const workspace = testWorkspace(join(tempRoot, "project"));
     const runtimeRoot = join(tempRoot, "app-user-data", "expert-sessions");

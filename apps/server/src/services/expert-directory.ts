@@ -197,7 +197,12 @@ export async function buildExpertDirectory(
       failures.push({ source: "expert-runtime", key: hashKey(origin.sessionId), index: failures.length, code: "marker_identity_conflict" });
     }
     const agentId = markerIdentity?.agentId || origin.agentId;
-    const packageName = markerIdentity?.packageName || origin.packageName;
+    // Older expert origins were written with agentId only (no packageName).
+    // Derive package from `package:agent` marketplace ids so the directory stays
+    // complete instead of permanently failing open with legacy_identity_unresolved.
+    const packageName = markerIdentity?.packageName
+      || origin.packageName
+      || derivePackageNameFromAgentId(agentId);
     if (!agentId || !packageName) {
       failures.push({ source: "origins", key: hashKey(origin.sessionId), index: failures.length, code: "legacy_identity_unresolved" });
       continue;
@@ -374,6 +379,9 @@ export async function healExpertDirectory(
       continue;
     }
     const needsMarkerUpgrade = entry.marker.isolationVersion !== 3;
+    // Isolation v3 sessions can still have empty physical skills after a failed
+    // first materialize; re-ensure so heal restores them without requiring upgrade.
+    const needsSkillRepair = (entry.marker.missingSkills?.length ?? 0) > 0;
     const currentOrigin = originsById.get(sessionId);
     const hasVisibleOrigin = Boolean(
       currentOrigin && !tombstones.has(sessionId) &&
@@ -382,11 +390,11 @@ export async function healExpertDirectory(
       currentOrigin.directory?.trim() === entry.directory,
     );
     const originKind = tombstones.has(sessionId) ? "restore_origin" : "write_origin";
-    if (needsMarkerUpgrade) {
+    if (needsMarkerUpgrade || needsSkillRepair) {
       const markerAction: ExpertDirectoryHealAction = {
         ...identity,
         directory: entry.directory,
-        kind: "upgrade_marker",
+        kind: needsMarkerUpgrade ? "upgrade_marker" : "repair_skills",
         result: dryRun ? "planned" : "applied",
       };
       actions.push(markerAction);
@@ -497,6 +505,20 @@ function mapInventoryFailureCode(
   code: string,
 ): "inventory_unavailable" | "marker_invalid" {
   return code === "marker_invalid" ? "marker_invalid" : "inventory_unavailable";
+}
+
+/** Best-effort package id from marketplace agent ids (`pkg:agent` → `pkg`). */
+export function derivePackageNameFromAgentId(
+  agentId: string | undefined | null,
+): string | undefined {
+  const id = agentId?.trim();
+  if (!id) return undefined;
+  const colon = id.indexOf(":");
+  if (colon > 0) {
+    const pkg = id.slice(0, colon).trim();
+    return pkg || undefined;
+  }
+  return id;
 }
 
 function assertBoundMarker(

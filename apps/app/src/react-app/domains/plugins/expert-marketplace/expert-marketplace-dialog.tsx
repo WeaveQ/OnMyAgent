@@ -69,18 +69,35 @@ const EXPERT_MARKET_CARD_GRID = cn(MARKETPLACE_CARD_GRID, "auto-rows-fr");
 const EXPERT_MINE_CARD_GRID =
   "grid grid-cols-1 auto-rows-fr items-stretch gap-2.5 sm:grid-cols-2 xl:grid-cols-3";
 
+/** Match builtin market cards to local installed/mine packages by packageName. */
+export function isAlreadySummonedExpert(
+  expert: Pick<ExpertMarketplaceEntry, "id" | "packageName">,
+  shelfExperts: readonly Pick<ExpertMarketplaceEntry, "id" | "packageName">[],
+): boolean {
+  const pkg = expert.packageName?.trim();
+  if (!pkg) {
+    return shelfExperts.some((item) => item.id === expert.id);
+  }
+  return shelfExperts.some(
+    (item) => item.packageName?.trim() === pkg || item.id === expert.id,
+  );
+}
+
 function ExpertCard(props: {
   expert: ExpertMarketplaceEntry;
   active?: boolean;
   /**
-   * Mine shelf: CTA always visible; label is “去聊天” (already summoned).
-   * Market shelf: hover-reveal “召唤”.
+   * Mine / already summoned → “去聊天”; market not summoned → “召唤”.
+   * Both CTAs only reveal on card hover / focus (keeps the grid clean).
    */
   shelf?: "market" | "mine";
+  /** Market only: package already on the local shelf — show open-chat, not re-summon. */
+  alreadySummoned?: boolean;
   onOpen: (expert: ExpertMarketplaceEntry) => void;
   onSummon: (expert: ExpertMarketplaceEntry) => void;
 }) {
   const isMine = props.shelf === "mine";
+  const openChatCta = isMine || Boolean(props.alreadySummoned);
   return (
     <div
       role="button"
@@ -113,21 +130,21 @@ function ExpertCard(props: {
             </div>
             <Button
               type="button"
-              variant={isMine ? "outline" : "default"}
+              variant={openChatCta ? "outline" : "default"}
               size="pill-xs"
               tabIndex={-1}
               className={cn(
-                "shrink-0 shadow-none transition-opacity",
-                isMine
-                  ? "border-dls-border bg-dls-surface text-dls-text opacity-100 hover:bg-dls-hover hover:text-dls-text"
-                  : "pointer-events-none border-transparent bg-dls-decision text-white opacity-0 hover:bg-dls-decision-hover hover:text-white group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
+                "pointer-events-none shrink-0 opacity-0 shadow-none transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
+                openChatCta
+                  ? "border-dls-border bg-dls-surface text-dls-text hover:bg-dls-hover hover:text-dls-text"
+                  : "border-transparent bg-dls-decision text-white hover:bg-dls-decision-hover hover:text-white",
               )}
               onClick={(event) => {
                 event.stopPropagation();
                 props.onSummon(props.expert);
               }}
             >
-              {isMine ? t("session.open_chat") : t("session.summon")}
+              {openChatCta ? t("session.open_chat") : t("session.summon")}
             </Button>
           </div>
         </div>
@@ -234,7 +251,7 @@ export function ExpertMarketplacePage(props: {
   // sidebar session agents — not every pre-seeded package under experts/installed.
   const shelfExperts = useMemo(
     () =>
-      filterLocalShelfExperts(props.myExperts, props.activeExpertAgentIds ?? []),
+      filterLocalShelfExperts(props.myExperts, props.activeExpertAgentIds),
     [props.activeExpertAgentIds, props.myExperts],
   );
 
@@ -318,6 +335,7 @@ export function ExpertMarketplacePage(props: {
                     key={expert.id}
                     expert={expert}
                     shelf="market"
+                    alreadySummoned={isAlreadySummonedExpert(expert, shelfExperts)}
                     active={selectedExpert?.id === expert.id}
                     onOpen={setSelectedExpert}
                     onSummon={props.onSummonMarketplaceExpert}
@@ -376,10 +394,10 @@ export function ExpertMarketplacePage(props: {
         <DialogContent className="max-h-[calc(100vh-48px)] !max-w-[520px] overflow-y-auto rounded-xl bg-dls-surface p-5">
           {selectedExpert ? (
             (() => {
-              // Mine shelf + already-installed package → open chat, not “summon”.
+              // Mine shelf or market card already installed → open chat, not re-summon.
               const selectedIsMine =
                 view === "mine" ||
-                shelfExperts.some((item) => item.id === selectedExpert.id);
+                isAlreadySummonedExpert(selectedExpert, shelfExperts);
               return (
             <div>
               <div className="flex items-start gap-4 pr-8">

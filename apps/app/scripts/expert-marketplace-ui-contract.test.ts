@@ -518,16 +518,20 @@ describe("expert marketplace UI contract", () => {
     expect(dialog).not.toContain("onSummonMyExpert");
   });
 
-  test("expert cards hide summon until hover and only show border on hover", () => {
+  test("expert cards reveal CTA on hover; summoned uses open-chat, market uses summon", () => {
     const dialog = readMarketplaceFile("expert-marketplace-dialog.tsx");
     expect(dialog).toContain("border border-transparent");
     expect(dialog).toContain("hover:border-dls-border");
+    // Summon / open-chat both hover-reveal (not always-on).
     expect(dialog).toContain("opacity-0");
     expect(dialog).toContain("group-hover:opacity-100");
     expect(dialog).toContain("group-hover:pointer-events-auto");
     expect(dialog).toContain("pointer-events-none");
     expect(dialog).toContain("event.stopPropagation()");
     expect(dialog).toContain("props.onSummon(props.expert)");
+    // Already-summoned market cards reuse open-chat CTA (no duplicate 召唤).
+    expect(dialog).toContain("alreadySummoned={isAlreadySummonedExpert(expert, shelfExperts)}");
+    expect(dialog).toContain("openChatCta ? t(\"session.open_chat\") : t(\"session.summon\")");
   });
 
   test("store page hosts the expert marketplace and expert icon jumps there", () => {
