@@ -1,5 +1,5 @@
 import { extractAcpSessionId, spawnAcpClient } from "./acp-client.mjs";
-import { terminateProcessTree } from "./utils.mjs";
+import { agentHostProcessEnv, terminateProcessTree } from "./utils.mjs";
 
 // Prefer word-ish matches — bare "auth" alone false-positives on unrelated text.
 const AUTH_ERROR_PATTERN =
@@ -43,11 +43,17 @@ function agentLooksLikeSoftAuthEmptyModel(initialized, command) {
  */
 export async function probeAcpCommand({ command, args = [], cwd = process.cwd(), env = undefined, timeoutMs = 10_000 }) {
   const events = [];
+  // Always restore real user HOME for credentials (Grok ~/.grok/auth.json, etc.).
+  // OpenCode sandbox rewrites process.env.HOME; probing under sandbox → false 需登录.
+  const probeEnv = agentHostProcessEnv(
+    env && typeof env === "object" && !Array.isArray(env) ? env : {},
+    process.env,
+  );
   const { child, client } = spawnAcpClient({
     command,
     args,
     cwd,
-    env: env ?? process.env,
+    env: probeEnv,
     appendEvent: (event) => events.push(event),
   });
 

@@ -62,6 +62,7 @@ import {
 import {
   isSessionSnapshotNotFoundError,
   markSessionSnapshotNotFound,
+  pruneSnapshotNotFoundCooldown,
   shouldRetrySessionSnapshotQuery,
   shouldSkipSnapshotForNotFoundCooldown,
 } from "../sync/session-snapshot-fetch-policy";
@@ -382,82 +383,132 @@ export function AgentConversationPanel(props: {
   }, [mode, props.selectedWorkspaceId]);
   // Non-selected preview snapshots are off (SIDEBAR_PREVIEW_SNAPSHOT_MAX=0).
   // Selected session transcript loads via SessionSurface only.
-  const { previewSessionIds: assistantPreviewIds } = useDeferredSidebarPreviews({
+  const {
+    previewSessionIds: assistantPreviewIds,
+    previewSessionIdsKey: assistantPreviewIdsKey,
+  } = useDeferredSidebarPreviews({
     enabled: mode === "assistant" && Boolean(props.client),
     sessions: assistantSessions,
     selectedSessionId: props.selectedSessionId,
   });
-  const assistantSnapshotQueries = useQueries({
-    queries: assistantSessions.map((session) => ({
-      queryKey: [
-        "onmyagent-assistant-task-snapshot",
-        props.selectedWorkspaceId,
-        session.id,
-      ],
-      enabled:
-        Boolean(props.client) &&
-        !session.id.startsWith("draft:") &&
-        assistantPreviewIds.has(session.id) &&
-        !shouldSkipSnapshotForNotFoundCooldown({
-          sessionId: session.id,
-          notFoundUntilBySessionId: snapshotNotFoundUntilBySessionId,
-          nowMs: Date.now(),
-        }),
-      queryFn: async () => {
-        const client = props.client;
-        if (!client) throw new Error("OnMyAgent server unavailable");
-        if (
-          shouldSkipSnapshotForNotFoundCooldown({
+  // Wall-clock for not-found cooldown must not be Date.now() every paint —
+  // that rebuilt useQueries options each frame and thrashed SessionRoute via
+  // the global query-cache subscription (renderer pegged at ~100% CPU).
+  const assistantSessionsKey = useMemo(
+    () => assistantSessions.map((session) => session.id).join("\n"),
+    [assistantSessions],
+  );
+  const assistantSnapshotClockMs = useMemo(
+    () => Date.now(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- content key only
+    [assistantSessionsKey, assistantPreviewIdsKey],
+  );
+  const assistantSessionsToFetch = useMemo(
+    () =>
+      assistantSessions.filter(
+        (session) =>
+          !session.id.startsWith("draft:") &&
+          assistantPreviewIds.has(session.id) &&
+          !shouldSkipSnapshotForNotFoundCooldown({
             sessionId: session.id,
             notFoundUntilBySessionId: snapshotNotFoundUntilBySessionId,
-            nowMs: Date.now(),
-          })
-        ) {
-          return null;
-        }
-        try {
-          return (
-            await client.getSessionSnapshot(
-              props.selectedWorkspaceId,
-              session.id,
-              {
-                limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
-                directory:
-                  assistantWorkspaceBySessionId.get(session.id)?.directory,
-              },
-            )
-          ).item;
-        } catch (error) {
-          if (isSessionSnapshotNotFoundError(error)) {
-            markSessionSnapshotNotFound({
+            nowMs: assistantSnapshotClockMs,
+          }),
+      ),
+    [
+      assistantPreviewIds,
+      assistantSessions,
+      assistantSnapshotClockMs,
+    ],
+  );
+  const assistantSnapshotQueryDefs = useMemo(
+    () =>
+      assistantSessionsToFetch.map((session) => ({
+        queryKey: [
+          "onmyagent-assistant-task-snapshot",
+          props.selectedWorkspaceId,
+          session.id,
+        ] as const,
+        enabled: Boolean(props.client),
+        queryFn: async () => {
+          const client = props.client;
+          if (!client) throw new Error("OnMyAgent server unavailable");
+          const nowMs = Date.now();
+          pruneSnapshotNotFoundCooldown({
+            notFoundUntilBySessionId: snapshotNotFoundUntilBySessionId,
+            nowMs,
+          });
+          if (
+            shouldSkipSnapshotForNotFoundCooldown({
               sessionId: session.id,
               notFoundUntilBySessionId: snapshotNotFoundUntilBySessionId,
-              nowMs: Date.now(),
-            });
+              nowMs,
+            })
+          ) {
             return null;
           }
-          throw error;
-        }
-      },
-      staleTime: 30_000,
-      retry: (failureCount: number, error: unknown) =>
-        shouldRetrySessionSnapshotQuery(failureCount, error),
-    })),
+          try {
+            return (
+              await client.getSessionSnapshot(
+                props.selectedWorkspaceId,
+                session.id,
+                {
+                  limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
+                  directory:
+                    assistantWorkspaceBySessionId.get(session.id)?.directory,
+                },
+              )
+            ).item;
+          } catch (error) {
+            if (isSessionSnapshotNotFoundError(error)) {
+              markSessionSnapshotNotFound({
+                sessionId: session.id,
+                notFoundUntilBySessionId: snapshotNotFoundUntilBySessionId,
+                nowMs: Date.now(),
+              });
+              return null;
+            }
+            throw error;
+          }
+        },
+        staleTime: 30_000,
+        retry: (failureCount: number, error: unknown) =>
+          shouldRetrySessionSnapshotQuery(failureCount, error),
+      })),
+    [
+      assistantSessionsToFetch,
+      assistantWorkspaceBySessionId,
+      props.client,
+      props.selectedWorkspaceId,
+    ],
+  );
+  const assistantSnapshotQueries = useQueries({
+    queries: assistantSnapshotQueryDefs,
   });
-  const assistantTitleFallbacks = new Map<string, string>();
-  const assistantPreviewBySessionId = new Map<string, string>();
-  assistantSessions.forEach((session, index) => {
-    const snapshot = assistantSnapshotQueries[index]?.data;
-    if (!snapshot) return;
-    const summary = snapshotConversationSummary(
-      snapshot,
-      session.time?.updated ?? session.time?.created,
-    );
-    assistantTitleFallbacks.set(session.id, summary.preview);
-    if (summary.preview) {
-      assistantPreviewBySessionId.set(session.id, summary.preview);
-    }
-  });
+  const assistantSnapshotDataKey = assistantSnapshotQueries
+    .map((query) => `${query.dataUpdatedAt}:${query.fetchStatus}`)
+    .join("|");
+  const { assistantTitleFallbacks, assistantPreviewBySessionId } = useMemo(() => {
+    const titleFallbacks = new Map<string, string>();
+    const previewBySessionId = new Map<string, string>();
+    assistantSessionsToFetch.forEach((session, index) => {
+      const snapshot = assistantSnapshotQueries[index]?.data;
+      if (!snapshot) return;
+      const summary = snapshotConversationSummary(
+        snapshot,
+        session.time?.updated ?? session.time?.created,
+      );
+      titleFallbacks.set(session.id, summary.preview);
+      if (summary.preview) {
+        previewBySessionId.set(session.id, summary.preview);
+      }
+    });
+    return {
+      assistantTitleFallbacks: titleFallbacks,
+      assistantPreviewBySessionId: previewBySessionId,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- data key tracks query results
+  }, [assistantSessionsToFetch, assistantSnapshotDataKey]);
 
   // Expert list: one snapshot per expert’s latest session → last-message subtitle.
   const expertLatestSessions = useMemo(() => {
@@ -480,68 +531,99 @@ export function AgentConversationPanel(props: {
     return list;
   }, [mode, props.expertDirectoryIdentity, registry, sessions]);
 
-  const { previewSessionIds: expertPreviewIds } = useDeferredSidebarPreviews({
+  const {
+    previewSessionIds: expertPreviewIds,
+    previewSessionIdsKey: expertPreviewIdsKey,
+  } = useDeferredSidebarPreviews({
     enabled: mode === "agent" && Boolean(props.client),
     sessions: expertLatestSessions,
     selectedSessionId: props.selectedSessionId,
   });
-  const expertSnapshotQueries = useQueries({
-    queries: expertLatestSessions.map((session) => ({
-      queryKey: [
-        "onmyagent-expert-list-snapshot",
-        props.selectedWorkspaceId,
-        session.id,
-      ],
-      enabled:
-        Boolean(props.client) &&
-        mode === "agent" &&
-        expertPreviewIds.has(session.id) &&
-        !shouldSkipSnapshotForNotFoundCooldown({
-          sessionId: session.id,
-          notFoundUntilBySessionId: snapshotNotFoundUntilBySessionId,
-          nowMs: Date.now(),
-        }),
-      queryFn: async () => {
-        const client = props.client;
-        if (!client) throw new Error("OnMyAgent server unavailable");
-        if (
-          shouldSkipSnapshotForNotFoundCooldown({
+  const expertSessionsKey = useMemo(
+    () => expertLatestSessions.map((session) => session.id).join("\n"),
+    [expertLatestSessions],
+  );
+  const expertSnapshotClockMs = useMemo(
+    () => Date.now(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- content key only
+    [expertSessionsKey, expertPreviewIdsKey],
+  );
+  // When SIDEBAR_PREVIEW_SNAPSHOT_MAX is 0 this stays empty — zero observers.
+  const expertSessionsToFetch = useMemo(
+    () =>
+      expertLatestSessions.filter(
+        (session) =>
+          expertPreviewIds.has(session.id) &&
+          !shouldSkipSnapshotForNotFoundCooldown({
             sessionId: session.id,
             notFoundUntilBySessionId: snapshotNotFoundUntilBySessionId,
-            nowMs: Date.now(),
-          })
-        ) {
-          return null;
-        }
-        try {
-          return (
-            await client.getSessionSnapshot(
-              props.selectedWorkspaceId,
-              session.id,
-              { limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT },
-            )
-          ).item;
-        } catch (error) {
-          if (isSessionSnapshotNotFoundError(error)) {
-            markSessionSnapshotNotFound({
+            nowMs: expertSnapshotClockMs,
+          }),
+      ),
+    [expertLatestSessions, expertPreviewIds, expertSnapshotClockMs],
+  );
+  const expertSnapshotQueryDefs = useMemo(
+    () =>
+      expertSessionsToFetch.map((session) => ({
+        queryKey: [
+          "onmyagent-expert-list-snapshot",
+          props.selectedWorkspaceId,
+          session.id,
+        ] as const,
+        enabled: Boolean(props.client) && mode === "agent",
+        queryFn: async () => {
+          const client = props.client;
+          if (!client) throw new Error("OnMyAgent server unavailable");
+          const nowMs = Date.now();
+          pruneSnapshotNotFoundCooldown({
+            notFoundUntilBySessionId: snapshotNotFoundUntilBySessionId,
+            nowMs,
+          });
+          if (
+            shouldSkipSnapshotForNotFoundCooldown({
               sessionId: session.id,
               notFoundUntilBySessionId: snapshotNotFoundUntilBySessionId,
-              nowMs: Date.now(),
-            });
+              nowMs,
+            })
+          ) {
             return null;
           }
-          throw error;
-        }
-      },
-      staleTime: 30_000,
-      retry: (failureCount: number, error: unknown) =>
-        shouldRetrySessionSnapshotQuery(failureCount, error),
-    })),
+          try {
+            return (
+              await client.getSessionSnapshot(
+                props.selectedWorkspaceId,
+                session.id,
+                { limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT },
+              )
+            ).item;
+          } catch (error) {
+            if (isSessionSnapshotNotFoundError(error)) {
+              markSessionSnapshotNotFound({
+                sessionId: session.id,
+                notFoundUntilBySessionId: snapshotNotFoundUntilBySessionId,
+                nowMs: Date.now(),
+              });
+              return null;
+            }
+            throw error;
+          }
+        },
+        staleTime: 30_000,
+        retry: (failureCount: number, error: unknown) =>
+          shouldRetrySessionSnapshotQuery(failureCount, error),
+      })),
+    [expertSessionsToFetch, mode, props.client, props.selectedWorkspaceId],
+  );
+  const expertSnapshotQueries = useQueries({
+    queries: expertSnapshotQueryDefs,
   });
+  const expertSnapshotDataKey = expertSnapshotQueries
+    .map((query) => `${query.dataUpdatedAt}:${query.fetchStatus}`)
+    .join("|");
 
   const expertPreviewBySessionId = useMemo(() => {
     const map = new Map<string, string>();
-    expertLatestSessions.forEach((session, index) => {
+    expertSessionsToFetch.forEach((session, index) => {
       const snapshot = expertSnapshotQueries[index]?.data;
       if (!snapshot) return;
       const summary = snapshotConversationSummary(
@@ -558,7 +640,8 @@ export function AgentConversationPanel(props: {
       }
     });
     return map;
-  }, [expertLatestSessions, expertSnapshotQueries]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- data key tracks query results
+  }, [expertSessionsToFetch, expertSnapshotDataKey]);
 
   const normalizedQuery = props.query.trim().toLowerCase();
   const agentGroups = useMemo(

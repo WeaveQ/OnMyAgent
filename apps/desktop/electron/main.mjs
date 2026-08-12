@@ -874,6 +874,12 @@ async function writeWorkspaceState(nextState) {
   return output;
 }
 
+// In-process onmyagent-server (session-archive, etc.) must see the real user
+// home even after OpenCode sandbox rewrites process.env.HOME.
+if (!process.env.ONMYAGENT_REAL_HOME?.trim()) {
+  process.env.ONMYAGENT_REAL_HOME = getRealHomeDir();
+}
+
 const runtimeManager = createRuntimeManager({
   app,
   desktopRoot: path.resolve(__dirname, ".."),

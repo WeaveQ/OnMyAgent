@@ -107,6 +107,24 @@ describe("expert unread store", () => {
     );
   });
 
+  test("setFocusedAgent is a no-op when focus is already the same agent", () => {
+    useExpertUnreadStore.getState().setFocusedAgent("ws_1", "agent_c");
+    const first = useExpertUnreadStore.getState().focused;
+    useExpertUnreadStore.getState().setFocusedAgent("ws_1", "agent_c");
+    const second = useExpertUnreadStore.getState().focused;
+    // Same reference — critical to avoid Maximum update depth with unstable parents.
+    expect(second).toBe(first);
+  });
+
+  test("markRead is a no-op when already clean (same timestamps)", () => {
+    useExpertUnreadStore.getState().setFocusedAgent("ws_1", "agent_clean");
+    useExpertUnreadStore.getState().markRead("ws_1", "agent_clean", 5_000);
+    const first = useExpertUnreadStore.getState().byWorkspace.ws_1?.agent_clean;
+    useExpertUnreadStore.getState().markRead("ws_1", "agent_clean", 5_000);
+    const second = useExpertUnreadStore.getState().byWorkspace.ws_1?.agent_clean;
+    expect(second).toBe(first);
+  });
+
   test("manual markUnread shows badge even while focused and tags session chip", () => {
     useExpertUnreadStore.getState().setFocusedAgent("ws_1", "agent_d");
     useExpertUnreadStore.getState().markUnread("ws_1", "agent_d", {

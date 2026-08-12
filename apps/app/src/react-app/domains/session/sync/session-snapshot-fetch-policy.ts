@@ -46,11 +46,22 @@ export function shouldSkipSnapshotForNotFoundCooldown(input: {
   if (!id) return true;
   const until = input.notFoundUntilBySessionId.get(id);
   if (until == null) return false;
-  if (input.nowMs >= until) {
-    input.notFoundUntilBySessionId.delete(id);
-    return false;
+  // Pure read — never mutate the map here. This runs during render / query
+  // option evaluation; deleting on expiry re-entered observers mid-paint and
+  // helped drive "Cannot update SessionRoute while rendering AgentConversationPanel".
+  return input.nowMs < until;
+}
+
+/** Drop expired cooldown entries (call from effects / queryFn, not render). */
+export function pruneSnapshotNotFoundCooldown(input: {
+  notFoundUntilBySessionId: Map<string, number>;
+  nowMs: number;
+}): void {
+  for (const [id, until] of input.notFoundUntilBySessionId) {
+    if (input.nowMs >= until) {
+      input.notFoundUntilBySessionId.delete(id);
+    }
   }
-  return true;
 }
 
 export function markSessionSnapshotNotFound(input: {
