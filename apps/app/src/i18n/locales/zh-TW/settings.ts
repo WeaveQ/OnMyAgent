@@ -394,6 +394,11 @@ export default {
   "settings.provider_move_up": "上移",
   "settings.provider_move_down": "下移",
   "settings.provider_source_env": "環境變量",
+  "settings.provider_source_env_hint":
+    "此服務商透過環境變數接入。請到「設定 → 環境變數」修改或清除後重新啟動應用。",
+  "settings.provider_source_env_hint_short": "請在環境變數中管理",
+  "settings.provider_remove": "移除",
+  "settings.provider_removing": "正在移除…",
   "settings.provider_badge_cloud": "雲端",
   "settings.provider_reorder_hint": "拖曳把手或使用箭頭調整順序",
   "settings.provider_reorder_aria": "調整模型服務商順序",
@@ -890,9 +895,12 @@ export default {
   "settings.browser.protocol": "協議 {value}",
   "settings.browser.tabs": "標籤頁 {value}",
   "settings.browser.agent_tabs": "智慧代理標籤頁 {value}",
-  "settings.provider_delete_confirm_title": "刪除此模型服務商？",
+  "settings.provider_delete_confirm_title": "移除此模型服務商？",
   "settings.provider_delete_confirm_desc":
-    "確定刪除「{name}」嗎？將從目前配置移除，之後新對話無法使用；歷史會話記錄會保留。",
+    "確定移除「{name}」嗎？將從目前配置移除，之後新對話無法使用；歷史會話記錄會保留。",
+  "settings.provider_remove_confirm_title": "移除此模型服務商？",
+  "settings.provider_remove_confirm_desc":
+    "確定移除「{name}」嗎？將從已連接列表移除，之後新對話無法使用；歷史會話記錄會保留。",
   "settings.provider_reload_required_title": "需要重新載入以應用變更",
   "settings.provider_reload_required_desc":
     "新增或修改模型服務商後，需要快速重新載入（不用重啟應用）才會在新對話中生效。請點擊立即重新載入。",
