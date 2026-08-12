@@ -53,6 +53,47 @@ export type ExpertDeleteSagaOptions = {
 };
 
 /**
+ * Resolve origin rows for a delete request.
+ * UI often sends packageName = agentId ("pkg:pkg") while origins store "pkg".
+ * Prefer exact agentId+packageName, then agentId-only, then packageName heuristics.
+ */
+export function selectExpertDeleteOriginRecords(
+  items: readonly SessionOriginRecord[],
+  request: Pick<ExpertDeleteRequest, "agentId" | "packageName">,
+): SessionOriginRecord[] {
+  const agentId = request.agentId.trim();
+  const packageName = request.packageName.trim();
+  const experts = items.filter((item) => item.kind === "expert");
+  const byBoth = experts.filter(
+    (item) => item.agentId === agentId && item.packageName === packageName,
+  );
+  if (byBoth.length > 0) return byBoth;
+
+  const byAgent = experts.filter((item) => item.agentId === agentId);
+  if (byAgent.length > 0) return byAgent;
+
+  // packageName may be short form while agentId is "pkg:pkg"
+  const byPackage = experts.filter((item) => item.packageName === packageName);
+  if (byPackage.length > 0) return byPackage;
+
+  // packageName was full agentId; origins store short package name
+  const shortPackage =
+    packageName.includes(":")
+      ? packageName.split(":").filter(Boolean).at(-1) ?? packageName
+      : packageName;
+  if (shortPackage !== packageName) {
+    const byShort = experts.filter(
+      (item) =>
+        item.packageName === shortPackage ||
+        item.agentId === shortPackage ||
+        item.agentId?.endsWith(`:${shortPackage}`),
+    );
+    if (byShort.length > 0) return byShort;
+  }
+  return [];
+}
+
+/**
  * Destructive Expert deletion. The origin tombstone is deliberately the final
  * step; replay can therefore distinguish a completed target from a partially
  * removed runtime without resurrecting a stale record.
@@ -91,15 +132,18 @@ export async function deleteExpertSessions(
       throw new ApiError(409, "session_origins_revision_conflict", "Expert origins revision is stale");
     }
 
-    const records = originState.items.filter((item) =>
-      item.kind === "expert" &&
-      item.agentId === request.agentId &&
-      item.packageName === request.packageName,
-    );
+    // Prefer agentId+packageName; fall back to agentId-only when the client
+    // sent packageName=agentId (e.g. "pkg:pkg") while origins store "pkg".
+    const records = selectExpertDeleteOriginRecords(originState.items, request);
     const requestedIds = request.sessionIds?.map((id) => id.trim()).filter(Boolean);
     if (requestedIds && requestedIds.length > 0) {
       const known = new Set([
         ...records.map((record) => record.sessionId),
+        // Also accept sessions owned by this agent under any packageName so a
+        // mismatched packageName does not 404 a real expert delete.
+        ...originState.items
+          .filter((item) => item.kind === "expert" && item.agentId === request.agentId)
+          .map((item) => item.sessionId),
         ...(previous?.steps ?? []).map((step) => step.sessionId),
         ...originState.tombstones.map((tombstone) => tombstone.sessionId),
       ]);
