@@ -1,4 +1,11 @@
-import { readFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -49,6 +56,19 @@ const UPDATE_CHECK_IN_DEV_DISABLED =
 const RELEASES_LIST_API_OVERRIDE = String(
   process.env.ONMYAGENT_UPDATE_API ?? "",
 ).trim();
+const LAST_KNOWN_STATE_FILE = "updater-last-known.json";
+/** Only keep the lightweight fields the renderer needs to prompt a restart. */
+const LAST_KNOWN_PERSISTED_KEYS = [
+  "available",
+  "currentVersion",
+  "latestVersion",
+  "releaseTag",
+  "releaseUrl",
+  "releaseName",
+  "releaseDate",
+  "releaseNotes",
+  "readyToInstall",
+];
 
 const __updater_dirname = path.dirname(fileURLToPath(import.meta.url));
 let _cachedAppVersion = null;
@@ -146,6 +166,74 @@ function channelState(app, platformFlow) {
     /** "in-app" = download + restart-to-install; "open-browser" = fallback. */
     platformFlow,
   };
+}
+
+function resolveUserDataPath(app) {
+  try {
+    if (app?.getPath) return app.getPath("userData");
+  } catch {
+    // App may not be ready in tests; fall through to cwd-backed temp path.
+  }
+  return path.join(process.cwd(), ".onmyagent-updater-test");
+}
+
+function resolveLastKnownStatePath(app) {
+  return path.join(resolveUserDataPath(app), LAST_KNOWN_STATE_FILE);
+}
+
+function pickPersistedLastKnown(payload) {
+  if (!payload || typeof payload !== "object") return null;
+  const picked = {};
+  for (const key of LAST_KNOWN_PERSISTED_KEYS) {
+    if (payload[key] !== undefined) picked[key] = payload[key];
+  }
+  return picked;
+}
+
+/**
+ * The in-memory availability result resets on relaunch. Persist the last
+ * ready-to-install payload so the global "restart to install" toast can still
+ * appear on startup even when no renderer was mounted when the download
+ * finished. The file is small and lives in userData.
+ */
+function writeLastKnownSnapshot(app, payload) {
+  const picked = pickPersistedLastKnown(payload);
+  if (!picked) return;
+  try {
+    const userData = resolveUserDataPath(app);
+    mkdirSync(userData, { recursive: true });
+    const target = resolveLastKnownStatePath(app);
+    const tempFile = `${target}.tmp`;
+    writeFileSync(tempFile, JSON.stringify(picked), "utf8");
+    renameSync(tempFile, target);
+  } catch (error) {
+    console.warn("[updater] failed to persist last known state", error);
+  }
+}
+
+function readLastKnownSnapshot(app) {
+  const target = resolveLastKnownStatePath(app);
+  if (!existsSync(target)) return null;
+  try {
+    const parsed = JSON.parse(readFileSync(target, "utf8"));
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch (error) {
+    console.warn("[updater] ignoring invalid persisted updater state", error);
+    return null;
+  }
+}
+
+function clearLastKnownSnapshot(app) {
+  try {
+    const target = resolveLastKnownStatePath(app);
+    if (existsSync(target)) {
+      // Atomic write elsewhere means a simple unlink is safe here; avoid
+      // leaving `.discarded` files that grow across upgrades.
+      unlinkSync(target);
+    }
+  } catch {
+    // Ignore cleanup failures; stale data is validated by version below.
+  }
 }
 
 /**
@@ -323,6 +411,106 @@ export function registerUpdaterIpc({
   /** Set when update-downloaded fires so installAndRestart can act. */
   let downloadedUpdateInfo = null;
 
+  /**
+   * Seed in-memory *UI* state from the last successful update-downloaded event.
+   * Without this, getLastKnown() returns {available:false} for the first ~30s
+   * after relaunch even though the update is staged, and the global restart
+   * toast never fires.
+   *
+   * Intentionally does NOT set `downloadedUpdateInfo`. That flag is reserved
+   * for a real electron-updater `update-downloaded` event (cache revalidation
+   * on startup). installAndRestart waits for that signal so we never call
+   * quitAndInstall against a missing/unwired pending cache.
+   *
+   * The persisted snapshot only claims "ready" when the version is newer than
+   * the running app. Once the user installs and runs the new version, the
+   * currentVersion check clears the stale snapshot automatically.
+   */
+  function seedLastKnownFromDisk() {
+    if (!inAppSupported) return null;
+    const persisted = readLastKnownSnapshot(app);
+    if (!persisted?.readyToInstall) return null;
+    const currentVersion = resolveAppVersion(app);
+    const latestVersion =
+      typeof persisted.latestVersion === "string"
+        ? persisted.latestVersion.trim()
+        : "";
+    if (!latestVersion || !isVersionNewer(latestVersion, currentVersion)) {
+      clearLastKnownSnapshot(app);
+      return null;
+    }
+    const payload = buildAvailabilityPayload({
+      available: true,
+      currentVersion,
+      latestVersion,
+      releaseTag: persisted.releaseTag ?? `v${latestVersion}`,
+      releaseUrl: persisted.releaseUrl ?? RELEASES_HTML_URL,
+      releaseName: persisted.releaseName ?? null,
+      releaseDate: persisted.releaseDate ?? null,
+      releaseNotes: persisted.releaseNotes ?? null,
+      readyToInstall: true,
+    });
+    downloadState = {
+      active: false,
+      percent: 100,
+      ready: true,
+      // UI-only seed. electron-updater revalidates the pending cache on the next
+      // checkForUpdates(); update-downloaded then sets downloadedUpdateInfo.
+      info: { version: latestVersion },
+    };
+    return persistLastKnown(payload);
+  }
+
+  /** Resolvers waiting for the next real `update-downloaded` (seed → install). */
+  /** @type {Array<(info: unknown) => void>} */
+  let downloadReadyWaiters = [];
+
+  function notifyDownloadReady(info) {
+    const waiters = downloadReadyWaiters;
+    downloadReadyWaiters = [];
+    for (const resolve of waiters) {
+      try {
+        resolve(info);
+      } catch {
+        // Ignore waiter errors.
+      }
+    }
+  }
+
+  /**
+   * Wait until electron-updater reports update-downloaded, or time out.
+   * Used when the UI is seed-ready but quitAndInstall is not safe yet.
+   * @param {number} timeoutMs
+   */
+  function waitForDownloadedUpdate(timeoutMs = 15_000) {
+    if (downloadedUpdateInfo) {
+      return Promise.resolve(downloadedUpdateInfo);
+    }
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        downloadReadyWaiters = downloadReadyWaiters.filter((w) => w !== onReady);
+        resolve(null);
+      }, timeoutMs);
+      const onReady = (info) => {
+        clearTimeout(timer);
+        resolve(info ?? downloadedUpdateInfo);
+      };
+      downloadReadyWaiters.push(onReady);
+    });
+  }
+
+  const seededLastKnown = seedLastKnownFromDisk();
+  /**
+   * When a pending update is restored from disk, the startup revalidation call
+   * will still emit "update-available" as electron-updater re-reads the feed.
+   * Suppress that one transient event so the renderer shows the higher-priority
+   * "ready to install" toast instead of briefly flashing "downloading".
+   * @type {string | null}
+   */
+  let suppressAvailableVersion = seededLastKnown?.latestVersion
+    ? String(seededLastKnown.latestVersion).trim()
+    : null;
+
   function sendToRenderer(channel, payload) {
     try {
       const win = typeof getMainWindow === "function" ? getMainWindow() : null;
@@ -364,6 +552,9 @@ export function registerUpdaterIpc({
 
   function persistLastKnown(payload) {
     lastKnownAvailable = payload;
+    if (payload?.readyToInstall) {
+      writeLastKnownSnapshot(app, payload);
+    }
     return payload;
   }
 
@@ -417,32 +608,50 @@ export function registerUpdaterIpc({
           releaseNotes,
         });
         persistLastKnown(payload);
-        emitAvailable(payload);
-        maybeNotify(latestVersion, payload);
+        const isSeededReadyVersion =
+          suppressAvailableVersion && suppressAvailableVersion === latestVersion;
+        if (!isSeededReadyVersion) {
+          emitAvailable(payload);
+          maybeNotify(latestVersion, payload);
+        }
         // autoDownload=true kicks off the download immediately; signal it.
-        downloadState = {
-          active: true,
-          percent: 0,
-          ready: false,
-          info,
-        };
-        emitDownloadProgress({
-          platformFlow,
-          state: "downloading",
-          percent: 0,
-          transferred: 0,
-          total: 0,
-          bytesPerSecond: 0,
-        });
+        // Skip the transient "downloading" event when we are revalidating an
+        // already-downloaded update from a prior launch (cache hit follows).
+        if (isSeededReadyVersion) {
+          // Keep the seeded ready UI state; a cache-miss re-download will
+          // correct ready/active via download-progress / update-downloaded.
+          downloadState = { ...downloadState, info };
+        } else {
+          downloadState = {
+            active: true,
+            percent: 0,
+            ready: false,
+            info,
+          };
+          emitDownloadProgress({
+            platformFlow,
+            state: "downloading",
+            percent: 0,
+            transferred: 0,
+            total: 0,
+            bytesPerSecond: 0,
+          });
+        }
       });
 
       autoUpdater.on("download-progress", /** @param {any} progress */ (progress) => {
         const percent =
           typeof progress?.percent === "number" ? progress.percent : 0;
+        // A real progress tick means this is not a cache-hit revalidation —
+        // clear the seed suppress so a subsequent ready event can surface.
+        if (suppressAvailableVersion && percent > 0 && percent < 100) {
+          suppressAvailableVersion = null;
+        }
         downloadState = {
           ...downloadState,
           active: percent < 100,
           percent,
+          ready: false,
         };
         emitDownloadProgress({
           platformFlow,
@@ -461,6 +670,7 @@ export function registerUpdaterIpc({
       autoUpdater.on("update-downloaded", /** @param {any} info */ (info) => {
         downloadedUpdateInfo = info ?? null;
         downloadState = { active: false, percent: 100, ready: true, info };
+        notifyDownloadReady(info);
         const latestVersion =
           typeof info?.version === "string"
             ? info.version
@@ -487,18 +697,28 @@ export function registerUpdaterIpc({
           readyToInstall: true,
         });
         persistLastKnown(readyPayload);
-        emitAvailable(readyPayload);
-        emitDownloadProgress({
-          platformFlow,
-          state: "ready",
-          percent: 100,
-          readyToInstall: true,
-        });
-        maybeNotify(latestVersion, readyPayload, true);
+        // The startup seeded state already showed the ready toast/progress; a
+        // re-validation cache hit must not emit it twice. downloadedUpdateInfo
+        // is still set above so installAndRestart can proceed.
+        const alreadySeededReady =
+          suppressAvailableVersion === latestVersion;
+        suppressAvailableVersion = null;
+        if (!alreadySeededReady) {
+          emitAvailable(readyPayload);
+          emitDownloadProgress({
+            platformFlow,
+            state: "ready",
+            percent: 100,
+            readyToInstall: true,
+          });
+          maybeNotify(latestVersion, readyPayload, true);
+        }
       });
 
       autoUpdater.on("update-not-available", /** @param {any} info */ (info) => {
         downloadState = { active: false, percent: 0, ready: false, info: null };
+        downloadedUpdateInfo = null;
+        clearLastKnownSnapshot(app);
         const payload = buildAvailabilityPayload({
           available: false,
           currentVersion: resolveAppVersion(app),
@@ -789,10 +1009,21 @@ export function registerUpdaterIpc({
       openReleasePage(RELEASES_HTML_URL);
       return { ok: true, reason: "opened-release-page", platformFlow };
     }
+    // Seeded UI-ready path: wait for electron-updater to revalidate the pending
+    // cache (update-downloaded) before calling quitAndInstall. Kick a check if
+    // one is not already in flight so the wait is not open-ended.
+    if (!downloadedUpdateInfo && downloadState.ready) {
+      void autoUpdater.checkForUpdates().catch((error) => {
+        console.warn("[updater] revalidation before install failed", error);
+      });
+      await waitForDownloadedUpdate(15_000);
+    }
     if (!downloadedUpdateInfo) {
       return {
         ok: false,
-        reason: "Update has not finished downloading yet.",
+        reason: downloadState.ready
+          ? "Update package is still being verified. Try again in a moment."
+          : "Update has not finished downloading yet.",
         platformFlow,
       };
     }
@@ -840,6 +1071,17 @@ export function registerUpdaterIpc({
       // updates, fall back to the API checker (scheduleAutoChecks routes via
       // performCheck, which uses whatever is available).
       scheduleAutoChecks();
+      // If a download finished in a previous launch, re-validate the staged
+      // files against the feed immediately instead of waiting for the 30s
+      // initial poll. electron-updater's pending-cache check makes this a no-op
+      // re-download; on macOS it also wires Squirrel up so "Restart and
+      // install" can serve the cached zip. Renderer startup already reads the
+      // seeded getLastKnown() so the toast appears without waiting for this.
+      if (inAppSupported && downloadState.ready && autoUpdater) {
+        autoUpdater.checkForUpdates().catch((error) => {
+          console.warn("[updater] startup revalidation failed", error);
+        });
+      }
       return initialized;
     },
     checkForUpdatesNow: () => performCheck({ silent: false }),
