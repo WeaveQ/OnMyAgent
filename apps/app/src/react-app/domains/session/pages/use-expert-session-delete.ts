@@ -72,6 +72,44 @@ export type ExpertSessionDeleteTarget =
   | { kind: "session"; sessionId: string }
   | ExpertGroupDeleteTarget;
 
+/**
+ * Resolve packageName for hard-delete so it matches session-origins rows.
+ * Prefer explicit / registry marketplace name; never fall back to full agentId
+ * when it is the "pkg:pkg" composite form.
+ */
+export function resolveExpertDeletePackageName(input: {
+  agentId: string;
+  packageName?: string | null;
+  registry?: { agents: ReadonlyArray<{ id: string; marketplacePackageName?: string | null }> } | null;
+}): string {
+  const agentId = input.agentId.trim();
+  const explicit = input.packageName?.trim();
+  if (explicit && explicit !== agentId) return explicit;
+  const fromRegistry = input.registry?.agents
+    .find((agent) => agent.id === agentId)
+    ?.marketplacePackageName?.trim();
+  if (fromRegistry) return fromRegistry;
+  if (explicit) {
+    // explicit was equal to agentId — still try short form
+    if (explicit.includes(":")) {
+      const parts = explicit.split(":").filter(Boolean);
+      if (parts.length >= 2 && parts[0] === parts[parts.length - 1]) {
+        return parts[0]!;
+      }
+      return parts[parts.length - 1] || explicit;
+    }
+    return explicit;
+  }
+  if (agentId.includes(":")) {
+    const parts = agentId.split(":").filter(Boolean);
+    if (parts.length >= 2 && parts[0] === parts[parts.length - 1]) {
+      return parts[0]!;
+    }
+    return parts[parts.length - 1] || agentId;
+  }
+  return agentId;
+}
+
 export function useExpertSessionDelete(input: {
   workspaceId: string;
   workspaceRoot: string;
@@ -141,9 +179,13 @@ export function useExpertSessionDelete(input: {
       const client = input.client;
       if (!client) throw new Error("Expert delete requires the server client");
       if (!isElectronRuntime()) throw new Error("Expert package cleanup requires the desktop runtime");
-      const packageName = target.packageName?.trim() || input.registry?.agents.find(
-        (agent) => agent.id === target.agentId,
-      )?.marketplacePackageName?.trim() || target.agentId;
+      // Origins store short packageName ("kol-ops"); agentId is often "kol-ops:kol-ops".
+      // Never send agentId as packageName — that 404s expert_delete_target_not_found.
+      const packageName = resolveExpertDeletePackageName({
+        agentId: target.agentId,
+        packageName: target.packageName,
+        registry: input.registry ?? null,
+      });
       const operationId = target.operationId?.trim();
       if (!operationId) throw new Error("Expert delete operation id is missing");
       setDeleteProgress({ status: "running", operationId });
