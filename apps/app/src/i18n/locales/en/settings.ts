@@ -45,8 +45,13 @@ export default {
   "settings.update_ready_notice_title": "Update ready",
   "settings.update_ready_notice_body":
     "OnMyAgent v{version} finished downloading. Restart to install.",
+  "settings.update_downloading_notice_title": "Downloading OnMyAgent v{version}",
   "settings.update_downloading_notice_body":
     "OnMyAgent v{version} is available and downloading in the background.",
+  "settings.update_download_progress_notice_body":
+    "Downloading update in the background… {percent}%",
+  "settings.update_download_progress_notice_body_bytes":
+    "Downloading update in the background… {percent}% ({transferred} / {total})",
   "settings.update_mac_quarantine_notice":
     "If macOS blocks the app after restart, run xattr -cr /Applications/OnMyAgent.app in Terminal and open it again.",
   "settings.update_install_desc_in_app":

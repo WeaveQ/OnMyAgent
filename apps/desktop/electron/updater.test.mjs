@@ -42,12 +42,19 @@ test("isVersionNewer handles prerelease blind spot", () => {
   assert.equal(compareVersions("0.4.25-beta.1", "0.4.25"), -1);
 });
 
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
 function createHarness({
   platform = "darwin",
   packaged = true,
   version = "0.4.24",
+  userData,
   autoUpdater,
 } = {}) {
+  const userDataPath =
+    userData ?? mkdtempSync(path.join(tmpdir(), "onmyagent-updater-"));
   const handlers = new Map();
   const ipcMain = {
     handle(channel, handler) {
@@ -64,6 +71,10 @@ function createHarness({
   const app = {
     isPackaged: packaged,
     getVersion: () => version,
+    getPath: (name) => {
+      assert.equal(name, "userData");
+      return userDataPath;
+    },
     on() {},
   };
   const win = { webContents, isDestroyed: () => false };
@@ -86,6 +97,10 @@ function createHarness({
     handlers,
     sent,
     api,
+    userDataPath,
+    cleanup() {
+      rmSync(userDataPath, { recursive: true, force: true });
+    },
     invoke(channel, ...args) {
       const handler = handlers.get(channel);
       assert.ok(handler, `no handler for ${channel}`);

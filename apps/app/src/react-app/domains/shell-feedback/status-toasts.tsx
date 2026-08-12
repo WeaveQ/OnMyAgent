@@ -51,17 +51,37 @@ export function statusToastContentKey(input: {
 }
 
 /**
- * Merge a new toast into the stack. Identical content refreshes the existing
- * entry instead of stacking a duplicate (avoids double "原模型已不可用").
+ * Merge a new toast into the stack. A toast with a `tag` replaces any existing
+ * toast with the same tag in place (stable id, no timer reset) — this is what
+ * lets a progress toast update its percentage every second without stacking or
+ * restarting its auto-dismiss. Toasts without a tag dedupe by content
+ * fingerprint (same copy = one visible toast).
  */
 export function mergeStatusToastStack(
   current: AppStatusToast[],
   next: AppStatusToast,
   max = 4,
 ): AppStatusToast[] {
+  if (next.tag) {
+    const existingIndex = current.findIndex(
+      (toast) => toast.tag === next.tag,
+    );
+    if (existingIndex >= 0) {
+      const without = current.filter((_, index) => index !== existingIndex);
+      // Preserve the original id so its dismiss timer (if any) keeps running
+      // and ownership stays stable; bump the rest of the content.
+      const updated: AppStatusToast = {
+        ...next,
+        id: current[existingIndex]!.id,
+      };
+      return [...without, updated];
+    }
+    return [...current, next].slice(-max);
+  }
+
   const key = statusToastContentKey(next);
   const existingIndex = current.findIndex(
-    (toast) => statusToastContentKey(toast) === key,
+    (toast) => !toast.tag && statusToastContentKey(toast) === key,
   );
   if (existingIndex < 0) {
     return [...current, next].slice(-max);
@@ -78,9 +98,11 @@ type StatusToastsProviderProps = {
 
 export function StatusToastsProvider({ children }: StatusToastsProviderProps) {
   const [toasts, setToasts] = useState<AppStatusToast[]>([]);
+  const toastsRef = useRef<AppStatusToast[]>([]);
   const timersRef = useRef(new Map<string, number>());
   const counterRef = useRef(0);
   const contentIdRef = useRef(new Map<string, string>());
+  const tagIdRef = useRef(new Map<string, string>());
 
   const dismissToast = useCallback((id: string) => {
     const timer = timersRef.current.get(id);
@@ -88,23 +110,60 @@ export function StatusToastsProvider({ children }: StatusToastsProviderProps) {
       window.clearTimeout(timer);
       timersRef.current.delete(id);
     }
+    // Resolve callbacks from the mirrored ref — never from inside a setState
+    // updater (updaters may run async / twice under Strict Mode).
+    const toast = toastsRef.current.find((item) => item.id === id);
+    const onDismiss = toast?.onDismiss;
     for (const [key, toastId] of contentIdRef.current) {
       if (toastId === id) contentIdRef.current.delete(key);
     }
-    setToasts((current) => current.filter((toast) => toast.id !== id));
+    for (const [tag, toastId] of tagIdRef.current) {
+      if (toastId === id) tagIdRef.current.delete(tag);
+    }
+    setToasts((current) => {
+      const next = current.filter((item) => item.id !== id);
+      toastsRef.current = next;
+      return next;
+    });
+    onDismiss?.();
   }, []);
 
   const showToast = useCallback(
     (input: AppStatusToastInput) => {
       const tone = input.tone ?? "info";
-      const contentKey = statusToastContentKey({ ...input, tone });
-      const existingId = contentIdRef.current.get(contentKey);
-      const id =
-        existingId ?? `status-toast-${Date.now()}-${counterRef.current++}`;
-      contentIdRef.current.set(contentKey, id);
+      // Tagged toasts (e.g. download progress) update in place under a stable
+      // identity; untagged toasts dedupe by content fingerprint.
+      let id: string;
+      let isUpdate = false;
+      if (input.tag) {
+        const existing = tagIdRef.current.get(input.tag);
+        if (existing) {
+          id = existing;
+          isUpdate = true;
+        } else {
+          id = `status-toast-${Date.now()}-${counterRef.current++}`;
+          tagIdRef.current.set(input.tag, id);
+        }
+      } else {
+        const contentKey = statusToastContentKey({ ...input, tone });
+        const existingId = contentIdRef.current.get(contentKey);
+        id =
+          existingId ?? `status-toast-${Date.now()}-${counterRef.current++}`;
+        contentIdRef.current.set(contentKey, id);
+      }
 
       const toast: AppStatusToast = { ...input, tone, id };
-      setToasts((current) => mergeStatusToastStack(current, toast));
+      setToasts((current) => {
+        const next = mergeStatusToastStack(current, toast);
+        toastsRef.current = next;
+        return next;
+      });
+
+      // For a tagged in-place update, keep the existing auto-dismiss timer (if
+      // any) running rather than restarting it on every progress tick.
+      if (isUpdate) {
+        return id;
+      }
 
       const previousTimer = timersRef.current.get(id);
       if (previousTimer) {
@@ -116,10 +175,26 @@ export function StatusToastsProvider({ children }: StatusToastsProviderProps) {
       if (duration > 0) {
         const timer = window.setTimeout(() => {
           timersRef.current.delete(id);
-          if (contentIdRef.current.get(contentKey) === id) {
-            contentIdRef.current.delete(contentKey);
+          if (input.tag) {
+            if (tagIdRef.current.get(input.tag) === id) {
+              tagIdRef.current.delete(input.tag);
+            }
+          } else {
+            const contentKey = statusToastContentKey({ ...input, tone });
+            if (contentIdRef.current.get(contentKey) === id) {
+              contentIdRef.current.delete(contentKey);
+            }
           }
-          setToasts((current) => current.filter((item) => item.id !== id));
+          // Auto-dismiss should also fire onDismiss so consumers can clear
+          // "user dismissed" / ownership flags consistently.
+          const current = toastsRef.current.find((item) => item.id === id);
+          const onDismiss = current?.onDismiss;
+          setToasts((stack) => {
+            const next = stack.filter((item) => item.id !== id);
+            toastsRef.current = next;
+            return next;
+          });
+          onDismiss?.();
         }, duration);
         timersRef.current.set(id, timer);
       }
@@ -134,6 +209,8 @@ export function StatusToastsProvider({ children }: StatusToastsProviderProps) {
     }
     timersRef.current.clear();
     contentIdRef.current.clear();
+    tagIdRef.current.clear();
+    toastsRef.current = [];
     setToasts([]);
   }, []);
 
@@ -145,6 +222,7 @@ export function StatusToastsProvider({ children }: StatusToastsProviderProps) {
       }
       timers.clear();
       contentIdRef.current.clear();
+      tagIdRef.current.clear();
     };
   }, []);
 
@@ -184,6 +262,8 @@ export function StatusToastsViewport() {
             onAction={toast.onAction}
             dismissLabel={toast.dismissLabel ?? "Dismiss"}
             onDismiss={() => dismissToast(toast.id)}
+            icon={toast.icon}
+            spinIcon={toast.spinIcon}
           />
         </div>
       ))}
