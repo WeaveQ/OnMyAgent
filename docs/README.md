@@ -42,6 +42,8 @@ docs/
     2026-08-02-config-consistency.md  ← local/company isomorphic config + migrate (Phase 2a)
     2026-08-09-architecture-convergence-plan.md  ← **active** expert/session/cold/shelf convergence plan
     2026-08-09-capability-shelf.md  ← recommended vs built-in placement matrix
+    expert-surface-architecture.md  ← **Expert 会话面 FSM / tab / cold-open / pending 语义 SoT**
+    expert-runtime-isolation.md  ← Expert OpenCode agent/skills/HOME sandbox
     preview.html / preview-dark.html / preview.css  ← visual catalog; DESIGN.md wins on drift
   windows-compat.md         ← Windows preflight, NSIS, CU (Cua) / Appshot, remaining gaps
   windows-remote-debug-from-mac.md  ← remote Windows debug from macOS
@@ -61,6 +63,7 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | React domain change | [`../apps/app/src/react-app/ARCHITECTURE.md`](../apps/app/src/react-app/ARCHITECTURE.md) |
 | UI / tokens / component shape | [`../DESIGN.md`](../DESIGN.md) |
 | Expert / session product behavior | [`../apps/app/AGENTS.md`](../apps/app/AGENTS.md) |
+| Expert surface / tab / cold-open architecture | [`design/expert-surface-architecture.md`](design/expert-surface-architecture.md) |
 | Local packaging | [`../BUILD.md`](../BUILD.md) |
 | Release / tags | [`release.md`](release.md) |
 | OfficeCLI OSS 发布 | [`officecli-oss-release.md`](officecli-oss-release.md) |
@@ -78,6 +81,8 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | Skills write/scan roots + list resilience | `Architecture.md` Product phase hard constraints + server `listSkills` |
 | React domains + shell load/boot UX | `apps/app/src/react-app/ARCHITECTURE.md` (+ **Shell load / boot**) + `domains/*/README.md` |
 | Expert / session UI ownership | `react-app/ARCHITECTURE.md` + `Architecture.md` **Session / Expert / cold-path pointers** |
+| **Expert 会话面架构**（FSM / draft / tab / cold-open） | `design/expert-surface-architecture.md` |
+| Expert runtime isolation (agent / skills / HOME sandbox) | `design/expert-runtime-isolation.md` |
 | Expert lifecycle delete/create/select + cold-path **budgets** | `Architecture.md` Expert lifecycle hard rules + Cold-path budget |
 | Expert / session **product behavior** (busy shell, origin, draft, first-send) | `../apps/app/AGENTS.md` invariants + contract tests |
 | Release notes (human) | root `CHANGELOG.md` + GitHub Releases |

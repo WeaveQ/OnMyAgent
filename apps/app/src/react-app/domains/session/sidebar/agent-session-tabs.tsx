@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
   ChevronRight,
@@ -235,40 +235,13 @@ export function tabTitleSnapshotRefetchIntervalMs(
   return false;
 }
 
-const TAB_SCROLL_SPEED = 25;
-const TAB_VISIBLE_WIDTH = 78;
-
+/** Tab chip label — plain truncate (no measure/setState; avoids update-depth loops). */
 function SessionTabMarqueeText({ title }: { title: string }) {
-  const measureRef = useRef<HTMLSpanElement>(null);
-  const [duration, setDuration] = useState(0);
-
-  useEffect(() => {
-    if (!measureRef.current) return;
-    const w = measureRef.current.offsetWidth;
-    if (w > TAB_VISIBLE_WIDTH) {
-      setDuration(Math.max(3, (w - TAB_VISIBLE_WIDTH) / TAB_SCROLL_SPEED));
-    }
-  }, [title]);
-
+  const label = title ?? "";
   return (
-    <>
-      <span
-        ref={measureRef}
-        className="pointer-events-none absolute invisible whitespace-nowrap text-xs"
-      >
-        {title}
-      </span>
-      {duration <= 0 ? (
-        <span className="inline-block">{title}</span>
-      ) : (
-        <span
-          className="inline-block animate-[onmyagent-tab-marquee_linear_infinite]"
-          style={{ animationDuration: `${duration}s` }}
-        >
-          {title}
-        </span>
-      )}
-    </>
+    <span className="block min-w-0 truncate" title={label}>
+      {label}
+    </span>
   );
 }
 
@@ -337,8 +310,17 @@ export function AgentSessionTabs(props: {
   selectedSessionId: string | null;
   sessions: WorkspaceSessionGroup["sessions"];
   orderIds: readonly string[];
+  /**
+   * Tab-strip highlight after create binds (surface pendingTabSessionId).
+   * Not create operationId / not composer pending.
+   */
   pendingSessionId: string | null;
   onPendingSessionIdChange: (sessionId: string | null) => void;
+  /**
+   * When false and sessions are empty, paint a light strip instead of null
+   * so cold identity load does not flash an empty tab bar.
+   */
+  inventoryReady?: boolean;
   /** Active expert — used when session→agent binding is missing. */
   agentId?: string | null;
   /** Per-session run status — chip shows busy state when user switches away. */
@@ -365,16 +347,20 @@ export function AgentSessionTabs(props: {
   onExpandedChange?: (expanded: boolean) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
+  const lastExpandedNotifyRef = useRef<boolean | null>(null);
+  const onExpandedChangeRef = useRef(props.onExpandedChange);
+  onExpandedChangeRef.current = props.onExpandedChange;
 
+  const inventoryReady = props.inventoryReady !== false;
   // Parent uses this to drop the title-bar border while the strip is open
-  // (one rule only). No sessions ⇒ treat as collapsed so the header keeps a line.
+  // (one rule only). No real sessions ⇒ collapsed (header keeps the line),
+  // including inventory-loading skeleton. Never depend on callback identity.
   useEffect(() => {
-    if (props.sessions.length === 0) {
-      props.onExpandedChange?.(false);
-      return;
-    }
-    props.onExpandedChange?.(expanded);
-  }, [expanded, props.onExpandedChange, props.sessions.length]);
+    const notify = props.sessions.length === 0 ? false : expanded;
+    if (lastExpandedNotifyRef.current === notify) return;
+    lastExpandedNotifyRef.current = notify;
+    onExpandedChangeRef.current?.(notify);
+  }, [expanded, props.sessions.length]);
   const [menuState, setMenuState] = useState<{
     sessionId: string;
     left: number;
@@ -394,23 +380,11 @@ export function AgentSessionTabs(props: {
   const activeSessionId = pendingSessionIsVisible
     ? props.pendingSessionId
     : props.selectedSessionId;
-  const knownSessionIdsRef = useRef(new Set<string>());
-  /** After first inventory hydrate, only true newcomers enter "summarizing". */
-  const titlePendingHydratedRef = useRef(false);
-  const [titlePendingSessionIds, setTitlePendingSessionIds] = useState<
-    Set<string>
-  >(() => new Set());
 
   const [pinnedSessionIds, setPinnedSessionIds] = useState(() =>
     readAgentSessionTabPinnedIds(props.workspaceId),
   );
 
-  // Workspace switch resets title-pending bookkeeping (new inventory).
-  useEffect(() => {
-    knownSessionIdsRef.current = new Set();
-    titlePendingHydratedRef.current = false;
-    setTitlePendingSessionIds(new Set());
-  }, [props.workspaceId]);
   const byWorkspace = useExpertUnreadStore((state) => state.byWorkspace);
   const sessionUnreadByWorkspace = useExpertUnreadStore(
     (state) => state.sessionUnreadByWorkspace,
@@ -453,76 +427,74 @@ export function AgentSessionTabs(props: {
     return stable;
   }, [props.orderIds, props.sessions]);
 
-  // Only sessions that appear *after* the first inventory hydrate enter the
-  // title-generation ("总结中") state. Cold-start history must not all look
-  // newly created just because knownSessionIds was empty on first paint.
-  useLayoutEffect(() => {
-    const visibleIds = new Set(orderedSessions.map((session) => session.id));
-    setTitlePendingSessionIds((current) => {
-      const next = new Set(current);
-      const known = knownSessionIdsRef.current;
+  // Content fingerprint — used to stabilize clocks / query option identity so
+  // parent re-creating `sessions` arrays cannot start an update loop.
+  const sessionsFingerprint = useMemo(
+    () =>
+      orderedSessions
+        .map(
+          (session) =>
+            `${session.id}:${session.title ?? ""}:${session.time?.created ?? ""}:${session.time?.updated ?? ""}`,
+        )
+        .join("\n"),
+    [orderedSessions],
+  );
 
-      if (!titlePendingHydratedRef.current) {
-        if (orderedSessions.length === 0) {
-          return current;
-        }
-        for (const session of orderedSessions) {
-          known.add(session.id);
-          if (!sessionNeedsTabTitleFallback(session)) {
-            next.delete(session.id);
-          }
-        }
-        // Explicit just-created selection can still summarize on first paint.
-        const pendingId = props.pendingSessionId;
-        if (pendingId && !pendingId.startsWith("draft:")) {
-          const pending = orderedSessions.find((s) => s.id === pendingId);
-          if (pending && sessionNeedsTabTitleFallback(pending)) {
-            next.add(pendingId);
-          }
-        }
-        titlePendingHydratedRef.current = true;
-      } else {
-        for (const session of orderedSessions) {
-          const newlyCreated = !known.has(session.id);
-          known.add(session.id);
-          if (session.id.startsWith("draft:")) continue;
-          if (!sessionNeedsTabTitleFallback(session)) {
-            next.delete(session.id);
-            continue;
-          }
-          if (newlyCreated || props.pendingSessionId === session.id) {
-            next.add(session.id);
-          }
-        }
-      }
+  // One wall-clock sample per sessions fingerprint (not every paint).
+  const titleClockMs = useMemo(() => Date.now(), [sessionsFingerprint]);
 
-      for (const sessionId of next) {
-        if (!visibleIds.has(sessionId)) next.delete(sessionId);
-      }
-      if (
-        next.size === current.size &&
-        [...next].every((sessionId) => current.has(sessionId))
-      ) {
-        return current;
-      }
-      return next;
-    });
-  }, [orderedSessions, props.pendingSessionId]);
+  const titleFetchSessions = useMemo(
+    () => orderedSessions.filter(sessionShouldFetchTabTitleSnapshot),
+    [orderedSessions],
+  );
 
   const queryClient = useQueryClient();
 
-  // Resolve default OpenCode titles from the first user message. Selected tab
-  // only (TAB_TITLE_SNAPSHOT_MAX=1) — non-selected tabs do not prefetch.
+  // Title snapshots: selected (+ tab highlight) only — never N queries per strip.
+  const snapshotTargetSessions = useMemo(() => {
+    const allow = new Set<string>();
+    const selected = props.selectedSessionId?.trim() ?? "";
+    const highlight = props.pendingSessionId?.trim() ?? "";
+    if (selected) allow.add(selected);
+    if (highlight) allow.add(highlight);
+    return titleFetchSessions
+      .filter((session) => allow.has(session.id))
+      .slice(0, Math.max(1, TAB_TITLE_SNAPSHOT_MAX));
+  }, [
+    props.pendingSessionId,
+    props.selectedSessionId,
+    titleFetchSessions,
+  ]);
+
   const { previewSessionIds: deferredTabTitleIds } = useDeferredSidebarPreviews({
-    enabled: Boolean(props.client),
-    sessions: orderedSessions.filter(sessionShouldFetchTabTitleSnapshot),
+    enabled: Boolean(props.client) && snapshotTargetSessions.length > 0,
+    sessions: snapshotTargetSessions,
     selectedSessionId: props.selectedSessionId,
     maxPreviews: TAB_TITLE_SNAPSHOT_MAX,
     includeSelected: true,
     prioritizeSelected: true,
     deferMs: TAB_TITLE_SNAPSHOT_DEFER_MS,
   });
-  const tabTitleSnapshotIds = deferredTabTitleIds;
+  const tabTitleSnapshotKey = [...deferredTabTitleIds].sort().join("\n");
+  const tabTitleSnapshotIds = useMemo(() => {
+    if (!tabTitleSnapshotKey) return new Set<string>();
+    return new Set(tabTitleSnapshotKey.split("\n").filter(Boolean));
+  }, [tabTitleSnapshotKey]);
+
+  // Busy fingerprint — avoid depending on the whole status object identity.
+  const busyStatusFingerprint = useMemo(() => {
+    return orderedSessions
+      .map((session) => {
+        if (session.id.startsWith("draft:")) return "";
+        if (!sessionNeedsTabTitleFallback(session)) return "";
+        const busy = isStreamingSessionStatus(
+          props.sessionStatusById?.[session.id],
+        );
+        return busy ? `${session.id}:1` : `${session.id}:0`;
+      })
+      .filter(Boolean)
+      .join("|");
+  }, [orderedSessions, props.sessionStatusById]);
 
   // After a run finishes, re-check title once (messages may have landed while empty).
   const prevBusyBySessionRef = useRef<Record<string, boolean>>({});
@@ -547,82 +519,97 @@ export function AgentSessionTabs(props: {
       }
     }
     prevBusyBySessionRef.current = next;
-  }, [
-    orderedSessions,
-    props.sessionStatusById,
-    props.workspaceId,
-    queryClient,
-  ]);
+  }, [busyStatusFingerprint, orderedSessions, props.sessionStatusById, props.workspaceId, queryClient]);
 
-  const snapshotQueries = useQueries({
-    queries: orderedSessions.map((session) => {
-      const busy = isStreamingSessionStatus(
-        props.sessionStatusById?.[session.id],
-      );
-      const titlePending = shouldShowExpertTabSummarizing(session, {
-        busy,
-        trackedPending: titlePendingSessionIds.has(session.id),
-        pendingSelection: props.pendingSessionId === session.id,
-        nowMs: Date.now(),
-      });
-      return {
-        queryKey: [
-          "onmyagent-agent-session-tab-snapshot",
-          props.workspaceId,
-          session.id,
-        ],
-        enabled:
+  // Only observers for snapshot targets (0–2), not every tab chip.
+  const snapshotQueryDefs = useMemo(
+    () =>
+      snapshotTargetSessions.map((session) => {
+        const busy = isStreamingSessionStatus(
+          props.sessionStatusById?.[session.id],
+        );
+        const titlePending =
+          busy || props.pendingSessionId === session.id;
+        const enabled =
           Boolean(props.client) &&
           !session.id.startsWith("draft:") &&
           tabTitleSnapshotIds.has(session.id) &&
           !shouldSkipSnapshotForNotFoundCooldown({
             sessionId: session.id,
             notFoundUntilBySessionId: tabTitleSnapshotNotFoundUntilBySessionId,
-            nowMs: Date.now(),
-          }),
-        queryFn: async () => {
-          const client = props.client;
-          if (!client) throw new Error("OnMyAgent server unavailable");
-          if (
-            shouldSkipSnapshotForNotFoundCooldown({
-              sessionId: session.id,
-              notFoundUntilBySessionId: tabTitleSnapshotNotFoundUntilBySessionId,
-              nowMs: Date.now(),
-            })
-          ) {
-            return null;
-          }
-          try {
-            return (
-              await client.getSessionSnapshot(props.workspaceId, session.id, {
-                limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
-              })
-            ).item;
-          } catch (error) {
-            if (isSessionSnapshotNotFoundError(error)) {
-              markSessionSnapshotNotFound({
+            nowMs: titleClockMs,
+          });
+        return {
+          queryKey: [
+            "onmyagent-agent-session-tab-snapshot",
+            props.workspaceId,
+            session.id,
+          ] as const,
+          enabled,
+          queryFn: async () => {
+            const client = props.client;
+            if (!client) throw new Error("OnMyAgent server unavailable");
+            const nowMs = Date.now();
+            if (
+              shouldSkipSnapshotForNotFoundCooldown({
                 sessionId: session.id,
-                notFoundUntilBySessionId: tabTitleSnapshotNotFoundUntilBySessionId,
-                nowMs: Date.now(),
-              });
+                notFoundUntilBySessionId:
+                  tabTitleSnapshotNotFoundUntilBySessionId,
+                nowMs,
+              })
+            ) {
               return null;
             }
-            throw error;
-          }
-        },
-        staleTime: 30_000,
-        refetchInterval: (query: {
-          state: { data: OnMyAgentSessionSnapshot | null | undefined };
-        }) =>
-          tabTitleSnapshotRefetchIntervalMs(query.state.data, {
-            busy,
-            titlePending,
-          }),
-        retry: (failureCount: number, error: unknown) =>
-          shouldRetrySessionSnapshotQuery(failureCount, error),
-      };
-    }),
-  });
+            try {
+              return (
+                await client.getSessionSnapshot(props.workspaceId, session.id, {
+                  limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
+                })
+              ).item;
+            } catch (error) {
+              if (isSessionSnapshotNotFoundError(error)) {
+                markSessionSnapshotNotFound({
+                  sessionId: session.id,
+                  notFoundUntilBySessionId:
+                    tabTitleSnapshotNotFoundUntilBySessionId,
+                  nowMs: Date.now(),
+                });
+                return null;
+              }
+              throw error;
+            }
+          },
+          staleTime: 30_000,
+          refetchInterval: (query: {
+            state: { data: OnMyAgentSessionSnapshot | null | undefined };
+          }) =>
+            tabTitleSnapshotRefetchIntervalMs(query.state.data, {
+              busy,
+              titlePending,
+            }),
+          retry: (failureCount: number, error: unknown) =>
+            shouldRetrySessionSnapshotQuery(failureCount, error),
+        };
+      }),
+    [
+      props.client,
+      props.pendingSessionId,
+      props.sessionStatusById,
+      props.workspaceId,
+      snapshotTargetSessions,
+      tabTitleSnapshotKey,
+      tabTitleSnapshotIds,
+      titleClockMs,
+    ],
+  );
+  const snapshotQueries = useQueries({ queries: snapshotQueryDefs });
+  const snapshotBySessionId = useMemo(() => {
+    const map = new Map<string, (typeof snapshotQueries)[number]["data"]>();
+    snapshotTargetSessions.forEach((session, index) => {
+      map.set(session.id, snapshotQueries[index]?.data);
+    });
+    return map;
+  }, [snapshotQueries, snapshotTargetSessions]);
 
   // Titles are display-only from snapshot/render. Do NOT auto-call
   // onRenameSession here (session.update + refreshRouteState freezes the UI
@@ -643,21 +630,30 @@ export function AgentSessionTabs(props: {
     [props.workspaceId],
   );
 
+  // Clear transient tab highlight once. Callback via ref so parent identity
+  // changes cannot re-fire this effect into a setState loop.
+  const clearedPendingRef = useRef<string | null>(null);
+  const onPendingSessionIdChangeRef = useRef(props.onPendingSessionIdChange);
+  onPendingSessionIdChangeRef.current = props.onPendingSessionIdChange;
   useEffect(() => {
-    if (!props.pendingSessionId) return;
-    const fallbackTimer = window.setTimeout(() => {
-      props.onPendingSessionIdChange(null);
-    }, 4_000);
-    if (props.selectedSessionId === props.pendingSessionId) {
-      props.onPendingSessionIdChange(null);
-      return () => window.clearTimeout(fallbackTimer);
+    const pending = props.pendingSessionId;
+    if (!pending) {
+      clearedPendingRef.current = null;
+      return;
     }
+    if (clearedPendingRef.current === pending) return;
+
+    if (props.selectedSessionId === pending) {
+      clearedPendingRef.current = pending;
+      onPendingSessionIdChangeRef.current?.(null);
+      return;
+    }
+    const fallbackTimer = window.setTimeout(() => {
+      clearedPendingRef.current = pending;
+      onPendingSessionIdChangeRef.current?.(null);
+    }, 4_000);
     return () => window.clearTimeout(fallbackTimer);
-  }, [
-    props.onPendingSessionIdChange,
-    props.pendingSessionId,
-    props.selectedSessionId,
-  ]);
+  }, [props.pendingSessionId, props.selectedSessionId]);
 
   useEffect(() => {
     if (!activeSessionId || !expanded) return;
@@ -704,7 +700,26 @@ export function AgentSessionTabs(props: {
     : false;
   const menuPinned = menuState ? pinnedSet.has(menuState.sessionId) : false;
 
-  if (props.sessions.length === 0) return null;
+  // Inventory still loading: keep a quiet strip so cold identity does not
+  // flash "no tabs" then jump when sessions arrive.
+  if (props.sessions.length === 0) {
+    if (inventoryReady) return null;
+    return (
+      <div className="relative h-11 shrink-0 border-b border-dls-mist bg-dls-background px-3">
+        <div className="flex h-full min-w-0 items-center gap-1.5">
+          <div
+            className="h-7 w-20 animate-pulse rounded-md bg-dls-hover"
+            aria-hidden
+          />
+          <div
+            className="h-7 w-28 animate-pulse rounded-md bg-dls-hover/70"
+            aria-hidden
+          />
+          <span className="sr-only">{t("session.agent_tab_loading")}</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -737,18 +752,20 @@ export function AgentSessionTabs(props: {
             <Plus data-icon="inline-start" className="size-3.5" />
             {t("session.new_session")}
           </Button>
-          {orderedSessions.map((session, index) => {
+          {orderedSessions.map((session) => {
             const isDraft = session.id.startsWith("draft:");
             const active = session.id === activeSessionId;
             const sessionStatus = props.sessionStatusById?.[session.id];
             const busy = isStreamingSessionStatus(sessionStatus);
             const titlePending = shouldShowExpertTabSummarizing(session, {
               busy,
-              trackedPending: titlePendingSessionIds.has(session.id),
+              // No React state for "tracked pending" — age/busy/pendingSelection
+              // only (avoids useLayoutEffect setState max-update-depth loops).
+              trackedPending: false,
               pendingSelection: props.pendingSessionId === session.id,
-              nowMs: Date.now(),
+              nowMs: titleClockMs,
             });
-            const snapshotData = snapshotQueries[index]?.data;
+            const snapshotData = snapshotBySessionId.get(session.id);
             const snapshotTitle = resolvedSessionSnapshotTitle(snapshotData);
             const generatedFallback = snapshotData
               ? summarizeSessionSnapshotForTab(snapshotData)

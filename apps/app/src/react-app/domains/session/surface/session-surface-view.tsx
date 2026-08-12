@@ -6,6 +6,7 @@
 import {
   cloneElement,
   isValidElement,
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -250,9 +251,16 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
   const [sessionTabsExpanded, setSessionTabsExpanded] = useState(
     () => Boolean(props.conversationTabs),
   );
+  // Depend on presence only — conversationTabs is often a new element every
+  // parent paint; using the element as a dep re-ran this effect forever and
+  // amplified AgentSessionTabs max-update-depth crashes.
+  const hasConversationTabs = Boolean(props.conversationTabs);
   useEffect(() => {
-    if (!props.conversationTabs) setSessionTabsExpanded(false);
-  }, [props.conversationTabs]);
+    if (!hasConversationTabs) setSessionTabsExpanded(false);
+  }, [hasConversationTabs]);
+  const onSessionTabsExpandedChange = useCallback((next: boolean) => {
+    setSessionTabsExpanded((prev) => (prev === next ? prev : next));
+  }, []);
   const conversationTabsNode = useMemo(() => {
     if (!props.conversationTabs || !isValidElement(props.conversationTabs)) {
       return props.conversationTabs ?? null;
@@ -261,9 +269,9 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
       props.conversationTabs as ReactElement<{
         onExpandedChange?: (expanded: boolean) => void;
       }>,
-      { onExpandedChange: setSessionTabsExpanded },
+      { onExpandedChange: onSessionTabsExpandedChange },
     );
-  }, [props.conversationTabs]);
+  }, [onSessionTabsExpandedChange, props.conversationTabs]);
 
   const {
     personalAssistantDraftHome,

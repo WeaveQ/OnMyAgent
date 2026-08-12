@@ -589,8 +589,13 @@ describe("expert marketplace UI contract", () => {
     expect(expertPage).not.toContain("additionalStarterItems=");
     expect(expertPage).not.toContain("localExpertStarterItems");
     expect(expertPage).toContain("onOpenAgentStarter={handleOpenExpertStarter}");
-    // Cold-open defers while unbound agent-selection draft is active.
-    expect(expertPage).toContain('pendingAgent.draftSource === "agent-selection"');
+    // Cold-open is suppressed via shared helper (create/draft/tab highlight).
+    expect(expertPage).toContain("creatingSessionId: expertSurfaceMode.creatingSessionId");
+    expect(expertPage).toContain("tabHighlightSessionId: pendingTabSessionId");
+    const routeLifecycle = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/use-expert-route-lifecycle.ts",
+    );
+    expect(routeLifecycle).toContain("shouldSuppressExpertColdOpen");
     // Do not re-activate draft on null route gaps (multi-switch blank).
     expect(expertPage).toContain(
       "Do NOT re-activate agent-selection draft when selectedSessionId is",
@@ -1000,9 +1005,11 @@ describe("expert marketplace UI contract", () => {
     expect(expertPage).not.toContain("setDraftAgentId");
     expect(expertPage).toContain("const [sessionTabOrderIdsByScope, setSessionTabOrderIdsByScope]");
     expect(expertPage).toContain("orderIds={input.sessionTabOrderIds}");
-    // Pending tab highlight: local override or surface-mode creatingSessionId.
-    expect(expertPage).toContain("pendingSessionId={");
-    expect(expertPage).toContain("input.surfaceMode.creatingSessionId");
+    // Pending tab highlight is surface pendingTabSessionId only — never
+    // creatingSessionId (that path could not be cleared and caused max-update-depth).
+    expect(expertPage).toContain("pendingSessionId={tabHighlightSessionId}");
+    expect(expertPage).not.toContain("pendingSessionId={input.surfaceMode.creatingSessionId}");
+    expect(expertPage).toContain("creatingSessionId: expertSurfaceMode.creatingSessionId");
     // One reducer owns route, draft transaction, and pending-tab state; its
     // single projection owns draftOnly / sessionId / force-nav.
     expect(expertPage).toContain("mode: expertSurfaceMode");
