@@ -35,6 +35,27 @@ export default {
     "No releases have been published yet. You can still open the releases page.",
   "settings.update_check_unavailable":
     "Could not check for updates right now. You can open the release page in a browser instead.",
+  "settings.download_update": "Download update",
+  "settings.restart_and_install": "Restart and install",
+  "settings.update_downloading": "Downloading update… {percent}%",
+  "settings.update_downloading_title": "Downloading v{version}…",
+  "settings.update_ready_to_download_desc": "A new version is ready to download in the background.",
+  "settings.update_ready_title": "v{version} is ready to install",
+  "settings.update_ready_desc": "Restart OnMyAgent to install the update.",
+  "settings.update_ready_notice_title": "Update ready",
+  "settings.update_ready_notice_body":
+    "OnMyAgent v{version} finished downloading. Restart to install.",
+  "settings.update_downloading_notice_title": "Downloading OnMyAgent v{version}",
+  "settings.update_downloading_notice_body":
+    "OnMyAgent v{version} is available and downloading in the background.",
+  "settings.update_download_progress_notice_body":
+    "Downloading update in the background… {percent}%",
+  "settings.update_download_progress_notice_body_bytes":
+    "Downloading update in the background… {percent}% ({transferred} / {total})",
+  "settings.update_mac_quarantine_notice":
+    "If macOS blocks the app after restart, run xattr -cr /Applications/OnMyAgent.app in Terminal and open it again.",
+  "settings.update_install_desc_in_app":
+    "OnMyAgent downloads updates in the background and asks you to restart before installing. Nothing is installed silently.",
   "settings.cap_browser_tools": "Browser tools: {value}",
   "settings.cap_commands": "Commands: {value}",
   "settings.cap_config": "Config: {value}",
@@ -400,6 +421,11 @@ export default {
   "settings.provider_move_up": "Move up",
   "settings.provider_move_down": "Move down",
   "settings.provider_source_env": "Environment",
+  "settings.provider_source_env_hint":
+    "This provider is connected via environment variables. Change or clear them under Settings → Environment, then restart the app.",
+  "settings.provider_source_env_hint_short": "Manage in Environment",
+  "settings.provider_remove": "Remove",
+  "settings.provider_removing": "Removing…",
   "settings.provider_badge_cloud": "Cloud",
   "settings.provider_reorder_hint": "Drag the handle or use the arrows to reorder",
   "settings.provider_reorder_aria": "Reorder model providers",
@@ -944,9 +970,12 @@ export default {
   "settings.browser.protocol": "Protocol {value}",
   "settings.browser.tabs": "Tabs {value}",
   "settings.browser.agent_tabs": "Agent tabs {value}",
-  "settings.provider_delete_confirm_title": "Delete this model provider?",
+  "settings.provider_delete_confirm_title": "Remove this model provider?",
   "settings.provider_delete_confirm_desc":
-    "Delete “{name}”? It will be removed from the current configuration. New chats cannot use it; past sessions keep their history.",
+    "Remove “{name}”? It will be removed from the current configuration. New chats cannot use it; past sessions keep their history.",
+  "settings.provider_remove_confirm_title": "Remove this model provider?",
+  "settings.provider_remove_confirm_desc":
+    "Remove “{name}”? It will leave the connected list. New chats cannot use it; past sessions keep their history.",
   "settings.provider_reload_required_title": "Reload to apply changes",
   "settings.provider_reload_required_desc":
     "Adding or changing model providers needs a quick reload (no app restart) before they work in new chats. Reload now to apply.",
