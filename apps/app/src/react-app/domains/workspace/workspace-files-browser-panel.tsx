@@ -1293,6 +1293,7 @@ export function WorkspaceFilesBrowserPanel(props: {
                                     folderDisplayName(node);
                                   return (
                                     <FilesTreeDirRow
+                                      key={`tree-dir:${node.path}`}
                                       node={node}
                                       depth={row.depth}
                                       expanded={row.expanded}

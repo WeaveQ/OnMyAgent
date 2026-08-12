@@ -239,6 +239,25 @@ function partHasVisibleAssistantOutput(part: Part) {
   return partType === "tool" || partType === "file" || partType === "agent";
 }
 
+/**
+ * Promote list unread only when a run fully ends — not on intermediate stream
+ * parts / tool steps. Call **before** setRunStatus(idle) clears assistantOutput.
+ */
+function maybeNoteExpertUnreadWhenRunEnds(
+  workspaceId: string,
+  sessionId: string,
+) {
+  const id = sessionId.trim();
+  if (!id) return;
+  const record =
+    useSessionActivityStore.getState().recordsByWorkspaceId[workspaceId]?.[id];
+  // No visible assistant work this run → no blue badge (e.g. cancelled pre-token).
+  if (!record?.assistantOutput) return;
+  useExpertUnreadStore
+    .getState()
+    .noteAssistantActivityForSession(workspaceId, id);
+}
+
 function clearTrackedSession(
   input: SyncOptions,
   entry: SyncEntry,
@@ -924,6 +943,11 @@ function applyEvent(
       status?: SessionStatus;
     };
     if (!props.sessionID || !props.status) return;
+    // OpenCode may finish with session.status:idle (no session.idle). Note
+    // unread before setRunStatus clears assistantOutput on the activity record.
+    if (!isLiveStatus(props.status)) {
+      maybeNoteExpertUnreadWhenRunEnds(workspaceId, props.sessionID);
+    }
     useSessionActivityStore
       .getState()
       .setRunStatus(workspaceId, props.sessionID, props.status);
@@ -1138,10 +1162,8 @@ function applyEvent(
         .markAssistantOutput(workspaceId, part.sessionID, part.messageID, {
           allowUnknownMessageRole: true,
         });
-      // Expert / assistant list unread (blue dot) — local cursor only.
-      useExpertUnreadStore
-        .getState()
-        .noteAssistantActivityForSession(workspaceId, part.sessionID);
+      // Unread +1 is deferred until the run ends (session.idle / status idle).
+      // Mid-stream tool/text parts only flip activity "responding", not the badge.
     }
     if (!isTrackedSession(entry, part.sessionID)) return;
     const [mapped, ...attachments] = toUIParts(part);
@@ -1248,6 +1270,8 @@ function applyEvent(
   if (event.type === "session.idle") {
     const props = (event.properties ?? {}) as { sessionID?: string };
     if (!props.sessionID) return;
+    // Full turn finished — now promote expert/task list unread (+1 per run).
+    maybeNoteExpertUnreadWhenRunEnds(workspaceId, props.sessionID);
     useSessionActivityStore
       .getState()
       .setRunStatus(workspaceId, props.sessionID, idleStatus);

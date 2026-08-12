@@ -1,10 +1,35 @@
 import { extractAcpSessionId, spawnAcpClient } from "./acp-client.mjs";
 import { terminateProcessTree } from "./utils.mjs";
 
-const AUTH_ERROR_PATTERN = /auth|login|unauthorized|forbidden|api key|credential|sign in|not logged in|认证|登录|未授权|凭证/i;
+// Prefer word-ish matches — bare "auth" alone false-positives on unrelated text.
+const AUTH_ERROR_PATTERN =
+  /unauthorized|forbidden|not\s+logged\s+in|sign[\s-]?in|api[\s_-]?key|credential|authentication\s+required|login\s+required|请?先?(登录|登陆)|未授权|凭证|认证失败/i;
 
 function isAuthError(message) {
   return AUTH_ERROR_PATTERN.test(String(message ?? ""));
+}
+
+/**
+ * Soft "logged-out but session/new still succeeds" agents (Upstream pattern).
+ * Grok / Pi / WorkBuddy always advertise authMethods even when credentials work,
+ * so applying empty-model → needs_auth to *every* agent with authMethods falsely
+ * marks healthy installs as 需登录.
+ */
+const SOFT_AUTH_EMPTY_MODEL_AGENT =
+  /kimi|qwen|copilot|github[\s_-]?copilot|iflow/i;
+
+function agentLooksLikeSoftAuthEmptyModel(initialized, command) {
+  const name = String(
+    initialized?.agentInfo?.name ??
+      initialized?.agentInfo?.title ??
+      initialized?.serverInfo?.name ??
+      "",
+  );
+  const cmd = String(command ?? "")
+    .replace(/\\/g, "/")
+    .split("/")
+    .pop() ?? "";
+  return SOFT_AUTH_EMPTY_MODEL_AGENT.test(name) || SOFT_AUTH_EMPTY_MODEL_AGENT.test(cmd);
 }
 
 /**
@@ -58,18 +83,15 @@ export async function probeAcpCommand({ command, args = [], cwd = process.cwd(),
       if (!sessionId) {
         return { ok: false, step: "fail_acp", status: "offline", initialized, sessionResult, error: "session/new returned no sessionId", events };
       }
-      // Some CLIs (Kimi CLI, Qwen Code, GitHub Copilot CLI) accept
-      // initialize/session/new even when the user is not logged in, and
-      // declare the login flow via `authMethods` instead of failing.
-      // Detect that state by combining two signals:
-      //   1. initialize.authMethods is non-empty (a login flow exists), and
-      //   2. session configOptions expose a model `select` whose options list
-      //      is empty and currentValue is empty (no model catalog was
-      //      loaded, which happens when the account has not been resolved).
-      // When both hold, treat the agent as `needs_auth` so it stays out of
-      // the runtime picker until the user actually logs in.
+      // Soft-auth agents (Kimi / Qwen / Copilot): accept session/new while
+      // logged out and only signal via authMethods + empty model catalog.
+      // Do NOT apply this to Grok/Pi/WorkBuddy — they always list authMethods
+      // even with working credentials, which previously false-flagged 需登录.
       const authMethods = Array.isArray(initialized?.authMethods) ? initialized.authMethods : [];
-      if (authMethods.length) {
+      if (
+        authMethods.length &&
+        agentLooksLikeSoftAuthEmptyModel(initialized, command)
+      ) {
         const configOptions = Array.isArray(sessionResult?.configOptions) ? sessionResult.configOptions : [];
         const modelSelect = configOptions.find((option) => {
           if (!option || typeof option !== "object") return false;

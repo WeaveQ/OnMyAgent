@@ -259,7 +259,9 @@ const treeRowButtonVariants = cva(
 )
 
 const sessionRowButtonVariants = cva(
-  "w-full text-left transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50",
+  // select-none: list rows are click targets; text selection wash looks like a
+  // broken "selected" chip (especially on multi-line expert rows).
+  "w-full select-none text-left transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       active: {
@@ -293,9 +295,16 @@ const sessionRowButtonVariants = cva(
           "bg-dls-surface-muted/70 text-dls-secondary hover:bg-dls-list-hover/50 hover:text-dls-text",
       },
       {
+        // Match assistant home task-row selection (list-selected), not the
+        // quieter list-hover wash — that was too faint next to idle rows.
         size: "expert",
         active: true,
-        className: "bg-dls-list-selected font-medium text-dls-text shadow-none",
+        className: "bg-dls-list-selected/75 text-dls-text shadow-none",
+      },
+      {
+        size: "expert",
+        active: false,
+        className: "hover:bg-dls-list-hover/80",
       },
     ],
     defaultVariants: {

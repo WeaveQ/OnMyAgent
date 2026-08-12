@@ -4,7 +4,9 @@
  * assistant task rows. Blue unread dots; no server sync.
  *
  * Count rules (one assistant turn = at most +1):
- * - Stream tokens within the same session run never bump the count.
+ * - Session-sync only notes activity when a run **ends** (session.idle /
+ *   status idle after visible assistant output) — not on mid-stream parts.
+ * - Within the same runKey, repeated notes are no-ops (defensive de-dupe).
  * - A new run (new runKey) or a different session under the same expert can +1.
  *
  * Pure assistant sessions (no expert agentId) use scope key

@@ -36,7 +36,9 @@ export function selectExpertSessionIds(
   payload: ExpertDirectoryProjection | null | undefined,
 ): string[] {
   if (!payload) return [];
-  return [...new Set(payload.records.flatMap((record) => record.sessionIds))].sort();
+  return [...new Set(
+    payload.records.flatMap((record) => record.sessionIds ?? []),
+  )].sort();
 }
 
 export function selectAgentIdForSession(
@@ -45,7 +47,7 @@ export function selectAgentIdForSession(
 ): string | null {
   const id = sessionId.trim();
   if (!payload || !id) return null;
-  return payload.records.find((record) => record.sessionIds.includes(id))?.agentId ?? null;
+  return payload.records.find((record) => (record.sessionIds ?? []).includes(id))?.agentId ?? null;
 }
 
 export type ExpertRailItem = {

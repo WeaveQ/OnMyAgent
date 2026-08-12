@@ -72,7 +72,8 @@ export function KeepAlivePane(props: {
         props.className,
       )}
       aria-hidden={!props.active}
-      {...(!props.active ? ({ inert: "" } as Record<string, string>) : {})}
+      // Boolean DOM attr: pass true (not "") so React 19 does not warn.
+      {...(!props.active ? ({ inert: true } as { inert: boolean }) : {})}
     >
       {typeof props.children === "function"
         ? props.children(props.active)
