@@ -400,6 +400,11 @@ export default {
   "settings.provider_move_up": "Move up",
   "settings.provider_move_down": "Move down",
   "settings.provider_source_env": "Environment",
+  "settings.provider_source_env_hint":
+    "This provider is connected via environment variables. Change or clear them under Settings → Environment, then restart the app.",
+  "settings.provider_source_env_hint_short": "Manage in Environment",
+  "settings.provider_remove": "Remove",
+  "settings.provider_removing": "Removing…",
   "settings.provider_badge_cloud": "Cloud",
   "settings.provider_reorder_hint": "Drag the handle or use the arrows to reorder",
   "settings.provider_reorder_aria": "Reorder model providers",
@@ -944,9 +949,12 @@ export default {
   "settings.browser.protocol": "Protocol {value}",
   "settings.browser.tabs": "Tabs {value}",
   "settings.browser.agent_tabs": "Agent tabs {value}",
-  "settings.provider_delete_confirm_title": "Delete this model provider?",
+  "settings.provider_delete_confirm_title": "Remove this model provider?",
   "settings.provider_delete_confirm_desc":
-    "Delete “{name}”? It will be removed from the current configuration. New chats cannot use it; past sessions keep their history.",
+    "Remove “{name}”? It will be removed from the current configuration. New chats cannot use it; past sessions keep their history.",
+  "settings.provider_remove_confirm_title": "Remove this model provider?",
+  "settings.provider_remove_confirm_desc":
+    "Remove “{name}”? It will leave the connected list. New chats cannot use it; past sessions keep their history.",
   "settings.provider_reload_required_title": "Reload to apply changes",
   "settings.provider_reload_required_desc":
     "Adding or changing model providers needs a quick reload (no app restart) before they work in new chats. Reload now to apply.",

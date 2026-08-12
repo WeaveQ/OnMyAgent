@@ -80,6 +80,10 @@ describe("ai providers chrome i18n keys", () => {
       expect(src).toContain("settings.loading_providers_list");
       expect(src).toContain("settings.loading_providers_inventory");
       expect(src).toContain("settings.connect_provider_empty_hint");
+      expect(src).toContain("settings.provider_remove");
+      expect(src).toContain("settings.provider_remove_confirm_title");
+      expect(src).toContain("settings.provider_source_env_hint");
+      expect(src).toContain("settings.provider_source_env_hint_short");
       // Dual-path empty hint must mention custom config path, not only connect.
       if (locale === "en") {
         expect(src.toLowerCase()).toContain("custom model provider");
@@ -88,7 +92,8 @@ describe("ai providers chrome i18n keys", () => {
         expect(src).toContain("自定义模型服务商配置");
         expect(src).toContain("连接模型服务商");
       } else {
-        expect(src).toContain("自訂模型服務商配置");
+        // zh-TW empty path: custom config CTA + connect CTA (wording may shorten).
+        expect(src).toContain("自訂配置");
         expect(src).toContain("連接模型服務商");
       }
     }
@@ -146,6 +151,12 @@ describe("settings AI view wiring (structural)", () => {
     expect(aiView).toContain("providersLoading");
     expect(aiView).toContain("inventorySyncing");
     expect(aiView).toContain("AiSettingsProvidersSkeleton");
+    // Unified remove (no separate disconnect vs delete labels in UI).
+    expect(aiView).toContain("settings.provider_remove");
+    expect(aiView).toContain("settings.provider_remove_confirm_title");
+    expect(aiView).toContain("settings.provider_source_env_hint");
+    expect(aiView).not.toContain("settings.disconnect");
+    expect(aiView).not.toContain("Unplug");
   });
 
   test("ai-view: Zen free only; custom not OpenCode; Cloud uses i18n", () => {

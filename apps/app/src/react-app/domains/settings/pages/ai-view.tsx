@@ -15,7 +15,6 @@ import {
   GripVertical,
   Pencil,
   Trash2,
-  Unplug,
 } from "lucide-react";
 import {
   useRef,
@@ -125,6 +124,32 @@ function providerSourceLabel(source?: AiSettingsConnectedProvider["source"]) {
   return null;
 }
 
+function ProviderSourceBadge(props: {
+  source?: AiSettingsConnectedProvider["source"];
+  label: string;
+}) {
+  const badge = (
+    <StatusBadge size="tiny" tone="neutral">
+      {props.label}
+    </StatusBadge>
+  );
+  if (props.source !== "env") return badge;
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span className="inline-flex cursor-default" data-no-drag>
+            {badge}
+          </span>
+        }
+      />
+      <TooltipContent className="max-w-xs">
+        {t("settings.provider_source_env_hint")}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 function providerStatusTone(
   label: string,
   isConnected: boolean,
@@ -151,8 +176,10 @@ export function AiSettingsView(props: AiSettingsViewProps) {
   // Custom config stays available while the list is still hydrating.
   const connectDisabled =
     actionsDisabled || props.providerAuthBusy || !runtimeConnected;
-  const [pendingDelete, setPendingDelete] =
-    useState<AiSettingsConnectedProvider | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<{
+    provider: AiSettingsConnectedProvider;
+    mode: "delete" | "disconnect";
+  } | null>(null);
   const showListSkeleton =
     providersLoading && props.connectedProviders.length === 0;
 
@@ -385,18 +412,20 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                       {provider.id === "opencode" ? null : provider.source ===
                         "custom" ? (
                         sourceLabel ? (
-                          <StatusBadge size="tiny" tone="neutral">
-                            {sourceLabel}
-                          </StatusBadge>
+                          <ProviderSourceBadge
+                            source={provider.source}
+                            label={sourceLabel}
+                          />
                         ) : null
                       ) : provider.managedBy === "opencode" ? (
                         <StatusBadge size="tiny" tone="neutral">
                           OpenCode
                         </StatusBadge>
                       ) : sourceLabel ? (
-                        <StatusBadge size="tiny" tone="neutral">
-                          {sourceLabel}
-                        </StatusBadge>
+                        <ProviderSourceBadge
+                          source={provider.source}
+                          label={sourceLabel}
+                        />
                       ) : null}
                     </span>
                   }
@@ -414,6 +443,11 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                       ) : inventorySyncing ? (
                         <span className="text-dls-secondary/70">
                           {t("settings.provider_model_count_pending")}
+                        </span>
+                      ) : null}
+                      {provider.source === "env" ? (
+                        <span className="text-dls-secondary/80">
+                          {t("settings.provider_source_env_hint_short")}
                         </span>
                       ) : null}
                     </span>
@@ -503,38 +537,11 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                             </TooltipContent>
                           </Tooltip>
                         ) : null}
-                        {!isCloud && props.canDeleteProvider?.(provider) ? (
-                          <Tooltip>
-                            <TooltipTrigger
-                              render={(
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  className="text-dls-secondary hover:text-dls-danger"
-                                  disabled={props.busy || rowBusy}
-                                  onClick={() => setPendingDelete(provider)}
-                                  aria-label={t(
-                                    "agent_manager.provider_modal.delete_provider",
-                                  )}
-                                >
-                                  <Trash2 aria-hidden="true" />
-                                </Button>
-                              )}
-                            />
-                            <TooltipContent>
-                              {t(
-                                "agent_manager.provider_modal.delete_provider",
-                              )}
-                            </TooltipContent>
-                          </Tooltip>
-                        ) : null}
-                        {/* Only real disconnectable (e.g. OAuth/API) rows — never a
-                            status-looking Unplug on custom/env/OpenCode entries. */}
+                        {/* Unified remove: delete (custom/config) or disconnect
+                            (API/OAuth/Zen). Env rows: no button, hint only. */}
                         {!isCloud &&
-                        !props.canEditProvider?.(provider) &&
-                        !props.canDeleteProvider?.(provider) &&
-                        props.canDisconnectProvider(provider) ? (
+                        (props.canDeleteProvider?.(provider) ||
+                          props.canDisconnectProvider(provider)) ? (
                           <Tooltip>
                             <TooltipTrigger
                               render={(
@@ -545,27 +552,35 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                                   className="text-dls-secondary hover:text-dls-danger"
                                   disabled={
                                     props.busy ||
+                                    rowBusy ||
                                     props.providerAuthBusy ||
                                     props.disconnectingProviderId !== null
                                   }
-                                  onClick={() =>
-                                    void props.onDisconnectProvider(provider.id)
-                                  }
+                                  onClick={() => {
+                                    const mode = props.canDeleteProvider?.(
+                                      provider,
+                                    )
+                                      ? "delete"
+                                      : "disconnect";
+                                    setPendingRemove({ provider, mode });
+                                  }}
                                   aria-label={
                                     props.disconnectingProviderId ===
-                                    provider.id
-                                      ? t("settings.disconnecting")
-                                      : t("settings.disconnect")
+                                      provider.id ||
+                                    props.providerActionBusyId === provider.id
+                                      ? t("settings.provider_removing")
+                                      : t("settings.provider_remove")
                                   }
                                 >
-                                  <Unplug aria-hidden="true" />
+                                  <Trash2 aria-hidden="true" />
                                 </Button>
                               )}
                             />
                             <TooltipContent>
-                              {props.disconnectingProviderId === provider.id
-                                ? t("settings.disconnecting")
-                                : t("settings.disconnect")}
+                              {props.disconnectingProviderId === provider.id ||
+                              props.providerActionBusyId === provider.id
+                                ? t("settings.provider_removing")
+                                : t("settings.provider_remove")}
                             </TooltipContent>
                           </Tooltip>
                         ) : null}
@@ -645,20 +660,26 @@ export function AiSettingsView(props: AiSettingsViewProps) {
       {props.cloudProvidersView}
 
       <ConfirmModal
-        open={pendingDelete !== null}
-        title={t("settings.provider_delete_confirm_title")}
-        message={t("settings.provider_delete_confirm_desc", {
-          name: pendingDelete?.name || pendingDelete?.id || "",
+        open={pendingRemove !== null}
+        title={t("settings.provider_remove_confirm_title")}
+        message={t("settings.provider_remove_confirm_desc", {
+          name:
+            pendingRemove?.provider.name || pendingRemove?.provider.id || "",
         })}
-        confirmLabel={t("agent_manager.provider_modal.delete_provider")}
+        confirmLabel={t("settings.provider_remove")}
         cancelLabel={t("common.cancel")}
         variant="danger"
         onConfirm={() => {
-          const target = pendingDelete;
-          setPendingDelete(null);
-          if (target) props.onDeleteProvider?.(target);
+          const target = pendingRemove;
+          setPendingRemove(null);
+          if (!target) return;
+          if (target.mode === "delete") {
+            props.onDeleteProvider?.(target.provider);
+            return;
+          }
+          void props.onDisconnectProvider(target.provider.id);
         }}
-        onCancel={() => setPendingDelete(null)}
+        onCancel={() => setPendingRemove(null)}
       />
     </LayoutStack>
   );
