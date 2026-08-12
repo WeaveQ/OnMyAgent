@@ -37,10 +37,20 @@ def run_script(script: Path, *args: object) -> None:
         raise AssertionError(result.stderr or result.stdout)
 
 
-def create_minimal_docx(path: Path) -> None:
-    document = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:body>
+def create_minimal_docx(path: Path, *, chinese: bool = False) -> None:
+    if chinese:
+        body = """
+    <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>主体：{{甲方名称}}（保留格式）</w:t></w:r></w:p>
+    <w:p><w:r><w:t>税号：{{统一社会信用代码}}</w:t></w:r></w:p>
+    <w:p><w:r><w:t>账号：{{银行账号}}</w:t></w:r></w:p>
+    <w:p><w:r><w:t>开户行：{{开户行}}</w:t></w:r></w:p>
+    <w:p><w:r><w:t>发票内容：{{发票内容}}</w:t></w:r></w:p>
+    <w:p><w:r><w:t>发票类型：{{发票类型}}</w:t></w:r></w:p>
+    <w:p><w:r><w:t>金额：{{返点金额}}</w:t></w:r></w:p>
+    <w:p><w:r><w:t>周期：{{合作周期}}</w:t></w:r></w:p>
+"""
+    else:
+        body = """
     <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>主体：{{counterparty_</w:t></w:r><w:r><w:rPr><w:i/></w:rPr><w:t>name}}（保留格式）</w:t></w:r></w:p>
     <w:p><w:r><w:t>税号：{{unified_social_credit_code}}</w:t></w:r></w:p>
     <w:p><w:r><w:t>账号：{{bank_account}}</w:t></w:r></w:p>
@@ -49,6 +59,11 @@ def create_minimal_docx(path: Path) -> None:
     <w:p><w:r><w:t>发票类型：{{invoice_type}}</w:t></w:r></w:p>
     <w:p><w:r><w:t>金额：{{rebate_amount}}</w:t></w:r></w:p>
     <w:p><w:r><w:t>周期：{{cooperation_period}}</w:t></w:r></w:p>
+"""
+    document = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+{body}
     <w:sectPr/>
   </w:body>
 </w:document>"""
@@ -149,6 +164,65 @@ class CreatorOpsScriptFixtures(unittest.TestCase):
             self.assertEqual(source_book.active.max_row, 3)
             self.assertIsNone(source_book.active["D3"].value)
             source_book.close()
+
+    def test_contract_generator_fills_chinese_placeholders_with_map(self):
+        with tempfile.TemporaryDirectory(prefix="oma-contract-zh-") as temp:
+            root = Path(temp)
+            source = root / "返点信息.xlsx"
+            workbook = Workbook()
+            sheet = workbook.active
+            sheet.append([
+                "项目", "主体名称", "统一社会信用代码", "银行账号", "开户行",
+                "发票内容", "发票类型", "返点金额", "合作周期",
+            ])
+            sheet.append([
+                "项目A", "中文模板公司", "91310000ZH", "62221111", "中文银行",
+                "信息服务费", "普票", 2000, "2026-03",
+            ])
+            workbook.save(source)
+            template = root / "中文模板.docx"
+            create_minimal_docx(template, chinese=True)
+            mapping = root / "mapping.json"
+            mapping.write_text(
+                json.dumps(
+                    {
+                        "placeholders": {
+                            "甲方名称": "counterparty_name",
+                            "统一社会信用代码": "unified_social_credit_code",
+                            "银行账号": "bank_account",
+                            "开户行": "bank_name",
+                            "发票内容": "invoice_content",
+                            "发票类型": "invoice_type",
+                            "返点金额": "rebate_amount",
+                            "合作周期": "cooperation_period",
+                        }
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            output_dir = root / "合同"
+            report = root / "生成报告.xlsx"
+            run_script(
+                GENERATOR,
+                "--input",
+                source,
+                "--template",
+                template,
+                "--output-dir",
+                output_dir,
+                "--report",
+                report,
+                "--map",
+                mapping,
+            )
+            contracts = list(output_dir.glob("*.docx"))
+            self.assertEqual(len(contracts), 1)
+            with zipfile.ZipFile(contracts[0]) as archive:
+                xml = archive.read("word/document.xml").decode("utf-8")
+            self.assertIn("中文模板公司", xml)
+            self.assertIn("2000", xml)
+            self.assertNotIn("{{", xml)
 
     def test_margin_workbook_keeps_formulas_and_data_gaps_traceable(self):
         with tempfile.TemporaryDirectory(prefix="oma-margin-fixture-") as temp:

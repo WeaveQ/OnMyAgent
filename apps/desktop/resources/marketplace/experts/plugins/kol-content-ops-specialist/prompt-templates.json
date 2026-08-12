@@ -18,10 +18,10 @@
   {
     "id": "rebate-contract-generator",
     "title": { "zh": "批量生成返点合同", "en": "Generate rebate contracts" },
-    "description": { "zh": "批准模板填充、日志和待补材料", "en": "Approved template, log, and missing items" },
-    "template": { "zh": "请根据 <对公返点信息表> 和 <业务批准的合同模板> 批量生成合同，并输出生成日志和待补材料。", "en": "Generate rebate contracts from <Corporate rebate sheet> and <Business-approved contract template>, with a generation log and missing items." },
+    "description": { "zh": "任意批准模板映射填充、日志和待补材料", "en": "Any approved template, map-fill, log, missing items" },
+    "template": { "zh": "请根据 <对公返点信息表> 和 <业务批准的合同模板> 先发现占位符并确认映射，再批量生成合同，输出生成日志和待补材料。", "en": "From <Corporate rebate sheet> and <Business-approved contract template>, discover placeholders, confirm mapping, then batch-generate contracts with a log and missing items." },
     "requiredSlots": { "zh": ["对公返点信息表", "业务批准的合同模板"], "en": ["Corporate rebate sheet", "Business-approved contract template"] },
-    "conditionalSlots": { "zh": [], "en": [] }
+    "conditionalSlots": { "zh": ["字段映射或必填约定"], "en": ["Field mapping or required fields"] }
   },
   {
     "id": "rebate-contract-checker",
