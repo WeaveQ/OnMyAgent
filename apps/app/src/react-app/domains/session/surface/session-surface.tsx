@@ -781,10 +781,25 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
   const incomingHasTodos = incomingTodos.some((todo) => todo.content.trim());
   useEffect(() => {
     if (!incomingHasTodos) return;
-    setLastTodosBySessionId((current) => ({
-      ...current,
-      [props.sessionId]: incomingTodos,
-    }));
+    setLastTodosBySessionId((current) => {
+      const previous = current[props.sessionId];
+      if (
+        previous &&
+        previous.length === incomingTodos.length &&
+        previous.every(
+          (todo, index) =>
+            todo.id === incomingTodos[index]?.id &&
+            todo.content === incomingTodos[index]?.content &&
+            todo.status === incomingTodos[index]?.status,
+        )
+      ) {
+        return current;
+      }
+      return {
+        ...current,
+        [props.sessionId]: incomingTodos,
+      };
+    });
   }, [incomingHasTodos, incomingTodos, props.sessionId]);
 
   const visiblePlanRuntime = planDismissedForSession

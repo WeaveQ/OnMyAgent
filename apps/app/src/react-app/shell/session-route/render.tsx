@@ -820,10 +820,25 @@ export function SessionRouteRender() {
   const todosHaveContent = todos.some((todo) => todo.content.trim());
   useEffect(() => {
     if (!selectedSessionId || !todosHaveContent) return;
-    setLastVisibleTodosBySessionId((current) => ({
-      ...current,
-      [selectedSessionId]: todos,
-    }));
+    setLastVisibleTodosBySessionId((current) => {
+      const previous = current[selectedSessionId];
+      if (
+        previous &&
+        previous.length === todos.length &&
+        previous.every(
+          (todo, index) =>
+            todo.id === todos[index]?.id &&
+            todo.content === todos[index]?.content &&
+            todo.status === todos[index]?.status,
+        )
+      ) {
+        return current;
+      }
+      return {
+        ...current,
+        [selectedSessionId]: todos,
+      };
+    });
   }, [selectedSessionId, todos, todosHaveContent]);
   useEffect(() => {
     writeSessionTodos(lastVisibleTodosBySessionId);

@@ -214,10 +214,29 @@ export function startDebugLogger(opts?: { serverUrl?: () => string | Promise<str
     const original = nativeConsole[level];
     console[level] = (...args: unknown[]) => {
       try {
+        const message =
+          typeof args[0] === "string"
+            ? args[0]
+            : args[0] instanceof Error
+              ? args[0].message
+              : undefined;
+        // Capture stacks for the React max-update-depth flood so we can pin
+        // the offending effect without attaching DevTools every time.
+        const isMaxUpdateDepth =
+          typeof message === "string" &&
+          message.includes("Maximum update depth exceeded");
+        let stack: string | undefined;
+        if (isMaxUpdateDepth) {
+          stack =
+            (args[0] instanceof Error && args[0].stack) ||
+            (args[1] instanceof Error && args[1].stack) ||
+            new Error("Maximum update depth exceeded").stack;
+        }
         enqueue({
           level,
           url: typeof location !== "undefined" ? location.pathname + location.search : undefined,
-          message: typeof args[0] === "string" ? args[0] : undefined,
+          message,
+          stack,
           args: args.map((arg) => safeStringify(arg)),
         });
       } catch {

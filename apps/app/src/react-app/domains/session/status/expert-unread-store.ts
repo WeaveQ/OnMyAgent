@@ -440,19 +440,38 @@ export const useExpertUnreadStore = create<ExpertUnreadStore>((set, get) => ({
     if (!workspace || !agent) return;
 
     set((state) => {
+      const prev = state.byWorkspace[workspace]?.[agent] ?? emptyRecord();
+      // Already clean: do not allocate new maps (setFocusedAgent + effects can
+      // re-enter markRead and otherwise churn subscribers every paint).
+      // Advancing lastReadAt when nothing is unread is pure noise.
+      const sessionMap = state.sessionUnreadByWorkspace[workspace];
+      const hasSessionChips = sessionMap
+        ? Object.values(sessionMap).some((agentId) => agentId === agent)
+        : false;
+      if (
+        prev.unreadCount === 0 &&
+        !prev.manualUnread &&
+        prev.lastNotedSessionId === null &&
+        prev.lastNotedRunKey === null &&
+        prev.lastAssistantAt <= prev.lastReadAt &&
+        !hasSessionChips
+      ) {
+        return state;
+      }
+      const nextLastReadAt = Math.max(prev.lastReadAt, at);
+      let nextLastAssistantAt = prev.lastAssistantAt;
+      if (nextLastAssistantAt > nextLastReadAt) {
+        nextLastAssistantAt = nextLastReadAt;
+      }
       const workspaceMap = { ...(state.byWorkspace[workspace] ?? {}) };
-      const prev = workspaceMap[agent] ?? emptyRecord();
       const next: ExpertUnreadRecord = {
-        lastReadAt: Math.max(prev.lastReadAt, at),
-        lastAssistantAt: prev.lastAssistantAt,
+        lastReadAt: nextLastReadAt,
+        lastAssistantAt: nextLastAssistantAt,
         unreadCount: 0,
         lastNotedSessionId: null,
         lastNotedRunKey: null,
         manualUnread: false,
       };
-      if (next.lastAssistantAt > next.lastReadAt) {
-        next.lastAssistantAt = next.lastReadAt;
-      }
       workspaceMap[agent] = next;
       const byWorkspace = { ...state.byWorkspace, [workspace]: workspaceMap };
       const sessionUnreadByWorkspace = clearSessionsForAgent(
@@ -522,18 +541,22 @@ export const useExpertUnreadStore = create<ExpertUnreadStore>((set, get) => ({
     const workspace = workspaceId?.trim() || null;
     const agent = agentId?.trim() || null;
     if (!workspace || !agent) {
-      set({ focused: null });
+      // Avoid set→re-render loops when already cleared (effect deps often include
+      // unstable groups arrays that re-fire this path every parent render).
+      if (get().focused !== null) set({ focused: null });
       return;
     }
     const prev = get().focused;
     const sameFocus =
       prev?.workspaceId === workspace && prev?.agentId === agent;
+    // Critical: do not allocate a new focused object when unchanged — subscribers
+    // (AgentConversationList) would re-render, parent rebuilds groups, effect
+    // re-runs, and we hit Maximum update depth.
+    if (sameFocus) return;
     set({ focused: { workspaceId: workspace, agentId: agent } });
     // Auto-read only when switching *to* an expert — not while staying on it
     // (preserves manual 标为未读 red dots until user leaves and re-enters).
-    if (!sameFocus) {
-      get().markRead(workspace, agent);
-    }
+    get().markRead(workspace, agent);
   },
 
   isUnread: (workspaceId, agentId) => {

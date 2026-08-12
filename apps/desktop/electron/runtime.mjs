@@ -480,6 +480,16 @@ export function createRuntimeManager({
       }
     }
 
+    // Always stamp the real user home so in-process server features
+    // (session-archive discovery of Claude/Codex/Grok/…) never scan the
+    // OpenCode sandbox HOME after isolation below.
+    env.ONMYAGENT_REAL_HOME = env.ONMYAGENT_REAL_HOME?.trim()
+      ? env.ONMYAGENT_REAL_HOME
+      : resolvedHomeDir;
+    if (!process.env.ONMYAGENT_REAL_HOME?.trim()) {
+      process.env.ONMYAGENT_REAL_HOME = resolvedHomeDir;
+    }
+
     // Path B: isolate OpenCode from the real user HOME so ~/.opencode plugins
     // (Sisyphus) and ~/.claude|~/.agents skill catalogs never enter product
     // sessions. Providers/auth are mirrored into the sandbox.

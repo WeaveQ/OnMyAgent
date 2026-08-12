@@ -140,6 +140,16 @@ export async function prepareOpencodeSandboxHome(input) {
  * @param {Awaited<ReturnType<typeof prepareOpencodeSandboxHome>>} paths
  */
 export function applyOpencodeSandboxEnv(env, paths) {
+  // Preserve real home before overwriting — session-archive and other product
+  // scanners must keep reading ~/.claude / ~/.codex / ~/.grok under the user.
+  const realHome =
+    env.ONMYAGENT_REAL_HOME?.trim() ||
+    env.HOME?.trim() ||
+    process.env.ONMYAGENT_REAL_HOME?.trim() ||
+    "";
+  if (realHome && !realHome.includes("opencode-sandbox")) {
+    env.ONMYAGENT_REAL_HOME = realHome;
+  }
   env.HOME = paths.homeDir;
   env.USERPROFILE = paths.homeDir;
   env.XDG_CONFIG_HOME = paths.xdgConfigHome;

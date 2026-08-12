@@ -84,16 +84,27 @@ export function useExpertPageIdentity(props: ExpertPageProps) {
     isDevelopment: import.meta.env.DEV,
     emit: emitShadow,
   });
-  const page = buildExpertDirectoryPageModel({
-    workspaceError: props.selectedWorkspaceError,
-    query: {
-      data: query.data,
-      lastComplete: query.lastComplete,
-      error: query.error,
-      isPending: query.isPending,
-      isLoading: query.isLoading,
-    },
-  });
+  const page = useMemo(
+    () =>
+      buildExpertDirectoryPageModel({
+        workspaceError: props.selectedWorkspaceError,
+        query: {
+          data: query.data,
+          lastComplete: query.lastComplete,
+          error: query.error,
+          isPending: query.isPending,
+          isLoading: query.isLoading,
+        },
+      }),
+    [
+      props.selectedWorkspaceError,
+      query.data,
+      query.error,
+      query.isLoading,
+      query.isPending,
+      query.lastComplete,
+    ],
+  );
   const identity = useMemo(
     () => buildExpertPageIdentityModel({
       directoryPage: page,
