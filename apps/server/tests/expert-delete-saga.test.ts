@@ -4,7 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ServerConfig, WorkspaceInfo } from "@onmyagent/types/server";
 import { ApiError } from "../src/core/errors.js";
-import { deleteExpertSessions } from "../src/services/expert-delete-saga.js";
+import {
+  deleteExpertSessions,
+  selectExpertDeleteOriginRecords,
+} from "../src/services/expert-delete-saga.js";
 import { upsertSessionOrigin, listSessionOrigins } from "../src/services/session-origins.js";
 import { getExpertLifecycleEventsSnapshot, resetExpertLifecycleEventsForTest } from "../src/services/expert-lifecycle-events.js";
 
@@ -92,6 +95,39 @@ async function runDelete(
 
 describe("Expert delete saga", () => {
   afterEach(() => resetExpertLifecycleEventsForTest());
+
+  test("selectExpertDeleteOriginRecords recovers when packageName is agentId composite", () => {
+    const items = [
+      {
+        sessionId: "ses_1",
+        kind: "expert" as const,
+        agentId: "kol-ops:kol-ops",
+        packageName: "kol-ops",
+        directory: "/tmp/a",
+      },
+    ];
+    // Client bug: packageName fallback = full agentId
+    const matched = selectExpertDeleteOriginRecords(items, {
+      agentId: "kol-ops:kol-ops",
+      packageName: "kol-ops:kol-ops",
+    });
+    expect(matched).toHaveLength(1);
+    expect(matched[0]?.sessionId).toBe("ses_1");
+  });
+
+  test("deletes when packageName is wrong composite but agentId matches", async () => {
+    const value = await fixture("session-mismatch-pkg");
+    try {
+      const result = await runDelete(value, {
+        operationId: "operation-mismatch-pkg",
+        packageName: "agent-1:agent-1",
+      });
+      expect(result.state).toBe("completed");
+      expect(result.steps).toHaveLength(1);
+    } finally {
+      await rm(value.root, { recursive: true, force: true });
+    }
+  });
 
   test("refuses built-in marketplace before writing a journal", async () => {
     const value = await fixture();

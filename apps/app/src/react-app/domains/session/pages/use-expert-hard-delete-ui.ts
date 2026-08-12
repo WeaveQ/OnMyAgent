@@ -24,7 +24,18 @@ export function useExpertHardDeleteUi(input: {
     (target: { agentId: string; name: string; sessionIds: string[] }) => {
       const agentId = target.agentId.trim();
       if (!canHardDeleteExpert(agentId, input.registry)) return;
-      const packageName = input.registry?.agents.find((agent) => agent.id === agentId)?.marketplacePackageName?.trim();
+      const fromRegistry = input.registry?.agents.find((agent) => agent.id === agentId)?.marketplacePackageName?.trim();
+      // Prefer registry package name; else short form of agentId ("pkg:pkg" → "pkg").
+      const packageName =
+        fromRegistry ||
+        (agentId.includes(":")
+          ? (() => {
+              const parts = agentId.split(":").filter(Boolean);
+              return parts.length >= 2 && parts[0] === parts[parts.length - 1]
+                ? parts[0]
+                : parts[parts.length - 1];
+            })()
+          : agentId);
       if (!globalThis.crypto?.randomUUID) return;
       const operationId = globalThis.crypto.randomUUID();
       input.openDeleteGroupModal({
