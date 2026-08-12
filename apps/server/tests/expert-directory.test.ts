@@ -92,6 +92,61 @@ describe("expert directory projection", () => {
     expect(projection.records[0]).toMatchObject({ runtimeMissing: true, sessionIds: ["session-origin"] });
   });
 
+  test("legacy expert origins without packageName stay complete via agentId derivation", async () => {
+    const current = await workspace("legacy-no-package");
+    // Bypass upsert validation by writing origins file with agentId-only expert records
+    // (historical writes before packageName was required).
+    const originsPath = join(current.path, ".opencode", "onmyagent", "session-origins.json");
+    await mkdir(join(current.path, ".opencode", "onmyagent"), { recursive: true });
+    await writeFile(originsPath, JSON.stringify({
+      version: 2,
+      revision: 1,
+      records: [
+        {
+          workspaceId: current.id,
+          sessionId: "session-legacy-a",
+          kind: "expert",
+          agentId: "fleet-management-specialist:fleet-management-specialist",
+          directory: "/external/runtime/session-legacy-a",
+          createdAt: 1,
+          updatedAt: 1,
+        },
+        {
+          workspaceId: current.id,
+          sessionId: "session-legacy-b",
+          kind: "expert",
+          agentId: "smb-finance:smb-finance",
+          createdAt: 2,
+          updatedAt: 2,
+        },
+      ],
+      tombstones: [],
+    }));
+    const projection = await buildExpertDirectory(current, {
+      runtimeRoot: join(tmpdir(), "onmyagent-no-runtime-root-legacy"),
+      readSessions: async () => [
+        { id: "session-legacy-a", directory: "/external/runtime/session-legacy-a" },
+        { id: "session-legacy-b" },
+      ],
+    });
+    expect(projection.complete).toBe(true);
+    expect(projection.failures).toEqual([]);
+    expect(projection.records).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        agentId: "fleet-management-specialist:fleet-management-specialist",
+        packageName: "fleet-management-specialist",
+        sessionIds: ["session-legacy-a"],
+        runtimeMissing: true,
+      }),
+      expect.objectContaining({
+        agentId: "smb-finance:smb-finance",
+        packageName: "smb-finance",
+        sessionIds: ["session-legacy-b"],
+        runtimeMissing: true,
+      }),
+    ]));
+  });
+
   test("durable ghost origin is marked session-missing without renderer pruning", async () => {
     const current = await workspace("ghost-origin");
     await upsertSessionOrigin(current, "session-ghost", {

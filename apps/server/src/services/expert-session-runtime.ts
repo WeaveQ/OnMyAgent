@@ -197,23 +197,61 @@ export function buildExpertSessionAgentMarkdown(): string {
     : `${EXPERT_SESSION_AGENT_MARKDOWN}\n`;
 }
 
-/** Ordered skill roots: override → OPENCODE_GLOBAL_SKILLS_DIR → profile → legacy. */
-export function resolveExpertSkillSourceRoots(override?: string): string[] {
+/**
+ * Ordered skill roots for expert session materialization:
+ * override (tests) → OPENCODE_GLOBAL_SKILLS_DIR → profile skills → legacy →
+ * package-local skills under experts installed/mine (fallback).
+ *
+ * When `override` is set, only that root is used (test isolation).
+ */
+export function resolveExpertSkillSourceRoots(
+  override?: string,
+  packageName?: string,
+): string[] {
   if (override?.trim()) return [resolve(override.trim())];
   const roots: string[] = [];
   const seen = new Set<string>();
+  const push = (candidate: string | undefined | null) => {
+    if (!candidate?.trim()) return;
+    const resolved = resolve(candidate.trim());
+    if (seen.has(resolved)) return;
+    seen.add(resolved);
+    roots.push(resolved);
+  };
   for (const candidate of [
     process.env.OPENCODE_GLOBAL_SKILLS_DIR?.trim(),
     globalSkillsDir(),
     legacyOnmyagentSkillsDir(),
+    ...resolvePackageSkillSourceRoots(packageName),
   ]) {
-    if (!candidate) continue;
-    const resolved = resolve(candidate);
-    if (seen.has(resolved)) continue;
-    seen.add(resolved);
-    roots.push(resolved);
+    push(candidate);
   }
   return roots;
+}
+
+/**
+ * Package-bundled skill trees: `…/experts/installed/<pkg>/skills` (and mine).
+ * ONMYAGENT_EXPERTS_DIR points at the installed experts root when set by desktop.
+ */
+export function resolvePackageSkillSourceRoots(packageName?: string): string[] {
+  const name = packageName?.trim();
+  if (!name || !isSafeSkillFolderName(name)) return [];
+  const candidates: string[] = [];
+  const expertsDir = process.env.ONMYAGENT_EXPERTS_DIR?.trim();
+  if (expertsDir) {
+    candidates.push(join(expertsDir, name, "skills"));
+  }
+  const profileExperts = join(
+    homedir(),
+    ".onmyagent",
+    "profiles",
+    "local",
+    "config",
+    "experts",
+  );
+  candidates.push(join(profileExperts, "installed", name, "skills"));
+  candidates.push(join(profileExperts, "mine", name, "skills"));
+  return candidates;
 }
 
 function findSkillSourceDir(
@@ -221,23 +259,29 @@ function findSkillSourceDir(
   sourceRoots: readonly string[],
 ): string | null {
   for (const root of sourceRoots) {
-    const source = join(root, skillName);
-    if (existsSync(join(source, "SKILL.md"))) return source;
+    // Package roots already end with `/skills`; global roots are the skills parent.
+    const direct = join(root, skillName);
+    if (existsSync(join(direct, "SKILL.md"))) return direct;
   }
   return null;
 }
 
 /**
  * Copy only allowlisted skill folders into `targetDir/.opencode/skills/<name>`.
- * Searches profile / global / legacy skill roots. Unknown names are skipped.
+ * Searches profile / global / legacy / package skill roots. Unknown names are skipped.
  */
 export async function materializeExpertSessionSkills(input: {
   skillNames: readonly string[] | undefined;
   targetDirectory: string;
   skillsSourceRoot?: string;
+  /** When set, also search experts/installed|mine/<package>/skills. */
+  packageName?: string;
 }): Promise<string[]> {
   const targetDirectory = resolve(input.targetDirectory);
-  const sourceRoots = resolveExpertSkillSourceRoots(input.skillsSourceRoot);
+  const sourceRoots = resolveExpertSkillSourceRoots(
+    input.skillsSourceRoot,
+    input.packageName,
+  );
   const names = normalizeSkillNameList(input.skillNames);
   const skillsDir = join(targetDirectory, ".opencode", "skills");
   const installed: string[] = [];
@@ -338,21 +382,33 @@ export async function applyExpertSessionIsolation(input: {
     "utf8",
   );
 
-  const installedSkills = await materializeExpertSessionSkills({
-    skillNames: input.declaredSkills ?? input.skillNames,
-    targetDirectory: directory,
-    skillsSourceRoot: input.skillsSourceRoot,
-  });
-
   const prior = input.existingMarker && typeof input.existingMarker === "object"
     ? input.existingMarker
     : {};
+  const packageNameForSkills = input.packageName?.trim() ||
+    (typeof prior.packageName === "string" && prior.packageName.trim()
+      ? prior.packageName.trim()
+      : undefined) ||
+    (() => {
+      const agentId = input.agentId?.trim() ||
+        (typeof prior.agentId === "string" ? prior.agentId.trim() : "");
+      // Marketplace agent ids look like `pkg:pkg`; package folder uses the pkg token.
+      return agentId.includes(":") ? agentId.split(":")[0] : agentId || undefined;
+    })();
   const declaredSkills = normalizeSkillNameList(
     input.declaredSkills ?? input.skillNames ??
       (Array.isArray(prior.declaredSkills)
         ? prior.declaredSkills.filter((item): item is string => typeof item === "string")
         : []),
   );
+  // Materialize using the resolved declaration (including prior marker) so an
+  // isolation upgrade without explicit skillNames does not wipe installed skills.
+  const installedSkills = await materializeExpertSessionSkills({
+    skillNames: declaredSkills,
+    targetDirectory: directory,
+    skillsSourceRoot: input.skillsSourceRoot,
+    packageName: packageNameForSkills,
+  });
   // The marker must describe the current physical materialization, not stale
   // claims carried by an older marker. A missing source remains missing until
   // a later ensure actually copies it into this runtime directory.
@@ -523,41 +579,56 @@ export async function ensureExpertSessionRuntimeIsolation(input: {
     : normalizeAgentIdList(input.approvedAgentIds);
   const approvedAgentMismatch = requestedApprovedAgentIds !== null &&
     !sameAgentIdList(existingApprovedAgentIds, requestedApprovedAgentIds);
+  const markerDeclaredSkills = Array.isArray(existingMarker?.declaredSkills)
+    ? normalizeSkillNameList(
+      existingMarker.declaredSkills.filter((item): item is string => typeof item === "string"),
+    )
+    : [];
+  // Physical skills may be empty after a failed first materialize (race / wrong
+  // skill root). Do not leave isolation-v3 sessions stuck with missingSkills.
+  let physicalInstalledSkills: string[] | null = null;
   if (!needsUpgrade && !hasSkillRequest && !identityMismatch && !approvedAgentMismatch) {
-    const declaredSkills = Array.isArray(existingMarker?.declaredSkills)
-      ? normalizeSkillNameList(existingMarker.declaredSkills.filter((item): item is string => typeof item === "string"))
-      : [];
-    const installedSkills = await readPhysicalInstalledSkills(authorized, declaredSkills);
-    const missingSkills = declaredSkills.filter((skill) => !installedSkills.includes(skill));
-    if (missingSkills.length > 0) {
-      recordExpertLifecycleEvent({
-        kind: "missing_skills",
-        source: "runtime",
-        phase: "ensure",
-        outcome: "partial",
-        code: "skills_missing",
-        declaredSkillCount: declaredSkills.length,
-        missingSkillCount: missingSkills.length,
-      });
+    physicalInstalledSkills = await readPhysicalInstalledSkills(
+      authorized,
+      markerDeclaredSkills,
+    );
+    const physicalMissing = markerDeclaredSkills.filter(
+      (skill) => !physicalInstalledSkills!.includes(skill),
+    );
+    if (physicalMissing.length === 0) {
+      return {
+        directory: authorized,
+        upgraded: false,
+        ...(typeof existingMarker?.agentId === "string" && existingMarker.agentId.trim()
+          ? { agentId: existingMarker.agentId.trim() } : {}),
+        ...(typeof existingMarker?.packageName === "string" && existingMarker.packageName.trim()
+          ? { packageName: existingMarker.packageName.trim() } : {}),
+        ...(typeof existingMarker?.sessionId === "string" && existingMarker.sessionId.trim()
+          ? { sessionId: existingMarker.sessionId.trim() } : {}),
+        approvedAgentIds: existingApprovedAgentIds,
+        declaredSkills: markerDeclaredSkills,
+        installedSkills: physicalInstalledSkills,
+        missingSkills: [],
+        isolationVersion: currentVersion || EXPERT_SESSION_ISOLATION_VERSION,
+        defaultAgent: EXPERT_SESSION_DEFAULT_AGENT,
+      };
     }
-    const approvedAgentIds = existingApprovedAgentIds;
-    return {
-      directory: authorized,
-      upgraded: false,
-      ...(typeof existingMarker?.agentId === "string" && existingMarker.agentId.trim()
-        ? { agentId: existingMarker.agentId.trim() } : {}),
-      ...(typeof existingMarker?.packageName === "string" && existingMarker.packageName.trim()
-        ? { packageName: existingMarker.packageName.trim() } : {}),
-      ...(typeof existingMarker?.sessionId === "string" && existingMarker.sessionId.trim()
-        ? { sessionId: existingMarker.sessionId.trim() } : {}),
-      approvedAgentIds,
-      declaredSkills,
-      installedSkills,
-      missingSkills,
-      isolationVersion: currentVersion || EXPERT_SESSION_ISOLATION_VERSION,
-      defaultAgent: EXPERT_SESSION_DEFAULT_AGENT,
-    };
+    recordExpertLifecycleEvent({
+      kind: "missing_skills",
+      source: "runtime",
+      phase: "ensure",
+      outcome: "partial",
+      code: "skills_missing_repair",
+      declaredSkillCount: markerDeclaredSkills.length,
+      missingSkillCount: physicalMissing.length,
+    });
   }
+
+  // Prefer explicit skillNames; for auto-repair of missing physical skills use
+  // the marker declaration so apply re-copies from global/package roots.
+  const skillNamesForApply = hasSkillRequest
+    ? input.skillNames
+    : (physicalInstalledSkills !== null ? markerDeclaredSkills : input.skillNames);
 
   const applied = await applyExpertSessionIsolation({
     directory: authorized,
@@ -565,7 +636,7 @@ export async function ensureExpertSessionRuntimeIsolation(input: {
     agentId: input.agentId,
     packageName: input.packageName,
     sessionId: input.sessionId,
-    skillNames: input.skillNames,
+    skillNames: skillNamesForApply,
     approvedAgentIds: input.approvedAgentIds,
     skillsSourceRoot: input.skillsSourceRoot,
     existingMarker,
