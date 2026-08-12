@@ -125,6 +125,66 @@ describe("expert session tab titles", () => {
     })).toBe(false);
   });
 
+  test("history sessions are not summarizing without busy/pending/recent", () => {
+    const nowMs = Date.now();
+    const history = {
+      id: "ses_old",
+      title: "New session - 2026-07-28T08:00:00.000Z",
+      time: { created: nowMs - 30 * 60_000, updated: nowMs - 20 * 60_000 },
+    } as never;
+    expect(
+      shouldShowExpertTabSummarizing(history, {
+        busy: false,
+        trackedPending: false,
+        pendingSelection: false,
+        nowMs,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowExpertTabSummarizing(history, {
+        busy: false,
+        trackedPending: false,
+        pendingSelection: true,
+        nowMs,
+      }),
+    ).toBe(true);
+  });
+
+  test("pinned summarizing rules: busy or recent or selection only (no tracked state)", () => {
+    const nowMs = Date.now();
+    const recent = {
+      id: "ses_r",
+      title: "New session - 2026-08-10T00:00:00.000Z",
+      time: { created: nowMs - 1_000, updated: nowMs },
+    } as never;
+    // Production tabs pass trackedPending=false always — age/busy/pendingSelection only.
+    expect(
+      shouldShowExpertTabSummarizing(recent, {
+        busy: false,
+        trackedPending: false,
+        pendingSelection: false,
+        nowMs,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowExpertTabSummarizing(recent, {
+        busy: true,
+        trackedPending: false,
+        pendingSelection: false,
+        nowMs,
+      }),
+    ).toBe(true);
+    const human = { id: "ses_h", title: "仓库盘点" } as never;
+    expect(
+      shouldShowExpertTabSummarizing(human, {
+        busy: true,
+        trackedPending: true,
+        pendingSelection: true,
+        nowMs,
+      }),
+    ).toBe(false);
+  });
+
   test("idle empty snapshot does not poll; busy empty does; titled stops", () => {
     const empty = {
       session: { id: "ses_5" },

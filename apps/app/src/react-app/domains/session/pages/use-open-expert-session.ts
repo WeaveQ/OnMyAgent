@@ -6,6 +6,7 @@ import { usePendingAgentStore } from "../../agents";
 import type { ExpertDirectoryIdentityIndex } from "../../../capabilities/session-identity/expert-directory-store";
 import type { SessionPageSidebarProps } from "./session-page-types";
 import { consumeActiveExpertDraftForSession } from "./expert-draft-session";
+import { normalizeExpertSessionId } from "./order-conversation-groups";
 import { writeExpertSessionSelection } from "../sidebar/session-chrome";
 
 export function useOpenExpertSession(input: {
@@ -26,7 +27,8 @@ export function useOpenExpertSession(input: {
 }) {
   return useCallback(
     (workspaceId: string, sessionId: string) => {
-      const trimmed = sessionId.trim();
+      // "" / whitespace → null (clear-route). Never treat empty as a real id.
+      const trimmed = normalizeExpertSessionId(sessionId);
       const targetAgentId =
         trimmed &&
         !trimmed.startsWith("draft:") &&
@@ -56,11 +58,12 @@ export function useOpenExpertSession(input: {
       }
       input.clearSurfaceDraft();
       input.openRailView("chat");
-      if (targetAgentId) {
+      if (targetAgentId && trimmed) {
         input.onOpenRealSession(workspaceId, targetAgentId, trimmed);
         writeExpertSessionSelection(workspaceId, targetAgentId, trimmed);
       }
-      input.sidebar.onOpenSession(workspaceId, sessionId);
+      // Pass through empty string for clear-route; sidebar normalizes to no selection.
+      input.sidebar.onOpenSession(workspaceId, trimmed ?? "");
     },
     [input],
   );

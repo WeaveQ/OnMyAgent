@@ -49,7 +49,13 @@ Opt-out for debugging: `ONMYAGENT_OPENCODE_USE_REAL_HOME=1`.
 - First-turn input tokens for 达人运营-class experts target **&lt;10k** (soft **&lt;15k** if system prompt is long).
 - Unit: materialize skills + agent file + ensure upgrade + resolveExpertPromptAgent + sandbox config strip.
 
+## Related
+
+- Expert **UI** lifecycle (tabs / draft / cold-open): [`expert-surface-architecture.md`](./expert-surface-architecture.md)
+- Monorepo pointers: [`../Architecture.md`](../Architecture.md) Session / Expert section
+
 ## Follow-ups
 
 - Optional: register package agent name as OpenCode agent file under the session dir.
 - Optional: per-session skill-only `OPENCODE_GLOBAL_SKILLS_DIR` (profile root is modest vs ~/.claude).
+- Keep blocking real `~/.opencode` load when the binary resolves passwd home (UI cannot fix token bloat alone).

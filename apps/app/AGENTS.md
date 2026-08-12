@@ -24,6 +24,8 @@ cd apps/app && bun test scripts/expert-session-invariants.test.ts
 | [`src/react-app/ARCHITECTURE.md`](./src/react-app/ARCHITECTURE.md) | React 域 / shell / session-route |
 | [`../../AGENTS.md`](../../AGENTS.md) | 全仓铁律 · 门禁 · Human gate |
 | [`../../docs/Architecture.md`](../../docs/Architecture.md) | 双运行时 · Expert lifecycle · 冷启动预算 |
+| [`../../docs/design/expert-surface-architecture.md`](../../docs/design/expert-surface-architecture.md) | **Expert 会话面 FSM / tab / cold-open / pending 语义**（改会话 UI 先读） |
+| [`../../docs/design/expert-runtime-isolation.md`](../../docs/design/expert-runtime-isolation.md) | Expert OpenCode agent / skills / HOME sandbox |
 | [`../../DESIGN.md`](../../DESIGN.md) | **UI SoT**（勿在本文件复述视觉细则） |
 | [`../../docs/README.md`](../../docs/README.md) | 文档地图 |
 
@@ -34,6 +36,7 @@ cd apps/app && bun test scripts/expert-session-invariants.test.ts
 | 颜色、圆角、Tab/CTA、shell chrome | `DESIGN.md` | `pnpm task check design` |
 | 用户可见文案 | i18n locales | `pnpm check:i18n:cjk` |
 | 专家/会话 busy、draft、origin、首发、SSE | **下文不变量** | `bun test scripts/expert-session-invariants.test.ts` |
+| 专家会话面 FSM / tab / cold-open / pending 命名 | `docs/design/expert-surface-architecture.md` | surface / cold-open / tab-title 单测（见该文档 §10） |
 | hard_delete / create flush / listSessions 预算 | Architecture Expert lifecycle + Cold-path | 对应 unit / Architecture 表中代码 |
 | 域拆分 / shell import | ARCHITECTURE + 根 AGENTS 边界 | `pnpm check:boundaries` |
 | 大页 expert/assistant/render | 下文热点 | `pnpm check:file-size` |
@@ -60,7 +63,9 @@ OpenCode 主 · Personal 辅 · 禁止交叉写 store/archive。
 | 层 | 内容 | 权威 |
 |----|------|------|
 | **产品行为**（本表） | 水合 / 草稿 / 首发 / SSE 代际 / 空壳 busy | 本文件 + 契约测试 |
+| **会话面架构** | surface FSM、tab 硬规则、cold-open suppress、pending 三语义 | `docs/design/expert-surface-architecture.md` |
 | **生命周期 / 预算** | hard_delete、create flush、select no-op、listSessions 次数 | Architecture Expert lifecycle + Cold-path budget |
+| **Runtime 隔离** | agent=onmyagent、sandbox HOME、plugin 空列表 | `docs/design/expert-runtime-isolation.md` |
 
 契约入口：`scripts/expert-session-invariants.test.ts`。
 

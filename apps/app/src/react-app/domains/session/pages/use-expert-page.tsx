@@ -286,6 +286,9 @@ export function useExpertPage(props: ExpertPageProps) {
     activeSidebarView,
     draftSessionActive,
     draftAgentId,
+    creatingSessionId: expertSurfaceMode.creatingSessionId,
+    // Alias: surface pendingTabSessionId = tab strip highlight after CREATE_BOUND
+    tabHighlightSessionId: pendingTabSessionId,
     pendingAgent,
     selectedWorkspaceId: props.selectedWorkspaceId,
     selectedSessionId: props.selectedSessionId,
@@ -515,6 +518,7 @@ export function useExpertPage(props: ExpertPageProps) {
     sessionTabOrderIds,
     pendingTabSessionId,
     setPendingTabSessionId,
+    expertDirectoryReady,
     activeConversationAgentId,
     handleOpenExpertSession,
     handleOpenDraftSession,

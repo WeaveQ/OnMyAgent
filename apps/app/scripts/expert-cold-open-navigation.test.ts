@@ -1,8 +1,63 @@
 import { describe, expect, test } from "bun:test";
 
-import { resolveExpertColdOpenNavigation } from "../src/react-app/domains/session/pages/order-conversation-groups";
+import {
+  normalizeExpertSessionId,
+  resolveExpertColdOpenNavigation,
+  shouldSuppressExpertColdOpen,
+} from "../src/react-app/domains/session/pages/order-conversation-groups";
 
 const isExpert = (id: string) => id.startsWith("ses_expert_");
+
+describe("normalizeExpertSessionId", () => {
+  test("treats empty / whitespace as null", () => {
+    expect(normalizeExpertSessionId("")).toBeNull();
+    expect(normalizeExpertSessionId("   ")).toBeNull();
+    expect(normalizeExpertSessionId(null)).toBeNull();
+    expect(normalizeExpertSessionId(undefined)).toBeNull();
+    expect(normalizeExpertSessionId("ses_1")).toBe("ses_1");
+    expect(normalizeExpertSessionId("  ses_1  ")).toBe("ses_1");
+  });
+});
+
+describe("shouldSuppressExpertColdOpen", () => {
+  test("suppresses unbound create transaction", () => {
+    expect(
+      shouldSuppressExpertColdOpen({
+        pendingAgent: {
+          operationId: "op_1",
+          boundSessionId: null,
+          draftSource: "agent-selection",
+        },
+      }),
+    ).toBe(true);
+  });
+
+  test("suppresses draft chrome / creating / tab highlight", () => {
+    expect(shouldSuppressExpertColdOpen({ draftSessionActive: true })).toBe(
+      true,
+    );
+    expect(shouldSuppressExpertColdOpen({ draftAgentId: "agent_a" })).toBe(
+      true,
+    );
+    expect(
+      shouldSuppressExpertColdOpen({ creatingSessionId: "ses_new" }),
+    ).toBe(true);
+    expect(
+      shouldSuppressExpertColdOpen({ tabHighlightSessionId: "ses_new" }),
+    ).toBe(true);
+  });
+
+  test("allows cold-open after create settled (bound + no chrome flags)", () => {
+    expect(
+      shouldSuppressExpertColdOpen({
+        pendingAgent: {
+          operationId: "op_1",
+          boundSessionId: "ses_bound",
+        },
+      }),
+    ).toBe(false);
+  });
+});
 
 describe("resolveExpertColdOpenNavigation", () => {
   test("keeps a live expert selection", () => {
@@ -33,6 +88,29 @@ describe("resolveExpertColdOpenNavigation", () => {
     expect(
       resolveExpertColdOpenNavigation({
         selectedSessionId: null,
+        routeSessionLive: false,
+        isExpertSession: isExpert,
+        coldOpenSessionId: "ses_expert_a",
+      }),
+    ).toEqual({ action: "open", sessionId: "ses_expert_a" });
+  });
+
+  test("suppress flag forces keep even with empty selection", () => {
+    expect(
+      resolveExpertColdOpenNavigation({
+        selectedSessionId: null,
+        routeSessionLive: false,
+        isExpertSession: isExpert,
+        coldOpenSessionId: "ses_expert_a",
+        suppress: true,
+      }),
+    ).toEqual({ action: "keep" });
+  });
+
+  test("empty selected id is treated as no selection", () => {
+    expect(
+      resolveExpertColdOpenNavigation({
+        selectedSessionId: "   ",
         routeSessionLive: false,
         isExpertSession: isExpert,
         coldOpenSessionId: "ses_expert_a",
