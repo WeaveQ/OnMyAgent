@@ -37,6 +37,7 @@ describe("creator ops deterministic skill scripts", () => {
       complete_records: 1,
       incomplete_records: 1,
       unresolved_placeholders: [],
+      chinese_placeholders_ok: 1,
     });
   });
 
