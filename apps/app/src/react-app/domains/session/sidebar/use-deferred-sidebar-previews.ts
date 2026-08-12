@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   SIDEBAR_PREVIEW_SNAPSHOT_DEFER_MS,
@@ -21,6 +21,8 @@ export function useDeferredSidebarPreviews(input: {
 }): {
   deferred: boolean;
   previewSessionIds: Set<string>;
+  /** Stable string for query option deps (Set identity changes every call). */
+  previewSessionIdsKey: string;
 } {
   const [deferred, setDeferred] = useState(false);
 
@@ -67,14 +69,37 @@ export function useDeferredSidebarPreviews(input: {
     };
   }, [input.deferMs, input.enabled]);
 
-  const previewSessionIds = selectSidebarPreviewSessionIds({
-    sessions: input.enabled ? input.sessions : [],
-    selectedSessionId: input.selectedSessionId,
-    deferred: deferred && input.enabled,
-    maxPreviews: input.maxPreviews,
-    includeSelected: input.includeSelected,
-    prioritizeSelected: input.enabled && input.prioritizeSelected,
-  });
+  const sessionIdsKey = useMemo(
+    () => input.sessions.map((session) => session.id).join("\n"),
+    [input.sessions],
+  );
 
-  return { deferred, previewSessionIds };
+  const previewSessionIds = useMemo(
+    () =>
+      selectSidebarPreviewSessionIds({
+        sessions: input.enabled ? input.sessions : [],
+        selectedSessionId: input.selectedSessionId,
+        deferred: deferred && input.enabled,
+        maxPreviews: input.maxPreviews,
+        includeSelected: input.includeSelected,
+        prioritizeSelected: input.enabled && input.prioritizeSelected,
+      }),
+    [
+      deferred,
+      input.enabled,
+      input.includeSelected,
+      input.maxPreviews,
+      input.prioritizeSelected,
+      input.selectedSessionId,
+      input.sessions,
+      sessionIdsKey,
+    ],
+  );
+
+  const previewSessionIdsKey = useMemo(
+    () => Array.from(previewSessionIds).join("\n"),
+    [previewSessionIds],
+  );
+
+  return { deferred, previewSessionIds, previewSessionIdsKey };
 }

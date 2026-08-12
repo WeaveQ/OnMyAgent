@@ -118,22 +118,21 @@ export function AgentConversationList(props: AgentConversationListProps) {
     setPinnedAgentIds(readExpertPinnedAgentIds(props.workspaceId));
   }, [props.workspaceId]);
 
-  // Keep read cursor in sync with the open expert.
-  useEffect(() => {
-    const selectedGroup = props.groups.find(
+  // Resolve focus target to a stable string so effect deps ignore groups[]
+  // identity churn (parent often rebuilds that array every render).
+  const focusAgentId =
+    props.selectedAgentId ??
+    props.groups.find(
       (group) =>
         group.agentId === props.selectedAgentId ||
         group.sessions.some((session) => session.id === props.selectedSessionId),
-    );
-    const agentId = selectedGroup?.agentId ?? props.selectedAgentId ?? null;
-    setFocusedAgent(props.workspaceId, agentId);
-  }, [
-    props.groups,
-    props.selectedAgentId,
-    props.selectedSessionId,
-    props.workspaceId,
-    setFocusedAgent,
-  ]);
+    )?.agentId ??
+    null;
+
+  // Keep read cursor in sync with the open expert.
+  useEffect(() => {
+    setFocusedAgent(props.workspaceId, focusAgentId);
+  }, [focusAgentId, props.workspaceId, setFocusedAgent]);
 
   const togglePinned = useCallback(
     (agentId: string) => {
