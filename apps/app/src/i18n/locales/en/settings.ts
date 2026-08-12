@@ -35,6 +35,27 @@ export default {
     "No releases have been published yet. You can still open the releases page.",
   "settings.update_check_unavailable":
     "Could not check for updates right now. You can open the release page in a browser instead.",
+  "settings.download_update": "Download update",
+  "settings.restart_and_install": "Restart and install",
+  "settings.update_downloading": "Downloading update… {percent}%",
+  "settings.update_downloading_title": "Downloading v{version}…",
+  "settings.update_ready_to_download_desc": "A new version is ready to download in the background.",
+  "settings.update_ready_title": "v{version} is ready to install",
+  "settings.update_ready_desc": "Restart OnMyAgent to install the update.",
+  "settings.update_ready_notice_title": "Update ready",
+  "settings.update_ready_notice_body":
+    "OnMyAgent v{version} finished downloading. Restart to install.",
+  "settings.update_downloading_notice_title": "Downloading OnMyAgent v{version}",
+  "settings.update_downloading_notice_body":
+    "OnMyAgent v{version} is available and downloading in the background.",
+  "settings.update_download_progress_notice_body":
+    "Downloading update in the background… {percent}%",
+  "settings.update_download_progress_notice_body_bytes":
+    "Downloading update in the background… {percent}% ({transferred} / {total})",
+  "settings.update_mac_quarantine_notice":
+    "If macOS blocks the app after restart, run xattr -cr /Applications/OnMyAgent.app in Terminal and open it again.",
+  "settings.update_install_desc_in_app":
+    "OnMyAgent downloads updates in the background and asks you to restart before installing. Nothing is installed silently.",
   "settings.cap_browser_tools": "Browser tools: {value}",
   "settings.cap_commands": "Commands: {value}",
   "settings.cap_config": "Config: {value}",

@@ -81,4 +81,60 @@ describe("shared status toasts contract", () => {
     };
     expect(mergeStatusToastStack(merged, other)).toHaveLength(2);
   });
+
+  test("mergeStatusToastStack replaces same-tag toasts in place with stable id", () => {
+    const first: AppStatusToast = {
+      id: "progress-1",
+      tag: "updater-download:0.4.25",
+      tone: "info",
+      title: "Downloading OnMyAgent v0.4.25",
+      description: "… 10%",
+    };
+    const second: AppStatusToast = {
+      id: "progress-2",
+      tag: "updater-download:0.4.25",
+      tone: "info",
+      title: "Downloading OnMyAgent v0.4.25",
+      description: "… 55%",
+    };
+    const merged = mergeStatusToastStack([first], second);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.id).toBe("progress-1");
+    expect(merged[0]?.description).toBe("… 55%");
+    expect(merged[0]?.tag).toBe("updater-download:0.4.25");
+  });
+
+  test("tagged toasts do not content-dedupe against untagged toasts", () => {
+    const tagged: AppStatusToast = {
+      id: "t-tag",
+      tag: "updater-download:0.4.25",
+      tone: "info",
+      title: "Downloading OnMyAgent v0.4.25",
+      description: "… 10%",
+    };
+    const untagged: AppStatusToast = {
+      id: "t-plain",
+      tone: "info",
+      title: "Downloading OnMyAgent v0.4.25",
+      description: "… 10%",
+    };
+    // Untagged incoming must not replace a tagged toast with the same copy.
+    const withUntagged = mergeStatusToastStack([tagged], untagged);
+    expect(withUntagged).toHaveLength(2);
+
+    // Tagged incoming replaces only the same tag, not an untagged twin.
+    const otherTag: AppStatusToast = {
+      id: "t-other",
+      tag: "updater-download:0.4.26",
+      tone: "info",
+      title: "Downloading OnMyAgent v0.4.26",
+      description: "… 1%",
+    };
+    const withOtherTag = mergeStatusToastStack([tagged], otherTag);
+    expect(withOtherTag).toHaveLength(2);
+    expect(withOtherTag.map((t) => t.tag).sort()).toEqual([
+      "updater-download:0.4.25",
+      "updater-download:0.4.26",
+    ]);
+  });
 });
