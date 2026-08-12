@@ -381,7 +381,7 @@ export function StorePage(props: {
     () =>
       filterLocalShelfExperts(
         props.myExperts ?? [],
-        props.activeExpertAgentIds ?? [],
+        props.activeExpertAgentIds,
       ),
     [props.activeExpertAgentIds, props.myExperts],
   );

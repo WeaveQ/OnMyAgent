@@ -5,6 +5,7 @@ import {
   filterLocalShelfExperts,
   isLocalShelfPackage,
 } from "../src/react-app/domains/plugins/expert-marketplace/data";
+import { isAlreadySummonedExpert } from "../src/react-app/domains/plugins/expert-marketplace/expert-marketplace-dialog";
 import type { ExpertMarketplaceEntry } from "../src/react-app/domains/plugins/expert-marketplace/types";
 
 function stub(
@@ -76,10 +77,18 @@ describe("local expert shelf filter", () => {
       }),
     ];
 
-    // No active sessions → only self-created.
+    // Explicit empty scope (expert host, no sidebar sessions) → only self-created.
     expect(
       filterLocalShelfExperts(experts, []).map((e) => e.packageName),
     ).toEqual(["my-custom"]);
+
+    // No scope signal (main 市场 rail) → all installed + mine, never builtin.
+    expect(
+      filterLocalShelfExperts(experts, undefined).map((e) => e.packageName),
+    ).toEqual(["kol-media-specialist", "warehouse-manager", "my-custom"]);
+    expect(
+      filterLocalShelfExperts(experts).map((e) => e.packageName),
+    ).toEqual(["kol-media-specialist", "warehouse-manager", "my-custom"]);
 
     // Active media expert session → media install + mine (not warehouse preseed).
     expect(
@@ -90,5 +99,37 @@ describe("local expert shelf filter", () => {
 
     expect(isLocalShelfPackage({ source: "installed" })).toBe(true);
     expect(isLocalShelfPackage({ source: "builtin" })).toBe(false);
+  });
+
+  test("market cards match summoned packages by packageName across id shapes", () => {
+    const shelf = [
+      stub({
+        id: "fleet-management-specialist:fleet-management-specialist",
+        packageName: "fleet-management-specialist",
+        source: "installed",
+      }),
+    ];
+    // Builtin market catalog id may differ; packageName is the stable key.
+    expect(
+      isAlreadySummonedExpert(
+        {
+          id: "fleet-management-specialist:fleet-management-specialist",
+          packageName: "fleet-management-specialist",
+        },
+        shelf,
+      ),
+    ).toBe(true);
+    expect(
+      isAlreadySummonedExpert(
+        { id: "other-id", packageName: "fleet-management-specialist" },
+        shelf,
+      ),
+    ).toBe(true);
+    expect(
+      isAlreadySummonedExpert(
+        { id: "x", packageName: "warehouse-manager" },
+        shelf,
+      ),
+    ).toBe(false);
   });
 });
