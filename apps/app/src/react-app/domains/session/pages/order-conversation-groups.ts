@@ -77,21 +77,70 @@ export type ExpertColdOpenNavigation =
   | { action: "clear-route" }
   | { action: "create-task" };
 
+/**
+ * Normalize route/open session ids. Empty / whitespace means "no selection"
+ * (never pass "" into snapshot or directory lookups).
+ */
+export function normalizeExpertSessionId(
+  sessionId: string | null | undefined,
+): string | null {
+  const id = sessionId?.trim() ?? "";
+  return id.length > 0 ? id : null;
+}
+
+/**
+ * While the user is mid expert create / draft bind, cold-open must not steal
+ * focus (open first expert, clear-route, or create-task).
+ */
+export function shouldSuppressExpertColdOpen(input: {
+  draftSessionActive?: boolean;
+  draftAgentId?: string | null;
+  /** Surface-mode creating session (bound but not yet the painted route). */
+  creatingSessionId?: string | null;
+  /**
+   * Tab-strip highlight after CREATE_BOUND — distinct from create operation.
+   * @see ExpertSurfaceState.pendingTabSessionId
+   */
+  tabHighlightSessionId?: string | null;
+  pendingAgent?: {
+    operationId?: string | null;
+    boundSessionId?: string | null;
+    draftSource?: string | null;
+  } | null;
+}): boolean {
+  if (input.draftSessionActive) return true;
+  if (input.draftAgentId?.trim()) return true;
+  if (input.creatingSessionId?.trim()) return true;
+  if (input.tabHighlightSessionId?.trim()) return true;
+  const pending = input.pendingAgent;
+  if (!pending?.operationId?.trim()) return false;
+  // Unbound create transaction (any source): wait for CREATE_BOUND.
+  if (!pending.boundSessionId?.trim()) return true;
+  // Bound: settling is covered by creatingSessionId / tabHighlight / draft flags.
+  return false;
+}
+
 export function resolveExpertColdOpenNavigation(input: {
   selectedSessionId: string | null | undefined;
   routeSessionLive: boolean;
   isExpertSession: (sessionId: string) => boolean;
   coldOpenSessionId: string | null;
+  /** When true, never open/clear/create-task (caller holds a create transaction). */
+  suppress?: boolean;
 }): ExpertColdOpenNavigation {
-  const selectedId = input.selectedSessionId?.trim() ?? "";
+  if (input.suppress) {
+    return { action: "keep" };
+  }
+  const selectedId = normalizeExpertSessionId(input.selectedSessionId) ?? "";
   if (selectedId && input.isExpertSession(selectedId)) {
     // Live in inventory, or still indexed as expert while list lags: never
     // cold-open/clear over the user's choice.
     return { action: "keep" };
   }
   if (!selectedId) {
-    if (input.coldOpenSessionId?.trim()) {
-      return { action: "open", sessionId: input.coldOpenSessionId.trim() };
+    const cold = normalizeExpertSessionId(input.coldOpenSessionId);
+    if (cold) {
+      return { action: "open", sessionId: cold };
     }
     return { action: "keep" };
   }
