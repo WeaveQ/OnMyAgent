@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { PendingAgentContext } from "../../agents";
 import type { AgentConversationGroup } from "../sidebar/session-chrome";
 import type { ExpertDirectoryIdentityIndex } from "./expert-conversation-model";
@@ -37,6 +37,19 @@ export function useExpertRouteLifecycle(input: {
   onOpenSession: (workspaceId: string, sessionId: string) => void;
   onCreateTaskInWorkspace: (workspaceId: string) => void;
 }) {
+  // conversationGroups / identity objects often rebuild every parent paint.
+  // Fingerprint content so we only re-decide when membership actually changes.
+  const groupsFingerprint = input.conversationGroups
+    .map(
+      (group) =>
+        `${group.agentId}:${group.sessions.map((session) => session.id).join(",")}`,
+    )
+    .join("|");
+  const identitySessionCount = input.expertDirectoryIdentity.sessionIds.size;
+  // Prevent open/clear/create-task from re-firing while parent deps thrash —
+  // that was flooding navigate (Throttling navigation) + setState depth.
+  const lastDispatchedKeyRef = useRef<string>("");
+
   useEffect(() => {
     if (!input.expertDirectoryReady || input.activeSidebarView !== "chat") {
       return;
@@ -67,7 +80,20 @@ export function useExpertRouteLifecycle(input: {
       coldOpenSessionId,
       suppress,
     });
-    if (decision.action === "keep") return;
+    if (decision.action === "keep") {
+      // Allow a later real transition after keep.
+      lastDispatchedKeyRef.current = "";
+      return;
+    }
+    const decisionKey =
+      decision.action === "open"
+        ? `open:${workspaceId}:${decision.sessionId}`
+        : decision.action === "clear-route"
+          ? `clear:${workspaceId}:${selectedId ?? ""}`
+          : `create-task:${workspaceId}:${selectedId ?? ""}`;
+    if (lastDispatchedKeyRef.current === decisionKey) return;
+    lastDispatchedKeyRef.current = decisionKey;
+
     if (decision.action === "open") {
       input.onOpenSession(workspaceId, decision.sessionId);
       return;
@@ -81,6 +107,8 @@ export function useExpertRouteLifecycle(input: {
       input.onCreateTaskInWorkspace(workspaceId);
     }
   }, [
+    groupsFingerprint,
+    identitySessionCount,
     input.activeSidebarView,
     input.conversationGroups,
     input.creatingSessionId,

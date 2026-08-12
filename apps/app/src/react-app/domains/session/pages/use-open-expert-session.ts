@@ -25,6 +25,18 @@ export function useOpenExpertSession(input: {
   openRailView: (view: "chat") => void;
   expertDirectoryIdentity: ExpertDirectoryIdentityIndex;
 }) {
+  const {
+    sidebar,
+    draftAgentContexts,
+    pendingAgent,
+    draftAgentId,
+    draftSessionActive,
+    setDraftAgentContexts,
+    clearSurfaceDraft,
+    onOpenRealSession,
+    openRailView,
+    expertDirectoryIdentity,
+  } = input;
   return useCallback(
     (workspaceId: string, sessionId: string) => {
       // "" / whitespace → null (clear-route). Never treat empty as a real id.
@@ -32,39 +44,50 @@ export function useOpenExpertSession(input: {
       const targetAgentId =
         trimmed &&
         !trimmed.startsWith("draft:") &&
-        input.expertDirectoryIdentity.sessionIds.has(trimmed)
-          ? input.expertDirectoryIdentity.agentIdBySessionId.get(trimmed) ?? null
+        expertDirectoryIdentity.sessionIds.has(trimmed)
+          ? expertDirectoryIdentity.agentIdBySessionId.get(trimmed) ?? null
           : null;
       const transition = consumeActiveExpertDraftForSession({
-        contexts: input.draftAgentContexts,
-        pendingAgent: input.pendingAgent,
-        draftAgentId: input.draftAgentId,
-        draftSessionActive: input.draftSessionActive,
+        contexts: draftAgentContexts,
+        pendingAgent,
+        draftAgentId,
+        draftSessionActive,
         targetAgentId,
       });
       if (transition.consumed) {
-        input.setDraftAgentContexts((contexts) =>
+        setDraftAgentContexts((contexts) =>
           consumeActiveExpertDraftForSession({
             contexts,
             pendingAgent: null,
-            draftAgentId: input.draftAgentId,
-            draftSessionActive: input.draftSessionActive,
+            draftAgentId,
+            draftSessionActive,
             targetAgentId,
           }).contexts,
         );
-        if (usePendingAgentStore.getState().getAgent()?.id === input.draftAgentId) {
+        if (usePendingAgentStore.getState().getAgent()?.id === draftAgentId) {
           usePendingAgentStore.getState().setAgent(null);
         }
       }
-      input.clearSurfaceDraft();
-      input.openRailView("chat");
+      clearSurfaceDraft();
+      openRailView("chat");
       if (targetAgentId && trimmed) {
-        input.onOpenRealSession(workspaceId, targetAgentId, trimmed);
+        onOpenRealSession(workspaceId, targetAgentId, trimmed);
         writeExpertSessionSelection(workspaceId, targetAgentId, trimmed);
       }
       // Pass through empty string for clear-route; sidebar normalizes to no selection.
-      input.sidebar.onOpenSession(workspaceId, trimmed ?? "");
+      sidebar.onOpenSession(workspaceId, trimmed ?? "");
     },
-    [input],
+    [
+      clearSurfaceDraft,
+      draftAgentContexts,
+      draftAgentId,
+      draftSessionActive,
+      expertDirectoryIdentity,
+      onOpenRealSession,
+      openRailView,
+      pendingAgent,
+      setDraftAgentContexts,
+      sidebar,
+    ],
   );
 }

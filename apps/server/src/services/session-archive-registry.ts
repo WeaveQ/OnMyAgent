@@ -148,11 +148,45 @@ export function sessionArchiveRegistryEntry(agent: SessionArchiveAgent): Session
   return sessionArchiveRegistry.find((source) => source.agent === agent) ?? null;
 }
 
+/**
+ * Real user home for archive discovery.
+ *
+ * Desktop OpenCode isolation rewrites process.env.HOME (and often os.homedir())
+ * into `…/opencode-sandbox/home`. Claude/Codex/Pi/Grok session files still live
+ * under the real user home — scanning the sandbox yields discovered=0.
+ *
+ * Prefer: explicit homeDir → ONMYAGENT_REAL_HOME → non-sandbox homedir().
+ */
+export function resolveSessionArchiveHomeDir(input: {
+  homeDir?: string;
+  env?: NodeJS.ProcessEnv;
+} = {}): string {
+  const env = input.env ?? process.env;
+  const explicit = input.homeDir?.trim() || env.ONMYAGENT_REAL_HOME?.trim();
+  if (explicit) return explicit;
+  const home = homedir();
+  const sandboxed =
+    home.includes("opencode-sandbox") ||
+    (home.includes("Application Support") && home.includes("onmyagent"));
+  if (!sandboxed) return home;
+  const user = env.USER?.trim() || env.LOGNAME?.trim() || "";
+  if (user && process.platform === "darwin") return join("/Users", user);
+  if (user && process.platform === "linux") return join("/home", user);
+  if (process.platform === "win32") {
+    const profile = env.USERPROFILE?.trim();
+    if (profile && !profile.includes("opencode-sandbox")) return profile;
+  }
+  return home;
+}
+
 export function resolveSessionArchiveSourceRoots(
   input: SessionArchiveSourceResolutionInput = {},
 ): SessionArchiveResolvedSourceRoot[] {
-  const home = input.homeDir ?? homedir();
   const env = input.env ?? process.env;
+  const home = resolveSessionArchiveHomeDir({
+    homeDir: input.homeDir,
+    env,
+  });
   const config = normalizeConfig(input.config);
   return sessionArchiveRegistry.flatMap((source) => {
     if (!source.fileBased) return [];

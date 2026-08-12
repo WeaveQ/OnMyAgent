@@ -8,13 +8,49 @@ import { buildWindowsCmdSpawnSpec, isWindowsCmdShim } from "./windows-spawn.mjs"
 
 const jsonWriteQueues = new Map();
 
+/**
+ * Real user home for local agent CLIs (Grok/Codex/Claude/Pi auth lives here).
+ * Desktop OpenCode isolation rewrites process.env.HOME to opencode-sandbox;
+ * agent probe/run must not inherit that or they report 需登录 with valid auth.
+ */
+export function resolveAgentHostHome(env = process.env) {
+  const explicit = String(env.ONMYAGENT_REAL_HOME ?? "").trim();
+  if (explicit) return explicit;
+  const home = String(env.HOME ?? os.homedir() ?? "").trim();
+  const sandboxed =
+    home.includes("opencode-sandbox") ||
+    (home.includes("Application Support") && home.includes("onmyagent"));
+  if (home && !sandboxed) return home;
+  const user = String(env.USER ?? env.LOGNAME ?? "").trim();
+  if (user && process.platform === "darwin") return path.join("/Users", user);
+  if (user && process.platform === "linux") return path.join("/home", user);
+  if (process.platform === "win32") {
+    const profile = String(env.USERPROFILE ?? "").trim();
+    if (profile && !profile.includes("opencode-sandbox")) return profile;
+  }
+  return home || os.homedir();
+}
+
+/** Env for spawning local agent CLIs / ACP probes with credential-visible HOME. */
+export function agentHostProcessEnv(extra = {}, baseEnv = process.env) {
+  const realHome = resolveAgentHostHome(baseEnv);
+  /** @type {NodeJS.ProcessEnv} */
+  const merged = Object.assign({}, baseEnv, extra);
+  if (realHome) {
+    merged.HOME = realHome;
+    merged.USERPROFILE = realHome;
+    merged.ONMYAGENT_REAL_HOME = realHome;
+  }
+  return merged;
+}
+
 export function createExecHelpers(options = {}) {
   const extraPathEntries = () => {
     if (typeof options.extraPathEntries === "function") return options.extraPathEntries();
     return Array.isArray(options.extraPathEntries) ? options.extraPathEntries : [];
   };
   function pathEntries() {
-    const home = os.homedir();
+    const home = resolveAgentHostHome(process.env);
     return [
       ...extraPathEntries(),
       process.env.PATH,
@@ -43,7 +79,10 @@ export function createExecHelpers(options = {}) {
         return true;
       })
       .join(path.delimiter);
-    return { ...process.env, PATH: pathValue, Path: pathValue, path: pathValue, ...extra };
+    return agentHostProcessEnv(
+      { PATH: pathValue, Path: pathValue, path: pathValue, ...extra },
+      process.env,
+    );
   }
 
   function runCommandCapture(command, args, options = {}) {

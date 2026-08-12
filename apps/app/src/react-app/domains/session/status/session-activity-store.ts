@@ -166,6 +166,28 @@ function updateWorkspaceStatus(
   };
 }
 
+function activityRecordMeaningfullyEqual(
+  a: SessionActivityRecord,
+  b: SessionActivityRecord,
+  status: SessionActivityStatus,
+): boolean {
+  return (
+    a.status === status &&
+    a.runActive === b.runActive &&
+    a.stopRequested === b.stopRequested &&
+    a.runKey === b.runKey &&
+    a.runStartedAt === b.runStartedAt &&
+    a.assistantOutput === b.assistantOutput &&
+    a.retrying === b.retrying &&
+    a.errorActive === b.errorActive &&
+    a.errorMessage === b.errorMessage &&
+    a.compacting === b.compacting &&
+    a.waitingPermissionIds === b.waitingPermissionIds &&
+    a.waitingQuestionIds === b.waitingQuestionIds &&
+    a.messageRoles === b.messageRoles
+  );
+}
+
 function updateRecord(
   state: Pick<SessionActivityStore, "recordsByWorkspaceId" | "statusesByWorkspaceId">,
   workspaceId: string,
@@ -173,8 +195,14 @@ function updateRecord(
   updater: (record: SessionActivityRecord) => SessionActivityRecord,
 ) {
   const workspaceRecords = state.recordsByWorkspaceId[workspaceId] ?? {};
-  const nextRecord = updater(workspaceRecords[sessionId] ?? createRecord());
+  const previous = workspaceRecords[sessionId] ?? createRecord();
+  const nextRecord = updater(previous);
   const status = statusForRecord(nextRecord);
+  // Seed + SSE paths call updateRecord often; skip when nothing UI-visible
+  // changed so SessionRoute subscribers do not re-render in a tight loop.
+  if (activityRecordMeaningfullyEqual(previous, nextRecord, status)) {
+    return state;
+  }
   const recordWithStatus = { ...nextRecord, status, updatedAt: Date.now() };
   return {
     recordsByWorkspaceId: {
@@ -221,38 +249,41 @@ export const useSessionActivityStore = create<SessionActivityStore>((set, get) =
     if (!id) return;
     set((state) => {
       let nextState = state;
+      let changed = false;
       for (const session of sessions) {
         const sessionId = session.id.trim();
         if (!sessionId) continue;
         const status = sessionRunStatus(session);
         if (status === undefined || status === null) continue;
-          nextState = {
-            ...nextState,
-            ...updateRecord(nextState, id, sessionId, (record) => {
-              // Sidebar list `status` lags live SSE (session.idle / session.status).
-              // After a run finishes, list rows can still say "busy" until the next
-              // full refetch — re-applying that stale busy here sticks expert list
-              // on "思考中" until the user opens the session (snapshot reseed).
-              const incoming = normalizeRunStatus(status);
-              const incomingActive =
-                incoming === "running" || incoming === "retry";
-              if (
-                incomingActive &&
-                !record.runActive &&
-                record.updatedAt > 0
-              ) {
-                return record;
-              }
-              return applyRuntimeStatus(
-                record,
-                status,
-                record.assistantOutput,
-                createRunIdentity(sessionId),
-              );
-            }),
-          };
+        const updated = updateRecord(nextState, id, sessionId, (record) => {
+          // Sidebar list `status` lags live SSE (session.idle / session.status).
+          // After a run finishes, list rows can still say "busy" until the next
+          // full refetch — re-applying that stale busy here sticks expert list
+          // on "思考中" until the user opens the session (snapshot reseed).
+          const incoming = normalizeRunStatus(status);
+          const incomingActive =
+            incoming === "running" || incoming === "retry";
+          if (
+            incomingActive &&
+            !record.runActive &&
+            record.updatedAt > 0
+          ) {
+            return record;
+          }
+          return applyRuntimeStatus(
+            record,
+            status,
+            record.assistantOutput,
+            createRunIdentity(sessionId),
+          );
+        });
+        if (updated !== nextState) {
+          // updateRecord only returns records/statuses slices — merge into full store.
+          nextState = { ...nextState, ...updated };
+          changed = true;
+        }
       }
-      return nextState;
+      return changed ? nextState : state;
     });
   },
   seedSessionRun: (workspaceId, sessionId, status, assistantOutput) => {
