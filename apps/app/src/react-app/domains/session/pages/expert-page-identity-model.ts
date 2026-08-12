@@ -20,6 +20,24 @@ import type { buildExpertDirectoryPageModel } from "../../../capabilities/sessio
 
 type ExpertDirectoryPage = ReturnType<typeof buildExpertDirectoryPageModel>;
 
+/** Prefer the active expert's missing skills; fall back to full directory union. */
+export function collectExpertMissingSkills(
+  records: readonly { agentId: string; missingSkills: readonly string[] }[] | null | undefined,
+  currentAgentId: string | null | undefined,
+): string[] {
+  const list = records ?? [];
+  const agentId = currentAgentId?.trim() || null;
+  const scoped = agentId
+    ? list.filter((record) => record.agentId === agentId)
+    : list;
+  return [...new Set(
+    scoped
+      .flatMap((record) => record.missingSkills)
+      .map((skill) => skill.trim())
+      .filter(Boolean),
+  )].sort();
+}
+
 export type ExpertPageIdentityModel = {
   expertDirectoryIdentity: ExpertDirectoryIdentityIndex;
   expertDirectoryMissingSkills: string[];
@@ -48,13 +66,14 @@ export function buildExpertPageIdentityModel(input: {
       ),
     ),
   };
-  const expertDirectoryMissingSkills = [...new Set(
-    (payload?.records ?? [])
-      .flatMap((record) => record.missingSkills)
-      .map((skill) => skill.trim())
-      .filter(Boolean),
-  )].sort();
-  const expertDirectoryReady = input.directoryPage.state === "ready";
+  // Cold-open (default first expert session) requires ready. Treat incomplete
+  // payloads that still carry records as ready enough so a partial origin
+  // failure does not leave the page stuck on "默认智能体" with no selection.
+  const expertDirectoryReady = input.directoryPage.state === "ready"
+    || (
+      (input.directoryPage.state === "incomplete" || input.directoryPage.state === "error")
+      && Boolean(input.directoryPage.payload?.records?.length)
+    );
   const routeSessionLive = isLiveExpertSessionSelection({
     selectedSessionId: input.selectedSessionId,
     liveSessionIds: liveExpertSessionIds,
@@ -67,6 +86,12 @@ export function buildExpertPageIdentityModel(input: {
   const currentConversationAgentId = routeRealSessionId
     ? selectAgentIdForSession(payload, routeRealSessionId)
     : null;
+  // Scope the banner to the active expert conversation when possible so
+  // fleet users do not see proposal-strategist skill names mixed in.
+  const expertDirectoryMissingSkills = collectExpertMissingSkills(
+    payload?.records,
+    currentConversationAgentId,
+  );
   const conversationGroups = buildAgentConversationGroups(
     input.workspaceSessions,
     input.registry,

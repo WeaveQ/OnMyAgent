@@ -262,20 +262,29 @@ export function expertPackageMatchesAgentId(
 /**
  * "已召唤专家" shelf:
  * - always include self-created (`mine`)
- * - include marketplace installs only when the user has an active expert agent
- *   (sidebar session group) for that package — not every pre-seeded install dir
+ * - include marketplace installs when:
+ *   - `activeAgentIds` is **undefined** (no scoping signal, e.g. main 市场 rail):
+ *     show all local installed packages — install/summon is the shelf membership
+ *   - `activeAgentIds` is an array (expert host scopes by sidebar sessions):
+ *     only packages matching those agent ids (empty array → only `mine`)
  *
- * Disk may hold 10+ migrated/preinstalled packages; sidebar only shows experts
- * with sessions. The shelf must track the latter, not the whole install root.
+ * Expert chat host passes sidebar agent ids so the shelf tracks conversations.
+ * Office/store host often has no expert sidebar; omitting the ids must not
+ * wipe the shelf to empty when packages are already installed on disk.
  */
 export function filterLocalShelfExperts(
   experts: readonly ExpertMarketplaceEntry[],
-  activeAgentIds: readonly string[] = [],
+  activeAgentIds?: readonly string[] | null,
 ): ExpertMarketplaceEntry[] {
-  const ids = activeAgentIds.map((id) => id.trim()).filter(Boolean);
+  const scopeProvided = activeAgentIds !== undefined && activeAgentIds !== null;
+  const ids = scopeProvided
+    ? activeAgentIds.map((id) => id.trim()).filter(Boolean)
+    : null;
   return experts.filter((expert) => {
     if (expert.source === "mine") return true;
     if (expert.source !== "installed") return false;
+    // No host scope → membership = local install (summoned/migrated packages).
+    if (ids === null) return true;
     if (ids.length === 0) return false;
     return ids.some((id) => expertPackageMatchesAgentId(expert, id));
   });

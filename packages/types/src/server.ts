@@ -143,6 +143,7 @@ export type ExpertLifecycleEventShadowChange =
 
 export type ExpertLifecycleEventHealAction =
   | "upgrade_marker"
+  | "repair_skills"
   | "write_origin"
   | "restore_origin"
   | "skip";
@@ -337,7 +338,7 @@ export interface ExpertDirectoryHealAction {
   agentId?: string;
   packageName?: string;
   directory?: string;
-  kind: "upgrade_marker" | "write_origin" | "restore_origin" | "skip";
+  kind: "upgrade_marker" | "repair_skills" | "write_origin" | "restore_origin" | "skip";
   result: "planned" | "applied" | "skipped" | "failed";
   code?: ExpertDirectoryFailureCode;
 }
