@@ -303,7 +303,7 @@ export function AgentConversationItem(props: {
 
   return (
     <div
-      className="group relative"
+      className="group relative select-none"
       onContextMenu={(event) => {
         if (!hasMenu) return;
         event.preventDefault();

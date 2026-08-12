@@ -298,6 +298,28 @@ export function AgentManagementPage(props: {
       const merged = applyPartialDomainSnapshotToLatest(latest, partial, loaded);
       writeCachedAgentManagerSnapshot(cacheKey, merged, loaded);
       setSnapshot(merged);
+      // Drop stale test-connection health that contradicts a recovered list status
+      // (e.g. old 需登录 after the agent is online again).
+      if (loaded.includes("core") && Array.isArray(merged.agents)) {
+        setHealthResults((current) => {
+          let changed = false;
+          const next = { ...current };
+          for (const agent of merged.agents) {
+            const id = String(agent?.id ?? "").trim();
+            if (!id) continue;
+            const health = next[id];
+            if (!health) continue;
+            if (
+              agent.status === "online" &&
+              (health.status === "needs_auth" || health.status === "failed")
+            ) {
+              delete next[id];
+              changed = true;
+            }
+          }
+          return changed ? next : current;
+        });
+      }
       return merged;
     } catch (loadError) {
       // Keep latest cache on screen when background revalidate fails.
@@ -333,7 +355,18 @@ export function AgentManagementPage(props: {
       }
       return;
     }
-    void refresh({ domains: needed, quiet: Boolean(readCachedAgentManagerSnapshot(cacheKey)) });
+    const cachedSnap = readCachedAgentManagerSnapshot(cacheKey);
+    // If any managed card is still 需登录 in the TTL cache, force a re-probe —
+    // listAgents often recovers to online after login while the 60s cache sticks.
+    const hasStaleNeedsAuth =
+      needed.includes("core") &&
+      Array.isArray(cachedSnap?.agents) &&
+      cachedSnap.agents.some((agent) => agent?.status === "needs_auth");
+    void refresh({
+      domains: needed,
+      force: hasStaleNeedsAuth,
+      quiet: Boolean(cachedSnap),
+    });
   }, [activePanel, cacheKey, props.workspaceRoot, refresh]);
 
   useEffect(() => {

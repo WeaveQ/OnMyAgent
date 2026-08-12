@@ -22,7 +22,7 @@ type ExpertDirectoryPage = ReturnType<typeof buildExpertDirectoryPageModel>;
 
 /** Prefer the active expert's missing skills; fall back to full directory union. */
 export function collectExpertMissingSkills(
-  records: readonly { agentId: string; missingSkills: readonly string[] }[] | null | undefined,
+  records: readonly { agentId: string; missingSkills?: readonly string[] | null }[] | null | undefined,
   currentAgentId: string | null | undefined,
 ): string[] {
   const list = records ?? [];
@@ -32,8 +32,8 @@ export function collectExpertMissingSkills(
     : list;
   return [...new Set(
     scoped
-      .flatMap((record) => record.missingSkills)
-      .map((skill) => skill.trim())
+      .flatMap((record) => record.missingSkills ?? [])
+      .map((skill) => (typeof skill === "string" ? skill.trim() : ""))
       .filter(Boolean),
   )].sort();
 }
@@ -62,7 +62,7 @@ export function buildExpertPageIdentityModel(input: {
     sessionIds: new Set(liveExpertSessionIds),
     agentIdBySessionId: new Map(
       (payload?.records ?? []).flatMap((record) =>
-        record.sessionIds.map((sessionId) => [sessionId, record.agentId] as const),
+        (record.sessionIds ?? []).map((sessionId) => [sessionId, record.agentId] as const),
       ),
     ),
   };

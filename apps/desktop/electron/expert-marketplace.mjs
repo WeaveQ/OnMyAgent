@@ -342,16 +342,19 @@ export function createExpertMarketplace(options = {}) {
       localizedExpertValue(manifest.profession) ||
       localizedExpertValue(manifest.displayName) ||
       fallbackName ||
-      frontmatterValue(agentMarkdown, "name");
+      frontmatterValue(agentMarkdown, "name") ||
+      packageName;
     const profession =
       localizedExpertValue(manifest.displayName) ||
       frontmatterValue(agentMarkdown, "profession") ||
-      displayName;
+      displayName ||
+      packageName;
     const description =
       localizedExpertValue(manifest.displayDescription) ||
       descriptionFromMarkdown(readme) ||
       frontmatterValue(agentMarkdown, "description") ||
-      displayName;
+      displayName ||
+      packageName;
     const manifestName = typeof manifest.name === "string" ? manifest.name.trim() : "";
     return {
       id: `${manifestName || packageName}:${packageName}`,
