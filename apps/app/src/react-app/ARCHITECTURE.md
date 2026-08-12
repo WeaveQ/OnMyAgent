@@ -186,6 +186,29 @@ Rules for implementers:
 - Product errors: classify through `kernel/user-error` before showing route banners; wire recovery
   actions (`retry` / `open_ai_settings` / `reload_app`) when the host has a button slot.
 
+## Expert surface (session domain)
+
+**SoT:** [`docs/design/expert-surface-architecture.md`](../../../../docs/design/expert-surface-architecture.md)
+
+Owns Expert **UI lifecycle** under `domains/session/pages/*expert*` + `sidebar/agent-session-tabs.tsx`:
+
+| Piece | Role |
+| --- | --- |
+| `expert-surface-machine.ts` | Single FSM: `route` ⊥ `draft` ⊥ `pendingTabSessionId` (tab highlight only) |
+| `expert-surface-mode.ts` | Pure projection → `idle_draft` / `creating` / `real_session` |
+| `order-conversation-groups.ts` + `use-expert-route-lifecycle.ts` | Cold-open; suppress during create/draft |
+| `use-expert-conversation-tabs.tsx` + `agent-session-tabs.tsx` | Tab strip; no layout setState title machines; snapshots selected-only |
+
+**Hard bans (have caused white screens):**
+
+- Do not drive tab “总结中” with `useLayoutEffect` + `setState`.
+- Do not pass `creatingSessionId` as `pendingSessionId` (cannot clear → max update depth).
+- Do not open N title-snapshot queries for every tab chip.
+- Do not cold-open / clear-route / create-task while create or draft transaction is active.
+
+Product behavior invariants remain in `apps/app/AGENTS.md`. Runtime agent/skills isolation:
+`docs/design/expert-runtime-isolation.md`.
+
 ## `shared/` contents (current)
 
 `domains/shared/` is **not** a product domain. Physical contents today:

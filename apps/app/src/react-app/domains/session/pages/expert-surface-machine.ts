@@ -16,11 +16,21 @@ export type ExpertSurfaceDraft = {
  * Route and draft are deliberately orthogonal: an unbound draft chip may stay
  * available while a real tab owns the painted transcript. Keeping both in one
  * reducer avoids the old parallel draft boolean / agent / pending-tab states.
+ *
+ * Naming (three different “pending” ideas — do not merge):
+ * - `draft` / create `operationId` — create transaction (PendingAgentContext)
+ * - `pendingTabSessionId` — **tabHighlightSessionId**: short-lived tab strip
+ *   highlight after CREATE_BOUND (cleared when route catches up or timeout)
+ * - composer/surface outgoing pending — send-in-flight (not stored here)
  */
 export type ExpertSurfaceState = {
   workspaceId: string;
   route: ExpertSurfaceRoute | null;
   draft: ExpertSurfaceDraft | null;
+  /**
+   * Tab-strip highlight session after create binds (alias: tabHighlightSessionId).
+   * Not the same as draft.operationId or mode.creatingSessionId.
+   */
   pendingTabSessionId: string | null;
 };
 
