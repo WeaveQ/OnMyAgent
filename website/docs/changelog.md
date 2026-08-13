@@ -6,6 +6,10 @@ title: 更新日志
 
 完整资产与说明以 [GitHub Releases](https://github.com/WeaveQ/OnMyAgent/releases) 为准。以下摘录近期用户可见变更（开发中的 Unreleased 项不列入）。当前桌面发布均为 **pre-release**（未公证）。
 
+## 0.5.0
+
+- 正式包不再显示任务中心入口（本地开发仍可见）
+
 ## 0.4.29
 
 - 新增任务中心：后台持久编排、对齐确认、审批与运行历史
