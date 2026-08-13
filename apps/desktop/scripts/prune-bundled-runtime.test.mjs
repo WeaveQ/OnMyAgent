@@ -18,7 +18,9 @@ test("prunePackagedRuntime drops headers, docs, extra globals, and idle Python d
   );
   mkdirSync(join(root, "node", "include"), { recursive: true });
   mkdirSync(join(root, "node", "bin"), { recursive: true });
-  mkdirSync(join(root, "node", "lib", "node_modules", "npm"), { recursive: true });
+  mkdirSync(join(root, "node", "lib", "node_modules", "npm", "docs"), { recursive: true });
+  mkdirSync(join(root, "node", "lib", "node_modules", "npm", "man"), { recursive: true });
+  mkdirSync(join(root, "node", "lib", "node_modules", "npm", "bin"), { recursive: true });
   mkdirSync(join(root, "node", "lib", "node_modules", "@xai-official", "grok"), {
     recursive: true,
   });
@@ -53,6 +55,9 @@ test("prunePackagedRuntime drops headers, docs, extra globals, and idle Python d
     assert.equal(existsSync(join(root, "node", "CHANGELOG.md")), false);
     assert.equal(existsSync(join(root, "node", "lib", "node_modules", "@xai-official")), false);
     assert.equal(existsSync(join(root, "node", "lib", "node_modules", "npm")), true);
+    assert.equal(existsSync(join(root, "node", "lib", "node_modules", "npm", "docs")), false);
+    assert.equal(existsSync(join(root, "node", "lib", "node_modules", "npm", "man")), false);
+    assert.equal(existsSync(join(root, "node", "lib", "node_modules", "npm", "bin")), true);
     assert.equal(existsSync(join(root, "node", "bin", "node")), true);
     assert.equal(existsSync(join(root, "python", "lib", "python3.12", "idlelib")), false);
     assert.equal(existsSync(join(root, "python", "lib", "python3.12", "ensurepip")), false);
@@ -138,6 +143,54 @@ test("pruneArtifactRuntimeTree drops maps, types, and markdown", () => {
     assert.equal(existsSync(join(root, "spreadsheet-runtime.cjs")), true);
     assert.equal(existsSync(join(root, "spreadsheet-runtime.test.cjs")), false);
     assert.equal(existsSync(join(root, "node_modules", ".pnpm", "@types+node@24.13.2")), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("pruneArtifactRuntimeTree drops unused Node-package build flavors and keeps required dist", () => {
+  const root = join(
+    tmpdir(),
+    `oma-prune-artifact-flavors-${process.pid}-${Date.now()}`,
+  );
+  const exceljs = join(root, "node_modules", ".pnpm", "exceljs@4.4.0", "node_modules", "exceljs");
+  const pdfLib = join(root, "node_modules", ".pnpm", "pdf-lib@1.17.1", "node_modules", "pdf-lib");
+  const pptx = join(root, "node_modules", ".pnpm", "pptxgenjs@4.0.1", "node_modules", "pptxgenjs");
+  mkdirSync(join(exceljs, "dist"), { recursive: true });
+  mkdirSync(join(exceljs, "lib"), { recursive: true });
+  mkdirSync(join(pdfLib, "dist"), { recursive: true });
+  mkdirSync(join(pdfLib, "es"), { recursive: true });
+  mkdirSync(join(pdfLib, "src"), { recursive: true });
+  mkdirSync(join(pdfLib, "cjs"), { recursive: true });
+  mkdirSync(join(pptx, "dist"), { recursive: true });
+  writeFileSync(join(exceljs, "package.json"), JSON.stringify({ name: "exceljs", main: "./excel.js" }));
+  writeFileSync(join(exceljs, "excel.js"), "module.exports = require('./lib/exceljs.nodejs.js');\n");
+  writeFileSync(join(exceljs, "lib", "exceljs.nodejs.js"), "module.exports = {};\n");
+  writeFileSync(join(exceljs, "dist", "exceljs.min.js"), "browser\n");
+  writeFileSync(join(pdfLib, "package.json"), JSON.stringify({ name: "pdf-lib", main: "cjs/index.js" }));
+  writeFileSync(join(pdfLib, "cjs", "index.js"), "module.exports = {};\n");
+  writeFileSync(join(pdfLib, "dist", "pdf-lib.min.js"), "umd\n");
+  writeFileSync(join(pdfLib, "es", "index.js"), "export {};\n");
+  writeFileSync(join(pdfLib, "src", "index.ts"), "export {};\n");
+  writeFileSync(
+    join(pptx, "package.json"),
+    JSON.stringify({
+      name: "pptxgenjs",
+      main: "dist/pptxgen.cjs.js",
+      exports: { require: "./dist/pptxgen.cjs.js" },
+    }),
+  );
+  writeFileSync(join(pptx, "dist", "pptxgen.cjs.js"), "module.exports = {};\n");
+  try {
+    pruneArtifactRuntimeTree(root);
+    assert.equal(existsSync(join(exceljs, "excel.js")), true);
+    assert.equal(existsSync(join(exceljs, "lib", "exceljs.nodejs.js")), true);
+    assert.equal(existsSync(join(exceljs, "dist")), false);
+    assert.equal(existsSync(join(pdfLib, "cjs", "index.js")), true);
+    assert.equal(existsSync(join(pdfLib, "dist")), false);
+    assert.equal(existsSync(join(pdfLib, "es")), false);
+    assert.equal(existsSync(join(pdfLib, "src")), false);
+    assert.equal(existsSync(join(pptx, "dist", "pptxgen.cjs.js")), true);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
