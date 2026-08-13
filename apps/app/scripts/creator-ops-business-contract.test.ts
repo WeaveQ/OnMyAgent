@@ -181,6 +181,8 @@ describe("creator ops experts business contract", () => {
     );
     expect(briefSkill).toContain("历史经验冲突说明");
     expect(briefSkill).toContain("只对最终 Word / Excel");
+    expect(briefSkill).toContain("单独一行的纯文本");
+    expect(briefSkill).toContain("不得加粗");
 
     const marginSkill = readFileSync(
       join(expertsRoot, "kol-project-review-specialist/skills/kol-margin-effect-analysis/SKILL.md"),

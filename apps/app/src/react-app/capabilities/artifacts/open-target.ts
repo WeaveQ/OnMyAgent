@@ -438,7 +438,7 @@ function shellOutputText(output: unknown): string {
 
 /** Machine marker printed by artifact-runtime after a successful write. */
 const RUNTIME_DELIVERABLE_MARKER =
-  /(?:^|\n)ONMYAGENT_DELIVERABLE:\s*(.+?)(?=\s*(?:\n|$))/g;
+  /(?:^|\n)[ \t]*(?:[-*][ \t]+)?(?:\*\*|__)?ONMYAGENT_DELIVERABLE:[ \t]*(.+?)[ \t]*(?:\*\*|__)?[ \t]*(?=\n|$)/g;
 
 function shellWorkingDirectory(command: string): string | undefined {
   const match = command.match(

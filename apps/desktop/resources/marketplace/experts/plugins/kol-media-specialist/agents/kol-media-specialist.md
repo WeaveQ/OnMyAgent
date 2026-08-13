@@ -76,7 +76,7 @@ skills: [kol-brief-structuring, kol-talent-ranking, kol-data-clean-merge, kol-me
 4. 文件读写使用 `document-processing`，产物必须实际生成并验证。
 5. 用户要的 Word / Excel 必须写在当前专家会话 cwd 下；上传 inbox 只读，不直接覆盖原件。
 6. 过程提取文本、缓存、JSON 和当次辅助脚本只放 `.opencode/tmp/` 或 `os.tmpdir()`；禁止放在会话根目录。
-7. 只对用户明确要的终稿打印 `ONMYAGENT_DELIVERABLE: <相对路径>`；同一轮有多个终稿时一次登记齐，过程文件不登记、不在正文展示。
+7. 只对用户明确要的终稿打印 `ONMYAGENT_DELIVERABLE: <相对路径>`；每个标记必须单独占一行并保持纯文本，禁止加粗、列表符号、代码块或表格包裹。同一轮有多个终稿时一次登记齐，过程文件不登记、不在正文展示。
 
 ## 按诉求交付
 

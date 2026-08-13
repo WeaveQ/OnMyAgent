@@ -1027,6 +1027,29 @@ describe("deriveOpenTargets", () => {
     ).toEqual(["澄露防晒乳_返点毛利与投放效果分析.xlsx"]);
   });
 
+  it("shows a verified deliverable when the final marker is Markdown bold", () => {
+    const messages = [
+      message(
+        "msg_final",
+        "assistant",
+        [
+          "## ✅ 交付完成",
+          "**ONMYAGENT_DELIVERABLE: 云雾轻乳_项目Brief与待确认项.docx**",
+        ].join("\n"),
+      ),
+    ] satisfies UIMessage[];
+    const verified = [
+      {
+        ...fileTarget("云雾轻乳_项目Brief与待确认项.docx", "document"),
+        exists: true,
+      },
+    ];
+
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value),
+    ).toEqual(["云雾轻乳_项目Brief与待确认项.docx"]);
+  });
+
   it("collects write-xlsx --out even when stdout only has the marker", () => {
     const paths = collectRuntimeRegisteredDeliverablePaths(
       {
