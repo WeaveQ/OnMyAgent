@@ -1,15 +1,12 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const {
+  prunePackagedRuntime,
+  resolvePackagedSidecarKeepList,
+} = require("./prune-bundled-runtime.cjs");
 
 const computerUseHelperAppName = "OnMyAgent Computer Use.app";
-
-// Real packaged sidecars only. onmyagent-server runs in-process; chrome-devtools-mcp
-// is not shipped as a sidecar binary in current builds.
-const sidecarBases = [
-  "opencode",
-  "onmyagent-orchestrator",
-];
 
 function targetTriple(platformName, arch) {
   if (platformName === "darwin") {
@@ -184,12 +181,15 @@ function brandWindowsExecutable(context) {
 
 function copyExecutableTargetToAlias(sidecarsDir, targetName, aliasName) {
   const targetPath = path.join(sidecarsDir, targetName);
-  if (!fs.existsSync(targetPath)) {
+  const aliasPath = path.join(sidecarsDir, aliasName);
+  if (fs.existsSync(targetPath)) {
+    if (targetPath !== aliasPath) {
+      fs.copyFileSync(targetPath, aliasPath);
+    }
+  } else if (!fs.existsSync(aliasPath)) {
     throw new Error(`Missing packaged sidecar for target: ${targetName}`);
   }
 
-  const aliasPath = path.join(sidecarsDir, aliasName);
-  fs.copyFileSync(targetPath, aliasPath);
   try {
     fs.chmodSync(aliasPath, 0o755);
   } catch {
@@ -208,23 +208,25 @@ async function afterPack(context) {
   const executableSuffix = isWindows ? ".exe" : "";
   const keep = new Set();
 
-  for (const base of sidecarBases) {
-    const aliasName = `${base}${executableSuffix}`;
-    const targetName = `${base}-${triple}${executableSuffix}`;
+  const sidecarKeep = resolvePackagedSidecarKeepList(
+    sidecarsDir,
+    triple,
+    executableSuffix,
+  );
+  for (const { aliasName, targetName } of sidecarKeep.planned) {
     copyExecutableTargetToAlias(sidecarsDir, targetName, aliasName);
     keep.add(aliasName);
-    keep.add(targetName);
   }
 
   const versionsAlias = "versions.json";
   const versionsTarget = `versions.json-${triple}${executableSuffix}`;
   const versionsTargetPath = path.join(sidecarsDir, versionsTarget);
-  if (!fs.existsSync(versionsTargetPath)) {
+  if (fs.existsSync(versionsTargetPath)) {
+    fs.copyFileSync(versionsTargetPath, path.join(sidecarsDir, versionsAlias));
+  } else if (!fs.existsSync(path.join(sidecarsDir, versionsAlias))) {
     throw new Error(`Missing packaged sidecar metadata for target: ${versionsTarget}`);
   }
-  fs.copyFileSync(versionsTargetPath, path.join(sidecarsDir, versionsAlias));
   keep.add(versionsAlias);
-  keep.add(versionsTarget);
 
   for (const entry of fs.readdirSync(sidecarsDir)) {
     if (!keep.has(entry)) {
@@ -247,6 +249,7 @@ async function afterPack(context) {
       });
     }
   }
+  prunePackagedRuntime(targetRuntimeDir);
 
   signComputerUseHelper(context);
   brandWindowsExecutable(context);

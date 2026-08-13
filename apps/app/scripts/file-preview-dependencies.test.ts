@@ -30,4 +30,5 @@ test("publishes file viewer workers and wasm as local Vite assets", () => {
   expect(viteConfig).not.toContain('formats: ["pdf"');
   expect(viteConfig).toContain("publicDir: fileViewerDevAssetsRoot");
   expect(viteConfig).toContain('mode: "both"');
+  expect(viteConfig).toContain("dedupeFileViewerVendorAssets");
 });
