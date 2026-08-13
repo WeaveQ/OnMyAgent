@@ -26,6 +26,23 @@ test("runCommandCapture settles after timing out a long-lived process", async ()
   assert.ok(Date.now() - startedAt < 3_000, "timeout result should settle within a bounded interval");
 });
 
+test("createExecHelpers uses an explicit provider environment instead of later global mutations", () => {
+  const originalHome = process.env.HOME;
+  try {
+    const helpers = createExecHelpers({
+      baseEnvironment: { HOME: "/Users/provider", PATH: "/provider/bin" },
+    });
+    process.env.HOME = "/tmp/opencode-sandbox/home";
+    const environment = helpers.processEnv({ PWD: "/workspace" });
+    assert.equal(environment.HOME, "/Users/provider");
+    assert.equal(environment.PWD, "/workspace");
+    assert.equal(environment.PATH.startsWith("/provider/bin"), true);
+  } finally {
+    if (originalHome === undefined) delete process.env.HOME;
+    else process.env.HOME = originalHome;
+  }
+});
+
 test("writeJsonFile survives concurrent writers to same target (no ENOENT rename race)", async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), "onmyagent-writejson-"));
   try {

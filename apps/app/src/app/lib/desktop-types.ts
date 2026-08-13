@@ -653,11 +653,14 @@ export type PersonalLocalAgentConversationsListResult = {
 export type PersonalLocalAgentRunInput = {
   workspaceRoot: string;
   prompt: string;
+  model?: string | null;
   /** Override the run's working directory. Used when a brand-new conversation
    * has not yet committed a `workdir` but the user mounted a project via the
    * workspace chip. Falls back to the conversation's stored `workdir`. */
   workdir?: string | null;
   approvalMode?: PersonalLocalAgentApprovalMode;
+  sessionStrategy?: "resume" | "new";
+  useRememberedApprovals?: boolean;
   /**
    * Wall-clock timeout for the run in milliseconds. The runtime will
    * auto-cancel the run with `errorInfo.code = "timeout"` once exceeded.

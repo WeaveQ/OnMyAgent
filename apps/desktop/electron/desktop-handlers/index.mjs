@@ -7,6 +7,7 @@ import { HANDLER_COMMAND_NAMES as opencodeCommands, createOpencodeDomainHandlers
 import { HANDLER_COMMAND_NAMES as skillsCommands, createSkillsDomainHandlers } from "./skills.mjs";
 import { HANDLER_COMMAND_NAMES as systemCommands, createSystemDomainHandlers } from "./system.mjs";
 import { HANDLER_COMMAND_NAMES as managedToolsCommands, createManagedToolsDomainHandlers } from "./managed-tools.mjs";
+import { HANDLER_COMMAND_NAMES as taskOrchestratorCommands, createTaskOrchestratorDomainHandlers } from "./task-orchestrator.mjs";
 
 export {
   createMessagingDomainHandlers,
@@ -18,6 +19,7 @@ export {
   createSkillsDomainHandlers,
   createSystemDomainHandlers,
   createManagedToolsDomainHandlers,
+  createTaskOrchestratorDomainHandlers,
 };
 
 /**
@@ -41,6 +43,7 @@ export const DESKTOP_HANDLER_COMMANDS = Object.freeze([
   ...runtimeCommands,
   ...skillsCommands,
   ...managedToolsCommands,
+  ...taskOrchestratorCommands,
 ]);
 
 /**
@@ -77,6 +80,7 @@ export function createAllDesktopDomainHandlers(deps) {
     createRuntimeDomainHandlers(deps),
     createSkillsDomainHandlers(deps),
     createManagedToolsDomainHandlers(deps),
+    createTaskOrchestratorDomainHandlers(deps),
   );
 }
 

@@ -178,7 +178,7 @@ export type LocalPreferences = {
   soundNotifyOnAgentReady: boolean;
   /** Launch app when the user logs into the OS (desktop only). */
   launchAtLogin: boolean;
-  /** Keep display awake while an agent run is active (desktop only). */
+  /** Keep the system awake while an agent run is active (desktop only). */
   keepSystemAwake: boolean;
   /** Show unread count on Dock (mac) / taskbar (win). */
   dockUnreadBadge: boolean;

@@ -157,6 +157,8 @@ export type SessionPageProps = {
     dialogOnly?: boolean;
     onStartConversation?: (item: AgentCardItem, registry: AgentRegistry) => void;
   }) => React.ReactNode;
+  /** Shell-owned neutral Task Center surface; avoids session → task-center dependency. */
+  taskCenterSlot?: React.ReactNode;
   settingsSlot?: React.ReactNode;
 };
 

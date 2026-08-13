@@ -107,3 +107,42 @@ test("onboarding reset returns empty result without calling remove", async () =>
   assert.equal(calls, 0);
   assert.deepEqual(result, { removed: [], missing: [], errors: [] });
 });
+
+test("full reset drains runtimes before deleting its first target", async () => {
+  const order = [];
+  await resetOnMyAgentLocalData({
+    mode: "all",
+    homeDir: "/tmp/reset-home",
+    userDataDir: "/tmp/reset-user-data",
+    prepareDestructiveReset: async (reason) => order.push(`prepare:${reason}`),
+    remove: async (target) => order.push(`remove:${target}`),
+  });
+  assert.equal(order[0], "prepare:full_reset");
+  assert.match(order[1], /^remove:/);
+});
+
+test("failed full-reset drain leaves every target intact", async () => {
+  let removes = 0;
+  await assert.rejects(
+    resetOnMyAgentLocalData({
+      mode: "all",
+      homeDir: "/tmp/reset-home",
+      userDataDir: "/tmp/reset-user-data",
+      prepareDestructiveReset: async () => {
+        throw Object.assign(new Error("drain failed"), { code: "TASK_DRAIN_FAILED" });
+      },
+      remove: async () => { removes += 1; },
+    }),
+    /drain failed/,
+  );
+  assert.equal(removes, 0);
+});
+
+test("onboarding reset does not drain long-running tasks", async () => {
+  let preparations = 0;
+  await resetOnMyAgentLocalData({
+    mode: "onboarding",
+    prepareDestructiveReset: async () => { preparations += 1; },
+  });
+  assert.equal(preparations, 0);
+});

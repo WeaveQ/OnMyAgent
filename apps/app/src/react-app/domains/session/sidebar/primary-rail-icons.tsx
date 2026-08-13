@@ -10,6 +10,7 @@ import {
   Folder,
   HardDrive,
   House,
+  ListChecks,
   MessagesSquare,
   MonitorSmartphone,
   Settings2,
@@ -82,6 +83,11 @@ export function ChannelsRailIcon(props: PrimaryRailIconProps) {
 /** Automation / scheduled work — calendar + clock outline. */
 export function AutomationRailIcon(props: PrimaryRailIconProps) {
   return <CalendarClock {...railIconProps(props.className)} />;
+}
+
+/** Task Center — durable multi-agent delivery workflows. */
+export function TaskCenterRailIcon(props: PrimaryRailIconProps) {
+  return <ListChecks {...railIconProps(props.className)} />;
 }
 
 /** Devices — storage/device rack outline (distinct from LocalAgent monitor). */

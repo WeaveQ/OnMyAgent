@@ -103,10 +103,18 @@ export function listOnMyAgentResetTargets(input = {}) {
  * @param {string} [input.appDataDir]
  * @param {string} [input.desktopBootstrapPath]
  * @param {NodeJS.Platform} [input.platform]
+ * @param {(reason: string) => Promise<unknown>} [input.prepareDestructiveReset]
  * @param {(target: string) => Promise<void>} [input.remove]
  * @returns {Promise<{ removed: string[]; missing: string[]; errors: string[] }>}
  */
 export async function resetOnMyAgentLocalData(input = {}) {
+  const mode = normalizeResetMode(input.mode);
+  if (mode === "all" && typeof input.prepareDestructiveReset === "function") {
+    // The lifecycle owner must stop every runtime that can hold files under
+    // userData before the first target is removed. A rejection deliberately
+    // aborts the entire wipe and leaves all data untouched.
+    await input.prepareDestructiveReset("full_reset");
+  }
   const targets = listOnMyAgentResetTargets(input);
   const remove =
     input.remove ??

@@ -4,8 +4,149 @@
  */
 
 import { mergeAcpToolCallUpdate } from "./contract.mjs";
+import { extractPromptUsageMetrics } from "./context-usage.mjs";
+import { sanitizeTaskPermissionGrant } from "./task-permission-policy.mjs";
+import { createProviderRequestDiagnosticsAccumulator } from "../task-orchestrator/provider-request-diagnostics.mjs";
 
 const MAX_COMPACTED_ACTIVE_TOOL_CARRY = 50;
+
+function boundedDiagnosticText(value, max = 240, options = {}) {
+  if (typeof value !== "string" && typeof value !== "number") return null;
+  const text = String(value).replace(/[\u0000-\u001f\u007f]/g, " ").trim();
+  if (!text || /https?:\/\/|bearer\s|authorization|api[_-]?key|secret|token|password/i.test(text)) return null;
+  if (options.identifier && /[\\/]|\.\./.test(text)) return null;
+  return text.slice(0, max) || null;
+}
+
+function recordValue(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function boundedNonNegativeInteger(value) {
+  const number = typeof value === "number" || (typeof value === "string" && value.trim() !== "")
+    ? Number(value)
+    : NaN;
+  return Number.isSafeInteger(number) && number >= 0 ? number : null;
+}
+
+/**
+ * Normalize the bounded provider approval expiry without coercing null or
+ * arbitrary values to zero. Providers are allowed to place the value on the
+ * request itself, `params`, or the documented `params.input` envelope; no
+ * other nested object is trusted.
+ */
+export function normalizeApprovalExpiry(value) {
+  const candidates = [];
+  const append = (record) => {
+    if (!record || typeof record !== "object" || Array.isArray(record)) return;
+    for (const key of ["expiresAt", "expires_at"]) {
+      if (Object.prototype.hasOwnProperty.call(record, key)) candidates.push(record[key]);
+    }
+  };
+  append(value);
+  append(value?.params);
+  append(value?.input);
+  append(value?.params?.input);
+  const normalized = [];
+  for (const candidate of candidates) {
+    if (candidate === null || candidate === undefined || candidate === "") continue;
+    const number = typeof candidate === "number"
+      ? candidate
+      : typeof candidate === "string" && candidate.trim() !== ""
+        ? Number(candidate)
+        : NaN;
+    if (Number.isSafeInteger(number) && number >= 0) normalized.push(number);
+  }
+  return normalized.length ? Math.min(...normalized) : null;
+}
+
+export function approvalRequestExpired(value, { signal = null, now = Date.now } = {}) {
+  const expiresAt = normalizeApprovalExpiry(value);
+  return signal?.aborted === true || (expiresAt !== null && expiresAt <= now());
+}
+
+/**
+ * Extract only bounded provider execution facts from a Personal result. Raw
+ * metadata is intentionally not projected into Task Center attempt state.
+ */
+export function providerDiagnosticsFromResult(result = {}) {
+  const metadata = recordValue(result.metadata);
+  const sessionMetadata = recordValue(metadata.sessionMetadata ?? metadata.session_metadata);
+  const requestDiagnostics = createProviderRequestDiagnosticsAccumulator();
+  requestDiagnostics.observe(result);
+  // `observe(result)` already walks the bounded metadata/prompt-result
+  // envelopes for warnings and explicit IDs. Session metadata is the one
+  // provider handshake bucket outside that warning walk, so observe it once.
+  requestDiagnostics.observe(sessionMetadata);
+  const providerSessionId = boundedDiagnosticText(
+    result.providerSessionId ?? result.sessionId ?? metadata.providerSessionId ?? metadata.sessionId ?? sessionMetadata.providerSessionId ?? sessionMetadata.sessionId,
+    240,
+    { identifier: true },
+  );
+  const effectiveModel = boundedDiagnosticText(
+    result.effectiveModel
+      ?? result.modelId
+      ?? metadata.effectiveModel
+      ?? metadata.effective_model
+      ?? metadata.model
+      ?? metadata.modelId
+      ?? metadata.currentModelId
+      ?? metadata.current_model_id
+      ?? sessionMetadata.effectiveModel
+      ?? sessionMetadata.effective_model
+      ?? sessionMetadata.model
+      ?? sessionMetadata.modelId
+      ?? sessionMetadata.currentModelId
+      ?? sessionMetadata.current_model_id,
+    240,
+  );
+  const connectionMode = boundedDiagnosticText(result.connectionMode ?? metadata.connectionMode, 240);
+  const transport = boundedDiagnosticText(
+    result.transport
+      ?? metadata.transport
+      ?? metadata.transportType
+      ?? metadata.transport_type
+      ?? metadata.protocol
+      ?? sessionMetadata.transport
+      ?? sessionMetadata.protocol,
+    120,
+  );
+  const requestId = boundedDiagnosticText(requestDiagnostics.snapshot().requestId, 240, { identifier: true });
+  const explicitFallbackCount = boundedNonNegativeInteger(
+    result.transportFallbackCount
+      ?? result.transport_fallback_count
+      ?? metadata.transportFallbackCount
+      ?? metadata.transport_fallback_count
+      ?? sessionMetadata.transportFallbackCount
+      ?? sessionMetadata.transport_fallback_count,
+  );
+  const transportFallbackCount = Math.max(explicitFallbackCount ?? 0, requestDiagnostics.snapshot().fallbackCount);
+  if (!providerSessionId && !effectiveModel && !transport && !connectionMode && !requestId && explicitFallbackCount === null && transportFallbackCount === 0) return null;
+  return {
+    providerSessionId,
+    effectiveModel,
+    transport,
+    connectionMode,
+    requestId,
+    transportFallbackCount: transportFallbackCount ?? 0,
+  };
+}
+
+/**
+ * Project only numeric accounting facts from a Personal result. Provider
+ * metadata can contain credentials, endpoints, local paths and opaque billing
+ * objects, so Task Center must never persist the raw object.
+ */
+export function providerUsageFromResult(result = {}) {
+  const usage = extractPromptUsageMetrics(result);
+  if (!usage) return null;
+  return {
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+    totalTokens: usage.totalTokens,
+    costMicros: usage.costMicros,
+  };
+}
 
 /**
  * @param {unknown} value
@@ -15,6 +156,17 @@ export function normalizeApprovalMode(value) {
   const mode = String(value ?? "ask").trim();
   if (mode === "auto" || mode === "ask" || mode === "read-only-auto") return mode;
   return "ask";
+}
+
+export function normalizeWorkerRunPolicy(input = {}, defaultModel = null) {
+  return {
+    model:
+      typeof input.model === "string" && input.model.trim()
+        ? input.model.trim()
+        : defaultModel,
+    sessionStrategy: input.sessionStrategy === "new" ? "new" : "resume",
+    useRememberedApprovals: input.useRememberedApprovals !== false,
+  };
 }
 
 /**
@@ -106,6 +258,7 @@ export function buildRunMeta(state, deps) {
     type: "run_meta",
     at: Date.now(),
     runId: state.runId,
+    operationId: state.operationId ?? null,
     agentId: state.agentId,
     agentProvider: state.agentProvider,
     status: state.status,
@@ -113,8 +266,16 @@ export function buildRunMeta(state, deps) {
     startedAt: state.startedAt,
     finishedAt: state.finishedAt,
     pid: state.pid,
+    processStartToken: state.processStartToken ?? null,
+    terminationConfirmed: state.terminationConfirmed === true,
+    exitConfirmed: state.exitConfirmed === true,
+    childExitConfirmed: state.childExitConfirmed === true,
+    childState: state.childState ?? null,
+    exitCode: Number.isInteger(state.exitCode) ? state.exitCode : null,
     command: state.command,
     providerSessionId: state.providerSessionId,
+    effectiveModel: state.effectiveModel ?? null,
+    transport: state.transport ?? null,
     resumeKey: state.resumeKey,
     metadata: state.metadata,
     workdir: state.workdir,
@@ -122,6 +283,15 @@ export function buildRunMeta(state, deps) {
     debugSummary: state.debugSummary,
     errorInfo: state.errorInfo,
     approvalMode: state.approvalMode,
+    taskId: state.taskId ?? null,
+    taskRunId: state.taskRunId ?? null,
+    taskRevision: state.taskRevision ?? null,
+    taskContractHash: state.taskContractHash ?? null,
+    // Persist only the bounded, non-secret grant identity.  Provider tokens or
+    // arbitrary caller fields never enter run logs.
+    taskPermissionGrant: sanitizeTaskPermissionGrant(state.taskPermissionGrant),
+    taskPermissionMode: state.taskPermissionMode ?? "restricted",
+    taskProfileId: state.taskProfileId ?? null,
     pendingApprovals: state.pendingApprovals,
     artifacts: deps.visibleArtifacts(state.artifacts),
     fileChanges: [...(state.fileChanges ?? [])],
@@ -244,6 +414,7 @@ export function buildRunSnapshot(state, deps, options = {}) {
   return {
     ok: state.status === "completed",
     runId: state.runId,
+    operationId: state.operationId ?? null,
     agentId: state.agentId,
     agentProvider: state.agentProvider,
     connectionMode: state.connectionMode,
@@ -251,6 +422,12 @@ export function buildRunSnapshot(state, deps, options = {}) {
     startedAt: state.startedAt,
     finishedAt: state.finishedAt,
     pid: state.pid,
+    processStartToken: state.processStartToken ?? null,
+    terminationConfirmed: state.terminationConfirmed === true,
+    exitConfirmed: state.exitConfirmed === true,
+    childExitConfirmed: state.childExitConfirmed === true,
+    childState: state.childState ?? null,
+    exitCode: Number.isInteger(state.exitCode) ? state.exitCode : null,
     command: state.command,
     output: state.outputParts.join("\n").trim(),
     error: state.error,
@@ -262,12 +439,21 @@ export function buildRunSnapshot(state, deps, options = {}) {
     logPath: state.logPath,
     conversationId: state.conversationId ?? null,
     providerSessionId: state.providerSessionId,
+    effectiveModel: state.effectiveModel ?? null,
+    transport: state.transport ?? null,
     resumeKey: state.resumeKey,
     metadata: state.metadata,
     workdir: state.workdir,
     debugSummary: state.debugSummary,
     errorInfo: state.errorInfo,
     approvalMode: state.approvalMode,
+    taskId: state.taskId ?? null,
+    taskRunId: state.taskRunId ?? null,
+    taskRevision: state.taskRevision ?? null,
+    taskContractHash: state.taskContractHash ?? null,
+    taskPermissionGrant: sanitizeTaskPermissionGrant(state.taskPermissionGrant),
+    taskPermissionMode: state.taskPermissionMode ?? "restricted",
+    taskProfileId: state.taskProfileId ?? null,
     pendingApprovals: [...(state.pendingApprovals ?? [])],
     artifacts: deps.visibleArtifacts(state.artifacts),
     fileChanges: [...(state.fileChanges ?? [])],
@@ -288,8 +474,10 @@ export function buildApprovalRecord(state, request = {}, clock = {}) {
   const approvalId = String(
     request.id ?? `${state.runId}-approval-${now}-${randomId}`,
   ).trim();
+  const expiresAt = normalizeApprovalExpiry(request);
   return {
     id: approvalId,
+    toolCallId: String(request.toolCallId ?? approvalId).trim().slice(0, 240) || approvalId,
     runId: state.runId,
     provider: state.agentProvider,
     method: String(request.method ?? "unknown"),
@@ -301,6 +489,7 @@ export function buildApprovalRecord(state, request = {}, clock = {}) {
     readonly: Boolean(request.readonly),
     params: sanitizeApprovalParams(request.params),
     createdAt: now,
+    expiresAt,
   };
 }
 
@@ -366,6 +555,7 @@ export function buildRestoredRunSnapshot(meta, events, id, logPath, deps) {
   return {
     ok: status === "completed",
     runId: meta.runId ?? id,
+    operationId: meta.operationId ?? null,
     agentId: meta.agentId ?? "unknown",
     agentProvider: meta.agentProvider ?? "custom",
     connectionMode: meta.connectionMode ?? "本地 Agent harness session",
@@ -373,6 +563,12 @@ export function buildRestoredRunSnapshot(meta, events, id, logPath, deps) {
     startedAt: meta.startedAt ?? null,
     finishedAt: meta.finishedAt ?? null,
     pid: meta.pid ?? null,
+    processStartToken: meta.processStartToken ?? null,
+    terminationConfirmed: meta.terminationConfirmed === true,
+    exitConfirmed: meta.exitConfirmed === true,
+    childExitConfirmed: meta.childExitConfirmed === true,
+    childState: meta.childState ?? null,
+    exitCode: Number.isInteger(meta.exitCode) ? meta.exitCode : null,
     command: meta.command ?? "",
     output: assistantText,
     error,
@@ -380,6 +576,8 @@ export function buildRestoredRunSnapshot(meta, events, id, logPath, deps) {
     conversationMessages: deps.runEventsToConversationMessages(events),
     logPath,
     providerSessionId: meta.providerSessionId ?? null,
+    effectiveModel: meta.effectiveModel ?? null,
+    transport: meta.transport ?? null,
     resumeKey: meta.resumeKey ?? null,
     metadata: meta.metadata ?? null,
     workdir: meta.workdir ?? null,
@@ -387,6 +585,13 @@ export function buildRestoredRunSnapshot(meta, events, id, logPath, deps) {
     debugSummary: meta.debugSummary ?? null,
     errorInfo,
     approvalMode: meta.approvalMode ?? "ask",
+    taskId: meta.taskId ?? meta.taskPermissionGrant?.taskId ?? null,
+    taskRunId: meta.taskRunId ?? meta.taskPermissionGrant?.taskRunId ?? null,
+    taskRevision: meta.taskRevision ?? meta.taskPermissionGrant?.taskRevision ?? null,
+    taskContractHash: meta.taskContractHash ?? meta.taskPermissionGrant?.contractHash ?? null,
+    taskPermissionGrant: sanitizeTaskPermissionGrant(meta.taskPermissionGrant),
+    taskPermissionMode: meta.taskPermissionMode === "full-allow" ? "full-allow" : "restricted",
+    taskProfileId: meta.taskProfileId ?? null,
     pendingApprovals: Array.isArray(meta.pendingApprovals) ? meta.pendingApprovals : [],
     artifacts: deps.visibleArtifacts(meta.artifacts),
     fileChanges: Array.isArray(meta.fileChanges) ? [...meta.fileChanges] : [],

@@ -280,7 +280,9 @@ export function AssistantPage(props: AssistantPageProps) {
   const { agentPanelWidth, setAgentPanelWidth, startAgentPanelResize } =
     useAgentPanelResize(AGENT_PANEL_DEFAULT_WIDTH);
   const sidePanelVisible =
-    sidePanelOpen && !isAutomationRailView(activeSidebarView);
+    sidePanelOpen &&
+    !isAutomationRailView(activeSidebarView) &&
+    activeSidebarView !== "taskCenter";
 
   const openAssistantSessionView = useCallback(() => {
     openRailView("assistant");
@@ -1022,6 +1024,7 @@ export function AssistantPage(props: AssistantPageProps) {
     activeSidebarView === "projects" ||
     activeSidebarView === "localAgent" ||
     activeSidebarView === "agentManagement" ||
+    activeSidebarView === "taskCenter" ||
     activeSidebarView === "skills" ||
     activeSidebarView === "connectors"
       ? null
@@ -1480,6 +1483,12 @@ export function AssistantPage(props: AssistantPageProps) {
                         </div>
                       ) : null}
 
+                      {activeSidebarView === "taskCenter" ? (
+                        <div className="absolute inset-0 z-[1] min-h-0 min-w-0 overflow-hidden">
+                          {props.taskCenterSlot}
+                        </div>
+                      ) : null}
+
                       {activePlaceholderView &&
                       activeSidebarView !== "files" &&
                       activeSidebarView !== "store" &&
@@ -1489,6 +1498,7 @@ export function AssistantPage(props: AssistantPageProps) {
                       activeSidebarView !== "agentManagement" &&
                       activeSidebarView !== "devices" &&
                       activeSidebarView !== "channels" &&
+                      activeSidebarView !== "taskCenter" &&
                       !isAutomationRailView(activeSidebarView) &&
                       activeSidebarView !== "billing" ? (
                         <SidebarFeaturePlaceholder

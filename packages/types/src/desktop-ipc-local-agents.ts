@@ -280,6 +280,7 @@ export type PersonalLocalAgentApprovalMode = "auto" | "ask" | "read-only-auto";
 
 export type PersonalLocalAgentApprovalRequest = {
   id: string;
+  toolCallId?: string | null;
   runId: string;
   provider: PersonalLocalAgentProvider;
   method: string;
@@ -291,6 +292,7 @@ export type PersonalLocalAgentApprovalRequest = {
   readonly?: boolean;
   params?: Record<string, unknown> | null;
   createdAt: number;
+  expiresAt?: number | null;
 };
 
 export type PersonalLocalAgentApprovalDecision = "accept" | "acceptForSession" | "decline" | "cancel";
@@ -366,7 +368,19 @@ export type PersonalLocalAgentConversationsListResult = {
 export type PersonalLocalAgentRunInput = {
   workspaceRoot: string;
   prompt: string;
+  model?: string | null;
+  workdir?: string | null;
   approvalMode?: PersonalLocalAgentApprovalMode;
+  /**
+   * Whether the provider may resume an existing provider-side session.
+   * Task workers use `new` so each role starts from an isolated context.
+   */
+  sessionStrategy?: "resume" | "new";
+  /**
+   * Set to false for isolated task workers so a prior interactive
+   * "always allow" decision cannot silently approve this run.
+   */
+  useRememberedApprovals?: boolean;
   /**
    * Wall-clock timeout for the run in milliseconds. The runtime will
    * auto-cancel the run with `errorInfo.code = "timeout"` once exceeded.

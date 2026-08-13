@@ -56,6 +56,8 @@ export function wrapChannelApiForLazyInit(api, ensureReady) {
  *   readWorkspaceState?: () => Promise<{ workspaces?: Array<object> }>,
  *   claudeProjectsRoot?: () => string,
  *   deferStartupReconcileMs?: number,
+ *   taskMessageRouter?: (input: object) => Promise<object>,
+ *   providerEnvironment?: NodeJS.ProcessEnv,
  * }} [options]
  */
 export function createDesktopPersonalRuntimeServices(options = {}) {
@@ -74,15 +76,21 @@ export function createDesktopPersonalRuntimeServices(options = {}) {
     0,
     Number(options.deferStartupReconcileMs ?? 8_000) || 0,
   );
+  // Runtime bootstrap later replaces Electron's process HOME/XDG values with
+  // the managed OpenCode sandbox. Personal providers own a different auth and
+  // config boundary, so freeze the real launch environment before that change.
+  const providerEnvironment = Object.freeze({ ...(options.providerEnvironment ?? process.env) });
 
   const personalAgentLegacyHarness = createPersonalAgentLegacyHarness({
     runtimePathEntries: () => runtimeManager.runtimePathEntries(),
+    providerEnvironment,
   });
   const personalAgentRuntime = createPersonalAgentRuntime({
     userDataDir: app.getPath("userData"),
     engineInfo: () => runtimeManager.engineInfo(),
     onmyagentServerInfo: () => runtimeManager.onmyagentServerInfo(),
     legacy: personalAgentLegacyHarness,
+    providerEnvironment,
     bundledExtensionRoots: bundledExtensionRootPaths(),
     // Defer orphan/process reconcile off the critical cold-start path.
     deferStartupReconcileMs,
@@ -103,6 +111,7 @@ export function createDesktopPersonalRuntimeServices(options = {}) {
   const channels = createMessagingChannelServices({
     userDataDir: app.getPath("userData"),
     personalAgentRuntime,
+    taskMessageRouter: options.taskMessageRouter,
   });
 
   // Lazy channel init: first API call / ensureChannelsReady, not boot.

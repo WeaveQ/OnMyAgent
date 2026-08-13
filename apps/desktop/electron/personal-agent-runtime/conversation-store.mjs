@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { readSession, writeSession } from "./session-store.mjs";
+import { personalAgentPartitionName } from "./path-segments.mjs";
 import { legacyPersonalAgentRoot, personalAgentRoot, personalAgentRuntimeStateRoot } from "./runtime-state.mjs";
 import { readJsonLikeFile, runId, writeJsonFile } from "./utils.mjs";
 import {
@@ -21,16 +22,16 @@ import { listChannelConversations } from "./conversation-lookup.mjs";
 const CONVERSATION_EVENTS_DIR = "conversation-events";
 
 export function conversationFile(workspaceRoot, provider, agentId = "default") {
-  return path.join(conversationRoot(workspaceRoot), `${provider}-${agentId}.json`);
+  return path.join(conversationRoot(workspaceRoot), `${personalAgentPartitionName(provider, agentId)}.json`);
 }
 
 export function legacyConversationFile(workspaceRoot, provider, agentId = "default") {
-  return path.join(legacyPersonalAgentRoot(workspaceRoot), CONVERSATION_DIR, `${provider}-${agentId}.json`);
+  return path.join(legacyPersonalAgentRoot(workspaceRoot), CONVERSATION_DIR, `${personalAgentPartitionName(provider, agentId)}.json`);
 }
 
 export function conversationEventsFile(workspaceRoot, provider, agentId = "default", conversationId = "default") {
   const id = String(conversationId ?? "").trim() || "default";
-  return path.join(personalAgentRoot(workspaceRoot), CONVERSATION_EVENTS_DIR, `${provider}-${agentId}-${id}.json`);
+  return path.join(personalAgentRoot(workspaceRoot), CONVERSATION_EVENTS_DIR, `${personalAgentPartitionName(provider, agentId)}-${id}.json`);
 }
 
 async function readConversationState(workspaceRoot, provider, agentId = "default") {

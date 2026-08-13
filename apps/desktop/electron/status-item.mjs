@@ -61,6 +61,10 @@ export function createStatusItemController(input) {
     isQuitting = true;
   }
 
+  function cancelQuitting() {
+    isQuitting = false;
+  }
+
   function isAppQuitting() {
     return isQuitting;
   }
@@ -298,6 +302,7 @@ export function createStatusItemController(input) {
     runAction,
     showAndFocusMainWindow,
     markQuitting,
+    cancelQuitting,
     isAppQuitting,
     /** @internal test/diag */
     getTray: () => tray,
@@ -321,6 +326,7 @@ export function createStatusItemLifecycle(input) {
     shouldQuitOnLastWindow: () =>
       shouldQuitOnWindowAllClosed(platform, controller.isVisible()),
     markQuitting: () => controller.markQuitting(),
+    cancelQuitting: () => controller.cancelQuitting(),
     dispose: () => controller.dispose(),
     setVisible: (visible) => {
       try {

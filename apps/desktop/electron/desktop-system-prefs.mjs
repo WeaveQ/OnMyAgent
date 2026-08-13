@@ -11,11 +11,11 @@ import {
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
+import { createKeepAwakeCoordinator } from "./keep-awake-coordinator.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** @type {number | null} */
-let powerSaveBlockerId = null;
+const keepAwakeCoordinator = createKeepAwakeCoordinator({ powerSaveBlocker });
 
 /** @type {string | null} */
 let registeredAppSnapshotAccelerator = null;
@@ -76,35 +76,25 @@ export function setLaunchAtLogin(enabled) {
 }
 
 /**
- * @param {boolean} enabled
+ * Update renderer-owned preference and interactive activity. Durable Task
+ * Center activity is aggregated separately in this main-process module.
+ *
+ * `prevent-app-suspension` intentionally lets the display turn off while
+ * keeping long-running provider/network work alive.
+ *
+ * @param {boolean} preferenceEnabled
+ * @param {boolean} [interactiveBusy]
  */
-export function setKeepSystemAwake(enabled) {
-  try {
-    if (enabled === true) {
-      if (powerSaveBlockerId != null && powerSaveBlocker.isStarted(powerSaveBlockerId)) {
-        return { enabled: true, id: powerSaveBlockerId };
-      }
-      powerSaveBlockerId = powerSaveBlocker.start("prevent-display-sleep");
-      return { enabled: true, id: powerSaveBlockerId };
-    }
-    if (powerSaveBlockerId != null && powerSaveBlocker.isStarted(powerSaveBlockerId)) {
-      powerSaveBlocker.stop(powerSaveBlockerId);
-    }
-    powerSaveBlockerId = null;
-    return { enabled: false, id: null };
-  } catch (error) {
-    return {
-      enabled: false,
-      id: null,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
+export function setKeepSystemAwake(preferenceEnabled, interactiveBusy = false) {
+  return keepAwakeCoordinator.setRendererState({ preferenceEnabled, interactiveBusy });
 }
 
 export function getKeepSystemAwake() {
-  const active =
-    powerSaveBlockerId != null && powerSaveBlocker.isStarted(powerSaveBlockerId);
-  return { enabled: active, id: active ? powerSaveBlockerId : null };
+  return keepAwakeCoordinator.status();
+}
+
+export function setTaskCenterKeepSystemAwakeActive(active) {
+  return keepAwakeCoordinator.setTaskCenterBusy(active);
 }
 
 /**

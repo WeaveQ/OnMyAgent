@@ -5,6 +5,8 @@
  * Both main.mjs (legacy path) and the runtime kernel import from here.
  */
 
+import { assertPersonalAgentPathSegment } from "./path-segments.mjs";
+
 export const PERSONAL_LOCAL_AGENT_PROVIDERS = {
   opencode: {
     id: "opencode",
@@ -137,7 +139,7 @@ export function normalizePersonalLocalAgent(input) {
   const inputProvider = String(input?.provider ?? "opencode").trim();
   const provider = isPersonalLocalAgentProvider(inputProvider) ? inputProvider : "opencode";
   const providerSpec = PERSONAL_LOCAL_AGENT_PROVIDERS[provider] ?? PERSONAL_LOCAL_AGENT_PROVIDERS.opencode;
-  const id = String(input?.id ?? provider).trim() || provider;
+  const id = assertPersonalAgentPathSegment(input?.id ?? provider, "agent id");
   const name = String(input?.name ?? providerSpec.name).trim();
   const executablePath = String(input?.executablePath ?? providerSpec.executable ?? "").trim();
   const model = typeof input?.model === "string" && input.model.trim() ? input.model.trim() : null;

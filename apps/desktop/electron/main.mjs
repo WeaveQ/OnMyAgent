@@ -27,6 +27,7 @@ import {
   ipcMain,
   nativeImage,
   nativeTheme,
+  powerMonitor,
   screen,
   session,
   shell,
@@ -36,7 +37,10 @@ import {
 import { registerMigrationIpc } from "./migration.mjs";
 import { createDesktopPersonalRuntimeServices, createRuntimeManager } from "./runtime.mjs";
 import { cleanupRegisteredAgentProcesses } from "./personal-agent-runtime/process-registry.mjs";
+import { createTaskSupervisorClient, createSafeRelaunchHandler } from "./task-supervisor/index.mjs";
+import { createDesktopTaskLifecycle } from "./desktop-task-lifecycle.mjs";
 import { channelEventBus, CHANNEL_EVENTS } from "./channels/index.mjs";
+import { createChannelTaskCreateInputResolver, createDeferredMessagingTaskRouter, createTaskBackgroundRuntime, startTaskSupervisorBackground, subscribeTaskBackgroundEvents } from "./task-background-runtime.mjs";
 import { registerUpdaterIpc } from "./updater.mjs";
 import {
   parseJsonLikeObject,
@@ -67,6 +71,7 @@ import {
   setLaunchAtLogin,
   getKeepSystemAwake,
   setKeepSystemAwake,
+  setTaskCenterKeepSystemAwakeActive,
   setDockUnreadBadge,
   getAgentReadySoundPath,
   showDesktopNotification,
@@ -888,6 +893,8 @@ const runtimeManager = createRuntimeManager({
   homeDir: getRealHomeDir(),
 });
 
+const deferredMessagingTasks = createDeferredMessagingTaskRouter();
+
 const {
   personalAgentLegacyHarness,
   personalAgentRuntime,
@@ -898,11 +905,29 @@ const {
   telegramService,
   discordService,
   channelInfrastructureApi,
+  channelInfrastructure,
 } = createDesktopPersonalRuntimeServices({
   app,
   runtimeManager,
   readWorkspaceState,
   claudeProjectsRoot,
+  taskMessageRouter: deferredMessagingTasks.route,
+});
+
+const taskOrchestrator = createTaskSupervisorClient({
+  userDataDir: app.getPath("userData"),
+});
+const messagingTaskRuntimePromise = createTaskBackgroundRuntime({
+  userDataDir: app.getPath("userData"),
+  taskClient: taskOrchestrator,
+  resolveCreateInput: createChannelTaskCreateInputResolver({ readWorkspaceState, personalAgentRuntime }),
+  deliver: (input) => channelInfrastructure.deliverTaskMessage(input),
+});
+deferredMessagingTasks.setRuntimePromise(messagingTaskRuntimePromise);
+const taskBackgroundEvents = subscribeTaskBackgroundEvents({
+  taskClient: taskOrchestrator, runtimePromise: messagingTaskRuntimePromise,
+  getMainWindow: () => mainWindow, Notification, setDockUnreadBadge,
+  setKeepAwakeActive: setTaskCenterKeepSystemAwakeActive,
 });
 
 const {
@@ -1140,18 +1165,26 @@ const codeWorkspaceActions = createCodeWorkspaceActions({
   personalAgentLegacyHarness,
 });
 
-let runtimeDisposedForQuit = false;
 let runtimeBootstrapPromise = null;
+let safeQuitPromise = null;
+const desktopTaskLifecycle = createDesktopTaskLifecycle({
+  taskOrchestrator,
+  personalAgentRuntime,
+  heartbeatScheduler: personalAgentHeartbeatScheduler,
+  channelInfrastructure,
+  runtimeManager,
+  cleanupRegisteredProcesses: cleanupRegisteredAgentProcesses,
+  getMessagingRuntime: () => messagingTaskRuntimePromise,
+  unsubscribeTaskEvents: taskBackgroundEvents.unsubscribe,
+});
+const taskLifecycle = desktopTaskLifecycle.coordinator;
+const disposeRuntimeBeforeQuit = desktopTaskLifecycle.disposeBeforeQuit;
 
-async function disposeRuntimeBeforeQuit() {
-  if (runtimeDisposedForQuit) return;
-  runtimeDisposedForQuit = true;
-  await Promise.all([
-    personalAgentHeartbeatScheduler.close().catch(() => undefined),
-    runtimeManager.dispose().catch(() => undefined),
-    cleanupRegisteredAgentProcesses().catch(() => undefined),
-  ]);
-}
+const safeRelaunch = createSafeRelaunchHandler({
+  pauseAllAndDrain: (reason) => disposeRuntimeBeforeQuit(reason),
+  relaunch: () => app.relaunch(),
+  exit: (code) => app.exit(code),
+});
 
 function assertOnMyAgentServerReady(info) {
   if (!info?.running) {
@@ -1290,6 +1323,8 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   personalAgentRuntime,
   personalAgentNativeSessions,
   personalAgentHeartbeatScheduler,
+  taskOrchestrator,
+  taskLifecycle,
   scanAgentManagementSkills,
   app,
   // agent management
@@ -1331,6 +1366,7 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   ensureRuntimeBootstrap,
   engineDoctor,
   readFile,
+  realpath,
   rm,
   __dirname,
   workspaceStatePath,
@@ -1520,10 +1556,7 @@ ipcMain.handle("quick-capture:close", async () => {
 ipcMain.handle("onmyagent:shell:openExternal", async (_event, url) => {
   return browserController.openAllowedExternalUrl(url);
 });
-ipcMain.handle("onmyagent:shell:relaunch", async () => {
-  app.relaunch();
-  app.exit(0);
-});
+ipcMain.handle("onmyagent:shell:relaunch", async () => safeRelaunch("explicit_relaunch"));
 ipcMain.handle("onmyagent:shell:quit", async () => {
   app.quit();
 });
@@ -1586,18 +1619,29 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   app.on("before-quit", (event) => {
     statusItem.markQuitting();
-    if (runtimeDisposedForQuit) return;
+    if (desktopTaskLifecycle.isDisposed()) return;
     event.preventDefault();
-    codeTerminalManager.dispose();
-    void Promise.all([
-      disposeRuntimeBeforeQuit(),
-      browserController.close(),
-      Promise.resolve(artifactPreviewController.destroy()),
-      uiControlBridge.stop(),
-      Promise.resolve(disposeComputerUseServices()),
-    ]).finally(() => {
+    if (safeQuitPromise) return;
+    safeQuitPromise = (async () => {
+      // The durable owner must checkpoint and pause first. Do not partially
+      // dispose the still-running desktop when that safety boundary fails.
+      await disposeRuntimeBeforeQuit();
+      codeTerminalManager.dispose();
+      await Promise.all([
+        browserController.close(),
+        Promise.resolve(artifactPreviewController.destroy()),
+        uiControlBridge.stop(),
+        Promise.resolve(disposeComputerUseServices()),
+      ]);
       statusItem.dispose();
       app.quit();
+    })().catch((error) => {
+      // Keep the window/app alive when the durable Supervisor could not pause;
+      // restore normal window/tray behavior so the next explicit Quit retries.
+      statusItem.cancelQuitting();
+      console.error("[main] safe Task Supervisor shutdown failed:", error);
+    }).finally(() => {
+      safeQuitPromise = null;
     });
   });
 
@@ -1651,6 +1695,10 @@ if (!app.requestSingleInstanceLock()) {
       createMainWindow,
       restoreComputerUseServices: () => restoreComputerUseServices(),
       startUiControl: () => uiControlBridge.start(),
+      startTaskSupervisor: async () => {
+        await startTaskSupervisorBackground({ runtimeBootstrap: runtimeBootstrapPromise,
+          taskClient: taskOrchestrator, powerMonitor, refreshKeepAwake: taskBackgroundEvents.refreshKeepAwake });
+      },
       // Channel autoStart is a no-op when disabled / no account. Deferred so it
       // does not block first paint (Telegram/Discord must still auto-start when
       // configured — previously missing from launch and left pollers dead).

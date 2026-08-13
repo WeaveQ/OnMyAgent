@@ -117,6 +117,7 @@ import type {
   TencentMeetingAuthProgress,
   TencentMeetingConnectionStatus,
 } from "@onmyagent/types/tencent-meeting-connector";
+import type { TaskOrchestratorDesktopEvent } from "@onmyagent/types/task-orchestrator";
 
 import type { WorkspaceList } from "./desktop-types";
 import type {
@@ -147,6 +148,11 @@ declare global {
       invokeDesktop?: DesktopInvoke;
       files?: {
         getPathForFile?: (file: File) => string | null;
+      };
+      taskOrchestrator?: {
+        onEvent?: (
+          callback: (event: TaskOrchestratorDesktopEvent) => void,
+        ) => () => void;
       };
       computerUse?: {
         onActivity?: (callback: (activity: {
@@ -657,16 +663,20 @@ export type RevealDesktopItemResult = {
   reason?: string;
 };
 
-export async function revealDesktopItemInDir(target: string): Promise<RevealDesktopItemResult> {
+export async function revealDesktopItemInDir(target: string, allowedRoot?: string): Promise<RevealDesktopItemResult> {
   const trimmed = target.trim();
   if (!trimmed) {
     throw new Error("Path is required.");
   }
-  const result = await invokeDesktopCommand("__revealItemInDir", trimmed);
+  const result = await invokeDesktopCommand("__revealItemInDir", trimmed, allowedRoot?.trim() || undefined);
   if (result && typeof result === "object" && "ok" in result) {
     if (!result.ok) {
       const message = result.reason === "not_found" && result.path
         ? `File not found: ${result.path}`
+        : result.reason === "outside_allowed_root"
+          ? "Path is outside the allowed workspace."
+          : result.reason === "containment_unavailable"
+            ? "Workspace path containment could not be verified."
         : result.reason === "empty_path"
           ? "Path is required."
           : "Failed to reveal item in folder.";
