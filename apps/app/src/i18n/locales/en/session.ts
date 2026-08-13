@@ -658,6 +658,7 @@ export default {
   "session.assistant_waiting": "Waiting",
   "session.assistant_compacted": "Context compressed",
   "session.process_summary_reviewed_files": "Reviewed {count} files",
+  "session.process_summary_running_commands": "Running {count} commands",
   "session.process_summary_ran_commands": "Ran {count} commands",
   "session.process_summary_searched_items": "Searched {count} items",
   "session.process_summary_editing": "Editing {count} files",

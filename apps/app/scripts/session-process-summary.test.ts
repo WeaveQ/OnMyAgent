@@ -249,6 +249,31 @@ describe("session process summary", () => {
     });
   });
 
+  test("shows an active count while a collapsed command run is still streaming", () => {
+    setLocale("en");
+    const commandItems = ["completed", "running"].map((state, index) => ({
+      messageId: `message-command-${index}`,
+      partIndex: 0,
+      index,
+      part: {
+        type: "dynamic-tool" as const,
+        toolName: "bash",
+        toolCallId: `call-command-${index}`,
+        input: { command: `step-${index}` },
+        ...(state === "completed"
+          ? { output: "ok", state: "output-available" as const }
+          : { state: "input-available" as const }),
+      },
+    }));
+
+    expect(processFoldChipMeta(commandItems, true)).toEqual({
+      label: "Running 2 commands",
+      category: "terminal",
+      variant: "summary",
+      running: true,
+    });
+  });
+
   test("routes opaque browser, skill, and command singletons through semantic folds", () => {
     expect(shouldUseSemanticProcessFold(toolPart("browser", "onmyagent_browser_node_repl"))).toBe(true);
     expect(shouldUseSemanticProcessFold(toolPart("skill", "skill"))).toBe(true);
