@@ -14,6 +14,7 @@ import {
 import {
   buildExpertDirectoryShadowDiff,
   buildExpertDirectoryPageModel,
+  isStaleLastComplete,
   type ExpertDirectoryShadowDiff,
   type LegacyExpertDirectorySnapshot,
 } from "./expert-directory-page-model";
@@ -92,9 +93,21 @@ export function useExpertDirectoryQuery(input: {
     },
   });
   useEffect(() => {
-    if (query.data?.complete === true) setLastComplete(query.data);
+    if (query.data?.complete === true) {
+      setLastComplete(query.data);
+      return;
+    }
+    setLastComplete((current) =>
+      isStaleLastComplete({ data: query.data, lastComplete: current }) ? undefined : current,
+    );
   }, [query.data]);
-  return { ...query, lastComplete: lastComplete ?? readFetchErrorCache(query.error) };
+  const resolvedLastComplete = lastComplete ?? readFetchErrorCache(query.error);
+  return {
+    ...query,
+    lastComplete: isStaleLastComplete({ data: query.data, lastComplete: resolvedLastComplete })
+      ? undefined
+      : resolvedLastComplete,
+  };
 }
 
 class ExpertDirectoryFetchError extends Error {

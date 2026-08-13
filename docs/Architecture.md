@@ -102,6 +102,7 @@ packages/
 | --- | --- | --- |
 | **identity / list** | Server Expert Directory projects revisioned origins v2 + marker v3 + workspace session aggregate; renderer consumes the projection and never repairs identity from local cache, 404 observation, or path heuristics | `expert-directory.ts` + `workspace-session-marker-inventory.ts` + `expert-directory-query.ts` |
 | **hard_delete** | Server saga snapshots the origin revision, deletes OpenCode + authorized runtime directories, then writes tombstones; desktop saga removes only user-owned package/skill materialization. Both journals replay by one operation id | `expert-delete-saga.ts` + `deleteExpertPackage` + `expert-hard-delete.ts` |
+| **hard_delete** | Origin match is **agentId-first**. `packageName` may be the short marketplace name (`pkg`) or the agentId composite (`pkg:pkg`); never 404 a real expert because the client sent the composite form. Built-in marketplace (`marketplace !== "my-experts"`) stays 409 | `selectExpertDeleteOriginRecords` + `resolveExpertDeletePackageName` |
 | **hard_delete** | Never clears `draft:*` sessions and refuses product builtins (creation coach) | `isDraftSessionId` + `canHardDeleteExpert` |
 | **hard_delete** | Local UI cleanup runs only after the server/desktop sagas and remaining Expert session ids must not retain deleted ids | `clearExpertLocalSessionBindings` + `remainingExpertSessionIdsAfterDelete` |
 | **create** | Composer flush at most once per save path | `shouldFlushComposerOnExpertCreate` |

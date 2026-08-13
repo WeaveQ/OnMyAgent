@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import {
   useAgentRegistryStore,
@@ -8,6 +8,7 @@ import { useExpertDirectoryShadow } from "../../../capabilities/session-identity
 import {
   buildExpertDirectoryPageModel,
   type ExpertDirectoryShadowDiff,
+  type LegacyExpertDirectorySnapshot,
 } from "../../../capabilities/session-identity/expert-directory-page-model";
 import {
   buildExpertSidebarSessionGroups,
@@ -38,13 +39,10 @@ export function useExpertPageIdentity(props: ExpertPageProps) {
     }),
     [props.sidebar.workspaceSessionGroups],
   );
-  const shadowLegacySnapshot = useMemo(
-    () => [{
-      agentId: "legacy",
-      sessionIds: workspaceSessions.map((session) => session.id),
-    }],
-    [workspaceSessions],
-  );
+  // Shadow counts only: previous Directory projection hashes. Never treat
+  // workspace sessions or a fake agentId "legacy" index as expert SoT.
+  const previousProjectionShadowRef = useRef<LegacyExpertDirectorySnapshot>([]);
+  const shadowLegacySnapshot = previousProjectionShadowRef.current;
   const emitShadow = useCallback((event: ExpertDirectoryShadowDiff) => {
     const client = props.onmyagentServerClient;
     const workspaceId = (
@@ -84,6 +82,14 @@ export function useExpertPageIdentity(props: ExpertPageProps) {
     isDevelopment: import.meta.env.DEV,
     emit: emitShadow,
   });
+  useEffect(() => {
+    const records = query.data?.records;
+    if (!records) return;
+    previousProjectionShadowRef.current = records.map((record) => ({
+      agentId: record.agentId,
+      sessionIds: [...record.sessionIds],
+    }));
+  }, [query.data]);
   const page = useMemo(
     () =>
       buildExpertDirectoryPageModel({
@@ -111,8 +117,12 @@ export function useExpertPageIdentity(props: ExpertPageProps) {
       workspaceSessions,
       registry,
       selectedSessionId: props.selectedSessionId,
+      directoryQuery: {
+        data: query.data,
+        lastComplete: query.lastComplete,
+      },
     }),
-    [page, props.selectedSessionId, registry, workspaceSessions],
+    [page, props.selectedSessionId, query.data, query.lastComplete, registry, workspaceSessions],
   );
 
   return {

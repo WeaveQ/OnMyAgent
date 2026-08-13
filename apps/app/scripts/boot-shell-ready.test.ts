@@ -82,4 +82,20 @@ describe("boot shell ready wiring (regression lock)", () => {
     );
     expect(bootState).toContain("hard deadline after route refresh");
   });
+
+  test("standalone routes that unmount SessionRoute latch routeReady on mount", () => {
+    const files = [
+      "../src/react-app/shell/welcome-route.tsx",
+      "../src/react-app/domains/cloud/forced-signin-page.tsx",
+      "../src/react-app/domains/cloud/org-onboarding-page.tsx",
+    ];
+    for (const relative of files) {
+      const source = readFileSync(
+        path.join(import.meta.dir, relative),
+        "utf8",
+      );
+      expect(source.includes("markRouteReady")).toBe(true);
+      expect(source.includes("useBootState")).toBe(true);
+    }
+  });
 });

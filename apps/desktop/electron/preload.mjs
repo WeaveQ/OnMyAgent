@@ -263,6 +263,12 @@ contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
     setChannel(channel) {
       return ipcRenderer.invoke("onmyagent:updater:setChannel", channel);
     },
+    setAutoCheck(enabled) {
+      return ipcRenderer.invoke("onmyagent:updater:setAutoCheck", enabled);
+    },
+    getAutoCheck() {
+      return ipcRenderer.invoke("onmyagent:updater:getAutoCheck");
+    },
     check(channel) {
       return ipcRenderer.invoke("onmyagent:updater:check", channel);
     },

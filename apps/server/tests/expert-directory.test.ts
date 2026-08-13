@@ -256,7 +256,7 @@ describe("expert directory projection", () => {
       runtimeRoot: first.runtimeRoot,
       readSessions: async () => [{ id: "same-session", directory: first.directory }],
     });
-    expect(result.complete).toBe(false);
+    expect(result.complete).toBe(true);
     expect(result.failures).toMatchObject([{ code: "marker_identity_conflict" }]);
     expect(result.failures[0]?.key).not.toContain(first.directory);
     const healed = await healExpertDirectory(current, {
@@ -270,6 +270,79 @@ describe("expert directory projection", () => {
     expect((await listSessionOrigins(current)).items).toMatchObject([
       { sessionId: "same-session", agentId: "expert-a", packageName: "pkg-a" },
     ]);
+  });
+
+  test("one marker conflict does not make a healthy warehouse incomplete", async () => {
+    const current = await workspace("conflict-sibling");
+    const healthyA = await markerRoot(current, "expert-ok-a", "session-ok-a");
+    const segment = createHash("sha256")
+      .update(`${current.id}\0${current.path}`)
+      .digest("hex")
+      .slice(0, 16);
+    const healthyBDir = join(healthyA.runtimeRoot, segment, "expert-ok-b", "legacy-key");
+    const conflictDir = join(healthyA.runtimeRoot, segment, "expert-a", "legacy-key");
+    await mkdir(healthyBDir, { recursive: true });
+    await mkdir(conflictDir, { recursive: true });
+    await writeMarker(healthyA.directory, current.id, {
+      isolationVersion: 3, agentId: "expert-ok-a", packageName: "pkg-ok-a", sessionId: "session-ok-a",
+      declaredSkills: [], installedSkills: [], missingSkills: [],
+    });
+    await writeMarker(healthyBDir, current.id, {
+      isolationVersion: 3, agentId: "expert-ok-b", packageName: "pkg-ok-b", sessionId: "session-ok-b",
+      declaredSkills: [], installedSkills: [], missingSkills: [],
+    });
+    await writeMarker(conflictDir, current.id, {
+      isolationVersion: 3, agentId: "expert-a", packageName: "pkg-a", sessionId: "session-conflict",
+      declaredSkills: [], installedSkills: [], missingSkills: [],
+    });
+    await upsertSessionOrigin(current, "session-ok-a", {
+      kind: "expert", agentId: "expert-ok-a", packageName: "pkg-ok-a", directory: healthyA.directory,
+    });
+    await upsertSessionOrigin(current, "session-ok-b", {
+      kind: "expert", agentId: "expert-ok-b", packageName: "pkg-ok-b", directory: healthyBDir,
+    });
+    await upsertSessionOrigin(current, "session-conflict", {
+      kind: "expert", agentId: "expert-b", packageName: "pkg-b", directory: conflictDir,
+    });
+    const result = await buildExpertDirectory(current, {
+      runtimeRoot: healthyA.runtimeRoot,
+      readSessions: async () => [
+        { id: "session-ok-a", directory: healthyA.directory },
+        { id: "session-ok-b", directory: healthyBDir },
+        { id: "session-conflict", directory: conflictDir },
+      ],
+    });
+    expect(result.failures).toMatchObject([{ code: "marker_identity_conflict" }]);
+    expect(result.complete).toBe(true);
+    expect(result.records.flatMap((record) => record.sessionIds).sort()).toEqual([
+      "session-conflict",
+      "session-ok-a",
+      "session-ok-b",
+    ]);
+  });
+
+  test("legacy_identity_unresolved still marks the warehouse incomplete", async () => {
+    const current = await workspace("unresolved-incomplete");
+    const originsPath = join(current.path, ".opencode", "onmyagent", "session-origins.json");
+    await mkdir(join(current.path, ".opencode", "onmyagent"), { recursive: true });
+    await writeFile(originsPath, JSON.stringify({
+      version: 2,
+      revision: 1,
+      records: [{
+        workspaceId: current.id,
+        sessionId: "session-blank",
+        kind: "expert",
+        createdAt: 1,
+        updatedAt: 1,
+      }],
+      tombstones: [],
+    }));
+    const projection = await buildExpertDirectory(current, {
+      runtimeRoot: join(tmpdir(), "onmyagent-no-runtime-unresolved"),
+      readSessions: async () => [{ id: "session-blank" }],
+    });
+    expect(projection.complete).toBe(false);
+    expect(projection.failures).toMatchObject([{ code: "legacy_identity_unresolved" }]);
   });
 
   test("duplicate conflicting v3 markers remain fail-closed during apply", async () => {

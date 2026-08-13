@@ -98,6 +98,7 @@ import {
   createIsolatedExpertSessionRuntimeDirectory,
   shouldIsolateExpertSessionDirectory,
 } from "../../capabilities/session-identity/expert-session-directory";
+import { normalizeExpertWritePackageName } from "../../capabilities/session-identity/expert-package-name";
 import { useExpertDirectoryStore } from "../../capabilities/session-identity/expert-directory-store";
 import { CloudSessionProvider } from "../../domains/settings";
 import { installMarketplaceExpertAfterSessionCreated } from "./intent";
@@ -635,8 +636,10 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                 const agentName =
                   pendingAgentSnapshot?.name?.trim() || "expert";
                 const agentId = pendingAgentSnapshot?.id?.trim() || "";
-                const packageName =
-                  pendingAgentSnapshot?.marketplaceExpert?.packageName || agentId;
+                const packageName = normalizeExpertWritePackageName({
+                  agentId,
+                  packageName: pendingAgentSnapshot?.marketplaceExpert?.packageName,
+                });
                 const approvedAgentIds =
                   pendingAgentSnapshot?.approvedAgentIds ?? [];
                 const skillNames = pendingAgentSnapshot?.skillIds ?? [];
@@ -741,7 +744,12 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             const markerClient = selectedWorkspaceEndpoint?.client ?? client;
             const markerWorkspaceId = selectedWorkspaceEndpoint?.workspaceId ?? workspaceId;
             const markerAgentId = agentToBind?.id?.trim() || undefined;
-            const markerPackageName = agentToBind?.marketplaceExpert?.packageName || markerAgentId;
+            const markerPackageName = markerAgentId
+              ? normalizeExpertWritePackageName({
+                  agentId: markerAgentId,
+                  packageName: agentToBind?.marketplaceExpert?.packageName,
+                })
+              : undefined;
             if (newSession.directory && markerClient) {
               try {
                 await markerClient.ensureExpertSessionIsolation(markerWorkspaceId, {
@@ -763,7 +771,12 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               sessionId: newSession.id,
               kind: "expert",
               agentId: agentToBind?.id,
-              packageName: agentToBind?.marketplaceExpert?.packageName || agentToBind?.id,
+              packageName: agentToBind
+                ? normalizeExpertWritePackageName({
+                    agentId: agentToBind.id,
+                    packageName: agentToBind.marketplaceExpert?.packageName,
+                  })
+                : undefined,
               directory: newSession.directory,
             }).then(() =>
               getReactQueryClient().invalidateQueries({

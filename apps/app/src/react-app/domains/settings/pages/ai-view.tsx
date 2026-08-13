@@ -63,7 +63,13 @@ export type AiSettingsViewProps = {
   providerDisconnectError: string | null;
   onOpenProviderAuth: () => void | Promise<void>;
   onDisconnectProvider: (providerId: string) => void | Promise<void>;
-  canDisconnectProvider: (provider: AiSettingsConnectedProvider) => boolean;
+  /**
+   * Unified remove control. Host must pass `resolveProviderRemoveMode`
+   * (or the settings chrome wrapper). Env / not-ready rows return null.
+   */
+  resolveRemoveMode: (
+    provider: AiSettingsConnectedProvider,
+  ) => "delete" | "disconnect" | null;
   /** Set of local provider IDs that were imported from cloud. */
   cloudProviderIds?: Set<string>;
   showOnMyAgentModelsSubscribe?: boolean;
@@ -73,7 +79,6 @@ export type AiSettingsViewProps = {
   onEditProvider?: (provider: AiSettingsConnectedProvider) => void;
   onDeleteProvider?: (provider: AiSettingsConnectedProvider) => void;
   canEditProvider?: (provider: AiSettingsConnectedProvider) => boolean;
-  canDeleteProvider?: (provider: AiSettingsConnectedProvider) => boolean;
   /** Provider id currently being edited/deleted (disables its row actions). */
   providerActionBusyId?: string | null;
   /**
@@ -356,6 +361,9 @@ export function AiSettingsView(props: AiSettingsViewProps) {
               const canMoveUp = canMove && providerIndex > 0;
               const canMoveDown =
                 canMove && providerIndex < props.connectedProviders.length - 1;
+              const removeMode = isCloud
+                ? null
+                : props.resolveRemoveMode(provider);
 
               return (
                 <SettingsBlockRow
@@ -539,9 +547,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                         ) : null}
                         {/* Unified remove: delete (custom/config) or disconnect
                             (API/OAuth/Zen). Env rows: no button, hint only. */}
-                        {!isCloud &&
-                        (props.canDeleteProvider?.(provider) ||
-                          props.canDisconnectProvider(provider)) ? (
+                        {removeMode ? (
                           <Tooltip>
                             <TooltipTrigger
                               render={(
@@ -557,12 +563,10 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                                     props.disconnectingProviderId !== null
                                   }
                                   onClick={() => {
-                                    const mode = props.canDeleteProvider?.(
+                                    setPendingRemove({
                                       provider,
-                                    )
-                                      ? "delete"
-                                      : "disconnect";
-                                    setPendingRemove({ provider, mode });
+                                      mode: removeMode,
+                                    });
                                   }}
                                   aria-label={
                                     props.disconnectingProviderId ===

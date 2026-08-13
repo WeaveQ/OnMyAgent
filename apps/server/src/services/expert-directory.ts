@@ -239,7 +239,12 @@ export async function buildExpertDirectory(
   );
   // A missing origins file is an authoritative empty state, so marker-only
   // candidates remain healable. Corrupt/unknown origins stay incomplete.
-  const complete = originsAuthoritative && inventory.complete && lookupComplete && failures.length === 0;
+  // marker_identity_conflict stays in `failures` (no record field) but must
+  // not force workspace complete=false when remaining origins are healthy.
+  const blockingFailures = failures.filter(
+    (failure) => failure.code !== "marker_identity_conflict",
+  );
+  const complete = originsAuthoritative && inventory.complete && lookupComplete && blockingFailures.length === 0;
   const projection: ExpertDirectoryProjection = {
     version: 1,
     schema: "onmyagent.expert-directory.v1",

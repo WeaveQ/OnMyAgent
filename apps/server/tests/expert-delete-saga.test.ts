@@ -113,6 +113,89 @@ describe("Expert delete saga", () => {
     });
     expect(matched).toHaveLength(1);
     expect(matched[0]?.sessionId).toBe("ses_1");
+    const byShortAgent = selectExpertDeleteOriginRecords(items, {
+      agentId: "kol-ops",
+      packageName: "kol-ops:kol-ops",
+    });
+    expect(byShortAgent.map((item) => item.sessionId)).toEqual(["ses_1"]);
+  });
+
+  test("package-name-only match does not select another expert", () => {
+    const items = [
+      {
+        sessionId: "ses_other",
+        kind: "expert" as const,
+        agentId: "other-ops:other-ops",
+        packageName: "kol-ops",
+        directory: "/tmp/other",
+      },
+      {
+        sessionId: "ses_self",
+        kind: "expert" as const,
+        agentId: "kol-ops:kol-ops",
+        packageName: "kol-ops",
+        directory: "/tmp/self",
+      },
+    ];
+    const matched = selectExpertDeleteOriginRecords(items, {
+      agentId: "missing:missing",
+      packageName: "kol-ops",
+    });
+    expect(matched).toEqual([]);
+    const compositePackage = selectExpertDeleteOriginRecords(items, {
+      agentId: "other-ops:other-ops",
+      packageName: "kol-ops:kol-ops",
+    });
+    expect(compositePackage.map((item) => item.sessionId)).toEqual(["ses_other"]);
+  });
+
+  test("requested ids only in a wider known set fail closed", async () => {
+    const value = await fixture("session-1");
+    try {
+      const otherDirectory = join(value.runtimeRoot, "workspace-hash", "agent", "session-other");
+      await mkdir(otherDirectory, { recursive: true });
+      await upsertSessionOrigin(value.workspace, "session-other", {
+        kind: "expert",
+        agentId: "agent-1",
+        packageName: "other-package",
+        directory: otherDirectory,
+        expectedRevision: 1,
+      });
+      await expect(runDelete(value, {
+        operationId: "operation-wider-only",
+        expectedRevision: 2,
+        sessionIds: ["session-other"],
+      })).rejects.toMatchObject({
+        code: "expert_delete_target_not_found",
+      } satisfies Partial<ApiError>);
+      await expect(runDelete(value, {
+        operationId: "operation-wider-mixed",
+        expectedRevision: 2,
+        sessionIds: ["session-1", "session-other"],
+      })).rejects.toMatchObject({
+        code: "expert_delete_target_not_found",
+      } satisfies Partial<ApiError>);
+      const origins = await listSessionOrigins(value.workspace);
+      expect(origins.items.map((item) => item.sessionId).sort()).toEqual(["session-1", "session-other"]);
+      expect(origins.tombstones).toHaveLength(0);
+    } finally {
+      await rm(value.root, { recursive: true, force: true });
+    }
+  });
+
+  test("no live origins and no journal is not an empty completed delete", async () => {
+    const value = await fixture("session-1");
+    try {
+      await expect(runDelete(value, {
+        operationId: "operation-wrong-agent",
+        agentId: "missing-agent",
+        packageName: "missing-pkg",
+      })).rejects.toMatchObject({
+        code: "expert_delete_target_not_found",
+      } satisfies Partial<ApiError>);
+    } finally {
+      await rm(value.root, { recursive: true, force: true });
+    }
   });
 
   test("deletes when packageName is wrong composite but agentId matches", async () => {

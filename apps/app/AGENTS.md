@@ -64,7 +64,7 @@ OpenCode 主 · Personal 辅 · 禁止交叉写 store/archive。
 |----|------|------|
 | **产品行为**（本表） | 水合 / 草稿 / 首发 / SSE 代际 / 空壳 busy | 本文件 + 契约测试 |
 | **会话面架构** | surface FSM、tab 硬规则、cold-open suppress、pending 三语义 | `docs/design/expert-surface-architecture.md` |
-| **生命周期 / 预算** | hard_delete、create flush、select no-op、listSessions 次数 | Architecture Expert lifecycle + Cold-path budget |
+| **生命周期 / 预算** | hard_delete（agentId-first / 短 packageName）、create flush、select no-op、listSessions 次数 | Architecture Expert lifecycle + Cold-path budget |
 | **Runtime 隔离** | agent=onmyagent、sandbox HOME、plugin 空列表 | `docs/design/expert-runtime-isolation.md` |
 
 契约入口：`scripts/expert-session-invariants.test.ts`。

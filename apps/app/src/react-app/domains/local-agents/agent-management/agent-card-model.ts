@@ -40,21 +40,33 @@ const MISSING_ERROR = new RegExp(
 const ACP_PROBE_NOISE =
   /acp|handshake|session\/new|session\/load|initialize|json-rpc|protocol/i;
 
+type AgentDetectSnapshot = {
+  status?: string | null;
+  error?: string | null;
+  errorInfo?: { code?: string | null } | null;
+  errorCode?: string | null;
+  capability?: { installed?: boolean | null } | null;
+};
+
 /**
- * Status for badge + filters (R1–R2).
+ * Shipped availability classifier (live list detect + persisted test-connection).
  *
  * - missing: binary not on PATH / not configured
  * - offline: installed but unhealthy (auth, ACP, version, …)
  * - online / needs_auth: after list detect or user test-connection
+ *
+ * Live detect `online` is never overridden by a stale stored
+ * `needs_auth` / `failed` probe.
  */
-export function agentDisplayStatus(
-  agent: { status?: string | null; error?: string | null; errorInfo?: { code?: string | null } | null; errorCode?: string | null; capability?: { installed?: boolean | null } | null },
-  health?: AgentManagementHealthResult | null,
+export function classifyAgentAvailability(
+  detect: AgentDetectSnapshot | null | undefined,
+  storedTest?: AgentManagementHealthResult | null,
 ): AgentDisplayStatus {
+  const agent = detect ?? {};
   const base = installOnlyStatus(agent);
 
   // Successful "测试连接" always lifts to online.
-  if (health?.status === "passed") return "online";
+  if (storedTest?.status === "passed") return "online";
 
   // Live listAgents is authoritative when the agent is currently online.
   // Stale healthResults (needs_auth / failed) used to pin 需登录 forever after
@@ -62,22 +74,24 @@ export function agentDisplayStatus(
   if (base === "online") return "online";
 
   // User-initiated probe for non-online base states.
-  if (health?.status === "needs_auth") return "needs_auth";
-  if (health?.status === "missing") return "missing";
-  if (health?.status === "failed") return "offline";
-  // health.running → card shows checking; keep optimistic base for filters.
-  if (health?.status === "running") return base;
+  if (storedTest?.status === "needs_auth") return "needs_auth";
+  if (storedTest?.status === "missing") return "missing";
+  if (storedTest?.status === "failed") return "offline";
+  // storedTest.running → card shows checking; keep optimistic base for filters.
+  if (storedTest?.status === "running") return base;
 
   return base;
 }
 
-function looksLikeMissingBinary(agent: {
-  status?: string | null;
-  error?: string | null;
-  errorInfo?: { code?: string | null } | null;
-  errorCode?: string | null;
-  capability?: { installed?: boolean | null } | null;
-}): boolean {
+/** Card/filter badge status. Delegates to classifyAgentAvailability. */
+export function agentDisplayStatus(
+  agent: AgentDetectSnapshot,
+  health?: AgentManagementHealthResult | null,
+): AgentDisplayStatus {
+  return classifyAgentAvailability(agent, health);
+}
+
+function looksLikeMissingBinary(agent: AgentDetectSnapshot): boolean {
   const code = String(agent.errorInfo?.code ?? agent.errorCode ?? "").trim().toLowerCase();
   if (code === "missing_binary") return true;
   if (agent.capability?.installed === false) return true;
@@ -94,13 +108,7 @@ function looksLikeMissingBinary(agent: {
  * R1: missing binary → missing, never leave as offline.
  * R2: offline / needs_auth only when the CLI is present.
  */
-function installOnlyStatus(agent: {
-  status?: string | null;
-  error?: string | null;
-  errorInfo?: { code?: string | null } | null;
-  errorCode?: string | null;
-  capability?: { installed?: boolean | null } | null;
-}): AgentDisplayStatus {
+function installOnlyStatus(agent: AgentDetectSnapshot): AgentDisplayStatus {
   const raw = String(agent.status ?? "").trim().toLowerCase();
   if (raw === "online") return "online";
   if (raw === "needs_auth") return "needs_auth";
@@ -152,7 +160,7 @@ export function resolveAgentCardActions(
   primary: AgentPrimaryAction;
   secondary: AgentSecondaryAction;
 } {
-  const status = agentDisplayStatus(agent, health);
+  const status = classifyAgentAvailability(agent, health);
   const ownership = agentOwnership(agent);
   const isMissing = status === "missing";
 
@@ -170,7 +178,7 @@ export function resolveAgentCardActions(
 
 /** Sort: healthy → needs login → offline → other → missing. */
 export function agentStatusSortRank(agent: AgentManagementAgent): number {
-  const status = agentDisplayStatus(agent);
+  const status = classifyAgentAvailability(agent);
   if (status === "online") return 0;
   if (status === "needs_auth") return 1;
   if (status === "offline") return 2;

@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   canRemoveProviderRow,
   isEnvManagedProvider,
+  resolveAiViewRemoveMode,
   resolveProviderRemoveMode,
 } from "../src/react-app/shell/settings-route/provider-disconnect-policy";
 
@@ -68,6 +69,20 @@ describe("provider remove policy (unified 移除)", () => {
         opencodeInventoryReady: true,
       }),
     ).toBe("disconnect");
+  });
+
+  test("chrome helper matches the policy for the same row", () => {
+    const rows = [
+      { id: "deepseek", source: "env" as const },
+      { id: "huoshan", source: "custom" as const },
+      { id: "ollama", source: "config" as const },
+      { id: "xiaomi", source: "api" as const },
+      { id: "opencode" },
+    ];
+    for (const provider of rows) {
+      const input = { provider, opencodeInventoryReady: true };
+      expect(resolveAiViewRemoveMode(input)).toBe(resolveProviderRemoveMode(input));
+    }
   });
 
   test("non-custom without inventory: no flash of remove", () => {
