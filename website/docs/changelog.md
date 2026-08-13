@@ -8,6 +8,10 @@ title: 更新日志
 
 ## Unreleased
 
+## 0.5.2
+
+- 安装包再瘦一截：只保留中英语言包，去掉 office 库未使用的浏览器包，压缩过大的货架图标
+
 ## 0.5.1
 
 - 安装包更小：去掉未使用的内置 Node/Python 附件、重复 sidecar，以及 artifact-runtime 的 map/类型文件

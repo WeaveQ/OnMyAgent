@@ -8,6 +8,10 @@ For the complete assets and release notes, use [GitHub Releases](https://github.
 
 ## Unreleased
 
+## 0.5.2
+
+- Smaller installer: English/Chinese Electron locales only, drop unused office-lib browser bundles, recompress oversized catalog icons
+
 ## 0.5.1
 
 - Smaller installers: drop unused bundled Node/Python extras, duplicate sidecars, and artifact-runtime maps/types
