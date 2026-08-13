@@ -2,6 +2,11 @@ import { createOpencodeClient, type Message, type OutputFormat, type Part, type 
 
 import { desktopFetchWithTimeout } from "./desktop";
 import { createOnMyAgentServerClient, OnMyAgentServerError } from "./onmyagent-server";
+import {
+  buildOfficeCreateSessionInput,
+  resolveOfficePromptDispatch,
+  shouldUsePiSessionWriteShim,
+} from "./office-session-routing";
 import { isDesktopRuntime } from "../utils";
 
 type FieldsResult<T> =
@@ -44,6 +49,11 @@ type SessionListParameters = {
   limit?: number;
 };
 
+type SessionCreateParameters = {
+  directory?: string;
+  title?: string;
+};
+
 type SessionLookupParameters = {
   sessionID: string;
   directory?: string;
@@ -60,6 +70,7 @@ export type OpencodeAuth = {
   password?: string;
   token?: string;
   mode?: "basic" | "onmyagent";
+  agentEngine?: "opencode" | "pi";
 };
 
 const DEFAULT_OPENCODE_REQUEST_TIMEOUT_MS = 10_000;
@@ -209,6 +220,23 @@ async function wrapOnMyAgentRead<T>(
   } catch (error) {
     if (options?.throwOnError) throw error;
     return createSyntheticResult(url, "GET", {
+      ok: false,
+      error,
+      status: error instanceof OnMyAgentServerError ? error.status : 500,
+    });
+  }
+}
+
+async function wrapOnMyAgentWrite<T>(
+  url: string,
+  write: () => Promise<T>,
+  options?: { throwOnError?: boolean },
+): Promise<FieldsResult<T>> {
+  try {
+    return createSyntheticResult(url, "POST", { ok: true, data: await write() });
+  } catch (error) {
+    if (options?.throwOnError) throw error;
+    return createSyntheticResult(url, "POST", {
       ok: false,
       error,
       status: error instanceof OnMyAgentServerError ? error.status : 500,
@@ -380,6 +408,7 @@ export function createClient(baseUrl: string, directory?: string, auth?: Opencod
   // Writable session surface used to install OnMyAgent workspace routing and
   // reasoning_effort passthrough without widening through `any`.
   type MutableSessionApi = {
+    create: (parameters?: SessionCreateParameters, options?: { throwOnError?: boolean }) => Promise<FieldsResult<Session>>;
     list: (parameters?: SessionListParameters, options?: { throwOnError?: boolean }) => Promise<FieldsResult<Session[]>>;
     get: (parameters: SessionLookupParameters, options?: { throwOnError?: boolean }) => Promise<FieldsResult<Session>>;
     messages: (parameters: SessionMessagesParameters, options?: { throwOnError?: boolean }) => Promise<FieldsResult<Array<{ info: Message; parts: Part[] }>>>;
@@ -388,6 +417,26 @@ export function createClient(baseUrl: string, directory?: string, auth?: Opencod
     command: (parameters: CommandParameters, options?: { throwOnError?: boolean }) => Promise<FieldsResult<{}>>;
   };
   const sessionOverrides = session as MutableSessionApi;
+
+  const createOriginal = sessionOverrides.create.bind(session);
+  sessionOverrides.create = (parameters?: SessionCreateParameters, options?: { throwOnError?: boolean }) => {
+    if (
+      !onmyagentMount ||
+      !onmyagentSessionClient ||
+      !shouldUsePiSessionWriteShim(auth?.agentEngine)
+    ) {
+      return createOriginal(parameters, options);
+    }
+    const input = buildOfficeCreateSessionInput(parameters);
+    return wrapOnMyAgentWrite<Session>(
+      `${onmyagentMount.baseUrl}/workspace/${encodeURIComponent(onmyagentMount.workspaceId)}/sessions`,
+      async () => {
+        const ref = await onmyagentSessionClient.createSession(onmyagentMount.workspaceId, input);
+        return { id: ref.id } as Session;
+      },
+      options,
+    );
+  };
 
   const listOriginal = sessionOverrides.list.bind(session);
   sessionOverrides.list = (parameters?: SessionListParameters, options?: { throwOnError?: boolean }) => {
@@ -472,6 +521,22 @@ export function createClient(baseUrl: string, directory?: string, auth?: Opencod
 
   const promptAsyncOriginal = sessionOverrides.promptAsync.bind(session);
   sessionOverrides.promptAsync = (parameters: PromptAsyncParameters, options?: { throwOnError?: boolean }) => {
+    const promptDispatch = resolveOfficePromptDispatch(auth?.agentEngine, parameters);
+    if (
+      onmyagentMount &&
+      onmyagentSessionClient &&
+      promptDispatch.kind === "pi-text"
+    ) {
+      const url = `${onmyagentMount.baseUrl}/workspace/${encodeURIComponent(onmyagentMount.workspaceId)}/sessions/${encodeURIComponent(parameters.sessionID)}/prompt`;
+      return wrapOnMyAgentWrite(url, async () =>
+        onmyagentSessionClient.sendPrompt(
+          onmyagentMount.workspaceId,
+          parameters.sessionID,
+          promptDispatch.text,
+          parameters.model ? { model: parameters.model } : undefined,
+        ),
+      );
+    }
     if (!("reasoning_effort" in parameters)) {
       return promptAsyncOriginal(parameters, options);
     }

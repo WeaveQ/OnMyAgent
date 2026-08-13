@@ -398,6 +398,8 @@ export interface WorkspaceConfig {
   baseUrl?: string;
   directory?: string;
   displayName?: string;
+  /** Agent engine for this workspace: "opencode" (default) | "pi" (experimental). */
+  agentEngine?: "opencode" | "pi";
   onmyagentHostUrl?: string;
   onmyagentToken?: string;
   onmyagentWorkspaceId?: string;
@@ -419,6 +421,8 @@ export interface WorkspaceInfo {
   baseUrl?: string;
   directory?: string;
   displayName?: string;
+  /** Agent engine for this workspace: "opencode" (default) | "pi" (experimental). */
+  agentEngine?: "opencode" | "pi";
   onmyagentHostUrl?: string;
   onmyagentToken?: string;
   onmyagentWorkspaceId?: string;
@@ -458,6 +462,8 @@ export interface ServerConfig {
   opencodeUsername?: string;
   opencodePassword?: string;
   approval: ApprovalConfig;
+  /** Default agent engine when a workspace does not override. Missing → opencode. */
+  agentEngine?: "opencode" | "pi";
   corsOrigins: string[];
   workspaces: WorkspaceInfo[];
   authorizedRoots: string[];

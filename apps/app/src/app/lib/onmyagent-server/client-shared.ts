@@ -131,6 +131,24 @@ export type OnMyAgentWorkspaceList = {
   activeId?: string | null;
 };
 
+export type OnMyAgentAgentCapabilities = {
+  todo: boolean;
+  mcp: boolean;
+  skills: boolean;
+  skillsLoad: boolean;
+  approvals: "native" | "bridge" | "none";
+  archive: "sqlite" | "jsonl";
+  multiSession: string;
+  sessionList: { search: boolean; pagination: boolean; multiRoot: boolean };
+  models: string;
+};
+
+export type OnMyAgentAgentCapabilitiesResponse = {
+  workspaceId: string;
+  engine: string;
+  capabilities: OnMyAgentAgentCapabilities;
+};
+
 export type OnMyAgentSessionMessage = {
   info: Message;
   parts: Part[];

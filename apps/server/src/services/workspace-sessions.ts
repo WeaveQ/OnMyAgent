@@ -30,7 +30,60 @@ import {
   type NormalizedWorkspaceSessionListInput,
   type WorkspaceSessionListInput,
 } from "./workspace-session-list-policy.js";
+import { getEngine, resolveEngineId } from "../engines/index.js";
 import { scanWorkspaceExpertSessionMarkers } from "./workspace-session-marker-inventory.js";
+
+/**
+ * Convert pi AgentMessage (flat role/content/timestamp) into the OpenCode
+ * session-message read model ({info, parts[]}) consumed by the UI timeline.
+ * Parts carry the original shape through passthrough fields.
+ */
+function convertPiMessages(sessionId: string, messages: unknown[]): unknown[] {
+  return (Array.isArray(messages) ? messages : []).map((raw, i) => {
+    const msg = (raw ?? {}) as {
+      role?: string;
+      content?: unknown;
+      timestamp?: number | string;
+      model?: string;
+      provider?: string;
+    };
+    const role = String(msg.role ?? "");
+    const content = Array.isArray(msg.content) ? msg.content : [];
+    const messageId = `${sessionId}-m${i}`;
+    return {
+      info: {
+        id: messageId,
+        sessionID: sessionId,
+        role,
+        ...(msg.timestamp
+          ? {
+              time: {
+                created:
+                  typeof msg.timestamp === "number"
+                    ? msg.timestamp
+                    : Date.parse(String(msg.timestamp)) || undefined,
+              },
+            }
+          : {}),
+      },
+      parts: content.map((part, j: number) => {
+        const record = part && typeof part === "object" ? (part as Record<string, unknown>) : {};
+        return {
+          id: `${messageId}-p${j}`,
+          messageID: messageId,
+          sessionID: sessionId,
+          type: String(record.type ?? "text"),
+          ...(typeof record.text === "string" ? { text: record.text } : {}),
+          ...(typeof record.thinking === "string" ? { thinking: record.thinking } : {}),
+          ...(record.type === "toolCall" ? { toolCall: record } : {}),
+        };
+      }),
+      ...(msg.model ? { model: msg.model } : {}),
+      ...(msg.provider ? { provider: msg.provider } : {}),
+    };
+  });
+}
+
 import {
   isSessionNotFoundApiError,
   sessionNotFoundError,
@@ -106,6 +159,20 @@ export async function listWorkspaceSessions(
 ) {
   const started = performance.now();
   const normalized = normalizeWorkspaceSessionListInput(input);
+  // Pi engine: enumerate the managed --session-dir instead of OpenCode.
+  if (resolveEngineId(config, workspace) === "pi") {
+    const engine = getEngine(config, workspace);
+    const sessions = await engine.listSessions();
+    const items = buildSessionList(
+      sessions.map((s) => ({
+        id: s.id,
+        ...(s.title ? { title: s.title } : {}),
+        ...(s.updatedAt ? { time: { updated: Date.parse(s.updatedAt) || undefined } } : {}),
+        ...(s.directory ? { directory: s.directory } : {}),
+      })) as Parameters<typeof buildSessionList>[0],
+    );
+    return items;
+  }
   assertWorkspaceSessionAggregateWindow(normalized);
   if (normalized.scope === "workspace") {
     return listWorkspaceSessionsAggregated(config, workspace, normalized, input.signal);
@@ -400,6 +467,12 @@ export async function readWorkspaceSessionMessages(
   sessionId: string,
   input: { limit?: number; directory?: string; signal?: AbortSignal },
 ) {
+  // Pi engine: messages come from the managed RPC session.
+  if (resolveEngineId(config, workspace) === "pi") {
+    const engine = getEngine(config, workspace);
+    const messages = await engine.getMessages(sessionId);
+    return buildSessionMessages(convertPiMessages(sessionId, messages) as never);
+  }
   try {
     const opencode = getWorkspaceOpencodeClient(config, workspace, input.directory);
     return buildSessionMessages(
@@ -462,6 +535,21 @@ export async function readWorkspaceSessionSnapshot(
   sessionId: string,
   input: { limit?: number; directory?: string; signal?: AbortSignal },
 ) {
+  // Pi engine: build the snapshot from the managed RPC session.
+  if (resolveEngineId(config, workspace) === "pi") {
+    const engine = getEngine(config, workspace);
+    const snapshot = await readWorkspaceSessionSnapshotReads(
+      {
+        session: () =>
+          engine.getSession(sessionId).then((s) => ({ id: s.id, ...(s.title ? { title: s.title } : {}) })),
+        messages: () => engine.getMessages(sessionId).then((msgs) => convertPiMessages(sessionId, msgs)),
+        todos: () => Promise.resolve([]),
+        statuses: () => Promise.resolve({}),
+      },
+      input.signal,
+    );
+    return buildSessionSnapshot(snapshot as never);
+  }
   try {
     const opencode = getWorkspaceOpencodeClient(config, workspace, input.directory);
     const snapshot = await readWorkspaceSessionSnapshotReads(
@@ -526,6 +614,12 @@ export async function deleteWorkspaceSession(
   sessionId: string,
   directory?: string,
 ): Promise<void> {
+  // Pi engine: stop the process (if live) and remove the managed JSONL file.
+  if (resolveEngineId(config, workspace) === "pi") {
+    const engine = getEngine(config, workspace);
+    await engine.deleteSession(sessionId);
+    return;
+  }
   const opencode = getWorkspaceOpencodeClient(config, workspace, directory);
   try {
     unwrapOpencodeResult(

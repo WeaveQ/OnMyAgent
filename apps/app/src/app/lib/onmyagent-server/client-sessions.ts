@@ -25,6 +25,26 @@ export function createSessionsClientMethods(ctx: OnMyAgentServerClientContext) {
   const { baseUrl, token, hostToken, timeouts, requestOpenCodeRouter, routerPath } = ctx;
 
   return {
+    createSession: (
+      workspaceId: string,
+      input?: {
+        title?: string;
+        directory?: string;
+        agentId?: string;
+        model?: { providerID: string; modelID: string };
+      },
+    ) =>
+      requestJson<{ id: string }>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/sessions`,
+        {
+          token,
+          hostToken,
+          method: "POST",
+          body: input && Object.keys(input).length ? JSON.stringify(input) : "{}",
+          timeoutMs: timeouts.sessionRead,
+        },
+      ),
     deleteSession: (workspaceId: string, sessionId: string, options?: { directory?: string }) => {
       const query = new URLSearchParams();
       if (options?.directory?.trim()) query.set("directory", options.directory.trim());
@@ -153,6 +173,18 @@ export function createSessionsClientMethods(ctx: OnMyAgentServerClientContext) {
           method: "POST",
           body: request,
           timeoutMs: timeouts.deleteSession,
+        },
+      ),
+    sendPrompt: (workspaceId: string, sessionId: string, prompt: string, options?: { model?: { providerID: string; modelID: string } }) =>
+      requestJson<{ ok: boolean }>(
+        baseUrl,
+        `/workspace/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(sessionId)}/prompt`,
+        {
+          token,
+          hostToken,
+          method: "POST",
+          body: { prompt, ...(options?.model ? { model: options.model } : {}) },
+          timeoutMs: timeouts.sessionRead,
         },
       ),
   };

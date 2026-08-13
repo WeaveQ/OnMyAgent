@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   BUNDLED_SKILLS_RESOURCE_DIR,
@@ -22,8 +24,10 @@ import {
   productRuntimeBinaryEnvKeys,
   productRuntimeBinaryNames,
   productRuntimeBinaryRelativePath,
+  mergeWorkspaceEngineSpecs,
   prioritizeWorkspacePaths,
   selectBestLocalOpencodeFromProbed,
+  toServerWorkspaceSpec,
   shouldAlignOpencodePluginPin,
   shouldSkipLocalOpencodeCandidate,
   softwareToolDetail,
@@ -35,6 +39,86 @@ test("normalizeWorkspaceKey trims, resolves, and lowercases", () => {
   assert.equal(normalizeWorkspaceKey("  "), "");
   const key = normalizeWorkspaceKey("/tmp/Foo/../Bar");
   assert.equal(key, path.resolve("/tmp/Bar").replace(/\\/g, "/").toLowerCase());
+});
+
+test("toServerWorkspaceSpec omits a missing engine and never invents pi or opencode", () => {
+  assert.deepEqual(toServerWorkspaceSpec("/workspace/office"), {
+    path: "/workspace/office",
+  });
+  assert.deepEqual(toServerWorkspaceSpec({ path: "/workspace/office" }), {
+    path: "/workspace/office",
+  });
+  assert.equal(toServerWorkspaceSpec("/workspace/office")?.agentEngine, undefined);
+  assert.deepEqual(toServerWorkspaceSpec({ path: "/workspace/office", agentEngine: "pi" }), {
+    path: "/workspace/office",
+    agentEngine: "pi",
+  });
+  assert.deepEqual(
+    toServerWorkspaceSpec({ path: "/workspace/office", agentEngine: "opencode" }),
+    { path: "/workspace/office", agentEngine: "opencode" },
+  );
+  assert.equal(toServerWorkspaceSpec("  "), null);
+  assert.equal(toServerWorkspaceSpec({ path: "" }), null);
+  assert.notEqual(toServerWorkspaceSpec("/workspace/office")?.agentEngine, "pi");
+  assert.notEqual(toServerWorkspaceSpec("/workspace/office")?.agentEngine, "opencode");
+});
+
+test("old pi default would fail the missing-engine contract", () => {
+  const oldBroken = (entry) => {
+    if (typeof entry === "string") {
+      const trimmed = entry.trim();
+      return trimmed ? { path: trimmed, agentEngine: "pi" } : null;
+    }
+    const pathValue = String(entry?.path ?? "").trim();
+    return pathValue ? { path: pathValue, agentEngine: entry.agentEngine ?? "pi" } : null;
+  };
+  assert.equal(oldBroken("/workspace/office")?.agentEngine, "pi");
+  assert.notEqual(toServerWorkspaceSpec("/workspace/office")?.agentEngine, oldBroken("/workspace/office")?.agentEngine);
+});
+
+test("inventing opencode on a field-less path would hide persisted pi", () => {
+  const oldInventOpencode = (entry) => ({
+    path: typeof entry === "string" ? entry : String(entry.path),
+    agentEngine: entry?.agentEngine === "pi" ? "pi" : "opencode",
+  });
+  assert.equal(oldInventOpencode({ path: "/workspace/office" }).agentEngine, "opencode");
+  assert.equal(toServerWorkspaceSpec({ path: "/workspace/office" })?.agentEngine, undefined);
+});
+
+test("mergeWorkspaceEngineSpecs keeps an explicit pi after a field-less prepend", () => {
+  assert.deepEqual(
+    mergeWorkspaceEngineSpecs([
+      { path: "/workspace/office" },
+      { path: "/workspace/office", agentEngine: "pi" },
+      "/workspace/other",
+    ]),
+    [
+      { path: "/workspace/office", agentEngine: "pi" },
+      { path: "/workspace/other" },
+    ],
+  );
+  assert.deepEqual(
+    mergeWorkspaceEngineSpecs([
+      { path: "/workspace/office", agentEngine: "pi" },
+      { path: "/workspace/office" },
+    ]),
+    [{ path: "/workspace/office", agentEngine: "pi" }],
+  );
+  assert.deepEqual(
+    mergeWorkspaceEngineSpecs(["/workspace/office", { path: "/workspace/office", agentEngine: "opencode" }]),
+    [{ path: "/workspace/office", agentEngine: "opencode" }],
+  );
+});
+
+test("runtime engineStart merges specs instead of first-wins field-less prepend", () => {
+  const runtimeSource = readFileSync(
+    path.join(path.dirname(fileURLToPath(import.meta.url)), "runtime.mjs"),
+    "utf8",
+  );
+  assert.match(runtimeSource, /mergeWorkspaceEngineSpecs\(/);
+  assert.match(runtimeSource, /toServerWorkspaceSpec\(/);
+  assert.doesNotMatch(runtimeSource, /agentEngine:\s*["']pi["']/);
+  assert.doesNotMatch(runtimeSource, /agentEngine\s*\?\?\s*["']pi["']/);
 });
 
 test("prioritizeWorkspacePaths prefers active and dedupes by key", () => {

@@ -604,3 +604,13 @@ scripts/release/      release review, prepare, ship, and asset publishing
 
 - 静态门禁：`scripts/checks/check-dual-runtime-boundary.mjs`（接入 `check:boundaries`）禁止 renderer / app 源码 import `personal-agent-runtime/**`，并禁止 personal-agent-runtime 直接 import server archive 热路径模块。
 - 与上文 **Dual Runtime Boundary** 禁止交叉写一致；单元测试覆盖 fixture 违规失败。
+
+## Agent Engine Layer (dual-engine: opencode + pi)
+
+See [`docs/design/2026-08-11-dual-engine-pi-support.md`](design/2026-08-11-dual-engine-pi-support.md) for the full plan (decisions B1-B5, capabilities matrix, P0-P4 stages).
+
+- **Engine abstraction**: `apps/server/src/engines/types.ts` defines `AgentEngine` (create/list/get/delete/send/abort/getMessages/onEvent/approvePermission) + `AgentEngineCapabilities` + `EngineEvent`. Business services resolve engines via `getEngine(config, workspace)`; engine-specific SDK imports live only under `engines/<engine>/`.
+- **Resolution**: `workspace.agentEngine ?? config.agentEngine`, then missing/invalid → `opencode`. `pi` is an unfinished experimental spike (P1.5 UI loop, events/abort, and a dedicated flag are not done). Company-managed workspaces are coerced toward opencode at config load via `onmyagentHostUrl` only.
+- **opencode engine** (`engines/opencode/`): wraps the managed `opencode serve` HTTP SDK client (session CRUD, messages, todo, provider list). `/opencode/*` proxy retained for compatibility. The office UI keeps SDK `session.create` / `promptAsync` unless the workspace engine is explicitly `pi`.
+- **pi engine** (`engines/pi/`): one `pi --mode rpc` process per session (max 4 concurrent, 60s idle TTL), `--session-dir` injected under a managed OnMyAgent directory (never the user `~/.pi`). Product loop (EngineEvent→SSE, abort, get-session, archive root) is incomplete.
+- **Engine-agnostic API**: `GET /workspaces/:id/agent/capabilities` and `POST /workspace/:id/sessions/:id/prompt` exist; persist of `agentEngine` goes through `persistWorkspaceConfigEntry`. Do not treat P0–P4 as finished. The session surface must not offer a live Pi switch until events/abort/session-get are routed.

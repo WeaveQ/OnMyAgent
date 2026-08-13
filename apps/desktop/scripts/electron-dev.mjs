@@ -300,6 +300,7 @@ const prepareSidecarArgs = [resolve(__dirname, "prepare-sidecar.mjs")];
 if (sidecarForceRequired) prepareSidecarArgs.push("--force");
 prepareSidecarArgs.push("--prefer-existing-opencode", "--outdir", electronSidecarDir);
 runSync(nodeCmd, prepareSidecarArgs, { cwd: desktopRoot });
+runSync(nodeCmd, [resolve(__dirname, "prepare-pi-sidecar.mjs"), "--outdir", electronSidecarDir], { cwd: desktopRoot });
 const prepareRuntimeArgs = [
   resolve(__dirname, "prepare-runtimes.mjs"),
   "--outdir",

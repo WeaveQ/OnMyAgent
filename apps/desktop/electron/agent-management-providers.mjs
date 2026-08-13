@@ -54,8 +54,8 @@ export function createAgentManagementProviders(options = {}) {
     await rename(tempPath, outputPath);
   }
 
-  const AGENT_MANAGEMENT_PROVIDER_APPS = ["opencode", "codex", "claude", "openclaw", "hermes"];
-  const AGENT_MANAGEMENT_ADDITIVE_PROVIDER_APPS = new Set(["opencode", "openclaw", "hermes"]);
+  const AGENT_MANAGEMENT_PROVIDER_APPS = ["opencode", "codex", "claude", "openclaw", "hermes", "pi"];
+  const AGENT_MANAGEMENT_ADDITIVE_PROVIDER_APPS = new Set(["opencode", "openclaw", "hermes", "pi"]);
 
   const AGENT_MANAGEMENT_PROVIDER_COLUMNS = [
     ["cost_multiplier", "TEXT NOT NULL DEFAULT '1.0'"],
@@ -85,6 +85,8 @@ export function createAgentManagementProviders(options = {}) {
         return path.join(home, ".openclaw", "openclaw.json");
       case "hermes":
         return path.join(home, ".hermes", "config.yaml");
+      case "pi":
+        return path.join(home, ".pi", "agent", "models-store.json");
       default:
         return "";
     }
@@ -316,7 +318,7 @@ export function createAgentManagementProviders(options = {}) {
         name: generated.name || base.name,
       };
     }
-    if (appType === "openclaw" || appType === "hermes") {
+    if (appType === "openclaw" || appType === "hermes" || appType === "pi") {
       return { ...base, ...generated };
     }
     if (appType === "claude") {
@@ -388,6 +390,26 @@ export function createAgentManagementProviders(options = {}) {
         model,
         models: modelList.map((item) => ({ id: item })),
         _cc_source: "studio",
+      };
+    }
+    if (appType === "pi") {
+      // pi models-store entry: { models: [{id,name,api,baseUrl,...}], checkedAt, lastModified, etag }
+      const api = String(simple.api ?? "openai-completions");
+      return {
+        models: modelList.map((item) => {
+          const capability = capabilityByModel.get(item);
+          return {
+            id: item,
+            name: String(capability?.name ?? item).trim() || item,
+            api,
+            baseUrl,
+            provider: id,
+            ...(apiKey ? { apiKey } : {}),
+            ...(capability?.contextWindow ? { contextWindow: Number(capability.contextWindow) } : {}),
+            ...(capability?.outputTokenLimit ? { maxTokens: Number(capability.outputTokenLimit) } : {}),
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          };
+        }),
       };
     }
     if (appType === "claude") {
@@ -721,6 +743,15 @@ export function createAgentManagementProviders(options = {}) {
       const model = config.match(/^\s*model\s*=\s*["']([^"']+)["']/m)?.[1];
       return model ? [{ id: model, name: model }] : [];
     }
+    if (appType === "pi") {
+      // pi models-store: { <provider>: { models: [{id,name,baseUrl,...}] } }
+      if (Array.isArray(settingsConfig.models)) {
+        return settingsConfig.models
+          .map((model) => ({ id: String(model?.id ?? model?.name ?? "").trim(), name: String(model?.name ?? model?.id ?? "").trim() }))
+          .filter((model) => model.id);
+      }
+      return [];
+    }
     return [];
   }
 
@@ -895,6 +926,31 @@ export function createAgentManagementProviders(options = {}) {
     await writeJsonFileAtomic(configPath, config);
   }
 
+  async function writePiProviderLive(provider, options = {}) {
+    const configPath = agentManagementConfigPath("pi");
+    const store = await readAgentManagementJsonConfig("pi");
+    const next = store && typeof store === "object" ? structuredCloneJson(store) : {};
+    const settingsConfig = provider.settingsConfig && typeof provider.settingsConfig === "object"
+      ? structuredCloneJson(provider.settingsConfig)
+      : { models: [] };
+    const existing = next[provider.id] && typeof next[provider.id] === "object" ? next[provider.id] : {};
+    // Preserve pi cache metadata; merge the form-sourced models entry.
+    next[provider.id] = {
+      ...existing,
+      ...settingsConfig,
+      models: Array.isArray(settingsConfig.models) ? settingsConfig.models : (Array.isArray(existing.models) ? existing.models : []),
+    };
+    await writeJsonFileAtomic(configPath, next);
+  }
+
+  async function removePiProviderLive(providerId) {
+    const configPath = agentManagementConfigPath("pi");
+    const store = await readAgentManagementJsonConfig("pi");
+    if (!store || typeof store !== "object") return;
+    delete store[providerId];
+    await writeJsonFileAtomic(configPath, store);
+  }
+
   async function writeClaudeProviderLive(provider) {
     await writeJsonFileAtomic(agentManagementConfigPath("claude"), sanitizeClaudeProviderSettings(provider.settingsConfig));
   }
@@ -1056,6 +1112,7 @@ export function createAgentManagementProviders(options = {}) {
     }
     if (provider.appType === "claude") return writeClaudeProviderLive(provider);
     if (provider.appType === "codex") return writeCodexProviderLive(provider);
+    if (provider.appType === "pi") return writePiProviderLive(provider, options);
     throw new Error("Unsupported live sync app");
   }
 
@@ -1063,6 +1120,7 @@ export function createAgentManagementProviders(options = {}) {
     if (appType === "opencode") return removeOpenCodeProviderLive(providerId, workspaceRoot);
     if (appType === "openclaw") return removeOpenClawProviderLive(providerId);
     if (appType === "hermes") return removeHermesProviderLive(providerId);
+    if (appType === "pi") return removePiProviderLive(providerId);
     return null;
   }
 
@@ -1078,6 +1136,10 @@ export function createAgentManagementProviders(options = {}) {
     if (appType === "hermes") {
       const raw = await readFile(agentManagementConfigPath("hermes"), "utf8").catch(() => "");
       return parseHermesCustomProviderNames(raw);
+    }
+    if (appType === "pi") {
+      const store = await readAgentManagementJsonConfig("pi");
+      return new Set(Object.keys(store && typeof store === "object" ? store : {}));
     }
     return new Set();
   }
@@ -1122,6 +1184,21 @@ export function createAgentManagementProviders(options = {}) {
     if (appType === "hermes") {
       const raw = await readFile(agentManagementConfigPath("hermes"), "utf8").catch(() => "");
       return parseHermesCustomProvidersForImport(raw);
+    }
+    if (appType === "pi") {
+      const store = await readAgentManagementJsonConfig("pi");
+      if (!store || typeof store !== "object") return [];
+      return Object.entries(store).map(([id, entry]) => {
+        const settingsConfig = entry && typeof entry === "object" ? entry : {};
+        const models = Array.isArray(settingsConfig.models) ? settingsConfig.models : [];
+        return {
+          id: String(id).trim(),
+          name: String(settingsConfig?.name ?? models[0]?.name ?? id).trim(),
+          settingsConfig,
+          category: "custom",
+          meta: { live_config_managed: true },
+        };
+      }).filter((provider) => provider.id);
     }
     return [];
   }

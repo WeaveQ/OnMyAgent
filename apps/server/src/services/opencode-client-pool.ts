@@ -1,6 +1,6 @@
 import type { ServerConfig, WorkspaceInfo } from "@onmyagent/types/server";
 import { resolveWorkspaceOpencodeConnection } from "./opencode-connection.js";
-import { createWorkspaceOpencodeClient } from "./opencode-workspace-client.js";
+import { createWorkspaceOpencodeClient } from "../engines/opencode/workspace-client.js";
 
 export type OpencodeClientFactory = (
   config: ServerConfig,

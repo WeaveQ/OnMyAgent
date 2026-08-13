@@ -1,5 +1,6 @@
 {
   "opencodeVersion": "v1.17.20",
+  "piVersion": "0.84.1",
   "nodeVersion": "v24.16.0",
   "pythonStandaloneRelease": "20260610",
   "pythonVersion": "3.12.13",

@@ -1,6 +1,7 @@
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import type { ApprovalMode, ApprovalConfig, ServerConfig, WorkspaceConfig, LogFormat } from "@onmyagent/types/server";
+import { inheritPersistedAgentEngine } from "./engines/agent-engine-policy.js";
 import { buildWorkspaceInfos } from "./workspace/workspaces.js";
 import { parseList, readJsonFile, shortId } from "./core/utils.js";
 
@@ -16,7 +17,11 @@ export interface CliArgs {
   opencodeDirectory?: string;
   opencodeUsername?: string;
   opencodePassword?: string;
-  workspaces: string[];
+  /**
+   * Workspace paths, or workspace specs carrying per-workspace overrides
+   * (e.g. `{ path, agentEngine: "pi" }`).
+   */
+  workspaces: Array<string | WorkspaceConfig>;
   corsOrigins?: string[];
   readOnly?: boolean;
   verbose?: boolean;
@@ -42,6 +47,8 @@ interface FileConfig {
   opencodePassword?: string;
   logFormat?: LogFormat;
   logRequests?: boolean;
+  /** Default agent engine: "opencode" (default) | "pi" (experimental). */
+  agentEngine?: "opencode" | "pi";
 }
 
 const DEFAULT_PORT = 8787;
@@ -213,12 +220,19 @@ export async function resolveServerConfig(cli: CliArgs): Promise<ServerConfig> {
   const configDir = dirname(configPath);
 
   const envWorkspaces = parseList(process.env.ONMYAGENT_WORKSPACES);
+  const normalizeCliWorkspace = (entry: string | WorkspaceConfig): WorkspaceConfig =>
+    typeof entry === "string" ? { path: entry } : entry;
+  const persistedWorkspaces = fileConfig.workspaces ?? [];
+  const workspacePathKey = (value: string) => resolve(configDir, value).replace(/\\/g, "/").toLowerCase();
   let workspaceConfigs: WorkspaceConfig[] =
     cli.workspaces.length > 0
-      ? cli.workspaces.map((path) => ({ path }))
+      ? cli.workspaces.map(normalizeCliWorkspace)
       : envWorkspaces.length > 0
         ? envWorkspaces.map((path) => ({ path }))
-        : fileConfig.workspaces ?? [];
+        : persistedWorkspaces;
+  workspaceConfigs = workspaceConfigs.map((workspace) =>
+    inheritPersistedAgentEngine(workspace, persistedWorkspaces, workspacePathKey),
+  );
 
   const envOpencodeBaseUrl = process.env.ONMYAGENT_OPENCODE_BASE_URL;
   const envOpencodeDirectory = process.env.ONMYAGENT_OPENCODE_DIRECTORY;
@@ -245,6 +259,22 @@ export async function resolveServerConfig(cli: CliArgs): Promise<ServerConfig> {
   }
 
   const workspaces = buildWorkspaceInfos(workspaceConfigs, configDir);
+
+  // Agent engine resolution + company gate (B3): company-managed workspaces
+  // never run the experimental pi engine — approvals are none on pi, which
+  // would break the intranet policy surface. Company workspaces are detected
+  // by an onmyagentHostUrl (OnMyCompany control plane connection).
+  const globalAgentEngine = fileConfig.agentEngine ?? "opencode";
+  const resolvedAgentEngine = globalAgentEngine === "pi" ? "pi" : "opencode";
+  for (const workspace of workspaces) {
+    const isCompany = Boolean(workspace.onmyagentHostUrl?.trim());
+    if (isCompany && (workspace.agentEngine ?? resolvedAgentEngine) === "pi") {
+      workspace.agentEngine = "opencode";
+      console.warn(
+        `[onmyagent-server] workspace ${workspace.id} is company-managed; agentEngine forced to opencode (pi is experimental, approvals:none)`,
+      );
+    }
+  }
 
   const tokenFromEnv = process.env.ONMYAGENT_TOKEN;
   const hostTokenFromEnv = process.env.ONMYAGENT_HOST_TOKEN;
@@ -328,6 +358,7 @@ export async function resolveServerConfig(cli: CliArgs): Promise<ServerConfig> {
     workspaces,
     authorizedRoots,
     readOnly,
+    agentEngine: resolvedAgentEngine,
     startedAt: Date.now(),
     tokenSource,
     hostTokenSource,

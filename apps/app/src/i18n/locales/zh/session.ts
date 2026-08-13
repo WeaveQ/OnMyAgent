@@ -1061,6 +1061,7 @@ export default {
   "session.compact_heading_key_decisions": "关键决策",
   "session.compact_heading_next_steps": "下一步",
   "session.compact_heading_progress": "进度",
+  "session.engine_experimental_banner": "实验性引擎：当前工作区使用 Pi 引擎，待办进度、技能与 MCP 管理暂不可用，执行前无审批。",
   "session.inferred_plan_file_step_1": "确认目标文件路径和写入内容",
   "session.inferred_plan_file_step_2": "创建或更新文件并写入指定内容",
   "session.inferred_plan_file_step_3": "验证文件已生成且内容符合要求",

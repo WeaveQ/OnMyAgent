@@ -1332,7 +1332,7 @@ export type AgentManagementManagedProviderModel = {
 
 export type AgentManagementManagedProvider = {
   id: string;
-  appType: "opencode" | "codex" | "claude" | "openclaw" | "hermes";
+  appType: "opencode" | "codex" | "claude" | "openclaw" | "hermes" | "pi";
   name: string;
   settingsConfig: Record<string, unknown>;
   websiteUrl?: string | null;

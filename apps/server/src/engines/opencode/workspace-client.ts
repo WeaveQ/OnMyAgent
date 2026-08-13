@@ -5,7 +5,7 @@
  */
 import { createOpencodeClient } from "@opencode-ai/sdk/v2/client";
 import type { ServerConfig, WorkspaceInfo } from "@onmyagent/types/server";
-import { resolveWorkspaceOpencodeConnection } from "./opencode-connection.js";
+import { resolveWorkspaceOpencodeConnection } from "../../services/opencode-connection.js";
 
 export function buildOpencodeDirectoryHeader(directory: string) {
   return /[^\x00-\x7F]/.test(directory)

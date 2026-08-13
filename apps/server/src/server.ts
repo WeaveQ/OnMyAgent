@@ -32,6 +32,7 @@ import { ensureDir, exists, hashToken, shortId } from "./core/utils.js";
 import {
   ensureWorkspaceFiles,
 } from "./workspace/workspace-init.js";
+import { persistWorkspaceConfigEntry } from "./workspace/workspace-persist.js";
 import { TokenService } from "./services/tokens.js";
 import { EnvService } from "./services/env-file.js";
 import { FileSessionStore } from "./services/file-sessions.js";
@@ -58,11 +59,13 @@ import {
   parseWorkspaceMount,
   parseWorkspaceOpencodeMount,
   assertOpencodeProxyAllowed,
+  normalizeOpencodeProxyPath,
   unwrapOpencodeResult,
   proxyOpencodeRequest,
   resolveOpencodeDirectory,
 } from "./services/opencode-proxy.js";
 import { getWorkspaceOpencodeClient } from "./services/opencode-client-pool.js";
+import { getEngine, resolveEngineId } from "./engines/index.js";
 import {
   startAutomationScheduler,
 } from "./services/automation-runner.js";
@@ -163,10 +166,53 @@ export async function startServer(config: ServerConfig, runtimeHooks: ServerRunt
         authMode = "client";
         try {
           const actor = await requireClient(request, config, tokens);
-          assertOpencodeProxyAllowed(actor, request.method, mount.restPath);
           const workspace = await resolveWorkspace(config, mount.workspaceId);
           proxyService = "opencode";
           proxyBaseUrl = workspace.baseUrl?.trim() || undefined;
+
+          // Pi engine: the opencode SDK surface the UI still uses for
+          // permission polling/replies is served from the PiEngine approval
+          // bridge instead of a running opencode server.
+          if (resolveEngineId(config, workspace) === "pi") {
+            const engine = getEngine(config, workspace);
+            const normalized = normalizeOpencodeProxyPath(mount.restPath);
+            const permissionList = /^\/permission$/.test(normalized);
+            const permissionReply = normalized.match(/^\/permission\/([^/]+)\/reply$/);
+            // Pi approvals are OnMyAgent-owned (not opencode's permission
+            // system); read needs client scope, replies need owner (host token)
+            // or a workspace collaborator when the engine advertises bridge.
+            if (permissionList && request.method === "GET") {
+              const sessionId =
+                new URL(request.url).searchParams.get("sessionID")?.trim() ||
+                undefined;
+              const permissions = engine.listPermissions
+                ? await engine.listPermissions(sessionId)
+                : [];
+              return finalize(jsonResponse(permissions, 200));
+            }
+            if (permissionReply && request.method === "POST") {
+              // Pi approvals are a local-trust model (B3): the bridge exists to
+              // surface tool calls for the desktop user. Unlike opencode's
+              // permission system, replies are not gated to owner tokens —
+              // the collaborator session that triggered the tool may decide.
+              const requestId = decodeURIComponent(permissionReply[1]);
+              const body = await request.json().catch(() => ({}));
+              const reply = String(body?.reply ?? "reject");
+              const allow = reply !== "reject";
+              const sessionId =
+                new URL(request.url).searchParams.get("sessionID") ??
+                (await resolveSessionIdForPiPermission(engine, requestId));
+              await engine.approvePermission(sessionId, requestId, allow);
+              return finalize(jsonResponse({ ok: true }, 200));
+            }
+            throw new ApiError(
+              501,
+              "pi_unsupported_opencode_surface",
+              `Pi engine does not support ${request.method} ${mount.restPath}`,
+            );
+          }
+
+          assertOpencodeProxyAllowed(actor, request.method, mount.restPath);
           const response = await proxyOpencodeRequest({
             config,
             request,
@@ -325,6 +371,19 @@ function jsonResponse(data: unknown, status = 200) {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+/** Locate the pi session that owns a pending approval request id. */
+async function resolveSessionIdForPiPermission(
+  engine: ReturnType<typeof getEngine>,
+  requestId: string,
+): Promise<string> {
+  const all = engine.listPermissions ? await engine.listPermissions() : [];
+  const match = (all as Array<{ id?: unknown; sessionID?: unknown }>).find(
+    (item) => String(item?.id ?? "") === requestId,
+  );
+  if (!match) throw new ApiError(404, "permission_not_found", "Permission request not found");
+  return String(match.sessionID ?? "");
 }
 
 function withCors(response: Response, request: Request, config: ServerConfig) {
@@ -597,47 +656,6 @@ async function readServerConfigFile(
   }
 }
 
-function serializeWorkspaceConfigEntry(
-  workspace: WorkspaceInfo,
-): Record<string, unknown> {
-  return {
-    id: workspace.id,
-    path: workspace.path,
-    name: workspace.name,
-    preset: workspace.preset,
-    workspaceType: workspace.workspaceType,
-    ...(workspace.remoteType ? { remoteType: workspace.remoteType } : {}),
-    ...(workspace.baseUrl ? { baseUrl: workspace.baseUrl } : {}),
-    ...(workspace.directory ? { directory: workspace.directory } : {}),
-    ...(workspace.displayName ? { displayName: workspace.displayName } : {}),
-    ...(workspace.onmyagentHostUrl
-      ? { onmyagentHostUrl: workspace.onmyagentHostUrl }
-      : {}),
-    ...(workspace.onmyagentToken
-      ? { onmyagentToken: workspace.onmyagentToken }
-      : {}),
-    ...(workspace.onmyagentWorkspaceId
-      ? { onmyagentWorkspaceId: workspace.onmyagentWorkspaceId }
-      : {}),
-    ...(workspace.onmyagentWorkspaceName
-      ? { onmyagentWorkspaceName: workspace.onmyagentWorkspaceName }
-      : {}),
-    ...(workspace.sandboxBackend
-      ? { sandboxBackend: workspace.sandboxBackend }
-      : {}),
-    ...(workspace.sandboxRunId ? { sandboxRunId: workspace.sandboxRunId } : {}),
-    ...(workspace.sandboxContainerName
-      ? { sandboxContainerName: workspace.sandboxContainerName }
-      : {}),
-    ...(workspace.opencodeUsername
-      ? { opencodeUsername: workspace.opencodeUsername }
-      : {}),
-    ...(workspace.opencodePassword
-      ? { opencodePassword: workspace.opencodePassword }
-      : {}),
-  };
-}
-
 async function persistServerWorkspaceState(
   config: ServerConfig,
 ): Promise<boolean> {
@@ -648,7 +666,7 @@ async function persistServerWorkspaceState(
   const parsed = await readServerConfigFile(configPath);
   const next: OnMyAgentServerConfigFile = {
     ...parsed,
-    workspaces: config.workspaces.map(serializeWorkspaceConfigEntry),
+    workspaces: config.workspaces.map(persistWorkspaceConfigEntry),
     authorizedRoots: Array.from(
       new Set(config.authorizedRoots.map((root) => resolve(root))),
     ),

@@ -8,6 +8,7 @@ import { ensureDir, shortId } from "../core/utils.js";
 import { ensureWorkspaceFiles } from "../workspace/workspace-init.js";
 import { workspaceIdForPath } from "../workspace/workspaces.js";
 import { clearWorkspaceOpencodeClients } from "../services/opencode-client-pool.js";
+import { getEngine } from "../engines/index.js";
 
 export function registerWorkspaceRoutes(input: {
   routes: Route[];
@@ -220,6 +221,16 @@ export function registerWorkspaceRoutes(input: {
       activeId: active?.id ?? null,
       items: config.workspaces.map(serializeWorkspace),
       workspaces: config.workspaces.map(serializeWorkspace),
+    });
+  });
+
+  addRoute(routes, "GET", "/workspaces/:id/agent/capabilities", "client", async (ctx) => {
+    const workspace = await resolveWorkspace(ctx.config, ctx.params.id);
+    const engine = getEngine(ctx.config, workspace);
+    return systemJsonResponse({
+      workspaceId: workspace.id,
+      engine: engine.id,
+      capabilities: engine.getCapabilities(),
     });
   });
 }

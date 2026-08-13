@@ -1088,6 +1088,7 @@ export default {
   "session.preview_tool": "[Tool] {tool}",
   "session.preview_agent_mention": "@agent",
   "session.preview_file": "[File]",
+  "session.engine_experimental_banner": "Experimental engine: this workspace runs on the Pi engine. Todo progress, skills and MCP management are unavailable, and commands execute without approval.",
   "session.inferred_plan_file_step_1": "Confirm target file path and content to write",
   "session.inferred_plan_file_step_2": "Create or update the file with the specified content",
   "session.inferred_plan_file_step_3": "Verify the file exists and content matches requirements",

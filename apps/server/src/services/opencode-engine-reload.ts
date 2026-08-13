@@ -2,7 +2,7 @@ import type { ServerConfig, WorkspaceInfo } from "@onmyagent/types/server";
 import { ApiError } from "../core/errors.js";
 import { resolveWorkspaceOpencodeConnection } from "./opencode-connection.js";
 import { clearWorkspaceOpencodeClients } from "./opencode-client-pool.js";
-import { resolveOpencodeDirectory } from "./opencode-workspace-client.js";
+import { resolveOpencodeDirectory } from "../engines/opencode/workspace-client.js";
 
 /** Finish before the renderer's 10s request budget so it receives a typed 504. */
 export const OPENCODE_ENGINE_RELOAD_TIMEOUT_MS = 8_000;

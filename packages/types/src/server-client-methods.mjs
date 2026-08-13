@@ -22,11 +22,12 @@ const methodGroups = /** @type {const} */ ({
     "statWorkspaceFile", "writeWorkspaceFile", "writeWorkspaceBinaryFile",
     "downloadWorkspaceFile", "listWorkspaceFiles", "deleteWorkspaceFile",
     "mkdirWorkspaceDirectory", "renameWorkspaceFile",
+    "getAgentCapabilities",
   ],
   sessions: [
-    "deleteSession", "listSessions", "getSession", "getSessionMessages",
+    "createSession", "deleteSession", "listSessions", "getSession", "getSessionMessages",
     "getSessionSnapshot", "listSessionOrigins", "upsertSessionOrigin",
-    "deleteSessionOrigin", "deleteExpert",
+    "deleteSessionOrigin", "sendPrompt", "deleteExpert",
   ],
   extensions: [
     "listPlugins", "addPlugin", "removePlugin", "listSkills", "listHubSkills",

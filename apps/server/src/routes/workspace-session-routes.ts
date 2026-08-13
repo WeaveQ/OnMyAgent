@@ -15,6 +15,8 @@ import {
   resolveExpertSessionRuntimeFile,
 } from "../services/expert-session-runtime.js";
 import { deleteSessionOrigin } from "../services/session-origins.js";
+import { getEngine } from "../engines/index.js";
+import { readEngineCreateSessionInput } from "../engines/agent-engine-policy.js";
 import { addRoute, systemJsonResponse, type RequestContext, type Route } from "./route-core.js";
 import {
   contentDispositionHeader,
@@ -262,6 +264,22 @@ export function registerWorkspaceSessionRoutes(input: {
 
   addRoute(
     routes,
+    "POST",
+    "/workspace/:id/sessions",
+    "client",
+    async (ctx) => {
+      ensureWritable(config);
+      requireClientScope(ctx, "collaborator");
+      const workspace = await resolveWorkspace(config, ctx.params.id);
+      const body = await readJsonBody(ctx.request);
+      const engine = getEngine(config, workspace);
+      const ref = await engine.createSession(readEngineCreateSessionInput(body));
+      return systemJsonResponse({ id: ref.id }, 201);
+    },
+  );
+
+  addRoute(
+    routes,
     "GET",
     "/workspace/:id/sessions/:sessionId",
     "client",
@@ -326,6 +344,35 @@ export function registerWorkspaceSessionRoutes(input: {
         },
       );
       return systemJsonResponse({ item });
+    },
+  );
+
+  addRoute(
+    routes,
+    "POST",
+    "/workspace/:id/sessions/:sessionId/prompt",
+    "client",
+    async (ctx) => {
+      ensureWritable(config);
+      requireClientScope(ctx, "collaborator");
+      const workspace = await resolveWorkspace(config, ctx.params.id);
+      const sessionId = readSessionId(ctx);
+      const body = await readJsonBody(ctx.request);
+      const prompt =
+        typeof body.prompt === "string" && body.prompt.trim()
+          ? body.prompt
+          : null;
+      if (!prompt) {
+        throw new ApiError(400, "invalid_body", "prompt is required");
+      }
+      const engine = getEngine(config, workspace);
+      await engine.sendMessage(sessionId, {
+        prompt,
+        ...(body.model && typeof body.model === "object"
+          ? { model: body.model as { providerID: string; modelID: string } }
+          : {}),
+      });
+      return systemJsonResponse({ ok: true });
     },
   );
 

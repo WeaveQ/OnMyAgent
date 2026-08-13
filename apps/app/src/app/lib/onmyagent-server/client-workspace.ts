@@ -29,6 +29,7 @@ import {
   type OnMyAgentInboxUploadResult,
   type OnMyAgentArtifactList,
   type OnMyAgentResolvedArtifactTarget,
+  type OnMyAgentAgentCapabilities,
 } from "./client-shared";
 
 async function runWorkspaceFileOp(
@@ -122,6 +123,12 @@ export function createWorkspaceClientMethods(ctx: OnMyAgentServerClientContext) 
 
   return {
     listWorkspaces: () => requestJson<OnMyAgentWorkspaceList>(baseUrl, "/workspaces", { token, hostToken, timeoutMs: timeouts.listWorkspaces }),
+    getAgentCapabilities: (workspaceId: string) =>
+      requestJson<{ workspaceId: string; engine: string; capabilities: OnMyAgentAgentCapabilities }>(
+        baseUrl,
+        `/workspaces/${encodeURIComponent(workspaceId)}/agent/capabilities`,
+        { token, hostToken, timeoutMs: timeouts.capabilities },
+      ),
     createLocalWorkspace: (payload: { folderPath: string; name: string; preset: string }) =>
       requestJson<WorkspaceList>(baseUrl, "/workspaces/local", {
         token,

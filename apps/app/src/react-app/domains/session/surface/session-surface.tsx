@@ -9,6 +9,8 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { resolveAccessModePermissionReply } from "../../../../app/lib/access-mode";
 import { t } from "../../../../i18n";
+import { NoticeBox } from "@/components/ui/notice-box";
+import { useEngineCapabilities } from "../hooks/use-engine-capabilities";
 import type { CloudImportedPlugin } from "../../../../app/cloud/import-state";
 import type {
   ComposerAttachment,
@@ -121,6 +123,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
   const storedSessionStopRequested = useSessionActivityStore((state) =>
     state.getStopRequested(props.workspaceId, props.sessionId),
   );
+  const engineCapabilities = useEngineCapabilities(props.client, props.workspaceId);
   const storedSessionRunKey = useSessionActivityStore((state) =>
     state.recordsByWorkspaceId[props.workspaceId]?.[props.sessionId]?.runKey ?? null,
   );
@@ -820,7 +823,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     visibleGoalRuntime,
     activeGoalWaitingReason,
   );
-  const visibleTodos = incomingTodos;
+  const visibleTodos = engineCapabilities.lacks("todo") ? [] : incomingTodos;
   const hasVisibleTodos = hasIncompleteTodos(visibleTodos);
   const runPolicy = resolveSessionRunPolicy({
     accessMode: effectiveAccessMode,
@@ -936,7 +939,15 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
   }, [props.client, props.workspaceId, props.workspaceRoot]);
 
   return (
-    <SessionSurfaceView
+    <>
+      {engineCapabilities.isExperimentalEngine ? (
+        <div className="border-b border-dls-border bg-dls-warning/10 px-4 py-1.5">
+          <NoticeBox tone="warning" size="default" className="max-w-[1200px] mx-auto">
+            {t("session.engine_experimental_banner")}
+          </NoticeBox>
+        </div>
+      ) : null}
+      <SessionSurfaceView
       personalAssistantDraftHome={Boolean(personalAssistantDraftHome)}
       homeComposerLayout={Boolean(homeComposerLayout)}
       composerOuterBorderVisible={Boolean(composerOuterBorderVisible)}
@@ -1048,10 +1059,10 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       listAgents={props.listAgents}
       onSelectAgent={props.onSelectAgent}
       listCommands={props.listCommands}
-      listSkills={listSkills}
-      skills={toolSkills}
-      listMcp={listMcp}
-      mcpServers={toolMcpServers}
+      listSkills={engineCapabilities.lacks("skills") ? async () => [] : listSkills}
+      skills={engineCapabilities.lacks("skills") ? [] : toolSkills}
+      listMcp={engineCapabilities.lacks("mcp") ? async () => ({ servers: [], statuses: {}, status: null }) : listMcp}
+      mcpServers={engineCapabilities.lacks("mcp") ? [] : toolMcpServers}
       mcpStatus={toolMcpStatus}
       mcpStatuses={toolMcpStatuses}
       listImportedPlugins={listImportedPlugins}
@@ -1086,6 +1097,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       onCreateDraftWorkspace={props.onCreateDraftWorkspace}
       onPickDraftWorkspace={props.onPickDraftWorkspace}
       onClearDraftWorkspace={props.onClearDraftWorkspace}
-    />
+      />
+    </>
   );
 }

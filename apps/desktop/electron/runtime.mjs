@@ -57,6 +57,7 @@ import {
   BUNDLED_PLUGINS_RESOURCE_DIR,
   BUNDLED_SKILLS_RESOURCE_DIR,
   OPENCODE_BIN_ENV_KEYS,
+  PI_BIN_ENV_KEYS,
   buildBundledResourceCandidates,
   buildLocalOpencodeBinaryCandidates,
   buildSoftwareEnvironmentInfo,
@@ -68,8 +69,10 @@ import {
   productRuntimeBinaryEnvKeys,
   productRuntimeBinaryNames,
   productRuntimeBinaryRelativePath,
+  mergeWorkspaceEngineSpecs,
   prioritizeWorkspacePaths,
   selectBestLocalOpencodeFromProbed,
+  toServerWorkspaceSpec,
   shouldSkipLocalOpencodeCandidate,
 } from "./runtime-helpers.mjs";
 
@@ -639,6 +642,32 @@ export function createRuntimeManager({
     return null;
   }
 
+  /**
+   * Resolve the bundled pi coding-agent. Pi is a Node package, not a single
+   * compiled binary: the sidecar lives at `sidecars/pi/` (package tree) and
+   * runs via `dist/cli.js` under the product-bundled Node runtime.
+   *
+   * @returns {{ cliJs: string, packageRoot: string, nodeBin: string | null, source: "bundled" } | null}
+   */
+  function resolvePiBundledInfo() {
+    for (const directory of sidecarDirs) {
+      const packageRoot = path.join(directory, "pi");
+      const cliJs = path.join(packageRoot, "dist", "cli.js");
+      if (existsSync(cliJs)) {
+        // Prefer the bundled Node runtime; fall back to system node (the
+        // cli.js shebang resolves node from PATH when we do not pin it).
+        const bundledNode = bundledRuntimeBinary("node");
+        return {
+          cliJs,
+          packageRoot,
+          nodeBin: bundledNode && existsSync(bundledNode) ? bundledNode : null,
+          source: "bundled",
+        };
+      }
+    }
+    return null;
+  }
+
   function bundledRuntimeBinary(tool) {
     if (!runtimeRoot) return null;
     const relative = productRuntimeBinaryRelativePath(tool, process.platform);
@@ -875,8 +904,10 @@ export function createRuntimeManager({
     }
     await stopChild(onmyagentServerState);
 
-    const workspacePaths = options.workspacePaths.filter((value) => value.trim().length > 0);
-    const activeWorkspace = workspacePaths[0] ?? "";
+    const workspaceSpecs = mergeWorkspaceEngineSpecs(options.workspacePaths ?? [])
+      .map((entry) => toServerWorkspaceSpec(entry))
+      .filter(Boolean);
+    const activeWorkspace = workspaceSpecs[0]?.path ?? "";
     const host = options.remoteAccessEnabled ? "0.0.0.0" : "127.0.0.1";
     const port = await resolveOnMyAgentPort(host, activeWorkspace);
     const tokens = await loadOrCreateWorkspaceTokens(activeWorkspace);
@@ -890,6 +921,7 @@ export function createRuntimeManager({
     }
 
     // Inject user env vars so the server and managed OpenCode inherit them.
+    const piBundled = resolvePiBundledInfo();
     const serverEnv = await resolveChildEnvironment(
       {
         ONMYAGENT_BUNDLED_SKILLS_DIR: bundledSkillsRootPath() ?? undefined,
@@ -906,6 +938,15 @@ export function createRuntimeManager({
         ),
         // Same dual-read root as desktop install/listLocalSkills (profile skills).
         OPENCODE_GLOBAL_SKILLS_DIR: onmyagentUserSkillsRoot(),
+        // Pi engine: prefer the bundled sidecar (cli.js + pinned node).
+        ...(piBundled
+          ? {
+              ONMYAGENT_PI_BIN: piBundled.cliJs,
+              ...(piBundled.nodeBin
+                ? { ONMYAGENT_PI_NODE_BIN: piBundled.nodeBin }
+                : {}),
+            }
+          : {}),
       },
       { workspaceRoot: activeWorkspace },
     );
@@ -941,7 +982,7 @@ export function createRuntimeManager({
       port,
       corsOrigins: ["*"],
       approvalMode: "auto",
-      workspaces: workspacePaths,
+      workspaces: workspaceSpecs,
       token: tokens.clientToken,
       hostToken: tokens.hostToken,
       opencodeBaseUrl: options.opencodeBaseUrl ?? undefined,
@@ -1197,9 +1238,10 @@ export function createRuntimeManager({
     await ensureOpencodeConfig(safeProjectDir);
     await prepareFreshRuntime();
 
-    const workspacePaths = [safeProjectDir, ...((options.workspacePaths ?? []).filter(Boolean))].filter(
-      (value, index, list) => list.indexOf(value) === index,
-    );
+    const workspacePaths = mergeWorkspaceEngineSpecs([
+      { path: safeProjectDir },
+      ...(options.workspacePaths ?? []),
+    ]);
     const runtime = DIRECT_RUNTIME;
 
     try {

@@ -57,6 +57,7 @@ export const AGENT_MANAGER_PROVIDER_LABELS: Record<string, string> = {
   claude: "Claude Code CLI",
   openclaw: "OpenClaw CLI",
   hermes: "Hermes CLI",
+  pi: "Pi CLI",
   custom: "Custom",
 };
 
@@ -166,7 +167,7 @@ export type ProviderDraft = {
   settingsJson: string;
 };
 
-const PROVIDER_APP_OPTIONS: AgentManagementProviderApp[] = ["opencode", "claude", "codex", "openclaw", "hermes"];
+const PROVIDER_APP_OPTIONS: AgentManagementProviderApp[] = ["opencode", "claude", "codex", "openclaw", "hermes", "pi"];
 
 function createCodexCatalogDraftRow(seed?: Partial<CodexCatalogDraftRow>): CodexCatalogDraftRow {
   const fallbackId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -247,7 +248,7 @@ export function defaultProviderDraft(appType: AgentManagementProviderApp): Provi
   const defaultModel = appType === "claude" ? "claude-sonnet-4-5" : appType === "codex" ? "gpt-5.1" : "";
   const defaultModelRows = defaultModel
     ? [createProviderModelDraftRow({ id: defaultModel, name: defaultModel })]
-    : appType === "opencode" || appType === "openclaw" || appType === "hermes"
+    : appType === "opencode" || appType === "openclaw" || appType === "hermes" || appType === "pi"
       ? [createProviderModelDraftRow()]
       : [];
   return {
@@ -351,18 +352,35 @@ export function providerDraftFromProvider(provider: AgentManagementManagedProvid
   const codexAuth = isRecordStringUnknown(settings.auth) ? settings.auth : {};
   const codexConfig = typeof settings.config === "string" ? settings.config : "";
   const modelList = modelsFromProviderSettings(provider);
+  // pi models-store keeps baseUrl/apiKey per model entry (provider-level has none).
+  const piFirstModel =
+    provider.appType === "pi" && Array.isArray(settings.models)
+      ? (settings.models.find((item) => isRecordStringUnknown(item)) as Record<string, unknown> | undefined)
+      : undefined;
   const baseUrl =
     provider.appType === "codex"
       ? extractCodexBaseUrlFromToml(codexConfig)
       : "baseURL" in options
       ? String(options.baseURL ?? "")
-      : String(settings.baseUrl ?? settings.base_url ?? env.ANTHROPIC_BASE_URL ?? "");
+      : String(
+          settings.baseUrl
+          ?? settings.base_url
+          ?? (piFirstModel ? piFirstModel.baseUrl : undefined)
+          ?? env.ANTHROPIC_BASE_URL
+          ?? "",
+        );
   const apiKey =
     provider.appType === "codex"
       ? String(codexAuth.OPENAI_API_KEY ?? codexAuth.CODEX_API_KEY ?? Object.values(codexAuth)[0] ?? "")
       : "apiKey" in options
       ? String(options.apiKey ?? "")
-      : String(settings.apiKey ?? settings.api_key ?? env.ANTHROPIC_AUTH_TOKEN ?? "");
+      : String(
+          settings.apiKey
+          ?? settings.api_key
+          ?? (piFirstModel ? piFirstModel.apiKey : undefined)
+          ?? env.ANTHROPIC_AUTH_TOKEN
+          ?? "",
+        );
   const fallbackClaudeModel = String(env.ANTHROPIC_MODEL ?? env.ANTHROPIC_DEFAULT_SONNET_MODEL ?? modelList[0]?.id ?? "");
   return {
     editingId: provider.id,
@@ -378,7 +396,7 @@ export function providerDraftFromProvider(provider: AgentManagementManagedProvid
         contextWindow: model.contextWindow == null ? "" : String(model.contextWindow),
         outputTokenLimit: model.outputTokenLimit == null ? "" : String(model.outputTokenLimit),
       }))
-      : provider.appType === "opencode" || provider.appType === "openclaw" || provider.appType === "hermes"
+      : provider.appType === "opencode" || provider.appType === "openclaw" || provider.appType === "hermes" || provider.appType === "pi"
         ? [createProviderModelDraftRow()]
         : [],
     claudeHaikuModel: String(env.ANTHROPIC_DEFAULT_HAIKU_MODEL ?? fallbackClaudeModel),

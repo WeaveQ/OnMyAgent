@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -331,6 +331,94 @@ test("re-edit merges form fields into existing OpenCode settingsConfig", async (
     assert.equal(listed.settingsConfig.options.apiKey, "sk-new");
     assert.equal(listed.settingsConfig.options.baseURL, "https://api.example.test/v2");
     assert.deepEqual(listed.models.map((model) => model.id), ["model-b"]);
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test("pi: save writes provider into models-store.json and snapshot lists it", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "onmyagent-provider-pi-"));
+  try {
+    const providers = createAgentManagementProviders({ getRealHomeDir: () => home });
+    await providers.agentManagementProviderAction({
+      action: "save",
+      appType: "pi",
+      syncLive: true,
+      provider: {
+        id: "deepseek",
+        name: "DeepSeek",
+        simple: {
+          id: "deepseek",
+          name: "DeepSeek",
+          baseUrl: "https://api.deepseek.com",
+          apiKey: "sk-test",
+          models: "deepseek-v4-flash\ndeepseek-v4-pro",
+        },
+      },
+    });
+
+    const store = JSON.parse(await readFile(
+      path.join(home, ".pi", "agent", "models-store.json"),
+      "utf8",
+    ));
+    assert.ok(store.deepseek, "pi models-store should contain provider key");
+    assert.equal(store.deepseek.models.length, 2);
+    assert.equal(store.deepseek.models[0].id, "deepseek-v4-flash");
+    assert.equal(store.deepseek.models[0].baseUrl, "https://api.deepseek.com");
+    assert.equal(store.deepseek.models[0].provider, "deepseek");
+
+    const snapshot = await providers.readAgentManagementProvidersSnapshot();
+    const listed = snapshot.byAgent.pi.find((item) => item.id === "deepseek");
+    assert.ok(listed, "pi provider should appear in snapshot byAgent.pi");
+    assert.equal(listed.livePresent, true);
+    assert.deepEqual(listed.models.map((model) => model.id), ["deepseek-v4-flash", "deepseek-v4-pro"]);
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test("pi: importLive surfaces existing models-store providers", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "onmyagent-provider-pi-import-"));
+  try {
+    const storePath = path.join(home, ".pi", "agent", "models-store.json");
+    await mkdir(path.dirname(storePath), { recursive: true });
+    await writeFile(storePath, JSON.stringify({
+      deepseek: {
+        models: [{ id: "deepseek-v4-flash", name: "DeepSeek V4 Flash", baseUrl: "https://api.deepseek.com", provider: "deepseek" }],
+      },
+    }, null, 2), "utf8");
+
+    const providers = createAgentManagementProviders({ getRealHomeDir: () => home });
+    const snapshot = await providers.readAgentManagementProvidersSnapshot();
+    const listed = snapshot.byAgent.pi.find((item) => item.id === "deepseek");
+    assert.ok(listed);
+    assert.equal(listed.livePresent, true);
+    assert.equal(listed.models[0].id, "deepseek-v4-flash");
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test("pi: delete removes provider from models-store.json", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "onmyagent-provider-pi-del-"));
+  try {
+    const storePath = path.join(home, ".pi", "agent", "models-store.json");
+    await mkdir(path.dirname(storePath), { recursive: true });
+    await writeFile(storePath, JSON.stringify({
+      deepseek: { models: [{ id: "deepseek-v4-flash", name: "DeepSeek V4 Flash", baseUrl: "https://api.deepseek.com", provider: "deepseek" }] },
+      qwen: { models: [{ id: "qwen-max", name: "Qwen Max", baseUrl: "https://api.example.test/v1", provider: "qwen" }] },
+    }, null, 2), "utf8");
+
+    const providers = createAgentManagementProviders({ getRealHomeDir: () => home });
+    await providers.agentManagementProviderAction({
+      action: "delete",
+      appType: "pi",
+      providerId: "deepseek",
+    });
+
+    const store = JSON.parse(await readFile(storePath, "utf8"));
+    assert.equal(store.deepseek, undefined);
+    assert.ok(store.qwen);
   } finally {
     await rm(home, { recursive: true, force: true });
   }

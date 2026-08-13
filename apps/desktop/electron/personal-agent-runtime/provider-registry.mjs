@@ -43,6 +43,13 @@ export const PERSONAL_LOCAL_AGENT_PROVIDERS = {
     versionArgs: ["--version"],
     modelMode: "flag",
   },
+  pi: {
+    id: "pi",
+    name: "Pi CLI",
+    executable: "pi",
+    versionArgs: ["--version"],
+    modelMode: "flag",
+  },
   custom: {
     id: "custom",
     name: "Custom Agent",
@@ -108,6 +115,17 @@ export const PERSONAL_LOCAL_AGENT_CAPABILITIES = {
     smokePrompt: "Hermes ACP 本地 Agent 健康检查：请只回复 HERMES_ACP_OK。",
     warning: "Hermes ACP resume 暂不稳定，Studio 当前每轮使用新会话。",
   },
+  pi: {
+    supportsAcp: true,
+    supportsApproval: false,
+    supportsStreaming: true,
+    supportsResume: true,
+    supportsModelOverride: true,
+    supportsPermissionAutoApprove: true,
+    targetKind: "model",
+    smokePrompt: "Pi 本地 Agent 健康检查：请只回复 PI_LOCAL_AGENT_OK。",
+    warning: "Pi 原生 --mode rpc 是 Pi 自有 JSON 协议（非标准 ACP）；Local Agent 会话优先使用 pi-acp ACP 桥。",
+  },
   custom: {
     supportsAcp: false,
     supportsApproval: false,
@@ -132,6 +150,7 @@ export function defaultPersonalLocalAgents() {
     { id: "claude", name: "Claude Code CLI", provider: "claude", executablePath: "claude" },
     { id: "openclaw", name: "OpenClaw CLI", provider: "openclaw", executablePath: "openclaw" },
     { id: "hermes", name: "Hermes CLI", provider: "hermes", executablePath: "hermes" },
+    { id: "pi", name: "Pi CLI", provider: "pi", executablePath: "pi" },
   ];
 }
 
@@ -223,6 +242,7 @@ export function personalLocalAgentConnectionMode(provider, extra = null) {
   if (provider === "claude") return "Claude Code ACP session";
   if (provider === "openclaw") return "OpenClaw ACP session";
   if (provider === "hermes") return "Hermes ACP session";
+  if (provider === "pi") return "Pi ACP session";
   // CLI ACP agents (the discoverable catalog like Gemini/Kimi/Goose and the
   // user's own custom agents) keep provider "custom" for the connection layer;
   // surface their real identity (agent name) in the connection mode instead of

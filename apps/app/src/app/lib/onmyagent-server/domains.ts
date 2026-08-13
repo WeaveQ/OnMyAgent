@@ -17,12 +17,13 @@ export type OnMyAgentWorkspaceClient = Pick<OnMyAgentServerClient,
   | "statWorkspaceFile" | "writeWorkspaceFile" | "writeWorkspaceBinaryFile"
   | "downloadWorkspaceFile" | "listWorkspaceFiles"
   | "deleteWorkspaceFile" | "mkdirWorkspaceDirectory" | "renameWorkspaceFile"
+  | "getAgentCapabilities"
 >;
 
 export type OnMyAgentSessionClient = Pick<OnMyAgentServerClient,
-  | "deleteSession" | "listSessions" | "getSession" | "getSessionMessages"
+  | "createSession" | "deleteSession" | "listSessions" | "getSession" | "getSessionMessages"
   | "getSessionSnapshot" | "listSessionOrigins" | "upsertSessionOrigin"
-  | "deleteSessionOrigin" | "deleteExpert"
+  | "deleteSessionOrigin" | "sendPrompt" | "deleteExpert"
 >;
 
 export type OnMyAgentExtensionClient = Pick<OnMyAgentServerClient,

@@ -20,6 +20,11 @@ export const OPENCODE_BIN_ENV_KEYS = [
   "ONMYAGENT_LOCAL_OPENCODE_BIN",
 ];
 
+export const PI_BIN_ENV_KEYS = [
+  "ONMYAGENT_PI_BIN",
+  "PI_BIN",
+];
+
 export const DOCKER_BIN_ENV_KEYS = [
   "ONMYAGENT_DOCKER_BIN",
   "OPENWRK_DOCKER_BIN", // legacy
@@ -37,11 +42,61 @@ export function normalizeWorkspaceKey(value, pathApi = path) {
 }
 
 /**
- * Prefer the active workspace path, then the rest, deduped by normalized key.
- * @param {string | null | undefined} preferredPath
- * @param {string[]} [workspacePaths]
- * @param {{ resolve?: (p: string) => string }} [pathApi]
+ * Only an explicit `"pi"` / `"opencode"` is a choice. Missing stays missing
+ * so persisted server.json can still apply.
+ * @param {unknown} value
+ * @returns {"opencode" | "pi" | undefined}
  */
+export function readExplicitAgentEngine(value) {
+  return value === "pi" || value === "opencode" ? value : undefined;
+}
+
+/**
+ * Map a desktop workspace path or spec to the server CLI workspace entry.
+ * Does not invent `opencode` for a field-less path.
+ * @param {string | { path?: unknown, agentEngine?: unknown } | null | undefined} entry
+ * @returns {{ path: string, agentEngine?: "opencode" | "pi" } | null}
+ */
+export function toServerWorkspaceSpec(entry) {
+  if (typeof entry === "string") {
+    const trimmed = entry.trim();
+    return trimmed ? { path: trimmed } : null;
+  }
+  if (!entry || typeof entry !== "object") return null;
+  const pathValue = String(entry.path ?? "").trim();
+  if (!pathValue) return null;
+  const agentEngine = readExplicitAgentEngine(entry.agentEngine);
+  return agentEngine ? { path: pathValue, agentEngine } : { path: pathValue };
+}
+
+/**
+ * Dedup workspace specs by path. A field-less prepend never clobbers a later
+ * explicit engine; a later field-less path never strips an explicit engine.
+ * @param {Array<string | { path?: unknown, agentEngine?: unknown } | null | undefined>} entries
+ * @param {{ resolve?: (p: string) => string, sep?: string }} [pathApi]
+ * @returns {Array<{ path: string, agentEngine?: "opencode" | "pi" }>}
+ */
+export function mergeWorkspaceEngineSpecs(entries, pathApi = path) {
+  const order = [];
+  const byKey = new Map();
+  for (const entry of entries ?? []) {
+    const spec = toServerWorkspaceSpec(entry);
+    if (!spec) continue;
+    const key = normalizeWorkspaceKey(spec.path, pathApi);
+    if (!key) continue;
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, { ...spec });
+      order.push(key);
+      continue;
+    }
+    if (existing.agentEngine == null && spec.agentEngine != null) {
+      existing.agentEngine = spec.agentEngine;
+    }
+  }
+  return order.map((key) => byKey.get(key));
+}
+
 export function prioritizeWorkspacePaths(preferredPath, workspacePaths = [], pathApi = path) {
   const preferred = String(preferredPath ?? "").trim();
   const paths = [];

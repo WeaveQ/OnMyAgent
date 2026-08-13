@@ -67,6 +67,7 @@ export function buildWorkspaceInfos(
       sandboxContainerName: workspace.sandboxContainerName,
       opencodeUsername: workspace.opencodeUsername,
       opencodePassword: workspace.opencodePassword,
+      agentEngine: workspace.agentEngine,
     };
   });
 }

@@ -13,7 +13,7 @@ export type AgentManagementManagedProviderModel = {
 
 export type AgentManagementManagedProvider = {
   id: string;
-  appType: "opencode" | "codex" | "claude" | "openclaw" | "hermes";
+  appType: "opencode" | "codex" | "claude" | "openclaw" | "hermes" | "pi";
   name: string;
   settingsConfig: Record<string, unknown>;
   websiteUrl?: string | null;
@@ -37,7 +37,7 @@ export type AgentManagementManagedProvider = {
 export type AgentManagementProvidersSnapshot = {
   databasePath: string;
   total: number;
-  byAgent: Record<"opencode" | "codex" | "claude" | "openclaw" | "hermes", AgentManagementManagedProvider[]>;
+  byAgent: Record<"opencode" | "codex" | "claude" | "openclaw" | "hermes" | "pi", AgentManagementManagedProvider[]>;
 };
 
 export type AgentManagementUsageSummary = {

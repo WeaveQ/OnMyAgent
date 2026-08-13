@@ -1061,6 +1061,7 @@ export default {
   "session.compact_heading_progress": "進度",
   "session.diff": "差異",
   "session.copy": "複製",
+  "session.engine_experimental_banner": "實驗性引擎：目前工作區使用 Pi 引擎，待辦進度、技能與 MCP 管理暫不可用，執行前無審批。",
   "session.inferred_plan_file_step_1": "確認目標檔案路徑和寫入內容",
   "session.inferred_plan_file_step_2": "建立或更新檔案並寫入指定內容",
   "session.inferred_plan_file_step_3": "驗證檔案已產生且內容符合要求",

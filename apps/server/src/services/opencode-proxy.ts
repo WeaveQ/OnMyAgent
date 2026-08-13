@@ -5,7 +5,7 @@ import { resolveWorkspaceOpencodeConnection } from "./opencode-connection.js";
 import {
   buildOpencodeDirectoryHeader,
   resolveOpencodeDirectory,
-} from "./opencode-workspace-client.js";
+} from "../engines/opencode/workspace-client.js";
 import {
   ensureAndAssertExpertRuntimeContract,
   EXPERT_PROMPT_BODY_MAX_BYTES,
@@ -131,7 +131,7 @@ export {
   createWorkspaceOpencodeClient,
   normalizeOpencodeDirectory,
   resolveOpencodeDirectory,
-} from "./opencode-workspace-client.js";
+} from "../engines/opencode/workspace-client.js";
 
 export function unwrapOpencodeResult<T, E>(
   result: OpencodeClientResult<T, E>,
