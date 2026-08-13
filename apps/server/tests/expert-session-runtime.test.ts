@@ -287,12 +287,15 @@ describe("expert session runtime directory", () => {
     const contractDir = join(created.directory, "合同输出");
     await mkdir(contractDir, { recursive: true });
     await writeFile(join(created.directory, "对公返点信息_完成台账.xlsx"), "xlsx", "utf8");
+    await writeFile(join(created.directory, "opencode.json"), "{}\n", "utf8");
     await writeFile(join(contractDir, "【博主A】.docx"), "docx-a", "utf8");
     await writeFile(join(contractDir, "【博主B】.docx"), "docx-b", "utf8");
     await mkdir(join(created.directory, "scripts"), { recursive: true });
     await writeFile(join(created.directory, "scripts", "gen_rebate_contracts.py"), "print(1)\n", "utf8");
-    await mkdir(join(created.directory, ".opencode", "skills"), { recursive: true });
-    await writeFile(join(created.directory, ".opencode", "skills", "noop.txt"), "x", "utf8");
+    await mkdir(join(created.directory, "tmp"), { recursive: true });
+    await writeFile(join(created.directory, "tmp", "scratch.xlsx"), "tmp", "utf8");
+    await mkdir(join(created.directory, ".opencode", "tmp"), { recursive: true });
+    await writeFile(join(created.directory, ".opencode", "tmp", "rows.jsonl"), "{}\n", "utf8");
 
     const items = await listExpertSessionRuntimeFiles({
       workspace,
@@ -304,6 +307,8 @@ describe("expert session runtime directory", () => {
     expect(paths.some((p) => p.endsWith("/合同输出/【博主B】.docx"))).toBe(true);
     expect(paths.some((p) => p.includes("/scripts/"))).toBe(false);
     expect(paths.some((p) => p.includes("/.opencode/"))).toBe(false);
+    expect(paths.some((p) => p.includes("/tmp/"))).toBe(false);
+    expect(paths.some((p) => p.endsWith("/opencode.json"))).toBe(false);
   });
 
   test("materialize falls back to package-local skills when global root lacks them", async () => {

@@ -399,11 +399,22 @@ def _emit_deliverable(path: Path) -> str:
     return text
 
 
+def _process_log_path(path: Path) -> Path:
+    """Bare relative log names go to .opencode/tmp so they are not session products."""
+    if path.is_absolute() or len(path.parts) != 1:
+        if not path.is_absolute():
+            path.parent.mkdir(parents=True, exist_ok=True)
+        return path
+    dest = Path(".opencode") / "tmp" / path.name
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    return dest
+
+
 def generate(args: argparse.Namespace) -> dict[str, object]:
     input_path = Path(args.input)
     template_path = Path(args.template)
     output_dir = Path(args.output_dir)
-    report_path = Path(args.report)
+    report_path = _process_log_path(Path(args.report))
     if template_path.suffix.lower() != ".docx" or not template_path.exists():
         raise ValueError("必须提供业务方批准的 DOCX 合同模板")
     if not input_path.exists():
@@ -496,7 +507,8 @@ def generate(args: argparse.Namespace) -> dict[str, object]:
 
     workbook.close()
     _write_report(logs, report_path)
-    if report_path.exists():
+    # Internal generation log is not a user deliverable unless explicitly requested.
+    if report_path.exists() and getattr(args, "mark_report", False):
         deliverables.append(_emit_deliverable(report_path))
     return {
         "generated": generated,
@@ -569,6 +581,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--inspect",
         action="store_true",
         help="只发现模板占位符与 Excel 表头，输出建议映射 JSON",
+    )
+    parser.add_argument(
+        "--mark-report",
+        action="store_true",
+        help="将内部生成报告也登记为产物卡（默认不登记，避免挤掉合同卡）",
     )
     parser.add_argument("--self-test", action="store_true")
     return parser
