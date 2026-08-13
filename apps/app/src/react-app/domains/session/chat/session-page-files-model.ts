@@ -9,6 +9,7 @@ import {
   pruneEmptyDirectoriesFromTree,
   shouldHideEntry,
   workspaceFileBreadcrumbs,
+  workspaceFileParentPaths,
   workspaceNameFromRoot,
   type WorkspaceFileTreeNode,
 } from "../../../capabilities/artifacts/workspace-file-tree";
@@ -23,6 +24,7 @@ export {
   pruneEmptyDirectoriesFromTree,
   shouldHideEntry,
   workspaceFileBreadcrumbs,
+  workspaceFileParentPaths,
   workspaceNameFromRoot,
 };
 

@@ -1,6 +1,6 @@
 {
   "name": "kol-project-review-specialist",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Project review specialist for data prep, margin and effect metrics, content attribution, eight-dimension reviews, and report audit",
   "author": { "name": "Expert Marketplace" },
   "license": "MIT",
@@ -36,7 +36,7 @@
   ],
   "quickPrompts": [
     { "zh": "请把 <费用、效果和执行多表> 按 <主键与字段口径> 清洗合并，输出主表、映射、异常和清洗日志。", "en": "Clean and merge <Cost, effect, and execution sheets> using <Keys and field definitions>, with master data, mappings, exceptions, and log." },
-    { "zh": "请根据 <项目成本与效果数据> 和 <业务阈值或分组口径> 计算毛利效果指标、分组结果、行级标签和风险。", "en": "Analyze <Campaign cost and performance data> using <Business thresholds or grouping definitions>, with metrics, groups, row labels, and risks." },
+    { "zh": "请根据 <项目计划单与效果表> 只按 <唯一主键> 精确匹配；自动读取口径 Sheet，输出清洗底表、分组、结论、口径、人工确认和日志到一个最终 Excel，只登记终稿。", "en": "Exact-match <Project plan and effect sheets> by <Unique key>, read the method sheet, and create one final workbook with cleaned data, groups, conclusions, definitions, manual review, and log." },
     { "zh": "请根据 <本周上周投放与内容明细> 和 <人群、搜索词及内容标签> 输出周环比、效能矩阵和相关性观察。", "en": "Use <Current and prior week delivery and content data> with <Audience, search, and content tags> to produce trends, matrices, and correlation observations." },
     { "zh": "请根据 <Brief、执行、数据和客户反馈> 按 <历史复盘或用户模板> 输出八维复盘目录、逐页建议、缺数和初稿。", "en": "Build an eight-dimension review from <Brief, execution, data, and client feedback> using <Historical review or user template>." },
     { "zh": "请检查 <复盘报告> 是否符合 <指标口径与证据材料>，列出数字来源、结论越界、缺失项和修正动作。", "en": "Audit <Review report> against <Metric definitions and evidence>, listing sources, overclaims, gaps, and fixes." }

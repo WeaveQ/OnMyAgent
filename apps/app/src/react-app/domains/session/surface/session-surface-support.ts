@@ -205,6 +205,27 @@ export function readSnapshotSessionError(
   return Number.isFinite(createdAt) ? { ...parsed, createdAt } : parsed;
 }
 
+export function resolveComposerAttachmentSourcePath(file: File): string | undefined {
+  type ElectronFilesBridge = {
+    files?: { getPathForFile?: (entry: File) => string | null };
+  };
+  const scope = globalThis as typeof globalThis & {
+    __ONMYAGENT_ELECTRON__?: ElectronFilesBridge;
+  };
+  const getPathForFile = scope.__ONMYAGENT_ELECTRON__?.files?.getPathForFile;
+  if (typeof getPathForFile === "function") {
+    try {
+      return getPathForFile(file)?.trim() || undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  const legacyPath = (file as File & { path?: string }).path;
+  return typeof legacyPath === "string" && legacyPath.trim()
+    ? legacyPath.trim()
+    : undefined;
+}
+
 export function createComposerAttachments(files: File[]): ComposerAttachment[] {
   return files.map((file) => ({
     id: `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
@@ -213,6 +234,7 @@ export function createComposerAttachments(files: File[]): ComposerAttachment[] {
     size: file.size,
     kind: file.type.startsWith("image/") ? "image" : "file",
     file,
+    sourcePath: resolveComposerAttachmentSourcePath(file),
     previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
   }));
 }

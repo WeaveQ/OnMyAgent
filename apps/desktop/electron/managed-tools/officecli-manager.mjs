@@ -84,10 +84,7 @@ import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  collectOfficeCliDeliverablePaths,
-  formatOfficeCliDeliverableMarkers,
-} from "./officecli-deliverable.mjs";
+import { resolveOfficeCliSessionDeliverables } from "./officecli-deliverable.mjs";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const statePath = path.join(root, "state.json");
@@ -112,12 +109,14 @@ const stderr = result.stderr ?? "";
 if (stdout) process.stdout.write(stdout);
 if (stderr) process.stderr.write(stderr);
 const exitCode = result.status ?? 1;
-const deliverables = collectOfficeCliDeliverablePaths({
+// Expert isolation: process.cwd() is the session dir. Mutations outside it
+// (uploads / absolute paths) are copied into the session before marking.
+const { markers } = resolveOfficeCliSessionDeliverables({
   argv: cliArgs,
   stdout,
   exitCode,
+  sessionCwd: process.cwd(),
 });
-const markers = formatOfficeCliDeliverableMarkers(deliverables);
 if (markers) process.stdout.write(markers);
 process.exit(exitCode);
 `;

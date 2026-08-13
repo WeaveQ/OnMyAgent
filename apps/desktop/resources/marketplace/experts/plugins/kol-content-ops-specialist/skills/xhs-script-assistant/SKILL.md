@@ -43,13 +43,20 @@ description: Use when 小红书达人提交图文笔记、视频脚本或口播�
 
 1. 项目 Brief
 2. 客户明确要求 / 历史反馈
-3. 我方标准脚本模板
-4. 平台风险规则
-5. 已通过样稿
-6. 参考案例卡片
-7. 通用小红书内容经验
+3. **用户当次提供的脚本模板 / 示例结构**（若有，严格按其字段、顺序与版式）
+4. 我方标准脚本模板（`references/script-template.md`，**仅当用户未提供模板时**作为默认）
+5. 平台风险规则
+6. 已通过样稿
+7. 参考案例卡片
+8. 通用小红书内容经验
 
-如果参考案例与 Brief 冲突，以 Brief 为准。
+如果参考案例与 Brief 冲突，以 Brief 为准。用户模板与「我方标准模板」冲突时，**用户模板优先**；不得把用户模板强行改写成内置字段名后再交付。
+
+### 模板优先（强制）
+
+1. 用户提供了模板文件、示例文件，或在对话中给出示例结构 → **严格按用户结构输出**；可标注：`已严格按您提供的模板/示例输出`。
+2. 用户未提供任何模板/示例 → 使用 `references/script-template.md` 默认结构；可标注：`按默认脚本模板输出`。
+3. Word 交付仍可用 `docx-template.py` 承载审核六区块，但**脚本正文结构**服从用户模板，而不是反过来改用户模板。
 
 ---
 
@@ -88,7 +95,7 @@ description: Use when 小红书达人提交图文笔记、视频脚本或口播�
 ### Markdown 输出（约 65-70 积分）
 - **适用场景**：正式审核交付，客户/达人可接受 Markdown 格式
 - **输出内容**：完整六区块，含修改后脚本全文 + 留痕
-- **输出格式**：生成 .md 文件，用 present_files 展示
+- **输出格式**：生成 .md 文件，写入当前专家会话 cwd，并用 `ONMYAGENT_DELIVERABLE: <相对路径>` 登记
 - **优势**：省去 python-docx 排版代码生成环节（约占 25-30 积分）
 
 ### 标准 Word（约 75-80 积分）
@@ -194,6 +201,8 @@ description: Use when 小红书达人提交图文笔记、视频脚本或口播�
 
 **标准 Word 模式执行注意**：Step 5 完成后，将审核内容写入 JSON 文件（格式见下方说明），再运行 `references/docx-template.py` 生成 Word，而非在对话中生成 python-docx 代码。
 
+审核 JSON、Brief 缓存、提取文本和转换文件必须放 `.opencode/tmp/` 或 `os.tmpdir()`；最终 Word / Markdown 才能写到当前专家会话 cwd。上传 inbox 只读，不在原文件上覆盖。
+
 只有用户提供历史爆文、过审样稿或对照数据时才判断“爆文基因”；否则在遗漏自查中标记“缺少对照材料，无法判断”，不得凭通用经验给确定结论。
 
 ---
@@ -225,7 +234,7 @@ description: Use when 小红书达人提交图文笔记、视频脚本或口播�
 
 **读取 `references/xhs-writing-standards.md` 获取违禁词和质检标准。**
 
-逐项检查以下 14 个问题（有问题的标注风险等级）：
+逐项检查以下 15 个问题（有问题的标注风险等级）：
 
 1. 是否偏离 Brief
 2. 是否漏掉必须卖点
@@ -299,14 +308,11 @@ description: Use when 小红书达人提交图文笔记、视频脚本或口播�
 
 ---
 
-### Step 5：填入我方模板
+### Step 5：填入模板（用户模板优先）
 
-**读取 `references/script-template.md` 获取标准模板。**
-
-将博主原稿整理并填入我方标准脚本模板，以我方模板为准进行迁移、拆分、合并、补充、顺序调整和表达优化。
-
-- 不得因为原稿没有对应字段，就忽略我方模板字段
-- 如果字段确实缺失内容，标注"原稿未提供，建议补充"
+1. 若用户提供了脚本模板/示例结构 → **按用户模板**迁移、拆分、合并；缺失字段标注「原稿未提供，建议补充」，不得擅自换成内置字段名。
+2. 若用户未提供模板 → 读取 `references/script-template.md` 作为默认结构，再填入优化后的内容。
+3. 不得因为原稿没有对应字段就丢弃**当前采用的**模板字段；也不得为迁就内置模板而改写用户给定版式。
 
 ---
 
@@ -322,6 +328,28 @@ description: Use when 小红书达人提交图文笔记、视频脚本或口播�
 | 大段重写 | 段落前标注：`【此段因：Brief偏离 / 功效风险 / 结构不符 / 表达过硬 / 客户偏好，已重写】` |
 | 顺序调整 | 不需要逐字标红，但必须在【修改说明】中说明原因 |
 
+## 留痕版与清洁终稿
+
+用户要求正式审核时，首轮交付“审核留痕版”：保留修改痕迹、审核问题表、Brief 符合度、参考样例调用、遗漏自查和质检自查。
+
+只有用户明确确认审核方向并要求清洁版后，才生成“清洁终稿”：
+
+1. 以已确认的留痕版为唯一内容来源；
+2. 删除删除线、颜色标记、审核说明、问题表和自查区，只保留博主可直接使用的正文；
+3. 不新增新的功效、背书、数据、体验或场景；
+4. 清洁终稿是新的用户产物，使用独立文件名并单独登记；
+5. 上一轮的 JSON、提取文本或转换文件不得再次登记或展示。
+
+将确认后的纯净口播逐段写入临时 JSON 的 `clean_paragraphs`，再调用：
+
+```bash
+python3 references/docx-template.py --clean \
+  .opencode/tmp/<清洁终稿内容>.json \
+  '【内容阶段-品牌产品名-博主名称】清洁终稿.docx'
+```
+
+`--clean` 会拒绝包含 `~~`、`<span`、P0/P1/P2 或审核表述的正文，避免把留痕误带入博主终稿。
+
 ---
 
 ## 禁止事项
@@ -336,8 +364,9 @@ description: Use when 小红书达人提交图文笔记、视频脚本或口播�
 6. 删除有价值的真实体验（除非存在风险或偏离 Brief）
 7. 只输出"建议优化"，不直接改稿
 8. 输出没有依据的判断
-9. 忽略我方模板字段
-10. 忽略遗漏自查
+9. 忽略当前应采用的模板字段（用户模板或默认模板）
+10. 在用户已提供模板时仍强制改成内置「我方标准模板」字段
+11. 忽略遗漏自查
 
 ---
 
@@ -368,7 +397,7 @@ description: Use when 小红书达人提交图文笔记、视频脚本或口播�
 
 ### 【一、修改后脚本】
 
-严格按照我方标准脚本模板输出。
+按「模板优先」规则输出（用户模板 > 默认 `script-template.md`）。  
 所有删除、新增、替换内容必须保留修改痕迹。
 
 ---
@@ -442,7 +471,7 @@ description: Use when 小红书达人提交图文笔记、视频脚本或口播�
 `references/review-prompt-template.md` 是本 skill 的**标准审核指令层**，也是可脱离 skill 独立使用的通用审核 Prompt。
 
 - **作为指令层**：标准/批量审核时，审核逻辑以该模板为准——其「6 维判断标准」覆盖 15 项审查，「6 字段问题表」为 canonical 审核核对输出（`issue_rows`）。
-- **可移植性**：脱离 WorkBuddy/skill，直接粘贴给任意模型也能产出合规审核（但失去 `extract.py`/`缓存 Brief`/`docx-template.py` 的成本优势）。
+- **可移植性**：脱离 OnMyAgent/skill，直接粘贴给任意模型也能产出合规审核（但失去 `extract.py`、Brief 缓存和 `docx-template.py` 的成本优势）。
 - **与原框架关系**：模板的 6 维是 15 项审查的上位归类；模板的 6 字段问题表是原「修改说明表 + 风险表达表」的合并升级版（含 P0/P1/P2 风险等级 + 可替代表达列）。
 
 审核核对输出统一使用 6 字段问题表（`issue_rows`），不再单独输出「修改说明表」与「风险表达表」。
@@ -453,47 +482,15 @@ description: Use when 小红书达人提交图文笔记、视频脚本或口播�
 
 - `references/xhs-writing-standards.md` — 小红书写作规范、违禁词、去AI腔实操、时长字数参考、图文标准
 - `references/script-template.md` — 标准脚本模板（视频口播30s/60s/剧情/图文/品牌定制填充版）
-- `references/review-prompt-template.md` — 通用审核 Prompt 模板（审核指令层 + 可独立使用的通用 Prompt）
+- `references/review-prompt-template.md` — 通用审核 Prompt 模板（审核指令层 + 可独立使用的通用 Prompt + 标准 Word JSON 字段）
 - `references/extract.py` — 通用文件提取器（word/excel/pdf 自动识别，脚本化提取代替模型阅读，批量模式必用）
-- `references/docx-template.py` — Word 报告模板生成器（标准 Word 模式 + 批量模式使用；支持 `issue_rows` 统一问题表）
+- `references/docx-template.py` — Word 报告模板生成器（标准 Word、批量留痕与清洁终稿；支持 `issue_rows` 统一问题表）
 
 ---
 
 ## 标准 Word 模式 JSON 格式说明
 
-标准 Word 模式下，审核完成后将内容写入 JSON 文件，再调用 `references/docx-template.py` 生成 .docx。
+标准 Word 模式的完整 JSON 字段、留痕格式与生成命令见
+`references/review-prompt-template.md` 的「标准 Word JSON 与生成」章节。
 
-JSON 文件结构：
-
-```json
-{
-  "title": "XXX — 脚本审核报告",
-  "meta": "品牌：XXX | 达人：XXX | 任务：视频脚本审核 | 修改强度：中修 | 平台：小红书",
-  "p0_warning": "原稿口播约450字→约150s，超出Brief上限100s。修改后约330字→约95-100s。",
-  "brief_rows": [["字段", "内容"], ...],
-  "script_rows": [
-    ["1", "0-8s", "画面", "口播内容或修改留痕list", "花字"],
-    ...
-  ],
-  "pub_copy": {"original": "原文案", "modified": "改后文案", "reason": "理由"},
-  "topic": {"original": "原话题", "modified": "改后话题", "reason": "理由"},
-  "mod_rows": [["位置", "修改类型", "修改原因", "对应依据", "P0/P1/P2"], ...],
-  "brief_check_rows": [["Brief要求", "满足状态", "脚本位置", "备注"], ...],
-  "risk_rows": [["原表达", "风险原因", "修改后表达"], ...],
-  "issue_rows": [["问题位置", "问题类型", "具体问题", "P0/P1/P2/需人工复核", "修改建议", "可替代表达"], ...],
-  "ref_case": {"paragraphs": [[{"text": "...", "bold": true}, ...], ...]},
-  "omit_rows": [["缺失项", "影响", "建议"], ...],
-  "checks": [{"icon": "✅/⚠️", "text": "检查项"}, ...]
-}
-```
-
-**口播/字幕列留痕格式**：字符串为未修改内容；列表为留痕内容，每个元素为 `{text, bold, color, strike}`，color 取值 `"RED"/"ORANGE"/"GREEN"/"MUTED"/"ACCENT"`。
-
-**风险等级列**：直接写 `"P0"/"P1"/"P2"`，模板脚本会自动渲染为对应颜色。
-
-**生成命令**：
-```bash
-/Users/jiecheng/.workbuddy/binaries/python/envs/default/bin/python3 \
-  /Users/jiecheng/.workbuddy/skills/xhs-script-assistant/references/docx-template.py \
-  <json_path> <output_docx_path>
-```
+执行时只把审核 JSON 写入 `.opencode/tmp/`，最终 `.docx` 写到当前专家会话 cwd；验证可打开后，只对最终 Word 打印 `ONMYAGENT_DELIVERABLE`。

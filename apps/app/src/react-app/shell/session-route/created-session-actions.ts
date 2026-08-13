@@ -11,9 +11,14 @@ export function shouldNavigateToCreatedSession(input: {
   /** Live route selection when create finished. */
   currentSelectedSessionId: string | null | undefined;
   createdSessionId: string;
+  /** Explicit expert/tab navigation can cancel create ownership without changing the URL. */
+  createTransactionActive?: boolean;
 }): boolean {
   const created = input.createdSessionId.trim();
   if (!created) return false;
+  if (input.createTransactionActive !== undefined) {
+    return input.createTransactionActive;
+  }
   const current = input.currentSelectedSessionId?.trim() ?? "";
   const started = input.sessionIdAtSendStart?.trim() ?? "";
   // Empty route / home draft shell still owns the in-flight create.

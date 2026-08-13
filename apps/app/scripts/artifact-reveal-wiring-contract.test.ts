@@ -66,6 +66,14 @@ describe("artifact reveal wiring contract", () => {
     expect(list).not.toMatch(/function absoluteArtifactPath\(/);
   });
 
+  test("auto-detected artifact buttons preview in-app and consume the click once", () => {
+    const markdown = read("src/react-app/capabilities/artifacts/markdown.tsx");
+    expect(markdown).toContain('inlineCode.dataset.markdownOpenMode = "preview"');
+    expect(markdown).not.toContain('inlineCode.dataset.markdownOpenMode = "reveal"');
+    expect(markdown).toContain('inlineCode.title = t("files.view_in_panel")');
+    expect(markdown.match(/event\.stopPropagation\(\)/g)?.length).toBeGreaterThanOrEqual(2);
+  });
+
   test("desktop reveal IPC returns ok/not_found instead of silent void", () => {
     const handler = readFileSync(
       join(root, "../desktop/electron/desktop-handlers/system.mjs"),

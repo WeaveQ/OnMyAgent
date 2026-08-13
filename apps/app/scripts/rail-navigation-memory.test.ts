@@ -198,7 +198,7 @@ describe("rail keep-alive contract", () => {
     // Expert: primary only when chat rail is selected.
     expect(expertHost).toContain("isPrimarySessionView");
     expect(expertHost).toMatch(
-      /primarySessionActive=\{\s*isPrimarySessionView\s*\}/,
+      /primarySessionActive=\{\s*isPrimarySessionView\s*&&\s*mountExpertSessionSurface\s*\}/,
     );
     // Assistant: primary home OR embedded automation run (sessionSurfaceActive).
     expect(assistantHost).toContain("isPrimarySessionView");

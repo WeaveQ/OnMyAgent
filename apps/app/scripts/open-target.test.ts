@@ -6,6 +6,7 @@ import {
   classifyOpenTarget,
   collectRuntimeRegisteredDeliverablePaths,
   deriveOpenTargets,
+  extractAssistantDeliveryManifestPaths,
   isCollectibleArtifactTarget,
   isUserFacingLocalPreviewTarget,
   resolveArtifactAbsolutePath,
@@ -554,6 +555,65 @@ describe("deriveOpenTargets", () => {
     ).toEqual(paths);
   });
 
+  it("shows every verified file from a batch delivery Markdown table", () => {
+    const finalText = `全部完成。交付如下：
+
+## 📦 交付物（6 份合同 + 台账）
+
+**合同（\`合同输出/\`）**
+| 序号 | 文件 |
+|---|---|
+| 1 | \`【安姐聊时尚-lan10月-e签宝-斯路】.docx\` |
+| 2 | \`【毒舌小扒菜／单口bot-lan10月-e签宝-新偶】.docx\` |
+| 3 | \`【我只吃7分饱-lan10月-e签宝-元禾】.docx\` |
+| 4 | \`【倦梨逃了-lan10月-e签宝-橘崽】.docx\` |
+| 5 | \`【挖哒西挖课代表-lan10月-e签宝-松茸有】.docx\` |
+| 6 | \`【小樱日常(可爱版／牛奶方糖粥-lan11月-e签宝-三庚】.docx\` |
+
+**台账**：\`【ai】对公返点信息_已填写完成日期.xlsx\`
+
+以上均为 \`ONMYAGENT_DELIVERABLE\`。`;
+    const listedPaths = extractAssistantDeliveryManifestPaths(finalText);
+    const contractPaths = listedPaths
+      .filter((path) => path.endsWith(".docx"))
+      .map((path) => `/workspace/${path}`);
+    const ledgerPath = "/workspace/【ai】对公返点信息_已填写完成日期.xlsx";
+    const messages = [message("msg_final", "assistant", finalText)] satisfies UIMessage[];
+    const verified = [
+      ...contractPaths.map((path) => ({ ...fileTarget(path), exists: true })),
+      { ...fileTarget(ledgerPath, "sheet"), exists: true },
+    ];
+
+    expect(listedPaths).toHaveLength(7);
+    expect(deriveOpenTargets(messages).map((target) => target.value)).toEqual(listedPaths);
+    expect(selectTurnOpenTargets(messages, verified).map((target) => target.value)).toEqual([
+      ...contractPaths,
+      ledgerPath,
+    ]);
+  });
+
+  it("does not treat arbitrary code-spanned file mentions as a delivery manifest", () => {
+    const text = "我参考了 `输入台账.xlsx`，但还没有开始生成文件。";
+
+    expect(extractAssistantDeliveryManifestPaths(text)).toEqual([]);
+    expect(deriveOpenTargets([message("msg_1", "assistant", text)])).toEqual([]);
+  });
+
+  it("does not let final delivery context promote earlier assistant file mentions", () => {
+    const messages = [
+      message("msg_progress", "assistant", "正在读取 `用户输入.xlsx`。"),
+      message("msg_final", "assistant", "交付物：`最终输出.xlsx`。"),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("用户输入.xlsx", "sheet"), exists: true },
+      { ...fileTarget("最终输出.xlsx", "sheet"), exists: true },
+    ];
+
+    expect(selectTurnOpenTargets(messages, verified).map((target) => target.value)).toEqual([
+      "最终输出.xlsx",
+    ]);
+  });
+
   it("keeps hidden temporary data files out of the user-facing artifact cards", () => {
     const messages = [
       toolMessage(
@@ -944,6 +1004,52 @@ describe("deriveOpenTargets", () => {
     ).toBe("runtime deliverable");
   });
 
+  it("shows a verified deliverable registered in the final assistant reply", () => {
+    const messages = [
+      message(
+        "msg_final",
+        "assistant",
+        [
+          "验证通过，已生成《澄露防晒乳_返点毛利与投放效果分析.xlsx》。",
+          "ONMYAGENT_DELIVERABLE: 澄露防晒乳_返点毛利与投放效果分析.xlsx",
+        ].join("\n"),
+      ),
+    ] satisfies UIMessage[];
+    const verified = [
+      {
+        ...fileTarget("澄露防晒乳_返点毛利与投放效果分析.xlsx", "sheet"),
+        exists: true,
+      },
+    ];
+
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value),
+    ).toEqual(["澄露防晒乳_返点毛利与投放效果分析.xlsx"]);
+  });
+
+  it("shows a verified deliverable when the final marker is Markdown bold", () => {
+    const messages = [
+      message(
+        "msg_final",
+        "assistant",
+        [
+          "## ✅ 交付完成",
+          "**ONMYAGENT_DELIVERABLE: 云雾轻乳_项目Brief与待确认项.docx**",
+        ].join("\n"),
+      ),
+    ] satisfies UIMessage[];
+    const verified = [
+      {
+        ...fileTarget("云雾轻乳_项目Brief与待确认项.docx", "document"),
+        exists: true,
+      },
+    ];
+
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value),
+    ).toEqual(["云雾轻乳_项目Brief与待确认项.docx"]);
+  });
+
   it("collects write-xlsx --out even when stdout only has the marker", () => {
     const paths = collectRuntimeRegisteredDeliverablePaths(
       {
@@ -977,6 +1083,65 @@ describe("deriveOpenTargets", () => {
       "Created: slides.pptx (kept open)\n",
     );
     expect(paths).toContain("slides.pptx");
+  });
+
+  it("collects OfficeCLI merge output (not template) as deliverable", () => {
+    const paths = collectRuntimeRegisteredDeliverablePaths(
+      {
+        command:
+          'officecli merge 批准模板.docx "合同输出/返点合同_A.docx" --data row.json --force',
+      },
+      JSON.stringify({
+        success: true,
+        data: { output: "合同输出/返点合同_A.docx", replacedKeys: 3 },
+        message: "Merged 3 key(s)",
+      }),
+    );
+    expect(paths).toContain("合同输出/返点合同_A.docx");
+    expect(paths).not.toContain("批准模板.docx");
+  });
+
+  it("mints product cards from merge ONMYAGENT_DELIVERABLE markers", () => {
+    const targets = deriveOpenTargets([
+      toolMessage(
+        "msg_tool",
+        "bash",
+        {
+          command:
+            "officecli merge template.docx 合同输出/out.docx --data row.json --force",
+        },
+        [
+          JSON.stringify({
+            success: true,
+            data: { output: "合同输出/out.docx" },
+            message: "Merged 3 key(s)",
+          }),
+          "ONMYAGENT_DELIVERABLE: 合同输出/out.docx",
+        ].join("\n"),
+      ),
+      message("msg_final", "assistant", "已生成返点合同。"),
+    ]);
+    expect(targets.map((target) => target.value)).toContain("合同输出/out.docx");
+  });
+
+  it("resolves batch deliverable markers against an explicit shell working directory", () => {
+    const paths = collectRuntimeRegisteredDeliverablePaths(
+      {
+        command:
+          'cd "/tmp/session/合同输出" && for file in *.docx; do officecli set "$file" / --find old --replace new; done',
+      },
+      [
+        "ONMYAGENT_DELIVERABLE: 合同一.docx",
+        "ONMYAGENT_DELIVERABLE: 合同二.docx",
+        "ONMYAGENT_DELIVERABLE: 合同三.docx",
+      ].join("\n"),
+    );
+
+    expect(paths).toEqual([
+      "/tmp/session/合同输出/合同一.docx",
+      "/tmp/session/合同输出/合同二.docx",
+      "/tmp/session/合同输出/合同三.docx",
+    ]);
   });
 
   it("shows pdf/html/md content deliverables written by write tools", () => {

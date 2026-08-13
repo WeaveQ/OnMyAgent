@@ -438,11 +438,26 @@ function shellOutputText(output: unknown): string {
 
 /** Machine marker printed by artifact-runtime after a successful write. */
 const RUNTIME_DELIVERABLE_MARKER =
-  /(?:^|\n)ONMYAGENT_DELIVERABLE:\s*(.+?)(?=\s*(?:\n|$))/g;
+  /(?:^|\n)[ \t]*(?:[-*][ \t]+)?(?:\*\*|__)?ONMYAGENT_DELIVERABLE:[ \t]*(.+?)[ \t]*(?:\*\*|__)?[ \t]*(?=\n|$)/g;
+
+function shellWorkingDirectory(command: string): string | undefined {
+  const match = command.match(
+    /^\s*cd(?:\s+\/d)?\s+(?:"([^"]+)"|'([^']+)'|([^\s;&]+))\s*&&/i,
+  );
+  return (match?.[1] ?? match?.[2] ?? match?.[3])?.trim() || undefined;
+}
+
+function resolveRuntimePath(path: string, workingDirectory: string | undefined): string {
+  if (!workingDirectory || !path || path.startsWith("/") || /^[a-z]:[\\/]/i.test(path)) {
+    return path;
+  }
+  const separator = workingDirectory.includes("\\") ? "\\" : "/";
+  return `${workingDirectory.replace(/[\\/]+$/, "")}${separator}${path.replace(/^\.\//, "")}`;
+}
 
 /** OfficeCLI verbs that create or flush document files (managed launcher also emits markers). */
 const OFFICECLI_MUTATING_VERB =
-  /\b(create|save|close|set|add|remove|move|swap|batch|raw-set|add-part|refresh)\b/i;
+  /\b(create|save|close|set|add|remove|move|swap|batch|raw-set|add-part|refresh|merge)\b/i;
 
 /**
  * Paths registered by first-class artifact-runtime writes:
@@ -458,11 +473,12 @@ export function collectRuntimeRegisteredDeliverablePaths(
   const command = shellCommandText(input);
   const out = shellOutputText(output);
   const paths: string[] = [];
+  const workingDirectory = shellWorkingDirectory(command);
 
   RUNTIME_DELIVERABLE_MARKER.lastIndex = 0;
   for (const match of out.matchAll(RUNTIME_DELIVERABLE_MARKER)) {
     const raw = (match[1] ?? "").trim().replace(/^["']|["']$/g, "");
-    if (raw) paths.push(raw);
+    if (raw) paths.push(resolveRuntimePath(raw, workingDirectory));
   }
 
   for (const line of out.split("\n")) {
@@ -509,18 +525,42 @@ export function collectRuntimeRegisteredDeliverablePaths(
   }
 
   // OfficeCLI: file path is the first positional after a mutating verb.
+  // merge <template> <output> → register the output (2nd positional), not the template.
   // Launcher also prints ONMYAGENT_DELIVERABLE; keep command-arg fallback for
   // older launchers and bare binary invocations.
   if (/\bofficecli(?:\.cmd|\.exe)?\b/i.test(command) && OFFICECLI_MUTATING_VERB.test(command)) {
-    const officeFile = command.match(
-      /\bofficecli(?:\.cmd|\.exe)?\b[\s\S]*?\b(?:create|save|close|set|add|remove|move|swap|batch|raw-set|add-part|refresh)\b\s+(["']?)([^"'\s]+)\1/i,
+    const mergeMatch = command.match(
+      /\bofficecli(?:\.cmd|\.exe)?\b[\s\S]*?\bmerge\b\s+(["']?)([^"'\s]+)\1\s+(["']?)([^"'\s]+)\3/i,
     );
-    if (officeFile?.[2] && /\.(docx|xlsx|pptx)$/i.test(officeFile[2])) {
-      paths.push(officeFile[2]);
+    if (mergeMatch?.[4] && /\.(docx|xlsx|pptx)$/i.test(mergeMatch[4])) {
+      paths.push(mergeMatch[4]);
+    } else {
+      const officeFile = command.match(
+        /\bofficecli(?:\.cmd|\.exe)?\b[\s\S]*?\b(?:create|save|close|set|add|remove|move|swap|batch|raw-set|add-part|refresh)\b\s+(["']?)([^"'\s]+)\1/i,
+      );
+      if (officeFile?.[2] && /\.(docx|xlsx|pptx)$/i.test(officeFile[2])) {
+        paths.push(officeFile[2]);
+      }
     }
     for (const match of out.matchAll(/(?:^|\n)Created:\s*(.+?)(?:\s*\(|\s*$)/gim)) {
       const raw = (match[1] ?? "").trim().replace(/^["']|["']$/g, "");
       if (raw && /\.(docx|xlsx|pptx)$/i.test(raw)) paths.push(raw);
+    }
+    // merge --json: { success, data: { output: "…/out.docx" } }
+    for (const line of out.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) continue;
+      try {
+        const parsed: unknown = JSON.parse(trimmed);
+        if (!isObject(parsed) || parsed.success === false) continue;
+        const data = parsed.data;
+        if (isObject(data) && typeof data.output === "string") {
+          const outPath = data.output.trim();
+          if (outPath && /\.(docx|xlsx|pptx)$/i.test(outPath)) paths.push(outPath);
+        }
+      } catch {
+        // ignore
+      }
     }
   }
 
@@ -634,6 +674,67 @@ const EXPLICIT_ARTIFACT_LINK_PATTERNS = [
   /\]\((?:artifact|preview):\/?([^\s)]+)\)/gi,
 ];
 
+const ASSISTANT_DELIVERY_CONTEXT_PATTERN =
+  /(?:交付物|交付清单|交付如下|最终产物|产物清单|输出文件|deliverables?|ONMYAGENT_DELIVERABLE)/iu;
+const ASSISTANT_DELIVERY_CODE_FILE_PATTERN =
+  /`([^`\r\n]+?\.[a-z][a-z0-9]{0,9})`/giu;
+const ASSISTANT_DELIVERY_LINK_LABEL_PATTERN =
+  /\[([^\]\r\n]+?\.[a-z][a-z0-9]{0,9})\]\([^\r\n)]+\)/giu;
+const ASSISTANT_DELIVERY_DIRECTORY_PATTERN = /`([^`\r\n]+[/\\])`/gu;
+
+/**
+ * File paths intentionally listed in the assistant's final delivery summary.
+ *
+ * Batch agents often create several files inside one shell/python operation,
+ * then report them in a Markdown table and finish with a single sentence such
+ * as "以上均为 ONMYAGENT_DELIVERABLE". Those files have real write provenance
+ * on disk, but no per-file runtime marker. Treat code spans/link labels as a
+ * delivery manifest only when the same assistant text has strong delivery
+ * context; the server must still verify every candidate before a card appears.
+ */
+export function extractAssistantDeliveryManifestPaths(text: string): string[] {
+  if (!ASSISTANT_DELIVERY_CONTEXT_PATTERN.test(text)) return [];
+
+  const paths: string[] = [];
+  RUNTIME_DELIVERABLE_MARKER.lastIndex = 0;
+  for (const match of text.matchAll(RUNTIME_DELIVERABLE_MARKER)) {
+    const raw = (match[1] ?? "").trim().replace(/^["']|["']$/g, "");
+    if (raw && !isLikelyUserUploadArtifactPath(raw)) paths.push(raw);
+  }
+  let activeTableDirectory = "";
+  for (const line of text.split(/\r?\n/u)) {
+    ASSISTANT_DELIVERY_DIRECTORY_PATTERN.lastIndex = 0;
+    const directory = ASSISTANT_DELIVERY_DIRECTORY_PATTERN.exec(line)?.[1]?.trim();
+    if (directory) activeTableDirectory = directory.replace(/[\\]+/g, "/");
+
+    for (const pattern of [
+      ASSISTANT_DELIVERY_CODE_FILE_PATTERN,
+      ASSISTANT_DELIVERY_LINK_LABEL_PATTERN,
+    ]) {
+      pattern.lastIndex = 0;
+      for (const match of line.matchAll(pattern)) {
+        const raw = (match[1] ?? "").trim();
+        if (!raw || isLikelyUserUploadArtifactPath(raw)) continue;
+        const path = line.trimStart().startsWith("|")
+          && activeTableDirectory
+          && !raw.includes("/")
+          && !raw.includes("\\")
+          ? `${activeTableDirectory}${raw}`
+          : raw;
+        paths.push(path);
+      }
+    }
+  }
+
+  const seen = new Set<string>();
+  return paths.filter((path) => {
+    const key = normalizePath(path).toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 /**
  * Hard deliverable declarations (`文件路径: …`). These may mint product cards
  * even without a write-tool entry in the same turn.
@@ -712,6 +813,14 @@ export function deriveOpenTargets(messages: UIMessage[], options: DeriveOpenTarg
         scanText(targets, part.text, message.role === "assistant" ? 65 : 40, "message", {
           includeFiles: options.includeFileMentions === true,
         });
+        if (message.role === "assistant") {
+          addFileValues(
+            targets,
+            extractAssistantDeliveryManifestPaths(part.text),
+            92,
+            "assistant delivery manifest",
+          );
+        }
         continue;
       }
 

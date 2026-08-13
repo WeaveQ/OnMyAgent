@@ -1,6 +1,7 @@
 import type { UIMessage } from "ai";
 import {
   deriveOpenTargets,
+  extractAssistantDeliveryManifestPaths,
   extractDeclaredDeliverablePaths,
   extractExplicitArtifactLinkPaths,
   isCollectibleArtifactTarget,
@@ -155,8 +156,9 @@ function isBlockedUserPath(path: string, userBasenames: Set<string>): boolean {
 function isProcessArtifactPath(path: string): boolean {
   const normalized = normalizePathKey(path);
   if (!normalized) return true;
+  // Location SoT: tmp / .opencode/tmp / OS temp / cache — not business names.
   if (
-    /(^|\/)(?:tmp|temp|temps|cache|node_modules)(\/|$)/i.test(normalized)
+    /(^|\/)(?:\.opencode\/tmp|tmp|temp|temps|cache|node_modules)(\/|$)/i.test(normalized)
     || /^(?:\/|[a-z]:\/)(?:tmp|var\/folders|private|system|library|usr)(?:\/|$)/i.test(normalized)
   ) {
     return true;
@@ -295,7 +297,17 @@ export function selectTurnOpenTargets(
   const inlineTargets = new Map<string, OpenTarget>();
   const assistantBlob = assistantTextBlob(messages);
   // Explicit assistant delivery claims are eligible after server verification.
-  const declaredPaths = extractDeclaredDeliverablePaths(assistantBlob);
+  const deliveryManifestPaths = assistantMessages.flatMap((message) =>
+    message.parts.flatMap((part) =>
+      part.type === "text" && typeof part.text === "string"
+        ? extractAssistantDeliveryManifestPaths(part.text)
+        : [],
+    ),
+  );
+  const declaredPaths = [
+    ...extractDeclaredDeliverablePaths(assistantBlob),
+    ...deliveryManifestPaths,
+  ];
   const explicitArtifactLinkPaths = extractExplicitArtifactLinkPaths(assistantBlob);
   const executedScriptBasenames = scriptsExecutedInTurn(messages);
 

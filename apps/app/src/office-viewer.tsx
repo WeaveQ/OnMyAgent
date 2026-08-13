@@ -7,6 +7,7 @@ import spreadsheetRenderer from "@file-viewer/renderer-spreadsheet";
 import presentationRenderer from "@file-viewer/renderer-presentation";
 
 import "./office-viewer.css";
+import { compactDocxDynamicPages } from "./office-viewer-docx-pagination";
 
 type ArtifactFilePayload = {
   bytes: Uint8Array;
@@ -184,7 +185,7 @@ function OfficeViewer() {
         resize: "until-interaction" as const,
       },
       ui: { density: "compact" as const },
-      docx: { visualPagination: true },
+      docx: { awaitLayout: true, visualPagination: true },
       toolbar: {
         download: false,
         print: false,
@@ -209,6 +210,42 @@ function OfficeViewer() {
     observer.observe(document.body, { childList: true });
     return () => observer.disconnect();
   }, [isPresentation]);
+
+  useEffect(() => {
+    const viewport = presentationViewportRef.current;
+    if (!isDocument || !viewport) return;
+
+    let frame: number | null = null;
+    const repairPagination = () => {
+      frame = null;
+      const wrapper = viewport.querySelector<HTMLElement>(".docx-wrapper");
+      if (
+        !wrapper
+        || wrapper.dataset.docxPaginated !== "true"
+        || wrapper.dataset.onmyagentPaginationCompacted === "true"
+      ) return;
+
+      wrapper.dataset.onmyagentPaginationCompacted = "true";
+      if (compactDocxDynamicPages(wrapper)) {
+        window.dispatchEvent(new Event("resize"));
+      }
+    };
+    const scheduleRepair = () => {
+      if (frame === null) frame = requestAnimationFrame(repairPagination);
+    };
+    const observer = new MutationObserver(scheduleRepair);
+    observer.observe(viewport, {
+      attributes: true,
+      attributeFilter: ["data-docx-paginated"],
+      childList: true,
+      subtree: true,
+    });
+    scheduleRepair();
+    return () => {
+      observer.disconnect();
+      if (frame !== null) cancelAnimationFrame(frame);
+    };
+  }, [isDocument, payload?.mtimeMs]);
 
   useEffect(() => {
     const host = spreadsheetViewerRef.current;

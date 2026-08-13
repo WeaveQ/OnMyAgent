@@ -853,6 +853,13 @@ export function useSessionRouteSurfaceProps(
             sessionIdAtSendStart,
             currentSelectedSessionId: selectedSessionIdRef.current,
             createdSessionId: sessionId,
+            ...(pageMode === "expert" && pendingForColdPath?.operationId
+              ? {
+                  createTransactionActive:
+                    usePendingAgentStore.getState().getAgent()?.operationId ===
+                    pendingForColdPath.operationId,
+                }
+              : {}),
           });
           // ExpertPage keeps its draft surface mounted until the created
           // session is bound to the intended expert. Bind before navigating:
@@ -861,7 +868,10 @@ export function useSessionRouteSurfaceProps(
           // selection effects choose another expert/session.
           if (pageMode === "expert") {
             const { pendingAgentSnapshot } = resolvePendingAgentForPrompt({
-              currentAgent: usePendingAgentStore.getState().getAgent(),
+              // The create belongs to the expert captured when Send was
+              // clicked. A later sidebar click may clear/change the global
+              // pending store, but must never rebind this session to that UI.
+              currentAgent: pendingForColdPath,
               createdSession: true,
               sessionId,
               inheritFromSessionId: selectedSessionId,
@@ -873,12 +883,6 @@ export function useSessionRouteSurfaceProps(
                 : null,
             });
             if (pendingAgentSnapshot) {
-              usePendingAgentStore.getState().setAgent(
-                bindPendingAgentToSession({
-                  agent: pendingAgentSnapshot,
-                  sessionId,
-                }),
-              );
               useExpertDirectoryStore
                 .getState()
                 .upsertIdentity(
@@ -898,7 +902,9 @@ export function useSessionRouteSurfaceProps(
                 // Drop draft intent so bound-draft force-nav cannot steal focus.
                 const currentPending = usePendingAgentStore.getState().getAgent();
                 if (
-                  currentPending?.id === pendingAgentSnapshot.id &&
+                  currentPending &&
+                  currentPending.operationId ===
+                    pendingAgentSnapshot.operationId &&
                   !currentPending.boundSessionId
                 ) {
                   usePendingAgentStore.getState().setAgent(null);
@@ -1224,7 +1230,10 @@ export function useSessionRouteSurfaceProps(
           : null;
         const { pendingAgentSnapshot, agentToolAccess } =
           resolvePendingAgentForPrompt({
-            currentAgent: usePendingAgentStore.getState().getAgent(),
+            currentAgent:
+              pageMode === "expert" && createdSession
+                ? pendingForColdPath
+                : usePendingAgentStore.getState().getAgent(),
             createdSession: Boolean(createdSession),
             sessionId,
             inheritFromSessionId,
@@ -1264,6 +1273,13 @@ export function useSessionRouteSurfaceProps(
             sessionIdAtSendStart,
             currentSelectedSessionId: selectedSessionIdRef.current,
             createdSessionId: sessionId,
+            ...(pageMode === "expert" && pendingForColdPath?.operationId
+              ? {
+                  createTransactionActive:
+                    usePendingAgentStore.getState().getAgent()?.operationId ===
+                    pendingForColdPath.operationId,
+                }
+              : {}),
           });
           if (stillOwnsSurface || !createdSession) {
             usePendingAgentStore.getState().setAgent(

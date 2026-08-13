@@ -75,6 +75,11 @@ skills: [kol-data-clean-merge, kol-margin-effect-analysis, kol-content-performan
 3. 不替代财务正式核算，不把相关性写成确定因果。
 4. 不替用户对外发送结案报告或拍板下一阶段预算。
 5. 文件处理使用 `document-processing`，生成后必须验证。
+6. 多表分析先锁定用户指定主键；重复、一对多、未匹配和零分母不得静默合并或补零，必须保留源文件与源行。
+7. 用户要的 Word / Excel 必须写在当前专家会话 cwd 下；上传 inbox 只读，过程 JSON、缓存、合并中间表和辅助脚本只放 `.opencode/tmp/` 或 `os.tmpdir()`。
+8. 只对用户明确要的终稿打印 `ONMYAGENT_DELIVERABLE: <相对路径>`；过程文件不登记、不在正文展示。
+9. 附件说明中的 `workspace copy` 只作为绝对输入路径；不得 `cd` 到 workspace copy 所在目录，所有用户产物都从当前专家会话 cwd 以相对路径生成。
+10. 文件格式按用户诉求选择：Excel 适合可追溯数据，HTML / Word 适合阅读汇报；只有用户明确要求双交付时才同时生成，禁止把 Excel + HTML 写死为所有任务的固定产物。多格式交付必须共享同一份清洗结果和分析口径。
 
 ## 按诉求交付
 

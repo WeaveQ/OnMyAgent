@@ -20,6 +20,7 @@ sys.dont_write_bytecode = True
 REPO_ROOT = Path(__file__).resolve().parents[3]
 EXPERTS_ROOT = REPO_ROOT / "apps/desktop/resources/marketplace/experts/plugins"
 GENERATOR = EXPERTS_ROOT / "kol-content-ops-specialist/skills/rebate-contract-generator/scripts/generate_rebate_contracts.py"
+WRITEBACK = EXPERTS_ROOT / "kol-content-ops-specialist/skills/rebate-contract-generator/scripts/writeback_completion_date.py"
 CHECKER = EXPERTS_ROOT / "kol-content-ops-specialist/skills/rebate-contract-checker/scripts/check_rebate_contracts.py"
 MARGIN = EXPERTS_ROOT / "kol-project-review-specialist/skills/kol-margin-effect-analysis/scripts/analyze_kol_performance.py"
 MATRIX = EXPERTS_ROOT / "kol-project-review-specialist/skills/kol-content-performance-attribution/scripts/build_content_matrix.py"
@@ -37,10 +38,20 @@ def run_script(script: Path, *args: object) -> None:
         raise AssertionError(result.stderr or result.stdout)
 
 
-def create_minimal_docx(path: Path) -> None:
-    document = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:body>
+def create_minimal_docx(path: Path, *, chinese: bool = False) -> None:
+    if chinese:
+        body = """
+    <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>主体：{{甲方名称}}（保留格式）</w:t></w:r></w:p>
+    <w:p><w:r><w:t>税号：{{统一社会信用代码}}</w:t></w:r></w:p>
+    <w:p><w:r><w:t>账号：{{银行账号}}</w:t></w:r></w:p>
+    <w:p><w:r><w:t>开户行：{{开户行}}</w:t></w:r></w:p>
+    <w:p><w:r><w:t>发票内容：{{发票内容}}</w:t></w:r></w:p>
+    <w:p><w:r><w:t>发票类型：{{发票类型}}</w:t></w:r></w:p>
+    <w:p><w:r><w:t>金额：{{返点金额}}</w:t></w:r></w:p>
+    <w:p><w:r><w:t>周期：{{合作周期}}</w:t></w:r></w:p>
+"""
+    else:
+        body = """
     <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>主体：{{counterparty_</w:t></w:r><w:r><w:rPr><w:i/></w:rPr><w:t>name}}（保留格式）</w:t></w:r></w:p>
     <w:p><w:r><w:t>税号：{{unified_social_credit_code}}</w:t></w:r></w:p>
     <w:p><w:r><w:t>账号：{{bank_account}}</w:t></w:r></w:p>
@@ -49,6 +60,11 @@ def create_minimal_docx(path: Path) -> None:
     <w:p><w:r><w:t>发票类型：{{invoice_type}}</w:t></w:r></w:p>
     <w:p><w:r><w:t>金额：{{rebate_amount}}</w:t></w:r></w:p>
     <w:p><w:r><w:t>周期：{{cooperation_period}}</w:t></w:r></w:p>
+"""
+    document = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+{body}
     <w:sectPr/>
   </w:body>
 </w:document>"""
@@ -78,6 +94,85 @@ def import_checker():
 
 
 class CreatorOpsScriptFixtures(unittest.TestCase):
+    def test_completion_date_writeback_updates_session_copy_and_authorized_source(self):
+        with tempfile.TemporaryDirectory(prefix="oma-completion-writeback-") as temp:
+            root = Path(temp)
+            source = root / "【ai】对公返点信息.xlsx"
+            output = root / "session" / "【ai】对公返点信息_已填写完成日期.xlsx"
+            workbook = Workbook()
+            sheet = workbook.active
+            sheet["B1"] = "完成后填写日期"
+            sheet.append(["序号", "完成日期", "博主名称"])
+            for sequence in range(1, 7):
+                sheet.append([sequence, None, f"达人{sequence}"])
+            workbook.save(source)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(WRITEBACK),
+                    "--input",
+                    str(source),
+                    "--output",
+                    str(output),
+                    "--date",
+                    "2026-08-13",
+                    "--source-writeback",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+            self.assertIn("ONMYAGENT_DELIVERABLE:", result.stdout)
+            status = json.loads(result.stdout.splitlines()[0])
+            self.assertTrue(status["source_updated"])
+            self.assertEqual(status["rows_updated"], 6)
+            self.assertEqual(status["cells"], ["B3", "B4", "B5", "B6", "B7", "B8"])
+            for workbook_path in (source, output):
+                updated = load_workbook(workbook_path, read_only=True, data_only=True)
+                self.assertEqual(
+                    [updated.active[f"B{row}"].value for row in range(3, 9)],
+                    ["2026-08-13"] * 6,
+                )
+                updated.close()
+
+    def test_completion_date_copy_does_not_mutate_source_without_authorization(self):
+        with tempfile.TemporaryDirectory(prefix="oma-completion-copy-only-") as temp:
+            root = Path(temp)
+            source = root / "源台账.xlsx"
+            output = root / "session" / "交付台账.xlsx"
+            workbook = Workbook()
+            sheet = workbook.active
+            sheet.append(["序号", "完成日期"])
+            sheet.append([1, None])
+            workbook.save(source)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(WRITEBACK),
+                    "--input",
+                    str(source),
+                    "--output",
+                    str(output),
+                    "--date",
+                    "2026-08-13",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+            source_book = load_workbook(source, read_only=True, data_only=True)
+            output_book = load_workbook(output, read_only=True, data_only=True)
+            self.assertIsNone(source_book.active["B2"].value)
+            self.assertEqual(output_book.active["B2"].value, "2026-08-13")
+            source_book.close()
+            output_book.close()
+
     def test_script_batch_renderer_writes_one_docx_per_creator(self):
         if importlib.util.find_spec("docx") is None:
             self.skipTest("python-docx is provided by the desktop packaged runtime")
@@ -111,6 +206,55 @@ class CreatorOpsScriptFixtures(unittest.TestCase):
             self.assertIn("绝对化表达", xml)
             self.assertIn("P0", xml)
 
+    def test_script_clean_renderer_excludes_audit_sections_and_rejects_markup(self):
+        if importlib.util.find_spec("docx") is None:
+            self.skipTest("python-docx is provided by the desktop packaged runtime")
+        with tempfile.TemporaryDirectory(prefix="oma-script-clean-") as temp:
+            root = Path(temp)
+            clean_json = root / "clean.json"
+            clean_output = root / "【视频脚本-示例产品-达人A】清洁终稿.docx"
+            clean_json.write_text(
+                json.dumps(
+                    {
+                        "title": "示例产品清洁口播终稿",
+                        "meta": "达人：达人A | 平台：小红书",
+                        "clean_paragraphs": [
+                            "家人们，最近加班真的有点多。",
+                            "这版只保留可以直接口播的正文。",
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [sys.executable, str(XHS_DOCX), "--clean", str(clean_json), str(clean_output)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+            self.assertIn("ONMYAGENT_DELIVERABLE:", result.stdout)
+            with zipfile.ZipFile(clean_output) as archive:
+                xml = archive.read("word/document.xml").decode("utf-8")
+            self.assertIn("家人们", xml)
+            self.assertNotIn("审核核对", xml)
+            self.assertNotIn("修改建议", xml)
+
+            bad_json = root / "bad.json"
+            bad_json.write_text(
+                json.dumps({"clean_paragraphs": ["~~删除内容~~ <span>新增</span>"]}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            bad = subprocess.run(
+                [sys.executable, str(XHS_DOCX), "--clean", str(bad_json), str(root / "bad.docx")],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(bad.returncode, 2)
+            self.assertIn("仍包含留痕", bad.stderr)
+
     def test_contract_generator_writes_only_complete_rows(self):
         with tempfile.TemporaryDirectory(prefix="oma-contract-fixture-") as temp:
             root = Path(temp)
@@ -129,7 +273,27 @@ class CreatorOpsScriptFixtures(unittest.TestCase):
             create_minimal_docx(template)
             output_dir = root / "合同"
             report = root / "生成报告.xlsx"
-            run_script(GENERATOR, "--input", source, "--template", template, "--output-dir", output_dir, "--report", report)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(GENERATOR),
+                    "--input",
+                    str(source),
+                    "--template",
+                    str(template),
+                    "--output-dir",
+                    str(output_dir),
+                    "--report",
+                    str(report),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+            self.assertIn("ONMYAGENT_DELIVERABLE:", result.stdout)
+            self.assertRegex(result.stdout, r"ONMYAGENT_DELIVERABLE:.*\.docx")
+            self.assertNotIn("生成报告.xlsx", result.stdout)
 
             contracts = list(output_dir.glob("*.docx"))
             self.assertEqual(len(contracts), 1)
@@ -149,6 +313,65 @@ class CreatorOpsScriptFixtures(unittest.TestCase):
             self.assertEqual(source_book.active.max_row, 3)
             self.assertIsNone(source_book.active["D3"].value)
             source_book.close()
+
+    def test_contract_generator_fills_chinese_placeholders_with_map(self):
+        with tempfile.TemporaryDirectory(prefix="oma-contract-zh-") as temp:
+            root = Path(temp)
+            source = root / "返点信息.xlsx"
+            workbook = Workbook()
+            sheet = workbook.active
+            sheet.append([
+                "项目", "主体名称", "统一社会信用代码", "银行账号", "开户行",
+                "发票内容", "发票类型", "返点金额", "合作周期",
+            ])
+            sheet.append([
+                "项目A", "中文模板公司", "91310000ZH", "62221111", "中文银行",
+                "信息服务费", "普票", 2000, "2026-03",
+            ])
+            workbook.save(source)
+            template = root / "中文模板.docx"
+            create_minimal_docx(template, chinese=True)
+            mapping = root / "mapping.json"
+            mapping.write_text(
+                json.dumps(
+                    {
+                        "placeholders": {
+                            "甲方名称": "counterparty_name",
+                            "统一社会信用代码": "unified_social_credit_code",
+                            "银行账号": "bank_account",
+                            "开户行": "bank_name",
+                            "发票内容": "invoice_content",
+                            "发票类型": "invoice_type",
+                            "返点金额": "rebate_amount",
+                            "合作周期": "cooperation_period",
+                        }
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            output_dir = root / "合同"
+            report = root / "生成报告.xlsx"
+            run_script(
+                GENERATOR,
+                "--input",
+                source,
+                "--template",
+                template,
+                "--output-dir",
+                output_dir,
+                "--report",
+                report,
+                "--map",
+                mapping,
+            )
+            contracts = list(output_dir.glob("*.docx"))
+            self.assertEqual(len(contracts), 1)
+            with zipfile.ZipFile(contracts[0]) as archive:
+                xml = archive.read("word/document.xml").decode("utf-8")
+            self.assertIn("中文模板公司", xml)
+            self.assertIn("2000", xml)
+            self.assertNotIn("{{", xml)
 
     def test_margin_workbook_keeps_formulas_and_data_gaps_traceable(self):
         with tempfile.TemporaryDirectory(prefix="oma-margin-fixture-") as temp:
@@ -190,6 +413,104 @@ class CreatorOpsScriptFixtures(unittest.TestCase):
             self.assertIn("重复记录", risk_text)
             self.assertIn("字段冲突", risk_text)
             result.close()
+
+    def test_margin_two_source_mode_exact_matches_links_and_routes_exceptions(self):
+        with tempfile.TemporaryDirectory(prefix="oma-margin-two-source-") as temp:
+            root = Path(temp)
+            plan = root / "项目计划单.xlsx"
+            effect = root / "蒲公英效果.xlsx"
+            output = root / "毛利效果分析.xlsx"
+            html_output = root / "毛利效果分析报告.html"
+
+            plan_book = Workbook()
+            plan_sheet = plan_book.active
+            plan_sheet.title = "返点毛利计划单"
+            plan_sheet.append(["达人昵称", "笔记链接", "粉丝量级", "笔记类型", "K金额", "返点档", "毛利率"])
+            plan_sheet.append(["计划昵称A", "https://example.test/a", "10-20万", "图文", 1000, "<20%", 0.2])
+            plan_sheet.append(["计划昵称B", "https://example.test/b", "20-50万", "视频", 2000, "20%-25%", 0.25])
+            plan_sheet.append(["重复链接", "https://example.test/dup", "5-10万", "图文", 500, "<20%", 0.1])
+            plan_sheet.append(["只在计划单", "https://example.test/plan-only", "5-10万", "图文", 500, "<20%", 0.1])
+            method = plan_book.create_sheet("分析口径与阈值")
+            method.append(["类型", "指标/规则", "公式或口径", "演示阈值", "说明"])
+            method.append(["纯K前端", "自然CTR", "自然阅读量 / 自然曝光量", ">=8.0%", "零分母标数据不足"])
+            method.append(["纯K前端", "纯K CPC", "K金额 / 自然阅读量", "<=¥12", ""])
+            method.append(["总投入", "搜索进店成本", "总金额 / 搜索进店UV", "<=¥30", ""])
+            plan_book.save(plan)
+
+            effect_book = Workbook()
+            effect_sheet = effect_book.active
+            effect_sheet.title = "蒲公英投放效果"
+            effect_sheet.append(["效果记录ID", "博主昵称", "发布链接", "自然曝光量", "自然阅读量", "广告金额", "点赞量", "评论量", "收藏量", "搜索进店UV", "推广曝光量", "推广阅读量"])
+            effect_sheet.append(["EFF-A", "效果昵称不同", "https://example.test/a", 1000, 100, 200, 10, 5, 5, 50, 500, 60])
+            effect_sheet.append(["EFF-B", "计划昵称B", "https://example.test/b", 0, 80, 100, 8, 4, 3, None, 300, 40])
+            effect_sheet.append(["EFF-D1", "重复链接", "https://example.test/dup", 500, 50, 0, 2, 1, 1, 10, 100, 10])
+            effect_sheet.append(["EFF-D2", "重复链接", "https://example.test/dup", 600, 60, 0, 3, 1, 1, 12, 120, 12])
+            effect_sheet.append(["EFF-ONLY", "只在效果表", "https://example.test/effect-only", 300, 30, 0, 1, 1, 1, 5, 50, 5])
+            effect_book.save(effect)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(MARGIN),
+                    "--plan-input",
+                    str(plan),
+                    "--effect-input",
+                    str(effect),
+                    "--output",
+                    str(output),
+                    "--html-output",
+                    str(html_output),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+            self.assertIn("ONMYAGENT_DELIVERABLE:", result.stdout)
+            self.assertIn("毛利效果分析.xlsx", result.stdout)
+            self.assertIn("毛利效果分析报告.html", result.stdout)
+
+            workbook = load_workbook(output, read_only=False, data_only=False)
+            self.assertEqual(workbook.sheetnames, ["清洗底表", "字段映射", "分组分析", "分析结论", "口径表", "人工确认", "清洗日志"])
+            details = list(workbook["清洗底表"].iter_rows(values_only=True))
+            headers = list(details[0])
+            rows = [dict(zip(headers, row)) for row in details[1:]]
+            self.assertEqual(len(rows), 2)
+            self.assertEqual(rows[0]["计划单达人昵称"], "计划昵称A")
+            self.assertEqual(rows[0]["效果表博主昵称"], "效果昵称不同")
+            self.assertEqual(rows[0]["行级标签"], "优先保留")
+            self.assertEqual(rows[1]["行级标签"], "数据不足")
+            manual_text = "\n".join(
+                str(cell)
+                for row in workbook["人工确认"].iter_rows(values_only=True)
+                for cell in row
+            )
+            self.assertIn("不是一对一", manual_text)
+            self.assertIn("计划单中未匹配", manual_text)
+            self.assertIn("效果表中未匹配", manual_text)
+            self.assertIn("自然 CTR", manual_text)
+            self.assertIn("搜索进店成本", manual_text)
+            mapping_text = "\n".join(
+                str(cell)
+                for row in workbook["字段映射"].iter_rows(values_only=True)
+                for cell in row
+            )
+            self.assertIn("笔记链接", mapping_text)
+            self.assertIn("仅供人工核对，不参与匹配", mapping_text)
+            method_text = "\n".join(
+                str(cell)
+                for row in workbook["口径表"].iter_rows(values_only=True)
+                for cell in row
+            )
+            self.assertIn("自然阅读量 / 自然曝光量", method_text)
+            workbook.close()
+
+            html_text = html_output.read_text(encoding="utf-8")
+            self.assertIn("<!doctype html>", html_text)
+            self.assertIn("数据完整度", html_text)
+            self.assertIn("三层分析口径", html_text)
+            self.assertIn("项目计划单.xlsx", html_text)
+            self.assertNotIn(str(root), html_text)
 
     def test_content_matrices_use_correlation_language(self):
         with tempfile.TemporaryDirectory(prefix="oma-matrix-fixture-") as temp:

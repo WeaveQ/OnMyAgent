@@ -1,7 +1,14 @@
 /**
  * Map OfficeCLI invocations to ONMYAGENT_DELIVERABLE paths for session product cards.
  * Shared by the managed launcher and unit tests.
+ *
+ * Expert sessions: mutating a file outside the session cwd (uploads, Desktop, …)
+ * still counts as a session deliverable — we copy the result into the cwd so
+ * Files → Expert and product cards see both creates and in-place edits.
  */
+
+import { copyFileSync, existsSync, statSync } from "node:fs";
+import path from "node:path";
 
 const OFFICE_DOC_EXT = /\.(docx|xlsx|pptx)$/i;
 
@@ -19,6 +26,8 @@ const MUTATING_VERBS = new Set([
   "raw-set",
   "add-part",
   "refresh",
+  // merge <template> <output> --data … writes the output document
+  "merge",
 ]);
 
 /** Flags whose next token is a value, not a file path. */
@@ -41,6 +50,7 @@ const FLAGS_WITH_VALUE = new Set([
   "--part",
   "--parent",
   "--out",
+  "--data",
 ]);
 
 /**
@@ -55,7 +65,7 @@ export function isOfficeCliDocumentPath(value) {
 
 /**
  * @param {string[]} argv process.argv.slice(2) style args (no binary name)
- * @returns {{ verb: string | null, file: string | null }}
+ * @returns {{ verb: string | null, file: string | null, template?: string | null }}
  */
 export function parseOfficeCliArgv(argv) {
   const tokens = Array.isArray(argv) ? argv.map(String) : [];
@@ -86,6 +96,22 @@ export function parseOfficeCliArgv(argv) {
 
   if (verb === "help" || verb === "plugins" || verb === "version") {
     return { verb, file: null };
+  }
+
+  // merge <template> <output> — deliverable is the output (2nd positional), not the template.
+  if (verb === "merge") {
+    const positionals = [];
+    while (index < tokens.length) {
+      if (tokens[index].startsWith("-")) {
+        skipFlag();
+        continue;
+      }
+      positionals.push(tokens[index].replace(/^["']|["']$/g, ""));
+      index += 1;
+    }
+    const template = positionals[0] || null;
+    const output = positionals[1] || null;
+    return { verb, file: output, template };
   }
 
   while (index < tokens.length) {
@@ -132,6 +158,17 @@ export function extractOfficeCliPathsFromStdout(stdout) {
       }
       if (typeof parsed.path === "string" && isOfficeCliDocumentPath(parsed.path)) {
         paths.push(parsed.path.trim());
+      }
+      // officecli merge --json: { success, data: { output: "…/out.docx", … } }
+      if (parsed.data && typeof parsed.data === "object" && !Array.isArray(parsed.data)) {
+        const output = parsed.data.output;
+        if (typeof output === "string" && isOfficeCliDocumentPath(output)) {
+          paths.push(output.trim());
+        }
+        const pathAlt = parsed.data.path;
+        if (typeof pathAlt === "string" && isOfficeCliDocumentPath(pathAlt)) {
+          paths.push(pathAlt.trim());
+        }
       }
     } catch {
       // ignore
@@ -183,4 +220,91 @@ export function formatOfficeCliDeliverableMarkers(paths) {
     lines.push(`ONMYAGENT_DELIVERABLE: ${pathText}`);
   }
   return lines.length > 0 ? `${lines.join("\n")}\n` : "";
+}
+
+/**
+ * @param {string} dir
+ * @param {string} candidate
+ * @returns {boolean}
+ */
+export function isPathInsideDir(dir, candidate) {
+  const root = path.resolve(dir);
+  const target = path.resolve(candidate);
+  if (process.platform === "win32") {
+    const rootKey = root.toLowerCase();
+    const targetKey = target.toLowerCase();
+    return targetKey === rootKey || targetKey.startsWith(`${rootKey}${path.sep}`);
+  }
+  return target === root || target.startsWith(`${root}${path.sep}`);
+}
+
+/**
+ * Prefer session-cwd-relative marker paths; copy outside-session files into cwd.
+ *
+ * @param {string[]} paths Absolute or relative Office paths after a successful mutation
+ * @param {string} [sessionCwd] Defaults to process.cwd() (expert session isolation root)
+ * @param {{ copyFile?: typeof copyFileSync, exists?: typeof existsSync, stat?: typeof statSync }} [io]
+ * @returns {string[]} Paths suitable for ONMYAGENT_DELIVERABLE (relative when under cwd)
+ */
+export function materializeDeliverablesIntoSession(paths, sessionCwd, io = {}) {
+  const copyFile = io.copyFile ?? copyFileSync;
+  const exists = io.exists ?? existsSync;
+  const stat = io.stat ?? statSync;
+  const cwd = path.resolve(sessionCwd || process.cwd());
+  const out = [];
+  const seen = new Set();
+
+  for (const raw of paths) {
+    const text = String(raw ?? "").trim().replace(/^["']|["']$/g, "");
+    if (!text || !isOfficeCliDocumentPath(text)) continue;
+
+    const abs = path.isAbsolute(text) ? path.resolve(text) : path.resolve(cwd, text);
+    let sessionAbs = abs;
+
+    if (!isPathInsideDir(cwd, abs)) {
+      // Edited/created outside the expert session → bring a copy into the session.
+      if (!exists(abs)) continue;
+      try {
+        if (!stat(abs).isFile()) continue;
+      } catch {
+        continue;
+      }
+      const base = path.basename(abs);
+      sessionAbs = path.join(cwd, base);
+      try {
+        copyFile(abs, sessionAbs);
+      } catch {
+        continue;
+      }
+    }
+
+    let marker = sessionAbs;
+    if (isPathInsideDir(cwd, sessionAbs)) {
+      const rel = path.relative(cwd, sessionAbs);
+      marker = (rel && rel !== ".") ? rel.split(path.sep).join("/") : path.basename(sessionAbs);
+    }
+    if (!marker || seen.has(marker)) continue;
+    seen.add(marker);
+    out.push(marker);
+  }
+
+  return out;
+}
+
+/**
+ * Collect mutated Office paths, materialize outside-session files into cwd, format markers.
+ *
+ * @param {{ argv?: string[], stdout?: string, exitCode?: number | null, sessionCwd?: string }} input
+ * @returns {{ paths: string[], markers: string }}
+ */
+export function resolveOfficeCliSessionDeliverables(input = {}) {
+  const collected = collectOfficeCliDeliverablePaths(input);
+  const paths = materializeDeliverablesIntoSession(
+    collected,
+    input.sessionCwd ?? process.cwd(),
+  );
+  return {
+    paths,
+    markers: formatOfficeCliDeliverableMarkers(paths),
+  };
 }
