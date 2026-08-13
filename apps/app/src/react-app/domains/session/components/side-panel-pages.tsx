@@ -414,7 +414,7 @@ export function StorePage(props: {
       : t("session.search_experts_placeholder");
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-dls-background">
+    <div className="flex h-full min-h-0 select-none flex-col bg-dls-background">
       <div className={cn(shellChrome.pageHeader, "border-b-0 mac:titlebar-drag")}>
         {activeTab === "experts" && expertView === "mine" ? (
           <Button
@@ -453,7 +453,7 @@ export function StorePage(props: {
                 value={query}
                 onChange={(event) => setQuery(event.currentTarget.value)}
                 placeholder={searchPlaceholder}
-                className="text-sm text-dls-text placeholder:text-dls-secondary/70"
+                className="select-text text-sm text-dls-text placeholder:text-dls-secondary/70"
               />
             </InputGroup>
           ) : null}

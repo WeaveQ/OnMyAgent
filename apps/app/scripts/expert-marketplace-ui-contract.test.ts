@@ -522,6 +522,8 @@ describe("expert marketplace UI contract", () => {
     const dialog = readMarketplaceFile("expert-marketplace-dialog.tsx");
     expect(dialog).toContain("border border-transparent");
     expect(dialog).toContain("hover:border-dls-border");
+    // Market grid is browse-only: no drag-select highlight on titles/tags.
+    expect(dialog).toContain("select-none");
     // Summon / open-chat both hover-reveal (not always-on).
     expect(dialog).toContain("opacity-0");
     expect(dialog).toContain("group-hover:opacity-100");

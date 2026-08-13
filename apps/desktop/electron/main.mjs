@@ -65,6 +65,7 @@ import {
 import { resolveArchitectureInfo as resolveDesktopArchitectureInfo } from "./architecture-info.mjs";
 import { createApplicationMenuController } from "./application-menu.mjs";
 import { createStatusItemLifecycle } from "./status-item.mjs";
+import { createWindowsJumpListRuntime } from "./windows-jump-list.mjs";
 import { createComputerUseDesktopHelpers } from "./computer-use-desktop.mjs";
 import {
   getLaunchAtLogin,
@@ -466,6 +467,7 @@ const statusItem = createStatusItemLifecycle({
   openQuickCapture: () => quickCapture.show(),
   appIconPath: APP_ICON_PATH, // trayTemplate / trayIcon sit beside brand icon
 });
+const windowsJumpList = createWindowsJumpListRuntime({ app, program: process.execPath, appIconPath: APP_ICON_PATH, statusItem, createMainWindow });
 desktopWindowController = createDesktopWindowController({
   getMainWindow: () => mainWindow, setMainWindow: (win) => { mainWindow = win; },
   app, nativeTheme, session, appName: APP_NAME, isDevMode,
@@ -1647,12 +1649,8 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on("second-instance", async (_event, argv) => {
     const win = await createMainWindow();
-    if (win.isMinimized()) {
-      win.restore();
-    }
-    if (!win.isVisible()) {
-      win.show();
-    }
+    if (win.isMinimized()) win.restore();
+    if (!win.isVisible()) win.show();
     // Windows focus is unreliable without a brief always-on-top bump.
     if (process.platform === "win32") {
       win.setAlwaysOnTop(true);
@@ -1667,6 +1665,7 @@ if (!app.requestSingleInstanceLock()) {
       win.focus();
     }
     queueDeepLinks(forwardedDeepLinks(argv));
+    void windowsJumpList.consumeArgv(argv);
   });
 
   app.on("open-url", async (event, url) => {
@@ -1686,7 +1685,7 @@ if (!app.requestSingleInstanceLock()) {
         }),
       installMediaPermissionHandlers,
       installApplicationMenu,
-      installStatusItem: () => statusItem.installSafely(),
+      installStatusItem: () => windowsJumpList.install(),
       ensureUserDataDirs: () => ensureOnMyAgentUserDataDirs(),
       // Use Tauri's existing workspace state file as canonical so rollback and
       // Electron see the same workspace list. Import the short-lived
@@ -1708,7 +1707,7 @@ if (!app.requestSingleInstanceLock()) {
         () => telegramService.autoStart(),
         () => discordService.autoStart(),
       ],
-      queueDeepLinks: () => queueDeepLinks(forwardedDeepLinks(process.argv)),
+      queueDeepLinks: () => { queueDeepLinks(forwardedDeepLinks(process.argv)); void windowsJumpList.consumeArgv(process.argv); },
       watchComputerUseActivity,
       watchComputerUseAppshots,
       onComputerUseActivity: (activity) => {
