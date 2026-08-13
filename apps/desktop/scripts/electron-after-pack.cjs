@@ -1,15 +1,9 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const { slimPackagedExtraResources } = require("./prune-bundled-runtime.cjs");
 
 const computerUseHelperAppName = "OnMyAgent Computer Use.app";
-
-// Real packaged sidecars only. onmyagent-server runs in-process; chrome-devtools-mcp
-// is not shipped as a sidecar binary in current builds.
-const sidecarBases = [
-  "opencode",
-  "onmyagent-orchestrator",
-];
 
 function targetTriple(platformName, arch) {
   if (platformName === "darwin") {
@@ -34,6 +28,14 @@ function resolveSidecarsDir(context) {
     return appName ? path.join(context.appOutDir, appName, "Contents", "Resources", "sidecars") : null;
   }
   return path.join(context.appOutDir, "resources", "sidecars");
+}
+
+function resolveExtraResourceDir(context, name) {
+  if (context.electronPlatformName === "darwin") {
+    const appPath = resolveMacAppPath(context);
+    return appPath ? path.join(appPath, "Contents", "Resources", name) : null;
+  }
+  return path.join(context.appOutDir, "resources", name);
 }
 
 function resolveRuntimesDir(context) {
@@ -182,71 +184,18 @@ function brandWindowsExecutable(context) {
   console.log(`[afterPack] Branded Windows executable: ${exePath}`);
 }
 
-function copyExecutableTargetToAlias(sidecarsDir, targetName, aliasName) {
-  const targetPath = path.join(sidecarsDir, targetName);
-  if (!fs.existsSync(targetPath)) {
-    throw new Error(`Missing packaged sidecar for target: ${targetName}`);
-  }
-
-  const aliasPath = path.join(sidecarsDir, aliasName);
-  fs.copyFileSync(targetPath, aliasPath);
-  try {
-    fs.chmodSync(aliasPath, 0o755);
-  } catch {
-    // Windows and some filesystems may ignore chmod.
-  }
-}
-
 async function afterPack(context) {
   const triple = targetTriple(context.electronPlatformName, context.arch);
   if (!triple) return;
 
-  const sidecarsDir = resolveSidecarsDir(context);
-  if (!sidecarsDir || !fs.existsSync(sidecarsDir)) return;
-
   const isWindows = context.electronPlatformName === "win32";
-  const executableSuffix = isWindows ? ".exe" : "";
-  const keep = new Set();
-
-  for (const base of sidecarBases) {
-    const aliasName = `${base}${executableSuffix}`;
-    const targetName = `${base}-${triple}${executableSuffix}`;
-    copyExecutableTargetToAlias(sidecarsDir, targetName, aliasName);
-    keep.add(aliasName);
-    keep.add(targetName);
-  }
-
-  const versionsAlias = "versions.json";
-  const versionsTarget = `versions.json-${triple}${executableSuffix}`;
-  const versionsTargetPath = path.join(sidecarsDir, versionsTarget);
-  if (!fs.existsSync(versionsTargetPath)) {
-    throw new Error(`Missing packaged sidecar metadata for target: ${versionsTarget}`);
-  }
-  fs.copyFileSync(versionsTargetPath, path.join(sidecarsDir, versionsAlias));
-  keep.add(versionsAlias);
-  keep.add(versionsTarget);
-
-  for (const entry of fs.readdirSync(sidecarsDir)) {
-    if (!keep.has(entry)) {
-      fs.rmSync(path.join(sidecarsDir, entry), { force: true, recursive: true });
-    }
-  }
-
-  const runtimesDir = resolveRuntimesDir(context);
-  const targetRuntimeDir = runtimesDir
-    ? path.join(runtimesDir, triple)
-    : null;
-  if (!targetRuntimeDir || !fs.existsSync(targetRuntimeDir)) {
-    throw new Error(`Missing packaged runtimes for target: ${triple}`);
-  }
-  for (const entry of fs.readdirSync(runtimesDir)) {
-    if (entry !== triple) {
-      fs.rmSync(path.join(runtimesDir, entry), {
-        force: true,
-        recursive: true,
-      });
-    }
-  }
+  slimPackagedExtraResources({
+    sidecarsDir: resolveSidecarsDir(context),
+    runtimesDir: resolveRuntimesDir(context),
+    triple,
+    executableSuffix: isWindows ? ".exe" : "",
+    artifactRuntimeDir: resolveExtraResourceDir(context, "artifact-runtime"),
+  });
 
   signComputerUseHelper(context);
   brandWindowsExecutable(context);

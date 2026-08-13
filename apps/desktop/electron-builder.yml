@@ -38,6 +38,12 @@ extraResources:
       - "**/versions.json"
   - from: resources/artifact-runtime
     to: artifact-runtime
+    filter:
+      - "**/*"
+      - "!**/*.{map,md,ts}"
+      - "!**/*.test.cjs"
+      - "!**/node_modules/@types/**"
+      - "!**/.pnpm/@types+*/**"
   # Window / tray icon fallback in packaged app (desktop-paths resolveAppIconPath).
   - from: resources/icons
     to: icons
