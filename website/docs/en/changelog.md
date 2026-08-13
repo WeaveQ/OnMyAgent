@@ -6,6 +6,10 @@ title: Changelog
 
 For the complete assets and release notes, use [GitHub Releases](https://github.com/WeaveQ/OnMyAgent/releases) as the source of truth. The entries below highlight recent user-visible changes; in-progress Unreleased items are not included. Current desktop builds are **prereleases** (not notarized).
 
+## 0.5.0
+
+- Packaged builds hide the Task Center rail entry (still visible in local dev)
+
 ## 0.4.29
 
 - Task Center: durable background orchestration, alignment, approvals, and run history
