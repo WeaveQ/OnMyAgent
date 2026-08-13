@@ -6,6 +6,13 @@ title: Changelog
 
 For the complete assets and release notes, use [GitHub Releases](https://github.com/WeaveQ/OnMyAgent/releases) as the source of truth. The entries below highlight recent user-visible changes; in-progress Unreleased items are not included. Current desktop builds are **prereleases** (not notarized).
 
+## 0.4.29
+
+- Task Center: durable background orchestration, alignment, approvals, and run history
+- Windows tray icon matches the app brand mark
+- Taskbar jump list Computer Control uses the brand icon
+- Expert marketplace browse grid no longer highlights text on drag
+
 ## 0.4.28
 
 - Welcome onboarding is no longer covered by the boot overlay after cold start

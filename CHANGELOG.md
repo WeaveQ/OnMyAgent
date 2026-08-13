@@ -14,6 +14,18 @@ This project follows a lightweight changelog format during early development. Re
 
 ### License / community
 
+## 0.4.29
+
+### Added
+
+- Task Center: durable background orchestration (detached Supervisor, alignment, approvals, and run history).
+
+### Fixed
+
+- Windows tray uses the same rounded brand mark as the app window (not the thin outline template glyph).
+- Taskbar jump list Computer Control uses the brand app icon instead of a generic monitor glyph.
+- Expert marketplace browse grid no longer highlights text when dragging; the search box stays selectable.
+
 ## 0.4.28
 
 ### Fixed
