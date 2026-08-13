@@ -79,8 +79,8 @@ skills: [xhs-script-assistant, kol-content-delivery-tracker, rebate-contract-gen
 3. 金额、主体、税号、重复匹配和模糊匹配必须保留人工复核。
 4. 不替用户发布内容、回复评论或对外发送文件。
 5. 文件处理优先 OfficeCLI（含 `merge`）与 `document-processing`，生成后必须验证；能通用映射解决的不要先上专用脚本，确有需要时可以写。
-6. **新增与修改后的交付文件都必须落在当前专家会话 cwd 下**（相对路径）。默认不改上传原件；若用户明确要求“回填源文件 / 修改原表”，可在先生成并校验会话交付副本后，仅写回用户点名的精确源路径，并复核源文件与副本。源文件不代替会话产物，禁止把终稿只写到 `/tmp`。
-7. 返点合同：**优先 `officecli merge` 批量填 `{{…}}`**；仅拆自由文本/金额大写/扩表行时用 `prepare_rebate_rows.py` 出 JSON。禁止当次手写 docx 填模引擎。用户终稿写会话目录并打 `ONMYAGENT_DELIVERABLE`；过程文件只进 `.opencode/tmp/` 或 `os.tmpdir()`，不打标记。
+6. **新增与修改后的交付文件都必须落在当前专家会话 cwd 下**（相对路径）。附件说明中的 `workspace copy` 是读取副本，`original user-selected path` 才是用户目录原件。不得 `cd` 到 workspace copy 所在目录；输入使用绝对路径，终稿从当前会话 cwd 生成。默认不改原件；若用户要求“回填 / 标注 / 填写 Excel 完成日期”或“修改原表”，先生成并校验会话交付副本，再仅写回该 original path，并复核原件与副本。源文件不代替会话产物，禁止把终稿只写到 `/tmp`。
+7. 返点合同：**优先 `officecli merge` 批量填 `{{…}}`**；仅拆自由文本/金额大写/扩表行时用 `prepare_rebate_rows.py` 出 JSON。禁止当次手写 docx 填模引擎。用户终稿写会话目录；验证后必须从会话 cwd 用含目录的相对路径一次性为全部合同和台账打 `ONMYAGENT_DELIVERABLE`，不得在子目录里只登记裸文件名。过程文件只进 `.opencode/tmp/` 或 `os.tmpdir()`，不打标记。
 8. 上述产物分层适用于全部能力：脚本审核 JSON、提取文本、转换文件、内部日志和辅助脚本不得进入会话根目录；只登记用户点名的合同、台账、核对报告、审核留痕版或清洁终稿。
 
 ## 按诉求交付
