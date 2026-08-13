@@ -10,6 +10,7 @@ import path from "node:path";
 import { resolveLocalSkillsRoot } from "./config-profile-paths.mjs";
 import { ensureLocalConfigMigrated } from "./ensure-local-config-migrated.mjs";
 import { ensureWorkMemoryAwareness } from "./ensure-work-memory-awareness.mjs";
+import { resolveRealHomeDir } from "./real-home-policy.mjs";
 
 const BUNDLED_SKILLS_RESOURCE_DIR = "bundled-skills";
 const MARKETPLACE_RESOURCE_DIR = "marketplace";
@@ -29,41 +30,29 @@ export function createDesktopPaths(options) {
   let cachedMarketplaceRootPath = undefined;
 
   /**
-   * 获取真实家目录路径（不受 Electron dev 沙箱影响）
-   *
-   * 重要：Electron dev 模式（runtime.mjs #ensureDevModePaths）会把
-   * process.env.HOME / XDG_CONFIG_HOME 等重定向到沙箱目录
-   *  (~/Library/Application Support/com.differentai.onmyagent.dev/onmyagent-dev-data/home)
-   * 这导致 os.homedir() 和 process.env.HOME 都返回沙箱路径。
-   *
-   * 因此我们用 platform 和 process.env.USER 直接构造真实家目录路径。
+   * Real user home (not OpenCode sandbox / Electron userData).
+   * Relative ONMYAGENT_REAL_HOME still throws; a sandbox override is ignored.
    */
   function getRealHomeDir() {
     const homeOverride = process.env.ONMYAGENT_REAL_HOME?.trim();
-    if (homeOverride) {
-      if (!path.isAbsolute(homeOverride)) {
-        throw new Error("ONMYAGENT_REAL_HOME must be an absolute path");
-      }
-      return path.resolve(homeOverride);
+    if (homeOverride && !path.isAbsolute(homeOverride)) {
+      throw new Error("ONMYAGENT_REAL_HOME must be an absolute path");
     }
-    const user = process.env.USER || os.userInfo().username;
-    if (user) {
-      if (process.platform === "darwin") {
-        return path.join("/Users", user);
-      }
-      if (process.platform === "linux") {
-        // 先尝试 os.homedir()（如果不是沙箱路径），否则用 /home 兜底
-        const home = os.homedir();
-        if (home && !home.includes("Library/Application Support")) {
-          return home;
-        }
-        return path.join("/home", user);
-      }
-      if (process.platform === "win32") {
-        return process.env.USERPROFILE || path.join("C:", "Users", user);
+    let username = String(process.env.USER || process.env.LOGNAME || "").trim();
+    if (!username) {
+      try {
+        username = String(os.userInfo().username || "").trim();
+      } catch {
+        username = "";
       }
     }
-    return os.homedir();
+    return resolveRealHomeDir({
+      override: homeOverride,
+      home: [os.homedir(), process.env.HOME],
+      userProfile: process.env.USERPROFILE,
+      user: username,
+      platform: process.platform,
+    });
   }
 
   function claudeProjectsRoot() {

@@ -4,6 +4,7 @@ import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import { resolveRealHomeDir } from "../real-home-policy.mjs";
 import { buildWindowsCmdSpawnSpec, isWindowsCmdShim } from "./windows-spawn.mjs";
 
 const jsonWriteQueues = new Map();
@@ -14,21 +15,13 @@ const jsonWriteQueues = new Map();
  * agent probe/run must not inherit that or they report 需登录 with valid auth.
  */
 export function resolveAgentHostHome(env = process.env) {
-  const explicit = String(env.ONMYAGENT_REAL_HOME ?? "").trim();
-  if (explicit) return explicit;
-  const home = String(env.HOME ?? os.homedir() ?? "").trim();
-  const sandboxed =
-    home.includes("opencode-sandbox") ||
-    (home.includes("Application Support") && home.includes("onmyagent"));
-  if (home && !sandboxed) return home;
-  const user = String(env.USER ?? env.LOGNAME ?? "").trim();
-  if (user && process.platform === "darwin") return path.join("/Users", user);
-  if (user && process.platform === "linux") return path.join("/home", user);
-  if (process.platform === "win32") {
-    const profile = String(env.USERPROFILE ?? "").trim();
-    if (profile && !profile.includes("opencode-sandbox")) return profile;
-  }
-  return home || os.homedir();
+  return resolveRealHomeDir({
+    override: env.ONMYAGENT_REAL_HOME,
+    home: [env.HOME, os.homedir()],
+    userProfile: env.USERPROFILE,
+    user: env.USER ?? env.LOGNAME,
+    platform: process.platform,
+  });
 }
 
 /** Env for spawning local agent CLIs / ACP probes with credential-visible HOME. */

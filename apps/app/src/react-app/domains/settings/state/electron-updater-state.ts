@@ -59,6 +59,7 @@ type ElectronUpdaterBridge = NonNullable<Window["__ONMYAGENT_ELECTRON__"]>["upda
   onDownloadProgress?: (callback: (data: UpdateDownloadProgressPayload) => void) => (() => void);
   onAvailable?: (callback: (payload: UpdateAvailabilityPayload) => void) => (() => void);
   getLastKnown?: () => Promise<UpdateAvailabilityPayload>;
+  setAutoCheck?: (enabled: boolean) => Promise<{ autoCheck: boolean }>;
 };
 
 type UseElectronUpdaterStateOptions = {
@@ -485,6 +486,13 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
       void error;
     }
   }, [desktopConfig, onReleaseChannelChange, releaseChannel, setError]);
+
+  useEffect(() => {
+    if (!isElectronRuntime()) return;
+    const bridge = electronUpdaterBridge();
+    if (!bridge?.setAutoCheck) return;
+    void bridge.setAutoCheck(updateAutoCheck);
+  }, [updateAutoCheck]);
 
   // Optional renderer-side check when the user enables background checks.
   // Main process also polls and owns OS notifications; this only refreshes Settings state.

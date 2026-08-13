@@ -56,7 +56,8 @@ export function createDesktopWindowController(options) {
         url.protocol === "file:" ||
         url.hostname === "127.0.0.1" ||
         url.hostname === "localhost" ||
-        url.hostname === "[::1]"
+        url.hostname === "[::1]" ||
+        url.hostname === "::1"
       );
     } catch {
       return false;
@@ -184,6 +185,26 @@ export function createDesktopWindowController(options) {
     applyApplicationMenuVisibility(mainWindow);
 
     if (isDevMode) {
+      // Do not call session.setProxy({ proxyBypassRules }) here. Omitting
+      // mode replaces the whole proxy config and drops the OS / Clash
+      // system proxy — Windows corp nets then fail model API calls.
+      // Loopback bypass lives on Chromium --proxy-bypass-list (startup-flags).
+      mainWindow.webContents.on(
+        "did-fail-load",
+        (_event, code, desc, url, isMainFrame) => {
+          if (!isMainFrame) return;
+          console.error("[main-window] did-fail-load", { code, desc, url });
+        },
+      );
+      mainWindow.webContents.on("console-message", (event) => {
+        if (event.level !== "error") return;
+        console.error(
+          "[renderer]",
+          event.message,
+          event.sourceId,
+          event.lineNumber,
+        );
+      });
       mainWindow.on("page-title-updated", (event) => {
         event.preventDefault();
         getMainWindow()?.setTitle(appName);

@@ -158,29 +158,29 @@ release blockers if present.
 
 Use this flow before Apple signing and notarization are configured.
 
-1. Make sure `main` contains the release commit.
+1. Make sure `main` contains the **version-bump commit** (app / desktop / server / orchestrator / root `package.json` all match the tag). Typical path: PR `chore(release): bump to x.y.z`, then merge.
 
    ```bash
    git switch main
    git pull --ff-only
    ```
 
-2. Create and push a version tag.
+2. Create and push an annotated version tag on that commit.
 
    ```bash
-   git tag -a v0.1.1 -m "OnMyAgent v0.1.1"
-   git push origin v0.1.1
+   git tag -a v0.4.27 -m "OnMyAgent v0.4.27"
+   git push origin v0.4.27
    ```
 
-3. Open GitHub Actions and run `Release App` manually if the tag push did not start it.
+3. Open GitHub Actions and run `Release App` on `main` if the tag push did not start it.
 
-   Recommended preview inputs:
+   Recommended **published** preview inputs (`draft: false` so electron-updater and the in-app check can see the release):
 
    ```text
-   tag: v0.1.1
-   release_name: OnMyAgent v0.1.1
+   tag: v0.4.27
+   release_name: OnMyAgent v0.4.27
    release_body: Preview release.
-   draft: true
+   draft: false
    prerelease: true
    notarize: false
    publish_sidecars: false

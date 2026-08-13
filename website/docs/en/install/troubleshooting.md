@@ -11,6 +11,8 @@ title: Troubleshooting
 | A permission-based capability is unavailable | On macOS, check Accessibility, Screen Recording, Full Disk Access, and related permissions under [Settings → System](/en/guide/settings#system) |
 | A Skill fails after an upgrade | Restart OnMyAgent and confirm that the Skill is still installed |
 | The interface is blank | Restart OnMyAgent and check whether a proxy is interfering with local services |
+| macOS says the app is damaged | Preview builds are not notarized. Run `xattr -cr /Applications/OnMyAgent.app` and open the app again |
+| Check for updates never shows install | Development builds only open Releases. In a packaged build, **Restart and install** appears after the background download finishes |
 | Settings will not open | Use **⌘ ,** / **Ctrl ,**, or open **Settings** from the gear menu |
 | Automation does not run | Confirm that the task is **Enabled** and the computer was not asleep for too long; see [Automation](/en/guide/automation) |
 

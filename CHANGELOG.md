@@ -14,6 +14,120 @@ This project follows a lightweight changelog format during early development. Re
 
 ### License / community
 
+## 0.4.27
+
+### Added
+
+- Packaged desktop: background auto-update via electron-updater (download in background, restart to install; prereleases are visible).
+
+### Changed
+
+- Settings: unify provider delete / disconnect as **Remove**.
+
+### Fixed
+
+- Expert hard-delete 404 when the UI sent `packageName` as the agentId composite (`pkg:pkg`) while session-origins stores the short package name.
+
+## 0.4.26
+
+### Fixed
+
+- Expert / session UI update loops that could white-screen or peg the renderer (cold-open, tab contract, unread/activity equality).
+- Session archive discovery and local-agent ACP probes use the real user home so local archives populate and Grok/Pi-style CLIs stop false unauth when credentials live there.
+- Session freeze on archive / agent-home scans.
+
+## 0.4.25
+
+### Added
+
+- OS notifications and quick-capture that work off the session route (pending queue).
+
+### Fixed
+
+- Sidebar filters register new assistant / expert sessions.
+- `Content-Disposition` is safe for CJK filenames.
+
+## 0.4.24
+
+### Fixed
+
+- Settings / session can show providers as ready while discovery is still running.
+
+## 0.4.23
+
+### Fixed
+
+- Packaged `file://` empty-state and icon-mask assets resolve.
+- Quick-capture HTML ships in packaged builds.
+
+## 0.4.22
+
+### Fixed
+
+- Welcome / splash logo in light mode and vertically centered startup composer.
+- Packaged boot crash from asar pnpm symlink materialization (continued from 0.4.21).
+
+## 0.4.21
+
+### Changed
+
+- KOL / creator-ops builtin expert packs refreshed (content, media, project review).
+
+### Fixed
+
+- Packaged desktop no longer crashes on boot (pnpm deploy symlinks inside asar).
+
+## 0.4.20
+
+### Fixed
+
+- Packaged boot crash from missing production server dependencies.
+- False “origin degraded” and over-pruning of multi-expert lists.
+
+## 0.4.19
+
+### Added
+
+- Expert runtime isolation (sandboxed OpenCode HOME / lean agent file).
+- Expert runtime artifacts visible in Files.
+- Settings: drag-reorder model providers.
+
+### Fixed
+
+- Recover summoned expert sessions and durable origin / agentId binding.
+- Session activity footer no longer sticks on “model requesting” once text is visible.
+- Windows path / spawn / Documents expansion hardening.
+
+## 0.4.18
+
+### Changed
+
+- Settings prefetch high-traffic tabs on enter and nav hover.
+- Agent fleet uses a card-grid skeleton instead of a full-page loading mark.
+- UI polish: Pi ACP, Ollama/workspace provider delete, automation empty/actions.
+
+### Fixed
+
+- Session-archive SSE teardown no longer kills the desktop on client disconnect.
+
+## 0.4.17
+
+### Added
+
+- Company / OnMyCompany rail, settings, and org catalog sync (skills, experts, connectors).
+
+## 0.4.16
+
+### Added
+
+- Phase 2a local config foundation: `profiles/local` dual-read for skills/experts; boot-time copy migration (legacy retained).
+- Work memory (prefs inject + file mirrors).
+- Files chrome, projects rail, account avatar menu, and work-memory settings views.
+
+### Changed
+
+- Faster task / expert / session switches (prop-driven, no surface remount).
+
 ## 0.4.15
 
 ### Changed

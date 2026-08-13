@@ -170,8 +170,9 @@ After confirming the proposal, open a real session from the Experts list on the 
 
 ## 7. Lifecycle and security
 
-- Built-in product experts can be protected and may not be permanently deleted like ordinary personal experts.
-- Deleting a real expert cleans up the real session identities bound to it, but must not accidentally delete `draft:*` sessions used by the creation flow.
+- Only **Experts I created** (installed or custom) can be permanently deleted. Marketplace builtins and product builtins (such as the creation coach) stay blocked.
+- Delete removes the real sessions bound to that expert and the local package material, but must not remove `draft:*` sessions from the creation flow.
+- Matching uses expert identity. A composite package name such as `pkg:pkg` must not block delete.
 - Personal experts are written to the local profile; organization experts normally come from a read-only Company catalog.
 - Expert memory, knowledge directories, and skills remain subject to workspace, file, and approval permissions.
 - An expert resource being present in the app package does not mean it is installed in the current profile. Use the actual Experts I created list and real sessions as the source of truth.

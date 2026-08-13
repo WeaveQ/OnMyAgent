@@ -273,6 +273,8 @@ declare global {
           /** "in-app" = download + restart-to-install; "open-browser" = fallback. */
           platformFlow?: "in-app" | "open-browser";
         }>;
+        setAutoCheck?: (enabled: boolean) => Promise<{ autoCheck: boolean }>;
+        getAutoCheck?: () => Promise<{ autoCheck: boolean }>;
         setChannel?: (channel: "stable" | "alpha") => Promise<{
           channel: "stable" | "alpha";
           feedUrl: string;

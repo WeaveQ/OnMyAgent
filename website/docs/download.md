@@ -8,10 +8,10 @@ title: 下载与安装
 
 请从官方发布渠道获取当前版本：
 
-- **GitHub Releases**：<https://github.com/WeaveQ/OnMyAgent/releases>  
-- 本地从源码打包：见 monorepo 根目录 `BUILD.md`  
+- **GitHub Releases**：<https://github.com/WeaveQ/OnMyAgent/releases>
+- 本地从源码打包：见 monorepo 根目录 `BUILD.md`
 
-> 站点不内嵌易过期的直链；请以 Release 页资产名为准。
+> 站点不内嵌易过期的直链；请以 Release 页资产名为准。当前发布为 **pre-release**（未公证）。资产名形如 `onmyagent-mac-arm64-<version>.dmg` / `onmyagent-win-x64-<version>.exe`。
 
 ## 系统要求
 
@@ -23,18 +23,18 @@ title: 下载与安装
 
 ## macOS
 
-1. 下载 `.dmg` 或指定架构安装包  
-2. 拖入「应用程序」或按安装器完成  
-3. 首次打开若遇安全提示，在「系统设置 → 隐私与安全性」中允许  
-4. 启动后进入 [快速开始](./quickstart)  
+1. 下载 `.dmg` 或指定架构安装包
+2. 拖入「应用程序」或按安装器完成
+3. 首次打开若遇「已损坏 / 无法打开」，先执行 `xattr -cr /Applications/OnMyAgent.app`，或在「系统设置 → 隐私与安全性」中仍要打开
+4. 启动后进入 [快速开始](./quickstart)
 
 更多：[macOS 安装](./install/macos)
 
 ## Windows
 
-1. 使用 NSIS 安装包（若 Release 提供）或本地 `package:electron`  
-2. 安装后从开始菜单启动  
-3. 未签名时可能出现 SmartScreen 提示  
+1. 使用 NSIS 安装包（若 Release 提供）或本地 `package:electron`
+2. 安装后从开始菜单启动
+3. 未签名时可能出现 SmartScreen 提示
 
 更多：[Windows 安装](./install/windows)
 
@@ -50,8 +50,8 @@ title: 下载与安装
 
 ## 安装后检查
 
-- [ ] 能打开首页并看到 **+ 新建任务**  
-- [ ] 设置中能配置模型  
-- [ ] 文件页能列出工作区内容  
+- [ ] 能打开首页并看到 **+ 新建任务**
+- [ ] 设置中能配置模型
+- [ ] 文件页能列出工作区内容
 
 若失败，见 [排障](./install/troubleshooting)。

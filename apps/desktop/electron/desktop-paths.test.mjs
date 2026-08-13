@@ -26,4 +26,13 @@ describe("desktop path isolation", () => {
 
     expect(() => paths.getRealHomeDir()).toThrow("must be an absolute path");
   });
+
+  test("does not trust an opencode-sandbox real-home override", () => {
+    process.env.ONMYAGENT_REAL_HOME = "/tmp/x/opencode-sandbox/home";
+    const paths = createDesktopPaths({ dirname: process.cwd() });
+
+    const home = paths.getRealHomeDir();
+    expect(home).not.toContain("opencode-sandbox");
+    expect(home.length).toBeGreaterThan(0);
+  });
 });

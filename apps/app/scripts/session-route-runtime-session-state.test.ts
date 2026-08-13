@@ -268,22 +268,27 @@ describe("session-route runtime session state pure helpers", () => {
     expect(display.name).toBe("Alpha");
     expect(display.id).toBe("ws_1");
 
+    expect(sessionProviderAuthOnMyAgentSnapshot(null)).toBe(
+      sessionProviderAuthOnMyAgentSnapshot(undefined),
+    );
     expect(sessionProviderAuthOnMyAgentSnapshot(null)).toEqual({
       onmyagentServerStatus: "disconnected",
       onmyagentServerClient: null,
       onmyagentServerCapabilities: null,
     });
-    expect(
-      sessionProviderAuthOnMyAgentSnapshot({
-        baseUrl: "http://127.0.0.1:1",
-        token: "t",
-        workspaceId: "ws",
-        isRemote: false,
-        client: {} as never,
-        mountedBaseUrl: "http://127.0.0.1:1/workspace/ws",
-        opencodeBaseUrl: "http://127.0.0.1:1/workspace/ws/opencode",
-      }),
-    ).toMatchObject({
+    const endpoint = {
+      baseUrl: "http://127.0.0.1:1",
+      token: "t",
+      workspaceId: "ws",
+      isRemote: false,
+      client: {} as never,
+      mountedBaseUrl: "http://127.0.0.1:1/workspace/ws",
+      opencodeBaseUrl: "http://127.0.0.1:1/workspace/ws/opencode",
+    };
+    expect(sessionProviderAuthOnMyAgentSnapshot(endpoint)).toBe(
+      sessionProviderAuthOnMyAgentSnapshot(endpoint),
+    );
+    expect(sessionProviderAuthOnMyAgentSnapshot(endpoint)).toMatchObject({
       onmyagentServerStatus: "connected",
       onmyagentServerCapabilities: { config: { read: true, write: true } },
     });

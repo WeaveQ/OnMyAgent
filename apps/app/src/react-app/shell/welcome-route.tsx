@@ -64,6 +64,7 @@ import { createOnMyAgentServerClient } from "../../app/lib/onmyagent-server";
 import { prewarmAgentManagementCore } from "../domains/local-agents";
 import { prewarmProvidersForWorkspace } from "../domains/settings";
 import { resolveOnMyAgentConnection } from "./onmyagent-connection";
+import { useBootState } from "./boot-state";
 import { writeActiveWorkspaceId } from "./session-memory";
 import {
   workspaceAssistantRoute,
@@ -310,6 +311,7 @@ function OnboardingShell(props: {
 export function WelcomeRoute() {
   const navigate = useNavigate();
   const local = useLocal();
+  const { markRouteReady } = useBootState();
   const [step, setStep] = useState<OnboardingStep>("hello");
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [pickingFolder, setPickingFolder] = useState(false);
@@ -317,6 +319,12 @@ export function WelcomeRoute() {
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [createdWorkspaceId, setCreatedWorkspaceId] = useState("");
   const [profile, setProfile] = useState<ProfileDraft>(initialProfileDraft);
+
+  // Session-route fail-safe never runs here: incomplete onboarding unmounts
+  // SessionRoute before its deadline. Overlay stays until routeReady latches.
+  useEffect(() => {
+    markRouteReady();
+  }, [markRouteReady]);
 
   const updateProfile = <K extends keyof ProfileDraft>(
     key: K,

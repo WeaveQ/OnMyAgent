@@ -19,7 +19,7 @@ import {
   formatAgentManagerDuration,
   type AgentManagementHealthResult,
 } from "./agent-management-health";
-import { agentDisplayStatus, agentVersionLabel } from "./agent-card-model";
+import { classifyAgentAvailability, agentVersionLabel } from "./agent-card-model";
 
 function AgentManagementMetric(props: { label: string; value: string | number }) {
   return (
@@ -52,7 +52,7 @@ export function AgentManagementAgentCard(props: {
   const enabled = props.agent.enabled !== false;
   const usage = props.agent.usage;
   // Unified with fleet partition filters (未安装 / 健康 / 离线 / 需登录).
-  const displayStatus = agentDisplayStatus(props.agent, props.health);
+  const displayStatus = classifyAgentAvailability(props.agent, props.health);
   // Upstream-style: rows are collapsed by default and only reveal their data
   // and detail operations after the user clicks to expand them.
   const [expanded, setExpanded] = useState(false);

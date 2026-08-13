@@ -57,6 +57,9 @@ const RELEASES_LIST_API_OVERRIDE = String(
   process.env.ONMYAGENT_UPDATE_API ?? "",
 ).trim();
 const LAST_KNOWN_STATE_FILE = "updater-last-known.json";
+const AUTO_CHECK_STATE_FILE = "updater-auto-check.json";
+/** Subdir of Electron userData; do not use os.homedir() Caches (sandbox HOME). */
+const UPDATER_CACHE_DIR_NAME = "updater";
 /** Only keep the lightweight fields the renderer needs to prompt a restart. */
 const LAST_KNOWN_PERSISTED_KEYS = [
   "available",
@@ -156,6 +159,38 @@ export {
   parseComparableVersion,
 };
 
+/** electron-updater download cache — never sandbox HOME Caches. */
+export function resolveUpdaterCacheDir(userData) {
+  const root = String(userData ?? "").trim() || ".";
+  return path.join(root, UPDATER_CACHE_DIR_NAME);
+}
+
+export function shouldScheduleAutoChecks(input = {}) {
+  if (input.autoCheck !== true) return false;
+  if (!input.packaged && input.devDisabled === true) return false;
+  return true;
+}
+
+export function readPersistedUpdaterAutoCheck(userData) {
+  const file = path.join(String(userData ?? "").trim() || ".", AUTO_CHECK_STATE_FILE);
+  if (!existsSync(file)) return false;
+  try {
+    const parsed = JSON.parse(readFileSync(file, "utf8"));
+    return parsed?.autoCheck === true;
+  } catch {
+    return false;
+  }
+}
+
+export function writePersistedUpdaterAutoCheck(userData, autoCheck) {
+  const root = String(userData ?? "").trim() || ".";
+  mkdirSync(root, { recursive: true });
+  const file = path.join(root, AUTO_CHECK_STATE_FILE);
+  const tempFile = `${file}.tmp`;
+  writeFileSync(tempFile, JSON.stringify({ autoCheck: autoCheck === true }), "utf8");
+  renameSync(tempFile, file);
+}
+
 function channelState(app, platformFlow) {
   return {
     channel: "stable",
@@ -179,6 +214,37 @@ function resolveUserDataPath(app) {
 
 function resolveLastKnownStatePath(app) {
   return path.join(resolveUserDataPath(app), LAST_KNOWN_STATE_FILE);
+}
+
+/**
+ * Point electron-updater at userData/updater before the first download.
+ * 6.8 joins app.baseCachePath + updaterCacheDirName; both stay under userData.
+ * @param {{ app?: { baseCachePath?: string } }} updater
+ * @param {string} userData
+ */
+function applyUpdaterCacheDir(updater, userData) {
+  const cacheDir = resolveUpdaterCacheDir(userData);
+  try {
+    mkdirSync(cacheDir, { recursive: true });
+  } catch {
+    // First download will mkdir again if this fails.
+  }
+  const adapter = updater?.app;
+  if (!adapter || typeof adapter !== "object") return cacheDir;
+  try {
+    Object.defineProperty(adapter, "baseCachePath", {
+      configurable: true,
+      enumerable: true,
+      get: () => cacheDir,
+    });
+  } catch {
+    try {
+      adapter.baseCachePath = cacheDir;
+    } catch {
+      // electron-updater falls back to os.homedir() Caches.
+    }
+  }
+  return cacheDir;
 }
 
 function pickPersistedLastKnown(payload) {
@@ -403,13 +469,15 @@ export function registerUpdaterIpc({
   let lastNotifiedVersion = null;
   /** @type {Record<string, unknown> | null} */
   let lastKnownAvailable = null;
-  /** @type {import("electron-updater").AppUpdater | null} */
+  /** @type {any} */
   let autoUpdater = null;
   let updaterInitError = null;
   /** Tracks the download state emitted by electron-updater. */
   let downloadState = { active: false, percent: 0, ready: false, info: null };
   /** Set when update-downloaded fires so installAndRestart can act. */
   let downloadedUpdateInfo = null;
+  /** Settings toggle; default off when no userData file exists. */
+  let autoCheckEnabled = readPersistedUpdaterAutoCheck(resolveUserDataPath(app));
 
   /**
    * Seed in-memory *UI* state from the last successful update-downloaded event.
@@ -564,6 +632,8 @@ export function registerUpdaterIpc({
     if (autoUpdater || updaterInitError) return autoUpdater;
     if (!inAppSupported) return null;
     try {
+      // checkJs typeRoots omit this runtime dependency.
+      // @ts-ignore
       const mod = await import("electron-updater");
       autoUpdater = mod.autoUpdater ?? mod.default?.autoUpdater ?? null;
       if (!autoUpdater) {
@@ -571,8 +641,9 @@ export function registerUpdaterIpc({
       }
       // All current releases are prereleases; without this, nothing is found.
       autoUpdater.allowPrerelease = true;
-      // We download proactively in the background but never install on quit.
-      autoUpdater.autoDownload = true;
+      applyUpdaterCacheDir(autoUpdater, resolveUserDataPath(app));
+      // Background download only when the persisted auto-check pref is on.
+      autoUpdater.autoDownload = autoCheckEnabled;
       autoUpdater.autoInstallOnAppQuit = false;
       autoUpdater.autoRunAppAfterInstall = true;
 
@@ -914,6 +985,29 @@ export function registerUpdaterIpc({
     channelState(app, platformFlow),
   );
 
+  ipcMain.handle("onmyagent:updater:setAutoCheck", async (_event, enabled) => {
+    const autoCheck = enabled === true;
+    autoCheckEnabled = autoCheck;
+    writePersistedUpdaterAutoCheck(resolveUserDataPath(app), autoCheck);
+    if (autoUpdater) autoUpdater.autoDownload = autoCheck;
+    if (
+      shouldScheduleAutoChecks({
+        packaged: Boolean(app.isPackaged),
+        autoCheck,
+        devDisabled: UPDATE_CHECK_IN_DEV_DISABLED,
+      })
+    ) {
+      scheduleAutoChecks();
+    } else {
+      clearAutoChecks();
+    }
+    return { autoCheck };
+  });
+
+  ipcMain.handle("onmyagent:updater:getAutoCheck", async () => ({
+    autoCheck: autoCheckEnabled,
+  }));
+
   ipcMain.handle(
     "onmyagent:updater:setChannel",
     async (_event, rawChannel) => {
@@ -1043,9 +1137,26 @@ export function registerUpdaterIpc({
   let scheduledInitial = null;
   let intervalHandle = null;
 
+  function clearAutoChecks() {
+    if (scheduledInitial) {
+      clearTimeout(scheduledInitial);
+      scheduledInitial = null;
+    }
+    if (intervalHandle) {
+      clearInterval(intervalHandle);
+      intervalHandle = null;
+    }
+  }
+
   function scheduleAutoChecks() {
     if (scheduledInitial || intervalHandle) return;
-    if (!app.isPackaged && UPDATE_CHECK_IN_DEV_DISABLED) {
+    if (
+      !shouldScheduleAutoChecks({
+        packaged: Boolean(app.isPackaged),
+        autoCheck: autoCheckEnabled,
+        devDisabled: UPDATE_CHECK_IN_DEV_DISABLED,
+      })
+    ) {
       return;
     }
     scheduledInitial = setTimeout(() => {
@@ -1060,8 +1171,7 @@ export function registerUpdaterIpc({
   }
 
   app.on("before-quit", () => {
-    if (scheduledInitial) clearTimeout(scheduledInitial);
-    if (intervalHandle) clearInterval(intervalHandle);
+    clearAutoChecks();
   });
 
   return {

@@ -599,6 +599,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
 
   useEffect(() => {
     writeStoredBoolean(SETTINGS_UPDATE_AUTO_CHECK_KEY, updateAutoCheck);
+    void window.__ONMYAGENT_ELECTRON__?.updater?.setAutoCheck?.(updateAutoCheck);
   }, [updateAutoCheck]);
 
   useEffect(() => {

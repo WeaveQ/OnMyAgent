@@ -51,19 +51,40 @@ export function sessionProviderAuthWorkspaceDisplay(
   } as WorkspaceDisplay;
 }
 
+const DISCONNECTED_ONMYAGENT_SNAPSHOT = Object.freeze({
+  onmyagentServerStatus: "disconnected" as const,
+  onmyagentServerClient: null,
+  onmyagentServerCapabilities: null,
+});
+
+const CONNECTED_ONMYAGENT_CAPABILITIES = Object.freeze({
+  config: Object.freeze({ read: true, write: true }),
+});
+
+let cachedConnectedSnapshot: {
+  onmyagentServerStatus: "connected";
+  onmyagentServerClient: ResolvedWorkspaceEndpoint["client"] | null;
+  onmyagentServerCapabilities: typeof CONNECTED_ONMYAGENT_CAPABILITIES;
+} | null = null;
+
 /** Snapshot of the workspace OnMyAgent endpoint for provider-auth config IO. */
 export function sessionProviderAuthOnMyAgentSnapshot(
   endpoint: ResolvedWorkspaceEndpoint | null | undefined,
 ) {
-  return {
-    onmyagentServerStatus: endpoint ? ("connected" as const) : ("disconnected" as const),
-    onmyagentServerClient: endpoint?.client ?? null,
-    onmyagentServerCapabilities: endpoint
-      ? {
-          config: { read: true, write: true },
-        }
-      : null,
+  if (!endpoint) return DISCONNECTED_ONMYAGENT_SNAPSHOT;
+  const client = endpoint.client ?? null;
+  if (
+    cachedConnectedSnapshot &&
+    cachedConnectedSnapshot.onmyagentServerClient === client
+  ) {
+    return cachedConnectedSnapshot;
+  }
+  cachedConnectedSnapshot = {
+    onmyagentServerStatus: "connected",
+    onmyagentServerClient: client,
+    onmyagentServerCapabilities: CONNECTED_ONMYAGENT_CAPABILITIES,
   };
+  return cachedConnectedSnapshot;
 }
 
 export function createSessionRouteProviderAuthStore(input: {
