@@ -10,6 +10,7 @@ import {
   registerUpdaterIpc,
   resolveUpdaterCacheDir,
   shouldScheduleAutoChecks,
+  shouldScheduleColdStartCheck,
   writePersistedUpdaterAutoCheck,
 } from "./updater.mjs";
 
@@ -178,8 +179,23 @@ test("auto-check off does not schedule background download", () => {
   );
 });
 
+test("cold start always checks unless unpackaged and explicitly disabled", () => {
+  assert.equal(
+    shouldScheduleColdStartCheck({ packaged: true, autoCheck: false, devDisabled: false }),
+    true,
+  );
+  assert.equal(
+    shouldScheduleColdStartCheck({ packaged: false, autoCheck: false, devDisabled: false }),
+    true,
+  );
+  assert.equal(
+    shouldScheduleColdStartCheck({ packaged: false, autoCheck: true, devDisabled: true }),
+    false,
+  );
+});
+
 test("updater cache dir resolves under userData", () => {
-  const userData = "/Users/alice/Library/Application Support/com.differentai.onmyagent.dev";
+  const userData = path.join("Users", "alice", "Library", "Application Support", "com.differentai.onmyagent.dev");
   const cacheDir = resolveUpdaterCacheDir(userData);
   assert.equal(cacheDir.startsWith(userData), true);
   assert.equal(cacheDir.includes("updater"), true);
@@ -189,6 +205,10 @@ test("updater cache dir resolves under userData", () => {
 test("persisted auto-check is read back from userData", () => {
   const userData = mkdtempSync(path.join(tmpdir(), "onmyagent-updater-pref-"));
   try {
+    assert.equal(readPersistedUpdaterAutoCheck(userData), true);
+    writeFileSync(path.join(userData, "updater-auto-check.json"), JSON.stringify({ autoCheck: false }), "utf8");
+    assert.equal(readPersistedUpdaterAutoCheck(userData), true);
+    writePersistedUpdaterAutoCheck(userData, false);
     assert.equal(readPersistedUpdaterAutoCheck(userData), false);
     writePersistedUpdaterAutoCheck(userData, true);
     assert.equal(readPersistedUpdaterAutoCheck(userData), true);
@@ -201,7 +221,7 @@ test("setAutoCheck IPC persists pref and getAutoCheck reads it", async () => {
   const harness = createHarness({ packaged: true });
   try {
     const initial = await harness.invoke("onmyagent:updater:getAutoCheck");
-    assert.equal(initial.autoCheck, false);
+    assert.equal(initial.autoCheck, true);
     const enabled = await harness.invoke("onmyagent:updater:setAutoCheck", true);
     assert.equal(enabled.autoCheck, true);
     assert.equal(readPersistedUpdaterAutoCheck(harness.userDataPath), true);
