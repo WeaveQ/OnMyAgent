@@ -14,6 +14,19 @@ This project follows a lightweight changelog format during early development. Re
 
 ### License / community
 
+## 0.4.28
+
+### Fixed
+
+- Welcome onboarding no longer stays under the boot overlay after cold start (`routeReady` latch on `/welcome`).
+- Expert directory identity snapshots are cached so SessionRoute does not hit a Zustand `getSnapshot` / max-update-depth loop.
+- Expert create overlay expires when the expert is deleted.
+- Expert write identity uses the short package name; archive / ACP scans resolve the real user home.
+
+### Changed
+
+- Desktop/Vite dev bind to `127.0.0.1` and Chromium `--proxy-bypass-list` so Clash / corp proxies do not 502 the renderer.
+
 ## 0.4.27
 
 ### Added
