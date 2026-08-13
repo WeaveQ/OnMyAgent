@@ -3,7 +3,7 @@
     "id": "kol-brief-structuring",
     "title": { "zh": "拆解九字段 Brief", "en": "Structure a nine-part brief" },
     "description": { "zh": "已明确、待补充、动作和来源", "en": "Knowns, gaps, actions, and sources" },
-    "template": { "zh": "请把 <客户 Brief 或需求材料> 按九个业务模块拆解，并结合 <历史案例或模板> 输出已明确、待补充、建议动作和来源。", "en": "Structure <Client brief or requirements> into nine business modules using <Historical example or template>, with knowns, gaps, actions, and sources." },
+    "template": { "zh": "请把 <客户 Brief 或需求材料> 按九个业务模块拆解，<历史案例或模板> 仅补充结构；生成包含待确认问题和达人运营交接摘要的最终 Word，并只登记终稿。", "en": "Structure <Client brief or requirements> into nine modules, use <Historical example or template> only for structure, and create one final Word deliverable with gaps and creator-ops handoff." },
     "requiredSlots": { "zh": ["客户 Brief 或需求材料"], "en": ["Client brief or requirements"] },
     "conditionalSlots": { "zh": ["历史案例或模板"], "en": ["Historical example or template"] }
   },

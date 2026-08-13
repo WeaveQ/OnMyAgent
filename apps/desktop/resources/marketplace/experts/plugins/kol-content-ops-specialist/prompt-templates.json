@@ -3,7 +3,7 @@
     "id": "xhs-script-assistant",
     "title": { "zh": "审核并修改达人脚本", "en": "Review and revise creator scripts" },
     "description": { "zh": "快扫、留痕改稿或批量交付", "en": "Scan, tracked revision, or batch delivery" },
-    "template": { "zh": "请按 <客户 Brief 与产品资料> 审核 <达人脚本>，结合 <客户偏好或过审样稿> 选择快速扫描、正式审核或批量审核。", "en": "Review <Creator script> against <Client brief and product materials>, using <Client preferences or approved samples> in the requested mode." },
+    "template": { "zh": "请按 <客户 Brief 与产品资料> 中修审核 <达人脚本>，<客户偏好或过审样稿> 仅校准尺度；生成标准 Word 审核留痕版，临时文件不展示。确认后再单独生成清洁终稿。", "en": "Review <Creator script> against <Client brief and product materials>, using <Client preferences or approved samples> only for calibration; create a tracked Word first and a clean final only after confirmation." },
     "requiredSlots": { "zh": ["客户 Brief 与产品资料", "达人脚本"], "en": ["Client brief and product materials", "Creator script"] },
     "conditionalSlots": { "zh": ["客户偏好或过审样稿"], "en": ["Client preferences or approved samples"] }
   },

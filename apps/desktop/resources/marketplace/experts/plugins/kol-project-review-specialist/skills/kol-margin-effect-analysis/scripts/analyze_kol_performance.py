@@ -12,11 +12,11 @@ from pathlib import Path
 
 
 ALIASES = {
-    "record_id": ("record_id", "记录ID", "笔记ID", "发布链接"),
-    "creator": ("creator", "达人", "达人名称", "博主"),
+    "record_id": ("record_id", "记录ID", "笔记ID", "笔记链接", "发布链接"),
+    "creator": ("creator", "达人", "达人名称", "博主", "达人昵称", "博主昵称"),
     "rebate_band": ("rebate_band", "返点档", "返点档位"),
     "margin_rate": ("margin_rate", "毛利率"),
-    "creator_tier": ("creator_tier", "达人量级", "达人等级"),
+    "creator_tier": ("creator_tier", "达人量级", "达人等级", "粉丝量级"),
     "note_type": ("note_type", "笔记类型", "内容类型"),
     "k_amount": ("k_amount", "K金额", "k金额", "K 金额"),
     "ad_amount": ("ad_amount", "广告金额", "投流金额"),
@@ -26,6 +26,34 @@ ALIASES = {
     "comments": ("comments", "评论量", "评论"),
     "favorites": ("favorites", "收藏量", "收藏"),
     "search_uv": ("search_uv", "搜索进店UV", "搜索进店 UV"),
+}
+PLAN_KEY_ALIASES = ("笔记链接", "发布链接", "记录ID", "笔记ID")
+EFFECT_KEY_ALIASES = ("发布链接", "笔记链接", "记录ID", "笔记ID")
+PLAN_FIELD_ALIASES = {
+    "record_id": PLAN_KEY_ALIASES,
+    "creator": ("达人昵称", "达人", "达人名称", "博主"),
+    "rebate_band": ("返点档", "返点档位"),
+    "margin_rate": ("毛利率",),
+    "creator_tier": ("粉丝量级", "达人量级", "达人等级"),
+    "note_type": ("笔记类型", "内容类型"),
+    "k_amount": ("K金额", "K 金额", "k金额"),
+}
+EFFECT_FIELD_ALIASES = {
+    "effect_record_id": ("效果记录ID", "记录ID", "笔记ID"),
+    "effect_creator": ("博主昵称", "达人昵称", "达人", "博主"),
+    "ad_amount": ("广告金额", "投流金额"),
+    "natural_reads": ("自然阅读量", "自然阅读"),
+    "natural_impressions": ("自然曝光量", "自然曝光"),
+    "likes": ("点赞量", "点赞"),
+    "comments": ("评论量", "评论"),
+    "favorites": ("收藏量", "收藏"),
+    "search_uv": ("搜索进店UV", "搜索进店 UV"),
+    "promoted_impressions": ("推广曝光量", "广告曝光量"),
+    "promoted_reads": ("推广阅读量", "广告阅读量"),
+    "content_angle": ("内容切角",),
+    "target_audience": ("目标人群",),
+    "search_term": ("搜索词",),
+    "week": ("周次",),
 }
 FORMULAS = (
     ("总金额", "K 金额 + 广告金额"),
@@ -90,7 +118,9 @@ def row_label(values: dict[str, float | None], thresholds: dict[str, object] | N
     max_search = number(thresholds.get("max_search_visit_cost"))
     if None in (min_ctr, max_cpc, max_search):
         return "数据不足"
-    good = values["自然 CTR"] >= min_ctr and values["纯 K CPC"] <= max_cpc and values["搜索进店成本"] <= max_search
+    min_interactions = number(thresholds.get("min_interactions"))
+    interaction_good = min_interactions is None or values["互动量"] >= min_interactions
+    good = values["自然 CTR"] >= min_ctr and values["纯 K CPC"] <= max_cpc and values["搜索进店成本"] <= max_search and interaction_good
     poor = values["自然 CTR"] < min_ctr and values["纯 K CPC"] > max_cpc
     if good:
         return "优先保留"
@@ -111,6 +141,174 @@ def load_json(value: str | None) -> dict[str, object]:
     if not isinstance(parsed, dict):
         raise ValueError("配置必须是 JSON 对象")
     return parsed
+
+
+def first_header(headers: list[str], candidates: tuple[str, ...]) -> str | None:
+    return next((candidate for candidate in candidates if candidate in headers), None)
+
+
+def first_value(row: dict[str, object], candidates: tuple[str, ...]) -> object:
+    for candidate in candidates:
+        value = row.get(candidate)
+        if value not in (None, ""):
+            return value
+    return None
+
+
+def read_rows(path: Path, sheet_name: str | None) -> tuple[str, list[str], list[dict[str, object]]]:
+    try:
+        from openpyxl import load_workbook
+    except ImportError as error:
+        raise RuntimeError("缺少 openpyxl，无法读写 Excel；请使用桌面应用打包运行时") from error
+
+    if not path.exists():
+        raise ValueError(f"项目数据文件不存在：{path}")
+    workbook = load_workbook(path, read_only=True, data_only=True)
+    if sheet_name and sheet_name not in workbook.sheetnames:
+        workbook.close()
+        raise ValueError(f"输入工作表不存在：{sheet_name}")
+    sheet = workbook[sheet_name] if sheet_name else workbook.active
+    values = sheet.iter_rows(values_only=True)
+    try:
+        headers = [text_value(value) for value in next(values)]
+    except StopIteration as error:
+        workbook.close()
+        raise ValueError(f"输入工作表为空：{sheet.title}") from error
+    rows = [
+        {"__source_row": source_row, **dict(zip(headers, row_values))}
+        for source_row, row_values in enumerate(values, start=2)
+    ]
+    title = sheet.title
+    workbook.close()
+    return title, headers, rows
+
+
+def parse_threshold(value: object) -> float | None:
+    if value in (None, ""):
+        return None
+    raw = str(value).strip().replace(">=", "").replace("<=", "").replace("≥", "").replace("≤", "")
+    return number(raw)
+
+
+def read_method_sheet(path: Path, sheet_name: str | None) -> tuple[list[list[object]], dict[str, object]]:
+    try:
+        from openpyxl import load_workbook
+    except ImportError as error:
+        raise RuntimeError("缺少 openpyxl，无法读写 Excel；请使用桌面应用打包运行时") from error
+
+    workbook = load_workbook(path, read_only=True, data_only=True)
+    target = sheet_name
+    if target is None:
+        target = next((name for name in workbook.sheetnames if "口径" in name or "阈值" in name), None)
+    if target is None:
+        workbook.close()
+        return [], {}
+    if target not in workbook.sheetnames:
+        workbook.close()
+        raise ValueError(f"口径工作表不存在：{target}")
+    rows = [list(row) for row in workbook[target].iter_rows(values_only=True)]
+    workbook.close()
+    thresholds: dict[str, object] = {}
+    for row in rows[1:]:
+        metric = text_value(row[1] if len(row) > 1 else None).replace(" ", "").upper()
+        threshold = parse_threshold(row[3] if len(row) > 3 else None)
+        if threshold is None:
+            continue
+        if metric == "自然CTR":
+            thresholds["min_natural_ctr"] = threshold
+        elif metric == "纯KCPC":
+            thresholds["max_pure_k_cpc"] = threshold
+        elif metric == "互动量":
+            thresholds["min_interactions"] = threshold
+        elif metric == "搜索进店成本":
+            thresholds["max_search_visit_cost"] = threshold
+    return rows, thresholds
+
+
+def index_by_key(rows: list[dict[str, object]], header: str) -> tuple[defaultdict[str, list[dict[str, object]]], list[dict[str, object]]]:
+    indexed: defaultdict[str, list[dict[str, object]]] = defaultdict(list)
+    missing: list[dict[str, object]] = []
+    for row in rows:
+        key = text_value(row.get(header))
+        if key:
+            indexed[key].append(row)
+        else:
+            missing.append(row)
+    return indexed, missing
+
+
+def prepare_two_source_records(args: argparse.Namespace) -> tuple[list[dict[str, object]], list[list[object]], list[list[object]], dict[str, object], dict[str, object]]:
+    plan_path = Path(args.plan_input)
+    effect_path = Path(args.effect_input)
+    plan_sheet, plan_headers, plan_rows = read_rows(plan_path, args.plan_sheet)
+    effect_sheet, effect_headers, effect_rows = read_rows(effect_path, args.effect_sheet)
+    plan_key_header = first_header(plan_headers, PLAN_KEY_ALIASES)
+    effect_key_header = first_header(effect_headers, EFFECT_KEY_ALIASES)
+    if not plan_key_header or not effect_key_header:
+        raise ValueError("双表模式必须能发现计划单与效果表的笔记链接字段")
+
+    plan_index, missing_plan_keys = index_by_key(plan_rows, plan_key_header)
+    effect_index, missing_effect_keys = index_by_key(effect_rows, effect_key_header)
+    manual: list[list[object]] = []
+    records: list[dict[str, object]] = []
+
+    def add_manual(source: str, row: dict[str, object], key: str, reason: str) -> None:
+        manual.append([source, row.get("__source_row"), key, reason, "人工确认"])
+
+    for row in missing_plan_keys:
+        add_manual(plan_path.name, row, "", "计划单缺少笔记链接")
+    for row in missing_effect_keys:
+        add_manual(effect_path.name, row, "", "效果表缺少笔记链接")
+
+    all_keys = sorted(set(plan_index) | set(effect_index))
+    for key in all_keys:
+        plans = plan_index.get(key, [])
+        effects = effect_index.get(key, [])
+        if len(plans) != 1 or len(effects) != 1:
+            if not plans:
+                for row in effects:
+                    add_manual(effect_path.name, row, key, "效果表记录在计划单中未匹配")
+            elif not effects:
+                for row in plans:
+                    add_manual(plan_path.name, row, key, "计划单记录在效果表中未匹配")
+            else:
+                reason = f"笔记链接不是一对一：计划单 {len(plans)} 条，效果表 {len(effects)} 条"
+                for row in plans:
+                    add_manual(plan_path.name, row, key, reason)
+                for row in effects:
+                    add_manual(effect_path.name, row, key, reason)
+            continue
+
+        plan = plans[0]
+        effect = effects[0]
+        record: dict[str, object] = {
+            "计划单源行": plan["__source_row"],
+            "效果表源行": effect["__source_row"],
+            "笔记链接": key,
+        }
+        for field, aliases in PLAN_FIELD_ALIASES.items():
+            record[field] = first_value(plan, aliases)
+        for field, aliases in EFFECT_FIELD_ALIASES.items():
+            record[field] = first_value(effect, aliases)
+        record["record_id"] = record.get("effect_record_id") or key
+        record.update(metrics(record))
+        records.append(record)
+
+    method_rows, sheet_thresholds = read_method_sheet(plan_path, args.method_sheet)
+    thresholds = {**sheet_thresholds, **load_json(args.thresholds)}
+    source_info = {
+        "plan_path": plan_path,
+        "effect_path": effect_path,
+        "plan_sheet": plan_sheet,
+        "effect_sheet": effect_sheet,
+        "plan_key_header": plan_key_header,
+        "effect_key_header": effect_key_header,
+        "plan_headers": plan_headers,
+        "effect_headers": effect_headers,
+        "plan_count": len(plan_rows),
+        "effect_count": len(effect_rows),
+    }
+    return records, manual, method_rows, thresholds, source_info
 
 
 def map_headers(headers: list[str], custom: dict[str, object]) -> dict[str, list[int]]:
@@ -275,6 +473,144 @@ def analyze(args: argparse.Namespace) -> dict[str, int]:
     return {"records": len(records), "risks": len(risk_rows)}
 
 
+def analyze_two_sources(args: argparse.Namespace) -> dict[str, int]:
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Font, PatternFill
+    except ImportError as error:
+        raise RuntimeError("缺少 openpyxl，无法读写 Excel；请使用桌面应用打包运行时") from error
+
+    records, manual_rows, method_rows, thresholds, source_info = prepare_two_source_records(args)
+    output = Workbook()
+    detail = output.active
+    detail.title = "清洗底表"
+    detail_headers = [
+        "计划单源行", "效果表源行", "效果记录ID", "笔记链接", "计划单达人昵称", "效果表博主昵称",
+        "返点档", "毛利率", "粉丝量级", "笔记类型", "K金额", "广告金额", "自然曝光量", "自然阅读量",
+        "推广曝光量", "推广阅读量", "点赞量", "评论量", "收藏量", "搜索进店UV", "总金额", "自然 CTR",
+        "纯 K CPC", "互动量", "广告占比", "搜索进店成本", "行级标签", "风险提示",
+    ]
+    append_safe(detail, detail_headers)
+    risks: list[list[object]] = []
+    for record in records:
+        calculated = {name: record[name] for name, _ in FORMULAS}
+        missing_metrics = [name for name, value in calculated.items() if value is None]
+        risk_text = "数据不足：" + "、".join(missing_metrics) if missing_metrics else ""
+        label = "数据不足" if missing_metrics else row_label(calculated, thresholds)
+        record["行级标签"] = label
+        if risk_text:
+            risks.append([record["计划单源行"], record["效果表源行"], record["笔记链接"], risk_text, "人工复核"])
+        append_safe(detail, [
+            record["计划单源行"], record["效果表源行"], text_value(record.get("effect_record_id")), record["笔记链接"],
+            text_value(record.get("creator")), text_value(record.get("effect_creator")), text_value(record.get("rebate_band")),
+            number(record.get("margin_rate")), text_value(record.get("creator_tier")), text_value(record.get("note_type")),
+            number(record.get("k_amount")), number(record.get("ad_amount")), number(record.get("natural_impressions")),
+            number(record.get("natural_reads")), number(record.get("promoted_impressions")), number(record.get("promoted_reads")),
+            number(record.get("likes")), number(record.get("comments")), number(record.get("favorites")), number(record.get("search_uv")),
+            *[record[name] if record[name] is not None else "数据不足" for name, _ in FORMULAS], label, risk_text,
+        ])
+
+    mapping_sheet = output.create_sheet("字段映射")
+    append_safe(mapping_sheet, ["逻辑字段", "计划单表头", "效果表表头", "用途"])
+    mapping_rows = [
+        ("唯一主键", PLAN_KEY_ALIASES, EFFECT_KEY_ALIASES, "只按该字段精确一对一匹配"),
+        ("达人昵称", PLAN_FIELD_ALIASES["creator"], EFFECT_FIELD_ALIASES["effect_creator"], "仅供人工核对，不参与匹配"),
+        ("K金额", PLAN_FIELD_ALIASES["k_amount"], (), "纯 K CPC 与总金额"),
+        ("广告金额", (), EFFECT_FIELD_ALIASES["ad_amount"], "广告占比与总金额"),
+        ("自然曝光量", (), EFFECT_FIELD_ALIASES["natural_impressions"], "自然 CTR 分母"),
+        ("自然阅读量", (), EFFECT_FIELD_ALIASES["natural_reads"], "自然 CTR 分子与纯 K CPC 分母"),
+        ("互动量", (), EFFECT_FIELD_ALIASES["likes"] + EFFECT_FIELD_ALIASES["comments"] + EFFECT_FIELD_ALIASES["favorites"], "点赞 + 评论 + 收藏"),
+        ("搜索进店UV", (), EFFECT_FIELD_ALIASES["search_uv"], "搜索进店成本分母"),
+    ]
+    for logical, plan_aliases, effect_aliases, purpose in mapping_rows:
+        plan_header = source_info["plan_key_header"] if logical == "唯一主键" else first_header(source_info["plan_headers"], plan_aliases)
+        effect_header = source_info["effect_key_header"] if logical == "唯一主键" else first_header(source_info["effect_headers"], effect_aliases)
+        append_safe(mapping_sheet, [logical, plan_header or "不适用/未发现", effect_header or "不适用/未发现", purpose])
+
+    grouping = output.create_sheet("分组分析")
+    append_safe(grouping, ["分组维度", "分组值", "样本数", "平均自然 CTR", "平均纯 K CPC", "平均搜索进店成本", "说明"])
+    valid_records = [record for record in records if record["行级标签"] != "数据不足"]
+    for field, label in (("rebate_band", "返点档"), ("margin_rate", "毛利率"), ("creator_tier", "粉丝量级"), ("note_type", "笔记类型")):
+        groups: defaultdict[str, list[dict[str, object]]] = defaultdict(list)
+        for record in valid_records:
+            groups[text_value(record.get(field)) or "未提供"].append(record)
+        for group_name, items in groups.items():
+            append_safe(grouping, [
+                label, group_name, len(items),
+                sum(float(item["自然 CTR"]) for item in items) / len(items),
+                sum(float(item["纯 K CPC"]) for item in items) / len(items),
+                sum(float(item["搜索进店成本"]) for item in items) / len(items),
+                "小样本，仅作相关性观察" if len(items) < 3 else "相关性观察，不代表因果",
+            ])
+
+    conclusions = output.create_sheet("分析结论")
+    append_safe(conclusions, ["笔记链接", "达人", "行级标签", "三项证据", "建议", "人工复核"])
+    suggestion_by_label = {
+        "优先保留": "优先纳入复投候选",
+        "可加测": "小预算加测后再决定",
+        "谨慎": "降低优先级并复核内容与成本",
+        "数据不足": "补齐数据后再判断",
+    }
+    for record in records:
+        label = str(record["行级标签"])
+        evidence = "；".join(
+            f"{name}={record[name]}" if record[name] is not None else f"{name}=数据不足"
+            for name in ("自然 CTR", "纯 K CPC", "搜索进店成本")
+        )
+        append_safe(conclusions, [record["笔记链接"], text_value(record.get("creator")), label, evidence, suggestion_by_label[label], "是"])
+
+    definitions = output.create_sheet("口径表")
+    if method_rows:
+        for row in method_rows:
+            append_safe(definitions, row)
+    else:
+        append_safe(definitions, ["指标", "公式 / 口径", "说明"])
+        for name, formula in FORMULAS:
+            append_safe(definitions, [name, formula, "业务材料未提供阈值时不下行级结论"])
+    append_safe(definitions, ["边界", "未定义的广告阅读成本等指标", "列为口径缺失，不自行补公式"])
+
+    manual = output.create_sheet("人工确认")
+    append_safe(manual, ["来源文件", "源行", "笔记链接", "原因", "处理状态"])
+    for row in manual_rows:
+        append_safe(manual, row)
+    for row in risks:
+        append_safe(manual, [f"{source_info['plan_path'].name} + {source_info['effect_path'].name}", f"计划单 {row[0]} / 效果表 {row[1]}", row[2], row[3], row[4]])
+
+    clean_log = output.create_sheet("清洗日志")
+    append_safe(clean_log, ["项目", "结果"])
+    append_safe(clean_log, ["计划单", source_info["plan_path"].name])
+    append_safe(clean_log, ["计划单工作表", source_info["plan_sheet"]])
+    append_safe(clean_log, ["效果表", source_info["effect_path"].name])
+    append_safe(clean_log, ["效果表工作表", source_info["effect_sheet"]])
+    append_safe(clean_log, ["唯一匹配键", f"{source_info['plan_key_header']} ↔ {source_info['effect_key_header']}（精确匹配）"])
+    append_safe(clean_log, ["计划单记录数", source_info["plan_count"]])
+    append_safe(clean_log, ["效果表记录数", source_info["effect_count"]])
+    append_safe(clean_log, ["一对一匹配记录数", len(records)])
+    append_safe(clean_log, ["人工确认记录数", len(manual_rows) + len(risks)])
+    append_safe(clean_log, ["阈值来源", "计划单口径 Sheet + 用户显式 thresholds（后者优先）"])
+
+    header_fill = PatternFill("solid", fgColor="1F4E78")
+    for sheet in output.worksheets:
+        sheet.freeze_panes = "A2"
+        sheet.auto_filter.ref = sheet.dimensions
+        for cell in sheet[1]:
+            cell.fill = header_fill
+            cell.font = Font(color="FFFFFF", bold=True)
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        for column in sheet.columns:
+            letter = column[0].column_letter
+            max_length = min(max((len(str(cell.value)) if cell.value is not None else 0 for cell in column), default=0) + 2, 42)
+            sheet.column_dimensions[letter].width = max(10, max_length)
+        for row in sheet.iter_rows(min_row=2):
+            for cell in row:
+                cell.alignment = Alignment(vertical="top", wrap_text=True)
+
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output.save(output_path)
+    return {"records": len(records), "manual_review": len(manual_rows) + len(risks)}
+
+
 def self_test() -> dict[str, object]:
     values = metrics({"k_amount": 1000, "ad_amount": 200, "natural_reads": 100, "natural_impressions": 1000, "likes": 10, "comments": 5, "favorites": 5, "search_uv": 0})
     return {
@@ -289,8 +625,13 @@ def self_test() -> dict[str, object]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="分析达人项目毛利与效果")
     parser.add_argument("--input")
+    parser.add_argument("--plan-input")
+    parser.add_argument("--effect-input")
     parser.add_argument("--output")
     parser.add_argument("--sheet")
+    parser.add_argument("--plan-sheet")
+    parser.add_argument("--effect-sheet")
+    parser.add_argument("--method-sheet")
     parser.add_argument("--column-map")
     parser.add_argument("--thresholds")
     parser.add_argument("--self-test", action="store_true")
@@ -298,15 +639,17 @@ def main() -> int:
     if args.self_test:
         print(json.dumps(self_test(), ensure_ascii=False))
         return 0
-    if not args.input or not args.output:
-        print("必须提供 --input 和 --output", file=sys.stderr)
+    two_source_mode = bool(args.plan_input or args.effect_input)
+    if not args.output or (two_source_mode and not (args.plan_input and args.effect_input)) or (not two_source_mode and not args.input):
+        print("单表模式需提供 --input；双表模式需同时提供 --plan-input 和 --effect-input；两种模式都需提供 --output", file=sys.stderr)
         return 2
     try:
-        result = analyze(args)
+        result = analyze_two_sources(args) if two_source_mode else analyze(args)
     except (OSError, ValueError, RuntimeError, StopIteration) as error:
         print(f"分析失败：{error}", file=sys.stderr)
         return 1
     print(json.dumps(result, ensure_ascii=False))
+    print(f"ONMYAGENT_DELIVERABLE: {args.output}")
     return 0
 
 

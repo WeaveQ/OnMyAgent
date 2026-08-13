@@ -251,6 +251,42 @@ def build_report(data, output_path):
 
     doc.save(output_path)
     print(f"Saved: {output_path}")
+    print(f"ONMYAGENT_DELIVERABLE: {output_path}")
+
+
+def build_clean_script(data, output_path):
+    """Generate a creator-facing clean script with no audit sections or tracked markup."""
+    doc = Document()
+    style = doc.styles['Normal']
+    style.font.name = '微软雅黑'
+    style.font.size = Pt(11)
+    style.element.rPr.rFonts.set(qn('w:eastAsia'), '微软雅黑')
+
+    title = doc.add_heading(data.get("title", "清洁口播终稿"), level=0)
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    meta_text = data.get("meta", "")
+    if meta_text:
+        meta = doc.add_paragraph()
+        meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        add_run(meta, meta_text, size=Pt(10))
+
+    paragraphs = data.get("clean_paragraphs", [])
+    if not isinstance(paragraphs, list) or not paragraphs:
+        raise ValueError("清洁终稿需要非空 clean_paragraphs 列表")
+    for paragraph in paragraphs:
+        text = str(paragraph).strip()
+        if not text:
+            continue
+        if any(token in text for token in ("~~", "<span", "P0", "P1", "P2", "修改建议", "审核核对")):
+            raise ValueError("清洁终稿仍包含留痕或审核标记")
+        p = doc.add_paragraph()
+        p.paragraph_format.space_after = Pt(8)
+        p.paragraph_format.line_spacing = 1.35
+        add_run(p, text, size=Pt(11))
+
+    doc.save(output_path)
+    print(f"Saved: {output_path}")
+    print(f"ONMYAGENT_DELIVERABLE: {output_path}")
 
 
 def build_batch(data_list, output_dir, project_name="", stage=""):
@@ -279,9 +315,23 @@ if __name__ == "__main__":
         print("Usage:")
         print("  单篇: python3 docx-template.py <json_file> [output_path]")
         print("  批量: python3 docx-template.py --batch <json_file> <output_dir>")
+        print("  清洁终稿: python3 docx-template.py --clean <json_file> <output_path>")
         sys.exit(1)
 
-    if sys.argv[1] == "--batch":
+    if sys.argv[1] == "--clean":
+        if len(sys.argv) < 4:
+            print("清洁终稿模式需要 JSON 和输出路径", file=sys.stderr)
+            sys.exit(2)
+        json_path = sys.argv[2]
+        output_path = sys.argv[3]
+        with open(json_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        try:
+            build_clean_script(data, output_path)
+        except ValueError as error:
+            print(f"生成失败：{error}", file=sys.stderr)
+            sys.exit(2)
+    elif sys.argv[1] == "--batch":
         # 批量模式：JSON 为 {"project": "项目名", "reports": [data1, data2, ...]}
         json_path = sys.argv[2]
         output_dir = sys.argv[3] if len(sys.argv) > 3 else os.path.dirname(json_path)

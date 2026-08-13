@@ -25,7 +25,7 @@ description: Use when 达人合作完成后需要根据对公返点信息表和�
 - 业务方批准的 DOCX（任意 `{{占位符}}`，中英文均可）
 - 可选：用户命名规则、完成日期列位置
 
-上传 inbox **只读**；结果全部写在**当前专家会话 cwd**。
+上传 inbox 默认只读；但用户明确说“回填源文件 / 修改原表 / 写回原文件”时，这就是对**该 Excel 精确路径**的修改授权。仍须同时把可预览的交付副本写在**当前专家会话 cwd**。
 
 ## 标准流程
 
@@ -69,15 +69,21 @@ officecli merge 批准模板.docx "合同输出/${output_name}.docx" --data row.
 
 ### 5. 完成日期（用户要的 Excel）
 
-在**会话内**副本上写第二列/指定列完成日期（勿只改 uploads 原件）：
+先生成并校验**会话内交付副本**。用户明确要求“源文件/原表也回填”时，再用同一份已校验数据原子写回源 Excel；两边都要逐格复核：
 
 ```bash
-# 示例：复制用户表后 officecli set，或 prepare 脚本 --ledger
-cp 对公返点信息.xlsx "对公返点信息_已填写完成日期.xlsx"
-# officecli set … 日期单元格
+python3 scripts/writeback_completion_date.py \
+  --input "$SOURCE_XLSX" \
+  --output "对公返点信息_已填写完成日期.xlsx" \
+  --date YYYY-MM-DD \
+  --completion-column B \
+  --source-writeback
 ```
 
-对该台账打印 `ONMYAGENT_DELIVERABLE`（用户明确要回写日期时）。
+- `--source-writeback` **只能**在用户明确要求修改源文件/原表时添加；未明确要求就只生成会话副本。
+- 源文件只允许使用用户当次提供的精确 Excel 路径，禁止模糊匹配或批量改同目录其他文件。
+- 脚本先保存、校验会话副本，再原子替换源文件；任一步失败必须明确报告“源文件未更新”。
+- 对会话副本打印 `ONMYAGENT_DELIVERABLE`；源上传路径不另打产物标记，避免把输入文件误当新增产物。
 
 ### 6. 产物卡与文件分层（位置规则，不靠文件名黑名单）
 

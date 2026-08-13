@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
+  classifyOpenTarget,
   selectAutoOpenTarget,
   type OpenTarget,
 } from "../artifacts/open-target";
@@ -94,6 +95,15 @@ function candidateIdFromTargets(targets: OpenTarget[]): string | null {
   return selectAutoOpenTarget(targets)?.id ?? null;
 }
 
+/** Keep cards working against older/local servers that returned Office files as external. */
+export function normalizeVerifiedOpenTargets(targets: OpenTarget[]): OpenTarget[] {
+  return targets.map((target) => {
+    if (target.kind !== "file" || target.preview !== "external") return target;
+    const preview = classifyOpenTarget(target.value, "file");
+    return preview === "external" ? target : { ...target, preview };
+  });
+}
+
 export function useSessionSurfaceOpenTargets(
   input: UseSessionSurfaceOpenTargetsInput,
 ) {
@@ -134,7 +144,9 @@ export function useSessionSurfaceOpenTargets(
           { sessionRoot: input.sessionRoot },
         );
         if (!cancelled) {
-          const nextTargets = response.items as OpenTarget[];
+          const nextTargets = normalizeVerifiedOpenTargets(
+            response.items as OpenTarget[],
+          );
           autoOpenStateRef.current = initializeAutoOpenSessionState(
             autoOpenStateRef.current,
             sessionId,

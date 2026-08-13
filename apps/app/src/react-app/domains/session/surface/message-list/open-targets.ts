@@ -1,6 +1,7 @@
 import type { UIMessage } from "ai";
 import {
   deriveOpenTargets,
+  extractAssistantDeliveryManifestPaths,
   extractDeclaredDeliverablePaths,
   extractExplicitArtifactLinkPaths,
   isCollectibleArtifactTarget,
@@ -296,7 +297,17 @@ export function selectTurnOpenTargets(
   const inlineTargets = new Map<string, OpenTarget>();
   const assistantBlob = assistantTextBlob(messages);
   // Explicit assistant delivery claims are eligible after server verification.
-  const declaredPaths = extractDeclaredDeliverablePaths(assistantBlob);
+  const deliveryManifestPaths = assistantMessages.flatMap((message) =>
+    message.parts.flatMap((part) =>
+      part.type === "text" && typeof part.text === "string"
+        ? extractAssistantDeliveryManifestPaths(part.text)
+        : [],
+    ),
+  );
+  const declaredPaths = [
+    ...extractDeclaredDeliverablePaths(assistantBlob),
+    ...deliveryManifestPaths,
+  ];
   const explicitArtifactLinkPaths = extractExplicitArtifactLinkPaths(assistantBlob);
   const executedScriptBasenames = scriptsExecutedInTurn(messages);
 
