@@ -37,6 +37,6 @@ description: Use when 媒介项目前期需要拆解客户 Brief、整理小红�
 1. 将最终文件写入当前专家会话 cwd，上传 inbox 只读；
 2. 提取文本、历史材料摘要、JSON 和辅助脚本只放 `.opencode/tmp/` 或 `os.tmpdir()`；
 3. 使用 `document-processing` 实际写入并验证文件可打开；
-4. 只对最终 Word / Excel 打印 `ONMYAGENT_DELIVERABLE: <相对路径>`，过程文件不登记。
+4. 只对最终 Word / Excel 打印 `ONMYAGENT_DELIVERABLE: <相对路径>`，标记必须是单独一行的纯文本，不得加粗、放进列表、代码块或表格；过程文件不登记。
 
 用户要求 Word 时，不能只在正文给九字段表；必须实际生成包含九字段表、待确认问题、媒介 → 达人运营交接摘要和当前事实/历史经验冲突说明的 Word。
