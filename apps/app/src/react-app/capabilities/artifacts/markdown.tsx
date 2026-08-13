@@ -528,10 +528,10 @@ function MarkdownBlockInner(props: {
         : null;
       if (!detected || !resolvedPath) return;
       inlineCode.dataset.markdownCodePath = resolvedPath;
-      inlineCode.dataset.markdownOpenMode = "reveal";
+      inlineCode.dataset.markdownOpenMode = "preview";
       inlineCode.setAttribute("role", "button");
       inlineCode.tabIndex = 0;
-      inlineCode.title = t("files.open_in_folder");
+      inlineCode.title = t("files.view_in_panel");
       inlineCode.classList.remove("rounded-md", "bg-dls-surface-muted", "px-1.5", "py-0.5", "font-mono");
       inlineCode.classList.add(
         "inline-flex",
@@ -597,6 +597,7 @@ function MarkdownBlockInner(props: {
       const path = pathLabel?.dataset.markdownCodePath;
       if (path && props.onOpenCodePath) {
         event.preventDefault();
+        event.stopPropagation();
         const mode = pathLabel.dataset.markdownOpenMode === "reveal" ? "reveal" : "preview";
         props.onOpenCodePath(path, mode);
         return;
@@ -627,6 +628,7 @@ function MarkdownBlockInner(props: {
       const target = event.target;
       if (!(target instanceof HTMLElement) || !target.matches("[data-markdown-inline-code][data-markdown-code-path]")) return;
       event.preventDefault();
+      event.stopPropagation();
       target.click();
     };
     root.addEventListener("click", handleClick);
