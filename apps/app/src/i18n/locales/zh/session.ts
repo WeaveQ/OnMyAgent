@@ -618,6 +618,7 @@ export default {
   "session.assistant_stalled_inline": "当前步骤耗时较久，可以继续等待，也可以停止后换一种方式。",
   "session.stall_recovery_hidden": "上一轮任务长时间没有产生有效进展。继续时不要重复等待同一个无响应操作，请先说明上一步卡住的位置，再换一种更安全的方式探测、验证或推进。",
   "session.process_summary_reviewed_files": "已查看 {count} 个文件",
+  "session.process_summary_running_commands": "正在运行 {count} 条命令",
   "session.process_summary_ran_commands": "已运行 {count} 条命令",
   "session.process_summary_searched_items": "已搜索 {count} 条信息",
   "session.process_summary_editing": "正在编辑 {count} 个文件",
