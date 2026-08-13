@@ -496,7 +496,7 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
 
   // Optional renderer-side check when the user enables background checks.
   // Main process also polls and owns OS notifications; this only refreshes Settings state.
-  // Skip the automatic first check when auto-check is off (dev default path).
+  // Skip the automatic first check when the user turned auto-check off.
   useEffect(() => {
     if (!updateAutoCheck || updateEnv?.supported === false) return;
     const key = `${releaseChannel}:${appVersion ?? "unknown"}`;

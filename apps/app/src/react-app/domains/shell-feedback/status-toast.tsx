@@ -70,8 +70,29 @@ export function StatusToast(props: StatusToastProps) {
   const Icon: LucideIcon = props.icon ?? DefaultIcon;
 
   if (compact) {
+    const runAction = () => {
+      if (!hasAction) return;
+      props.onAction?.();
+      props.onDismiss();
+    };
     return (
-      <div className={statusToastLayoutClass.shellCompact} data-status-toast="compact">
+      <div
+        className={`${statusToastLayoutClass.shellCompact}${hasAction ? " cursor-pointer" : ""}`}
+        data-status-toast="compact"
+        role={hasAction ? "button" : undefined}
+        tabIndex={hasAction ? 0 : undefined}
+        onClick={hasAction ? runAction : undefined}
+        onKeyDown={
+          hasAction
+            ? (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  runAction();
+                }
+              }
+            : undefined
+        }
+      >
         <div className={statusToastLayoutClass.bodyCompact}>
           <div
             className={`${statusToastLayoutClass.iconCompact} ${
@@ -82,16 +103,9 @@ export function StatusToast(props: StatusToastProps) {
           </div>
           <span className={statusToastLayoutClass.titleCompact}>{props.title}</span>
           {hasAction ? (
-            <button
-              type="button"
-              className={statusToastLayoutClass.inlineAction}
-              onClick={() => {
-                props.onAction?.();
-                props.onDismiss();
-              }}
-            >
+            <span className={statusToastLayoutClass.inlineAction}>
               {props.actionLabel}
-            </button>
+            </span>
           ) : null}
         </div>
       </div>

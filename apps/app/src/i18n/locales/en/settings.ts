@@ -22,7 +22,7 @@ export default {
   "settings.check_for_updates": "Check for updates",
   "settings.checking_for_updates": "Checking…",
   "settings.open_release_page": "Open release page",
-  "settings.update_install_title": "How updates install",
+  "settings.update_install_title": "Next step",
   "settings.update_install_desc":
     "OnMyAgent opens the GitHub release page so you can download the installer for your platform. There is no in-app download or silent install.",
   "settings.update_check_timeout":
@@ -55,7 +55,7 @@ export default {
   "settings.update_mac_quarantine_notice":
     "If macOS blocks the app after restart, run xattr -cr /Applications/OnMyAgent.app in Terminal and open it again.",
   "settings.update_install_desc_in_app":
-    "OnMyAgent downloads updates in the background and asks you to restart before installing. Nothing is installed silently.",
+    "When the download finishes, click Restart and install.",
   "settings.cap_browser_tools": "Browser tools: {value}",
   "settings.cap_commands": "Commands: {value}",
   "settings.cap_config": "Config: {value}",
@@ -888,8 +888,8 @@ export default {
   "settings.update_available_version": "Update available: v{version}",
   "settings.update_available_notice_title": "Update available",
   "settings.update_available_notice_body":
-    "OnMyAgent v{version} is available. Open the release page to download.",
-  "settings.update_available_notice_action": "Open release page",
+    "OnMyAgent v{version} is available. Click to download.",
+  "settings.update_available_notice_action": "Download update",
   "settings.update_last_checked": "Last checked {time}",
   "settings.update_published": "Released {date}",
   "settings.updates": "Updates",
@@ -1002,6 +1002,8 @@ export default {
   "settings.taskbar_unread_badge_desc": "Show unread count on the Windows taskbar",
   "settings.sound_notify_label": "Sound notifications",
   "settings.sound_notify_desc": "Play a sound when the Agent finishes work",
+  "settings.auto_check_updates_label": "Automatic updates",
+  "settings.auto_check_updates_desc": "Check for new versions in the background and download them. You still confirm restart to install.",
   "settings.desktop_only_hint": "Only available in the desktop app",
   "settings.conversation_width_label": "Conversation width",
   "settings.conversation_width_desc": "Maximum width of the conversation area and input box",
