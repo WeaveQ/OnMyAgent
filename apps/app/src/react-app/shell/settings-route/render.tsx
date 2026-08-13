@@ -277,7 +277,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   void setDeveloperMode;
   void setHideTitlebar;
   const [updateAutoCheck, setUpdateAutoCheck] = useState(() =>
-    readStoredBoolean(SETTINGS_UPDATE_AUTO_CHECK_KEY, false),
+    readStoredBoolean(SETTINGS_UPDATE_AUTO_CHECK_KEY, true),
   );
   const [updateAutoDownload, setUpdateAutoDownload] = useState(() =>
     readStoredBoolean(SETTINGS_UPDATE_AUTO_DOWNLOAD_KEY, false),
