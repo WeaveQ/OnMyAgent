@@ -7,6 +7,7 @@
  */
 import type { OnMyAgentPrimaryView } from "../sidebar/main-rail";
 import { isPrimarySessionRailView } from "../sidebar/rail-navigation-memory";
+import { isTaskCenterRailVisible } from "../sidebar/task-center-rail-visibility";
 
 export type ShellMode = "assistant" | "expert";
 
@@ -70,6 +71,7 @@ export function parseRailViewFromSearch(
   try {
     const value = new URLSearchParams(raw).get(RAIL_VIEW_SEARCH_PARAM)?.trim() ?? "";
     if (!value || !isKnownRailView(value)) return null;
+    if (value === "taskCenter" && !isTaskCenterRailVisible()) return null;
     return value;
   } catch {
     return null;

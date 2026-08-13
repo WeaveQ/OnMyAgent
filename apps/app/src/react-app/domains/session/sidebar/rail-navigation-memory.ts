@@ -8,6 +8,7 @@
  */
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 import type { OnMyAgentPrimaryView } from "./main-rail";
+import { isTaskCenterRailVisible } from "./task-center-rail-visibility";
 
 export type ShellMode = "assistant" | "expert";
 
@@ -61,7 +62,9 @@ function railViewKey(mode: ShellMode, workspaceId: string) {
 
 function parseView(value: unknown): OnMyAgentPrimaryView | null {
   if (typeof value !== "string" || !value.trim()) return null;
-  return KNOWN_VIEWS.has(value) ? (value as OnMyAgentPrimaryView) : null;
+  if (!KNOWN_VIEWS.has(value)) return null;
+  if (value === "taskCenter" && !isTaskCenterRailVisible()) return null;
+  return value as OnMyAgentPrimaryView;
 }
 
 export function readRailView(

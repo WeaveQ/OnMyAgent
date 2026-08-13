@@ -4,6 +4,7 @@
  */
 
 export { OnMyAgentRail, isAutomationRailView } from "./main-rail";
+export { isTaskCenterRailVisible } from "./task-center-rail-visibility";
 export type { OnMyAgentPrimaryView } from "./main-rail";
 
 export {
