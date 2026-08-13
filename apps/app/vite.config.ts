@@ -7,6 +7,7 @@ import { defineConfig } from "vite";
 import { fileViewerRenderers } from "@file-viewer/vite-plugin";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { applyFileViewerVendorAssetDedupe } from "./scripts/dedupe-file-viewer-vendor-assets";
 
 const portValue = Number.parseInt(process.env.PORT ?? "", 10);
 const devPort = Number.isFinite(portValue) && portValue > 0 ? portValue : 5173;
@@ -34,6 +35,17 @@ const desktopPackagePath = resolve(appRoot, "..", "desktop", "package.json");
 const marketplaceResourcesRoot = resolve(repoRoot, "apps/desktop/resources/marketplace");
 const marketplaceManifestScript = resolve(appRoot, "scripts/generate-marketplace-manifests.mjs");
 const fileViewerDevAssetsRoot = resolve(repoRoot, ".loop/runtime/file-viewer-assets");
+
+/** File-viewer copies vendor/ppt AND Vite hashes the same font/wasm into assets/. */
+function dedupeFileViewerVendorAssets() {
+  return {
+    name: "dedupe-file-viewer-vendor-assets",
+    apply: "build" as const,
+    closeBundle() {
+      applyFileViewerVendorAssetDedupe(resolve(appRoot, "dist"));
+    },
+  };
+}
 
 function readPackageVersion(packagePath: string): string | null {
   if (!existsSync(packagePath)) return null;
@@ -174,6 +186,7 @@ export default defineConfig({
         mode: "both",
       },
     }),
+    dedupeFileViewerVendorAssets(),
     tailwindcss(),
     react({
       babel: {

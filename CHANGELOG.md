@@ -10,9 +10,23 @@ This project follows a lightweight changelog format during early development. Re
 
 ### Changed
 
+- Desktop updates: cold start always checks once; a found version downloads only after the user clicks the notice or **Download update**. Checks no longer start a background download on their own.
+
 ### Security
 
 ### License / community
+
+## 0.5.2
+
+### Changed
+
+- Smaller packaged desktop: keep only en/zh-CN/zh-TW Electron locales, drop unused office-lib browser/UMD trees, strip npm docs/man, and recompress oversized marketplace icons.
+
+## 0.5.1
+
+### Changed
+
+- Packaged desktop installers drop unused bundled Node/Python extras, duplicate sidecar binaries, and artifact-runtime source maps/types. Windows extra-global Node modules are pruned; PPT viewer hashed font/wasm copies are rewritten to the vendor originals.
 
 ## 0.5.0
 

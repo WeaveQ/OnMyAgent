@@ -1,7 +1,7 @@
 {
   "name": "@weaveq/onmyagent",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.5.2",
   "scripts": {
     "dev": "node scripts/cli/dev.mjs",
     "dev:windows": ".\\scripts\\dev\\windows.cmd",
@@ -27,7 +27,7 @@
     "test:rename-consistency": "node scripts/checks/rename-consistency.test.mjs",
     "test:unit": "turbo run test:unit --filter onmyagent-server --filter onmyagent-orchestrator",
     "test:api": "turbo run test:e2e --filter onmyagent-server",
-    "test:runtime": "turbo run test:runtime --filter @onmyagent/desktop --filter onmyagent-orchestrator",
+    "test:runtime": "turbo run test:runtime --filter @onmyagent/desktop",
     "test:release-smoke": "turbo run test:release-smoke --filter @onmyagent/desktop",
     "test:ui": "turbo run test:ui --filter @onmyagent/app",
     "test:orchestrator": "turbo run test --filter onmyagent-orchestrator",

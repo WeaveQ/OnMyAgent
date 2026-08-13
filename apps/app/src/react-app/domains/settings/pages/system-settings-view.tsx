@@ -9,6 +9,7 @@ import {
   BellRing,
   Monitor,
   Power,
+  RefreshCw,
   Volume2,
 } from "lucide-react";
 
@@ -26,11 +27,13 @@ export type SystemSettingsViewProps = {
   desktopNotificationsEnabled: boolean;
   soundNotifyOnAgentReady: boolean;
   desktopNotifyOnAgentReady: boolean;
+  updateAutoCheck: boolean;
   onLaunchAtLoginChange: (enabled: boolean) => void | Promise<void>;
   onKeepSystemAwakeChange: (enabled: boolean) => void | Promise<void>;
   onDesktopNotificationsEnabledChange: (enabled: boolean) => void | Promise<void>;
   onSoundNotifyOnAgentReadyChange: (enabled: boolean) => void | Promise<void>;
   onDesktopNotifyOnAgentReadyChange: (enabled: boolean) => void | Promise<void>;
+  onUpdateAutoCheckChange: (enabled: boolean) => void | Promise<void>;
 };
 
 type OptionCard = {
@@ -135,6 +138,15 @@ export function SystemSettingsView(props: SystemSettingsViewProps) {
       checked: props.soundNotifyOnAgentReady,
       disabled: props.busy || !desktop,
       onChange: (v) => void props.onSoundNotifyOnAgentReadyChange(v),
+    },
+    {
+      id: "auto-update",
+      icon: RefreshCw,
+      title: t("settings.auto_check_updates_label"),
+      description: t("settings.auto_check_updates_desc"),
+      checked: props.updateAutoCheck,
+      disabled: props.busy || !desktop,
+      onChange: (v) => void props.onUpdateAutoCheckChange(v),
     },
   ];
 

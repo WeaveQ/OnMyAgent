@@ -73,15 +73,11 @@ function formatBytes(value: number | null | undefined): string | null {
  * Global home/session notice when the main-process background check finds a
  * new version.
  *
- * In-app (electron-updater) flow:
- *  - While downloading: a sticky, spinner toast tagged by version that updates
- *    its percentage / transferred bytes in place as `onDownloadProgress` fires.
- *    It is dismissible (×); if dismissed, progress ticks no longer recreate it.
- *  - When the download finishes: a higher-priority "更新已就绪" toast with a
- *    "重启并安装" action replaces it. This always shows — even if the user
- *    dismissed the progress toast — because it requires action.
- *  - On the open-browser fallback (dev/Linux) the availability toast keeps an
- *    action to kick off the manual flow.
+ * Availability: a sticky toast with a download / open-release action.
+ *  - Click starts `bridge.download()` (in-app package, or GitHub in fallback).
+ *  - While downloading: a spinner toast tagged by version; progress ticks
+ *    update it in place. Dismissible (×); dismissed versions stay quiet.
+ *  - When the download finishes: a "更新已就绪" toast with "重启并安装".
  *
  * On mount we also ask the main process for the last known state so an update
  * that was detected (or finished downloading) before the renderer mounted — or
@@ -271,32 +267,24 @@ export function UpdateAvailableNoticeMonitor() {
 
           if (!payload.available) return;
 
+          if (lastAvailableVersionRef.current === versionKey) return;
+          lastAvailableVersionRef.current = versionKey;
           const inApp = payload.platformFlow === "in-app";
-          if (!inApp) {
-            // Fallback (dev/Linux): one-shot informational toast with an
-            // action to open the release page / trigger manual download.
-            if (lastAvailableVersionRef.current === versionKey) return;
-            lastAvailableVersionRef.current = versionKey;
-            showToast({
-              tone: "info",
-              title: t("settings.update_available_notice_title"),
-              description: t("settings.update_available_notice_body", {
-                version: versionKey,
-              }),
-              actionLabel: t("settings.open_release_page"),
-              onAction: () => {
-                void bridge.download?.();
-              },
-              dismissLabel: t("common.dismiss"),
-              durationMs: 0,
-            });
-            return;
-          }
-
-          // In-app: show the live progress toast. If a progress event has
-          // already arrived (races), its payload is included via the current
-          // download state through subsequent onDownloadProgress ticks.
-          showDownloadProgressToast(versionKey, null);
+          showToast({
+            tone: "info",
+            title: t("settings.update_available_notice_title"),
+            description: t("settings.update_available_notice_body", {
+              version: versionKey,
+            }),
+            actionLabel: inApp
+              ? t("settings.download_update")
+              : t("settings.open_release_page"),
+            onAction: () => {
+              void bridge.download?.();
+            },
+            dismissLabel: t("common.dismiss"),
+            durationMs: 0,
+          });
         }),
       );
     }
@@ -313,26 +301,24 @@ export function UpdateAvailableNoticeMonitor() {
         if (payload.readyToInstall) {
           showReadyToast(versionKey);
         } else if (payload.available) {
-          if (payload.platformFlow === "in-app") {
-            showDownloadProgressToast(versionKey, null);
-          } else {
-            if (lastAvailableVersionRef.current !== versionKey) {
-              lastAvailableVersionRef.current = versionKey;
-              showToast({
-                tone: "info",
-                title: t("settings.update_available_notice_title"),
-                description: t("settings.update_available_notice_body", {
-                  version: versionKey,
-                }),
-                actionLabel: t("settings.open_release_page"),
-                onAction: () => {
-                  void bridge.download?.();
-                },
-                dismissLabel: t("common.dismiss"),
-                durationMs: 0,
-              });
-            }
-          }
+          if (lastAvailableVersionRef.current === versionKey) return;
+          lastAvailableVersionRef.current = versionKey;
+          const inApp = payload.platformFlow === "in-app";
+          showToast({
+            tone: "info",
+            title: t("settings.update_available_notice_title"),
+            description: t("settings.update_available_notice_body", {
+              version: versionKey,
+            }),
+            actionLabel: inApp
+              ? t("settings.download_update")
+              : t("settings.open_release_page"),
+            onAction: () => {
+              void bridge.download?.();
+            },
+            dismissLabel: t("common.dismiss"),
+            durationMs: 0,
+          });
         }
       });
     }

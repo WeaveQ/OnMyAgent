@@ -1,6 +1,6 @@
 export const SETTINGS_DEVELOPER_MODE_KEY = "onmyagent.developerMode";
 export const SETTINGS_HIDE_TITLEBAR_KEY = "onmyagent.react.settings.hide-titlebar";
-export const SETTINGS_UPDATE_AUTO_CHECK_KEY = "onmyagent.react.settings.update-auto-check";
+export const SETTINGS_UPDATE_AUTO_CHECK_KEY = "onmyagent.react.settings.update-auto-check.v2";
 export const SETTINGS_UPDATE_AUTO_DOWNLOAD_KEY = "onmyagent.react.settings.update-auto-download";
 
 export function readStoredBoolean(key: string, fallback: boolean) {
