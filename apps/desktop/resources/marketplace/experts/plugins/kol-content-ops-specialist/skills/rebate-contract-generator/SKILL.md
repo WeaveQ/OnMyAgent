@@ -25,7 +25,7 @@ description: Use when 达人合作完成后需要根据对公返点信息表和�
 - 业务方批准的 DOCX（任意 `{{占位符}}`，中英文均可）
 - 可选：用户命名规则、完成日期列位置
 
-上传 inbox 默认只读；但用户明确说“回填源文件 / 修改原表 / 写回原文件”时，这就是对**该 Excel 精确路径**的修改授权。仍须同时把可预览的交付副本写在**当前专家会话 cwd**。
+上传 inbox 默认只读。附件说明若同时给出 `workspace copy` 与 `original user-selected path`，前者是会话读取副本，后者才是用户自己目录里的原文件。**不得切换到 workspace copy 所在目录**；从当前专家会话 cwd 执行，输入使用绝对路径，合同与台账副本使用 cwd 相对路径。用户说“回填 / 标注 / 填写 Excel 的完成日期”或“回填源文件 / 修改原表 / 写回原文件”时，均视为对**该 original user-selected path 精确路径**的修改授权；不能拿带时间戳的 workspace copy 冒充原文件。仍须同时把可预览的交付副本写在**当前专家会话 cwd**。
 
 ## 标准流程
 
@@ -81,6 +81,7 @@ python3 scripts/writeback_completion_date.py \
 ```
 
 - `--source-writeback` **只能**在用户明确要求修改源文件/原表时添加；未明确要求就只生成会话副本。
+- “在 Excel 第二列标注完成日期”“回填完成日期”等任务表达已构成写回授权；此时 `--input` 必须用附件说明中的 `original user-selected path`，不能用 `workspace copy`。
 - 源文件只允许使用用户当次提供的精确 Excel 路径，禁止模糊匹配或批量改同目录其他文件。
 - 脚本先保存、校验会话副本，再原子替换源文件；任一步失败必须明确报告“源文件未更新”。
 - 对会话副本打印 `ONMYAGENT_DELIVERABLE`；源上传路径不另打产物标记，避免把输入文件误当新增产物。
@@ -94,7 +95,7 @@ python3 scripts/writeback_completion_date.py \
 | `opencode.json`、`.opencode/` | 运行时自有 | 否 |
 
 - **只对用户点名的终稿打标记**；过程 xlsx/脚本即使写出来也不得打 `ONMYAGENT_DELIVERABLE`。
-- **同一轮**打齐全部合同标记，再总结。
+- **验证后回到会话 cwd，同一条命令打齐全部终稿标记，再总结**；禁止在 `合同输出/` 目录内只输出裸文件名。示例：`find "合同输出" -maxdepth 1 -type f -name '*.docx' -exec printf 'ONMYAGENT_DELIVERABLE: %s\n' {} \;`，再为会话内台账副本单独打印一行标记。
 - 禁止把过程文件写到会话根（写到根就会进侧边栏）。
 - 有 officecli 时禁止在会话根新建填模脚本。
 

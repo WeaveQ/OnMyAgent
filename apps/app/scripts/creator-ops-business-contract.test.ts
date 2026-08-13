@@ -206,4 +206,26 @@ describe("creator ops experts business contract", () => {
     expect(scriptSkill).not.toContain("present_files");
     expect(scriptSkill).not.toContain("/Users/jiecheng/");
   });
+
+  test("rebate generation writes the selected original and registers the complete batch", () => {
+    const packageRoot = join(expertsRoot, "kol-content-ops-specialist");
+    const skillText = readFileSync(
+      join(packageRoot, "skills/rebate-contract-generator/SKILL.md"),
+      "utf8",
+    );
+    const agentText = readFileSync(
+      join(packageRoot, "agents/kol-content-ops-specialist.md"),
+      "utf8",
+    );
+
+    for (const text of [skillText, agentText]) {
+      expect(text).toContain("original user-selected path");
+      expect(text).toContain("workspace copy");
+      expect(text).toContain("裸文件名");
+      expect(text).toContain("不得");
+    }
+    expect(skillText).toContain("不得切换到 workspace copy 所在目录");
+    expect(skillText).toContain("--source-writeback");
+    expect(skillText).toContain("find \"合同输出\"");
+  });
 });
