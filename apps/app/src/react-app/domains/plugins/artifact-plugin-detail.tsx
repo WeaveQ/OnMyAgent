@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { FileText, Lightbulb, MessageCircle } from "lucide-react";
 
 import { StatusBadge } from "@/components/ui/status-badge";
+import { StatusDot } from "@/components/ui/status-dot";
 import { BUILTIN_PLUGIN_ICON_PNG_BY_ID } from "@/react-app/design-system/koboyo-product-icons";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { cn } from "@/lib/utils";
@@ -236,12 +237,7 @@ export function ArtifactPluginDetail(props: ArtifactPluginDetailProps) {
             <h2 className="text-lg font-semibold leading-7 text-dls-text">
               {copy.title}
             </h2>
-            {plugin.enabled ? (
-              <span
-                className="size-1.5 shrink-0 rounded-full bg-emerald-500"
-                aria-hidden
-              />
-            ) : null}
+            {plugin.enabled ? <StatusDot size="xs" tone="success" /> : null}
             <StatusBadge
               tone={plugin.enabled ? "success" : "neutral"}
               shape="soft"

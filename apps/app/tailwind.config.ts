@@ -101,6 +101,7 @@ safelist: [
         "status-warning-soft": "var(--dls-status-warning-soft)",
         "status-warning-fg": "var(--dls-status-warning-fg)",
         "status-warning-border": "var(--dls-status-warning-border)",
+        "status-success": "var(--dls-status-success)",
         "status-success-soft": "var(--dls-status-success-soft)",
         "status-success-fg": "var(--dls-status-success-fg)",
         "status-success-border": "var(--dls-status-success-border)",

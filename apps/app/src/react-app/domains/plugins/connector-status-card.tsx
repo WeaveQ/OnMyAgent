@@ -2,6 +2,7 @@
 import type { ReactNode } from "react";
 import { Loader2, MessageCircle, Plus } from "lucide-react";
 
+import { StatusDot } from "@/components/ui/status-dot";
 import { t } from "@/i18n";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { cn } from "@/lib/utils";
@@ -55,14 +56,14 @@ export type ConnectorStatusCardProps = {
   "data-plugin-id"?: string;
 };
 
-function statusDotClass(status: ConnectorCardStatus): string | null {
+function connectorStatusDot(status: ConnectorCardStatus) {
   switch (status) {
     case "connected":
-      return "bg-emerald-500";
+      return <StatusDot size="xs" tone="success" />;
     case "error":
-      return "bg-rose-500";
+      return <StatusDot size="xs" tone="danger" />;
     case "pending":
-      return "bg-amber-400 animate-pulse";
+      return <StatusDot size="xs" tone="warning" pulse />;
     case "idle":
       return null;
   }
@@ -73,7 +74,6 @@ function statusDotClass(status: ConnectorCardStatus): string | null {
  */
 export function ConnectorStatusCard(props: ConnectorStatusCardProps) {
   const enabled = props.status === "connected";
-  const dot = statusDotClass(props.status);
   const action = props.onAction ?? props.onOpen;
   const showChat = props.status === "connected";
   const showPlus =
@@ -123,12 +123,7 @@ export function ConnectorStatusCard(props: ConnectorStatusCardProps) {
             <h3 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">
               {props.name}
             </h3>
-            {dot ? (
-              <span
-                className={cn("size-1.5 shrink-0 rounded-full", dot)}
-                aria-hidden
-              />
-            ) : null}
+            {connectorStatusDot(props.status)}
           </div>
           <div
             className="shrink-0"
