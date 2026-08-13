@@ -8,6 +8,10 @@ const NATIVE_MENU_QUICK_CAPTURE_EVENT = "onmyagent:native-menu:quick-capture";
 const QUICK_CAPTURE_SUBMIT_EVENT = "onmyagent:quick-capture:submit";
 const NATIVE_MENU_DESKTOP_PERMISSIONS_EVENT =
   "onmyagent:native-menu:desktop-permissions";
+const NATIVE_MENU_RECENT_SESSION_EVENT =
+  "onmyagent:native-menu:recent-session";
+const NATIVE_MENU_OPEN_MARKET_EVENT =
+  "onmyagent:native-menu:open-expert-marketplace";
 const DESKTOP_IPC_CHANNEL = "onmyagent:desktop";
 const LEGACY_DESKTOP_IPC_CHANNEL = "open" + "work:desktop";
 const TASK_ORCHESTRATOR_EVENT = "onmyagent:task-orchestrator:event";
@@ -410,6 +414,16 @@ ipcRenderer.on(QUICK_CAPTURE_SUBMIT_EVENT, (_event, payload) => {
 ipcRenderer.on(NATIVE_MENU_DESKTOP_PERMISSIONS_EVENT, () => {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new Event(NATIVE_MENU_DESKTOP_PERMISSIONS_EVENT));
+});
+
+ipcRenderer.on(NATIVE_MENU_RECENT_SESSION_EVENT, () => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(NATIVE_MENU_RECENT_SESSION_EVENT));
+});
+
+ipcRenderer.on(NATIVE_MENU_OPEN_MARKET_EVENT, () => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(NATIVE_MENU_OPEN_MARKET_EVENT));
 });
 
 if (!applyShellDocumentMarkers() && typeof document !== "undefined") {

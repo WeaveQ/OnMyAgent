@@ -151,6 +151,11 @@ export function createStatusItemController(input) {
       };
       // Electron shows this on the trailing edge of the tray menu (⌘B style).
       if (entry.accelerator) item.accelerator = entry.accelerator;
+      // Desktop control uses the brand app mark (same as the window / taskbar).
+      if (entry.id === STATUS_ITEM_ACTION.DESKTOP_PERMISSIONS) {
+        const brand = loadMenuItemBrandIcon();
+        if (brand && !brand.isEmpty()) item.icon = brand;
+      }
       return item;
     });
     return Menu.buildFromTemplate(template);
@@ -200,9 +205,9 @@ export function createStatusItemController(input) {
       return nativeImage.createEmpty();
     }
 
-    // Menu-bar peers ~18pt (mac); Windows notification area ~16px.
-    // Prefer shipping 18/@2x 36 trayTemplate and 16/32 trayIcon assets.
-    const traySize = platform === "darwin" ? 18 : 16;
+    // Menu-bar peers ~18pt (mac); Windows notification area ~20px so the
+    // rounded brand plate stays readable next to system glyphs.
+    const traySize = platform === "darwin" ? 18 : 20;
     if (typeof image.getSize === "function") {
       const { width, height } = image.getSize();
       // Only downscale; never upscale a crisp @1x template.
@@ -215,6 +220,16 @@ export function createStatusItemController(input) {
     // Windows uses color icons — never setTemplateImage there.
     if (resolved.template && typeof image.setTemplateImage === "function") {
       image.setTemplateImage(true);
+    }
+    return image;
+  }
+
+  function loadMenuItemBrandIcon() {
+    if (!appIconPath) return null;
+    let image = nativeImage.createFromPath(appIconPath);
+    if (!image || image.isEmpty()) return null;
+    if (typeof image.resize === "function") {
+      image = image.resize({ width: 16, height: 16 });
     }
     return image;
   }
@@ -347,6 +362,10 @@ export function createStatusItemLifecycle(input) {
     isVisible: () => controller.isVisible(),
     setKeymapAcceleratorOverrides: (overrides) =>
       controller.setKeymapAcceleratorOverrides(overrides),
+    runAction: (actionId) => controller.runAction(actionId),
+    sendToMainWindow: (eventName) => controller.showAndFocusMainWindow().then((win) => {
+      if (win && !win.isDestroyed()) win.webContents.send(eventName);
+    }),
     installSafely() {
       try {
         controller.install();
