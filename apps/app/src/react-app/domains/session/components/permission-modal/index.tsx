@@ -495,7 +495,7 @@ export function PermissionApprovalPanel(props: PermissionApprovalModalProps) {
           title={presentation.scopeValue}
         >
           <HardDrive
-            size={13}
+            size={14}
             strokeWidth={1.75}
             className="mt-0.5 shrink-0 text-dls-secondary"
           />

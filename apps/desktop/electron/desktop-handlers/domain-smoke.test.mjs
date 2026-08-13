@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, posix, resolve, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -121,6 +121,95 @@ test("workspaceBootstrap dispatches through mocked deps (domain smoke)", async (
   const result = await handlers.workspaceBootstrap({}, []);
   assert.equal(called, true);
   assert.deepEqual(result, { workspaces: [], selectedId: null });
+});
+
+test("system reveal enforces canonical workspace containment when an allowed root is supplied", async () => {
+  const shown = [];
+  const existing = new Set([
+    "/workspace",
+    "/workspace/report.txt",
+    "/workspace/link/secret.txt",
+    "/outside/secret.txt",
+    "/WORKSPACE/report.txt",
+  ]);
+  const canonical = new Map([
+    ["/workspace", "/workspace"],
+    ["/workspace/report.txt", "/workspace/report.txt"],
+    ["/workspace/link/secret.txt", "/outside/secret.txt"],
+    ["/outside/secret.txt", "/outside/secret.txt"],
+    ["/WORKSPACE/report.txt", "/WORKSPACE/report.txt"],
+  ]);
+  const handlers = createSystemDomainHandlers({
+    path: posix,
+    stat: async (candidate) => {
+      if (!existing.has(candidate)) throw Object.assign(new Error("missing"), { code: "ENOENT" });
+      return {};
+    },
+    realpath: async (candidate) => {
+      const resolved = canonical.get(candidate);
+      if (!resolved) throw Object.assign(new Error("missing"), { code: "ENOENT" });
+      return resolved;
+    },
+    shell: { showItemInFolder: (candidate) => shown.push(candidate) },
+  });
+
+  assert.deepEqual(
+    await handlers.__revealItemInDir({}, ["/workspace/report.txt", "/workspace"]),
+    { ok: true, path: "/workspace/report.txt" },
+  );
+  assert.deepEqual(
+    await handlers.__revealItemInDir({}, ["/outside/secret.txt", "/workspace"]),
+    { ok: false, reason: "outside_allowed_root", path: "/outside/secret.txt" },
+  );
+  assert.deepEqual(
+    await handlers.__revealItemInDir({}, ["/workspace/link/secret.txt", "/workspace"]),
+    { ok: false, reason: "outside_allowed_root", path: "/outside/secret.txt" },
+  );
+  assert.deepEqual(
+    await handlers.__revealItemInDir({}, ["/workspace", "/workspace"]),
+    { ok: true, path: "/workspace" },
+  );
+  assert.deepEqual(
+    await handlers.__revealItemInDir({}, ["/workspace/missing.txt", "/workspace"]),
+    { ok: true, path: "/workspace", reason: "revealed_parent" },
+  );
+  assert.deepEqual(
+    await handlers.__revealItemInDir({}, ["/WORKSPACE/report.txt", "/workspace"]),
+    { ok: false, reason: "outside_allowed_root", path: "/WORKSPACE/report.txt" },
+  );
+  assert.deepEqual(shown, ["/workspace/report.txt", "/workspace", "/workspace"]);
+});
+
+test("system reveal rejects Windows cross-drive and cross-share targets", async () => {
+  const shown = [];
+  const existing = new Set([
+    "C:\\workspace",
+    "D:\\outside\\secret.txt",
+    "\\\\server\\share\\workspace",
+    "\\\\other\\share\\secret.txt",
+  ]);
+  const handlers = createSystemDomainHandlers({
+    path: win32,
+    stat: async (candidate) => {
+      if (!existing.has(candidate)) throw Object.assign(new Error("missing"), { code: "ENOENT" });
+      return {};
+    },
+    realpath: async (candidate) => {
+      if (!existing.has(candidate)) throw Object.assign(new Error("missing"), { code: "ENOENT" });
+      return candidate;
+    },
+    shell: { showItemInFolder: (candidate) => shown.push(candidate) },
+  });
+
+  assert.deepEqual(
+    await handlers.__revealItemInDir({}, ["D:\\outside\\secret.txt", "C:\\workspace"]),
+    { ok: false, reason: "outside_allowed_root", path: "D:\\outside\\secret.txt" },
+  );
+  assert.deepEqual(
+    await handlers.__revealItemInDir({}, ["\\\\other\\share\\secret.txt", "\\\\server\\share\\workspace"]),
+    { ok: false, reason: "outside_allowed_root", path: "\\\\other\\share\\secret.txt" },
+  );
+  assert.deepEqual(shown, []);
 });
 
 test("main.mjs still wires domain handlers through the command router", () => {

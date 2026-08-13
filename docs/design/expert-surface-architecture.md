@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Status | **Active** — durable SoT |
-| Date | 2026-08-10 |
+| Date | 2026-08-12 |
 | Scope | Expert **UI lifecycle**（路由 / draft / tab / cold-open / 标题轮询）+ 与 runtime isolation 的边界 |
 | Non-scope | 视觉 token（→ `DESIGN.md`）；Directory 产品不变量全文（→ `apps/app/AGENTS.md`）；删除 saga / 创建 coach 细节（→ Architecture lifecycle 表 + 既有 design） |
 
@@ -15,6 +15,7 @@
 | React 域归属 / shell 冷启动 | [`../../apps/app/src/react-app/ARCHITECTURE.md`](../../apps/app/src/react-app/ARCHITECTURE.md) |
 | Expert 产品行为不变量 | [`../../apps/app/AGENTS.md`](../../apps/app/AGENTS.md) |
 | OpenCode agent / skills 隔离（token 膨胀） | [`expert-runtime-isolation.md`](./expert-runtime-isolation.md) |
+| 硬删除 packageName / origin 匹配 | [`../Architecture.md`](../Architecture.md) **hard_delete**（`selectExpertDeleteOriginRecords`） |
 | Convergence 计划 | [`2026-08-09-architecture-convergence-plan.md`](./2026-08-09-architecture-convergence-plan.md) |
 
 改 Expert 会话面时：**先读本文硬规则与「禁止」**，再动代码；合入前跑文末测试入口。
@@ -151,7 +152,7 @@ bound 之后若 chrome 标志已清，允许 cold-open 恢复。
 
 ## 5. Tab 条（AgentSessionTabs）硬规则
 
-文件：`domains/session/sidebar/agent-session-tabs.tsx`。  
+文件：`domains/session/sidebar/agent-session-tabs.tsx`。
 挂载：`use-expert-conversation-tabs.tsx`（**稳定 element**，避免每帧新 ReactElement）。
 
 ### 5.1 禁止（回归过白屏）
@@ -227,14 +228,14 @@ Dev models 目录：默认 `https://models.onmyagentlabs.com/`；仅 `ONMYAGENT_
 
 ## 9. 改动检查清单（PR 自检）
 
-- [ ] 是否动到 surface **事件形状**？→ 更新 `expert-surface-machine.test.ts` 穷举假设  
-- [ ] 是否新增「pending」字段？→ 先写清属于 §3 哪一类，禁止混用  
-- [ ] 是否在 AgentSessionTabs 加 `useLayoutEffect` + setState？→ **默认禁止**  
-- [ ] 是否对全量 tab 开 query / 紧轮询？→ 违反 cold-path budget  
-- [ ] 是否在 create/draft 期间调用 cold-open open/clear/create-task？→ 必须 suppress  
-- [ ] 是否把 `""` 当 sessionId 去 snapshot？→ 用 `normalizeExpertSessionId`  
-- [ ] 是否只改 UI 却假设 token 会下降？→ 还要看 isolation 文档  
-- [ ] 相关测试是否绿：见 §10  
+- [ ] 是否动到 surface **事件形状**？→ 更新 `expert-surface-machine.test.ts` 穷举假设
+- [ ] 是否新增「pending」字段？→ 先写清属于 §3 哪一类，禁止混用
+- [ ] 是否在 AgentSessionTabs 加 `useLayoutEffect` + setState？→ **默认禁止**
+- [ ] 是否对全量 tab 开 query / 紧轮询？→ 违反 cold-path budget
+- [ ] 是否在 create/draft 期间调用 cold-open open/clear/create-task？→ 必须 suppress
+- [ ] 是否把 `""` 当 sessionId 去 snapshot？→ 用 `normalizeExpertSessionId`
+- [ ] 是否只改 UI 却假设 token 会下降？→ 还要看 isolation 文档
+- [ ] 相关测试是否绿：见 §10
 
 ---
 

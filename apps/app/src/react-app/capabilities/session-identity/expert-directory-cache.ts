@@ -10,7 +10,8 @@ export type ExpertDirectoryCacheEnvelope = {
   payload: ExpertDirectoryProjection;
 };
 
-export type ExpertDirectoryCacheStorage = Pick<Storage, "getItem" | "setItem">;
+export type ExpertDirectoryCacheStorage = Pick<Storage, "getItem" | "setItem"> &
+  Partial<Pick<Storage, "removeItem">>;
 
 function cacheKey(workspaceId: string): string {
   return `${EXPERT_DIRECTORY_CACHE_KEY_PREFIX}${encodeURIComponent(workspaceId)}`;
@@ -72,6 +73,67 @@ export function writeExpertDirectoryCache(
   } catch {
     return false;
   }
+}
+
+export function stripExpertDirectorySessionsFromProjection(
+  payload: ExpertDirectoryProjection,
+  sessionIds: readonly string[],
+): ExpertDirectoryProjection {
+  const evict = new Set(sessionIds.map((id) => id.trim()).filter(Boolean));
+  if (evict.size === 0) return payload;
+  const records = payload.records
+    .map((record) => {
+      const nextSessionIds = (record.sessionIds ?? []).filter((id) => !evict.has(id));
+      const sessions = (record.sessions ?? []).filter((session) => !evict.has(session.sessionId));
+      return { ...record, sessionIds: nextSessionIds, sessions };
+    })
+    .filter((record) => record.sessionIds.length > 0);
+  return {
+    ...payload,
+    records,
+    tombstonedSessionIds: [...new Set([...(payload.tombstonedSessionIds ?? []), ...evict])],
+  };
+}
+
+function deleteExpertDirectoryCacheEntry(
+  workspaceId: string,
+  storage: ExpertDirectoryCacheStorage,
+): void {
+  const key = cacheKey(workspaceId);
+  if (typeof storage.removeItem === "function") {
+    storage.removeItem(key);
+    return;
+  }
+  storage.setItem(key, "");
+}
+
+/**
+ * Drop deleted session ids from the persisted lastComplete snapshot.
+ * Empty leftovers are deleted; a still-listed or unwritable entry is dropped.
+ */
+export function evictExpertDirectorySessions(
+  workspaceId: string,
+  sessionIds: readonly string[],
+  storage: ExpertDirectoryCacheStorage | null = defaultStorage(),
+): boolean {
+  const id = workspaceId.trim();
+  const evict = new Set(sessionIds.map((sid) => sid.trim()).filter(Boolean));
+  if (!id || !storage || evict.size === 0) return false;
+  const current = readExpertDirectoryCache(id, storage);
+  if (!current) return false;
+  const listed = current.payload.records.some((record) =>
+    (record.sessionIds ?? []).some((sid) => evict.has(sid)),
+  );
+  const nextPayload = stripExpertDirectorySessionsFromProjection(current.payload, [...evict]);
+  const stillListed = nextPayload.records.some((record) =>
+    (record.sessionIds ?? []).some((sid) => evict.has(sid)),
+  );
+  if (!listed && !stillListed) return false;
+  deleteExpertDirectoryCacheEntry(id, storage);
+  if (stillListed || nextPayload.records.length === 0 || !isCompleteProjection(nextPayload)) {
+    return true;
+  }
+  return writeExpertDirectoryCache(id, nextPayload, storage);
 }
 
 export function isCompleteProjection(

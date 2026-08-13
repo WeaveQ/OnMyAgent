@@ -38,6 +38,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/i18n";
 import { useStatusToasts } from "../shell-feedback";
 import { refreshExpertPackageQuery } from "./expert-package-query";
+import { normalizeExpertWritePackageName } from "../../capabilities/session-identity/expert-package-name";
 import { SelectMenu } from "../../design-system/select-menu";
 import {
   AGENT_AVATAR_STYLES,
@@ -664,7 +665,7 @@ export function AgentsPage(props: AgentsPageProps) {
     try {
       const written = await writeMyExpertPackage({
         id: createdAgent.id,
-        packageName: createdAgent.id,
+        packageName: normalizeExpertWritePackageName({ agentId: createdAgent.id }),
         name: createdAgent.name,
         description: createdAgent.description,
         quote: createdAgent.quote,

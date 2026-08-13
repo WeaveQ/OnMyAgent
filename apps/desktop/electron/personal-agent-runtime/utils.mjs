@@ -4,7 +4,9 @@ import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import { resolveRealHomeDir } from "../real-home-policy.mjs";
 import { buildWindowsCmdSpawnSpec, isWindowsCmdShim } from "./windows-spawn.mjs";
+import { matchProcessStartToken, processGroupFromStartToken } from "./process-identity.mjs";
 
 const jsonWriteQueues = new Map();
 
@@ -14,21 +16,13 @@ const jsonWriteQueues = new Map();
  * agent probe/run must not inherit that or they report 需登录 with valid auth.
  */
 export function resolveAgentHostHome(env = process.env) {
-  const explicit = String(env.ONMYAGENT_REAL_HOME ?? "").trim();
-  if (explicit) return explicit;
-  const home = String(env.HOME ?? os.homedir() ?? "").trim();
-  const sandboxed =
-    home.includes("opencode-sandbox") ||
-    (home.includes("Application Support") && home.includes("onmyagent"));
-  if (home && !sandboxed) return home;
-  const user = String(env.USER ?? env.LOGNAME ?? "").trim();
-  if (user && process.platform === "darwin") return path.join("/Users", user);
-  if (user && process.platform === "linux") return path.join("/home", user);
-  if (process.platform === "win32") {
-    const profile = String(env.USERPROFILE ?? "").trim();
-    if (profile && !profile.includes("opencode-sandbox")) return profile;
-  }
-  return home || os.homedir();
+  return resolveRealHomeDir({
+    override: env.ONMYAGENT_REAL_HOME,
+    home: [env.HOME, os.homedir()],
+    userProfile: env.USERPROFILE,
+    user: env.USER ?? env.LOGNAME,
+    platform: process.platform,
+  });
 }
 
 /** Env for spawning local agent CLIs / ACP probes with credential-visible HOME. */
@@ -45,15 +39,22 @@ export function agentHostProcessEnv(extra = {}, baseEnv = process.env) {
 }
 
 export function createExecHelpers(options = {}) {
+  const baseEnvironment = () => {
+    const configured = typeof options.baseEnvironment === "function"
+      ? options.baseEnvironment()
+      : options.baseEnvironment;
+    return configured && typeof configured === "object" ? configured : process.env;
+  };
   const extraPathEntries = () => {
     if (typeof options.extraPathEntries === "function") return options.extraPathEntries();
     return Array.isArray(options.extraPathEntries) ? options.extraPathEntries : [];
   };
   function pathEntries() {
-    const home = resolveAgentHostHome(process.env);
+    const environment = baseEnvironment();
+    const home = resolveAgentHostHome(environment);
     return [
       ...extraPathEntries(),
-      process.env.PATH,
+      environment.PATH ?? environment.Path ?? environment.path,
       "/opt/homebrew/bin",
       "/opt/homebrew/sbin",
       "/usr/local/bin",
@@ -71,6 +72,7 @@ export function createExecHelpers(options = {}) {
   }
 
   function processEnv(extra = {}) {
+    const environment = baseEnvironment();
     const seen = new Set();
     const pathValue = pathEntries()
       .filter((entry) => {
@@ -81,7 +83,7 @@ export function createExecHelpers(options = {}) {
       .join(path.delimiter);
     return agentHostProcessEnv(
       { PATH: pathValue, Path: pathValue, path: pathValue, ...extra },
-      process.env,
+      environment,
     );
   }
 
@@ -115,9 +117,10 @@ export function createExecHelpers(options = {}) {
         timeout = setTimeout(() => {
           timedOut = true;
           const timeoutText = `Command timed out after ${timeoutMs}ms`;
-          const terminate = child.pid
-            ? terminateProcessTreeByPid({ pid: child.pid, graceMs: 0 })
-            : Promise.resolve().then(() => forceKillProcessTree(child));
+          // This ChildProcess is owned by the current in-memory call, so use
+          // its handle directly. Persisted PID-only termination is separately
+          // fenced by an OS process-start identity.
+          const terminate = Promise.resolve().then(() => forceKillProcessTree(child));
           void terminate.catch(() => forceKillProcessTree(child)).finally(() => {
             settle({
               ok: false,
@@ -158,7 +161,7 @@ export function createExecHelpers(options = {}) {
     const safeNames = names.filter((name) => /^[A-Za-z0-9._-]+$/.test(name));
     if (!safeNames.length) return new Map();
     const script = safeNames.map((name) => `printf '${name}='; command -v ${name} 2>/dev/null || true`).join("; ");
-    const result = await runCommandCapture(process.env.SHELL || "/bin/zsh", ["-lc", script], { timeoutMs: 4000 });
+    const result = await runCommandCapture(baseEnvironment().SHELL || "/bin/zsh", ["-lc", script], { timeoutMs: 4000 });
     const out = new Map();
     for (const line of result.stdout.split("\n")) {
       const [name, ...rest] = line.split("=");
@@ -175,7 +178,7 @@ export function createExecHelpers(options = {}) {
     const resolvedPath = shellResolved.get(name);
     if (resolvedPath) return resolvedPath;
     const candidates = process.platform === "win32"
-      ? [name, ...(process.env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD").split(";").map((ext) => `${name}${ext.toLowerCase()}`)]
+      ? [name, ...(baseEnvironment().PATHEXT ?? ".COM;.EXE;.BAT;.CMD").split(";").map((ext) => `${name}${ext.toLowerCase()}`)]
       : [name];
     for (const entry of pathEntries()) {
       for (const candidateName of candidates) {
@@ -477,48 +480,73 @@ export async function terminateProcessTree(child, { graceMs = 1_000 } = {}) {
 // exit cleanup, reconcile) — there is no exit event to await, so we probe
 // liveness manually after the grace window.
 /**
- * @param {{ pid?: number | string; pgid?: number | string; graceMs?: number }} [options]
+ * @param {{ pid?: number | string; pgid?: number | string; processStartToken?: string; graceMs?: number }} [options]
  */
-export async function terminateProcessTreeByPid({ pid, pgid, graceMs = 1_000 } = {}) {
+export async function terminateProcessTreeByPid({ pid, pgid, processStartToken, graceMs = 1_000 } = {}) {
   const nPid = Number(pid);
-  if (!nPid) return;
+  if (!Number.isSafeInteger(nPid) || nPid <= 1 || nPid === process.pid) {
+    return { terminated: false, reason: "invalid_pid" };
+  }
+  const expectedStartToken = String(processStartToken ?? "").trim();
+  if (!expectedStartToken) return { terminated: false, reason: "process_identity_missing" };
+  const requestedProcessGroup = Number(pgid);
+  const nPgid = process.platform !== "win32" && Number.isSafeInteger(requestedProcessGroup) && requestedProcessGroup > 1
+    ? requestedProcessGroup
+    : null;
+  const tokenProcessGroup = processGroupFromStartToken(expectedStartToken);
+  if (process.platform !== "win32" && nPgid !== null && tokenProcessGroup !== nPgid) {
+    return { terminated: false, reason: "process_group_identity_mismatch" };
+  }
+  const identityMatches = () => matchProcessStartToken({ pid: nPid, processStartToken: expectedStartToken }).matches;
+  if (!identityMatches()) return { terminated: false, reason: "process_identity_mismatch" };
   if (process.platform === "win32") {
     // Force-kill the whole tree; soft /T without /F leaves hung children.
-    await runTaskkill(nPid, true);
-    return;
+    const taskkill = await runTaskkill(nPid, true);
+    return taskkill.ok
+      ? { terminated: true, reason: null }
+      : { terminated: false, reason: "taskkill_failed" };
   }
-  const target = Number(pgid) > 1 ? -Number(pgid) : -nPid;
+  const target = nPgid !== null ? -nPgid : nPid;
   const signalTarget = (signal) => {
     try {
       process.kill(target, signal);
+      return true;
     } catch {
-      try {
-        process.kill(nPid, signal);
-      } catch {
-        // Already exited.
-      }
+      // Never fall back from an authenticated process group to the numeric
+      // PID. The group can disappear while that PID is immediately reused.
+      return false;
     }
   };
-  signalTarget("SIGTERM");
-  await new Promise((resolve) => setTimeout(resolve, graceMs));
-  if (isProcessTreeAlive({ pid: nPid, pgid: Number(pgid) > 1 ? Number(pgid) : null })) {
-    signalTarget("SIGKILL");
+  if (!identityMatches()) return { terminated: false, reason: "process_identity_changed" };
+  const termSent = signalTarget("SIGTERM");
+  if (!termSent && isProcessTreeAlive({ pid: nPid, pgid: nPgid })) {
+    return { terminated: false, reason: "sigterm_failed" };
   }
+  await new Promise((resolve) => setTimeout(resolve, graceMs));
+  if (isProcessTreeAlive({ pid: nPid, pgid: nPgid })) {
+    if (!identityMatches()) return { terminated: false, reason: "process_identity_changed" };
+    if (!signalTarget("SIGKILL")) return { terminated: false, reason: "sigkill_failed" };
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    if (isProcessTreeAlive({ pid: nPid, pgid: nPgid })) {
+      return { terminated: false, reason: "process_still_alive" };
+    }
+  }
+  return { terminated: true, reason: null };
 }
 
 function runTaskkill(pid, force = false) {
   return new Promise((resolve) => {
     const plan = resolveProcessTreeKillPlan({ platform: "win32", pid, force });
     if (plan.kind !== "taskkill") {
-      resolve();
+      resolve({ ok: false, code: null });
       return;
     }
     try {
       const child = spawn(plan.command, plan.args, { stdio: "ignore", windowsHide: true });
-      child.once("error", () => resolve());
-      child.once("exit", () => resolve());
+      child.once("error", () => resolve({ ok: false, code: null }));
+      child.once("exit", (code) => resolve({ ok: code === 0, code }));
     } catch {
-      resolve();
+      resolve({ ok: false, code: null });
     }
   });
 }

@@ -62,6 +62,7 @@ export function createTelegramService(options = {}) {
     channelEventBus,
     channelMessageAdapter,
     channelAssistantBindingStore,
+    taskMessageRouter: options.taskMessageRouter,
     appendLog,
     defaultWorkspaceRoot: DEFAULT_WORKSPACE_ROOT,
     maxMessageLength: 4096,
@@ -215,6 +216,7 @@ export function createTelegramService(options = {}) {
     simulateInbound,
     probe,
     processInbound: (raw, input) => dispatcher.processInbound(raw, input),
+    sendTaskDelivery: (input) => dispatcher.sendTaskDelivery(input),
     get botUsername() { return dispatcher.botUsername; },
     get hasToken() { return dispatcher.hasToken; },
   };

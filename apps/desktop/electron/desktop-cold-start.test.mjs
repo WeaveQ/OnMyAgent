@@ -45,6 +45,7 @@ describe("runDesktopWhenReady", () => {
     const order = [];
     let restoreStartedAfterWindow = false;
     let channelStartedAfterWindow = false;
+    let supervisorStartedAfterWindow = false;
     let windowCreated = false;
     let restoreResolve;
     const restoreGate = new Promise((resolve) => {
@@ -81,6 +82,10 @@ describe("runDesktopWhenReady", () => {
       },
       startUiControl: async () => {
         order.push("ui-control");
+      },
+      startTaskSupervisor: async () => {
+        supervisorStartedAfterWindow = windowCreated;
+        order.push("task-supervisor");
       },
       channelAutoStarts: [
         async () => {
@@ -119,13 +124,16 @@ describe("runDesktopWhenReady", () => {
 
     assert.equal(restoreStartedAfterWindow, true);
     assert.equal(channelStartedAfterWindow, true);
+    assert.equal(supervisorStartedAfterWindow, true);
 
     const windowOrderIdx = order.indexOf("window");
     const cuIdx = order.indexOf("cu-restore");
     const channelIdx = order.indexOf("channel-weixin");
+    const supervisorIdx = order.indexOf("task-supervisor");
     assert.ok(windowOrderIdx >= 0);
     assert.ok(cuIdx > windowOrderIdx, "CU restore after window create");
     assert.ok(channelIdx > windowOrderIdx, "channel autoStart after window create");
+    assert.ok(supervisorIdx > windowOrderIdx, "Task Supervisor after window create");
 
     // Runtime bootstrap is scheduled without an extra prepareFreshRuntime step.
     assert.ok(stepLog.includes("runtimeBootstrap"));
@@ -192,10 +200,24 @@ describe("MAIN_WINDOW_EAGER_BLANK_BROWSER_TAB contract", () => {
   test("main.mjs uses runDesktopWhenReady and does not double prepareFreshRuntime on cold bootstrap", () => {
     const source = readFileSync(path.join(__dirname, "main.mjs"), "utf8");
     assert.match(source, /runDesktopWhenReady/);
+    assert.match(source, /startTaskSupervisor:\s*async\s*\(\)\s*=>\s*\{[\s\S]*await startTaskSupervisorBackground\(\{\s*runtimeBootstrap:\s*runtimeBootstrapPromise/);
     // Old cold path wrapped prepareFreshRuntime then bootRuntime — must be gone.
     assert.doesNotMatch(
       source,
       /runtimeBootstrapPromise\s*=\s*\(async\s*\(\)\s*=>\s*\{\s*await\s+runtimeManager\.prepareFreshRuntime/,
     );
+  });
+
+  test("explicit quit pauses the durable owner before disposing desktop services and restores tray state on failure", () => {
+    const source = readFileSync(path.join(__dirname, "main.mjs"), "utf8");
+    const start = source.indexOf('app.on("before-quit"');
+    const end = source.indexOf('app.on("second-instance"', start);
+    assert.ok(start >= 0 && end > start, "before-quit lifecycle exists");
+    const lifecycle = source.slice(start, end);
+    const pause = lifecycle.indexOf("await disposeRuntimeBeforeQuit()");
+    const terminalDispose = lifecycle.indexOf("codeTerminalManager.dispose()");
+    assert.ok(pause >= 0 && terminalDispose > pause, "desktop cleanup follows durable pause");
+    assert.match(lifecycle, /if \(safeQuitPromise\) return/);
+    assert.match(lifecycle, /statusItem\.cancelQuitting\(\)/);
   });
 });

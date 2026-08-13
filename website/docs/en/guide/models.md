@@ -12,7 +12,8 @@ OnMyAgent is **not tied to one model vendor**. Connect your own key or compatibl
 2. Select **Workspace → Models** on the left, or select the Models card on Overview.
 3. Select **Connect model provider** or **Custom model provider configuration**.
 4. Enter the API Key and Base URL, or the address of a local model service.
-5. Return to a session and choose the current model on the right side of the composer.
+5. Use **Remove** to disconnect or delete a connected provider (one action, not separate delete / disconnect labels).
+6. Return to a session and choose the current model on the right side of the composer.
 
 
 ## 2. Global models and local-Agent models

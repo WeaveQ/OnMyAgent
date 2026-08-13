@@ -31,7 +31,7 @@ Settings opens on **Overview**, where cards group every section under Workspace,
 | Global | **Preferences** | Language, theme, font, conversation width, session compaction, and other app-wide choices |
 | Global | **System** | Launch at login, notifications, system permissions, plus the local runtime environment and environment variables |
 | Global | **Keyboard shortcuts** | Customize general, task, and session shortcuts |
-| Global | **Updates** | Current version and update checks |
+| Global | **Updates** | Version, check for updates; packaged builds download in the background then restart to install |
 | Data | **Reset** | Reset onboarding or clear local app data |
 | Data | **Archive** | Restore or delete archived tasks |
 
@@ -52,7 +52,7 @@ Connect and manage AI model providers, including BYOK, local models, and custom 
 
 - Inspect connected providers and the number of available models.
 - Use **Connect model provider** or **Custom model provider configuration**.
-- Edit or remove an added provider.
+- Edit an added provider, or use **Remove** to disconnect / delete it.
 
 See [Models and BYOK](/en/guide/models).
 
@@ -134,8 +134,20 @@ The page supports search and **Restore all defaults**.
 
 Inspect the current version and check for updates.
 
+The page shows the current version and **Check for updates**.
 
-The page shows the current version and **Check for updates**. The built-in updater exercises its real check, download, and install path only in a packaged desktop build; a development build cannot validate that update path. Desktop installers are normally available from [GitHub Releases](https://github.com/WeaveQ/OnMyAgent/releases) for each platform.
+| Build | Behavior |
+|-------|----------|
+| **Packaged desktop** | Checks prereleases and stables. A new version **downloads in the background**; then click **Restart and install**. Nothing installs silently or on quit. |
+| **Development build** | Can check or open the release page; it cannot complete the real download/install path. |
+
+Current preview builds are not notarized. If macOS blocks the app after an in-app update, run:
+
+```bash
+xattr -cr /Applications/OnMyAgent.app
+```
+
+You can always install from [GitHub Releases](https://github.com/WeaveQ/OnMyAgent/releases).
 
 ## 6. Data
 

@@ -15,6 +15,7 @@ import {
 import type { ExpertDirectoryIdentityIndex } from "../../../capabilities/session-identity/expert-directory-store";
 import { createClient, unwrap } from "../../../../app/lib/opencode";
 import { createIsolatedExpertSessionRuntimeDirectory } from "../../../capabilities/session-identity/expert-session-directory";
+import { normalizeExpertWritePackageName } from "../../../capabilities/session-identity/expert-package-name";
 import { prewarmOnMyAgentEnvSystemContext } from "../../shared";
 import { startExpertColdPrewarm } from "../sync/expert-cold-path";
 import {
@@ -73,7 +74,10 @@ export function useExpertPageNavigation(input: {
     const agentId = agent.id.trim();
     const agentName = agent.name.trim() || "expert";
     const skillNames = agent.skillIds ?? [];
-    const packageName = agent.marketplaceExpert?.packageName || agentId;
+    const packageName = normalizeExpertWritePackageName({
+      agentId,
+      packageName: agent.marketplaceExpert?.packageName,
+    });
     const approvedAgentIds = agent.approvedAgentIds ?? [];
     window.setTimeout(() => {
       const current = usePendingAgentStore.getState().getAgent();

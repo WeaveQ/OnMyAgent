@@ -11,6 +11,7 @@ export default defineConfig({
     "desktop-ipc": "src/desktop-ipc.ts",
     "session-archive": "src/session-archive.ts",
     browser: "src/browser.ts",
+    "task-orchestrator": "src/task-orchestrator.ts",
     channel: "src/channel.ts",
     "artifact-plugin": "src/artifact-plugin.ts",
     officecli: "src/officecli.ts",

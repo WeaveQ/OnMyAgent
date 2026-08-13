@@ -85,7 +85,7 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | Expert runtime isolation (agent / skills / HOME sandbox) | `design/expert-runtime-isolation.md` |
 | Expert lifecycle delete/create/select + cold-path **budgets** | `Architecture.md` Expert lifecycle hard rules + Cold-path budget |
 | Expert / session **product behavior** (busy shell, origin, draft, first-send) | `../apps/app/AGENTS.md` invariants + contract tests |
-| Release notes (human) | root `CHANGELOG.md` + GitHub Releases |
+| Release notes (human) | root `CHANGELOG.md` + GitHub Releases; product handbook excerpt: `website/docs/changelog.md` |
 | Visual tokens / components | `../DESIGN.md` (only) |
 | Design philosophy only | `design/theme-system.md` |
 | Experts / session behavior invariants | `../apps/app/AGENTS.md` + `apps/app/scripts/expert-session-invariants.test.ts` |
@@ -116,6 +116,7 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | Tokens / UI contract | `DESIGN.md` only → `pnpm task check design` |
 | Packaging steps | `BUILD.md` |
 | Release flow | `release.md` |
+| Shipped version / user-visible notes | root `CHANGELOG.md` + `website/docs/changelog.md` (+ `en/`) |
 | Agent hard rules | `AGENTS.md` / `loop/rules.md` |
 | Execution / design drafts | `.loop/` only — never under `docs/features`, `docs/plans`, `docs/archive`, or `docs/superpowers` |
 

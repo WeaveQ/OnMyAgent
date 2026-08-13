@@ -15,9 +15,10 @@ import { classifySpawnErrorStep, mapProbeStepToTestStep } from "./run-helpers.mj
  * @param {object} deps.legacy                 legacy runtime (normalizeAgent, detectAgent)
  * @param {Record<string, unknown>} deps.injectedAdapters
  * @param {(input?: object) => Promise<object>} deps.listAgents  bound listAgents (for health-by-id)
+ * @param {NodeJS.ProcessEnv} deps.providerEnvironment
  */
 export function createConnectionProbes(deps) {
-  const { legacy, injectedAdapters, listAgents } = deps;
+  const { legacy, injectedAdapters, listAgents, providerEnvironment } = deps;
 
   // Run a two-step ACP probe (CLI spawn -> initialize -> session/new) against
   // an agent and return a structured connection result the UI can render.
@@ -78,7 +79,7 @@ export function createConnectionProbes(deps) {
           args = [...(Array.isArray(detected.customArgs) ? detected.customArgs : [])];
         }
       }
-      const probe = await probeAcpCommand({ command: executablePath, args, cwd: workspaceRoot || process.cwd(), timeoutMs: Number(input.timeoutMs) || 12_000 });
+      const probe = await probeAcpCommand({ command: executablePath, args, cwd: workspaceRoot || process.cwd(), env: providerEnvironment, timeoutMs: Number(input.timeoutMs) || 12_000 });
       const meta = probe.sessionResult ? extractProbeMetadata(probe.sessionResult, probe.initialized) : extractProbeMetadata(probe.initialized);
       // If the probe determined the binary is not installed, replace the raw
       // "spawn X ENOENT" with a clean "未安装" message.
@@ -115,7 +116,9 @@ export function createConnectionProbes(deps) {
     }
     const args = Array.isArray(input.args) ? input.args.filter(Boolean) : [];
     const acpArgs = Array.isArray(input.acpArgs) ? input.acpArgs.filter(Boolean) : [];
-    const env = input.env && typeof input.env === "object" && !Array.isArray(input.env) ? input.env : {};
+    const env = input.env && typeof input.env === "object" && !Array.isArray(input.env)
+      ? { ...providerEnvironment, ...input.env }
+      : providerEnvironment;
     const timeoutMs = Math.max(1000, Math.min(30000, Number(input.timeoutMs) || 8000));
     const cwd = String(input.cwd ?? process.cwd()).trim();
     const startedAt = Date.now();

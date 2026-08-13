@@ -6,6 +6,7 @@ import path from "node:path";
 import {
   createExecHelpers,
   forceKillProcessTree,
+  resolveAgentHostHome,
   resolveProcessTreeKillPlan,
   waitForExit,
   writeJsonFile,
@@ -23,6 +24,23 @@ test("runCommandCapture settles after timing out a long-lived process", async ()
   assert.equal(result.timedOut, true);
   assert.match(result.stderr, /timed out after 50ms/i);
   assert.ok(Date.now() - startedAt < 3_000, "timeout result should settle within a bounded interval");
+});
+
+test("createExecHelpers uses an explicit provider environment instead of later global mutations", () => {
+  const originalHome = process.env.HOME;
+  try {
+    const helpers = createExecHelpers({
+      baseEnvironment: { HOME: "/Users/provider", PATH: "/provider/bin" },
+    });
+    process.env.HOME = "/tmp/opencode-sandbox/home";
+    const environment = helpers.processEnv({ PWD: "/workspace" });
+    assert.equal(environment.HOME, "/Users/provider");
+    assert.equal(environment.PWD, "/workspace");
+    assert.equal(environment.PATH.startsWith("/provider/bin"), true);
+  } finally {
+    if (originalHome === undefined) delete process.env.HOME;
+    else process.env.HOME = originalHome;
+  }
 });
 
 test("writeJsonFile survives concurrent writers to same target (no ENOENT rename race)", async () => {
@@ -97,6 +115,27 @@ test("forceKillProcessTree is a no-op when child already exited", () => {
 test("waitForExit resolves immediately when child already closed", async () => {
   const child = { exitCode: 0, signalCode: null, once() {} };
   await waitForExit(child, 50);
+});
+
+test("resolveAgentHostHome ignores a sandbox ONMYAGENT_REAL_HOME", () => {
+  assert.equal(
+    resolveAgentHostHome({
+      ONMYAGENT_REAL_HOME: "/x/opencode-sandbox/home",
+      HOME: "/Volumes/Disk/alice",
+      USER: "alice",
+    }),
+    "/Volumes/Disk/alice",
+  );
+});
+
+test("resolveAgentHostHome prefers custom HOME over invented /Users/$USER", () => {
+  assert.equal(
+    resolveAgentHostHome({
+      HOME: "/Volumes/Disk/alice",
+      USER: "alice",
+    }),
+    "/Volumes/Disk/alice",
+  );
 });
 
 test("waitForExit force-kills the tree after timeout", async () => {

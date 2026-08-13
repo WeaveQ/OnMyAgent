@@ -11,7 +11,7 @@ Use an official release channel for the current version:
 - **GitHub Releases**: <https://github.com/WeaveQ/OnMyAgent/releases>
 - Build locally from source: see `BUILD.md` at the monorepo root
 
-> The website does not embed direct links that can become stale. Use the asset names on the Releases page as the source of truth.
+> The website does not embed direct links that can become stale. Use the asset names on the Releases page as the source of truth. Current builds are **prereleases** (not notarized). Typical names: `onmyagent-mac-arm64-<version>.dmg` / `onmyagent-win-x64-<version>.exe`.
 
 ## System requirements
 
@@ -25,7 +25,7 @@ Use an official release channel for the current version:
 
 1. Download the `.dmg` or the installer for your architecture.
 2. Drag the app to Applications, or complete the installer.
-3. If macOS shows a security warning on first launch, allow the app under **System Settings → Privacy & Security**.
+3. If macOS says the app is damaged, run `xattr -cr /Applications/OnMyAgent.app`, or allow it under **System Settings → Privacy & Security**.
 4. Launch OnMyAgent, then continue with the [Quickstart](/en/quickstart).
 
 More: [Install on macOS](/en/install/macos).

@@ -27,6 +27,7 @@ import {
  * @param {(provider: string, agent?: object) => Function|null} deps.adapterFactoryForProvider
  * @param {Map<string, object>} deps.runs
  * @param {(id: string, options?: object) => Promise<object>} deps.cancel
+ * @param {NodeJS.ProcessEnv} deps.providerEnvironment
  */
 export function createSessionOperations(deps) {
   const {
@@ -35,6 +36,7 @@ export function createSessionOperations(deps) {
     adapterFactoryForProvider,
     runs,
     cancel,
+    providerEnvironment,
   } = deps;
 
   async function warmupConversation(input = {}) {
@@ -68,6 +70,7 @@ export function createSessionOperations(deps) {
         agent: detected,
         model: input.model ?? detected.model,
         approvalMode: normalizeApprovalMode(input.approvalMode),
+        providerEnvironment,
       });
       const warmSessionMetadata = warmed.sessionMetadata && typeof warmed.sessionMetadata === "object"
         ? warmed.sessionMetadata
@@ -130,7 +133,7 @@ export function createSessionOperations(deps) {
     if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
     const adapter = adapterFactory(noopAdapter());
     if (typeof adapter.listSessions !== "function") return { sessions: [], unsupportedReason: "session_list_not_supported" };
-    return adapter.listSessions({ ...input, workspaceRoot, agent });
+    return adapter.listSessions({ ...input, workspaceRoot, agent, providerEnvironment });
   }
 
   async function loadAgentProviderSession(input = {}) {
@@ -141,7 +144,7 @@ export function createSessionOperations(deps) {
     if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
     const adapter = adapterFactory(noopAdapter());
     if (typeof adapter.loadSession !== "function") throw new Error(`${agent.provider} does not support session/load`);
-    const loaded = await adapter.loadSession({ ...input, workspaceRoot, agent });
+    const loaded = await adapter.loadSession({ ...input, workspaceRoot, agent, providerEnvironment });
     const sessionId = loaded.sessionId || input.providerSessionId || input.resumeKey;
     let conversation = null;
     if (sessionId) {
@@ -175,7 +178,7 @@ export function createSessionOperations(deps) {
     if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
     const adapter = adapterFactory(noopAdapter());
     if (typeof adapter.closeSession !== "function") throw new Error(`${agent.provider} does not support session/close`);
-    const result = await adapter.closeSession({ ...input, sessionId, workspaceRoot, agent });
+    const result = await adapter.closeSession({ ...input, sessionId, workspaceRoot, agent, providerEnvironment });
     const listed = await listConversations(workspaceRoot, agent.provider, agent.id);
     const closedConversations = listed.conversations.filter((conversation) => {
       if (input.conversationId && conversation.id === input.conversationId) return true;
@@ -209,7 +212,7 @@ export function createSessionOperations(deps) {
     if (!adapterFactory) throw new Error(`No adapter for ${agent.provider}`);
     const adapter = adapterFactory(noopAdapter());
     if (typeof adapter.forkSession !== "function") throw new Error(`${agent.provider} does not support session/fork`);
-    const forked = await adapter.forkSession({ ...input, workspaceRoot, agent });
+    const forked = await adapter.forkSession({ ...input, workspaceRoot, agent, providerEnvironment });
     const conversation = await createConversation(workspaceRoot, agent.provider, agent.id, {
       title: input.title ?? `Fork ${forked.sessionId}`,
       providerSessionId: forked.sessionId,
@@ -237,8 +240,10 @@ export function createSessionOperations(deps) {
       detected.connectionMode = defaultConnectionMode(provider, detected);
     }
     const adapter = adapterFactory(noopAdapter());
-    if (typeof adapter.setConfigOption !== "function") throw new Error(`${provider} does not support config/set`);
-    return adapter.setConfigOption({ ...input, optionId, workspaceRoot, agent: detected });
+    if (typeof adapter.setConfigOption !== "function") {
+      throw new Error(`${provider} does not support ACP config options`);
+    }
+    return adapter.setConfigOption({ ...input, optionId, workspaceRoot, agent: detected, providerEnvironment });
   }
 
   return {

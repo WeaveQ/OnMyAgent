@@ -36,6 +36,7 @@ export function createColdRuntimeBootstrapTask(options) {
  * @param {() => Promise<{ webContents: { on: Function } }>} deps.createMainWindow
  * @param {() => Promise<unknown>} deps.restoreComputerUseServices
  * @param {() => Promise<unknown>} deps.startUiControl
+ * @param {() => Promise<unknown>} [deps.startTaskSupervisor]
  * @param {Array<() => Promise<unknown>>} deps.channelAutoStarts
  * @param {() => void} deps.queueDeepLinks
  * @param {(activity: unknown) => void} [deps.onComputerUseActivity]
@@ -111,6 +112,14 @@ export async function runDesktopWhenReady(deps) {
   void Promise.resolve()
     .then(() => deps.startUiControl())
     .catch((error) => onDeferredError(error, "ui-control"));
+  if (typeof deps.startTaskSupervisor === "function") {
+    // Task execution is independent of renderer navigation. Starting the
+    // detached Supervisor here ensures paused/recoverable work is discovered
+    // even when the user never opens Task Center after an app relaunch.
+    void Promise.resolve()
+      .then(() => deps.startTaskSupervisor())
+      .catch((error) => onDeferredError(error, "task-supervisor"));
+  }
 
   const channelAutoStarts = Array.isArray(deps.channelAutoStarts)
     ? deps.channelAutoStarts

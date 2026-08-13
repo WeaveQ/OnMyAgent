@@ -34,6 +34,7 @@ import {
 } from "./assistant-bridge.mjs";
 import { formatAgentReply, formatAgentResultOutput } from "./AgentReplyHeader.mjs";
 import { CHANNEL_EVENTS } from "./ChannelEventBus.mjs";
+import { createMessagingTaskAdapter } from "./messaging-task-adapter.mjs";
 
 const DEFAULT_TEXT_BATCH_DELAY_MS = 3_000;
 const DEFAULT_HISTORY_LIMIT = 12;
@@ -138,6 +139,9 @@ export function createChannelAgentDispatcher(options = {}) {
   const channelMessageAdapter = options.channelMessageAdapter ?? null;
   const channelAssistantBindingStore = options.channelAssistantBindingStore ?? null;
   const appendLog = typeof options.appendLog === "function" ? options.appendLog : () => undefined;
+  const messagingTaskAdapter = createMessagingTaskAdapter({
+    taskMessageRouter: options.taskMessageRouter,
+  });
   const defaultWorkspaceRoot = String(options.defaultWorkspaceRoot ?? "").trim();
   const maxMessageLength = Number.isFinite(Number(options.maxMessageLength))
     ? Math.max(2, Math.floor(Number(options.maxMessageLength)))
@@ -351,7 +355,7 @@ export function createChannelAgentDispatcher(options = {}) {
   async function processEvent(session, event) {
     if (!event.senderId || event.senderId === session.account.accountId) return null;
     if (event.messageId && dedup.hasOrAdd(`id:${event.messageId}`)) return null;
-    const isControlCommand = parseApprovalCommand(event.text) || parseRunCommand(event.text) || parseModeCommand(event.text) || parseModelSwitchCommand(event.text) || parseAgentSwitchCommand(event.text);
+    const isControlCommand = messagingTaskAdapter.canRoute(event.text) || parseApprovalCommand(event.text) || parseRunCommand(event.text) || parseModeCommand(event.text) || parseModelSwitchCommand(event.text) || parseAgentSwitchCommand(event.text);
     if (!isControlCommand) {
       const contentKey = `content:${event.senderId}:${event.chatId}:${event.text}`;
       if (dedup.hasOrAdd(contentKey)) return null;
@@ -367,6 +371,19 @@ export function createChannelAgentDispatcher(options = {}) {
       return null;
     }
     setState({ lastMessageAt: Date.now(), processedCount: state.processedCount + 1 });
+    const taskRoute = await messagingTaskAdapter.tryRoute({
+      platform: platformType,
+      accountId: event.accountId ?? session.account.accountId,
+      chatId: event.chatId,
+      senderId: event.senderId,
+      messageId: event.messageId,
+      text: event.text,
+      attachments: event.attachments ?? event.mediaFiles,
+    }, {
+      appendLog,
+      reply: (text) => deliverReply(session, event.chatId, event.senderId, text),
+    });
+    if (taskRoute.handled) return event;
     if (await maybeHandleControlCommand(session, event)) return event;
     void enqueueText(session, event).catch((error) => {
       const message = error instanceof Error ? error.message : String(error);
@@ -1184,9 +1201,15 @@ export function createChannelAgentDispatcher(options = {}) {
     const session = active?.account?.accountId === account.accountId
       ? active
       : { account, store, options: runtimeOptions(input), controller: new AbortController() };
+    // A test-only timestamp is not a valid idempotency key for Task mutations.
+    // Preserve a missing messageId for explicit Task commands so the adapter's
+    // production fail-closed rule is exercised by simulation as well.
+    const simulatedInput = messagingTaskAdapter.canRoute(input.text) && input.messageId == null
+      ? { ...input, messageId: "" }
+      : input;
     const raw = buildSimulatedInbound
-      ? buildSimulatedInbound(input, account)
-      : { senderId: input.fromUserId ?? input.senderId ?? "studio-test-user", messageId: input.messageId ?? `sim-${Date.now()}`, chatId: input.chatId ?? "studio-test-chat", chatType: input.chatType ?? "dm", text: String(input.text ?? "ping"), raw: null };
+      ? buildSimulatedInbound(simulatedInput, account)
+      : { senderId: simulatedInput.fromUserId ?? simulatedInput.senderId ?? "studio-test-user", messageId: simulatedInput.messageId ?? `sim-${Date.now()}`, chatId: simulatedInput.chatId ?? "studio-test-chat", chatType: simulatedInput.chatType ?? "dm", text: String(simulatedInput.text ?? "ping"), raw: null };
     const event = await processEvent(session, normalizeInbound(raw, account));
     return { ok: true, event, status: snapshot() };
   }
@@ -1430,6 +1453,16 @@ export function createChannelAgentDispatcher(options = {}) {
     return { ok: true };
   }
 
+  async function sendTaskDelivery(input = {}) {
+    const accountId = String(input.accountId ?? "").trim();
+    const chatId = String(input.chatId ?? "").trim();
+    const text = String(input.text ?? "").trim();
+    if (!active || state.status !== "running") return { ok: false, error: `${platformName} is not running` };
+    if (accountId && accountId !== String(active.account?.accountId ?? state.accountId)) return { ok: false, error: `${platformName} account is not active` };
+    if (!chatId || !text) return { ok: false, error: "chatId and text are required" };
+    return sendTextTo(chatId, text);
+  }
+
   return {
     platformType,
     start,
@@ -1442,6 +1475,7 @@ export function createChannelAgentDispatcher(options = {}) {
     probe,
     processInbound,
     deliverReply,
+    sendTaskDelivery,
     // Exposed for plugin/registry status enrichment.
     get botUsername() { return state.botUsername; },
     get hasToken() { return state.hasToken; },

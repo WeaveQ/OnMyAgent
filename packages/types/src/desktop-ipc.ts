@@ -22,7 +22,8 @@ export type {
   CodeWorkspaceTerminal,
   CodeWorkspaceTerminalSnapshot,
   CodeWorkspaceFileEntry,
-  CodeWorkspaceFileContent, CodeWorkspaceBinaryFileContent,
+  CodeWorkspaceFileContent,
+  CodeWorkspaceBinaryFileContent,
 } from "./desktop-ipc-code-workspace.js";
 
 export type * from "./desktop-ipc-skills.js";
@@ -30,6 +31,7 @@ export type * from "./desktop-ipc-skills.js";
 // Personal Local Agent IPC contracts (split module; re-exported for compatibility).
 export type * from "./desktop-ipc-local-agents.js";
 export type * from "./desktop-ipc-local-agent-host.js";
+export type * from "./desktop-ipc-task-orchestrator.js";
 
 export type * from "./desktop-ipc-messaging.js";
 export type * from "./desktop-ipc-agent-management.js";

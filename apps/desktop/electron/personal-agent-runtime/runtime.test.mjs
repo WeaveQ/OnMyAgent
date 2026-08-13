@@ -12,10 +12,10 @@ import { probeAcpCommand } from "./acp-probe.mjs";
 import { MANAGED_ACP_TOOLS, managedAcpBinPath, managedAcpToolRoot, validateManagedAcpTool } from "./managed-acp-tools.mjs";
 import { personalAgentAvailableMetadataList, personalAgentMetadataFromAgent, personalAgentMetadataList, normalizeAgentStatus } from "./agent-metadata.mjs";
 import { appendContractEvent, runEventsToConversationMessages } from "./contract.mjs";
-import { extractPromptUsageTotals, lookupModelContextLimit, normalizeContextUsagePayload } from "./context-usage.mjs";
-import { createConversation, getConversation, getOrCreateConversation, listConversations, readConversationEvents, updateConversation } from "./conversation-store.mjs";
+import { extractPromptUsageMetrics, extractPromptUsageTotals, lookupModelContextLimit, normalizeContextUsagePayload } from "./context-usage.mjs";
+import { conversationFile, createConversation, getConversation, getOrCreateConversation, listConversations, readConversationEvents, updateConversation } from "./conversation-store.mjs";
 import { createPersonalAgentRuntime } from "./index.mjs";
-import { runLogRoot } from "./workdir.mjs";
+import { providerWorkdir, runLogRoot } from "./workdir.mjs";
 import { AcpE2EStreamInjector } from "./acp-e2e-stream-injector.mjs";
 import { clearAgentProcesses, cleanupRegisteredAgentProcesses, flushAgentProcessRegistry, getAgentProcess, listAgentProcesses, processRegistryFile, recoverAgentProcesses, registerAgentProcess, updateAgentProcess, recordAgentCrash, crashRestartBackoffMs, clearAgentCrashHistory } from "./process-registry.mjs";
 import {
@@ -28,6 +28,8 @@ import {
 } from "./runtime-state.mjs";
 import { isStaleNativeSessionError, staleNativeSessionResetMessage } from "./native-sessions.mjs";
 import { clearSession, legacySessionFile, readSession, sessionFile, writeSession } from "./session-store.mjs";
+import { approvalStoreFile } from "./approval-store.mjs";
+import { normalizePersonalLocalAgent } from "./provider-registry.mjs";
 import { __test__ as codexTest } from "./adapters/codex.mjs";
 import { __test__ as claudeTest } from "./adapters/claude.mjs";
 import { __test__ as hermesTest } from "./adapters/hermes.mjs";
@@ -112,6 +114,27 @@ async function withTinyWebSocketServer(handler) {
 }
 
 describe("personal agent runtime storage", () => {
+  it("rejects unsafe agent ids before normalizing agents or forming store paths", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      for (const agentId of ["../../escape", "agent\\escape", "agent:escape", " agent", "agent ", ""]) {
+        assert.throws(
+          () => normalizePersonalLocalAgent({ provider: "codex", id: agentId }),
+          /agent id must be a safe path segment/,
+        );
+        assert.throws(() => providerWorkdir(workspaceRoot, "codex", agentId), /safe path segment/);
+        assert.throws(() => sessionFile(workspaceRoot, "codex", agentId), /safe path segment/);
+        assert.throws(() => conversationFile(workspaceRoot, "codex", agentId), /safe path segment/);
+        await assert.rejects(
+          writeSession(workspaceRoot, "codex", agentId, { sessionId: "must-not-write" }),
+          /safe path segment/,
+        );
+      }
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
   it("resolves SessionArchive archive runtime state under userData and keeps legacy repo path read-only", async () => {
     const workspaceRoot = await tempWorkspace();
     try {
@@ -468,6 +491,55 @@ describe("personal agent metadata", () => {
     assert.equal(listed.metadata.length, 1);
     assert.equal(listed.metadata[0].agent_type, "acp");
     assert.equal(listed.metadata[0].handshake.agent_capabilities.sessionCapabilities.resume, null);
+  });
+
+  it("probes only the selected Task provider instead of expanding the full catalog", async () => {
+    const calls = [];
+    const runtime = createPersonalAgentRuntime({
+      legacy: {
+        listAgents: async () => {
+          calls.push("list");
+          return new Promise(() => undefined);
+        },
+        normalizeAgent: async (input) => ({ name: "Codex", executablePath: "codex", ...input }),
+        detectAgent: async (agent, workspaceRoot, options) => {
+          calls.push({ agent, workspaceRoot, options });
+          return {
+            ...agent,
+            status: "online",
+            modelOptions: [{ id: "gpt-task", label: "GPT Task" }],
+            capability: {
+              installed: true,
+              authenticated: true,
+              minVersionOk: true,
+              supportsAcp: true,
+              supportsModelOverride: true,
+            },
+          };
+        },
+        start: async () => ({}),
+        run: async () => ({}),
+        status: () => ({}),
+        cancel: () => ({}),
+      },
+    });
+
+    const result = await runtime.getTaskAgentMetadata({
+      workspaceRoot: "/tmp/task-workspace",
+      agent: { id: "codex", provider: "codex" },
+      includeModels: true,
+    });
+
+    assert.equal(calls.some((call) => call === "list"), false);
+    assert.deepEqual(calls[0], {
+      agent: { id: "codex", provider: "codex", name: "Codex", executablePath: "codex" },
+      workspaceRoot: "/tmp/task-workspace",
+      options: { includeModels: true },
+    });
+    assert.equal(result.agent.id, "codex");
+    assert.equal(result.agent.backend, "codex");
+    assert.equal(result.agent.available, true);
+    assert.deepEqual(result.agent.handshake.available_models, [{ id: "gpt-task", label: "GPT Task" }]);
   });
 
   it("maps agent status onto the 5-state model", () => {
@@ -1120,6 +1192,32 @@ describe("personal agent normalized conversation message stream", () => {
     assert.equal(extractPromptUsageTotals({}), null);
     assert.equal(extractPromptUsageTotals(null), null);
   });
+
+  it("extracts bounded token and cost metrics without retaining provider metadata", () => {
+    assert.deepEqual(extractPromptUsageMetrics({
+      result: {
+        usage: {
+          prompt_tokens: 21,
+          completion_tokens: 9,
+          cost_usd: 0.000123,
+          authorization: "Bearer must-not-survive",
+        },
+      },
+    }), {
+      inputTokens: 21,
+      outputTokens: 9,
+      totalTokens: 30,
+      costMicros: 123,
+    });
+    assert.deepEqual(extractPromptUsageMetrics({ metrics: { usage: { total_tokens: 42, cost_micros: 7 } } }), {
+      inputTokens: null,
+      outputTokens: null,
+      totalTokens: 42,
+      costMicros: 7,
+    });
+    assert.equal(extractPromptUsageMetrics({ usage: { totalTokens: -1, costUsd: -1 } }), null);
+    assert.equal(extractPromptUsageMetrics({ usage: { totalTokens: null, costUsd: null } }), null);
+  });
 });
 
 describe("personal agent process registry", () => {
@@ -1170,7 +1268,94 @@ describe("personal agent process registry", () => {
     }
   });
 
-  it("reaps live process trees on cleanup and drops dead records", async () => {
+  it("does not reap a run registered during deferred startup reconcile", async () => {
+    const workspaceRoot = await tempWorkspace();
+    let releaseCurrentRun = null;
+    try {
+      clearAgentProcesses({ persist: false });
+      registerAgentProcess({
+        runId: "preexisting-stale-run",
+        pid: 999_991,
+        pgid: 999_991,
+        provider: "codex",
+        conversationId: "stale-conversation",
+        command: "stale-codex-acp",
+        startedAt: Date.now() - 10_000,
+      });
+      await flushAgentProcessRegistry();
+      clearAgentProcesses({ persist: false });
+
+      const runtime = createPersonalAgentRuntime({
+        deferStartupReconcileMs: 200,
+        legacy: {
+          normalizeAgent: async () => ({ id: "codex", name: "Codex", provider: "codex", executablePath: "codex" }),
+          detectAgent: async (agent) => ({ ...agent, status: "online" }),
+          listAgents: async () => ({ agents: [] }),
+          start: async () => ({}),
+          run: async () => ({}),
+          status: () => ({}),
+          cancel: async () => ({ ok: true }),
+        },
+        adapters: {
+          codex: ({ appendEvent }) => ({
+            sendMessage: async () => {
+              appendEvent({ type: "log", text: "pid 999992" });
+              await new Promise((resolve) => {
+                releaseCurrentRun = resolve;
+              });
+              return {
+                output: "current run survived startup reconcile",
+                command: "current-codex-acp",
+                connectionMode: "Codex ACP session",
+                providerSessionId: "current-provider-session",
+              };
+            },
+          }),
+        },
+      });
+
+      const started = await runtime.startMessage({
+        workspaceRoot,
+        prompt: "stay alive during deferred reconcile",
+        agent: { provider: "codex", id: "codex" },
+      });
+      assert.equal(runtime.getRun(started.runId).status, "running");
+
+      // Wait past the deferred timer, then observe its own registry write.
+      // Do not call flushAgentProcessRegistry while waiting: an unrelated
+      // flush could rewrite the current in-memory snapshot and mask this race.
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      let persistedRunIds = [];
+      const deadline = Date.now() + 2_000;
+      while (Date.now() < deadline) {
+        const registry = JSON.parse(await readFile(processRegistryFile(), "utf8"));
+        persistedRunIds = registry.processes.map((record) => record.runId);
+        if (!persistedRunIds.includes("preexisting-stale-run") && persistedRunIds.includes(started.runId)) break;
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+
+      assert.equal(persistedRunIds.includes("preexisting-stale-run"), false, "startup residue should be reaped");
+      assert.equal(persistedRunIds.includes(started.runId), true, "current-session process must remain registered");
+      assert.equal(getAgentProcess("preexisting-stale-run"), null);
+      assert.equal(getAgentProcess(started.runId)?.status, "running");
+      assert.equal(runtime.getRun(started.runId).status, "running");
+
+      releaseCurrentRun();
+      const completed = await waitForRun(runtime, started.runId);
+      assert.equal(completed.status, "completed");
+      assert.equal(completed.output, "current run survived startup reconcile");
+      await flushAgentProcessRegistry();
+      const finalRegistry = JSON.parse(await readFile(processRegistryFile(), "utf8"));
+      assert.equal(finalRegistry.processes.some((record) => record.runId === started.runId), false);
+    } finally {
+      releaseCurrentRun?.();
+      clearAgentProcesses();
+      await flushAgentProcessRegistry().catch(() => undefined);
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("fails closed for live legacy PID records without a process start identity and drops dead records", async () => {
     const workspaceRoot = await tempWorkspace();
     try {
       clearAgentProcesses({ persist: false });
@@ -1203,15 +1388,17 @@ describe("personal agent process registry", () => {
         process.kill = originalKill;
       }
 
-      assert.ok(
-        killCalls.some(([, signal]) => signal === "SIGTERM" || signal === "SIGKILL"),
-        "live tree should be signalled (SIGTERM -> SIGKILL after grace)",
+      assert.deepEqual(
+        killCalls.filter(([, signal]) => signal !== 0),
+        [],
+        "a PID without a matching durable start token may be probed but must never receive a termination signal",
       );
       const raw = JSON.parse(await readFile(file, "utf8"));
       const runIds = raw.processes.map((item) => item.runId);
       assert.ok(!runIds.includes("dead-run"), "dead record should be dropped");
-      assert.ok(runIds.includes("live-run"), "survivor should be kept");
+      assert.ok(runIds.includes("live-run"), "unverified live record should be kept for operator recovery");
       assert.deepEqual(result.killed, ["dead-run"]);
+      assert.deepEqual(result.unverified, ["live-run"]);
       clearAgentProcesses();
     } finally {
       await cleanup(workspaceRoot);
@@ -1472,6 +1659,66 @@ describe("personal agent runtime facade", () => {
       const listed = await listConversations(workspaceRoot, "codex", "codex");
       assert.equal(listed.conversations.find((item) => item.id === first.id)?.providerSessionId, "thread-a-next");
       assert.equal(listed.conversations.find((item) => item.id === second.id)?.providerSessionId, "thread-b-next");
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("passes isolated task-worker controls and the requested workdir to the adapter", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const requestedWorkdir = path.join(workspaceRoot, "task-worktree");
+      await mkdir(requestedWorkdir, { recursive: true });
+      const conversation = await createConversation(workspaceRoot, "codex", "codex", {
+        title: "Task worker",
+        providerSessionId: "interactive-provider-session",
+        resumeKey: "interactive-provider-session",
+        workdir: null,
+      });
+      let seenContext = null;
+      const runtime = createPersonalAgentRuntime({
+        legacy: {
+          normalizeAgent: async () => ({ id: "codex", name: "Codex", provider: "codex", executablePath: "codex", customArgs: [] }),
+          detectAgent: async () => ({ id: "codex", name: "Codex", provider: "codex", executablePath: "codex", customArgs: [], model: "detected-model", status: "online" }),
+          listAgents: async () => ({ agents: [] }),
+          start: async () => ({ status: "legacy-start" }),
+          run: async () => ({ status: "legacy-run" }),
+          status: () => ({ status: "missing" }),
+          cancel: async () => ({ ok: true }),
+        },
+        adapters: {
+          codex: () => ({
+            sendMessage: async (ctx) => {
+              seenContext = ctx;
+              return {
+                output: "isolated worker completed",
+                command: "fake-codex",
+                providerSessionId: "fresh-provider-session",
+                resumeKey: "fresh-provider-session",
+                workdir: ctx.conversationWorkdir,
+              };
+            },
+          }),
+        },
+      });
+
+      const started = await runtime.startMessage({
+        workspaceRoot,
+        workdir: requestedWorkdir,
+        prompt: "implement",
+        conversationId: conversation.id,
+        agent: { provider: "codex", id: "codex" },
+        model: "worker-model",
+        sessionStrategy: "new",
+        useRememberedApprovals: false,
+      });
+      const completed = await waitForRun(runtime, started.runId);
+
+      assert.equal(completed.status, "completed");
+      assert.equal(seenContext.model, "worker-model");
+      assert.equal(seenContext.sessionStrategy, "new");
+      assert.equal(seenContext.useRememberedApprovals, false);
+      assert.equal(seenContext.conversationWorkdir, requestedWorkdir);
     } finally {
       await cleanup(workspaceRoot);
     }
@@ -1994,9 +2241,10 @@ describe("personal agent runtime facade", () => {
     }
   });
 
-  it("reclaims a running run whose process is still alive (not only dead ones)", async () => {
+  it("finalizes an orphan log without signalling its unverified legacy PID", async () => {
     const workspaceRoot = await tempWorkspace();
     try {
+      clearAgentProcesses({ persist: false });
       const runId = "alive-orphan-run";
       const logPath = path.join(runLogRoot(workspaceRoot), `${runId}.jsonl`);
       await mkdir(path.dirname(logPath), { recursive: true });
@@ -2016,6 +2264,21 @@ describe("personal agent runtime facade", () => {
         }),
         JSON.stringify({ type: "status", text: "codex harness flow started", at: Date.now() - 60_000 }),
       ].join("\n") + "\n", "utf8");
+
+      // Reproduce the cross-stage case: startup registry cleanup retains this
+      // live legacy record as unverified, then orphan-log reconciliation sees
+      // the same record. Neither stage may turn a tokenless PID into a kill
+      // target.
+      registerAgentProcess({
+        runId,
+        pid: FAKE_PID,
+        pgid: FAKE_PID,
+        provider: "codex",
+        status: "stale",
+        staleReason: "runtime_restarted",
+        startedAt: Date.now() - 3_600_000,
+      });
+      await flushAgentProcessRegistry();
 
       const originalKill = process.kill;
       const killCalls = [];
@@ -2039,13 +2302,15 @@ describe("personal agent runtime facade", () => {
             cancel: async () => ({ ok: true }),
           },
         });
-        // Reconcile runs async (terminateProcessTreeByPid waits ~1s grace); wait
-        // for it to signal the (fake) live tree and finalize the orphan log.
-        await new Promise((resolve) => setTimeout(resolve, 1300));
+        // A legacy log carries only a PID, which may have been reused after a
+        // restart. Reconciliation releases the stale UI lock but refuses to
+        // signal an unrelated process without a durable OS start identity.
+        await new Promise((resolve) => setTimeout(resolve, 80));
         const meta = JSON.parse((await readFile(logPath, "utf8")).split(/\r?\n/).find((line) => line.trim()));
-        assert.ok(
-          killCalls.some(([, signal]) => signal === "SIGTERM" || signal === "SIGKILL"),
-          `alive orphan tree should be signalled; killCalls=${JSON.stringify(killCalls)} metaPid=${meta.pid} metaStatus=${meta.status}`,
+        assert.deepEqual(
+          killCalls.filter(([, signal]) => signal !== 0),
+          [],
+          "an unverified legacy process may be probed but must never receive a termination signal",
         );
         assert.equal(meta.status, "failed");
         assert.equal(meta.errorInfo?.code, "orphaned");
@@ -2053,6 +2318,7 @@ describe("personal agent runtime facade", () => {
         process.kill = originalKill;
       }
     } finally {
+      clearAgentProcesses({ persist: false });
       await cleanup(workspaceRoot);
     }
   });
@@ -2077,6 +2343,8 @@ describe("personal agent runtime facade", () => {
       const completed = await runtime.runMessage({ workspaceRoot, prompt: "你好", agent: { provider: "codex" } });
       assert.equal(completed.status, "completed");
       assert.equal(completed.connectionMode, "Codex ACP session");
+      assert.equal(completed.terminationConfirmed, true);
+      assert.equal(completed.childState, "exited");
       assert.match(completed.command, /codex-acp/);
       assert.match(completed.output, /你好|您好|可以|帮/);
     } finally {
@@ -2273,6 +2541,30 @@ describe("personal agent runtime facade", () => {
       assert.equal(decisions[1].stored, true);
       assert.equal(secondCompleted.events.some((event) => event.type === "approval_request"), false);
       assert.equal(secondCompleted.events.some((event) => /stored/.test(String(event.text ?? ""))), true);
+
+      const rememberedBeforeIsolatedRun = await readFile(approvalStoreFile(workspaceRoot), "utf8");
+      const isolatedRuntime = makeRuntime();
+      const isolated = await isolatedRuntime.startMessage({
+        workspaceRoot,
+        prompt: "same approval in isolated worker",
+        agent: { provider: "codex" },
+        approvalMode: "ask",
+        useRememberedApprovals: false,
+      });
+      const isolatedWaiting = await waitForPendingApproval(isolatedRuntime, { runId: isolated.runId, workspaceRoot });
+      assert.equal(isolatedWaiting.status, "running");
+      assert.equal(isolatedWaiting.pendingApprovals.length, 1);
+      assert.equal(isolatedWaiting.events.some((event) => event.type === "approval_request"), true);
+      assert.equal(isolatedWaiting.events.some((event) => /stored/.test(String(event.text ?? ""))), false);
+      assert.deepEqual(await isolatedRuntime.resolveApproval({
+        runId: isolated.runId,
+        approvalId: isolatedWaiting.pendingApprovals[0].id,
+        decision: "acceptForSession",
+      }), { ok: true });
+      const isolatedCompleted = await waitForRun(isolatedRuntime, isolated.runId);
+      assert.equal(isolatedCompleted.status, "completed");
+      assert.equal(decisions[2].stored, undefined);
+      assert.equal(await readFile(approvalStoreFile(workspaceRoot), "utf8"), rememberedBeforeIsolatedRun);
     } finally {
       await cleanup(workspaceRoot);
     }
@@ -3198,6 +3490,30 @@ describe("personal agent runtime timeout & artifacts", () => {
     assert.equal(passthrough.messageData.content[0].text, "plain");
   });
 
+  it("separates a recovered Codex transport fallback from assistant output", () => {
+    const warning = "Warning: Falling back from WebSockets to HTTPS transport. request timed out";
+    assert.deepEqual(
+      acpGenericTest.splitRecoveredTransportWarning("codex", `${warning}\\n\\n完成结果`),
+      { notice: warning, assistantText: "完成结果" },
+    );
+    assert.deepEqual(
+      acpGenericTest.splitRecoveredTransportWarning("codex", `${warning}\n\n`),
+      { notice: warning, assistantText: "" },
+    );
+    assert.deepEqual(
+      acpGenericTest.splitRecoveredTransportWarning("claude", warning),
+      { notice: "", assistantText: warning },
+    );
+    assert.match(
+      acpGenericTest.terminalTransportInterruption("partial output\nstream disconnected before completion: error sending request for url (https://example.invalid/responses)"),
+      /stream disconnected before completion/i,
+    );
+    assert.equal(
+      acpGenericTest.terminalTransportInterruption("A report discussing stream disconnected before completion.\nFinal conclusion is complete."),
+      "",
+    );
+  });
+
   it("thinking tracker merges chunks by msgId and emits done boundary", async () => {
     const events = [];
     const tracker = acpGenericTest.createThinkingTracker((event) => events.push(event));
@@ -3278,6 +3594,11 @@ describe("personal agent runtime timeout & artifacts", () => {
         },
       });
       assert.match(result.output, /Fake response to: plan-and-think/);
+      assert.equal(result.terminationConfirmed, true);
+      assert.equal(result.exitConfirmed, true);
+      assert.equal(result.childExitConfirmed, true);
+      assert.equal(result.childState, "exited");
+      assert.ok(result.exitCode === 0 || result.exitCode === null);
       // Assistant text must not carry the inline "inline-thought" reasoning fragment.
       assert.equal(result.output.includes("inline-thought"), false);
 
@@ -3320,24 +3641,343 @@ describe("personal agent runtime timeout & artifacts", () => {
     }
   });
 
-  it("does not call session/set_model for Claude ACP providers", async () => {
+  it("sets Claude models through the standard ACP config method and records the canonical model", async () => {
     const workspaceRoot = await tempWorkspace();
     try {
       const fixture = path.join(path.dirname(new URL(import.meta.url).pathname), "fixtures", "fake-acp-cli.mjs");
+      const sessionEventsFile = path.join(workspaceRoot, "claude-model-session-events.jsonl");
       const events = [];
       const adapter = acpGenericTest.createGenericAcpAdapterForTest({ appendEvent: (event) => events.push(event), registerCancel: () => undefined });
       const result = await adapter.sendMessage({
         workspaceRoot,
         prompt: "hello-acp",
-        model: "claude-sonnet-test",
+        model: "deepseek-v4-flash",
         approvalMode: "ask",
-        agent: { id: "claude", name: "Claude Code", provider: "claude", executablePath: process.execPath, customArgs: [fixture, "--no-set-model"], managedAcpTool: { id: "claude-agent-acp-test" } },
+        agent: {
+          id: "claude",
+          name: "Claude Code",
+          provider: "claude",
+          executablePath: process.execPath,
+          customArgs: [fixture, "--no-set-model", `--session-events-file=${sessionEventsFile}`],
+          managedAcpTool: { id: "claude-agent-acp-test" },
+        },
       });
 
       assert.equal(result.output, "Fake response to: hello-acp");
-      assert.match(result.command, /model=claude-sonnet-test/);
+      assert.match(result.command, /model=sonnet/);
+      assert.equal(result.sessionMetadata.currentModelId, "sonnet");
       assert.equal(events.some((event) => event.type === "error" && /set_model failed/i.test(event.text)), false);
-      assert.equal(events.some((event) => event.type === "status" && /set_model skipped/i.test(event.text)), true);
+      assert.equal(events.some((event) => event.type === "status" && /deepseek-v4-flash resolved to sonnet/.test(event.text)), true);
+      const sessionEvents = (await readFile(sessionEventsFile, "utf8"))
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+      assert.deepEqual(sessionEvents.map((event) => event.method), ["session/new", "session/set_config_option"]);
+      assert.equal(sessionEvents[0].model, "deepseek-v4-flash");
+      assert.equal(sessionEvents[1].configId, "model");
+      assert.equal(sessionEvents[1].value, "deepseek-v4-flash");
+      assert.equal(sessionEvents.some((event) => event.method === "config/set"), false);
+      assert.equal(sessionEvents.some((event) => event.method === "session/set_model"), false);
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("fails closed before prompting when Claude does not advertise a model config option", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const fixture = path.join(path.dirname(new URL(import.meta.url).pathname), "fixtures", "fake-acp-cli.mjs");
+      const sessionEventsFile = path.join(workspaceRoot, "claude-missing-model-config-events.jsonl");
+      const adapter = acpGenericTest.createGenericAcpAdapterForTest({ appendEvent: () => undefined, registerCancel: () => undefined });
+
+      await assert.rejects(
+        adapter.sendMessage({
+          workspaceRoot,
+          prompt: "must-not-be-sent",
+          model: "deepseek-v4-flash",
+          approvalMode: "ask",
+          agent: {
+            id: "claude",
+            name: "Claude Code",
+            provider: "claude",
+            executablePath: process.execPath,
+            customArgs: [fixture, "--no-model-config-option", `--session-events-file=${sessionEventsFile}`],
+            managedAcpTool: { id: "claude-agent-acp-test" },
+          },
+        }),
+        /did not advertise a model config option/,
+      );
+
+      const sessionEvents = (await readFile(sessionEventsFile, "utf8"))
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+      assert.deepEqual(sessionEvents.map((event) => event.method), ["session/new"]);
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("fails closed when Claude rejects the standard model config method without using legacy fallbacks", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const fixture = path.join(path.dirname(new URL(import.meta.url).pathname), "fixtures", "fake-acp-cli.mjs");
+      const sessionEventsFile = path.join(workspaceRoot, "claude-unsupported-standard-config-events.jsonl");
+      const adapter = acpGenericTest.createGenericAcpAdapterForTest({ appendEvent: () => undefined, registerCancel: () => undefined });
+
+      await assert.rejects(
+        adapter.sendMessage({
+          workspaceRoot,
+          prompt: "must-not-be-sent",
+          model: "deepseek-v4-flash",
+          approvalMode: "ask",
+          agent: {
+            id: "claude",
+            name: "Claude Code",
+            provider: "claude",
+            executablePath: process.execPath,
+            customArgs: [fixture, "--no-standard-config", `--session-events-file=${sessionEventsFile}`],
+            managedAcpTool: { id: "claude-agent-acp-test" },
+          },
+        }),
+        /set_config_option failed/,
+      );
+
+      const sessionEvents = (await readFile(sessionEventsFile, "utf8")).trim().split("\n").map((line) => JSON.parse(line));
+      assert.deepEqual(sessionEvents.map((event) => event.method), [
+        "session/new",
+        "session/set_config_option",
+      ]);
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("falls back from standard ACP config to legacy config/set for older agents", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const fixture = path.join(path.dirname(new URL(import.meta.url).pathname), "fixtures", "fake-acp-cli.mjs");
+      const sessionEventsFile = path.join(workspaceRoot, "legacy-config-events.jsonl");
+      const adapter = acpGenericTest.createGenericAcpAdapterForTest({ appendEvent: () => undefined, registerCancel: () => undefined });
+
+      const result = await adapter.setConfigOption({
+        workspaceRoot,
+        optionId: "mode",
+        value: "plan",
+        agent: {
+          id: "legacy-acp",
+          name: "Legacy ACP",
+          provider: "custom",
+          executablePath: process.execPath,
+          customArgs: [fixture, "--no-standard-config", `--session-events-file=${sessionEventsFile}`],
+          managedAcpTool: { id: "legacy-acp-test" },
+        },
+      });
+
+      assert.equal(result.ok, true);
+      const sessionEvents = (await readFile(sessionEventsFile, "utf8")).trim().split("\n").map((line) => JSON.parse(line));
+      assert.deepEqual(sessionEvents.map((event) => event.method), [
+        "session/new",
+        "session/set_config_option",
+        "config/set",
+      ]);
+      assert.equal(sessionEvents[2].optionId, "mode");
+      assert.equal(sessionEvents[2].value, "plan");
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("fails closed on a rejected standard ACP config instead of treating it as an unsupported method", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const fixture = path.join(path.dirname(new URL(import.meta.url).pathname), "fixtures", "fake-acp-cli.mjs");
+      const sessionEventsFile = path.join(workspaceRoot, "rejected-config-events.jsonl");
+      const adapter = acpGenericTest.createGenericAcpAdapterForTest({ appendEvent: () => undefined, registerCancel: () => undefined });
+
+      await assert.rejects(
+        adapter.setConfigOption({
+          workspaceRoot,
+          optionId: "unknown-model-config",
+          value: "not-advertised",
+          agent: {
+            id: "rejecting-acp",
+            name: "Rejecting ACP",
+            provider: "custom",
+            executablePath: process.execPath,
+            customArgs: [fixture, "--reject-standard-config", `--session-events-file=${sessionEventsFile}`],
+            managedAcpTool: { id: "rejecting-acp-test" },
+          },
+        }),
+        /Config option not found: unknown-model-config/,
+      );
+
+      const sessionEvents = (await readFile(sessionEventsFile, "utf8")).trim().split("\n").map((line) => JSON.parse(line));
+      assert.deepEqual(sessionEvents.map((event) => event.method), [
+        "session/new",
+        "session/set_config_option",
+      ]);
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("uses legacy session/set_model only after both config methods are unsupported", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const fixture = path.join(path.dirname(new URL(import.meta.url).pathname), "fixtures", "fake-acp-cli.mjs");
+      const sessionEventsFile = path.join(workspaceRoot, "legacy-model-events.jsonl");
+      const adapter = acpGenericTest.createGenericAcpAdapterForTest({ appendEvent: () => undefined, registerCancel: () => undefined });
+
+      const result = await adapter.setConfigOption({
+        workspaceRoot,
+        optionId: "model",
+        value: "legacy-model-id",
+        agent: {
+          id: "legacy-model-acp",
+          name: "Legacy Model ACP",
+          provider: "custom",
+          executablePath: process.execPath,
+          customArgs: [
+            fixture,
+            "--no-standard-config",
+            "--no-legacy-config",
+            `--session-events-file=${sessionEventsFile}`,
+          ],
+          managedAcpTool: { id: "legacy-model-acp-test" },
+        },
+      });
+
+      assert.equal(result.ok, true);
+      const sessionEvents = (await readFile(sessionEventsFile, "utf8")).trim().split("\n").map((line) => JSON.parse(line));
+      assert.deepEqual(sessionEvents.map((event) => event.method), [
+        "session/new",
+        "session/set_config_option",
+        "config/set",
+        "session/set_model",
+      ]);
+      assert.equal(sessionEvents[3].modelId, "legacy-model-id");
+      assert.equal(sessionEvents[3].model, null);
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("never resumes stored or explicit Claude and Codex ACP sessions for fresh task workers", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const fixture = path.join(path.dirname(new URL(import.meta.url).pathname), "fixtures", "fake-acp-cli.mjs");
+      for (const provider of ["claude", "codex"]) {
+        await writeSession(workspaceRoot, provider, provider, {
+          sessionId: `${provider}-stored-session`,
+          workdir: workspaceRoot,
+          health: "healthy",
+        });
+        const events = [];
+        const adapter = acpGenericTest.createGenericAcpAdapterForTest({
+          appendEvent: (event) => events.push(event),
+          registerCancel: () => undefined,
+        });
+        const result = await adapter.sendMessage({
+          workspaceRoot,
+          prompt: `fresh-${provider}`,
+          approvalMode: "ask",
+          sessionStrategy: "new",
+          providerSessionId: `${provider}-explicit-session`,
+          resumeKey: `${provider}-explicit-session`,
+          agent: {
+            id: provider,
+            name: provider === "claude" ? "Claude Code" : "Codex",
+            provider,
+            executablePath: process.execPath,
+            customArgs: [fixture],
+            managedAcpTool: { id: `${provider}-acp-test` },
+          },
+        });
+
+        assert.match(result.providerSessionId, /^fake-session-/);
+        assert.equal(events.some((event) => /resume/i.test(String(event.text ?? ""))), false);
+        assert.equal(events.filter((event) => /ACP session created/.test(String(event.text ?? ""))).length, 1);
+        assert.equal(acpGenericTest.shouldResumeProviderSession(provider, {
+          sessionStrategy: "new",
+          providerSessionId: `${provider}-explicit-session`,
+          resumeKey: `${provider}-explicit-session`,
+        }, { sessionId: `${provider}-stored-session`, health: "healthy" }), false);
+      }
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("uses the validated conversation workdir for ACP warmup without injecting runtime context into it", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const taskWorkdir = path.join(workspaceRoot, "disposable-task-workspace");
+      const sessionEventsFile = path.join(workspaceRoot, "user-data", "warmup-session-events.jsonl");
+      const fixture = path.join(path.dirname(new URL(import.meta.url).pathname), "fixtures", "fake-acp-cli.mjs");
+      await mkdir(taskWorkdir, { recursive: true });
+      const adapter = acpGenericTest.createGenericAcpAdapterForTest({
+        appendEvent: () => undefined,
+        registerCancel: () => undefined,
+      });
+      const result = await adapter.warmupConversation({
+        workspaceRoot,
+        conversationWorkdir: taskWorkdir,
+        sessionStrategy: "new",
+        approvalMode: "ask",
+        agent: {
+          id: "claude",
+          name: "Claude",
+          provider: "claude",
+          executablePath: process.execPath,
+          customArgs: [fixture, `--session-events-file=${sessionEventsFile}`],
+          managedAcpTool: { id: "claude-acp-test", binPath: process.execPath },
+        },
+      });
+
+      assert.equal(result.workdir, taskWorkdir);
+      const sessionEvent = JSON.parse((await readFile(sessionEventsFile, "utf8")).trim());
+      assert.equal(sessionEvent.method, "session/new");
+      assert.equal(sessionEvent.cwd, taskWorkdir);
+      await assert.rejects(readFile(path.join(taskWorkdir, "CLAUDE.md"), "utf8"), /ENOENT/);
+      assert.match(await readFile(path.join(providerWorkdir(workspaceRoot, "claude", "claude"), "CLAUDE.md"), "utf8"), /OnMyAgent Personal Assistant/);
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("rejects invalid explicit ACP conversation workdirs before spawning an agent", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const fixture = path.join(path.dirname(new URL(import.meta.url).pathname), "fixtures", "fake-acp-cli.mjs");
+      const regularFile = path.join(workspaceRoot, "not-a-directory.txt");
+      await writeFile(regularFile, "file", "utf8");
+      const adapter = acpGenericTest.createGenericAcpAdapterForTest({
+        appendEvent: () => undefined,
+        registerCancel: () => undefined,
+      });
+      const base = {
+        workspaceRoot,
+        prompt: "must not spawn",
+        approvalMode: "ask",
+        sessionStrategy: "new",
+        agent: {
+          id: "codex",
+          name: "Codex",
+          provider: "codex",
+          executablePath: process.execPath,
+          customArgs: [fixture],
+          managedAcpTool: { id: "codex-acp-test" },
+        },
+      };
+
+      await assert.rejects(adapter.sendMessage({ ...base, conversationWorkdir: "" }), /must not be empty/);
+      await assert.rejects(adapter.sendMessage({ ...base, conversationWorkdir: "relative/workspace" }), /must be absolute/);
+      await assert.rejects(
+        adapter.sendMessage({ ...base, conversationWorkdir: path.join(workspaceRoot, "missing") }),
+        /existing directory/,
+      );
+      await assert.rejects(adapter.sendMessage({ ...base, conversationWorkdir: regularFile }), /existing directory/);
     } finally {
       await cleanup(workspaceRoot);
     }
@@ -3360,6 +4000,35 @@ describe("personal agent runtime timeout & artifacts", () => {
       assert.equal(result.output, "Fake response to: hello-after-refusal");
       assert.equal(events.some((event) => event.type === "tool" && /User refused permission to run tool/.test(String(event.text ?? ""))), true);
       assert.equal(events.some((event) => event.type === "status" && /preserving the assistant response/.test(String(event.text ?? ""))), true);
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("fails a Codex turn whose visible output ends with a transport disconnect", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const fixture = path.join(path.dirname(new URL(import.meta.url).pathname), "fixtures", "fake-acp-cli.mjs");
+      const events = [];
+      const adapter = acpGenericTest.createGenericAcpAdapterForTest({ appendEvent: (event) => events.push(event), registerCancel: () => undefined });
+      await assert.rejects(
+        adapter.sendMessage({
+          workspaceRoot,
+          prompt: "long-running-research",
+          model: "gpt-5.6-sol-test",
+          approvalMode: "ask",
+          agent: {
+            id: "codex",
+            name: "Codex",
+            provider: "codex",
+            executablePath: process.execPath,
+            customArgs: [fixture, "--transport-disconnect-after-assistant"],
+            managedAcpTool: { id: "codex-acp-test" },
+          },
+        }),
+        (error) => error?.code === "acp_transport_interrupted" && /stream disconnected before completion/i.test(error.message),
+      );
+      assert.equal(events.some((event) => event.type === "assistant_chunk" && /stream disconnected before completion/i.test(String(event.text ?? ""))), true);
     } finally {
       await cleanup(workspaceRoot);
     }
@@ -3632,6 +4301,73 @@ describe("personal agent runtime timeout & artifacts", () => {
         ),
         true,
       );
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("retries a transient Codex session/new authentication failure before sending a prompt", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      let calls = 0;
+      const runtime = createPersonalAgentRuntime({
+        legacy: makeFakeLegacy("codex"),
+        adapters: {
+          codex: () => ({
+            sendMessage: async () => {
+              calls += 1;
+              if (calls === 1) throw new Error("session/new: Authentication required");
+              return {
+                output: "recovered after auth refresh",
+                command: "fake-codex-acp",
+                connectionMode: "Codex ACP session",
+                providerSessionId: "fresh-auth-session",
+                resumeKey: "fresh-auth-session",
+              };
+            },
+            cancel: async () => undefined,
+          }),
+        },
+      });
+
+      const started = await runtime.startMessage({ workspaceRoot, prompt: "hello", agent: { provider: "codex" } });
+      const final = await waitForRun(runtime, started.runId);
+
+      assert.equal(final.status, "completed");
+      assert.equal(final.output, "recovered after auth refresh");
+      assert.equal(calls, 2);
+      assert.equal(
+        final.events.some((event) => /authentication was temporarily unavailable; retrying once/i.test(String(event.text ?? ""))),
+        true,
+      );
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("keeps a persistent Codex session/new authentication failure visible after one retry", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      let calls = 0;
+      const runtime = createPersonalAgentRuntime({
+        legacy: makeFakeLegacy("codex"),
+        adapters: {
+          codex: () => ({
+            sendMessage: async () => {
+              calls += 1;
+              throw new Error("session/new: Authentication required");
+            },
+            cancel: async () => undefined,
+          }),
+        },
+      });
+
+      const started = await runtime.startMessage({ workspaceRoot, prompt: "hello", agent: { provider: "codex" } });
+      const final = await waitForRun(runtime, started.runId);
+
+      assert.equal(final.status, "failed");
+      assert.equal(final.errorInfo.code, "auth_required");
+      assert.equal(calls, 2);
     } finally {
       await cleanup(workspaceRoot);
     }

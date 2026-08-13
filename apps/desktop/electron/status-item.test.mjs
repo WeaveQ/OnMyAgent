@@ -243,4 +243,9 @@ test("runAction show/settings/new-task/permissions/quit use real handlers", asyn
   await controller.runAction(STATUS_ITEM_ACTION.QUIT);
   assert.equal(quitCalls, 1);
   assert.equal(controller.isAppQuitting(), true);
+  controller.cancelQuitting();
+  assert.equal(controller.isAppQuitting(), false);
+  await controller.runAction(STATUS_ITEM_ACTION.QUIT);
+  assert.equal(quitCalls, 2);
+  assert.equal(controller.isAppQuitting(), true);
 });

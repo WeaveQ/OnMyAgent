@@ -2,7 +2,7 @@
 /**
  * Applies desktop system prefs at runtime:
  * - launchAtLogin → OS login item (boot + when pref changes)
- * - keepSystemAwake → powerSaveBlocker only while any session is running
+ * - keepSystemAwake → main-owned powerSaveBlocker aggregate while work is active
  * - menuBarStatusItem → menu-bar / system-tray show/hide (macOS + Windows)
  *
  * Settings UI only writes LocalPreferences; this component is the single
@@ -42,7 +42,7 @@ export function SystemPrefsRuntime() {
   const menuBarStatusItem = local.prefs.menuBarStatusItem !== false;
 
   const lastLaunchRef = useRef<boolean | null>(null);
-  const lastAwakeRef = useRef<boolean | null>(null);
+  const lastAwakeRef = useRef<string | null>(null);
   const lastStatusItemRef = useRef<boolean | null>(null);
 
   // Sync login item with prefs (boot + toggles).
@@ -63,14 +63,19 @@ export function SystemPrefsRuntime() {
       .catch(() => undefined);
   }, [menuBarStatusItem]);
 
-  // Keep-awake: only while agent busy when pref enabled.
+  // Keep-awake: publish both the preference and interactive activity. Electron
+  // main combines this with durable Task Center activity, so a renderer reload
+  // cannot release the blocker underneath a long-running task.
   useEffect(() => {
     if (!isDesktopRuntime()) return;
 
-    const applyAwake = (want: boolean) => {
-      if (lastAwakeRef.current === want) return;
-      lastAwakeRef.current = want;
-      void desktopBridge.setKeepSystemAwake(want).catch(() => undefined);
+    const applyAwake = (interactiveBusy: boolean) => {
+      const identity = `${keepSystemAwake}:${interactiveBusy}`;
+      if (lastAwakeRef.current === identity) return;
+      lastAwakeRef.current = identity;
+      void desktopBridge
+        .setKeepSystemAwake(keepSystemAwake, interactiveBusy)
+        .catch(() => undefined);
     };
 
     if (!keepSystemAwake) {

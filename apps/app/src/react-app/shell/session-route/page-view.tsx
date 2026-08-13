@@ -62,6 +62,7 @@ import { getReactQueryClient } from "../../infra/query-client";
 import { writeCachedSidebarSessionsForWorkspace } from "../session-memory";
 
 import { loadAgentsPage } from "../../domains/agents";
+import { TaskCenterPage } from "../../domains/task-center";
 
 // Agents registry UI is heavy and non-critical for the live chat path —
 // code-split so it does not ride the main session graph.
@@ -98,6 +99,7 @@ import {
   createIsolatedExpertSessionRuntimeDirectory,
   shouldIsolateExpertSessionDirectory,
 } from "../../capabilities/session-identity/expert-session-directory";
+import { normalizeExpertWritePackageName } from "../../capabilities/session-identity/expert-package-name";
 import { useExpertDirectoryStore } from "../../capabilities/session-identity/expert-directory-store";
 import { CloudSessionProvider } from "../../domains/settings";
 import { installMarketplaceExpertAfterSessionCreated } from "./intent";
@@ -534,6 +536,9 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               <AgentsPage {...agentsPageProps} />
             </Suspense>
           )}
+          taskCenterSlot={
+            <TaskCenterPage workspaceRoot={selectedWorkspaceRoot} />
+          }
           mcpConnectedCount={0}
           onSendFeedback={() => {
             platform.openLink(
@@ -635,8 +640,10 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                 const agentName =
                   pendingAgentSnapshot?.name?.trim() || "expert";
                 const agentId = pendingAgentSnapshot?.id?.trim() || "";
-                const packageName =
-                  pendingAgentSnapshot?.marketplaceExpert?.packageName || agentId;
+                const packageName = normalizeExpertWritePackageName({
+                  agentId,
+                  packageName: pendingAgentSnapshot?.marketplaceExpert?.packageName,
+                });
                 const approvedAgentIds =
                   pendingAgentSnapshot?.approvedAgentIds ?? [];
                 const skillNames = pendingAgentSnapshot?.skillIds ?? [];
@@ -741,7 +748,12 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             const markerClient = selectedWorkspaceEndpoint?.client ?? client;
             const markerWorkspaceId = selectedWorkspaceEndpoint?.workspaceId ?? workspaceId;
             const markerAgentId = agentToBind?.id?.trim() || undefined;
-            const markerPackageName = agentToBind?.marketplaceExpert?.packageName || markerAgentId;
+            const markerPackageName = markerAgentId
+              ? normalizeExpertWritePackageName({
+                  agentId: markerAgentId,
+                  packageName: agentToBind?.marketplaceExpert?.packageName,
+                })
+              : undefined;
             if (newSession.directory && markerClient) {
               try {
                 await markerClient.ensureExpertSessionIsolation(markerWorkspaceId, {
@@ -763,7 +775,12 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               sessionId: newSession.id,
               kind: "expert",
               agentId: agentToBind?.id,
-              packageName: agentToBind?.marketplaceExpert?.packageName || agentToBind?.id,
+              packageName: agentToBind
+                ? normalizeExpertWritePackageName({
+                    agentId: agentToBind.id,
+                    packageName: agentToBind.marketplaceExpert?.packageName,
+                  })
+                : undefined,
               directory: newSession.directory,
             }).then(() =>
               getReactQueryClient().invalidateQueries({

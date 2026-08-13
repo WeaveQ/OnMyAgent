@@ -127,6 +127,7 @@ export class AcpJsonRpcClient {
     this.onRequest = onRequest ?? null;
     this.nextId = 1;
     this.pending = new Map();
+    this.inboundRequests = new Map();
     this.disposed = false;
     this.stdout = createInterface({ input: child.stdout });
     this.stdout.on("line", (line) => this.handleLine(line));
@@ -134,15 +135,23 @@ export class AcpJsonRpcClient {
       const text = chunk.toString("utf8").trim();
       if (text) this.appendEvent({ type: "log", text: `stderr> ${text}` });
     });
-    child.once("error", (error) => this.rejectAll(error));
+    child.once("error", (error) => {
+      this.rejectAll(error);
+      this.abortInboundRequests(error);
+    });
     child.once("close", (code, signal) => {
       if (this.disposed) return;
-      this.rejectAll(new Error(`ACP process exited: ${code ?? "null"}${signal ? ` signal ${signal}` : ""}`));
+      const error = new Error(`ACP process exited: ${code ?? "null"}${signal ? ` signal ${signal}` : ""}`);
+      this.rejectAll(error);
+      this.abortInboundRequests(error);
     });
   }
 
   dispose() {
+    if (this.disposed) return;
     this.disposed = true;
+    this.abortInboundRequests(new Error("ACP client disposed"));
+    this.rejectAll(new Error("ACP client disposed"));
     this.stdout?.close();
     this.child.stdout?.destroy();
     this.child.stderr?.destroy();
@@ -150,6 +159,9 @@ export class AcpJsonRpcClient {
   }
 
   request(method, params, timeoutMs = 60_000) {
+    if (this.disposed || this.child.stdin?.destroyed || this.child.stdin?.writable === false) {
+      return Promise.reject(new Error(`ACP client is closed: ${method}`));
+    }
     const id = this.nextId++;
     const payload = `${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`;
     return new Promise((resolve, reject) => {
@@ -195,20 +207,37 @@ export class AcpJsonRpcClient {
     return this.request("session/fork", { ...params, sessionId });
   }
 
-  setConfigOption(sessionId, optionId, value, params = {}) {
+  setConfigOption(sessionId, configId, value, params = {}) {
+    return this.request("session/set_config_option", { ...params, sessionId, configId, value });
+  }
+
+  setLegacyConfigOption(sessionId, optionId, value, params = {}) {
     return this.request("config/set", { ...params, sessionId, optionId, value });
   }
 
-  setModel(sessionId, model, params = {}) {
-    return this.request("session/set_model", { ...params, sessionId, model });
+  setModel(sessionId, modelId, params = {}) {
+    return this.request("session/set_model", { ...params, sessionId, modelId });
+  }
+
+  inboundKey(id) {
+    return `${typeof id}:${String(id)}`;
+  }
+
+  writeInboundResponse(id, payload, { allowUntracked = false } = {}) {
+    const entry = this.inboundRequests.get(this.inboundKey(id));
+    if (!allowUntracked && (!entry || entry.settled)) return false;
+    if (entry) entry.settled = true;
+    if (this.disposed || this.child.stdin?.destroyed || this.child.stdin?.writable === false) return false;
+    this.child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, ...payload })}\n`, "utf8");
+    return true;
   }
 
   respond(id, result) {
-    this.child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, result })}\n`, "utf8");
+    return this.writeInboundResponse(id, { result });
   }
 
-  rejectRequest(id, code, message) {
-    this.child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, error: { code, message } })}\n`, "utf8");
+  rejectRequest(id, code, message, options = {}) {
+    return this.writeInboundResponse(id, { error: { code, message } }, options);
   }
 
   rejectAll(error) {
@@ -216,6 +245,76 @@ export class AcpJsonRpcClient {
       clearTimeout(entry.timer);
       entry.reject(error);
       this.pending.delete(id);
+    }
+  }
+
+  abortInboundRequests(error = new Error("ACP inbound request cancelled")) {
+    for (const [key, entry] of this.inboundRequests) {
+      try { entry.controller.abort(error); } catch { /* already aborted */ }
+      if (!entry.settled) {
+        this.rejectRequest(entry.id, -32800, error.message);
+      }
+      this.inboundRequests.delete(key);
+    }
+  }
+
+  dispatchInboundRequest(message) {
+    if (!this.onRequest) {
+      this.rejectRequest(message.id, -32601, `method not found: ${message.method}`, { allowUntracked: true });
+      return;
+    }
+    const key = this.inboundKey(message.id);
+    const previous = this.inboundRequests.get(key);
+    if (previous && !previous.settled) {
+      this.rejectRequest(message.id, -32600, "duplicate inbound request id", { allowUntracked: true });
+      return;
+    }
+    const controller = new AbortController();
+    const entry = { id: message.id, controller, settled: false, promise: null };
+    const request = Promise.resolve()
+      .then(() => this.onRequest(message, this, controller.signal))
+      .catch((error) => this.rejectRequest(message.id, -32000, error?.message ?? String(error)))
+      .finally(() => {
+        if (this.inboundRequests.get(key) === entry) this.inboundRequests.delete(key);
+      });
+    entry.promise = request;
+    this.inboundRequests.set(key, entry);
+  }
+
+  async drainInboundRequests(timeoutMs = 1_000) {
+    const deadline = Date.now() + Math.max(1, Number(timeoutMs) || 1_000);
+    while (this.inboundRequests.size > 0) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        const error = new Error("ACP permission request did not settle before prompt completion");
+        this.abortInboundRequests(error);
+        throw error;
+      }
+      const active = [...this.inboundRequests.values()].map((entry) => entry.promise);
+      let timer;
+      try {
+        await Promise.race([
+          Promise.allSettled(active),
+          new Promise((_, reject) => {
+            timer = setTimeout(
+              () => {
+                const error = new Error("ACP permission request did not settle before prompt completion");
+                this.abortInboundRequests(error);
+                reject(error);
+              },
+              remaining,
+            );
+            timer.unref?.();
+          }),
+        ]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+      if (this.inboundRequests.size > 0 && Date.now() >= deadline) {
+        const error = new Error("ACP permission request did not settle before prompt completion");
+        this.abortInboundRequests(error);
+        throw error;
+      }
     }
   }
 
@@ -231,11 +330,7 @@ export class AcpJsonRpcClient {
     }
 
     if (message.id !== undefined && message.method && message.result === undefined && message.error === undefined) {
-      if (this.onRequest) {
-        void this.onRequest(message, this).catch((error) => this.rejectRequest(message.id, -32000, error.message));
-      } else {
-        this.rejectRequest(message.id, -32601, `method not found: ${message.method}`);
-      }
+      this.dispatchInboundRequest(message);
       return;
     }
     if (message.id !== undefined && (message.result !== undefined || message.error !== undefined)) {
@@ -243,8 +338,14 @@ export class AcpJsonRpcClient {
       if (!entry) return;
       clearTimeout(entry.timer);
       this.pending.delete(Number(message.id));
-      if (message.error) entry.reject(new Error(`${entry.method}: ${formatAcpError(message.error)}`));
-      else entry.resolve(message.result ?? null);
+      if (message.error) {
+        /** @type {Error & { acpRpcCode?: number, acpMethod?: string }} */
+        const error = new Error(`${entry.method}: ${formatAcpError(message.error)}`);
+        const rpcCode = Number(message.error.code);
+        if (Number.isFinite(rpcCode)) error.acpRpcCode = rpcCode;
+        error.acpMethod = entry.method;
+        entry.reject(error);
+      } else entry.resolve(message.result ?? null);
       return;
     }
     if (message.method === "session/update" || message.method === "session/notification") {
@@ -253,9 +354,9 @@ export class AcpJsonRpcClient {
     }
     if (message.method === "session/request_permission" || message.method === "permission/request") {
       if (this.onRequest) {
-        void this.onRequest(message, this).catch((error) => this.rejectRequest(message.id, -32000, error.message));
+        this.dispatchInboundRequest(message);
       } else if (message.id !== undefined) {
-        this.rejectRequest(message.id, -32601, `method not found: ${message.method}`);
+        this.rejectRequest(message.id, -32601, `method not found: ${message.method}`, { allowUntracked: true });
       } else {
         this.onNotification({ update: { sessionUpdate: "permission_request", ...(message.params ?? {}) } }, message);
       }
