@@ -103,6 +103,7 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
 export function createSystemDomainHandlers({
   userAgentRegistryPath,
   readFile,
+  realpath,
   stat,
   writeFile,
   rename,
@@ -309,7 +310,8 @@ export function createSystemDomainHandlers({
   getLaunchAtLogin: async () => getLaunchAtLogin(),
   setLaunchAtLogin: async (event, args) => setLaunchAtLogin(Boolean(args[0])),
   getKeepSystemAwake: async () => getKeepSystemAwake(),
-  setKeepSystemAwake: async (event, args) => setKeepSystemAwake(Boolean(args[0])),
+  setKeepSystemAwake: async (event, args) =>
+    setKeepSystemAwake(Boolean(args[0]), Boolean(args[1])),
   setDockUnreadBadge: async (event, args) => setDockUnreadBadge(args[0]),
   setStatusItemVisible: async (event, args) =>
     setStatusItemVisible(Boolean(args[0])),
@@ -539,17 +541,33 @@ export function createSystemDomainHandlers({
         return false;
       }
     };
-    if (await pathExists(absolute)) {
-      shell.showItemInFolder(absolute);
-      return { ok: true, path: absolute };
-    }
-    // Relative / mistyped paths often point at a missing leaf; reveal parent when present.
+    const exists = await pathExists(absolute);
     const parent = path.dirname(absolute);
-    if (parent && parent !== absolute && (await pathExists(parent))) {
-      shell.showItemInFolder(parent);
-      return { ok: true, path: parent, reason: "revealed_parent" };
+    const revealTarget = exists
+      ? absolute
+      : parent && parent !== absolute && (await pathExists(parent))
+        ? parent
+        : null;
+    if (!revealTarget) return { ok: false, reason: "not_found", path: absolute };
+
+    const allowedRoot = String(args[1] ?? "").trim();
+    let safeTarget = revealTarget;
+    if (allowedRoot) {
+      if (typeof realpath !== "function") return { ok: false, reason: "containment_unavailable" };
+      try {
+        const canonicalRoot = await realpath(path.resolve(allowedRoot));
+        const canonicalTarget = await realpath(revealTarget);
+        const relative = path.relative(canonicalRoot, canonicalTarget);
+        if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+          return { ok: false, reason: "outside_allowed_root", path: canonicalTarget };
+        }
+        safeTarget = canonicalTarget;
+      } catch {
+        return { ok: false, reason: "containment_unavailable" };
+      }
     }
-    return { ok: false, reason: "not_found", path: absolute };
+    shell.showItemInFolder(safeTarget);
+    return { ok: true, path: safeTarget, ...(exists ? {} : { reason: "revealed_parent" }) };
   },
 
   __fetch: async (event, args) => {

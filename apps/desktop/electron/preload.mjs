@@ -10,6 +10,7 @@ const NATIVE_MENU_DESKTOP_PERMISSIONS_EVENT =
   "onmyagent:native-menu:desktop-permissions";
 const DESKTOP_IPC_CHANNEL = "onmyagent:desktop";
 const LEGACY_DESKTOP_IPC_CHANNEL = "open" + "work:desktop";
+const TASK_ORCHESTRATOR_EVENT = "onmyagent:task-orchestrator:event";
 
 function normalizePlatform(value) {
   if (value === "darwin" || value === "linux") return value;
@@ -53,6 +54,15 @@ contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
       } catch {
         return null;
       }
+    },
+  },
+  taskOrchestrator: {
+    onEvent(callback) {
+      const handler = (_event, payload) => callback(payload);
+      ipcRenderer.on(TASK_ORCHESTRATOR_EVENT, handler);
+      return () => {
+        ipcRenderer.removeListener(TASK_ORCHESTRATOR_EVENT, handler);
+      };
     },
   },
   shell: {

@@ -15,6 +15,7 @@ import {
   runAssistantBridgeTurn,
 } from "../channels/assistant-bridge.mjs";
 import { formatAgentReply, formatAgentResultOutput } from "../channels/AgentReplyHeader.mjs";
+import { createMessagingTaskAdapter } from "../channels/messaging-task-adapter.mjs";
 
 const RETRY_DELAY_SECONDS = 2;
 const DEFAULT_TEXT_BATCH_DELAY_MS = 3_000;
@@ -127,6 +128,9 @@ export function createFeishuService(options = {}) {
   const channelPairingService = options.channelPairingService ?? null;
   const channelSessionStore = options.channelSessionStore ?? null;
   const channelEventBus = options.channelEventBus ?? null;
+  const messagingTaskAdapter = createMessagingTaskAdapter({
+    taskMessageRouter: options.taskMessageRouter,
+  });
   const dedup = new TtlSet(5 * 60_000);
   const pendingBatches = new Map();
   const agentBusyNoticeAt = new Map(); // busyKey -> lastNoticeAt (ms)
@@ -496,7 +500,7 @@ export function createFeishuService(options = {}) {
   async function processEvent(session, event) {
     if (!event.senderId || event.senderId === session.account.appId) return null;
     if (event.messageId && dedup.hasOrAdd(`id:${event.messageId}`)) return null;
-    const isControlCommand = parseApprovalCommand(event.text) || parseRunCommand(event.text) || parseModeCommand(event.text) || parseModelSwitchCommand(event.text) || parseAgentSwitchCommand(event.text);
+    const isControlCommand = messagingTaskAdapter.canRoute(event.text) || parseApprovalCommand(event.text) || parseRunCommand(event.text) || parseModeCommand(event.text) || parseModelSwitchCommand(event.text) || parseAgentSwitchCommand(event.text);
     if (!isControlCommand) {
       const contentKey = `content:${event.senderId}:${event.chatId}:${event.text}`;
       if (dedup.hasOrAdd(contentKey)) return null;
@@ -510,6 +514,19 @@ export function createFeishuService(options = {}) {
       return null;
     }
     setState({ lastMessageAt: Date.now(), processedCount: state.processedCount + 1 });
+    const taskRoute = await messagingTaskAdapter.tryRoute({
+      platform: "feishu",
+      accountId: event.accountId ?? session.account.accountId,
+      chatId: event.chatId,
+      senderId: event.senderId,
+      messageId: event.messageId,
+      text: event.text,
+      attachments: event.attachments ?? event.mediaFiles,
+    }, {
+      appendLog,
+      reply: (replyText) => sendText(session, event.chatId, replyText),
+    });
+    if (taskRoute.handled) return event;
     if (await maybeHandleControlCommand(session, event)) return event;
     void enqueueText(session, event).catch((error) => {
       const message = error instanceof Error ? error.message : String(error);
@@ -1073,10 +1090,13 @@ export function createFeishuService(options = {}) {
     const account = active?.account?.accountId === accountId ? active.account : await store.loadAccount(accountId);
     if (!account) return { ok: false, error: "Feishu app is not configured" };
     const session = active?.account?.accountId === account.accountId ? active : { account, store, options: runtimeOptions(input), controller: new AbortController() };
+    const simulatedMessageId = messagingTaskAdapter.canRoute(input.text) && input.messageId == null
+      ? ""
+      : (input.messageId ?? `sim-${Date.now()}`);
     const event = await processEvent(session, {
       accountId: account.accountId,
       senderId: input.fromUserId ?? input.senderId ?? "ou_studio_test_user",
-      messageId: input.messageId ?? `sim-${Date.now()}`,
+      messageId: simulatedMessageId,
       chatId: input.chatId ?? "oc_studio_test_chat",
       chatType: input.chatType ?? "dm",
       text: String(input.text ?? "ping"),
@@ -1394,6 +1414,16 @@ export function createFeishuService(options = {}) {
     }
   }
 
+  async function sendTaskDelivery(input = {}) {
+    if (!active || state.status !== "running") return { ok: false, error: "Feishu is not running" };
+    if (input.accountId && String(input.accountId) !== String(active.account.appId ?? active.account.accountId)) return { ok: false, error: "Feishu account is not active" };
+    const chatId = String(input.chatId ?? "").trim();
+    const text = String(input.text ?? "").trim();
+    if (!chatId || !text) return { ok: false, error: "chatId and text are required" };
+    await sendText(active, chatId, text);
+    return { ok: true };
+  }
+
   return {
     start,
     stop,
@@ -1410,6 +1440,7 @@ export function createFeishuService(options = {}) {
       const session = active ?? { account: input.account, store, options: runtimeOptions(input), controller: new AbortController() };
       return processWebSocketPayload(session, payload);
     },
+    sendTaskDelivery,
   };
 }
 

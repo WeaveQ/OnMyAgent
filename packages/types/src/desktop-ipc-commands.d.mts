@@ -156,6 +156,34 @@ export type DesktopCommandName =
   | "personalLocalAgentHeartbeatRuns"
   | "localAgentComposerListFiles"
   | "localAgentComposerSaveAttachment"
+  | "taskOrchestratorTasksList"
+  | "taskOrchestratorTaskGet"
+  | "taskOrchestratorRunsList"
+  | "taskOrchestratorTurnHistoryList"
+  | "taskOrchestratorEventsList"
+  | "taskOrchestratorArtifactsList"
+  | "taskOrchestratorArtifactGet"
+  | "taskOrchestratorArtifactContentGet"
+  | "taskOrchestratorTaskArchive"
+  | "taskOrchestratorTaskRestore"
+  | "taskOrchestratorTaskPurge"
+  | "taskOrchestratorTaskExportManifest"
+  | "taskOrchestratorMaintenanceRun"
+  | "taskOrchestratorHealthGet"
+  | "taskOrchestratorOperationsDiagnosticsGet"
+  | "taskOrchestratorTaskCreate"
+  | "taskOrchestratorTaskUpdate"
+  | "taskOrchestratorAlignmentMessage"
+  | "taskOrchestratorAlignmentCancel"
+  | "taskOrchestratorContractFinalize"
+  | "taskOrchestratorTaskStart"
+  | "taskOrchestratorTaskStop"
+  | "taskOrchestratorTaskPause"
+  | "taskOrchestratorTaskResume"
+  | "taskOrchestratorPrimaryRetry"
+  | "taskOrchestratorRecoveryContinue"
+  | "taskOrchestratorNodeRetry"
+  | "taskOrchestratorGateResolve"
   | "weixinLoginStart"
   | "weixinLoginPoll"
   | "weixinSaveAccount"
@@ -301,7 +329,7 @@ export type DesktopCommandName =
   | "tencentMeetingOpenTokenPage"
   | "tencentMeetingDisconnect";
 
-export type DesktopCommandDomain = "workspace" | "system" | "localAgents" | "messaging" | "agentManagement" | "opencode" | "runtime" | "skills" | "managedTools";
+export type DesktopCommandDomain = "workspace" | "system" | "localAgents" | "taskOrchestrator" | "messaging" | "agentManagement" | "opencode" | "runtime" | "skills" | "managedTools";
 
 export const desktopCommandGroups: Readonly<Record<DesktopCommandDomain, readonly DesktopCommandName[]>>;
 export const desktopCommandNames: readonly DesktopCommandName[];

@@ -2,7 +2,8 @@
 // Windows runtime unit/smoke entry for OnMyAgent.
 //
 // Runs the kill-tree + open-terminal unit tests (platform-mocked so they pass
-// on macOS/Linux CI hosts) and a static self-check of the Windows launch plan.
+// on macOS/Linux CI hosts), the lightweight Task Supervisor named-pipe
+// contract test, and a static self-check of the Windows launch plan.
 // Safe to run on any host:
 //
 //   node scripts/dev/windows-runtime-test.mjs
@@ -29,6 +30,7 @@ const testFiles = [
   resolve(desktopRoot, "electron/personal-agent-runtime/utils.test.mjs"),
   resolve(desktopRoot, "electron/personal-agent-runtime/windows-spawn.test.mjs"),
   resolve(desktopRoot, "electron/code-workspace-actions.test.mjs"),
+  resolve(desktopRoot, "electron/task-supervisor/windows-named-pipe.test.mjs"),
 ];
 
 const results = [];

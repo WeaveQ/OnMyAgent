@@ -34,6 +34,11 @@
       "development": "./src/browser.ts",
       "default": "./dist/browser.js"
     },
+    "./task-orchestrator": {
+      "types": "./src/task-orchestrator.ts",
+      "development": "./src/task-orchestrator.ts",
+      "default": "./dist/task-orchestrator.js"
+    },
     "./server": {
       "types": "./src/server.ts",
       "development": "./src/server.ts",
