@@ -953,11 +953,20 @@ export function SidebarAccountButton(props: {
         return;
       }
       if (result.available && result.latestVersion) {
+        const inApp = result.platformFlow === "in-app";
         showToast({
           tone: "success",
           title: t("account_menu.update_available", {
             version: result.latestVersion,
           }),
+          actionLabel: inApp
+            ? t("settings.download_update")
+            : t("settings.open_release_page"),
+          onAction: () => {
+            void bridge.download?.();
+          },
+          dismissLabel: t("common.dismiss"),
+          durationMs: 0,
         });
         return;
       }

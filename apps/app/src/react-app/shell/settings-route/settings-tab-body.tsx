@@ -100,6 +100,7 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
               desktopNotifyOnAgentReady={
                 ctx.local.prefs.desktopNotifyOnAgentReady === true
               }
+              updateAutoCheck={ctx.updateAutoCheck !== false}
               onLaunchAtLoginChange={(enabled) => {
                 ctx.local.setPrefs((previous) => ({
                   ...previous,
@@ -136,6 +137,9 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
                   requestDesktopNotificationPermission();
                   previewDesktopNotification();
                 }
+              }}
+              onUpdateAutoCheckChange={(enabled) => {
+                ctx.setUpdateAutoCheck(enabled);
               }}
             />
             <LazySystemAuthorizationsView

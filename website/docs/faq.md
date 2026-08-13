@@ -46,4 +46,4 @@ BYOK：兼容 API、本机模型（如 Ollama）等。在 [设置 → 模型](./
 
 ### 如何更新？
 
-设置 → **更新** → **检查更新**。打包版会在后台下载，完成后点 **重启并安装**。开发构建请改从 [GitHub Releases](https://github.com/WeaveQ/OnMyAgent/releases) 安装。macOS 若提示应用已损坏，执行 `xattr -cr /Applications/OnMyAgent.app` 后再打开。
+设置 → **更新** → **检查更新**（冷启动也会自动查一次）。发现新版本后**点提示或「下载更新」**才会下载；打包版下完再点 **重启并安装**。开发构建请从 [GitHub Releases](https://github.com/WeaveQ/OnMyAgent/releases) 安装。macOS 若提示应用已损坏，执行 `xattr -cr /Applications/OnMyAgent.app` 后再打开。

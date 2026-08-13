@@ -1,6 +1,6 @@
 {
   "name": "onmyagent-orchestrator",
-  "version": "0.5.0",
+  "version": "0.5.2",
   "description": "OnMyAgent host orchestrator for opencode + OnMyAgent server",
   "private": true,
   "type": "module",
@@ -14,7 +14,6 @@
     "typecheck": "tsc -p tsconfig.typecheck.json",
     "test": "bun test tests",
     "test:unit": "bun test tests",
-    "test:runtime": "pnpm test",
     "test:files": "pnpm build && node scripts/files-session.mjs",
     "prepublishOnly": "node -e \"console.error('onmyagent-orchestrator is published via apps/orchestrator/scripts/publish-npm.mjs (meta + platform packages)'); process.exit(1);\""
   },
@@ -49,7 +48,7 @@
     "@opencode-ai/sdk": "1.17.20",
     "@opentui/core": "0.1.77",
     "@opentui/solid": "0.1.77",
-    "onmyagent-server": "0.5.0",
+    "onmyagent-server": "0.5.2",
     "solid-js": "1.9.9"
   },
   "devDependencies": {

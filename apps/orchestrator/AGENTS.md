@@ -16,7 +16,8 @@ git diff --check
 ```bash
 pnpm task test orchestrator          # 包内全量 unit
 pnpm task test orchestrator:cli-args # 或 runtime-auth / runtime-health / runtime-sandbox 等专项
-pnpm test:runtime                    # Electron bridge + orchestrator runtime smoke（触及 spawn/sidecar 时）
+pnpm test:unit                       # includes this package's bun test tests
+pnpm test:runtime                    # Desktop IPC / Electron runtime only; not a second orchestrator pass
 ```
 
 本地开发：

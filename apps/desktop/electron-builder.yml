@@ -38,6 +38,18 @@ extraResources:
       - "**/versions.json"
   - from: resources/artifact-runtime
     to: artifact-runtime
+    filter:
+      - "**/*"
+      - "!**/*.{map,md,ts}"
+      - "!**/*.test.cjs"
+      - "!**/node_modules/@types/**"
+      - "!**/.pnpm/@types+*/**"
+      - "!**/exceljs/dist/**"
+      - "!**/pdf-lib/dist/**"
+      - "!**/pdf-lib/es/**"
+      - "!**/pdf-lib/src/**"
+      - "!**/pdf-lib/ts3.4/**"
+      - "!**/jszip/dist/**"
   # Window / tray icon fallback in packaged app (desktop-paths resolveAppIconPath).
   - from: resources/icons
     to: icons
@@ -49,6 +61,12 @@ extraResources:
     to: quick-capture
 asar: true
 npmRebuild: false
+# Chromium ships dozens of locale packs. Product UI is en / zh-CN / zh-TW.
+electronLanguages:
+  - en
+  - en-US
+  - zh-CN
+  - zh-TW
 afterPack: scripts/electron-after-pack.cjs
 afterSign: scripts/electron-after-sign.cjs
 # electron-updater feed. Matches the existing release workflow's GitHub target.

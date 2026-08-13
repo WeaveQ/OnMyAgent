@@ -31,7 +31,7 @@ Settings opens on **Overview**, where cards group every section under Workspace,
 | Global | **Preferences** | Language, theme, font, conversation width, session compaction, and other app-wide choices |
 | Global | **System** | Launch at login, notifications, system permissions, plus the local runtime environment and environment variables |
 | Global | **Keyboard shortcuts** | Customize general, task, and session shortcuts |
-| Global | **Updates** | Version, check for updates; packaged builds download in the background then restart to install |
+| Global | **Updates** | Version and check for updates; click to download, then restart to install |
 | Data | **Reset** | Reset onboarding or clear local app data |
 | Data | **Archive** | Restore or delete archived tasks |
 
@@ -134,12 +134,12 @@ The page supports search and **Restore all defaults**.
 
 Inspect the current version and check for updates.
 
-The page shows the current version and **Check for updates**.
+The page shows the current version and **Check for updates**. A cold start also checks once (about 30 seconds after launch).
 
 | Build | Behavior |
 |-------|----------|
-| **Packaged desktop** | Checks prereleases and stables. A new version **downloads in the background**; then click **Restart and install**. Nothing installs silently or on quit. |
-| **Development build** | Can check or open the release page; it cannot complete the real download/install path. |
+| **Packaged desktop** | Checks prereleases and stables. When a new version is found, a notice appears; **click the notice or Download update** to start the download. Then click **Restart and install**. Nothing installs silently or on quit. |
+| **Development build** | Can check only. Clicking the notice opens the release page; it cannot replace a running dev build in-app. |
 
 Current preview builds are not notarized. If macOS blocks the app after an in-app update, run:
 
