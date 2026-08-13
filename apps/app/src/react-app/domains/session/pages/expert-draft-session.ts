@@ -149,9 +149,8 @@ export function shouldKeepUnboundExpertDraft(input: {
   if (pendingAgentId && pendingAgentId !== draftAgentId) return false;
   const bound = input.pendingBoundSessionId?.trim() ?? "";
   if (bound && !bound.startsWith("draft:")) return false;
-  const selectedAgent = input.selectedSessionAgentId?.trim() ?? "";
-  if (input.pendingDraftSource === "agent-selection") return true;
-  // User explicitly opened another expert's real session → drop the draft.
-  if (selectedAgent && selectedAgent !== draftAgentId) return false;
+  // Route synchronization is not user intent: cold-open / restore can briefly
+  // point at another expert. Explicit session clicks clear the surface draft
+  // in useOpenExpertSession, so an unbound transaction must survive here.
   return true;
 }

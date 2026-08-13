@@ -249,9 +249,9 @@ export function resolveExpertSidebarOpen(input: {
 }
 
 /**
- * A draft can be layered over an already selected real session. In that case a
- * same-expert sidebar click must resolve the real tab, not be swallowed as an
- * apparent no-op just because the route still points at that tab.
+ * A draft can be layered over an already selected real session. Any explicit
+ * expert-list click must exit that draft, even when the underlying route is
+ * already the clicked expert and would otherwise look like a no-op.
  */
 export function shouldExitDraftForExpertSidebarTarget(input: {
   draftAgentId: string | null;
@@ -260,6 +260,7 @@ export function shouldExitDraftForExpertSidebarTarget(input: {
 }): boolean {
   return (
     input.draftSessionActive &&
-    input.draftAgentId === input.targetAgentId
+    Boolean(input.draftAgentId) &&
+    Boolean(input.targetAgentId)
   );
 }

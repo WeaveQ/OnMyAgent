@@ -6,6 +6,8 @@ export type ExpertSurfaceRoute = {
 export type ExpertSurfaceDraft = {
   agentId: string;
   operationId: string;
+  /** Real route painted underneath when the draft transaction opened. */
+  sourceRouteSessionId: string | null;
   boundSessionId: string | null;
   navigation: "pending" | "requested";
 };
@@ -88,7 +90,8 @@ export function shouldDropExpertSurfaceDraft(
   return Boolean(
     state.route &&
       state.draft?.boundSessionId &&
-      state.route.sessionId !== state.draft.boundSessionId,
+      state.route.sessionId !== state.draft.boundSessionId &&
+      state.route.sessionId !== state.draft.sourceRouteSessionId,
   );
 }
 
@@ -108,6 +111,7 @@ export function reduceExpertSurface(
         draft: {
           agentId,
           operationId,
+          sourceRouteSessionId: state.route?.sessionId ?? null,
           boundSessionId: null,
           navigation: "pending",
         },
@@ -162,25 +166,13 @@ export function reduceExpertSurface(
         state.route?.sessionId === route?.sessionId &&
         state.route?.agentId === route?.agentId
       ) return state;
-      const next: ExpertSurfaceState = {
+      return {
         ...state,
         route,
         pendingTabSessionId:
           route && route.sessionId === state.pendingTabSessionId
             ? null
             : state.pendingTabSessionId,
-      };
-      // User opened a different real tab than the bound create: drop the
-      // transaction so creatingSessionId / draft suppress cannot stick.
-      if (!shouldDropExpertSurfaceDraft(next)) return next;
-      const boundSessionId = next.draft?.boundSessionId ?? null;
-      return {
-        ...next,
-        draft: null,
-        pendingTabSessionId:
-          next.pendingTabSessionId === boundSessionId
-            ? null
-            : next.pendingTabSessionId,
       };
     }
     case "SET_PENDING_TAB": {
