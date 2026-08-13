@@ -1004,6 +1004,29 @@ describe("deriveOpenTargets", () => {
     ).toBe("runtime deliverable");
   });
 
+  it("shows a verified deliverable registered in the final assistant reply", () => {
+    const messages = [
+      message(
+        "msg_final",
+        "assistant",
+        [
+          "验证通过，已生成《澄露防晒乳_返点毛利与投放效果分析.xlsx》。",
+          "ONMYAGENT_DELIVERABLE: 澄露防晒乳_返点毛利与投放效果分析.xlsx",
+        ].join("\n"),
+      ),
+    ] satisfies UIMessage[];
+    const verified = [
+      {
+        ...fileTarget("澄露防晒乳_返点毛利与投放效果分析.xlsx", "sheet"),
+        exists: true,
+      },
+    ];
+
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value),
+    ).toEqual(["澄露防晒乳_返点毛利与投放效果分析.xlsx"]);
+  });
+
   it("collects write-xlsx --out even when stdout only has the marker", () => {
     const paths = collectRuntimeRegisteredDeliverablePaths(
       {
@@ -1076,6 +1099,26 @@ describe("deriveOpenTargets", () => {
       message("msg_final", "assistant", "已生成返点合同。"),
     ]);
     expect(targets.map((target) => target.value)).toContain("合同输出/out.docx");
+  });
+
+  it("resolves batch deliverable markers against an explicit shell working directory", () => {
+    const paths = collectRuntimeRegisteredDeliverablePaths(
+      {
+        command:
+          'cd "/tmp/session/合同输出" && for file in *.docx; do officecli set "$file" / --find old --replace new; done',
+      },
+      [
+        "ONMYAGENT_DELIVERABLE: 合同一.docx",
+        "ONMYAGENT_DELIVERABLE: 合同二.docx",
+        "ONMYAGENT_DELIVERABLE: 合同三.docx",
+      ].join("\n"),
+    );
+
+    expect(paths).toEqual([
+      "/tmp/session/合同输出/合同一.docx",
+      "/tmp/session/合同输出/合同二.docx",
+      "/tmp/session/合同输出/合同三.docx",
+    ]);
   });
 
   it("shows pdf/html/md content deliverables written by write tools", () => {

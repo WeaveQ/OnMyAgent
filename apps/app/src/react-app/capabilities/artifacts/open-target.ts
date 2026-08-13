@@ -440,6 +440,21 @@ function shellOutputText(output: unknown): string {
 const RUNTIME_DELIVERABLE_MARKER =
   /(?:^|\n)ONMYAGENT_DELIVERABLE:\s*(.+?)(?=\s*(?:\n|$))/g;
 
+function shellWorkingDirectory(command: string): string | undefined {
+  const match = command.match(
+    /^\s*cd(?:\s+\/d)?\s+(?:"([^"]+)"|'([^']+)'|([^\s;&]+))\s*&&/i,
+  );
+  return (match?.[1] ?? match?.[2] ?? match?.[3])?.trim() || undefined;
+}
+
+function resolveRuntimePath(path: string, workingDirectory: string | undefined): string {
+  if (!workingDirectory || !path || path.startsWith("/") || /^[a-z]:[\\/]/i.test(path)) {
+    return path;
+  }
+  const separator = workingDirectory.includes("\\") ? "\\" : "/";
+  return `${workingDirectory.replace(/[\\/]+$/, "")}${separator}${path.replace(/^\.\//, "")}`;
+}
+
 /** OfficeCLI verbs that create or flush document files (managed launcher also emits markers). */
 const OFFICECLI_MUTATING_VERB =
   /\b(create|save|close|set|add|remove|move|swap|batch|raw-set|add-part|refresh|merge)\b/i;
@@ -458,11 +473,12 @@ export function collectRuntimeRegisteredDeliverablePaths(
   const command = shellCommandText(input);
   const out = shellOutputText(output);
   const paths: string[] = [];
+  const workingDirectory = shellWorkingDirectory(command);
 
   RUNTIME_DELIVERABLE_MARKER.lastIndex = 0;
   for (const match of out.matchAll(RUNTIME_DELIVERABLE_MARKER)) {
     const raw = (match[1] ?? "").trim().replace(/^["']|["']$/g, "");
-    if (raw) paths.push(raw);
+    if (raw) paths.push(resolveRuntimePath(raw, workingDirectory));
   }
 
   for (const line of out.split("\n")) {
@@ -680,6 +696,11 @@ export function extractAssistantDeliveryManifestPaths(text: string): string[] {
   if (!ASSISTANT_DELIVERY_CONTEXT_PATTERN.test(text)) return [];
 
   const paths: string[] = [];
+  RUNTIME_DELIVERABLE_MARKER.lastIndex = 0;
+  for (const match of text.matchAll(RUNTIME_DELIVERABLE_MARKER)) {
+    const raw = (match[1] ?? "").trim().replace(/^["']|["']$/g, "");
+    if (raw && !isLikelyUserUploadArtifactPath(raw)) paths.push(raw);
+  }
   let activeTableDirectory = "";
   for (const line of text.split(/\r?\n/u)) {
     ASSISTANT_DELIVERY_DIRECTORY_PATTERN.lastIndex = 0;
