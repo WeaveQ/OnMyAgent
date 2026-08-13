@@ -1,18 +1,13 @@
 import os from "node:os";
 import { spawnSync } from "node:child_process";
-import {
-  existsSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { join, resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import { fileViewerRenderers } from "@file-viewer/vite-plugin";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { applyFileViewerVendorAssetDedupe } from "./scripts/dedupe-file-viewer-vendor-assets";
 
 const portValue = Number.parseInt(process.env.PORT ?? "", 10);
 const devPort = Number.isFinite(portValue) && portValue > 0 ? portValue : 5173;
@@ -47,41 +42,7 @@ function dedupeFileViewerVendorAssets() {
     name: "dedupe-file-viewer-vendor-assets",
     apply: "build" as const,
     closeBundle() {
-      const distRoot = resolve(appRoot, "dist");
-      const vendorPpt = join(distRoot, "vendor", "ppt");
-      const assetsDir = join(distRoot, "assets");
-      if (!existsSync(vendorPpt) || !existsSync(assetsDir)) return;
-
-      const replacements: Array<{ hashed: string; vendorRel: string }> = [];
-      for (const name of readdirSync(assetsDir)) {
-        const hashedMatch = /^(ppt-font-cjk|ppt-native)-[A-Za-z0-9_-]+\.(otf|wasm)$/.exec(
-          name,
-        );
-        if (!hashedMatch) continue;
-        const original =
-          hashedMatch[1] === "ppt-font-cjk" ? "ppt-font-cjk.otf" : "ppt-native.wasm";
-        if (!existsSync(join(vendorPpt, original))) continue;
-        replacements.push({
-          hashed: name,
-          vendorRel: `../vendor/ppt/${original}`,
-        });
-      }
-      if (replacements.length === 0) return;
-
-      for (const name of readdirSync(assetsDir)) {
-        if (!name.endsWith(".js")) continue;
-        const filePath = join(assetsDir, name);
-        let source = readFileSync(filePath, "utf8");
-        let next = source;
-        for (const item of replacements) {
-          next = next.split(item.hashed).join(item.vendorRel);
-        }
-        if (next !== source) writeFileSync(filePath, next);
-      }
-
-      for (const item of replacements) {
-        rmSync(join(assetsDir, item.hashed), { force: true });
-      }
+      applyFileViewerVendorAssetDedupe(resolve(appRoot, "dist"));
     },
   };
 }

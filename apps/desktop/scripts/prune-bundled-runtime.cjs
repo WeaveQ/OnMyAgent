@@ -34,6 +34,23 @@ function rmIfExists(target) {
   return true;
 }
 
+function nodePrefixModuleRoots(nodeRoot) {
+  // Unix official tarball: <prefix>/lib/node_modules
+  // Windows official zip:  <prefix>/node_modules (next to node.exe)
+  return [
+    path.join(nodeRoot, "lib", "node_modules"),
+    path.join(nodeRoot, "node_modules"),
+  ];
+}
+
+function pruneNodeModulesRoot(modulesRoot) {
+  if (!modulesRoot || !fs.existsSync(modulesRoot)) return;
+  for (const entry of fs.readdirSync(modulesRoot)) {
+    if (KEPT_NODE_MODULES.has(entry) || entry.startsWith(".")) continue;
+    rmIfExists(path.join(modulesRoot, entry));
+  }
+}
+
 function pruneNodeTree(nodeRoot) {
   if (!nodeRoot || !fs.existsSync(nodeRoot)) return;
   rmIfExists(path.join(nodeRoot, "include"));
@@ -41,11 +58,8 @@ function pruneNodeTree(nodeRoot) {
   rmIfExists(path.join(nodeRoot, "CHANGELOG.md"));
   rmIfExists(path.join(nodeRoot, "README.md"));
 
-  const modulesRoot = path.join(nodeRoot, "lib", "node_modules");
-  if (!fs.existsSync(modulesRoot)) return;
-  for (const entry of fs.readdirSync(modulesRoot)) {
-    if (KEPT_NODE_MODULES.has(entry) || entry.startsWith(".")) continue;
-    rmIfExists(path.join(modulesRoot, entry));
+  for (const modulesRoot of nodePrefixModuleRoots(nodeRoot)) {
+    pruneNodeModulesRoot(modulesRoot);
   }
 }
 
@@ -148,13 +162,99 @@ function resolvePackagedSidecarKeepList(sidecarsDir, triple, executableSuffix) {
   return { keep, planned };
 }
 
+function copyExecutableTargetToAlias(sidecarsDir, targetName, aliasName) {
+  const targetPath = path.join(sidecarsDir, targetName);
+  const aliasPath = path.join(sidecarsDir, aliasName);
+  if (fs.existsSync(targetPath)) {
+    if (targetPath !== aliasPath) {
+      fs.copyFileSync(targetPath, aliasPath);
+    }
+  } else if (!fs.existsSync(aliasPath)) {
+    throw new Error(`Missing packaged sidecar for target: ${targetName}`);
+  }
+
+  try {
+    fs.chmodSync(aliasPath, 0o755);
+  } catch {
+    // Windows and some filesystems may ignore chmod.
+  }
+}
+
+function applySidecarAliasOnlyKeep(sidecarsDir, triple, executableSuffix) {
+  if (!sidecarsDir || !fs.existsSync(sidecarsDir)) return false;
+
+  const sidecarKeep = resolvePackagedSidecarKeepList(
+    sidecarsDir,
+    triple,
+    executableSuffix,
+  );
+  const keep = new Set(sidecarKeep.keep);
+  for (const { aliasName, targetName } of sidecarKeep.planned) {
+    copyExecutableTargetToAlias(sidecarsDir, targetName, aliasName);
+    keep.add(aliasName);
+  }
+
+  const versionsAlias = "versions.json";
+  const versionsTarget = `versions.json-${triple}${executableSuffix}`;
+  const versionsTargetPath = path.join(sidecarsDir, versionsTarget);
+  if (fs.existsSync(versionsTargetPath)) {
+    fs.copyFileSync(versionsTargetPath, path.join(sidecarsDir, versionsAlias));
+  } else if (!fs.existsSync(path.join(sidecarsDir, versionsAlias))) {
+    throw new Error(`Missing packaged sidecar metadata for target: ${versionsTarget}`);
+  }
+  keep.add(versionsAlias);
+
+  for (const entry of fs.readdirSync(sidecarsDir)) {
+    if (!keep.has(entry)) {
+      fs.rmSync(path.join(sidecarsDir, entry), { force: true, recursive: true });
+    }
+  }
+  return true;
+}
+
+function prunePackagedRuntimesDir(runtimesDir, triple) {
+  const targetRuntimeDir = runtimesDir ? path.join(runtimesDir, triple) : null;
+  if (!targetRuntimeDir || !fs.existsSync(targetRuntimeDir)) {
+    throw new Error(`Missing packaged runtimes for target: ${triple}`);
+  }
+  for (const entry of fs.readdirSync(runtimesDir)) {
+    if (entry !== triple) {
+      fs.rmSync(path.join(runtimesDir, entry), {
+        force: true,
+        recursive: true,
+      });
+    }
+  }
+  prunePackagedRuntime(targetRuntimeDir);
+}
+
+/**
+ * afterPack sequencing: alias-only sidecar keep when present, then always
+ * prune the target runtime and artifact-runtime trees.
+ */
+function slimPackagedExtraResources({
+  sidecarsDir,
+  runtimesDir,
+  triple,
+  executableSuffix,
+  artifactRuntimeDir,
+}) {
+  applySidecarAliasOnlyKeep(sidecarsDir, triple, executableSuffix);
+  prunePackagedRuntimesDir(runtimesDir, triple);
+  pruneArtifactRuntimeTree(artifactRuntimeDir);
+}
+
 module.exports = {
   KEPT_NODE_MODULES,
   PYTHON_DROP_DIR_NAMES,
+  nodePrefixModuleRoots,
   pruneNodeTree,
   prunePythonTree,
   prunePythonSitePackages,
   prunePackagedRuntime,
   pruneArtifactRuntimeTree,
   resolvePackagedSidecarKeepList,
+  applySidecarAliasOnlyKeep,
+  prunePackagedRuntimesDir,
+  slimPackagedExtraResources,
 };

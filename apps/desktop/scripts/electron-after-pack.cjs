@@ -1,11 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
-const {
-  pruneArtifactRuntimeTree,
-  prunePackagedRuntime,
-  resolvePackagedSidecarKeepList,
-} = require("./prune-bundled-runtime.cjs");
+const { slimPackagedExtraResources } = require("./prune-bundled-runtime.cjs");
 
 const computerUseHelperAppName = "OnMyAgent Computer Use.app";
 
@@ -188,78 +184,18 @@ function brandWindowsExecutable(context) {
   console.log(`[afterPack] Branded Windows executable: ${exePath}`);
 }
 
-function copyExecutableTargetToAlias(sidecarsDir, targetName, aliasName) {
-  const targetPath = path.join(sidecarsDir, targetName);
-  const aliasPath = path.join(sidecarsDir, aliasName);
-  if (fs.existsSync(targetPath)) {
-    if (targetPath !== aliasPath) {
-      fs.copyFileSync(targetPath, aliasPath);
-    }
-  } else if (!fs.existsSync(aliasPath)) {
-    throw new Error(`Missing packaged sidecar for target: ${targetName}`);
-  }
-
-  try {
-    fs.chmodSync(aliasPath, 0o755);
-  } catch {
-    // Windows and some filesystems may ignore chmod.
-  }
-}
-
 async function afterPack(context) {
   const triple = targetTriple(context.electronPlatformName, context.arch);
   if (!triple) return;
 
-  const sidecarsDir = resolveSidecarsDir(context);
-  if (!sidecarsDir || !fs.existsSync(sidecarsDir)) return;
-
   const isWindows = context.electronPlatformName === "win32";
-  const executableSuffix = isWindows ? ".exe" : "";
-  const keep = new Set();
-
-  const sidecarKeep = resolvePackagedSidecarKeepList(
-    sidecarsDir,
+  slimPackagedExtraResources({
+    sidecarsDir: resolveSidecarsDir(context),
+    runtimesDir: resolveRuntimesDir(context),
     triple,
-    executableSuffix,
-  );
-  for (const { aliasName, targetName } of sidecarKeep.planned) {
-    copyExecutableTargetToAlias(sidecarsDir, targetName, aliasName);
-    keep.add(aliasName);
-  }
-
-  const versionsAlias = "versions.json";
-  const versionsTarget = `versions.json-${triple}${executableSuffix}`;
-  const versionsTargetPath = path.join(sidecarsDir, versionsTarget);
-  if (fs.existsSync(versionsTargetPath)) {
-    fs.copyFileSync(versionsTargetPath, path.join(sidecarsDir, versionsAlias));
-  } else if (!fs.existsSync(path.join(sidecarsDir, versionsAlias))) {
-    throw new Error(`Missing packaged sidecar metadata for target: ${versionsTarget}`);
-  }
-  keep.add(versionsAlias);
-
-  for (const entry of fs.readdirSync(sidecarsDir)) {
-    if (!keep.has(entry)) {
-      fs.rmSync(path.join(sidecarsDir, entry), { force: true, recursive: true });
-    }
-  }
-
-  const runtimesDir = resolveRuntimesDir(context);
-  const targetRuntimeDir = runtimesDir
-    ? path.join(runtimesDir, triple)
-    : null;
-  if (!targetRuntimeDir || !fs.existsSync(targetRuntimeDir)) {
-    throw new Error(`Missing packaged runtimes for target: ${triple}`);
-  }
-  for (const entry of fs.readdirSync(runtimesDir)) {
-    if (entry !== triple) {
-      fs.rmSync(path.join(runtimesDir, entry), {
-        force: true,
-        recursive: true,
-      });
-    }
-  }
-  prunePackagedRuntime(targetRuntimeDir);
-  pruneArtifactRuntimeTree(resolveExtraResourceDir(context, "artifact-runtime"));
+    executableSuffix: isWindows ? ".exe" : "",
+    artifactRuntimeDir: resolveExtraResourceDir(context, "artifact-runtime"),
+  });
 
   signComputerUseHelper(context);
   brandWindowsExecutable(context);

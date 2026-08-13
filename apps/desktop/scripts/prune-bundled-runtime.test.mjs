@@ -8,6 +8,7 @@ import {
   pruneArtifactRuntimeTree,
   prunePackagedRuntime,
   resolvePackagedSidecarKeepList,
+  slimPackagedExtraResources,
 } from "./prune-bundled-runtime.cjs";
 
 test("prunePackagedRuntime drops headers, docs, extra globals, and idle Python dirs", () => {
@@ -72,6 +73,32 @@ test("prunePackagedRuntime drops headers, docs, extra globals, and idle Python d
   }
 });
 
+test("prunePackagedRuntime drops Windows prefix extra globals and keeps npm", () => {
+  const root = join(
+    tmpdir(),
+    `oma-prune-win-node-${process.pid}-${Date.now()}`,
+  );
+  mkdirSync(join(root, "node", "node_modules", "npm"), { recursive: true });
+  mkdirSync(join(root, "node", "node_modules", "corepack"), { recursive: true });
+  mkdirSync(join(root, "node", "node_modules", "@xai-official", "grok"), {
+    recursive: true,
+  });
+  writeFileSync(join(root, "node", "node.exe"), "mz");
+  writeFileSync(join(root, "node", "node_modules", "npm", "package.json"), "{}\n");
+  writeFileSync(join(root, "node", "CHANGELOG.md"), "notes\n");
+
+  try {
+    prunePackagedRuntime(root);
+    assert.equal(existsSync(join(root, "node", "node_modules", "@xai-official")), false);
+    assert.equal(existsSync(join(root, "node", "node_modules", "npm")), true);
+    assert.equal(existsSync(join(root, "node", "node_modules", "corepack")), true);
+    assert.equal(existsSync(join(root, "node", "node.exe")), true);
+    assert.equal(existsSync(join(root, "node", "CHANGELOG.md")), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("packaged sidecar keep list is short aliases only", () => {
   const { keep, planned } = resolvePackagedSidecarKeepList(
     "/tmp/sidecars",
@@ -111,6 +138,84 @@ test("pruneArtifactRuntimeTree drops maps, types, and markdown", () => {
     assert.equal(existsSync(join(root, "spreadsheet-runtime.cjs")), true);
     assert.equal(existsSync(join(root, "spreadsheet-runtime.test.cjs")), false);
     assert.equal(existsSync(join(root, "node_modules", ".pnpm", "@types+node@24.13.2")), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("slimPackagedExtraResources prunes runtime and artifact when sidecars are absent", () => {
+  const root = join(
+    tmpdir(),
+    `oma-afterpack-no-sidecar-${process.pid}-${Date.now()}`,
+  );
+  const triple = "x86_64-pc-windows-msvc";
+  const runtimesDir = join(root, "runtimes");
+  const target = join(runtimesDir, triple);
+  const artifact = join(root, "artifact-runtime");
+  mkdirSync(join(target, "node", "include"), { recursive: true });
+  mkdirSync(join(target, "node", "node_modules", "npm"), { recursive: true });
+  mkdirSync(join(target, "node", "node_modules", "@xai-official", "grok"), {
+    recursive: true,
+  });
+  mkdirSync(join(runtimesDir, "aarch64-apple-darwin", "node"), { recursive: true });
+  mkdirSync(artifact, { recursive: true });
+  writeFileSync(join(target, "node", "CHANGELOG.md"), "notes\n");
+  writeFileSync(join(target, "node", "node_modules", "npm", "package.json"), "{}\n");
+  writeFileSync(join(artifact, "runtime.cjs"), "ok\n");
+  writeFileSync(join(artifact, "runtime.cjs.map"), "{}\n");
+  writeFileSync(join(artifact, "README.md"), "docs\n");
+
+  try {
+    slimPackagedExtraResources({
+      sidecarsDir: join(root, "sidecars"),
+      runtimesDir,
+      triple,
+      executableSuffix: ".exe",
+      artifactRuntimeDir: artifact,
+    });
+    assert.equal(existsSync(join(root, "sidecars")), false);
+    assert.equal(existsSync(join(target, "node", "include")), false);
+    assert.equal(existsSync(join(target, "node", "CHANGELOG.md")), false);
+    assert.equal(existsSync(join(target, "node", "node_modules", "@xai-official")), false);
+    assert.equal(existsSync(join(target, "node", "node_modules", "npm")), true);
+    assert.equal(existsSync(join(runtimesDir, "aarch64-apple-darwin")), false);
+    assert.equal(existsSync(join(artifact, "runtime.cjs")), true);
+    assert.equal(existsSync(join(artifact, "runtime.cjs.map")), false);
+    assert.equal(existsSync(join(artifact, "README.md")), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("slimPackagedExtraResources keeps short sidecar aliases when sidecars exist", () => {
+  const root = join(
+    tmpdir(),
+    `oma-afterpack-sidecars-${process.pid}-${Date.now()}`,
+  );
+  const triple = "aarch64-apple-darwin";
+  const sidecarsDir = join(root, "sidecars");
+  const runtimesDir = join(root, "runtimes");
+  const target = join(runtimesDir, triple);
+  mkdirSync(sidecarsDir, { recursive: true });
+  mkdirSync(join(target, "node"), { recursive: true });
+  writeFileSync(join(sidecarsDir, `opencode-${triple}`), "opencode\n");
+  writeFileSync(join(sidecarsDir, `onmyagent-orchestrator-${triple}`), "orch\n");
+  writeFileSync(join(sidecarsDir, `versions.json-${triple}`), "{}\n");
+  writeFileSync(join(sidecarsDir, `opencode-x86_64-apple-darwin`), "stale\n");
+
+  try {
+    slimPackagedExtraResources({
+      sidecarsDir,
+      runtimesDir,
+      triple,
+      executableSuffix: "",
+      artifactRuntimeDir: join(root, "missing-artifact"),
+    });
+    assert.equal(existsSync(join(sidecarsDir, "opencode")), true);
+    assert.equal(existsSync(join(sidecarsDir, "onmyagent-orchestrator")), true);
+    assert.equal(existsSync(join(sidecarsDir, "versions.json")), true);
+    assert.equal(existsSync(join(sidecarsDir, `opencode-${triple}`)), false);
+    assert.equal(existsSync(join(sidecarsDir, "opencode-x86_64-apple-darwin")), false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

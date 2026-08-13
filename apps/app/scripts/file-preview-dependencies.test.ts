@@ -31,4 +31,6 @@ test("publishes file viewer workers and wasm as local Vite assets", () => {
   expect(viteConfig).toContain("publicDir: fileViewerDevAssetsRoot");
   expect(viteConfig).toContain('mode: "both"');
   expect(viteConfig).toContain("dedupeFileViewerVendorAssets");
+  expect(viteConfig).toContain("applyFileViewerVendorAssetDedupe");
+  expect(viteConfig).toContain("./scripts/dedupe-file-viewer-vendor-assets");
 });
