@@ -57,7 +57,7 @@ The account menu also includes:
 | **Agent chat** | Delegate work directly to a local Agent; see [Agent chat](/en/guide/agent-chat) |
 | **Settings** | Open the complete settings page for models, preferences, Company, and more |
 | Appearance | Switch between light and dark themes |
-| Check for updates and Quit | System items |
+| Check for updates and Quit | Click the notice to start a download when a new version is found |
 
 
 Settings opens to **Overview**. The left side groups pages under Workspace, including Models and Company; Personal; Global, including Preferences, System, Shortcuts, and Updates; and Data. Local environment settings are now part of **System**. See [Settings](/en/guide/settings).
