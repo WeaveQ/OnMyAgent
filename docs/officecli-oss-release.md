@@ -139,11 +139,14 @@ node scripts/officecli/validate-manifest.mjs \
 
 ## 会话产物卡
 
-桌面端 managed launcher（`profiles/local/tools/officecli/launcher.mjs`）在 `create` / `save` / `set` / `add` 等写文件类命令成功后，会追加一行：
+桌面端 managed launcher（`profiles/local/tools/officecli/launcher.mjs`）在 `create` / `save` / `set` / `add` / **`merge`** 等写文件类命令成功后，会追加一行：
 
 ```text
 ONMYAGENT_DELIVERABLE: <path>
 ```
+
+- 普通写动词：登记命令中的文档路径  
+- **`merge <template> <output>`**：登记 **output**（不是 template）；也识别 merge JSON 的 `data.output`  
 
 与 `artifact-runtime` 的交付标记相同，会话底部产物卡靠此注册文件。已安装用户在下次 status 检查时会自动刷新 launcher，无需重装。
 

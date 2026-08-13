@@ -44,7 +44,7 @@ description: Use when 需要核对开票申请、返点协议和项目计划单�
 
 ### 3. 执行
 
-优先在确认映射后调用脚本：
+优先在确认映射后调用脚本。**`--output` 必须写在当前会话 cwd 下**（不要写 `/tmp`），以便产物卡与「文件 → 专家」可见：
 
 ```bash
 python3 scripts/check_rebate_contracts.py \

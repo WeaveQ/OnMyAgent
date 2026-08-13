@@ -635,6 +635,12 @@ class RebateContractChecker:
         workbook.save(output_path)
 
         print(f"Results saved to: {output_path}")
+        # Session product card + Files sidebar registration
+        try:
+            marker_path = os.path.abspath(output_path)
+        except OSError:
+            marker_path = str(output_path)
+        print(f"ONMYAGENT_DELIVERABLE: {marker_path}", flush=True)
         return output_path
 
     @staticmethod

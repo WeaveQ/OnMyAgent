@@ -442,7 +442,7 @@ const RUNTIME_DELIVERABLE_MARKER =
 
 /** OfficeCLI verbs that create or flush document files (managed launcher also emits markers). */
 const OFFICECLI_MUTATING_VERB =
-  /\b(create|save|close|set|add|remove|move|swap|batch|raw-set|add-part|refresh)\b/i;
+  /\b(create|save|close|set|add|remove|move|swap|batch|raw-set|add-part|refresh|merge)\b/i;
 
 /**
  * Paths registered by first-class artifact-runtime writes:
@@ -509,18 +509,42 @@ export function collectRuntimeRegisteredDeliverablePaths(
   }
 
   // OfficeCLI: file path is the first positional after a mutating verb.
+  // merge <template> <output> → register the output (2nd positional), not the template.
   // Launcher also prints ONMYAGENT_DELIVERABLE; keep command-arg fallback for
   // older launchers and bare binary invocations.
   if (/\bofficecli(?:\.cmd|\.exe)?\b/i.test(command) && OFFICECLI_MUTATING_VERB.test(command)) {
-    const officeFile = command.match(
-      /\bofficecli(?:\.cmd|\.exe)?\b[\s\S]*?\b(?:create|save|close|set|add|remove|move|swap|batch|raw-set|add-part|refresh)\b\s+(["']?)([^"'\s]+)\1/i,
+    const mergeMatch = command.match(
+      /\bofficecli(?:\.cmd|\.exe)?\b[\s\S]*?\bmerge\b\s+(["']?)([^"'\s]+)\1\s+(["']?)([^"'\s]+)\3/i,
     );
-    if (officeFile?.[2] && /\.(docx|xlsx|pptx)$/i.test(officeFile[2])) {
-      paths.push(officeFile[2]);
+    if (mergeMatch?.[4] && /\.(docx|xlsx|pptx)$/i.test(mergeMatch[4])) {
+      paths.push(mergeMatch[4]);
+    } else {
+      const officeFile = command.match(
+        /\bofficecli(?:\.cmd|\.exe)?\b[\s\S]*?\b(?:create|save|close|set|add|remove|move|swap|batch|raw-set|add-part|refresh)\b\s+(["']?)([^"'\s]+)\1/i,
+      );
+      if (officeFile?.[2] && /\.(docx|xlsx|pptx)$/i.test(officeFile[2])) {
+        paths.push(officeFile[2]);
+      }
     }
     for (const match of out.matchAll(/(?:^|\n)Created:\s*(.+?)(?:\s*\(|\s*$)/gim)) {
       const raw = (match[1] ?? "").trim().replace(/^["']|["']$/g, "");
       if (raw && /\.(docx|xlsx|pptx)$/i.test(raw)) paths.push(raw);
+    }
+    // merge --json: { success, data: { output: "…/out.docx" } }
+    for (const line of out.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) continue;
+      try {
+        const parsed: unknown = JSON.parse(trimmed);
+        if (!isObject(parsed) || parsed.success === false) continue;
+        const data = parsed.data;
+        if (isObject(data) && typeof data.output === "string") {
+          const outPath = data.output.trim();
+          if (outPath && /\.(docx|xlsx|pptx)$/i.test(outPath)) paths.push(outPath);
+        }
+      } catch {
+        // ignore
+      }
     }
   }
 

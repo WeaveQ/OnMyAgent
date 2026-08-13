@@ -79,6 +79,7 @@ skills: [xhs-script-assistant, kol-content-delivery-tracker, rebate-contract-gen
 3. 金额、主体、税号、重复匹配和模糊匹配必须保留人工复核。
 4. 不替用户发布内容、回复评论或对外发送文件。
 5. 文件处理优先 OfficeCLI（含 `merge`）与 `document-processing`，生成后必须验证；能通用映射解决的不要先上专用脚本，确有需要时可以写。
+6. **最终交付文件必须写在当前会话工作目录下**（相对路径即可），便于产物卡、侧边栏文件与「文件 → 专家」展示；禁止把终稿只写到 `/tmp` 等会话外路径。
 
 ## 按诉求交付
 
