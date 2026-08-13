@@ -19,6 +19,8 @@ const MUTATING_VERBS = new Set([
   "raw-set",
   "add-part",
   "refresh",
+  // merge <template> <output> --data … writes the output document
+  "merge",
 ]);
 
 /** Flags whose next token is a value, not a file path. */
@@ -41,6 +43,7 @@ const FLAGS_WITH_VALUE = new Set([
   "--part",
   "--parent",
   "--out",
+  "--data",
 ]);
 
 /**
@@ -55,7 +58,7 @@ export function isOfficeCliDocumentPath(value) {
 
 /**
  * @param {string[]} argv process.argv.slice(2) style args (no binary name)
- * @returns {{ verb: string | null, file: string | null }}
+ * @returns {{ verb: string | null, file: string | null, template?: string | null }}
  */
 export function parseOfficeCliArgv(argv) {
   const tokens = Array.isArray(argv) ? argv.map(String) : [];
@@ -86,6 +89,22 @@ export function parseOfficeCliArgv(argv) {
 
   if (verb === "help" || verb === "plugins" || verb === "version") {
     return { verb, file: null };
+  }
+
+  // merge <template> <output> — deliverable is the output (2nd positional), not the template.
+  if (verb === "merge") {
+    const positionals = [];
+    while (index < tokens.length) {
+      if (tokens[index].startsWith("-")) {
+        skipFlag();
+        continue;
+      }
+      positionals.push(tokens[index].replace(/^["']|["']$/g, ""));
+      index += 1;
+    }
+    const template = positionals[0] || null;
+    const output = positionals[1] || null;
+    return { verb, file: output, template };
   }
 
   while (index < tokens.length) {
@@ -132,6 +151,17 @@ export function extractOfficeCliPathsFromStdout(stdout) {
       }
       if (typeof parsed.path === "string" && isOfficeCliDocumentPath(parsed.path)) {
         paths.push(parsed.path.trim());
+      }
+      // officecli merge --json: { success, data: { output: "…/out.docx", … } }
+      if (parsed.data && typeof parsed.data === "object" && !Array.isArray(parsed.data)) {
+        const output = parsed.data.output;
+        if (typeof output === "string" && isOfficeCliDocumentPath(output)) {
+          paths.push(output.trim());
+        }
+        const pathAlt = parsed.data.path;
+        if (typeof pathAlt === "string" && isOfficeCliDocumentPath(pathAlt)) {
+          paths.push(pathAlt.trim());
+        }
       }
     } catch {
       // ignore

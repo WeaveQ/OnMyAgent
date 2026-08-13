@@ -144,7 +144,27 @@ class CreatorOpsScriptFixtures(unittest.TestCase):
             create_minimal_docx(template)
             output_dir = root / "合同"
             report = root / "生成报告.xlsx"
-            run_script(GENERATOR, "--input", source, "--template", template, "--output-dir", output_dir, "--report", report)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(GENERATOR),
+                    "--input",
+                    str(source),
+                    "--template",
+                    str(template),
+                    "--output-dir",
+                    str(output_dir),
+                    "--report",
+                    str(report),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+            self.assertIn("ONMYAGENT_DELIVERABLE:", result.stdout)
+            self.assertRegex(result.stdout, r"ONMYAGENT_DELIVERABLE:.*\.docx")
+            self.assertRegex(result.stdout, r"ONMYAGENT_DELIVERABLE:.*生成报告\.xlsx")
 
             contracts = list(output_dir.glob("*.docx"))
             self.assertEqual(len(contracts), 1)

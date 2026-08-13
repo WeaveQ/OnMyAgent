@@ -896,6 +896,7 @@ async function resolveCanonicalDirectoryWithinRoot(input: {
   }
 }
 
+/** Files → Expert catalog row; path may include session subdirs (合同输出/…). */
 export type ExpertSessionRuntimeFileEntry = {
   path: string;
   kind: "file" | "dir";
@@ -905,14 +906,77 @@ export type ExpertSessionRuntimeFileEntry = {
   sessionKey: string;
 };
 
+/** Session-local dirs that are runtime plumbing, not user deliverables. */
+const EXPERT_SESSION_SKIP_DIR_NAMES = new Set([
+  ".opencode",
+  "node_modules",
+  ".git",
+  ".omo",
+  ".onmyagent",
+]);
+
+/**
+ * Walk a session directory for deliverable files (recursive).
+ * Paths are relative to the session root with forward slashes.
+ * Skips marker/dotfiles and known runtime plumbing directories.
+ */
+async function collectExpertSessionDeliverableFiles(
+  sessionDir: string,
+  relativePrefix = "",
+  depth = 0,
+): Promise<Array<{ relPath: string; size: number; mtimeMs: number }>> {
+  // Cap depth so a runaway tree cannot explode the Files catalog.
+  if (depth > 8) return [];
+
+  let dirEntries: import("node:fs").Dirent[];
+  try {
+    dirEntries = await readdir(sessionDir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+
+  const out: Array<{ relPath: string; size: number; mtimeMs: number }> = [];
+  for (const entry of dirEntries) {
+    const name = entry.name;
+    if (name === EXPERT_SESSION_MARKER_NAME) continue;
+    if (name === ".DS_Store" || name.startsWith(".")) continue;
+    if (name === "opencode.json") continue;
+
+    const abs = join(sessionDir, name);
+    const relPath = relativePrefix ? `${relativePrefix}/${name}` : name;
+
+    if (entry.isDirectory()) {
+      if (EXPERT_SESSION_SKIP_DIR_NAMES.has(name)) continue;
+      // Process helper folders (scripts/) stay out of Expert Files — they are
+      // not user deliverables (product cards use ONMYAGENT_DELIVERABLE instead).
+      if (depth === 0 && (name === "scripts" || name === "tmp" || name === "temp")) {
+        continue;
+      }
+      out.push(...(await collectExpertSessionDeliverableFiles(abs, relPath, depth + 1)));
+      continue;
+    }
+    if (!entry.isFile()) continue;
+
+    let info;
+    try {
+      info = await stat(abs);
+    } catch {
+      continue;
+    }
+    out.push({ relPath, size: info.size, mtimeMs: info.mtimeMs });
+  }
+  return out;
+}
+
 /**
  * List every managed expert session artifact under the current workspace's
  * runtime directory. Returns flat entries whose `path` is
- * `<agentSegment>/<sessionKey>/<fileName>` so the UI can build an
- * agent -> session -> file outline from the existing file-tree helpers.
+ * `<agentSegment>/<sessionKey>/<relativeFile>` (subdirs allowed, e.g.
+ * `…/合同输出/foo.docx`) so the UI can build an agent -> session -> file outline.
  *
- * Marker files (`onmyagent-session.json`), dotfiles and OS junk are filtered
- * server-side; the UI also hides them via `shouldHideEntry`.
+ * Marker files (`onmyagent-session.json`), dotfiles, `.opencode/`, and process
+ * helper folders are filtered server-side; the UI also hides junk via
+ * `shouldHideEntry`.
  */
 export async function listExpertSessionRuntimeFiles(input: {
   workspace: WorkspaceInfo;
@@ -952,29 +1016,13 @@ export async function listExpertSessionRuntimeFiles(input: {
       const sessionKey = sessionEntry.name;
       const sessionDir = join(agentDir, sessionKey);
 
-      let fileEntries: import("node:fs").Dirent[];
-      try {
-        fileEntries = await readdir(sessionDir, { withFileTypes: true });
-      } catch {
-        continue;
-      }
-      for (const fileEntry of fileEntries) {
-        if (!fileEntry.isFile()) continue;
-        const fileName = fileEntry.name;
-        if (fileName === EXPERT_SESSION_MARKER_NAME) continue;
-        if (fileName === ".DS_Store" || fileName.startsWith(".")) continue;
-        const abs = join(sessionDir, fileName);
-        let info;
-        try {
-          info = await stat(abs);
-        } catch {
-          continue;
-        }
+      const files = await collectExpertSessionDeliverableFiles(sessionDir);
+      for (const file of files) {
         entries.push({
-          path: `${agentSegment}/${sessionKey}/${fileName}`,
+          path: `${agentSegment}/${sessionKey}/${file.relPath}`,
           kind: "file",
-          size: info.size,
-          mtimeMs: info.mtimeMs,
+          size: file.size,
+          mtimeMs: file.mtimeMs,
           agentSegment,
           sessionKey,
         });

@@ -380,7 +380,26 @@ def _inspect(
     }
 
 
-def generate(args: argparse.Namespace) -> dict[str, int]:
+def _emit_deliverable(path: Path) -> str:
+    """Print session product-card marker; prefer session-cwd-relative paths.
+
+    Absolute paths under Application Support expert-sessions only resolve when
+    the client passes the correct sessionRoot. Relative paths resolve reliably
+    against the expert session directory and show on the turn product strip.
+    """
+    try:
+        resolved = path.resolve()
+        try:
+            text = str(resolved.relative_to(Path.cwd().resolve())).replace("\\", "/")
+        except ValueError:
+            text = str(resolved)
+    except OSError:
+        text = str(path)
+    print(f"ONMYAGENT_DELIVERABLE: {text}", flush=True)
+    return text
+
+
+def generate(args: argparse.Namespace) -> dict[str, object]:
     input_path = Path(args.input)
     template_path = Path(args.template)
     output_dir = Path(args.output_dir)
@@ -433,6 +452,7 @@ def generate(args: argparse.Namespace) -> dict[str, int]:
     logs: list[dict[str, object]] = []
     generated = 0
     incomplete = 0
+    deliverables: list[str] = []
 
     for row_number, values in enumerate(rows, start=2):
         if not any(_display_value(value) for value in values):
@@ -471,11 +491,18 @@ def generate(args: argparse.Namespace) -> dict[str, int]:
             log["状态"] = "已生成"
             log["输出文件"] = filename
             generated += 1
+            deliverables.append(_emit_deliverable(output_path))
         logs.append(log)
 
     workbook.close()
     _write_report(logs, report_path)
-    return {"generated": generated, "incomplete": incomplete}
+    if report_path.exists():
+        deliverables.append(_emit_deliverable(report_path))
+    return {
+        "generated": generated,
+        "incomplete": incomplete,
+        "deliverables": deliverables,
+    }
 
 
 def self_test() -> dict[str, object]:

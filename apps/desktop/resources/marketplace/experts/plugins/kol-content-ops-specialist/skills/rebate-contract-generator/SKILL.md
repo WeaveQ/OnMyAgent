@@ -77,10 +77,23 @@ python3 scripts/generate_rebate_contracts.py \
 
 ### 3. 生成
 
+**路径硬约束（产物卡 + 侧边栏 + 文件·专家）：**
+
+1. **必须写在当前会话 cwd 下**（专家隔离目录）。相对路径，例如 `合同输出/某主体.docx`、`生成报告.xlsx`。
+2. **禁止**把终稿写到 `/tmp`、桌面、上传 inbox 或会话外绝对路径。
+3. 产物卡依赖工具 stdout 中的 `ONMYAGENT_DELIVERABLE: <相对路径>`（优先相对 cwd，不要打绝对路径）：
+   - `officecli merge` → launcher 自动打标记；
+   - skill 脚本回退 → 每个合同与报告各打一行；
+   - 若写当次辅助脚本，**必须同样打印该标记**，否则只有台账/部分文件有卡。
+4. **同一轮 shell 内生成全部合同并打印全部标记**，再写总结；若拆成多轮，只有「最后一轮」工具输出会进会话末尾产物条。
+5. 正文只简述交付物名称；**不要**堆 `文件路径：…`。
+
 **OfficeCLI 路径（推荐）：**
 
 ```bash
 # 每完整行一份 row.json，键 = 模板里的占位符原文
+# 输出路径相对会话 cwd，便于进专家文件目录
+mkdir -p 合同输出
 officecli merge 批准模板.docx "合同输出/返点合同_主体_2.docx" --data row.json --force
 ```
 
@@ -103,7 +116,7 @@ python3 scripts/generate_rebate_contracts.py \
 
 ## 输出
 
-- 每个完整数据行一份 DOCX 合同
+- 每个完整数据行一份 DOCX 合同（会话 cwd 下，可进产物卡 / 侧边栏 / 文件·专家）
 - 生成报告：来源行、输出文件、状态、缺失字段、未替换占位符
 - 待处理事项清单
 

@@ -979,6 +979,45 @@ describe("deriveOpenTargets", () => {
     expect(paths).toContain("slides.pptx");
   });
 
+  it("collects OfficeCLI merge output (not template) as deliverable", () => {
+    const paths = collectRuntimeRegisteredDeliverablePaths(
+      {
+        command:
+          'officecli merge 批准模板.docx "合同输出/返点合同_A.docx" --data row.json --force',
+      },
+      JSON.stringify({
+        success: true,
+        data: { output: "合同输出/返点合同_A.docx", replacedKeys: 3 },
+        message: "Merged 3 key(s)",
+      }),
+    );
+    expect(paths).toContain("合同输出/返点合同_A.docx");
+    expect(paths).not.toContain("批准模板.docx");
+  });
+
+  it("mints product cards from merge ONMYAGENT_DELIVERABLE markers", () => {
+    const targets = deriveOpenTargets([
+      toolMessage(
+        "msg_tool",
+        "bash",
+        {
+          command:
+            "officecli merge template.docx 合同输出/out.docx --data row.json --force",
+        },
+        [
+          JSON.stringify({
+            success: true,
+            data: { output: "合同输出/out.docx" },
+            message: "Merged 3 key(s)",
+          }),
+          "ONMYAGENT_DELIVERABLE: 合同输出/out.docx",
+        ].join("\n"),
+      ),
+      message("msg_final", "assistant", "已生成返点合同。"),
+    ]);
+    expect(targets.map((target) => target.value)).toContain("合同输出/out.docx");
+  });
+
   it("shows pdf/html/md content deliverables written by write tools", () => {
     const messages = [
       toolMessage("msg_pdf", "write", { filePath: "回单核对.pdf" }, { filePath: "回单核对.pdf" }),

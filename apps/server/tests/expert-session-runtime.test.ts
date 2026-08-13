@@ -8,6 +8,7 @@ import {
   createExpertSessionRuntimeDirectory,
   ensureExpertSessionRuntimeIsolation,
   EXPERT_SESSION_ISOLATION_VERSION,
+  listExpertSessionRuntimeFiles,
   resolveAuthorizedArtifactResolutionRoot,
   resolveAuthorizedExpertSessionRuntimeDirectory,
 } from "../src/services/expert-session-runtime.js";
@@ -269,6 +270,40 @@ describe("expert session runtime directory", () => {
     ) as { installedSkills?: string[]; missingSkills?: string[] };
     expect(marker.installedSkills).toEqual(["fleet-data-consolidation"]);
     expect(marker.missingSkills).toEqual([]);
+  });
+
+  test("listExpertSessionRuntimeFiles includes nested deliverables under session", async () => {
+    const workspace = testWorkspace(join(tempRoot, "project-list-files"));
+    const runtimeRoot = join(tempRoot, "app-user-data", "expert-sessions");
+    await mkdir(workspace.path, { recursive: true });
+    const created = await createExpertSessionRuntimeDirectory({
+      workspace,
+      runtimeRoot,
+      agentName: "达人运营专家",
+      agentId: "kol-content-ops-specialist",
+      packageName: "kol-content-ops-specialist",
+      sessionKey: "1786549859043",
+    });
+    const contractDir = join(created.directory, "合同输出");
+    await mkdir(contractDir, { recursive: true });
+    await writeFile(join(created.directory, "对公返点信息_完成台账.xlsx"), "xlsx", "utf8");
+    await writeFile(join(contractDir, "【博主A】.docx"), "docx-a", "utf8");
+    await writeFile(join(contractDir, "【博主B】.docx"), "docx-b", "utf8");
+    await mkdir(join(created.directory, "scripts"), { recursive: true });
+    await writeFile(join(created.directory, "scripts", "gen_rebate_contracts.py"), "print(1)\n", "utf8");
+    await mkdir(join(created.directory, ".opencode", "skills"), { recursive: true });
+    await writeFile(join(created.directory, ".opencode", "skills", "noop.txt"), "x", "utf8");
+
+    const items = await listExpertSessionRuntimeFiles({
+      workspace,
+      runtimeRoot,
+    });
+    const paths = items.map((item) => item.path).sort();
+    expect(paths.some((p) => p.endsWith("/对公返点信息_完成台账.xlsx"))).toBe(true);
+    expect(paths.some((p) => p.endsWith("/合同输出/【博主A】.docx"))).toBe(true);
+    expect(paths.some((p) => p.endsWith("/合同输出/【博主B】.docx"))).toBe(true);
+    expect(paths.some((p) => p.includes("/scripts/"))).toBe(false);
+    expect(paths.some((p) => p.includes("/.opencode/"))).toBe(false);
   });
 
   test("materialize falls back to package-local skills when global root lacks them", async () => {
