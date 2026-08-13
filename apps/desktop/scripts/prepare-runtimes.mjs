@@ -12,12 +12,16 @@ import {
 import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 import {
   clearDownloadQuarantine,
   movePreparedRuntimeTree,
   preparedRuntimeRoot,
   resolveRuntimeTarExtraction,
 } from "./runtime-archive.mjs";
+
+const require = createRequire(import.meta.url);
+const { prunePackagedRuntime } = require("./prune-bundled-runtime.cjs");
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(__dirname, "..");
@@ -148,6 +152,7 @@ const runtimeVersionsMatch = currentManifest !== null &&
   Object.entries(expectedManifest).every(([key, value]) => currentManifest[key] === value);
 
 if (runtimeVersionsMatch && executableWorks(nodeBinary) && executableWorks(pythonBinary)) {
+  prunePackagedRuntime(targetRoot);
   writeFileSync(manifestPath, `${JSON.stringify(expectedManifest, null, 2)}\n`);
   process.stdout.write(`[runtimes] ${target} already prepared\n`);
   process.exit(0);
@@ -290,6 +295,7 @@ try {
   rmSync(targetRoot, { recursive: true, force: true });
   mkdirSync(dirname(targetRoot), { recursive: true });
   renameSync(stagedRoot, targetRoot);
+  prunePackagedRuntime(targetRoot);
 
   if (
     !executableWorks(nodeBinary) ||

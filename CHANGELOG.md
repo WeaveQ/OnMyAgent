@@ -16,6 +16,12 @@ This project follows a lightweight changelog format during early development. Re
 
 ### License / community
 
+## 0.5.1
+
+### Changed
+
+- Packaged desktop installers drop unused bundled Node/Python extras, duplicate sidecar binaries, and artifact-runtime source maps/types. Windows extra-global Node modules are pruned; PPT viewer hashed font/wasm copies are rewritten to the vendor originals.
+
 ## 0.5.0
 
 ### Changed

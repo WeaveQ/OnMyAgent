@@ -8,6 +8,9 @@ For the complete assets and release notes, use [GitHub Releases](https://github.
 
 ## Unreleased
 
+## 0.5.1
+
+- Smaller installers: drop unused bundled Node/Python extras, duplicate sidecars, and artifact-runtime maps/types
 - A found update starts downloading only after you click the notice or **Download update**; cold start also checks once
 - Updates are not downloaded automatically in the background after a check, and nothing installs silently
 
