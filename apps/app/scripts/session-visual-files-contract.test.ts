@@ -139,6 +139,10 @@ describe("session visual and file contracts", () => {
     expect(sidePanel).toContain("client.downloadWorkspaceFile(workspaceId, requestPath)");
     expect(sidePanel).toContain("client.deleteWorkspaceFile(");
     expect(sidePanel).toContain("<ConfirmModal");
+    expect(sidePanel).toContain("workspaceFileParentPaths(normalized)");
+    expect(sidePanel).toContain("recursive: true");
+    expect(sidePanel).toContain("data-workspace-tree-path={props.node.path}");
+    expect(sidePanel).toContain('scrollIntoView({ block: "nearest" })');
     expect(sidePanel).not.toContain("Only supported text artifact files can be read inline");
   });
 
