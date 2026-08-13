@@ -521,7 +521,7 @@ Root `package.json` 只保留高频稳定入口。低频模块专项命令统一
 pnpm check:type      → 全 workspace 类型门禁：types/ui/app/server/desktop/orchestrator
 pnpm test:unit       → server tests + orchestrator pure-module tests
 pnpm test:api        → server HTTP/API e2e
-pnpm test:runtime    → Electron bridge + orchestrator runtime smoke
+pnpm test:runtime    → Desktop IPC / Electron runtime (no second orchestrator unit pass)
 pnpm test:release-smoke → desktop build + Electron package directory smoke, no publish
 pnpm test:ui         → app version gate + UI/e2e smoke
 ```
@@ -539,8 +539,8 @@ CI 主测试 workflow 拆为 `checks` 与 `tests` matrix，并缓存 pnpm store 
 - `pnpm check` 是交付前基础门禁：类型、i18n、security smoke、架构边界。
 - server 行为变更优先跑 `pnpm test:unit` 和 `pnpm test:api`。
 - server 局部定位可跑 `pnpm task test server:archive`、`server:automation`、`server:routes`、`server:workspace`。
-- desktop/orchestrator/runtime 变更优先跑 `pnpm test:runtime`；该入口包含 Desktop IPC
-  command/domain parity。`pnpm test:ui` 包含 renderer HTTP client method parity。
+- desktop runtime / IPC 变更优先跑 `pnpm test:runtime`；该入口包含 Desktop IPC
+  command/domain parity。orchestrator 模块单测走 `pnpm test:unit`。`pnpm test:ui` 包含 renderer HTTP client method parity。
 - 发布前或打包链路变更跑 `pnpm test:release-smoke`，只做本地目录包 smoke，不签名、不发布。
 - app renderer 或用户路径变更优先跑 `pnpm test:ui`。
 - release/packaging 仍由 Electron/package/release workflow 兜底，不放进快速 PR gate。
