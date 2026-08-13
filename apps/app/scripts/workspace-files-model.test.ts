@@ -21,6 +21,7 @@ import {
 import {
   compareTaskSourceNodes,
   taskSourceBucketRank,
+  workspaceFileParentPaths,
   type WorkspaceFileTreeNode,
 } from "../src/react-app/capabilities/artifacts/workspace-file-tree";
 
@@ -38,6 +39,19 @@ describe("getFileCategory", () => {
     expect(getFileCategory("a.PDF")).toBe("pdf");
     expect(getFileCategory("a.ts")).toBe("code");
     expect(getFileCategory("noext")).toBe("other");
+  });
+});
+
+describe("workspaceFileParentPaths", () => {
+  test("returns every directory that must open for a nested artifact", () => {
+    expect(workspaceFileParentPaths("合同输出/子目录/返点合同.docx")).toEqual([
+      "合同输出",
+      "合同输出/子目录",
+    ]);
+    expect(workspaceFileParentPaths("./台账.xlsx")).toEqual([]);
+    expect(workspaceFileParentPaths("合同输出\\返点合同.docx")).toEqual([
+      "合同输出",
+    ]);
   });
 });
 

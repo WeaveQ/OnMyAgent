@@ -147,9 +147,15 @@ export function processFoldChipMeta(items: TurnProcessItem[], turnRunning = fals
     return part ? [part] : [];
   });
   const toolParts = legacyParts.filter((part) => part.type === "tool");
-  const running = turnRunning && toolParts.some((part) => (
-    isRunningStepStatus(summarizeStep(part).status)
+  const hasPendingDynamicTool = items.some((item) => (
+    item.part.type === "dynamic-tool"
+    && item.part.state !== "output-available"
+    && item.part.state !== "output-error"
   ));
+  const running = turnRunning && (
+    hasPendingDynamicTool
+    || toolParts.some((part) => isRunningStepStatus(summarizeStep(part).status))
+  );
   if (legacyParts.length > 0 && legacyParts.every((part) => part.type === "reasoning")) {
     return {
       label: t("session.process_summary_deep_thinking"),
@@ -262,7 +268,12 @@ export function processFoldChipMeta(items: TurnProcessItem[], turnRunning = fals
   }
   if (terminalCount > 0) {
     return {
-      label: t("session.process_summary_ran_commands", { count: terminalCount }),
+      label: t(
+        running
+          ? "session.process_summary_running_commands"
+          : "session.process_summary_ran_commands",
+        { count: terminalCount },
+      ),
       category: "terminal",
       variant: "summary",
       running,

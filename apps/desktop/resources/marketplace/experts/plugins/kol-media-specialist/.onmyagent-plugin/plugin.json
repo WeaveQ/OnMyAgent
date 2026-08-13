@@ -1,6 +1,6 @@
 {
   "name": "kol-media-specialist",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "KOL media specialist for briefs, talent ranking, outreach schedules, pitch readiness, and creator-ops handoff",
   "author": { "name": "Expert Marketplace" },
   "license": "MIT",
@@ -35,7 +35,7 @@
     { "zh": "提报交接", "en": "Pitch Handoff" }
   ],
   "quickPrompts": [
-    { "zh": "请把 <客户 Brief 或需求材料> 按九个业务模块拆解，并结合 <历史案例或模板> 输出已明确、待补充、建议动作和来源。", "en": "Structure <Client brief or requirements> into nine business modules using <Historical example or template>, with knowns, gaps, actions, and sources." },
+    { "zh": "请把 <客户 Brief 或需求材料> 按九个业务模块拆解，<历史案例或模板> 仅补充结构；生成包含待确认问题和达人运营交接摘要的最终 Word，并只登记终稿。", "en": "Structure <Client brief or requirements> into nine modules, use <Historical example or template> only for structure, and create one final Word deliverable with gaps and creator-ops handoff." },
     { "zh": "请根据 <达人池> 和 <品牌与目标人群要求> 分成优先、备选、不建议，并按 <提报模板> 输出理由。", "en": "Rank <Talent pool> against <Brand and audience requirements> and format it with <Pitch template>." },
     { "zh": "请把 <达人、报价和历史合作表> 按 <对齐字段> 清洗合并，保留冲突、来源和清洗日志。", "en": "Clean and merge <Talent, rate, and history sheets> by <Join fields>, preserving conflicts, sources, and a cleanup log." },
     { "zh": "请把 <达人邀约、报价和档期材料> 按 <项目时间节点> 整理成执行台账和待推进事项。", "en": "Turn <Outreach, rate, and availability materials> into an execution board against <Project milestones>." },

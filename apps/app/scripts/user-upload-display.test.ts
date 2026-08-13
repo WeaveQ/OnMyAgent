@@ -34,4 +34,33 @@ describe("user-upload-display", () => {
     // Plain absolute paths pass through for desktop reveal.
     expect(absolutePathFromFileUrl("/tmp/a.xlsx")).toBe("/tmp/a.xlsx");
   });
+
+  test("recovers attachment chips from workspace-copy instructions with original paths", () => {
+    const text = [
+      "请批量生成合同",
+      "",
+      "The user uploaded the following files. Do not treat them as native model file inputs; if the task needs to process files, use local tools or the configured skill and read these local paths directly:",
+      "- 模板.docx (application/vnd.openxmlformats-officedocument.wordprocessingml.document): workspace copy: /Users/me/work/uploads/1-0-模板.docx (workspace-relative path: uploads/1-0-模板.docx); original user-selected path: /Users/me/Downloads/模板.docx. Only modify this original path when the user explicitly asks to update, overwrite, or write back the source/original file",
+      "- 台账.xlsx (application/vnd.openxmlformats-officedocument.spreadsheetml.sheet): workspace copy: /Users/me/work/uploads/1-1-台账.xlsx (workspace-relative path: uploads/1-1-台账.xlsx); original user-selected path: /Users/me/Downloads/台账.xlsx. Only modify this original path when the user explicitly asks to update, overwrite, or write back the source/original file",
+    ].join("\n");
+
+    const parsed = parseUserUploadInstructionBlock(text);
+    expect(parsed.remainingText).toBe("请批量生成合同");
+    expect(parsed.files).toEqual([
+      {
+        name: "模板.docx",
+        mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        absolutePath: "/Users/me/work/uploads/1-0-模板.docx",
+        relativePath: "uploads/1-0-模板.docx",
+        sourcePath: "/Users/me/Downloads/模板.docx",
+      },
+      {
+        name: "台账.xlsx",
+        mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        absolutePath: "/Users/me/work/uploads/1-1-台账.xlsx",
+        relativePath: "uploads/1-1-台账.xlsx",
+        sourcePath: "/Users/me/Downloads/台账.xlsx",
+      },
+    ]);
+  });
 });

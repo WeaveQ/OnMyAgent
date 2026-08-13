@@ -281,7 +281,9 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
                     activeSidebarView={activeSidebarView}
                     visitedRailViews={visitedRailViews}
                     isPrimarySessionView={isPrimarySessionView}
-                    primarySessionActive={isPrimarySessionView}
+                    primarySessionActive={
+                      isPrimarySessionView && mountExpertSessionSurface
+                    }
                     panes={{
                       agents: props.renderAgentsPage({
                         workspaceId: props.selectedWorkspaceId,

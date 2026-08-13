@@ -26,6 +26,7 @@ import {
   updateDefaultModelPrefs,
 } from "../src/react-app/shell/session-route/composer";
 import { shouldForceNewSessionOnIdle } from "../src/react-app/shell/session-route/auto-new-session";
+import { resolveComposerAttachmentSourcePath } from "../src/react-app/domains/session/surface/session-surface-support";
 import type { ComposerAttachment, ComposerDraft, SidebarSessionItem } from "../src/app/types";
 import { setLocale } from "../src/i18n";
 
@@ -47,11 +48,31 @@ function attachment(input: Partial<ComposerAttachment> & { name: string; kind: "
     size: input.size ?? 12,
     kind: input.kind,
     file: input.file ?? new File(["payload"], input.name, { type: input.mimeType ?? "text/plain" }),
+    sourcePath: input.sourcePath,
     previewUrl: input.previewUrl,
   };
 }
 
 describe("session route composer", () => {
+  test("reads the native source path from the Electron file bridge", () => {
+    const scope = globalThis as typeof globalThis & {
+      __ONMYAGENT_ELECTRON__?: {
+        files?: { getPathForFile?: (file: File) => string | null };
+      };
+    };
+    const previous = scope.__ONMYAGENT_ELECTRON__;
+    scope.__ONMYAGENT_ELECTRON__ = {
+      files: { getPathForFile: () => "/Users/demo/Documents/原始台账.xlsx" },
+    };
+    try {
+      expect(
+        resolveComposerAttachmentSourcePath(new File(["xlsx"], "台账.xlsx")),
+      ).toBe("/Users/demo/Documents/原始台账.xlsx");
+    } finally {
+      scope.__ONMYAGENT_ELECTRON__ = previous;
+    }
+  });
+
   test("maps settings sections to stable route targets", () => {
     // MCP/connectors no longer open Settings → Extensions (removed).
     expect(routeForSettingsSection("commands")).toBe("/settings/general");
@@ -453,6 +474,33 @@ describe("session route composer", () => {
     expect(parts[0]?.text).toContain("report.pdf (application/pdf)");
     expect(parts[0]?.text).toContain("/tmp/workspace/uploads/");
     expect(parts[0]?.text).toContain("workspace-relative path: uploads/");
+  });
+
+  test("preserves the user-selected source path alongside the workspace upload copy", async () => {
+    const parts = await draftToParts(
+      draft({
+        attachments: [
+          attachment({
+            name: "对公返点信息.xlsx",
+            kind: "file",
+            mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            sourcePath: "/Users/demo/Documents/对公返点信息.xlsx",
+          }),
+        ],
+      }),
+      "/tmp/workspace",
+      {
+        uploadAttachment: async (_item, uploadPath) => ({ path: uploadPath }),
+      },
+    );
+
+    expect(parts[0]?.text).toContain("workspace copy: /tmp/workspace/uploads/");
+    expect(parts[0]?.text).toContain(
+      "original user-selected path: /Users/demo/Documents/对公返点信息.xlsx",
+    );
+    expect(parts[0]?.text).toContain("Only modify this original path when the user explicitly asks");
+    expect(parts[0]?.text).toContain("Do not change the process cwd to their parent workspace");
+    expect(parts[0]?.text).toContain("Keep the current session cwd");
   });
 
   test("resolves product upload paths against catalog workspace, not expert session dir", async () => {

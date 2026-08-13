@@ -545,10 +545,40 @@ function buildExpandedSegments(
   let operationCount = 0;
   let nextOperationCovered = false;
   let previousCompletedStep: ProgressNarrationStep | null = null;
+  const shouldNarrateStep = (nextStep: ProgressNarrationStep) =>
+    !nextOperationCovered && (
+      !previousCompletedStep || previousCompletedStep.intent !== nextStep.intent
+    );
+  const pushProcessSegment = (
+    operation: TurnProcessItem | null,
+    nextItems: TurnProcessItem[],
+  ) => {
+    const nextStep = operation ? progressNarrationStep(operation.part) : null;
+    const previous = segments.at(-1);
+    // Shell-heavy workflows often emit one assistant message per command.
+    // Treat an uninterrupted command run as one expandable stage instead of
+    // rendering a vertical stack of identical "Run command" chips.
+    if (
+      nextStep?.intent === "command"
+      && previous?.kind === "process"
+      && previous.items.some(
+        (item) => progressNarrationStep(item.part).intent === "command",
+      )
+    ) {
+      previous.items.push(...nextItems);
+      return;
+    }
+    segments.push({
+      kind: "process",
+      id: `process:${itemId(nextItems[0])}`,
+      items: nextItems,
+    });
+  };
   const flushProcess = () => {
     if (processItems.length === 0) return;
     const operation = processTool;
-    if (operation && !nextOperationCovered) {
+    const nextStep = operation ? progressNarrationStep(operation.part) : null;
+    if (operation && nextStep && shouldNarrateStep(nextStep)) {
       segments.push({
         kind: "synthetic-body",
         id: `synthetic-body:${itemId(operation)}`,
@@ -557,14 +587,10 @@ function buildExpandedSegments(
           operationCount === 0 || !previousCompletedStep ? "start" : "continue",
         ),
         previousStep: previousCompletedStep,
-        nextStep: progressNarrationStep(operation.part),
+        nextStep,
       });
     }
-    segments.push({
-      kind: "process",
-      id: `process:${itemId(processItems[0])}`,
-      items: processItems,
-    });
+    pushProcessSegment(operation, processItems);
     if (operation) {
       operationCount += 1;
       nextOperationCovered = false;
@@ -579,7 +605,8 @@ function buildExpandedSegments(
     const widget = widgetFromToolPart(item);
     if (widget) {
       flushProcess();
-      if (!nextOperationCovered) {
+      const nextStep = progressNarrationStep(item.part);
+      if (shouldNarrateStep(nextStep)) {
         segments.push({
           kind: "synthetic-body",
           id: `synthetic-body:${itemId(item)}`,
@@ -588,7 +615,7 @@ function buildExpandedSegments(
             operationCount === 0 || !previousCompletedStep ? "start" : "continue",
           ),
           previousStep: previousCompletedStep,
-          nextStep: progressNarrationStep(item.part),
+          nextStep,
         });
       }
       segments.push({

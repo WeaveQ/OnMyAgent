@@ -161,4 +161,76 @@ describe("creator ops experts business contract", () => {
     }
     expect(reviewText).toContain("超出即 **P0**");
   });
+
+  test("all three experts separate final deliverables from process files", () => {
+    for (const expertName of Object.keys(BUSINESS_SKILLS)) {
+      const agentText = readFileSync(
+        join(expertsRoot, expertName, "agents", `${expertName}.md`),
+        "utf8",
+      );
+      expect(agentText).toContain("ONMYAGENT_DELIVERABLE");
+      expect(agentText).toContain(".opencode/tmp/");
+      expect(agentText).toContain("会话 cwd");
+    }
+  });
+
+  test("demo workflows have deterministic routing and final-file boundaries", () => {
+    const briefSkill = readFileSync(
+      join(expertsRoot, "kol-media-specialist/skills/kol-brief-structuring/SKILL.md"),
+      "utf8",
+    );
+    expect(briefSkill).toContain("历史经验冲突说明");
+    expect(briefSkill).toContain("只对最终 Word / Excel");
+    expect(briefSkill).toContain("单独一行的纯文本");
+    expect(briefSkill).toContain("不得加粗");
+
+    const marginSkill = readFileSync(
+      join(expertsRoot, "kol-project-review-specialist/skills/kol-margin-effect-analysis/SKILL.md"),
+      "utf8",
+    );
+    expect(marginSkill).toContain("--plan-input");
+    expect(marginSkill).toContain("--effect-input");
+    expect(marginSkill).toContain("--html-output");
+    expect(marginSkill).toContain("只做精确一对一匹配");
+    expect(marginSkill).toContain("用户未提出 HTML 时不要主动生成");
+    expect(marginSkill).toContain("不得切换到 workspace copy 所在目录");
+
+    const reviewSkill = readFileSync(
+      join(expertsRoot, "kol-project-review-specialist/skills/kol-project-review-framework/SKILL.md"),
+      "utf8",
+    );
+    expect(reviewSkill).toContain("不能只给目录");
+    expect(reviewSkill).toContain("可直接使用的八维初稿");
+
+    const scriptSkill = readFileSync(
+      join(expertsRoot, "kol-content-ops-specialist/skills/xhs-script-assistant/SKILL.md"),
+      "utf8",
+    );
+    expect(scriptSkill).toContain("留痕版与清洁终稿");
+    expect(scriptSkill).not.toContain("WorkBuddy");
+    expect(scriptSkill).not.toContain("present_files");
+    expect(scriptSkill).not.toContain("/Users/jiecheng/");
+  });
+
+  test("rebate generation writes the selected original and registers the complete batch", () => {
+    const packageRoot = join(expertsRoot, "kol-content-ops-specialist");
+    const skillText = readFileSync(
+      join(packageRoot, "skills/rebate-contract-generator/SKILL.md"),
+      "utf8",
+    );
+    const agentText = readFileSync(
+      join(packageRoot, "agents/kol-content-ops-specialist.md"),
+      "utf8",
+    );
+
+    for (const text of [skillText, agentText]) {
+      expect(text).toContain("original user-selected path");
+      expect(text).toContain("workspace copy");
+      expect(text).toContain("裸文件名");
+      expect(text).toContain("不得");
+    }
+    expect(skillText).toContain("不得切换到 workspace copy 所在目录");
+    expect(skillText).toContain("--source-writeback");
+    expect(skillText).toContain("find \"合同输出\"");
+  });
 });

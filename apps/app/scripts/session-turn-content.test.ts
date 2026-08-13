@@ -55,7 +55,7 @@ describe("WorkBuddy turn content presentation", () => {
     ).toBeNull();
   });
 
-  test("adds safe narration before every uncovered completed tool stage", () => {
+  test("adds safe narration only when an uncovered tool stage changes", () => {
     const turn = completedTurn([
       assistant("reasoning-skill", [{
         type: "reasoning",
@@ -103,7 +103,6 @@ describe("WorkBuddy turn content presentation", () => {
       "process",
       "synthetic-body",
       "process",
-      "synthetic-body",
       "process",
     ]);
     expect(
@@ -112,7 +111,6 @@ describe("WorkBuddy turn content presentation", () => {
       ),
     ).toEqual([
       "session.progress_narration.skill_start",
-      "session.progress_narration.web_continue",
       "session.progress_narration.web_continue",
     ]);
     const syntheticJson = JSON.stringify(
@@ -569,7 +567,7 @@ describe("WorkBuddy turn content presentation", () => {
     ]);
   });
 
-  test("keeps reasoning narration inside deep-thinking process folds between browser tools", () => {
+  test("keeps reasoning inside process folds without repeating browser narration", () => {
     const streaming = {
       ...completedTurn([
         assistant("intro", [{ type: "text", text: "我来使用内置浏览器打开小红书并完成任务。" }]),
@@ -598,7 +596,6 @@ describe("WorkBuddy turn content presentation", () => {
     expect(presentation?.segments.map((s) => s.kind)).toEqual([
       "body",
       "process",
-      "synthetic-body",
       "process",
     ]);
     expect(
@@ -613,7 +610,7 @@ describe("WorkBuddy turn content presentation", () => {
     ).toEqual([
       "我来使用内置浏览器打开小红书并完成任务。",
     ]);
-    // Reasoning stays folded with its operation while the narration remains outside.
+    // Reasoning stays folded with its operation while repeated fallback narration is omitted.
     expect(
       presentation?.segments
         .filter((s) => s.kind === "process")
@@ -621,7 +618,7 @@ describe("WorkBuddy turn content presentation", () => {
     ).toEqual([1, 3]);
   });
 
-  test("replaces transient fallback when Kimi later streams real narration", () => {
+  test("keeps later real narration authoritative across repeated browser operations", () => {
     const initial = {
       ...completedTurn([
         assistant("intro", [{ type: "text", text: "我先准备浏览器能力。" }]),
@@ -664,7 +661,6 @@ describe("WorkBuddy turn content presentation", () => {
     expect(initialPresentation?.segments.map((segment) => segment.kind)).toEqual([
       "body",
       "process",
-      "synthetic-body",
       "process",
     ]);
     expect(grownPresentation?.segments.map((segment) => segment.kind)).toEqual([
@@ -923,7 +919,7 @@ describe("WorkBuddy turn content presentation", () => {
     });
   });
 
-  test("uses safe basenames to bridge completed file reads", () => {
+  test("does not repeat narration between consecutive reads", () => {
     const turn = completedTurn([
       assistant("read-waybill", [{
         type: "dynamic-tool",
@@ -943,14 +939,74 @@ describe("WorkBuddy turn content presentation", () => {
       }]),
     ]);
 
-    expect(buildTurnContentPresentation(turn)?.segments[2]).toMatchObject({
-      kind: "synthetic-body",
-      previousStep: { intent: "read", target: "waybill-data-protocol.md" },
-      nextStep: { intent: "read", target: "follow-up-scripts.md" },
-    });
-    expect(JSON.stringify(buildTurnContentPresentation(turn)?.segments[2])).not.toContain(
-      "/private/order-entry",
-    );
+    const presentation = buildTurnContentPresentation(turn);
+    expect(presentation?.segments.map((segment) => segment.kind)).toEqual([
+      "synthetic-body",
+      "process",
+      "process",
+    ]);
+    expect(presentation?.segments.filter(
+      (segment) => segment.kind === "synthetic-body",
+    )).toHaveLength(1);
+  });
+
+  test("collapses an uninterrupted run of commands into one expandable stage", () => {
+    const turn = completedTurn(Array.from({ length: 5 }, (_, index) =>
+      assistant(`command-${index}`, [{
+        type: "dynamic-tool",
+        toolName: "bash",
+        toolCallId: `command-${index}`,
+        state: "output-available",
+        input: { command: `step-${index}` },
+        output: "ok",
+      }])
+    ));
+
+    const presentation = buildTurnContentPresentation(turn);
+    expect(presentation?.segments.map((segment) => segment.kind)).toEqual([
+      "synthetic-body",
+      "process",
+    ]);
+    const commandStage = presentation?.segments[1];
+    expect(commandStage?.kind).toBe("process");
+    if (commandStage?.kind !== "process") throw new Error("expected command process stage");
+    expect(commandStage.items).toHaveLength(5);
+    expect(commandStage.items.map((item) => item.messageId)).toEqual([
+      "command-0",
+      "command-1",
+      "command-2",
+      "command-3",
+      "command-4",
+    ]);
+  });
+
+  test("does not merge command stages across real assistant narration", () => {
+    const turn = completedTurn([
+      assistant("command-1", [{
+        type: "dynamic-tool",
+        toolName: "bash",
+        toolCallId: "command-1",
+        state: "output-available",
+        input: { command: "step-1" },
+        output: "ok",
+      }]),
+      assistant("stage-note", [{ type: "text", text: "数据已经准备好，接下来生成文件。" }]),
+      assistant("command-2", [{
+        type: "dynamic-tool",
+        toolName: "bash",
+        toolCallId: "command-2",
+        state: "output-available",
+        input: { command: "step-2" },
+        output: "ok",
+      }]),
+    ]);
+
+    expect(buildTurnContentPresentation(turn)?.segments.map((segment) => segment.kind)).toEqual([
+      "synthetic-body",
+      "process",
+      "body",
+      "process",
+    ]);
   });
 
   test.each(["cancelled", "failed"] as const)(

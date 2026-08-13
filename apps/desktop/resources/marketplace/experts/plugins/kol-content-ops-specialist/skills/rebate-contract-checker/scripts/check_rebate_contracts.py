@@ -29,26 +29,46 @@ class RebateContractChecker:
     Cross-checks invoice applications, rebate contracts, and project plans.
     """
 
-    # Default column mapping for invoice Excel
+    # Default column aliases for invoice Excel (logical field → possible headers).
+    # First match in the workbook header row wins; override with --column-map.
     DEFAULT_COLUMN_MAP = {
-        '项目': '店铺名称（必填）',
-        '服务项目名称': '服务项目名称（必填）',
-        '发票抬头': '发票抬头',
-        '税号': '税号',
-        '开票金额': '开票金额',
-        '发票类型': '发票类型',
-        '开票内容': '开票内容',
-        '地址电话': '地址电话',
-        '开户行及账号': '开户行及账号',
+        '项目': ['店铺名称（必填）', '项目', '项目名称', '合作项目'],
+        '服务项目名称': ['服务项目名称（必填）', '服务项目名称', '服务项目'],
+        '发票抬头': ['发票抬头', '公司名称', '甲方名称', '主体名称', '对公主体'],
+        '税号': ['税号', '统一社会信用代码', '纳税人识别号'],
+        '开票金额': ['开票金额', '金额', '价税合计'],
+        '发票类型': ['发票类型', '开票类型'],
+        '开票内容': ['开票内容', '发票内容', '开票项目'],
+        '地址电话': ['地址电话', '地址及电话', '注册地址'],
+        '开户行及账号': ['开户行及账号', '开户行', '银行账号'],
     }
 
-    # Default plan sheet name
+    # Preferred plan sheet name (hint only; missing → scan other sheets)
     DEFAULT_PLAN_SHEET = '推广计划单-立项及结案PM更新'
 
     def __init__(self, column_map=None, plan_sheet=None, amount_tolerance=1):
-        self.column_map = column_map or self.DEFAULT_COLUMN_MAP.copy()
+        self.column_map = self._normalise_column_map(column_map or self.DEFAULT_COLUMN_MAP)
         self.plan_sheet = plan_sheet or self.DEFAULT_PLAN_SHEET
         self.amount_tolerance = float(amount_tolerance)
+
+    @staticmethod
+    def _normalise_column_map(column_map):
+        normalised = {}
+        for field, source in (column_map or {}).items():
+            if isinstance(source, (list, tuple)):
+                aliases = [str(item).strip() for item in source if str(item).strip()]
+            else:
+                aliases = [str(source).strip()] if str(source).strip() else []
+            if aliases:
+                normalised[str(field)] = aliases
+        return normalised
+
+    @staticmethod
+    def _header_index(headers, aliases):
+        for alias in aliases:
+            if alias in headers:
+                return headers.index(alias)
+        return None
 
     @staticmethod
     def _load_openpyxl():
@@ -80,10 +100,10 @@ class RebateContractChecker:
             raise ValueError('开票申请工作表为空')
         headers = [str(value or '').strip() for value in first_row]
         indexes = {
-            field: headers.index(source)
-            for field, source in self.column_map.items()
-            if source in headers
+            field: self._header_index(headers, aliases)
+            for field, aliases in self.column_map.items()
         }
+        indexes = {field: index for field, index in indexes.items() if index is not None}
         records = []
         for row in rows:
             def value(field):
@@ -128,13 +148,19 @@ class RebateContractChecker:
                 if text:
                     full_text += text + '\n'
 
-        match = re.search(r'甲方[：:]\s*([^\n]+)', full_text)
+        match = re.search(r'(?:甲方|委托方|乙方)?[（(]?名称[）)]?[：:]\s*([^\n]+)', full_text)
+        if not match:
+            match = re.search(r'甲方[：:]\s*([^\n]+)', full_text)
+        if not match:
+            match = re.search(r'公司名称[：:]\s*([^\n]+)', full_text)
         if match:
             data['甲方名称'] = match.group(1).strip()
 
         match = re.search(r'税\s*号[：:]\s*([A-Z0-9]+)', full_text)
         if not match:
             match = re.search(r'纳税人识别号[：:]\s*([A-Z0-9]+)', full_text)
+        if not match:
+            match = re.search(r'统一社会信用代码[：:]\s*([A-Z0-9]+)', full_text)
         if match:
             data['税号'] = match.group(1).strip()
 
@@ -201,21 +227,35 @@ class RebateContractChecker:
 
     def parse_plan_settlement(self, filepath):
         """
-        Parse the bottom-right settlement area of a project plan Excel.
-        Extracts blogger names and rebate amounts from the area after "支出小计".
+        Parse settlement-area bloggers from a project plan Excel.
+        Preferred sheet is a hint; if missing or empty, scan other sheets for
+        the same anchors (支出小计 … 返点小计). Layout columns are heuristic —
+        override upstream materials or use a one-off helper when layout is too irregular.
         """
         _, load_workbook = self._load_openpyxl()
         workbook = load_workbook(filepath, read_only=True, data_only=True)
-        if self.plan_sheet not in workbook.sheetnames:
-            workbook.close()
-            return []
-        values = list(workbook[self.plan_sheet].iter_rows(values_only=True))
-        workbook.close()
+        sheet_order = []
+        if self.plan_sheet in workbook.sheetnames:
+            sheet_order.append(self.plan_sheet)
+        sheet_order.extend(
+            name for name in workbook.sheetnames if name not in sheet_order
+        )
 
+        bloggers = []
+        for sheet_name in sheet_order:
+            values = list(workbook[sheet_name].iter_rows(values_only=True))
+            parsed = self._extract_plan_bloggers(values, filepath)
+            if parsed:
+                bloggers = parsed
+                break
+        workbook.close()
+        return bloggers
+
+    def _extract_plan_bloggers(self, values, filepath):
         start_row = None
         for i, row in enumerate(values):
-            for val in row[:15]:
-                if isinstance(val, str) and '支出小计' in val:
+            for val in row[:20]:
+                if isinstance(val, str) and ('支出小计' in val or '达人结算' in val or '返点明细' in val):
                     start_row = i + 1
                     break
             if start_row is not None:
@@ -226,8 +266,10 @@ class RebateContractChecker:
 
         end_row = len(values)
         for i in range(start_row, len(values)):
-            for val in values[i][:15]:
-                if isinstance(val, str) and ('返点小计' in val or '支出合计' in val or '最终结算收入' in val):
+            for val in values[i][:20]:
+                if isinstance(val, str) and (
+                    '返点小计' in val or '支出合计' in val or '最终结算收入' in val or '合计' == val.strip()
+                ):
                     end_row = i
                     break
             if end_row < len(values):
@@ -241,6 +283,14 @@ class RebateContractChecker:
             payment_type = row[14] if len(row) > 14 else None
             date_val = row[13] if len(row) > 13 else None
             rebate_amount_2 = row[18] if len(row) > 18 else None
+
+            # Fallback: first non-empty text-ish cell as name, last number-ish as amount
+            if blogger_name in (None, '') and row:
+                for cell in row:
+                    text = str(cell).strip() if cell not in (None, '') else ''
+                    if text and not re.match(r'^[\d.,¥￥]+$', text) and '小计' not in text:
+                        blogger_name = text
+                        break
 
             if blogger_name not in (None, '') and str(blogger_name).strip():
                 name = str(blogger_name).strip()
@@ -585,6 +635,12 @@ class RebateContractChecker:
         workbook.save(output_path)
 
         print(f"Results saved to: {output_path}")
+        # Session product card + Files sidebar registration
+        try:
+            marker_path = os.path.abspath(output_path)
+        except OSError:
+            marker_path = str(output_path)
+        print(f"ONMYAGENT_DELIVERABLE: {marker_path}", flush=True)
         return output_path
 
     @staticmethod
@@ -639,7 +695,14 @@ def load_column_map(value):
     parsed = json.loads(content)
     if not isinstance(parsed, dict):
         raise ValueError('列映射必须是 JSON 对象')
-    return {str(key): str(source) for key, source in parsed.items()}
+    # Values may be a single header string or a list of header aliases
+    normalised = {}
+    for key, source in parsed.items():
+        if isinstance(source, list):
+            normalised[str(key)] = [str(item) for item in source]
+        else:
+            normalised[str(key)] = str(source)
+    return normalised
 
 
 def main():
@@ -648,9 +711,16 @@ def main():
     parser.add_argument('--contract-folder', help='Folder containing contract PDF files')
     parser.add_argument('--plan-folder', help='Folder containing plan Excel files')
     parser.add_argument('--output', '-o', default='返点协议核对清单.xlsx', help='Output Excel file path')
-    parser.add_argument('--plan-sheet', default='推广计划单-立项及结案PM更新', help='Name of the plan Excel sheet to parse')
+    parser.add_argument(
+        '--plan-sheet',
+        default='推广计划单-立项及结案PM更新',
+        help='Preferred plan sheet name (hint; other sheets scanned if missing/empty)',
+    )
     parser.add_argument('--amount-tolerance', type=float, default=1, help='Amount tolerance in CNY (default: 1)')
-    parser.add_argument('--column-map', help='Invoice column mapping JSON file or JSON string')
+    parser.add_argument(
+        '--column-map',
+        help='Invoice column mapping JSON: logical field → header string or alias list',
+    )
     parser.add_argument('--self-test', action='store_true')
     args = parser.parse_args()
 

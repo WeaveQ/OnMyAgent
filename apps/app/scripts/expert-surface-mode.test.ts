@@ -15,6 +15,7 @@ function surfaceState(input: {
   routeSessionId?: string;
   routeAgentId?: string;
   draftAgentId?: string;
+  sourceRouteSessionId?: string;
   boundSessionId?: string;
 }): ExpertSurfaceState {
   return {
@@ -26,6 +27,7 @@ function surfaceState(input: {
       ? {
           agentId: input.draftAgentId,
           operationId: "op-1",
+          sourceRouteSessionId: input.sourceRouteSessionId ?? null,
           boundSessionId: input.boundSessionId ?? null,
           navigation: "pending",
         }
@@ -75,6 +77,20 @@ describe("selectExpertSurfaceMode", () => {
     expect(mode.mayForceNavToBound).toBe(true);
   });
 
+  test("treats the route underneath a new-session draft as create transition state", () => {
+    const mode = selectExpertSurfaceMode(surfaceState({
+      routeSessionId: "ses_previous",
+      routeAgentId: "other-agent",
+      draftAgentId: "order-entry",
+      sourceRouteSessionId: "ses_previous",
+      boundSessionId: "ses_new",
+    }));
+    expect(mode.kind).toBe("creating");
+    expect(mode.sessionId).toBe("ses_new");
+    expect(mode.conversationAgentId).toBe("order-entry");
+    expect(mode.mayForceNavToBound).toBe(true);
+  });
+
   test("projects the bound session once its route arrives", () => {
     const mode = selectExpertSurfaceMode(surfaceState({
       routeSessionId: "ses_new",
@@ -88,17 +104,18 @@ describe("selectExpertSurfaceMode", () => {
     expect(mode.mayForceNavToBound).toBe(false);
   });
 
-  test("projects an explicitly selected other route over a late create", () => {
+  test("keeps a bound create authoritative while route synchronization lags", () => {
     const mode = selectExpertSurfaceMode(surfaceState({
       routeSessionId: "ses_other",
       routeAgentId: "other-agent",
       draftAgentId: "order-entry",
+      sourceRouteSessionId: "ses_other",
       boundSessionId: "ses_new",
     }));
-    expect(mode.kind).toBe("real_session");
-    expect(mode.sessionId).toBe("ses_other");
+    expect(mode.kind).toBe("creating");
+    expect(mode.sessionId).toBe("ses_new");
     expect(mode.creatingSessionId).toBe("ses_new");
-    expect(mode.mayForceNavToBound).toBe(false);
+    expect(mode.mayForceNavToBound).toBe(true);
   });
 
   test("projects a route without a draft", () => {
@@ -120,31 +137,22 @@ describe("selectExpertSurfaceMode", () => {
 });
 
 describe("shouldDropExpertSurfaceDraft", () => {
-  test("keeps unbound drafts while route activation catches up", () => {
+  test("keeps the route that was already underneath the draft", () => {
     expect(shouldDropExpertSurfaceDraft(surfaceState({
-      routeSessionId: "ses_hist",
+      routeSessionId: "ses_previous",
       draftAgentId: "a",
+      sourceRouteSessionId: "ses_previous",
+      boundSessionId: "ses_new",
     }))).toBe(false);
   });
 
-  test("drops a bound draft after the user opens another real tab", () => {
+  test("drops after navigation to a different route", () => {
     expect(shouldDropExpertSurfaceDraft(surfaceState({
       routeSessionId: "ses_other",
       draftAgentId: "a",
+      sourceRouteSessionId: "ses_previous",
       boundSessionId: "ses_new",
     }))).toBe(true);
-  });
-
-  test("keeps a bound draft with an empty or matching route", () => {
-    expect(shouldDropExpertSurfaceDraft(surfaceState({
-      draftAgentId: "a",
-      boundSessionId: "ses_new",
-    }))).toBe(false);
-    expect(shouldDropExpertSurfaceDraft(surfaceState({
-      routeSessionId: "ses_new",
-      draftAgentId: "a",
-      boundSessionId: "ses_new",
-    }))).toBe(false);
   });
 });
 

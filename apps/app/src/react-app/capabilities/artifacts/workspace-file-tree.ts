@@ -221,6 +221,7 @@ const HIDDEN_BASENAME_EXACT = new Set([
   "thumbs.db",
   "desktop.ini",
   "onmyagent-session.json",
+  "opencode.json",
   "opencode.jsonc",
 ]);
 
@@ -312,6 +313,20 @@ export function workspaceFileBreadcrumbs(path: string): Array<{
     name,
     path: parts.slice(0, index + 1).join("/"),
   }));
+}
+
+/** Directory paths that must be expanded to reveal a file in the tree. */
+export function workspaceFileParentPaths(path: string): string[] {
+  const parts = path
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^\.\//, "")
+    .replace(/^\/+|\/+$/g, "")
+    .split("/")
+    .filter(Boolean);
+  return parts.slice(0, -1).map((_, index) =>
+    parts.slice(0, index + 1).join("/"),
+  );
 }
 
 export function workspaceNameFromRoot(root: string) {

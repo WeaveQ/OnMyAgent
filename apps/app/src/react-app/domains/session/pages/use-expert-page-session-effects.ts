@@ -4,7 +4,10 @@ import type { ComposerDraft, SidebarSessionItem } from "../../../../app/types";
 import type { PendingAgentContext } from "../../agents";
 import { selectAgentIdForSession } from "../../../capabilities/session-identity/expert-directory-page-model";
 import type { buildExpertDirectoryPageModel } from "../../../capabilities/session-identity/expert-directory-page-model";
-import { shouldKeepUnboundExpertDraft } from "./expert-draft-session";
+import {
+  resolveBoundExpertDraftSession,
+  shouldKeepUnboundExpertDraft,
+} from "./expert-draft-session";
 import { useExpertComposerTemplateEvents } from "./use-expert-composer-template-events";
 import { useExpertWaybillPatch } from "./use-expert-waybill-patch";
 import type { ExpertPageProps } from "./use-expert-page";
@@ -54,6 +57,14 @@ export function useExpertPageSessionEffects(input: {
   useEffect(() => {
     const sessionId = props.selectedSessionId?.trim() ?? "";
     if (!sessionId || sessionId.startsWith("draft:")) return;
+    // Once first-send has bound the draft, the bound-transition state machine
+    // owns navigation and cleanup. Clearing here exposes the empty route to
+    // cold-open, which can select another expert before the new route paints.
+    if (resolveBoundExpertDraftSession({
+      draftSessionActive: input.draftSessionActive,
+      draftAgentId: input.draftAgentId,
+      pendingAgent: input.pendingAgent,
+    })) return;
     if (shouldKeepUnboundExpertDraft({
       draftSessionActive: input.draftSessionActive,
       draftAgentId: input.draftAgentId,

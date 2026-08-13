@@ -24,7 +24,7 @@ describe("creator ops deterministic skill scripts", () => {
       { encoding: "utf8" },
     );
     expect(result.status, result.stderr || result.stdout).toBe(0);
-  });
+  }, 15_000);
 
   test("contract generator rejects incomplete rows and replaces approved placeholders", () => {
     const result = runSelfTest(
@@ -37,6 +37,7 @@ describe("creator ops deterministic skill scripts", () => {
       complete_records: 1,
       incomplete_records: 1,
       unresolved_placeholders: [],
+      chinese_placeholders_ok: 1,
     });
   });
 

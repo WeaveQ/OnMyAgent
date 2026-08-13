@@ -11,11 +11,14 @@ export type ParsedUserUploadFile = {
   mime: string;
   absolutePath: string;
   relativePath: string;
+  sourcePath?: string;
 };
 
-// - name (mime): /abs/path (workspace-relative path: rel)
+// Historical: - name (mime): /abs/path (workspace-relative path: rel)
+// Current:    - name (mime): workspace copy: /abs/path (workspace-relative path: rel);
+//               original user-selected path: /source/path. Only modify ...
 const UPLOAD_FILE_LINE_RE =
-  /^- (.+?) \(([^)]+)\): (.+?) \(workspace-relative path: (.+?)\)\s*$/;
+  /^- (.+?) \(([^)]+)\): (?:workspace copy:\s*)?(.+?) \(workspace-relative path: (.+?)\)(?:; original user-selected path: (.+?)\. Only modify this original path when the user explicitly asks to update, overwrite, or write back the source\/original file)?\s*$/;
 
 export function isUserUploadInstructionText(text: string): boolean {
   return text.includes(USER_UPLOAD_INSTRUCTION_MARKER);
@@ -40,8 +43,9 @@ export function parseUserUploadInstructionBlock(text: string): {
     const mime = match[2]?.trim() || "application/octet-stream";
     const absolutePath = match[3]?.trim() ?? "";
     const relativePath = match[4]?.trim() ?? "";
+    const sourcePath = match[5]?.trim() || undefined;
     if (!name || !absolutePath) continue;
-    files.push({ name, mime, absolutePath, relativePath });
+    files.push({ name, mime, absolutePath, relativePath, ...(sourcePath ? { sourcePath } : {}) });
   }
   return { remainingText, files };
 }

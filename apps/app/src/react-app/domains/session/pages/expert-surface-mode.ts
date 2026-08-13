@@ -42,7 +42,12 @@ export function selectExpertSurfaceMode(
     draft?.agentId,
   );
 
-  if (route && boundSessionId && route.sessionId !== boundSessionId) {
+  if (
+    route &&
+    boundSessionId &&
+    route.sessionId !== boundSessionId &&
+    route.sessionId !== draft?.sourceRouteSessionId
+  ) {
     return {
       kind: "real_session",
       sessionId: route.sessionId,

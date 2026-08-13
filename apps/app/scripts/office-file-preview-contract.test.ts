@@ -9,6 +9,7 @@ const previewPath = resolve(
 );
 const viewerPath = resolve(appRoot, "src/office-viewer.tsx");
 const viewerStylesPath = resolve(appRoot, "src/office-viewer.css");
+const docxPaginationPath = resolve(appRoot, "src/office-viewer-docx-pagination.ts");
 
 test("uses a dedicated native preview viewport in the shared capability", () => {
   expect(existsSync(previewPath)).toBe(true);
@@ -126,4 +127,19 @@ test("opens spreadsheets at actual size instead of shrinking the whole sheet to 
   const viewer = readFileSync(viewerPath, "utf8");
   expect(viewer).toContain('mode: isSpreadsheet ? ("actual" as const) : ("auto" as const)');
   expect(viewer).toContain('resize: "until-interaction" as const');
+});
+
+test("compacts renderer-created DOCX continuation pages without changing explicit page breaks", () => {
+  expect(existsSync(viewerPath)).toBe(true);
+  expect(existsSync(docxPaginationPath)).toBe(true);
+  if (!existsSync(viewerPath) || !existsSync(docxPaginationPath)) return;
+
+  const viewer = readFileSync(viewerPath, "utf8");
+  const pagination = readFileSync(docxPaginationPath, "utf8");
+  expect(viewer).toContain("awaitLayout: true");
+  expect(viewer).toContain("compactDocxDynamicPages(wrapper)");
+  expect(pagination).toContain('nextPage.dataset.docxDynamicPage !== "true"');
+  expect(pagination).toContain("appendTableContinuation");
+  expect(pagination).toContain('repeatedHeader.dataset.docxRepeatedHeader = "true"');
+  expect(pagination).not.toContain("section.docx:not");
 });
