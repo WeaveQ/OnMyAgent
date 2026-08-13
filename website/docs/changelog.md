@@ -4,7 +4,12 @@ title: 更新日志
 
 # 更新日志
 
-完整资产与说明以 [GitHub Releases](https://github.com/WeaveQ/OnMyAgent/releases) 为准。以下摘录近期用户可见变更（开发中的 Unreleased 项不列入）。当前桌面发布均为 **pre-release**（未公证）。
+完整资产与说明以 [GitHub Releases](https://github.com/WeaveQ/OnMyAgent/releases) 为准。以下摘录近期用户可见变更。当前桌面发布均为 **pre-release**（未公证）。
+
+## Unreleased
+
+- 发现新版本后需点击提示或「下载更新」才开始下载；冷启动会自动检查一次
+- 不会在检查到更新后自动后台下载，也不会静默安装
 
 ## 0.5.0
 

@@ -46,4 +46,4 @@ See [Download and installation](/en/download).
 
 ### How do I update OnMyAgent?
 
-Open Settings → **Updates** → **Check for updates**. Packaged builds download in the background; then click **Restart and install**. In a development build, install from [GitHub Releases](https://github.com/WeaveQ/OnMyAgent/releases) instead. If macOS says the app is damaged, run `xattr -cr /Applications/OnMyAgent.app` and open it again.
+Open Settings → **Updates** → **Check for updates** (a cold start also checks once). When a new version is found, **click the notice or Download update** to start the download. In a packaged build, click **Restart and install** when it finishes. In a development build, install from [GitHub Releases](https://github.com/WeaveQ/OnMyAgent/releases) instead. If macOS says the app is damaged, run `xattr -cr /Applications/OnMyAgent.app` and open it again.
