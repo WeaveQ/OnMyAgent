@@ -4,7 +4,12 @@ title: Changelog
 
 # Changelog
 
-For the complete assets and release notes, use [GitHub Releases](https://github.com/WeaveQ/OnMyAgent/releases) as the source of truth. The entries below highlight recent user-visible changes; in-progress Unreleased items are not included. Current desktop builds are **prereleases** (not notarized).
+For the complete assets and release notes, use [GitHub Releases](https://github.com/WeaveQ/OnMyAgent/releases) as the source of truth. The entries below highlight recent user-visible changes. Current desktop builds are **prereleases** (not notarized).
+
+## Unreleased
+
+- A found update starts downloading only after you click the notice or **Download update**; cold start also checks once
+- Updates are not downloaded automatically in the background after a check, and nothing installs silently
 
 ## 0.5.0
 

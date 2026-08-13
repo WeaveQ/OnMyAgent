@@ -10,6 +10,8 @@ This project follows a lightweight changelog format during early development. Re
 
 ### Changed
 
+- Desktop updates: cold start always checks once; a found version downloads only after the user clicks the notice or **Download update**. Checks no longer start a background download on their own.
+
 ### Security
 
 ### License / community
