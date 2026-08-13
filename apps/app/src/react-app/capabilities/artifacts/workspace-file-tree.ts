@@ -315,6 +315,20 @@ export function workspaceFileBreadcrumbs(path: string): Array<{
   }));
 }
 
+/** Directory paths that must be expanded to reveal a file in the tree. */
+export function workspaceFileParentPaths(path: string): string[] {
+  const parts = path
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^\.\//, "")
+    .replace(/^\/+|\/+$/g, "")
+    .split("/")
+    .filter(Boolean);
+  return parts.slice(0, -1).map((_, index) =>
+    parts.slice(0, index + 1).join("/"),
+  );
+}
+
 export function workspaceNameFromRoot(root: string) {
   const parts = root.replace(/\\/g, "/").split("/").filter(Boolean);
   return parts.at(-1) || t("files.current_workspace");

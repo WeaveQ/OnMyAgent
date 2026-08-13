@@ -87,6 +87,7 @@ import { useStatusToasts } from "../../shell-feedback";
 import {
   buildWorkspaceFileTree,
   filterHiddenFromTree,
+  workspaceFileParentPaths,
   type WorkspaceFileTreeNode,
 } from "../chat/session-page-files-model";
 import { BrowserPanel } from "../browser/browser-panel";
@@ -253,6 +254,7 @@ function WorkspaceTreeRow(props: {
             "min-h-7 rounded-lg py-1.5 pr-8 text-xs text-dls-secondary hover:text-dls-text",
             props.selectedPath === props.node.path && "bg-dls-hover text-dls-text",
           )}
+          data-workspace-tree-path={props.node.path}
           style={{ paddingLeft: 8 + props.level * 14 }}
           onClick={() => {
             if (isDirectory) props.onToggle(props.node.path);
@@ -342,6 +344,8 @@ function WorkspaceFilesPanel(props: {
     new Set(),
   );
   const lastFocusKeyRef = useRef<string | null>(null);
+  const loadedTreeScopeRef = useRef<string | null>(null);
+  const treeScrollRef = useRef<HTMLDivElement>(null);
   const fileRoot =
     props.fileRoot === undefined ? props.workspacePath : props.fileRoot?.trim() ?? "";
   const hasScopedFileRoot = props.fileRoot !== undefined && Boolean(fileRoot);
@@ -353,9 +357,13 @@ function WorkspaceFilesPanel(props: {
     return selected.startsWith(`${root}/`) ? selected.slice(root.length + 1) : "";
   }, [fileRoot, props.workspaceCatalogRoot]);
   const catalogPrefix = hasScopedFileRoot ? "" : rootRelativePrefix;
+  const treeScopeKey = `${props.workspaceId ?? ""}::${fileRoot}::${catalogPrefix}`;
 
   useEffect(() => {
+    loadedTreeScopeRef.current = null;
+    lastFocusKeyRef.current = null;
     if (!fileRoot.trim()) {
+      loadedTreeScopeRef.current = treeScopeKey;
       setTree(
         filterHiddenFromTree(
           buildWorkspaceFileTree(openTargetsToCatalogEntries(props.fileTargets)),
@@ -374,6 +382,7 @@ function WorkspaceFilesPanel(props: {
       void listCodeWorkspaceFiles({ workspacePath: fileRoot })
         .then((result) => {
           if (disposed) return;
+          loadedTreeScopeRef.current = treeScopeKey;
           setTree(
             filterHiddenFromTree(
               buildWorkspaceFileTree(
@@ -417,6 +426,7 @@ function WorkspaceFilesPanel(props: {
           }];
         });
         const nextTree = filterHiddenFromTree(buildWorkspaceFileTree(items));
+        loadedTreeScopeRef.current = treeScopeKey;
         setTree(nextTree);
         setExpanded(new Set(nextTree.children.filter((node) => node.kind === "dir").map((node) => node.path)));
       })
@@ -433,6 +443,7 @@ function WorkspaceFilesPanel(props: {
     props.client,
     props.fileTargets,
     props.workspaceId,
+    treeScopeKey,
   ]);
 
   useEffect(() => {
@@ -561,21 +572,63 @@ function WorkspaceFilesPanel(props: {
     const canLoad =
       (isElectronRuntime() && Boolean(fileRoot || props.workspacePath))
       || Boolean(props.client && props.workspaceId);
-    if (!canLoad) return;
+    if (
+      !canLoad
+      || !tree
+      || loadedTreeScopeRef.current !== treeScopeKey
+    ) return;
     lastFocusKeyRef.current = focusKey;
-    const segments = normalized.split("/").filter(Boolean);
-    if (segments.length > 1) {
+    const parentPaths = workspaceFileParentPaths(normalized);
+    let disposed = false;
+
+    void (async () => {
+      // Desktop listings are shallow. Load the focused branch before expanding
+      // it so a selected nested artifact is actually visible in the tree.
+      if (isElectronRuntime() && fileRoot && parentPaths[0]) {
+        try {
+          const result = await listCodeWorkspaceFiles({
+            workspacePath: fileRoot,
+            relativePath: parentPaths[0],
+            recursive: true,
+          });
+          if (disposed) return;
+          setTree((current) => {
+            if (!current) return current;
+            const entries = [
+              ...flattenWorkspaceFileTree(current),
+              ...result.items.map((item) => ({ ...item, revision: "" })),
+            ];
+            return filterHiddenFromTree(buildWorkspaceFileTree(entries));
+          });
+          setLoadedDirectories((current) => {
+            const next = new Set(current);
+            parentPaths.forEach((path) => next.add(path));
+            return next;
+          });
+        } catch (nextError) {
+          if (!disposed) {
+            setError(
+              nextError instanceof Error ? nextError.message : String(nextError),
+            );
+          }
+        }
+      }
+      if (disposed) return;
       setExpanded((current) => {
         const next = new Set(current);
-        let prefix = "";
-        for (let index = 0; index < segments.length - 1; index += 1) {
-          prefix = prefix ? `${prefix}/${segments[index]}` : segments[index] ?? "";
-          if (prefix) next.add(prefix);
-        }
+        parentPaths.forEach((path) => next.add(path));
         return next;
       });
-    }
-    void selectFile(normalized);
+      await selectFile(normalized);
+    })().catch(() => {
+      if (!disposed && lastFocusKeyRef.current === focusKey) {
+        lastFocusKeyRef.current = null;
+      }
+    });
+
+    return () => {
+      disposed = true;
+    };
   }, [
     fileRoot,
     props.client,
@@ -584,7 +637,20 @@ function WorkspaceFilesPanel(props: {
     props.workspaceId,
     props.workspacePath,
     selectFile,
+    tree,
+    treeScopeKey,
   ]);
+
+  useEffect(() => {
+    if (!selectedPath) return;
+    const frame = window.requestAnimationFrame(() => {
+      const row = [...(treeScrollRef.current?.querySelectorAll<HTMLElement>(
+        "[data-workspace-tree-path]",
+      ) ?? [])].find((item) => item.dataset.workspaceTreePath === selectedPath);
+      row?.scrollIntoView({ block: "nearest" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [expanded, selectedPath, tree]);
 
   const confirmDeleteFile = useCallback(async () => {
     const node = pendingDeleteNode;
@@ -657,7 +723,7 @@ function WorkspaceFilesPanel(props: {
     <div className="h-full min-h-0 bg-dls-background">
       <ResizablePanelGroup orientation="horizontal" className="min-h-0">
         <ResizablePanel defaultSize="220px" minSize="144px" maxSize="45%" className="min-w-0">
-          <div className="h-full min-h-0 overflow-auto p-2">
+          <div ref={treeScrollRef} className="h-full min-h-0 overflow-auto p-2">
         {tree?.children.length ? tree.children.map((node) => (
           <WorkspaceTreeRow
             key={node.path}
