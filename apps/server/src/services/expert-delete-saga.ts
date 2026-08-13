@@ -55,7 +55,10 @@ export type ExpertDeleteSagaOptions = {
 /**
  * Resolve origin rows for a delete request.
  * UI often sends packageName = agentId ("pkg:pkg") while origins store "pkg".
- * Prefer exact agentId+packageName, then agentId-only, then packageName heuristics.
+ * Prefer exact agentId+packageName, then agentId-only. Short packageName is
+ * only a fallback when the origin still belongs to this request's agentId
+ * (exact, or composite ending with :short of this request). Never select
+ * another expert by packageName alone.
  */
 export function selectExpertDeleteOriginRecords(
   items: readonly SessionOriginRecord[],
@@ -72,25 +75,13 @@ export function selectExpertDeleteOriginRecords(
   const byAgent = experts.filter((item) => item.agentId === agentId);
   if (byAgent.length > 0) return byAgent;
 
-  // packageName may be short form while agentId is "pkg:pkg"
-  const byPackage = experts.filter((item) => item.packageName === packageName);
-  if (byPackage.length > 0) return byPackage;
-
-  // packageName was full agentId; origins store short package name
-  const shortPackage =
-    packageName.includes(":")
-      ? packageName.split(":").filter(Boolean).at(-1) ?? packageName
-      : packageName;
-  if (shortPackage !== packageName) {
-    const byShort = experts.filter(
-      (item) =>
-        item.packageName === shortPackage ||
-        item.agentId === shortPackage ||
-        item.agentId?.endsWith(`:${shortPackage}`),
-    );
-    if (byShort.length > 0) return byShort;
-  }
-  return [];
+  const shortPackage = shortIdentity(packageName);
+  const shortAgent = shortIdentity(agentId);
+  return experts.filter(
+    (item) =>
+      item.packageName === shortPackage &&
+      (item.agentId === agentId || item.agentId?.endsWith(`:${shortAgent}`)),
+  );
 }
 
 /**
@@ -134,16 +125,16 @@ export async function deleteExpertSessions(
 
     // Prefer agentId+packageName; fall back to agentId-only when the client
     // sent packageName=agentId (e.g. "pkg:pkg") while origins store "pkg".
+    // `known` and `selected` share this live origin set; journal steps and
+    // tombstones are replay-only and must not widen to every same-agentId row.
     const records = selectExpertDeleteOriginRecords(originState.items, request);
     const requestedIds = request.sessionIds?.map((id) => id.trim()).filter(Boolean);
+    const selected = records.filter((record) =>
+      !requestedIds || requestedIds.length === 0 || requestedIds.includes(record.sessionId),
+    );
     if (requestedIds && requestedIds.length > 0) {
       const known = new Set([
         ...records.map((record) => record.sessionId),
-        // Also accept sessions owned by this agent under any packageName so a
-        // mismatched packageName does not 404 a real expert delete.
-        ...originState.items
-          .filter((item) => item.kind === "expert" && item.agentId === request.agentId)
-          .map((item) => item.sessionId),
         ...(previous?.steps ?? []).map((step) => step.sessionId),
         ...originState.tombstones.map((tombstone) => tombstone.sessionId),
       ]);
@@ -152,9 +143,9 @@ export async function deleteExpertSessions(
         throw new ApiError(404, "expert_delete_target_not_found", "Expert session target was not found");
       }
     }
-    const selected = records.filter((record) =>
-      !requestedIds || requestedIds.length === 0 || requestedIds.includes(record.sessionId),
-    );
+    if (selected.length === 0 && !previous) {
+      throw new ApiError(404, "expert_delete_target_not_found", "Expert session target was not found");
+    }
     if (selected.length > MAX_TARGETS) {
       throw new ApiError(400, "expert_delete_target_limit", "Too many Expert sessions in one delete operation");
     }
@@ -525,6 +516,11 @@ function recordDeleteResultEvent(
     workspaceId: workspace.id,
     expertId: request.agentId,
   });
+}
+
+function shortIdentity(value: string): string {
+  if (!value.includes(":")) return value;
+  return value.split(":").filter(Boolean).at(-1) ?? value;
 }
 
 function hashKey(value: string): string {

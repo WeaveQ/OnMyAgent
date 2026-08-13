@@ -44,6 +44,7 @@ import {
 import { deleteExpertCreationEphemeralSession } from "./expert-creation-ephemeral-sessions";
 import type { ExpertCreationComposerProps } from "./expert-creation-conversation";
 import { refreshExpertPackageQuery } from "./expert-package-query";
+import { normalizeExpertWritePackageName } from "../../capabilities/session-identity/expert-package-name";
 export {
   beginExpertCreateSaveAttempt,
   consumeExpertCreateComposerFlush,
@@ -126,7 +127,7 @@ export async function saveExpertCreation(
     );
     const written = await writeMyExpertPackage({
       id: createdAgent.id,
-      packageName: createdAgent.id,
+      packageName: normalizeExpertWritePackageName({ agentId: createdAgent.id }),
       name: createdAgent.name,
       description: createdAgent.description,
       quote: createdAgent.quote,
@@ -192,8 +193,11 @@ export async function updateExpertCreation(
   let configPath = AGENT_REGISTRY_PATH;
 
   if (isElectronRuntime()) {
-    const packageName =
-      input.agent.marketplacePackageName?.trim() || input.agent.id;
+    const packageName = normalizeExpertWritePackageName({
+      agentId: input.agent.id,
+      packageName: input.agent.marketplacePackageName,
+      marketplacePackageName: input.agent.marketplacePackageName,
+    });
     const written = await writeMyExpertPackage({
       id: input.agent.id,
       packageName,

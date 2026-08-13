@@ -8,6 +8,17 @@ import {
   type ExpertSurfaceEvent,
   type ExpertSurfaceState,
 } from "../src/react-app/domains/session/pages/expert-surface-machine";
+import { selectExpertSurfaceMode } from "../src/react-app/domains/session/pages/expert-surface-mode";
+import { shouldSuppressExpertColdOpen } from "../src/react-app/domains/session/pages/order-conversation-groups";
+
+function suppressFromSurface(state: ExpertSurfaceState): boolean {
+  return shouldSuppressExpertColdOpen({
+    draftSessionActive: state.draft !== null,
+    draftAgentId: state.draft?.agentId ?? null,
+    creatingSessionId: selectExpertSurfaceMode(state).creatingSessionId,
+    tabHighlightSessionId: state.pendingTabSessionId,
+  });
+}
 
 const events: ExpertSurfaceEvent[] = [
   { type: "OPEN_DRAFT", workspaceId: "ws", agentId: "a", operationId: "op-a" },
@@ -111,6 +122,56 @@ describe("expert surface finite-state machine", () => {
     expect(state.route).toEqual({ agentId: "b", sessionId: "ses-b" });
     expect(state.draft?.boundSessionId).toBe("ses-a");
     expect(shouldDropExpertSurfaceDraft(state)).toBe(true);
+  });
+
+  test("SYNC_ROUTE to another real session drops the in-flight create draft", () => {
+    let state = reduceExpertSurface(createExpertSurfaceInitialState("ws"), {
+      type: "OPEN_DRAFT",
+      workspaceId: "ws",
+      agentId: "a",
+      operationId: "op-a",
+    });
+    state = reduceExpertSurface(state, {
+      type: "CREATE_BOUND",
+      operationId: "op-a",
+      sessionId: "ses-a",
+    });
+    state = reduceExpertSurface(state, {
+      type: "SYNC_ROUTE",
+      workspaceId: "ws",
+      agentId: "b",
+      sessionId: "ses-b",
+    });
+    expect(state.route).toEqual({ agentId: "b", sessionId: "ses-b" });
+    expect(state.draft).toBeNull();
+    expect(state.pendingTabSessionId).toBeNull();
+    expect(shouldDropExpertSurfaceDraft(state)).toBe(false);
+    expect(selectExpertSurfaceMode(state).creatingSessionId).toBeNull();
+    expect(suppressFromSurface(state)).toBe(false);
+  });
+
+  test("SYNC_ROUTE to the bound session keeps the create draft", () => {
+    let state = reduceExpertSurface(createExpertSurfaceInitialState("ws"), {
+      type: "OPEN_DRAFT",
+      workspaceId: "ws",
+      agentId: "a",
+      operationId: "op-a",
+    });
+    state = reduceExpertSurface(state, {
+      type: "CREATE_BOUND",
+      operationId: "op-a",
+      sessionId: "ses-a",
+    });
+    state = reduceExpertSurface(state, {
+      type: "SYNC_ROUTE",
+      workspaceId: "ws",
+      agentId: "a",
+      sessionId: "ses-a",
+    });
+    expect(state.draft?.boundSessionId).toBe("ses-a");
+    expect(state.route).toEqual({ agentId: "a", sessionId: "ses-a" });
+    expect(shouldDropExpertSurfaceDraft(state)).toBe(false);
+    expect(selectExpertSurfaceMode(state).creatingSessionId).toBeNull();
   });
 
   test("switching workspace clears the old draft and pending tab atomically", () => {

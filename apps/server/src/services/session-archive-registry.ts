@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { parse as parseJsonc } from "jsonc-parser";
+import { resolveRealHomeDir } from "./real-home-policy.js";
 import type {
   SessionArchiveAgent,
   SessionArchiveSource,
@@ -155,28 +156,21 @@ export function sessionArchiveRegistryEntry(agent: SessionArchiveAgent): Session
  * into `…/opencode-sandbox/home`. Claude/Codex/Pi/Grok session files still live
  * under the real user home — scanning the sandbox yields discovered=0.
  *
- * Prefer: explicit homeDir → ONMYAGENT_REAL_HOME → non-sandbox homedir().
+ * Same policy as desktop getRealHomeDir / ACP resolveAgentHostHome:
+ * honor homeDir / ONMYAGENT_REAL_HOME only when absolute and not sandbox.
  */
 export function resolveSessionArchiveHomeDir(input: {
   homeDir?: string;
   env?: NodeJS.ProcessEnv;
 } = {}): string {
   const env = input.env ?? process.env;
-  const explicit = input.homeDir?.trim() || env.ONMYAGENT_REAL_HOME?.trim();
-  if (explicit) return explicit;
-  const home = homedir();
-  const sandboxed =
-    home.includes("opencode-sandbox") ||
-    (home.includes("Application Support") && home.includes("onmyagent"));
-  if (!sandboxed) return home;
-  const user = env.USER?.trim() || env.LOGNAME?.trim() || "";
-  if (user && process.platform === "darwin") return join("/Users", user);
-  if (user && process.platform === "linux") return join("/home", user);
-  if (process.platform === "win32") {
-    const profile = env.USERPROFILE?.trim();
-    if (profile && !profile.includes("opencode-sandbox")) return profile;
-  }
-  return home;
+  return resolveRealHomeDir({
+    override: [input.homeDir, env.ONMYAGENT_REAL_HOME],
+    home: [homedir(), env.HOME],
+    userProfile: env.USERPROFILE,
+    user: env.USER?.trim() || env.LOGNAME?.trim() || "",
+    platform: process.platform,
+  });
 }
 
 export function resolveSessionArchiveSourceRoots(

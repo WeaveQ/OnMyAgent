@@ -1,4 +1,5 @@
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
+import { normalizeExpertWritePackageName } from "../../capabilities/session-identity/expert-package-name";
 
 type SessionOriginWriter = Pick<OnMyAgentServerClient, "upsertSessionOrigin">;
 
@@ -21,10 +22,17 @@ export type SessionOriginWriteFailure = {
 };
 
 function buildOriginPayload(input: SessionOriginWriteInput) {
+  const agentId = input.agentId?.trim() || undefined;
+  const packageName = input.kind === "expert"
+    ? normalizeExpertWritePackageName({
+        agentId: agentId ?? "",
+        packageName: input.packageName,
+      })
+    : input.packageName?.trim() || "";
   return {
     kind: input.kind,
-    ...(input.agentId?.trim() ? { agentId: input.agentId.trim() } : {}),
-    ...(input.packageName?.trim() ? { packageName: input.packageName.trim() } : {}),
+    ...(agentId ? { agentId } : {}),
+    ...(packageName ? { packageName } : {}),
     ...(input.directory?.trim() ? { directory: input.directory.trim() } : {}),
   };
 }

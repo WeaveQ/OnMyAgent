@@ -6,6 +6,7 @@ import path from "node:path";
 import {
   createExecHelpers,
   forceKillProcessTree,
+  resolveAgentHostHome,
   resolveProcessTreeKillPlan,
   waitForExit,
   writeJsonFile,
@@ -97,6 +98,27 @@ test("forceKillProcessTree is a no-op when child already exited", () => {
 test("waitForExit resolves immediately when child already closed", async () => {
   const child = { exitCode: 0, signalCode: null, once() {} };
   await waitForExit(child, 50);
+});
+
+test("resolveAgentHostHome ignores a sandbox ONMYAGENT_REAL_HOME", () => {
+  assert.equal(
+    resolveAgentHostHome({
+      ONMYAGENT_REAL_HOME: "/x/opencode-sandbox/home",
+      HOME: "/Volumes/Disk/alice",
+      USER: "alice",
+    }),
+    "/Volumes/Disk/alice",
+  );
+});
+
+test("resolveAgentHostHome prefers custom HOME over invented /Users/$USER", () => {
+  assert.equal(
+    resolveAgentHostHome({
+      HOME: "/Volumes/Disk/alice",
+      USER: "alice",
+    }),
+    "/Volumes/Disk/alice",
+  );
 });
 
 test("waitForExit force-kills the tree after timeout", async () => {

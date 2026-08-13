@@ -5,6 +5,9 @@
  * - Ideal: assistant empty-home commits → onStaticHomeReady → routeReady
  * - Fail-safe: after route refresh settles, a hard deadline forces markShellReady
  * - Non-home routes (session selected / non-assistant): mark immediately in finally
+ * - Standalone routes that unmount SessionRoute (/welcome, /signin, /onboarding)
+ *   must call markRouteReady on mount. /welcome is the cold-start onboarding
+ *   path: SessionRoute redirects there before its deadline can fire.
  *
  * `phase === "ready"` only updates overlay copy; dismissing still needs routeReady.
  */

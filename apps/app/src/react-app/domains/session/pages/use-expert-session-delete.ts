@@ -25,8 +25,14 @@ import {
 } from "../../agents";
 import { isElectronRuntime } from "../../../../app/utils";
 import { useAgentRegistryStore } from "../../agents";
-import type { ExpertDeleteResult } from "@onmyagent/types/server";
+import type { ExpertDeleteResult, ExpertDirectoryProjection } from "@onmyagent/types/server";
 import type { ExpertPackageDeleteResult } from "@onmyagent/types/desktop-ipc";
+import {
+  evictExpertDirectorySessions,
+  stripExpertDirectorySessionsFromProjection,
+} from "../../../capabilities/session-identity/expert-directory-cache";
+import { expertDirectoryQueryKey } from "../../../capabilities/session-identity/expert-directory-query";
+import { useExpertDirectoryStore } from "../../../capabilities/session-identity/expert-directory-store";
 
 export type ExpertGroupDeleteTarget = {
   kind: "expert";
@@ -108,6 +114,11 @@ export function resolveExpertDeletePackageName(input: {
     return parts[parts.length - 1] || agentId;
   }
   return agentId;
+}
+
+/** Desktop package uninstall only after the server actually deleted or replayed sessions. */
+export function shouldUninstallExpertPackage(serverResult: Pick<ExpertDeleteResult, "state" | "steps">): boolean {
+  return serverResult.state === "completed" && (serverResult.steps?.length ?? 0) > 0;
 }
 
 export function useExpertSessionDelete(input: {
@@ -203,6 +214,32 @@ export function useExpertSessionDelete(input: {
           setDeleteProgress({ status: "failed", operationId, server: serverResult, error });
           throw new Error(error);
         }
+        if (!shouldUninstallExpertPackage(serverResult)) {
+          throw new Error("expert_delete_target_not_found");
+        }
+        evictExpertDirectorySessions(input.workspaceId, target.sessionIds);
+        const directoryStore = useExpertDirectoryStore.getState();
+        directoryStore.expireOverlay(input.workspaceId, target.sessionIds);
+        const identity = directoryStore.getProjectionIdentity(input.workspaceId);
+        const remainingIds = new Set(identity.sessionIds);
+        const remainingAgents = new Map(identity.agentIdBySessionId);
+        for (const sessionId of target.sessionIds) {
+          remainingIds.delete(sessionId);
+          remainingAgents.delete(sessionId);
+        }
+        directoryStore.setIdentity(input.workspaceId, {
+          sessionIds: remainingIds,
+          agentIdBySessionId: remainingAgents,
+        });
+        const queryClient = getReactQueryClient();
+        const directoryQueryKey = expertDirectoryQueryKey(input.workspaceId);
+        const currentDirectory = queryClient.getQueryData<ExpertDirectoryProjection>(directoryQueryKey);
+        if (currentDirectory) {
+          queryClient.setQueryData(
+            directoryQueryKey,
+            stripExpertDirectorySessionsFromProjection(currentDirectory, target.sessionIds),
+          );
+        }
         const desktopResult = await deleteExpertPackage({
           operationId,
           agentId: target.agentId,
@@ -215,7 +252,7 @@ export function useExpertSessionDelete(input: {
           setDeleteProgress({ status: "failed", operationId, server: serverResult, desktop: desktopResult, error });
           throw new Error(error);
         }
-        await getReactQueryClient().invalidateQueries({ queryKey: ["expert-directory", input.workspaceId] });
+        await queryClient.invalidateQueries({ queryKey: directoryQueryKey });
         clearExpertLocalSessionBindings(target.sessionIds);
         for (const sessionId of target.sessionIds) {
           permanentlyRemoveAssistantArchivedTask(input.workspaceId, sessionId);

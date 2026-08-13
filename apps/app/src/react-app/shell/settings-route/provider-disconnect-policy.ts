@@ -85,3 +85,11 @@ export function canRemoveProviderRow(input: {
 }): boolean {
   return resolveProviderRemoveMode(input) !== null;
 }
+
+/** Chrome entry: Settings AI list must call this, not re-derive delete vs disconnect. */
+export function resolveAiViewRemoveMode(input: {
+  provider: { id: string; managedBy?: string | null; source?: string | null };
+  opencodeInventoryReady: boolean;
+}): ProviderRemoveMode | null {
+  return resolveProviderRemoveMode(input);
+}

@@ -13,10 +13,15 @@ import {
   readRealSessionId,
 } from "./expert-surface-mode";
 import {
+  isExpertDirectoryReadyForIdentity,
+  selectLiveDirectoryPayload,
   selectAgentIdForSession,
   selectExpertSessionIds,
 } from "../../../capabilities/session-identity/expert-directory-page-model";
-import type { buildExpertDirectoryPageModel } from "../../../capabilities/session-identity/expert-directory-page-model";
+import type {
+  buildExpertDirectoryPageModel,
+  ExpertDirectoryQuerySnapshot,
+} from "../../../capabilities/session-identity/expert-directory-page-model";
 
 type ExpertDirectoryPage = ReturnType<typeof buildExpertDirectoryPageModel>;
 
@@ -50,13 +55,18 @@ export type ExpertPageIdentityModel = {
   hasAnyExpertConversation: boolean;
 };
 
+export { isExpertDirectoryReadyForIdentity };
+
 export function buildExpertPageIdentityModel(input: {
   directoryPage: ExpertDirectoryPage;
   workspaceSessions: SidebarSessionItem[];
   registry: AgentRegistry | null;
   selectedSessionId: string | null;
+  directoryQuery?: Pick<ExpertDirectoryQuerySnapshot, "data" | "lastComplete">;
 }): ExpertPageIdentityModel {
-  const payload = input.directoryPage.payload;
+  const payload = input.directoryQuery
+    ? selectLiveDirectoryPayload(input.directoryQuery) ?? input.directoryPage.payload
+    : input.directoryPage.payload;
   const liveExpertSessionIds = selectExpertSessionIds(payload);
   const expertDirectoryIdentity: ExpertDirectoryIdentityIndex = {
     sessionIds: new Set(liveExpertSessionIds),
@@ -66,14 +76,14 @@ export function buildExpertPageIdentityModel(input: {
       ),
     ),
   };
-  // Cold-open (default first expert session) requires ready. Treat incomplete
-  // payloads that still carry records as ready enough so a partial origin
-  // failure does not leave the page stuck on "默认智能体" with no selection.
-  const expertDirectoryReady = input.directoryPage.state === "ready"
-    || (
-      (input.directoryPage.state === "incomplete" || input.directoryPage.state === "error")
-      && Boolean(input.directoryPage.payload?.records?.length)
-    );
+  // Cold-open requires ready. Incomplete live records are ready enough;
+  // a stale lastComplete snapshot is not live identity.
+  const expertDirectoryReady = isExpertDirectoryReadyForIdentity({
+    state: input.directoryPage.state,
+    payload,
+    data: input.directoryQuery?.data,
+    lastComplete: input.directoryQuery?.lastComplete,
+  });
   const routeSessionLive = isLiveExpertSessionSelection({
     selectedSessionId: input.selectedSessionId,
     liveSessionIds: liveExpertSessionIds,

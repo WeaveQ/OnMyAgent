@@ -8,11 +8,8 @@ import type { ReactNode } from "react";
 import type { SettingsTabBodyCtx } from "./settings-tab-body-ctx";
 import { SettingsStack } from "../../domains/settings";
 import { deleteSessionOwnedWorkspaceFiles } from "../../domains/workspace";
-import {
-  canDeleteOpenCodeProvider,
-  canDisconnectProviderRow,
-  canEditOpenCodeProvider,
-} from "./provider-disconnect-policy";
+import { canEditOpenCodeProvider } from "./provider-disconnect-policy";
+import { resolveProviderRemoveChromeMode } from "./provider-remove-chrome";
 import {
   deleteOpenCodeManagedProvider,
   disconnectSettingsProvider,
@@ -238,15 +235,14 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
                 setError: ctx.setProviderActionError,
               })
             }
-            canDisconnectProvider={(provider) =>
-              canDisconnectProviderRow({
+            resolveRemoveMode={(provider) =>
+              resolveProviderRemoveChromeMode({
                 provider,
                 opencodeInventoryReady: ctx.opencodeInventoryReady,
               })
             }
             canEditProvider={canEditOpenCodeProvider}
             onEditProvider={ctx.handleEditOpenCodeProvider}
-            canDeleteProvider={canDeleteOpenCodeProvider}
             onDeleteProvider={async (provider) => {
               if (ctx.providerActionBusyId || ctx.providerSyncBusy) return;
               await deleteOpenCodeManagedProvider({

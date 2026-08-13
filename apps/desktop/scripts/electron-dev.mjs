@@ -44,7 +44,7 @@ const nodeCmd = process.execPath;
 const portValue = Number.parseInt(process.env.PORT ?? "", 10);
 const devPort = Number.isFinite(portValue) && portValue > 0 ? portValue : 5173;
 const explicitStartUrl = process.env.ONMYAGENT_ELECTRON_START_URL?.trim() || "";
-const startUrl = explicitStartUrl || `http://localhost:${devPort}`;
+const startUrl = explicitStartUrl || `http://127.0.0.1:${devPort}`;
 const viteProbeUrls = explicitStartUrl
   ? [explicitStartUrl]
   : [
