@@ -52,4 +52,26 @@ describe("shouldNavigateToCreatedSession", () => {
       }),
     ).toBe(true);
   });
+
+  test("does not navigate after an explicit click cancels the create transaction", () => {
+    expect(
+      shouldNavigateToCreatedSession({
+        sessionIdAtSendStart: "ses_expert_b",
+        currentSelectedSessionId: "ses_expert_b",
+        createdSessionId: "ses_expert_a_new",
+        createTransactionActive: false,
+      }),
+    ).toBe(false);
+  });
+
+  test("active expert transaction survives an automatic fallback route", () => {
+    expect(
+      shouldNavigateToCreatedSession({
+        sessionIdAtSendStart: null,
+        currentSelectedSessionId: "ses_expert_b_fallback",
+        createdSessionId: "ses_expert_a_new",
+        createTransactionActive: true,
+      }),
+    ).toBe(true);
+  });
 });

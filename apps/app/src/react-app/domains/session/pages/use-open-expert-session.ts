@@ -67,6 +67,14 @@ export function useOpenExpertSession(input: {
         if (usePendingAgentStore.getState().getAgent()?.id === draftAgentId) {
           usePendingAgentStore.getState().setAgent(null);
         }
+      } else if (
+        draftSessionActive &&
+        usePendingAgentStore.getState().getAgent()?.id === draftAgentId
+      ) {
+        // An explicit click on another expert cancels navigation ownership for
+        // this draft, even if the underlying route was already that session.
+        // Keep the draft context so it can still be reopened from its own row.
+        usePendingAgentStore.getState().setAgent(null);
       }
       clearSurfaceDraft();
       openRailView("chat");

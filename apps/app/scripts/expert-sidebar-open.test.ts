@@ -34,7 +34,7 @@ describe("expert sidebar open target", () => {
     })).toEqual({ sessionId: "session-old", shouldOpen: true });
   });
 
-  test("reopens the real session when a same-expert draft overlays it", () => {
+  test("an explicit expert click exits any overlaid draft", () => {
     const target = resolveExpertSidebarOpen({
       hintSessionId: "session-real",
       rememberedSessionId: "session-real",
@@ -53,6 +53,6 @@ describe("expert sidebar open target", () => {
       draftAgentId: "expert-b",
       draftSessionActive: true,
       targetAgentId: "expert-a",
-    })).toBe(false);
+    })).toBe(true);
   });
 });

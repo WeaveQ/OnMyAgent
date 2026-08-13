@@ -53,11 +53,10 @@ export function useExpertBoundDraftTransition(input: {
     const draftIntent = draftSessionActive;
     const mode = selectExpertSurfaceMode(surfaceState);
 
-    // User is on a different real tab than the in-flight create: drop draft
-    // chrome and never force-nav back (mode.mayForceNavToBound is false).
-    if (
-      shouldDropExpertSurfaceDraft(surfaceState)
-    ) {
+    // A changed route that was not underneath the draft is explicit leave
+    // intent from another session entry point. The original underlying route
+    // is only transition state and must not cancel first-send navigation.
+    if (shouldDropExpertSurfaceDraft(surfaceState)) {
       if (
         pendingAgent &&
         !matchesExpertDraftTransaction({

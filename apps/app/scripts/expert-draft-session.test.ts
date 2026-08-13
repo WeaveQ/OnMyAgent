@@ -173,7 +173,7 @@ describe("expert draft session activation", () => {
     ).toBe(true);
   });
 
-  test("drops +新会话 draft when user opens another expert's real session", () => {
+  test("does not treat a synchronized route as proof of a user switch", () => {
     expect(
       shouldKeepUnboundExpertDraft({
         draftSessionActive: true,
@@ -182,7 +182,7 @@ describe("expert draft session activation", () => {
         pendingAgentId: "fulfillment-specialist",
         selectedSessionAgentId: "logistics-finance-specialist",
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   test("keeps a marketplace selection draft while the route still points at the previous expert", () => {

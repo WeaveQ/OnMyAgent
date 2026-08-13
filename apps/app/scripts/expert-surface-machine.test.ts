@@ -101,7 +101,7 @@ describe("expert surface finite-state machine", () => {
     ).toBe(state);
   });
 
-  test("explicit real-tab selection wins over a late create without losing its transaction", () => {
+  test("explicit draft clear lets a real-tab selection win over a late create", () => {
     let state = reduceExpertSurface(createExpertSurfaceInitialState("ws"), {
       type: "OPEN_DRAFT",
       workspaceId: "ws",
@@ -118,36 +118,70 @@ describe("expert surface finite-state machine", () => {
       type: "CREATE_BOUND",
       operationId: "op-a",
       sessionId: "ses-a",
+    });
+    state = reduceExpertSurface(state, { type: "CLEAR_DRAFT" });
+    expect(state.route).toEqual({ agentId: "b", sessionId: "ses-b" });
+    expect(state.draft).toBeNull();
+  });
+
+  test("does not mistake the route under a new-session draft for a user switch", () => {
+    let state = reduceExpertSurface(createExpertSurfaceInitialState("ws"), {
+      type: "SYNC_ROUTE",
+      workspaceId: "ws",
+      agentId: "b",
+      sessionId: "ses-b",
+    });
+    state = reduceExpertSurface(state, {
+      type: "OPEN_DRAFT",
+      workspaceId: "ws",
+      agentId: "a",
+      operationId: "op-a",
+    });
+    state = reduceExpertSurface(state, {
+      type: "CREATE_BOUND",
+      operationId: "op-a",
+      sessionId: "ses-a",
+    });
+
+    expect(state.route).toEqual({ agentId: "b", sessionId: "ses-b" });
+    expect(state.draft?.sourceRouteSessionId).toBe("ses-b");
+    expect(shouldDropExpertSurfaceDraft(state)).toBe(false);
+    expect(selectExpertSurfaceMode(state)).toMatchObject({
+      kind: "creating",
+      sessionId: "ses-a",
+      conversationAgentId: "a",
+      mayForceNavToBound: true,
+    });
+    expect(selectExpertSurfaceNavigation(state)).toEqual({
+      operationId: "op-a",
+      sessionId: "ses-a",
+    });
+  });
+
+  test("SYNC_ROUTE to a new route remains explicit leave intent", () => {
+    let state = reduceExpertSurface(createExpertSurfaceInitialState("ws"), {
+      type: "OPEN_DRAFT",
+      workspaceId: "ws",
+      agentId: "a",
+      operationId: "op-a",
+    });
+    state = reduceExpertSurface(state, {
+      type: "CREATE_BOUND",
+      operationId: "op-a",
+      sessionId: "ses-a",
+    });
+    state = reduceExpertSurface(state, {
+      type: "SYNC_ROUTE",
+      workspaceId: "ws",
+      agentId: "b",
+      sessionId: "ses-b",
     });
     expect(state.route).toEqual({ agentId: "b", sessionId: "ses-b" });
     expect(state.draft?.boundSessionId).toBe("ses-a");
+    expect(state.pendingTabSessionId).toBe("ses-a");
     expect(shouldDropExpertSurfaceDraft(state)).toBe(true);
-  });
-
-  test("SYNC_ROUTE to another real session drops the in-flight create draft", () => {
-    let state = reduceExpertSurface(createExpertSurfaceInitialState("ws"), {
-      type: "OPEN_DRAFT",
-      workspaceId: "ws",
-      agentId: "a",
-      operationId: "op-a",
-    });
-    state = reduceExpertSurface(state, {
-      type: "CREATE_BOUND",
-      operationId: "op-a",
-      sessionId: "ses-a",
-    });
-    state = reduceExpertSurface(state, {
-      type: "SYNC_ROUTE",
-      workspaceId: "ws",
-      agentId: "b",
-      sessionId: "ses-b",
-    });
-    expect(state.route).toEqual({ agentId: "b", sessionId: "ses-b" });
-    expect(state.draft).toBeNull();
-    expect(state.pendingTabSessionId).toBeNull();
-    expect(shouldDropExpertSurfaceDraft(state)).toBe(false);
-    expect(selectExpertSurfaceMode(state).creatingSessionId).toBeNull();
-    expect(suppressFromSurface(state)).toBe(false);
+    expect(selectExpertSurfaceMode(state).mayForceNavToBound).toBe(false);
+    expect(suppressFromSurface(state)).toBe(true);
   });
 
   test("SYNC_ROUTE to the bound session keeps the create draft", () => {
@@ -170,7 +204,6 @@ describe("expert surface finite-state machine", () => {
     });
     expect(state.draft?.boundSessionId).toBe("ses-a");
     expect(state.route).toEqual({ agentId: "a", sessionId: "ses-a" });
-    expect(shouldDropExpertSurfaceDraft(state)).toBe(false);
     expect(selectExpertSurfaceMode(state).creatingSessionId).toBeNull();
   });
 
