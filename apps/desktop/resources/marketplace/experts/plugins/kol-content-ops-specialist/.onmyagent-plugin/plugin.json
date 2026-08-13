@@ -1,6 +1,6 @@
 {
   "name": "kol-content-ops-specialist",
-  "version": "1.1.0",
+  "version": "1.2.1",
   "description": "Creator ops specialist for script delivery, content tracking, rebate contracts, reconciliation, and reputation",
   "author": { "name": "Expert Marketplace" },
   "license": "MIT",
@@ -35,7 +35,7 @@
     { "zh": "口碑辅助", "en": "Reputation" }
   ],
   "quickPrompts": [
-    { "zh": "请按 <客户 Brief 与产品资料> 审核 <达人脚本>，结合 <客户偏好或过审样稿> 选择快速扫描、正式审核或批量审核。", "en": "Review <Creator script> against <Client brief and product materials>, using <Client preferences or approved samples> in the requested mode." },
+    { "zh": "请按 <客户 Brief 与产品资料> 中修审核 <达人脚本>，<客户偏好或过审样稿> 仅校准尺度；生成标准 Word 审核留痕版，临时文件不展示。确认后再单独生成清洁终稿。", "en": "Review <Creator script> against <Client brief and product materials>, using <Client preferences or approved samples> only for calibration; create a tracked Word first and a clean final only after confirmation." },
     { "zh": "请把 <脚本版本与沟通记录> 按 <项目排期与验收标准> 整理成内容履约和发布验收台账。", "en": "Turn <Script versions and communication records> into a delivery tracker using <Project schedule and acceptance rules>." },
     { "zh": "请根据 <对公返点信息表> 和 <业务批准的合同模板> 批量生成合同，并输出生成日志和待补材料。", "en": "Generate rebate contracts from <Corporate rebate sheet> and <Business-approved contract template>, with a generation log and missing items." },
     { "zh": "请核对 <开票申请、返点协议和项目计划单>，按 <金额容差或列名映射> 输出核对清单、摘要和待处理事项。", "en": "Reconcile <Invoice applications, rebate contracts, and project plans> using <Amount tolerance or column mapping>, with checklist, summary, and action items." },

@@ -6,6 +6,7 @@ import {
   classifyOpenTarget,
   collectRuntimeRegisteredDeliverablePaths,
   deriveOpenTargets,
+  extractAssistantDeliveryManifestPaths,
   isCollectibleArtifactTarget,
   isUserFacingLocalPreviewTarget,
   resolveArtifactAbsolutePath,
@@ -552,6 +553,65 @@ describe("deriveOpenTargets", () => {
     expect(
       selectTurnOpenTargets(messages, verified).map((target) => target.value),
     ).toEqual(paths);
+  });
+
+  it("shows every verified file from a batch delivery Markdown table", () => {
+    const finalText = `全部完成。交付如下：
+
+## 📦 交付物（6 份合同 + 台账）
+
+**合同（\`合同输出/\`）**
+| 序号 | 文件 |
+|---|---|
+| 1 | \`【安姐聊时尚-lan10月-e签宝-斯路】.docx\` |
+| 2 | \`【毒舌小扒菜／单口bot-lan10月-e签宝-新偶】.docx\` |
+| 3 | \`【我只吃7分饱-lan10月-e签宝-元禾】.docx\` |
+| 4 | \`【倦梨逃了-lan10月-e签宝-橘崽】.docx\` |
+| 5 | \`【挖哒西挖课代表-lan10月-e签宝-松茸有】.docx\` |
+| 6 | \`【小樱日常(可爱版／牛奶方糖粥-lan11月-e签宝-三庚】.docx\` |
+
+**台账**：\`【ai】对公返点信息_已填写完成日期.xlsx\`
+
+以上均为 \`ONMYAGENT_DELIVERABLE\`。`;
+    const listedPaths = extractAssistantDeliveryManifestPaths(finalText);
+    const contractPaths = listedPaths
+      .filter((path) => path.endsWith(".docx"))
+      .map((path) => `/workspace/${path}`);
+    const ledgerPath = "/workspace/【ai】对公返点信息_已填写完成日期.xlsx";
+    const messages = [message("msg_final", "assistant", finalText)] satisfies UIMessage[];
+    const verified = [
+      ...contractPaths.map((path) => ({ ...fileTarget(path), exists: true })),
+      { ...fileTarget(ledgerPath, "sheet"), exists: true },
+    ];
+
+    expect(listedPaths).toHaveLength(7);
+    expect(deriveOpenTargets(messages).map((target) => target.value)).toEqual(listedPaths);
+    expect(selectTurnOpenTargets(messages, verified).map((target) => target.value)).toEqual([
+      ...contractPaths,
+      ledgerPath,
+    ]);
+  });
+
+  it("does not treat arbitrary code-spanned file mentions as a delivery manifest", () => {
+    const text = "我参考了 `输入台账.xlsx`，但还没有开始生成文件。";
+
+    expect(extractAssistantDeliveryManifestPaths(text)).toEqual([]);
+    expect(deriveOpenTargets([message("msg_1", "assistant", text)])).toEqual([]);
+  });
+
+  it("does not let final delivery context promote earlier assistant file mentions", () => {
+    const messages = [
+      message("msg_progress", "assistant", "正在读取 `用户输入.xlsx`。"),
+      message("msg_final", "assistant", "交付物：`最终输出.xlsx`。"),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("用户输入.xlsx", "sheet"), exists: true },
+      { ...fileTarget("最终输出.xlsx", "sheet"), exists: true },
+    ];
+
+    expect(selectTurnOpenTargets(messages, verified).map((target) => target.value)).toEqual([
+      "最终输出.xlsx",
+    ]);
   });
 
   it("keeps hidden temporary data files out of the user-facing artifact cards", () => {

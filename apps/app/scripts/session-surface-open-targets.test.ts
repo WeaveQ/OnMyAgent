@@ -6,9 +6,29 @@ import {
   createAutoOpenSessionState,
   initializeAutoOpenSessionState,
   markAutoOpened,
+  normalizeVerifiedOpenTargets,
   resetAutoOpenSessionState,
   shouldFireAutoOpen,
 } from "../src/react-app/domains/session/surface/session-surface-open-targets";
+
+describe("verified open-target normalization", () => {
+  test("upgrades Office files misclassified by an older server", () => {
+    const targets = normalizeVerifiedOpenTargets([
+      {
+        id: "file:合同输出/返点合同.docx",
+        kind: "file",
+        value: "合同输出/返点合同.docx",
+        name: "返点合同.docx",
+        preview: "external",
+        confidence: 92,
+        reason: "assistant delivery manifest",
+        exists: true,
+      },
+    ]);
+
+    expect(targets[0]?.preview).toBe("document");
+  });
+});
 
 describe("auto-open session state (pure)", () => {
   test("empty first init then later targets still allow auto-open", () => {

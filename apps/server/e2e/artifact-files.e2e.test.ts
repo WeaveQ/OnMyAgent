@@ -115,6 +115,8 @@ describe("artifact file routes", () => {
     const allowedSessionRoot = join(runtimeRoot, "managed", "session-1");
     await mkdir(allowedSessionRoot, { recursive: true });
     await writeFile(join(allowedSessionRoot, "result.md"), "# Expert result\n", "utf8");
+    await mkdir(join(allowedSessionRoot, "合同输出"), { recursive: true });
+    await writeFile(join(allowedSessionRoot, "合同输出", "返点合同.docx"), "docx-fixture", "utf8");
     await writeFile(
       join(allowedSessionRoot, "onmyagent-session.json"),
       JSON.stringify({ kind: "expert-session", workspaceId: "ws_1" }),
@@ -143,6 +145,13 @@ describe("artifact file routes", () => {
 
       expect((await resolve(allowedSessionRoot)).items).toContainEqual(
         expect.objectContaining({ value: "result.md", exists: true }),
+      );
+      expect((await resolve(allowedSessionRoot, "合同输出/返点合同.docx")).items).toContainEqual(
+        expect.objectContaining({
+          value: "合同输出/返点合同.docx",
+          exists: true,
+          preview: "document",
+        }),
       );
       expect((await resolve(allowedSessionRoot, "escaped.md")).items).toContainEqual(
         expect.objectContaining({ value: "escaped.md", exists: false }),

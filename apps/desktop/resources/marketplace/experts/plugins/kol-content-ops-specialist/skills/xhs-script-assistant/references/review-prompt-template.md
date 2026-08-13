@@ -3,9 +3,9 @@
 > 本文件是 `xhs-script-assistant` skill 的**标准审核指令层**。
 > 双重用途：
 > 1. 作为 skill 内部审核逻辑基准——标准/批量审核时，判断标准与输出表以本模板为准。
-> 2. 作为**独立通用 Prompt**——直接复制粘贴给任意模型（脱离 WorkBuddy/skill）也能产出合规审核；但会失去 `extract.py`/`缓存 Brief`/`docx-template.py` 的成本优势。
+> 2. 作为**独立通用 Prompt**——直接复制粘贴给任意模型（脱离 OnMyAgent/skill）也能产出合规审核；但会失去 `extract.py`、Brief 缓存和 `docx-template.py` 的成本优势。
 >
-> 与 skill 原有机制的关系：本模板的「6 维判断标准」≈ 原 14 项审查的上位归类；「6 字段问题表」≡ 原「修改说明表 + 风险表达表」的合并升级版（新增风险等级 P0/P1/P2 + 可替代表达列）。
+> 与 skill 原有机制的关系：本模板的「6 维判断标准」≈ 原 15 项审查的上位归类；「6 字段问题表」≡ 原「修改说明表 + 风险表达表」的合并升级版（新增风险等级 P0/P1/P2 + 可替代表达列）。
 
 ---
 
@@ -91,5 +91,43 @@
 ## 与 skill 批量流程的对接（仅 skill 内使用时参考）
 
 - 批量审核时，①修改后脚本 → `script_rows`；②问题表 → `issue_rows`（6 字段）；③符合度 → `brief_check_rows`。
-- 调用 `references/docx-template.py` 渲染：`python3 docx-template.py --batch <batch.json> <输出目录>`，每个达人生成 `<项目名>_<达人名>_审核.docx`。
+- 把批量 JSON 写入 `.opencode/tmp/`，调用 `python3 references/docx-template.py --batch <batch.json> <会话 cwd 下的输出目录>`；每个达人生成 `【内容阶段-品牌产品名-博主名称】.docx`。
+- 只对用户最终 Word 登记 `ONMYAGENT_DELIVERABLE`；JSON、提取文本和缓存不登记。
 - 风险等级列直接写 `"P0"/"P1"/"P2"`，模板脚本自动着色。
+
+---
+
+## 标准 Word JSON 与生成（仅 skill 内使用）
+
+标准 Word 模式把审核结果写入以下 JSON 字段：
+
+```json
+{
+  "title": "XXX — 脚本审核报告",
+  "meta": "品牌：XXX | 达人：XXX | 任务：视频脚本审核 | 修改强度：中修 | 平台：小红书",
+  "p0_warning": "超时或 P0 摘要",
+  "brief_rows": [["字段", "内容"]],
+  "script_rows": [["1", "0-8s", "画面", "口播内容或修改留痕list", "花字"]],
+  "pub_copy": {"original": "原文案", "modified": "改后文案", "reason": "理由"},
+  "topic": {"original": "原话题", "modified": "改后话题", "reason": "理由"},
+  "mod_rows": [["位置", "修改类型", "修改原因", "对应依据", "P0/P1/P2"]],
+  "brief_check_rows": [["Brief要求", "满足状态", "脚本位置", "备注"]],
+  "risk_rows": [["原表达", "风险原因", "修改后表达"]],
+  "issue_rows": [["问题位置", "问题类型", "具体问题", "P0/P1/P2/需人工复核", "修改建议", "可替代表达"]],
+  "ref_case": {"paragraphs": [[{"text": "...", "bold": true}]]},
+  "omit_rows": [["缺失项", "影响", "建议"]],
+  "checks": [{"icon": "✅/⚠️", "text": "检查项"}]
+}
+```
+
+口播/字幕留痕列表元素使用 `{text, bold, color, strike}`；`color` 可取 `RED/ORANGE/GREEN/MUTED/ACCENT`。风险等级直接写 `P0/P1/P2`。
+
+从当前 skill 根目录执行：
+
+```bash
+python3 references/docx-template.py \
+  .opencode/tmp/<审核内容>.json \
+  '<最终文件名>.docx'
+```
+
+最终 Word 验证可打开后，只打印 `ONMYAGENT_DELIVERABLE: <最终文件名>.docx`。

@@ -658,6 +658,62 @@ const EXPLICIT_ARTIFACT_LINK_PATTERNS = [
   /\]\((?:artifact|preview):\/?([^\s)]+)\)/gi,
 ];
 
+const ASSISTANT_DELIVERY_CONTEXT_PATTERN =
+  /(?:交付物|交付清单|交付如下|最终产物|产物清单|输出文件|deliverables?|ONMYAGENT_DELIVERABLE)/iu;
+const ASSISTANT_DELIVERY_CODE_FILE_PATTERN =
+  /`([^`\r\n]+?\.[a-z][a-z0-9]{0,9})`/giu;
+const ASSISTANT_DELIVERY_LINK_LABEL_PATTERN =
+  /\[([^\]\r\n]+?\.[a-z][a-z0-9]{0,9})\]\([^\r\n)]+\)/giu;
+const ASSISTANT_DELIVERY_DIRECTORY_PATTERN = /`([^`\r\n]+[/\\])`/gu;
+
+/**
+ * File paths intentionally listed in the assistant's final delivery summary.
+ *
+ * Batch agents often create several files inside one shell/python operation,
+ * then report them in a Markdown table and finish with a single sentence such
+ * as "以上均为 ONMYAGENT_DELIVERABLE". Those files have real write provenance
+ * on disk, but no per-file runtime marker. Treat code spans/link labels as a
+ * delivery manifest only when the same assistant text has strong delivery
+ * context; the server must still verify every candidate before a card appears.
+ */
+export function extractAssistantDeliveryManifestPaths(text: string): string[] {
+  if (!ASSISTANT_DELIVERY_CONTEXT_PATTERN.test(text)) return [];
+
+  const paths: string[] = [];
+  let activeTableDirectory = "";
+  for (const line of text.split(/\r?\n/u)) {
+    ASSISTANT_DELIVERY_DIRECTORY_PATTERN.lastIndex = 0;
+    const directory = ASSISTANT_DELIVERY_DIRECTORY_PATTERN.exec(line)?.[1]?.trim();
+    if (directory) activeTableDirectory = directory.replace(/[\\]+/g, "/");
+
+    for (const pattern of [
+      ASSISTANT_DELIVERY_CODE_FILE_PATTERN,
+      ASSISTANT_DELIVERY_LINK_LABEL_PATTERN,
+    ]) {
+      pattern.lastIndex = 0;
+      for (const match of line.matchAll(pattern)) {
+        const raw = (match[1] ?? "").trim();
+        if (!raw || isLikelyUserUploadArtifactPath(raw)) continue;
+        const path = line.trimStart().startsWith("|")
+          && activeTableDirectory
+          && !raw.includes("/")
+          && !raw.includes("\\")
+          ? `${activeTableDirectory}${raw}`
+          : raw;
+        paths.push(path);
+      }
+    }
+  }
+
+  const seen = new Set<string>();
+  return paths.filter((path) => {
+    const key = normalizePath(path).toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 /**
  * Hard deliverable declarations (`文件路径: …`). These may mint product cards
  * even without a write-tool entry in the same turn.
@@ -736,6 +792,14 @@ export function deriveOpenTargets(messages: UIMessage[], options: DeriveOpenTarg
         scanText(targets, part.text, message.role === "assistant" ? 65 : 40, "message", {
           includeFiles: options.includeFileMentions === true,
         });
+        if (message.role === "assistant") {
+          addFileValues(
+            targets,
+            extractAssistantDeliveryManifestPaths(part.text),
+            92,
+            "assistant delivery manifest",
+          );
+        }
         continue;
       }
 

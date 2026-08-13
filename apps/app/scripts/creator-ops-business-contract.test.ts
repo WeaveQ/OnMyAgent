@@ -161,4 +161,49 @@ describe("creator ops experts business contract", () => {
     }
     expect(reviewText).toContain("超出即 **P0**");
   });
+
+  test("all three experts separate final deliverables from process files", () => {
+    for (const expertName of Object.keys(BUSINESS_SKILLS)) {
+      const agentText = readFileSync(
+        join(expertsRoot, expertName, "agents", `${expertName}.md`),
+        "utf8",
+      );
+      expect(agentText).toContain("ONMYAGENT_DELIVERABLE");
+      expect(agentText).toContain(".opencode/tmp/");
+      expect(agentText).toContain("会话 cwd");
+    }
+  });
+
+  test("demo workflows have deterministic routing and final-file boundaries", () => {
+    const briefSkill = readFileSync(
+      join(expertsRoot, "kol-media-specialist/skills/kol-brief-structuring/SKILL.md"),
+      "utf8",
+    );
+    expect(briefSkill).toContain("历史经验冲突说明");
+    expect(briefSkill).toContain("只对最终 Word / Excel");
+
+    const marginSkill = readFileSync(
+      join(expertsRoot, "kol-project-review-specialist/skills/kol-margin-effect-analysis/SKILL.md"),
+      "utf8",
+    );
+    expect(marginSkill).toContain("--plan-input");
+    expect(marginSkill).toContain("--effect-input");
+    expect(marginSkill).toContain("只做精确一对一匹配");
+
+    const reviewSkill = readFileSync(
+      join(expertsRoot, "kol-project-review-specialist/skills/kol-project-review-framework/SKILL.md"),
+      "utf8",
+    );
+    expect(reviewSkill).toContain("不能只给目录");
+    expect(reviewSkill).toContain("可直接使用的八维初稿");
+
+    const scriptSkill = readFileSync(
+      join(expertsRoot, "kol-content-ops-specialist/skills/xhs-script-assistant/SKILL.md"),
+      "utf8",
+    );
+    expect(scriptSkill).toContain("留痕版与清洁终稿");
+    expect(scriptSkill).not.toContain("WorkBuddy");
+    expect(scriptSkill).not.toContain("present_files");
+    expect(scriptSkill).not.toContain("/Users/jiecheng/");
+  });
 });

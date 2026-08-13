@@ -223,7 +223,9 @@ type ArtifactTargetInput = {
 function artifactPreviewForPath(path: string): string {
   const lowered = path.toLowerCase();
   if (/\.(md|markdown|mdx)$/.test(lowered)) return "markdown";
-  if (/\.(csv|tsv|xlsx|xls|ods)$/.test(lowered)) return "sheet";
+  if (/\.(csv|tsv|xlsx|xls|xlsm|xlsb|ods)$/.test(lowered)) return "sheet";
+  if (/\.(doc|docx|docm|dotx|rtf|odt)$/.test(lowered)) return "document";
+  if (/\.(ppt|pptx|pptm|ppsx|potx|odp)$/.test(lowered)) return "presentation";
   if (/\.(png|jpe?g|gif|webp|svg)$/.test(lowered)) return "image";
   if (lowered.endsWith(".pdf")) return "pdf";
   if (lowered.endsWith(".mp3")) return "audio";

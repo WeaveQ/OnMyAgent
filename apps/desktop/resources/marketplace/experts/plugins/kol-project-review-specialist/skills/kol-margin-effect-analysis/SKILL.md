@@ -28,11 +28,37 @@ description: Use when 需要根据项目费用、返点、自然表现和投流�
 
 ## 确定性脚本
 
+用户已提供单张清洗合并表时：
+
 ```bash
 python3 scripts/analyze_kol_performance.py --input 项目数据.xlsx --output 毛利效果分析.xlsx
 ```
 
-可通过 `--column-map`、`--thresholds` 传入用户口径。脚本不修改源文件、不安装依赖；运行环境缺依赖时说明缺失能力和可用降级方式。
+用户像项目计划单 + 蒲公英效果表这样提供两张原始表时，**直接走双表模式**，不要先在会话根生成临时合并表：
+
+```bash
+python3 scripts/analyze_kol_performance.py \
+  --plan-input 项目计划单.xlsx \
+  --effect-input 蒲公英投放效果.xlsx \
+  --output 项目_返点毛利与投放效果分析.xlsx
+```
+
+双表模式会：
+
+- 自动发现两表的笔记链接列，只做精确一对一匹配；
+- 把重复、一对多、未匹配、缺链接和关键指标缺失放入“人工确认”；
+- 从计划单中名称含“口径/阈值”的 Sheet 读取公式和阈值；
+- 输出清洗底表、分组分析、分析结论、口径表、人工确认和清洗日志；
+- 只登记最终 Excel 为用户产物。
+
+可通过 `--column-map`、`--thresholds` 传入用户口径，显式阈值优先于口径 Sheet。脚本不修改源文件、不安装依赖；运行环境缺依赖时说明缺失能力和可用降级方式。
+
+## 交付边界
+
+- 最终 Excel 写在当前专家会话 cwd，并验证可打开；
+- 临时 JSON、缓存和中间合并表只放 `.opencode/tmp/` 或 `os.tmpdir()`；
+- 只对最终 Excel 打印 `ONMYAGENT_DELIVERABLE: <相对路径>`，过程文件不登记；
+- 正文先给一句数据完整度结论，再展示最终文件。
 
 ## 边界
 
