@@ -639,6 +639,7 @@ export async function draftToParts(
     mimeType: string;
     relativePath: string;
     absolutePath: string;
+    sourcePath?: string;
   }> = [];
 
   for (const [index, attachment] of draft.attachments.entries()) {
@@ -662,6 +663,7 @@ export async function draftToParts(
       mimeType: attachment.mimeType,
       relativePath: paths.relativePath,
       absolutePath: paths.absolutePath,
+      sourcePath: attachment.sourcePath?.trim() || undefined,
     });
   }
 
@@ -675,8 +677,9 @@ export async function draftToParts(
         "The user uploaded the following files. Do not treat them as native model file inputs; if the task needs to process files, use local tools or the configured skill and read these local paths directly:",
         ...uploadedFiles.map(
           (file) =>
-            `- ${file.name} (${file.mimeType || "application/octet-stream"}): ${file.absolutePath} (workspace-relative path: ${file.relativePath})`,
+            `- ${file.name} (${file.mimeType || "application/octet-stream"}): workspace copy: ${file.absolutePath} (workspace-relative path: ${file.relativePath})${file.sourcePath ? `; original user-selected path: ${file.sourcePath}. Only modify this original path when the user explicitly asks to update, overwrite, or write back the source/original file` : ""}`,
         ),
+        "The workspace copies above are read-only inputs. Do not change the process cwd to their parent workspace. Keep the current session cwd, place every user-facing deliverable under that session cwd, and register each final file with ONMYAGENT_DELIVERABLE.",
       ].join("\n"),
     });
   }
