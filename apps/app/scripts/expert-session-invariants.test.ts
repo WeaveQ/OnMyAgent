@@ -15,6 +15,7 @@ import {
 import {
   resolveExpertDirectoryView,
   shouldBlockExpertSurfaceForWorkspaceError,
+  shouldMountExpertSessionSurface,
 } from "../src/react-app/domains/session/pages/expert-directory-view";
 
 const pageViewPath = new URL(
@@ -109,6 +110,33 @@ describe("invariant 2: Expert Directory is authoritative for empty landing", () 
       showIncompleteWithoutSelection: true,
       showNoExpertConversation: false,
     });
+  });
+
+  test("empty expert landing does not mount a session layer over its summon action", async () => {
+    expect(
+      shouldMountExpertSessionSurface({
+        canRenderReactSurface: true,
+        blockForWorkspaceError: false,
+        showNoExpertConversationEmptyState: true,
+        showDirectoryIncomplete: false,
+        showDirectoryLoading: false,
+        isDraftSession: false,
+        showDraftChrome: false,
+        surfaceSessionId: null,
+      }),
+    ).toBe(false);
+
+    const layout = await readFile(
+      new URL(
+        "../src/react-app/domains/session/pages/expert-page-layout.tsx",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    expect(layout).toMatch(
+      /primarySessionActive=\{\s*isPrimarySessionView\s*&&\s*mountExpertSessionSurface\s*\}/,
+    );
+    expect(layout).toContain('data-testid="expert-empty-open-market"');
   });
 
 });
