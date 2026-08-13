@@ -27,7 +27,7 @@ export const KOBOYO_CONSULTANT_BADGE =
  * Full-color rounded app marks — use as <img>, not CSS mask.
  */
 export const BUILTIN_PLUGIN_ICON_PNG_BY_ID: Record<string, string> = {
-  "computer-use": "/connector-icons/builtin/computer-use.png",
+  "computer-use": "/on-my-agent-logo.png",
   "browser-skill": "/connector-icons/builtin/browser-skill.png",
   browser: "/connector-icons/builtin/browser.png",
   documents: "/connector-icons/builtin/documents.png",

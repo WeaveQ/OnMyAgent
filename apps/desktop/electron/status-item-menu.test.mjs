@@ -98,28 +98,32 @@ test("status-item events reuse native-menu bridge naming", () => {
   );
 });
 
+function posixPath(p) {
+  return String(p ?? "").replaceAll("\\", "/");
+}
+
 test("resolveStatusItemIcon prefers monochrome trayTemplate over brand PNG on mac", () => {
   const files = new Set([
     "/app/icons/trayTemplate.png",
     "/app/icons/trayIcon.png",
     "/app/icons/icon.png",
   ]);
-  const existsSync = (p) => files.has(p);
+  const existsSync = (p) => files.has(posixPath(p));
 
   const template = resolveStatusItemIcon({
     appIconPath: "/app/icons/icon.png",
     existsSync,
     platform: "darwin",
   });
-  assert.equal(template.path, "/app/icons/trayTemplate.png");
+  assert.equal(posixPath(template.path), "/app/icons/trayTemplate.png");
   assert.equal(template.template, true);
 
   const colorOnly = resolveStatusItemIcon({
     appIconPath: "/app/icons/icon.png",
-    existsSync: (p) => p === "/app/icons/icon.png",
+    existsSync: (p) => posixPath(p) === "/app/icons/icon.png",
     platform: "darwin",
   });
-  assert.equal(colorOnly.path, "/app/icons/icon.png");
+  assert.equal(posixPath(colorOnly.path), "/app/icons/icon.png");
   assert.equal(colorOnly.template, false);
 
   const missing = resolveStatusItemIcon({
@@ -130,7 +134,7 @@ test("resolveStatusItemIcon prefers monochrome trayTemplate over brand PNG on ma
   assert.equal(missing.template, false);
 });
 
-test("resolveStatusItemIcon prefers color trayIcon on Windows", () => {
+test("resolveStatusItemIcon prefers brand app icon on Windows", () => {
   const files = new Set([
     "/app/icons/trayTemplate.png",
     "/app/icons/trayIcon.png",
@@ -138,9 +142,9 @@ test("resolveStatusItemIcon prefers color trayIcon on Windows", () => {
   ]);
   const color = resolveStatusItemIcon({
     appIconPath: "/app/icons/icon.png",
-    existsSync: (p) => files.has(p),
+    existsSync: (p) => files.has(posixPath(p)),
     platform: "win32",
   });
-  assert.equal(color.path, "/app/icons/trayIcon.png");
+  assert.equal(posixPath(color.path), "/app/icons/icon.png");
   assert.equal(color.template, false);
 });

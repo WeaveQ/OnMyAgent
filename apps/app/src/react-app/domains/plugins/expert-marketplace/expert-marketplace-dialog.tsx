@@ -103,7 +103,7 @@ function ExpertCard(props: {
       role="button"
       tabIndex={0}
       className={cn(
-        "group flex h-full min-h-[8.5rem] cursor-pointer flex-col rounded-2xl border border-transparent bg-dls-surface px-4 py-3.5 text-left transition-colors hover:border-dls-border hover:bg-dls-hover focus-visible:border-dls-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30 mac:titlebar-no-drag",
+        "group flex h-full min-h-[8.5rem] cursor-pointer select-none flex-col rounded-2xl border border-transparent bg-dls-surface px-4 py-3.5 text-left transition-colors hover:border-dls-border hover:bg-dls-hover focus-visible:border-dls-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30 mac:titlebar-no-drag",
         props.active && "border-dls-border bg-dls-accent/10",
       )}
       onClick={() => props.onOpen(props.expert)}
@@ -263,7 +263,7 @@ export function ExpertMarketplacePage(props: {
           `${e.name} ${e.id}`.toLowerCase().includes(q),
         );
     return (
-      <div className={cn("flex h-full min-h-0 flex-col bg-dls-background", props.className)}>
+      <div className={cn("flex h-full min-h-0 select-none flex-col bg-dls-background", props.className)}>
         <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-3">
           {companyHint ? (
             <p className="mb-3 text-xs text-dls-secondary">{companyHint}</p>
@@ -308,7 +308,7 @@ export function ExpertMarketplacePage(props: {
     <>
       <div
         className={cn(
-          "flex h-full min-h-0 flex-col overflow-hidden bg-dls-background",
+          "flex h-full min-h-0 select-none flex-col overflow-hidden bg-dls-background",
           props.className,
         )}
       >
