@@ -152,7 +152,7 @@ bound 之后若 chrome 标志已清，允许 cold-open 恢复。
 
 ## 5. Tab 条（AgentSessionTabs）硬规则
 
-文件：`domains/session/sidebar/agent-session-tabs.tsx`。  
+文件：`domains/session/sidebar/agent-session-tabs.tsx`。
 挂载：`use-expert-conversation-tabs.tsx`（**稳定 element**，避免每帧新 ReactElement）。
 
 ### 5.1 禁止（回归过白屏）
@@ -228,14 +228,14 @@ Dev models 目录：默认 `https://models.onmyagentlabs.com/`；仅 `ONMYAGENT_
 
 ## 9. 改动检查清单（PR 自检）
 
-- [ ] 是否动到 surface **事件形状**？→ 更新 `expert-surface-machine.test.ts` 穷举假设  
-- [ ] 是否新增「pending」字段？→ 先写清属于 §3 哪一类，禁止混用  
-- [ ] 是否在 AgentSessionTabs 加 `useLayoutEffect` + setState？→ **默认禁止**  
-- [ ] 是否对全量 tab 开 query / 紧轮询？→ 违反 cold-path budget  
-- [ ] 是否在 create/draft 期间调用 cold-open open/clear/create-task？→ 必须 suppress  
-- [ ] 是否把 `""` 当 sessionId 去 snapshot？→ 用 `normalizeExpertSessionId`  
-- [ ] 是否只改 UI 却假设 token 会下降？→ 还要看 isolation 文档  
-- [ ] 相关测试是否绿：见 §10  
+- [ ] 是否动到 surface **事件形状**？→ 更新 `expert-surface-machine.test.ts` 穷举假设
+- [ ] 是否新增「pending」字段？→ 先写清属于 §3 哪一类，禁止混用
+- [ ] 是否在 AgentSessionTabs 加 `useLayoutEffect` + setState？→ **默认禁止**
+- [ ] 是否对全量 tab 开 query / 紧轮询？→ 违反 cold-path budget
+- [ ] 是否在 create/draft 期间调用 cold-open open/clear/create-task？→ 必须 suppress
+- [ ] 是否把 `""` 当 sessionId 去 snapshot？→ 用 `normalizeExpertSessionId`
+- [ ] 是否只改 UI 却假设 token 会下降？→ 还要看 isolation 文档
+- [ ] 相关测试是否绿：见 §10
 
 ---
 

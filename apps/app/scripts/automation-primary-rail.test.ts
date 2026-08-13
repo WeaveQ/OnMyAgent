@@ -47,13 +47,14 @@ describe("primary rail + assistant wiring", () => {
     expect(rail).toContain('id: "automation"');
     expect(rail).toContain("AutomationRailIcon");
     expect(rail).toContain("isAutomationRailView");
-    // Third top-rail slot: Home → Experts → Automation → Files → …
-    const topOrder = [...rail.matchAll(/id: "(assistant|chat|automation|files)"/g)].map(
+    // Task Center is distinct from scheduled Automation.
+    const topOrder = [...rail.matchAll(/id: "(assistant|chat|taskCenter|automation|files)"/g)].map(
       (m) => m[1],
     );
-    expect(topOrder.slice(0, 4)).toEqual([
+    expect(topOrder.slice(0, 5)).toEqual([
       "assistant",
       "chat",
+      "taskCenter",
       "automation",
       "files",
     ]);

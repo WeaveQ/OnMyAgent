@@ -418,7 +418,7 @@ export function createHermesAdapter({ appendEvent, registerCancel, requestApprov
             const resumed = await rpc.request("session/resume", {
               cwd: workdir,
               sessionId: storedSessionId,
-              mcpServers: [],
+              mcpServers: Array.isArray(ctx.mcpServers) ? ctx.mcpServers : [],
               ...(modelId ? { model: modelId } : {}),
             });
             sessionId = extractSessionId(resumed) || storedSessionId;
@@ -428,7 +428,7 @@ export function createHermesAdapter({ appendEvent, registerCancel, requestApprov
           }
         }
         if (!sessionId) {
-          const created = await rpc.request("session/new", { cwd: workdir, mcpServers: [], ...(modelId ? { model: modelId } : {}) });
+          const created = await rpc.request("session/new", { cwd: workdir, mcpServers: Array.isArray(ctx.mcpServers) ? ctx.mcpServers : [], ...(modelId ? { model: modelId } : {}) });
           sessionId = extractSessionId(created);
           if (!sessionId) throw new Error("Hermes ACP session/new returned no sessionId");
           appendEvent({ type: "log", text: `Hermes ACP session created ${sessionId}` });

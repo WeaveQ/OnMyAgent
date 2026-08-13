@@ -180,6 +180,25 @@ export function personalAgentMetadataFromAgent(agent) {
     },
   };
 
+  // Task Center injects its control plane as an ACP MCP server.  This is a
+  // runtime capability of the ACP adapter, distinct from the provider's own
+  // advertised MCP client transports in `agent_capabilities.mcpCapabilities`.
+  // Keep it explicit so execution preflight does not mistake the local
+  // metadata placeholder (`stdio: false`) for a provider rejection.
+  const supportsTaskMcp = capability.supportsAcp && agent?.supportsTaskMcp !== false;
+  // Full-allow is not implied by a provider's generic "auto approve" flag.
+  // Only an adapter that explicitly proves a blocking pre-execute hook may
+  // advertise this Task capability; terminal/tool synchronization is never a
+  // proof of intent ordering.
+  const supportsTaskIntentHook = agent?.supportsTaskIntentHook === true
+    || agent?.taskCapabilities?.supportsTaskIntentHook === true;
+  const taskCapabilities = {
+    supportsTaskIntentHook,
+    supportsScopedFullAllow: supportsTaskIntentHook,
+    intentHook: supportsTaskIntentHook ? String(agent?.taskCapabilities?.intentHook ?? "adapter-declared").slice(0, 120) : null,
+    diagnostic: supportsTaskIntentHook ? null : "task-full-allow-unsupported: blocking pre-execute intent hook is not proven",
+  };
+
   return {
     id: String(agent?.id ?? provider).trim() || provider,
     name: String(agent?.name ?? providerSpec.name ?? provider).trim() || provider,
@@ -241,6 +260,9 @@ export function personalAgentMetadataFromAgent(agent) {
       };
     })(),
     capability,
+    supportsTaskMcp,
+    taskCapabilities,
+    supportsTaskIntentHook,
   };
 }
 

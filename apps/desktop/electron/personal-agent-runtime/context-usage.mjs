@@ -222,16 +222,29 @@ export function normalizeContextUsagePayload(payload, modelHint, options = {}) {
   };
 }
 
+function nonnegativeInteger(...values) {
+  for (const value of values) {
+    if (value === null || value === undefined || value === "" || typeof value === "boolean") continue;
+    const numeric = Number(value);
+    if (Number.isFinite(numeric) && numeric >= 0) return Math.round(numeric);
+  }
+  return null;
+}
+
 /**
- * Extract a usage-like object from an ACP session/prompt result.
+ * Extract only bounded numeric usage facts from an ACP prompt result. Raw
+ * provider metadata is never copied into durable Task Center state.
+ *
  * @param {unknown} result
- * @returns {{ used: number } | null}
+ * @returns {{ inputTokens: number | null, outputTokens: number | null, totalTokens: number | null, costMicros: number | null } | null}
  */
-export function extractPromptUsageTotals(result) {
+export function extractPromptUsageMetrics(result) {
   if (!result || typeof result !== "object") return null;
   const root = /** @type {Record<string, any>} */ (result);
   const buckets = [
     root.usage,
+    root?.metadata?.usage,
+    root?.metadata?.metrics?.usage,
     root?.result?.usage,
     root?.turn?.usage,
     root?.metrics?.usage,
@@ -239,8 +252,46 @@ export function extractPromptUsageTotals(result) {
   ];
   for (const bucket of buckets) {
     if (!bucket || typeof bucket !== "object") continue;
-    const total = Number(bucket.totalTokens ?? bucket.total_tokens ?? bucket.total);
-    if (Number.isFinite(total) && total > 0) return { used: Math.round(total) };
+    const inputTokens = nonnegativeInteger(
+      bucket.inputTokens,
+      bucket.input_tokens,
+      bucket.promptTokens,
+      bucket.prompt_tokens,
+    );
+    const outputTokens = nonnegativeInteger(
+      bucket.outputTokens,
+      bucket.output_tokens,
+      bucket.completionTokens,
+      bucket.completion_tokens,
+    );
+    const explicitTotal = nonnegativeInteger(bucket.totalTokens, bucket.total_tokens, bucket.total);
+    const totalTokens = explicitTotal ?? (inputTokens !== null && outputTokens !== null
+      ? inputTokens + outputTokens
+      : null);
+    const directCostMicros = nonnegativeInteger(bucket.costMicros, bucket.cost_micros);
+    const rawCostUsd = bucket.costUsd ?? bucket.cost_usd ?? bucket.usd;
+    const costUsd = rawCostUsd === null || rawCostUsd === undefined || rawCostUsd === ""
+      ? Number.NaN
+      : Number(rawCostUsd);
+    const costMicros = directCostMicros ?? (Number.isFinite(costUsd) && costUsd >= 0
+      ? Math.round(costUsd * 1_000_000)
+      : null);
+    if (inputTokens !== null || outputTokens !== null || totalTokens !== null || costMicros !== null) {
+      return { inputTokens, outputTokens, totalTokens, costMicros };
+    }
   }
   return null;
+}
+
+/**
+ * Backwards-compatible context fallback used when ACP omitted a dedicated
+ * context_usage update.
+ * @param {unknown} result
+ * @returns {{ used: number } | null}
+ */
+export function extractPromptUsageTotals(result) {
+  const metrics = extractPromptUsageMetrics(result);
+  return metrics?.totalTokens !== null && metrics?.totalTokens !== undefined
+    ? { used: metrics.totalTokens }
+    : null;
 }

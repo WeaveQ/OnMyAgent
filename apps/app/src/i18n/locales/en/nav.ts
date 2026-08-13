@@ -17,6 +17,8 @@ export default {
   "nav.skills": "Skill Tools",
   "nav.skills_desc": "Install and manage agent skills",
   "nav.tasks": "Tasks",
+  "nav.task_center": "Task Center",
+  "nav.task_center_short": "Tasks",
   "nav.team": "Team",
   "nav.assistant": "Home",
   "nav.assistant_short": "Home",

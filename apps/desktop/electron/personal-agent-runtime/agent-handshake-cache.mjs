@@ -3,6 +3,7 @@ import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 
 import { personalAgentRuntimeStateRoot } from "./runtime-state.mjs";
+import { personalAgentPartitionName } from "./path-segments.mjs";
 
 // Agent-level global handshake cache, independent of workspace.
 //
@@ -25,14 +26,13 @@ function cacheRoot() {
 }
 
 function cacheFile(provider, agentId) {
-  const safeProvider = String(provider ?? "default").trim() || "default";
-  const safeAgentId = String(agentId ?? "default").trim() || "default";
-  return path.join(cacheRoot(), `${safeProvider}-${safeAgentId}.json`);
+  return path.join(cacheRoot(), `${personalAgentPartitionName(provider ?? "default", agentId ?? "default")}.json`);
 }
 
 export async function readAgentHandshakeCache(provider, agentId) {
+  const file = cacheFile(provider, agentId);
   try {
-    const raw = await readFile(cacheFile(provider, agentId), "utf8");
+    const raw = await readFile(file, "utf8");
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
     return null;

@@ -20,6 +20,8 @@ import type {
   CodeWorkspaceTerminalSnapshot,
 } from "./desktop-ipc-code-workspace.js";
 import type {
+  TaskOrchestratorAlignmentMessageInput,
+  TaskOrchestratorFinalizeContractInput,
   AgentManagementFetchModelsInput,
   AgentManagementFetchModelsResult,
   AgentManagementTestModelInput,
@@ -208,6 +210,43 @@ import type {
   WecomStartConnectResult,
 } from "./wecom-connector.js";
 import type { TencentMeetingConnectionStatus } from "./tencent-meeting-connector.js";
+import type {
+  TaskOrchestratorArtifactContentGetInput,
+  TaskOrchestratorArtifactContentResult,
+  TaskOrchestratorArtifactGetInput,
+  TaskOrchestratorArtifactsListInput,
+  TaskOrchestratorArtifactsListResult,
+  TaskOrchestratorEventsListInput,
+  TaskOrchestratorEventsListResult,
+  TaskOrchestratorHandoffArtifact,
+  TaskOrchestratorMaintenanceInput,
+  TaskOrchestratorMaintenanceResult,
+  TaskOrchestratorOperationsDiagnostics,
+  TaskOrchestratorOperationsDiagnosticsGetInput,
+  TaskOrchestratorResolveGateInput,
+  TaskOrchestratorRecoveryInput,
+  TaskOrchestratorRetryInput,
+  TaskOrchestratorRunIdInput,
+  TaskOrchestratorRunsListInput,
+  TaskOrchestratorRunsListResult,
+  TaskOrchestratorTurnHistoryListInput,
+  TaskOrchestratorTurnHistoryListResult,
+  TaskOrchestratorSnapshot,
+  TaskOrchestratorStoreHealthInput,
+  TaskOrchestratorStoreHealthResult,
+  TaskOrchestratorTaskArchiveInput,
+  TaskOrchestratorTaskCreateInput,
+  TaskOrchestratorTaskGetInput,
+  TaskOrchestratorTaskIdInput,
+  TaskOrchestratorTaskListInput,
+  TaskOrchestratorTaskListResult,
+  TaskOrchestratorTaskExportManifestInput,
+  TaskOrchestratorTaskExportManifestResult,
+  TaskOrchestratorTaskRestoreInput,
+  TaskOrchestratorTaskPurgeInput,
+  TaskOrchestratorTaskPurgeResult,
+  TaskOrchestratorTaskUpdateInput,
+} from "./desktop-ipc-task-orchestrator.js";
 
 export type DesktopCommandContract<
   Args extends readonly unknown[] = readonly unknown[],
@@ -396,11 +435,27 @@ type TypedDesktopCommandMap = {
   >;
   getKeepSystemAwake: DesktopCommandContract<
     [],
-    { enabled: boolean; id: number | null }
+    {
+      enabled: boolean;
+      id: number | null;
+      blockerType?: string;
+      preferenceEnabled?: boolean;
+      interactiveBusy?: boolean;
+      taskCenterBusy?: boolean;
+      error?: string;
+    }
   >;
   setKeepSystemAwake: DesktopCommandContract<
-    [boolean],
-    { enabled: boolean; id: number | null; error?: string }
+    [boolean, boolean?],
+    {
+      enabled: boolean;
+      id: number | null;
+      blockerType?: string;
+      preferenceEnabled?: boolean;
+      interactiveBusy?: boolean;
+      taskCenterBusy?: boolean;
+      error?: string;
+    }
   >;
   setDockUnreadBadge: DesktopCommandContract<
     [number | string | null | undefined],
@@ -515,7 +570,7 @@ type TypedDesktopCommandMap = {
   setWindowDecorations: DesktopCommandContract<[{ enabled: boolean }], void>;
   __openPath: DesktopCommandContract<[string], string | null>;
   __revealItemInDir: DesktopCommandContract<
-    [string],
+    [string, string?],
     { ok: boolean; path?: string; reason?: string }
   >;
   __fetch: DesktopCommandContract<
@@ -870,6 +925,120 @@ type TypedDesktopCommandMap = {
   localAgentComposerSaveAttachment: DesktopCommandContract<
     [LocalAgentComposerSaveAttachmentInput],
     LocalAgentComposerSaveAttachmentResult
+  >;
+
+  // task orchestrator
+  taskOrchestratorTasksList: DesktopCommandContract<
+    [TaskOrchestratorTaskListInput?],
+    TaskOrchestratorTaskListResult
+  >;
+  taskOrchestratorTaskGet: DesktopCommandContract<
+    [TaskOrchestratorTaskGetInput],
+    TaskOrchestratorSnapshot
+  >;
+  taskOrchestratorRunsList: DesktopCommandContract<
+    [TaskOrchestratorRunsListInput],
+    TaskOrchestratorRunsListResult
+  >;
+  taskOrchestratorTurnHistoryList: DesktopCommandContract<
+    [TaskOrchestratorTurnHistoryListInput],
+    TaskOrchestratorTurnHistoryListResult
+  >;
+  taskOrchestratorEventsList: DesktopCommandContract<
+    [TaskOrchestratorEventsListInput],
+    TaskOrchestratorEventsListResult
+  >;
+  taskOrchestratorArtifactsList: DesktopCommandContract<
+    [TaskOrchestratorArtifactsListInput],
+    TaskOrchestratorArtifactsListResult
+  >;
+  taskOrchestratorArtifactGet: DesktopCommandContract<
+    [TaskOrchestratorArtifactGetInput],
+    TaskOrchestratorHandoffArtifact
+  >;
+  taskOrchestratorArtifactContentGet: DesktopCommandContract<
+    [TaskOrchestratorArtifactContentGetInput],
+    TaskOrchestratorArtifactContentResult
+  >;
+  taskOrchestratorTaskArchive: DesktopCommandContract<
+    [TaskOrchestratorTaskArchiveInput],
+    TaskOrchestratorSnapshot
+  >;
+  taskOrchestratorTaskRestore: DesktopCommandContract<
+    [TaskOrchestratorTaskRestoreInput],
+    TaskOrchestratorSnapshot
+  >;
+  taskOrchestratorTaskPurge: DesktopCommandContract<
+    [TaskOrchestratorTaskPurgeInput],
+    TaskOrchestratorTaskPurgeResult
+  >;
+  taskOrchestratorTaskExportManifest: DesktopCommandContract<
+    [TaskOrchestratorTaskExportManifestInput],
+    TaskOrchestratorTaskExportManifestResult
+  >;
+  taskOrchestratorMaintenanceRun: DesktopCommandContract<
+    [TaskOrchestratorMaintenanceInput?],
+    TaskOrchestratorMaintenanceResult
+  >;
+  taskOrchestratorHealthGet: DesktopCommandContract<
+    [TaskOrchestratorStoreHealthInput?],
+    TaskOrchestratorStoreHealthResult
+  >;
+  taskOrchestratorOperationsDiagnosticsGet: DesktopCommandContract<
+    [TaskOrchestratorOperationsDiagnosticsGetInput],
+    TaskOrchestratorOperationsDiagnostics
+  >;
+  taskOrchestratorTaskCreate: DesktopCommandContract<
+    [TaskOrchestratorTaskCreateInput],
+    TaskOrchestratorSnapshot
+  >;
+  taskOrchestratorAlignmentMessage: DesktopCommandContract<
+    [TaskOrchestratorAlignmentMessageInput],
+    TaskOrchestratorSnapshot
+  >;
+  taskOrchestratorAlignmentCancel: DesktopCommandContract<
+    [TaskOrchestratorTaskIdInput],
+    TaskOrchestratorSnapshot
+  >;
+  taskOrchestratorContractFinalize: DesktopCommandContract<
+    [TaskOrchestratorFinalizeContractInput],
+    TaskOrchestratorSnapshot
+  >;
+  taskOrchestratorTaskUpdate: DesktopCommandContract<
+    [TaskOrchestratorTaskUpdateInput],
+    TaskOrchestratorSnapshot
+  >;
+  taskOrchestratorTaskStart: DesktopCommandContract<
+    [TaskOrchestratorTaskIdInput],
+    TaskOrchestratorSnapshot
+  >;
+  taskOrchestratorPrimaryRetry: DesktopCommandContract<
+    [TaskOrchestratorRetryInput],
+    TaskOrchestratorSnapshot
+  >;
+  taskOrchestratorRecoveryContinue: DesktopCommandContract<
+    [TaskOrchestratorRecoveryInput],
+    TaskOrchestratorSnapshot
+  >;
+  taskOrchestratorTaskStop: DesktopCommandContract<
+    [TaskOrchestratorRunIdInput],
+    TaskOrchestratorSnapshot
+  >;
+  taskOrchestratorTaskPause: DesktopCommandContract<
+    [TaskOrchestratorRunIdInput],
+    TaskOrchestratorSnapshot
+  >;
+  taskOrchestratorTaskResume: DesktopCommandContract<
+    [TaskOrchestratorRunIdInput],
+    TaskOrchestratorSnapshot
+  >;
+  taskOrchestratorNodeRetry: DesktopCommandContract<
+    [TaskOrchestratorRetryInput],
+    TaskOrchestratorSnapshot
+  >;
+  taskOrchestratorGateResolve: DesktopCommandContract<
+    [TaskOrchestratorResolveGateInput],
+    TaskOrchestratorSnapshot
   >;
 
   // messaging — weixin

@@ -17,6 +17,8 @@ export default {
   "nav.skills": "技能 Skill",
   "nav.skills_desc": "安裝和管理 AI 同事技能",
   "nav.tasks": "任務",
+  "nav.task_center": "任務中心",
+  "nav.task_center_short": "任務",
   "nav.team": "團隊",
   "nav.assistant": "首頁",
   "nav.assistant_short": "首頁",
