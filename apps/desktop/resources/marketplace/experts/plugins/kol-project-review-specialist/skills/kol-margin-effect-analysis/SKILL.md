@@ -43,21 +43,30 @@ python3 scripts/analyze_kol_performance.py \
   --output 项目_返点毛利与投放效果分析.xlsx
 ```
 
+用户明确要求管理层可直接浏览的分析报告，或明确要求 Excel + HTML 双交付时，再增加：
+
+```bash
+  --html-output 项目_返点毛利与投放效果分析报告.html
+```
+
+HTML 与 Excel 必须来自同一份清洗结果、指标口径和行级标签。HTML 用于阅读与汇报，Excel 用于追溯与复核。**用户未提出 HTML 时不要主动生成，也不得把 Excel + HTML 写死为所有任务的固定交付。**
+
 双表模式会：
 
 - 自动发现两表的笔记链接列，只做精确一对一匹配；
 - 把重复、一对多、未匹配、缺链接和关键指标缺失放入“人工确认”；
 - 从计划单中名称含“口径/阈值”的 Sheet 读取公式和阈值；
 - 输出清洗底表、分组分析、分析结论、口径表、人工确认和清洗日志；
-- 只登记最终 Excel 为用户产物。
+- 始终登记用户要求的最终 Excel；只有传入 `--html-output` 时才同时登记最终 HTML。
 
 可通过 `--column-map`、`--thresholds` 传入用户口径，显式阈值优先于口径 Sheet。脚本不修改源文件、不安装依赖；运行环境缺依赖时说明缺失能力和可用降级方式。
 
 ## 交付边界
 
-- 最终 Excel 写在当前专家会话 cwd，并验证可打开；
+- 从当前专家会话 cwd 运行脚本；附件说明中的 `workspace copy` 仅作为绝对输入路径，**不得切换到 workspace copy 所在目录**；
+- 用户要求的最终 Excel / HTML 写在当前专家会话 cwd，并分别验证可打开；
 - 临时 JSON、缓存和中间合并表只放 `.opencode/tmp/` 或 `os.tmpdir()`；
-- 只对最终 Excel 打印 `ONMYAGENT_DELIVERABLE: <相对路径>`，过程文件不登记；
+- 只对用户点名的最终 Excel / HTML 打印 `ONMYAGENT_DELIVERABLE: <相对路径>`，过程文件不登记；
 - 正文先给一句数据完整度结论，再展示最终文件。
 
 ## 边界

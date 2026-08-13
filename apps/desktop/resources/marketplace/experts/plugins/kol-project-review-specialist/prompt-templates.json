@@ -11,7 +11,7 @@
     "id": "kol-margin-effect-analysis",
     "title": { "zh": "分析毛利与效果", "en": "Analyze margin and performance" },
     "description": { "zh": "统一口径、行级结论与复投建议", "en": "Metric definitions, row decisions, and retest recommendations" },
-    "template": { "zh": "请根据 <项目计划单与效果表> 只按 <唯一主键> 精确匹配；自动读取口径 Sheet，输出清洗底表、分组、结论、口径、人工确认和日志到一个最终 Excel，只登记终稿。", "en": "Exact-match <Project plan and effect sheets> by <Unique key>, read the method sheet, and create one final workbook with cleaned data, groups, conclusions, definitions, manual review, and log." },
+    "template": { "zh": "请根据 <项目计划单与效果表> 只按 <唯一主键> 精确匹配；自动读取口径 Sheet，输出清洗底表、分组、结论、口径、人工确认和日志到最终 Excel。若我明确要求阅读版报告，再基于同一份清洗结果追加 HTML，不要默认双交付；只登记终稿。", "en": "Exact-match <Project plan and effect sheets> by <Unique key>, read the method sheet, and create a final workbook with cleaned data, groups, conclusions, definitions, manual review, and log. Add an HTML reading report from the same cleaned results only when explicitly requested; do not default to dual delivery." },
     "requiredSlots": { "zh": ["项目计划单与效果表"], "en": ["Project plan and effect sheets"] },
     "conditionalSlots": { "zh": ["唯一主键"], "en": ["Unique key"] }
   },

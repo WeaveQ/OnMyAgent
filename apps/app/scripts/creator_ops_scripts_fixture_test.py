@@ -420,6 +420,7 @@ class CreatorOpsScriptFixtures(unittest.TestCase):
             plan = root / "项目计划单.xlsx"
             effect = root / "蒲公英效果.xlsx"
             output = root / "毛利效果分析.xlsx"
+            html_output = root / "毛利效果分析报告.html"
 
             plan_book = Workbook()
             plan_sheet = plan_book.active
@@ -457,6 +458,8 @@ class CreatorOpsScriptFixtures(unittest.TestCase):
                     str(effect),
                     "--output",
                     str(output),
+                    "--html-output",
+                    str(html_output),
                 ],
                 capture_output=True,
                 text=True,
@@ -465,6 +468,7 @@ class CreatorOpsScriptFixtures(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
             self.assertIn("ONMYAGENT_DELIVERABLE:", result.stdout)
             self.assertIn("毛利效果分析.xlsx", result.stdout)
+            self.assertIn("毛利效果分析报告.html", result.stdout)
 
             workbook = load_workbook(output, read_only=False, data_only=False)
             self.assertEqual(workbook.sheetnames, ["清洗底表", "字段映射", "分组分析", "分析结论", "口径表", "人工确认", "清洗日志"])
@@ -500,6 +504,13 @@ class CreatorOpsScriptFixtures(unittest.TestCase):
             )
             self.assertIn("自然阅读量 / 自然曝光量", method_text)
             workbook.close()
+
+            html_text = html_output.read_text(encoding="utf-8")
+            self.assertIn("<!doctype html>", html_text)
+            self.assertIn("数据完整度", html_text)
+            self.assertIn("三层分析口径", html_text)
+            self.assertIn("项目计划单.xlsx", html_text)
+            self.assertNotIn(str(root), html_text)
 
     def test_content_matrices_use_correlation_language(self):
         with tempfile.TemporaryDirectory(prefix="oma-matrix-fixture-") as temp:

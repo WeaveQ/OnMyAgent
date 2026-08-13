@@ -188,7 +188,10 @@ describe("creator ops experts business contract", () => {
     );
     expect(marginSkill).toContain("--plan-input");
     expect(marginSkill).toContain("--effect-input");
+    expect(marginSkill).toContain("--html-output");
     expect(marginSkill).toContain("只做精确一对一匹配");
+    expect(marginSkill).toContain("用户未提出 HTML 时不要主动生成");
+    expect(marginSkill).toContain("不得切换到 workspace copy 所在目录");
 
     const reviewSkill = readFileSync(
       join(expertsRoot, "kol-project-review-specialist/skills/kol-project-review-framework/SKILL.md"),
