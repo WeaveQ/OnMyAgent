@@ -16,6 +16,12 @@ This project follows a lightweight changelog format during early development. Re
 
 ### License / community
 
+## 0.5.2
+
+### Changed
+
+- Smaller packaged desktop: keep only en/zh-CN/zh-TW Electron locales, drop unused office-lib browser/UMD trees, strip npm docs/man, and recompress oversized marketplace icons.
+
 ## 0.5.1
 
 ### Changed
