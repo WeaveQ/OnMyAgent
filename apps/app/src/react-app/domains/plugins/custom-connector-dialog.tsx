@@ -26,6 +26,7 @@ import type { McpStatus, McpStatusMap } from "@/app/types";
 import { isDesktopRuntime } from "@/app/utils";
 import { t } from "@/i18n";
 import { Button } from "@/components/ui/button";
+import { StatusDot } from "@/components/ui/status-dot";
 import {
   Dialog,
   DialogContent,
@@ -169,11 +170,14 @@ function statusErrorText(status: McpStatus | undefined): string | null {
   return null;
 }
 
-function statusDotClass(status: McpStatus | undefined): string {
-  if (isConnected(status)) return "bg-emerald-500";
-  if (isFailed(status) || status?.status === "needs_auth") return "bg-rose-500";
-  if (status?.status === "disabled") return "bg-dls-secondary/40";
-  return "bg-amber-400";
+function connectorHealthDot(status: McpStatus | undefined, busy: boolean) {
+  if (busy) return <StatusDot size="xs" tone="warning" pulse />;
+  if (isConnected(status)) return <StatusDot size="xs" tone="success" />;
+  if (isFailed(status) || status?.status === "needs_auth") {
+    return <StatusDot size="xs" tone="danger" />;
+  }
+  if (status?.status === "disabled") return <StatusDot size="xs" tone="muted" />;
+  return <StatusDot size="xs" tone="warning" pulse />;
 }
 
 export function CustomConnectorDialog(props: CustomConnectorDialogProps) {
@@ -686,13 +690,7 @@ export function CustomConnectorDialog(props: CustomConnectorDialogProps) {
                                   <span className="truncate text-sm font-medium text-dls-text">
                                     {entry.name}
                                   </span>
-                                  <span
-                                    className={cn(
-                                      "size-1.5 shrink-0 rounded-full",
-                                      busy ? "bg-amber-400 animate-pulse" : statusDotClass(status),
-                                    )}
-                                    aria-hidden
-                                  />
+                                  {connectorHealthDot(status, busy)}
                                 </div>
                                 <div className="mt-0.5 text-xs text-dls-secondary">
                                   {serverTypeLabel(entry.type)}

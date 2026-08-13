@@ -2,6 +2,7 @@
 import { MessageCircle, Plus } from "lucide-react";
 import type { ArtifactPluginCatalogItem } from "@onmyagent/types/server";
 
+import { StatusDot } from "@/components/ui/status-dot";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 
@@ -97,12 +98,7 @@ export function ArtifactPluginCard(props: ArtifactPluginCardProps) {
             <h3 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">
               {copy.name}
             </h3>
-            {enabled ? (
-              <span
-                className="size-1.5 shrink-0 rounded-full bg-emerald-500"
-                aria-hidden
-              />
-            ) : null}
+            {enabled ? <StatusDot size="xs" tone="success" /> : null}
           </div>
           <div
             className="shrink-0"

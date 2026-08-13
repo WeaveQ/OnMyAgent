@@ -24,6 +24,7 @@ import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-il
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { MARKETPLACE_CARD_GRID_COMPACT } from "@/components/ui/skill-marketplace-card";
 import { CountBadge, StatusBadge } from "@/components/ui/status-badge";
+import { StatusDot } from "@/components/ui/status-dot";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1192,12 +1193,7 @@ function BuiltinExtensionCard(props: {
             <h3 className="min-w-0 truncate text-sm font-semibold leading-5 text-dls-text">
               {props.entry.name}
             </h3>
-            {fullyConnected ? (
-              <span
-                className="size-1.5 shrink-0 rounded-full bg-emerald-500"
-                aria-hidden
-              />
-            ) : null}
+            {fullyConnected ? <StatusDot size="xs" tone="success" /> : null}
           </div>
           <div
             className="shrink-0"

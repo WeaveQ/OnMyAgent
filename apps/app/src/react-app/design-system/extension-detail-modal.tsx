@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { IconTile } from "@/components/ui/action-row";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { StatusDot } from "@/components/ui/status-dot";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { t } from "../../i18n";
@@ -325,12 +326,7 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
             <div className="min-w-0 flex flex-1 flex-col gap-1.5 justify-center self-stretch">
               <div className="flex flex-wrap items-center gap-2">
                 <DialogTitle className="leading-7">{name}</DialogTitle>
-                {connected ? (
-                  <span
-                    className="size-1.5 shrink-0 rounded-full bg-emerald-500"
-                    aria-hidden
-                  />
-                ) : null}
+                {connected ? <StatusDot size="xs" tone="success" /> : null}
                 {preview ? (
                   <StatusBadge shape="soft" size="tiny" tone="accent">
                     Preview
