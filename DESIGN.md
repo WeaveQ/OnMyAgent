@@ -56,7 +56,7 @@ colors:
     # Exceptions.
     artifact-hue-image: "var(--violet-9)"
     artifact-hue-code: "var(--blue-9)"
-    artifact-hue-document: "var(--slate-9)"
+    artifact-hue-document: "var(--indigo-9)"
     artifact-hue-data: "var(--teal-9)"
     artifact-hue-plot: "var(--grass-9)"
     artifact-hue-3d: "var(--plum-9)"
@@ -101,7 +101,7 @@ colors:
     # (surface). Step 4 is near-background and washes out tree/file icons.
     artifact-hue-image: "var(--violet-11)"
     artifact-hue-code: "var(--blue-11)"
-    artifact-hue-document: "var(--slate-11)"
+    artifact-hue-document: "var(--indigo-11)"
     artifact-hue-data: "var(--teal-11)"
     artifact-hue-plot: "var(--grass-11)"
     artifact-hue-3d: "var(--plum-11)"
@@ -1394,7 +1394,7 @@ the same hue at 20 % alpha background + full-chroma text.
 | `audio` | `--dls-artifact-hue-audio` | WAV, MP3 |
 | `video` | `--dls-artifact-hue-video` | MP4, MOV, screen recordings |
 
-Hues are pulled from the Radix palette at shade 9 (light) / shade 4
+Hues are pulled from the Radix palette at shade 9 (light) / shade 11
 (dark) for consistent chroma across themes. The concrete CSS
 variables are declared in `apps/app/src/app/index.css`; DESIGN.md
 declares only the mapping.

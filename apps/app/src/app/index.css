@@ -488,7 +488,7 @@ select:disabled {
      ArtifactCard — see § 11 Intentional Exceptions. */
   --dls-artifact-hue-image: var(--violet-9);
   --dls-artifact-hue-code: var(--blue-9);
-  --dls-artifact-hue-document: var(--slate-9);
+  --dls-artifact-hue-document: var(--indigo-9);
   --dls-artifact-hue-data: var(--teal-9);
   --dls-artifact-hue-plot: var(--grass-9);
   --dls-artifact-hue-3d: var(--plum-9);
@@ -615,7 +615,7 @@ select:disabled {
      readable without oversaturating. See DESIGN.md § 4h / § 11. */
   --dls-artifact-hue-image: var(--violet-11);
   --dls-artifact-hue-code: var(--blue-11);
-  --dls-artifact-hue-document: var(--slate-11);
+  --dls-artifact-hue-document: var(--indigo-11);
   --dls-artifact-hue-data: var(--teal-11);
   --dls-artifact-hue-plot: var(--grass-11);
   --dls-artifact-hue-3d: var(--plum-11);
