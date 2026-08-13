@@ -1,138 +1,119 @@
 ---
 name: rebate-contract-generator
-description: Use when 达人合作完成后需要根据对公返点信息表和业务批准的合同模板批量生成返点合同、检查主体与开票字段，或整理缺失和冲突信息。模板形态不限（中英文占位符、用户自定义字段名均可）。
+description: Use when 达人合作完成后需要根据对公返点信息表和业务批准的合同模板批量生成返点合同、回写完成日期，或整理缺失字段。模板形态不限；优先 officecli merge，禁止为当次任务手写 docx 填模引擎。
 ---
 
 # 返点合同批量生成
 
-**目标：不绑定某一种模板格式。** 用户给的 DOCX 模板可能是中文/英文/混排占位符，Excel 列名也可能各异。流程是「发现 → 映射确认 → 填充」，不是「只认内置英文字段」。
+**目标：** 兼容各种批准模板与表结构，又快又稳地出合同。  
+**主路径：** 发现 → 映射 →（可选）行数据整形 → **`officecli merge` 批量** → 台账日期 → 只登记用户要的交付物。
+
+## 硬路由（必须遵守）
+
+| 情况 | 路径 | 禁止 |
+|------|------|------|
+| 模板有 `{{…}}`，一行一合同，无需扩表行 | **A** officecli 读表 + 拼 JSON + `merge` 循环 | 自写 zip/xml/docx 替换 |
+| 自由文本列（如「公司信息」）、金额大写、文件名规则 | **B** `scripts/prepare_rebate_rows.py` **只出 JSON 行** → 再 `merge` | 在数据脚本里写 docx |
+| 明细表多博主需复制表行 | **C** 数据脚本标 `table_rows`；用 officecli 改表，或 skill 降级脚本；优先仍 merge 正文 | 完整自研填模引擎 |
+| 仅有黄底、无 `{{}}` | 先在会话内改模板插入 `{{}}`，再走 A/B | 按颜色坐标硬填 |
+
+有 officecli 时：**禁止**新建 `generate_contracts.py` / 当次 docx 引擎。无 officecli 时才用 `scripts/generate_rebate_contracts.py` 降级。
 
 ## 输入
 
-- 对公返点信息 Excel（或等价表格）
-- **业务方审核通过**的 DOCX 合同模板（任意 `{{占位符名}}`，中英文皆可）
-- 可选：字段映射 JSON（用户确认后的 `--map`）
+- 对公返点信息 Excel（序号 ≈ 合同份数）
+- 业务方批准的 DOCX（任意 `{{占位符}}`，中英文均可）
+- 可选：用户命名规则、完成日期列位置
 
-禁止：内置/编造法律模板；未批准模板不得使用。
+上传 inbox **只读**；结果全部写在**当前专家会话 cwd**。
 
-## 工具优先级
+## 标准流程
 
-1. **首选 OfficeCLI**（已安装 `officecli` 时）
-   - 读模板 / 表：`officecli view` / `get` / `query`
-   - 单份填充：`officecli merge <模板.docx> <输出.docx> --data <row.json> --force`
-   - `merge` 支持任意 `{{key}}`（含中文），并回报 `replacedKeys` / `unresolvedPlaceholders`
-2. **回退**：本 skill 的 `scripts/generate_rebate_contracts.py`（与 merge 同一占位符模型，离线/无 officecli 时用）
-3. 模板需人工改结构时：`document-processing` / `officecli-docx`；通用映射不够时再写当次辅助脚本
-
-## 处理流程（强制）
-
-### 1. 发现（inspect）
-
-- 从批准模板列出全部 `{{…}}` 占位符（原样保留，不要翻译成英文再要求用户改模板）
-- 从 Excel 列出表头 / 可读字段（非常规布局时用 officecli 读合并区，或请用户确认取值位置）
-- 产出**建议映射草案** + 缺失/歧义项，**一次列清**
+### 1. 发现（一次）
 
 ```bash
-# 离线回退 inspect
-python3 scripts/generate_rebate_contracts.py \
-  --inspect --input 对公返点信息.xlsx --template 批准模板.docx
+# 模板占位符
+officecli view 批准模板.docx text | head
+# 或离线
+python3 scripts/generate_rebate_contracts.py --inspect --input 表.xlsx --template 模板.docx
 ```
 
-### 2. 映射确认
+记录：全部 `{{…}}`、Excel 表头、是否需拆「公司信息」/多博主。
 
-- 将「模板占位符名 → 数据字段/列」写成 `mapping.json`，等人确认后再批量生成
-- 不要把用户模板改成内置英文字段名；映射在数据侧完成
-- 默认业务必填（可被 map 覆盖）：主体、税号、账号、开户行、发票内容/类型、返点金额、合作周期
+### 2. 映射
 
-`mapping.json` 示例：
+产出 `mapping`（占位符 → 列/字段）。高置信直接跑；低置信**一次**列缺失项。
 
-```json
-{
-  "placeholders": {
-    "甲方名称": "counterparty_name",
-    "统一社会信用代码": "unified_social_credit_code",
-    "银行账号": "bank_account",
-    "开户行": "bank_name",
-    "发票内容": "invoice_content",
-    "发票类型": "invoice_type",
-    "返点金额": "rebate_amount",
-    "合作周期": "cooperation_period"
-  },
-  "columns": {
-    "counterparty_name": ["主体名称", "对公主体", "公司名称"],
-    "bank_account": ["银行账号", "账号"]
-  },
-  "required_fields": [
-    "counterparty_name",
-    "unified_social_credit_code",
-    "bank_account",
-    "bank_name",
-    "invoice_content",
-    "invoice_type",
-    "rebate_amount",
-    "cooperation_period"
-  ]
-}
-```
-
-### 3. 生成
-
-**路径硬约束（产物卡 + 侧边栏 + 文件·专家）：**
-
-1. **必须写在当前会话 cwd 下**（专家隔离目录）。相对路径，例如 `合同输出/某主体.docx`、`生成报告.xlsx`。
-2. **禁止**把终稿写到 `/tmp`、桌面、上传 inbox 或会话外绝对路径。
-3. 产物卡依赖工具 stdout 中的 `ONMYAGENT_DELIVERABLE: <相对路径>`（优先相对 cwd，不要打绝对路径）：
-   - `officecli merge` → launcher 自动打标记；
-   - skill 脚本回退 → 每个合同与报告各打一行；
-   - 若写当次辅助脚本，**必须同样打印该标记**，否则只有台账/部分文件有卡。
-4. **同一轮 shell 内生成全部合同并打印全部标记**，再写总结；若拆成多轮，只有「最后一轮」工具输出会进会话末尾产物条。
-5. 正文只简述交付物名称；**不要**堆 `文件路径：…`。
-
-**OfficeCLI 路径（推荐）：**
+### 3. 行数据（仅 B/C 需要）
 
 ```bash
-# 每完整行一份 row.json，键 = 模板里的占位符原文
-# 输出路径相对会话 cwd，便于进专家文件目录
-mkdir -p 合同输出
-officecli merge 批准模板.docx "合同输出/返点合同_主体_2.docx" --data row.json --force
-```
-
-**脚本回退：**
-
-```bash
-python3 scripts/generate_rebate_contracts.py \
+python3 scripts/prepare_rebate_rows.py \
   --input 对公返点信息.xlsx \
-  --template 批准模板.docx \
-  --output-dir 合同输出 \
-  --report 生成报告.xlsx \
-  --map mapping.json
+  --out-dir .opencode/tmp \
+  --rows rows.jsonl
 ```
 
-规则：
+过程文件**只**写到 `.opencode/tmp/` 或 `os.tmpdir()`（与 document-processing 交付分层一致）。  
+脚本只出 JSON 行，**不**写 docx，**不**打产物卡。
 
-- 每行独立校验；缺必填或字段冲突 → **不生成该行**，只进待办
-- 生成后必须复查未替换占位符（officecli 的 `unresolvedPlaceholders` 或报告列）
-- 非常规布局（如合并单元格）优先映射 / officecli 读表 / 请用户确认；仍搞不定时可写当次辅助脚本
+### 4. 批量 merge（主交付）
 
-## 输出
+```bash
+mkdir -p 合同输出
+# 对 rows.jsonl 每一行：
+officecli merge 批准模板.docx "合同输出/${output_name}.docx" --data row.json --force
+```
 
-- 每个完整数据行一份 DOCX 合同（会话 cwd 下，可进产物卡 / 侧边栏 / 文件·专家）
-- 生成报告：来源行、输出文件、状态、缺失字段、未替换占位符
-- 待处理事项清单
+- `row.json` 的 key = 模板占位符原文（如 `甲方名称`）。
+- 文件名按用户规则（如 `【博主-项目-签署-主体】`）；非法字符替换，不要失败整批。
+
+### 5. 完成日期（用户要的 Excel）
+
+在**会话内**副本上写第二列/指定列完成日期（勿只改 uploads 原件）：
+
+```bash
+# 示例：复制用户表后 officecli set，或 prepare 脚本 --ledger
+cp 对公返点信息.xlsx "对公返点信息_已填写完成日期.xlsx"
+# officecli set … 日期单元格
+```
+
+对该台账打印 `ONMYAGENT_DELIVERABLE`（用户明确要回写日期时）。
+
+### 6. 产物卡与文件分层（位置规则，不靠文件名黑名单）
+
+| 层级 | 放哪里 | 产物卡 / 文件·专家 |
+|------|--------|-------------------|
+| 用户要的合同、回写完成日期的台账 | 会话 cwd，如 `合同输出/` | 是：`ONMYAGENT_DELIVERABLE`（相对路径） |
+| 映射 JSON、rows.jsonl、内部生成日志、当次辅助脚本 | **`.opencode/tmp/`** 或 **`os.tmpdir()`** | 否（路径在 tmp / 点目录，平台自动不当交付） |
+| `opencode.json`、`.opencode/` | 运行时自有 | 否 |
+
+- **只对用户点名的终稿打标记**；过程 xlsx/脚本即使写出来也不得打 `ONMYAGENT_DELIVERABLE`。
+- **同一轮**打齐全部合同标记，再总结。
+- 禁止把过程文件写到会话根（写到根就会进侧边栏）。
+- 有 officecli 时禁止在会话根新建填模脚本。
+
+## 降级（无 officecli）
+
+```bash
+python3 scripts/generate_rebate_contracts.py \
+  --input 表.xlsx --template 模板.docx \
+  --output-dir 合同输出 --report .opencode/tmp/generate-log.xlsx
+```
+
+- 默认**只**对合同 `.docx` 打标记；`--report` 必须落在 tmp，且默认不打标记。
+
+## 输出给用户
+
+- 合同列表 + 状态 + 需人工项
+- 交付：合同 +（若要求）已填日期的 Excel
+- 正文不提过程脚本 / 内部日志
 
 ## 边界
 
-- 不内置或编造法律合同模板
-- 不接入 e签宝，不签署、不盖章、不提交开票
-- 所有合同和金额必须人工复核
-- **不**假设模板必须是 `{{counterparty_name}}` 英文字段
+- 不编造法律模板、不 e签宝、不代签署开票
+- 金额/主体/税号人工复核
+- 缺乙方等信息标【待确认】，不瞎填
 
-## 依赖与降级
+## 依赖
 
-| 环境 | 行为 |
-|------|------|
-| 已装 officecli | 优先 `merge` + view/get |
-| 无 officecli | `generate_rebate_contracts.py` + openpyxl |
-| 依赖缺失 | 明确提示，不自动安装系统 Python 包 |
-
-需要改模板版式时优先 `document-processing` / officecli-docx；仍不够再写当次辅助脚本。
+officecli（优先）· openpyxl（prepare / 降级）· 缺依赖时明确说明，不静默 pip install

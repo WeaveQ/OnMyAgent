@@ -4,7 +4,9 @@ import { test } from "node:test";
 import {
   collectOfficeCliDeliverablePaths,
   formatOfficeCliDeliverableMarkers,
+  materializeDeliverablesIntoSession,
   parseOfficeCliArgv,
+  resolveOfficeCliSessionDeliverables,
 } from "./officecli-deliverable.mjs";
 
 test("parseOfficeCliArgv finds create file path", () => {
@@ -125,4 +127,51 @@ test("collectOfficeCliDeliverablePaths reads merge data.output from JSON", () =>
   });
   assert.ok(paths.some((p) => p.endsWith("out.docx")));
   assert.ok(paths.includes("out.docx") || paths.some((p) => p.includes("/out.docx")));
+});
+
+test("materializeDeliverablesIntoSession copies outside-session edits into cwd", () => {
+  const sessionCwd = "/tmp/oma-expert-session";
+  const uploadPath = "/tmp/oma-uploads/template.docx";
+  const copied = [];
+  const paths = materializeDeliverablesIntoSession(
+    [uploadPath],
+    sessionCwd,
+    {
+      exists: (p) => p === uploadPath || p === `${sessionCwd}/template.docx`,
+      stat: () => ({ isFile: () => true }),
+      copyFile: (src, dest) => {
+        copied.push([src, dest]);
+      },
+    },
+  );
+  assert.deepEqual(copied, [[uploadPath, `${sessionCwd}/template.docx`]]);
+  assert.deepEqual(paths, ["template.docx"]);
+});
+
+test("materializeDeliverablesIntoSession keeps in-session paths relative", () => {
+  const sessionCwd = "/tmp/oma-expert-session";
+  const paths = materializeDeliverablesIntoSession(
+    [`${sessionCwd}/合同输出/a.docx`, "合同输出/b.docx"],
+    sessionCwd,
+    {
+      exists: () => true,
+      stat: () => ({ isFile: () => true }),
+      copyFile: () => {
+        throw new Error("should not copy in-session files");
+      },
+    },
+  );
+  assert.deepEqual(paths, ["合同输出/a.docx", "合同输出/b.docx"]);
+});
+
+test("resolveOfficeCliSessionDeliverables marks merge output under session", () => {
+  const sessionCwd = "/tmp/oma-expert-session";
+  const { paths, markers } = resolveOfficeCliSessionDeliverables({
+    argv: ["merge", "t.docx", `${sessionCwd}/合同输出/out.docx`, "--data", "r.json"],
+    stdout: "Merged 1 key(s)\n",
+    exitCode: 0,
+    sessionCwd,
+  });
+  assert.deepEqual(paths, ["合同输出/out.docx"]);
+  assert.match(markers, /ONMYAGENT_DELIVERABLE: 合同输出\/out\.docx/);
 });

@@ -164,7 +164,7 @@ class CreatorOpsScriptFixtures(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
             self.assertIn("ONMYAGENT_DELIVERABLE:", result.stdout)
             self.assertRegex(result.stdout, r"ONMYAGENT_DELIVERABLE:.*\.docx")
-            self.assertRegex(result.stdout, r"ONMYAGENT_DELIVERABLE:.*生成报告\.xlsx")
+            self.assertNotIn("生成报告.xlsx", result.stdout)
 
             contracts = list(output_dir.glob("*.docx"))
             self.assertEqual(len(contracts), 1)

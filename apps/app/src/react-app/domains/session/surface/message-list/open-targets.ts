@@ -155,8 +155,9 @@ function isBlockedUserPath(path: string, userBasenames: Set<string>): boolean {
 function isProcessArtifactPath(path: string): boolean {
   const normalized = normalizePathKey(path);
   if (!normalized) return true;
+  // Location SoT: tmp / .opencode/tmp / OS temp / cache — not business names.
   if (
-    /(^|\/)(?:tmp|temp|temps|cache|node_modules)(\/|$)/i.test(normalized)
+    /(^|\/)(?:\.opencode\/tmp|tmp|temp|temps|cache|node_modules)(\/|$)/i.test(normalized)
     || /^(?:\/|[a-z]:\/)(?:tmp|var\/folders|private|system|library|usr)(?:\/|$)/i.test(normalized)
   ) {
     return true;

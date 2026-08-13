@@ -915,6 +915,15 @@ const EXPERT_SESSION_SKIP_DIR_NAMES = new Set([
   ".onmyagent",
 ]);
 
+/** Runtime / OS junk — same idea as UI `shouldHideEntry`, not business filenames. */
+const EXPERT_SESSION_HIDDEN_BASENAMES = new Set([
+  "thumbs.db",
+  "desktop.ini",
+  "onmyagent-session.json",
+  "opencode.json",
+  "opencode.jsonc",
+]);
+
 /**
  * Walk a session directory for deliverable files (recursive).
  * Paths are relative to the session root with forward slashes.
@@ -940,15 +949,14 @@ async function collectExpertSessionDeliverableFiles(
     const name = entry.name;
     if (name === EXPERT_SESSION_MARKER_NAME) continue;
     if (name === ".DS_Store" || name.startsWith(".")) continue;
-    if (name === "opencode.json") continue;
+    if (EXPERT_SESSION_HIDDEN_BASENAMES.has(name.toLowerCase())) continue;
 
     const abs = join(sessionDir, name);
     const relPath = relativePrefix ? `${relativePrefix}/${name}` : name;
 
     if (entry.isDirectory()) {
       if (EXPERT_SESSION_SKIP_DIR_NAMES.has(name)) continue;
-      // Process helper folders (scripts/) stay out of Expert Files — they are
-      // not user deliverables (product cards use ONMYAGENT_DELIVERABLE instead).
+      // Process trees: helpers and scratch live here, never as expert products.
       if (depth === 0 && (name === "scripts" || name === "tmp" || name === "temp")) {
         continue;
       }

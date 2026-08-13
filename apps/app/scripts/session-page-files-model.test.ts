@@ -83,6 +83,7 @@ describe("session page files model", () => {
     expect(shouldHideEntry(".env")).toBe(true);
     expect(shouldHideEntry("agent/.cache/file.txt")).toBe(true);
     expect(shouldHideEntry("opencode.jsonc")).toBe(true);
+    expect(shouldHideEntry("opencode.json")).toBe(true);
     expect(shouldHideEntry("agent/opencode.jsonc")).toBe(true);
     expect(shouldHideEntry("agent/task/output.txt")).toBe(false);
 

@@ -221,6 +221,7 @@ const HIDDEN_BASENAME_EXACT = new Set([
   "thumbs.db",
   "desktop.ini",
   "onmyagent-session.json",
+  "opencode.json",
   "opencode.jsonc",
 ]);
 
