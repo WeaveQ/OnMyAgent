@@ -1,6 +1,6 @@
 import { normalizeContextUsagePayload } from "./context-usage.mjs";
 
-const EVENT_TYPES = new Set(["log", "status", "assistant_chunk", "assistant", "finish", "tool", "acp_tool_call", "error", "exit", "approval_request", "approval_decision", "artifact", "plan", "thinking", "tips", "user"]);
+const EVENT_TYPES = new Set(["log", "status", "assistant_chunk", "assistant", "finish", "tool", "acp_tool_call", "task_permission_decision", "error", "exit", "approval_request", "approval_decision", "artifact", "plan", "thinking", "tips", "user"]);
 const TOOL_DETAIL_PREVIEW_CHARS = 2000;
 const TOOL_DESCRIPTION_PREVIEW_CHARS = 160;
 
@@ -95,6 +95,11 @@ export function normalizeAdapterResult(result = {}) {
       : (result.providerSessionId ?? result.sessionId ?? null),
     metadata: result.metadata ?? null,
     workdir: result.workdir ?? null,
+    terminationConfirmed: result.terminationConfirmed === true,
+    exitConfirmed: result.exitConfirmed === true,
+    childExitConfirmed: result.childExitConfirmed === true,
+    childState: textValue(result.childState) || null,
+    exitCode: Number.isInteger(result.exitCode) ? result.exitCode : null,
   };
 }
 

@@ -5,9 +5,14 @@ import { injectPersonalAgentContext } from "../context-injection.mjs";
 import { extractAcpSessionId, normalizeAcpSessionList, normalizeAcpUpdate, spawnAcpClient, textFromAcpContent } from "../acp-client.mjs";
 import { readSession, writeSession } from "../session-store.mjs";
 import { createExecHelpers, stringifyAgentCommand, terminateProcessTree, waitForExit } from "../utils.mjs";
-import { ensureProviderWorkdir } from "../workdir.mjs";
-import { extractPromptUsageTotals } from "../context-usage.mjs";
+import { resolveAgentExecutionWorkdirs } from "../workdir.mjs";
+import { extractPromptUsageMetrics, extractPromptUsageTotals } from "../context-usage.mjs";
 import { buildProviderContextResetEvents } from "../error-diagnostics.mjs";
+import { evaluateTaskPermission } from "../task-permission-policy.mjs";
+import { isolateTaskProviderEnvironment } from "../task-provider-isolation.mjs";
+import { approvalRequestExpired, normalizeApprovalExpiry } from "../run-helpers.mjs";
+import { createProviderRequestDiagnosticsAccumulator } from "../../task-orchestrator/provider-request-diagnostics.mjs";
+import { preferCodexHttpsTransport } from "../codex-transport.mjs";
 
 // Long-running coding tasks can legitimately spend hours in tool calls or
 // sub-agent coordination. Keep a finite safety ceiling for abandoned turns,
@@ -17,6 +22,31 @@ const DEFAULT_CODEX_REASONING_EFFORT = "medium";
 const OPENCLAW_DEFAULT_GATEWAY_PORT = 18789;
 const COMPLETE_STOP_REASONS = new Set(["", "end_turn", "stop", "complete", "completed", "done", "success", "succeeded"]);
 const TRUNCATED_STOP_REASONS = new Set(["max_tokens", "length", "token_limit", "context_length", "cancelled", "canceled", "interrupted", "error", "failed"]);
+const CODEX_TRANSPORT_FALLBACK_PREFIX = "Warning: Falling back from WebSockets to HTTPS transport.";
+
+function splitRecoveredTransportWarning(provider, value) {
+  const text = typeof value === "string" ? value : "";
+  if (provider !== "codex" || !text.startsWith(CODEX_TRANSPORT_FALLBACK_PREFIX)) {
+    return { notice: "", assistantText: text };
+  }
+  const realNewline = text.indexOf("\n", CODEX_TRANSPORT_FALLBACK_PREFIX.length);
+  const escapedNewline = text.indexOf("\\n", CODEX_TRANSPORT_FALLBACK_PREFIX.length);
+  const boundaries = [realNewline, escapedNewline].filter((index) => index >= 0);
+  const boundary = boundaries.length ? Math.min(...boundaries) : text.length;
+  const assistantText = text
+    .slice(boundary)
+    .replace(/^(?:\r?\n|\\r\\n|\\n)+/, "");
+  return {
+    notice: text.slice(0, boundary).trim(),
+    assistantText,
+  };
+}
+
+function terminalTransportInterruption(value) {
+  const text = typeof value === "string" ? value.trim() : "";
+  const match = /(?:^|\n)(stream disconnected before completion:\s*error sending request for url[^\n]*)$/i.exec(text);
+  return match?.[1]?.trim() ?? "";
+}
 
 // Extract reasoning/thought text from an agent_message_chunk payload.
 // Codex/Gemini variants may embed reasoning inline via content items with
@@ -307,7 +337,49 @@ function acpToolCallFromUpdate(type, data) {
   };
 }
 
+function rememberAcpToolOperation(operations, data) {
+  const toolCallId = textValue(data?.tool_call_id ?? data?.toolCallId ?? data?.id);
+  if (!toolCallId) return;
+  const input = data?.rawInput ?? data?.raw_input ?? data?.input ?? null;
+  const previous = operations.get(toolCallId) ?? {};
+  const next = {
+    ...previous,
+    toolCallId,
+    ...(textValue(data?.title ?? data?.name) ? { title: textValue(data?.title ?? data?.name) } : {}),
+    ...(textValue(data?.kind) ? { kind: textValue(data?.kind) } : {}),
+    ...(textValue(data?._meta?.claudeCode?.toolName) ? { toolName: textValue(data._meta.claudeCode.toolName) } : {}),
+    ...(input && typeof input === "object" && !Array.isArray(input) ? { input } : {}),
+    ...(textValue(input?.command) ? { command: textValue(input.command) } : {}),
+    ...(textValue(input?.cwd) ? { cwd: textValue(input.cwd) } : {}),
+  };
+  operations.set(toolCallId, next);
+  if (operations.size > 1_000) operations.delete(operations.keys().next().value);
+}
+
+function permissionOperation(params, messageId, method, workdir, operations) {
+  const toolCallId = textValue(
+    params?.toolCallId
+    ?? params?.tool_call_id
+    ?? params?.toolCall?.toolCallId
+    ?? params?.toolCall?.tool_call_id
+    ?? params?.tool_call?.toolCallId
+    ?? params?.tool_call?.tool_call_id
+    ?? params?.id
+    ?? messageId,
+  );
+  const observed = operations.get(toolCallId) ?? null;
+  return {
+    ...params,
+    ...(observed ?? {}),
+    id: params.id ?? messageId,
+    toolCallId,
+    method,
+    cwd: params.cwd ?? observed?.cwd ?? params.input?.cwd ?? workdir,
+  };
+}
+
 function shouldResumeProviderSession(provider, ctx, stored) {
+  if (ctx.sessionStrategy === "new") return false;
   if (provider === "hermes") return false;
   const explicitSessionId = normalizeExplicitSessionId(
     provider,
@@ -384,12 +456,22 @@ async function ensureOpenClawGateway({ executablePath, workdir, env, appendEvent
   return child;
 }
 
-function codexModeForApprovalMode(approvalMode) {
+function codexModeForApprovalMode(approvalMode, context = {}) {
   // The Codex ACP bridge (session/set_mode) only accepts its own mode ids:
   // `read-only`, `agent` (workspace-write + on-request approval), and
   // `agent-full-access` (danger-full-access, approvals never asked). These
   // align with codex.mjs's codexRunPolicyForApprovalMode: non-auto sessions
   // run as `agent`; only explicit `auto` escalates to `agent-full-access`.
+  // Every Task Center session must use Codex's `read-only` preset. Despite
+  // its name, codex-acp describes this mode as "Requires approval to edit
+  // files and run commands": accepted operations can still execute, but they
+  // first cross session/request_permission. `agent` uses workspace-write and
+  // can perform ordinary workspace mutations without that callback, which
+  // makes intent-before-effect impossible to prove. Task full-allow therefore
+  // auto-accepts this blocking hook only after the scoped policy and durable
+  // observer succeed; restricted Tasks surface the same hook as a gate.
+  // Ordinary Personal auto semantics remain unchanged outside Task Center.
+  if (textValue(context?.taskId ?? context?.taskRunId ?? context?.runId)) return "read-only";
   if (approvalMode === "auto") return "agent-full-access";
   if (approvalMode === "read-only-auto") return "read-only";
   return "agent";
@@ -397,6 +479,55 @@ function codexModeForApprovalMode(approvalMode) {
 
 function supportsSessionSetModel(provider) {
   return provider !== "claude" && provider !== "openclaw";
+}
+
+function configOptionId(option) {
+  return textValue(option?.id ?? option?.configId ?? option?.config_id ?? option?.name);
+}
+
+function findModelConfigOption(configOptions, preferredId = "") {
+  if (!Array.isArray(configOptions)) return null;
+  const expectedId = textValue(preferredId);
+  if (expectedId) {
+    const exact = configOptions.find((option) => configOptionId(option) === expectedId);
+    if (exact) return exact;
+  }
+  return configOptions.find((option) => {
+    const category = textValue(option?.category).toLowerCase();
+    const identifier = configOptionId(option);
+    return category === "model" || /^models?$/i.test(identifier);
+  }) ?? null;
+}
+
+function findModeConfigOption(configOptions) {
+  if (!Array.isArray(configOptions)) return null;
+  return configOptions.find((option) => {
+    const category = textValue(option?.category).toLowerCase();
+    const identifier = configOptionId(option);
+    return category === "mode" || /^permissions?-?mode$/i.test(identifier) || identifier === "mode";
+  }) ?? null;
+}
+
+function mergeConfigOptions(previous, next) {
+  const merged = new Map();
+  for (const option of Array.isArray(previous) ? previous : []) {
+    const id = configOptionId(option);
+    if (id) merged.set(id, option);
+  }
+  for (const option of Array.isArray(next) ? next : []) {
+    const id = configOptionId(option);
+    if (id) merged.set(id, option);
+  }
+  return [...merged.values()];
+}
+
+function configOptionCurrentValue(option) {
+  return textValue(option?.currentValue ?? option?.current_value ?? option?.value);
+}
+
+function isAcpMethodUnsupported(error) {
+  if (Number(error?.acpRpcCode) === -32601) return true;
+  return /\bmethod(?:\s+[\w/.-]+)?\s+(?:not found|not supported|unsupported)\b/i.test(String(error?.message ?? error));
 }
 
 // `waitForExit` and `terminateProcessTree` now live in `../utils.mjs` so the
@@ -419,6 +550,19 @@ function isReadOnlyPermission(params = {}) {
   const text = JSON.stringify(params).toLowerCase();
   if (/write|edit|patch|delete|remove|rename|move|mkdir|touch|>|sudo|kill|rm\s/.test(text)) return false;
   return /read|list|ls|cat|grep|rg|find|pwd|view|inspect/.test(text);
+}
+
+async function beforeTaskOperation(observer, operation) {
+  const beforeOperation = observer?.beforeOperation;
+  if (typeof beforeOperation !== "function") return { ok: false, reason: "task-intent-observer-missing" };
+  try {
+    const result = await beforeOperation(operation);
+    if (result?.recorded === true) return { ok: true, result };
+    if (result?.recorded === false && result?.idempotency === "read-only") return { ok: true, result };
+    return { ok: false, reason: "task-intent-not-durable" };
+  } catch {
+    return { ok: false, reason: "task-intent-observer-failed" };
+  }
 }
 
 function permissionDecisionPayload(params, decision) {
@@ -469,7 +613,12 @@ function permissionDecisionPayload(params, decision) {
 async function withAcpSessionClient(ctx, appendEvent, operation) {
   const provider = ctx.agent.provider;
   const executablePath = ctx.agent.managedAcpTool?.binPath || ctx.agent.executablePath || provider;
-  const workdir = await ensureProviderWorkdir(ctx.workspaceRoot, provider, ctx.agent.id);
+  const { executionWorkdir: workdir } = await resolveAgentExecutionWorkdirs(
+    ctx.workspaceRoot,
+    provider,
+    ctx.agent.id,
+    ctx.conversationWorkdir,
+  );
   const args = acpArgsForProvider(provider, ctx, workdir);
   const env = processEnvironmentForContext(ctx, workdir);
   const ownedProcesses = [];
@@ -490,10 +639,33 @@ async function withAcpSessionClient(ctx, appendEvent, operation) {
 }
 
 function processEnvironmentForContext(ctx, workdir, extra = {}) {
-  return createExecHelpers().processEnv({
+  const environment = createExecHelpers({ baseEnvironment: ctx?.providerEnvironment }).processEnv({
     PWD: workdir,
     ...extra,
   });
+  const transportEnvironment = ctx?.agent?.provider === "codex"
+    ? preferCodexHttpsTransport(environment)
+    : environment;
+  return isolateTaskProviderEnvironment(transportEnvironment, {
+    provider: ctx?.agent?.provider,
+    taskId: ctx?.taskId,
+  });
+}
+
+function taskSessionOptions(ctx, provider) {
+  if (provider !== "claude" || !textValue(ctx?.taskId)) return {};
+  // Claude Agent ACP's native Agent/Task subagents bypass the Task Center
+  // lease/MCP audit surface. Keep them disabled only for Task-scoped runs;
+  // ordinary Personal conversations retain the provider defaults.
+  return {
+    _meta: {
+      claudeCode: {
+        options: {
+          disallowedTools: ["Agent", "Task"],
+        },
+      },
+    },
+  };
 }
 
 function acpSessionCapability(initialized, name) {
@@ -543,7 +715,12 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
     const modelId = normalizeModelId(provider, ctx.model);
     if (storedSessionId) {
       try {
-        const resumed = await client.resumeSession(storedSessionId, { cwd: workdir, ...(modelId ? { model: modelId } : {}) });
+        const resumed = await client.resumeSession(storedSessionId, {
+          cwd: workdir,
+          mcpServers: Array.isArray(ctx.mcpServers) ? ctx.mcpServers : [],
+          ...taskSessionOptions(ctx, provider),
+          ...(modelId ? { model: modelId } : {}),
+        });
         sessionId = extractAcpSessionId(resumed) || storedSessionId;
         sessionMetadata = extractAcpSessionMetadata(resumed) ?? sessionMetadata;
         appendEvent({ type: "log", text: `${provider} ACP session resumed ${sessionId}` });
@@ -553,7 +730,12 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
       }
     }
     if (!sessionId) {
-      const created = await client.createSession({ cwd: workdir, mcpServers: [], ...(modelId ? { model: modelId } : {}) });
+      const created = await client.createSession({
+        cwd: workdir,
+        mcpServers: Array.isArray(ctx.mcpServers) ? ctx.mcpServers : [],
+        ...taskSessionOptions(ctx, provider),
+        ...(modelId ? { model: modelId } : {}),
+      });
       sessionId = extractAcpSessionId(created);
       if (!sessionId) throw new Error(`${provider} ACP session/new returned no sessionId`);
       sessionMetadata = extractAcpSessionMetadata(created) ?? sessionMetadata;
@@ -568,8 +750,51 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
       }
     }
     if (sessionMetadata) appendEvent({ type: "status", text: `acp_session_metadata> ${JSON.stringify(sessionMetadata)}` });
+    if (provider === "claude" && textValue(ctx.taskId)) {
+      // claude-agent-acp may inherit `permissions.defaultMode =
+      // "bypassPermissions"` from the user's settings. In that mode its
+      // canUseTool callback returns before emitting session/request_permission,
+      // so Task Center cannot persist a durable pre-execute intent. A Task
+      // session must therefore prove the blocking hook is active before the
+      // first prompt. This is not a user-facing approval: scoped full-allow
+      // still auto-selects Allow after its policy + durable-intent checks.
+      const modeOption = findModeConfigOption(sessionMetadata?.configOptions);
+      const modeConfigId = configOptionId(modeOption);
+      if (!modeConfigId) {
+        throw acpFailureError(
+          provider,
+          "task_acp_permission_mode_unavailable",
+          `${provider} ACP did not advertise a permission mode config option; refusing an unfenced Task session.`,
+        );
+      }
+      let configuredMode;
+      try {
+        configuredMode = await client.setConfigOption(sessionId, modeConfigId, "default");
+      } catch (error) {
+        const message = `${provider} ACP could not enable its blocking permission hook: ${String(error?.message ?? error)}`;
+        appendEvent({ type: "error", text: message });
+        throw acpFailureError(provider, "task_acp_permission_mode_failed", message);
+      }
+      const configuredMetadata = extractAcpSessionMetadata(configuredMode);
+      const confirmedMode = configOptionCurrentValue(findModeConfigOption(configuredMetadata?.configOptions));
+      if (confirmedMode !== "default") {
+        throw acpFailureError(
+          provider,
+          "task_acp_permission_mode_unconfirmed",
+          `${provider} ACP did not confirm its blocking permission mode for the Task session.`,
+        );
+      }
+      sessionMetadata = {
+        availableModels: configuredMetadata?.availableModels ?? sessionMetadata?.availableModels ?? [],
+        currentModelId: configuredMetadata?.currentModelId ?? sessionMetadata?.currentModelId ?? null,
+        configOptions: mergeConfigOptions(sessionMetadata?.configOptions, configuredMetadata?.configOptions),
+        modes: configuredMetadata?.modes ?? sessionMetadata?.modes ?? null,
+        availableCommands: configuredMetadata?.availableCommands ?? sessionMetadata?.availableCommands ?? [],
+      };
+      appendEvent({ type: "status", text: `${provider} ACP task permission mode default` });
+    }
     if (provider === "codex") {
-      const modeId = codexModeForApprovalMode(ctx.approvalMode);
+      const modeId = codexModeForApprovalMode(ctx.approvalMode, ctx);
       await client.request("session/set_mode", { sessionId, modeId }).catch((error) => {
         const message = `${provider} ACP set_mode failed: ${error.message}`;
         appendEvent({ type: "error", text: message });
@@ -577,7 +802,50 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
       });
       appendEvent({ type: "status", text: `${provider} ACP mode ${modeId}` });
     }
-    if (modelId && supportsSessionSetModel(provider)) {
+    let effectiveModelId = modelId;
+    if (modelId && provider === "claude") {
+      const advertisedModelOption = findModelConfigOption(sessionMetadata?.configOptions);
+      const modelConfigId = configOptionId(advertisedModelOption);
+      if (!modelConfigId) {
+        throw acpFailureError(
+          provider,
+          "acp_model_config_unavailable",
+          `${provider} ACP did not advertise a model config option; refusing to ignore requested model "${modelId}".`,
+        );
+      }
+      let configured;
+      try {
+        configured = await client.setConfigOption(sessionId, modelConfigId, modelId);
+      } catch (error) {
+        const message = `${provider} ACP set_config_option failed for ${modelConfigId}: ${String(error?.message ?? error)}`;
+        appendEvent({ type: "error", text: message });
+        throw acpFailureError(provider, "acp_model_set_failed", message);
+      }
+      const configuredMetadata = extractAcpSessionMetadata(configured);
+      const confirmedModelOption = findModelConfigOption(configuredMetadata?.configOptions, modelConfigId);
+      const canonicalModelId = configOptionCurrentValue(confirmedModelOption);
+      if (!canonicalModelId) {
+        throw acpFailureError(
+          provider,
+          "acp_model_confirmation_missing",
+          `${provider} ACP did not confirm the effective model after setting "${modelId}".`,
+        );
+      }
+      sessionMetadata = {
+        availableModels: configuredMetadata?.availableModels ?? sessionMetadata?.availableModels ?? [],
+        currentModelId: canonicalModelId,
+        configOptions: mergeConfigOptions(sessionMetadata?.configOptions, configuredMetadata?.configOptions),
+        modes: configuredMetadata?.modes ?? sessionMetadata?.modes ?? null,
+        availableCommands: configuredMetadata?.availableCommands ?? sessionMetadata?.availableCommands ?? [],
+      };
+      effectiveModelId = canonicalModelId;
+      appendEvent({
+        type: "status",
+        text: canonicalModelId === modelId
+          ? `${provider} ACP model ${canonicalModelId}`
+          : `${provider} ACP model ${modelId} resolved to ${canonicalModelId}`,
+      });
+    } else if (modelId && supportsSessionSetModel(provider)) {
       await client.request("session/set_model", { sessionId, modelId }).catch((error) => {
         const detail = String(error?.message ?? error);
         // Codex configured with a custom model_provider (e.g. codeproxy)
@@ -613,16 +881,30 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
       updatedAt: Date.now(),
       ...(sessionMetadata ? { sessionMetadata } : {}),
     });
-    return { sessionId, sessionMetadata, modelId };
+    return { sessionId, sessionMetadata, modelId: effectiveModelId };
   }
 
   return {
     provider: "acp",
+    // ACP request_permission is a blocking pre-execute hook for this adapter;
+    // Task Center may advertise scoped full-allow only when this explicit
+    // capability is present. Terminal/tool-update synchronization is not a
+    // substitute and never sets this flag.
+    taskCapabilities: Object.freeze({
+      supportsTaskIntentHook: true,
+      supportsScopedFullAllow: true,
+      intentHook: "acp-request-permission",
+    }),
     async warmupConversation(ctx) {
       const provider = ctx.agent.provider;
       const executablePath = ctx.agent.managedAcpTool?.binPath || ctx.agent.executablePath || provider;
-      const workdir = await ensureProviderWorkdir(ctx.workspaceRoot, provider, ctx.agent.id);
-      await injectPersonalAgentContext({ workdir, provider, workspaceRoot: ctx.workspaceRoot, accessibleWorkspaceRoots: ctx.accessibleWorkspaceRoots });
+      const { providerWorkdir, executionWorkdir: workdir } = await resolveAgentExecutionWorkdirs(
+        ctx.workspaceRoot,
+        provider,
+        ctx.agent.id,
+        ctx.conversationWorkdir,
+      );
+      await injectPersonalAgentContext({ workdir: providerWorkdir, provider, workspaceRoot: ctx.workspaceRoot, accessibleWorkspaceRoots: ctx.accessibleWorkspaceRoots });
       const args = acpArgsForProvider(provider, ctx, workdir);
       const env = processEnvironmentForContext(ctx, workdir);
       // codex-acp fires publishAvailableCommandsAsync() from newSession as
@@ -747,19 +1029,26 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
           const created = await client.createSession({ cwd: workdir, mcpServers: [] });
           sessionId = extractAcpSessionId(created);
         }
-        if (!sessionId) throw new Error("config/set requires an ACP sessionId");
+        if (!sessionId) throw new Error("session/set_config_option requires an ACP sessionId");
         let result;
         try {
           result = await client.setConfigOption(sessionId, optionId, ctx.value, { cwd: workdir });
         } catch (error) {
-          // Some ACP backends (e.g. CodeBuddy) advertise model config_options
-          // in session/new but don't implement `config/set`. Fall back to the
-          // legacy `session/set_model` method for model options, aligning with
-          // Upstream's ConfigSetPath::LegacyModel path.
-          if (/method not found|not.*found|not.*supported/i.test(String(error?.message ?? error)) && optionId === "model") {
+          const standardUnsupported = isAcpMethodUnsupported(error);
+          if (!standardUnsupported) throw error;
+          // Older ACP backends such as CodeBuddy predate the standard
+          // `session/set_config_option` method and expose `config/set` instead.
+          // Keep that compatibility path explicit and bounded to this generic
+          // UI config entrypoint; task-worker model selection above remains
+          // standard-only and fail-closed.
+          try {
+            result = await client.setLegacyConfigOption(sessionId, optionId, ctx.value, { cwd: workdir });
+          } catch (legacyError) {
+            const legacyUnsupported = isAcpMethodUnsupported(legacyError);
+            if (!legacyUnsupported || optionId !== "model") throw legacyError;
+            // Oldest model-capable ACP agents may expose only the legacy
+            // `session/set_model` extension. Never use it for non-model config.
             result = await client.setModel(sessionId, String(ctx.value), { cwd: workdir });
-          } else {
-            throw error;
           }
         }
         const configOptions = Array.isArray(result?.configOptions)
@@ -781,13 +1070,19 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
     async sendMessage(ctx) {
       const provider = ctx.agent.provider;
       const executablePath = ctx.agent.managedAcpTool?.binPath || ctx.agent.executablePath || provider;
-      const workdir = await ensureProviderWorkdir(ctx.workspaceRoot, provider, ctx.agent.id);
-      await injectPersonalAgentContext({ workdir, provider, workspaceRoot: ctx.workspaceRoot, accessibleWorkspaceRoots: ctx.accessibleWorkspaceRoots });
+      const { providerWorkdir, executionWorkdir: workdir } = await resolveAgentExecutionWorkdirs(
+        ctx.workspaceRoot,
+        provider,
+        ctx.agent.id,
+        ctx.conversationWorkdir,
+      );
+      await injectPersonalAgentContext({ workdir: providerWorkdir, provider, workspaceRoot: ctx.workspaceRoot, accessibleWorkspaceRoots: ctx.accessibleWorkspaceRoots });
       const args = acpArgsForProvider(provider, ctx, workdir);
       const command = stringifyAgentCommand(executablePath, args);
       const env = processEnvironmentForContext(ctx, workdir);
       const outputParts = [];
       const failedToolUpdates = [];
+      const observedToolOperations = new Map();
       let sessionId = "";
       const ownedProcesses = [];
       if (provider === "openclaw") {
@@ -796,7 +1091,9 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
       }
       const thinking = createThinkingTracker(appendEvent);
       let sawContextUsage = false;
+      const requestDiagnostics = createProviderRequestDiagnosticsAccumulator();
       let activeModelId = normalizeModelId(provider, ctx.model);
+      let completedResult = null;
       const { child, client } = spawnAcpClient({
         command: executablePath,
         args,
@@ -805,6 +1102,7 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
         detached: true,
         appendEvent,
         onNotification: (params) => {
+          requestDiagnostics.observe(params);
           const { type, data } = normalizeAcpUpdate(params.update ?? params);
           if (type === "agent_message_chunk") {
             const reasoning = extractReasoningFromMessageChunk(data);
@@ -820,7 +1118,13 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
               });
             }
             const messageData = reasoning.reasoningRole ? null : reasoning.messageData ?? data;
-            const text = messageData ? textFromAcpContent(messageData) : "";
+            const rawText = messageData ? textFromAcpContent(messageData) : "";
+            requestDiagnostics.observe({ text: rawText });
+            const transport = splitRecoveredTransportWarning(provider, rawText);
+            if (transport.notice) {
+              appendEvent({ type: "status", text: `acp_transport_fallback> ${transport.notice}` });
+            }
+            const text = transport.assistantText;
             if (text) {
               // Upstream-style compaction status chunks (claude-agent-acp emits
               // "Compacting..." then "Compacting completed."; codex-acp emits
@@ -881,6 +1185,7 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
           }
           if (type === "tool_call" || type === "tool_call_update") {
             thinking.finishOnBoundary(type);
+            rememberAcpToolOperation(observedToolOperations, data);
             const storedUpdate = sanitizeToolCallUpdateForStorage(data);
             const textPreview = previewString(textFromAcpContent(storedUpdate) || JSON.stringify(storedUpdate ?? {}));
             const toolText = textPreview.text;
@@ -908,7 +1213,7 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
           }
           if (type === "error") { thinking.finishOnBoundary("error"); appendEvent({ type: "error", text: textFromAcpContent(data) || JSON.stringify(data ?? {}) }); }
         },
-        onRequest: async (message, client) => {
+        onRequest: async (message, client, requestSignal) => {
           const method = String(message.method ?? "");
           if (method !== "session/request_permission" && method !== "permission/request") {
             client.rejectRequest(message.id, -32601, `method not found: ${method}`);
@@ -916,23 +1221,56 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
           }
           const params = message.params ?? {};
           const readonly = isReadOnlyPermission(params);
+          const expiresAt = normalizeApprovalExpiry(params);
+          const operation = permissionOperation(params, message.id, method, workdir, observedToolOperations);
+          const expiredOrAborted = () => approvalRequestExpired(params, { signal: ctx.signal });
           let decision = "decline";
-          if (ctx.approvalMode === "auto" || (ctx.approvalMode === "read-only-auto" && readonly)) {
+          if (expiredOrAborted()) {
+            appendEvent({ type: "status", text: "task permission decline: approval-expired" });
+          } else if (ctx.taskPermissionMode === "full-allow") {
+            const policy = await evaluateTaskPermission({
+              taskPermissionGrant: ctx.taskPermissionGrant,
+              taskId: ctx.taskId,
+              taskRunId: ctx.taskRunId ?? ctx.runId,
+              taskRevision: ctx.taskRevision,
+              contractHash: ctx.taskContractHash ?? ctx.contractHash,
+              taskProfileId: ctx.taskProfileId,
+              provider,
+              workspaceRoot: ctx.workspaceRoot,
+              operation,
+            });
+            if (policy.decision === "accept" && !expiredOrAborted()) {
+              const intent = await beforeTaskOperation(ctx.taskExecutionObserver, operation);
+              decision = intent.ok && !expiredOrAborted() ? "accept" : "decline";
+              if (!intent.ok) appendEvent({ type: "status", text: `task permission decline: ${intent.reason}` });
+            }
+            appendEvent({ type: "status", text: `task permission ${decision}: ${policy.reason}` });
+          } else if (!expiredOrAborted() && (ctx.approvalMode === "auto" || (ctx.approvalMode === "read-only-auto" && readonly))) {
             decision = "accept";
           } else if (typeof ctx.requestApproval === "function") {
             const approval = await ctx.requestApproval({
               id: params.id ?? message.id,
+              toolCallId: operation.toolCallId,
               method,
               kind: acpPermissionKind(params),
-              title: String(params.title ?? params.toolName ?? params.permission ?? "ACP 权限请求"),
-              summary: String(params.summary ?? params.description ?? params.command ?? params.toolName ?? "ACP Agent 请求继续执行受限操作。"),
-              command: params.command ?? params.input?.command ?? null,
-              cwd: params.cwd ?? params.input?.cwd ?? workdir,
+              title: String(operation.title ?? params.title ?? params.toolName ?? params.permission ?? "ACP 权限请求"),
+              summary: String(params.summary ?? params.description ?? operation.command ?? params.command ?? params.toolName ?? "ACP Agent 请求继续执行受限操作。"),
+              command: operation.command ?? params.command ?? params.input?.command ?? null,
+              cwd: operation.cwd ?? params.cwd ?? params.input?.cwd ?? workdir,
               readonly,
               params,
+              expiresAt,
+              signal: requestSignal,
             });
             decision = approval?.decision ?? "decline";
           }
+          if (expiredOrAborted()) decision = "decline";
+          appendEvent({
+            type: "task_permission_decision",
+            text: "",
+            toolCallId: operation.toolCallId,
+            decision,
+          });
           client.respond(message.id, permissionDecisionPayload(params, decision));
         },
       });
@@ -952,6 +1290,12 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
         // One turn = one ACP session/prompt request/response. We faithfully read
         // `stopReason` and never guess truncation from text or auto-continue.
         const promptResult = await client.request("session/prompt", { sessionId, prompt: [{ type: "text", text: ctx.prompt }] }, DEFAULT_TURN_TIMEOUT_MS);
+        // A provider must not be allowed to report a terminal prompt while a
+        // permission request is still being evaluated. Track and drain those
+        // inbound requests so durable intent recording is part of turn
+        // completion; a non-conforming provider fails closed after the bound.
+        await client.drainInboundRequests();
+        requestDiagnostics.observePromptResult(promptResult);
         thinking.finishAll("turn_end");
         if (!sawContextUsage) {
           const fallbackUsage = extractPromptUsageTotals(promptResult);
@@ -992,6 +1336,22 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
           await writeSession(ctx.workspaceRoot, provider, ctx.agent.id, { sessionId, workdir, health: "unhealthy", lastFailureCode: "acp_bridge_interrupted", lastFailure: detail, updatedAt: Date.now() });
           throw acpFailureError(provider, "acp_bridge_interrupted", `${provider} ACP conversation interrupted. ${detail}`);
         }
+        const transportInterruption = terminalTransportInterruption(output);
+        if (transportInterruption) {
+          await writeSession(ctx.workspaceRoot, provider, ctx.agent.id, {
+            sessionId,
+            workdir,
+            health: "unhealthy",
+            lastFailureCode: "acp_transport_interrupted",
+            lastFailure: transportInterruption,
+            updatedAt: Date.now(),
+          });
+          throw acpFailureError(
+            provider,
+            "acp_transport_interrupted",
+            `${provider} ACP stream disconnected before completion. ${transportInterruption}`,
+          );
+        }
         if (failedToolUpdates.length) {
           const detail = failedToolUpdates.at(-1);
           const code = /"exit_code"\s*:\s*null|terminal_exit/i.test(detail ?? "") ? "acp_bridge_interrupted" : "acp_tool_failed";
@@ -1030,18 +1390,27 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
             resolution: null,
           });
         }
-        return {
+        const usage = extractPromptUsageMetrics(promptResult);
+        const requestDiagnosticSnapshot = requestDiagnostics.snapshot();
+        completedResult = {
           output,
           stopReason: completion.stopReason || "",
           truncated: !completion.ok,
           command: [command, `sessionID=${sessionId}`, `cwd=${workdir}`, modelId ? `model=${modelId}` : "model=<default>"].join("\n"),
           connectionMode: `${ctx.agent.name || provider} ACP session`,
           providerSessionId: sessionId,
+          requestId: requestDiagnosticSnapshot.requestId,
+          transportFallbackCount: requestDiagnosticSnapshot.fallbackCount,
           resumeKey: sessionId,
           sessionId,
           sessionMetadata,
           workdir,
           pid: child.pid ?? null,
+          terminationConfirmed: false,
+          exitConfirmed: false,
+          childExitConfirmed: false,
+          childState: null,
+          exitCode: null,
           metadata: {
             agent_type: "acp",
             provider,
@@ -1050,8 +1419,12 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
             stopReason: completion.stopReason || null,
             truncated: !completion.ok,
             sessionMetadata: sessionMetadata ?? null,
+            usage,
+            requestId: requestDiagnosticSnapshot.requestId,
+            transportFallbackCount: requestDiagnosticSnapshot.fallbackCount,
           },
         };
+        return completedResult;
       } finally {
         if (ctx.runId) active.delete(ctx.runId);
         client.dispose();
@@ -1060,6 +1433,17 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
         await terminateProcessTree(child);
         for (const owned of ownedProcesses) {
           await terminateProcessTree(owned, { graceMs: 2_000 });
+        }
+        // `sendMessage` does not resolve until ACP teardown finishes. Preserve
+        // that explicit child-exit observation so the Task supervisor can
+        // tombstone its durable process row without inferring liveness from a
+        // provider run status. Unknown/failed teardown remains unconfirmed.
+        if (completedResult && (child.exitCode !== null || child.signalCode !== null)) {
+          completedResult.terminationConfirmed = true;
+          completedResult.exitConfirmed = true;
+          completedResult.childExitConfirmed = true;
+          completedResult.childState = "exited";
+          completedResult.exitCode = Number.isInteger(child.exitCode) ? child.exitCode : null;
         }
       }
     },
@@ -1074,6 +1458,8 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
 
 export const __test__ = {
   extractReasoningFromMessageChunk,
+  splitRecoveredTransportWarning,
+  terminalTransportInterruption,
   createThinkingTracker,
   deriveThoughtHint,
   normalizeModelId,
@@ -1081,10 +1467,16 @@ export const __test__ = {
   normalizeExplicitSessionId,
   acpFailureCode,
   codexModeForApprovalMode,
+  beforeTaskOperation,
+  evaluateTaskPermission,
+  processEnvironmentForContext,
+  taskSessionOptions,
   supportsSessionSetModel,
   acpPromptStopReason,
   assertAcpPromptCompleted,
   extractAcpSessionMetadata,
+  rememberAcpToolOperation,
+  permissionOperation,
   permissionDecisionPayload,
   createGenericAcpAdapterForTest: createGenericAcpAdapter,
 };

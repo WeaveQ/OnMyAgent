@@ -25,3 +25,9 @@ export {
 } from "./PluginRegistry.mjs";
 export { ChannelAssistantBindingStore } from "./AssistantBindingStore.mjs";
 export { formatAgentReply } from "./AgentReplyHeader.mjs";
+export {
+  createMessagingTaskAdapter,
+  parseMessagingTaskCommand,
+  TASK_ROUTER_MESSAGE_ID_REQUIRED_REPLY,
+  TASK_ROUTER_SAFE_ERROR_REPLY,
+} from "./messaging-task-adapter.mjs";

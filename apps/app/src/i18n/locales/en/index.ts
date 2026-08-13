@@ -50,6 +50,7 @@ import workspaceList from "./workspace_list";
 import panelTabs from "./panel_tabs";
 import message from "./message";
 import debug from "./debug";
+import taskCenter from "./task_center";
 
 export default {
   ...app,
@@ -100,4 +101,5 @@ export default {
   ...panelTabs,
   ...message,
   ...debug,
+  ...taskCenter,
 } as const;

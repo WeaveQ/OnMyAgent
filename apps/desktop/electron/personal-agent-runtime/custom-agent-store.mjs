@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { assertPersonalAgentPathSegment } from "./path-segments.mjs";
 import { personalLocalAgentConnectionMode } from "./provider-registry.mjs";
 import { personalAgentRoot } from "./runtime-state.mjs";
 
@@ -41,7 +42,10 @@ function normalizeConnectionType(value) {
 }
 
 function normalizeCustomAgent(input = {}) {
-  const id = textValue(input.id) || `custom-${Date.now().toString(36)}`;
+  const id = assertPersonalAgentPathSegment(
+    input.id === undefined || input.id === null ? `custom-${Date.now().toString(36)}` : input.id,
+    "agent id",
+  );
   const name = textValue(input.name) || id;
   const executablePath = textValue(input.executablePath ?? input.command);
   if (!executablePath) throw new Error("custom agent command is required");
@@ -117,7 +121,7 @@ export async function createCustomAgent(workspaceRoot, input = {}) {
 
 export async function updateCustomAgent(workspaceRoot, id, input = {}) {
   const store = await readStore(workspaceRoot);
-  const agentId = textValue(id ?? input.id);
+  const agentId = assertPersonalAgentPathSegment(id ?? input.id, "agent id");
   const index = store.agents.findIndex((item) => item.id === agentId);
   if (index < 0) throw new Error(`custom agent not found: ${agentId}`);
   const agent = normalizeCustomAgent({ ...store.agents[index], ...input, id: agentId });
@@ -128,7 +132,7 @@ export async function updateCustomAgent(workspaceRoot, id, input = {}) {
 
 export async function deleteCustomAgent(workspaceRoot, id) {
   const store = await readStore(workspaceRoot);
-  const agentId = textValue(id);
+  const agentId = assertPersonalAgentPathSegment(id, "agent id");
   const next = store.agents.filter((agent) => agent.id !== agentId);
   const deleted = next.length !== store.agents.length;
   store.agents = next;
@@ -139,14 +143,13 @@ export async function deleteCustomAgent(workspaceRoot, id) {
 
 export async function getAgentOverrides(workspaceRoot, id) {
   const store = await readStore(workspaceRoot);
-  const agentId = textValue(id);
+  const agentId = assertPersonalAgentPathSegment(id, "agent id");
   return { overrides: store.overrides[agentId] ?? {} };
 }
 
 export async function setAgentOverrides(workspaceRoot, id, overrides = {}) {
   const store = await readStore(workspaceRoot);
-  const agentId = textValue(id);
-  if (!agentId) throw new Error("agent id is required");
+  const agentId = assertPersonalAgentPathSegment(id, "agent id");
   store.overrides[agentId] = overrides && typeof overrides === "object" ? overrides : {};
   await writeStore(workspaceRoot, store);
   return { overrides: store.overrides[agentId] };

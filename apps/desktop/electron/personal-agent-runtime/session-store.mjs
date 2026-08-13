@@ -2,6 +2,7 @@ import path from "node:path";
 import { rm } from "node:fs/promises";
 
 import { readJsonLikeFile, writeJsonFile } from "./utils.mjs";
+import { personalAgentPartitionName } from "./path-segments.mjs";
 import { legacyPersonalAgentRoot, personalAgentRoot } from "./runtime-state.mjs";
 
 const SESSION_DIR = "sessions";
@@ -19,15 +20,15 @@ export function sessionRoot(workspaceRoot) {
 }
 
 export function sessionFile(workspaceRoot, provider, agentId = "default") {
-  return path.join(sessionRoot(workspaceRoot), `${provider}-${agentId}.json`);
+  return path.join(sessionRoot(workspaceRoot), `${personalAgentPartitionName(provider, agentId)}.json`);
 }
 
 export function legacySessionFile(workspaceRoot, provider, agentId = "default") {
-  return path.join(legacySessionRoot(workspaceRoot), `${provider}-${agentId}.json`);
+  return path.join(legacySessionRoot(workspaceRoot), `${personalAgentPartitionName(provider, agentId)}.json`);
 }
 
 export function legacyPersonalAssistantSessionFile(workspaceRoot, provider, agentId = "default") {
-  return path.join(legacyPersonalAssistantSessionRoot(workspaceRoot), `${provider}-${agentId}.json`);
+  return path.join(legacyPersonalAssistantSessionRoot(workspaceRoot), `${personalAgentPartitionName(provider, agentId)}.json`);
 }
 
 export async function readSession(workspaceRoot, provider, agentId = "default") {

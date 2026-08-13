@@ -6,6 +6,7 @@ import { readSession, writeSession } from "../session-store.mjs";
 import { createExecHelpers, stringifyAgentCommand, terminateProcessTree } from "../utils.mjs";
 import { ensureProviderWorkdir } from "../workdir.mjs";
 import { unregisterAgentProcess } from "../process-registry.mjs";
+import { approvalRequestExpired, normalizeApprovalExpiry } from "../run-helpers.mjs";
 
 const DEFAULT_TURN_TIMEOUT_MS = 10 * 60_000;
 
@@ -133,7 +134,7 @@ function cleanupChildAsync(child, rpc) {
 }
 
 class CodexRpcClient {
-  constructor({ child, appendEvent, onAssistantText, onDone, onSession, onError, requestApproval, approvalMode, runId, cwd }) {
+  constructor({ child, appendEvent, onAssistantText, onDone, onSession, onError, requestApproval, approvalMode, runId, cwd, signal }) {
     this.child = child;
     this.appendEvent = appendEvent;
     this.onAssistantText = onAssistantText;
@@ -144,6 +145,7 @@ class CodexRpcClient {
     this.approvalMode = approvalMode || "ask";
     this.runId = runId || "";
     this.cwd = cwd || "";
+    this.signal = signal ?? null;
     this.nextId = 1;
     this.pending = new Map();
     this.threadId = "";
@@ -252,6 +254,13 @@ class CodexRpcClient {
       return;
     }
     const readonly = method === "item/commandExecution/requestApproval" && isReadonlyCommandApproval(params);
+    const expiresAt = normalizeApprovalExpiry(params);
+    const expiredOrAborted = () => approvalRequestExpired(params, { signal: this.signal });
+    if (expiredOrAborted()) {
+      this.appendEvent({ type: "approval_decision", text: `approval_decline_expired> ${method}` });
+      this.respond(id, codexApprovalResponseForDecision(method, "decline", params));
+      return;
+    }
     if (this.approvalMode === "auto" || (this.approvalMode === "read-only-auto" && readonly)) {
       const command = commandFromApprovalParams(params);
       this.appendEvent({ type: "approval_decision", text: `approval_auto_accept> ${method} ${command.slice(0, 1000)}` });
@@ -272,8 +281,9 @@ class CodexRpcClient {
       cwd: this.cwd,
       readonly,
       params,
+      expiresAt,
     });
-    const decision = approvalResult?.decision ?? "decline";
+    const decision = expiredOrAborted() ? "decline" : approvalResult?.decision ?? "decline";
     this.respond(id, codexApprovalResponseForDecision(method, decision, params));
     return;
   }
@@ -417,6 +427,7 @@ export function createCodexAdapter({ appendEvent, registerCancel, requestApprova
         approvalMode,
         runId: ctx.runId,
         cwd: ctx.workspaceRoot,
+        signal: ctx.signal,
       });
 
       try {
@@ -520,4 +531,5 @@ export const __test__ = {
   codexApprovalResponseForRequest,
   codexRunPolicyForApprovalMode,
   buildDeveloperInstructions,
+  CodexRpcClient,
 };

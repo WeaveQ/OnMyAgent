@@ -62,6 +62,7 @@ import { getReactQueryClient } from "../../infra/query-client";
 import { writeCachedSidebarSessionsForWorkspace } from "../session-memory";
 
 import { loadAgentsPage } from "../../domains/agents";
+import { TaskCenterPage } from "../../domains/task-center";
 
 // Agents registry UI is heavy and non-critical for the live chat path —
 // code-split so it does not ride the main session graph.
@@ -535,6 +536,9 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               <AgentsPage {...agentsPageProps} />
             </Suspense>
           )}
+          taskCenterSlot={
+            <TaskCenterPage workspaceRoot={selectedWorkspaceRoot} />
+          }
           mcpConnectedCount={0}
           onSendFeedback={() => {
             platform.openLink(

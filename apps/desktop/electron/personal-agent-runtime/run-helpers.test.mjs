@@ -21,12 +21,97 @@ import {
   meaningfulRunEvents,
   mergeMcpServers,
   normalizeApprovalMode,
+  normalizeApprovalExpiry,
+  approvalRequestExpired,
   parseRunLogContent,
   parseStatusInput,
+  providerDiagnosticsFromResult,
+  providerUsageFromResult,
   resolveAdapterFactoryForProvider,
   rewriteOrphanRunLogContent,
   sanitizeApprovalParams,
 } from "./run-helpers.mjs";
+
+test("provider diagnostics project bounded session/model/transport facts", () => {
+  assert.deepEqual(providerDiagnosticsFromResult({
+    providerSessionId: "session-1",
+    metadata: {
+      currentModelId: "canonical-model",
+      transport: "stdio",
+      connectionMode: "Codex ACP session",
+      apiKey: "sk-live-secret",
+      executablePath: "/private/provider/bin/codex",
+    },
+  }), {
+    providerSessionId: "session-1",
+    effectiveModel: "canonical-model",
+    transport: "stdio",
+    connectionMode: "Codex ACP session",
+    requestId: null,
+    transportFallbackCount: 0,
+  });
+  assert.deepEqual(providerDiagnosticsFromResult({
+    metadata: {
+      sessionMetadata: { sessionId: "../secret", modelId: "gpt-5" },
+      transport: "https://provider.invalid",
+      token: "bearer secret",
+    },
+  }), {
+    providerSessionId: null,
+    effectiveModel: "gpt-5",
+    transport: null,
+    connectionMode: null,
+    requestId: null,
+    transportFallbackCount: 0,
+  });
+  assert.equal(providerDiagnosticsFromResult({ metadata: { apiKey: "sk-live-secret" } }), null);
+});
+
+test("provider diagnostics accept only explicit bounded request id and fallback count", () => {
+  assert.deepEqual(providerDiagnosticsFromResult({
+    metadata: {
+      requestId: "req-123",
+      transport_fallback_count: 2,
+      secretRequestId: "bearer secret",
+    },
+  }), {
+    providerSessionId: null,
+    effectiveModel: null,
+    transport: null,
+    connectionMode: null,
+    requestId: "req-123",
+    transportFallbackCount: 2,
+  });
+  assert.equal(providerDiagnosticsFromResult({ metadata: { requestId: "../private", transportFallbackCount: -1 } }), null);
+});
+
+test("provider diagnostics count each fallback warning occurrence once across envelopes", () => {
+  assert.equal(providerDiagnosticsFromResult({
+    metadata: { warning: "Falling back from WebSockets to HTTPS transport." },
+    promptResult: { text: "Falling back from WebSockets to HTTPS transport." },
+  }).transportFallbackCount, 2);
+});
+
+test("provider usage projects numeric accounting without raw metadata", () => {
+  const result = providerUsageFromResult({
+    metadata: {
+      usage: {
+        input_tokens: 120,
+        output_tokens: 30,
+        cost_usd: 0.000125,
+        apiKey: "sk-live-secret",
+      },
+      endpoint: "https://provider.invalid/private",
+    },
+  });
+  assert.deepEqual(result, {
+    inputTokens: 120,
+    outputTokens: 30,
+    totalTokens: 150,
+    costMicros: 125,
+  });
+  assert.doesNotMatch(JSON.stringify(result), /secret|provider\.invalid|apiKey/i);
+});
 
 test("normalizeApprovalMode accepts known modes and defaults to ask", () => {
   assert.equal(normalizeApprovalMode("auto"), "auto");
@@ -109,6 +194,12 @@ test("buildRunSnapshot and buildRunMeta project state fields", () => {
     startedAt: 1,
     finishedAt: 2,
     pid: 9,
+    processStartToken: "posix:test-start|pgid:9",
+    terminationConfirmed: true,
+    exitConfirmed: true,
+    childExitConfirmed: true,
+    childState: "exited",
+    exitCode: 0,
     command: "codex",
     outputParts: ["hello", "world"],
     error: null,
@@ -132,6 +223,10 @@ test("buildRunSnapshot and buildRunMeta project state fields", () => {
   };
   const snap = buildRunSnapshot(state, deps);
   assert.equal(snap.ok, true);
+  assert.equal(snap.terminationConfirmed, true);
+  assert.equal(snap.processStartToken, "posix:test-start|pgid:9");
+  assert.equal(snap.childState, "exited");
+  assert.equal(snap.exitCode, 0);
   assert.equal(snap.output, "hello\nworld");
   assert.deepEqual(snap.pendingApprovals, [{ id: "p1" }]);
   assert.notEqual(snap.pendingApprovals, state.pendingApprovals);
@@ -156,6 +251,8 @@ test("buildRunSnapshot and buildRunMeta project state fields", () => {
   const meta = buildRunMeta(state, { visibleArtifacts: (e) => e });
   assert.equal(meta.type, "run_meta");
   assert.equal(meta.runId, "r1");
+  assert.equal(meta.terminationConfirmed, true);
+  assert.equal(meta.processStartToken, "posix:test-start|pgid:9");
   assert.deepEqual(meta.fileChanges, [{ path: "b.txt" }]);
 });
 
@@ -424,7 +521,7 @@ test("conversation tool identifiers do not merge across user turns", () => {
 test("buildApprovalRecord uses defaults and clock hooks", () => {
   const approval = buildApprovalRecord(
     { runId: "r1", agentProvider: "codex", workspaceRoot: "/ws" },
-    { method: "fs.write", kind: "write", title: "Write file", summary: "Write", command: "echo", cwd: "/tmp", readonly: false, params: { path: "a" } },
+    { method: "fs.write", kind: "write", title: "Write file", summary: "Write", command: "echo", cwd: "/tmp", readonly: false, params: { path: "a" }, toolCallId: "tool-write-1" },
     { now: () => 42, randomId: () => "abc" },
   );
   assert.equal(approval.id, "r1-approval-42-abc");
@@ -432,6 +529,29 @@ test("buildApprovalRecord uses defaults and clock hooks", () => {
   assert.equal(approval.cwd, "/tmp");
   assert.deepEqual(approval.params, { path: "a" });
   assert.equal(approval.createdAt, 42);
+  assert.equal(approval.toolCallId, "tool-write-1");
+  assert.equal(approval.expiresAt, null);
+  assert.equal(buildApprovalRecord(
+    { runId: "r1", agentProvider: "codex", workspaceRoot: "/ws" },
+    { expiresAt: 99 },
+    { now: () => 42, randomId: () => "abc" },
+  ).expiresAt, 99);
+  assert.equal(normalizeApprovalExpiry({ expiresAt: null }), null);
+  assert.equal(normalizeApprovalExpiry({ expiresAt: null, params: { expires_at: 123 } }), 123);
+  assert.equal(normalizeApprovalExpiry({ params: { input: { expiresAt: 456 } } }), 456);
+  assert.equal(normalizeApprovalExpiry({ expiresAt: 99, params: { input: { expires_at: 7 } } }), 7);
+  assert.equal(buildApprovalRecord(
+    { runId: "r1", agentProvider: "codex", workspaceRoot: "/ws" },
+    { expiresAt: null, params: { input: { expires_at: 777 } } },
+  ).expiresAt, 777);
+});
+
+test("approval fast-path expiry helper honors earliest nested TTL and AbortSignal", () => {
+  assert.equal(approvalRequestExpired({ expiresAt: 99, params: { input: { expires_at: 7 } } }, { now: () => 7 }), true);
+  assert.equal(approvalRequestExpired({ expiresAt: 99, params: { input: { expires_at: 7 } } }, { now: () => 6 }), false);
+  const controller = new AbortController();
+  controller.abort();
+  assert.equal(approvalRequestExpired({ expiresAt: 99 }, { signal: controller.signal, now: () => 0 }), true);
 });
 
 test("parseRunLogContent and assistantTextFromEvents restore runs", () => {

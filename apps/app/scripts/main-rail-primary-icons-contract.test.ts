@@ -60,6 +60,7 @@ describe("main rail primary icon contract", () => {
     expect(railSource).toContain("icon: StoreRailIcon");
     expect(railSource).toContain("icon: CompanyRailIcon");
     expect(railSource).toContain("icon: AutomationRailIcon");
+    expect(railSource).toContain("icon: TaskCenterRailIcon");
     expect(railSource).toContain('id: "company"');
 
     // Outline set — no solid fill glyphs in the primary rail icon module.
@@ -91,6 +92,7 @@ describe("main rail primary icon contract", () => {
     );
     expect(iconSource).toContain("MessagesSquare");
     expect(iconSource).toContain("CalendarClock");
+    expect(iconSource).toContain("ListChecks");
     expect(iconSource).toContain("RAIL_ICON_STROKE");
     expect(iconSource).toContain("strokeWidth: RAIL_ICON_STROKE");
     expect(iconSource).not.toContain('fill="currentColor"');
@@ -104,6 +106,7 @@ describe("main rail primary icon contract", () => {
     expect(iconSource).toContain("export function ManageRailIcon");
     expect(iconSource).toContain("export function DevicesRailIcon");
     expect(iconSource).toContain("export function AutomationRailIcon");
+    expect(iconSource).toContain("export function TaskCenterRailIcon");
   });
 
   test("live Devices UI uses HardDrive, not LocalAgent MonitorSmartphone", () => {

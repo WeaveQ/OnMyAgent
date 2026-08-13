@@ -57,6 +57,7 @@ import {
   renderRunsList,
   runAgentTurn,
 } from "./agent-context.mjs";
+import { createWeixinMessagingTaskIntegration, sendWeixinTaskDelivery, simulateWeixinInbound } from "./messaging-task-integration.mjs";
 
 export function createWeixinService(options = {}) {
   const userDataDir = String(options.userDataDir ?? "").trim();
@@ -71,6 +72,7 @@ export function createWeixinService(options = {}) {
   const channelSessionStore = options.channelSessionStore ?? null;
   const channelEventBus = options.channelEventBus ?? null;
   const channelAssistantBindingStore = options.channelAssistantBindingStore ?? null;
+  const messagingTasks = createWeixinMessagingTaskIntegration(options);
   const dedup = new TtlSet(MESSAGE_DEDUP_TTL_MS);
   const pendingBatches = new Map();
   const agentBusyNoticeAt = new Map(); // busyKey -> lastNoticeAt (ms)
@@ -370,7 +372,7 @@ export function createWeixinService(options = {}) {
     const text = extractText(itemList).trim();
     if (!text) return null;
     // 控制命令不应被 content dedup 吞掉；固定短文本命令可能在短时间内重复发送
-    const isControlCommand = parseApprovalCommand(text) || parseRunCommand(text) || parseModeCommand(text) || parseModelSwitchCommand(text) || parseAgentSwitchCommand(text);
+    const isControlCommand = messagingTasks.canRoute(text) || parseApprovalCommand(text) || parseRunCommand(text) || parseModeCommand(text) || parseModelSwitchCommand(text) || parseAgentSwitchCommand(text);
     if (!isControlCommand) {
       const contentKey = `content:${senderId}:${text}`;
       if (dedup.hasOrAdd(contentKey)) return null;
@@ -389,6 +391,11 @@ export function createWeixinService(options = {}) {
     const mediaFiles = await collectMediaFiles(session, itemList);
     const event = { accountId: session.account.accountId, senderId, messageId, text, mediaFiles, raw: message, ...chat };
     setState({ lastMessageAt: Date.now(), processedCount: state.processedCount + 1 });
+    const taskRoute = await messagingTasks.route(event, {
+      appendLog,
+      reply: (replyText) => sendText(session, event.chatId, replyText, event.senderId),
+    });
+    if (taskRoute.handled) return event;
     if (await maybeHandleControlCommand(session, event)) return event;
     void enqueueText(session, event).catch((error) => {
       const message = error instanceof Error ? error.message : String(error);
@@ -531,20 +538,7 @@ export function createWeixinService(options = {}) {
   }
 
   async function simulateInbound(input = {}) {
-    const accountId = String(input.accountId ?? state.accountId ?? "").trim();
-    const account = active?.account?.accountId === accountId ? active.account : await store.loadAccount(accountId);
-    if (!account) return { ok: false, error: "Weixin account is not configured" };
-    const session = active?.account?.accountId === account.accountId
-      ? active
-      : { account, store, options: runtimeOptions(input), controller: new AbortController() };
-    const event = await processMessage(session, {
-      from_user_id: input.fromUserId ?? input.senderId ?? "studio-test-user",
-      to_user_id: account.accountId,
-      message_id: input.messageId ?? `sim-${Date.now()}`,
-      context_token: input.contextToken ?? "",
-      item_list: [{ type: 1, text_item: { text: String(input.text ?? "ping") } }],
-    });
-    return { ok: true, event, status: snapshot() };
+    return simulateWeixinInbound({ input, state: { ...state, snapshot }, active, store, runtimeOptions, processMessage, messagingTasks });
   }
 
   async function probe(input = {}) {
@@ -557,6 +551,10 @@ export function createWeixinService(options = {}) {
     } catch (error) {
       return { ok: false, error: error?.message ?? String(error) };
     }
+  }
+
+  async function sendTaskDelivery(input = {}) {
+    return sendWeixinTaskDelivery(active, state, input, sendText);
   }
 
   return {
@@ -574,6 +572,7 @@ export function createWeixinService(options = {}) {
       const session = active ?? { account: input.account, store, options: runtimeOptions(input), controller: new AbortController() };
       return processMessage(session, message);
     },
+    sendTaskDelivery,
   };
 }
 

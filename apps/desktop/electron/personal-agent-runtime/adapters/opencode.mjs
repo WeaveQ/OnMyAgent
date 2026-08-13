@@ -3,6 +3,7 @@ import { createOpencodeClient } from "@opencode-ai/sdk/v2/client";
 import { injectPersonalAgentContext } from "../context-injection.mjs";
 import { readSession, writeSession } from "../session-store.mjs";
 import { ensureProviderWorkdir } from "../workdir.mjs";
+import { approvalRequestExpired, normalizeApprovalExpiry } from "../run-helpers.mjs";
 
 function unwrap(result) {
   if (result?.error) {
@@ -353,8 +354,12 @@ export function createOpenCodeAdapter({ opencodeBaseUrl, onmyagentServerToken, o
           handledPermissionIds.add(id);
           const readonly = isReadOnlyOpenCodePermission(permission);
           const fingerprint = opencodePermissionFingerprint(permission);
+          const expiresAt = normalizeApprovalExpiry(permission);
+          const expiredOrAborted = () => approvalRequestExpired(permission, { signal: ctx.signal });
           let decision = "decline";
-          if (mode === "auto" || (mode === "read-only-auto" && readonly)) {
+          if (expiredOrAborted()) {
+            appendEvent({ type: "approval_decision", text: `OpenCode approval_decline_expired> ${permission.permission ?? id}` });
+          } else if (mode === "auto" || (mode === "read-only-auto" && readonly)) {
             decision = "acceptForSession";
             appendEvent({ type: "approval_decision", text: `OpenCode approval_auto_accept> ${permission.permission ?? id}` });
           } else if (fingerprint && acceptedPermissionFingerprints.has(fingerprint)) {
@@ -374,9 +379,11 @@ export function createOpenCodeAdapter({ opencodeBaseUrl, onmyagentServerToken, o
               cwd: workdir,
               readonly,
               params: permission,
+              expiresAt,
             });
             decision = result?.decision ?? "decline";
           }
+          if (expiredOrAborted()) decision = "decline";
           const reply = openCodeReplyForDecision(decision);
           const replyResult = await replyOpenCodePermission(client, {
             requestID: id,

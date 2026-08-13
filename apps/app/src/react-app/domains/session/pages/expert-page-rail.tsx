@@ -1,5 +1,6 @@
 import { OnMyAgentRail, isAutomationRailView } from "../sidebar/session-chrome";
 import { openAutomationRailPath } from "./open-automation-rail";
+import { openTaskCenterRailPath } from "./open-task-center-rail";
 import type { ExpertPageRailViewProps } from "./expert-page-view-types";
 
 export type ExpertPageRailProps = ExpertPageRailViewProps;
@@ -30,8 +31,10 @@ export function ExpertPageRail({
           onNavigateToMode("assistant");
           return;
         }
-        if (isAutomationRailView(view)) {
-          const path = openAutomationRailPath(selectedWorkspaceId);
+        if (isAutomationRailView(view) || view === "taskCenter") {
+          const path = view === "taskCenter"
+            ? openTaskCenterRailPath(selectedWorkspaceId)
+            : openAutomationRailPath(selectedWorkspaceId);
           if (path) navigate(path);
           return;
         }

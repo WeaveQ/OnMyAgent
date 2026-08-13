@@ -23,6 +23,7 @@ const KNOWN_VIEWS = new Set<string>([
   "company",
   "projects",
   "agentManagement",
+  "taskCenter",
   "devices",
   "channels",
   "billing",

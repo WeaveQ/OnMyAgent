@@ -39,6 +39,7 @@ src/react-app/
     │   ├── voice/ browser/ infinite-canvas/
     │   └── modals/
     ├── local-agents/          ACP / local agent editors, cards, agent-management, personal host
+    ├── task-center/           Durable cross-agent workflow list/detail/actions via Desktop IPC
     ├── messaging/             Automations + Feishu/Weixin channel panels
     ├── agents/                Agent registry UI + personal agent pages
     ├── plugins/               Skills/plugins/connectors + expert/skills marketplace
@@ -78,6 +79,11 @@ Domain ownership gives every feature one obvious home.
   monorepo `docs/Architecture.md` **Dual Runtime Boundary**.
   Public exports (`AgentBrandIcon`, recent-workspace helpers, …) go through
   `domains/local-agents/index.ts` for other domains.
+- `task-center/` owns the neutral multi-agent workflow UI. Task/Run/Turn truth remains
+  in the detached desktop `task-supervisor` and its SQLite-backed Task Orchestrator;
+  Electron main is only the reconnecting bridge. The renderer uses typed Desktop IPC +
+  TanStack Query and must not call Personal worker APIs or persist a duplicate workflow
+  store.
 - `messaging/` owns automation pages and messaging channel panels (Feishu, Weixin, pairing).
   Automation session records are exported from `domains/messaging/index.ts`.
 - `agents/` owns registry-facing agent pages and selection UX.
@@ -121,12 +127,12 @@ reusable product composites belong in `design-system/`.
 │               react-app/shell/app-root.tsx                 │  Route root
 └────────────────────────────────────────────────────────────┘
                               │
-     ┌──────────────┬─────────┼──────────┬──────────────┐
-     ▼              ▼         ▼          ▼              ▼
- domains/session  workspace  settings  messaging   local-agents
+     ┌──────────────┬─────────┼──────────┬──────────────┬──────────────┐
+     ▼              ▼         ▼          ▼              ▼              ▼
+ domains/session  workspace  settings  messaging   local-agents  task-center
  (surface/sync/   create/    pages/    automation/  management/
   chat/goal)      share/     state/    channels     cards/ACP
-                  files
+                  files                                   Desktop IPC
 ```
 
 ## State ownership

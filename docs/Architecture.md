@@ -171,7 +171,7 @@ desktop(electron) → runtime.mjs → spawn sidecars
 app(React) ← desktop.ts(command-validated IPC bridge)
   ← preload.mjs
   ← desktop-command-router.mjs（按 desktopCommandGroups 路由）
-  ← desktop-handlers/*（workspace / system / local-agents / messaging / agent-management / opencode / runtime / skills）
+  ← desktop-handlers/*（workspace / system / local-agents / task-orchestrator / messaging / agent-management / opencode / runtime / skills）
   ← main.mjs（组装 services + createAllDesktopDomainHandlers）
 app(React) ← onmyagent-server.ts(compat barrel) ← onmyagent-server/client.ts + domains.ts ← server
 app(React) ← opencode.ts(SDK) ← opencode binary
@@ -195,6 +195,71 @@ app(React) ← @onmyagent/types ← packages/types（Zod schema + DesktopCommand
 ### 一句话
 
 **OpenCode = 主运行时；Personal = 本机 CLI agent 的统一 harness（适配层），不是第二套主引擎。**
+
+### Task Orchestrator（中立协调层，不是第三套运行时）
+
+Task Center 的跨 agent 工作流由 app-userData scoped 的 detached
+`task-supervisor` Node 进程持有；Electron main 只是带认证、可重连的 IPC
+client。Supervisor 是 Task Center 的唯一执行 owner，并在同一进程内通过
+`personalAgentRuntime` 的公开 API 管理 provider child。显式 Quit 必须先让
+Supervisor checkpoint、撤销 lease 并安全暂停；普通关窗不改变 Task 生命周期。
+
+Task / Contract / Run / Turn / Attempt / Lease / Event / Artifact / Gate / Budget /
+Outbox / Process 状态以 `runtime-state/task-center-supervisor/task-center.sqlite`
+的 SQLite WAL 为权威单写真相源。旧 V2 JSON 只做幂等导入且保留为恢复输入；
+启用 SQLite 后禁止双写或静默回退，避免 split brain。
+
+长期运行的资源边界也属于该 owner 契约：SQLite 显式启用 bounded WAL
+autocheckpoint，Supervisor 启动后及每小时执行 single-flight、可诊断且可 drain 的
+operational maintenance（checkpoint / incremental vacuum / outbox、RPC、process
+tombstone retention）。Event 与 Artifact 是验收、恢复和 side-effect reconciliation
+需要的不可变审计历史，因此 maintenance 不会静默删除它们；每个 Run 由有限的
+Turn/Worker/Checker/时间预算约束，读取走 snapshot byte budget 和 cursor/chunk
+pagination，归档/导出负责长期保留。Task MCP 的 app-userData 文件队列使用
+filesystem wakeup 加 bounded idle backoff，避免无请求时固定高频扫描；renderer 以
+Supervisor event/outbox 为实时真相，低频 polling 只作为 sleep/reconnect 丢事件后的
+watchdog。
+
+资源达到警戒线时 health 会报告 DB/WAL/总文件预算；不可变历史只允许显式
+`archive → export manifest → PURGE <taskId>` 清理。Purge 还要求精确 revision 与
+manifest digest，删除 Task 级级联数据的同时在独立 `purge_audit` 表保留最小审计，
+不会由 maintenance/TTL 自动触发。
+
+Electron main 另有主动 Supervisor watchdog（bounded backoff/jitter/circuit breaker），
+不依赖 Task Center 窗口或 renderer polling。Task 活跃且用户开启“保持唤醒”时使用
+`prevent-app-suspension`：允许显示器熄灭，但防止应用/系统挂起导致 provider 与网络
+工作中断；真实 `powerMonitor suspend/resume` 区间才从 Turn liveness budget 扣除，
+普通 event-loop/SQLite/provider stall 不享受豁免。
+
+微信、飞书、Telegram、Discord 的普通消息仍走 Personal runtime；只有显式
+`#task`/`/task` 进入共享 Messaging Task Adapter。入站 receipt、chat↔task binding、
+本地通知和 channel delivery outbox 使用独立的 Channel SQLite 单写库，Task/Run
+真相仍只在 Supervisor。重复 webhook 以稳定 message identity 去重，终态/审批消息
+claim→send→ack，断线后按每个 event stream cursor 重放；附件只进入有界元数据引用，
+不把凭证、raw app state 或任意本地路径带入 contract/output。
+
+- Renderer 的 `domains/task-center` 只调用 typed Desktop IPC；不 import
+  Personal adapter，也不复制 Task 真相到 OpenCode archive 或 renderer store。
+- 新任务从一个 idea 开始，由 catalog-selected Primary 在 alignment 中提出结构化
+  outcome、deliverables、acceptance、scope 和 verification。冻结 Contract 后，
+  Primary 自主决定是否通过 namespaced Task MCP 委派允许列表中的 depth-one
+  Worker；不存在固定 Planner / Implementer / Verifier 流水线。
+- Run 创建后冻结 Primary、allowed workers、provider/model、workspace、permission、
+  Contract hash 和 End Conditions；详情必须展示该 immutable Run definition，
+  不能用后续可变 Task revision 冒充实际执行配置。
+- 长 Run 由 bounded durable Turns 组成。每个 Turn 使用新 provider session；上下文
+  接近阈值、transport recovery、暂停或重启时先写 checkpoint + redacted
+  Continuation Capsule，再用冻结 identity 继续。provider prompt 结束不等于 Task
+  完成；只有结构化 acceptance decision 或用户确认可以结束 Run。
+- Orchestrator 只保存 Personal `runId` / `conversationId` 引用，不打开或改写
+  Personal conversation/session/run 文件；Personal 仍对自己的 worker 状态负责。
+- 它不写 server session archive，不把 Personal 变成主引擎，也不承担
+  OpenCode/server sidecar 生命周期。
+- `restricted` 使用 durable approval gate；`full-allow` 只在冻结 task/run、真实
+  workspace、provider/profile、Contract hash 和有限 deadline 的 grant 内无提示执行，
+  网络、外发、发布、凭证/系统路径等 hard deny 不可绕过。停止、暂停、重试、
+  context rollover 和重启恢复由 supervisor epoch + task-owned lease/revision
+  fencing 保证迟到结果不能覆盖新 Turn/Attempt。
 
 ### 共享合同（可以共用）
 
@@ -375,7 +440,7 @@ pnpm check:boundaries
      按 Map 约束 args/result。preload / main dispatch 仍是运行时边界；handler 级
      parity 可继续加严，但不能把「命令名 parity」当成端到端 payload 已全部闭环。
 - **Desktop handlers 已域拆分**：实现在 `apps/desktop/electron/desktop-handlers/`
-  （`workspace` / `system` / `local-agents` / `messaging` / `agent-management` /
+  （`workspace` / `system` / `local-agents` / `task-orchestrator` / `messaging` / `agent-management` /
   `opencode` / `runtime` / `skills`），由 `createAllDesktopDomainHandlers` 组装；
   `desktop-command-router.mjs` 按 `desktopCommandGroups` 路由；`main.mjs` 只做
   composition root。新 IPC 优先加 domain handler + types map，而不是堆进 main。

@@ -44,7 +44,10 @@ const PERSONAL_LOCAL_AGENT_EMPTY_OUTPUT_RETRIES = 1;
 const OPENCODE_PREFERRED_DEFAULT_MODEL = "ark-coding-openai/ark-code-latest";
 
 export function createPersonalAgentLegacyHarness(options = {}) {
-  const exec = createExecHelpers({ extraPathEntries: () => options.runtimePathEntries?.() ?? [] });
+  const exec = createExecHelpers({
+    baseEnvironment: options.providerEnvironment,
+    extraPathEntries: () => options.runtimePathEntries?.() ?? [],
+  });
   const runs = new Map();
   const processes = new Map();
 
@@ -587,6 +590,7 @@ export function createPersonalAgentLegacyHarness(options = {}) {
     appendRunEvent(state.events, { type: "log", text: attempt > 0 ? `retrying ${detected.name} after empty text output` : `spawned ${detected.name}` });
     appendRunEvent(state.events, { type: "log", text: state.command });
     const runExec = createExecHelpers({
+      baseEnvironment: options.providerEnvironment,
       extraPathEntries: () => [
         ...(options.runtimePathEntries?.() ?? []),
       ],
