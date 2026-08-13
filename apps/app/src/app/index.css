@@ -329,6 +329,7 @@ select:disabled {
   --dls-signal: var(--ow-signal);
   --dls-text-primary: var(--ow-ink);
   --dls-text-secondary: var(--ow-slate);
+  --dls-secondary-rgb: 100, 116, 139;
   /* Neutral grays — blue-tinted hover (#EEF4FF) read as “selected chip” on menus. */
   --dls-hover: #F0F0F1;
   --dls-active: #E6E6E8;
@@ -357,6 +358,7 @@ select:disabled {
   --dls-status-orange-soft: #FFEDD5;
   --dls-status-orange-fg: #C2410C;
   --dls-status-orange-border: #FDBA74;
+  --dls-status-success: var(--dls-online);
   --dls-status-success-soft: #ECFDF5;
   --dls-status-success-fg: #047857;
   --dls-status-success-border: #A7F3D0;
@@ -421,6 +423,8 @@ select:disabled {
   --dls-primary: var(--dls-accent);
   --dls-primary-hover: var(--dls-accent-hover);
   --dls-primary-soft: var(--dls-decision-soft);
+  --dls-text: var(--dls-text-primary);
+  --dls-focus: var(--dls-accent);
   --dls-danger: var(--dls-status-danger);
   --dls-danger-soft: var(--dls-status-danger-soft);
   --dls-danger-fg: var(--dls-status-danger-fg);
@@ -548,6 +552,7 @@ select:disabled {
   --dls-signal: var(--ow-signal);
   --dls-text-primary: var(--ow-ink);
   --dls-text-secondary: var(--ow-slate);
+  --dls-secondary-rgb: 148, 163, 184;
   --dls-hover: #323232;
   --dls-active: #3A3A3A;
   --dls-list-selected: #454545;
@@ -575,6 +580,7 @@ select:disabled {
   --dls-status-orange-soft: #3A2410;
   --dls-status-orange-fg: #FDBA74;
   --dls-status-orange-border: #7C2D12;
+  --dls-status-success: var(--dls-status-success-fg);
   --dls-status-success-soft: #0F2F24;
   --dls-status-success-fg: #6EE7B7;
   --dls-status-success-border: #14532D;
@@ -585,6 +591,7 @@ select:disabled {
   --dls-brand-terminal: #2A2A2A;
   --dls-brand-orange: #FF8A33;
   --dls-chat-user-bg: #333333;
+  --dls-chat-agent-text: var(--dls-text-primary);
   --dls-rail-bg: #141414;
   /* Sidebar list data-active (still needs clear vs rail-bg). */
   --dls-rail-active: #404040;
