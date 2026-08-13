@@ -14,6 +14,12 @@ This project follows a lightweight changelog format during early development. Re
 
 ### License / community
 
+## 0.5.0
+
+### Changed
+
+- Packaged / production builds hide the Task Center rail entry. Local `pnpm dev` still shows it.
+
 ## 0.4.29
 
 ### Added
