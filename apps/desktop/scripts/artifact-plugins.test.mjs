@@ -128,6 +128,9 @@ test("windows electron-builder target is configured for local test packaging", a
   assert.match(builderConfig, /signAndEditExecutable:\s*true/);
   assert.match(builderConfig, /oneClick:\s*false/);
   assert.match(builderConfig, /output:\s*dist-electron/);
+  assert.match(builderConfig, /electronLanguages:/);
+  assert.match(builderConfig, /zh-CN/);
+  assert.match(builderConfig, /zh-TW/);
 });
 
 test("package runtimes advertise real local JavaScript artifact operations", async () => {

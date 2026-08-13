@@ -51,6 +51,13 @@ function pruneNodeModulesRoot(modulesRoot) {
   }
 }
 
+function pruneKeptNpmDocs(modulesRoot) {
+  const npmRoot = path.join(modulesRoot, "npm");
+  if (!fs.existsSync(npmRoot)) return;
+  rmIfExists(path.join(npmRoot, "docs"));
+  rmIfExists(path.join(npmRoot, "man"));
+}
+
 function pruneNodeTree(nodeRoot) {
   if (!nodeRoot || !fs.existsSync(nodeRoot)) return;
   rmIfExists(path.join(nodeRoot, "include"));
@@ -60,6 +67,7 @@ function pruneNodeTree(nodeRoot) {
 
   for (const modulesRoot of nodePrefixModuleRoots(nodeRoot)) {
     pruneNodeModulesRoot(modulesRoot);
+    pruneKeptNpmDocs(modulesRoot);
   }
 }
 
@@ -117,6 +125,55 @@ function isSafeArtifactRuntimeJunk(name) {
   );
 }
 
+const ARTIFACT_OPTIONAL_BUILD_DIRS = ["dist", "es", "src", "ts3.4", "umd", "esm", "browser"];
+
+function collectNodeEntryRefs(pkg) {
+  const refs = [];
+  const add = (value) => {
+    if (typeof value === "string") {
+      refs.push(value);
+      return;
+    }
+    if (!value || typeof value !== "object") return;
+    if (Array.isArray(value)) {
+      for (const item of value) add(item);
+      return;
+    }
+    add(value.require);
+    add(value.node);
+    add(value.default);
+    add(value["."]);
+  };
+  add(pkg.main);
+  add(pkg.exports);
+  return refs;
+}
+
+function nodeEntryUsesDir(refs, dirName) {
+  return refs.some((ref) => {
+    const normalized = String(ref).replace(/\\/g, "/").replace(/^\.\//, "");
+    return normalized === dirName || normalized.startsWith(`${dirName}/`);
+  });
+}
+
+function pruneUnreferencedArtifactBuildDirs(pkgDir) {
+  const manifestPath = path.join(pkgDir, "package.json");
+  if (!fs.existsSync(manifestPath)) return;
+  let pkg;
+  try {
+    pkg = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  } catch {
+    return;
+  }
+  if (!pkg || typeof pkg !== "object") return;
+  const refs = collectNodeEntryRefs(pkg);
+  if (refs.length === 0) return;
+  for (const dirName of ARTIFACT_OPTIONAL_BUILD_DIRS) {
+    if (nodeEntryUsesDir(refs, dirName)) continue;
+    rmIfExists(path.join(pkgDir, dirName));
+  }
+}
+
 function pruneArtifactRuntimeTree(artifactRoot) {
   if (!artifactRoot || !fs.existsSync(artifactRoot)) return;
   const stack = [artifactRoot];
@@ -127,6 +184,10 @@ function pruneArtifactRuntimeTree(artifactRoot) {
       entries = fs.readdirSync(dir, { withFileTypes: true });
     } catch {
       continue;
+    }
+    const hasPackageJson = entries.some((entry) => entry.isFile() && entry.name === "package.json");
+    if (hasPackageJson && dir !== artifactRoot) {
+      pruneUnreferencedArtifactBuildDirs(dir);
     }
     for (const entry of entries) {
       const full = path.join(dir, entry.name);
