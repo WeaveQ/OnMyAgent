@@ -2,6 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const {
+  pruneArtifactRuntimeTree,
   prunePackagedRuntime,
   resolvePackagedSidecarKeepList,
 } = require("./prune-bundled-runtime.cjs");
@@ -31,6 +32,14 @@ function resolveSidecarsDir(context) {
     return appName ? path.join(context.appOutDir, appName, "Contents", "Resources", "sidecars") : null;
   }
   return path.join(context.appOutDir, "resources", "sidecars");
+}
+
+function resolveExtraResourceDir(context, name) {
+  if (context.electronPlatformName === "darwin") {
+    const appPath = resolveMacAppPath(context);
+    return appPath ? path.join(appPath, "Contents", "Resources", name) : null;
+  }
+  return path.join(context.appOutDir, "resources", name);
 }
 
 function resolveRuntimesDir(context) {
@@ -250,6 +259,7 @@ async function afterPack(context) {
     }
   }
   prunePackagedRuntime(targetRuntimeDir);
+  pruneArtifactRuntimeTree(resolveExtraResourceDir(context, "artifact-runtime"));
 
   signComputerUseHelper(context);
   brandWindowsExecutable(context);

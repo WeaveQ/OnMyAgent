@@ -14,7 +14,19 @@ const PYTHON_DROP_DIR_NAMES = new Set([
   "ensurepip",
   "pydoc_data",
   "lib2to3",
+  "include",
+  "tkinter",
+  "tcl9.0",
+  "tk9.0",
+  "tcl9",
+  "tcl8.6",
+  "tk8.6",
+  "itcl4.3.5",
+  "thread3.0.4",
+  "pkgconfig",
 ]);
+
+const PYTHON_DROP_FILE_PREFIXES = ["libtcl", "libtk"];
 
 function rmIfExists(target) {
   if (!fs.existsSync(target)) return false;
@@ -37,6 +49,18 @@ function pruneNodeTree(nodeRoot) {
   }
 }
 
+function shouldKeepPythonSitePackage(name) {
+  return name === "README.txt" || name === "README" || name === "pip" || name.startsWith("pip-");
+}
+
+function prunePythonSitePackages(siteDir) {
+  if (!siteDir || !fs.existsSync(siteDir)) return;
+  for (const entry of fs.readdirSync(siteDir)) {
+    if (shouldKeepPythonSitePackage(entry)) continue;
+    rmIfExists(path.join(siteDir, entry));
+  }
+}
+
 function prunePythonTree(pythonRoot) {
   if (!pythonRoot || !fs.existsSync(pythonRoot)) return;
   const stack = [pythonRoot];
@@ -55,8 +79,48 @@ function prunePythonTree(pythonRoot) {
           rmIfExists(full);
           continue;
         }
+        if (entry.name === "site-packages") {
+          prunePythonSitePackages(full);
+          continue;
+        }
         stack.push(full);
+        continue;
       }
+      if (PYTHON_DROP_FILE_PREFIXES.some((prefix) => entry.name.startsWith(prefix))) {
+        rmIfExists(full);
+      }
+    }
+  }
+}
+
+function isSafeArtifactRuntimeJunk(name) {
+  return (
+    name.endsWith(".map") ||
+    name.endsWith(".md") ||
+    name.endsWith(".ts") ||
+    name.endsWith(".test.cjs") ||
+    name === "@types"
+  );
+}
+
+function pruneArtifactRuntimeTree(artifactRoot) {
+  if (!artifactRoot || !fs.existsSync(artifactRoot)) return;
+  const stack = [artifactRoot];
+  while (stack.length) {
+    const dir = stack.pop();
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (isSafeArtifactRuntimeJunk(entry.name) || entry.name.startsWith("@types+")) {
+        rmIfExists(full);
+        continue;
+      }
+      if (entry.isDirectory()) stack.push(full);
     }
   }
 }
@@ -89,6 +153,8 @@ module.exports = {
   PYTHON_DROP_DIR_NAMES,
   pruneNodeTree,
   prunePythonTree,
+  prunePythonSitePackages,
   prunePackagedRuntime,
+  pruneArtifactRuntimeTree,
   resolvePackagedSidecarKeepList,
 };
