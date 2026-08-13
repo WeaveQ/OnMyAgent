@@ -42,6 +42,7 @@ export function createMessagingChannelServices(options = {}) {
   const platformServiceOptions = createPlatformServiceOptions({
     userDataDir,
     personalAgentRuntime,
+    taskMessageRouter: options.taskMessageRouter,
     infrastructure,
   });
 
@@ -113,6 +114,14 @@ export function createMessagingChannelServices(options = {}) {
 
   const channelInfrastructureApi = createChannelInfrastructureApi(services, { relayStudioMessage });
 
+  async function deliverTaskMessage(input = {}) {
+    const service = services[`${String(input.platform ?? "").toLowerCase()}Service`];
+    if (!service || typeof service.sendTaskDelivery !== "function") {
+      return { ok: false, error: "unsupported Task delivery platform" };
+    }
+    return service.sendTaskDelivery(input);
+  }
+
   return {
     // Platform channel services (legacy accessors kept for main.mjs).
     weixinService,
@@ -132,6 +141,7 @@ export function createMessagingChannelServices(options = {}) {
 
     // Public API for IPC / HTTP exposure.
     channelInfrastructureApi,
+    deliverTaskMessage,
 
     async initialize() {
       await Promise.all([
@@ -172,10 +182,11 @@ function createChannelInfrastructure({ userDataDir }) {
   };
 }
 
-function createPlatformServiceOptions({ userDataDir, personalAgentRuntime, infrastructure }) {
+function createPlatformServiceOptions({ userDataDir, personalAgentRuntime, taskMessageRouter, infrastructure }) {
   const common = {
     userDataDir,
     personalAgentRuntime,
+    taskMessageRouter,
     channelEventBus: infrastructure.eventBus,
     channelMessageAdapter: infrastructure.messageAdapter,
     channelPairingService: infrastructure.pairingService,

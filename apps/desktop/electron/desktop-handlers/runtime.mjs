@@ -54,7 +54,15 @@ export function createRuntimeDomainHandlers({
   workspaceStatePath,
   desktopBootstrapPath,
   os,
+  taskLifecycle,
 } = {}) {
+  async function withTaskLifecycleGuard(operation, action) {
+    if (typeof taskLifecycle?.withNoActiveTaskWork === "function") {
+      return taskLifecycle.withNoActiveTaskWork(operation, action);
+    }
+    await taskLifecycle?.assertNoActiveTaskWork?.(operation);
+    return action();
+  }
   /**
    * @param {unknown[]} args
    */
@@ -78,6 +86,7 @@ export function createRuntimeDomainHandlers({
       appDataDir,
       desktopBootstrapPath: bootstrap,
       platform: process.platform,
+      prepareDestructiveReset: taskLifecycle?.prepareDestructiveReset,
       remove: async (target) => {
         // Prefer injected rm for tests; force recursive for dirs.
         if (typeof rm === "function") {
@@ -106,11 +115,11 @@ export function createRuntimeDomainHandlers({
   },
 
   engineStop: async (event, args) => {
-    return runtimeManager.engineStop();
+    return withTaskLifecycleGuard("engine_stop", () => runtimeManager.engineStop());
   },
 
   engineRestart: async (event, args) => {
-    return runtimeManager.engineRestart(args[0] ?? {});
+    return withTaskLifecycleGuard("engine_restart", () => runtimeManager.engineRestart(args[0] ?? {}));
   },
 
   engineInfo: async (event, args) => {
@@ -187,11 +196,13 @@ export function createRuntimeDomainHandlers({
 
   // shared: nukeOpenworkAndOpencodeConfigAndExit, nukeOnMyAgentAndOpencodeConfigAndExit
   nukeOpenworkAndOpencodeConfigAndExit: async (event, args) => {
+    await taskLifecycle?.prepareDestructiveReset?.("full_nuke");
     await rm(app.getPath("userData"), { recursive: true, force: true });
     app.exit(0);
     return undefined;
   },
   nukeOnMyAgentAndOpencodeConfigAndExit: async (event, args) => {
+    await taskLifecycle?.prepareDestructiveReset?.("full_nuke");
     await rm(app.getPath("userData"), { recursive: true, force: true });
     app.exit(0);
     return undefined;
@@ -226,7 +237,7 @@ export function createRuntimeDomainHandlers({
   },
 
   onmyagentServerRestart: async (event, args) => {
-    return runtimeManager.onmyagentServerRestart(args[0] ?? {});
+    return withTaskLifecycleGuard("server_restart", () => runtimeManager.onmyagentServerRestart(args[0] ?? {}));
   },
 
   // shared: resetOpenworkState, resetOnMyAgentState

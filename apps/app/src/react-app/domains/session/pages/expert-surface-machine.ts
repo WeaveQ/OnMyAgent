@@ -82,6 +82,16 @@ export function createExpertSurfaceOperationId(): string {
   return crypto.randomUUID();
 }
 
+export function shouldDropExpertSurfaceDraft(
+  state: ExpertSurfaceState,
+): boolean {
+  return Boolean(
+    state.route &&
+      state.draft?.boundSessionId &&
+      state.route.sessionId !== state.draft.boundSessionId,
+  );
+}
+
 export function reduceExpertSurface(
   state: ExpertSurfaceState,
   event: ExpertSurfaceEvent,
@@ -152,13 +162,25 @@ export function reduceExpertSurface(
         state.route?.sessionId === route?.sessionId &&
         state.route?.agentId === route?.agentId
       ) return state;
-      return {
+      const next: ExpertSurfaceState = {
         ...state,
         route,
         pendingTabSessionId:
           route && route.sessionId === state.pendingTabSessionId
             ? null
             : state.pendingTabSessionId,
+      };
+      // User opened a different real tab than the bound create: drop the
+      // transaction so creatingSessionId / draft suppress cannot stick.
+      if (!shouldDropExpertSurfaceDraft(next)) return next;
+      const boundSessionId = next.draft?.boundSessionId ?? null;
+      return {
+        ...next,
+        draft: null,
+        pendingTabSessionId:
+          next.pendingTabSessionId === boundSessionId
+            ? null
+            : next.pendingTabSessionId,
       };
     }
     case "SET_PENDING_TAB": {
@@ -198,14 +220,4 @@ export function selectExpertSurfaceNavigation(
         sessionId: state.draft.boundSessionId,
       }
     : null;
-}
-
-export function shouldDropExpertSurfaceDraft(
-  state: ExpertSurfaceState,
-): boolean {
-  return Boolean(
-    state.route &&
-      state.draft?.boundSessionId &&
-      state.route.sessionId !== state.draft.boundSessionId,
-  );
 }

@@ -61,6 +61,7 @@ import {
   isSameDirectory,
   shouldIsolateExpertSessionDirectory,
 } from "../../capabilities/session-identity/expert-session-directory";
+import { normalizeExpertWritePackageName } from "../../capabilities/session-identity/expert-package-name";
 import {
   filterExpertPromptAgentOptions,
   normalizeExpertPromptAgentSelection,
@@ -386,7 +387,10 @@ export function useSessionRouteSurfaceProps(
     const agentId = pending.id.trim();
     const agentName = pending.name?.trim() || "expert";
     const skillNames = pending.skillIds ?? [];
-    const packageName = pending.marketplaceExpert?.packageName || agentId;
+    const packageName = normalizeExpertWritePackageName({
+      agentId,
+      packageName: pending.marketplaceExpert?.packageName,
+    });
     const approvedAgentIds = pending.approvedAgentIds ?? [];
     const timer = window.setTimeout(() => {
       const still = usePendingAgentStore.getState().getAgent();
@@ -671,8 +675,10 @@ export function useSessionRouteSurfaceProps(
             // to a different expert and would create artifacts in the wrong dir.
             const agentName = pendingForDir?.name?.trim() || "expert";
             const agentId = pendingForDir?.id?.trim() || "";
-            const packageName =
-              pendingForDir?.marketplaceExpert?.packageName || agentId;
+            const packageName = normalizeExpertWritePackageName({
+              agentId,
+              packageName: pendingForDir?.marketplaceExpert?.packageName,
+            });
             const approvedAgentIds = pendingForDir?.approvedAgentIds ?? [];
             expertColdClaim = await claimOrCreateExpertColdSession(
               {
@@ -902,7 +908,12 @@ export function useSessionRouteSurfaceProps(
           }
           if (pageMode === "expert" && createdSession.directory && ensureClient) {
             const markerAgentId = pendingForColdPath?.id?.trim() || undefined;
-            const markerPackageName = pendingForColdPath?.marketplaceExpert?.packageName || markerAgentId;
+            const markerPackageName = markerAgentId
+              ? normalizeExpertWritePackageName({
+                  agentId: markerAgentId,
+                  packageName: pendingForColdPath?.marketplaceExpert?.packageName,
+                })
+              : undefined;
             try {
               await ensureClient.ensureExpertSessionIsolation(ensureWorkspaceId, {
                 directory: createdSession.directory,
@@ -949,9 +960,12 @@ export function useSessionRouteSurfaceProps(
               sessionId,
               kind: "expert",
               agentId: pendingForColdPath?.id,
-              packageName:
-                pendingForColdPath?.marketplaceExpert?.packageName ||
-                pendingForColdPath?.id,
+              packageName: pendingForColdPath
+                ? normalizeExpertWritePackageName({
+                    agentId: pendingForColdPath.id,
+                    packageName: pendingForColdPath.marketplaceExpert?.packageName,
+                  })
+                : undefined,
               directory:
                 createdSession.directory ?? explicitAssistantWorkspace,
             }).then(() =>

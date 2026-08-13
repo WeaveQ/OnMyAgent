@@ -58,6 +58,7 @@ export function createDiscordService(options = {}) {
     channelEventBus,
     channelMessageAdapter,
     channelAssistantBindingStore,
+    taskMessageRouter: options.taskMessageRouter,
     appendLog,
     defaultWorkspaceRoot: DEFAULT_WORKSPACE_ROOT,
     maxMessageLength: DISCORD_MESSAGE_LIMIT,
@@ -172,6 +173,7 @@ export function createDiscordService(options = {}) {
     simulateInbound,
     probe,
     processInbound: (raw, input) => dispatcher.processInbound(raw, input),
+    sendTaskDelivery: (input) => dispatcher.sendTaskDelivery(input),
     get botUsername() { return dispatcher.botUsername; },
     get hasToken() { return dispatcher.hasToken; },
   };

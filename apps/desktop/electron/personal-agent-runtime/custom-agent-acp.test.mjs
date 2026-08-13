@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { mkdtemp } from "node:fs/promises";
 
-import { createCustomAgent, listCustomAgents, updateCustomAgent } from "./custom-agent-store.mjs";
+import { createCustomAgent, deleteCustomAgent, getAgentOverrides, listCustomAgents, setAgentOverrides, updateCustomAgent } from "./custom-agent-store.mjs";
 import { normalizePersonalLocalAgent, personalAgentCapability, personalLocalAgentConnectionMode } from "./provider-registry.mjs";
 import { configurePersonalAgentRuntimeState } from "./runtime-state.mjs";
 import { createPersonalAgentRuntime } from "./index.mjs";
@@ -55,6 +55,21 @@ test("custom-agent-store persists ACP adapter fields", (t) => serial(async () =>
   assert.equal(updated.connectionType, "raw");
   assert.equal(updated.supportsAcp, false);
   assert.equal(updated.connectionMode, "Custom command");
+}));
+
+test("custom-agent-store rejects unsafe ids without trimming them into aliases", (t) => serial(async () => {
+  const workspaceRoot = await tempWorkspace();
+  await assert.rejects(
+    createCustomAgent(workspaceRoot, { id: "../../escape", executablePath: "fake-agent" }),
+    /safe path segment/,
+  );
+  await createCustomAgent(workspaceRoot, { id: "safe-agent", executablePath: "fake-agent" });
+
+  await assert.rejects(updateCustomAgent(workspaceRoot, " safe-agent", {}), /safe path segment/);
+  await assert.rejects(deleteCustomAgent(workspaceRoot, "safe-agent "), /safe path segment/);
+  await assert.rejects(getAgentOverrides(workspaceRoot, "safe/agent"), /safe path segment/);
+  await assert.rejects(setAgentOverrides(workspaceRoot, "safe\\agent", {}), /safe path segment/);
+  assert.deepEqual((await listCustomAgents(workspaceRoot)).map((agent) => agent.id), ["safe-agent"]);
 }));
 
 test("normalizePersonalLocalAgent carries ACP metadata for custom provider", () => {

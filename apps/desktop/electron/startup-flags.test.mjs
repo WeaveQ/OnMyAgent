@@ -18,7 +18,9 @@ function createApp() {
 
 test("startup flags only apply explicitly supplied launch switches", async () => {
   const previous = process.env.ELECTRON_EXTRA_LAUNCH_ARGS;
+  const previousDevMode = process.env.ONMYAGENT_DEV_MODE;
   process.env.ELECTRON_EXTRA_LAUNCH_ARGS = "--disable-http-cache --trace-warnings";
+  delete process.env.ONMYAGENT_DEV_MODE;
   try {
     const { app, switches } = createApp();
     await configureDesktopStartupFlags(app);
@@ -26,6 +28,8 @@ test("startup flags only apply explicitly supplied launch switches", async () =>
   } finally {
     if (previous === undefined) delete process.env.ELECTRON_EXTRA_LAUNCH_ARGS;
     else process.env.ELECTRON_EXTRA_LAUNCH_ARGS = previous;
+    if (previousDevMode === undefined) delete process.env.ONMYAGENT_DEV_MODE;
+    else process.env.ONMYAGENT_DEV_MODE = previousDevMode;
   }
 });
 
@@ -37,7 +41,12 @@ test("startup flags do not disable HTTP cache from dev mode alone", async () => 
   try {
     const { app, switches } = createApp();
     await configureDesktopStartupFlags(app);
-    assert.deepEqual(switches, []);
+    assert.deepEqual(switches, [
+      [
+        "proxy-bypass-list",
+        "<-loopback>;<local>;localhost;127.0.0.1;::1;[::1]",
+      ],
+    ]);
   } finally {
     if (previousArgs === undefined) delete process.env.ELECTRON_EXTRA_LAUNCH_ARGS;
     else process.env.ELECTRON_EXTRA_LAUNCH_ARGS = previousArgs;

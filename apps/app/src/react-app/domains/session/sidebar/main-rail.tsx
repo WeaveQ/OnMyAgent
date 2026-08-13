@@ -21,7 +21,11 @@ import {
   FilesRailIcon,
   ProjectsRailIcon,
   StoreRailIcon,
+  TaskCenterRailIcon,
 } from "./primary-rail-icons";
+import { isTaskCenterRailVisible } from "./task-center-rail-visibility";
+
+export { isTaskCenterRailVisible } from "./task-center-rail-visibility";
 
 export type OnMyAgentPrimaryView =
   | SidebarPrimaryView
@@ -32,6 +36,7 @@ export type OnMyAgentPrimaryView =
   | "projects"
   | "localAgent"
   | "agentManagement"
+  | "taskCenter"
   /** Primary rail automation workspace (schedule definitions + run history). */
   | "automation"
   /**
@@ -60,12 +65,13 @@ type BottomRailItem = {
   icon: BottomRailIcon;
 };
 
-// Order: Home → Experts → Automation → Files → Store → Company (gated) → Projects
+// Order: Home → Experts → Task Center → Automation → Files → Store → Company (gated) → Projects
 // Local agents + agent management live under the account/settings menu.
 // Company stays in the list definition for icon contracts; runtime filters by OMC connect.
 const TOP_RAIL_ITEMS: RailItem[] = [
   { id: "assistant", get label() { return t("nav.assistant"); }, get shortLabel() { return t("nav.assistant_short"); }, icon: AssistantRailIcon },
   { id: "chat", get label() { return t("nav.experts"); }, get shortLabel() { return t("nav.experts_short"); }, icon: ExpertRailIcon },
+  { id: "taskCenter", get label() { return t("nav.task_center"); }, get shortLabel() { return t("nav.task_center_short"); }, icon: TaskCenterRailIcon },
   { id: "automation", get label() { return t("nav.automation"); }, get shortLabel() { return t("nav.automation_short"); }, icon: AutomationRailIcon },
   { id: "files", get label() { return t("nav.files"); }, get shortLabel() { return t("nav.files_short"); }, icon: FilesRailIcon },
   { id: "store", get label() { return t("nav.store"); }, get shortLabel() { return t("nav.store_short"); }, icon: StoreRailIcon },
@@ -180,19 +186,26 @@ export function OnMyAgentRail(props: {
 }) {
   // Only show Company shortcut after Settings → Workspace → Company is connected.
   const companyConnected = useCompanyConnected();
+  const taskCenterVisible = isTaskCenterRailVisible();
   const topRailItems = useMemo(
     () =>
-      TOP_RAIL_ITEMS.filter(
-        (item) => item.id !== "company" || companyConnected,
-      ),
-    [companyConnected],
+      TOP_RAIL_ITEMS.filter((item) => {
+        if (item.id === "company") return companyConnected;
+        if (item.id === "taskCenter") return taskCenterVisible;
+        return true;
+      }),
+    [companyConnected, taskCenterVisible],
   );
 
   useEffect(() => {
     if (!companyConnected && props.activeView === "company") {
       props.onOpenView("assistant");
+      return;
     }
-  }, [companyConnected, props.activeView, props.onOpenView]);
+    if (!taskCenterVisible && props.activeView === "taskCenter") {
+      props.onOpenView("assistant");
+    }
+  }, [companyConnected, taskCenterVisible, props.activeView, props.onOpenView]);
 
   // mac:pt-10 clears traffic lights (y≈12) without a large empty band above the brand mark.
   // Windows keeps compact top padding. Column = --dls-rail-width; pills = --dls-rail-pill-width.

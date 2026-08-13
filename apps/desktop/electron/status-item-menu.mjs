@@ -29,7 +29,7 @@ const LABELS = Object.freeze({
     showWindow: "Show Main Window",
     newTask: "New Task",
     quickCapture: "Quick Chat",
-    desktopPermissions: "Desktop Control Permissions…",
+    desktopPermissions: "Computer Control",
     openSettings: "Open Settings…",
     quit: "Quit OnMyAgent",
   }),
@@ -37,7 +37,7 @@ const LABELS = Object.freeze({
     showWindow: "显示主窗口",
     newTask: "新建任务",
     quickCapture: "快捷对话",
-    desktopPermissions: "桌面控制权限…",
+    desktopPermissions: "计算机控制",
     openSettings: "打开设置…",
     quit: "退出 OnMyAgent",
   }),
@@ -45,7 +45,7 @@ const LABELS = Object.freeze({
     showWindow: "顯示主視窗",
     newTask: "新建任務",
     quickCapture: "快捷對話",
-    desktopPermissions: "桌面控制權限…",
+    desktopPermissions: "電腦控制",
     openSettings: "打開設定…",
     quit: "結束 OnMyAgent",
   }),
@@ -194,8 +194,10 @@ export function shouldHideMainWindowOnClose(
  * Resolve the best on-disk image for the tray / menu-bar status item.
  *
  * macOS: monochrome `trayTemplate.png` with template flag (system recolors).
- * Windows: color `trayIcon.png` (template images are not used).
- * Full-color brand PNG is last-resort fallback and must NOT be template-marked.
+ * Windows: the same brand mark as the window / taskbar (`icon.png`) — rounded
+ * plate + wave. Do not use the outline `trayIcon` glyph (that is a macOS
+ * template cousin and reads as a different logo in the notification area).
+ * Full-color brand PNG must NOT be template-marked.
  *
  * @param {{
  *   appIconPath?: string | null,
@@ -249,7 +251,10 @@ export function resolveStatusItemIcon(options = {}) {
       }
     }
   } else {
-    // win32 / future: prefer color tray assets.
+    // win32: brand app icon first so the tray matches the window / jump list.
+    if (appIconPath && exists(appIconPath)) {
+      return { path: appIconPath, template: false };
+    }
     for (const candidate of colorCandidates) {
       if (candidate && exists(candidate)) {
         return { path: candidate, template: false };

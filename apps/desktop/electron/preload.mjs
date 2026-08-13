@@ -8,8 +8,13 @@ const NATIVE_MENU_QUICK_CAPTURE_EVENT = "onmyagent:native-menu:quick-capture";
 const QUICK_CAPTURE_SUBMIT_EVENT = "onmyagent:quick-capture:submit";
 const NATIVE_MENU_DESKTOP_PERMISSIONS_EVENT =
   "onmyagent:native-menu:desktop-permissions";
+const NATIVE_MENU_RECENT_SESSION_EVENT =
+  "onmyagent:native-menu:recent-session";
+const NATIVE_MENU_OPEN_MARKET_EVENT =
+  "onmyagent:native-menu:open-expert-marketplace";
 const DESKTOP_IPC_CHANNEL = "onmyagent:desktop";
 const LEGACY_DESKTOP_IPC_CHANNEL = "open" + "work:desktop";
+const TASK_ORCHESTRATOR_EVENT = "onmyagent:task-orchestrator:event";
 
 function normalizePlatform(value) {
   if (value === "darwin" || value === "linux") return value;
@@ -53,6 +58,15 @@ contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
       } catch {
         return null;
       }
+    },
+  },
+  taskOrchestrator: {
+    onEvent(callback) {
+      const handler = (_event, payload) => callback(payload);
+      ipcRenderer.on(TASK_ORCHESTRATOR_EVENT, handler);
+      return () => {
+        ipcRenderer.removeListener(TASK_ORCHESTRATOR_EVENT, handler);
+      };
     },
   },
   shell: {
@@ -263,6 +277,12 @@ contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
     setChannel(channel) {
       return ipcRenderer.invoke("onmyagent:updater:setChannel", channel);
     },
+    setAutoCheck(enabled) {
+      return ipcRenderer.invoke("onmyagent:updater:setAutoCheck", enabled);
+    },
+    getAutoCheck() {
+      return ipcRenderer.invoke("onmyagent:updater:getAutoCheck");
+    },
     check(channel) {
       return ipcRenderer.invoke("onmyagent:updater:check", channel);
     },
@@ -394,6 +414,16 @@ ipcRenderer.on(QUICK_CAPTURE_SUBMIT_EVENT, (_event, payload) => {
 ipcRenderer.on(NATIVE_MENU_DESKTOP_PERMISSIONS_EVENT, () => {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new Event(NATIVE_MENU_DESKTOP_PERMISSIONS_EVENT));
+});
+
+ipcRenderer.on(NATIVE_MENU_RECENT_SESSION_EVENT, () => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(NATIVE_MENU_RECENT_SESSION_EVENT));
+});
+
+ipcRenderer.on(NATIVE_MENU_OPEN_MARKET_EVENT, () => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(NATIVE_MENU_OPEN_MARKET_EVENT));
 });
 
 if (!applyShellDocumentMarkers() && typeof document !== "undefined") {

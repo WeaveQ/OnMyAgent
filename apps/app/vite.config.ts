@@ -186,6 +186,9 @@ export default defineConfig({
   ],
   server: {
     port: devPort,
+    // Bind IPv4 loopback. Default "localhost" is often IPv6-only on macOS,
+    // so Electron/Clash hitting 127.0.0.1:5173 get connection-refused / 502.
+    host: "127.0.0.1",
     strictPort: true,
     ...(allowedHosts.size > 0 ? { allowedHosts: Array.from(allowedHosts) } : {}),
   },

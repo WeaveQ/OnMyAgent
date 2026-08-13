@@ -155,6 +155,9 @@ describe("settings AI view wiring (structural)", () => {
     expect(aiView).toContain("settings.provider_remove");
     expect(aiView).toContain("settings.provider_remove_confirm_title");
     expect(aiView).toContain("settings.provider_source_env_hint");
+    expect(aiView).toContain("resolveRemoveMode");
+    expect(aiView).not.toContain("canDeleteProvider");
+    expect(aiView).not.toContain('canDeleteProvider?.(provider) ? "delete"');
     expect(aiView).not.toContain("settings.disconnect");
     expect(aiView).not.toContain("Unplug");
   });
@@ -222,6 +225,10 @@ describe("settings AI view wiring (structural)", () => {
     expect(tabBody).toContain("providersLoading={ctx.providersDiscovering}");
     expect(tabBody).toContain("inventorySyncing={ctx.inventorySyncing}");
     expect(tabBody).toContain("SettingsAiTabSuspense");
+    expect(tabBody).toContain("resolveProviderRemoveChromeMode");
+    expect(tabBody).toContain("resolveRemoveMode=");
+    expect(tabBody).not.toContain("canDeleteProvider=");
+    expect(tabBody).not.toContain("canDisconnectProvider=");
     // Empty branch must not hard-code disconnected for finished empty list.
     expect(surface).not.toMatch(
       /providerCount:\s*connectedProviders\.length[\s\S]{0,200}status\.disconnected_label/,
