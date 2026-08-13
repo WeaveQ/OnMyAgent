@@ -168,8 +168,8 @@ Use this flow before Apple signing and notarization are configured.
 2. Create and push an annotated version tag on that commit.
 
    ```bash
-   git tag -a v0.4.28 -m "OnMyAgent v0.4.28"
-   git push origin v0.4.28
+   git tag -a v0.4.29 -m "OnMyAgent v0.4.29"
+   git push origin v0.4.29
    ```
 
 3. Open GitHub Actions and run `Release App` on `main` if the tag push did not start it.
@@ -177,8 +177,8 @@ Use this flow before Apple signing and notarization are configured.
    Recommended **published** preview inputs (`draft: false` so electron-updater and the in-app check can see the release):
 
    ```text
-   tag: v0.4.28
-   release_name: OnMyAgent v0.4.28
+   tag: v0.4.29
+   release_name: OnMyAgent v0.4.29
    release_body: Preview release.
    draft: false
    prerelease: true
