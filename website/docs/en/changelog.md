@@ -6,6 +6,13 @@ title: Changelog
 
 For the complete assets and release notes, use [GitHub Releases](https://github.com/WeaveQ/OnMyAgent/releases) as the source of truth. The entries below highlight recent user-visible changes; in-progress Unreleased items are not included. Current desktop builds are **prereleases** (not notarized).
 
+## 0.4.28
+
+- Welcome onboarding is no longer covered by the boot overlay after cold start
+- Expert identity snapshots are cached to avoid UI freeze / white screen
+- Expert create overlay dismisses after delete
+- Expert package-name and real-home resolution are more reliable
+
 ## 0.4.27
 
 - Packaged builds download updates in the background; click **Restart and install** (nothing installs silently)
