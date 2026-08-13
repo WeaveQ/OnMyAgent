@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import math
 import sys
 from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
 
 
@@ -30,6 +32,7 @@ ALIASES = {
 PLAN_KEY_ALIASES = ("笔记链接", "发布链接", "记录ID", "笔记ID")
 EFFECT_KEY_ALIASES = ("发布链接", "笔记链接", "记录ID", "笔记ID")
 PLAN_FIELD_ALIASES = {
+    "project": ("项目", "项目名称"),
     "record_id": PLAN_KEY_ALIASES,
     "creator": ("达人昵称", "达人", "达人名称", "博主"),
     "rebate_band": ("返点档", "返点档位"),
@@ -336,6 +339,170 @@ def append_safe(sheet: object, values: list[object]) -> None:
     sheet.append([excel_safe(value) for value in values])
 
 
+def average(values: list[float | None]) -> float | None:
+    usable = [value for value in values if value is not None]
+    return sum(usable) / len(usable) if usable else None
+
+
+def format_number(value: float | None, *, kind: str = "number") -> str:
+    if value is None:
+        return "数据不足"
+    if kind == "percent":
+        return f"{value:.1%}"
+    if kind == "currency":
+        return f"¥{value:,.2f}"
+    return f"{value:,.0f}"
+
+
+def grouped_summaries(records: list[dict[str, object]]) -> list[dict[str, object]]:
+    summaries: list[dict[str, object]] = []
+    valid_records = [record for record in records if record.get("行级标签") != "数据不足"]
+    for field, label in (("rebate_band", "返点档"), ("margin_rate", "毛利率"), ("creator_tier", "粉丝量级"), ("note_type", "笔记类型")):
+        groups: defaultdict[str, list[dict[str, object]]] = defaultdict(list)
+        for record in valid_records:
+            groups[text_value(record.get(field)) or "未提供"].append(record)
+        for group_name, items in groups.items():
+            summaries.append({
+                "dimension": label,
+                "name": group_name,
+                "count": len(items),
+                "ctr": average([number(item.get("自然 CTR")) for item in items]),
+                "cpc": average([number(item.get("纯 K CPC")) for item in items]),
+                "interaction": average([number(item.get("互动量")) for item in items]),
+                "ad_share": average([number(item.get("广告占比")) for item in items]),
+                "search_cost": average([number(item.get("搜索进店成本")) for item in items]),
+            })
+    return summaries
+
+
+def build_html_report(
+    output_path: Path,
+    records: list[dict[str, object]],
+    groups: list[dict[str, object]],
+    manual_rows: list[list[object]],
+    source_info: dict[str, object],
+    thresholds: dict[str, object],
+) -> None:
+    project = next((text_value(record.get("project")) for record in records if text_value(record.get("project"))), "达人营销项目")
+    label_counts: defaultdict[str, int] = defaultdict(int)
+    for record in records:
+        label_counts[text_value(record.get("行级标签")) or "数据不足"] += 1
+    matched = len(records)
+    plan_count = int(source_info.get("plan_count", matched))
+    effect_count = int(source_info.get("effect_count", matched))
+    issues = len(manual_rows)
+    avg_ctr = average([number(record.get("自然 CTR")) for record in records])
+    avg_cpc = average([number(record.get("纯 K CPC")) for record in records])
+    avg_interaction = average([number(record.get("互动量")) for record in records])
+    avg_ad_share = average([number(record.get("广告占比")) for record in records])
+    avg_search = average([number(record.get("搜索进店成本")) for record in records])
+    label_order = {"优先保留": 0, "可加测": 1, "谨慎": 2, "数据不足": 3}
+    ranked = sorted(
+        records,
+        key=lambda record: (
+            label_order.get(text_value(record.get("行级标签")), 9),
+            number(record.get("纯 K CPC")) if number(record.get("纯 K CPC")) is not None else float("inf"),
+        ),
+    )
+
+    def e(value: object) -> str:
+        return html.escape(text_value(value), quote=True)
+
+    def status_class(label: str) -> str:
+        return {"优先保留": "good", "可加测": "watch", "谨慎": "risk", "数据不足": "missing"}.get(label, "missing")
+
+    def metric_card(label: str, value: str, note: str) -> str:
+        return f'<article class="metric"><span>{e(label)}</span><strong>{e(value)}</strong><small>{e(note)}</small></article>'
+
+    def sample_label(group: dict[str, object]) -> str:
+        return '<span class="note">小样本</span>' if int(group["count"]) < 3 else "相关性观察"
+
+    metric_cards = "".join([
+        metric_card("一对一匹配", f"{matched} 条", f"计划 {plan_count} / 效果 {effect_count}"),
+        metric_card("平均自然 CTR", format_number(avg_ctr, kind="percent"), "仅统计可计算样本"),
+        metric_card("平均纯 K CPC", format_number(avg_cpc, kind="currency"), "K 金额 / 自然阅读量"),
+        metric_card("平均搜索进店成本", format_number(avg_search, kind="currency"), "总金额 / 搜索进店 UV"),
+    ])
+    label_chips = "".join(
+        f'<span class="chip {status_class(label)}">{e(label)} {label_counts.get(label, 0)}</span>'
+        for label in ("优先保留", "可加测", "谨慎", "数据不足")
+    )
+    ranking_rows = "".join(
+        "<tr>"
+        f'<td><strong>{e(record.get("creator"))}</strong><small>{e(record.get("record_id"))}</small></td>'
+        f'<td><span class="chip {status_class(text_value(record.get("行级标签")))}">{e(record.get("行级标签"))}</span></td>'
+        f'<td>{e(format_number(number(record.get("自然 CTR")), kind="percent"))}</td>'
+        f'<td>{e(format_number(number(record.get("纯 K CPC")), kind="currency"))}</td>'
+        f'<td>{e(format_number(number(record.get("互动量"))))}</td>'
+        f'<td>{e(format_number(number(record.get("广告占比")), kind="percent"))}</td>'
+        f'<td>{e(format_number(number(record.get("搜索进店成本")), kind="currency"))}</td>'
+        "</tr>"
+        for record in ranked
+    )
+    group_rows = "".join(
+        "<tr>"
+        f'<td>{e(group["dimension"])}</td><td><strong>{e(group["name"])}</strong></td>'
+        f'<td>{e(group["count"])}</td>'
+        f'<td>{e(format_number(number(group["ctr"]), kind="percent"))}</td>'
+        f'<td>{e(format_number(number(group["cpc"]), kind="currency"))}</td>'
+        f'<td>{e(format_number(number(group["search_cost"]), kind="currency"))}</td>'
+        f'<td>{sample_label(group)}</td>'
+        "</tr>"
+        for group in groups
+    )
+    manual_items = "".join(
+        f'<li><strong>{e(row[2] or "缺少链接")}</strong><span>{e(row[3])}</span><small>{e(row[0])} · 源行 {e(row[1])}</small></li>'
+        for row in manual_rows
+    ) or "<li><strong>无匹配异常</strong><span>本次没有重复、一对多或未匹配记录。</span></li>"
+    data_gap_items = "".join(
+        f'<li><strong>{e(record.get("record_id"))}</strong><span>{e("、".join(name for name, _ in FORMULAS if record.get(name) is None))} 数据不足</span></li>'
+        for record in records
+        if any(record.get(name) is None for name, _ in FORMULAS)
+    ) or "<li><strong>关键指标完整</strong><span>纳入分析的样本均可计算核心指标。</span></li>"
+    threshold_text = " / ".join(
+        filter(None, [
+            f'自然 CTR ≥ {format_number(number(thresholds.get("min_natural_ctr")), kind="percent")}' if thresholds.get("min_natural_ctr") is not None else "",
+            f'纯 K CPC ≤ {format_number(number(thresholds.get("max_pure_k_cpc")), kind="currency")}' if thresholds.get("max_pure_k_cpc") is not None else "",
+            f'互动量 ≥ {format_number(number(thresholds.get("min_interactions")))}' if thresholds.get("min_interactions") is not None else "",
+            f'搜索进店成本 ≤ {format_number(number(thresholds.get("max_search_visit_cost")), kind="currency")}' if thresholds.get("max_search_visit_cost") is not None else "",
+        ])
+    ) or "业务材料未提供完整阈值，涉及标签的结论须补充口径后复核。"
+    conclusion = (
+        f"本次按笔记链接精确得到 {matched} 条一对一样本；"
+        f"其中 {label_counts.get('优先保留', 0)} 条优先保留、{label_counts.get('可加测', 0)} 条可加测，"
+        f"另有 {issues} 项匹配或关键数据问题需要人工确认。"
+    )
+    generated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
+    plan_name = Path(source_info["plan_path"]).name if source_info.get("plan_path") else "计划单"
+    effect_name = Path(source_info["effect_path"]).name if source_info.get("effect_path") else "效果表"
+    document = f"""<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{e(project)} · 返点毛利与投放效果分析</title>
+<style>
+:root{{--ink:#17202a;--muted:#67717d;--paper:#f4f1e8;--panel:#fffdf8;--line:#ded8cc;--accent:#b25f37;--navy:#213f4f;--green:#27745d;--amber:#a66b1f;--red:#a3463c}}
+*{{box-sizing:border-box}} body{{margin:0;background:var(--paper);color:var(--ink);font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.55}}
+main{{max-width:1180px;margin:0 auto;padding:48px 32px 72px}} header{{display:grid;grid-template-columns:1.55fr .75fr;gap:48px;padding:34px 0 28px;border-top:8px solid var(--navy);border-bottom:1px solid var(--line)}}
+.eyebrow{{font-size:12px;font-weight:700;letter-spacing:.16em;color:var(--accent)}} h1{{font-size:42px;line-height:1.15;margin:12px 0 16px;letter-spacing:-.03em}} .lead{{font-size:18px;max-width:780px;margin:0;color:#3d4852}} .meta{{align-self:end;color:var(--muted);font-size:13px}} .meta strong{{display:block;color:var(--ink);font-size:14px;margin-bottom:8px}}
+.metrics{{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:26px 0}} .metric,.panel{{background:var(--panel);border:1px solid var(--line);border-radius:12px}} .metric{{padding:20px}} .metric span,.metric small{{display:block;color:var(--muted);font-size:12px}} .metric strong{{display:block;font:700 28px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;margin:8px 0;color:var(--navy)}}
+.grid{{display:grid;grid-template-columns:1.45fr .75fr;gap:18px;margin-top:18px}} .panel{{padding:24px;overflow:hidden}} h2{{font-size:20px;margin:0 0 14px}} h3{{font-size:13px;color:var(--muted);margin:22px 0 8px;text-transform:uppercase;letter-spacing:.08em}} .chips{{display:flex;flex-wrap:wrap;gap:8px}}
+.chip{{display:inline-flex;align-items:center;border-radius:99px;padding:4px 9px;font-size:12px;font-weight:700;background:#e8e9e7;color:#59616a}} .good{{background:#dcebe4;color:var(--green)}} .watch{{background:#f4e7cf;color:var(--amber)}} .risk{{background:#f1dbd8;color:var(--red)}} .missing{{background:#e5e7e7;color:#59616a}}
+table{{width:100%;border-collapse:collapse;font-size:13px}} th{{text-align:left;padding:11px 10px;border-bottom:2px solid var(--navy);color:var(--muted);font-size:11px;letter-spacing:.04em}} td{{padding:12px 10px;border-bottom:1px solid var(--line);vertical-align:top}} td small{{display:block;color:var(--muted);margin-top:3px}} .scroll{{overflow-x:auto}}
+.note{{display:inline-block;background:#f4e7cf;color:var(--amber);padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700}} ul{{list-style:none;padding:0;margin:0}} li{{padding:11px 0;border-bottom:1px solid var(--line)}} li strong,li span,li small{{display:block}} li span{{color:#3d4852;margin-top:3px}} li small{{color:var(--muted);margin-top:4px}} .method{{color:var(--muted);font-size:13px}} footer{{margin-top:22px;color:var(--muted);font-size:12px;border-top:1px solid var(--line);padding-top:18px}}
+@media(max-width:820px){{main{{padding:24px 16px}}header,.grid{{grid-template-columns:1fr}}h1{{font-size:32px}}.metrics{{grid-template-columns:repeat(2,1fr)}}}}
+@media print{{body{{background:#fff}}main{{max-width:none;padding:20px}}.panel,.metric{{break-inside:avoid}}}}
+</style></head><body><main>
+<header><div><div class="eyebrow">PROJECT REVIEW · 决策摘要</div><h1>{e(project)}</h1><p class="lead">{e(conclusion)}</p></div><div class="meta"><strong>返点毛利与投放效果分析</strong>生成时间 {e(generated_at)}<br>数据源：{e(plan_name)} / {e(effect_name)}</div></header>
+<section class="metrics">{metric_cards}</section>
+<section class="grid"><article class="panel"><h2>达人表现与复投判断</h2><div class="chips">{label_chips}</div><div class="scroll"><table><thead><tr><th>达人 / 记录</th><th>判断</th><th>自然 CTR</th><th>纯 K CPC</th><th>互动量</th><th>广告占比</th><th>搜索进店成本</th></tr></thead><tbody>{ranking_rows}</tbody></table></div></article>
+<aside class="panel"><h2>数据完整度</h2><h3>匹配异常</h3><ul>{manual_items}</ul><h3>关键字段缺口</h3><ul>{data_gap_items}</ul></aside></section>
+<section class="panel" style="margin-top:18px"><h2>分组观察</h2><p class="method">样本少于 3 条仅作方向观察。以下结果描述相关性，不代表返点、毛利率、粉丝量级或内容类型导致效果变化。</p><div class="scroll"><table><thead><tr><th>维度</th><th>分组</th><th>样本</th><th>平均自然 CTR</th><th>平均纯 K CPC</th><th>平均搜索进店成本</th><th>结论边界</th></tr></thead><tbody>{group_rows}</tbody></table></div></section>
+<section class="grid"><article class="panel"><h2>三层分析口径</h2><h3>纯 K 前端</h3><p>平均自然 CTR {e(format_number(avg_ctr, kind='percent'))}；平均纯 K CPC {e(format_number(avg_cpc, kind='currency'))}；平均互动量 {e(format_number(avg_interaction))}。</p><h3>投流潜力</h3><p>平均广告占比 {e(format_number(avg_ad_share, kind='percent'))}。占比高低只反映投入结构，必须结合推广量级和成本判断，不单独作为好坏结论。</p><h3>总投入效果</h3><p>平均搜索进店成本 {e(format_number(avg_search, kind='currency'))}。零分母或 UV 缺失的记录不参与均值。</p></article><aside class="panel"><h2>阈值与使用说明</h2><p>{e(threshold_text)}</p><p class="method">金额与业务结论保留人工复核；未定义的广告阅读成本等指标不在本报告中补造。完整字段映射、公式、源行、清洗日志与人工确认项请查看配套 Excel。</p></aside></section>
+<footer>本报告与配套 Excel 由同一份清洗结果和指标口径生成。适用于内部复盘与下轮投放讨论，不替代财务核算或因果实验。</footer>
+</main></body></html>"""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(document, encoding="utf-8")
+
+
 def analyze(args: argparse.Namespace) -> dict[str, int]:
     try:
         from openpyxl import Workbook, load_workbook
@@ -608,6 +775,15 @@ def analyze_two_sources(args: argparse.Namespace) -> dict[str, int]:
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output.save(output_path)
+    if args.html_output:
+        build_html_report(
+            Path(args.html_output),
+            records,
+            grouped_summaries(records),
+            manual_rows + risks,
+            source_info,
+            thresholds,
+        )
     return {"records": len(records), "manual_review": len(manual_rows) + len(risks)}
 
 
@@ -628,6 +804,7 @@ def main() -> int:
     parser.add_argument("--plan-input")
     parser.add_argument("--effect-input")
     parser.add_argument("--output")
+    parser.add_argument("--html-output")
     parser.add_argument("--sheet")
     parser.add_argument("--plan-sheet")
     parser.add_argument("--effect-sheet")
@@ -643,6 +820,9 @@ def main() -> int:
     if not args.output or (two_source_mode and not (args.plan_input and args.effect_input)) or (not two_source_mode and not args.input):
         print("单表模式需提供 --input；双表模式需同时提供 --plan-input 和 --effect-input；两种模式都需提供 --output", file=sys.stderr)
         return 2
+    if args.html_output and not two_source_mode:
+        print("HTML 分析报告当前仅支持双表模式", file=sys.stderr)
+        return 2
     try:
         result = analyze_two_sources(args) if two_source_mode else analyze(args)
     except (OSError, ValueError, RuntimeError, StopIteration) as error:
@@ -650,6 +830,8 @@ def main() -> int:
         return 1
     print(json.dumps(result, ensure_ascii=False))
     print(f"ONMYAGENT_DELIVERABLE: {args.output}")
+    if args.html_output:
+        print(f"ONMYAGENT_DELIVERABLE: {args.html_output}")
     return 0
 
 
