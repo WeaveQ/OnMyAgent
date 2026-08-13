@@ -123,6 +123,8 @@ export type ComposerAttachment = {
   size: number;
   kind: "image" | "file";
   file: File;
+  /** Native path selected by the user; absent in web-only runtimes. */
+  sourcePath?: string;
   previewUrl?: string;
 };
 
