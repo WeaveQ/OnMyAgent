@@ -45,7 +45,7 @@ describe("session transcript WorkBuddy reasoning and cancellation states", () =>
 
     expect(source).toContain("isTrailingMessageContent");
     expect(source).toContain("isLastPartInGroup");
-    expect(source).toContain("complete={!props.isStreamingReasoning}");
+    expect(source).toContain("complete: !props.isStreamingReasoning");
   });
 
   test("places the cancellation indicator after the final assistant content", async () => {

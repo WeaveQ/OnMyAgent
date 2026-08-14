@@ -99,6 +99,7 @@ describe("conversation shared UI contract", () => {
       "message-list/reasoning.tsx",
       "message-list/process-fold-ui.tsx",
       "message-list/turn-content.tsx",
+      "message-list/step-row.tsx",
     ]
       .map((relativePath) => readFileSync(join(surfaceDir, relativePath), "utf8"))
       .join("\n");
@@ -108,6 +109,9 @@ describe("conversation shared UI contract", () => {
     expect(messageList).toContain("collapsedSegments");
     expect(messageList).toContain("function TranscriptReasoning");
     expect(messageList).toContain('part.type === "reasoning"');
+    expect(messageList).toContain("ConversationItemView");
+    expect(messageList).toContain("mapOpenCodeReasoningPartToItem");
+    expect(messageList).toContain("mapOpenCodeToolPartToItem");
   });
 
   test("Personal timeline primary path uses shared ConversationItemView", () => {

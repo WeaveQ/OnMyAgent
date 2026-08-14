@@ -84,6 +84,55 @@ test("dual-runtime gate fails when personal runtime imports session-archive", ()
   }
 });
 
+test("dual-runtime gate fails when one file imports archive and personal store", () => {
+  const sandbox = mkdtempSync(join(tmpdir(), "dual-runtime-mixed-"));
+  try {
+    mkdirSync(join(sandbox, "apps/app/src"), { recursive: true });
+    writeFileSync(
+      join(sandbox, "apps/app/src/mixed.ts"),
+      `import { withSessionArchiveStore } from "../../server/src/services/session-archive.js";\nimport { createConversation } from "../../desktop/electron/personal-agent-runtime/conversation-store.mjs";\nexport { withSessionArchiveStore, createConversation };\n`,
+    );
+    mkdirSync(join(sandbox, "apps/desktop/electron/personal-agent-runtime"), {
+      recursive: true,
+    });
+    writeFileSync(
+      join(sandbox, "apps/desktop/electron/personal-agent-runtime/ok.mjs"),
+      `export const ok = 1;\n`,
+    );
+
+    const result = run(sandbox);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /no-mixed-write-imports/);
+  } finally {
+    rmSync(sandbox, { recursive: true, force: true });
+  }
+});
+
+test("dual-runtime gate fails when production code uses the retired desktop IPC channel", () => {
+  const sandbox = mkdtempSync(join(tmpdir(), "dual-runtime-legacy-ipc-"));
+  const retiredChannel = `${"open"}work:desktop`;
+  try {
+    mkdirSync(join(sandbox, "apps/app/src"), { recursive: true });
+    writeFileSync(
+      join(sandbox, "apps/app/src/legacy.ts"),
+      `export const channel = ${JSON.stringify(retiredChannel)};\n`,
+    );
+    mkdirSync(join(sandbox, "apps/desktop/electron/personal-agent-runtime"), {
+      recursive: true,
+    });
+    writeFileSync(
+      join(sandbox, "apps/desktop/electron/personal-agent-runtime/ok.mjs"),
+      `export const ok = 1;\n`,
+    );
+
+    const result = run(sandbox);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /no-legacy-desktop-ipc-channel/);
+  } finally {
+    rmSync(sandbox, { recursive: true, force: true });
+  }
+});
+
 test("check script is present and executable entry", () => {
   assert.ok(existsSync(checkScript));
 });

@@ -55,8 +55,10 @@ import type {
   DiscordSaveAccountInput,
   DiscordServiceStartInput,
   DiscordSimulateInboundInput,
+  EngineDoctorOptions,
   EngineDoctorResult,
   EngineInfo,
+  EngineStartOptions,
   ExpertMarketplaceName,
   ExpertPackageInstallInput,
   ExpertPackageInstallResult,
@@ -1232,15 +1234,15 @@ type TypedDesktopCommandMap = {
 
   // runtime / engine
   engineStart: DesktopCommandContract<
-    [string, Record<string, unknown>?],
+    [string, EngineStartOptions?],
     EngineInfo
   >;
   runtimeBootstrap: DesktopCommandContract<[], RuntimeBootstrapResult>;
   runtimeStatus: DesktopCommandContract<[], RuntimeStatus>;
   engineStop: DesktopCommandContract<[], EngineInfo>;
-  engineRestart: DesktopCommandContract<[string?, Record<string, unknown>?], EngineInfo>;
+  engineRestart: DesktopCommandContract<[EngineStartOptions?], EngineInfo>;
   engineInfo: DesktopCommandContract<[], EngineInfo>;
-  engineDoctor: DesktopCommandContract<[Record<string, unknown>?], EngineDoctorResult>;
+  engineDoctor: DesktopCommandContract<[EngineDoctorOptions?], EngineDoctorResult>;
   engineInstall: DesktopCommandContract<[], EngineDoctorResult>;
   orchestratorStatus: DesktopCommandContract<[], OrchestratorStatus>;
   orchestratorWorkspaceActivate: DesktopCommandContract<

@@ -36,7 +36,11 @@ import {
   isRecordValue,
 } from "./parts";
 import { isRunningStepStatus } from "./step-cluster";
-import { TranscriptReasoning } from "./reasoning";
+import {
+  ConversationItemView,
+  mapOpenCodeReasoningPartToItem,
+  mapOpenCodeToolPartToItem,
+} from "../../../../capabilities/conversation";
 import { ToolActivityIcon, toolStatusText } from "./tool-activity-icon";
 
 export function StepRow(props: {
@@ -138,9 +142,31 @@ export function StepRow(props: {
   if (props.part.type === "reasoning") {
     if (!props.part.text.trim()) return null;
     return (
-      <TranscriptReasoning
-        text={props.part.text}
-        complete={!props.isStreamingReasoning}
+      <ConversationItemView
+        item={mapOpenCodeReasoningPartToItem(
+          { type: "reasoning", text: props.part.text },
+          {
+            id: props.id,
+            complete: !props.isStreamingReasoning,
+          },
+        )}
+        streaming={props.isStreamingReasoning}
+      />
+    );
+  }
+
+  if (props.part.type === "tool" && !expandable && !specializedDetails) {
+    return (
+      <ConversationItemView
+        item={mapOpenCodeToolPartToItem(
+          {
+            type: "tool",
+            tool: props.part.tool,
+            toolCallId: props.id,
+            state: toolState,
+          },
+          { id: props.id },
+        )}
       />
     );
   }

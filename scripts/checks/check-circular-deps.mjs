@@ -47,6 +47,7 @@ const scanRoots = [
   'packages/types/src',
   'packages/ui/src',
   'packages/artifact-runtime',
+  'packages/handsfree',
   'packages/onmyagent-ui-mcp',
 ]
 const excludePathPatterns = [
