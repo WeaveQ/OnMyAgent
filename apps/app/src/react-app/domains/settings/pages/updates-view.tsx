@@ -65,6 +65,8 @@ export function UpdatesView(props: UpdatesViewProps) {
   const updateDate = props.updateStatus?.date ?? null;
   const updateLastCheckedAt = props.updateStatus?.lastCheckedAt ?? null;
   const updateErrorMessage = props.updateStatus?.message ?? null;
+  // Prefer main-reported flow; default open-browser only when still unknown
+  // (web / bridge missing). Packaged mac/win seed "in-app" via getChannel.
   const platformFlow = props.updateStatus?.platformFlow ?? "open-browser";
   const inAppFlow = platformFlow === "in-app";
   const macQuarantine =
