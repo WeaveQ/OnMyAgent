@@ -238,7 +238,7 @@ jobs:
       # Developer ID Application: li yingkun (WP5S7KB7R7)
       # SHA-1 0A844944FB3F93D66D2F5F24D945ADC7AB7ED392 — p12 must match this identity.
       HAS_APPLE_CODESIGN_CERT: ${{ secrets.APPLE_CODESIGN_CERT_P12_BASE64 != '' && secrets.APPLE_CODESIGN_CERT_PASSWORD != '' }}
-      CSC_NAME: "Developer ID Application: li yingkun (WP5S7KB7R7)"
+      CSC_NAME: "li yingkun (WP5S7KB7R7)"
 
     strategy:
       fail-fast: false
