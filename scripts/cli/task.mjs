@@ -17,6 +17,7 @@ const checkTargets = new Map([
   ['i18n:hardcoded', { command: 'pnpm', args: ['check:i18n:hardcoded'] }],
   ['i18n:cjk', { command: 'pnpm', args: ['check:i18n:cjk'] }],
   ['security', { command: 'pnpm', args: ['check:security'] }],
+  ['privacy', { command: 'pnpm', args: ['check:privacy'] }],
   ['boundaries', { command: 'pnpm', args: ['check:boundaries'] }],
   ['design', { command: 'node', args: ['scripts/design/extract-tokens.mjs'] }],
 ])

@@ -118,6 +118,7 @@ Maker/Checker 分层 → `docs/loop/rules.md`。
 | 无必要不用 `any` / 乱 `as` | `pnpm check:forbidden-types`（baseline 只减不增） |
 | 类型已保证存在时不写 fallback | 人工 |
 | 不直接改 secrets、生产配置、真实云资源、队列 purge、外发消息 | 人工 + Denylist |
+| 公开文档 / PR 元数据不写签名身份、证书指纹、私钥、明文口令 | `pnpm check:privacy` |
 | `shell/**` 只 import `domains/<domain>` 一级 barrel | `pnpm check:boundaries` |
 | renderer 不新增硬编码 CJK；用户文案走 `t()` + en/zh/zh-TW | `pnpm check:i18n:cjk` |
 

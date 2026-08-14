@@ -1,6 +1,7 @@
-# Enforce English PR title, description, and commit subjects (no CJK).
-# Product UI copy remains multi-language via i18n — this is collab metadata only.
-name: PR English
+# PR metadata gates: English collaboration text + public privacy shapes.
+# Product UI copy stays multi-language via i18n. Signing identities stay in
+# Actions secrets / a private runbook — never in this repo.
+name: PR Gates
 
 on:
   pull_request:
@@ -13,7 +14,8 @@ permissions:
   pull-requests: read
 
 jobs:
-  pr-english:
+  pr-gates:
+    name: PR English + Privacy
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -46,3 +48,10 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_COMMITS: ${{ steps.commits.outputs.subjects }}
         run: node scripts/checks/pr-english.mjs
+
+      - name: Check public text for signing identities and secrets
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_COMMITS: ${{ steps.commits.outputs.subjects }}
+        run: node scripts/checks/pr-privacy.mjs --scan
