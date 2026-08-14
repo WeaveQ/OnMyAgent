@@ -753,7 +753,11 @@ export function createSystemDomainHandlers({
   },
 
   __setNativeTheme: async (event, args) => {
-    return applyNativeTheme(String(args[0]));
+    const overlay =
+      args[1] && typeof args[1] === "object" && !Array.isArray(args[1])
+        ? args[1]
+        : undefined;
+    return applyNativeTheme(String(args[0]), overlay);
   },
 
   __setApplicationMenuVisible: async (event, args) => {

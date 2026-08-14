@@ -3,7 +3,10 @@ import * as React from "react";
 import ReactDOM from "react-dom/client";
 
 import { getOnMyAgentDeployment } from "./app/lib/onmyagent-deployment";
+import { installWindowsTitlebarInset } from "./app/windows-titlebar-inset";
 import "./app/index.css";
+
+installWindowsTitlebarInset();
 
 const rendererAppPromise = import("./react-app/shell/renderer-app");
 const RendererApp = React.lazy(() =>

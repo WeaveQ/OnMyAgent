@@ -4,6 +4,7 @@ import { BrowserRouter, HashRouter } from "react-router-dom";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { bootstrapTheme } from "../../app/theme";
+import { installWindowsTitlebarInset } from "../../app/windows-titlebar-inset";
 import { isDesktopRuntime } from "../../app/utils";
 import { initLocale } from "../../i18n";
 import { getReactQueryClient } from "../infra/query-client";
@@ -20,6 +21,7 @@ import { startDeepLinkBridge } from "./startup-deep-links";
 // renderer services intentionally initialize in the deferred shell chunk so
 // desktop-config IPC and heavy application parsing can overlap.
 bootstrapTheme();
+installWindowsTitlebarInset();
 initLocale();
 startDeepLinkBridge();
 installDevSourceInspector();

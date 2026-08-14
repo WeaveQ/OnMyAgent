@@ -5,6 +5,11 @@
 import path from "node:path";
 import { BrowserWindow } from "electron";
 import { MAIN_WINDOW_EAGER_BLANK_BROWSER_TAB } from "./desktop-cold-start.mjs";
+import {
+  applyWindowsTitleBarOverlay,
+  resolveNativeThemeIsDark,
+  windowsTitleBarAppearance,
+} from "./windows-titlebar.mjs";
 
 /**
  * @param {object} options
@@ -125,16 +130,23 @@ export function createDesktopWindowController(options) {
     return material;
   }
 
-  function applyNativeTheme(mode) {
+  function applyNativeTheme(mode, overlay) {
     nativeTheme.themeSource = mode;
 
-    if (process.platform !== "darwin") {
+    const mainWindow = getMainWindow();
+    if (process.platform === "darwin") {
+      mainWindow?.setVibrancy(macosVibrancyForCurrentTheme());
+      mainWindow?.setBackgroundColor("#00000001");
       return true;
     }
 
-    const mainWindow = getMainWindow();
-    mainWindow?.setVibrancy(macosVibrancyForCurrentTheme());
-    mainWindow?.setBackgroundColor("#00000001");
+    if (process.platform === "win32") {
+      applyWindowsTitleBarOverlay(
+        mainWindow,
+        resolveNativeThemeIsDark(mode, nativeTheme),
+        overlay,
+      );
+    }
 
     return true;
   }
@@ -157,6 +169,11 @@ export function createDesktopWindowController(options) {
         vibrancy: macosVibrancyForCurrentTheme(),
         visualEffectState: "active",
       });
+    } else if (process.platform === "win32") {
+      Object.assign(
+        windowAppearanceOptions,
+        windowsTitleBarAppearance(nativeTheme.shouldUseDarkColors),
+      );
     }
 
     mainWindow = new BrowserWindow({
@@ -213,6 +230,12 @@ export function createDesktopWindowController(options) {
     }
 
     mainWindow.once("ready-to-show", () => {
+      if (process.platform === "win32") {
+        applyWindowsTitleBarOverlay(
+          getMainWindow(),
+          nativeTheme.shouldUseDarkColors,
+        );
+      }
       if (isDevMode) {
         getMainWindow()?.setTitle(appName);
       }
