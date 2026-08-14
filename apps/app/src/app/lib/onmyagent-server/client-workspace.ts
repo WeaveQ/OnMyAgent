@@ -635,6 +635,6 @@ export function createWorkspaceClientMethods(ctx: OnMyAgentServerClientContext) 
       ),
 
     // User-level env vars (host-auth only — desktop shell is the sole caller).
-    // See apps/server/src/env-file.ts and apps/app/pr/environment-variables.md.
+    // See apps/server/src/services/env-file.ts and apps/app/pr/environment-variables.md.
   };
 }
