@@ -141,7 +141,7 @@ export function ModelSelectView({
         aria-keyshortcuts="Meta+Alt+/"
         title={displayLabel}
         // Match workspace / access-permission composer chrome (text-sm / h-8).
-        className="flex h-8 max-w-40 min-w-0 shrink items-center gap-1.5 rounded-lg px-2 text-sm font-normal leading-none text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text disabled:pointer-events-none disabled:opacity-60"
+        className="flex h-8 max-w-40 min-w-0 shrink cursor-pointer items-center gap-1.5 rounded-lg px-2 text-sm font-normal leading-none text-dls-secondary transition-colors hover:bg-dls-hover hover:text-dls-text disabled:pointer-events-none disabled:opacity-60"
       >
         <span className="min-w-0 truncate">{displayLabel}</span>
         <ChevronDown className="size-3.5 shrink-0 opacity-70" />

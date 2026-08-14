@@ -11,9 +11,40 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import { t } from "../../../../../i18n";
 import { ArtifactIcon } from "../../../../capabilities/artifacts/artifact-icon";
 import type { MentionItem } from "./composer-helpers";
+
+function MineItemLabel(props: { text: string; className?: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span
+            className={cn("min-w-0 flex-1 truncate text-left", props.className)}
+          />
+        }
+      >
+        {props.text}
+      </TooltipTrigger>
+      <TooltipContent
+        side="top"
+        align="start"
+        sideOffset={6}
+        className="max-w-[18rem] whitespace-normal break-all text-left leading-5"
+      >
+        {props.text}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 export type ComposerToolMenuMineProps = {
   title: string;
@@ -114,6 +145,7 @@ export function ComposerToolMenuMine(props: ComposerToolMenuMineProps) {
               : t("composer.folder_files_empty")}
           </div>
         ) : (
+          <TooltipProvider delay={280}>
           <div className="grid min-w-0 gap-0.5">
             {props.items.map((item) =>
               item.kind === "directory" ? (
@@ -122,21 +154,22 @@ export function ComposerToolMenuMine(props: ComposerToolMenuMineProps) {
                   type="button"
                   density="compact"
                   align="center"
-                  className="justify-between gap-2"
+                  className="min-w-0 justify-between gap-2"
                   onClick={() => props.onOpenFolder(item.value)}
                 >
-                  <span className="flex min-w-0 items-center gap-2">
+                  <span className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
                     <Folder className="size-3.5 shrink-0 text-dls-secondary" />
-                    <span className="min-w-0 truncate text-sm font-medium text-dls-text">
-                      {item.label}
-                    </span>
+                    <MineItemLabel
+                      text={item.label}
+                      className="text-sm font-medium text-dls-text"
+                    />
                   </span>
                   <ChevronRight className="size-3.5 shrink-0 text-dls-text/50" />
                 </MenuRowButton>
               ) : (
                 <label
                   key={item.id}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-dls-text transition-colors hover:bg-dls-surface-muted/70"
+                  className="flex min-w-0 cursor-pointer items-center gap-2 overflow-hidden rounded-lg px-2.5 py-1.5 text-sm text-dls-text transition-colors hover:bg-dls-surface-muted/70"
                 >
                   <Checkbox
                     checked={props.selectedFilePaths.has(item.value)}
@@ -146,11 +179,12 @@ export function ComposerToolMenuMine(props: ComposerToolMenuMineProps) {
                     name={item.value || item.label}
                     className="size-3.5 shrink-0"
                   />
-                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                  <MineItemLabel text={item.label} />
                 </label>
               ),
             )}
           </div>
+          </TooltipProvider>
         )}
       </div>
     </>

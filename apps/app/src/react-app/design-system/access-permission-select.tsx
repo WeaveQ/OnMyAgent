@@ -103,7 +103,7 @@ export function AccessPermissionSelect(props: AccessPermissionSelectProps) {
       {open ? (
         <div
           role="menu"
-          className="absolute bottom-full left-0 z-40 mb-3 w-[min(calc(100vw-2.5rem),20rem)] overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid p-1.5 shadow-lg"
+          className="absolute bottom-full left-0 z-40 mb-3 w-[min(calc(100vw-2.5rem),18rem)] overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid p-1.5 shadow-lg"
           style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}
         >
           {ACCESS_PERMISSION_OPTIONS.map((option) => {
@@ -123,7 +123,8 @@ export function AccessPermissionSelect(props: AccessPermissionSelectProps) {
                 active={active}
                 density="compact"
                 align="start"
-                className="gap-2.5 py-2"
+                className="gap-2.5 py-1.5"
+                title={option.description}
                 onClick={() => {
                   props.onChange(option.value);
                   setOpen(false);
@@ -131,27 +132,27 @@ export function AccessPermissionSelect(props: AccessPermissionSelectProps) {
               >
                 <Icon
                   className={cn(
-                    "mt-0.5 size-3.5 shrink-0",
+                    "size-3.5 shrink-0",
                     option.value === "full"
                       ? "text-dls-danger"
                       : "text-dls-secondary",
                   )}
                 />
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-2 text-sm font-medium leading-5 text-dls-text">
-                    <span>{option.label}</span>
+                <span className="min-w-0 flex-1 overflow-hidden">
+                  <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium leading-5 text-dls-text">
+                    <span className="truncate">{option.label}</span>
                     {option.risk ? (
-                      <StatusBadge size="tiny" tone="warning">
+                      <StatusBadge size="tiny" tone="warning" className="shrink-0">
                         {option.risk}
                       </StatusBadge>
                     ) : null}
                   </span>
-                  <span className="mt-0.5 block text-sm leading-5 text-dls-secondary">
+                  <span className="mt-0.5 block truncate whitespace-nowrap text-xs leading-4 text-dls-secondary">
                     {option.description}
                   </span>
                 </span>
                 {active ? (
-                  <Check className="mt-0.5 size-3.5 shrink-0 text-dls-secondary" />
+                  <Check className="size-3.5 shrink-0 text-dls-secondary" />
                 ) : null}
               </MenuRowButton>
             );

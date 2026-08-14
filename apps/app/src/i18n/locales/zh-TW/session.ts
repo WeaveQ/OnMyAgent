@@ -374,6 +374,8 @@ export default {
   "session.export_desktop_only_local": "導出功能在桌面應用中適用於本地工作區。",
   "session.export_local_only": "導出僅支持本地工作區。",
   "session.loading_detail": "正在拉取此任務的最新任務。",
+  "session.switching": "載入中",
+  "session.switching_from_cache": "正在從快取打開",
   "session.model": "模型",
   "session.new_task": "新建任務",
   "session.open": "打開",

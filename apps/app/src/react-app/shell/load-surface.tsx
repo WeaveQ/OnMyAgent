@@ -27,18 +27,27 @@ const surfaceClass = {
   fullVisible: "pointer-events-auto opacity-100",
   fullFading: "pointer-events-none opacity-0",
   inset: "flex min-h-[12rem] w-full items-center justify-center py-10",
+  // Session-switch brand: fill the transcript viewport (scroll layer is the
+  // containing block via translateZ) so the mark sits on the optical center.
+  insetFill: "absolute inset-0 flex items-center justify-center",
   // Hero monogram + quiet progress (product name lives in the status line).
   content:
     "flex w-full max-w-[24rem] flex-col items-center gap-12 px-8 text-center",
   contentInset: "flex flex-col items-center",
   brandMark:
     "relative flex size-[9.5rem] items-center justify-center bg-transparent",
+  brandMarkCompact:
+    "relative flex size-[5.75rem] items-center justify-center bg-transparent",
   brandMarkRing:
     "pointer-events-none absolute inset-0 rounded-full animate-[oma-boot-spin_1.05s_linear_infinite] motion-reduce:animate-none motion-reduce:opacity-40",
   brandMarkImg:
     "size-[6.75rem] object-contain animate-[oma-boot-breathe_2.6s_ease-in-out_infinite] motion-reduce:animate-none",
+  brandMarkImgCompact:
+    "size-16 object-contain animate-[oma-boot-breathe_2.6s_ease-in-out_infinite] motion-reduce:animate-none",
   message: "text-[0.8125rem] leading-5 tracking-wide text-dls-secondary/90",
   messageInset: "mt-3 text-xs leading-5 text-dls-secondary",
+  messageBrandInset:
+    "mt-5 text-[0.8125rem] leading-5 tracking-wide text-dls-secondary/90",
 };
 
 /** Solid boot fill — independent of vibrancy tokens. */
@@ -85,6 +94,8 @@ export function useLoadScope(
 
 type LoadSurfaceProps = {
   variant: "full" | "inset";
+  /** Inset default is the settings dots ticker; brand reuses the boot monogram. */
+  mark?: "brand" | "dots";
   /** Override message; otherwise registry top or fallback. */
   message?: string;
   messageKey?: string;
@@ -93,9 +104,14 @@ type LoadSurfaceProps = {
   children?: ReactNode;
 };
 
-function BootBrandMark() {
+function BootBrandMark(props: { compact?: boolean }) {
   return (
-    <div className={surfaceClass.brandMark} aria-hidden="true">
+    <div
+      className={
+        props.compact ? surfaceClass.brandMarkCompact : surfaceClass.brandMark
+      }
+      aria-hidden="true"
+    >
       {/* Soft spinner ring — common load pattern; no white sweep. */}
       <span
         className={surfaceClass.brandMarkRing}
@@ -107,11 +123,15 @@ function BootBrandMark() {
       />
       <img
         src={resolvePublicAssetUrl("/onmyagent-boot-mark.png")}
-        width={128}
-        height={128}
+        width={props.compact ? 64 : 128}
+        height={props.compact ? 64 : 128}
         alt=""
         draggable={false}
-        className={surfaceClass.brandMarkImg}
+        className={
+          props.compact
+            ? surfaceClass.brandMarkImgCompact
+            : surfaceClass.brandMarkImg
+        }
       />
     </div>
   );
@@ -151,16 +171,27 @@ export function LoadSurface(props: LoadSurfaceProps) {
     );
   }
 
+  const brandInset = props.mark === "brand";
   return (
     <div
-      className={surfaceClass.inset}
+      className={brandInset ? surfaceClass.insetFill : surfaceClass.inset}
       aria-live="polite"
       aria-busy="true"
       role="status"
     >
       <div className={surfaceClass.contentInset}>
-        <OwDotTicker size={size === "lg" ? "md" : size} />
-        <div className={surfaceClass.messageInset}>{message}</div>
+        {brandInset ? (
+          <BootBrandMark compact />
+        ) : (
+          <OwDotTicker size={size === "lg" ? "md" : size} />
+        )}
+        <div
+          className={
+            brandInset ? surfaceClass.messageBrandInset : surfaceClass.messageInset
+          }
+        >
+          {message}
+        </div>
         {props.children}
       </div>
     </div>
