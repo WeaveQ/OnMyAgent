@@ -217,18 +217,39 @@ function brandWindowsExecutable(context) {
   console.log(`[afterPack] Branded Windows executable: ${exePath}`);
 }
 
+function logDirSize(label, dirPath) {
+  if (!dirPath || !fs.existsSync(dirPath)) {
+    console.log(`[afterPack] ${label}: (missing)`);
+    return;
+  }
+  const result = spawnSync("du", ["-sh", dirPath], { encoding: "utf8" });
+  if (result.status === 0 && result.stdout) {
+    console.log(`[afterPack] ${label}: ${result.stdout.trim()}`);
+    return;
+  }
+  console.log(`[afterPack] ${label}: ${dirPath}`);
+}
+
 async function afterPack(context) {
   const triple = targetTriple(context.electronPlatformName, context.arch);
   if (!triple) return;
 
   const isWindows = context.electronPlatformName === "win32";
+  const sidecarsDir = resolveSidecarsDir(context);
+  const runtimesDir = resolveRuntimesDir(context);
+  const artifactRuntimeDir = resolveExtraResourceDir(context, "artifact-runtime");
   slimPackagedExtraResources({
-    sidecarsDir: resolveSidecarsDir(context),
-    runtimesDir: resolveRuntimesDir(context),
+    sidecarsDir,
+    runtimesDir,
     triple,
     executableSuffix: isWindows ? ".exe" : "",
-    artifactRuntimeDir: resolveExtraResourceDir(context, "artifact-runtime"),
+    artifactRuntimeDir,
   });
+  console.log(`[afterPack] slimmed extra resources for ${triple}`);
+  logDirSize("sidecars", sidecarsDir);
+  logDirSize("runtimes", runtimesDir);
+  logDirSize("artifact-runtime", artifactRuntimeDir);
+  logDirSize("app", resolveMacAppPath(context) || context.appOutDir);
 
   signComputerUseHelper(context);
   signSquirrelFramework(context);
