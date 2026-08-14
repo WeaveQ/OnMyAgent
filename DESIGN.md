@@ -1504,8 +1504,11 @@ OnMyAgent is a **rail + panel** shell.
   strip is pinned at the top of the window. Any interactive control inside
   the titlebar or sidebar-header region MUST add `mac:titlebar-no-drag`
   (icon buttons, tabs, custom containers). Missing this utility causes the
-  window to eat clicks and double-clicks. Windows / Linux use system
-  frames (see § 10 Responsive & Platform for cross-platform titlebar).
+  window to eat clicks and double-clicks. Windows uses `titleBarStyle="hidden"`
+  + `titleBarOverlay` and paints a WeChat-style caption layer above `#root`;
+  app chrome starts below that layer so native min/max/close never cover
+  controls. Linux still uses the system frame
+  (see § 10 Responsive & Platform for cross-platform titlebar).
 - Content surface: single primary panel with optional right-side panel
   (settings, tools, artifacts, canvas). Panel resizers use the `Resizable`
   primitive.
@@ -1952,19 +1955,18 @@ titlebar rules differ.
   `mac:titlebar-no-drag`; without it, the window swallows clicks and
   double-clicks. Enforced via the `mac-titlebar-no-drag` flag in the
   YAML `flags:` block.
-- **Windows.** System frame with native window controls in the top-right
-  (minimize / maximize / close). No drag strip absorbs clicks the way
-  macOS does; the `windows:titlebar-no-drag` custom variant is declared
-  for future-proofing (in case we ship a custom titlebar on Windows) but
-  is not currently required. Sidebar-header controls do not need the
-  variant.
+- **Windows.** `titleBarStyle="hidden"` + `titleBarOverlay` (height 32)
+  with a painted caption layer (`body::before`) matching `--dls-rail-bg`.
+  `#root` is padded below that layer (WeChat-style). Drag lives on
+  `body::after` and stops before the native caption buttons. Overlay
+  color follows the resolved light/dark theme.
 - **Linux.** System frame with native GNOME / KDE / Sway window
   decorations. `linux:titlebar-no-drag` is declared analogously to
   Windows for symmetry; not currently required.
 
-If we later adopt a custom titlebar on Windows or Linux (for a unified
-look), the corresponding `*-titlebar-no-drag` utility becomes required
-and the YAML `flags:` block should grow a matching rule.
+If we later adopt a custom titlebar on Linux (for a unified look), the
+corresponding `*-titlebar-no-drag` utility becomes required and the
+YAML `flags:` block should grow a matching rule.
 
 ### Internationalization Space Budget
 
@@ -2205,10 +2207,10 @@ should surface a proposal rather than invent silently.
 - **Animation choreography.** Sequenced multi-element transitions,
   interruptible timelines, and stagger patterns beyond
   duration/easing tokens are agent-local decisions.
-- **Windows / Linux titlebar drag-region behavior.** Declared as
-  variants in § 10 for future-proofing; not currently enforced by a
-  hard flag because system-frame titlebars on non-macOS do not steal
-  clicks the way `hiddenInset` does.
+- **Linux titlebar drag-region behavior.** Declared as a variant in
+  § 10 for future-proofing; not currently enforced by a hard flag
+  because Linux still uses the system frame. Windows uses a dedicated
+  caption layer instead of per-control `titlebar-no-drag`.
 - **Runtime helper implementations.** First landings exist:
   `StreamingCursor` (`components/ui/streaming-cursor.tsx`, used from
   markdown streaming), `ToolApprovalCard`

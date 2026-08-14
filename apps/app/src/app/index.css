@@ -45,18 +45,17 @@
 }
 
 /*
- * Global window drag on macOS frameless titleBarStyle="hiddenInset" windows.
+ * Global window drag / titlebar overlay.
  *
- * Strategy: default everything to NO drag (so every onClick/onSelect keeps
- * working anywhere in the app), then add a thin always-on drag strip pinned
- * to the very top of the window. That strip sits above the page content
- * but only takes the top 28px, leaving normal click/selection behaviour
- * everywhere else untouched.
+ * macOS: hiddenInset — transparent 28px drag strip; content paints under
+ * traffic lights (WeChat-like vibrancy).
  *
- * Limited to macOS because Windows/Linux use the system frame.
+ * Windows: titleBarOverlay + a painted WeChat-style caption layer. App
+ * chrome starts below the bar so min/max/close never cover controls.
+ * body::before is the full-width paint; body::after is the drag hit area
+ * and stops before the native caption buttons.
  *
- * Per-page `mac:titlebar-drag` / `mac:titlebar-no-drag` utilities continue
- * to work for finer control; they don't conflict with this strip.
+ * Linux: system frame — no strip.
  */
 html.onmyagent-electron.onmyagent-platform-mac body::before {
   content: "";
@@ -71,9 +70,45 @@ html.onmyagent-electron.onmyagent-platform-mac body::before {
   app-region: drag;
 }
 
-html.onmyagent-electron.onmyagent-platform-mac body::before {
-  /* Re-declare for browsers that lower specificity on pseudo-elements. */
+html.onmyagent-electron.onmyagent-platform-windows {
+  --titlebar-overlay-height: env(titlebar-area-height, 32px);
+  /* 46px × 3 caption buttons. Renderer WCO overwrites with the real width. */
+  --titlebar-caption-inset: 138px;
+}
+
+html.onmyagent-electron.onmyagent-platform-windows body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--titlebar-overlay-height);
+  z-index: 2147483646;
+  pointer-events: none;
+  background: var(--dls-rail-bg);
+}
+
+html.onmyagent-electron.onmyagent-platform-windows body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: var(--titlebar-caption-inset);
+  height: var(--titlebar-overlay-height);
+  z-index: 2147483647;
+  pointer-events: none;
   -webkit-app-region: drag;
+  app-region: drag;
+}
+
+html.onmyagent-electron.onmyagent-platform-windows #root {
+  box-sizing: border-box;
+  height: 100%;
+  padding-top: var(--titlebar-overlay-height);
+}
+
+html.onmyagent-electron.onmyagent-platform-windows #root > * {
+  max-height: 100%;
 }
 
 html,

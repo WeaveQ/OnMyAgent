@@ -575,7 +575,10 @@ type TypedDesktopCommandMap = {
   __homeDir: DesktopCommandContract<[], string>;
   __joinPath: DesktopCommandContract<string[], string>;
   __setZoomFactor: DesktopCommandContract<[number], boolean>;
-  __setNativeTheme: DesktopCommandContract<[string], void>;
+  __setNativeTheme: DesktopCommandContract<
+    [string, { color?: string; symbolColor?: string }?],
+    void
+  >;
   __setApplicationMenuVisible: DesktopCommandContract<[boolean], void>;
   checkSoftwareEnv: DesktopCommandContract<[], SoftwareEnvironmentInfo>;
   installSoftwareEnv: DesktopCommandContract<
