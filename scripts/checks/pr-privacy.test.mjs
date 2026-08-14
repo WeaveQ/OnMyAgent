@@ -59,6 +59,7 @@ test("plaintext password assignment fails; secret-name-only passes", () => {
     findPrivacyHits('APPLE_CODESIGN_CERT_PASSWORD').length,
     0,
   );
+  assert.equal(findPrivacyHits('password="..."').length, 0);
   const hits = findPrivacyHits('password="not-a-real-password"');
   assert.equal(hits.some((hit) => hit.rule === "password-literal"), true);
 });

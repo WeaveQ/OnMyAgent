@@ -99,6 +99,7 @@ function looksLikeSecretRef(value) {
   if (/secrets\./i.test(trimmed)) return true;
   if (/process\.env/i.test(trimmed)) return true;
   if (/^['"]?\$\{\{/.test(trimmed)) return true;
+  if (/^(\.{2,}|x{2,}|\*{2,}|<[^>]{1,40}>)$/i.test(trimmed)) return true;
   return false;
 }
 
