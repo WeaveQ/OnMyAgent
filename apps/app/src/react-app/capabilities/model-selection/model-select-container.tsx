@@ -27,7 +27,7 @@ type ModelSelectContainerProps = {
 };
 
 export function ModelSelectContainer(props: ModelSelectContainerProps) {
-  const options = useModelOptions(props.open);
+  const { options, catalogReady: optionsCatalogReady } = useModelOptions(props.open);
 
   return (
     <ModelSelectView
@@ -37,6 +37,7 @@ export function ModelSelectContainer(props: ModelSelectContainerProps) {
       onChange={props.onChange}
       disabled={props.disabled}
       options={options}
+      catalogReady={optionsCatalogReady}
       renderProviderIcon={(option) => (
         <ProviderIcon
           providerId={option.providerID}
@@ -50,11 +51,14 @@ export function ModelSelectContainer(props: ModelSelectContainerProps) {
   );
 }
 
-function useModelOptions(open: boolean): ModelOption[] {
+function useModelOptions(open: boolean): {
+  options: ModelOption[];
+  catalogReady: boolean;
+} {
   const { client, opencodeBaseUrl, selectedWorkspaceRoot } = useWorkspace();
   const checkDesktopRestriction = useCheckDesktopRestriction();
 
-  const { data, refetch } = useProviderListQuery({
+  const { data, refetch, isFetched } = useProviderListQuery({
     client,
     baseUrl: opencodeBaseUrl,
     directory: selectedWorkspaceRoot,
@@ -104,25 +108,28 @@ function useModelOptions(open: boolean): ModelOption[] {
         })),
       );
 
-    return options.filter((option) => {
-      if (hidden.has(`${option.providerID}/${option.modelID}`)) {
-        return false;
-      }
+    return {
+      options: options.filter((option) => {
+        if (hidden.has(`${option.providerID}/${option.modelID}`)) {
+          return false;
+        }
 
-      if (
-        isDesktopProviderBlocked({
-          providerId: option.providerID,
-          checkRestriction: checkDesktopRestriction,
-        })
-      ) {
-        return false;
-      }
+        if (
+          isDesktopProviderBlocked({
+            providerId: option.providerID,
+            checkRestriction: checkDesktopRestriction,
+          })
+        ) {
+          return false;
+        }
 
-      if (restrictToCloud && !option.isConnected) {
-        return false;
-      }
+        if (restrictToCloud && !option.isConnected) {
+          return false;
+        }
 
-      return true;
-    });
-  }, [checkDesktopRestriction, data, open]);
+        return true;
+      }),
+      catalogReady: data !== undefined || isFetched,
+    };
+  }, [checkDesktopRestriction, data, isFetched, open]);
 }

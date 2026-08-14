@@ -147,7 +147,7 @@ describe("session-route prewarm wiring contract", () => {
     );
     expect(prewarmHook).toContain("scheduleIdleWork");
     expect(prewarmHook).toContain("prewarmWorkspaceProviders");
-    expect(prewarmHook).toContain("inventoryOnly: true");
+    expect(prewarmHook).not.toContain("inventoryOnly: true");
     expect(prewarmHook).toContain("prewarmAgentManagementCore");
     // Must not call prewarmWorkspaceProviders synchronously inside the effect
     // body without scheduling first.

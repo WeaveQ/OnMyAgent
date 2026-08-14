@@ -31,9 +31,8 @@ export function useSessionRoutePrewarm(input: {
           baseUrl: opencodeBaseUrl,
           directory: sessionWorkspaceRoot || undefined,
           workspaceRoot: sessionWorkspaceRoot || undefined,
-          // Do not double-hit OpenCode provider.list on cold first paint —
-          // model-catalog already loads it for the composer.
-          inventoryOnly: true,
+          // Idle-only: first paint still skips provider.list. After idle, fill
+          // the shared query cache so the composer chip / picker are not empty.
         }).catch((error) => {
           if (!cancelled) {
             console.warn("[session-route] providers prewarm failed", error);

@@ -21,8 +21,9 @@ export type PrewarmWorkspaceProvidersInput = {
   directory?: string | null;
   workspaceRoot?: string | null;
   /**
-   * Session-route cold path: skip provider.list (composer model-catalog already
-   * loads it on the critical path). Only warm managed-inventory IPC for Settings.
+   * Skip provider.list and only warm managed-inventory IPC.
+   * Session-route idle prewarm must NOT set this — the composer no longer
+   * fetches provider.list until the picker opens.
    */
   inventoryOnly?: boolean;
 };
