@@ -352,7 +352,7 @@ Adapter 工厂通常接收 `{ appendEvent, registerCancel, requestApproval?, app
 
 `runtime.mjs` 职责分层：
 
-1. **`createRuntimeManager`** — OpenCode / OnMyAgent server / orchestrator **sidecar 生命周期**。`engineState.runtime` 取值为 `"direct"`（`DIRECT_RUNTIME`）或 `"onmyagent-orchestrator"`（`ORCHESTRATOR_RUNTIME`）。`startDirectRuntime` 直接 `opencode serve`；`startOrchestratorRuntime` 拉起 `onmyagent-orchestrator daemon`。当前 `engineStart` 默认走 OnMyAgent server 管理 OpenCode 的 **direct** 路径（`manageOpencode: true`），并序列化 lifecycle 防并发竞态。
+1. **`createRuntimeManager`** — OpenCode / OnMyAgent server / orchestrator **sidecar 生命周期**。`engineStart` 只走 in-process OnMyAgent server（`DIRECT_RUNTIME` + `manageOpencode: true`），并序列化 lifecycle 防并发竞态。`engineState.runtime` 类型仍允许 `"onmyagent-orchestrator"`，但当前启动路径不会赋这个值。打包的 `onmyagent-orchestrator` sidecar 和 `orchestratorStartDetached` 仍在，不是这条 `engineStart` 路径。
 2. **`createDesktopPersonalRuntimeServices`** — 组装 Personal Local Agent：**kernel**（`createPersonalAgentRuntime`）+ **legacy harness** + heartbeat + native sessions + messaging channels。Kernel 负责 run 状态、conversation store、approval、extensions；adapters 只做 provider 协议翻译。
 
 ### 边界

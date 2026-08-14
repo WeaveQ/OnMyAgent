@@ -205,7 +205,7 @@ export async function fetchJson(url, options = {}, timeoutMs = 3000) {
 }
 
 // Resolves ~/.config/onmyagent/env.json (or %APPDATA%\onmyagent\env.json on
-// Windows) — must agree with apps/server/src/env-file.ts. Honor
+// Windows) — must agree with apps/server/src/services/env-file.ts. Honor
 // ONMYAGENT_ENV_STORE override.
 function resolveUserEnvFilePath() {
   const override = String(process.env.ONMYAGENT_ENV_STORE ?? "").trim();
