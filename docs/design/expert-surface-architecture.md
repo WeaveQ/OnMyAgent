@@ -5,7 +5,7 @@
 | Status | **Active** — durable SoT |
 | Date | 2026-08-12 |
 | Scope | Expert **UI lifecycle**（路由 / draft / tab / cold-open / 标题轮询）+ 与 runtime isolation 的边界 |
-| Non-scope | 视觉 token（→ `DESIGN.md`）；Directory 产品不变量全文（→ `apps/app/AGENTS.md`）；删除 saga / 创建 coach 细节（→ Architecture lifecycle 表 + 既有 design） |
+| Non-scope | 视觉 token（→ `DESIGN.md`）；Directory 产品不变量全文（→ Architecture Session / Expert）；删除 saga / 创建 coach 细节（→ Architecture lifecycle 表 + 既有 design） |
 
 **关联 SoT（不要合并成一篇）：**
 
@@ -13,7 +13,7 @@
 | --- | --- |
 | Monorepo 指针 + lifecycle 硬规则 + cold budget 数字 | [`../Architecture.md`](../Architecture.md) **Session / Expert / cold-path** |
 | React 域归属 / shell 冷启动 | [`../../apps/app/src/react-app/ARCHITECTURE.md`](../../apps/app/src/react-app/ARCHITECTURE.md) |
-| Expert 产品行为不变量 | [`../../apps/app/AGENTS.md`](../../apps/app/AGENTS.md) |
+| Expert 产品行为不变量 | [`../Architecture.md`](../Architecture.md) Session / Expert |
 | OpenCode agent / skills 隔离（token 膨胀） | [`expert-runtime-isolation.md`](./expert-runtime-isolation.md) |
 | 硬删除 packageName / origin 匹配 | [`../Architecture.md`](../Architecture.md) **hard_delete**（`selectExpertDeleteOriginRecords`） |
 | Convergence 计划 | [`2026-08-09-architecture-convergence-plan.md`](./2026-08-09-architecture-convergence-plan.md) |

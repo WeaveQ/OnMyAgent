@@ -1,7 +1,8 @@
 /**
  * Experts / Session invariants — contract index + source anchors.
  *
- * Product rules live in apps/app/AGENTS.md ("Experts / Session 不变量").
+ * Product rules live in docs/Architecture.md Session / Expert.
+ * apps/app/AGENTS.md keeps a short title index so this file can assert the names.
  * This file fails CI if those rules are re-broken in the primary call sites.
  * Specialized unit coverage remains in the sibling scripts listed per invariant.
  */

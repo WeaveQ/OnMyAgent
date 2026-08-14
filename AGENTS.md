@@ -3,13 +3,14 @@
 OnMyAgent — 面向 agentic 工作流的桌面控制台，基于 OpenCode。本地优先，消费 server API surface，不被单一实现锁定。
 
 **目标读者：AI Agent / Loop。本文是运行手册，不是架构/视觉百科。**
+Architecture 是 monorepo SoT；包级 AGENTS 只做验证入口，不另写政策。
 
 | 要什么 | 去哪 |
 |--------|------|
 | 架构 / 双运行时 / 包边界 / 命令矩阵 | [`docs/Architecture.md`](docs/Architecture.md) |
 | 文档地图 / 全仓 SoT 表 | [`docs/README.md`](docs/README.md) |
 | UI token / 组件形状 / shell chrome | [`DESIGN.md`](DESIGN.md) only |
-| 专家/会话**产品行为**不变量 | [`apps/app/AGENTS.md`](apps/app/AGENTS.md) |
+| 专家/会话**产品行为**不变量 | Architecture Session / Expert + [`apps/app/src/react-app/ARCHITECTURE.md`](apps/app/src/react-app/ARCHITECTURE.md) |
 | Expert lifecycle / 冷启动**预算** | Architecture → Session / Expert / cold-path |
 | Loop / ledger / kill switch / graphify | [`docs/loop/rules.md`](docs/loop/rules.md) |
 | 打包 | [`BUILD.md`](BUILD.md) |
@@ -78,7 +79,7 @@ packages/onmyagent-ui-mcp  UI 控制面 MCP
 |------|-----|
 | OpenCode 主 · Personal 辅 · 禁交叉写 archive | Architecture **Dual Runtime Boundary** |
 | Archive pool / change-bus / SSE | Architecture **Server Archive Runtime** |
-| 产品行为（空壳 busy、origin、draft、首发、SSE 代际） | **apps/app/AGENTS** 不变量 + `expert-session-invariants.test.ts` |
+| 产品行为（空壳 busy、origin、draft、首发、SSE 代际） | Architecture Session / Expert + React ARCHITECTURE；契约 `expert-session-invariants.test.ts` |
 | hard_delete / create flush / 冷启动数值预算 | Architecture Expert lifecycle + Cold-path budget |
 
 ## 构建与验证
@@ -129,7 +130,7 @@ Tailwind · TypeScript · React · shadcn+BaseUI · TanStack Query · Zustand ·
 |------|------|
 | token / 形状 / signature / shell chrome / 动效 / 键位 | **DESIGN.md only** |
 | i18n 三语 + `t()` | 本文件硬性禁止 + `check:i18n:cjk` |
-| 专家/会话产品行为 | apps/app/AGENTS 不变量 |
+| 专家/会话产品行为 | Architecture Session / Expert + React ARCHITECTURE |
 
 禁止在 AGENTS 复述 DESIGN 细则。冲突以 DESIGN 为准。  
 改 UI：读 DESIGN Task router → `pnpm task check design`。  
@@ -188,7 +189,7 @@ src/react-app/domains/ → 业务域；不跨域直引 store
 | 改某包 | 该包 `AGENTS.md` |
 | React 域 | `apps/app/src/react-app/ARCHITECTURE.md` |
 | UI 视觉 | `DESIGN.md` only |
-| 专家/会话行为 | `apps/app/AGENTS.md` 不变量 |
+| 专家/会话行为 | Architecture Session / Expert + React ARCHITECTURE |
 | Expert 删除/创建/冷启动预算 | Architecture cold-path / lifecycle |
 | Loop | `docs/loop/rules.md` |
 | 打包 / 发版 | `BUILD.md` · `docs/release.md` |

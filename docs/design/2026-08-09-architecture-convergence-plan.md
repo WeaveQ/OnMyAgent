@@ -2,11 +2,21 @@
 
 | Field | Value |
 | --- | --- |
-| Status | **Active** — execution plan SoT for convergence work |
-| Branch | `chore/converge-architecture-sot` (docs first; follow-up PR stacks for code) |
-| Date | 2026-08-09 |
+| Status | **A–D landed on main (0.5.x); E deferred** — historical plan + current board, not a greenfield kickoff |
+| Branch | Historical: `chore/converge-architecture-sot` (docs first). Not the current implementation branch. |
+| Date | 2026-08-09 (plan); board updated 2026-08-14 |
 | Owner | Engineering (desktop + app + server) |
-| Related | Recent PR themes: expert/session thrash, cold start, OfficeCLI shelf, skills list, UI chrome |
+| Related | Expert/session thrash, cold start, OfficeCLI shelf, skills list, UI chrome |
+
+**Completion board**
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| A | Documentation SoT (hierarchy, platforms, pointers) | **Done** |
+| B | Expert + multi-session lifecycle / contract tests | **Done** |
+| C | Cold-start / switch budget | **Done** |
+| D | Capability shelf + skills write/scan | **Done** |
+| E | Chrome freeze, Linux packaging, harness rewrite | **Deferred** |
 
 **Doc hierarchy (do not invent parallel roots):**
 
@@ -14,8 +24,8 @@
 | --- | --- |
 | Monorepo SoT | [`docs/Architecture.md`](../Architecture.md) |
 | React SoT | [`apps/app/src/react-app/ARCHITECTURE.md`](../../apps/app/src/react-app/ARCHITECTURE.md) |
-| This plan | `docs/design/2026-08-09-architecture-convergence-plan.md` |
-| Agent handbook | [`AGENTS.md`](../../AGENTS.md) (links only) |
+| This plan | `docs/design/2026-08-09-architecture-convergence-plan.md` (historical + board) |
+| Agent handbook | [`AGENTS.md`](../../AGENTS.md) (runbook; Architecture is monorepo SoT) |
 
 ---
 
@@ -62,7 +72,7 @@ Goal: **one SoT per topic + engineering alignment + light process**, not more po
 
 ## 2. Phases
 
-### Phase A — Documentation SoT (this branch first)
+### Phase A — Documentation SoT (landed)
 
 | # | Work | Files |
 | --- | --- | --- |
@@ -121,19 +131,17 @@ Goal: **one SoT per topic + engineering alignment + light process**, not more po
 
 ---
 
-## 3. PR stack (recommended)
+## 3. PR stack (historical)
+
+Shipped as stacked follow-ups after the original docs PR. Not a new implementation kickoff.
 
 ```text
-PR1  chore(docs): Architecture SoT hierarchy + platform/skills constraints
-     (this branch — docs only)
-
-PR2  docs+app: Expert/session lifecycle hard rules + contract tests
-PR3  app: cold-path budget counters + thrash enforcement
-PR4  app/desktop: capability shelf matrix + config-driven placement
-PR5  server: skills path SoT + bad-skill observability (if not already enough)
+PR1  chore(docs): Architecture SoT hierarchy + platform/skills constraints  (landed)
+PR2  docs+app: Expert/session lifecycle hard rules + contract tests         (landed)
+PR3  app: cold-path budget counters + thrash enforcement                    (landed)
+PR4  app/desktop: capability shelf matrix + config-driven placement         (landed)
+PR5  server: skills path SoT + bad-skill observability                      (landed)
 ```
-
-Do **not** merge product features into PR1. Do **not** stack UI chrome polish on these PRs.
 
 ---
 
@@ -147,33 +155,25 @@ Do **not** merge product features into PR1. Do **not** stack UI chrome polish on
 
 ---
 
-## 5. Execution order (calendar sketch)
+## 5. Execution order (original calendar sketch; complete)
+
+A–D followed this 3-week sketch on the 0.5.x line. Do not treat it as a new start.
 
 ```text
-Week 1
-  Ship PR1 (docs)
-  Draft B1 lifecycle table in Architecture / React ARCHITECTURE
-  Start B2–B3
-
-Week 2
-  Finish B4–B5
-  C1–C3 cold path
-  D1 matrix draft
-
-Week 3 buffer
-  D2–D4 shelf + skills
-  Fix regressions; optional AGENTS discipline lines
+Week 1  docs SoT + lifecycle table   (done)
+Week 2  expert/session + cold path   (done)
+Week 3  shelf + skills               (done)
 ```
 
 ---
 
-## 6. Checklist for every convergence PR
+## 6. Checklist (used on A–D PRs; historical)
 
-- [ ] Touches the correct SoT file(s) (Architecture / React ARCHITECTURE / design)
-- [ ] No changelog bullets dumped into Architecture
-- [ ] Tests for contract changes
-- [ ] `git diff --check`; relevant package tests
-- [ ] PR description links this plan section (B/C/D)
+- Touched the correct SoT file(s) (Architecture / React ARCHITECTURE / design)
+- No changelog bullets dumped into Architecture
+- Tests for contract changes
+- `git diff --check`; relevant package tests
+- PR description linked this plan section (B/C/D)
 
 ---
 
@@ -182,3 +182,4 @@ Week 3 buffer
 | Date | Note |
 | --- | --- |
 | 2026-08-09 | Initial plan from PR retrospective + docs scan |
+| 2026-08-14 | Board: A–D landed on main (0.5.x); E deferred. No longer a greenfield/PR1 kickoff. |
