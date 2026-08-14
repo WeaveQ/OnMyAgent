@@ -15,6 +15,7 @@ import {
   buildExpertDirectoryShadowDiff,
   buildExpertDirectoryPageModel,
   isStaleLastComplete,
+  type ExpertDirectoryQuerySnapshot,
   type ExpertDirectoryShadowDiff,
   type LegacyExpertDirectorySnapshot,
 } from "./expert-directory-page-model";
@@ -61,6 +62,61 @@ export async function fetchExpertDirectory(input: {
     }
     throw error;
   }
+}
+
+/** First paint uses cache/`lastComplete`. Network Directory/shadow starts after idle. */
+export function shouldEnableExpertDirectoryNetwork(input: {
+  afterFirstPaint: boolean;
+}): boolean {
+  return input.afterFirstPaint === true;
+}
+
+/** After the first commit, enable Directory/shadow. Host-injectable for tests. */
+type FirstPaintTimerId = ReturnType<typeof setTimeout>;
+
+export function scheduleAfterFirstPaint(
+  run: () => void,
+  host: {
+    setTimeout: (handler: () => void, timeout: number) => FirstPaintTimerId;
+    clearTimeout: (id: FirstPaintTimerId) => void;
+  } = {
+    setTimeout: (handler, timeout) => globalThis.setTimeout(handler, timeout),
+    clearTimeout: (id) => globalThis.clearTimeout(id),
+  },
+): () => void {
+  const id = host.setTimeout(run, 0);
+  return () => host.clearTimeout(id);
+}
+
+/** Map a live Directory query onto first-paint state: cache only until idle network starts. */
+export function expertDirectoryQuerySnapshotForPaint(input: {
+  afterFirstPaint: boolean;
+  data?: ExpertDirectoryQuerySnapshot["data"];
+  lastComplete?: ExpertDirectoryQuerySnapshot["lastComplete"];
+  error?: unknown;
+  isPending?: boolean;
+  isLoading?: boolean;
+}): ExpertDirectoryQuerySnapshot {
+  const networkEnabled = shouldEnableExpertDirectoryNetwork({
+    afterFirstPaint: input.afterFirstPaint,
+  });
+  if (!networkEnabled) {
+    return {
+      data: input.data,
+      lastComplete: input.lastComplete,
+      isPending: false,
+      isLoading: false,
+      networkEnabled: false,
+    };
+  }
+  return {
+    data: input.data,
+    lastComplete: input.lastComplete,
+    error: input.error,
+    isPending: input.isPending,
+    isLoading: input.isLoading,
+    networkEnabled: true,
+  };
 }
 
 export function useExpertDirectoryQuery(input: {

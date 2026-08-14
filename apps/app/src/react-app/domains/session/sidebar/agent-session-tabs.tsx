@@ -12,7 +12,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { useQueries, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -48,20 +48,10 @@ import {
   useExpertUnreadStore,
 } from "../status/expert-unread-store";
 import {
-  SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
-  TAB_TITLE_SNAPSHOT_DEFER_MS,
-  TAB_TITLE_SNAPSHOT_MAX,
-} from "../sync/session-poll-policy";
-import {
-  isSessionSnapshotNotFoundError,
-  markSessionSnapshotNotFound,
-  shouldRetrySessionSnapshotQuery,
-  shouldSkipSnapshotForNotFoundCooldown,
-} from "../sync/session-snapshot-fetch-policy";
-import { useDeferredSidebarPreviews } from "./use-deferred-sidebar-previews";
+  shouldIssueTabTitleSnapshotQuery,
+  tabTitleSurfaceSnapshotObserveQuery,
+} from "../sync/session-snapshot-query-policy";
 
-/** Cooldown so missing tab-title snapshots do not re-storm OpenCode. */
-const tabTitleSnapshotNotFoundUntilBySessionId = new Map<string, number>();
 const RECENT_SESSION_TITLE_WINDOW_MS = 5 * 60_000;
 
 /**
@@ -78,7 +68,7 @@ export function sessionNeedsTabTitleFallback(
   return isGeneratedSessionTitle(rawTitle);
 }
 
-/** Eligible for a deferred light title snapshot (not the selected surface). */
+/** True when the chip still needs a derived title (list row or surface cache). */
 export function sessionShouldFetchTabTitleSnapshot(
   session: WorkspaceSessionGroup["sessions"][number],
 ): boolean {
@@ -307,6 +297,11 @@ function scrollTabIntoViewIfNeeded(node: HTMLElement | null | undefined) {
 export function AgentSessionTabs(props: {
   client: OnMyAgentServerClient | null;
   workspaceId: string;
+  /**
+   * Workspace id used by SessionSurface `react-session-snapshot`.
+   * Remote aliases differ from the route workspace id.
+   */
+  snapshotWorkspaceId?: string;
   selectedSessionId: string | null;
   sessions: WorkspaceSessionGroup["sessions"];
   orderIds: readonly string[];
@@ -443,173 +438,55 @@ export function AgentSessionTabs(props: {
   // One wall-clock sample per sessions fingerprint (not every paint).
   const titleClockMs = useMemo(() => Date.now(), [sessionsFingerprint]);
 
-  const titleFetchSessions = useMemo(
-    () => orderedSessions.filter(sessionShouldFetchTabTitleSnapshot),
-    [orderedSessions],
-  );
-
+  const snapshotWorkspaceId =
+    props.snapshotWorkspaceId?.trim() || props.workspaceId;
   const queryClient = useQueryClient();
+  const [snapshotCacheEpoch, setSnapshotCacheEpoch] = useState(0);
 
-  // Title snapshots: selected (+ tab highlight) only — never N queries per strip.
-  const snapshotTargetSessions = useMemo(() => {
-    const allow = new Set<string>();
-    const selected = props.selectedSessionId?.trim() ?? "";
-    const highlight = props.pendingSessionId?.trim() ?? "";
-    if (selected) allow.add(selected);
-    if (highlight) allow.add(highlight);
-    return titleFetchSessions
-      .filter((session) => allow.has(session.id))
-      .slice(0, Math.max(1, TAB_TITLE_SNAPSHOT_MAX));
-  }, [
-    props.pendingSessionId,
-    props.selectedSessionId,
-    titleFetchSessions,
-  ]);
+  const observeSessionIds = useMemo(() => {
+    if (shouldIssueTabTitleSnapshotQuery()) return [] as string[];
+    const ids = [props.selectedSessionId, props.pendingSessionId]
+      .map((id) => id?.trim() ?? "")
+      .filter((id) => id && !id.startsWith("draft:"));
+    return [...new Set(ids)];
+  }, [props.pendingSessionId, props.selectedSessionId]);
 
-  const { previewSessionIds: deferredTabTitleIds } = useDeferredSidebarPreviews({
-    enabled: Boolean(props.client) && snapshotTargetSessions.length > 0,
-    sessions: snapshotTargetSessions,
-    selectedSessionId: props.selectedSessionId,
-    maxPreviews: TAB_TITLE_SNAPSHOT_MAX,
-    includeSelected: true,
-    prioritizeSelected: true,
-    deferMs: TAB_TITLE_SNAPSHOT_DEFER_MS,
-  });
-  const tabTitleSnapshotKey = [...deferredTabTitleIds].sort().join("\n");
-  const tabTitleSnapshotIds = useMemo(() => {
-    if (!tabTitleSnapshotKey) return new Set<string>();
-    return new Set(tabTitleSnapshotKey.split("\n").filter(Boolean));
-  }, [tabTitleSnapshotKey]);
-
-  // Busy fingerprint — avoid depending on the whole status object identity.
-  const busyStatusFingerprint = useMemo(() => {
-    return orderedSessions
-      .map((session) => {
-        if (session.id.startsWith("draft:")) return "";
-        if (!sessionNeedsTabTitleFallback(session)) return "";
-        const busy = isStreamingSessionStatus(
-          props.sessionStatusById?.[session.id],
-        );
-        return busy ? `${session.id}:1` : `${session.id}:0`;
-      })
-      .filter(Boolean)
-      .join("|");
-  }, [orderedSessions, props.sessionStatusById]);
-
-  // After a run finishes, re-check title once (messages may have landed while empty).
-  const prevBusyBySessionRef = useRef<Record<string, boolean>>({});
   useEffect(() => {
-    const prev = prevBusyBySessionRef.current;
-    const next: Record<string, boolean> = {};
-    for (const session of orderedSessions) {
-      if (session.id.startsWith("draft:")) continue;
-      if (!sessionNeedsTabTitleFallback(session)) continue;
-      const busy = isStreamingSessionStatus(
-        props.sessionStatusById?.[session.id],
-      );
-      next[session.id] = busy;
-      if (prev[session.id] && !busy) {
-        void queryClient.invalidateQueries({
-          queryKey: [
-            "onmyagent-agent-session-tab-snapshot",
-            props.workspaceId,
-            session.id,
-          ],
-        });
-      }
-    }
-    prevBusyBySessionRef.current = next;
-  }, [busyStatusFingerprint, orderedSessions, props.sessionStatusById, props.workspaceId, queryClient]);
-
-  // Only observers for snapshot targets (0–2), not every tab chip.
-  const snapshotQueryDefs = useMemo(
-    () =>
-      snapshotTargetSessions.map((session) => {
-        const busy = isStreamingSessionStatus(
-          props.sessionStatusById?.[session.id],
-        );
-        const titlePending =
-          busy || props.pendingSessionId === session.id;
-        const enabled =
-          Boolean(props.client) &&
-          !session.id.startsWith("draft:") &&
-          tabTitleSnapshotIds.has(session.id) &&
-          !shouldSkipSnapshotForNotFoundCooldown({
-            sessionId: session.id,
-            notFoundUntilBySessionId: tabTitleSnapshotNotFoundUntilBySessionId,
-            nowMs: titleClockMs,
-          });
-        return {
-          queryKey: [
-            "onmyagent-agent-session-tab-snapshot",
-            props.workspaceId,
-            session.id,
-          ] as const,
-          enabled,
-          queryFn: async () => {
-            const client = props.client;
-            if (!client) throw new Error("OnMyAgent server unavailable");
-            const nowMs = Date.now();
-            if (
-              shouldSkipSnapshotForNotFoundCooldown({
-                sessionId: session.id,
-                notFoundUntilBySessionId:
-                  tabTitleSnapshotNotFoundUntilBySessionId,
-                nowMs,
-              })
-            ) {
-              return null;
-            }
-            try {
-              return (
-                await client.getSessionSnapshot(props.workspaceId, session.id, {
-                  limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
-                })
-              ).item;
-            } catch (error) {
-              if (isSessionSnapshotNotFoundError(error)) {
-                markSessionSnapshotNotFound({
-                  sessionId: session.id,
-                  notFoundUntilBySessionId:
-                    tabTitleSnapshotNotFoundUntilBySessionId,
-                  nowMs: Date.now(),
-                });
-                return null;
-              }
-              throw error;
-            }
-          },
-          staleTime: 30_000,
-          refetchInterval: (query: {
-            state: { data: OnMyAgentSessionSnapshot | null | undefined };
-          }) =>
-            tabTitleSnapshotRefetchIntervalMs(query.state.data, {
-              busy,
-              titlePending,
-            }),
-          retry: (failureCount: number, error: unknown) =>
-            shouldRetrySessionSnapshotQuery(failureCount, error),
-        };
-      }),
-    [
-      props.client,
-      props.pendingSessionId,
-      props.sessionStatusById,
-      props.workspaceId,
-      snapshotTargetSessions,
-      tabTitleSnapshotKey,
-      tabTitleSnapshotIds,
-      titleClockMs,
-    ],
-  );
-  const snapshotQueries = useQueries({ queries: snapshotQueryDefs });
-  const snapshotBySessionId = useMemo(() => {
-    const map = new Map<string, (typeof snapshotQueries)[number]["data"]>();
-    snapshotTargetSessions.forEach((session, index) => {
-      map.set(session.id, snapshotQueries[index]?.data);
+    const watched = new Set(
+      observeSessionIds.map((sessionId) =>
+        tabTitleSurfaceSnapshotObserveQuery({
+          workspaceId: snapshotWorkspaceId,
+          sessionId,
+        }).queryKey.join("\0"),
+      ),
+    );
+    if (watched.size === 0) return;
+    return queryClient.getQueryCache().subscribe((event) => {
+      const key = event.query.queryKey.join("\0");
+      if (watched.has(key)) setSnapshotCacheEpoch((epoch) => epoch + 1);
     });
+  }, [observeSessionIds, queryClient, snapshotWorkspaceId]);
+
+  const snapshotBySessionId = useMemo(() => {
+    void snapshotCacheEpoch;
+    const map = new Map<string, OnMyAgentSessionSnapshot | undefined>();
+    for (const sessionId of observeSessionIds) {
+      const observe = tabTitleSurfaceSnapshotObserveQuery({
+        workspaceId: snapshotWorkspaceId,
+        sessionId,
+      });
+      map.set(
+        sessionId,
+        queryClient.getQueryData<OnMyAgentSessionSnapshot>(observe.queryKey),
+      );
+    }
     return map;
-  }, [snapshotQueries, snapshotTargetSessions]);
+  }, [
+    observeSessionIds,
+    queryClient,
+    snapshotCacheEpoch,
+    snapshotWorkspaceId,
+  ]);
 
   // Titles are display-only from snapshot/render. Do NOT auto-call
   // onRenameSession here (session.update + refreshRouteState freezes the UI

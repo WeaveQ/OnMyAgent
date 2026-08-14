@@ -59,3 +59,29 @@ export function buildSessionSnapshotPrefetchSpec(input: {
     fetchOptions: sessionSnapshotFetchOptions(input.directory),
   };
 }
+
+/** Same query key as SessionSurface; callers must not fetch. */
+export function tabTitleSurfaceSnapshotObserveQuery(input: {
+  workspaceId: string;
+  sessionId: string;
+}): {
+  queryKey: SessionSnapshotQueryKey;
+  enabled: false;
+  staleTime: number;
+} {
+  return {
+    queryKey: sessionSnapshotQueryKey(input.workspaceId, input.sessionId),
+    enabled: false,
+    staleTime: Number.POSITIVE_INFINITY,
+  };
+}
+
+/** Distinct tab-title snapshots are gone — never request a sidebar preview limit. */
+export function tabTitleSnapshotFetchLimit(): null {
+  return null;
+}
+
+/** Live tab chips must not start their own getSessionSnapshot. */
+export function shouldIssueTabTitleSnapshotQuery(): boolean {
+  return false;
+}

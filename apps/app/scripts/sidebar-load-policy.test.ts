@@ -151,29 +151,24 @@ describe("sidebar load policy", () => {
       ),
       "utf8",
     );
-    // Expert tabs: resolve the focused title immediately, then defer and cap
-    // the remaining lightweight snapshots.
-    expect(tabs).toContain("useDeferredSidebarPreviews");
-    expect(tabs).toContain("sessionShouldFetchTabTitleSnapshot");
-    expect(tabs).toContain("tabTitleSnapshotIds.has");
-    expect(tabs).toContain("includeSelected: true");
-    expect(tabs).toContain("prioritizeSelected: true");
-    expect(tabs).toContain("TAB_TITLE_SNAPSHOT_DEFER_MS");
-    expect(tabs).toContain("TAB_TITLE_SNAPSHOT_MAX");
+    // Expert tabs observe the focused surface snapshot; they do not fetch.
+    expect(tabs).toContain("tabTitleSurfaceSnapshotObserveQuery");
+    expect(tabs).toContain("shouldIssueTabTitleSnapshotQuery");
+    expect(tabs).not.toContain("onmyagent-agent-session-tab-snapshot");
+    expect(tabs).not.toContain("SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT");
+    expect(tabs).not.toContain("useDeferredSidebarPreviews");
   });
 
-  test("origin recovery retries are canceled when their workspace is no longer live", () => {
+  test("session loader resets cold-enter counters and retries live workspaces only", () => {
     const loader = readFileSync(
       join(appRoot, "src/react-app/shell/session-route/session-loader-hook.ts"),
       "utf8",
     );
-    expect(loader).toContain("clearOriginRecoveryState");
-    expect(loader).toContain("clearRemovedOriginRecoveryStates");
-    expect(loader).toContain("window.clearTimeout(retryTimer)");
-    expect(loader).toContain("findRouteWorkspace(");
-    expect(loader).toContain("void fetchOnce(currentWorkspace, 0)");
-    expect(loader).toContain("originHydrationGate.markOriginRecoveryDegraded");
-    expect(loader).toContain("originHydrationGate.markTerminalFailure()");
-    expect(loader).toContain("clearOriginRecoveryState(workspaceId)");
+    expect(loader).toContain("beginSessionRouteColdEnter");
+    expect(loader).toContain("findRouteWorkspace");
+    expect(loader).toContain("void fetchOnce(workspace, 1)");
+    expect(loader).toContain("await Promise.all(workspaces.map((workspace) => fetchOnce(workspace, 0)))");
+    expect(loader).not.toContain("clearOriginRecoveryState");
+    expect(loader).not.toContain("originHydrationGate");
   });
 });
