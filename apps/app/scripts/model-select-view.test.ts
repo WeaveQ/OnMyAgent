@@ -20,8 +20,35 @@ describe("model select view", () => {
     expect(source).toContain("data-highlighted:bg-dls-list-hover");
     expect(source).toContain("{selected ? (");
     expect(source).toContain('<Check className="size-4 shrink-0 text-dls-accent" />');
-    // Ghost defaults (big-pickle) must not appear when the option is missing.
-    expect(source).toContain("selectedOption?.title ?? t(\"session.default_model\")");
+    expect(source).toContain("resolveModelSelectTriggerLabel");
     expect(source).not.toContain("value.modelID ?? t(\"session.default_model\")");
+  });
+
+  test("keeps the last model visible until the catalog arrives", async () => {
+    const { resolveModelSelectTriggerLabel } = await import(
+      "../src/components/model-select"
+    );
+    expect(
+      resolveModelSelectTriggerLabel({
+        catalogReady: false,
+        modelID: "deepseek-v4-flash-ga-260731",
+        unresolvedLabel: "选择模型",
+      }),
+    ).not.toBe("选择模型");
+    expect(
+      resolveModelSelectTriggerLabel({
+        catalogReady: true,
+        modelID: "big-pickle",
+        unresolvedLabel: "选择模型",
+      }),
+    ).toBe("选择模型");
+    expect(
+      resolveModelSelectTriggerLabel({
+        selectedTitle: "DeepSeek V4 Flash",
+        catalogReady: true,
+        modelID: "deepseek-v4-flash",
+        unresolvedLabel: "选择模型",
+      }),
+    ).toBe("DeepSeek V4 Flash");
   });
 });

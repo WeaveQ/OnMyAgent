@@ -4,6 +4,7 @@ import * as React from "react";
 import { ChevronDown, Check, Settings2 } from "lucide-react";
 
 import type { ModelOption, ModelRef } from "@/app/types";
+import { resolveModelDisplayName } from "@/app/utils";
 import {
   Popover,
   PopoverContent,
@@ -57,6 +58,22 @@ function isSameModel(a: ModelRef, b: ModelRef) {
   return a.providerID === b.providerID && a.modelID === b.modelID;
 }
 
+/** Chip label while the connected catalog is still warming vs after it arrives. */
+export function resolveModelSelectTriggerLabel(input: {
+  selectedTitle?: string;
+  catalogReady: boolean;
+  modelID?: string;
+  unresolvedLabel: string;
+}): string {
+  if (input.selectedTitle) return input.selectedTitle;
+  const modelID = input.modelID?.trim() ?? "";
+  // Catalog not loaded yet: keep the last selection visible. Once the catalog
+  // is ready, a missing option is a real "not pickable" state (e.g. ghost
+  // opencode/big-pickle) and must not look selected.
+  if (!input.catalogReady && modelID) return resolveModelDisplayName(modelID);
+  return input.unresolvedLabel;
+}
+
 export interface ModelSelectViewProps {
   open: boolean;
   value: ModelRef;
@@ -64,6 +81,8 @@ export interface ModelSelectViewProps {
   onChange: (model: ModelRef) => void;
   disabled?: boolean;
   options: ModelOption[];
+  /** False until provider.list has resolved at least once for this client. */
+  catalogReady?: boolean;
   renderProviderIcon?: (option: ModelOption) => React.ReactNode;
   onOpenModelPicker?: () => void;
 }
@@ -75,6 +94,7 @@ export function ModelSelectView({
   onChange,
   disabled = false,
   options,
+  catalogReady = true,
   renderProviderIcon,
   onOpenModelPicker,
 }: ModelSelectViewProps) {
@@ -108,10 +128,12 @@ export function ModelSelectView({
       modelID: option.modelID,
     }),
   );
-  // Never fall back to raw modelIDs (e.g. "big-pickle") when the option is
-  // not in the connected catalog — empty picker would still look "selected".
-  const displayLabel =
-    selectedOption?.title ?? t("session.default_model");
+  const displayLabel = resolveModelSelectTriggerLabel({
+    selectedTitle: selectedOption?.title,
+    catalogReady,
+    modelID: value.modelID,
+    unresolvedLabel: t("session.default_model"),
+  });
 
   const groups = React.useMemo(() => groupByProvider(options), [options]);
 
