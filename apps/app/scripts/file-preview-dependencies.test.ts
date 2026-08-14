@@ -10,14 +10,14 @@ test("pins the offline file viewer packages to the verified compatible release",
     devDependencies?: Record<string, string>;
   };
 
-  expect(packageJson.dependencies?.["@file-viewer/react"]).toBe("2.2.2");
-  expect(packageJson.dependencies?.["@file-viewer/renderer-word"]).toBe("2.2.2");
-  expect(packageJson.dependencies?.["@file-viewer/renderer-spreadsheet"]).toBe("2.2.2");
-  expect(packageJson.dependencies?.["@file-viewer/renderer-presentation"]).toBe("2.2.2");
+  expect(packageJson.dependencies?.["@file-viewer/react"]).toBe("2.2.5");
+  expect(packageJson.dependencies?.["@file-viewer/renderer-word"]).toBe("2.2.5");
+  expect(packageJson.dependencies?.["@file-viewer/renderer-spreadsheet"]).toBe("2.2.5");
+  expect(packageJson.dependencies?.["@file-viewer/renderer-presentation"]).toBe("2.2.5");
   expect(packageJson.dependencies?.["@file-viewer/preset-office"]).toBeUndefined();
   expect(packageJson.dependencies?.["@file-viewer/react-full"]).toBeUndefined();
   expect(packageJson.dependencies?.["@file-viewer/preset-all"]).toBeUndefined();
-  expect(packageJson.devDependencies?.["@file-viewer/vite-plugin"]).toBe("2.2.2");
+  expect(packageJson.devDependencies?.["@file-viewer/vite-plugin"]).toBe("2.2.5");
 });
 
 test("publishes file viewer workers and wasm as local Vite assets", () => {
