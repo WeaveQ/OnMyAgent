@@ -89,6 +89,39 @@ function signComputerUseHelper(context) {
   }
 }
 
+function signSquirrelFramework(context) {
+  if (context.electronPlatformName !== "darwin") return;
+
+  const appPath = resolveMacAppPath(context);
+  if (!appPath) return;
+
+  const squirrelPath = path.join(appPath, "Contents", "Frameworks", "Squirrel.framework");
+  if (!fs.existsSync(squirrelPath)) return;
+
+  const identity = process.env.ONMYAGENT_COMPUTER_USE_CODESIGN_IDENTITY
+    || process.env.CSC_NAME
+    || process.env.APPLE_CODESIGN_IDENTITY
+    || "-";
+  // ShipIt (inside Squirrel.framework/Resources) must carry a Developer ID
+  // signature + hardened runtime + secure timestamp for Apple notarization.
+  // electron-builder's deep-sign skips framework Resources when signIgnore is
+  // active, so re-sign the whole framework explicitly with the same
+  // entitlements electron-builder uses for nested code.
+  const entitlements = path.join(__dirname, "..", "build", "entitlements.mac.plist");
+  const args = ["--force", "--deep", "--options", "runtime", "--sign", identity];
+  if (fs.existsSync(entitlements)) {
+    args.push("--entitlements", entitlements);
+  }
+  if (identity !== "-") args.push("--timestamp");
+  args.push(squirrelPath);
+
+  const result = spawnSync("codesign", args, { stdio: "inherit" });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`codesign failed for Squirrel.framework with status ${result.status}`);
+  }
+}
+
 function findRcedit() {
   const cacheRoot = path.join(
     process.env.LOCALAPPDATA || "",
@@ -198,6 +231,7 @@ async function afterPack(context) {
   });
 
   signComputerUseHelper(context);
+  signSquirrelFramework(context);
   brandWindowsExecutable(context);
 }
 
