@@ -123,40 +123,48 @@ async function afterSign(context) {
     console.log(
       `[electron-after-sign] submission ${submissionId}; waiting for Apple notarization (large app, may take 15-30 min)...`,
     );
-    const wait = spawnSync(
-      "xcrun",
-      [
-        "notarytool",
-        "wait",
-        submissionId,
-        "--key",
-        keyPath,
-        "--key-id",
-        keyId,
-        "--issuer",
-        issuer,
-      ],
-      { stdio: "inherit", timeout: 3600000 },
-    );
 
-    if (wait.error && wait.error.code === "ETIMEDOUT") {
-      console.error(`[electron-after-sign] notarytool wait timed out (3600s); dumping log for ${submissionId}:`);
-      spawnSync(
-        "xcrun",
-        ["notarytool", "log", submissionId, "--key", keyPath, "--key-id", keyId, "--issuer", issuer],
-        { stdio: "inherit" },
-      );
-      throw new Error("notarytool wait timed out (3600s)");
+    const baseArgs = ["--key", keyPath, "--key-id", keyId, "--issuer", issuer];
+    const deadline = Date.now() + 3600000;
+    let attempt = 0;
+    let accepted = false;
+    while (Date.now() < deadline) {
+      attempt += 1;
+      console.log(`[electron-after-sign] notarytool wait (attempt ${attempt})...`);
+      const wait = spawnSync("xcrun", ["notarytool", "wait", submissionId, ...baseArgs], { stdio: "inherit", timeout: 900000 });
+
+      if (wait.status === 0) {
+        accepted = true;
+        break;
+      }
+
+      // Non-zero exit can be a transient network error or a definitive
+      // Invalid/Rejected. Ask notarytool for the current status to decide.
+      let status = null;
+      const info = spawnSync("xcrun", ["notarytool", "info", submissionId, ...baseArgs, "--output-format", "json"], { encoding: "utf8" });
+      try {
+        status = JSON.parse(info.stdout || "{}").status || null;
+      } catch {
+        status = null;
+      }
+
+      if (status === "Accepted") {
+        accepted = true;
+        break;
+      }
+      if (status === "Invalid" || status === "Rejected") {
+        console.error(`[electron-after-sign] Apple notarization ${status}; dumping log for ${submissionId}:`);
+        spawnSync("xcrun", ["notarytool", "log", submissionId, ...baseArgs], { stdio: "inherit" });
+        throw new Error(`Apple notarization was ${status} (submission ${submissionId})`);
+      }
+
+      console.warn(`[electron-after-sign] wait attempt ${attempt} failed (status=${status || "unknown"}); retrying...`);
     }
-    if (wait.error) throw wait.error;
-    if (wait.status !== 0) {
-      console.error(`[electron-after-sign] notarization did not pass (exit ${wait.status}); dumping log for ${submissionId}:`);
-      spawnSync(
-        "xcrun",
-        ["notarytool", "log", submissionId, "--key", keyPath, "--key-id", keyId, "--issuer", issuer],
-        { stdio: "inherit" },
-      );
-      throw new Error(`Apple notarization failed (submission ${submissionId}, exit ${wait.status})`);
+
+    if (!accepted) {
+      console.error(`[electron-after-sign] notarization did not complete within 60 min; dumping log for ${submissionId}:`);
+      spawnSync("xcrun", ["notarytool", "log", submissionId, ...baseArgs], { stdio: "inherit" });
+      throw new Error(`notarization did not complete within 60 min (submission ${submissionId})`);
     }
 
     run("xcrun", ["stapler", "staple", appPath]);
