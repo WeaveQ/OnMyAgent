@@ -3,6 +3,7 @@
  * Switch on ConversationItemVM.kind to shared presentational blocks.
  */
 import { cn } from "@/lib/utils";
+import { MarkdownBlock } from "../../artifacts/markdown";
 import type { ConversationItemVM } from "../item-types";
 import { ApprovalCard } from "./approval-card";
 import { PlanBlock } from "./plan-block";
@@ -84,7 +85,11 @@ export function ConversationItemView(props: ConversationItemViewProps) {
           data-kind={item.kind}
           data-role={item.role}
         >
-          {item.text}
+          {item.kind === "assistant_text" ? (
+            <MarkdownBlock text={item.text} streaming={streaming} />
+          ) : (
+            item.text
+          )}
         </div>
       );
   }

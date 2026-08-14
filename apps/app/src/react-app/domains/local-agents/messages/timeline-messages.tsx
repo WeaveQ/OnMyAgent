@@ -12,7 +12,6 @@ import {
   toPersonalConversationItems,
   type PersonalAdapterMessage,
 } from "../../../capabilities/conversation";
-import { MarkdownBlock } from "../../../capabilities/artifacts/markdown";
 import { sanitizeAssistantTranscriptText } from "../../../capabilities/conversation/assistant-text-sanitize";
 import { MessageTips } from "./message-tips";
 import { extractDiff, toKeyedLines, diffLineClass, copyText } from "../../../capabilities/artifacts/diff-utils";
@@ -719,12 +718,11 @@ export function LocalAgentTimelineMessage(props: {
     const body = sanitizeAssistantTranscriptText(props.message.text).text;
     if (!body.trim()) return null;
     return (
-      <div className="text-sm leading-6 text-dls-text">
-        <MarkdownBlock
-          text={body}
-          streaming={props.streaming && props.message.type !== "finish"}
-        />
-      </div>
+      <PersonalConversationItem
+        message={{ ...props.message, text: body }}
+        streaming={props.streaming && props.message.type !== "finish"}
+        runStatus={props.runStatus}
+      />
     );
   }
   if (props.message.role === "system" || props.message.role === "user") {
