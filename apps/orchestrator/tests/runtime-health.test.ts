@@ -75,6 +75,20 @@ describe("runtime health", () => {
     }
   });
 
+  test("does not treat a missing proxy mount as healthy", async () => {
+    const server = await createTestServer((_req, res) => {
+      res.writeHead(404).end();
+    });
+
+    try {
+      await expect(
+        waitForHealthyViaProxy(server.baseUrl, "token", 80, 20),
+      ).rejects.toThrow(/404/);
+    } finally {
+      await server.close();
+    }
+  });
+
   test("uses opencode path probe when health is degraded", async () => {
     const client = {
       global: { health: async () => ({ data: { healthy: false } }) },

@@ -14,9 +14,7 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "workspaceUpdateDisplayName",
   "workspaceForget",
   "workspaceAddAuthorizedRoot",
-  "workspaceOpenworkRead",
   "workspaceOnMyAgentRead",
-  "workspaceOpenworkWrite",
   "workspaceOnMyAgentWrite",
   "workspaceExportConfig",
   "workspaceImportConfig",
@@ -353,25 +351,12 @@ export function createWorkspaceDomainHandlers({
     return writeWorkspaceOnMyAgentConfig(workspacePath, config);
   },
 
-  // shared: workspaceOpenworkRead, workspaceOnMyAgentRead
-  workspaceOpenworkRead: async (event, args) => {
-    return readWorkspaceOnMyAgentConfig(
-      String(args[0]?.workspacePath ?? "").trim(),
-    );
-  },
   workspaceOnMyAgentRead: async (event, args) => {
     return readWorkspaceOnMyAgentConfig(
       String(args[0]?.workspacePath ?? "").trim(),
     );
   },
 
-  // shared: workspaceOpenworkWrite, workspaceOnMyAgentWrite
-  workspaceOpenworkWrite: async (event, args) => {
-    return writeWorkspaceOnMyAgentConfig(
-      String(args[0]?.workspacePath ?? "").trim(),
-      args[0]?.config ?? defaultWorkspaceOnMyAgentConfig(""),
-    );
-  },
   workspaceOnMyAgentWrite: async (event, args) => {
     return writeWorkspaceOnMyAgentConfig(
       String(args[0]?.workspacePath ?? "").trim(),

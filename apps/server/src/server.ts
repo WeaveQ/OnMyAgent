@@ -195,13 +195,6 @@ export async function startServer(config: ServerConfig, runtimeHooks: ServerRunt
       }
 
       const mount = parseWorkspaceMount(url.pathname);
-      if (
-        mount &&
-        (mount.restPath === "/opencode" ||
-          mount.restPath.startsWith("/opencode/"))
-      ) {
-        return proxyWorkspaceOpencodeMount(mount);
-      }
 
       // Allow clients to use a mounted base URL (e.g. http://host:8787/w/<id>) while
       // still calling the existing /workspace/:id/* API surface.
@@ -220,33 +213,6 @@ export async function startServer(config: ServerConfig, runtimeHooks: ServerRunt
           );
         }
         url.pathname = mount.restPath;
-      }
-
-      if (
-        url.pathname === "/opencode" ||
-        url.pathname.startsWith("/opencode/")
-      ) {
-        authMode = "client";
-        proxyBaseUrl = config.workspaces[0]?.baseUrl?.trim() || undefined;
-        try {
-          const actor = await requireClient(request, config, tokens);
-          assertOpencodeProxyAllowed(actor, request.method, url.pathname);
-          proxyService = "opencode";
-          const response = await proxyOpencodeRequest({
-            config,
-            request,
-            url,
-            workspace: config.workspaces[0],
-          });
-          return finalize(response);
-        } catch (error) {
-          if (!isApiError(error)) {
-            console.error("[onmyagent-server] Unhandled opencode proxy error:", error);
-          }
-          const apiError = toApiError(error);
-          errorMessage = apiError.message;
-          return finalize(jsonResponse(formatError(apiError), apiError.status));
-        }
       }
 
       const route = matchRoute(routes, request.method, url.pathname);

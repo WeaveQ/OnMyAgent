@@ -30,11 +30,11 @@ function resolveDefaultServerUrl(): string {
       ? import.meta.env.VITE_ONMYAGENT_URL.trim()
       : "";
   if (onmyagentUrl) {
-    return `${onmyagentUrl.replace(/\/+$/, "")}/opencode`;
+    return onmyagentUrl.replace(/\/+$/, "");
   }
 
   if (isWebDeployment() && import.meta.env.PROD && typeof window !== "undefined") {
-    return `${window.location.origin}/opencode`;
+    return window.location.origin;
   }
 
   const envUrl =
