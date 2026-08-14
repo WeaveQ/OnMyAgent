@@ -63,18 +63,67 @@ async function afterSign(context) {
 
   try {
     run("ditto", ["-c", "-k", "--keepParent", appPath, notaryZipPath]);
-    run("xcrun", [
-      "notarytool",
-      "submit",
-      notaryZipPath,
-      "--key",
-      keyPath,
-      "--key-id",
-      keyId,
-      "--issuer",
-      issuer,
-      "--wait",
-    ]);
+
+    // Submit and capture structured output so a non-Accepted result
+    // (status "Invalid" / "Rejected") can be explained via the Apple log.
+    const submit = spawnSync(
+      "xcrun",
+      [
+        "notarytool",
+        "submit",
+        notaryZipPath,
+        "--key",
+        keyPath,
+        "--key-id",
+        keyId,
+        "--issuer",
+        issuer,
+        "--wait",
+        "--output-format",
+        "json",
+      ],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] },
+    );
+
+    if (submit.stdout) process.stdout.write(submit.stdout);
+
+    let submissionId = null;
+    let status = null;
+    try {
+      const parsed = JSON.parse(submit.stdout || "{}");
+      submissionId = parsed.id || parsed.submissionId || null;
+      status = parsed.status || null;
+    } catch {
+      const m = (submit.stdout || "").match(
+        /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i,
+      );
+      if (m) submissionId = m[0];
+    }
+
+    if (status && status !== "Accepted") {
+      console.error(
+        `[electron-after-sign] Apple notarization returned "${status}" (submission ${submissionId || "unknown"}); dumping notary log:`,
+      );
+      if (submissionId) {
+        spawnSync(
+          "xcrun",
+          [
+            "notarytool",
+            "log",
+            submissionId,
+            "--key",
+            keyPath,
+            "--key-id",
+            keyId,
+            "--issuer",
+            issuer,
+          ],
+          { stdio: "inherit" },
+        );
+      }
+      throw new Error(`Apple notarization was not accepted (status: ${status})`);
+    }
+
     run("xcrun", ["stapler", "staple", appPath]);
     run("xcrun", ["stapler", "validate", appPath]);
   } finally {
