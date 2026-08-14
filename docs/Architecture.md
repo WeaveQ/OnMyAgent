@@ -434,6 +434,8 @@ baseline `scripts/checks/baselines/circular-deps.json` **只减不增**（当前
 `pnpm check:file-size` 是**文件体量基线门禁**（`scripts/checks/baselines/file-size.json`）：
 已登记大文件只允许缩减、禁止无说明膨胀。新增大文件应先拆分或显式刷新 baseline；
 与 god-file 治理（`server.ts`、`session-archive.ts`、`session-surface.tsx`、`main.mjs` 等）配套。
+**不登记** `apps/desktop/resources/marketplace/**`、`bundled-skills/**`、`graphify-out/**`
+（捆绑内容包 / 生成图，不是产品债；`--write` 会丢掉误加条目）。
 
 当前检查覆盖：
 

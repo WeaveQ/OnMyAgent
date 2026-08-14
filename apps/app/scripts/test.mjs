@@ -144,6 +144,7 @@ const testTargets = new Map([
   ['expert-lifecycle-diagnostics', ['bun', ['test', 'scripts/expert-lifecycle-diagnostics.test.ts']]],
   ['cold-path-budget', ['bun', ['test', 'scripts/cold-path-budget.test.ts']]],
   ['capability-shelf', ['bun', ['test', 'scripts/capability-shelf.test.ts']]],
+  ['shadcn-css-dependency', ['bun', ['test', 'scripts/shadcn-css-dependency.test.ts']]],
 ])
 
 const composedTargets = new Map([
@@ -177,6 +178,7 @@ const composedTargets = new Map([
     'expert-lifecycle-diagnostics',
     'cold-path-budget',
     'capability-shelf',
+    'shadcn-css-dependency',
     // Other style contracts stay registered as individual targets (run manually if needed)
   ]],
   ['ui', ['version-gate', 'transport-contract', 'ui-contracts', 'e2e']],

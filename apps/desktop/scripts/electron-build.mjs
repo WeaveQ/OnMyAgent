@@ -277,7 +277,7 @@ if (patched !== serverJsSrc) {
 }
 rmSync(packagedServerRoot, { recursive: true, force: true });
 // Stage the server with its production node_modules (jsonc-parser, minimatch,
-// yaml, zod, @opencode-ai/sdk, @onmyagent/types, better-sqlite3). tsc emits
+// yaml, zod, @opencode-ai/sdk, @onmyagent/types). tsc emits
 // bare ESM imports, so dist alone cannot resolve packages at runtime — this is
 // what caused the packaged "Cannot find package 'jsonc-parser'" boot crash.
 // `pnpm deploy --prod` materializes a self-contained install (same pattern as

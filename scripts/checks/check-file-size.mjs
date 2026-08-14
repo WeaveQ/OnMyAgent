@@ -1,18 +1,41 @@
 #!/usr/bin/env node
 /**
- * Freezes line counts for known god files (baseline only shrinks).
+ * Freezes line counts for known product god files (baseline only shrinks).
+ *
+ * Vendor / content-pack trees are not file-size targets (same idea as
+ * `.rgignore`): marketplace skills, bundled product skills, generated graphs.
  *
  *   node scripts/checks/check-file-size.mjs           # enforce
  *   node scripts/checks/check-file-size.mjs --write   # regenerate baseline
  */
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const repoRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
+const repoRoot = process.env.FILE_SIZE_ROOT
+  ? resolve(process.env.FILE_SIZE_ROOT)
+  : dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const baselinePath = join(repoRoot, "scripts/checks/baselines/file-size.json");
 const mode = process.argv.includes("--write") ? "write" : "enforce";
+
+/** Bundled / generated trees — never ratchet these. */
+const FILE_SIZE_IGNORE_PREFIXES = [
+  "apps/desktop/resources/marketplace/",
+  "apps/desktop/resources/bundled-skills/",
+  "graphify-out/",
+];
+
+function normalizeRel(rel) {
+  return String(rel).replaceAll("\\", "/");
+}
+
+function isIgnoredFileSizePath(rel) {
+  const normalized = normalizeRel(rel);
+  return FILE_SIZE_IGNORE_PREFIXES.some(
+    (prefix) => normalized === prefix.slice(0, -1) || normalized.startsWith(prefix),
+  );
+}
 
 function countLines(absolutePath) {
   const text = readFileSync(absolutePath, "utf8");
@@ -33,10 +56,14 @@ if (!baseline.entries || typeof baseline.entries !== "object") {
 }
 
 if (mode === "write") {
-  const next = { entries: { ...baseline.entries } };
-  for (const rel of Object.keys(next.entries)) {
+  const next = { entries: {} };
+  for (const [rel, max] of Object.entries(baseline.entries)) {
+    if (isIgnoredFileSizePath(rel)) continue;
     const abs = join(repoRoot, rel);
-    if (!existsSync(abs)) continue;
+    if (!existsSync(abs)) {
+      next.entries[rel] = max;
+      continue;
+    }
     next.entries[rel] = countLines(abs);
   }
   writeFileSync(baselinePath, `${JSON.stringify(next, null, 2)}\n`, "utf8");
@@ -46,6 +73,10 @@ if (mode === "write") {
 
 const failures = [];
 for (const [rel, max] of Object.entries(baseline.entries)) {
+  if (isIgnoredFileSizePath(rel)) {
+    failures.push(`${rel}: vendor/content-pack path is not a file-size target`);
+    continue;
+  }
   const abs = join(repoRoot, rel);
   if (!existsSync(abs)) {
     failures.push(`${rel}: missing (baseline max ${max})`);
