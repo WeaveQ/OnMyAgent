@@ -337,7 +337,7 @@ jobs:
         if: matrix.os_type == 'macos' && env.MACOS_NOTARIZE != 'true' && needs.resolve-release.outputs.draft != 'true' && needs.resolve-release.outputs.prerelease != 'true'
         shell: bash
         run: |
-          echo "Building an unnotarized macOS release (notarize hardcoded false). Gatekeeper will block this app on macOS." >&2
+          echo "Building an unnotarized macOS release (notarize=false). Gatekeeper will block this app on macOS." >&2
 
       - name: Warn about unnotarized preview macOS Electron release
         if: matrix.os_type == 'macos' && env.MACOS_NOTARIZE != 'true' && (needs.resolve-release.outputs.draft == 'true' || needs.resolve-release.outputs.prerelease == 'true')

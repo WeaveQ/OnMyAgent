@@ -4,12 +4,22 @@ const { tmpdir } = require("node:os");
 const path = require("node:path");
 
 const computerUseHelperAppName = "OnMyAgent Computer Use.app";
+// Large Electron + sidecar bundles often sit In Progress > 60 min on x64.
+// Budget covers Apple queue + transient runner network blips.
+const NOTARY_WAIT_BUDGET_MS = Number(process.env.NOTARY_WAIT_BUDGET_MS || 9_000_000); // 150 min
+const NOTARY_WAIT_SLICE_SEC = Number(process.env.NOTARY_WAIT_SLICE_SEC || 1200); // 20 min per wait
+const NOTARY_NETWORK_BACKOFF_SEC = 30;
 
 function run(command, args) {
   const result = spawnSync(command, args, { stdio: "inherit" });
   if (result.status !== 0) {
     throw new Error(`${command} ${args.join(" ")} failed with status ${result.status}`);
   }
+}
+
+function sleepSeconds(seconds) {
+  if (!Number.isFinite(seconds) || seconds <= 0) return;
+  spawnSync("sleep", [String(Math.ceil(seconds))], { stdio: "ignore" });
 }
 
 function requireEnv(name) {
@@ -102,10 +112,21 @@ async function afterSign(context) {
         "--output-format",
         "json",
       ],
-      { encoding: "utf8", timeout: 300000 },
+      // 1GB zip upload to Apple can exceed 5 min on congested runners.
+      { encoding: "utf8", timeout: 1_200_000 },
     );
 
-    if (submit.error) throw submit.error;
+    if (submit.error) {
+      if (submit.error.code === "ETIMEDOUT") {
+        throw new Error("notarytool submit timed out (1200s) while uploading the notarization zip");
+      }
+      throw submit.error;
+    }
+    if (submit.status !== 0) {
+      throw new Error(
+        `notarytool submit failed with status ${submit.status}: ${(submit.stderr || submit.stdout || "").trim()}`,
+      );
+    }
     let submissionId = null;
     try {
       const parsed = JSON.parse(submit.stdout || "{}");
@@ -120,18 +141,39 @@ async function afterSign(context) {
       throw new Error("notarytool submit did not return a submission id");
     }
 
+    const waitBudgetMin = Math.round(NOTARY_WAIT_BUDGET_MS / 60000);
     console.log(
-      `[electron-after-sign] submission ${submissionId}; waiting for Apple notarization (large app, may take 15-30 min)...`,
+      `[electron-after-sign] submission ${submissionId}; waiting for Apple notarization (budget ${waitBudgetMin} min, large app often 30-90 min)...`,
     );
 
     const baseArgs = ["--key", keyPath, "--key-id", keyId, "--issuer", issuer];
-    const deadline = Date.now() + 6000000;
+    const deadline = Date.now() + NOTARY_WAIT_BUDGET_MS;
     let attempt = 0;
     let accepted = false;
+    let networkStreak = 0;
     while (Date.now() < deadline) {
       attempt += 1;
-      console.log(`[electron-after-sign] notarytool wait (attempt ${attempt})...`);
-      const wait = spawnSync("xcrun", ["notarytool", "wait", submissionId, ...baseArgs], { stdio: "inherit", timeout: 900000 });
+      const remainingMin = Math.max(0, Math.ceil((deadline - Date.now()) / 60000));
+      console.log(
+        `[electron-after-sign] notarytool wait (attempt ${attempt}, ~${remainingMin} min budget left)...`,
+      );
+      // Cap each wait slice so we can re-check status and recover from flaky network.
+      const wait = spawnSync(
+        "xcrun",
+        [
+          "notarytool",
+          "wait",
+          submissionId,
+          ...baseArgs,
+          "--timeout",
+          `${NOTARY_WAIT_SLICE_SEC}s`,
+        ],
+        {
+          stdio: "inherit",
+          // Node kill slightly after notarytool's own timeout.
+          timeout: (NOTARY_WAIT_SLICE_SEC + 60) * 1000,
+        },
+      );
 
       if (wait.status === 0) {
         accepted = true;
@@ -141,7 +183,11 @@ async function afterSign(context) {
       // Non-zero exit can be a transient network error or a definitive
       // Invalid/Rejected. Ask notarytool for the current status to decide.
       let status = null;
-      const info = spawnSync("xcrun", ["notarytool", "info", submissionId, ...baseArgs, "--output-format", "json"], { encoding: "utf8" });
+      const info = spawnSync(
+        "xcrun",
+        ["notarytool", "info", submissionId, ...baseArgs, "--output-format", "json"],
+        { encoding: "utf8", timeout: 120000 },
+      );
       try {
         status = JSON.parse(info.stdout || "{}").status || null;
       } catch {
@@ -158,13 +204,32 @@ async function afterSign(context) {
         throw new Error(`Apple notarization was ${status} (submission ${submissionId})`);
       }
 
-      console.warn(`[electron-after-sign] wait attempt ${attempt} failed (status=${status || "unknown"}); retrying...`);
+      const networkLike =
+        status == null
+        || (wait.error && (wait.error.code === "ETIMEDOUT" || wait.error.code === "ECONNRESET"));
+      if (networkLike) {
+        networkStreak += 1;
+        const backoff = Math.min(NOTARY_NETWORK_BACKOFF_SEC * networkStreak, 120);
+        console.warn(
+          `[electron-after-sign] wait attempt ${attempt} failed (status=${status || "unknown"}, likely network); sleeping ${backoff}s before retry...`,
+        );
+        sleepSeconds(backoff);
+      } else {
+        networkStreak = 0;
+        console.warn(
+          `[electron-after-sign] wait attempt ${attempt} failed (status=${status || "unknown"}); retrying...`,
+        );
+      }
     }
 
     if (!accepted) {
-      console.error(`[electron-after-sign] notarization did not complete within 60 min; dumping log for ${submissionId}:`);
+      console.error(
+        `[electron-after-sign] notarization did not complete within ${waitBudgetMin} min; dumping log for ${submissionId}:`,
+      );
       spawnSync("xcrun", ["notarytool", "log", submissionId, ...baseArgs], { stdio: "inherit" });
-      throw new Error(`notarization did not complete within 60 min (submission ${submissionId})`);
+      throw new Error(
+        `notarization did not complete within ${waitBudgetMin} min (submission ${submissionId})`,
+      );
     }
 
     run("xcrun", ["stapler", "staple", appPath]);
