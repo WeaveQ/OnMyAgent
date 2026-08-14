@@ -236,6 +236,15 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
       .then(async (state) => {
         if (cancelled) return;
         dispatchEnvState({ type: "app-version", appVersion: state.currentVersion ?? null });
+        // Seed platformFlow early so Settings does not flash the open-browser
+        // fallback copy while still loading / checking (default was open-browser).
+        if (state.platformFlow === "in-app" || state.platformFlow === "open-browser") {
+          setUpdateStatus((current) => ({
+            state: current?.state ?? "idle",
+            ...current,
+            platformFlow: state.platformFlow,
+          }));
+        }
         const alphaOk =
           typeof (state as { alphaSupported?: boolean }).alphaSupported === "boolean"
             ? Boolean((state as { alphaSupported?: boolean }).alphaSupported)
@@ -441,7 +450,13 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
       return;
     }
 
-    setUpdateStatus({ state: "checking" });
+    setUpdateStatus((current) => ({
+      ...(current ?? {}),
+      state: "checking",
+      message: undefined,
+      // Keep known flow so "下一步" does not flip to GitHub-browser copy mid-check.
+      platformFlow: current?.platformFlow,
+    }));
     try {
       const result = await bridge.check("stable");
       dispatchEnvState({ type: "app-version", appVersion: result.currentVersion ?? null });
@@ -449,10 +464,11 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
         onReleaseChannelChange(result.channel);
       }
       if (result.reason === "unavailable") {
-        setUpdateStatus({
+        setUpdateStatus((current) => ({
           state: "idle",
           message: t("settings.auto_updates_packaged_only"),
-        });
+          platformFlow: result.platformFlow ?? current?.platformFlow,
+        }));
         return;
       }
 

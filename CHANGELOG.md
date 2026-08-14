@@ -10,6 +10,15 @@ This project follows a lightweight changelog format during early development. Re
 
 ### Changed
 
+## 0.5.4
+
+### Fixed
+
+- Settings → Updates no longer shows the GitHub browser-download copy while checking on packaged macOS/Windows (in-app electron-updater path).
+- Release packaging no longer rebuilds a non-notarized macOS DMG/ZIP after a successful notarize+staple.
+
+### Changed
+
 - Desktop updates: cold start always checks once; a found version downloads only after the user clicks the notice or **Download update**. Checks no longer start a background download on their own.
 - Windows: spawn Claude/Codex/Hermes/OpenClaw and editor detection via cmd shims; orchestrator accepts `C:\` binaries and searches LocalAppData OpenCode; artifact skills fall back to copy when junctions fail.
 - Windows desktop: hide the system caption and paint a WeChat-style titlebar layer; app chrome starts below native min/max/close.
