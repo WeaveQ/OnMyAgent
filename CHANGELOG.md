@@ -17,6 +17,12 @@ This project follows a lightweight changelog format during early development. Re
 
 ### License / community
 
+## 0.5.3
+
+### Changed
+
+- macOS desktop releases sign with `Developer ID Application: li yingkun (WP5S7KB7R7)` and honor `Release App` `notarize: true`.
+
 ## 0.5.2
 
 ### Changed
