@@ -991,6 +991,44 @@ export function workspaceIdForLocal(path: string): string {
   return `ws-${createHash("sha1").update(path).digest("hex").slice(0, 12)}`;
 }
 
+/**
+ * Must match `workspaceIdForPath` in apps/server/src/workspace/workspaces.ts.
+ * Sandbox OpenCode is proxied at `/workspace/<this-id>/opencode`.
+ */
+export function onmyagentServerWorkspaceIdForPath(path: string): string {
+  const hash = createHash("sha256").update(path).digest("hex");
+  return `ws_${hash.slice(0, 12)}`;
+}
+
+export function onmyagentOpencodeProxyBaseUrl(
+  onmyagentBaseUrl: string,
+  workspacePath: string,
+): string {
+  const workspaceId = onmyagentServerWorkspaceIdForPath(workspacePath);
+  return `${onmyagentBaseUrl.replace(/\/$/, "")}/workspace/${encodeURIComponent(workspaceId)}/opencode`;
+}
+
+/** After the server is up, prefer the live workspace id over hashing a path. */
+export async function resolveOnmyagentOpencodeProxyBaseUrl(input: {
+  onmyagentBaseUrl: string;
+  onmyagentToken: string;
+  fallbackWorkspacePath: string;
+}): Promise<string> {
+  const baseUrl = input.onmyagentBaseUrl.replace(/\/$/, "");
+  try {
+    const workspaces = await fetchJson(`${baseUrl}/workspaces`, {
+      headers: { Authorization: `Bearer ${input.onmyagentToken}` },
+    });
+    const workspaceId = String(workspaces?.items?.[0]?.id ?? "").trim();
+    if (workspaceId) {
+      return `${baseUrl}/workspace/${encodeURIComponent(workspaceId)}/opencode`;
+    }
+  } catch {
+    // Fall back to the path the sandbox server actually registered.
+  }
+  return onmyagentOpencodeProxyBaseUrl(baseUrl, input.fallbackWorkspacePath);
+}
+
 export function workspaceIdForRemote(
   baseUrl: string,
   directory?: string | null,
@@ -1334,11 +1372,14 @@ export async function runSandboxChecks(input: {
 
   // 5. Proxy is reachable (even if auth is rejected — non-5xx proves the
   //    server is proxying to a running opencode)
-  const proxyRes = await fetch(`${baseUrl}/opencode/health`, {
-    headers,
-    signal: AbortSignal.timeout(3000),
-  });
-  if (proxyRes.status >= 500) {
+  const proxyRes = await fetch(
+    `${baseUrl}/workspace/${encodeURIComponent(workspaceId)}/opencode/health`,
+    {
+      headers,
+      signal: AbortSignal.timeout(3000),
+    },
+  );
+  if (proxyRes.status === 404 || proxyRes.status >= 500) {
     throw new Error(`opencode proxy returned ${proxyRes.status}`);
   }
 

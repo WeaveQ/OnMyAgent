@@ -47,6 +47,17 @@ export function parseWorkspaceOpencodeMount(
   return { workspaceId: decodeURIComponent(workspaceId), restPath };
 }
 
+/** True for the retired `/w/:id/opencode` and unscoped `/opencode` mounts. */
+export function isLegacyOpencodeProxyPath(pathname: string): boolean {
+  const path = (pathname ?? "").trim() || "/";
+  if (path === "/opencode" || path.startsWith("/opencode/")) return true;
+  const mount = parseWorkspaceMount(path);
+  return Boolean(
+    mount &&
+    (mount.restPath === "/opencode" || mount.restPath.startsWith("/opencode/")),
+  );
+}
+
 export function normalizeOpencodeProxyPath(proxyPath: string): string {
   const raw = (proxyPath ?? "").trim() || "/";
   const withoutPrefix = raw.startsWith("/opencode")

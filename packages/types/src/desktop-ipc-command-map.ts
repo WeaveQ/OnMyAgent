@@ -279,17 +279,9 @@ type TypedDesktopCommandMap = {
     [{ workspaceId?: string; root: string }],
     WorkspaceList
   >;
-  workspaceOpenworkRead: DesktopCommandContract<
-    [string?],
-    WorkspaceOnMyAgentConfig | null
-  >;
   workspaceOnMyAgentRead: DesktopCommandContract<
     [string?],
     WorkspaceOnMyAgentConfig | null
-  >;
-  workspaceOpenworkWrite: DesktopCommandContract<
-    [WorkspaceOnMyAgentConfig, string?],
-    WorkspaceOnMyAgentConfig
   >;
   workspaceOnMyAgentWrite: DesktopCommandContract<
     [WorkspaceOnMyAgentConfig, string?],
@@ -1256,17 +1248,11 @@ type TypedDesktopCommandMap = {
     OrchestratorWorkspaceActivateResult
   >;
   orchestratorInstanceDispose: DesktopCommandContract<[string], boolean>;
-  getOpenworkUiMcpCommand: DesktopCommandContract<[], string[]>;
   getOnMyAgentUiMcpCommand: DesktopCommandContract<[], string[]>;
-  getOpenworkUiMcpEnvironment: DesktopCommandContract<
-    [],
-    Record<string, string>
-  >;
   getOnMyAgentUiMcpEnvironment: DesktopCommandContract<
     [],
     Record<string, string>
   >;
-  nukeOpenworkAndOpencodeConfigAndExit: DesktopCommandContract<[], void>;
   nukeOnMyAgentAndOpencodeConfigAndExit: DesktopCommandContract<[], void>;
   orchestratorStartDetached: DesktopCommandContract<
     [Record<string, unknown>?],
@@ -1274,10 +1260,6 @@ type TypedDesktopCommandMap = {
   >;
   sandboxDoctor: DesktopCommandContract<[], SandboxDoctorResult>;
   sandboxStop: DesktopCommandContract<[string?], SandboxStopResult>;
-  sandboxCleanupOpenworkContainers: DesktopCommandContract<
-    [],
-    OnMyAgentDockerCleanupResult
-  >;
   sandboxCleanupOnMyAgentContainers: DesktopCommandContract<
     [],
     OnMyAgentDockerCleanupResult
@@ -1285,11 +1267,6 @@ type TypedDesktopCommandMap = {
   sandboxDebugProbe: DesktopCommandContract<[], SandboxDebugProbeResult>;
   onmyagentServerInfo: DesktopCommandContract<[], OnMyAgentServerInfo>;
   onmyagentServerRestart: DesktopCommandContract<[], OnMyAgentServerInfo>;
-  /** @deprecated alias — same as resetOnMyAgentState */
-  resetOpenworkState: DesktopCommandContract<
-    [("onboarding" | "all")?],
-    CacheResetResult
-  >;
   /**
    * Reset OnMyAgent local product data then UI relaunches.
    * - onboarding: workspace list + desktop bootstrap only

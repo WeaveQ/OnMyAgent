@@ -143,7 +143,10 @@ import {
   verifyOpenCodeRouterVersion,
   verifyOpencodeVersion,
   workspaceIdForLocal,
+  onmyagentOpencodeProxyBaseUrl,
+  resolveOnmyagentOpencodeProxyBaseUrl,
 } from "../cli-shared.js";
+import { SANDBOX_WORKSPACE_DIR } from "../sandbox-constants.js";
 import { assertSandboxBinaryFile, resolveOnMyAgentServerBin, resolveOpenCodeRouterBin, resolveOpencodeBin } from "../cli-binary-resolve.js";
 
 export async function runStart(args: ParsedArgs) {
@@ -556,11 +559,11 @@ export async function runStart(args: ParsedArgs) {
 
   const opencodeBaseUrl =
     sandboxMode !== "none"
-      ? `${onmyagentBaseUrl}/opencode`
+      ? onmyagentOpencodeProxyBaseUrl(onmyagentBaseUrl, SANDBOX_WORKSPACE_DIR)
       : `http://127.0.0.1:${opencodePort}`;
   const opencodeConnectUrl =
     sandboxMode !== "none"
-      ? `${onmyagentConnectUrl.replace(/\/$/, "")}/opencode`
+      ? onmyagentOpencodeProxyBaseUrl(onmyagentConnectUrl, SANDBOX_WORKSPACE_DIR)
       : opencodeBaseUrl;
 
   const attachCommand =
@@ -1427,28 +1430,29 @@ export async function runStart(args: ParsedArgs) {
       logger.info("Healthy", { url: onmyagentBaseUrl }, "onmyagent-server");
       tui?.updateService("onmyagent-server", { status: "healthy" });
 
+      const opencodeProxyBaseUrl = await resolveOnmyagentOpencodeProxyBaseUrl({
+        onmyagentBaseUrl,
+        onmyagentToken,
+        fallbackWorkspacePath: SANDBOX_WORKSPACE_DIR,
+      });
       opencodeClient = createOpencodeClient({
-        baseUrl: `${onmyagentBaseUrl.replace(/\/$/, "")}/opencode`,
+        baseUrl: opencodeProxyBaseUrl,
         headers: { Authorization: `Bearer ${onmyagentToken}` },
       });
 
-      // In sandbox mode, the released onmyagent-server binary may not have our
-      // latest proxy/auth changes yet.  Instead of using the OpenCode SDK client
-      // (which relies on the proxy handling Bearer tokens), do a direct health
-      // check against the onmyagent-server's own /opencode proxy path.  If the
-      // server is healthy *and* is proxying to a healthy opencode, we're good.
+      // Sandbox OpenCode is reached only through the workspace-scoped proxy.
       logger.info(
         "Waiting for health (proxy)",
-        { url: `${onmyagentBaseUrl}/opencode` },
+        { url: opencodeProxyBaseUrl },
         "opencode",
       );
       await waitForHealthyViaProxy(
-        `${onmyagentBaseUrl.replace(/\/$/, "")}/opencode`,
+        opencodeProxyBaseUrl,
         onmyagentToken,
       );
       logger.info(
         "Healthy (proxy)",
-        { url: `${onmyagentBaseUrl}/opencode` },
+        { url: opencodeProxyBaseUrl },
         "opencode",
       );
       tui?.updateService("opencode", { status: "healthy" });

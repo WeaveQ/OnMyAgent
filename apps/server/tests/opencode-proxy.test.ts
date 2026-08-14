@@ -6,7 +6,9 @@ import type { ServerConfig, WorkspaceInfo } from "@onmyagent/types/server";
 
 import {
   isExpertPromptProxyRequest,
+  isLegacyOpencodeProxyPath,
   parseExpertPromptProxyPath,
+  parseWorkspaceOpencodeMount,
   proxyOpencodeRequest,
 } from "../src/services/opencode-proxy.js";
 import {
@@ -30,6 +32,19 @@ afterEach(async () => {
   await rm(root, { recursive: true, force: true });
   delete process.env.ONMYAGENT_EXPERT_SESSION_RUNTIME_ROOT;
   resetExpertLifecycleEventsForTest();
+});
+
+describe("OpenCode proxy mounts", () => {
+  test("only /workspace/:id/opencode is canonical; /w and unscoped /opencode are legacy", () => {
+    expect(parseWorkspaceOpencodeMount("/workspace/ws_1/opencode/session")).toEqual({
+      workspaceId: "ws_1",
+      restPath: "/opencode/session",
+    });
+    expect(isLegacyOpencodeProxyPath("/opencode/session")).toBe(true);
+    expect(isLegacyOpencodeProxyPath("/w/ws_1/opencode/session")).toBe(true);
+    expect(isLegacyOpencodeProxyPath("/workspace/ws_1/opencode/session")).toBe(false);
+    expect(isLegacyOpencodeProxyPath("/w/ws_1/health")).toBe(false);
+  });
 });
 
 describe("OpenCode Expert prompt proxy contract", () => {

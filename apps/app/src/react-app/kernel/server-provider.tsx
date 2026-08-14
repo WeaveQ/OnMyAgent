@@ -76,11 +76,41 @@ function readOnMyAgentToken(): string {
   }
 }
 
+async function resolveWebOpencodeProxyUrl(origin: string): Promise<string> {
+  const base = origin.replace(/\/+$/, "");
+  const token = readOnMyAgentToken();
+  try {
+    const response = await fetch(`${base}/workspaces`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) return base;
+    const body = (await response.json()) as {
+      items?: Array<{ id?: string }>;
+    };
+    const workspaceId = body.items?.[0]?.id?.trim();
+    if (!workspaceId) return base;
+    return `${base}/workspace/${encodeURIComponent(workspaceId)}/opencode`;
+  } catch {
+    return base;
+  }
+}
+
 async function checkHealth(url: string): Promise<boolean> {
   if (!url) return false;
+  if (!url.includes("/opencode")) {
+    try {
+      const response = await fetch(`${url.replace(/\/+$/, "")}/health`, {
+        signal: AbortSignal.timeout(3000),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
   const token = readOnMyAgentToken();
   const headers =
-    token && url.includes("/opencode") ? { Authorization: `Bearer ${token}` } : undefined;
+    token ? { Authorization: `Bearer ${token}` } : undefined;
   const client = createOpencodeClient({
     baseUrl: url,
     headers,
@@ -118,8 +148,12 @@ export function ServerProvider({ children, defaultUrl }: ServerProviderProps) {
           import.meta.env.VITE_ONMYAGENT_URL.trim().length > 0));
 
     if (forceProxy && fallback) {
-      dispatchServer({ type: "ready", list: [fallback], active: fallback });
       readyRef.current = true;
+      dispatchServer({ type: "ready", list: [fallback], active: fallback });
+      void resolveWebOpencodeProxyUrl(fallback).then((url) => {
+        if (url === fallback) return;
+        dispatchServer({ type: "ready", list: [url], active: url });
+      });
       return;
     }
 

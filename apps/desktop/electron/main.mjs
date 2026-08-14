@@ -1544,9 +1544,7 @@ async function dispatchDesktopCommand(event, command, ...args) {
 const handleDesktopInvoke = createDesktopCommandRouter(dispatchDesktopCommand);
 
 const DESKTOP_IPC_CHANNEL = "onmyagent:desktop";
-const LEGACY_DESKTOP_IPC_CHANNEL = "open" + "work:desktop";
 ipcMain.handle(DESKTOP_IPC_CHANNEL, handleDesktopInvoke);
-ipcMain.handle(LEGACY_DESKTOP_IPC_CHANNEL, handleDesktopInvoke);
 ipcMain.handle("quick-capture:get-context", async () => quickCaptureContext);
 ipcMain.handle("quick-capture:submit", async (_event, payload) =>
   quickCapture.submit(payload ?? {}),
