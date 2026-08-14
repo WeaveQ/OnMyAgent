@@ -68,12 +68,21 @@ const autoBuildEnabled =
     ? true
     : readBool(process.env.ONMYAGENT_DEV_HEADLESS_WEB_AUTOBUILD);
 
+const resolvePnpmCommand = () =>
+  process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+
+const windowsCmdShell =
+  process.platform === "win32"
+    ? { shell: true as const }
+    : {};
+
 const runCommand = (command: string, args: string[]) =>
   new Promise<void>((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
       env: process.env,
       stdio: silent ? "ignore" : "inherit",
+      ...windowsCmdShell,
     });
     child.on("error", reject);
     child.on("exit", (code) => {
@@ -100,6 +109,7 @@ const spawnLogged = (
     cwd,
     env,
     stdio: ["ignore", logFd, logFd],
+    ...windowsCmdShell,
   });
 };
 
@@ -158,7 +168,7 @@ const ensureOpenworkServer = async () => {
       "[dev:headless-web] Auto-building: pnpm --filter onmyagent-server build:bin",
     );
     try {
-      await runCommand("pnpm", ["--filter", "onmyagent-server", "build:bin"]);
+      await runCommand(resolvePnpmCommand(), ["--filter", "onmyagent-server", "build:bin"]);
       await access(onmyagentServerBin);
     } catch (error) {
       logLine(
@@ -219,7 +229,7 @@ logLine(
 );
 
 const webProcess = spawnLogged(
-  "pnpm",
+  resolvePnpmCommand(),
   [
     "--filter",
     "@onmyagent/app",
@@ -236,7 +246,7 @@ const webProcess = spawnLogged(
 );
 
 const headlessProcess = spawnLogged(
-  "pnpm",
+  resolvePnpmCommand(),
   [
     "--filter",
     "onmyagent-orchestrator",

@@ -319,15 +319,20 @@ export async function resolveBundledBinary(
   }
   return null;
 }
+export function isPathLikeBinary(bin: string): boolean {
+  const value = String(bin ?? "").trim();
+  if (!value) return false;
+  if (value.includes("/") || value.startsWith(".")) return true;
+  if (/^[A-Za-z]:[\\/]/.test(value)) return true;
+  if (value.startsWith("\\\\")) return true;
+  return false;
+}
+
 export function resolveBinPath(bin: string): string {
-  if (bin.includes("/") || bin.startsWith(".")) {
+  if (isPathLikeBinary(bin)) {
     return resolve(process.cwd(), bin);
   }
   return bin;
-}
-
-export function isPathLikeBinary(bin: string): boolean {
-  return bin.includes("/") || bin.startsWith(".");
 }
 
 export async function assertSandboxBinaryFile(
@@ -384,8 +389,7 @@ export async function resolveOnMyAgentServerBin(options: {
     if (options.explicit) {
       const resolved = resolveBinPath(options.explicit);
       if (
-        (resolved.includes("/") || resolved.startsWith(".")) &&
-        !(await fileExists(resolved))
+        isPathLikeBinary(resolved) && !(await fileExists(resolved))
       ) {
         throw new Error(`onmyagent-server-bin not found: ${resolved}`);
       }
@@ -497,8 +501,7 @@ export async function resolveOpencodeBin(options: {
     if (options.explicit) {
       const resolved = resolveBinPath(options.explicit);
       if (
-        (resolved.includes("/") || resolved.startsWith(".")) &&
-        !(await fileExists(resolved))
+        isPathLikeBinary(resolved) && !(await fileExists(resolved))
       ) {
         throw new Error(`opencode-bin not found: ${resolved}`);
       }
@@ -609,8 +612,7 @@ export async function resolveOpenCodeRouterBin(options: {
     if (options.explicit) {
       const resolved = resolveBinPath(options.explicit);
       if (
-        (resolved.includes("/") || resolved.startsWith(".")) &&
-        !(await fileExists(resolved))
+        isPathLikeBinary(resolved) && !(await fileExists(resolved))
       ) {
         throw new Error(`opencode-router-bin not found: ${resolved}`);
       }

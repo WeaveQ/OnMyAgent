@@ -90,9 +90,10 @@ jobs:
             fi
           fi
           mapfile -t files < <(git diff --name-only "$BASE" "${{ github.sha }}" || git diff --name-only "$BASE" HEAD)
-          # Phase A: desktop/orchestrator + session-archive / workspace roots / desktop bridge
-          # (paths that commonly regress on win32). Avoid whole apps/app/** to keep cost down.
-          pattern='^(apps/desktop/|apps/orchestrator/|apps/server/src/services/session-archive|apps/server/src/services/env-file\.ts|apps/server/tests/session-archive|apps/app/src/react-app/domains/workspace/|apps/app/src/react-app/domains/session/chat/session-archive|apps/app/src/app/lib/desktop\.ts|scripts/dev/windows|scripts/lib/run-command\.mjs|package\.json|pnpm-lock\.yaml|constants\.json|\.github/workflows/ci-tests\.yml|docs/windows-compat\.md)'
+          # Only real Windows-host regressions. Do NOT use whole apps/desktop/ —
+          # marketplace avatars / bundled-skills would queue windows-2022 for
+          # ~10min on every content PR. Force with label `ci:windows`.
+          pattern='^(apps/desktop/electron/|apps/desktop/scripts/|apps/desktop/build/|apps/desktop/package\.json|apps/desktop/electron-builder\.yml|apps/orchestrator/src/|apps/orchestrator/tests/|apps/orchestrator/scripts/|apps/orchestrator/package\.json|apps/server/src/services/session-archive|apps/server/src/services/env-file\.ts|apps/server/tests/session-archive|apps/app/src/react-app/domains/workspace/|apps/app/src/react-app/domains/session/chat/session-archive|apps/app/src/react-app/domains/local-agents/|apps/app/src/app/lib/desktop\.ts|scripts/dev/windows|scripts/dev/headless-web\.ts|scripts/dev/ensure-electron-dist\.mjs|scripts/lib/run-command\.mjs|package\.json|pnpm-lock\.yaml|constants\.json|\.github/workflows/ci-tests\.yml|docs/windows-compat\.md)'
           # Avoid `printf | head` / `grep -q` under pipefail: early consumer close
           # yields SIGPIPE and fails the job on large merges.
           matched=false
