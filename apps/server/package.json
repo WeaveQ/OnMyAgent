@@ -52,7 +52,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@opencode-ai/sdk": "1.17.20",
+    "@opencode-ai/sdk": "1.18.16",
     "@onmyagent/types": "workspace:*",
     "better-sqlite3": "^11.10.0",
     "jsonc-parser": "^3.2.1",
