@@ -67,6 +67,9 @@ export function useExpertConversationTabs(input: {
       <AgentSessionTabs
         client={props.onmyagentServerClient}
         workspaceId={props.selectedWorkspaceId}
+        snapshotWorkspaceId={
+          props.runtimeWorkspaceId ?? props.selectedWorkspaceId
+        }
         selectedSessionId={input.surfaceMode.sessionId}
         sessions={input.currentAgentSessions}
         orderIds={input.sessionTabOrderIds}
@@ -104,6 +107,7 @@ export function useExpertConversationTabs(input: {
     input.setPendingTabSessionId,
     input.surfaceMode.sessionId,
     props.onmyagentServerClient,
+    props.runtimeWorkspaceId,
     props.selectedWorkspaceId,
     props.sidebar.onPrefetchSession,
     props.sidebar.sessionStatusById,

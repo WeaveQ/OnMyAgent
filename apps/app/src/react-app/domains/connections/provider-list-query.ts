@@ -213,6 +213,14 @@ export function ensureProviderListQuery(
   });
 }
 
+/** Session-route cold enter must not fetch the full catalog until the picker opens. */
+export function sessionRouteProviderListEnabled(input: {
+  hasClient: boolean;
+  pickerOpen: boolean;
+}): boolean {
+  return Boolean(input.hasClient) && input.pickerOpen;
+}
+
 export function useProviderListQuery(input: {
   client: Client | null;
   baseUrl?: string | null;

@@ -69,7 +69,10 @@ import {
 } from "../../capabilities/session-identity/expert-prompt-agent";
 import { useExpertDirectoryStore } from "../../capabilities/session-identity/expert-directory-store";
 import { useSessionActivityStore } from "../../domains/session";
-import { useExpertPackageQuery } from "../../domains/agents";
+import {
+  expertPackageMarketplacesForEnter,
+  useExpertPackageQuery,
+} from "../../domains/agents";
 import {
   buildOnMyAgentEnvSystemContext,
   applyAutoCaptureMemory,
@@ -298,7 +301,10 @@ export function useSessionRouteSurfaceProps(
   const expertSessionIdentity = useExpertDirectoryStore((state) =>
     state.getIdentity(selectedWorkspaceId),
   );
-  const expertPackageQuery = useExpertPackageQuery(pageMode === "expert");
+  const expertPackageQuery = useExpertPackageQuery(
+    pageMode === "expert",
+    expertPackageMarketplacesForEnter("expert-page"),
+  );
   const activeExpertAgentId =
     (selectedSessionId
       ? expertSessionIdentity.agentIdBySessionId.get(selectedSessionId)

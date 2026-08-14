@@ -10,7 +10,11 @@ import { t } from "@/i18n";
 import { ProviderIcon } from "@/react-app/design-system/provider-icon";
 import { useCheckDesktopRestriction } from "@/react-app/domains/shared";
 import { isProviderModelFree } from "@/app/utils/providers";
-import { getConnectedProviderItems, useProviderListQuery } from "@/react-app/domains/connections";
+import {
+  getConnectedProviderItems,
+  sessionRouteProviderListEnabled,
+  useProviderListQuery,
+} from "@/react-app/domains/connections";
 import { readHiddenModels } from "./hidden-models-store";
 import { openModelPickerEvent, useWorkspace } from "@/react-app/shell";
 
@@ -54,7 +58,10 @@ function useModelOptions(open: boolean): ModelOption[] {
     client,
     baseUrl: opencodeBaseUrl,
     directory: selectedWorkspaceRoot,
-    enabled: Boolean(client),
+    enabled: sessionRouteProviderListEnabled({
+      hasClient: Boolean(client),
+      pickerOpen: open,
+    }),
   });
 
   React.useEffect(() => {

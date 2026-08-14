@@ -38,6 +38,7 @@ import {
 import { getReactQueryClient } from "../../infra/query-client";
 import {
   ensureProviderListQuery,
+  sessionRouteProviderListEnabled,
 } from "../../domains/connections";
 import { seedSessionState } from "../../domains/session";
 import { useStatusToasts } from "../../domains/shell-feedback";
@@ -199,6 +200,15 @@ export function useSessionRouteModelCatalog(input: Input) {
     };
 
     void (async () => {
+      if (
+        !sessionRouteProviderListEnabled({
+          hasClient: true,
+          pickerOpen: modelPickerOpen || compactModelPickerOpen,
+        })
+      ) {
+        return;
+      }
+
       let disabledProviders: string[] = [];
       try {
         const config = unwrap(
@@ -237,8 +247,10 @@ export function useSessionRouteModelCatalog(input: Input) {
       cancelled = true;
     };
   }, [
+    compactModelPickerOpen,
     denSessionVersion,
     engineReloadVersion,
+    modelPickerOpen,
     opencodeBaseUrl,
     opencodeClient,
     sessionWorkspaceRoot,

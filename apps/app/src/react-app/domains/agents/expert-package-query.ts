@@ -8,25 +8,40 @@ import { getReactQueryClient } from "../../infra/query-client";
 
 export const EXPERT_PACKAGE_QUERY_KEY = ["expert-packages", "local"] as const;
 
-async function fetchExpertPackageEntries(): Promise<ExpertPackageListEntry[]> {
-  const [installedEntries, mineEntries] = await Promise.all([
-    listExpertPackages("experts"),
-    listExpertPackages("my-experts"),
-  ]);
+export type ExpertPackageMarketplace = "experts" | "my-experts";
+
+/** Chat/store "my experts" only lists mine. Combined catalog is expert-page metadata. */
+export function expertPackageMarketplacesForEnter(
+  surface: "chat" | "store" | "expert-page",
+): readonly ExpertPackageMarketplace[] {
+  if (surface === "expert-page") return ["experts", "my-experts"];
+  return ["my-experts"];
+}
+
+export async function fetchExpertPackageEntries(
+  marketplaces: readonly ExpertPackageMarketplace[] = ["experts", "my-experts"],
+  listPackages: (
+    marketplace: ExpertPackageMarketplace,
+  ) => Promise<ExpertPackageListEntry[]> = listExpertPackages,
+): Promise<ExpertPackageListEntry[]> {
+  if (marketplaces.length === 0) return [];
+  const lists = await Promise.all(
+    marketplaces.map((marketplace) => listPackages(marketplace)),
+  );
   const entriesByPackageName = new Map(
-    [...installedEntries, ...mineEntries].map((entry) => [
-      entry.packageName,
-      entry,
-    ]),
+    lists.flat().map((entry) => [entry.packageName, entry]),
   );
   return [...entriesByPackageName.values()];
 }
 
 /** Read the shared package catalog; no window event or Directory revision needed. */
-export function useExpertPackageQuery(enabled = true) {
+export function useExpertPackageQuery(
+  enabled = true,
+  marketplaces: readonly ExpertPackageMarketplace[] = ["experts", "my-experts"],
+) {
   return useQuery<ExpertPackageListEntry[], Error>({
-    queryKey: EXPERT_PACKAGE_QUERY_KEY,
-    queryFn: fetchExpertPackageEntries,
+    queryKey: [...EXPERT_PACKAGE_QUERY_KEY, ...marketplaces],
+    queryFn: () => fetchExpertPackageEntries(marketplaces),
     enabled: enabled && isElectronRuntime(),
     staleTime: 30_000,
   });

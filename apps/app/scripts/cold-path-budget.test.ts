@@ -4,6 +4,7 @@ import path from "node:path";
 
 import {
   COLD_PATH_BUDGET,
+  beginSessionRouteColdEnter,
   getColdPathCounters,
   isColdPathWithinBudget,
   isSyncPrewarmAllowedOnColdEnter,
@@ -11,6 +12,7 @@ import {
   recordColdPathEvent,
   resetColdPathCounters,
   shouldPrefetchSessionSnapshotOnColdPath,
+  tryRecordColdTitleSnapshot,
 } from "../src/react-app/shell/session-route/cold-path-budget";
 import {
   SESSION_PREWARM_FALLBACK_DELAY_MS,
@@ -121,5 +123,47 @@ describe("cold-path budget (shipped helpers)", () => {
       }),
     ).toBe(true);
     expect(getColdPathCounters().titleSnapshot).toBe(0);
+  });
+
+  test("empty selected chip never records a title snapshot; non-empty selected may", () => {
+    expect(
+      tryRecordColdTitleSnapshot({
+        isSelectedSession: true,
+        titleEmpty: true,
+        alreadySnapshotted: false,
+      }),
+    ).toBe(false);
+    expect(getColdPathCounters().titleSnapshot).toBe(0);
+
+    expect(
+      tryRecordColdTitleSnapshot({
+        isSelectedSession: true,
+        titleEmpty: false,
+        alreadySnapshotted: false,
+      }),
+    ).toBe(true);
+    expect(getColdPathCounters().titleSnapshot).toBe(1);
+    expect(isColdPathWithinBudget()).toBe(false);
+  });
+
+  test("beginSessionRouteColdEnter resets counters once per enter key", () => {
+    beginSessionRouteColdEnter("ws-a|ws-b");
+    recordColdPathEvent("listSessions");
+    expect(getColdPathCounters().listSessions).toBe(1);
+
+    beginSessionRouteColdEnter("ws-a|ws-b");
+    expect(getColdPathCounters().listSessions).toBe(1);
+
+    beginSessionRouteColdEnter("ws-c");
+    expect(getColdPathCounters().listSessions).toBe(0);
+    expect(getColdPathCounters().titleSnapshot).toBe(0);
+  });
+
+  test("session loader resets cold-enter counters on background load", () => {
+    const loader = readFileSync(
+      path.join(appRoot, "src/react-app/shell/session-route/session-loader-hook.ts"),
+      "utf8",
+    );
+    expect(loader).toContain("beginSessionRouteColdEnter");
   });
 });

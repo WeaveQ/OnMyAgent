@@ -54,6 +54,7 @@ import {
   mergeWorkspaceFetchedSessions,
   type PendingCreatedSessionMap,
 } from "./sessions";
+import { beginSessionRouteColdEnter } from "./cold-path-budget";
 
 type EndpointForWorkspace = (
   workspace: RouteWorkspace | null | undefined,
@@ -127,6 +128,9 @@ export function useSessionRouteSessionLoader(input: Input) {
 
   const loadWorkspaceSessionsInBackground = useCallback(
     async (workspaces: RouteWorkspace[]) => {
+      beginSessionRouteColdEnter(
+        workspaces.map((workspace) => workspace.id).sort().join("|"),
+      );
       const activeWorkspaceIds = new Set(workspaces.map((workspace) => workspace.id));
       for (const workspaceId of backgroundSessionLoadInFlight.current.keys()) {
         if (!activeWorkspaceIds.has(workspaceId)) {

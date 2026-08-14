@@ -35,7 +35,18 @@ let counters: Counters = {
   syncPrewarm: 0,
 };
 
+let lastColdEnterKey = "";
+
 export function resetColdPathCounters(): void {
+  counters = { listSessions: 0, titleSnapshot: 0, syncPrewarm: 0 };
+  lastColdEnterKey = "";
+}
+
+/** Reset counters once per workspace/mode enter so later listSessions refreshes are not extra cold enters. */
+export function beginSessionRouteColdEnter(enterKey: string): void {
+  const key = enterKey.trim();
+  if (!key || key === lastColdEnterKey) return;
+  lastColdEnterKey = key;
   counters = { listSessions: 0, titleSnapshot: 0, syncPrewarm: 0 };
 }
 

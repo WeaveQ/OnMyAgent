@@ -1,7 +1,19 @@
 import { describe, expect, test } from "bun:test";
 import type { ExpertDirectoryProjection } from "@onmyagent/types/server";
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { buildExpertDirectoryPageModel } from "../src/react-app/capabilities/session-identity/expert-directory-page-model";
+import {
+  expertDirectoryQuerySnapshotForPaint,
+  scheduleAfterFirstPaint,
+  shouldEnableExpertDirectoryNetwork,
+} from "../src/react-app/capabilities/session-identity/expert-directory-query";
+import {
+  expertPackageMarketplacesForEnter,
+  fetchExpertPackageEntries,
+} from "../src/react-app/domains/agents/expert-package-query";
 import {
   buildExpertPageIdentityModel,
   collectExpertMissingSkills,
@@ -178,5 +190,104 @@ describe("stale lastComplete is not live ready identity", () => {
     });
     expect(identity.expertDirectoryReady).toBe(true);
     expect(identity.expertDirectoryIdentity.sessionIds.has("session-a")).toBe(true);
+  });
+});
+
+describe("expert first-paint Directory + package listing", () => {
+  test("Directory network stays off until after first paint", () => {
+    expect(shouldEnableExpertDirectoryNetwork({ afterFirstPaint: false })).toBe(
+      false,
+    );
+    expect(shouldEnableExpertDirectoryNetwork({ afterFirstPaint: true })).toBe(
+      true,
+    );
+
+    let ran = false;
+    const queued: Array<() => void> = [];
+    const cancel = scheduleAfterFirstPaint(() => {
+      ran = true;
+    }, {
+      setTimeout: (handler) => {
+        queued.push(handler);
+        return 1;
+      },
+      clearTimeout: () => undefined,
+    });
+    expect(ran).toBe(false);
+    queued[0]?.();
+    expect(ran).toBe(true);
+    cancel();
+  });
+
+  test("deferred Directory snapshot does not paint as loading", () => {
+    const pending = expertDirectoryQuerySnapshotForPaint({
+      afterFirstPaint: false,
+      isPending: true,
+      isLoading: true,
+    });
+    expect(pending.networkEnabled).toBe(false);
+    expect(pending.isPending).toBe(false);
+    expect(pending.isLoading).toBe(false);
+    expect(buildExpertDirectoryPageModel({ query: pending }).state).toBe(
+      "incomplete",
+    );
+
+    const cached = directoryProjection({ revision: 3 });
+    const cachedPaint = expertDirectoryQuerySnapshotForPaint({
+      afterFirstPaint: false,
+      isPending: true,
+      isLoading: true,
+      lastComplete: cached,
+    });
+    const cachedPage = buildExpertDirectoryPageModel({ query: cachedPaint });
+    expect(cachedPage.state).toBe("ready");
+    expect(cachedPage.payload?.revision).toBe(3);
+
+    const live = expertDirectoryQuerySnapshotForPaint({
+      afterFirstPaint: true,
+      isPending: true,
+      isLoading: true,
+    });
+    expect(live.networkEnabled).toBe(true);
+    expect(buildExpertDirectoryPageModel({ query: live }).state).toBe("loading");
+  });
+
+  test("chat enter lists only my-experts; expert page lists both", async () => {
+    expect(expertPackageMarketplacesForEnter("chat")).toEqual(["my-experts"]);
+    expect(expertPackageMarketplacesForEnter("store")).toEqual(["my-experts"]);
+    expect(expertPackageMarketplacesForEnter("expert-page")).toEqual([
+      "experts",
+      "my-experts",
+    ]);
+
+    const seen: string[] = [];
+    await fetchExpertPackageEntries(
+      expertPackageMarketplacesForEnter("chat"),
+      async (marketplace) => {
+        seen.push(marketplace);
+        return [];
+      },
+    );
+    expect(seen).toEqual(["my-experts"]);
+
+    const identity = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/pages/use-expert-page-identity.ts",
+      ),
+      "utf8",
+    );
+    expect(identity).toContain("shouldEnableExpertDirectoryNetwork");
+    expect(identity).toContain("expertDirectoryQuerySnapshotForPaint");
+    expect(identity).toContain("scheduleAfterFirstPaint");
+
+    const chatPackages = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/pages/use-my-expert-packages.ts",
+      ),
+      "utf8",
+    );
+    expect(chatPackages).toContain('expertPackageMarketplacesForEnter("chat")');
   });
 });
