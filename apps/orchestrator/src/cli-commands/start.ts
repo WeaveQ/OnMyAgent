@@ -143,10 +143,9 @@ import {
   verifyOpenCodeRouterVersion,
   verifyOpencodeVersion,
   workspaceIdForLocal,
-  onmyagentOpencodeProxyBaseUrl,
-  resolveOnmyagentOpencodeProxyBaseUrl,
 } from "../cli-shared.js";
 import { SANDBOX_WORKSPACE_DIR } from "../sandbox-constants.js";
+import { onmyagentOpencodeProxyBaseUrl, resolveOnmyagentOpencodeProxyBaseUrl } from "../opencode-proxy-url.js";
 import { assertSandboxBinaryFile, resolveOnMyAgentServerBin, resolveOpenCodeRouterBin, resolveOpencodeBin } from "../cli-binary-resolve.js";
 
 export async function runStart(args: ParsedArgs) {

@@ -4,7 +4,8 @@ import { workspaceIdForPath } from "../../server/src/workspace/workspaces.ts";
 import {
   onmyagentOpencodeProxyBaseUrl,
   onmyagentServerWorkspaceIdForPath,
-} from "../src/cli-shared.ts";
+  resolveOnmyagentOpencodeProxyBaseUrl,
+} from "../src/opencode-proxy-url.ts";
 import { SANDBOX_WORKSPACE_DIR } from "../src/sandbox-constants.ts";
 
 describe("sandbox OpenCode proxy URL", () => {
@@ -28,5 +29,42 @@ describe("sandbox OpenCode proxy URL", () => {
     ).toBe(
       `http://127.0.0.1:8787/workspace/${workspaceIdForPath("/workspace")}/opencode`,
     );
+  });
+
+  test("prefers the live workspace id and falls back to the hashed path", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ items: [{ id: "ws_liveid12ab" }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })) as typeof fetch;
+    try {
+      await expect(
+        resolveOnmyagentOpencodeProxyBaseUrl({
+          onmyagentBaseUrl: "http://127.0.0.1:8787/",
+          onmyagentToken: "token",
+          fallbackWorkspacePath: SANDBOX_WORKSPACE_DIR,
+        }),
+      ).resolves.toBe("http://127.0.0.1:8787/workspace/ws_liveid12ab/opencode");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+
+    globalThis.fetch = (async () => {
+      throw new Error("offline");
+    }) as typeof fetch;
+    try {
+      await expect(
+        resolveOnmyagentOpencodeProxyBaseUrl({
+          onmyagentBaseUrl: "http://127.0.0.1:8787",
+          onmyagentToken: "token",
+          fallbackWorkspacePath: SANDBOX_WORKSPACE_DIR,
+        }),
+      ).resolves.toBe(
+        onmyagentOpencodeProxyBaseUrl("http://127.0.0.1:8787", SANDBOX_WORKSPACE_DIR),
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });
