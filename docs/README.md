@@ -10,7 +10,7 @@
 | **React SoT** | [`../apps/app/src/react-app/ARCHITECTURE.md`](../apps/app/src/react-app/ARCHITECTURE.md) | Domains, state ownership, shell cold start / prewarm |
 | **Topic SoT** | `design/*`, `windows-compat.md`, `officecli-oss-release.md`, … | Roadmap, files, config, memory, Windows, OfficeCLI CDN |
 | **Agent handbook** | [`../AGENTS.md`](../AGENTS.md) | Iron rules, verify matrix, path gates; **not** visual SoT |
-| **App agent handbook** | [`../apps/app/AGENTS.md`](../apps/app/AGENTS.md) | App verify entry + **Experts/Session invariants** |
+| **App agent handbook** | [`../apps/app/AGENTS.md`](../apps/app/AGENTS.md) | App verify entry (invariants live in Architecture Session/Expert) |
 | **Visual tokens** | [`../DESIGN.md`](../DESIGN.md) | Tokens / shapes / signature components; **not** session product behavior |
 | **Ship notes** | [`../CHANGELOG.md`](../CHANGELOG.md) | What shipped — **not** architecture changelog bullets |
 
@@ -18,8 +18,8 @@
 
 - **One SoT per topic.** Architecture / DESIGN / package AGENTS link out; do not re-copy long specs.
 - **AGENTS.md** = agent runbook (gates, path permissions, Phase-2 hard entry, verify entry). **Not** visual encyclopedia (→ DESIGN) and **not** dual-runtime deep dive (→ Architecture).
-- **DESIGN.md** = visual / component SoT only. **Not** session product behavior (→ `apps/app/AGENTS.md`).
-- **apps/app/AGENTS.md** experts/session **behavior** invariants ≠ Architecture expert **lifecycle/budget** tables — both apply; do not merge into one list.
+- **DESIGN.md** = visual / component SoT only. **Not** session product behavior (→ Architecture Session / Expert).
+- **apps/app/AGENTS.md** is a verify entry, not a second product SoT. Behavior + lifecycle/budget live in Architecture Session / Expert + React ARCHITECTURE.
 - Do not invent parallel `docs/expert-*.md` roots without linking from Architecture.
 
 ## Layout
@@ -62,7 +62,7 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | Architecture change | [`Architecture.md`](Architecture.md) |
 | React domain change | [`../apps/app/src/react-app/ARCHITECTURE.md`](../apps/app/src/react-app/ARCHITECTURE.md) |
 | UI / tokens / component shape | [`../DESIGN.md`](../DESIGN.md) |
-| Expert / session product behavior | [`../apps/app/AGENTS.md`](../apps/app/AGENTS.md) |
+| Expert / session product behavior | [`Architecture.md`](Architecture.md) Session / Expert |
 | Expert surface / tab / cold-open architecture | [`design/expert-surface-architecture.md`](design/expert-surface-architecture.md) |
 | Local packaging | [`../BUILD.md`](../BUILD.md) |
 | Release / tags | [`release.md`](release.md) |
@@ -84,11 +84,11 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | **Expert 会话面架构**（FSM / draft / tab / cold-open） | `design/expert-surface-architecture.md` |
 | Expert runtime isolation (agent / skills / HOME sandbox) | `design/expert-runtime-isolation.md` |
 | Expert lifecycle delete/create/select + cold-path **budgets** | `Architecture.md` Expert lifecycle hard rules + Cold-path budget |
-| Expert / session **product behavior** (busy shell, origin, draft, first-send) | `../apps/app/AGENTS.md` invariants + contract tests |
+| Expert / session **product behavior** (busy shell, origin, draft, first-send) | Architecture Session / Expert + `apps/app/scripts/expert-session-invariants.test.ts` |
 | Release notes (human) | root `CHANGELOG.md` + GitHub Releases; product handbook excerpt: `website/docs/changelog.md` |
 | Visual tokens / components | `../DESIGN.md` (only) |
 | Design philosophy only | `design/theme-system.md` |
-| Experts / session behavior invariants | `../apps/app/AGENTS.md` + `apps/app/scripts/expert-session-invariants.test.ts` |
+| Experts / session behavior invariants | Architecture Session / Expert + `apps/app/scripts/expert-session-invariants.test.ts` |
 | UI primitive refactor habits | `design/ui-primitive-refactor-best-practices.md` |
 | Files module (三来源) | `design/files-module-product-spec.md` |
 | **Phase 2 + B-side prep** | `design/2026-08-02-phase-2-enterprise-prep.md` |

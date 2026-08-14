@@ -212,7 +212,7 @@ Owns Expert **UI lifecycle** under `domains/session/pages/*expert*` + `sidebar/a
 - Do not open N title-snapshot queries for every tab chip.
 - Do not cold-open / clear-route / create-task while create or draft transaction is active.
 
-Product behavior invariants remain in `apps/app/AGENTS.md`. Runtime agent/skills isolation:
+Product behavior invariants live in `docs/Architecture.md` Session / Expert (package AGENTS is verify-only). Runtime agent/skills isolation:
 `docs/design/expert-runtime-isolation.md`.
 
 ## `shared/` contents (current)
