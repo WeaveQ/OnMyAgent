@@ -22,7 +22,7 @@ This project follows a lightweight changelog format during early development. Re
 
 ### Changed
 
-- macOS desktop releases sign with `Developer ID Application (see CI secret CSC_NAME)` and honor `Release App` `notarize: true`.
+- macOS desktop releases sign with the CI Developer ID Application identity (`CSC_NAME` secret) and honor `Release App` `notarize: true`.
 
 ## 0.5.2
 

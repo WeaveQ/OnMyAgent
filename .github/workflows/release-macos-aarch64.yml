@@ -235,9 +235,8 @@ jobs:
     env:
       RELEASE_TAG: ${{ needs.resolve-release.outputs.release_tag }}
       MACOS_NOTARIZE: ${{ needs.resolve-release.outputs.notarize }}
-      # Developer ID Application (see CI secret CSC_NAME)
-      # SHA-1 [redacted; see private runbook] — p12 must match this identity.
-      HAS_APPLE_CODESIGN_CERT: ${{ secrets.APPLE_CODESIGN_CERT_P12_BASE64 != '' && secrets.APPLE_CODESIGN_CERT_PASSWORD != '' }}
+      # CSC_NAME is the Developer ID common name only (no certificate-type prefix).
+      HAS_APPLE_CODESIGN_CERT: ${{ secrets.APPLE_CODESIGN_CERT_P12_BASE64 != '' && secrets.APPLE_CODESIGN_CERT_PASSWORD != '' && secrets.CSC_NAME != '' }}
       CSC_NAME: ${{ secrets.CSC_NAME }}
 
     strategy:

@@ -33,7 +33,7 @@ Release packaging and code signing still follow the flows below; the updater onl
 
 ## Developer preview (signed Developer ID, not notarized)
 
-GitHub macOS builds are signed with `Developer ID Application (see CI secret CSC_NAME)`. Notarization is still **off** until notary API secrets exist, so ship GitHub builds as **developer preview** only:
+GitHub macOS builds are signed with a Developer ID Application identity supplied by CI (`CSC_NAME` repository secret). Notarization is still **off** until notary API secrets exist, so ship GitHub builds as **developer preview** only:
 
 ```text
 draft: false
@@ -203,21 +203,18 @@ Use this flow before Apple signing and notarization are configured.
 
 ## Production Release Requirements
 
-macOS release signing identity (CI `CSC_NAME`, not a GitHub secret):
+macOS release signing identity is the repository secret `CSC_NAME`. Do not commit the common name, Team ID, or certificate fingerprint.
 
-```text
-see CI secret CSC_NAME
-```
-
-> `CSC_NAME` must be the common name **without** the `Developer ID Application:`
+> `CSC_NAME` must be the certificate common name **without** the `Developer ID Application:`
 > prefix — electron-builder 26 rejects the prefix and adds the certificate type
-> automatically. The full Apple identity is `Developer ID Application (see CI secret CSC_NAME)`.
+> automatically. Confirm the identity on a signing Mac with
+> `security find-identity -v -p codesigning` (private runbook).
 
-SHA-1: `[redacted; see private runbook]`.
-`APPLE_CODESIGN_CERT_P12_BASE64` must be this Developer ID identity’s p12 — not an Apple Development certificate.
+`APPLE_CODESIGN_CERT_P12_BASE64` must be that same Developer ID identity’s p12 — not an Apple Development certificate.
 
 Before publishing a stable public release, configure Apple signing and notarization secrets in GitHub Actions:
 
+- `CSC_NAME`
 - `APPLE_CODESIGN_CERT_P12_BASE64`
 - `APPLE_CODESIGN_CERT_PASSWORD`
 - `APPLE_NOTARY_API_KEY_P8_BASE64`
