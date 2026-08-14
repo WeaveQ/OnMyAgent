@@ -220,8 +220,6 @@ const {
   globalOpencodeRoot,
   resolveAppIconPath,
   isBundledSkillPath,
-  ONMYAGENT_USER_SKILLS_DIR_SUBPATH,
-  ONMYAGENT_LEGACY_USER_SKILLS_DIR_SUBPATH,
 } = createDesktopPaths({ dirname: __dirname, isDevMode });
 
 function workspaceStatePath() {

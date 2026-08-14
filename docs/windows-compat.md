@@ -30,7 +30,7 @@ Layered gate (Phase A):
 **Path filter** (any match → run Windows host job):
 
 - `apps/desktop/**`, `apps/orchestrator/**`
-- `apps/server/src/services/session-archive*`, `apps/server/src/env-file.ts`, `apps/server/tests/session-archive*`
+- `apps/server/src/services/session-archive*`, `apps/server/src/services/env-file.ts`, `apps/server/tests/session-archive*`
 - `apps/app/src/react-app/domains/workspace/**`
 - `apps/app/src/react-app/domains/session/chat/session-archive*`
 - `apps/app/src/app/lib/desktop.ts`

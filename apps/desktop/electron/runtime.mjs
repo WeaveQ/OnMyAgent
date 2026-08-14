@@ -35,7 +35,6 @@ export {
 
 import {
   DIRECT_RUNTIME,
-  ORCHESTRATOR_RUNTIME,
   nowMs,
   createEngineState,
   snapshotEngineState,
@@ -49,7 +48,6 @@ import {
   appendOutput,
   cleanupPackagedSidecars as cleanupPackagedSidecarsImpl,
   ensureOpencodeConfig as ensureOpencodeConfigImpl,
-  generateManagedCredentials as generateManagedCredentialsImpl,
   spawnManagedChild,
   stopChild as stopChildImpl,
 } from "./runtime-opencode-lifecycle.mjs";
@@ -280,12 +278,6 @@ export function createRuntimeManager({
     return readJsonFile(orchestratorAuthPath(dataDir), null);
   }
 
-  async function writeOrchestratorAuthFile(dataDir, auth) {
-    const filePath = orchestratorAuthPath(dataDir);
-    await mkdir(path.dirname(filePath), { recursive: true });
-    await writeFile(filePath, `${JSON.stringify({ ...auth, updatedAt: nowMs() }, null, 2)}\n`, "utf8");
-  }
-
   async function clearOrchestratorAuthFile(dataDir) {
     await rm(orchestratorAuthPath(dataDir), { force: true });
   }
@@ -408,8 +400,8 @@ export function createRuntimeManager({
   async function buildChildEnv(extra = {}, options = {}) {
     /** @type {NodeJS.ProcessEnv} */
     // User env is layered first so process.env + any caller overrides always
-    // win. See apps/server/src/env-file.ts; both loaders must agree on path
-    // and reserved-keys policy.
+    // win. See apps/server/src/services/env-file.ts; both loaders must agree
+    // on path and reserved-keys policy.
     const env = {
       ...loadUserEnvFile(),
       ...process.env,
@@ -843,10 +835,6 @@ export function createRuntimeManager({
     });
   }
 
-  function generateManagedCredentials() {
-    return generateManagedCredentialsImpl(randomUUID);
-  }
-
   async function issueOwnerToken(baseUrl, hostToken) {
     const payload = await fetchJson(
       `${baseUrl.replace(/\/+$/, "")}/tokens`,
@@ -1022,125 +1010,6 @@ export function createRuntimeManager({
       throw new Error("orchestrator daemon is not running");
     }
     return baseUrl;
-  }
-
-  async function startOrchestratorRuntime(projectDir, options = {}) {
-    const dataDir = orchestratorDataDir();
-    await mkdir(dataDir, { recursive: true });
-    const daemonPort = await findFreePort("127.0.0.1");
-    const opencodePort = await findFreePort("127.0.0.1");
-    const [username, password] = generateManagedCredentials();
-
-    const orchestratorProgram = resolveBinary("onmyagent-orchestrator") ?? resolveBinary("onmyagent");
-    if (!orchestratorProgram) {
-      throw new Error("Failed to locate onmyagent-orchestrator.");
-    }
-
-    const opencodeBinary = resolveOpencodeBinary(options.opencodeBinPath);
-    if (!opencodeBinary?.path) {
-      throw new Error("Failed to locate opencode.");
-    }
-
-    const env = await resolveChildEnvironment(
-      {
-        ONMYAGENT_INTERNAL_ALLOW_OPENCODE_CREDENTIALS: "1",
-        ONMYAGENT_OPENCODE_USERNAME: username,
-        ONMYAGENT_OPENCODE_PASSWORD: password,
-        ...(options.opencodeEnableExa !== false ? { OPENCODE_ENABLE_EXA: "1" } : {}),
-      },
-      { workspaceRoot: projectDir },
-    );
-
-    const args = [
-      "daemon",
-      "run",
-      "--data-dir",
-      dataDir,
-      "--daemon-host",
-      "127.0.0.1",
-      "--daemon-port",
-      String(daemonPort),
-      "--opencode-bin",
-      opencodeBinary.path,
-      "--opencode-host",
-      "127.0.0.1",
-      "--opencode-workdir",
-      projectDir,
-      "--opencode-port",
-      String(opencodePort),
-      "--allow-external",
-      "--cors",
-      "*",
-    ];
-
-    spawnManagedChild(orchestratorState, orchestratorProgram, args, { env });
-    orchestratorState.dataDir = dataDir;
-    orchestratorState.daemonPort = daemonPort;
-    orchestratorState.baseUrl = `http://127.0.0.1:${daemonPort}`;
-
-    await writeOrchestratorAuthFile(dataDir, {
-      opencodeUsername: username,
-      opencodePassword: password,
-      projectDir,
-    });
-
-    const health = await waitForHttpOk(`${orchestratorState.baseUrl}/health`, 180_000).then((response) => response.json());
-    const opencode = health?.opencode;
-    if (!opencode?.port) {
-      throw new Error("Orchestrator did not report OpenCode status.");
-    }
-
-    engineState.runtime = ORCHESTRATOR_RUNTIME;
-    engineState.projectDir = projectDir;
-    engineState.hostname = "127.0.0.1";
-    engineState.port = opencode.port;
-    engineState.baseUrl = `http://127.0.0.1:${opencode.port}`;
-    engineState.opencodeUsername = username;
-    engineState.opencodePassword = password;
-    engineState.opencodeBinPath = opencodeBinary.path;
-    engineState.opencodeBinSource = opencodeBinary.source;
-
-    return snapshotEngineState(engineState);
-  }
-
-  async function startDirectRuntime(projectDir, options = {}) {
-    const opencodeBinary = resolveOpencodeBinary(options.opencodeBinPath);
-    if (!opencodeBinary?.path) {
-      throw new Error("Failed to locate opencode.");
-    }
-
-    const port = await findFreePort("127.0.0.1");
-    const [username, password] = generateManagedCredentials();
-    const env = await resolveChildEnvironment(
-      {
-        OPENCODE_SERVER_USERNAME: username,
-        OPENCODE_SERVER_PASSWORD: password,
-      },
-      { workspaceRoot: projectDir },
-    );
-
-    spawnManagedChild(
-      engineState,
-      opencodeBinary.path,
-      ["serve", "--hostname", "127.0.0.1", "--port", String(port), "--cors", "*"],
-      {
-        cwd: projectDir,
-        env,
-      },
-    );
-
-    engineState.runtime = DIRECT_RUNTIME;
-    engineState.projectDir = projectDir;
-    engineState.hostname = "127.0.0.1";
-    engineState.port = port;
-    engineState.baseUrl = `http://127.0.0.1:${port}`;
-    engineState.opencodeUsername = username;
-    engineState.opencodePassword = password;
-    engineState.opencodeBinPath = opencodeBinary.path;
-    engineState.opencodeBinSource = opencodeBinary.source;
-
-    await waitForHttpOk(`${engineState.baseUrl}/health`, 10_000).catch(() => undefined);
-    return snapshotEngineState(engineState);
   }
 
   async function stopAllRuntimeChildren() {

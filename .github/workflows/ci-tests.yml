@@ -92,7 +92,7 @@ jobs:
           mapfile -t files < <(git diff --name-only "$BASE" "${{ github.sha }}" || git diff --name-only "$BASE" HEAD)
           # Phase A: desktop/orchestrator + session-archive / workspace roots / desktop bridge
           # (paths that commonly regress on win32). Avoid whole apps/app/** to keep cost down.
-          pattern='^(apps/desktop/|apps/orchestrator/|apps/server/src/services/session-archive|apps/server/src/env-file\.ts|apps/server/tests/session-archive|apps/app/src/react-app/domains/workspace/|apps/app/src/react-app/domains/session/chat/session-archive|apps/app/src/app/lib/desktop\.ts|scripts/dev/windows|scripts/lib/run-command\.mjs|package\.json|pnpm-lock\.yaml|constants\.json|\.github/workflows/ci-tests\.yml|docs/windows-compat\.md)'
+          pattern='^(apps/desktop/|apps/orchestrator/|apps/server/src/services/session-archive|apps/server/src/services/env-file\.ts|apps/server/tests/session-archive|apps/app/src/react-app/domains/workspace/|apps/app/src/react-app/domains/session/chat/session-archive|apps/app/src/app/lib/desktop\.ts|scripts/dev/windows|scripts/lib/run-command\.mjs|package\.json|pnpm-lock\.yaml|constants\.json|\.github/workflows/ci-tests\.yml|docs/windows-compat\.md)'
           # Avoid `printf | head` / `grep -q` under pipefail: early consumer close
           # yields SIGPIPE and fails the job on large merges.
           matched=false
