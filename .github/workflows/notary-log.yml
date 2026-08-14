@@ -1,0 +1,35 @@
+# Fetch Apple notarization detail for a submission ID (read-only diagnostic).
+# Used to explain a notarytool "Invalid" / "Rejected" result without a full rebuild.
+name: Notary Log
+
+on:
+  workflow_dispatch:
+    inputs:
+      submission_id:
+        description: "Apple notary submission id (UUID)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  notary-log:
+    runs-on: macos-14
+    steps:
+      - name: Write Apple notary API key
+        env:
+          APPLE_NOTARY_API_KEY_P8_BASE64: ${{ secrets.APPLE_NOTARY_API_KEY_P8_BASE64 }}
+        run: |
+          printf '%s' "$APPLE_NOTARY_API_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          chmod 600 "$RUNNER_TEMP/AuthKey.p8"
+
+      - name: Fetch notary log
+        env:
+          APPLE_NOTARY_API_KEY_ID: ${{ secrets.APPLE_NOTARY_API_KEY_ID }}
+          APPLE_NOTARY_API_ISSUER_ID: ${{ secrets.APPLE_NOTARY_API_ISSUER_ID }}
+        run: |
+          xcrun notarytool log "${{ inputs.submission_id }}" \
+            --key "$RUNNER_TEMP/AuthKey.p8" \
+            --key-id "$APPLE_NOTARY_API_KEY_ID" \
+            --issuer "$APPLE_NOTARY_API_ISSUER_ID"
