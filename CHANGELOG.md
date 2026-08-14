@@ -11,6 +11,7 @@ This project follows a lightweight changelog format during early development. Re
 ### Changed
 
 - Desktop updates: cold start always checks once; a found version downloads only after the user clicks the notice or **Download update**. Checks no longer start a background download on their own.
+- Windows: spawn Claude/Codex/Hermes/OpenClaw and editor detection via cmd shims; orchestrator accepts `C:\` binaries and searches LocalAppData OpenCode; artifact skills fall back to copy when junctions fail.
 
 ### Security
 

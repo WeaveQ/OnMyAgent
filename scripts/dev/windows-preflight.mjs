@@ -146,7 +146,7 @@ record(
   electronPresent,
   electronPresent
     ? electronDist
-    : "missing after install — see docs/windows-compat.md electron post-install",
+    : "missing after install — run: node scripts/dev/ensure-electron-dist.mjs",
   // After pnpm install on a healthy runner this should exist.
   true,
 );

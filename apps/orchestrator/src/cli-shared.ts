@@ -33,6 +33,8 @@ import {
   resolveLanIp,
   resolveConnectUrl,
 } from "./cli-network";
+import { localOpencodeWindowsExtraCandidates } from "./cli-opencode-windows-paths.js";
+export { localOpencodeWindowsExtraCandidates };
 
 
 import { createOpencodeClient } from "@opencode-ai/sdk/v2/client";
@@ -391,7 +393,6 @@ export async function readPinnedOpencodeVersion(): Promise<string | undefined> {
   return undefined;
 }
 
-
 export async function resolveLocalOpencodeBin(): Promise<string | undefined> {
   const binaryName = platform() === "win32" ? "opencode.exe" : "opencode";
   const candidates = [
@@ -404,7 +405,9 @@ export async function resolveLocalOpencodeBin(): Promise<string | undefined> {
       .map((entry) => join(entry, binaryName)),
   ];
 
-  if (platform() !== "win32") {
+  if (platform() === "win32") {
+    candidates.push(...localOpencodeWindowsExtraCandidates());
+  } else {
     candidates.push(
       join(homedir(), ".opencode", "bin", "opencode"),
       "/opt/homebrew/bin/opencode",

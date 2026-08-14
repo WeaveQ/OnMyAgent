@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawnAgentProcess } from "../spawn-agent-process.mjs";
 import net from "node:net";
 
 import { injectPersonalAgentContext } from "../context-injection.mjs";
@@ -430,7 +430,7 @@ async function waitForPort(port, timeoutMs = 8_000) {
 async function ensureOpenClawGateway({ executablePath, workdir, env, appendEvent }) {
   if (await isPortOpen(OPENCLAW_DEFAULT_GATEWAY_PORT)) return null;
   appendEvent({ type: "status", text: `OpenClaw gateway not listening on ${OPENCLAW_DEFAULT_GATEWAY_PORT}; starting local gateway for ACP.` });
-  const child = spawn(executablePath, ["gateway", "run", "--force", "--auth", "none", "--bind", "loopback", "--port", String(OPENCLAW_DEFAULT_GATEWAY_PORT), "--allow-unconfigured"], {
+  const child = spawnAgentProcess(executablePath, ["gateway", "run", "--force", "--auth", "none", "--bind", "loopback", "--port", String(OPENCLAW_DEFAULT_GATEWAY_PORT), "--allow-unconfigured"], {
     cwd: workdir,
     env,
     windowsHide: true,

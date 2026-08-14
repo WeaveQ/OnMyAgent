@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawnAgentProcess } from "../spawn-agent-process.mjs";
 import { createInterface } from "node:readline";
 
 import { injectPersonalAgentContext } from "../context-injection.mjs";
@@ -351,7 +351,7 @@ export function createHermesAdapter({ appendEvent, registerCancel, requestApprov
       const args = ["acp", ...(ctx.agent.customArgs ?? [])];
       const command = stringifyAgentCommand(executablePath, args);
       appendEvent({ type: "log", text: command });
-      const child = spawn(executablePath, args, {
+      const child = spawnAgentProcess(executablePath, args, {
         cwd: workdir,
         env: execHelpers.processEnv({ PWD: workdir, ...(mode === "auto" ? { HERMES_YOLO_MODE: "1" } : {}) }),
         windowsHide: true,

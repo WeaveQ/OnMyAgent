@@ -447,7 +447,11 @@ test("removes stale legacy links only when they point into legacy skill roots", 
       managedSkillsRoot,
       legacySkillRoots: [legacyRoot],
     });
-    await symlink(unrelated, path.join(managedSkillsRoot, "unrelated-link"), "dir");
+    await symlink(
+      unrelated,
+      path.join(managedSkillsRoot, "unrelated-link"),
+      process.platform === "win32" ? "junction" : "dir",
+    );
     await rm(staleSource, { recursive: true, force: true });
 
     await materializeLegacySkillLinks({

@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawnAgentProcess } from "../spawn-agent-process.mjs";
 
 import { extractOpenClawPayloadText, isOpenClawFallbackSuccessLine, isRecoverableOpenClawFallbackLine } from "../../personal-local-agent-runtime.mjs";
 import { injectPersonalAgentContext } from "../context-injection.mjs";
@@ -151,7 +151,7 @@ export function createOpenClawAdapter({ appendEvent, registerCancel }) {
       const args = buildArgs(ctx, sessionId);
       const command = stringifyAgentCommand(executablePath, args);
       appendEvent({ type: "log", text: command });
-      const child = spawn(executablePath, args, {
+      const child = spawnAgentProcess(executablePath, args, {
         cwd: workdir,
         env: execHelpers.processEnv({ PWD: workdir }),
         windowsHide: true,
