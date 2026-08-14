@@ -17,7 +17,7 @@ Layered gate (Phase A):
 | Layer | When | Job | What |
 |-------|------|-----|------|
 | **L1** | every PR | Checks (ubuntu + macos) | `pnpm check` + rename; **Linux only**: `test:windows-runtime` (mocked win32) |
-| **L2** | path match **or** label | Windows compat (`windows-2022`) | Real host: `test:windows-runtime` + preflight `--ci` |
+| **L2** | path match **or** `ci:windows` | Windows compat (`windows-2022`) | Real host: `test:windows-runtime` + preflight `--ci`. Unrelated PRs skip. |
 | **L3** | release / later | (not PR) | NSIS package / install smoke — see Roadmap |
 
 | Job | OS | Why |
@@ -27,14 +27,19 @@ Layered gate (Phase A):
 | **Windows compat** | `windows-2022` | Real host; **skipped** unless paths match or label |
 | **Typecheck** | via Checks only | TS is OS-agnostic — not re-run on Windows |
 
-**Path filter** (any match → run Windows host job):
+**Path filter** (any match → run Windows host job). Intentionally **not**
+`apps/desktop/**` — marketplace / bundled-skill content would queue
+`windows-2022` on every asset PR.
 
-- `apps/desktop/**`, `apps/orchestrator/**`
+- `apps/desktop/electron/**`, `apps/desktop/scripts/**`, `apps/desktop/build/**`
+- `apps/desktop/package.json`, `apps/desktop/electron-builder.yml`
+- `apps/orchestrator/src/**`, `tests/**`, `scripts/**`, `package.json`
 - `apps/server/src/services/session-archive*`, `apps/server/src/services/env-file.ts`, `apps/server/tests/session-archive*`
 - `apps/app/src/react-app/domains/workspace/**`
 - `apps/app/src/react-app/domains/session/chat/session-archive*`
+- `apps/app/src/react-app/domains/local-agents/**`
 - `apps/app/src/app/lib/desktop.ts`
-- `scripts/dev/windows*`, `scripts/lib/run-command.mjs`
+- `scripts/dev/windows*`, `scripts/dev/headless-web.ts`, `scripts/dev/ensure-electron-dist.mjs`, `scripts/lib/run-command.mjs`
 - `package.json`, `pnpm-lock.yaml`, `constants.json`
 - `.github/workflows/ci-tests.yml`, `docs/windows-compat.md`
 
@@ -157,8 +162,16 @@ Run it after every `pnpm install` and before your first `pnpm dev`.
 
 If `node_modules/.pnpm/electron@39.8.10/.../dist/` only contains
 `LICENSES.chromium.html` after `pnpm install`, the electron post-install
-script silently failed to extract the zip. Manually unzip the cached
-archive and write `path.txt` (no trailing newline) — `printf`, not `echo`:
+script silently failed to extract the zip.
+
+Preferred repair (from repo root):
+
+```bat
+node scripts\dev\ensure-electron-dist.mjs
+```
+
+That extracts the cached zip and writes `path.txt` with exactly `electron.exe`
+(no trailing newline — `echo` will break `isInstalled()`). Manual equivalent:
 
 ```bat
 cd node_modules\.pnpm\electron@39.8.10\node_modules\electron

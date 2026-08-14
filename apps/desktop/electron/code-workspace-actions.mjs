@@ -5,6 +5,8 @@ import { unlink } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import { buildWindowsCmdSpawnSpec, isWindowsCmdShim } from "./personal-agent-runtime/windows-spawn.mjs";
+
 let runtimeManager = null;
 let shell = null;
 let isDirectory = null;
@@ -26,8 +28,28 @@ export function createCodeWorkspaceActions(dependencies) {
   };
 }
 
-function commandExists(command) {
-  return spawnSync(command, ["--version"], { stdio: "ignore" }).status === 0;
+export function commandExists(command, platform = process.platform) {
+  const name = String(command ?? "").trim();
+  if (!name) return false;
+  if ((/[\\/]/.test(name) || /^[A-Za-z]:/.test(name)) && existsSync(name)) {
+    return true;
+  }
+  if (platform === "win32") {
+    if (commandPath(name) || commandPath(`${name}.cmd`) || commandPath(`${name}.exe`)) {
+      return true;
+    }
+    if (isWindowsCmdShim(name, platform)) {
+      const spec = buildWindowsCmdSpawnSpec(name, ["--version"]);
+      return (
+        spawnSync(spec.command, spec.args, {
+          stdio: "ignore",
+          windowsVerbatimArguments: spec.windowsVerbatimArguments,
+        }).status === 0
+      );
+    }
+    return false;
+  }
+  return spawnSync(name, ["--version"], { stdio: "ignore" }).status === 0;
 }
 
 /**

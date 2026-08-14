@@ -8,15 +8,16 @@
     Meta:  needs-desktop-smoke | do-not-merge | ci:windows
   Prefer Conventional Commit titles (fix(app): …) — they are the primary signal.
 
-  Windows host CI (windows-2022) is path-filtered. If you touch any of:
-    apps/desktop/**, apps/orchestrator/**,
-    apps/server session-archive / env-file,
-    apps/app workspace or session-archive UI, apps/app/src/app/lib/desktop.ts,
-    scripts/dev/windows*, scripts/lib/run-command.mjs,
+  Windows host CI (windows-2022) is path-filtered and skipped otherwise (cost).
+  Triggers: apps/desktop/electron|scripts|build|package.json|electron-builder.yml,
+    apps/orchestrator src/tests/scripts/package.json,
+    server session-archive / env-file,
+    app workspace, session-archive, local-agents, app/lib/desktop.ts,
+    scripts/dev/windows*, scripts/dev/headless-web.ts, scripts/lib/run-command.mjs,
     package.json / pnpm-lock / constants.json, docs/windows-compat.md,
     .github/workflows/ci-tests.yml
-  then either ensure the path filter matches OR apply the **ci:windows** label
-  so Windows compat actually runs. Local: `pnpm check:windows`.
+  Marketplace / bundled-skills content does NOT trigger the host job.
+  Force with label **ci:windows**. Local: `pnpm check:windows`.
 -->
 
 ## Summary

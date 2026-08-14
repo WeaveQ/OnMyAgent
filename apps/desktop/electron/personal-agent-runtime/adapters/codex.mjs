@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawnAgentProcess } from "../spawn-agent-process.mjs";
 import { createInterface } from "node:readline";
 
 import { injectPersonalAgentContext } from "../context-injection.mjs";
@@ -385,7 +385,7 @@ export function createCodexAdapter({ appendEvent, registerCancel, requestApprova
       const args = ["app-server", "--listen", "stdio://", ...(ctx.agent.customArgs ?? [])];
       const command = stringifyAgentCommand(executablePath, args);
       appendEvent({ type: "log", text: command });
-      const child = spawn(executablePath, args, {
+      const child = spawnAgentProcess(executablePath, args, {
         cwd: ctx.workspaceRoot,
         env: execHelpers.processEnv({ PWD: ctx.workspaceRoot }),
         windowsHide: true,

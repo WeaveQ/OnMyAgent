@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
 import {
+  commandExists,
   quoteWindowsCmdArg,
   quoteWindowsPowerShellLiteral,
   resolveWindowsTerminalLaunch,
@@ -72,6 +77,18 @@ test("resolveWindowsTerminalLaunch cascade order: wt before powershell before cm
 test("quoteWindowsCmdArg wraps paths with spaces", () => {
   assert.equal(quoteWindowsCmdArg("C:\\plain"), "C:\\plain");
   assert.equal(quoteWindowsCmdArg("C:\\with space"), '"C:\\with space"');
+});
+
+test("commandExists treats an existing Windows path as installed", () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "onmyagent-editor-"));
+  const exe = path.join(dir, "Cursor.exe");
+  try {
+    writeFileSync(exe, "");
+    assert.equal(commandExists(exe, "win32"), true);
+    assert.equal(commandExists("", "win32"), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("quoteWindowsPowerShellLiteral doubles single quotes", () => {

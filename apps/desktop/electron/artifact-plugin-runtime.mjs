@@ -8,8 +8,8 @@ import {
   readlink,
   rm,
   stat,
-  symlink,
 } from "node:fs/promises";
+import { linkOrCopyDir } from "./runtime-dir-mirror.mjs";
 import os from "node:os";
 import path from "node:path";
 import { z } from "zod";
@@ -351,11 +351,7 @@ export async function materializeEnabledArtifactSkills({
     }
     const after = await destinationState(destinationPath, pluginRealRoot);
     if (after.kind === "missing") {
-      await symlink(
-        sourcePath,
-        destinationPath,
-        process.platform === "win32" ? "junction" : "dir",
-      );
+      await linkOrCopyDir(sourcePath, destinationPath);
     }
     items.push({
       pluginId: skill.pluginId,
@@ -384,11 +380,7 @@ export async function materializeLegacySkillLinks({
     desiredSkillIds.add(skillId);
     const destinationPath = path.join(managedSkillsRoot, skillId);
     try {
-      await symlink(
-        skillDir,
-        destinationPath,
-        process.platform === "win32" ? "junction" : "dir",
-      );
+      await linkOrCopyDir(skillDir, destinationPath);
       items.push({ skillId, sourcePath: skillDir, destinationPath });
     } catch {
       // Managed config preparation must preserve an existing destination.

@@ -11,7 +11,20 @@ import {
   escapeWindowsCmdCommand,
   isNodeModulesCmdShim,
   isWindowsCmdShim,
+  resolveWindowsAwareSpawnSpec,
+  shouldUseWindowsCmdSpawn,
 } from "./windows-spawn.mjs";
+
+test("uses cmd.exe for bare names and cmd shims on Windows", () => {
+  assert.equal(shouldUseWindowsCmdSpawn("claude", "win32"), true);
+  assert.equal(shouldUseWindowsCmdSpawn("cursor", "win32"), true);
+  assert.equal(shouldUseWindowsCmdSpawn("C:\\Tools\\claude.cmd", "win32"), true);
+  assert.equal(shouldUseWindowsCmdSpawn("C:\\Tools\\claude.exe", "win32"), false);
+  assert.equal(shouldUseWindowsCmdSpawn("claude", "darwin"), false);
+  const spec = resolveWindowsAwareSpawnSpec("claude", ["--version"], { platform: "win32" });
+  assert.match(spec.command, /cmd\.exe$/i);
+  assert.equal(spec.windowsVerbatimArguments, true);
+});
 
 test("recognizes Windows command shims without affecting other platforms", () => {
   assert.equal(isWindowsCmdShim("C:\\Program Files\\agent.cmd", "win32"), true);
