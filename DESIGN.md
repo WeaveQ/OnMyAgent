@@ -782,7 +782,7 @@ flags:
 | CJK / i18n space budget | § 10 |
 | Intentional exceptions | § 11 |
 | **i18n hard gate** (`t()` + en/zh/zh-TW, no new CJK literals) | **`AGENTS.md`** engineering gates — not this file |
-| **Expert / session behavior** (empty shell, origin, draft, cold path) | **`apps/app/AGENTS.md`** invariants + contract tests — not this file |
+| **Expert / session behavior** (empty shell, origin, draft, cold path) | **Architecture Session / Expert** + contract tests — not this file |
 
 Drift check: `pnpm task check design`. Philosophy narrative only: `docs/design/theme-system.md`. Doc map: `docs/README.md`. Agent runtime handbook (boundaries, verify matrix): `AGENTS.md` — do not fork visual rules into AGENTS.
 

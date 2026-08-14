@@ -4,7 +4,7 @@ OnMyAgent 是面向 agentic 工作流的桌面控制台，基于 OpenCode。本�
 
 ## Product phase (Phase 2)
 
-> **Agent hard entry** (six Phase-2 constraints agents must not violate) lives in root [`AGENTS.md`](../AGENTS.md). This section is engineering context + pointers; do not fork a second constraint list here.
+> **Phase-2 hard entry is only in root [`AGENTS.md`](../AGENTS.md).** This section is engineering context + pointers; do not fork a second constraint list here.
 
 | | |
 | --- | --- |
@@ -29,15 +29,10 @@ OnMyAgent 是面向 agentic 工作流的桌面控制台，基于 OpenCode。本�
 | **Windows** | Supported Electron shell; NSIS **unsigned** developer preview — see [`windows-compat.md`](./windows-compat.md) |
 | **Linux desktop packages** | **Not a product target** (no AppImage/AUR ship). CI may still use `ubuntu-latest` as a host; Docker **sandbox** may still pull linux sidecars — that is not “Linux client support”. |
 
-**Hard constraints for engineering** (must stay consistent with root `AGENTS.md` Phase-2 hard entry; change both when policy changes):
+**Architecture-only engineering notes** (not in AGENTS; do not restate the Phase-2 hard entry here):
 
-- Mode A (logged-out) remains full local use — **no login wall**, no company HTTP without `companyBaseUrl` + session.
-- Config trees for `local` and future `company` share **one isomorphic schema** under `~/.onmyagent/profiles/{local\|company}/config/`.
-- Migration **copies** skills/experts into `profiles/local/config`; **never deletes** legacy `~/.onmyagent/skills` or `marketplaces/`.
-- **Skills write target** is the profile tree (`profiles/local/config/skills`); legacy `~/.onmyagent/skills` is read/scan only for compatibility. Bad `SKILL.md` frontmatter must not fail the whole list API (skip + keep listing).
-- This monorepo is still **desktop + local server**. Do not invent a second policy source of truth inside Electron that bypasses a future company server.
-- Provider **secrets must not** be returned to the desktop from any gateway path.
-- **Do not append release-changelog bullets to this file.** Shipped waves go in root `CHANGELOG.md` / GitHub Releases. This file holds **current** boundaries and pointers.
+- **Skills write target** is `profiles/local/config/skills`; legacy `~/.onmyagent/skills` is read/scan only. A bad `SKILL.md` must not fail the whole `listSkills` API (skip + keep listing).
+- **Do not append release-changelog bullets to this file.** Shipped waves go in root `CHANGELOG.md` / GitHub Releases.
 
 Desktop modules already on the 2a path: `apps/desktop/electron/config-profile-paths.mjs`, `ensure-local-config-migrated.mjs`, wired from `desktop-paths.mjs`, `expert-marketplace.mjs`, and `runtime.mjs` skill materialization.
 
@@ -87,7 +82,7 @@ packages/
 | Session goal 生命周期 | 下文 **Session Goal Lifecycle** + `domains/session` 代码/测试 |
 | **Expert 会话面架构**（surface FSM / draft / tab / cold-open / pending 语义 / 禁止项） | [`design/expert-surface-architecture.md`](./design/expert-surface-architecture.md) ← **改 Expert 会话 UI 先读** |
 | Expert 创建 / 选中 / 删除 / 多 tab（服务端 lifecycle） | 下表 **Expert lifecycle hard rules** + `expert-session-lifecycle.ts` / `expert-hard-delete.ts`；UI 域见 React ARCHITECTURE + **expert-surface-architecture** |
-| **Expert / session 产品行为**（Directory 状态、空壳 busy、bound draft、首发可见、SSE 代际） | [`../apps/app/AGENTS.md`](../apps/app/AGENTS.md) **Experts / Session 不变量** + `apps/app/scripts/expert-session-invariants.test.ts`（**不是** DESIGN） |
+| **Expert / session 产品行为**（Directory、空壳 busy、bound draft、首发、SSE 代际） | 本节省 **Expert lifecycle** 表 + [`../apps/app/src/react-app/ARCHITECTURE.md`](../apps/app/src/react-app/ARCHITECTURE.md)；契约 `apps/app/scripts/expert-session-invariants.test.ts`（**不是** DESIGN / 包级 AGENTS） |
 | Expert runtime 隔离（agent=onmyagent / sandbox HOME / token 预算） | [`design/expert-runtime-isolation.md`](./design/expert-runtime-isolation.md) |
 | Shell 冷启动 / prewarm / title cache | `cold-path-budget.ts` + **Shell load / boot** in React ARCHITECTURE；prewarm 仅 idle |
 | Skills 列表 / 安装写路径 | 上文 Product phase；server `skillsInstallWriteRoot()` / `listSkills` skip stats |
@@ -100,7 +95,11 @@ packages/
 
 | Action | Rule | Code |
 | --- | --- | --- |
-| **identity / list** | Server Expert Directory projects revisioned origins v2 + marker v3 + workspace session aggregate; renderer consumes the projection and never repairs identity from local cache, 404 observation, or path heuristics | `expert-directory.ts` + `workspace-session-marker-inventory.ts` + `expert-directory-query.ts` |
+| **identity / list** | Server Expert Directory projects revisioned origins v2 + marker v3 + workspace session aggregate; renderer consumes `loading / ready / incomplete / error` and never repairs identity from local cache, 404 observation, or path heuristics | `expert-directory.ts` + `workspace-session-marker-inventory.ts` + `expert-directory-query.ts` |
+| **empty shell** | Creating an empty expert session shell must not `startRun` or mark busy; only a real prompt / existing run path may show thinking | `onCreateFreshSessionForAgent` + `expert-session-invariants.test.ts` |
+| **bound draft** | Opening a real session for the same expert consumes that draft; no cross-expert consume or ghost tab | `expert-draft-session.ts` |
+| **first send** | New session send: local optimistic user bubble before `activateCreatedSessionRoute`; empty-shell create must not await marketplace install | `seedOptimisticSessionUserMessage` |
+| **SSE generation** | On switch / reconnect / stop, cancel stale subscribers and drop stale events by generation | session-sync / activity |
 | **hard_delete** | Server saga snapshots the origin revision, deletes OpenCode + authorized runtime directories, then writes tombstones; desktop saga removes only user-owned package/skill materialization. Both journals replay by one operation id | `expert-delete-saga.ts` + `deleteExpertPackage` + `expert-hard-delete.ts` |
 | **hard_delete** | Origin match is **agentId-first**. `packageName` may be the short marketplace name (`pkg`) or the agentId composite (`pkg:pkg`); never 404 a real expert because the client sent the composite form. Built-in marketplace (`marketplace !== "my-experts"`) stays 409 | `selectExpertDeleteOriginRecords` + `resolveExpertDeletePackageName` |
 | **hard_delete** | Never clears `draft:*` sessions and refuses product builtins (creation coach) | `isDraftSessionId` + `canHardDeleteExpert` |

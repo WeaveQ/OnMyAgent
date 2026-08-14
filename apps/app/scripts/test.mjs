@@ -138,6 +138,12 @@ const testTargets = new Map([
   ['browser-entry', ['node', ['scripts/browser-entry.mjs']]],
   ['version-gate', ['bun', ['test', 'scripts/version-gate.test.ts']]],
   ['transport-contract', ['node', ['--test', 'src/app/lib/onmyagent-server-contract.test.mjs']]],
+  ['expert-session-invariants', ['bun', ['test', 'scripts/expert-session-invariants.test.ts']]],
+  ['expert-session-lifecycle', ['bun', ['test', 'scripts/expert-session-lifecycle.test.ts']]],
+  ['expert-creation-lifecycle', ['bun', ['test', 'scripts/expert-creation-lifecycle.test.ts']]],
+  ['expert-lifecycle-diagnostics', ['bun', ['test', 'scripts/expert-lifecycle-diagnostics.test.ts']]],
+  ['cold-path-budget', ['bun', ['test', 'scripts/cold-path-budget.test.ts']]],
+  ['capability-shelf', ['bun', ['test', 'scripts/capability-shelf.test.ts']]],
 ])
 
 const composedTargets = new Map([
@@ -164,6 +170,13 @@ const composedTargets = new Map([
     'open-target',
     'agent-brand-icon-dark-plate-contract',
     'context-usage-model',
+    // Harness product contracts (expert/session, cold-path, shelf) — default CI via test:ui
+    'expert-session-invariants',
+    'expert-session-lifecycle',
+    'expert-creation-lifecycle',
+    'expert-lifecycle-diagnostics',
+    'cold-path-budget',
+    'capability-shelf',
     // Other style contracts stay registered as individual targets (run manually if needed)
   ]],
   ['ui', ['version-gate', 'transport-contract', 'ui-contracts', 'e2e']],

@@ -19,7 +19,7 @@
     "check:i18n:hardcoded": "node scripts/checks/i18n-audit.mjs --hardcoded",
     "check:i18n:cjk": "node scripts/checks/check-i18n-cjk.mjs",
     "check:security": "node scripts/checks/security-smoke.mjs",
-    "check:boundaries": "node scripts/checks/check-boundaries.mjs && node scripts/checks/check-circular-deps.mjs && node scripts/checks/check-dual-runtime-boundary.mjs",
+    "check:boundaries": "node scripts/checks/check-boundaries.mjs && node scripts/checks/check-circular-deps.mjs && node scripts/checks/check-dual-runtime-boundary.mjs && node --test scripts/checks/check-dual-runtime-boundary.test.mjs",
     "check:architecture-paths": "node scripts/checks/architecture-paths.mjs",
     "check:expert-architecture": "node scripts/checks/check-expert-architecture-contract.mjs",
     "check:commit-types": "node scripts/checks/check-commit-types.mjs",
