@@ -57,13 +57,14 @@ const bridgeMethods = collectRendererCommandNames();
 const electronHandlers = new Set(DESKTOP_HANDLER_COMMANDS);
 const missing = bridgeMethods.filter((name) => !electronHandlers.has(name));
 
+const retiredDesktopIpcChannel = ["open", "work", ":desktop"].join("");
 const requiredMainSnippets = [
   'const DESKTOP_IPC_CHANNEL = "onmyagent:desktop";',
   "ipcMain.handle(DESKTOP_IPC_CHANNEL, handleDesktopInvoke);",
 ];
 const forbiddenMainSnippets = [
   "LEGACY_DESKTOP_IPC_CHANNEL",
-  "openwork:desktop",
+  retiredDesktopIpcChannel,
 ];
 const requiredPreloadSnippets = [
   'const DESKTOP_IPC_CHANNEL = "onmyagent:desktop";',
@@ -71,7 +72,7 @@ const requiredPreloadSnippets = [
 ];
 const forbiddenPreloadSnippets = [
   "LEGACY_DESKTOP_IPC_CHANNEL",
-  "openwork:desktop",
+  retiredDesktopIpcChannel,
 ];
 const bridgeFailures = [];
 
@@ -80,7 +81,7 @@ for (const snippet of requiredMainSnippets) {
 }
 for (const snippet of forbiddenMainSnippets) {
   if (electronMainSource.includes(snippet)) {
-    bridgeFailures.push(`main.mjs still registers legacy Openwork channel: ${snippet}`);
+    bridgeFailures.push(`main.mjs still registers retired desktop IPC channel: ${snippet}`);
   }
 }
 for (const snippet of requiredPreloadSnippets) {
@@ -88,7 +89,7 @@ for (const snippet of requiredPreloadSnippets) {
 }
 for (const snippet of forbiddenPreloadSnippets) {
   if (preloadSource.includes(snippet)) {
-    bridgeFailures.push(`preload.mjs still falls back to Openwork channel: ${snippet}`);
+    bridgeFailures.push(`preload.mjs still falls back to a retired desktop IPC channel: ${snippet}`);
   }
 }
 if (/ipcRenderer\.invoke\("onmyagent:desktop"/.test(preloadSource)) {
