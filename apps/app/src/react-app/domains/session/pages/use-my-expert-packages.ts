@@ -20,7 +20,7 @@ export function useMyExpertPackages(options: {
   const { enabled } = options;
   const packageQuery = useExpertPackageQuery(
     enabled,
-    expertPackageMarketplacesForEnter("chat"),
+    expertPackageMarketplacesForEnter("store"),
   );
   return useMemo(
     () =>
