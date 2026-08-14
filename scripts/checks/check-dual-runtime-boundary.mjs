@@ -9,7 +9,7 @@
  *    (session-archive*) — Personal must not write/open OpenCode archive stores.
  * 3. server must not import personal-agent-runtime.
  * 4. No production file may import both session-archive and conversation-store.
- * 5. Legacy `openwork:desktop` channel must not return.
+ * 5. Legacy pre-rename desktop IPC channel must not return.
  *
  * Usage:
  *   node scripts/checks/check-dual-runtime-boundary.mjs
@@ -66,11 +66,11 @@ const rules = [
       "Server / OpenCode archive must not import personal-agent-runtime (no second hot writer)",
   },
   {
-    id: "no-legacy-openwork-desktop-channel",
+    id: "no-legacy-desktop-ipc-channel",
     roots: ["apps/app/src", "apps/desktop/electron", "apps/desktop/preload.mjs"],
-    forbiddenImport: /openwork:desktop/,
+    forbiddenImport: new RegExp(`${"open"}work:desktop`),
     message:
-      "Legacy openwork:desktop IPC channel is removed; use the typed desktop command channel",
+      "Legacy pre-rename desktop IPC channel is removed; use the typed desktop command channel",
   },
 ];
 

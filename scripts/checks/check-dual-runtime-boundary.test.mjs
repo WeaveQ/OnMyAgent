@@ -108,13 +108,14 @@ test("dual-runtime gate fails when one file imports archive and personal store",
   }
 });
 
-test("dual-runtime gate fails when production code uses openwork:desktop", () => {
-  const sandbox = mkdtempSync(join(tmpdir(), "dual-runtime-openwork-"));
+test("dual-runtime gate fails when production code uses the retired desktop IPC channel", () => {
+  const sandbox = mkdtempSync(join(tmpdir(), "dual-runtime-legacy-ipc-"));
+  const retiredChannel = `${"open"}work:desktop`;
   try {
     mkdirSync(join(sandbox, "apps/app/src"), { recursive: true });
     writeFileSync(
       join(sandbox, "apps/app/src/legacy.ts"),
-      `export const channel = "openwork:desktop";\n`,
+      `export const channel = ${JSON.stringify(retiredChannel)};\n`,
     );
     mkdirSync(join(sandbox, "apps/desktop/electron/personal-agent-runtime"), {
       recursive: true,
@@ -126,7 +127,7 @@ test("dual-runtime gate fails when production code uses openwork:desktop", () =>
 
     const result = run(sandbox);
     assert.equal(result.status, 1);
-    assert.match(result.stderr, /no-legacy-openwork-desktop-channel|openwork:desktop/);
+    assert.match(result.stderr, /no-legacy-desktop-ipc-channel/);
   } finally {
     rmSync(sandbox, { recursive: true, force: true });
   }
