@@ -328,7 +328,11 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
           ? conversationTabsNode
           : null}
         <SessionSurfaceSwitchingBadge
-          visible={props.transitionState === "switching" && props.showDelayedLoading}
+          visible={
+            props.transitionState === "switching" &&
+            props.showDelayedLoading &&
+            !props.pendingSessionLoad
+          }
           fromCache={props.renderSource === "cache"}
         />
 
@@ -372,7 +376,6 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
           }}
         >
           <SessionSurfaceTranscriptContent
-            showDelayedLoading={props.showDelayedLoading}
             pendingSessionLoad={props.pendingSessionLoad}
             snapshotQueryError={props.snapshotQueryError}
             snapshotErrorMessage={props.snapshotErrorMessage}

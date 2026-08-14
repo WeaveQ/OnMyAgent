@@ -4,18 +4,15 @@
  * skeleton | load error | waiting | expert empty | transcript.
  */
 import type { ReactNode } from "react";
-import { DevProfiler } from "../../../shell";
+import { DevProfiler, LoadSurface } from "../../../shell";
 import { StatusBadge } from "@/components/ui/status-badge";
-import {
-  AssistantWaitingCard,
-  TranscriptHistorySkeleton,
-} from "./chrome/assistant-status";
+import { t } from "../../../../i18n";
+import { AssistantWaitingCard } from "./chrome/assistant-status";
 import { SessionErrorCard } from "./chrome/personal-assistant";
 import type { SessionError } from "./session-surface-support";
 import { sessionSurfaceStateClass } from "./surface-styles";
 
 export function SessionSurfaceTranscriptContent(props: {
-  showDelayedLoading: boolean;
   pendingSessionLoad: boolean;
   snapshotQueryError: boolean;
   snapshotErrorMessage: string;
@@ -35,8 +32,16 @@ export function SessionSurfaceTranscriptContent(props: {
   onChangeModel?: (model: { providerID: string; modelID: string }) => void;
   onOpenModelPicker?: () => void;
 }) {
-  if (props.showDelayedLoading && props.pendingSessionLoad) {
-    return <TranscriptHistorySkeleton pairCount={3} />;
+  // Empty pending load already has nothing to show — paint the brand mark
+  // immediately. The delayed flag is only for the cached-switch badge.
+  if (props.pendingSessionLoad) {
+    return (
+      <LoadSurface
+        variant="inset"
+        mark="brand"
+        messageKey="session.switching"
+      />
+    );
   }
 
   if (
@@ -121,9 +126,11 @@ export function SessionSurfaceSwitchingBadge(props: {
   return (
     <div className="flex justify-center px-6 pt-4">
       <StatusBadge tone="surface" size="default">
-        {props.fromCache
-          ? "Switching session from cache..."
-          : "Switching session..."}
+        {t(
+          props.fromCache
+            ? "session.switching_from_cache"
+            : "session.switching",
+        )}
       </StatusBadge>
     </div>
   );

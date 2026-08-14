@@ -29,7 +29,7 @@ export const COMPOSER_NOTICE_TIMEOUT_MS = 2400;
 /** Folder-required bubble shown when code draft send is blocked. */
 export const FOLDER_REQUIRED_BUBBLE_TIMEOUT_MS = 2600;
 
-/** Delay before showing the session-load spinner (avoids flash on fast loads). */
+/** Delay before the cached-switch badge (empty pending load paints immediately). */
 export const DELAYED_SESSION_LOADING_MS = 2000;
 
 /** After idle + new assistant turn with no visible text, surface the empty-output card. */
