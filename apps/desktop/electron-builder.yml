@@ -87,10 +87,11 @@ mac:
   hardenedRuntime: true
   gatekeeperAssess: false
   notarize: false
-  # Sign only native code inside large resource trees. The containing app,
-  # helper app, or framework signature still seals every skipped resource.
+  # Skip signing large DATA-only resource trees to keep packaging fast.
+  # Frameworks' Resources are intentionally NOT ignored: Squirrel.framework's
+  # ShipIt binary lives there and notarization requires it signed (Developer ID
+  # + secure timestamp + hardened runtime).
   signIgnore:
-    - '/Contents/Frameworks/.*/Resources/'
     - '/Contents/Resources/(?:app-dist|artifact-runtime|browser|bundled-plugins|bundled-skills|marketplace)/'
     - '/Contents/Resources/runtimes/[^/]+/python/(?!bin/python(?:3(?:[.][0-9]+)?)?$)(?!.*[.](?:so|dylib)$).*'
   entitlements: build/entitlements.mac.plist
