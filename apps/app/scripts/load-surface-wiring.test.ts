@@ -44,6 +44,24 @@ describe("load surface wiring", () => {
     expect(shellLoad).toContain("useLoadScope");
   });
 
+  test("session switch inset reuses the boot monogram, not fake bubbles", () => {
+    const src = readFileSync(
+      path.join(
+        root,
+        "src/react-app/domains/session/surface/session-surface-transcript-content.tsx",
+      ),
+      "utf8",
+    );
+    expect(src).toContain("LoadSurface");
+    expect(src).toContain('mark="brand"');
+    expect(src).toContain('messageKey="session.switching"');
+    expect(src).toContain("if (props.pendingSessionLoad)");
+    expect(src).not.toContain(
+      "showDelayedLoading && props.pendingSessionLoad",
+    );
+    expect(src).not.toContain("TranscriptHistorySkeleton");
+  });
+
   test("loading overlay reads route load registry", () => {
     const src = readFileSync(
       path.join(root, "src/react-app/shell/loading-overlay.tsx"),
@@ -51,5 +69,18 @@ describe("load surface wiring", () => {
     );
     expect(src).toContain("useRouteLoadTop");
     expect(src).toContain("LoadSurface");
+  });
+
+  test("brand inset fills the host and centers the mark", () => {
+    const src = readFileSync(
+      path.join(root, "src/react-app/shell/load-surface.tsx"),
+      "utf8",
+    );
+    expect(src).toContain(
+      'insetFill: "absolute inset-0 flex items-center justify-center"',
+    );
+    expect(src).toContain(
+      "brandInset ? surfaceClass.insetFill : surfaceClass.inset",
+    );
   });
 });
