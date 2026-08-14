@@ -52,6 +52,7 @@ pnpm --dir apps/desktop build
 ```
 
 This prepares sidecars, runtimes, helper apps, server output, and Electron shell files needed by Electron Builder.
+`apps/desktop/server/` is gitignored staging from this script (`pnpm deploy` of `onmyagent-server`); do not hand-edit it. `prepare:sidecar` only stages OpenCode / orchestrator binaries under `resources/sidecars`.
 
 ## Package Desktop Locally
 

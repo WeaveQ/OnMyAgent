@@ -32,7 +32,6 @@
   "dependencies": {
     "@onmyagent/types": "workspace:*",
     "@opencode-ai/sdk": "1.17.20",
-    "better-sqlite3": "^11.10.0",
     "discord.js": "^14.27.0",
     "electron-updater": "^6.8.9",
     "node-pty": "^1.1.0",

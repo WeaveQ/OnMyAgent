@@ -152,7 +152,7 @@ The preflight checks:
 - Symlink creation privilege (Developer Mode or admin)
 - `electron@39.8.10/dist` extracted (see below for the `path.txt` gotcha)
 - `apps/desktop/resources/{runtimes,sidecars}` presence
-- `node-pty` win32 prebuild and `better-sqlite3` native binding
+- `node-pty` win32 prebuild
 
 Run it after every `pnpm install` and before your first `pnpm dev`.
 
@@ -243,12 +243,13 @@ If your install is elsewhere, set `ONMYAGENT_DOCKER_BIN` to the absolute path.
 
 ### Native modules
 
-`better-sqlite3` and `node-pty` are listed in
+`node-pty` is listed in
 `pnpm-workspace.yaml`'s `onlyBuiltDependencies`. On Windows CI we pin
 `windows-2022` (VS 2022) so `node-gyp` can find the toolchain. Local dev on
 Windows needs "Desktop development with C++" from the Visual Studio
 Installer. `scripts/dev/windows.cmd` locates `VsDevCmd.bat` and injects it
-before invoking `pnpm dev:windows`.
+before invoking `pnpm dev:windows`. Server SQLite uses `bun:sqlite` /
+`node:sqlite`, not a native `better-sqlite3` binding.
 
 ### Python runtime
 
@@ -293,6 +294,12 @@ is added.
 currently run `test:runtime` or an installer smoke; those are on the
 Windows roadmap.
 
+**Unsigned is enough for CI smoke.** Authenticode / EV cert is only for
+user-downloaded SmartScreen. `package:electron:dir` and a silent NSIS
+`/S` install → launch → quit can run on the same `windows-2022` host
+without `CSC_*`. `signAndEditExecutable: true` only stamps the icon via
+rcedit; signing stays skipped until secrets exist.
+
 ## Feature parity today
 
 | Area | macOS | Windows |
@@ -314,9 +321,9 @@ Windows roadmap.
 
 ## Roadmap
 
-- [ ] Windows installer signing (`signtool`, EV cert)
+- [ ] Windows installer signing (`signtool`, EV cert) — user-download SmartScreen; not a smoke blocker
 - [ ] Windows `test:runtime` smoke in CI
-- [ ] NSIS installer smoke (install → launch → quit) on `windows-2022`
+- [ ] NSIS installer smoke (install → launch → quit) on `windows-2022` — unsigned is enough
 - [ ] Recovery panel copy pass for Windows-specific paths
 - [ ] Investigate WSL2 fallback for `sandbox-exec` equivalent
 - [x] Appshot via Electron `desktopCapturer` on Windows (no HandsFree AX)

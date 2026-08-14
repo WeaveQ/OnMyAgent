@@ -196,27 +196,6 @@ record(
   mode === "strict",
 );
 
-const betterSqliteWin = resolve(
-  repoRoot,
-  "node_modules",
-  ".pnpm",
-  "better-sqlite3@11.10.0",
-  "node_modules",
-  "better-sqlite3",
-  "build",
-  "Release",
-  "better_sqlite3.node",
-);
-record(
-  "better-sqlite3 binding",
-  existsSync(betterSqliteWin),
-  existsSync(betterSqliteWin)
-    ? betterSqliteWin
-    : "will need @electron/rebuild after pnpm install (see BUILD.md)",
-  // Native rebuild is a local/dev packaging concern; CI package job covers it separately.
-  mode === "strict",
-);
-
 print();
 const hardFailed = results.filter((r) => !r.ok && (mode === "strict" || r.required));
 process.exit(hardFailed.length === 0 ? 0 : 1);
