@@ -1,6 +1,6 @@
 # apps/orchestrator — Agent 手册
 
-Host 进程编排：嵌入 server、spawn OpenCode、sidecar、sandbox、CLI/TUI。全仓规则见根 [`AGENTS.md`](../../AGENTS.md)。
+Host 进程编排：spawn `onmyagent-server` 二进制（不 import server 源码）、spawn OpenCode、sidecar、sandbox、CLI/TUI。默认桌面 `engineStart` 走 in-process embedded server，不启动本进程。全仓规则见根 [`AGENTS.md`](../../AGENTS.md)。
 
 ## 默认验证
 

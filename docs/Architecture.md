@@ -50,7 +50,7 @@ apps/
     src/        运行时代码：core/routes/services/workspace 分层，根目录只保留入口与编排文件
     tests/      单元/集成测试
     e2e/        HTTP/API 端到端测试
-  orchestrator/ 进程编排：嵌入 server，spawn opencode，审批路由，sandbox 管理；env/PATH、data-dir、sidecar target/config、version manifest、sandbox mount helper 已拆为独立模块
+  orchestrator/ 可选进程编排：spawn `onmyagent-server` **二进制**（不 import server 源码），再 spawn OpenCode、审批路由、sandbox；env/PATH、data-dir、sidecar target/config、version manifest、sandbox mount helper 已拆为独立模块。默认桌面路径不启动本进程
 
 packages/
   types/        共享类型与 Zod schema：server API / Desktop IPC（含 `DesktopCommandMap`）/ desktop-policies / restrictions / inference；health/status/runtime 响应类型也在此包
@@ -162,10 +162,15 @@ apps/app/src/react-app/domains/session/*-marketplace/*.manifest.json  轻量索�
 OpenCode binary pin is `constants.json` → `opencodeVersion` (**v1.17.20**); product prefers the bundled pin over stale PATH installs (see desktop `opencode-binary-policy` / orchestrator version checks).
 
 ```text
-desktop(electron) → runtime.mjs → spawn sidecars
-  ├→ opencode binary (sidecar)
-  ├→ orchestrator → embed server + spawn router → Slack/Telegram
-  └→ server HTTP API ← app(React) 通过 onmyagent-server.ts 调用
+desktop(electron) → runtime.mjs → engineStart
+  default DIRECT_RUNTIME (shipped desktop):
+    └→ startEmbeddedServer (in-process in the Electron app)
+         └→ manage OpenCode binary (manageOpencode: true)
+  optional ORCHESTRATOR_RUNTIME (not the product default):
+    └→ spawn onmyagent-orchestrator daemon
+         └→ spawn onmyagent-server binary (never import server source)
+         └→ OpenCode + approval router / Slack / Telegram
+  app(React) ← server HTTP API via onmyagent-server client
 
 app(React) ← desktop.ts(command-validated IPC bridge)
   ← preload.mjs
@@ -393,10 +398,18 @@ src/react-app/domains/ → 业务域，通过 kernel store 交互，不跨域直
 pnpm check:boundaries
 ```
 
-`check:boundaries` 目前执行三组门禁：
+`pnpm check:boundaries` 实际串行四道（勿再写成「三组」）：
+
+1. `scripts/checks/check-boundaries.mjs` — package + domain + shell-import-depth
+2. `scripts/checks/check-circular-deps.mjs` — Tarjan SCC，baseline 只减不增
+3. `scripts/checks/check-dual-runtime-boundary.mjs` — renderer 不得 import `personal-agent-runtime/**`；Personal 不得 import `session-archive*`
+4. `node --test scripts/checks/check-dual-runtime-boundary.test.mjs`
+
+`check-boundaries.mjs` 内的包/域规则：
 
 - **Package + domain boundaries**：`packages/types`、`packages/ui`、`apps/server`、`apps/desktop`
-  不得反向依赖上层包；业务域只能按 `domain-boundary-policy.mjs` 的显式依赖图引用目标域
+  不得反向依赖上层包；`packages/artifact-runtime` 纳入 `packageDirs` 扫描。
+  业务域只能按 `domain-boundary-policy.mjs` 的显式依赖图引用目标域
   一级 `index.ts`，深链或未声明方向立即失败；
   `src/components/**` 不得反向 import `react-app`；`src/app/lib/**` 不得 import `react-app`。
 - **Shell import depth**：`apps/app/src/react-app/shell/**` 只能 import 到某个
@@ -405,9 +418,11 @@ pnpm check:boundaries
   历史深链清理完之后运行
   `node scripts/checks/check-boundaries.mjs --write-shell-depth-baseline`
   刷新 baseline，`--list-shell-depth` 打印当前所有深链。
-- **Circular dependencies**：`scripts/checks/check-circular-deps.mjs`（零依赖 Tarjan SCC）；baseline
-  `scripts/checks/baselines/circular-deps.json` **只减不增**（当前目标：**0 环**）。测试：
-  `node --test scripts/checks/check-circular-deps.test.mjs`。
+
+**Circular dependencies**：`scripts/checks/check-circular-deps.mjs`（零依赖 Tarjan SCC）；扫描根含
+`packages/artifact-runtime`、`packages/onmyagent-ui-mcp`、`packages/handsfree`。
+baseline `scripts/checks/baselines/circular-deps.json` **只减不增**（当前目标：**0 环**）。测试：
+`node --test scripts/checks/check-circular-deps.test.mjs`。
 
 `pnpm check:forbidden-types` 是配套的**类型逃逸门禁**：扫描 `apps/**/src`、
 `packages/**/src` 里的 `any` 类型注解、`as any` 断言和 `as unknown as` 双转，

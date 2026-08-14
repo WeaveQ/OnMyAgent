@@ -15,6 +15,7 @@ const packageDirs = [
   'apps/desktop',
   'apps/orchestrator',
   'apps/server',
+  'packages/artifact-runtime',
   'packages/handsfree',
   'packages/onmyagent-ui-mcp',
   'packages/types',
