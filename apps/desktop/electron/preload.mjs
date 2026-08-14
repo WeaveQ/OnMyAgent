@@ -13,7 +13,6 @@ const NATIVE_MENU_RECENT_SESSION_EVENT =
 const NATIVE_MENU_OPEN_MARKET_EVENT =
   "onmyagent:native-menu:open-expert-marketplace";
 const DESKTOP_IPC_CHANNEL = "onmyagent:desktop";
-const LEGACY_DESKTOP_IPC_CHANNEL = "open" + "work:desktop";
 const TASK_ORCHESTRATOR_EVENT = "onmyagent:task-orchestrator:event";
 
 function normalizePlatform(value) {
@@ -44,12 +43,7 @@ function applyShellDocumentMarkers() {
 
 contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
   invokeDesktop(command, ...args) {
-    return ipcRenderer.invoke(DESKTOP_IPC_CHANNEL, command, ...args).catch((error) => {
-      if (error?.message?.includes("No handler registered for 'onmyagent:desktop'")) {
-        return ipcRenderer.invoke(LEGACY_DESKTOP_IPC_CHANNEL, command, ...args);
-      }
-      throw error;
-    });
+    return ipcRenderer.invoke(DESKTOP_IPC_CHANNEL, command, ...args);
   },
   files: {
     getPathForFile(file) {

@@ -27,6 +27,7 @@ import {
 } from "./sandbox-mounts.js";
 import {
   type ApprovalMode,
+  SANDBOX_WORKSPACE_DIR,
   SANDBOX_INTERNAL_ONMYAGENT_PORT,
   SANDBOX_INTERNAL_OPENCODE_PORT,
   SANDBOX_INTERNAL_OPENCODE_ROUTER_HEALTH_PORT,
@@ -118,7 +119,7 @@ export async function writeSandboxEntrypoint(options: {
   const opencodeBin = `${options.rootInContainer}/sidecars/opencode`;
   const onmyagentBin = `${options.rootInContainer}/sidecars/onmyagent-server`;
   const opencodeRouterBin = `${options.rootInContainer}/sidecars/opencode-router`;
-  const workspaceDir = "/workspace";
+  const workspaceDir = SANDBOX_WORKSPACE_DIR;
   const opencodeConfigDir = options.opencodeConfigDirInContainer;
   const hostOpencodeConfigDir = SANDBOX_OPENCODE_GLOBAL_CONFIG_CONTAINER_PATH;
   const hostOpencodeDataDir =

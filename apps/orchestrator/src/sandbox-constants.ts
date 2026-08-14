@@ -10,6 +10,9 @@ export type ApprovalMode = "manual" | "auto";
 
 export const DEFAULT_ONMYAGENT_PORT = 8787;
 
+/** Path passed to onmyagent-server `--workspace` inside the container. */
+export const SANDBOX_WORKSPACE_DIR = "/workspace";
+
 export const SANDBOX_INTERNAL_OPENCODE_PORT = 4096;
 export const SANDBOX_INTERNAL_ONMYAGENT_PORT = DEFAULT_ONMYAGENT_PORT;
 // OpenCodeRouter defaults its health server to 3005 when not overridden. In

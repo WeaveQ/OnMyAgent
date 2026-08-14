@@ -375,7 +375,7 @@ describe("workspace session read APIs", () => {
     expect(sawCommand).toBe(true);
   });
 
-  test("keeps legacy /w workspace opencode proxy alias", async () => {
+  test("rejects retired /w and unscoped OpenCode proxy mounts", async () => {
     const workspaceRoot = await createWorkspaceRoot();
     const mock = startMockOpencode();
     const onmyagent = await startOnMyAgentServer({
@@ -383,14 +383,16 @@ describe("workspace session read APIs", () => {
       opencodeBaseUrl: `http://127.0.0.1:${mock.server.port}`,
     });
 
-    const response = await fetch(`http://127.0.0.1:${onmyagent.server.port}/w/ws_1/opencode/session`, {
+    const short = await fetch(`http://127.0.0.1:${onmyagent.server.port}/w/ws_1/opencode/session`, {
       headers: auth(onmyagent.token),
     });
+    expect(short.status).toBe(404);
 
-    expect(response.status).toBe(200);
-    const body = await response.json();
-    expect(Array.isArray(body)).toBe(true);
-    expect(mock.requests.some((request) => request.pathname === "/session")).toBe(true);
+    const unscoped = await fetch(`http://127.0.0.1:${onmyagent.server.port}/opencode/session`, {
+      headers: auth(onmyagent.token),
+    });
+    expect(unscoped.status).toBe(404);
+    expect(mock.requests.some((request) => request.pathname === "/session")).toBe(false);
   });
 
   test("returns 502 when OpenCode returns an invalid session list payload", async () => {

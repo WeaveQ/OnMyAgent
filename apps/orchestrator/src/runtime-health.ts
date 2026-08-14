@@ -191,8 +191,13 @@ export async function waitForHealthyViaProxy(
         signal: AbortSignal.timeout(2000),
       });
       if (res.ok) return;
-      if (res.status < 500) return;
-      lastError = `Proxy returned ${res.status}`;
+      if (res.status === 404) {
+        lastError = `Proxy returned ${res.status}`;
+      } else if (res.status < 500) {
+        return;
+      } else {
+        lastError = `Proxy returned ${res.status}`;
+      }
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
     }

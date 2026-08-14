@@ -57,25 +57,40 @@ const bridgeMethods = collectRendererCommandNames();
 const electronHandlers = new Set(DESKTOP_HANDLER_COMMANDS);
 const missing = bridgeMethods.filter((name) => !electronHandlers.has(name));
 
+const retiredDesktopIpcChannel = ["open", "work", ":desktop"].join("");
 const requiredMainSnippets = [
   'const DESKTOP_IPC_CHANNEL = "onmyagent:desktop";',
-  'const LEGACY_DESKTOP_IPC_CHANNEL = "open" + "work:desktop";',
   "ipcMain.handle(DESKTOP_IPC_CHANNEL, handleDesktopInvoke);",
-  "ipcMain.handle(LEGACY_DESKTOP_IPC_CHANNEL, handleDesktopInvoke);",
+];
+const forbiddenMainSnippets = [
+  "LEGACY_DESKTOP_IPC_CHANNEL",
+  retiredDesktopIpcChannel,
 ];
 const requiredPreloadSnippets = [
   'const DESKTOP_IPC_CHANNEL = "onmyagent:desktop";',
-  'const LEGACY_DESKTOP_IPC_CHANNEL = "open" + "work:desktop";',
   "ipcRenderer.invoke(DESKTOP_IPC_CHANNEL, command, ...args)",
-  "ipcRenderer.invoke(LEGACY_DESKTOP_IPC_CHANNEL, command, ...args)",
+];
+const forbiddenPreloadSnippets = [
+  "LEGACY_DESKTOP_IPC_CHANNEL",
+  retiredDesktopIpcChannel,
 ];
 const bridgeFailures = [];
 
 for (const snippet of requiredMainSnippets) {
   if (!electronMainSource.includes(snippet)) bridgeFailures.push(`main.mjs missing ${snippet}`);
 }
+for (const snippet of forbiddenMainSnippets) {
+  if (electronMainSource.includes(snippet)) {
+    bridgeFailures.push(`main.mjs still registers retired desktop IPC channel: ${snippet}`);
+  }
+}
 for (const snippet of requiredPreloadSnippets) {
   if (!preloadSource.includes(snippet)) bridgeFailures.push(`preload.mjs missing ${snippet}`);
+}
+for (const snippet of forbiddenPreloadSnippets) {
+  if (preloadSource.includes(snippet)) {
+    bridgeFailures.push(`preload.mjs still falls back to a retired desktop IPC channel: ${snippet}`);
+  }
 }
 if (/ipcRenderer\.invoke\("onmyagent:desktop"/.test(preloadSource)) {
   bridgeFailures.push("preload.mjs should invoke DESKTOP_IPC_CHANNEL instead of hard-coded onmyagent:desktop");

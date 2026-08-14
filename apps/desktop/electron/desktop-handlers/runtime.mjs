@@ -20,21 +20,16 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "orchestratorStatus",
   "orchestratorWorkspaceActivate",
   "orchestratorInstanceDispose",
-  "getOpenworkUiMcpCommand",
   "getOnMyAgentUiMcpCommand",
-  "getOpenworkUiMcpEnvironment",
   "getOnMyAgentUiMcpEnvironment",
-  "nukeOpenworkAndOpencodeConfigAndExit",
   "nukeOnMyAgentAndOpencodeConfigAndExit",
   "orchestratorStartDetached",
   "sandboxDoctor",
   "sandboxStop",
-  "sandboxCleanupOpenworkContainers",
   "sandboxCleanupOnMyAgentContainers",
   "sandboxDebugProbe",
   "onmyagentServerInfo",
   "onmyagentServerRestart",
-  "resetOpenworkState",
   "resetOnMyAgentState",
 ]);
 
@@ -148,20 +143,6 @@ export function createRuntimeDomainHandlers({
     );
   },
 
-  // shared: getOpenworkUiMcpCommand, getOnMyAgentUiMcpCommand
-  getOpenworkUiMcpCommand: async (event, args) => {
-    if (process.env.ONMYAGENT_DEV_MODE === "1") {
-      return [
-        "node",
-        path.resolve(
-          __dirname,
-          "../../..",
-          "packages/onmyagent-ui-mcp/index.mjs",
-        ),
-      ];
-    }
-    return ["npx", "-y", "onmyagent-ui-mcp"];
-  },
   getOnMyAgentUiMcpCommand: async (event, args) => {
     if (process.env.ONMYAGENT_DEV_MODE === "1") {
       return [
@@ -176,15 +157,6 @@ export function createRuntimeDomainHandlers({
     return ["npx", "-y", "onmyagent-ui-mcp"];
   },
 
-  // shared: getOpenworkUiMcpEnvironment, getOnMyAgentUiMcpEnvironment
-  getOpenworkUiMcpEnvironment: async (event, args) => {
-    return {
-      ONMYAGENT_UI_CONTROL_DISCOVERY: path.join(
-        app.getPath("userData"),
-        "onmyagent-ui-control.json",
-      ),
-    };
-  },
   getOnMyAgentUiMcpEnvironment: async (event, args) => {
     return {
       ONMYAGENT_UI_CONTROL_DISCOVERY: path.join(
@@ -194,13 +166,6 @@ export function createRuntimeDomainHandlers({
     };
   },
 
-  // shared: nukeOpenworkAndOpencodeConfigAndExit, nukeOnMyAgentAndOpencodeConfigAndExit
-  nukeOpenworkAndOpencodeConfigAndExit: async (event, args) => {
-    await taskLifecycle?.prepareDestructiveReset?.("full_nuke");
-    await rm(app.getPath("userData"), { recursive: true, force: true });
-    app.exit(0);
-    return undefined;
-  },
   nukeOnMyAgentAndOpencodeConfigAndExit: async (event, args) => {
     await taskLifecycle?.prepareDestructiveReset?.("full_nuke");
     await rm(app.getPath("userData"), { recursive: true, force: true });
@@ -220,10 +185,6 @@ export function createRuntimeDomainHandlers({
     return runtimeManager.sandboxStop(String(args[0] ?? "").trim());
   },
 
-  // shared: sandboxCleanupOpenworkContainers, sandboxCleanupOnMyAgentContainers
-  sandboxCleanupOpenworkContainers: async (event, args) => {
-    return runtimeManager.sandboxCleanupOnMyAgentContainers();
-  },
   sandboxCleanupOnMyAgentContainers: async (event, args) => {
     return runtimeManager.sandboxCleanupOnMyAgentContainers();
   },
@@ -240,11 +201,7 @@ export function createRuntimeDomainHandlers({
     return withTaskLifecycleGuard("server_restart", () => runtimeManager.onmyagentServerRestart(args[0] ?? {}));
   },
 
-  // shared: resetOpenworkState, resetOnMyAgentState
   // mode: "onboarding" (default) | "all" — see reset-onmyagent-state.mjs
-  resetOpenworkState: async (event, args) => {
-    return resetOnMyAgentStateHandler(args);
-  },
   resetOnMyAgentState: async (event, args) => {
     return resetOnMyAgentStateHandler(args);
   },

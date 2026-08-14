@@ -138,8 +138,7 @@ Toy UI (static assets served by the server):
 
 OpenCode proxy:
 
-- `GET|POST|... /opencode/*`
-- `GET|POST|... /w/:id/opencode/*`
+- `GET|POST|... /workspace/:id/opencode/*`
 
 OpenCode Router proxy:
 

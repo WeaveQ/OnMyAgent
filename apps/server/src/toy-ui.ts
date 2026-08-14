@@ -721,7 +721,7 @@ function writeSessionId(workspaceId, sessionId) {
 
 async function resolveDefaultModel(workspaceId) {
   try {
-    const providers = await apiFetch("/w/" + encodeURIComponent(workspaceId) + "/opencode/config/providers");
+    const providers = await apiFetch("/workspace/" + encodeURIComponent(workspaceId) + "/opencode/config/providers");
     const def = providers && providers.default ? providers.default : null;
     if (def && typeof def === "object") {
       const entries = Object.entries(def);
@@ -740,7 +740,7 @@ async function resolveDefaultModel(workspaceId) {
 async function ensureSession(workspaceId) {
   const existing = readSessionId(workspaceId);
   if (existing) return existing;
-  const created = await apiFetch("/w/" + encodeURIComponent(workspaceId) + "/opencode/session", {
+  const created = await apiFetch("/workspace/" + encodeURIComponent(workspaceId) + "/opencode/session", {
     method: "POST",
     body: JSON.stringify({ title: "OnMyAgent Toy UI" }),
   });
@@ -790,7 +790,7 @@ async function refreshMessages(workspaceId) {
     renderMessages([]);
     return;
   }
-  const url = "/w/" + encodeURIComponent(workspaceId) + "/opencode/session/" + encodeURIComponent(sessionId) + "/message?limit=50";
+  const url = "/workspace/" + encodeURIComponent(workspaceId) + "/opencode/session/" + encodeURIComponent(sessionId) + "/message?limit=50";
   const msgs = await apiFetch(url);
   renderMessages(msgs);
 }
@@ -937,7 +937,7 @@ async function connectSse(workspaceId) {
   setStatus("Connecting SSE...", "");
   addCheckpoint("sse.connecting");
 
-  const url = "/w/" + encodeURIComponent(workspaceId) + "/opencode/event";
+  const url = "/workspace/" + encodeURIComponent(workspaceId) + "/opencode/event";
   const res = await fetch(url, {
     headers: { Authorization: "Bearer " + readToken() },
     signal: controller.signal,
@@ -1388,7 +1388,7 @@ async function main() {
       const body = { parts: [{ type: "text", text: text }] };
       if (model) body.model = model;
       await apiFetch(
-        "/w/" + encodeURIComponent(workspaceId) + "/opencode/session/" + encodeURIComponent(sessionId) + "/prompt_async",
+        "/workspace/" + encodeURIComponent(workspaceId) + "/opencode/session/" + encodeURIComponent(sessionId) + "/prompt_async",
         { method: "POST", body: JSON.stringify(body) },
       );
       setStatus("Prompt accepted", "ok");

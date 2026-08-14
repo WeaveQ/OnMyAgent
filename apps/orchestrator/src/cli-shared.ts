@@ -1334,11 +1334,14 @@ export async function runSandboxChecks(input: {
 
   // 5. Proxy is reachable (even if auth is rejected — non-5xx proves the
   //    server is proxying to a running opencode)
-  const proxyRes = await fetch(`${baseUrl}/opencode/health`, {
-    headers,
-    signal: AbortSignal.timeout(3000),
-  });
-  if (proxyRes.status >= 500) {
+  const proxyRes = await fetch(
+    `${baseUrl}/workspace/${encodeURIComponent(workspaceId)}/opencode/health`,
+    {
+      headers,
+      signal: AbortSignal.timeout(3000),
+    },
+  );
+  if (proxyRes.status === 404 || proxyRes.status >= 500) {
     throw new Error(`opencode proxy returned ${proxyRes.status}`);
   }
 
