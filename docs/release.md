@@ -206,8 +206,12 @@ Use this flow before Apple signing and notarization are configured.
 macOS release signing identity (CI `CSC_NAME`, not a GitHub secret):
 
 ```text
-Developer ID Application: li yingkun (WP5S7KB7R7)
+li yingkun (WP5S7KB7R7)
 ```
+
+> `CSC_NAME` must be the common name **without** the `Developer ID Application:`
+> prefix — electron-builder 26 rejects the prefix and adds the certificate type
+> automatically. The full Apple identity is `Developer ID Application: li yingkun (WP5S7KB7R7)`.
 
 SHA-1: `0A844944FB3F93D66D2F5F24D945ADC7AB7ED392`.
 `APPLE_CODESIGN_CERT_P12_BASE64` must be this Developer ID identity’s p12 — not an Apple Development certificate.

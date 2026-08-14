@@ -81,7 +81,8 @@ mac:
   # Hardened Runtime stays on for both Developer ID and ad-hoc local builds.
   # Ad-hoc: set identity to "-" (see package:electron:local) and keep the
   # entitlements below so Electron/Chromium JIT + native modules do not crash.
-  # Release: CI sets CSC_NAME=Developer ID Application: li yingkun (WP5S7KB7R7).
+  # Release: CI sets CSC_NAME=li yingkun (WP5S7KB7R7) — electron-builder 26
+  # rejects the "Developer ID Application:" prefix and adds the type itself.
   # Enable MACOS_NOTARIZE=true after notary API secrets are configured.
   hardenedRuntime: true
   gatekeeperAssess: false
