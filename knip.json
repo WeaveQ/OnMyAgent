@@ -1,0 +1,42 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignore": [
+    "apps/desktop/resources/marketplace/**",
+    "apps/desktop/resources/bundled-skills/**",
+    "apps/desktop/server/**",
+    "graphify-out/**",
+    "**/dist/**",
+    "**/dist-electron/**"
+  ],
+  "workspaces": {
+    "apps/app": {
+      "entry": [
+        "src/office-viewer.tsx!",
+        "office-viewer.html!",
+        "overlay.html!",
+        "scripts/**/*.{ts,mjs}"
+      ],
+      "ignoreDependencies": ["bun-types"]
+    },
+    "apps/desktop": {
+      "entry": [
+        "electron/**/*.mjs",
+        "scripts/**/*.{mjs,cjs}"
+      ],
+      "ignoreDependencies": ["discord.js"]
+    },
+    "apps/orchestrator": {
+      "ignoreDependencies": [
+        "@opentui/core-darwin-arm64",
+        "@opentui/core-darwin-x64",
+        "@opentui/core-linux-arm64",
+        "@opentui/core-linux-x64",
+        "@opentui/core-win32-x64"
+      ]
+    },
+    "packages/artifact-runtime": {
+      "entry": ["*.cjs"],
+      "ignoreDependencies": ["docx", "exceljs", "fast-xml-parser", "pptxgenjs"]
+    }
+  }
+}

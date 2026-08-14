@@ -10,11 +10,16 @@ export const EXPERT_PACKAGE_QUERY_KEY = ["expert-packages", "local"] as const;
 
 export type ExpertPackageMarketplace = "experts" | "my-experts";
 
-/** Chat/store "my experts" only lists mine. Combined catalog is expert-page metadata. */
+/**
+ * Chat enter stays self-created only.
+ * Store "已召唤专家" and expert-page metadata include marketplace installs.
+ */
 export function expertPackageMarketplacesForEnter(
   surface: "chat" | "store" | "expert-page",
 ): readonly ExpertPackageMarketplace[] {
-  if (surface === "expert-page") return ["experts", "my-experts"];
+  if (surface === "store" || surface === "expert-page") {
+    return ["experts", "my-experts"];
+  }
   return ["my-experts"];
 }
 

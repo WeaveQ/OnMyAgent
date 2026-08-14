@@ -252,9 +252,12 @@ describe("expert first-paint Directory + package listing", () => {
     expect(buildExpertDirectoryPageModel({ query: live }).state).toBe("loading");
   });
 
-  test("chat enter lists only my-experts; expert page lists both", async () => {
+  test("chat enter lists only my-experts; store and expert page list both", async () => {
     expect(expertPackageMarketplacesForEnter("chat")).toEqual(["my-experts"]);
-    expect(expertPackageMarketplacesForEnter("store")).toEqual(["my-experts"]);
+    expect(expertPackageMarketplacesForEnter("store")).toEqual([
+      "experts",
+      "my-experts",
+    ]);
     expect(expertPackageMarketplacesForEnter("expert-page")).toEqual([
       "experts",
       "my-experts",
@@ -262,13 +265,13 @@ describe("expert first-paint Directory + package listing", () => {
 
     const seen: string[] = [];
     await fetchExpertPackageEntries(
-      expertPackageMarketplacesForEnter("chat"),
+      expertPackageMarketplacesForEnter("store"),
       async (marketplace) => {
         seen.push(marketplace);
         return [];
       },
     );
-    expect(seen).toEqual(["my-experts"]);
+    expect(seen).toEqual(["experts", "my-experts"]);
 
     const identity = readFileSync(
       join(
@@ -288,6 +291,6 @@ describe("expert first-paint Directory + package listing", () => {
       ),
       "utf8",
     );
-    expect(chatPackages).toContain('expertPackageMarketplacesForEnter("chat")');
+    expect(chatPackages).toContain('expertPackageMarketplacesForEnter("store")');
   });
 });

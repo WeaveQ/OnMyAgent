@@ -583,7 +583,7 @@ describe("expert marketplace UI contract", () => {
     expect(sessionStarters).toContain("installSummonedMarketplaceExpert(expert)");
     expect(assistantPage).toContain("useSummonMarketplaceExpert");
     expect(summonHook).toContain("installSummonedMarketplaceExpert(expert)");
-    expect(myExpertsHook).toContain('expertPackageMarketplacesForEnter("chat")');
+    expect(myExpertsHook).toContain('expertPackageMarketplacesForEnter("store")');
     expect(myExpertsHook).not.toContain("EXPERT_PACKAGES_CHANGED_EVENT");
     expect(expertPage).toContain("useMyExpertPackages");
     // The expert page owns real summoned sessions; it must not synthesize
