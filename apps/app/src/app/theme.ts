@@ -1,3 +1,8 @@
+import {
+  overlaySymbolColorForBackground,
+  readWindowsTitlebarRailColor,
+} from "./windows-titlebar-inset";
+
 export type ThemeMode = "light" | "dark" | "system";
 export type ResolvedThemeMode = "light" | "dark";
 
@@ -59,7 +64,15 @@ const emitThemeChange = () => {
 
 const syncNativeTheme = (mode: ThemeMode) => {
   if (typeof window === "undefined") return;
-  void window.__ONMYAGENT_ELECTRON__?.invokeDesktop?.("__setNativeTheme", mode);
+  const color = readWindowsTitlebarRailColor();
+  const overlay = color
+    ? { color, symbolColor: overlaySymbolColorForBackground(color) }
+    : undefined;
+  void window.__ONMYAGENT_ELECTRON__?.invokeDesktop?.(
+    "__setNativeTheme",
+    mode,
+    overlay,
+  );
 };
 
 const getCurrentMode = () => {

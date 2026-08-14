@@ -369,8 +369,8 @@ async function createMainWindow() {
   return desktopWindowController.createMainWindow();
 }
 
-function applyNativeTheme(mode) {
-  return desktopWindowController.applyNativeTheme(mode);
+function applyNativeTheme(mode, overlay) {
+  return desktopWindowController.applyNativeTheme(mode, overlay);
 }
 
 function activeWindowFromEvent(event) {

@@ -235,10 +235,11 @@ If your install is elsewhere, set `ONMYAGENT_DOCKER_BIN` to the absolute path.
 - **`.env` file `chmod 0o600`**: `apps/server/src/services/env-file.ts`
   catches the Windows no-op. Secret files are readable by other Windows
   users unless you set NTFS ACLs manually.
-- **Titlebar drag / vibrancy / traffic lights**: `apps/desktop/electron/main.mjs`
-  only applies them on `darwin`. Windows gets the standard system frame.
-  `mac:titlebar-drag` / `mac:titlebar-no-drag` Tailwind utilities gate on
-  the `.onmyagent-platform-mac` class so they are inert elsewhere.
+- **Titlebar drag / vibrancy / traffic lights**: macOS still uses
+  `hiddenInset` + vibrancy. Windows uses `titleBarStyle="hidden"` +
+  `titleBarOverlay` (`apps/desktop/electron/windows-titlebar.mjs`) and
+  a WeChat-style painted caption layer in `apps/app/src/app/index.css`
+  so app chrome starts below the native min/max/close.
 
 ### Native modules
 
@@ -306,7 +307,7 @@ Windows roadmap.
 | Computer Use MCP (bundled Cua Driver) | — | ✓ (staged helper; MCP default off) |
 | Composer Appshot (desktop capture) | ✓ | ✓ (Electron desktopCapturer) |
 | `sandbox-exec` isolation | ✓ | — (no isolation) |
-| Titlebar vibrancy | ✓ | — (system frame) |
+| Titlebar vibrancy | ✓ | overlay + painted caption layer |
 | Docker Desktop integration | ✓ | ✓ (auto-detect) |
 | Code signing | ✓ notarized | — (SmartScreen warning) |
 | NSIS installer packaging | — | ✓ (unsigned preview) |
