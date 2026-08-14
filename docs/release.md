@@ -31,9 +31,9 @@ Once Apple notarization is enabled, the `macQuarantineNotice` flag and this cave
 
 Release packaging and code signing still follow the flows below; the updater only needs a normal GitHub Release with a semver tag.
 
-## Developer preview (unsigned, no Apple Developer cert)
+## Developer preview (signed Developer ID, not notarized)
 
-When you **do not** have Developer ID + notarization yet, ship GitHub builds as **developer preview** only:
+GitHub macOS builds are signed with `Developer ID Application (see CI secret CSC_NAME)`. Notarization is still **off** until notary API secrets exist, so ship GitHub builds as **developer preview** only:
 
 ```text
 draft: false
@@ -203,6 +203,15 @@ Use this flow before Apple signing and notarization are configured.
 
 ## Production Release Requirements
 
+macOS release signing identity (CI `CSC_NAME`, not a GitHub secret):
+
+```text
+Developer ID Application (see CI secret CSC_NAME)
+```
+
+SHA-1: `[redacted; see private runbook]`.
+`APPLE_CODESIGN_CERT_P12_BASE64` must be this Developer ID identity’s p12 — not an Apple Development certificate.
+
 Before publishing a stable public release, configure Apple signing and notarization secrets in GitHub Actions:
 
 - `APPLE_CODESIGN_CERT_P12_BASE64`
@@ -219,6 +228,8 @@ prerelease: false
 notarize: true
 build_electron: true
 ```
+
+`Release App` now honors the `notarize` input (it used to force `false`). First signed+notarized cut should stay `prerelease: true` until `spctl` / `stapler validate` pass.
 
 Only enable these after the release destinations are intentionally configured:
 
