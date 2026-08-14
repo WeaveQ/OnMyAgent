@@ -205,14 +205,7 @@ export function resolveCommitRange({
     },
     event,
   });
-  const resolvedBase = resolveFirst(root, candidates.base);
-  if (!resolvedBase.sha) {
-    throw new CommitRangeError(
-      "BASE_UNAVAILABLE",
-      `No usable base commit is available. Tried ${resolvedBase.attempted.join(", ") || "no candidates"}. Make the base object available locally or pass --base/TYPE_GATE_BASE; this gate never fetches automatically.`,
-      { attempted: resolvedBase.attempted, eventPath: eventFile ?? null },
-    );
-  }
+  const limit = parseMaxCommits(maxCommits ?? env.TYPE_GATE_MAX_COMMITS ?? env.MAX_COMMITS);
   const resolvedHead = resolveFirst(root, candidates.head);
   if (!resolvedHead.sha) {
     throw new CommitRangeError(
@@ -221,8 +214,34 @@ export function resolveCommitRange({
       { attempted: resolvedHead.attempted, eventPath: eventFile ?? null },
     );
   }
-
-  const limit = parseMaxCommits(maxCommits ?? env.TYPE_GATE_MAX_COMMITS ?? env.MAX_COMMITS);
+  const resolvedBase = resolveFirst(root, candidates.base);
+  if (!resolvedBase.sha) {
+    const pushBefore = typeof event?.before === "string" ? event.before.trim() : "";
+    const isPushWithMissingBefore =
+      env.GITHUB_EVENT_NAME === "push" &&
+      Boolean(pushBefore) &&
+      !ZERO_SHA.test(pushBefore);
+    // Force-push / rewritten history: event.before is not in this clone and
+    // must not be fetched. Check the new tip instead of inventing a base.
+    // pull_request events still fail closed (BASE_UNAVAILABLE).
+    if (isPushWithMissingBefore) {
+      return {
+        repoRoot: root,
+        base: resolvedHead.sha,
+        head: resolvedHead.sha,
+        commits: [resolvedHead.sha],
+        count: 1,
+        maxCommits: limit,
+        eventPath: eventFile ?? null,
+        fallback: "push-before-unavailable",
+      };
+    }
+    throw new CommitRangeError(
+      "BASE_UNAVAILABLE",
+      `No usable base commit is available. Tried ${resolvedBase.attempted.join(", ") || "no candidates"}. Make the base object available locally or pass --base/TYPE_GATE_BASE; this gate never fetches automatically.`,
+      { attempted: resolvedBase.attempted, eventPath: eventFile ?? null },
+    );
+  }
   const range = `${resolvedBase.sha}..${resolvedHead.sha}`;
   const countResult = runGit(root, ["rev-list", "--count", range], { allowFailure: true });
   if (countResult.status !== 0 || !/^\d+$/.test(countResult.stdout)) {
@@ -267,6 +286,7 @@ export function resolveCommitRange({
     count,
     maxCommits: limit,
     eventPath: eventFile ?? null,
+    fallback: null,
   };
 }
 
@@ -431,6 +451,11 @@ export function main(argv = process.argv.slice(2), env = process.env) {
     return 0;
   }
   const range = resolveCommitRange({ ...options, env });
+  if (range.fallback === "push-before-unavailable") {
+    console.log(
+      `event.before is not in this clone (force-push or rewritten history). Checking tip ${range.head} only.`,
+    );
+  }
   console.log(`Checking ${range.count} commit(s): ${range.base}..${range.head} (max ${range.maxCommits})`);
   runTypeChecksForCommits({ repoRoot: range.repoRoot, commits: range.commits, maxCommits: range.maxCommits, env });
   console.log(`Per-commit type gate passed (${range.count} commit(s)).`);

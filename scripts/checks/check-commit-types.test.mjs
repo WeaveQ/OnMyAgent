@@ -79,6 +79,28 @@ test("resolves push before/after SHAs without requiring a branch ref", () => {
   }
 });
 
+test("push with missing event.before checks the tip instead of failing closed", () => {
+  const fixture = fixtureRepo();
+  try {
+    const eventPath = writeEvent(fixture.root, {
+      before: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+      after: fixture.head,
+    });
+    const result = resolveCommitRange({
+      repoRoot: fixture.root,
+      eventPath,
+      env: { GITHUB_EVENT_NAME: "push", GITHUB_EVENT_PATH: eventPath },
+    });
+    assert.equal(result.fallback, "push-before-unavailable");
+    assert.equal(result.count, 1);
+    assert.deepEqual(result.commits, [fixture.head]);
+    assert.equal(result.base, fixture.head);
+    assert.equal(result.head, fixture.head);
+  } finally {
+    rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
 test("returns a typed BASE_UNAVAILABLE error instead of guessing a shallow/deleted base", () => {
   const fixture = fixtureRepo();
   try {
