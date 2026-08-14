@@ -231,7 +231,7 @@ jobs:
     needs: [resolve-release, verify-release]
     if: needs.resolve-release.outputs.build_electron == 'true'
     runs-on: ${{ matrix.platform }}
-    timeout-minutes: 120
+    timeout-minutes: 240
     env:
       RELEASE_TAG: ${{ needs.resolve-release.outputs.release_tag }}
       MACOS_NOTARIZE: ${{ needs.resolve-release.outputs.notarize }}

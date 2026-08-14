@@ -125,7 +125,7 @@ async function afterSign(context) {
     );
 
     const baseArgs = ["--key", keyPath, "--key-id", keyId, "--issuer", issuer];
-    const deadline = Date.now() + 3600000;
+    const deadline = Date.now() + 6000000;
     let attempt = 0;
     let accepted = false;
     while (Date.now() < deadline) {
