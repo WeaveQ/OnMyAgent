@@ -33,6 +33,8 @@ import {
   resolveLanIp,
   resolveConnectUrl,
 } from "./cli-network";
+import { localOpencodeWindowsExtraCandidates } from "./cli-opencode-windows-paths.js";
+export { localOpencodeWindowsExtraCandidates };
 
 
 import { createOpencodeClient } from "@opencode-ai/sdk/v2/client";
@@ -389,23 +391,6 @@ export async function readPinnedOpencodeVersion(): Promise<string | undefined> {
   }
 
   return undefined;
-}
-
-
-export function localOpencodeWindowsExtraCandidates(
-  home = homedir(),
-  env: NodeJS.ProcessEnv = process.env,
-): string[] {
-  const candidates: string[] = [];
-  const localAppData = env.LOCALAPPDATA?.trim();
-  if (localAppData) {
-    candidates.push(
-      join(localAppData, "opencode", "bin", "opencode.exe"),
-      join(localAppData, "Programs", "opencode", "opencode.exe"),
-    );
-  }
-  candidates.push(join(home, ".opencode", "bin", "opencode.exe"));
-  return candidates;
 }
 
 export async function resolveLocalOpencodeBin(): Promise<string | undefined> {
