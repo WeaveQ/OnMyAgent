@@ -1,6 +1,19 @@
 // System / engine / computer-use desktop IPC wire types.
 // Extracted from desktop-ipc.ts (re-exported for public entry compatibility).
 
+/** Options for `engineStart` / `engineRestart` (desktop runtime handler). */
+export type EngineStartOptions = {
+  runtime?: "direct" | "onmyagent-orchestrator";
+  workspacePaths?: string[];
+  onmyagentRemoteAccess?: boolean;
+  opencodeBinPath?: string;
+  opencodeEnableExa?: boolean;
+};
+
+export type EngineDoctorOptions = {
+  opencodeBinPath?: string;
+};
+
 export type EngineInfo = {
   running: boolean;
   runtime: "direct";

@@ -51,9 +51,10 @@ Architecture 是 monorepo SoT；包级 AGENTS 只做验证入口，不另写政�
 apps/desktop      Electron shell，IPC，sidecar，打包
 apps/app          React UI（react-app 域架构）
 apps/server       本地 HTTP API，SQLite，SSE
-apps/orchestrator 进程编排，spawn opencode，sandbox
+apps/orchestrator 可选编排进程：spawn onmyagent-server 二进制 + OpenCode（默认桌面不启动）
 packages/types    Zod schema
 packages/ui       视觉组件（无 app 状态）
+packages/artifact-runtime  文档/表格 artifact 运行时（CJS）
 packages/handsfree  macOS Computer Use（Win/Linux 不打包）
 packages/onmyagent-ui-mcp  UI 控制面 MCP
 ```

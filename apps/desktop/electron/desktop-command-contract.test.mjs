@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import {
@@ -110,4 +113,20 @@ test("generated Desktop command union is current", async () => {
     { cwd: new URL("../../..", import.meta.url), encoding: "utf8" },
   );
   assert.equal(result.status, 0, result.stderr);
+});
+
+test("engine IPC payloads use EngineStartOptions / EngineDoctorOptions, not unknown", () => {
+  const mapPath = join(
+    dirname(fileURLToPath(import.meta.url)),
+    "../../../packages/types/src/desktop-ipc-command-map.ts",
+  );
+  const source = readFileSync(mapPath, "utf8");
+  const start = source.indexOf("engineStart:");
+  const end = source.indexOf("engineInstall:");
+  assert.ok(start >= 0 && end > start, "engine command slice missing");
+  const slice = source.slice(start, end);
+  assert.match(slice, /EngineStartOptions/);
+  assert.match(slice, /EngineDoctorOptions/);
+  assert.doesNotMatch(slice, /Record<string, unknown>/);
+  assert.match(slice, /engineRestart: DesktopCommandContract<\[EngineStartOptions\?\]/);
 });

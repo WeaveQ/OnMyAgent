@@ -10,6 +10,8 @@ import {
   filterPersonalTimelineMessages,
   toOpenCodeConversationItems,
   toPersonalConversationItems,
+  personalMessagesToConversationItems,
+  type ConversationItemKind,
 } from "../src/react-app/capabilities/conversation";
 import {
   LocalAgentToolGroupSummary,
@@ -531,5 +533,73 @@ describe("opencode conversation adapter", () => {
       text: "hmm",
       thinkingStatus: "done",
     });
+  });
+});
+
+describe("shared conversation kind contract", () => {
+  const overlappingKinds = [
+    "user_text",
+    "assistant_text",
+    "thinking",
+    "tool",
+    "plan",
+    "approval",
+    "error",
+  ] as const satisfies readonly ConversationItemKind[];
+
+  test("OpenCode and Personal adapters emit the same overlapping kinds", () => {
+    const openCode = toOpenCodeConversationItems([
+      { id: "u", role: "user", parts: [{ type: "text", text: "hi" }] },
+      { id: "a", role: "assistant", parts: [{ type: "text", text: "yo" }] },
+      {
+        id: "t",
+        role: "assistant",
+        parts: [
+          { type: "reasoning", text: "think" },
+          { type: "tool", toolName: "bash", toolCallId: "c1", state: "completed" },
+        ],
+      },
+    ]);
+    const personal = personalMessagesToConversationItems([
+        { id: "u", type: "text", role: "user", text: "hi", createdAt: 1 },
+        { id: "a", type: "text", role: "assistant", text: "yo", createdAt: 2 },
+        { id: "th", type: "thinking", role: "assistant", text: "think", createdAt: 3 },
+        {
+          id: "tool",
+          type: "tool",
+          role: "tool",
+          text: "bash",
+          createdAt: 4,
+          toolCall: { id: "c1", name: "bash", status: "completed" },
+        },
+        {
+          id: "p",
+          type: "plan",
+          role: "assistant",
+          text: "",
+          createdAt: 5,
+          entries: [{ id: "1", title: "do" }],
+        },
+        {
+          id: "ap",
+          type: "permission",
+          role: "assistant",
+          text: "Allow?",
+          createdAt: 6,
+          approval: { id: "ap1", title: "Allow?" },
+        },
+        { id: "e", type: "error", role: "assistant", text: "boom", createdAt: 7 },
+    ]);
+
+    const openKinds = new Set(openCode.map((item) => item.kind));
+    const personalKinds = new Set(personal.map((item) => item.kind));
+    for (const kind of overlappingKinds) {
+      if (kind === "plan" || kind === "approval" || kind === "error") {
+        expect(personalKinds.has(kind)).toBe(true);
+        continue;
+      }
+      expect(openKinds.has(kind)).toBe(true);
+      expect(personalKinds.has(kind)).toBe(true);
+    }
   });
 });

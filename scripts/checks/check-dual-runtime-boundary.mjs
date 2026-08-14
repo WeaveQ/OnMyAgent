@@ -7,6 +7,9 @@
  *    (must go through desktop IPC only).
  * 2. personal-agent-runtime must not import server archive hot-path modules
  *    (session-archive*) — Personal must not write/open OpenCode archive stores.
+ * 3. server must not import personal-agent-runtime.
+ * 4. No production file may import both session-archive and conversation-store.
+ * 5. Legacy pre-rename desktop IPC channel must not return.
  *
  * Usage:
  *   node scripts/checks/check-dual-runtime-boundary.mjs
@@ -54,7 +57,27 @@ const rules = [
     message:
       "Personal agent runtime must not import server session-archive hot path (no cross-runtime store writes)",
   },
+  {
+    id: "server-no-personal-runtime",
+    roots: ["apps/server/src"],
+    forbiddenImport:
+      /from\s+["'][^"']*personal-agent-runtime[^"']*["']|import\s*\(\s*["'][^"']*personal-agent-runtime[^"']*["']\s*\)|require\s*\(\s*["'][^"']*personal-agent-runtime[^"']*["']\s*\)/,
+    message:
+      "Server / OpenCode archive must not import personal-agent-runtime (no second hot writer)",
+  },
+  {
+    id: "no-legacy-desktop-ipc-channel",
+    roots: ["apps/app/src", "apps/desktop/electron", "apps/desktop/preload.mjs"],
+    forbiddenImport: new RegExp(`${"open"}work:desktop`),
+    message:
+      "Legacy pre-rename desktop IPC channel is removed; use the typed desktop command channel",
+  },
 ];
+
+const ARCHIVE_IMPORT =
+  /from\s+["'][^"']*session-archive[^"']*["']|import\s*\(\s*["'][^"']*session-archive[^"']*["']\s*\)/;
+const PERSONAL_STORE_IMPORT =
+  /from\s+["'][^"']*conversation-store[^"']*["']|from\s+["'][^"']*personal-agent-runtime\/[^"']*conversation[^"']*["']/;
 
 function collectFiles(roots) {
   const out = [];
@@ -108,6 +131,22 @@ for (const rule of rules) {
         message: rule.message,
       });
     }
+  }
+}
+
+for (const file of collectFiles([
+  "apps/app/src",
+  "apps/desktop/electron",
+  "apps/server/src",
+])) {
+  const source = readFileSync(file, "utf8");
+  if (ARCHIVE_IMPORT.test(source) && PERSONAL_STORE_IMPORT.test(source)) {
+    violations.push({
+      rule: "no-mixed-write-imports",
+      file: relative(repoRoot, file).split(/[\\/]/).join("/"),
+      message:
+        "One file must not import both session-archive and Personal conversation-store (two hot writers)",
+    });
   }
 }
 
