@@ -210,7 +210,7 @@ export function CommandItem({
   return (
     <AutocompleteItem
       className={cn(
-        "py-1.5 data-highlighted:bg-foreground/5",
+        "cursor-pointer py-1.5 data-highlighted:bg-foreground/5",
         className,
       )}
       data-slot="command-item"

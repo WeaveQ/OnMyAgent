@@ -383,10 +383,14 @@ describe("session transcript layout contract", () => {
     ]);
 
     expect(assistantStatus).toContain("export function TranscriptHistorySkeleton");
-    expect(assistantStatus).toContain("Array.from({ length: pairCount }");
-    expect(assistantStatus).toContain('className="flex justify-end px-4 py-8"');
-    expect(assistantStatus).toContain('className="mb-3 flex items-center gap-2.5"');
-    expect(transcriptContent).toContain("<TranscriptHistorySkeleton pairCount={3} />");
+    expect(transcriptContent).toContain('mark="brand"');
+    expect(transcriptContent).toContain('messageKey="session.switching"');
+    expect(transcriptContent).toContain("if (props.pendingSessionLoad)");
+    expect(transcriptContent).not.toContain(
+      "showDelayedLoading && props.pendingSessionLoad",
+    );
+    expect(transcriptContent).not.toContain("<TranscriptHistorySkeleton");
+    expect(transcriptContent).not.toContain("Switching session");
     expect(surfaceLayout).toContain('label={t("session.jump_to_latest")}');
     expect(scrollToLatest).toContain("aria-label={props.label}");
     expect(scrollToLatest).toContain('<ChevronsDown className="size-4" strokeWidth={2.25} aria-hidden="true" />');

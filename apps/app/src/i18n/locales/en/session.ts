@@ -389,6 +389,8 @@ export default {
     "Export is available for local workers in the desktop app.",
   "session.export_local_only": "Export is only supported for local workers.",
   "session.loading_detail": "Pulling in the latest messages for this task.",
+  "session.switching": "Loading",
+  "session.switching_from_cache": "Opening from cache",
   "session.preparing_workspace": "Starting OnMyAgent…",
   "session.model": "Model",
   "session.new_task": "New task",

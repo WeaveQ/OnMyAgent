@@ -83,6 +83,9 @@ describe("composer tool menu model", () => {
       ) ?? [],
     ).toHaveLength(3);
     expect(mine).toContain('t("composer.search_mine_files")');
+    expect(mine).toContain("function MineItemLabel");
+    expect(mine).toContain("min-w-0 flex-1 truncate");
+    expect(mine).toContain("TooltipContent");
     expect(source).toContain("useComposerMineFiles");
     expect(source).toContain("minePanel");
     // Configure prefers connectors marketplace; falls back to settings mcps.
