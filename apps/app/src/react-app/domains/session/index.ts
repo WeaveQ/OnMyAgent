@@ -136,6 +136,9 @@ export {
   buildSessionSnapshotPrefetchSpec,
   sessionSnapshotFetchOptions,
   sessionSnapshotQueryKey,
+  shouldIssueTabTitleSnapshotQuery,
+  tabTitleSnapshotFetchLimit,
+  tabTitleSurfaceSnapshotObserveQuery,
 } from "./sync/session-snapshot-query-policy";
 export type {
   SessionSnapshotFetchOptions,

@@ -1,10 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   useAgentRegistryStore,
   usePendingAgentStore,
 } from "../../agents";
-import { useExpertDirectoryShadow } from "../../../capabilities/session-identity/expert-directory-query";
+import {
+  expertDirectoryQuerySnapshotForPaint,
+  scheduleAfterFirstPaint,
+  shouldEnableExpertDirectoryNetwork,
+  useExpertDirectoryShadow,
+} from "../../../capabilities/session-identity/expert-directory-query";
 import {
   buildExpertDirectoryPageModel,
   type ExpertDirectoryShadowDiff,
@@ -43,6 +48,19 @@ export function useExpertPageIdentity(props: ExpertPageProps) {
   // workspace sessions or a fake agentId "legacy" index as expert SoT.
   const previousProjectionShadowRef = useRef<LegacyExpertDirectorySnapshot>([]);
   const shadowLegacySnapshot = previousProjectionShadowRef.current;
+  const workspaceKey = (
+    props.runtimeWorkspaceId ?? props.selectedWorkspaceId
+  ).trim();
+  const [networkPaintKey, setNetworkPaintKey] = useState("");
+  const afterFirstPaint = networkPaintKey === workspaceKey;
+  useEffect(() => {
+    if (!workspaceKey || networkPaintKey === workspaceKey) return;
+    return scheduleAfterFirstPaint(() => setNetworkPaintKey(workspaceKey));
+  }, [networkPaintKey, workspaceKey]);
+  const directoryNetworkEnabled =
+    Boolean(props.onmyagentServerClient && props.selectedWorkspaceId.trim()) &&
+    shouldEnableExpertDirectoryNetwork({ afterFirstPaint });
+
   const emitShadow = useCallback((event: ExpertDirectoryShadowDiff) => {
     const client = props.onmyagentServerClient;
     const workspaceId = (
@@ -76,9 +94,7 @@ export function useExpertPageIdentity(props: ExpertPageProps) {
     serverWorkspaceId: props.runtimeWorkspaceId ?? props.selectedWorkspaceId,
     client: props.onmyagentServerClient,
     legacy: shadowLegacySnapshot,
-    enabled: Boolean(
-      props.onmyagentServerClient && props.selectedWorkspaceId.trim()
-    ),
+    enabled: directoryNetworkEnabled,
     isDevelopment: import.meta.env.DEV,
     emit: emitShadow,
   });
@@ -94,15 +110,17 @@ export function useExpertPageIdentity(props: ExpertPageProps) {
     () =>
       buildExpertDirectoryPageModel({
         workspaceError: props.selectedWorkspaceError,
-        query: {
+        query: expertDirectoryQuerySnapshotForPaint({
+          afterFirstPaint,
           data: query.data,
           lastComplete: query.lastComplete,
           error: query.error,
           isPending: query.isPending,
           isLoading: query.isLoading,
-        },
+        }),
       }),
     [
+      afterFirstPaint,
       props.selectedWorkspaceError,
       query.data,
       query.error,

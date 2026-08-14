@@ -12,6 +12,8 @@ export type ExpertDirectoryQuerySnapshot = {
   error?: unknown;
   isPending?: boolean;
   isLoading?: boolean;
+  /** False while Directory/shadow is deferred past first paint. */
+  networkEnabled?: boolean;
 };
 
 function hasNumericRevision(
@@ -94,7 +96,11 @@ export function buildExpertDirectoryPageModel(input: {
     if (cached) return { state: "ready", payload: cached };
     return { state: "loading" };
   }
-  if (!data) return cached ? { state: "ready", payload: cached } : { state: "loading" };
+  if (!data) {
+    if (cached) return { state: "ready", payload: cached };
+    if (input.query.networkEnabled === false) return { state: "incomplete" };
+    return { state: "loading" };
+  }
   return { state: "incomplete", ...(live ? { payload: live } : {}) };
 }
 

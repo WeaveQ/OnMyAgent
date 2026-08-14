@@ -96,7 +96,7 @@ import {
   useSessionActivityStore,
 } from "../../domains/session";
 import { resolveSelectedSessionFileRoot } from "../../capabilities/session-identity/expert-session-directory";
-import { useProviderListQuery } from "../../domains/connections";
+import { sessionRouteProviderListEnabled, useProviderListQuery } from "../../domains/connections";
 import { useSessionRouteNavigation } from "./navigation-hook";
 import { useSessionRouteChromeState } from "./chrome-state-hook";
 import { useSessionRouteModelPickerState } from "./model-picker-state-hook";
@@ -695,6 +695,9 @@ export function SessionRouteRender() {
     client: opencodeClient,
     baseUrl: opencodeBaseUrl,
     directory: sessionWorkspaceRoot || undefined,
+    enabled: sessionRouteProviderListEnabled({
+      hasClient: Boolean(opencodeClient), pickerOpen: modelPickerOpen || compactModelPickerOpen,
+    }),
   });
 
   const {

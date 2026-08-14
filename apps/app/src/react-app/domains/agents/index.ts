@@ -126,6 +126,8 @@ export {
 } from "./expert-hard-delete";
 export {
   EXPERT_PACKAGE_QUERY_KEY,
+  expertPackageMarketplacesForEnter,
+  fetchExpertPackageEntries,
   invalidateExpertPackageQuery,
   refreshExpertPackageQuery,
   useExpertPackageQuery,

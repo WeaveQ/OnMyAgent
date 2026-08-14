@@ -6,6 +6,7 @@ import { chmod, link, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import { resolveLocalSkillsRoot } from "./config-profile-paths.mjs";
 import { createRuntimeManager, prioritizeWorkspacePaths, snapshotOnMyAgentServerState } from "./runtime.mjs";
 
 async function linkOrShimExecutable(source, target) {
@@ -73,7 +74,10 @@ describe("runtime skill links", () => {
   it("makes newly installed user skills visible without restarting the engine", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "onmyagent-skill-refresh-"));
     const home = path.join(root, "home");
-    const skillRoot = path.join(home, ".onmyagent", "skills", "introduce-order-dispatch");
+    const skillRoot = path.join(
+      resolveLocalSkillsRoot(home),
+      "introduce-order-dispatch",
+    );
     await mkdir(skillRoot, { recursive: true });
     await writeFile(
       path.join(skillRoot, "SKILL.md"),
@@ -113,7 +117,7 @@ describe("runtime skill links", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "onmyagent-runtime-home-"));
     const electronHome = path.join(root, "electron-home");
     const realHome = path.join(root, "real-home");
-    const skillRoot = path.join(realHome, ".onmyagent", "skills", "officecli");
+    const skillRoot = path.join(resolveLocalSkillsRoot(realHome), "officecli");
     await mkdir(skillRoot, { recursive: true });
     await writeFile(
       path.join(skillRoot, "SKILL.md"),

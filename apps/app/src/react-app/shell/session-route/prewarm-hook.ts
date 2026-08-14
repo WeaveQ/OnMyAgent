@@ -19,9 +19,7 @@ export function useSessionRoutePrewarm(input: {
 }): void {
   const { opencodeClient, opencodeBaseUrl, sessionWorkspaceRoot } = input;
 
-  // Warm provider.list + OpenCode inventory after idle so the first Settings →
-  // Models open is a cache hit without racing cold listSessions / snapshot.
-  // Composer model catalog still loads provider.list on its own critical path.
+  // Warm OpenCode inventory after idle. provider.list waits for the model picker.
   useEffect(() => {
     if (!opencodeClient) return;
     let cancelled = false;

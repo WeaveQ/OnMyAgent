@@ -9,13 +9,19 @@ import {
   isVisibleExpertPackageEntry,
   packageEntryToMarketplaceExpert,
 } from "./shared-page-utils";
-import { useExpertPackageQuery } from "../../agents";
+import {
+  expertPackageMarketplacesForEnter,
+  useExpertPackageQuery,
+} from "../../agents";
 
 export function useMyExpertPackages(options: {
   enabled: boolean;
 }): ExpertMarketplaceEntry[] {
   const { enabled } = options;
-  const packageQuery = useExpertPackageQuery(enabled);
+  const packageQuery = useExpertPackageQuery(
+    enabled,
+    expertPackageMarketplacesForEnter("chat"),
+  );
   return useMemo(
     () =>
       (packageQuery.data ?? [])

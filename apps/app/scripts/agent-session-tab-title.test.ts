@@ -10,6 +10,15 @@ import {
   tabTitleSnapshotRefetchIntervalMs,
 } from "../src/react-app/domains/session/sidebar/agent-session-tabs";
 import { selectSidebarPreviewSessionIds } from "../src/react-app/domains/session/sync/sidebar-load-policy";
+import {
+  SESSION_SNAPSHOT_MESSAGE_LIMIT,
+  sessionSnapshotQueryKey,
+  shouldIssueTabTitleSnapshotQuery,
+  tabTitleSnapshotFetchLimit,
+  tabTitleSurfaceSnapshotObserveQuery,
+} from "../src/react-app/domains/session/sync/session-snapshot-query-policy";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 describe("expert session tab titles", () => {
   test("keeps human titles", () => {
@@ -283,5 +292,33 @@ describe("expert session tab titles", () => {
         title: "广州汽配运输",
       }),
     ).toBe(false);
+  });
+
+  test("tab titles observe the surface snapshot and never request limit 8", () => {
+    expect(shouldIssueTabTitleSnapshotQuery()).toBe(false);
+    expect(tabTitleSnapshotFetchLimit()).toBeNull();
+    expect(SESSION_SNAPSHOT_MESSAGE_LIMIT).toBe(140);
+
+    const observe = tabTitleSurfaceSnapshotObserveQuery({
+      workspaceId: "ws_runtime",
+      sessionId: "ses_1",
+    });
+    expect(observe.queryKey).toEqual(
+      sessionSnapshotQueryKey("ws_runtime", "ses_1"),
+    );
+    expect(observe.queryKey[0]).toBe("react-session-snapshot");
+    expect(observe.enabled).toBe(false);
+
+    const tabs = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/sidebar/agent-session-tabs.tsx",
+      ),
+      "utf8",
+    );
+    expect(tabs).toContain("tabTitleSurfaceSnapshotObserveQuery");
+    expect(tabs).not.toContain("onmyagent-agent-session-tab-snapshot");
+    expect(tabs).not.toMatch(/getSessionSnapshot\([\s\S]*limit:\s*8/);
+    expect(tabs).not.toContain("limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT");
   });
 });
