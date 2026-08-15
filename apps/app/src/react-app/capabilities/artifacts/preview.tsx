@@ -3,6 +3,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { TextEditContextMenu } from "../../design-system/text-edit-context-menu";
 import { MarkdownBlock } from "./markdown";
 
 import { t } from "@/i18n";
@@ -29,7 +30,11 @@ interface PlainTextProps extends React.ComponentProps<"pre"> {
 }
 
 export function PlainText({ content, className, ...props }: PlainTextProps) {
-  return <pre className={cn("h-full overflow-auto p-4 text-xs leading-5 text-dls-text whitespace-pre-wrap", className)} {...props}>{content}</pre>;
+  return (
+    <TextEditContextMenu className="h-full">
+      <pre className={cn("h-full overflow-auto p-4 text-xs leading-5 text-dls-text whitespace-pre-wrap", className)} {...props}>{content}</pre>
+    </TextEditContextMenu>
+  );
 }
 
 interface MarkdownPreviewProps extends React.ComponentProps<"div"> {
@@ -38,9 +43,11 @@ interface MarkdownPreviewProps extends React.ComponentProps<"div"> {
 
 export function MarkdownPreview({ content, className, ...props }: MarkdownPreviewProps) {
   return (
-    <div className={cn("h-full overflow-auto p-4", className)} {...props}>
-      <MarkdownBlock text={content} />
-    </div>
+    <TextEditContextMenu className="h-full">
+      <div className={cn("h-full overflow-auto p-4", className)} {...props}>
+        <MarkdownBlock text={content} />
+      </div>
+    </TextEditContextMenu>
   );
 }
 
