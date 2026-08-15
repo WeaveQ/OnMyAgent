@@ -11,8 +11,8 @@ npm install -g onmyagent-orchestrator
 onmyagent start --workspace /path/to/workspace --approval auto
 ```
 
-When run in a TTY, `onmyagent` shows an interactive status dashboard with service health, ports, and
-connection details. Use `onmyagent serve` or `--no-tui` for log-only mode.
+`onmyagent start` and `onmyagent serve` stream service health, ports, and
+connection details to stdout.
 
 ```bash
 onmyagent serve --workspace /path/to/workspace
@@ -78,7 +78,7 @@ When `ONMYAGENT_DEV_MODE=1` is set, orchestrator uses an isolated OpenCode dev s
 
 The command prints pairing URLs by default and withholds live credentials from stdout to avoid leaking them into shell history or collected logs. Use `--json` only when you explicitly need the raw pairing secrets in command output.
 
-Use `--detach` to keep services running and exit the dashboard. The detach summary includes the
+Use `--detach` to keep services running and exit the CLI. The detach summary includes the
 OnMyAgent URL and a redacted `opencode attach` command, while keeping live credentials out of the detached summary.
 
 ## Sandbox mode (Docker / Apple container)

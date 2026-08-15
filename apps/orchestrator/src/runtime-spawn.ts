@@ -61,9 +61,8 @@ export async function readCliVersion(
     resolved.command,
     [...resolved.prefixArgs, "--version"],
     {
-      // Avoid picking up a local bunfig.toml preload from the caller's cwd.
-      // (Notably, packages/orchestrator/bunfig.toml preloads @opentui/solid/preload which
-      // breaks running bun-compiled binaries like opencodeRouter during version checks.)
+      // Avoid picking up a local bunfig.toml from the caller's cwd, which can
+      // break bun-compiled binaries like opencodeRouter during version checks.
       cwd: tmpdir(),
       stdio: ["ignore", "pipe", "pipe"],
     },

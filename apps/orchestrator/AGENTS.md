@@ -1,6 +1,6 @@
 # apps/orchestrator — Agent 手册
 
-Host 进程编排：spawn `onmyagent-server` 二进制（不 import server 源码）、spawn OpenCode、sidecar、sandbox、CLI/TUI。默认桌面 `engineStart` 走 in-process embedded server，不启动本进程。全仓规则见根 [`AGENTS.md`](../../AGENTS.md)。
+Host 进程编排：spawn `onmyagent-server` 二进制（不 import server 源码）、spawn OpenCode、sidecar、sandbox、CLI。默认桌面 `engineStart` 走 in-process embedded server，不启动本进程。全仓规则见根 [`AGENTS.md`](../../AGENTS.md)。
 
 ## 默认验证
 
@@ -51,5 +51,4 @@ pnpm dev -- orchestrator -- start --workspace <path> --approval auto --allow-ext
 | `src/cli.ts` · `cli-commands/*` | CLI 入口与子命令 |
 | `src/runtime-*.ts` | spawn / health / auth / sandbox / services |
 | `src/sidecar-config.ts` · `version-manifest.ts` | sidecar 解析与清单 |
-| `src/tui/*` | 交互状态面板 |
 | `tests/*` | 与上面对齐的 unit 面 |

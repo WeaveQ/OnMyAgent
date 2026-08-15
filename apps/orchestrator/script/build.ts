@@ -1,6 +1,5 @@
 import { mkdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import solidPlugin from "../node_modules/@opentui/solid/scripts/solid-plugin";
 
 const bunRuntime = (globalThis as typeof globalThis & {
   Bun?: {
@@ -125,7 +124,6 @@ async function buildOnce(entrypoint: string, outdir: string, filename: string, t
   const resolvedTarget = target ?? defaultTarget();
   const result = await bun.build({
     tsconfig: "./tsconfig.json",
-    plugins: [solidPlugin],
     entrypoints: [entrypoint],
     define,
     compile: {
