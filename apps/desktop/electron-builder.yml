@@ -101,19 +101,17 @@ mac:
     NSMicrophoneUsageDescription: OnMyAgent may use the microphone when a feature needs microphone access.
     # Required for Privacy → Automation entries / prompts (Hardened Runtime + AE).
     NSAppleEventsUsageDescription: OnMyAgent sends commands to other apps (for example Calendar, Reminders, and Notes) when you ask your agent to automate them.
+  # Ship short alias sidecars only (prepare-sidecar writes TARGET arch into
+  # opencode / onmyagent-orchestrator / versions.json). Do not pack
+  # opencode-<triple> duplicates or the other arch — they inflate notarization
+  # zip size. afterPack also enforces alias-only + single-runtime-triple keep.
   extraResources:
     - from: resources/sidecars
       to: sidecars
       filter:
         - opencode
-        - opencode-aarch64-apple-darwin
-        - opencode-x86_64-apple-darwin
         - onmyagent-orchestrator
-        - onmyagent-orchestrator-aarch64-apple-darwin
-        - onmyagent-orchestrator-x86_64-apple-darwin
         - versions.json
-        - versions.json-aarch64-apple-darwin
-        - versions.json-x86_64-apple-darwin
     - from: resources/helpers
       to: helpers
       filter:
@@ -128,14 +126,8 @@ linux:
       to: sidecars
       filter:
         - opencode
-        - opencode-aarch64-unknown-linux-gnu
-        - opencode-x86_64-unknown-linux-gnu
         - onmyagent-orchestrator
-        - onmyagent-orchestrator-aarch64-unknown-linux-gnu
-        - onmyagent-orchestrator-x86_64-unknown-linux-gnu
         - versions.json
-        - versions.json-aarch64-unknown-linux-gnu
-        - versions.json-x86_64-unknown-linux-gnu
   target:
     - AppImage
     - tar.gz
@@ -151,14 +143,8 @@ win:
       to: sidecars
       filter:
         - opencode.exe
-        - opencode-aarch64-pc-windows-msvc.exe
-        - opencode-x86_64-pc-windows-msvc.exe
         - onmyagent-orchestrator.exe
-        - onmyagent-orchestrator-aarch64-pc-windows-msvc.exe
-        - onmyagent-orchestrator-x86_64-pc-windows-msvc.exe
         - versions.json
-        - versions.json-aarch64-pc-windows-msvc.exe
-        - versions.json-x86_64-pc-windows-msvc.exe
   target:
     - nsis
 # Assisted installer wizard (Next → choose folder → Install → Finish).

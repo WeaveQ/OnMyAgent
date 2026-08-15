@@ -119,11 +119,13 @@ test("windows electron-builder target is configured for local test packaging", a
     path.resolve(scriptDir, "..", "electron-builder.yml"),
     "utf8",
   );
-  // Real win product target + sidecars filter for msvc binaries.
+  // Real win product target + short-alias sidecars only (no dual-arch triples).
   assert.match(builderConfig, /^win:\s*$/m);
   assert.match(builderConfig, /target:\s*\n\s*-\s*nsis/);
-  assert.match(builderConfig, /opencode-x86_64-pc-windows-msvc\.exe/);
-  assert.match(builderConfig, /onmyagent-orchestrator-x86_64-pc-windows-msvc\.exe/);
+  assert.match(builderConfig, /opencode\.exe/);
+  assert.match(builderConfig, /onmyagent-orchestrator\.exe/);
+  assert.doesNotMatch(builderConfig, /opencode-x86_64-pc-windows-msvc\.exe/);
+  assert.doesNotMatch(builderConfig, /onmyagent-orchestrator-aarch64-pc-windows-msvc\.exe/);
   // rcedit must stamp OnMyAgent icon/metadata (signing still optional via CSC_*).
   assert.match(builderConfig, /signAndEditExecutable:\s*true/);
   assert.match(builderConfig, /oneClick:\s*false/);
