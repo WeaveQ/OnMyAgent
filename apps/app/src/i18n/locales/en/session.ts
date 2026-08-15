@@ -723,6 +723,7 @@ export default {
   "session.tool_task_title": "Task {task}",
   "session.tool_task_fallback": "subagent",
   "session.tool_task_result": "Result",
+  "session.tool_task_set_heading": "{completed}/{total} subtasks",
   "session.tool_image_title": "Generate image",
   "session.tool_image_generating": "Generating image...",
   "session.tool_image_generating_prompt": "Generating: {prompt}",

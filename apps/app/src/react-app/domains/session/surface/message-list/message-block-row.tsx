@@ -110,6 +110,7 @@ function OpenableTargetsStrip(props: {
         "mt-3 grid w-full max-w-3xl grid-cols-1 gap-2",
         props.targets.length > 1 && "sm:grid-cols-2",
       )}
+      aria-label={t("session.openable_items")}
     >
       {props.targets.map((target) => {
         const { title, detail } = openTargetDisplay(target);

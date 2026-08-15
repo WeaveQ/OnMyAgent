@@ -681,6 +681,7 @@ export default {
   "session.tool_task_title": "任務 {task}",
   "session.tool_task_fallback": "子代理",
   "session.tool_task_result": "結果",
+  "session.tool_task_set_heading": "{completed}/{total} 個子任務",
   "session.tool_image_title": "生成圖片",
   "session.tool_image_generating": "正在生成圖片…",
   "session.tool_image_generating_prompt": "正在生成：{prompt}",
