@@ -11,6 +11,7 @@ import {
   formatBucketPercent,
   formatCompactTokens,
   lookupModelContextLimit,
+  readCatalogContextWindow,
   resolveContextTotal,
   toContextUsageSnapshot,
 } from "../src/react-app/capabilities/context-usage/context-usage-model";
@@ -57,12 +58,59 @@ describe("context usage model", () => {
       total: DEFAULT_CONTEXT_LIMIT,
       source: "default",
     });
+    expect(resolveContextTotal({ modelId: "deepseek-v4-flash" })).toEqual({
+      total: 1_048_576,
+      source: "table",
+    });
+    expect(resolveContextTotal({ modelId: "deepseek/deepseek-v4-flash" })).toEqual({
+      total: 1_048_576,
+      source: "table",
+    });
+    expect(resolveContextTotal({ modelId: "deepseek-v4-pro" })).toEqual({
+      total: 1_048_576,
+      source: "table",
+    });
+    expect(resolveContextTotal({ modelId: "deepseek-v4-flash-ga-260731" })).toEqual({
+      total: 1_048_576,
+      source: "table",
+    });
+    expect(
+      resolveContextTotal({
+        catalogContextWindow: 256_000,
+        modelId: "deepseek-v4-flash",
+      }),
+    ).toEqual({ total: 256_000, source: "catalog" });
+    expect(
+      resolveContextTotal({
+        catalogContextWindow: { limit: { context: 192_000 } },
+        modelId: "deepseek-v4-flash",
+      }),
+    ).toEqual({ total: 192_000, source: "catalog" });
+    expect(resolveContextTotal({ modelId: "deepseek-v4-flash" }).total).not.toBe(128_000);
   });
 
   test("lookupModelContextLimit fuzzy-matches and defaults", () => {
     expect(lookupModelContextLimit("gpt-4o")).toBe(128_000);
     expect(lookupModelContextLimit("claude-3.5-sonnet-latest")).toBe(200_000);
+    expect(lookupModelContextLimit("deepseek-v4-flash")).toBe(1_048_576);
     expect(lookupModelContextLimit(null)).toBe(DEFAULT_CONTEXT_LIMIT);
+  });
+
+  test("readCatalogContextWindow accepts numbers, rows, and limit.context", () => {
+    expect(readCatalogContextWindow(256_000)).toBe(256_000);
+    expect(readCatalogContextWindow("192000")).toBe(192_000);
+    expect(readCatalogContextWindow({ contextWindow: 128_000 })).toBe(128_000);
+    expect(readCatalogContextWindow({ limit: { context: 1_048_576 } })).toBe(1_048_576);
+    expect(readCatalogContextWindow(undefined)).toBeUndefined();
+    expect(readCatalogContextWindow(0)).toBeUndefined();
+  });
+
+  test("session occupancy path passes catalog window into the shipped builder", async () => {
+    const view = await Bun.file(
+      new URL("../src/react-app/domains/session/surface/session-surface-view.tsx", import.meta.url),
+    ).text();
+    expect(view).toContain("catalogContextWindow: props.catalogContextWindow");
+    expect(view).toContain("buildSessionContextUsage({");
   });
 
   test("toContextUsageSnapshot preserves reported total when used exceeds it", () => {

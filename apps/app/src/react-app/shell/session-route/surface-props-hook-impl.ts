@@ -153,6 +153,7 @@ type NavigateToWorkspaceSession = (
 
 export type SessionRouteSurfacePropsInput = {
   assistantDraftWorkspaceRoot: string;
+  catalogContextWindow?: number | null;
   client: OnMyAgentServerClient | null;
   compactModelPickerOpen: boolean;
   creatingSessionWorkspaceIdsRef: MutableRefObject<Set<string>>;
@@ -238,6 +239,7 @@ export function useSessionRouteSurfaceProps(
   const {
     assistantDraftWorkspaceRoot,
     client,
+    catalogContextWindow,
     compactModelPickerOpen,
     creatingSessionWorkspaceIdsRef,
     effectiveModelRef,
@@ -515,6 +517,7 @@ export function useSessionRouteSurfaceProps(
       modelPickerOpen: compactModelPickerOpen,
       modelUnavailable: modelAvailabilityBlocksTask,
       selectedModel: effectiveModelRef ?? { providerID: "", modelID: "" },
+      catalogContextWindow,
       sessionAccessMode,
       onSessionAccessModeChange: (mode: ComposerDraft["accessMode"]) => {
         setSessionAccessModeById((current) =>
@@ -1602,6 +1605,7 @@ export function useSessionRouteSurfaceProps(
   }, [
     client,
     assistantDraftWorkspaceRoot,
+    catalogContextWindow,
     compactModelPickerOpen,
     effectiveModelRef,
     expertApprovedAgentIds,

@@ -25,6 +25,8 @@ export type SessionSurfaceModelBag = {
   modelPickerVisible?: boolean;
   modelUnavailable?: boolean;
   selectedModel: ModelRef;
+  /** Provider catalog `limit.context` for the selected model, when known. */
+  catalogContextWindow?: number | null;
   onModelPickerOpenChange: (open: boolean) => void;
   onModelChange: (model: ModelRef) => void;
   modelVariantLabel: string;
@@ -226,6 +228,7 @@ export function bagSessionSurfaceProps(
     modelPickerVisible,
     modelUnavailable,
     selectedModel,
+    catalogContextWindow,
     onModelPickerOpenChange,
     onModelChange,
     modelVariantLabel,
@@ -270,6 +273,7 @@ export function bagSessionSurfaceProps(
       modelPickerVisible,
       modelUnavailable,
       selectedModel,
+      catalogContextWindow,
       onModelPickerOpenChange,
       onModelChange,
       modelVariantLabel,

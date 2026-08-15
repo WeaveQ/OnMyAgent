@@ -117,8 +117,11 @@ const MODEL_CONTEXT_LIMITS: Record<string, number> = {
   "doubao-seed": 256_000,
   "doubao-1.5-pro": 256_000,
   "doubao-1.5": 128_000,
-  // DeepSeek
-  "deepseek-v4": 128_000,
+  // DeepSeek V4 official window is 1M; keep variant ids so fuzzy
+  // `includes` cannot pin flash/pro onto a stale 128k family row.
+  "deepseek-v4-flash": 1_048_576,
+  "deepseek-v4-pro": 1_048_576,
+  "deepseek-v4": 1_048_576,
   "deepseek-v3": 128_000,
   "deepseek-r1": 128_000,
   "deepseek-chat": 128_000,
@@ -140,6 +143,28 @@ export function lookupModelContextLimit(modelName: string | null | undefined): n
   return bestLimit;
 }
 
+/** Pull a positive token window from a catalog number or provider model row. */
+export function readCatalogContextWindow(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.round(value);
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value.replace(/[,\s_]/g, ""));
+    if (Number.isFinite(parsed) && parsed > 0) return Math.round(parsed);
+    return undefined;
+  }
+  if (!value || typeof value !== "object") return undefined;
+  const row = value as Record<string, unknown>;
+  const limit = row.limit && typeof row.limit === "object"
+    ? (row.limit as Record<string, unknown>).context
+    : undefined;
+  return (
+    readCatalogContextWindow(row.contextWindow)
+    ?? readCatalogContextWindow(row.context)
+    ?? readCatalogContextWindow(limit)
+  );
+}
+
 export function resolveContextTotal(input: {
   runtimeTotal?: unknown;
   modelId?: string | null;
@@ -149,9 +174,9 @@ export function resolveContextTotal(input: {
   if (Number.isFinite(runtime) && runtime > 0) {
     return { total: Math.round(runtime), source: "runtime" };
   }
-  const catalog = Number(input.catalogContextWindow);
-  if (Number.isFinite(catalog) && catalog > 0) {
-    return { total: Math.round(catalog), source: "catalog" };
+  const catalog = readCatalogContextWindow(input.catalogContextWindow);
+  if (catalog != null) {
+    return { total: catalog, source: "catalog" };
   }
   const modelId = input.modelId?.trim() || null;
   if (modelId) {
