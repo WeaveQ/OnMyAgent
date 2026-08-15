@@ -239,31 +239,12 @@ async function prepareWorkBuddyImportPlan(input: {
     .filter((skill) => skill.hasSkillMarkdown)
     .map((skill) => skill.name);
   const destinationState = await ownershipState(destination, prepared.summary.packageName);
-  const skillStates = await Promise.all(
-    installedSkills.map(async (skillName) => ({
-      skillName,
-      destination: join(roots.skillsRoot, skillName),
-      state: await ownershipState(join(roots.skillsRoot, skillName), prepared.summary.packageName),
-    })),
-  );
-  const conflicts = [
-    ...(destinationState === "foreign" ? [destination] : []),
-    ...skillStates
-      .filter((item) => item.state === "foreign")
-      .map((item) => join(roots.skillsRoot, item.skillName)),
-  ];
+  const conflicts = destinationState === "foreign" ? [destination] : [];
   const sourceFingerprint = await fingerprintPreparedSource(prepared);
   const targetFingerprint = await fingerprintImportDestinations([
     { destination, state: destinationState },
-    ...skillStates.map(({ destination: skillDestination, state }) => ({
-      destination: skillDestination,
-      state,
-    })),
   ]);
-  const destinations = [
-    destination,
-    ...installedSkills.map((skillName) => join(roots.skillsRoot, skillName)),
-  ];
+  const destinations = [destination];
   const transaction = createImportTransactionPreview({
     adapter: "workbuddy-expert",
     sourceId: prepared.summary.packageName,
@@ -287,7 +268,6 @@ type StagedWorkBuddyImport = {
 async function stageWorkBuddyImport(plan: PreparedImportPlan): Promise<StagedWorkBuddyImport> {
   const { roots, prepared, destination } = plan;
   await mkdir(roots.expertsRoot, { recursive: true });
-  await mkdir(roots.skillsRoot, { recursive: true });
   const expertStaging = join(
     roots.expertsRoot,
     `.getworkbuddy-${prepared.summary.packageName}-${randomUUID()}`,
@@ -310,19 +290,6 @@ async function stageWorkBuddyImport(plan: PreparedImportPlan): Promise<StagedWor
     );
     await writeImportMarker(expertStaging, prepared, "expert");
     replacements.push({ staging: expertStaging, destination });
-
-    for (const skill of prepared.skillRefs.filter((item) => item.hasSkillMarkdown)) {
-      const staging = join(roots.skillsRoot, `.getworkbuddy-${skill.name}-${randomUUID()}`);
-      stagedPaths.push(staging);
-      skippedFiles.push(
-        ...(await copySafePackageTree(
-          packagePath(expertStaging, skill.relativePath),
-          staging,
-        )).map((item) => `${skill.relativePath}/${item}`),
-      );
-      await writeImportMarker(staging, prepared, "skill", skill.name);
-      replacements.push({ staging, destination: join(roots.skillsRoot, skill.name) });
-    }
     return { replacements, stagedPaths, skippedFiles };
   } catch (error) {
     await Promise.all(stagedPaths.map((path) => rm(path, { recursive: true, force: true })));
@@ -365,17 +332,6 @@ async function verifyStagedWorkBuddyImport(
       { destination: plan.destination, state: expertState },
     );
   }
-  for (const skillName of plan.installedSkills) {
-    const destination = join(plan.roots.skillsRoot, skillName);
-    const state = await ownershipState(destination, plan.prepared.summary.packageName);
-    if (state === "foreign" || (plan.transaction.action === "add" && state !== "missing")) {
-      throw new ImportTransactionError(
-        "import_plan_stale",
-        "WorkBuddy skill destination changed after preview",
-        { destination, state },
-      );
-    }
-  }
 }
 
 async function fingerprintCurrentImportDestinations(
@@ -389,15 +345,6 @@ async function fingerprintCurrentImportDestinations(
         plan.prepared.summary.packageName,
       ),
     },
-    ...(await Promise.all(
-      plan.installedSkills.map(async (skillName) => {
-        const destination = join(plan.roots.skillsRoot, skillName);
-        return {
-          destination,
-          state: await ownershipState(destination, plan.prepared.summary.packageName),
-        };
-      }),
-    )),
   ]);
 }
 
@@ -439,8 +386,8 @@ async function verifyCommittedWorkBuddyImport(plan: PreparedImportPlan): Promise
       throw new Error(`WorkBuddy team workflow verification failed: ${plan.destination}`);
     }
   }
-  for (const skillName of plan.installedSkills) {
-    const skillMarkdown = join(plan.roots.skillsRoot, skillName, "SKILL.md");
+  for (const skill of plan.prepared.skillRefs.filter((item) => item.hasSkillMarkdown)) {
+    const skillMarkdown = packagePath(plan.destination, join(skill.relativePath, "SKILL.md"));
     if (!await pathExists(skillMarkdown)) {
       throw new Error(`WorkBuddy skill verification failed: ${skillMarkdown}`);
     }
