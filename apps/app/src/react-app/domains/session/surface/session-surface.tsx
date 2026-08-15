@@ -92,6 +92,7 @@ import {
 import { useSessionSurfaceMentionLoaders } from "./session-surface-mention-loaders";
 import { useSessionSurfaceSessionEffects } from "./session-surface-session-effects";
 import { addOptimisticSessionUserMessage } from "../sync/optimistic-session-user-message";
+import { skillTurnTextsEquivalent } from "./skill-reference";
 
 export type { SessionSurfaceProps } from "./session-surface-types";
 import type { SessionSurfaceProps } from "./session-surface-types";
@@ -323,7 +324,8 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       if (message.role !== "user") return false;
       if (message.id === pendingOutgoingUserMessage.id) return true;
       return message.parts.some(
-        (part) => part.type === "text" && part.text === pendingText,
+        (part) =>
+          part.type === "text" && skillTurnTextsEquivalent(part.text, pendingText),
       );
     });
     if (matched) setPendingOutgoingUserMessage(null);

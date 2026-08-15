@@ -36,7 +36,10 @@ import {
   type TranscriptFeedbackValue,
 } from "./feedback";
 import { messageToText } from "./parts";
-import { useConnectedProviderIds } from "./connected-providers-context";
+import {
+  isTranscriptModelRemoved,
+  useConnectedProviderIds,
+} from "./connected-providers-context";
 
 /**
  * Simple avatar badge rendered at the leading edge of every assistant
@@ -423,13 +426,12 @@ export function TranscriptTurnActions(props: {
   });
   const model = props.presentation.modelId;
   const providerId = props.presentation.providerId;
-  // Only mark removed when we know the live connected set; null = unknown (do not badge).
-  const modelRemoved = Boolean(
-    model &&
-      providerId &&
-      connectedProviderIds &&
-      !connectedProviderIds.has(providerId),
-  );
+  // Empty / unknown connected set is not "removed" (picker catalog is deferred).
+  const modelRemoved = isTranscriptModelRemoved({
+    modelId: model,
+    providerId,
+    connectedProviderIds,
+  });
 
   return (
     <div className="session-transcript-turn-actions">

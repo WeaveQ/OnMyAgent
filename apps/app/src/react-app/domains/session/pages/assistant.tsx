@@ -604,7 +604,7 @@ export function AssistantPage(props: AssistantPageProps) {
     [openAssistantNewTask, props.selectedWorkspaceId],
   );
 
-  /** Create skill → new task + skill-creator draft (do not reuse last chat). */
+  /** Create skill → new task + /skill-creator chip draft (WorkBuddy shape). */
   const handleCreateSkill = useCallback(() => {
     openOfficeNewTaskWithDraft(t("session.create_skill_prompt"));
     if (isElectronRuntime()) {

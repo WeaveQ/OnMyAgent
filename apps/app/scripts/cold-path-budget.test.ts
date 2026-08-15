@@ -12,6 +12,7 @@ import {
   recordColdPathEvent,
   resetColdPathCounters,
   shouldPrefetchSessionSnapshotOnColdPath,
+  tryRecordColdListSessions,
   tryRecordColdTitleSnapshot,
 } from "../src/react-app/shell/session-route/cold-path-budget";
 import {
@@ -97,7 +98,7 @@ describe("cold-path budget (shipped helpers)", () => {
       path.join(appRoot, "src/react-app/shell/session-route/sessions.ts"),
       "utf8",
     );
-    expect(sessions).toContain('recordColdPathEvent("listSessions")');
+    expect(sessions).toContain("tryRecordColdListSessions");
     // Create-path snapshot must not use empty-title thrash ban (post-create needs pull).
     expect(sessions).not.toContain("coldEnterEmptyTitle");
 
@@ -105,7 +106,7 @@ describe("cold-path budget (shipped helpers)", () => {
       path.join(appRoot, "src/react-app/shell/session-route/page-view.tsx"),
       "utf8",
     );
-    expect(pageView).toContain("shouldPrefetchSessionSnapshotOnColdPath");
+    expect(pageView).toContain("tryRecordColdTitleSnapshot");
     expect(pageView).toContain("onPrefetchSession");
 
     // Empty selected chip: ban (product thrash rule).
@@ -165,5 +166,31 @@ describe("cold-path budget (shipped helpers)", () => {
       "utf8",
     );
     expect(loader).toContain("beginSessionRouteColdEnter");
+  });
+
+  test("live enter fail-closes extra listSessions after the first", () => {
+    beginSessionRouteColdEnter("ws-live");
+    expect(tryRecordColdListSessions()).toBe(true);
+    expect(tryRecordColdListSessions()).toBe(false);
+    expect(getColdPathCounters().listSessions).toBe(1);
+  });
+
+  test("live enter fail-closes a second title snapshot", () => {
+    beginSessionRouteColdEnter("ws-live-title");
+    expect(
+      tryRecordColdTitleSnapshot({
+        isSelectedSession: true,
+        titleEmpty: false,
+        alreadySnapshotted: false,
+      }),
+    ).toBe(true);
+    expect(
+      tryRecordColdTitleSnapshot({
+        isSelectedSession: false,
+        titleEmpty: true,
+        alreadySnapshotted: false,
+      }),
+    ).toBe(false);
+    expect(getColdPathCounters().titleSnapshot).toBe(1);
   });
 });

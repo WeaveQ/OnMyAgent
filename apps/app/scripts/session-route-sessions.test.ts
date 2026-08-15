@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  beginSessionRouteColdEnter,
+  resetColdPathCounters,
+} from "../src/react-app/shell/session-route/cold-path-budget";
+import {
   collectWorkspaceSessionItemsWithStatus,
   findFirstSessionIdMatching,
   findWorkspaceIdOwningSession,
@@ -128,6 +132,38 @@ describe("session route aggregate loader", () => {
     });
     expect(calls).toBe(1);
     expect(result.items.map((item) => item.id)).toEqual(["assistant"]);
+  });
+
+  test("skips a second listSessions on the same cold enter", async () => {
+    resetColdPathCounters();
+    beginSessionRouteColdEnter("workspace-a");
+    let calls = 0;
+    const input = {
+      client: {
+        listSessions: async () => {
+          calls += 1;
+          return {
+            scope: "workspace" as const,
+            complete: true,
+            failures: [],
+            items: [{ id: "ses_1", directory: "/tmp" }],
+          };
+        },
+      },
+      workspaceId: "workspace-a",
+      workspaceRoot: "/tmp",
+      isRemoteOnMyAgentWorkspace: false,
+      assistantSessionRecords: [],
+      normalizeDirectoryPath: (path: string) => path,
+    };
+    const first = await collectWorkspaceSessionItemsWithStatus(input);
+    const second = await collectWorkspaceSessionItemsWithStatus(input);
+    expect(calls).toBe(1);
+    expect(first.items.map((item) => item.id)).toEqual(["ses_1"]);
+    expect(second.skippedByColdPathBudget).toBe(true);
+    expect(second.complete).toBe(false);
+    expect(second.items).toEqual([]);
+    resetColdPathCounters();
   });
 
   test("preserves pending sessions until aggregate includes them", () => {

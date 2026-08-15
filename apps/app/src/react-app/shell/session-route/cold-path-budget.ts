@@ -54,6 +54,22 @@ export function recordColdPathEvent(event: ColdPathEvent): void {
   counters[event] += 1;
 }
 
+function hasActiveColdEnter(): boolean {
+  return lastColdEnterKey.length > 0;
+}
+
+/** First workspace list on a tracked cold enter only; extra pulls must not fire. */
+export function tryRecordColdListSessions(): boolean {
+  if (
+    hasActiveColdEnter() &&
+    counters.listSessions >= COLD_PATH_BUDGET.maxListSessionsOnColdEnter
+  ) {
+    return false;
+  }
+  recordColdPathEvent("listSessions");
+  return true;
+}
+
 export function getColdPathCounters(): Readonly<Counters> {
   return { ...counters };
 }
@@ -98,6 +114,7 @@ export function tryRecordColdTitleSnapshot(input: {
   alreadySnapshotted: boolean;
 }): boolean {
   if (!isTitleSnapshotAllowedOnColdEnter(input)) return false;
+  if (hasActiveColdEnter() && counters.titleSnapshot >= 1) return false;
   recordColdPathEvent("titleSnapshot");
   return true;
 }

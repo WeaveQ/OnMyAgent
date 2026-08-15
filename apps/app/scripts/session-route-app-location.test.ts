@@ -56,6 +56,8 @@ describe("rail view URL encoding", () => {
     expect(parseRailViewFromSearch("view=agentManagement")).toBe("agentManagement");
     expect(parseRailViewFromSearch("?view=not-a-real-view")).toBeNull();
     expect(parseRailViewFromSearch("")).toBeNull();
+    // Projects rail is hidden until the surface ships.
+    expect(parseRailViewFromSearch("?view=projects")).toBeNull();
   });
 
   test("primary rail views strip the view query; secondary views set it", () => {

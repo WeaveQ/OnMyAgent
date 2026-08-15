@@ -23,8 +23,10 @@ import {
   StoreRailIcon,
   TaskCenterRailIcon,
 } from "./primary-rail-icons";
+import { isProjectsRailVisible } from "./projects-rail-visibility";
 import { isTaskCenterRailVisible } from "./task-center-rail-visibility";
 
+export { isProjectsRailVisible } from "./projects-rail-visibility";
 export { isTaskCenterRailVisible } from "./task-center-rail-visibility";
 
 export type OnMyAgentPrimaryView =
@@ -187,14 +189,16 @@ export function OnMyAgentRail(props: {
   // Only show Company shortcut after Settings → Workspace → Company is connected.
   const companyConnected = useCompanyConnected();
   const taskCenterVisible = isTaskCenterRailVisible();
+  const projectsVisible = isProjectsRailVisible();
   const topRailItems = useMemo(
     () =>
       TOP_RAIL_ITEMS.filter((item) => {
         if (item.id === "company") return companyConnected;
         if (item.id === "taskCenter") return taskCenterVisible;
+        if (item.id === "projects") return projectsVisible;
         return true;
       }),
-    [companyConnected, taskCenterVisible],
+    [companyConnected, taskCenterVisible, projectsVisible],
   );
 
   useEffect(() => {
@@ -204,8 +208,18 @@ export function OnMyAgentRail(props: {
     }
     if (!taskCenterVisible && props.activeView === "taskCenter") {
       props.onOpenView("assistant");
+      return;
     }
-  }, [companyConnected, taskCenterVisible, props.activeView, props.onOpenView]);
+    if (!projectsVisible && props.activeView === "projects") {
+      props.onOpenView("assistant");
+    }
+  }, [
+    companyConnected,
+    taskCenterVisible,
+    projectsVisible,
+    props.activeView,
+    props.onOpenView,
+  ]);
 
   // mac:pt-10 clears traffic lights (y≈12) without a large empty band above the brand mark.
   // Windows keeps compact top padding. Column = --dls-rail-width; pills = --dls-rail-pill-width.

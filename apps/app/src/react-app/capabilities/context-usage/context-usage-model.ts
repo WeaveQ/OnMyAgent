@@ -49,14 +49,27 @@ export const CONTEXT_USAGE_BUCKET_ORDER: ContextUsageBucketId[] = [
   "other",
 ];
 
-/** Tailwind-friendly solid colors for legend dots / bar segments. */
+/** Always-visible legend rows (matches the reference card; `other` is overflow-only). */
+export const CONTEXT_USAGE_VISIBLE_BUCKETS = [
+  "system",
+  "tools",
+  "messages",
+  "connectors",
+  "skills",
+] as const satisfies readonly ContextUsageBucketId[];
+
+/**
+ * Solid swatches for legend dots / bar segments.
+ * Use as `backgroundColor` (not `bg-*` utilities): the Tailwind theme
+ * overrides default emerald/amber/violet palettes, so those classes never emit.
+ */
 export const CONTEXT_USAGE_BUCKET_COLOR: Record<ContextUsageBucketId, string> = {
-  system: "bg-emerald-500",
-  tools: "bg-amber-400",
-  messages: "bg-violet-500",
-  connectors: "bg-sky-500",
-  skills: "bg-zinc-400",
-  other: "bg-zinc-500",
+  system: "var(--grass-9)",
+  tools: "var(--amber-9)",
+  messages: "var(--violet-9)",
+  connectors: "var(--sky-9)",
+  skills: "var(--blue-9)",
+  other: "var(--gray-9)",
 };
 
 const MODEL_CONTEXT_LIMITS: Record<string, number> = {
@@ -96,6 +109,20 @@ const MODEL_CONTEXT_LIMITS: Record<string, number> = {
   "claude-3.5-sonnet": 200_000,
   "claude-3-opus": 200_000,
   "claude-3-haiku": 200_000,
+  // ByteDance / Doubao (Seed series is 256k unless a specific row says otherwise)
+  "doubao-seed-evolving": 256_000,
+  "doubao-seed-code": 256_000,
+  "doubao-seed-1.8": 256_000,
+  "doubao-seed-1.6": 256_000,
+  "doubao-seed": 256_000,
+  "doubao-1.5-pro": 256_000,
+  "doubao-1.5": 128_000,
+  // DeepSeek
+  "deepseek-v4": 128_000,
+  "deepseek-v3": 128_000,
+  "deepseek-r1": 128_000,
+  "deepseek-chat": 128_000,
+  "deepseek-reasoner": 128_000,
 };
 
 export function lookupModelContextLimit(modelName: string | null | undefined): number {
@@ -219,15 +246,12 @@ export function contextUsageExceedsKnownLimit(usage: ContextUsageSnapshot): bool
 }
 
 export function formatCompactTokens(value: number): string {
-  if (value >= 1_000_000) {
-    const scaled = value / 1_000_000;
-    // Keep one decimal under 10M for readability (e.g. 1.5M).
-    return `${scaled >= 10 ? scaled.toFixed(0) : scaled.toFixed(1)}M`;
+  if (value >= 10_000_000) {
+    return `${(value / 1_000_000).toFixed(1)}M`;
   }
   if (value >= 1_000) {
-    const scaled = value / 1_000;
-    // Reference-style compact counts: 142.4K / 192.0K (one decimal under 1000K).
-    return `${scaled >= 1000 ? scaled.toFixed(0) : scaled.toFixed(1)}K`;
+    // Reference card uses 1000.0K for a 1M window, not 1.0M.
+    return `${(value / 1_000).toFixed(1)}K`;
   }
   return String(Math.round(value));
 }
@@ -245,4 +269,13 @@ export function contextUsagePercent(used: number, total: number): number {
 export function bucketPercentOfTotal(tokens: number, total: number): number {
   if (!Number.isFinite(tokens) || !Number.isFinite(total) || total <= 0) return 0;
   return Math.min(100, Math.max(0, (tokens / total) * 100));
+}
+
+/** Reference card: 0%, 1%, 0.3%, 54.3%. Whole numbers stay integer. */
+export function formatBucketPercent(percent: number): string {
+  if (!Number.isFinite(percent) || percent <= 0) return "0%";
+  const rounded = Math.round(percent * 10) / 10;
+  if (rounded <= 0) return "0%";
+  if (Number.isInteger(rounded)) return `${rounded.toFixed(0)}%`;
+  return `${rounded.toFixed(1)}%`;
 }

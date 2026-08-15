@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   parseAutoSlashCommandReference,
   parseSkillReference,
+  skillTurnTextsEquivalent,
 } from "../src/react-app/domains/session/surface/skill-reference";
 
 const sampleAutoSlash = `<auto-slash-command>
@@ -55,5 +56,14 @@ describe("parseSkillReference", () => {
 
   test("returns null for ordinary chat text", () => {
     expect(parseSkillReference("你好，帮我写一段文案")).toBeNull();
+  });
+
+  test("treats slash and [[skill:]] forms as the same turn", () => {
+    expect(
+      skillTurnTextsEquivalent(
+        "/skill-creator 请帮我创建一个可以实现电脑截图的skill",
+        "[[skill:skill-creator]] 请帮我创建一个可以实现电脑截图的skill",
+      ),
+    ).toBe(true);
   });
 });

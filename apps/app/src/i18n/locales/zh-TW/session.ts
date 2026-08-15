@@ -45,7 +45,7 @@ export default {
   "session.add_expert_from_market": "市場添加",
   "session.create_expert_yourself": "我要創建",
   "session.create_expert_prompt": "/expert-manager 幫我創建一個 XXX 專家，擅長 XXXXX。我的經驗是：[請補充你的行業背景、相關經驗]",
-  "session.create_skill_prompt": "請幫我創建一個可以實現 <描述你的需求> 的 skill",
+  "session.create_skill_prompt": "/skill-creator 請幫我建立一個可以實現「......」的skill",
   "session.chat_with_skill_prompt": "/{name} ",
   "session.edit_skill_prompt": "/skill-creator /{name} 請幫我編輯這個 skill",
   "session.expert_capability": "能力介紹",

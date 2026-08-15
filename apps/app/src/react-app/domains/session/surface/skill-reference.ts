@@ -100,6 +100,19 @@ export function parseAutoSlashCommandReference(
   return { name, arguments: args };
 }
 
+/** Collapse /name, [[skill:name]], and expanded dumps to one comparable string. */
+export function normalizeSkillTurnText(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) return "";
+  const reference = parseSkillReference(trimmed);
+  if (!reference) return trimmed;
+  return `[[skill:${reference.name}]] ${reference.arguments}`.trim();
+}
+
+export function skillTurnTextsEquivalent(left: string, right: string): boolean {
+  return normalizeSkillTurnText(left) === normalizeSkillTurnText(right);
+}
+
 export function parseSkillReference(text: string): SkillReference | null {
   const markerMatch = text.match(
     /^\[\[skill:([A-Za-z0-9][\w.-]*)\]\]\s*([\s\S]*)$/,

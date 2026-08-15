@@ -19,8 +19,7 @@ import type { RouteWorkspace } from "./model";
 import { getSessionStatus, isActiveSessionStatus } from "./state";
 import type { SessionOption as PaletteSessionOption } from "../command-palette";
 import {
-  recordColdPathEvent,
-  shouldPrefetchSessionSnapshotOnColdPath,
+  tryRecordColdListSessions,
 } from "./cold-path-budget";
 
 export type PendingCreatedSessionMap = Record<string, Record<string, number>>;
@@ -96,6 +95,7 @@ export type WorkspaceSessionCollectionResult = {
   items: SidebarSessionItem[];
   complete: boolean;
   failures: readonly unknown[];
+  skippedByColdPathBudget?: boolean;
 };
 
 export async function collectWorkspaceSessionItemsWithStatus(input: {
@@ -111,7 +111,14 @@ export async function collectWorkspaceSessionItemsWithStatus(input: {
   // The workspace aggregate is the only canonical session read for a refresh.
   // It already scans authorized expert runtime markers server-side; renderer
   // code must not fan out over origins or assistant directories.
-  recordColdPathEvent("listSessions");
+  if (!tryRecordColdListSessions()) {
+    return {
+      items: [],
+      complete: false,
+      failures: [],
+      skippedByColdPathBudget: true,
+    };
+  }
   const response = await input.client.listSessions(input.workspaceId, {
     scope: "workspace",
     limit,
@@ -505,7 +512,7 @@ export async function refreshCreatedSessionSnapshotWithRetries(input: {
   seedSessionState: (workspaceId: string, snapshot: CreatedSessionSnapshot) => void;
 }) {
   // Post-create snapshot: not cold-enter title thrash (empty selected chip ban).
-  // Thrash ban is enforced on sidebar prefetch via shouldPrefetchSessionSnapshotOnColdPath.
+  // Thrash ban is enforced on sidebar prefetch via tryRecordColdTitleSnapshot.
   const delays = [0, 120, 360, 900];
   for (const delay of delays) {
     if (delay > 0) {
