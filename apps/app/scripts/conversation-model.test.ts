@@ -200,6 +200,58 @@ describe("conversation model assistant groups", () => {
     expect(groups[1].description).toBe("asked summarize release notes");
     expect(groups.every((group) => group.agentId === null)).toBe(true);
   });
+
+  test("hides child sessions when the parent is in the same list", () => {
+    addAssistantSession("ses_parent");
+    addAssistantSession("ses_child_1");
+    addAssistantSession("ses_child_2");
+    addAssistantSession("ses_child_3");
+
+    const groups = buildAssistantConversationGroups([
+      {
+        id: "ses_parent",
+        title: "创建电脑截图技能",
+        parentID: null,
+        time: { created: 10, updated: 40 },
+      },
+      {
+        id: "ses_child_1",
+        title: "with-skill 测试1",
+        parentID: "ses_parent",
+        time: { created: 20, updated: 39 },
+      },
+      {
+        id: "ses_child_2",
+        title: "baseline 测试1",
+        parentID: "ses_parent",
+        time: { created: 21, updated: 38 },
+      },
+      {
+        id: "ses_child_3",
+        title: "with-skill 测试2",
+        parentID: "ses_parent",
+        time: { created: 22, updated: 37 },
+      },
+    ]);
+
+    expect(groups.map((group) => group.latestSession.id)).toEqual(["ses_parent"]);
+    expect(groups).toHaveLength(1);
+  });
+
+  test("keeps an orphan child when the parent is missing from the list", () => {
+    addAssistantSession("ses_orphan");
+
+    const groups = buildAssistantConversationGroups([
+      {
+        id: "ses_orphan",
+        title: "baseline 测试3",
+        parentID: "ses_missing_parent",
+        time: { created: 30, updated: 50 },
+      },
+    ]);
+
+    expect(groups.map((group) => group.latestSession.id)).toEqual(["ses_orphan"]);
+  });
 });
 
 describe("conversation model agent groups", () => {

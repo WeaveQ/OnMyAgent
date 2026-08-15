@@ -9,7 +9,11 @@ import { pickDirectory } from "../../../app/lib/desktop";
 import { unwrap } from "../../../app/lib/opencode";
 import type { Client, ModelOption, ModelRef, WorkspacePreset } from "../../../app/types";
 import { t } from "../../../i18n";
-import { ModelPickerModal, type OpenTarget } from "../../domains/session";
+import {
+  clearComposerDraftForNewTask,
+  ModelPickerModal,
+  type OpenTarget,
+} from "../../domains/session";
 import {
   CreateRemoteWorkspaceModal,
   CreateWorkspaceModal,
@@ -166,6 +170,7 @@ export function SessionRouteModals(props: SessionRouteModalsProps) {
         onClose={() => setCommandPaletteOpen(false)}
         onCreateNewSession={() => {
           if (selectedWorkspaceId) {
+            clearComposerDraftForNewTask(selectedWorkspaceId);
             void handleCreateTaskInWorkspace(selectedWorkspaceId);
           }
         }}

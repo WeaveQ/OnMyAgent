@@ -362,6 +362,12 @@ export function useSessionRouteWorkspaceInteraction(
       // `onCreateTaskInWorkspace`, so this clear is always "overridden" in
       // that path.
       usePendingAgentStore.getState().setAgent(null);
+      // Do not clear the composer here. Create-skill / create-expert /
+      // chat-with-skill / quick-capture reuse this handler and then seed
+      // `/skill-creator` (or similar) via `setComposerDraftAfterNewTask`.
+      // A shared clear races that seed (same `draft:${workspaceId}` key +
+      // generation-gated delayed applies). Blank 新建任务 CTAs clear at
+      // the leaf instead.
       // Space-folder “new chat” may have queued a project directory; apply it
       // as the draft workspace so the first send binds into that space.
       const queuedDirectory = takeAssistantNewTaskDirectory();

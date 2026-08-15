@@ -7,7 +7,10 @@ import { useCallback, useMemo, type Dispatch, type SetStateAction } from "react"
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
 import type { createClient } from "../../../app/lib/opencode";
 import type { SidebarSessionItem } from "../../../app/types";
-import { useSessionControlActions } from "../../domains/session";
+import {
+  clearComposerDraftForNewTask,
+  useSessionControlActions,
+} from "../../domains/session";
 import { useControlAction } from "../control/control-provider";
 import {
   buildCommandPaletteControlAction,
@@ -88,7 +91,10 @@ export function useSessionRouteControlWiring(input: Input) {
     opencodeClient,
     navigateToSession: navigateToSessionForControl,
     navigateToSessionRoot: navigateToSessionRootForControl,
-    createTaskInWorkspace: handleCreateTaskInWorkspace,
+    createTaskInWorkspace: (workspaceId) => {
+      clearComposerDraftForNewTask(workspaceId);
+      return handleCreateTaskInWorkspace(workspaceId);
+    },
     openModelPicker: openModelPickerForControl,
     refreshRouteState,
   });

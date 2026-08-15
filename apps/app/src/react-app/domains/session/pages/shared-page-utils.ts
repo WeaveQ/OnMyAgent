@@ -61,13 +61,21 @@ export function isTrackableAccessibleTarget(target: OpenTarget) {
   );
 }
 
+function assistantDraftSessionId(workspaceId: string) {
+  return `draft:${workspaceId.trim()}`;
+}
+
+let composerNewTaskDraftGeneration = 0;
+
 /**
  * 在新任务创建后设置composer draft
  * 使用多次调用确保draft被正确设置
  */
 export function setComposerDraftAfterNewTask(workspaceId: string, draft: string) {
-  const sessionId = `draft:${workspaceId}`;
+  const sessionId = assistantDraftSessionId(workspaceId);
+  const generation = ++composerNewTaskDraftGeneration;
   const apply = () => {
+    if (generation !== composerNewTaskDraftGeneration) return;
     useComposerStateStore.getState().setDraft(sessionId, draft);
   };
   apply();
@@ -75,6 +83,13 @@ export function setComposerDraftAfterNewTask(workspaceId: string, draft: string)
   window.requestAnimationFrame(() => {
     window.requestAnimationFrame(apply);
   });
+}
+
+/** Plain “New task” must not keep a prior /skill-creator (or other) seed. */
+export function clearComposerDraftForNewTask(workspaceId: string) {
+  composerNewTaskDraftGeneration += 1;
+  const sessionId = assistantDraftSessionId(workspaceId);
+  useComposerStateStore.getState().clearSession(sessionId);
 }
 
 /**

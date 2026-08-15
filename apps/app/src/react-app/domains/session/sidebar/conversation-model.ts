@@ -33,6 +33,7 @@ import {
   ONMYAGENT_ASSISTANT_AVATAR,
   onmyagentAssistantName,
 } from "../surface/personal-assistant-config";
+import { getRootSessions } from "./utils";
 
 export type TaskStatusIndicator = {
   label: string;
@@ -679,7 +680,7 @@ export function buildAssistantConversationGroups(
   generatedTitleFallbacks?: Map<string, string>,
   previewBySessionId?: Map<string, string>,
 ): AgentConversationGroup[] {
-  return sessions
+  return getRootSessions(sessions)
     .filter((session) => isAssistantSession(session.id))
     .map((session) => {
       const preview = previewBySessionId?.get(session.id)?.trim() || undefined;

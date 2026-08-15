@@ -110,7 +110,10 @@ export type {
   ComposerStateStore,
 } from "./surface/composer-state-store";
 /** Post-create composer seed used by quick-capture / new-task flows. */
-export { setComposerDraftAfterNewTask } from "./pages/shared-page-utils";
+export {
+  clearComposerDraftForNewTask,
+  setComposerDraftAfterNewTask,
+} from "./pages/shared-page-utils";
 /** Sidebar cold-start list limits — shell loads via domain barrel only. */
 export {
   SIDEBAR_ASSISTANT_DIRECTORY_LIST_LIMIT,

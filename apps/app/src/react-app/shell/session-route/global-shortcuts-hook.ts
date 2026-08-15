@@ -10,6 +10,7 @@
  */
 import { useEffect, useEffectEvent, type Dispatch, type SetStateAction } from "react";
 
+import { clearComposerDraftForNewTask } from "../../domains/session";
 import {
   KEYMAP_EVENT_NEW_TASK,
   NATIVE_MENU_RECENT_SESSION_EVENT,
@@ -43,6 +44,7 @@ export function useSessionRouteGlobalShortcuts(input: Input) {
     // New-task shortcut only needs a workspace; model readiness is checked on send.
     // (canCreateTask / model availability must not block opening a draft.)
     if (!selectedWorkspaceId) return;
+    clearComposerDraftForNewTask(selectedWorkspaceId);
     void handleCreateTaskInWorkspace(selectedWorkspaceId);
   });
 
