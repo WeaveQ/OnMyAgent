@@ -161,6 +161,32 @@ describe("reconcileTranscriptMessages", () => {
       "msg_streaming",
     ]);
   });
+
+  it("drops a slash-chip optimistic user bubble when the snapshot has the [[skill:]] turn", () => {
+    const merged = reconcileTranscriptMessages({
+      currentMessages: [
+        uiMessage(
+          "msg_ea401b16-9af4-457a-bf76-51e30893740a",
+          "user",
+          "/skill-creator 请帮我创建一个可以实现电脑截图的skill",
+          1,
+        ),
+      ],
+      snapshotMessages: [
+        uiMessage(
+          "msg_000cdadf2001pKTHcqf88pAK4z",
+          "user",
+          "[[skill:skill-creator]] 请帮我创建一个可以实现电脑截图的skill",
+          2,
+        ),
+      ],
+      reason: "snapshot",
+    });
+
+    expect(merged.map((message) => message.id)).toEqual([
+      "msg_000cdadf2001pKTHcqf88pAK4z",
+    ]);
+  });
 });
 
 describe("deriveRenderedSessionMessages", () => {

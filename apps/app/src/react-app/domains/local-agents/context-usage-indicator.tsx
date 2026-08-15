@@ -1,4 +1,6 @@
 /** @jsxImportSource react */
+import { useState } from "react";
+import { XIcon } from "lucide-react";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { PersonalLocalAgentConversationMessage } from "@/app/lib/desktop";
@@ -7,6 +9,7 @@ import {
   CONTEXT_USAGE_BUCKET_COLOR,
   CONTEXT_USAGE_BUCKET_ORDER,
   CONTEXT_USAGE_DANGER_PERCENT,
+  CONTEXT_USAGE_VISIBLE_BUCKETS,
   CONTEXT_USAGE_WARN_PERCENT,
   type ContextUsageBucketId,
   type ContextUsageSnapshot,
@@ -14,8 +17,8 @@ import {
   contextUsageExceedsKnownLimit,
   contextUsageHasKnownLimit,
   contextUsagePercent,
+  formatBucketPercent,
   formatCompactTokens,
-  formatExactTokens,
   toContextUsageSnapshot,
 } from "../../capabilities/context-usage/context-usage-model";
 
@@ -57,57 +60,149 @@ function SegmentedUsageBar(props: {
   toneClass: string;
 }) {
   const { used, total, breakdown } = props;
-  if (!breakdown || breakdown.length === 0) {
+  const segments = CONTEXT_USAGE_BUCKET_ORDER.map((id) => {
+    const item = breakdown?.find((b) => b.id === id);
+    const tokens = item?.tokens ?? 0;
+    return { id, tokens, pct: bucketPercentOfTotal(tokens, total) };
+  }).filter((s) => s.pct > 0);
+
+  if (segments.length === 0) {
     const pct = contextUsagePercent(used, total);
     return (
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-dls-surface-muted">
+      <div className="h-2 w-full overflow-hidden rounded-full bg-dls-surface-muted">
         <div
-          className={cn("h-full rounded-full transition-[width]", props.toneClass)}
+          className={cn("h-full", props.toneClass)}
           style={{ width: `${pct}%` }}
         />
       </div>
     );
   }
 
-  // Build segments as % of total; remainder is free capacity (track bg).
-  const segments = CONTEXT_USAGE_BUCKET_ORDER.map((id) => {
-    const item = breakdown.find((b) => b.id === id);
-    const tokens = item?.tokens ?? 0;
-    return { id, tokens, pct: bucketPercentOfTotal(tokens, total) };
-  }).filter((s) => s.pct > 0);
-
   return (
-    <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-dls-surface-muted">
+    <div className="flex h-2 w-full overflow-hidden rounded-full bg-dls-surface-muted">
       {segments.map((seg) => (
         <div
           key={seg.id}
-          className={cn("h-full shrink-0", CONTEXT_USAGE_BUCKET_COLOR[seg.id])}
-          style={{ width: `${seg.pct}%` }}
-          title={`${bucketLabel(seg.id)} ${seg.pct.toFixed(1)}%`}
+          className="h-full shrink-0"
+          style={{
+            width: `${Math.max(seg.pct, 1.25)}%`,
+            backgroundColor: CONTEXT_USAGE_BUCKET_COLOR[seg.id],
+          }}
+          title={`${bucketLabel(seg.id)} ${formatBucketPercent(seg.pct)}`}
         />
       ))}
     </div>
   );
 }
 
-// Composer-embedded ring. Click opens a popover with used/total and optional
-// category breakdown. Threshold colors: 70% warn / 90% danger.
+function legendBucketIds(breakdown: ContextUsageSnapshot["breakdown"]): ContextUsageBucketId[] {
+  const extra =
+    breakdown?.some((item) => item.id === "other" && item.tokens > 0) === true
+      ? (["other"] as const)
+      : [];
+  return [...CONTEXT_USAGE_VISIBLE_BUCKETS, ...extra];
+}
+
+export function ContextUsagePopoverBody(props: {
+  usage: ContextUsageSnapshot;
+  percent: number;
+  percentClass: string;
+  barToneClass: string;
+  isOverLimit: boolean;
+  onClose: () => void;
+}) {
+  const { usage, percent, percentClass, barToneClass, isOverLimit, onClose } = props;
+  const breakdown = usage.breakdown;
+  const rows = legendBucketIds(breakdown);
+
+  return (
+    <>
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-sm font-medium text-dls-text">
+          {t("local_agent.context_usage")}
+        </div>
+        <button
+          type="button"
+          className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+          aria-label={t("common.close")}
+          data-testid="local-agent-context-usage-close"
+          onClick={onClose}
+        >
+          <XIcon className="size-3.5" />
+        </button>
+      </div>
+
+      <div className="space-y-1.5">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <span className={cn("text-2xl font-bold tabular-nums leading-none", percentClass)}>
+            {`${percent.toFixed(1)}%`}
+          </span>
+          <span className="text-xs text-dls-secondary">
+            {t("local_agent.context_usage_used_of", {
+              used: formatCompactTokens(usage.used),
+              total: formatCompactTokens(usage.total),
+            })}
+          </span>
+        </div>
+        <SegmentedUsageBar
+          used={usage.used}
+          total={usage.total}
+          breakdown={breakdown}
+          toneClass={barToneClass}
+        />
+        {isOverLimit ? (
+          <div className="text-xs leading-4 text-dls-status-danger-fg" data-testid="local-agent-context-usage-exceeded">
+            {t("local_agent.context_usage_exceeded")}
+          </div>
+        ) : null}
+      </div>
+
+      <ul className="flex flex-col gap-2.5" data-testid="context-usage-breakdown">
+        {rows.map((id) => {
+          const item = breakdown?.find((b) => b.id === id);
+          const tokens = item?.tokens ?? 0;
+          const pct = bucketPercentOfTotal(tokens, usage.total);
+          return (
+            <li
+              key={id}
+              className="flex items-center justify-between gap-3 text-xs leading-4"
+            >
+              <span className="flex min-w-0 items-center gap-2 text-dls-text">
+                <span
+                  className="size-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: CONTEXT_USAGE_BUCKET_COLOR[id] }}
+                  aria-hidden
+                />
+                <span className="truncate">{bucketLabel(id)}</span>
+              </span>
+              <span className="shrink-0 tabular-nums text-dls-secondary">
+                {formatBucketPercent(pct)}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
+}
+
+// Composer-embedded ring. Click opens a popover with used/total and category rows.
+// Threshold colors: 70% warn / 90% danger, only when the window is known.
 export function ContextUsageIndicator(props: {
   usage: ContextUsageSnapshot | { used: number; total: number; label?: string | null } | null;
   className?: string;
   size?: number;
 }) {
+  const [open, setOpen] = useState(false);
   const usage = toContextUsageSnapshot(props.usage);
   if (!usage) return null;
   const size = props.size ?? 22;
   const percent = contextUsagePercent(usage.used, usage.total);
   const hasKnownLimit = contextUsageHasKnownLimit(usage);
-  const displayPercent = hasKnownLimit ? percent : 0;
   const stroke = 2.5;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
-  const dashOffset = circumference - (displayPercent / 100) * circumference;
-  const hasUnknownLimit = !hasKnownLimit;
+  const dashOffset = circumference - (percent / 100) * circumference;
   const isDanger = hasKnownLimit && percent >= CONTEXT_USAGE_DANGER_PERCENT;
   const isWarn = hasKnownLimit && percent >= CONTEXT_USAGE_WARN_PERCENT;
   const ringClass = isDanger
@@ -115,26 +210,25 @@ export function ContextUsageIndicator(props: {
     : isWarn
       ? "text-dls-warning"
       : "text-dls-accent";
+  const percentClass = isDanger
+    ? "text-dls-danger"
+    : isWarn
+      ? "text-dls-warning"
+      : "text-dls-text";
   const barToneClass = isDanger
     ? "bg-dls-danger"
     : isWarn
       ? "bg-dls-warning"
       : "bg-dls-accent";
-  const title = hasUnknownLimit
-    ? `${t("local_agent.context_usage_used_unknown", { used: formatCompactTokens(usage.used) })} · ${t("local_agent.context_usage_limit_unknown")}`
-    : t("local_agent.context_usage_tooltip", {
-        used: formatCompactTokens(usage.used),
-        total: formatCompactTokens(usage.total),
-        percent: percent.toFixed(1),
-      });
-  const remaining = Math.max(0, usage.total - usage.used);
+  const title = t("local_agent.context_usage_tooltip", {
+    used: formatCompactTokens(usage.used),
+    total: formatCompactTokens(usage.total),
+    percent: percent.toFixed(1),
+  });
   const isOverLimit = contextUsageExceedsKnownLimit(usage);
-  const breakdown = usage.breakdown;
-  const hasBreakdown = Boolean(breakdown && breakdown.length > 0);
-  const showBreakdown = hasBreakdown && hasKnownLimit;
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         render={
           <button
@@ -146,7 +240,7 @@ export function ContextUsageIndicator(props: {
             title={title}
             aria-label={title}
             data-testid="local-agent-context-usage"
-            data-percent={hasUnknownLimit ? "unknown" : percent.toFixed(1)}
+            data-percent={percent.toFixed(1)}
             data-limit-known={String(hasKnownLimit)}
           >
             <svg
@@ -184,99 +278,17 @@ export function ContextUsageIndicator(props: {
       />
       <PopoverContent
         align="end"
-        className="w-[min(18rem,calc(100vw-2rem))] gap-3 p-3"
+        className="w-[min(20rem,calc(100vw-2rem))] gap-3.5 p-4"
         data-testid="local-agent-context-usage-popover"
       >
-        <div className="flex items-start justify-between gap-2">
-          <div className="text-sm font-medium text-dls-text">
-            {t("local_agent.context_usage")}
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <span className={cn("text-xl font-semibold tabular-nums", ringClass)}>
-              {hasUnknownLimit ? "—" : `${percent.toFixed(1)}%`}
-            </span>
-            <span className="text-xs text-dls-secondary">
-              {hasUnknownLimit
-                ? t("local_agent.context_usage_used_unknown", { used: formatCompactTokens(usage.used) })
-                : t("local_agent.context_usage_used_of", {
-                    used: formatCompactTokens(usage.used),
-                    total: formatCompactTokens(usage.total),
-                  })}
-            </span>
-          </div>
-          {hasUnknownLimit ? (
-            <div className="text-xs leading-4 text-dls-secondary" data-testid="local-agent-context-usage-limit-unknown">
-              {t("local_agent.context_usage_limit_unknown")}
-            </div>
-          ) : (
-            <SegmentedUsageBar
-              used={usage.used}
-              total={usage.total}
-              breakdown={breakdown}
-              toneClass={barToneClass}
-            />
-          )}
-          {isOverLimit ? (
-            <div className="text-xs leading-4 text-dls-status-danger-fg" data-testid="local-agent-context-usage-exceeded">
-              {t("local_agent.context_usage_exceeded")}
-            </div>
-          ) : null}
-        </div>
-
-        {showBreakdown ? (
-          <ul className="flex flex-col gap-1.5" data-testid="context-usage-breakdown">
-            {CONTEXT_USAGE_BUCKET_ORDER.map((id) => {
-              const item = breakdown!.find((b) => b.id === id);
-              if (!item || item.tokens <= 0) return null;
-              const pct = bucketPercentOfTotal(item.tokens, usage.total);
-              return (
-                <li
-                  key={id}
-                  className="flex items-center justify-between gap-3 text-xs"
-                >
-                  <span className="flex min-w-0 items-center gap-2 text-dls-text">
-                    <span
-                      className={cn(
-                        "size-2 shrink-0 rounded-full",
-                        CONTEXT_USAGE_BUCKET_COLOR[id],
-                      )}
-                      aria-hidden
-                    />
-                    <span className="truncate">{bucketLabel(id)}</span>
-                  </span>
-                  <span className="shrink-0 tabular-nums text-dls-secondary">
-                    {pct.toFixed(1)}%
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        ) : hasUnknownLimit ? null : (
-          <div className="flex items-center justify-between text-xs text-dls-secondary">
-            <span>
-              {t("local_agent.context_usage_remaining", {
-                remaining: formatExactTokens(remaining),
-              })}
-            </span>
-            {usage.label ? (
-              <span className="truncate pl-2">{usage.label}</span>
-            ) : null}
-          </div>
-        )}
-
-        {showBreakdown ? (
-          <div className="text-2xs text-dls-secondary">
-            {t("local_agent.context_usage_remaining", {
-              remaining: formatExactTokens(remaining),
-            })}
-            {usage.label ? (
-              <span className="ml-2 truncate">{usage.label}</span>
-            ) : null}
-          </div>
-        ) : null}
+        <ContextUsagePopoverBody
+          usage={usage}
+          percent={percent}
+          percentClass={percentClass}
+          barToneClass={barToneClass}
+          isOverLimit={isOverLimit}
+          onClose={() => setOpen(false)}
+        />
       </PopoverContent>
     </Popover>
   );

@@ -1,9 +1,9 @@
 /**
- * Experts / Session invariants — contract index + source anchors.
+ * Experts / Session invariants — behavior contracts at primary call sites.
  *
  * Product rules live in docs/Architecture.md Session / Expert.
- * apps/app/AGENTS.md keeps a short title index so this file can assert the names.
- * This file fails CI if those rules are re-broken in the primary call sites.
+ * This file fails CI if those rules are re-broken. It does not treat
+ * apps/app/AGENTS.md as a second policy source.
  * Specialized unit coverage remains in the sibling scripts listed per invariant.
  */
 import { describe, expect, test } from "bun:test";
@@ -43,20 +43,6 @@ const agentSessionStatePath = new URL(
   "../src/react-app/domains/agents/agent-session-state.ts",
   import.meta.url,
 );
-const appAgentsPath = new URL("../AGENTS.md", import.meta.url);
-
-describe("experts/session invariants index", () => {
-  test("apps/app AGENTS.md documents the five expert/session invariants", async () => {
-    const agents = await readFile(appAgentsPath, "utf8");
-    expect(agents).toContain("## Experts / Session 不变量");
-    expect(agents).toContain("空壳禁止 startRun");
-    expect(agents).toContain("Expert Directory 权威");
-    expect(agents).toContain("Bound draft 事务消费");
-    expect(agents).toContain("首发冷路径可见");
-    expect(agents).toContain("Snapshot / SSE 代际隔离");
-    expect(agents).toContain("expert-session-invariants.test.ts");
-  });
-});
 
 describe("invariant 1: empty expert shell must not startRun", () => {
   test("onCreateFreshSessionForAgent does not mark runActive", async () => {

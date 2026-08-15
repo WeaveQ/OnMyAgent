@@ -2,9 +2,17 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+import { isProjectsRailVisible } from "../src/react-app/domains/session/sidebar/projects-rail-visibility";
+import { parseRailViewFromSearch } from "../src/react-app/domains/session/navigation/app-location";
+
 const root = resolve(import.meta.dir, "../../..");
 
 describe("main rail primary icon contract", () => {
+  test("hides the Projects coming-soon rail entry", () => {
+    expect(isProjectsRailVisible()).toBe(false);
+    expect(parseRailViewFromSearch("?view=projects")).toBeNull();
+  });
+
   test("uses the larger shared rail width", () => {
     const railSource = readFileSync(
       resolve(
@@ -57,6 +65,8 @@ describe("main rail primary icon contract", () => {
     );
     expect(railSource).toContain("icon: FilesRailIcon");
     expect(railSource).toContain("icon: ProjectsRailIcon");
+    expect(railSource).toContain("isProjectsRailVisible");
+    expect(railSource).toContain('if (item.id === "projects") return projectsVisible');
     expect(railSource).toContain("icon: StoreRailIcon");
     expect(railSource).toContain("icon: CompanyRailIcon");
     expect(railSource).toContain("icon: AutomationRailIcon");

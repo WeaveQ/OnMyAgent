@@ -10,15 +10,14 @@ pnpm check:file-size
 git diff --check
 ```
 
-改 session-route / draft / origin / 专家页 / 冷路径 / 货架时再加：
+改 session-route / draft / origin / 专家页 / 冷路径 / 货架时跑默认 UI 门禁：
 
 ```bash
-# Default CI (`pnpm test:ui`) already runs these harness contracts.
-cd apps/app && bun test scripts/expert-session-invariants.test.ts
-cd apps/app && bun test scripts/cold-path-budget.test.ts
-cd apps/app && bun test scripts/capability-shelf.test.ts
-# 可选：expert-preparing-jank · expert-directory · expert-draft-session · expert-cold-path
-# 更广：pnpm test:ui
+# Default CI (`pnpm test:ui` → ui-contracts) already runs:
+# expert-session-invariants, expert-surface-machine, expert-surface-mode,
+# expert-cold-open-navigation, agent-session-tab-title, expert-hard-delete,
+# cold-path-budget, capability-shelf
+pnpm test:ui
 ```
 
 ## 必读链接
@@ -39,9 +38,9 @@ cd apps/app && bun test scripts/capability-shelf.test.ts
 |---------|----|------|
 | 颜色、圆角、Tab/CTA、shell chrome | `DESIGN.md` | `pnpm task check design` |
 | 用户可见文案 | i18n locales | `pnpm check:i18n:cjk` |
-| 专家/会话 busy、draft、origin、首发、SSE | Architecture Session/Expert + React ARCHITECTURE | `bun test scripts/expert-session-invariants.test.ts` |
-| 专家会话面 FSM / tab / cold-open / pending 命名 | `docs/design/expert-surface-architecture.md` | surface / cold-open / tab-title 单测（见该文档 §10） |
-| hard_delete / create flush / listSessions 预算 | Architecture Expert lifecycle + Cold-path | 对应 unit / Architecture 表中代码 |
+| 专家/会话 busy、draft、origin、首发、SSE | Architecture Session/Expert + React ARCHITECTURE | `pnpm test:ui`（含 invariants） |
+| 专家会话面 FSM / tab / cold-open | `docs/design/expert-surface-architecture.md` | `pnpm test:ui`（§10 已编入 ui-contracts） |
+| hard_delete / create flush / listSessions 预算 | Architecture Expert lifecycle + Cold-path | `pnpm test:ui`（expert-hard-delete + cold-path-budget） |
 | 域拆分 / shell import | ARCHITECTURE + 根 AGENTS 边界 | `pnpm check:boundaries` |
 | 大页 expert/assistant/render | 下文热点 | `pnpm check:file-size` |
 
@@ -62,13 +61,7 @@ OpenCode 主 · Personal 辅 · 禁止交叉写 store/archive。
 
 ## Experts / Session 不变量
 
-产品不变量 SoT：[`docs/Architecture.md`](../../docs/Architecture.md) **Session / Expert / cold-path** + [`src/react-app/ARCHITECTURE.md`](./src/react-app/ARCHITECTURE.md)。契约入口：`scripts/expert-session-invariants.test.ts`。本页不另列全文。
-
-- 空壳禁止 startRun
-- Expert Directory 权威
-- Bound draft 事务消费
-- 首发冷路径可见
-- Snapshot / SSE 代际隔离
+产品不变量 SoT：[`docs/Architecture.md`](../../docs/Architecture.md) **Session / Expert / cold-path** + [`src/react-app/ARCHITECTURE.md`](./src/react-app/ARCHITECTURE.md)。默认验证：`pnpm test:ui`。本页不复述产品条文。
 
 ## 本包边界速记
 

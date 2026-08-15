@@ -52,3 +52,50 @@ describe("installed skill card → chat wiring", () => {
     }
   });
 });
+
+describe("create skill matches WorkBuddy chip draft", () => {
+  test("create handlers seed /skill-creator and install the package", () => {
+    const assistant = readFileSync(
+      join(appRoot, "src/react-app/domains/session/pages/assistant.tsx"),
+      "utf8",
+    );
+    const expertNav = readFileSync(
+      join(
+        appRoot,
+        "src/react-app/domains/session/pages/use-expert-skill-navigation.ts",
+      ),
+      "utf8",
+    );
+    const createSkillFn = /const handleCreateSkill = useCallback\(\(\) => \{[\s\S]*?\}, \[/;
+    const assistantCreate = assistant.match(createSkillFn)?.[0] ?? "";
+    const expertCreate = expertNav.match(createSkillFn)?.[0] ?? "";
+    expect(assistantCreate).toContain("create_skill_prompt");
+    expect(assistantCreate).toContain("installBuiltinSkillPackage");
+    expect(expertCreate).toContain("create_skill_prompt");
+    expect(expertCreate).toContain("installBuiltinSkillPackage");
+  });
+
+  test("create-skill draft starts with /skill-creator and a short placeholder", () => {
+    const zh = readFileSync(join(appRoot, "src/i18n/locales/zh/session.ts"), "utf8");
+    const en = readFileSync(join(appRoot, "src/i18n/locales/en/session.ts"), "utf8");
+    const zhTW = readFileSync(join(appRoot, "src/i18n/locales/zh-TW/session.ts"), "utf8");
+    expect(zh).toMatch(/create_skill_prompt": "\/skill-creator 请帮我创建一个可以实现「\.\.\.\.\.\.」的skill"/);
+    expect(en).toMatch(/create_skill_prompt": "\/skill-creator Please help me create a skill that can \\?"\.\.\.\.\.\.\\?"/);
+    expect(zhTW).toMatch(/create_skill_prompt": "\/skill-creator 請幫我建立一個可以實現「\.\.\.\.\.\.」的skill"/);
+  });
+
+  test("bundled skill-creator catalog copy is English", () => {
+    const skill = readFileSync(
+      join(
+        appRoot,
+        "../desktop/resources/bundled-skills/skill-creator/SKILL.md",
+      ),
+      "utf8",
+    );
+    const frontmatter = skill.slice(0, skill.indexOf("\n---", 4));
+    expect(frontmatter).toContain('display_name: "Skill Creator"');
+    expect(frontmatter).toContain("Create, edit, evaluate, benchmark");
+    expect(frontmatter).not.toMatch(/display_name_zh/);
+    expect(frontmatter).not.toMatch(/[\u4e00-\u9fff]/);
+  });
+});

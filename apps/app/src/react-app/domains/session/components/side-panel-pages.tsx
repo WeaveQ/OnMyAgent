@@ -547,7 +547,7 @@ export function StorePage(props: {
                   <DropdownMenuItem
                     className="cursor-pointer gap-2 text-dls-text focus:bg-dls-hover"
                     onClick={() => {
-                      // Jump to new task with skill-creator draft.
+                      // Jump to a new-task draft with /skill-creator chip.
                       if (props.onCreateSkill) {
                         props.onCreateSkill();
                         return;

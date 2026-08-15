@@ -1,6 +1,7 @@
 import type { UIMessage } from "ai";
 
 import { mergeSnapshotIntoCachedMessages } from "./message-merge";
+import { dropEquivalentOptimisticUserMessages } from "./optimistic-session-user-message";
 
 export type TranscriptReconcileReason = "snapshot" | "revert";
 
@@ -29,7 +30,13 @@ export function reconcileTranscriptMessages(input: ReconcileTranscriptInput): UI
   if (current.length === 0) return snapshot;
   if (snapshot.length === 0) return current;
 
-  return mergeSnapshotIntoCachedMessages(snapshot, current);
+  let merged = mergeSnapshotIntoCachedMessages(snapshot, current);
+  for (const message of snapshot) {
+    if (message.role === "user") {
+      merged = dropEquivalentOptimisticUserMessages(merged, message);
+    }
+  }
+  return merged;
 }
 
 /**

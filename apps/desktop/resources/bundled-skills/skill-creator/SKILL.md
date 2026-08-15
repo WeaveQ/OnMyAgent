@@ -1,9 +1,8 @@
 ---
 name: skill-creator
-description: 创造新技能，修改和改进现有技能，并衡量技能表现。当用户想要从头开始创建技能、编辑或优化现有技能、运行评估以测试技能、通过方差分析对技能性能进行基准测试或优化技能描述以获得更好的触发准确性时，可以使用该功能。
-display_name_zh: "技能创建器"
+description: Create, edit, evaluate, benchmark and optimize agent skills and their trigger accuracy. Use only when the user explicitly asks to use skill-creator or types /skill-creator.
+display_name: "Skill Creator"
 display_name_en: "Skill Creator"
-description_zh: "创建、编辑、评估、基准测试并优化智能体技能及其触发准确性"
 description_en: "Create, edit, evaluate, benchmark and optimize agent skills and their triggers"
 ---
 

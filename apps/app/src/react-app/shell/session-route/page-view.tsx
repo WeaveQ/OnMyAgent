@@ -121,7 +121,7 @@ import {
   insertSidebarSession,
   sessionListOwnsSession,
 } from "./sessions";
-import { shouldPrefetchSessionSnapshotOnColdPath } from "./cold-path-budget";
+import { tryRecordColdTitleSnapshot } from "./cold-path-budget";
 import {
   activateDesktopSessionWorkspaceInBackground,
 } from "./workspace-actions";
@@ -906,11 +906,12 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               const isSelectedSession =
                 workspaceId === selectedWorkspaceId &&
                 sessionId === selectedSessionId;
-              // Cold-path thrash ban: empty selected chips must not prefetch.
+              // Cold-path: empty selected chips and extra title pulls stay closed.
               if (
-                !shouldPrefetchSessionSnapshotOnColdPath({
+                !tryRecordColdTitleSnapshot({
                   isSelectedSession,
                   titleEmpty,
+                  alreadySnapshotted: false,
                 })
               ) {
                 return;

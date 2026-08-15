@@ -304,8 +304,24 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
     return buildSessionContextUsage({
       modelId: props.selectedModel?.modelID ?? null,
       usedTokens,
+      estimateFrom: {
+        messages: props.renderedMessages,
+        skills: props.skills,
+        mcpServers: props.mcpServers,
+        systemPrompt:
+          [props.effectiveAgent?.systemPrompt, props.effectiveAgent?.description]
+            .filter((item): item is string => Boolean(item && item.trim()))
+            .join("\n\n") || null,
+      },
     });
-  }, [props.renderedMessages, props.selectedModel?.modelID]);
+  }, [
+    props.effectiveAgent?.description,
+    props.effectiveAgent?.systemPrompt,
+    props.mcpServers,
+    props.renderedMessages,
+    props.selectedModel?.modelID,
+    props.skills,
+  ]);
 
   return (
     <DevProfiler id="SessionSurface">

@@ -1,5 +1,7 @@
 import type { UIMessage } from "ai";
 
+import { skillTurnTextsEquivalent } from "../surface/skill-reference";
+
 type OptimisticSessionUserMessageInput = {
   messageId: string;
   text: string;
@@ -28,7 +30,7 @@ export function adoptEquivalentOptimisticUserTextPart(
     (part) =>
       part.type === "text" &&
       opencodePartId(part) === null &&
-      part.text === canonicalPart.text,
+      skillTurnTextsEquivalent(part.text, canonicalPart.text),
   );
   if (optimisticIndex === -1) return null;
 
@@ -84,7 +86,7 @@ export function dropEquivalentOptimisticUserMessages(
   const next = current.filter((message) => {
     if (message.id === canonical.id) return true;
     if (!isOptimisticUserMessage(message)) return true;
-    return firstUserText(message) !== text;
+    return !skillTurnTextsEquivalent(firstUserText(message), text);
   });
   return next.length === current.length ? current : next;
 }

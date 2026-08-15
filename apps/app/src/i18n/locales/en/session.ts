@@ -49,7 +49,7 @@ export default {
   "session.add_expert_from_market": "Add from market",
   "session.create_expert_yourself": "Create my expert",
   "session.create_expert_prompt": "/expert-manager Help me create a XXX expert skilled in XXXXX. My experience: [add your industry background and relevant experience]",
-  "session.create_skill_prompt": "Please help me create a skill that can <describe your need>",
+  "session.create_skill_prompt": "/skill-creator Please help me create a skill that can \"......\"",
   "session.chat_with_skill_prompt": "/{name} ",
   "session.edit_skill_prompt": "/skill-creator /{name} Please help me edit this skill",
   "session.expert_capability": "Capabilities",
