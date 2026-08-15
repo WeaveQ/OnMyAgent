@@ -153,6 +153,7 @@ export type AssistantPageProps = SessionPageProps & {
 };
 
 import {
+  clearComposerDraftForNewTask,
   createWorkspaceFilesAgentHandlers,
   setComposerDraftAfterNewTask,
 } from "./shared-page-utils";
@@ -1198,6 +1199,10 @@ export function AssistantPage(props: AssistantPageProps) {
                 }
                 onOpenAgents={() => {}}
                 onCreateTask={() => {
+                  // Footer 新建任务 is a blank start. Create-skill reuses
+                  // `openAssistantNewTask` and then seeds `/skill-creator`;
+                  // do not put this clear on that shared path.
+                  clearComposerDraftForNewTask(props.selectedWorkspaceId);
                   openAssistantNewTask(assistantCategoryId);
                 }}
                 assistantCategoryId={assistantCategoryId}
