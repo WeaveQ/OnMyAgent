@@ -192,7 +192,7 @@ export function ContextUsagePopoverBody(props: {
       </ul>
       {usage.turnOutput || usage.turnReasoning ? (
         <div className="flex flex-col gap-2 border-t border-dls-border pt-2.5" data-testid="context-usage-turn-extras">
-          <div className="text-[11px] leading-4 text-dls-secondary">
+          <div className="text-2xs leading-4 text-dls-secondary">
             {t("local_agent.context_usage_turn_extras_hint")}
           </div>
           <ul className="flex flex-col gap-2">
