@@ -51,6 +51,7 @@ import {
   dispatchAssistantSessionWorkspacesChanged,
   readAssistantSessionWorkspace,
   seedOptimisticSessionUserMessage,
+  shouldForwardPromptMessageId,
   startExpertColdPrewarm,
   trackWorkspaceSessionSync,
   writeAssistantSessionWorkspace,
@@ -846,8 +847,8 @@ export function useSessionRouteSurfaceProps(
           }
         }
         if (!sessionId) return;
-        // Stable id for optimistic user bubble + promptAsync messageID so the
-        // transcript never flashes empty between create and the real SSE turn.
+        // Local-only id for the first-send bubble. Do not forward UUIDs to
+        // promptAsync — OpenCode compares user.id < assistant.id as strings.
         let optimisticMessageId: string | null =
           createdSession && !draft.messageID
             ? `msg_${crypto.randomUUID()}`
@@ -1358,6 +1359,9 @@ export function useSessionRouteSurfaceProps(
           buildLanguageSystemPrompt(localeSnapshot),
         ]);
         const runtimeMessageId = draft.messageID ?? optimisticMessageId;
+        const forwardedMessageId = shouldForwardPromptMessageId(runtimeMessageId)
+          ? runtimeMessageId
+          : undefined;
         const runtimeWorkspaceId =
           selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
         const userTurnText = resolveDraftText(promptDraft);
@@ -1377,7 +1381,7 @@ export function useSessionRouteSurfaceProps(
             opencodeClient.session.promptAsync({
               sessionID: sessionId,
               parts,
-              ...(runtimeMessageId ? { messageID: runtimeMessageId } : {}),
+              ...(forwardedMessageId ? { messageID: forwardedMessageId } : {}),
               // Priority: user's manual override > agent's configured model > global default.
               // Never modify `pendingAgentSnapshot.model` — the agent's configured model
               // is owned by the agent page edit dialog.
