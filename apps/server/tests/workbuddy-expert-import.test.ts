@@ -11,6 +11,7 @@ import {
   WorkBuddyImportError,
 } from "../src/services/workbuddy-expert-import.js";
 import { replaceDirectoriesAtomically } from "../src/services/workbuddy-expert-files.js";
+import { listSkills } from "../src/services/skills.js";
 
 let tempRoot = "";
 let roots = { sourceRoot: "", expertsRoot: "", skillsRoot: "" };
@@ -128,8 +129,18 @@ describe("WorkBuddy expert import", () => {
     );
     expect(manifest.importedFrom).toBe("workbuddy");
     expect(manifest.agents).toEqual(["./agents/developer.md"]);
-    expect(await readFile(join(roots.skillsRoot, "fullstack-dev", "SKILL.md"), "utf8"))
+    expect(await readFile(join(first.destination, "skills", "fullstack-dev", "SKILL.md"), "utf8"))
       .toContain("name: fullstack-dev");
+    expect(await fileExists(join(roots.skillsRoot, "fullstack-dev", "SKILL.md"))).toBe(false);
+    const previous = process.env.OPENCODE_GLOBAL_SKILLS_DIR;
+    process.env.OPENCODE_GLOBAL_SKILLS_DIR = roots.skillsRoot;
+    try {
+      const listed = await listSkills(join(tempRoot, "workspace"), true);
+      expect(listed.map((item) => item.name)).not.toContain("fullstack-dev");
+    } finally {
+      if (previous === undefined) delete process.env.OPENCODE_GLOBAL_SKILLS_DIR;
+      else process.env.OPENCODE_GLOBAL_SKILLS_DIR = previous;
+    }
 
     await writeFile(join(source, "agents", "developer.md"), agentMarkdown("developer", "updated"));
     const second = await importWorkBuddyExpertPackage({ query: "高级开发工程师", roots });
@@ -185,7 +196,7 @@ describe("WorkBuddy expert import", () => {
     expect(await fileExists(result.destination)).toBe(false);
   });
 
-  test("refuses to overwrite a skill not owned by getworkbuddy", async () => {
+  test("does not copy imported skills into the user installed-skills root", async () => {
     await writePackage("developer", {
       name: "developer",
       expertType: "agent",
@@ -196,11 +207,13 @@ describe("WorkBuddy expert import", () => {
     await mkdir(join(roots.skillsRoot, "fullstack-dev"), { recursive: true });
     await writeFile(join(roots.skillsRoot, "fullstack-dev", "SKILL.md"), "user-owned\n");
 
-    const error = await captureError(() =>
-      importWorkBuddyExpertPackage({ query: "developer", roots }));
-    expect(error).toBeInstanceOf(WorkBuddyImportError);
-    expect(error instanceof WorkBuddyImportError ? error.code : "").toBe("workbuddy_import_conflict");
-    expect(await fileExists(join(roots.expertsRoot, "developer"))).toBe(false);
+    const result = await importWorkBuddyExpertPackage({ query: "developer", roots });
+    expect(result.action).toBe("added");
+    expect(await fileExists(join(result.destination, ".expert-plugin", "plugin.json"))).toBe(true);
+    expect(await readFile(join(roots.skillsRoot, "fullstack-dev", "SKILL.md"), "utf8"))
+      .toBe("user-owned\n");
+    expect(await readFile(join(result.destination, "skills", "fullstack-dev", "SKILL.md"), "utf8"))
+      .toContain("name: fullstack-dev");
   });
 
   test("rejects package symlinks that escape the WorkBuddy package", async () => {

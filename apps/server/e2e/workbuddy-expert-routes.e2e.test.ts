@@ -88,8 +88,23 @@ describe("WorkBuddy expert routes", () => {
       ),
     ).toContain('"importedFrom": "workbuddy"');
     expect(
-      await readFile(join(tempRoot, "profile", "skills", "fullstack-dev", "SKILL.md"), "utf8"),
+      await readFile(
+        join(
+          tempRoot,
+          "profile",
+          "experts",
+          "installed",
+          "senior-developer",
+          "skills",
+          "fullstack-dev",
+          "SKILL.md",
+        ),
+        "utf8",
+      ),
     ).toContain("name: fullstack-dev");
+    expect(
+      await fileExists(join(tempRoot, "profile", "skills", "fullstack-dev", "SKILL.md")),
+    ).toBe(false);
     expect(refreshCalls).toBe(1);
     const refresh = recordValue(importBody, "refresh");
     expect(recordValue(refresh, "skillLinksRefreshed")).toBe(true);
