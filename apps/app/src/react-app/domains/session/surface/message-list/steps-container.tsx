@@ -9,8 +9,13 @@ import { summarizeStep } from "../../../../../app/utils";
 import { type MarkdownCodePathOpenMode } from "../markdown";
 import { shouldFoldStepGroups } from "./block-model";
 import type { StepTimelineGroup } from "./types";
-import { summarizeStepCluster } from "./step-cluster";
+import {
+  clusterStepTimelineParts,
+  flattenStepTimelineParts,
+  summarizeStepCluster,
+} from "./step-cluster";
 import { StepRow } from "./step-row";
+import { TaskSetBlock, toTaskSetRowModels } from "./task-set-block";
 import { ToolActivityIcon } from "./tool-activity-icon";
 
 export function StepsContainer(props: {
@@ -60,39 +65,49 @@ export function StepsContainer(props: {
     [props.stepGroups],
   );
   const previewItems = stepSummaries.slice(0, 2);
+  const stepEntries = useMemo(
+    () => flattenStepTimelineParts(props.stepGroups),
+    [props.stepGroups],
+  );
+  const stepClusters = useMemo(
+    () => clusterStepTimelineParts(stepEntries),
+    [stepEntries],
+  );
+  const lastStepId = stepEntries.at(-1)?.id;
+  const streamLast =
+    props.isActive && props.isTrailingMessageContent !== false;
+  const renderedSteps = (
+    <div className="flex flex-col gap-5">
+      {stepClusters.map((cluster) => {
+        if (cluster.kind === "task-set") {
+          return (
+            <TaskSetBlock
+              key={cluster.ids.join(":")}
+              items={toTaskSetRowModels(cluster.parts, cluster.ids).map((item) => ({
+                ...item,
+                expanded: props.expandedStepIds.has(item.id),
+                onToggle: () => toggleSteps(item.id),
+              }))}
+            />
+          );
+        }
+        return (
+          <StepRow
+            key={cluster.id}
+            id={cluster.id}
+            part={cluster.part}
+            expanded={props.expandedStepIds.has(cluster.id)}
+            onToggle={() => toggleSteps(cluster.id)}
+            onOpenCodePath={props.onOpenCodePath}
+            isStreamingReasoning={streamLast && cluster.id === lastStepId}
+          />
+        );
+      })}
+    </div>
+  );
 
   if (!shouldFold) {
-    return (
-      <div className="max-w-[760px]">
-        <div className="flex flex-col gap-5">
-          {props.stepGroups.map((group, groupIndex) => (
-            <div key={group.id} className="flex flex-col gap-5">
-              {group.parts.map((part, index) => {
-                const rowId = `${group.id}:${index}`;
-                const isLastPartInGroup = index === group.parts.length - 1;
-                const isLastStepGroup = groupIndex === props.stepGroups.length - 1;
-                return (
-                  <StepRow
-                    key={rowId}
-                    id={rowId}
-                    part={part}
-                    expanded={props.expandedStepIds.has(rowId)}
-                    onToggle={() => toggleSteps(rowId)}
-                    onOpenCodePath={props.onOpenCodePath}
-                    isStreamingReasoning={
-                      props.isActive &&
-                      props.isTrailingMessageContent !== false &&
-                      isLastStepGroup &&
-                      isLastPartInGroup
-                    }
-                  />
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    return <div className="max-w-[760px]">{renderedSteps}</div>;
   }
 
   return (
@@ -135,33 +150,7 @@ export function StepsContainer(props: {
             !props.isNestedVariant && "max-h-[520px] overflow-y-auto pr-3",
           )}
         >
-          <div className="flex flex-col gap-5">
-            {props.stepGroups.map((group, groupIndex) => (
-              <div key={group.id} className="flex flex-col gap-5">
-                {group.parts.map((part, index) => {
-                  const rowId = `${group.id}:${index}`;
-                  const isLastPartInGroup = index === group.parts.length - 1;
-                  const isLastStepGroup = groupIndex === props.stepGroups.length - 1;
-                  return (
-                    <StepRow
-                      key={rowId}
-                      id={rowId}
-                      part={part}
-                      expanded={props.expandedStepIds.has(rowId)}
-                      onToggle={() => toggleSteps(rowId)}
-                      onOpenCodePath={props.onOpenCodePath}
-                      isStreamingReasoning={
-                        props.isActive &&
-                        props.isTrailingMessageContent !== false &&
-                        isLastStepGroup &&
-                        isLastPartInGroup
-                      }
-                    />
-                  );
-                })}
-              </div>
-            ))}
-          </div>
+          {renderedSteps}
         </div>
       ) : null}
     </div>

@@ -421,6 +421,10 @@ function toolFamily(toolName: string): TranscriptToolFamily {
   return "generic";
 }
 
+export function isTaskToolFamily(toolName: string): boolean {
+  return toolFamily(toolName) === "task";
+}
+
 function normalizeGeneratedImage(value: unknown): TranscriptGeneratedImage | null {
   const record = recordValue(value);
   const url = stringValue(record, ["url"]);
@@ -1102,12 +1106,14 @@ function specializedToolDetails(input: {
         return item ? [item] : [];
       });
     const rawResult = typeof input.toolOutput === "string" ? input.toolOutput.trim() : "";
+    const wrappedResult =
+      stringValue(payload, ["finalResult", "result", "summary"]) ?? (rawResult || "");
     return {
       kind: "task",
       description: stringValue(toolInput, ["description", "prompt", "task"]) ?? "",
       subagentName: stringValue(toolInput, ["subagent_name", "subagent_type", "agent"]),
       toolItems,
-      finalResult: stringValue(payload, ["finalResult", "result", "summary"]) ?? (rawResult || null),
+      finalResult: unwrapTaskResultText(wrappedResult) || null,
     };
   }
 
@@ -1215,4 +1221,168 @@ export function buildTranscriptToolPresentation(input: {
       directRemoved || (details?.kind === "write" ? details.removedLines : counted.removedLines),
     details,
   };
+}
+
+export function unwrapTaskResultText(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const nested = trimmed.match(/<task_result\b[^>]*>\s*([\s\S]*?)\s*<\/task_result>/i);
+  if (nested?.[1] != null) return nested[1].trim();
+  if (!/^<task\b/i.test(trimmed)) return trimmed;
+  return trimmed
+    .replace(/^<task\b[^>]*>\s*/i, "")
+    .replace(/\s*<\/task>\s*$/i, "")
+    .trim();
+}
+
+export function taskAttemptDescription(toolInput?: Record<string, unknown>): string {
+  if (!toolInput) return "";
+  for (const key of ["description", "prompt", "task"]) {
+    const value = toolInput[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+
+export function isReplaceableTaskAttempt(input: {
+  status?: string;
+  error?: string;
+}): boolean {
+  const status = (input.status ?? "").toLowerCase();
+  if (
+    status.includes("cancel") ||
+    status.includes("error") ||
+    status.includes("fail")
+  ) {
+    return true;
+  }
+  return Boolean(input.error?.trim());
+}
+
+export function collapseSameDescriptionTaskAttempts<T>(
+  items: T[],
+  inspect: (item: T) => { description: string; replaceable: boolean } | null,
+): T[] {
+  const collapsed: T[] = [];
+  for (const item of items) {
+    const current = inspect(item);
+    if (!current?.description) {
+      collapsed.push(item);
+      continue;
+    }
+    const index = collapsed.findIndex((previous) => {
+      const seen = inspect(previous);
+      return Boolean(seen?.replaceable && seen.description === current.description);
+    });
+    if (index >= 0) {
+      collapsed[index] = item;
+      continue;
+    }
+    collapsed.push(item);
+  }
+  return collapsed;
+}
+
+export type TranscriptToolClusterInput = {
+  toolName: string;
+  toolInput?: Record<string, unknown>;
+  toolOutput?: unknown;
+  toolMetadata?: Record<string, unknown>;
+  toolStatus?: string;
+  toolError?: string;
+};
+
+export type TranscriptToolCluster =
+  | {
+      kind: "single";
+      toolName: string;
+      title: string | null;
+      presentation: TranscriptToolPresentation;
+    }
+  | {
+      kind: "task-set";
+      items: Array<{
+        toolName: string;
+        title: string;
+        presentation: TranscriptToolPresentation;
+      }>;
+    };
+
+export function taskPresentationTitle(
+  presentation: TranscriptToolPresentation,
+): string | null {
+  if (presentation.family !== "task" || presentation.details?.kind !== "task") {
+    return null;
+  }
+  return presentation.details.description.trim() || presentation.details.subagentName;
+}
+
+/** Adjacent parallel task/subagent/runagent tools become one set; a lone task stays single. */
+export function clusterAdjacentTranscriptTools(
+  items: TranscriptToolClusterInput[],
+): TranscriptToolCluster[] {
+  const prepared = items.map((item) => ({
+    item,
+    presentation: buildTranscriptToolPresentation({
+      toolName: item.toolName,
+      toolInput: item.toolInput,
+      toolOutput: item.toolOutput,
+      toolMetadata: item.toolMetadata,
+    }),
+  }));
+  const clusters: TranscriptToolCluster[] = [];
+  let taskRun: typeof prepared = [];
+
+  const flushTaskRun = () => {
+    if (taskRun.length === 0) return;
+    const collapsed = collapseSameDescriptionTaskAttempts(taskRun, (entry) => {
+      const description =
+        taskPresentationTitle(entry.presentation) ??
+        taskAttemptDescription(entry.item.toolInput);
+      if (!description) return null;
+      return {
+        description,
+        replaceable: isReplaceableTaskAttempt({
+          status: entry.item.toolStatus,
+          error: entry.item.toolError,
+        }),
+      };
+    });
+    if (collapsed.length === 1) {
+      const entry = collapsed[0]!;
+      clusters.push({
+        kind: "single",
+        toolName: entry.item.toolName,
+        title: taskPresentationTitle(entry.presentation),
+        presentation: entry.presentation,
+      });
+    } else {
+      clusters.push({
+        kind: "task-set",
+        items: collapsed.map((entry) => ({
+          toolName: entry.item.toolName,
+          title:
+            taskPresentationTitle(entry.presentation) ?? entry.item.toolName,
+          presentation: entry.presentation,
+        })),
+      });
+    }
+    taskRun = [];
+  };
+
+  for (const entry of prepared) {
+    if (entry.presentation.family === "task") {
+      taskRun.push(entry);
+      continue;
+    }
+    flushTaskRun();
+    clusters.push({
+      kind: "single",
+      toolName: entry.item.toolName,
+      title: taskPresentationTitle(entry.presentation),
+      presentation: entry.presentation,
+    });
+  }
+  flushTaskRun();
+  return clusters;
 }

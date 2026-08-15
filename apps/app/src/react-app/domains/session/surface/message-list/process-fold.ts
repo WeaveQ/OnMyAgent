@@ -4,10 +4,45 @@ import { summarizeStep } from "../../../../../app/utils";
 import { buildTranscriptToolPresentation } from "../transcript/tool-presentation";
 import type { TurnProcessItem } from "../transcript/turn-content";
 import { isRecordValue, recordValue, toLegacyPart } from "./parts";
-import { isRunningStepStatus, summarizeStepCluster } from "./step-cluster";
+import {
+  clusterStepTimelineParts,
+  isRunningStepStatus,
+  summarizeStepCluster,
+} from "./step-cluster";
+import type { TranscriptPart } from "./types";
 
 export function processItemToLegacyPart(item: TurnProcessItem) {
   return toLegacyPart(item.part, `${item.messageId}:${item.partIndex}`);
+}
+
+export type TurnProcessCluster =
+  | { kind: "task-set"; parts: TranscriptPart[]; ids: string[] }
+  | { kind: "items"; id: string; items: TurnProcessItem[] };
+
+export function clusterTurnProcessItems(items: TurnProcessItem[]): TurnProcessCluster[] {
+  const prepared = items.map((item) => ({
+    item,
+    part: processItemToLegacyPart(item),
+    id: `${item.messageId}:${item.partIndex}`,
+  }));
+  const byId = new Map(prepared.map((entry) => [entry.id, entry]));
+  return clusterStepTimelineParts(
+    prepared.flatMap((entry) => (entry.part ? [{ part: entry.part, id: entry.id }] : [])),
+  ).map((cluster) => {
+    if (cluster.kind === "task-set") {
+      return {
+        kind: "task-set",
+        parts: cluster.parts,
+        ids: cluster.ids,
+      };
+    }
+    const entry = byId.get(cluster.id);
+    return {
+      kind: "items",
+      id: cluster.id,
+      items: entry ? [entry.item] : [],
+    };
+  });
 }
 
 export function shouldUseSemanticProcessFold(part: Part) {

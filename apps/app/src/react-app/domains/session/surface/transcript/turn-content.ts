@@ -11,6 +11,12 @@ import {
   type ProgressNarrationMessageKey,
   type ProgressNarrationStep,
 } from "./progress-narration";
+import {
+  collapseSameDescriptionTaskAttempts,
+  isReplaceableTaskAttempt,
+  isTaskToolFamily,
+  taskAttemptDescription,
+} from "./tool-presentation";
 
 const WIDGET_TOOL_NAMES = new Set([
   "render_visual",
@@ -477,6 +483,86 @@ function bodyText(item: TurnContentItem) {
   return item.part.type === "text" ? item.part.text.trim() : "";
 }
 
+function transcriptPartToolName(part: UIMessagePart): string | null {
+  if (part.type === "dynamic-tool") return part.toolName;
+  if (part.type.startsWith("tool-")) return part.type.slice("tool-".length);
+  return null;
+}
+
+export function processItemsAreTaskFamily(items: TurnProcessItem[]): boolean {
+  if (items.length === 0) return false;
+  return items.every((item) => {
+    if (!isTranscriptToolPart(item.part)) return false;
+    const name = transcriptPartToolName(item.part);
+    return Boolean(name && isTaskToolFamily(name));
+  });
+}
+
+function processItemTaskInspect(item: TurnProcessItem) {
+  if (!isTranscriptToolPart(item.part)) return null;
+  const name = transcriptPartToolName(item.part);
+  if (!name || !isTaskToolFamily(name)) return null;
+  const input =
+    "input" in item.part && item.part.input && typeof item.part.input === "object"
+      ? (item.part.input as Record<string, unknown>)
+      : undefined;
+  const description = taskAttemptDescription(input);
+  if (!description) return null;
+  const state = "state" in item.part ? item.part.state : undefined;
+  const error =
+    state === "output-error" && "errorText" in item.part
+      ? String(item.part.errorText ?? "")
+      : undefined;
+  return {
+    description,
+    replaceable: isReplaceableTaskAttempt({
+      status: typeof state === "string" ? state : undefined,
+      error,
+    }),
+  };
+}
+
+export function mergeAdjacentTaskProcessSegments<
+  T extends { kind: string; items?: TurnProcessItem[] },
+>(segments: T[]): T[] {
+  const merged: T[] = [];
+  for (const segment of segments) {
+    if (
+      segment.kind === "process" &&
+      Array.isArray(segment.items) &&
+      processItemsAreTaskFamily(segment.items)
+    ) {
+      let lookback = merged.length - 1;
+      while (lookback >= 0 && merged[lookback]?.kind === "synthetic-body") {
+        lookback -= 1;
+      }
+      const previous = lookback >= 0 ? merged[lookback] : undefined;
+      if (
+        previous?.kind === "process" &&
+        Array.isArray(previous.items) &&
+        processItemsAreTaskFamily(previous.items)
+      ) {
+        previous.items.splice(
+          0,
+          previous.items.length,
+          ...collapseSameDescriptionTaskAttempts(
+            [...previous.items, ...segment.items],
+            processItemTaskInspect,
+          ),
+        );
+        merged.splice(lookback + 1);
+        continue;
+      }
+    }
+    merged.push(
+      segment.kind === "process" && Array.isArray(segment.items)
+        ? { ...segment, items: [...segment.items] }
+        : segment,
+    );
+  }
+  return merged;
+}
+
 function stripCancellationSentinel(text: string) {
   const trimmed = text.trim();
   for (const sentinel of CANCELLATION_SENTINELS) {
@@ -797,8 +883,10 @@ export function buildTurnContentPresentation(
     state: turn.state,
     turnCollapseEligible,
     finalText,
-    segments: buildExpandedSegments(publicRenderItems),
-    collapsedSegments: buildCollapsedSegments(publicRenderItems),
+    segments: mergeAdjacentTaskProcessSegments(buildExpandedSegments(publicRenderItems)),
+    collapsedSegments: mergeAdjacentTaskProcessSegments(
+      buildCollapsedSegments(publicRenderItems),
+    ),
     processItems,
     hoistedItems: visibleHoistedItems,
   };

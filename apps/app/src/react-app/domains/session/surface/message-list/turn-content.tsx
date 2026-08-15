@@ -4,6 +4,7 @@ import { MarkdownBlock, type MarkdownCodePathOpenMode, type MarkdownVerifiedCode
 import { InlineVisual } from "../transcript/inline-visual";
 import { progressNarrationTransitionKey } from "../transcript/progress-narration";
 import {
+  mergeAdjacentTaskProcessSegments,
   type TurnContentSegment,
   type TurnContentPresentation,
   type TurnFoldSegment,
@@ -11,6 +12,7 @@ import {
 } from "../transcript/turn-content";
 import { FileCard } from "./file-card";
 import {
+  clusterTurnProcessItems,
   processFoldChipMeta,
   processItemToLegacyPart,
   processPlanDetails,
@@ -18,6 +20,7 @@ import {
 } from "./process-fold";
 import { WorkBuddyProcessFold } from "./process-fold-ui";
 import { StepRow } from "./step-row";
+import { TaskSetBlock, toTaskSetRowModels } from "./task-set-block";
 import { stripFollowUpMarkers } from "../follow-up-suggestions";
 
 function displayTurnText(text: string) {
@@ -94,6 +97,30 @@ export function WorkBuddyTurnContent(props: {
     const processRunning = running && items.some(
       (item) => item.messageId === props.presentation.streamingMessageId,
     );
+    const clusters = clusterTurnProcessItems(items);
+    if (clusters.some((cluster) => cluster.kind === "task-set")) {
+      return (
+        <div key={id} className="flex flex-col gap-5">
+          {clusters.map((cluster, index) => {
+            if (cluster.kind === "task-set") {
+              return (
+                <TaskSetBlock
+                  key={`${id}:task-set:${cluster.ids.join(":")}`}
+                  items={toTaskSetRowModels(cluster.parts, cluster.ids).map((item) => ({
+                    ...item,
+                    expanded: props.expandedStepIds.has(item.id),
+                    onToggle: () => toggleStep(item.id),
+                  }))}
+                />
+              );
+            }
+            const item = cluster.items[0];
+            if (!item) return null;
+            return renderSingletonProcess(`${id}:${index}`, item, processRunning);
+          })}
+        </div>
+      );
+    }
     const item = items[0];
     if (items.length === 1 && item) {
       return renderSingletonProcess(id, item, processRunning);
@@ -255,8 +282,8 @@ export function WorkBuddyTurnContent(props: {
   return (
     <div className="session-workbuddy-turn-content" data-workbuddy-turn-content="true">
       {showExpandedProcess
-        ? props.presentation.segments.map(renderExpandedSegment)
-        : props.presentation.collapsedSegments.map(renderCollapsedSegment)}
+        ? mergeAdjacentTaskProcessSegments(props.presentation.segments).map(renderExpandedSegment)
+        : mergeAdjacentTaskProcessSegments(props.presentation.collapsedSegments).map(renderCollapsedSegment)}
       {!showExpandedProcess
         ? props.presentation.hoistedItems.map((visual) => (
             <InlineVisual

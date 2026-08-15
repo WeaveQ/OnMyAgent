@@ -1,9 +1,98 @@
 import { t } from "@/i18n";
 import { summarizeStep } from "../../../../../app/utils";
 import { specializedToolHeadline } from "../specialized-tool-details";
-import { buildTranscriptToolPresentation } from "../transcript/tool-presentation";
+import {
+  buildTranscriptToolPresentation,
+  clusterAdjacentTranscriptTools,
+  collapseSameDescriptionTaskAttempts,
+  isReplaceableTaskAttempt,
+  taskAttemptDescription,
+} from "../transcript/tool-presentation";
 import type { StepTimelineGroup } from "./types";
+import type { TranscriptPart } from "./types";
 import { recordValue } from "./parts";
+
+export type StepPartCluster =
+  | { kind: "part"; part: TranscriptPart; id: string }
+  | { kind: "task-set"; parts: TranscriptPart[]; ids: string[] };
+
+export function flattenStepTimelineParts(stepGroups: StepTimelineGroup[]) {
+  return stepGroups.flatMap((group) =>
+    group.parts.map((part, index) => ({
+      part,
+      id: `${group.id}:${index}`,
+    })),
+  );
+}
+
+export function stepPartToolClusterInput(part: TranscriptPart) {
+  if (part.type !== "tool") return null;
+  const state = recordValue("state" in part ? part.state : undefined);
+  return {
+    toolName: part.tool,
+    toolInput: recordValue(state?.input) ?? undefined,
+    toolOutput: state?.output,
+    toolMetadata: recordValue(state?.metadata) ?? undefined,
+    toolStatus: typeof state?.status === "string" ? state.status : undefined,
+    toolError: typeof state?.error === "string" ? state.error : undefined,
+  };
+}
+
+/** Walk rendered step parts; adjacent task tools become one set. */
+export function clusterStepTimelineParts(
+  entries: Array<{ part: TranscriptPart; id: string }>,
+): StepPartCluster[] {
+  const clusters: StepPartCluster[] = [];
+  let run: Array<{ part: TranscriptPart; id: string }> = [];
+
+  const flushRun = () => {
+    if (run.length === 0) return;
+    run = collapseSameDescriptionTaskAttempts(run, (entry) => {
+      const input = stepPartToolClusterInput(entry.part);
+      if (!input) return null;
+      const description = taskAttemptDescription(input.toolInput);
+      if (!description) return null;
+      return {
+        description,
+        replaceable: isReplaceableTaskAttempt({
+          status: input.toolStatus,
+          error: input.toolError,
+        }),
+      };
+    });
+    const grouped = clusterAdjacentTranscriptTools(
+      run.map((entry) => stepPartToolClusterInput(entry.part)!),
+    );
+    let offset = 0;
+    for (const group of grouped) {
+      if (group.kind === "task-set") {
+        const slice = run.slice(offset, offset + group.items.length);
+        clusters.push({
+          kind: "task-set",
+          parts: slice.map((entry) => entry.part),
+          ids: slice.map((entry) => entry.id),
+        });
+        offset += group.items.length;
+        continue;
+      }
+      const entry = run[offset]!;
+      clusters.push({ kind: "part", part: entry.part, id: entry.id });
+      offset += 1;
+    }
+    run = [];
+  };
+
+  for (const entry of entries) {
+    if (entry.part.type === "tool" && stepPartToolClusterInput(entry.part)) {
+      run.push(entry);
+      continue;
+    }
+    flushRun();
+    clusters.push({ kind: "part", part: entry.part, id: entry.id });
+  }
+  flushRun();
+  return clusters;
+}
 
 export type StepClusterSummary = {
   category: "read" | "edit" | "terminal" | "search" | "tool";

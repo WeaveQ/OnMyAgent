@@ -29,6 +29,12 @@ export function toDynamicToolPart(part: UIMessage["parts"][number]) {
   } as DynamicToolUIPart;
 }
 
+function liveToolPartStatus(state: DynamicToolUIPart["state"]): string {
+  if (state === "output-available") return "completed";
+  if (state === "output-error") return "error";
+  return "running";
+}
+
 export function toLegacyPart(
   part: UIMessage["parts"][number],
   fallbackId: string,
@@ -68,6 +74,7 @@ export function toLegacyPart(
     const state: Record<string, unknown> = {
       input: toolPart.input,
       ...(toolMetadata ? { metadata: toolMetadata } : {}),
+      status: liveToolPartStatus(toolPart.state),
     };
 
     if (toolPart.state === "output-available") {

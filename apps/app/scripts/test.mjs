@@ -103,6 +103,7 @@ const testTargets = new Map([
   ['visibility-poll', ['bun', ['test', 'scripts/visibility-poll.test.ts']]],
   ['settings-lazy-pages', ['bun', ['test', 'scripts/settings-lazy-pages.test.ts']]],
   ['session-transcript-virtual-window', ['bun', ['test', 'scripts/session-transcript-virtual-window.test.ts']]],
+  ['session-transcript-task-set', ['bun', ['test', 'scripts/session-transcript-task-set.test.ts']]],
   ['ui-state-store', ['bun', ['test', 'scripts/ui-state-store.test.ts']]],
   ['session-route-composer', ['bun', ['test', 'scripts/session-route-composer.test.ts']]],
   ['shared-skills-catalog', ['bun', ['test', 'scripts/shared-skills-catalog.test.ts']]],
