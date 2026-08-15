@@ -326,11 +326,16 @@ export function createStatusItemController(input) {
 
 /**
  * Thin lifecycle adapter for main.mjs so composition stays short.
- * @param {Parameters<typeof createStatusItemController>[0]} input
+ * @param {Parameters<typeof createStatusItemController>[0] & {
+ *   nativeAutoUpdater?: Pick<import("electron").AutoUpdater, "on">,
+ * }} input
  */
 export function createStatusItemLifecycle(input) {
   const platform = input.platform ?? process.platform;
   const controller = createStatusItemController({ ...input, platform });
+  input.nativeAutoUpdater?.on("before-quit-for-update", () => {
+    controller.markQuitting();
+  });
   return {
     shouldHideOnClose: () =>
       shouldHideMainWindowOnClose(

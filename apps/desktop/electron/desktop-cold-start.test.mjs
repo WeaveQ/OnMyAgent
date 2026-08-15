@@ -3,6 +3,7 @@
  * no eager blank browser tab flag.
  */
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,6 +14,7 @@ import {
   createColdRuntimeBootstrapTask,
   runDesktopWhenReady,
 } from "./desktop-cold-start.mjs";
+import { createStatusItemLifecycle } from "./status-item.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -219,5 +221,25 @@ describe("MAIN_WINDOW_EAGER_BLANK_BROWSER_TAB contract", () => {
     assert.ok(pause >= 0 && terminalDispose > pause, "desktop cleanup follows durable pause");
     assert.match(lifecycle, /if \(safeQuitPromise\) return/);
     assert.match(lifecycle, /statusItem\.cancelQuitting\(\)/);
+  });
+});
+
+describe("updater quit lifecycle", () => {
+  test("updater quit signal disables hide-on-close before Electron closes windows", () => {
+    const nativeAutoUpdater = new EventEmitter();
+    const lifecycle = createStatusItemLifecycle({
+      app: { getLocale: () => "en", name: "OnMyAgent", quit() {} },
+      Tray: class {},
+      Menu: { buildFromTemplate: () => ({}) },
+      nativeImage: {},
+      createMainWindow: async () => ({}),
+      getMainWindow: () => null,
+      nativeAutoUpdater,
+      platform: "darwin",
+    });
+
+    assert.equal(lifecycle.shouldHideOnClose(), true);
+    nativeAutoUpdater.emit("before-quit-for-update");
+    assert.equal(lifecycle.shouldHideOnClose(), false);
   });
 });

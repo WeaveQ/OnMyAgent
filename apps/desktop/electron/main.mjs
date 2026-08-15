@@ -17,6 +17,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   app,
+  autoUpdater as nativeAutoUpdater,
   BrowserWindow,
   Menu,
   Notification,
@@ -461,6 +462,7 @@ const quickCapture = createQuickCaptureWindowController({
 const statusItem = createStatusItemLifecycle({
   app, Tray, Menu, nativeImage, createMainWindow,
   getMainWindow: () => mainWindow, quitApp: () => app.quit(),
+  nativeAutoUpdater,
   openDesktopPermissions: () => openComputerUseSetupApp(),
   openQuickCapture: () => quickCapture.show(),
   appIconPath: APP_ICON_PATH, // trayTemplate / trayIcon sit beside brand icon
