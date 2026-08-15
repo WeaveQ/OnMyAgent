@@ -9,6 +9,7 @@
 import type { ReactNode, RefObject, UIEvent, WheelEvent, TouchEvent, PointerEvent } from "react";
 import { t } from "../../../../i18n";
 import { cn } from "@/lib/utils";
+import { TextEditContextMenu } from "../../../design-system/text-edit-context-menu";
 import { TranscriptScrollToLatest } from "./chrome/transcript-scroll-to-latest";
 import { getSessionScrollState, useSessionScrollStore } from "./scroll-store";
 import {
@@ -85,12 +86,14 @@ export function SessionSurfaceTranscriptPane(props: {
           "[transform:translateZ(0)]",
         )}
       >
-        <div
-          ref={props.contentRef}
-          className={cn("mx-auto w-full", SESSION_CONTENT_MAX_WIDTH_CLASS)}
-        >
-          {props.children}
-        </div>
+        <TextEditContextMenu>
+          <div
+            ref={props.contentRef}
+            className={cn("mx-auto w-full", SESSION_CONTENT_MAX_WIDTH_CLASS)}
+          >
+            {props.children}
+          </div>
+        </TextEditContextMenu>
       </div>
       <TranscriptJumpToLatestChip
         sessionId={props.sessionId}

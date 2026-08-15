@@ -110,6 +110,10 @@ describe("session visual and file contracts", () => {
     );
     expect(previewDrawer).toContain("MarkdownPreview content={state.content}");
     expect(previewDrawer).toContain("<OfficeFilePreview");
+    const preview = readWorkspaceFile(
+      "apps/app/src/react-app/capabilities/artifacts/preview.tsx",
+    );
+    expect(preview).toContain("TextEditContextMenu");
 
     for (const source of [chatPage, assistantPage, expertPage]) {
       expect(source).toContain("onOpenArtifact={openTarget}");
