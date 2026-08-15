@@ -17,6 +17,12 @@ import { bundledLanguages, codeToHtml } from "shiki";
 
 import { StreamingCursor } from "@/components/ui/streaming-cursor";
 import { t } from "@/i18n";
+import filesEn from "@/i18n/locales/en/files";
+import filesZh from "@/i18n/locales/zh/files";
+import filesZhTw from "@/i18n/locales/zh-TW/files";
+import sessionEn from "@/i18n/locales/en/session";
+import sessionZh from "@/i18n/locales/zh/session";
+import sessionZhTw from "@/i18n/locales/zh-TW/session";
 import {
   localizeMarkdownMermaidMarkup,
   renderMarkdownMermaidMarkup,
@@ -103,8 +109,34 @@ function codeLanguageClass(lang: string | undefined) {
   return normalized ? ` class="language-${escapeAttribute(normalized)}"` : "";
 }
 
+const MARKDOWN_FILE_LINK_CLASS =
+  "cursor-pointer text-dls-accent underline underline-offset-2 transition-colors hover:text-dls-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-focus";
+
 function codeFenceFileName(filePath: string) {
   return filePath.split(/[\\/]/).filter(Boolean).pop() ?? filePath;
+}
+
+function markdownGenericFileLinkLabels() {
+  return [
+    t("session.open_artifact"),
+    t("files.view_in_panel"),
+    sessionEn["session.open_artifact"],
+    sessionZh["session.open_artifact"],
+    sessionZhTw["session.open_artifact"],
+    filesEn["files.view_in_panel"],
+    filesZh["files.view_in_panel"],
+    filesZhTw["files.view_in_panel"],
+  ];
+}
+
+export function markdownFileLinkLabel(
+  path: string,
+  currentLabel?: string,
+  genericLabels: readonly string[] = markdownGenericFileLinkLabels(),
+) {
+  const label = currentLabel?.trim() ?? "";
+  if (label && !genericLabels.includes(label)) return label;
+  return truncateMarkdownPathDisplay(path);
 }
 
 function positiveLineNumber(value: string) {
@@ -294,7 +326,7 @@ const baseMarkedOptions = {
       if (!raw.startsWith("~~")) return escapeHtml(raw);
       return `<del>${this.parser.parseInline(tokens)}</del>`;
     },
-    link({ href, title, tokens }) {
+    link({ href, title, tokens, text }) {
       const explicitOpenMode: MarkdownCodePathOpenMode | null = href.startsWith("preview:")
         || href.startsWith("artifact:")
         ? "preview"
@@ -317,9 +349,13 @@ const baseMarkedOptions = {
       const filePath = explicitPath ? parseMarkdownInlinePath(explicitPath) : implicitFilePath;
       const openMode = explicitOpenMode ?? (filePath ? "reveal" : null);
       if (filePath) {
-        const titleAttr = title ? ` title="${escapeAttribute(title)}"` : "";
+        const titleAttr = title ? ` title="${escapeAttribute(title)}"` : ` title="${escapeAttribute(filePath.path)}"`;
         const sourceAttr = linkSource ? ` data-markdown-link-source="${linkSource}"` : "";
-        return `<a href="#" data-markdown-file-path="${escapeAttribute(filePath.path)}" data-markdown-open-mode="${openMode}"${sourceAttr}${titleAttr} class="inline-flex h-8 items-center justify-center rounded-lg border border-dls-border bg-dls-surface px-3 text-sm font-medium text-dls-text no-underline transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-focus">${this.parser.parseInline(tokens)}</a>`;
+        const visibleLabel = markdownFileLinkLabel(filePath.path, text);
+        const labelHtml = visibleLabel === (text?.trim() ?? "")
+          ? this.parser.parseInline(tokens)
+          : escapeHtml(visibleLabel);
+        return `<a href="#" data-markdown-file-path="${escapeAttribute(filePath.path)}" data-markdown-open-mode="${openMode}"${sourceAttr}${titleAttr} class="${MARKDOWN_FILE_LINK_CLASS}">${labelHtml}</a>`;
       }
       const safeHrefValue = safeHref(href);
       const titleAttr = title ? ` title="${escapeAttribute(title)}"` : "";
@@ -529,44 +565,11 @@ function MarkdownBlockInner(props: {
       if (!detected || !resolvedPath) return;
       inlineCode.dataset.markdownCodePath = resolvedPath;
       inlineCode.dataset.markdownOpenMode = "preview";
-      inlineCode.setAttribute("role", "button");
+      inlineCode.setAttribute("role", "link");
       inlineCode.tabIndex = 0;
-      inlineCode.title = t("files.view_in_panel");
-      inlineCode.classList.remove("rounded-md", "bg-dls-surface-muted", "px-1.5", "py-0.5", "font-mono");
-      inlineCode.classList.add(
-        "inline-flex",
-        "h-8",
-        "cursor-pointer",
-        "items-center",
-        "justify-center",
-        "rounded-lg",
-        "border",
-        "border-dls-border",
-        "bg-dls-surface",
-        "px-3",
-        "text-sm",
-        "font-medium",
-        "text-dls-text",
-        "hover:bg-dls-hover",
-      );
-      inlineCode.textContent = t("session.open_artifact");
-      const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      icon.setAttribute("viewBox", "0 0 24 24");
-      icon.setAttribute("width", "14");
-      icon.setAttribute("height", "14");
-      icon.setAttribute("fill", "none");
-      icon.setAttribute("stroke", "currentColor");
-      icon.setAttribute("stroke-width", "2");
-      icon.setAttribute("stroke-linecap", "round");
-      icon.setAttribute("stroke-linejoin", "round");
-      icon.setAttribute("aria-hidden", "true");
-      icon.classList.add("mr-1", "inline-block", "align-text-bottom");
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", "M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z");
-      const fold = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
-      fold.setAttribute("points", "14 2 14 8 20 8");
-      icon.append(path, fold);
-      inlineCode.prepend(icon);
+      inlineCode.title = detected.path;
+      inlineCode.className = MARKDOWN_FILE_LINK_CLASS;
+      inlineCode.textContent = markdownFileLinkLabel(rawCode);
     });
     root.querySelectorAll<HTMLAnchorElement>("a[data-markdown-file-path]").forEach((fileLink) => {
       const rawPath = fileLink.dataset.markdownFilePath ?? "";
@@ -579,12 +582,8 @@ function MarkdownBlockInner(props: {
         return;
       }
       fileLink.dataset.markdownCodePath = resolvedPath ?? rawPath;
-      fileLink.title = openMode === "preview"
-        ? t("files.view_in_panel")
-        : t("files.open_in_folder");
-      if (linkSource === "artifact") {
-        fileLink.textContent = t("files.view_in_panel");
-      }
+      fileLink.title = rawPath;
+      fileLink.textContent = markdownFileLinkLabel(rawPath, fileLink.textContent ?? "");
       fileLink.removeAttribute("target");
       fileLink.removeAttribute("aria-disabled");
       fileLink.classList.remove("pointer-events-none", "opacity-50");

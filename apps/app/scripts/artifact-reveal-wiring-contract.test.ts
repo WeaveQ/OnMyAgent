@@ -70,7 +70,10 @@ describe("artifact reveal wiring contract", () => {
     const markdown = read("src/react-app/capabilities/artifacts/markdown.tsx");
     expect(markdown).toContain('inlineCode.dataset.markdownOpenMode = "preview"');
     expect(markdown).not.toContain('inlineCode.dataset.markdownOpenMode = "reveal"');
-    expect(markdown).toContain('inlineCode.title = t("files.view_in_panel")');
+    expect(markdown).toContain("inlineCode.title = detected.path");
+    expect(markdown).toContain("markdownFileLinkLabel(rawCode");
+    expect(markdown).not.toContain('inlineCode.textContent = t("session.open_artifact")');
+    expect(markdown).not.toContain('inlineCode.title = t("files.view_in_panel")');
     expect(markdown.match(/event\.stopPropagation\(\)/g)?.length).toBeGreaterThanOrEqual(2);
   });
 
