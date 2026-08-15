@@ -67,7 +67,7 @@ describe("session transcript rich markdown", () => {
     expect(html).not.toContain("bg-dls-surface-muted p-2 align-top");
   });
 
-  test("renders local artifact links as actions without visible paths", () => {
+  test("renders local artifact links as filename links, not action pills", () => {
     const html = renderSessionMarkdownHtml(
       "| 文件 | 操作 |\n| --- | --- |\n| Excel 运单 | [查看](artifact:output/运单_WX-001.xlsx) |",
     );
@@ -75,8 +75,41 @@ describe("session transcript rich markdown", () => {
     expect(html).toContain('data-markdown-file-path="output/运单_WX-001.xlsx"');
     expect(html).toContain('data-markdown-open-mode="preview"');
     expect(html).toContain('data-markdown-link-source="artifact"');
-    expect(html).toContain(">查看</a>");
+    expect(html).toContain("text-dls-accent");
+    expect(html).toContain("underline underline-offset-2");
+    expect(html).toContain(">output/运单_WX-001.xlsx</a>");
+    expect(html).not.toContain(">查看</a>");
+    expect(html).not.toContain("inline-flex h-8");
+    expect(html).not.toContain("rounded-lg border");
     expect(html).not.toContain(">./output/运单_WX-001.xlsx<");
+  });
+
+  test("replaces generic open-artifact labels with the real path", () => {
+    const html = renderSessionMarkdownHtml(
+      [
+        "| 文件 | 说明 |",
+        "| --- | --- |",
+        "| [Open artifact](artifact:output/model.xlsx) | Coverage model |",
+        "| [打开产物](artifact:output/notes.md) | Review notes |",
+      ].join("\n"),
+    );
+
+    expect(html).toContain(">output/model.xlsx</a>");
+    expect(html).toContain(">output/notes.md</a>");
+    expect(html).not.toContain(">Open artifact</a>");
+    expect(html).not.toContain(">打开产物</a>");
+    expect(html).not.toContain("inline-flex h-8");
+  });
+
+  test("keeps backtick file paths visible instead of a generic button label", () => {
+    const html = renderSessionMarkdownHtml(
+      "| 文件 | 说明 |\n| --- | --- |\n| `output/model.xlsx` | Coverage model |",
+    );
+
+    expect(html).toContain("output/model.xlsx");
+    expect(html).toContain('data-markdown-inline-code="output/model.xlsx"');
+    expect(html).not.toContain("Open artifact");
+    expect(html).not.toContain("打开产物");
   });
 
   test("treats plain generated file links as reveal actions", () => {

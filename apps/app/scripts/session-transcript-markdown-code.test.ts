@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  markdownFileLinkLabel,
   parseMarkdownCodeFenceInfo,
   parseMarkdownInlinePath,
   truncateMarkdownPathDisplay,
@@ -62,5 +63,14 @@ describe("session transcript markdown code fences", () => {
   test("keeps the filename visible when truncating long paths", () => {
     expect(truncateMarkdownPathDisplay("apps/app/src/react-app/domains/session/message-list.tsx", 32))
       .toBe("apps/app/src/...message-list.tsx");
+  });
+
+  test("file links keep a real path instead of a generic open-artifact label", () => {
+    expect(markdownFileLinkLabel("output/model.xlsx", "打开产物", ["打开产物", "在面板中查看"]))
+      .toBe("output/model.xlsx");
+    expect(markdownFileLinkLabel("output/notes.md", "在面板中查看", ["打开产物", "在面板中查看"]))
+      .toBe("output/notes.md");
+    expect(markdownFileLinkLabel("output/model.xlsx", "覆盖模型.xlsx", ["打开产物"]))
+      .toBe("覆盖模型.xlsx");
   });
 });
