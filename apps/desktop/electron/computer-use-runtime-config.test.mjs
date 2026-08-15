@@ -161,11 +161,16 @@ test("writes an isolated OpenCode config overlay for the built-in MCP", async ()
   }
 });
 
-test("runtime injects the overlay without replacing an explicit OpenCode config", async () => {
+test("runtime writes the overlay into the managed config dir after sandbox pin", async () => {
   const runtimeSource = await readFile(new URL("./runtime.mjs", import.meta.url), "utf8");
 
+  assert.match(runtimeSource, /applyOpencodeSandboxEnv\(env, sandbox\)/);
   assert.match(runtimeSource, /if \(!env\.OPENCODE_CONFIG\?\.trim\(\)\)/);
   assert.match(runtimeSource, /env\.OPENCODE_CONFIG = await writeComputerUseRuntimeConfig/);
   assert.match(runtimeSource, /isComputerUseMcpEnabled/);
   assert.match(runtimeSource, /env\.OPENCODE_CONFIG_DIR,/);
+  assert.doesNotMatch(
+    runtimeSource,
+    /env\.OPENCODE_CONFIG_DIR = env\.OPENCODE_CONFIG_DIR\?\.trim\(\)\s*\n\s*\? env\.OPENCODE_CONFIG_DIR\s*\n\s*: localOpencodeConfigDir/,
+  );
 });

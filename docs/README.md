@@ -40,7 +40,7 @@ docs/
     2026-08-02-phase-2-enterprise-prep.md  ← **Phase 2 roadmap + B-side (OnMyCompany) prep SoT**
     2026-08-02-work-memory-plan.md  ← 个人/记忆 + 专家域记忆（awareness）路径 SoT
     2026-08-02-config-consistency.md  ← local/company isomorphic config + migrate (Phase 2a)
-    2026-08-09-architecture-convergence-plan.md  ← **active** expert/session/cold/shelf convergence plan
+    2026-08-09-architecture-convergence-plan.md  ← historical + board (A–D on main; E deferred)
     2026-08-09-capability-shelf.md  ← recommended vs built-in placement matrix
     expert-surface-architecture.md  ← **Expert 会话面 FSM / tab / cold-open / pending 语义 SoT**
     expert-runtime-isolation.md  ← Expert OpenCode agent/skills/HOME sandbox
@@ -94,7 +94,7 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | **Phase 2 + B-side prep** | `design/2026-08-02-phase-2-enterprise-prep.md` |
 | Config profile migrate / resolve | `design/2026-08-02-config-consistency.md` |
 | Work memory / awareness | `design/2026-08-02-work-memory-plan.md` |
-| **Architecture convergence plan** | `design/2026-08-09-architecture-convergence-plan.md` |
+| **Architecture convergence plan** | `design/2026-08-09-architecture-convergence-plan.md`（historical + board；A–D on main） |
 | Capability shelf (recommended placement) | `design/2026-08-09-capability-shelf.md` + `capability-shelf.ts` |
 | Windows / Computer Use / Appshot | `windows-compat.md` |
 | Agent operating rules | `../AGENTS.md` + `loop/rules.md` |

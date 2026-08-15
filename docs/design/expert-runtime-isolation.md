@@ -57,5 +57,8 @@ Opt-out for debugging: `ONMYAGENT_OPENCODE_USE_REAL_HOME=1`.
 ## Follow-ups
 
 - Optional: register package agent name as OpenCode agent file under the session dir.
-- Optional: per-session skill-only `OPENCODE_GLOBAL_SKILLS_DIR` (profile root is modest vs ~/.claude).
-- Keep blocking real `~/.opencode` load when the binary resolves passwd home (UI cannot fix token bloat alone).
+- **Landed:** shared OpenCode child does **not** inherit the server's profile
+  `OPENCODE_GLOBAL_SKILLS_DIR`. Expert turns only see skills copied into
+  `<session>/.opencode/skills`. A dedicated expert process can pass
+  `expertSessionDirectory` so the env points at that materialized dir.
+- Product sidecar pins `OPENCODE_CONFIG_DIR` + computer-use overlay to the sandbox config dir (does not inherit `~/.config/opencode`). Passwd-home scan of `~/.claude` / `~/.agents` still needs a binary-side block if it remains after this pin.

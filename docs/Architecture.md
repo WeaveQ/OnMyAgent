@@ -114,7 +114,7 @@ packages/
 
 | Metric | Budget | Code |
 | --- | --- | --- |
-| workspace-scoped listSessions on cold enter | ≤ 1 renderer request; bounded server fan-out ≤ 4 | `COLD_PATH_BUDGET.maxListSessionsOnColdEnter` + `workspace-session-list-policy.ts` |
+| workspace-scoped listSessions on cold enter | ≤ 1 renderer request; extra live pulls fail-close; server fan-out ≤ 4 | `tryRecordColdListSessions` + `workspace-session-list-policy.ts` |
 | titleSnapshot on empty selected chip | 0 (thrash ban) | `isTitleSnapshotAllowedOnColdEnter` |
 | sync inventory prewarm on cold enter | 0 (idle only) | `scheduleIdleWork` + `isSyncPrewarmAllowedOnColdEnter` |
 | prewarm idle timeout / fallback | 8000 / 4000 ms | `COLD_PATH_BUDGET.prewarmIdleTimeoutMs` / `prewarmFallbackDelayMs` |
@@ -159,7 +159,7 @@ apps/app/src/react-app/domains/session/*-marketplace/*.manifest.json  轻量索�
 
 ## Runtime Data Flow
 
-OpenCode binary pin is `constants.json` → `opencodeVersion` (**v1.17.20**); product prefers the bundled pin over stale PATH installs (see desktop `opencode-binary-policy` / orchestrator version checks).
+OpenCode binary pin is `constants.json` → `opencodeVersion` (**v1.18.18**); product prefers the bundled pin over stale PATH installs (see desktop `opencode-binary-policy` / orchestrator version checks).
 
 ```text
 desktop(electron) → runtime.mjs → engineStart
@@ -236,7 +236,12 @@ Electron main 另有主动 Supervisor watchdog（bounded backoff/jitter/circuit 
 普通 event-loop/SQLite/provider stall 不享受豁免。
 
 微信、飞书、Telegram、Discord 的普通消息仍走 Personal runtime；只有显式
-`#task`/`/task` 进入共享 Messaging Task Adapter。入站 receipt、chat↔task binding、
+`#task`/`/task` 进入共享 Messaging Task Adapter。
+绑 `onmyagent` / `onmyagent-assistant`（「本地助理」）的 IM 聊天是**产品例外**：
+`channels/assistant-bridge` 对 OpenCode 主轨 `session.create` / `promptAsync` 热写，
+会话出现在助手 tab 与 archive-sync（`listWorkspaceSessions` 无 surface 过滤）。
+这是故意让 IM 助理和桌面助理共用同一条 OpenCode 会话，不是 Personal 写主 archive。
+入站 receipt、chat↔task binding、
 本地通知和 channel delivery outbox 使用独立的 Channel SQLite 单写库，Task/Run
 真相仍只在 Supervisor。重复 webhook 以稳定 message identity 去重，终态/审批消息
 claim→send→ack，断线后按每个 event stream cursor 重放；附件只进入有界元数据引用，
@@ -277,6 +282,7 @@ claim→send→ack，断线后按每个 event stream cursor 重放；附件只�
 1. **Personal 不得**直接打开、写入或 dispose OpenCode / server 的 session-archive、主会话 SQLite 热路径。
 2. **OpenCode / server 生命周期**不得把 Personal conversation store 当作主会话真相源；Personal run 结束也不应「顺便」写主 archive，除非未来有**显式、单向、有主的**导出合同（默认无）。
 3. **同一用户意图**不得对同一逻辑会话同时挂两套热写路径（一边 HTTP session stream，一边 personal run 写同一 archive 行）。
+   **例外**：IM「本地助理」只走 OpenCode 主轨（见上），不得再挂一条 Personal run 写同一会话。
 4. **Renderer 禁止** import `personal-agent-runtime/**` 或 adapter 实现；只经 `desktop.ts` IPC 与 `onmyagent-server` HTTP。
 5. **Adapter 只做协议翻译**（CLI/ACP ↔ contract 事件）；kernel 管 run/conversation/approval；sidecar `createRuntimeManager` 管 OpenCode/server 进程——三层不要互相越权改对方 store。
 6. **注销 / dispose**：OpenCode client、archive pool、Personal runtime 各自 teardown；一边失败不得留下另一边半开写句柄。
@@ -539,7 +545,9 @@ pnpm test:unit       → server tests + orchestrator pure-module tests
 pnpm test:api        → server HTTP/API e2e
 pnpm test:runtime    → Desktop IPC / Electron runtime (no second orchestrator unit pass)
 pnpm test:release-smoke → desktop build + Electron package directory smoke, no publish
-pnpm test:ui         → app version gate + UI/e2e smoke
+pnpm test:ui         → version-gate + transport-contract + ui-contracts + e2e smoke
+                       (ui-contracts includes expert surface/FSM/cold-open/tab-title/hard_delete,
+                       invariants, cold-path budget, shelf)
 ```
 
 CI 的主测试 workflow 使用这些分层命令，而不是直接堆模块私有脚本。模块内仍保留更细粒度脚本用于本地定位，例如 `onmyagent-server test:unit/test:e2e`、`@onmyagent/desktop check:electron`、`@onmyagent/app test:e2e`、`onmyagent-orchestrator test:unit`。

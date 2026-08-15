@@ -2,6 +2,8 @@ import { spawn, type ChildProcess } from "node:child_process";
 import net from "node:net";
 import { randomUUID } from "node:crypto";
 
+import { applyOpenCodeChildGlobalSkillsDir } from "./services/opencode-global-skills-env.js";
+
 export type ManagedOpencodeServer = {
   url: string;
   username: string;
@@ -35,6 +37,8 @@ export async function createManagedOpencodeServer(options: {
   port?: number;
   timeoutMs?: number;
   env?: Record<string, string | undefined>;
+  /** When set, OpenCode scans only this Expert session's materialized skills. */
+  expertSessionDirectory?: string;
 }): Promise<ManagedOpencodeServer> {
   const hostname = options.hostname ?? "127.0.0.1";
   const port = options.port ?? await findFreePort(hostname);
@@ -53,8 +57,10 @@ export async function createManagedOpencodeServer(options: {
   const child: ChildProcess = spawn(bin, args, {
     cwd: options.cwd,
     env: {
-      ...process.env,
-      ...options.env,
+      ...applyOpenCodeChildGlobalSkillsDir(
+        { ...process.env, ...options.env },
+        { expertSessionDirectory: options.expertSessionDirectory },
+      ),
       OPENCODE_SERVER_USERNAME: username,
       OPENCODE_SERVER_PASSWORD: password,
     },

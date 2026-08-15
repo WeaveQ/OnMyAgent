@@ -8,6 +8,7 @@ import {
   resolveLocalManagedToolsBinRoot,
   resolveLocalSkillsRoot,
 } from "./config-profile-paths.mjs";
+import { sandboxOpencodeConfigDir, resolveOpencodeSandboxPaths } from "./opencode-sandbox-home.mjs";
 import { createRuntimeManager } from "./runtime.mjs";
 
 test("reserves the OfficeCLI PATH before the plugin is installed", async () => {
@@ -74,7 +75,7 @@ test("normal and expert child environments share the installed OfficeCLI runtime
     const expertEnvironment = await manager.resolveChildEnvironment({
       ONMYAGENT_SESSION_KIND: "expert",
     });
-    const configDir = path.join(userData, "opencode");
+    const configDir = sandboxOpencodeConfigDir(resolveOpencodeSandboxPaths(userData));
     const materializedSkill = path.join(configDir, "skills", "officecli", "SKILL.md");
 
     assert.equal(normalEnvironment.OPENCODE_CONFIG_DIR, configDir);

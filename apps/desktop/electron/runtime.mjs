@@ -424,52 +424,15 @@ export function createRuntimeManager({
     env[pathKey] = [managedToolsBinRoot, ...pathEntries].join(path.delimiter);
     if (process.env.ONMYAGENT_DEV_MODE === "1") {
       const devPaths = await ensureDevModePaths();
-      const localOpencodeConfigDir = resolveLocalOpencodeConfigDir();
       env.ONMYAGENT_DEV_MODE = "1";
-      // Real HOME is only a fallback before sandbox apply below. Do not leave
-      // OpenCode on the user's home (loads ~/.opencode + ~/.claude skills).
+      // Placeholders only; sandbox apply below overwrites HOME / XDG / config dir.
       env.HOME = env.HOME?.trim() ? env.HOME : devPaths.homeDir;
       env.USERPROFILE = env.USERPROFILE?.trim() ? env.USERPROFILE : devPaths.homeDir;
       env.XDG_CONFIG_HOME = env.XDG_CONFIG_HOME?.trim() ? env.XDG_CONFIG_HOME : devPaths.xdgConfigHome;
       env.XDG_DATA_HOME = env.XDG_DATA_HOME?.trim() ? env.XDG_DATA_HOME : devPaths.xdgDataHome;
       env.XDG_CACHE_HOME = env.XDG_CACHE_HOME?.trim() ? env.XDG_CACHE_HOME : devPaths.xdgCacheHome;
       env.XDG_STATE_HOME = env.XDG_STATE_HOME?.trim() ? env.XDG_STATE_HOME : devPaths.xdgStateHome;
-      env.OPENCODE_CONFIG_DIR = env.OPENCODE_CONFIG_DIR?.trim()
-        ? env.OPENCODE_CONFIG_DIR
-        : localOpencodeConfigDir ?? devPaths.opencodeConfigDir;
       env.OPENCODE_TEST_HOME = env.OPENCODE_TEST_HOME?.trim() ? env.OPENCODE_TEST_HOME : devPaths.homeDir;
-    } else {
-      const localOpencodeConfigDir = resolveLocalOpencodeConfigDir();
-      if (localOpencodeConfigDir && !env.OPENCODE_CONFIG_DIR?.trim()) {
-        env.OPENCODE_CONFIG_DIR = localOpencodeConfigDir;
-      }
-    }
-    const configDir =
-      process.env.ONMYAGENT_DEV_MODE === "1"
-        ? env.OPENCODE_CONFIG_DIR
-        : onmyagentOpencodeConfigDir();
-    env.OPENCODE_CONFIG_DIR = await prepareManagedOpencodeConfigDir(configDir);
-    if (!env.OPENCODE_CONFIG?.trim()) {
-      const computerUsePlatform = process.platform;
-      const computerUseCommand = resolveComputerUseRuntimeCommand({
-        platform: computerUsePlatform,
-        desktopRoot,
-        resourcesPath: process.resourcesPath,
-        explicitBinary: process.env.ONMYAGENT_COMPUTER_USE_BINARY,
-        devMode: process.env.ONMYAGENT_DEV_MODE === "1",
-      });
-      if (computerUseCommand) {
-        env.OPENCODE_CONFIG = await writeComputerUseRuntimeConfig(
-          env.OPENCODE_CONFIG_DIR,
-          computerUseCommand,
-          {
-            enabled: isComputerUseMcpEnabled({
-              platform: computerUsePlatform,
-              userDataDir,
-            }),
-          },
-        );
-      }
     }
 
     // Always stamp the real user home so in-process server features
@@ -492,6 +455,33 @@ export function createRuntimeManager({
         realHomeDir: resolvedHomeDir,
       });
       applyOpencodeSandboxEnv(env, sandbox);
+    } else if (!env.OPENCODE_CONFIG_DIR?.trim()) {
+      env.OPENCODE_CONFIG_DIR =
+        resolveLocalOpencodeConfigDir() || onmyagentOpencodeConfigDir();
+    }
+    const configDir = env.OPENCODE_CONFIG_DIR?.trim() || onmyagentOpencodeConfigDir();
+    env.OPENCODE_CONFIG_DIR = await prepareManagedOpencodeConfigDir(configDir);
+    if (!env.OPENCODE_CONFIG?.trim()) {
+      const computerUsePlatform = process.platform;
+      const computerUseCommand = resolveComputerUseRuntimeCommand({
+        platform: computerUsePlatform,
+        desktopRoot,
+        resourcesPath: process.resourcesPath,
+        explicitBinary: process.env.ONMYAGENT_COMPUTER_USE_BINARY,
+        devMode: process.env.ONMYAGENT_DEV_MODE === "1",
+      });
+      if (computerUseCommand) {
+        env.OPENCODE_CONFIG = await writeComputerUseRuntimeConfig(
+          env.OPENCODE_CONFIG_DIR,
+          computerUseCommand,
+          {
+            enabled: isComputerUseMcpEnabled({
+              platform: computerUsePlatform,
+              userDataDir,
+            }),
+          },
+        );
+      }
     }
     return env;
   }
@@ -892,7 +882,8 @@ export function createRuntimeManager({
           "experts",
           "plugins",
         ),
-        // Same dual-read root as desktop install/listLocalSkills (profile skills).
+        // Server install/list root (profile). Managed OpenCode child strips
+        // this so Expert sessions only see <session>/.opencode/skills.
         OPENCODE_GLOBAL_SKILLS_DIR: onmyagentUserSkillsRoot(),
       },
       { workspaceRoot: activeWorkspace },
