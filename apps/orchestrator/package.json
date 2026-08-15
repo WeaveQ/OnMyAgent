@@ -45,7 +45,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@opencode-ai/sdk": "1.17.20",
+    "@opencode-ai/sdk": "1.18.16",
     "onmyagent-server": "0.5.4"
   },
   "devDependencies": {
