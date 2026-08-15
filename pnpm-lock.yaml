@@ -98,8 +98,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/ui
       '@opencode-ai/sdk':
-        specifier: 1.17.20
-        version: 1.17.20
+        specifier: 1.18.18
+        version: 1.18.18
       '@paper-design/shaders-react':
         specifier: 0.0.80
         version: 0.0.80(@types/react@19.2.18)(react@19.2.8)
@@ -231,8 +231,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/types
       '@opencode-ai/sdk':
-        specifier: 1.17.20
-        version: 1.17.20
+        specifier: 1.18.18
+        version: 1.18.18
       discord.js:
         specifier: ^14.27.0
         version: 14.27.0
@@ -259,8 +259,8 @@ importers:
   apps/orchestrator:
     dependencies:
       '@opencode-ai/sdk':
-        specifier: 1.17.20
-        version: 1.17.20
+        specifier: 1.18.18
+        version: 1.18.18
       onmyagent-server:
         specifier: 0.5.4
         version: link:../server
@@ -281,8 +281,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/types
       '@opencode-ai/sdk':
-        specifier: 1.17.20
-        version: 1.17.20
+        specifier: 1.18.18
+        version: 1.18.18
       jsonc-parser:
         specifier: ^3.2.1
         version: 3.3.1
@@ -1851,8 +1851,8 @@ packages:
     engines: {node: ^12.13.0 || ^14.15.0 || >=16.0.0}
     deprecated: This functionality has been moved to @npmcli/fs
 
-  '@opencode-ai/sdk@1.17.20':
-    resolution: {integrity: sha512-Urb7Tp4mvJmyckNI/N79uEpWzZOyn4lE5LVPDVidXZ8BIlw6kxx2ctTPRYPJDF8HLPWGCZ7pCpHcmWgQCYyiNQ==}
+  '@opencode-ai/sdk@1.18.18':
+    resolution: {integrity: sha512-zJlwXskIR47V1dkPJqeKBgq7nejG1uU8lJaGIGqbX3MWRCT8vKn0fEotbxuPCKnTdmWsDyNGNg9q1qIliDSMDA==}
 
   '@opentelemetry/api@1.9.0':
     resolution: {integrity: sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg==}
@@ -4726,7 +4726,7 @@ packages:
   glob@8.1.0:
     resolution: {integrity: sha512-r8hpEjiQEYlF2QU0df3dS+nxxSIreXQS1qRhMJM0Q5NDdR386C7jb7Hwwod8Fgiuex+k0GFjgft18yvxm5XoCQ==}
     engines: {node: '>=12'}
-    deprecated: Glob versions prior to v9 are no longer supported
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
 
   global-agent@3.0.0:
     resolution: {integrity: sha512-PT6XReJ+D07JvGoxQMkT6qji/jVNfX/h364XHZOWeRzy64sSFr+xJ5OX7LI3b4MPQzdL4H8Y8M0xzPpsVMwA8Q==}
@@ -8566,7 +8566,7 @@ snapshots:
       mkdirp: 1.0.4
       rimraf: 3.0.2
 
-  '@opencode-ai/sdk@1.17.20':
+  '@opencode-ai/sdk@1.18.18':
     dependencies:
       cross-spawn: 7.0.6
 

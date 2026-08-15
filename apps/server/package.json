@@ -52,7 +52,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@opencode-ai/sdk": "1.17.20",
+    "@opencode-ai/sdk": "1.18.18",
     "@onmyagent/types": "workspace:*",
     "jsonc-parser": "^3.2.1",
     "minimatch": "^10.2.6",
