@@ -24,6 +24,7 @@ import {
 import { prepareOnMyAgentOpencodeConfigDir } from "./opencode-config-dir.mjs";
 import {
   applyOpencodeSandboxEnv,
+  linkHomeConfigOpencodeSkills,
   prepareOpencodeSandboxHome,
 } from "./opencode-sandbox-home.mjs";
 import { resolveExpertSessionRuntimeRoot } from "./expert-session-runtime-path.mjs";
@@ -461,6 +462,14 @@ export function createRuntimeManager({
     }
     const configDir = env.OPENCODE_CONFIG_DIR?.trim() || onmyagentOpencodeConfigDir();
     env.OPENCODE_CONFIG_DIR = await prepareManagedOpencodeConfigDir(configDir);
+    if (process.env.ONMYAGENT_OPENCODE_USE_REAL_HOME !== "1") {
+      await linkHomeConfigOpencodeSkills({
+        homeDir: env.HOME,
+        configDir: env.OPENCODE_CONFIG_DIR,
+      }).catch((error) => {
+        console.warn("[runtime] Failed to expose core slash skills under sandbox HOME:", error);
+      });
+    }
     if (!env.OPENCODE_CONFIG?.trim()) {
       const computerUsePlatform = process.platform;
       const computerUseCommand = resolveComputerUseRuntimeCommand({
