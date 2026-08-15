@@ -199,10 +199,11 @@ export function buildExpertSessionAgentMarkdown(): string {
 
 /**
  * Ordered skill roots for expert session materialization:
- * override (tests) → OPENCODE_GLOBAL_SKILLS_DIR → profile skills → legacy →
- * package-local skills under experts installed/mine (fallback).
+ * explicit override (tests, exclusive) → package-local skills → profile /
+ * OPENCODE_GLOBAL_SKILLS_DIR / legacy (fallback for names only in the user root).
  *
- * When `override` is set, only that root is used (test isolation).
+ * Package trees win over a same-named personal install so the session dir
+ * holds the expert-declared copy.
  */
 export function resolveExpertSkillSourceRoots(
   override?: string,
@@ -219,10 +220,10 @@ export function resolveExpertSkillSourceRoots(
     roots.push(resolved);
   };
   for (const candidate of [
+    ...resolvePackageSkillSourceRoots(packageName),
     process.env.OPENCODE_GLOBAL_SKILLS_DIR?.trim(),
     globalSkillsDir(),
     legacyOnmyagentSkillsDir(),
-    ...resolvePackageSkillSourceRoots(packageName),
   ]) {
     push(candidate);
   }

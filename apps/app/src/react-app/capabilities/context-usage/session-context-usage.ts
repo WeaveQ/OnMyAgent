@@ -1,8 +1,8 @@
 /**
  * Session / task composer context occupancy.
  * Used ≈ last assistant prompt size (input + cache read); total via resolveContextTotal.
- * OpenCode does not report per-bucket occupancy, so the five-row card is estimated
- * from visible transcript / prompt / skills / MCP, then scaled to `used`.
+ * Occupancy = OpenCode input + cache.read. The card shows cache.read as a
+ * real row and splits input across estimated system / tools / messages.
  */
 import {
   CONTEXT_USAGE_VISIBLE_BUCKETS,
@@ -15,6 +15,8 @@ import {
 export type SessionTokenUsageLike = {
   input?: number | null;
   cacheRead?: number | null;
+  output?: number | null;
+  reasoning?: number | null;
   total?: number | null;
 } | null;
 
@@ -49,6 +51,45 @@ export function estimateContextUsedFromTokens(
     return Math.max(0, Math.round((input ?? 0) + (cacheRead ?? 0)));
   }
   return null;
+}
+
+/** Occupancy rows OpenCode actually reports (input + cache.read). */
+export function reportedOccupancyBreakdown(
+  tokens: SessionTokenUsageLike,
+): ContextUsageBreakdownItem[] | null {
+  if (!tokens) return null;
+  const input = tokens.input;
+  const cacheRead = tokens.cacheRead;
+  const hasInput = typeof input === "number" && Number.isFinite(input);
+  const hasCache = typeof cacheRead === "number" && Number.isFinite(cacheRead);
+  if (!hasInput && !hasCache) return null;
+  return [
+    { id: "prompt", tokens: Math.max(0, Math.round(hasInput ? (input as number) : 0)) },
+    { id: "cache", tokens: Math.max(0, Math.round(hasCache ? (cacheRead as number) : 0)) },
+  ];
+}
+
+/** cache.read stays real; input is split by the existing system/tools/messages estimate. */
+export function occupancyBreakdownFromReport(
+  tokens: SessionTokenUsageLike,
+  estimateFrom: SessionContextEstimateSource | null | undefined,
+): ContextUsageBreakdownItem[] | null {
+  const reported = reportedOccupancyBreakdown(tokens);
+  if (!reported) return null;
+  const cache = reported.find((item) => item.id === "cache")?.tokens ?? 0;
+  const input = reported.find((item) => item.id === "prompt")?.tokens ?? 0;
+  const split =
+    input > 0
+      ? estimateSessionContextBreakdown(input, estimateFrom ?? null)
+      : [
+          { id: "system" as const, tokens: 0 },
+          { id: "tools" as const, tokens: 0 },
+          { id: "messages" as const, tokens: 0 },
+        ];
+  return [
+    { id: "cache", tokens: cache },
+    ...(split ?? [{ id: "messages" as const, tokens: input }]),
+  ];
 }
 
 export function estimateTokensFromText(text: string): number {
@@ -108,17 +149,6 @@ function classifyPart(part: unknown): { bucket: "messages" | "tools"; text: stri
   return null;
 }
 
-function joinSkillText(skill: {
-  name?: string;
-  description?: string;
-  descriptionZh?: string;
-  descriptionEn?: string;
-}): string {
-  return [skill.name, skill.description, skill.descriptionZh, skill.descriptionEn]
-    .filter((item): item is string => typeof item === "string" && item.length > 0)
-    .join("\n");
-}
-
 type VisibleBucketId = (typeof CONTEXT_USAGE_VISIBLE_BUCKETS)[number];
 type VisibleBucketTotals = Record<VisibleBucketId, number>;
 
@@ -128,20 +158,16 @@ const REMAINDER_WEIGHT: VisibleBucketTotals = {
   system: 1,
   tools: 3,
   messages: 0,
-  connectors: 1,
-  skills: 1,
 };
 
 function remainderWeights(
   raw: VisibleBucketTotals,
-  source: SessionContextEstimateSource | null | undefined,
+  _source: SessionContextEstimateSource | null | undefined,
 ): VisibleBucketTotals {
   return {
     system: raw.system > 0 ? 0 : REMAINDER_WEIGHT.system,
     tools: REMAINDER_WEIGHT.tools,
     messages: 0,
-    connectors: (source?.mcpServers?.length ?? 0) > 0 ? REMAINDER_WEIGHT.connectors : 0,
-    skills: (source?.skills?.length ?? 0) > 0 ? REMAINDER_WEIGHT.skills : 0,
   };
 }
 
@@ -213,20 +239,12 @@ export function estimateSessionContextBreakdown(
       system: 0,
       tools: 0,
       messages: Math.round(used),
-      connectors: 0,
-      skills: 0,
     });
   }
   const raw: VisibleBucketTotals = {
     system: estimateTokensFromText(source?.systemPrompt ?? ""),
     tools: 0,
     messages: 0,
-    connectors: estimateTokensFromText(
-      (source?.mcpServers ?? []).map((server) => server.name ?? "").join("\n"),
-    ),
-    skills: estimateTokensFromText(
-      (source?.skills ?? []).map((skill) => joinSkillText(skill)).join("\n"),
-    ),
   };
   for (const message of source?.messages ?? []) {
     for (const part of message.parts ?? []) {
@@ -251,6 +269,7 @@ export function buildSessionContextUsage(input: {
   modelId?: string | null;
   catalogContextWindow?: unknown;
   usedTokens?: number | null;
+  reportedTokens?: SessionTokenUsageLike;
   breakdown?: ContextUsageBreakdownItem[] | null;
   estimateFrom?: SessionContextEstimateSource | null;
 }): ContextUsageSnapshot {
@@ -258,30 +277,54 @@ export function buildSessionContextUsage(input: {
     modelId: input.modelId,
     catalogContextWindow: input.catalogContextWindow,
   });
+  const occupancyFromReport = estimateContextUsedFromTokens(input.reportedTokens ?? null);
   const hasUsed =
-    typeof input.usedTokens === "number" && Number.isFinite(input.usedTokens);
-  const used = hasUsed ? Math.max(0, Math.round(input.usedTokens as number)) : 0;
+    occupancyFromReport != null
+    || (typeof input.usedTokens === "number" && Number.isFinite(input.usedTokens));
+  const used = occupancyFromReport != null
+    ? occupancyFromReport
+    : hasUsed
+      ? Math.max(0, Math.round(input.usedTokens as number))
+      : 0;
+  const reportedBreakdown = occupancyBreakdownFromReport(
+    input.reportedTokens ?? null,
+    input.estimateFrom ?? null,
+  );
   const breakdown =
     input.breakdown && input.breakdown.length > 0
       ? input.breakdown
-      : estimateSessionContextBreakdown(used, input.estimateFrom ?? null);
+      : reportedBreakdown
+        ?? estimateSessionContextBreakdown(used, input.estimateFrom ?? null);
+  const turnOutput =
+    typeof input.reportedTokens?.output === "number" && Number.isFinite(input.reportedTokens.output)
+      ? Math.max(0, Math.round(input.reportedTokens.output))
+      : null;
+  const turnReasoning =
+    typeof input.reportedTokens?.reasoning === "number"
+    && Number.isFinite(input.reportedTokens.reasoning)
+      ? Math.max(0, Math.round(input.reportedTokens.reasoning))
+      : null;
   return (
     toContextUsageSnapshot({
       used,
       total,
       totalSource: source,
-      usedSource: hasUsed ? "runtime" : "estimate",
+      usedSource: occupancyFromReport != null || hasUsed ? "runtime" : "estimate",
       breakdown,
-      breakdownSource: input.breakdown?.length ? "runtime" : breakdown ? "estimate" : null,
+      breakdownSource: input.breakdown?.length || reportedBreakdown ? "runtime" : breakdown ? "estimate" : null,
       modelId: input.modelId ?? null,
+      turnOutput,
+      turnReasoning,
     }) ?? {
       used,
       total,
       totalSource: source,
-      usedSource: hasUsed ? "runtime" : "estimate",
+      usedSource: occupancyFromReport != null || hasUsed ? "runtime" : "estimate",
       breakdown,
-      breakdownSource: input.breakdown?.length ? "runtime" : breakdown ? "estimate" : null,
+      breakdownSource: input.breakdown?.length || reportedBreakdown ? "runtime" : breakdown ? "estimate" : null,
       modelId: input.modelId ?? null,
+      turnOutput,
+      turnReasoning,
     }
   );
 }

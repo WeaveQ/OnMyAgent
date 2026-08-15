@@ -57,7 +57,7 @@ test("deleteExpertPackage removes custom package, preserves shared skills, and p
     assert.equal(result.state, "completed");
     assert.equal(existsSync(fixture.packageDir), false);
     assert.equal(existsSync(fixture.builtinDir), true);
-    assert.deepEqual(JSON.parse(await readFile(path.join(fixture.skillsRoot, "shared-skill", ".onmyagent-expert-owners.json"), "utf8")), { owners: ["other-expert"] });
+    assert.deepEqual(JSON.parse(await readFile(path.join(fixture.skillsRoot, "shared-skill", ".onmyagent-expert-owners.json"), "utf8")), { owners: ["custom-expert", "other-expert"] });
     assert.equal(result.steps.find((step) => step.target === "experts").code, "builtin_protected");
     assert.deepEqual(JSON.parse(await readFile(fixture.registryPath, "utf8")).agents, []);
     const replay = await handlers(fixture).deleteExpertPackage({}, [{

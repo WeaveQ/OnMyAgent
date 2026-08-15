@@ -295,6 +295,29 @@ export async function dematerializeExpertPackageSkillsAndRefresh(input) {
   return removed;
 }
 
+/**
+ * Remove skill folders that exist only because an expert package copied them
+ * into the user installed-skills root. Leaves folders with no owner file
+ * (user/hub installs) untouched. Does not run on a live profile by itself.
+ * @param {string} skillsRoot
+ * @returns {Promise<string[]>}
+ */
+export async function removeExpertOnlySkillCopies(skillsRoot) {
+  const root = String(skillsRoot ?? "").trim();
+  if (!root || !existsSync(root)) return [];
+  const entries = await readdir(root, { withFileTypes: true });
+  const removed = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const destination = path.join(root, entry.name);
+    const owners = await readExpertOwners(destination);
+    if (owners.length === 0) continue;
+    await rm(destination, { recursive: true, force: true });
+    removed.push(entry.name);
+  }
+  return removed;
+}
+
 function isSafeSkillFolderName(value) {
   const name = String(value ?? "").trim();
   return Boolean(name) && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name) && name !== "." && name !== "..";

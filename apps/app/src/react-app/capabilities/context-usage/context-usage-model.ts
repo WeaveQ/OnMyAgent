@@ -16,11 +16,15 @@ export type ContextUsageSource =
   | "estimate";
 
 export type ContextUsageBucketId =
+  | "prompt"
+  | "cache"
   | "system"
   | "tools"
   | "messages"
   | "connectors"
   | "skills"
+  | "output"
+  | "reasoning"
   | "other";
 
 export type ContextUsageBreakdownItem = {
@@ -37,26 +41,52 @@ export type ContextUsageSnapshot = {
   breakdown?: ContextUsageBreakdownItem[] | null;
   breakdownSource?: ContextUsageSource | null;
   modelId?: string | null;
+  /** Last-turn generation; not occupancy. */
+  turnOutput?: number | null;
+  /** Last-turn reasoning; not occupancy. */
+  turnReasoning?: number | null;
 };
 
 /** Display order and default colors for the segmented bar. */
 export const CONTEXT_USAGE_BUCKET_ORDER: ContextUsageBucketId[] = [
+  "prompt",
+  "cache",
   "system",
   "tools",
   "messages",
   "connectors",
   "skills",
+  "output",
+  "reasoning",
   "other",
 ];
 
-/** Always-visible legend rows (matches the reference card; `other` is overflow-only). */
+/** OpenCode-reported occupancy (input + cache.read). */
+export const CONTEXT_USAGE_REPORTED_BUCKETS = [
+  "prompt",
+  "cache",
+] as const satisfies readonly ContextUsageBucketId[];
+
+/** Fallback when the last turn has no token split. */
 export const CONTEXT_USAGE_VISIBLE_BUCKETS = [
   "system",
   "tools",
   "messages",
-  "connectors",
-  "skills",
 ] as const satisfies readonly ContextUsageBucketId[];
+
+export function occupancyLegendIds(
+  breakdown: ContextUsageSnapshot["breakdown"],
+): readonly ContextUsageBucketId[] {
+  const ids = new Set((breakdown ?? []).map((item) => item.id));
+  const hasEstimateSplit = ids.has("system") || ids.has("tools") || ids.has("messages");
+  if (ids.has("cache") && hasEstimateSplit) {
+    return ["cache", "system", "tools", "messages"];
+  }
+  if (ids.has("prompt") || ids.has("cache")) {
+    return CONTEXT_USAGE_REPORTED_BUCKETS;
+  }
+  return CONTEXT_USAGE_VISIBLE_BUCKETS;
+}
 
 /**
  * Solid swatches for legend dots / bar segments.
@@ -64,11 +94,15 @@ export const CONTEXT_USAGE_VISIBLE_BUCKETS = [
  * overrides default emerald/amber/violet palettes, so those classes never emit.
  */
 export const CONTEXT_USAGE_BUCKET_COLOR: Record<ContextUsageBucketId, string> = {
+  prompt: "var(--violet-9)",
+  cache: "var(--sky-9)",
   system: "var(--grass-9)",
   tools: "var(--amber-9)",
   messages: "var(--violet-9)",
   connectors: "var(--sky-9)",
   skills: "var(--blue-9)",
+  output: "var(--gray-9)",
+  reasoning: "var(--amber-9)",
   other: "var(--gray-9)",
 };
 
@@ -201,6 +235,8 @@ export function toContextUsageSnapshot(
         breakdown?: Array<{ id: string; tokens: number }> | null;
         breakdownSource?: string | null;
         modelId?: string | null;
+        turnOutput?: number | null;
+        turnReasoning?: number | null;
       }
     | null
     | undefined,
@@ -230,6 +266,10 @@ export function toContextUsageSnapshot(
     breakdown: breakdown && breakdown.length > 0 ? breakdown : null,
     breakdownSource: asUsageSource(usage.breakdownSource),
     modelId: usage.modelId ?? null,
+    turnOutput: Number.isFinite(usage.turnOutput) ? Math.round(usage.turnOutput as number) : null,
+    turnReasoning: Number.isFinite(usage.turnReasoning)
+      ? Math.round(usage.turnReasoning as number)
+      : null,
   };
 }
 

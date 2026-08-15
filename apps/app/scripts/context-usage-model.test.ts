@@ -99,7 +99,7 @@ describe("context usage model", () => {
     expect(html).not.toContain("text-dls-danger");
   });
 
-  test("popover always shows percent, used/total, and five category rows", () => {
+  test("popover always shows percent, used/total, and reported category rows", () => {
     const usage = toContextUsageSnapshot({
       used: 44_636,
       total: 256_000,
@@ -122,8 +122,8 @@ describe("context usage model", () => {
     expect(html).toContain("System prompts");
     expect(html).toContain("Tools &amp; subagents");
     expect(html).toContain("Messages");
-    expect(html).toContain("Connectors &amp; MCP");
-    expect(html).toContain("Skills");
+    expect(html).not.toContain("Connectors &amp; MCP");
+    expect(html).not.toContain("Skills");
     expect(html).not.toContain("context limit is unavailable");
     expect(html).toContain('data-testid="local-agent-context-usage-close"');
   });
@@ -150,8 +150,9 @@ describe("context usage model", () => {
     );
     expect(html).toContain("17.4%");
     expect(html).toContain("Tools &amp; subagents");
-    expect(html).toContain("13%");
-    expect(html).toContain("4.3%");
+    expect(html).toContain("17.3%");
+    expect(html).not.toContain("Connectors &amp; MCP");
+    expect(html).not.toContain(">Skills<");
   });
 
   test("toContextUsageSnapshot keeps valid breakdown", () => {
@@ -196,8 +197,6 @@ describe("context usage model", () => {
         { id: "system", tokens: 576 },
         { id: "tools", tokens: 1_920 },
         { id: "messages", tokens: 104_256 },
-        { id: "connectors", tokens: 0 },
-        { id: "skills", tokens: 384 },
       ],
     });
     const html = renderToStaticMarkup(
@@ -216,12 +215,11 @@ describe("context usage model", () => {
     expect(html).toContain("0.3%");
     expect(html).toContain(">1%");
     expect(html).toContain("54.3%");
-    expect(html).toContain("0.2%");
     expect(html).toContain("var(--grass-9)");
     expect(html).toContain("var(--amber-9)");
     expect(html).toContain("var(--violet-9)");
-    expect(html).toContain("var(--sky-9)");
-    expect(html).toContain("var(--blue-9)");
+    expect(html).not.toContain("var(--sky-9)");
+    expect(html).not.toContain("var(--blue-9)");
   });
 
   test("estimateContextUsedFromTokens sums input + cache read", () => {
@@ -251,8 +249,8 @@ describe("context usage model", () => {
     expect(byId.messages).toBe(44_636);
     expect(byId.system).toBe(0);
     expect(byId.tools).toBe(0);
-    expect(byId.connectors).toBe(0);
-    expect(byId.skills).toBe(0);
+    expect(byId.connectors).toBeUndefined();
+    expect(byId.skills).toBeUndefined();
   });
 
   test("estimateSessionContextBreakdown keeps a measured system prompt and splits leftover across present buckets", () => {
@@ -275,8 +273,8 @@ describe("context usage model", () => {
     const byId = Object.fromEntries((breakdown ?? []).map((item) => [item.id, item.tokens]));
     expect(byId.system).toBe(estimateTokensFromText(prompt));
     expect(byId.messages).toBe(estimateTokensFromText(userText));
-    expect(byId.skills).toBeGreaterThan(estimateTokensFromText("media\nWrite scripts"));
-    expect(byId.connectors).toBeGreaterThan(estimateTokensFromText("lark"));
+    expect(byId.skills).toBeUndefined();
+    expect(byId.connectors).toBeUndefined();
     expect(byId.tools).toBeGreaterThan(byId.messages);
     expect((breakdown ?? []).reduce((sum, item) => sum + item.tokens, 0)).toBe(used);
   });
@@ -291,7 +289,51 @@ describe("context usage model", () => {
     expect(byId.tools).toBeGreaterThan(byId.system);
     expect(byId.messages).toBeGreaterThan(0);
     expect(byId.system + byId.tools + byId.messages).toBe(used);
-    expect(byId.skills).toBe(0);
-    expect(byId.connectors).toBe(0);
+    expect(byId.skills).toBeUndefined();
+    expect(byId.connectors).toBeUndefined();
+  });
+
+  test("reported OpenCode tokens become prompt/cache occupancy plus turn extras", () => {
+    const snap = buildSessionContextUsage({
+      modelId: "doubao-seed-evolving",
+      reportedTokens: {
+        input: 1198,
+        cacheRead: 18_232,
+        output: 403,
+        reasoning: 372,
+      },
+    });
+    expect(snap.used).toBe(19_430);
+    const byId = Object.fromEntries((snap.breakdown ?? []).map((item) => [item.id, item.tokens]));
+    expect(byId.cache).toBe(18_232);
+    expect(byId.messages).toBe(1198);
+    expect(byId.prompt).toBeUndefined();
+    expect((byId.system ?? 0) + (byId.tools ?? 0) + (byId.messages ?? 0)).toBe(1198);
+    expect(byId.cache + (byId.system ?? 0) + (byId.tools ?? 0) + (byId.messages ?? 0)).toBe(19_430);
+    expect(snap.turnOutput).toBe(403);
+    expect(snap.turnReasoning).toBe(372);
+    expect(snap.breakdownSource).toBe("runtime");
+
+    const html = renderToStaticMarkup(
+      createElement(ContextUsagePopoverBody, {
+        usage: snap,
+        percent: contextUsagePercent(snap.used, snap.total),
+        percentClass: "text-dls-text",
+        barToneClass: "bg-dls-accent",
+        isOverLimit: false,
+        onClose: () => undefined,
+      }),
+    );
+    expect(html).toContain("Cache hit");
+    expect(html).toContain("System prompts");
+    expect(html).toContain("Tools &amp; subagents");
+    expect(html).toContain("Messages");
+    expect(html).toContain("Last reply, not part of occupancy above");
+    expect(html).toContain("Reply");
+    expect(html).toContain("Reasoning");
+    expect(html).toContain("403 tokens");
+    expect(html).toContain("372 tokens");
+    expect(html).not.toContain("Uncached prompt");
+    expect(html).not.toContain("Connectors &amp; MCP");
   });
 });
