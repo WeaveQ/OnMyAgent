@@ -11,9 +11,23 @@
  */
 
 import { existsSync } from "node:fs";
-import { copyFile, cp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+
+import { linkOrCopyDir } from "./runtime-dir-mirror.mjs";
+
+/**
+ * OpenCode 1.18 skill tool scans `~/.config/opencode/skills` via $HOME, not
+ * XDG_CONFIG_HOME / OPENCODE_CONFIG_DIR. Only expose the small create/slash
+ * core there so Expert sessions do not reload the whole profile catalog.
+ */
+export const HOME_CONFIG_SLASH_SKILL_NAMES = Object.freeze([
+  "skill-creator",
+  "expert-manager",
+  "find-skills",
+  "create-automation",
+]);
 
 export const OPENCODE_SANDBOX_DIR_NAME = "opencode-sandbox";
 
@@ -160,6 +174,31 @@ export function shouldKeepOpenCodeConfigOverlay(configPath, sandboxRoot) {
  * @param {NodeJS.ProcessEnv} env
  * @param {Awaited<ReturnType<typeof prepareOpencodeSandboxHome>>} paths
  */
+/**
+ * Mirror core slash skills into `$HOME/.config/opencode/skills` after the
+ * managed config dir has been prepared. Assistant `/skill-creator` lives here.
+ *
+ * @param {{ homeDir?: string | null, configDir?: string | null }} input
+ */
+export async function linkHomeConfigOpencodeSkills(input) {
+  const homeDir = String(input.homeDir ?? "").trim();
+  const configDir = String(input.configDir ?? "").trim();
+  if (!homeDir || !configDir) return { linked: [] };
+  const sourceRoot = path.join(configDir, "skills");
+  const targetRoot = path.join(homeDir, ".config", "opencode", "skills");
+  await mkdir(targetRoot, { recursive: true });
+  const linked = [];
+  for (const name of HOME_CONFIG_SLASH_SKILL_NAMES) {
+    const source = path.join(sourceRoot, name);
+    if (!existsSync(path.join(source, "SKILL.md"))) continue;
+    const target = path.join(targetRoot, name);
+    await rm(target, { recursive: true, force: true });
+    await linkOrCopyDir(source, target);
+    linked.push(name);
+  }
+  return { linked };
+}
+
 export function applyOpencodeSandboxEnv(env, paths) {
   // Preserve real home before overwriting — session-archive and other product
   // scanners must keep reading ~/.claude / ~/.codex / ~/.grok under the user.

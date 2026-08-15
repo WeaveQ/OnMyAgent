@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -7,6 +8,7 @@ import { test } from "node:test";
 import {
   applyOpencodeSandboxEnv,
   buildSandboxOpencodeConfig,
+  linkHomeConfigOpencodeSkills,
   pathIsInsideRoot,
   prepareOpencodeSandboxHome,
   resolveOpencodeSandboxPaths,
@@ -90,6 +92,39 @@ test("prepareOpencodeSandboxHome writes providers-only config and auth", async (
     shouldKeepOpenCodeConfigOverlay(
       path.join(realHome, ".config", "opencode", "onmyagent-computer-use.json"),
       paths.root,
+    ),
+    false,
+  );
+});
+
+test("linkHomeConfigOpencodeSkills exposes skill-creator under HOME/.config", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "oma-home-skills-"));
+  const configDir = path.join(root, "xdg", "config", "opencode");
+  const homeDir = path.join(root, "home");
+  await mkdir(path.join(configDir, "skills", "skill-creator"), { recursive: true });
+  await mkdir(path.join(configDir, "skills", "kol-brief-structuring"), {
+    recursive: true,
+  });
+  await writeFile(path.join(configDir, "skills", "skill-creator", "SKILL.md"), "---\nname: skill-creator\ndescription: create\n---\n");
+  await writeFile(
+    path.join(configDir, "skills", "kol-brief-structuring", "SKILL.md"),
+    "---\nname: kol-brief-structuring\ndescription: expert\n---\n",
+  );
+
+  const result = await linkHomeConfigOpencodeSkills({ homeDir, configDir });
+  assert.deepEqual(result.linked, ["skill-creator"]);
+  const homeSkill = path.join(
+    homeDir,
+    ".config",
+    "opencode",
+    "skills",
+    "skill-creator",
+    "SKILL.md",
+  );
+  assert.equal(await readFile(homeSkill, "utf8"), "---\nname: skill-creator\ndescription: create\n---\n");
+  assert.equal(
+    existsSync(
+      path.join(homeDir, ".config", "opencode", "skills", "kol-brief-structuring"),
     ),
     false,
   );
