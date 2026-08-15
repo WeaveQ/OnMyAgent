@@ -1034,6 +1034,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       modelPickerOpen={props.modelPickerOpen}
       modelPickerVisible={props.modelPickerVisible}
       selectedModel={props.selectedModel}
+      catalogContextWindow={props.catalogContextWindow}
       onModelPickerOpenChange={props.onModelPickerOpenChange}
       onModelChange={props.onModelChange}
       attachments={attachments}

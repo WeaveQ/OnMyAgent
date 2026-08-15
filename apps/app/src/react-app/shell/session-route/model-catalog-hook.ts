@@ -47,6 +47,7 @@ import { buildSettingsNavigationTarget } from "./model";
 import {
   buildConnectedModelOptions,
   buildProviderModelCatalog,
+  resolveSelectedModelContextWindow,
   filterAllowedModelOptions,
   isSelectedModelUnavailable,
   resolveModelVariantState,
@@ -357,6 +358,11 @@ export function useSessionRouteModelCatalog(input: Input) {
       ],
     );
 
+  const catalogContextWindow = useMemo(
+    () => resolveSelectedModelContextWindow(providerCatalog, effectiveModelRef) ?? null,
+    [effectiveModelRef, providerCatalog],
+  );
+
   const buildDisplayNameByProviderId = useCallback(async () => {
     const root = sessionWorkspaceRoot?.trim() || "";
     if (!root) return {} as Record<string, string>;
@@ -516,6 +522,7 @@ export function useSessionRouteModelCatalog(input: Input) {
 
   return {
     allowedModelOptions,
+    catalogContextWindow,
     disabledProviderIds,
     effectiveModelRef,
     handleOpenSettings,

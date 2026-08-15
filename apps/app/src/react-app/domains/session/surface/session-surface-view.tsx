@@ -180,6 +180,7 @@ export type SessionSurfaceViewProps = {
   modelPickerOpen: boolean;
   modelPickerVisible?: boolean;
   selectedModel: ModelRef;
+  catalogContextWindow?: number | null;
   onModelPickerOpenChange: (open: boolean) => void;
   onModelChange: (model: ModelRef) => void;
   attachments: ComposerAttachment[];
@@ -317,6 +318,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
     }
     return buildSessionContextUsage({
       modelId: props.selectedModel?.modelID ?? null,
+      catalogContextWindow: props.catalogContextWindow,
       usedTokens,
       reportedTokens,
       estimateFrom: {
@@ -334,6 +336,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
     props.effectiveAgent?.systemPrompt,
     props.mcpServers,
     props.renderedMessages,
+    props.catalogContextWindow,
     props.selectedModel?.modelID,
     props.skills,
   ]);

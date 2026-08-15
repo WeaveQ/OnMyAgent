@@ -12,6 +12,7 @@ import type {
 } from "../../../app/types";
 import { isProviderModelFree } from "../../../app/utils/providers";
 import { t } from "../../../i18n";
+import { readCatalogContextWindow } from "../../capabilities/context-usage/context-usage-model";
 import {
   connectedProviderIdSet,
   getConnectedProviderItems,
@@ -40,6 +41,23 @@ export function buildProviderModelCatalog(
     next[provider.id] = { ...(provider.models ?? {}) };
   }
   return next;
+}
+
+/** Provider inventory `limit.context` (or equivalent) for the selected model. */
+export function resolveSelectedModelContextWindow(
+  catalog: ProviderModelCatalog,
+  ref: ModelRef | null | undefined,
+): number | undefined {
+  if (!ref?.providerID || !ref.modelID) return undefined;
+  const models = catalog[ref.providerID];
+  if (!models) return undefined;
+  const exact = models[ref.modelID];
+  if (exact) return readCatalogContextWindow(exact);
+  const want = ref.modelID.toLowerCase();
+  for (const [id, model] of Object.entries(models)) {
+    if (id.toLowerCase() === want) return readCatalogContextWindow(model);
+  }
+  return undefined;
 }
 
 export function resolveModelVariantState(input: {

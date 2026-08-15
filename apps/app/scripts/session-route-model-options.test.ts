@@ -8,6 +8,7 @@ import {
   readSeenProviderIds,
   resolveModelVariantState,
   resolveProviderDefaultModel,
+  resolveSelectedModelContextWindow,
   resolveUsableDefaultModel,
   shouldPromptProviderDefaultModel,
 } from "../src/react-app/shell/session-route/model-options";
@@ -65,6 +66,49 @@ function option(input: Partial<ModelOption> & { providerID: string; modelID: str
 }
 
 describe("session route model options", () => {
+  test("resolves selected model context window from catalog limit.context", () => {
+    const catalog = buildProviderModelCatalog({
+      all: [
+        {
+          id: "deepseek",
+          name: "DeepSeek",
+          models: {
+            "deepseek-v4-flash": {
+              id: "deepseek-v4-flash",
+              name: "V4 Flash",
+              limit: { context: 1_048_576, output: 8192 },
+            },
+            "custom-proxy": {
+              id: "custom-proxy",
+              name: "Proxy",
+              limit: { context: 256_000, output: 4096 },
+            },
+          },
+        },
+      ],
+      connected: ["deepseek"],
+      default: {},
+    });
+    expect(
+      resolveSelectedModelContextWindow(catalog, {
+        providerID: "deepseek",
+        modelID: "deepseek-v4-flash",
+      }),
+    ).toBe(1_048_576);
+    expect(
+      resolveSelectedModelContextWindow(catalog, {
+        providerID: "deepseek",
+        modelID: "CUSTOM-PROXY",
+      }),
+    ).toBe(256_000);
+    expect(
+      resolveSelectedModelContextWindow(catalog, {
+        providerID: "deepseek",
+        modelID: "missing",
+      }),
+    ).toBeUndefined();
+  });
+
   test("builds provider model catalog from all providers", () => {
     expect(Object.keys(buildProviderModelCatalog(providerListData()))).toEqual(["openai", "lpr_org", "disabled"]);
     expect(buildProviderModelCatalog(providerListData()).openai?.["gpt-4o"]?.name).toBe("GPT-4o");

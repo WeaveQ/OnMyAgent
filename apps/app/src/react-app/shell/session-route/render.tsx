@@ -701,7 +701,7 @@ export function SessionRouteRender() {
   });
 
   const {
-    allowedModelOptions,
+    allowedModelOptions, catalogContextWindow,
     disabledProviderIds,
     effectiveModelRef,
     handleOpenSettings,
@@ -937,7 +937,7 @@ export function SessionRouteRender() {
 
   const surfaceProps = useSessionRouteSurfaceProps({
     assistantDraftWorkspaceRoot,
-    client,
+    client, catalogContextWindow,
     compactModelPickerOpen,
     creatingSessionWorkspaceIdsRef,
     effectiveModelRef,
