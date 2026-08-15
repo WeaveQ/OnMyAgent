@@ -4,9 +4,28 @@ title: Changelog
 
 # Changelog
 
-For the complete assets and release notes, use [GitHub Releases](https://github.com/WeaveQ/OnMyAgent/releases) as the source of truth. The entries below highlight recent user-visible changes. Current desktop builds are **prereleases** (not notarized).
+For the complete assets and release notes, use [GitHub Releases](https://github.com/WeaveQ/OnMyAgent/releases) as the source of truth. The entries below highlight recent user-visible changes. Current desktop builds are **prereleases**.
 
 ## Unreleased
+
+- **Recent** lists parent tasks only; child subtask sessions no longer get their own row
+- Parallel subtasks group as **N/M subtasks**; return text is readable, and same-description retries collapse into one row
+- Context usage prefers the catalog window (million-token windows show as **1M**) and separates occupancy from last-turn generation
+- Market **Create skill** prefills `/skill-creator …`; **New task** keeps that seed when it clears other leftover drafts
+- Expert-attached skills no longer appear under **Installed**; `/` still reaches core bundled skills in a sandbox
+- **Projects** is hidden from the main rail (the Files tab remains a preview)
+- Conversation body text supports Cut / Copy / Paste / Select all
+- Markdown deliverables in a session open as file links, not “open artifact” pills
+
+## 0.5.4
+
+- Settings → Updates no longer shows a false “download from GitHub only” message while checking
+- Windows title bar is drawn by the app
+- A successful macOS notarization is no longer overwritten by a second package step
+
+## 0.5.3
+
+- macOS release builds sign with Developer ID and go through notarization
 
 ## 0.5.2
 

@@ -18,7 +18,9 @@ title: 审批与权限
 
 
 
-![主界面输入区：底部可见权限与模型选择](/images/home-session.png)
+![主界面输入区：权限与模型](/images/home-session.png)
+
+<p class="oma-shot-caption">输入区底部可以切换权限模式和模型，不必先打开设置。</p>
 
 更严格的模式会在敏感步骤打断你，而不是静默执行。具体选项文案以输入区下拉为准。
 

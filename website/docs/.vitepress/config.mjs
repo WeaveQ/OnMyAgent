@@ -25,10 +25,19 @@ const sidebarZh = [
     ],
   },
   {
+    text: "安装",
+    collapsed: true,
+    items: [
+      { text: "macOS", link: "/install/macos" },
+      { text: "Windows", link: "/install/windows" },
+      { text: "排障", link: "/install/troubleshooting" },
+    ],
+  },
+  {
     text: "功能指南",
     collapsed: false,
     // Order mirrors product UI: main rail → channels → account menu → settings.
-    // Rail: 首页 · 专家 · 自动 · 文件 · 市场 · Company · 项目；bottom: 消息渠道。
+    // Rail: 首页 · 专家 · 自动 · 文件 · 市场 · Company（连接后）；项目入口已隐藏。bottom: 消息渠道。
     items: [
       { text: "界面与工作区", link: "/guide/overview" },
       { text: "工作区", link: "/guide/workspaces" },
@@ -85,15 +94,6 @@ const sidebarZh = [
     ],
   },
   {
-    text: "安装",
-    collapsed: true,
-    items: [
-      { text: "macOS", link: "/install/macos" },
-      { text: "Windows", link: "/install/windows" },
-      { text: "排障", link: "/install/troubleshooting" },
-    ],
-  },
-  {
     text: "安全与 FAQ",
     collapsed: true,
     items: [
@@ -125,6 +125,15 @@ const sidebarEn = [
       { text: "Tips for working efficiently", link: "/en/guide/efficient-tips" },
       { text: "Download and installation", link: "/en/download" },
       { text: "Changelog", link: "/en/changelog" },
+    ],
+  },
+  {
+    text: "Installation",
+    collapsed: true,
+    items: [
+      { text: "macOS", link: "/en/install/macos" },
+      { text: "Windows", link: "/en/install/windows" },
+      { text: "Troubleshooting", link: "/en/install/troubleshooting" },
     ],
   },
   {
@@ -183,15 +192,6 @@ const sidebarEn = [
       { text: "Reports and meeting notes", link: "/en/scenarios/office-docs" },
       { text: "Scheduled digests", link: "/en/scenarios/automation-digest" },
       { text: "Team pilot", link: "/en/scenarios/team-pilot" },
-    ],
-  },
-  {
-    text: "Installation",
-    collapsed: true,
-    items: [
-      { text: "macOS", link: "/en/install/macos" },
-      { text: "Windows", link: "/en/install/windows" },
-      { text: "Troubleshooting", link: "/en/install/troubleshooting" },
     ],
   },
   {

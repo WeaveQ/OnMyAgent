@@ -27,7 +27,7 @@ See [Skills](/en/guide/skills) and [Browser and Computer Use](/en/guide/browser-
 
 ## 3. Path B: create or improve a Skill
 
-Use the bundled **skill-creator** when it appears in Market or the Skills list:
+Use the bundled **skill-creator** when it appears in Market or the Skills list. **Create skill** prefills `/skill-creator …`; **New task** keeps that seed when it clears other leftover drafts:
 
 ```text
 Help me create a Skill. Its input is the path to a brand information package;

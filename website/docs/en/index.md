@@ -44,9 +44,8 @@ The left main rail switches between primary modules. The middle column shows a l
 | **Automation** | Manage automation tasks, cases, and schedules |
 | **Files** | Browse workspaces and task deliverables; filter, search, and preview |
 | **Market** | Browse experts, skills, and connectors |
-| **Projects** | Organize work context by project, depending on the version and configuration |
 
-The account menu at the bottom opens **Agent management**, **Agent chat**, and **Settings** for models, preferences, Company, memory, system permissions, and more.
+The account menu at the bottom opens **Agent management**, **Agent chat**, and **Settings** for models, preferences, Company, memory, system permissions, and more. **Projects** is no longer on the main rail; the Files Projects tab remains a preview. See [Projects preview](/en/guide/projects).
 
 ### Interface at a glance
 

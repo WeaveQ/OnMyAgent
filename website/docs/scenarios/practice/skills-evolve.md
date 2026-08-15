@@ -8,7 +8,7 @@ title: 实践 6：创建与进化技能
 
 
 
-![市场 · 技能相关入口](/images/marketplace.png)
+![市场 · 技能：已安装](/images/marketplace-skills.png)
 
 ## 场景与目标
 
@@ -29,7 +29,7 @@ title: 实践 6：创建与进化技能
 
 ## 路径 B：创建/改进技能
 
-使用捆绑 **skill-creator**（市场/技能列表中可见时）：
+使用捆绑 **skill-creator**（市场/技能列表中可见时）。市场点 **创建技能** 会预填 `/skill-creator …`；接着点 **新建任务** 清掉其它残留草稿时，这份预填会保留：
 
 ```text
 帮我创建一个技能：输入品牌资料包路径，输出「本品三维诊断」Markdown 模板。

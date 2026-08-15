@@ -195,9 +195,6 @@ xattr -cr /Applications/OnMyAgent.app
 
 用量代码和 deep link 仍存在，但当前没有出现在普通设置导航或总览中。它属于隐藏兼容状态，不作为正式设置入口演示。状态说明见 [功能与平台状态](./capability-status)。
 
-
-![用量页（加载中示意）](/images/settings-usage.png)
-
 ### 重置
 
 重置首次引导或清除本地应用数据（确认后应用会重启）。

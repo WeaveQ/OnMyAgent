@@ -18,7 +18,7 @@ This guide follows the actual interface: **install an expert from Market → use
 | **Expert memory** | Stable background such as industry, project, and preferences—facts that do not change often |
 | **Sessions** | Multi-turn collaboration with an expert from **Experts** on the main rail; its deliverables can appear under the expert source in [Files](/en/guide/files) |
 
-How this differs from a [Skill](/en/guide/skills): a Skill is a capability pack, while an expert is a **role with preferences and a workflow that calls capabilities**.
+How this differs from a [Skill](/en/guide/skills): a Skill is a capability pack, while an expert is a **role with preferences and a workflow that calls capabilities**. Skills attached to an expert run only in that expert’s sessions and do not appear under Market **Skills → Installed**.
 
 ---
 
@@ -175,6 +175,7 @@ After confirming the proposal, open a real session from the Experts list on the 
 - Matching uses expert identity. A composite package name such as `pkg:pkg` must not block delete.
 - Personal experts are written to the local profile; organization experts normally come from a read-only Company catalog.
 - Expert memory, knowledge directories, and skills remain subject to workspace, file, and approval permissions.
+- Expert skills stay isolated with the expert runtime (separate HOME). `/` can still reach core bundled skills without exposing the entire real home directory to the sandbox.
 - An expert resource being present in the app package does not mean it is installed in the current profile. Use the actual Experts I created list and real sessions as the source of truth.
 
 ## 8. Related documentation

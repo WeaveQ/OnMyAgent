@@ -4,7 +4,7 @@ title: Projects preview
 
 # Projects preview
 
-**Projects is not currently a usable production module.** The Projects entry on the main rail and the Projects category in Files remain Coming Soon or disabled.
+**Projects is not currently a usable production module.** The main-rail entry is **hidden** (bookmarks and deep links fall back to Home). The **Projects** tab in Files remains Coming Soon or disabled and is not project management.
 
 ## 1. What to use today
 
@@ -18,7 +18,7 @@ Use the following production capabilities to organize work:
 
 ## 2. Why this page remains in the handbook
 
-A route name, icon, tab, or placeholder string appearing in the source code does not mean the product capability is complete. This page states the current status explicitly so that a visible placeholder is not documented as a delivered feature.
+A route name, icon, tab, or placeholder string appearing in the source code does not mean the product capability is complete. The rail entry is gone so it is not mistaken for a shipped module. This page remains so the Files tab and deep links are not documented as delivered project management.
 
 ## 3. Related documentation
 

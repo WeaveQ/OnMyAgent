@@ -44,6 +44,7 @@ Write the result to notes/workspace-review.md.
 - Continue the conversation or add constraints at any time
 - If a higher-risk action is requested, follow the [approval](/en/guide/approvals) prompt
 - Use the controls at the bottom to switch models and permission modes
+- If the Agent splits the work, **Recent** still shows only this parent task; watch **N/M subtasks** in the conversation
 
 ### 4. Accept the result
 

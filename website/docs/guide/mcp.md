@@ -10,7 +10,9 @@ MCP（Model Context Protocol）把外部工具和资源以标准协议提供给 
 
 主入口：左侧主栏 **市场 → 连接器**。工作区设置、技能详情或首次调用也可能提供配置入口。
 
-![市场顶栏：专家 / 技能 / 连接器](/images/marketplace.png)
+![市场 · 连接器](/images/marketplace-connectors.png)
+
+<p class="oma-shot-caption">市场顶栏切到「连接器」。这和专家货架、技能货架不是同一页。</p>
 
 
 
