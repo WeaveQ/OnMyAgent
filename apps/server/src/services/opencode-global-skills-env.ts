@@ -17,6 +17,9 @@ export function applyOpenCodeChildGlobalSkillsDir(
 ): Record<string, string | undefined> {
   const next = { ...env };
   next.OPENCODE_DISABLE_EXTERNAL_SKILLS = "1";
+  // Do not leak the passwd/real home into the OpenCode child — Bash `~` and
+  // this env would otherwise let the agent inventory ~/.claude and ~/.agents.
+  delete next.ONMYAGENT_REAL_HOME;
   const sessionDirectory = options?.expertSessionDirectory?.trim();
   if (sessionDirectory) {
     next.OPENCODE_GLOBAL_SKILLS_DIR = expertSessionMaterializedSkillsDir(sessionDirectory);

@@ -8,10 +8,12 @@ describe("skill-role OpenCode child env", () => {
     const env = applyOpenCodeChildGlobalSkillsDir({
       OPENCODE_GLOBAL_SKILLS_DIR: "/home/user/.onmyagent/profiles/local/config/skills",
       HOME: "/sandbox",
+      ONMYAGENT_REAL_HOME: "/Users/work",
     });
     expect(env.OPENCODE_GLOBAL_SKILLS_DIR).toBeUndefined();
     expect(env.OPENCODE_DISABLE_EXTERNAL_SKILLS).toBe("1");
     expect(env.HOME).toBe("/sandbox");
+    expect(env.ONMYAGENT_REAL_HOME).toBeUndefined();
   });
 
   test("production spawn does not pass expertSessionDirectory", async () => {
