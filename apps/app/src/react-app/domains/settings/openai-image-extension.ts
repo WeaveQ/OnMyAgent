@@ -24,7 +24,7 @@ export const OPENAI_API_KEY_ENV_KEY = "OPENAI_API_KEY";
 export const IMAGE_GENERATION_PLUGIN_PATH = ".opencode/plugins/onmyagent-image-generation.ts";
 export const IMAGE_GENERATION_EXTENSION_CONFIG_PATH = ".opencode/onmyagent-extensions/openai-image-generation.json";
 /** Keep in sync with root constants.json `opencodeVersion` (no leading "v"). */
-export const OPENCODE_PLUGIN_PACKAGE_VERSION = "1.17.8";
+export const OPENCODE_PLUGIN_PACKAGE_VERSION = "1.18.18";
 
 export const IMAGE_GENERATION_PLUGIN_CONTENT = `import { tool } from "@opencode-ai/plugin"
 

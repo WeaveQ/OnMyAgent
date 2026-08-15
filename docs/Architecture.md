@@ -159,7 +159,7 @@ apps/app/src/react-app/domains/session/*-marketplace/*.manifest.json  轻量索�
 
 ## Runtime Data Flow
 
-OpenCode binary pin is `constants.json` → `opencodeVersion` (**v1.17.20**); product prefers the bundled pin over stale PATH installs (see desktop `opencode-binary-policy` / orchestrator version checks).
+OpenCode binary pin is `constants.json` → `opencodeVersion` (**v1.18.18**); product prefers the bundled pin over stale PATH installs (see desktop `opencode-binary-policy` / orchestrator version checks).
 
 ```text
 desktop(electron) → runtime.mjs → engineStart
