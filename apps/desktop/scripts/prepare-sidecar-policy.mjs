@@ -32,6 +32,29 @@ export function shouldCopyLocalOpencode({
 }
 
 /**
+ * Prepare writes only the afterPack short alias. Presence still treats a
+ * leftover triple-named (or bun-target) sibling as "already have one" so a
+ * warm run does not re-download ~148MB just because the unused name is missing.
+ */
+export function sidecarNormalizeActions({ aliasName, leftoverNames = [], existingNames = [] }) {
+  if (!aliasName) {
+    return { writeNames: [], present: false, renameFrom: null, prune: [] };
+  }
+
+  const leftovers = [...new Set(leftoverNames.filter((name) => name && name !== aliasName))];
+  const existing = new Set(existingNames);
+  const leftoverPresent = leftovers.find((name) => existing.has(name)) ?? null;
+  const hasAlias = existing.has(aliasName);
+
+  return {
+    writeNames: [aliasName],
+    present: hasAlias || leftoverPresent !== null,
+    renameFrom: !hasAlias && leftoverPresent ? leftoverPresent : null,
+    prune: leftovers,
+  };
+}
+
+/**
  * A manifest may safely supply its existing hashes when no binary changed and
  * its lightweight file snapshots still match. Avoiding a second full-file hash
  * is important for native sidecars during warm desktop starts.

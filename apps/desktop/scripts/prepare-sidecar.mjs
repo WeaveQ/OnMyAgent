@@ -11,6 +11,7 @@ import {
   readSync,
   readdirSync,
   statSync,
+  renameSync,
   unlinkSync,
   writeFileSync,
 } from "fs";
@@ -21,6 +22,7 @@ import {
   canReuseSidecarManifest,
   shouldCopyLocalOpencode,
   shouldDownloadOpencode,
+  sidecarNormalizeActions,
 } from "./prepare-sidecar-policy.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -122,9 +124,7 @@ const opencodePath = join(sidecarDir, opencodeBaseName);
 const opencodeTargetName = resolvedTargetTriple
   ? `opencode-${resolvedTargetTriple}${isWindowsTarget ? ".exe" : ""}`
   : null;
-const opencodeTargetPath = opencodeTargetName ? join(sidecarDir, opencodeTargetName) : null;
-
-const opencodeCandidatePath = opencodeTargetPath ?? opencodePath;
+const opencodeLeftoverNames = [opencodeTargetName].filter(Boolean);
 let existingOpencodeVersion = null;
 let preparedOpencodeVersion = null;
 
@@ -165,7 +165,9 @@ const orchestratorTargetTriple = resolvedTargetTriple;
 const orchestratorTargetName = orchestratorTargetTriple
   ? `${orchestratorBaseName}-${orchestratorTargetTriple}${orchestratorTargetTriple.includes("windows") ? ".exe" : ""}`
   : null;
-const orchestratorTargetPath = orchestratorTargetName ? join(sidecarDir, orchestratorTargetName) : null;
+const orchestratorLeftoverNames = [orchestratorBuildName, orchestratorTargetName].filter(
+  (name) => name && name !== orchestratorName,
+);
 const orchestratorDir = resolve(__dirname, "..", "..", "orchestrator");
 
 const readHeader = (filePath, length = 256) => {
@@ -191,6 +193,54 @@ const isStubBinary = (filePath) => {
     return true;
   }
   return false;
+};
+
+const listUsableSidecarNames = (names) =>
+  names.filter((name) => {
+    const filePath = join(sidecarDir, name);
+    return existsSync(filePath) && !isStubBinary(filePath);
+  });
+
+const applySidecarNormalize = (actions) => {
+  mkdirSync(sidecarDir, { recursive: true });
+  if (actions.renameFrom) {
+    const fromPath = join(sidecarDir, actions.renameFrom);
+    const toPath = join(sidecarDir, actions.writeNames[0]);
+    if (existsSync(fromPath) && toPath !== fromPath) {
+      try {
+        if (existsSync(toPath)) unlinkSync(toPath);
+      } catch {
+        // ignore
+      }
+      renameSync(fromPath, toPath);
+    }
+  }
+  for (const name of actions.prune) {
+    const leftover = join(sidecarDir, name);
+    if (!existsSync(leftover)) continue;
+    try {
+      unlinkSync(leftover);
+    } catch {
+      // ignore
+    }
+  }
+};
+
+const writeSidecarAlias = (sourcePath, aliasPath) => {
+  mkdirSync(sidecarDir, { recursive: true });
+  try {
+    if (existsSync(aliasPath) && aliasPath !== sourcePath) unlinkSync(aliasPath);
+  } catch {
+    // ignore
+  }
+  if (sourcePath !== aliasPath) {
+    copyFileSync(sourcePath, aliasPath);
+  }
+  try {
+    chmodSync(aliasPath, 0o755);
+  } catch {
+    // ignore
+  }
 };
 
 const readDirectory = (dir) => {
@@ -259,21 +309,15 @@ const findLocalOpencodeBinary = () => {
 
 const copyLocalOpencodeSidecar = (localBinary, expectedVersion) => {
   if (!localBinary) return false;
-  mkdirSync(sidecarDir, { recursive: true });
-  const opencodeTargets = [opencodeTargetPath, opencodePath].filter(Boolean);
-  for (const target of opencodeTargets) {
-    try {
-      if (existsSync(target)) unlinkSync(target);
-    } catch {
-      // ignore
-    }
-    copyFileSync(localBinary.path, target);
-    try {
-      chmodSync(target, 0o755);
-    } catch {
-      // ignore
-    }
-  }
+  writeSidecarAlias(localBinary.path, opencodePath);
+  applySidecarNormalize({
+    ...sidecarNormalizeActions({
+      aliasName: opencodeBaseName,
+      leftoverNames: opencodeLeftoverNames,
+      existingNames: listUsableSidecarNames([opencodeBaseName, ...opencodeLeftoverNames]),
+    }),
+    renameFrom: null,
+  });
   console.log(`OpenCode sidecar copied from local binary ${localBinary.path} (${localBinary.version}).`);
   if (localBinary.version !== expectedVersion) {
     console.warn(`OpenCode local binary version ${localBinary.version} does not match pinned ${expectedVersion}; using local binary by policy.`);
@@ -359,11 +403,15 @@ const didBuildOnMyAgentServer = false;
 
 // Server binary copy/sign skipped — runs in-process.
 
+const opencodeNormalize = sidecarNormalizeActions({
+  aliasName: opencodeBaseName,
+  leftoverNames: opencodeLeftoverNames,
+  existingNames: listUsableSidecarNames([opencodeBaseName, ...opencodeLeftoverNames]),
+});
+applySidecarNormalize(opencodeNormalize);
+const opencodeCandidatePath = existsSync(opencodePath) && !isStubBinary(opencodePath) ? opencodePath : null;
 if (!existingOpencodeVersion && opencodeCandidatePath) {
-  existingOpencodeVersion =
-    existsSync(opencodeCandidatePath) && !isStubBinary(opencodeCandidatePath)
-      ? readBinaryVersion(opencodeCandidatePath)
-      : null;
+  existingOpencodeVersion = readBinaryVersion(opencodeCandidatePath);
 }
 
 const normalizedOpencodeVersion = normalizeVersion(opencodeVersion);
@@ -491,20 +539,15 @@ if (!preparedOpencodeVersion && shouldDownloadOpencodeSidecar) {
     process.exit(1);
   }
 
-  const opencodeTargets = [opencodeTargetPath, opencodePath].filter(Boolean);
-  for (const target of opencodeTargets) {
-    try {
-      if (existsSync(target)) unlinkSync(target);
-    } catch {
-      // ignore
-    }
-    copyFileSync(extractedBinary, target);
-    try {
-      chmodSync(target, 0o755);
-    } catch {
-      // ignore
-    }
-  }
+  writeSidecarAlias(extractedBinary, opencodePath);
+  applySidecarNormalize({
+    ...sidecarNormalizeActions({
+      aliasName: opencodeBaseName,
+      leftoverNames: opencodeLeftoverNames,
+      existingNames: listUsableSidecarNames([opencodeBaseName, ...opencodeLeftoverNames]),
+    }),
+    renameFrom: null,
+  });
 
   preparedOpencodeVersion = normalizedOpencodeVersion;
   didDownloadOpencode = true;
@@ -514,8 +557,12 @@ if (!preparedOpencodeVersion && shouldDownloadOpencodeSidecar) {
 // Build orchestrator sidecar
 let didBuildOrchestrator = false;
 let didCopyOrchestrator = false;
-const shouldBuildOrchestrator =
-  forceBuild || !existsSync(orchestratorBuildPath) || isStubBinary(orchestratorBuildPath);
+const orchestratorNormalize = sidecarNormalizeActions({
+  aliasName: orchestratorName,
+  leftoverNames: orchestratorLeftoverNames,
+  existingNames: listUsableSidecarNames([orchestratorName, ...orchestratorLeftoverNames]),
+});
+const shouldBuildOrchestrator = forceBuild || !orchestratorNormalize.present;
 if (shouldBuildOrchestrator) {
   mkdirSync(sidecarDir, { recursive: true });
   if (existsSync(orchestratorBuildPath)) {
@@ -557,49 +604,31 @@ if (shouldBuildOrchestrator) {
   didBuildOrchestrator = true;
 }
 
-if (existsSync(orchestratorBuildPath)) {
+if (existsSync(orchestratorBuildPath) || existsSync(orchestratorPath)) {
+  const sourcePath = existsSync(orchestratorBuildPath) ? orchestratorBuildPath : orchestratorPath;
   const shouldCopyCanonical =
     didBuildOrchestrator || !existsSync(orchestratorPath) || isStubBinary(orchestratorPath);
-  if (shouldCopyCanonical && orchestratorBuildPath !== orchestratorPath) {
-    try {
-      if (existsSync(orchestratorPath)) unlinkSync(orchestratorPath);
-    } catch {
-      // ignore
-    }
-    copyFileSync(orchestratorBuildPath, orchestratorPath);
+  if (shouldCopyCanonical && sourcePath !== orchestratorPath) {
+    writeSidecarAlias(sourcePath, orchestratorPath);
     didCopyOrchestrator = true;
   }
-
-  if (orchestratorTargetPath) {
-    const shouldCopyTarget =
-      didBuildOrchestrator ||
-      !existsSync(orchestratorTargetPath) ||
-      isStubBinary(orchestratorTargetPath);
-    if (shouldCopyTarget && orchestratorBuildPath !== orchestratorTargetPath) {
-      try {
-        if (existsSync(orchestratorTargetPath)) unlinkSync(orchestratorTargetPath);
-      } catch {
-        // ignore
-      }
-      copyFileSync(orchestratorBuildPath, orchestratorTargetPath);
-      didCopyOrchestrator = true;
-    }
-  }
 }
+applySidecarNormalize(
+  sidecarNormalizeActions({
+    aliasName: orchestratorName,
+    leftoverNames: orchestratorLeftoverNames,
+    existingNames: listUsableSidecarNames([orchestratorName, ...orchestratorLeftoverNames]),
+  }),
+);
 
 const changedSidecars = new Set([
-  ...(didCopyOpencode || didDownloadOpencode ? [opencodePath, opencodeTargetPath] : []),
-  ...(didBuildOrchestrator || didCopyOrchestrator
-    ? [orchestratorBuildPath, orchestratorPath, orchestratorTargetPath]
-    : []),
+  ...(didCopyOpencode || didDownloadOpencode ? [opencodePath] : []),
+  ...(didBuildOrchestrator || didCopyOrchestrator ? [orchestratorPath] : []),
 ]);
 const sidecarPaths = [
   opencodePath,
-  opencodeTargetPath,
   // onmyagent-server runs in-process — no binary to sign.
-  orchestratorBuildPath,
   orchestratorPath,
-  orchestratorTargetPath,
 ].filter(Boolean);
 const sidecarsToSign = sidecarPaths.filter(
   (filePath) => changedSidecars.has(filePath) || !hasValidDarwinSignature(filePath),
@@ -630,7 +659,7 @@ const orchestratorVersion = (() => {
 const expectedManifestEntries = {
   opencode: {
     version: preparedOpencodeVersion ?? normalizedOpencodeVersion,
-    file: opencodeCandidatePath ? snapshotFile(opencodeCandidatePath) : null,
+    file: existsSync(opencodePath) ? snapshotFile(opencodePath) : null,
     hasFile: true,
   },
   "onmyagent-server": {
@@ -645,29 +674,22 @@ const expectedManifestEntries = {
 
 const versionsPath = join(sidecarDir, "versions.json");
 const targetSuffix = isWindowsTarget ? ".exe" : "";
-const targetVersionsPath = resolvedTargetTriple
-  ? join(sidecarDir, `versions.json-${resolvedTargetTriple}${targetSuffix}`)
+const leftoverVersionsName = resolvedTargetTriple
+  ? `versions.json-${resolvedTargetTriple}${targetSuffix}`
   : null;
 const didMutateSidecars = didCopyOpencode || didDownloadOpencode || didBuildOrchestrator || didCopyOrchestrator || didSignSidecars;
 const existingManifest = readVersionManifest(versionsPath);
-const targetManifest = targetVersionsPath ? readVersionManifest(targetVersionsPath) : existingManifest;
-const canReuseManifest =
-  canReuseSidecarManifest({
-    manifest: existingManifest,
-    expectedEntries: expectedManifestEntries,
-    didMutate: didMutateSidecars,
-  }) &&
-  canReuseSidecarManifest({
-    manifest: targetManifest,
-    expectedEntries: expectedManifestEntries,
-    didMutate: didMutateSidecars,
-  });
+const canReuseManifest = canReuseSidecarManifest({
+  manifest: existingManifest,
+  expectedEntries: expectedManifestEntries,
+  didMutate: didMutateSidecars,
+});
 const versions = canReuseManifest
   ? existingManifest
   : {
       opencode: {
         version: expectedManifestEntries.opencode.version,
-        sha256: opencodeCandidatePath && existsSync(opencodeCandidatePath) ? sha256File(opencodeCandidatePath) : null,
+        sha256: existsSync(opencodePath) ? sha256File(opencodePath) : null,
         ...expectedManifestEntries.opencode.file,
       },
       "onmyagent-server": {
@@ -695,8 +717,15 @@ try {
     mkdirSync(sidecarDir, { recursive: true });
     const content = JSON.stringify(versions, null, 2) + "\n";
     writeFileSync(versionsPath, content, "utf8");
-    if (targetVersionsPath) {
-      writeFileSync(targetVersionsPath, content, "utf8");
+  }
+  if (leftoverVersionsName) {
+    const leftoverVersionsPath = join(sidecarDir, leftoverVersionsName);
+    if (existsSync(leftoverVersionsPath)) {
+      try {
+        unlinkSync(leftoverVersionsPath);
+      } catch {
+        // ignore
+      }
     }
   }
 } catch (error) {

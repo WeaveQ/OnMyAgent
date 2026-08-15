@@ -101,6 +101,63 @@ test("a matching sidecar manifest skips repeat hashing and writes", () => {
   );
 });
 
+test("prepare writes only the short alias for a target triple", () => {
+  assert.ok(policyModule, "prepare-sidecar-policy.mjs must exist");
+  const actions = policyModule.sidecarNormalizeActions({
+    aliasName: "opencode",
+    leftoverNames: ["opencode-aarch64-apple-darwin"],
+    existingNames: [],
+  });
+  assert.deepEqual(actions.writeNames, ["opencode"]);
+  assert.equal(actions.present, false);
+  assert.equal(actions.renameFrom, null);
+  assert.deepEqual(actions.prune, ["opencode-aarch64-apple-darwin"]);
+});
+
+test("a leftover triple-named sidecar counts as present without the unused sibling", () => {
+  assert.ok(policyModule, "prepare-sidecar-policy.mjs must exist");
+  const leftoverOnly = policyModule.sidecarNormalizeActions({
+    aliasName: "opencode",
+    leftoverNames: ["opencode-aarch64-apple-darwin"],
+    existingNames: ["opencode-aarch64-apple-darwin"],
+  });
+  assert.equal(leftoverOnly.present, true);
+  assert.equal(leftoverOnly.renameFrom, "opencode-aarch64-apple-darwin");
+  assert.deepEqual(leftoverOnly.writeNames, ["opencode"]);
+
+  const aliasOnly = policyModule.sidecarNormalizeActions({
+    aliasName: "opencode",
+    leftoverNames: ["opencode-aarch64-apple-darwin"],
+    existingNames: ["opencode"],
+  });
+  assert.equal(aliasOnly.present, true);
+  assert.equal(aliasOnly.renameFrom, null);
+
+  const both = policyModule.sidecarNormalizeActions({
+    aliasName: "onmyagent-orchestrator",
+    leftoverNames: [
+      "onmyagent-orchestrator-aarch64-apple-darwin",
+      "onmyagent-orchestrator-bun-darwin-arm64",
+    ],
+    existingNames: ["onmyagent-orchestrator", "onmyagent-orchestrator-bun-darwin-arm64"],
+  });
+  assert.equal(both.present, true);
+  assert.equal(both.renameFrom, null);
+  assert.deepEqual(both.writeNames, ["onmyagent-orchestrator"]);
+  assert.deepEqual(both.prune, [
+    "onmyagent-orchestrator-aarch64-apple-darwin",
+    "onmyagent-orchestrator-bun-darwin-arm64",
+  ]);
+});
+
+test("prepare-sidecar.mjs writes through sidecarNormalizeActions and not a dual dest list", async () => {
+  const source = await readFile(new URL("./prepare-sidecar.mjs", import.meta.url), "utf8");
+  assert.match(source, /sidecarNormalizeActions\(/);
+  assert.match(source, /writeSidecarAlias\(/);
+  assert.doesNotMatch(source, /\[opencodeTargetPath,\s*opencodePath\]/);
+  assert.doesNotMatch(source, /copyFileSync\(orchestratorBuildPath,\s*orchestratorTargetPath\)/);
+});
+
 test("Electron development leaves sidecar preparation unforced when artifacts are fresh", async () => {
   const source = await readFile(new URL("./electron-dev.mjs", import.meta.url), "utf8");
   assert.match(source, /shouldForceDevPreparation\(/);
