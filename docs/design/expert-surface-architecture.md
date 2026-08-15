@@ -241,13 +241,16 @@ Dev models 目录：默认 `https://models.onmyagentlabs.com/`；仅 `ONMYAGENT_
 
 ## 10. 测试入口（改 Expert 会话面必跑）
 
+默认 CI：`pnpm test:ui` → `ui-contracts` 已编入下列文件。
+
 ```bash
 cd apps/app && bun test \
   scripts/expert-surface-machine.test.ts \
   scripts/expert-surface-mode.test.ts \
   scripts/expert-cold-open-navigation.test.ts \
   scripts/agent-session-tab-title.test.ts \
-  scripts/expert-session-invariants.test.ts
+  scripts/expert-session-invariants.test.ts \
+  scripts/expert-hard-delete.test.ts
 ```
 
 Runtime / isolation：

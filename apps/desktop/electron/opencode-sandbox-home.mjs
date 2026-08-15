@@ -134,6 +134,27 @@ export async function prepareOpencodeSandboxHome(input) {
   return paths;
 }
 
+export function sandboxOpencodeConfigDir(paths) {
+  return path.dirname(paths.opencodeConfigPath);
+}
+
+export function pathIsInsideRoot(target, root) {
+  const resolvedTarget = path.resolve(String(target ?? ""));
+  const resolvedRoot = path.resolve(String(root ?? ""));
+  if (!resolvedTarget || !resolvedRoot) return false;
+  return (
+    resolvedTarget === resolvedRoot ||
+    resolvedTarget.startsWith(`${resolvedRoot}${path.sep}`)
+  );
+}
+
+/** Drop inherited overlays that point back at the real user home. */
+export function shouldKeepOpenCodeConfigOverlay(configPath, sandboxRoot) {
+  const overlay = String(configPath ?? "").trim();
+  if (!overlay) return false;
+  return pathIsInsideRoot(overlay, sandboxRoot);
+}
+
 /**
  * Apply sandbox HOME/XDG env for the OpenCode child process.
  * @param {NodeJS.ProcessEnv} env
@@ -158,5 +179,9 @@ export function applyOpencodeSandboxEnv(env, paths) {
   env.XDG_STATE_HOME = paths.xdgStateHome;
   // OPENCODE_TEST_HOME should not re-expand into the real user home.
   env.OPENCODE_TEST_HOME = paths.homeDir;
+  env.OPENCODE_CONFIG_DIR = sandboxOpencodeConfigDir(paths);
+  if (!shouldKeepOpenCodeConfigOverlay(env.OPENCODE_CONFIG, paths.root)) {
+    delete env.OPENCODE_CONFIG;
+  }
   return env;
 }

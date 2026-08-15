@@ -5,6 +5,9 @@
 // `opencode.session.list` with no surface filtering (P0-03), a session created
 // here appears natively in the assistant tab — zero renderer changes.
 //
+// Product exception (Architecture Dual Runtime): IM「本地助理」must appear in
+// the desktop assistant tab, so this path hot-writes the OpenCode main session
+// store. Do not also start a Personal run for the same chat.
 // This is a strictly additive dispatch path: only chats whose bound agent has
 // provider `onmyagent-assistant` reach this module. Every other agent keeps
 // using the ACP runtime exactly as before (no behavior change for codex/claude/

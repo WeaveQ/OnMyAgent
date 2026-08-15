@@ -7,8 +7,11 @@ import { test } from "node:test";
 import {
   applyOpencodeSandboxEnv,
   buildSandboxOpencodeConfig,
+  pathIsInsideRoot,
   prepareOpencodeSandboxHome,
   resolveOpencodeSandboxPaths,
+  sandboxOpencodeConfigDir,
+  shouldKeepOpenCodeConfigOverlay,
 } from "./opencode-sandbox-home.mjs";
 
 test("buildSandboxOpencodeConfig strips plugins and keeps providers", () => {
@@ -64,8 +67,30 @@ test("prepareOpencodeSandboxHome writes providers-only config and auth", async (
     JSON.stringify({ token: "t" }),
   );
 
-  const env = applyOpencodeSandboxEnv({}, paths);
+  const env = applyOpencodeSandboxEnv(
+    {
+      ONMYAGENT_REAL_HOME: realHome,
+      OPENCODE_CONFIG_DIR: path.join(realHome, ".config", "opencode"),
+      OPENCODE_CONFIG: path.join(
+        realHome,
+        ".config",
+        "opencode",
+        "onmyagent-computer-use.json",
+      ),
+    },
+    paths,
+  );
   assert.equal(env.HOME, paths.homeDir);
   assert.equal(env.XDG_CONFIG_HOME, paths.xdgConfigHome);
   assert.equal(env.OPENCODE_TEST_HOME, paths.homeDir);
+  assert.equal(env.OPENCODE_CONFIG_DIR, sandboxOpencodeConfigDir(paths));
+  assert.equal(env.OPENCODE_CONFIG, undefined);
+  assert.equal(pathIsInsideRoot(env.OPENCODE_CONFIG_DIR, paths.root), true);
+  assert.equal(
+    shouldKeepOpenCodeConfigOverlay(
+      path.join(realHome, ".config", "opencode", "onmyagent-computer-use.json"),
+      paths.root,
+    ),
+    false,
+  );
 });

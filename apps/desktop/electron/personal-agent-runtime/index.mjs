@@ -31,6 +31,7 @@ import { ensureRunLogPath, legacyPersonalAssistantRunLogRoot, legacyRunLogRoot, 
 import { isStaleNativeSessionError, staleNativeSessionResetMessage } from "./native-sessions.mjs";
 import { configureProcessRegistry, getAgentProcess, registerAgentProcess, unregisterAgentProcess } from "./process-registry.mjs";
 import { schedulePersonalAgentStartupReconcile } from "./startup-reconcile.mjs";
+import { readSupervisorOwnedRunIds, shouldFinalizeOrphanRunLog } from "./supervisor-owned-runs.mjs";
 import { getAgentOverrides, setAgentOverrides } from "./custom-agent-store.mjs";
 import { buildErrorTip, buildProviderContextResetEvents, classifyErrorInfo } from "./error-diagnostics.mjs";
 import { forgetRememberedApprovalDecision, getStoredApprovalDecision, rememberApprovalDecision } from "./approval-store.mjs";
@@ -296,6 +297,7 @@ export function createPersonalAgentRuntime(options) {
   // process session left behind.
   async function reconcileOrphanRuns() {
     const reconcileCutoff = reconcileCutoffMs;
+    const supervisorOwnedRunIds = await readSupervisorOwnedRunIds(options.userDataDir);
     const root = personalAgentRuntimeStateRoot();
     const workspacesRoot = path.join(root, "personal-assistant", "workspaces");
     const workspaces = await readdir(workspacesRoot).catch(() => []);
@@ -313,10 +315,14 @@ export function createPersonalAgentRuntime(options) {
           continue;
         }
         if (!meta || meta.type !== "run_meta" || meta.status !== "running") continue;
-        // Skip live runs owned by the in-memory Map (may still have pid=null while adapter spawns).
         const startedAt = Number(meta.startedAt ?? meta.at ?? 0);
-        if (startedAt && startedAt >= reconcileCutoff) continue;
-        if (runs.has(meta.runId)) continue;
+        if (!shouldFinalizeOrphanRunLog({
+          runId: meta.runId,
+          inMemory: runs.has(meta.runId),
+          startedAt,
+          reconcileCutoffMs: reconcileCutoff,
+          supervisorOwnedRunIds,
+        })) continue;
         // Do NOT skip a running run merely because its pid is still alive — a
         // process can be hung (e.g. blocked on the network) yet never finish,
         // which is the phantom-lock bug. If we can identify the tree via the
