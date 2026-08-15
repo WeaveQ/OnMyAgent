@@ -271,11 +271,12 @@ export function contextUsageExceedsKnownLimit(usage: ContextUsageSnapshot): bool
 }
 
 export function formatCompactTokens(value: number): string {
-  if (value >= 10_000_000) {
-    return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000_000) {
+    const millions = Math.round((value / 1_000_000) * 10) / 10;
+    // 1_048_576 (official 1M window) reads as 1M, not 1048.6K.
+    return Number.isInteger(millions) ? `${millions.toFixed(0)}M` : `${millions.toFixed(1)}M`;
   }
   if (value >= 1_000) {
-    // Reference card uses 1000.0K for a 1M window, not 1.0M.
     return `${(value / 1_000).toFixed(1)}K`;
   }
   return String(Math.round(value));

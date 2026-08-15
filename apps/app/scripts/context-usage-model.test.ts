@@ -222,7 +222,9 @@ describe("context usage model", () => {
   test("formatCompactTokens", () => {
     expect(formatCompactTokens(142_400)).toBe("142.4K");
     expect(formatCompactTokens(192_000)).toBe("192.0K");
-    expect(formatCompactTokens(1_000_000)).toBe("1000.0K");
+    expect(formatCompactTokens(1_000_000)).toBe("1M");
+    expect(formatCompactTokens(1_048_576)).toBe("1M");
+    expect(formatCompactTokens(2_097_152)).toBe("2.1M");
     expect(formatCompactTokens(500)).toBe("500");
   });
 
