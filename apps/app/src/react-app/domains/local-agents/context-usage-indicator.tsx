@@ -9,8 +9,8 @@ import {
   CONTEXT_USAGE_BUCKET_COLOR,
   CONTEXT_USAGE_BUCKET_ORDER,
   CONTEXT_USAGE_DANGER_PERCENT,
-  CONTEXT_USAGE_VISIBLE_BUCKETS,
   CONTEXT_USAGE_WARN_PERCENT,
+  occupancyLegendIds,
   type ContextUsageBucketId,
   type ContextUsageSnapshot,
   bucketPercentOfTotal,
@@ -46,6 +46,14 @@ function bucketLabel(id: ContextUsageBucketId): string {
       return t("local_agent.context_usage_bucket_connectors");
     case "skills":
       return t("local_agent.context_usage_bucket_skills");
+    case "prompt":
+      return t("local_agent.context_usage_bucket_prompt");
+    case "cache":
+      return t("local_agent.context_usage_bucket_cache");
+    case "output":
+      return t("local_agent.context_usage_turn_output");
+    case "reasoning":
+      return t("local_agent.context_usage_turn_reasoning");
     case "other":
       return t("local_agent.context_usage_bucket_other");
     default:
@@ -100,7 +108,7 @@ function legendBucketIds(breakdown: ContextUsageSnapshot["breakdown"]): ContextU
     breakdown?.some((item) => item.id === "other" && item.tokens > 0) === true
       ? (["other"] as const)
       : [];
-  return [...CONTEXT_USAGE_VISIBLE_BUCKETS, ...extra];
+  return [...occupancyLegendIds(breakdown), ...extra];
 }
 
 export function ContextUsagePopoverBody(props: {
@@ -182,6 +190,35 @@ export function ContextUsagePopoverBody(props: {
           );
         })}
       </ul>
+      {usage.turnOutput || usage.turnReasoning ? (
+        <div className="flex flex-col gap-2 border-t border-dls-border pt-2.5" data-testid="context-usage-turn-extras">
+          <div className="text-[11px] leading-4 text-dls-secondary">
+            {t("local_agent.context_usage_turn_extras_hint")}
+          </div>
+          <ul className="flex flex-col gap-2">
+            {usage.turnOutput ? (
+              <li className="flex items-center justify-between gap-3 text-xs leading-4 text-dls-secondary">
+                <span>{t("local_agent.context_usage_turn_output")}</span>
+                <span className="tabular-nums">
+                  {t("local_agent.context_usage_tokens", {
+                    count: formatCompactTokens(usage.turnOutput),
+                  })}
+                </span>
+              </li>
+            ) : null}
+            {usage.turnReasoning ? (
+              <li className="flex items-center justify-between gap-3 text-xs leading-4 text-dls-secondary">
+                <span>{t("local_agent.context_usage_turn_reasoning")}</span>
+                <span className="tabular-nums">
+                  {t("local_agent.context_usage_tokens", {
+                    count: formatCompactTokens(usage.turnReasoning),
+                  })}
+                </span>
+              </li>
+            ) : null}
+          </ul>
+        </div>
+      ) : null}
     </>
   );
 }

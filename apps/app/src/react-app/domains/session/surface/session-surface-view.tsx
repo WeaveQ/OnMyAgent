@@ -283,6 +283,12 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
   // Context ring next to model select: last assistant prompt occupancy vs model window.
   const sessionContextUsage = useMemo(() => {
     let usedTokens: number | null = null;
+    let reportedTokens: {
+      input: number | null;
+      cacheRead: number | null;
+      output: number | null;
+      reasoning: number | null;
+    } | null = null;
     for (let index = props.renderedMessages.length - 1; index >= 0; index -= 1) {
       const message = props.renderedMessages[index];
       if (message?.role !== "assistant") continue;
@@ -298,12 +304,21 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
       );
       if (estimated != null) {
         usedTokens = estimated;
+        reportedTokens = tokens
+          ? {
+              input: tokens.input,
+              cacheRead: tokens.cacheRead,
+              output: tokens.output,
+              reasoning: tokens.reasoning,
+            }
+          : null;
         break;
       }
     }
     return buildSessionContextUsage({
       modelId: props.selectedModel?.modelID ?? null,
       usedTokens,
+      reportedTokens,
       estimateFrom: {
         messages: props.renderedMessages,
         skills: props.skills,
