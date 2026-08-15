@@ -1,7 +1,7 @@
 {
   "name": "@weaveq/onmyagent",
   "private": true,
-  "version": "0.5.6",
+  "version": "0.5.7",
   "scripts": {
     "dev": "node scripts/cli/dev.mjs",
     "dev:windows": ".\\scripts\\dev\\windows.cmd",
