@@ -4,6 +4,7 @@ import type { UIMessage } from "ai";
 import {
   addOptimisticSessionUserMessage,
   adoptEquivalentOptimisticUserTextPart,
+  dropEquivalentOptimisticUserMessages,
   removeOptimisticSessionUserMessage,
 } from "../src/react-app/domains/session/sync/optimistic-session-user-message";
 
@@ -83,5 +84,29 @@ describe("optimistic session user messages", () => {
     expect(removeOptimisticSessionUserMessage(current, "msg_first")).toEqual([
       assistant,
     ]);
+  });
+
+  it("drops a local UUID bubble when the canonical user turn arrives", () => {
+    const optimistic = addOptimisticSessionUserMessage([], {
+      messageId: "msg_ea401b16-9af4-457a-bf76-51e30893740a",
+      text: "你能做什么",
+      createdAt: 42,
+    });
+    const canonical: UIMessage = {
+      id: "msg_000cdadf2001pKTHcqf88pAK4z",
+      role: "user",
+      parts: [
+        {
+          type: "text",
+          text: "你能做什么",
+          state: "done",
+          providerMetadata: { opencode: { partId: "prt_user" } },
+        },
+      ],
+    };
+
+    expect(
+      dropEquivalentOptimisticUserMessages([...optimistic, canonical], canonical),
+    ).toEqual([canonical]);
   });
 });

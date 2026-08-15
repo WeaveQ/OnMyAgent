@@ -28,6 +28,7 @@ import { selectFullStreamSessionIds } from "./stream-session-policy";
 import {
   addOptimisticSessionUserMessage,
   adoptEquivalentOptimisticUserTextPart,
+  dropEquivalentOptimisticUserMessages,
   removeOptimisticSessionUserMessage,
 } from "./optimistic-session-user-message";
 import { humanizeSessionErrorMessage } from "../surface/session-surface-support";
@@ -708,16 +709,19 @@ function getPartMetadataId(part: UIMessage["parts"][number]) {
 
 function upsertMessage(messages: UIMessage[], next: UIMessage) {
   const index = messages.findIndex((message) => message.id === next.id);
-  if (index === -1) return [...messages, next];
-  return messages.map((message, messageIndex) =>
-    messageIndex === index
-      ? {
-          ...message,
-          ...next,
-          parts: next.parts.length > 0 ? next.parts : message.parts,
-        }
-      : message,
-  );
+  const merged =
+    index === -1
+      ? [...messages, next]
+      : messages.map((message, messageIndex) =>
+          messageIndex === index
+            ? {
+                ...message,
+                ...next,
+                parts: next.parts.length > 0 ? next.parts : message.parts,
+              }
+            : message,
+        );
+  return dropEquivalentOptimisticUserMessages(merged, next);
 }
 
 /**
@@ -748,7 +752,7 @@ function upsertPart(
   partId: string,
   next: UIMessage["parts"][number],
 ) {
-  return messages.map((message) => {
+  const updated = messages.map((message) => {
     if (message.id !== messageId) return message;
     const index = message.parts.findIndex(
       (part) =>
@@ -764,6 +768,10 @@ function upsertPart(
     parts[index] = next;
     return { ...message, parts };
   });
+  const target = updated.find((message) => message.id === messageId);
+  return target
+    ? dropEquivalentOptimisticUserMessages(updated, target)
+    : updated;
 }
 
 function appendDelta(
