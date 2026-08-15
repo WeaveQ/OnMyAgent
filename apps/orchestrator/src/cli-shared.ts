@@ -107,7 +107,6 @@ import {
   type SidecarConfig,
   type SidecarTarget,
 } from "./sidecar-config.js";
-import type { TuiHandle } from "./tui/app.js";
 import {
   readVersionManifest,
   type VersionInfo,

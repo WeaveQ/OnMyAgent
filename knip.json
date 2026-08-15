@@ -25,15 +25,6 @@
       ],
       "ignoreDependencies": ["discord.js"]
     },
-    "apps/orchestrator": {
-      "ignoreDependencies": [
-        "@opentui/core-darwin-arm64",
-        "@opentui/core-darwin-x64",
-        "@opentui/core-linux-arm64",
-        "@opentui/core-linux-x64",
-        "@opentui/core-win32-x64"
-      ]
-    },
     "packages/artifact-runtime": {
       "entry": ["*.cjs"],
       "ignoreDependencies": ["docx", "exceljs", "fast-xml-parser", "pptxgenjs"]

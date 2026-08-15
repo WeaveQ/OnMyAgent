@@ -31,7 +31,6 @@ export async function main() {
     return;
   }
   if (command === "serve") {
-    args.flags.set("tui", false);
     await runStart(args);
     return;
   }

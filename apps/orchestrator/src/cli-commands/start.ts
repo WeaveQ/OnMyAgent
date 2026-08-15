@@ -81,13 +81,8 @@ import {
 } from "../version-manifest.js";
 
 import {
-  type TuiHandle,
-} from "../tui/app.js";
-
-import {
   createLogger,
   redactSensitiveString,
-  type LogEvent,
 } from "../cli-logging.js";
 
 import {
@@ -122,7 +117,6 @@ import {
   ensureWorkspace,
   fetchJson,
   installGlobalPackages,
-  isCompiledBunBinary,
   isProcessAlive,
   issueOnMyAgentOwnerToken,
   postWorkerActivityHeartbeat,
@@ -165,16 +159,6 @@ export async function runStart(args: ParsedArgs) {
     false,
     "ONMYAGENT_DETACH",
   );
-  const defaultTui =
-    process.stdout.isTTY && !outputJson && !checkOnly && !checkEvents;
-  const tuiRequested = readBool(args.flags, "tui", defaultTui);
-  let useTui =
-    tuiRequested &&
-    !detachRequested &&
-    !outputJson &&
-    !checkOnly &&
-    !checkEvents &&
-    logFormat === "pretty";
   const colorPreferred =
     readBool(args.flags, "color", process.stdout.isTTY, "ONMYAGENT_COLOR") &&
     !process.env.NO_COLOR;
@@ -183,60 +167,19 @@ export async function runStart(args: ParsedArgs) {
     process.env.ONMYAGENT_RUN_ID ??
     randomUUID();
   const cliVersion = await resolveCliVersion();
-  const compiledBinary = isCompiledBunBinary();
-  let tui: TuiHandle | undefined;
-  let restoreConsoleError: (() => void) | undefined;
-  const baseLoggerOptions = {
+  const logger = createLogger({
     format: logFormat,
     runId,
     serviceName: "onmyagent-orchestrator",
     serviceVersion: cliVersion,
-    onLog: (event: LogEvent) => {
-      if (!tui) return;
-      const component = event.component ?? "onmyagent-orchestrator";
-      const tuiComponent =
-        component === "opencode-router" ? "router" : component;
-      tui.pushLog({
-        time: event.time,
-        level: event.level,
-        component: tuiComponent,
-        message: event.message,
-      });
-    },
-  };
-  let logger = createLogger({
-    ...baseLoggerOptions,
-    output: useTui ? "silent" : "stdout",
-    color: useTui ? false : colorPreferred,
+    output: "stdout",
+    color: colorPreferred,
   });
-  let logVerbose = createVerboseLogger(
+  const logVerbose = createVerboseLogger(
     verbose && !outputJson,
     logger,
     "onmyagent-orchestrator",
   );
-  const switchToPlainOutput = (error: string) => {
-    if (!useTui) return;
-    useTui = false;
-    restoreConsoleError?.();
-    restoreConsoleError = undefined;
-    tui?.stop();
-    tui = undefined;
-    logger = createLogger({
-      ...baseLoggerOptions,
-      output: "stdout",
-      color: colorPreferred,
-    });
-    logVerbose = createVerboseLogger(
-      verbose && !outputJson,
-      logger,
-      "onmyagent-orchestrator",
-    );
-    logger.warn(
-      "TUI failed to start; falling back to plain output. Use `onmyagent serve` for explicit non-TUI mode.",
-      { error },
-      "onmyagent-orchestrator",
-    );
-  };
   const sidecarSourceInput = readBinarySource(
     args.flags,
     "sidecar-source",
@@ -908,8 +851,6 @@ export async function runStart(args: ParsedArgs) {
   const shutdown = async () => {
     if (shuttingDown) return;
     shuttingDown = true;
-    restoreConsoleError?.();
-    restoreConsoleError = undefined;
     if (opencodeRouterHealthInterval) {
       clearInterval(opencodeRouterHealthInterval);
       opencodeRouterHealthInterval = null;
@@ -954,16 +895,8 @@ export async function runStart(args: ParsedArgs) {
     }
   };
 
-  const handleQuit = async () => {
-    tui?.stop();
-    await shutdown();
-    process.exit(0);
-  };
-
   const handleDetach = async () => {
     if (detached) return;
-    restoreConsoleError?.();
-    restoreConsoleError = undefined;
     if (opencodeRouterHealthInterval) {
       clearInterval(opencodeRouterHealthInterval);
       opencodeRouterHealthInterval = null;
@@ -972,7 +905,6 @@ export async function runStart(args: ParsedArgs) {
       clearInterval(workerActivityHeartbeatInterval);
       workerActivityHeartbeatInterval = null;
     }
-    tui?.stop();
     detachChildren();
     const summary = [
       "Detached. Services still running:",
@@ -996,175 +928,6 @@ export async function runStart(args: ParsedArgs) {
     process.exit(0);
   };
 
-  if (useTui) {
-    if (compiledBinary) {
-      const originalConsoleError = console.error.bind(console);
-      restoreConsoleError = () => {
-        console.error = originalConsoleError;
-      };
-      console.error = (...items: unknown[]) => {
-        const text = items
-          .map((item) => {
-            if (typeof item === "string") return item;
-            if (item instanceof Error) return `${item.name}: ${item.message}`;
-            return String(item);
-          })
-          .join(" ");
-        if (
-          text.includes("React is not defined") ||
-          text.includes("/$bunfs/root/onmyagent-orchestrator") ||
-          text.includes("/$bunfs/root/onmyagent")
-        ) {
-          switchToPlainOutput(text);
-        }
-        originalConsoleError(...items);
-      };
-    }
-    try {
-      const { startOrchestratorTui } = await import("../tui/app.js");
-      tui = startOrchestratorTui({
-        version: cliVersion,
-        connect: {
-          runId,
-          workspace: resolvedWorkspace,
-          onmyagentUrl: onmyagentConnectUrl,
-          onmyagentToken,
-          ownerToken: onmyagentOwnerToken,
-          hostToken: onmyagentHostToken,
-          opencodeUrl: opencodeConnectUrl,
-          opencodePassword:
-            sandboxMode !== "none"
-              ? undefined
-              : (opencodePassword ?? undefined),
-          opencodeUsername:
-            sandboxMode !== "none"
-              ? undefined
-              : (opencodeUsername ?? undefined),
-          attachCommand,
-        },
-        services: [
-          {
-            name: "opencode",
-            label: "opencode",
-            status: "starting",
-            port: opencodePort,
-          },
-          {
-            name: "onmyagent-server",
-            label: "onmyagent-server",
-            status: "starting",
-            port: onmyagentPort,
-          },
-          {
-            name: "router",
-            label: "opencode-router",
-            status: opencodeRouterEnabled ? "starting" : "disabled",
-            port: sandboxMode !== "none" ? undefined : opencodeRouterHealthPort,
-          },
-        ],
-        onQuit: handleQuit,
-        onDetach: handleDetach,
-        onCopyAttach: async () => {
-          const result = await copyToClipboard(attachCommand);
-          return { command: attachCommand, ...result };
-        },
-        onCopySelection: async (text) => copyToClipboard(text),
-        onRouterHealth: async () =>
-          fetchOpenCodeRouterHealthViaOnMyAgent(onmyagentBaseUrl, onmyagentToken),
-        onRouterTelegramIdentities: async () => {
-          const url = `${onmyagentBaseUrl.replace(/\/$/, "")}/opencode-router/identities/telegram`;
-          const result = await fetchJson(url, {
-            headers: {
-              "X-OnMyAgent-Host-Token": onmyagentHostToken,
-            },
-          });
-          const items = Array.isArray(result?.items) ? result.items : [];
-          return { items };
-        },
-        onRouterSlackIdentities: async () => {
-          const url = `${onmyagentBaseUrl.replace(/\/$/, "")}/opencode-router/identities/slack`;
-          const result = await fetchJson(url, {
-            headers: {
-              "X-OnMyAgent-Host-Token": onmyagentHostToken,
-            },
-          });
-          const items = Array.isArray(result?.items) ? result.items : [];
-          return { items };
-        },
-        onRouterSetGroupsEnabled: async (enabled) => {
-          try {
-            const url = `${onmyagentBaseUrl.replace(/\/$/, "")}/opencode-router/config/groups`;
-            await fetchJson(url, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "X-OnMyAgent-Host-Token": onmyagentHostToken,
-              },
-              body: JSON.stringify({ enabled }),
-            });
-            return { ok: true };
-          } catch (error) {
-            return {
-              ok: false,
-              error: error instanceof Error ? error.message : String(error),
-            };
-          }
-        },
-        onRouterSetTelegramToken: async (token) => {
-          try {
-            const url = `${onmyagentBaseUrl.replace(/\/$/, "")}/opencode-router/identities/telegram`;
-            await fetchJson(url, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "X-OnMyAgent-Host-Token": onmyagentHostToken,
-              },
-              body: JSON.stringify({ id: "default", token, enabled: true }),
-            });
-            return { ok: true };
-          } catch (error) {
-            return {
-              ok: false,
-              error: error instanceof Error ? error.message : String(error),
-            };
-          }
-        },
-        onRouterSetSlackTokens: async (botToken, appToken) => {
-          try {
-            const url = `${onmyagentBaseUrl.replace(/\/$/, "")}/opencode-router/identities/slack`;
-            await fetchJson(url, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "X-OnMyAgent-Host-Token": onmyagentHostToken,
-              },
-              body: JSON.stringify({
-                id: "default",
-                botToken,
-                appToken,
-                enabled: true,
-              }),
-            });
-            return { ok: true };
-          } catch (error) {
-            return {
-              ok: false,
-              error: error instanceof Error ? error.message : String(error),
-            };
-          }
-        },
-      });
-      tui.setUptimeStart(startedAt);
-    } catch (error) {
-      switchToPlainOutput(
-        error instanceof Error ? error.message : String(error),
-      );
-    }
-  }
-
-  const tuiServiceName = (name: string) =>
-    name === "opencode-router" ? "router" : name;
-
   const handleExit = (
     name: string,
     code: number | null,
@@ -1177,23 +940,12 @@ export async function runStart(args: ParsedArgs) {
     }
     const reason =
       code !== null ? `code ${code}` : signal ? `signal ${signal}` : "unknown";
-    const services =
-      name === "sandbox"
-        ? ["opencode", "onmyagent-server", "router"]
-        : [tuiServiceName(name)];
-    for (const service of services) {
-      tui?.updateService(service, { status: "stopped", message: reason });
-    }
     logger.error("Process exited", { reason, code, signal }, name);
     void shutdown().then(() => process.exit(code ?? 1));
   };
 
   const handleSpawnError = (name: string, error: unknown) => {
     if (shuttingDown || detached) return;
-    tui?.updateService(tuiServiceName(name), {
-      status: "error",
-      message: String(error),
-    });
     logger.error("Process failed to start", { error: String(error) }, name);
     void shutdown().then(() => process.exit(1));
   };
@@ -1390,16 +1142,7 @@ export async function runStart(args: ParsedArgs) {
             });
 
       sandboxCleanup = sandboxChild.cleanup;
-      tui?.updateService("opencode", {
-        status: "running",
-        port: SANDBOX_INTERNAL_OPENCODE_PORT,
-      });
-      tui?.updateService("onmyagent-server", {
-        status: "running",
-        port: onmyagentPort,
-      });
       if (opencodeRouterEnabled) {
-        tui?.updateService("router", { status: "running", port: undefined });
       }
 
       if (!detachRequested) {
@@ -1427,7 +1170,6 @@ export async function runStart(args: ParsedArgs) {
       );
       await waitForHealthy(onmyagentBaseUrl);
       logger.info("Healthy", { url: onmyagentBaseUrl }, "onmyagent-server");
-      tui?.updateService("onmyagent-server", { status: "healthy" });
 
       const opencodeProxyBaseUrl = await resolveOnmyagentOpencodeProxyBaseUrl({
         onmyagentBaseUrl,
@@ -1454,7 +1196,6 @@ export async function runStart(args: ParsedArgs) {
         { url: opencodeProxyBaseUrl },
         "opencode",
       );
-      tui?.updateService("opencode", { status: "healthy" });
 
       try {
         onmyagentActualVersion = await verifyOnMyAgentServer({
@@ -1484,7 +1225,6 @@ export async function runStart(args: ParsedArgs) {
         onmyagentHostToken,
         "OnMyAgent sandbox owner token",
       );
-      tui?.setConnectInfo({ ownerToken: onmyagentOwnerToken });
       logVerbose(
         `onmyagent-server version: ${onmyagentActualVersion ?? "unknown"}`,
       );
@@ -1509,11 +1249,6 @@ export async function runStart(args: ParsedArgs) {
       });
       opencodeChild = startedOpencodeChild;
       children.push({ name: "opencode", child: startedOpencodeChild });
-      tui?.updateService("opencode", {
-        status: "running",
-        pid: startedOpencodeChild.pid ?? undefined,
-        port: opencodePort,
-      });
       logger.info(
         "Process spawned",
         { pid: startedOpencodeChild.pid ?? 0 },
@@ -1539,7 +1274,6 @@ export async function runStart(args: ParsedArgs) {
       logger.info("Waiting for health", { url: opencodeBaseUrl }, "opencode");
       await waitForOpencodeHealthy(opencodeClient);
       logger.info("Healthy", { url: opencodeBaseUrl }, "opencode");
-      tui?.updateService("opencode", { status: "healthy" });
 
       let opencodeRouterReady = false;
       if (opencodeRouterEnabled) {
@@ -1570,11 +1304,6 @@ export async function runStart(args: ParsedArgs) {
             name: "opencode-router",
             child: startedOpenCodeRouterChild,
           });
-          tui?.updateService("router", {
-            status: "running",
-            pid: startedOpenCodeRouterChild.pid ?? undefined,
-            port: opencodeRouterHealthPort,
-          });
           logger.info(
             "Process spawned",
             { pid: startedOpenCodeRouterChild.pid ?? 0 },
@@ -1595,10 +1324,6 @@ export async function runStart(args: ParsedArgs) {
                 : signal
                   ? `signal ${signal}`
                   : "unknown";
-            tui?.updateService("router", {
-              status: "stopped",
-              message: reason,
-            });
             logger.warn(
               "Process exited, continuing without opencodeRouter",
               { reason, code, signal },
@@ -1620,10 +1345,6 @@ export async function runStart(args: ParsedArgs) {
             10_000,
             400,
           );
-          tui?.setRouterHealth(health);
-          tui?.updateService("router", {
-            status: health.ok ? "healthy" : "running",
-          });
           logger.info(
             "Healthy",
             { url: healthBaseUrl, ok: health.ok },
@@ -1641,7 +1362,6 @@ export async function runStart(args: ParsedArgs) {
             { error: message },
             "opencode-router",
           );
-          tui?.updateService("router", { status: "stopped", message });
           if (opencodeRouterChild) {
             try {
               opencodeRouterChild.kill();
@@ -1683,11 +1403,6 @@ export async function runStart(args: ParsedArgs) {
       });
       onmyagentChild = startedOnMyAgentChild;
       children.push({ name: "onmyagent-server", child: startedOnMyAgentChild });
-      tui?.updateService("onmyagent-server", {
-        status: "running",
-        pid: startedOnMyAgentChild.pid ?? undefined,
-        port: onmyagentPort,
-      });
       logger.info(
         "Process spawned",
         { pid: startedOnMyAgentChild.pid ?? 0 },
@@ -1707,7 +1422,6 @@ export async function runStart(args: ParsedArgs) {
       );
       await waitForHealthy(onmyagentBaseUrl);
       logger.info("Healthy", { url: onmyagentBaseUrl }, "onmyagent-server");
-      tui?.updateService("onmyagent-server", { status: "healthy" });
 
       onmyagentActualVersion = await verifyOnMyAgentServer({
         baseUrl: onmyagentBaseUrl,
@@ -1725,7 +1439,6 @@ export async function runStart(args: ParsedArgs) {
         onmyagentHostToken,
         "OnMyAgent owner token",
       );
-      tui?.setConnectInfo({ ownerToken: onmyagentOwnerToken });
       logVerbose(
         `onmyagent-server version: ${onmyagentActualVersion ?? "unknown"}`,
       );
@@ -1734,9 +1447,7 @@ export async function runStart(args: ParsedArgs) {
         opencodeRouterHealthInterval = setInterval(() => {
           fetchOpenCodeRouterHealthViaOnMyAgent(onmyagentBaseUrl, onmyagentToken)
             .then((health) => {
-              tui?.setRouterHealth(health);
               if (health.ok) {
-                tui?.updateService("router", { status: "healthy" });
               }
             })
             .catch(() => undefined);
@@ -1758,10 +1469,6 @@ export async function runStart(args: ParsedArgs) {
             onmyagentBaseUrl,
             onmyagentToken,
           );
-          tui?.setRouterHealth(health);
-          tui?.updateService("router", {
-            status: health.ok ? "healthy" : "running",
-          });
           logger.info("Healthy", { url, ok: health.ok }, "opencode-router");
         } catch (error) {
           logger.warn(
@@ -1769,18 +1476,12 @@ export async function runStart(args: ParsedArgs) {
             { error: String(error) },
             "opencode-router",
           );
-          tui?.updateService("router", {
-            status: "running",
-            message: String(error),
-          });
         }
         if (!opencodeRouterHealthInterval) {
           opencodeRouterHealthInterval = setInterval(() => {
             fetchOpenCodeRouterHealthViaOnMyAgent(onmyagentBaseUrl, onmyagentToken)
               .then((health) => {
-                tui?.setRouterHealth(health);
                 if (health.ok) {
-                  tui?.updateService("router", { status: "healthy" });
                 }
               })
               .catch(() => undefined);
@@ -1896,17 +1597,6 @@ export async function runStart(args: ParsedArgs) {
 
     if (outputJson) {
       console.log(JSON.stringify(payload, null, 2));
-    } else if (useTui) {
-      logger.info(
-        "Ready",
-        {
-          workspace: payload.workspace,
-          opencode: payload.opencode,
-          onmyagent: payload.onmyagent,
-          opencodeRouter: payload.opencodeRouter,
-        },
-        "onmyagent-orchestrator",
-      );
     } else if (logFormat === "json") {
       logger.info(
         "Ready",
@@ -1983,11 +1673,9 @@ export async function runStart(args: ParsedArgs) {
           "onmyagent-orchestrator",
         );
         await shutdown();
-        tui?.stop();
         process.exit(1);
       }
       await shutdown();
-      tui?.stop();
       process.exit(0);
     }
 
@@ -1996,7 +1684,6 @@ export async function runStart(args: ParsedArgs) {
     await new Promise(() => undefined);
   } catch (error) {
     await shutdown();
-    tui?.stop();
     logger.error(
       "Run failed",
       { error: error instanceof Error ? error.message : String(error) },

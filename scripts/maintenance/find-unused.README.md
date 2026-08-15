@@ -41,7 +41,7 @@ Certain paths are ignored entirely (scripts, dev tools) — see the `IGNORE_PREF
 
 Repo config is [`knip.json`](../../knip.json). It ignores marketplace /
 bundled-skill trees and known dynamic/runtime packages (`discord.js` variable
-`import()`, artifact-runtime agent `require()`, OpenTUI platform binaries).
+`import()`, artifact-runtime agent `require()`).
 Do not `knip --fix` those away.
 
 The script only checks for unused **files**. Knip can detect much more — run it directly for deeper analysis:

@@ -1,8 +1,6 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "noEmit": true,
-    "jsx": "react-jsx",
-    "jsxImportSource": "@opentui/solid"
+    "noEmit": true
   }
 }
