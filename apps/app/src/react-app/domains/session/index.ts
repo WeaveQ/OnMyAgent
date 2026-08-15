@@ -172,6 +172,7 @@ export {
   shouldContinueLocalSessionCleanupAfterRemoteDelete,
 } from "./sync/session-delete-policy";
 export { ReactSessionRuntime } from "./sync/runtime-sync";
+export { shouldForwardPromptMessageId } from "./sync/prompt-message-id";
 export {
   clearOptimisticSessionUserMessage,
   disposeWorkspaceSessionSyncs,

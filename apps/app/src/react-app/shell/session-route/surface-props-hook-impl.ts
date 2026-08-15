@@ -51,12 +51,12 @@ import {
   dispatchAssistantSessionWorkspacesChanged,
   readAssistantSessionWorkspace,
   seedOptimisticSessionUserMessage,
+  shouldForwardPromptMessageId,
   startExpertColdPrewarm,
   trackWorkspaceSessionSync,
   writeAssistantSessionWorkspace,
   type ExpertColdPathResult,
 } from "../../domains/session";
-import { shouldForwardPromptMessageId } from "../../domains/session/sync/prompt-message-id";
 import {
   createIsolatedExpertSessionRuntimeDirectory,
   isSameDirectory,
