@@ -4,8 +4,7 @@
  */
 
 import {
-  dematerializeExpertPackageSkillsAndRefresh,
-  materializeExpertPackageSkillsStateAndRefresh,
+  listExpertPackageSkillDeclarations,
 } from "../expert-package-skills.mjs";
 import { toPortableRelativePath } from "../lib/portable-path.mjs";
 
@@ -189,22 +188,18 @@ export function createSkillsDomainHandlers({
     await mkdir(destinationRoot, { recursive: true });
     await rm(destination, { recursive: true, force: true });
     await copyDirectoryRecursive(sourceDir, destination);
-    // Expert-owned skills (e.g. order-entry on order-entry-clerk) must also land
-    // in the user skills root so load_skill / listSkills resolve them by name.
-    const skillState = await materializeExpertPackageSkillsStateAndRefresh({
-      packageDir: destination,
-      skillsRoot: onmyagentUserSkillsRoot(),
-      refreshSkillLinks: refreshRuntimeSkillLinks,
-    });
+    // Expert skills stay in the package (and later the expert session dir).
+    // Do not copy them into the user installed-skills root / 已安装 bucket.
+    const declaredSkills = await listExpertPackageSkillDeclarations(destination);
     return {
       ok: true,
       path: destination,
       packageName: safePackage,
       marketplace,
-      skills: skillState.installed,
-      declaredSkills: skillState.declared,
-      installedSkills: skillState.installed,
-      missingSkills: skillState.missing,
+      skills: declaredSkills,
+      declaredSkills,
+      installedSkills: [],
+      missingSkills: [],
     };
   },
 
@@ -215,13 +210,8 @@ export function createSkillsDomainHandlers({
     const destinationRoot = onmyagentMarketplaceRoot(marketplace);
     const destination = path.join(destinationRoot, safePackage);
     const packageExists = existsSync(destination);
-    let removedSkills = [];
+    const removedSkills = [];
     if (packageExists) {
-      removedSkills = await dematerializeExpertPackageSkillsAndRefresh({
-        packageDir: destination,
-        skillsRoot: onmyagentUserSkillsRoot(),
-        refreshSkillLinks: refreshRuntimeSkillLinks,
-      });
       await rm(destination, { recursive: true, force: true });
     }
     return {
@@ -341,12 +331,6 @@ export function createSkillsDomainHandlers({
         if (!existsSync(customPackageDir)) {
           update("my-experts", "skipped", "package_missing");
         } else {
-          const removedSkills = await dematerializeExpertPackageSkillsAndRefresh({
-            packageDir: customPackageDir,
-            skillsRoot: onmyagentUserSkillsRoot(),
-            refreshSkillLinks: refreshRuntimeSkillLinks,
-          });
-          result.removedSkills = [...new Set([...result.removedSkills, ...removedSkills])];
           await rm(customPackageDir, { recursive: true, force: true });
           update("my-experts", "completed");
         }

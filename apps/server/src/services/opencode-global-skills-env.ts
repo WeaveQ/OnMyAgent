@@ -16,6 +16,7 @@ export function applyOpenCodeChildGlobalSkillsDir(
   options?: { expertSessionDirectory?: string },
 ): Record<string, string | undefined> {
   const next = { ...env };
+  next.OPENCODE_DISABLE_EXTERNAL_SKILLS = "1";
   const sessionDirectory = options?.expertSessionDirectory?.trim();
   if (sessionDirectory) {
     next.OPENCODE_GLOBAL_SKILLS_DIR = expertSessionMaterializedSkillsDir(sessionDirectory);

@@ -15,6 +15,7 @@ import {
   materializeExpertPackageSkills,
   materializeExpertPackageSkillsState,
   materializeExpertPackageSkillsAndRefresh,
+  removeExpertOnlySkillCopies,
   removeRetiredExpertPackageSkills,
 } from "./expert-package-skills.mjs";
 
@@ -356,6 +357,24 @@ describe("expert-package-skills", () => {
         existsSync(path.join(skillsRoot, "introduce-fulfillment")),
         false,
       );
+    });
+  });
+
+  it("removeExpertOnlySkillCopies deletes owner-file copies and keeps user installs", async () => {
+    await withTempDir(async (root) => {
+      const skillsRoot = path.join(root, "skills");
+      await mkdir(path.join(skillsRoot, "expert-copy"), { recursive: true });
+      await mkdir(path.join(skillsRoot, "user-copy"), { recursive: true });
+      await writeFile(path.join(skillsRoot, "expert-copy", "SKILL.md"), "---\nname: expert-copy\n---\n");
+      await writeFile(path.join(skillsRoot, "user-copy", "SKILL.md"), "---\nname: user-copy\n---\n");
+      await writeFile(
+        path.join(skillsRoot, "expert-copy", ".onmyagent-expert-owners.json"),
+        JSON.stringify({ owners: ["demo-expert"] }),
+      );
+      const removed = await removeExpertOnlySkillCopies(skillsRoot);
+      assert.deepEqual(removed, ["expert-copy"]);
+      assert.equal(existsSync(path.join(skillsRoot, "expert-copy")), false);
+      assert.equal(existsSync(path.join(skillsRoot, "user-copy")), true);
     });
   });
 

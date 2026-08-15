@@ -123,8 +123,6 @@ export function createSkillsScan(options = {}) {
         legacyOnmyagentUserSkillsRoot(),
         // Org skills mirrored after company login (profiles/company/.../skills/installed)
         typeof companySkillsRoot === "function" ? companySkillsRoot() : null,
-        path.join(sandboxHome, ".claude", "skills"),
-        path.join(sandboxHome, ".agents", "skills"),
         path.join(sandboxHome, ".agent", "skills"),
         path.join(sandboxHome, ".codex", "skills"),
         path.join(sandboxHome, ".cursor", "skills"),
@@ -137,8 +135,6 @@ export function createSkillsScan(options = {}) {
       if (sandboxHome !== realHome) {
         candidates.push(
           path.join(realHome, ".config", "opencode", "skills"),
-          path.join(realHome, ".claude", "skills"),
-          path.join(realHome, ".agents", "skills"),
           path.join(realHome, ".agent", "skills"),
           path.join(realHome, ".codex", "skills"),
           path.join(realHome, ".cursor", "skills"),

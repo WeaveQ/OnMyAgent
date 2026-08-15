@@ -29,6 +29,7 @@ describe("OpenCode child global skills env", () => {
       HOME: "/sandbox",
     });
     expect(env.OPENCODE_GLOBAL_SKILLS_DIR).toBeUndefined();
+    expect(env.OPENCODE_DISABLE_EXTERNAL_SKILLS).toBe("1");
     expect(env.HOME).toBe("/sandbox");
   });
 

@@ -10,8 +10,6 @@ import {
   globalSkillsDir,
   globalSkillsDirs,
   legacyAgentSkillsDir,
-  legacyAgentsSkillsDir,
-  legacyClaudeSkillsDir,
   legacyOnmyagentSkillsDir,
   legacyOpencodeSkillsDir,
 } from "../workspace/workspace-files.js";
@@ -194,7 +192,7 @@ export async function listSkills(
 
   // Product model — three UI buckets (composer shows all):
   // - 已安装 / 内置: profiles/local/config/skills (scope onmyagent; UI splits by package)
-  // - 本地: project + legacy home skill roots (scope local)
+  // - 本地: project + legacy onmyagent/opencode/.agent roots (not ~/.claude or ~/.agents)
   // - artifact plugins: built-in
   // Packaged bundled-skills / marketplace catalog are install sources only.
   if (options?.artifactSkills) {
@@ -214,8 +212,6 @@ export async function listSkills(
   const localDirs = [
     legacyOnmyagentSkillsDir(),
     legacyOpencodeSkillsDir(),
-    legacyClaudeSkillsDir(),
-    legacyAgentsSkillsDir(),
     legacyAgentSkillsDir(),
   ];
   const profileRoots = new Set(globalSkillsDirs().map((dir) => dir.replace(/[/\\]+$/, "")));
