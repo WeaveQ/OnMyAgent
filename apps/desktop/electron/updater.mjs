@@ -9,6 +9,8 @@ import {
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { showDesktopNotification } from "./desktop-notification.mjs";
+
 // Background auto-update for packaged desktop builds.
 //
 // Primary path (packaged macOS / Windows): electron-updater reads
@@ -38,6 +40,7 @@ const INITIAL_CHECK_DELAY_MS = 30 * 1000; // ~30s after app ready
 const FETCH_TIMEOUT_MS = 15 * 1000;
 const FETCH_RETRY_COUNT = 1;
 const FETCH_RETRY_DELAY_MS = 1_200;
+
 /**
  * Unpackaged (dev) background polling is ON by default — same 30s / 6h as
  * packaged. Opt out with ONMYAGENT_UPDATE_CHECK_IN_DEV=0|false|off.
@@ -839,34 +842,16 @@ export function registerUpdaterIpc({
     if (lastNotifiedVersion === version && !isReady) return;
     lastNotifiedVersion = version;
     try {
-      if (Notification?.isSupported?.()) {
-        const notification = new Notification({
+      showDesktopNotification(
+        {
           title: isReady ? "OnMyAgent update ready" : "OnMyAgent update available",
           body: isReady
             ? `Version ${version} is downloaded. Restart to install.`
             : `Version ${version} is available. Open OnMyAgent to download.`,
-          silent: false,
-        });
-        notification.on("click", () => {
-          if (isReady) {
-            // Focus the window so the user can click "Restart and install".
-            const win = getMainWindow?.();
-            if (win && !win.isDestroyed()) {
-              if (win.isMinimized()) win.restore();
-              win.show();
-              win.focus();
-            }
-          } else {
-            const win = getMainWindow?.();
-            if (win && !win.isDestroyed()) {
-              if (win.isMinimized()) win.restore();
-              win.show();
-              win.focus();
-            }
-          }
-        });
-        notification.show();
-      }
+          force: true,
+        },
+        { getMainWindow, Notification },
+      );
     } catch {
       // Notifications may fail on headless CI; ignore.
     }

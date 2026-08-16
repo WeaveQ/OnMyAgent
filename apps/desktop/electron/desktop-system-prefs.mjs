@@ -12,6 +12,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
 import { createKeepAwakeCoordinator } from "./keep-awake-coordinator.mjs";
+import { showDesktopNotification as presentDesktopNotification } from "./desktop-notification.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -165,6 +166,7 @@ export function getAgentReadySoundPath() {
  * } | null | undefined} input
  * @param {{
  *   getMainWindow?: () => import("electron").BrowserWindow | null | undefined,
+ *   Notification?: typeof import("electron").Notification,
  * }} [options]
  * @returns {{
  *   ok: boolean,
@@ -174,65 +176,10 @@ export function getAgentReadySoundPath() {
  * }}
  */
 export function showDesktopNotification(input, options = {}) {
-  const title = typeof input?.title === "string" ? input.title.trim() : "";
-  const body = typeof input?.body === "string" ? input.body : "";
-  const force = input?.force === true;
-  const href = typeof input?.href === "string" ? input.href.trim() : "";
-
-  if (!title) {
-    return { ok: false, error: "missing_title" };
-  }
-
-  try {
-    if (typeof Notification?.isSupported === "function" && !Notification.isSupported()) {
-      return { ok: false, error: "unsupported" };
-    }
-
-    const getMainWindow = options.getMainWindow;
-    const mainWindow =
-      typeof getMainWindow === "function" ? (getMainWindow() ?? null) : null;
-
-    // Match product rule: suppress when the main window is focused unless forced
-    // (agent-ready is background-only; automation uses force: true).
-    if (
-      !force &&
-      mainWindow &&
-      !mainWindow.isDestroyed() &&
-      mainWindow.isFocused()
-    ) {
-      return { ok: true, skipped: true, reason: "focused" };
-    }
-
-    const notification = new Notification({
-      title,
-      body: body || "",
-      silent: false,
-    });
-
-    notification.on("click", () => {
-      try {
-        if (!mainWindow || mainWindow.isDestroyed()) return;
-        if (mainWindow.isMinimized()) mainWindow.restore();
-        mainWindow.show();
-        mainWindow.focus();
-        if (href) {
-          // Navigate renderer route without a separate IPC event surface.
-          const script = `(function(){try{window.history.pushState(null,"",${JSON.stringify(href)});window.dispatchEvent(new PopStateEvent("popstate"));}catch(_){}})();`;
-          void mainWindow.webContents.executeJavaScript(script).catch(() => undefined);
-        }
-      } catch {
-        // ignore click handler failures
-      }
-    });
-
-    notification.show();
-    return { ok: true, skipped: false };
-  } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
+  return presentDesktopNotification(input, {
+    ...options,
+    Notification: options.Notification ?? Notification,
+  });
 }
 
 /**

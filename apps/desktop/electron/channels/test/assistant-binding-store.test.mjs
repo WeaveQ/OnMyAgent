@@ -39,7 +39,7 @@ const perChat = store.getChatAssistant("weixin", "chat-42");
 assert.equal(perChat?.assistant_id, "asst-chat");
 console.log("✓ per-chat");
 
-console.log("Test 6: legacy fields preserved on read");
+console.log("Test 6: legacy custom_agent_id migrates to assistant_id on load");
 const rawPath = path.join(tmpDir, "channel-settings", "assistant-bindings.json");
 const data = JSON.parse(await fs.readFile(rawPath, "utf8"));
 data.platforms.legacy = { assistant: { custom_agent_id: "legacy", backend: "codex", agent_type: "codex" }, default_model: null };
@@ -47,10 +47,13 @@ await fs.writeFile(rawPath, JSON.stringify(data), "utf8");
 const store2 = new ChannelAssistantBindingStore({ userDataDir: tmpDir });
 await store2.initialize();
 const legacy = store2.getPlatformSettings("legacy");
-assert.equal(legacy.assistant?.custom_agent_id, "legacy");
-assert.equal(legacy.assistant?.backend, "codex");
-assert.equal(legacy.assistant?.agent_type, "codex");
-console.log("✓ legacy fields");
+assert.equal(legacy.assistant?.assistant_id, "legacy");
+assert.equal(legacy.assistant?.custom_agent_id, undefined);
+assert.equal(legacy.assistant?.backend, undefined);
+const persisted = JSON.parse(await fs.readFile(rawPath, "utf8"));
+assert.equal(persisted.platforms.legacy.assistant.assistant_id, "legacy");
+assert.equal(persisted.platforms.legacy.assistant.custom_agent_id, undefined);
+console.log("✓ legacy migrated");
 
 console.log("Test 7: pseudo-agent binding + rollback to external agent (P1-02)");
 await store.setChatAssistant("weixin", "chat-onmyagent", { assistant_id: "onmyagent" });
@@ -61,5 +64,19 @@ await store.setChatAssistant("weixin", "chat-onmyagent", { assistant_id: "asst-c
 const rebound = store.getChatAssistant("weixin", "chat-onmyagent");
 assert.equal(rebound?.assistant_id, "asst-codex");
 console.log("✓ rolled back to external agent without data loss");
+
+console.log("Test 8: dispatch and weixin no longer dual-read custom_agent_id");
+const dispatchSource = await fs.readFile(
+  path.join(import.meta.dirname, "..", "agent-dispatch.mjs"),
+  "utf8",
+);
+const weixinSource = await fs.readFile(
+  path.join(import.meta.dirname, "..", "..", "weixin", "agent-context.mjs"),
+  "utf8",
+);
+assert.equal(dispatchSource.includes("custom_agent_id"), false);
+assert.equal(weixinSource.includes("custom_agent_id"), false);
+assert.equal(dispatchSource.includes("assistant_id ??"), false);
+console.log("✓ dispatch/weixin assistant_id only");
 
 console.log("All assistant binding store tests passed");

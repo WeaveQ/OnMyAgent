@@ -1,4 +1,5 @@
 import { createDurableMessagingTaskRouter, createMessagingTaskEventEnqueuer } from "./channels/durable-messaging-task-router.mjs";
+import { showDesktopNotification } from "./desktop-notification.mjs";
 import { createMessagingTaskDeliveryPump } from "./channels/messaging-task-delivery-pump.mjs";
 import { createMessagingTaskStore } from "./channels/messaging-task-store.mjs";
 
@@ -71,11 +72,14 @@ export async function handleTaskBackgroundEvent({ event, runtimePromise, mainWin
     const windowUnavailable = !mainWindow || mainWindow.isDestroyed() || mainWindow.isVisible?.() !== true;
     if (windowUnavailable && SIGNIFICANT_EVENTS.has(String(event?.type))) {
       try {
-        if (Notification.isSupported()) {
-          const notification = new Notification({ title: "OnMyAgent Task Center", body: `${String(event.type)}: ${String(event.message ?? "").slice(0, 240)}` });
-          notification.on("click", () => { mainWindow?.show(); mainWindow?.focus(); });
-          notification.show();
-        }
+        showDesktopNotification(
+          {
+            title: "OnMyAgent Task Center",
+            body: `${String(event.type)}: ${String(event.message ?? "").slice(0, 240)}`,
+            force: true,
+          },
+          { getMainWindow: () => mainWindow, Notification },
+        );
       } catch { /* durable row and badge remain the fallback */ }
     }
   }

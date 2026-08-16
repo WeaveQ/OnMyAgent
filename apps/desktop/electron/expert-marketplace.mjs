@@ -4,7 +4,7 @@
  * injected from the composition root.
  */
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { resolveLocalExpertsRoot } from "./config-profile-paths.mjs";
@@ -160,6 +160,28 @@ export function createExpertMarketplace(options = {}) {
     }
 
     return manifestSkillNames(values);
+  }
+
+  /**
+   * plugin.json `skills` is SoT. Missing key: copy frontmatter once onto the
+   * manifest, then never dual-read markdown again.
+   */
+  function resolveManifestSkillNames(packagePath, manifest, agentMarkdown) {
+    if (Object.prototype.hasOwnProperty.call(manifest, "skills")) {
+      return manifestSkillNames(manifest.skills);
+    }
+    const skills = legacyFrontmatterSkillNames(agentMarkdown);
+    const pluginPath = path.join(packagePath, ".expert-plugin", "plugin.json");
+    try {
+      writeFileSync(
+        pluginPath,
+        `${JSON.stringify({ ...manifest, skills: skills.map((name) => `./skills/${name}`) }, null, 2)}\n`,
+        "utf8",
+      );
+    } catch (error) {
+      console.warn("[expert-marketplace] persist manifest skills failed", error);
+    }
+    return skills;
   }
 
   function manifestIntroStyle(value) {
@@ -336,7 +358,7 @@ export function createExpertMarketplace(options = {}) {
     const manifest = readJsonIfExists(path.join(packagePath, ".expert-plugin", "plugin.json"));
     const readme = readTextIfExists(path.join(packagePath, "README.md"));
     const agentMarkdown = resolvePackageAgentMarkdown(packagePath, manifest);
-    const hasManifestSkills = Object.prototype.hasOwnProperty.call(manifest, "skills");
+    const skills = resolveManifestSkillNames(packagePath, manifest, agentMarkdown);
     const fallbackName = titleFromMarkdown(readme, titleFromMarkdown(agentMarkdown, packageName));
     const displayName =
       localizedExpertValue(manifest.profession) ||
@@ -384,9 +406,7 @@ export function createExpertMarketplace(options = {}) {
         ? manifest.version.trim()
         : null,
       teamWorkflow: expertTeamWorkflow(manifest.teamWorkflow),
-      skills: hasManifestSkills
-        ? manifestSkillNames(manifest.skills)
-        : legacyFrontmatterSkillNames(agentMarkdown),
+      skills,
       introStyle: manifestIntroStyle(manifest.introStyle),
       approvedAgentIds: manifestApprovedAgentIds(manifest.approvedAgentIds),
     };
@@ -432,7 +452,7 @@ export function createExpertMarketplace(options = {}) {
     const quote = String(input.quote ?? description).trim();
     const rolePrompt = String(input.rolePrompt ?? "").trim();
     const memory = String(input.memory ?? "").trim();
-    const skillNames = manifestSkillNames(input.skills ?? input.skillIds);
+    const skillNames = manifestSkillNames(input.skills);
     const skills = skillNames.map((skillName) => `./skills/${skillName}`);
     const introStyle = manifestIntroStyle(input.introStyle);
     const approvedAgentIds = manifestApprovedAgentIds(input.approvedAgentIds);

@@ -6,9 +6,8 @@
  * with disk persistence so bindings survive restart and can be surfaced by
  * `/api/channel/settings/:platform` REST endpoints.
  *
- * Legacy binding rows (`custom_agent_id` / `backend` / `agent_type`) are kept
- * on read for compatibility with pre-migration installs, but new writes must
- * carry `assistant_id` per @onmyagent/types/channel.
+ * Load migrates leftover `custom_agent_id` rows to `assistant_id` once, then
+ * the runtime only reads `assistant_id`.
  */
 
 import fs from "node:fs/promises";
@@ -114,7 +113,9 @@ export class ChannelAssistantBindingStore {
       const text = await fs.readFile(filePath, "utf8");
       const parsed = JSON.parse(text);
       if (parsed && typeof parsed === "object" && parsed.platforms) {
-        this._data = parsed;
+        const migrated = migrateBindingsFile(parsed);
+        this._data = migrated.data;
+        if (migrated.changed) await this._save();
       }
     } catch (error) {
       if (error && error.code !== "ENOENT") {
@@ -148,11 +149,44 @@ function ensurePlatformRecord(data, key) {
 
 function normalizeReadBinding(raw) {
   if (!raw || typeof raw !== "object") return null;
-  const out = {};
-  if (typeof raw.assistant_id === "string") out.assistant_id = raw.assistant_id;
+  const assistantId =
+    typeof raw.assistant_id === "string" && raw.assistant_id.trim()
+      ? raw.assistant_id.trim()
+      : typeof raw.custom_agent_id === "string" && raw.custom_agent_id.trim()
+        ? raw.custom_agent_id.trim()
+        : "";
+  if (!assistantId) return null;
+  const out = { assistant_id: assistantId };
   if (typeof raw.name === "string") out.name = raw.name;
-  if (typeof raw.custom_agent_id === "string") out.custom_agent_id = raw.custom_agent_id;
-  if (typeof raw.backend === "string") out.backend = raw.backend;
-  if (typeof raw.agent_type === "string") out.agent_type = raw.agent_type;
-  return Object.keys(out).length ? out : null;
+  return out;
+}
+
+function migrateBindingsFile(parsed) {
+  const platforms = parsed.platforms && typeof parsed.platforms === "object" ? parsed.platforms : {};
+  let changed = false;
+  const nextPlatforms = {};
+  for (const [key, record] of Object.entries(platforms)) {
+    if (!record || typeof record !== "object") {
+      nextPlatforms[key] = record;
+      continue;
+    }
+    const assistant = normalizeReadBinding(record.assistant ?? null);
+    const byChat = {};
+    for (const [chatId, binding] of Object.entries(record.byChat ?? {})) {
+      const next = normalizeReadBinding(binding);
+      if (next) byChat[chatId] = next;
+    }
+    if (
+      JSON.stringify(assistant) !== JSON.stringify(record.assistant ?? null) ||
+      JSON.stringify(byChat) !== JSON.stringify(record.byChat ?? {})
+    ) {
+      changed = true;
+    }
+    nextPlatforms[key] = {
+      ...record,
+      assistant,
+      byChat,
+    };
+  }
+  return { data: { ...parsed, platforms: nextPlatforms }, changed };
 }

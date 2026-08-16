@@ -1597,7 +1597,7 @@ async function currentAgentForChat(platformType, session, chatId) {
   if (bindingStore) {
     const chatBinding = bindingStore.getChatAssistant(platformType, chatId);
     const platformBinding = chatBinding ?? bindingStore.getPlatformSettings(platformType)?.assistant ?? null;
-    const bindingId = platformBinding?.assistant_id ?? platformBinding?.custom_agent_id;
+    const bindingId = platformBinding?.assistant_id;
     if (bindingId) {
       const alias = resolveAgentAlias(session.options.availableAgents, bindingId);
       if (alias) {

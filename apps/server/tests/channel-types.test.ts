@@ -80,14 +80,17 @@ describe("channel type contracts", () => {
     ).toBe("onmyagent");
   });
 
-  test("assistant binding read tolerates legacy fields, write demands assistant_id", () => {
+  test("assistant binding read is assistant-first; write demands assistant_id", () => {
     expect(
       channelAssistantBindingReadSchema.parse({
         custom_agent_id: "legacy",
         backend: "codex",
         agent_type: "codex",
-      }).custom_agent_id,
-    ).toBe("legacy");
+      }).assistant_id,
+    ).toBeUndefined();
+    expect(
+      channelAssistantBindingReadSchema.parse({ assistant_id: "a1", name: "Codex" }).assistant_id,
+    ).toBe("a1");
     expect(() => channelAssistantBindingWriteSchema.parse({})).toThrow();
     expect(channelAssistantBindingWriteSchema.parse({ assistant_id: "a1" }).assistant_id).toBe("a1");
   });
