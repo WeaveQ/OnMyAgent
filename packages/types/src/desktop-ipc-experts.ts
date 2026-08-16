@@ -119,8 +119,6 @@ export type MyExpertPackageWriteInput = {
   skills: string[];
   introStyle?: ExpertIntroStyle;
   approvedAgentIds?: string[];
-  /** @deprecated one-train compatibility for pre-P8 callers. */
-  skillIds?: string[];
   knowledge?: Array<{
     kind: "file" | "directory";
     relativePath: string;

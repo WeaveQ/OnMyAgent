@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * Repair a silently failed electron postinstall on Windows.
- * Extracts the cached zip into node_modules/.../electron/dist and writes path.txt.
+ * Repair a missing Electron binary on Windows.
+ * Electron 42+ no longer extracts dist in npm postinstall; first `electron`
+ * bin run (or this script) downloads/extracts the cached zip and writes path.txt.
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -12,7 +13,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 function electronVersion() {
   const pkg = JSON.parse(readFileSync(join(repoRoot, "apps", "desktop", "package.json"), "utf8"));
-  return String(pkg.devDependencies?.electron ?? "").replace(/^\^/, "").trim() || "39.8.10";
+  return String(pkg.devDependencies?.electron ?? "").replace(/^\^/, "").trim() || "43.4.0";
 }
 
 function findElectronPackageDir(version) {
@@ -62,8 +63,21 @@ const zip = cachedZip(version);
 const distDir = join(electronDir, "dist");
 mkdirSync(distDir, { recursive: true });
 if (!zip) {
+  const installJs = join(electronDir, "install.js");
+  if (existsSync(installJs)) {
+    console.log(`[ensure-electron-dist] no cache zip; running Electron first-run install.js for v${version}`);
+    const download = spawnSync(process.execPath, [installJs], {
+      cwd: electronDir,
+      stdio: "inherit",
+      env: process.env,
+    });
+    if (download.status === 0 && isHealthy(electronDir)) {
+      console.log(`[ensure-electron-dist] ok: ${join(distDir, "electron.exe")}`);
+      process.exit(0);
+    }
+  }
   console.error(
-    `[ensure-electron-dist] missing cache zip for v${version}. See docs/windows-compat.md (Electron post-install).`,
+    `[ensure-electron-dist] missing cache zip for v${version}. See docs/windows-compat.md (Electron first-run download).`,
   );
   process.exit(1);
 }

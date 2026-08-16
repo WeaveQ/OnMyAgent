@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -93,6 +93,9 @@ test("legacy frontmatter skills are a one-train fallback behind manifest ownersh
   const marketplace = createExpertMarketplace({ getRealHomeDir: () => "/tmp/onmyagent-test-home" });
   const fallbackEntry = marketplace.expertPackageEntryFromDirectory(root, "legacy-expert", "experts");
   assert.deepEqual(fallbackEntry.skills, ["legacy-one", "legacy-two"]);
+  const persisted = JSON.parse(await readFile(join(root, ".expert-plugin", "plugin.json"), "utf8"));
+  assert.ok(Object.prototype.hasOwnProperty.call(persisted, "skills"));
+  assert.deepEqual(persisted.skills, ["./skills/legacy-one", "./skills/legacy-two"]);
 
   await writeFile(join(root, ".expert-plugin", "plugin.json"), JSON.stringify({
     name: "legacy-expert",

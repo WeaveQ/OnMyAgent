@@ -11,6 +11,7 @@ import {
   sanitizeAppshotFileName,
   isComputerUseAppshotSupported,
 } from "./computer-use-desktop.mjs";
+import { isMostlyBlackNativeImage } from "./computer-use-appshot.mjs";
 
 class FakeChildProcess extends EventEmitter {
   stdout = new PassThrough();
@@ -260,6 +261,23 @@ test("Skysight helpers pause, resume, and update exclusions", async () => {
     spawned.some((args) => args.join(" ") === "skysight exclude remove private_browsing"),
     true,
   );
+});
+
+test("Appshot black-frame check treats sRGB toBitmap dark vs bright consistently", () => {
+  const dark = {
+    isEmpty: () => false,
+    resize: () => ({
+      toBitmap: () => Buffer.alloc(32 * 32 * 4, 0),
+    }),
+  };
+  const bright = {
+    isEmpty: () => false,
+    resize: () => ({
+      toBitmap: () => Buffer.alloc(32 * 32 * 4, 180),
+    }),
+  };
+  assert.equal(isMostlyBlackNativeImage(dark), true);
+  assert.equal(isMostlyBlackNativeImage(bright), false);
 });
 
 test("Appshot is supported on macOS and Windows", () => {
