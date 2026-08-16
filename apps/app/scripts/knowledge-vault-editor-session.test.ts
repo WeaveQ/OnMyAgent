@@ -100,5 +100,17 @@ describe("knowledge editor session", () => {
     expect(page).toContain("ChevronsDown");
     expect(page).toContain("ChevronsUp");
     expect(page).not.toContain("FolderInput");
+    expect(page).toContain("grid-cols-[16rem_minmax(0,1fr)]");
+    expect(page).toContain("grid-rows-[auto_minmax(0,1fr)_auto]");
+    expect(page).toContain('t("knowledge.stat_props"');
+    expect(page).not.toContain("flex w-64 shrink-0 flex-col");
+    const reader = readFileSync(
+      resolve(
+        import.meta.dir,
+        "../src/react-app/domains/session/knowledge/knowledge-vault-reader.tsx",
+      ),
+      "utf8",
+    );
+    expect(reader).not.toContain("knowledge.stat_props");
   });
 });

@@ -660,20 +660,22 @@ export function AssistantPage(props: AssistantPageProps) {
   );
 
   /** Create skill → new task + /skill-creator chip draft (WorkBuddy shape). */
-  const handleCreateSkill = useCallback(() => {
-    openOfficeNewTaskWithDraft(t("session.create_skill_prompt"));
+  const handleCreateSkill = useCallback(async () => {
     if (isElectronRuntime()) {
-      void installBuiltinSkillPackage({
-        source: "builtin",
-        packageName: CREATE_SKILL_PACKAGE_NAME,
-        skillName: CREATE_SKILL_PACKAGE_NAME,
-      }).catch((error) => {
+      try {
+        await installBuiltinSkillPackage({
+          source: "builtin",
+          packageName: CREATE_SKILL_PACKAGE_NAME,
+          skillName: CREATE_SKILL_PACKAGE_NAME,
+        });
+      } catch (error) {
         console.warn(
           `[skills-marketplace] failed to install ${CREATE_SKILL_PACKAGE_NAME}`,
           error,
         );
-      });
+      }
     }
+    openOfficeNewTaskWithDraft(t("session.create_skill_prompt"));
   }, [openOfficeNewTaskWithDraft]);
 
   const handleChatWithSkill = useCallback(
