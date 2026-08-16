@@ -239,13 +239,22 @@ describe("rail idle primary ink contract", () => {
   });
 
   test("sidebar idle chrome avoids stacked opacity on section/timestamps/actions", () => {
-    const sections = readFileSync(
-      resolve(
-        root,
-        "apps/app/src/react-app/domains/session/sidebar/assistant-conversation-sections.tsx",
+    const sections = [
+      readFileSync(
+        resolve(
+          root,
+          "apps/app/src/react-app/domains/session/sidebar/assistant-conversation-sections.tsx",
+        ),
+        "utf8",
       ),
-      "utf8",
-    );
+      readFileSync(
+        resolve(
+          root,
+          "apps/app/src/react-app/domains/session/sidebar/assistant-conversation-rows.tsx",
+        ),
+        "utf8",
+      ),
+    ].join("\n");
     const taskItem = readFileSync(
       resolve(
         root,

@@ -28,11 +28,7 @@ export type SkillMarketplaceCardModel = {
 function SkillMarketplaceCardIcon(props: { skill: SkillMarketplaceCardModel }) {
   if (props.skill.iconUrl) {
     return (
-      <img
-        src={props.skill.iconUrl}
-        alt=""
-        className="size-9 shrink-0 rounded-md object-cover"
-      />
+      <img src={props.skill.iconUrl} alt="" className="size-9 shrink-0 rounded-md object-cover" />
     );
   }
   return (
@@ -83,11 +79,9 @@ export function SkillMarketplaceCard(props: {
       tabIndex={props.onClick ? 0 : undefined}
       className={cn(
         "group flex h-full min-h-36 flex-col rounded-2xl border bg-dls-surface px-4 py-3.5 text-left transition-[background-color,border-color,box-shadow]",
-        props.selected
-          ? "border-dls-accent bg-dls-accent/8"
-          : "border-transparent",
+        props.selected ? "border-dls-accent bg-dls-accent/8" : "border-transparent",
         props.onClick &&
-          "cursor-pointer hover:border-dls-border-strong hover:bg-dls-list-selected hover:shadow-sm focus-visible:border-dls-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30 dark:hover:shadow-none",
+          "cursor-pointer hover:border-dls-border-strong hover:bg-dls-list-selected focus-visible:border-dls-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30 dark:hover:shadow-none",
         "mac:titlebar-no-drag",
         props.className,
       )}
@@ -103,8 +97,7 @@ export function SkillMarketplaceCard(props: {
               <div className="truncate text-sm font-semibold leading-5 text-dls-text">
                 {props.skill.displayName}
               </div>
-              {props.skill.packageName &&
-              props.skill.packageName !== props.skill.displayName ? (
+              {props.skill.packageName && props.skill.packageName !== props.skill.displayName ? (
                 <div className="mt-0.5 truncate text-xs leading-5 text-dls-secondary">
                   {props.skill.packageName}
                 </div>

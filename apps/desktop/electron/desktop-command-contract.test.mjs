@@ -34,6 +34,16 @@ test("desktop commands are assigned to exactly one domain", () => {
   assert.equal(new Set(grouped).size, grouped.length);
 });
 
+test("system group no longer owns knowledge / company / computerUse commands", () => {
+  const system = desktopCommandGroups.system;
+  assert.ok(!system.some((name) => name.startsWith("knowledge")));
+  assert.ok(!system.some((name) => name.startsWith("company")));
+  assert.ok(!system.some((name) => name.includes("ComputerUse") || name.includes("Appshot")));
+  assert.equal(desktopCommandGroups.knowledge[0], "knowledgeEnsureVault");
+  assert.equal(desktopCommandGroups.company[0], "companySettingsRead");
+  assert.equal(desktopCommandGroups.computerUse[0], "getComputerUseMcpCommand");
+});
+
 test("shared desktop contract and Electron handlers have exact parity", () => {
   const implemented = [...listImplementedDesktopCommands()].sort();
   const declared = [...desktopCommandNames].sort();

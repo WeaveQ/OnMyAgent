@@ -7,7 +7,7 @@ const repoRoot = join(import.meta.dir, "../../..");
 describe("automation prompt tools contract", () => {
   test("matches the chat composer controls and keeps folder selection in the workspace field", () => {
     const pageSource = readFileSync(
-      join(repoRoot, "apps/app/src/react-app/domains/messaging/automation-page.tsx"),
+      join(repoRoot, "apps/app/src/react-app/domains/messaging/automation-page-dialogs.tsx"),
       "utf8",
     );
     const toolsSource = readFileSync(

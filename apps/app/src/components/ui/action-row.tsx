@@ -1,11 +1,11 @@
-import type { ComponentProps, ReactNode } from "react"
-import { Button as ButtonPrimitive } from "@base-ui/react/button"
-import { cva, type VariantProps } from "class-variance-authority"
+import type { ComponentProps, ReactNode } from "react";
+import { Button as ButtonPrimitive } from "@base-ui/react/button";
+import { cva, type VariantProps } from "class-variance-authority";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 const menuRowButtonVariants = cva(
-  "flex w-full cursor-pointer items-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:shrink-0",
+  "flex w-full cursor-pointer items-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors outline-none focus-visible:ring-1 focus-visible:ring-dls-focus focus-visible:ring-offset-0 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:shrink-0",
   {
     variants: {
       active: {
@@ -28,22 +28,20 @@ const menuRowButtonVariants = cva(
       align: "start",
       density: "default",
     },
-  }
-)
+  },
+);
 
 const navTabButtonVariants = cva(
   // items-center + fixed svg box keeps icon/label on one baseline (avoids floaty icons in header tabs).
-  "inline-flex cursor-pointer items-center justify-center gap-1.5 font-medium leading-none transition-colors outline-none select-none titlebar-no-drag focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:block [&_svg]:size-3.5 [&_svg]:shrink-0",
+  "inline-flex cursor-pointer items-center justify-center gap-1.5 font-medium leading-none transition-colors outline-none select-none titlebar-no-drag focus-visible:ring-1 focus-visible:ring-dls-focus focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:block [&_svg]:size-3.5 [&_svg]:shrink-0",
   {
     variants: {
       active: {
         // Selected free-float pill: always dark surface + pure white label/icon
         // (light uses primary ink fill; dark uses elevated solid so white stays readable).
         // Idle uses primary ink (not slate secondary).
-        true:
-          "bg-dls-text text-white shadow-none dark:bg-dls-surface-solid dark:text-white dark:ring-1 dark:ring-white/12 [&_svg]:text-white dark:[&_svg]:text-white",
-        false:
-          "bg-transparent text-dls-text hover:bg-dls-hover/70 [&_svg]:text-current",
+        true: "bg-dls-text text-white shadow-none dark:bg-dls-surface-solid dark:text-white dark:ring-1 dark:ring-white/12 [&_svg]:text-white dark:[&_svg]:text-white",
+        false: "bg-transparent text-dls-text hover:bg-dls-hover/70 [&_svg]:text-current",
       },
       size: {
         // ~+2px horizontal padding vs prior px-* for a less tight pill.
@@ -81,11 +79,11 @@ const navTabButtonVariants = cva(
       size: "default",
       shape: "pill",
     },
-  }
-)
+  },
+);
 
 const segmentedTabButtonVariants = cva(
-  "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg font-semibold transition-colors outline-none select-none titlebar-no-drag focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:size-3.5 [&_svg]:shrink-0",
+  "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg font-semibold transition-colors outline-none select-none titlebar-no-drag focus-visible:ring-1 focus-visible:ring-dls-focus focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:size-3.5 [&_svg]:shrink-0",
   {
     variants: {
       active: {
@@ -145,11 +143,11 @@ const segmentedTabButtonVariants = cva(
       size: "default",
       width: "fill",
     },
-  }
-)
+  },
+);
 
 const actionRowButtonVariants = cva(
-  "flex w-full items-start gap-3 rounded-xl border border-dls-border bg-dls-surface p-3.5 text-left transition-colors outline-none hover:bg-dls-hover focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
+  "flex w-full items-start gap-3 rounded-xl border border-dls-border bg-dls-surface p-3.5 text-left transition-colors outline-none hover:bg-dls-hover focus-visible:ring-1 focus-visible:ring-dls-focus focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
   {
     variants: {
       density: {
@@ -169,11 +167,11 @@ const actionRowButtonVariants = cva(
     defaultVariants: {
       density: "default",
     },
-  }
-)
+  },
+);
 
 const disclosureRowButtonVariants = cva(
-  "flex w-full items-center gap-3.5 text-left transition-colors outline-none hover:bg-dls-surface-muted/50 focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
+  "flex w-full items-center gap-3.5 text-left transition-colors outline-none hover:bg-dls-surface-muted/50 focus-visible:ring-1 focus-visible:ring-dls-focus focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
   {
     variants: {
       density: {
@@ -186,11 +184,11 @@ const disclosureRowButtonVariants = cva(
     defaultVariants: {
       density: "default",
     },
-  }
-)
+  },
+);
 
 const navListButtonVariants = cva(
-  "flex w-full items-center text-left transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
+  "flex w-full items-center text-left transition-colors outline-none focus-visible:ring-1 focus-visible:ring-dls-focus focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
   {
     variants: {
       active: {
@@ -216,11 +214,11 @@ const navListButtonVariants = cva(
       active: false,
       size: "default",
     },
-  }
-)
+  },
+);
 
 const railButtonVariants = cva(
-  "flex flex-col items-center justify-center font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
+  "flex flex-col items-center justify-center font-medium transition-colors outline-none focus-visible:ring-1 focus-visible:ring-dls-focus focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
   {
     variants: {
       active: {
@@ -240,11 +238,11 @@ const railButtonVariants = cva(
       active: false,
       size: "top",
     },
-  }
-)
+  },
+);
 
 const treeRowButtonVariants = cva(
-  "flex w-full items-center gap-2 text-left text-dls-text transition-colors outline-none hover:bg-dls-hover focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
+  "flex w-full items-center gap-2 text-left text-dls-text transition-colors outline-none hover:bg-dls-hover focus-visible:ring-1 focus-visible:ring-dls-focus focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
   {
     variants: {
       depth: {
@@ -255,13 +253,13 @@ const treeRowButtonVariants = cva(
     defaultVariants: {
       depth: "root",
     },
-  }
-)
+  },
+);
 
 const sessionRowButtonVariants = cva(
   // select-none: list rows are click targets; text selection wash looks like a
   // broken "selected" chip (especially on multi-line expert rows).
-  "w-full select-none text-left transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50",
+  "w-full select-none text-left transition-colors outline-none focus-visible:ring-1 focus-visible:ring-dls-focus focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       active: {
@@ -312,12 +310,12 @@ const sessionRowButtonVariants = cva(
       size: "conversation",
       muted: false,
     },
-  }
-)
+  },
+);
 
 const matrixButtonVariants = cva(
   // Header + cell share the same full-track box so glyphs line up under column icons.
-  "relative flex h-full w-full min-w-0 items-center justify-center transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
+  "relative flex h-full w-full min-w-0 items-center justify-center transition-colors outline-none focus-visible:ring-1 focus-visible:ring-dls-focus focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
   {
     variants: {
       kind: {
@@ -339,53 +337,49 @@ const matrixButtonVariants = cva(
       active: false,
       interactive: true,
     },
-  }
-)
+  },
+);
 
-const iconTileVariants = cva(
-  "flex shrink-0 items-center justify-center [&_svg]:shrink-0",
-  {
-    variants: {
-      size: {
-        "2xs": "size-5",
-        xs: "size-6",
-        sm: "size-8",
-        default: "size-9",
-        md: "size-10",
-        lg: "size-11",
-        "2xl": "size-16",
-        "3xl": "size-24",
-      },
-      tone: {
-        // Dark: soft lift so the plate reads without needing a hard stroke.
-        neutral:
-          "bg-dls-hover text-dls-secondary dark:bg-white/[0.06]",
-        accent: "bg-dls-decision-soft text-dls-accent",
-        softAccent: "bg-dls-accent/10 text-dls-accent",
-        info: "bg-dls-accent/10 text-dls-accent",
-        surface: "bg-dls-surface text-dls-secondary",
-      },
-      shape: {
-        md: "rounded-md",
-        lg: "rounded-lg",
-        xl: "rounded-xl",
-        circle: "rounded-full",
-      },
-      border: {
-        // Dark: hairline white instead of solid mist (#3A3A3A), which
-        // doubles the parent card frame and looks harsh.
-        true: "border border-dls-border/70 dark:border-white/10",
-        false: "",
-      },
+const iconTileVariants = cva("flex shrink-0 items-center justify-center [&_svg]:shrink-0", {
+  variants: {
+    size: {
+      "2xs": "size-5",
+      xs: "size-6",
+      sm: "size-8",
+      default: "size-9",
+      md: "size-10",
+      lg: "size-11",
+      "2xl": "size-16",
+      "3xl": "size-24",
     },
-    defaultVariants: {
-      size: "sm",
-      tone: "neutral",
-      shape: "lg",
-      border: false,
+    tone: {
+      // Dark: soft lift so the plate reads without needing a hard stroke.
+      neutral: "bg-dls-hover text-dls-secondary dark:bg-white/[0.06]",
+      accent: "bg-dls-decision-soft text-dls-accent",
+      softAccent: "bg-dls-accent/10 text-dls-accent",
+      info: "bg-dls-accent/10 text-dls-accent",
+      surface: "bg-dls-surface text-dls-secondary",
     },
-  }
-)
+    shape: {
+      md: "rounded-md",
+      lg: "rounded-lg",
+      xl: "rounded-xl",
+      circle: "rounded-full",
+    },
+    border: {
+      // Dark: hairline white instead of solid mist (#3A3A3A), which
+      // doubles the parent card frame and looks harsh.
+      true: "border border-dls-border/70 dark:border-white/10",
+      false: "",
+    },
+  },
+  defaultVariants: {
+    size: "sm",
+    tone: "neutral",
+    shape: "lg",
+    border: false,
+  },
+});
 
 function MenuRowButton({
   className,
@@ -394,7 +388,12 @@ function MenuRowButton({
   density = "default",
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof menuRowButtonVariants>) {
-  return <ButtonPrimitive className={cn(menuRowButtonVariants({ active, align, density }), className)} {...props} />
+  return (
+    <ButtonPrimitive
+      className={cn(menuRowButtonVariants({ active, align, density }), className)}
+      {...props}
+    />
+  );
 }
 
 function MenuRowSurface({
@@ -404,7 +403,9 @@ function MenuRowSurface({
   density = "default",
   ...props
 }: ComponentProps<"div"> & VariantProps<typeof menuRowButtonVariants>) {
-  return <div className={cn(menuRowButtonVariants({ active, align, density }), className)} {...props} />
+  return (
+    <div className={cn(menuRowButtonVariants({ active, align, density }), className)} {...props} />
+  );
 }
 
 function NavTabButton({
@@ -414,7 +415,12 @@ function NavTabButton({
   shape = "pill",
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof navTabButtonVariants>) {
-  return <ButtonPrimitive className={cn(navTabButtonVariants({ active, size, shape }), className)} {...props} />
+  return (
+    <ButtonPrimitive
+      className={cn(navTabButtonVariants({ active, size, shape }), className)}
+      {...props}
+    />
+  );
 }
 
 function SegmentedTabButton({
@@ -425,7 +431,12 @@ function SegmentedTabButton({
   width = "fill",
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof segmentedTabButtonVariants>) {
-  return <ButtonPrimitive className={cn(segmentedTabButtonVariants({ active, tone, size, width }), className)} {...props} />
+  return (
+    <ButtonPrimitive
+      className={cn(segmentedTabButtonVariants({ active, tone, size, width }), className)}
+      {...props}
+    />
+  );
 }
 
 /** Soft free-floating filter chip: solid pill when active, plain label when idle. */
@@ -436,10 +447,10 @@ function FilterChip({
   size = "chip",
   ...props
 }: Omit<ButtonPrimitive.Props, "children"> & {
-  selected?: boolean
-  label: ReactNode
+  selected?: boolean;
+  label: ReactNode;
   /** `chip` = compact filter strip; `chipLg` = onboarding / full-page multi-select. */
-  size?: "chip" | "chipLg"
+  size?: "chip" | "chipLg";
 }) {
   return (
     <SegmentedTabButton
@@ -454,7 +465,7 @@ function FilterChip({
     >
       {label}
     </SegmentedTabButton>
-  )
+  );
 }
 
 const segmentedTabGroupVariants = cva("inline-flex items-center", {
@@ -475,19 +486,14 @@ const segmentedTabGroupVariants = cva("inline-flex items-center", {
   defaultVariants: {
     density: "filter",
   },
-})
+});
 
 function SegmentedTabGroup({
   className,
   density = "filter",
   ...props
 }: ComponentProps<"div"> & VariantProps<typeof segmentedTabGroupVariants>) {
-  return (
-    <div
-      className={cn(segmentedTabGroupVariants({ density }), className)}
-      {...props}
-    />
-  )
+  return <div className={cn(segmentedTabGroupVariants({ density }), className)} {...props} />;
 }
 
 function ActionRowButton({
@@ -495,7 +501,9 @@ function ActionRowButton({
   density = "default",
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof actionRowButtonVariants>) {
-  return <ButtonPrimitive className={cn(actionRowButtonVariants({ density }), className)} {...props} />
+  return (
+    <ButtonPrimitive className={cn(actionRowButtonVariants({ density }), className)} {...props} />
+  );
 }
 
 function DisclosureRowButton({
@@ -503,7 +511,12 @@ function DisclosureRowButton({
   density = "default",
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof disclosureRowButtonVariants>) {
-  return <ButtonPrimitive className={cn(disclosureRowButtonVariants({ density }), className)} {...props} />
+  return (
+    <ButtonPrimitive
+      className={cn(disclosureRowButtonVariants({ density }), className)}
+      {...props}
+    />
+  );
 }
 
 function NavListButton({
@@ -512,7 +525,12 @@ function NavListButton({
   size = "default",
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof navListButtonVariants>) {
-  return <ButtonPrimitive className={cn(navListButtonVariants({ active, size }), className)} {...props} />
+  return (
+    <ButtonPrimitive
+      className={cn(navListButtonVariants({ active, size }), className)}
+      {...props}
+    />
+  );
 }
 
 function RailButton({
@@ -521,7 +539,9 @@ function RailButton({
   size = "top",
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof railButtonVariants>) {
-  return <ButtonPrimitive className={cn(railButtonVariants({ active, size }), className)} {...props} />
+  return (
+    <ButtonPrimitive className={cn(railButtonVariants({ active, size }), className)} {...props} />
+  );
 }
 
 function TreeRowButton({
@@ -529,7 +549,7 @@ function TreeRowButton({
   depth = "root",
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof treeRowButtonVariants>) {
-  return <ButtonPrimitive className={cn(treeRowButtonVariants({ depth }), className)} {...props} />
+  return <ButtonPrimitive className={cn(treeRowButtonVariants({ depth }), className)} {...props} />;
 }
 
 function SessionRowButton({
@@ -539,7 +559,12 @@ function SessionRowButton({
   muted = false,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof sessionRowButtonVariants>) {
-  return <ButtonPrimitive className={cn(sessionRowButtonVariants({ active, size, muted }), className)} {...props} />
+  return (
+    <ButtonPrimitive
+      className={cn(sessionRowButtonVariants({ active, size, muted }), className)}
+      {...props}
+    />
+  );
 }
 
 function MatrixButton({
@@ -549,7 +574,12 @@ function MatrixButton({
   interactive = true,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof matrixButtonVariants>) {
-  return <ButtonPrimitive className={cn(matrixButtonVariants({ kind, active, interactive }), className)} {...props} />
+  return (
+    <ButtonPrimitive
+      className={cn(matrixButtonVariants({ kind, active, interactive }), className)}
+      {...props}
+    />
+  );
 }
 
 function IconTile({
@@ -560,7 +590,24 @@ function IconTile({
   border = false,
   ...props
 }: ComponentProps<"div"> & VariantProps<typeof iconTileVariants>) {
-  return <div className={cn(iconTileVariants({ size, tone, shape, border }), className)} {...props} />
+  return (
+    <div className={cn(iconTileVariants({ size, tone, shape, border }), className)} {...props} />
+  );
 }
 
-export { ActionRowButton, DisclosureRowButton, FilterChip, IconTile, MatrixButton, MenuRowButton, MenuRowSurface, NavListButton, NavTabButton, RailButton, SegmentedTabButton, SegmentedTabGroup, SessionRowButton, TreeRowButton }
+export {
+  ActionRowButton,
+  DisclosureRowButton,
+  FilterChip,
+  IconTile,
+  MatrixButton,
+  MenuRowButton,
+  MenuRowSurface,
+  NavListButton,
+  NavTabButton,
+  RailButton,
+  SegmentedTabButton,
+  SegmentedTabGroup,
+  SessionRowButton,
+  TreeRowButton,
+};

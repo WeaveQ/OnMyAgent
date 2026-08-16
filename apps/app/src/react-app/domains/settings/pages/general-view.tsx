@@ -28,10 +28,7 @@ export type GeneralSettingsViewProps = {
   onReportIssue: () => void;
 };
 
-function OverviewSection(props: {
-  label: string;
-  children: ReactNode;
-}) {
+function OverviewSection(props: { label: string; children: ReactNode }) {
   return (
     <section className="space-y-3">
       <h3 className="text-lg font-medium leading-7 text-dls-text">{props.label}</h3>
@@ -56,7 +53,7 @@ function OverviewNavCard(props: {
       className={cn(
         "flex min-h-[4.75rem] w-full items-center gap-3 rounded-xl border border-dls-border",
         "bg-dls-surface px-3.5 py-3 text-left transition-colors",
-        "hover:bg-dls-list-hover focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30",
+        "hover:bg-dls-list-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-focus focus-visible:ring-offset-2",
         props.className,
       )}
     >
@@ -65,18 +62,12 @@ function OverviewNavCard(props: {
         <Icon size={16} className="text-dls-secondary" aria-hidden />
       </IconTile>
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium leading-5 text-dls-text">
-          {props.title}
-        </div>
+        <div className="text-sm font-medium leading-5 text-dls-text">{props.title}</div>
         <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-dls-secondary">
           {props.description}
         </p>
       </div>
-      <ChevronRight
-        size={16}
-        className="shrink-0 text-dls-secondary"
-        aria-hidden
-      />
+      <ChevronRight size={16} className="shrink-0 text-dls-secondary" aria-hidden />
     </button>
   );
 }
@@ -113,31 +104,19 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
       <OverviewSection label={t("settings.workspace_title")}>
-        <OverviewTabGrid
-          tabs={workspaceTabs}
-          onNavigateTab={props.onNavigateTab}
-        />
+        <OverviewTabGrid tabs={workspaceTabs} onNavigateTab={props.onNavigateTab} />
       </OverviewSection>
 
       <OverviewSection label={t("settings.group_personal_memory")}>
-        <OverviewTabGrid
-          tabs={personalMemoryTabs}
-          onNavigateTab={props.onNavigateTab}
-        />
+        <OverviewTabGrid tabs={personalMemoryTabs} onNavigateTab={props.onNavigateTab} />
       </OverviewSection>
 
       <OverviewSection label={t("settings.global_title")}>
-        <OverviewTabGrid
-          tabs={globalTabs}
-          onNavigateTab={props.onNavigateTab}
-        />
+        <OverviewTabGrid tabs={globalTabs} onNavigateTab={props.onNavigateTab} />
       </OverviewSection>
 
       <OverviewSection label={t("settings.group_data")}>
-        <OverviewTabGrid
-          tabs={dataTabs}
-          onNavigateTab={props.onNavigateTab}
-        />
+        <OverviewTabGrid tabs={dataTabs} onNavigateTab={props.onNavigateTab} />
       </OverviewSection>
 
       <OverviewSection label={t("settings.help_title")}>
@@ -158,12 +137,7 @@ export function GeneralSettingsView(props: GeneralSettingsViewProps) {
               {t("settings.feedback_desc")}
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="shrink-0"
-            onClick={props.onReportIssue}
-          >
+          <Button variant="outline" size="sm" className="shrink-0" onClick={props.onReportIssue}>
             {t("settings.report_issue")}
             <ArrowUpRight size={12} />
           </Button>

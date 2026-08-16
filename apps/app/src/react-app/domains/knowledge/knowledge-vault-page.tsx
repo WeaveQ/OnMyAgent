@@ -1,6 +1,14 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronsDown, ChevronsUp, FilePlus, FolderOpen, FolderPlus, RefreshCw, Search } from "lucide-react";
+import {
+  ChevronsDown,
+  ChevronsUp,
+  FilePlus,
+  FolderOpen,
+  FolderPlus,
+  RefreshCw,
+  Search,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { KNOWLEDGE_BASE_PLACEHOLDER_ASSET } from "@/react-app/design-system/empty-state-assets";
@@ -34,10 +42,7 @@ import {
 } from "../../../app/lib/desktop";
 import { KnowledgeVaultReader } from "./knowledge-vault-reader";
 import { KnowledgeVaultSplitEditor } from "./knowledge-vault-split-editor";
-import {
-  subscribeOpenKnowledgeNote,
-  takePendingKnowledgeNote,
-} from "./knowledge-vault-navigation";
+import { subscribeOpenKnowledgeNote, takePendingKnowledgeNote } from "./knowledge-vault-navigation";
 import {
   applyKnowledgeNoteProps,
   countFilledKnowledgeProps,
@@ -74,10 +79,7 @@ import {
   type KnowledgeVaultScopeList,
 } from "./knowledge-vault-model";
 import { createKnowledgeEditorSession } from "./knowledge-vault-editor-session";
-import {
-  readKnowledgeFavorites,
-  toggleKnowledgeFavorite,
-} from "./knowledge-vault-favorites";
+import { readKnowledgeFavorites, toggleKnowledgeFavorite } from "./knowledge-vault-favorites";
 import type { KnowledgeContextTarget } from "./knowledge-vault-context-menu";
 
 type KnowledgeVaultPageProps = {
@@ -164,7 +166,9 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
     if (config?.ok) {
       setVaults(config.vaults ?? []);
       setVaultPath(config.resolvedUserVaultDir);
-      const active = (config.vaults ?? []).find((item) => item.path === config.resolvedUserVaultDir);
+      const active = (config.vaults ?? []).find(
+        (item) => item.path === config.resolvedUserVaultDir,
+      );
       setVaultLabel(active?.name || userPath?.split(/[\\/]/).filter(Boolean).pop() || "");
     } else if (userPath) {
       setVaultPath(userPath);
@@ -225,9 +229,13 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
     [desktop, draft, expertId, workspaceId],
   );
 
-  useEffect(() => subscribeOpenKnowledgeNote((note) => {
-    void openNote(note);
-  }), [openNote]);
+  useEffect(
+    () =>
+      subscribeOpenKnowledgeNote((note) => {
+        void openNote(note);
+      }),
+    [openNote],
+  );
 
   const handleRebuildIndex = useCallback(async () => {
     setIndexing(true);
@@ -373,9 +381,7 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
   };
 
   const persistActiveTab = () =>
-    tabs.map((tab) =>
-      tab.id === activeTabId ? { ...tab, note: selected, draft, loaded } : tab,
-    );
+    tabs.map((tab) => (tab.id === activeTabId ? { ...tab, note: selected, draft, loaded } : tab));
 
   const vaultRoot = useMemo(
     () => scopes.find((item) => item.scope === scope)?.path ?? "",
@@ -430,7 +436,10 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
       setError(t("knowledge.note_name_invalid"));
       return;
     }
-    const relPath = joinKnowledgeRelPath(createFolderPrefix, `${name}/${suggestKnowledgeNoteName()}`);
+    const relPath = joinKnowledgeRelPath(
+      createFolderPrefix,
+      `${name}/${suggestKnowledgeNoteName()}`,
+    );
     const result = await writeKnowledgeVaultFile({
       scope,
       relPath,
@@ -600,7 +609,8 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
 
   const handleMove = async () => {
     if (!moveTarget || moveTarget.kind === "root") return;
-    const destFolder = normalizeKnowledgeFolderName(moveValue) ?? moveValue.trim().replace(/^\/+|\/+$/g, "");
+    const destFolder =
+      normalizeKnowledgeFolderName(moveValue) ?? moveValue.trim().replace(/^\/+|\/+$/g, "");
     if (destFolder.includes("..")) {
       setError(t("knowledge.note_name_invalid"));
       return;
@@ -640,7 +650,11 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
     }
     const dest = destFolder;
     for (const file of files) {
-      const nextPath = rewriteFolderPrefix(file.relPath, moveTarget.path, joinKnowledgeRelPath(dest, moveTarget.path.split("/").pop() ?? moveTarget.path));
+      const nextPath = rewriteFolderPrefix(
+        file.relPath,
+        moveTarget.path,
+        joinKnowledgeRelPath(dest, moveTarget.path.split("/").pop() ?? moveTarget.path),
+      );
       if (!nextPath || nextPath === file.relPath) continue;
       const source = await readKnowledgeVaultFile({
         scope,
@@ -705,7 +719,8 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
       setFavorites(toggleKnowledgeFavorite(key));
     },
     onCopyPath: (target: KnowledgeContextTarget, which: "rel" | "abs") => {
-      const rel = target.kind === "file" ? target.relPath : target.kind === "dir" ? target.path : ".";
+      const rel =
+        target.kind === "file" ? target.relPath : target.kind === "dir" ? target.path : ".";
       void navigator.clipboard.writeText(which === "abs" ? resolveAbsPath(target) : rel);
     },
     onReveal: (target: KnowledgeContextTarget) => {
@@ -895,7 +910,10 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
               disabled={indexing}
               onClick={() => void handleRebuildIndex()}
             >
-              <RefreshCw className={`size-3.5 ${indexing ? "animate-spin" : ""}`} strokeWidth={1.75} />
+              <RefreshCw
+                className={`size-3.5 ${indexing ? "animate-spin" : ""}`}
+                strokeWidth={1.75}
+              />
             </ToolbarIconButton>
           </div>
           {error ? (
@@ -987,7 +1005,13 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
             vaults={
               vaults.length > 0
                 ? vaults
-                : [{ name: vaultLabel || t("knowledge.default_vault"), path: vaultPath, isDefault: true }]
+                : [
+                    {
+                      name: vaultLabel || t("knowledge.default_vault"),
+                      path: vaultPath,
+                      isDefault: true,
+                    },
+                  ]
             }
             onChanged={() => {
               void (async () => {
@@ -1110,7 +1134,7 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
               ? deleteTarget.relPath
               : deleteTarget?.kind === "dir"
                 ? deleteTarget.path
-                : selected?.relPath ?? "",
+                : (selected?.relPath ?? ""),
         })}
         confirmLabel={t("knowledge.delete")}
         cancelLabel={t("common.cancel")}

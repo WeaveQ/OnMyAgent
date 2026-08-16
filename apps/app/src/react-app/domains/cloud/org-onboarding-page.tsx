@@ -25,10 +25,7 @@ import {
 } from "@/app/lib/den";
 import { usePlatform } from "../../kernel/platform";
 import { useBootState } from "../../shell";
-import {
-  resolveModelDisplayName,
-  resolveProviderDisplayName,
-} from "@/app/utils";
+import { resolveModelDisplayName, resolveProviderDisplayName } from "@/app/utils";
 import { ProviderIcon } from "../../design-system/provider-icon";
 import { writeStoredDefaultModel } from "../../kernel/model-config";
 import { orgOnboardingVisibilityEvent } from "../../shell";
@@ -105,10 +102,7 @@ function markProvidersSeen(providers: DenOrgLlmProvider[]) {
     const existing: string[] = raw ? JSON.parse(raw) : [];
     const ids = new Set(existing);
     for (const provider of providers) ids.add(provider.id);
-    window.localStorage.setItem(
-      "onmyagent.seenProviderIds",
-      JSON.stringify([...ids]),
-    );
+    window.localStorage.setItem("onmyagent.seenProviderIds", JSON.stringify([...ids]));
   } catch {}
 }
 
@@ -151,12 +145,7 @@ export function OrgOnboardingPage() {
   }, [authToken, navigate]);
 
   const { data, error, isPending } = useQuery({
-    queryKey: [
-      "den-org-onboarding",
-      settings.baseUrl,
-      settings.apiBaseUrl,
-      "orgs",
-    ],
+    queryKey: ["den-org-onboarding", settings.baseUrl, settings.apiBaseUrl, "orgs"],
     enabled: Boolean(authToken),
     queryFn: () => denClient.listOrgs(),
   });
@@ -180,9 +169,7 @@ export function OrgOnboardingPage() {
           <PageContent>
             <PageLoading>
               <PageLoadingSpinner />
-              <PageLoadingDescription>
-                {t("den.loading_organizations")}
-              </PageLoadingDescription>
+              <PageLoadingDescription>{t("den.loading_organizations")}</PageLoadingDescription>
             </PageLoading>
           </PageContent>
         </PageContainer>
@@ -204,9 +191,7 @@ export function OrgOnboardingPage() {
             <Alert variant="destructive">
               <CircleAlert />
               <AlertDescription>
-                {error instanceof Error
-                  ? error.message
-                  : t("den.unable_to_load_organizations")}
+                {error instanceof Error ? error.message : t("den.unable_to_load_organizations")}
               </AlertDescription>
             </Alert>
           </PageHeader>
@@ -219,9 +204,7 @@ export function OrgOnboardingPage() {
     return (
       <OrganizationSelectionPage
         orgs={data.orgs}
-        defaultOrganization={
-          data.orgs.find((org) => org.id === orgId) ?? data.orgs[0]
-        }
+        defaultOrganization={data.orgs.find((org) => org.id === orgId) ?? data.orgs[0]}
         onContinue={() => setHasSelectedOrganization(true)}
       />
     );
@@ -256,13 +239,7 @@ export function ResourceSelectionPage() {
   const { providers, marketplaces, workers, loading, error } = useQueries({
     queries: [
       {
-        queryKey: [
-          "den-org-onboarding",
-          settings.baseUrl,
-          settings.apiBaseUrl,
-          orgId,
-          "providers",
-        ],
+        queryKey: ["den-org-onboarding", settings.baseUrl, settings.apiBaseUrl, orgId, "providers"],
         enabled: Boolean(authToken && orgId),
         queryFn: () => denClient.listOrgLlmProviders(orgId),
       },
@@ -278,13 +255,7 @@ export function ResourceSelectionPage() {
         queryFn: () => denClient.listOrgMarketplaces(orgId),
       },
       {
-        queryKey: [
-          "den-org-onboarding",
-          settings.baseUrl,
-          settings.apiBaseUrl,
-          orgId,
-          "workers",
-        ],
+        queryKey: ["den-org-onboarding", settings.baseUrl, settings.apiBaseUrl, orgId, "workers"],
         enabled: Boolean(authToken && orgId),
         queryFn: () => denClient.listWorkers(orgId),
       },
@@ -293,10 +264,7 @@ export function ResourceSelectionPage() {
       providers: providersQuery.data ?? [],
       marketplaces: marketplacesQuery.data ?? [],
       workers: workersQuery.data ?? [],
-      loading:
-        providersQuery.isPending ||
-        marketplacesQuery.isPending ||
-        workersQuery.isPending,
+      loading: providersQuery.isPending || marketplacesQuery.isPending || workersQuery.isPending,
       error:
         providersQuery.error?.message ??
         marketplacesQuery.error?.message ??
@@ -324,12 +292,8 @@ export function ResourceSelectionPage() {
     navigate("/assistant", { replace: true });
   }, [navigate, providers, selectedDefault]);
 
-  const totalModels = providers.reduce(
-    (sum, provider) => sum + provider.models.length,
-    0,
-  );
-  const hasResources =
-    providers.length > 0 || marketplaces.length > 0 || workers.length > 0;
+  const totalModels = providers.reduce((sum, provider) => sum + provider.models.length, 0);
+  const hasResources = providers.length > 0 || marketplaces.length > 0 || workers.length > 0;
 
   return (
     <Page>
@@ -349,9 +313,7 @@ export function ResourceSelectionPage() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : hasResources ? (
-            <PageDescription>
-              You have access to the following resources.
-            </PageDescription>
+            <PageDescription>You have access to the following resources.</PageDescription>
           ) : null}
         </PageHeader>
 
@@ -359,9 +321,7 @@ export function ResourceSelectionPage() {
           <PageContent>
             <PageLoading>
               <PageLoadingSpinner />
-              <PageLoadingDescription>
-                Loading available resources...
-              </PageLoadingDescription>
+              <PageLoadingDescription>Loading available resources...</PageLoadingDescription>
             </PageLoading>
           </PageContent>
         ) : !hasResources ? (
@@ -379,11 +339,7 @@ export function ResourceSelectionPage() {
               <EmptyContent>
                 <Button
                   variant="outline"
-                  onClick={() =>
-                    platform.openLink(
-                      resolveDenBaseUrls(settings.baseUrl).baseUrl,
-                    )
-                  }
+                  onClick={() => platform.openLink(resolveDenBaseUrls(settings.baseUrl).baseUrl)}
                 >
                   Open {APP_NAME} Cloud
                   <ArrowUpRightIcon data-icon="inline-end" />
@@ -420,9 +376,7 @@ export function ResourceSelectionPage() {
                 {/* Marketplaces */}
                 {marketplaces.length > 0 ? (
                   <Section
-                    icon={
-                      <Layers className="size-5 text-dls-text/60" />
-                    }
+                    icon={<Layers className="size-5 text-dls-text/60" />}
                     title={t("den.marketplaces_title")}
                     description={t("den.marketplaces_desc")}
                     count={t("den.marketplaces_count", { count: marketplaces.length })}
@@ -436,9 +390,7 @@ export function ResourceSelectionPage() {
                 {/* Workers */}
                 {workers.length > 0 ? (
                   <Section
-                    icon={
-                      <Server className="size-5 text-dls-text/60" />
-                    }
+                    icon={<Server className="size-5 text-dls-text/60" />}
                     title={t("den.cloud_workers_section_title")}
                     description={t("den.cloud_workers_section_desc")}
                     count={t("den.workers_count", { count: workers.length })}
@@ -464,8 +416,8 @@ export function ResourceSelectionPage() {
           {/* Footer hint */}
           {!loading && hasResources ? (
             <p className="text-center text-xs text-dls-secondary text-balance leading-relaxed">
-              Providers are added to your workspace automatically. Marketplaces
-              and workers are available from Cloud settings.
+              Providers are added to your workspace automatically. Marketplaces and workers are
+              available from Cloud settings.
             </p>
           ) : null}
           <Button
@@ -490,11 +442,13 @@ interface MarketplaceCardProps {
 
 function MarketplaceCard({ marketplace }: MarketplaceCardProps) {
   return (
-    <MenuRowSurface align="center" className="-mx-2 border border-dls-border bg-transparent" density="compact">
+    <MenuRowSurface
+      align="center"
+      className="-mx-2 border border-dls-border bg-transparent"
+      density="compact"
+    >
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium text-dls-text">
-          {marketplace.name}
-        </div>
+        <div className="text-sm font-medium text-dls-text">{marketplace.name}</div>
         {marketplace.description ? (
           <div className="mt-0.5 truncate text-xs text-dls-secondary">
             {marketplace.description}
@@ -515,11 +469,13 @@ interface WorkerCardProps {
 
 function WorkerCard({ worker }: WorkerCardProps) {
   return (
-    <MenuRowSurface align="center" className="-mx-2 border border-dls-border bg-transparent" density="compact">
+    <MenuRowSurface
+      align="center"
+      className="-mx-2 border border-dls-border bg-transparent"
+      density="compact"
+    >
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium text-dls-text">
-          {worker.workerName}
-        </div>
+        <div className="text-sm font-medium text-dls-text">{worker.workerName}</div>
         <div className="mt-0.5 text-xs text-dls-secondary">
           {worker.status}
           {worker.provider ? ` · ${worker.provider}` : ""}
@@ -530,7 +486,7 @@ function WorkerCard({ worker }: WorkerCardProps) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Section wrapper                                                    */
+/* Section wrapper */
 /* ------------------------------------------------------------------ */
 
 interface SectionProps {
@@ -550,9 +506,7 @@ function Section({ icon, title, description, count, children }: SectionProps) {
         <div className="min-w-0 flex-1 flex flex-col gap-1">
           <h3 className="flex items-center gap-2 font-medium">
             {title}
-            <span className="text-dls-secondary text-xs">
-              {count}
-            </span>
+            <span className="text-dls-secondary text-xs">{count}</span>
           </h3>
           <p className="text-sm font-normal normal-case tracking-normal text-dls-secondary">
             {description}
@@ -565,7 +519,7 @@ function Section({ icon, title, description, count, children }: SectionProps) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Provider card with "Use as default" option                         */
+/* Provider card with "Use as default" option */
 /* ------------------------------------------------------------------ */
 
 interface ProviderCardProps {
@@ -580,11 +534,7 @@ interface ProviderCardProps {
   ) => void;
 }
 
-function ProviderCard({
-  provider,
-  selectedDefault,
-  onSelectDefault,
-}: ProviderCardProps) {
+function ProviderCard({ provider, selectedDefault, onSelectDefault }: ProviderCardProps) {
   // The local provider ID matches the cloud provider's org-level ID
   const localProviderId = provider.id.trim();
   const firstModel = provider.models[0] ?? null;
@@ -622,16 +572,14 @@ function ProviderCard({
             {resolveProviderDisplayName(provider.name || provider.providerId)}
           </div>
           <div className="mt-0.5 text-xs text-dls-secondary">
-            {provider.models.length === 1
-              ? "1 model"
-              : `${provider.models.length} models`}
+            {provider.models.length === 1 ? "1 model" : `${provider.models.length} models`}
           </div>
         </div>
         {firstModel ? (
           <Button
             type="button"
             variant="ghost"
-            size="pill-xs"
+            size="xs"
             className={cn(
               "shrink-0",
               isSelected
@@ -714,24 +662,16 @@ function OrganizationSelectionPage({
             <Alert variant="destructive">
               <CircleAlert />
               <AlertDescription>
-                {error instanceof Error
-                  ? error.message
-                  : t("den.unable_to_select_organization")}
+                {error instanceof Error ? error.message : t("den.unable_to_select_organization")}
               </AlertDescription>
             </Alert>
           ) : (
-            <PageDescription>
-              {t("den.select_organization_desc")}
-            </PageDescription>
+            <PageDescription>{t("den.select_organization_desc")}</PageDescription>
           )}
         </PageHeader>
 
         <PageContent>
-          <OrganizationList
-            orgs={orgs}
-            value={selected}
-            onValueChange={setSelected}
-          />
+          <OrganizationList orgs={orgs} value={selected} onValueChange={setSelected} />
         </PageContent>
 
         <PageFooter>
@@ -757,11 +697,7 @@ interface OrganizationListProps {
   onValueChange: (value: DenOrgSummary) => void;
 }
 
-export function OrganizationList({
-  orgs,
-  value,
-  onValueChange,
-}: OrganizationListProps) {
+export function OrganizationList({ orgs, value, onValueChange }: OrganizationListProps) {
   return (
     <RadioGroup
       value={value.id}
@@ -784,12 +720,8 @@ export function OrganizationList({
               <FieldTitle className="flex min-w-0 items-center gap-4">
                 <Building2 className="size-6 shrink-0 text-dls-secondary" />
                 <div className="flex min-w-0 flex-col items-start">
-                  <span className="max-w-full truncate text-sm font-medium">
-                    {org.name}
-                  </span>
-                  <span className="max-w-full truncate text-dls-secondary text-xs">
-                    {org.slug}
-                  </span>
+                  <span className="max-w-full truncate text-sm font-medium">{org.name}</span>
+                  <span className="max-w-full truncate text-dls-secondary text-xs">{org.slug}</span>
                 </div>
               </FieldTitle>
               <RadioGroupItem

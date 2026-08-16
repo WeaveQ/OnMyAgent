@@ -165,6 +165,7 @@ safelist: [
         slate: "var(--dls-slate)",
         "app-bg": "var(--dls-app-bg)",
         "rail-bg": "var(--dls-rail-bg)",
+        focus: "var(--dls-focus)",
         "text-primary": "var(--dls-text-primary)",
         "text-secondary": "var(--dls-text-secondary)",
         "text-tertiary": "var(--dls-text-tertiary)",

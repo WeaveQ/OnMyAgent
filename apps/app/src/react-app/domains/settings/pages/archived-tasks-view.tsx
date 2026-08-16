@@ -1,11 +1,5 @@
 /** @jsxImportSource react */
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ComponentType,
-} from "react";
+import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
 import {
   ChevronDown,
   Folder,
@@ -34,11 +28,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@/components/ui/input-group";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
 import { cn } from "@/lib/utils";
@@ -127,9 +117,7 @@ function shortProjectLabel(project: string | null | undefined): string {
   return parts[parts.length - 1] || project;
 }
 
-function projectKeyFromRow(
-  project: string | null | undefined,
-): string {
+function projectKeyFromRow(project: string | null | undefined): string {
   return normalizeProjectKey(project);
 }
 
@@ -168,9 +156,7 @@ function sessionUpdatedAt(session: OnMyAgentSessionArchiveSession): number {
 
 function sessionCreatedAt(session: OnMyAgentSessionArchiveSession): number {
   return (
-    parseTimeMs(session.started_at)
-    ?? parseTimeMs(session.created_at)
-    ?? sessionUpdatedAt(session)
+    parseTimeMs(session.started_at) ?? parseTimeMs(session.created_at) ?? sessionUpdatedAt(session)
   );
 }
 
@@ -201,20 +187,18 @@ function FilterRadioItem(props: {
   const Icon = props.icon;
   return (
     <DropdownMenuRadioItem value={props.value} className="gap-2">
-      {Icon ? (
-        <Icon className="size-3.5 shrink-0 text-dls-secondary" aria-hidden />
-      ) : null}
+      {Icon ? <Icon className="size-3.5 shrink-0 text-dls-secondary" aria-hidden /> : null}
       <span className="min-w-0 flex-1 truncate">{props.label}</span>
     </DropdownMenuRadioItem>
   );
 }
 
 const filterTriggerClass =
-  "h-9 shrink-0 gap-1.5 rounded-full border-dls-border bg-dls-surface px-3 font-normal text-dls-text";
+  "h-9 shrink-0 gap-1.5 rounded-lg border-dls-border bg-dls-surface px-3 font-normal text-dls-text";
 
 export function ArchivedTasksView(props: ArchivedTasksViewProps) {
-  const [assistantTasks, setAssistantTasks] = useState<AssistantArchivedTask[]>(
-    () => readAssistantArchivedTasks(props.workspaceId),
+  const [assistantTasks, setAssistantTasks] = useState<AssistantArchivedTask[]>(() =>
+    readAssistantArchivedTasks(props.workspaceId),
   );
   const [sessions, setSessions] = useState<OnMyAgentSessionArchiveSession[]>([]);
   const [loading, setLoading] = useState(false);
@@ -223,19 +207,14 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [sortMode, setSortMode] = useState<SortMode>("updated");
   /** Independent axes so project + kind compose (WorkBuddy-style menu, multi-dim filter). */
-  const [projectFilter, setProjectFilter] =
-    useState<ArchivedProjectFilter>("all");
+  const [projectFilter, setProjectFilter] = useState<ArchivedProjectFilter>("all");
   const [kindFilter, setKindFilter] = useState<ArchivedKindFilter>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
   /** Project key pending bulk permanent delete confirmation. */
-  const [pendingDeleteGroupKey, setPendingDeleteGroupKey] = useState<
-    string | null
-  >(null);
+  const [pendingDeleteGroupKey, setPendingDeleteGroupKey] = useState<string | null>(null);
   /** Single archived row pending permanent delete confirmation. */
-  const [pendingDeleteRow, setPendingDeleteRow] = useState<UnifiedRow | null>(
-    null,
-  );
+  const [pendingDeleteRow, setPendingDeleteRow] = useState<UnifiedRow | null>(null);
 
   const refreshAssistant = useCallback(() => {
     setAssistantTasks(readAssistantArchivedTasks(props.workspaceId));
@@ -346,12 +325,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
         if (kindFilter === "tasks" && automated) continue;
         if (kindFilter === "scheduled" && !automated) continue;
         if (q) {
-          const hay = [
-            sessionTitle(session),
-            session.project,
-            session.agent,
-            session.id,
-          ]
+          const hay = [sessionTitle(session), session.project, session.agent, session.id]
             .filter(Boolean)
             .join("\n")
             .toLowerCase();
@@ -373,15 +347,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
     }
 
     return sortArchivedRows(out, sortMode);
-  }, [
-    assistantTasks,
-    sessions,
-    query,
-    sourceFilter,
-    sortMode,
-    projectFilter,
-    kindFilter,
-  ]);
+  }, [assistantTasks, sessions, query, sourceFilter, sortMode, projectFilter, kindFilter]);
 
   const sourceLabel = useMemo(() => {
     if (sourceFilter === "local") return t("settings.archived_tasks_type_local");
@@ -399,10 +365,8 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
     }
     if (projectFilter !== "all") {
       return (
-        projectOptions.find((option) => option.value === projectFilter)?.label
-        ?? shortProjectLabel(
-          projectFilter === "__unknown__" ? null : projectFilter,
-        )
+        projectOptions.find((option) => option.value === projectFilter)?.label ??
+        shortProjectLabel(projectFilter === "__unknown__" ? null : projectFilter)
       );
     }
     return t("settings.archived_tasks_all_projects");
@@ -464,9 +428,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
                 })
                 .catch(() => undefined);
             }
-            await props.client.deleteSession(props.workspaceId, id).catch(
-              () => undefined,
-            );
+            await props.client.deleteSession(props.workspaceId, id).catch(() => undefined);
           }
         }
         refreshAssistant();
@@ -489,10 +451,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
       setBusyId(sessionId);
       setError(null);
       try {
-        await props.client.restoreSessionArchiveSession(
-          props.workspaceId,
-          sessionId,
-        );
+        await props.client.restoreSessionArchiveSession(props.workspaceId, sessionId);
         refreshTrash();
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
@@ -509,10 +468,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
       setBusyId(sessionId);
       setError(null);
       try {
-        await props.client.permanentlyDeleteSessionArchiveSession(
-          props.workspaceId,
-          sessionId,
-        );
+        await props.client.permanentlyDeleteSessionArchiveSession(props.workspaceId, sessionId);
         refreshTrash();
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
@@ -525,10 +481,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
 
   const pendingDeleteGroup = useMemo(() => {
     if (!pendingDeleteGroupKey) return null;
-    return (
-      projectGroups.find((group) => group.key === pendingDeleteGroupKey)
-      ?? null
-    );
+    return projectGroups.find((group) => group.key === pendingDeleteGroupKey) ?? null;
   }, [pendingDeleteGroupKey, projectGroups]);
 
   const handleDeleteGroup = useCallback(async () => {
@@ -576,10 +529,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
               // Best-effort.
             }
           }
-          await props.client.permanentlyDeleteSessionArchiveSession(
-            props.workspaceId,
-            row.id,
-          );
+          await props.client.permanentlyDeleteSessionArchiveSession(props.workspaceId, row.id);
         }
       }
       refreshAssistant();
@@ -608,20 +558,13 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
     );
   }
 
-  const empty =
-    !loading && rows.length === 0;
-  const hasAny =
-    assistantTasks.length > 0 || sessions.length > 0;
+  const empty = !loading && rows.length === 0;
+  const hasAny = assistantTasks.length > 0 || sessions.length > 0;
 
   return (
     <LayoutStack className="gap-y-5">
       <div className="flex flex-wrap items-center gap-2">
-        <InputGroup
-          controlSize="sm"
-          radius="md"
-          tone="surface"
-          className="min-w-0 flex-1"
-        >
+        <InputGroup controlSize="sm" radius="md" tone="surface" className="min-w-0 flex-1">
           <InputGroupAddon align="inline-start">
             <Search className="size-3.5" aria-hidden="true" />
           </InputGroupAddon>
@@ -652,9 +595,9 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
           />
           <DropdownMenuContent align="end" className="min-w-52">
             {/*
-              Base UI GroupLabel throws without a parent Group
-              ("MenuGroupRootContext is missing") — that remounts the tab.
-            */}
+ Base UI GroupLabel throws without a parent Group
+ ("MenuGroupRootContext is missing") — that remounts the tab.
+ */}
             <DropdownMenuGroup>
               <DropdownMenuLabel className="text-xs font-medium text-dls-secondary">
                 {t("settings.archived_tasks_type_section")}
@@ -668,14 +611,8 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
                   }
                 }}
               >
-                <FilterRadioItem
-                  value="all"
-                  label={t("settings.archived_tasks_type_all")}
-                />
-                <FilterRadioItem
-                  value="local"
-                  label={t("settings.archived_tasks_type_local")}
-                />
+                <FilterRadioItem value="all" label={t("settings.archived_tasks_type_all")} />
+                <FilterRadioItem value="local" label={t("settings.archived_tasks_type_local")} />
               </DropdownMenuRadioGroup>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
@@ -686,11 +623,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
               <DropdownMenuRadioGroup
                 value={sortMode}
                 onValueChange={(value) => {
-                  if (
-                    value === "updated" ||
-                    value === "created" ||
-                    value === "name"
-                  ) {
+                  if (value === "updated" || value === "created" || value === "name") {
                     setSortMode(value);
                   }
                 }}
@@ -703,10 +636,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
                   value="created"
                   label={t("settings.archived_tasks_sort_created")}
                 />
-                <FilterRadioItem
-                  value="name"
-                  label={t("settings.archived_tasks_sort_name")}
-                />
+                <FilterRadioItem value="name" label={t("settings.archived_tasks_sort_name")} />
               </DropdownMenuRadioGroup>
             </DropdownMenuGroup>
           </DropdownMenuContent>
@@ -725,27 +655,19 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
               >
                 {(() => {
                   const ScopeIcon = scopeIcon;
-                  return (
-                    <ScopeIcon
-                      className="size-3.5 text-dls-secondary"
-                      aria-hidden
-                    />
-                  );
+                  return <ScopeIcon className="size-3.5 text-dls-secondary" aria-hidden />;
                 })()}
                 <span className="max-w-40 truncate">{scopeLabel}</span>
-                <ChevronDown
-                  className="size-3.5 text-dls-secondary"
-                  aria-hidden
-                />
+                <ChevronDown className="size-3.5 text-dls-secondary" aria-hidden />
               </Button>
             }
           />
           <DropdownMenuContent align="end" className="min-w-56">
             {/*
-              Project OR kind axes. Separator sits outside RadioGroups.
-              When kind is inactive, kind RadioGroup stays controlled with a
-              non-matching value so no row is checked.
-            */}
+ Project OR kind axes. Separator sits outside RadioGroups.
+ When kind is inactive, kind RadioGroup stays controlled with a
+ non-matching value so no row is checked.
+ */}
             <DropdownMenuGroup>
               <DropdownMenuRadioGroup
                 value={
@@ -786,9 +708,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuRadioGroup
-                value={
-                  kindFilter !== "all" ? `kind:${kindFilter}` : "kind:none"
-                }
+                value={kindFilter !== "all" ? `kind:${kindFilter}` : "kind:none"}
                 onValueChange={(value) => {
                   if (value === "kind:tasks") {
                     setKindFilter("tasks");
@@ -853,10 +773,10 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
               return (
                 <section key={group.key} className="min-w-0">
                   {/*
-                    Folder row lives inside the same card + ARCHIVE_ROW_INSET as
-                    task titles so left edges share one padding token (no outer
-                    header padding drift).
-                  */}
+ Folder row lives inside the same card + ARCHIVE_ROW_INSET as
+ task titles so left edges share one padding token (no outer
+ header padding drift).
+ */}
                   <div className="overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
                     <header
                       className={cn(
@@ -884,10 +804,8 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
                               type="button"
                               variant="ghost"
                               size="icon-sm"
-                              className="size-7 rounded-full text-dls-secondary hover:bg-dls-surface-muted hover:text-dls-text"
-                              aria-label={t(
-                                "settings.archived_tasks_project_menu",
-                              )}
+                              className="size-7 rounded-lg text-dls-secondary hover:bg-dls-surface-muted hover:text-dls-text"
+                              aria-label={t("settings.archived_tasks_project_menu")}
                               disabled={groupBusy}
                             >
                               <MoreHorizontal className="size-3.5" />
@@ -1020,7 +938,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
 
 /** Primary row action: restore/unarchive only (not co-equal with delete). */
 const archiveRowRestoreBtnClass =
-  "h-7 rounded-full border-dls-border bg-dls-surface-muted/40 px-3 text-xs font-medium text-dls-text hover:bg-dls-surface-muted";
+  "h-7 rounded-lg border-dls-border bg-dls-surface-muted/40 px-3 text-xs font-medium text-dls-text hover:bg-dls-surface-muted";
 
 /**
  * Archive list row: restore is the only same-weight pill.
@@ -1048,9 +966,7 @@ function ArchivedTaskRow(props: {
           {props.row.title}
         </div>
         {props.meta ? (
-          <div className="mt-0.5 truncate text-xs leading-4 text-dls-secondary">
-            {props.meta}
-          </div>
+          <div className="mt-0.5 truncate text-xs leading-4 text-dls-secondary">{props.meta}</div>
         ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-1">
@@ -1063,9 +979,7 @@ function ArchivedTaskRow(props: {
           className={archiveRowRestoreBtnClass}
           data-archive-row-restore="true"
         >
-          {props.busy ? (
-            <LoadingSpinner size="sm" className="me-1.5" />
-          ) : null}
+          {props.busy ? <LoadingSpinner size="sm" className="me-1.5" /> : null}
           {t("settings.archived_tasks_unarchive")}
         </Button>
         <DropdownMenu>
@@ -1075,7 +989,7 @@ function ArchivedTaskRow(props: {
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                className="size-7 rounded-full text-dls-secondary hover:bg-dls-surface-muted hover:text-dls-text"
+                className="size-7 rounded-lg text-dls-secondary hover:bg-dls-surface-muted hover:text-dls-text"
                 disabled={props.busy}
                 aria-label={t("settings.archived_tasks_row_menu")}
                 data-archive-row-menu="true"
@@ -1093,9 +1007,7 @@ function ArchivedTaskRow(props: {
               data-archive-row-delete="true"
             >
               <Trash2 className="size-3.5 shrink-0 text-dls-danger" />
-              <span className="text-dls-danger">
-                {t("settings.archived_tasks_delete")}
-              </span>
+              <span className="text-dls-danger">{t("settings.archived_tasks_delete")}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

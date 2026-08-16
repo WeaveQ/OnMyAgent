@@ -60,9 +60,7 @@ export function MineMoveToDialog(props: MineMoveDialogProps) {
       setFolders(rows);
     } catch (loadError) {
       setFolders([]);
-      setError(
-        loadError instanceof Error ? loadError.message : t("files.load_failed"),
-      );
+      setError(loadError instanceof Error ? loadError.message : t("files.load_failed"));
     } finally {
       setLoading(false);
     }
@@ -87,10 +85,7 @@ export function MineMoveToDialog(props: MineMoveDialogProps) {
     const parts = pickerPath.replace(/\\/g, "/").split("/").filter(Boolean);
     return parts.map((part, index) => {
       const path = parts.slice(0, index + 1).join("/");
-      const label =
-        index === 0 && part === WORKSPACE_UPLOADS_DIR
-          ? t("files.move_to_root")
-          : part;
+      const label = index === 0 && part === WORKSPACE_UPLOADS_DIR ? t("files.move_to_root") : part;
       return { path, label };
     });
   }, [pickerPath]);
@@ -122,17 +117,11 @@ export function MineMoveToDialog(props: MineMoveDialogProps) {
     setBusy(true);
     setError(null);
     try {
-      await props.client.renameWorkspaceFile(
-        props.workspaceId,
-        dest.from,
-        dest.to,
-      );
+      await props.client.renameWorkspaceFile(props.workspaceId, dest.from, dest.to);
       props.onMoved(selectedPath);
       props.onClose();
     } catch (moveError) {
-      setError(
-        moveError instanceof Error ? moveError.message : t("files.move_failed"),
-      );
+      setError(moveError instanceof Error ? moveError.message : t("files.move_failed"));
     } finally {
       setBusy(false);
     }
@@ -160,9 +149,7 @@ export function MineMoveToDialog(props: MineMoveDialogProps) {
       await loadFolders();
     } catch (createError) {
       setError(
-        createError instanceof Error
-          ? createError.message
-          : t("files.create_folder_failed"),
+        createError instanceof Error ? createError.message : t("files.create_folder_failed"),
       );
     } finally {
       setBusy(false);
@@ -183,23 +170,19 @@ export function MineMoveToDialog(props: MineMoveDialogProps) {
       }}
     >
       <div
-        className="flex max-h-[min(36rem,90vh)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-dls-border bg-dls-surface shadow-xl"
+        className="flex max-h-[min(36rem,90vh)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-dls-border bg-dls-surface "
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-dls-border px-4 py-3">
           <div className="min-w-0">
-            <h2 className="text-base font-semibold text-dls-text">
-              {t("files.move_to_title")}
-            </h2>
-            <p className="mt-0.5 text-xs text-dls-secondary">
-              {t("files.move_to_hint")}
-            </p>
+            <h2 className="text-base font-semibold text-dls-text">{t("files.move_to_title")}</h2>
+            <p className="mt-0.5 text-xs text-dls-secondary">{t("files.move_to_hint")}</p>
           </div>
           <InputGroup
             controlSize="default"
             radius="lg"
             tone="surface"
-            className="h-9 w-full max-w-[12rem] rounded-full sm:w-44"
+            className="h-9 w-full max-w-[12rem] sm:w-44"
           >
             <InputGroupAddon align="inline-start">
               <Search className="size-3.5" />
@@ -306,9 +289,7 @@ export function MineMoveToDialog(props: MineMoveDialogProps) {
                     <span
                       className={cn(
                         "flex size-4 shrink-0 items-center justify-center rounded-full border",
-                        selected
-                          ? "border-dls-accent bg-dls-accent"
-                          : "border-dls-border",
+                        selected ? "border-dls-accent bg-dls-accent" : "border-dls-border",
                       )}
                       aria-hidden
                     >
@@ -316,13 +297,8 @@ export function MineMoveToDialog(props: MineMoveDialogProps) {
                         <span className="size-1.5 rounded-full bg-dls-accent-fg" />
                       ) : null}
                     </span>
-                    <Folder
-                      className="size-4 shrink-0 text-dls-accent"
-                      aria-hidden
-                    />
-                    <span className="min-w-0 flex-1 truncate text-dls-text">
-                      {folder.name}
-                    </span>
+                    <Folder className="size-4 shrink-0 text-dls-accent" aria-hidden />
+                    <span className="min-w-0 flex-1 truncate text-dls-text">{folder.name}</span>
                   </button>
                   <Button
                     type="button"
@@ -344,9 +320,7 @@ export function MineMoveToDialog(props: MineMoveDialogProps) {
         </div>
 
         {error ? (
-          <p className="shrink-0 px-4 pb-2 text-xs text-dls-status-danger-fg">
-            {error}
-          </p>
+          <p className="shrink-0 px-4 pb-2 text-xs text-dls-status-danger-fg">{error}</p>
         ) : null}
 
         {createOpen ? (
@@ -407,9 +381,7 @@ export function MineMoveToDialog(props: MineMoveDialogProps) {
               disabled={!canConfirm}
               onClick={() => void handleConfirm()}
             >
-              {busy ? (
-                <Loader2 className="size-3.5 animate-spin" aria-hidden />
-              ) : null}
+              {busy ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : null}
               {t("files.move_to_confirm")}
             </Button>
           </div>

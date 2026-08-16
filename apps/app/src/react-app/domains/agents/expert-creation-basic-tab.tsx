@@ -68,10 +68,7 @@ export function BasicInfoPanel(props: {
   draft: AgentWizardDraft;
   registry: AgentRegistry;
   compact: boolean;
-  onDraftChange: <K extends keyof AgentWizardDraft>(
-    key: K,
-    value: AgentWizardDraft[K],
-  ) => void;
+  onDraftChange: <K extends keyof AgentWizardDraft>(key: K, value: AgentWizardDraft[K]) => void;
 }) {
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const chooseCustomAvatar = (file: File | null) => {
@@ -97,7 +94,7 @@ export function BasicInfoPanel(props: {
           <div className="flex flex-col items-center gap-2 pt-0.5">
             <button
               type="button"
-              className="group relative rounded-full focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+              className="group relative rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-focus focus-visible:ring-offset-2"
               onClick={() => uploadInputRef.current?.click()}
               aria-label={t("agents.expert_creation_avatar")}
             >
@@ -106,7 +103,7 @@ export function BasicInfoPanel(props: {
                 draft={props.draft}
                 className="size-[4.75rem] text-xl ring-1 ring-dls-border/60 ring-offset-2 ring-offset-dls-surface"
               />
-              <span className="absolute -bottom-0.5 -right-0.5 inline-flex size-6 items-center justify-center rounded-full border-2 border-dls-surface bg-dls-text text-dls-surface shadow-sm transition-transform group-hover:scale-105">
+              <span className="absolute -bottom-0.5 -right-0.5 inline-flex size-6 items-center justify-center rounded-full border-2 border-dls-surface bg-dls-text text-dls-surface transition-transform group-hover:scale-105">
                 <Plus className="size-3.5" aria-hidden />
               </span>
             </button>
@@ -134,9 +131,7 @@ export function BasicInfoPanel(props: {
               </span>
               <Input
                 value={props.draft.name}
-                onChange={(event) =>
-                  props.onDraftChange("name", event.currentTarget.value)
-                }
+                onChange={(event) => props.onDraftChange("name", event.currentTarget.value)}
                 placeholder={t("agents.expert_creation_name_placeholder")}
                 variant="dls"
                 controlSize="lg"
@@ -152,23 +147,16 @@ export function BasicInfoPanel(props: {
               </span>
               <Textarea
                 value={props.draft.description}
-                onChange={(event) =>
-                  props.onDraftChange("description", event.currentTarget.value)
-                }
+                onChange={(event) => props.onDraftChange("description", event.currentTarget.value)}
                 placeholder={t("agents.expert_creation_intro_placeholder")}
-                className={cn(
-                  "min-h-[5.25rem] leading-6",
-                  EXPERT_FORM_FIELD_CLASS,
-                )}
+                className={cn("min-h-[5.25rem] leading-6", EXPERT_FORM_FIELD_CLASS)}
                 aria-label={t("agents.expert_creation_intro")}
               />
             </label>
           </div>
         </div>
       </section>
-      <section
-        className={cn("flex min-h-0 flex-1 flex-col", EXPERT_FORM_SECTION_CLASS)}
-      >
+      <section className={cn("flex min-h-0 flex-1 flex-col", EXPERT_FORM_SECTION_CLASS)}>
         <div className="mb-3 shrink-0">
           <h3 className="text-base font-semibold leading-6 text-dls-text">
             {t("agents.expert_creation_role_prompt")}

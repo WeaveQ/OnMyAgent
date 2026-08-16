@@ -13,6 +13,18 @@ import {
   createSystemDomainHandlers,
 } from "./system.mjs";
 import {
+  HANDLER_COMMAND_NAMES as knowledgeCommands,
+  createKnowledgeDomainHandlers,
+} from "./knowledge.mjs";
+import {
+  HANDLER_COMMAND_NAMES as companyCommands,
+  createCompanyDomainHandlers,
+} from "./company.mjs";
+import {
+  HANDLER_COMMAND_NAMES as computerUseCommands,
+  createComputerUseDomainHandlers,
+} from "./computer-use.mjs";
+import {
   HANDLER_COMMAND_NAMES as localAgentsCommands,
   createLocalAgentsDomainHandlers,
 } from "./local-agents.mjs";
@@ -64,6 +76,9 @@ function mockDeps() {
 const domains = [
   { name: "workspace", names: workspaceCommands, create: createWorkspaceDomainHandlers },
   { name: "system", names: systemCommands, create: createSystemDomainHandlers },
+  { name: "knowledge", names: knowledgeCommands, create: createKnowledgeDomainHandlers },
+  { name: "company", names: companyCommands, create: createCompanyDomainHandlers },
+  { name: "computerUse", names: computerUseCommands, create: createComputerUseDomainHandlers },
   { name: "local-agents", names: localAgentsCommands, create: createLocalAgentsDomainHandlers },
   { name: "messaging", names: messagingCommands, create: createMessagingDomainHandlers },
   {

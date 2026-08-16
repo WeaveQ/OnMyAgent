@@ -92,7 +92,7 @@ export function ComposerAttachmentChips(props: ComposerAttachmentChipsProps) {
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  className="ml-0.5 size-5 shrink-0 rounded-full text-dls-secondary opacity-70 hover:bg-dls-hover hover:text-dls-text hover:opacity-100 group-hover/att:opacity-100"
+                  className="ml-0.5 size-5 shrink-0 rounded-md text-dls-secondary opacity-70 hover:bg-dls-hover hover:text-dls-text hover:opacity-100 group-hover/att:opacity-100"
                   onClick={() => props.onRemoveAttachment(attachment.id)}
                   title={t("action.remove")}
                   aria-label={t("action.remove")}

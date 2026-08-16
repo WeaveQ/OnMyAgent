@@ -4,7 +4,7 @@ import {
   applyKnowledgeNoteProps,
   parseKnowledgeNoteProps,
   splitMarkdownFrontmatter,
-} from "../src/react-app/domains/session/knowledge/knowledge-vault-frontmatter";
+} from "../src/react-app/domains/knowledge/knowledge-vault-frontmatter";
 
 describe("knowledge note frontmatter", () => {
   test("reads title tags related and writes them back", () => {

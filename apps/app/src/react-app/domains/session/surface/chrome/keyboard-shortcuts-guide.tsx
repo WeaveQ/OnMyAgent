@@ -25,10 +25,19 @@ import {
 } from "../../../../kernel/keymap";
 import { useLocal } from "../../../../kernel/local-provider";
 
+const ACTION_TITLE_KEYS = {
+  openSettings: "settings.shortcuts_action_openSettings",
+  toggleSidebar: "settings.shortcuts_action_toggleSidebar",
+  newTask: "settings.shortcuts_action_newTask",
+  searchInCurrentTask: "settings.shortcuts_action_searchInCurrentTask",
+  sendMessage: "settings.shortcuts_action_sendMessage",
+  insertNewline: "settings.shortcuts_action_insertNewline",
+  appSnapshot: "settings.shortcuts_action_appSnapshot",
+  quickCapture: "settings.shortcuts_action_quickCapture",
+} as const satisfies Record<KeymapActionId, string>;
+
 function actionTitle(id: KeymapActionId): string {
-  return t(
-    `settings.shortcuts_action_${id}` as "settings.shortcuts_action_openSettings",
-  );
+  return t(ACTION_TITLE_KEYS[id]);
 }
 
 function KbdChip(props: { label: string }) {
@@ -52,11 +61,7 @@ function AcceleratorKeys(props: {
   platform: ReturnType<typeof detectKeymapPlatform>;
 }) {
   if (!props.accelerator.trim()) {
-    return (
-      <span className="text-xs text-dls-secondary">
-        {t("settings.shortcuts_unbound")}
-      </span>
-    );
+    return <span className="text-xs text-dls-secondary">{t("settings.shortcuts_unbound")}</span>;
   }
   const groups = acceleratorToKeyGroups(props.accelerator, props.platform);
   return (
@@ -64,9 +69,7 @@ function AcceleratorKeys(props: {
       {groups.map((keys, groupIndex) => (
         <span key={groupIndex} className="inline-flex flex-wrap items-center gap-x-1 gap-y-1">
           {groupIndex > 0 ? (
-            <span className="px-0.5 text-2xs text-dls-secondary">
-              {t("shortcuts_guide.or")}
-            </span>
+            <span className="px-0.5 text-2xs text-dls-secondary">{t("shortcuts_guide.or")}</span>
           ) : null}
           {keys.map((key, keyIndex) => (
             <span
@@ -74,10 +77,7 @@ function AcceleratorKeys(props: {
               className="inline-flex items-center gap-1"
             >
               {keyIndex > 0 ? (
-                <span
-                  className="select-none text-xs font-medium text-dls-secondary"
-                  aria-hidden
-                >
+                <span className="select-none text-xs font-medium text-dls-secondary" aria-hidden>
                   +
                 </span>
               ) : null}
@@ -128,7 +128,7 @@ export function KeyboardShortcutsGuideButton(props: {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
-          className="w-[min(28rem,calc(100vw-2rem))] gap-0 overflow-hidden rounded-2xl border-dls-border bg-dls-surface p-0 shadow-lg sm:max-w-md"
+          className="w-[min(28rem,calc(100vw-2rem))] gap-0 overflow-hidden rounded-2xl border-dls-border bg-dls-surface p-0 sm:max-w-md"
           showCloseButton={false}
         >
           <DialogHeader className="gap-1.5 border-b border-dls-border px-5 pb-4 pt-5 text-left">
@@ -164,10 +164,7 @@ export function KeyboardShortcutsGuideButton(props: {
                 <span className="min-w-0 flex-1 text-[0.9375rem] font-medium leading-snug text-dls-text">
                   {row.title}
                 </span>
-                <AcceleratorKeys
-                  accelerator={row.accelerator}
-                  platform={platform}
-                />
+                <AcceleratorKeys accelerator={row.accelerator} platform={platform} />
               </li>
             ))}
           </ul>

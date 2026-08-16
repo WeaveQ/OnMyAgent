@@ -12,14 +12,8 @@ import { isDesktopRuntime } from "@/app/utils";
 import { t } from "../../../../i18n";
 import { FilterChip } from "@/components/ui/action-row";
 import { EXPERT_MARKETPLACE_CATEGORIES } from "./categories";
-import {
-  BUILTIN_MARKETPLACE_EXPERTS,
-  filterLocalShelfExperts,
-} from "./data";
-import type {
-  ExpertMarketplaceEntry,
-  ExpertMarketplaceSummonHandler,
-} from "./types";
+import { BUILTIN_MARKETPLACE_EXPERTS, filterLocalShelfExperts } from "./data";
+import type { ExpertMarketplaceEntry, ExpertMarketplaceSummonHandler } from "./types";
 
 export type ExpertMarketplaceView = "market" | "mine" | "company";
 
@@ -31,11 +25,7 @@ function agentFallbackInitial(name: string): string {
   return name.trim().slice(0, 1) || t("session.expert_initial");
 }
 
-function ExpertAvatar(props: {
-  name: string;
-  avatarUrl: string | null;
-  size?: "sm" | "lg";
-}) {
+function ExpertAvatar(props: { name: string; avatarUrl: string | null; size?: "sm" | "lg" }) {
   // Match skills marketplace icons: rounded-md (not circle).
   const sizeClass = props.size === "lg" ? "size-14 rounded-md" : "size-9 rounded-md";
   if (props.avatarUrl) {
@@ -78,9 +68,7 @@ export function isAlreadySummonedExpert(
   if (!pkg) {
     return shelfExperts.some((item) => item.id === expert.id);
   }
-  return shelfExperts.some(
-    (item) => item.packageName?.trim() === pkg || item.id === expert.id,
-  );
+  return shelfExperts.some((item) => item.packageName?.trim() === pkg || item.id === expert.id);
 }
 
 function ExpertCard(props: {
@@ -131,7 +119,7 @@ function ExpertCard(props: {
             <Button
               type="button"
               variant={openChatCta ? "outline" : "default"}
-              size="pill-xs"
+              size="xs"
               tabIndex={-1}
               className={cn(
                 "pointer-events-none shrink-0 opacity-0 shadow-none transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
@@ -180,11 +168,8 @@ export function ExpertMarketplacePage(props: {
 }) {
   const view = props.view ?? "market";
   const [categoryId, setCategoryId] = useState("all");
-  const [selectedExpert, setSelectedExpert] =
-    useState<ExpertMarketplaceEntry | null>(null);
-  const [companyExperts, setCompanyExperts] = useState<
-    Array<{ id: string; name: string }>
-  >([]);
+  const [selectedExpert, setSelectedExpert] = useState<ExpertMarketplaceEntry | null>(null);
+  const [companyExperts, setCompanyExperts] = useState<Array<{ id: string; name: string }>>([]);
   const [companyHint, setCompanyHint] = useState<string | null>(null);
   const [companyConnected, setCompanyConnected] = useState(false);
 
@@ -250,8 +235,7 @@ export function ExpertMarketplacePage(props: {
   // Local shelf ("已召唤专家"): self-created + installed packages that match
   // sidebar session agents — not every pre-seeded package under experts/installed.
   const shelfExperts = useMemo(
-    () =>
-      filterLocalShelfExperts(props.myExperts, props.activeExpertAgentIds),
+    () => filterLocalShelfExperts(props.myExperts, props.activeExpertAgentIds),
     [props.activeExpertAgentIds, props.myExperts],
   );
 
@@ -259,15 +243,16 @@ export function ExpertMarketplacePage(props: {
     const q = (props.query ?? "").trim().toLowerCase();
     const rows = !q
       ? companyExperts
-      : companyExperts.filter((e) =>
-          `${e.name} ${e.id}`.toLowerCase().includes(q),
-        );
+      : companyExperts.filter((e) => `${e.name} ${e.id}`.toLowerCase().includes(q));
     return (
-      <div className={cn("flex h-full min-h-0 select-none flex-col bg-dls-background", props.className)}>
+      <div
+        className={cn(
+          "flex h-full min-h-0 select-none flex-col bg-dls-background",
+          props.className,
+        )}
+      >
         <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-3">
-          {companyHint ? (
-            <p className="mb-3 text-xs text-dls-secondary">{companyHint}</p>
-          ) : null}
+          {companyHint ? <p className="mb-3 text-xs text-dls-secondary">{companyHint}</p> : null}
           {rows.length > 0 ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {rows.map((expert) => (
@@ -280,7 +265,9 @@ export function ExpertMarketplacePage(props: {
                       <div className="truncate text-sm font-semibold text-dls-text">
                         {expert.name}
                       </div>
-                      <p className="mt-1 text-xs text-dls-secondary">{t("store.company_org_readonly")}</p>
+                      <p className="mt-1 text-xs text-dls-secondary">
+                        {t("store.company_org_readonly")}
+                      </p>
                     </div>
                     <StatusBadge tone="surface" shape="soft" size="tiny">
                       {t("store.company_org_badge")}
@@ -291,7 +278,9 @@ export function ExpertMarketplacePage(props: {
             </div>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-sm text-dls-secondary">
-              <p className="text-base font-medium text-dls-text">{t("store.company_experts_title")}</p>
+              <p className="text-base font-medium text-dls-text">
+                {t("store.company_experts_title")}
+              </p>
               <p>
                 {companyConnected
                   ? t("store.company_no_experts_omc")
@@ -392,102 +381,101 @@ export function ExpertMarketplacePage(props: {
         }}
       >
         <DialogContent className="max-h-[calc(100vh-48px)] !max-w-[520px] overflow-y-auto rounded-xl bg-dls-surface p-5">
-          {selectedExpert ? (
-            (() => {
-              // Mine shelf or market card already installed → open chat, not re-summon.
-              const selectedIsMine =
-                view === "mine" ||
-                isAlreadySummonedExpert(selectedExpert, shelfExperts);
-              return (
-            <div>
-              <div className="flex items-start gap-4 pr-8">
-                <ExpertAvatar
-                  name={selectedExpert.displayName}
-                  avatarUrl={selectedExpert.avatarUrl}
-                  size="lg"
-                />
-                <div className="min-w-0">
-                  <div className="text-lg font-medium leading-7 text-dls-text">
-                    {selectedExpert.displayName}
+          {selectedExpert
+            ? (() => {
+                // Mine shelf or market card already installed → open chat, not re-summon.
+                const selectedIsMine =
+                  view === "mine" || isAlreadySummonedExpert(selectedExpert, shelfExperts);
+                return (
+                  <div>
+                    <div className="flex items-start gap-4 pr-8">
+                      <ExpertAvatar
+                        name={selectedExpert.displayName}
+                        avatarUrl={selectedExpert.avatarUrl}
+                        size="lg"
+                      />
+                      <div className="min-w-0">
+                        <div className="text-lg font-medium leading-7 text-dls-text">
+                          {selectedExpert.displayName}
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          <StatusBadge tone="surface" shape="soft" size="tiny">
+                            {selectedExpert.profession}
+                          </StatusBadge>
+                          <StatusBadge tone="surface" shape="soft" size="tiny">
+                            {selectedExpert.categoryLabel}
+                          </StatusBadge>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-6 text-sm font-medium text-dls-secondary">
+                      {t("session.expert_capability")}
+                    </div>
+                    <p className="mt-2 text-sm leading-7 text-dls-text">
+                      {selectedExpert.description}
+                    </p>
+                    {selectedExpert.tags.length ? (
+                      <>
+                        <div className="mt-5 text-sm font-medium text-dls-secondary">
+                          {t("session.expert_strengths")}
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {selectedExpert.tags.map((tag) => (
+                            <StatusBadge key={tag} tone="surface" shape="soft" size="sm">
+                              {tag}
+                            </StatusBadge>
+                          ))}
+                        </div>
+                      </>
+                    ) : null}
+                    {selectedExpert.quickPrompts.length ? (
+                      <>
+                        <div className="mt-5 text-sm font-medium text-dls-secondary">
+                          {t("session.try_ask_expert")}
+                        </div>
+                        <div className="mt-2 space-y-2">
+                          {selectedExpert.quickPrompts.slice(0, 2).map((prompt) => (
+                            <button
+                              key={prompt}
+                              type="button"
+                              className="flex w-full items-center justify-between gap-3 rounded-xl border border-dls-border bg-dls-surface-muted px-4 py-3 text-left text-sm leading-6 text-dls-secondary transition-colors hover:border-dls-accent/30 hover:bg-dls-hover mac:titlebar-no-drag"
+                              onClick={() => {
+                                setSelectedExpert(null);
+                                window.setTimeout(() => {
+                                  props.onSummonMarketplaceExpert(selectedExpert, prompt);
+                                }, MARKETPLACE_DIALOG_EXIT_DURATION_MS);
+                              }}
+                            >
+                              <span>{prompt}</span>
+                              <ChevronRight className="size-4 shrink-0" />
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    ) : null}
+                    <Button
+                      type="button"
+                      size="lg"
+                      className="mt-8 w-full"
+                      onClick={() => {
+                        setSelectedExpert(null);
+                        window.setTimeout(() => {
+                          props.onSummonMarketplaceExpert(selectedExpert);
+                        }, MARKETPLACE_DIALOG_EXIT_DURATION_MS);
+                      }}
+                    >
+                      {selectedIsMine
+                        ? t("session.open_chat_with", {
+                            name: selectedExpert.displayName,
+                          })
+                        : t("session.summon_expert", {
+                            name: selectedExpert.displayName,
+                          })}
+                    </Button>
                   </div>
-                  <div className="mt-1 flex flex-wrap gap-1.5">
-                    <StatusBadge tone="surface" shape="soft" size="tiny">
-                      {selectedExpert.profession}
-                    </StatusBadge>
-                    <StatusBadge tone="surface" shape="soft" size="tiny">
-                      {selectedExpert.categoryLabel}
-                    </StatusBadge>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-6 text-sm font-medium text-dls-secondary">
-                {t("session.expert_capability")}
-              </div>
-              <p className="mt-2 text-sm leading-7 text-dls-text">
-                {selectedExpert.description}
-              </p>
-              {selectedExpert.tags.length ? (
-                <>
-                  <div className="mt-5 text-sm font-medium text-dls-secondary">
-                    {t("session.expert_strengths")}
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {selectedExpert.tags.map((tag) => (
-                      <StatusBadge key={tag} tone="surface" shape="soft" size="sm">
-                        {tag}
-                      </StatusBadge>
-                    ))}
-                  </div>
-                </>
-              ) : null}
-              {selectedExpert.quickPrompts.length ? (
-                <>
-                  <div className="mt-5 text-sm font-medium text-dls-secondary">
-                    {t("session.try_ask_expert")}
-                  </div>
-                  <div className="mt-2 space-y-2">
-                    {selectedExpert.quickPrompts.slice(0, 2).map((prompt) => (
-                      <button
-                        key={prompt}
-                        type="button"
-                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-dls-border bg-dls-surface-muted px-4 py-3 text-left text-sm leading-6 text-dls-secondary transition-colors hover:border-dls-accent/30 hover:bg-dls-hover mac:titlebar-no-drag"
-                        onClick={() => {
-                          setSelectedExpert(null);
-                          window.setTimeout(() => {
-                            props.onSummonMarketplaceExpert(selectedExpert, prompt);
-                          }, MARKETPLACE_DIALOG_EXIT_DURATION_MS);
-                        }}
-                      >
-                        <span>{prompt}</span>
-                        <ChevronRight className="size-4 shrink-0" />
-                      </button>
-                    ))}
-                  </div>
-                </>
-              ) : null}
-              <Button
-                type="button"
-                size="lg"
-                className="mt-8 w-full"
-                onClick={() => {
-                  setSelectedExpert(null);
-                  window.setTimeout(() => {
-                    props.onSummonMarketplaceExpert(selectedExpert);
-                  }, MARKETPLACE_DIALOG_EXIT_DURATION_MS);
-                }}
-              >
-                {selectedIsMine
-                  ? t("session.open_chat_with", {
-                      name: selectedExpert.displayName,
-                    })
-                  : t("session.summon_expert", {
-                      name: selectedExpert.displayName,
-                    })}
-              </Button>
-            </div>
-              );
-            })()
-          ) : null}
+                );
+              })()
+            : null}
         </DialogContent>
       </Dialog>
     </>

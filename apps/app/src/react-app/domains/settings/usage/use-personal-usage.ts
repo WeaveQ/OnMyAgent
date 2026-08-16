@@ -46,11 +46,7 @@ export function usePersonalUsage(input: {
     refetchOnWindowFocus: false,
   });
   const summary = useMemo(
-    () => summarizePersonalUsage(
-      query.data?.snapshots ?? [],
-      input.scopeId,
-      today,
-    ),
+    () => summarizePersonalUsage(query.data?.snapshots ?? [], input.scopeId, today),
     [input.scopeId, query.data?.snapshots, today],
   );
   const loaded = query.data;
@@ -61,8 +57,6 @@ export function usePersonalUsage(input: {
     failures: loaded?.failures ?? [],
     availableWorkspaceIds: loaded?.snapshots.map((snapshot) => snapshot.workspaceId) ?? [],
     allWorkspacesFailed:
-      loaded !== undefined
-      && loaded.snapshots.length === 0
-      && loaded.failures.length > 0,
+      loaded !== undefined && loaded.snapshots.length === 0 && loaded.failures.length > 0,
   };
 }

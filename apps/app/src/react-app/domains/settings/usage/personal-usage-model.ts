@@ -78,9 +78,7 @@ export type PersonalUsageClient = {
     status?: "running" | "completed" | "failed";
     error?: string | null;
   }>;
-  getSessionArchiveSyncStatus: (
-    workspaceId: string,
-  ) => Promise<{
+  getSessionArchiveSyncStatus: (workspaceId: string) => Promise<{
     status: "idle" | "running" | "completed" | "failed";
     error?: string | null;
   }>;
@@ -118,9 +116,7 @@ function shiftDate(value: string, days: number) {
 }
 
 function dateDistance(left: string, right: string) {
-  return Math.round(
-    (parseDateOnly(right).getTime() - parseDateOnly(left).getTime()) / DAY_MS,
-  );
+  return Math.round((parseDateOnly(right).getTime() - parseDateOnly(left).getTime()) / DAY_MS);
 }
 
 function waitForArchiveSyncPoll() {
@@ -129,10 +125,7 @@ function waitForArchiveSyncPoll() {
   });
 }
 
-async function refreshPersonalUsageArchive(
-  client: PersonalUsageClient,
-  workspaceId: string,
-) {
+async function refreshPersonalUsageArchive(client: PersonalUsageClient, workspaceId: string) {
   try {
     const started = await client.syncSessionArchive(workspaceId, {
       mode: "incremental",
@@ -142,11 +135,7 @@ async function refreshPersonalUsageArchive(
     const deadline = Date.now() + 60_000;
     while (Date.now() < deadline) {
       const status = await client.getSessionArchiveSyncStatus(workspaceId);
-      if (
-        status.status === "completed"
-        || status.status === "failed"
-        || status.status === "idle"
-      ) {
+      if (status.status === "completed" || status.status === "failed" || status.status === "idle") {
         return;
       }
       await waitForArchiveSyncPoll();
@@ -159,10 +148,7 @@ async function refreshPersonalUsageArchive(
 
 /** All reported token buckets (includes prompt cache). Prefer for diagnostics only. */
 export function workspaceUsageTotal(usage: PersonalUsageTokenBreakdown) {
-  return usage.inputTokens
-    + usage.outputTokens
-    + usage.cacheCreationTokens
-    + usage.cacheReadTokens;
+  return usage.inputTokens + usage.outputTokens + usage.cacheCreationTokens + usage.cacheReadTokens;
 }
 
 /** User-facing usage: model input + output only (excludes cache). */
@@ -175,35 +161,37 @@ export async function loadPersonalUsageSnapshots(input: {
   workspaces: PersonalUsageWorkspace[];
   today: string;
 }): Promise<PersonalUsageLoadResult> {
-  const results = await Promise.allSettled(input.workspaces.map(async (workspace) => {
-    await refreshPersonalUsageArchive(input.client, workspace.id);
-    const [summary, topSessions, longestSessions] = await Promise.all([
-      input.client.getSessionArchiveUsageSummary(workspace.id, {
-        from: "1970-01-01",
-        to: input.today,
-      }),
-      input.client.getSessionArchiveTopUsageSessions(workspace.id, {
-        from: "1970-01-01",
-        to: input.today,
-        limit: 100,
-      }),
-      input.client.getSessionArchiveAnalyticsTopSessions(workspace.id, {
-        metric: "duration",
-        limit: 1,
-      }),
-    ]);
+  const results = await Promise.allSettled(
+    input.workspaces.map(async (workspace) => {
+      await refreshPersonalUsageArchive(input.client, workspace.id);
+      const [summary, topSessions, longestSessions] = await Promise.all([
+        input.client.getSessionArchiveUsageSummary(workspace.id, {
+          from: "1970-01-01",
+          to: input.today,
+        }),
+        input.client.getSessionArchiveTopUsageSessions(workspace.id, {
+          from: "1970-01-01",
+          to: input.today,
+          limit: 100,
+        }),
+        input.client.getSessionArchiveAnalyticsTopSessions(workspace.id, {
+          metric: "duration",
+          limit: 1,
+        }),
+      ]);
 
-    return {
-      workspaceId: workspace.id,
-      workspaceName: workspace.name,
-      daily: summary.daily,
-      peakSessionTokens: topSessions.reduce(
-        (peak, session) => Math.max(peak, session.totalTokens),
-        0,
-      ),
-      longestSessionMinutes: longestSessions.sessions[0]?.duration_min ?? 0,
-    };
-  }));
+      return {
+        workspaceId: workspace.id,
+        workspaceName: workspace.name,
+        daily: summary.daily,
+        peakSessionTokens: topSessions.reduce(
+          (peak, session) => Math.max(peak, session.totalTokens),
+          0,
+        ),
+        longestSessionMinutes: longestSessions.sessions[0]?.duration_min ?? 0,
+      };
+    }),
+  );
   const snapshots: PersonalUsageWorkspaceSnapshot[] = [];
   const failures: PersonalUsageLoadResult["failures"] = [];
 
@@ -252,9 +240,10 @@ export function summarizePersonalUsage(
   scopeId: PersonalUsageScope,
   today: string,
 ): PersonalUsageSummary {
-  const scoped = scopeId === "all"
-    ? snapshots
-    : snapshots.filter((snapshot) => snapshot.workspaceId === scopeId);
+  const scoped =
+    scopeId === "all"
+      ? snapshots
+      : snapshots.filter((snapshot) => snapshot.workspaceId === scopeId);
   const dailyTotals = new Map<string, number>();
 
   for (const snapshot of scoped) {
@@ -421,11 +410,8 @@ export function formatPersonalTokenCount(tokens: number) {
   if (roundedTokens < 1_000) return String(roundedTokens);
 
   const units = ["k", "m", "b", "t"];
-  const unitIndex = Math.min(
-    Math.floor(Math.log(roundedTokens) / Math.log(1_000)),
-    units.length,
-  );
-  const value = roundedTokens / (1_000 ** unitIndex);
+  const unitIndex = Math.min(Math.floor(Math.log(roundedTokens) / Math.log(1_000)), units.length);
+  const value = roundedTokens / 1_000 ** unitIndex;
   return `${Number(value.toFixed(1))}${units[unitIndex - 1]}`;
 }
 
@@ -447,10 +433,11 @@ export function trimLeadingEmptyActivityColumns(
   emptyFallbackWeeks = 16,
 ): TokenActivityColumn[] {
   if (columns.length === 0) return columns;
-  const firstActive = columns.findIndex((column) =>
-    column.cells.some((cell) => cell.value > 0)
-    || column.weeklyValue > 0
-    || column.cumulativeValue > 0,
+  const firstActive = columns.findIndex(
+    (column) =>
+      column.cells.some((cell) => cell.value > 0) ||
+      column.weeklyValue > 0 ||
+      column.cumulativeValue > 0,
   );
   if (firstActive < 0) {
     return columns.slice(-Math.max(1, emptyFallbackWeeks));

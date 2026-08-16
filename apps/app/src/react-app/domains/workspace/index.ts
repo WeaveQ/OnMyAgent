@@ -20,10 +20,8 @@ export type {
 export { useRemoteAccessRestart } from "./remote-access-restart";
 export type { RemoteAccessRestartPhase } from "./remote-access-restart";
 export { ShareWorkspaceModal } from "./share-workspace-modal";
-export {
-  WorkspaceFilesPage,
-  resolveToolWorkspaceFileRoot,
-} from "./workspace-files-page";
+export { WorkspaceFilesPage, resolveToolWorkspaceFileRoot } from "./workspace-files-page";
+export { workspaceSwatchColor } from "./workspace-swatch";
 export * from "./workspace-modal-types";
 export * from "./workspace-option-card";
 export * from "./share-workspace-access-panel";
@@ -55,7 +53,4 @@ export {
   type OpenSourceSessionAction,
   type SourceSessionStatus,
 } from "./workspace-files-open-session";
-export {
-  isLikelySessionId,
-  isAutomationTaskFolderName,
-} from "./workspace-files-layout";
+export { isLikelySessionId, isAutomationTaskFolderName } from "./workspace-files-layout";

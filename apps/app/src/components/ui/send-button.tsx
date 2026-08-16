@@ -7,10 +7,7 @@ import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
 
-type SendButtonProps = Omit<
-  ComponentProps<typeof Button>,
-  "size" | "variant"
-> & {
+type SendButtonProps = Omit<ComponentProps<typeof Button>, "size" | "variant"> & {
   loading?: boolean;
   label?: string;
 };
@@ -41,7 +38,7 @@ export function SendButton({
       className={cn(
         "rounded-full",
         ready
-          ? "border-0 bg-dls-decision text-white shadow-sm hover:bg-dls-decision-hover hover:text-white"
+          ? "border-0 bg-dls-decision text-white hover:bg-dls-decision-hover hover:text-white"
           : "border border-dls-border/70 bg-dls-surface-muted text-dls-secondary/70 shadow-none hover:bg-dls-surface-muted hover:text-dls-secondary/70",
         // Keep idle disk fully opaque (base Button uses disabled:opacity-50).
         "disabled:pointer-events-none disabled:opacity-100",
@@ -52,11 +49,7 @@ export function SendButton({
       {loading ? (
         <LoadingSpinner size="default" className={ready ? "text-white" : "text-dls-secondary"} />
       ) : (
-        <ArrowUp
-          className="size-5"
-          strokeWidth={ready ? 2.5 : 2}
-          aria-hidden
-        />
+        <ArrowUp className="size-5" strokeWidth={ready ? 2.5 : 2} aria-hidden />
       )}
       <span className="sr-only">{accessibleLabel}</span>
     </Button>

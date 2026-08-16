@@ -8,11 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Clock3 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
 import { t } from "../../../../i18n";
@@ -34,14 +30,8 @@ export function ConversationHistoryPopover(props: {
   const [open, setOpen] = useState(false);
 
   const snapshotQuery = useQuery({
-    queryKey: [
-      "conversation-history-popover",
-      props.workspaceId,
-      props.sessionId,
-    ],
-    enabled: Boolean(
-      open && props.client && props.workspaceId && props.sessionId,
-    ),
+    queryKey: ["conversation-history-popover", props.workspaceId, props.sessionId],
+    enabled: Boolean(open && props.client && props.workspaceId && props.sessionId),
     queryFn: async () => {
       const client = props.client;
       const sessionId = props.sessionId;
@@ -95,7 +85,7 @@ export function ConversationHistoryPopover(props: {
         sideOffset={8}
         className={cn(
           "z-[120] w-[min(22rem,calc(100vw-2rem))] gap-0 overflow-hidden rounded-2xl p-0",
-          "border border-dls-border bg-dls-surface-solid text-dls-text shadow-lg",
+          "border border-dls-border bg-dls-surface-solid text-dls-text ",
         )}
         style={{
           backgroundColor: "var(--dls-surface-solid, #2c2c2c)",
@@ -104,9 +94,7 @@ export function ConversationHistoryPopover(props: {
         <div className="border-b border-dls-border px-3.5 py-2.5">
           <div className="text-sm text-dls-secondary">
             {t("session.conversation_history_popover_heading")}
-            {entries.length > 0 ? (
-              <span className="ms-1">({entries.length})</span>
-            ) : null}
+            {entries.length > 0 ? <span className="ms-1">({entries.length})</span> : null}
           </div>
         </div>
 

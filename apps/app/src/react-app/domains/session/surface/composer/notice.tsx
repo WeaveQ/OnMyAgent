@@ -40,7 +40,7 @@ export function ReactComposerNotice(props: { notice: ReactComposerNotice | null 
       data-composer-notice-viewport="true"
     >
       <div
-        className={`pointer-events-auto w-full max-w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid shadow-lg animate-in fade-in slide-in-from-top-4 duration-300 ${
+        className={`pointer-events-auto w-full max-w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid animate-in fade-in slide-in-from-top-4 duration-300 ${
           hasDescription || hasAction ? "px-3.5 py-2.5" : "px-3 py-2"
         }`}
         role="status"
@@ -56,18 +56,10 @@ export function ReactComposerNotice(props: { notice: ReactComposerNotice | null 
               hasDescription || hasAction ? "mt-0.5" : ""
             }`}
           >
-            {tone === "success"
-              ? "✓"
-              : tone === "warning"
-                ? "!"
-                : tone === "error"
-                  ? "×"
-                  : "i"}
+            {tone === "success" ? "✓" : tone === "warning" ? "!" : tone === "error" ? "×" : "i"}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium leading-5 text-dls-text">
-              {props.notice.title}
-            </div>
+            <div className="text-sm font-medium leading-5 text-dls-text">{props.notice.title}</div>
             {hasDescription ? (
               <p className="mt-0.5 line-clamp-3 break-all text-xs leading-5 text-dls-secondary">
                 {props.notice.description}

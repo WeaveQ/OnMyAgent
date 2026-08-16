@@ -22,7 +22,11 @@ export function KnowledgeVaultReader(props: KnowledgeVaultReaderProps) {
     headingTitleFromBody(body) ||
     props.relPath.split("/").pop() ||
     props.relPath;
-  const crumbs = [props.vaultLabel, ...props.relPath.split("/").filter(Boolean).slice(0, -1), title];
+  const crumbs = [
+    props.vaultLabel,
+    ...props.relPath.split("/").filter(Boolean).slice(0, -1),
+    title,
+  ];
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" onDoubleClick={props.onEdit}>

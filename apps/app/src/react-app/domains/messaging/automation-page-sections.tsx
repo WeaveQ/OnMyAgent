@@ -33,7 +33,12 @@ export function AutomationField(props: { label: string; hint?: string; children:
 
 export function AddWorkspaceField() {
   return (
-    <Button type="button" variant="outline" size="sm" className="w-full justify-start px-3 text-dls-secondary">
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="w-full justify-start px-3 text-dls-secondary"
+    >
       <span className="flex size-5 items-center justify-center rounded-full border border-dls-border">
         <Plus className="size-3.5" />
       </span>
@@ -43,7 +48,12 @@ export function AddWorkspaceField() {
 
 export function SelectLikeField(props: { label: string }) {
   return (
-    <Button type="button" variant="outline" size="sm" className="w-full justify-between px-3 text-dls-secondary">
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="w-full justify-between px-3 text-dls-secondary"
+    >
       <span className="truncate">{props.label}</span>
       <ChevronDown className="size-4 shrink-0" />
     </Button>
@@ -60,19 +70,23 @@ export function AutomationTemplateCard(props: {
     <button
       type="button"
       onClick={() => props.onSelect(props.template)}
-      className="group flex min-h-16 items-center gap-3 rounded-lg border border-dls-border bg-dls-surface px-3 py-2.5 text-left transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+      className="group flex min-h-16 items-center gap-3 rounded-lg border border-dls-border bg-dls-surface px-3 py-2.5 text-left transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-focus focus-visible:ring-offset-2"
     >
       <Icon className="size-5 shrink-0 text-dls-secondary group-hover:text-dls-text" />
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-1.5">
-          <span className="block truncate text-sm font-medium text-dls-text">{t(props.template.titleKey)}</span>
+          <span className="block truncate text-sm font-medium text-dls-text">
+            {t(props.template.titleKey)}
+          </span>
           {props.recommended ? (
             <StatusBadge tone="accent" size="tiny" shape="soft" className="shrink-0">
               {t("automation.personalization_recommended")}
             </StatusBadge>
           ) : null}
         </span>
-        <span className="mt-0.5 block truncate text-xs text-dls-secondary">{t(props.template.descriptionKey)}</span>
+        <span className="mt-0.5 block truncate text-xs text-dls-secondary">
+          {t(props.template.descriptionKey)}
+        </span>
       </span>
     </button>
   );
@@ -81,7 +95,12 @@ export function AutomationTemplateCard(props: {
 function AutomationTaskMeta(props: { item: OnMyAgentAutomationTaskItem }) {
   return (
     <>
-      <StatusBadge tone="surface" size="sm" shape="soft" className="max-w-48 shrink-0 truncate font-medium">
+      <StatusBadge
+        tone="surface"
+        size="sm"
+        shape="soft"
+        className="max-w-48 shrink-0 truncate font-medium"
+      >
         {props.item.id}
       </StatusBadge>
       <StatusBadge tone="surface" size="sm" shape="soft" className="shrink-0 font-medium">
@@ -99,14 +118,16 @@ export function ScheduledAutomationRow(props: {
     <button
       type="button"
       onClick={() => props.onEdit(props.item)}
-      className="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-xs text-dls-text transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+      className="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-xs text-dls-text transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-focus focus-visible:ring-offset-2"
     >
       <StatusDot size="md" tone={props.item.enabled ? "muted" : "danger"} />
       <span className="min-w-0 flex flex-1 items-center gap-2">
         <span className="truncate text-sm font-medium">{props.item.title}</span>
         <AutomationTaskMeta item={props.item} />
         {!props.item.enabled ? (
-          <StatusBadge tone="surface" size="sm" shape="soft">{t("automation.status_paused")}</StatusBadge>
+          <StatusBadge tone="surface" size="sm" shape="soft">
+            {t("automation.status_paused")}
+          </StatusBadge>
         ) : null}
       </span>
       <span className="shrink-0 text-xs text-dls-secondary">{nextRunLabel(props.item)}</span>
@@ -186,7 +207,9 @@ export function RunningAutomationRow(props: {
       <div className="mt-2 min-w-0">
         <div className="truncate text-sm font-semibold text-dls-text">{props.item.title}</div>
         {promptPreview ? (
-          <div className="mt-1 line-clamp-2 text-xs leading-5 text-dls-secondary">{promptPreview}</div>
+          <div className="mt-1 line-clamp-2 text-xs leading-5 text-dls-secondary">
+            {promptPreview}
+          </div>
         ) : null}
         {elapsedMs != null ? (
           <div className="mt-1 truncate text-xs text-dls-secondary">
@@ -238,12 +261,20 @@ export function CompletedAutomationRow(props: {
       onClick={() => {
         if (run.sessionId) props.onOpenSession(run.sessionId);
       }}
-      className="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-xs text-dls-text transition-colors enabled:hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-default"
+      className="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-xs text-dls-text transition-colors enabled:hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-focus focus-visible:ring-offset-2 disabled:cursor-default"
     >
-      <StatusDot size="md" tone={successful ? "active" : run.status === "skipped" ? "warning" : "danger"} />
+      <StatusDot
+        size="md"
+        tone={successful ? "active" : run.status === "skipped" ? "warning" : "danger"}
+      />
       <span className="min-w-0 flex flex-1 items-center gap-2">
         <span className="truncate text-sm font-medium">{task.title}</span>
-        <StatusBadge tone="surface" size="sm" shape="soft" className="max-w-48 shrink-0 truncate font-medium">
+        <StatusBadge
+          tone="surface"
+          size="sm"
+          shape="soft"
+          className="max-w-48 shrink-0 truncate font-medium"
+        >
           {task.id}
         </StatusBadge>
         <span className={successful ? "text-dls-status-success-fg" : "text-dls-secondary"}>
@@ -254,7 +285,9 @@ export function CompletedAutomationRow(props: {
               : t("automation.run_failed")}
         </span>
       </span>
-      <span className="shrink-0 text-xs text-dls-secondary">{new Date(run.ranAt).toLocaleString()}</span>
+      <span className="shrink-0 text-xs text-dls-secondary">
+        {new Date(run.ranAt).toLocaleString()}
+      </span>
     </button>
   );
 }

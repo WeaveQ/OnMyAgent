@@ -6,8 +6,8 @@ import {
   completeAutosave,
   createKnowledgeEditorSession,
   openKnowledgeNote,
-} from "../src/react-app/domains/session/knowledge/knowledge-vault-editor-session";
-import type { KnowledgeNoteRef } from "../src/react-app/domains/session/knowledge/knowledge-vault-model";
+} from "../src/react-app/domains/knowledge/knowledge-vault-editor-session";
+import type { KnowledgeNoteRef } from "../src/react-app/domains/knowledge/knowledge-vault-model";
 
 const noteA: KnowledgeNoteRef = { scope: "user", relPath: "a.md" };
 const noteB: KnowledgeNoteRef = { scope: "user", relPath: "b.md" };
@@ -89,7 +89,7 @@ describe("knowledge editor session", () => {
     const page = readFileSync(
       resolve(
         import.meta.dir,
-        "../src/react-app/domains/session/knowledge/knowledge-vault-page.tsx",
+        "../src/react-app/domains/knowledge/knowledge-vault-page.tsx",
       ),
       "utf8",
     );
@@ -107,7 +107,7 @@ describe("knowledge editor session", () => {
     const reader = readFileSync(
       resolve(
         import.meta.dir,
-        "../src/react-app/domains/session/knowledge/knowledge-vault-reader.tsx",
+        "../src/react-app/domains/knowledge/knowledge-vault-reader.tsx",
       ),
       "utf8",
     );

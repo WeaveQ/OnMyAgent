@@ -2,10 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Copy, ExternalLink, Loader2 } from "lucide-react";
 
-import type {
-  LarkCliAuthProgress,
-  LarkCliConnectionStatus,
-} from "@onmyagent/types/lark-cli-auth";
+import type { LarkCliAuthProgress, LarkCliConnectionStatus } from "@onmyagent/types/lark-cli-auth";
 import { LARK_CLI_OPEN_PLATFORM_APP_URL } from "@onmyagent/types/lark-cli-auth";
 
 import { Button } from "@/components/ui/button";
@@ -48,10 +45,7 @@ const clickableTextClassName =
   "mac:titlebar-no-drag inline-flex items-center gap-1 font-medium text-dls-accent underline underline-offset-2 transition-opacity hover:opacity-80";
 
 /** Timeouts / expired waits → silent QR refresh, not a scary banner. */
-function isTransientAuthFailure(
-  code?: string | null,
-  message?: string | null,
-): boolean {
+function isTransientAuthFailure(code?: string | null, message?: string | null): boolean {
   if (
     code === "network_timeout" ||
     code === "device_code_expired" ||
@@ -228,23 +222,14 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
         return;
       }
       if (progress.phase === "error" && progress.errorMessage) {
-        if (
-          progress.operation === "user_login" ||
-          progress.operation === "config_init"
-        ) {
+        if (progress.operation === "user_login" || progress.operation === "config_init") {
           const facing = userFacingAuthError(progress.errorMessage);
           if (facing) setError(facing);
         }
         setBusy(false);
       }
     });
-  }, [
-    props.open,
-    advanceToLogin,
-    finishLoginSuccess,
-    scheduleLoginRefresh,
-    scheduleConfigRefresh,
-  ]);
+  }, [props.open, advanceToLogin, finishLoginSuccess, scheduleLoginRefresh, scheduleConfigRefresh]);
 
   const startLoginFlow = useCallback(async () => {
     if (loginStartedRef.current) return;
@@ -357,10 +342,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
       try {
         const status = await getLarkCliConnectionStatus();
         if (stopped) return;
-        if (
-          status.phase === "connected_not_logged_in" ||
-          status.phase === "connected_logged_in"
-        ) {
+        if (status.phase === "connected_not_logged_in" || status.phase === "connected_logged_in") {
           await advanceToLogin(status);
         }
       } catch {
@@ -429,24 +411,18 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
               <li className="flex w-28 flex-col items-center gap-2 sm:w-32">
                 <span
                   className={cn(
-                    "flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold shadow-sm ring-4",
+                    "flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold ring-4",
                     step === 1
                       ? "bg-dls-accent text-white ring-dls-accent/15"
                       : "bg-dls-status-success-fg text-white ring-dls-status-success-fg/20",
                   )}
                 >
-                  {step === 2 ? (
-                    <Check className="size-4" strokeWidth={2.5} aria-hidden />
-                  ) : (
-                    "1"
-                  )}
+                  {step === 2 ? <Check className="size-4" strokeWidth={2.5} aria-hidden /> : "1"}
                 </span>
                 <span
                   className={cn(
                     "text-center text-xs font-medium leading-tight",
-                    step === 1
-                      ? "text-dls-accent"
-                      : "text-dls-status-success-fg",
+                    step === 1 ? "text-dls-accent" : "text-dls-status-success-fg",
                   )}
                 >
                   {t("plugins.larkcli_step_config")}
@@ -454,16 +430,11 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
               </li>
 
               {/* Connector: single shaft + arrowhead (no gap); green when step 1 done. */}
-              <li
-                className="mt-[1.125rem] flex w-12 shrink-0 items-center sm:w-16"
-                aria-hidden
-              >
+              <li className="mt-[1.125rem] flex w-12 shrink-0 items-center sm:w-16" aria-hidden>
                 <span
                   className={cn(
                     "relative block h-0.5 w-full rounded-full",
-                    step === 2
-                      ? "bg-dls-status-success-fg"
-                      : "bg-dls-border-strong",
+                    step === 2 ? "bg-dls-status-success-fg" : "bg-dls-border-strong",
                     // Arrowhead flush with the shaft end.
                     "after:absolute after:end-0 after:top-1/2 after:size-0 after:-translate-y-1/2",
                     "after:border-y-[4px] after:border-y-transparent after:border-s-[6px]",
@@ -478,7 +449,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
               <li className="flex w-28 flex-col items-center gap-2 sm:w-32">
                 <span
                   className={cn(
-                    "flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold shadow-sm ring-4",
+                    "flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold ring-4",
                     step === 2
                       ? "bg-dls-accent text-white ring-dls-accent/15"
                       : "bg-dls-surface-muted text-dls-secondary ring-transparent",
@@ -554,7 +525,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
               </div>
 
               {tab === "qr" ? (
-                <div className="space-y-5 rounded-2xl border border-dls-border bg-dls-surface p-5 shadow-sm">
+                <div className="space-y-5 rounded-2xl border border-dls-border bg-dls-surface p-5 ">
                   <div className="space-y-3">
                     <p className="text-sm font-semibold text-dls-text">
                       {t("plugins.larkcli_qr_howto_title")}
@@ -599,13 +570,9 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                     </ul>
                   </div>
                   <div className="flex flex-col items-center justify-center gap-3">
-                    <div className="rounded-2xl border border-dls-border bg-white p-3 shadow-sm dark:bg-dls-surface">
+                    <div className="rounded-2xl border border-dls-border bg-dls-surface p-3 dark:bg-dls-surface">
                       {configQr ? (
-                        <img
-                          src={configQr}
-                          alt=""
-                          className="size-40 rounded-lg"
-                        />
+                        <img src={configQr} alt="" className="size-40 rounded-lg" />
                       ) : (
                         <div className="flex size-40 items-center justify-center">
                           {busy ? (
@@ -625,7 +592,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="overflow-hidden rounded-xl border border-dls-border bg-dls-surface shadow-sm">
+                  <div className="overflow-hidden rounded-xl border border-dls-border bg-dls-surface ">
                     <div className="border-b border-dls-border bg-dls-surface-muted/30 px-3.5 py-2">
                       <p className="text-xs font-semibold text-dls-text">
                         {t("plugins.larkcli_manual_steps_title")}
@@ -654,9 +621,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                         <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-2xs font-semibold text-dls-text">
                           2
                         </span>
-                        <span className="leading-snug">
-                          {t("plugins.larkcli_manual_step2")}
-                        </span>
+                        <span className="leading-snug">{t("plugins.larkcli_manual_step2")}</span>
                       </li>
                       <li className="flex gap-2 px-3.5 py-1.5">
                         <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-2xs font-semibold text-dls-text">
@@ -680,21 +645,17 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                         <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-2xs font-semibold text-dls-text">
                           4
                         </span>
-                        <span className="leading-snug">
-                          {t("plugins.larkcli_manual_step4")}
-                        </span>
+                        <span className="leading-snug">{t("plugins.larkcli_manual_step4")}</span>
                       </li>
                       <li className="flex gap-2 px-3.5 py-1.5">
                         <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-dls-surface-muted text-2xs font-semibold text-dls-text">
                           5
                         </span>
-                        <span className="leading-snug">
-                          {t("plugins.larkcli_manual_step5")}
-                        </span>
+                        <span className="leading-snug">{t("plugins.larkcli_manual_step5")}</span>
                       </li>
                     </ol>
                   </div>
-                  <div className="space-y-3 rounded-2xl border border-dls-border bg-dls-surface p-5 shadow-sm">
+                  <div className="space-y-3 rounded-2xl border border-dls-border bg-dls-surface p-5 ">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-semibold text-dls-text">
                         {t("plugins.larkcli_manual_credentials_title")}
@@ -740,7 +701,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
               )}
             </>
           ) : (
-            <div className="space-y-5 rounded-2xl border border-dls-border bg-dls-surface p-5 shadow-sm">
+            <div className="space-y-5 rounded-2xl border border-dls-border bg-dls-surface p-5 ">
               <div className="space-y-3">
                 <p className="text-sm font-semibold text-dls-text">
                   {t("plugins.larkcli_login_howto_title")}
@@ -779,7 +740,7 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                 </ul>
               </div>
               <div className="flex flex-col items-center justify-center gap-3">
-                <div className="rounded-2xl border border-dls-border bg-white p-3 shadow-sm dark:bg-dls-surface">
+                <div className="rounded-2xl border border-dls-border bg-dls-surface p-3 dark:bg-dls-surface">
                   {loginQr ? (
                     <img src={loginQr} alt="" className="size-40 rounded-lg" />
                   ) : (

@@ -7,6 +7,20 @@ import os from "node:os";
 export const DIRECT_RUNTIME = "direct";
 export const ORCHESTRATOR_RUNTIME = "onmyagent-orchestrator";
 
+/**
+ * Shipped desktop engineStart always uses in-process server (direct).
+ * Callers may still pass `runtime: "onmyagent-orchestrator"` on the wire;
+ * that path is isolated and must not be assigned.
+ */
+export function resolveShippedEngineRuntime(requested) {
+  void requested;
+  return DIRECT_RUNTIME;
+}
+
+export function isShippedEngineRuntime(runtime) {
+  return runtime === DIRECT_RUNTIME;
+}
+
 export function nowMs() {
   return Date.now();
 }

@@ -37,16 +37,13 @@ export type ComposerLayoutClasses = {
 /**
  * Resolve sticky shell, panel chrome, and editor padding for home/hero/chat.
  */
-export function resolveComposerLayoutClasses(
-  input: ComposerLayoutInput,
-): ComposerLayoutClasses {
+export function resolveComposerLayoutClasses(input: ComposerLayoutInput): ComposerLayoutClasses {
   const homeLayout = Boolean(input.homeLayout);
   const heroHome = Boolean(input.heroHome);
   // Home / expert-empty: fold workspace+permission into the primary toolbar so
   // the card stays one compact unit (no tall empty middle + sparse under-bar).
   const inlineToolbarAccessory = homeLayout && Boolean(input.hasBottomAccessory);
-  const underCardAccessory =
-    Boolean(input.hasBottomAccessory) && !inlineToolbarAccessory;
+  const underCardAccessory = Boolean(input.hasBottomAccessory) && !inlineToolbarAccessory;
   // When workspace/permission bar sits under the card, share the outer silhouette:
   // full width + square joint (no top corners on the bar, no bottom corners on the card).
   const panelRoundedClass =
@@ -66,8 +63,8 @@ export function resolveComposerLayoutClasses(
     flushShell: input.flushShell,
   });
   const panelChromeClass = heroHome
-    ? `relative overflow-visible bg-dls-surface-solid border border-dls-border/80 shadow-md shadow-black/10 ${panelRoundedClass}`
-    : `relative overflow-visible bg-dls-surface-solid ${input.showOuterBorder ? `border border-dls-border shadow-sm${underCardAccessory ? " border-b-0" : ""}` : ""} ${panelRoundedClass}`;
+    ? `relative overflow-visible bg-dls-surface-solid border border-dls-border/80 focus-within:ring-1 focus-within:ring-dls-focus focus-within:ring-offset-0 ${panelRoundedClass}`
+    : `relative overflow-visible bg-dls-surface-solid ${input.showOuterBorder ? `border border-dls-border${underCardAccessory ? " border-b-0" : ""}` : ""} focus-within:ring-1 focus-within:ring-dls-focus focus-within:ring-offset-0 ${panelRoundedClass}`;
   // flushShell (coach): more vertical air so the text field + toolbar
   // don't feel jammed in a narrow creation column.
   const editorPadClass = input.flushShell

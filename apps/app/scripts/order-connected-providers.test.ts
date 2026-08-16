@@ -202,7 +202,7 @@ describe("settings provider order + badge UI contracts", () => {
     expect(query).toContain("orderConnectedProviders");
     expect(query).toContain("readConnectedProviderOrderIds");
     const picker = readFileSync(
-      join(appRoot, "src/react-app/domains/session/modals/model-picker-modal.tsx"),
+      join(appRoot, "src/react-app/capabilities/model-selection/model-picker-modal.tsx"),
       "utf8",
     );
     // Groups must preserve option order, not re-sort by name.

@@ -128,22 +128,7 @@ html {
 
 body {
   margin: 0;
-  font-family:
-    "IBM Plex Sans",
-    Geist,
-    "Avenir Next",
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    "Helvetica Neue",
-    Arial,
-    "Noto Sans",
-    "Apple Color Emoji",
-    "Segoe UI Emoji";
+  font-family: var(--dls-font-sans);
   font-size: 0.875rem;
   line-height: 1.5;
   color: var(--dls-text-primary);
@@ -328,22 +313,36 @@ select:disabled {
   --radius-2xl: var(--dls-radius-xl);
   --radius-3xl: var(--dls-radius-xl);
   --radius-4xl: var(--dls-radius-xl);
+  /* DESIGN.md focus geometry — `ring-dls-focus` stays the color slot;
+     width/offset use these so primitives can say `ring-1` / `ring-offset-0`
+     and stay token-backed. */
+  --ring-width-dls-focus-ring: var(--dls-focus-ring-width);
+  --ring-offset-width-dls-focus-ring: var(--dls-focus-ring-offset);
 }
 
 :root {
   color-scheme: light;
-  --ow-primary: #005DFF;
-  --ow-primary-hover: #004ED6;
-  --ow-primary-rgb: 0 93 255;
-  --ow-primary-light: #EAF2FF;
+  /* Hex lives on --dls-*. --ow-* are legacy aliases (do not add new call sites). */
+  --dls-primary: #005DFF;
+  --dls-primary-hover: #004ED6;
+  --dls-primary-soft: #EAF2FF;
+  --dls-primary-rgb: 0 93 255;
+  --ow-primary: var(--dls-primary);
+  --ow-primary-hover: var(--dls-primary-hover);
+  --ow-primary-rgb: var(--dls-primary-rgb);
+  --ow-primary-light: var(--dls-primary-soft);
   /* Signal cyan (light). Migrated from #03FFDE (1.35:1 on white,
      fails WCAG SC 1.4.11 for non-text UI) to #00B39B (3.36:1 AA
      pass) while retaining the cyan/teal semantic. Dark mode keeps
      the original #03FFDE where contrast against near-black is AA. */
-  --ow-signal: #00B39B;
-  --ow-ink: #0F172A;
-  --ow-slate: #64748B;
-  --ow-mist: #E5E7EB;
+  --dls-signal: #00B39B;
+  --ow-signal: var(--dls-signal);
+  --dls-text-primary: #0F172A;
+  --ow-ink: var(--dls-text-primary);
+  --dls-text-secondary: #64748B;
+  --ow-slate: var(--dls-text-secondary);
+  --dls-mist: #EEF0F3;
+  --ow-mist: var(--dls-mist);
 
   /* Shell three-tier (WeChat-style): rail < sidebar < background < surface.
      Rail is cold chrome, sidebar is the list lane, background is the work
@@ -356,14 +355,12 @@ select:disabled {
   --dls-surface-solid: #FFFFFF;
   --dls-surface-muted: #F4F4F5;
   --dls-sidebar: #F0F0F0;
-  --dls-border: var(--ow-mist);
+  --dls-border: #E5E7EB;
   --dls-border-strong: #CBD5E1;
-  --dls-accent: var(--ow-primary);
-  --dls-accent-hover: var(--ow-primary-hover);
-  --dls-accent-rgb: var(--ow-primary-rgb);
-  --dls-signal: var(--ow-signal);
-  --dls-text-primary: var(--ow-ink);
-  --dls-text-secondary: var(--ow-slate);
+  --dls-accent: var(--dls-primary);
+  --dls-accent-hover: var(--dls-primary-hover);
+  --dls-accent-rgb: var(--dls-primary-rgb);
+  --dls-text: var(--dls-text-primary);
   --dls-secondary-rgb: 100, 116, 139;
   /* Neutral grays — blue-tinted hover (#EEF4FF) read as “selected chip” on menus. */
   --dls-hover: #F0F0F1;
@@ -373,14 +370,14 @@ select:disabled {
   /* Weak WeChat-style thumbs — shown on hover / scroll only. */
   --dls-scrollbar-thumb: rgb(15 23 42 / 0.22);
   --dls-scrollbar-thumb-active: rgb(15 23 42 / 0.36);
-  --dls-decision-bg: var(--ow-primary);
-  --dls-decision-hover: var(--ow-primary-hover);
+  --dls-decision-bg: var(--dls-primary);
+  --dls-decision-hover: var(--dls-primary-hover);
   --dls-decision-fg: #FFFFFF;
-  --dls-decision-soft: #EAF2FF;
+  --dls-decision-soft: var(--dls-primary-soft);
   --dls-icon-bg: #EEF4FF;
-  --dls-icon-fg: var(--ow-primary);
+  --dls-icon-fg: var(--dls-primary);
   --dls-icon-muted-bg: #F1F5F9;
-  --dls-icon-muted-fg: var(--ow-slate);
+  --dls-icon-muted-fg: var(--dls-text-secondary);
   --dls-status-danger: #EF4444;
   --dls-status-danger-soft: #FEE2E2;
   --dls-status-danger-fg: #B91C1C;
@@ -455,27 +452,22 @@ select:disabled {
      above. Kept as CSS aliases so Tailwind can register short semantic
      class names (see apps/app/tailwind.config.ts) without introducing
      new hex values. */
-  --dls-primary: var(--dls-accent);
-  --dls-primary-hover: var(--dls-accent-hover);
-  --dls-primary-soft: var(--dls-decision-soft);
-  --dls-text: var(--dls-text-primary);
-  --dls-focus: var(--dls-accent);
+  /* Named focus ring — same hex as primary, own slot so the ring cannot
+     silently retarget hover/soft blues (DESIGN.md colors.focus). */
+  --dls-focus: #005DFF;
+  /* DESIGN.md focus geometry: 1px flush ring (no offset gap). Length
+     tokens, not colors — extract-tokens diffs them in the focus bucket. */
+  --dls-focus-ring-width: 1px;
+  --dls-focus-ring-offset: 0px;
   --dls-danger: var(--dls-status-danger);
   --dls-danger-soft: var(--dls-status-danger-soft);
   --dls-danger-fg: var(--dls-status-danger-fg);
   --dls-warning: var(--dls-status-warning);
   --dls-success-fg: var(--dls-status-success-fg);
   --dls-success-soft: var(--dls-status-success-soft);
-  /* Mist — softest hairline tier (DESIGN.md § 2). One perceptual
-     step lighter than `--dls-border` (== --ow-mist Slate-200) so the
-     three-tier border ladder (mist < border < border-strong) is
-     actually distinguishable. Overridden in the dark block below. */
-  --dls-mist: #EEF0F3;
-  --dls-slate: var(--ow-slate);
-  /* Tertiary text — one perceptual step lighter than secondary
-     (DESIGN.md § 2 Text tier + § 4c row anatomy). Overridden per
-     theme in the dark block below. */
-  --dls-text-tertiary: #94A3B8;
+  --dls-slate: var(--dls-text-secondary);
+  /* Light tertiary equals slate so 12px meta type stays WCAG AA on white. */
+  --dls-text-tertiary: #64748B;
   /* Z-layer stack (DESIGN.md § 6 Z-Layer Stack). Fixed 7-level ladder;
      new floating surfaces MUST pick from this table rather than
      inventing raw z-index numbers. Dark inherits via CSS cascade. */
@@ -560,14 +552,22 @@ select:disabled {
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --ow-primary: #2F7BFF;
-  --ow-primary-hover: #5B96FF;
-  --ow-primary-rgb: 47 123 255;
-  --ow-primary-light: #102A5C;
-  --ow-signal: #03FFDE;
-  --ow-ink: #F8FAFC;
-  --ow-slate: #94A3B8;
-  --ow-mist: #3A3A3A;
+  --dls-primary: #2F7BFF;
+  --dls-primary-hover: #5B96FF;
+  --dls-primary-soft: #102A5C;
+  --dls-primary-rgb: 47 123 255;
+  --ow-primary: var(--dls-primary);
+  --ow-primary-hover: var(--dls-primary-hover);
+  --ow-primary-rgb: var(--dls-primary-rgb);
+  --ow-primary-light: var(--dls-primary-soft);
+  --dls-signal: #03FFDE;
+  --ow-signal: var(--dls-signal);
+  --dls-text-primary: #F8FAFC;
+  --ow-ink: var(--dls-text-primary);
+  --dls-text-secondary: #94A3B8;
+  --ow-slate: var(--dls-text-secondary);
+  --dls-mist: #2E2E2E;
+  --ow-mist: var(--dls-mist);
 
   /* Shell three-tier (WeChat dark): rail (deepest) < background (main) <
      sidebar (list lift) < surface (cards). Avoid flat #1C/#25/#26 stack. */
@@ -579,14 +579,12 @@ select:disabled {
   --dls-surface-solid: #2C2C2C;
   --dls-surface-muted: #333333;
   --dls-sidebar: #2A2A2A;
-  --dls-border: var(--ow-mist);
+  --dls-border: #3A3A3A;
   --dls-border-strong: #4A4A4A;
-  --dls-accent: var(--ow-primary);
-  --dls-accent-hover: var(--ow-primary-hover);
-  --dls-accent-rgb: var(--ow-primary-rgb);
-  --dls-signal: var(--ow-signal);
-  --dls-text-primary: var(--ow-ink);
-  --dls-text-secondary: var(--ow-slate);
+  --dls-accent: var(--dls-primary);
+  --dls-accent-hover: var(--dls-primary-hover);
+  --dls-accent-rgb: var(--dls-primary-rgb);
+  --dls-text: var(--dls-text-primary);
   --dls-secondary-rgb: 148, 163, 184;
   --dls-hover: #323232;
   --dls-active: #3A3A3A;
@@ -595,14 +593,14 @@ select:disabled {
   /* Dark thumbs — readable when hover/scroll reveals them. */
   --dls-scrollbar-thumb: rgb(248 250 252 / 0.28);
   --dls-scrollbar-thumb-active: rgb(248 250 252 / 0.42);
-  --dls-decision-bg: var(--ow-primary);
-  --dls-decision-hover: var(--ow-primary-hover);
+  --dls-decision-bg: var(--dls-primary);
+  --dls-decision-hover: var(--dls-primary-hover);
   --dls-decision-fg: #FFFFFF;
-  --dls-decision-soft: #102A5C;
+  --dls-decision-soft: var(--dls-primary-soft);
   --dls-icon-bg: #102A5C;
   --dls-icon-fg: #7FB0FF;
   --dls-icon-muted-bg: #2A2A2A;
-  --dls-icon-muted-fg: var(--ow-slate);
+  --dls-icon-muted-fg: var(--dls-text-secondary);
   --dls-status-danger: #F87171;
   --dls-status-danger-soft: #3F1518;
   --dls-status-danger-fg: #FCA5A5;
@@ -626,7 +624,7 @@ select:disabled {
   --dls-brand-terminal: #2A2A2A;
   --dls-brand-orange: #FF8A33;
   --dls-chat-user-bg: #333333;
-  --dls-chat-agent-text: var(--dls-text-primary);
+  --dls-chat-agent-text: #F8FAFC;
   --dls-rail-bg: #141414;
   /* Sidebar list data-active (still needs clear vs rail-bg). */
   --dls-rail-active: #404040;
@@ -642,7 +640,8 @@ select:disabled {
      primitives. `dls-text-tertiary` and `dls-mist` are declared as
      literal hex (independent of the border ladder) and must therefore
      be overridden here per theme. */
-  --dls-text-tertiary: #64748B;
+  --dls-focus: #2F7BFF;
+  --dls-text-tertiary: #94A3B8;
   /* Mist (dark) — one perceptual step darker than `--dls-border`
      (#3A3A3A) so the three-tier hairline ladder (mist < border <
      border-strong) stays visible on dark surfaces (#2C2C2C surface,
@@ -751,12 +750,6 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
 }
 
 
-
-@layer base {
-  *, ::before, ::after {
-    box-shadow: none !important;
-  }
-}
 
 @layer utilities {
   @keyframes session-transcript-loading-sweep {
@@ -936,11 +929,9 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
   }
 
   .session-workbuddy-scroll-to-bottom:focus-visible {
-    outline: none;
-    border-color: var(--dls-accent);
-    box-shadow:
-      0 0 0 2px color-mix(in srgb, var(--dls-accent) 35%, transparent),
-      0 4px 14px rgb(0 0 0 / 18%);
+    outline: var(--dls-focus-ring-width) solid var(--dls-focus);
+    outline-offset: var(--dls-focus-ring-offset);
+    border-color: var(--dls-focus);
   }
 
   .session-transcript-turn {

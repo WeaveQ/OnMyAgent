@@ -689,8 +689,8 @@ code {
 
 .pv-focus-demo:focus-visible,
 .pv-focus-demo-menu:focus-within .pv-focus-demo:focus {
-  outline: 2px solid var(--pv-focus-ring);
-  outline-offset: 2px;
+  outline: 1px solid var(--pv-focus-ring);
+  outline-offset: 0;
 }
 
 .pv-kbd-list {

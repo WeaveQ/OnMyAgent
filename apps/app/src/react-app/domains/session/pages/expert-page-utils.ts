@@ -39,9 +39,7 @@ export function expertFeatureCategoryForAgent(
   agentId: string | null | undefined,
 ): AssistantCategoryId {
   if (!agentId) return "office";
-  return expertFeatureCategoryForCategoryId(
-    findBuiltinMarketplaceExpertById(agentId)?.categoryId,
-  );
+  return expertFeatureCategoryForCategoryId(findBuiltinMarketplaceExpertById(agentId)?.categoryId);
 }
 
 export function marketplaceExpertMatchesAgentId(
@@ -69,7 +67,7 @@ export function marketplaceExpertsToStarterItems(
     name: expert.displayName,
     description: expert.description,
     avatarUrl: expert.avatarUrl,
-    avatarBackground: "var(--ow-primary-light)",
+    avatarBackground: "var(--dls-primary-soft)",
   }));
 }
 

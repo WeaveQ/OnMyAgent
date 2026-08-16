@@ -17,9 +17,9 @@ test("rejects reverse utility dependencies moved to neutral owners", () => {
   assert.equal(domainDependencyIsAllowed("local-agents", "session"), false);
   assert.equal(domainDependencyIsAllowed("messaging", "session"), false);
   assert.equal(domainDependencyIsAllowed("workspace", "session"), false);
+  assert.equal(domainDependencyIsAllowed("settings", "session"), false);
   assert.equal(domainDependencyIsAllowed("shared", "agents"), false);
 });
-
 
 test("allows session to host knowledge via the public barrel only", () => {
   assert.equal(domainDependencyIsAllowed("session", "knowledge"), true);

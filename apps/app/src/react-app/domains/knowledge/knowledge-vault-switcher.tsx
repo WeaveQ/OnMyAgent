@@ -29,9 +29,7 @@ type KnowledgeVaultSwitcherProps = {
 };
 
 export function KnowledgeVaultSwitcher(props: KnowledgeVaultSwitcherProps) {
-  const current =
-    props.vaults.find((item) => item.path === props.currentPath) ??
-    props.vaults[0];
+  const current = props.vaults.find((item) => item.path === props.currentPath) ?? props.vaults[0];
   const label = current?.name || t("knowledge.default_vault");
   const onDefault = current?.isDefault !== false;
 

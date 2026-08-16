@@ -10,11 +10,7 @@ import { Button } from "@/components/ui/button";
 import { MenuRowButton } from "@/components/ui/action-row";
 import { cn } from "@/lib/utils";
 import { t } from "../../../i18n";
-import {
-  FILE_CATEGORIES,
-  fileCategoryLabel,
-  type FileCategory,
-} from "./workspace-files-model";
+import { FILE_CATEGORIES, fileCategoryLabel, type FileCategory } from "./workspace-files-model";
 
 /** state-timings.short-ms — refresh success flash duration. */
 export const FILES_REFRESH_FLASH_MS = 1000;
@@ -76,24 +72,16 @@ export function FilesTypeFilter(props: {
         variant="outline"
         size="default"
         onClick={() => props.onOpenChange(!props.open)}
-        className="h-9 gap-1.5 rounded-full px-3 text-sm"
+        className="h-9 gap-1.5 rounded-lg px-3 text-sm"
         data-files-type-filter="true"
       >
-        <SlidersHorizontal
-          data-icon="inline-start"
-          className="size-3.5 text-dls-secondary"
-        />
+        <SlidersHorizontal data-icon="inline-start" className="size-3.5 text-dls-secondary" />
         {fileCategoryLabel(props.value)}
-        <ChevronDown
-          className={cn(
-            "size-3.5 transition-transform",
-            props.open && "rotate-180",
-          )}
-        />
+        <ChevronDown className={cn("size-3.5 transition-transform", props.open && "rotate-180")} />
       </Button>
       {props.open ? (
         <div
-          className="absolute right-0 top-full z-50 mt-1.5 flex min-w-[148px] flex-col rounded-xl border border-dls-border bg-dls-surface-solid py-1 shadow-md"
+          className="absolute right-0 top-full z-50 mt-1.5 flex min-w-[148px] flex-col rounded-xl border border-dls-border bg-dls-surface-solid py-1 "
           style={{
             backgroundColor: "var(--dls-surface-solid, var(--dls-surface))",
           }}
@@ -156,16 +144,9 @@ export function FilesRefreshButton(props: {
   );
 }
 
-export function FilesTypeFilterOverlay(props: {
-  open: boolean;
-  onClose: () => void;
-}) {
+export function FilesTypeFilterOverlay(props: { open: boolean; onClose: () => void }) {
   if (!props.open) return null;
   return (
-    <div
-      className="fixed inset-0 z-10"
-      onClick={props.onClose}
-      onContextMenu={props.onClose}
-    />
+    <div className="fixed inset-0 z-10" onClick={props.onClose} onContextMenu={props.onClose} />
   );
 }

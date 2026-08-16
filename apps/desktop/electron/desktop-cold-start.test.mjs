@@ -202,7 +202,7 @@ describe("MAIN_WINDOW_EAGER_BLANK_BROWSER_TAB contract", () => {
   test("main.mjs uses runDesktopWhenReady and does not double prepareFreshRuntime on cold bootstrap", () => {
     const source = readFileSync(path.join(__dirname, "main.mjs"), "utf8");
     assert.match(source, /runDesktopWhenReady/);
-    assert.match(source, /startTaskSupervisor:\s*async\s*\(\)\s*=>\s*\{[\s\S]*await startTaskSupervisorBackground\(\{\s*runtimeBootstrap:\s*runtimeBootstrapPromise/);
+    assert.match(source, /startTaskSupervisor:\s*async\s*\(\)\s*=>\s*\{[\s\S]*await startTaskSupervisorBackground\(\{\s*runtimeBootstrap:\s*desktopRuntimeBoot\.getRuntimeBootstrapPromise\(\)/);
     // Old cold path wrapped prepareFreshRuntime then bootRuntime — must be gone.
     assert.doesNotMatch(
       source,

@@ -10,10 +10,7 @@ import { Button } from "@/components/ui/button";
 import { OwDotTicker } from "../../../shell";
 import { PersonalLocalAgentPage } from "../../local-agents";
 import { SessionArchivePage } from "../chat/session-page-session-archive-page";
-import {
-  SessionPageMainColumn,
-  SessionRailKeepAliveStack,
-} from "./session-page-shell";
+import { SessionPageMainColumn, SessionRailKeepAliveStack } from "./session-page-shell";
 import { AgentManagementPage } from "../../local-agents";
 import { MessagingChannelsPage } from "../../messaging";
 import { WorkspaceFilesPage } from "../../workspace";
@@ -40,13 +37,9 @@ import {
 } from "../../knowledge";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 
-import {
-  createWorkspaceFilesAgentHandlers,
-} from "./shared-page-utils";
+import { createWorkspaceFilesAgentHandlers } from "./shared-page-utils";
 import { buildAskAgentFileInstruction } from "../../../capabilities/artifacts/file-preview-policy";
-import {
-  NO_EXPERT_CONVERSATIONS_ASSET,
-} from "./expert-page-utils";
+import { NO_EXPERT_CONVERSATIONS_ASSET } from "./expert-page-utils";
 import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import {
   ExpertDirectoryIncompleteNotice,
@@ -114,10 +107,7 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
     visitedRailViews,
     handleSelectArtifactPrompt,
   } = rail;
-  useEffect(
-    () => subscribeOpenKnowledgeNote(() => openRailView("knowledgeBase")),
-    [openRailView],
-  );
+  useEffect(() => subscribeOpenKnowledgeNote(() => openRailView("knowledgeBase")), [openRailView]);
   const {
     activeAgentContext,
     activeExpertFeatureCategoryId,
@@ -197,9 +187,9 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
     <div className="relative flex h-full min-h-0 flex-col bg-dls-radial-shell text-dls-text mac:bg-transparent">
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-3 mac:pointer-events-auto mac:titlebar-drag" />
       {/*
-        Keep primary rail outside bg-dls-background so mac vibrancy can show
-        through the strip (WeChat). Background wash only covers list + content.
-      */}
+ Keep primary rail outside bg-dls-background so mac vibrancy can show
+ through the strip (WeChat). Background wash only covers list + content.
+ */}
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <ExpertPageRail
           account={props.account}
@@ -216,203 +206,177 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
           setAgentPanelCollapsed={setAgentPanelCollapsed}
         />
         <div className="relative flex min-h-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background">
-            {activeSidebarView === "chat" && !agentPanelCollapsed ? (
-              <AgentConversationPanel
-                mode="agent"
-                width={agentPanelWidth}
-                client={props.onmyagentServerClient}
-                taskStatusVariant={taskStatus.variant}
-                collapsed={agentPanelCollapsed}
-                groups={sidebarWorkspaceSessionGroups}
-                selectedWorkspaceId={props.sidebar.selectedWorkspaceId}
-                selectedSessionId={
-                  draftSessionActive
-                    ? activeDraftSessionId
-                    : props.sidebar.selectedSessionId
-                }
-                selectedAgentId={activeConversationAgentId}
-                expertDirectoryIdentity={expertDirectoryIdentity}
-                sessionStatusById={props.sidebar.sessionStatusById}
-                draftAgentGroup={draftAgentGroup}
-                draftAgentGroups={draftAgentGroups}
-                query={agentSearch}
-                onQueryChange={setAgentSearch}
-                onToggleCollapsed={() =>
-                  setAgentPanelCollapsed((value) => !value)
-                }
-                onOpenAgents={openExpertMarket}
-                onCreateExpert={openExpertCreation} onEditExpert={handleEditExpert} editableExpertIds={editableExpertIds}
-                deletableExpertIds={deletableExpertIds}
-                onOpenAgentStarter={handleOpenExpertStarter}
-                onCreateTask={handleCreateCurrentAgentSession}
-                onOpenSession={handleOpenExpertFromSidebar}
-                onOpenDraftAgent={handleOpenDraftSession}
-                onPrefetchSession={props.sidebar.onPrefetchSession}
-                onDeleteSession={openDeleteModal}
-                onDeleteExpert={openDeleteExpertModal}
-              />
-            ) : null}
-            {activeSidebarView === "chat" ? (
-              <SidebarPaneCollapseToggle
-                collapsed={agentPanelCollapsed}
-                onToggle={() => setAgentPanelCollapsed((value) => !value)}
-                style={{
-                  left: agentPanelCollapsed ? 0 : agentPanelWidth,
-                }}
-              />
-            ) : null}
-            {activeSidebarView === "chat" && !agentPanelCollapsed ? (
-              <AgentPanelResizeHandle
-                onPointerDown={startAgentPanelResize}
-                onKeyNudge={(delta) =>
-                  setAgentPanelWidth((width) =>
-                    Math.min(
-                      AGENT_PANEL_MAX_WIDTH,
-                      Math.max(AGENT_PANEL_MIN_WIDTH, width + delta),
-                    ),
-                  )
-                }
-              />
-            ) : null}
-            <ResizablePanelGroup
-              orientation="horizontal"
-              onLayoutChanged={
-                sidePanelOpen && isPrimarySessionView
-                  ? commitBrowserPanelWidth
-                  : undefined
+          {activeSidebarView === "chat" && !agentPanelCollapsed ? (
+            <AgentConversationPanel
+              mode="agent"
+              width={agentPanelWidth}
+              client={props.onmyagentServerClient}
+              taskStatusVariant={taskStatus.variant}
+              collapsed={agentPanelCollapsed}
+              groups={sidebarWorkspaceSessionGroups}
+              selectedWorkspaceId={props.sidebar.selectedWorkspaceId}
+              selectedSessionId={
+                draftSessionActive ? activeDraftSessionId : props.sidebar.selectedSessionId
               }
-              className="min-h-0 flex-1"
-            >
-              <ResizablePanel minSize="360px" className="min-w-0">
-                <SessionPageMainColumn
+              selectedAgentId={activeConversationAgentId}
+              expertDirectoryIdentity={expertDirectoryIdentity}
+              sessionStatusById={props.sidebar.sessionStatusById}
+              draftAgentGroup={draftAgentGroup}
+              draftAgentGroups={draftAgentGroups}
+              query={agentSearch}
+              onQueryChange={setAgentSearch}
+              onToggleCollapsed={() => setAgentPanelCollapsed((value) => !value)}
+              onOpenAgents={openExpertMarket}
+              onCreateExpert={openExpertCreation}
+              onEditExpert={handleEditExpert}
+              editableExpertIds={editableExpertIds}
+              deletableExpertIds={deletableExpertIds}
+              onOpenAgentStarter={handleOpenExpertStarter}
+              onCreateTask={handleCreateCurrentAgentSession}
+              onOpenSession={handleOpenExpertFromSidebar}
+              onOpenDraftAgent={handleOpenDraftSession}
+              onPrefetchSession={props.sidebar.onPrefetchSession}
+              onDeleteSession={openDeleteModal}
+              onDeleteExpert={openDeleteExpertModal}
+            />
+          ) : null}
+          {activeSidebarView === "chat" ? (
+            <SidebarPaneCollapseToggle
+              collapsed={agentPanelCollapsed}
+              onToggle={() => setAgentPanelCollapsed((value) => !value)}
+              style={{
+                left: agentPanelCollapsed ? 0 : agentPanelWidth,
+              }}
+            />
+          ) : null}
+          {activeSidebarView === "chat" && !agentPanelCollapsed ? (
+            <AgentPanelResizeHandle
+              onPointerDown={startAgentPanelResize}
+              onKeyNudge={(delta) =>
+                setAgentPanelWidth((width) =>
+                  Math.min(AGENT_PANEL_MAX_WIDTH, Math.max(AGENT_PANEL_MIN_WIDTH, width + delta)),
+                )
+              }
+            />
+          ) : null}
+          <ResizablePanelGroup
+            orientation="horizontal"
+            onLayoutChanged={
+              sidePanelOpen && isPrimarySessionView ? commitBrowserPanelWidth : undefined
+            }
+            className="min-h-0 flex-1"
+          >
+            <ResizablePanel minSize="360px" className="min-w-0">
+              <SessionPageMainColumn
+                activeSidebarView={activeSidebarView}
+                sidePanelBorderOpen={sidePanelOpen && isPrimarySessionView}
+              >
+                <SessionRailKeepAliveStack
                   activeSidebarView={activeSidebarView}
-                  sidePanelBorderOpen={sidePanelOpen && isPrimarySessionView}
-                >
-                  <SessionRailKeepAliveStack
-                    activeSidebarView={activeSidebarView}
-                    visitedRailViews={visitedRailViews}
-                    isPrimarySessionView={isPrimarySessionView}
-                    primarySessionActive={
-                      isPrimarySessionView && mountExpertSessionSurface
-                    }
-                    panes={{
-                      agents: props.renderAgentsPage({
-                        workspaceId: props.selectedWorkspaceId,
-                        workspaceRoot: props.selectedWorkspaceRoot,
-                        client: props.onmyagentServerClient,
-                        providers: props.providers,
-                        connectedProviderIds: props.providerConnectedIds,
-                        onStartConversation: handleStartAgentConversation,
-                      }),
-                      store: (
-                        <StorePage
-                          workspaceId={props.selectedWorkspaceId}
-                          workspaceRoot={props.selectedWorkspaceRoot}
-                          client={props.onmyagentServerClient}
-                          activeTab={storeActiveTab}
-                          myExperts={myExpertPackages}
-                          activeExpertAgentIds={[
-                            ...conversationGroups.map((group) => group.agentId),
-                            ...draftAgentGroups.map((group) => group.agentId),
-                          ].filter((id): id is string => Boolean(id?.trim()))}
-                          onActiveTabChange={setStoreActiveTab}
-                          onSummonMarketplaceExpert={handleStartMarketplaceExpert}
-                          onCreateExpert={openExpertCreation}
-                          onCreateSkill={handleCreateSkill}
-                          onChatWithSkill={handleChatWithSkill}
-                          onEditSkill={handleEditSkill}
-                          onSelectArtifactPrompt={handleSelectArtifactPrompt}
-                          onOpenCustomConnector={() => openCustomConnector("list")}
-                        />
-                      ),
-                      company: <CompanyRailPane onChatWithSkill={handleChatWithSkill} />,
-                      localAgent: (
-                        <PersonalLocalAgentPage
-                          resumeRequest={pendingArchiveResume}
-                          onResumeConsumed={() => setPendingArchiveResume(null)}
-                          workspaceRoot={props.selectedWorkspaceRoot}
-                          workspaceName={props.selectedWorkspaceDisplay.name}
-                          onmyagentServerClient={props.onmyagentServerClient}
-                          runtimeWorkspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
-                          onOpenArtifact={openTarget}
-                          onOpenTargetsChange={handleOpenTargetsChange}
-                        />
-                      ),
-                      agentManagement: (
-                        <AgentManagementPage
-                          workspaceRoot={props.selectedWorkspaceRoot}
-                          sessionArchiveSlot={(
-                            <SessionArchivePage
-                              client={props.onmyagentServerClient}
-                              workspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
-                              onResume={(request) => {
-                                setPendingArchiveResume(request);
-                                openRailView("localAgent");
-                              }}
-                            />
-                          )}
-                        />
-                      ),
-                      files: (active) => (
-                        <WorkspaceFilesPage active={active}
-                          client={props.onmyagentServerClient}
-                          workspaceId={
-                            props.runtimeWorkspaceId ??
-                            props.selectedWorkspaceId
-                          }
-                          workspaceRoot={
-                            props.workspaceFilesRoot?.trim() ||
-                            props.selectedWorkspaceRoot
-                          }
-                          fileRoot={
-                            props.workspaceFilesRoot?.trim() ||
-                            props.selectedWorkspaceRoot
-                          }
-                          activeSessionIds={filesOpenSessionMeta.activeSessionIds}
-                          archivedSessionIds={
-                            filesOpenSessionMeta.archivedSessionIds
-                          }
-                          sessionTitleByKey={
-                            filesOpenSessionMeta.sessionTitleByKey
-                          }
-                          sessionIdByPathKey={
-                            filesOpenSessionMeta.sessionIdByPathKey
-                          }
-                          onOpenSourceSession={(sessionId) => {
-                            props.sidebar.onOpenSession(
-                              props.selectedWorkspaceId,
-                              sessionId,
-                            );
-                            openRailView("chat");
-                          }}
-                          onOpenArtifact={openTarget}
-                          {...createWorkspaceFilesAgentHandlers({
-                            sessionId: renderedSessionId,
-                            openRail: () => openRailView("chat"),
-                            showToast,
-                            buildInstruction: buildAskAgentFileInstruction,
-                            t,
-                          })}
-                        />
-                      ),
-                      projects: <ProjectsComingSoonPage />,
-                      knowledgeBase: (
-                        <KnowledgeVaultPage
-                          workspaceId={props.selectedWorkspaceId}
-                          expertId={resolveKnowledgeExpertFolderId({
-                            draftAgentId,
-                            routeAgentId: activeConversationAgentId,
-                          })}
-                        />
-                      ),
-                      devices: <DevicesPage />,
-                      channels: (
-                        <MessagingChannelsPage workspaceRoot={props.selectedWorkspaceRoot} />
-                      ),
-                      billing: <BillingPage />,
-                    }}
-                    middle={
-                      <>
+                  visitedRailViews={visitedRailViews}
+                  isPrimarySessionView={isPrimarySessionView}
+                  primarySessionActive={isPrimarySessionView && mountExpertSessionSurface}
+                  panes={{
+                    agents: props.renderAgentsPage({
+                      workspaceId: props.selectedWorkspaceId,
+                      workspaceRoot: props.selectedWorkspaceRoot,
+                      client: props.onmyagentServerClient,
+                      providers: props.providers,
+                      connectedProviderIds: props.providerConnectedIds,
+                      onStartConversation: handleStartAgentConversation,
+                    }),
+                    store: (
+                      <StorePage
+                        workspaceId={props.selectedWorkspaceId}
+                        workspaceRoot={props.selectedWorkspaceRoot}
+                        client={props.onmyagentServerClient}
+                        activeTab={storeActiveTab}
+                        myExperts={myExpertPackages}
+                        activeExpertAgentIds={[
+                          ...conversationGroups.map((group) => group.agentId),
+                          ...draftAgentGroups.map((group) => group.agentId),
+                        ].filter((id): id is string => Boolean(id?.trim()))}
+                        onActiveTabChange={setStoreActiveTab}
+                        onSummonMarketplaceExpert={handleStartMarketplaceExpert}
+                        onCreateExpert={openExpertCreation}
+                        onCreateSkill={handleCreateSkill}
+                        onChatWithSkill={handleChatWithSkill}
+                        onEditSkill={handleEditSkill}
+                        onSelectArtifactPrompt={handleSelectArtifactPrompt}
+                        onOpenCustomConnector={() => openCustomConnector("list")}
+                      />
+                    ),
+                    company: <CompanyRailPane onChatWithSkill={handleChatWithSkill} />,
+                    localAgent: (
+                      <PersonalLocalAgentPage
+                        resumeRequest={pendingArchiveResume}
+                        onResumeConsumed={() => setPendingArchiveResume(null)}
+                        workspaceRoot={props.selectedWorkspaceRoot}
+                        workspaceName={props.selectedWorkspaceDisplay.name}
+                        onmyagentServerClient={props.onmyagentServerClient}
+                        runtimeWorkspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
+                        onOpenArtifact={openTarget}
+                        onOpenTargetsChange={handleOpenTargetsChange}
+                      />
+                    ),
+                    agentManagement: (
+                      <AgentManagementPage
+                        workspaceRoot={props.selectedWorkspaceRoot}
+                        sessionArchiveSlot={
+                          <SessionArchivePage
+                            client={props.onmyagentServerClient}
+                            workspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
+                            onResume={(request) => {
+                              setPendingArchiveResume(request);
+                              openRailView("localAgent");
+                            }}
+                          />
+                        }
+                      />
+                    ),
+                    files: (active) => (
+                      <WorkspaceFilesPage
+                        active={active}
+                        client={props.onmyagentServerClient}
+                        workspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
+                        workspaceRoot={
+                          props.workspaceFilesRoot?.trim() || props.selectedWorkspaceRoot
+                        }
+                        fileRoot={props.workspaceFilesRoot?.trim() || props.selectedWorkspaceRoot}
+                        activeSessionIds={filesOpenSessionMeta.activeSessionIds}
+                        archivedSessionIds={filesOpenSessionMeta.archivedSessionIds}
+                        sessionTitleByKey={filesOpenSessionMeta.sessionTitleByKey}
+                        sessionIdByPathKey={filesOpenSessionMeta.sessionIdByPathKey}
+                        onOpenSourceSession={(sessionId) => {
+                          props.sidebar.onOpenSession(props.selectedWorkspaceId, sessionId);
+                          openRailView("chat");
+                        }}
+                        onOpenArtifact={openTarget}
+                        {...createWorkspaceFilesAgentHandlers({
+                          sessionId: renderedSessionId,
+                          openRail: () => openRailView("chat"),
+                          showToast,
+                          buildInstruction: buildAskAgentFileInstruction,
+                          t,
+                        })}
+                      />
+                    ),
+                    projects: <ProjectsComingSoonPage />,
+                    knowledgeBase: (
+                      <KnowledgeVaultPage
+                        workspaceId={props.selectedWorkspaceId}
+                        expertId={resolveKnowledgeExpertFolderId({
+                          draftAgentId,
+                          routeAgentId: activeConversationAgentId,
+                        })}
+                      />
+                    ),
+                    devices: <DevicesPage />,
+                    channels: <MessagingChannelsPage workspaceRoot={props.selectedWorkspaceRoot} />,
+                    billing: <BillingPage />,
+                  }}
+                  middle={
+                    <>
                       {activePlaceholderView &&
                       activeSidebarView !== "agents" &&
                       activeSidebarView !== "files" &&
@@ -425,9 +389,7 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
                       activeSidebarView !== "devices" &&
                       activeSidebarView !== "channels" &&
                       activeSidebarView !== "billing" ? (
-                        <SidebarFeaturePlaceholder
-                          view={activePlaceholderView}
-                        />
+                        <SidebarFeaturePlaceholder view={activePlaceholderView} />
                       ) : null}
 
                       {isPrimarySessionView && showBlockingStartupSkeleton ? (
@@ -459,13 +421,10 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
                         />
                       ) : null}
 
-                      {isPrimarySessionView &&
-                      showNoExpertConversationEmptyState ? (
+                      {isPrimarySessionView && showNoExpertConversationEmptyState ? (
                         <div className="flex h-full min-h-0 items-center justify-center px-8 py-10">
                           <div className="flex max-w-md flex-col items-center text-center">
-                            <EmptyStateIllustration
-                              src={NO_EXPERT_CONVERSATIONS_ASSET}
-                            />
+                            <EmptyStateIllustration src={NO_EXPERT_CONVERSATIONS_ASSET} />
                             <h2 className="text-lg font-medium tracking-tight text-dls-text">
                               {t("session.no_expert_conversations_title")}
                             </h2>
@@ -502,96 +461,95 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
                           </div>
                         </div>
                       ) : null}
-                      </>
-                    }
-                    primarySession={
-                      <ExpertPageSessionSurface
-                        surface={props.surface!}
-                        onmyagentServerClient={props.onmyagentServerClient}
-                        runtimeWorkspaceId={props.runtimeWorkspaceId!}
-                        todos={props.todos}
-                        activePermission={props.activePermission}
-                        permissionReplyBusy={props.permissionReplyBusy}
-                        respondPermission={props.respondPermission}
-                        autoApprovedPermissionNoticeId={props.autoApprovedPermissionNoticeId}
-                        questionReplyBusy={props.questionReplyBusy}
-                        safeStringify={props.safeStringify}
-                        account={props.account}
-                        mountExpertSessionSurface={mountExpertSessionSurface}
-                        wrappedOnSendDraft={wrappedOnSendDraft}
-                        renderedSessionId={renderedSessionId}
-                        isDraftSession={isDraftSession}
-                        isPrimarySessionView={isPrimarySessionView}
-                        reactSessionBaseUrl={reactSessionBaseUrl}
-                        reactSessionToken={reactSessionToken}
-                        effectiveActiveQuestion={effectiveActiveQuestion}
-                        effectiveRespondQuestion={effectiveRespondQuestion}
-                        automationOfferFlow={automationOfferFlow}
-                        automationResultAccessory={automationResultAccessory}
-                        localAuthUser={localAuthUser}
-                        draftSessionActive={draftSessionActive}
-                        headerPanelControls={headerPanelControls}
-                        conversationTabs={conversationTabs}
-                        historySearchOpen={historySearchOpen}
-                        historySearchQuery={historySearchQuery}
-                        historyActiveMatch={historyActiveMatch}
-                        setHistoryMatchCount={setHistoryMatchCount}
-                        openTarget={openTarget}
-                        handleOpenTargetsChange={handleOpenTargetsChange}
-                        activeExpertFeatureCategoryId={activeExpertFeatureCategoryId}
-                        activeAgentContext={activeAgentContext}
-                        setStoreActiveTab={setStoreActiveTab}
-                        openRailView={openRailView}
-                        openCustomConnector={openCustomConnector}
-                      />
-                    }
-                    afterPrimary={
-                      <ExpertPageAfterPrimary
-                        selectedSessionId={props.selectedSessionId}
-                        notFoundMessage={props.notFoundMessage}
-                        sidebar={props.sidebar}
-                        selectedWorkspaceId={props.selectedWorkspaceId}
-                        isPrimarySessionView={isPrimarySessionView}
-                        showNoExpertConversationEmptyState={showNoExpertConversationEmptyState}
-                        showDelayedSessionLoadingState={showDelayedSessionLoadingState}
-                        canRenderReactSurface={canRenderReactSurface}
-                        blockExpertSurfaceForWorkspaceError={blockExpertSurfaceForWorkspaceError}
-                        showBlockingStartupSkeleton={showBlockingStartupSkeleton}
-                        showWorkspaceSetupEmptyState={showWorkspaceSetupEmptyState}
-                        showSelectedWorkspaceError={showSelectedWorkspaceError}
-                        selectedWorkspaceErrorMessage={selectedWorkspaceErrorMessage}
-                        selectedWorkspaceErrorTitle={selectedWorkspaceErrorTitle}
-                      />
-                    }
-                  />
-                </SessionPageMainColumn>
-
-              </ResizablePanel>
-              <ExpertPageSidePanel
-                settingsSlot={props.settingsSlot}
-                selectedSessionFileRoot={props.selectedSessionFileRoot}
-                runtimeWorkspaceId={props.runtimeWorkspaceId}
-                selectedSessionId={props.selectedSessionId}
-                onmyagentServerClient={props.onmyagentServerClient}
-                sidePanelOpen={sidePanelOpen}
-                isPrimarySessionView={isPrimarySessionView}
-                browserPanelRef={browserPanelRef}
-                activeSidePanel={activeSidePanel}
-                canvasSessionKey={canvasSessionKey}
-                closeRightPane={closeRightPane}
-                codeWorkspacePath={codeWorkspacePath}
-                codeWorkspaceCatalogRoot={codeWorkspaceCatalogRoot}
-                artifactFileTargets={artifactFileTargets}
-                artifactTarget={artifactTarget}
-                artifactFocusToken={artifactFocusToken}
-                openCreatedAutomation={openCreatedAutomation}
-                snapToBrowserWidth={snapToBrowserWidth}
-                activeExpertFeatureCategoryId={activeExpertFeatureCategoryId}
-              />
-            </ResizablePanelGroup>
-            {expertCreationPage}
-          </div>
+                    </>
+                  }
+                  primarySession={
+                    <ExpertPageSessionSurface
+                      surface={props.surface!}
+                      onmyagentServerClient={props.onmyagentServerClient}
+                      runtimeWorkspaceId={props.runtimeWorkspaceId!}
+                      todos={props.todos}
+                      activePermission={props.activePermission}
+                      permissionReplyBusy={props.permissionReplyBusy}
+                      respondPermission={props.respondPermission}
+                      autoApprovedPermissionNoticeId={props.autoApprovedPermissionNoticeId}
+                      questionReplyBusy={props.questionReplyBusy}
+                      safeStringify={props.safeStringify}
+                      account={props.account}
+                      mountExpertSessionSurface={mountExpertSessionSurface}
+                      wrappedOnSendDraft={wrappedOnSendDraft}
+                      renderedSessionId={renderedSessionId}
+                      isDraftSession={isDraftSession}
+                      isPrimarySessionView={isPrimarySessionView}
+                      reactSessionBaseUrl={reactSessionBaseUrl}
+                      reactSessionToken={reactSessionToken}
+                      effectiveActiveQuestion={effectiveActiveQuestion}
+                      effectiveRespondQuestion={effectiveRespondQuestion}
+                      automationOfferFlow={automationOfferFlow}
+                      automationResultAccessory={automationResultAccessory}
+                      localAuthUser={localAuthUser}
+                      draftSessionActive={draftSessionActive}
+                      headerPanelControls={headerPanelControls}
+                      conversationTabs={conversationTabs}
+                      historySearchOpen={historySearchOpen}
+                      historySearchQuery={historySearchQuery}
+                      historyActiveMatch={historyActiveMatch}
+                      setHistoryMatchCount={setHistoryMatchCount}
+                      openTarget={openTarget}
+                      handleOpenTargetsChange={handleOpenTargetsChange}
+                      activeExpertFeatureCategoryId={activeExpertFeatureCategoryId}
+                      activeAgentContext={activeAgentContext}
+                      setStoreActiveTab={setStoreActiveTab}
+                      openRailView={openRailView}
+                      openCustomConnector={openCustomConnector}
+                    />
+                  }
+                  afterPrimary={
+                    <ExpertPageAfterPrimary
+                      selectedSessionId={props.selectedSessionId}
+                      notFoundMessage={props.notFoundMessage}
+                      sidebar={props.sidebar}
+                      selectedWorkspaceId={props.selectedWorkspaceId}
+                      isPrimarySessionView={isPrimarySessionView}
+                      showNoExpertConversationEmptyState={showNoExpertConversationEmptyState}
+                      showDelayedSessionLoadingState={showDelayedSessionLoadingState}
+                      canRenderReactSurface={canRenderReactSurface}
+                      blockExpertSurfaceForWorkspaceError={blockExpertSurfaceForWorkspaceError}
+                      showBlockingStartupSkeleton={showBlockingStartupSkeleton}
+                      showWorkspaceSetupEmptyState={showWorkspaceSetupEmptyState}
+                      showSelectedWorkspaceError={showSelectedWorkspaceError}
+                      selectedWorkspaceErrorMessage={selectedWorkspaceErrorMessage}
+                      selectedWorkspaceErrorTitle={selectedWorkspaceErrorTitle}
+                    />
+                  }
+                />
+              </SessionPageMainColumn>
+            </ResizablePanel>
+            <ExpertPageSidePanel
+              settingsSlot={props.settingsSlot}
+              selectedSessionFileRoot={props.selectedSessionFileRoot}
+              runtimeWorkspaceId={props.runtimeWorkspaceId}
+              selectedSessionId={props.selectedSessionId}
+              onmyagentServerClient={props.onmyagentServerClient}
+              sidePanelOpen={sidePanelOpen}
+              isPrimarySessionView={isPrimarySessionView}
+              browserPanelRef={browserPanelRef}
+              activeSidePanel={activeSidePanel}
+              canvasSessionKey={canvasSessionKey}
+              closeRightPane={closeRightPane}
+              codeWorkspacePath={codeWorkspacePath}
+              codeWorkspaceCatalogRoot={codeWorkspaceCatalogRoot}
+              artifactFileTargets={artifactFileTargets}
+              artifactTarget={artifactTarget}
+              artifactFocusToken={artifactFocusToken}
+              openCreatedAutomation={openCreatedAutomation}
+              snapToBrowserWidth={snapToBrowserWidth}
+              activeExpertFeatureCategoryId={activeExpertFeatureCategoryId}
+            />
+          </ResizablePanelGroup>
+          {expertCreationPage}
         </div>
+      </div>
 
       <ExpertPageModals
         selectedWorkspaceId={props.selectedWorkspaceId}
@@ -625,7 +583,6 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
         customConnectorInitialView={customConnectorInitialView}
         showToast={showToast}
       />
-
     </div>
   );
 }

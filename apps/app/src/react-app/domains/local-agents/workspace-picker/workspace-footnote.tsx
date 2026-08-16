@@ -132,12 +132,21 @@ export function WorkspaceFootnote(props: WorkspaceFootnoteProps): React.ReactEle
                   : t("local_agent.workspace_pick_aria")
               }
             >
-              {trimmedRoot ? <Folder className="h-3.5 w-3.5 shrink-0" /> : <FolderPlus className="h-3.5 w-3.5 shrink-0" />}
+              {trimmedRoot ? (
+                <Folder className="h-3.5 w-3.5 shrink-0" />
+              ) : (
+                <FolderPlus className="h-3.5 w-3.5 shrink-0" />
+              )}
               <span className="min-w-0 truncate">{chipLabel}</span>
             </button>
           }
         />
-        <PopoverContent align="start" side="top" sideOffset={6} className="w-72 border-dls-border bg-dls-surface-solid p-0">
+        <PopoverContent
+          align="start"
+          side="top"
+          sideOffset={6}
+          className="w-72 border-dls-border bg-dls-surface-solid p-0"
+        >
           <div className="border-b border-dls-border p-2">
             <div className="flex items-center gap-1.5 rounded-md border border-dls-border bg-dls-surface px-2 py-1">
               <Search className="h-3.5 w-3.5 text-dls-secondary" />
@@ -174,7 +183,7 @@ export function WorkspaceFootnote(props: WorkspaceFootnoteProps): React.ReactEle
                   >
                     <Folder className="h-3.5 w-3.5 shrink-0 text-dls-secondary" />
                     <span className="min-w-0 flex-1 truncate">{workspaceDisplayName(path)}</span>
-                    {active ? <Check className="h-3.5 w-3.5 shrink-0 text-dls-signal" /> : null}
+                    {active ? <Check className="h-3.5 w-3.5 shrink-0 text-dls-accent" /> : null}
                   </button>
                 );
               })
@@ -184,7 +193,7 @@ export function WorkspaceFootnote(props: WorkspaceFootnoteProps): React.ReactEle
             <button
               type="button"
               onClick={handleBrowse}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs font-medium text-dls-signal transition-colors hover:bg-dls-hover"
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs font-medium text-dls-accent transition-colors hover:bg-dls-hover"
             >
               <FolderPlus className="h-3.5 w-3.5" />
               <span>{t("local_agent.workspace_choose_different_folder")}</span>
@@ -195,7 +204,9 @@ export function WorkspaceFootnote(props: WorkspaceFootnoteProps): React.ReactEle
               disabled={!trimmedRoot}
               className={cn(
                 "flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors",
-                trimmedRoot ? "text-dls-secondary hover:bg-dls-hover" : "text-dls-secondary opacity-50",
+                trimmedRoot
+                  ? "text-dls-secondary hover:bg-dls-hover"
+                  : "text-dls-secondary opacity-50",
               )}
             >
               <FolderX className="h-3.5 w-3.5" />

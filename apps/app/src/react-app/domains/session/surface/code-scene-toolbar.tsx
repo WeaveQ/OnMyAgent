@@ -341,7 +341,7 @@ export function CodeSceneToolbar(props: {
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                className="rounded-full text-dls-secondary hover:bg-dls-hover hover:text-dls-text data-[popup-open]:bg-dls-hover data-[popup-open]:text-dls-text"
+                className="rounded-lg text-dls-secondary hover:bg-dls-hover hover:text-dls-text data-[popup-open]:bg-dls-hover data-[popup-open]:text-dls-text"
                 aria-label={t("session.code_toolbar_git_controls")}
                 title={t("session.code_toolbar_git_controls")}
               >

@@ -11,7 +11,7 @@ import {
   workspaceUsageTotal,
   type PersonalUsageWorkspaceSnapshot,
   type TokenActivityColumn,
-} from "../src/react-app/domains/session/usage/personal-usage-model";
+} from "../src/react-app/domains/settings/usage/personal-usage-model";
 
 function snapshot(
   workspaceId: string,

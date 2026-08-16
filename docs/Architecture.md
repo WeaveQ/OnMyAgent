@@ -13,7 +13,7 @@ OnMyAgent 是面向 agentic 工作流的桌面控制台，基于 OpenCode。本�
 | Roadmap SoT | [`design/2026-08-02-phase-2-enterprise-prep.md`](./design/2026-08-02-phase-2-enterprise-prep.md) |
 | Config foundation (2a) | [`design/2026-08-02-config-consistency.md`](./design/2026-08-02-config-consistency.md) |
 | Work memory paths | [`design/2026-08-02-work-memory-plan.md`](./design/2026-08-02-work-memory-plan.md) |
-| Knowledge vault | `~/.onmyagent/data/user/knowledge/` (user / project / expert notes). Not marketplace skills, not awareness. Rail UI under `domains/session/knowledge`. Agent tools `knowledge_search` / `knowledge_read` / `knowledge_create` plus connector-owned SKILL.md (not listed in 已安装技能). |
+| Knowledge vault | `~/.onmyagent/data/user/knowledge/` (user / project / expert notes). Not marketplace skills, not awareness. Rail UI under `domains/knowledge`. Agent tools `knowledge_search` / `knowledge_read` / `knowledge_create` plus connector-owned SKILL.md (not listed in 已安装技能). |
 | Files module (三来源) | [`design/files-module-product-spec.md`](./design/files-module-product-spec.md) |
 | OfficeCLI CDN contract | [`officecli-oss-release.md`](./officecli-oss-release.md) |
 | Windows product gaps | [`windows-compat.md`](./windows-compat.md) |
@@ -28,7 +28,7 @@ OnMyAgent 是面向 agentic 工作流的桌面控制台，基于 OpenCode。本�
 | --- | --- |
 | **macOS** | Primary release + dogfood (signed / notarized path) |
 | **Windows** | Supported Electron shell; NSIS **unsigned** developer preview — see [`windows-compat.md`](./windows-compat.md) |
-| **Linux desktop packages** | **Not a product target** (no AppImage/AUR ship). CI may still use `ubuntu-latest` as a host; Docker **sandbox** may still pull linux sidecars — that is not “Linux client support”. |
+| **Linux desktop** | **Dev-runnable, not a shipped product SKU** (no AppImage/AUR promise). CI may still use `ubuntu-latest` as a host; Docker **sandbox** may still pull linux sidecars — that is not a Linux product SKU. |
 
 **Architecture-only engineering notes** (not in AGENTS; do not restate the Phase-2 hard entry here):
 
@@ -63,7 +63,7 @@ packages/
 
 **Computer Use / Appshot（产品平台摘要）：**
 
-| 能力 | macOS | Windows | Linux desktop (not shipped) |
+| 能力 | macOS | Windows | Linux desktop (dev-runnable, not a shipped SKU) |
 | --- | --- | --- | --- |
 | Agent Computer Use MCP | HandsFree helper（默认开，helper 就绪时） | Bundled **Cua Driver**（staged；MCP **默认关**） | 无产品包 / 无 helper |
 | Composer Appshot | Electron `desktopCapturer` | 同左 | 非产品目标（实现层或仍有 `platform===linux` 分支，勿当支持承诺） |
@@ -91,6 +91,25 @@ packages/
 | OfficeCLI / managed CLI 发布 | [`officecli-oss-release.md`](./officecli-oss-release.md)；货架位改动须改 shelf registry |
 | Files 三来源 | [`design/files-module-product-spec.md`](./design/files-module-product-spec.md) |
 | 视觉 token / 组件形状 | [`../DESIGN.md`](../DESIGN.md) only |
+
+### Session hub freeze
+
+`domains/session` is a frozen hub. New product work must name a write-path owner and land outside the frozen extract pockets. Do not grow the hub to absorb knowledge / browser / usage.
+
+| Pocket | Status | Write rule |
+| --- | --- | --- |
+| `session/surface` | KEEP | Do not rewrite this tree |
+| `session/pages` | KEEP | Host pages stay here |
+| `session/sync` | KEEP | OpenCode session plumbing |
+| `session/chat` | KEEP | Session host + light panels |
+| `session/artifacts` | KEEP | Session-local artifact chrome |
+| `session/sidebar` | LATER | Do not move in current extract work |
+| `session/browser` | LATER | No new features here |
+| `session/usage` | EXTRACTED | Pocket must stay empty; personal usage lives in `domains/settings/usage` |
+| `session/knowledge` | EXTRACTED | Pocket must stay empty; gate forbids new files |
+| Knowledge UI | `domains/knowledge` | Local Markdown vault; session hosts via public barrel |
+
+Gate: `scripts/checks/check-session-hub-budget.mjs` (wired into `pnpm check:boundaries`). Also shrink-only for `domains/settings` (second hub). Session PRs must name a write-path owner — see root `AGENTS.md`.
 
 ### Expert lifecycle hard rules
 
@@ -132,7 +151,8 @@ apps/app/src/react-app/
   capabilities/    跨域复用能力：artifacts / conversation（双运行时 timeline）/ layout（content-column）/ model-selection / session-identity
   design-system/   产品级复合组件（ConfirmModal、SelectMenu 等）
   domains/
-    session/       **OpenCode 主轨**会话：composer/surface/sync/sidebar（底栏 channels+devices）/artifacts/browser/goal；expert/skills marketplace
+    session/       **OpenCode 主轨**会话：composer/surface/sync/sidebar（底栏 channels+devices）/artifacts/browser/goal；hub freeze 见上表
+    knowledge/     本地 Markdown vault（从 session/knowledge 抽出）；禁止 knowledge→session
     local-agents/  **Personal 辅轨**：ACP / 本地 agent 编辑、卡片、agent-management、personal host
     messaging/     自动化（含 list model / wait-complete UX）+ 飞书/微信等 messaging channels（桌面 channel 纯单元门禁：`node --test apps/desktop/electron/channels/test/*.test.mjs`，无需 live 凭证）
     agents/        agent registry + 注册表 UI
@@ -405,12 +425,13 @@ src/react-app/domains/ → 业务域，通过 kernel store 交互，不跨域直
 pnpm check:boundaries
 ```
 
-`pnpm check:boundaries` 实际串行四道（勿再写成「三组」）：
+`pnpm check:boundaries` 实际串行五道（勿再写成「三组 / 四道」）：
 
 1. `scripts/checks/check-boundaries.mjs` — package + domain + shell-import-depth
 2. `scripts/checks/check-circular-deps.mjs` — Tarjan SCC，baseline 只减不增
 3. `scripts/checks/check-dual-runtime-boundary.mjs` — renderer 不得 import `personal-agent-runtime/**`；Personal 不得 import `session-archive*`
 4. `node --test scripts/checks/check-dual-runtime-boundary.test.mjs`
+5. `scripts/checks/check-session-hub-budget.mjs` + 其 unit test — `domains/session` 文件数只减不增；禁止在 `session/knowledge/` 新增文件
 
 `check-boundaries.mjs` 内的包/域规则：
 
@@ -629,3 +650,4 @@ scripts/release/      release review, prepare, ship, and asset publishing
 
 - 静态门禁：`scripts/checks/check-dual-runtime-boundary.mjs`（接入 `check:boundaries`）禁止 renderer / app 源码 import `personal-agent-runtime/**`，并禁止 personal-agent-runtime 直接 import server archive 热路径模块。
 - 与上文 **Dual Runtime Boundary** 禁止交叉写一致；单元测试覆盖 fixture 违规失败。
+- 出货 `engineStart` 只能赋 `direct`（`resolveShippedEngineRuntime`）；产品路径不得依赖 `onmyagent-orchestrator`。编排进程仍保留，但不在桌面热路径上。

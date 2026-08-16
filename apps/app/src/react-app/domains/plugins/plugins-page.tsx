@@ -13,7 +13,12 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { CodeToken } from "@/components/ui/code-token";
-import { FilterChip, IconTile, SegmentedTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
+import {
+  FilterChip,
+  IconTile,
+  SegmentedTabButton,
+  SegmentedTabGroup,
+} from "@/components/ui/action-row";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { EmptyStateBox, NoticeBox } from "@/components/ui/notice-box";
 import {
@@ -51,7 +56,14 @@ import {
 import { extensionIcon, extensionIconTileClassName } from "./extension-icon";
 import { BUILTIN_PLUGIN_ICON_PNG_BY_ID } from "@/react-app/design-system/koboyo-product-icons";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import { classifySkillScope, classifyLocalOrigin, SKILL_SCOPE_LABELS, LOCAL_ORIGIN_LABELS, type SkillScope, type LocalSkillOrigin } from "./skill-scope";
+import {
+  classifySkillScope,
+  classifyLocalOrigin,
+  SKILL_SCOPE_LABELS,
+  LOCAL_ORIGIN_LABELS,
+  type SkillScope,
+  type LocalSkillOrigin,
+} from "./skill-scope";
 import { resolveBundledSkillDisplay } from "./bundled-skill-locale";
 import { ArtifactPluginCard } from "./artifact-plugin-card";
 import {
@@ -62,10 +74,7 @@ import {
   connectorTileOrderClass,
 } from "./connector-tile";
 import { loadArtifactPluginCatalog } from "./artifact-plugin-client";
-import {
-  ArtifactPluginIcon,
-  getArtifactPluginConnectCopy,
-} from "./artifact-plugin-detail";
+import { ArtifactPluginIcon, getArtifactPluginConnectCopy } from "./artifact-plugin-detail";
 import { createArtifactPluginState } from "./artifact-plugin-state";
 import { OfficeCliPluginCard } from "./officecli-plugin";
 import { LarkCliPluginCard } from "./larkcli-plugin";
@@ -85,18 +94,12 @@ const RECOMMENDED_PLUGIN_CARDS: Record<
 > = {
   officecli: (props) => <OfficeCliPluginCard onTryPrompt={props.onTryPrompt} />,
   "lark-cli": (props) => <LarkCliPluginCard onTryPrompt={props.onTryPrompt} />,
-  "tencent-docs": (props) => (
-    <TencentDocsPluginCard onTryPrompt={props.onTryPrompt} />
-  ),
-  "baidu-drive": (props) => (
-    <BaiduDrivePluginCard onTryPrompt={props.onTryPrompt} />
-  ),
+  "tencent-docs": (props) => <TencentDocsPluginCard onTryPrompt={props.onTryPrompt} />,
+  "baidu-drive": (props) => <BaiduDrivePluginCard onTryPrompt={props.onTryPrompt} />,
   kdocs: (props) => <KdocsPluginCard onTryPrompt={props.onTryPrompt} />,
   dingtalk: (props) => <DingtalkPluginCard onTryPrompt={props.onTryPrompt} />,
   wecom: (props) => <WecomPluginCard onTryPrompt={props.onTryPrompt} />,
-  "tencent-meeting": (props) => (
-    <TencentMeetingPluginCard onTryPrompt={props.onTryPrompt} />
-  ),
+  "tencent-meeting": (props) => <TencentMeetingPluginCard onTryPrompt={props.onTryPrompt} />,
 };
 
 /** Render recommended connector cards in shelf registry order. */
@@ -113,10 +116,7 @@ export function renderRecommendedPluginCards(input: {
     ];
   });
 }
-import {
-  getExtensionConfigSlot,
-  type ExtensionConfigContext,
-} from "@/react-app/domains/shared";
+import { getExtensionConfigSlot, type ExtensionConfigContext } from "@/react-app/domains/shared";
 import { useLocal } from "@/react-app/kernel/local-provider";
 
 /** Matches local provider install shape used by Ollama / OpenAI-compatible panels. */
@@ -149,8 +149,6 @@ type PluginsPageProps = {
   onSelectArtifactPrompt?: (selection: ArtifactPluginPromptSelection) => void;
 };
 
-
-
 const pluginsTextClass = {
   cardTitle: "truncate text-sm font-medium leading-5 text-dls-text",
   featuredTitle: "truncate text-sm font-medium leading-5 text-dls-text",
@@ -163,7 +161,8 @@ const pluginsTextClass = {
   emptyTitle: "text-sm font-medium text-dls-text",
   emptyDescription: "mt-1.5 text-xs text-dls-secondary",
   helper: "text-xs text-dls-secondary",
-  pathHint: "truncate text-xs text-dls-secondary opacity-0 transition-opacity group-hover:opacity-100",
+  pathHint:
+    "truncate text-xs text-dls-secondary opacity-0 transition-opacity group-hover:opacity-100",
   categoryTitle: "mb-2 text-xs font-medium uppercase tracking-wide text-dls-secondary",
 };
 
@@ -178,12 +177,7 @@ const PRODUCT_CONNECTOR_GRID =
 const PLUGIN_CARD_GRID = cn(MARKETPLACE_CARD_GRID_COMPACT, "auto-rows-fr");
 
 /** File-processing plugins: browser + Office suite in product order. */
-const ARTIFACT_PLUGIN_DISPLAY_ORDER = [
-  "browser",
-  "documents",
-  "spreadsheets",
-  "pdf",
-] as const;
+const ARTIFACT_PLUGIN_DISPLAY_ORDER = ["browser", "documents", "spreadsheets", "pdf"] as const;
 
 /** Built-in extensions: product priority when enablement is equal. */
 const BUILTIN_EXTENSION_DISPLAY_ORDER = [
@@ -197,10 +191,7 @@ type ConnectorFilterId = "all" | "builtin" | "recommended";
 
 const CONNECTOR_FILTERS: ReadonlyArray<{
   id: ConnectorFilterId;
-  labelKey:
-    | "plugins.filter_all"
-    | "plugins.filter_builtin"
-    | "plugins.filter_recommended";
+  labelKey: "plugins.filter_all" | "plugins.filter_builtin" | "plugins.filter_recommended";
 }> = [
   { id: "all", labelKey: "plugins.filter_all" },
   { id: "recommended", labelKey: "plugins.filter_recommended" },
@@ -232,7 +223,8 @@ const pluginsLayoutClass = {
   cardMd: "min-h-36",
   cardLg: "min-h-36",
   iconButton: "rounded-lg text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
-  disabledIconButton: "rounded-lg text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text disabled:pointer-events-none",
+  disabledIconButton:
+    "rounded-lg text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text disabled:pointer-events-none",
   cardGrid: PLUGIN_CARD_GRID,
   artifactCardGrid: PRODUCT_CONNECTOR_GRID,
   connectorCardGrid: PRODUCT_CONNECTOR_GRID,
@@ -324,20 +316,14 @@ function ArtifactPluginsCatalog(
       return left.id.localeCompare(right.id);
     });
   }, [pluginState, revision]);
-  const selectedPlugin = selectedPluginId
-    ? pluginState.get(selectedPluginId)
-    : undefined;
+  const selectedPlugin = selectedPluginId ? pluginState.get(selectedPluginId) : undefined;
 
   const setPluginEnabled = async (pluginId: string, enabled: boolean) => {
     if (!props.client) return;
     setMutationError(false);
     try {
       await pluginState.setPluginEnabled(pluginId, enabled, async () => {
-        await props.client?.setArtifactPluginEnabled(
-          props.workspaceId,
-          pluginId,
-          enabled,
-        );
+        await props.client?.setArtifactPluginEnabled(props.workspaceId, pluginId, enabled);
       });
     } catch {
       setMutationError(true);
@@ -352,10 +338,7 @@ function ArtifactPluginsCatalog(
     setSelectedPluginId(pluginId);
   };
 
-  const connectCopy =
-    selectedPlugin != null
-      ? getArtifactPluginConnectCopy(selectedPlugin)
-      : null;
+  const connectCopy = selectedPlugin != null ? getArtifactPluginConnectCopy(selectedPlugin) : null;
   const primarySkillId =
     selectedPlugin?.skills.find((s) => s.id === selectedPlugin.id)?.id ??
     selectedPlugin?.skills[0]?.id ??
@@ -368,9 +351,7 @@ function ArtifactPluginsCatalog(
       : plugins.map((plugin) => {
           const copy = getArtifactPluginConnectCopy(plugin);
           const skillId =
-            plugin.skills.find((s) => s.id === plugin.id)?.id ??
-            plugin.skills[0]?.id ??
-            plugin.id;
+            plugin.skills.find((s) => s.id === plugin.id)?.id ?? plugin.skills[0]?.id ?? plugin.id;
           const tryPrompt = copy.prompts[0] ?? copy.longDescription ?? plugin.id;
           return (
             <ArtifactPluginCard
@@ -403,22 +384,14 @@ function ArtifactPluginsCatalog(
       name={connectCopy?.title ?? t("plugins.artifact_open")}
       description={connectCopy?.longDescription ?? ""}
       serviceIconNode={
-        selectedPlugin ? (
-          <ArtifactPluginIcon pluginId={selectedPlugin.id} size="sm" />
-        ) : null
+        selectedPlugin ? <ArtifactPluginIcon pluginId={selectedPlugin.id} size="sm" /> : null
       }
       connected={Boolean(selectedPlugin?.enabled)}
       connectLabel={t("plugins.artifact_enable_action")}
-      onConnect={
-        selectedPlugin
-          ? () => void setPluginEnabled(selectedPlugin.id, true)
-          : undefined
-      }
+      onConnect={selectedPlugin ? () => void setPluginEnabled(selectedPlugin.id, true) : undefined}
       tryItLabel={t("plugins.connector_try_it")}
       onTryIt={
-        selectedPlugin &&
-        props.onSelectArtifactPrompt &&
-        connectCopy?.prompts[0]
+        selectedPlugin && props.onSelectArtifactPrompt && connectCopy?.prompts[0]
           ? () => {
               props.onSelectArtifactPrompt?.({
                 pluginId: selectedPlugin.id,
@@ -430,15 +403,9 @@ function ArtifactPluginsCatalog(
           : undefined
       }
       unbindLabel={t("plugins.artifact_disable_action")}
-      onUnbind={
-        selectedPlugin
-          ? () => void setPluginEnabled(selectedPlugin.id, false)
-          : undefined
-      }
+      onUnbind={selectedPlugin ? () => void setPluginEnabled(selectedPlugin.id, false) : undefined}
       tryThisPrompts={connectCopy?.prompts}
-      promptsDisabled={
-        !props.onSelectArtifactPrompt || !selectedPlugin?.enabled
-      }
+      promptsDisabled={!props.onSelectArtifactPrompt || !selectedPlugin?.enabled}
       onSelectPrompt={
         selectedPlugin && props.onSelectArtifactPrompt
           ? (prompt) => {
@@ -496,9 +463,7 @@ function ArtifactPluginsCatalog(
         <h2 id="artifact-plugins-heading" className={pluginsLayoutClass.sectionTitle}>
           {t("plugins.artifact_title")}
         </h2>
-        <p className={pluginsTextClass.sectionLead}>
-          {t("plugins.artifact_description")}
-        </p>
+        <p className={pluginsTextClass.sectionLead}>{t("plugins.artifact_description")}</p>
       </div>
       {mutationError ? (
         <NoticeBox tone="error" role="alert">
@@ -519,10 +484,7 @@ function ArtifactPluginsCatalog(
         </NoticeBox>
       ) : plugins.length === 0 ? (
         <EmptyStateBox size="comfortable" className="text-sm">
-          <EmptyStateIllustration
-            src={CONNECTORS_EMPTY_STATE_ASSET}
-            size="compact"
-          />
+          <EmptyStateIllustration src={CONNECTORS_EMPTY_STATE_ASSET} size="compact" />
           {t("plugins.artifact_empty")}
         </EmptyStateBox>
       ) : (
@@ -549,18 +511,12 @@ async function resolveComputerUseMcpCommand(entry: McpDirectoryInfo): Promise<st
       return command;
     }
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : String(error ?? "");
-    throw new Error(
-      message.trim() || t("extensions.computer_use_helper_unavailable"),
-    );
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    throw new Error(message.trim() || t("extensions.computer_use_helper_unavailable"));
   }
   if (entry.command?.length) return entry.command;
   // Windows must use staged Cua, not HandsFree npx fallback.
-  if (
-    typeof navigator !== "undefined" &&
-    /Windows/i.test(navigator.userAgent)
-  ) {
+  if (typeof navigator !== "undefined" && /Windows/i.test(navigator.userAgent)) {
     throw new Error(t("extensions.computer_use_cua_unavailable"));
   }
   return [...COMPUTER_USE_MCP_FALLBACK_COMMAND];
@@ -581,9 +537,7 @@ function emitBrowserSkillStatus(detail: {
   extensionConnected?: boolean;
 }) {
   if (typeof window === "undefined") return;
-  window.dispatchEvent(
-    new CustomEvent("onmyagent:browser-skill-status-changed", { detail }),
-  );
+  window.dispatchEvent(new CustomEvent("onmyagent:browser-skill-status-changed", { detail }));
 }
 
 /**
@@ -606,8 +560,7 @@ async function connectBrowserSkillRuntime(): Promise<boolean> {
     if (status?.ok === true) return true;
 
     // Guide the missing piece: CLI first, then extension store.
-    const target =
-      status?.installed === true ? ("extension" as const) : ("cli" as const);
+    const target = status?.installed === true ? ("extension" as const) : ("cli" as const);
     try {
       await desktopBridge.openBrowserSkillInstallPage(target);
     } catch {
@@ -702,10 +655,7 @@ function BuiltinExtensionsSection(props: {
       setComputerUseConnected(
         result.items.some((item) => {
           const name = item.name;
-          return (
-            name === COMPUTER_USE_MCP_NAME ||
-            name === "computer-use-mcp"
-          );
+          return name === COMPUTER_USE_MCP_NAME || name === "computer-use-mcp";
         }),
       );
     } catch {
@@ -890,17 +840,10 @@ function BuiltinExtensionsSection(props: {
   if (entries.length === 0) return null;
 
   const detailConfig =
-    detailEntry != null
-      ? getExtensionConfigSlot(detailEntry, extensionConfigCtx)
-      : null;
-  const detailEnabled =
-    detailEntry != null ? isOnMyAgentExtensionEnabled(detailEntry) : false;
+    detailEntry != null ? getExtensionConfigSlot(detailEntry, extensionConfigCtx) : null;
+  const detailEnabled = detailEntry != null ? isOnMyAgentExtensionEnabled(detailEntry) : false;
   const detailManifest = detailEntry?.extensionManifest;
-  const detailId =
-    detailEntry?.id ??
-    detailEntry?.serverName ??
-    detailEntry?.name ??
-    "";
+  const detailId = detailEntry?.id ?? detailEntry?.serverName ?? detailEntry?.name ?? "";
   const detailLongDescription =
     detailManifest?.longDescription?.trim() ||
     detailEntry?.description?.trim() ||
@@ -913,8 +856,7 @@ function BuiltinExtensionsSection(props: {
   // Enabled toggle ≠ runtime ready. BrowserSkill needs CLI + extension before
   // "connected" UI (chat bubble / 去试试). Match other connectors' fullyConnected.
   const detailFullyConnected =
-    detailEnabled &&
-    (!isBrowserSkillExtensionEntry(detailEntry) || browserSkillReady);
+    detailEnabled && (!isBrowserSkillExtensionEntry(detailEntry) || browserSkillReady);
   const detailTryAllowed = detailFullyConnected;
 
   const cards = entries.map((entry) => {
@@ -931,8 +873,7 @@ function BuiltinExtensionsSection(props: {
     const entryEnabled = isOnMyAgentExtensionEnabled(entry);
     // Card chat bubble only when fully ready (not merely toggled on).
     const cardFullyConnected =
-      entryEnabled &&
-      (!isBrowserSkillExtensionEntry(entry) || browserSkillReady);
+      entryEnabled && (!isBrowserSkillExtensionEntry(entry) || browserSkillReady);
     return (
       <BuiltinExtensionCard
         key={entryId}
@@ -965,11 +906,7 @@ function BuiltinExtensionsSection(props: {
       name={detailEntry.name}
       description={detailLongDescription}
       serviceIconNode={(() => {
-        const detailKey = (
-          detailEntry.id ??
-          detailEntry.serverName ??
-          detailEntry.name
-        )
+        const detailKey = (detailEntry.id ?? detailEntry.serverName ?? detailEntry.name)
           .trim()
           .toLowerCase();
         const detailPng = BUILTIN_PLUGIN_ICON_PNG_BY_ID[detailKey];
@@ -996,9 +933,7 @@ function BuiltinExtensionsSection(props: {
       })()}
       // fullyConnected (not mere enable toggle) — uninstalled BrowserSkill shows 连接.
       connected={detailFullyConnected}
-      connecting={
-        isBrowserSkillExtensionEntry(detailEntry) ? browserSkillConnecting : false
-      }
+      connecting={isBrowserSkillExtensionEntry(detailEntry) ? browserSkillConnecting : false}
       connectLabel={
         isBrowserSkillExtensionEntry(detailEntry)
           ? t("common.connect")
@@ -1097,12 +1032,8 @@ function BuiltinExtensionsSection(props: {
   return (
     <section className={pluginsLayoutClass.section}>
       <div className={pluginsLayoutClass.sectionHeader}>
-        <h2 className={pluginsLayoutClass.sectionTitle}>
-          {t("plugins.builtin_section_title")}
-        </h2>
-        <p className={pluginsTextClass.sectionLead}>
-          {t("plugins.builtin_section_hint")}
-        </p>
+        <h2 className={pluginsLayoutClass.sectionTitle}>{t("plugins.builtin_section_title")}</h2>
+        <p className={pluginsTextClass.sectionLead}>{t("plugins.builtin_section_hint")}</p>
       </div>
       <div className={pluginsLayoutClass.connectorCardGrid}>{cards}</div>
       {detailModal}
@@ -1139,11 +1070,7 @@ function BuiltinExtensionCard(props: {
   // Prefer parent fullyConnected (includes BrowserSkill readiness).
   const fullyConnected = props.fullyConnected;
   const description = props.entry.description?.trim() ?? "";
-  const entryKey = (
-    props.entry.id ??
-    props.entry.serverName ??
-    props.entry.name
-  )
+  const entryKey = (props.entry.id ?? props.entry.serverName ?? props.entry.name)
     .trim()
     .toLowerCase();
   const productPng = BUILTIN_PLUGIN_ICON_PNG_BY_ID[entryKey];
@@ -1224,7 +1151,7 @@ function BuiltinExtensionCard(props: {
                 className={cn(
                   "inline-flex size-8 items-center justify-center rounded-xl",
                   "bg-dls-surface-muted text-dls-text",
-                  "shadow-sm ring-1 ring-dls-border/60",
+                  " ring-1 ring-dls-border/60",
                   "transition-colors hover:bg-dls-hover hover:ring-dls-border",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
                 )}
@@ -1263,14 +1190,11 @@ export function PluginsPage(props: PluginsPageProps) {
   );
 
   return (
-    <div
-      className={pluginsLayoutClass.page}
-      data-workspace-id={props.workspaceId}
-    >
+    <div className={pluginsLayoutClass.page} data-workspace-id={props.workspaceId}>
       {/*
-        Market-style layout (same chip strip as experts/skills):
-        top filter chips → single scrollable card grid.
-      */}
+ Market-style layout (same chip strip as experts/skills):
+ top filter chips → single scrollable card grid.
+ */}
       <div className="flex shrink-0 items-center gap-0.5 overflow-x-auto px-6 py-2.5">
         {CONNECTOR_FILTERS.map((filter) => (
           <FilterChip
@@ -1302,7 +1226,6 @@ export function PluginsPage(props: PluginsPageProps) {
           ) : null}
         </div>
       </div>
-
     </div>
   );
 }
@@ -1330,17 +1253,23 @@ const SKILL_SCOPE_META: Record<
   { subtitle: string; icon: typeof FileText; order: number }
 > = {
   builtin: {
-    get subtitle() { return t("store.scope_builtin_desc"); },
+    get subtitle() {
+      return t("store.scope_builtin_desc");
+    },
     icon: FolderOpen,
     order: 0,
   },
   onmyagent: {
-    get subtitle() { return t("store.scope_onmyagent_desc"); },
+    get subtitle() {
+      return t("store.scope_onmyagent_desc");
+    },
     icon: FileText,
     order: 1,
   },
   local: {
-    get subtitle() { return t("store.scope_local_desc"); },
+    get subtitle() {
+      return t("store.scope_local_desc");
+    },
     icon: Users,
     order: 2,
   },
@@ -1355,7 +1284,10 @@ function readSkillScanString(record: Record<string, unknown>, key: string) {
   return typeof value === "string" ? value : undefined;
 }
 
-function normalizeSkillScanResponse(response: unknown, workspaceRoot: string | null | undefined): ScannedSkill[] {
+function normalizeSkillScanResponse(
+  response: unknown,
+  workspaceRoot: string | null | undefined,
+): ScannedSkill[] {
   const records = Array.isArray(response)
     ? response.filter(isSkillScanRecord)
     : isSkillScanRecord(response) && Array.isArray(response.items)
@@ -1366,18 +1298,20 @@ function normalizeSkillScanResponse(response: unknown, workspaceRoot: string | n
     const name = readSkillScanString(entry, "name")?.trim();
     if (!name) return [];
     const description = readSkillScanString(entry, "description") ?? name;
-    return [{
-      name,
-      description,
-      path: readSkillScanString(entry, "path") ?? "",
-      scope: classifySkillScope(entry, workspaceRoot),
-      origin: classifyLocalOrigin(entry),
-      trigger: readSkillScanString(entry, "trigger"),
-      displayNameZh: readSkillScanString(entry, "displayNameZh"),
-      displayNameEn: readSkillScanString(entry, "displayNameEn"),
-      descriptionZh: readSkillScanString(entry, "descriptionZh"),
-      descriptionEn: readSkillScanString(entry, "descriptionEn"),
-    }];
+    return [
+      {
+        name,
+        description,
+        path: readSkillScanString(entry, "path") ?? "",
+        scope: classifySkillScope(entry, workspaceRoot),
+        origin: classifyLocalOrigin(entry),
+        trigger: readSkillScanString(entry, "trigger"),
+        displayNameZh: readSkillScanString(entry, "displayNameZh"),
+        displayNameEn: readSkillScanString(entry, "displayNameEn"),
+        descriptionZh: readSkillScanString(entry, "descriptionZh"),
+        descriptionEn: readSkillScanString(entry, "descriptionEn"),
+      },
+    ];
   });
 }
 
@@ -1420,10 +1354,7 @@ function useScannedSkills(
           setState({
             items: [],
             raw: null,
-            error:
-              err instanceof Error
-                ? { message: err.message, stack: err.stack }
-                : err,
+            error: err instanceof Error ? { message: err.message, stack: err.stack } : err,
           });
         }
       }
@@ -1470,9 +1401,7 @@ function StoreSubTabs(props: {
           className="items-center gap-1.5"
         >
           <span>{label}</span>
-          {count !== undefined ? (
-            <span className="text-xs text-dls-secondary">{count}</span>
-          ) : null}
+          {count !== undefined ? <span className="text-xs text-dls-secondary">{count}</span> : null}
         </SegmentedTabButton>
       ))}
     </SegmentedTabGroup>
@@ -1482,9 +1411,7 @@ function StoreSubTabs(props: {
 export function SkillsPage(props: PluginsPageProps) {
   const [query, setQuery] = useState("");
   const effectiveQuery = props.searchQuery ?? query;
-  const [subTab, setSubTab] = useState<StoreSubTab>(
-    props.marketOnly ? "marketplace" : "mine",
-  );
+  const [subTab, setSubTab] = useState<StoreSubTab>(props.marketOnly ? "marketplace" : "mine");
   // Increment refreshKey when switching to Mine to force a re-scan.
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -1492,12 +1419,7 @@ export function SkillsPage(props: PluginsPageProps) {
     items: scannedSkills,
     raw: scannedRaw,
     error: scannedError,
-  } = useScannedSkills(
-    props.workspaceId,
-    props.workspaceRoot,
-    props.client,
-    refreshKey,
-  );
+  } = useScannedSkills(props.workspaceId, props.workspaceRoot, props.client, refreshKey);
   // Tab switch: every click on Mine re-scans even if already on that tab.
   const handleSubTabChange = (value: StoreSubTab) => {
     if (value === "mine") {
@@ -1515,8 +1437,7 @@ export function SkillsPage(props: PluginsPageProps) {
     };
     for (const s of scannedSkills) {
       if (lowered) {
-        const haystack =
-          `${s.name} ${s.description} ${s.trigger ?? ""}`.toLowerCase();
+        const haystack = `${s.name} ${s.description} ${s.trigger ?? ""}`.toLowerCase();
         if (!haystack.includes(lowered)) continue;
       }
       groups[s.scope].push(s);
@@ -1528,10 +1449,7 @@ export function SkillsPage(props: PluginsPageProps) {
   const activeSubTab = props.marketOnly ? "marketplace" : subTab;
 
   return (
-    <div
-      className={pluginsLayoutClass.page}
-      data-workspace-id={props.workspaceId}
-    >
+    <div className={pluginsLayoutClass.page} data-workspace-id={props.workspaceId}>
       <div className={cn(pluginsLayoutClass.scrollArea, "px-6 pb-16 pt-5")}>
         <div className="w-full">
           <div className="space-y-10">
@@ -1584,9 +1502,7 @@ export function SkillsPage(props: PluginsPageProps) {
                   <div className={pluginsTextClass.sectionTitle}>
                     {t("store.skills_marketplace")}
                   </div>
-                  <div className="text-sm text-dls-secondary">
-                    {t("common.coming_soon")}
-                  </div>
+                  <div className="text-sm text-dls-secondary">{t("common.coming_soon")}</div>
                 </div>
               </div>
             )}
@@ -1612,18 +1528,11 @@ function ScannedSkillsView(props: {
     return (
       <>
         <EmptyStateBox size="spacious">
-          <EmptyStateIllustration
-            src={SKILLS_EMPTY_STATE_ASSET}
-            size="compact"
-          />
-          <div className={pluginsTextClass.emptyTitle}>
-            {t("store.no_skills_installed")}
-          </div>
+          <EmptyStateIllustration src={SKILLS_EMPTY_STATE_ASSET} size="compact" />
+          <div className={pluginsTextClass.emptyTitle}>{t("store.no_skills_installed")}</div>
           <div className={pluginsTextClass.emptyDescription}>
             {t("store.place_skill_prefix")}{" "}
-            <CodeToken tone="muted">
-              .opencode/skills/&lt;name&gt;/
-            </CodeToken>{" "}
+            <CodeToken tone="muted">.opencode/skills/&lt;name&gt;/</CodeToken>{" "}
             {t("store.place_skill_suffix")}
           </div>
         </EmptyStateBox>
@@ -1645,10 +1554,7 @@ function ScannedSkillsView(props: {
   );
 }
 
-function ScannedSkillSection(props: {
-  scope: SkillScope;
-  skills: ScannedSkill[];
-}) {
+function ScannedSkillSection(props: { scope: SkillScope; skills: ScannedSkill[] }) {
   const meta = SKILL_SCOPE_META[props.scope];
   const Icon = meta.icon;
 
@@ -1660,12 +1566,8 @@ function ScannedSkillSection(props: {
     <section>
       <div className={pluginsLayoutClass.skillSectionTitle}>
         <Icon className="size-4.5 text-dls-secondary" />
-        <span className={pluginsTextClass.featuredTitle}>
-          {SKILL_SCOPE_LABELS[props.scope]}
-        </span>
-        <CountBadge>
-          {props.skills.length}
-        </CountBadge>
+        <span className={pluginsTextClass.featuredTitle}>{SKILL_SCOPE_LABELS[props.scope]}</span>
+        <CountBadge>{props.skills.length}</CountBadge>
       </div>
       <div className={cn(pluginsLayoutClass.skillSectionDescription, pluginsTextClass.helper)}>
         {meta.subtitle}
@@ -1713,9 +1615,7 @@ function LocalSkillsSection(props: { skills: ScannedSkill[] }) {
     return groups;
   }, [props.skills]);
 
-  const visibleOrigins = LOCAL_ORIGIN_ORDER.filter(
-    (o) => byOrigin[o].length > 0,
-  );
+  const visibleOrigins = LOCAL_ORIGIN_ORDER.filter((o) => byOrigin[o].length > 0);
 
   const displaySkills = byOrigin[activeOrigin] ?? byOrigin.all;
 
@@ -1723,12 +1623,8 @@ function LocalSkillsSection(props: { skills: ScannedSkill[] }) {
     <section>
       <div className={pluginsLayoutClass.skillSectionTitle}>
         <Users className="size-4.5 text-dls-secondary" />
-        <span className={pluginsTextClass.featuredTitle}>
-          {t("skills.scope_local")}
-        </span>
-        <CountBadge>
-          {props.skills.length}
-        </CountBadge>
+        <span className={pluginsTextClass.featuredTitle}>{t("skills.scope_local")}</span>
+        <CountBadge>{props.skills.length}</CountBadge>
       </div>
       <div className={cn(pluginsLayoutClass.skillSectionDescription, pluginsTextClass.helper)}>
         {t("store.local_skills_desc")}
@@ -1745,9 +1641,7 @@ function LocalSkillsSection(props: { skills: ScannedSkill[] }) {
                 <>
                   {LOCAL_ORIGIN_LABELS[origin]}
                   {origin !== "all" ? (
-                    <span className="ml-1 text-xs opacity-70">
-                      {byOrigin[origin].length}
-                    </span>
+                    <span className="ml-1 text-xs opacity-70">{byOrigin[origin].length}</span>
                   ) : null}
                 </>
               }
@@ -1778,12 +1672,14 @@ function ScannedSkillCard(props: { skill: ScannedSkill }) {
   const dirPath = skill.path.replace(/[/\\]SKILL\.md$/i, "");
   const scopeLabel = SKILL_SCOPE_LABELS[skill.scope];
   return (
-    <PluginStoreCard className="group gap-2" layout="column" title={t("session.plugins_scanned_source_prefix", { path: dirPath })}>
+    <PluginStoreCard
+      className="group gap-2"
+      layout="column"
+      title={t("session.plugins_scanned_source_prefix", { path: dirPath })}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <div className={pluginsTextClass.cardTitle}>
-            {display.name}
-          </div>
+          <div className={pluginsTextClass.cardTitle}>{display.name}</div>
           <div className={pluginsTextClass.cardDescriptionClamp}>
             {display.description || display.name}
           </div>
@@ -1793,17 +1689,11 @@ function ScannedSkillCard(props: { skill: ScannedSkill }) {
         </StatusBadge>
       </div>
       {skill.trigger && (
-        <div
-          className={pluginsTextClass.helper}
-          title={skill.trigger}
-        >
+        <div className={pluginsTextClass.helper} title={skill.trigger}>
           {t("session.plugins_scanned_trigger", { trigger: skill.trigger })}
         </div>
       )}
-      <div
-        className={pluginsTextClass.pathHint}
-        title={dirPath}
-      >
+      <div className={pluginsTextClass.pathHint} title={dirPath}>
         📁 {dirPath}
       </div>
     </PluginStoreCard>
@@ -1820,10 +1710,7 @@ export function ConnectorsPage(props: PluginsPageProps) {
         <div className="w-full px-8 pb-10 pt-7">
           <div className="space-y-6">
             <EmptyStateBox size="spacious">
-              <EmptyStateIllustration
-                src={CONNECTORS_EMPTY_STATE_ASSET}
-                size="compact"
-              />
+              <EmptyStateIllustration src={CONNECTORS_EMPTY_STATE_ASSET} size="compact" />
               <div className={pluginsTextClass.emptyTitle}>
                 {t("store.no_connectors_installed")}
               </div>

@@ -23,9 +23,9 @@ export {
   shouldAutoOpenTarget,
 } from "./artifacts/open-target";
 export { useSessionControlActions } from "./control/session-control-actions";
-export { ModelPickerModal } from "./modals/model-picker-modal";
+export { ModelPickerModal } from "../../capabilities/model-selection/model-picker-modal";
 export { readHiddenModels } from "./sync/hidden-models-store";
-export type { ModelPickerModalProps } from "./modals/model-picker-modal";
+export type { ModelPickerModalProps } from "../../capabilities/model-selection/model-picker-modal";
 export {
   SessionPage,
   type PageMode,
@@ -48,13 +48,9 @@ export {
   isStreamingSessionStatus,
   workspaceKindLabel,
   workspaceLabel,
-  workspaceSwatchColor,
 } from "./sidebar/utils";
-export type {
-  FlattenedSessionRow,
-  SessionListItem,
-  SessionTreeState,
-} from "./sidebar/utils";
+export { workspaceSwatchColor } from "../workspace";
+export type { FlattenedSessionRow, SessionListItem, SessionTreeState } from "./sidebar/utils";
 export {
   getSessionActivityStatusLabel,
   useSessionActivityStore,
@@ -162,9 +158,7 @@ export type {
   SessionSnapshotQueryKey,
 } from "./sync/session-snapshot-query-policy";
 /** Cross-session snapshot budget: focused work can preempt bounded prefetches. */
-export {
-  scheduleSessionSnapshot,
-} from "./sync/session-snapshot-scheduler";
+export { scheduleSessionSnapshot } from "./sync/session-snapshot-scheduler";
 export type {
   SessionSnapshotPriority,
   SessionSnapshotScheduleInput,
@@ -205,10 +199,5 @@ export {
   transcriptKey,
 } from "./sync/session-sync";
 
-export {
-  removeAutomationSessionRecord,
-  renameAutomationSessionRecord,
-} from "../messaging";
+export { removeAutomationSessionRecord, renameAutomationSessionRecord } from "../messaging";
 export { OpenCodeProviderConfigDialog } from "../local-agents";
-export { PersonalUsagePage } from "./usage/personal-usage-page";
-export type { PersonalUsageClient } from "./usage/personal-usage-model";

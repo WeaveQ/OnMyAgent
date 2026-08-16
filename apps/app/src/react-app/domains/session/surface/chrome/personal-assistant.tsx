@@ -1,15 +1,6 @@
 /** @jsxImportSource react */
 import { useMemo, useState, type ReactNode } from "react";
-import {
-  Check,
-  Copy,
-  Folder,
-  FolderOpen,
-  Settings2,
-  Trash2,
-  TriangleAlert,
-  X,
-} from "lucide-react";
+import { Check, Copy, Folder, FolderOpen, Settings2, Trash2, TriangleAlert, X } from "lucide-react";
 
 import { t } from "../../../../../i18n";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
@@ -31,12 +22,10 @@ export function PersonalAssistantHero() {
       <img
         src={resolvePublicAssetUrl(ONMYAGENT_ASSISTANT_AVATAR)}
         alt=""
-        className="size-28 rounded-full object-cover shadow-sm ring-1 ring-dls-border/60"
+        className="size-28 rounded-full object-cover ring-1 ring-dls-border/60"
         draggable={false}
       />
-      <h2 className={sessionSurfaceTextClass.assistantHeroTitle}>
-        {t("session.assistant_intro")}
-      </h2>
+      <h2 className={sessionSurfaceTextClass.assistantHeroTitle}>{t("session.assistant_intro")}</h2>
     </div>
   );
 }
@@ -83,9 +72,8 @@ export function PersonalAssistantAccessory(props: {
   onSelectPrompt: (prompt: string) => void;
 }) {
   const category =
-    PERSONAL_ASSISTANT_CATEGORIES.find(
-      (item) => item.id === props.categoryId,
-    ) ?? PERSONAL_ASSISTANT_CATEGORIES[1];
+    PERSONAL_ASSISTANT_CATEGORIES.find((item) => item.id === props.categoryId) ??
+    PERSONAL_ASSISTANT_CATEGORIES[1];
   const prompts = props.selectedScenario?.prompts ?? [];
 
   return (
@@ -142,9 +130,7 @@ export function SessionErrorCard({
     () => (error.createdAt ? new Date(error.createdAt).toLocaleString() : null),
     [error.createdAt],
   );
-  const hasMeta = Boolean(
-    error.messageId || error.traceId || error.code || formattedTime,
-  );
+  const hasMeta = Boolean(error.messageId || error.traceId || error.code || formattedTime);
   const errorDetails = useMemo(() => {
     const lines = [
       error.messageId
@@ -162,9 +148,7 @@ export function SessionErrorCard({
   if (isUserCancelledError(error)) {
     return (
       <div className="mx-auto max-w-3xl px-3 py-2 sm:px-5">
-        <div className="text-sm text-dls-secondary">
-          {t("session.user_cancelled")}
-        </div>
+        <div className="text-sm text-dls-secondary">{t("session.user_cancelled")}</div>
       </div>
     );
   }
@@ -175,7 +159,7 @@ export function SessionErrorCard({
       <div
         className={cn(
           "flex items-start gap-2.5 rounded-xl border border-dls-border bg-dls-surface-solid px-3.5 py-2.5",
-          "shadow-sm",
+          "",
         )}
         role="alert"
       >
@@ -183,9 +167,7 @@ export function SessionErrorCard({
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 space-y-0.5">
-              <p className="text-sm font-medium leading-5 text-dls-text">
-                {error.message}
-              </p>
+              <p className="text-sm font-medium leading-5 text-dls-text">{error.message}</p>
               {error.kind !== "model-not-found" ? (
                 <p className="text-xs leading-4 text-dls-secondary">
                   {t("session.error_retry_hint")}
@@ -199,16 +181,8 @@ export function SessionErrorCard({
                   variant="ghost"
                   size="icon-xs"
                   className="shrink-0 text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
-                  title={
-                    copied
-                      ? t("common.copied")
-                      : t("session.error_copy_details")
-                  }
-                  aria-label={
-                    copied
-                      ? t("common.copied")
-                      : t("session.error_copy_details")
-                  }
+                  title={copied ? t("common.copied") : t("session.error_copy_details")}
+                  aria-label={copied ? t("common.copied") : t("session.error_copy_details")}
                   onClick={() => {
                     void navigator.clipboard.writeText(errorDetails).then(() => {
                       setCopied(true);
@@ -216,11 +190,7 @@ export function SessionErrorCard({
                     });
                   }}
                 >
-                  {copied ? (
-                    <Check className="size-3.5" />
-                  ) : (
-                    <Copy className="size-3.5" />
-                  )}
+                  {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
                 </Button>
               ) : null}
               <Button
@@ -243,9 +213,7 @@ export function SessionErrorCard({
                 className="text-xs font-medium text-dls-secondary underline-offset-2 hover:text-dls-text hover:underline"
                 onClick={() => setDetailsOpen((open) => !open)}
               >
-                {detailsOpen
-                  ? t("session.error_hide_details")
-                  : t("session.error_show_details")}
+                {detailsOpen ? t("session.error_hide_details") : t("session.error_show_details")}
               </button>
               {detailsOpen ? (
                 <div className="mt-1.5 space-y-0.5 break-all text-2xs leading-4 text-dls-secondary">

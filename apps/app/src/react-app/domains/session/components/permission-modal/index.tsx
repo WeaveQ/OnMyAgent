@@ -68,23 +68,25 @@ const permissionLayoutClass = {
   surfaceCard: "rounded-xl border border-dls-border bg-dls-surface p-4",
   permissionValue: "mt-2 font-mono text-sm leading-6 text-dls-text",
   note: "mt-2 text-sm leading-5 text-dls-secondary",
-  scopeValue: "mt-3 rounded-xl border border-dls-border bg-dls-surface-muted px-3.5 py-3 font-mono text-sm leading-6 text-dls-text",
+  scopeValue:
+    "mt-3 rounded-xl border border-dls-border bg-dls-surface-muted px-3.5 py-3 font-mono text-sm leading-6 text-dls-text",
   detailList: "mt-3 space-y-3",
   detailLabel: "text-xs font-medium text-dls-secondary",
-  detailValue: "mt-1 rounded-xl border border-dls-border bg-dls-surface-muted px-3 py-2 font-mono text-xs leading-5 text-dls-text",
+  detailValue:
+    "mt-1 rounded-xl border border-dls-border bg-dls-surface-muted px-3 py-2 font-mono text-xs leading-5 text-dls-text",
   details: "group rounded-xl border border-dls-border bg-dls-surface px-4 py-3",
-  summary: "flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-dls-text",
-  metadataPre: "mt-3 max-h-44 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-dls-border bg-dls-surface-muted px-3 py-2.5 text-xs leading-5 text-dls-secondary",
+  summary:
+    "flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-dls-text",
+  metadataPre:
+    "mt-3 max-h-44 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-dls-border bg-dls-surface-muted px-3 py-2.5 text-xs leading-5 text-dls-secondary",
   // Inline panel above composer: one surface, light separators, no nested box soup.
-  panelShell:
-    "overflow-hidden rounded-2xl border border-dls-border bg-dls-surface shadow-sm",
+  panelShell: "overflow-hidden rounded-2xl border border-dls-border bg-dls-surface ",
   panelTitle: "text-sm font-semibold leading-5 tracking-tight text-dls-text",
   panelMessage: "mt-1 text-xs leading-5 text-dls-secondary",
   panelNote: "mt-1.5 text-xs leading-5 text-dls-secondary",
   panelScope:
     "flex min-w-0 items-start gap-2 rounded-xl bg-dls-surface-muted/70 px-3 py-2.5 font-mono text-xs leading-5 text-dls-text",
-  panelDetails:
-    "group overflow-hidden rounded-xl bg-dls-surface-muted/50",
+  panelDetails: "group overflow-hidden rounded-xl bg-dls-surface-muted/50",
   panelSummary:
     "flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-xs font-medium text-dls-secondary transition-colors hover:text-dls-text",
   panelPre:
@@ -152,7 +154,9 @@ function permissionCopy(permission: string): Pick<PermissionPresentation, "title
     };
   }
   return {
-    title: t("session.permission_title_generic", undefined, { permission: readablePermissionLabel(permission) }),
+    title: t("session.permission_title_generic", undefined, {
+      permission: readablePermissionLabel(permission),
+    }),
     message: t("session.permission_message"),
   };
 }
@@ -203,7 +207,10 @@ export function permissionDetailRows(metadata: Record<string, unknown>): Permiss
   return rows;
 }
 
-function stringifyMetadata(metadata: Record<string, unknown>, safeStringify?: (value: unknown) => string) {
+function stringifyMetadata(
+  metadata: Record<string, unknown>,
+  safeStringify?: (value: unknown) => string,
+) {
   try {
     return safeStringify ? safeStringify(metadata) : JSON.stringify(metadata, null, 2);
   } catch {
@@ -222,7 +229,9 @@ function describePermissionRequest(permission: PendingPermission): PermissionPre
   const patterns = permission.patterns.filter((pattern) => pattern.trim().length > 0);
   if (permission.permission === "doom_loop") {
     const tool =
-      permission.metadata && typeof permission.metadata === "object" && typeof permission.metadata.tool === "string"
+      permission.metadata &&
+      typeof permission.metadata === "object" &&
+      typeof permission.metadata.tool === "string"
         ? permission.metadata.tool
         : null;
 
@@ -230,8 +239,11 @@ function describePermissionRequest(permission: PendingPermission): PermissionPre
       title: t("session.doom_loop_title"),
       message: t("session.doom_loop_message"),
       permissionLabel: t("session.doom_loop_label"),
-      scopeLabel: tool ? t("session.doom_loop_tool_label") : t("session.doom_loop_repeated_call_label"),
-      scopeValue: tool ?? (patterns.length ? patterns.join(", ") : t("session.doom_loop_repeated_tool_call")),
+      scopeLabel: tool
+        ? t("session.doom_loop_tool_label")
+        : t("session.doom_loop_repeated_call_label"),
+      scopeValue:
+        tool ?? (patterns.length ? patterns.join(", ") : t("session.doom_loop_repeated_tool_call")),
       isDoomLoop: true,
       note: t("session.doom_loop_note"),
     };
@@ -252,8 +264,13 @@ function describePermissionRequest(permission: PendingPermission): PermissionPre
 export function PermissionApprovalModal(props: PermissionApprovalModalProps) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const previousActiveElementRef = useRef<HTMLElement | null>(null);
-  const presentation = useMemo(() => describePermissionRequest(props.permission), [props.permission]);
-  const metadata = isRecordStringUnknown(props.permission.metadata) ? props.permission.metadata : {};
+  const presentation = useMemo(
+    () => describePermissionRequest(props.permission),
+    [props.permission],
+  );
+  const metadata = isRecordStringUnknown(props.permission.metadata)
+    ? props.permission.metadata
+    : {};
   const hasMetadata = Object.keys(metadata).length > 0;
   const detailRows = permissionDetailRows(metadata);
   const Icon = presentation.isDoomLoop ? RefreshCcw : ShieldCheck;
@@ -312,32 +329,26 @@ export function PermissionApprovalModal(props: PermissionApprovalModalProps) {
       >
         <AlertDialogHeader>
           <div className="flex items-start gap-4 text-left">
-            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${iconClass}`}>
+            <div
+              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${iconClass}`}
+            >
               <Icon size={24} strokeWidth={1.9} />
             </div>
             <div className="min-w-0 flex-1">
-              <AlertDialogTitle>
-                {presentation.title}
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                {presentation.message}
-              </AlertDialogDescription>
+              <AlertDialogTitle>{presentation.title}</AlertDialogTitle>
+              <AlertDialogDescription>{presentation.message}</AlertDialogDescription>
             </div>
           </div>
         </AlertDialogHeader>
 
         <div className={permissionLayoutClass.body}>
           <div className={permissionLayoutClass.softCard}>
-            <div className={permissionTextClass.sectionLabel}>
-              {t("session.permission_label")}
-            </div>
+            <div className={permissionTextClass.sectionLabel}>{t("session.permission_label")}</div>
             <div className={permissionLayoutClass.permissionValue}>
               {presentation.permissionLabel}
             </div>
             {presentation.note ? (
-              <p className={permissionLayoutClass.note}>
-                {presentation.note}
-              </p>
+              <p className={permissionLayoutClass.note}>{presentation.note}</p>
             ) : null}
           </div>
 
@@ -377,7 +388,10 @@ export function PermissionApprovalModal(props: PermissionApprovalModalProps) {
             <details className={permissionLayoutClass.details}>
               <summary className={permissionLayoutClass.summary}>
                 <span>{t("session.details_label")}</span>
-                <ChevronRight size={14} className="text-dls-secondary transition-transform group-open:rotate-90" />
+                <ChevronRight
+                  size={14}
+                  className="text-dls-secondary transition-transform group-open:rotate-90"
+                />
               </summary>
               <pre className={permissionLayoutClass.metadataPre}>
                 {stringifyMetadata(metadata, props.safeStringify)}
@@ -422,17 +436,26 @@ export function PermissionApprovalModal(props: PermissionApprovalModalProps) {
   );
 }
 
-function permissionRiskTier(permission: PendingPermission, isDoomLoop: boolean): "safe" | "careful" | "destructive" {
+function permissionRiskTier(
+  permission: PendingPermission,
+  isDoomLoop: boolean,
+): "safe" | "careful" | "destructive" {
   if (isDoomLoop) return "destructive";
   const kind = permission.permission;
   if (kind === "bash" || kind === "edit" || kind === "external_directory") return "careful";
-  if (kind === "read" || kind === "todowrite" || kind === "question" || kind === "skill") return "safe";
+  if (kind === "read" || kind === "todowrite" || kind === "question" || kind === "skill")
+    return "safe";
   return "careful";
 }
 
 export function PermissionApprovalPanel(props: PermissionApprovalModalProps) {
-  const presentation = useMemo(() => describePermissionRequest(props.permission), [props.permission]);
-  const metadata = isRecordStringUnknown(props.permission.metadata) ? props.permission.metadata : {};
+  const presentation = useMemo(
+    () => describePermissionRequest(props.permission),
+    [props.permission],
+  );
+  const metadata = isRecordStringUnknown(props.permission.metadata)
+    ? props.permission.metadata
+    : {};
   const hasMetadata = Object.keys(metadata).length > 0;
   const isExternalDirectory = props.permission.permission === "external_directory";
   const Icon = presentation.isDoomLoop
@@ -442,8 +465,7 @@ export function PermissionApprovalPanel(props: PermissionApprovalModalProps) {
       : ShieldCheck;
 
   const risk = permissionRiskTier(props.permission, presentation.isDoomLoop);
-  const badgeTone =
-    risk === "destructive" ? "danger" : risk === "careful" ? "warning" : "neutral";
+  const badgeTone = risk === "destructive" ? "danger" : risk === "careful" ? "warning" : "neutral";
   // IconTile tones are limited; risk color is applied via className.
   const iconClass =
     risk === "destructive"
@@ -490,15 +512,8 @@ export function PermissionApprovalPanel(props: PermissionApprovalModalProps) {
       </ToolApprovalCardHeader>
 
       <ToolApprovalCardBody className="space-y-2.5 px-4 py-2.5">
-        <div
-          className={permissionLayoutClass.panelScope}
-          title={presentation.scopeValue}
-        >
-          <HardDrive
-            size={14}
-            strokeWidth={1.75}
-            className="mt-0.5 shrink-0 text-dls-secondary"
-          />
+        <div className={permissionLayoutClass.panelScope} title={presentation.scopeValue}>
+          <HardDrive size={14} strokeWidth={1.75} className="mt-0.5 shrink-0 text-dls-secondary" />
           <span className="min-w-0 flex-1 break-all">{presentation.scopeValue}</span>
         </div>
 
@@ -540,9 +555,7 @@ export function PermissionApprovalPanel(props: PermissionApprovalModalProps) {
           </>
         }
         onDeny={() => props.respondPermission?.(props.permission.id, "reject")}
-        onAllowAlways={() =>
-          props.respondPermission?.(props.permission.id, "always")
-        }
+        onAllowAlways={() => props.respondPermission?.(props.permission.id, "always")}
         onAllowOnce={() => props.respondPermission?.(props.permission.id, "once")}
       >
         {t("session.permission_decision_hint")}

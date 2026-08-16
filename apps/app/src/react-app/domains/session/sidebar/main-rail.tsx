@@ -74,22 +74,105 @@ type BottomRailItem = {
 // Local agents + agent management live under the account/settings menu.
 // Company stays in the list definition for icon contracts; runtime filters by OMC connect.
 const TOP_RAIL_ITEMS: RailItem[] = [
-  { id: "assistant", get label() { return t("nav.assistant"); }, get shortLabel() { return t("nav.assistant_short"); }, icon: AssistantRailIcon },
-  { id: "chat", get label() { return t("nav.experts"); }, get shortLabel() { return t("nav.experts_short"); }, icon: ExpertRailIcon },
-  { id: "taskCenter", get label() { return t("nav.task_center"); }, get shortLabel() { return t("nav.task_center_short"); }, icon: TaskCenterRailIcon },
-  { id: "automation", get label() { return t("nav.automation"); }, get shortLabel() { return t("nav.automation_short"); }, icon: AutomationRailIcon },
-  { id: "files", get label() { return t("nav.files"); }, get shortLabel() { return t("nav.files_short"); }, icon: FilesRailIcon },
-  { id: "store", get label() { return t("nav.store"); }, get shortLabel() { return t("nav.store_short"); }, icon: StoreRailIcon },
-  { id: "knowledgeBase", get label() { return t("nav.knowledge_base"); }, get shortLabel() { return t("nav.knowledge_base_short"); }, icon: KnowledgeBaseRailIcon },
-  { id: "company", get label() { return t("nav.company"); }, get shortLabel() { return t("nav.company_short"); }, icon: CompanyRailIcon },
-  { id: "projects", get label() { return t("nav.projects"); }, get shortLabel() { return t("nav.projects_short"); }, icon: ProjectsRailIcon },
+  {
+    id: "assistant",
+    get label() {
+      return t("nav.assistant");
+    },
+    get shortLabel() {
+      return t("nav.assistant_short");
+    },
+    icon: AssistantRailIcon,
+  },
+  {
+    id: "chat",
+    get label() {
+      return t("nav.experts");
+    },
+    get shortLabel() {
+      return t("nav.experts_short");
+    },
+    icon: ExpertRailIcon,
+  },
+  {
+    id: "taskCenter",
+    get label() {
+      return t("nav.task_center");
+    },
+    get shortLabel() {
+      return t("nav.task_center_short");
+    },
+    icon: TaskCenterRailIcon,
+  },
+  {
+    id: "automation",
+    get label() {
+      return t("nav.automation");
+    },
+    get shortLabel() {
+      return t("nav.automation_short");
+    },
+    icon: AutomationRailIcon,
+  },
+  {
+    id: "files",
+    get label() {
+      return t("nav.files");
+    },
+    get shortLabel() {
+      return t("nav.files_short");
+    },
+    icon: FilesRailIcon,
+  },
+  {
+    id: "store",
+    get label() {
+      return t("nav.store");
+    },
+    get shortLabel() {
+      return t("nav.store_short");
+    },
+    icon: StoreRailIcon,
+  },
+  {
+    id: "knowledgeBase",
+    get label() {
+      return t("nav.knowledge_base");
+    },
+    get shortLabel() {
+      return t("nav.knowledge_base_short");
+    },
+    icon: KnowledgeBaseRailIcon,
+  },
+  {
+    id: "company",
+    get label() {
+      return t("nav.company");
+    },
+    get shortLabel() {
+      return t("nav.company_short");
+    },
+    icon: CompanyRailIcon,
+  },
+  {
+    id: "projects",
+    get label() {
+      return t("nav.projects");
+    },
+    get shortLabel() {
+      return t("nav.projects_short");
+    },
+    icon: ProjectsRailIcon,
+  },
 ];
 
 // Bottom strip: channels only (devices entry removed — settings stays via account gear).
 const BOTTOM_RAIL_ITEMS: BottomRailItem[] = [
   {
     id: "channels",
-    get label() { return t("nav.channels"); },
+    get label() {
+      return t("nav.channels");
+    },
     icon: ChannelsRailIcon,
   },
 ];
@@ -108,12 +191,12 @@ function RailBrandMark(props: { onClick: () => void }) {
       aria-label={APP_NAME}
       className={cn(
         // 44px tile / 24px mark — 2px under prior 46 / 26.
-        "flex size-[44px] shrink-0 items-center justify-center rounded-2xl shadow-sm",
+        "flex size-[44px] shrink-0 items-center justify-center rounded-2xl ",
         // Both themes: near-black tile + blue mark (readable without a pure-white flash on dark rails).
         "bg-black ring-1 ring-black/20 hover:bg-neutral-900",
         "dark:bg-neutral-950 dark:ring-white/12 dark:hover:bg-neutral-900",
         "transition-colors focus-visible:outline-none",
-        "focus-visible:ring-3 focus-visible:ring-ring/30",
+        "focus-visible:ring-2 focus-visible:ring-dls-focus focus-visible:ring-offset-2",
       )}
     >
       <img
@@ -128,11 +211,7 @@ function RailBrandMark(props: { onClick: () => void }) {
   );
 }
 
-function TopRailButton(props: {
-  item: RailItem;
-  active: boolean;
-  onClick: () => void;
-}) {
+function TopRailButton(props: { item: RailItem; active: boolean; onClick: () => void }) {
   const Icon = props.item.icon;
   return (
     <RailButton
@@ -145,7 +224,9 @@ function TopRailButton(props: {
       aria-pressed={props.active}
     >
       <Icon className="size-5.5" />
-      <span className="w-full truncate text-center text-xs font-medium leading-none tracking-tight">{props.item.shortLabel}</span>
+      <span className="w-full truncate text-center text-xs font-medium leading-none tracking-tight">
+        {props.item.shortLabel}
+      </span>
     </RailButton>
   );
 }
@@ -158,11 +239,7 @@ function isTopRailItemActive(
   return activeView === itemId;
 }
 
-function BottomRailButton(props: {
-  item: BottomRailItem;
-  active: boolean;
-  onClick: () => void;
-}) {
+function BottomRailButton(props: { item: BottomRailItem; active: boolean; onClick: () => void }) {
   const Icon = props.item.icon;
   return (
     <RailButton
@@ -213,13 +290,7 @@ export function OnMyAgentRail(props: {
     if (!projectsVisible && props.activeView === "projects") {
       props.onOpenView("assistant");
     }
-  }, [
-    companyConnected,
-    taskCenterVisible,
-    projectsVisible,
-    props.activeView,
-    props.onOpenView,
-  ]);
+  }, [companyConnected, taskCenterVisible, projectsVisible, props.activeView, props.onOpenView]);
 
   // mac:pt-10 clears traffic lights (y≈12) without a large empty band above the brand mark.
   // Windows keeps compact top padding. Column = --dls-rail-width; pills = --dls-rail-pill-width.

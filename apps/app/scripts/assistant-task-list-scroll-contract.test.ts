@@ -3,13 +3,22 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const repoRoot = join(import.meta.dir, "../../..");
-const sectionsSource = readFileSync(
-  join(
-    repoRoot,
-    "apps/app/src/react-app/domains/session/sidebar/assistant-conversation-sections.tsx",
+const sectionsSource = [
+  readFileSync(
+    join(
+      repoRoot,
+      "apps/app/src/react-app/domains/session/sidebar/assistant-conversation-sections.tsx",
+    ),
+    "utf8",
   ),
-  "utf8",
-);
+  readFileSync(
+    join(
+      repoRoot,
+      "apps/app/src/react-app/domains/session/sidebar/assistant-conversation-rows.tsx",
+    ),
+    "utf8",
+  ),
+].join("\n");
 const listModelSource = readFileSync(
   join(
     repoRoot,
@@ -20,7 +29,7 @@ const listModelSource = readFileSync(
 
 describe("assistant task list scroll contract", () => {
   test("previews recent tasks before showing the disclosure action", () => {
-    expect(sectionsSource).toContain("const RECENT_PREVIEW_LIMIT = 10;");
+    expect(sectionsSource).toContain("RECENT_PREVIEW_LIMIT = 10;");
   });
 
   test("splits the list into collapsible sections without a separate 任务 block", () => {

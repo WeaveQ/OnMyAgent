@@ -8,7 +8,7 @@ import {
   addKnowledgeEditorTab,
   closeKnowledgeEditorTab,
   createKnowledgeEditorTab,
-} from "../src/react-app/domains/session/knowledge/knowledge-vault-tabs";
+} from "../src/react-app/domains/knowledge/knowledge-vault-tabs";
 
 const noteA = { scope: "user" as const, relPath: "a.md" };
 const noteB = { scope: "user" as const, relPath: "b.md" };
@@ -48,7 +48,7 @@ describe("knowledge editor tabs", () => {
 
   test("tab chrome uses a fixed width and ellipsis", () => {
     const source = readFileSync(
-      join(dirname(fileURLToPath(import.meta.url)), "../src/react-app/domains/session/knowledge/knowledge-vault-tab-bar.tsx"),
+      join(dirname(fileURLToPath(import.meta.url)), "../src/react-app/domains/knowledge/knowledge-vault-tab-bar.tsx"),
       "utf8",
     );
     expect(source).toContain("w-36");

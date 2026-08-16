@@ -189,7 +189,7 @@ describe("session empty / draft / files / composer contracts", () => {
   });
 
   test("model picker distinguishes loading from empty", () => {
-    const src = read("src/react-app/domains/session/modals/model-picker-modal.tsx");
+    const src = read("src/react-app/capabilities/model-selection/model-picker-modal.tsx");
     expect(src).toContain("loading?: boolean");
     expect(src).toMatch(
       /props\.loading && providerGroups\.length === 0[\s\S]*?common\.loading[\s\S]*?providerGroups\.length === 0/,

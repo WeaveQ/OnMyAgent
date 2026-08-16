@@ -408,7 +408,7 @@ export function WecomPluginCard(props: {
               type="button"
               size="sm"
               variant="outline"
-              className="rounded-full"
+              className="rounded-lg"
               onClick={() => {
                 setDetailOpen(false);
                 setCredOpen(true);

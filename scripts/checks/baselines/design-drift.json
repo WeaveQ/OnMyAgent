@@ -1,8 +1,9 @@
 {
   "__meta": {
-    "description": "DESIGN.md v4 drift baseline. Extract-tokens compares current drift against this file when invoked with --baseline. Any new signature or growth beyond count fails --strict. Reductions are always allowed. Reseed only when a DESIGN.md contract change intentionally shifts what counts as drift; document reseed in the PR that changes DESIGN.md. Extended in v5 with 5 additional bucket keys (messageRoles / streaming / presence / toolApproval / artifactHue), all seeded at count 0 because v5 is docs-only; no code-side implementation exists yet.",
+    "description": "DESIGN.md drift baseline. Extract-tokens compares current drift against this file when invoked with --baseline. Any new signature or growth beyond count fails --strict. Reductions are always allowed. Reseed only when a DESIGN.md contract change intentionally shifts what counts as drift; document reseed in the PR that changes DESIGN.md. v5 added messageRoles / streaming / presence / toolApproval / artifactHue. 2026-08-16 added color YAML buckets and UI flag scanners (hex / shadow / pill CTA / ring-0).",
     "seeded-from": "codex/design-md-v4",
-    "seed-command": "pnpm task check design -- --json"
+    "seed-command": "pnpm task check design -- --json",
+    "last-reseed": "2026-08-16"
   },
   "iconography": {
     "count": 0,
@@ -41,6 +42,30 @@
     "signatures": []
   },
   "artifactHue": {
+    "count": 0,
+    "signatures": []
+  },
+  "colorsMissingInYaml": {
+    "count": 0,
+    "signatures": []
+  },
+  "colorsMismatched": {
+    "count": 0,
+    "signatures": []
+  },
+  "uiFlagsHex": {
+    "count": 0,
+    "signatures": []
+  },
+  "uiFlagsShadow": {
+    "count": 0,
+    "signatures": []
+  },
+  "uiFlagsPillCta": {
+    "count": 0,
+    "signatures": []
+  },
+  "uiFlagsRingZero": {
     "count": 0,
     "signatures": []
   }

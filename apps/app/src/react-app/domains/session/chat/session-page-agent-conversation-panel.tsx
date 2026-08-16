@@ -25,13 +25,16 @@ const agentConversationPanelClass = {
   shell: "flex shrink-0 flex-col overflow-hidden bg-dls-sidebar px-4 pb-5 pt-2",
   toolbar: "flex h-10 items-center gap-2.5",
   searchInput: "text-sm placeholder:text-dls-secondary/75",
-  agentsButton: "relative shrink-0 rounded-xl border border-dls-border bg-dls-surface text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+  agentsButton:
+    "relative shrink-0 rounded-xl border border-dls-border bg-dls-surface text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
   listViewport: "mt-5 min-h-0 flex-1 overflow-y-auto pr-1",
   list: "space-y-2",
-  empty: "flex h-full items-center justify-center px-4 text-center text-sm leading-5 text-dls-secondary",
+  empty:
+    "flex h-full items-center justify-center px-4 text-center text-sm leading-5 text-dls-secondary",
   row: "gap-2.5 rounded-xl px-2.5 data-[active=true]:bg-dls-list-selected",
   avatarWrap: "relative shrink-0",
-  avatar: "flex size-11 items-center justify-center overflow-hidden rounded-full border border-dls-sidebar bg-dls-decision-soft text-base font-medium text-dls-accent",
+  avatar:
+    "flex size-11 items-center justify-center overflow-hidden rounded-full border border-dls-sidebar bg-dls-decision-soft text-base font-medium text-dls-accent",
   rowBody: "min-w-0 flex-1 py-3",
   rowHeader: "flex min-w-0 items-center gap-2",
   rowTitle: "min-w-0 flex-1 truncate text-sm font-medium",
@@ -66,16 +69,12 @@ export function AgentConversationPanel(props: {
     session: WorkspaceSessionGroup["sessions"][number],
   ) => AgentConversationDisplay;
 }) {
-  const group = props.groups.find(
-    (item) => item.workspace.id === props.selectedWorkspaceId,
-  );
+  const group = props.groups.find((item) => item.workspace.id === props.selectedWorkspaceId);
   const sessions: WorkspaceSessionGroup["sessions"] = group?.sessions ?? [];
   const normalizedQuery = props.query.trim().toLowerCase();
   const filteredSessions = normalizedQuery
     ? sessions.filter((session) =>
-        props.resolveSessionDisplay(session).name
-          .toLowerCase()
-          .includes(normalizedQuery),
+        props.resolveSessionDisplay(session).name.toLowerCase().includes(normalizedQuery),
       )
     : sessions;
   const { previewSessionIds } = useDeferredSidebarPreviews({
@@ -85,21 +84,15 @@ export function AgentConversationPanel(props: {
   });
   const snapshotQueries = useQueries({
     queries: filteredSessions.map((session) => ({
-      queryKey: [
-        "onmyagent-session-list-snapshot",
-        props.selectedWorkspaceId,
-        session.id,
-      ],
+      queryKey: ["onmyagent-session-list-snapshot", props.selectedWorkspaceId, session.id],
       enabled: Boolean(props.client) && previewSessionIds.has(session.id),
       queryFn: async () => {
         const client = props.client;
         if (!client) throw new Error("OnMyAgent server unavailable");
         return (
-          await client.getSessionSnapshot(
-            props.selectedWorkspaceId,
-            session.id,
-            { limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT },
-          )
+          await client.getSessionSnapshot(props.selectedWorkspaceId, session.id, {
+            limit: SIDEBAR_PREVIEW_SNAPSHOT_MESSAGE_LIMIT,
+          })
         ).item;
       },
       staleTime: 30_000,
@@ -116,10 +109,7 @@ export function AgentConversationPanel(props: {
   }, [filteredSessions, snapshotQueries]);
 
   return (
-    <aside
-      className={agentConversationPanelClass.shell}
-      style={{ width: props.width }}
-    >
+    <aside className={agentConversationPanelClass.shell} style={{ width: props.width }}>
       <div className={agentConversationPanelClass.toolbar}>
         <InputGroup controlSize="lg" radius="xl" tone="surface" className="flex-1">
           <InputGroupAddon align="inline-start">
@@ -163,9 +153,7 @@ export function AgentConversationPanel(props: {
             ))}
           </div>
         ) : (
-          <div className={agentConversationPanelClass.empty}>
-            {t("session.no_sessions")}
-          </div>
+          <div className={agentConversationPanelClass.empty}>{t("session.no_sessions")}</div>
         )}
       </div>
     </aside>
@@ -199,12 +187,8 @@ function AgentConversationItem(props: {
     <SessionRowButton
       type="button"
       onClick={() => props.onOpenSession(props.workspaceId, props.session.id)}
-      onPointerEnter={() =>
-        props.onPrefetchSession?.(props.workspaceId, props.session.id)
-      }
-      onFocus={() =>
-        props.onPrefetchSession?.(props.workspaceId, props.session.id)
-      }
+      onPointerEnter={() => props.onPrefetchSession?.(props.workspaceId, props.session.id)}
+      onFocus={() => props.onPrefetchSession?.(props.workspaceId, props.session.id)}
       active={props.selected}
       className={agentConversationPanelClass.row}
       data-active={props.selected}
@@ -213,8 +197,7 @@ function AgentConversationItem(props: {
         <div
           className={agentConversationPanelClass.avatar}
           style={{
-            backgroundColor:
-              props.display.avatarBackground ?? "var(--ow-primary-light)",
+            backgroundColor: props.display.avatarBackground ?? "var(--dls-primary-soft)",
           }}
         >
           {props.display.avatarUrl ? (
@@ -236,9 +219,7 @@ function AgentConversationItem(props: {
         )}
       >
         <div className={agentConversationPanelClass.rowHeader}>
-          <div className={cn(agentConversationPanelClass.rowTitle, "min-w-0 flex-1")}>
-            {name}
-          </div>
+          <div className={cn(agentConversationPanelClass.rowTitle, "min-w-0 flex-1")}>{name}</div>
           {trailing.kind === "busy" ? (
             <span
               className="inline-flex shrink-0 items-center text-dls-accent"
@@ -248,15 +229,11 @@ function AgentConversationItem(props: {
               <ExpertStatusDots />
             </span>
           ) : (
-            <div className={agentConversationPanelClass.rowTime}>
-              {trailing.timeLabel}
-            </div>
+            <div className={agentConversationPanelClass.rowTime}>{trailing.timeLabel}</div>
           )}
         </div>
         <div className={agentConversationPanelClass.rowPreview}>
-          <div className={agentConversationPanelClass.previewText}>
-            {summary.preview}
-          </div>
+          <div className={agentConversationPanelClass.previewText}>{summary.preview}</div>
         </div>
       </div>
     </SessionRowButton>

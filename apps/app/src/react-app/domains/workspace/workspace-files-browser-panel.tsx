@@ -6,72 +6,41 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
-  ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
-  CirclePlus,
-  Cloud,
-  Copy,
-  FileStack,
-  Folder,
-  FolderOpen,
-  MessageSquare,
-  MoreHorizontal,
   Search,
   SlidersHorizontal,
-  Star,
-  Trash2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { MenuRowButton } from "@/components/ui/action-row";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/components/ui/empty";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import {
-  TableBody,
-  TableCell,
-  TableRow,
-} from "@/components/ui/table";
+import { TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { FILES_EMPTY_STATE_ASSET } from "@/react-app/design-system/empty-state-assets";
-import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import { typeScale } from "@/react-app/design-system/type-scale";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
-import {
-  listCodeWorkspaceFiles,
-  revealDesktopItemInDir,
-} from "../../../app/lib/desktop";
+import { listCodeWorkspaceFiles, revealDesktopItemInDir } from "../../../app/lib/desktop";
 import type {
   OnMyAgentServerClient,
   OnMyAgentWorkspaceFileCatalogEntry,
 } from "../../../app/lib/onmyagent-server";
 import { isElectronRuntime } from "../../../app/utils";
 import { t } from "../../../i18n";
-import { ArtifactIcon } from "../../capabilities/artifacts/artifact-icon";
 import { FilesTreeDirRow } from "./workspace-files-tree-dir-row";
+import {
+  FileKindIcon,
+  FileNameQuickActions,
+  FileRowActionsMenu,
+  FilesListEmptyState,
+  folderDisplayName,
+  readFavoritePaths,
+  writeFavoritePaths,
+} from "./workspace-files-browser-actions";
 import {
   canEditArtifactTarget,
   openArtifactForEditing,
 } from "../../capabilities/artifacts/open-artifact-for-editing";
-import {
-  type OpenTarget,
-} from "../../capabilities/artifacts/open-target";
+import { type OpenTarget } from "../../capabilities/artifacts/open-target";
 import { workspaceFileOpenTarget } from "../../capabilities/artifacts/workspace-file-open-target";
 import {
   FilePreviewDrawer,
@@ -89,18 +58,12 @@ import {
   sortWorkspaceFileTreeCopy,
   type WorkspaceFileTreeNode,
 } from "../../capabilities/artifacts/workspace-file-tree";
-import {
-  FilesSortableTableHeader,
-  useFilesTableSort,
-} from "./workspace-files-table-sort";
+import { FilesSortableTableHeader, useFilesTableSort } from "./workspace-files-table-sort";
 import {
   FILE_PREVIEW_SELECTION_DEBOUNCE_MS,
   shouldForceExternalPreviewForSize,
 } from "../../capabilities/artifacts/file-preview-policy";
-import {
-  resolveOpenSourceSessionAction,
-  type SourceSessionStatus,
-} from "./workspace-files-open-session";
+import { resolveOpenSourceSessionAction } from "./workspace-files-open-session";
 import { FilesRefreshButton } from "./workspace-files-chrome";
 import {
   FILE_CATEGORIES,
@@ -115,336 +78,16 @@ import {
   filesSourceTabTitleKey,
   filterWorkspaceFileTree,
   filterWorkspaceTreeBySourceTab,
-  formatWorkspaceFolderDisplayName,
   getFileCategory,
   isAutomationTaskFolderName,
-  isFilesUngroupedPath,
   relativeDisplayPath,
   usesLocalFileRenderer,
   type FileCategory,
   type TreeOutlineRow,
 } from "./workspace-files-model";
 
-function folderDisplayName(node: WorkspaceFileTreeNode): string {
-  if (isFilesUngroupedPath(node.path)) return t("files.ungrouped");
-  return formatWorkspaceFolderDisplayName(node.name, node.mtimeMs);
-}
-
-function FileKindIcon(props: { node: WorkspaceFileTreeNode; fileRoot: string }) {
-  if (props.node.kind === "dir") {
-    if (isFilesUngroupedPath(props.node.path)) {
-      return (
-        <FileStack
-          className="size-4 shrink-0 text-dls-secondary"
-          strokeWidth={1.75}
-          aria-hidden="true"
-        />
-      );
-    }
-    return (
-      <Folder
-        className="size-4 shrink-0 text-dls-text opacity-100"
-        strokeWidth={1.75}
-        aria-hidden="true"
-      />
-    );
-  }
-  const target = workspaceFileOpenTarget({
-    fileRoot: props.fileRoot || "/",
-    path: props.node.path,
-    name: props.node.name,
-    size: props.node.size,
-    mtimeMs: props.node.mtimeMs,
-  });
-  return (
-    <ArtifactIcon
-      type={target.preview}
-      name={props.node.name}
-      className="size-4 shrink-0"
-    />
-  );
-}
-
 type FileNode = WorkspaceFilePreviewNode;
 type FilePreviewState = WorkspaceFilePreviewState;
-
-function FilesListEmptyState(props: {
-  filtered: boolean;
-  sessionScoped: boolean;
-}) {
-  const title = props.filtered
-    ? t("files.no_matching_files")
-    : props.sessionScoped
-      ? t("files.no_session_files")
-      : t("files.no_files");
-  const description = props.filtered
-    ? t("files.no_matching_files_hint")
-    : props.sessionScoped
-      ? t("files.no_session_files_hint")
-      : t("files.no_files_hint");
-
-  return (
-    <div className="flex min-h-56 flex-1 items-center justify-center px-6 py-12">
-      <Empty className="max-w-sm flex-none border-0 bg-transparent p-0" variant="ghost">
-        <EmptyHeader>
-          <EmptyStateIllustration
-            src={FILES_EMPTY_STATE_ASSET}
-            size="compact"
-            className="mb-3"
-          />
-          <EmptyTitle className="text-sm font-medium text-dls-text">
-            {title}
-          </EmptyTitle>
-          <EmptyDescription className="mt-1 text-xs leading-5 text-dls-secondary">
-            {description}
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    </div>
-  );
-}
-
-
-const FILE_FAVORITES_STORAGE_KEY = "onmyagent.files.favorites.v1";
-
-function readFavoritePaths(workspaceId: string): Set<string> {
-  if (typeof window === "undefined" || !workspaceId.trim()) return new Set();
-  try {
-    const raw = window.localStorage.getItem(FILE_FAVORITES_STORAGE_KEY);
-    if (!raw) return new Set();
-    const parsed = JSON.parse(raw) as Record<string, string[]>;
-    const list = parsed[workspaceId.trim()];
-    return new Set(Array.isArray(list) ? list.filter((p) => typeof p === "string") : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function writeFavoritePaths(workspaceId: string, paths: Set<string>) {
-  if (typeof window === "undefined" || !workspaceId.trim()) return;
-  try {
-    const raw = window.localStorage.getItem(FILE_FAVORITES_STORAGE_KEY);
-    const parsed =
-      raw && raw.trim()
-        ? (JSON.parse(raw) as Record<string, string[]>)
-        : {};
-    parsed[workspaceId.trim()] = Array.from(paths);
-    window.localStorage.setItem(FILE_FAVORITES_STORAGE_KEY, JSON.stringify(parsed));
-  } catch {
-    // ignore storage failures
-  }
-}
-
-/** Inline quick actions after the file/folder name (hover row → show; hover icon → tooltip).
- * Add-to-conversation is only for concrete files, not folders.
- */
-function FileNameQuickActions(props: {
-  path: string;
-  favorited: boolean;
-  /** Files only — folders omit the add-to-conversation control. */
-  showAddToTask?: boolean;
-  onAddToTask?: () => void;
-  onOpenInFolder: () => void;
-  onToggleFavorite: () => void;
-}) {
-  const quickBtnClass =
-    "inline-flex size-7 shrink-0 items-center justify-center rounded-md text-dls-secondary opacity-0 transition-[opacity,color,background-color,transform] duration-150 hover:bg-dls-hover hover:text-dls-text hover:scale-105 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30";
-  const iconClass = "size-4";
-  const favoriteLabel = props.favorited
-    ? t("files.unfavorite")
-    : t("files.favorite");
-  const showAdd = Boolean(props.showAddToTask && props.onAddToTask);
-
-  return (
-    <span className="ms-1 inline-flex shrink-0 items-center gap-1.5">
-      {showAdd ? (
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <button
-                type="button"
-                className={quickBtnClass}
-                aria-label={t("files.add_to_task")}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  props.onAddToTask?.();
-                }}
-              />
-            }
-          >
-            <CirclePlus className={iconClass} strokeWidth={1.75} aria-hidden />
-          </TooltipTrigger>
-          <TooltipContent side="top" sideOffset={6}>
-            {t("files.add_to_task")}
-          </TooltipContent>
-        </Tooltip>
-      ) : null}
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <button
-              type="button"
-              className={quickBtnClass}
-              aria-label={t("files.open_folder")}
-              onClick={(event) => {
-                event.stopPropagation();
-                props.onOpenInFolder();
-              }}
-            />
-          }
-        >
-          <FolderOpen className={iconClass} strokeWidth={1.75} aria-hidden />
-        </TooltipTrigger>
-        <TooltipContent side="top" sideOffset={6}>
-          {t("files.open_folder")}
-        </TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <button
-              type="button"
-              className={cn(
-                quickBtnClass,
-                props.favorited && "text-dls-accent opacity-100",
-              )}
-              aria-label={favoriteLabel}
-              aria-pressed={props.favorited}
-              onClick={(event) => {
-                event.stopPropagation();
-                props.onToggleFavorite();
-              }}
-            />
-          }
-        >
-          <Star
-            className={iconClass}
-            strokeWidth={1.75}
-            aria-hidden
-            fill={props.favorited ? "currentColor" : "none"}
-          />
-        </TooltipTrigger>
-        <TooltipContent side="top" sideOffset={6}>
-          {favoriteLabel}
-        </TooltipContent>
-      </Tooltip>
-    </span>
-  );
-}
-
-function openSourceSessionLabel(status: SourceSessionStatus): string {
-  if (status === "archived") return t("files.open_source_session_archived");
-  if (status === "missing") return t("files.open_source_session_missing");
-  return t("files.open_source_session");
-}
-
-function FileRowActionsMenu(props: {
-  name: string;
-  pathCopied: boolean;
-  favorited: boolean;
-  openSourceSession?: {
-    status: SourceSessionStatus;
-    canOpen: boolean;
-  } | null;
-  onOpenSourceSession?: () => void;
-  onOpenInFolder: () => void;
-  onAddToTask: () => void;
-  onToggleFavorite: () => void;
-  onCopyPath: () => void;
-  onDelete: () => void;
-}) {
-  const openSession = props.openSourceSession;
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            onClick={(event) => event.stopPropagation()}
-            className="text-dls-secondary opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100"
-            aria-label={t("files.file_actions", { name: props.name })}
-          >
-            <MoreHorizontal className="size-4" />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end" className="min-w-44">
-        {/* Hope-style order: cloud first, then add-to-task / open folder / favorite */}
-        <DropdownMenuItem disabled className="opacity-60">
-          <Cloud />
-          {t("files.upload_to_cloud_soon")}
-        </DropdownMenuItem>
-        {openSession && openSession.status !== "none" ? (
-          <DropdownMenuItem
-            disabled={!openSession.canOpen || !props.onOpenSourceSession}
-            title={
-              openSession.status === "missing"
-                ? t("files.open_source_session_missing")
-                : undefined
-            }
-            data-files-open-source-session="true"
-            onClick={(event) => {
-              event.stopPropagation();
-              if (!openSession.canOpen) return;
-              props.onOpenSourceSession?.();
-            }}
-          >
-            <MessageSquare />
-            {openSourceSessionLabel(openSession.status)}
-          </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuItem
-          onClick={(event) => {
-            event.stopPropagation();
-            props.onAddToTask();
-          }}
-        >
-          <CirclePlus />
-          {t("files.add_to_task")}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={(event) => {
-            event.stopPropagation();
-            props.onOpenInFolder();
-          }}
-        >
-          <FolderOpen />
-          {t("files.open_folder")}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={(event) => {
-            event.stopPropagation();
-            props.onToggleFavorite();
-          }}
-        >
-          <Star fill={props.favorited ? "currentColor" : "none"} />
-          {props.favorited ? t("files.unfavorite") : t("files.favorite")}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={(event) => {
-            event.stopPropagation();
-            props.onCopyPath();
-          }}
-        >
-          <Copy />
-          {props.pathCopied ? t("files.copied") : t("files.copy_path")}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          variant="destructive"
-          onClick={(event) => {
-            event.stopPropagation();
-            props.onDelete();
-          }}
-        >
-          <Trash2 />
-          {t("common.delete")}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
 
 export function WorkspaceFilesBrowserPanel(props: {
   /** Hidden keep-alive rails retain data but must not start I/O. */
@@ -489,17 +132,11 @@ export function WorkspaceFilesBrowserPanel(props: {
   /** Optional: attach file into a new/current task (composer). */
   onAddToTask?: (relativePath: string) => void;
   /** WP3: @mention + instruction for agent about any file type. */
-  onAskAgentAboutFile?: (input: {
-    path: string;
-    name: string;
-    preview: string;
-  }) => void;
+  onAskAgentAboutFile?: (input: { path: string; name: string; preview: string }) => void;
 }) {
   const sourceTab = props.sourceTab ?? "task";
   const [query, setQuery] = useState("");
-  const [entries, setEntries] = useState<OnMyAgentWorkspaceFileCatalogEntry[]>(
-    [],
-  );
+  const [entries, setEntries] = useState<OnMyAgentWorkspaceFileCatalogEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [catalogTruncated, setCatalogTruncated] = useState(false);
@@ -520,15 +157,13 @@ export function WorkspaceFilesBrowserPanel(props: {
    */
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => new Set());
   const [pathCopiedFlash, setPathCopiedFlash] = useState<string | null>(null);
-  const [favoritePaths, setFavoritePaths] = useState<Set<string>>(
-    () => readFavoritePaths(props.workspaceId),
+  const [favoritePaths, setFavoritePaths] = useState<Set<string>>(() =>
+    readFavoritePaths(props.workspaceId),
   );
   const { sortKey, sortDir, toggleSort } = useFilesTableSort();
   const workspaceRootNormalized = props.workspaceRoot.trim().replace(/[\\/]+$/, "");
   const fileRoot =
-    props.fileRoot === undefined
-      ? props.workspaceRoot.trim()
-      : props.fileRoot?.trim() ?? "";
+    props.fileRoot === undefined ? props.workspaceRoot.trim() : (props.fileRoot?.trim() ?? "");
   const hasScopedFileRoot = props.fileRoot !== undefined && Boolean(fileRoot);
   // Scoped tool/session folder (not the app workspace vault root).
   const toolFolderScoped =
@@ -584,9 +219,7 @@ export function WorkspaceFilesBrowserPanel(props: {
         if (!props.client || !props.workspaceId.trim()) {
           throw new Error(t("files.load_failed"));
         }
-        const result = await props.client.listExpertSessionFiles(
-          props.workspaceId,
-        );
+        const result = await props.client.listExpertSessionFiles(props.workspaceId);
         return result.items;
       }
 
@@ -629,9 +262,7 @@ export function WorkspaceFilesBrowserPanel(props: {
         manualRefreshRef.current = false;
         setRefreshDone(false);
         setCatalogTruncated(false);
-        setError(
-          loadError instanceof Error ? loadError.message : t("files.load_failed"),
-        );
+        setError(loadError instanceof Error ? loadError.message : t("files.load_failed"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -639,7 +270,15 @@ export function WorkspaceFilesBrowserPanel(props: {
     return () => {
       cancelled = true;
     };
-  }, [fileRoot, hasScopedFileRoot, props.active, props.client, props.workspaceId, refreshKey, sourceTab]);
+  }, [
+    fileRoot,
+    hasScopedFileRoot,
+    props.active,
+    props.client,
+    props.workspaceId,
+    refreshKey,
+    sourceTab,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -700,9 +339,7 @@ export function WorkspaceFilesBrowserPanel(props: {
     // Local office overlay (Electron) reads from disk — skip size force-out for
     // pptx/docx/xlsx so large decks still open in-app like before.
     const localOfficeOverlay =
-      usesLocalFileRenderer(activeTarget) &&
-      isElectronRuntime() &&
-      Boolean(fileRoot.trim());
+      usesLocalFileRenderer(activeTarget) && isElectronRuntime() && Boolean(fileRoot.trim());
 
     if (
       !localOfficeOverlay &&
@@ -727,16 +364,19 @@ export function WorkspaceFilesBrowserPanel(props: {
       void downloadPromise
         .then((result) => {
           if (cancelled) return;
-          objectUrl = URL.createObjectURL(new Blob([result.data], {
-            type: result.contentType ?? "application/octet-stream",
-          }));
+          objectUrl = URL.createObjectURL(
+            new Blob([result.data], {
+              type: result.contentType ?? "application/octet-stream",
+            }),
+          );
           setPreviewState({ status: "binary", url: objectUrl });
         })
         .catch((previewError: unknown) => {
           if (cancelled) return;
           setPreviewState({
             status: "error",
-            message: previewError instanceof Error ? previewError.message : t("files.preview_failed"),
+            message:
+              previewError instanceof Error ? previewError.message : t("files.preview_failed"),
           });
         });
 
@@ -748,21 +388,21 @@ export function WorkspaceFilesBrowserPanel(props: {
 
     const isExpertSource = sourceTab === "expert";
     const previewRequest = usesLocalFileRenderer(activeTarget)
-      ? (isExpertSource
-          ? props.client
-              .resolveExpertSessionFile(props.workspaceId, activeTarget.value)
-              .then((r) => ({
-                status: "local" as const,
-                filePath: r.absolutePath,
-                revision: activeTarget.updatedAt ?? Date.now(),
-              }))
-          : Promise.resolve({
+      ? isExpertSource
+        ? props.client
+            .resolveExpertSessionFile(props.workspaceId, activeTarget.value)
+            .then((r) => ({
               status: "local" as const,
-              filePath: activeFile.path.startsWith("/")
-                ? activeFile.path
-                : `${fileRoot.replace(/[/\\]+$/, "")}/${activeFile.path.replace(/^[/\\]+/, "")}`,
+              filePath: r.absolutePath,
               revision: activeTarget.updatedAt ?? Date.now(),
             }))
+        : Promise.resolve({
+            status: "local" as const,
+            filePath: activeFile.path.startsWith("/")
+              ? activeFile.path
+              : `${fileRoot.replace(/[/\\]+$/, "")}/${activeFile.path.replace(/^[/\\]+/, "")}`,
+            revision: activeTarget.updatedAt ?? Date.now(),
+          })
       : (isExpertSource
           ? props.client.readExpertSessionFile(props.workspaceId, activeTarget.value)
           : props.client.readWorkspaceFile(props.workspaceId, activeTarget.value)
@@ -790,9 +430,7 @@ export function WorkspaceFilesBrowserPanel(props: {
     // onmyagent-session.json) so Files only shows folders with real content.
     const tree = pruneEmptyDirectoriesFromTree(
       filterHiddenFromTree(
-        buildWorkspaceFileTree(
-          entries.filter((entry) => !shouldHideEntry(entry.path)),
-        ),
+        buildWorkspaceFileTree(entries.filter((entry) => !shouldHideEntry(entry.path))),
       ),
     );
     const bySource = filterWorkspaceTreeBySourceTab(
@@ -806,23 +444,10 @@ export function WorkspaceFilesBrowserPanel(props: {
     };
     // Task tab: keep user spaces (projects/) above automation runs.
     if (sourceTab === "task") {
-      return sortTaskSourceTreeCopy(
-        filtered,
-        sortKey,
-        sortDir,
-        isAutomationTaskFolderName,
-      );
+      return sortTaskSourceTreeCopy(filtered, sortKey, sortDir, isAutomationTaskFolderName);
     }
     return sortWorkspaceFileTreeCopy(filtered, sortKey, sortDir);
-  }, [
-    entries,
-    props.knownExpertPackageSlugs,
-    query,
-    sortDir,
-    sortKey,
-    sourceTab,
-    typeFilter,
-  ]);
+  }, [entries, props.knownExpertPackageSlugs, query, sortDir, sortKey, sourceTab, typeFilter]);
 
   /**
    * Root-level files not under a session folder → ungrouped outline bucket.
@@ -844,19 +469,10 @@ export function WorkspaceFilesBrowserPanel(props: {
   /** Search/type filter → flat matching files across the catalog. */
   const filteredFlatNodes = useMemo(() => {
     if (!filterActive) return [] as WorkspaceFileTreeNode[];
-    return collectMatchingFilesUnder(
-      visibleFileTree,
-      query,
-      typeFilter,
-      sortKey,
-      sortDir,
-    );
+    return collectMatchingFilesUnder(visibleFileTree, query, typeFilter, sortKey, sortDir);
   }, [filterActive, query, sortDir, sortKey, typeFilter, visibleFileTree]);
 
-  const expandableDirPaths = useMemo(
-    () => collectExpandableDirPaths(browseRoots),
-    [browseRoots],
-  );
+  const expandableDirPaths = useMemo(() => collectExpandableDirPaths(browseRoots), [browseRoots]);
 
   /** Always an in-place conversation outline (unless filtering). */
   const treeRows = useMemo((): TreeOutlineRow[] => {
@@ -869,8 +485,7 @@ export function WorkspaceFilesBrowserPanel(props: {
   const listedNodes = filterActive ? filteredFlatNodes : ([] as WorkspaceFileTreeNode[]);
 
   const treeAllExpanded =
-    expandableDirPaths.length > 0 &&
-    expandableDirPaths.every((path) => expandedPaths.has(path));
+    expandableDirPaths.length > 0 && expandableDirPaths.every((path) => expandedPaths.has(path));
 
   const canExpandDeep = expandableDirPaths.length > 0;
 
@@ -919,11 +534,7 @@ export function WorkspaceFilesBrowserPanel(props: {
         archivedSessionIds: props.archivedSessionIds,
         sessionIdByPathKey: props.sessionIdByPathKey,
       }),
-    [
-      props.activeSessionIds,
-      props.archivedSessionIds,
-      props.sessionIdByPathKey,
-    ],
+    [props.activeSessionIds, props.archivedSessionIds, props.sessionIdByPathKey],
   );
 
   const absoluteForPath = useCallback(
@@ -936,15 +547,10 @@ export function WorkspaceFilesBrowserPanel(props: {
 
   const openArtifactTarget = useCallback(
     async (target: OpenTarget) => {
-      const abs =
-        target.kind === "file" && target.value
-          ? absoluteForPath(target.value)
-          : "";
+      const abs = target.kind === "file" && target.value ? absoluteForPath(target.value) : "";
       try {
         if (abs && isElectronRuntime()) {
-          const { openWorkspaceFileExternally } = await import(
-            "./workspace-files-open-external"
-          );
+          const { openWorkspaceFileExternally } = await import("./workspace-files-open-external");
           await openWorkspaceFileExternally({
             absolutePath: abs,
             fileName: target.name || target.value || "",
@@ -1050,7 +656,14 @@ export function WorkspaceFilesBrowserPanel(props: {
       console.error("Failed to delete file:", deleteError);
     }
     setPendingDelete(null);
-  }, [fileRoot, hasScopedFileRoot, pendingDelete, props.client, props.workspaceId, selectedFile?.path]);
+  }, [
+    fileRoot,
+    hasScopedFileRoot,
+    pendingDelete,
+    props.client,
+    props.workspaceId,
+    selectedFile?.path,
+  ]);
 
   const handleSelectFile = useCallback(
     async (file: FileNode) => {
@@ -1106,448 +719,383 @@ export function WorkspaceFilesBrowserPanel(props: {
   // Title/subtitle left · tools right (task + expert share this panel).
   return (
     <div className="flex h-full min-h-0 w-full flex-col px-6 pb-10 pt-3">
-          <div className="mb-3 flex w-full min-w-0 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-3">
-            <div className="min-w-0 flex-1 text-left">
-              <div className="flex min-w-0 items-center gap-1">
-                <h1
-                  className={cn(
-                    typeScale.pageTitle,
-                    "min-w-0 truncate text-left",
-                  )}
-                >
-                  {t(filesSourceTabTitleKey(sourceTab))}
-                </h1>
-                <FilesRefreshButton
-                  source="browser"
-                  loading={loading}
-                  refreshDone={refreshDone}
-                  disabled={
-                    !fileRoot.trim() ||
-                    (!isElectronRuntime() &&
-                      (!props.client || !props.workspaceId.trim()))
-                  }
-                  onClick={() => {
-                    manualRefreshRef.current = true;
-                    setRefreshDone(false);
-                    setRefreshKey((key) => key + 1);
-                  }}
-                />
-              </div>
-              <p className={cn(typeScale.pageSubtitle, "mt-1 max-w-2xl text-left")}>
-                {t(filesSourceTabSubtitleKey(sourceTab))}
-              </p>
-            </div>
-
-            {/* expand/collapse · type · search — right of title */}
-            <div
-              className="mt-1.5 flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2"
-              data-files-browser-pathbar="true"
-            >
-              {canExpandDeep ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  disabled={loading || filterActive}
-                  aria-pressed={treeAllExpanded}
-                  onClick={() => {
-                    if (treeAllExpanded) collapseAllTree();
-                    else expandAllTree();
-                  }}
-                  className={cn(
-                    "size-9 shrink-0 rounded-full",
-                    treeAllExpanded &&
-                      "border-dls-accent/40 bg-dls-accent/10 text-dls-text",
-                  )}
-                  data-files-expand-collapse="true"
-                  data-files-tree-expanded={
-                    treeAllExpanded ? "true" : "false"
-                  }
-                  aria-label={
-                    treeAllExpanded
-                      ? t("files.collapse_all_folders")
-                      : t("files.expand_all_folders")
-                  }
-                  title={
-                    treeAllExpanded
-                      ? t("files.collapse_all_folders")
-                      : t("files.expand_all_folders")
-                  }
-                >
-                  {treeAllExpanded ? (
-                    <ChevronsDownUp className="size-3.5 shrink-0" aria-hidden />
-                  ) : (
-                    <ChevronsUpDown className="size-3.5 shrink-0" aria-hidden />
-                  )}
-                </Button>
-              ) : null}
-              <div className="relative shrink-0">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="default"
-                  onClick={() => setTypeMenuOpen((prev) => !prev)}
-                  className="h-9 gap-1.5 rounded-full px-3 text-sm"
-                >
-                  <SlidersHorizontal
-                    data-icon="inline-start"
-                    className="size-3.5 text-dls-secondary"
-                  />
-                  {fileCategoryLabel(typeFilter)}
-                  <ChevronDown
-                    className={cn(
-                      "size-3.5 transition-transform",
-                      typeMenuOpen && "rotate-180",
-                    )}
-                  />
-                </Button>
-                {typeMenuOpen ? (
-                  <div
-                    className="absolute right-0 top-full z-50 mt-1.5 flex min-w-[148px] flex-col rounded-xl border border-dls-border bg-dls-surface-solid py-1 shadow-md"
-                    style={{
-                      // Opaque on mac Electron glass — dls-surface alone is translucent.
-                      backgroundColor:
-                        "var(--dls-surface-solid, var(--dls-surface))",
-                    }}
-                  >
-                    {FILE_CATEGORIES.map((cat) => (
-                      <MenuRowButton
-                        key={cat}
-                        align="center"
-                        type="button"
-                        onClick={() => {
-                          setTypeFilter(cat);
-                          setTypeMenuOpen(false);
-                        }}
-                        active={typeFilter === cat}
-                      >
-                        {fileCategoryLabel(cat)}
-                      </MenuRowButton>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-              <InputGroup
-                controlSize="default"
-                radius="lg"
-                tone="surface"
-                className="min-w-[11rem] w-48 rounded-full sm:w-56"
-              >
-                <InputGroupAddon align="inline-start">
-                  <Search className="size-3.5" />
-                </InputGroupAddon>
-                <InputGroupInput
-                  value={query}
-                  onChange={(e) => setQuery(e.currentTarget.value)}
-                  placeholder={t("files.search_placeholder")}
-                  className="h-9 text-sm placeholder:text-dls-secondary"
-                />
-              </InputGroup>
-            </div>
-          </div>
-
-          {catalogTruncated ? (
-            <p
-              className="mb-2 shrink-0 text-sm text-dls-secondary"
-              data-files-catalog-truncated="true"
-            >
-              {t("files.catalog_truncated", {
-                limit: String(WORKSPACE_FILES_CATALOG_LIMIT),
-              })}
-            </p>
-          ) : null}
-
-          <div className="relative flex min-h-0 flex-1 flex-col">
-              {loading && entries.length === 0 ? (
-                <div className="flex h-full min-h-48 items-center justify-center text-sm text-dls-secondary">
-                  {t("files.loading")}
-                </div>
-              ) : error ? (
-                <div className="flex h-full min-h-48 items-center justify-center px-6 text-center text-sm text-dls-secondary">
-                  {error}
-                </div>
-              ) : (
-                <div className="flex min-h-0 flex-1 flex-col gap-3">
-                  {(!filterActive ? treeRows.length : listedNodes.length) > 0 ? (
-                    /*
-                      Scroll only file rows. Use a raw <table> (not Table wrapper)
-                      so sticky thead is not trapped by Table's overflow-x-auto shell.
-                      Sticky header + name column must use solid surfaces — glass
-                      tokens (dls-surface*) are translucent and let row text bleed through.
-                    */
-                    <div className="min-h-0 w-full min-w-0 flex-1 overflow-auto rounded-xl border border-dls-border bg-dls-surface-solid">
-                      <table className="w-full table-fixed caption-bottom text-sm">
-                        <FilesSortableTableHeader
-                          sortKey={sortKey}
-                          sortDir={sortDir}
-                          onToggleSort={toggleSort}
-                          actionsLabel={t("files.column_actions")}
-                        />
-                        <TableBody>
-                          {!filterActive
-                            ? treeRows.map((row) => {
-                                if (row.type === "dir") {
-                                  const node = row.node;
-                                  const title =
-                                    row.displayTitle?.trim() ||
-                                    folderDisplayName(node);
-                                  return (
-                                    <FilesTreeDirRow
-                                      key={`tree-dir:${node.path}`}
-                                      node={node}
-                                      depth={row.depth}
-                                      expanded={row.expanded}
-                                      fileCount={row.fileCount}
-                                      title={title}
-                                      fileRoot={fileRoot}
-                                      sessionAction={openSourceForPath(node.path)}
-                                      favorited={favoritePaths.has(node.path)}
-                                      FileKindIcon={FileKindIcon}
-                                      FileNameQuickActions={FileNameQuickActions}
-                                      onToggleExpanded={toggleTreeExpanded}
-                                      onOpenSession={openSessionForPath}
-                                      onOpenInFolder={(path) => void handleOpenFile(path)}
-                                      onToggleFavorite={handleToggleFavorite}
-                                    />
-                                  );
-                                }
-
-                                const fileNode = row.node;
-                                return (
-                                  <TableRow
-                                    key={`tree-file:${fileNode.path}`}
-                                    data-workspace-file-row="file"
-                                    data-files-tree-depth={String(row.depth)}
-                                    role="button"
-                                    tabIndex={0}
-                                    className={cn(
-                                      "group h-11 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dls-accent/30",
-                                      selectedFile?.path === fileNode.path &&
-                                        "bg-dls-surface-muted",
-                                    )}
-                                    onClick={() => void handleSelectFile(fileNode)}
-                                    onKeyDown={(event) => {
-                                      if (event.target !== event.currentTarget) return;
-                                      if (event.key !== "Enter" && event.key !== " ")
-                                        return;
-                                      event.preventDefault();
-                                      void handleSelectFile(fileNode);
-                                    }}
-                                  >
-                                    <TableCell className="py-2">
-                                      <span
-                                        className="flex min-w-0 items-center gap-2.5"
-                                        style={{
-                                          paddingLeft: `${row.depth * 1.25}rem`,
-                                        }}
-                                      >
-                                        <span className="size-3.5 shrink-0" />
-                                        <FileKindIcon
-                                          node={fileNode}
-                                          fileRoot={fileRoot}
-                                        />
-                                        <span
-                                          className="min-w-0 truncate text-sm font-medium text-dls-text"
-                                          title={fileNode.path}
-                                        >
-                                          {fileNode.name}
-                                        </span>
-                                        <FileNameQuickActions
-                                          path={fileNode.path}
-                                          favorited={favoritePaths.has(fileNode.path)}
-                                          showAddToTask
-                                          onAddToTask={() =>
-                                            void handleAddToTask(fileNode.path)
-                                          }
-                                          onOpenInFolder={() =>
-                                            void handleOpenFile(fileNode.path)
-                                          }
-                                          onToggleFavorite={() =>
-                                            handleToggleFavorite(fileNode.path)
-                                          }
-                                        />
-                                      </span>
-                                    </TableCell>
-                                    <TableCell className="text-left py-2 text-xs text-dls-secondary">
-                                      {fileCategoryLabel(
-                                        getFileCategory(fileNode.name),
-                                      )}
-                                    </TableCell>
-                                    <TableCell className="text-left py-2 text-xs text-dls-secondary tabular-nums">
-                                      {fileNode.mtimeMs > 0
-                                        ? formatWorkspaceFileTime(fileNode.mtimeMs)
-                                        : "-"}
-                                    </TableCell>
-                                    <TableCell className="text-left py-2 text-xs text-dls-secondary tabular-nums">
-                                      {formatWorkspaceFileSize(fileNode.size)}
-                                    </TableCell>
-                                    <TableCell className="relative py-2">
-                                      <FileRowActionsMenu
-                                        name={fileNode.name}
-                                        pathCopied={
-                                          pathCopiedFlash === fileNode.path
-                                        }
-                                        favorited={favoritePaths.has(fileNode.path)}
-                                        openSourceSession={openSourceForPath(
-                                          fileNode.path,
-                                        )}
-                                        onOpenSourceSession={() => {
-                                          const action = openSourceForPath(
-                                            fileNode.path,
-                                          );
-                                          if (action.canOpen && action.sessionId) {
-                                            props.onOpenSourceSession?.(
-                                              action.sessionId,
-                                            );
-                                          }
-                                        }}
-                                        onOpenInFolder={() =>
-                                          void handleOpenFile(fileNode.path)
-                                        }
-                                        onAddToTask={() =>
-                                          void handleAddToTask(fileNode.path)
-                                        }
-                                        onToggleFavorite={() =>
-                                          handleToggleFavorite(fileNode.path)
-                                        }
-                                        onCopyPath={() =>
-                                          void handleCopyFilePath(fileNode.path)
-                                        }
-                                        onDelete={() => handleDeleteFile(fileNode)}
-                                      />
-                                    </TableCell>
-                                  </TableRow>
-                                );
-                              })
-                            : listedNodes.map((node) => {
-                            // Filter mode: flat matching files only.
-                            return (
-                              <TableRow
-                                key={node.path}
-                                data-workspace-file-row={node.kind}
-                                role="button"
-                                tabIndex={0}
-                                className={cn(
-                                  "group h-11 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dls-accent/30",
-                                  selectedFile?.path === node.path &&
-                                    "bg-dls-surface-muted",
-                                )}
-                                onClick={() => void handleSelectFile(node)}
-                                onKeyDown={(event) => {
-                                  if (event.target !== event.currentTarget) return;
-                                  if (event.key !== "Enter" && event.key !== " ") return;
-                                  event.preventDefault();
-                                  void handleSelectFile(node);
-                                }}
-                              >
-                                <TableCell className="py-2">
-                                  <span className="flex min-w-0 items-center gap-2.5">
-                                    <FileKindIcon node={node} fileRoot={fileRoot} />
-                                    <span
-                                      className="min-w-0 truncate text-sm font-medium text-dls-text"
-                                      title={node.path}
-                                    >
-                                      {relativeDisplayPath(node.path, "")}
-                                    </span>
-                                    <FileNameQuickActions
-                                      path={node.path}
-                                      favorited={favoritePaths.has(node.path)}
-                                      showAddToTask
-                                      onAddToTask={() =>
-                                        void handleAddToTask(node.path)
-                                      }
-                                      onOpenInFolder={() =>
-                                        void handleOpenFile(node.path)
-                                      }
-                                      onToggleFavorite={() =>
-                                        handleToggleFavorite(node.path)
-                                      }
-                                    />
-                                  </span>
-                                </TableCell>
-                                <TableCell className="text-left py-2 text-xs text-dls-secondary">
-                                  {fileCategoryLabel(getFileCategory(node.name))}
-                                </TableCell>
-                                <TableCell className="text-left py-2 text-xs text-dls-secondary tabular-nums">
-                                  {node.mtimeMs > 0
-                                    ? formatWorkspaceFileTime(node.mtimeMs)
-                                    : "-"}
-                                </TableCell>
-                                <TableCell className="text-left py-2 text-xs text-dls-secondary tabular-nums">
-                                  {formatWorkspaceFileSize(node.size)}
-                                </TableCell>
-                                <TableCell className="relative py-2">
-                                  <FileRowActionsMenu
-                                    name={node.name}
-                                    pathCopied={pathCopiedFlash === node.path}
-                                    favorited={favoritePaths.has(node.path)}
-                                    openSourceSession={openSourceForPath(node.path)}
-                                    onOpenSourceSession={() => {
-                                      const action = openSourceForPath(node.path);
-                                      if (action.canOpen && action.sessionId) {
-                                        props.onOpenSourceSession?.(action.sessionId);
-                                      }
-                                    }}
-                                    onOpenInFolder={() =>
-                                      void handleOpenFile(node.path)
-                                    }
-                                    onAddToTask={() => void handleAddToTask(node.path)}
-                                    onToggleFavorite={() =>
-                                      handleToggleFavorite(node.path)
-                                    }
-                                    onCopyPath={() => void handleCopyFilePath(node.path)}
-                                    onDelete={() => handleDeleteFile(node)}
-                                  />
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-dashed border-dls-border bg-dls-surface/50">
-                      <FilesListEmptyState
-                        filtered={typeFilter !== "all" || Boolean(query.trim())}
-                        sessionScoped={requiresSessionFileRoot}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-            <FilePreviewDrawer
-              open={Boolean(selectedFile && selectedTarget)}
-              file={selectedFile}
-              target={selectedTarget}
-              state={previewState}
-              copied={copiedPath}
-              onClose={closePreview}
-              onCopyPath={handleCopyPath}
-              onEdit={
-                selectedTarget && previewState.status === "local" && canEditArtifactTarget(selectedTarget)
-                  ? () => void handleEditFile(previewState.filePath)
-                  : undefined
+      <div className="mb-3 flex w-full min-w-0 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        <div className="min-w-0 flex-1 text-left">
+          <div className="flex min-w-0 items-center gap-1">
+            <h1 className={cn(typeScale.pageTitle, "min-w-0 truncate text-left")}>
+              {t(filesSourceTabTitleKey(sourceTab))}
+            </h1>
+            <FilesRefreshButton
+              source="browser"
+              loading={loading}
+              refreshDone={refreshDone}
+              disabled={
+                !fileRoot.trim() ||
+                (!isElectronRuntime() && (!props.client || !props.workspaceId.trim()))
               }
-              onOpenInFolder={selectedFile ? () => handleOpenFile(selectedFile.path) : undefined}
-              onOpenExternally={
-                selectedTarget && selectedFile
-                  ? () => void openArtifactTarget(selectedTarget)
-                  : undefined
-              }
-              onAskAgent={
-                selectedFile && selectedTarget && props.onAskAgentAboutFile
-                  ? () =>
-                      props.onAskAgentAboutFile?.({
-                        path: selectedFile.path,
-                        name: selectedFile.name,
-                        preview: selectedTarget.preview,
-                      })
-                  : props.onAddToTask && selectedFile
-                    ? () => props.onAddToTask?.(selectedFile.path)
-                    : undefined
-              }
+              onClick={() => {
+                manualRefreshRef.current = true;
+                setRefreshDone(false);
+                setRefreshKey((key) => key + 1);
+              }}
             />
           </div>
+          <p className={cn(typeScale.pageSubtitle, "mt-1 max-w-2xl text-left")}>
+            {t(filesSourceTabSubtitleKey(sourceTab))}
+          </p>
+        </div>
+
+        {/* expand/collapse · type · search — right of title */}
+        <div
+          className="mt-1.5 flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2"
+          data-files-browser-pathbar="true"
+        >
+          {canExpandDeep ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              disabled={loading || filterActive}
+              aria-pressed={treeAllExpanded}
+              onClick={() => {
+                if (treeAllExpanded) collapseAllTree();
+                else expandAllTree();
+              }}
+              className={cn(
+                "size-9 shrink-0 rounded-lg",
+                treeAllExpanded && "border-dls-accent/40 bg-dls-accent/10 text-dls-text",
+              )}
+              data-files-expand-collapse="true"
+              data-files-tree-expanded={treeAllExpanded ? "true" : "false"}
+              aria-label={
+                treeAllExpanded ? t("files.collapse_all_folders") : t("files.expand_all_folders")
+              }
+              title={
+                treeAllExpanded ? t("files.collapse_all_folders") : t("files.expand_all_folders")
+              }
+            >
+              {treeAllExpanded ? (
+                <ChevronsDownUp className="size-3.5 shrink-0" aria-hidden />
+              ) : (
+                <ChevronsUpDown className="size-3.5 shrink-0" aria-hidden />
+              )}
+            </Button>
+          ) : null}
+          <div className="relative shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="default"
+              onClick={() => setTypeMenuOpen((prev) => !prev)}
+              className="h-9 gap-1.5 rounded-lg px-3 text-sm"
+            >
+              <SlidersHorizontal data-icon="inline-start" className="size-3.5 text-dls-secondary" />
+              {fileCategoryLabel(typeFilter)}
+              <ChevronDown
+                className={cn("size-3.5 transition-transform", typeMenuOpen && "rotate-180")}
+              />
+            </Button>
+            {typeMenuOpen ? (
+              <div
+                className="absolute right-0 top-full z-50 mt-1.5 flex min-w-[148px] flex-col rounded-xl border border-dls-border bg-dls-surface-solid py-1 "
+                style={{
+                  // Opaque on mac Electron glass — dls-surface alone is translucent.
+                  backgroundColor: "var(--dls-surface-solid, var(--dls-surface))",
+                }}
+              >
+                {FILE_CATEGORIES.map((cat) => (
+                  <MenuRowButton
+                    key={cat}
+                    align="center"
+                    type="button"
+                    onClick={() => {
+                      setTypeFilter(cat);
+                      setTypeMenuOpen(false);
+                    }}
+                    active={typeFilter === cat}
+                  >
+                    {fileCategoryLabel(cat)}
+                  </MenuRowButton>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          <InputGroup
+            controlSize="default"
+            radius="lg"
+            tone="surface"
+            className="min-w-[11rem] w-48 sm:w-56"
+          >
+            <InputGroupAddon align="inline-start">
+              <Search className="size-3.5" />
+            </InputGroupAddon>
+            <InputGroupInput
+              value={query}
+              onChange={(e) => setQuery(e.currentTarget.value)}
+              placeholder={t("files.search_placeholder")}
+              className="h-9 text-sm placeholder:text-dls-secondary"
+            />
+          </InputGroup>
+        </div>
+      </div>
+
+      {catalogTruncated ? (
+        <p className="mb-2 shrink-0 text-sm text-dls-secondary" data-files-catalog-truncated="true">
+          {t("files.catalog_truncated", {
+            limit: String(WORKSPACE_FILES_CATALOG_LIMIT),
+          })}
+        </p>
+      ) : null}
+
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        {loading && entries.length === 0 ? (
+          <div className="flex h-full min-h-48 items-center justify-center text-sm text-dls-secondary">
+            {t("files.loading")}
+          </div>
+        ) : error ? (
+          <div className="flex h-full min-h-48 items-center justify-center px-6 text-center text-sm text-dls-secondary">
+            {error}
+          </div>
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            {(!filterActive ? treeRows.length : listedNodes.length) > 0 ? (
+              /*
+ Scroll only file rows. Use a raw <table> (not Table wrapper)
+ so sticky thead is not trapped by Table's overflow-x-auto shell.
+ Sticky header + name column must use solid surfaces — glass
+ tokens (dls-surface*) are translucent and let row text bleed through.
+ */
+              <div className="min-h-0 w-full min-w-0 flex-1 overflow-auto rounded-xl border border-dls-border bg-dls-surface-solid">
+                <table className="w-full table-fixed caption-bottom text-sm">
+                  <FilesSortableTableHeader
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    onToggleSort={toggleSort}
+                    actionsLabel={t("files.column_actions")}
+                  />
+                  <TableBody>
+                    {!filterActive
+                      ? treeRows.map((row) => {
+                          if (row.type === "dir") {
+                            const node = row.node;
+                            const title = row.displayTitle?.trim() || folderDisplayName(node);
+                            return (
+                              <FilesTreeDirRow
+                                key={`tree-dir:${node.path}`}
+                                node={node}
+                                depth={row.depth}
+                                expanded={row.expanded}
+                                fileCount={row.fileCount}
+                                title={title}
+                                fileRoot={fileRoot}
+                                sessionAction={openSourceForPath(node.path)}
+                                favorited={favoritePaths.has(node.path)}
+                                FileKindIcon={FileKindIcon}
+                                FileNameQuickActions={FileNameQuickActions}
+                                onToggleExpanded={toggleTreeExpanded}
+                                onOpenSession={openSessionForPath}
+                                onOpenInFolder={(path) => void handleOpenFile(path)}
+                                onToggleFavorite={handleToggleFavorite}
+                              />
+                            );
+                          }
+
+                          const fileNode = row.node;
+                          return (
+                            <TableRow
+                              key={`tree-file:${fileNode.path}`}
+                              data-workspace-file-row="file"
+                              data-files-tree-depth={String(row.depth)}
+                              role="button"
+                              tabIndex={0}
+                              className={cn(
+                                "group h-11 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dls-accent/30",
+                                selectedFile?.path === fileNode.path && "bg-dls-surface-muted",
+                              )}
+                              onClick={() => void handleSelectFile(fileNode)}
+                              onKeyDown={(event) => {
+                                if (event.target !== event.currentTarget) return;
+                                if (event.key !== "Enter" && event.key !== " ") return;
+                                event.preventDefault();
+                                void handleSelectFile(fileNode);
+                              }}
+                            >
+                              <TableCell className="py-2">
+                                <span
+                                  className="flex min-w-0 items-center gap-2.5"
+                                  style={{
+                                    paddingLeft: `${row.depth * 1.25}rem`,
+                                  }}
+                                >
+                                  <span className="size-3.5 shrink-0" />
+                                  <FileKindIcon node={fileNode} fileRoot={fileRoot} />
+                                  <span
+                                    className="min-w-0 truncate text-sm font-medium text-dls-text"
+                                    title={fileNode.path}
+                                  >
+                                    {fileNode.name}
+                                  </span>
+                                  <FileNameQuickActions
+                                    path={fileNode.path}
+                                    favorited={favoritePaths.has(fileNode.path)}
+                                    showAddToTask
+                                    onAddToTask={() => void handleAddToTask(fileNode.path)}
+                                    onOpenInFolder={() => void handleOpenFile(fileNode.path)}
+                                    onToggleFavorite={() => handleToggleFavorite(fileNode.path)}
+                                  />
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-left py-2 text-xs text-dls-secondary">
+                                {fileCategoryLabel(getFileCategory(fileNode.name))}
+                              </TableCell>
+                              <TableCell className="text-left py-2 text-xs text-dls-secondary tabular-nums">
+                                {fileNode.mtimeMs > 0
+                                  ? formatWorkspaceFileTime(fileNode.mtimeMs)
+                                  : "-"}
+                              </TableCell>
+                              <TableCell className="text-left py-2 text-xs text-dls-secondary tabular-nums">
+                                {formatWorkspaceFileSize(fileNode.size)}
+                              </TableCell>
+                              <TableCell className="relative py-2">
+                                <FileRowActionsMenu
+                                  name={fileNode.name}
+                                  pathCopied={pathCopiedFlash === fileNode.path}
+                                  favorited={favoritePaths.has(fileNode.path)}
+                                  openSourceSession={openSourceForPath(fileNode.path)}
+                                  onOpenSourceSession={() => {
+                                    const action = openSourceForPath(fileNode.path);
+                                    if (action.canOpen && action.sessionId) {
+                                      props.onOpenSourceSession?.(action.sessionId);
+                                    }
+                                  }}
+                                  onOpenInFolder={() => void handleOpenFile(fileNode.path)}
+                                  onAddToTask={() => void handleAddToTask(fileNode.path)}
+                                  onToggleFavorite={() => handleToggleFavorite(fileNode.path)}
+                                  onCopyPath={() => void handleCopyFilePath(fileNode.path)}
+                                  onDelete={() => handleDeleteFile(fileNode)}
+                                />
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      : listedNodes.map((node) => {
+                          // Filter mode: flat matching files only.
+                          return (
+                            <TableRow
+                              key={node.path}
+                              data-workspace-file-row={node.kind}
+                              role="button"
+                              tabIndex={0}
+                              className={cn(
+                                "group h-11 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dls-accent/30",
+                                selectedFile?.path === node.path && "bg-dls-surface-muted",
+                              )}
+                              onClick={() => void handleSelectFile(node)}
+                              onKeyDown={(event) => {
+                                if (event.target !== event.currentTarget) return;
+                                if (event.key !== "Enter" && event.key !== " ") return;
+                                event.preventDefault();
+                                void handleSelectFile(node);
+                              }}
+                            >
+                              <TableCell className="py-2">
+                                <span className="flex min-w-0 items-center gap-2.5">
+                                  <FileKindIcon node={node} fileRoot={fileRoot} />
+                                  <span
+                                    className="min-w-0 truncate text-sm font-medium text-dls-text"
+                                    title={node.path}
+                                  >
+                                    {relativeDisplayPath(node.path, "")}
+                                  </span>
+                                  <FileNameQuickActions
+                                    path={node.path}
+                                    favorited={favoritePaths.has(node.path)}
+                                    showAddToTask
+                                    onAddToTask={() => void handleAddToTask(node.path)}
+                                    onOpenInFolder={() => void handleOpenFile(node.path)}
+                                    onToggleFavorite={() => handleToggleFavorite(node.path)}
+                                  />
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-left py-2 text-xs text-dls-secondary">
+                                {fileCategoryLabel(getFileCategory(node.name))}
+                              </TableCell>
+                              <TableCell className="text-left py-2 text-xs text-dls-secondary tabular-nums">
+                                {node.mtimeMs > 0 ? formatWorkspaceFileTime(node.mtimeMs) : "-"}
+                              </TableCell>
+                              <TableCell className="text-left py-2 text-xs text-dls-secondary tabular-nums">
+                                {formatWorkspaceFileSize(node.size)}
+                              </TableCell>
+                              <TableCell className="relative py-2">
+                                <FileRowActionsMenu
+                                  name={node.name}
+                                  pathCopied={pathCopiedFlash === node.path}
+                                  favorited={favoritePaths.has(node.path)}
+                                  openSourceSession={openSourceForPath(node.path)}
+                                  onOpenSourceSession={() => {
+                                    const action = openSourceForPath(node.path);
+                                    if (action.canOpen && action.sessionId) {
+                                      props.onOpenSourceSession?.(action.sessionId);
+                                    }
+                                  }}
+                                  onOpenInFolder={() => void handleOpenFile(node.path)}
+                                  onAddToTask={() => void handleAddToTask(node.path)}
+                                  onToggleFavorite={() => handleToggleFavorite(node.path)}
+                                  onCopyPath={() => void handleCopyFilePath(node.path)}
+                                  onDelete={() => handleDeleteFile(node)}
+                                />
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                  </TableBody>
+                </table>
+              </div>
+            ) : (
+              <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-dashed border-dls-border bg-dls-surface/50">
+                <FilesListEmptyState
+                  filtered={typeFilter !== "all" || Boolean(query.trim())}
+                  sessionScoped={requiresSessionFileRoot}
+                />
+              </div>
+            )}
+          </div>
+        )}
+        <FilePreviewDrawer
+          open={Boolean(selectedFile && selectedTarget)}
+          file={selectedFile}
+          target={selectedTarget}
+          state={previewState}
+          copied={copiedPath}
+          onClose={closePreview}
+          onCopyPath={handleCopyPath}
+          onEdit={
+            selectedTarget &&
+            previewState.status === "local" &&
+            canEditArtifactTarget(selectedTarget)
+              ? () => void handleEditFile(previewState.filePath)
+              : undefined
+          }
+          onOpenInFolder={selectedFile ? () => handleOpenFile(selectedFile.path) : undefined}
+          onOpenExternally={
+            selectedTarget && selectedFile
+              ? () => void openArtifactTarget(selectedTarget)
+              : undefined
+          }
+          onAskAgent={
+            selectedFile && selectedTarget && props.onAskAgentAboutFile
+              ? () =>
+                  props.onAskAgentAboutFile?.({
+                    path: selectedFile.path,
+                    name: selectedFile.name,
+                    preview: selectedTarget.preview,
+                  })
+              : props.onAddToTask && selectedFile
+                ? () => props.onAddToTask?.(selectedFile.path)
+                : undefined
+          }
+        />
+      </div>
 
       {typeMenuOpen && (
         <div
