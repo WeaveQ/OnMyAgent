@@ -51,6 +51,7 @@ import panelTabs from "./panel_tabs";
 import message from "./message";
 import debug from "./debug";
 import taskCenter from "./task_center";
+import knowledge from "./knowledge";
 
 export default {
   ...app,
@@ -102,4 +103,5 @@ export default {
   ...message,
   ...debug,
   ...taskCenter,
+  ...knowledge,
 } as const;

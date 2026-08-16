@@ -136,13 +136,14 @@ import { AssistantStartupHome } from "./assistant-startup-home";
 import {
   BillingPage,
   DevicesPage,
-  KnowledgeBaseComingSoonPage,
   ProjectsComingSoonPage,
   SidebarFeaturePlaceholder,
   StorePage,
   type StorePrimaryTab,
 } from "../components/side-panel-pages";
 import { CompanyRailPane } from "../components/company-rail-pane";
+import { KnowledgeVaultPage } from "../knowledge";
+import { subscribeOpenKnowledgeNote } from "../knowledge/knowledge-vault-navigation";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -281,6 +282,10 @@ export function AssistantPage(props: AssistantPageProps) {
     onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
     onNavigateToMode: props.onNavigateToMode,
   });
+  useEffect(
+    () => subscribeOpenKnowledgeNote(() => openRailView("knowledgeBase")),
+    [openRailView],
+  );
   const [agentSearch, setAgentSearch] = useState("");
   const [agentPanelCollapsed, setAgentPanelCollapsed] = useState(false);
   const { agentPanelWidth, setAgentPanelWidth, startAgentPanelResize } =
@@ -1475,7 +1480,11 @@ export function AssistantPage(props: AssistantPageProps) {
                         />
                       ),
                       projects: <ProjectsComingSoonPage />,
-                      knowledgeBase: <KnowledgeBaseComingSoonPage />,
+                      knowledgeBase: (
+                        <KnowledgeVaultPage
+                          workspaceId={props.selectedWorkspaceId}
+                        />
+                      ),
                       devices: <DevicesPage />,
                       channels: (
                         <MessagingChannelsPage workspaceRoot={props.selectedWorkspaceRoot} />

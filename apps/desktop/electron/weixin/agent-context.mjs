@@ -25,7 +25,7 @@ export async function currentAgentForChat(session, chatId) {
   if (bindingStore) {
     const chatBinding = bindingStore.getChatAssistant("wechat", chatId);
     const platformBinding = chatBinding ?? bindingStore.getPlatformSettings("wechat")?.assistant ?? null;
-    const bindingId = platformBinding?.assistant_id ?? platformBinding?.custom_agent_id;
+    const bindingId = platformBinding?.assistant_id;
     if (bindingId) {
       const alias = resolveAgentAlias(session.options.availableAgents, bindingId);
       if (alias) {

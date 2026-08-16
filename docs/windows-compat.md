@@ -150,7 +150,7 @@ The preflight checks:
 - `vswhere.exe` (needed for `dev:windows`)
 - Docker Desktop `docker.exe` in one of the well-known install paths
 - Symlink creation privilege (Developer Mode or admin)
-- `electron@39.8.10/dist` extracted (see below for the `path.txt` gotcha)
+- `electron@<desktop package.json>/dist` extracted (see below for the `path.txt` gotcha)
 - `apps/desktop/resources/{runtimes,sidecars}` presence
 - `node-pty` win32 prebuild
 
@@ -158,11 +158,13 @@ Run it after every `pnpm install` and before your first `pnpm dev`.
 
 ## Known gotchas
 
-### Electron post-install `dist` extraction
+### Electron first-run `dist` extraction
 
-If `node_modules/.pnpm/electron@39.8.10/.../dist/` only contains
-`LICENSES.chromium.html` after `pnpm install`, the electron post-install
-script silently failed to extract the zip.
+Electron 42+ no longer extracts the binary in npm `postinstall`. The first
+`pnpm exec electron --version` (or `scripts/dev/ensure-electron-dist.mjs`)
+downloads the zip. If `node_modules/.pnpm/electron@<version from
+apps/desktop/package.json>/.../dist/` is missing `electron.exe` after install,
+the first-run extract did not finish.
 
 Preferred repair (from repo root):
 
@@ -170,12 +172,14 @@ Preferred repair (from repo root):
 node scripts\dev\ensure-electron-dist.mjs
 ```
 
-That extracts the cached zip and writes `path.txt` with exactly `electron.exe`
-(no trailing newline — `echo` will break `isInstalled()`). Manual equivalent:
+That runs Electron's `install.js` when the cache zip is absent, otherwise
+extracts the cached zip and writes `path.txt` with exactly `electron.exe`
+(no trailing newline — `echo` will break `isInstalled()`). Manual equivalent
+(replace the version with `apps/desktop/package.json` `devDependencies.electron`):
 
 ```bat
-cd node_modules\.pnpm\electron@39.8.10\node_modules\electron
-tar -xf "%LOCALAPPDATA%\electron\Cache\electron-v39.8.10-win32-x64.zip" -C dist
+cd node_modules\.pnpm\electron@43.4.0\node_modules\electron
+tar -xf "%LOCALAPPDATA%\electron\Cache\electron-v43.4.0-win32-x64.zip" -C dist
 :: PowerShell:
 :: [System.IO.File]::WriteAllText("$PWD\path.txt", "electron.exe")
 ```

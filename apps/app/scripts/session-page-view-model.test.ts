@@ -53,7 +53,6 @@ describe("session page view model", () => {
       "skills",
       "connectors",
       "localAgent",
-      "sessionArchive",
     ] as const;
 
     for (const activeSidebarView of firstClassViews) {
@@ -133,7 +132,6 @@ describe("session page sidebar view model", () => {
       "channels",
       "personalAssistant",
       "localAgent",
-      "sessionArchive",
     ] satisfies SidebarFeatureView[];
 
     for (const view of featureViews) {

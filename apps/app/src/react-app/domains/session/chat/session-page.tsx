@@ -101,7 +101,8 @@ import { AgentConversationPanel } from "./session-page-agent-conversation-panel"
 import { BillingPage } from "./session-page-billing-page";
 import { DevicesPage } from "./session-page-devices-page";
 import { SidebarFeaturePlaceholder } from "./session-page-feature-placeholder";
-import { EmptyArtifactsPanel, KnowledgeBaseComingSoonPage, ProjectsComingSoonPage } from "./session-page-light-pages";
+import { EmptyArtifactsPanel, ProjectsComingSoonPage } from "./session-page-light-pages";
+import { KnowledgeVaultPage } from "../knowledge";
 import {
   sessionTitleForId,
   type TaskStatusIndicator,
@@ -783,7 +784,7 @@ export function SessionPage(props: SessionPageProps) {
                       ) : null}
 
                       {agentPanel.activeSidebarView === "knowledgeBase" ? (
-                        <KnowledgeBaseComingSoonPage />
+                        <KnowledgeVaultPage workspaceId={props.selectedWorkspaceId} />
                       ) : null}
 
                       {agentPanel.activeSidebarView === "devices" ? <DevicesPage /> : null}

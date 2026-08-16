@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<title>OnMyAgent — 知识库预览（对齐当前实现）</title>
+<meta name="description" content="Matches feat/knowledge-vault: search + icon rail + folder tree + vault switcher + tabs + read/source + properties." />
+<link rel="stylesheet" href="./preview.css" />
+<style>
+  .kv-wrap { max-width: 1180px; margin: 0 auto; padding: 0 32px 48px; }
+  .kv-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 20px; }
+  .kv-frame {
+    height: 560px; border: 1px solid var(--pv-border); border-radius: 10px;
+    overflow: hidden; background: var(--pv-background); display: flex;
+  }
+  .kv-aside {
+    width: 256px; border-right: 1px solid var(--pv-border);
+    background: var(--pv-background); display: flex; flex-direction: column;
+  }
+  .kv-search {
+    margin: 6px 8px; height: 32px; border-radius: 10px;
+    border: 1px solid var(--pv-border); background: var(--pv-surface);
+    color: var(--pv-slate); font-size: 13px; padding: 0 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .kv-icons {
+    display: flex; justify-content: center; align-items: center; gap: 2px;
+    height: 40px; border-bottom: 1px solid var(--pv-border);
+    color: var(--pv-slate); font-size: 13px;
+  }
+  .kv-ico {
+    width: 28px; height: 28px; border-radius: 8px; display: inline-flex;
+    align-items: center; justify-content: center; border: 0; background: transparent;
+    color: var(--pv-slate); cursor: default;
+  }
+  .kv-rule { width: 1px; height: 14px; background: var(--pv-border); margin: 0 2px; }
+  .kv-tree { flex: 1; overflow: auto; padding: 6px; }
+  .kv-row {
+    display: flex; align-items: center; gap: 8px;
+    height: 28px; padding: 0 8px; border-radius: 8px;
+    font-size: 13px; color: var(--pv-slate);
+  }
+  .kv-row[data-active="true"] { background: var(--pv-list-selected); color: var(--pv-ink); }
+  .kv-row[data-depth="1"] { padding-left: 22px; }
+  .kv-foot {
+    height: 40px; border-top: 1px solid var(--pv-border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 8px; font-size: 13px; color: var(--pv-ink);
+  }
+  .kv-main { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--pv-background); }
+  .kv-tabs {
+    height: 40px; display: flex; align-items: stretch; background: var(--pv-background);
+  }
+  .kv-tab {
+    position: relative; width: 144px; display: flex; align-items: center;
+    padding: 0 10px; font-size: 13px; color: var(--pv-slate);
+  }
+  .kv-tab[data-active="true"] { color: var(--pv-ink); }
+  .kv-tab[data-active="true"]::after {
+    content: ""; position: absolute; left: 12px; right: 12px; bottom: 0;
+    height: 2px; border-radius: 999px; background: var(--pv-ink);
+  }
+  .kv-tab-plus, .kv-tab-tools {
+    display: flex; align-items: center; padding: 0 6px; color: var(--pv-slate);
+  }
+  .kv-tab-tools { margin-left: auto; gap: 2px; }
+  .kv-props { padding: 16px 20px 8px; }
+  .kv-props h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--pv-ink); }
+  .kv-prop {
+    display: grid; grid-template-columns: 108px 1fr; gap: 12px;
+    padding: 4px 0; font-size: 13px;
+  }
+  .kv-prop span { color: var(--pv-slate); }
+  .kv-chip {
+    display: inline-flex; align-items: center; height: 22px; padding: 0 8px;
+    border-radius: 999px; background: var(--pv-surface-muted); color: var(--pv-ink); font-size: 12px;
+  }
+  .kv-read, .kv-edit, .kv-empty {
+    flex: 1; min-height: 0; overflow: auto;
+  }
+  .kv-read { padding: 8px 24px 24px; }
+  .kv-read h1 { margin: 8px 0 12px; font-size: 22px; font-weight: 600; color: var(--pv-ink); }
+  .kv-read p, .kv-read li { font-size: 14px; line-height: 1.7; color: var(--pv-slate); }
+  .kv-crumb { font-size: 12px; color: var(--pv-slate); margin-bottom: 8px; }
+  .kv-edit {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    font-size: 13px; line-height: 1.6; color: var(--pv-ink);
+    white-space: pre-wrap; padding: 16px 20px; background: var(--pv-surface);
+  }
+  .kv-empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; gap: 8px; padding: 24px;
+  }
+  .kv-empty h2 { margin: 8px 0 0; font-size: 16px; font-weight: 500; color: var(--pv-ink); }
+  .kv-empty p { margin: 0; max-width: 22rem; font-size: 14px; color: var(--pv-slate); }
+  .kv-book {
+    width: 88px; height: 72px; border: 1.5px solid var(--pv-border-strong);
+    border-radius: 6px; position: relative;
+  }
+  .kv-book::before {
+    content: ""; position: absolute; inset: 8px 42px 8px 10px;
+    border-right: 1px solid var(--pv-border-strong);
+  }
+  .kv-notice {
+    margin: 8px; padding: 8px 10px; border-radius: 8px;
+    background: var(--pv-danger-soft); color: var(--pv-danger-fg); font-size: 13px;
+  }
+  .kv-spin {
+    width: 20px; height: 20px; border-radius: 999px; margin: 40px auto;
+    border: 2px solid var(--pv-border-strong); border-top-color: var(--pv-primary);
+    animation: kvspin .7s linear infinite;
+  }
+  @keyframes kvspin { to { transform: rotate(360deg); } }
+  .kv-hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header class="pv-header">
+  <div class="pv-header-inner">
+    <div>
+      <h1>知识库预览 · 对齐当前 worktree</h1>
+      <p>左侧搜索 + 图标工具条 + 文件夹树 + 底部切库；右侧标签页 + 阅读 / 源码 + 笔记属性。不是旧的顶栏分段「个人/项目/专家」稿。</p>
+    </div>
+    <nav class="pv-nav">
+      <a href="#light" id="nav-light">Light</a>
+      <a href="#dark" class="pv-nav-active" id="nav-dark">Dark</a>
+    </nav>
+  </div>
+</header>
+
+<div class="kv-wrap">
+  <div class="kv-toolbar">
+    <button type="button" class="pv-btn pv-btn-sm" data-frame="read">阅读</button>
+    <button type="button" class="pv-btn pv-btn-sm" data-frame="edit">编辑 + 属性</button>
+    <button type="button" class="pv-btn pv-btn-sm" data-frame="loading">Loading</button>
+    <button type="button" class="pv-btn pv-btn-sm" data-frame="empty">空标签</button>
+    <button type="button" class="pv-btn pv-btn-sm" data-frame="error">保存失败</button>
+  </div>
+
+  <div class="kv-frame">
+    <aside class="kv-aside">
+      <div class="kv-search">⌕  搜索笔记…</div>
+      <div class="kv-icons" title="新建笔记 / 新建文件夹 / 打开文件夹 / 展开 / 收起">
+        <span class="kv-ico">＋</span>
+        <span class="kv-ico">▣</span>
+        <span class="kv-rule"></span>
+        <span class="kv-ico">📁</span>
+        <span class="kv-rule"></span>
+        <span class="kv-ico">↓</span>
+        <span class="kv-ico">↑</span>
+      </div>
+      <div class="kv-notice kv-hidden" id="err-banner">无法保存这篇笔记</div>
+      <div class="kv-tree" id="tree">
+        <div class="kv-row">▾ briefs</div>
+        <div class="kv-row" data-depth="1">q3.md</div>
+        <div class="kv-row" data-active="true">使用说明</div>
+        <div class="kv-row">报价口径.md</div>
+      </div>
+      <div class="kv-spin kv-hidden" id="tree-loading"></div>
+      <div class="kv-foot">
+        <span>↕ OnMyAgent</span>
+        <span id="save-status" style="font-size:12px;color:var(--pv-slate)"></span>
+      </div>
+    </aside>
+    <section class="kv-main">
+      <div class="kv-tabs">
+        <div class="kv-tab" data-active="true" id="tab-main">使用说明</div>
+        <div class="kv-tab" id="tab-extra">报价口径.md</div>
+        <div class="kv-tab-plus">＋</div>
+        <div class="kv-tab-tools">✎  ···</div>
+      </div>
+      <div id="pane-read" class="kv-read">
+        <div class="kv-crumb">OnMyAgent / 使用说明</div>
+        <h1>Knowledge vault / 知识库</h1>
+        <p>这是本机知识库。从侧栏进来会先打开这份说明。技能、记忆、知识库分开存放。</p>
+        <ul>
+          <li>库可以切到已有的 Obsidian 文件夹</li>
+          <li>阅读视图双击进入源码编辑</li>
+          <li>标签页互不影响，未保存会打点</li>
+        </ul>
+      </div>
+      <div id="pane-edit" class="kv-hidden" style="display:flex;flex-direction:column;flex:1;min-height:0">
+        <div class="kv-props">
+          <h3>笔记属性</h3>
+          <div class="kv-prop"><span>标题</span><div>使用说明</div></div>
+          <div class="kv-prop"><span>创建</span><div>2026/08/15</div></div>
+          <div class="kv-prop"><span>标签</span><div><span class="kv-chip">知识库</span> <span class="kv-chip">入门</span></div></div>
+          <div class="kv-prop"><span>相关</span><div>[[报价口径]]</div></div>
+        </div>
+        <div class="kv-edit"># Knowledge vault / 知识库
+
+这是本机知识库。从侧栏进来会先打开这份说明。
+
+## 不要和这些混在一起
+- Skills → profiles/.../skills
+- Memory → data/user/awareness/
+- Knowledge → data/user/knowledge/</div>
+      </div>
+      <div id="pane-empty" class="kv-empty kv-hidden">
+        <div class="kv-book" aria-hidden="true"></div>
+        <h2>还没有打开笔记</h2>
+        <p>写一篇笔记，或从左侧点开已有文件。</p>
+        <button type="button" class="pv-btn pv-btn-default pv-btn-primary">创建新笔记</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+  const frames = ["read", "edit", "loading", "empty", "error"];
+  function show(frame) {
+    document.getElementById("pane-read").classList.toggle("kv-hidden", frame !== "read");
+    document.getElementById("pane-edit").classList.toggle("kv-hidden", frame !== "edit");
+    document.getElementById("pane-empty").classList.toggle("kv-hidden", frame !== "empty");
+    document.getElementById("tree").classList.toggle("kv-hidden", frame === "loading");
+    document.getElementById("tree-loading").classList.toggle("kv-hidden", frame !== "loading");
+    document.getElementById("err-banner").classList.toggle("kv-hidden", frame !== "error");
+    document.getElementById("save-status").textContent =
+      frame === "edit" ? "未保存" : frame === "error" ? "无法保存" : "";
+    document.getElementById("tab-main").dataset.active = frame === "empty" ? "false" : "true";
+    document.querySelectorAll("[data-frame]").forEach((btn) => {
+      const on = btn.dataset.frame === frame;
+      btn.classList.toggle("pv-btn-secondary", on);
+      btn.classList.toggle("pv-btn-ghost", !on);
+    });
+  }
+  document.querySelectorAll("[data-frame]").forEach((btn) => {
+    btn.addEventListener("click", () => show(btn.dataset.frame));
+  });
+  function setTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    document.getElementById("nav-light").classList.toggle("pv-nav-active", theme === "light");
+    document.getElementById("nav-dark").classList.toggle("pv-nav-active", theme === "dark");
+  }
+  document.getElementById("nav-light").addEventListener("click", (e) => { e.preventDefault(); setTheme("light"); });
+  document.getElementById("nav-dark").addEventListener("click", (e) => { e.preventDefault(); setTheme("dark"); });
+  show("read");
+</script>
+</body>
+</html>

@@ -326,7 +326,69 @@ export function getBuiltInOnMyAgentExtensionManifests(): OnMyAgentExtensionManif
         detection: ["cli:bsk", "extension:browser-skill"],
       },
       platform: ["darwin", "linux", "windows"],
-    }
+    },
+    {
+      schemaVersion: 1,
+      id: "knowledge-search",
+      name: t("extensions.knowledge_search_name"),
+      description: t("extensions.knowledge_search_description"),
+      longDescription: t("extensions.knowledge_search_long"),
+      source: { format: "onmyagent-builtin", origin: "builtin", trusted: true },
+      icon: { src: "/illustrations/koboyo/book-open.svg" },
+      defaultEnabled: true,
+      composer: {
+        prompt: t("extensions.knowledge_search_prompt"),
+        suggestions: [
+          t("extensions.knowledge_search_suggestion_brief"),
+          t("extensions.knowledge_search_suggestion_find"),
+          t("extensions.knowledge_search_suggestion_open"),
+        ],
+      },
+      setup: {
+        instructions: t("extensions.knowledge_search_setup"),
+      },
+      resources: [
+        {
+          type: "opencode-plugin",
+          id: "knowledge-search-plugin",
+          label: t("extensions.knowledge_search_plugin_label"),
+          path: "plugins/knowledge-search.mjs",
+          required: true,
+        },
+        {
+          type: "file",
+          id: "knowledge-vault",
+          label: t("extensions.knowledge_search_vault_label"),
+          path: "data/user/knowledge",
+          required: true,
+        },
+      ],
+      contributions: [
+        {
+          type: "composer-prompt",
+          prompt: t("extensions.knowledge_search_prompt"),
+          location: "composer",
+        },
+        {
+          type: "session-rail-item",
+          ref: "knowledgeBase",
+          location: "session-rail",
+          label: t("extensions.knowledge_search_name"),
+        },
+      ],
+      enablement: [
+        {
+          type: "toggle-enabled",
+          ref: "knowledge-search",
+          label: t("common.enabled"),
+        },
+      ],
+      lifecycle: {
+        reload: ["config"],
+        detection: ["plugin:knowledge-search"],
+      },
+      platform: ["darwin", "linux", "windows"],
+    },
   ];
 }
 

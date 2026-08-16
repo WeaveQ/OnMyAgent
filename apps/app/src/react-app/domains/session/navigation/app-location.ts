@@ -26,6 +26,7 @@ const KNOWN_RAIL_VIEWS = new Set<string>([
   "files",
   "store",
   "company",
+  "knowledgeBase",
   "projects",
   "knowledgeBase",
   "agentManagement",

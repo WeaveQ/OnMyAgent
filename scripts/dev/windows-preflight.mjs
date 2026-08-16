@@ -9,7 +9,7 @@
 //
 // Safe to run on macOS/Linux — non-Windows hosts only check constants.json.
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -131,11 +131,24 @@ record(
   false,
 );
 
+const desktopPkg = JSON.parse(
+  readFileSync(resolve(repoRoot, "apps", "desktop", "package.json"), "utf8"),
+);
+const electronVersion = String(desktopPkg.devDependencies?.electron ?? "")
+  .replace(/^\^/, "")
+  .trim();
+const pnpmElectronRoot = resolve(repoRoot, "node_modules", ".pnpm");
+const electronFolder =
+  existsSync(pnpmElectronRoot) && electronVersion
+    ? readdirSync(pnpmElectronRoot).find(
+        (name) =>
+          name === `electron@${electronVersion}` ||
+          name.startsWith(`electron@${electronVersion}_`),
+      )
+    : null;
 const electronDist = resolve(
-  repoRoot,
-  "node_modules",
-  ".pnpm",
-  "electron@39.8.10",
+  pnpmElectronRoot,
+  electronFolder ?? `electron@${electronVersion || "43.4.0"}`,
   "node_modules",
   "electron",
   "dist",

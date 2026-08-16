@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useReducer, type SetStateAction } from "react";
-import { Folder, Info, Plus, X } from "lucide-react";
+import { Folder, FolderInput, Info, Plus, RotateCcw, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -19,7 +19,11 @@ import type {
   OnMyAgentServerClient,
   OnMyAgentServerStatus,
 } from "../../../../app/lib/onmyagent-server";
-import { pickDirectory } from "../../../../app/lib/desktop";
+import {
+  getKnowledgeVaultConfig,
+  pickDirectory,
+  setKnowledgePersonalVaultPath,
+} from "../../../../app/lib/desktop";
 import {
   isDesktopRuntime,
   safeStringify,
@@ -59,6 +63,126 @@ type AuthorizedFolderItemProps = {
   canWriteConfig: boolean;
   onRemove: (folder: string) => Promise<void>;
 };
+
+function KnowledgeFolderItem() {
+  const desktop = isDesktopRuntime();
+  const [pathLabel, setPathLabel] = useReducer(
+    (_prev: string, next: string) => next,
+    "",
+  );
+  const [usingDefault, setUsingDefault] = useReducer(
+    (_prev: boolean, next: boolean) => next,
+    true,
+  );
+  const [busy, setBusy] = useReducer((_prev: boolean, next: boolean) => next, false);
+  const [error, setError] = useReducer(
+    (_prev: string | null, next: string | null) => next,
+    null,
+  );
+
+  const refresh = useCallback(async () => {
+    if (!desktop) return;
+    const config = await getKnowledgeVaultConfig();
+    if (!config?.ok) return;
+    setPathLabel(config.resolvedUserVaultDir);
+    setUsingDefault(config.usingDefault);
+  }, [desktop]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const pickFolder = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const picked = await pickDirectory({
+        title: t("knowledge.change_folder"),
+      });
+      const next = Array.isArray(picked) ? picked[0] : picked;
+      if (!next) return;
+      const result = await setKnowledgePersonalVaultPath(next);
+      if (!result?.ok) {
+        setError(t("knowledge.folder_invalid"));
+        return;
+      }
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resetFolder = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await setKnowledgePersonalVaultPath(null);
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!desktop || !pathLabel) return null;
+  const folderName = getFolderName(pathLabel);
+
+  return (
+    <>
+      <SettingsBlockRow
+        title={
+          <span className="inline-flex min-w-0 items-center gap-2">
+            <Folder size={16} className="shrink-0 text-dls-secondary" />
+            <span className="truncate">{folderName}</span>
+            <StatusBadge tone="neutral" shape="soft" size="tiny">
+              {t("knowledge.authorized_badge")}
+            </StatusBadge>
+          </span>
+        }
+        description={<span className="font-mono text-xs">{pathLabel}</span>}
+        actions={
+          <span className="inline-flex items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger
+                render={(
+                  <span
+                    className="inline-flex items-center text-dls-secondary"
+                    tabIndex={0}
+                  >
+                    <Info className="size-4" />
+                  </span>
+                )}
+              />
+              <TooltipContent>{t("knowledge.authorized_hint")}</TooltipContent>
+            </Tooltip>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => void pickFolder()}
+              disabled={busy}
+              aria-label={t("knowledge.change_folder")}
+              title={t("knowledge.change_folder")}
+            >
+              <FolderInput className="size-4" />
+            </Button>
+            {usingDefault ? null : (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => void resetFolder()}
+                disabled={busy}
+                aria-label={t("knowledge.reset_folder")}
+                title={t("knowledge.reset_folder")}
+              >
+                <RotateCcw className="size-4" />
+              </Button>
+            )}
+          </span>
+        }
+      />
+      {error ? <SettingsNotice tone="error">{error}</SettingsNotice> : null}
+    </>
+  );
+}
 
 function getFolderName(folder: string) {
   // Split on POSIX "/" and Windows "\" separators, then use the last path segment as the folder name.
@@ -409,6 +533,7 @@ export function AuthorizedFoldersPanel(props: AuthorizedFoldersPanelProps) {
         <>
           {visibleAuthorizedFolders.length > 0 ? (
             <SettingsBlock>
+              <KnowledgeFolderItem />
               {visibleAuthorizedFolders.map((folder) => (
                 <AuthorizedFolderItem
                   key={folder}
@@ -422,6 +547,10 @@ export function AuthorizedFoldersPanel(props: AuthorizedFoldersPanelProps) {
               ))}
             </SettingsBlock>
           ) : (
+            <>
+            <SettingsBlock>
+              <KnowledgeFolderItem />
+            </SettingsBlock>
             <Empty>
               <EmptyHeader>
                 <EmptyMedia>
@@ -450,6 +579,7 @@ export function AuthorizedFoldersPanel(props: AuthorizedFoldersPanelProps) {
                 </EmptyContent>
               ) : null}
             </Empty>
+            </>
           )}
 
           {authorizedFoldersStatus ? (

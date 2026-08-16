@@ -13,7 +13,7 @@ describe("main rail primary icon contract", () => {
     expect(parseRailViewFromSearch("?view=projects")).toBeNull();
   });
 
-  test("keeps Knowledge as a visible coming-soon rail destination", () => {
+  test("keeps Knowledge as a visible rail destination", () => {
     expect(parseRailViewFromSearch("?view=knowledgeBase")).toBe("knowledgeBase");
     for (const locale of ["en", "zh", "zh-TW"] as const) {
       const nav = readFileSync(

@@ -5,6 +5,7 @@ const HOSTED_SECONDARY = new Set([
   "files",
   "store",
   "company",
+  "knowledgeBase",
   "projects",
   "knowledgeBase",
   "localAgent",

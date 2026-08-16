@@ -89,15 +89,9 @@ export const channelSessionSchema = z.object({
 });
 export type ChannelSession = z.infer<typeof channelSessionSchema>;
 
-/** Assistant binding record as read from storage (may include legacy fields). */
+/** Assistant binding record as read from storage (assistant-first). */
 export const channelAssistantBindingReadSchema = z.object({
   assistant_id: z.string().optional(),
-  /** @deprecated Legacy assistant identity written before assistant-first migration. */
-  custom_agent_id: z.string().optional(),
-  /** @deprecated Legacy backend-only binding kept for read compatibility. */
-  backend: z.string().optional(),
-  /** @deprecated Legacy conversation type / backend marker kept for read compatibility. */
-  agent_type: z.string().optional(),
   name: z.string().optional(),
 });
 export type ChannelAssistantBindingRead = z.infer<

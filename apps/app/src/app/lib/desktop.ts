@@ -754,6 +754,69 @@ export const writeWorkMemoryAwarenessFile = (input: {
   content: string;
 }) => invokeDesktopCommand("workMemoryWriteFile", input);
 
+export type KnowledgeVaultScope = "user" | "project" | "expert";
+
+export const ensureKnowledgeVaultDir = () =>
+  invokeDesktopCommand("knowledgeEnsureVault");
+
+export const listKnowledgeVault = (input?: {
+  scope?: KnowledgeVaultScope | "all";
+  workspaceId?: string;
+  expertId?: string;
+}) => invokeDesktopCommand("knowledgeList", input);
+
+export const readKnowledgeVaultFile = (input: {
+  scope?: KnowledgeVaultScope;
+  relPath: string;
+  workspaceId?: string;
+  expertId?: string;
+}) => invokeDesktopCommand("knowledgeRead", input);
+
+export const writeKnowledgeVaultFile = (input: {
+  scope?: KnowledgeVaultScope;
+  relPath: string;
+  content: string;
+  workspaceId?: string;
+  expertId?: string;
+}) => invokeDesktopCommand("knowledgeWrite", input);
+
+export const deleteKnowledgeVaultFile = (input: {
+  scope?: KnowledgeVaultScope;
+  relPath: string;
+  workspaceId?: string;
+  expertId?: string;
+}) => invokeDesktopCommand("knowledgeDelete", input);
+
+export const getKnowledgeVaultConfig = () =>
+  invokeDesktopCommand("knowledgeGetConfig");
+
+export const setKnowledgePersonalVaultPath = (path: string | null) =>
+  invokeDesktopCommand("knowledgeSetPersonalVaultPath", { path });
+
+export const rebuildKnowledgeVaultIndex = (input?: {
+  scope?: KnowledgeVaultScope | "all";
+  workspaceId?: string;
+  expertId?: string;
+}) => invokeDesktopCommand("knowledgeRebuildIndex", input);
+
+export const searchKnowledgeVault = (input: {
+  query: string;
+  scope?: KnowledgeVaultScope | "all";
+  workspaceId?: string;
+  expertId?: string;
+  limit?: number;
+}) => invokeDesktopCommand("knowledgeSearch", input);
+
+export async function openKnowledgeVaultFolder(): Promise<string> {
+  const ensured = await ensureKnowledgeVaultDir();
+  const target = ensured?.path?.trim();
+  if (!target) {
+    throw new Error("Knowledge vault path is empty.");
+  }
+  await openDesktopPath(target);
+  return target;
+}
+
 /** Create/seed awareness pack and open it in Finder/Explorer (Qwen-style). */
 export async function openWorkMemoryAwarenessFolder(): Promise<string> {
   const ensured = await ensureWorkMemoryAwarenessDir();

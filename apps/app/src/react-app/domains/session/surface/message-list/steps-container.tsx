@@ -88,6 +88,7 @@ export function StepsContainer(props: {
                 expanded: props.expandedStepIds.has(item.id),
                 onToggle: () => toggleSteps(item.id),
               }))}
+              onOpenCodePath={props.onOpenCodePath}
             />
           );
         }

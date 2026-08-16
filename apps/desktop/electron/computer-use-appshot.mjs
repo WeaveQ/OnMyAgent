@@ -93,7 +93,7 @@ function appshotError(code, message) {
   return err;
 }
 
-function isMostlyBlackNativeImage(nativeImage) {
+export function isMostlyBlackNativeImage(nativeImage) {
   if (!nativeImage || typeof nativeImage.isEmpty !== "function") return false;
   if (nativeImage.isEmpty()) return true;
   try {
