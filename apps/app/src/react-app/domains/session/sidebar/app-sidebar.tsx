@@ -10,6 +10,7 @@ import {
   CircleHelp,
   HardDrive,
   Info,
+  ListTodo,
   MessageSquarePlus,
   MessagesSquare,
   MoreHorizontal,
@@ -893,6 +894,8 @@ export function SidebarAccountButton(props: {
   onOpenLocalAgent?: () => void;
   /** Open agent management center (moved off the main rail into this menu). */
   onOpenAgentManagement?: () => void;
+  /** Open Task Center (moved off the main rail into this menu). */
+  onOpenTaskCenter?: () => void;
   onOpenSettings?: () => void;
   /** Open Settings → Personal profile (avatar / name). */
   onOpenProfile?: () => void;
@@ -1065,6 +1068,17 @@ export function SidebarAccountButton(props: {
             onSelect={() => {
               closeMenu();
               props.onOpenAgentManagement?.();
+            }}
+          />
+        ) : null}
+        {props.onOpenTaskCenter ? (
+          <SidebarAccountMenuItem
+            icon={ListTodo}
+            label={t("nav.agent_tasks")}
+            showChevron
+            onSelect={() => {
+              closeMenu();
+              props.onOpenTaskCenter?.();
             }}
           />
         ) : null}

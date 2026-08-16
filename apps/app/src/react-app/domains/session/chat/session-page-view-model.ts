@@ -108,6 +108,7 @@ export function buildSessionPageViewModel(input: BuildSessionPageViewModelInput)
     input.activeSidebarView === "store" ||
     input.activeSidebarView === "company" ||
     input.activeSidebarView === "projects" ||
+    input.activeSidebarView === "knowledgeBase" ||
     input.activeSidebarView === "skills" ||
     input.activeSidebarView === "connectors" ||
     input.activeSidebarView === "localAgent"

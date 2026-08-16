@@ -4,6 +4,7 @@
  * to match denser product rails (icon-above-label + free-float selected pill).
  */
 import {
+  BookOpen,
   Briefcase,
   Building2,
   CalendarClock,
@@ -53,6 +54,11 @@ export function LocalAgentRailIcon(props: PrimaryRailIconProps) {
 /** Files / workspace — folder outline. */
 export function FilesRailIcon(props: PrimaryRailIconProps) {
   return <Folder {...railIconProps(props.className)} />;
+}
+
+/** Knowledge base — open book outline. */
+export function KnowledgeBaseRailIcon(props: PrimaryRailIconProps) {
+  return <BookOpen {...railIconProps(props.className)} />;
 }
 
 /** Projects — briefcase outline (solid stroke, not dashed placeholder). */

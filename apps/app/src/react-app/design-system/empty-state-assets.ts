@@ -10,6 +10,9 @@ export const NO_EXPERT_CONVERSATIONS_ASSET =
 export const PROJECTS_PLACEHOLDER_ASSET =
   "/illustrations/koboyo/empty-state-for-activity.svg";
 
+export const KNOWLEDGE_BASE_PLACEHOLDER_ASSET =
+  "/illustrations/koboyo/book-open.svg";
+
 export const DEVICES_EMPTY_STATE_ASSET =
   "/illustrations/koboyo/desktop-computer-stand.svg";
 

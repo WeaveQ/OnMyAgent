@@ -13,6 +13,18 @@ describe("main rail primary icon contract", () => {
     expect(parseRailViewFromSearch("?view=projects")).toBeNull();
   });
 
+  test("keeps Knowledge as a visible coming-soon rail destination", () => {
+    expect(parseRailViewFromSearch("?view=knowledgeBase")).toBe("knowledgeBase");
+    for (const locale of ["en", "zh", "zh-TW"] as const) {
+      const nav = readFileSync(
+        resolve(root, `apps/app/src/i18n/locales/${locale}/nav.ts`),
+        "utf8",
+      );
+      expect(nav).toContain("nav.knowledge_base");
+      expect(nav).toContain("nav.knowledge_base_short");
+    }
+  });
+
   test("uses the larger shared rail width", () => {
     const railSource = readFileSync(
       resolve(
@@ -63,7 +75,10 @@ describe("main rail primary icon contract", () => {
     expect(railSource).toContain(
       'onOpenAgentManagement={() => props.onOpenView("agentManagement")}',
     );
+    expect(railSource).toContain('onOpenTaskCenter={() => props.onOpenView("taskCenter")}');
     expect(railSource).toContain("icon: FilesRailIcon");
+    expect(railSource).toContain("icon: KnowledgeBaseRailIcon");
+    expect(railSource).toContain('id: "knowledgeBase"');
     expect(railSource).toContain("icon: ProjectsRailIcon");
     expect(railSource).toContain("isProjectsRailVisible");
     expect(railSource).toContain('if (item.id === "projects") return projectsVisible');
@@ -77,6 +92,8 @@ describe("main rail primary icon contract", () => {
     expect(iconSource).toContain('from "lucide-react"');
     expect(iconSource).toContain("House");
     expect(iconSource).toContain("UserRound");
+    expect(iconSource).toContain("BookOpen");
+    expect(iconSource).toContain("export function KnowledgeBaseRailIcon");
     expect(iconSource).toMatch(
       /UserRound[\s\S]*ExpertRailIcon|ExpertRailIcon[\s\S]*UserRound/,
     );

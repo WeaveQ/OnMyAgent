@@ -19,11 +19,12 @@ export type OnMyAgentPrimaryView =
   | "store"
   | "company"
   | "projects"
+  | "knowledgeBase"
   | "localAgent";
 
 export type SidebarFeatureView = Exclude<
   OnMyAgentPrimaryView,
-  "chat" | "files" | "store" | "company" | "projects"
+  "chat" | "files" | "store" | "company" | "projects" | "knowledgeBase"
 >;
 
 export const SIDEBAR_VIEW_LABELS: Record<SidebarFeatureView, string> = {

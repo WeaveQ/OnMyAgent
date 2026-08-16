@@ -8,7 +8,6 @@
 import type { OnMyAgentPrimaryView } from "../sidebar/main-rail";
 import { isPrimarySessionRailView } from "../sidebar/rail-navigation-memory";
 import { isProjectsRailVisible } from "../sidebar/projects-rail-visibility";
-import { isTaskCenterRailVisible } from "../sidebar/task-center-rail-visibility";
 
 export type ShellMode = "assistant" | "expert";
 
@@ -28,6 +27,7 @@ const KNOWN_RAIL_VIEWS = new Set<string>([
   "store",
   "company",
   "projects",
+  "knowledgeBase",
   "agentManagement",
   "taskCenter",
   "devices",
@@ -72,7 +72,6 @@ export function parseRailViewFromSearch(
   try {
     const value = new URLSearchParams(raw).get(RAIL_VIEW_SEARCH_PARAM)?.trim() ?? "";
     if (!value || !isKnownRailView(value)) return null;
-    if (value === "taskCenter" && !isTaskCenterRailVisible()) return null;
     if (value === "projects" && !isProjectsRailVisible()) return null;
     return value;
   } catch {

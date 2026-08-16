@@ -638,3 +638,7 @@ export function ProjectsComingSoonPage() {
     </div>
   );
 }
+
+export function KnowledgeBaseComingSoonPage() {
+  return <FeaturePreviewPlaceholder kind="knowledgeBase" />;
+}

@@ -27,6 +27,7 @@ import { SessionStartupSkeleton } from "./session-startup-skeleton";
 import {
   BillingPage,
   DevicesPage,
+  KnowledgeBaseComingSoonPage,
   ProjectsComingSoonPage,
   SidebarFeaturePlaceholder,
   StorePage,
@@ -385,6 +386,7 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
                         />
                       ),
                       projects: <ProjectsComingSoonPage />,
+                      knowledgeBase: <KnowledgeBaseComingSoonPage />,
                       devices: <DevicesPage />,
                       channels: (
                         <MessagingChannelsPage workspaceRoot={props.selectedWorkspaceRoot} />
@@ -399,6 +401,7 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
                       activeSidebarView !== "store" &&
                       activeSidebarView !== "company" &&
                       activeSidebarView !== "projects" &&
+                      activeSidebarView !== "knowledgeBase" &&
                       activeSidebarView !== "localAgent" &&
                       activeSidebarView !== "agentManagement" &&
                       activeSidebarView !== "devices" &&

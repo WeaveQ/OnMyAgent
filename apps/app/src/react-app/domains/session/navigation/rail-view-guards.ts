@@ -6,6 +6,7 @@ const HOSTED_SECONDARY = new Set([
   "store",
   "company",
   "projects",
+  "knowledgeBase",
   "localAgent",
   "agentManagement",
   "skills",
