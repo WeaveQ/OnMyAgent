@@ -33,6 +33,8 @@ The model selector on the right side of the composer can change vendor, model, o
 
 Models vary in context size, reasoning levels, tool use, image input, and cost. After switching, inspect the Provider/model actually shown for the current session; do not infer the endpoint from a display name alone.
 
+**Context usage** in a session prefers the catalog window for that model (million-token windows show as **1M**), not a stale fixed table. Occupancy splits into system prompt, tools and sub-agents, messages, skills, and cache; **Reply** and **Reasoning** are last-turn generation and are not occupancy. See [Sessions](/en/guide/sessions).
+
 ## 4. Ollama and compatible endpoints
 
 - Ollama requires its local service to be running, the address to be reachable, and the target model to be downloaded.

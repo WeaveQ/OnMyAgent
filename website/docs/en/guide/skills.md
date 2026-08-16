@@ -14,8 +14,16 @@ This guide explains how to install and invoke Skills, and what common browser, o
 2. Switch to the **Skills** tab in the top bar.
 3. Browse, search, and install. Some Skills are **built in or bundled** and become available after installation.
 
+You can also enter **`/`** in a conversation composer to open skills and commands. In a sandboxed or expert session, core bundled skills remain available through `/` without exposing your entire home directory to the sandbox.
 
-You can also enter **`/`** in a conversation composer to open skills and commands.
+### Installed vs expert skills
+
+| Where it appears | Meaning |
+|------------------|---------|
+| **Installed** | Skills you installed on this machine and can call from any main session |
+| Skills on an expert | Run only with that expert and **do not** appear under **Installed** |
+
+Do not treat an expert’s attached skills as items you installed, uninstalled, or counted in **Installed**. Those skills stay isolated with the expert runtime.
 
 ## 2. How to invoke a Skill
 
@@ -24,6 +32,9 @@ You can also enter **`/`** in a conversation composer to open skills and command
 | Natural language | State the goal, such as “open this page and create a screenshot summary”; the Agent matches installed capabilities |
 | `/` command | Name a Skill or workflow explicitly |
 | Find before acting | Use a **Find Skills** capability to ask which Skill fits the task |
+| **Create skill** | In Market, select **Create skill**. The composer is prefilled with `/skill-creator Please help me create a skill that can "......"` |
+
+**+ New task** clears other leftover composer drafts, but this create-skill seed stays so you can edit `"......"` and send.
 
 **Recommendation:** install only from trusted sources, pair sensitive actions with [Approvals](/en/guide/approvals), and test on a small scope before batch processing.
 

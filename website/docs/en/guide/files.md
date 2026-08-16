@@ -42,7 +42,7 @@ Common tabs include:
 
 | Type | Typical behavior |
 |------|------------------|
-| Markdown, text, and code | Read in the app, with syntax or diff presentation for some formats |
+| Markdown, text, and code | Read in the app, with syntax or diff presentation for some formats. A `.md` file written to the workspace appears in the conversation as a **file link** (opens the file preview), not an “open artifact” pill |
 | Images | Preview in the app |
 | HTML and web deliverables | Safe preview or browser open, depending on the content |
 | Spreadsheets | In-app table preview or a system application |

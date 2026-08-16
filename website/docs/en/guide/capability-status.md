@@ -25,7 +25,7 @@ This page defines how the handbook uses status terms such as generally available
 | Home sessions, Experts, Automation, Files, and Market | Generally available | Still require basic prerequisites such as a model and workspace |
 | Messaging channels | Conditionally available | WeChat, Feishu/Lark, Telegram, and Discord require real accounts and platform E2E verification |
 | Company | Conditionally available | Appears only after OnMyCompany is connected |
-| Projects | Coming Soon | Neither the main-rail entry nor the Files classification is a production project-management feature |
+| Projects | Hidden + Coming Soon | The main-rail entry is hidden; the Files Projects tab is still not a production project-management feature |
 | Usage | Hidden deep link | Not currently present in ordinary Settings navigation |
 | Debug / UI control | Developer capability | Must not be promoted as an ordinary user feature |
 | Windows desktop | Unsigned developer Preview | Computer Use is not fully equivalent to macOS |

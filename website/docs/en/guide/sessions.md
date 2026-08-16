@@ -13,13 +13,19 @@ A session, or task conversation, is a resumable office collaboration. You descri
 | Operation | Description |
 |-----------|-------------|
 | Create a task | **+ New task** starts a session in the current workspace |
-| Continue an old task | Select it under Recent and confirm that it belongs to the current workspace |
+| Continue an old task | Select the parent task under **Recent** and confirm that it belongs to the current workspace |
 | Continue across turns | Add source material, constraints, or a new direction in the same session |
 | Search | Locate messages and matches inside a long conversation |
 | Revert | Continue again from a selected user message; first confirm whether later branches are still needed |
 | Stop | Ends the task that is currently streaming; it does not delete the session |
 
 The session and workspace identities come from the URL. If the target workspace or session does not exist, the product should show a not-found or selection prompt instead of silently opening another item from the list.
+
+### Recent lists parent tasks only
+
+**Recent** lists only the parent tasks you started (**+ New task**, the Home composer, or **Add to task** from Files). Child sessions that the Agent creates for parallel work **do not** get their own row, so one job does not fill the list.
+
+Watch subtask progress in the current conversation; see [Parallel subtasks](#parallel-subtasks). A shorter list does not mean those child sessions were deleted.
 
 ## 2. Composer
 
@@ -32,7 +38,8 @@ The session and workspace identities come from the URL. If the target workspace 
 | Skills, MCP, and connectors | Give the Agent additional actions | On first use, verify the account and target resource |
 | Work mode | Select Ask, Craft, Plan, or another collaboration mode | In Plan mode, confirm the plan before execution |
 | Model and reasoning level | Choose the model and reasoning effort for this task | Providers differ in capability, cost, and context window |
-| Context usage | See how much of the current window is occupied | Near the limit, start a new task or compact the context |
+| Context usage | See how much of the current window is occupied. The limit prefers the model's **catalog** context window (million-token windows show as **1M**, not 1048.6K). Occupancy splits into system prompt, tools and sub-agents, messages, skills, cache hits, and similar buckets | Near the limit, start a new task or compact the context. **Reply** and **Reasoning** are last-turn generation and are **not** part of occupancy |
+| Body context menu | Select conversation body text; right-click **Cut / Copy / Paste / Select all** | Uses the system clipboard |
 | Access permissions | Decide which actions run automatically and which require a prompt | Keep approvals for external sends, deletes, and sensitive writes |
 
 ## 3. Execution, Plan, and Goal
@@ -45,9 +52,20 @@ The session and workspace identities come from the URL. If the target workspace 
 
 Do not treat “plan generated” as task completion, and do not treat a successful tool call as proof that the final deliverable passed acceptance.
 
+### Parallel subtasks
+
+When the Agent splits one job into several subtasks, the timeline groups them under **N/M subtasks** (completed / total).
+
+- Expand the group to read each subtask’s description and status (running, completed, or failed).
+- Subtask return text is shown as readable body text, not a raw `task_result` wrapper.
+- A failed attempt immediately retried with the same description collapses into one row.
+- If you reply or the Agent adds narration in between, the next run of the same kind is a **new group** (a new turn), not merged into the previous set.
+
+A green subtask card is not acceptance. Still check the deliverable in the next section.
+
 ## 4. Deliverables, browser, and side panel
 
-A session can display files, diffs, images, Office documents, web pages, and browser results. Supported formats can be previewed in the app; unsupported or very large files are downloaded or passed to a system application.
+A session can display files, diffs, images, Office documents, web pages, and browser results. Supported formats can be previewed in the app; unsupported or very large files are downloaded or passed to a system application. Markdown files written to the workspace appear as **file links** in the conversation (open the file preview), not as “open artifact” pills.
 
 Recommended acceptance order:
 

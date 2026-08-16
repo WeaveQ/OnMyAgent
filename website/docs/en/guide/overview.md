@@ -11,7 +11,7 @@ Learn how the main interface is divided so you can quickly delegate work, inspec
 
 | Area | Purpose |
 |------|---------|
-| **Left main rail** | Home / Experts / Auto / Files / Market / Company after connection / Projects as a preview |
+| **Left main rail** | Home / Experts / Auto / Files / Market / Company after connection |
 | **Middle list** | Recent tasks and sessions, or a file tree and Market filters |
 | **Main content** | Conversations, file tables, expert cards, and other module content |
 | **Composer** | Natural language, `@` references, `/` skills, model selection, and permissions |
@@ -39,7 +39,7 @@ Switch between **Experts · Skills · Connectors** in the top bar, then filter b
 | Entry | Current status |
 |-------|----------------|
 | **Company** | Appears only after OnMyCompany connects successfully; local mode does not require sign-in |
-| **Projects** | Coming Soon placeholder, not a usable project-management module |
+| **Projects** | Hidden from the main rail; the Files **Projects** tab remains Coming Soon and is not a usable project-management module |
 | **Channels** | Located at the bottom of the main rail; WeChat, Feishu, Telegram, and Discord require real accounts and platform permissions |
 
 See [Company connection](/en/guide/company), [Projects preview](/en/guide/projects), [Messaging channels](/en/guide/channels), and [Feature and platform status](/en/guide/capability-status).
