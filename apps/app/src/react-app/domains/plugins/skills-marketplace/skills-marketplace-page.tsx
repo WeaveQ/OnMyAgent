@@ -704,7 +704,17 @@ function InstalledSkillCard(props: {
                   >
                     <DropdownMenuItem
                       disabled={!props.onChat}
-                      onClick={() => props.onChat?.(props.skill)}
+                      onPointerDown={(event) => {
+                        if (!props.onChat) return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        props.onChat(props.skill);
+                      }}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        props.onChat?.(props.skill);
+                      }}
                       className="cursor-pointer gap-2 text-dls-text focus:bg-dls-hover"
                     >
                       <MessageCircle className="size-4 shrink-0 text-dls-secondary" />
@@ -718,7 +728,7 @@ function InstalledSkillCard(props: {
                       <Pencil className="size-4 shrink-0 text-dls-secondary" />
                       {t("store.skill_edit")}
                     </DropdownMenuItem>
-                    {!props.originLocal ? (
+                    {!props.originLocal && !props.originBuiltin ? (
                       <DropdownMenuItem
                         variant="destructive"
                         disabled={props.uninstalling || props.skill.readonly}
@@ -1286,8 +1296,11 @@ export function SkillsMarketplacePage(props: {
     });
   };
 
+  const isBuiltinOriginSkill = (skill: LocalSkillCard) =>
+    isProfileSkillsPath(skill.path) && builtinPackageNames.has(skill.name);
+
   const handleUninstallSkill = async (skill: LocalSkillCard) => {
-    if (skill.readonly || uninstallingSkillName) return;
+    if (skill.readonly || uninstallingSkillName || isBuiltinOriginSkill(skill)) return;
     setUninstallingSkillName(skill.name);
     try {
       if (props.client) {
@@ -1319,9 +1332,6 @@ export function SkillsMarketplacePage(props: {
       setUninstallingSkillName(null);
     }
   };
-
-  const isBuiltinOriginSkill = (skill: LocalSkillCard) =>
-    isProfileSkillsPath(skill.path) && builtinPackageNames.has(skill.name);
 
   const isLocalOriginSkill = (skill: LocalSkillCard) =>
     isLocalDiscoveredSkillPath(skill.path);

@@ -24,6 +24,7 @@ import {
   resolveActiveRailView,
   shouldHydrateRailBookmarkIntoUrl,
 } from "../navigation/app-location";
+import { SKILL_CHAT_OPEN_PRIMARY_EVENT } from "./skill-chat-events";
 
 /** mode:workspaceId keys already cold-hydrated this page load. */
 const railBookmarkHydratedKeys = new Set<string>();
@@ -117,6 +118,11 @@ export function useRailLocation(input: {
     primary,
   ]);
 
+  const forcePrimaryRail = useCallback(() => {
+    setActiveSidebarView(primary);
+    writeRailView(input.mode, input.workspaceId, primary);
+  }, [input.mode, input.workspaceId, primary]);
+
   const openRailView = useCallback(
     (view: OnMyAgentPrimaryView) => {
       // Paint the pressed rail state in the current event before the route
@@ -165,9 +171,20 @@ export function useRailLocation(input: {
     };
   }, [openRailView]);
 
+  useEffect(() => {
+    const onSkillChat = () => {
+      forcePrimaryRail();
+    };
+    window.addEventListener(SKILL_CHAT_OPEN_PRIMARY_EVENT, onSkillChat);
+    return () => {
+      window.removeEventListener(SKILL_CHAT_OPEN_PRIMARY_EVENT, onSkillChat);
+    };
+  }, [forcePrimaryRail]);
+
   return {
     activeSidebarView,
     setActiveSidebarView,
     openRailView,
+    forcePrimaryRail,
   };
 }
