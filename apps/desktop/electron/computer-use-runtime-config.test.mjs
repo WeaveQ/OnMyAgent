@@ -174,3 +174,11 @@ test("runtime writes the overlay into the managed config dir after sandbox pin",
     /env\.OPENCODE_CONFIG_DIR = env\.OPENCODE_CONFIG_DIR\?\.trim\(\)\s*\n\s*\? env\.OPENCODE_CONFIG_DIR\s*\n\s*: localOpencodeConfigDir/,
   );
 });
+
+test("Linux has no Computer Use MCP helper and stays disabled by default", () => {
+  assert.equal(isComputerUseMcpEnabled({ platform: "linux" }), false);
+  assert.equal(
+    resolveComputerUseRuntimeCommand({ platform: "linux", desktopRoot: "/tmp" }),
+    null,
+  );
+});

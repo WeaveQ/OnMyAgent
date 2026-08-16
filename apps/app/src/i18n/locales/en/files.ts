@@ -41,7 +41,7 @@ export default {
   "files.search_expert_placeholder": "Search expert files",
   "files.uploads_empty_title": "No uploads yet",
   "files.uploads_empty_hint":
-    "Import files from your computer. OnMyAgent copies them into the workspace so conversations can use them safely.",
+    "Import files from your computer. OnMyAgent copies them into the workspace so conversations can use them safely. Agent-created files are on the Tasks tab.",
   "files.drop_to_upload": "Drop to upload",
   "files.drop_to_upload_hint": "Or use Import to workspace to pick files",
   "files.upload_copy_success_title": "Import complete",

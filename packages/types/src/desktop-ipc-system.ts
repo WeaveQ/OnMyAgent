@@ -109,9 +109,30 @@ export type SystemPermissionStatus = {
   [key in SystemPermissionType]: "granted" | "denied" | "unknown";
 };
 
+export type DesktopPlatformCapability = {
+  supported: boolean;
+  reason: string | null;
+  backend?: "handsfree" | "cua" | "none";
+};
+
+export type DesktopSandboxCapability = {
+  supported: boolean;
+  reason: string | null;
+  backend: "docker" | "bwrap" | "sandbox-exec" | "none";
+};
+
+export type DesktopPlatformCapabilities = {
+  platform: "macos" | "windows" | "linux" | "unknown";
+  computerUse: DesktopPlatformCapability;
+  appshot: DesktopPlatformCapability;
+  sandboxExec: DesktopPlatformCapability;
+  sandbox: DesktopSandboxCapability;
+};
+
 export type SystemPermissionResult = {
   platform: "macos" | "windows" | "linux" | "unknown";
   permissions: SystemPermissionStatus;
+  capabilities?: DesktopPlatformCapabilities;
 };
 
 export type DesktopFetchResult = {
@@ -163,6 +184,8 @@ export type ComputerUsePermissionResult = {
   backend?: "handsfree" | "cua" | "none";
   /** Whether OpenCode computer-use MCP is enabled (user pref / env). */
   mcpEnabled?: boolean;
+  /** Present when the host platform has no Computer Use backend. */
+  unsupportedReason?: "platform-unsupported";
   activity?: ComputerUseActivity;
   skysight?: ComputerUseSkysightStatus;
   appAuthorizations?: ComputerUseAppAuthorizations;

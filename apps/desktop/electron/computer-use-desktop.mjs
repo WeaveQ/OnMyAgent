@@ -22,6 +22,13 @@ import {
   writeComputerUseMcpPrefsEnabled,
   writeComputerUseRuntimeConfig,
 } from "./computer-use-runtime-config.mjs";
+import {
+  buildLinuxSystemPermissions,
+  computerUseUnsupportedReason,
+  isComputerUsePlatformSupported,
+  resolveDesktopPlatformCapabilities,
+  resolveLinuxPermissionSettingsCommand,
+} from "./desktop-platform-capabilities.mjs";
 
 export { isComputerUseAppshotSupported, sanitizeAppshotFileName };
 
@@ -193,6 +200,10 @@ function getComputerUseMcpCommand() {
   });
   if (command) return command;
 
+  if (!isComputerUsePlatformSupported(process.platform)) {
+    throw new Error(computerUseUnsupportedReason(process.platform));
+  }
+
   if (process.platform === "win32") {
     throw new Error(
       app.isPackaged
@@ -328,6 +339,21 @@ function resolveComputerUseExecutable() {
 async function checkComputerUsePermissions() {
   const desktopVersion = resolveOnMyAgentProductVersion(app);
   const mcpEnabled = resolveMcpEnabledForPlatform();
+
+  if (!isComputerUsePlatformSupported(process.platform)) {
+    const reason = computerUseUnsupportedReason(process.platform);
+    console.warn("[ComputerUse] skipped:", reason);
+    return {
+      ok: false,
+      accessibility: false,
+      screenRecording: false,
+      backend: "none",
+      mcpEnabled: false,
+      desktopVersion,
+      error: reason,
+      unsupportedReason: "platform-unsupported",
+    };
+  }
 
   // Windows: Cua Driver stage check (no HandsFree --status / TCC).
   if (process.platform === "win32") {
@@ -715,7 +741,66 @@ function checkSystemPermissions() {
   );
   const platform = process.platform;
 
-  // Windows / Linux: never fake "granted".
+  // Linux: real workspace/fs + optional notification query. Never fake granted.
+  if (platform === "linux") {
+    let notificationStatus = "unknown";
+    try {
+      if (typeof systemPreferences?.getNotificationSettings === "function") {
+        const ns = systemPreferences.getNotificationSettings();
+        const status =
+          ns?.authorizationStatus ?? ns?.authStatus ?? ns?.status ?? null;
+        if (status === "authorized" || status === "provisional") {
+          notificationStatus = "granted";
+        } else if (status === "denied") {
+          notificationStatus = "denied";
+        }
+      }
+    } catch {
+      notificationStatus = "unknown";
+    }
+    let microphoneStatus = "unknown";
+    let screenRecordingStatus = "unknown";
+    try {
+      if (typeof systemPreferences?.getMediaAccessStatus === "function") {
+        microphoneStatus = mediaStatusToPermission(
+          systemPreferences.getMediaAccessStatus("microphone"),
+        );
+        try {
+          screenRecordingStatus = mediaStatusToPermission(
+            systemPreferences.getMediaAccessStatus("screen"),
+          );
+        } catch {
+          screenRecordingStatus = "unknown";
+        }
+      }
+    } catch {
+      microphoneStatus = "unknown";
+      screenRecordingStatus = "unknown";
+    }
+    const permissions = buildLinuxSystemPermissions({
+      homeDir: os.homedir(),
+      notificationStatus,
+      microphoneStatus,
+      screenRecordingStatus,
+    });
+    const capabilities = resolveDesktopPlatformCapabilities(platform);
+    console.log(
+      "[checkSystemPermissions] linux capabilities:",
+      JSON.stringify({
+        computerUse: capabilities.computerUse,
+        sandbox: capabilities.sandbox,
+        sandboxExec: capabilities.sandboxExec,
+        appshot: capabilities.appshot,
+      }),
+    );
+    return {
+      platform: "linux",
+      permissions,
+      capabilities,
+    };
+  }
+
+  // Windows: never fake "granted".
   if (platform !== "darwin") {
     const permissions = {
       "full-disk-access": "unknown",
@@ -744,14 +829,20 @@ function checkSystemPermissions() {
         err,
       );
     }
+    const capabilities = resolveDesktopPlatformCapabilities(platform);
+    console.log(
+      "[checkSystemPermissions] unsupported capabilities:",
+      JSON.stringify({
+        computerUse: capabilities.computerUse,
+        sandbox: capabilities.sandbox,
+        sandboxExec: capabilities.sandboxExec,
+        appshot: capabilities.appshot,
+      }),
+    );
     return {
-      platform:
-        platform === "win32"
-          ? "windows"
-          : platform === "linux"
-            ? "linux"
-            : "unknown",
+      platform: capabilities.platform,
       permissions,
+      capabilities,
     };
   }
 
@@ -819,6 +910,7 @@ function checkSystemPermissions() {
   return {
     platform: "macos",
     permissions,
+    capabilities: resolveDesktopPlatformCapabilities(platform),
   };
 }
 
@@ -899,6 +991,37 @@ async function openSystemPermissionSettings(type) {
       return {
         success: false,
         error: e instanceof Error ? e.message : String(e),
+      };
+    }
+  }
+
+  if (process.platform === "linux") {
+    const target = resolveLinuxPermissionSettingsCommand(type, {
+      desktop: process.env.XDG_CURRENT_DESKTOP ?? process.env.DESKTOP_SESSION ?? "",
+    });
+    try {
+      const opened = spawnSync(target.command, target.args, {
+        encoding: "utf8",
+        timeout: 8_000,
+        stdio: "ignore",
+      });
+      if (opened.error) {
+        if (typeof shell?.openExternal === "function") {
+          await shell.openExternal(target.args[0] ?? "settings://");
+          return { success: true, hint: "Opened the desktop settings app." };
+        }
+        return {
+          success: false,
+          error: opened.error.message,
+          hint: `Open ${target.command} ${target.args.join(" ")} to change this permission.`,
+        };
+      }
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        hint: `Open ${target.command} ${target.args.join(" ")} to change this permission.`,
       };
     }
   }
@@ -1066,6 +1189,11 @@ function spawnCheckPermissions(bin) {
 }
 
 async function openComputerUseSetupApp() {
+  if (!isComputerUsePlatformSupported(process.platform)) {
+    const reason = computerUseUnsupportedReason(process.platform);
+    console.warn("[ComputerUse] setup skipped:", reason);
+    return;
+  }
   // Windows: no HandsFree setup GUI. In-app Settings → System is the primary
   // surface (renderer navigates there). Optionally open capture privacy pane.
   if (process.platform === "win32") {

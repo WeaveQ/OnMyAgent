@@ -146,8 +146,10 @@ export default tool({
 const ONMYAGENT_LANGUAGE_GUIDANCE = `<!-- ${APP_NAME}_LANGUAGE_START -->
 ## Language
 
-- Default to **简体中文 (Simplified Chinese)** for all user-facing output: replies, session titles, summaries, and inline mentions of file paths or UI labels.
-- If the user continues the conversation in another language, match the user's language for that reply only.
+- Match the user's language. If the user writes Chinese, the assistant reply **and** any user-facing file content you create (notes, markdown, summaries, slide/doc text) must be Chinese.
+- Do not mix English filler into Chinese output (for example "presentations", "summary", "notes") unless the user used that word, or it is a code identifier, command, or tool name.
+- App UI locale is typically **简体中文 (zh-CN)**. Default to Simplified Chinese for all user-facing output: replies, session titles, summaries, file bodies, and inline mentions of file paths or UI labels.
+- If the user continues the conversation in another language, match the user's language for that reply and for new user-facing file content in that turn.
 - Keep source code, identifiers, command names, tool names, and anything the user explicitly quotes in its original language.
 <!-- ${APP_NAME}_LANGUAGE_END -->`;
 

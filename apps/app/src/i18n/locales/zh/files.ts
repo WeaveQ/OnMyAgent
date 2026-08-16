@@ -39,7 +39,7 @@ export default {
   "files.search_expert_placeholder": "搜索专家文件",
   "files.uploads_empty_title": "暂无上传",
   "files.uploads_empty_hint":
-    "从本机导入文件。OnMyAgent 会复制到工作区，供对话安全引用。",
+    "从本机导入文件。OnMyAgent 会复制到工作区，供对话安全引用。智能体生成的文件请到「任务」查看。",
   "files.drop_to_upload": "松开以上传文件",
   "files.drop_to_upload_hint": "也可点击「导入到工作区」选择文件",
   "files.upload_copy_success_title": "导入成功",

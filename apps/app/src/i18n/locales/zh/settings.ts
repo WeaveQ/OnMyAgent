@@ -196,6 +196,8 @@ export default {
     "连接本地 MCP 服务器，并授予它控制应用所需的 macOS 权限",
   "settings.computer_use_setup_description_windows":
     "Windows 使用内置 Cua Driver（非 macOS HandsFree）。请先开启下方 MCP，再连接，以便 Composer 控制桌面应用。",
+  "settings.computer_use_setup_description_linux":
+    "Linux 不支持 Computer Use。HandsFree 仅限 macOS，Cua Driver 仅限 Windows。桌面截图（Appshot）仍可通过 Electron desktopCapturer 使用。",
   "settings.computer_use_mcp_toggle_title": "OpenCode computer-use MCP",
   "settings.computer_use_mcp_toggle_ready":
     "已就绪 Cua Driver。开关用于启用 OpenCode 会话中的 MCP（Windows 默认关闭）。",
@@ -859,6 +861,9 @@ export default {
   "settings.permission_full_disk_desc":
     "允许访问磁盘上的所有文件，部分功能需要此权限才能正常工作",
   "settings.permission_full_disk_label": "完全磁盘访问权限",
+  "settings.permission_workspace_label": "工作区文件访问",
+  "settings.permission_workspace_desc":
+    "检查当前工作区与用户目录是否可读。这不是 macOS 完全磁盘访问。",
   "settings.permission_notifications_desc":
     "允许发送桌面通知，在任务完成或有新消息时及时提醒你",
   "settings.permission_notifications_label": "通知",

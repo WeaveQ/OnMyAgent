@@ -59,7 +59,15 @@ function signHelperApp() {
 }
 
 if (process.platform !== "darwin") {
-  process.stdout.write(JSON.stringify({ ok: true, skipped: true, reason: "computer-use-helper-is-macos-only" }, null, 2) + "\n");
+  const payload = {
+    ok: true,
+    skipped: true,
+    reason: "computer-use-helper-is-macos-only",
+    platform: process.platform,
+    message: "Computer Use helper is macOS-only. Linux is unsupported (Windows uses Cua).",
+  };
+  console.warn("[prepare-computer-use-helper]", payload.message);
+  process.stdout.write(JSON.stringify(payload, null, 2) + "\n");
   process.exit(0);
 }
 

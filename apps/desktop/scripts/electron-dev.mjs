@@ -18,6 +18,10 @@ import {
   resolveDevTypesArtifactPaths,
   shouldForceDevPreparation,
 } from "./dev-prepare-freshness.mjs";
+import {
+  resolveElectronExtraLaunchArgs,
+  resolveLinuxDesktopEnvDefaults,
+} from "../electron/startup-flags.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(__dirname, "..");
@@ -496,18 +500,27 @@ if (depsInspection.ok) {
   );
 }
 
-const extraLaunchArgs = [
-  process.env.ELECTRON_EXTRA_LAUNCH_ARGS?.trim() ?? "",
-  // Prevent Chromium from reusing deleted Vite chunks after a re-optimize.
-  resetElectronDevCaches ? "--disable-http-cache" : "",
-]
-  .filter(Boolean)
-  .join(" ");
+const operatorLaunchArgs = process.env.ELECTRON_EXTRA_LAUNCH_ARGS?.trim() ?? "";
+const extraLaunchArgs = resolveElectronExtraLaunchArgs({
+  platform: process.platform,
+  extraLaunchArgs: operatorLaunchArgs,
+  resetHttpCache: resetElectronDevCaches,
+});
+if (process.platform === "linux" && !operatorLaunchArgs) {
+  console.log(
+    "[electron-dev] Linux: applying software-render Electron flags (override with ELECTRON_EXTRA_LAUNCH_ARGS)",
+  );
+}
+const linuxEnvDefaults = resolveLinuxDesktopEnvDefaults({
+  platform: process.platform,
+  env: process.env,
+});
 
 electronChild = run(pnpmCmd, ["exec", "electron", "./electron/main.mjs"], {
   cwd: desktopRoot,
   env: {
     ...process.env,
+    ...linuxEnvDefaults,
     ONMYAGENT_DEV_MODE: process.env.ONMYAGENT_DEV_MODE ?? "1",
     ONMYAGENT_DATA_DIR: process.env.ONMYAGENT_DATA_DIR ?? defaultDevDataDir,
     ONMYAGENT_ELECTRON_START_URL: resolvedStartUrl,

@@ -41,7 +41,7 @@ export default {
   "extensions.computer_use_name": "電腦控制",
   "extensions.computer_use_description": "允許 AI 操作本機桌面。",
   "extensions.computer_use_long":
-    "讓 Agent 像人一樣操作本機桌面：開啟應用、點選選單、輸入文字、切換視窗。適合 Xcode、Finder、本機工具等非瀏覽器場景。macOS 需輔助功能與螢幕錄製；Windows 需啟用 Cua MCP。",
+    "讓 Agent 像人一樣操作本機桌面：開啟應用、點選選單、輸入文字、切換視窗。適合 Xcode、Finder、本機工具等非瀏覽器場景。macOS 需輔助功能與螢幕錄製；Windows 需啟用 Cua MCP。Linux 暫不支援。",
   "extensions.computer_use_prompt": "使用 Computer Use 來",
   "extensions.computer_use_suggestion_playlist": "播放一個能幫助我專注的歌單",
   "extensions.computer_use_suggestion_xcode": "建置並執行我已開啟的 Xcode 專案，然後測試其中的問題",
@@ -49,7 +49,7 @@ export default {
   "extensions.computer_use_check_permissions": "檢查權限",
   "extensions.computer_use_native_runtime": "桌面 Computer Use 執行環境",
   "extensions.computer_use_builtin_setup":
-    "Computer Use 已內建於本機桌面工作區。macOS 上請在系統提示時授予輔助功能與螢幕錄製；Windows 上請在 Cua 就緒後於設定中啟用 MCP。",
+    "Computer Use 已內建於本機桌面工作區。macOS 上請在系統提示時授予輔助功能與螢幕錄製；Windows 上請在 Cua 就緒後於設定中啟用 MCP。Linux 暫不支援。",
   "extensions.computer_use_mcp": "Computer Use MCP",
   "extensions.computer_use_helper_unavailable":
     "Computer Use 助手不可用。請重新啟動 OnMyAgent 或重新安裝應用程式。",

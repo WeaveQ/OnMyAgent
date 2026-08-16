@@ -194,5 +194,10 @@ test("electron-dev resets Chromium caches only with a forced Vite rebuild", asyn
   assert.match(source, /inspectViteDeps|clearViteDepsCache|clearElectronDevHttpCaches/);
   assert.match(source, /shouldResetElectronDevCaches/);
   assert.match(source, /ONMYAGENT_FORCE_ELECTRON_CACHE_RESET/);
-  assert.match(source, /resetElectronDevCaches \? "--disable-http-cache" : ""/);
+  assert.match(source, /resolveElectronExtraLaunchArgs/);
+  assert.match(source, /resetHttpCache:\s*resetElectronDevCaches/);
+  const flags = await import("node:fs/promises").then((fs) =>
+    fs.readFile(new URL("../electron/startup-flags.mjs", import.meta.url), "utf8"),
+  );
+  assert.match(flags, /resetHttpCache \? "--disable-http-cache" : ""/);
 });

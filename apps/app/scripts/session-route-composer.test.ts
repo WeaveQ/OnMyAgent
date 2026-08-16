@@ -172,11 +172,15 @@ describe("session route composer", () => {
     expect(buildLanguageSystemPrompt("en")).toContain("English");
   });
 
-  test("keeps the interface locale authoritative even when the input is another language", () => {
-    expect(buildLanguageSystemPrompt("zh")).toContain("必须使用简体中文");
-    expect(buildLanguageSystemPrompt("zh")).toContain("不得因用户输入或引用的语言而改变");
-    expect(buildLanguageSystemPrompt("en")).toContain("must be written in English");
-    expect(buildLanguageSystemPrompt("en")).toContain("must not change because of the language used in the user's input");
+  test("prefers UI locale but matches the user's message language", () => {
+    expect(buildLanguageSystemPrompt("zh")).toContain("匹配用户消息的语言");
+    expect(buildLanguageSystemPrompt("zh")).toContain("面向用户的文件内容");
+    expect(buildLanguageSystemPrompt("zh")).toContain("presentations");
+    expect(buildLanguageSystemPrompt("en")).toContain("match the user's message language");
+    expect(buildLanguageSystemPrompt("en")).toContain("user-facing file content");
+    expect(buildLanguageSystemPrompt("en")).not.toContain(
+      "must not change because of the language used in the user's input",
+    );
   });
 
   test("bounds each goal runtime request to one agent turn", () => {

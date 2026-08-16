@@ -202,14 +202,20 @@ test("Skysight restore starts one managed recorder and dispose terminates it", a
     resolveComputerUseExecutable: () => "/fake/ComputerUse",
   });
 
-  await helpers.restoreComputerUseServices();
-  await helpers.restoreComputerUseServices();
-  const status = await helpers.checkComputerUsePermissions();
+  const originalPlatform = process.platform;
+  Object.defineProperty(process, "platform", { value: "darwin" });
+  try {
+    await helpers.restoreComputerUseServices();
+    await helpers.restoreComputerUseServices();
+    const status = await helpers.checkComputerUsePermissions();
+    assert.equal(spawned.filter((args) => args.join(" ") === "skysight record").length, 1);
+    assert.equal(status.skysight.recording, true);
+    helpers.disposeComputerUseServices();
+    assert.deepEqual(recorder.killSignals, ["SIGTERM"]);
+  } finally {
+    Object.defineProperty(process, "platform", { value: originalPlatform });
+  }
 
-  assert.equal(spawned.filter((args) => args.join(" ") === "skysight record").length, 1);
-  assert.equal(status.skysight.recording, true);
-  helpers.disposeComputerUseServices();
-  assert.deepEqual(recorder.killSignals, ["SIGTERM"]);
 });
 
 test("Skysight helpers pause, resume, and update exclusions", async () => {
@@ -280,9 +286,10 @@ test("Appshot black-frame check treats sRGB toBitmap dark vs bright consistently
   assert.equal(isMostlyBlackNativeImage(bright), false);
 });
 
-test("Appshot is supported on macOS and Windows", () => {
+test("Appshot is supported on macOS, Windows, and Linux", () => {
   assert.equal(isComputerUseAppshotSupported("darwin"), true);
   assert.equal(isComputerUseAppshotSupported("win32"), true);
+  assert.equal(isComputerUseAppshotSupported("linux"), true);
   assert.equal(isComputerUseAppshotSupported("android"), false);
 });
 
@@ -381,4 +388,39 @@ test("sanitizeAppshotFileName handles Windows reserved names", () => {
   const safe = sanitizeAppshotFileName("CON.jpg", { platform: "win32", now: 0 });
   assert.equal(safe.toLowerCase().startsWith("con"), false);
   assert.match(safe, /^Appshot-\d{8}-\d{6}\.jpg$/);
+});
+
+test("Linux Computer Use permissions report platform unsupported", async () => {
+  const helpers = createComputerUseDesktopHelpers({
+    app: { getVersion: () => "0.5.8", isPackaged: false, getPath: () => "/tmp" },
+    shell: {},
+    dialog: {},
+    systemPreferences: {},
+    dirname: "/tmp/onmyagent/electron",
+  });
+  const originalPlatform = process.platform;
+  Object.defineProperty(process, "platform", { value: "linux" });
+  try {
+    const status = await helpers.checkComputerUsePermissions();
+    assert.equal(status.ok, false);
+    assert.equal(status.backend, "none");
+    assert.equal(status.unsupportedReason, "platform-unsupported");
+    assert.match(status.error ?? "", /not supported on Linux/i);
+    assert.throws(
+      () => helpers.getComputerUseMcpCommand(),
+      /not supported on Linux/i,
+    );
+    const system = helpers.checkSystemPermissions();
+    assert.equal(system.platform, "linux");
+    assert.equal(system.capabilities.computerUse.supported, false);
+    assert.equal(system.capabilities.sandboxExec.supported, false);
+    assert.equal(system.capabilities.appshot.supported, true);
+    assert.ok(["docker", "bwrap", "none"].includes(system.capabilities.sandbox.backend));
+    assert.ok(system.permissions["full-disk-access"]);
+    assert.equal(system.permissions.microphone, "unknown");
+    assert.equal(system.permissions.accessibility, "unknown");
+    assert.notEqual(system.permissions.microphone, "granted");
+  } finally {
+    Object.defineProperty(process, "platform", { value: originalPlatform });
+  }
 });
