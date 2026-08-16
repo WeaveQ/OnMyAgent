@@ -209,6 +209,9 @@ describe("ensureWorkspaceFiles", () => {
       );
       expect(fresh).toContain(`<!-- ${APP_NAME}_LANGUAGE_START -->`);
       expect(fresh).toContain("简体中文");
+      expect(fresh).toContain("user-facing file content");
+      expect(fresh).toContain("presentations");
+      expect(fresh).toContain("zh-CN");
       expect(
         fresh.indexOf(`<!-- ${APP_NAME}_LANGUAGE_START -->`),
       ).toBeLessThan(fresh.indexOf(`<!-- ${APP_NAME}_ARTIFACTS_START -->`));

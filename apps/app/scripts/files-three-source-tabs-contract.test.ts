@@ -27,8 +27,8 @@ function read(path: string): string {
 }
 
 describe("files three-source tabs (P0)", () => {
-  test("source tab helpers default to uploads; project rail is disabled", () => {
-    expect(DEFAULT_FILES_SOURCE_TAB).toBe("uploads");
+  test("source tab helpers default to task; project rail is disabled", () => {
+    expect(DEFAULT_FILES_SOURCE_TAB).toBe("task");
     expect([...FILES_SOURCE_TABS]).toEqual(["uploads", "task", "expert"]);
     expect([...FILES_SOURCE_RAIL_TABS]).toEqual([
       "uploads",
@@ -149,10 +149,14 @@ describe("files three-source tabs (P0)", () => {
       "loose.md",
       "自动化任务-2026-07-31-12-00-00",
     ]);
-    // Expert L0 uses display names; DisplayName-slug merges to DisplayName.
+    // Expert tab no longer scans workspace layout; it only normalizes
+    // runtime-tree display names on the nodes it is given.
     expect(expertTree.children.map((c) => c.name).sort()).toEqual([
+      "experts",
       "legacy-expert-display",
-      "财报研究员",
+      "loose.md",
+      "projects",
+      "tasks",
     ]);
   });
 
@@ -318,6 +322,11 @@ describe("files three-source tabs (P0)", () => {
     expect(zh).toContain('"files.source_task": "任务"');
     expect(zh).toContain('"files.source_expert": "专家"');
     expect(zh).toContain('"files.source_project": "项目"');
+    expect(zh).toContain("任务");
+    const en = read("apps/app/src/i18n/locales/en/files.ts");
+    expect(en).toMatch(/Tasks tab|task tab/i);
+    const zhTw = read("apps/app/src/i18n/locales/zh-TW/files.ts");
+    expect(zhTw).toContain("任務");
     const zhNav = read("apps/app/src/i18n/locales/zh/nav.ts");
     expect(zhNav).toContain('"nav.files": "文件"');
   });

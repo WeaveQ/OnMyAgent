@@ -84,7 +84,7 @@ import {
 } from "./desktop-system-prefs.mjs";
 import { createQuickCaptureWindowController } from "./quick-capture-window.mjs";
 import { createBrowserSkillDesktopHelpers as createBskDesktopHelpers } from "./browser-skill-desktop.mjs";
-import { configureDesktopStartupFlags } from "./startup-flags.mjs";
+import { applyLinuxDesktopEnvDefaults, configureDesktopStartupFlags } from "./startup-flags.mjs";
 import { probeAccessibleRoot } from "./channel-runtime.mjs";
 import { createCodeTerminalManager } from "./code-terminal-manager.mjs";
 import {
@@ -301,6 +301,7 @@ if (
   app.dock.setIcon(APP_ICON_IMAGE);
 }
 
+applyLinuxDesktopEnvDefaults();
 await configureDesktopStartupFlags(app);
 const DEFAULT_DEN_BASE_URL = "https://app.onmyagentlabs.com";
 const DEFAULT_LOCAL_BASE_URL = "http://127.0.0.1:4096";

@@ -273,6 +273,13 @@ export type SystemPermissionStatus = {
 export type SystemPermissionResult = {
   platform: "macos" | "windows" | "linux" | "unknown";
   permissions: SystemPermissionStatus;
+  capabilities?: {
+    platform: "macos" | "windows" | "linux" | "unknown";
+    computerUse: { supported: boolean; reason: string | null; backend?: string };
+    appshot: { supported: boolean; reason: string | null };
+    sandboxExec: { supported: boolean; reason: string | null };
+    sandbox?: { supported: boolean; reason: string | null; backend?: string };
+  };
 };
 
 export type PersonalLocalAgentProvider =

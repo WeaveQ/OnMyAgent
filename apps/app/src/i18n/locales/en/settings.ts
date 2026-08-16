@@ -919,6 +919,9 @@ export default {
   "settings.permission_full_disk_desc":
     "Allow access to all files on disk. Some features require this permission",
   "settings.permission_full_disk_label": "Full Disk Access",
+  "settings.permission_workspace_label": "Workspace files",
+  "settings.permission_workspace_desc":
+    "Whether the workspace and home directory are readable. This is not macOS Full Disk Access.",
   "settings.permission_notifications_desc":
     "Allow desktop notifications for completed tasks and new messages",
   "settings.permission_notifications_label": "Notifications",

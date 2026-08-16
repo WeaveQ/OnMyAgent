@@ -48,6 +48,7 @@ import type {
   SystemPermissionResult,
   SystemPermissionType,
 } from "../../../../app/lib/desktop-types";
+import { permissionIdsForPlatform } from "./system-authorizations-model";
 import { t } from "../../../../i18n";
 import { cn } from "@/lib/utils";
 
@@ -136,20 +137,29 @@ const PERMISSIONS: PermissionItem[] = [
   },
 ];
 
-/** macOS-only TCC rows — hidden on Windows/Linux. */
-const MAC_ONLY_PERMISSIONS = new Set<SystemPermissionType>([
-  "full-disk-access",
-  "accessibility",
-  "automation",
-]);
-
 function permissionsForPlatform(
   platform: string | null | undefined,
 ): PermissionItem[] {
-  if (platform === "windows" || platform === "linux") {
-    return PERMISSIONS.filter((item) => !MAC_ONLY_PERMISSIONS.has(item.id));
+  const byId = new Map(PERMISSIONS.map((item) => [item.id, item]));
+  return permissionIdsForPlatform(
+    platform,
+    PERMISSIONS.map((item) => item.id),
+  )
+    .map((id) => byId.get(id))
+    .filter((item): item is PermissionItem => Boolean(item));
+}
+
+function permissionCopy(
+  platform: string | null | undefined,
+  item: PermissionItem,
+): { label: string; description: string } {
+  if (platform === "linux" && item.id === "full-disk-access") {
+    return {
+      label: t("settings.permission_workspace_label"),
+      description: t("settings.permission_workspace_desc"),
+    };
   }
-  return PERMISSIONS;
+  return { label: item.label, description: item.description };
 }
 
 /** Overlay OS Notification.permission onto main-process result. */
@@ -361,10 +371,10 @@ export function SystemAuthorizationsView(props: SystemAuthorizationsViewProps) {
                 </IconTile>
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium leading-5 text-dls-text">
-                    {perm.label}
+                    {permissionCopy(result?.platform, perm).label}
                   </div>
                   <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-dls-secondary">
-                    {perm.description}
+                    {permissionCopy(result?.platform, perm).description}
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1.5">

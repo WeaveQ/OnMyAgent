@@ -861,6 +861,9 @@ export default {
   "settings.permission_full_disk_desc":
     "允许访问磁盘上的所有文件，部分功能需要此权限才能正常工作",
   "settings.permission_full_disk_label": "完全磁盘访问权限",
+  "settings.permission_workspace_label": "工作区文件访问",
+  "settings.permission_workspace_desc":
+    "检查当前工作区与用户目录是否可读。这不是 macOS 完全磁盘访问。",
   "settings.permission_notifications_desc":
     "允许发送桌面通知，在任务完成或有新消息时及时提醒你",
   "settings.permission_notifications_label": "通知",

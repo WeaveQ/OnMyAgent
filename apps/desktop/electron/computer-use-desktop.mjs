@@ -23,9 +23,11 @@ import {
   writeComputerUseRuntimeConfig,
 } from "./computer-use-runtime-config.mjs";
 import {
+  buildLinuxSystemPermissions,
   computerUseUnsupportedReason,
   isComputerUsePlatformSupported,
   resolveDesktopPlatformCapabilities,
+  resolveLinuxPermissionSettingsCommand,
 } from "./desktop-platform-capabilities.mjs";
 
 export { isComputerUseAppshotSupported, sanitizeAppshotFileName };
@@ -739,7 +741,66 @@ function checkSystemPermissions() {
   );
   const platform = process.platform;
 
-  // Windows / Linux: never fake "granted".
+  // Linux: real workspace/fs + optional notification query. Never fake granted.
+  if (platform === "linux") {
+    let notificationStatus = "unknown";
+    try {
+      if (typeof systemPreferences?.getNotificationSettings === "function") {
+        const ns = systemPreferences.getNotificationSettings();
+        const status =
+          ns?.authorizationStatus ?? ns?.authStatus ?? ns?.status ?? null;
+        if (status === "authorized" || status === "provisional") {
+          notificationStatus = "granted";
+        } else if (status === "denied") {
+          notificationStatus = "denied";
+        }
+      }
+    } catch {
+      notificationStatus = "unknown";
+    }
+    let microphoneStatus = "unknown";
+    let screenRecordingStatus = "unknown";
+    try {
+      if (typeof systemPreferences?.getMediaAccessStatus === "function") {
+        microphoneStatus = mediaStatusToPermission(
+          systemPreferences.getMediaAccessStatus("microphone"),
+        );
+        try {
+          screenRecordingStatus = mediaStatusToPermission(
+            systemPreferences.getMediaAccessStatus("screen"),
+          );
+        } catch {
+          screenRecordingStatus = "unknown";
+        }
+      }
+    } catch {
+      microphoneStatus = "unknown";
+      screenRecordingStatus = "unknown";
+    }
+    const permissions = buildLinuxSystemPermissions({
+      homeDir: os.homedir(),
+      notificationStatus,
+      microphoneStatus,
+      screenRecordingStatus,
+    });
+    const capabilities = resolveDesktopPlatformCapabilities(platform);
+    console.log(
+      "[checkSystemPermissions] linux capabilities:",
+      JSON.stringify({
+        computerUse: capabilities.computerUse,
+        sandbox: capabilities.sandbox,
+        sandboxExec: capabilities.sandboxExec,
+        appshot: capabilities.appshot,
+      }),
+    );
+    return {
+      platform: "linux",
+      permissions,
+      capabilities,
+    };
+  }
+
+  // Windows: never fake "granted".
   if (platform !== "darwin") {
     const permissions = {
       "full-disk-access": "unknown",
@@ -773,6 +834,7 @@ function checkSystemPermissions() {
       "[checkSystemPermissions] unsupported capabilities:",
       JSON.stringify({
         computerUse: capabilities.computerUse,
+        sandbox: capabilities.sandbox,
         sandboxExec: capabilities.sandboxExec,
         appshot: capabilities.appshot,
       }),
@@ -929,6 +991,37 @@ async function openSystemPermissionSettings(type) {
       return {
         success: false,
         error: e instanceof Error ? e.message : String(e),
+      };
+    }
+  }
+
+  if (process.platform === "linux") {
+    const target = resolveLinuxPermissionSettingsCommand(type, {
+      desktop: process.env.XDG_CURRENT_DESKTOP ?? process.env.DESKTOP_SESSION ?? "",
+    });
+    try {
+      const opened = spawnSync(target.command, target.args, {
+        encoding: "utf8",
+        timeout: 8_000,
+        stdio: "ignore",
+      });
+      if (opened.error) {
+        if (typeof shell?.openExternal === "function") {
+          await shell.openExternal(target.args[0] ?? "settings://");
+          return { success: true, hint: "Opened the desktop settings app." };
+        }
+        return {
+          success: false,
+          error: opened.error.message,
+          hint: `Open ${target.command} ${target.args.join(" ")} to change this permission.`,
+        };
+      }
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        hint: `Open ${target.command} ${target.args.join(" ")} to change this permission.`,
       };
     }
   }

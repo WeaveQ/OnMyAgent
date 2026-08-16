@@ -49,8 +49,8 @@ export type FilesSourceTab = "uploads" | "task" | "expert";
  */
 export type FilesSourceRailTab = FilesSourceTab | "project";
 
-/** Default tab when opening Files (product: Mine / uploads). */
-export const DEFAULT_FILES_SOURCE_TAB: FilesSourceTab = "uploads";
+/** Default tab when opening Files (product: task artifacts / loose workspace files). */
+export const DEFAULT_FILES_SOURCE_TAB: FilesSourceTab = "task";
 
 export const FILES_SOURCE_TABS: readonly FilesSourceTab[] = [
   "uploads",

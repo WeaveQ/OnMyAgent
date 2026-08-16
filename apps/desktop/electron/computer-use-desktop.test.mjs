@@ -397,6 +397,11 @@ test("Linux Computer Use permissions report platform unsupported", async () => {
     assert.equal(system.capabilities.computerUse.supported, false);
     assert.equal(system.capabilities.sandboxExec.supported, false);
     assert.equal(system.capabilities.appshot.supported, true);
+    assert.ok(["docker", "bwrap", "none"].includes(system.capabilities.sandbox.backend));
+    assert.ok(system.permissions["full-disk-access"]);
+    assert.equal(system.permissions.microphone, "unknown");
+    assert.equal(system.permissions.accessibility, "unknown");
+    assert.notEqual(system.permissions.microphone, "granted");
   } finally {
     Object.defineProperty(process, "platform", { value: originalPlatform });
   }

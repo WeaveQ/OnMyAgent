@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  applyLinuxDesktopEnvDefaults,
   configureDesktopStartupFlags,
   resolveElectronExtraLaunchArgs,
   resolveLinuxDesktopEnvDefaults,
+  resolveLinuxSessionBusAddress,
+  LINUX_DUMMY_SESSION_BUS,
+  LINUX_DUMMY_SYSTEM_BUS,
   LINUX_SOFTWARE_RENDER_ARGS,
 } from "./startup-flags.mjs";
 
@@ -104,6 +108,7 @@ test("configureDesktopStartupFlags applies Linux software-render switches", asyn
         ["disable-gpu-compositing"],
         ["disable-gpu-sandbox"],
         ["in-process-gpu"],
+        ["disable-features", "Dbus"],
       ]);
     });
   });
@@ -111,18 +116,72 @@ test("configureDesktopStartupFlags applies Linux software-render switches", asyn
 
 test("Linux env defaults set GSETTINGS_BACKEND=memory unless already set", () => {
   assert.deepEqual(
-    resolveLinuxDesktopEnvDefaults({ platform: "linux", env: {} }),
-    { GSETTINGS_BACKEND: "memory" },
+    resolveLinuxDesktopEnvDefaults({
+      platform: "linux",
+      env: {},
+      existsSync: () => false,
+    }),
+    {
+      GSETTINGS_BACKEND: "memory",
+      DBUS_FATAL_WARNINGS: "0",
+      DBUS_SESSION_BUS_ADDRESS: LINUX_DUMMY_SESSION_BUS,
+      DBUS_SYSTEM_BUS_ADDRESS: LINUX_DUMMY_SYSTEM_BUS,
+    },
   );
   assert.deepEqual(
     resolveLinuxDesktopEnvDefaults({
       platform: "linux",
       env: { GSETTINGS_BACKEND: "dconf" },
+      existsSync: () => false,
     }),
-    {},
+    {
+      DBUS_FATAL_WARNINGS: "0",
+      DBUS_SESSION_BUS_ADDRESS: LINUX_DUMMY_SESSION_BUS,
+      DBUS_SYSTEM_BUS_ADDRESS: LINUX_DUMMY_SYSTEM_BUS,
+    },
   );
   assert.deepEqual(
     resolveLinuxDesktopEnvDefaults({ platform: "darwin", env: {} }),
     {},
   );
+});
+
+test("Linux env defaults set DBUS_FATAL_WARNINGS and optional session bus", () => {
+  assert.equal(
+    resolveLinuxSessionBusAddress({
+      env: {},
+      uid: 1000,
+      existsSync: (path) => path === "/run/user/1000/bus",
+    }),
+    "unix:path=/run/user/1000/bus",
+  );
+  assert.equal(
+    resolveLinuxSessionBusAddress({
+      env: {},
+      uid: 1000,
+      existsSync: () => false,
+    }),
+    "",
+  );
+  assert.deepEqual(
+    resolveLinuxDesktopEnvDefaults({
+      platform: "linux",
+      env: { GSETTINGS_BACKEND: "memory", DBUS_FATAL_WARNINGS: "1" },
+      uid: 1000,
+      existsSync: (path) => path === "/run/user/1000/bus",
+    }),
+    {
+      DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/1000/bus",
+      DBUS_SYSTEM_BUS_ADDRESS: LINUX_DUMMY_SYSTEM_BUS,
+    },
+  );
+  const target = {};
+  applyLinuxDesktopEnvDefaults(target, {
+    platform: "linux",
+    existsSync: () => false,
+  });
+  assert.equal(target.DBUS_FATAL_WARNINGS, "0");
+  assert.equal(target.GSETTINGS_BACKEND, "memory");
+  assert.equal(target.DBUS_SESSION_BUS_ADDRESS, LINUX_DUMMY_SESSION_BUS);
+  assert.equal(target.DBUS_SYSTEM_BUS_ADDRESS, LINUX_DUMMY_SYSTEM_BUS);
 });

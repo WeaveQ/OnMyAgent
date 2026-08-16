@@ -734,9 +734,9 @@ export default {
   "session.support_docs": "Open documentation",
   "session.support_feedback": "Open feedback",
   "session.language_system_prompt":
-    "Language requirement: the current interface language is English. All user-facing answers, reasoning/progress summaries, plans, status notes, and final summaries must be written in English. This requirement must not change because of the language used in the user's input, even when the user writes or quotes another language.\nCode, commands, file names, API names, proper nouns, and quoted source text may remain in their original language.",
+    "Language requirement: prefer the current interface language (English), but always match the user's message language. If the user writes Chinese, the assistant reply AND any user-facing file content you create (notes, markdown, summaries, slide/doc text) must be Chinese — do not mix English filler such as \"presentations\". When the user's language is unclear, use the interface language.\nCode, commands, file names, API names, proper nouns, and quoted source text may remain in their original language.",
   "session.runtime_language_requirement":
-    "Language requirement: all user-facing replies, progress notes, plans, and summaries must be written in English. Code, commands, file names, API names, and quoted source text may remain in their original language.",
+    "Language requirement: prefer the interface language, but match the user's message language. If the user writes Chinese, replies and user-facing file content must be Chinese. Code, commands, file names, API names, and quoted source text may remain in their original language.",
   "session.collaboration_system_title": "Collaboration mode system prompt:",
   "session.collaboration_craft_system": "Craft mode: advance the user's goal end to end by default. Read or edit files, run local commands, manage tasks, search the web, and produce deliverables when needed. Ask before high-risk or destructive operations.",
   "session.collaboration_ask_system": "Ask mode: prioritize Q&A and explanation. Read only the necessary files and context by default; do not proactively edit files, run side-effecting commands, or create tasks. If a write, command, or external state change is needed, explain why and ask first.",

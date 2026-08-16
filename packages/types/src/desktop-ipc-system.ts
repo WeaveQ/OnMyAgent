@@ -115,11 +115,18 @@ export type DesktopPlatformCapability = {
   backend?: "handsfree" | "cua" | "none";
 };
 
+export type DesktopSandboxCapability = {
+  supported: boolean;
+  reason: string | null;
+  backend: "docker" | "bwrap" | "sandbox-exec" | "none";
+};
+
 export type DesktopPlatformCapabilities = {
   platform: "macos" | "windows" | "linux" | "unknown";
   computerUse: DesktopPlatformCapability;
   appshot: DesktopPlatformCapability;
   sandboxExec: DesktopPlatformCapability;
+  sandbox: DesktopSandboxCapability;
 };
 
 export type SystemPermissionResult = {

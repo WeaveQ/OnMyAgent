@@ -97,6 +97,45 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
 ]);
 
 /**
+ * Linux GTK folder dialogs can return canceled or an empty first selection.
+ * Treat empty paths as canceled so callers never apply "".
+ */
+export function normalizeOpenDirectoryDialogResult(result, { multiple = false } = {}) {
+  if (!result || result.canceled) return null;
+  const paths = Array.isArray(result.filePaths)
+    ? result.filePaths.map((value) => String(value ?? "").trim()).filter(Boolean)
+    : [];
+  if (paths.length === 0) return null;
+  return multiple ? paths : paths[0];
+}
+
+/**
+ * @param {{
+ *   multiple?: boolean,
+ *   title?: string,
+ *   defaultPath?: string,
+ * }} [options]
+ * @param {{
+ *   homedir?: string,
+ * }} [paths]
+ * @returns {import("electron").OpenDialogOptions}
+ */
+export function buildOpenDirectoryDialogOptions(options = {}, { homedir } = {}) {
+  /** @type {NonNullable<import("electron").OpenDialogOptions["properties"]>} */
+  const properties = options.multiple
+    ? ["openDirectory", "createDirectory", "multiSelections"]
+    : ["openDirectory", "createDirectory"];
+  /** @type {import("electron").OpenDialogOptions} */
+  const dialogOptions = { properties };
+  const title = String(options.title ?? "").trim();
+  if (title) dialogOptions.title = title;
+  const defaultPath =
+    String(options.defaultPath ?? "").trim() || String(homedir ?? "").trim();
+  if (defaultPath) dialogOptions.defaultPath = defaultPath;
+  return dialogOptions;
+}
+
+/**
  * @param {Record<string, any>} deps
  * @returns {Record<string, (event: any, args: any[]) => any>}
  */
@@ -381,19 +420,15 @@ export function createSystemDomainHandlers({
 
   pickDirectory: async (event, args) => {
     const options = args[0] ?? {};
-    /** @type {import("electron").OpenDialogOptions["properties"]} */
-    const properties = options.multiple
-      ? ["openDirectory", "createDirectory", "multiSelections"]
-      : ["openDirectory", "createDirectory"];
-    const result = await dialog.showOpenDialog(activeWindowFromEvent(event), {
-      title: options.title,
-      defaultPath: options.defaultPath,
-      properties,
+    const result = await dialog.showOpenDialog(
+      activeWindowFromEvent(event),
+      buildOpenDirectoryDialogOptions(options, {
+        homedir: typeof os?.homedir === "function" ? os.homedir() : "",
+      }),
+    );
+    return normalizeOpenDirectoryDialogResult(result, {
+      multiple: Boolean(options.multiple),
     });
-    if (result.canceled) return null;
-    return options.multiple
-      ? result.filePaths
-      : (result.filePaths[0] ?? null);
   },
 
   pickFile: async (event, args) => {
