@@ -52,6 +52,8 @@ For non-trivial Loop work, read `docs/loop/rules.md` after `AGENTS.md`.
 ```text
 docs/
   README.md  Architecture.md  release.md
+  officecli-oss-release.md
+  windows-compat.md  windows-remote-debug-from-mac.md
   loop/rules.md  loop/incidents.md
   design/*
 ```
@@ -66,14 +68,14 @@ docs/
 | Local validation history | `.loop/runs/YYYY-MM-DD.md` |
 | Loop operating rules | `docs/loop/rules.md`, `AGENTS.md` |
 | Architecture | `docs/Architecture.md`, `apps/app/src/react-app/ARCHITECTURE.md` |
-| Theme and UI docs | `DESIGN.md` (tokens), `docs/design/theme-system.md` (philosophy) |
+| Theme and UI docs | `DESIGN.md` (tokens / shapes). `docs/design/theme-system.md` is philosophy only — not the token SoT. |
 | Public entry docs | `README.md`, `README-zh.md`, `BUILD.md`, `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md` |
 | Local packaging | `BUILD.md` |
 | Release / tags | `docs/release.md` |
 | Package docs | `apps/*/README.md`, `packages/*/README.md` |
 | Project skills | `.agents/skills/*/SKILL.md` (symlinked for Codex/Claude/Grok) |
 | Local execution plans / feature drafts | `.loop/` only |
-| Ignored paths | `docs/plans/`, `docs/archive/`, `docs/features/`, `.loop/*` |
+| Ignored paths | `docs/plans/`, `docs/archive/`, `docs/features/`, `docs/superpowers/`, `.loop/*` |
 | Skill sync strategy | `references/skills-sync.md` |
 
 ## Audit Commands
@@ -193,7 +195,7 @@ pnpm check
 If broad architecture docs changed, run:
 
 ```sh
-graphify update .
+pnpm task graphify build
 ```
 
 ## Report Format

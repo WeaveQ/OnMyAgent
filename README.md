@@ -279,7 +279,7 @@ pnpm task build app
 
 If desktop or runtime behavior changes, also run the relevant Electron or headless smoke test and mention the command in the PR description.
 
-After larger code changes, run `graphify update .` to refresh `graphify-out/graph.json`.
+After larger code changes, run `pnpm task graphify build` to refresh `graphify-out/graph.json` (wraps `graphify update . --force --no-cluster`).
 
 Community participation is governed by `CODE_OF_CONDUCT.md`.
 

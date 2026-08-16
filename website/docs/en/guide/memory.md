@@ -1,12 +1,12 @@
 ---
-title: Memory and Personal
+title: Memory and Profile
 ---
 
-# Memory and Personal
+# Memory and Profile
 
-Cross-session **personal preferences, persona, and factual memory** live in the **Personal** group under [Settings](/en/guide/settings).
+Cross-session **personal preferences, persona, and factual memory** live in the **Personal** group, **Profile** page, under [Settings](/en/guide/settings).
 
-## 1. Personal
+## 1. Profile
 
 Tell the assistant who you are, how to address you, and how it should communicate by default.
 
