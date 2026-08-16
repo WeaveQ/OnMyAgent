@@ -22,6 +22,11 @@ import {
   writeComputerUseMcpPrefsEnabled,
   writeComputerUseRuntimeConfig,
 } from "./computer-use-runtime-config.mjs";
+import {
+  computerUseUnsupportedReason,
+  isComputerUsePlatformSupported,
+  resolveDesktopPlatformCapabilities,
+} from "./desktop-platform-capabilities.mjs";
 
 export { isComputerUseAppshotSupported, sanitizeAppshotFileName };
 
@@ -193,6 +198,10 @@ function getComputerUseMcpCommand() {
   });
   if (command) return command;
 
+  if (!isComputerUsePlatformSupported(process.platform)) {
+    throw new Error(computerUseUnsupportedReason(process.platform));
+  }
+
   if (process.platform === "win32") {
     throw new Error(
       app.isPackaged
@@ -328,6 +337,21 @@ function resolveComputerUseExecutable() {
 async function checkComputerUsePermissions() {
   const desktopVersion = resolveOnMyAgentProductVersion(app);
   const mcpEnabled = resolveMcpEnabledForPlatform();
+
+  if (!isComputerUsePlatformSupported(process.platform)) {
+    const reason = computerUseUnsupportedReason(process.platform);
+    console.warn("[ComputerUse] skipped:", reason);
+    return {
+      ok: false,
+      accessibility: false,
+      screenRecording: false,
+      backend: "none",
+      mcpEnabled: false,
+      desktopVersion,
+      error: reason,
+      unsupportedReason: "platform-unsupported",
+    };
+  }
 
   // Windows: Cua Driver stage check (no HandsFree --status / TCC).
   if (process.platform === "win32") {
@@ -744,14 +768,19 @@ function checkSystemPermissions() {
         err,
       );
     }
+    const capabilities = resolveDesktopPlatformCapabilities(platform);
+    console.log(
+      "[checkSystemPermissions] unsupported capabilities:",
+      JSON.stringify({
+        computerUse: capabilities.computerUse,
+        sandboxExec: capabilities.sandboxExec,
+        appshot: capabilities.appshot,
+      }),
+    );
     return {
-      platform:
-        platform === "win32"
-          ? "windows"
-          : platform === "linux"
-            ? "linux"
-            : "unknown",
+      platform: capabilities.platform,
       permissions,
+      capabilities,
     };
   }
 
@@ -819,6 +848,7 @@ function checkSystemPermissions() {
   return {
     platform: "macos",
     permissions,
+    capabilities: resolveDesktopPlatformCapabilities(platform),
   };
 }
 
@@ -1066,6 +1096,11 @@ function spawnCheckPermissions(bin) {
 }
 
 async function openComputerUseSetupApp() {
+  if (!isComputerUsePlatformSupported(process.platform)) {
+    const reason = computerUseUnsupportedReason(process.platform);
+    console.warn("[ComputerUse] setup skipped:", reason);
+    return;
+  }
   // Windows: no HandsFree setup GUI. In-app Settings → System is the primary
   // surface (renderer navigates there). Optionally open capture privacy pane.
   if (process.platform === "win32") {

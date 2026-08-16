@@ -149,12 +149,15 @@ function findDriverExe(rootDir) {
 
 async function main() {
   if (!shouldStageWindowsHelper() && !hasFlag("--force")) {
+    const message = process.platform === "linux" ? "Cua Driver is Windows-only. Computer Use is unsupported on Linux." : "Cua Driver is Windows-package-only and was skipped on this platform.";
+    console.warn("[prepare-cua-helper]", message);
     process.stdout.write(
       `${JSON.stringify({
         ok: true,
         skipped: true,
         reason: "cua-helper-is-windows-package-only",
         platform: process.platform,
+        message,
       })}\n`,
     );
     return;

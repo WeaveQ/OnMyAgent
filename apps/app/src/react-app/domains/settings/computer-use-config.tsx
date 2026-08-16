@@ -56,6 +56,7 @@ type PermissionResult = {
   protocolVersion?: number;
   backend?: "handsfree" | "cua" | "none";
   mcpEnabled?: boolean;
+  unsupportedReason?: "platform-unsupported";
   activity?: {
     phase?: "inactive" | "ready" | "running" | "paused" | "errored";
     app?: string;
@@ -194,6 +195,10 @@ function normalize(value: unknown): PermissionResult {
     mcpEnabled:
       "mcpEnabled" in value && typeof value.mcpEnabled === "boolean"
         ? value.mcpEnabled
+        : undefined,
+    unsupportedReason:
+      "unsupportedReason" in value && value.unsupportedReason === "platform-unsupported"
+        ? "platform-unsupported"
         : undefined,
     activity:
       "activity" in value && typeof value.activity === "object" && value.activity !== null
@@ -349,6 +354,10 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
   const isCuaBackend = result?.backend === "cua";
   const isWindowsHost =
     typeof navigator !== "undefined" && /Windows/i.test(navigator.userAgent);
+  const isLinuxHost =
+    typeof navigator !== "undefined" &&
+    /Linux/i.test(navigator.userAgent) &&
+    !/Android/i.test(navigator.userAgent);
 
   const setMcpEnabled = async (enabled: boolean) => {
     if (!hasDesktopBridge()) {
@@ -501,9 +510,11 @@ export function ComputerUseConfig(props: ComputerUseConfigProps) {
       <CardHeader>
         <CardTitle>{t("settings.computer_use_setup_title")}</CardTitle>
         <CardDescription>
-          {isCuaBackend || isWindowsHost
-            ? t("settings.computer_use_setup_description_windows")
-            : t("settings.computer_use_setup_description")}
+          {isLinuxHost
+            ? t("settings.computer_use_setup_description_linux")
+            : isCuaBackend || isWindowsHost
+              ? t("settings.computer_use_setup_description_windows")
+              : t("settings.computer_use_setup_description")}
         </CardDescription>
         <CardAction>
           <Button

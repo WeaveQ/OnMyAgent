@@ -187,6 +187,8 @@ export default {
     "Connect the local MCP server and grant the macOS permissions it needs to control apps",
   "settings.computer_use_setup_description_windows":
     "Windows uses the bundled Cua Driver (not macOS HandsFree). Enable the MCP below, then connect so Composer can control desktop apps.",
+  "settings.computer_use_setup_description_linux":
+    "Computer Use is not supported on Linux. HandsFree is macOS-only and Cua Driver is Windows-only. Appshot (desktop capture) still works via Electron desktopCapturer.",
   "settings.computer_use_mcp_toggle_title": "OpenCode computer-use MCP",
   "settings.computer_use_mcp_toggle_ready":
     "Cua Driver is staged. Toggle enables the MCP for OpenCode sessions (default off on Windows).",

@@ -218,7 +218,7 @@ If your install is elsewhere, set `ONMYAGENT_DOCKER_BIN` to the absolute path.
     OpenCode MCP `computer-use` is registered when staged but **disabled by
     default** (`ONMYAGENT_COMPUTER_USE_ENABLED=1` to enable). Not HandsFree /
     Skysight parity. Separate from Appshot.
-  - **Linux**: no Computer Use MCP helper yet.
+  - **Linux**: no Computer Use MCP helper. Settings and logs report the platform as unsupported.
 - **Appshot (composer desktop capture)**:
   - **Capture**: Electron `desktopCapturer` only (macOS / Windows / Linux).
     No native helper binary. Identity is OnMyAgent (dev: Electron) for Screen

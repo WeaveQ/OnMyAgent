@@ -2,6 +2,8 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { isComputerUsePlatformSupported } from "./desktop-platform-capabilities.mjs";
+
 /** User-data preference file for MCP enable/disable (Windows opt-in). */
 export const COMPUTER_USE_MCP_PREFS_FILE = "computer-use-mcp.json";
 
@@ -83,6 +85,7 @@ export function isComputerUseMcpEnabled(options = {}) {
   }
 
   const platform = options.platform ?? process.platform;
+  if (!isComputerUsePlatformSupported(platform)) return false;
   return platform === "darwin";
 }
 

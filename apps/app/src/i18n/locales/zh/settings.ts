@@ -196,6 +196,8 @@ export default {
     "连接本地 MCP 服务器，并授予它控制应用所需的 macOS 权限",
   "settings.computer_use_setup_description_windows":
     "Windows 使用内置 Cua Driver（非 macOS HandsFree）。请先开启下方 MCP，再连接，以便 Composer 控制桌面应用。",
+  "settings.computer_use_setup_description_linux":
+    "Linux 不支持 Computer Use。HandsFree 仅限 macOS，Cua Driver 仅限 Windows。桌面截图（Appshot）仍可通过 Electron desktopCapturer 使用。",
   "settings.computer_use_mcp_toggle_title": "OpenCode computer-use MCP",
   "settings.computer_use_mcp_toggle_ready":
     "已就绪 Cua Driver。开关用于启用 OpenCode 会话中的 MCP（Windows 默认关闭）。",

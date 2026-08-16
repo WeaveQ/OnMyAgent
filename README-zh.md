@@ -100,7 +100,7 @@ OnMyAgent 不是：
 - **Computer Use**：macOS 使用 HandsFree helper（helper 就绪时 MCP 默认开）；
   Windows 打包 **Cua Driver**（MCP 会注册，**默认关**，需
   `ONMYAGENT_COMPUTER_USE_ENABLED=1` 开启）。**不是**完整 HandsFree 对等。
-- **Appshot**（对话「截取桌面」）：**macOS / Windows** 走 Electron
+- **Appshot**（对话「截取桌面」）：**macOS / Windows / Linux** 走 Electron
   `desktopCapturer`（Linux 桌面包非产品目标）；快捷键在 设置 → 快捷键 中可改。
 
 ## 工作流

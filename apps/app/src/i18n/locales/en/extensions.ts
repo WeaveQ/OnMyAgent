@@ -41,7 +41,7 @@ export default {
   "extensions.computer_use_name": "Computer Use",
   "extensions.computer_use_description": "Let AI control your desktop.",
   "extensions.computer_use_long":
-    "Drive the desktop like a person: open apps, click menus, type, and switch windows. Ideal for Xcode, Finder, and other non-browser tools. On macOS grant Accessibility and Screen Recording; on Windows enable the Cua MCP when ready.",
+    "Drive the desktop like a person: open apps, click menus, type, and switch windows. Ideal for Xcode, Finder, and other non-browser tools. On macOS grant Accessibility and Screen Recording; on Windows enable the Cua MCP when ready. Not supported on Linux.",
   "extensions.computer_use_prompt": "Use Computer Use to ",
   "extensions.computer_use_suggestion_playlist": "Play a playlist to help me lock in",
   "extensions.computer_use_suggestion_xcode": "Build and run my open Xcode project, then test it for bugs",
@@ -49,7 +49,7 @@ export default {
   "extensions.computer_use_check_permissions": "Check permissions",
   "extensions.computer_use_native_runtime": "Desktop computer-use runtime",
   "extensions.computer_use_builtin_setup":
-    "Computer Use is built into local desktop workspaces. On macOS, grant Accessibility and Screen Recording when prompted. On Windows, enable the Cua MCP in settings after the driver is staged.",
+    "Computer Use is built into local desktop workspaces. On macOS, grant Accessibility and Screen Recording when prompted. On Windows, enable the Cua MCP in settings after the driver is staged. Linux is not supported.",
   "extensions.computer_use_mcp": "Computer Use MCP",
   "extensions.computer_use_helper_unavailable":
     "Computer Use helper is unavailable. Restart OnMyAgent or reinstall the app.",

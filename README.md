@@ -101,7 +101,7 @@ OnMyAgent is not:
   Windows stages a **Cua Driver** helper (MCP registered, **off by default** —
   set `ONMYAGENT_COMPUTER_USE_ENABLED=1` to enable). Not full HandsFree parity.
 - **Appshot** (composer “capture desktop”): Electron `desktopCapturer` on
-  **macOS / Windows** (Linux desktop packages are not a product target); customizable
+  **macOS / Windows / Linux** (Linux desktop packages are not a product target); customizable
   global shortcut in Settings → Shortcuts.
 
 ## Workflow
