@@ -53,14 +53,12 @@ import { usePendingAgentStore } from "../../domains/agents";
 import { writeSessionOriginDurable } from "../../domains/agents";
 import {
   CORE_SLASH_SKILL_COMMAND_NAMES,
-  createInjectedSkillContentLoader,
-  resolveSlashSkillSend,
-} from "../../domains/session/sync/slash-skill-commands";
-import {
   claimOrCreateExpertColdSession,
   clearOptimisticSessionUserMessage,
+  createInjectedSkillContentLoader,
   dispatchAssistantSessionWorkspacesChanged,
   readAssistantSessionWorkspace,
+  resolveSlashSkillSend,
   seedOptimisticSessionUserMessage,
   shouldForwardPromptMessageId,
   startExpertColdPrewarm,

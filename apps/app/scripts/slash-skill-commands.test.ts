@@ -120,5 +120,13 @@ describe("session send path wires inject-or-visible-fail", () => {
     expect(hook).toContain("installBuiltinSkillPackage");
     expect(hook).not.toContain("falling back to command");
     expect(hook).not.toContain('command.name === "expert-manager"');
+    expect(hook).not.toContain("domains/session/sync/slash-skill-commands");
+    const barrel = readFileSync(
+      join(appRoot, "src/react-app/domains/session/index.ts"),
+      "utf8",
+    );
+    expect(barrel).toContain("resolveSlashSkillSend");
+    expect(barrel).toContain("createInjectedSkillContentLoader");
+    expect(barrel).toContain("CORE_SLASH_SKILL_COMMAND_NAMES");
   });
 });
