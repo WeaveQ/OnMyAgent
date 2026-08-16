@@ -14,6 +14,7 @@ import { workspaceAssistantRoute } from "../../../shell";
 import { writeAssistantSelectionMemory } from "../sidebar/assistant-selection-memory";
 import { writeAssistantCategoryMemory } from "../sidebar/rail-navigation-memory";
 import { setComposerDraftAfterNewTask } from "./shared-page-utils";
+import { openSkillChatInAssistant } from "./skill-chat-navigation";
 import { resetRailBookmarkToPrimary } from "./use-rail-location";
 
 const CREATE_EXPERT_SKILL_NAME = "expert-manager";
@@ -77,14 +78,14 @@ export function useExpertSkillNavigation(input: {
 
   const handleChatWithSkill = useCallback(
     (skill: { name: string }) => {
-      // Use package/folder name for `/name` slash token, not display titles.
-      const name = skill.name.trim().replace(/^\/+/, "");
-      if (!name) return;
-      goAssistantOfficeNewTaskWithDraft(
-        t("session.chat_with_skill_prompt", { name }),
-      );
+      openSkillChatInAssistant({
+        workspaceId,
+        skillName: skill.name,
+        navigate,
+        onCreateTask: input.onCreateTaskInWorkspace,
+      });
     },
-    [goAssistantOfficeNewTaskWithDraft],
+    [input.onCreateTaskInWorkspace, navigate, workspaceId],
   );
 
   const handleEditSkill = useCallback(

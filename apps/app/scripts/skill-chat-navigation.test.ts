@@ -5,7 +5,54 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import {
+  openSkillChatInAssistant,
+  skillSlashDraft,
+} from "../src/react-app/domains/session/pages/skill-chat-navigation";
+
 const appRoot = join(import.meta.dir, "..");
+
+describe("skillSlashDraft", () => {
+  test("uses a single slash and trailing space", () => {
+    expect(skillSlashDraft("morph-ppt")).toBe("/morph-ppt ");
+    expect(skillSlashDraft("/foo")).toBe("/foo ");
+    expect(skillSlashDraft("  ")).toBe("");
+  });
+});
+
+describe("openSkillChatInAssistant", () => {
+  test("navigates to the assistant route without a rail view query", () => {
+    const g = globalThis as typeof globalThis & { window?: Window };
+    const timers: Array<() => void> = [];
+    g.window = {
+      dispatchEvent: () => true,
+      setTimeout: (fn: () => void) => {
+        timers.push(fn);
+        return 0;
+      },
+      requestAnimationFrame: (fn: () => void) => {
+        timers.push(fn);
+        return 0;
+      },
+    } as unknown as Window;
+    const navigated: string[] = [];
+    const created: string[] = [];
+    const ok = openSkillChatInAssistant({
+      workspaceId: "ws_local",
+      skillName: "morph-ppt",
+      navigate: (to) => {
+        navigated.push(to);
+      },
+      onCreateTask: (id) => {
+        created.push(id);
+      },
+    });
+    expect(ok).toBe(true);
+    expect(navigated).toEqual(["/workspace/ws_local/assistant"]);
+    expect(navigated[0]?.includes("view=")).toBe(false);
+    expect(created).toEqual(["ws_local"]);
+  });
+});
 
 describe("installed skill card → chat wiring", () => {
   test("card activate prefers onChat over onOpen (detail must not steal click)", () => {
@@ -22,6 +69,8 @@ describe("installed skill card → chat wiring", () => {
     expect(page).toContain("!props.onChatWithSkill && market");
     // Auto-enable before chat so slash /name can load.
     expect(page).toContain("handleSkillEnabledChange(target, true)");
+    expect(page).toContain("onPointerDown");
+    expect(page).toContain("stopPropagation");
   });
 
   test("assistant and expert chat handlers seed slash with package name", () => {
@@ -36,10 +85,14 @@ describe("installed skill card → chat wiring", () => {
       ),
       "utf8",
     );
-    expect(assistant).toContain("chat_with_skill_prompt");
-    expect(assistant).toContain('skill.name.trim().replace(/^\\/+/, "")');
-    expect(expertNav).toContain("chat_with_skill_prompt");
-    expect(expertNav).toContain('skill.name.trim().replace(/^\\/+/, "")');
+    expect(assistant).toContain("openSkillChatInAssistant");
+    expect(expertNav).toContain("openSkillChatInAssistant");
+    const helper = readFileSync(
+      join(appRoot, "src/react-app/domains/session/pages/skill-chat-navigation.ts"),
+      "utf8",
+    );
+    expect(helper).toContain("workspaceAssistantRoute");
+    expect(helper).toContain("SKILL_CHAT_OPEN_PRIMARY_EVENT");
   });
 
   test("i18n prompt uses slash skill name token", () => {

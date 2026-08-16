@@ -128,6 +128,7 @@ import {
   writeRailView,
 } from "../sidebar/rail-navigation-memory";
 import { resetRailBookmarkToPrimary } from "./use-rail-location";
+import { openSkillChatInAssistant } from "./skill-chat-navigation";
 import {
   SessionPageMainColumn,
   SessionRailKeepAliveStack,
@@ -680,13 +681,15 @@ export function AssistantPage(props: AssistantPageProps) {
 
   const handleChatWithSkill = useCallback(
     (skill: { name: string }) => {
-      // Slash-command token must match the installed skill folder / package name
-      // (e.g. self-improving), never a localized display title.
-      const name = skill.name.trim().replace(/^\/+/, "");
-      if (!name) return;
-      openOfficeNewTaskWithDraft(t("session.chat_with_skill_prompt", { name }));
+      setAssistantCategoryId("office");
+      openSkillChatInAssistant({
+        workspaceId: props.selectedWorkspaceId,
+        skillName: skill.name,
+        navigate,
+        onCreateTask: props.sidebar.onCreateTaskInWorkspace,
+      });
     },
-    [openOfficeNewTaskWithDraft],
+    [navigate, props.selectedWorkspaceId, props.sidebar],
   );
 
   /** Connector / artifact try-this prompt → new task + composer draft. */
