@@ -172,14 +172,18 @@ function renderNamedToolPlugin(knowledgeRoot, spec) {
   return `import { tool } from "@opencode-ai/plugin"
 import { ${spec.fn} } from "./knowledge-ops.mjs"
 const ROOT = ${rootJson}
-export default tool({
-  description: ${JSON.stringify(spec.description)},
-  args: {
+export default async () => ({
+  tool: {
+    ${spec.toolName}: tool({
+      description: ${JSON.stringify(spec.description)},
+      args: {
 ${argLines}
-  },
-  async execute(args) {
-    const result = await ${spec.fn}({ knowledgeRoot: ROOT, ...args })
-    return JSON.stringify(result)
+      },
+      async execute(args) {
+        const result = await ${spec.fn}({ knowledgeRoot: ROOT, ...args })
+        return JSON.stringify(result)
+      },
+    }),
   },
 })
 `;
@@ -187,6 +191,7 @@ ${argLines}
 
 export function renderKnowledgeReadPluginSource(knowledgeRoot) {
   return renderNamedToolPlugin(knowledgeRoot, {
+    toolName: "knowledge_read",
     fn: "knowledgeReadNote",
     description:
       "Read one note from the local OnMyAgent knowledge vault. Prefer file= (wikilink / note name). Use path= for an exact vault-relative path. Optional vault= selects a space. NOT Obsidian CLI.",
@@ -200,6 +205,7 @@ export function renderKnowledgeReadPluginSource(knowledgeRoot) {
 
 export function renderKnowledgeCreatePluginSource(knowledgeRoot) {
   return renderNamedToolPlugin(knowledgeRoot, {
+    toolName: "knowledge_create",
     fn: "knowledgeCreateNote",
     description:
       "Create a Markdown note in the local knowledge vault. Use only when the user asked to write a new note. name or path required. NOT a skill install.",
@@ -215,6 +221,7 @@ export function renderKnowledgeCreatePluginSource(knowledgeRoot) {
 
 export function renderKnowledgeAppendPluginSource(knowledgeRoot) {
   return renderNamedToolPlugin(knowledgeRoot, {
+    toolName: "knowledge_append",
     fn: "knowledgeAppendNote",
     description:
       "Append text to an existing knowledge-vault note. Requires file= or path=. Use only when the user asked to add to that note.",
@@ -229,6 +236,7 @@ export function renderKnowledgeAppendPluginSource(knowledgeRoot) {
 
 export function renderKnowledgePropertyPluginSource(knowledgeRoot) {
   return renderNamedToolPlugin(knowledgeRoot, {
+    toolName: "knowledge_property_set",
     fn: "knowledgeSetProperty",
     description:
       "Set a frontmatter property on a knowledge-vault note. Supported names: title, created, updated, tags.",
@@ -279,69 +287,73 @@ const snippet = (body, query) => {
   return (start > 0 ? "…" : "") + text.slice(start, end) + (end < text.length ? "…" : "")
 }
 
-export default tool({
-  description:
-    "Search the user's local OnMyAgent knowledge vault (Markdown / txt / csv notes). Use this when the user asks about notes, 知识库, saved briefs, or prior written material. This is NOT skills and NOT work memory. Do not list or install skills. Returns title, path, and a short snippet.",
-  args: {
-    query: tool.schema.string().describe("Keywords to find in note titles or bodies"),
-    scope: tool.schema
-      .enum(["user", "project", "expert", "all"])
-      .optional()
-      .describe("Which vault to search. Default all available."),
-    workspaceId: tool.schema.string().optional().describe("Current workspace id for project notes"),
-    expertId: tool.schema.string().optional().describe("Current expert id for expert notes"),
-  },
-  async execute(args) {
-    const query = String(args.query ?? "").trim()
-    if (!query) return JSON.stringify({ ok: false, reason: "empty_query", hits: [] })
-    const fileDefaults = await readDefaults()
-    const ids = {
-      workspaceId: String(args.workspaceId || fileDefaults.workspaceId || process.env[WORKSPACE_ENV] || "").trim(),
-      expertId: String(args.expertId || fileDefaults.expertId || process.env[EXPERT_ENV] || "").trim(),
-    }
-    const scope = args.scope === "user" || args.scope === "project" || args.scope === "expert" ? args.scope : "all"
-    const targets = []
-    if (scope === "all" || scope === "user") {
-      let userDir = path.join(ROOT, "vault")
-      try {
-        const parsed = JSON.parse(await readFile(path.join(ROOT, "config.json"), "utf8"))
-        const override = String(parsed?.personalVaultPath ?? "").trim()
-        if (override) userDir = override
-      } catch {}
-      targets.push({ scope: "user", dir: userDir })
-    }
-    if ((scope === "all" || scope === "project") && ids.workspaceId) {
-      targets.push({ scope: "project", dir: path.join(ROOT, "projects", ids.workspaceId) })
-    }
-    if ((scope === "all" || scope === "expert") && ids.expertId) {
-      targets.push({ scope: "expert", dir: path.join(ROOT, "experts", ids.expertId) })
-    }
-    const lowered = query.toLowerCase()
-    const hits = []
-    for (const target of targets) {
-      const files = await walkKnowledgeTree(target.dir)
-      for (const file of files) {
-        const body = await readFile(file.abs, "utf8").catch(() => "")
-        const rel = file.relPath
-        const titleLine = body.match(/^\\s*#\\s+(.+)$/m)
-        const title = (titleLine && titleLine[1].trim()) || path.posix.basename(rel, path.posix.extname(rel))
-        if (
-          title.toLowerCase().includes(lowered) ||
-          rel.toLowerCase().includes(lowered) ||
-          body.toLowerCase().includes(lowered)
-        ) {
-          hits.push({
-            scope: target.scope,
-            relPath: rel,
-            title,
-            snippet: snippet(body, query),
-          })
+export default async () => ({
+  tool: {
+    knowledge_search: tool({
+      description:
+        "Search the user's local OnMyAgent knowledge vault (Markdown / txt / csv notes). Use this when the user asks about notes, 知识库, saved briefs, or prior written material. This is NOT skills and NOT work memory. Do not list or install skills. Returns title, path, and a short snippet.",
+      args: {
+        query: tool.schema.string().describe("Keywords to find in note titles or bodies"),
+        scope: tool.schema
+          .enum(["user", "project", "expert", "all"])
+          .optional()
+          .describe("Which vault to search. Default all available."),
+        workspaceId: tool.schema.string().optional().describe("Current workspace id for project notes"),
+        expertId: tool.schema.string().optional().describe("Current expert id for expert notes"),
+      },
+      async execute(args) {
+        const query = String(args.query ?? "").trim()
+        if (!query) return JSON.stringify({ ok: false, reason: "empty_query", hits: [] })
+        const fileDefaults = await readDefaults()
+        const ids = {
+          workspaceId: String(args.workspaceId || fileDefaults.workspaceId || process.env[WORKSPACE_ENV] || "").trim(),
+          expertId: String(args.expertId || fileDefaults.expertId || process.env[EXPERT_ENV] || "").trim(),
         }
-        if (hits.length >= 20) break
-      }
-      if (hits.length >= 20) break
-    }
-    return JSON.stringify({ ok: true, query, hits })
+        const scope = args.scope === "user" || args.scope === "project" || args.scope === "expert" ? args.scope : "all"
+        const targets = []
+        if (scope === "all" || scope === "user") {
+          let userDir = path.join(ROOT, "vault")
+          try {
+            const parsed = JSON.parse(await readFile(path.join(ROOT, "config.json"), "utf8"))
+            const override = String(parsed?.personalVaultPath ?? "").trim()
+            if (override) userDir = override
+          } catch {}
+          targets.push({ scope: "user", dir: userDir })
+        }
+        if ((scope === "all" || scope === "project") && ids.workspaceId) {
+          targets.push({ scope: "project", dir: path.join(ROOT, "projects", ids.workspaceId) })
+        }
+        if ((scope === "all" || scope === "expert") && ids.expertId) {
+          targets.push({ scope: "expert", dir: path.join(ROOT, "experts", ids.expertId) })
+        }
+        const lowered = query.toLowerCase()
+        const hits = []
+        for (const target of targets) {
+          const files = await walkKnowledgeTree(target.dir)
+          for (const file of files) {
+            const body = await readFile(file.abs, "utf8").catch(() => "")
+            const rel = file.relPath
+            const titleLine = body.match(/^\\s*#\\s+(.+)$/m)
+            const title = (titleLine && titleLine[1].trim()) || path.posix.basename(rel, path.posix.extname(rel))
+            if (
+              title.toLowerCase().includes(lowered) ||
+              rel.toLowerCase().includes(lowered) ||
+              body.toLowerCase().includes(lowered)
+            ) {
+              hits.push({
+                scope: target.scope,
+                relPath: rel,
+                title,
+                snippet: snippet(body, query),
+              })
+            }
+            if (hits.length >= 20) break
+          }
+          if (hits.length >= 20) break
+        }
+        return JSON.stringify({ ok: true, query, hits })
+      },
+    }),
   },
 })
 `;

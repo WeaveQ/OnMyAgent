@@ -7,6 +7,8 @@ import { describe, test } from "node:test";
 import {
   executeKnowledgeSearch,
   installKnowledgeSearchPlugin,
+  renderKnowledgePropertyPluginSource,
+  renderKnowledgeReadPluginSource,
   renderKnowledgeSearchPluginSource,
 } from "./knowledge-search-plugin.mjs";
 import {
@@ -18,7 +20,9 @@ import { resolveKnowledgeRoot } from "./knowledge-vault-paths.mjs";
 describe("knowledge_search plugin", () => {
   test("source is a tool plugin, not a skill", () => {
     const source = renderKnowledgeSearchPluginSource("/tmp/knowledge");
-    assert.match(source, /export default tool\(/);
+    assert.match(source, /export default async \(\) => \(\{/);
+    assert.match(source, /knowledge_search: tool\(/);
+    assert.doesNotMatch(source, /export default tool\(/);
     assert.match(source, /knowledge vault/);
     assert.match(source, /NOT skills/);
     assert.doesNotMatch(source, /listSkills/);
@@ -30,6 +34,11 @@ describe("knowledge_search plugin", () => {
     assert.match(source, /session-defaults\.json/);
     assert.match(source, /from "\.\/knowledge-vault-walk\.mjs"/);
     assert.doesNotMatch(source, /const walk = async/);
+    const read = renderKnowledgeReadPluginSource("/tmp/knowledge");
+    assert.match(read, /export default async \(\) => \(\{/);
+    assert.match(read, /knowledge_read: tool\(/);
+    const property = renderKnowledgePropertyPluginSource("/tmp/knowledge");
+    assert.match(property, /knowledge_property_set: tool\(/);
   });
 
   test("query-only search hits planted project and expert notes via session defaults", async () => {
@@ -91,8 +100,10 @@ describe("knowledge_search plugin", () => {
       assert.equal(result.pluginPaths?.length, 5);
       assert.ok(result.skillPath?.endsWith(`${path.sep}knowledge-vault${path.sep}SKILL.md`));
       const body = await readFile(result.pluginPath, "utf8");
-      assert.match(body, /export default tool\(/);
+      assert.match(body, /export default async \(\) => \(\{/);
+      assert.match(body, /knowledge_search: tool\(/);
       const readBody = await readFile(path.join(configDir, "plugins", "knowledge-read.mjs"), "utf8");
+      assert.match(readBody, /knowledge_read: tool\(/);
       assert.match(readBody, /knowledgeReadNote/);
       const skill = await readFile(result.skillPath, "utf8");
       assert.match(skill, /knowledge_read/);

@@ -71,7 +71,7 @@ describe("composer skill catalog product model", () => {
     ]);
   });
 
-  test("uses marketplace-style Chinese display labels when present", () => {
+  test("uses marketplace-style Chinese display labels when locale is zh", () => {
     const localized: SkillCard[] = [
       {
         name: "douyin-content-surge",
@@ -83,11 +83,40 @@ describe("composer skill catalog product model", () => {
         scope: "onmyagent",
       },
     ];
-    const items = buildCombinedSkillItems(localized, [], new Set(["douyin-content-surge"]));
+    const items = buildCombinedSkillItems(
+      localized,
+      [],
+      new Set(["douyin-content-surge"]),
+      "zh",
+    );
     expect(items).toHaveLength(1);
     expect(items[0]?.label).toBe("抖音每日点赞飙升榜");
     expect(items[0]?.description).toBe("抖音飙升榜说明");
     expect(items[0]?.name).toBe("douyin-content-surge");
+  });
+
+  test("uses English display labels when locale is en", () => {
+    const localized: SkillCard[] = [
+      {
+        name: "douyin-content-surge",
+        path: "/x/skills/douyin-content-surge",
+        description: "fallback desc",
+        descriptionZh: "抖音飙升榜说明",
+        descriptionEn: "Douyin surge notes",
+        displayNameZh: "抖音每日点赞飙升榜",
+        displayNameEn: "Douyin Daily Like Surge",
+        scope: "onmyagent",
+      },
+    ];
+    const items = buildCombinedSkillItems(
+      localized,
+      [],
+      new Set(["douyin-content-surge"]),
+      "en",
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0]?.label).toBe("Douyin Daily Like Surge");
+    expect(items[0]?.description).toBe("Douyin surge notes");
   });
 
   test("slash merge keeps managed skills including local", () => {

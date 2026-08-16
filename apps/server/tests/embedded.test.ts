@@ -1,6 +1,28 @@
 import { describe, expect, test } from "bun:test";
 
-import { scheduleDeferredWorkspaceSync } from "../src/embedded.js";
+import {
+  resolveOpencodeModelsUrl,
+  scheduleDeferredWorkspaceSync,
+} from "../src/embedded.js";
+
+describe("resolveOpencodeModelsUrl", () => {
+  test("strips trailing slashes so OpenCode does not request //api.json", () => {
+    expect(resolveOpencodeModelsUrl({})).toBe("https://models.onmyagentlabs.com");
+    expect(
+      resolveOpencodeModelsUrl({
+        OPENCODE_MODELS_URL: "https://models.onmyagentlabs.com/",
+      }),
+    ).toBe("https://models.onmyagentlabs.com");
+    expect(
+      resolveOpencodeModelsUrl({
+        ONMYAGENT_OPENCODE_MODELS_URL: "https://mirror.example/models///",
+      }),
+    ).toBe("https://mirror.example/models");
+    expect(resolveOpencodeModelsUrl({ ONMYAGENT_MODELS_LOCAL: "1" })).toBe(
+      "http://localhost:8791/models",
+    );
+  });
+});
 
 describe("scheduleDeferredWorkspaceSync", () => {
   test("does not start maintenance after stop cancels its grace timer", async () => {
