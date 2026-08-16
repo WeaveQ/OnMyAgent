@@ -34,7 +34,7 @@ function tabLabel(tab: KnowledgeEditorTab): string {
 
 export function KnowledgeVaultTabBar(props: KnowledgeVaultTabBarProps) {
   return (
-    <div className="flex h-10 shrink-0 items-stretch bg-dls-background mac:titlebar-drag">
+    <div className="flex h-full min-h-0 w-full items-stretch bg-dls-background mac:titlebar-drag">
       <div className="flex min-w-0 shrink-0 items-stretch overflow-x-auto mac:titlebar-no-drag">
         {props.tabs.map((tab, index) => {
           const active = tab.id === props.activeId;

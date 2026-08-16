@@ -40,6 +40,8 @@ import {
 } from "./knowledge-vault-navigation";
 import {
   applyKnowledgeNoteProps,
+  countFilledKnowledgeProps,
+  countKnowledgeBody,
   parseKnowledgeNoteProps,
   splitMarkdownFrontmatter,
 } from "./knowledge-vault-frontmatter";
@@ -384,6 +386,17 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
     () => new Set(filesForScope(scopes, scope).map((file) => file.relPath)),
     [scope, scopes],
   );
+
+  const footerStats = useMemo(() => {
+    if (!selected) return { propCount: 0, words: 0, chars: 0 };
+    const parsed = parseKnowledgeNoteProps(draft);
+    const counted = countKnowledgeBody(splitMarkdownFrontmatter(draft).body);
+    return {
+      propCount: countFilledKnowledgeProps(parsed),
+      words: counted.words,
+      chars: counted.chars,
+    };
+  }, [draft, selected]);
 
   const handleCreate = async () => {
     const name = normalizeNewNoteRelPath(createName || suggestKnowledgeNoteName());
@@ -797,10 +810,10 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
   }
 
   return (
-    <div className="flex h-full min-h-0 bg-dls-background">
-      <aside className="flex w-64 shrink-0 flex-col border-r border-dls-border">
-        <div className="border-b border-dls-border px-2 py-1.5">
-          <InputGroup>
+    <div className="flex h-full min-h-0 flex-col bg-dls-background">
+      <div className="grid min-h-0 flex-1 grid-cols-[16rem_minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto]">
+        <div className="flex h-10 items-center border-b border-r border-dls-border px-1.5 mac:titlebar-no-drag">
+          <InputGroup controlSize="sm">
             <InputGroupAddon>
               <Search className="size-3.5" />
             </InputGroupAddon>
@@ -812,88 +825,163 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
             />
           </InputGroup>
         </div>
-        <div className="flex h-10 shrink-0 items-center justify-center gap-0.5 px-1.5 text-dls-secondary mac:titlebar-no-drag">
-          <ToolbarIconButton
-            label={t("knowledge.new_note")}
-            hint={t("knowledge.toolbar_new_note")}
-            onClick={() => {
-              setCreateFolderPrefix("");
-              setCreateName(suggestKnowledgeNoteName());
-              setCreateOpen(true);
+        <div className="flex h-10 min-w-0 border-b border-dls-border">
+          <KnowledgeVaultTabBar
+            tabs={tabs}
+            activeId={activeTabId}
+            onActivate={(id) => applyTab(persistActiveTab(), id)}
+            onClose={(id) => {
+              const next = closeKnowledgeEditorTab(persistActiveTab(), id);
+              applyTab(next.tabs, next.activeId);
             }}
-          >
-            <FilePlus className="size-3.5" strokeWidth={1.75} />
-          </ToolbarIconButton>
-          <ToolbarIconButton
-            label={t("knowledge.new_folder")}
-            hint={t("knowledge.toolbar_new_folder")}
-            onClick={() => {
-              setCreateFolderPrefix("");
-              setFolderOpen(true);
+            onAdd={() => {
+              const next = addKnowledgeEditorTab(persistActiveTab());
+              applyTab(next.tabs, next.activeId);
             }}
-          >
-            <FolderPlus className="size-3.5" strokeWidth={1.75} />
-          </ToolbarIconButton>
-          <span className="mx-0.5 h-3.5 w-px shrink-0 bg-dls-border" aria-hidden />
-          <ToolbarIconButton
-            label={t("knowledge.open_folder")}
-            hint={t("knowledge.toolbar_open_folder")}
-            onClick={() => void openKnowledgeVaultFolder()}
-          >
-            <FolderOpen className="size-3.5" strokeWidth={1.75} />
-          </ToolbarIconButton>
-          <span className="mx-0.5 h-3.5 w-px shrink-0 bg-dls-border" aria-hidden />
-          <ToolbarIconButton
-            label={t("knowledge.expand_all")}
-            hint={t("knowledge.toolbar_expand_all")}
-            onClick={() => setExpandNonce((value) => value + 1)}
-          >
-            <ChevronsDown className="size-3.5" strokeWidth={1.75} />
-          </ToolbarIconButton>
-          <ToolbarIconButton
-            label={t("knowledge.collapse_all")}
-            hint={t("knowledge.toolbar_collapse_all")}
-            onClick={() => setCollapseNonce((value) => value + 1)}
-          >
-            <ChevronsUp className="size-3.5" strokeWidth={1.75} />
-          </ToolbarIconButton>
-          <span className="mx-0.5 h-3.5 w-px shrink-0 bg-dls-border" aria-hidden />
-          <ToolbarIconButton
-            label={t("knowledge.sync_index")}
-            hint={t("knowledge.toolbar_sync_index")}
-            disabled={indexing}
-            onClick={() => void handleRebuildIndex()}
-          >
-            <RefreshCw className={`size-3.5 ${indexing ? "animate-spin" : ""}`} strokeWidth={1.75} />
-          </ToolbarIconButton>
+            mode={editorMode}
+            onModeChange={setEditorMode}
+          />
         </div>
-        {error ? (
-          <div className="px-2 pt-2">
-            <NoticeBox tone="error">{error}</NoticeBox>
+        <aside className="flex min-h-0 flex-col overflow-hidden border-r border-dls-border">
+          <div className="flex h-10 shrink-0 items-center justify-center gap-0.5 px-1.5 text-dls-secondary mac:titlebar-no-drag">
+            <ToolbarIconButton
+              label={t("knowledge.new_note")}
+              hint={t("knowledge.toolbar_new_note")}
+              onClick={() => {
+                setCreateFolderPrefix("");
+                setCreateName(suggestKnowledgeNoteName());
+                setCreateOpen(true);
+              }}
+            >
+              <FilePlus className="size-3.5" strokeWidth={1.75} />
+            </ToolbarIconButton>
+            <ToolbarIconButton
+              label={t("knowledge.new_folder")}
+              hint={t("knowledge.toolbar_new_folder")}
+              onClick={() => {
+                setCreateFolderPrefix("");
+                setFolderOpen(true);
+              }}
+            >
+              <FolderPlus className="size-3.5" strokeWidth={1.75} />
+            </ToolbarIconButton>
+            <span className="mx-0.5 h-3.5 w-px shrink-0 bg-dls-border" aria-hidden />
+            <ToolbarIconButton
+              label={t("knowledge.open_folder")}
+              hint={t("knowledge.toolbar_open_folder")}
+              onClick={() => void openKnowledgeVaultFolder()}
+            >
+              <FolderOpen className="size-3.5" strokeWidth={1.75} />
+            </ToolbarIconButton>
+            <span className="mx-0.5 h-3.5 w-px shrink-0 bg-dls-border" aria-hidden />
+            <ToolbarIconButton
+              label={t("knowledge.expand_all")}
+              hint={t("knowledge.toolbar_expand_all")}
+              onClick={() => setExpandNonce((value) => value + 1)}
+            >
+              <ChevronsDown className="size-3.5" strokeWidth={1.75} />
+            </ToolbarIconButton>
+            <ToolbarIconButton
+              label={t("knowledge.collapse_all")}
+              hint={t("knowledge.toolbar_collapse_all")}
+              onClick={() => setCollapseNonce((value) => value + 1)}
+            >
+              <ChevronsUp className="size-3.5" strokeWidth={1.75} />
+            </ToolbarIconButton>
+            <span className="mx-0.5 h-3.5 w-px shrink-0 bg-dls-border" aria-hidden />
+            <ToolbarIconButton
+              label={t("knowledge.sync_index")}
+              hint={t("knowledge.toolbar_sync_index")}
+              disabled={indexing}
+              onClick={() => void handleRebuildIndex()}
+            >
+              <RefreshCw className={`size-3.5 ${indexing ? "animate-spin" : ""}`} strokeWidth={1.75} />
+            </ToolbarIconButton>
           </div>
-        ) : null}
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {loading ? (
-            <div className="flex h-full items-center justify-center">
-              <LoadingSpinner />
+          {error ? (
+            <div className="px-2 pt-2">
+              <NoticeBox tone="error">{error}</NoticeBox>
             </div>
-          ) : visibleFiles.length === 0 && query.trim() ? (
-            <div className="px-3 py-8 text-center text-sm text-dls-secondary">
-              {t("knowledge.no_results")}
-            </div>
+          ) : null}
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {loading ? (
+              <div className="flex h-full items-center justify-center">
+                <LoadingSpinner />
+              </div>
+            ) : visibleFiles.length === 0 && query.trim() ? (
+              <div className="px-3 py-8 text-center text-sm text-dls-secondary">
+                {t("knowledge.no_results")}
+              </div>
+            ) : (
+              <KnowledgeVaultTree
+                files={visibleFiles}
+                scope={scope}
+                selected={selected}
+                onSelect={(note) => void openNote(note)}
+                actions={treeActions}
+                expandNonce={expandNonce}
+                collapseNonce={collapseNonce}
+              />
+            )}
+          </div>
+        </aside>
+        <section className="flex min-h-0 min-w-0 flex-col overflow-hidden">
+          {selected ? (
+            editorMode === "edit" ? (
+              <>
+                <KnowledgeVaultProperties
+                  value={parseKnowledgeNoteProps(draft)}
+                  onChange={(props) => setDraft(applyKnowledgeNoteProps(draft, props))}
+                />
+                <KnowledgeVaultSplitEditor
+                  value={splitMarkdownFrontmatter(draft).body}
+                  language={knowledgeFileLanguage(selected.relPath)}
+                  onChange={(body) =>
+                    setDraft(applyKnowledgeNoteProps(body, parseKnowledgeNoteProps(draft)))
+                  }
+                  layout={editLayout}
+                  onLayoutChange={setEditLayout}
+                />
+              </>
+            ) : (
+              <KnowledgeVaultReader
+                markdown={draft}
+                relPath={selected.relPath}
+                vaultLabel={vaultLabel || t("knowledge.default_vault")}
+                onEdit={() => setEditorMode("edit")}
+              />
+            )
           ) : (
-            <KnowledgeVaultTree
-              files={visibleFiles}
-              scope={scope}
-              selected={selected}
-              onSelect={(note) => void openNote(note)}
-              actions={treeActions}
-              expandNonce={expandNonce}
-              collapseNonce={collapseNonce}
-            />
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center">
+              <div className="flex max-w-sm flex-col items-center">
+                <EmptyStateIllustration src={KNOWLEDGE_BASE_PLACEHOLDER_ASSET} />
+                <div className="space-y-1.5">
+                  <div className="text-base font-medium text-dls-text">
+                    {filesForScope(scopes, scope).length === 0
+                      ? t("knowledge.empty_title")
+                      : t("knowledge.empty_tab")}
+                  </div>
+                  <p className="text-sm text-dls-secondary">
+                    {filesForScope(scopes, scope).length === 0
+                      ? t("knowledge.empty_body")
+                      : t("knowledge.empty_tab_body")}
+                  </p>
+                </div>
+                <Button
+                  className="mt-5"
+                  onClick={() => {
+                    setCreateFolderPrefix("");
+                    setCreateName(suggestKnowledgeNoteName());
+                    setCreateOpen(true);
+                  }}
+                >
+                  {t("knowledge.tab_create")}
+                </Button>
+              </div>
+            </div>
           )}
-        </div>
-        <div className="flex h-10 shrink-0 items-center justify-between gap-1 border-t border-dls-border px-1">
+        </section>
+        <div className="flex h-10 items-center justify-between gap-1 border-r border-t border-dls-border px-1">
           <KnowledgeVaultSwitcher
             currentPath={vaultPath}
             vaults={
@@ -928,80 +1016,12 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
             </span>
           )}
         </div>
-      </aside>
-      <section className="flex min-w-0 flex-1 flex-col">
-        <KnowledgeVaultTabBar
-          tabs={tabs}
-          activeId={activeTabId}
-          onActivate={(id) => applyTab(persistActiveTab(), id)}
-          onClose={(id) => {
-            const next = closeKnowledgeEditorTab(persistActiveTab(), id);
-            applyTab(next.tabs, next.activeId);
-          }}
-          onAdd={() => {
-            const next = addKnowledgeEditorTab(persistActiveTab());
-            applyTab(next.tabs, next.activeId);
-          }}
-          mode={editorMode}
-          onModeChange={setEditorMode}
-        />
-        {selected ? (
-          <>
-            {editorMode === "edit" ? (
-              <>
-                <KnowledgeVaultProperties
-                  value={parseKnowledgeNoteProps(draft)}
-                  onChange={(props) => setDraft(applyKnowledgeNoteProps(draft, props))}
-                />
-                <KnowledgeVaultSplitEditor
-                  value={splitMarkdownFrontmatter(draft).body}
-                  language={knowledgeFileLanguage(selected.relPath)}
-                  onChange={(body) =>
-                    setDraft(applyKnowledgeNoteProps(body, parseKnowledgeNoteProps(draft)))
-                  }
-                  layout={editLayout}
-                  onLayoutChange={setEditLayout}
-                />
-              </>
-            ) : (
-              <KnowledgeVaultReader
-                markdown={draft}
-                relPath={selected.relPath}
-                vaultLabel={vaultLabel || t("knowledge.default_vault")}
-                onEdit={() => setEditorMode("edit")}
-              />
-            )}
-          </>
-        ) : (
-          <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-            <div className="flex max-w-sm flex-col items-center">
-              <EmptyStateIllustration src={KNOWLEDGE_BASE_PLACEHOLDER_ASSET} />
-              <div className="space-y-1.5">
-                <div className="text-base font-medium text-dls-text">
-                  {filesForScope(scopes, scope).length === 0
-                    ? t("knowledge.empty_title")
-                    : t("knowledge.empty_tab")}
-                </div>
-                <p className="text-sm text-dls-secondary">
-                  {filesForScope(scopes, scope).length === 0
-                    ? t("knowledge.empty_body")
-                    : t("knowledge.empty_tab_body")}
-                </p>
-              </div>
-              <Button
-                className="mt-5"
-                onClick={() => {
-                  setCreateFolderPrefix("");
-                  setCreateName(suggestKnowledgeNoteName());
-                  setCreateOpen(true);
-                }}
-              >
-                {t("knowledge.tab_create")}
-              </Button>
-            </div>
-          </div>
-        )}
-      </section>
+        <div className="flex h-10 items-center justify-end gap-3 border-t border-dls-border px-3 text-xs text-dls-secondary">
+          <span>{t("knowledge.stat_props", { count: footerStats.propCount })}</span>
+          <span>{t("knowledge.stat_words", { count: footerStats.words })}</span>
+          <span>{t("knowledge.stat_chars", { count: footerStats.chars })}</span>
+        </div>
+      </div>
 
       <Dialog open={folderOpen} onOpenChange={setFolderOpen}>
         <DialogContent>
