@@ -35,6 +35,12 @@ export {
 /** Mode-switch helper used by shell page-view to clear secondary rail bookmarks. */
 export { resetRailBookmarkToPrimary } from "./pages/use-rail-location";
 export {
+  collectSessionDescendantIds,
+  collectSessionSubtreeIds,
+  excludeSessionsWithArchivedAncestor,
+  permanentlyRemoveAssistantArchivedTaskTree,
+} from "../shared";
+export {
   MAX_SESSIONS_PREVIEW,
   buildSessionTreeState,
   flattenSessionRows,

@@ -13,10 +13,12 @@ import {
 } from "../../../shell";
 import { t } from "../../../../i18n";
 import { APP_NAME } from "../../../../i18n/locales/brand";
+import { collectSessionSubtreeIds } from "../../shared";
 
 type SessionLike = {
   id?: string;
   title?: string;
+  parentID?: string | null;
   time?: {
     updated?: number;
     created?: number;
@@ -276,12 +278,21 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
             ok: false,
             error: t("session.control_session_not_found"),
           };
-        await onmyagentClient.deleteSession(targetWorkspace.id, sessionId);
-        if (selectedSessionId === sessionId) {
+        const listed = (sessionsByWorkspaceId[targetWorkspace.id] ?? [])
+          .flatMap((session) =>
+            session.id
+              ? [{ id: session.id, parentID: session.parentID ?? null }]
+              : [],
+          );
+        const subtreeIds = collectSessionSubtreeIds(listed, sessionId);
+        for (const id of subtreeIds) {
+          await onmyagentClient.deleteSession(targetWorkspace.id, id);
+        }
+        if (selectedSessionId && subtreeIds.includes(selectedSessionId)) {
           navigateToSessionRoot();
         }
         await refreshRouteState();
-        return { ok: true, sessionId, deleted: true };
+        return { ok: true, sessionId, deleted: true, deletedIds: subtreeIds };
       },
     }),
     [

@@ -10,7 +10,9 @@ import {
   type AgentRegistry,
 } from "../../agents";
 import {
+  collectSessionSubtreeIds,
   permanentlyRemoveAssistantArchivedTask,
+  permanentlyRemoveAssistantArchivedTaskTree,
   readAssistantArchivedTasks,
 } from "../../shared";
 import { deleteSessionOwnedWorkspaceFiles } from "../../workspace";
@@ -169,15 +171,18 @@ export function useExpertSessionDelete(input: {
   const executeExpertDelete = useCallback(
     async (target: ExpertSessionDeleteTarget) => {
       if (target.kind === "session") {
-        await purgeExpertSessionFiles(
+        const subtreeIds = collectSessionSubtreeIds(
+          input.currentAgentSessions,
           target.sessionId,
-          input.activeConversationAgentId,
         );
-        permanentlyRemoveAssistantArchivedTask(
+        for (const id of subtreeIds) {
+          await purgeExpertSessionFiles(id, input.activeConversationAgentId);
+        }
+        permanentlyRemoveAssistantArchivedTaskTree(
           input.workspaceId,
           target.sessionId,
         );
-        clearExpertLocalSessionBindings([target.sessionId]);
+        clearExpertLocalSessionBindings(subtreeIds);
         await input.onDeleteSession?.(target.sessionId);
         return;
       }

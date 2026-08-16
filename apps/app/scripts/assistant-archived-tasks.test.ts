@@ -2,11 +2,15 @@ import { describe, expect, test } from "bun:test";
 
 import {
   archiveTaskInList,
+  archiveTasksInList,
   archivedSessionIdSet,
+  filterArchivedTaskRoots,
   filterGroupsExcludingArchived,
   permanentlyRemoveFromList,
+  permanentlyRemoveTaskTreeFromList,
   resolveOpenFolderPath,
   restoreTaskFromList,
+  restoreTaskTreeFromList,
   type AssistantArchivedTask,
 } from "../src/react-app/domains/shared/assistant-archived-tasks";
 
@@ -20,6 +24,7 @@ function task(
     directory: overrides.directory ?? null,
     archivedAt: overrides.archivedAt ?? 1_700_000_000_000,
     category: overrides.category ?? "office",
+    parentID: overrides.parentID ?? null,
   };
 }
 
@@ -51,6 +56,44 @@ describe("assistant archived task helpers", () => {
     expect(
       permanentlyRemoveFromList(list, "a").map((item) => item.sessionId),
     ).toEqual(["b", "c"]);
+  });
+
+  test("archiveTasksInList keeps parentID on cascaded children", () => {
+    const next = archiveTasksInList([], [
+      task("child", { title: "Child", parentID: "parent" }),
+      task("parent", { title: "Parent" }),
+    ]);
+    expect(next.map((item) => item.sessionId)).toEqual(["parent", "child"]);
+    expect(next.find((item) => item.sessionId === "child")?.parentID).toBe(
+      "parent",
+    );
+  });
+
+  test("restore and permanent-remove trees drop parent and stored children", () => {
+    const list = [
+      task("parent", { title: "Parent" }),
+      task("child", { title: "Child", parentID: "parent" }),
+      task("other", { title: "Other" }),
+    ];
+    expect(
+      restoreTaskTreeFromList(list, "parent").map((item) => item.sessionId),
+    ).toEqual(["other"]);
+    expect(
+      permanentlyRemoveTaskTreeFromList(list, "parent").map(
+        (item) => item.sessionId,
+      ),
+    ).toEqual(["other"]);
+  });
+
+  test("filterArchivedTaskRoots hides cascaded children when the parent is archived", () => {
+    const list = [
+      task("parent", { title: "Parent" }),
+      task("child", { title: "Child", parentID: "parent" }),
+      task("orphan", { title: "Orphan", parentID: "missing" }),
+    ];
+    expect(
+      filterArchivedTaskRoots(list).map((item) => item.sessionId),
+    ).toEqual(["parent", "orphan"]);
   });
 
   test("filterGroupsExcludingArchived hides archived sessions from main list", () => {

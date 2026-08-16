@@ -45,6 +45,8 @@ import {
   SESSION_SNAPSHOT_STALE_TIME_MS,
   SessionPage,
   buildSessionSnapshotPrefetchSpec,
+  collectSessionSubtreeIds,
+  permanentlyRemoveAssistantArchivedTaskTree,
   executePendingSessionDelete,
   isTolerableSessionDeleteFailure,
   markSessionRecentlyDeleted,
@@ -1113,39 +1115,66 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             client && selectedWorkspaceId
               ? async (sessionId) => {
                   const endpoint = endpointForWorkspace(selectedWorkspace);
-                  const assistantSessionWorkspace =
-                    readAssistantSessionWorkspace(sessionId);
-                  const listedDirectory =
-                    sessionsByWorkspaceId[selectedWorkspaceId]?.find(
-                      (item) => item.id === sessionId,
-                    )?.directory ?? null;
-                  const directory = resolveSessionDeleteDirectory({
-                    assistantDirectory: assistantSessionWorkspace?.directory,
-                    // Expert isolated dirs live on the sidebar item, not assistant map.
-                    sessionDirectory: listedDirectory,
-                    workspaceRoot:
-                      selectedWorkspaceRoot ||
-                      selectedWorkspace?.path ||
-                      null,
-                  });
+                  const listedSessions =
+                    sessionsByWorkspaceId[selectedWorkspaceId] ?? [];
+                  const subtreeIds = collectSessionSubtreeIds(
+                    listedSessions,
+                    sessionId,
+                  );
+                  const selectedIsInSubtree = Boolean(
+                    selectedSessionId && subtreeIds.includes(selectedSessionId),
+                  );
+                  permanentlyRemoveAssistantArchivedTaskTree(
+                    selectedWorkspaceId,
+                    sessionId,
+                  );
 
                   // 1) Local-first: tombstone + optimistic remove so dirty rows
                   // leave the UI even if remote DELETE hangs for 12s.
-                  markSessionRecentlyDeleted(sessionId);
-                  registerPendingSessionDelete({
-                    workspaceId: selectedWorkspaceId,
-                    sessionId,
-                    ...(directory ? { directory } : {}),
-                  });
+                  const idSet = new Set(subtreeIds);
+                  for (const id of subtreeIds) {
+                    const assistantSessionWorkspace =
+                      readAssistantSessionWorkspace(id);
+                    const listedDirectory =
+                      listedSessions.find((item) => item.id === id)
+                        ?.directory ?? null;
+                    const directory = resolveSessionDeleteDirectory({
+                      assistantDirectory: assistantSessionWorkspace?.directory,
+                      sessionDirectory: listedDirectory,
+                      workspaceRoot:
+                        selectedWorkspaceRoot ||
+                        selectedWorkspace?.path ||
+                        null,
+                    });
+                    markSessionRecentlyDeleted(id);
+                    registerPendingSessionDelete({
+                      workspaceId: selectedWorkspaceId,
+                      sessionId: id,
+                      ...(directory ? { directory } : {}),
+                    });
+                    removeAssistantSession(id);
+                    writeCustomAgentIdForSession(id, null);
+                    writeSessionAgentSnapshot(id, null);
+                    if (assistantSessionWorkspace?.ownerWorkspaceId) {
+                      removeAutomationSessionRecord(
+                        assistantSessionWorkspace.ownerWorkspaceId,
+                        id,
+                      );
+                    }
+                    removeAssistantSessionWorkspace(id);
+                    if (assistantSessionWorkspace?.ownerWorkspaceId) {
+                      dispatchAssistantSessionWorkspacesChanged(
+                        assistantSessionWorkspace.ownerWorkspaceId,
+                      );
+                    }
+                  }
                   let nextListForCache: SidebarSessionItem[] | null = null;
                   setSessionsByWorkspaceId((current) => {
                     const list = current[selectedWorkspaceId];
-                    if (!list?.some((item) => item.id === sessionId)) {
+                    if (!list?.some((item) => idSet.has(item.id))) {
                       return current;
                     }
-                    const nextList = list.filter(
-                      (item) => item.id !== sessionId,
-                    );
+                    const nextList = list.filter((item) => !idSet.has(item.id));
                     nextListForCache = nextList;
                     return {
                       ...current,
@@ -1159,45 +1188,30 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                       { clearWhenEmpty: true },
                     );
                   }
-
-                  removeAssistantSession(sessionId);
-                  writeCustomAgentIdForSession(sessionId, null);
-                  writeSessionAgentSnapshot(sessionId, null);
-                  if (assistantSessionWorkspace?.ownerWorkspaceId) {
-                    removeAutomationSessionRecord(
-                      assistantSessionWorkspace.ownerWorkspaceId,
-                      sessionId,
-                    );
-                  }
-                  removeAssistantSessionWorkspace(sessionId);
-                  if (assistantSessionWorkspace?.ownerWorkspaceId) {
-                    dispatchAssistantSessionWorkspacesChanged(
-                      assistantSessionWorkspace.ownerWorkspaceId,
-                    );
-                  }
-                  if (selectedSessionId === sessionId) {
+                  if (selectedIsInSubtree) {
                     navigateToWorkspaceSession(selectedWorkspaceId);
                   }
 
                   // 2) Remote best-effort with a short UI budget (not full 12s
                   // client timeout) so the confirm dialog never sticks.
                   if (endpoint) {
-                    const remote = executePendingSessionDelete({
-                      workspaceId: selectedWorkspaceId,
-                      remoteWorkspaceId: endpoint.workspaceId,
-                      sessionId,
-                      client: endpoint.client,
-                    }).catch((error: unknown) => {
+                    const remotes = subtreeIds.map((id) =>
+                      executePendingSessionDelete({
+                        workspaceId: selectedWorkspaceId,
+                        remoteWorkspaceId: endpoint.workspaceId,
+                        sessionId: id,
+                        client: endpoint.client,
+                      }).catch((error: unknown) => {
                         if (!isTolerableSessionDeleteFailure(error)) {
                           console.warn(
                             "[session-route] deleteSession remote failed; local cleanup already done",
-                            sessionId,
+                            id,
                             error,
                           );
                         } else {
                           console.warn(
                             "[session-route] deleteSession ignored missing/failed session",
-                            sessionId,
+                            id,
                             error,
                           );
                         }
@@ -1206,9 +1220,10 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                           remoteWorkspaceId: endpoint.workspaceId,
                           client: endpoint.client,
                         });
-                      });
+                      }),
+                    );
                     await raceSessionDeleteRemote(
-                      remote,
+                      Promise.all(remotes),
                       SESSION_DELETE_REMOTE_BUDGET_MS,
                     );
                   }

@@ -3,6 +3,8 @@
  * Pure list helpers stay free of window for unit tests.
  */
 
+import { collectSessionSubtreeIds } from "./session-parent-tree";
+
 export const ASSISTANT_ARCHIVED_TASKS_STORAGE_KEY =
   "onmyagent.assistantArchivedTasks.v1";
 
@@ -15,6 +17,8 @@ export type AssistantArchivedTask = {
   directory?: string | null;
   archivedAt: number;
   category?: string | null;
+  /** Parent session when this row is a cascaded sub-agent archive. */
+  parentID?: string | null;
 };
 
 export function resolveOpenFolderPath(
@@ -49,14 +53,26 @@ export function archiveTaskInList(
   const sessionId = entry.sessionId.trim();
   if (!sessionId) return [...tasks];
   const next = tasks.filter((item) => item.sessionId !== sessionId);
+  const parentID = entry.parentID?.trim() || null;
   next.unshift({
     sessionId,
     title: entry.title.trim() || sessionId,
     directory: entry.directory?.trim() || null,
     archivedAt: entry.archivedAt > 0 ? entry.archivedAt : Date.now(),
     category: entry.category?.trim() || null,
+    parentID,
   });
   return next;
+}
+
+export function archiveTasksInList(
+  tasks: ReadonlyArray<AssistantArchivedTask>,
+  entries: ReadonlyArray<AssistantArchivedTask>,
+): AssistantArchivedTask[] {
+  return entries.reduce(
+    (list, entry) => archiveTaskInList(list, entry),
+    [...tasks],
+  );
 }
 
 export function restoreTaskFromList(
@@ -75,10 +91,47 @@ export function permanentlyRemoveFromList(
   return restoreTaskFromList(tasks, sessionId);
 }
 
+function sessionRefsFromArchive(
+  tasks: ReadonlyArray<AssistantArchivedTask>,
+) {
+  return tasks.map((task) => ({
+    id: task.sessionId,
+    parentID: task.parentID,
+  }));
+}
+
+/** Drop a parent archive row and any cascaded child rows stored with it. */
+export function restoreTaskTreeFromList(
+  tasks: ReadonlyArray<AssistantArchivedTask>,
+  sessionId: string,
+): AssistantArchivedTask[] {
+  const ids = new Set(collectSessionSubtreeIds(sessionRefsFromArchive(tasks), sessionId));
+  if (ids.size === 0) return [...tasks];
+  return tasks.filter((item) => !ids.has(item.sessionId));
+}
+
+export function permanentlyRemoveTaskTreeFromList(
+  tasks: ReadonlyArray<AssistantArchivedTask>,
+  sessionId: string,
+): AssistantArchivedTask[] {
+  return restoreTaskTreeFromList(tasks, sessionId);
+}
+
 export function archivedSessionIdSet(
   tasks: ReadonlyArray<AssistantArchivedTask>,
 ): Set<string> {
   return new Set(tasks.map((item) => item.sessionId).filter(Boolean));
+}
+
+/** Keep the parent row when a cascaded child is also archived. */
+export function filterArchivedTaskRoots(
+  tasks: ReadonlyArray<AssistantArchivedTask>,
+): AssistantArchivedTask[] {
+  const ids = new Set(tasks.map((task) => task.sessionId).filter(Boolean));
+  return tasks.filter((task) => {
+    const parentID = task.parentID?.trim();
+    return !parentID || !ids.has(parentID);
+  });
 }
 
 function readAllRecord(): Record<string, AssistantArchivedTask[]> {
@@ -117,7 +170,11 @@ function readAllRecord(): Record<string, AssistantArchivedTask[]> {
           typeof row.category === "string" && row.category.trim()
             ? row.category.trim()
             : null;
-        return [{ sessionId, title, directory, archivedAt, category }];
+        const parentID =
+          typeof row.parentID === "string" && row.parentID.trim()
+            ? row.parentID.trim()
+            : null;
+        return [{ sessionId, title, directory, archivedAt, category, parentID }];
       });
     }
     return out;
@@ -180,6 +237,20 @@ export function archiveAssistantTask(
   return next;
 }
 
+export function archiveAssistantTasks(
+  workspaceId: string,
+  entries: ReadonlyArray<AssistantArchivedTask>,
+) {
+  if (entries.length === 0) return readAssistantArchivedTasks(workspaceId);
+  const next = archiveTasksInList(
+    readAssistantArchivedTasks(workspaceId),
+    entries,
+  );
+  writeAssistantArchivedTasks(workspaceId, next);
+  dispatchAssistantArchivedTasksChanged(workspaceId);
+  return next;
+}
+
 export function restoreAssistantArchivedTask(
   workspaceId: string,
   sessionId: string,
@@ -193,11 +264,37 @@ export function restoreAssistantArchivedTask(
   return next;
 }
 
+export function restoreAssistantArchivedTaskTree(
+  workspaceId: string,
+  sessionId: string,
+) {
+  const next = restoreTaskTreeFromList(
+    readAssistantArchivedTasks(workspaceId),
+    sessionId,
+  );
+  writeAssistantArchivedTasks(workspaceId, next);
+  dispatchAssistantArchivedTasksChanged(workspaceId);
+  return next;
+}
+
 export function permanentlyRemoveAssistantArchivedTask(
   workspaceId: string,
   sessionId: string,
 ) {
   const next = permanentlyRemoveFromList(
+    readAssistantArchivedTasks(workspaceId),
+    sessionId,
+  );
+  writeAssistantArchivedTasks(workspaceId, next);
+  dispatchAssistantArchivedTasksChanged(workspaceId);
+  return next;
+}
+
+export function permanentlyRemoveAssistantArchivedTaskTree(
+  workspaceId: string,
+  sessionId: string,
+) {
+  const next = permanentlyRemoveTaskTreeFromList(
     readAssistantArchivedTasks(workspaceId),
     sessionId,
   );

@@ -49,9 +49,12 @@ import { LayoutStack } from "../settings-layout";
 import {
   type AssistantArchivedTask,
   assistantArchivedTasksChangedEvent,
+  collectSessionSubtreeIds,
+  filterArchivedTaskRoots,
   permanentlyRemoveAssistantArchivedTask,
+  permanentlyRemoveAssistantArchivedTaskTree,
   readAssistantArchivedTasks,
-  restoreAssistantArchivedTask,
+  restoreAssistantArchivedTaskTree,
 } from "../../shared";
 import {
   formatTaskArchiveMeta,
@@ -308,7 +311,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
     const out: UnifiedRow[] = [];
 
     if (sourceFilter !== "cloud") {
-      for (const task of assistantTasks) {
+      for (const task of filterArchivedTaskRoots(assistantTasks)) {
         const projectKey = projectKeyFromRow(task.directory);
         // Local soft-archives are never "scheduled" automations.
         if (kindFilter === "scheduled") continue;
@@ -426,7 +429,7 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
 
   const handleRestoreAssistant = useCallback(
     (sessionId: string) => {
-      restoreAssistantArchivedTask(props.workspaceId, sessionId);
+      restoreAssistantArchivedTaskTree(props.workspaceId, sessionId);
       refreshAssistant();
     },
     [props.workspaceId, refreshAssistant],
@@ -437,24 +440,34 @@ export function ArchivedTasksView(props: ArchivedTasksViewProps) {
       setBusyId(sessionId);
       setError(null);
       try {
-        const archived = readAssistantArchivedTasks(props.workspaceId).find(
-          (task) => task.sessionId === sessionId,
+        const archived = readAssistantArchivedTasks(props.workspaceId);
+        const subtreeIds = collectSessionSubtreeIds(
+          archived.map((task) => ({
+            id: task.sessionId,
+            parentID: task.parentID,
+          })),
+          sessionId,
         );
-        permanentlyRemoveAssistantArchivedTask(props.workspaceId, sessionId);
+        const byId = new Map(archived.map((task) => [task.sessionId, task]));
+        permanentlyRemoveAssistantArchivedTaskTree(props.workspaceId, sessionId);
         if (props.client && props.workspaceId.trim()) {
-          // C1: remove session-owned workspace files (best-effort) after confirm.
-          if (props.deleteSessionOwnedWorkspaceFiles) {
-            await props
-              .deleteSessionOwnedWorkspaceFiles({
-                client: props.client,
-                workspaceId: props.workspaceId,
-                sessionId,
-                directory: archived?.directory,
-                workspaceRoot: props.workspaceRoot,
-              })
-              .catch(() => undefined);
+          for (const id of subtreeIds) {
+            const row = byId.get(id);
+            if (props.deleteSessionOwnedWorkspaceFiles) {
+              await props
+                .deleteSessionOwnedWorkspaceFiles({
+                  client: props.client,
+                  workspaceId: props.workspaceId,
+                  sessionId: id,
+                  directory: row?.directory,
+                  workspaceRoot: props.workspaceRoot,
+                })
+                .catch(() => undefined);
+            }
+            await props.client.deleteSession(props.workspaceId, id).catch(
+              () => undefined,
+            );
           }
-          await props.client.deleteSession(props.workspaceId, sessionId);
         }
         refreshAssistant();
       } catch (cause) {

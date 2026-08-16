@@ -1089,12 +1089,12 @@ describe("expert marketplace UI contract", () => {
       "apps/app/src/react-app/shell/session-route/page-view.tsx",
     );
 
-    expect(sessionRoute).toContain("removeAssistantSession(sessionId)");
-    expect(sessionRoute).not.toContain("removeExpertSession(sessionId)");
-    expect(sessionRoute).toContain("writeCustomAgentIdForSession(sessionId, null)");
-    expect(sessionRoute).toContain("writeSessionAgentSnapshot(sessionId, null)");
+    expect(sessionRoute).toContain("removeAssistantSession(id)");
+    expect(sessionRoute).not.toContain("removeExpertSession(");
+    expect(sessionRoute).toContain("writeCustomAgentIdForSession(id, null)");
+    expect(sessionRoute).toContain("writeSessionAgentSnapshot(id, null)");
     expect(sessionRoute).toContain("removeAutomationSessionRecord(");
-    expect(sessionRoute).toContain("removeAssistantSessionWorkspace(sessionId)");
+    expect(sessionRoute).toContain("removeAssistantSessionWorkspace(id)");
   });
 
   test("keeps built-in package installation delayed until a real session exists", () => {
