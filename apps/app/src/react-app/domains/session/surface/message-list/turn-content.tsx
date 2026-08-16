@@ -111,6 +111,7 @@ export function WorkBuddyTurnContent(props: {
                     expanded: props.expandedStepIds.has(item.id),
                     onToggle: () => toggleStep(item.id),
                   }))}
+                  onOpenCodePath={props.onOpenCodePath}
                 />
               );
             }

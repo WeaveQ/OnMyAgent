@@ -178,13 +178,17 @@ describe("session transcript WorkBuddy file and reference results", () => {
   });
 
   test("routes both result families through dedicated clickable surfaces", async () => {
-    const [detailsSource, messageSource] = await Promise.all([
+    const [detailsSource, taskSetSource, stepsSource] = await Promise.all([
       Bun.file(new URL(
         "../src/react-app/domains/session/surface/specialized-tool-details.tsx",
         import.meta.url,
       )).text(),
       Bun.file(new URL(
-        "../src/react-app/domains/session/surface/message-list.tsx",
+        "../src/react-app/domains/session/surface/message-list/task-set-block.tsx",
+        import.meta.url,
+      )).text(),
+      Bun.file(new URL(
+        "../src/react-app/domains/session/surface/message-list/steps-container.tsx",
         import.meta.url,
       )).text(),
     ]);
@@ -192,6 +196,9 @@ describe("session transcript WorkBuddy file and reference results", () => {
     expect(detailsSource).toContain('data-tool-details="file-results"');
     expect(detailsSource).toContain('data-tool-details="references"');
     expect(detailsSource).toContain("onOpenCodePath");
-    expect(messageSource).toContain("onOpenCodePath={props.onOpenCodePath}");
+    expect(detailsSource).toContain("aria-expanded");
+    expect(detailsSource).toContain('t("session.tool_files_no_results")');
+    expect(taskSetSource).toContain("onOpenCodePath={props.onOpenCodePath}");
+    expect(stepsSource).toContain("onOpenCodePath={props.onOpenCodePath}");
   });
 });

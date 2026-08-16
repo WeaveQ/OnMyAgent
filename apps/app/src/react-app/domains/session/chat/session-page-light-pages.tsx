@@ -8,8 +8,6 @@ import {
   PROJECTS_PLACEHOLDER_ASSET,
 } from "@/react-app/design-system/empty-state-assets";
 import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
-import { FeaturePreviewPlaceholder } from "../components/feature-preview-placeholder";
-import { KnowledgeVaultPage } from "../knowledge";
 
 const lightPagesTextClass = {
   panelTitle: "text-base font-medium text-dls-text",
@@ -31,10 +29,6 @@ export function ProjectsComingSoonPage() {
       </div>
     </div>
   );
-}
-
-export function KnowledgeBaseComingSoonPage() {
-  return <KnowledgeVaultPage />;
 }
 
 export function EmptyArtifactsPanel(props: { onClose: () => void }) {

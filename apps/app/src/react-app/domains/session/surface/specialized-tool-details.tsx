@@ -254,7 +254,7 @@ export function specializedToolCanExpand(details: TranscriptSpecializedToolDetai
     return details.lines.length > 0 || details.edits.length > 0;
   }
   if (details.kind === "file-results") return true;
-  if (details.kind === "references") return details.references.length > 0;
+  if (details.kind === "references") return true;
   if (details.kind === "delete") return false;
   if (details.kind === "lint") return details.issues.length > 0;
   if (details.kind === "web-search") return details.results.length > 0;
@@ -638,6 +638,8 @@ function ReferenceResultItem(props: {
     props.reference.endPos,
   );
   const canExpand = Boolean(props.reference.chunk && !externalUrl);
+  const canOpenPath = Boolean(props.reference.source && props.onOpenCodePath);
+  const canActivate = Boolean(externalUrl || canExpand || canOpenPath);
   const handleClick = () => {
     if (externalUrl) {
       platform.openLink(externalUrl);
@@ -655,8 +657,10 @@ function ReferenceResultItem(props: {
         type="button"
         variant="ghost"
         size="sm"
-        className="h-auto min-h-8 w-full justify-start gap-2 rounded-none px-1 py-1.5 text-left font-normal hover:bg-dls-hover"
+        className="h-auto min-h-8 w-full justify-start gap-2 rounded-sm px-1 py-1.5 text-left font-normal hover:bg-dls-hover"
         title={props.reference.source}
+        aria-expanded={canExpand ? expanded : undefined}
+        disabled={!canActivate}
         onClick={handleClick}
       >
         <span className="shrink-0 text-dls-secondary">{props.index + 1}.</span>
@@ -676,7 +680,7 @@ function ReferenceResultItem(props: {
         ) : null}
       </Button>
       {expanded && props.reference.chunk ? (
-        <pre className="m-0 max-h-[300px] overflow-auto whitespace-pre-wrap wrap-break-word bg-dls-surface-muted px-4 py-3 font-mono text-xs leading-5 text-dls-text">
+        <pre className="m-0 max-h-[300px] overflow-auto whitespace-pre-wrap wrap-break-word rounded-md bg-dls-surface-muted px-4 py-3 font-mono text-xs leading-5 text-dls-text">
           {props.reference.chunk}
         </pre>
       ) : null}
@@ -699,14 +703,20 @@ function ReferencesToolDetails(props: {
         )}
       </div>
       <div className="max-h-[360px] overflow-y-auto">
-        {props.details.references.map((reference, index) => (
-          <ReferenceResultItem
-            key={`${reference.source}:${index}`}
-            reference={reference}
-            index={index}
-            onOpenCodePath={props.onOpenCodePath}
-          />
-        ))}
+        {props.details.references.length === 0 ? (
+          <div className="px-1 py-2 text-dls-secondary">
+            {t("session.tool_files_no_results")}
+          </div>
+        ) : (
+          props.details.references.map((reference, index) => (
+            <ReferenceResultItem
+              key={`${reference.source}:${index}`}
+              reference={reference}
+              index={index}
+              onOpenCodePath={props.onOpenCodePath}
+            />
+          ))
+        )}
       </div>
     </div>
   );
