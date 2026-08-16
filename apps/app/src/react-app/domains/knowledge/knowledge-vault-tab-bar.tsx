@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { t } from "../../../../i18n";
+import { t } from "../../../i18n";
 import { GETTING_STARTED_REL_PATH } from "./knowledge-vault-model";
 import { parseKnowledgeNoteProps } from "./knowledge-vault-frontmatter";
 import type { KnowledgeEditorTab } from "./knowledge-vault-tabs";

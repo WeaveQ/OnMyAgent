@@ -3,8 +3,8 @@ import { Columns2, FileCode } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
-import { MarkdownPreview } from "../artifacts/preview";
-import { t } from "../../../../i18n";
+import { MarkdownPreview } from "../../capabilities/artifacts/preview";
+import { t } from "../../../i18n";
 import { KnowledgeVaultEditor } from "./knowledge-vault-editor";
 import { knowledgePreviewBody } from "./knowledge-vault-preview-model";
 

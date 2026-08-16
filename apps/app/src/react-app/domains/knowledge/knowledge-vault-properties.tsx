@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 import { Calendar, Link2, List, Tag } from "lucide-react";
 
-import { t } from "../../../../i18n";
+import { t } from "../../../i18n";
 import type { KnowledgeNoteProps } from "./knowledge-vault-frontmatter";
 
 type KnowledgeVaultPropertiesProps = {

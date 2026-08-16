@@ -37,7 +37,7 @@ import { HTMLPreview, ImagePreview, MarkdownPreview, PlainText, PreviewError, Pr
 
 import { t } from "../../../../i18n";
 const ArtifactTextEditor = lazy(() =>
-  import("./artifact-text-editor").then((module) => ({ default: module.ArtifactTextEditor })),
+  import("../../../capabilities/artifacts/artifact-text-editor").then((module) => ({ default: module.ArtifactTextEditor })),
 );
 const ArtifactSpreadsheetEditor = lazy(() =>
   import("../../../capabilities/artifacts/artifact-spreadsheet-editor").then((module) => ({ default: module.ArtifactSpreadsheetEditor })),

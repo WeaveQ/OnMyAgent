@@ -19,8 +19,8 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
-import { t } from "../../../../i18n";
-import { isElectronRuntime } from "../../../../app/utils";
+import { t } from "../../../i18n";
+import { isElectronRuntime } from "../../../app/utils";
 import {
   deleteKnowledgeVaultFile,
   getKnowledgeVaultConfig,
@@ -31,7 +31,7 @@ import {
   revealDesktopItemInDir,
   searchKnowledgeVault,
   writeKnowledgeVaultFile,
-} from "../../../../app/lib/desktop";
+} from "../../../app/lib/desktop";
 import { KnowledgeVaultReader } from "./knowledge-vault-reader";
 import { KnowledgeVaultSplitEditor } from "./knowledge-vault-split-editor";
 import {

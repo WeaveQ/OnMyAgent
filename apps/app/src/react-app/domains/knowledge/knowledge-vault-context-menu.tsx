@@ -9,7 +9,7 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { t } from "../../../../i18n";
+import { t } from "../../../i18n";
 import { GETTING_STARTED_REL_PATH } from "./knowledge-vault-model";
 
 export type KnowledgeContextTarget =

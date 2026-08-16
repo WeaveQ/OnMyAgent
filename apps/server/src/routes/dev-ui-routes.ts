@@ -104,5 +104,5 @@ function assertToyUiEnabled() {
 }
 
 async function loadToyUi() {
-  return import("../toy-ui.js");
+  return import("../dev/toy-ui.js");
 }

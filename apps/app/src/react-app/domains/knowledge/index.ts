@@ -11,3 +11,11 @@ export {
   createKnowledgeEditorSession,
   openKnowledgeNote,
 } from "./knowledge-vault-editor-session";
+export {
+  OPEN_KNOWLEDGE_NOTE_EVENT,
+  openKnowledgeNoteInRail,
+  subscribeOpenKnowledgeNote,
+  takePendingKnowledgeNote,
+} from "./knowledge-vault-navigation";
+export { isKnowledgeSearchToolName, parseKnowledgeSearchHits } from "./knowledge-search-hits";
+export type { KnowledgeSearchHit } from "./knowledge-search-hits";

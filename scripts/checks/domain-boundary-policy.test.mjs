@@ -20,6 +20,17 @@ test("rejects reverse utility dependencies moved to neutral owners", () => {
   assert.equal(domainDependencyIsAllowed("shared", "agents"), false);
 });
 
+
+test("allows session to host knowledge via the public barrel only", () => {
+  assert.equal(domainDependencyIsAllowed("session", "knowledge"), true);
+  assert.equal(domainDependencyIsAllowed("knowledge", "session"), false);
+  assert.equal(domainImportUsesPublicEntrypoint("knowledge", "knowledge"), true);
+  assert.equal(
+    domainImportUsesPublicEntrypoint("knowledge/knowledge-vault-page.tsx", "knowledge"),
+    false,
+  );
+});
+
 test("allows local-agents host toasts via shell-feedback", () => {
   assert.equal(domainDependencyIsAllowed("local-agents", "shell-feedback"), true);
 });
