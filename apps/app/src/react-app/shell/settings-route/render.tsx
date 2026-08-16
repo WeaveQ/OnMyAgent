@@ -8,6 +8,7 @@ import { resolveWorkspaceEndpoint } from "../../../app/lib/workspace-endpoint";
 import { buildOnMyAgentEnvRuntimeKey } from "../../../app/lib/onmyagent-env-runtime";
 import type {
   Client,
+  ModelRef,
   ProviderListItem,
   SidebarSessionItem,
   WorkspaceConnectionState,
@@ -20,7 +21,8 @@ import {
   ProviderAuthModal,
   refreshProviderListQueries,
 } from "../../domains/connections";
-import { OpenCodeProviderConfigDialog, ModelPickerModal, workspaceSwatchColor } from "../../domains/session";
+import { ModelPickerModal } from "../../capabilities/model-selection/model-picker-modal";
+import { OpenCodeProviderConfigDialog } from "../../domains/local-agents";
 import {
   CloudSessionProvider,
   SettingsShell,
@@ -50,34 +52,23 @@ import {
   syncMemoryAwarenessFiles,
   syncPersonalAwarenessFiles,
 } from "../../domains/shared";
-import {
-  industryOptions,
-  roleOptions,
-  taskOptions,
-  toolOptions,
-} from "../../domains/settings";
-import {
-  pickDirectory,
-  type AgentManagementManagedProvider,
-} from "../../../app/lib/desktop";
+import { industryOptions, roleOptions, taskOptions, toolOptions } from "../../domains/settings";
+import { pickDirectory, type AgentManagementManagedProvider } from "../../../app/lib/desktop";
 import { isDesktopProviderBlocked } from "../../../app/cloud/desktop-app-restrictions";
 import {
   useCheckDesktopRestriction,
   useDesktopConfig,
   useRestrictionNotice,
 } from "../../domains/cloud";
-import {
-  resolveModelDisplayName,
-  resolveProviderDisplayName,
-} from "../../../app/utils";
+import { resolveModelDisplayName, resolveProviderDisplayName } from "../../../app/utils";
 import {
   CreateRemoteWorkspaceModal,
   CreateWorkspaceModal,
   RenameWorkspaceModal,
   ShareWorkspaceModal,
   useShareWorkspaceState,
+  workspaceSwatchColor,
 } from "../../domains/workspace";
-import type { ModelRef } from "../../../app/types";
 import {
   aiProvidersStatusI18nKey,
   aiProvidersSummaryI18nKey,
@@ -104,10 +95,7 @@ import {
   type RouteWorkspace,
 } from "./model";
 import { applySettingsEnvironmentChangesAndRefresh } from "./workspace-actions";
-import {
-  useSettingsEmbeddedRedirect,
-  useSettingsPathNavigator,
-} from "./embedded-path";
+import { useSettingsEmbeddedRedirect, useSettingsPathNavigator } from "./embedded-path";
 import { useSettingsWorkspaceRefs } from "./refs";
 import {
   reconnectOnMyAgentServerAndRefresh,
@@ -131,10 +119,7 @@ import {
   workspaceSettingsRoute,
 } from "../workspace-routes";
 import { getReactQueryClient } from "../../infra/query-client";
-import {
-  ROUTE_ONMYAGENT_CAPABILITIES,
-  useSettingsRouteStores,
-} from "./route-stores-hook";
+import { ROUTE_ONMYAGENT_CAPABILITIES, useSettingsRouteStores } from "./route-stores-hook";
 import { useSettingsRouteRefresh } from "./refresh-hook";
 import { useSettingsWorkspaceHandlers } from "./workspace-handlers-hook";
 import { useSettingsProviderHandlers } from "./provider-handlers-hook";
@@ -172,9 +157,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const [sessionsByWorkspaceId, setSessionsByWorkspaceId] = useState<
     Record<string, SidebarSessionItem[]>
   >({});
-  const [errorsByWorkspaceId, setErrorsByWorkspaceId] = useState<
-    Record<string, string | null>
-  >({});
+  const [errorsByWorkspaceId, setErrorsByWorkspaceId] = useState<Record<string, string | null>>({});
   const [workspaceConnectionOverrides, setWorkspaceConnectionOverrides] = useState<
     Record<string, WorkspaceConnectionState>
   >({});
@@ -249,12 +232,8 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const [activeClient, setActiveClient] = useState<Client | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
-  const {
-    routeError,
-    routeErrorAction,
-    setFacingRouteError,
-    clearFacingRouteError,
-  } = useFacingRouteError();
+  const { routeError, routeErrorAction, setFacingRouteError, clearFacingRouteError } =
+    useFacingRouteError();
   const { workspacesRef } = useSettingsWorkspaceRefs(workspaces);
   const [providers, setProviders] = useState<ProviderListItem[]>([]);
   const [providerDefaults, setProviderDefaults] = useState<Record<string, string>>({});
@@ -287,9 +266,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const [createWorkspaceBusy, setCreateWorkspaceBusy] = useState(false);
   const [createWorkspaceError, setCreateWorkspaceError] = useState<string | null>(null);
   const [createWorkspaceRemoteBusy, setCreateWorkspaceRemoteBusy] = useState(false);
-  const [createWorkspaceRemoteError, setCreateWorkspaceRemoteError] = useState<string | null>(
-    null,
-  );
+  const [createWorkspaceRemoteError, setCreateWorkspaceRemoteError] = useState<string | null>(null);
   const [renameWorkspaceId, setRenameWorkspaceId] = useState<string | null>(null);
   const [renameWorkspaceTitle, setRenameWorkspaceTitle] = useState("");
   const [renameWorkspaceBusy, setRenameWorkspaceBusy] = useState(false);
@@ -297,8 +274,8 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const [autoCompactContext, setAutoCompactContext] = useState(true);
   const [autoCompactContextBusy, setAutoCompactContextBusy] = useState(false);
   const [autoCompactContextLoaded, setAutoCompactContextLoaded] = useState(false);
-  const [memoryDraft, setMemoryDraft] = useState<OnboardingProfile | null>(() =>
-    local.prefs.onboardingProfile,
+  const [memoryDraft, setMemoryDraft] = useState<OnboardingProfile | null>(
+    () => local.prefs.onboardingProfile,
   );
   const [conversationMemoryDraft, setConversationMemoryDraft] = useState(
     () => local.prefs.conversationMemory,
@@ -345,10 +322,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const persistResponseTone = useCallback(
     (responseTone: typeof local.prefs.responseTone) => {
       local.setPrefs((previous) => ({ ...previous, responseTone }));
-      scheduleSyncStyleAwarenessFiles(
-        responseTone,
-        local.prefs.customInstructions,
-      );
+      scheduleSyncStyleAwarenessFiles(responseTone, local.prefs.customInstructions);
     },
     [local],
   );
@@ -356,10 +330,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const persistCustomInstructions = useCallback(
     (customInstructions: string) => {
       local.setPrefs((previous) => ({ ...previous, customInstructions }));
-      scheduleSyncStyleAwarenessFiles(
-        local.prefs.responseTone,
-        customInstructions,
-      );
+      scheduleSyncStyleAwarenessFiles(local.prefs.responseTone, customInstructions);
     },
     [local],
   );
@@ -402,7 +373,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const selectedWorkspace = useMemo(
     () =>
       workspaces.find((workspace) => workspace.id === selectedWorkspaceId) ??
-      (selectedWorkspaceId ? null : workspaces[0] ?? null),
+      (selectedWorkspaceId ? null : (workspaces[0] ?? null)),
     [selectedWorkspaceId, workspaces],
   );
   const workspaceConnectionStateById = useMemo(
@@ -427,8 +398,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   );
 
   const activeReloadBlockingSessions = useMemo(
-    () =>
-      listActiveReloadBlockingSessions(sessionsByWorkspaceId, t("session.untitled")),
+    () => listActiveReloadBlockingSessions(sessionsByWorkspaceId, t("session.untitled")),
     [sessionsByWorkspaceId],
   );
 
@@ -795,8 +765,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const routeOnMyAgentCapabilities = onmyagentClient ? ROUTE_ONMYAGENT_CAPABILITIES : null;
   const environmentRuntimeKey = buildOnMyAgentEnvRuntimeKey({
     baseUrl:
-      onmyagentServerSnapshot.onmyagentServerBaseUrl ||
-      onmyagentServerSnapshot.onmyagentServerUrl,
+      onmyagentServerSnapshot.onmyagentServerBaseUrl || onmyagentServerSnapshot.onmyagentServerUrl,
     pid: onmyagentServerSnapshot.onmyagentServerHostInfo?.pid ?? null,
     port: onmyagentServerSnapshot.onmyagentServerHostInfo?.port ?? null,
   });
@@ -836,8 +805,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     busy,
     onmyagentServerStatus: onmyagentServerSnapshot.onmyagentServerStatus,
     onmyagentServerUrl: onmyagentServerSnapshot.onmyagentServerUrl,
-    onmyagentServerClient:
-      onmyagentClient ?? onmyagentServerSnapshot.onmyagentServerClient,
+    onmyagentServerClient: onmyagentClient ?? onmyagentServerSnapshot.onmyagentServerClient,
     onmyagentReconnectBusy: onmyagentServerSnapshot.onmyagentReconnectBusy,
     reconnectOnMyAgentServer: handleReconnectMessagingServer,
     restartMessagingWorker: handleRestartMessagingWorker,
@@ -956,9 +924,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
         onSelectWorkspace={handleSelectSettingsWorkspace}
         onOpenCreateWorkspace={handleOpenCreateWorkspace}
         headerStatus={routeOnMyAgentStatus}
-        busyHint={
-          loading && !shellInteractive ? t("system.load_settings_route") : busyLabel
-        }
+        busyHint={loading && !shellInteractive ? t("system.load_settings_route") : busyLabel}
         onClose={handleCloseSettings}
         error={routeError ?? notFoundRouteError}
         errorSlot={
@@ -1040,9 +1006,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
             }
           } catch (error) {
             setProviderActionError(
-              userErrorFromRaw(
-                error instanceof Error ? error.message : String(error),
-              ),
+              userErrorFromRaw(error instanceof Error ? error.message : String(error)),
             );
           } finally {
             setProviderSyncBusy(false);

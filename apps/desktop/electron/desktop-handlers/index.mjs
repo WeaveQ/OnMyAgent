@@ -6,6 +6,9 @@ import { HANDLER_COMMAND_NAMES as runtimeCommands, createRuntimeDomainHandlers }
 import { HANDLER_COMMAND_NAMES as opencodeCommands, createOpencodeDomainHandlers } from "./opencode.mjs";
 import { HANDLER_COMMAND_NAMES as skillsCommands, createSkillsDomainHandlers } from "./skills.mjs";
 import { HANDLER_COMMAND_NAMES as systemCommands, createSystemDomainHandlers } from "./system.mjs";
+import { HANDLER_COMMAND_NAMES as knowledgeCommands, createKnowledgeDomainHandlers } from "./knowledge.mjs";
+import { HANDLER_COMMAND_NAMES as companyCommands, createCompanyDomainHandlers } from "./company.mjs";
+import { HANDLER_COMMAND_NAMES as computerUseCommands, createComputerUseDomainHandlers } from "./computer-use.mjs";
 import { HANDLER_COMMAND_NAMES as managedToolsCommands, createManagedToolsDomainHandlers } from "./managed-tools.mjs";
 import { HANDLER_COMMAND_NAMES as taskOrchestratorCommands, createTaskOrchestratorDomainHandlers } from "./task-orchestrator.mjs";
 
@@ -18,6 +21,9 @@ export {
   createOpencodeDomainHandlers,
   createSkillsDomainHandlers,
   createSystemDomainHandlers,
+  createKnowledgeDomainHandlers,
+  createCompanyDomainHandlers,
+  createComputerUseDomainHandlers,
   createManagedToolsDomainHandlers,
   createTaskOrchestratorDomainHandlers,
 };
@@ -36,6 +42,9 @@ export {
 export const DESKTOP_HANDLER_COMMANDS = Object.freeze([
   ...workspaceCommands,
   ...systemCommands,
+  ...knowledgeCommands,
+  ...companyCommands,
+  ...computerUseCommands,
   ...localAgentsCommands,
   ...messagingCommands,
   ...agentManagementCommands,
@@ -73,6 +82,9 @@ export function createAllDesktopDomainHandlers(deps) {
   return mergeHandlers(
     createWorkspaceDomainHandlers(deps),
     createSystemDomainHandlers(deps),
+    createKnowledgeDomainHandlers(deps),
+    createCompanyDomainHandlers(deps),
+    createComputerUseDomainHandlers(deps),
     createLocalAgentsDomainHandlers(deps),
     createMessagingDomainHandlers(deps),
     createAgentManagementDomainHandlers(deps),

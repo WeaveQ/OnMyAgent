@@ -25,13 +25,12 @@ src/react-app/
 │   ├── artifacts/             Markdown, Office preview, open-target and artifact contracts
 │   ├── conversation/          Dual-runtime timeline / item VM (OpenCode + Personal → one UI shape)
 │   ├── layout/                Session content-column / transcript layout contracts (pure helpers)
-│   ├── model-selection/       Shared model selection container + hidden-model state
+│   ├── model-selection/       Shared model picker modal + select container + hidden-model state
 │   └── session-identity/      Session/workspace identity persistence shared by domains
 ├── design-system/             Product composites (ConfirmModal, SelectMenu, LabeledInput, …)
 └── domains/                   Feature-scoped code, one folder per product domain
     ├── session/               Live conversation runtime (transcript, composer, sync, goal)
-    │   ├── chat/              Session host pages + light panels (personal host re-exports)
-    │   ├── knowledge/         Local Markdown vault (rail page + CodeMirror editor)
+    │   ├── chat/               Session host pages + light panels (personal host re-exports)
     │   ├── surface/           Transcript, composer, plan-goal helpers, markdown
     │   ├── sync/              Session state plumbing
     │   ├── components/        Session-local UI (permission modal, status bar, side-panel pages, …)
@@ -47,6 +46,7 @@ src/react-app/
     ├── workspace/             Create + share + rename + workspace files
     ├── settings/              Settings shell + tab bodies under pages/ (incl. global Updates,
     │                            `state/ai-providers-controller.ts` for AI tab load/merge UX)
+    ├── knowledge/             Local Markdown vault (rail page + CodeMirror editor)
     ├── connections/           MCP + provider auth (canonical owner);
     │                            `merge-connected-providers.ts` shared inventory merge
     ├── cloud/                 Den auth + restrictions + org onboarding
@@ -91,6 +91,9 @@ Domain ownership gives every feature one obvious home.
 - `plugins/` owns skills catalog and plugins/connectors pages.
 - `workspace/` owns every workspace-modal flow and workspace files page.
 - `settings/` owns settings state, shell, and tab bodies under `pages/`.
+- `knowledge/` owns the local Markdown vault rail page and editor. Session hosts
+  it through the public barrel (open-rail via `subscribeOpenKnowledgeNote` /
+  `openKnowledgeNoteInRail`). Knowledge must not import session.
 - `connections/` owns MCP and provider auth UI (**canonical**).
 - `cloud/` owns organization and Den authentication flows.
 - `shell-feedback/` owns reload banners, status toasts, and top-right notification chrome.
@@ -270,6 +273,10 @@ Summary for implementers:
 
 - **Routes** (`shell/*-route.tsx`): orchestration only — URL, panel switch, context wiring.
   No plan-text parsing, no large presentational trees.
+- **Session hub freeze**: new product features must not land in
+  `domains/session/knowledge`, `domains/session/browser`, or `domains/session/usage`.
+  Knowledge UI extracts to `domains/knowledge`. Personal usage extracts to
+  `domains/settings/usage`. Browser stays frozen until a named later extract.
 - **New modules**: prefer ≤400 lines. Stock god files shrink by extraction, not rewrite.
 - **UI primitives**: `components/ui/*` atoms + `design-system/*` composites; shell chrome contracts in `DESIGN.md` § 4i.
 - Prefer `@/` imports over deep `../../../` chains when adding new files.

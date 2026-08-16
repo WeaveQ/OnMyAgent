@@ -27,18 +27,12 @@ import {
   type CompletedRunEntry,
   type DayGroupedRuns,
 } from "./automation-list-model";
-import {
-  relativeRunTime,
-  scheduleLabel,
-} from "./automation-form-model";
+import { relativeRunTime, scheduleLabel } from "./automation-form-model";
 import { RunningAutomationRow } from "./automation-page-sections";
 
 export type CompletedRun = CompletedRunEntry<OnMyAgentAutomationTaskItem>;
 
-function AutomationTaskStatusBadge(props: {
-  enabled: boolean;
-  running?: boolean;
-}) {
+function AutomationTaskStatusBadge(props: { enabled: boolean; running?: boolean }) {
   // Running: a run is in progress for this task.
   if (props.running) {
     return (
@@ -165,11 +159,13 @@ export function ScheduledAutomationRow(props: {
       <button
         type="button"
         onClick={() => props.onEdit(props.item)}
-        className="mt-2 block w-full min-w-0 rounded-md text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+        className="mt-2 block w-full min-w-0 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-focus focus-visible:ring-offset-2"
       >
         <div className="truncate text-sm font-semibold text-dls-text">{props.item.title}</div>
         {promptPreview ? (
-          <div className="mt-1 line-clamp-2 text-xs leading-5 text-dls-secondary">{promptPreview}</div>
+          <div className="mt-1 line-clamp-2 text-xs leading-5 text-dls-secondary">
+            {promptPreview}
+          </div>
         ) : null}
       </button>
       <div className="mt-3">
@@ -213,7 +209,7 @@ export function CompletedAutomationRow(props: {
         onClick={() => {
           if (run.sessionId) props.onOpenSession(run.sessionId);
         }}
-        className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm text-dls-text focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-default"
+        className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm text-dls-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-focus focus-visible:ring-offset-2 disabled:cursor-default"
         title={
           failureMessage ||
           (canOpenSession
@@ -235,9 +231,7 @@ export function CompletedAutomationRow(props: {
           ) : (
             <CircleAlert
               className={
-                skipped
-                  ? "size-4 text-dls-status-warning-fg"
-                  : "size-4 text-dls-status-danger-fg"
+                skipped ? "size-4 text-dls-status-warning-fg" : "size-4 text-dls-status-danger-fg"
               }
               aria-hidden
             />
@@ -362,10 +356,7 @@ export function AutomationTasksListBody(props: {
           tone="muted"
           className="flex flex-col items-center justify-center gap-0 text-sm"
         >
-          <EmptyStateIllustration
-            src={AUTOMATION_EMPTY_STATE_ASSET}
-            size="compact"
-          />
+          <EmptyStateIllustration src={AUTOMATION_EMPTY_STATE_ASSET} size="compact" />
           <p className="text-sm leading-5 text-dls-secondary">
             {t("automation.empty_tasks_title")}
           </p>
@@ -440,13 +431,8 @@ export function AutomationRunsListBody(props: {
           tone="muted"
           className="flex flex-col items-center justify-center gap-0 text-sm"
         >
-          <EmptyStateIllustration
-            src={AUTOMATION_EMPTY_STATE_ASSET}
-            size="compact"
-          />
-          <p className="text-sm leading-5 text-dls-secondary">
-            {t("automation.empty_runs_title")}
-          </p>
+          <EmptyStateIllustration src={AUTOMATION_EMPTY_STATE_ASSET} size="compact" />
+          <p className="text-sm leading-5 text-dls-secondary">{t("automation.empty_runs_title")}</p>
         </EmptyStateBox>
       ) : null}
     </div>

@@ -10,11 +10,7 @@ type KnowledgeVaultPropertiesProps = {
   readOnly?: boolean;
 };
 
-function PropertyRow(props: {
-  icon: React.ReactNode;
-  label: string;
-  children: React.ReactNode;
-}) {
+function PropertyRow(props: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[108px_minmax(0,1fr)] items-start gap-3 py-1">
       <div className="flex items-center gap-2 pt-0.5 text-sm text-dls-secondary">

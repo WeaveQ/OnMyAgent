@@ -1,12 +1,5 @@
 /** @jsxImportSource react */
-import {
-  useEffect,
-  useEffectEvent,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
 
@@ -78,16 +71,14 @@ function computePanelRect(
 
   let placement: "bottom" | "top" = preferred === "top" ? "top" : "bottom";
   if (preferred === "auto") {
-    placement =
-      spaceBelow < 160 && spaceAbove > spaceBelow ? "top" : "bottom";
+    placement = spaceBelow < 160 && spaceAbove > spaceBelow ? "top" : "bottom";
   } else if (preferred === "bottom" && spaceBelow < 120 && spaceAbove > spaceBelow) {
     placement = "top";
   } else if (preferred === "top" && spaceAbove < 120 && spaceBelow > spaceAbove) {
     placement = "bottom";
   }
 
-  const available =
-    placement === "bottom" ? spaceBelow - PANEL_GAP : spaceAbove - PANEL_GAP;
+  const available = placement === "bottom" ? spaceBelow - PANEL_GAP : spaceAbove - PANEL_GAP;
   const maxHeight = Math.max(120, Math.min(PANEL_MAX_HEIGHT, available));
 
   let left = trigger.right - width;
@@ -124,11 +115,8 @@ export function SelectMenu(props: SelectMenuProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const size = props.size ?? "default";
   const placement = props.placement ?? "auto";
-  const hasDescriptions = props.options.some((opt) =>
-    Boolean(opt.description?.trim()),
-  );
-  const panelMinWidth =
-    props.panelMinWidth ?? (hasDescriptions ? 280 : 140);
+  const hasDescriptions = props.options.some((opt) => Boolean(opt.description?.trim()));
+  const panelMinWidth = props.panelMinWidth ?? (hasDescriptions ? 280 : 140);
 
   const displayLabel = useMemo(() => {
     const match = props.options.find((o) => o.value === props.value);
@@ -173,8 +161,7 @@ export function SelectMenu(props: SelectMenuProps) {
       close();
     };
     window.addEventListener("pointerdown", onPointerDown, true);
-    return () =>
-      window.removeEventListener("pointerdown", onPointerDown, true);
+    return () => window.removeEventListener("pointerdown", onPointerDown, true);
   }, [open]);
 
   useEffect(() => {
@@ -197,7 +184,7 @@ export function SelectMenu(props: SelectMenuProps) {
             role="listbox"
             // Solid opaque surface + isolation so glass/backdrop parents never
             // show through option rows (avoids "穿透" of underlying controls).
-            className="fixed z-[1000] isolate overflow-y-auto overflow-x-hidden rounded-xl border border-dls-border py-1 shadow-lg"
+            className="fixed z-[1000] isolate overflow-y-auto overflow-x-hidden rounded-xl border border-dls-border py-1 "
             style={{
               top: panelRect.top ?? "auto",
               bottom: panelRect.bottom ?? "auto",
@@ -247,11 +234,7 @@ export function SelectMenu(props: SelectMenuProps) {
                     ) : null}
                   </span>
                   {selected ? (
-                    <Check
-                      size={16}
-                      className="mt-0.5 shrink-0 text-dls-accent"
-                      aria-hidden
-                    />
+                    <Check size={16} className="mt-0.5 shrink-0 text-dls-accent" aria-hidden />
                   ) : (
                     <span className="mt-0.5 size-4 shrink-0" aria-hidden />
                   )}
@@ -264,10 +247,7 @@ export function SelectMenu(props: SelectMenuProps) {
       : null;
 
   return (
-    <div
-      ref={rootRef}
-      className={cn("relative inline-flex min-w-0", props.className ?? "w-full")}
-    >
+    <div ref={rootRef} className={cn("relative inline-flex min-w-0", props.className ?? "w-full")}>
       <Button
         type="button"
         id={props.id}

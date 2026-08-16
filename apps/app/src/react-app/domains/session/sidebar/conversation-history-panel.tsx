@@ -1,11 +1,7 @@
 /** @jsxImportSource react */
 import { useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  History,
-  MessageSquareText,
-  PanelRightClose,
-} from "lucide-react";
+import { History, MessageSquareText, PanelRightClose } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { EmptyStateBox } from "@/components/ui/notice-box";
@@ -41,25 +37,15 @@ export function extractUserHistoryEntries(
   const out: ConversationHistoryEntry[] = [];
   for (const message of messages) {
     if (message.info.role !== "user") continue;
-    const text = message.parts
-      .map(partText)
-      .filter(Boolean)
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
+    const text = message.parts.map(partText).filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
     if (!text) continue;
-    const completed =
-      "completed" in message.info.time ? message.info.time.completed : null;
+    const completed = "completed" in message.info.time ? message.info.time.completed : null;
     const created = message.info.time?.created ?? null;
     out.push({
       id: message.info.id,
       text,
       createdAt:
-        typeof completed === "number"
-          ? completed
-          : typeof created === "number"
-            ? created
-            : null,
+        typeof completed === "number" ? completed : typeof created === "number" ? created : null,
     });
   }
   return out.reverse();
@@ -99,7 +85,7 @@ function HighlightedText(props: { text: string; query: string }) {
         seg.match ? (
           <mark
             key={`${index}-${seg.text}`}
-            className="rounded-sm bg-emerald-200/90 px-0.5 text-dls-text dark:bg-emerald-500/35"
+            className="rounded-sm bg-dls-status-success-soft px-0.5 text-dls-text"
           >
             {seg.text}
           </mark>
@@ -127,11 +113,7 @@ export function ConversationHistoryPanel(props: {
   const activeMatchIndex = props.activeMatchIndex ?? 0;
 
   const snapshotQuery = useQuery({
-    queryKey: [
-      "conversation-history-snapshot",
-      props.workspaceId,
-      props.sessionId,
-    ],
+    queryKey: ["conversation-history-snapshot", props.workspaceId, props.sessionId],
     enabled: Boolean(props.client && props.workspaceId && props.sessionId),
     queryFn: async () => {
       const client = props.client;
@@ -182,9 +164,7 @@ export function ConversationHistoryPanel(props: {
           <div className="truncate text-sm font-medium text-dls-text">
             {t("session.conversation_history_title")}
             {entries.length > 0 ? (
-              <span className="ms-1 font-normal text-dls-secondary">
-                ({entries.length})
-              </span>
+              <span className="ms-1 font-normal text-dls-secondary">({entries.length})</span>
             ) : null}
           </div>
         </div>
@@ -233,8 +213,7 @@ export function ConversationHistoryPanel(props: {
             filtered.map((entry, index) => {
               const timeLabel = formatConversationTime(entry.createdAt);
               const isActive =
-                searchQuery.length > 0 &&
-                index === activeMatchIndex % filtered.length;
+                searchQuery.length > 0 && index === activeMatchIndex % filtered.length;
               return (
                 <button
                   key={entry.id}
@@ -263,9 +242,7 @@ export function ConversationHistoryPanel(props: {
                     </span>
                   </div>
                   {timeLabel ? (
-                    <span className="ps-5 text-xs text-dls-secondary">
-                      {timeLabel}
-                    </span>
+                    <span className="ps-5 text-xs text-dls-secondary">{timeLabel}</span>
                   ) : null}
                 </button>
               );

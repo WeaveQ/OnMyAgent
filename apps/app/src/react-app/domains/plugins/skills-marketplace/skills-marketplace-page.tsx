@@ -21,11 +21,7 @@ import type { LocalSkillCard } from "@/app/lib/desktop";
 import { desktopBridge } from "@/app/lib/desktop";
 import type { OnMyAgentServerClient } from "@/app/lib/onmyagent-server";
 import { isDesktopRuntime } from "@/app/utils";
-import {
-  FilterChip,
-  NavTabButton,
-  SegmentedTabGroup,
-} from "@/components/ui/action-row";
+import { FilterChip, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -52,14 +48,8 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
-import {
-  readPinnedSkillIds,
-  sortWithPinnedFirst,
-  writePinnedSkillIds,
-} from "../pinned-skills";
-import {
-  SKILL_MARKETPLACE_CATEGORIES,
-} from "./categories";
+import { readPinnedSkillIds, sortWithPinnedFirst, writePinnedSkillIds } from "../pinned-skills";
+import { SKILL_MARKETPLACE_CATEGORIES } from "./categories";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 
 import { BUNDLED_SKILL_ICON_URLS } from "./bundled-skill-assets";
@@ -74,27 +64,15 @@ const SKILL_CARD_GRID = MARKETPLACE_CARD_GRID;
 /** Installed/builtin mine list — same grid; cards hug content (no stretched empty belly). */
 const SKILL_INSTALLED_CARD_GRID = MARKETPLACE_CARD_GRID;
 
-const OPC_AGGREGATED_CATEGORY_IDS = new Set([
-  "productivity",
-  "office",
-]);
+const OPC_AGGREGATED_CATEGORY_IDS = new Set(["productivity", "office"]);
 
 function skillFallbackInitial(name: string): string {
   return name.trim().slice(0, 1).toUpperCase() || "S";
 }
 
-function SkillIcon(props: {
-  iconUrl?: string | null;
-  displayName: string;
-}) {
+function SkillIcon(props: { iconUrl?: string | null; displayName: string }) {
   if (props.iconUrl) {
-    return (
-      <img
-        src={props.iconUrl}
-        alt=""
-        className="size-9 shrink-0 rounded-md object-cover"
-      />
-    );
+    return <img src={props.iconUrl} alt="" className="size-9 shrink-0 rounded-md object-cover" />;
   }
   return (
     <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-dls-surface-muted text-sm font-semibold text-dls-secondary">
@@ -121,10 +99,8 @@ function skillMatchesCategory(skill: SkillMarketplaceEntry, categoryId: string):
   if (skill.categoryId === categoryId || skill.categoryIds.includes(categoryId)) return true;
   if (
     categoryId === "opc" &&
-    (
-      OPC_AGGREGATED_CATEGORY_IDS.has(skill.categoryId) ||
-      skill.categoryIds.some((id) => OPC_AGGREGATED_CATEGORY_IDS.has(id))
-    )
+    (OPC_AGGREGATED_CATEGORY_IDS.has(skill.categoryId) ||
+      skill.categoryIds.some((id) => OPC_AGGREGATED_CATEGORY_IDS.has(id)))
   ) {
     return true;
   }
@@ -156,9 +132,7 @@ function truncateSkillChip(label: string): string {
  * Avoid searchLabel bilingual strings like "内容创作 content creation".
  */
 function skillCardChips(skill: SkillMarketplaceEntry): string[] {
-  const categoryChips = skill.categoryIds
-    .map(skillCategoryDisplayLabel)
-    .filter(Boolean);
+  const categoryChips = skill.categoryIds.map(skillCategoryDisplayLabel).filter(Boolean);
   return Array.from(new Set([...categoryChips, ...skill.tags].filter(Boolean)))
     .slice(0, SKILL_CARD_CHIP_MAX)
     .map(truncateSkillChip)
@@ -171,18 +145,13 @@ function skillCardChips(skill: SkillMarketplaceEntry): string[] {
  */
 function isProfileSkillsPath(path: string): boolean {
   const normalized = path.replaceAll("\\", "/");
-  return /\/\.onmyagent\/profiles\/[^/]+\/config\/skills(?:\/|$)/.test(
-    normalized,
-  );
+  return /\/\.onmyagent\/profiles\/[^/]+\/config\/skills(?:\/|$)/.test(normalized);
 }
 
 /** Packaged bundled-skills tree is install source only — never a list bucket. */
 function isBundledSkillsPath(path: string): boolean {
   const normalized = path.replaceAll("\\", "/");
-  return (
-    normalized.includes("/bundled-skills/") ||
-    normalized.endsWith("/bundled-skills")
-  );
+  return normalized.includes("/bundled-skills/") || normalized.endsWith("/bundled-skills");
 }
 
 /**
@@ -200,11 +169,7 @@ function isOnmyagentSkillPath(path: string): boolean {
 
 /** Prefer Chinese skill titles when available. */
 function skillDisplayName(skill: LocalSkillCard): string {
-  return (
-    skill.displayNameZh?.trim() ||
-    skill.displayNameEn?.trim() ||
-    skill.name
-  );
+  return skill.displayNameZh?.trim() || skill.displayNameEn?.trim() || skill.name;
 }
 
 /** Drop leaked YAML block markers and empty stubs from skill descriptions. */
@@ -219,9 +184,7 @@ function isUsableSkillDescription(value: string | undefined | null): boolean {
   return true;
 }
 
-function firstUsableSkillDescription(
-  ...candidates: Array<string | undefined | null>
-): string {
+function firstUsableSkillDescription(...candidates: Array<string | undefined | null>): string {
   for (const candidate of candidates) {
     if (isUsableSkillDescription(candidate)) return String(candidate).trim();
   }
@@ -273,24 +236,14 @@ function mergeLocalSkillWithCatalog(
   );
   return {
     ...skill,
-    displayNameZh:
-      skill.displayNameZh?.trim() ||
-      catalog.displayNameZh ||
-      skill.displayNameZh,
-    displayNameEn:
-      skill.displayNameEn?.trim() ||
-      catalog.displayNameEn ||
-      skill.displayNameEn,
+    displayNameZh: skill.displayNameZh?.trim() || catalog.displayNameZh || skill.displayNameZh,
+    displayNameEn: skill.displayNameEn?.trim() || catalog.displayNameEn || skill.displayNameEn,
     description,
     descriptionZh:
-      firstUsableSkillDescription(skill.descriptionZh, catalog.description) ||
-      skill.descriptionZh,
+      firstUsableSkillDescription(skill.descriptionZh, catalog.description) || skill.descriptionZh,
     descriptionEn:
-      firstUsableSkillDescription(
-        skill.descriptionEn,
-        skill.description,
-        catalog.description,
-      ) || skill.descriptionEn,
+      firstUsableSkillDescription(skill.descriptionEn, skill.description, catalog.description) ||
+      skill.descriptionEn,
   };
 }
 
@@ -304,9 +257,7 @@ function marketplaceSkillForLocalSkill(skill: LocalSkillCard): SkillMarketplaceE
 
 function yamlScalar(markdown: string, key: string): string {
   const frontmatter = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? "";
-  const line = frontmatter
-    .split(/\r?\n/)
-    .find((item) => item.trimStart().startsWith(`${key}:`));
+  const line = frontmatter.split(/\r?\n/).find((item) => item.trimStart().startsWith(`${key}:`));
   if (!line) return "";
   return line
     .slice(line.indexOf(":") + 1)
@@ -399,10 +350,12 @@ function findSkillMarkdownFile(files: File[]): File | null {
     const normalizedName = file.name.toLowerCase();
     return normalizedName.endsWith(".md") || normalizedName.endsWith(".zip");
   });
-  return candidates.find((file) => file.name.toLowerCase() === "skill.md") ??
+  return (
+    candidates.find((file) => file.name.toLowerCase() === "skill.md") ??
     candidates.find((file) => file.webkitRelativePath.toLowerCase().endsWith("/skill.md")) ??
     candidates[0] ??
-    null;
+    null
+  );
 }
 
 function hasWebkitGetAsEntry(
@@ -450,7 +403,7 @@ async function readEntryFiles(entry: FileSystemEntry): Promise<File[]> {
 
 async function filesFromDataTransfer(dataTransfer: DataTransfer): Promise<File[]> {
   const entries = Array.from(dataTransfer.items)
-    .map((item) => hasWebkitGetAsEntry(item) ? item.webkitGetAsEntry() : null)
+    .map((item) => (hasWebkitGetAsEntry(item) ? item.webkitGetAsEntry() : null))
     .filter((entry) => entry !== null);
   if (entries.length === 0) return Array.from(dataTransfer.files);
   const nested = await Promise.all(entries.map((entry) => readEntryFiles(entry)));
@@ -479,43 +432,39 @@ function SkillCard(props: {
       onClick={() => props.onOpen(props.skill)}
       action={
         props.installed ? (
-              <span
-                className="inline-flex size-6 shrink-0 items-center justify-center rounded-lg bg-dls-surface-muted text-dls-secondary"
-                aria-label={t("skills_marketplace.installed")}
-                title={t("skills_marketplace.installed")}
-              >
-                <Check className="size-3.5" />
-              </span>
+          <span
+            className="inline-flex size-6 shrink-0 items-center justify-center rounded-lg bg-dls-surface-muted text-dls-secondary"
+            aria-label={t("skills_marketplace.installed")}
+            title={t("skills_marketplace.installed")}
+          >
+            <Check className="size-3.5" />
+          </span>
         ) : (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      disabled={props.installing}
-                      className="shrink-0 bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
-                      aria-label={t("skills_marketplace.install_skill", {
-                        name: props.skill.displayName,
-                      })}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        props.onInstall(props.skill);
-                      }}
-                    >
-                      {props.installing ? (
-                        <LoadingSpinner size="sm" />
-                      ) : (
-                        <Plus className="size-4" />
-                      )}
-                    </Button>
-                  }
-                />
-                <TooltipContent side="top">
-                  <span>{t("skills_marketplace.install")}</span>
-                </TooltipContent>
-              </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  disabled={props.installing}
+                  className="shrink-0 bg-dls-surface-muted text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
+                  aria-label={t("skills_marketplace.install_skill", {
+                    name: props.skill.displayName,
+                  })}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    props.onInstall(props.skill);
+                  }}
+                >
+                  {props.installing ? <LoadingSpinner size="sm" /> : <Plus className="size-4" />}
+                </Button>
+              }
+            />
+            <TooltipContent side="top">
+              <span>{t("skills_marketplace.install")}</span>
+            </TooltipContent>
+          </Tooltip>
         )
       }
     />
@@ -549,8 +498,8 @@ function writeSkillEnabledMap(map: Record<string, boolean>) {
 
 /**
  * Installed skill tile — reference layout:
- * [avatar] name  [类型徽标]     ···  pin  sm-switch
- *          description (2 lines)
+ * [avatar] name [类型徽标] ··· pin sm-switch
+ * description (2 lines)
  * Menu: 去对话 / 编辑 / 卸载
  */
 function InstalledSkillCard(props: {
@@ -601,8 +550,8 @@ function InstalledSkillCard(props: {
         // Enabled: surface rest. Hover/active uses list-selected so dark theme lifts
         // clearly off black canvas (#2C → #45); list-hover is nearly invisible on dark.
         props.enabled
-          ? "bg-dls-surface hover:border-dls-border-strong hover:bg-dls-list-selected hover:shadow-sm dark:hover:border-dls-border-strong dark:hover:bg-dls-list-selected dark:hover:shadow-none"
-          : "bg-dls-surface-muted/40 hover:border-dls-border hover:bg-dls-list-selected/80 hover:shadow-sm dark:hover:bg-dls-list-selected/70 dark:hover:shadow-none",
+          ? "bg-dls-surface hover:border-dls-border-strong hover:bg-dls-list-selected dark:hover:border-dls-border-strong dark:hover:bg-dls-list-selected dark:hover:shadow-none"
+          : "bg-dls-surface-muted/40 hover:border-dls-border hover:bg-dls-list-selected/80 dark:hover:bg-dls-list-selected/70 dark:hover:shadow-none",
         cardInteractive && "cursor-pointer",
         "focus-visible:border-dls-border-strong focus-visible:bg-dls-list-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
         "mac:titlebar-no-drag",
@@ -621,10 +570,10 @@ function InstalledSkillCard(props: {
       }
     >
       {/*
-        Layout: icon | [ title row (name…actions) ]
-                       [ description 2 lines — full width under the switch ]
-        Description must sit under the action cluster so the right side is not hollow.
-      */}
+ Layout: icon | [ title row (name…actions) ]
+ [ description 2 lines — full width under the switch ]
+ Description must sit under the action cluster so the right side is not hollow.
+ */}
       <div className="flex min-w-0 items-start gap-2.5">
         <div
           className={cn(
@@ -633,10 +582,7 @@ function InstalledSkillCard(props: {
           )}
         >
           <SkillIcon
-            iconUrl={resolveInstalledSkillIconUrl(
-              props.skill,
-              props.marketplaceSkill,
-            )}
+            iconUrl={resolveInstalledSkillIconUrl(props.skill, props.marketplaceSkill)}
             displayName={name}
           />
         </div>
@@ -659,9 +605,7 @@ function InstalledSkillCard(props: {
               <StatusBadge
                 size="tiny"
                 shape="soft"
-                tone={
-                  props.originBuiltin && props.enabled ? "accent" : "neutral"
-                }
+                tone={props.originBuiltin && props.enabled ? "accent" : "neutral"}
                 className="shrink-0"
               >
                 {typeLabel}
@@ -754,11 +698,7 @@ function InstalledSkillCard(props: {
                             ? "text-dls-accent hover:text-dls-accent"
                             : "text-dls-secondary hover:text-dls-text",
                         )}
-                        aria-label={
-                          props.pinned
-                            ? t("store.skill_unpin")
-                            : t("store.skill_pin")
-                        }
+                        aria-label={props.pinned ? t("store.skill_unpin") : t("store.skill_pin")}
                         aria-pressed={props.pinned}
                         onClick={(event) => {
                           event.stopPropagation();
@@ -766,20 +706,13 @@ function InstalledSkillCard(props: {
                         }}
                       >
                         <Pin
-                          className={cn(
-                            "size-3.5 -rotate-45",
-                            props.pinned && "fill-current",
-                          )}
+                          className={cn("size-3.5 -rotate-45", props.pinned && "fill-current")}
                         />
                       </Button>
                     }
                   />
                   <TooltipContent side="top">
-                    <span>
-                      {props.pinned
-                        ? t("store.skill_unpin")
-                        : t("store.skill_pin")}
-                    </span>
+                    <span>{props.pinned ? t("store.skill_unpin") : t("store.skill_pin")}</span>
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -792,9 +725,7 @@ function InstalledSkillCard(props: {
                   size="sm"
                   checked={props.enabled}
                   aria-label={t("skills_marketplace.toggle_enabled", { name })}
-                  onCheckedChange={(next) =>
-                    props.onEnabledChange(props.skill, next)
-                  }
+                  onCheckedChange={(next) => props.onEnabledChange(props.skill, next)}
                 />
               </div>
             </div>
@@ -827,9 +758,7 @@ function MarketplaceSkillDetailDialog(props: {
   const open = Boolean(skill);
   // Prefer i18n category labels over bilingual searchLabel used for filter haystacks.
   const categories = skill
-    ? Array.from(
-        new Set(skill.categoryIds.map(skillCategoryDisplayLabel).filter(Boolean)),
-      )
+    ? Array.from(new Set(skill.categoryIds.map(skillCategoryDisplayLabel).filter(Boolean)))
     : [];
   const tags = skill?.tags ?? [];
 
@@ -855,9 +784,7 @@ function MarketplaceSkillDetailDialog(props: {
                 <h2 className="text-base font-medium leading-6 text-dls-text">
                   {skill.displayName}
                 </h2>
-                <p className="mt-1 text-sm leading-6 text-dls-secondary">
-                  {skill.description}
-                </p>
+                <p className="mt-1 text-sm leading-6 text-dls-secondary">{skill.description}</p>
               </div>
             </header>
 
@@ -971,7 +898,9 @@ function ImportSkillDialog(props: {
           }}
           className={cn(
             "flex min-h-32 w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-dls-border bg-dls-background text-center transition-colors mac:titlebar-no-drag",
-            dragActive ? "border-dls-accent bg-dls-hover" : "hover:border-dls-border hover:bg-dls-hover",
+            dragActive
+              ? "border-dls-accent bg-dls-hover"
+              : "hover:border-dls-border hover:bg-dls-hover",
             props.importing && "cursor-wait opacity-70",
           )}
         >
@@ -984,7 +913,9 @@ function ImportSkillDialog(props: {
           <p className="text-xs leading-5 text-dls-status-danger-fg">{props.error}</p>
         ) : null}
         <div className="space-y-2 text-xs leading-5 text-dls-secondary">
-          <div className="font-medium text-dls-text">{t("skills_marketplace.import_requirements_title")}</div>
+          <div className="font-medium text-dls-text">
+            {t("skills_marketplace.import_requirements_title")}
+          </div>
           <ul className="list-disc space-y-1 pl-5">
             <li>{t("skills_marketplace.import_requirement_skill_md")}</li>
             <li>{t("skills_marketplace.import_requirement_frontmatter")}</li>
@@ -1047,15 +978,10 @@ export function SkillsMarketplacePage(props: {
 }) {
   const [categoryId, setCategoryId] = useState("all");
   const [installedSkills, setInstalledSkills] = useState<LocalSkillCard[]>([]);
-  const [installedSkillNames, setInstalledSkillNames] = useState<Set<string>>(
-    () => new Set(),
-  );
+  const [installedSkillNames, setInstalledSkillNames] = useState<Set<string>>(() => new Set());
   /** Product bundled package names (catalog) — used to split built-in vs installed. */
-  const [builtinPackageNames, setBuiltinPackageNames] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const [installedSubTab, setInstalledSubTab] =
-    useState<InstalledSkillsSubTab>("installed");
+  const [builtinPackageNames, setBuiltinPackageNames] = useState<Set<string>>(() => new Set());
+  const [installedSubTab, setInstalledSubTab] = useState<InstalledSkillsSubTab>("installed");
   const [companySkills, setCompanySkills] = useState<CompanyCatalogSkill[]>([]);
   const [companyConnected, setCompanyConnected] = useState(false);
   const [companyCatalogHint, setCompanyCatalogHint] = useState<string | null>(null);
@@ -1065,9 +991,7 @@ export function SkillsMarketplacePage(props: {
     readSkillEnabledMap(),
   );
   /** Shared with composer + menu pins (`skill:<name>`). */
-  const [pinnedSkillIds, setPinnedSkillIds] = useState<string[]>(() =>
-    readPinnedSkillIds(),
-  );
+  const [pinnedSkillIds, setPinnedSkillIds] = useState<string[]>(() => readPinnedSkillIds());
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [detailSkill, setDetailSkill] = useState<SkillMarketplaceEntry | null>(null);
@@ -1082,10 +1006,7 @@ export function SkillsMarketplacePage(props: {
       .then(([response, catalog]) => {
         if (cancelled) return;
         const catalogByName = new Map(
-          (catalog?.skills ?? []).map((entry) => [
-            entry.skillName || entry.packageName,
-            entry,
-          ]),
+          (catalog?.skills ?? []).map((entry) => [entry.skillName || entry.packageName, entry]),
         );
         const names = new Set<string>();
         const skills: LocalSkillCard[] = [];
@@ -1100,20 +1021,12 @@ export function SkillsMarketplacePage(props: {
           for (const entry of ordered) {
             if (isBundledSkillsPath(entry.path)) continue;
             if (seen.has(entry.name)) continue;
-            if (
-              !isProfileSkillsPath(entry.path) &&
-              !isLocalDiscoveredSkillPath(entry.path)
-            ) {
+            if (!isProfileSkillsPath(entry.path) && !isLocalDiscoveredSkillPath(entry.path)) {
               continue;
             }
             seen.add(entry.name);
             names.add(entry.name);
-            skills.push(
-              mergeLocalSkillWithCatalog(
-                entry,
-                catalogByName.get(entry.name) ?? null,
-              ),
-            );
+            skills.push(mergeLocalSkillWithCatalog(entry, catalogByName.get(entry.name) ?? null));
           }
         }
         setInstalledSkillNames(names);
@@ -1187,7 +1100,9 @@ export function SkillsMarketplacePage(props: {
         skill.categoryLabel,
         ...skill.categoryLabels,
         ...skill.tags,
-      ].join(" ").toLowerCase();
+      ]
+        .join(" ")
+        .toLowerCase();
       return text.includes(normalizedQuery);
     });
   }, [categoryId, props.query]);
@@ -1262,7 +1177,9 @@ export function SkillsMarketplacePage(props: {
       });
       props.onImportOpenChange?.(false);
     } catch (error) {
-      setImportError(error instanceof Error ? error.message : t("skills_marketplace.import_failed"));
+      setImportError(
+        error instanceof Error ? error.message : t("skills_marketplace.import_failed"),
+      );
     } finally {
       setImporting(false);
     }
@@ -1306,10 +1223,11 @@ export function SkillsMarketplacePage(props: {
       if (props.client) {
         await props.client.deleteSkill(props.workspaceId, skill.name);
       } else if (props.workspaceRoot?.trim()) {
-        const result = (await uninstallSkill(
-          props.workspaceRoot.trim(),
-          skill.name,
-        )) as { ok?: boolean; stderr?: string; stdout?: string };
+        const result = (await uninstallSkill(props.workspaceRoot.trim(), skill.name)) as {
+          ok?: boolean;
+          stderr?: string;
+          stdout?: string;
+        };
         if (result && result.ok === false) {
           throw new Error(result.stderr || result.stdout || t("skills.uninstall_failed"));
         }
@@ -1333,8 +1251,7 @@ export function SkillsMarketplacePage(props: {
     }
   };
 
-  const isLocalOriginSkill = (skill: LocalSkillCard) =>
-    isLocalDiscoveredSkillPath(skill.path);
+  const isLocalOriginSkill = (skill: LocalSkillCard) => isLocalDiscoveredSkillPath(skill.path);
 
   const { builtinInstalled, userInstalled, localDiscovered } = useMemo(() => {
     const builtin: LocalSkillCard[] = [];
@@ -1367,11 +1284,7 @@ export function SkillsMarketplacePage(props: {
     const filtered = !normalizedQuery
       ? source
       : source.filter((skill) => {
-          const text = [
-            skillDisplayName(skill),
-            skill.name,
-            skillDescription(skill),
-          ]
+          const text = [skillDisplayName(skill), skill.name, skillDescription(skill)]
             .join(" ")
             .toLowerCase();
           return text.includes(normalizedQuery);
@@ -1418,8 +1331,7 @@ export function SkillsMarketplacePage(props: {
                     id: skill.id,
                     displayName: skill.name,
                     packageName: skill.id !== skill.name ? skill.id : undefined,
-                    description:
-                      skill.description?.trim() || t("store.company_org_readonly"),
+                    description: skill.description?.trim() || t("store.company_org_readonly"),
                     chips: [t("store.company_org_badge")],
                   }}
                   ariaLabel={skill.name}
@@ -1444,15 +1356,15 @@ export function SkillsMarketplacePage(props: {
             </div>
           ) : (
             <div className="flex h-full min-h-0 flex-col items-center justify-center gap-2 px-6 text-center text-sm text-dls-secondary">
-              <p className="text-base font-medium text-dls-text">{t("store.company_skills_title")}</p>
+              <p className="text-base font-medium text-dls-text">
+                {t("store.company_skills_title")}
+              </p>
               <p>
                 {companyConnected
                   ? t("store.company_no_skills_short")
                   : (companyCatalogHint ?? t("store.company_not_connected_short"))}
               </p>
-              <p className="max-w-sm text-xs leading-5">
-                {t("store.company_open_settings_hint")}
-              </p>
+              <p className="max-w-sm text-xs leading-5">{t("store.company_open_settings_hint")}</p>
             </div>
           )}
         </div>
@@ -1484,12 +1396,8 @@ export function SkillsMarketplacePage(props: {
         />
         <MarketplaceSkillDetailDialog
           skill={detailSkill}
-          installed={
-            detailSkill ? installedSkillNames.has(detailSkill.skillName) : false
-          }
-          installing={
-            detailSkill ? installingSkillName === detailSkill.skillName : false
-          }
+          installed={detailSkill ? installedSkillNames.has(detailSkill.skillName) : false}
+          installing={detailSkill ? installingSkillName === detailSkill.skillName : false}
           onOpenChange={(open) => {
             if (!open) setDetailSkill(null);
           }}
@@ -1510,9 +1418,7 @@ export function SkillsMarketplacePage(props: {
               <span
                 className={cn(
                   "text-xs font-medium tabular-nums",
-                  installedSubTab === "installed"
-                    ? "opacity-70"
-                    : "text-dls-secondary",
+                  installedSubTab === "installed" ? "opacity-70" : "text-dls-secondary",
                 )}
               >
                 {userInstalled.length}
@@ -1530,9 +1436,7 @@ export function SkillsMarketplacePage(props: {
               <span
                 className={cn(
                   "text-xs font-medium tabular-nums",
-                  installedSubTab === "builtin"
-                    ? "opacity-70"
-                    : "text-dls-secondary",
+                  installedSubTab === "builtin" ? "opacity-70" : "text-dls-secondary",
                 )}
               >
                 {builtinInstalled.length}
@@ -1550,9 +1454,7 @@ export function SkillsMarketplacePage(props: {
               <span
                 className={cn(
                   "text-xs font-medium tabular-nums",
-                  installedSubTab === "local"
-                    ? "opacity-70"
-                    : "text-dls-secondary",
+                  installedSubTab === "local" ? "opacity-70" : "text-dls-secondary",
                 )}
               >
                 {localDiscovered.length}
@@ -1570,9 +1472,7 @@ export function SkillsMarketplacePage(props: {
               <span
                 className={cn(
                   "text-xs font-medium tabular-nums",
-                  installedSubTab === "company"
-                    ? "opacity-70"
-                    : "text-dls-secondary",
+                  installedSubTab === "company" ? "opacity-70" : "text-dls-secondary",
                 )}
               >
                 {companySkills.length}
@@ -1594,8 +1494,7 @@ export function SkillsMarketplacePage(props: {
                       skill={{
                         id: skill.id,
                         displayName: skill.name,
-                        packageName:
-                          skill.id !== skill.name ? skill.id : undefined,
+                        packageName: skill.id !== skill.name ? skill.id : undefined,
                         description: t("store.company_org_readonly_admin"),
                         chips: [t("store.company_org_badge")],
                       }}
@@ -1616,9 +1515,7 @@ export function SkillsMarketplacePage(props: {
                     ? t("store.company_no_skills_short")
                     : (companyCatalogHint ?? t("store.company_not_connected_short"))}
                 </p>
-                <p className="text-xs">
-                  {t("store.company_skills_connect_hint")}
-                </p>
+                <p className="text-xs">{t("store.company_skills_connect_hint")}</p>
               </div>
             )
           ) : filteredInstalledSkills.length > 0 ? (
@@ -1657,9 +1554,7 @@ export function SkillsMarketplacePage(props: {
                     // Card click goes to chat; detail is optional via market match
                     // only when chat is unavailable (should not block primary path).
                     onOpen={
-                      !props.onChatWithSkill && market
-                        ? () => setDetailSkill(market)
-                        : undefined
+                      !props.onChatWithSkill && market ? () => setDetailSkill(market) : undefined
                     }
                   />
                 );
@@ -1667,10 +1562,7 @@ export function SkillsMarketplacePage(props: {
             </div>
           ) : (
             <div className="flex h-full min-h-0 flex-col items-center justify-center gap-2 px-6 text-center text-sm text-dls-secondary">
-              <EmptyStateIllustration
-                src={SKILLS_EMPTY_STATE_ASSET}
-                size="compact"
-              />
+              <EmptyStateIllustration src={SKILLS_EMPTY_STATE_ASSET} size="compact" />
               {emptyForSubTab
                 ? installedSubTab === "builtin"
                   ? t("skills.mine_builtin_empty")
@@ -1700,12 +1592,8 @@ export function SkillsMarketplacePage(props: {
       />
       <MarketplaceSkillDetailDialog
         skill={detailSkill}
-        installed={
-          detailSkill ? installedSkillNames.has(detailSkill.skillName) : false
-        }
-        installing={
-          detailSkill ? installingSkillName === detailSkill.skillName : false
-        }
+        installed={detailSkill ? installedSkillNames.has(detailSkill.skillName) : false}
+        installing={detailSkill ? installingSkillName === detailSkill.skillName : false}
         onOpenChange={(open) => {
           if (!open) setDetailSkill(null);
         }}

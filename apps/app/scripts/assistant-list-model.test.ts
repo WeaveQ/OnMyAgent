@@ -436,7 +436,7 @@ describe("SpaceFolderDragList uses shared reorder helper", () => {
     const source = fs.readFileSync(
       path.join(
         import.meta.dir,
-        "../src/react-app/domains/session/sidebar/assistant-conversation-sections.tsx",
+        "../src/react-app/domains/session/sidebar/assistant-conversation-rows.tsx",
       ),
       "utf8",
     );

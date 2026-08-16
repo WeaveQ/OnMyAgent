@@ -32,18 +32,6 @@ export type DesktopCommandName =
   | "prepareFreshRuntime"
   | "appBuildInfo"
   | "getUiControlBridgeInfo"
-  | "getComputerUseMcpCommand"
-  | "checkComputerUsePermissions"
-  | "setComputerUseMcpEnabled"
-  | "setComputerUseSkysightEnabled"
-  | "setComputerUseSkysightPaused"
-  | "updateComputerUseSkysightExclusion"
-  | "clearComputerUseSkysightData"
-  | "captureComputerUseAppshot"
-  | "revokeComputerUseAppAuthorization"
-  | "clearComputerUseAppAuthorizations"
-  | "openComputerUsePermissionSetup"
-  | "openComputerUsePermissionSettings"
   | "checkSystemPermissions"
   | "openSystemPermissionSettings"
   | "getLaunchAtLogin"
@@ -107,6 +95,18 @@ export type DesktopCommandName =
   | "companyCatalog"
   | "companyHealth"
   | "companyEvaluateAction"
+  | "getComputerUseMcpCommand"
+  | "checkComputerUsePermissions"
+  | "setComputerUseMcpEnabled"
+  | "setComputerUseSkysightEnabled"
+  | "setComputerUseSkysightPaused"
+  | "updateComputerUseSkysightExclusion"
+  | "clearComputerUseSkysightData"
+  | "captureComputerUseAppshot"
+  | "revokeComputerUseAppAuthorization"
+  | "clearComputerUseAppAuthorizations"
+  | "openComputerUsePermissionSetup"
+  | "openComputerUsePermissionSettings"
   | "personalLocalAgentsList"
   | "personalLocalAgentMetadataList"
   | "personalLocalAgentAcpAgentsList"
@@ -331,7 +331,7 @@ export type DesktopCommandName =
   | "tencentMeetingOpenTokenPage"
   | "tencentMeetingDisconnect";
 
-export type DesktopCommandDomain = "workspace" | "system" | "localAgents" | "taskOrchestrator" | "messaging" | "agentManagement" | "opencode" | "runtime" | "skills" | "managedTools";
+export type DesktopCommandDomain = "workspace" | "system" | "knowledge" | "company" | "computerUse" | "localAgents" | "taskOrchestrator" | "messaging" | "agentManagement" | "opencode" | "runtime" | "skills" | "managedTools";
 
 export const desktopCommandGroups: Readonly<Record<DesktopCommandDomain, readonly DesktopCommandName[]>>;
 export const desktopCommandNames: readonly DesktopCommandName[];

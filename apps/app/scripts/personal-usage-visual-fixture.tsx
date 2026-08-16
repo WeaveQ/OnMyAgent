@@ -5,8 +5,8 @@ import { createRoot } from "react-dom/client";
 import "../src/app/index.css";
 import type { WorkspaceInfo } from "../src/app/lib/desktop";
 import { setLocale } from "../src/i18n";
-import type { PersonalUsageClient } from "../src/react-app/domains/session/usage/personal-usage-model";
-import { PersonalUsagePage } from "../src/react-app/domains/session/usage";
+import type { PersonalUsageClient } from "../src/react-app/domains/settings/usage/personal-usage-model";
+import { PersonalUsagePage } from "../src/react-app/domains/settings/usage";
 
 const params = new URLSearchParams(window.location.search);
 const fixtureState = params.get("state");

@@ -4,6 +4,7 @@
  * index.mjs stays a composition root for runs/adapters/health.
  */
 
+import { runEventsToConversationMessages } from "./contract.mjs";
 import {
   createConversation,
   getConversation,
@@ -12,6 +13,7 @@ import {
   listChannelConversations,
   listConversations,
   listConversationsByProvider,
+  readConversationEvents,
   resetConversationPointer,
 } from "./conversation-store.mjs";
 import { clearSession } from "./session-store.mjs";
@@ -20,9 +22,16 @@ import { clearSession } from "./session-store.mjs";
  * @param {{
  *   legacy: { normalizeAgent: (agent: unknown) => Promise<any> },
  *   runs: Map<string, any>,
+ *   getRunSnapshot: (state: any, options?: any) => any,
+ *   resolveApproval: (input: any) => Promise<any> | any,
  * }} deps
  */
-export function createConversationRuntimeApi({ legacy, runs }) {
+export function createConversationRuntimeApi({
+  legacy,
+  runs,
+  getRunSnapshot,
+  resolveApproval,
+}) {
   async function resetConversation(input = {}) {
     const agent = await legacy.normalizeAgent(input.agent ?? {});
     const workspaceRoot = String(input.workspaceRoot ?? "").trim();
@@ -95,6 +104,59 @@ export function createConversationRuntimeApi({ legacy, runs }) {
     return importConversationFromArchive(workspaceRoot, agent.provider, agent.id, input);
   }
 
+  async function getConversationStatus(input = {}) {
+    const agent = await legacy.normalizeAgent(input.agent ?? {});
+    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
+    if (!workspaceRoot) throw new Error("workspaceRoot is required");
+    const conversation = await getConversation(workspaceRoot, agent.provider, agent.id, input.conversationId);
+    const activeRun = [...runs.values()].find((state) => (
+      state.workspaceRoot === workspaceRoot
+      && state.agentProvider === agent.provider
+      && state.agentId === agent.id
+      && (!conversation?.id || state.conversationId === conversation.id)
+      && state.status === "running"
+    ));
+    if (activeRun?.lastApprovalPersist) {
+      await activeRun.lastApprovalPersist.catch(() => undefined);
+    }
+    const persisted = conversation?.id
+      ? await readConversationEvents(workspaceRoot, agent.provider, agent.id, conversation.id)
+      : { events: [], messages: [] };
+    return {
+      conversation,
+      activeRun: activeRun ? getRunSnapshot(activeRun) : null,
+      running: Boolean(activeRun),
+      status: activeRun?.status ?? conversation?.lastStatus ?? "idle",
+      events: activeRun ? activeRun.events : persisted.events,
+      conversationMessages: activeRun
+        ? runEventsToConversationMessages(activeRun.events)
+        : (Array.isArray(persisted.events) && persisted.events.length
+          ? runEventsToConversationMessages(persisted.events)
+          : persisted.messages),
+    };
+  }
+
+  async function listConversationConfirmations(input = {}) {
+    const statusResult = await getConversationStatus(input);
+    const confirmations = statusResult.activeRun?.pendingApprovals ?? statusResult.conversationMessages
+      .filter((message) => message.type === "permission" && message.approval)
+      .map((message) => message.approval);
+    return {
+      conversation: statusResult.conversation,
+      confirmations,
+    };
+  }
+
+  async function confirmConversationConfirmation(input = {}) {
+    const runIdValue = String(input.runId ?? "").trim();
+    if (runIdValue) return resolveApproval(input);
+    const statusResult = await getConversationStatus(input);
+    const approvalId = String(input.approvalId ?? input.id ?? "").trim();
+    const approval = (statusResult.activeRun?.pendingApprovals ?? []).find((item) => item.id === approvalId);
+    if (!statusResult.activeRun?.runId || !approval) return { ok: false, error: "approval request not found" };
+    return resolveApproval({ ...input, runId: statusResult.activeRun.runId, approvalId });
+  }
+
   return {
     resetConversation,
     listAgentConversations,
@@ -104,6 +166,9 @@ export function createConversationRuntimeApi({ legacy, runs }) {
     listAgentChannelConversations,
     listAgentConversationsByProvider,
     importAgentConversationFromArchive,
+    getConversationStatus,
+    listConversationConfirmations,
+    confirmConversationConfirmation,
   };
 }
 

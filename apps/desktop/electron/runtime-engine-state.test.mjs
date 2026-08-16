@@ -1,8 +1,14 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
   DIRECT_RUNTIME,
+  ORCHESTRATOR_RUNTIME,
+  isShippedEngineRuntime,
+  resolveShippedEngineRuntime,
   assertOnMyAgentServerReady,
   buildConnectUrls,
   createEngineState,
@@ -10,6 +16,27 @@ import {
   snapshotEngineState,
   snapshotOnMyAgentServerState,
 } from "./runtime-engine-state.mjs";
+
+test("shipped engineStart cannot assign onmyagent-orchestrator", () => {
+  assert.equal(resolveShippedEngineRuntime(), DIRECT_RUNTIME);
+  assert.equal(resolveShippedEngineRuntime(DIRECT_RUNTIME), DIRECT_RUNTIME);
+  assert.equal(resolveShippedEngineRuntime(ORCHESTRATOR_RUNTIME), DIRECT_RUNTIME);
+  assert.equal(resolveShippedEngineRuntime("onmyagent-orchestrator"), DIRECT_RUNTIME);
+  assert.equal(isShippedEngineRuntime(DIRECT_RUNTIME), true);
+  assert.equal(isShippedEngineRuntime(ORCHESTRATOR_RUNTIME), false);
+
+  const runtimeSource = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), "runtime.mjs"),
+    "utf8",
+  );
+  const start = runtimeSource.indexOf("async function engineStart");
+  const end = runtimeSource.indexOf("async function engineStop");
+  assert.ok(start >= 0 && end > start, "engineStart slice missing");
+  const slice = runtimeSource.slice(start, end);
+  assert.match(slice, /resolveShippedEngineRuntime\(/);
+  assert.doesNotMatch(slice, /ORCHESTRATOR_RUNTIME/);
+  assert.doesNotMatch(slice, /runtime\s*=\s*options\.runtime/);
+});
 
 test("createEngineState defaults to direct runtime", () => {
   const state = createEngineState();

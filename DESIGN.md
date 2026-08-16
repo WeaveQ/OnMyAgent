@@ -4,7 +4,7 @@ product: OnMyAgent
 platform: electron-desktop
 authority: authoritative
 maintenance: manual-event-driven
-last-reviewed: 2026-07-31
+last-reviewed: 2026-08-16
 
 colors:
   light:
@@ -17,7 +17,15 @@ colors:
     # where its contrast against near-black is AA.
     signal: "#00B39B"
     ink: "#0F172A"
+    # Public alias of ink — Tailwind `text-dls-text` / CSS `--dls-text`.
+    text: "#0F172A"
+    # Focus ring. Same hex as primary; named so the ring cannot silently
+    # retarget hover/soft blues.
+    focus: "#005DFF"
     slate: "#64748B"
+    # Light tertiary equals slate: a lighter grey on white fails WCAG AA
+    # at 12px. Use for meta type; do not invent a dimmer grey.
+    text-tertiary: "#64748B"
     # mist is the softest hairline tier — a step lighter than
     # `border` so `mist < border < border-strong` scans as three
     # levels. Distinct hex, not aliased to `border`.
@@ -62,13 +70,19 @@ colors:
     artifact-hue-3d: "var(--plum-9)"
     artifact-hue-audio: "var(--pink-9)"
     artifact-hue-video: "var(--crimson-9)"
+    # Root-transcript WorkBuddy surfaces (§ 11). Not a global muted token.
+    chat-user-bg: "#F2F2F2"
+    chat-agent-text: "#263033"
   dark:
     primary: "#2F7BFF"
     primary-hover: "#5B96FF"
     primary-soft: "#102A5C"
     signal: "#03FFDE"
     ink: "#F8FAFC"
+    text: "#F8FAFC"
+    focus: "#2F7BFF"
     slate: "#94A3B8"
+    text-tertiary: "#94A3B8"
     # mist (dark) — one step darker than `border` so the ladder
     # stays visible on dark surfaces.
     mist: "#2E2E2E"
@@ -107,6 +121,8 @@ colors:
     artifact-hue-3d: "var(--plum-11)"
     artifact-hue-audio: "var(--pink-11)"
     artifact-hue-video: "var(--crimson-11)"
+    chat-user-bg: "#333333"
+    chat-agent-text: "#F8FAFC"
 
 typography:
   font-body: "Geist Variable"
@@ -225,8 +241,9 @@ focus:
   ring-color:
     light: "#005DFF"
     dark: "#2F7BFF"
-  ring-width: 2
-  ring-offset: 2
+  # 1px flush ring — visible for keyboard a11y, no ring-offset gap.
+  ring-width: 1
+  ring-offset: 0
   ring-style: solid
   keyboard-required: true
 
@@ -666,11 +683,11 @@ components:
     filter-chip:
       # Free-float category filter (FilterChip → SegmentedTabButton tone=chip size=chip)
       # Selected: soft gray wash — NOT elevated white surface-solid
-      height: "{spacing.button-heights.sm}"          # 28 (h-7) compact
+      height: "{spacing.button-heights.sm-plus}"     # 28 (h-7) compact
       radius: "{rounded.pill}"                        # full pill
       text: "{typography.scale.xs}"                   # 12 medium
       padding-x: "px-2.5"
-      selected-surface: "{colors.list-selected}"      # light #E4E4E4 / dark #363636
+      selected-surface: "{colors.list-selected}"      # light #D4D4D4 / dark #454545
       idle-surface: transparent
       idle-text: "{colors.slate}"
     kbd-chip:
@@ -747,6 +764,8 @@ flags:
   presence-tokenized: required
   tool-approval-tokenized: required
   artifact-hue-scoped-to-artifact-cards: required
+  # Flag scanners in extract-tokens.mjs (shrink-only vs design-drift.json):
+  # page hex, shadow-* elevation, rounded-full CTA outside §11, ring-0 chrome.
 ---
 
 # OnMyAgent — Visual Design Contract
@@ -856,9 +875,16 @@ does in the system — pick the semantic slot, not the shade.
 
 - **Ink** (`{colors.light.ink}` / `{colors.dark.ink}`) — primary text.
   Every heading, body paragraph, and interactive label on light surfaces.
-  Auto-swaps in dark mode via the `dls-text-primary` alias.
+  Auto-swaps in dark mode via the `dls-text-primary` / `dls-text` aliases.
 - **Slate** (`{colors.light.slate}` / `{colors.dark.slate}`) — secondary
   text. Sub-labels, meta text, inactive nav labels, timestamps.
+- **Tertiary** (`{colors.light.text-tertiary}` /
+  `{colors.dark.text-tertiary}`) — same hex as slate. A lighter grey on
+  light surfaces fails WCAG AA at 12px, so tertiary must not dim below
+  secondary when used as type.
+- **Focus** (`{colors.light.focus}` / `{colors.dark.focus}`) — keyboard
+  ring. Same hex as primary; use `ring-dls-focus`, never a 30% wash.
+  Geometry is `focus.ring-width` 1px, `focus.ring-offset` 0 (flush).
 - (Consumers should reach for the `dls-text-*` Tailwind aliases —
   `dls-text-primary`, `dls-text-secondary`, `dls-text-tertiary` — not
   raw ink / slate hex.)
@@ -1828,9 +1854,10 @@ requirement, not decoration.
   `[role="menuitem"]`, `[role="tab"]`, `[tabindex="0"]`, native form
   controls) MUST show a visible focus ring on keyboard focus.
 - Use the `focus:` YAML tokens: `ring-color` (light `#005DFF` / dark
-  `#2F7BFF`), `ring-width` 2px, `ring-offset` 2px, `ring-style` solid.
-  The primitive's own border-radius is the ring radius — do not
-  override.
+  `#2F7BFF`), `ring-width` 1px, `ring-offset` 0 (flush to the control
+  border — no gap), `ring-style` solid. Tailwind: `ring-1` +
+  `ring-dls-focus` + `ring-offset-0`. The primitive's own
+  border-radius is the ring radius — do not override.
 - Prefer `focus-visible:` (keyboard focus) over `focus:` so the ring
   does not appear on mouse click. All shadcn primitives in
   `components/ui/` already follow this convention; extend it.
@@ -2185,11 +2212,19 @@ for `dls-primary` / `dls-danger` / `dls-warning` / `dls-mist` /
 monospace stack contract (§ 3 `typography.font-mono` + `font-mono`
 Tailwind utility → `--dls-font-mono` CSS variable), and the
 `snap-icon-sizes` codemod that pins Lucide `size={N}` to the
-§ 7 iconography scale.
+§ 7 iconography scale. Public color aliases (`text` / `focus` /
+`text-tertiary` / chat surfaces) live in YAML and on `--dls-*`.
+UI flag scanners (page hex, `shadow-*` elevation, `rounded-full`
+CTA outside § 11, `focus-visible:ring-0` on chrome) shrink-only
+against `design-drift.json`.
 
 v5 still does **not** cover the following. Agents needing these
 should surface a proposal rather than invent silently.
 
+- **Brand connector hex registry.** `--dls-brand-*` stays a named
+  exception. Do not bulk-move those values onto the semantic ladder.
+- **Radix 12-step Tailwind safelist.** Keep until a dedicated pass
+  names which steps the product actually uses.
 - **Data-viz / chart palette.** No chart surface ships today; when it
   does, the palette needs a dedicated pass with product signoff.
 - **Copy voice / tone guide.** Product-writing style (formal vs.

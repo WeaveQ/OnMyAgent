@@ -96,9 +96,7 @@ function initials(name: string) {
 }
 
 function formatDays(count: number) {
-  return count === 1
-    ? t("session.usage_day", { count })
-    : t("session.usage_days", { count });
+  return count === 1 ? t("session.usage_day", { count }) : t("session.usage_days", { count });
 }
 
 function formatLocalizedTokenCount(tokens: number) {
@@ -165,12 +163,8 @@ function activityTooltip(props: {
 function Metric(props: { label: string; value: string }) {
   return (
     <div className="min-w-0 px-2 py-2.5 text-center">
-      <div className="truncate text-base font-medium tabular-nums text-dls-text">
-        {props.value}
-      </div>
-      <div className="mt-0.5 truncate text-sm text-dls-secondary">
-        {props.label}
-      </div>
+      <div className="truncate text-base font-medium tabular-nums text-dls-text">{props.value}</div>
+      <div className="mt-0.5 truncate text-sm text-dls-secondary">{props.label}</div>
     </div>
   );
 }
@@ -189,25 +183,20 @@ function ActivityGrid(props: {
 
   return (
     <div
-      className="relative [--profile-usage-accent:#339cff] dark:[--profile-usage-accent:#99ceff]"
+      className="relative [--profile-usage-accent:var(--dls-primary)]"
       role="grid"
       aria-label={t("session.usage_activity_grid_label")}
       onMouseLeave={() => setHovered(null)}
     >
       <div className="flex justify-end gap-1 overflow-hidden">
         {props.columns.map((column) => (
-          <div
-            key={column.weekStart}
-            className="group flex shrink-0 flex-col gap-1"
-          >
+          <div key={column.weekStart} className="group flex shrink-0 flex-col gap-1">
             {column.cells.map((cell, index) => {
               if (props.mode === "daily" && cell.date > props.today) {
                 return null;
               }
               const keyboardTarget =
-                props.mode === "daily"
-                  ? cell.value > 0
-                  : index === 0 && cell.value > 0;
+                props.mode === "daily" ? cell.value > 0 : index === 0 && cell.value > 0;
               return (
                 <div
                   key={index}
@@ -244,7 +233,7 @@ function ActivityGrid(props: {
       </div>
       {hovered ? (
         <div
-          className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-lg border border-dls-border bg-dls-surface-solid px-3 py-1.5 text-xs text-dls-text shadow-md"
+          className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-lg border border-dls-border bg-dls-surface-solid px-3 py-1.5 text-xs text-dls-text "
           style={{ left: hovered.x, top: hovered.y - 8 }}
         >
           {activityTooltip({
@@ -268,24 +257,18 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
     workspaces: props.workspaces,
     scopeId: "all",
   });
-  const profile = useMemo(
-    () => resolveProfileIdentity(props.identity),
-    [props.identity],
-  );
+  const profile = useMemo(() => resolveProfileIdentity(props.identity), [props.identity]);
   // Full trailing-year window (~53 weeks). Do not trim leading empty weeks —
   // that left a blank gap on the left and only a short right-aligned strip.
   const activity = useMemo(
-    () =>
-      buildTokenActivitySeries(usage.summary.daily, activityMode, today),
+    () => buildTokenActivitySeries(usage.summary.daily, activityMode, today),
     [activityMode, today, usage.summary.daily],
   );
   const monthLabels = useMemo(
     () => monthLabelColumns(activity, today, currentLocale()),
     [activity, today],
   );
-  const failureNames = usage.failures
-    .map((failure) => failure.workspaceName)
-    .join(", ");
+  const failureNames = usage.failures.map((failure) => failure.workspaceName).join(", ");
   const metrics = [
     {
       label: t("session.usage_total_tokens"),
@@ -310,10 +293,7 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
       data-personal-usage-page="true"
       className="flex h-full min-h-0 w-full justify-center overflow-y-auto bg-transparent"
     >
-      <div
-        data-usage-profile="true"
-        className="mx-auto w-full max-w-4xl px-4 pb-12 pt-2 sm:pt-4"
-      >
+      <div data-usage-profile="true" className="mx-auto w-full max-w-4xl px-4 pb-12 pt-2 sm:pt-4">
         <section className="text-center" aria-label={profile.displayName}>
           <div
             className="mx-auto flex size-20 items-center justify-center rounded-full bg-dls-decision text-2xl font-medium text-white"
@@ -325,9 +305,7 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
             {profile.displayName}
           </h2>
           <div className="mt-2 flex min-w-0 flex-wrap items-center justify-center gap-2 text-base text-dls-secondary">
-            {profile.showEmail ? (
-              <span className="max-w-80 truncate">{profile.email}</span>
-            ) : null}
+            {profile.showEmail ? <span className="max-w-80 truncate">{profile.email}</span> : null}
             {profile.showEmail ? <span aria-hidden="true">·</span> : null}
             <StatusBadge tone="neutral" shape="soft" size="sm">
               {t("session.usage_profile_plan")}
@@ -350,12 +328,7 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
             className="mt-10 flex items-center justify-between gap-4"
           >
             <span>{t("session.usage_load_failed")}</span>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => usage.refetch()}
-            >
+            <Button type="button" size="sm" variant="outline" onClick={() => usage.refetch()}>
               <RefreshCw data-icon="inline-start" />
               {t("session.usage_refresh")}
             </Button>
@@ -414,11 +387,7 @@ export function PersonalUsagePage(props: PersonalUsagePageProps) {
                 </EmptyStateBox>
               ) : (
                 <div className="mt-3 overflow-hidden pb-2">
-                  <ActivityGrid
-                    columns={activity}
-                    mode={activityMode}
-                    today={today}
-                  />
+                  <ActivityGrid columns={activity} mode={activityMode} today={today} />
                   <div className="relative mt-2 h-5" aria-hidden="true">
                     {monthLabels.map(({ label, columnIndex }) => (
                       <span

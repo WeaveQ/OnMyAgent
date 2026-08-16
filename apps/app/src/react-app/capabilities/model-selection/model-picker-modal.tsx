@@ -1,11 +1,5 @@
 /** @jsxImportSource react */
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, ChevronRight, Search, Star } from "lucide-react";
 
 import {
@@ -22,19 +16,18 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { MenuRowButton } from "@/components/ui/action-row";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { modelEquals, resolveProviderDisplayName } from "../../../../app/utils";
-import type { ModelOption, ModelRef } from "../../../../app/types";
-import { isRecommendedModel } from "../../../../app/defaults";
-import { ProviderIcon } from "../../../design-system/provider-icon";
-import { t } from "../../../../i18n";
+import { modelEquals, resolveProviderDisplayName } from "@/app/utils";
+import type { ModelOption, ModelRef } from "@/app/types";
+import { isRecommendedModel } from "@/app/defaults";
+import { ProviderIcon } from "@/react-app/design-system/provider-icon";
+import { t } from "@/i18n";
 import {
   readHiddenModels,
   writeHiddenModels,
   seedHiddenModels,
   hasSeededHiddenModels,
   markSeededHiddenModels,
-} from "../sync/hidden-models-store";
-
+} from "./hidden-models-store";
 
 export type ModelPickerModalProps = {
   open: boolean;
@@ -163,7 +156,8 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
   const toggleProvider = useCallback((id: string) => {
     setExpandedProviders((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }, []);
@@ -172,28 +166,32 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
     const key = `${providerID}/${modelID}`;
     setHiddenModels((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       writeHiddenModels(next);
       return next;
     });
   }, []);
 
-  const batchToggleProvider = useCallback((providerID: string, showAll: boolean) => {
-    setHiddenModels((prev) => {
-      const next = new Set(prev);
-      const models = filteredOptions.filter((o) => o.providerID === providerID);
-      for (const m of models) {
-        const key = `${m.providerID}/${m.modelID}`;
-        if (showAll) {
-          next.delete(key);
-        } else {
-          next.add(key);
+  const batchToggleProvider = useCallback(
+    (providerID: string, showAll: boolean) => {
+      setHiddenModels((prev) => {
+        const next = new Set(prev);
+        const models = filteredOptions.filter((o) => o.providerID === providerID);
+        for (const m of models) {
+          const key = `${m.providerID}/${m.modelID}`;
+          if (showAll) {
+            next.delete(key);
+          } else {
+            next.add(key);
+          }
         }
-      }
-      writeHiddenModels(next);
-      return next;
-    });
-  }, [filteredOptions]);
+        writeHiddenModels(next);
+        return next;
+      });
+    },
+    [filteredOptions],
+  );
 
   const handleSelect = useCallback(
     (opt: ModelOption) => props.onSelect({ providerID: opt.providerID, modelID: opt.modelID }),
@@ -204,7 +202,11 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
   useEffect(() => {
     if (!props.open) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); props.onClose(); }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        props.onClose();
+      }
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
@@ -220,9 +222,7 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
       <DialogContent className="flex max-h-[calc(100vh-2rem)] min-h-0 w-full max-w-lg flex-col overflow-hidden sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{t("session.models_title")}</DialogTitle>
-          <DialogDescription>
-            {t("model_picker.session_model_desc")}
-          </DialogDescription>
+          <DialogDescription>{t("model_picker.session_model_desc")}</DialogDescription>
         </DialogHeader>
 
         <div className="flex min-h-0 flex-1 flex-col">
@@ -254,7 +254,9 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
             ) : providerGroups.length === 0 ? (
               <div className="space-y-3 rounded-xl border border-dls-border bg-dls-surface-muted px-4 py-6 text-center">
                 <div className="text-sm text-dls-secondary">
-                  {props.query.trim() ? t("model_picker.no_results") : t("model_picker.no_models_connect_provider")}
+                  {props.query.trim()
+                    ? t("model_picker.no_results")
+                    : t("model_picker.no_models_connect_provider")}
                 </div>
                 {!props.query.trim() ? (
                   <Button variant="outline" onClick={props.onOpenSettings}>
@@ -281,9 +283,7 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
 
         {/* Footer */}
         <DialogFooter className="shrink-0">
-          <DialogClose render={<Button variant="outline" />}>
-            {t("settings.done")}
-          </DialogClose>
+          <DialogClose render={<Button variant="outline" />}>{t("settings.done")}</DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -291,7 +291,7 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Provider accordion                                                 */
+/* Provider accordion */
 /* ------------------------------------------------------------------ */
 
 function ProviderAccordion({
@@ -334,13 +334,19 @@ function ProviderAccordion({
           </div>
           <span className="flex shrink-0 items-center gap-1.5">
             {group.isNew ? (
-              <StatusBadge shape="soft" size="tiny" tone="accent">{t("session.badge_new")}</StatusBadge>
+              <StatusBadge shape="soft" size="tiny" tone="accent">
+                {t("session.badge_new")}
+              </StatusBadge>
             ) : null}
             {group.isCloud ? (
-              <StatusBadge shape="soft" size="tiny" tone="surface">{t("session.badge_cloud")}</StatusBadge>
+              <StatusBadge shape="soft" size="tiny" tone="surface">
+                {t("session.badge_cloud")}
+              </StatusBadge>
             ) : null}
             {group.hasCurrent ? (
-              <StatusBadge shape="soft" size="tiny" tone="accent">{t("session.badge_current")}</StatusBadge>
+              <StatusBadge shape="soft" size="tiny" tone="accent">
+                {t("session.badge_current")}
+              </StatusBadge>
             ) : null}
           </span>
         </MenuRowButton>
@@ -349,13 +355,18 @@ function ProviderAccordion({
             type="button"
             variant={group.isDisabled ? "outline" : "secondary"}
             size="xs"
-            className={group.isDisabled ? "mr-2 rounded-full text-dls-secondary hover:bg-dls-hover hover:text-dls-text" : "mr-2 rounded-full bg-dls-accent/10 text-dls-accent hover:bg-dls-accent/10"}
-            onClick={(e) => { e.stopPropagation(); onToggleProvider?.(group.id, group.isDisabled); }}
+            className={
+              group.isDisabled
+                ? "mr-2 rounded-lg text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+                : "mr-2 rounded-lg bg-dls-accent/10 text-dls-accent hover:bg-dls-accent/10"
+            }
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleProvider?.(group.id, group.isDisabled);
+            }}
             title={group.isDisabled ? t("session.enable_provider") : t("session.disable_provider")}
           >
-            {group.isDisabled
-              ? t("session.provider_enable")
-              : t("session.provider_enabled")}
+            {group.isDisabled ? t("session.provider_enable") : t("session.provider_enabled")}
           </Button>
         ) : null}
       </div>
@@ -369,7 +380,13 @@ function ProviderAccordion({
                 {t("session.models_recommended")}
               </div>
               {group.recommended.map((opt) => (
-                <DefaultModelRow key={opt.modelID} opt={opt} current={current} onSelect={onSelect} recommended />
+                <DefaultModelRow
+                  key={opt.modelID}
+                  opt={opt}
+                  current={current}
+                  onSelect={onSelect}
+                  recommended
+                />
               ))}
             </>
           ) : null}
@@ -381,7 +398,12 @@ function ProviderAccordion({
                 </div>
               ) : null}
               {group.other.map((opt) => (
-                <DefaultModelRow key={opt.modelID} opt={opt} current={current} onSelect={onSelect} />
+                <DefaultModelRow
+                  key={opt.modelID}
+                  opt={opt}
+                  current={current}
+                  onSelect={onSelect}
+                />
               ))}
             </>
           ) : null}
@@ -392,13 +414,19 @@ function ProviderAccordion({
 }
 
 /* ------------------------------------------------------------------ */
-/*  Default tab: model row (click to select as default)                */
+/* Default tab: model row (click to select as default) */
 /* ------------------------------------------------------------------ */
 
 function DefaultModelRow({
-  opt, current, onSelect, recommended,
+  opt,
+  current,
+  onSelect,
+  recommended,
 }: {
-  opt: ModelOption; current: ModelRef; onSelect: (opt: ModelOption) => void; recommended?: boolean;
+  opt: ModelOption;
+  current: ModelRef;
+  onSelect: (opt: ModelOption) => void;
+  recommended?: boolean;
 }) {
   const active = modelEquals(current, { providerID: opt.providerID, modelID: opt.modelID });
 
@@ -412,9 +440,17 @@ function DefaultModelRow({
       ].join(" ")}
       onClick={() => onSelect(opt)}
     >
-      {recommended ? <Star size={12} className="shrink-0 text-dls-status-warning" /> : <div className="w-3 shrink-0" />}
+      {recommended ? (
+        <Star size={12} className="shrink-0 text-dls-status-warning" />
+      ) : (
+        <div className="w-3 shrink-0" />
+      )}
       <div className="min-w-0 flex-1">
-        <span className={["text-xs", active ? "font-medium text-dls-text" : "text-dls-text"].join(" ")}>{opt.title}</span>
+        <span
+          className={["text-xs", active ? "font-medium text-dls-text" : "text-dls-text"].join(" ")}
+        >
+          {opt.title}
+        </span>
         <span className="ml-2 font-mono text-xs text-dls-secondary/60">{opt.modelID}</span>
       </div>
       {active ? <Check size={14} className="shrink-0 text-dls-accent" /> : null}

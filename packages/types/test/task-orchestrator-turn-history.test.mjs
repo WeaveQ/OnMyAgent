@@ -50,3 +50,10 @@ test("Turn History attempt contract rejects execution prompts", () => {
 test("Turn History command belongs to the Task Orchestrator desktop domain", () => {
   assert.equal(desktopCommandDomain("taskOrchestratorTurnHistoryList"), "taskOrchestrator");
 });
+
+test("knowledge / company / computerUse commands left the system group", () => {
+  assert.equal(desktopCommandDomain("knowledgeEnsureVault"), "knowledge");
+  assert.equal(desktopCommandDomain("companySettingsRead"), "company");
+  assert.equal(desktopCommandDomain("captureComputerUseAppshot"), "computerUse");
+  assert.equal(desktopCommandDomain("checkSystemPermissions"), "system");
+});

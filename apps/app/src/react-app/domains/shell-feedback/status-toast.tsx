@@ -25,10 +25,11 @@ const statusToastToneClass = {
 };
 
 const statusToastLayoutClass = {
-  shell: "w-full max-w-[24rem] overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-300",
+  shell:
+    "w-full max-w-[24rem] overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid animate-in fade-in slide-in-from-bottom-4 duration-300",
   /** Compact Hope-style pill when only title + optional inline action. */
   shellCompact:
-    "w-auto max-w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-full border border-dls-border bg-dls-surface-solid px-3.5 py-2.5 shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-300",
+    "w-auto max-w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-full border border-dls-border bg-dls-surface-solid px-3.5 py-2.5 animate-in fade-in slide-in-from-bottom-4 duration-300",
   body: "flex items-start gap-3 p-4",
   bodyCompact: "flex items-center gap-2.5",
   iconTile: "mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border",
@@ -40,8 +41,7 @@ const statusToastLayoutClass = {
   description: "mt-1 text-sm leading-relaxed text-dls-secondary",
   dismissButton: "rounded-lg text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
   actionRow: "mt-3 flex items-center gap-2",
-  primaryAction:
-    "bg-dls-decision text-white shadow-sm hover:bg-dls-decision-hover",
+  primaryAction: "bg-dls-decision text-white hover:bg-dls-decision-hover",
   secondaryAction: "rounded-lg text-dls-text hover:bg-dls-hover",
   /** Inline text action next to title (Hope "View" link). */
   inlineAction:
@@ -54,8 +54,7 @@ export function StatusToast(props: StatusToastProps) {
   const hasDescription = Boolean(props.description?.trim());
   const hasAction = Boolean(props.actionLabel && props.onAction);
   // Compact capsule when success/info has no description (Hope move toast).
-  const compact =
-    !hasDescription && (tone === "success" || tone === "info");
+  const compact = !hasDescription && (tone === "success" || tone === "info");
 
   const tileClass = statusToastToneClass[tone];
 
@@ -103,9 +102,7 @@ export function StatusToast(props: StatusToastProps) {
           </div>
           <span className={statusToastLayoutClass.titleCompact}>{props.title}</span>
           {hasAction ? (
-            <span className={statusToastLayoutClass.inlineAction}>
-              {props.actionLabel}
-            </span>
+            <span className={statusToastLayoutClass.inlineAction}>{props.actionLabel}</span>
           ) : null}
         </div>
       </div>
@@ -115,22 +112,16 @@ export function StatusToast(props: StatusToastProps) {
   return (
     <div className={statusToastLayoutClass.shell}>
       <div className={statusToastLayoutClass.body}>
-        <div
-          className={`${statusToastLayoutClass.iconTile} ${tileClass}`.trim()}
-        >
+        <div className={`${statusToastLayoutClass.iconTile} ${tileClass}`.trim()}>
           <Icon size={16} className={props.spinIcon ? "animate-spin" : undefined} />
         </div>
 
         <div className={statusToastLayoutClass.content}>
           <div className={statusToastLayoutClass.header}>
             <div>
-              <div className={statusToastLayoutClass.title}>
-                {props.title}
-              </div>
+              <div className={statusToastLayoutClass.title}>{props.title}</div>
               {hasDescription ? (
-                <p className={statusToastLayoutClass.description}>
-                  {props.description}
-                </p>
+                <p className={statusToastLayoutClass.description}>{props.description}</p>
               ) : null}
             </div>
 

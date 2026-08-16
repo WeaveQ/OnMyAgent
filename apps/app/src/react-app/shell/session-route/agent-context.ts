@@ -46,7 +46,7 @@ export function inheritPendingAgentFromSession(
       avatarOptionId: "inherited-session",
       customAvatarDataUrl: null,
       avatarUrl: null,
-      avatarBackground: "var(--ow-primary-light)",
+      avatarBackground: "var(--dls-primary-soft)",
     },
   };
 }
@@ -68,11 +68,7 @@ export function resolvePendingAgentForPrompt(input: {
     ? input.currentAgent
     : null;
 
-  if (
-    input.createdSession &&
-    !pendingAgentSnapshot &&
-    input.inheritFromSessionId
-  ) {
+  if (input.createdSession && !pendingAgentSnapshot && input.inheritFromSessionId) {
     pendingAgentSnapshot = inheritPendingAgentFromSession(
       input.inheritFromSessionId,
       input.inheritAgentId,
@@ -81,8 +77,7 @@ export function resolvePendingAgentForPrompt(input: {
 
   const agentToolAccess =
     input.currentAgent &&
-    (!input.currentAgent.boundSessionId ||
-      input.currentAgent.boundSessionId === input.sessionId)
+    (!input.currentAgent.boundSessionId || input.currentAgent.boundSessionId === input.sessionId)
       ? input.currentAgent.tools
       : pendingAgentSnapshot?.tools;
   return {
@@ -110,24 +105,17 @@ export function registerCreatedSessionStartIntent(input: {
    */
   pageMode?: "assistant" | "expert";
   addAssistantSession: (sessionId: string) => void;
-  writeAssistantSessionCategory: (
-    sessionId: string,
-    category: "office",
-  ) => void;
+  writeAssistantSessionCategory: (sessionId: string, category: "office") => void;
 }) {
   const mode =
     input.intent?.mode ??
-    (input.pageMode === "assistant" || input.pageMode === "expert"
-      ? input.pageMode
-      : undefined);
+    (input.pageMode === "assistant" || input.pageMode === "expert" ? input.pageMode : undefined);
 
   if (mode === "assistant") {
     input.addAssistantSession(input.sessionId);
     input.writeAssistantSessionCategory(
       input.sessionId,
-      input.intent?.mode === "assistant"
-        ? input.intent.assistantCategory
-        : "office",
+      input.intent?.mode === "assistant" ? input.intent.assistantCategory : "office",
     );
   }
 }

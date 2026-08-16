@@ -1,8 +1,5 @@
 import type { ExpertMarketplaceEntry } from "../plugins";
-import {
-  createExpertOperationId,
-  type PendingAgentContext,
-} from "./pending-agent-store";
+import { createExpertOperationId, type PendingAgentContext } from "./pending-agent-store";
 
 export function buildPendingAgentFromMarketplaceExpert(
   expert: ExpertMarketplaceEntry,
@@ -16,7 +13,7 @@ export function buildPendingAgentFromMarketplaceExpert(
       avatarOptionId: "marketplace-expert",
       customAvatarDataUrl: null,
       avatarUrl: expert.avatarUrl,
-      avatarBackground: "var(--ow-primary-light)",
+      avatarBackground: "var(--dls-primary-soft)",
     },
     systemPrompt: expert.systemPrompt,
     quickPrompts: expert.quickPrompts.slice(0, 3),

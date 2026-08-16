@@ -28,19 +28,13 @@ import {
   UserRound,
 } from "lucide-react";
 
-import {
-  getDisplaySessionTitle,
-  isGeneratedSessionTitle,
-} from "../../../../app/lib/session-title";
+import { getDisplaySessionTitle, isGeneratedSessionTitle } from "../../../../app/lib/session-title";
 import { readLocalAuthUser } from "../../../../app/lib/local-auth";
 import { APP_NAME } from "../../../../i18n/locales/brand";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import type { WorkspaceInfo } from "../../../../app/lib/desktop";
 import { OnMyAgentDenHelpLink } from "../../shared";
-import type {
-  WorkspaceConnectionState,
-  WorkspaceSessionGroup,
-} from "../../../../app/types";
+import type { WorkspaceConnectionState, WorkspaceSessionGroup } from "../../../../app/types";
 import {
   isRemoteConnectionErrorMessage,
   getWorkspaceTaskLoadErrorDisplay,
@@ -61,11 +55,7 @@ import {
   SidebarMenuSubItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -115,8 +105,7 @@ import {
 const sidebarAccountMenuRowClass =
   "flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 text-sm font-medium text-sidebar-foreground hover:!bg-dls-hover hover:!text-dls-text focus:!bg-dls-hover focus:!text-dls-text data-highlighted:!bg-dls-hover data-highlighted:!text-dls-text data-open:!bg-dls-hover data-open:!text-dls-text data-popup-open:!bg-dls-hover data-popup-open:!text-dls-text data-state-open:!bg-dls-hover data-state-open:!text-dls-text aria-expanded:!bg-dls-hover aria-expanded:!text-dls-text [&_svg]:text-current";
 
-const sidebarAccountThemeChipClass =
-  "rounded-md px-2 py-0.5 text-xs font-medium transition-colors";
+const sidebarAccountThemeChipClass = "rounded-md px-2 py-0.5 text-xs font-medium transition-colors";
 
 const appSidebarTextClass = {
   noticeTitle: "text-xs font-medium text-dls-text",
@@ -127,16 +116,21 @@ const appSidebarTextClass = {
   accountEmail: "block truncate text-xs text-sidebar-foreground/55",
   menuTitle: "min-w-0 flex-1 truncate text-sm font-semibold leading-none text-dls-text",
   brand: "truncate text-xl font-medium leading-none text-sidebar-foreground",
-  groupLabel: "flex h-8 w-full items-center gap-2 px-2 text-left text-sm font-medium text-sidebar-foreground/45",
+  groupLabel:
+    "flex h-8 w-full items-center gap-2 px-2 text-left text-sm font-medium text-sidebar-foreground/45",
 };
 
 const appSidebarStateClass = {
-  issueCard: "w-full rounded-lg border border-dls-status-danger-border bg-dls-status-danger-soft px-3 py-3 text-left",
+  issueCard:
+    "w-full rounded-lg border border-dls-status-danger-border bg-dls-status-danger-soft px-3 py-3 text-left",
   issueCardOffline: "border-dls-status-warning-border bg-dls-status-warning-soft",
-  issueIcon: "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-dls-status-danger-soft text-dls-status-danger-fg",
+  issueIcon:
+    "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-dls-status-danger-soft text-dls-status-danger-fg",
   issueIconOffline: "bg-dls-status-warning-soft text-dls-status-warning-fg",
-  issueMessage: "mt-2 rounded-lg border border-dls-status-danger-border bg-dls-status-danger-soft px-2 py-1.5 text-xs leading-4 text-dls-status-danger-fg whitespace-pre-wrap wrap-anywhere",
-  issueMessageOffline: "border-dls-status-warning-border bg-dls-status-warning-soft text-dls-status-warning-fg",
+  issueMessage:
+    "mt-2 rounded-lg border border-dls-status-danger-border bg-dls-status-danger-soft px-2 py-1.5 text-xs leading-4 text-dls-status-danger-fg whitespace-pre-wrap wrap-anywhere",
+  issueMessageOffline:
+    "border-dls-status-warning-border bg-dls-status-warning-soft text-dls-status-warning-fg",
   waiting: "bg-dls-signal",
   waitingText: "text-dls-accent",
   error: "bg-dls-status-danger",
@@ -181,11 +175,7 @@ function SessionStatusIndicator(props: {
     const tone = sessionActivityStatusDotTone(props.status);
     return (
       <span title={title} aria-label={title} className="inline-flex shrink-0">
-        <StatusDot
-          size="xs"
-          tone={tone}
-          className={sessionActivityDotClass(props.status)}
-        />
+        <StatusDot size="xs" tone={tone} className={sessionActivityDotClass(props.status)} />
       </span>
     );
   }
@@ -201,8 +191,7 @@ type SessionActionsProps = {
 function SessionActions({ className, sessionId }: SessionActionsProps) {
   const ctx = useSidebarContext();
   const canManage = Boolean(
-    ctx.showSessionActions &&
-    (ctx.onOpenRenameSession || ctx.onOpenDeleteSession),
+    ctx.showSessionActions && (ctx.onOpenRenameSession || ctx.onOpenDeleteSession),
   );
 
   if (!canManage) return null;
@@ -212,11 +201,7 @@ function SessionActions({ className, sessionId }: SessionActionsProps) {
       <DropdownMenuTrigger
         className="size-6 text-dls-secondary"
         render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className={cn("size-6", className)}
-          >
+          <Button variant="ghost" size="icon-sm" className={cn("size-6", className)}>
             <MoreHorizontal className="size-4" />
           </Button>
         }
@@ -229,9 +214,7 @@ function SessionActions({ className, sessionId }: SessionActionsProps) {
         className="w-56"
       >
         {ctx.onOpenRenameSession ? (
-          <DropdownMenuItem
-            onClick={() => ctx.onOpenRenameSession?.(sessionId)}
-          >
+          <DropdownMenuItem onClick={() => ctx.onOpenRenameSession?.(sessionId)}>
             <Pencil className="size-4" />
             {t("workspace_list.rename_session")}
           </DropdownMenuItem>
@@ -258,8 +241,7 @@ type SessionContextMenuProps = {
 function SessionContextMenu({ children, sessionId }: SessionContextMenuProps) {
   const ctx = useSidebarContext();
   const canManage = Boolean(
-    ctx.showSessionActions &&
-    (ctx.onOpenRenameSession || ctx.onOpenDeleteSession),
+    ctx.showSessionActions && (ctx.onOpenRenameSession || ctx.onOpenDeleteSession),
   );
 
   if (!canManage) return children;
@@ -397,12 +379,8 @@ export type AppSidebarProps = {
   onOpenRenameWorkspace: (workspaceId: string) => void;
   onShareWorkspace: (workspaceId: string) => void;
   onRevealWorkspace: (workspaceId: string) => void;
-  onRecoverWorkspace: (
-    workspaceId: string,
-  ) => Promise<boolean> | boolean | void;
-  onTestWorkspaceConnection: (
-    workspaceId: string,
-  ) => Promise<boolean> | boolean | void;
+  onRecoverWorkspace: (workspaceId: string) => Promise<boolean> | boolean | void;
+  onTestWorkspaceConnection: (workspaceId: string) => Promise<boolean> | boolean | void;
   onEditWorkspaceConnection: (workspaceId: string) => void;
   onForgetWorkspace: (workspaceId: string) => void;
   onOpenCreateWorkspace: () => void;
@@ -417,14 +395,8 @@ export type AppSidebarProps = {
   onOpenBilling?: () => void;
 };
 
-export type {
-  SidebarAccountInfo,
-  SidebarPrimaryView,
-} from "./app-sidebar-types";
-import type {
-  SidebarAccountInfo,
-  SidebarPrimaryView,
-} from "./app-sidebar-types";
+export type { SidebarAccountInfo, SidebarPrimaryView } from "./app-sidebar-types";
+import type { SidebarAccountInfo, SidebarPrimaryView } from "./app-sidebar-types";
 
 type SidebarMenuConfig = {
   id: SidebarPrimaryView;
@@ -510,9 +482,7 @@ function useSessionTree(
   );
 }
 
-function isSessionActivityStatus(
-  status: string | undefined,
-): status is SessionActivityStatus {
+function isSessionActivityStatus(status: string | undefined): status is SessionActivityStatus {
   return (
     status === "idle" ||
     status === "thinking" ||
@@ -550,15 +520,9 @@ function sessionActivityTextClass(status: string | undefined) {
   return appSidebarStateClass.activeText;
 }
 
-function isEmptyDraftSession(
-  session: SessionListItem,
-  status: string | undefined,
-) {
+function isEmptyDraftSession(session: SessionListItem, status: string | undefined) {
   const title = session.title?.trim() ?? "";
-  return (
-    (!title || isGeneratedSessionTitle(title)) &&
-    !isSessionActivityStatus(status)
-  );
+  return (!title || isGeneratedSessionTitle(title)) && !isSessionActivityStatus(status);
 }
 
 function getVisibleSidebarSessions(
@@ -579,9 +543,7 @@ function getVisibleTaskCount(
   sessionStatusById: Record<string, string> | undefined,
   selectedSessionId: string | null,
 ) {
-  const group = workspaceSessionGroups.find(
-    (g) => g.workspace.id === selectedWorkspaceId,
-  );
+  const group = workspaceSessionGroups.find((g) => g.workspace.id === selectedWorkspaceId);
   if (!group) return 0;
   const visibleSessions = getVisibleSidebarSessions(
     group.sessions,
@@ -594,11 +556,10 @@ function getVisibleTaskCount(
 export function AppSidebar(props: AppSidebarProps) {
   const [sessionsOpen, setSessionsOpen] = React.useState(true);
   const [teamOpen, setTeamOpen] = React.useState(true);
-  const [previewCountByWorkspaceId, setPreviewCountByWorkspaceId] =
-    React.useState<Record<string, number>>({});
-  const [expandedSessionIds, setExpandedSessionIds] = React.useState<
-    Set<string>
-  >(() => new Set());
+  const [previewCountByWorkspaceId, setPreviewCountByWorkspaceId] = React.useState<
+    Record<string, number>
+  >({});
+  const [expandedSessionIds, setExpandedSessionIds] = React.useState<Set<string>>(() => new Set());
 
   const expandWorkspace = React.useCallback((workspaceId: string) => {
     const id = workspaceId.trim();
@@ -670,9 +631,7 @@ export function AppSidebar(props: AppSidebarProps) {
     expandWorkspace,
     toggleWorkspaceExpanded,
     toggleSessionExpanded,
-    expandedWorkspaceIds: new Set(
-      props.workspaceSessionGroups.map((group) => group.workspace.id),
-    ),
+    expandedWorkspaceIds: new Set(props.workspaceSessionGroups.map((group) => group.workspace.id)),
     expandedSessionIds,
   };
 
@@ -687,10 +646,7 @@ export function AppSidebar(props: AppSidebarProps) {
 
   return (
     <SidebarContext.Provider value={contextValue}>
-      <Sidebar
-        collapsible="offcanvas"
-        className="mac:**:data-[sidebar=sidebar]:bg-transparent"
-      >
+      <Sidebar collapsible="offcanvas" className="mac:**:data-[sidebar=sidebar]:bg-transparent">
         <div className="hidden h-14 mac:block mac:titlebar-drag" />
         <div
           data-slot="sidebar-content"
@@ -714,11 +670,7 @@ export function AppSidebar(props: AppSidebarProps) {
             ))}
           </SidebarMenu>
 
-          <Collapsible
-            open={sessionsOpen}
-            onOpenChange={setSessionsOpen}
-            className="mt-8"
-          >
+          <Collapsible open={sessionsOpen} onOpenChange={setSessionsOpen} className="mt-8">
             <SidebarSectionTrigger
               label={t("nav.tasks")}
               open={sessionsOpen}
@@ -731,9 +683,7 @@ export function AppSidebar(props: AppSidebarProps) {
             />
             <CollapsibleContent className="mt-3 space-y-1">
               {props.workspaceSessionGroups
-                .filter(
-                  (group) => group.workspace.id === props.selectedWorkspaceId,
-                )
+                .filter((group) => group.workspace.id === props.selectedWorkspaceId)
                 .map((group) => (
                   <SessionListForWorkspace
                     key={group.workspace.id}
@@ -746,11 +696,7 @@ export function AppSidebar(props: AppSidebarProps) {
             </CollapsibleContent>
           </Collapsible>
 
-          <Collapsible
-            open={teamOpen}
-            onOpenChange={setTeamOpen}
-            className="mt-8"
-          >
+          <Collapsible open={teamOpen} onOpenChange={setTeamOpen} className="mt-8">
             <SidebarSectionTrigger label={t("nav.team")} open={teamOpen} badge="Beta" />
             <CollapsibleContent className="mt-3 space-y-1">
               {teamOpen && (
@@ -767,9 +713,7 @@ export function AppSidebar(props: AppSidebarProps) {
             <CompanyConnectionChip
               onOpenCompanySettings={() => {
                 // Prefer deep-link to company tab when host supports path navigate.
-                const open = props.onOpenAccountSettings as
-                  | ((path?: string) => void)
-                  | undefined;
+                const open = props.onOpenAccountSettings as ((path?: string) => void) | undefined;
                 try {
                   open?.("/settings/company");
                 } catch {
@@ -807,16 +751,8 @@ export function AppSidebar(props: AppSidebarProps) {
           </div>
         </SidebarFooter>
         <SidebarRail
-          aria-label={
-            props.onStartResize
-              ? t("session.resize_workspace_column")
-              : undefined
-          }
-          title={
-            props.onStartResize
-              ? t("session.resize_workspace_column")
-              : undefined
-          }
+          aria-label={props.onStartResize ? t("session.resize_workspace_column") : undefined}
+          title={props.onStartResize ? t("session.resize_workspace_column") : undefined}
           onClick={
             props.onStartResize
               ? (event) => {
@@ -832,9 +768,7 @@ export function AppSidebar(props: AppSidebarProps) {
 }
 
 /** Compact company connection status above the account button. */
-function CompanyConnectionChip(props: {
-  onOpenCompanySettings?: () => void;
-}) {
+function CompanyConnectionChip(props: { onOpenCompanySettings?: () => void }) {
   const [label, setLabel] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -906,14 +840,12 @@ export function SidebarAccountButton(props: {
   const [open, setOpen] = React.useState(false);
   const [signOutConfirmOpen, setSignOutConfirmOpen] = React.useState(false);
   const [checkingUpdates, setCheckingUpdates] = React.useState(false);
-  const [resolvedTheme, setResolvedTheme] = React.useState<ResolvedThemeMode>(
-    () => getResolvedThemeMode(),
+  const [resolvedTheme, setResolvedTheme] = React.useState<ResolvedThemeMode>(() =>
+    getResolvedThemeMode(),
   );
   const { showToast } = useStatusToasts();
   const [localUser] = React.useState(() => readLocalAuthUser());
-  const account = localUser
-    ? { name: localUser.username, email: localUser.email }
-    : props.account;
+  const account = localUser ? { name: localUser.username, email: localUser.email } : props.account;
   // Personal profile name (settings) → local auth → account email.
   const displayName = resolveAccountDisplayName({
     profileUserName: readProfileUserNameFromStorage(),
@@ -962,9 +894,7 @@ export function SidebarAccountButton(props: {
           title: t("account_menu.update_available", {
             version: result.latestVersion,
           }),
-          actionLabel: inApp
-            ? t("settings.download_update")
-            : t("settings.open_release_page"),
+          actionLabel: inApp ? t("settings.download_update") : t("settings.open_release_page"),
           onAction: () => {
             void bridge.download?.();
           },
@@ -1031,28 +961,17 @@ export function SidebarAccountButton(props: {
             size="md"
             trailing={
               displayName ? (
-                <div
-                  className={appSidebarTextClass.menuTitle}
-                  title={displayName}
-                >
+                <div className={appSidebarTextClass.menuTitle} title={displayName}>
                   {displayName}
                 </div>
               ) : (
-                <div
-                  className={cn(
-                    appSidebarTextClass.menuTitle,
-                    "text-dls-secondary",
-                  )}
-                >
+                <div className={cn(appSidebarTextClass.menuTitle, "text-dls-secondary")}>
                   {t("account_menu.avatar_unnamed")}
                 </div>
               )
             }
           />
-          <ChevronRight
-            className="ml-auto size-3.5 shrink-0 text-dls-secondary"
-            aria-hidden
-          />
+          <ChevronRight className="ml-auto size-3.5 shrink-0 text-dls-secondary" aria-hidden />
         </DropdownMenuItem>
       </div>
 
@@ -1109,16 +1028,14 @@ export function SidebarAccountButton(props: {
           onClick={(event) => event.preventDefault()}
         >
           <Palette className="size-3.5 shrink-0" />
-          <span className="min-w-0 flex-1 truncate">
-            {t("account_menu.appearance")}
-          </span>
+          <span className="min-w-0 flex-1 truncate">{t("account_menu.appearance")}</span>
           <div className="flex shrink-0 items-center gap-0.5 rounded-md bg-dls-surface-muted p-0.5">
             <button
               type="button"
               className={cn(
                 sidebarAccountThemeChipClass,
                 resolvedTheme === "light"
-                  ? "bg-dls-surface text-dls-text shadow-sm"
+                  ? "bg-dls-surface text-dls-text "
                   : "text-dls-secondary hover:text-dls-text",
               )}
               onClick={() => setThemeChip("light")}
@@ -1130,7 +1047,7 @@ export function SidebarAccountButton(props: {
               className={cn(
                 sidebarAccountThemeChipClass,
                 resolvedTheme === "dark"
-                  ? "bg-dls-surface text-dls-text shadow-sm"
+                  ? "bg-dls-surface text-dls-text "
                   : "text-dls-secondary hover:text-dls-text",
               )}
               onClick={() => setThemeChip("dark")}
@@ -1166,11 +1083,7 @@ export function SidebarAccountButton(props: {
 
       {/* Section 3 — quit app */}
       <div className="px-1.5 py-1">
-        <SidebarAccountMenuItem
-          icon={Power}
-          label={t("account_menu.quit")}
-          onSelect={handleQuit}
-        />
+        <SidebarAccountMenuItem icon={Power} label={t("account_menu.quit")} onSelect={handleQuit} />
       </div>
     </>
   );
@@ -1229,9 +1142,7 @@ export function SidebarAccountButton(props: {
                 {displayName || t("account_menu.avatar_unnamed")}
               </span>
               {account?.email ? (
-                <span className={appSidebarTextClass.accountEmail}>
-                  {account.email}
-                </span>
+                <span className={appSidebarTextClass.accountEmail}>{account.email}</span>
               ) : null}
             </span>
             <ChevronDown className="size-4 shrink-0 text-sidebar-foreground/55" />
@@ -1277,7 +1188,10 @@ function SidebarAccountMenuItem(props: {
     return (
       <DropdownMenuItem
         onClick={props.onSelect}
-        className={cn(sidebarAccountMenuRowClass, "flex text-dls-status-danger hover:!bg-dls-status-danger-soft hover:text-dls-status-danger focus:!bg-dls-status-danger-soft focus:text-dls-status-danger data-highlighted:!bg-dls-status-danger-soft data-highlighted:!text-dls-status-danger")}
+        className={cn(
+          sidebarAccountMenuRowClass,
+          "flex text-dls-status-danger hover:!bg-dls-status-danger-soft hover:text-dls-status-danger focus:!bg-dls-status-danger-soft focus:text-dls-status-danger data-highlighted:!bg-dls-status-danger-soft data-highlighted:!text-dls-status-danger",
+        )}
       >
         <Icon className="size-3.5 text-dls-status-danger" />
         <span className="flex-1 text-dls-status-danger">{props.label}</span>
@@ -1286,10 +1200,7 @@ function SidebarAccountMenuItem(props: {
   }
 
   return (
-    <DropdownMenuItem
-      onClick={props.onSelect}
-      className={sidebarAccountMenuRowClass}
-    >
+    <DropdownMenuItem onClick={props.onSelect} className={sidebarAccountMenuRowClass}>
       <Icon className="size-3.5 shrink-0" />
       <span className="min-w-0 flex-1 truncate">{props.label}</span>
       {props.showChevron ? (
@@ -1302,10 +1213,12 @@ function SidebarAccountMenuItem(props: {
 function SidebarBrand() {
   return (
     <div className="mb-4 flex h-12 items-center gap-2 px-2">
-      <img src={resolvePublicAssetUrl("/on-my-agent-logo.png")} alt="" className="size-7 shrink-0" />
-      <span className={appSidebarTextClass.brand}>
-        {APP_NAME}
-      </span>
+      <img
+        src={resolvePublicAssetUrl("/on-my-agent-logo.png")}
+        alt=""
+        className="size-7 shrink-0"
+      />
+      <span className={appSidebarTextClass.brand}>{APP_NAME}</span>
     </div>
   );
 }
@@ -1332,9 +1245,7 @@ function PrimaryMenuItem(props: {
           <span
             className={cn(
               "ml-auto truncate pl-3 text-xs font-normal",
-              props.active
-                ? "text-sidebar-foreground/45"
-                : "text-sidebar-foreground/40",
+              props.active ? "text-sidebar-foreground/45" : "text-sidebar-foreground/40",
             )}
           >
             {props.item.description}
@@ -1354,15 +1265,16 @@ function SidebarSectionTrigger(props: {
   const showCount = !props.open && props.count != null && props.count > 0;
   return (
     <CollapsibleTrigger className={appSidebarTextClass.groupLabel}>
-      <ChevronRight
-        className={cn("size-4 transition-transform", props.open && "rotate-90")}
-      />
+      <ChevronRight className={cn("size-4 transition-transform", props.open && "rotate-90")} />
       <span>
         {props.label}
         {showCount ? ` (${props.count})` : null}
       </span>
       {props.badge ? (
-        <StatusBadge size="tiny" className="bg-dls-surface text-sidebar-foreground/55 dark:bg-dls-surface">
+        <StatusBadge
+          size="tiny"
+          className="bg-dls-surface text-sidebar-foreground/55 dark:bg-dls-surface"
+        >
           {props.badge}
         </StatusBadge>
       ) : null}
@@ -1386,50 +1298,37 @@ function SessionListForWorkspace({
   const ctx = useSidebarContext();
   const workspace = group.workspace;
   const sessions = React.useMemo(
-    () =>
-      getVisibleSidebarSessions(
-        group.sessions,
-        ctx.sessionStatusById,
-        ctx.selectedSessionId,
-      ),
+    () => getVisibleSidebarSessions(group.sessions, ctx.sessionStatusById, ctx.selectedSessionId),
     [ctx.selectedSessionId, ctx.sessionStatusById, group.sessions],
   );
   const tree = useSessionTree(sessions, ctx.sessionStatusById);
   const forcedExpandedSessionIds = React.useMemo(
     () =>
       new Set(
-        ctx.selectedSessionId
-          ? (tree.ancestorIdsBySessionId.get(ctx.selectedSessionId) ?? [])
-          : [],
+        ctx.selectedSessionId ? (tree.ancestorIdsBySessionId.get(ctx.selectedSessionId) ?? []) : [],
       ),
     [ctx.selectedSessionId, tree.ancestorIdsBySessionId],
   );
   const rootSessions = getRootSessions(sessions);
-  const sessionRows = sessions
-    .slice(0, previewCount)
-    .map((session) => ({ session, depth: 0 }));
+  const sessionRows = sessions.slice(0, previewCount).map((session) => ({ session, depth: 0 }));
   const isRemoteWorkspace = isRemoteConnectionWorkspace(workspace);
-  const connectionState: WorkspaceConnectionState = ctx
-    .workspaceConnectionStateById[workspace.id] ?? {
+  const connectionState: WorkspaceConnectionState = ctx.workspaceConnectionStateById[
+    workspace.id
+  ] ?? {
     status: "idle",
     message: null,
   };
-  const taskLoadError = getWorkspaceTaskLoadErrorDisplay(
-    workspace,
-    group.error,
-  );
+  const taskLoadError = getWorkspaceTaskLoadErrorDisplay(workspace, group.error);
   const connectionIssueMessage =
     connectionState.status === "error"
       ? connectionState.message?.trim() || taskLoadError.message
       : group.error?.trim() || taskLoadError.message;
   const showRemoteConnectionIssue =
-    (isRemoteWorkspace ||
-      isRemoteConnectionErrorMessage(connectionIssueMessage)) &&
+    (isRemoteWorkspace || isRemoteConnectionErrorMessage(connectionIssueMessage)) &&
     Boolean(connectionIssueMessage) &&
     (connectionState.status === "error" || group.status === "error");
   const isConnectionActionBusy =
-    ctx.connectingWorkspaceId === workspace.id ||
-    connectionState.status === "connecting";
+    ctx.connectingWorkspaceId === workspace.id || connectionState.status === "connecting";
   const canRecover = isRemoteWorkspace && connectionState.status === "error";
   const remainingRootSessions = Math.max(0, rootSessions.length - previewCount);
   const showMoreLabel =
@@ -1453,21 +1352,15 @@ function SessionListForWorkspace({
                 void Promise.resolve(ctx.onRecoverWorkspace(workspace.id));
               }}
               onTest={() => {
-                void Promise.resolve(
-                  ctx.onTestWorkspaceConnection(workspace.id),
-                );
+                void Promise.resolve(ctx.onTestWorkspaceConnection(workspace.id));
               }}
               onEdit={() => {
                 ctx.onEditWorkspaceConnection(workspace.id);
               }}
             />
-          ) : showInitialLoading ||
-            (group.status === "loading" && group.sessions.length === 0) ? (
+          ) : showInitialLoading || (group.status === "loading" && group.sessions.length === 0) ? (
             <SidebarMenuSubItem>
-              <SidebarMenuSubButton
-                aria-disabled
-                className="h-9 text-xs text-dls-secondary"
-              >
+              <SidebarMenuSubButton aria-disabled className="h-9 text-xs text-dls-secondary">
                 <span className="truncate">{t("workspace.loading_tasks")}</span>
               </SidebarMenuSubButton>
             </SidebarMenuSubItem>
@@ -1487,9 +1380,7 @@ function SessionListForWorkspace({
                 <SidebarMenuSubItem>
                   <SidebarMenuSubButton
                     className="h-9 text-xs text-dls-secondary"
-                    onClick={() =>
-                      showMoreSessions(workspace.id, rootSessions.length)
-                    }
+                    onClick={() => showMoreSessions(workspace.id, rootSessions.length)}
                   >
                     <span className="truncate">{showMoreLabel}</span>
                   </SidebarMenuSubButton>
@@ -1541,19 +1432,15 @@ function SessionMenuItem({
   // "chat". The URL-derived `selectedSessionId` alone is not enough —
   // clicking a primary menu does not clear the URL — so we gate on
   // `activeView === "chat"` here.
-  const isSelected =
-    ctx.activeView === "chat" && ctx.selectedSessionId === session.id;
+  const isSelected = ctx.activeView === "chat" && ctx.selectedSessionId === session.id;
   const displayTitle = getDisplaySessionTitle(session.title);
-  const hasChildren =
-    showChildren && (tree.descendantCountBySessionId.get(session.id) ?? 0) > 0;
+  const hasChildren = showChildren && (tree.descendantCountBySessionId.get(session.id) ?? 0) > 0;
   const isExpanded =
-    ctx.expandedSessionIds.has(session.id) ||
-    forcedExpandedSessionIds.has(session.id);
+    ctx.expandedSessionIds.has(session.id) || forcedExpandedSessionIds.has(session.id);
   const sessionActivityStatus = ctx.sessionStatusById?.[session.id];
   const isSessionActive = tree.activeIds.has(session.id);
   const isSessionStreaming =
-    tree.streamingIds.has(session.id) ||
-    isStreamingSessionStatus(sessionActivityStatus);
+    tree.streamingIds.has(session.id) || isStreamingSessionStatus(sessionActivityStatus);
 
   const openSession = () => {
     ctx.onOpenSession(workspaceId, session.id);

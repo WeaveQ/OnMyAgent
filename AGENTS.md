@@ -81,6 +81,7 @@ packages/onmyagent-ui-mcp  UI 控制面 MCP
 | OpenCode 主 · Personal 辅 · 禁交叉写 archive | Architecture **Dual Runtime Boundary** |
 | Archive pool / change-bus / SSE | Architecture **Server Archive Runtime** |
 | 产品行为（空壳 busy、origin、draft、首发、SSE 代际） | Architecture Session / Expert + React ARCHITECTURE；契约 `expert-session-invariants.test.ts` |
+| Session 写路径 | 每个 session PR 必须点名写路径 owner：OpenCode / Personal / Task（IM-assistant 例外） |
 | hard_delete / create flush / 冷启动数值预算 | Architecture Expert lifecycle + Cold-path budget |
 
 ## 构建与验证

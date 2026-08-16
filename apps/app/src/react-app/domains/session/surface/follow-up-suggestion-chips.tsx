@@ -31,7 +31,7 @@ export function FollowUpSuggestionChips(props: {
             className={cn(
               "mac:titlebar-no-drag group inline-flex max-w-full shrink-0 cursor-pointer items-center gap-1.5 rounded-lg",
               "border border-dls-border bg-dls-surface-muted px-3 py-1.5 text-left text-sm leading-5 text-dls-text",
-              "shadow-sm transition-colors duration-150",
+              " transition-colors duration-150",
               "hover:border-dls-secondary hover:bg-dls-hover hover:text-dls-text",
               "active:bg-dls-hover active:border-dls-secondary",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",

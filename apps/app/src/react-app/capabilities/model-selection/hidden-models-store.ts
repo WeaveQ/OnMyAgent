@@ -3,8 +3,8 @@
  * picker. Kept in localStorage; no cross-window sync (the picker is modal and
  * the container reads once per render tick).
  *
- * Extracted from `session/modals/model-picker-modal.tsx` so that consumers
- * outside the modal (e.g. `session/components/model-select`) do not depend on
+ * Shared by the model picker modal so consumers outside the modal
+ * (e.g. `capabilities/model-selection/model-select-container`) do not depend on
  * the modal's internals.
  */
 import type { ModelOption } from "../../../app/types";

@@ -1,12 +1,6 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import {
-  CheckCircle2,
-  Copy,
-  ExternalLink,
-  RefreshCw,
-  Terminal,
-} from "lucide-react";
+import { CheckCircle2, Copy, ExternalLink, RefreshCw, Terminal } from "lucide-react";
 
 import { desktopBridge } from "../../../app/lib/desktop";
 import { Button } from "@/components/ui/button";
@@ -35,10 +29,7 @@ type BrowserSkillStatus = {
 };
 
 function hasDesktopBridge() {
-  return (
-    typeof window !== "undefined" &&
-    Boolean(window.__ONMYAGENT_ELECTRON__?.invokeDesktop)
-  );
+  return typeof window !== "undefined" && Boolean(window.__ONMYAGENT_ELECTRON__?.invokeDesktop);
 }
 
 /** Broadcast doctor result so plugins cards/dialogs update fullyConnected UI. */
@@ -48,15 +39,11 @@ export function emitBrowserSkillStatusChanged(detail: {
   extensionConnected?: boolean;
 }) {
   if (typeof window === "undefined") return;
-  window.dispatchEvent(
-    new CustomEvent("onmyagent:browser-skill-status-changed", { detail }),
-  );
+  window.dispatchEvent(new CustomEvent("onmyagent:browser-skill-status-changed", { detail }));
 }
 
 registerExtensionConfig("browser-skill", () => <BrowserSkillConfig />);
-registerExtensionConfig("onmyagent.browserSkill.settings", () => (
-  <BrowserSkillConfig />
-));
+registerExtensionConfig("onmyagent.browserSkill.settings", () => <BrowserSkillConfig />);
 
 export function BrowserSkillConfig() {
   const [status, setStatus] = useState<BrowserSkillStatus | null>(null);
@@ -83,9 +70,7 @@ export function BrowserSkillConfig() {
       });
     } catch (cause) {
       setStatus(null);
-      setError(
-        cause instanceof Error ? cause.message : t("settings.unreadable_response"),
-      );
+      setError(cause instanceof Error ? cause.message : t("settings.unreadable_response"));
       emitBrowserSkillStatusChanged({
         ok: false,
         installed: false,
@@ -117,14 +102,11 @@ export function BrowserSkillConfig() {
         setHint(t("extensions.browser_skill_extension_opened"));
       }
     } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : t("settings.unreadable_response"),
-      );
+      setError(cause instanceof Error ? cause.message : t("settings.unreadable_response"));
     }
   };
 
-  const installCommand =
-    status?.installCommand?.trim() || FALLBACK_INSTALL_COMMAND;
+  const installCommand = status?.installCommand?.trim() || FALLBACK_INSTALL_COMMAND;
 
   const copyInstallCommand = async () => {
     try {
@@ -146,23 +128,13 @@ export function BrowserSkillConfig() {
       {/* Compact status bar — dialog already shows name/description above. */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <StatusBadge
-            tone={ready ? "success" : "warning"}
-            shape="soft"
-            size="tiny"
-          >
+          <StatusBadge tone={ready ? "success" : "warning"} shape="soft" size="tiny">
             {ready
               ? t("extensions.browser_skill_status_ready")
               : t("extensions.browser_skill_status_setup")}
           </StatusBadge>
-          <StatusChip
-            label={t("extensions.browser_skill_cli_status")}
-            ok={cliOk}
-          />
-          <StatusChip
-            label={t("extensions.browser_skill_ext_status")}
-            ok={extOk}
-          />
+          <StatusChip label={t("extensions.browser_skill_cli_status")} ok={cliOk} />
+          <StatusChip label={t("extensions.browser_skill_ext_status")} ok={extOk} />
           {status?.version ? (
             <span className="truncate text-2xs text-dls-secondary tabular-nums">
               {status.version}
@@ -208,9 +180,7 @@ export function BrowserSkillConfig() {
         </div>
       ) : (
         <div className="space-y-2.5">
-          <p className="text-xs text-dls-secondary">
-            {t("extensions.browser_skill_setup_intro")}
-          </p>
+          <p className="text-xs text-dls-secondary">{t("extensions.browser_skill_setup_intro")}</p>
 
           <SetupStep
             step={1}
@@ -317,14 +287,14 @@ function StatusChip(props: { label: string; ok: boolean }) {
       className={cn(
         "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-2xs font-medium",
         props.ok
-          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+          ? "bg-dls-status-success-soft text-dls-status-success-fg"
           : "bg-dls-surface-muted text-dls-secondary",
       )}
     >
       <span
         className={cn(
           "size-1.5 rounded-full",
-          props.ok ? "bg-emerald-500" : "bg-dls-border-strong",
+          props.ok ? "bg-dls-status-success" : "bg-dls-border-strong",
         )}
         aria-hidden
       />

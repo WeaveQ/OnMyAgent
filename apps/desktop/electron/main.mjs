@@ -109,15 +109,7 @@ import { createDesktopWindowController } from "./desktop-window.mjs";
 import { registerDesktopBrowserIpc } from "./desktop-ipc-browser.mjs";
 import { createArtifactPreviewController } from "./artifact-preview-controller.mjs";
 import { resolveExpertSessionRuntimeRoot } from "./expert-session-runtime-path.mjs";
-import { createOfficeCliManager } from "./managed-tools/officecli-manager.mjs";
-import { createLarkCliManager } from "./managed-tools/lark-cli-manager.mjs";
-import { createLarkCliAuthService } from "./managed-tools/lark-cli-auth.mjs";
-import { createTencentDocsConnectorManager } from "./tencent-docs-connector/manager.mjs";
-import { createBaiduDriveConnectorManager } from "./baidu-drive-connector/manager.mjs";
-import { createKdocsConnectorManager } from "./kdocs-connector/manager.mjs";
-import { createDingtalkConnectorManager } from "./dingtalk-connector/manager.mjs";
-import { createWecomConnectorManager } from "./wecom-connector/manager.mjs";
-import { createTencentMeetingConnectorManager } from "./tencent-meeting-connector/manager.mjs";
+import { createDesktopManagedConnectors } from "./desktop-managed-connectors.mjs";
 import { registerDesktopArtifactPreviewIpc } from "./desktop-ipc-artifact-preview.mjs";
 import { createSkillsScan } from "./skills-scan.mjs";
 import {
@@ -147,6 +139,8 @@ import {
   normalizeWorkspaceEntry,
 } from "./desktop-main-helpers.mjs";
 import { runDesktopWhenReady } from "./desktop-cold-start.mjs";
+import { createDesktopRuntimeBoot } from "./desktop-runtime-boot.mjs";
+import { createDesktopWorkspaceStore } from "./desktop-workspace-state.mjs";
 
 // --- Global crash guards (main process) ---
 // The desktop app makes HTTPS requests from several places (channel transports
@@ -222,14 +216,6 @@ const {
   resolveAppIconPath,
   isBundledSkillPath,
 } = createDesktopPaths({ dirname: __dirname, isDevMode });
-
-function workspaceStatePath() {
-  return path.join(app.getPath("userData"), "onmyagent-workspaces.json");
-}
-
-function legacyElectronWorkspaceStatePath() {
-  return path.join(app.getPath("userData"), "workspace-state.json");
-}
 
 const computerUseDesktopHelpers = createComputerUseDesktopHelpers({
   app,
@@ -313,6 +299,30 @@ const EMPTY_WORKSPACE_LIST = Object.freeze({
   watchedId: null,
   activeId: null,
   workspaces: [],
+});
+
+const {
+  workspaceStatePath,
+  migrateLegacyElectronWorkspaceStateIfNeeded,
+  pathExists,
+  isDirectory,
+  getDesktopBootstrapConfig,
+  debugDesktopBootstrapConfig,
+  setDesktopBootstrapConfig,
+  ensureDefaultWorkspaceOpencodeConfig,
+  normalizeLocalWorkspacePath,
+  discoverOnMyAgentWorkspace,
+  readWorkspaceOnMyAgentConfig,
+  writeWorkspaceOnMyAgentConfig,
+  readWorkspaceState,
+  writeWorkspaceState,
+} = createDesktopWorkspaceStore({
+  app,
+  desktopBootstrapPath,
+  forceRequireSignin: FORCE_DESKTOP_REQUIRE_SIGNIN,
+  defaultDenBaseUrl: DEFAULT_DEN_BASE_URL,
+  defaultRequireSignin: DEFAULT_DESKTOP_REQUIRE_SIGNIN,
+  emptyWorkspaceList: EMPTY_WORKSPACE_LIST,
 });
 
 const IDLE_ENGINE_INFO = Object.freeze({
@@ -565,322 +575,6 @@ function builtinSkillPackageSource(packageName) {
   return { safePackage, candidates };
 }
 
-async function migrateLegacyElectronWorkspaceStateIfNeeded() {
-  const current = workspaceStatePath();
-  const legacy = legacyElectronWorkspaceStatePath();
-  try {
-    if (existsSync(current)) return false;
-    if (!existsSync(legacy)) return false;
-    await mkdir(path.dirname(current), { recursive: true });
-    const raw = await readFile(legacy, "utf8");
-    await writeFile(current, raw, "utf8");
-    console.info(
-      "[migration] copied workspace-state.json → onmyagent-workspaces.json",
-    );
-    return true;
-  } catch (error) {
-    console.warn(
-      "[migration] legacy Electron workspace-state copy failed",
-      error,
-    );
-    return false;
-  }
-}
-
-async function pathExists(targetPath) {
-  try {
-    await stat(targetPath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function isDirectory(targetPath) {
-  try {
-    return (await stat(targetPath)).isDirectory();
-  } catch {
-    return false;
-  }
-}
-
-function bootstrapNormalize(input) {
-  return normalizeDesktopBootstrapConfig(input, {
-    forceRequireSignin: FORCE_DESKTOP_REQUIRE_SIGNIN,
-  });
-}
-
-async function getDesktopBootstrapConfig() {
-  const configPath = desktopBootstrapPath();
-  try {
-    const raw = await readFile(configPath, "utf8");
-    return bootstrapNormalize(JSON.parse(raw));
-  } catch (error) {
-    if (error?.code !== "ENOENT") {
-      console.warn("[desktop-bootstrap] falling back to defaults", {
-        path: configPath,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-    return {
-      baseUrl: DEFAULT_DEN_BASE_URL,
-      apiBaseUrl: null,
-      requireSignin: DEFAULT_DESKTOP_REQUIRE_SIGNIN,
-    };
-  }
-}
-
-async function debugDesktopBootstrapConfig() {
-  const configPath = desktopBootstrapPath();
-  const result = {
-    path: configPath,
-    home: os.homedir(),
-    envHome: process.env.HOME ?? null,
-    envOverride: process.env.ONMYAGENT_DESKTOP_BOOTSTRAP_PATH ?? null,
-    exists: existsSync(configPath),
-    raw: null,
-    parsed: null,
-    normalized: null,
-    error: null,
-  };
-
-  try {
-    result.raw = await readFile(configPath, "utf8");
-    result.parsed = JSON.parse(result.raw);
-    result.normalized = bootstrapNormalize(result.parsed);
-  } catch (error) {
-    result.error = error instanceof Error ? error.message : String(error);
-  }
-
-  return result;
-}
-
-async function setDesktopBootstrapConfig(config) {
-  const normalized = bootstrapNormalize(config);
-  const outputPath = desktopBootstrapPath();
-  await mkdir(path.dirname(outputPath), { recursive: true });
-  await writeFile(
-    outputPath,
-    `${JSON.stringify(normalized, null, 2)}\n`,
-    "utf8",
-  );
-  return normalized;
-}
-
-async function workspaceOpencodeConfigPath(workspacePath) {
-  const candidates = [
-    path.join(workspacePath, "opencode.jsonc"),
-    path.join(workspacePath, "opencode.json"),
-    path.join(workspacePath, ".opencode", "opencode.jsonc"),
-    path.join(workspacePath, ".opencode", "opencode.json"),
-  ];
-  for (const candidate of candidates) {
-    if (await pathExists(candidate)) return candidate;
-  }
-  return candidates[0];
-}
-
-async function ensureDefaultWorkspaceOpencodeConfig(workspacePath) {
-  const configPath = await workspaceOpencodeConfigPath(workspacePath);
-  if (await pathExists(configPath)) return false;
-  await writeJsonFileAtomic(configPath, {
-    $schema: "https://opencode.ai/config.json",
-    default_agent: "onmyagent",
-  });
-  return true;
-}
-
-async function normalizeLocalWorkspacePath(rawPath) {
-  const trimmed = String(rawPath ?? "").trim();
-  if (!trimmed) return "";
-  const expanded =
-    trimmed === "~"
-      ? os.homedir()
-      : trimmed.startsWith("~/") || trimmed.startsWith("~\\")
-        ? path.join(os.homedir(), trimmed.slice(2))
-        : trimmed;
-  const resolved = path.resolve(expanded);
-  return realpath(resolved).catch(() => resolved);
-}
-
-async function fetchOnMyAgentWorkspaceList(hostUrl, token, hostToken) {
-  const url = `${String(hostUrl ?? "").replace(/\/+$/, "")}/workspaces`;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8_000);
-  const headers = new Headers();
-  const bearerToken = String(token ?? "").trim();
-  const hostAuthToken = String(hostToken ?? "").trim();
-  if (bearerToken) headers.set("Authorization", `Bearer ${bearerToken}`);
-  if (hostAuthToken) headers.set("X-OnMyAgent-Host-Token", hostAuthToken);
-
-  try {
-    const response = await fetch(url, { headers, signal: controller.signal });
-    if (!response.ok) {
-      throw new Error(
-        `OnMyAgent workspace discovery failed (${response.status} ${response.statusText || "HTTP error"})`,
-      );
-    }
-    return await response.json();
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function discoverOnMyAgentWorkspace({
-  hostUrl,
-  token,
-  hostToken,
-  directory,
-}) {
-  const list = await fetchOnMyAgentWorkspaceList(hostUrl, token, hostToken);
-  return selectOnMyAgentWorkspaceForConnection(list, directory);
-}
-
-async function readWorkspaceOnMyAgentConfig(workspacePath) {
-  const onmyagentPath = path.join(workspacePath, ".opencode", "onmyagent.json");
-  if (!(await pathExists(onmyagentPath))) {
-    return defaultWorkspaceOnMyAgentConfig(workspacePath);
-  }
-  const raw = await readFile(onmyagentPath, "utf8");
-  return JSON.parse(raw);
-}
-
-async function writeWorkspaceOnMyAgentConfig(workspacePath, config) {
-  const onmyagentPath = path.join(workspacePath, ".opencode", "onmyagent.json");
-  await mkdir(path.dirname(onmyagentPath), { recursive: true });
-  await writeFile(onmyagentPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
-  return execResult(true, `Wrote ${onmyagentPath}`);
-}
-
-async function readWorkspaceState() {
-  const state = await readJsonFile(workspaceStatePath(), EMPTY_WORKSPACE_LIST);
-  const selectedId =
-    typeof state?.selectedId === "string"
-      ? state.selectedId
-      : typeof state?.selectedWorkspaceId === "string"
-        ? state.selectedWorkspaceId
-        : typeof state?.activeId === "string"
-          ? state.activeId
-          : "";
-  const watchedId =
-    typeof state?.watchedId === "string"
-      ? state.watchedId
-      : typeof state?.watchedWorkspaceId === "string"
-        ? state.watchedWorkspaceId
-        : null;
-  const activeId = typeof state?.activeId === "string" ? state.activeId : null;
-  const workspaces = Array.isArray(state?.workspaces) ? state.workspaces : [];
-  let changed = false;
-  const idMap = new Map();
-  const migratedWorkspaces = workspaces.map((entry) => {
-    const workspace =
-      entry && typeof entry === "object"
-        ? entry
-        : normalizeWorkspaceEntry(entry ?? {});
-    if (
-      workspace.workspaceType !== "remote" ||
-      workspace.remoteType !== "onmyagent"
-    )
-      return workspace;
-
-    const remoteWorkspaceId =
-      String(workspace.onmyagentWorkspaceId ?? "").trim() ||
-      parseOnMyAgentWorkspaceIdFromUrl(workspace.onmyagentHostUrl) ||
-      parseOnMyAgentWorkspaceIdFromUrl(workspace.baseUrl);
-    if (!remoteWorkspaceId) return workspace;
-
-    const hostUrl =
-      stripOnMyAgentWorkspaceMount(workspace.onmyagentHostUrl) ||
-      stripOnMyAgentWorkspaceMount(workspace.baseUrl);
-    const nextId = onmyagentRemoteWorkspaceId(
-      hostUrl ?? workspace.baseUrl,
-      remoteWorkspaceId,
-    );
-    idMap.set(workspace.id, nextId);
-    const nextWorkspace = {
-      ...workspace,
-      id: nextId,
-      baseUrl: hostUrl,
-      onmyagentWorkspaceId: remoteWorkspaceId,
-      onmyagentHostUrl: hostUrl,
-    };
-    if (
-      workspace.id !== nextWorkspace.id ||
-      workspace.baseUrl !== nextWorkspace.baseUrl ||
-      workspace.onmyagentWorkspaceId !== nextWorkspace.onmyagentWorkspaceId ||
-      workspace.onmyagentHostUrl !== nextWorkspace.onmyagentHostUrl
-    ) {
-      changed = true;
-    }
-    return nextWorkspace;
-  });
-  // Older desktop state can contain multiple OnMyAgent remote entries that
-  // normalize to the same `rem_<workspaceId>` after stripping worker mounts.
-  // Collapse them here so React never receives duplicate workspace keys.
-  const workspaceIndexById = new Map();
-  const dedupedWorkspaces = [];
-  for (const workspace of migratedWorkspaces) {
-    const workspaceId = String(workspace?.id ?? "").trim();
-    if (!workspaceId) {
-      dedupedWorkspaces.push(workspace);
-      continue;
-    }
-    const existingIndex = workspaceIndexById.get(workspaceId);
-    if (existingIndex === undefined) {
-      workspaceIndexById.set(workspaceId, dedupedWorkspaces.length);
-      dedupedWorkspaces.push(workspace);
-      continue;
-    }
-    // Keep the later entry: normal mutations replace-then-push refreshed
-    // remote workspaces, and there is no persisted updatedAt to compare.
-    dedupedWorkspaces[existingIndex] = workspace;
-    changed = true;
-  }
-
-  const migratedSelectedId = idMap.get(selectedId) ?? selectedId;
-  const migratedWatchedId = watchedId
-    ? (idMap.get(watchedId) ?? watchedId)
-    : null;
-  const migratedActiveId = activeId ? (idMap.get(activeId) ?? activeId) : null;
-  if (
-    migratedSelectedId !== selectedId ||
-    migratedWatchedId !== watchedId ||
-    migratedActiveId !== activeId
-  )
-    changed = true;
-
-  const nextState = {
-    selectedId: migratedSelectedId,
-    watchedId: migratedWatchedId,
-    activeId: migratedActiveId,
-    workspaces: dedupedWorkspaces,
-  };
-
-  if (changed) {
-    return writeWorkspaceState(nextState);
-  }
-  return nextState;
-}
-
-async function writeWorkspaceState(nextState) {
-  const outputPath = workspaceStatePath();
-  const selectedId = String(nextState?.selectedId ?? nextState?.activeId ?? "");
-  const watchedId =
-    typeof nextState?.watchedId === "string" ? nextState.watchedId : "";
-  const output = {
-    ...nextState,
-    // Tauri's Rust state uses selectedWorkspaceId/watchedWorkspaceId on disk
-    // (with activeId as a legacy alias). Keep Electron's selectedId/watchedId
-    // too so older Electron builds can still read the same file.
-    selectedId,
-    selectedWorkspaceId: selectedId,
-    watchedId: watchedId || null,
-    watchedWorkspaceId: watchedId,
-    activeId: selectedId || null,
-  };
-  await writeJsonFileAtomic(outputPath, output);
-  return output;
-}
 
 // In-process onmyagent-server (session-archive, etc.) must see the real user
 // home even after OpenCode sandbox rewrites process.env.HOME.
@@ -980,168 +674,23 @@ async function refreshRuntimeSkillLinks() {
   return runtimeManager.refreshSkillLinks();
 }
 
-const officeCliManager = createOfficeCliManager({
-  homeDir: getRealHomeDir(),
+const {
+  officeCliManager,
+  larkCliManager,
+  larkCliAuth,
+  tencentDocsConnector,
+  baiduDriveConnector,
+  kdocsConnector,
+  dingtalkConnector,
+  wecomConnector,
+  tencentMeetingConnector,
+} = createDesktopManagedConnectors({
+  getRealHomeDir,
   refreshSkillLinks: refreshRuntimeSkillLinks,
-  onProgress: (progress) => {
-    if (mainWindow?.isDestroyed()) return;
-    mainWindow?.webContents?.send("onmyagent:officecli:progress", progress);
-  },
-  onStatus: (status) => {
-    if (mainWindow?.isDestroyed()) return;
-    mainWindow?.webContents?.send("onmyagent:officecli:status", status);
-  },
-});
-
-const larkCliManager = createLarkCliManager({
-  homeDir: getRealHomeDir(),
-  refreshSkillLinks: refreshRuntimeSkillLinks,
-  onProgress: (progress) => {
-    if (mainWindow?.isDestroyed()) return;
-    mainWindow?.webContents?.send("onmyagent:lark-cli:progress", progress);
-  },
-  onStatus: (status) => {
-    if (mainWindow?.isDestroyed()) return;
-    mainWindow?.webContents?.send("onmyagent:lark-cli:status", status);
-  },
-});
-
-const larkCliAuth = createLarkCliAuthService({
-  homeDir: getRealHomeDir(),
-  onProgress: (progress) => {
-    if (mainWindow?.isDestroyed()) return;
-    mainWindow?.webContents?.send("onmyagent:lark-cli:auth-progress", progress);
-  },
-});
-
-const resolveOpencodeConfigDirsForConnectors = () => {
-  /** @type {string[]} */
-  const dirs = [];
-  const push = (value) => {
-    const trimmed = String(value ?? "").trim();
-    if (trimmed && !dirs.includes(trimmed)) dirs.push(trimmed);
-  };
-  try {
-    push(runtimeManager.getActiveOpencodeConfigDir?.());
-  } catch {
-    // runtime not ready
-  }
-  try {
-    push(runtimeManager.resolveLocalOpencodeConfigDir?.());
-  } catch {
-    // ignore
-  }
-  try {
-    push(runtimeManager.onmyagentOpencodeConfigDir?.());
-  } catch {
-    // ignore
-  }
-  push(globalOpencodeRoot());
-  if (process.env.XDG_CONFIG_HOME?.trim()) {
-    push(path.join(process.env.XDG_CONFIG_HOME.trim(), "opencode"));
-  }
-  return dirs;
-};
-
-const tencentDocsConnector = createTencentDocsConnectorManager({
-  homeDir: getRealHomeDir(),
-  // Prefer the same roots the desktop OpenCode process uses (dev may set
-  // OPENCODE_CONFIG_DIR / XDG under Application Support while ~/.config also exists).
-  globalOpencodeRoot: () => globalOpencodeRoot(),
-  resolveOpencodeConfigDirs: resolveOpencodeConfigDirsForConnectors,
-  openExternal: async (url) => {
-    await shell.openExternal(url);
-  },
-  refreshSkillLinks: refreshRuntimeSkillLinks,
-  onProgress: (progress) => {
-    if (mainWindow?.isDestroyed()) return;
-    mainWindow?.webContents?.send("onmyagent:tencent-docs:auth-progress", progress);
-  },
-  onStatus: (status) => {
-    if (mainWindow?.isDestroyed()) return;
-    mainWindow?.webContents?.send("onmyagent:tencent-docs:status", status);
-  },
-});
-
-const baiduDriveConnector = createBaiduDriveConnectorManager({
-  homeDir: getRealHomeDir(),
-  globalOpencodeRoot: () => globalOpencodeRoot(),
-  resolveOpencodeConfigDirs: resolveOpencodeConfigDirsForConnectors,
-  openExternal: async (url) => {
-    await shell.openExternal(url);
-  },
-  onProgress: (progress) => {
-    if (mainWindow?.isDestroyed()) return;
-    mainWindow?.webContents?.send("onmyagent:baidu-drive:auth-progress", progress);
-  },
-  onStatus: (status) => {
-    if (mainWindow?.isDestroyed()) return;
-    mainWindow?.webContents?.send("onmyagent:baidu-drive:status", status);
-  },
-});
-
-const kdocsConnector = createKdocsConnectorManager({
-  homeDir: getRealHomeDir(),
-  globalOpencodeRoot: () => globalOpencodeRoot(),
-  resolveOpencodeConfigDirs: resolveOpencodeConfigDirsForConnectors,
-  onProgress: (progress) => {
-    if (mainWindow?.isDestroyed()) return;
-    mainWindow?.webContents?.send("onmyagent:kdocs:auth-progress", progress);
-  },
-  onStatus: (status) => {
-    if (mainWindow?.isDestroyed()) return;
-    mainWindow?.webContents?.send("onmyagent:kdocs:status", status);
-  },
-});
-
-const dingtalkConnector = createDingtalkConnectorManager({
-  homeDir: getRealHomeDir(),
-  globalOpencodeRoot: () => globalOpencodeRoot(),
-  resolveOpencodeConfigDirs: resolveOpencodeConfigDirsForConnectors,
-  onProgress: (progress) => {
-    if (mainWindow?.isDestroyed()) return;
-    mainWindow?.webContents?.send("onmyagent:dingtalk:auth-progress", progress);
-  },
-  onStatus: (status) => {
-    if (mainWindow?.isDestroyed()) return;
-    mainWindow?.webContents?.send("onmyagent:dingtalk:status", status);
-  },
-});
-
-const wecomConnector = createWecomConnectorManager({
-  homeDir: getRealHomeDir(),
-  openExternal: async (url) => {
-    await shell.openExternal(url);
-  },
-  refreshSkillLinks: refreshRuntimeSkillLinks,
-  onProgress: (progress) => {
-    if (mainWindow?.isDestroyed()) return;
-    mainWindow?.webContents?.send("onmyagent:wecom:auth-progress", progress);
-  },
-  onStatus: (status) => {
-    if (mainWindow?.isDestroyed()) return;
-    mainWindow?.webContents?.send("onmyagent:wecom:status", status);
-  },
-});
-
-const tencentMeetingConnector = createTencentMeetingConnectorManager({
-  homeDir: getRealHomeDir(),
-  globalOpencodeRoot: () => globalOpencodeRoot(),
-  resolveOpencodeConfigDirs: resolveOpencodeConfigDirsForConnectors,
-  openExternal: async (url) => {
-    await shell.openExternal(url);
-  },
-  onProgress: (progress) => {
-    if (mainWindow?.isDestroyed()) return;
-    mainWindow?.webContents?.send(
-      "onmyagent:tencent-meeting:auth-progress",
-      progress,
-    );
-  },
-  onStatus: (status) => {
-    if (mainWindow?.isDestroyed()) return;
-    mainWindow?.webContents?.send("onmyagent:tencent-meeting:status", status);
-  },
+  getMainWindow: () => mainWindow,
+  shell,
+  runtimeManager,
+  globalOpencodeRoot,
 });
 
 // Push channel state / pairing changes from the main process to the renderer
@@ -1168,7 +717,17 @@ const codeWorkspaceActions = createCodeWorkspaceActions({
   personalAgentLegacyHarness,
 });
 
-let runtimeBootstrapPromise = null;
+const desktopRuntimeBoot = createDesktopRuntimeBoot({
+  readWorkspaceState,
+  writeWorkspaceState,
+  runtimeManager,
+});
+const {
+  bootRuntimeForSelectedWorkspace,
+  ensureRuntimeBootstrap,
+  hasRuntimeBootstrap,
+  setRuntimeBootstrap,
+} = desktopRuntimeBoot;
 let safeQuitPromise = null;
 const desktopTaskLifecycle = createDesktopTaskLifecycle({
   taskOrchestrator,
@@ -1188,118 +747,6 @@ const safeRelaunch = createSafeRelaunchHandler({
   relaunch: () => app.relaunch(),
   exit: (code) => app.exit(code),
 });
-
-function assertOnMyAgentServerReady(info) {
-  if (!info?.running) {
-    throw new Error("OnMyAgent server did not stay running after startup.");
-  }
-  if (!info.baseUrl) {
-    throw new Error("OnMyAgent server did not report a base URL after startup.");
-  }
-  if (!info.ownerToken && !info.clientToken) {
-    throw new Error(
-      "OnMyAgent server did not report an access token after startup.",
-    );
-  }
-  return info;
-}
-
-async function bootRuntimeForSelectedWorkspace() {
-  const list = await readWorkspaceState();
-  const selectedId =
-    list.selectedId || list.activeId || list.workspaces[0]?.id || "";
-  const workspace = selectedId
-    ? list.workspaces.find((entry) => entry?.id === selectedId)
-    : list.workspaces[0];
-  const workspaceRoot = String(workspace?.path ?? "").trim();
-  if (!workspaceRoot || workspace?.workspaceType === "remote") {
-    return { ok: true, skipped: true, reason: "no-local-workspace" };
-  }
-
-  const workspacePaths = [];
-  for (const entry of list.workspaces) {
-    if (entry?.workspaceType === "remote") continue;
-    const workspacePath = String(entry?.path ?? "").trim();
-    if (workspacePath && !workspacePaths.includes(workspacePath))
-      workspacePaths.push(workspacePath);
-  }
-  if (!workspacePaths.includes(workspaceRoot))
-    workspacePaths.unshift(workspaceRoot);
-
-  let bootWorkspace = workspace;
-  let bootWorkspaceRoot = workspaceRoot;
-  let engine;
-  try {
-    engine = await runtimeManager.engineStart(workspaceRoot, {
-      runtime: "direct",
-      workspacePaths,
-    });
-  } catch (error) {
-    const fallback = list.workspaces.find((entry) => {
-      const candidatePath = String(entry?.path ?? "").trim();
-      return (
-        entry?.workspaceType !== "remote" &&
-        candidatePath &&
-        candidatePath !== workspaceRoot
-      );
-    });
-    const fallbackRoot = String(fallback?.path ?? "").trim();
-    if (!fallback || !fallbackRoot) throw error;
-    console.warn(
-      "[runtime] selected workspace failed during boot; trying fallback workspace",
-      {
-        selectedWorkspaceId: workspace?.id ?? null,
-        fallbackWorkspaceId: fallback.id ?? null,
-        error: error instanceof Error ? error.message : String(error),
-      },
-    );
-    const fallbackWorkspacePaths = [
-      fallbackRoot,
-      ...workspacePaths.filter(
-        (entry) => entry !== fallbackRoot && entry !== workspaceRoot,
-      ),
-    ];
-    engine = await runtimeManager.engineStart(fallbackRoot, {
-      runtime: "direct",
-      workspacePaths: fallbackWorkspacePaths,
-    });
-    bootWorkspace = fallback;
-    bootWorkspaceRoot = fallbackRoot;
-    await writeWorkspaceState({
-      ...list,
-      selectedId: String(fallback.id ?? ""),
-      watchedId: String(fallback.id ?? ""),
-    }).catch(() => undefined);
-  }
-  await runtimeManager
-    .orchestratorWorkspaceActivate({
-      workspacePath: bootWorkspaceRoot,
-      name: bootWorkspace.name ?? bootWorkspace.displayName ?? null,
-    })
-    .catch(() => undefined);
-  const onmyagentServer = assertOnMyAgentServerReady(
-    await runtimeManager.onmyagentServerInfo(),
-  );
-  return {
-    ok: true,
-    skipped: false,
-    engine,
-    onmyagentServer,
-    workspaceId: bootWorkspace.id ?? null,
-  };
-}
-
-function ensureRuntimeBootstrap() {
-  if (!runtimeBootstrapPromise) {
-    runtimeBootstrapPromise = bootRuntimeForSelectedWorkspace().catch(
-      (error) => ({
-        ok: false,
-        error: error instanceof Error ? error.message : String(error),
-      }),
-    );
-  }
-  return runtimeBootstrapPromise;
-}
 
 async function mutateWorkspaceState(mutator) {
   const current = await readWorkspaceState();
@@ -1694,7 +1141,7 @@ if (!app.requestSingleInstanceLock()) {
       restoreComputerUseServices: () => restoreComputerUseServices(),
       startUiControl: () => uiControlBridge.start(),
       startTaskSupervisor: async () => {
-        await startTaskSupervisorBackground({ runtimeBootstrap: runtimeBootstrapPromise,
+        await startTaskSupervisorBackground({ runtimeBootstrap: desktopRuntimeBoot.getRuntimeBootstrapPromise(),
           taskClient: taskOrchestrator, powerMonitor, refreshKeepAwake: taskBackgroundEvents.refreshKeepAwake });
       },
       // Channel autoStart is a no-op when disabled / no account. Deferred so it
@@ -1720,10 +1167,8 @@ if (!app.requestSingleInstanceLock()) {
         }
       },
       flushPendingDeepLinks,
-      hasRuntimeBootstrap: () => Boolean(runtimeBootstrapPromise),
-      setRuntimeBootstrap: (task) => {
-        runtimeBootstrapPromise = task;
-      },
+      hasRuntimeBootstrap,
+      setRuntimeBootstrap,
       bootRuntimeForSelectedWorkspace,
       // Packaged updater after the window path has started. Renderer-owned
       // checks pass the selected release channel explicitly.

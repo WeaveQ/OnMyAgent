@@ -20,7 +20,7 @@ async function source(base: URL, relativePath: string) {
 
 describe("personal usage UI contract", () => {
   test("matches the centered Codex profile hierarchy and activity interactions", async () => {
-    const page = await source(sessionRoot, "usage/personal-usage-page.tsx");
+    const page = await source(settingsRoot, "usage/personal-usage-page.tsx");
     expect(page).toContain('data-personal-usage-page="true"');
     expect(page).toContain('data-usage-profile="true"');
     expect(page).toContain('data-token-activity="true"');
@@ -49,8 +49,7 @@ describe("personal usage UI contract", () => {
     // Codex parity keeps fixed cells and mode-specific whole-column hover.
     expect(page).toContain("buildTokenActivitySeries");
     expect(page).not.toContain("trimLeadingEmptyActivityColumns");
-    expect(page).toContain("[--profile-usage-accent:#339cff]");
-    expect(page).toContain("dark:[--profile-usage-accent:#99ceff]");
+    expect(page).toContain("[--profile-usage-accent:var(--dls-primary)]");
     expect(page).toContain("var(--profile-usage-accent)_22%");
     expect(page).toContain("var(--profile-usage-accent)_42%");
     expect(page).toContain("var(--profile-usage-accent)_68%");
@@ -87,6 +86,7 @@ describe("personal usage UI contract", () => {
   test("hosts usage under global settings, not session sidebar views", async () => {
     const usageView = await source(settingsRoot, "pages/usage-view.tsx");
     const settingsPage = await source(settingsRoot, "shell/settings-page.tsx");
+    const settingsTabMeta = await source(settingsRoot, "settings-tab-meta.tsx");
     const settingsTabBody = await source(
       shellRoot,
       "settings-route/settings-tab-body.tsx",
@@ -97,7 +97,8 @@ describe("personal usage UI contract", () => {
 
     expect(usageView).toContain("UsageSettingsView");
     expect(usageView).toContain("PersonalUsagePage");
-    expect(settingsPage).toContain('"usage"');
+    expect(settingsTabMeta).toContain('"usage"');
+    expect(settingsTabMeta).toContain("getGlobalSettingsTabs");
     expect(settingsPage).toContain("getGlobalSettingsTabs");
     expect(settingsTabBody).toContain('case "usage"');
     expect(settingsTabBody).toContain("LazyUsageView");

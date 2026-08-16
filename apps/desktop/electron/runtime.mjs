@@ -1,34 +1,20 @@
-import { randomUUID } from "node:crypto";
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { chmod, copyFile, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-import {
-  isComputerUseMcpEnabled,
-  resolveComputerUseRuntimeCommand,
-  writeComputerUseRuntimeConfig,
-} from "./computer-use-runtime-config.mjs";
 import {
   resolveLocalExpertsRoot,
   resolveLocalManagedToolsBinRoot,
   resolveLocalSkillsRoot,
 } from "./config-profile-paths.mjs";
-import {
-  chooseOpencodeBinary,
-  chooseProductRuntimeBinary,
-} from "./opencode-binary-policy.mjs";
 import { prepareOnMyAgentOpencodeConfigDir } from "./opencode-config-dir.mjs";
-import {
-  applyOpencodeSandboxEnv,
-  linkHomeConfigOpencodeSkills,
-  prepareOpencodeSandboxHome,
-} from "./opencode-sandbox-home.mjs";
 import { resolveExpertSessionRuntimeRoot } from "./expert-session-runtime-path.mjs";
+import { createRuntimeBinaryResolver } from "./runtime-binaries.mjs";
+import { createRuntimeChildEnv } from "./runtime-child-env.mjs";
 import { createRuntimeSandbox } from "./runtime-sandbox.mjs";
+import { createRuntimeTokenPortStore } from "./runtime-token-port.mjs";
 export {
   createDesktopPersonalRuntimeServices,
   wrapChannelApiForLazyInit,
@@ -36,7 +22,7 @@ export {
 
 import {
   DIRECT_RUNTIME,
-  nowMs,
+  resolveShippedEngineRuntime,
   createEngineState,
   snapshotEngineState,
   createOnMyAgentServerState,
@@ -49,36 +35,27 @@ import {
   appendOutput,
   cleanupPackagedSidecars as cleanupPackagedSidecarsImpl,
   ensureOpencodeConfig as ensureOpencodeConfigImpl,
-  spawnManagedChild,
   stopChild as stopChildImpl,
 } from "./runtime-opencode-lifecycle.mjs";
 import {
   BUNDLED_PLUGINS_RESOURCE_DIR,
   BUNDLED_SKILLS_RESOURCE_DIR,
-  OPENCODE_BIN_ENV_KEYS,
   buildBundledResourceCandidates,
-  buildLocalOpencodeBinaryCandidates,
   buildSoftwareEnvironmentInfo,
-  collectDockerCandidatePaths,
-  envForcedBinaryPath,
   firstExisting,
   normalizeWorkspaceKey,
-  parseManagedContainerNames,
-  productRuntimeBinaryEnvKeys,
-  productRuntimeBinaryNames,
-  productRuntimeBinaryRelativePath,
   prioritizeWorkspacePaths,
-  selectBestLocalOpencodeFromProbed,
-  shouldSkipLocalOpencodeCandidate,
 } from "./runtime-helpers.mjs";
+import {
+  targetTriple,
+  waitForHttpOk,
+  fetchJson,
+} from "./runtime-path-env.mjs";
 
 export { snapshotOnMyAgentServerState, DIRECT_RUNTIME, ORCHESTRATOR_RUNTIME } from "./runtime-engine-state.mjs";
 export { prioritizeWorkspacePaths, normalizeWorkspaceKey } from "./runtime-helpers.mjs";
 
 const __runtimeDir = path.dirname(fileURLToPath(import.meta.url));
-
-const ONMYAGENT_SERVER_PORT_RANGE_START = 48_000;
-const ONMYAGENT_SERVER_PORT_RANGE_END = 51_000;
 
 /** @returns {string | null} */
 function bundledSkillsRootPath() {
@@ -115,17 +92,6 @@ async function readJsonFile(targetPath, fallback) {
     return fallback;
   }
 }
-
-import {
-  targetTriple,
-  binaryFileNames,
-  enrichedPath,
-  portAvailable,
-  findFreePort,
-  waitForHttpOk,
-  fetchJson,
-  loadUserEnvFile,
-} from "./runtime-path-env.mjs";
 
 export function createRuntimeManager({
   app,
@@ -199,29 +165,27 @@ export function createRuntimeManager({
       .join(path.delimiter);
   }
 
-  function resolveLocalOpencodeConfigDir() {
-    const explicit = process.env.OPENCODE_CONFIG_DIR?.trim();
-    if (explicit) return explicit;
+  const {
+    resolveOpencodeBinaryDecision,
+    resolveBundledBinaryInfo,
+    resolveProductRuntimeBinaryDecision,
+    probeVersion,
+    resolveBinary,
+    resolveOpencodeBinary,
+    runShellCommand,
+  } = createRuntimeBinaryResolver({
+    app,
+    sidecarDirs,
+    runtimeRoot,
+    runtimeBinDirs,
+  });
 
-    const candidates = [
-      path.join(app.getPath("home"), ".config", "opencode"),
-      process.env.XDG_CONFIG_HOME?.trim()
-        ? path.join(process.env.XDG_CONFIG_HOME.trim(), "opencode")
-        : null,
-      path.join(os.homedir(), ".config", "opencode"),
-    ].filter(Boolean);
-
-    for (const candidate of [...new Set(candidates)]) {
-      if (existsSync(path.join(candidate, "opencode.json")) || existsSync(path.join(candidate, "opencode.jsonc"))) {
-        return candidate;
-      }
-    }
-    return null;
-  }
-
-  function onmyagentServerTokenStorePath() { return path.join(userDataDir, "onmyagent-server-tokens.json"); }
-
-  function onmyagentServerStatePath() { return path.join(userDataDir, "onmyagent-server-state.json"); }
+  const {
+    loadOrCreateWorkspaceTokens,
+    persistWorkspaceOwnerToken,
+    persistPreferredOnMyAgentPort,
+    resolveOnMyAgentPort,
+  } = createRuntimeTokenPortStore({ userDataDir, readJsonFile });
 
   function managedOpencodeWorkdir() {
     return path.join(userDataDir, "managed-opencode-workdir");
@@ -248,6 +212,23 @@ export function createRuntimeManager({
       bundledPluginsRootPath,
     });
   }
+
+  const {
+    resolveLocalOpencodeConfigDir,
+    ensureDevModePaths,
+    resolveChildEnvironment,
+  } = createRuntimeChildEnv({
+    app,
+    userDataDir,
+    resolvedHomeDir,
+    desktopRoot,
+    runtimeBinDirs,
+    sidecarDirs,
+    managedToolsBinRoot,
+    runtimeEnvironment,
+    prepareManagedOpencodeConfigDir,
+    onmyagentOpencodeConfigDir,
+  });
 
   async function refreshSkillLinks() {
     const devConfigDir = !activeOpencodeConfigDir && process.env.ONMYAGENT_DEV_MODE === "1"
@@ -296,476 +277,6 @@ export function createRuntimeManager({
     } catch {
       return false;
     }
-  }
-
-  async function loadTokenStore() {
-    return readJsonFile(onmyagentServerTokenStorePath(), { version: 1, workspaces: {} });
-  }
-
-  async function saveTokenStore(store) {
-    const filePath = onmyagentServerTokenStorePath();
-    await mkdir(path.dirname(filePath), { recursive: true });
-    await writeFile(filePath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
-  }
-
-  async function loadPortState() {
-    return readJsonFile(onmyagentServerStatePath(), {
-      version: 3,
-      workspacePorts: {},
-      preferredPort: null,
-    });
-  }
-
-  async function savePortState(state) {
-    const filePath = onmyagentServerStatePath();
-    await mkdir(path.dirname(filePath), { recursive: true });
-    await writeFile(filePath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
-  }
-
-  async function loadOrCreateWorkspaceTokens(workspaceKey) {
-    const store = await loadTokenStore();
-    const normalized = normalizeWorkspaceKey(workspaceKey);
-    if (store.workspaces?.[normalized]) {
-      return store.workspaces[normalized];
-    }
-    const next = {
-      clientToken: randomUUID(),
-      hostToken: randomUUID(),
-      ownerToken: null,
-      updatedAt: nowMs(),
-    };
-    store.workspaces ??= {};
-    store.workspaces[normalized] = next;
-    await saveTokenStore(store);
-    return next;
-  }
-
-  async function persistWorkspaceOwnerToken(workspaceKey, ownerToken) {
-    const store = await loadTokenStore();
-    const normalized = normalizeWorkspaceKey(workspaceKey);
-    if (!store.workspaces?.[normalized]) return;
-    store.workspaces[normalized].ownerToken = ownerToken;
-    store.workspaces[normalized].updatedAt = nowMs();
-    await saveTokenStore(store);
-  }
-
-  async function readPreferredOnMyAgentPort(workspaceKey) {
-    const state = await loadPortState();
-    const normalized = normalizeWorkspaceKey(workspaceKey);
-    if (normalized && state.workspacePorts?.[normalized]) {
-      return state.workspacePorts[normalized];
-    }
-    return state.preferredPort ?? null;
-  }
-
-  async function persistPreferredOnMyAgentPort(workspaceKey, port) {
-    const state = await loadPortState();
-    const normalized = normalizeWorkspaceKey(workspaceKey);
-    state.version = 3;
-    state.workspacePorts ??= {};
-    if (normalized) {
-      state.workspacePorts[normalized] = port;
-      state.preferredPort = null;
-    } else {
-      state.preferredPort = port;
-    }
-    await savePortState(state);
-  }
-
-  async function resolveOnMyAgentPort(host, workspaceKey) {
-    const preferredPort = await readPreferredOnMyAgentPort(workspaceKey);
-    if (preferredPort && (await portAvailable(host, preferredPort))) {
-      return preferredPort;
-    }
-    return findFreePort(host);
-  }
-
-  async function ensureDevModePaths() {
-    const root = path.join(userDataDir, "onmyagent-dev-data");
-    const paths = {
-      homeDir: path.join(root, "home"),
-      xdgConfigHome: path.join(root, "xdg", "config"),
-      xdgDataHome: path.join(root, "xdg", "data"),
-      xdgCacheHome: path.join(root, "xdg", "cache"),
-      xdgStateHome: path.join(root, "xdg", "state"),
-      opencodeConfigDir: path.join(root, "config", "opencode"),
-    };
-
-    for (const dir of Object.values(paths)) {
-      await mkdir(dir, { recursive: true });
-    }
-    await mkdir(path.join(paths.xdgDataHome, "opencode"), { recursive: true });
-    return paths;
-  }
-
-  async function buildChildEnv(extra = {}, options = {}) {
-    /** @type {NodeJS.ProcessEnv} */
-    // User env is layered first so process.env + any caller overrides always
-    // win. See apps/server/src/services/env-file.ts; both loaders must agree
-    // on path and reserved-keys policy.
-    const env = {
-      ...loadUserEnvFile(),
-      ...process.env,
-      BUN_CONFIG_DNS_RESULT_ORDER: "verbatim",
-      ...runtimeEnvironment(),
-      ...extra,
-    };
-    const pathKey =
-      Object.prototype.hasOwnProperty.call(env, "PATH") ||
-      !Object.prototype.hasOwnProperty.call(env, "Path")
-        ? "PATH"
-        : "Path";
-    const pathEnv = enrichedPath(
-      [...runtimeBinDirs, ...sidecarDirs],
-      env[pathKey],
-    );
-    const pathEntries = String(pathEnv ?? "")
-      .split(path.delimiter)
-      .filter((entry) => entry && entry !== managedToolsBinRoot);
-    env[pathKey] = [managedToolsBinRoot, ...pathEntries].join(path.delimiter);
-    if (process.env.ONMYAGENT_DEV_MODE === "1") {
-      const devPaths = await ensureDevModePaths();
-      env.ONMYAGENT_DEV_MODE = "1";
-      // Placeholders only; sandbox apply below overwrites HOME / XDG / config dir.
-      env.HOME = env.HOME?.trim() ? env.HOME : devPaths.homeDir;
-      env.USERPROFILE = env.USERPROFILE?.trim() ? env.USERPROFILE : devPaths.homeDir;
-      env.XDG_CONFIG_HOME = env.XDG_CONFIG_HOME?.trim() ? env.XDG_CONFIG_HOME : devPaths.xdgConfigHome;
-      env.XDG_DATA_HOME = env.XDG_DATA_HOME?.trim() ? env.XDG_DATA_HOME : devPaths.xdgDataHome;
-      env.XDG_CACHE_HOME = env.XDG_CACHE_HOME?.trim() ? env.XDG_CACHE_HOME : devPaths.xdgCacheHome;
-      env.XDG_STATE_HOME = env.XDG_STATE_HOME?.trim() ? env.XDG_STATE_HOME : devPaths.xdgStateHome;
-      env.OPENCODE_TEST_HOME = env.OPENCODE_TEST_HOME?.trim() ? env.OPENCODE_TEST_HOME : devPaths.homeDir;
-    }
-
-    // Always stamp the real user home so in-process server features
-    // (session-archive discovery of Claude/Codex/Grok/…) never scan the
-    // OpenCode sandbox HOME after isolation below.
-    env.ONMYAGENT_REAL_HOME = env.ONMYAGENT_REAL_HOME?.trim()
-      ? env.ONMYAGENT_REAL_HOME
-      : resolvedHomeDir;
-    if (!process.env.ONMYAGENT_REAL_HOME?.trim()) {
-      process.env.ONMYAGENT_REAL_HOME = resolvedHomeDir;
-    }
-
-    // Path B: isolate OpenCode from the real user HOME so ~/.opencode plugins
-    // (Sisyphus) and ~/.claude|~/.agents skill catalogs never enter product
-    // sessions. Providers/auth are mirrored into the sandbox.
-    // Opt out: ONMYAGENT_OPENCODE_USE_REAL_HOME=1 (debug only).
-    if (process.env.ONMYAGENT_OPENCODE_USE_REAL_HOME !== "1") {
-      const sandbox = await prepareOpencodeSandboxHome({
-        userDataDir,
-        realHomeDir: resolvedHomeDir,
-      });
-      applyOpencodeSandboxEnv(env, sandbox);
-    } else if (!env.OPENCODE_CONFIG_DIR?.trim()) {
-      env.OPENCODE_CONFIG_DIR =
-        resolveLocalOpencodeConfigDir() || onmyagentOpencodeConfigDir();
-    }
-    const configDir = env.OPENCODE_CONFIG_DIR?.trim() || onmyagentOpencodeConfigDir();
-    env.OPENCODE_CONFIG_DIR = await prepareManagedOpencodeConfigDir(configDir);
-    if (process.env.ONMYAGENT_OPENCODE_USE_REAL_HOME !== "1") {
-      await linkHomeConfigOpencodeSkills({
-        homeDir: env.HOME,
-        configDir: env.OPENCODE_CONFIG_DIR,
-      }).catch((error) => {
-        console.warn("[runtime] Failed to expose core slash skills under sandbox HOME:", error);
-      });
-    }
-    if (!env.OPENCODE_CONFIG?.trim()) {
-      const computerUsePlatform = process.platform;
-      const computerUseCommand = resolveComputerUseRuntimeCommand({
-        platform: computerUsePlatform,
-        desktopRoot,
-        resourcesPath: process.resourcesPath,
-        explicitBinary: process.env.ONMYAGENT_COMPUTER_USE_BINARY,
-        devMode: process.env.ONMYAGENT_DEV_MODE === "1",
-      });
-      if (computerUseCommand) {
-        env.OPENCODE_CONFIG = await writeComputerUseRuntimeConfig(
-          env.OPENCODE_CONFIG_DIR,
-          computerUseCommand,
-          {
-            enabled: isComputerUseMcpEnabled({
-              platform: computerUsePlatform,
-              userDataDir,
-            }),
-          },
-        );
-      }
-    }
-    return env;
-  }
-
-  // Normal OpenCode sessions and expert/detached sessions must inherit the
-  // same managed-tool PATH and prepared OpenCode skill directory. Keep this
-  // as the single runtime boundary so optional tools such as OfficeCLI are
-  // available consistently in both session modes.
-  async function resolveChildEnvironment(extra = {}, options = {}) {
-    return buildChildEnv(extra, options);
-  }
-
-  function envForcedOpencodeBinaryPath() {
-    return envForcedBinaryPath(process.env, OPENCODE_BIN_ENV_KEYS, existsSync);
-  }
-
-  function localOpencodeBinaryCandidates() {
-    return buildLocalOpencodeBinaryCandidates({
-      platform: process.platform,
-      homeDir: app.getPath("home"),
-      pathEnv: enrichedPath([], process.env.PATH) ?? "",
-      env: process.env,
-    });
-  }
-
-  /**
-   * Scan machine-local OpenCode installs and pick the newest one that meets
-   * the bundled pin. Avoids PATH order traps (e.g. stale /usr/local 1.14.x
-   * before Homebrew 1.17.x) that reintroduce plugin hook failures.
-   */
-  function findBestLocalOpencodeBinary(bundledPath, bundledVersion) {
-    const bundledResolved = bundledPath ? path.resolve(bundledPath) : null;
-    const probed = [];
-    for (const candidate of localOpencodeBinaryCandidates()) {
-      if (!existsSync(candidate)) continue;
-      if (shouldSkipLocalOpencodeCandidate(candidate, bundledResolved)) continue;
-      probed.push({ path: candidate, version: probeVersion(candidate) });
-    }
-    return selectBestLocalOpencodeFromProbed(probed, bundledVersion);
-  }
-
-  /**
-   * Resolve OpenCode with product-owned version gate:
-   * bundled by default; local only when a compatible version is found.
-   */
-  function resolveOpencodeBinaryDecision(opencodeBinPath) {
-    const explicitPath = typeof opencodeBinPath === "string" ? opencodeBinPath.trim() : "";
-    const envForcedPath = explicitPath ? null : envForcedOpencodeBinaryPath();
-    const bundled = resolveBundledBinaryInfo("opencode");
-    const bundledVersion = bundled?.path ? probeVersion(bundled.path) : null;
-
-    let localPath = null;
-    let localVersion = null;
-    if (!explicitPath && !envForcedPath) {
-      const { bestCompatible, firstExisting } = findBestLocalOpencodeBinary(
-        bundled?.path ?? null,
-        bundledVersion,
-      );
-      if (bestCompatible) {
-        localPath = bestCompatible.path;
-        localVersion = bestCompatible.version;
-      } else if (firstExisting) {
-        // Feed an incompatible/unknown local into the policy so notices fire.
-        localPath = firstExisting.path;
-        localVersion = firstExisting.version;
-      }
-    } else if (envForcedPath) {
-      localVersion = probeVersion(envForcedPath);
-    }
-
-    const decision = chooseOpencodeBinary({
-      explicitPath: explicitPath || null,
-      envForcedPath,
-      localPath,
-      localVersion,
-      bundledPath: bundled?.path ?? null,
-      bundledVersion,
-    });
-
-    if (decision.notice) {
-      console.warn(`[runtime] OpenCode binary policy: ${decision.notice}`);
-    } else if (decision.path) {
-      console.info(
-        `[runtime] OpenCode binary policy: using ${decision.source} (${decision.reason}) -> ${decision.path}`,
-      );
-    }
-
-    if (!decision.path) return null;
-    return {
-      path: decision.path,
-      source: decision.source,
-      reason: decision.reason,
-      notice: decision.notice,
-      localVersion: decision.localVersion,
-      bundledVersion: decision.bundledVersion,
-    };
-  }
-
-  function resolveBinaryInfo(baseName, extraPaths = []) {
-    if (baseName === "opencode") {
-      return resolveOpencodeBinaryDecision(null);
-    }
-
-    for (const directory of [...sidecarDirs, ...extraPaths]) {
-      for (const fileName of binaryFileNames(baseName)) {
-        const candidate = path.join(directory, fileName);
-        if (existsSync(candidate)) {
-          return { path: candidate, source: "bundled" };
-        }
-      }
-    }
-
-    const pathEntries = (enrichedPath([], process.env.PATH) ?? "")
-      .split(path.delimiter)
-      .filter(Boolean);
-    for (const entry of pathEntries) {
-      for (const fileName of binaryFileNames(baseName)) {
-        const candidate = path.join(entry, fileName);
-        if (existsSync(candidate)) {
-          return { path: candidate, source: "path" };
-        }
-      }
-    }
-
-    return null;
-  }
-
-  function resolveBundledBinaryInfo(baseName) {
-    for (const directory of sidecarDirs) {
-      for (const fileName of binaryFileNames(baseName)) {
-        const candidate = path.join(directory, fileName);
-        if (existsSync(candidate)) {
-          return { path: candidate, source: "bundled" };
-        }
-      }
-    }
-    return null;
-  }
-
-  function bundledRuntimeBinary(tool) {
-    if (!runtimeRoot) return null;
-    const relative = productRuntimeBinaryRelativePath(tool, process.platform);
-    return relative ? path.join(runtimeRoot, relative) : null;
-  }
-
-  function envForcedRuntimeBinaryPath(tool) {
-    return envForcedBinaryPath(process.env, productRuntimeBinaryEnvKeys(tool), existsSync);
-  }
-
-  function findPathRuntimeBinary(tool) {
-    const names = productRuntimeBinaryNames(tool, process.platform);
-    // Search the original process PATH without our runtimeBinDirs prepend so
-    // we can tell "true machine local" from product-bundled copies.
-    const rawPath = process.env.PATH ?? process.env.Path ?? process.env.path ?? "";
-    const pathEntries = rawPath.split(path.delimiter).filter(Boolean);
-    const bundledDirs = new Set(runtimeBinDirs.map((dir) => path.resolve(dir)));
-    for (const entry of pathEntries) {
-      if (bundledDirs.has(path.resolve(entry))) continue;
-      for (const name of names) {
-        const candidate = path.join(entry, name);
-        if (existsSync(candidate)) return candidate;
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Product-owned Node / Python: bundled wins whenever present.
-   */
-  function resolveProductRuntimeBinaryDecision(tool) {
-    const toolLabel = tool === "node" ? "Node" : tool === "python" ? "Python" : tool;
-    const bundledPath = bundledRuntimeBinary(tool);
-    const bundledExists = bundledPath && existsSync(bundledPath) ? bundledPath : null;
-    const envForcedPath = envForcedRuntimeBinaryPath(tool);
-    const localPath = envForcedPath || bundledExists ? null : findPathRuntimeBinary(tool);
-
-    const decision = chooseProductRuntimeBinary({
-      toolLabel,
-      envForcedPath,
-      localPath,
-      bundledPath: bundledExists,
-      bundledVersion: bundledExists ? probeVersion(bundledExists) : null,
-      localVersion: localPath || envForcedPath ? probeVersion(localPath ?? envForcedPath) : null,
-    });
-
-    if (decision.notice) {
-      console.warn(`[runtime] ${toolLabel} binary policy: ${decision.notice}`);
-    }
-
-    if (!decision.path) return null;
-    return {
-      path: decision.path,
-      source: decision.source,
-      reason: decision.reason,
-      notice: decision.notice,
-      localVersion: decision.localVersion,
-      bundledVersion: decision.bundledVersion,
-    };
-  }
-
-  function probeVersion(binary) {
-    if (!binary || !existsSync(binary)) return null;
-    const result = spawnSync(binary, ["--version"], {
-      encoding: "utf8",
-      windowsHide: true,
-    });
-    if (result.status !== 0) return null;
-    return String(result.stdout || result.stderr || "").trim() || null;
-  }
-
-  function resolveBinary(baseName, extraPaths = []) {
-    return resolveBinaryInfo(baseName, extraPaths)?.path ?? null;
-  }
-
-  function resolveOpencodeBinary(opencodeBinPath) {
-    return resolveOpencodeBinaryDecision(opencodeBinPath);
-  }
-
-  function resolveDockerCandidates() {
-    return collectDockerCandidatePaths({
-      platform: process.platform,
-      env: process.env,
-    }).filter((candidate) => existsSync(candidate));
-  }
-
-  function runDockerCommandDetailed(args, timeoutMs = 8000) {
-    const tried = [...resolveDockerCandidates(), process.platform === "win32" ? "docker.exe" : "docker"];
-    const errors = [];
-
-    for (const program of tried) {
-      try {
-        const result = spawnSync(program, args, {
-          encoding: "utf8",
-          timeout: timeoutMs,
-          windowsHide: true,
-        });
-        return {
-          program,
-          status: typeof result.status === "number" ? result.status : -1,
-          stdout: result.stdout ?? "",
-          stderr: result.stderr ?? "",
-        };
-      } catch (error) {
-        errors.push(error instanceof Error ? error.message : String(error));
-      }
-    }
-
-    throw new Error(
-      `Failed to run docker: ${errors.join("; ")} (Set ONMYAGENT_DOCKER_BIN to your docker binary if needed)`,
-    );
-  }
-
-  async function listOnMyAgentManagedContainers() {
-    const result = runDockerCommandDetailed(["ps", "-a", "--format", "{{.Names}}"], 8000);
-    if (result.status !== 0) {
-      const combined = `${result.stdout.trim()}\n${result.stderr.trim()}`.trim();
-      throw new Error(combined || `docker ps -a failed (status ${result.status})`);
-    }
-    return parseManagedContainerNames(result.stdout);
-  }
-
-  async function runShellCommand(program, args, options = {}) {
-    const result = spawnSync(program, args, {
-      encoding: "utf8",
-      cwd: options.cwd,
-      env: options.env,
-      shell: false,
-      windowsHide: true,
-      timeout: options.timeoutMs,
-    });
-    return {
-      status: typeof result.status === "number" ? result.status : -1,
-      stdout: result.stdout ?? "",
-      stderr: result.stderr ?? "",
-    };
   }
 
   function engineDoctor(options = {}) {
@@ -1069,7 +580,7 @@ export function createRuntimeManager({
     const workspacePaths = [safeProjectDir, ...((options.workspacePaths ?? []).filter(Boolean))].filter(
       (value, index, list) => list.indexOf(value) === index,
     );
-    const runtime = DIRECT_RUNTIME;
+    const runtime = resolveShippedEngineRuntime(options.runtime);
 
     try {
       lifecycleState = "starting";

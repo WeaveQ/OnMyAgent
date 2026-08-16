@@ -22,6 +22,8 @@ import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { scanUiFlags } from './scan-ui-flags.mjs'
+
 const repoRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))))
 const DESIGN_MD = join(repoRoot, 'DESIGN.md')
 const APP_INDEX_CSS = join(repoRoot, 'apps/app/src/app/index.css')
@@ -320,7 +322,6 @@ function extractRecord(source, key) {
 
 const INTENTIONAL_EXCEPTIONS = [
   /^--dls-brand-/,
-  /^--dls-chat-/,
   /^--dls-status-/,
   /^--dls-scrollbar-/,
   /^--dls-online$/,
@@ -340,6 +341,10 @@ const INTENTIONAL_EXCEPTIONS = [
   /^--dls-surface-solid$/,
   /^--dls-leading-/,
   /^--dls-font-/,
+  /^--ow-/,
+  // RGB companion of slate for rgba() mixes — not a hex YAML slot.
+  /^--dls-secondary-rgb$/,
+  /^--dls-primary-rgb$/,
   /^--ow-primary-rgb$/,
   /^--ow-primary-light$/,
   // Typography and radii are diffed in dedicated report categories.
@@ -368,12 +373,6 @@ const INTENTIONAL_EXCEPTIONS = [
   /^--dls-success-fg$/,
   /^--dls-success-soft$/,
   /^--dls-slate$/,
-  /^--dls-text-tertiary$/,
-  // `--ow-mist` is the concrete hex that feeds `--dls-border`. Now
-  // that v6 lifted `--dls-mist` into its own YAML slot, `--ow-mist`
-  // is a low-level primitive with no direct YAML counterpart — it
-  // is diffed indirectly via the `border` key (see COLOR_NAME_ALIASES).
-  /^--ow-mist$/,
   // Shell geometry (DESIGN.md rail-button width / pill-width) — length
   // tokens, not colors. Diffed by contract docs + Tailwind `w-rail*`,
   // not the color YAML ladder.
@@ -382,6 +381,9 @@ const INTENTIONAL_EXCEPTIONS = [
   // Free-float pill fill — platform glass uses white frost; solid dark is
   // elevated gray. Documented under rail-button, not the solid color ladder.
   /^--dls-rail-pill-active$/,
+  // Focus geometry (DESIGN.md focus.ring-width / ring-offset) — length
+  // tokens, not colors. Diffed in diffFocus, not the color YAML ladder.
+  /^--dls-focus-ring-/,
 ]
 
 function isException(cssName) {
@@ -429,24 +431,38 @@ function flattenColors(colors) {
 }
 
 function pickCssValue(cssMap, candidateNames) {
+  let aliasHit = null
   for (const name of candidateNames) {
-    if (cssMap.has(name)) return { name, value: normalizeColorValue(cssMap.get(name)) }
+    if (!cssMap.has(name)) continue
+    const value = normalizeColorValue(cssMap.get(name))
+    // Prefer a hex-owning slot over an unresolved alias (e.g. --dls-text
+    // → var(--dls-text-primary)). If every candidate is a var(), keep the
+    // first so artifact-hue tokens (YAML value is itself a var()) still match.
+    if (typeof value === 'string' && value.startsWith('var(')) {
+      if (!aliasHit) aliasHit = { name, value }
+      continue
+    }
+    return { name, value }
   }
-  return null
+  return aliasHit
 }
 
 // Map DESIGN.md color-key to candidate CSS variable names in code.
 const COLOR_NAME_ALIASES = {
-  primary: ['--ow-primary', '--dls-accent', '--dls-decision-bg'],
-  'primary-hover': ['--ow-primary-hover', '--dls-accent-hover', '--dls-decision-hover'],
-  'primary-soft': ['--ow-primary-light', '--dls-decision-soft'],
-  signal: ['--ow-signal', '--dls-signal'],
-  ink: ['--ow-ink', '--dls-text-primary'],
-  slate: ['--ow-slate', '--dls-text-secondary'],
+  primary: ['--dls-primary', '--dls-accent', '--dls-decision-bg', '--ow-primary'],
+  'primary-hover': ['--dls-primary-hover', '--dls-accent-hover', '--dls-decision-hover', '--ow-primary-hover'],
+  'primary-soft': ['--dls-primary-soft', '--dls-decision-soft', '--ow-primary-light'],
+  signal: ['--dls-signal', '--ow-signal'],
+  ink: ['--dls-text-primary', '--ow-ink'],
+  text: ['--dls-text', '--dls-text-primary'],
+  focus: ['--dls-focus'],
+  slate: ['--dls-text-secondary', '--dls-slate', '--ow-slate'],
+  'text-tertiary': ['--dls-text-tertiary'],
+  'chat-user-bg': ['--dls-chat-user-bg'],
+  'chat-agent-text': ['--dls-chat-agent-text'],
   // Mist is a distinct hairline tier from `border` (DESIGN.md § 2
-  // three-tier ladder). Prefer the dedicated `--dls-mist` variable;
-  // fall back to the legacy `--ow-mist` alias only if it exists.
-  mist: ['--dls-mist', '--ow-mist'],
+  // three-tier ladder). Prefer the dedicated `--dls-mist` variable.
+  mist: ['--dls-mist'],
   surface: ['--dls-surface'],
   'surface-muted': ['--dls-surface-muted'],
   background: ['--dls-background'],
@@ -641,6 +657,30 @@ function scanIconUsage(rootDir) {
     }
   }
   return result
+}
+
+function diffFocus(yaml, css) {
+  const report = { matched: [], missingInCode: [], mismatched: [] }
+  const focus = yaml.focus
+  if (!focus) return report
+  const scope = css.light || css.dark
+  const pairs = [
+    ['ring-width', '--dls-focus-ring-width', `${focus['ring-width']}px`],
+    ['ring-offset', '--dls-focus-ring-offset', `${focus['ring-offset']}px`],
+  ]
+  for (const [key, cssName, expected] of pairs) {
+    if (!scope || !scope.has(cssName)) {
+      report.missingInCode.push({ key, cssName, expected })
+      continue
+    }
+    const hit = resolveVarValue(scope.get(cssName), scope, new Set([cssName]))
+    if (String(hit).trim() === String(expected).trim()) {
+      report.matched.push({ key, cssName, value: expected })
+    } else {
+      report.mismatched.push({ key, cssName, expected, actual: hit })
+    }
+  }
+  return report
 }
 
 function diffZLayers(yaml, css) {
@@ -918,6 +958,10 @@ function enforceBaseline(baseline, report) {
       (h) => `${h.file}:size=${h.size}`,
     ),
     zLayers: (report.zLayers?.missingInCode || []).map((h) => `${h.key}`),
+    focus: [
+      ...(report.focus?.missingInCode || []).map((h) => `missing:${h.key}`),
+      ...(report.focus?.mismatched || []).map((h) => `mismatch:${h.key}`),
+    ],
     stateTimings: (report.stateTimings?.unknown || []).map(
       (h) => `${h.file}:ms=${h.ms}`,
     ),
@@ -939,6 +983,24 @@ function enforceBaseline(baseline, report) {
     ),
     artifactHue: (report.artifactHue?.leak || []).map(
       (h) => `${h.file}:${h.via}=${h.hue}`,
+    ),
+    colorsMissingInYaml: (report.colors?.missingInYaml || []).map(
+      (h) => `${h.theme}:${h.cssName}`,
+    ),
+    colorsMismatched: (report.colors?.mismatched || []).map(
+      (h) => `${h.theme}:${h.yamlKey}:${h.cssName}`,
+    ),
+    uiFlagsHex: (report.uiFlags?.hex || []).map(
+      (h) => `${h.file}:${h.snippet}`,
+    ),
+    uiFlagsShadow: (report.uiFlags?.shadows || []).map(
+      (h) => `${h.file}:${h.snippet}`,
+    ),
+    uiFlagsPillCta: (report.uiFlags?.pillCtas || []).map(
+      (h) => `${h.file}:${h.snippet}`,
+    ),
+    uiFlagsRingZero: (report.uiFlags?.ringZero || []).map(
+      (h) => `${h.file}:${h.snippet}`,
     ),
   }
 
@@ -1210,10 +1272,10 @@ function diffArtifactHue(yaml, scan) {
 
 function renderReport(report) {
   const lines = []
-  const total = report.colors.matched.length + report.typography.matched.length + report.radii.matched.length + (report.iconography?.matched.length || 0) + (report.zLayers?.matched.length || 0)
+  const total = report.colors.matched.length + report.typography.matched.length + report.radii.matched.length + (report.iconography?.matched.length || 0) + (report.zLayers?.matched.length || 0) + (report.focus?.matched.length || 0)
   lines.push(`Design token drift report — DESIGN.md ↔ code`)
   lines.push('')
-  lines.push(`✓ ${total} tokens matched (${report.colors.matched.length} colors, ${report.typography.matched.length} typography, ${report.radii.matched.length} radii, ${report.iconography?.matched.length || 0} iconography, ${report.zLayers?.matched.length || 0} z-layers, ${report.stateTimings?.matched.length || 0} state-timings, ${report.notifications?.matched.length || 0} notifications, ${report.kbd?.matched.length || 0} kbd, ${report.messageRoles?.matched.length || 0} message-roles, ${report.presence?.matched.length || 0} presence)`)
+  lines.push(`✓ ${total} tokens matched (${report.colors.matched.length} colors, ${report.typography.matched.length} typography, ${report.radii.matched.length} radii, ${report.iconography?.matched.length || 0} iconography, ${report.zLayers?.matched.length || 0} z-layers, ${report.focus?.matched.length || 0} focus, ${report.stateTimings?.matched.length || 0} state-timings, ${report.notifications?.matched.length || 0} notifications, ${report.kbd?.matched.length || 0} kbd, ${report.messageRoles?.matched.length || 0} message-roles, ${report.presence?.matched.length || 0} presence)`)
 
   emit('missing in code', report.colors.missingInCode.map((x) => `[${x.theme}] ${x.yamlKey} (expected ${x.expected}) — tried: ${x.tried.join(', ')}`))
   emit('mismatched color values', report.colors.mismatched.map((x) => `[${x.theme}] ${x.yamlKey} via ${x.cssName}: DESIGN.md says ${x.expected}, code has ${x.actual}`))
@@ -1226,6 +1288,8 @@ function renderReport(report) {
   emit('iconography — forbidden library import', (report.iconography?.forbiddenLibrary || []).map((x) => `${x.file}: imports forbidden icon library ${x.name}`))
   emit('z-layers missing in code (declare --dls-z-* in apps/app/src/app/index.css)', (report.zLayers?.missingInCode || []).map((x) => `${x.key} (expected ${x.expected}) — CSS var ${x.cssName} not found`))
   emit('z-layers mismatched', (report.zLayers?.mismatched || []).map((x) => `${x.key} via ${x.cssName}: DESIGN.md ${x.expected}, code ${x.actual}`))
+  emit('focus missing in code (declare --dls-focus-ring-* in apps/app/src/app/index.css)', (report.focus?.missingInCode || []).map((x) => `${x.key} (expected ${x.expected}) — CSS var ${x.cssName} not found`))
+  emit('focus mismatched', (report.focus?.mismatched || []).map((x) => `${x.key} via ${x.cssName}: DESIGN.md ${x.expected}, code ${x.actual}`))
   emit('state-timings — literal not in tokenized set', (report.stateTimings?.unknown || []).map((x) => `${x.file}: setTimeout(..., ${x.ms}) — not in state-timings.*`))
   emit('notifications — duration mismatched', (report.notifications?.mismatched || []).map((x) => `${x.file}: toast.${x.severity}(duration=${x.duration}) — expected ${x.expected}`))
   emit('kbd — chip missing border+text-xs anatomy', (report.kbd?.drift || []).map((x) => `${x.file}: <kbd className="${x.classes || ''}">`))
@@ -1234,6 +1298,10 @@ function renderReport(report) {
   emit('presence — state not in presence.*', (report.presence?.unknown || []).map((x) => `${x.file}: <StatusDot state="${x.state}">`))
   emit('tool-approval — component missing tier border anatomy', (report.toolApproval?.drift || []).map((x) => `${x.file}: hasTier=${x.hasTier} hasBorderToken=${x.hasBorderToken}`))
   emit('artifact-hue — hue leaked outside artifact surfaces', (report.artifactHue?.leak || []).map((x) => `${x.file}: artifact-hue-${x.hue} via ${x.via}`))
+  emit('UI flags — hex in page className', (report.uiFlags?.hex || []).map((x) => `${x.file}: ${x.snippet}`))
+  emit('UI flags — shadow elevation', (report.uiFlags?.shadows || []).map((x) => `${x.file}: ${x.snippet}`))
+  emit('UI flags — rounded-full CTA outside §11', (report.uiFlags?.pillCtas || []).map((x) => `${x.file}: ${x.snippet}`))
+  emit('UI flags — focus-visible:ring-0 on chrome', (report.uiFlags?.ringZero || []).map((x) => `${x.file}: ${x.snippet}`))
 
   lines.push('')
   lines.push(`DESIGN.md is authoritative. Fix code to match, unless the contract itself is outdated.`)
@@ -1260,6 +1328,8 @@ function totalDrift(report) {
     (report.iconography?.forbiddenLibrary.length || 0) +
     (report.zLayers?.missingInCode.length || 0) +
     (report.zLayers?.mismatched.length || 0) +
+    (report.focus?.missingInCode.length || 0) +
+    (report.focus?.mismatched.length || 0) +
     (report.stateTimings?.unknown.length || 0) +
     (report.notifications?.mismatched.length || 0) +
     (report.kbd?.drift.length || 0) +
@@ -1267,7 +1337,11 @@ function totalDrift(report) {
     (report.streaming?.drift.length || 0) +
     (report.presence?.unknown.length || 0) +
     (report.toolApproval?.drift.length || 0) +
-    (report.artifactHue?.leak.length || 0)
+    (report.artifactHue?.leak.length || 0) +
+    (report.uiFlags?.hex.length || 0) +
+    (report.uiFlags?.shadows.length || 0) +
+    (report.uiFlags?.pillCtas.length || 0) +
+    (report.uiFlags?.ringZero.length || 0)
   )
 }
 
@@ -1308,12 +1382,14 @@ try {
   const presenceScan = scanPresence(APP_SRC)
   const toolApprovalScan = scanToolApproval(APP_SRC)
   const artifactHueScan = scanArtifactHue(APP_SRC)
+  const uiFlags = scanUiFlags(repoRoot)
   const report = {
     colors: diffColors(yaml, css),
     typography: diffTypography(yaml, css),
     radii: diffRadii(yaml, css),
     iconography: diffIconography(yaml, iconScan),
     zLayers: diffZLayers(yaml, css),
+    focus: diffFocus(yaml, css),
     stateTimings: diffStateTimings(yaml, stateTimingsScan),
     notifications: diffNotifications(yaml, notificationsScan),
     kbd: diffKbd(kbdScan),
@@ -1322,6 +1398,7 @@ try {
     presence: diffPresence(yaml, presenceScan),
     toolApproval: diffToolApproval(yaml, toolApprovalScan),
     artifactHue: diffArtifactHue(yaml, artifactHueScan),
+    uiFlags,
   }
 
   const baseline = loadBaseline(flags.baseline)

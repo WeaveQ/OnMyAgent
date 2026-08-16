@@ -4,9 +4,7 @@
 import { t } from "../../../../i18n";
 import type { SidebarSessionItem, WorkspaceSessionGroup } from "../../../../app/types";
 import type { PendingAgentContext, AgentRegistry } from "../../agents";
-import {
-  buildPendingAgentFromRecord,
-} from "../../agents";
+import { buildPendingAgentFromRecord } from "../../agents";
 import {
   buildAgentConversationGroups,
   type AgentConversationGroup,
@@ -25,9 +23,7 @@ export function selectRawWorkspaceSessions(
   groups: WorkspaceSessionGroup[],
   selectedWorkspaceId: string,
 ): SidebarSessionItem[] {
-  const group = groups.find(
-    (item) => item.workspace.id === selectedWorkspaceId,
-  );
+  const group = groups.find((item) => item.workspace.id === selectedWorkspaceId);
   return group?.sessions ?? [];
 }
 
@@ -48,9 +44,7 @@ export function buildExpertWorkspaceSessions(input: {
   return input.rawWorkspaceSessions;
 }
 
-export function buildExpertSidebarSessionGroups(input: {
-  groups: WorkspaceSessionGroup[];
-}) {
+export function buildExpertSidebarSessionGroups(input: { groups: WorkspaceSessionGroup[] }) {
   return input.groups;
 }
 
@@ -75,11 +69,9 @@ export function buildDraftAgentGroups(
         key: `draft-agent:${agent.id}`,
         agentId: agent.id,
         name: agent.name,
-        description:
-          agent.description.trim() || t("session.cmd_new_session_title"),
+        description: agent.description.trim() || t("session.cmd_new_session_title"),
         avatarUrl: agent.avatar.avatarUrl,
-        avatarBackground:
-          agent.avatar.avatarBackground ?? "var(--ow-primary-light)",
+        avatarBackground: agent.avatar.avatarBackground ?? "var(--dls-primary-soft)",
         sessions: [draftSession],
         latestSession: draftSession,
       },
@@ -97,26 +89,22 @@ export function buildCurrentAgentSessions(input: {
   identity: ExpertDirectoryIdentityIndex;
 }): SidebarSessionItem[] {
   const isExpert = (sessionId: string) => input.identity.sessionIds.has(sessionId);
-  const agentIdForSession = (sessionId: string) =>
-    input.identity.agentIdBySessionId.get(sessionId);
+  const agentIdForSession = (sessionId: string) => input.identity.agentIdBySessionId.get(sessionId);
   let sessions: SidebarSessionItem[];
   if (!input.activeConversationAgentId) {
     sessions = input.workspaceSessions.filter(
-      (session) =>
-        session.id === input.selectedSessionId && isExpert(session.id),
+      (session) => session.id === input.selectedSessionId && isExpert(session.id),
     );
   } else {
     sessions = input.workspaceSessions.filter(
       (session) =>
-        agentIdForSession(session.id) ===
-          input.activeConversationAgentId && isExpert(session.id),
+        agentIdForSession(session.id) === input.activeConversationAgentId && isExpert(session.id),
     );
   }
   if (input.draftSessionActive) {
     return [
       {
-        id:
-          input.activeDraftSessionId ?? `draft:${input.selectedWorkspaceId}`,
+        id: input.activeDraftSessionId ?? `draft:${input.selectedWorkspaceId}`,
         title: t("session.cmd_new_session_title"),
       } as SidebarSessionItem,
       ...sessions,
@@ -136,9 +124,8 @@ export function resolveActiveConversationGroup(input: {
   );
   if (activeDraftGroup) return activeDraftGroup;
   return (
-    input.conversationGroups.find(
-      (group) => group.agentId === input.activeConversationAgentId,
-    ) ?? null
+    input.conversationGroups.find((group) => group.agentId === input.activeConversationAgentId) ??
+    null
   );
 }
 
@@ -160,9 +147,7 @@ export function resolveActiveAgentContext(input: {
       registry.templates.find((item) => item.id === agentId))
     : null;
   const restoredAgent =
-    registryAgent && registry
-      ? buildPendingAgentFromRecord(registryAgent, registry)
-      : null;
+    registryAgent && registry ? buildPendingAgentFromRecord(registryAgent, registry) : null;
   if (restoredAgent) return restoredAgent;
   const marketplaceExpert = findBuiltinMarketplaceExpertById(agentId);
   if (marketplaceExpert) {
@@ -175,7 +160,7 @@ export function resolveActiveAgentContext(input: {
         avatarOptionId: "marketplace-expert",
         customAvatarDataUrl: null,
         avatarUrl: marketplaceExpert.avatarUrl,
-        avatarBackground: "var(--ow-primary-light)",
+        avatarBackground: "var(--dls-primary-soft)",
       },
       systemPrompt: marketplaceExpert.systemPrompt,
       quickPrompts: marketplaceExpert.quickPrompts.slice(0, 3),
@@ -210,13 +195,11 @@ export function computeHasAnyExpertConversation(
   workspaceSessions: SidebarSessionItem[],
   identity: ExpertDirectoryIdentityIndex,
 ): boolean {
-  return workspaceSessions.some(
-    (session) => {
-      const isExpert = identity.sessionIds.has(session.id);
-      const agentId = identity.agentIdBySessionId.get(session.id);
-      return isExpert && Boolean(agentId);
-    },
-  );
+  return workspaceSessions.some((session) => {
+    const isExpert = identity.sessionIds.has(session.id);
+    const agentId = identity.agentIdBySessionId.get(session.id);
+    return isExpert && Boolean(agentId);
+  });
 }
 
 /**
@@ -236,15 +219,12 @@ export function resolveExpertSidebarOpen(input: {
       rememberedSessionId: input.rememberedSessionId,
       sessionIds: input.readySessionIds,
       orderIds: input.orderIds,
-    }) ?? (input.hintSessionId.trim() || null);
-  const isReady = sessionId
-    ? input.readySessionIds.some((id) => id.trim() === sessionId)
-    : false;
+    }) ??
+    (input.hintSessionId.trim() || null);
+  const isReady = sessionId ? input.readySessionIds.some((id) => id.trim() === sessionId) : false;
   return {
     sessionId,
-    shouldOpen: !(
-      isReady && sessionId === (input.selectedSessionId?.trim() ?? "")
-    ),
+    shouldOpen: !(isReady && sessionId === (input.selectedSessionId?.trim() ?? "")),
   };
 }
 
@@ -258,9 +238,5 @@ export function shouldExitDraftForExpertSidebarTarget(input: {
   draftSessionActive: boolean;
   targetAgentId: string;
 }): boolean {
-  return (
-    input.draftSessionActive &&
-    Boolean(input.draftAgentId) &&
-    Boolean(input.targetAgentId)
-  );
+  return input.draftSessionActive && Boolean(input.draftAgentId) && Boolean(input.targetAgentId);
 }

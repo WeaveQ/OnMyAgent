@@ -8,7 +8,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 describe("knowledge vault switcher", () => {
   test("exposes one folder picker and does not label it as manage/new vault", () => {
     const source = readFileSync(
-      join(root, "src/react-app/domains/session/knowledge/knowledge-vault-switcher.tsx"),
+      join(root, "src/react-app/domains/knowledge/knowledge-vault-switcher.tsx"),
       "utf8",
     );
 

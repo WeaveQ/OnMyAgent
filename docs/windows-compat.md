@@ -1,12 +1,12 @@
 # Windows compatibility
 
 OnMyAgent's **product** targets are **macOS** (primary release / dogfood) and
-**Windows** (Electron shell + NSIS developer preview). **Linux desktop packages
-are not a product target** (no AppImage/AUR ship; see root `README` / `BUILD.md`).
+**Windows** (Electron shell + NSIS developer preview). **Linux is
+dev-runnable, not a shipped product SKU** (no AppImage/AUR promise; see root `README` / `BUILD.md`).
 
 Some runtime code still has `process.platform === "linux"` branches and CI still
 runs on `ubuntu-latest` as a cheap host (including mocked Windows contracts).
-That is **CI infrastructure**, not Linux product support.
+That is **CI infrastructure**, not a Linux product SKU.
 
 This doc captures Windows gotchas so a first-time Windows run has a fighting chance.
 

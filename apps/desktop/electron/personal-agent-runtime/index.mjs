@@ -1,23 +1,14 @@
 import { readFileSync } from "node:fs";
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { createCodexAdapter } from "./adapters/codex.mjs";
-import { createClaudeAdapter } from "./adapters/claude.mjs";
-import { createHermesAdapter } from "./adapters/hermes.mjs";
-import { createOpenClawAdapter } from "./adapters/openclaw.mjs";
-import { createOpenCodeAdapter } from "./adapters/opencode.mjs";
-import { createGenericAcpAdapter } from "./adapters/acp-generic.mjs";
-import { createRemoteAcpAdapter } from "./adapters/remote-acp.mjs";
 import {
   detectAvailableLocalAgents,
 } from "./detect-local-agents.mjs";
 import { appendContractEvent, normalizeAdapterResult, runEventsToConversationMessages } from "./contract.mjs";
 import {
   createConversation,
-  getConversation,
   getOrCreateConversation,
   listConversations,
-  readConversationEvents,
   resetConversationPointer,
   updateConversation,
   writeConversationEvents,
@@ -25,17 +16,19 @@ import {
 import { clearSession } from "./session-store.mjs";
 import { createConversationRuntimeApi } from "./conversation-runtime-api.mjs";
 import { runId, isProcessTreeAlive, terminateProcessTreeByPid } from "./utils.mjs";
-import { configurePersonalAgentRuntimeState, personalAgentRuntimeStateRoot } from "./runtime-state.mjs";
+import { configurePersonalAgentRuntimeState } from "./runtime-state.mjs";
 import { ensureManagedAcpTool } from "./managed-acp-tools.mjs";
 import { ensureRunLogPath, legacyPersonalAssistantRunLogRoot, legacyRunLogRoot, runLogRoot } from "./workdir.mjs";
 import { isStaleNativeSessionError, staleNativeSessionResetMessage } from "./native-sessions.mjs";
 import { configureProcessRegistry, getAgentProcess, registerAgentProcess, unregisterAgentProcess } from "./process-registry.mjs";
 import { schedulePersonalAgentStartupReconcile } from "./startup-reconcile.mjs";
-import { readSupervisorOwnedRunIds, shouldFinalizeOrphanRunLog } from "./supervisor-owned-runs.mjs";
 import { getAgentOverrides, setAgentOverrides } from "./custom-agent-store.mjs";
 import { buildErrorTip, buildProviderContextResetEvents, classifyErrorInfo } from "./error-diagnostics.mjs";
-import { forgetRememberedApprovalDecision, getStoredApprovalDecision, rememberApprovalDecision } from "./approval-store.mjs";
+import { forgetRememberedApprovalDecision, rememberApprovalDecision } from "./approval-store.mjs";
 import { createRunPersistence } from "./run-persistence.mjs";
+import { createAdapterRegistry } from "./adapter-registry.mjs";
+import { createApprovalRuntime } from "./approval-runtime.mjs";
+import { createOrphanReconcile } from "./orphan-reconcile.mjs";
 import {
   sanitizeAcpToolCallEvent,
   visibleArtifacts,
@@ -47,8 +40,6 @@ import {
   normalizeAccessibleWorkspaceRoots,
 } from "./artifact-tracking.mjs";
 import {
-  buildApprovalRecord,
-  buildFinalizedOrphanMeta,
   buildRestoredRunSnapshot,
   buildRunMeta,
   buildRunSnapshot,
@@ -58,19 +49,16 @@ import {
   defaultConnectionMode,
   isStartupStalled,
   normalizeApprovalMode,
-  normalizeApprovalExpiry,
   normalizeWorkerRunPolicy,
   parseRunLogContent,
   parseStatusInput,
   providerDiagnosticsFromResult,
-  resolveAdapterFactoryForProvider,
-  rewriteOrphanRunLogContent,
 } from "./run-helpers.mjs";
 import { createAgentCatalog } from "./agent-catalog.mjs";
 import { personalAgentMetadataFromAgent } from "./agent-metadata.mjs";
 import { createConnectionProbes } from "./connection-probes.mjs";
 import { createHostStatusService } from "./host-status-service.mjs";
-import { evaluateTaskPermission, sanitizeTaskPermissionGrant } from "./task-permission-policy.mjs";
+import { sanitizeTaskPermissionGrant } from "./task-permission-policy.mjs";
 import { createSessionOperations } from "./session-operations.mjs";
 import { createPersonalAgentStartGate } from "./start-gate.mjs";
 import {
@@ -134,19 +122,6 @@ function isRetryableCodexSessionAuthFailure(provider, error) {
   return /session\/new\b[\s\S]*\b(?:authentication required|auth|required login|unauthorized)\b/i.test(message);
 }
 
-async function beforeTaskOperation(observer, operation) {
-  const beforeOperation = observer?.beforeOperation;
-  if (typeof beforeOperation !== "function") return { ok: false, reason: "task-intent-observer-missing" };
-  try {
-    const result = await beforeOperation(operation);
-    if (result?.recorded === true) return { ok: true, result };
-    if (result?.recorded === false && result?.idempotency === "read-only") return { ok: true, result };
-    return { ok: false, reason: "task-intent-not-durable" };
-  } catch {
-    return { ok: false, reason: "task-intent-observer-failed" };
-  }
-}
-
 export function createPersonalAgentRuntime(options) {
   configurePersonalAgentRuntimeState(options ?? {});
   const providerEnvironment = Object.freeze({ ...(options?.providerEnvironment ?? process.env) });
@@ -198,7 +173,12 @@ export function createPersonalAgentRuntime(options) {
     retain: retainOperation,
   } = taskOperationRegistry;
   const bundledExtensionRoots = Array.isArray(options.bundledExtensionRoots) ? options.bundledExtensionRoots.filter(Boolean) : [];
-  const conversationApi = createConversationRuntimeApi({ legacy, runs });
+  const conversationApi = createConversationRuntimeApi({
+    legacy,
+    runs,
+    getRunSnapshot: (state, options) => snapshot(state, options),
+    resolveApproval: (input) => resolveApproval(input),
+  });
   const {
     resetConversation,
     listAgentConversations,
@@ -208,7 +188,17 @@ export function createPersonalAgentRuntime(options) {
     listAgentChannelConversations,
     listAgentConversationsByProvider,
     importAgentConversationFromArchive,
+    getConversationStatus,
+    listConversationConfirmations,
+    confirmConversationConfirmation,
   } = conversationApi;
+  const { adapterFactoryForProvider } = createAdapterRegistry({ injectedAdapters });
+  const { finalizeStaleRunLog, reconcileOrphanRuns } = createOrphanReconcile({
+    runs,
+    reconcileCutoffMs,
+    userDataDir: options.userDataDir,
+    processTermination,
+  });
   const startupReconcile = schedulePersonalAgentStartupReconcile({
     reconcileCutoffMs,
     deferMs: options.deferStartupReconcileMs,
@@ -216,25 +206,6 @@ export function createPersonalAgentRuntime(options) {
     getRun: status,
     reconcileOrphanRuns,
   });
-  const adapterFactories = {
-    opencode: createOpenCodeAdapter,
-    codex: createCodexAdapter,
-    hermes: createHermesAdapter,
-    claude: createClaudeAdapter,
-    openclaw: createOpenClawAdapter,
-    remote: createRemoteAcpAdapter,
-    ...injectedAdapters,
-  };
-  function adapterFactoryForProvider(provider, agent = null) {
-    return resolveAdapterFactoryForProvider(
-      provider,
-      agent,
-      injectedAdapters,
-      adapterFactories,
-      createGenericAcpAdapter,
-      createRemoteAcpAdapter,
-    );
-  }
 
   async function persistRun(state) {
     if (typeof options.persistRun === "function") {
@@ -259,6 +230,15 @@ export function createPersonalAgentRuntime(options) {
   }
 
   const { schedulePersistRun, flushPersistRun, retainCompletedRunBriefly } = createRunPersistence({ persistRun, runs });
+  const { requestRunApproval, resolveApproval } = createApprovalRuntime({
+    runs,
+    flushPersistRun,
+    beginTaskOperation,
+    finishTaskOperation,
+    operationCancellationResult,
+    rememberApprovalDecision: rememberApprovalDecisionFn,
+    forgetRememberedApprovalDecision: forgetRememberedApprovalDecisionFn,
+  });
 
   function snapshot(state, options = {}) {
     return buildRunSnapshot(state, runSnapshotDeps, options);
@@ -272,77 +252,6 @@ export function createPersonalAgentRuntime(options) {
       return true;
     } catch {
       return false;
-    }
-  }
-
-  // A log whose run_meta is still "running" but has no active runtime record
-  // (in-memory runs Map) is an orphan produced by a previous process session
-  // that died/restarted mid-run. Persist it as "failed" so the UI stops
-  // reporting the misleading "本地 Agent 运行状态已丢失 / timeout" error and
-  // future restores read a clean, finalized log.
-  async function finalizeStaleRunLog(logPath, meta) {
-    try {
-      const content = await readFile(logPath, "utf8");
-      const finalizedMeta = buildFinalizedOrphanMeta(meta);
-      const rewritten = rewriteOrphanRunLogContent(content, finalizedMeta);
-      if (!rewritten) return;
-      await writeFile(logPath, rewritten.content, "utf8");
-    } catch {
-      // Best effort: never block run restore on a log write failure.
-    }
-  }
-
-  // On startup, reconcile every persisted run log across all workspaces and
-  // finalize any orphaned "running" runs (process is already gone) the previous
-  // process session left behind.
-  async function reconcileOrphanRuns() {
-    const reconcileCutoff = reconcileCutoffMs;
-    const supervisorOwnedRunIds = await readSupervisorOwnedRunIds(options.userDataDir);
-    const root = personalAgentRuntimeStateRoot();
-    const workspacesRoot = path.join(root, "personal-assistant", "workspaces");
-    const workspaces = await readdir(workspacesRoot).catch(() => []);
-    for (const workspace of workspaces) {
-      const runsDir = path.join(workspacesRoot, workspace, "runs");
-      const files = await readdir(runsDir).catch(() => []);
-      for (const file of files) {
-        if (!file.endsWith(".jsonl")) continue;
-        const filePath = path.join(runsDir, file);
-        let meta = null;
-        try {
-          const firstLine = (await readFile(filePath, "utf8")).split(/\r?\n/).find((line) => line.trim());
-          if (firstLine) meta = JSON.parse(firstLine);
-        } catch {
-          continue;
-        }
-        if (!meta || meta.type !== "run_meta" || meta.status !== "running") continue;
-        const startedAt = Number(meta.startedAt ?? meta.at ?? 0);
-        if (!shouldFinalizeOrphanRunLog({
-          runId: meta.runId,
-          inMemory: runs.has(meta.runId),
-          startedAt,
-          reconcileCutoffMs: reconcileCutoff,
-          supervisorOwnedRunIds,
-        })) continue;
-        // Do NOT skip a running run merely because its pid is still alive — a
-        // process can be hung (e.g. blocked on the network) yet never finish,
-        // which is the phantom-lock bug. If we can identify the tree via the
-        // registry, reap it (SIGTERM -> SIGKILL) only when its durable OS start
-        // identity still matches. A bare legacy PID may have been reused, so it
-        // is never signalled. Either way finalize the log so the UI lock is
-        // released without risking an unrelated process.
-        const registered = getAgentProcess(meta.runId);
-        if (registered && processTermination.isAlive(registered) === true) {
-          const termination = await processTermination.terminate({
-            pid: registered.pid,
-            pgid: registered.pgid,
-            processStartToken: registered.processStartToken,
-          });
-          if (termination?.terminated !== false && processTermination.isAlive(registered) === false) {
-            unregisterAgentProcess(meta.runId);
-          }
-        }
-        await finalizeStaleRunLog(filePath, meta);
-      }
     }
   }
 
@@ -377,217 +286,6 @@ export function createPersonalAgentRuntime(options) {
       return null;
     }
     return buildRestoredRunSnapshot(meta, events, id, logPath, runSnapshotDeps);
-  }
-
-  async function requestRunApproval(state, request = {}) {
-    const approval = buildApprovalRecord(state, request);
-    const isExpired = () => approval.expiresAt !== null && approval.expiresAt <= Date.now();
-    const declineExpired = () => {
-      appendContractEvent(state.events, {
-        type: "approval_decision",
-        text: `${approval.kind}: decline (expired)`,
-        approval,
-        expired: true,
-      });
-      state.updatedAt = Date.now();
-      state.lastApprovalPersist = flushPersistRun(state, true);
-      void state.lastApprovalPersist;
-      return { decision: "decline", approval, expired: true, policyReason: "approval-expired" };
-    };
-    // Provider TTLs are authoritative before any full-allow/remembered
-    // decision path. An expired request must never become a durable pending
-    // or remembered approval.
-    if (isExpired()) return declineExpired();
-    if (state.taskPermissionMode === "full-allow") {
-      const policy = await evaluateTaskPermission({
-        taskPermissionGrant: state.taskPermissionGrant,
-        taskId: state.taskId,
-        taskRunId: state.taskRunId ?? state.runId,
-        taskRevision: state.taskRevision,
-        contractHash: state.taskContractHash,
-        taskProfileId: state.taskProfileId,
-        provider: state.agentProvider,
-        workspaceRoot: state.workspaceRoot,
-        operation: request,
-      });
-      // A Task Center grant is fail-closed: invalid/mismatched/expired grants
-      // decline without creating a user prompt or remembered approval.
-      if (policy.decision !== "accept") return { decision: "decline", approval, policyReason: policy.reason };
-      if (isExpired()) return declineExpired();
-      const intent = await beforeTaskOperation(state.taskExecutionObserver, request);
-      if (!intent.ok) return { decision: "decline", approval, policyReason: intent.reason };
-      if (isExpired()) return declineExpired();
-      return { decision: "accept", approval, policyReason: policy.reason };
-    }
-    const stored = state.useRememberedApprovals ? await getStoredApprovalDecision(state.workspaceRoot, { provider: state.agentProvider, agentId: state.agentId, approval }) : null;
-    if (isExpired()) return declineExpired();
-    if (stored) {
-      appendContractEvent(state.events, {
-        type: "approval_decision",
-        text: `${approval.kind}: acceptForSession (stored)` ,
-        approval,
-        storedApprovalKey: stored.key,
-      });
-      state.updatedAt = Date.now();
-      state.lastApprovalPersist = flushPersistRun(state, true);
-      void state.lastApprovalPersist;
-      return { decision: "acceptForSession", approval, stored: true };
-    }
-    if (isExpired()) return declineExpired();
-    state.pendingApprovals = [...(state.pendingApprovals ?? []).filter((item) => item.id !== approval.id), approval];
-    appendContractEvent(state.events, {
-      type: "approval_request",
-      text: approval.summary,
-      approval,
-    });
-    state.updatedAt = Date.now();
-    // Register the resolver synchronously so a decision arriving during the
-    // durable write is never dropped. The persist is fire-and-forget for the
-    // in-memory pending state (already observable), but the recoverable
-    // confirmation write (ASP-3) is awaited via `state.persistedApproval` so
-    // callers that need the durable record can synchronize on it.
-    const decision = new Promise((resolve) => {
-      let settled = false;
-      const finish = (value) => {
-        if (settled) return;
-        settled = true;
-        request.signal?.removeEventListener?.("abort", abort);
-        resolve(value);
-      };
-      const abort = () => {
-        state.approvalResolvers.delete(approval.id);
-        state.pendingApprovals = (state.pendingApprovals ?? []).filter((item) => item.id !== approval.id);
-        appendContractEvent(state.events, {
-          type: "approval_decision",
-          text: `${approval.kind}: decline (request cancelled)`,
-          approval,
-          cancelled: true,
-        });
-        state.updatedAt = Date.now();
-        state.lastApprovalPersist = flushPersistRun(state, true);
-        void state.lastApprovalPersist;
-        finish({ decision: "decline", approval, cancelled: true });
-      };
-      state.approvalResolvers.set(approval.id, finish);
-      if (request.signal?.aborted) abort();
-      else request.signal?.addEventListener?.("abort", abort, { once: true });
-    });
-    state.lastApprovalPersist = flushPersistRun(state, true);
-    void state.lastApprovalPersist;
-    return decision;
-  }
-
-  async function resolveApproval(input = {}) {
-    const runIdValue = String(input.runId ?? "").trim();
-    const approvalId = String(input.approvalId ?? input.id ?? "").trim();
-    const decision = String(input.decision ?? "").trim();
-    const allowed = new Set(["accept", "acceptForSession", "decline", "cancel"]);
-    if (!runIdValue || !approvalId) return { ok: false, error: "runId and approvalId are required" };
-    if (!allowed.has(decision)) return { ok: false, error: "invalid approval decision" };
-    const operation = beginTaskOperation("resolveApproval", input);
-    let result = null;
-    let failure = null;
-    try {
-      if (operation?.status === "cancelling" || operation?.signal.aborted) {
-        result = operationCancellationResult(operation);
-        return result;
-      }
-      const state = runs.get(runIdValue);
-      if (!state || state.status !== "running") return { ok: false, error: "run is not active" };
-      if (operation) {
-        operation.state = state;
-        operation.runId = runIdValue;
-      }
-      const approval = (state.pendingApprovals ?? []).find((item) => item.id === approvalId);
-      if (!approval) return { ok: false, error: "approval request not found" };
-      const requestedExpiry = normalizeApprovalExpiry(input);
-      const approvalExpiry = normalizeApprovalExpiry(approval);
-      const effectiveExpiry = requestedExpiry === null
-        ? approvalExpiry
-        : approvalExpiry === null ? requestedExpiry : Math.min(requestedExpiry, approvalExpiry);
-      const expiredApproval = () => effectiveExpiry !== null && effectiveExpiry <= Date.now();
-      const declineExpired = async () => {
-        state.pendingApprovals = (state.pendingApprovals ?? []).filter((item) => item.id !== approvalId);
-        appendContractEvent(state.events, {
-          type: "approval_decision",
-          text: `${approval.kind}: decline (expired)`,
-          approval,
-          expired: true,
-        });
-        state.updatedAt = Date.now();
-        await flushPersistRun(state, true);
-        const resolver = state.approvalResolvers?.get(approvalId);
-        state.approvalResolvers?.delete(approvalId);
-        resolver?.({ decision: "decline", approval, expired: true });
-        return { ok: false, error: "approval expired", code: "APPROVAL_EXPIRED", expired: true };
-      };
-      if (expiredApproval()) return await declineExpired();
-      if (operation?.status === "cancelling" || operation?.signal.aborted) return operationCancellationResult(operation);
-      if ((decision === "accept" || decision === "acceptForSession") && state.taskExecutionObserver) {
-        if (expiredApproval()) return await declineExpired();
-        const intent = await beforeTaskOperation(state.taskExecutionObserver, {
-          ...approval,
-          id: approval.id,
-          toolCallId: approval.toolCallId ?? approval.id,
-        });
-        if (!intent.ok) return { ok: false, error: `Task side-effect intent was not durably recorded: ${intent.reason}` };
-      }
-      // Re-check immediately before resolver dispatch. The provider may have
-      // spent enough time in the observer for the gate to cross its TTL.
-      if (operation?.status === "cancelling" || operation?.signal.aborted) return operationCancellationResult(operation);
-      if (expiredApproval()) return await declineExpired();
-      let rememberedDecision = null;
-      if (input.alwaysAllow === true) {
-        rememberedDecision = await rememberApprovalDecisionFn(state.workspaceRoot, {
-          provider: state.agentProvider,
-          agentId: state.agentId,
-          approval,
-          decision: "acceptForSession",
-        });
-      }
-      if (operation?.status === "cancelling" || operation?.signal.aborted || expiredApproval()) {
-        if (rememberedDecision?.key) {
-          await forgetRememberedApprovalDecisionFn(state.workspaceRoot, {
-            key: rememberedDecision.key,
-            expected: rememberedDecision,
-          }).catch(() => undefined);
-        }
-        return operation?.status === "cancelling" || operation?.signal.aborted
-          ? operationCancellationResult(operation)
-          : await declineExpired();
-      }
-      state.pendingApprovals = (state.pendingApprovals ?? []).filter((item) => item.id !== approvalId);
-      appendContractEvent(state.events, {
-        type: "approval_decision",
-        text: `${approval.kind}: ${decision}`,
-        approval,
-      });
-      state.updatedAt = Date.now();
-      await flushPersistRun(state, true);
-      if (operation?.status === "cancelling" || operation?.signal.aborted || expiredApproval()) {
-        // The durable pending record has already been removed only after the
-        // final expiry check; a concurrent deadline must not resolve it as ok.
-        if (rememberedDecision?.key) {
-          await forgetRememberedApprovalDecisionFn(state.workspaceRoot, {
-            key: rememberedDecision.key,
-            expected: rememberedDecision,
-          }).catch(() => undefined);
-        }
-        return operation?.status === "cancelling" || operation?.signal.aborted
-          ? operationCancellationResult(operation)
-          : await declineExpired();
-      }
-      const resolver = state.approvalResolvers?.get(approvalId);
-      state.approvalResolvers?.delete(approvalId);
-      resolver?.({ decision, approval });
-      result = { ok: true };
-      return result;
-    } catch (error) {
-      failure = error;
-      throw error;
-    } finally {
-      finishTaskOperation(operation, result, failure);
-    }
   }
 
   async function runtimeContext() {
@@ -1545,61 +1243,6 @@ export function createPersonalAgentRuntime(options) {
     cancel,
     providerEnvironment,
   });
-
-  async function getConversationStatus(input = {}) {
-    const agent = await legacy.normalizeAgent(input.agent ?? {});
-    const workspaceRoot = String(input.workspaceRoot ?? "").trim();
-    if (!workspaceRoot) throw new Error("workspaceRoot is required");
-    const conversation = await getConversation(workspaceRoot, agent.provider, agent.id, input.conversationId);
-    const activeRun = [...runs.values()].find((state) => (
-      state.workspaceRoot === workspaceRoot
-      && state.agentProvider === agent.provider
-      && state.agentId === agent.id
-      && (!conversation?.id || state.conversationId === conversation.id)
-      && state.status === "running"
-    ));
-    // Ensure any in-flight approval persist has flushed before reading the
-    // durable conversation events, so recovered confirmations (ASP-3) are
-    // consistent with the in-memory pending approvals.
-    if (activeRun?.lastApprovalPersist) {
-      await activeRun.lastApprovalPersist.catch(() => undefined);
-    }
-    const persisted = conversation?.id
-      ? await readConversationEvents(workspaceRoot, agent.provider, agent.id, conversation.id)
-      : { events: [], messages: [] };
-    return {
-      conversation,
-      activeRun: activeRun ? snapshot(activeRun) : null,
-      running: Boolean(activeRun),
-      status: activeRun?.status ?? conversation?.lastStatus ?? "idle",
-      events: activeRun ? activeRun.events : persisted.events,
-      // Always re-derive from events so contract.mjs updates (e.g. approval_decision merging) apply to historical conversations without a rewrite.
-      conversationMessages: activeRun
-        ? runEventsToConversationMessages(activeRun.events)
-        : (Array.isArray(persisted.events) && persisted.events.length ? runEventsToConversationMessages(persisted.events) : persisted.messages),
-    };
-  }
-
-  async function listConversationConfirmations(input = {}) {
-    const statusResult = await getConversationStatus(input);
-    const confirmations = statusResult.activeRun?.pendingApprovals ?? statusResult.conversationMessages
-      .filter((message) => message.type === "permission" && message.approval)
-      .map((message) => message.approval);
-    return {
-      conversation: statusResult.conversation,
-      confirmations,
-    };
-  }
-
-  async function confirmConversationConfirmation(input = {}) {
-    const runIdValue = String(input.runId ?? "").trim();
-    if (runIdValue) return resolveApproval(input);
-    const statusResult = await getConversationStatus(input);
-    const approvalId = String(input.approvalId ?? input.id ?? "").trim();
-    const approval = (statusResult.activeRun?.pendingApprovals ?? []).find((item) => item.id === approvalId);
-    if (!statusResult.activeRun?.runId || !approval) return { ok: false, error: "approval request not found" };
-    return resolveApproval({ ...input, runId: statusResult.activeRun.runId, approvalId });
-  }
 
   // Agent catalog (list/CRUD/metadata/ACP config) and ACP connection probes
   // live in their own modules and receive the closure deps they need.

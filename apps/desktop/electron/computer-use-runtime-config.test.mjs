@@ -162,7 +162,7 @@ test("writes an isolated OpenCode config overlay for the built-in MCP", async ()
 });
 
 test("runtime writes the overlay into the managed config dir after sandbox pin", async () => {
-  const runtimeSource = await readFile(new URL("./runtime.mjs", import.meta.url), "utf8");
+  const runtimeSource = await readFile(new URL("./runtime-child-env.mjs", import.meta.url), "utf8");
 
   assert.match(runtimeSource, /applyOpencodeSandboxEnv\(env, sandbox\)/);
   assert.match(runtimeSource, /if \(!env\.OPENCODE_CONFIG\?\.trim\(\)\)/);

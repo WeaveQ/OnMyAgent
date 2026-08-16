@@ -13,7 +13,7 @@ export const connectorTileClassName = cn(
   "group flex h-32 flex-col overflow-hidden rounded-2xl border border-transparent bg-dls-surface px-3 py-2 text-left",
   "cursor-pointer transition-[background-color,border-color,box-shadow]",
   // Light + dark: list-selected reads clearly; list-hover / plain hover is too soft.
-  "hover:border-dls-border-strong hover:bg-dls-list-selected hover:shadow-sm",
+  "hover:border-dls-border-strong hover:bg-dls-list-selected ",
   "dark:hover:border-dls-border-strong dark:hover:bg-dls-list-selected dark:hover:shadow-none",
   "focus-within:border-dls-border-strong focus-within:bg-dls-list-selected",
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
@@ -33,8 +33,7 @@ export function connectorTileEnabledClass(enabled: boolean): string {
 }
 
 /** Icon (size-9) + title + switch/action — fixed so rows don't drift. */
-export const connectorTileHeaderClassName =
-  "flex h-9 shrink-0 items-center gap-2.5";
+export const connectorTileHeaderClassName = "flex h-9 shrink-0 items-center gap-2.5";
 
 /** Up to three description lines (3 × 1.125rem leading ≈ 3.375rem). */
 export const connectorTileDescClassName =
@@ -51,9 +50,8 @@ export const connectorTileActionClassName = cn(
 /** Emphasized “add” chip (idle recommend connectors). */
 export const connectorTileActionPlusClassName = cn(
   connectorTileActionClassName,
-  "shadow-sm ring-1 ring-dls-border/60 hover:ring-dls-border",
+  " ring-1 ring-dls-border/60 hover:ring-dls-border",
 );
 
 /** @deprecated Prefer no footer label — recommend-style cards use mt-auto spacer only. */
-export const connectorTileFooterClassName =
-  "mt-auto flex h-0 shrink-0 items-center";
+export const connectorTileFooterClassName = "mt-auto flex h-0 shrink-0 items-center";

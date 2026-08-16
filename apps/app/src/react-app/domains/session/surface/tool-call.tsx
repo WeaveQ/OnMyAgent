@@ -94,15 +94,22 @@ function toSummaryToolPart(part: DynamicToolUIPart): Part {
   };
 }
 
-export { diffLineClass, extractDiff, toKeyedLines, copyText } from "../../../capabilities/artifacts/diff-utils";
-import { extractDiff, toKeyedLines, diffLineClass, copyText } from "../../../capabilities/artifacts/diff-utils";
+export {
+  diffLineClass,
+  extractDiff,
+  toKeyedLines,
+  copyText,
+} from "../../../capabilities/artifacts/diff-utils";
+import {
+  extractDiff,
+  toKeyedLines,
+  diffLineClass,
+  copyText,
+} from "../../../capabilities/artifacts/diff-utils";
 
 export function ToolCallView(props: { part: DynamicToolUIPart; developerMode: boolean }) {
   const [expanded, setExpanded] = useState(false);
-  const summary = useMemo(
-    () => summarizeStep(toSummaryToolPart(props.part)),
-    [props.part],
-  );
+  const summary = useMemo(() => summarizeStep(toSummaryToolPart(props.part)), [props.part]);
 
   const title = summary.title?.trim() || props.part.toolName || "Tool";
   const subtitle = summary.detail?.trim() || "";
@@ -117,7 +124,8 @@ export function ToolCallView(props: { part: DynamicToolUIPart; developerMode: bo
   const error = props.part.state === "output-error" ? props.part.errorText : "";
   const diff = extractDiff(output);
   const diffLines = diff ? toKeyedLines(normalizeToolText(diff)) : [];
-  const expandable = hasStructuredValue(input) || hasStructuredValue(output) || Boolean(diff) || Boolean(error);
+  const expandable =
+    hasStructuredValue(input) || hasStructuredValue(output) || Boolean(diff) || Boolean(error);
   const knowledgeHits = isKnowledgeSearchToolName(props.part.toolName)
     ? parseKnowledgeSearchHits(output)
     : [];
@@ -154,9 +162,7 @@ export function ToolCallView(props: { part: DynamicToolUIPart; developerMode: bo
               key={`${hit.scope}:${hit.relPath}`}
               type="button"
               className="rounded-lg border border-dls-border bg-dls-surface px-3 py-1.5 text-left text-xs text-dls-text hover:bg-dls-list-hover"
-              onClick={() =>
-                openKnowledgeNoteInRail({ scope: hit.scope, relPath: hit.relPath })
-              }
+              onClick={() => openKnowledgeNoteInRail({ scope: hit.scope, relPath: hit.relPath })}
             >
               {t("knowledge.cite_chip", { name: hit.title })}
             </button>
@@ -174,7 +180,7 @@ export function ToolCallView(props: { part: DynamicToolUIPart; developerMode: bo
                   type="button"
                   variant="outline"
                   size="xs"
-                  className="rounded-full text-dls-text hover:bg-dls-hover"
+                  className="rounded-lg text-dls-text hover:bg-dls-hover"
                   onClick={() => void copyText(diff ?? "")}
                 >
                   {t("session.copy")}
@@ -196,12 +202,14 @@ export function ToolCallView(props: { part: DynamicToolUIPart; developerMode: bo
           {hasStructuredValue(input) ? (
             <div>
               <div className="mb-1 flex items-center justify-between gap-2">
-                <div className="text-xs font-medium text-dls-secondary">{t("session.tool_request")}</div>
+                <div className="text-xs font-medium text-dls-secondary">
+                  {t("session.tool_request")}
+                </div>
                 <Button
                   type="button"
                   variant="outline"
                   size="xs"
-                  className="rounded-full text-dls-text hover:bg-dls-hover"
+                  className="rounded-lg text-dls-text hover:bg-dls-hover"
                   onClick={() => void copyText(formatStructuredValue(input))}
                 >
                   {t("session.copy")}
@@ -216,12 +224,14 @@ export function ToolCallView(props: { part: DynamicToolUIPart; developerMode: bo
           {hasStructuredValue(output) && normalizeToolText(output) !== normalizeToolText(diff) ? (
             <div>
               <div className="mb-1 flex items-center justify-between gap-2">
-                <div className="text-xs font-medium text-dls-secondary">{t("session.tool_result")}</div>
+                <div className="text-xs font-medium text-dls-secondary">
+                  {t("session.tool_result")}
+                </div>
                 <Button
                   type="button"
                   variant="outline"
                   size="xs"
-                  className="rounded-full text-dls-text hover:bg-dls-hover"
+                  className="rounded-lg text-dls-text hover:bg-dls-hover"
                   onClick={() => void copyText(formatStructuredValue(output))}
                 >
                   {t("session.copy")}

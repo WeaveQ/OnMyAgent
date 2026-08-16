@@ -73,7 +73,7 @@ function ConnectorLogo(props: {
       <div
         className={cn(
           "flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full",
-          "border border-dls-border/80 bg-dls-surface shadow-sm",
+          "border border-dls-border/80 bg-dls-surface ",
           props.className,
         )}
       >
@@ -92,17 +92,12 @@ function ConnectorLogo(props: {
     <div
       className={cn(
         "flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full",
-        "border border-dls-border/80 bg-dls-surface shadow-sm",
+        "border border-dls-border/80 bg-dls-surface ",
         props.className,
       )}
     >
       {resolved ? (
-        <img
-          src={resolved}
-          alt=""
-          className="size-full object-cover"
-          draggable={false}
-        />
+        <img src={resolved} alt="" className="size-full object-cover" draggable={false} />
       ) : (
         <span className="text-base font-semibold text-dls-text">
           {props.name.trim().slice(0, 1).toUpperCase() || "?"}
@@ -122,21 +117,16 @@ function ConnectorLogo(props: {
  */
 export function ConnectorConnectDialog(props: ConnectorConnectDialogProps) {
   const productSrc = props.productIconSrc?.trim() || DEFAULT_PRODUCT_ICON;
-  const tryThisTitle =
-    props.tryThisTitle?.trim() || t("plugins.artifact_starter_prompts");
+  const tryThisTitle = props.tryThisTitle?.trim() || t("plugins.artifact_starter_prompts");
   const connectLabel = props.connectLabel?.trim() || t("common.connect");
-  const connectingLabel =
-    props.connectingLabel?.trim() || t("common.connecting");
-  const tryItLabel =
-    props.tryItLabel?.trim() || t("plugins.connector_try_it");
-  const unbindLabel =
-    props.unbindLabel?.trim() || t("plugins.connector_unbind");
+  const connectingLabel = props.connectingLabel?.trim() || t("common.connecting");
+  const tryItLabel = props.tryItLabel?.trim() || t("plugins.connector_try_it");
+  const unbindLabel = props.unbindLabel?.trim() || t("plugins.connector_unbind");
   const prompts = props.tryThisPrompts?.filter(Boolean) ?? [];
   const title = t("plugins.connector_connect_title", { name: props.name });
   const connected = Boolean(props.connected);
   const showConnect = !connected && Boolean(props.onConnect);
-  const showConnectedActions =
-    connected && (Boolean(props.onTryIt) || Boolean(props.onUnbind));
+  const showConnectedActions = connected && (Boolean(props.onTryIt) || Boolean(props.onUnbind));
   const wide = props.size === "wide" || Boolean(props.children);
 
   return (
@@ -169,20 +159,13 @@ export function ConnectorConnectDialog(props: ConnectorConnectDialogProps) {
             {/* Dual logos: product ⋯ service */}
             <div className="flex items-center justify-center gap-3">
               <ConnectorLogo src={productSrc} name={APP_NAME} />
-              <span
-                className="flex items-center gap-1 text-dls-secondary/70"
-                aria-hidden
-              >
+              <span className="flex items-center gap-1 text-dls-secondary/70" aria-hidden>
                 <span className="size-1 rounded-full bg-current" />
                 <span className="size-1 rounded-full bg-current" />
                 <span className="size-1 rounded-full bg-current" />
                 <span className="size-1 rounded-full bg-current" />
               </span>
-              <ConnectorLogo
-                src={props.iconSrc}
-                slug={props.iconSlug}
-                name={props.name}
-              >
+              <ConnectorLogo src={props.iconSrc} slug={props.iconSlug} name={props.name}>
                 {props.serviceIconNode}
               </ConnectorLogo>
             </div>
@@ -201,7 +184,7 @@ export function ConnectorConnectDialog(props: ConnectorConnectDialogProps) {
                 <Button
                   type="button"
                   size="default"
-                  className="min-w-[7.5rem] gap-1.5 rounded-full px-6"
+                  className="min-w-[7.5rem] gap-1.5 rounded-xl px-6"
                   disabled={props.connecting}
                   onClick={() => void props.onConnect?.()}
                 >
@@ -221,7 +204,7 @@ export function ConnectorConnectDialog(props: ConnectorConnectDialogProps) {
                   <Button
                     type="button"
                     size="default"
-                    className="min-w-[6.5rem] gap-1.5 rounded-full px-5"
+                    className="min-w-[6.5rem] gap-1.5 rounded-xl px-5"
                     onClick={() => props.onTryIt?.()}
                   >
                     <MessageCircle className="size-4" aria-hidden />
@@ -233,7 +216,7 @@ export function ConnectorConnectDialog(props: ConnectorConnectDialogProps) {
                     type="button"
                     size="default"
                     variant="outline"
-                    className="min-w-[6.5rem] gap-1.5 rounded-full px-5"
+                    className="min-w-[6.5rem] gap-1.5 rounded-xl px-5"
                     disabled={props.unbinding}
                     onClick={() => void props.onUnbind?.()}
                   >

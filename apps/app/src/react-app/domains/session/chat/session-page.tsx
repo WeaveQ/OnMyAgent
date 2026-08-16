@@ -43,24 +43,11 @@ import { NoticeBox } from "@/components/ui/notice-box";
 import { CountBadge } from "@/components/ui/status-badge";
 import { ActionRowButton, IconTile } from "@/components/ui/action-row";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
-import {
-  ProviderAuthModal,
-  type ProviderAuthModalProps,
-} from "../../connections";
+import { ProviderAuthModal, type ProviderAuthModalProps } from "../../connections";
 import { RenameSessionModal } from "../modals/rename-session-modal";
-import {
-  type SidebarAccountInfo,
-  type SidebarPrimaryView,
-} from "../sidebar/app-sidebar";
-import {
-  SessionSurface,
-  type SessionSurfaceProps,
-} from "../surface/session-surface";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
+import { type SidebarAccountInfo, type SidebarPrimaryView } from "../sidebar/app-sidebar";
+import { SessionSurface, type SessionSurfaceProps } from "../surface/session-surface";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ShareWorkspaceModal } from "../../workspace";
 import type { StatusBarProps } from "../components/status-bar";
@@ -79,9 +66,7 @@ import {
   usePendingAgentStore,
 } from "../../agents";
 import { buildPendingAgentFromRecord } from "../../agents";
-import {
-  useAgentRegistryStore,
-} from "../../agents";
+import { useAgentRegistryStore } from "../../agents";
 import { useExpertDirectoryStore } from "../../../capabilities/session-identity/expert-directory-store";
 import {
   friendlyModelNameToModelRef,
@@ -103,10 +88,7 @@ import { DevicesPage } from "./session-page-devices-page";
 import { SidebarFeaturePlaceholder } from "./session-page-feature-placeholder";
 import { EmptyArtifactsPanel, ProjectsComingSoonPage } from "./session-page-light-pages";
 import { KnowledgeVaultPage } from "../../knowledge";
-import {
-  sessionTitleForId,
-  type TaskStatusIndicator,
-} from "./session-page-model";
+import { sessionTitleForId, type TaskStatusIndicator } from "./session-page-model";
 import { SessionStartupSkeleton } from "../pages/session-startup-skeleton";
 import { OnMyAgentRail } from "./session-page-rail";
 import { useSessionPageSessionActions } from "./session-page-session-actions";
@@ -164,18 +146,44 @@ function CodeSidePanelMenu(props: {
   onSelect: (id: CodeRailPanelId) => void;
 }) {
   return (
-    <div className="flex h-full min-h-0 flex-col bg-dls-background" data-code-side-panel-menu="true">
+    <div
+      className="flex h-full min-h-0 flex-col bg-dls-background"
+      data-code-side-panel-menu="true"
+    >
       <header
         data-panel-titlebar="true"
         className="flex h-14 shrink-0 items-center justify-end gap-1 border-b border-dls-mist px-3 text-dls-secondary mac:titlebar-drag"
       >
-        <Button type="button" variant="ghost" size="icon-xs" className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text" aria-label={t("session.code_side_panel_expand")} title={t("session.code_side_panel_expand")}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+          aria-label={t("session.code_side_panel_expand")}
+          title={t("session.code_side_panel_expand")}
+        >
           <Expand className="size-3.5" />
         </Button>
-        <Button type="button" variant="ghost" size="icon-xs" className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text" aria-label={t("session.code_side_panel_minimize")} title={t("session.code_side_panel_minimize")}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+          aria-label={t("session.code_side_panel_minimize")}
+          title={t("session.code_side_panel_minimize")}
+        >
           <RectangleHorizontal className="size-3.5" />
         </Button>
-        <Button type="button" variant="ghost" size="icon-xs" data-code-side-panel-close="true" className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text" onClick={props.onClose} aria-label={t("session.code_side_panel_close")} title={t("session.code_side_panel_close")}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          data-code-side-panel-close="true"
+          className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+          onClick={props.onClose}
+          aria-label={t("session.code_side_panel_close")}
+          title={t("session.code_side_panel_close")}
+        >
           <PanelRight className="size-3.5" />
         </Button>
       </header>
@@ -189,33 +197,31 @@ function CodeSidePanelMenu(props: {
             }))
             .sort((a, b) => a.labelLen - b.labelLen || a.index - b.index)
             .map(({ item }) => {
-            const Icon = item.icon;
-            const selected = props.activePanel === item.id;
-            const shortcut = codeRailShortcutById[item.id];
-            return (
-              <button
-                key={item.id}
-                type="button"
-                data-code-side-panel-menu-item={item.id}
-                className={cn(
-                  "flex h-9 w-full items-center gap-2 rounded-lg bg-dls-surface-muted px-3 text-left text-sm text-dls-text transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
-                  selected && "bg-dls-hover text-dls-text",
-                )}
-                onClick={() => props.onSelect(item.id)}
-                aria-pressed={selected}
-              >
-                <Icon className="size-4 text-dls-secondary" />
-                <span className="min-w-0 flex-1 truncate">{t(item.labelKey)}</span>
-                {shortcut ? (
-                  <kbd
-                    className="inline-flex items-center rounded-sm border border-dls-border bg-dls-surface-muted px-1 py-0.5 text-xs leading-none text-dls-secondary"
-                  >
-                    {shortcut}
-                  </kbd>
-                ) : null}
-              </button>
-            );
-          })}
+              const Icon = item.icon;
+              const selected = props.activePanel === item.id;
+              const shortcut = codeRailShortcutById[item.id];
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  data-code-side-panel-menu-item={item.id}
+                  className={cn(
+                    "flex h-9 w-full items-center gap-2 rounded-lg bg-dls-surface-muted px-3 text-left text-sm text-dls-text transition-colors hover:bg-dls-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
+                    selected && "bg-dls-hover text-dls-text",
+                  )}
+                  onClick={() => props.onSelect(item.id)}
+                  aria-pressed={selected}
+                >
+                  <Icon className="size-4 text-dls-secondary" />
+                  <span className="min-w-0 flex-1 truncate">{t(item.labelKey)}</span>
+                  {shortcut ? (
+                    <kbd className="inline-flex items-center rounded-sm border border-dls-border bg-dls-surface-muted px-1 py-0.5 text-xs leading-none text-dls-secondary">
+                      {shortcut}
+                    </kbd>
+                  ) : null}
+                </button>
+              );
+            })}
         </div>
       </div>
     </div>
@@ -276,12 +282,11 @@ export function SessionPage(props: SessionPageProps) {
   const localAuthUser = useMemo(() => readLocalAuthUser(), []);
   const [activeAssistantCategoryId, setActiveAssistantCategoryId] =
     useState<AssistantCategoryId>("office");
-  const [storeActiveTab, setStoreActiveTab] =
-    useState<StorePrimaryTab>("skills");
+  const [storeActiveTab, setStoreActiveTab] = useState<StorePrimaryTab>("skills");
   const [customConnectorOpen, setCustomConnectorOpen] = useState(false);
-  const [customConnectorInitialView, setCustomConnectorInitialView] = useState<
-    "list" | "config"
-  >("list");
+  const [customConnectorInitialView, setCustomConnectorInitialView] = useState<"list" | "config">(
+    "list",
+  );
   const openCustomConnector = useCallback((view: "list" | "config" = "list") => {
     setCustomConnectorInitialView(view);
     setCustomConnectorOpen(true);
@@ -293,14 +298,10 @@ export function SessionPage(props: SessionPageProps) {
       ? `localAgent:${props.selectedWorkspaceId}`
       : props.selectedSessionId;
   const sessionSidePanel = useUiStateStore((state) =>
-    sidePanelScopeId
-      ? (state.sidePanelState[sidePanelScopeId] ?? null)
-      : null,
+    sidePanelScopeId ? (state.sidePanelState[sidePanelScopeId] ?? null) : null,
   );
   const setSidePanelState = useUiStateStore((state) => state.setSidePanelState);
-  const toggleSidePanelState = useUiStateStore(
-    (state) => state.toggleSidePanelState,
-  );
+  const toggleSidePanelState = useUiStateStore((state) => state.toggleSidePanelState);
   useReactRenderWatchdog("SessionPage", {
     selectedSessionId: props.selectedSessionId,
     selectedWorkspaceId: props.selectedWorkspaceId,
@@ -325,8 +326,7 @@ export function SessionPage(props: SessionPageProps) {
       )?.sessions ?? [];
     return buildFilesOpenSessionMeta({
       workspaceId: props.selectedWorkspaceId,
-      workspaceRoot:
-        props.workspaceFilesRoot?.trim() || props.selectedWorkspaceRoot,
+      workspaceRoot: props.workspaceFilesRoot?.trim() || props.selectedWorkspaceRoot,
       liveSessions: live,
     });
   }, [
@@ -349,21 +349,17 @@ export function SessionPage(props: SessionPageProps) {
 
   const resolveConversationDisplay = useCallback(
     (session: WorkspaceSessionGroup["sessions"][number]) => {
-      const fallbackTitle = sessionTitleForId(
-        props.sidebar.workspaceSessionGroups,
-        session.id,
-      ) || t("session.default_title");
-      const agentId =
-        expertDirectoryIdentity.agentIdBySessionId.get(session.id) ?? null;
+      const fallbackTitle =
+        sessionTitleForId(props.sidebar.workspaceSessionGroups, session.id) ||
+        t("session.default_title");
+      const agentId = expertDirectoryIdentity.agentIdBySessionId.get(session.id) ?? null;
       const agent =
         agentRegistry && agentId
           ? (agentRegistry.agents.find((item) => item.id === agentId) ??
             agentRegistry.templates.find((item) => item.id === agentId))
           : null;
       const restoredAgent =
-        agent && agentRegistry
-          ? buildPendingAgentFromRecord(agent, agentRegistry)
-          : null;
+        agent && agentRegistry ? buildPendingAgentFromRecord(agent, agentRegistry) : null;
       return {
         name: restoredAgent?.name ?? fallbackTitle,
         avatarUrl: restoredAgent?.avatar.avatarUrl,
@@ -378,29 +374,24 @@ export function SessionPage(props: SessionPageProps) {
   );
 
   const handleStartAgentConversation = useCallback(
-    (
-      item: AgentCardItem,
-      registry: AgentRegistry,
-    ) => {
+    (item: AgentCardItem, registry: AgentRegistry) => {
       const source = item.kind === "template" ? item.template : item.agent;
-      const customAvatarDataUrl =
-        item.kind === "custom" ? item.agent.customAvatarDataUrl : null;
+      const customAvatarDataUrl = item.kind === "custom" ? item.agent.customAvatarDataUrl : null;
       const avatarInput = {
         avatarStyle: source.avatarStyle,
         avatarOptionId: source.avatarOptionId,
         customAvatarDataUrl,
       };
-      const { url: avatarUrl, background: avatarBackground } =
-        resolveAgentAvatarUrl(avatarInput, registry);
+      const { url: avatarUrl, background: avatarBackground } = resolveAgentAvatarUrl(
+        avatarInput,
+        registry,
+      );
 
       // Prefer the SDK IDs saved at wizard time when they describe an
       // actual SDK model. Filter out the wizard's "自动" placeholder — it's
       // not a real SDK provider/model, and we want the chat surface to
       // fall back to the user's global default model in that case.
-      const modelRef = isValidSdkModelRef(
-        source.sdkProviderID,
-        source.sdkModelID,
-      )
+      const modelRef = isValidSdkModelRef(source.sdkProviderID, source.sdkModelID)
         ? { providerID: source.sdkProviderID!, modelID: source.sdkModelID! }
         : friendlyModelNameToModelRef(source.modelProvider, source.model);
 
@@ -527,72 +518,76 @@ export function SessionPage(props: SessionPageProps) {
     <div className="flex items-center gap-1 text-dls-secondary mac:titlebar-no-drag">
       {showCodeSideRail ? (
         !sidePanelOpen ? (
+          <Button
+            data-code-side-panel-toggle="true"
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              openCodeSidePanelMenu();
+            }}
+            title={t("session.code_side_panel_toggle")}
+            aria-label={t("session.code_side_panel_toggle")}
+            aria-pressed={sidePanelOpen || codeMenuRailActive}
+          >
+            <PanelRight className="size-3.5" />
+          </Button>
+        ) : null
+      ) : (
+        <>
+          {isElectronRuntime() ? (
             <Button
-              data-code-side-panel-toggle="true"
               type="button"
               variant="ghost"
-              size="icon-xs"
-              className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+              size="icon-sm"
+              className={cn(
+                "transition-colors hover:bg-dls-surface-muted hover:text-dls-text",
+                browserRailActive &&
+                  "bg-dls-decision-soft text-dls-primary hover:bg-dls-decision-soft hover:text-dls-primary",
+              )}
               onMouseDown={(event) => event.preventDefault()}
-              onClick={() => {
-                openCodeSidePanelMenu();
-              }}
-              title={t("session.code_side_panel_toggle")}
-              aria-label={t("session.code_side_panel_toggle")}
-              aria-pressed={sidePanelOpen || codeMenuRailActive}
+              onClick={openBrowserRailPane}
+              title="Browser"
+              aria-label="Browser"
+              aria-pressed={browserRailActive}
             >
-              <PanelRight className="size-3.5" />
+              <Globe size={16} />
             </Button>
-          ) : null
-        ) : (
-            <>
-              {isElectronRuntime() ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  className={cn(
-                    "transition-colors hover:bg-dls-surface-muted hover:text-dls-text",
-                    browserRailActive &&
-                      "bg-dls-decision-soft text-dls-primary hover:bg-dls-decision-soft hover:text-dls-primary",
-                  )}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={openBrowserRailPane}
-                  title="Browser"
-                  aria-label="Browser"
-                  aria-pressed={browserRailActive}
-                >
-                  <Globe size={16} />
-                </Button>
-              ) : null}
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className={cn(
-                  "relative transition-colors hover:bg-dls-surface-muted hover:text-dls-text",
-                  artifactRailActive &&
-                    "bg-dls-decision-soft text-dls-primary hover:bg-dls-decision-soft hover:text-dls-primary",
-                )}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={openArtifactRailPane}
-                title={hasArtifactTargets ? `Artifacts (${artifactTargetCount})` : "No artifacts yet"}
-                aria-label={hasArtifactTargets ? `Artifacts (${artifactTargetCount})` : "No artifacts yet"}
-                aria-pressed={artifactRailActive}
+          ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className={cn(
+              "relative transition-colors hover:bg-dls-surface-muted hover:text-dls-text",
+              artifactRailActive &&
+                "bg-dls-decision-soft text-dls-primary hover:bg-dls-decision-soft hover:text-dls-primary",
+            )}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={openArtifactRailPane}
+            title={hasArtifactTargets ? `Artifacts (${artifactTargetCount})` : "No artifacts yet"}
+            aria-label={
+              hasArtifactTargets ? `Artifacts (${artifactTargetCount})` : "No artifacts yet"
+            }
+            aria-pressed={artifactRailActive}
+          >
+            <PanelRight size={16} />
+            {artifactTargetCount > 0 ? (
+              <CountBadge
+                size="dot"
+                className="absolute right-0 top-0 translate-x-1 -translate-y-1 bg-primary text-primary-foreground"
               >
-                <PanelRight size={16} />
-                {artifactTargetCount > 0 ? (
-                  <CountBadge size="dot" className="absolute right-0 top-0 translate-x-1 -translate-y-1 bg-primary text-primary-foreground">
-                    {artifactTargetCount > 9 ? "9+" : artifactTargetCount}
-                  </CountBadge>
-                ) : null}
-              </Button>
-            </>
-          )}
+                {artifactTargetCount > 9 ? "9+" : artifactTargetCount}
+              </CountBadge>
+            ) : null}
+          </Button>
+        </>
+      )}
     </div>
   );
-  const canShowRightSidePanel =
-    pageView.isSessionSurfaceView || pageView.isLocalAgentView;
+  const canShowRightSidePanel = pageView.isSessionSurfaceView || pageView.isLocalAgentView;
   const railActiveView =
     agentPanel.activeSidebarView === "scheduledTasks"
       ? "personalAssistant"
@@ -601,9 +596,9 @@ export function SessionPage(props: SessionPageProps) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-radial-shell text-dls-text mac:bg-transparent">
       {/*
-        Keep primary rail outside bg-dls-background so mac vibrancy can show
-        through the strip (WeChat). Background wash only covers list + content.
-      */}
+ Keep primary rail outside bg-dls-background so mac vibrancy can show
+ through the strip (WeChat). Background wash only covers list + content.
+ */}
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <OnMyAgentRail
           activeView={railActiveView}
@@ -616,610 +611,568 @@ export function SessionPage(props: SessionPageProps) {
           onOpenBilling={agentPanel.openBillingView}
         />
         <div className="relative flex min-h-0 flex-1 overflow-hidden bg-dls-background mac:bg-dls-background mac:titlebar-no-drag">
-            {agentPanel.activeSidebarView === "chat" && !agentPanel.agentPanelCollapsed ? (
-              <AgentConversationPanel
-                width={agentPanel.agentPanelWidth}
-                client={props.onmyagentServerClient}
-                taskStatusVariant={pageView.taskStatus.variant}
-                collapsed={agentPanel.agentPanelCollapsed}
-                groups={props.sidebar.workspaceSessionGroups}
-                selectedWorkspaceId={props.sidebar.selectedWorkspaceId}
-                selectedSessionId={props.sidebar.selectedSessionId}
-                sessionStatusById={props.sidebar.sessionStatusById}
-                query={agentPanel.agentSearch}
-                disabledNewTask={props.sidebar.newTaskDisabled}
-                onQueryChange={agentPanel.setAgentSearch}
-                onToggleCollapsed={agentPanel.toggleAgentPanelCollapsed}
-                onOpenAgents={agentPanel.openAgentsDialog}
-                onOpenSession={(workspaceId, sessionId) => {
-                  agentPanel.openChatView();
-                  props.sidebar.onOpenSession(workspaceId, sessionId);
-                }}
-                onPrefetchSession={props.sidebar.onPrefetchSession}
-                resolveSessionDisplay={resolveConversationDisplay}
-              />
-            ) : null}
-            {agentPanel.activeSidebarView === "chat" && agentPanel.agentPanelCollapsed ? (
-              <div className="flex w-10 shrink-0 bg-dls-surface px-2 pb-5 pt-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={agentPanel.expandAgentPanel}
-                  title={t("session.expand_session_list")}
-                  aria-label={t("session.expand_session_list")}
-                >
-                  <PanelLeft className="size-3.5" />
-                </Button>
-              </div>
-            ) : null}
-            {agentPanel.activeSidebarView === "chat" && !agentPanel.agentPanelCollapsed ? (
-              <div
-                role="separator"
-                aria-label={t("session.resize_agent_list")}
-                aria-orientation="vertical"
-                tabIndex={0}
-                onPointerDown={agentPanel.startAgentPanelResize}
-                onKeyDown={(event) => {
-                  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-                    event.preventDefault();
-                    agentPanel.resizeAgentPanelBy(
-                      event.key === "ArrowLeft" ? -16 : 16,
-                    );
-                  }
-                }}
-                className="group relative z-10 cursor-col-resize touch-none outline-none"
+          {agentPanel.activeSidebarView === "chat" && !agentPanel.agentPanelCollapsed ? (
+            <AgentConversationPanel
+              width={agentPanel.agentPanelWidth}
+              client={props.onmyagentServerClient}
+              taskStatusVariant={pageView.taskStatus.variant}
+              collapsed={agentPanel.agentPanelCollapsed}
+              groups={props.sidebar.workspaceSessionGroups}
+              selectedWorkspaceId={props.sidebar.selectedWorkspaceId}
+              selectedSessionId={props.sidebar.selectedSessionId}
+              sessionStatusById={props.sidebar.sessionStatusById}
+              query={agentPanel.agentSearch}
+              disabledNewTask={props.sidebar.newTaskDisabled}
+              onQueryChange={agentPanel.setAgentSearch}
+              onToggleCollapsed={agentPanel.toggleAgentPanelCollapsed}
+              onOpenAgents={agentPanel.openAgentsDialog}
+              onOpenSession={(workspaceId, sessionId) => {
+                agentPanel.openChatView();
+                props.sidebar.onOpenSession(workspaceId, sessionId);
+              }}
+              onPrefetchSession={props.sidebar.onPrefetchSession}
+              resolveSessionDisplay={resolveConversationDisplay}
+            />
+          ) : null}
+          {agentPanel.activeSidebarView === "chat" && agentPanel.agentPanelCollapsed ? (
+            <div className="flex w-10 shrink-0 bg-dls-surface px-2 pb-5 pt-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                onClick={agentPanel.expandAgentPanel}
+                title={t("session.expand_session_list")}
+                aria-label={t("session.expand_session_list")}
               >
-                <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors group-focus-visible:bg-dls-accent" />
-              </div>
-            ) : null}
-            <ResizablePanelGroup
-              orientation="horizontal"
-              onLayoutChanged={
-                sidePanelOpen ? commitBrowserPanelWidth : undefined
-              }
-              className="min-h-0 flex-1"
+                <PanelLeft className="size-3.5" />
+              </Button>
+            </div>
+          ) : null}
+          {agentPanel.activeSidebarView === "chat" && !agentPanel.agentPanelCollapsed ? (
+            <div
+              role="separator"
+              aria-label={t("session.resize_agent_list")}
+              aria-orientation="vertical"
+              tabIndex={0}
+              onPointerDown={agentPanel.startAgentPanelResize}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                  event.preventDefault();
+                  agentPanel.resizeAgentPanelBy(event.key === "ArrowLeft" ? -16 : 16);
+                }
+              }}
+              className="group relative z-10 cursor-col-resize touch-none outline-none"
             >
-              <ResizablePanel minSize="360px" className="min-w-0">
-                <main
-                  className={cn(
-                    "flex h-full min-w-0 flex-col overflow-hidden border-r border-dls-border",
-                    agentPanel.activeSidebarView === "localAgent"
-                      ? "bg-transparent"
-                      : "bg-dls-background",
-                  )}
-                >
-                  <div className="flex min-h-0 flex-1 overflow-hidden">
-                    <div
-                      className={cn(
-                        "relative min-w-0 flex-1 overflow-hidden",
-                        agentPanel.activeSidebarView === "localAgent"
-                          ? "bg-transparent"
-                          : "bg-dls-background mac:bg-dls-background",
-                      )}
-                    >
-                      {agentPanel.activeSidebarView === "agents" ? (
-                        <props.renderAgentsPage
-                          workspaceId={props.selectedWorkspaceId}
-                          workspaceRoot={props.selectedWorkspaceRoot}
-                          client={props.onmyagentServerClient}
-                          providers={props.providers}
-                          connectedProviderIds={props.providerConnectedIds}
-                          onStartConversation={handleStartAgentConversation}
-                        />
-                      ) : null}
+              <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors group-focus-visible:bg-dls-accent" />
+            </div>
+          ) : null}
+          <ResizablePanelGroup
+            orientation="horizontal"
+            onLayoutChanged={sidePanelOpen ? commitBrowserPanelWidth : undefined}
+            className="min-h-0 flex-1"
+          >
+            <ResizablePanel minSize="360px" className="min-w-0">
+              <main
+                className={cn(
+                  "flex h-full min-w-0 flex-col overflow-hidden border-r border-dls-border",
+                  agentPanel.activeSidebarView === "localAgent"
+                    ? "bg-transparent"
+                    : "bg-dls-background",
+                )}
+              >
+                <div className="flex min-h-0 flex-1 overflow-hidden">
+                  <div
+                    className={cn(
+                      "relative min-w-0 flex-1 overflow-hidden",
+                      agentPanel.activeSidebarView === "localAgent"
+                        ? "bg-transparent"
+                        : "bg-dls-background mac:bg-dls-background",
+                    )}
+                  >
+                    {agentPanel.activeSidebarView === "agents" ? (
+                      <props.renderAgentsPage
+                        workspaceId={props.selectedWorkspaceId}
+                        workspaceRoot={props.selectedWorkspaceRoot}
+                        client={props.onmyagentServerClient}
+                        providers={props.providers}
+                        connectedProviderIds={props.providerConnectedIds}
+                        onStartConversation={handleStartAgentConversation}
+                      />
+                    ) : null}
 
-                      {agentPanel.activeSidebarView === "localAgent" ? (
-                        <PersonalLocalAgentPage
-                          workspaceRoot={props.selectedWorkspaceRoot}
-                          workspaceName={props.selectedWorkspaceDisplay.name}
-                          onOpenArtifact={openTarget}
-                          onOpenTargetsChange={handleOpenTargetsChange}
-                          onmyagentServerClient={props.onmyagentServerClient}
-                          runtimeWorkspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
-                        />
-                      ) : null}
+                    {agentPanel.activeSidebarView === "localAgent" ? (
+                      <PersonalLocalAgentPage
+                        workspaceRoot={props.selectedWorkspaceRoot}
+                        workspaceName={props.selectedWorkspaceDisplay.name}
+                        onOpenArtifact={openTarget}
+                        onOpenTargetsChange={handleOpenTargetsChange}
+                        onmyagentServerClient={props.onmyagentServerClient}
+                        runtimeWorkspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
+                      />
+                    ) : null}
 
-                      {agentPanel.activeSidebarView === "store" ? (
-                        <StorePage
-                          workspaceId={props.selectedWorkspaceId}
-                          workspaceRoot={props.selectedWorkspaceRoot}
-                          client={props.onmyagentServerClient}
-                          activeTab={storeActiveTab}
-                          onActiveTabChange={setStoreActiveTab}
-                          onOpenCustomConnector={() => openCustomConnector("list")}
-                        />
-                      ) : null}
+                    {agentPanel.activeSidebarView === "store" ? (
+                      <StorePage
+                        workspaceId={props.selectedWorkspaceId}
+                        workspaceRoot={props.selectedWorkspaceRoot}
+                        client={props.onmyagentServerClient}
+                        activeTab={storeActiveTab}
+                        onActiveTabChange={setStoreActiveTab}
+                        onOpenCustomConnector={() => openCustomConnector("list")}
+                      />
+                    ) : null}
 
-                      {agentPanel.activeSidebarView === "company" ? (
-                        <CompanyRailPane />
-                      ) : null}
+                    {agentPanel.activeSidebarView === "company" ? <CompanyRailPane /> : null}
 
-                      {agentPanel.activeSidebarView === "files" ? (
-                        <WorkspaceFilesPage
-                          client={props.onmyagentServerClient}
-                          workspaceId={
-                            props.runtimeWorkspaceId ??
-                            props.selectedWorkspaceId
-                          }
-                          workspaceRoot={
-                            props.workspaceFilesRoot?.trim() ||
-                            props.selectedWorkspaceRoot
-                          }
-                          // Always OnMyAgent registry workspace path — not sessionWorkspaceRoot.
-                          fileRoot={
-                            props.workspaceFilesRoot?.trim() ||
-                            props.selectedWorkspaceRoot
-                          }
-                          activeSessionIds={filesOpenSessionMeta.activeSessionIds}
-                          archivedSessionIds={
-                            filesOpenSessionMeta.archivedSessionIds
-                          }
-                          sessionTitleByKey={
-                            filesOpenSessionMeta.sessionTitleByKey
-                          }
-                          sessionIdByPathKey={
-                            filesOpenSessionMeta.sessionIdByPathKey
-                          }
-                          onOpenSourceSession={(sessionId) => {
-                            props.sidebar.onOpenSession(
-                              props.selectedWorkspaceId,
-                              sessionId,
-                            );
-                            agentPanel.openChatView();
-                          }}
-                          onOpenArtifact={openTarget}
-                          {...createWorkspaceFilesAgentHandlers({
-                            sessionId: pageView.renderedSessionId,
-                            openRail: () => agentPanel.openChatView(),
-                            showToast,
-                            buildInstruction: buildAskAgentFileInstruction,
-                            t,
-                          })}
-                        />
-                      ) : null}
+                    {agentPanel.activeSidebarView === "files" ? (
+                      <WorkspaceFilesPage
+                        client={props.onmyagentServerClient}
+                        workspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
+                        workspaceRoot={
+                          props.workspaceFilesRoot?.trim() || props.selectedWorkspaceRoot
+                        }
+                        // Always OnMyAgent registry workspace path — not sessionWorkspaceRoot.
+                        fileRoot={props.workspaceFilesRoot?.trim() || props.selectedWorkspaceRoot}
+                        activeSessionIds={filesOpenSessionMeta.activeSessionIds}
+                        archivedSessionIds={filesOpenSessionMeta.archivedSessionIds}
+                        sessionTitleByKey={filesOpenSessionMeta.sessionTitleByKey}
+                        sessionIdByPathKey={filesOpenSessionMeta.sessionIdByPathKey}
+                        onOpenSourceSession={(sessionId) => {
+                          props.sidebar.onOpenSession(props.selectedWorkspaceId, sessionId);
+                          agentPanel.openChatView();
+                        }}
+                        onOpenArtifact={openTarget}
+                        {...createWorkspaceFilesAgentHandlers({
+                          sessionId: pageView.renderedSessionId,
+                          openRail: () => agentPanel.openChatView(),
+                          showToast,
+                          buildInstruction: buildAskAgentFileInstruction,
+                          t,
+                        })}
+                      />
+                    ) : null}
 
-                      {agentPanel.activeSidebarView === "projects" ? (
-                        <ProjectsComingSoonPage />
-                      ) : null}
+                    {agentPanel.activeSidebarView === "projects" ? (
+                      <ProjectsComingSoonPage />
+                    ) : null}
 
-                      {agentPanel.activeSidebarView === "knowledgeBase" ? (
-                        <KnowledgeVaultPage workspaceId={props.selectedWorkspaceId} />
-                      ) : null}
+                    {agentPanel.activeSidebarView === "knowledgeBase" ? (
+                      <KnowledgeVaultPage workspaceId={props.selectedWorkspaceId} />
+                    ) : null}
 
-                      {agentPanel.activeSidebarView === "devices" ? <DevicesPage /> : null}
+                    {agentPanel.activeSidebarView === "devices" ? <DevicesPage /> : null}
 
-                      {agentPanel.activeSidebarView === "channels" ? (
-                        <MessagingChannelsPage workspaceRoot={props.selectedWorkspaceRoot} />
-                      ) : null}
+                    {agentPanel.activeSidebarView === "channels" ? (
+                      <MessagingChannelsPage workspaceRoot={props.selectedWorkspaceRoot} />
+                    ) : null}
 
-                      {agentPanel.activeSidebarView === "billing" ? <BillingPage /> : null}
+                    {agentPanel.activeSidebarView === "billing" ? <BillingPage /> : null}
 
-                      {pageView.activePlaceholderView &&
-                      agentPanel.activeSidebarView !== "agents" &&
-                      agentPanel.activeSidebarView !== "files" &&
-                      agentPanel.activeSidebarView !== "store" &&
-                      agentPanel.activeSidebarView !== "company" &&
-                      agentPanel.activeSidebarView !== "projects" &&
-                      agentPanel.activeSidebarView !== "knowledgeBase" &&
-                      agentPanel.activeSidebarView !== "localAgent" &&
-                      agentPanel.activeSidebarView !== "devices" &&
-                      agentPanel.activeSidebarView !== "channels" &&
-                      agentPanel.activeSidebarView !== "billing" ? (
-                        <SidebarFeaturePlaceholder
-                          view={pageView.activePlaceholderView}
-                        />
-                      ) : null}
+                    {pageView.activePlaceholderView &&
+                    agentPanel.activeSidebarView !== "agents" &&
+                    agentPanel.activeSidebarView !== "files" &&
+                    agentPanel.activeSidebarView !== "store" &&
+                    agentPanel.activeSidebarView !== "company" &&
+                    agentPanel.activeSidebarView !== "projects" &&
+                    agentPanel.activeSidebarView !== "knowledgeBase" &&
+                    agentPanel.activeSidebarView !== "localAgent" &&
+                    agentPanel.activeSidebarView !== "devices" &&
+                    agentPanel.activeSidebarView !== "channels" &&
+                    agentPanel.activeSidebarView !== "billing" ? (
+                      <SidebarFeaturePlaceholder view={pageView.activePlaceholderView} />
+                    ) : null}
 
-                      {pageView.isSessionSurfaceView &&
-                      !pageView.activePlaceholderView &&
-                      pageView.showStartupSkeleton ? (
-                        <SessionStartupSkeleton />
-                      ) : null}
+                    {pageView.isSessionSurfaceView &&
+                    !pageView.activePlaceholderView &&
+                    pageView.showStartupSkeleton ? (
+                      <SessionStartupSkeleton />
+                    ) : null}
 
-                      {pageView.isSessionSurfaceView &&
-                      !pageView.activePlaceholderView &&
-                      showDelayedSessionLoadingState ? (
-                        <div className="px-6 py-16">
-                          <div
-                            className="mx-auto flex max-w-[320px] flex-col items-center gap-3 text-center"
-                            role="status"
-                            aria-live="polite"
-                          >
-                            <OwDotTicker size="md" />
-                            <div className="text-xs leading-5 text-dls-secondary">
-                              {t("session.loading_detail")}
-                            </div>
+                    {pageView.isSessionSurfaceView &&
+                    !pageView.activePlaceholderView &&
+                    showDelayedSessionLoadingState ? (
+                      <div className="px-6 py-16">
+                        <div
+                          className="mx-auto flex max-w-[320px] flex-col items-center gap-3 text-center"
+                          role="status"
+                          aria-live="polite"
+                        >
+                          <OwDotTicker size="md" />
+                          <div className="text-xs leading-5 text-dls-secondary">
+                            {t("session.loading_detail")}
                           </div>
                         </div>
-                      ) : null}
+                      </div>
+                    ) : null}
 
-                      {pageView.isSessionSurfaceView &&
-                      !pageView.activePlaceholderView &&
-                      !showDelayedSessionLoadingState &&
-                      pageView.canRenderReactSurface ? (
-                        <SessionSurface
-                          // Stable per workspace — session switches are prop-driven.
-                          key={props.runtimeWorkspaceId ?? "session-surface"}
-                          // Spread `surface` first so the explicit per-workspace
-                          // routing props below CAN'T be silently overridden by
-                          // anything that leaks into `surface`. SessionSurface's
-                          // server target (client/workspaceId/sessionId/opencodeBaseUrl/onmyagentToken)
-                          // must come from the resolved workspace endpoint passed by
-                          // SessionRoute, not from anything in `surface`.
-                          {...props.surface!}
-                          client={props.onmyagentServerClient!}
-                          workspaceId={props.runtimeWorkspaceId!}
-                          sessionId={pageView.renderedSessionId}
-                          draftOnly={pageView.isDraftSession}
-                          surfaceVisible={
-                            pageView.isSessionSurfaceView &&
-                            !pageView.activePlaceholderView &&
-                            !showDelayedSessionLoadingState
-                          }
-                          opencodeBaseUrl={pageView.reactSessionBaseUrl}
-                          onmyagentToken={pageView.reactSessionToken}
-                          todos={props.todos}
-                          permission={{
-                            ...props.surface!.permission,
-                            activePermission: props.activePermission,
-                            permissionReplyBusy: props.permissionReplyBusy,
-                            respondPermission: props.respondPermission,
-                            autoApprovedPermissionNoticeId:
-                              props.autoApprovedPermissionNoticeId,
-                            activeQuestion: props.activeQuestion,
-                            questionReplyBusy: props.questionReplyBusy,
-                            respondQuestion: props.respondQuestion,
-                          }}
-                          safeStringify={props.safeStringify}
-                          userIdentity={{
-                            name:
-                              localAuthUser?.username ||
-                              props.account?.name ||
-                              props.account?.email ||
-                              t("session.user_initial"),
-                          }}
-                          onPersonalAssistantCategoryActive={setActiveAssistantCategoryId}
-                          onOpenAgentSettings={agentPanel.openAgentsDialog}
-                          headerActions={headerPanelControls}
-                          onOpenTarget={openTarget}
-                          onOpenTargetsChange={handleOpenTargetsChange}
-                          marketplace={{
-                            ...props.surface!.marketplace,
-                            onOpenSkillsMarketplace: () => {
-                              setStoreActiveTab("skills");
-                              agentPanel.openSidebarView("store");
-                            },
-                            onOpenConnectorsMarketplace: () => {
-                              setStoreActiveTab("plugins");
-                              agentPanel.openSidebarView("store");
-                            },
-                            onOpenCustomConnector: () => openCustomConnector("config"),
-                          }}
-                        />
-                      ) : null}
+                    {pageView.isSessionSurfaceView &&
+                    !pageView.activePlaceholderView &&
+                    !showDelayedSessionLoadingState &&
+                    pageView.canRenderReactSurface ? (
+                      <SessionSurface
+                        // Stable per workspace — session switches are prop-driven.
+                        key={props.runtimeWorkspaceId ?? "session-surface"}
+                        // Spread `surface` first so the explicit per-workspace
+                        // routing props below CAN'T be silently overridden by
+                        // anything that leaks into `surface`. SessionSurface's
+                        // server target (client/workspaceId/sessionId/opencodeBaseUrl/onmyagentToken)
+                        // must come from the resolved workspace endpoint passed by
+                        // SessionRoute, not from anything in `surface`.
+                        {...props.surface!}
+                        client={props.onmyagentServerClient!}
+                        workspaceId={props.runtimeWorkspaceId!}
+                        sessionId={pageView.renderedSessionId}
+                        draftOnly={pageView.isDraftSession}
+                        surfaceVisible={
+                          pageView.isSessionSurfaceView &&
+                          !pageView.activePlaceholderView &&
+                          !showDelayedSessionLoadingState
+                        }
+                        opencodeBaseUrl={pageView.reactSessionBaseUrl}
+                        onmyagentToken={pageView.reactSessionToken}
+                        todos={props.todos}
+                        permission={{
+                          ...props.surface!.permission,
+                          activePermission: props.activePermission,
+                          permissionReplyBusy: props.permissionReplyBusy,
+                          respondPermission: props.respondPermission,
+                          autoApprovedPermissionNoticeId: props.autoApprovedPermissionNoticeId,
+                          activeQuestion: props.activeQuestion,
+                          questionReplyBusy: props.questionReplyBusy,
+                          respondQuestion: props.respondQuestion,
+                        }}
+                        safeStringify={props.safeStringify}
+                        userIdentity={{
+                          name:
+                            localAuthUser?.username ||
+                            props.account?.name ||
+                            props.account?.email ||
+                            t("session.user_initial"),
+                        }}
+                        onPersonalAssistantCategoryActive={setActiveAssistantCategoryId}
+                        onOpenAgentSettings={agentPanel.openAgentsDialog}
+                        headerActions={headerPanelControls}
+                        onOpenTarget={openTarget}
+                        onOpenTargetsChange={handleOpenTargetsChange}
+                        marketplace={{
+                          ...props.surface!.marketplace,
+                          onOpenSkillsMarketplace: () => {
+                            setStoreActiveTab("skills");
+                            agentPanel.openSidebarView("store");
+                          },
+                          onOpenConnectorsMarketplace: () => {
+                            setStoreActiveTab("plugins");
+                            agentPanel.openSidebarView("store");
+                          },
+                          onOpenCustomConnector: () => openCustomConnector("config"),
+                        }}
+                      />
+                    ) : null}
 
-                      {pageView.isSessionSurfaceView &&
-                      !pageView.activePlaceholderView &&
-                      !showDelayedSessionLoadingState &&
-                      !pageView.canRenderReactSurface &&
-                      !pageView.showStartupSkeleton ? (
-                        <div
-                          className={`mx-auto max-w-[800px] px-6 ${pageView.showWorkspaceSetupEmptyState ? "pt-20" : "pt-10"}`}
-                        >
-                          {props.notFoundMessage ? (
-                            <div className="px-6 py-16 text-center">
-                              <div className="mx-auto max-w-md rounded-xl border border-dls-border bg-dls-card px-5 py-6">
-                                <h3 className="text-base font-medium text-dls-text">
-                                  Workspace or session not found
-                                </h3>
-                                <p className="mt-2 text-sm leading-6 text-dls-secondary">
-                                  {props.notFoundMessage}
-                                </p>
-                              </div>
+                    {pageView.isSessionSurfaceView &&
+                    !pageView.activePlaceholderView &&
+                    !showDelayedSessionLoadingState &&
+                    !pageView.canRenderReactSurface &&
+                    !pageView.showStartupSkeleton ? (
+                      <div
+                        className={`mx-auto max-w-[800px] px-6 ${pageView.showWorkspaceSetupEmptyState ? "pt-20" : "pt-10"}`}
+                      >
+                        {props.notFoundMessage ? (
+                          <div className="px-6 py-16 text-center">
+                            <div className="mx-auto max-w-md rounded-xl border border-dls-border bg-dls-card px-5 py-6">
+                              <h3 className="text-base font-medium text-dls-text">
+                                Workspace or session not found
+                              </h3>
+                              <p className="mt-2 text-sm leading-6 text-dls-secondary">
+                                {props.notFoundMessage}
+                              </p>
                             </div>
-                          ) : pageView.showWorkspaceSetupEmptyState ? (
-                            <div className="space-y-6 px-6 text-center">
-                              <IconTile size="2xl" shape="xl" border className="mx-auto rounded-xl">
-                                <Zap className="text-dls-secondary" />
-                              </IconTile>
-                              <div className="space-y-2">
-                                <h3 className={messagingTextClass.pageTitle}>
-                                  {t("session.create_or_connect_workspace")}
-                                </h3>
-                                <p className="mx-auto max-w-sm text-sm text-dls-secondary">
-                                  {t("workspace.empty_state_body")}
-                                </p>
+                          </div>
+                        ) : pageView.showWorkspaceSetupEmptyState ? (
+                          <div className="space-y-6 px-6 text-center">
+                            <IconTile size="2xl" shape="xl" border className="mx-auto rounded-xl">
+                              <Zap className="text-dls-secondary" />
+                            </IconTile>
+                            <div className="space-y-2">
+                              <h3 className={messagingTextClass.pageTitle}>
+                                {t("session.create_or_connect_workspace")}
+                              </h3>
+                              <p className="mx-auto max-w-sm text-sm text-dls-secondary">
+                                {t("workspace.empty_state_body")}
+                              </p>
+                            </div>
+                            <div className="flex justify-center">
+                              <Button onClick={props.sidebar.onOpenCreateWorkspace}>
+                                {t("workspace.create_workspace")}
+                              </Button>
+                            </div>
+                          </div>
+                        ) : pageView.showSelectedWorkspaceError ? (
+                          <div className="px-6 py-16">
+                            <NoticeBox
+                              className="mx-auto max-w-lg text-left"
+                              size="comfortable"
+                              tone="error"
+                            >
+                              <div className="font-medium">
+                                {pageView.selectedWorkspaceErrorTitle}
                               </div>
-                              <div className="flex justify-center">
+                              <p className="mt-2 whitespace-pre-wrap wrap-anywhere leading-6">
+                                {pageView.selectedWorkspaceErrorMessage}
+                              </p>
+                              <div className="mt-4 flex flex-wrap gap-2">
                                 <Button
-                                  onClick={props.sidebar.onOpenCreateWorkspace}
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    props.sidebar.onCreateTaskInWorkspace(props.selectedWorkspaceId)
+                                  }
                                 >
-                                  {t("workspace.create_workspace")}
+                                  Retry
                                 </Button>
-                              </div>
-                            </div>
-                          ) : pageView.showSelectedWorkspaceError ? (
-                            <div className="px-6 py-16">
-                              <NoticeBox className="mx-auto max-w-lg text-left" size="comfortable" tone="error">
-                                <div className="font-medium">
-                                  {pageView.selectedWorkspaceErrorTitle}
-                                </div>
-                                <p className="mt-2 whitespace-pre-wrap wrap-anywhere leading-6">
-                                  {pageView.selectedWorkspaceErrorMessage}
-                                </p>
-                                <div className="mt-4 flex flex-wrap gap-2">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                      props.sidebar.onCreateTaskInWorkspace(
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    void Promise.resolve(
+                                      props.sidebar.onTestWorkspaceConnection(
                                         props.selectedWorkspaceId,
-                                      )
-                                    }
-                                  >
-                                    Retry
-                                  </Button>
+                                      ),
+                                    )
+                                  }
+                                >
+                                  {t("workspace_list.test_connection")}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    props.sidebar.onEditWorkspaceConnection(
+                                      props.selectedWorkspaceId,
+                                    )
+                                  }
+                                >
+                                  {t("workspace_list.edit_connection")}
+                                </Button>
+                                {props.sidebar.workspaceConnectionStateById[
+                                  props.selectedWorkspaceId
+                                ]?.status === "error" ? (
                                   <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() =>
                                       void Promise.resolve(
-                                        props.sidebar.onTestWorkspaceConnection(
-                                          props.selectedWorkspaceId,
-                                        ),
+                                        props.sidebar.onRecoverWorkspace(props.selectedWorkspaceId),
                                       )
                                     }
                                   >
-                                    {t("workspace_list.test_connection")}
+                                    {t("workspace_list.recover")}
                                   </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                      props.sidebar.onEditWorkspaceConnection(
-                                        props.selectedWorkspaceId,
-                                      )
-                                    }
-                                  >
-                                    {t("workspace_list.edit_connection")}
-                                  </Button>
-                                  {props.sidebar.workspaceConnectionStateById[
-                                    props.selectedWorkspaceId
-                                  ]?.status === "error" ? (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() =>
-                                        void Promise.resolve(
-                                          props.sidebar.onRecoverWorkspace(
-                                            props.selectedWorkspaceId,
-                                          ),
-                                        )
-                                      }
-                                    >
-                                      {t("workspace_list.recover")}
-                                    </Button>
-                                  ) : null}
-                                </div>
-                              </NoticeBox>
-                            </div>
-                          ) : props.selectedSessionId ? (
-                            <div className="px-6 py-16 text-center text-sm text-dls-secondary">
-                              {t("session.loading_detail")}
-                            </div>
-                          ) : (
-                            <div className="flex flex-1 items-center justify-center px-6 py-16">
-                              <div className="w-full max-w-md space-y-6">
-                                <div className="space-y-1 text-center">
-                                  <h2 className={messagingTextClass.panelTitle}>
-                                    {t("session.select_or_create_session")}
-                                  </h2>
-                                  <p className="text-xs text-dls-secondary">
-                                    {t("session.empty_try_starters")}
-                                  </p>
-                                </div>
-                                <div className="space-y-2">
-                                  <ActionRowButton
-                                    type="button"
-
-                                    onClick={() => {
-                                      props.sidebar.onCreateTaskWithPrompt?.(
-                                        props.selectedWorkspaceId,
-                                        "Create a sample CSV file with 20 rows of fake customer data (name, email, company, revenue). Then show me a summary of the data.",
-                                      );
-                                    }}
-                                  >
-                                    <img
-                                      src={resolveSimpleIconUrl("googlesheets")}
-                                      alt=""
-                                      width={20}
-                                      height={20}
-                                      className="mt-0.5 shrink-0"
-                                    />
-                                    <div>
-                                      <div className="text-sm font-medium text-dls-text">
-                                        {t("session.starter_csv_title")}
-                                      </div>
-                                      <div className="mt-0.5 text-xs text-dls-secondary">
-                                        {t("session.starter_csv_desc")}
-                                      </div>
+                                ) : null}
+                              </div>
+                            </NoticeBox>
+                          </div>
+                        ) : props.selectedSessionId ? (
+                          <div className="px-6 py-16 text-center text-sm text-dls-secondary">
+                            {t("session.loading_detail")}
+                          </div>
+                        ) : (
+                          <div className="flex flex-1 items-center justify-center px-6 py-16">
+                            <div className="w-full max-w-md space-y-6">
+                              <div className="space-y-1 text-center">
+                                <h2 className={messagingTextClass.panelTitle}>
+                                  {t("session.select_or_create_session")}
+                                </h2>
+                                <p className="text-xs text-dls-secondary">
+                                  {t("session.empty_try_starters")}
+                                </p>
+                              </div>
+                              <div className="space-y-2">
+                                <ActionRowButton
+                                  type="button"
+                                  onClick={() => {
+                                    props.sidebar.onCreateTaskWithPrompt?.(
+                                      props.selectedWorkspaceId,
+                                      "Create a sample CSV file with 20 rows of fake customer data (name, email, company, revenue). Then show me a summary of the data.",
+                                    );
+                                  }}
+                                >
+                                  <img
+                                    src={resolveSimpleIconUrl("googlesheets")}
+                                    alt=""
+                                    width={20}
+                                    height={20}
+                                    className="mt-0.5 shrink-0"
+                                  />
+                                  <div>
+                                    <div className="text-sm font-medium text-dls-text">
+                                      {t("session.starter_csv_title")}
                                     </div>
-                                  </ActionRowButton>
-                                  <ActionRowButton
-                                    type="button"
-
-                                    onClick={() => {
-                                      props.sidebar.onCreateTaskWithPrompt?.(
-                                        props.selectedWorkspaceId,
-                                        "Open craigslist.org in the browser and search for couches for sale. Show me the top 5 results with prices.",
-                                      );
-                                    }}
-                                  >
-                                    <img
-                                      src={resolvePublicAssetUrl(
-                                        "/on-my-agent-logo.png",
-                                      )}
-                                      alt=""
-                                      width={20}
-                                      height={20}
-                                      className="mt-0.5 shrink-0"
-                                    />
-                                    <div>
-                                      <div className="text-sm font-medium text-dls-text">
-                                        {t("session.starter_browser_title")}
-                                      </div>
-                                      <div className="mt-0.5 text-xs text-dls-secondary">
-                                        {t("session.starter_browser_desc")}
-                                      </div>
+                                    <div className="mt-0.5 text-xs text-dls-secondary">
+                                      {t("session.starter_csv_desc")}
                                     </div>
-                                  </ActionRowButton>
-                                  <ActionRowButton
-                                    type="button"
-
-                                    onClick={() => {
-                                      props.onOpenSettings?.();
-                                    }}
-                                  >
-                                    <img
-                                      src={resolveSimpleIconUrl("hackthebox")}
-                                      alt=""
-                                      width={20}
-                                      height={20}
-                                      className="mt-0.5 shrink-0"
-                                    />
-                                    <div>
-                                      <div className="text-sm font-medium text-dls-text">
-                                        {t("session.starter_extension_title")}
-                                      </div>
-                                      <div className="mt-0.5 text-xs text-dls-secondary">
-                                        {t("session.starter_extension_desc")}
-                                      </div>
+                                  </div>
+                                </ActionRowButton>
+                                <ActionRowButton
+                                  type="button"
+                                  onClick={() => {
+                                    props.sidebar.onCreateTaskWithPrompt?.(
+                                      props.selectedWorkspaceId,
+                                      "Open craigslist.org in the browser and search for couches for sale. Show me the top 5 results with prices.",
+                                    );
+                                  }}
+                                >
+                                  <img
+                                    src={resolvePublicAssetUrl("/on-my-agent-logo.png")}
+                                    alt=""
+                                    width={20}
+                                    height={20}
+                                    className="mt-0.5 shrink-0"
+                                  />
+                                  <div>
+                                    <div className="text-sm font-medium text-dls-text">
+                                      {t("session.starter_browser_title")}
                                     </div>
-                                  </ActionRowButton>
-                                </div>
+                                    <div className="mt-0.5 text-xs text-dls-secondary">
+                                      {t("session.starter_browser_desc")}
+                                    </div>
+                                  </div>
+                                </ActionRowButton>
+                                <ActionRowButton
+                                  type="button"
+                                  onClick={() => {
+                                    props.onOpenSettings?.();
+                                  }}
+                                >
+                                  <img
+                                    src={resolveSimpleIconUrl("hackthebox")}
+                                    alt=""
+                                    width={20}
+                                    height={20}
+                                    className="mt-0.5 shrink-0"
+                                  />
+                                  <div>
+                                    <div className="text-sm font-medium text-dls-text">
+                                      {t("session.starter_extension_title")}
+                                    </div>
+                                    <div className="mt-0.5 text-xs text-dls-secondary">
+                                      {t("session.starter_extension_desc")}
+                                    </div>
+                                  </div>
+                                </ActionRowButton>
                               </div>
                             </div>
-                          )}
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </main>
-              </ResizablePanel>
-              {canShowRightSidePanel && sidePanelOpen ? (
-                <>
-                  <ResizableHandle withHandle className="hidden lg:flex" />
-                  <ResizablePanel
-                    panelRef={browserPanelRef}
-                    defaultSize={`${
-                      activeSidePanel === "extensions"
-                        ? Math.max(browserPanelDefaultWidth, 480)
-                        : activeSidePanel === "browser"
-                          ? Math.max(
-                              browserPanelDefaultWidth,
-                              DEFAULT_BROWSER_SIDE_PANEL_WIDTH,
-                            )
-                          : browserPanelDefaultWidth
-                    }px`}
-                    minSize={
-                      activeSidePanel === "extensions" ? "420px" : "300px"
-                    }
-                    maxSize="70%"
-                    className="min-h-0 overflow-hidden bg-dls-background lg:flex lg:flex-col"
-                  >
-                    {activeSidePanel === "codeMenu" ? (
-                      <CodeSidePanelMenu
-                        activePanel={activeSidePanel}
-                        onClose={closeRightPane}
-                        onSelect={(id) => {
-                          if (id === "review") {
-                            openReviewRailPane();
-                            return;
-                          }
-                          if (id === "terminal") {
-                            openTerminalRailPane();
-                            return;
-                          }
-                          if (id === "browser") {
-                            openBrowserRailPane();
-                            return;
-                          }
-                          if (id === "artifacts") {
-                            openArtifactRailPane();
-                          }
-                        }}
-                      />
-                    ) : activeSidePanel === "extensions" && props.settingsSlot ? (
-                      <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-dls-background">
-                        {props.settingsSlot}
+                          </div>
+                        )}
                       </div>
-                    ) : activeSidePanel === "artifacts" &&
-                      visibleArtifactTarget &&
-                      props.onmyagentServerClient &&
-                      props.runtimeWorkspaceId ? (
-                      <ArtifactPanel
-                        client={props.onmyagentServerClient}
-                        workspaceId={props.runtimeWorkspaceId}
-                        workspaceRoot={props.selectedWorkspaceRoot}
-                        isRemoteWorkspace={
-                          props.surface?.isRemoteWorkspace ?? false
+                    ) : null}
+                  </div>
+                </div>
+              </main>
+            </ResizablePanel>
+            {canShowRightSidePanel && sidePanelOpen ? (
+              <>
+                <ResizableHandle withHandle className="hidden lg:flex" />
+                <ResizablePanel
+                  panelRef={browserPanelRef}
+                  defaultSize={`${
+                    activeSidePanel === "extensions"
+                      ? Math.max(browserPanelDefaultWidth, 480)
+                      : activeSidePanel === "browser"
+                        ? Math.max(browserPanelDefaultWidth, DEFAULT_BROWSER_SIDE_PANEL_WIDTH)
+                        : browserPanelDefaultWidth
+                  }px`}
+                  minSize={activeSidePanel === "extensions" ? "420px" : "300px"}
+                  maxSize="70%"
+                  className="min-h-0 overflow-hidden bg-dls-background lg:flex lg:flex-col"
+                >
+                  {activeSidePanel === "codeMenu" ? (
+                    <CodeSidePanelMenu
+                      activePanel={activeSidePanel}
+                      onClose={closeRightPane}
+                      onSelect={(id) => {
+                        if (id === "review") {
+                          openReviewRailPane();
+                          return;
                         }
-                        target={visibleArtifactTarget}
-                        targets={artifactFileTargets}
-                        onSelectTarget={openTarget}
-                        onDeleteTarget={removeAccessibleTarget}
-                        onClose={closeRightPane}
-                        onAskAgentAboutFile={({ path, name, preview }) => {
-                          if (
-                            !seedComposerFileAgentTask(
-                              pageView.renderedSessionId,
-                              path,
-                              buildAskAgentFileInstruction({
-                                fileName: name,
-                                preview,
-                              }),
-                            )
-                          ) {
-                            return;
-                          }
-                          agentPanel.openChatView();
-                          showToast({
-                            tone: "success",
-                            title: t("files.ask_agent_done_title"),
-                            description: t("files.ask_agent_done"),
-                            dismissLabel: t("common.dismiss"),
-                          });
-                        }}
-                      />
-                    ) : activeSidePanel === "artifacts" ? (
-                      <EmptyArtifactsPanel onClose={closeRightPane} />
-                    ) : activeSidePanel === "review" ? (
-                      <CodeSidePanelPlaceholder
-                        icon={ClipboardCheck}
-                        title={t("session.code_side_panel_review")}
-                        description={t("session.code_side_panel_review_desc")}
-                        onClose={closeRightPane}
-                      />
-                    ) : activeSidePanel === "terminal" ? (
-                      <CodeSidePanelPlaceholder
-                        icon={SquareTerminal}
-                        title={t("session.code_side_panel_terminal")}
-                        description={t("session.code_side_panel_terminal_desc")}
-                        onClose={closeRightPane}
-                      />
-                    ) : (
-                      <BrowserPanel
-                        sessionId={props.selectedSessionId}
-                        onClose={closeRightPane}
-                      />
-                    )}
-                  </ResizablePanel>
-                </>
-              ) : null}
-            </ResizablePanelGroup>
-          </div>
+                        if (id === "terminal") {
+                          openTerminalRailPane();
+                          return;
+                        }
+                        if (id === "browser") {
+                          openBrowserRailPane();
+                          return;
+                        }
+                        if (id === "artifacts") {
+                          openArtifactRailPane();
+                        }
+                      }}
+                    />
+                  ) : activeSidePanel === "extensions" && props.settingsSlot ? (
+                    <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-dls-background">
+                      {props.settingsSlot}
+                    </div>
+                  ) : activeSidePanel === "artifacts" &&
+                    visibleArtifactTarget &&
+                    props.onmyagentServerClient &&
+                    props.runtimeWorkspaceId ? (
+                    <ArtifactPanel
+                      client={props.onmyagentServerClient}
+                      workspaceId={props.runtimeWorkspaceId}
+                      workspaceRoot={props.selectedWorkspaceRoot}
+                      isRemoteWorkspace={props.surface?.isRemoteWorkspace ?? false}
+                      target={visibleArtifactTarget}
+                      targets={artifactFileTargets}
+                      onSelectTarget={openTarget}
+                      onDeleteTarget={removeAccessibleTarget}
+                      onClose={closeRightPane}
+                      onAskAgentAboutFile={({ path, name, preview }) => {
+                        if (
+                          !seedComposerFileAgentTask(
+                            pageView.renderedSessionId,
+                            path,
+                            buildAskAgentFileInstruction({
+                              fileName: name,
+                              preview,
+                            }),
+                          )
+                        ) {
+                          return;
+                        }
+                        agentPanel.openChatView();
+                        showToast({
+                          tone: "success",
+                          title: t("files.ask_agent_done_title"),
+                          description: t("files.ask_agent_done"),
+                          dismissLabel: t("common.dismiss"),
+                        });
+                      }}
+                    />
+                  ) : activeSidePanel === "artifacts" ? (
+                    <EmptyArtifactsPanel onClose={closeRightPane} />
+                  ) : activeSidePanel === "review" ? (
+                    <CodeSidePanelPlaceholder
+                      icon={ClipboardCheck}
+                      title={t("session.code_side_panel_review")}
+                      description={t("session.code_side_panel_review_desc")}
+                      onClose={closeRightPane}
+                    />
+                  ) : activeSidePanel === "terminal" ? (
+                    <CodeSidePanelPlaceholder
+                      icon={SquareTerminal}
+                      title={t("session.code_side_panel_terminal")}
+                      description={t("session.code_side_panel_terminal_desc")}
+                      onClose={closeRightPane}
+                    />
+                  ) : (
+                    <BrowserPanel sessionId={props.selectedSessionId} onClose={closeRightPane} />
+                  )}
+                </ResizablePanel>
+              </>
+            ) : null}
+          </ResizablePanelGroup>
         </div>
+      </div>
 
       <Dialog open={agentPanel.agentsDialogOpen} onOpenChange={agentPanel.setAgentsDialogOpen}>
         <DialogContent className="flex h-[min(820px,calc(100vh-72px))] !w-[min(1280px,calc(100vw-96px))] !max-w-[min(1280px,calc(100vw-96px))] flex-col overflow-hidden rounded-xl bg-dls-background p-0 sm:!max-w-[min(1280px,calc(100vw-96px))]">
@@ -1237,9 +1190,7 @@ export function SessionPage(props: SessionPageProps) {
         </DialogContent>
       </Dialog>
 
-      {props.providerAuthModal ? (
-        <ProviderAuthModal {...props.providerAuthModal} />
-      ) : null}
+      {props.providerAuthModal ? <ProviderAuthModal {...props.providerAuthModal} /> : null}
 
       {props.onRenameSession ? (
         <RenameSessionModal
@@ -1264,9 +1215,7 @@ export function SessionPage(props: SessionPageProps) {
                 })
               : t("session.delete_session_generic")
           }
-          confirmLabel={
-            sessionActions.deleteBusy ? t("session.deleting") : t("session.delete")
-          }
+          confirmLabel={sessionActions.deleteBusy ? t("session.deleting") : t("session.delete")}
           cancelLabel={t("common.cancel")}
           variant="danger"
           onConfirm={() => void sessionActions.confirmDelete()}
@@ -1274,9 +1223,7 @@ export function SessionPage(props: SessionPageProps) {
         />
       ) : null}
 
-      {props.shareWorkspaceModal ? (
-        <ShareWorkspaceModal {...props.shareWorkspaceModal} />
-      ) : null}
+      {props.shareWorkspaceModal ? <ShareWorkspaceModal {...props.shareWorkspaceModal} /> : null}
 
       <CustomConnectorDialog
         open={customConnectorOpen}

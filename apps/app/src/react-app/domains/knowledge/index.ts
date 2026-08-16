@@ -1,3 +1,7 @@
+/**
+ * Local Markdown knowledge vault.
+ * Session hosts the rail page via this barrel; knowledge must not import session.
+ */
 export { KnowledgeVaultPage } from "./knowledge-vault-page";
 export {
   GETTING_STARTED_REL_PATH,
@@ -5,6 +9,11 @@ export {
   noteKey,
   parseNoteKey,
   resolveKnowledgeExpertFolderId,
+} from "./knowledge-vault-model";
+export type {
+  KnowledgeNoteRef,
+  KnowledgeVaultScope,
+  KnowledgeVaultScopeList,
 } from "./knowledge-vault-model";
 export {
   completeAutosave,

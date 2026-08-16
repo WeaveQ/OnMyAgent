@@ -194,7 +194,7 @@ describe("deferred high-value network/status poll wiring", () => {
 
   test("automation-page pauses status poll while hidden", () => {
     const source = readFileSync(
-      join(appRoot, "src/react-app/domains/messaging/automation-page.tsx"),
+      join(appRoot, "src/react-app/domains/messaging/use-automation-page.ts"),
       "utf8",
     );
     expect(source).toContain('from "../../infra/visibility-poll"');

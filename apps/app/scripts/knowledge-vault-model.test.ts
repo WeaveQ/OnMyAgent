@@ -17,7 +17,7 @@ import {
   parseNoteKey,
   resolveKnowledgeExpertFolderId,
   suggestKnowledgeNoteName,
-} from "../src/react-app/domains/session/knowledge/knowledge-vault-model";
+} from "../src/react-app/domains/knowledge/knowledge-vault-model";
 
 describe("knowledge vault model", () => {
   test("opens getting-started first when present", () => {
@@ -119,12 +119,12 @@ describe("knowledge vault model", () => {
 import {
   openKnowledgeNoteInRail,
   takePendingKnowledgeNote,
-} from "../src/react-app/domains/session/knowledge/knowledge-vault-navigation";
-import { knowledgePreviewBody } from "../src/react-app/domains/session/knowledge/knowledge-vault-preview-model";
+} from "../src/react-app/domains/knowledge/knowledge-vault-navigation";
+import { knowledgePreviewBody } from "../src/react-app/domains/knowledge/knowledge-vault-preview-model";
 import {
   isKnowledgeSearchToolName,
   parseKnowledgeSearchHits,
-} from "../src/react-app/domains/session/knowledge/knowledge-search-hits";
+} from "../src/react-app/domains/knowledge/knowledge-search-hits";
 
 describe("knowledge preview and search hits", () => {
   test("preview body strips frontmatter", () => {

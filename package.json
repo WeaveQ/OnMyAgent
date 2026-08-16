@@ -20,7 +20,7 @@
     "check:i18n:cjk": "node scripts/checks/check-i18n-cjk.mjs",
     "check:security": "node scripts/checks/security-smoke.mjs",
     "check:privacy": "node scripts/checks/pr-privacy.mjs --scan && node --test scripts/checks/pr-privacy.test.mjs",
-    "check:boundaries": "node scripts/checks/check-boundaries.mjs && node scripts/checks/check-circular-deps.mjs && node scripts/checks/check-dual-runtime-boundary.mjs && node --test scripts/checks/check-dual-runtime-boundary.test.mjs",
+    "check:boundaries": "node scripts/checks/check-boundaries.mjs && node scripts/checks/check-circular-deps.mjs && node scripts/checks/check-dual-runtime-boundary.mjs && node --test scripts/checks/check-dual-runtime-boundary.test.mjs && node scripts/checks/check-session-hub-budget.mjs && node --test scripts/checks/check-session-hub-budget.test.mjs",
     "check:architecture-paths": "node scripts/checks/architecture-paths.mjs",
     "check:expert-architecture": "node scripts/checks/check-expert-architecture-contract.mjs",
     "check:commit-types": "node scripts/checks/check-commit-types.mjs",

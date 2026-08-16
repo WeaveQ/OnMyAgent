@@ -38,7 +38,7 @@ export const SIDEBAR_PRIMARY_HEADER_CLASS = `${LIST_LANE_HEADER_CLASS} pt-1.5`;
  * home task rows + automation nav rows.
  */
 export const TASK_ROW_ACTION_CLASS =
-  "inline-flex size-6 shrink-0 items-center justify-center rounded-md border-0 bg-transparent p-0 leading-none text-dls-secondary outline-none transition-colors hover:text-dls-text focus-visible:ring-2 focus-visible:ring-ring/30 [&_svg]:pointer-events-none [&_svg]:block [&_svg]:size-3.5 [&_svg]:shrink-0";
+  "inline-flex size-6 shrink-0 items-center justify-center rounded-md border-0 bg-transparent p-0 leading-none text-dls-secondary outline-none transition-colors hover:text-dls-text focus-visible:ring-1 focus-visible:ring-dls-focus focus-visible:ring-offset-0 [&_svg]:pointer-events-none [&_svg]:block [&_svg]:size-3.5 [&_svg]:shrink-0";
 
 /**
  * WorkBuddy-style task/session context menu chrome — home, experts, automation.
@@ -75,28 +75,19 @@ export function positionTaskContextMenu(
   const height = options?.estimatedHeight ?? 220;
   const gap = options?.gap ?? 4;
   const margin = options?.margin ?? 8;
-  const viewportWidth =
-    typeof window !== "undefined" ? window.innerWidth : 1280;
-  const viewportHeight =
-    typeof window !== "undefined" ? window.innerHeight : 800;
+  const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 1280;
+  const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 800;
 
   let left = anchor.right - width;
-  left = Math.min(
-    Math.max(margin, left),
-    Math.max(margin, viewportWidth - width - margin),
-  );
+  left = Math.min(Math.max(margin, left), Math.max(margin, viewportWidth - width - margin));
 
   const spaceBelow = viewportHeight - anchor.bottom - margin;
   const spaceAbove = anchor.top - margin;
-  const openBelow =
-    spaceBelow >= height || (spaceBelow >= spaceAbove && spaceBelow >= 96);
+  const openBelow = spaceBelow >= height || (spaceBelow >= spaceAbove && spaceBelow >= 96);
 
   let top = openBelow ? anchor.bottom + gap : anchor.top - gap - height;
 
-  top = Math.min(
-    Math.max(margin, top),
-    Math.max(margin, viewportHeight - height - margin),
-  );
+  top = Math.min(Math.max(margin, top), Math.max(margin, viewportHeight - height - margin));
 
   return { left, top };
 }

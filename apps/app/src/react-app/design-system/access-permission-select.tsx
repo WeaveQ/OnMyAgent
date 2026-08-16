@@ -27,19 +27,33 @@ type AccessPermissionOption = {
 const ACCESS_PERMISSION_OPTIONS: AccessPermissionOption[] = [
   {
     value: "default",
-    get label() { return t("composer.access_default"); },
-    get description() { return t("composer.access_default_desc"); },
+    get label() {
+      return t("composer.access_default");
+    },
+    get description() {
+      return t("composer.access_default_desc");
+    },
   },
   {
     value: "delegate",
-    get label() { return t("composer.access_delegate"); },
-    get description() { return t("composer.access_delegate_desc"); },
+    get label() {
+      return t("composer.access_delegate");
+    },
+    get description() {
+      return t("composer.access_delegate_desc");
+    },
   },
   {
     value: "full",
-    get label() { return t("composer.access_full"); },
-    get description() { return t("composer.access_full_desc"); },
-    get risk() { return t("composer.access_high_risk"); },
+    get label() {
+      return t("composer.access_full");
+    },
+    get description() {
+      return t("composer.access_full_desc");
+    },
+    get risk() {
+      return t("composer.access_high_risk");
+    },
   },
 ];
 
@@ -103,7 +117,7 @@ export function AccessPermissionSelect(props: AccessPermissionSelectProps) {
       {open ? (
         <div
           role="menu"
-          className="absolute bottom-full left-0 z-40 mb-3 w-[min(calc(100vw-2.5rem),18rem)] overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid p-1.5 shadow-lg"
+          className="absolute bottom-full left-0 z-40 mb-3 w-[min(calc(100vw-2.5rem),18rem)] overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid p-1.5 "
           style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}
         >
           {ACCESS_PERMISSION_OPTIONS.map((option) => {
@@ -133,9 +147,7 @@ export function AccessPermissionSelect(props: AccessPermissionSelectProps) {
                 <Icon
                   className={cn(
                     "size-3.5 shrink-0",
-                    option.value === "full"
-                      ? "text-dls-danger"
-                      : "text-dls-secondary",
+                    option.value === "full" ? "text-dls-danger" : "text-dls-secondary",
                   )}
                 />
                 <span className="min-w-0 flex-1 overflow-hidden">
@@ -151,9 +163,7 @@ export function AccessPermissionSelect(props: AccessPermissionSelectProps) {
                     {option.description}
                   </span>
                 </span>
-                {active ? (
-                  <Check className="size-3.5 shrink-0 text-dls-secondary" />
-                ) : null}
+                {active ? <Check className="size-3.5 shrink-0 text-dls-secondary" /> : null}
               </MenuRowButton>
             );
           })}

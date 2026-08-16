@@ -5,7 +5,10 @@ import type { Agent } from "@opencode-ai/sdk/v2/client";
 import { ClipboardList, MessageCircle, Rocket, Target } from "lucide-react";
 import type { McpDirectoryInfo } from "../../../../../app/constants";
 import type { StatusBadgeTone } from "@/components/ui/status-badge";
-import type { CloudImportedPlugin, CloudImportedPluginFile } from "../../../../../app/cloud/import-state";
+import type {
+  CloudImportedPlugin,
+  CloudImportedPluginFile,
+} from "../../../../../app/cloud/import-state";
 import type {
   ComposerAccessMode,
   ComposerAttachment,
@@ -20,10 +23,7 @@ import type {
 } from "../../../../../app/types";
 import { t } from "../../../../../i18n";
 import { isOnMyAgentExtensionEnabled } from "../../../shared";
-import {
-  collaborationModeOptionKeys,
-  type CollaborationModeOptionKey,
-} from "./tool-menu-model";
+import { collaborationModeOptionKeys, type CollaborationModeOptionKey } from "./tool-menu-model";
 import type { ReactComposerNotice as ReactComposerNoticeData } from "./notice";
 
 export type MentionItem = {
@@ -42,19 +42,8 @@ export type PastedTextChip = {
   lines: number;
 };
 
-export type ToolMenuSettingsSection =
-  | "ai"
-  | "commands"
-  | "skills"
-  | "mcps"
-  | "plugins";
-export type ToolMenuSection =
-  | "files"
-  | "mine"
-  | "templates"
-  | "modes"
-  | "skills"
-  | "mcps";
+export type ToolMenuSettingsSection = "ai" | "commands" | "skills" | "mcps" | "plugins";
+export type ToolMenuSection = "files" | "mine" | "templates" | "modes" | "skills" | "mcps";
 export type ComposerPromptTemplate = {
   id: string;
   label: string;
@@ -78,10 +67,9 @@ export const composerTextClass = {
 export const composerMenuClass = {
   anchor: "absolute bottom-full left-[-1px] right-[-1px] z-30 mb-1.5",
   // Full rounded card so the popup sits above the composer with soft corners all around.
-  panel:
-    "overflow-hidden rounded-2xl border border-dls-border bg-dls-surface-solid shadow-sm",
+  panel: "overflow-hidden rounded-2xl border border-dls-border bg-dls-surface-solid",
   panelWithoutBottomBorder:
-    "overflow-hidden rounded-2xl border border-dls-border bg-dls-surface-solid shadow-sm",
+    "overflow-hidden rounded-2xl border border-dls-border bg-dls-surface-solid",
   // Grouped skills / commands list — roomy horizontal padding, compact vertical stack.
   scrollArea: "max-h-72 overflow-y-auto px-1.5 py-2",
 
@@ -142,32 +130,52 @@ export function collaborationModeOptions(variant: "office" | "legacy"): Collabor
   const options: Record<CollaborationModeOptionKey, CollaborationModeOption> = {
     craft: {
       key: "craft",
-      get label() { return t("composer.collaboration_craft"); },
-      get description() { return t("composer.collaboration_craft_desc"); },
+      get label() {
+        return t("composer.collaboration_craft");
+      },
+      get description() {
+        return t("composer.collaboration_craft_desc");
+      },
       Icon: Rocket,
     },
     ask: {
       key: "ask",
-      get label() { return t("composer.collaboration_ask"); },
-      get description() { return t("composer.collaboration_ask_desc"); },
+      get label() {
+        return t("composer.collaboration_ask");
+      },
+      get description() {
+        return t("composer.collaboration_ask_desc");
+      },
       Icon: MessageCircle,
     },
     plan: {
       key: "plan",
-      get label() { return t("composer.collaboration_plan"); },
-      get description() { return t("composer.collaboration_plan_desc"); },
+      get label() {
+        return t("composer.collaboration_plan");
+      },
+      get description() {
+        return t("composer.collaboration_plan_desc");
+      },
       Icon: ClipboardList,
     },
     planning: {
       key: "planning",
-      get label() { return t("composer.collaboration_planning"); },
-      get description() { return t("composer.collaboration_planning_desc"); },
+      get label() {
+        return t("composer.collaboration_planning");
+      },
+      get description() {
+        return t("composer.collaboration_planning_desc");
+      },
       Icon: ClipboardList,
     },
     pursueGoal: {
       key: "pursueGoal",
-      get label() { return t("composer.collaboration_pursue_goal"); },
-      get description() { return t("composer.collaboration_pursue_goal_desc"); },
+      get label() {
+        return t("composer.collaboration_pursue_goal");
+      },
+      get description() {
+        return t("composer.collaboration_pursue_goal_desc");
+      },
       Icon: Target,
     },
   };
@@ -175,9 +183,11 @@ export function collaborationModeOptions(variant: "office" | "legacy"): Collabor
 }
 
 export function isComposerExtensionAvailable(entry: McpDirectoryInfo) {
-  const hasSessionSurface = entry.extensionManifest?.contributions?.some((contribution) =>
-    contribution.type === "session-side-panel" || contribution.type === "session-rail-item"
-  ) === true;
+  const hasSessionSurface =
+    entry.extensionManifest?.contributions?.some(
+      (contribution) =>
+        contribution.type === "session-side-panel" || contribution.type === "session-rail-item",
+    ) === true;
   if (hasSessionSurface) return isOnMyAgentExtensionEnabled(entry);
   return !entry.defaultEnabled || isOnMyAgentExtensionEnabled(entry);
 }
@@ -222,7 +232,11 @@ export type ComposerProps = {
   listCommands: () => Promise<SlashCommandOption[]>;
   listSkills?: () => Promise<SkillCard[]>;
   skills?: SkillCard[];
-  listMcp?: () => Promise<{ servers: McpServerEntry[]; statuses: McpStatusMap; status: string | null }>;
+  listMcp?: () => Promise<{
+    servers: McpServerEntry[];
+    statuses: McpStatusMap;
+    status: string | null;
+  }>;
   mcpServers?: McpServerEntry[];
   mcpStatus?: string | null;
   mcpStatuses?: McpStatusMap;
@@ -392,16 +406,36 @@ export function formatMcpStatusLabel(status: McpServerStatus | undefined) {
   }
 }
 
-export type McpServerStatus = "connected" | "needs_auth" | "needs_client_registration" | "failed" | "disabled" | "disconnected";
+export type McpServerStatus =
+  | "connected"
+  | "needs_auth"
+  | "needs_client_registration"
+  | "failed"
+  | "disabled"
+  | "disconnected";
 
-export function toReactMcpStatus(name: string, entry: McpServerEntry, statuses: McpStatusMap): McpServerStatus {
+export function toReactMcpStatus(
+  name: string,
+  entry: McpServerEntry,
+  statuses: McpStatusMap,
+): McpServerStatus {
   const configured = statuses[name];
   if (configured?.status === "connected") return "connected";
   if (configured?.status === "needs_auth") return "needs_auth";
   if (configured?.status === "needs_client_registration") return "needs_client_registration";
   if (configured?.status === "failed") return "failed";
-  if (configured?.status === "disabled" || entry.config.enabled === false || entry.config.enabled === undefined && entry.config.type === "local" && entry.config.command?.length === 0) {
-    return entry.config.enabled === false ? "disabled" : configured?.status === "disabled" ? "disabled" : "disconnected";
+  if (
+    configured?.status === "disabled" ||
+    entry.config.enabled === false ||
+    (entry.config.enabled === undefined &&
+      entry.config.type === "local" &&
+      entry.config.command?.length === 0)
+  ) {
+    return entry.config.enabled === false
+      ? "disabled"
+      : configured?.status === "disabled"
+        ? "disabled"
+        : "disconnected";
   }
   return "disconnected";
 }
@@ -423,8 +457,8 @@ export function mcpStatusBadgeTone(status: McpServerStatus): StatusBadgeTone {
 
 export function mcpServerDescription(entry: McpServerEntry) {
   return entry.config.type === "remote"
-    ? entry.config.url ?? entry.config.command?.join(" ") ?? "Remote MCP"
-    : entry.config.command?.join(" ") ?? "Local MCP";
+    ? (entry.config.url ?? entry.config.command?.join(" ") ?? "Remote MCP")
+    : (entry.config.command?.join(" ") ?? "Local MCP");
 }
 
 export const COMPOSER_CONTAIN_STYLE = { contain: "layout style" };
@@ -440,7 +474,9 @@ export function pluginSlashCommandName(file: CloudImportedPluginFile) {
     return command?.trim() || null;
   }
   if (file.objectType === "skill") {
-    const skill = path.match(/^\.opencode\/(?:skill|skills)\/(?:[^/]+\/)?([^/]+)\/SKILL\.md$/i)?.[1];
+    const skill = path.match(
+      /^\.opencode\/(?:skill|skills)\/(?:[^/]+\/)?([^/]+)\/SKILL\.md$/i,
+    )?.[1];
     return skill?.trim() || null;
   }
   return null;

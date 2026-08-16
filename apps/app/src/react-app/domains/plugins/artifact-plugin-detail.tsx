@@ -45,10 +45,10 @@ export type ArtifactStarterPromptsProps = {
  * only when no product PNG is mapped.
  */
 const PLUGIN_FALLBACK_TILE: Record<string, string> = {
-  browser: "bg-[#4285F4] text-white shadow-sm shadow-sky-500/25",
-  documents: "bg-[#2B579A] text-white shadow-sm shadow-blue-900/20",
-  pdf: "bg-[#E5252A] text-white shadow-sm shadow-red-600/25",
-  spreadsheets: "bg-[#217346] text-white shadow-sm shadow-emerald-900/20",
+  browser: "bg-[#4285F4] text-white shadow-sky-500/25",
+  documents: "bg-[#2B579A] text-white shadow-blue-900/20",
+  pdf: "bg-[#E5252A] text-white shadow-red-600/25",
+  spreadsheets: "bg-[#217346] text-white shadow-emerald-900/20",
 };
 
 export function ArtifactPluginIcon({
@@ -76,16 +76,10 @@ export function ArtifactPluginIcon({
     );
   }
 
-  const tile =
-    PLUGIN_FALLBACK_TILE[pluginId] ?? "bg-dls-text text-dls-background";
+  const tile = PLUGIN_FALLBACK_TILE[pluginId] ?? "bg-dls-text text-dls-background";
   return (
     <span
-      className={cn(
-        "inline-flex shrink-0 items-center justify-center",
-        box,
-        tile,
-        className,
-      )}
+      className={cn("inline-flex shrink-0 items-center justify-center", box, tile, className)}
       aria-hidden="true"
     >
       <FileText className="size-4 text-white" strokeWidth={2} />
@@ -114,13 +108,8 @@ export function ArtifactStarterPrompts(props: ArtifactStarterPromptsProps) {
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30",
           )}
         >
-          <span className="min-w-0 flex-1 text-sm leading-6 text-dls-secondary">
-            “{prompt}”
-          </span>
-          <MessageCircle
-            className="mt-0.5 size-4 shrink-0 text-dls-secondary/80"
-            aria-hidden
-          />
+          <span className="min-w-0 flex-1 text-sm leading-6 text-dls-secondary">“{prompt}”</span>
+          <MessageCircle className="mt-0.5 size-4 shrink-0 text-dls-secondary/80" aria-hidden />
         </button>
       ))}
     </div>
@@ -213,17 +202,18 @@ function localizedPluginDetail(plugin: ArtifactPluginCopySource) {
 }
 
 /** Shared copy for market card → connect dialog (Feishu-style shell). */
-export function getArtifactPluginConnectCopy(
-  plugin: ArtifactPluginCopySource,
-): { title: string; longDescription: string; prompts: string[] } {
+export function getArtifactPluginConnectCopy(plugin: ArtifactPluginCopySource): {
+  title: string;
+  longDescription: string;
+  prompts: string[];
+} {
   return localizedPluginDetail(plugin);
 }
 
 export function ArtifactPluginDetail(props: ArtifactPluginDetailProps) {
   const { plugin, labels } = props;
   const primarySkillId =
-    plugin.skills.find((skill) => skill.id === plugin.id)?.id ??
-    plugin.skills[0]?.id;
+    plugin.skills.find((skill) => skill.id === plugin.id)?.id ?? plugin.skills[0]?.id;
   const copy = localizedPluginDetail(plugin);
 
   return (
@@ -234,21 +224,13 @@ export function ArtifactPluginDetail(props: ArtifactPluginDetailProps) {
         <ArtifactPluginIcon pluginId={plugin.id} />
         <div className="min-w-0 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-semibold leading-7 text-dls-text">
-              {copy.title}
-            </h2>
+            <h2 className="text-lg font-semibold leading-7 text-dls-text">{copy.title}</h2>
             {plugin.enabled ? <StatusDot size="xs" tone="success" /> : null}
-            <StatusBadge
-              tone={plugin.enabled ? "success" : "neutral"}
-              shape="soft"
-              size="tiny"
-            >
+            <StatusBadge tone={plugin.enabled ? "success" : "neutral"} shape="soft" size="tiny">
               {plugin.enabled ? labels.enabled : labels.disabled}
             </StatusBadge>
           </div>
-          <p className="max-w-xl text-sm leading-6 text-dls-secondary">
-            {copy.longDescription}
-          </p>
+          <p className="max-w-xl text-sm leading-6 text-dls-secondary">{copy.longDescription}</p>
           {plugin.id === "browser" ? (
             <p className="text-xs font-medium text-dls-secondary">
               {t("plugins.artifact_plugin_browser_system")}

@@ -362,7 +362,7 @@ export function SessionDraftWorkspaceAccessory(props: {
             variant="ghost"
             size="icon-xs"
             onClick={handleClear}
-            className="size-6 rounded-full text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+            className="size-6 rounded-md text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
             title={t("session.clear_workspace_selection")}
             aria-label={t("session.clear_workspace_selection")}
           >

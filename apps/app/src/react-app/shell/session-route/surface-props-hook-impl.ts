@@ -8,7 +8,7 @@ import {
   type SetStateAction,
 } from "react";
 
-import skillCreatorTemplate from "../../../app/data/skill-creator.md?raw";
+import skillCreatorTemplate from "../../../../../desktop/resources/bundled-skills/skill-creator/SKILL.md?raw";
 import {
   installBuiltinSkillPackage,
   onmyagentSkillsRoot,
@@ -17,11 +17,7 @@ import {
 } from "../../../app/lib/desktop";
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
 import { buildOnMyAgentEnvRuntimeKey } from "../../../app/lib/onmyagent-env-runtime";
-import {
-  listCommands,
-  revertSession,
-  shellInSession,
-} from "../../../app/lib/opencode-session";
+import { listCommands, revertSession, shellInSession } from "../../../app/lib/opencode-session";
 import { unwrap } from "../../../app/lib/opencode";
 import type { ResolvedWorkspaceEndpoint } from "../../../app/lib/workspace-endpoint";
 import type {
@@ -45,10 +41,7 @@ import {
   shouldApplyExpertSelection,
   writeAssistantSessionCategory,
 } from "../../domains/agents";
-import {
-  readSessionAgentSnapshot,
-  writeSessionAgentSnapshot,
-} from "../../domains/agents";
+import { readSessionAgentSnapshot, writeSessionAgentSnapshot } from "../../domains/agents";
 import { usePendingAgentStore } from "../../domains/agents";
 import { writeSessionOriginDurable } from "../../domains/agents";
 import {
@@ -79,10 +72,7 @@ import {
 } from "../../capabilities/session-identity/expert-prompt-agent";
 import { useExpertDirectoryStore } from "../../capabilities/session-identity/expert-directory-store";
 import { useSessionActivityStore } from "../../domains/session";
-import {
-  expertPackageMarketplacesForEnter,
-  useExpertPackageQuery,
-} from "../../domains/agents";
+import { expertPackageMarketplacesForEnter, useExpertPackageQuery } from "../../domains/agents";
 import {
   buildOnMyAgentEnvSystemContext,
   applyAutoCaptureMemory,
@@ -134,10 +124,7 @@ import {
   activateCreatedSessionRoute,
   shouldNavigateToCreatedSession,
 } from "./created-session-actions";
-import {
-  type RouteWorkspace,
-  serializeSDKError,
-} from "./model";
+import { type RouteWorkspace, serializeSDKError } from "./model";
 import {
   insertCreatedSessionForWorkspace,
   insertSidebarSession,
@@ -146,10 +133,7 @@ import {
 import { writeStoredDefaultModel } from "../../kernel/model-config";
 import { focusPromptSoon, todoQueryKeyForSession } from "./state";
 import type { OnMyAgentServerInfo } from "../../../app/lib/desktop";
-import {
-  writeActiveWorkspaceId,
-  writeLastSessionFor,
-} from "../session-memory";
+import { writeActiveWorkspaceId, writeLastSessionFor } from "../session-memory";
 import type { NavigateFunction } from "react-router-dom";
 import { updateDefaultModelPrefs } from "./composer";
 import { bagSessionSurfaceProps } from "../../domains/session";
@@ -173,10 +157,7 @@ export type SessionRouteSurfacePropsInput = {
     sessionId: string;
     info: Record<string, unknown>;
   }) => void;
-  handleRuntimeSessionStatus?: (update: {
-    sessionId: string;
-    status: unknown;
-  }) => void;
+  handleRuntimeSessionStatus?: (update: { sessionId: string; status: unknown }) => void;
   listSlashCommands: SessionPageSurfaceProps["listCommands"];
   local: {
     prefs: LocalPreferences;
@@ -215,9 +196,7 @@ export type SessionRouteSurfacePropsInput = {
   sessionsByWorkspaceIdRef: MutableRefObject<Record<string, SidebarSessionItem[]>>;
   setAssistantDraftWorkspaceRoot: Dispatch<SetStateAction<string>>;
   setCompactModelPickerOpen: Dispatch<SetStateAction<boolean>>;
-  setLastVisibleTodosBySessionId: Dispatch<
-    SetStateAction<Record<string, TodoItem[]>>
-  >;
+  setLastVisibleTodosBySessionId: Dispatch<SetStateAction<Record<string, TodoItem[]>>>;
   setLegacySelectedWorkspaceId: Dispatch<SetStateAction<string>>;
   setModelPickerOpen: Dispatch<SetStateAction<boolean>>;
   setModelPickerQuery: Dispatch<SetStateAction<string>>;
@@ -228,16 +207,10 @@ export type SessionRouteSurfacePropsInput = {
   setSessionCollaborationModeById: Dispatch<
     SetStateAction<Record<string, ComposerDraft["collaborationMode"]>>
   >;
-  setSessionGoalRuntimeById: Dispatch<
-    SetStateAction<Record<string, CollaborationGoalRuntime>>
-  >;
+  setSessionGoalRuntimeById: Dispatch<SetStateAction<Record<string, CollaborationGoalRuntime>>>;
   setSessionModelOverrideById: Dispatch<SetStateAction<Record<string, ModelRef>>>;
-  setSessionPlanRuntimeById: Dispatch<
-    SetStateAction<Record<string, CollaborationPlanRuntime>>
-  >;
-  setSessionsByWorkspaceId: Dispatch<
-    SetStateAction<Record<string, SidebarSessionItem[]>>
-  >;
+  setSessionPlanRuntimeById: Dispatch<SetStateAction<Record<string, CollaborationPlanRuntime>>>;
+  setSessionsByWorkspaceId: Dispatch<SetStateAction<Record<string, SidebarSessionItem[]>>>;
   suppressRestoreSessionRef: MutableRefObject<boolean>;
   token: string;
 };
@@ -342,11 +315,7 @@ export function useSessionRouteSurfaceProps(
               entry.leadAgentName === agentId)),
       ) ?? null
     );
-  }, [
-    activeExpertAgentId,
-    activePendingAgent,
-    expertPackageQuery.data,
-  ]);
+  }, [activeExpertAgentId, activePendingAgent, expertPackageQuery.data]);
   const expertApprovedAgentIds = useMemo(() => {
     return [
       ...new Set([
@@ -363,12 +332,7 @@ export function useSessionRouteSurfaceProps(
   useEffect(() => {
     if (pageMode !== "expert" || !selectedAgent?.trim()) return;
     if (!expertPackageMetadataReady) return;
-    if (
-      normalizeExpertPromptAgentSelection(
-        selectedAgent,
-        expertApprovedAgentIds,
-      ) === null
-    ) {
+    if (normalizeExpertPromptAgentSelection(selectedAgent, expertApprovedAgentIds) === null) {
       setSelectedAgent(null);
     }
   }, [
@@ -400,8 +364,7 @@ export function useSessionRouteSurfaceProps(
     }
     const workspaceRoot = selectedWorkspace?.path?.trim() || "";
     if (!workspaceRoot) return;
-    const ensureWorkspaceId =
-      selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
+    const ensureWorkspaceId = selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
     const agentId = pending.id.trim();
     const agentName = pending.name?.trim() || "expert";
     const skillNames = pending.skillIds ?? [];
@@ -435,9 +398,7 @@ export function useSessionRouteSurfaceProps(
               skillNames,
             }),
           createSession: async (directory) => {
-            const created = unwrap(
-              await opencodeClient.session.create({ directory }),
-            );
+            const created = unwrap(await opencodeClient.session.create({ directory }));
             return { id: created.id };
           },
         },
@@ -456,13 +417,7 @@ export function useSessionRouteSurfaceProps(
   ]);
 
   return useMemo(() => {
-    if (
-      !client ||
-      !selectedWorkspaceId ||
-      !opencodeBaseUrl ||
-      !token ||
-      !opencodeClient
-    ) {
+    if (!client || !selectedWorkspaceId || !opencodeBaseUrl || !token || !opencodeClient) {
       return null;
     }
 
@@ -483,25 +438,18 @@ export function useSessionRouteSurfaceProps(
 
     const draftComposerModeSessionId = `draft:${selectedWorkspaceId}`;
     const composerModeSessionId = selectedSessionId ?? draftComposerModeSessionId;
-    const sessionAccessMode =
-      sessionAccessModeById[composerModeSessionId] ?? "default";
-    const sessionCollaborationMode =
-      sessionCollaborationModeById[composerModeSessionId];
+    const sessionAccessMode = sessionAccessModeById[composerModeSessionId] ?? "default";
+    const sessionCollaborationMode = sessionCollaborationModeById[composerModeSessionId];
     const draftOnlyRuntimeFallback = selectedSessionId ? null : draftComposerModeSessionId;
     const planRuntime =
       sessionPlanRuntimeById[composerModeSessionId] ??
-      (draftOnlyRuntimeFallback
-        ? sessionPlanRuntimeById[draftOnlyRuntimeFallback]
-        : undefined) ??
+      (draftOnlyRuntimeFallback ? sessionPlanRuntimeById[draftOnlyRuntimeFallback] : undefined) ??
       null;
     const storedGoalRuntime =
       sessionGoalRuntimeById[composerModeSessionId] ??
-      (draftOnlyRuntimeFallback
-        ? sessionGoalRuntimeById[draftOnlyRuntimeFallback]
-        : undefined) ??
+      (draftOnlyRuntimeFallback ? sessionGoalRuntimeById[draftOnlyRuntimeFallback] : undefined) ??
       null;
-    const goalRuntime =
-      storedGoalRuntime?.source === "goal_intent" ? storedGoalRuntime : null;
+    const goalRuntime = storedGoalRuntime?.source === "goal_intent" ? storedGoalRuntime : null;
 
     // Note: do NOT include `client`, `workspaceId`, `sessionId`,
     // `opencodeBaseUrl`, or `onmyagentToken` here. SessionPage forwards those
@@ -510,8 +458,7 @@ export function useSessionRouteSurfaceProps(
     // `surfaceProps` in SessionPage overrides those correct values with the
     // local server's, and remote workspaces silently end up calling the
     // local server with the local `rem_*` id.
-    const catalogWorkspaceRoot =
-      selectedWorkspace?.path?.trim() || sessionWorkspaceRoot;
+    const catalogWorkspaceRoot = selectedWorkspace?.path?.trim() || sessionWorkspaceRoot;
     const flatSurfaceProps = {
       workspaceRoot: sessionWorkspaceRoot,
       // Product Files / @ Mine use the catalog workspace, not expert session cwd.
@@ -534,9 +481,7 @@ export function useSessionRouteSurfaceProps(
         );
       },
       sessionCollaborationMode,
-      onSessionCollaborationModeChange: (
-        mode: ComposerDraft["collaborationMode"],
-      ) => {
+      onSessionCollaborationModeChange: (mode: ComposerDraft["collaborationMode"]) => {
         setSessionCollaborationModeById((current) =>
           applySessionScopedValue(current, composerModeSessionId, mode),
         );
@@ -563,10 +508,7 @@ export function useSessionRouteSurfaceProps(
             selectedSessionId,
           );
           if (currentTodoQueryKey) {
-            getReactQueryClient().setQueryData<TodoItem[]>(
-              currentTodoQueryKey,
-              [],
-            );
+            getReactQueryClient().setQueryData<TodoItem[]>(currentTodoQueryKey, []);
           }
         }
         setSessionPlanRuntimeById((current) =>
@@ -603,9 +545,7 @@ export function useSessionRouteSurfaceProps(
         // true — always create a new session even when a real session is
         // currently selected. Also auto-new when idle past the prefs threshold.
         const selectedActivityStatus = selectedSessionId
-          ? useSessionActivityStore
-              .getState()
-              .getStatus(selectedWorkspaceId, selectedSessionId)
+          ? useSessionActivityStore.getState().getStatus(selectedWorkspaceId, selectedSessionId)
           : "idle";
         const selectedSessionBusy =
           selectedActivityStatus === "thinking" ||
@@ -624,13 +564,11 @@ export function useSessionRouteSurfaceProps(
         // binding, or the new session lands in Tasks and steals selection.
         const inheritAssistantWorkspaceDirectory =
           pageMode === "assistant" && selectedSessionId
-            ? readAssistantSessionWorkspace(selectedSessionId)?.directory ??
-              null
+            ? (readAssistantSessionWorkspace(selectedSessionId)?.directory ?? null)
             : null;
         const sendPlan = resolveDraftSendPlan({
           selectedSessionId,
-          forceNewSession:
-            forceNewSessionOnNextSendRef.current || idleForceNew,
+          forceNewSession: forceNewSessionOnNextSendRef.current || idleForceNew,
           pageMode,
           assistantDraftWorkspaceRoot,
           sessionWorkspaceRoot,
@@ -645,7 +583,11 @@ export function useSessionRouteSurfaceProps(
         // return false and reuse the wrong expert's directory (directory cross-
         // contamination). The user-picked folder (explicitAssistantWorkspace)
         // is preserved and takes precedence.
-        if (pageMode === "expert" && sendPlan.needsNewSession && !explicitAssistantWorkspace.trim()) {
+        if (
+          pageMode === "expert" &&
+          sendPlan.needsNewSession &&
+          !explicitAssistantWorkspace.trim()
+        ) {
           taskWorkspaceRoot = selectedWorkspace?.path?.trim() || taskWorkspaceRoot;
         }
 
@@ -655,17 +597,14 @@ export function useSessionRouteSurfaceProps(
         // panel does not scan or write runtime markers into the project tree.
         const workspaceRootForSession = selectedWorkspace?.path?.trim() || "";
         const ensureClient = selectedWorkspaceEndpoint?.client ?? client;
-        const ensureWorkspaceId =
-          selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
+        const ensureWorkspaceId = selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
 
         // Overlap marketplace install + env context with isolate-dir + session.create.
         // Summon already kickoffs install; coordinator makes this a no-op / join.
         // Env keys are process-stable — do NOT key the cache by sessionId (that
         // re-fetched listUserEnvKeys on every new expert chat and stretched 准备中).
         const pendingForColdPath = usePendingAgentStore.getState().getAgent();
-        const marketplaceInstallPromise = kickoffMarketplaceExpertInstall(
-          pendingForColdPath,
-        );
+        const marketplaceInstallPromise = kickoffMarketplaceExpertInstall(pendingForColdPath);
         const envRuntimeKey = buildOnMyAgentEnvRuntimeKey({
           baseUrl: client?.baseUrl ?? null,
           pid: onmyagentServerHostInfoState?.pid ?? null,
@@ -721,9 +660,7 @@ export function useSessionRouteSurfaceProps(
                     skillNames: expertSkillNames,
                   }),
                 createSession: async (directory) => {
-                  const created = unwrap(
-                    await opencodeClient.session.create({ directory }),
-                  );
+                  const created = unwrap(await opencodeClient.session.create({ directory }));
                   return { id: created.id };
                 },
               },
@@ -762,11 +699,11 @@ export function useSessionRouteSurfaceProps(
           const command = draft.command;
           const commandSource =
             command.source ??
-            (await listCommands(opencodeClient, taskWorkspaceRoot || undefined))
-              .find((item) => item.name === command.name)?.source;
+            (await listCommands(opencodeClient, taskWorkspaceRoot || undefined)).find(
+              (item) => item.name === command.name,
+            )?.source;
           const skillClient = selectedWorkspaceEndpoint?.client ?? client;
-          const skillWorkspaceId =
-            selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
+          const skillWorkspaceId = selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
           const skillDecision = await resolveSlashSkillSend({
             commandName: command.name,
             commandSource,
@@ -780,11 +717,7 @@ export function useSessionRouteSurfaceProps(
               },
               ensureInstalled: isElectronRuntime()
                 ? async (name) => {
-                    if (
-                      !(CORE_SLASH_SKILL_COMMAND_NAMES as readonly string[]).includes(
-                        name,
-                      )
-                    ) {
+                    if (!(CORE_SLASH_SKILL_COMMAND_NAMES as readonly string[]).includes(name)) {
                       return;
                     }
                     await installBuiltinSkillPackage({
@@ -808,9 +741,7 @@ export function useSessionRouteSurfaceProps(
             }),
           });
           if (skillDecision.kind === "fail") {
-            throw new Error(
-              t("session.skill_inject_failed", { name: skillDecision.commandName }),
-            );
+            throw new Error(t("session.skill_inject_failed", { name: skillDecision.commandName }));
           }
           if (skillDecision.kind === "inject") {
             skillCommandPrompt = {
@@ -852,8 +783,7 @@ export function useSessionRouteSurfaceProps(
             writeAssistantSessionCategory,
           });
         } else if (!sessionId) {
-          if (creatingSessionWorkspaceIdsRef.current.has(selectedWorkspaceId))
-            return;
+          if (creatingSessionWorkspaceIdsRef.current.has(selectedWorkspaceId)) return;
           creatingSessionWorkspaceIdsRef.current.add(selectedWorkspaceId);
           try {
             createdSession = unwrap(
@@ -894,9 +824,7 @@ export function useSessionRouteSurfaceProps(
         // Local-only id for the first-send bubble. Do not forward UUIDs to
         // promptAsync — OpenCode compares user.id < assistant.id as strings.
         let optimisticMessageId: string | null =
-          createdSession && !draft.messageID
-            ? `msg_${crypto.randomUUID()}`
-            : null;
+          createdSession && !draft.messageID ? `msg_${crypto.randomUUID()}` : null;
         if (createdSession) {
           // Mid-create switch (「准备中」→ other expert/page): keep sidebar
           // recovery but never force-nav / bound-draft yank back.
@@ -936,11 +864,7 @@ export function useSessionRouteSurfaceProps(
             if (pendingAgentSnapshot) {
               useExpertDirectoryStore
                 .getState()
-                .upsertIdentity(
-                  selectedWorkspaceId,
-                  sessionId,
-                  pendingAgentSnapshot.id,
-                );
+                .upsertIdentity(selectedWorkspaceId, sessionId, pendingAgentSnapshot.id);
               writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot);
               if (shouldNavigate) {
                 usePendingAgentStore.getState().setAgent(
@@ -954,8 +878,7 @@ export function useSessionRouteSurfaceProps(
                 const currentPending = usePendingAgentStore.getState().getAgent();
                 if (
                   currentPending &&
-                  currentPending.operationId ===
-                    pendingAgentSnapshot.operationId &&
+                  currentPending.operationId === pendingAgentSnapshot.operationId &&
                   !currentPending.boundSessionId
                 ) {
                   usePendingAgentStore.getState().setAgent(null);
@@ -988,8 +911,7 @@ export function useSessionRouteSurfaceProps(
           // blank "准备中" page after the draft → real session hop.
           if (optimisticMessageId && text) {
             seedOptimisticSessionUserMessage({
-              workspaceId:
-                selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId,
+              workspaceId: selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId,
               sessionId,
               messageId: optimisticMessageId,
               text,
@@ -1012,8 +934,7 @@ export function useSessionRouteSurfaceProps(
           if (pageMode === "expert") {
             void writeSessionOriginDurable({
               client: selectedWorkspaceEndpoint?.client ?? client,
-              workspaceId:
-                selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId,
+              workspaceId: selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId,
               sessionId,
               kind: "expert",
               agentId: pendingForColdPath?.id,
@@ -1023,25 +944,19 @@ export function useSessionRouteSurfaceProps(
                     packageName: pendingForColdPath.marketplaceExpert?.packageName,
                   })
                 : undefined,
-              directory:
-                createdSession.directory ?? explicitAssistantWorkspace,
+              directory: createdSession.directory ?? explicitAssistantWorkspace,
             }).then(() =>
               getReactQueryClient().invalidateQueries({
-                queryKey: [
-                  "expert-directory",
-                  selectedWorkspaceId,
-                ],
+                queryKey: ["expert-directory", selectedWorkspaceId],
               }),
             );
           } else {
             void writeSessionOriginDurable({
               client: selectedWorkspaceEndpoint?.client ?? client,
-              workspaceId:
-                selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId,
+              workspaceId: selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId,
               sessionId,
               kind: "assistant",
-              directory:
-                createdSession.directory ?? explicitAssistantWorkspace,
+              directory: createdSession.directory ?? explicitAssistantWorkspace,
             });
           }
           activateCreatedSessionRoute({
@@ -1088,11 +1003,7 @@ export function useSessionRouteSurfaceProps(
             local.prefs.defaultModel ??
             null;
           setSessionModelOverrideById((current) => {
-            const moved = moveSessionModelOverride(
-              current,
-              composerModeSessionId,
-              sessionId,
-            );
+            const moved = moveSessionModelOverride(current, composerModeSessionId, sessionId);
             if (!pinnedModel) return moved;
             return { ...moved, [sessionId]: pinnedModel };
           });
@@ -1134,21 +1045,17 @@ export function useSessionRouteSurfaceProps(
           });
         } else if (isComposerGoalMode(draft.collaborationMode)) {
           const existingGoal =
-            sessionGoalRuntimeById[composerModeSessionId] ??
-            sessionGoalRuntimeById[sessionId];
+            sessionGoalRuntimeById[composerModeSessionId] ?? sessionGoalRuntimeById[sessionId];
           if (existingGoal?.source === "goal_intent") {
             const now = Date.now();
             setSessionGoalRuntimeById((current) => {
               const currentGoal =
-                current[composerModeSessionId] ??
-                current[sessionId] ??
-                existingGoal;
+                current[composerModeSessionId] ?? current[sessionId] ?? existingGoal;
               const next = { ...current };
               delete next[composerModeSessionId];
               next[sessionId] = {
                 ...currentGoal,
-                summary:
-                  currentGoal.summary || deriveGoalSummary(currentGoal.objective),
+                summary: currentGoal.summary || deriveGoalSummary(currentGoal.objective),
                 status: "running",
                 waitingReason: undefined,
                 updatedAt: now,
@@ -1160,9 +1067,7 @@ export function useSessionRouteSurfaceProps(
           }
         }
 
-        const runWithCreatedSessionRuntimeSync = async <T,>(
-          action: () => Promise<T>,
-        ) => {
+        const runWithCreatedSessionRuntimeSync = async <T>(action: () => Promise<T>) => {
           const release =
             createdSession && selectedWorkspaceEndpoint
               ? trackWorkspaceSessionSync(
@@ -1249,24 +1154,20 @@ export function useSessionRouteSurfaceProps(
         });
 
         const parts = await draftToParts(promptDraft, taskWorkspaceRoot, {
-          uploadAttachment:
-            attachmentUploadTarget
-              ? async (attachment, uploadPath) => {
-                  const { uploadUserFileToWorkspace } = await import(
-                    "../../domains/workspace"
-                  );
-                  return uploadUserFileToWorkspace(
-                    attachmentUploadTarget.client,
-                    attachmentUploadTarget.workspaceId,
-                    attachment.file,
-                    { path: uploadPath },
-                  );
-                }
-              : undefined,
+          uploadAttachment: attachmentUploadTarget
+            ? async (attachment, uploadPath) => {
+                const { uploadUserFileToWorkspace } = await import("../../domains/workspace");
+                return uploadUserFileToWorkspace(
+                  attachmentUploadTarget.client,
+                  attachmentUploadTarget.workspaceId,
+                  attachment.file,
+                  { path: uploadPath },
+                );
+              }
+            : undefined,
           // User files land under uploads/ on the catalog workspace; expert task
           // cwd may be an isolated session subdir — do not nest under that cwd.
-          inboxWorkspaceRoot:
-            workspaceRootForSession || taskWorkspaceRoot || undefined,
+          inboxWorkspaceRoot: workspaceRootForSession || taskWorkspaceRoot || undefined,
         });
         // When the session was started from an agent card, the pending
         // agent store carries a system prompt (persona, tone, constraints).
@@ -1276,25 +1177,22 @@ export function useSessionRouteSurfaceProps(
         // still renders the agent avatar next to assistant messages.
         // When force-new / idle auto-new, selectedSessionId is still the
         // previous chat — inherit its expert binding if pending store is empty.
-        const inheritFromSessionId = createdSession
-          ? selectedSessionId
-          : null;
-        const { pendingAgentSnapshot, agentToolAccess } =
-          resolvePendingAgentForPrompt({
-            currentAgent:
-              pageMode === "expert" && createdSession
-                ? pendingForColdPath
-                : usePendingAgentStore.getState().getAgent(),
-            createdSession: Boolean(createdSession),
-            sessionId,
-            inheritFromSessionId,
-            inheritAgentId: inheritFromSessionId
-              ? useExpertDirectoryStore
-                  .getState()
-                  .getIdentity(selectedWorkspaceId)
-                  .agentIdBySessionId.get(inheritFromSessionId)
-              : null,
-          });
+        const inheritFromSessionId = createdSession ? selectedSessionId : null;
+        const { pendingAgentSnapshot, agentToolAccess } = resolvePendingAgentForPrompt({
+          currentAgent:
+            pageMode === "expert" && createdSession
+              ? pendingForColdPath
+              : usePendingAgentStore.getState().getAgent(),
+          createdSession: Boolean(createdSession),
+          sessionId,
+          inheritFromSessionId,
+          inheritAgentId: inheritFromSessionId
+            ? useExpertDirectoryStore
+                .getState()
+                .getIdentity(selectedWorkspaceId)
+                .agentIdBySessionId.get(inheritFromSessionId)
+            : null,
+        });
         const runtimeToolAccess = resolveComposerRuntimeTools(
           agentToolAccess,
           draft.collaborationMode,
@@ -1314,11 +1212,7 @@ export function useSessionRouteSurfaceProps(
           // and name when the user re-opens this session later.
           useExpertDirectoryStore
             .getState()
-            .upsertIdentity(
-              selectedWorkspaceId,
-              sessionId,
-              pendingAgentSnapshot.id,
-            );
+            .upsertIdentity(selectedWorkspaceId, sessionId, pendingAgentSnapshot.id);
           writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot);
           const stillOwnsSurface = shouldNavigateToCreatedSession({
             sessionIdAtSendStart,
@@ -1356,8 +1250,7 @@ export function useSessionRouteSurfaceProps(
           local.prefs.defaultModel ??
           undefined;
         const storedRuntimeForGoalPrompt =
-          sessionGoalRuntimeById[composerModeSessionId] ??
-          sessionGoalRuntimeById[sessionId];
+          sessionGoalRuntimeById[composerModeSessionId] ?? sessionGoalRuntimeById[sessionId];
         const runtimeForGoalPrompt =
           storedRuntimeForGoalPrompt?.source === "goal_intent"
             ? storedRuntimeForGoalPrompt
@@ -1374,8 +1267,7 @@ export function useSessionRouteSurfaceProps(
           sessionId,
           pendingAgentId: pendingAgentSnapshot?.id ?? null,
           currentAgentId: currentPendingAgent?.id ?? null,
-          currentAgentBoundSessionId:
-            currentPendingAgent?.boundSessionId ?? null,
+          currentAgentBoundSessionId: currentPendingAgent?.boundSessionId ?? null,
           sessionAgentId: storedSessionAgentId,
         });
         const combinedSystem = joinSystemParts([
@@ -1385,18 +1277,13 @@ export function useSessionRouteSurfaceProps(
             local.prefs.onboardingProfile,
             local.prefs.conversationMemory,
             { expertId: boundExpertId },
-          ) ||
-            undefined,
+          ) || undefined,
           buildResponseToneSystemPrompt(local.prefs.responseTone) || undefined,
-          buildCustomInstructionsSystemPrompt(local.prefs.customInstructions) ||
-            undefined,
+          buildCustomInstructionsSystemPrompt(local.prefs.customInstructions) || undefined,
           pendingAgentSnapshot?.systemPrompt || undefined,
-          buildCollaborationModeSystemPrompt(draft.collaborationMode) ||
-            undefined,
+          buildCollaborationModeSystemPrompt(draft.collaborationMode) || undefined,
           buildGoalRuntimeSystemPrompt(
-            draft.goalIntent
-              ? { objective: draft.goalIntent.objective }
-              : runtimeForGoalPrompt,
+            draft.goalIntent ? { objective: draft.goalIntent.objective } : runtimeForGoalPrompt,
           ) || undefined,
           buildAccessModeSystemPrompt(draft.accessMode) || undefined,
           draft.hiddenSystemPrompt,
@@ -1406,8 +1293,7 @@ export function useSessionRouteSurfaceProps(
         const forwardedMessageId = shouldForwardPromptMessageId(runtimeMessageId)
           ? runtimeMessageId
           : undefined;
-        const runtimeWorkspaceId =
-          selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
+        const runtimeWorkspaceId = selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
         const userTurnText = resolveDraftText(promptDraft);
         // Refresh seed text if skill rewrite changed the visible prompt; same
         // messageId keeps addOptimistic idempotent on id.
@@ -1439,7 +1325,7 @@ export function useSessionRouteSurfaceProps(
                         currentPendingAgent?.approvedAgentIds ??
                         expertApprovedAgentIds,
                     )
-                  : selectedAgent ?? undefined,
+                  : (selectedAgent ?? undefined),
               ...(modelVariantValue ? { variant: modelVariantValue } : {}),
               ...(runtimeToolAccess ? { tools: runtimeToolAccess } : {}),
               ...(combinedSystem ? { system: combinedSystem } : {}),
@@ -1473,10 +1359,7 @@ export function useSessionRouteSurfaceProps(
             expertId: boundExpertId ?? undefined,
           });
           if (candidates.length > 0) {
-            const nextMemory = applyAutoCaptureMemory(
-              local.prefs.conversationMemory,
-              candidates,
-            );
+            const nextMemory = applyAutoCaptureMemory(local.prefs.conversationMemory, candidates);
             local.setPrefs((previous) => ({
               ...previous,
               conversationMemory: nextMemory,
@@ -1505,9 +1388,7 @@ export function useSessionRouteSurfaceProps(
       selectedAgent,
       listAgents: async () => {
         const list = unwrap(await opencodeClient.app.agents());
-        const visible = list.filter(
-          (agent) => !agent.hidden && agent.mode !== "subagent",
-        );
+        const visible = list.filter((agent) => !agent.hidden && agent.mode !== "subagent");
         return pageMode === "expert"
           ? filterExpertPromptAgentOptions(visible, expertApprovedAgentIds)
           : visible;
@@ -1516,10 +1397,7 @@ export function useSessionRouteSurfaceProps(
         const next = agent?.trim() ? agent.trim() : null;
         const normalized =
           pageMode === "expert"
-            ? normalizeExpertPromptAgentSelection(
-                next,
-                expertApprovedAgentIds,
-              )
+            ? normalizeExpertPromptAgentSelection(next, expertApprovedAgentIds)
             : next;
         if (
           normalized &&
@@ -1548,9 +1426,7 @@ export function useSessionRouteSurfaceProps(
         return result.map((path): ComposerMentionTarget => ({ path, kind: "file" }));
       },
       isRemoteWorkspace: selectedWorkspace?.workspaceType === "remote",
-      isSandboxWorkspace: selectedWorkspace
-        ? isSandboxWorkspace(selectedWorkspace)
-        : false,
+      isSandboxWorkspace: selectedWorkspace ? isSandboxWorkspace(selectedWorkspace) : false,
       onRevertToMessage: (messageId: string) => {
         void (async () => {
           if (!selectedSessionId) return;
@@ -1581,13 +1457,9 @@ export function useSessionRouteSurfaceProps(
         writeStoredDefaultModel(model);
       },
       draftWorkspaceDirectory:
-        pageMode === "assistant" || pageMode === "expert"
-          ? assistantDraftWorkspaceRoot
-          : null,
+        pageMode === "assistant" || pageMode === "expert" ? assistantDraftWorkspaceRoot : null,
       draftWorkspaceOwnerId:
-        pageMode === "assistant" || pageMode === "expert"
-          ? selectedWorkspaceId
-          : null,
+        pageMode === "assistant" || pageMode === "expert" ? selectedWorkspaceId : null,
       onSelectDraftWorkspace:
         pageMode === "assistant" || pageMode === "expert"
           ? (path: string) => {
@@ -1604,8 +1476,7 @@ export function useSessionRouteSurfaceProps(
               }
               const parentPath = (selectedWorkspace?.path ?? sessionWorkspaceRoot ?? "").trim();
               const workspaceClient = selectedWorkspaceEndpoint?.client ?? client;
-              const workspaceId =
-                selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
+              const workspaceId = selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
               if (!parentPath || !workspaceClient || !workspaceId?.trim()) {
                 throw new Error(t("session.workspace_create_no_parent"));
               }

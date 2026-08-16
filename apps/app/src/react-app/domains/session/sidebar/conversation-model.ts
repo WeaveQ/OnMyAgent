@@ -12,16 +12,9 @@ import {
 import type { WorkspaceSessionGroup } from "../../../../app/types";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
 import { createDefaultAgentRegistry } from "../../agents";
-import {
-  resolveAgentAvatarUrl,
-} from "../../agents";
-import type {
-  AgentRegistry,
-  AgentTemplate,
-} from "../../agents";
-import {
-  buildPendingAgentFromRecord,
-} from "../../agents";
+import { resolveAgentAvatarUrl } from "../../agents";
+import type { AgentRegistry, AgentTemplate } from "../../agents";
+import { buildPendingAgentFromRecord } from "../../agents";
 import { findBuiltinMarketplaceExpertById } from "@/react-app/domains/plugins";
 import {
   readSessionAgentSnapshot,
@@ -97,14 +90,8 @@ export function formatConversationTime(value: number | null | undefined) {
   if (Number.isNaN(date.getTime())) return "";
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const targetDay = new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
-  );
-  const dayDelta = Math.round(
-    (today.getTime() - targetDay.getTime()) / 86_400_000,
-  );
+  const targetDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dayDelta = Math.round((today.getTime() - targetDay.getTime()) / 86_400_000);
   const time = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
   if (dayDelta === 0) return time;
   if (dayDelta > 0) return t("time.days_ago", { count: dayDelta });
@@ -112,12 +99,8 @@ export function formatConversationTime(value: number | null | undefined) {
 }
 
 function sessionMessageTime(message: OnMyAgentSessionMessage) {
-  const completed =
-    "completed" in message.info.time ? message.info.time.completed : null;
-  return (
-    normalizeTimestamp(completed) ??
-    normalizeTimestamp(message.info.time?.created)
-  );
+  const completed = "completed" in message.info.time ? message.info.time.completed : null;
+  return normalizeTimestamp(completed) ?? normalizeTimestamp(message.info.time?.created);
 }
 
 function messagePartPreview(part: OnMyAgentSessionMessage["parts"][number]) {
@@ -161,9 +144,7 @@ export function sessionMessagePreview(message: OnMyAgentSessionMessage) {
  * Expert list subtitle: prefer latest **model reply** text.
  * Skips user turns and reasoning so we never show "The user sent…".
  */
-export function sessionAssistantReplyPreview(
-  message: OnMyAgentSessionMessage,
-): string {
+export function sessionAssistantReplyPreview(message: OnMyAgentSessionMessage): string {
   if (message.info.role !== "assistant") return "";
   return messageVisibleTextPreview(message);
 }
@@ -186,9 +167,7 @@ export function snapshotConversationSummary(
     };
   }
 
-  const pickFromMessages = (
-    matcher: (message: OnMyAgentSessionMessage) => string,
-  ) => {
+  const pickFromMessages = (matcher: (message: OnMyAgentSessionMessage) => string) => {
     for (let index = snapshot.messages.length - 1; index >= 0; index -= 1) {
       const message = snapshot.messages[index];
       if (!message) continue;
@@ -224,9 +203,7 @@ export function snapshotConversationSummary(
   return {
     preview: t("session.default_title"),
     time: formatConversationTime(
-      snapshot.session.time?.updated ??
-        snapshot.session.time?.created ??
-        fallbackTime,
+      snapshot.session.time?.updated ?? snapshot.session.time?.created ?? fallbackTime,
     ),
   };
 }
@@ -248,18 +225,15 @@ export function automationLocalPinScope(automationId: string): string {
   return id ? `auto:${id}` : "";
 }
 
-const ASSISTANT_PINNED_SESSIONS_STORAGE_KEY =
-  "onmyagent.assistantPinnedSessions.v1";
+const ASSISTANT_PINNED_SESSIONS_STORAGE_KEY = "onmyagent.assistantPinnedSessions.v1";
 const ASSISTANT_GLOBAL_PINS_STORAGE_KEY = "onmyagent.assistantPins.v2";
 /** workspaceId → directory → ordered sessionIds pinned within that space. */
-const ASSISTANT_SPACE_LOCAL_PINS_STORAGE_KEY =
-  "onmyagent.assistantSpaceLocalPins.v1";
+const ASSISTANT_SPACE_LOCAL_PINS_STORAGE_KEY = "onmyagent.assistantSpaceLocalPins.v1";
 
 function parseGlobalPin(value: unknown): AssistantGlobalPin | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const kind = "kind" in value ? value.kind : null;
-  const id =
-    "id" in value && typeof value.id === "string" ? value.id.trim() : "";
+  const id = "id" in value && typeof value.id === "string" ? value.id.trim() : "";
   if (!id) return null;
   if (kind === "session" || kind === "folder" || kind === "automation") {
     return { kind, id };
@@ -293,9 +267,7 @@ function readGlobalPinsRecord(): Record<string, AssistantGlobalPin[]> {
       }
     }
     // Migrate v1 session-only pins → v2 global session pins.
-    const legacy = window.localStorage.getItem(
-      ASSISTANT_PINNED_SESSIONS_STORAGE_KEY,
-    );
+    const legacy = window.localStorage.getItem(ASSISTANT_PINNED_SESSIONS_STORAGE_KEY);
     if (!legacy) return {};
     const parsed: unknown = JSON.parse(legacy);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -310,10 +282,7 @@ function readGlobalPinsRecord(): Record<string, AssistantGlobalPin[]> {
       if (pins.length > 0) out[workspaceId] = pins;
     }
     if (Object.keys(out).length > 0) {
-      window.localStorage.setItem(
-        ASSISTANT_GLOBAL_PINS_STORAGE_KEY,
-        JSON.stringify(out),
-      );
+      window.localStorage.setItem(ASSISTANT_GLOBAL_PINS_STORAGE_KEY, JSON.stringify(out));
     }
     return out;
   } catch {
@@ -324,25 +293,17 @@ function readGlobalPinsRecord(): Record<string, AssistantGlobalPin[]> {
 function writeGlobalPinsRecord(record: Record<string, AssistantGlobalPin[]>) {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(
-      ASSISTANT_GLOBAL_PINS_STORAGE_KEY,
-      JSON.stringify(record),
-    );
+    window.localStorage.setItem(ASSISTANT_GLOBAL_PINS_STORAGE_KEY, JSON.stringify(record));
   } catch {
     // ignore
   }
 }
 
-export function readAssistantGlobalPins(
-  workspaceId: string,
-): AssistantGlobalPin[] {
+export function readAssistantGlobalPins(workspaceId: string): AssistantGlobalPin[] {
   return readGlobalPinsRecord()[workspaceId.trim()] ?? [];
 }
 
-export function writeAssistantGlobalPins(
-  workspaceId: string,
-  pins: AssistantGlobalPin[],
-) {
+export function writeAssistantGlobalPins(workspaceId: string, pins: AssistantGlobalPin[]) {
   const id = workspaceId.trim();
   if (!id) return;
   const record = readGlobalPinsRecord();
@@ -350,12 +311,7 @@ export function writeAssistantGlobalPins(
   const next: AssistantGlobalPin[] = [];
   for (const pin of pins) {
     const pinId = pin.id.trim();
-    if (
-      !pinId ||
-      (pin.kind !== "session" &&
-        pin.kind !== "folder" &&
-        pin.kind !== "automation")
-    ) {
+    if (!pinId || (pin.kind !== "session" && pin.kind !== "folder" && pin.kind !== "automation")) {
       continue;
     }
     const key = `${pin.kind}:${pinId}`;
@@ -376,10 +332,7 @@ export function readAssistantPinnedSessionIds(workspaceId: string) {
 }
 
 /** @deprecated Prefer writeAssistantGlobalPins. */
-export function writeAssistantPinnedSessionIds(
-  workspaceId: string,
-  sessionIds: string[],
-) {
+export function writeAssistantPinnedSessionIds(workspaceId: string, sessionIds: string[]) {
   const existingNonSessions = readAssistantGlobalPins(workspaceId).filter(
     (pin) => pin.kind !== "session",
   );
@@ -390,15 +343,10 @@ export function writeAssistantPinnedSessionIds(
   writeAssistantGlobalPins(workspaceId, [...sessions, ...existingNonSessions]);
 }
 
-function readSpaceLocalPinsRecord(): Record<
-  string,
-  Record<string, string[]>
-> {
+function readSpaceLocalPinsRecord(): Record<string, Record<string, string[]>> {
   if (typeof window === "undefined") return {};
   try {
-    const raw = window.localStorage.getItem(
-      ASSISTANT_SPACE_LOCAL_PINS_STORAGE_KEY,
-    );
+    const raw = window.localStorage.getItem(ASSISTANT_SPACE_LOCAL_PINS_STORAGE_KEY);
     if (!raw) return {};
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -423,10 +371,7 @@ function readSpaceLocalPinsRecord(): Record<
   }
 }
 
-export function readAssistantSpaceLocalPins(
-  workspaceId: string,
-  directory: string,
-): string[] {
+export function readAssistantSpaceLocalPins(workspaceId: string, directory: string): string[] {
   const dir = directory.trim();
   if (!dir) return [];
   return readSpaceLocalPinsRecord()[workspaceId.trim()]?.[dir] ?? [];
@@ -448,18 +393,14 @@ export function writeAssistantSpaceLocalPins(
   if (Object.keys(workspaceMap).length > 0) record[ws] = workspaceMap;
   else delete record[ws];
   try {
-    window.localStorage.setItem(
-      ASSISTANT_SPACE_LOCAL_PINS_STORAGE_KEY,
-      JSON.stringify(record),
-    );
+    window.localStorage.setItem(ASSISTANT_SPACE_LOCAL_PINS_STORAGE_KEY, JSON.stringify(record));
   } catch {
     // ignore
   }
 }
 
 /** Ordered space folders in the Spaces section (drag reorder), per workspace. */
-const ASSISTANT_SPACE_FOLDER_ORDER_KEY =
-  "onmyagent.assistantSpaceFolderOrder.v1";
+const ASSISTANT_SPACE_FOLDER_ORDER_KEY = "onmyagent.assistantSpaceFolderOrder.v1";
 
 export function readAssistantSpaceFolderOrder(workspaceId: string): string[] {
   if (typeof window === "undefined") return [];
@@ -472,19 +413,14 @@ export function readAssistantSpaceFolderOrder(workspaceId: string): string[] {
     }
     const value = (parsed as Record<string, unknown>)[workspaceId.trim()];
     return Array.isArray(value)
-      ? value.filter(
-          (item): item is string => typeof item === "string" && item.trim().length > 0,
-        )
+      ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
       : [];
   } catch {
     return [];
   }
 }
 
-export function writeAssistantSpaceFolderOrder(
-  workspaceId: string,
-  directories: string[],
-) {
+export function writeAssistantSpaceFolderOrder(workspaceId: string, directories: string[]) {
   const ws = workspaceId.trim();
   if (!ws || typeof window === "undefined") return;
   try {
@@ -494,25 +430,17 @@ export function writeAssistantSpaceFolderOrder(
       parsed && typeof parsed === "object" && !Array.isArray(parsed)
         ? { ...(parsed as Record<string, unknown>) }
         : {};
-    const unique = Array.from(
-      new Set(directories.map((d) => d.trim()).filter(Boolean)),
-    );
+    const unique = Array.from(new Set(directories.map((d) => d.trim()).filter(Boolean)));
     if (unique.length > 0) record[ws] = unique;
     else delete record[ws];
-    window.localStorage.setItem(
-      ASSISTANT_SPACE_FOLDER_ORDER_KEY,
-      JSON.stringify(record),
-    );
+    window.localStorage.setItem(ASSISTANT_SPACE_FOLDER_ORDER_KEY, JSON.stringify(record));
   } catch {
     // ignore
   }
 }
 
 /** Apply saved folder order; unknown dirs append by original relative order. */
-export function applySpaceFolderOrder<T>(
-  entries: [string, T][],
-  order: string[],
-): [string, T][] {
+export function applySpaceFolderOrder<T>(entries: [string, T][], order: string[]): [string, T][] {
   if (order.length === 0 || entries.length <= 1) return entries;
   const byDir = new Map(entries);
   const out: [string, T][] = [];
@@ -543,12 +471,8 @@ export function sortGroupsByPinnedSessionIds(
     const rightPinned = rightPin !== undefined;
     if (leftPinned !== rightPinned) return leftPinned ? -1 : 1;
     if (leftPinned && rightPinned) return (leftPin ?? 0) - (rightPin ?? 0);
-    const leftTime =
-      left.latestSession.time?.updated ?? left.latestSession.time?.created ?? 0;
-    const rightTime =
-      right.latestSession.time?.updated ??
-      right.latestSession.time?.created ??
-      0;
+    const leftTime = left.latestSession.time?.updated ?? left.latestSession.time?.created ?? 0;
+    const rightTime = right.latestSession.time?.updated ?? right.latestSession.time?.created ?? 0;
     return rightTime - leftTime;
   });
 }
@@ -585,18 +509,14 @@ export function writeExpertPinnedAgentIds(workspaceId: string, agentIds: string[
     const uniqueAgentIds = Array.from(new Set(agentIds));
     if (uniqueAgentIds.length > 0) record[workspaceId] = uniqueAgentIds;
     else delete record[workspaceId];
-    window.localStorage.setItem(
-      EXPERT_PINNED_AGENTS_STORAGE_KEY,
-      JSON.stringify(record),
-    );
+    window.localStorage.setItem(EXPERT_PINNED_AGENTS_STORAGE_KEY, JSON.stringify(record));
   } catch {
     return;
   }
 }
 
 /** Session tab pin within an expert — order chips (pinned first), local only. */
-const AGENT_SESSION_TAB_PINNED_STORAGE_KEY =
-  "onmyagent.agentSessionTabPinned.v1";
+const AGENT_SESSION_TAB_PINNED_STORAGE_KEY = "onmyagent.agentSessionTabPinned.v1";
 
 export function readAgentSessionTabPinnedIds(workspaceId: string) {
   if (typeof window === "undefined") return [];
@@ -614,10 +534,7 @@ export function readAgentSessionTabPinnedIds(workspaceId: string) {
   }
 }
 
-export function writeAgentSessionTabPinnedIds(
-  workspaceId: string,
-  sessionIds: string[],
-) {
+export function writeAgentSessionTabPinnedIds(workspaceId: string, sessionIds: string[]) {
   if (typeof window === "undefined") return;
   try {
     const parsed: unknown = JSON.parse(
@@ -630,10 +547,7 @@ export function writeAgentSessionTabPinnedIds(
     const uniqueSessionIds = Array.from(new Set(sessionIds));
     if (uniqueSessionIds.length > 0) record[workspaceId] = uniqueSessionIds;
     else delete record[workspaceId];
-    window.localStorage.setItem(
-      AGENT_SESSION_TAB_PINNED_STORAGE_KEY,
-      JSON.stringify(record),
-    );
+    window.localStorage.setItem(AGENT_SESSION_TAB_PINNED_STORAGE_KEY, JSON.stringify(record));
   } catch {
     return;
   }
@@ -642,13 +556,7 @@ export function writeAgentSessionTabPinnedIds(
 function summarizeAssistantGeneratedTitle(input: string | undefined) {
   const cleaned = (input ?? "")
     // Keep matching legacy Chinese prefixes via \u escapes (no literal CJK glyphs).
-    .replace(
-      new RegExp(
-        "\u7528\u6237\u53D1\u9001\u4E86|The user|I should|This is",
-        "gi",
-      ),
-      "",
-    )
+    .replace(new RegExp("\u7528\u6237\u53D1\u9001\u4E86|The user|I should|This is", "gi"), "")
     .replace(/["""''.。？?！!,，:：；;]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -669,10 +577,7 @@ function assistantTaskTitle(
   ) {
     return rawTitle;
   }
-  return (
-    summarizeAssistantGeneratedTitle(generatedFallback) ??
-    t("session.default_title")
-  );
+  return summarizeAssistantGeneratedTitle(generatedFallback) ?? t("session.default_title");
 }
 
 export function buildAssistantConversationGroups(
@@ -684,15 +589,10 @@ export function buildAssistantConversationGroups(
     .filter((session) => isAssistantSession(session.id))
     .map((session) => {
       const preview = previewBySessionId?.get(session.id)?.trim() || undefined;
-      const title = assistantTaskTitle(
-        session,
-        generatedTitleFallbacks?.get(session.id),
-      );
+      const title = assistantTaskTitle(session, generatedTitleFallbacks?.get(session.id));
       // Avoid duplicating the same text on title + preview rows.
       const showPreview =
-        preview &&
-        preview !== title &&
-        preview !== t("session.default_title")
+        preview && preview !== title && preview !== t("session.default_title")
           ? preview
           : undefined;
       return {
@@ -718,9 +618,7 @@ export function buildAssistantConversationGroups(
  * Collapse whitespace for one-line list previews (WeChat-style last message).
  */
 export function compactConversationPreview(input: string | undefined): string {
-  return (input ?? "")
-    .replace(/\s+/g, " ")
-    .trim();
+  return (input ?? "").replace(/\s+/g, " ").trim();
 }
 
 export function buildAgentConversationGroups(
@@ -744,27 +642,20 @@ export function buildAgentConversationGroups(
         ? (registry.agents.find((item) => item.id === agentId) ??
           registry.templates.find((item) => item.id === agentId))
         : null;
-    const restoredAgent =
-      agent && registry ? buildPendingAgentFromRecord(agent, registry) : null;
-    const marketplaceExpert = restoredAgent
-      ? null
-      : findBuiltinMarketplaceExpertById(agentId);
-    const sessionAgentSnapshot = restoredAgent || marketplaceExpert
-      ? null
-      : readSessionAgentSnapshot(session.id);
+    const restoredAgent = agent && registry ? buildPendingAgentFromRecord(agent, registry) : null;
+    const marketplaceExpert = restoredAgent ? null : findBuiltinMarketplaceExpertById(agentId);
+    const sessionAgentSnapshot =
+      restoredAgent || marketplaceExpert ? null : readSessionAgentSnapshot(session.id);
     const key = `agent:${agentId}`;
     const existing = groups.get(key);
     const sessionPreview =
-      compactConversationPreview(previewBySessionId?.get(session.id)) ||
-      undefined;
+      compactConversationPreview(previewBySessionId?.get(session.id)) || undefined;
 
     if (existing) {
       existing.sessions.push(session);
       if (
         (session.time?.updated ?? session.time?.created ?? 0) >
-        (existing.latestSession.time?.updated ??
-          existing.latestSession.time?.created ??
-          0)
+        (existing.latestSession.time?.updated ?? existing.latestSession.time?.created ?? 0)
       ) {
         existing.latestSession = session;
         // Keep list subtitle in sync with the newest session’s last message.
@@ -782,9 +673,9 @@ export function buildAgentConversationGroups(
     const description =
       restoredAgent && agent
         ? agent.description.trim() || t("session.default_title")
-        : marketplaceExpert?.description ??
+        : (marketplaceExpert?.description ??
           sessionAgentSnapshot?.description ??
-          t("session.agent_config_missing");
+          t("session.agent_config_missing"));
 
     groups.set(key, {
       key,
@@ -800,7 +691,7 @@ export function buildAgentConversationGroups(
       avatarBackground:
         restoredAgent?.avatar.avatarBackground ??
         sessionAgentSnapshot?.avatarBackground ??
-        "var(--ow-primary-light)",
+        "var(--dls-primary-soft)",
       sessions: [session],
       latestSession: session,
     });
@@ -813,9 +704,7 @@ export function buildAgentConversationGroups(
   );
 }
 
-export function buildAgentStarterItems(
-  registry: AgentRegistry | null,
-): AgentStarterItem[] {
+export function buildAgentStarterItems(registry: AgentRegistry | null): AgentStarterItem[] {
   if (!registry) return [];
   return registry.templates
     .filter((template) => template.showInOverview)
@@ -827,8 +716,7 @@ export function buildAgentStarterItems(
         name: restoredAgent?.name ?? template.name,
         description: template.description.trim() || t("session.cmd_new_session_title"),
         avatarUrl: restoredAgent?.avatar.avatarUrl ?? null,
-        avatarBackground:
-          restoredAgent?.avatar.avatarBackground ?? "var(--ow-primary-light)",
+        avatarBackground: restoredAgent?.avatar.avatarBackground ?? "var(--dls-primary-soft)",
       };
     });
 }

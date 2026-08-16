@@ -9,7 +9,7 @@ describe("automation title required contract", () => {
     const source = readFileSync(
       join(
         repoRoot,
-        "apps/app/src/react-app/domains/messaging/automation-page.tsx",
+        "apps/app/src/react-app/domains/messaging/automation-page-dialogs.tsx",
       ),
       "utf8",
     );

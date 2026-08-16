@@ -1,10 +1,10 @@
 /** @jsxImportSource react */
 /**
  * Global settings host for personal usage.
- * Reuses the session-domain PersonalUsagePage (cross-workspace metrics).
+ * Reuses the settings-owned PersonalUsagePage (cross-workspace metrics).
  */
 import type { WorkspaceInfo } from "../../../../app/lib/desktop";
-import { PersonalUsagePage, type PersonalUsageClient } from "../../session";
+import { PersonalUsagePage, type PersonalUsageClient } from "../usage";
 
 export type UsageSettingsViewProps = {
   client: PersonalUsageClient | null;

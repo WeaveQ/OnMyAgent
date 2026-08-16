@@ -3,10 +3,7 @@
  * Presentational sections for the Mine uploads Files panel.
  * Extracted from workspace-files-uploads-panel (P1-5 file-size split).
  */
-import {
-  type DragEvent,
-  type RefObject,
-} from "react";
+import { type DragEvent, type RefObject } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -22,19 +19,10 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { MenuRowButton } from "@/components/ui/action-row";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { CountBadge } from "@/components/ui/status-badge";
-import {
-  TableBody,
-  TableCell,
-  TableRow,
-} from "@/components/ui/table";
+import { TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { FILES_EMPTY_STATE_ASSET } from "@/react-app/design-system/empty-state-assets";
 import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
@@ -120,14 +108,9 @@ export function UploadsMineChrome(props: {
             type="button"
             variant="outline"
             size="icon"
-            disabled={
-              !props.canLoad ||
-              props.uploading ||
-              props.loading ||
-              props.createFolderBusy
-            }
+            disabled={!props.canLoad || props.uploading || props.loading || props.createFolderBusy}
             onClick={props.onOpenCreateFolder}
-            className="size-9 shrink-0 rounded-full"
+            className="size-9 shrink-0 rounded-lg"
             data-files-create-folder="true"
             title={t("files.create_folder")}
             aria-label={t("files.create_folder")}
@@ -151,12 +134,10 @@ export function UploadsMineChrome(props: {
             size="icon"
             disabled={!props.canLoad || props.uploading || props.loading}
             onClick={props.onPickClick}
-            className="size-9 shrink-0 rounded-full"
+            className="size-9 shrink-0 rounded-lg"
             data-files-upload="true"
             title={props.uploading ? t("files.uploading") : t("files.upload_files")}
-            aria-label={
-              props.uploading ? t("files.uploading") : t("files.upload_files")
-            }
+            aria-label={props.uploading ? t("files.uploading") : t("files.upload_files")}
             aria-busy={props.uploading || undefined}
           >
             {props.uploading ? (
@@ -169,18 +150,12 @@ export function UploadsMineChrome(props: {
             type="button"
             variant="outline"
             size="icon"
-            disabled={
-              !props.canLoad ||
-              props.loading ||
-              props.uploading ||
-              props.filterActive
-            }
+            disabled={!props.canLoad || props.loading || props.uploading || props.filterActive}
             aria-pressed={props.treeMode && props.treeAllExpanded}
             onClick={props.onExpandCollapse}
             className={cn(
-              "size-9 shrink-0 rounded-full",
-              props.treeMode &&
-                "border-dls-accent/40 bg-dls-accent/10 text-dls-text",
+              "size-9 shrink-0 rounded-lg",
+              props.treeMode && "border-dls-accent/40 bg-dls-accent/10 text-dls-text",
             )}
             data-files-expand-collapse="true"
             data-files-tree-mode={props.treeMode ? "true" : "false"}
@@ -208,26 +183,19 @@ export function UploadsMineChrome(props: {
               variant="outline"
               size="default"
               onClick={props.onToggleTypeMenu}
-              className="h-9 gap-1.5 rounded-full px-3 text-sm"
+              className="h-9 gap-1.5 rounded-lg px-3 text-sm"
             >
-              <SlidersHorizontal
-                data-icon="inline-start"
-                className="size-3.5 text-dls-secondary"
-              />
+              <SlidersHorizontal data-icon="inline-start" className="size-3.5 text-dls-secondary" />
               {fileCategoryLabel(props.typeFilter)}
               <ChevronDown
-                className={cn(
-                  "size-3.5 transition-transform",
-                  props.typeMenuOpen && "rotate-180",
-                )}
+                className={cn("size-3.5 transition-transform", props.typeMenuOpen && "rotate-180")}
               />
             </Button>
             {props.typeMenuOpen ? (
               <div
-                className="absolute right-0 top-full z-50 mt-1.5 flex min-w-[148px] flex-col rounded-xl border border-dls-border bg-dls-surface-solid py-1 shadow-md"
+                className="absolute right-0 top-full z-50 mt-1.5 flex min-w-[148px] flex-col rounded-xl border border-dls-border bg-dls-surface-solid py-1 "
                 style={{
-                  backgroundColor:
-                    "var(--dls-surface-solid, var(--dls-surface))",
+                  backgroundColor: "var(--dls-surface-solid, var(--dls-surface))",
                 }}
               >
                 {FILE_CATEGORIES.map((cat) => (
@@ -248,7 +216,7 @@ export function UploadsMineChrome(props: {
             controlSize="default"
             radius="lg"
             tone="surface"
-            className="min-w-[11rem] w-48 rounded-full sm:w-56"
+            className="min-w-[11rem] w-48 sm:w-56"
           >
             <InputGroupAddon align="inline-start">
               <Search className="size-3.5" />
@@ -266,10 +234,7 @@ export function UploadsMineChrome(props: {
 
       {/* Nested path only — root already named by the page title. */}
       {props.showBreadcrumb ? (
-        <div
-          className="flex w-full min-w-0 items-center"
-          data-files-mine-pathbar="true"
-        >
+        <div className="flex w-full min-w-0 items-center" data-files-mine-pathbar="true">
           <nav
             className="flex min-w-0 flex-wrap items-center gap-1 text-sm text-dls-secondary"
             aria-label={t("files.breadcrumb_label")}
@@ -283,17 +248,12 @@ export function UploadsMineChrome(props: {
                   className="inline-flex min-w-0 max-w-full items-center gap-1"
                 >
                   {index > 0 ? (
-                    <span
-                      className="shrink-0 text-dls-secondary/60"
-                      aria-hidden
-                    >
+                    <span className="shrink-0 text-dls-secondary/60" aria-hidden>
                       /
                     </span>
                   ) : null}
                   {isLast ? (
-                    <span className="truncate font-medium text-dls-text">
-                      {segment.label}
-                    </span>
+                    <span className="truncate font-medium text-dls-text">{segment.label}</span>
                   ) : (
                     <button
                       type="button"
@@ -359,11 +319,7 @@ export function UploadsMineDropZone(props: {
     return (
       <Empty className="min-h-[280px] border border-dashed border-dls-border">
         <EmptyHeader>
-          <EmptyStateIllustration
-            src={FILES_EMPTY_STATE_ASSET}
-            size="compact"
-            className="mb-2"
-          />
+          <EmptyStateIllustration src={FILES_EMPTY_STATE_ASSET} size="compact" className="mb-2" />
           <EmptyTitle>{t("files.no_tool_folder")}</EmptyTitle>
           <EmptyDescription>{t("files.no_tool_folder_hint")}</EmptyDescription>
         </EmptyHeader>
@@ -398,27 +354,17 @@ export function UploadsMineDropZone(props: {
       {props.dragActive ? (
         <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-xl bg-dls-background/80 backdrop-blur-[1px]">
           <Upload className="size-8 text-dls-accent" aria-hidden />
-          <p className="text-sm font-medium text-dls-text">
-            {t("files.drop_to_upload")}
-          </p>
-          <p className="text-xs text-dls-secondary">
-            {t("files.drop_to_upload_hint")}
-          </p>
+          <p className="text-sm font-medium text-dls-text">{t("files.drop_to_upload")}</p>
+          <p className="text-xs text-dls-secondary">{t("files.drop_to_upload_hint")}</p>
         </div>
       ) : null}
 
       {props.showEmpty ? (
         <Empty className="min-h-[280px] border-0">
           <EmptyHeader>
-            <EmptyStateIllustration
-              src={FILES_EMPTY_STATE_ASSET}
-              size="compact"
-              className="mb-2"
-            />
+            <EmptyStateIllustration src={FILES_EMPTY_STATE_ASSET} size="compact" className="mb-2" />
             <EmptyTitle>
-              {props.filterActive
-                ? t("files.no_matching_files")
-                : t("files.uploads_empty_title")}
+              {props.filterActive ? t("files.no_matching_files") : t("files.uploads_empty_title")}
             </EmptyTitle>
             <EmptyDescription>
               {props.filterActive
@@ -456,36 +402,24 @@ export function UploadsMineDropZone(props: {
                       const node = outlineRow.node;
                       const row = props.rowByPath.get(node.path);
                       const hasChildren = node.children.length > 0;
-                      const isDropTarget =
-                        Boolean(row) && props.dropTargetId === row?.id;
+                      const isDropTarget = Boolean(row) && props.dropTargetId === row?.id;
                       return (
                         <TableRow
                           key={`tree-dir:${node.path}`}
                           data-workspace-upload-row="dir"
                           data-files-tree-depth={String(outlineRow.depth)}
-                          data-mine-drop-target={
-                            isDropTarget ? "true" : undefined
-                          }
+                          data-mine-drop-target={isDropTarget ? "true" : undefined}
                           className={cn(
                             "group h-11 cursor-pointer hover:bg-dls-hover/50",
-                            isDropTarget &&
-                              "bg-dls-accent/10 ring-1 ring-inset ring-dls-accent/40",
+                            isDropTarget && "bg-dls-accent/10 ring-1 ring-inset ring-dls-accent/40",
                           )}
                           onDragOver={
-                            row
-                              ? (event) => props.onFolderDragOver(event, row)
-                              : undefined
+                            row ? (event) => props.onFolderDragOver(event, row) : undefined
                           }
                           onDragLeave={
-                            row
-                              ? (event) => props.onFolderDragLeave(event, row)
-                              : undefined
+                            row ? (event) => props.onFolderDragLeave(event, row) : undefined
                           }
-                          onDrop={
-                            row
-                              ? (event) => void props.onFolderDrop(event, row)
-                              : undefined
-                          }
+                          onDrop={row ? (event) => void props.onFolderDrop(event, row) : undefined}
                         >
                           <TableCell className="text-left">
                             <div
@@ -539,9 +473,7 @@ export function UploadsMineDropZone(props: {
                             {t("files.type_folder")}
                           </TableCell>
                           <TableCell className="text-left text-dls-secondary tabular-nums">
-                            {node.mtimeMs > 0
-                              ? formatWorkspaceFileTime(node.mtimeMs)
-                              : "—"}
+                            {node.mtimeMs > 0 ? formatWorkspaceFileTime(node.mtimeMs) : "—"}
                           </TableCell>
                           <TableCell className="text-left text-dls-secondary tabular-nums">
                             —
@@ -566,9 +498,7 @@ export function UploadsMineDropZone(props: {
                           "group h-11 cursor-pointer cursor-grab active:cursor-grabbing",
                           selected && "bg-dls-surface-muted/80",
                         )}
-                        onDragStart={(event) =>
-                          props.onMineDragStart(event, row)
-                        }
+                        onDragStart={(event) => props.onMineDragStart(event, row)}
                         onDragEnd={() => props.onClearDropTarget()}
                         onClick={() => props.onSelectRow(row.id)}
                         onDoubleClick={() => void props.onOpenExternally(row)}
@@ -581,10 +511,7 @@ export function UploadsMineDropZone(props: {
                             }}
                           >
                             <span className="size-6 shrink-0" />
-                            <ArtifactIcon
-                              name={row.name}
-                              className="size-4 shrink-0"
-                            />
+                            <ArtifactIcon name={row.name} className="size-4 shrink-0" />
                             <FileHoverPopup
                               name={row.name}
                               pathLabel={
@@ -594,14 +521,10 @@ export function UploadsMineDropZone(props: {
                               }
                               sizeLabel={formatWorkspaceFileSize(row.size)}
                               updatedLabel={
-                                row.updatedAt
-                                  ? formatWorkspaceFileTime(row.updatedAt)
-                                  : undefined
+                                row.updatedAt ? formatWorkspaceFileTime(row.updatedAt) : undefined
                               }
                               onView={() => props.onSelectRow(row.id)}
-                              onOpenFile={() =>
-                                void props.onOpenExternally(row)
-                              }
+                              onOpenFile={() => void props.onOpenExternally(row)}
                               onOpenInFolder={
                                 props.workspaceRoot && isElectronRuntime()
                                   ? () => void props.onOpenInFolder(row)
@@ -619,9 +542,7 @@ export function UploadsMineDropZone(props: {
                           {fileCategoryLabel(getFileCategory(row.name))}
                         </TableCell>
                         <TableCell className="text-left text-dls-secondary tabular-nums">
-                          {row.updatedAt
-                            ? formatWorkspaceFileTime(row.updatedAt)
-                            : "—"}
+                          {row.updatedAt ? formatWorkspaceFileTime(row.updatedAt) : "—"}
                         </TableCell>
                         <TableCell className="text-left text-dls-secondary tabular-nums">
                           {formatWorkspaceFileSize(row.size)}
@@ -632,12 +553,8 @@ export function UploadsMineDropZone(props: {
                             pathCopied={props.pathCopiedFlash === row.id}
                             showMoveTo
                             onPreview={() => props.onSelectRow(row.id)}
-                            onOpenExternally={() =>
-                              void props.onOpenExternally(row)
-                            }
-                            onOpenInFolder={() =>
-                              void props.onOpenInFolder(row)
-                            }
+                            onOpenExternally={() => void props.onOpenExternally(row)}
+                            onOpenInFolder={() => void props.onOpenInFolder(row)}
                             onMoveTo={() => props.onMoveTo(row)}
                             onCopyPath={() => void props.onCopyPath(row)}
                             onDelete={() => props.onDelete(row)}
@@ -649,34 +566,24 @@ export function UploadsMineDropZone(props: {
                 : props.visibleRows.map((row) => {
                     const selected = row.id === props.selectedId;
                     const isDir = row.kind === "dir";
-                    const isDropTarget =
-                      isDir && props.dropTargetId === row.id;
+                    const isDropTarget = isDir && props.dropTargetId === row.id;
                     return (
                       <TableRow
                         key={row.id}
                         data-state={selected ? "selected" : undefined}
                         data-workspace-upload-row={isDir ? "dir" : "file"}
-                        data-mine-drop-target={
-                          isDropTarget ? "true" : undefined
-                        }
+                        data-mine-drop-target={isDropTarget ? "true" : undefined}
                         draggable={!isDir && !props.moveBusy}
                         className={cn(
                           "group cursor-pointer",
                           selected && "bg-dls-surface-muted/80",
-                          isDropTarget &&
-                            "bg-dls-accent/10 ring-1 ring-inset ring-dls-accent/40",
+                          isDropTarget && "bg-dls-accent/10 ring-1 ring-inset ring-dls-accent/40",
                           !isDir && "cursor-grab active:cursor-grabbing",
                         )}
-                        onDragStart={(event) =>
-                          props.onMineDragStart(event, row)
-                        }
+                        onDragStart={(event) => props.onMineDragStart(event, row)}
                         onDragEnd={() => props.onClearDropTarget()}
-                        onDragOver={(event) =>
-                          props.onFolderDragOver(event, row)
-                        }
-                        onDragLeave={(event) =>
-                          props.onFolderDragLeave(event, row)
-                        }
+                        onDragOver={(event) => props.onFolderDragOver(event, row)}
+                        onDragLeave={(event) => props.onFolderDragLeave(event, row)}
                         onDrop={(event) => void props.onFolderDrop(event, row)}
                         onClick={() => {
                           if (isDir) {
@@ -702,15 +609,10 @@ export function UploadsMineDropZone(props: {
                                 aria-hidden
                               />
                             ) : (
-                              <ArtifactIcon
-                                name={row.name}
-                                className="size-4 shrink-0"
-                              />
+                              <ArtifactIcon name={row.name} className="size-4 shrink-0" />
                             )}
                             {isDir ? (
-                              <span className="truncate font-medium text-dls-text">
-                                {row.name}
-                              </span>
+                              <span className="truncate font-medium text-dls-text">{row.name}</span>
                             ) : (
                               <FileHoverPopup
                                 name={row.name}
@@ -721,14 +623,10 @@ export function UploadsMineDropZone(props: {
                                 }
                                 sizeLabel={formatWorkspaceFileSize(row.size)}
                                 updatedLabel={
-                                  row.updatedAt
-                                    ? formatWorkspaceFileTime(row.updatedAt)
-                                    : undefined
+                                  row.updatedAt ? formatWorkspaceFileTime(row.updatedAt) : undefined
                                 }
                                 onView={() => props.onSelectRow(row.id)}
-                                onOpenFile={() =>
-                                  void props.onOpenExternally(row)
-                                }
+                                onOpenFile={() => void props.onOpenExternally(row)}
                                 onOpenInFolder={
                                   props.workspaceRoot && isElectronRuntime()
                                     ? () => void props.onOpenInFolder(row)
@@ -749,9 +647,7 @@ export function UploadsMineDropZone(props: {
                             : fileCategoryLabel(getFileCategory(row.name))}
                         </TableCell>
                         <TableCell className="text-left text-dls-secondary tabular-nums">
-                          {row.updatedAt
-                            ? formatWorkspaceFileTime(row.updatedAt)
-                            : "—"}
+                          {row.updatedAt ? formatWorkspaceFileTime(row.updatedAt) : "—"}
                         </TableCell>
                         <TableCell className="text-left text-dls-secondary tabular-nums">
                           {isDir ? "—" : formatWorkspaceFileSize(row.size)}
@@ -762,12 +658,8 @@ export function UploadsMineDropZone(props: {
                             pathCopied={props.pathCopiedFlash === row.id}
                             showMoveTo={!isDir}
                             onPreview={() => props.onSelectRow(row.id)}
-                            onOpenExternally={() =>
-                              void props.onOpenExternally(row)
-                            }
-                            onOpenInFolder={() =>
-                              void props.onOpenInFolder(row)
-                            }
+                            onOpenExternally={() => void props.onOpenExternally(row)}
+                            onOpenInFolder={() => void props.onOpenInFolder(row)}
                             onMoveTo={() => props.onMoveTo(row)}
                             onCopyPath={() => void props.onCopyPath(row)}
                             onDelete={() => props.onDelete(row)}
@@ -805,12 +697,10 @@ export function UploadsCreateFolderDialog(props: {
       }}
     >
       <div
-        className="w-full max-w-sm rounded-xl border border-dls-border bg-dls-surface p-4 shadow-lg"
+        className="w-full max-w-sm rounded-xl border border-dls-border bg-dls-surface p-4 "
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 className="text-sm font-semibold text-dls-text">
-          {t("files.create_folder_title")}
-        </h2>
+        <h2 className="text-sm font-semibold text-dls-text">{t("files.create_folder_title")}</h2>
         <input
           autoFocus
           value={props.name}
@@ -844,9 +734,7 @@ export function UploadsCreateFolderDialog(props: {
             disabled={props.busy || !props.name.trim()}
             onClick={() => void props.onConfirm()}
           >
-            {props.busy ? (
-              <Loader2 className="size-3.5 animate-spin" aria-hidden />
-            ) : null}
+            {props.busy ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : null}
             {t("files.create_folder_confirm")}
           </Button>
         </div>

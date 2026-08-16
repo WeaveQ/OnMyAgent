@@ -1,5 +1,11 @@
 /** @jsxImportSource react */
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { AlertCircle, ClipboardList, Plus, Square } from "lucide-react";
 import type { CloudImportedPluginFile } from "../../../../../app/cloud/import-state";
 import type { SlashCommandOption } from "../../../../../app/types";
@@ -16,9 +22,7 @@ import { ContextUsageIndicator } from "../../../local-agents";
 import { LexicalPromptEditor } from "./editor";
 import { AccessPermissionSelect } from "./access-permission-select";
 import { matchComposerSlashQuery } from "./tool-menu-model";
-import {
-  ReactComposerNotice,
-} from "./notice";
+import { ReactComposerNotice } from "./notice";
 import {
   type ComposerProps,
   type MentionItem,
@@ -54,7 +58,8 @@ export function ReactSessionComposer(props: ComposerProps) {
   const [toolMenuOpen, setToolMenuOpen] = useState(false);
   const [toolMenuSection, setToolMenuSection] = useState<ToolMenuSection>("files");
   const [selectedPromptTemplateId, setSelectedPromptTemplateId] = useState<string | null>(null);
-  const [selectedComposerExtension, setSelectedComposerExtension] = useState<McpDirectoryInfo | null>(null);
+  const [selectedComposerExtension, setSelectedComposerExtension] =
+    useState<McpDirectoryInfo | null>(null);
   const [selectedManagedConnector, setSelectedManagedConnector] =
     useState<ManagedDesktopConnectorItem | null>(null);
   const [skillSearchQuery, setSkillSearchQuery] = useState("");
@@ -149,24 +154,20 @@ export function ReactSessionComposer(props: ComposerProps) {
   const mentionFiltered = mentionBrowser.filtered;
   const mentionFolderPath = mentionBrowser.folderPath;
 
-  const {
-    addAttachments,
-    addSelectedMentionFiles,
-    captureAppshot,
-    canCaptureAppshot,
-  } = useComposerAttachments({
-    attachmentsEnabled: props.attachmentsEnabled,
-    attachmentsDisabledReason: props.attachmentsDisabledReason,
-    onAttachFiles: props.onAttachFiles,
-    onNotice: props.onNotice,
-    loadWorkspaceFiles: props.loadWorkspaceFiles,
-    rootRef,
-    draftRef,
-    onDraftChange: handleDraftChange,
-    setMentionOpen,
-    setToolMenuOpen,
-    mentionAddSelectedFiles: mentionBrowser.addSelectedFiles,
-  });
+  const { addAttachments, addSelectedMentionFiles, captureAppshot, canCaptureAppshot } =
+    useComposerAttachments({
+      attachmentsEnabled: props.attachmentsEnabled,
+      attachmentsDisabledReason: props.attachmentsDisabledReason,
+      onAttachFiles: props.onAttachFiles,
+      onNotice: props.onNotice,
+      loadWorkspaceFiles: props.loadWorkspaceFiles,
+      rootRef,
+      draftRef,
+      onDraftChange: handleDraftChange,
+      setMentionOpen,
+      setToolMenuOpen,
+      mentionAddSelectedFiles: mentionBrowser.addSelectedFiles,
+    });
 
   const mineFiles = useComposerMineFiles({
     open: toolMenuOpen && toolMenuSection === "mine",
@@ -190,9 +191,11 @@ export function ReactSessionComposer(props: ComposerProps) {
   const promptTemplates = props.promptTemplates ?? [];
   const selectedPromptTemplate =
     promptTemplates.find((template) => template.id === selectedPromptTemplateId) ?? null;
-  const selectedModeKey = selectedCollaborationModeKey(props.collaborationMode, collaborationVariant);
-  const selectedModeOption =
-    modeOptions.find((option) => option.key === selectedModeKey) ?? null;
+  const selectedModeKey = selectedCollaborationModeKey(
+    props.collaborationMode,
+    collaborationVariant,
+  );
+  const selectedModeOption = modeOptions.find((option) => option.key === selectedModeKey) ?? null;
   const SelectedModeIcon = selectedModeOption?.Icon ?? ClipboardList;
   const shouldShowCollaborationChip =
     selectedModeOption !== null &&
@@ -278,10 +281,7 @@ export function ReactSessionComposer(props: ComposerProps) {
     setToolMenuOpen(false);
   };
 
-  const applyManagedConnectorPrompt = (
-    connector: ManagedDesktopConnectorItem,
-    prompt: string,
-  ) => {
+  const applyManagedConnectorPrompt = (connector: ManagedDesktopConnectorItem, prompt: string) => {
     props.onDraftChange(prompt);
     setSelectedManagedConnector(null);
     setSelectedComposerExtension(null);
@@ -420,9 +420,7 @@ export function ReactSessionComposer(props: ComposerProps) {
       return;
     }
     const frame = window.requestAnimationFrame(() => {
-      root
-        ?.querySelector<HTMLElement>("[contenteditable='true']")
-        ?.focus();
+      root?.querySelector<HTMLElement>("[contenteditable='true']")?.focus();
     });
     return () => window.cancelAnimationFrame(frame);
   }, [props.busy]);
@@ -552,15 +550,19 @@ export function ReactSessionComposer(props: ComposerProps) {
           />
 
           {/*
-            Plain text pastes stay as text in the editor. We intentionally do
-            not render a pasted-text chip or rail here.
-          */}
+ Plain text pastes stay as text in the editor. We intentionally do
+ not render a pasted-text chip or rail here.
+ */}
 
           {dropzoneActive ? (
             <div className="pointer-events-none absolute inset-3 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-dls-accent bg-dls-accent-mix-10">
               <div className="rounded-xl border border-dls-border bg-dls-surface px-5 py-4 text-center backdrop-blur-sm">
-                <div className="text-sm font-medium text-dls-text">{t("composer.attach_files")}</div>
-                <div className="mt-1 text-xs text-dls-secondary">{t("composer.any_file_type_supported")}</div>
+                <div className="text-sm font-medium text-dls-text">
+                  {t("composer.attach_files")}
+                </div>
+                <div className="mt-1 text-xs text-dls-secondary">
+                  {t("composer.any_file_type_supported")}
+                </div>
               </div>
             </div>
           ) : null}
@@ -584,11 +586,11 @@ export function ReactSessionComposer(props: ComposerProps) {
                 // 1. Actual files on the clipboard -> attach them.
                 // 2. Explicit text/uri-list (drag from Finder / browser) -> insert links.
                 // 3. Plain text -> DO NOTHING. Let Lexical's PlainTextPlugin
-                //    handle the paste natively so newlines render correctly
-                //    and no content is silently dropped. Previous behavior
-                //    hijacked pastes that merely contained absolute paths
-                //    like "/Users/..." or pastes longer than 10 lines, which
-                //    was the root cause of "paste into composer is broken".
+                // handle the paste natively so newlines render correctly
+                // and no content is silently dropped. Previous behavior
+                // hijacked pastes that merely contained absolute paths
+                // like "/Users/..." or pastes longer than 10 lines, which
+                // was the root cause of "paste into composer is broken".
                 const files = Array.from(event.clipboardData?.files ?? []);
                 if (files.length) {
                   event.preventDefault();
@@ -618,7 +620,9 @@ export function ReactSessionComposer(props: ComposerProps) {
                 if (
                   text.trim() &&
                   (props.isRemoteWorkspace || props.isSandboxWorkspace) &&
-                  /file:\/\/|(^|\s)\/(Users|home|var|etc|opt|tmp|private|Volumes|Applications)\//.test(text)
+                  /file:\/\/|(^|\s)\/(Users|home|var|etc|opt|tmp|private|Volumes|Applications)\//.test(
+                    text,
+                  )
                 ) {
                   const attachedFiles = props.attachments.map((attachment) => attachment.file);
                   props.onNotice({
@@ -689,7 +693,11 @@ export function ReactSessionComposer(props: ComposerProps) {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className={toolMenuOpen ? composerMenuClass.activeToolButton : composerMenuClass.toolButton}
+                    className={
+                      toolMenuOpen
+                        ? composerMenuClass.activeToolButton
+                        : composerMenuClass.toolButton
+                    }
                     onClick={() => {
                       setMentionOpen(false);
                       setSlashOpen(false);
@@ -786,9 +794,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                   ) : null}
                 </div>
                 {inlineToolbarAccessory ? (
-                  <div className="flex min-w-0 shrink items-center">
-                    {props.bottomAccessory}
-                  </div>
+                  <div className="flex min-w-0 shrink items-center">{props.bottomAccessory}</div>
                 ) : null}
                 {shouldShowCollaborationChip && selectedModeOption ? (
                   <Button
@@ -797,8 +803,12 @@ export function ReactSessionComposer(props: ComposerProps) {
                     size="sm"
                     className="max-w-40 shrink-0 gap-1.5 border border-dls-border-strong bg-dls-surface-solid px-2 text-dls-text hover:bg-dls-hover"
                     onClick={clearCollaborationModeSelection}
-                    title={t("composer.remove_collaboration_mode", { mode: selectedModeOption.label })}
-                    aria-label={t("composer.remove_collaboration_mode", { mode: selectedModeOption.label })}
+                    title={t("composer.remove_collaboration_mode", {
+                      mode: selectedModeOption.label,
+                    })}
+                    aria-label={t("composer.remove_collaboration_mode", {
+                      mode: selectedModeOption.label,
+                    })}
                   >
                     <SelectedModeIcon size={14} className="shrink-0" />
                     <span className="min-w-0 truncate">{selectedModeOption.label}</span>
@@ -813,7 +823,7 @@ export function ReactSessionComposer(props: ComposerProps) {
               </div>
 
               {/* Model controls + send stay as a tight trailing cluster so
-                  “深度 / reasoning” is not stranded mid-toolbar with empty flex. */}
+ “深度 / reasoning” is not stranded mid-toolbar with empty flex. */}
               <div
                 className={cn(
                   "ml-auto flex min-w-0 shrink-0 items-center",
@@ -848,17 +858,11 @@ export function ReactSessionComposer(props: ComposerProps) {
                     aria-label={t("settings.model_unavailable")}
                   >
                     <AlertCircle className="size-3.5 shrink-0" />
-                    <span className="min-w-0 truncate">
-                      {t("settings.model_unavailable")}
-                    </span>
+                    <span className="min-w-0 truncate">{t("settings.model_unavailable")}</span>
                   </button>
                 ) : null}
                 {props.flushShell || !props.contextUsage ? null : (
-                  <ContextUsageIndicator
-                    usage={props.contextUsage}
-                    size={16}
-                    className="p-0.5"
-                  />
+                  <ContextUsageIndicator usage={props.contextUsage} size={16} className="p-0.5" />
                 )}
                 {props.modelPickerVisible !== false ? (
                   <ModelSelectContainer
@@ -870,10 +874,12 @@ export function ReactSessionComposer(props: ComposerProps) {
                   />
                 ) : null}
                 {props.busy ? (
-                  <Button variant="destructive" size="icon-lg"
+                  <Button
+                    variant="destructive"
+                    size="icon-lg"
                     type="button"
                     onClick={props.onStop}
-                    className="rounded-full bg-dls-status-danger text-white hover:bg-dls-status-danger-fg"
+                    className="rounded-xl bg-dls-status-danger text-white hover:bg-dls-status-danger-fg"
                     title={t("composer.stop")}
                     aria-label={t("composer.stop")}
                   >
@@ -882,16 +888,8 @@ export function ReactSessionComposer(props: ComposerProps) {
                 ) : (
                   <SendButton
                     type="button"
-                    onClick={
-                      canSend && !props.modelUnavailable
-                        ? props.onSend
-                        : undefined
-                    }
-                    disabled={
-                      props.disabled ||
-                      props.modelUnavailable ||
-                      !canSend
-                    }
+                    onClick={canSend && !props.modelUnavailable ? props.onSend : undefined}
+                    disabled={props.disabled || props.modelUnavailable || !canSend}
                     title={
                       props.modelUnavailable
                         ? t("settings.model_unavailable")
@@ -912,7 +910,7 @@ export function ReactSessionComposer(props: ComposerProps) {
         {underCardAccessory ? (
           <div
             className={`relative z-10 mt-0 flex min-h-9 w-full items-center rounded-t-none rounded-b-xl bg-dls-surface-muted px-2 py-1 text-xs font-normal leading-none text-dls-secondary${
-              props.showOuterBorder ? " border border-t-0 border-dls-border shadow-sm" : ""
+              props.showOuterBorder ? " border border-t-0 border-dls-border" : ""
             }`}
           >
             {props.bottomAccessory}

@@ -42,9 +42,9 @@ function ExternalOpenPlaceholder(props: {
         disabled={!canOpen}
         onClick={() => props.onOpen?.()}
         className={cn(
-          "group flex flex-col items-center gap-3 rounded-2xl border border-dls-border/80 bg-dls-surface-muted/40 px-10 py-9 shadow-sm transition-[background-color,border-color,box-shadow,transform] duration-150",
+          "group flex flex-col items-center gap-3 rounded-2xl border border-dls-border/80 bg-dls-surface-muted/40 px-10 py-9 transition-[background-color,border-color,box-shadow,transform] duration-150",
           canOpen &&
-            "cursor-pointer hover:border-dls-accent/40 hover:bg-dls-surface-muted hover:shadow-md active:scale-[0.98]",
+            "cursor-pointer hover:border-dls-accent/40 hover:bg-dls-surface-muted active:scale-[0.98]",
           !canOpen && "cursor-default opacity-90",
         )}
         aria-label={
@@ -55,15 +55,11 @@ function ExternalOpenPlaceholder(props: {
       >
         <span
           className={cn(
-            "flex size-20 items-center justify-center rounded-2xl bg-dls-background ring-1 ring-dls-border/70 shadow-inner",
+            "flex size-20 items-center justify-center rounded-2xl bg-dls-background ring-1 ring-dls-border/70 ",
             canOpen && "transition-transform duration-150 group-hover:scale-105",
           )}
         >
-          <ArtifactIcon
-            type={props.previewType}
-            name={props.name}
-            className="size-10"
-          />
+          <ArtifactIcon type={props.previewType} name={props.name} className="size-10" />
         </span>
         <span className="max-w-[16rem] truncate text-sm font-medium text-dls-text">
           {props.name}
@@ -174,10 +170,7 @@ export function FilePreviewDrawer(props: {
                 className="mt-0.5 size-5 shrink-0"
               />
               <div className="min-w-0 flex-1">
-                <div
-                  className="truncate text-sm font-medium text-dls-text"
-                  title={file.name}
-                >
+                <div className="truncate text-sm font-medium text-dls-text" title={file.name}>
                   {file.name}
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-xs text-dls-secondary">
@@ -235,11 +228,7 @@ export function FilePreviewDrawer(props: {
               ) : state.status === "ready" && target.preview === "markdown" ? (
                 <MarkdownPreview content={state.content} />
               ) : state.status === "ready" && target.preview === "html" ? (
-                <HTMLPreview
-                  type="text"
-                  title={file.name}
-                  content={state.content}
-                />
+                <HTMLPreview type="text" title={file.name} content={state.content} />
               ) : state.status === "ready" &&
                 target.preview === "sheet" &&
                 /\.(csv|tsv)$/i.test(file.name) ? (
@@ -263,11 +252,7 @@ export function FilePreviewDrawer(props: {
                   name={file.name}
                   previewType={target.preview}
                   onOpen={onOpenExternally}
-                  hint={
-                    state.status === "too_large"
-                      ? t("files.preview_too_large")
-                      : undefined
-                  }
+                  hint={state.status === "too_large" ? t("files.preview_too_large") : undefined}
                 />
               ) : (
                 <div className="flex h-full items-center justify-center px-6 text-center text-sm text-dls-secondary">

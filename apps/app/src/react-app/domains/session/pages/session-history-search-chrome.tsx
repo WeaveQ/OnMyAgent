@@ -29,8 +29,8 @@ export function SessionHistorySearchChrome(props: {
   const searchControl = props.searchOpen ? (
     <div
       className={cn(
-        "flex h-8 items-center gap-1 rounded-full border border-dls-border",
-        "bg-dls-surface-muted/70 px-2 shadow-sm",
+        "flex h-8 items-center gap-1 rounded-lg border border-dls-border",
+        "bg-dls-surface-muted/70 px-2",
         "focus-within:border-dls-accent/40 focus-within:bg-dls-surface-solid",
       )}
     >
@@ -55,9 +55,7 @@ export function SessionHistorySearchChrome(props: {
         aria-label={t("session.conversation_history_search_header_placeholder")}
       />
       {props.matchLabel ? (
-        <span className="shrink-0 tabular-nums text-xs text-dls-secondary">
-          {props.matchLabel}
-        </span>
+        <span className="shrink-0 tabular-nums text-xs text-dls-secondary">{props.matchLabel}</span>
       ) : null}
       <Button
         type="button"

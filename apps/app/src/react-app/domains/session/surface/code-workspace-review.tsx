@@ -157,7 +157,7 @@ export function CodeWorkspaceDiffView(props: {
               variant="outline"
               size="sm"
               disabled={git.changedFiles === 0}
-              className="rounded-full"
+              className="rounded-lg"
             >
               {t("session.code_review_commit_or_push")}
             </Button>

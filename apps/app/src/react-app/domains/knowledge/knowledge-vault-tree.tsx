@@ -128,10 +128,7 @@ export function KnowledgeVaultTree(props: KnowledgeVaultTreeProps) {
   };
 
   return (
-    <KnowledgeVaultContextMenu
-      target={{ kind: "root" }}
-      {...props.actions}
-    >
+    <KnowledgeVaultContextMenu target={{ kind: "root" }} {...props.actions}>
       <ul
         className="flex min-h-full flex-col px-1 py-1"
         onDragOver={(event) => allowDrop(event, "")}
@@ -144,7 +141,11 @@ export function KnowledgeVaultTree(props: KnowledgeVaultTreeProps) {
       >
         {tree.map((node) => (
           <TreeNodeRow
-            key={node.kind === "dir" ? `dir:${node.path}` : noteKey({ scope: props.scope, relPath: node.file.relPath })}
+            key={
+              node.kind === "dir"
+                ? `dir:${node.path}`
+                : noteKey({ scope: props.scope, relPath: node.file.relPath })
+            }
             node={node}
             depth={0}
             scope={props.scope}
@@ -205,33 +206,33 @@ function TreeNodeRow(props: {
           favorited={favorited}
           {...props.actions}
         >
-        <button
-          type="button"
-          draggable
-          title={dropping ? t("knowledge.drop_move_to", { name: folder.name }) : undefined}
-          onDragStart={(event) => {
-            event.stopPropagation();
-            props.onDragStart(event, { kind: "dir", path: folder.path });
-          }}
-          onDragOver={(event) => props.onFolderDragOver(event, folder.path)}
-          onDrop={(event) => props.onFolderDrop(event, folder.path)}
-          onClick={() => props.onToggle(folder.path)}
-          className={cn(
-            "flex w-full items-center gap-1 rounded-md py-1 pr-2 text-left text-sm",
-            dropping
-              ? "bg-dls-accent-soft text-dls-accent"
-              : "text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
-          )}
-          style={pad}
-        >
-          {open ? (
-            <ChevronDown className="size-3.5 shrink-0" aria-hidden />
-          ) : (
-            <ChevronRight className="size-3.5 shrink-0" aria-hidden />
-          )}
-          <Folder className="size-3.5 shrink-0" aria-hidden />
-          <span className="min-w-0 truncate">{props.node.name}</span>
-        </button>
+          <button
+            type="button"
+            draggable
+            title={dropping ? t("knowledge.drop_move_to", { name: folder.name }) : undefined}
+            onDragStart={(event) => {
+              event.stopPropagation();
+              props.onDragStart(event, { kind: "dir", path: folder.path });
+            }}
+            onDragOver={(event) => props.onFolderDragOver(event, folder.path)}
+            onDrop={(event) => props.onFolderDrop(event, folder.path)}
+            onClick={() => props.onToggle(folder.path)}
+            className={cn(
+              "flex w-full items-center gap-1 rounded-md py-1 pr-2 text-left text-sm",
+              dropping
+                ? "bg-dls-accent-soft text-dls-accent"
+                : "text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
+            )}
+            style={pad}
+          >
+            {open ? (
+              <ChevronDown className="size-3.5 shrink-0" aria-hidden />
+            ) : (
+              <ChevronRight className="size-3.5 shrink-0" aria-hidden />
+            )}
+            <Folder className="size-3.5 shrink-0" aria-hidden />
+            <span className="min-w-0 truncate">{props.node.name}</span>
+          </button>
         </KnowledgeVaultContextMenu>
         {open ? (
           <ul>
@@ -264,9 +265,7 @@ function TreeNodeRow(props: {
 
   if (props.node.kind !== "file") return null;
   const file = props.node.file;
-  const active =
-    props.selected?.scope === props.scope &&
-    props.selected.relPath === file.relPath;
+  const active = props.selected?.scope === props.scope && props.selected.relPath === file.relPath;
   const label =
     file.relPath === GETTING_STARTED_REL_PATH
       ? t("knowledge.getting_started")
@@ -283,28 +282,26 @@ function TreeNodeRow(props: {
         favorited={favorited}
         {...props.actions}
       >
-      <button
-        type="button"
-        draggable={file.relPath !== GETTING_STARTED_REL_PATH}
-        onDragStart={(event) => {
-          event.stopPropagation();
-          props.onDragStart(event, { kind: "file", path: file.relPath });
-        }}
-        onClick={() =>
-          props.onSelect({ scope: props.scope, relPath: file.relPath })
-        }
-        className={cn(
-          "flex w-full items-center gap-1 rounded-md py-1 pr-2 text-left text-sm",
-          active
-            ? "bg-dls-list-selected text-dls-text"
-            : "text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
-        )}
-        style={pad}
-      >
-        <span className="inline-flex w-3.5 shrink-0" aria-hidden />
-        <FileText className="size-3.5 shrink-0" aria-hidden />
-        <span className="min-w-0 truncate">{label}</span>
-      </button>
+        <button
+          type="button"
+          draggable={file.relPath !== GETTING_STARTED_REL_PATH}
+          onDragStart={(event) => {
+            event.stopPropagation();
+            props.onDragStart(event, { kind: "file", path: file.relPath });
+          }}
+          onClick={() => props.onSelect({ scope: props.scope, relPath: file.relPath })}
+          className={cn(
+            "flex w-full items-center gap-1 rounded-md py-1 pr-2 text-left text-sm",
+            active
+              ? "bg-dls-list-selected text-dls-text"
+              : "text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
+          )}
+          style={pad}
+        >
+          <span className="inline-flex w-3.5 shrink-0" aria-hidden />
+          <FileText className="size-3.5 shrink-0" aria-hidden />
+          <span className="min-w-0 truncate">{label}</span>
+        </button>
       </KnowledgeVaultContextMenu>
     </li>
   );

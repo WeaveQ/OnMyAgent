@@ -11,46 +11,12 @@ import {
   ensureWorkMemoryAwareness,
   resolveWorkMemoryAwarenessMainDir,
 } from "../ensure-work-memory-awareness.mjs";
-import { readKnowledgeConfig, writePersonalVaultPath } from "../knowledge-vault-config.mjs";
-import { invalidateKnowledgeIndex } from "../knowledge-vault-index.mjs";
-import { ensureKnowledgeVault } from "../ensure-knowledge-vault.mjs";
-import {
-  deleteKnowledgeFile,
-  listKnowledgeVault,
-  readKnowledgeFile,
-  rebuildKnowledgeVaultIndex,
-  searchKnowledgeVault,
-  writeKnowledgeFile,
-} from "../knowledge-vault-io.mjs";
-import {
-  connectCompany,
-  disconnectCompany,
-  evaluateCompanyActionPolicy,
-  fetchCompanyHealth,
-  listCompanyCatalog,
-  pullAndWriteCompanyConfig,
-  readCompanySettings,
-  writeCompanySettings,
-} from "../company-client.mjs";
-
 export const HANDLER_COMMAND_NAMES = Object.freeze([
   "userAgentRegistryRead",
   "userAgentRegistryWrite",
   "prepareFreshRuntime",
   "appBuildInfo",
   "getUiControlBridgeInfo",
-  "getComputerUseMcpCommand",
-  "checkComputerUsePermissions",
-  "setComputerUseMcpEnabled",
-  "setComputerUseSkysightEnabled",
-  "setComputerUseSkysightPaused",
-  "updateComputerUseSkysightExclusion",
-  "clearComputerUseSkysightData",
-  "captureComputerUseAppshot",
-  "revokeComputerUseAppAuthorization",
-  "clearComputerUseAppAuthorizations",
-  "openComputerUsePermissionSetup",
-  "openComputerUsePermissionSettings",
   "checkSystemPermissions",
   "openSystemPermissionSettings",
   "getLaunchAtLogin",
@@ -97,23 +63,6 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "workMemoryReadFile",
   "workMemoryWriteFile",
   "workMemoryListFiles",
-  "knowledgeEnsureVault",
-  "knowledgeList",
-  "knowledgeRead",
-  "knowledgeWrite",
-  "knowledgeDelete",
-  "knowledgeSearch",
-  "knowledgeRebuildIndex",
-  "knowledgeGetConfig",
-  "knowledgeSetPersonalVaultPath",
-  "companySettingsRead",
-  "companySettingsWrite",
-  "companySettingsDisconnect",
-  "companyConnect",
-  "companySyncConfig",
-  "companyCatalog",
-  "companyHealth",
-  "companyEvaluateAction",
 ]);
 
 /**
@@ -171,17 +120,6 @@ export function createSystemDomainHandlers({
   randomBytes,
   runtimeManager,
   app,
-  getComputerUseMcpCommand,
-  checkComputerUsePermissions,
-  setComputerUseMcpEnabled,
-  setComputerUseSkysightEnabled,
-  setComputerUseSkysightPaused,
-  updateComputerUseSkysightExclusion,
-  clearComputerUseSkysightData,
-  captureComputerUseAppshot,
-  revokeComputerUseAppAuthorization,
-  clearComputerUseAppAuthorizations,
-  openComputerUseSetupApp,
   checkBrowserSkillStatus,
   openBrowserSkillInstallPage,
   checkSystemPermissions,
@@ -299,60 +237,6 @@ export function createSystemDomainHandlers({
     } catch {
       return null;
     }
-  },
-
-  getComputerUseMcpCommand: async (event, args) => {
-    return getComputerUseMcpCommand();
-  },
-
-  checkComputerUsePermissions: async (event, args) => {
-    // Spawn --check → fresh TCC read → always accurate.
-    return checkComputerUsePermissions();
-  },
-
-  setComputerUseMcpEnabled: async (event, args) => {
-    return setComputerUseMcpEnabled(args[0]);
-  },
-
-  setComputerUseSkysightEnabled: async (event, args) => {
-    return setComputerUseSkysightEnabled(args[0]);
-  },
-
-  setComputerUseSkysightPaused: async (event, args) => {
-    return setComputerUseSkysightPaused(args[0]);
-  },
-
-  updateComputerUseSkysightExclusion: async (event, args) => {
-    return updateComputerUseSkysightExclusion(args[0], args[1], args[2]);
-  },
-
-  clearComputerUseSkysightData: async (event, args) => {
-    return clearComputerUseSkysightData();
-  },
-
-  captureComputerUseAppshot: async (event, args) => {
-    return captureComputerUseAppshot();
-  },
-
-  revokeComputerUseAppAuthorization: async (event, args) => {
-    return revokeComputerUseAppAuthorization(args[0]);
-  },
-
-  clearComputerUseAppAuthorizations: async (event, args) => {
-    return clearComputerUseAppAuthorizations();
-  },
-
-  openComputerUsePermissionSetup: async (event, args) => {
-    // Open the GUI app. Returns immediately — React shows "verify" CTA.
-    await openComputerUseSetupApp();
-    // Return a fresh check so the UI shows the current state.
-    return checkComputerUsePermissions();
-  },
-
-  openComputerUsePermissionSettings: async (event, args) => {
-    // Legacy: open the setup app (same as above).
-    await openComputerUseSetupApp();
-    return checkComputerUsePermissions();
   },
 
   checkSystemPermissions: async (event, args) => {
@@ -793,134 +677,6 @@ export function createSystemDomainHandlers({
     return { ok: true, path: filePath, size: st.size, mtimeMs: st.mtimeMs };
   },
 
-  knowledgeEnsureVault: async () => {
-    const homeDir =
-      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
-    return ensureKnowledgeVault({ homeDir });
-  },
-
-  knowledgeList: async (event, args) => {
-    const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
-    const homeDir =
-      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
-    return listKnowledgeVault({
-      homeDir,
-      scope: payload.scope,
-      workspaceId: payload.workspaceId,
-      expertId: payload.expertId,
-    });
-  },
-
-  knowledgeRead: async (event, args) => {
-    const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
-    const homeDir =
-      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
-    try {
-      return await readKnowledgeFile({
-        homeDir,
-        scope: payload.scope,
-        relPath: payload.relPath,
-        workspaceId: payload.workspaceId,
-        expertId: payload.expertId,
-      });
-    } catch (error) {
-      return { ok: false, reason: error?.reason ?? "read_failed" };
-    }
-  },
-
-  knowledgeWrite: async (event, args) => {
-    const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
-    const homeDir =
-      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
-    try {
-      return await writeKnowledgeFile({
-        homeDir,
-        scope: payload.scope,
-        relPath: payload.relPath,
-        content: payload.content,
-        workspaceId: payload.workspaceId,
-        expertId: payload.expertId,
-      });
-    } catch (error) {
-      return { ok: false, reason: error?.reason ?? "write_failed" };
-    }
-  },
-
-  knowledgeDelete: async (event, args) => {
-    const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
-    const homeDir =
-      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
-    try {
-      return await deleteKnowledgeFile({
-        homeDir,
-        scope: payload.scope,
-        relPath: payload.relPath,
-        workspaceId: payload.workspaceId,
-        expertId: payload.expertId,
-      });
-    } catch (error) {
-      return { ok: false, reason: error?.reason ?? "delete_failed" };
-    }
-  },
-
-  knowledgeRebuildIndex: async (event, args) => {
-    const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
-    const homeDir =
-      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
-    try {
-      return await rebuildKnowledgeVaultIndex({
-        homeDir,
-        scope: payload.scope,
-        workspaceId: payload.workspaceId,
-        expertId: payload.expertId,
-      });
-    } catch (error) {
-      const reason = error?.reason ?? (error instanceof Error ? error.message : "index_failed");
-      console.warn("[knowledge] rebuild index failed", error);
-      return { ok: false, reason, count: 0 };
-    }
-  },
-
-  knowledgeSearch: async (event, args) => {
-    const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
-    const homeDir =
-      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
-    try {
-      return await searchKnowledgeVault({
-        homeDir,
-        query: payload.query,
-        scope: payload.scope,
-        workspaceId: payload.workspaceId,
-        expertId: payload.expertId,
-        limit: payload.limit,
-      });
-    } catch (error) {
-      return { ok: false, reason: error?.reason ?? "search_failed", hits: [] };
-    }
-  },
-
-  knowledgeGetConfig: async () => {
-    const homeDir =
-      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
-    return { ok: true, ...readKnowledgeConfig(homeDir) };
-  },
-
-  knowledgeSetPersonalVaultPath: async (event, args) => {
-    const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
-    const homeDir =
-      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
-    const next =
-      payload.path === null || payload.path === undefined
-        ? null
-        : String(payload.path);
-    const result = await writePersonalVaultPath(next, homeDir);
-    if (result.ok) {
-      invalidateKnowledgeIndex(homeDir);
-      await ensureKnowledgeVault({ homeDir });
-    }
-    return result;
-  },
-
   __joinPath: async (event, args) => {
     return path.join(...args.map((value) => String(value ?? "")));
   },
@@ -995,87 +751,6 @@ export function createSystemDomainHandlers({
       ok: false,
       message: `${tool} is bundled with OnMyAgent and cannot be installed separately.`,
     };
-  },
-
-  /**
-   * Durable company session store (SoT: company-client company-settings.json).
-   * Renderer Company settings must use these instead of localStorage-only.
-   */
-  companySettingsRead: async () => {
-    const homeDir =
-      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
-    return readCompanySettings(homeDir);
-  },
-
-  companySettingsWrite: async (event, args) => {
-    const homeDir =
-      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
-    const patch = args[0] && typeof args[0] === "object" ? args[0] : {};
-    return writeCompanySettings(homeDir, patch);
-  },
-
-  companySettingsDisconnect: async () => {
-    const homeDir =
-      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
-    return disconnectCompany(homeDir);
-  },
-
-  /**
-   * Probe company health from main process (renderer must not fetch OMC — CORS).
-   * args[0] = companyBaseUrl string
-   */
-  companyHealth: async (event, args) => {
-    const baseUrl = String(args[0] ?? "").trim();
-    return fetchCompanyHealth(baseUrl);
-  },
-
-  /** Policy check for org-gated actions (args[0] = actionId). */
-  companyEvaluateAction: async (event, args) => {
-    const homeDir =
-      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
-    return evaluateCompanyActionPolicy(homeDir, String(args[0] ?? ""));
-  },
-
-  /**
-   * Full connect: health + email OTP + pull OrgConfig mirror + session.
-   * args[0] = { companyBaseUrl, email, code }
-   */
-  companyConnect: async (event, args) => {
-    const homeDir =
-      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
-    const input = args[0] && typeof args[0] === "object" ? args[0] : {};
-    return connectCompany(homeDir, {
-      companyBaseUrl: String(input.companyBaseUrl ?? ""),
-      email: String(input.email ?? ""),
-      code: String(input.code ?? ""),
-    });
-  },
-
-  /** Re-pull OrgConfig when already logged in. */
-  companySyncConfig: async () => {
-    const homeDir =
-      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
-    const settings = readCompanySettings(homeDir);
-    if (!settings.companyBaseUrl || !settings.memberToken) {
-      throw new Error("not connected to company");
-    }
-    const pulled = await pullAndWriteCompanyConfig(
-      homeDir,
-      settings.companyBaseUrl,
-      settings.memberToken,
-    );
-    const next = writeCompanySettings(homeDir, {
-      lastSyncedVersion: pulled.version,
-      lastSyncedAt: new Date().toISOString(),
-    });
-    return { settings: next, pulled };
-  },
-
-  /** Catalog for 公司 tabs (skills + experts from mirror). */
-  companyCatalog: async () => {
-    const homeDir =
-      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
-    return listCompanyCatalog(homeDir);
   },
 
   };

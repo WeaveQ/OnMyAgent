@@ -158,17 +158,32 @@ describe("create skill matches WorkBuddy chip draft", () => {
       join(appRoot, "../desktop/resources/bundled-skills/skill-creator/SKILL.md"),
       "utf8",
     );
-    const template = readFileSync(
-      join(appRoot, "src/app/data/skill-creator.md"),
+    expect(bundled).toContain("profiles/local/config/skills");
+    expect(bundled).toMatch(/name/i);
+    expect(bundled).toMatch(/description/i);
+    expect(bundled).not.toMatch(/GENERATE THE EVAL VIEWER _BEFORE_/);
+    expect(bundled).not.toMatch(/prefer creating the skill at `\.opencode\/skills\//i);
+  });
+
+  test("install and inject paths read bundled skill-creator SKILL.md", () => {
+    const skillActions = readFileSync(
+      join(appRoot, "src/react-app/domains/settings/state/extensions-store-skill-actions.ts"),
       "utf8",
     );
-    for (const body of [bundled, template]) {
-      expect(body).toContain("profiles/local/config/skills");
-      expect(body).toMatch(/name/i);
-      expect(body).toMatch(/description/i);
-      expect(body).not.toMatch(/GENERATE THE EVAL VIEWER _BEFORE_/);
-    }
-    expect(template).not.toMatch(/prefer creating the skill at `\.opencode\/skills\//i);
+    const surface = readFileSync(
+      join(appRoot, "src/react-app/shell/session-route/surface-props-hook-impl.ts"),
+      "utf8",
+    );
+    const extensionsStore = readFileSync(
+      join(appRoot, "src/react-app/domains/settings/state/extensions-store.ts"),
+      "utf8",
+    );
+    expect(skillActions).toContain("bundled-skills/skill-creator/SKILL.md");
+    expect(surface).toContain("bundled-skills/skill-creator/SKILL.md");
+    expect(skillActions).not.toContain("app/data/skill-creator.md");
+    expect(surface).not.toContain("app/data/skill-creator.md");
+    expect(extensionsStore).not.toContain("app/data/skill-creator.md");
+    expect(extensionsStore).not.toContain("skillCreatorTemplate");
   });
 
   test("expert create-skill still navigates before awaiting install", () => {
