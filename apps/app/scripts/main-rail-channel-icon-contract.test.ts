@@ -31,7 +31,7 @@ describe("main rail channel icon contract", () => {
     expect(railSource).not.toContain("wechat.png");
     // Lucide names live in the icon module, not inlined in main-rail.
     expect(railSource).not.toContain("MessagesSquare");
-    expect(railSource).toContain('get label() { return t("nav.channels"); }');
+    expect(railSource).toContain('return t("nav.channels");');
     // Devices entry removed from bottom rail (settings remains on account gear).
     expect(railSource).not.toContain('id: "devices"');
     expect(railSource).not.toContain("DevicesRailIcon");

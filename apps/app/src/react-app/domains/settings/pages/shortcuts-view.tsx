@@ -34,10 +34,19 @@ export type ShortcutsViewProps = {
   onKeymapOverridesChange: (next: Record<string, string>) => void;
 };
 
+const ACTION_TITLE_KEYS = {
+  openSettings: "settings.shortcuts_action_openSettings",
+  toggleSidebar: "settings.shortcuts_action_toggleSidebar",
+  newTask: "settings.shortcuts_action_newTask",
+  searchInCurrentTask: "settings.shortcuts_action_searchInCurrentTask",
+  sendMessage: "settings.shortcuts_action_sendMessage",
+  insertNewline: "settings.shortcuts_action_insertNewline",
+  appSnapshot: "settings.shortcuts_action_appSnapshot",
+  quickCapture: "settings.shortcuts_action_quickCapture",
+} as const satisfies Record<KeymapActionId, string>;
+
 function actionTitle(id: KeymapActionId) {
-  return t(
-    `settings.shortcuts_action_${id}` as "settings.shortcuts_action_openSettings",
-  );
+  return t(ACTION_TITLE_KEYS[id]);
 }
 
 function actionDescription(id: KeymapActionId): string | null {
