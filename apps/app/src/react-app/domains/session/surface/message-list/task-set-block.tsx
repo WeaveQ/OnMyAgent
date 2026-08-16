@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { summarizeStep } from "../../../../../app/utils";
+import { type MarkdownCodePathOpenMode } from "../markdown";
 import {
   SpecializedToolDetails,
   specializedToolCanExpand,
@@ -74,7 +75,10 @@ function partErrorText(part: TranscriptPart): string | undefined {
   return state.error.trim() || undefined;
 }
 
-export function TaskSetBlock(props: { items: TaskSetBlockItem[] }) {
+export function TaskSetBlock(props: {
+  items: TaskSetBlockItem[];
+  onOpenCodePath?: (path: string, mode?: MarkdownCodePathOpenMode) => void;
+}) {
   const completed = taskSetCompletedCount(props.items);
   return (
     <div className="overflow-hidden rounded-xl border border-dls-border bg-dls-surface">
@@ -126,7 +130,12 @@ export function TaskSetBlock(props: { items: TaskSetBlockItem[] }) {
                   {item.error ? (
                     <div className="mb-2 text-sm text-dls-danger">{item.error}</div>
                   ) : null}
-                  {details ? <SpecializedToolDetails details={details} /> : null}
+                  {details ? (
+                    <SpecializedToolDetails
+                      details={details}
+                      onOpenCodePath={props.onOpenCodePath}
+                    />
+                  ) : null}
                 </div>
               ) : null}
             </li>

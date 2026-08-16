@@ -52,7 +52,6 @@ import { useStatusToasts } from "../../shell-feedback";
 import { PROJECTS_PLACEHOLDER_ASSET } from "@/react-app/design-system/empty-state-assets";
 import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import { FeaturePreviewPlaceholder } from "./feature-preview-placeholder";
-import { KnowledgeVaultPage } from "../knowledge";
 
 const sidePanelTextClass = {
   emptyTitle: "mt-5 text-base font-medium text-dls-text",
@@ -638,8 +637,4 @@ export function ProjectsComingSoonPage() {
       </div>
     </div>
   );
-}
-
-export function KnowledgeBaseComingSoonPage() {
-  return <KnowledgeVaultPage />;
 }
