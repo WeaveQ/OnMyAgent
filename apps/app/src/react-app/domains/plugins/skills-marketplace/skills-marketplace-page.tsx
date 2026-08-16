@@ -273,6 +273,10 @@ function mergeLocalSkillWithCatalog(
   );
   return {
     ...skill,
+    displayNameZh:
+      skill.displayNameZh?.trim() ||
+      catalog.displayNameZh ||
+      skill.displayNameZh,
     displayNameEn:
       skill.displayNameEn?.trim() ||
       catalog.displayNameEn ||

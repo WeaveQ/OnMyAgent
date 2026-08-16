@@ -43,7 +43,14 @@ describe("document-processing bundled skill", () => {
         .split("\n")
         .map((line) => line.split(":")[0])
         .filter(Boolean),
-      ["name", "description"],
+      [
+        "name",
+        "description",
+        "display_name_zh",
+        "display_name_en",
+        "description_zh",
+        "description_en",
+      ],
     );
     assert.match(skillText, /name: document-processing/);
     for (const formatSkill of [

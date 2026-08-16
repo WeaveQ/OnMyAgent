@@ -93,6 +93,14 @@ export type {
   ExpertColdPathResult,
   ExpertColdPathRunner,
 } from "./sync/expert-cold-path";
+/** Slash-skill inject-or-fail — shell send path imports via this barrel only. */
+export {
+  CORE_SLASH_SKILL_COMMAND_NAMES,
+  createInjectedSkillContentLoader,
+  isInjectedSkillCommand,
+  resolveSlashSkillSend,
+} from "./sync/slash-skill-commands";
+export type { SlashSkillSendDecision } from "./sync/slash-skill-commands";
 export {
   clearSessionDraft,
   getSessionDraft,

@@ -1,6 +1,10 @@
 ---
 name: getworkbuddy
 description: Import locally installed WorkBuddy experts and expert teams into OnMyAgent through the authenticated local server. Use when the user invokes /getworkbuddy, asks to list or inspect local WorkBuddy expert packages, or asks an assistant/expert to import a WorkBuddy expert or team by package ID, Chinese name, or English name.
+display_name_zh: "Get WorkBuddy"
+display_name_en: "Get WorkBuddy"
+description_zh: "把本机已安装的 WorkBuddy 专家和专家团导入 OnMyAgent"
+description_en: "Import locally installed WorkBuddy experts and teams into OnMyAgent"
 ---
 
 # Get WorkBuddy

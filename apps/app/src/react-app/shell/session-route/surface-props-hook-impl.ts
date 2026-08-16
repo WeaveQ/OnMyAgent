@@ -8,7 +8,13 @@ import {
   type SetStateAction,
 } from "react";
 
-import { pickDirectory } from "../../../app/lib/desktop";
+import skillCreatorTemplate from "../../../app/data/skill-creator.md?raw";
+import {
+  installBuiltinSkillPackage,
+  onmyagentSkillsRoot,
+  pickDirectory,
+  readLocalSkill,
+} from "../../../app/lib/desktop";
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
 import { buildOnMyAgentEnvRuntimeKey } from "../../../app/lib/onmyagent-env-runtime";
 import {
@@ -46,10 +52,13 @@ import {
 import { usePendingAgentStore } from "../../domains/agents";
 import { writeSessionOriginDurable } from "../../domains/agents";
 import {
+  CORE_SLASH_SKILL_COMMAND_NAMES,
   claimOrCreateExpertColdSession,
   clearOptimisticSessionUserMessage,
+  createInjectedSkillContentLoader,
   dispatchAssistantSessionWorkspacesChanged,
   readAssistantSessionWorkspace,
+  resolveSlashSkillSend,
   seedOptimisticSessionUserMessage,
   shouldForwardPromptMessageId,
   startExpertColdPrewarm,
@@ -755,26 +764,58 @@ export function useSessionRouteSurfaceProps(
             command.source ??
             (await listCommands(opencodeClient, taskWorkspaceRoot || undefined))
               .find((item) => item.name === command.name)?.source;
-          const isSkillCommand =
-            commandSource === "skill" || command.name === "expert-manager";
-          if (isSkillCommand) {
-            const skillClient = selectedWorkspaceEndpoint?.client ?? client;
-            const skillWorkspaceId =
-              selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
-            const skill = await skillClient.getSkill(skillWorkspaceId, command.name, {
-              includeGlobal: true,
-            });
-            const skillArguments = command.arguments.trim();
+          const skillClient = selectedWorkspaceEndpoint?.client ?? client;
+          const skillWorkspaceId =
+            selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
+          const skillDecision = await resolveSlashSkillSend({
+            commandName: command.name,
+            commandSource,
+            arguments: command.arguments,
+            loadSkillContent: createInjectedSkillContentLoader({
+              getSkill: async (name) => {
+                const skill = await skillClient.getSkill(skillWorkspaceId, name, {
+                  includeGlobal: true,
+                });
+                return skill.content;
+              },
+              ensureInstalled: isElectronRuntime()
+                ? async (name) => {
+                    if (
+                      !(CORE_SLASH_SKILL_COMMAND_NAMES as readonly string[]).includes(
+                        name,
+                      )
+                    ) {
+                      return;
+                    }
+                    await installBuiltinSkillPackage({
+                      source: "builtin",
+                      packageName: name,
+                      skillName: name,
+                    });
+                  }
+                : undefined,
+              readInstalled: isElectronRuntime()
+                ? async (name) => {
+                    const root = await onmyagentSkillsRoot();
+                    const local = (await readLocalSkill(root, name)) as {
+                      path: string;
+                      content: string;
+                    };
+                    return typeof local.content === "string" ? local.content : null;
+                  }
+                : undefined,
+              bundledByName: { "skill-creator": skillCreatorTemplate },
+            }),
+          });
+          if (skillDecision.kind === "fail") {
+            throw new Error(
+              t("session.skill_inject_failed", { name: skillDecision.commandName }),
+            );
+          }
+          if (skillDecision.kind === "inject") {
             skillCommandPrompt = {
-              systemPrompt: [
-                `The user invoked the /${command.name} skill. Read and follow this SKILL.md content for this turn.`,
-                "The user-facing prompt may start with a [[skill:name]] marker; treat it as UI metadata and focus on the arguments after it.",
-                "",
-                "```markdown",
-                skill.content,
-                "```",
-              ].join("\n"),
-              visiblePrompt: `[[skill:${command.name}]] ${skillArguments || command.name}`.trim(),
+              systemPrompt: skillDecision.systemPrompt,
+              visiblePrompt: skillDecision.visiblePrompt,
             };
           }
         }

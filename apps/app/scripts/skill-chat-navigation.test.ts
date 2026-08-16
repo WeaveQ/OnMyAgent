@@ -66,13 +66,13 @@ describe("create skill matches WorkBuddy chip draft", () => {
       ),
       "utf8",
     );
-    const createSkillFn = /const handleCreateSkill = useCallback\(\(\) => \{[\s\S]*?\}, \[/;
-    const assistantCreate = assistant.match(createSkillFn)?.[0] ?? "";
-    const expertCreate = expertNav.match(createSkillFn)?.[0] ?? "";
-    expect(assistantCreate).toContain("create_skill_prompt");
-    expect(assistantCreate).toContain("installBuiltinSkillPackage");
-    expect(expertCreate).toContain("create_skill_prompt");
-    expect(expertCreate).toContain("installBuiltinSkillPackage");
+    expect(assistant).toContain("const handleCreateSkill");
+    expect(assistant).toContain("create_skill_prompt");
+    expect(assistant).toContain("installBuiltinSkillPackage");
+    expect(assistant).toContain("CREATE_SKILL_PACKAGE_NAME");
+    expect(expertNav).toContain("const handleCreateSkill");
+    expect(expertNav).toContain("create_skill_prompt");
+    expect(expertNav).toContain("installBuiltinSkillPackage");
   });
 
   test("create-skill draft starts with /skill-creator and a short placeholder", () => {
@@ -84,7 +84,7 @@ describe("create skill matches WorkBuddy chip draft", () => {
     expect(zhTW).toMatch(/create_skill_prompt": "\/skill-creator 請幫我建立一個可以實現「\.\.\.\.\.\.」的skill"/);
   });
 
-  test("bundled skill-creator catalog copy is English", () => {
+  test("bundled skill-creator trigger stays English and card copy is Chinese", () => {
     const skill = readFileSync(
       join(
         appRoot,
@@ -93,9 +93,40 @@ describe("create skill matches WorkBuddy chip draft", () => {
       "utf8",
     );
     const frontmatter = skill.slice(0, skill.indexOf("\n---", 4));
+    const triggerDescription = frontmatter.match(/^description:\s*(.*)$/m)?.[1] ?? "";
     expect(frontmatter).toContain('display_name: "Skill Creator"');
-    expect(frontmatter).toContain("Create, edit, evaluate, benchmark");
-    expect(frontmatter).not.toMatch(/display_name_zh/);
-    expect(frontmatter).not.toMatch(/[\u4e00-\u9fff]/);
+    expect(triggerDescription).toContain("Create, edit, evaluate, benchmark");
+    expect(triggerDescription).not.toMatch(/[\u4e00-\u9fff]/);
+    expect(frontmatter).toMatch(/description_zh:\s*".*[\u4e00-\u9fff]/);
+  });
+
+  test("injected skill-creator bodies finish in installed-skills, not eval-viewer", () => {
+    const bundled = readFileSync(
+      join(appRoot, "../desktop/resources/bundled-skills/skill-creator/SKILL.md"),
+      "utf8",
+    );
+    const template = readFileSync(
+      join(appRoot, "src/app/data/skill-creator.md"),
+      "utf8",
+    );
+    for (const body of [bundled, template]) {
+      expect(body).toContain("profiles/local/config/skills");
+      expect(body).toMatch(/name/i);
+      expect(body).toMatch(/description/i);
+      expect(body).not.toMatch(/GENERATE THE EVAL VIEWER _BEFORE_/);
+    }
+    expect(template).not.toMatch(/prefer creating the skill at `\.opencode\/skills\//i);
+  });
+
+  test("expert create-skill still navigates before awaiting install", () => {
+    const expertNav = readFileSync(
+      join(
+        appRoot,
+        "src/react-app/domains/session/pages/use-expert-skill-navigation.ts",
+      ),
+      "utf8",
+    );
+    expect(expertNav).toContain("goAssistantOfficeNewTaskWithDraft(t(\"session.create_skill_prompt\"))");
+    expect(expertNav).not.toContain("await installBuiltinSkillPackage");
   });
 });

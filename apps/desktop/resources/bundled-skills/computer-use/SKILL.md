@@ -1,6 +1,10 @@
 ---
 name: computer-use
 description: Control local desktop apps through OnMyAgent Computer Use (macOS HandsFree; Windows Cua Driver). Use for native app UI, screenshots, keyboard/mouse when no purpose-built connector, API, or CLI fits better.
+display_name_zh: "Computer Use"
+display_name_en: "Computer Use"
+description_zh: "控制本机桌面应用，截图并模拟键盘鼠标（macOS / Windows）"
+description_en: "Control local desktop apps with screenshots, keyboard, and mouse"
 ---
 
 # Computer Use

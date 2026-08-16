@@ -5,17 +5,17 @@ description: Guide for creating effective skills. Use when users want to create 
 
 # Skill Creator
 
-This skill is a template + checklist for creating skills in a workspace.
+This skill is a template + checklist for creating skills that show up in OnMyAgent Market → Installed.
 
 ## What is a skill?
 
-A skill is a folder under `.opencode/skills/<skill-name>/` or `.claude/skills/<skill-name>/` anchored by `SKILL.md`.
+A skill is a folder anchored by `SKILL.md` with YAML frontmatter `name` + `description`.
 
-## OnMyAgent behavior
+## OnMyAgent write destination
 
-- In OnMyAgent, prefer creating the skill at `.opencode/skills/<skill-name>/SKILL.md`.
-- Use a file mutation tool (`write`, `edit`, or `apply_patch`) on the real skill path instead of pasting the whole skill into chat.
-- Writing the skill file lets OnMyAgent show the reload banner above the conversation so the user can activate the new skill immediately.
+- **Required finish line:** write the new skill to `~/.onmyagent/profiles/local/config/skills/<skill-name>/SKILL.md` (the product installed-skills root that Market → 已安装 / Installed lists).
+- Use a file mutation tool (`write`, `edit`, or `apply_patch`) on that real path instead of pasting the whole skill into chat.
+- Do **not** treat workspace-only `.opencode/skills`, Claude-eval, or `eval-viewer` as the done condition. Those are optional extras after the skill exists under installed-skills.
 
 ## Design goals
 
@@ -27,18 +27,17 @@ A skill is a folder under `.opencode/skills/<skill-name>/` or `.claude/skills/<s
 ## Recommended structure
 
 ```
-.opencode/
-  skills/
-    my-skill/
-      SKILL.md
-      README.md
-      templates/
-      scripts/
+~/.onmyagent/profiles/local/config/skills/
+  my-skill/
+    SKILL.md
+    README.md
+    templates/
+    scripts/
 ```
 
 ## Trigger phrases (critical)
 
-The description field is how Claude decides when to use your skill.
+The description field is how the model decides when to use your skill.
 Include 2-3 specific phrases that should trigger it.
 
 Bad example:
@@ -76,4 +75,4 @@ description: |
 3. Include “Setup” steps if the skill needs local tooling.
 4. Add examples: at least 2 realistic user prompts.
 5. Keep it safe: avoid destructive defaults; ask for confirmation.
-6. In OnMyAgent, finish by writing the final `SKILL.md` file to `.opencode/skills/<skill-name>/SKILL.md` so the reload banner can appear.
+6. Finish by writing the final `SKILL.md` to `~/.onmyagent/profiles/local/config/skills/<skill-name>/SKILL.md` so it appears under Market → Installed.

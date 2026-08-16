@@ -2,12 +2,14 @@
  * Skill titles follow UI locale (zh prefers displayNameZh).
  */
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { resolveBundledSkillDisplay } from "../src/react-app/domains/plugins/bundled-skill-locale";
 
 const appRoot = join(import.meta.dir, "..");
+const bundledSkillsRoot = join(appRoot, "../desktop/resources/bundled-skills");
+const CJK = /[\u4e00-\u9fff]/;
 
 describe("resolveBundledSkillDisplay (shipped)", () => {
   test("uses Chinese display name for titles under zh locales", () => {
@@ -48,5 +50,42 @@ describe("skills marketplace title wiring", () => {
     expect(page).toMatch(
       /function skillDisplayName[\s\S]*?displayNameZh\?\.trim\(\)/,
     );
+  });
+
+  test("marketplace merge fills Chinese titles from bundled catalog", () => {
+    const page = readFileSync(
+      join(
+        appRoot,
+        "src/react-app/domains/plugins/skills-marketplace/skills-marketplace-page.tsx",
+      ),
+      "utf8",
+    );
+    expect(page).toMatch(
+      /function mergeLocalSkillWithCatalog[\s\S]*?displayNameZh:[\s\S]*?catalog\.displayNameZh/,
+    );
+  });
+});
+
+describe("bundled skill card copy", () => {
+  test("every shipped skill has Chinese marketplace description", () => {
+    const missing: string[] = [];
+    for (const name of readdirSync(bundledSkillsRoot, { withFileTypes: true })) {
+      if (!name.isDirectory() || name.name.startsWith(".")) continue;
+      const skillPath = join(bundledSkillsRoot, name.name, "SKILL.md");
+      let raw = "";
+      try {
+        raw = readFileSync(skillPath, "utf8");
+      } catch {
+        continue;
+      }
+      const close = raw.indexOf("\n---", 4);
+      const frontmatter = close >= 0 ? raw.slice(0, close) : raw;
+      const descriptionZh = frontmatter.match(/^description_zh:\s*(.*)$/m)?.[1] ?? "";
+      const description = frontmatter.match(/^description:\s*(.*)$/m)?.[1] ?? "";
+      if (!CJK.test(descriptionZh) && !CJK.test(description)) {
+        missing.push(name.name);
+      }
+    }
+    expect(missing).toEqual([]);
   });
 });

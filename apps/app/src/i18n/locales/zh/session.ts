@@ -46,6 +46,7 @@ export default {
   "session.create_expert_yourself": "我要创建",
   "session.create_expert_prompt": "/expert-manager 帮我创建一个 XXX 专家，擅长 XXXXX。我的经验是：[请补充你的行业背景、相关经验]",
   "session.create_skill_prompt": "/skill-creator 请帮我创建一个可以实现「......」的skill",
+  "session.skill_inject_failed": "无法加载 /{name} 技能。请先在市场安装后再发送。",
   "session.chat_with_skill_prompt": "/{name} ",
   "session.edit_skill_prompt": "/skill-creator /{name} 请帮我编辑这个 skill",
   "session.expert_capability": "能力介绍",

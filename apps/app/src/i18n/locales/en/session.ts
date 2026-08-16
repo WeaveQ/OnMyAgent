@@ -50,6 +50,8 @@ export default {
   "session.create_expert_yourself": "Create my expert",
   "session.create_expert_prompt": "/expert-manager Help me create a XXX expert skilled in XXXXX. My experience: [add your industry background and relevant experience]",
   "session.create_skill_prompt": "/skill-creator Please help me create a skill that can \"......\"",
+  "session.skill_inject_failed":
+    "Could not load the /{name} skill. Install it from Market, then try again.",
   "session.chat_with_skill_prompt": "/{name} ",
   "session.edit_skill_prompt": "/skill-creator /{name} Please help me edit this skill",
   "session.expert_capability": "Capabilities",

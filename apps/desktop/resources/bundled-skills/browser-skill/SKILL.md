@@ -7,6 +7,10 @@ description: >
   MCP connectors or OnMyAgent in-app Browser (browser-automation) when they fit better.
   Requires `bsk` on PATH and the BrowserSkill extension connected (green popup).
   If setup is missing, tell the user to open Extensions → BrowserSkill (guided 3-step panel).
+display_name_zh: "BrowserSkill"
+display_name_en: "BrowserSkill"
+description_zh: "通过本机 Chrome / Edge 操作已登录网站，支持表单、读页和验证码交接"
+description_en: "Drive the user's Chrome or Edge for logged-in sites, forms, and captcha handoff"
 ---
 
 # BrowserSkill (external real browser)
