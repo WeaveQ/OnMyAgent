@@ -33,9 +33,11 @@ import {
   StorePage,
 } from "../components/side-panel-pages";
 import { CompanyRailPane } from "../components/company-rail-pane";
-import { KnowledgeVaultPage } from "../knowledge";
-import { subscribeOpenKnowledgeNote } from "../knowledge/knowledge-vault-navigation";
-import { resolveKnowledgeExpertFolderId } from "../knowledge/knowledge-vault-model";
+import {
+  KnowledgeVaultPage,
+  resolveKnowledgeExpertFolderId,
+  subscribeOpenKnowledgeNote,
+} from "../../knowledge";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 
 import {

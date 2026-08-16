@@ -143,8 +143,7 @@ import {
   type StorePrimaryTab,
 } from "../components/side-panel-pages";
 import { CompanyRailPane } from "../components/company-rail-pane";
-import { KnowledgeVaultPage } from "../knowledge";
-import { subscribeOpenKnowledgeNote } from "../knowledge/knowledge-vault-navigation";
+import { KnowledgeVaultPage, subscribeOpenKnowledgeNote } from "../../knowledge";
 import {
   ResizableHandle,
   ResizablePanel,

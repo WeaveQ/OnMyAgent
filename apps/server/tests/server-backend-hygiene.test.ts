@@ -34,8 +34,8 @@ describe("backend hygiene structural", () => {
       join(serverRoot, "src/routes/dev-ui-routes.ts"),
       "utf8",
     );
-    expect(routes).toContain('import("../toy-ui.js")');
-    expect(routes).not.toMatch(/from \"\.\.\/toy-ui\.js\"/);
+    expect(routes).toContain('import("../dev/toy-ui.js")');
+    expect(routes).not.toMatch(/from \"\.\.\/(?:dev\/)?toy-ui\.js\"/);
 
     const baseline = join(repoRoot, "scripts/checks/baselines/file-size.json");
     expect(existsSync(baseline)).toBe(true);

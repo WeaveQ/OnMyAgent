@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { MarkdownPreview } from "../artifacts/preview";
+import { MarkdownPreview } from "../../capabilities/artifacts/preview";
 import {
   headingTitleFromBody,
   parseKnowledgeNoteProps,

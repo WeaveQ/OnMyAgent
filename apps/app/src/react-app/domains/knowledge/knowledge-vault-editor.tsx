@@ -2,10 +2,10 @@
 import { lazy, Suspense } from "react";
 
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { t } from "../../../../i18n";
+import { t } from "../../../i18n";
 
 const ArtifactTextEditor = lazy(() =>
-  import("../artifacts/artifact-text-editor").then((module) => ({
+  import("../../capabilities/artifacts/artifact-text-editor").then((module) => ({
     default: module.ArtifactTextEditor,
   })),
 );

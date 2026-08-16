@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, FileText, Folder } from "lucide-react";
 
-import { t } from "../../../../i18n";
+import { t } from "../../../i18n";
 import { cn } from "@/lib/utils";
 import {
   KnowledgeVaultContextMenu,

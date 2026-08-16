@@ -9,12 +9,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { t } from "../../../../i18n";
+import { t } from "../../../i18n";
 import {
   openKnowledgeVaultFolder,
   pickDirectory,
   setKnowledgePersonalVaultPath,
-} from "../../../../app/lib/desktop";
+} from "../../../app/lib/desktop";
 
 export type KnowledgeVaultOption = {
   name: string;

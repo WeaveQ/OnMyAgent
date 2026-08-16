@@ -102,7 +102,7 @@ import { BillingPage } from "./session-page-billing-page";
 import { DevicesPage } from "./session-page-devices-page";
 import { SidebarFeaturePlaceholder } from "./session-page-feature-placeholder";
 import { EmptyArtifactsPanel, ProjectsComingSoonPage } from "./session-page-light-pages";
-import { KnowledgeVaultPage } from "../knowledge";
+import { KnowledgeVaultPage } from "../../knowledge";
 import {
   sessionTitleForId,
   type TaskStatusIndicator,

@@ -12,9 +12,9 @@ import { StatusBadge, type StatusBadgeTone } from "@/components/ui/status-badge"
 import { t } from "../../../../i18n";
 import {
   isKnowledgeSearchToolName,
+  openKnowledgeNoteInRail,
   parseKnowledgeSearchHits,
-} from "../knowledge/knowledge-search-hits";
-import { openKnowledgeNoteInRail } from "../knowledge/knowledge-vault-navigation";
+} from "../../knowledge";
 function normalizeToolText(value: unknown) {
   if (typeof value !== "string") return "";
   return value.replace(/(?:\r?\n\s*)+$/, "");
