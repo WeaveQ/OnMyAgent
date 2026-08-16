@@ -145,4 +145,20 @@ export default {
   "extensions.ollama_api": "Ollama API",
   "extensions.ollama_check_models": "檢查本地模型",
   "extensions.ollama_provider": "Ollama 服務商",
+  "extensions.knowledge_search_name": "知識庫",
+  "extensions.knowledge_search_description":
+    "檢索主欄知識庫裡的本機 Markdown 筆記。",
+  "extensions.knowledge_search_long":
+    "內建知識庫連接器。工作階段用 knowledge_search / knowledge_read / knowledge_create 操作主欄同一份磁碟筆記。這不是技能，也不是記憶。",
+  "extensions.knowledge_search_prompt": "在知識庫中搜尋",
+  "extensions.knowledge_search_suggestion_brief":
+    "在知識庫裡搜尋最新的產品簡報",
+  "extensions.knowledge_search_suggestion_find":
+    "查找本週會議準備相關的筆記",
+  "extensions.knowledge_search_suggestion_open":
+    "知識庫裡有沒有關於 OnMyAgent 的紀錄？",
+  "extensions.knowledge_search_setup":
+    "桌面端預設開啟。在主欄知識庫寫筆記，工作階段會用 knowledge_search 檢索。無需額外登入。",
+  "extensions.knowledge_search_plugin_label": "knowledge_search 工作階段工具",
+  "extensions.knowledge_search_vault_label": "本機知識庫",
 } as const;

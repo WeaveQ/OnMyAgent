@@ -16,6 +16,12 @@ import os from "node:os";
 import path from "node:path";
 
 import { linkOrCopyDir } from "./runtime-dir-mirror.mjs";
+import { ensureKnowledgeVault } from "./ensure-knowledge-vault.mjs";
+import {
+  applyKnowledgeSearchEnv,
+  installKnowledgeSearchPlugin,
+  readKnowledgeSessionDefaultsSync,
+} from "./knowledge-search-plugin.mjs";
 
 /**
  * OpenCode 1.18 skill tool scans `~/.config/opencode/skills` via $HOME, not
@@ -27,6 +33,7 @@ export const HOME_CONFIG_SLASH_SKILL_NAMES = Object.freeze([
   "expert-manager",
   "find-skills",
   "create-automation",
+  "knowledge-vault",
 ]);
 
 export const OPENCODE_SANDBOX_DIR_NAME = "opencode-sandbox";
@@ -128,6 +135,23 @@ export async function prepareOpencodeSandboxHome(input) {
   }
 
   const sandboxConfig = buildSandboxOpencodeConfig(sourceConfig);
+  try {
+    await ensureKnowledgeVault({ homeDir: realHome });
+    const installed = await installKnowledgeSearchPlugin({
+      configDir: path.dirname(paths.opencodeConfigPath),
+      homeDir: realHome,
+    });
+    if (installed.ok) {
+      const paths = Array.isArray(installed.pluginPaths) && installed.pluginPaths.length
+        ? installed.pluginPaths
+        : installed.pluginPath
+          ? [installed.pluginPath]
+          : [];
+      if (paths.length) sandboxConfig.plugin = paths;
+    }
+  } catch (error) {
+    console.warn("[knowledge] install knowledge_search plugin failed", error);
+  }
   await writeFile(
     paths.opencodeConfigPath,
     `${JSON.stringify(sandboxConfig, null, 2)}\n`,
@@ -221,6 +245,10 @@ export function applyOpencodeSandboxEnv(env, paths) {
   env.OPENCODE_CONFIG_DIR = sandboxOpencodeConfigDir(paths);
   if (!shouldKeepOpenCodeConfigOverlay(env.OPENCODE_CONFIG, paths.root)) {
     delete env.OPENCODE_CONFIG;
+  }
+  const realHomeForKnowledge = env.ONMYAGENT_REAL_HOME?.trim() || "";
+  if (realHomeForKnowledge && !realHomeForKnowledge.includes("opencode-sandbox")) {
+    applyKnowledgeSearchEnv(env, readKnowledgeSessionDefaultsSync(realHomeForKnowledge));
   }
   return env;
 }

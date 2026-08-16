@@ -147,4 +147,20 @@ export default {
   "extensions.ollama_api": "Ollama API",
   "extensions.ollama_check_models": "Check local models",
   "extensions.ollama_provider": "Ollama provider",
+  "extensions.knowledge_search_name": "Knowledge",
+  "extensions.knowledge_search_description":
+    "Search local Markdown notes from the Knowledge rail.",
+  "extensions.knowledge_search_long":
+    "Built-in connector for the local knowledge vault. Sessions use knowledge_search / knowledge_read / knowledge_create on the same disk notes as the Knowledge rail. This is not a skill and not memory.",
+  "extensions.knowledge_search_prompt": "Search the knowledge vault for ",
+  "extensions.knowledge_search_suggestion_brief":
+    "Search the knowledge vault for the latest product brief",
+  "extensions.knowledge_search_suggestion_find":
+    "Find notes about this week's meeting prep",
+  "extensions.knowledge_search_suggestion_open":
+    "What did I save in the knowledge vault about OnMyAgent?",
+  "extensions.knowledge_search_setup":
+    "Enabled by default on desktop. Write notes in the Knowledge rail; sessions search them with knowledge_search. No extra login.",
+  "extensions.knowledge_search_plugin_label": "knowledge_search session tool",
+  "extensions.knowledge_search_vault_label": "Local knowledge vault",
 } as const;

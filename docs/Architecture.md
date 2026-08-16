@@ -13,6 +13,7 @@ OnMyAgent 是面向 agentic 工作流的桌面控制台，基于 OpenCode。本�
 | Roadmap SoT | [`design/2026-08-02-phase-2-enterprise-prep.md`](./design/2026-08-02-phase-2-enterprise-prep.md) |
 | Config foundation (2a) | [`design/2026-08-02-config-consistency.md`](./design/2026-08-02-config-consistency.md) |
 | Work memory paths | [`design/2026-08-02-work-memory-plan.md`](./design/2026-08-02-work-memory-plan.md) |
+| Knowledge vault | `~/.onmyagent/data/user/knowledge/` (user / project / expert notes). Not marketplace skills, not awareness. Rail UI under `domains/session/knowledge`. Agent tools `knowledge_search` / `knowledge_read` / `knowledge_create` plus connector-owned SKILL.md (not listed in 已安装技能). |
 | Files module (三来源) | [`design/files-module-product-spec.md`](./design/files-module-product-spec.md) |
 | OfficeCLI CDN contract | [`officecli-oss-release.md`](./officecli-oss-release.md) |
 | Windows product gaps | [`windows-compat.md`](./windows-compat.md) |

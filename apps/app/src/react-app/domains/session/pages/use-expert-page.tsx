@@ -532,6 +532,7 @@ export function useExpertPage(props: ExpertPageProps) {
     host: { props, navigate, localAuthUser, showToast },
     rail: {
       activeConversationAgentId,
+      draftAgentId,
       activeDraftSessionId,
       activePlaceholderView,
       activeSidebarView,

@@ -62,7 +62,10 @@ test("prepareOpencodeSandboxHome writes providers-only config and auth", async (
   assert.equal(paths.homeDir, expected.homeDir);
 
   const written = JSON.parse(await readFile(paths.opencodeConfigPath, "utf8"));
-  assert.deepEqual(written.plugin, []);
+  assert.equal(written.plugin.length, 5);
+  assert.match(String(written.plugin[0]), /knowledge-search\.mjs$/);
+  assert.match(String(written.plugin[1]), /knowledge-read\.mjs$/);
+  assert.ok(written.plugin.every((item) => !String(item).includes(`${path.sep}skills${path.sep}`)));
   assert.equal(written.provider.huoshan.options.apiKey, "k");
   assert.equal(
     await readFile(path.join(paths.opencodeDataDir, "auth.json"), "utf8"),

@@ -10,6 +10,7 @@ import path from "node:path";
 import { resolveLocalSkillsRoot } from "./config-profile-paths.mjs";
 import { ensureLocalConfigMigrated } from "./ensure-local-config-migrated.mjs";
 import { ensureWorkMemoryAwareness } from "./ensure-work-memory-awareness.mjs";
+import { ensureKnowledgeVault } from "./ensure-knowledge-vault.mjs";
 import { resolveRealHomeDir } from "./real-home-policy.mjs";
 
 const BUNDLED_SKILLS_RESOURCE_DIR = "bundled-skills";
@@ -130,6 +131,11 @@ export function createDesktopPaths(options) {
       await ensureWorkMemoryAwareness({ homeDir: home });
     } catch (error) {
       console.warn("[work-memory] ensure awareness seeds failed", error);
+    }
+    try {
+      await ensureKnowledgeVault({ homeDir: home });
+    } catch (error) {
+      console.warn("[knowledge] ensure vault seed failed", error);
     }
   }
 

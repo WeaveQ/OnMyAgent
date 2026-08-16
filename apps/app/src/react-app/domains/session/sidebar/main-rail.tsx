@@ -36,6 +36,7 @@ export type OnMyAgentPrimaryView =
   | "files"
   | "store"
   | "company"
+  | "knowledgeBase"
   | "projects"
   | "knowledgeBase"
   | "localAgent"

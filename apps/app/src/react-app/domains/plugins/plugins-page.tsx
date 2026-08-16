@@ -189,6 +189,7 @@ const ARTIFACT_PLUGIN_DISPLAY_ORDER = [
 const BUILTIN_EXTENSION_DISPLAY_ORDER = [
   "computer-use",
   "browser-skill",
+  "knowledge-search",
 ] as const;
 
 /** Connector market filter strip (matches expert/skills category chips). */

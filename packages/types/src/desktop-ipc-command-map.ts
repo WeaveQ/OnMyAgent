@@ -628,6 +628,139 @@ type TypedDesktopCommandMap = {
       }>;
     }
   >;
+  knowledgeEnsureVault: DesktopCommandContract<
+    [],
+    { ok: boolean; root: string; path: string; created: string[]; existing: string[] }
+  >;
+  knowledgeList: DesktopCommandContract<
+    [
+      {
+        scope?: "user" | "project" | "expert" | "all";
+        workspaceId?: string;
+        expertId?: string;
+      }?,
+    ],
+    {
+      ok: boolean;
+      root: string;
+      scopes: Array<{
+        scope: "user" | "project" | "expert";
+        path: string;
+        files: Array<{
+          relPath: string;
+          name: string;
+          size: number;
+          mtimeMs: number;
+          indexable: boolean;
+        }>;
+      }>;
+    }
+  >;
+  knowledgeRead: DesktopCommandContract<
+    [
+      {
+        scope?: "user" | "project" | "expert";
+        relPath: string;
+        workspaceId?: string;
+        expertId?: string;
+      },
+    ],
+    {
+      ok: boolean;
+      scope?: "user" | "project" | "expert";
+      relPath?: string;
+      path?: string;
+      content?: string;
+      size?: number;
+      mtimeMs?: number;
+      reason?: string;
+    }
+  >;
+  knowledgeWrite: DesktopCommandContract<
+    [
+      {
+        scope?: "user" | "project" | "expert";
+        relPath: string;
+        content: string;
+        workspaceId?: string;
+        expertId?: string;
+      },
+    ],
+    {
+      ok: boolean;
+      scope?: "user" | "project" | "expert";
+      relPath?: string;
+      path?: string;
+      size?: number;
+      mtimeMs?: number;
+      reason?: string;
+    }
+  >;
+  knowledgeDelete: DesktopCommandContract<
+    [
+      {
+        scope?: "user" | "project" | "expert";
+        relPath: string;
+        workspaceId?: string;
+        expertId?: string;
+      },
+    ],
+    { ok: boolean; scope?: string; relPath?: string; path?: string; reason?: string }
+  >;
+  knowledgeRebuildIndex: DesktopCommandContract<
+    [
+      {
+        scope?: "user" | "project" | "expert" | "all";
+        workspaceId?: string;
+        expertId?: string;
+      }?,
+    ],
+    { ok: boolean; index?: "rebuilt"; count?: number; reason?: string }
+  >;
+  knowledgeSearch: DesktopCommandContract<
+    [
+      {
+        query: string;
+        scope?: "user" | "project" | "expert" | "all";
+        workspaceId?: string;
+        expertId?: string;
+        limit?: number;
+      },
+    ],
+    {
+      ok: boolean;
+      backend?: "fts5" | "scan" | "none";
+      index?: "reused" | "rebuilt" | "none" | "scan";
+      hits: Array<{
+        scope: string;
+        relPath: string;
+        title: string;
+        snippet: string;
+      }>;
+      reason?: string;
+    }
+  >;
+  knowledgeGetConfig: DesktopCommandContract<
+    [],
+    {
+      ok: boolean;
+      personalVaultPath: string | null;
+      resolvedUserVaultDir: string;
+      usingDefault: boolean;
+      vaults: Array<{ name: string; path: string; isDefault: boolean }>;
+    }
+  >;
+  knowledgeSetPersonalVaultPath: DesktopCommandContract<
+    [{ path?: string | null }],
+    {
+      ok: boolean;
+      personalVaultPath?: string | null;
+      resolvedUserVaultDir?: string;
+      usingDefault?: boolean;
+      vaults?: Array<{ name: string; path: string; isDefault: boolean }>;
+      reason?: string;
+    }
+  >;
   openBrowserSkillInstallPage: DesktopCommandContract<
     [("cli" | "extension" | "docs")?],
     OkResult & {

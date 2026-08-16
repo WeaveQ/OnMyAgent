@@ -33,6 +33,7 @@ export const BUILTIN_PLUGIN_ICON_PNG_BY_ID: Record<string, string> = {
   documents: "/connector-icons/builtin/documents.png",
   pdf: "/connector-icons/builtin/pdf.png",
   spreadsheets: "/connector-icons/builtin/spreadsheets.png",
+  "knowledge-search": "/illustrations/koboyo/book-open.svg",
 };
 
 /** @deprecated Prefer BUILTIN_PLUGIN_ICON_PNG_BY_ID for market tiles. */
