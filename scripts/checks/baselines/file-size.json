@@ -10,7 +10,7 @@
     "apps/app/src/react-app/shell/session-route/render.tsx": 1221,
     "apps/desktop/electron/runtime.mjs": 853,
     "apps/desktop/electron/personal-agent-runtime/index.mjs": 1402,
-    "apps/app/src/react-app/domains/settings/state/extensions-store.ts": 1217,
+    "apps/app/src/react-app/domains/settings/state/extensions-store.ts": 1371,
     "packages/types/src/desktop-ipc.ts": 51,
     "apps/app/src/react-app/domains/session/pages/expert.tsx": 14,
     "apps/orchestrator/src/cli-commands/start.ts": 1694,
