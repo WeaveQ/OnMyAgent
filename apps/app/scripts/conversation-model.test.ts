@@ -252,6 +252,26 @@ describe("conversation model assistant groups", () => {
 
     expect(groups.map((group) => group.latestSession.id)).toEqual(["ses_orphan"]);
   });
+
+  test("does not promote children after the parent and its subtree are removed", () => {
+    addAssistantSession("ses_parent");
+    addAssistantSession("ses_child_1");
+    addAssistantSession("ses_child_2");
+
+    const remaining = [
+      {
+        id: "ses_unrelated",
+        title: "别的任务",
+        parentID: null,
+        time: { created: 1, updated: 2 },
+      },
+    ];
+    addAssistantSession("ses_unrelated");
+    const groups = buildAssistantConversationGroups(remaining);
+    expect(groups.map((group) => group.latestSession.id)).toEqual([
+      "ses_unrelated",
+    ]);
+  });
 });
 
 describe("conversation model agent groups", () => {

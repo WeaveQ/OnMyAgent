@@ -301,9 +301,12 @@ describe("page-view + group delete wiring", () => {
     expect(pageView).toContain("SESSION_DELETE_REMOTE_BUDGET_MS");
     expect(pageView).toContain("writeCachedSidebarSessionsForWorkspace");
     expect(pageView).toContain("setSessionsByWorkspaceId");
+    expect(pageView).toContain("subtreeIds");
     // Refresh must not block dialog close with a long await race.
     expect(pageView).toContain("void Promise.resolve(refreshRouteState())");
     expect(pageView).toContain("sessionDirectory: listedDirectory");
+    expect(pageView).toContain("collectSessionSubtreeIds");
+    expect(pageView).toContain("permanentlyRemoveAssistantArchivedTaskTree");
   });
 
   test("list merge filters recently deleted ids", () => {
@@ -324,7 +327,9 @@ describe("page-view + group delete wiring", () => {
       join(appRoot, "src/react-app/domains/session/pages/assistant.tsx"),
       "utf8",
     );
-    expect(expertDelete).toContain("Promise.allSettled");
+    expect(expertDelete).toContain("collectSessionSubtreeIds");
+    expect(expertDelete).toContain("deleteExpert");
+    expect(assistant).toContain("collectSessionSubtreeIds");
     expect(assistant).toContain("Promise.allSettled");
   });
 });

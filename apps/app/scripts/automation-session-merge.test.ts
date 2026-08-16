@@ -7,6 +7,29 @@ import { mergeAutomationSessions } from "../src/react-app/domains/session/sideba
 import type { AutomationSessionRecord } from "../src/react-app/domains/messaging/automation-session-groups";
 
 describe("mergeAutomationSessions", () => {
+  test("excluding an archived parent and its children leaves no child roots", () => {
+    const sessions = [
+      {
+        id: "ses_parent",
+        title: "创建电脑截图技能",
+        parentID: null,
+        time: { created: 1, updated: 4 },
+      },
+      {
+        id: "ses_child",
+        title: "baseline 测试1",
+        parentID: "ses_parent",
+        time: { created: 2, updated: 5 },
+      },
+    ];
+    const merged = mergeAutomationSessions(
+      sessions,
+      [],
+      new Set(["ses_parent", "ses_child"]),
+    );
+    expect(merged.map((session) => session.id)).toEqual([]);
+  });
+
   test("excludes deleted or archived session ids from workspace sessions", () => {
     const sessions = [
       {

@@ -3,7 +3,11 @@ import { useCallback, useMemo } from "react";
 
 import { t } from "../../../../i18n";
 import type { SidebarSessionItem } from "../../../../app/types";
-import { archiveAssistantTask } from "../../shared";
+import {
+  archiveAssistantTask,
+  archiveAssistantTasks,
+  collectSessionDescendantIds,
+} from "../../shared";
 import { AgentSessionTabs } from "../sidebar/session-chrome";
 import type { ExpertSurfaceMode } from "./expert-surface-mode";
 import type { ExpertPageProps } from "./use-expert-page";
@@ -40,6 +44,30 @@ export function useExpertConversationTabs(input: {
       const id = sessionId.trim();
       if (!workspaceId || !id) return;
       const match = input.currentAgentSessions.find((session) => session.id === id);
+      const childIds = collectSessionDescendantIds(
+        input.currentAgentSessions,
+        id,
+      );
+      if (childIds.length > 0) {
+        const now = Date.now();
+        const byId = new Map(
+          input.currentAgentSessions.map((session) => [session.id, session]),
+        );
+        archiveAssistantTasks(
+          workspaceId,
+          childIds.map((childId) => {
+            const child = byId.get(childId);
+            return {
+              sessionId: childId,
+              title: child?.title?.trim() || childId,
+              directory: child?.directory ?? null,
+              archivedAt: now,
+              category: "expert",
+              parentID: child?.parentID ?? id,
+            };
+          }),
+        );
+      }
       archiveAssistantTask(workspaceId, {
         sessionId: id,
         title: title.trim() || match?.title || id,

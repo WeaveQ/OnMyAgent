@@ -92,8 +92,11 @@ import {
 } from "../sync/assistant-session-workspaces";
 import {
   archiveAssistantTask,
+  archiveAssistantTasks,
   archivedSessionIdSet,
   assistantArchivedTasksChangedEvent,
+  collectSessionDescendantIds,
+  excludeSessionsWithArchivedAncestor,
   readAssistantArchivedTasks,
 } from "../../shared";
 import { isDesktopRuntime } from "../../../../app/utils";
@@ -331,15 +334,20 @@ export function AgentConversationPanel(props: {
     props.selectedWorkspaceId,
   ]);
   const sessions: WorkspaceSessionGroup["sessions"] = useMemo(
-    () =>
-      mode === "assistant"
-        ? mergeAutomationSessions(
-            group?.sessions ?? [],
-            automationSessionRecords,
-            excludedAutomationSessionIds,
-          )
-        : group?.sessions ?? [],
+    () => {
+      if (mode !== "assistant") return group?.sessions ?? [];
+      const merged = mergeAutomationSessions(
+        group?.sessions ?? [],
+        automationSessionRecords,
+        excludedAutomationSessionIds,
+      );
+      return excludeSessionsWithArchivedAncestor(
+        merged,
+        assistantArchivedIdSet,
+      );
+    },
     [
+      assistantArchivedIdSet,
       automationSessionRecords,
       excludedAutomationSessionIds,
       group?.sessions,
@@ -1050,13 +1058,18 @@ export function AgentConversationPanel(props: {
   );
 
   const archiveAssistantSessionCore = useCallback(
-    (sessionId: string, title: string, options?: { silent?: boolean }) => {
+    (
+      sessionId: string,
+      title: string,
+      options?: { silent?: boolean; parentID?: string | null },
+    ) => {
       archiveAssistantTask(props.selectedWorkspaceId, {
         sessionId,
         title,
         directory: folderPathBySessionId.get(sessionId) ?? null,
         archivedAt: Date.now(),
         category: props.assistantCategoryId ?? null,
+        parentID: options?.parentID ?? null,
       });
       setArchivedRevision((value) => value + 1);
       // Drop pin membership when archiving so restore lands in the main list.
@@ -1120,9 +1133,37 @@ export function AgentConversationPanel(props: {
 
   const handleArchiveAssistantSession = useCallback(
     (sessionId: string, title: string) => {
+      const rawSessions = group?.sessions ?? [];
+      const byId = new Map(rawSessions.map((session) => [session.id, session]));
+      const childIds = collectSessionDescendantIds(rawSessions, sessionId);
+      if (childIds.length > 0) {
+        const now = Date.now();
+        archiveAssistantTasks(
+          props.selectedWorkspaceId,
+          childIds.map((childId) => {
+            const child = byId.get(childId);
+            return {
+              sessionId: childId,
+              title: child?.title?.trim() || childId,
+              directory:
+                folderPathBySessionId.get(childId) ?? child?.directory ?? null,
+              archivedAt: now,
+              category: props.assistantCategoryId ?? null,
+              parentID: child?.parentID ?? sessionId,
+            };
+          }),
+        );
+        setArchivedRevision((value) => value + 1);
+      }
       archiveAssistantSessionCore(sessionId, title);
     },
-    [archiveAssistantSessionCore],
+    [
+      archiveAssistantSessionCore,
+      folderPathBySessionId,
+      group?.sessions,
+      props.assistantCategoryId,
+      props.selectedWorkspaceId,
+    ],
   );
 
   const handleOpenFolder = useCallback((path: string) => {
@@ -1227,9 +1268,27 @@ export function AgentConversationPanel(props: {
     (groupId: string) => {
       const group = automationGroupsAll.find((item) => item.id === groupId);
       if (!group || group.items.length === 0) return;
+      const workspaceSessions = props.groups.find(
+        (item) => item.workspace.id === props.selectedWorkspaceId,
+      )?.sessions ?? [];
+      const byId = new Map(
+        workspaceSessions.map((session) => [session.id, session]),
+      );
       for (const item of group.items) {
+        const parentId = item.latestSession.id;
+        for (const childId of collectSessionDescendantIds(
+          workspaceSessions,
+          parentId,
+        )) {
+          const child = byId.get(childId);
+          archiveAssistantSessionCore(
+            childId,
+            child?.title?.trim() || childId,
+            { silent: true, parentID: child?.parentID ?? parentId },
+          );
+        }
         archiveAssistantSessionCore(
-          item.latestSession.id,
+          parentId,
           item.description,
           { silent: true },
         );
@@ -1261,6 +1320,7 @@ export function AgentConversationPanel(props: {
     [
       archiveAssistantSessionCore,
       automationGroupsAll,
+      props.groups,
       props.selectedWorkspaceId,
       showToast,
     ],
@@ -1281,17 +1341,42 @@ export function AgentConversationPanel(props: {
           group.description,
         ]),
       );
+      const rawSessions = group?.sessions ?? [];
+      const byId = new Map(rawSessions.map((session) => [session.id, session]));
+      const archivedIds = new Set<string>();
+      const entries: Array<{
+        sessionId: string;
+        title: string;
+        directory: string | null;
+        archivedAt: number;
+        category: string | null;
+        parentID: string | null;
+      }> = [];
       for (const record of sessionsInSpace) {
-        archiveAssistantTask(props.selectedWorkspaceId, {
-          sessionId: record.sessionId,
-          title:
-            titleBySessionId.get(record.sessionId) ??
-            record.sessionId,
-          directory: dir,
-          archivedAt: now,
-          category: props.assistantCategoryId ?? null,
-        });
+        const subtree = [
+          record.sessionId,
+          ...collectSessionDescendantIds(rawSessions, record.sessionId),
+        ];
+        for (const sessionId of subtree) {
+          if (archivedIds.has(sessionId)) continue;
+          archivedIds.add(sessionId);
+          const child = byId.get(sessionId);
+          entries.push({
+            sessionId,
+            title:
+              titleBySessionId.get(sessionId) ??
+              child?.title?.trim() ??
+              sessionId,
+            directory: dir,
+            archivedAt: now,
+            category: props.assistantCategoryId ?? null,
+            parentID: child?.parentID ?? (
+              sessionId === record.sessionId ? null : record.sessionId
+            ),
+          });
+        }
       }
+      archiveAssistantTasks(props.selectedWorkspaceId, entries);
       removeAssistantSessionWorkspacesByDirectory(
         props.selectedWorkspaceId,
         dir,
@@ -1331,6 +1416,7 @@ export function AgentConversationPanel(props: {
     [
       assistantSidebarModel.regularGroups,
       assistantWorkspaceRecords,
+      group?.sessions,
       props.assistantCategoryId,
       props.selectedWorkspaceId,
       showToast,

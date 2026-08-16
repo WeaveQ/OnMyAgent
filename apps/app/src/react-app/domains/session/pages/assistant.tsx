@@ -90,7 +90,11 @@ import {
 } from "../../workspace";
 import {
   archiveAssistantTask,
+  archiveAssistantTasks,
+  collectSessionDescendantIds,
+  collectSessionSubtreeIds,
   permanentlyRemoveAssistantArchivedTask,
+  permanentlyRemoveAssistantArchivedTaskTree,
   readAssistantArchivedTasks,
 } from "../../shared";
 import { buildFilesOpenSessionMeta } from "./session-files-open-meta";
@@ -417,13 +421,33 @@ export function AssistantPage(props: AssistantPageProps) {
       const workspaceId = props.selectedWorkspaceId.trim();
       const group = automationNavGroups.find((item) => item.id === groupId);
       if (!workspaceId || !group || group.sessions.length === 0) return;
+      const now = Date.now();
+      const liveSessions = assistantWorkspaceSessions;
+      const byId = new Map(liveSessions.map((session) => [session.id, session]));
       for (const session of group.sessions) {
         removeAutomationSessionRecord(workspaceId, session.id);
+        const childIds = collectSessionDescendantIds(liveSessions, session.id);
+        if (childIds.length > 0) {
+          archiveAssistantTasks(
+            workspaceId,
+            childIds.map((childId) => {
+              const child = byId.get(childId);
+              return {
+                sessionId: childId,
+                title: child?.title?.trim() || childId,
+                directory: child?.directory ?? session.directory ?? null,
+                archivedAt: now,
+                category: assistantCategoryId,
+                parentID: child?.parentID ?? session.id,
+              };
+            }),
+          );
+        }
         archiveAssistantTask(workspaceId, {
           sessionId: session.id,
           title: session.title || group.title,
           directory: session.directory ?? null,
-          archivedAt: Date.now(),
+          archivedAt: now,
           category: assistantCategoryId,
         });
       }
@@ -439,6 +463,7 @@ export function AssistantPage(props: AssistantPageProps) {
     },
     [
       assistantCategoryId,
+      assistantWorkspaceSessions,
       automationNavGroups,
       props.selectedWorkspaceId,
       showToast,
@@ -456,6 +481,28 @@ export function AssistantPage(props: AssistantPageProps) {
       const directory =
         group?.sessions.find((session) => session.id === id)?.directory ?? null;
       removeAutomationSessionRecord(workspaceId, id);
+      const liveSessions = assistantWorkspaceSessions;
+      const childIds = collectSessionDescendantIds(liveSessions, id);
+      if (childIds.length > 0) {
+        const now = Date.now();
+        const byId = new Map(
+          liveSessions.map((session) => [session.id, session]),
+        );
+        archiveAssistantTasks(
+          workspaceId,
+          childIds.map((childId) => {
+            const child = byId.get(childId);
+            return {
+              sessionId: childId,
+              title: child?.title?.trim() || childId,
+              directory: child?.directory ?? directory,
+              archivedAt: now,
+              category: assistantCategoryId,
+              parentID: child?.parentID ?? id,
+            };
+          }),
+        );
+      }
       archiveAssistantTask(workspaceId, {
         sessionId: id,
         title: title.trim() || id,
@@ -473,6 +520,7 @@ export function AssistantPage(props: AssistantPageProps) {
     },
     [
       assistantCategoryId,
+      assistantWorkspaceSessions,
       automationEmbeddedSessionId,
       automationNavGroups,
       props.selectedWorkspaceId,
@@ -811,8 +859,15 @@ export function AssistantPage(props: AssistantPageProps) {
     ) => {
       if (!props.onDeleteSession) return;
       if (target.kind === "session") {
-        await purgeSessionWorkspaceFiles(target.sessionId);
-        permanentlyRemoveAssistantArchivedTask(
+        const listed =
+          props.sidebar.workspaceSessionGroups.find(
+            (item) => item.workspace.id === props.selectedWorkspaceId,
+          )?.sessions ?? [];
+        const subtreeIds = collectSessionSubtreeIds(listed, target.sessionId);
+        for (const id of subtreeIds) {
+          await purgeSessionWorkspaceFiles(id);
+        }
+        permanentlyRemoveAssistantArchivedTaskTree(
           props.selectedWorkspaceId,
           target.sessionId,
         );
