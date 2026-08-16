@@ -40,6 +40,12 @@ export const CAPABILITY_SHELF: readonly CapabilityShelfEntry[] = [
     recommended: false,
   },
   {
+    id: "knowledge-search",
+    kind: "connector",
+    surfaces: ["plugins", "composer", "session"],
+    recommended: false,
+  },
+  {
     id: "officecli",
     kind: "officecli",
     surfaces: ["plugins", "composer", "marketplace", "session"],

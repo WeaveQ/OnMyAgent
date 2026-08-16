@@ -31,6 +31,7 @@ src/react-app/
 └── domains/                   Feature-scoped code, one folder per product domain
     ├── session/               Live conversation runtime (transcript, composer, sync, goal)
     │   ├── chat/              Session host pages + light panels (personal host re-exports)
+    │   ├── knowledge/         Local Markdown vault (rail page + CodeMirror editor)
     │   ├── surface/           Transcript, composer, plan-goal helpers, markdown
     │   ├── sync/              Session state plumbing
     │   ├── components/        Session-local UI (permission modal, status bar, side-panel pages, …)

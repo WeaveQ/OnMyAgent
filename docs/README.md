@@ -39,6 +39,7 @@ docs/
     files-module-product-spec.md  ← Files module product SoT（三来源 Tab）
     2026-08-02-phase-2-enterprise-prep.md  ← **Phase 2 roadmap + B-side (OnMyCompany) prep SoT**
     2026-08-02-work-memory-plan.md  ← 个人/记忆 + 专家域记忆（awareness）路径 SoT
+    knowledge vault (code)          ← `data/user/knowledge/` notes; Architecture table + `apps/desktop/electron/ensure-knowledge-vault.mjs`
     2026-08-02-config-consistency.md  ← local/company isomorphic config + migrate (Phase 2a)
     2026-08-09-architecture-convergence-plan.md  ← historical + board (A–D on main; E deferred)
     2026-08-09-capability-shelf.md  ← recommended vs built-in placement matrix

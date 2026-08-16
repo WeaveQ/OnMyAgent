@@ -3,6 +3,7 @@
  * Presentational layout for ExpertPage.
  * Extracted from expert.tsx (P1-5 residual file-size split).
  */
+import { useEffect } from "react";
 import { Plus } from "lucide-react";
 import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
@@ -27,12 +28,14 @@ import { SessionStartupSkeleton } from "./session-startup-skeleton";
 import {
   BillingPage,
   DevicesPage,
-  KnowledgeBaseComingSoonPage,
   ProjectsComingSoonPage,
   SidebarFeaturePlaceholder,
   StorePage,
 } from "../components/side-panel-pages";
 import { CompanyRailPane } from "../components/company-rail-pane";
+import { KnowledgeVaultPage } from "../knowledge";
+import { subscribeOpenKnowledgeNote } from "../knowledge/knowledge-vault-navigation";
+import { resolveKnowledgeExpertFolderId } from "../knowledge/knowledge-vault-model";
 import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 
 import {
@@ -64,6 +67,7 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
   const { props, navigate, localAuthUser, showToast } = host;
   const {
     activeConversationAgentId,
+    draftAgentId,
     activeDraftSessionId,
     activePlaceholderView,
     activeSidebarView,
@@ -108,6 +112,10 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
     visitedRailViews,
     handleSelectArtifactPrompt,
   } = rail;
+  useEffect(
+    () => subscribeOpenKnowledgeNote(() => openRailView("knowledgeBase")),
+    [openRailView],
+  );
   const {
     activeAgentContext,
     activeExpertFeatureCategoryId,
@@ -386,7 +394,15 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
                         />
                       ),
                       projects: <ProjectsComingSoonPage />,
-                      knowledgeBase: <KnowledgeBaseComingSoonPage />,
+                      knowledgeBase: (
+                        <KnowledgeVaultPage
+                          workspaceId={props.selectedWorkspaceId}
+                          expertId={resolveKnowledgeExpertFolderId({
+                            draftAgentId,
+                            routeAgentId: activeConversationAgentId,
+                          })}
+                        />
+                      ),
                       devices: <DevicesPage />,
                       channels: (
                         <MessagingChannelsPage workspaceRoot={props.selectedWorkspaceRoot} />

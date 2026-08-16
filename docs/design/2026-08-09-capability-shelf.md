@@ -21,6 +21,7 @@
 | id | kind | recommended | plugins | composer | marketplace | session | settings |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | builtin-documents | builtin-docs | no | | | | ✓ | ✓ |
+| knowledge-search | connector | no | ✓ | ✓ | | ✓ | |
 | officecli | officecli | yes | ✓ | ✓ | ✓ | ✓ | |
 | lark-cli | managed-cli | yes | ✓ | ✓ | | | |
 | tencent-docs / baidu-drive / kdocs / dingtalk / wecom / tencent-meeting | connector | yes | ✓ | ✓ | | | |

@@ -10,6 +10,11 @@ import { DisclosureRowButton } from "@/components/ui/action-row";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge, type StatusBadgeTone } from "@/components/ui/status-badge";
 import { t } from "../../../../i18n";
+import {
+  isKnowledgeSearchToolName,
+  parseKnowledgeSearchHits,
+} from "../knowledge/knowledge-search-hits";
+import { openKnowledgeNoteInRail } from "../knowledge/knowledge-vault-navigation";
 function normalizeToolText(value: unknown) {
   if (typeof value !== "string") return "";
   return value.replace(/(?:\r?\n\s*)+$/, "");
@@ -113,6 +118,9 @@ export function ToolCallView(props: { part: DynamicToolUIPart; developerMode: bo
   const diff = extractDiff(output);
   const diffLines = diff ? toKeyedLines(normalizeToolText(diff)) : [];
   const expandable = hasStructuredValue(input) || hasStructuredValue(output) || Boolean(diff) || Boolean(error);
+  const knowledgeHits = isKnowledgeSearchToolName(props.part.toolName)
+    ? parseKnowledgeSearchHits(output)
+    : [];
 
   return (
     <div className="grid gap-3 text-sm text-dls-secondary">
@@ -138,6 +146,23 @@ export function ToolCallView(props: { part: DynamicToolUIPart; developerMode: bo
           </StatusBadge>
         </div>
       </DisclosureRowButton>
+
+      {knowledgeHits.length > 0 ? (
+        <div className="flex flex-col gap-1 pl-[22px]">
+          {knowledgeHits.map((hit) => (
+            <button
+              key={`${hit.scope}:${hit.relPath}`}
+              type="button"
+              className="rounded-lg border border-dls-border bg-dls-surface px-3 py-1.5 text-left text-xs text-dls-text hover:bg-dls-list-hover"
+              onClick={() =>
+                openKnowledgeNoteInRail({ scope: hit.scope, relPath: hit.relPath })
+              }
+            >
+              {t("knowledge.cite_chip", { name: hit.title })}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {expanded ? (
         <div className="space-y-3 pl-[22px]">

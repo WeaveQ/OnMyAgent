@@ -145,4 +145,20 @@ export default {
   "extensions.ollama_api": "Ollama API",
   "extensions.ollama_check_models": "检查本地模型",
   "extensions.ollama_provider": "Ollama 服务商",
+  "extensions.knowledge_search_name": "知识库",
+  "extensions.knowledge_search_description":
+    "检索主栏知识库里的本地 Markdown 笔记。",
+  "extensions.knowledge_search_long":
+    "内置知识库连接器。会话用 knowledge_search / knowledge_read / knowledge_create 操作主栏同一份磁盘笔记。这不是技能，也不是记忆。",
+  "extensions.knowledge_search_prompt": "在知识库中搜索",
+  "extensions.knowledge_search_suggestion_brief":
+    "在知识库里搜索最新的产品简报",
+  "extensions.knowledge_search_suggestion_find":
+    "查找本周会议准备相关的笔记",
+  "extensions.knowledge_search_suggestion_open":
+    "知识库里有没有关于 OnMyAgent 的记录？",
+  "extensions.knowledge_search_setup":
+    "桌面端默认开启。在主栏知识库写笔记，会话会用 knowledge_search 检索。无需额外登录。",
+  "extensions.knowledge_search_plugin_label": "knowledge_search 会话工具",
+  "extensions.knowledge_search_vault_label": "本地知识库",
 } as const;

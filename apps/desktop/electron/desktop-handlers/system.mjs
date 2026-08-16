@@ -11,6 +11,17 @@ import {
   ensureWorkMemoryAwareness,
   resolveWorkMemoryAwarenessMainDir,
 } from "../ensure-work-memory-awareness.mjs";
+import { readKnowledgeConfig, writePersonalVaultPath } from "../knowledge-vault-config.mjs";
+import { invalidateKnowledgeIndex } from "../knowledge-vault-index.mjs";
+import { ensureKnowledgeVault } from "../ensure-knowledge-vault.mjs";
+import {
+  deleteKnowledgeFile,
+  listKnowledgeVault,
+  readKnowledgeFile,
+  rebuildKnowledgeVaultIndex,
+  searchKnowledgeVault,
+  writeKnowledgeFile,
+} from "../knowledge-vault-io.mjs";
 import {
   connectCompany,
   disconnectCompany,
@@ -86,6 +97,15 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "workMemoryReadFile",
   "workMemoryWriteFile",
   "workMemoryListFiles",
+  "knowledgeEnsureVault",
+  "knowledgeList",
+  "knowledgeRead",
+  "knowledgeWrite",
+  "knowledgeDelete",
+  "knowledgeSearch",
+  "knowledgeRebuildIndex",
+  "knowledgeGetConfig",
+  "knowledgeSetPersonalVaultPath",
   "companySettingsRead",
   "companySettingsWrite",
   "companySettingsDisconnect",
@@ -736,6 +756,134 @@ export function createSystemDomainHandlers({
     await writeFile(filePath, content, "utf8");
     const st = await stat(filePath);
     return { ok: true, path: filePath, size: st.size, mtimeMs: st.mtimeMs };
+  },
+
+  knowledgeEnsureVault: async () => {
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    return ensureKnowledgeVault({ homeDir });
+  },
+
+  knowledgeList: async (event, args) => {
+    const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    return listKnowledgeVault({
+      homeDir,
+      scope: payload.scope,
+      workspaceId: payload.workspaceId,
+      expertId: payload.expertId,
+    });
+  },
+
+  knowledgeRead: async (event, args) => {
+    const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    try {
+      return await readKnowledgeFile({
+        homeDir,
+        scope: payload.scope,
+        relPath: payload.relPath,
+        workspaceId: payload.workspaceId,
+        expertId: payload.expertId,
+      });
+    } catch (error) {
+      return { ok: false, reason: error?.reason ?? "read_failed" };
+    }
+  },
+
+  knowledgeWrite: async (event, args) => {
+    const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    try {
+      return await writeKnowledgeFile({
+        homeDir,
+        scope: payload.scope,
+        relPath: payload.relPath,
+        content: payload.content,
+        workspaceId: payload.workspaceId,
+        expertId: payload.expertId,
+      });
+    } catch (error) {
+      return { ok: false, reason: error?.reason ?? "write_failed" };
+    }
+  },
+
+  knowledgeDelete: async (event, args) => {
+    const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    try {
+      return await deleteKnowledgeFile({
+        homeDir,
+        scope: payload.scope,
+        relPath: payload.relPath,
+        workspaceId: payload.workspaceId,
+        expertId: payload.expertId,
+      });
+    } catch (error) {
+      return { ok: false, reason: error?.reason ?? "delete_failed" };
+    }
+  },
+
+  knowledgeRebuildIndex: async (event, args) => {
+    const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    try {
+      return await rebuildKnowledgeVaultIndex({
+        homeDir,
+        scope: payload.scope,
+        workspaceId: payload.workspaceId,
+        expertId: payload.expertId,
+      });
+    } catch (error) {
+      const reason = error?.reason ?? (error instanceof Error ? error.message : "index_failed");
+      console.warn("[knowledge] rebuild index failed", error);
+      return { ok: false, reason, count: 0 };
+    }
+  },
+
+  knowledgeSearch: async (event, args) => {
+    const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    try {
+      return await searchKnowledgeVault({
+        homeDir,
+        query: payload.query,
+        scope: payload.scope,
+        workspaceId: payload.workspaceId,
+        expertId: payload.expertId,
+        limit: payload.limit,
+      });
+    } catch (error) {
+      return { ok: false, reason: error?.reason ?? "search_failed", hits: [] };
+    }
+  },
+
+  knowledgeGetConfig: async () => {
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    return { ok: true, ...readKnowledgeConfig(homeDir) };
+  },
+
+  knowledgeSetPersonalVaultPath: async (event, args) => {
+    const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+    const homeDir =
+      typeof getRealHomeDir === "function" ? getRealHomeDir() : os.homedir();
+    const next =
+      payload.path === null || payload.path === undefined
+        ? null
+        : String(payload.path);
+    const result = await writePersonalVaultPath(next, homeDir);
+    if (result.ok) {
+      invalidateKnowledgeIndex(homeDir);
+      await ensureKnowledgeVault({ homeDir });
+    }
+    return result;
   },
 
   __joinPath: async (event, args) => {
