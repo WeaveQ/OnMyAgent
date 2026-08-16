@@ -278,7 +278,7 @@ pnpm task build app
 
 如果涉及桌面端或 runtime，也要运行相关 Electron 或 headless smoke test，并在 PR 描述里写明命令。
 
-较大的代码改动后，运行 `graphify update .` 刷新 `graphify-out/graph.json`。
+较大的代码改动后，运行 `pnpm task graphify build` 刷新 `graphify-out/graph.json`（包装 `graphify update . --force --no-cluster`）。
 
 社区参与规则见 `CODE_OF_CONDUCT.md`。
 

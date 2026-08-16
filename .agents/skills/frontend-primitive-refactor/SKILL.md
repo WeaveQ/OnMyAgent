@@ -39,7 +39,7 @@ For non-trivial primitive loops, broad refactors, durable ledgers, graphify deci
 2. Read project UI sources of truth when relevant:
 
 ```sh
-sed -n '1,220p' docs/design/theme-system.md
+sed -n '1,220p' DESIGN.md
 find apps/app/src/components/ui -maxdepth 1 -type f | sort
 ```
 
@@ -176,7 +176,7 @@ If the task touches visual behavior and the app is runnable, use `ui-regression-
 If project rules require graph updates and the user has not waived it, run after code edits:
 
 ```sh
-graphify update .
+pnpm task graphify build
 ```
 
 ## Report Format
@@ -196,4 +196,4 @@ For non-trivial UI primitive work, append concise local entries only when a hand
 - `.loop/state/PROGRESS.md`
 - `.loop/runs/YYYY-MM-DD.md`
 
-Put temporary screenshots, scan transcripts, and validation artifacts under `.loop/evidence/` or ignored report paths. Never commit generated `graphify-out/**`, screenshot reports, runtime cache, or tracked `docs/LOOP-RUN-LOG.md` / `docs/intent-debt.md` routine updates unless the user explicitly asks.
+Put temporary screenshots, scan transcripts, and validation artifacts under `.loop/evidence/` or ignored report paths. Never commit generated `graphify-out/**`, screenshot reports, or runtime cache. Do not reintroduce deleted stub files under `docs/`.

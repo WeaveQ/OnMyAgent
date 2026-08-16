@@ -26,7 +26,7 @@ Settings opens on **Overview**, where cards group every section under Workspace,
 | Top | **Overview** | Preview and entry for all settings |
 | Workspace | **Models** | Connect and manage AI model providers |
 | Workspace | **Company** | Connect OnMyCompany and synchronize organization skills and experts |
-| Personal | **Personal** | Names, tone, custom instructions, and work profile |
+| Personal | **Profile** | Names, tone, custom instructions, and work profile |
 | Personal | **Memory** | Facts extracted from conversations and local memory files |
 | Global | **Preferences** | Language, theme, font, conversation width, session compaction, and other app-wide choices |
 | Global | **System** | Launch at login, notifications, system permissions, plus the local runtime environment and environment variables |
@@ -65,7 +65,7 @@ Enter the service URL and sign in with a company email plus verification code. U
 
 ## 4. Personal
 
-### Personal
+### Profile
 
 Tell the assistant who you are, how it should address you, and how it should communicate by default.
 
@@ -82,7 +82,7 @@ Manage facts extracted from conversations or added manually, plus local memory f
 - **Enable work memory** / **Auto-write from chat** control whether conversation points enter long-term memory.
 - **Local memory files** include collaboration style, work handbook, user profile, and long-term memory, and can be edited directly in their folder.
 
-See [Memory and Personal](/en/guide/memory).
+See [Memory and Profile](/en/guide/memory).
 
 ## 5. Global
 
@@ -176,11 +176,11 @@ You can filter by project, search archived tasks, unarchive them, or delete them
 
 1. **Models**: connect the default provider and key.
 2. **Preferences** under Global: language, theme, and font.
-3. **Personal**: name and custom instructions.
+3. **Profile**: name and custom instructions.
 4. **System**: notifications, required permissions, local runtime environment, and business API keys.
 5. Optional: **Company** to connect an organization.
 
 ## 8. Related
 
-- [Models and BYOK](/en/guide/models) · [Memory and Personal](/en/guide/memory) · [Security and data](/en/security) · [Interface overview](/en/guide/overview)
+- [Models and BYOK](/en/guide/models) · [Memory and Profile](/en/guide/memory) · [Security and data](/en/security) · [Interface overview](/en/guide/overview)
 - [Company connection](/en/guide/company) · [Archive, search, and import](/en/guide/archive) · [Feature and platform status](/en/guide/capability-status)

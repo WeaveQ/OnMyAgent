@@ -38,7 +38,7 @@ An **Expert** focuses on a role and working method; a **Skill** is an executable
 
 ### How do I configure personal preferences and Memory?
 
-Open Settings → **Personal** (Personal / Memory). See [Memory and Personal](/en/guide/memory).
+Open Settings → **Profile** (Personal group). See [Memory and Profile](/en/guide/memory).
 
 ### How do I download OnMyAgent?
 

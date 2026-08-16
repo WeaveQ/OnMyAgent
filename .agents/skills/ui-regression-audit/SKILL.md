@@ -22,7 +22,7 @@ Use this skill when the user asks for any of these:
 - 全局扫描 UI 问题、主题色、颜色不一致、页面太挤、标题重复、按钮含义不清
 - 检查中英文混杂、i18n 文案、设置页文案、页面标题和描述
 - 每个页面截图测试、截图巡检、回归报告、修改计划
-- 验证某次 UI 调整是否仍然符合 `docs/design/theme-system.md`
+- 验证某次 UI 调整是否仍然符合 `DESIGN.md`
 - 修复 Settings、sidebar、account menu、model picker、provider auth、composer 等可见 UI
 - 用户贴 **Session / 专家 empty / files 侧栏 / 技能矩阵 / composer** 截图抱怨交互或高度（优先 session 清单，不要先扫整站 Settings）
 
@@ -55,7 +55,7 @@ Run:
 
 ```sh
 test -f .loop/state/PROGRESS.md && sed -n '1,220p' .loop/state/PROGRESS.md || true
-sed -n '1,220p' docs/design/theme-system.md
+sed -n '1,220p' DESIGN.md
 ```
 
 If either file is missing:
@@ -63,7 +63,7 @@ If either file is missing:
 | Failure | Recovery |
 |---|---|
 | `.loop/state/PROGRESS.md` missing | Continue with repo scan; create no replacement unless a local handoff is useful. |
-| `docs/design/theme-system.md` missing | Use existing `dls-*` token usage as the source of truth and note missing doc in the report. |
+| `DESIGN.md` missing | Use existing `dls-*` token usage as the source of truth and note missing doc in the report. |
 
 ### 2. Define The Page Inventory
 
@@ -151,7 +151,7 @@ rg -n "<target-regex>" <changed-files> --no-heading || true
 pnpm task check app
 ```
 
-For long UI token or component-consolidation loops, avoid running Graphify after every tiny patch. Batch related UI-only diffs into a checkpoint, run `git diff --check` and the focused app typecheck for each batch, then run incremental `graphify update .` once at the checkpoint or final handoff. Do not use `graphify update . --force` unless incremental update is explicitly refused by the CLI or a cache anomaly is confirmed; record the reason when `--force` is used.
+For long UI token or component-consolidation loops, avoid running Graphify after every tiny patch. Batch related UI-only diffs into a checkpoint, run `git diff --check` and the focused app typecheck for each batch, then run `pnpm task graphify build` once at the checkpoint or final handoff.
 
 If UI behavior, layout, or visual state changed, verify with browser/CDP screenshots.
 
@@ -220,7 +220,7 @@ For non-trivial work, append one concise note to local `.loop/state/PROGRESS.md`
 - YYYY-MM-DD UI regression: audited theme tokens/copy/screenshots; fixed visible regressions; typecheck passed; remaining items classified as semantic/decorative/product-review.
 ```
 
-Append current-day validation summaries to `.loop/runs/YYYY-MM-DD.md` only when they help future resumption. Keep tracked state docs such as `docs/LOOP-RUN-LOG.md`, `docs/intent-debt.md`, and `docs/STATE.md` as compatibility pointers, not routine UI audit outputs; `docs/PROGRESS.md` is removed in favor of `.loop/state/PROGRESS.md`.
+Append current-day validation summaries to `.loop/runs/YYYY-MM-DD.md` only when they help future resumption. Do not reintroduce deleted stub files under `docs/`; handoff and run-log stay in local `.loop/`.
 
 ## Test Prompts
 

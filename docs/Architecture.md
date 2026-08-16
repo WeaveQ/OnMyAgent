@@ -621,8 +621,8 @@ scripts/release/      release review, prepare, ship, and asset publishing
 
 ## Renderer network & logging（P0）
 
-- **desktopFetch 策略**：`apps/app/src/app/lib/desktop-fetch-policy.ts` — loopback/相对路径直连；非 loopback http(s) **强制** main `__fetch`；协议相对 `//host` 按绝对 authority 处理；非 http(s) 拒绝。测试：`pnpm test:app desktop-fetch-policy`。
-- **结构化日志**：`apps/app/src/app/lib/dev-log.ts` 的 `recordDevLog` / `createDevLogger`（level + source + label）。测试：`pnpm test:app dev-log`。
+- **desktopFetch 策略**：`apps/app/src/app/lib/desktop-fetch-policy.ts` — loopback/相对路径直连；非 loopback http(s) **强制** main `__fetch`；协议相对 `//host` 按绝对 authority 处理；非 http(s) 拒绝。测试：`pnpm --filter @onmyagent/app test:app desktop-fetch-policy`。
+- **结构化日志**：`apps/app/src/app/lib/dev-log.ts` 的 `recordDevLog` / `createDevLogger`（level + source + label）。测试：`pnpm --filter @onmyagent/app test:app dev-log`。
 
 ## Dual-runtime process gate（P2）
 

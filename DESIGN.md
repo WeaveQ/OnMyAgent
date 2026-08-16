@@ -362,7 +362,7 @@ tool-approval:
 artifact-hue:
   image: radix-violet-9
   code: radix-blue-9
-  document: radix-slate-9
+  document: radix-indigo-9
   data: radix-teal-9
   plot: radix-grass-9
   3d: radix-plum-9

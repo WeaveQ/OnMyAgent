@@ -137,26 +137,26 @@ escalation: 超限或触及 Human gate 时停止并上报用户
 
 默认流程：
 
-1. 跨模块、架构、启动链路、MCP/i18n/server/Electron、安全面任务：先跑 `graphify update .` 构建/增量更新 AST 图谱（无需 LLM/API key；产物在 `graphify-out/graph.json`）。
+1. 跨模块、架构、启动链路、MCP/i18n/server/Electron、安全面任务：先跑 `pnpm task graphify build` 刷新 AST 图谱（无需 LLM/API key；产物在 `graphify-out/graph.json`）。该包装执行 `graphify update . --force --no-cluster` 并校验产物。
 2. 影响范围不清楚时：对目标 `文件或符号` 跑 `graphify explain "<文件或符号>"` 看其邻居与依赖。
 3. 需要串联两个模块时：跑 `graphify path "<A>" "<B>"` 看最短调用/依赖路径。
 4. 只解释单个模块/符号时：跑 `graphify explain "<节点>"`。
 5. 图谱异常（同端点边坍缩风险）：跑 `graphify diagnose multigraph`。
 5. 根据图谱结果只打开命中的关键文件，再用 `rg` / 源码阅读做精查。
-6. 修改代码后默认运行增量 `graphify update .`，再跑相关 typecheck/test/build；不要常规使用 `--force`。
+6. 修改代码后默认再跑 `pnpm task graphify build`，然后跑相关 typecheck/test/build。
 
 跳过条件：
 
 - 用户明确给出单文件、小范围改动，且无需判断影响范围。
 - 纯视觉微调，优先用浏览器/CDP/截图验证。
-- UI token、按钮 primitive、spacing、文案等连续小 diff 可以先合并成一个 checkpoint：每轮先跑相关 typecheck / `git diff --check`，到 checkpoint 或交付前再跑一次增量 `graphify update .`。
+- UI token、按钮 primitive、spacing、文案等连续小 diff 可以先合并成一个 checkpoint：每轮先跑相关 typecheck / `git diff --check`，到 checkpoint 或交付前再跑一次 `pnpm task graphify build`。
 - `graphify` 命令不可用；此时记录到 `.loop/runs/YYYY-MM-DD.md`，不要把不可用当作代码失败。
 
 规则：
 
 - dirty 文件不是跳过 graphify 的理由。
-- `graphify update . --force` 只允许在增量更新被 CLI 明确拒绝（例如删除导致图谱 shrink 拒绝覆盖）或缓存异常时作为兜底；使用前后都要记录原因，不能把 `--force` 当作默认验证命令。
+- 贡献者默认命令是 `pnpm task graphify build`，不要把裸 `graphify update .` 当成日常入口。
 - `graphify-out/GRAPH_TREE.html` 是当前大仓库默认可视化入口；完整 `graph.html` 对 10k+ 节点图不稳定，不强求生成。
 - `graphify-out/GRAPH_REPORT` 用于宽泛导航；若不存在，查 `graphify-out/graph.json` 或记录缺失原因。
-- 没有 `GEMINI_API_KEY` / `GOOGLE_API_KEY` 时，`graphify update .` 仍可维护源码 AST 图谱；不要要求或伪造任何私有 API key。
+- 没有 `GEMINI_API_KEY` / `GOOGLE_API_KEY` 时，`pnpm task graphify build` 仍可维护源码 AST 图谱；不要要求或伪造任何私有 API key。
 - `graphify-out/**` 是生成物，不提交。
