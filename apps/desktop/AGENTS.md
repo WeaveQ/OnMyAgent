@@ -9,8 +9,9 @@ pnpm task check desktop
 git diff --check
 ```
 
-Bridge / channels：`node --test apps/desktop/electron/channels/test/*.test.mjs`（无 live 凭证）。  
+Bridge / channels：`node --test apps/desktop/electron/channels/test/*.test.mjs`（无 live 凭证）。
 Runtime smoke：`pnpm test:runtime`（按变更选用）。
+Desktop OpenCode plugin e2e：`apps/desktop/electron/e2e/*.e2e.test.mjs`（编入 `test:runtime`；无 live 模型 / 无 Electron 窗）。
 
 ## 必读链接
 
