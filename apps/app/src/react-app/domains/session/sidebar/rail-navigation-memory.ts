@@ -9,7 +9,6 @@
 import type { AssistantCategoryId } from "../surface/personal-assistant-config";
 import type { OnMyAgentPrimaryView } from "./main-rail";
 import { isProjectsRailVisible } from "./projects-rail-visibility";
-import { isTaskCenterRailVisible } from "./task-center-rail-visibility";
 
 export type ShellMode = "assistant" | "expert";
 
@@ -24,6 +23,7 @@ const KNOWN_VIEWS = new Set<string>([
   "store",
   "company",
   "projects",
+  "knowledgeBase",
   "agentManagement",
   "taskCenter",
   "devices",
@@ -64,7 +64,6 @@ function railViewKey(mode: ShellMode, workspaceId: string) {
 function parseView(value: unknown): OnMyAgentPrimaryView | null {
   if (typeof value !== "string" || !value.trim()) return null;
   if (!KNOWN_VIEWS.has(value)) return null;
-  if (value === "taskCenter" && !isTaskCenterRailVisible()) return null;
   if (value === "projects" && !isProjectsRailVisible()) return null;
   return value as OnMyAgentPrimaryView;
 }
@@ -113,6 +112,7 @@ export function writeAssistantCategoryMemory(
 export const RAIL_KEEP_ALIVE_VIEWS = [
   "localAgent",
   "agentManagement",
+  "taskCenter",
   "files",
   "store",
   "company",
@@ -122,6 +122,7 @@ export const RAIL_KEEP_ALIVE_VIEWS = [
   "channels",
   "billing",
   "projects",
+  "knowledgeBase",
   "agents",
 ] as const satisfies readonly OnMyAgentPrimaryView[];
 

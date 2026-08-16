@@ -49,6 +49,7 @@ describe("session page view model", () => {
       "files",
       "store",
       "projects",
+      "knowledgeBase",
       "skills",
       "connectors",
       "localAgent",

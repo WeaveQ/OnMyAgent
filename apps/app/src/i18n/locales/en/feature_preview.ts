@@ -9,4 +9,7 @@ export default {
     "Set a time and repeat schedule to run tasks automatically for reports, data cleanup, recurring reminders, and more.",
   "feature_preview.scheduled_tasks_title":
     "Run tasks automatically on schedule",
+  "feature_preview.knowledge_base_title": "Workspace knowledge base",
+  "feature_preview.knowledge_base_body":
+    "Collect notes, files, and answers in one place. This surface is still in development.",
 } as const;

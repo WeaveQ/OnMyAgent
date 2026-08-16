@@ -132,6 +132,7 @@ import { AssistantStartupHome } from "./assistant-startup-home";
 import {
   BillingPage,
   DevicesPage,
+  KnowledgeBaseComingSoonPage,
   ProjectsComingSoonPage,
   SidebarFeaturePlaceholder,
   StorePage,
@@ -1023,6 +1024,7 @@ export function AssistantPage(props: AssistantPageProps) {
     activeSidebarView === "store" ||
     activeSidebarView === "company" ||
     activeSidebarView === "projects" ||
+    activeSidebarView === "knowledgeBase" ||
     activeSidebarView === "localAgent" ||
     activeSidebarView === "agentManagement" ||
     activeSidebarView === "taskCenter" ||
@@ -1418,6 +1420,7 @@ export function AssistantPage(props: AssistantPageProps) {
                         />
                       ),
                       projects: <ProjectsComingSoonPage />,
+                      knowledgeBase: <KnowledgeBaseComingSoonPage />,
                       devices: <DevicesPage />,
                       channels: (
                         <MessagingChannelsPage workspaceRoot={props.selectedWorkspaceRoot} />
@@ -1499,6 +1502,7 @@ export function AssistantPage(props: AssistantPageProps) {
                       activeSidebarView !== "store" &&
                       activeSidebarView !== "company" &&
                       activeSidebarView !== "projects" &&
+                      activeSidebarView !== "knowledgeBase" &&
                       activeSidebarView !== "localAgent" &&
                       activeSidebarView !== "agentManagement" &&
                       activeSidebarView !== "devices" &&

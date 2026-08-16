@@ -17,6 +17,7 @@ export type SessionRailPaneKey =
   | "agentManagement"
   | "files"
   | "projects"
+  | "knowledgeBase"
   | "devices"
   | "channels"
   | "billing";
@@ -30,6 +31,7 @@ export const SESSION_RAIL_KEEP_ALIVE_PANE_KEYS = [
   "agentManagement",
   "files",
   "projects",
+  "knowledgeBase",
   "devices",
   "channels",
   "billing",

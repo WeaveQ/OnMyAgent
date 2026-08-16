@@ -156,6 +156,15 @@ export function SessionRailKeepAliveStack(props: SessionRailKeepAliveStackProps)
         </KeepAlivePane>
       ) : null}
 
+      {props.panes.knowledgeBase != null ? (
+        <KeepAlivePane
+          active={props.activeSidebarView === "knowledgeBase"}
+          mounted={props.visitedRailViews.has("knowledgeBase")}
+        >
+          {props.panes.knowledgeBase}
+        </KeepAlivePane>
+      ) : null}
+
       {props.panes.devices != null ? (
         <KeepAlivePane
           active={props.activeSidebarView === "devices"}

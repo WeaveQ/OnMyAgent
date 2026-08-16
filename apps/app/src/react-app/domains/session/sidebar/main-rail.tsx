@@ -19,6 +19,7 @@ import {
   CompanyRailIcon,
   ExpertRailIcon,
   FilesRailIcon,
+  KnowledgeBaseRailIcon,
   ProjectsRailIcon,
   StoreRailIcon,
   TaskCenterRailIcon,
@@ -36,6 +37,7 @@ export type OnMyAgentPrimaryView =
   | "store"
   | "company"
   | "projects"
+  | "knowledgeBase"
   | "localAgent"
   | "agentManagement"
   | "taskCenter"
@@ -67,7 +69,7 @@ type BottomRailItem = {
   icon: BottomRailIcon;
 };
 
-// Order: Home → Experts → Task Center → Automation → Files → Store → Company (gated) → Projects
+// Order: Home → Experts → Task Center → Automation → Files → Store → Knowledge → Company (gated) → Projects
 // Local agents + agent management live under the account/settings menu.
 // Company stays in the list definition for icon contracts; runtime filters by OMC connect.
 const TOP_RAIL_ITEMS: RailItem[] = [
@@ -77,6 +79,7 @@ const TOP_RAIL_ITEMS: RailItem[] = [
   { id: "automation", get label() { return t("nav.automation"); }, get shortLabel() { return t("nav.automation_short"); }, icon: AutomationRailIcon },
   { id: "files", get label() { return t("nav.files"); }, get shortLabel() { return t("nav.files_short"); }, icon: FilesRailIcon },
   { id: "store", get label() { return t("nav.store"); }, get shortLabel() { return t("nav.store_short"); }, icon: StoreRailIcon },
+  { id: "knowledgeBase", get label() { return t("nav.knowledge_base"); }, get shortLabel() { return t("nav.knowledge_base_short"); }, icon: KnowledgeBaseRailIcon },
   { id: "company", get label() { return t("nav.company"); }, get shortLabel() { return t("nav.company_short"); }, icon: CompanyRailIcon },
   { id: "projects", get label() { return t("nav.projects"); }, get shortLabel() { return t("nav.projects_short"); }, icon: ProjectsRailIcon },
 ];
@@ -206,10 +209,6 @@ export function OnMyAgentRail(props: {
       props.onOpenView("assistant");
       return;
     }
-    if (!taskCenterVisible && props.activeView === "taskCenter") {
-      props.onOpenView("assistant");
-      return;
-    }
     if (!projectsVisible && props.activeView === "projects") {
       props.onOpenView("assistant");
     }
@@ -253,6 +252,7 @@ export function OnMyAgentRail(props: {
           account={props.account || undefined}
           onOpenLocalAgent={() => props.onOpenView("localAgent")}
           onOpenAgentManagement={() => props.onOpenView("agentManagement")}
+          onOpenTaskCenter={() => props.onOpenView("taskCenter")}
           onOpenSettings={props.onOpenAccountSettings}
           onOpenProfile={props.onOpenProfile}
           onSignOut={props.onSignOut}

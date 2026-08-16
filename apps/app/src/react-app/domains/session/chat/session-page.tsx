@@ -101,7 +101,7 @@ import { AgentConversationPanel } from "./session-page-agent-conversation-panel"
 import { BillingPage } from "./session-page-billing-page";
 import { DevicesPage } from "./session-page-devices-page";
 import { SidebarFeaturePlaceholder } from "./session-page-feature-placeholder";
-import { EmptyArtifactsPanel, ProjectsComingSoonPage } from "./session-page-light-pages";
+import { EmptyArtifactsPanel, KnowledgeBaseComingSoonPage, ProjectsComingSoonPage } from "./session-page-light-pages";
 import {
   sessionTitleForId,
   type TaskStatusIndicator,
@@ -782,6 +782,10 @@ export function SessionPage(props: SessionPageProps) {
                         <ProjectsComingSoonPage />
                       ) : null}
 
+                      {agentPanel.activeSidebarView === "knowledgeBase" ? (
+                        <KnowledgeBaseComingSoonPage />
+                      ) : null}
+
                       {agentPanel.activeSidebarView === "devices" ? <DevicesPage /> : null}
 
                       {agentPanel.activeSidebarView === "channels" ? (
@@ -796,6 +800,7 @@ export function SessionPage(props: SessionPageProps) {
                       agentPanel.activeSidebarView !== "store" &&
                       agentPanel.activeSidebarView !== "company" &&
                       agentPanel.activeSidebarView !== "projects" &&
+                      agentPanel.activeSidebarView !== "knowledgeBase" &&
                       agentPanel.activeSidebarView !== "localAgent" &&
                       agentPanel.activeSidebarView !== "devices" &&
                       agentPanel.activeSidebarView !== "channels" &&

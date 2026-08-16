@@ -14,8 +14,8 @@ describe("Task Center primary rail", () => {
   test("recognizes and preserves the Task Center location", () => {
     expect(isKnownRailView("taskCenter")).toBe(true);
     expect(parseRailViewFromSearch("?view=taskCenter")).toBe("taskCenter");
-    // bun / Vite dev are not PROD — packaged builds hide the rail entry.
-    expect(isTaskCenterRailVisible()).toBe(true);
+    // Rail entry is hidden; account-menu Agent tasks still opens this view.
+    expect(isTaskCenterRailVisible()).toBe(false);
   });
 
   test("mounts the assistant-owned Task Center and redirects expert clicks", () => {
@@ -43,16 +43,23 @@ describe("Task Center primary rail", () => {
       join(appRoot, "src/react-app/domains/session/pages/open-task-center-rail.ts"),
       "utf8",
     );
+    const accountMenu = readFileSync(
+      join(appRoot, "src/react-app/domains/session/sidebar/app-sidebar.tsx"),
+      "utf8",
+    );
     expect(rail).toContain('id: "taskCenter"');
     expect(rail).toContain("TaskCenterRailIcon");
     expect(rail).toContain("isTaskCenterRailVisible");
-    expect(visibility).toContain("import.meta.env.PROD");
+    expect(rail).toContain('onOpenTaskCenter={() => props.onOpenView("taskCenter")}');
+    expect(visibility).toContain("return false");
     expect(pageView).toContain("<TaskCenterPage");
     expect(pageView).toContain("taskCenterSlot=");
     expect(assistant).toContain("props.taskCenterSlot");
     expect(assistant).toContain('activeSidebarView === "taskCenter"');
     expect(expertRail).toContain("openTaskCenterRailPath");
     expect(opener).toContain('view: "taskCenter"');
+    expect(accountMenu).toContain("onOpenTaskCenter");
+    expect(accountMenu).toContain('label={t("nav.agent_tasks")}');
   });
 
   test("ships a distinct localized rail label", () => {
@@ -63,6 +70,7 @@ describe("Task Center primary rail", () => {
       );
       expect(nav).toContain("nav.task_center");
       expect(nav).toContain("nav.task_center_short");
+      expect(nav).toContain("nav.agent_tasks");
     }
   });
 });
