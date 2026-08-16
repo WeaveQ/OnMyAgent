@@ -5,6 +5,10 @@ description: >
   onmyagent_browser_node_repl only. Open/navigate/click/type/screenshot.
   NEVER use CDP ports 9823/9222, remote-debugging-port, shell ps, or external
   Chrome — those are not the in-app browser. Prefer connectors for pure API work.
+display_name_zh: "应用内浏览器"
+display_name_en: "In-app Browser"
+description_zh: "控制 OnMyAgent 应用内浏览器，打开页面、点击、输入和截图"
+description_en: "Control OnMyAgent's in-app browser to open pages, click, type, and screenshot"
 ---
 
 # Browser

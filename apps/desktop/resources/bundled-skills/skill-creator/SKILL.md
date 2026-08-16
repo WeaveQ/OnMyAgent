@@ -2,7 +2,9 @@
 name: skill-creator
 description: Create, edit, evaluate, benchmark and optimize agent skills and their trigger accuracy. Use only when the user explicitly asks to use skill-creator or types /skill-creator.
 display_name: "Skill Creator"
+display_name_zh: "Skill Creator"
 display_name_en: "Skill Creator"
+description_zh: "创建、编辑、评估和优化 Agent 技能，并改进触发准确度"
 description_en: "Create, edit, evaluate, benchmark and optimize agent skills and their triggers"
 ---
 
@@ -31,6 +33,16 @@ Of course, you should always be flexible and if the user is like "I don't need t
 Then after the skill is done (but again, the order is flexible), you can also run the skill description improver, which we have a whole separate script for, to optimize the triggering of the skill.
 
 Cool? Cool.
+
+## OnMyAgent write destination (required)
+
+When this skill runs inside OnMyAgent, the **done condition** is a valid skill folder in the product installed-skills root (Market → Installed / 已安装):
+
+`~/.onmyagent/profiles/local/config/skills/<skill-name>/SKILL.md`
+
+- Frontmatter must include `name` + `description`.
+- Write the real files with a file mutation tool. Do not finish by only pasting SKILL.md into chat.
+- Workspace-only `.opencode/skills`, Claude-eval, `eval-viewer/generate_review.py`, and `claude-with-access-to-the-skill` are **optional**. They are never the required finish line in OnMyAgent. If the user does not ask for evals, skip them and stop once the skill exists under installed-skills.
 
 ## Communicating with the user
 
@@ -479,7 +491,7 @@ If you're in Cowork, the main things to know are:
 
 - You have subagents, so the main workflow (spawn test cases in parallel, run baselines, grade, etc.) all works. (However, if you run into severe problems with timeouts, it's OK to run the test prompts in series rather than parallel.)
 - You don't have a browser or display, so when generating the eval viewer, use `--static <output_path>` to write a standalone HTML file instead of starting a server. Then proffer a link that the user can click to open the HTML in their browser.
-- For whatever reason, the Cowork setup seems to disincline Claude from generating the eval viewer after running the tests, so just to reiterate: whether you're in Cowork or in Claude Code, after running tests, you should always generate the eval viewer for the human to look at examples before revising the skill yourself and trying to make corrections, using `generate_review.py` (not writing your own boutique html code). Sorry in advance but I'm gonna go all caps here: GENERATE THE EVAL VIEWER _BEFORE_ evaluating inputs yourself. You want to get them in front of the human ASAP!
+- For whatever reason, the Cowork setup seems to disincline Claude from generating the eval viewer after running the tests. **OnMyAgent:** skip this unless the user asked for evals. Elsewhere, generating the eval viewer is optional, not a required done step.
 - Feedback works differently: since there's no running server, the viewer's "Submit All Reviews" button will download `feedback.json` as a file. You can then read it from there (you may have to request access first).
 - Packaging works — `package_skill.py` just needs Python and a filesystem.
 - Description optimization (`run_loop.py` / `run_eval.py`) should work in Cowork just fine since it uses `claude -p` via subprocess, not a browser, but please save it until you've fully finished making the skill and the user agrees it's in good shape.
@@ -505,13 +517,10 @@ Repeating one more time the core loop here for emphasis:
 
 - Figure out what the skill is about
 - Draft or edit the skill
-- Run claude-with-access-to-the-skill on test prompts
-- With the user, evaluate the outputs:
-  - Create benchmark.json and run `eval-viewer/generate_review.py` to help the user review them
-  - Run quantitative evals
-- Repeat until you and the user are satisfied
-- Package the final skill and return it to the user.
+- **OnMyAgent:** write it to `~/.onmyagent/profiles/local/config/skills/<skill-name>/SKILL.md` with valid `name` + `description` frontmatter. That is the finish line.
+- Eval / `eval-viewer/generate_review.py` / claude-with-access-to-the-skill are optional if the user wants them. Do not require them to mark the skill done.
+- Repeat only if the user wants another revision
 
-Please add steps to your TodoList, if you have such a thing, to make sure you don't forget. If you're in Cowork, please specifically put "Create evals JSON and run `eval-viewer/generate_review.py` so human can review test cases" in your TodoList to make sure it happens.
+Please add steps to your TodoList, if you have such a thing, to make sure you don't forget.
 
 Good luck!

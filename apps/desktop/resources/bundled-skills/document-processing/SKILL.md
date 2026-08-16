@@ -1,6 +1,10 @@
 ---
 name: document-processing
 description: 统一处理 Word、Excel、CSV、PowerPoint 和 PDF 文件。用户要求读取、提取、整理、核对、编辑、套模板、批量生成、转换或交付 DOCX、XLSX、XLS、CSV、TSV、PPTX、PDF 文件时使用；也适用于聊天截图、表格和多份办公文件混合整理成可继续使用的文档。
+display_name_zh: "文档处理"
+display_name_en: "Document Processing"
+description_zh: "统一处理 Word、Excel、CSV、PowerPoint 和 PDF 文件"
+description_en: "Read, edit, convert, and deliver Word, Excel, CSV, PowerPoint, and PDF files"
 ---
 
 # 文档处理
