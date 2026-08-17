@@ -95,10 +95,7 @@ import {
   seedQuestionState,
   useSessionActivityStore,
 } from "../../domains/session";
-import {
-  resolveSelectedSessionFileRoot,
-  resolveSessionArtifactVerifyRoot,
-} from "../../capabilities/session-identity/expert-session-directory";
+import { resolveSelectedSessionFileRoot } from "../../capabilities/session-identity/expert-session-directory";
 import { sessionRouteProviderListEnabled, useProviderListQuery } from "../../domains/connections";
 import { useSessionRouteNavigation } from "./navigation-hook";
 import { useSessionRouteChromeState } from "./chrome-state-hook";
@@ -673,11 +670,6 @@ export function SessionRouteRender() {
     sessionDirectory: selectedSessionDirectory,
     workspaceRoot: selectedWorkspaceRoot,
   });
-  const sessionArtifactVerifyRoot = resolveSessionArtifactVerifyRoot({
-    boundDirectory: selectedSessionWorkspace?.directory,
-    sessionDirectory: selectedSessionDirectory,
-    workspaceRoot: selectedWorkspaceRoot,
-  });
   const selectedWorkspaceEndpoint = useMemo(
     () => resolveWorkspaceEndpoint(selectedWorkspace, { baseUrl, token }),
     [baseUrl, selectedWorkspace, token],
@@ -982,7 +974,6 @@ export function SessionRouteRender() {
     sessionModelOverrideById,
     sessionPlanRuntimeById,
     sessionWorkspaceRoot,
-    sessionArtifactVerifyRoot,
     sessionsByWorkspaceId,
     sessionsByWorkspaceIdRef,
     setAssistantDraftWorkspaceRoot,

@@ -63,6 +63,7 @@ import {
   createIsolatedExpertSessionRuntimeDirectory,
   isIsolatedExpertSessionDirectory,
   isSameDirectory,
+  resolveSessionArtifactVerifyRoot,
   shouldIsolateExpertSessionDirectory,
 } from "../../capabilities/session-identity/expert-session-directory";
 import { normalizeExpertWritePackageName } from "../../capabilities/session-identity/expert-package-name";
@@ -193,7 +194,6 @@ export type SessionRouteSurfacePropsInput = {
   sessionModelOverrideById: Record<string, ModelRef>;
   sessionPlanRuntimeById: Record<string, CollaborationPlanRuntime>;
   sessionWorkspaceRoot: string;
-  sessionArtifactVerifyRoot: string;
   sessionsByWorkspaceId: Record<string, SidebarSessionItem[]>;
   sessionsByWorkspaceIdRef: MutableRefObject<Record<string, SidebarSessionItem[]>>;
   setAssistantDraftWorkspaceRoot: Dispatch<SetStateAction<string>>;
@@ -260,7 +260,6 @@ export function useSessionRouteSurfaceProps(
     sessionModelOverrideById,
     sessionPlanRuntimeById,
     sessionWorkspaceRoot,
-    sessionArtifactVerifyRoot,
     sessionsByWorkspaceId,
     sessionsByWorkspaceIdRef,
     setAssistantDraftWorkspaceRoot,
@@ -462,6 +461,17 @@ export function useSessionRouteSurfaceProps(
     // local server's, and remote workspaces silently end up calling the
     // local server with the local `rem_*` id.
     const catalogWorkspaceRoot = selectedWorkspace?.path?.trim() || sessionWorkspaceRoot;
+    const selectedSessionDirectory =
+      selectedSessionId && selectedWorkspaceId
+        ? (sessionsByWorkspaceId[selectedWorkspaceId] ?? []).find(
+            (session) => session.id === selectedSessionId,
+          )?.directory
+        : null;
+    const sessionArtifactVerifyRoot = resolveSessionArtifactVerifyRoot({
+      boundDirectory: readAssistantSessionWorkspace(selectedSessionId)?.directory,
+      sessionDirectory: selectedSessionDirectory,
+      workspaceRoot: selectedWorkspace?.path?.trim() || "",
+    });
     const flatSurfaceProps = {
       workspaceRoot: sessionWorkspaceRoot,
       // Product Files / @ Mine use the catalog workspace, not expert session cwd.
@@ -1579,7 +1589,6 @@ export function useSessionRouteSurfaceProps(
     sessionModelOverrideById,
     sessionPlanRuntimeById,
     sessionWorkspaceRoot,
-    sessionArtifactVerifyRoot,
     sessionsByWorkspaceId,
     token,
   ]);
