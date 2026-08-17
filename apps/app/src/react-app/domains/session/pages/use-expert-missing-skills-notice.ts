@@ -6,7 +6,7 @@ import type { ExpertDirectoryRecord } from "@onmyagent/types/server";
 import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
 import { t } from "../../../../i18n";
 import { expertDirectoryQueryKey } from "../../../capabilities/session-identity/expert-directory-query";
-import { useStatusToasts } from "../../shell-feedback/status-toasts";
+import { useStatusToasts } from "../../shell-feedback";
 import {
   dismissExpertMissingSkillsNotice,
   isExpertMissingSkillsNoticeDismissed,
