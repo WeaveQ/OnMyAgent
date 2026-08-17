@@ -29,7 +29,7 @@ on:
         description: "Notarize macOS builds (requires Apple team configured)"
         required: false
         type: boolean
-        default: false
+        default: true
       publish_sidecars:
         description: "Build + upload onmyagent-orchestrator sidecar release assets"
         required: false
