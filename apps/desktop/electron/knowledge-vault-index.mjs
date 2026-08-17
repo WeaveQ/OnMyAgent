@@ -21,6 +21,25 @@ import { WALK_MAX_BYTES, walkKnowledgeTree } from "./knowledge-vault-walk.mjs";
 
 const MAX_INDEX_BYTES = WALK_MAX_BYTES;
 const DEFAULT_LIMIT = 20;
+/** Bump to rebuild standing indexes after indexed-column / fold changes. */
+const INDEX_SCHEMA_VERSION = "2";
+
+const NOTES_FTS_DDL = `
+  CREATE VIRTUAL TABLE notes_fts USING fts5(
+    scope UNINDEXED,
+    rel_path UNINDEXED,
+    title,
+    body,
+    fold,
+    tokenize = 'trigram'
+  );
+`;
+
+function noteFoldText(note) {
+  return [foldKnowledgeNeedle(note.relPath), foldKnowledgeNeedle(note.title)]
+    .filter(Boolean)
+    .join("\n");
+}
 
 /**
  * @param {string} query
@@ -120,19 +139,32 @@ export async function collectIndexableNotes(input) {
 function openIndex(homeDir) {
   const db = new DatabaseSync(resolveKnowledgeIndexPath(homeDir));
   db.exec(`
-    CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
-      scope UNINDEXED,
-      rel_path UNINDEXED,
-      title,
-      body,
-      tokenize = 'trigram'
-    );
     CREATE TABLE IF NOT EXISTS notes_meta (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
   `);
+  ensureNotesFts(db);
   return db;
+}
+
+function notesFtsHasFoldColumn(db) {
+  try {
+    db.prepare("SELECT fold FROM notes_fts LIMIT 0").get();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function ensureNotesFts(db) {
+  if (readIndexMeta(db, "schema") === INDEX_SCHEMA_VERSION && notesFtsHasFoldColumn(db)) {
+    return;
+  }
+  db.exec("DROP TABLE IF EXISTS notes_fts;");
+  db.exec(NOTES_FTS_DDL);
+  writeIndexMeta(db, "schema", INDEX_SCHEMA_VERSION);
+  writeIndexMeta(db, "fingerprint", "");
 }
 
 function readIndexMeta(db, key) {
@@ -231,13 +263,10 @@ export function rebuildKnowledgeIndex(input) {
   try {
     db.exec("DELETE FROM notes_fts;");
     const insert = db.prepare(
-      "INSERT INTO notes_fts (scope, rel_path, title, body) VALUES (?, ?, ?, ?)",
+      "INSERT INTO notes_fts (scope, rel_path, title, body, fold) VALUES (?, ?, ?, ?, ?)",
     );
     for (const note of input.notes) {
-      const folded = [foldKnowledgeNeedle(note.relPath), foldKnowledgeNeedle(note.title)]
-        .filter(Boolean)
-        .join("\n");
-      insert.run(note.scope, note.relPath, note.title, folded ? `${note.body}\n${folded}` : note.body);
+      insert.run(note.scope, note.relPath, note.title, note.body, noteFoldText(note));
     }
   } finally {
     db.close();
