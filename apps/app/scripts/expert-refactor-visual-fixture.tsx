@@ -31,7 +31,7 @@ import {
 } from "../src/components/ui/action-row";
 import { StatusBadge, StepMarker } from "../src/components/ui/status-badge";
 import { cn } from "../src/lib/utils";
-import { ExpertDirectoryIncompleteNotice, ExpertDirectoryMissingSkillsNotice } from "../src/react-app/domains/session/pages/expert-directory-incomplete-notice";
+import { ExpertDirectoryIncompleteNotice } from "../src/react-app/domains/session/pages/expert-directory-incomplete-notice";
 import { SessionTranscript } from "../src/react-app/domains/session/surface/message-list";
 import { LexicalPromptEditor } from "../src/react-app/domains/session/surface/composer/editor";
 import { createDefaultPlatform, PlatformProvider } from "../src/react-app/kernel/platform";
@@ -376,7 +376,6 @@ function MissingSkillSurface(props: { onRepair: () => void }) {
   return (
     <div className="flex min-h-full items-center justify-center px-6 py-14" data-state-surface="missing-skill">
       <div className="w-full max-w-xl space-y-4">
-        <ExpertDirectoryMissingSkillsNotice missingSkills={["waybill-parser", "carrier-rate-card"]} />
         <NoticeBox tone="warning" size="comfortable" className="shadow-sm">
           <div className="flex items-start gap-3">
             <ShieldAlert className="mt-0.5 size-5 shrink-0" />
