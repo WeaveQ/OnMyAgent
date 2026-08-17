@@ -42,7 +42,6 @@ import { buildAskAgentFileInstruction } from "../../../capabilities/artifacts/fi
 import { NO_EXPERT_CONVERSATIONS_ASSET } from "./expert-page-utils";
 import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import { ExpertDirectoryIncompleteNotice } from "./expert-directory-incomplete-notice";
-import { useExpertMissingSkillsNotice } from "./use-expert-missing-skills-notice";
 
 import { ExpertPageAfterPrimary, ExpertPageSessionSurface } from "./expert-page-main-surface";
 import { ExpertPageModals } from "./expert-page-modals";
@@ -115,7 +114,6 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
     canRenderReactSurface,
     effectiveActiveQuestion,
     effectiveRespondQuestion,
-    expertDirectoryMissingSkills,
     headerPanelControls,
     historyActiveMatch,
     historySearchOpen,
@@ -138,13 +136,6 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
     showWorkspaceSetupEmptyState,
     wrappedOnSendDraft,
   } = surface;
-  useExpertMissingSkillsNotice({
-    enabled: isPrimarySessionView,
-    workspaceId: props.runtimeWorkspaceId?.trim() || props.selectedWorkspaceId,
-    agentId: activeConversationAgentId,
-    missingSkills: expertDirectoryMissingSkills,
-    client: props.onmyagentServerClient,
-  });
   const {
     activeSidePanel,
     artifactFileTargets,

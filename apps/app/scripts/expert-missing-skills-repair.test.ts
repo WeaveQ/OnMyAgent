@@ -276,23 +276,13 @@ describe("repairExpertMissingSkills", () => {
   });
 });
 
-describe("expert page uses a dismissible repair toast", () => {
-  test("layout wires the toast hook and no longer paints the sticky banner", () => {
+describe("expert page does not surface missing-skills UI", () => {
+  test("layout no longer mounts the repair toast or sticky banner", () => {
     const layout = readFileSync(
       join(import.meta.dir, "../src/react-app/domains/session/pages/expert-page-layout.tsx"),
       "utf8",
     );
-    expect(layout).toContain("useExpertMissingSkillsNotice");
+    expect(layout).not.toContain("useExpertMissingSkillsNotice");
     expect(layout).not.toContain("ExpertDirectoryMissingSkillsNotice");
-    const hook = readFileSync(
-      join(
-        import.meta.dir,
-        "../src/react-app/domains/session/pages/use-expert-missing-skills-notice.ts",
-      ),
-      "utf8",
-    );
-    expect(hook).toContain("session.expert_missing_skills_repair");
-    expect(hook).toContain("durationMs: 0");
-    expect(hook).toContain("repairExpertMissingSkills");
   });
 });
