@@ -46,8 +46,8 @@ const WORKSPACE_ID_PREFIX_PATTERN = /^workspace\/(?:ws_[^/]+|\d+|[0-9a-f-]{6,})\
 
 // Path segments allow Unicode letters/numbers (e.g. agents/应收台账模板.xlsx).
 // \w alone is ASCII-only and dropped Chinese filenames from the files panel.
-// Include CJK title brackets commonly used in deliverable filenames
-// (e.g. 【视频脚本-栖光修护精华】审核留痕版.docx).
+// CJK title brackets appear in real deliverable names; card minting does not
+// depend on this scanner — session inventory is the source of truth.
 const FILE_PATH_SEGMENT = String.raw`[\p{L}\p{N}._\-【】「」『』（）／]+`;
 const FILE_PATTERN = new RegExp(
   String.raw`(?:^|[\s"'` +

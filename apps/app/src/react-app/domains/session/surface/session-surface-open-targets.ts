@@ -11,6 +11,12 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
+  mergeOpenTargetsWithInventory,
+  mintInventoryOpenTargets,
+  sessionDirectoryKey,
+  sessionRelativeExpertInventoryPath,
+} from "../../../capabilities/artifacts/session-inventory-open-targets";
+import {
   classifyOpenTarget,
   selectAutoOpenTarget,
   type OpenTarget,
@@ -33,6 +39,14 @@ export type SessionSurfaceOpenTargetsClient = {
     targets: OpenTarget[],
     options?: { sessionRoot?: string },
   ) => Promise<{ items: OpenTarget[] }>;
+  listExpertSessionFiles?: (workspaceId: string) => Promise<{
+    items: Array<{
+      path: string;
+      kind?: string;
+      size?: number;
+      mtimeMs?: number;
+    }>;
+  }>;
 };
 
 export type ListedWorkspaceFile = {
@@ -55,6 +69,8 @@ export type UseSessionSurfaceOpenTargetsInput = {
   /** Stable fingerprint so effect does not re-fire on referential churn. */
   openTargetsFingerprint: string;
   chatStreaming: boolean;
+  /** Latest assistant text — used to match session-dir filenames, not labels. */
+  lastAssistantText?: string;
   /**
    * Desktop-only: list files under the product root (space folder) so
    * deliverables written outside the catalog workspace still verify.
@@ -183,18 +199,56 @@ export function applyListedFilesToOpenTargets(
   });
 }
 
-async function applyLocalFileListing(
-  targets: OpenTarget[],
-  input: Pick<UseSessionSurfaceOpenTargetsInput, "listLocalFiles" | "sessionRoot">,
-): Promise<OpenTarget[]> {
+async function listSessionInventoryFiles(
+  input: Pick<
+    UseSessionSurfaceOpenTargetsInput,
+    "listLocalFiles" | "sessionRoot" | "client" | "workspaceId"
+  >,
+): Promise<ListedWorkspaceFile[]> {
   const root = input.sessionRoot?.trim() ?? "";
-  if (!root || !input.listLocalFiles) return targets;
-  try {
-    const listed = await input.listLocalFiles(root);
-    return applyListedFilesToOpenTargets(targets, listed);
-  } catch {
-    return targets;
+  const listFn = input.listLocalFiles ?? listSessionProductFiles;
+  if (root) {
+    try {
+      const listed = await listFn(root);
+      if (listed.length) return listed;
+    } catch {
+      // Fall through to expert runtime catalog.
+    }
   }
+
+  const listExpert = input.client.listExpertSessionFiles;
+  if (!listExpert) return [];
+  try {
+    const result = await listExpert(input.workspaceId);
+    const sessionKey = sessionDirectoryKey(root);
+    const items: ListedWorkspaceFile[] = [];
+    for (const item of result.items) {
+      if (item.kind === "dir") continue;
+      const relative = sessionRelativeExpertInventoryPath(item.path, sessionKey);
+      if (!relative) continue;
+      items.push({
+        path: relative,
+        kind: "file",
+        size: item.size,
+        mtimeMs: item.mtimeMs,
+      });
+    }
+    return items;
+  } catch {
+    return [];
+  }
+}
+
+function candidatesWithInventory(
+  openTargets: OpenTarget[],
+  listed: ListedWorkspaceFile[],
+  lastAssistantText: string,
+): OpenTarget[] {
+  const inventoryTargets = mintInventoryOpenTargets(
+    listed.filter((item) => item.kind !== "dir").map((item) => item.path),
+    lastAssistantText,
+  );
+  return mergeOpenTargetsWithInventory(openTargets, inventoryTargets);
 }
 
 export function useSessionSurfaceOpenTargets(
@@ -221,7 +275,19 @@ export function useSessionSurfaceOpenTargets(
     const sessionId = input.sessionId;
 
     async function verifyTargets() {
-      if (!input.openTargets.length) {
+      const listed = await listSessionInventoryFiles({
+        sessionRoot: input.sessionRoot,
+        listLocalFiles: input.listLocalFiles,
+        client: input.client,
+        workspaceId: input.workspaceId,
+      });
+      if (cancelled) return;
+      const candidates = candidatesWithInventory(
+        input.openTargets,
+        listed,
+        input.lastAssistantText ?? "",
+      );
+      if (!candidates.length) {
         autoOpenStateRef.current = initializeAutoOpenSessionState(
           autoOpenStateRef.current,
           sessionId,
@@ -233,21 +299,17 @@ export function useSessionSurfaceOpenTargets(
       try {
         const response = await input.client.resolveArtifacts(
           input.workspaceId,
-          input.openTargets,
+          candidates,
           { sessionRoot: input.sessionRoot },
         );
         if (cancelled) return;
         const serverTargets = normalizeVerifiedOpenTargets(
           response.items as OpenTarget[],
         );
-        const nextTargets = await applyLocalFileListing(
-          serverTargets.length ? serverTargets : input.openTargets,
-          {
-            sessionRoot: input.sessionRoot,
-            listLocalFiles: input.listLocalFiles ?? listSessionProductFiles,
-          },
+        const nextTargets = applyListedFilesToOpenTargets(
+          serverTargets.length ? serverTargets : candidates,
+          listed,
         );
-        if (cancelled) return;
         autoOpenStateRef.current = initializeAutoOpenSessionState(
           autoOpenStateRef.current,
           sessionId,
@@ -256,15 +318,11 @@ export function useSessionSurfaceOpenTargets(
         setVerifiedOpenTargets(nextTargets);
       } catch {
         if (cancelled) return;
-        const fallback = input.openTargets.map((target) => ({
+        const fallback = candidates.map((target) => ({
           ...target,
           exists: target.kind === "url",
         }));
-        const nextTargets = await applyLocalFileListing(fallback, {
-          sessionRoot: input.sessionRoot,
-          listLocalFiles: input.listLocalFiles ?? listSessionProductFiles,
-        });
-        if (cancelled) return;
+        const nextTargets = applyListedFilesToOpenTargets(fallback, listed);
         autoOpenStateRef.current = initializeAutoOpenSessionState(
           autoOpenStateRef.current,
           sessionId,
@@ -285,6 +343,7 @@ export function useSessionSurfaceOpenTargets(
     input.sessionRoot,
     input.openTargets,
     input.listLocalFiles,
+    input.lastAssistantText,
   ]);
 
   // 3) Auto-open newly verified high-confidence targets when not streaming.

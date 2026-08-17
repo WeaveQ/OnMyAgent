@@ -1,5 +1,9 @@
 import type { UIMessage } from "ai";
 import {
+  assistantTextIncludesFilename,
+  isContentDeliverablePath,
+} from "../../../../capabilities/artifacts/session-inventory-open-targets";
+import {
   deriveOpenTargets,
   extractAssistantDeliveryManifestPaths,
   extractDeclaredDeliverablePaths,
@@ -7,6 +11,7 @@ import {
   isCollectibleArtifactTarget,
   isLikelyUserUploadArtifactPath,
   isUserFacingLocalPreviewTarget,
+  lastAssistantTextFromMessages,
   type OpenTarget,
 } from "../../artifacts/open-target";
 
@@ -25,38 +30,6 @@ function fileExtension(path: string): string {
   const dot = base.lastIndexOf(".");
   return dot >= 0 ? base.slice(dot) : "";
 }
-
-/** Common end-user deliverables (always show when written/declared). */
-const CONTENT_DELIVERABLE_EXTENSIONS = new Set([
-  ".xlsx",
-  ".xlsm",
-  ".xls",
-  ".csv",
-  ".tsv",
-  ".docx",
-  ".doc",
-  ".pdf",
-  ".pptx",
-  ".ppt",
-  ".md",
-  ".markdown",
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".gif",
-  ".webp",
-  ".svg",
-  ".mp4",
-  ".webm",
-  ".mp3",
-  ".wav",
-  ".html",
-  ".htm",
-  ".txt",
-  ".text",
-  ".rtf",
-  ".zip",
-]);
 
 /** May be the final product (user asked for a script) OR a throwaway helper. */
 const CODE_EXTENSIONS = new Set([
@@ -112,7 +85,7 @@ function isProcessHelperScript(path: string): boolean {
 }
 
 function isContentDeliverable(path: string): boolean {
-  return CONTENT_DELIVERABLE_EXTENSIONS.has(fileExtension(path));
+  return isContentDeliverablePath(path);
 }
 
 function isCodePath(path: string): boolean {
@@ -355,6 +328,31 @@ export function selectTurnOpenTargets(
   // Explicit claims and artifact links are deliverable provenance without a tool entry.
   for (const declared of [...declaredPaths, ...explicitArtifactLinkPaths]) {
     addVerifiedFile(declared);
+  }
+
+  // Session directory is the source of truth when this turn has no write-tool
+  // / marker content file: a uniquely verified content file whose exact name
+  // appears in the latest assistant text gets a card. New labels do not need
+  // another keyword. Resolve by basename so two same-named files stay silent.
+  const hasContentWriteProvenance = candidatePaths.some(
+    (path) =>
+      isContentDeliverable(path)
+      && !isBlockedUserPath(path, userBasenames)
+      && !isProcessHelperScript(path)
+      && !isProcessArtifactPath(path),
+  );
+  if (!hasContentWriteProvenance) {
+    const latestAssistantText = lastAssistantTextFromMessages(assistantMessages);
+    const seenBasenames = new Set<string>();
+    for (const verified of verifiedFiles) {
+      const base = basenameOf(verified.value);
+      const key = base.toLowerCase();
+      if (seenBasenames.has(key)) continue;
+      if (!isContentDeliverable(verified.value)) continue;
+      if (!assistantTextIncludesFilename(latestAssistantText, base)) continue;
+      seenBasenames.add(key);
+      addVerifiedFile(base);
+    }
   }
 
   return Array.from(inlineTargets.values());

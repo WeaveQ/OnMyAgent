@@ -180,4 +180,26 @@ describe("open-targets hook source contract", () => {
     expect(host).toContain("useSessionSurfaceOpenTargets");
     expect(host).not.toContain("initializedAutoOpenSessionRef");
   });
+
+  test("mints card candidates from session inventory instead of Chinese labels", () => {
+    const hook = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/surface/session-surface-open-targets.ts",
+      ),
+      "utf8",
+    );
+    expect(hook).toContain("mintInventoryOpenTargets");
+    expect(hook).toContain("listSessionInventoryFiles");
+    expect(hook).toContain("listExpertSessionFiles");
+
+    const host = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/surface/session-surface.tsx",
+      ),
+      "utf8",
+    );
+    expect(host).toContain("lastAssistantText: lastAssistantTextFromMessages(renderedMessages)");
+  });
 });
