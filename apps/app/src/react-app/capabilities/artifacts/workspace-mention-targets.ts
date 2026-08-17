@@ -160,7 +160,7 @@ export function prefixExpertRuntimeEntries(
   }));
 }
 
-/** Root leftovers Files → 任务 shows (not under uploads/tasks/experts/projects). */
+/** Root leftovers Files → Tasks shows (not under uploads/tasks/experts/projects). */
 export function leftoverTaskCatalogEntries(
   entries: OnMyAgentWorkspaceFileCatalogEntry[],
 ): OnMyAgentWorkspaceFileCatalogEntry[] {
@@ -288,7 +288,7 @@ function isUnderProductSourceRoot(path: string): boolean {
   ) {
     return true;
   }
-  // Files → 任务 also shows leftover root files/folders.
+  // Files → Tasks also shows leftover root files/folders.
   return Boolean(top) && !isWorkspaceLayoutTopDir(top) && !isWorkspaceSystemTopDir(top);
 }
 
@@ -405,7 +405,7 @@ export function workspaceDirectoryTargets(
 
 /**
  * When browsing the Task source root, also surface projects/ children
- * (same product bucket as Files → 任务文件).
+ * (same product bucket as Files → Task files).
  */
 export function mergeTaskSourceDirectoryTargets(
   taskTargets: ComposerMentionTarget[],
