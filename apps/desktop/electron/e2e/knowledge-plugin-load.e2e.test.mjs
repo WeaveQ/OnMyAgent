@@ -6,16 +6,10 @@
  * No live model, no Electron window, no real ~/.onmyagent.
  */
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
+import { readFile, rm } from "node:fs/promises";
 import { after, describe, test } from "node:test";
 
 import { KNOWLEDGE_TOOL_PLUGIN_FILES } from "../knowledge-search-plugin.mjs";
-import {
-  applyOpencodeSandboxEnv,
-  prepareOpencodeSandboxHome,
-} from "../opencode-sandbox-home.mjs";
 import {
   KNOWLEDGE_TOOL_IDS,
   PLUGIN_LOAD_FAILURE_RE,
@@ -26,6 +20,7 @@ import {
   spawnOpencodeServe,
   waitForHealthy,
 } from "./opencode-serve.mjs";
+import { createDesktopE2eSandbox, sandboxChildEnv } from "./sandbox.mjs";
 
 const roots = [];
 
@@ -36,23 +31,9 @@ after(async () => {
 });
 
 async function createDesktopSandbox() {
-  const root = await mkdtemp(path.join(os.tmpdir(), "oma-desktop-plugin-e2e-"));
-  roots.push(root);
-  const realHome = path.join(root, "real-home");
-  const userData = path.join(root, "user-data");
-  const workspace = path.join(root, "workspace");
-  await mkdir(path.join(realHome, ".config", "opencode"), { recursive: true });
-  await mkdir(path.join(workspace, ".opencode"), { recursive: true });
-  await writeFile(
-    path.join(realHome, ".config", "opencode", "opencode.json"),
-    `${JSON.stringify({ plugin: [], provider: {} }, null, 2)}\n`,
-    "utf8",
-  );
-  const paths = await prepareOpencodeSandboxHome({
-    userDataDir: userData,
-    realHomeDir: realHome,
-  });
-  return { workspace, paths };
+  const sandbox = await createDesktopE2eSandbox({ prefix: "oma-desktop-plugin-e2e-" });
+  roots.push(sandbox.root);
+  return sandbox;
 }
 
 describe("desktop knowledge plugin load e2e", () => {
@@ -90,14 +71,9 @@ describe("desktop knowledge plugin load e2e", () => {
         return;
       }
 
-      const { workspace, paths } = await createDesktopSandbox();
-      const env = applyOpencodeSandboxEnv(
-        {
-          ...process.env,
-          OPENCODE_CLIENT: "onmyagent-desktop-e2e",
-        },
-        paths,
-      );
+      const sandbox = await createDesktopSandbox();
+      const { workspace } = sandbox;
+      const env = sandboxChildEnv(sandbox);
       const port = await findFreePort();
       const server = spawnOpencodeServe({ bin, cwd: workspace, env, port });
       try {

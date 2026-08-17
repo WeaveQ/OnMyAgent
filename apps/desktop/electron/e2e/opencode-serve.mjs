@@ -140,17 +140,36 @@ export function spawnOpencodeServe(input) {
 /**
  * @param {string} baseUrl
  * @param {string} pathname
- * @param {{ directory?: string, timeoutMs?: number }} [opts]
+ * @param {{
+ *   directory?: string,
+ *   timeoutMs?: number,
+ *   method?: string,
+ *   query?: Record<string, string | number | undefined>,
+ *   body?: unknown,
+ * }} [opts]
  */
-export async function fetchOpencodeJson(baseUrl, pathname, opts = {}) {
+export async function requestOpencodeJson(baseUrl, pathname, opts = {}) {
   const url = new URL(pathname, baseUrl);
   if (opts.directory) url.searchParams.set("directory", opts.directory);
-  const headers = new Headers();
+  if (opts.query) {
+    for (const [key, value] of Object.entries(opts.query)) {
+      if (value === undefined || value === null || value === "") continue;
+      url.searchParams.set(key, String(value));
+    }
+  }
+  const headers = new Headers({ Accept: "application/json" });
   if (opts.directory) headers.set("x-opencode-directory", opts.directory);
-  const response = await fetch(url, {
+  const method = (opts.method ?? "GET").toUpperCase();
+  const init = {
+    method,
     headers,
     signal: AbortSignal.timeout(opts.timeoutMs ?? 15_000),
-  });
+  };
+  if (opts.body !== undefined) {
+    headers.set("content-type", "application/json");
+    init.body = JSON.stringify(opts.body);
+  }
+  const response = await fetch(url, init);
   const text = await response.text();
   let body = null;
   try {
@@ -159,6 +178,15 @@ export async function fetchOpencodeJson(baseUrl, pathname, opts = {}) {
     body = text;
   }
   return { ok: response.ok, status: response.status, body };
+}
+
+/**
+ * @param {string} baseUrl
+ * @param {string} pathname
+ * @param {{ directory?: string, timeoutMs?: number, query?: Record<string, string | number | undefined> }} [opts]
+ */
+export async function fetchOpencodeJson(baseUrl, pathname, opts = {}) {
+  return requestOpencodeJson(baseUrl, pathname, opts);
 }
 
 /**

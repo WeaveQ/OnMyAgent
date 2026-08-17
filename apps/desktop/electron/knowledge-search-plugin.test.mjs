@@ -41,6 +41,37 @@ describe("knowledge_search plugin", () => {
     assert.match(property, /knowledge_property_set: tool\(/);
   });
 
+  test("space query does not match a hyphenated filename unless title or body contains the phrase", async () => {
+    const home = await mkdtemp(path.join(os.tmpdir(), "oma-kv-plugin-hyphen-"));
+    try {
+      await writeKnowledgeFile({
+        homeDir: home,
+        scope: "user",
+        relPath: "getting-started.md",
+        content: "# Knowledge vault / 知识库\n\nPersonal notes only.\n",
+      });
+      const miss = await executeKnowledgeSearch({
+        knowledgeRoot: resolveKnowledgeRoot(home),
+        query: "Getting started",
+        env: {},
+      });
+      assert.equal(miss.ok, true);
+      assert.equal(
+        miss.hits.length,
+        0,
+        `hyphenated filename should not match spaced query: ${JSON.stringify(miss.hits)}`,
+      );
+      const hit = await executeKnowledgeSearch({
+        knowledgeRoot: resolveKnowledgeRoot(home),
+        query: "getting-started",
+        env: {},
+      });
+      assert.ok(hit.hits.some((item) => item.relPath === "getting-started.md"));
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
   test("query-only search hits planted project and expert notes via session defaults", async () => {
     const home = await mkdtemp(path.join(os.tmpdir(), "oma-kv-plugin-search-"));
     try {

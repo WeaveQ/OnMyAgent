@@ -11,7 +11,7 @@ git diff --check
 
 Bridge / channels：`node --test apps/desktop/electron/channels/test/*.test.mjs`（无 live 凭证）。
 Runtime smoke：`pnpm test:runtime`（按变更选用）。
-Desktop OpenCode plugin e2e：`apps/desktop/electron/e2e/*.e2e.test.mjs`（编入 `test:runtime`；无 live 模型 / 无 Electron 窗）。
+Desktop OpenCode e2e：`apps/desktop/electron/e2e/*.e2e.test.mjs`（编入 `test:runtime`；无 live 模型 / 无 Electron 窗）。覆盖 knowledge 插件加载与 vault 检索、工作区 `/file` 读写、sandbox HOME 隔离 + slash 核心技能、以及 skill-creator 写入 `profiles/local/config/skills`。
 
 ## 必读链接
 
