@@ -6,6 +6,7 @@ import {
   joinWorkspacePath,
   resolveExpertSessionDirectoryMarker,
   resolveSelectedSessionFileRoot,
+  resolveSessionArtifactVerifyRoot,
   sanitizePathSegment,
   shouldIsolateExpertSessionDirectory,
 } from "../src/react-app/capabilities/session-identity/expert-session-directory";
@@ -79,63 +80,59 @@ describe("expert session directory isolation", () => {
     expect(shouldIsolateExpertSessionDirectory("", "/tmp/x")).toBe(false);
   });
 
-  test("session file root prefers session record directory over localStorage binding", () => {
-    // Both equal -> returns the directory.
+  test("session file listing root only accepts isolated per-session directories", () => {
     expect(
       resolveSelectedSessionFileRoot({
         boundDirectory: "/Users/me/Work",
         sessionDirectory: "/Users/me/Work",
         workspaceRoot: "/Users/me/Work/",
       }),
-    ).toBe("/Users/me/Work");
-    // Real project subfolder on the session record still wins.
+    ).toBe("");
     expect(
       resolveSelectedSessionFileRoot({
-        boundDirectory: "/Users/me/Work/物流单专家/abc",
+        boundDirectory: "/Users/me/Desktop/work",
         sessionDirectory: "/Users/me/Work/orders",
         workspaceRoot: "/Users/me/Work",
       }),
-    ).toBe("/Users/me/Work/orders");
-    // No session directory -> falls back to boundDirectory (legacy sessions).
-    expect(
-      resolveSelectedSessionFileRoot({
-        boundDirectory: "/Users/me/Work/物流单专家/abc",
-        sessionDirectory: null,
-        workspaceRoot: "/Users/me/Work",
-      }),
-    ).toBe("/Users/me/Work/物流单专家/abc");
-    // No session directory, no binding -> empty.
-    expect(
-      resolveSelectedSessionFileRoot({
-        boundDirectory: null,
-        sessionDirectory: null,
-        workspaceRoot: "/Users/me/Work",
-      }),
     ).toBe("");
+    expect(
+      resolveSelectedSessionFileRoot({
+        boundDirectory: "/Users/me/Library/Application Support/OnMyAgent/expert-sessions/ws/agent/1753456789000",
+        sessionDirectory: "/Users/me/Work",
+        workspaceRoot: "/Users/me/Work",
+      }),
+    ).toBe("/Users/me/Library/Application Support/OnMyAgent/expert-sessions/ws/agent/1753456789000");
+    expect(
+      resolveSelectedSessionFileRoot({
+        boundDirectory: "/Users/me/Desktop/work",
+        sessionDirectory: "/Users/me/Library/Application Support/OnMyAgent/expert-sessions/ws/assistant/1753456789000",
+        workspaceRoot: "/Users/me/Work",
+      }),
+    ).toBe("/Users/me/Library/Application Support/OnMyAgent/expert-sessions/ws/assistant/1753456789000");
   });
 
-  test("space-bound chats use the user folder when session.directory is catalog or isolated", () => {
+  test("artifact verify root keeps the space folder for legacy shared sessions", () => {
     expect(
-      resolveSelectedSessionFileRoot({
+      resolveSessionArtifactVerifyRoot({
         boundDirectory: "C:\\Users\\me\\OneDrive\\Desktop\\work",
         sessionDirectory: "C:\\Users\\me\\OnMyAgent\\catalog",
         workspaceRoot: "C:\\Users\\me\\OnMyAgent\\catalog",
       }),
     ).toBe("C:\\Users\\me\\OneDrive\\Desktop\\work");
     expect(
-      resolveSelectedSessionFileRoot({
+      resolveSessionArtifactVerifyRoot({
         boundDirectory: "/Users/me/Desktop/work",
-        sessionDirectory: "/Users/me/Library/Application Support/OnMyAgent/expert-sessions/ws/agent/1753456789000",
-        workspaceRoot: "/Users/me/Projects/app",
+        sessionDirectory: "/Users/me/Library/Application Support/OnMyAgent/expert-sessions/ws/assistant/1753456789000",
+        workspaceRoot: "/Users/me/Work",
       }),
-    ).toBe("/Users/me/Desktop/work");
+    ).toBe("/Users/me/Library/Application Support/OnMyAgent/expert-sessions/ws/assistant/1753456789000");
     expect(
-      resolveSelectedSessionFileRoot({
-        boundDirectory: "/Users/me/Library/Application Support/OnMyAgent/expert-sessions/ws/agent/1753456789000",
-        sessionDirectory: "/Users/me/Library/Application Support/OnMyAgent/expert-sessions/ws/agent/1753456789000",
-        workspaceRoot: "/Users/me/Projects/app",
+      resolveSessionArtifactVerifyRoot({
+        boundDirectory: null,
+        sessionDirectory: null,
+        workspaceRoot: "/Users/me/Work",
       }),
-    ).toBe("/Users/me/Library/Application Support/OnMyAgent/expert-sessions/ws/agent/1753456789000");
+    ).toBe("/Users/me/Work");
   });
 
   test("accepts a server-created runtime directory outside the workspace", async () => {

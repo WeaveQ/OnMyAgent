@@ -61,6 +61,7 @@ import {
 } from "../../domains/session";
 import {
   createIsolatedExpertSessionRuntimeDirectory,
+  isIsolatedExpertSessionDirectory,
   isSameDirectory,
   shouldIsolateExpertSessionDirectory,
 } from "../../capabilities/session-identity/expert-session-directory";
@@ -192,7 +193,7 @@ export type SessionRouteSurfacePropsInput = {
   sessionModelOverrideById: Record<string, ModelRef>;
   sessionPlanRuntimeById: Record<string, CollaborationPlanRuntime>;
   sessionWorkspaceRoot: string;
-  selectedSessionFileRoot: string;
+  sessionArtifactVerifyRoot: string;
   sessionsByWorkspaceId: Record<string, SidebarSessionItem[]>;
   sessionsByWorkspaceIdRef: MutableRefObject<Record<string, SidebarSessionItem[]>>;
   setAssistantDraftWorkspaceRoot: Dispatch<SetStateAction<string>>;
@@ -259,7 +260,7 @@ export function useSessionRouteSurfaceProps(
     sessionModelOverrideById,
     sessionPlanRuntimeById,
     sessionWorkspaceRoot,
-    selectedSessionFileRoot,
+    sessionArtifactVerifyRoot,
     sessionsByWorkspaceId,
     sessionsByWorkspaceIdRef,
     setAssistantDraftWorkspaceRoot,
@@ -465,7 +466,7 @@ export function useSessionRouteSurfaceProps(
       workspaceRoot: sessionWorkspaceRoot,
       // Product Files / @ Mine use the catalog workspace, not expert session cwd.
       filesWorkspaceRoot: catalogWorkspaceRoot,
-      sessionFileRoot: selectedSessionFileRoot || sessionWorkspaceRoot,
+      sessionFileRoot: sessionArtifactVerifyRoot || sessionWorkspaceRoot,
       connectedProviderIds: providerConnectedIds,
       developerMode: false,
       modelLabel,
@@ -623,53 +624,80 @@ export function useSessionRouteSurfaceProps(
         // A+B: isolate + session.create claimed from draft prewarm, or created
         // under the global expert cold-path queue (never parallel cold boots).
         let expertColdClaim: ExpertColdPathResult | null = null;
-        if (pageMode === "expert" && sendPlan.needsNewSession) {
+        if (
+          (pageMode === "expert" || pageMode === "assistant") &&
+          sendPlan.needsNewSession
+        ) {
           const explicitFolder = explicitAssistantWorkspace.trim();
-          const isolate = shouldIsolateExpertSessionDirectory(
-            workspaceRootForSession,
-            explicitFolder || taskWorkspaceRoot,
-          );
+          const isolate =
+            pageMode === "assistant"
+              ? Boolean(workspaceRootForSession)
+              : shouldIsolateExpertSessionDirectory(
+                  workspaceRootForSession,
+                  explicitFolder || taskWorkspaceRoot,
+                );
           if (isolate && workspaceRootForSession) {
             const pendingForDir = pendingForColdPath;
             // New session: use the pending agent name + id. Never fall back to
             // the previously selected session's agent snapshot - that belongs
             // to a different expert and would create artifacts in the wrong dir.
-            const agentName = pendingForDir?.name?.trim() || "expert";
+            const agentName =
+              pendingForDir?.name?.trim() ||
+              (pageMode === "assistant" ? "assistant" : "expert");
             const agentId = pendingForDir?.id?.trim() || "";
             const packageName = normalizeExpertWritePackageName({
               agentId,
               packageName: pendingForDir?.marketplaceExpert?.packageName,
             });
             const approvedAgentIds = pendingForDir?.approvedAgentIds ?? [];
-            expertColdClaim = await claimOrCreateExpertColdSession(
-              {
-                workspaceId: ensureWorkspaceId,
-                agentId,
-                agentName,
-                packageName,
-                approvedAgentIds,
-                skillNames: expertSkillNames,
-              },
-              {
-                createIsolatedDirectory: () =>
-                  createIsolatedExpertSessionRuntimeDirectory({
-                    client: ensureClient,
-                    workspaceId: ensureWorkspaceId,
-                    workspaceRoot: workspaceRootForSession,
-                    agentName,
-                    agentId,
-                    packageName,
-                    approvedAgentIds,
-                    skillNames: expertSkillNames,
-                  }),
-                createSession: async (directory) => {
-                  const created = unwrap(await opencodeClient.session.create({ directory }));
-                  return { id: created.id };
+            const spaceBinding =
+              pageMode === "assistant" &&
+              explicitFolder &&
+              !isIsolatedExpertSessionDirectory(explicitFolder)
+                ? explicitFolder
+                : "";
+            try {
+              expertColdClaim = await claimOrCreateExpertColdSession(
+                {
+                  workspaceId: ensureWorkspaceId,
+                  agentId,
+                  agentName,
+                  packageName,
+                  approvedAgentIds,
+                  skillNames: expertSkillNames,
                 },
-              },
-            );
-            taskWorkspaceRoot = expertColdClaim.directory;
-            explicitAssistantWorkspace = expertColdClaim.directory;
+                {
+                  createIsolatedDirectory: () =>
+                    createIsolatedExpertSessionRuntimeDirectory({
+                      client: ensureClient,
+                      workspaceId: ensureWorkspaceId,
+                      workspaceRoot: workspaceRootForSession,
+                      agentName,
+                      agentId,
+                      packageName,
+                      approvedAgentIds,
+                      skillNames: expertSkillNames,
+                    }),
+                  createSession: async (directory) => {
+                    const created = unwrap(await opencodeClient.session.create({ directory }));
+                    return { id: created.id };
+                  },
+                },
+              );
+              taskWorkspaceRoot = expertColdClaim.directory;
+              // Keep a user-picked space folder as the sidebar grouping key.
+              // Isolated cwd is the product root; do not rebind 空间 to it.
+              if (!spaceBinding) {
+                explicitAssistantWorkspace = expertColdClaim.directory;
+              }
+            } catch (error) {
+              if (pageMode === "expert") throw error;
+              console.warn(
+                "[assistant-session] isolation failed; using shared folder",
+                error,
+              );
+              expertColdClaim = null;
+            }
           } else if (explicitFolder) {
             // User-picked folder (not workspace root): bind side panel to that path.
             explicitAssistantWorkspace = explicitFolder;
@@ -1551,7 +1579,7 @@ export function useSessionRouteSurfaceProps(
     sessionModelOverrideById,
     sessionPlanRuntimeById,
     sessionWorkspaceRoot,
-    selectedSessionFileRoot,
+    sessionArtifactVerifyRoot,
     sessionsByWorkspaceId,
     token,
   ]);

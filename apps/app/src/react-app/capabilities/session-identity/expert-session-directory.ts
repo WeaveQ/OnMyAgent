@@ -156,17 +156,9 @@ export function shouldIsolateExpertSessionDirectory(
 }
 
 /**
- * Side-panel + artifact-card file root for a session.
- *
- * Space-bound assistant chats (首页「选择工作空间」) store the user folder in
- * localStorage. OpenCode's session.directory often stays on the catalog
- * workspace or an isolated runtime dir, so preferring the session record
- * would list/verify the wrong tree and hide deliverables written into the
- * space folder.
- *
- * Isolated expert dirs stay on the session record so we do not scan the
- * parent project. workspaceRoot is only used to detect "session.directory
- * is just the catalog workspace".
+ * Files-panel listing root. Only a per-session isolated directory is safe to
+ * scan — a shared space/catalog folder would leak other sessions' deliverables.
+ * Shared folders fall back to this session's verified artifact chips.
  */
 export function resolveSelectedSessionFileRoot(input: {
   boundDirectory?: string | null;
@@ -175,18 +167,27 @@ export function resolveSelectedSessionFileRoot(input: {
 }): string {
   const sessionDir = input.sessionDirectory?.trim() ?? "";
   const boundDir = input.boundDirectory?.trim() ?? "";
-  if (
-    boundDir &&
-    !isIsolatedExpertSessionDirectory(boundDir) &&
-    (
-      !sessionDir ||
-      isIsolatedExpertSessionDirectory(sessionDir) ||
-      isSameDirectory(sessionDir, input.workspaceRoot)
-    )
-  ) {
-    return boundDir;
-  }
-  return sessionDir || boundDir;
+  if (sessionDir && isIsolatedExpertSessionDirectory(sessionDir)) return sessionDir;
+  if (boundDir && isIsolatedExpertSessionDirectory(boundDir)) return boundDir;
+  return "";
+}
+
+/**
+ * Where to verify artifact cards on disk. Isolated session dirs win. Legacy
+ * space-bound chats still wrote into the user-picked folder, so that binding
+ * remains the fallback when the session itself is not isolated.
+ */
+export function resolveSessionArtifactVerifyRoot(input: {
+  boundDirectory?: string | null;
+  sessionDirectory?: string | null;
+  workspaceRoot: string;
+}): string {
+  const sessionDir = input.sessionDirectory?.trim() ?? "";
+  const boundDir = input.boundDirectory?.trim() ?? "";
+  if (sessionDir && isIsolatedExpertSessionDirectory(sessionDir)) return sessionDir;
+  if (boundDir && isIsolatedExpertSessionDirectory(boundDir)) return boundDir;
+  if (boundDir) return boundDir;
+  return sessionDir || input.workspaceRoot.trim();
 }
 
 /**
