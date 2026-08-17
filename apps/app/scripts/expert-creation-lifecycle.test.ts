@@ -8,6 +8,7 @@ import {
   isExpertCreationPreviewReady,
 } from "../src/react-app/domains/agents/expert-creation-lifecycle";
 import { buildIsolatedExpertCreationModel } from "../src/react-app/domains/session/pages/expert-creation-embedded-model";
+import { resolveExpertCreationWorkspaceRoot } from "../src/react-app/domains/session/pages/expert-creation-workspace-root";
 
 describe("expert creation lifecycle", () => {
   const registry = createDefaultAgentRegistry();
@@ -79,5 +80,15 @@ describe("expert creation lifecycle", () => {
       avatarOptionId: null,
       customAvatarDataUrl: null,
     })).toBe(true);
+  });
+
+  test("uses the registry workspace root instead of the active Expert session directory", () => {
+    expect(
+      resolveExpertCreationWorkspaceRoot({
+        selectedWorkspaceRoot:
+          "/Users/test/Library/Application Support/OnMyAgent/expert-sessions/expert/session-old",
+        workspaceFilesRoot: "/Users/test/workspace",
+      }),
+    ).toBe("/Users/test/workspace");
   });
 });

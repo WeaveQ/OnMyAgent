@@ -119,6 +119,13 @@ export function applyExpertPreviewStreamEvent(
   if (event.type === "session.idle") {
     return event.properties.sessionID === sessionId ? { kind: "done", text: fullText(state) } : null;
   }
+  if (event.type === "session.status") {
+    if (event.properties.sessionID !== sessionId) return null;
+    const status = event.properties.status;
+    return isRecord(status) && status.type === "idle"
+      ? { kind: "done", text: fullText(state) }
+      : null;
+  }
   if (event.type === "session.error") {
     if (event.properties.sessionID !== sessionId) return null;
     return { kind: "error", message: readErrorMessage(event.properties) || "Session failed" };
@@ -223,6 +230,16 @@ export function createExpertPreviewAcceptanceGate(): {
       await Promise.race([accepted, turn.then(() => undefined)]);
     },
   };
+}
+
+export async function submitExpertPreviewTurn<T>(input: {
+  turn: Promise<T>;
+  waitForSubmission: (turn: Promise<unknown>) => Promise<void>;
+  onSettled: () => void | Promise<void>;
+}): Promise<void> {
+  const completed = input.turn.finally(input.onSettled);
+  void completed.catch(() => undefined);
+  await input.waitForSubmission(input.turn);
 }
 
 export function createExpertPreviewStreamLifetime(parentSignal?: AbortSignal): {

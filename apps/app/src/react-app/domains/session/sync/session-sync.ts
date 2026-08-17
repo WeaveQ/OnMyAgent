@@ -1656,8 +1656,19 @@ export function trackWorkspaceSessionSync(
   const normalizedSessionId = sessionId?.trim() ?? "";
   if (!normalizedSessionId) return () => {};
 
-  const entry = syncs.get(syncKey(input));
-  if (!entry) return () => {};
+  // Isolated surfaces (expert creation coach / preview) can use a directory
+  // different from the route's active session. Make the tracker self-sufficient
+  // so those surfaces receive live parts instead of only the final snapshot.
+  let releaseOwnedWorkspace: (() => void) | null = null;
+  let entry = syncs.get(syncKey(input));
+  if (!entry) {
+    releaseOwnedWorkspace = ensureWorkspaceSessionSync(input);
+    entry = syncs.get(syncKey(input));
+  }
+  if (!entry) {
+    releaseOwnedWorkspace?.();
+    return () => {};
+  }
 
   const retainedTimer = entry.retainedSessionTimers.get(normalizedSessionId);
   if (retainedTimer) {
@@ -1671,18 +1682,22 @@ export function trackWorkspaceSessionSync(
   );
 
   return once(() => {
-    const current = entry.trackedSessionRefs.get(normalizedSessionId) ?? 0;
-    if (current <= 1) {
-      entry.trackedSessionRefs.delete(normalizedSessionId);
-      retainSession(
-        input,
-        entry,
-        normalizedSessionId,
-        retentionTtlForUntrackedSession(input, normalizedSessionId),
-      );
-      return;
+    try {
+      const current = entry.trackedSessionRefs.get(normalizedSessionId) ?? 0;
+      if (current <= 1) {
+        entry.trackedSessionRefs.delete(normalizedSessionId);
+        retainSession(
+          input,
+          entry,
+          normalizedSessionId,
+          retentionTtlForUntrackedSession(input, normalizedSessionId),
+        );
+        return;
+      }
+      entry.trackedSessionRefs.set(normalizedSessionId, current - 1);
+    } finally {
+      releaseOwnedWorkspace?.();
     }
-    entry.trackedSessionRefs.set(normalizedSessionId, current - 1);
   });
 }
 

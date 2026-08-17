@@ -18,6 +18,7 @@ import {
   useExpertCreationController,
 } from "../../agents";
 import type { ReactNode } from "react";
+import { resolveExpertCreationWorkspaceRoot } from "./expert-creation-workspace-root";
 
 type SessionExpertCreationInput = {
   props: SessionPageProps;
@@ -27,6 +28,7 @@ type SessionExpertCreationInput = {
 };
 
 export function useSessionExpertCreation(input: SessionExpertCreationInput) {
+  const workspaceRoot = resolveExpertCreationWorkspaceRoot(input.props);
   const renderComposer = useCallback(
     (composer: ExpertCreationComposerProps) => {
       const surface = input.props.surface;
@@ -114,7 +116,7 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
           surface={surface}
           client={client}
           workspaceId={input.props.selectedWorkspaceId}
-          workspaceRoot={input.props.selectedWorkspaceRoot}
+          workspaceRoot={workspaceRoot}
           opencodeBaseUrl={baseUrl}
           onmyagentToken={input.props.onmyagentServerToken ?? ""}
           registry={coach.registry}
@@ -127,7 +129,7 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
         />
       );
     },
-    [input.props],
+    [input.props, workspaceRoot],
   );
 
   const renderPreviewPanel = useCallback(
@@ -151,7 +153,7 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
           surface={surface}
           client={client}
           workspaceId={input.props.selectedWorkspaceId}
-          workspaceRoot={input.props.selectedWorkspaceRoot}
+          workspaceRoot={workspaceRoot}
           opencodeBaseUrl={baseUrl}
           onmyagentToken={input.props.onmyagentServerToken ?? ""}
           registry={preview.registry}
@@ -164,13 +166,13 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
         />
       );
     },
-    [input.props],
+    [input.props, workspaceRoot],
   );
 
   const controller = useExpertCreationController({
     registry: input.registry,
     workspaceId: input.props.selectedWorkspaceId,
-    workspaceRoot: input.props.selectedWorkspaceRoot,
+    workspaceRoot,
     opencodeBaseUrl: input.props.opencodeBaseUrl ?? null,
     onmyagentServerToken: input.props.onmyagentServerToken ?? null,
     client: input.props.onmyagentServerClient,

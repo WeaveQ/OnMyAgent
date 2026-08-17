@@ -60,16 +60,22 @@ export function shouldUseSemanticProcessFold(part: Part) {
     tool.includes("playwright");
 }
 
-/**
- * Multi-step tool process chrome stays collapsed by default (even while
- * tools run). Only the plan/task list may start open when actively running.
- */
+/** Running process details are visible; terminal/history details stay folded. */
 export function shouldDefaultExpandProcessFold(input: {
   isPlanList: boolean;
   running: boolean;
 }): boolean {
-  if (input.isPlanList) return input.running;
-  return false;
+  return input.running;
+}
+
+export function resolveProcessFoldExpandedAfterRunningChange(input: {
+  expanded: boolean;
+  wasRunning: boolean;
+  running: boolean;
+}): boolean {
+  if (!input.wasRunning && input.running) return true;
+  if (input.wasRunning && !input.running) return false;
+  return input.expanded;
 }
 
 export function isVisualizerReadMeToolName(toolName: string) {

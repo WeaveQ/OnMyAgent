@@ -17,13 +17,15 @@ import {
   writeSessionAgentSnapshot,
   type AgentRegistry,
   type AgentWizardDraft,
-  buildExpertChatPromptParts,
   buildExpertCreationPreviewPendingContext,
   buildExpertCreationPreviewToolAccess,
   buildExpertPreviewSystemPrompt,
+  createExpertPreviewAcceptanceGate,
   deleteExpertCreationEphemeralSession,
   isExpertCreationPreviewReady,
   registerExpertCreationEphemeralSession,
+  runExpertPreviewTurn,
+  submitExpertPreviewTurn,
 } from "../../agents";
 
 export type ExpertCreationPreviewSurfaceProps = {
@@ -150,10 +152,6 @@ export function ExpertCreationPreviewSurface(
           .trim();
       if (!text && composerDraft.attachments.length === 0) return;
 
-      const parts = await buildExpertChatPromptParts(
-        text,
-        composerDraft.attachments.map((item) => item.file),
-      );
       const system = buildExpertPreviewSystemPrompt(
         draftRef.current,
         knowledgeRef.current,
@@ -170,31 +168,33 @@ export function ExpertCreationPreviewSurface(
         },
         activeSessionId,
       );
-      try {
-        const result = await opencode.session.promptAsync({
-          sessionID: activeSessionId,
-          directory: props.workspaceRoot || undefined,
-          system,
-          ...(tools ? { tools } : {}),
-          ...(model ? { model } : {}),
-          parts,
-        });
-        if (result.error) {
-          throw new Error(
-            typeof result.error === "object" &&
-              result.error &&
-              "message" in result.error &&
-              typeof result.error.message === "string"
-              ? result.error.message
-              : "Preview request failed",
-          );
-        }
-      } finally {
-        release();
-        void queryClient.invalidateQueries({
-          queryKey: sessionSnapshotQueryKey(props.workspaceId, activeSessionId),
-        });
-      }
+      const acceptance = createExpertPreviewAcceptanceGate();
+      const turn = runExpertPreviewTurn({
+        config: {
+          baseUrl: props.opencodeBaseUrl,
+          token: props.onmyagentToken || null,
+          workspaceRoot: props.workspaceRoot,
+        },
+        sessionId: activeSessionId,
+        message: text,
+        attachments: composerDraft.attachments.map((item) => item.file),
+        draft: draftRef.current,
+        knowledgePaths: knowledgeRef.current,
+        systemPrompt: system,
+        tools,
+        onPromptAccepted: acceptance.accept,
+        ...(model ? { model } : {}),
+      });
+      await submitExpertPreviewTurn({
+        turn,
+        waitForSubmission: acceptance.waitForSubmission,
+        onSettled: () => {
+          release();
+          void queryClient.invalidateQueries({
+            queryKey: sessionSnapshotQueryKey(props.workspaceId, activeSessionId),
+          });
+        },
+      });
     },
     [
       previewReady,
