@@ -19,12 +19,7 @@ import {
   statusKey as reactStatusKey,
   transcriptKey as reactTranscriptKey,
 } from "../sync/session-sync";
-import {
-  SESSION_SNAPSHOT_STALE_TIME_MS,
-  sessionBusySnapshotRefetchIntervalMs,
-} from "../sync/session-poll-policy";
-import { isRemoteSessionBusy } from "./session-surface-helpers";
-import { useSessionActivityStore } from "../status/session-activity-store";
+import { SESSION_SNAPSHOT_STALE_TIME_MS } from "../sync/session-poll-policy";
 import {
   sessionSnapshotFetchOptions,
   sessionSnapshotQueryKey,
@@ -48,19 +43,6 @@ function snapshotBelongsToSession(
   sessionId: string,
 ): snapshot is OnMyAgentSessionSnapshot {
   return Boolean(snapshot && snapshot.session.id === sessionId);
-}
-
-function snapshotStatusType(status: OnMyAgentSessionSnapshot["status"] | undefined): string {
-  if (typeof status === "string") return status;
-  if (status && typeof status === "object" && "type" in status) {
-    const type = status.type;
-    return typeof type === "string" ? type : "";
-  }
-  return "";
-}
-
-function isActivityRunBusy(status: string): boolean {
-  return status === "thinking" || status === "responding" || status === "retrying";
 }
 
 /** Snapshot query, shared transcript/status caches, and session hydration. */
@@ -91,9 +73,6 @@ export function useSessionSurfaceSnapshot(input: SessionSurfaceSnapshotInput) {
     [opencodeBaseUrl, onmyagentToken],
   );
 
-  const activityBusy = useSessionActivityStore((state) =>
-    isActivityRunBusy(state.getStatus(workspaceId, sessionId)),
-  );
   const snapshotQueryKey = sessionSnapshotQueryKey(workspaceId, sessionId);
   const transcriptQueryKey = useMemo(
     () => reactTranscriptKey(workspaceId, sessionId),
@@ -137,13 +116,6 @@ export function useSessionSurfaceSnapshot(input: SessionSurfaceSnapshotInput) {
           ).item,
       }),
     staleTime: SESSION_SNAPSHOT_STALE_TIME_MS,
-    refetchInterval: (query) =>
-      sessionBusySnapshotRefetchIntervalMs({
-        remoteBusy:
-          activityBusy ||
-          isRemoteSessionBusy(snapshotStatusType(query.state.data?.status)),
-      }),
-    refetchIntervalInBackground: false,
     // Prefetch + revisit within staleTime should paint immediately; longer
     // gc keeps recently switched sessions warm when hopping back.
     gcTime: Math.max(SESSION_SNAPSHOT_STALE_TIME_MS * 10, 5 * 60_000),
@@ -180,10 +152,10 @@ export function useSessionSurfaceSnapshot(input: SessionSurfaceSnapshotInput) {
     setRendered({ sessionId, snapshot: currentSnapshot });
     // Single seed path: skip duplicate work when the same snapshot is re-emitted.
     const key = `${sessionId}:${currentSnapshot.session.time?.updated ?? currentSnapshot.session.time?.created ?? 0}:${currentSnapshot.messages.length}`;
-    if (hydratedKeyRef.current === key && !activityBusy) return;
+    if (hydratedKeyRef.current === key) return;
     hydratedKeyRef.current = key;
     seedSessionState(workspaceId, currentSnapshot);
-  }, [activityBusy, sessionId, currentSnapshot, workspaceId]);
+  }, [sessionId, currentSnapshot, workspaceId]);
 
   const snapshot = resolveRenderedSessionSnapshot({
     sessionId,
