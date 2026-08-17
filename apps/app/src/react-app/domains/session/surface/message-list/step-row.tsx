@@ -279,6 +279,7 @@ export function StepRow(props: {
           {specializedDetails ? (
             <SpecializedToolDetails
               details={specializedDetails}
+              running={isRunningStepStatus(summary.status)}
               onOpenCodePath={props.onOpenCodePath}
             />
           ) : null}
