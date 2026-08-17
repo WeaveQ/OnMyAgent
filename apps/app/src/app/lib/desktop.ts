@@ -316,6 +316,7 @@ declare global {
         installAndRestart?: () => Promise<{
           ok: boolean;
           reason?: string;
+          reasonCode?: string;
           platformFlow?: "in-app" | "open-browser";
         }>;
         getLastKnown?: () => Promise<{

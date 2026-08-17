@@ -486,6 +486,8 @@ function supportsInAppUpdater(app, platform) {
  *   shell?: import("electron").Shell,
  *   platform?: NodeJS.Platform,
  *   prepareForUpdateInstall?: () => Promise<unknown>,
+ *   createAutoUpdater?: () => Promise<any> | any,
+ *   pendingInstallTimeoutMs?: number,
  * }} options
  */
 export function registerUpdaterIpc({
@@ -496,6 +498,8 @@ export function registerUpdaterIpc({
   shell,
   platform = process.platform,
   prepareForUpdateInstall,
+  createAutoUpdater,
+  pendingInstallTimeoutMs = 30_000,
 }) {
   const inAppSupported = supportsInAppUpdater(app, platform);
   const platformFlow = inAppSupported ? "in-app" : "open-browser";
@@ -522,9 +526,10 @@ export function registerUpdaterIpc({
    * toast never fires.
    *
    * Intentionally does NOT set `downloadedUpdateInfo`. That flag is reserved
-   * for a real electron-updater `update-downloaded` event (cache revalidation
-   * on startup). installAndRestart waits for that signal so we never call
-   * quitAndInstall against a missing/unwired pending cache.
+   * for a real electron-updater `update-downloaded` event. With
+   * autoDownload=false, checkForUpdates() never emits that event — only
+   * downloadUpdate() does (cache-hit, no re-download). installAndRestart
+   * and startup therefore call downloadUpdate() so quitAndInstall is wired.
    *
    * The persisted snapshot only claims "ready" when the version is newer than
    * the running app. Once the user installs and runs the new version, the
@@ -559,7 +564,7 @@ export function registerUpdaterIpc({
       percent: 100,
       ready: true,
       // UI-only seed. electron-updater revalidates the pending cache on the next
-      // checkForUpdates(); update-downloaded then sets downloadedUpdateInfo.
+      // downloadUpdate(); update-downloaded then sets downloadedUpdateInfo.
       info: { version: latestVersion },
     };
     return persistLastKnown(payload);
@@ -586,7 +591,7 @@ export function registerUpdaterIpc({
    * Used when the UI is seed-ready but quitAndInstall is not safe yet.
    * @param {number} timeoutMs
    */
-  function waitForDownloadedUpdate(timeoutMs = 15_000) {
+  function waitForDownloadedUpdate(timeoutMs = pendingInstallTimeoutMs) {
     if (downloadedUpdateInfo) {
       return Promise.resolve(downloadedUpdateInfo);
     }
@@ -601,6 +606,41 @@ export function registerUpdaterIpc({
       };
       downloadReadyWaiters.push(onReady);
     });
+  }
+
+  let wiringPendingUpdate = false;
+  /**
+   * autoDownload is false, so checkForUpdates() only emits update-available.
+   * downloadUpdate() cache-hits the staged package and emits update-downloaded,
+   * which is what wires quitAndInstall. A prior check is required in-process
+   * (electron-updater throws "Please check update first" otherwise).
+   * @param {number} [timeoutMs]
+   */
+  async function ensurePendingUpdateWired(timeoutMs = pendingInstallTimeoutMs) {
+    if (downloadedUpdateInfo) return downloadedUpdateInfo;
+    if (!autoUpdater) return null;
+    if (wiringPendingUpdate) {
+      return waitForDownloadedUpdate(timeoutMs);
+    }
+    wiringPendingUpdate = true;
+    try {
+      const wait = waitForDownloadedUpdate(timeoutMs);
+      try {
+        try {
+          await autoUpdater.downloadUpdate();
+        } catch {
+          await autoUpdater.checkForUpdates();
+          if (!downloadedUpdateInfo) {
+            await autoUpdater.downloadUpdate();
+          }
+        }
+      } catch (error) {
+        console.warn("[updater] pending-update wire-up failed", error);
+      }
+      return (await wait) ?? downloadedUpdateInfo;
+    } finally {
+      wiringPendingUpdate = false;
+    }
   }
 
   const seededLastKnown = seedLastKnownFromDisk();
@@ -668,10 +708,14 @@ export function registerUpdaterIpc({
     if (autoUpdater || updaterInitError) return autoUpdater;
     if (!inAppSupported) return null;
     try {
-      // checkJs typeRoots omit this runtime dependency.
-      // @ts-ignore
-      const mod = await import("electron-updater");
-      autoUpdater = mod.autoUpdater ?? mod.default?.autoUpdater ?? null;
+      if (typeof createAutoUpdater === "function") {
+        autoUpdater = await createAutoUpdater();
+      } else {
+        // checkJs typeRoots omit this runtime dependency.
+        // @ts-ignore
+        const mod = await import("electron-updater");
+        autoUpdater = mod.autoUpdater ?? mod.default?.autoUpdater ?? null;
+      }
       if (!autoUpdater) {
         throw new Error("electron-updater did not expose an autoUpdater instance.");
       }
@@ -699,6 +743,30 @@ export function registerUpdaterIpc({
             : Array.isArray(info?.releaseNotes)
               ? info.releaseNotes
               : null;
+        const isSeededReadyVersion =
+          suppressAvailableVersion && suppressAvailableVersion === latestVersion;
+        // A later check must not wipe an already-staged same-version package.
+        const stagedVersion = String(
+          downloadedUpdateInfo?.version ??
+            downloadState.info?.version ??
+            lastKnownAvailable?.latestVersion ??
+            "",
+        ).replace(/^v/i, "");
+        const keepReady =
+          (isSeededReadyVersion ||
+            Boolean(downloadedUpdateInfo) ||
+            downloadState.ready === true) &&
+          (!stagedVersion || stagedVersion === latestVersion);
+        if (keepReady) {
+          downloadState = { ...downloadState, info, ready: true };
+        } else {
+          downloadState = {
+            active: false,
+            percent: 0,
+            ready: false,
+            info,
+          };
+        }
         const payload = buildAvailabilityPayload({
           available: true,
           currentVersion: resolveAppVersion(app),
@@ -715,23 +783,9 @@ export function registerUpdaterIpc({
           releaseNotes,
         });
         persistLastKnown(payload);
-        const isSeededReadyVersion =
-          suppressAvailableVersion && suppressAvailableVersion === latestVersion;
         if (!isSeededReadyVersion) {
           emitAvailable(payload);
           maybeNotify(latestVersion, payload);
-        }
-        // Do not pretend a download started. The renderer shows "new version"
-        // and the user clicks to call downloadUpdate().
-        if (isSeededReadyVersion) {
-          downloadState = { ...downloadState, info };
-        } else {
-          downloadState = {
-            active: false,
-            percent: 0,
-            ready: false,
-            info,
-          };
         }
       });
 
@@ -1106,21 +1160,26 @@ export function registerUpdaterIpc({
       openReleasePage(RELEASES_HTML_URL);
       return { ok: true, reason: "opened-release-page", platformFlow };
     }
-    // Seeded UI-ready path: wait for electron-updater to revalidate the pending
-    // cache (update-downloaded) before calling quitAndInstall. Kick a check if
-    // one is not already in flight so the wait is not open-ended.
+    // Seeded UI-ready path: checkForUpdates() with autoDownload=false never
+    // emits update-downloaded. downloadUpdate() cache-hits the staged package
+    // and wires quitAndInstall.
     if (!downloadedUpdateInfo && downloadState.ready) {
-      void autoUpdater.checkForUpdates().catch((error) => {
-        console.warn("[updater] revalidation before install failed", error);
-      });
-      await waitForDownloadedUpdate(15_000);
+      await ensurePendingUpdateWired();
     }
     if (!downloadedUpdateInfo) {
+      const stillDownloading = downloadState.active === true;
       return {
         ok: false,
-        reason: downloadState.ready
-          ? "Update package is still being verified. Try again in a moment."
-          : "Update has not finished downloading yet.",
+        reason: stillDownloading
+          ? "The update is still downloading. Try again when it finishes."
+          : downloadState.ready
+            ? "Update package is still being verified. Try again in a moment."
+            : "Update has not finished downloading yet.",
+        reasonCode: stillDownloading
+          ? "still_downloading"
+          : downloadState.ready
+            ? "still_verifying"
+            : "not_downloaded",
         platformFlow,
       };
     }
@@ -1194,14 +1253,13 @@ export function registerUpdaterIpc({
       // updates, fall back to the API checker (scheduleAutoChecks routes via
       // performCheck, which uses whatever is available).
       scheduleAutoChecks();
-      // If a download finished in a previous launch, re-validate the staged
-      // files against the feed immediately instead of waiting for the 30s
-      // initial poll. electron-updater's pending-cache check makes this a no-op
-      // re-download; on macOS it also wires Squirrel up so "Restart and
-      // install" can serve the cached zip. Renderer startup already reads the
-      // seeded getLastKnown() so the toast appears without waiting for this.
+      // If a download finished in a previous launch, wire electron-updater's
+      // pending cache immediately. autoDownload is false, so this must call
+      // downloadUpdate() (cache hit) — checkForUpdates() never emits
+      // update-downloaded. Renderer startup already reads seeded getLastKnown()
+      // so the toast appears without waiting for this.
       if (inAppSupported && downloadState.ready && autoUpdater) {
-        autoUpdater.checkForUpdates().catch((error) => {
+        ensurePendingUpdateWired().catch((error) => {
           console.warn("[updater] startup revalidation failed", error);
         });
       }

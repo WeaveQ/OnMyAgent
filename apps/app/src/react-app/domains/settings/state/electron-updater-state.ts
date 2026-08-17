@@ -129,12 +129,19 @@ function releaseNotesToText(value: unknown): string | undefined {
   return undefined;
 }
 
-function localizeCheckReason(result: UpdateAvailabilityPayload): string | undefined {
+function localizeCheckReason(result: {
+  reason?: string | null;
+  reasonCode?: string | null;
+  soft?: boolean;
+}): string | undefined {
   const code = result.reasonCode ?? "";
   if (code === "timeout") return t("settings.update_check_timeout");
   if (code === "network") return t("settings.update_check_network");
   if (code === "http") return t("settings.update_check_http");
   if (code === "not_published") return t("settings.update_check_no_releases");
+  if (code === "still_verifying") return t("settings.update_still_verifying");
+  if (code === "not_downloaded") return t("settings.update_not_downloaded");
+  if (code === "still_downloading") return t("settings.update_still_downloading");
   if (code === "unknown" || result.soft) {
     return t("settings.update_check_unavailable");
   }
@@ -147,6 +154,9 @@ function localizeCheckReason(result: UpdateAvailabilityPayload): string | undefi
     if (/no releases have been published|no release found/i.test(result.reason)) {
       return t("settings.update_check_no_releases");
     }
+    if (/still being verified/i.test(result.reason)) return t("settings.update_still_verifying");
+    if (/not finished downloading/i.test(result.reason)) return t("settings.update_not_downloaded");
+    if (/still downloading/i.test(result.reason)) return t("settings.update_still_downloading");
     return result.reason;
   }
   return undefined;
@@ -379,15 +389,30 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
       const result = await bridge.installAndRestart();
       if (!result?.ok) {
         setInstalling(false);
-        setUpdateStatus({
-          state: "error",
-          message: result?.reason ?? "Failed to restart and install the update.",
-        });
+        const message =
+          localizeCheckReason(result ?? {}) ??
+          result?.reason ??
+          "Failed to restart and install the update.";
+        setUpdateStatus((current) => ({
+          ...(current ?? { state: "error" }),
+          state: current?.state === "ready" ? "ready" : "error",
+          message,
+          platformFlow: result?.platformFlow ?? current?.platformFlow,
+          soft:
+            result?.reasonCode === "still_verifying" ||
+            result?.reasonCode === "still_downloading",
+        }));
+        return;
       }
       // On success the app quits; nothing else to update.
     } catch (error) {
       setInstalling(false);
-      setUpdateStatus({ state: "error", message: describeError(error) });
+      setUpdateStatus((current) => ({
+        ...(current ?? { state: "error" }),
+        state: current?.state === "ready" ? "ready" : "error",
+        message: describeError(error),
+        platformFlow: current?.platformFlow,
+      }));
     }
   }, [installing, setError]);
 
