@@ -13,6 +13,7 @@ Labels: `apps/app/src/i18n/locales/zh/nav.ts`.
 | 自动 (`automation`) | `guide/automation.md` | 定时/触发 |
 | 文件 (`files`) | `guide/files.md` | 工作区与产物 |
 | 市场 (`store`) | `guide/skills.md` + `guide/mcp.md` | 专家也在市场 Tab，详文仍用 experts |
+| 知识库 (`knowledgeBase`) | `guide/knowledge.md` | 本机 Markdown 笔记 |
 | 企业 (`company`, gated) | platform docs | 可选；侧栏功能指南可不列 |
 | 项目 (`projects`) | (add when product-stable) | 按需 |
 
@@ -38,6 +39,7 @@ Labels: `apps/app/src/i18n/locales/zh/nav.ts`.
 专家
 自动化
 文件与产物
+知识库
 技能
 MCP / 连接
 Agent 对话
