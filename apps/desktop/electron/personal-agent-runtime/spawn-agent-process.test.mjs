@@ -37,6 +37,24 @@ test("spawnAcpClient launches WorkBuddy-style agents through spawnAgentProcess",
   assert.doesNotMatch(src, /buildWindowsCmdSpawnSpec\(/);
 });
 
+test("spawnAcpClient fails immediately when the CLI is missing", async () => {
+  const missing =
+    process.platform === "win32"
+      ? "C:\\definitely-missing-onmyagent-acp.exe"
+      : "/definitely/missing/onmyagent-acp";
+  const events = [];
+  const { client } = spawnAcpClient({
+    command: missing,
+    args: [],
+    appendEvent: (event) => events.push(event),
+  });
+  await assert.rejects(
+    () => client.request("initialize", { protocolVersion: 1, clientInfo: { name: "t", version: "0" } }, 1_500),
+    /ENOENT|closed|spawn|not found/i,
+  );
+  assert.ok(events.some((event) => event.type === "error"));
+});
+
 test("spawnAcpClient runs a shebang ACP fixture on Windows", { skip: process.platform !== "win32" }, async () => {
   const fixture = fileURLToPath(new URL("./fixtures/fake-acp-cli.mjs", import.meta.url));
   const { child, client } = spawnAcpClient({

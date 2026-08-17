@@ -19,11 +19,16 @@ const DOCS =
 
 const WINDOWS_INSTALL_COMMAND =
   "Install bsk.exe from https://github.com/Tencent/BrowserSkill/releases (see the Windows section at https://github.com/Tencent/BrowserSkill#quick-start), add it to PATH, then run: bsk doctor";
+const WINDOWS_INSTALL_CLI_URL = "https://github.com/Tencent/BrowserSkill/releases";
 
 /** Platform-aware install copy. Windows must not receive curl|sh. */
 export function browserSkillInstallCommand(platform = process.platform) {
   if (platform === "win32") return WINDOWS_INSTALL_COMMAND;
   return `curl -fsSL ${INSTALL_SH} | sh && bsk doctor`;
+}
+
+export function browserSkillInstallCliUrl(platform = process.platform) {
+  return platform === "win32" ? WINDOWS_INSTALL_CLI_URL : INSTALL_SH;
 }
 
 /** One-liner for the current host (desktop status / copy button). */
@@ -178,7 +183,7 @@ export async function checkBrowserSkillStatus() {
         versionResult.stderr.trim() ||
         "bsk CLI not found. Use the guided setup to install it.",
       doctorSummary: null,
-      installCliUrl: INSTALL_SH,
+      installCliUrl: browserSkillInstallCliUrl(),
       chromeWebStoreUrl: CHROME_WEB_STORE,
       docsUrl: DOCS,
       installCommand: browserSkillInstallCommand(),
@@ -212,7 +217,7 @@ export async function checkBrowserSkillStatus() {
         ? doctor.stderr.trim() || doctor.stdout.trim() || "bsk doctor reported issues."
         : "CLI found. Install the Chrome extension and wait until its popup is green.",
     doctorSummary: (doctor.stdout || doctor.stderr || "").trim().slice(0, 4_000) || null,
-    installCliUrl: INSTALL_SH,
+    installCliUrl: browserSkillInstallCliUrl(),
     chromeWebStoreUrl: CHROME_WEB_STORE,
     docsUrl: DOCS,
     installCommand: BROWSER_SKILL_INSTALL_COMMAND,

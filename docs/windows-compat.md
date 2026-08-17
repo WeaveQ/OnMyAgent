@@ -84,7 +84,7 @@ Use a Developer Mode shell (or admin) so junctions work, then:
 1. **Install & preflight** — `pnpm install` then `node scripts/dev/windows-preflight.mjs --ci` (fix only).
 2. **Start** — `scripts\dev\windows.cmd` (or `pnpm dev -- desktop`); app window + tray appear.
 3. **Workspace** — open an existing workspace; create or switch once; no crash.
-4. **Terminal** — open code workspace terminal; confirm shell (wt / PowerShell / cmd cascade).
+4. **Terminal** — open the in-app code terminal; confirm it is PowerShell (`ONMYAGENT_TERMINAL_SHELL` can override). The wt → PowerShell → cmd cascade is only for “open terminal in workspace”.
 5. **Local agents** — 本地 → 我的智能体 loads (skeleton then list or empty); no hard hang.
 6. **Settings → Models** — list providers; if ≥2, **move up/down** (or drag) reorder and survives reload.
 7. **Session archive** — open 归档 / archive surface once; no process exit.
@@ -264,9 +264,12 @@ macOS-only `pyobjc-*` chain is skipped automatically.
 
 ### Terminal shell
 
-`code-terminal-manager.mjs` uses `%COMSPEC%` (default `powershell.exe`)
-on Windows. `node-pty` uses conpty/winpty transparently. If your
-`%COMSPEC%` is not set, we fall back to `powershell.exe`.
+`code-terminal-manager.mjs` uses `resolveInAppTerminalShell`: Windows
+defaults to `powershell.exe -NoLogo`, not `%COMSPEC%` / `cmd.exe`.
+Override with `ONMYAGENT_TERMINAL_SHELL`. `node-pty` uses conpty/winpty
+transparently. The wt → PowerShell → cmd cascade in
+`code-workspace-actions.mjs` is only for launching an external terminal
+in the workspace.
 
 ## Build
 

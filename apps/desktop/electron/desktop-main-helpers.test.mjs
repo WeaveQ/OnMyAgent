@@ -34,6 +34,9 @@ test("isNonFatalDesktopSpawnError matches missing editor/terminal binaries", asy
   const { isNonFatalDesktopSpawnError } = await import("./desktop-main-helpers.mjs");
   assert.equal(isNonFatalDesktopSpawnError({ code: "ENOENT", message: "spawn code ENOENT" }), true);
   assert.equal(isNonFatalDesktopSpawnError(new Error("spawn open ENOENT")), true);
+  assert.equal(isNonFatalDesktopSpawnError(new Error("spawn cursor.cmd ENOENT")), true);
+  assert.equal(isNonFatalDesktopSpawnError({ code: "ENOENT", message: "spawn opencode.exe ENOENT" }), false);
+  assert.equal(isNonFatalDesktopSpawnError({ code: "ENOENT" }), false);
   assert.equal(isNonFatalDesktopSpawnError(new Error("unexpected crash")), false);
 });
 

@@ -16,12 +16,22 @@ export function isTransientNetworkError(error) {
   );
 }
 
-/** Missing optional helper (e.g. `code` / `open`) must not take the desktop down. */
+const OPTIONAL_DESKTOP_SPAWN_NAMES =
+  /^(code|code\.cmd|cursor|cursor\.cmd|open|bsk|bsk\.exe|bsk\.cmd|wt|wt\.exe|powershell|powershell\.exe|cmd|cmd\.exe)$/i;
+
+/**
+ * Missing optional helpers (`code` / `open` / `bsk` / terminal cascade) must
+ * not take the desktop down. Packaged sidecars and other required children
+ * stay fatal so a forgotten error listener still exits.
+ */
 export function isNonFatalDesktopSpawnError(error) {
   if (!error) return false;
   const code = String(error.code ?? error.cause?.code ?? "");
   const message = String(error.message ?? "");
-  return code === "ENOENT" || /spawn\s+\S+\s+ENOENT/i.test(message);
+  if (code !== "ENOENT" && !/spawn\s+\S+\s+ENOENT/i.test(message)) return false;
+  const spawned = message.match(/spawn\s+(\S+)\s+ENOENT/i)?.[1] ?? "";
+  const name = path.basename(spawned.replace(/^"+|"+$/g, ""));
+  return Boolean(name) && OPTIONAL_DESKTOP_SPAWN_NAMES.test(name);
 }
 
 export function envFlagEnabled(name, env = process.env) {

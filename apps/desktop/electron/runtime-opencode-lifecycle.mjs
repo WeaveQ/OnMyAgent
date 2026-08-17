@@ -91,26 +91,37 @@ export function parseProcessListRows(stdout, platform = process.platform) {
   return rows;
 }
 
+export const WINDOWS_SIDECAR_CIM_COMMAND =
+  "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'opencode|onmyagent-server|onmyagent-orchestrator' } | Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress";
+
 function listSidecarProcessRows(platform = process.platform) {
   try {
     if (platform === "win32") {
       const result = spawnSync(
         "powershell.exe",
-        [
-          "-NoProfile",
-          "-NonInteractive",
-          "-Command",
-          "Get-CimInstance Win32_Process | Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress",
-        ],
+        ["-NoProfile", "-NonInteractive", "-Command", WINDOWS_SIDECAR_CIM_COMMAND],
         { encoding: "utf8", windowsHide: true, timeout: 15_000 },
       );
-      if (result.error) return [];
-      return parseProcessListRows(result.stdout, "win32");
+      if (result.error || (result.status != null && result.status !== 0)) {
+        console.warn(
+          "[sidecar-cleanup] Windows process list failed",
+          result.error?.message ?? result.status,
+          String(result.stderr ?? "").trim().slice(0, 500),
+        );
+        return [];
+      }
+      const raw = String(result.stdout ?? "").trim();
+      const rows = parseProcessListRows(raw, "win32");
+      if (raw && rows.length === 0) {
+        console.warn("[sidecar-cleanup] Windows process list JSON was unusable");
+      }
+      return rows;
     }
     const result = spawnSync("ps", ["-Ao", "pid=,command="], { encoding: "utf8" });
     if (result.error) return [];
     return parseProcessListRows(result.stdout, "linux");
-  } catch {
+  } catch (error) {
+    console.warn("[sidecar-cleanup] process list threw", error instanceof Error ? error.message : error);
     return [];
   }
 }

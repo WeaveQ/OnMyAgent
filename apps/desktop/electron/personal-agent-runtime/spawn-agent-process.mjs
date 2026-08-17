@@ -14,6 +14,13 @@ export function spawnAgentProcess(command, args, options = {}) {
   // Callers may attach their own handler; this default prevents Node from
   // turning a missing CLI (ENOENT / EINVAL) into an uncaughtException that
   // exits the desktop process.
-  child.on("error", () => {});
+  child.on("error", (error) => {
+    if (typeof options.onSpawnError === "function") {
+      options.onSpawnError(error);
+      return;
+    }
+    const detail = error instanceof Error ? error.message : String(error);
+    console.warn(`[spawnAgentProcess] ${spec.command}: ${detail}`);
+  });
   return child;
 }

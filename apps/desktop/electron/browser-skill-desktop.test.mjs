@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   BROWSER_SKILL_INSTALL_COMMAND,
+  browserSkillInstallCliUrl,
   browserSkillInstallCommand,
   checkBrowserSkillStatus,
   resolveBskBinary,
@@ -43,6 +44,9 @@ test("install one-liner is stable", () => {
   assert.doesNotMatch(win, /install\.sh/);
   assert.doesNotMatch(win, /curl[\s\S]*\|\s*sh/);
   assert.match(BROWSER_SKILL_INSTALL_COMMAND, /bsk doctor/);
+  assert.doesNotMatch(browserSkillInstallCliUrl("win32"), /install\.sh/);
+  assert.match(browserSkillInstallCliUrl("win32"), /releases/);
+  assert.match(browserSkillInstallCliUrl("darwin"), /install\.sh/);
 });
 
 test("checkBrowserSkillStatus returns a stable shape when bsk is missing", async () => {
@@ -58,6 +62,8 @@ test("checkBrowserSkillStatus returns a stable shape when bsk is missing", async
   assert.match(String(status.installCommand ?? ""), /bsk doctor/);
   if (process.platform === "win32") {
     assert.doesNotMatch(String(status.installCommand ?? ""), /install\.sh|curl[\s\S]*\|\s*sh/);
+    assert.doesNotMatch(String(status.installCliUrl ?? ""), /install\.sh/);
+    assert.match(String(status.installCliUrl ?? ""), /releases/);
   }
   // On CI/dev machines without bsk, installed should be false.
   if (!status.installed) {

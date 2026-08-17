@@ -42,6 +42,7 @@ export function collectWindowsWorkBuddyInstallDirs() {
   return collectWindowsAppInstallDirs({
     namePattern: /workbuddy/i,
     defaultDirs: workbuddyDefaultWindowsInstallDirs(),
+    probeExtras: true,
   });
 }
 
@@ -51,7 +52,7 @@ export function collectWindowsWorkBuddyInstallDirs() {
  * WorkBuddy and standalone CodeBuddy share the same CLI family and skill root
  * (`~/.codebuddy/skills`) but are listed as separate product cards.
  */
-function workbuddyEmbeddedCodebuddyPaths() {
+function workbuddyStaticEmbeddedCodebuddyPaths() {
   if (process.platform === "darwin") {
     return [
       "/Applications/WorkBuddy.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy",
@@ -69,17 +70,27 @@ function workbuddyEmbeddedCodebuddyPaths() {
     ];
   }
   if (process.platform === "win32") {
-    const dirs = new Set([
-      ...workbuddyDefaultWindowsInstallDirs(),
-      ...collectWindowsWorkBuddyInstallDirs(),
-    ]);
-    return [...dirs].flatMap((dir) => workbuddyCliCandidatesFromInstallDir(dir));
+    return workbuddyDefaultWindowsInstallDirs().flatMap((dir) => workbuddyCliCandidatesFromInstallDir(dir));
   }
-  // Linux / other: common user-local Electron app layouts.
   return [
     join(HOME, ".local", "share", "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy"),
     join(HOME, "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy"),
   ];
+}
+
+/**
+ * Default install roots only. Registry / Start Menu probing is lazy so
+ * importing this module during desktop boot does not spawn PowerShell.
+ */
+export function workbuddyEmbeddedCodebuddyPaths() {
+  const staticPaths = workbuddyStaticEmbeddedCodebuddyPaths();
+  if (process.platform !== "win32") return staticPaths;
+  if (staticPaths.some((candidate) => existsSync(candidate))) return staticPaths;
+  const dirs = new Set([
+    ...workbuddyDefaultWindowsInstallDirs(),
+    ...collectWindowsWorkBuddyInstallDirs(),
+  ]);
+  return [...dirs].flatMap((dir) => workbuddyCliCandidatesFromInstallDir(dir));
 }
 
 /** True when `path` is the codebuddy CLI nested inside a WorkBuddy install. */
@@ -202,7 +213,8 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
     id: "workbuddy",
     displayName: "WorkBuddy",
     commands: [],
-    wellKnownPaths: workbuddyEmbeddedCodebuddyPaths(),
+    wellKnownPaths: workbuddyStaticEmbeddedCodebuddyPaths(),
+    resolveWellKnownPaths: workbuddyEmbeddedCodebuddyPaths,
     skillsDirs: [
       // CodeBuddy-family shared root (WorkBuddy embeds CodeBuddy CLI).
       join(HOME, ".codebuddy", "skills"),
@@ -319,8 +331,12 @@ function resolveKnownAgentBinary(def) {
     const found = resolveOnPath(cmd);
     if (found && pathUsableForDef(def, found)) return found;
   }
-  if (Array.isArray(def.wellKnownPaths)) {
-    for (const candidate of def.wellKnownPaths) {
+  const wellKnown =
+    typeof def.resolveWellKnownPaths === "function"
+      ? def.resolveWellKnownPaths()
+      : def.wellKnownPaths;
+  if (Array.isArray(wellKnown)) {
+    for (const candidate of wellKnown) {
       for (const variant of windowsPathVariants(candidate)) {
         try {
           if (existsSync(variant) && pathUsableForDef(def, variant)) return variant;

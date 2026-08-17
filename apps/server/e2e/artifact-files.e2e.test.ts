@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { copyFile, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import { startServer } from "../src/server.js";
 import type { ServerConfig } from "@onmyagent/types/server";
@@ -62,10 +62,10 @@ async function linkArtifactFixture(
   target: string,
   dest: string,
   mode: "alias" | "escape",
-) {
+): Promise<"symlink" | "copy" | "skipped"> {
   try {
     await symlink(target, dest);
-    return;
+    return "symlink";
   } catch (error) {
     const code = error && typeof error === "object" && "code" in error
       ? String((error as { code?: string }).code)
@@ -74,9 +74,11 @@ async function linkArtifactFixture(
   }
   if (mode === "alias") {
     await copyFile(target, dest);
-    return;
+    return "copy";
   }
-  await symlink(dirname(target), dest, "junction");
+  // A directory junction is not a file symlink; skip the escape fixture
+  // rather than assert exists:false against a weaker stand-in.
+  return "skipped";
 }
 
 describe("artifact file routes", () => {
@@ -86,11 +88,12 @@ describe("artifact file routes", () => {
     const externalRoot = await mkdtemp(join(tmpdir(), "onmyagent-external-session-"));
     roots.push(runtimeRoot, externalRoot);
     await writeFile(join(externalRoot, "linked.md"), "# Linked workspace artifact\n", "utf8");
-    await linkArtifactFixture(
+    const aliasMode = await linkArtifactFixture(
       join(externalRoot, "linked.md"),
       join(workspaceRoot, "reports", "linked.md"),
       "alias",
     );
+    expect(["symlink", "copy"]).toContain(aliasMode);
     const wrongWorkspaceRoot = join(runtimeRoot, "managed", "wrong-workspace");
     await mkdir(wrongWorkspaceRoot, { recursive: true });
     await writeFile(
@@ -155,7 +158,7 @@ describe("artifact file routes", () => {
     const outsideRoot = await mkdtemp(join(tmpdir(), "onmyagent-expert-artifact-outside-"));
     roots.push(outsideRoot);
     await writeFile(join(outsideRoot, "escaped.md"), "# Escaped result\n", "utf8");
-    await linkArtifactFixture(
+    const escapeMode = await linkArtifactFixture(
       join(outsideRoot, "escaped.md"),
       join(allowedSessionRoot, "escaped.md"),
       "escape",
@@ -187,9 +190,13 @@ describe("artifact file routes", () => {
           preview: "document",
         }),
       );
-      expect((await resolve(allowedSessionRoot, "escaped.md")).items).toContainEqual(
-        expect.objectContaining({ value: "escaped.md", exists: false }),
-      );
+      if (escapeMode === "symlink") {
+        expect((await resolve(allowedSessionRoot, "escaped.md")).items).toContainEqual(
+          expect.objectContaining({ value: "escaped.md", exists: false }),
+        );
+      } else {
+        expect(escapeMode).toBe("skipped");
+      }
     } finally {
       if (previousRuntimeRoot === undefined) {
         delete process.env.ONMYAGENT_EXPERT_SESSION_RUNTIME_ROOT;
