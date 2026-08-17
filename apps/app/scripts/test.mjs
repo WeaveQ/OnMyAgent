@@ -93,6 +93,8 @@ const testTargets = new Map([
   ['session-snapshot-query-policy', ['bun', ['test', 'scripts/session-snapshot-query-policy.test.ts']]],
   ['session-delete-policy', ['bun', ['test', 'scripts/session-delete-policy.test.ts']]],
   ['bundled-skill-locale', ['bun', ['test', 'scripts/bundled-skill-locale.test.ts']]],
+  ['composer-skill-catalog', ['bun', ['test', 'scripts/composer-skill-catalog.test.ts']]],
+  ['slash-skill-commands', ['bun', ['test', 'scripts/slash-skill-commands.test.ts']]],
   ['skill-chat-navigation', ['bun', ['test', 'scripts/skill-chat-navigation.test.ts']]],
   ['automation-primary-rail', ['bun', ['test', 'scripts/automation-primary-rail.test.ts']]],
   ['task-center-primary-rail', ['bun', ['test', 'scripts/task-center-primary-rail.test.ts']]],
@@ -193,6 +195,11 @@ const composedTargets = new Map([
     'cold-path-budget',
     'capability-shelf',
     'shadcn-css-dependency',
+    // Slash / skill send-path — locale labels + inject marker (live English-UI regression)
+    'composer-skill-catalog',
+    'slash-skill-commands',
+    'skill-chat-navigation',
+    'bundled-skill-locale',
     // Other style contracts stay registered as individual targets (run manually if needed)
   ]],
   ['ui', ['version-gate', 'transport-contract', 'ui-contracts', 'e2e']],

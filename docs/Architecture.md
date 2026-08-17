@@ -565,11 +565,13 @@ Root `package.json` 只保留高频稳定入口。低频模块专项命令统一
 pnpm check:type      → 全 workspace 类型门禁：types/ui/app/server/desktop/orchestrator
 pnpm test:unit       → server tests + orchestrator pure-module tests
 pnpm test:api        → server HTTP/API e2e
-pnpm test:runtime    → Desktop IPC / Electron runtime (no second orchestrator unit pass)
+pnpm test:runtime    → Desktop IPC / Electron runtime + electron/e2e OpenCode smoke
+                       (plugin load, knowledge vault hit, workspace /file, HOME isolation;
+                       no second orchestrator unit pass; no live model)
 pnpm test:release-smoke → desktop build + Electron package directory smoke, no publish
 pnpm test:ui         → version-gate + transport-contract + ui-contracts + e2e smoke
                        (ui-contracts includes expert surface/FSM/cold-open/tab-title/hard_delete,
-                       invariants, cold-path budget, shelf)
+                       invariants, cold-path budget, shelf, slash skill locale/inject)
 ```
 
 CI 的主测试 workflow 使用这些分层命令，而不是直接堆模块私有脚本。模块内仍保留更细粒度脚本用于本地定位，例如 `onmyagent-server test:unit/test:e2e`、`@onmyagent/desktop check:electron`、`@onmyagent/app test:e2e`、`onmyagent-orchestrator test:unit`。
@@ -586,7 +588,8 @@ CI 主测试 workflow 拆为 `checks` 与 `tests` matrix，并缓存 pnpm store 
 - server 行为变更优先跑 `pnpm test:unit` 和 `pnpm test:api`。
 - server 局部定位可跑 `pnpm task test server:archive`、`server:automation`、`server:routes`、`server:workspace`。
 - desktop runtime / IPC 变更优先跑 `pnpm test:runtime`；该入口包含 Desktop IPC
-  command/domain parity。orchestrator 模块单测走 `pnpm test:unit`。`pnpm test:ui` 包含 renderer HTTP client method parity。
+  command/domain parity，以及 `apps/desktop/electron/e2e/` 的 OpenCode smoke
+  （插件加载、vault 检索、工作区文件、HOME 隔离；无模型）。orchestrator 模块单测走 `pnpm test:unit`。`pnpm test:ui` 包含 renderer HTTP client method parity。
 - 发布前或打包链路变更跑 `pnpm test:release-smoke`，只做本地目录包 smoke，不签名、不发布。
 - app renderer 或用户路径变更优先跑 `pnpm test:ui`。
 - release/packaging 仍由 Electron/package/release workflow 兜底，不放进快速 PR gate。

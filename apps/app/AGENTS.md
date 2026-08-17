@@ -16,7 +16,8 @@ git diff --check
 # Default CI (`pnpm test:ui` → ui-contracts) already runs:
 # expert-session-invariants, expert-surface-machine, expert-surface-mode,
 # expert-cold-open-navigation, agent-session-tab-title, expert-hard-delete,
-# cold-path-budget, capability-shelf
+# cold-path-budget, capability-shelf, composer-skill-catalog,
+# slash-skill-commands, skill-chat-navigation, bundled-skill-locale
 pnpm test:ui
 ```
 

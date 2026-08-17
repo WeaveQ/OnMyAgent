@@ -3,6 +3,7 @@
  */
 import type { SlashCommandOption } from "../../../../../app/types";
 import type { SkillCard } from "../../../../../app/types";
+import { currentLocale, type Language } from "../../../../../i18n";
 import {
   isComposerManagedSkill,
   skillCardDescription,
@@ -12,18 +13,19 @@ import {
 export function mergeSlashCommandsWithSkills(
   cmds: SlashCommandOption[],
   skillCards: SkillCard[],
+  locale: Language = currentLocale(),
 ): { commands: SlashCommandOption[]; skillsForState: SkillCard[] | null } {
   const managedSkills = skillCards.filter(isComposerManagedSkill);
   const byName = new Map<string, SlashCommandOption>();
   for (const skill of managedSkills) {
     const name = String(skill.name ?? "").trim();
     if (!name) continue;
-    const label = skillCardDisplayName(skill);
+    const label = skillCardDisplayName(skill, locale);
     byName.set(name, {
       id: `skill:${name}`,
       name,
       label: label !== name ? label : undefined,
-      description: skillCardDescription(skill) ??
+      description: skillCardDescription(skill, locale) ??
         (skill.description ? String(skill.description) : undefined),
       source: "skill",
     });
@@ -39,7 +41,8 @@ export function mergeSlashCommandsWithSkills(
     const existing = byName.get(name);
     byName.set(name, {
       ...cmd,
-      label: cmd.label?.trim() || existing?.label,
+      // SkillCard locale-resolved copy wins over cached OpenCode command.label.
+      label: existing?.label || cmd.label?.trim() || undefined,
       description: existing?.description || cmd.description,
     });
   }

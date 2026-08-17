@@ -22,33 +22,48 @@ import {
   type McpServerStatus,
 } from "./composer-helpers";
 import { sortWithPinnedFirst } from "@/react-app/domains/plugins";
+import { currentLocale, type Language } from "../../../../../i18n";
 
-/** Same title priority as skills marketplace cards. */
-export function skillCardDisplayName(skill: {
-  name: string;
-  displayNameZh?: string | null;
-  displayNameEn?: string | null;
-}): string {
+function isChineseLocale(locale: Language): boolean {
+  return locale === "zh" || locale === "zh-TW";
+}
+
+/** Same title priority as bundled skill locale: zh/zh-TW first, else English. */
+export function skillCardDisplayName(
+  skill: {
+    name: string;
+    displayNameZh?: string | null;
+    displayNameEn?: string | null;
+  },
+  locale: Language = currentLocale(),
+): string {
+  if (isChineseLocale(locale)) {
+    return (
+      skill.displayNameZh?.trim() ||
+      skill.displayNameEn?.trim() ||
+      skill.name
+    );
+  }
   return (
-    skill.displayNameZh?.trim() ||
     skill.displayNameEn?.trim() ||
+    skill.displayNameZh?.trim() ||
     skill.name
   );
 }
 
-/** Same description priority as skills marketplace cards. */
-export function skillCardDescription(skill: {
-  description?: string | null;
-  descriptionZh?: string | null;
-  descriptionEn?: string | null;
-  trigger?: string | null;
-}): string | undefined {
-  const candidates = [
-    skill.descriptionZh,
-    skill.descriptionEn,
-    skill.description,
-    skill.trigger,
-  ];
+/** Same description priority as bundled skill locale. */
+export function skillCardDescription(
+  skill: {
+    description?: string | null;
+    descriptionZh?: string | null;
+    descriptionEn?: string | null;
+    trigger?: string | null;
+  },
+  locale: Language = currentLocale(),
+): string | undefined {
+  const candidates = isChineseLocale(locale)
+    ? [skill.descriptionZh, skill.descriptionEn, skill.description, skill.trigger]
+    : [skill.descriptionEn, skill.descriptionZh, skill.description, skill.trigger];
   for (const candidate of candidates) {
     const text = String(candidate ?? "").trim();
     if (!text) continue;
@@ -92,18 +107,19 @@ export function buildCombinedSkillItems(
   skills: SkillCard[],
   commands: SlashCommandOption[],
   onmyagentInstalledNames: Set<string>,
+  locale: Language = currentLocale(),
 ): SlashCommandOption[] {
   const byName = new Map<string, SlashCommandOption>();
   for (const skill of skills) {
     if (!isComposerManagedSkill(skill)) continue;
     const name = String(skill.name ?? "").trim();
     if (!name) continue;
-    const label = skillCardDisplayName(skill);
+    const label = skillCardDisplayName(skill, locale);
     byName.set(name, {
       id: `skill:${name}`,
       name,
       label: label !== name ? label : undefined,
-      description: skillCardDescription(skill) ?? skill.description,
+      description: skillCardDescription(skill, locale) ?? skill.description,
       source: "skill",
     });
   }
@@ -125,8 +141,8 @@ export function buildCombinedSkillItems(
       ...command,
       id: command.source === "skill" || !command.source ? `skill:${name}` : command.id,
       name,
-      // Keep marketplace-style label from SkillCard when OpenCode row has none.
-      label: command.label?.trim() || existing?.label,
+      // SkillCard locale-resolved copy wins over cached OpenCode command.label.
+      label: existing?.label || command.label?.trim() || undefined,
       description: existing?.description || command.description,
     });
   }

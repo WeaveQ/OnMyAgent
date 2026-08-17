@@ -2,7 +2,8 @@
  * Commands / skills / MCP / plugin loading + derived tool-menu catalogs.
  * Mechanical extract from ReactSessionComposer — no behavior changes.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { currentLocale, subscribeToLocale } from "../../../../../i18n";
 import type { McpDirectoryInfo } from "../../../../../app/constants";
 import { ONMYAGENT_EXTENSION_CATALOG } from "../../../../../app/constants";
 import type { CloudImportedPlugin } from "../../../../../app/cloud/import-state";
@@ -96,6 +97,7 @@ export function useComposerCatalogs(input: UseComposerCatalogsInput) {
   const [mcpLoaded, setMcpLoaded] = useState(Boolean(input.mcpServersProp));
   // Bumped on extension enable/hide storage changes so catalog filters re-read.
   const [extensionStateVersion, setExtensionStateVersion] = useState(0);
+  const locale = useSyncExternalStore(subscribeToLocale, currentLocale, currentLocale);
 
   const commandsCacheRef = useRef<SlashCommandOption[] | null>(null);
   const commandsRequestRef = useRef<Promise<SlashCommandOption[]> | null>(null);
@@ -177,7 +179,7 @@ export function useComposerCatalogs(input: UseComposerCatalogsInput) {
           ? skillResult.value
           : [];
 
-      const merged = mergeSlashCommandsWithSkills(cmds, skillCards);
+      const merged = mergeSlashCommandsWithSkills(cmds, skillCards, currentLocale());
       // Preserve SkillCard.scope so OnMyAgent installs can sort ahead of the rest.
       if (merged.skillsForState) {
         setSkills(merged.skillsForState);
@@ -423,8 +425,8 @@ export function useComposerCatalogs(input: UseComposerCatalogsInput) {
     [skills],
   );
   const combinedSkillItems = useMemo(
-    () => buildCombinedSkillItems(skills, commands, onmyagentInstalledNames),
-    [commands, onmyagentInstalledNames, skills],
+    () => buildCombinedSkillItems(skills, commands, onmyagentInstalledNames, locale),
+    [commands, locale, onmyagentInstalledNames, skills],
   );
   const skillCatalogOrdered = useMemo(
     () => orderSkillCatalog(combinedSkillItems, pinnedSkillIds),
