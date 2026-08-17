@@ -166,6 +166,21 @@ describe("cold-path budget (shipped helpers)", () => {
       "utf8",
     );
     expect(loader).toContain("beginSessionRouteColdEnter");
+    expect(loader).toContain("skippedByColdPathBudget");
+  });
+
+  test("session route remount resets cold-path so settings return can list again", () => {
+    const loader = readFileSync(
+      path.join(appRoot, "src/react-app/shell/session-route/session-loader-hook.ts"),
+      "utf8",
+    );
+    const cacheHook = readFileSync(
+      path.join(appRoot, "src/react-app/shell/session-route/sidebar-session-cache-hook.ts"),
+      "utf8",
+    );
+    expect(loader).toContain("useSidebarSessionCacheSync");
+    expect(cacheHook).toContain("resetColdPathCounters");
+    expect(cacheHook).toContain("writeCachedSidebarSessionsForWorkspace");
   });
 
   test("live enter fail-closes extra listSessions after the first", () => {

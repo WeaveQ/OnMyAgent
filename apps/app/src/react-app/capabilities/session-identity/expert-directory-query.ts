@@ -137,6 +137,8 @@ export function useExpertDirectoryQuery(input: {
   const query = useQuery<ExpertDirectoryProjection, Error>({
     queryKey: expertDirectoryQueryKey(workspaceId),
     enabled: Boolean(input.enabled !== false && input.client && workspaceId),
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
     queryFn: ({ signal }) => {
       if (!input.client) throw new Error("OnMyAgent server client is unavailable");
       if (signal.aborted) throw new DOMException("The operation was aborted", "AbortError");
@@ -281,7 +283,7 @@ export function useExpertDirectoryShadow(input: {
     useExpertDirectoryStore.getState().setStatus(input.workspaceId, pageModel.state);
   }, [input.workspaceId, pageModel.state]);
   useEffect(() => {
-    if (!pageModel.payload) return;
+    if (pageModel.state !== "ready" || !pageModel.payload) return;
     const records = pageModel.payload?.records ?? [];
     const sessionIds = new Set<string>();
     const agentIdBySessionId = new Map<string, string>();
@@ -297,7 +299,7 @@ export function useExpertDirectoryShadow(input: {
       sessionIds,
       agentIdBySessionId,
     });
-  }, [input.workspaceId, pageModel.payload]);
+  }, [input.workspaceId, pageModel.payload, pageModel.state]);
   useEffect(() => {
     if (!shadowEnabled || !query.data?.complete || !input.emit) return;
     const legacy = JSON.parse(legacySignature) as LegacyExpertDirectorySnapshot;

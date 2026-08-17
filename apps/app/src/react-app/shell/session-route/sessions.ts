@@ -1,4 +1,8 @@
-import { getDisplaySessionTitle } from "../../../app/lib/session-title";
+import {
+  DEFAULT_SESSION_TITLE,
+  getDisplaySessionTitle,
+  isGeneratedSessionTitle,
+} from "../../../app/lib/session-title";
 import type { SidebarSessionItem } from "../../../app/types";
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
 import type { ResolvedWorkspaceEndpoint } from "../../../app/lib/workspace-endpoint";
@@ -295,6 +299,40 @@ export function getActiveSessionIds(sessions: SidebarSessionItem[]) {
   });
 }
 
+function hasPersistedSidebarTitle(title: string | null | undefined): boolean {
+  const trimmed = title?.trim() ?? "";
+  if (!trimmed) return false;
+  if (trimmed === DEFAULT_SESSION_TITLE) return false;
+  return !isGeneratedSessionTitle(trimmed);
+}
+
+function preferPersistedSessionTitle(
+  fetched: SidebarSessionItem,
+  current: SidebarSessionItem | undefined,
+): SidebarSessionItem {
+  if (!current || hasPersistedSidebarTitle(fetched.title)) return fetched;
+  if (!hasPersistedSidebarTitle(current.title)) return fetched;
+  if (fetched.title === current.title) return fetched;
+  return { ...fetched, title: current.title };
+}
+
+function shouldPreserveUnfetchedSession(input: {
+  session: SidebarSessionItem;
+  explicitAssistantSessionIds: Set<string>;
+  pendingCreatedAt: number | undefined;
+  now: number;
+}): boolean {
+  const id = input.session.id?.trim() ?? "";
+  if (!id) return false;
+  if (input.explicitAssistantSessionIds.has(id)) return true;
+  if (typeof input.pendingCreatedAt === "number") {
+    return input.now - input.pendingCreatedAt <= 30_000;
+  }
+  return Boolean(
+    input.session.directory?.trim() || hasPersistedSidebarTitle(input.session.title),
+  );
+}
+
 export function mergeFetchedSessionsWithPending(input: {
   workspaceId: string;
   fetched: SidebarSessionItem[];
@@ -304,39 +342,71 @@ export function mergeFetchedSessionsWithPending(input: {
   now: number;
 }) {
   const pending = input.pendingByWorkspaceId[input.workspaceId];
-  const pendingIds = Object.keys(pending ?? {});
-  if (pendingIds.length === 0) {
-    return input.fetched;
-  }
-
   const fetchedIds = new Set(
     input.fetched.flatMap((session) => (session.id ? [session.id] : [])),
   );
+  const currentById = new Map(
+    input.current.flatMap((session) => {
+      const id = session.id?.trim() ?? "";
+      return id ? [[id, session] as const] : [];
+    }),
+  );
 
-  for (const id of pendingIds) {
+  for (const id of Object.keys(pending ?? {})) {
     if (fetchedIds.has(id)) {
       delete pending?.[id];
     }
   }
 
+  const mergedFetched = input.fetched.map((session) =>
+    preferPersistedSessionTitle(session, currentById.get(session.id)),
+  );
+
   const preserved = input.current.filter((session) => {
     const id = session.id;
     if (!id || fetchedIds.has(id)) return false;
-    if (input.explicitAssistantSessionIds.has(id)) return true;
-    const createdAt = pending?.[id];
-    if (typeof createdAt !== "number") return false;
-    if (input.now - createdAt > 30_000) {
+    const pendingCreatedAt = pending?.[id];
+    const keep = shouldPreserveUnfetchedSession({
+      session,
+      explicitAssistantSessionIds: input.explicitAssistantSessionIds,
+      pendingCreatedAt,
+      now: input.now,
+    });
+    if (
+      !keep &&
+      typeof pendingCreatedAt === "number" &&
+      input.now - pendingCreatedAt > 30_000
+    ) {
       delete pending?.[id];
-      return false;
     }
-    return true;
+    return keep;
   });
 
   if (pending && Object.keys(pending).length === 0) {
     delete input.pendingByWorkspaceId[input.workspaceId];
   }
 
-  return preserved.length > 0 ? [...preserved, ...input.fetched] : input.fetched;
+  return preserved.length > 0 ? [...preserved, ...mergedFetched] : mergedFetched;
+}
+
+export function updateSidebarSessionTitle(input: {
+  current: Record<string, SidebarSessionItem[]>;
+  workspaceId: string;
+  sessionId: string;
+  title: string;
+}): Record<string, SidebarSessionItem[]> {
+  const workspaceId = input.workspaceId.trim();
+  const sessionId = input.sessionId.trim();
+  const title = input.title.trim();
+  if (!workspaceId || !sessionId || !title) return input.current;
+  const list = input.current[workspaceId];
+  if (!list) return input.current;
+  const index = list.findIndex((session) => session.id === sessionId);
+  if (index < 0) return input.current;
+  if (list[index]?.title === title) return input.current;
+  const nextList = [...list];
+  nextList[index] = { ...list[index]!, title };
+  return { ...input.current, [workspaceId]: nextList };
 }
 
 export function mergeWorkspaceFetchedSessions(input: {
