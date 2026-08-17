@@ -208,6 +208,10 @@ describe("rail keep-alive contract", () => {
     expect(assistantHost).toMatch(
       /sessionSurfaceActive\s*=\s*\n?\s*isPrimarySessionView\s*\|\|\s*showAutomationEmbeddedSession/,
     );
+    expect(assistantHost).toMatch(
+      /sidePanelVisibleOnSession\s*=\s*\n?\s*sidePanelVisible\s*&&\s*\(isPrimarySessionView\s*\|\|\s*showAutomationEmbeddedSession\)/,
+    );
+    expect(hostState).toContain("isAutomationRailView");
     for (const host of [assistantHost, expertHost]) {
       expect(host).toContain("SessionSurface");
       expect(host).toContain("SessionRailKeepAliveStack");
