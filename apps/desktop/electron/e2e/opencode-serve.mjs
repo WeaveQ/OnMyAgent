@@ -149,7 +149,7 @@ export async function fetchOpencodeJson(baseUrl, pathname, opts = {}) {
   if (opts.directory) headers.set("x-opencode-directory", opts.directory);
   const response = await fetch(url, {
     headers,
-    signal: AbortSignal.timeout(opts.timeoutMs ?? 5000),
+    signal: AbortSignal.timeout(opts.timeoutMs ?? 15_000),
   });
   const text = await response.text();
   let body = null;
