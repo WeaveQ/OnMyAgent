@@ -666,7 +666,7 @@ const HARD_DECLARED_PATH_PATTERNS = [
 ];
 
 const SOFT_DECLARED_PATH_PATTERNS = [
-  /(?:已生成|生成了|已写出|已保存|保存为|输出为|交付文件|输出文件)\s*(?:[:：]\s*)?[`「"'“]?([^\s`」"'”]+?\.[a-z][a-z0-9]{0,9})[`」"'”]?/gi,
+  /(?:已生成|生成了|已写出|已保存|保存为|保存在|均保存在|已拆出|输出为|交付文件|输出文件)\s*(?:[:：]\s*)?[`「"'“]?([^\s`」"'”]+?\.[a-z][a-z0-9]{0,9})[`」"'”]?/gi,
   /(?:Created|Wrote|Saved)\s+[`"'“]?([^\s`"'”]+?\.[a-z][a-z0-9]{0,9})[`"'”]?/gi,
 ];
 
@@ -675,12 +675,14 @@ const EXPLICIT_ARTIFACT_LINK_PATTERNS = [
 ];
 
 const ASSISTANT_DELIVERY_CONTEXT_PATTERN =
-  /(?:交付物|交付清单|交付如下|最终产物|产物清单|输出文件|deliverables?|ONMYAGENT_DELIVERABLE)/iu;
+  /(?:交付物|交付清单|交付如下|最终产物|产物清单|输出文件|deliverables?|ONMYAGENT_DELIVERABLE|已拆出|均保存在|保存在|独立(?:Excel|表格|工作簿|文件))/iu;
 const ASSISTANT_DELIVERY_CODE_FILE_PATTERN =
   /`([^`\r\n]+?\.[a-z][a-z0-9]{0,9})`/giu;
 const ASSISTANT_DELIVERY_LINK_LABEL_PATTERN =
   /\[([^\]\r\n]+?\.[a-z][a-z0-9]{0,9})\]\([^\r\n)]+\)/giu;
 const ASSISTANT_DELIVERY_DIRECTORY_PATTERN = /`([^`\r\n]+[/\\])`/gu;
+const ASSISTANT_DELIVERY_LIST_FILE_PATTERN =
+  /^(?:[-*•]|\d+[.)])\s+[`「"'“]?([^\s`」"'”]+?\.[a-z][a-z0-9]{0,9})[`」"'”]?\s*$/gmu;
 
 /**
  * File paths intentionally listed in the assistant's final delivery summary.
@@ -710,6 +712,7 @@ export function extractAssistantDeliveryManifestPaths(text: string): string[] {
     for (const pattern of [
       ASSISTANT_DELIVERY_CODE_FILE_PATTERN,
       ASSISTANT_DELIVERY_LINK_LABEL_PATTERN,
+      ASSISTANT_DELIVERY_LIST_FILE_PATTERN,
     ]) {
       pattern.lastIndex = 0;
       for (const match of line.matchAll(pattern)) {

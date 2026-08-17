@@ -1176,6 +1176,34 @@ describe("deriveOpenTargets", () => {
       selectTurnOpenTargets(messages, verified).map((target) => target.value),
     ).toEqual(["运单账单合并对账表.xlsx"]);
   });
+
+  it("shows listed xlsx files from a space-session delivery summary", () => {
+    const messages = [
+      message(
+        "msg_space",
+        "assistant",
+        [
+          "已拆出四个独立 Excel 文件，均保存在 C:\\Users\\hopef\\OneDrive\\Desktop\\work\\ ：",
+          "",
+          "- 项目目标与口径.xlsx",
+          "- 发布效果.xlsx",
+          "- 点位周报.xlsx",
+          "- 投流内容明细.xlsx",
+        ].join("\n"),
+      ),
+    ] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("项目目标与口径.xlsx", "sheet"), exists: true },
+      { ...fileTarget("发布效果.xlsx", "sheet"), exists: true },
+      { ...fileTarget("点位周报.xlsx", "sheet"), exists: true },
+      { ...fileTarget("投流内容明细.xlsx", "sheet"), exists: true },
+    ];
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.name).sort(),
+    ).toEqual(
+      ["发布效果.xlsx", "投流内容明细.xlsx", "点位周报.xlsx", "项目目标与口径.xlsx"].sort(),
+    );
+  });
 });
 
 describe("resolveArtifactAbsolutePath", () => {

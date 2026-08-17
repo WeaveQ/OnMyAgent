@@ -156,21 +156,37 @@ export function shouldIsolateExpertSessionDirectory(
 }
 
 /**
- * Side-panel file root for a session. The session's own directory (stored in
- * the session record by the server at create time) is the primary source.
- * The localStorage boundDirectory is a fallback for legacy sessions created
- * before the directory was persisted to the session record.
+ * Side-panel + artifact-card file root for a session.
+ *
+ * Space-bound assistant chats (首页「选择工作空间」) store the user folder in
+ * localStorage. OpenCode's session.directory often stays on the catalog
+ * workspace or an isolated runtime dir, so preferring the session record
+ * would list/verify the wrong tree and hide deliverables written into the
+ * space folder.
+ *
+ * Isolated expert dirs stay on the session record so we do not scan the
+ * parent project. workspaceRoot is only used to detect "session.directory
+ * is just the catalog workspace".
  */
 export function resolveSelectedSessionFileRoot(input: {
   boundDirectory?: string | null;
   sessionDirectory?: string | null;
   workspaceRoot: string;
 }): string {
-  const candidates = [
-    input.sessionDirectory?.trim() ?? "",
-    input.boundDirectory?.trim() ?? "",
-  ].filter(Boolean);
-  return candidates[0] ?? "";
+  const sessionDir = input.sessionDirectory?.trim() ?? "";
+  const boundDir = input.boundDirectory?.trim() ?? "";
+  if (
+    boundDir &&
+    !isIsolatedExpertSessionDirectory(boundDir) &&
+    (
+      !sessionDir ||
+      isIsolatedExpertSessionDirectory(sessionDir) ||
+      isSameDirectory(sessionDir, input.workspaceRoot)
+    )
+  ) {
+    return boundDir;
+  }
+  return sessionDir || boundDir;
 }
 
 /**

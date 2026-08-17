@@ -90,6 +90,12 @@ export type SessionSurfaceProps = {
    * subdir — otherwise @ Mine list/download paths disagree and Add no-ops.
    */
   filesWorkspaceRoot?: string;
+  /**
+   * Product file root for artifact cards + session Files panel.
+   * Space-bound chats use the user-picked folder; isolated expert sessions
+   * keep their session directory. Falls back to `workspaceRoot`.
+   */
+  sessionFileRoot?: string;
   sessionId: string;
   /** Live connected provider IDs for historical transcript model badges. */
   connectedProviderIds?: readonly string[] | null;

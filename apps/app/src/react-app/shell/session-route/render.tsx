@@ -974,6 +974,7 @@ export function SessionRouteRender() {
     sessionModelOverrideById,
     sessionPlanRuntimeById,
     sessionWorkspaceRoot,
+    selectedSessionFileRoot,
     sessionsByWorkspaceId,
     sessionsByWorkspaceIdRef,
     setAssistantDraftWorkspaceRoot,

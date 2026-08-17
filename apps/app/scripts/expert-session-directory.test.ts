@@ -88,7 +88,7 @@ describe("expert session directory isolation", () => {
         workspaceRoot: "/Users/me/Work/",
       }),
     ).toBe("/Users/me/Work");
-    // sessionDirectory (session record) wins over boundDirectory (localStorage).
+    // Real project subfolder on the session record still wins.
     expect(
       resolveSelectedSessionFileRoot({
         boundDirectory: "/Users/me/Work/物流单专家/abc",
@@ -112,6 +112,30 @@ describe("expert session directory isolation", () => {
         workspaceRoot: "/Users/me/Work",
       }),
     ).toBe("");
+  });
+
+  test("space-bound chats use the user folder when session.directory is catalog or isolated", () => {
+    expect(
+      resolveSelectedSessionFileRoot({
+        boundDirectory: "C:\\Users\\me\\OneDrive\\Desktop\\work",
+        sessionDirectory: "C:\\Users\\me\\OnMyAgent\\catalog",
+        workspaceRoot: "C:\\Users\\me\\OnMyAgent\\catalog",
+      }),
+    ).toBe("C:\\Users\\me\\OneDrive\\Desktop\\work");
+    expect(
+      resolveSelectedSessionFileRoot({
+        boundDirectory: "/Users/me/Desktop/work",
+        sessionDirectory: "/Users/me/Library/Application Support/OnMyAgent/expert-sessions/ws/agent/1753456789000",
+        workspaceRoot: "/Users/me/Projects/app",
+      }),
+    ).toBe("/Users/me/Desktop/work");
+    expect(
+      resolveSelectedSessionFileRoot({
+        boundDirectory: "/Users/me/Library/Application Support/OnMyAgent/expert-sessions/ws/agent/1753456789000",
+        sessionDirectory: "/Users/me/Library/Application Support/OnMyAgent/expert-sessions/ws/agent/1753456789000",
+        workspaceRoot: "/Users/me/Projects/app",
+      }),
+    ).toBe("/Users/me/Library/Application Support/OnMyAgent/expert-sessions/ws/agent/1753456789000");
   });
 
   test("accepts a server-created runtime directory outside the workspace", async () => {

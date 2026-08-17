@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
+  applyListedFilesToOpenTargets,
   createAutoOpenSessionState,
   initializeAutoOpenSessionState,
   markAutoOpened,
@@ -10,6 +11,38 @@ import {
   resetAutoOpenSessionState,
   shouldFireAutoOpen,
 } from "../src/react-app/domains/session/surface/session-surface-open-targets";
+
+describe("local space-folder existence merge", () => {
+  test("marks mentioned xlsx files existing when they are in the space listing", () => {
+    const targets = [
+      {
+        id: "file:项目目标与口径.xlsx",
+        kind: "file" as const,
+        value: "项目目标与口径.xlsx",
+        name: "项目目标与口径.xlsx",
+        preview: "sheet" as const,
+        confidence: 65,
+        reason: "message",
+      },
+      {
+        id: "file:C:/Users/me/Desktop/work/发布效果.xlsx",
+        kind: "file" as const,
+        value: "C:/Users/me/Desktop/work/发布效果.xlsx",
+        name: "发布效果.xlsx",
+        preview: "sheet" as const,
+        confidence: 65,
+        reason: "message",
+      },
+    ];
+    const merged = applyListedFilesToOpenTargets(targets, [
+      { path: "项目目标与口径.xlsx", kind: "file", size: 5120, mtimeMs: 1 },
+      { path: "发布效果.xlsx", kind: "file", size: 5900, mtimeMs: 2 },
+    ]);
+    expect(merged.every((target) => target.exists === true)).toBe(true);
+    expect(merged[0]?.size).toBe(5120);
+    expect(merged[1]?.size).toBe(5900);
+  });
+});
 
 describe("verified open-target normalization", () => {
   test("upgrades Office files misclassified by an older server", () => {
@@ -111,7 +144,7 @@ describe("open-targets hook source contract", () => {
       ),
       "utf8",
     );
-    expect(host).toContain("sessionRoot: props.workspaceRoot");
+    expect(host).toContain("sessionRoot: props.sessionFileRoot?.trim() || props.workspaceRoot");
 
     const client = readFileSync(
       join(import.meta.dir, "../src/app/lib/onmyagent-server/client-workspace.ts"),

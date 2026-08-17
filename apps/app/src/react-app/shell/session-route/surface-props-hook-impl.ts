@@ -192,6 +192,7 @@ export type SessionRouteSurfacePropsInput = {
   sessionModelOverrideById: Record<string, ModelRef>;
   sessionPlanRuntimeById: Record<string, CollaborationPlanRuntime>;
   sessionWorkspaceRoot: string;
+  selectedSessionFileRoot: string;
   sessionsByWorkspaceId: Record<string, SidebarSessionItem[]>;
   sessionsByWorkspaceIdRef: MutableRefObject<Record<string, SidebarSessionItem[]>>;
   setAssistantDraftWorkspaceRoot: Dispatch<SetStateAction<string>>;
@@ -258,6 +259,7 @@ export function useSessionRouteSurfaceProps(
     sessionModelOverrideById,
     sessionPlanRuntimeById,
     sessionWorkspaceRoot,
+    selectedSessionFileRoot,
     sessionsByWorkspaceId,
     sessionsByWorkspaceIdRef,
     setAssistantDraftWorkspaceRoot,
@@ -463,6 +465,7 @@ export function useSessionRouteSurfaceProps(
       workspaceRoot: sessionWorkspaceRoot,
       // Product Files / @ Mine use the catalog workspace, not expert session cwd.
       filesWorkspaceRoot: catalogWorkspaceRoot,
+      sessionFileRoot: selectedSessionFileRoot || sessionWorkspaceRoot,
       connectedProviderIds: providerConnectedIds,
       developerMode: false,
       modelLabel,
@@ -1548,6 +1551,7 @@ export function useSessionRouteSurfaceProps(
     sessionModelOverrideById,
     sessionPlanRuntimeById,
     sessionWorkspaceRoot,
+    selectedSessionFileRoot,
     sessionsByWorkspaceId,
     token,
   ]);

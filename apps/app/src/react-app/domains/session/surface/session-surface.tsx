@@ -413,7 +413,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
   const { verifiedOpenTargets } = useSessionSurfaceOpenTargets({
     sessionId: props.sessionId,
     workspaceId: props.workspaceId,
-    sessionRoot: props.workspaceRoot,
+    sessionRoot: props.sessionFileRoot?.trim() || props.workspaceRoot,
     client: props.client,
     openTargets,
     openTargetsFingerprint: openTargetsFingerprintValue,
