@@ -1988,8 +1988,10 @@ titlebar rules differ.
   `body::after` and stops before the native caption buttons. Overlay
   color follows the resolved light/dark theme.
 - **Linux.** System frame with native GNOME / KDE / Sway window
-  decorations. `linux:titlebar-no-drag` is declared analogously to
-  Windows for symmetry; not currently required.
+  decorations. Guest `backgroundColor` follows the light/dark chrome
+  fill so Electron's default white canvas does not ring the CSD edge.
+  `linux:titlebar-no-drag` is declared analogously to Windows for
+  symmetry; not currently required.
 
 If we later adopt a custom titlebar on Linux (for a unified look), the
 corresponding `*-titlebar-no-drag` utility becomes required and the

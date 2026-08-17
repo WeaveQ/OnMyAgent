@@ -6,7 +6,9 @@ import path from "node:path";
 import { BrowserWindow } from "electron";
 import { MAIN_WINDOW_EAGER_BLANK_BROWSER_TAB } from "./desktop-cold-start.mjs";
 import {
+  applyLinuxWindowBackground,
   applyWindowsTitleBarOverlay,
+  linuxWindowAppearance,
   resolveNativeThemeIsDark,
   windowsTitleBarAppearance,
 } from "./windows-titlebar.mjs";
@@ -148,6 +150,14 @@ export function createDesktopWindowController(options) {
       );
     }
 
+    if (process.platform === "linux") {
+      applyLinuxWindowBackground(
+        mainWindow,
+        resolveNativeThemeIsDark(mode, nativeTheme),
+        overlay,
+      );
+    }
+
     return true;
   }
 
@@ -173,6 +183,11 @@ export function createDesktopWindowController(options) {
       Object.assign(
         windowAppearanceOptions,
         windowsTitleBarAppearance(nativeTheme.shouldUseDarkColors),
+      );
+    } else if (process.platform === "linux") {
+      Object.assign(
+        windowAppearanceOptions,
+        linuxWindowAppearance(nativeTheme.shouldUseDarkColors),
       );
     }
 
