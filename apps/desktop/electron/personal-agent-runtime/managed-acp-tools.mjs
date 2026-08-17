@@ -5,7 +5,7 @@ import { spawn } from "node:child_process";
 
 import { statSync } from "node:fs";
 import { personalAgentRuntimeStateRoot } from "./runtime-state.mjs";
-import { buildWindowsCmdSpawnSpec, isWindowsCmdShim } from "./windows-spawn.mjs";
+import { resolveWindowsAwareSpawnSpec } from "./windows-spawn.mjs";
 
 // Known host-cache runtime-state roots. Tests + fresh workspaces re-point
 // personalAgentRuntimeStateRoot() to a tmp dir, but managed ACP binaries are
@@ -107,8 +107,7 @@ async function exists(file) {
 function run(command, args, cwd) {
   return new Promise((resolve) => {
     const resolvedCommand = resolveWindowsCommand(command);
-    const windowsShim = isWindowsCmdShim(resolvedCommand);
-    const spawnSpec = windowsShim ? buildWindowsCmdSpawnSpec(resolvedCommand, args, { env: process.env }) : { command: resolvedCommand, args, windowsVerbatimArguments: false };
+    const spawnSpec = resolveWindowsAwareSpawnSpec(resolvedCommand, args, { env: process.env });
     const child = spawn(spawnSpec.command, spawnSpec.args, {
       cwd,
       env: process.env,

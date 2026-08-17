@@ -10,6 +10,9 @@ This project follows a lightweight changelog format during early development. Re
 
 ### Changed
 
+- Windows host: missing optional CLIs no longer crash Electron; packaged sidecar cleanup lists Win32 processes; Browser Skill / WorkBuddy / Grok probe Windows install dirs; in-app terminal defaults to PowerShell.
+- Tests: server e2e discovers files on Windows; artifact fixtures avoid symlink `EPERM`; app e2e resolves `opencode.exe` / the desktop sidecar instead of a bare `opencode`; knowledge plugin ROOT matches escaped Windows paths.
+
 ## 0.5.4
 
 ### Fixed

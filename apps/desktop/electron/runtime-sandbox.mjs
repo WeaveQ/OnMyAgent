@@ -255,6 +255,7 @@ export function createRuntimeSandbox({ resolveBinary, resolveChildEnvironment, i
       stdio: "ignore",
       windowsHide: true,
     });
+    child.on("error", () => {});
     child.unref();
 
     await waitForHttpOk(`${onmyagentUrl}/health`, wantsDockerSandbox ? 90_000 : 12_000);

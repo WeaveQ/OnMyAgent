@@ -453,6 +453,7 @@ const localOpencode = findLocalOpencodeBinary();
 const shouldCopyLocalOpencodeSidecar = shouldCopyLocalOpencode({
   candidateExists: opencodeCandidateExists,
   candidateIsStub: opencodeCandidateIsStub,
+  existingVersion: normalizeVersion(existingOpencodeVersion),
   localVersion: localOpencode?.version ?? null,
   pinnedVersion: normalizedOpencodeVersion,
   preferExisting: preferExistingOpencode,

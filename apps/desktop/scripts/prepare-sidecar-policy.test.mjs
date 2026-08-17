@@ -4,17 +4,48 @@ import test from "node:test";
 
 const policyModule = await import("./prepare-sidecar-policy.mjs").catch(() => null);
 
-test("development can reuse a valid OpenCode sidecar when its version differs from the pin", () => {
+test("compareSidecarVersions orders numeric releases", () => {
+  assert.ok(policyModule, "prepare-sidecar-policy.mjs must exist");
+  assert.equal(policyModule.compareSidecarVersions("1.17.8", "1.18.18"), -1);
+  assert.equal(policyModule.compareSidecarVersions("1.18.18", "1.17.8"), 1);
+  assert.equal(policyModule.compareSidecarVersions("v1.18.18", "1.18.18"), 0);
+});
+
+test("development reuses a sidecar that is at least the pin", () => {
   assert.ok(policyModule, "prepare-sidecar-policy.mjs must exist");
   assert.equal(
     policyModule.shouldDownloadOpencode({
       candidateExists: true,
       candidateIsStub: false,
-      existingVersion: "1.17.11",
+      existingVersion: "1.18.18",
       pinnedVersion: "1.17.20",
       preferExisting: true,
     }),
     false,
+  );
+  assert.equal(
+    policyModule.shouldDownloadOpencode({
+      candidateExists: true,
+      candidateIsStub: false,
+      existingVersion: "1.17.20",
+      pinnedVersion: "1.17.20",
+      preferExisting: true,
+    }),
+    false,
+  );
+});
+
+test("development downloads when the warm sidecar is older than the pin", () => {
+  assert.ok(policyModule, "prepare-sidecar-policy.mjs must exist");
+  assert.equal(
+    policyModule.shouldDownloadOpencode({
+      candidateExists: true,
+      candidateIsStub: false,
+      existingVersion: "1.17.8",
+      pinnedVersion: "1.18.18",
+      preferExisting: true,
+    }),
+    true,
   );
 });
 
@@ -32,17 +63,33 @@ test("release preparation still downloads when the existing OpenCode version dif
   );
 });
 
-test("a warm development sidecar is not replaced by a local OpenCode binary", () => {
+test("a warm development sidecar at or above the pin is not replaced by a local binary", () => {
   assert.ok(policyModule, "prepare-sidecar-policy.mjs must exist");
   assert.equal(
     policyModule.shouldCopyLocalOpencode({
       candidateExists: true,
       candidateIsStub: false,
+      existingVersion: "1.17.20",
       localVersion: "1.17.11",
       pinnedVersion: "1.17.20",
       preferExisting: true,
     }),
     false,
+  );
+});
+
+test("a stale warm sidecar can be replaced by a local binary at the pin", () => {
+  assert.ok(policyModule, "prepare-sidecar-policy.mjs must exist");
+  assert.equal(
+    policyModule.shouldCopyLocalOpencode({
+      candidateExists: true,
+      candidateIsStub: false,
+      existingVersion: "1.17.8",
+      localVersion: "1.18.18",
+      pinnedVersion: "1.18.18",
+      preferExisting: true,
+    }),
+    true,
   );
 });
 

@@ -30,6 +30,13 @@ test("isTransientNetworkError matches TLS/proxy blips", () => {
   assert.equal(isTransientNetworkError(null), false);
 });
 
+test("isNonFatalDesktopSpawnError matches missing editor/terminal binaries", async () => {
+  const { isNonFatalDesktopSpawnError } = await import("./desktop-main-helpers.mjs");
+  assert.equal(isNonFatalDesktopSpawnError({ code: "ENOENT", message: "spawn code ENOENT" }), true);
+  assert.equal(isNonFatalDesktopSpawnError(new Error("spawn open ENOENT")), true);
+  assert.equal(isNonFatalDesktopSpawnError(new Error("unexpected crash")), false);
+});
+
 test("envFlagEnabled accepts common truthy tokens", () => {
   assert.equal(envFlagEnabled("X", { X: "1" }), true);
   assert.equal(envFlagEnabled("X", { X: "true" }), true);

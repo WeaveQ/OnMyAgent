@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { resolveRealHomeDir } from "../real-home-policy.mjs";
-import { buildWindowsCmdSpawnSpec, isWindowsCmdShim } from "./windows-spawn.mjs";
+import { resolveWindowsAwareSpawnSpec } from "./windows-spawn.mjs";
 import { matchProcessStartToken, processGroupFromStartToken } from "./process-identity.mjs";
 
 const jsonWriteQueues = new Map();
@@ -90,9 +90,10 @@ export function createExecHelpers(options = {}) {
   function runCommandCapture(command, args, options = {}) {
     return new Promise((resolve) => {
       const explicitShell = Object.hasOwn(options, "shell") && options.shell !== undefined;
-      const windowsShim = !explicitShell && isWindowsCmdShim(command);
       const spawnEnv = options.env ?? processEnv();
-      const spawnSpec = windowsShim ? buildWindowsCmdSpawnSpec(command, args, { env: spawnEnv }) : { command, args, windowsVerbatimArguments: false };
+      const spawnSpec = explicitShell
+        ? { command, args, windowsVerbatimArguments: false }
+        : resolveWindowsAwareSpawnSpec(command, args, { env: spawnEnv });
       const child = spawn(spawnSpec.command, spawnSpec.args, {
         cwd: options.cwd,
         env: spawnEnv,
@@ -359,7 +360,8 @@ export function forceKillProcessTree(child, { platform = process.platform } = {}
   const plan = resolveProcessTreeKillPlan({ platform, pid, force: true });
   if (plan.kind === "taskkill") {
     try {
-      spawn(plan.command, plan.args, { windowsHide: true, stdio: "ignore" });
+      const killer = spawn(plan.command, plan.args, { windowsHide: true, stdio: "ignore" });
+      killer.on("error", () => {});
       return;
     } catch {
       // Fall through to direct kill.
@@ -443,7 +445,8 @@ export async function terminateProcessTree(child, { graceMs = 1_000 } = {}) {
       const plan = resolveProcessTreeKillPlan({ platform: "win32", pid, force: true });
       if (plan.kind === "taskkill") {
         try {
-          spawn(plan.command, plan.args, { windowsHide: true, stdio: "ignore" });
+          const killer = spawn(plan.command, plan.args, { windowsHide: true, stdio: "ignore" });
+          killer.on("error", () => {});
         } catch {
           forceKillProcessTree(child);
         }

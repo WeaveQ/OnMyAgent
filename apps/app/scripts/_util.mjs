@@ -1,10 +1,92 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import { existsSync, realpathSync, statSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import net from "node:net";
-import { realpathSync, statSync } from "node:fs";
 
 import { createOpencodeClient } from "@opencode-ai/sdk/v2/client";
+
+const OPENCODE_BIN_ENV_KEYS = [
+  "OPENCODE_BIN",
+  "ONMYAGENT_OPENCODE_BIN",
+  "ONMYAGENT_LOCAL_OPENCODE_BIN",
+];
+
+export function defaultAppScriptsRepoRoot() {
+  return join(dirname(fileURLToPath(import.meta.url)), "../../..");
+}
+
+/**
+ * Resolve a spawn-able OpenCode binary. Never returns a bare "opencode"
+ * name on Windows when that file is not on disk (avoids spawn ENOENT).
+ */
+export function resolveOpencodeServeBin({
+  env = process.env,
+  platform = process.platform,
+  existsFn = existsSync,
+  repoRoot = defaultAppScriptsRepoRoot(),
+  homeDir,
+} = {}) {
+  for (const key of OPENCODE_BIN_ENV_KEYS) {
+    const value = String(env[key] ?? "").trim();
+    if (value && existsFn(value)) return value;
+  }
+
+  const home = homeDir ?? env.USERPROFILE ?? env.HOME ?? homedir();
+  const delimiter = platform === "win32" ? ";" : ":";
+  const pathEnv = String(env.PATH ?? env.Path ?? "");
+  const binaryName = platform === "win32" ? "opencode.exe" : "opencode";
+  const candidates = [];
+
+  for (const entry of pathEnv.split(delimiter).filter(Boolean)) {
+    candidates.push(join(entry, binaryName));
+    if (platform === "win32") candidates.push(join(entry, "opencode.cmd"));
+  }
+
+  if (platform === "win32") {
+    const localAppData = String(env.LOCALAPPDATA ?? "").trim();
+    if (localAppData) {
+      candidates.push(
+        join(localAppData, "opencode", "bin", "opencode.exe"),
+        join(localAppData, "Programs", "opencode", "opencode.exe"),
+      );
+    }
+    candidates.push(join(home, ".opencode", "bin", "opencode.exe"));
+    candidates.push(
+      join(repoRoot, "apps", "desktop", "resources", "sidecars", "opencode.exe"),
+      join(repoRoot, "apps", "desktop", "resources", "sidecars", "opencode-x86_64-pc-windows-msvc.exe"),
+    );
+  } else {
+    candidates.push(
+      join(home, ".opencode", "bin", "opencode"),
+      "/opt/homebrew/bin/opencode",
+      "/usr/local/bin/opencode",
+      "/usr/bin/opencode",
+    );
+  }
+
+  for (const candidate of candidates) {
+    if (existsFn(candidate)) return candidate;
+  }
+  return null;
+}
+
+function windowsCmdSpawnSpec(bin, args, env) {
+  const comspec = env.ComSpec || env.COMSPEC || process.env.ComSpec || "cmd.exe";
+  const quoted = [bin, ...args].map((part) => {
+    const text = String(part);
+    if (!/[\s"&<>|^]/.test(text)) return text;
+    return `"${text.replace(/"/g, '""')}"`;
+  });
+  return {
+    command: comspec,
+    args: ["/d", "/s", "/c", quoted.join(" ")],
+    windowsVerbatimArguments: true,
+  };
+}
 
 const isCi = process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true";
 const DEFAULT_HEALTH_TIMEOUT_MS = isCi ? 45_000 : 15_000;
@@ -68,16 +150,27 @@ export async function spawnOpencodeServe({
   assert.ok(Number.isInteger(port) && port > 0, "port must be a positive integer");
 
   const cwd = realpathSync(directory);
-  const bin = process.env.OPENCODE_BIN?.trim() || "opencode";
+  const bin = resolveOpencodeServeBin();
+  if (!bin) {
+    throw new Error(
+      "OpenCode binary is missing. Set OPENCODE_BIN to a usable opencode executable.",
+    );
+  }
   const args = ["serve", "--hostname", hostname, "--port", String(port)];
   for (const origin of corsOrigins) {
     args.push("--cors", origin);
   }
 
-  const child = spawn(bin, args, {
+  const useCmd = process.platform === "win32" && /\.(cmd|bat)$/i.test(bin);
+  const spec = useCmd
+    ? windowsCmdSpawnSpec(bin, args, process.env)
+    : { command: bin, args, windowsVerbatimArguments: false };
+
+  const child = spawn(spec.command, spec.args, {
     cwd,
     // Capture both streams so early failures are visible in CI logs.
     stdio: ["ignore", "pipe", "pipe"],
+    windowsVerbatimArguments: spec.windowsVerbatimArguments,
     env: {
       ...process.env,
       // Make it explicit we're a non-TUI client.

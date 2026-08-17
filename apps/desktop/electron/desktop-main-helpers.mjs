@@ -16,6 +16,14 @@ export function isTransientNetworkError(error) {
   );
 }
 
+/** Missing optional helper (e.g. `code` / `open`) must not take the desktop down. */
+export function isNonFatalDesktopSpawnError(error) {
+  if (!error) return false;
+  const code = String(error.code ?? error.cause?.code ?? "");
+  const message = String(error.message ?? "");
+  return code === "ENOENT" || /spawn\s+\S+\s+ENOENT/i.test(message);
+}
+
 export function envFlagEnabled(name, env = process.env) {
   const value = env[name]?.trim().toLowerCase();
   return value === "1" || value === "true" || value === "yes" || value === "on";

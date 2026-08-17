@@ -8,9 +8,9 @@
   },
   "scripts": {
     "dev": "ONMYAGENT_DEV_MODE=1 bun src/cli.ts",
-    "test": "bun test tests e2e/*.ts",
+    "test": "bun test tests ./e2e",
     "test:unit": "bun test tests",
-    "test:e2e": "bun test e2e/*.ts",
+    "test:e2e": "bun test ./e2e",
     "test:artifacts": "bun test e2e/artifact-files.e2e.test.ts tests/workspace-init.test.ts tests/server.normalizeWorkspaceRelativePath.test.ts",
     "test:archive": "bun test tests/agentsview-archive.test.ts tests/agentsview-archive-routes.test.ts tests/agentsview-archive-sync.test.ts tests/agentsview-parser.test.ts",
     "test:automation": "bun test tests/automations.test.ts tests/automation-routes.test.ts e2e/automation-run.e2e.test.ts",

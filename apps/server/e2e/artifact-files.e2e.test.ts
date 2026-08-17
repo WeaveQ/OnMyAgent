@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { startServer } from "../src/server.js";
 import type { ServerConfig } from "@onmyagent/types/server";
@@ -53,6 +53,32 @@ function auth(token: string) {
   return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 }
 
+/**
+ * POSIX file symlink, or a Windows fallback that preserves resolve() outcomes:
+ * - alias: workspace can read the linked name (copy is enough)
+ * - escape: realpath leaves the dest parent so exists stays false
+ */
+async function linkArtifactFixture(
+  target: string,
+  dest: string,
+  mode: "alias" | "escape",
+) {
+  try {
+    await symlink(target, dest);
+    return;
+  } catch (error) {
+    const code = error && typeof error === "object" && "code" in error
+      ? String((error as { code?: string }).code)
+      : "";
+    if (process.platform !== "win32" || code !== "EPERM") throw error;
+  }
+  if (mode === "alias") {
+    await copyFile(target, dest);
+    return;
+  }
+  await symlink(dirname(target), dest, "junction");
+}
+
 describe("artifact file routes", () => {
   test("does not fall back to the workspace for an invalid explicit session root", async () => {
     const workspaceRoot = await createWorkspaceRoot();
@@ -60,7 +86,11 @@ describe("artifact file routes", () => {
     const externalRoot = await mkdtemp(join(tmpdir(), "onmyagent-external-session-"));
     roots.push(runtimeRoot, externalRoot);
     await writeFile(join(externalRoot, "linked.md"), "# Linked workspace artifact\n", "utf8");
-    await symlink(join(externalRoot, "linked.md"), join(workspaceRoot, "reports", "linked.md"));
+    await linkArtifactFixture(
+      join(externalRoot, "linked.md"),
+      join(workspaceRoot, "reports", "linked.md"),
+      "alias",
+    );
     const wrongWorkspaceRoot = join(runtimeRoot, "managed", "wrong-workspace");
     await mkdir(wrongWorkspaceRoot, { recursive: true });
     await writeFile(
@@ -125,7 +155,11 @@ describe("artifact file routes", () => {
     const outsideRoot = await mkdtemp(join(tmpdir(), "onmyagent-expert-artifact-outside-"));
     roots.push(outsideRoot);
     await writeFile(join(outsideRoot, "escaped.md"), "# Escaped result\n", "utf8");
-    await symlink(join(outsideRoot, "escaped.md"), join(allowedSessionRoot, "escaped.md"));
+    await linkArtifactFixture(
+      join(outsideRoot, "escaped.md"),
+      join(allowedSessionRoot, "escaped.md"),
+      "escape",
+    );
     const previousRuntimeRoot = process.env.ONMYAGENT_EXPERT_SESSION_RUNTIME_ROOT;
     process.env.ONMYAGENT_EXPERT_SESSION_RUNTIME_ROOT = runtimeRoot;
     try {

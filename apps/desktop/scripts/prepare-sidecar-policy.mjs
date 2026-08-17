@@ -1,3 +1,22 @@
+export function compareSidecarVersions(left, right) {
+  const tokens = (value) =>
+    String(value ?? "")
+      .replace(/^v/i, "")
+      .split(/[.-]/)
+      .map((part) => {
+        const n = Number.parseInt(part, 10);
+        return Number.isFinite(n) ? n : 0;
+      });
+  const a = tokens(left);
+  const b = tokens(right);
+  const len = Math.max(a.length, b.length, 3);
+  for (let i = 0; i < len; i += 1) {
+    const delta = (a[i] ?? 0) - (b[i] ?? 0);
+    if (delta !== 0) return delta < 0 ? -1 : 1;
+  }
+  return 0;
+}
+
 export function shouldDownloadOpencode({
   candidateExists,
   candidateIsStub,
@@ -6,7 +25,12 @@ export function shouldDownloadOpencode({
   preferExisting,
 }) {
   const hasUsableCandidate = candidateExists && !candidateIsStub && Boolean(existingVersion);
-  if (preferExisting && hasUsableCandidate) return false;
+  if (preferExisting && hasUsableCandidate) {
+    if (!pinnedVersion) return false;
+    // Reuse a warm sidecar only when it is at least the pin. Older copies
+    // must refresh instead of silently staying stale in `pnpm dev`.
+    return compareSidecarVersions(existingVersion, pinnedVersion) < 0;
+  }
   return !hasUsableCandidate || existingVersion !== pinnedVersion;
 }
 
@@ -19,14 +43,20 @@ export function shouldDownloadOpencode({
 export function shouldCopyLocalOpencode({
   candidateExists,
   candidateIsStub,
+  existingVersion,
   localVersion,
   pinnedVersion,
   preferExisting,
 }) {
   if (!localVersion) return false;
 
-  const hasUsableCandidate = candidateExists && !candidateIsStub;
-  if (preferExisting && hasUsableCandidate) return false;
+  const hasUsableCandidate = candidateExists && !candidateIsStub && Boolean(existingVersion);
+  if (preferExisting && hasUsableCandidate) {
+    if (pinnedVersion && compareSidecarVersions(existingVersion, pinnedVersion) < 0) {
+      return localVersion === pinnedVersion;
+    }
+    return false;
+  }
 
   return preferExisting || localVersion === pinnedVersion;
 }

@@ -17,8 +17,33 @@ import os from "node:os";
 import { delimiter, join } from "node:path";
 
 import { enrichedPath } from "../runtime-path-env.mjs";
+import { collectWindowsAppInstallDirs } from "./windows-app-locate.mjs";
 
 const HOME = os.homedir();
+
+export function workbuddyCliCandidatesFromInstallDir(installDir) {
+  const root = String(installDir ?? "").trim();
+  if (!root) return [];
+  const bin = join(root, "resources", "app.asar.unpacked", "cli", "bin");
+  return [join(bin, "codebuddy.cmd"), join(bin, "codebuddy.exe"), join(bin, "codebuddy")];
+}
+
+export function workbuddyDefaultWindowsInstallDirs() {
+  const localAppData = process.env.LOCALAPPDATA || join(HOME, "AppData", "Local");
+  const programFiles = process.env.ProgramFiles || "C:\\Program Files";
+  return [
+    join(localAppData, "Programs", "WorkBuddy"),
+    join(localAppData, "WorkBuddy"),
+    join(programFiles, "WorkBuddy"),
+  ];
+}
+
+export function collectWindowsWorkBuddyInstallDirs() {
+  return collectWindowsAppInstallDirs({
+    namePattern: /workbuddy/i,
+    defaultDirs: workbuddyDefaultWindowsInstallDirs(),
+  });
+}
 
 /**
  * WorkBuddy ships an embedded `codebuddy` binary (Tencent CodeBuddy CLI with
@@ -44,14 +69,11 @@ function workbuddyEmbeddedCodebuddyPaths() {
     ];
   }
   if (process.platform === "win32") {
-    const localAppData = process.env.LOCALAPPDATA || join(HOME, "AppData", "Local");
-    const programFiles = process.env.ProgramFiles || "C:\\Program Files";
-    return [
-      join(localAppData, "Programs", "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy.cmd"),
-      join(localAppData, "Programs", "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy"),
-      join(programFiles, "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy.cmd"),
-      join(programFiles, "WorkBuddy", "resources", "app.asar.unpacked", "cli", "bin", "codebuddy"),
-    ];
+    const dirs = new Set([
+      ...workbuddyDefaultWindowsInstallDirs(),
+      ...collectWindowsWorkBuddyInstallDirs(),
+    ]);
+    return [...dirs].flatMap((dir) => workbuddyCliCandidatesFromInstallDir(dir));
   }
   // Linux / other: common user-local Electron app layouts.
   return [
@@ -223,6 +245,8 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
     skillsDirs: [join(HOME, ".grok", "skills")],
     // Packaged Electron often has a short PATH; also probe common install roots.
     wellKnownPaths: [
+      join(HOME, ".grok", "bin", "grok"),
+      join(HOME, ".grok", "bin", "grok.exe"),
       join(HOME, ".local", "bin", "grok"),
       join(HOME, ".bun", "bin", "grok"),
       join(HOME, ".npm-global", "bin", "grok"),
@@ -281,6 +305,14 @@ function pathUsableForDef(def, candidate) {
   return true;
 }
 
+export function windowsPathVariants(candidate) {
+  const raw = String(candidate ?? "").trim();
+  if (!raw) return [];
+  if (process.platform !== "win32" || /\.[A-Za-z0-9]+$/.test(raw)) return [raw];
+  const exts = (process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";").filter(Boolean);
+  return [raw, ...exts.map((ext) => `${raw}${ext}`)];
+}
+
 function resolveKnownAgentBinary(def) {
   const commands = Array.isArray(def.commands) ? def.commands : [];
   for (const cmd of commands) {
@@ -289,10 +321,12 @@ function resolveKnownAgentBinary(def) {
   }
   if (Array.isArray(def.wellKnownPaths)) {
     for (const candidate of def.wellKnownPaths) {
-      try {
-        if (existsSync(candidate) && pathUsableForDef(def, candidate)) return candidate;
-      } catch {
-        // ignore
+      for (const variant of windowsPathVariants(candidate)) {
+        try {
+          if (existsSync(variant) && pathUsableForDef(def, variant)) return variant;
+        } catch {
+          // ignore
+        }
       }
     }
   }

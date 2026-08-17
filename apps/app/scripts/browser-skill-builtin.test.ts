@@ -94,4 +94,16 @@ describe("built-in BrowserSkill (Path B)", () => {
       }
     }
   });
+
+  test("Windows fallback install copy is not curl|sh", async () => {
+    const { browserSkillFallbackInstallCommand } = await import(
+      "../src/react-app/domains/settings/browser-skill-config"
+    );
+    const win = browserSkillFallbackInstallCommand("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+    expect(win).toContain("bsk doctor");
+    expect(win).not.toMatch(/install\.sh/);
+    expect(win).not.toMatch(/curl[\s\S]*\|\s*sh/);
+    const mac = browserSkillFallbackInstallCommand("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)");
+    expect(mac).toContain("install.sh");
+  });
 });

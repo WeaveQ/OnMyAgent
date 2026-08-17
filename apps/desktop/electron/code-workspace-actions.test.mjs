@@ -10,6 +10,7 @@ import {
   quoteWindowsCmdArg,
   quoteWindowsPowerShellLiteral,
   resolveWindowsTerminalLaunch,
+  spawnDetachedDesktopCommand,
 } from "./code-workspace-actions.mjs";
 
 test("resolveWindowsTerminalLaunch prefers Windows Terminal (wt.exe -d)", () => {
@@ -72,6 +73,16 @@ test("resolveWindowsTerminalLaunch cascade order: wt before powershell before cm
     ...["powershell.exe", "powershell"].map((n) => (seen.indexOf(n) >= 0 ? seen.indexOf(n) : Number.POSITIVE_INFINITY)),
   );
   assert.ok(wtIndex < psIndex, "wt must be probed before powershell");
+});
+
+test("spawnDetachedDesktopCommand reports missing binaries instead of throwing", async () => {
+  const missing =
+    process.platform === "win32"
+      ? "C:\\definitely-missing-onmyagent-bin.exe"
+      : "/definitely/missing/onmyagent-bin";
+  const result = await spawnDetachedDesktopCommand(missing, ["--help"]);
+  assert.equal(result.ok, false);
+  assert.match(String(result.error ?? ""), /ENOENT|not found|cannot find/i);
 });
 
 test("quoteWindowsCmdArg wraps paths with spaces", () => {

@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
-import { existsSync, realpathSync } from "node:fs";
+import { existsSync } from "node:fs";
 import {
   cp,
   mkdir,
@@ -97,8 +97,7 @@ import { createAgentManagementSkills } from "./agent-management-skills.mjs";
 import { createExpertMarketplace } from "./expert-marketplace.mjs";
 import {
   createCodeWorkspaceActions,
-  parseEditorTarget,
-  resolveEditorCommand,
+  openDevFileInEditor,
 } from "./code-workspace-actions.mjs";
 import { createElectronBrowserController } from "./browser-runtime/electron-browser-controller.mjs";
 import { createUiControlServer } from "./ui-control-server.mjs";
@@ -134,6 +133,7 @@ import {
   envFlagEnabled,
   execResult,
   forwardedDeepLinks,
+  isNonFatalDesktopSpawnError,
   isTransientNetworkError,
   normalizeDesktopBootstrapConfig,
   normalizeWorkspaceEntry,
@@ -154,8 +154,8 @@ import { createDesktopWorkspaceStore } from "./desktop-workspace-state.mjs";
 
 process.on("unhandledRejection", (reason) => {
   const error = reason instanceof Error ? reason : new Error(String(reason));
-  if (isTransientNetworkError(error)) {
-    console.warn("[main] unhandledRejection (network, ignored):", error.message);
+  if (isTransientNetworkError(error) || isNonFatalDesktopSpawnError(error)) {
+    console.warn("[main] unhandledRejection (ignored):", error.message);
     return;
   }
   console.error("[main] unhandledRejection:", error?.stack ?? error);
@@ -163,15 +163,15 @@ process.on("unhandledRejection", (reason) => {
 
 process.on("uncaughtException", (error) => {
   try {
-    if (isTransientNetworkError(error)) {
-      console.warn("[main] uncaughtException (network, kept alive):", error?.message ?? error);
+    if (isTransientNetworkError(error) || isNonFatalDesktopSpawnError(error)) {
+      console.warn("[main] uncaughtException (kept alive):", error?.message ?? error);
       return;
     }
     console.error("[main] uncaughtException:", error?.stack ?? error);
   } catch {
     // Never let the guard itself crash the process.
   }
-  if (isTransientNetworkError(error)) return;
+  if (isTransientNetworkError(error) || isNonFatalDesktopSpawnError(error)) return;
   // Non-transient: let the app terminate rather than run in a corrupted state.
   try {
     if (typeof app?.exit === "function") app.exit(1);
@@ -1012,35 +1012,11 @@ ipcMain.handle("onmyagent:dev:openInEditor", async (_event, request) => {
   if (!isDevMode) {
     return { ok: false, reason: "open-in-editor is only available in development mode." };
   }
-
-  const rawPath = typeof request === "string" ? request : request?.path;
-  if (typeof rawPath !== "string" || !rawPath.trim()) {
-    return { ok: false, reason: "A file path is required." };
-  }
-
-  const parsedTarget = parseEditorTarget(rawPath.trim(), request);
-  const workspaceRoot = path.resolve(__dirname, "../../..");
-  const targetPath = path.isAbsolute(parsedTarget.path)
-    ? path.normalize(parsedTarget.path)
-    : path.resolve(workspaceRoot, parsedTarget.path);
-  const resolvedPath = existsSync(targetPath) ? realpathSync(targetPath) : path.normalize(targetPath);
-  const editorCommand = resolveEditorCommand();
-  const editorArgs = ["-g", `${resolvedPath}${parsedTarget.line ? `:${parsedTarget.line}${parsedTarget.column ? `:${parsedTarget.column}` : ""}` : ""}`];
-  const fallbackCommand = editorCommand ?? "open";
-  const fallbackArgs = editorCommand ? editorArgs : [resolvedPath];
-
-  const child = spawn(fallbackCommand, fallbackArgs, {
-    detached: true,
-    stdio: "ignore",
+  return openDevFileInEditor({
+    request,
+    workspaceRoot: path.resolve(__dirname, "../../.."),
+    openPath: (target) => shell.openPath(target),
   });
-  child.unref();
-
-  return {
-    ok: true,
-    path: resolvedPath,
-    command: fallbackCommand,
-    args: fallbackArgs,
-  };
 });
 ipcMain.handle("onmyagent:system:architecture", async () =>
   resolveArchitectureInfo(),
