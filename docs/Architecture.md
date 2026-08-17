@@ -571,7 +571,7 @@ pnpm test:runtime    → Desktop IPC / Electron runtime + electron/e2e OpenCode 
 pnpm test:release-smoke → desktop build + Electron package directory smoke, no publish
 pnpm test:ui         → version-gate + transport-contract + ui-contracts + e2e smoke
                        (ui-contracts includes expert surface/FSM/cold-open/tab-title/hard_delete,
-                       invariants, cold-path budget, shelf)
+                       invariants, cold-path budget, shelf, slash skill locale/inject)
 ```
 
 CI 的主测试 workflow 使用这些分层命令，而不是直接堆模块私有脚本。模块内仍保留更细粒度脚本用于本地定位，例如 `onmyagent-server test:unit/test:e2e`、`@onmyagent/desktop check:electron`、`@onmyagent/app test:e2e`、`onmyagent-orchestrator test:unit`。

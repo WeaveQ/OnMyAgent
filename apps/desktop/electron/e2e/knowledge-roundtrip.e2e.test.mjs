@@ -12,11 +12,17 @@ import { after, describe, test } from "node:test";
 import {
   executeKnowledgeSearch,
 } from "../knowledge-search-plugin.mjs";
+import {
+  knowledgeAppendNote,
+  knowledgeCreateNote,
+  knowledgeReadNote,
+} from "../knowledge-ops.mjs";
 import { writeKnowledgeFile } from "../knowledge-vault-io.mjs";
 import { resolveKnowledgeRoot } from "../knowledge-vault-paths.mjs";
 import { createDesktopE2eSandbox } from "./sandbox.mjs";
 
 const TOKEN = "oma-realcase-token-d6fa";
+const CRUD_TOKEN = "oma-crud-token-d6fa";
 const roots = [];
 
 after(async () => {
@@ -66,6 +72,39 @@ describe("desktop knowledge vault roundtrip e2e", () => {
     assert.ok(
       result.hits.some((hit) => String(hit.snippet ?? "").includes(TOKEN)),
       `snippet missing token: ${JSON.stringify(result.hits)}`,
+    );
+
+    const created = await knowledgeCreateNote({
+      knowledgeRoot,
+      name: "crud-roundtrip",
+      content: `# CRUD roundtrip\n\nUnique search token: ${CRUD_TOKEN}\n`,
+    });
+    assert.equal(created.ok, true, JSON.stringify(created));
+    const read = await knowledgeReadNote({
+      knowledgeRoot,
+      path: created.relPath,
+    });
+    assert.equal(read.ok, true, JSON.stringify(read));
+    assert.match(String(read.content ?? ""), new RegExp(CRUD_TOKEN));
+    const appended = await knowledgeAppendNote({
+      knowledgeRoot,
+      path: created.relPath,
+      content: "appended-line-d6fa\n",
+    });
+    assert.equal(appended.ok, true, JSON.stringify(appended));
+    const after = await knowledgeReadNote({
+      knowledgeRoot,
+      path: created.relPath,
+    });
+    assert.match(String(after.content ?? ""), /appended-line-d6fa/);
+    const crudSearch = await executeKnowledgeSearch({
+      knowledgeRoot,
+      query: CRUD_TOKEN,
+      env: {},
+    });
+    assert.ok(
+      crudSearch.hits.some((hit) => hit.relPath === created.relPath),
+      `create+search missed ${created.relPath}: ${JSON.stringify(crudSearch.hits)}`,
     );
   });
 });

@@ -2,7 +2,8 @@
  * Temp HOME / userData / workspace for desktop OpenCode e2e.
  * Never touches the real ~/.onmyagent or ~/.opencode.
  */
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { copyFile, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -39,6 +40,7 @@ export default async () => ({
  *   poisonPlugin?: boolean,
  *   linkSlashSkills?: boolean,
  *   slashSkillNames?: readonly string[],
+ *   seedAuthJson?: string,
  * }} [opts]
  */
 export async function createDesktopE2eSandbox(opts = {}) {
@@ -53,6 +55,12 @@ export async function createDesktopE2eSandbox(opts = {}) {
   if (opts.poisonPlugin) {
     await mkdir(path.dirname(poisonPath), { recursive: true });
     await writeFile(poisonPath, POISON_PLUGIN_SOURCE, "utf8");
+  }
+  const seedAuth = String(opts.seedAuthJson ?? "").trim();
+  if (seedAuth && existsSync(seedAuth)) {
+    const authDst = path.join(realHome, ".local", "share", "opencode", "auth.json");
+    await mkdir(path.dirname(authDst), { recursive: true });
+    await copyFile(seedAuth, authDst);
   }
   await writeFile(
     path.join(realConfigDir, "opencode.json"),
