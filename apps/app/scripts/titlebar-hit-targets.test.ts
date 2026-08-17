@@ -15,6 +15,16 @@ describe("Electron titlebar hit targets", () => {
     expect(source).toContain("titlebar-no-drag");
   });
 
+  test("settings sidebar keeps the back row below the Windows caption overlay", () => {
+    const source = readWorkspaceFile(
+      "apps/app/src/react-app/domains/settings/shell/settings-page.tsx",
+    );
+
+    expect(source).toContain("hidden h-10 mac:block windows:block");
+    expect(source).toContain("windows:titlebar-no-drag");
+    expect(source).toContain('t("dashboard.back_to_app")');
+  });
+
   test("session and side-panel top toolbars keep interactive controls out of drag regions", () => {
     // SessionSurface host delegates chrome; no-drag lives on header/layout shells.
     const requiredNoDragSources = [

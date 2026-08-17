@@ -132,15 +132,18 @@ export function SettingsSidebar(props: SettingsSidebarProps) {
 
   return (
     <Sidebar className={settingsSidebarClass}>
-      <div className="hidden h-10 mac:block mac:titlebar-drag" />
-      <SidebarHeader className="px-2 pt-2">
+      {/* Sidebar is `fixed inset-y-0`, so it ignores #root's Windows caption
+          padding. Reserve the overlay/traffic-light strip or the back row
+          sits under the painted titlebar and cannot be clicked. */}
+      <div className="hidden h-10 mac:block windows:block mac:titlebar-drag" />
+      <SidebarHeader className="px-2 pt-2 windows:titlebar-no-drag">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               type="button"
               onClick={props.onClose}
               size="settings"
-              className={settingsNavButtonClass}
+              className={`${settingsNavButtonClass} windows:titlebar-no-drag`}
             >
               <ArrowLeft size={14} />
               <span>{t("dashboard.back_to_app")}</span>
