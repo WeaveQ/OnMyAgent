@@ -337,7 +337,7 @@ function isArtifactTarget(target: OpenTarget) {
 }
 
 export function isCollectibleArtifactTarget(target: OpenTarget) {
-  return target.kind === "file" && target.exists === true && ARTIFACT_FILE_PREVIEWS.has(target.preview);
+  return target.kind === "file" && target.exists === true;
 }
 
 export function isLocalhostBrowserTarget(target: OpenTarget) {

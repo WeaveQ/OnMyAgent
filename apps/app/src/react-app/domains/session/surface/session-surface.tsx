@@ -27,7 +27,7 @@ import { useLocal } from "../../../kernel/local-provider";
 import { deriveSessionRenderModel } from "../sync/transition-controller";
 import { useSessionScrollController } from "./scroll-controller";
 import { useSessionActivityStore } from "../status/session-activity-store";
-import { deriveOpenTargets, lastAssistantTextFromMessages } from "../artifacts/open-target";
+import { deriveOpenTargets } from "../artifacts/open-target";
 import { latestOutputLimitedAssistantMessage } from "../sync/output-limit-recovery";
 import { resolveSessionRunPolicy } from "./session-run-controller";
 import {
@@ -415,7 +415,6 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     client: props.client,
     openTargets,
     openTargetsFingerprint: openTargetsFingerprintValue,
-    lastAssistantText: lastAssistantTextFromMessages(renderedMessages),
     chatStreaming,
     onOpenTarget: props.onOpenTarget,
     onOpenTargetsChange: props.onOpenTargetsChange,

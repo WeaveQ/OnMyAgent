@@ -551,7 +551,9 @@ function SessionTranscriptInner(props: SessionTranscriptProps) {
     transcriptTurns.forEach((turn) => {
       targets.set(
         turn.id,
-        selectTurnOpenTargets(turn.messages, props.openTargets),
+        selectTurnOpenTargets(turn.messages, props.openTargets, {
+          turnStartedAt: turn.startedAt,
+        }),
       );
     });
     return targets;

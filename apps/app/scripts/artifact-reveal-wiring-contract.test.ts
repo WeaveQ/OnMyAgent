@@ -56,7 +56,8 @@ describe("artifact reveal wiring contract", () => {
 
   test("turn card selection keeps user attachments in the current-turn input", () => {
     const list = read("src/react-app/domains/session/surface/message-list.tsx");
-    expect(list).toContain("selectTurnOpenTargets(turn.messages, props.openTargets)");
+    expect(list).toContain("selectTurnOpenTargets(turn.messages, props.openTargets, {");
+    expect(list).toContain("turnStartedAt: turn.startedAt");
   });
 
   test("markdown reveal keeps multi-candidate desktop reveal as a separate action", () => {

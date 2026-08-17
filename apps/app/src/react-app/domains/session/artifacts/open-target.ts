@@ -1,5 +1,5 @@
 export * from "../../../capabilities/artifacts/open-target";
 export {
-  lastAssistantTextFromMessages,
-  mintInventoryOpenTargets,
+  inventoryListedFilesToOpenTargets,
+  wasWrittenDuringTurn,
 } from "../../../capabilities/artifacts/session-inventory-open-targets";

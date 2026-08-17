@@ -1,23 +1,26 @@
 import { describe, expect, it } from "bun:test";
+import type { UIMessage } from "ai";
 
 import {
-  assistantTextIncludesFilename,
-  lastAssistantTextFromMessages,
-  matchInventoryPathsInText,
+  inventoryListedFilesToOpenTargets,
+  isEligibleSessionResultPath,
   mergeOpenTargetsWithInventory,
-  mintInventoryOpenTargets,
   sessionDirectoryKey,
   sessionRelativeExpertInventoryPath,
+  shouldScanSessionInventoryRoot,
+  wasWrittenDuringTurn,
 } from "../src/react-app/capabilities/artifacts/session-inventory-open-targets";
 import { selectTurnOpenTargets } from "../src/react-app/domains/session/surface/message-list";
-import { classifyOpenTarget, type OpenTarget } from "../src/react-app/domains/session/artifacts/open-target";
-import type { UIMessage } from "ai";
+import { classifyOpenTarget, isCollectibleArtifactTarget, type OpenTarget } from "../src/react-app/domains/session/artifacts/open-target";
 
 function message(id: string, role: "user" | "assistant", text: string): UIMessage {
   return { id, role, parts: [{ type: "text", text, state: "done" }] };
 }
 
-function fileTarget(path: string, exists = true): OpenTarget {
+function fileTarget(
+  path: string,
+  extras: Partial<OpenTarget> = {},
+): OpenTarget {
   return {
     id: `file:${path.toLowerCase()}`,
     kind: "file",
@@ -25,109 +28,165 @@ function fileTarget(path: string, exists = true): OpenTarget {
     name: path.split("/").pop() ?? path,
     preview: classifyOpenTarget(path, "file"),
     confidence: 88,
-    reason: "session inventory",
-    exists,
+    reason: extras.reason ?? "session inventory",
+    exists: extras.exists ?? true,
+    ...extras,
   };
 }
 
-describe("session inventory matching", () => {
-  const filename = "【视频脚本-栖光修护精华-晚晚要早睡】审核留痕版.docx";
+describe("session inventory eligibility", () => {
+  it("accepts any result extension and rejects uploads, hidden, and process files", () => {
+    expect(isEligibleSessionResultPath("结果/报价.json")).toBe(true);
+    expect(
+      isEligibleSessionResultPath(
+        "/Users/demo/.onmyagent/workspaces/货运客服专家/sid/发货需求.xlsx",
+      ),
+    ).toBe(true);
+    expect(isEligibleSessionResultPath("合同.xml")).toBe(true);
+    expect(isEligibleSessionResultPath("【脚本】审核留痕版.docx")).toBe(true);
+    expect(isEligibleSessionResultPath(".opencode/tmp/scratch.json")).toBe(false);
+    expect(isEligibleSessionResultPath("tmp/helper.py")).toBe(false);
+    expect(isEligibleSessionResultPath("onmyagent-session.json")).toBe(false);
+    expect(isEligibleSessionResultPath(".env")).toBe(false);
+    expect(isEligibleSessionResultPath("1234567890123-0-用户上传.xlsx")).toBe(false);
+  });
 
-  it("matches an inventory file mentioned under any Chinese label", () => {
-    const text = `已生成完毕。\n\n完稿：${filename} （当前会话目录下，43816 字节）`;
-    expect(matchInventoryPathsInText([filename, "scratch.json"], text)).toEqual([
-      filename,
+  it("only scans isolated per-session directories, not workspace roots", () => {
+    expect(
+      shouldScanSessionInventoryRoot(
+        "C:/Users/me/Library/Application Support/OnMyAgent/expert-sessions/ws/assistant/1753456789000",
+      ),
+    ).toBe(true);
+    expect(shouldScanSessionInventoryRoot("C:/Users/me/OnMyAgent/catalog")).toBe(false);
+    expect(shouldScanSessionInventoryRoot("C:/Users/me/Desktop/work")).toBe(false);
+  });
+
+  it("keeps file mtime on minted inventory targets", () => {
+    const minted = inventoryListedFilesToOpenTargets([
+      { path: "结果.json", kind: "file", size: 12, mtimeMs: 1_700_000_100_000 },
+      { path: ".hidden", kind: "file", mtimeMs: 1_700_000_100_000 },
+      { path: "tmp/scratch.py", kind: "file", mtimeMs: 1_700_000_100_000 },
     ]);
+    expect(minted).toHaveLength(1);
+    expect(minted[0]).toMatchObject({
+      value: "结果.json",
+      exists: true,
+      updatedAt: 1_700_000_100_000,
+    });
   });
 
-  it("does not require backticks or a delivery-keyword list", () => {
-    const text = `成品 ${filename}`;
-    const minted = mintInventoryOpenTargets([`output/${filename}`], text);
-    expect(minted.map((target) => target.value)).toEqual([`output/${filename}`]);
-    expect(minted[0]?.reason).toBe("session inventory");
-  });
-
-  it("does not match a shorter basename glued inside a longer name", () => {
-    expect(assistantTextIncludesFilename("见 final-report.docx", "report.docx")).toBe(
-      false,
-    );
-    expect(assistantTextIncludesFilename("见 report.docx。", "report.docx")).toBe(true);
-  });
-
-  it("ignores inventory files the latest assistant text does not name", () => {
-    expect(matchInventoryPathsInText([filename], "还在整理素材。")).toEqual([]);
+  it("treats a file as this-turn only when mtime is at or after the turn start", () => {
+    const turnStart = 1_700_000_000_000;
+    expect(wasWrittenDuringTurn(1_700_000_000_500, turnStart)).toBe(true);
+    expect(wasWrittenDuringTurn(turnStart - 60_000, turnStart)).toBe(false);
+    expect(wasWrittenDuringTurn(undefined, turnStart)).toBe(false);
+    expect(wasWrittenDuringTurn(1_700_000_000_500, null)).toBe(false);
   });
 
   it("strips expert catalog prefixes down to the session-relative file", () => {
-    expect(sessionDirectoryKey("C:/Users/me/.onmyagent/runtime/expert-sessions/ws/kol/ses_abc"))
-      .toBe("ses_abc");
+    expect(sessionDirectoryKey("C:/Users/me/.onmyagent/runtime/expert-sessions/ws/kol/1753456789000"))
+      .toBe("1753456789000");
     expect(
       sessionRelativeExpertInventoryPath(
-        "kol/ses_abc/【视频脚本】审核留痕版.docx",
-        "ses_abc",
+        "kol/1753456789000/【视频脚本】审核留痕版.docx",
+        "1753456789000",
       ),
     ).toBe("【视频脚本】审核留痕版.docx");
-    expect(
-      sessionRelativeExpertInventoryPath("kol/ses_abc/合同输出/out.docx", "ses_abc"),
-    ).toBe("合同输出/out.docx");
-    expect(sessionRelativeExpertInventoryPath("kol/other/out.docx", "ses_abc")).toBeNull();
+    expect(sessionRelativeExpertInventoryPath("kol/other/out.docx", "1753456789000")).toBeNull();
   });
 
-  it("merges inventory targets without dropping write-tool candidates", () => {
-    const write = fileTarget("已写入.xlsx", false);
-    write.reason = "write tool metadata";
-    write.confidence = 95;
+  it("merges inventory mtimes onto write-tool candidates", () => {
+    const write = fileTarget("结果.json", {
+      exists: false,
+      reason: "write tool metadata",
+      confidence: 95,
+    });
     const merged = mergeOpenTargetsWithInventory(
       [write],
-      mintInventoryOpenTargets([filename], `交付：${filename}`),
-    );
-    expect(merged.map((target) => target.value).sort()).toEqual(
-      [filename, "已写入.xlsx"].sort(),
-    );
-  });
-});
-
-describe("selectTurnOpenTargets inventory cards", () => {
-  it("shows a card when the last assistant message names a verified session file", () => {
-    const filename = "【视频脚本-栖光修护精华-晚晚要早睡】审核留痕版.docx";
-    const messages = [
-      message("msg_progress", "assistant", "正在读取 素材清单.xlsx。"),
-      message("msg_final", "assistant", `完稿：${filename} （当前会话目录下）`),
-    ] satisfies UIMessage[];
-    const verified = [
-      fileTarget("素材清单.xlsx"),
-      fileTarget(filename),
-    ];
-
-    expect(selectTurnOpenTargets(messages, verified).map((target) => target.value)).toEqual([
-      filename,
-    ]);
-  });
-
-  it("does not mint a card for a verified file that only appeared earlier in the turn", () => {
-    const messages = [
-      message("msg_progress", "assistant", "正在读取 `用户输入.xlsx`。"),
-      message("msg_final", "assistant", "交付物：`最终输出.xlsx`。"),
-    ] satisfies UIMessage[];
-    const verified = [
-      fileTarget("用户输入.xlsx"),
-      fileTarget("最终输出.xlsx"),
-    ];
-
-    expect(selectTurnOpenTargets(messages, verified).map((target) => target.value)).toEqual([
-      "最终输出.xlsx",
-    ]);
-  });
-});
-
-describe("lastAssistantTextFromMessages", () => {
-  it("returns only the latest assistant text blob", () => {
-    expect(
-      lastAssistantTextFromMessages([
-        message("a", "assistant", "先看 输入.xlsx"),
-        message("b", "user", "继续"),
-        message("c", "assistant", "完稿：输出.docx"),
+      inventoryListedFilesToOpenTargets([
+        { path: "结果.json", kind: "file", size: 40, mtimeMs: 9 },
       ]),
-    ).toBe("完稿：输出.docx");
+    );
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({
+      value: "结果.json",
+      exists: true,
+      updatedAt: 9,
+      confidence: 95,
+    });
+  });
+});
+
+describe("selectTurnOpenTargets turn isolation", () => {
+  const filename = "【视频脚本-栖光修护精华-晚晚要早睡】审核留痕版.docx";
+  const turnStart = 1_700_000_000_000;
+
+  it("shows every this-turn result file regardless of extension", () => {
+    const messages = [
+      message("msg_user", "user", "请导出"),
+      message("msg_final", "assistant", "写好了。"),
+    ] satisfies UIMessage[];
+    const verified = [
+      fileTarget(filename, { updatedAt: turnStart + 1_000 }),
+      fileTarget("导出.json", { preview: "external", updatedAt: turnStart + 1_200 }),
+    ];
+
+    expect(
+      selectTurnOpenTargets(messages, verified, { turnStartedAt: turnStart })
+        .map((target) => target.value)
+        .sort(),
+    ).toEqual([filename, "导出.json"].sort());
+  });
+
+  it("does not show a previous turn's file on a later turn", () => {
+    const messages = [
+      message("msg_user", "user", "继续"),
+      message("msg_final", "assistant", `上一轮的 ${filename} 可以参考。`),
+    ] satisfies UIMessage[];
+    const verified = [
+      fileTarget(filename, { updatedAt: turnStart - 60_000 }),
+      fileTarget("本轮.json", { preview: "external", updatedAt: turnStart + 500 }),
+    ];
+
+    expect(
+      selectTurnOpenTargets(messages, verified, { turnStartedAt: turnStart })
+        .map((target) => target.value),
+    ).toEqual(["本轮.json"]);
+  });
+
+  it("does not show user uploads, hidden files, or process helpers as cards", () => {
+    const messages = [
+      {
+        id: "msg_user",
+        role: "user" as const,
+        parts: [{
+          type: "file" as const,
+          filename: "素材.xlsx",
+          mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          url: "https://example.test/素材.xlsx",
+        }],
+      },
+      message("msg_final", "assistant", "处理完了。"),
+    ] satisfies UIMessage[];
+    const verified = [
+      fileTarget("素材.xlsx", { updatedAt: turnStart + 100 }),
+      fileTarget(".env", { updatedAt: turnStart + 100 }),
+      fileTarget("tmp/scratch.py", { updatedAt: turnStart + 100 }),
+      fileTarget("onmyagent-session.json", { updatedAt: turnStart + 100 }),
+      fileTarget("结果.yaml", { preview: "external", updatedAt: turnStart + 100 }),
+    ];
+
+    expect(
+      selectTurnOpenTargets(messages, verified, { turnStartedAt: turnStart })
+        .map((target) => target.value),
+    ).toEqual(["结果.yaml"]);
+  });
+});
+
+describe("isCollectibleArtifactTarget", () => {
+  it("collects any existing result file, including unknown extensions", () => {
+    const json = fileTarget("导出.json", { preview: "external", exists: true });
+    expect(isCollectibleArtifactTarget(json)).toBe(true);
+    expect(isCollectibleArtifactTarget({ ...json, exists: false })).toBe(false);
   });
 });

@@ -1,36 +1,9 @@
+import { isIsolatedExpertSessionDirectory } from "../session-identity/expert-session-directory";
 import { classifyOpenTarget, isLikelyUserUploadArtifactPath, type OpenTarget } from "./open-target";
+import { shouldHideEntry } from "./workspace-file-tree";
 
-/** End-user product files. Cards come from disk inventory + this set, not Chinese labels. */
-export const CONTENT_DELIVERABLE_EXTENSIONS = new Set([
-  ".xlsx",
-  ".xlsm",
-  ".xls",
-  ".csv",
-  ".tsv",
-  ".docx",
-  ".doc",
-  ".pdf",
-  ".pptx",
-  ".ppt",
-  ".md",
-  ".markdown",
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".gif",
-  ".webp",
-  ".svg",
-  ".mp4",
-  ".webm",
-  ".mp3",
-  ".wav",
-  ".html",
-  ".htm",
-  ".txt",
-  ".text",
-  ".rtf",
-  ".zip",
-]);
+/** Clock slack when comparing file mtime to the turn start. */
+export const TURN_MTIME_SLACK_MS = 2_000;
 
 function basenameOf(path: string): string {
   const normalized = path.replace(/[\\]+/g, "/");
@@ -38,14 +11,46 @@ function basenameOf(path: string): string {
   return parts[parts.length - 1] || path;
 }
 
-function fileExtension(path: string): string {
-  const base = basenameOf(path).toLowerCase();
-  const dot = base.lastIndexOf(".");
-  return dot >= 0 ? base.slice(dot) : "";
+function normalizePathKey(path: string): string {
+  return path.replace(/[\\]+/g, "/").replace(/^\.\//, "").trim();
 }
 
-export function isContentDeliverablePath(path: string): boolean {
-  return CONTENT_DELIVERABLE_EXTENSIONS.has(fileExtension(path));
+/** Tmp / cache / OS plumbing — never a user-facing result. */
+export function isProcessArtifactPath(path: string): boolean {
+  const normalized = normalizePathKey(path);
+  if (!normalized) return true;
+  if (
+    /(^|\/)(?:\.opencode\/tmp|tmp|temp|temps|cache|node_modules)(\/|$)/i.test(normalized)
+    || /^(?:\/|[a-z]:\/)(?:tmp|var\/folders|private|system|library|usr)(?:\/|$)/i.test(normalized)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Hidden / marker files. Allow `.onmyagent` as a workspace-root segment so
+ * absolute paths under the app data dir are not dropped.
+ */
+export function isHiddenResultPath(path: string): boolean {
+  const parts = normalizePathKey(path).split("/").filter(Boolean);
+  if (parts.length === 0) return true;
+  return parts.some((part) => part !== ".onmyagent" && shouldHideEntry(part));
+}
+
+/** Result file: any extension, but not uploads, hidden files, or process junk. */
+export function isEligibleSessionResultPath(path: string): boolean {
+  const normalized = normalizePathKey(path);
+  if (!normalized || !normalized.includes(".")) return false;
+  if (isLikelyUserUploadArtifactPath(normalized)) return false;
+  if (isHiddenResultPath(normalized)) return false;
+  if (isProcessArtifactPath(normalized)) return false;
+  return true;
+}
+
+/** Shared workspace/space folders leak other sessions — only scan isolated dirs. */
+export function shouldScanSessionInventoryRoot(sessionRoot: string): boolean {
+  return isIsolatedExpertSessionDirectory(sessionRoot);
 }
 
 /** Last path segment of a session cwd (expert sessionKey or folder name). */
@@ -70,73 +75,28 @@ export function sessionRelativeExpertInventoryPath(
   return parts.slice(index + 1).join("/");
 }
 
-function isFilenameGlueChar(ch: string): boolean {
-  if (!ch) return false;
-  return /[\p{L}\p{N}._\-【】「」『』（）／]/u.test(ch);
+export function normalizeEpochMs(value: number | null | undefined): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return null;
+  return value < 1e12 ? value * 1000 : value;
 }
 
-/** Exact basename in text; reject `report.docx` inside `final-report.docx`. */
-export function assistantTextIncludesFilename(text: string, filename: string): boolean {
-  const name = filename.trim();
-  if (name.length < 3 || !name.includes(".")) return false;
-  let from = 0;
-  while (from < text.length) {
-    const index = text.indexOf(name, from);
-    if (index < 0) return false;
-    const before = index > 0 ? text[index - 1] ?? "" : "";
-    const after = text[index + name.length] ?? "";
-    if (!isFilenameGlueChar(before) && !isFilenameGlueChar(after)) return true;
-    from = index + 1;
-  }
-  return false;
+/** True when the file's mtime falls inside this transcript turn. */
+export function wasWrittenDuringTurn(
+  updatedAt: number | undefined,
+  turnStartedAt: number | null | undefined,
+): boolean {
+  const updated = normalizeEpochMs(updatedAt);
+  const started = normalizeEpochMs(turnStartedAt ?? null);
+  if (updated == null || started == null) return false;
+  return updated >= started - TURN_MTIME_SLACK_MS;
 }
 
-export function lastAssistantTextFromMessages(
-  messages: ReadonlyArray<{
-    role?: string;
-    parts?: ReadonlyArray<{ type?: string; text?: unknown }>;
-  }>,
-): string {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (message?.role !== "assistant") continue;
-    const texts: string[] = [];
-    for (const part of message.parts ?? []) {
-      if (part.type === "text" && typeof part.text === "string" && part.text.trim()) {
-        texts.push(part.text);
-      }
-    }
-    if (texts.length) return texts.join("\n");
-  }
-  return "";
-}
-
-/** Inventory paths whose exact basename appears in assistant text. */
-export function matchInventoryPathsInText(
-  inventoryPaths: readonly string[],
-  text: string,
-): string[] {
-  if (!text.trim()) return [];
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const raw of inventoryPaths) {
-    const path = raw.replace(/[\\]+/g, "/").replace(/^\.\//, "");
-    if (!path || !isContentDeliverablePath(path)) continue;
-    if (isLikelyUserUploadArtifactPath(path)) continue;
-    if (!assistantTextIncludesFilename(text, basenameOf(path))) continue;
-    const key = path.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(path);
-  }
-  return out;
-}
-
-export function openTargetFromInventoryPath(path: string): OpenTarget | null {
-  const normalized = path.replace(/[\\]+/g, "/").replace(/^\.\//, "").trim();
-  if (!normalized || !normalized.includes(".")) return null;
-  if (isLikelyUserUploadArtifactPath(normalized)) return null;
-  if (!isContentDeliverablePath(normalized)) return null;
+export function openTargetFromInventoryPath(
+  path: string,
+  extras: { size?: number; updatedAt?: number } = {},
+): OpenTarget | null {
+  const normalized = normalizePathKey(path);
+  if (!isEligibleSessionResultPath(normalized)) return null;
   return {
     id: `file:${normalized.toLowerCase()}`,
     kind: "file",
@@ -145,17 +105,33 @@ export function openTargetFromInventoryPath(path: string): OpenTarget | null {
     preview: classifyOpenTarget(normalized, "file"),
     confidence: 88,
     reason: "session inventory",
+    exists: true,
+    size: extras.size,
+    updatedAt: extras.updatedAt,
   };
 }
 
-export function mintInventoryOpenTargets(
-  inventoryPaths: readonly string[],
-  lastAssistantText: string,
+export type InventoryListItem = {
+  path: string;
+  kind?: string;
+  size?: number;
+  mtimeMs?: number;
+};
+
+export function inventoryListedFilesToOpenTargets(
+  listed: readonly InventoryListItem[],
 ): OpenTarget[] {
   const targets: OpenTarget[] = [];
-  for (const path of matchInventoryPathsInText(inventoryPaths, lastAssistantText)) {
-    const target = openTargetFromInventoryPath(path);
-    if (target) targets.push(target);
+  const seen = new Set<string>();
+  for (const item of listed) {
+    if (item.kind === "dir") continue;
+    const target = openTargetFromInventoryPath(item.path, {
+      size: item.size,
+      updatedAt: item.mtimeMs,
+    });
+    if (!target || seen.has(target.id)) continue;
+    seen.add(target.id);
+    targets.push(target);
   }
   return targets;
 }
@@ -167,9 +143,17 @@ export function mergeOpenTargetsWithInventory(
   const map = new Map(openTargets.map((target) => [target.id, target]));
   for (const target of inventoryTargets) {
     const existing = map.get(target.id);
-    if (!existing || target.confidence > existing.confidence) {
+    if (!existing) {
       map.set(target.id, target);
+      continue;
     }
+    map.set(target.id, {
+      ...existing,
+      exists: existing.exists === true || target.exists === true,
+      size: existing.size ?? target.size,
+      updatedAt: existing.updatedAt ?? target.updatedAt,
+      confidence: Math.max(existing.confidence, target.confidence),
+    });
   }
   return Array.from(map.values());
 }

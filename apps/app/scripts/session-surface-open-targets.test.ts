@@ -181,7 +181,7 @@ describe("open-targets hook source contract", () => {
     expect(host).not.toContain("initializedAutoOpenSessionRef");
   });
 
-  test("mints card candidates from session inventory instead of Chinese labels", () => {
+  test("only inventories isolated session directories", () => {
     const hook = readFileSync(
       join(
         import.meta.dir,
@@ -189,17 +189,19 @@ describe("open-targets hook source contract", () => {
       ),
       "utf8",
     );
-    expect(hook).toContain("mintInventoryOpenTargets");
-    expect(hook).toContain("listSessionInventoryFiles");
+    expect(hook).toContain("shouldScanSessionInventoryRoot");
+    expect(hook).toContain("inventoryListedFilesToOpenTargets");
     expect(hook).toContain("listExpertSessionFiles");
+    expect(hook).not.toContain("lastAssistantText");
+    expect(hook).not.toContain("mintInventoryOpenTargets");
 
-    const host = readFileSync(
+    const list = readFileSync(
       join(
         import.meta.dir,
-        "../src/react-app/domains/session/surface/session-surface.tsx",
+        "../src/react-app/domains/session/surface/message-list.tsx",
       ),
       "utf8",
     );
-    expect(host).toContain("lastAssistantText: lastAssistantTextFromMessages(renderedMessages)");
+    expect(list).toContain("turnStartedAt: turn.startedAt");
   });
 });

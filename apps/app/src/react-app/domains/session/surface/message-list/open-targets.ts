@@ -1,7 +1,9 @@
 import type { UIMessage } from "ai";
 import {
-  assistantTextIncludesFilename,
-  isContentDeliverablePath,
+  isEligibleSessionResultPath,
+  isHiddenResultPath,
+  isProcessArtifactPath,
+  wasWrittenDuringTurn,
 } from "../../../../capabilities/artifacts/session-inventory-open-targets";
 import {
   deriveOpenTargets,
@@ -11,7 +13,6 @@ import {
   isCollectibleArtifactTarget,
   isLikelyUserUploadArtifactPath,
   isUserFacingLocalPreviewTarget,
-  lastAssistantTextFromMessages,
   type OpenTarget,
 } from "../../artifacts/open-target";
 
@@ -84,14 +85,6 @@ function isProcessHelperScript(path: string): boolean {
   return false;
 }
 
-function isContentDeliverable(path: string): boolean {
-  return isContentDeliverablePath(path);
-}
-
-function isCodePath(path: string): boolean {
-  return CODE_EXTENSIONS.has(fileExtension(path));
-}
-
 /** Basenames from user message file parts (composer attachments). */
 function userAttachmentBasenames(messages: UIMessage[]): Set<string> {
   const names = new Set<string>();
@@ -125,21 +118,7 @@ function isBlockedUserPath(path: string, userBasenames: Set<string>): boolean {
   );
 }
 
-/** Hidden, system, and temporary paths are execution plumbing, never cards. */
-function isProcessArtifactPath(path: string): boolean {
-  const normalized = normalizePathKey(path);
-  if (!normalized) return true;
-  // Location SoT: tmp / .opencode/tmp / OS temp / cache — not business names.
-  if (
-    /(^|\/)(?:\.opencode\/tmp|tmp|temp|temps|cache|node_modules)(\/|$)/i.test(normalized)
-    || /^(?:\/|[a-z]:\/)(?:tmp|var\/folders|private|system|library|usr)(?:\/|$)/i.test(normalized)
-  ) {
-    return true;
-  }
-  return normalized.split("/").some(
-    (segment) => segment.startsWith(".") && segment !== ".onmyagent",
-  );
-}
+
 
 function findVerifiedFile(
   path: string,
@@ -228,38 +207,31 @@ function pathMatchesDeclared(path: string, declared: string[]): boolean {
 
 /**
  * Whether this path should appear on the turn product strip.
- * - Content files (xlsx/png/html/txt…): yes (if verified)
- * - Process helpers (extract_*.cjs, tmp scripts, scripts run in-turn): no
- * - Intentional code deliverables (.js/.py declared as 文件路径): yes
+ * Result files of any extension are eligible. Hidden files, user uploads,
+ * tmp/process helpers, and scripts that only ran to produce another file
+ * are not.
  */
 export function shouldShowAsTurnDeliverable(
   path: string,
   context: {
     declaredPaths: string[];
     executedScriptBasenames: Set<string>;
-    hasContentDeliverableInTurn: boolean;
+    hasOtherResultInTurn: boolean;
   },
 ): boolean {
-  if (isProcessArtifactPath(path)) return false;
+  if (!isEligibleSessionResultPath(path)) return false;
   if (isProcessHelperScript(path)) return false;
   if (context.executedScriptBasenames.has(basenameOf(path).toLowerCase())) {
-    // Ran in this turn → treat as process helper unless it is also the only
-    // declared deliverable and no content files exist.
-    if (context.hasContentDeliverableInTurn) return false;
+    if (context.hasOtherResultInTurn) return false;
     if (!pathMatchesDeclared(path, context.declaredPaths)) return false;
   }
-  if (isContentDeliverable(path)) return true;
-  if (isCodePath(path)) {
-    // .js/.py products: only when assistant explicitly declares them.
-    return pathMatchesDeclared(path, context.declaredPaths);
-  }
-  // JSON and unknown extensions: only if explicitly declared as deliverable.
-  return pathMatchesDeclared(path, context.declaredPaths);
+  return true;
 }
 
 export function selectTurnOpenTargets(
   messages: UIMessage[],
   verifiedTargets: OpenTarget[] | undefined,
+  options?: { turnStartedAt?: number | null },
 ) {
   const verifiedById = new Map((verifiedTargets ?? []).map((target) => [target.id, target] as const));
   const verifiedFiles = (verifiedTargets ?? []).filter(
@@ -290,9 +262,9 @@ export function selectTurnOpenTargets(
   }
   for (const declared of [...declaredPaths, ...explicitArtifactLinkPaths]) candidatePaths.push(declared);
 
-  const hasContentDeliverableInTurn = candidatePaths.some(
+  const hasOtherResultInTurn = candidatePaths.some(
     (path) =>
-      isContentDeliverable(path)
+      isEligibleSessionResultPath(path)
       && !isBlockedUserPath(path, userBasenames)
       && !isProcessHelperScript(path),
   );
@@ -300,16 +272,16 @@ export function selectTurnOpenTargets(
   const showContext = {
     declaredPaths,
     executedScriptBasenames,
-    hasContentDeliverableInTurn,
+    hasOtherResultInTurn,
   };
 
   const addVerifiedFile = (candidatePath: string) => {
-    if (isProcessArtifactPath(candidatePath)) return;
+    if (isHiddenResultPath(candidatePath) || isProcessArtifactPath(candidatePath)) return;
     if (isBlockedUserPath(candidatePath, userBasenames)) return;
     if (!shouldShowAsTurnDeliverable(candidatePath, showContext)) return;
     const verified = findVerifiedFile(candidatePath, verifiedById, verifiedFiles);
     if (!verified || !isCollectibleArtifactTarget(verified)) return;
-    if (isProcessArtifactPath(verified.value)) return;
+    if (isHiddenResultPath(verified.value) || isProcessArtifactPath(verified.value)) return;
     if (isBlockedUserPath(verified.value, userBasenames)) return;
     if (!shouldShowAsTurnDeliverable(verified.value, showContext)) return;
     inlineTargets.set(verified.id, verified);
@@ -330,29 +302,12 @@ export function selectTurnOpenTargets(
     addVerifiedFile(declared);
   }
 
-  // Session directory is the source of truth when this turn has no write-tool
-  // / marker content file: a uniquely verified content file whose exact name
-  // appears in the latest assistant text gets a card. New labels do not need
-  // another keyword. Resolve by basename so two same-named files stay silent.
-  const hasContentWriteProvenance = candidatePaths.some(
-    (path) =>
-      isContentDeliverable(path)
-      && !isBlockedUserPath(path, userBasenames)
-      && !isProcessHelperScript(path)
-      && !isProcessArtifactPath(path),
-  );
-  if (!hasContentWriteProvenance) {
-    const latestAssistantText = lastAssistantTextFromMessages(assistantMessages);
-    const seenBasenames = new Set<string>();
-    for (const verified of verifiedFiles) {
-      const base = basenameOf(verified.value);
-      const key = base.toLowerCase();
-      if (seenBasenames.has(key)) continue;
-      if (!isContentDeliverable(verified.value)) continue;
-      if (!assistantTextIncludesFilename(latestAssistantText, base)) continue;
-      seenBasenames.add(key);
-      addVerifiedFile(base);
-    }
+  // Isolated session dirs attach exists+mtime on verified files. Only files
+  // written during THIS turn become cards — previous turns and other sessions
+  // stay out even if the same filename is mentioned again.
+  for (const verified of verifiedFiles) {
+    if (!wasWrittenDuringTurn(verified.updatedAt, options?.turnStartedAt)) continue;
+    addVerifiedFile(verified.value);
   }
 
   return Array.from(inlineTargets.values());
