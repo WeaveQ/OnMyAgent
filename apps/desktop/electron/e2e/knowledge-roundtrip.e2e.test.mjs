@@ -55,7 +55,11 @@ describe("desktop knowledge vault roundtrip e2e", () => {
     assert.ok(pluginPath, "knowledge-search.mjs missing from sandbox config");
     const source = await readFile(pluginPath, "utf8");
     const knowledgeRoot = resolveKnowledgeRoot(sandbox.realHome);
-    assert.match(source, new RegExp(knowledgeRoot.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    const rootInJsString = JSON.stringify(knowledgeRoot).slice(1, -1);
+    assert.ok(
+      source.includes(rootInJsString) || source.includes(knowledgeRoot),
+      `generated plugin ROOT missing ${knowledgeRoot}`,
+    );
 
     const gettingStarted = await executeKnowledgeSearch({
       knowledgeRoot,

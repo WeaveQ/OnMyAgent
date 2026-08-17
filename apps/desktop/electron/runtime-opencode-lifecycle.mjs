@@ -56,8 +56,63 @@ export function processMatchesSidecar(command, sidecarDirs = []) {
     (
       value.includes("onmyagent-orchestrator") ||
       value.includes("onmyagent-server") ||
-      value.includes("opencode serve")
+      /(?:^|[\\/\s"])opencode(?:\.exe)?\s+serve\b/i.test(value)
     );
+}
+
+/**
+ * Parse `ps` text (POSIX) or Get-CimInstance JSON (Windows) into pid+command.
+ */
+export function parseProcessListRows(stdout, platform = process.platform) {
+  const text = String(stdout ?? "");
+  if (platform === "win32") {
+    const trimmed = text.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      const items = Array.isArray(parsed) ? parsed : parsed && typeof parsed === "object" ? [parsed] : [];
+      return items
+        .map((item) => ({
+          pid: Number(item?.ProcessId ?? item?.processId ?? item?.pid),
+          command: String(item?.CommandLine ?? item?.commandLine ?? item?.command ?? ""),
+        }))
+        .filter((row) => Number.isFinite(row.pid) && row.pid > 0);
+    } catch {
+      return [];
+    }
+  }
+
+  const rows = [];
+  for (const row of text.split(/\r?\n/)) {
+    const match = row.match(/^\s*(\d+)\s+(.+)$/);
+    if (!match) continue;
+    rows.push({ pid: Number(match[1]), command: match[2] ?? "" });
+  }
+  return rows;
+}
+
+function listSidecarProcessRows(platform = process.platform) {
+  try {
+    if (platform === "win32") {
+      const result = spawnSync(
+        "powershell.exe",
+        [
+          "-NoProfile",
+          "-NonInteractive",
+          "-Command",
+          "Get-CimInstance Win32_Process | Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress",
+        ],
+        { encoding: "utf8", windowsHide: true, timeout: 15_000 },
+      );
+      if (result.error) return [];
+      return parseProcessListRows(result.stdout, "win32");
+    }
+    const result = spawnSync("ps", ["-Ao", "pid=,command="], { encoding: "utf8" });
+    if (result.error) return [];
+    return parseProcessListRows(result.stdout, "linux");
+  } catch {
+    return [];
+  }
 }
 
 export function killProcessId(pid, signal = "SIGTERM") {
@@ -83,14 +138,9 @@ export async function cleanupPackagedSidecars(input = {}) {
   await requestShutdown().catch(() => false);
   await new Promise((resolve) => setTimeout(resolve, 300));
 
-  const result = spawnSync("ps", ["-Ao", "pid=,command="], { encoding: "utf8" });
-  const rows = String(result.stdout ?? "").split(/\r?\n/);
+  const rows = listSidecarProcessRows();
   const pids = [];
-  for (const row of rows) {
-    const match = row.match(/^\s*(\d+)\s+(.+)$/);
-    if (!match) continue;
-    const pid = Number(match[1]);
-    const command = match[2] ?? "";
+  for (const { pid, command } of rows) {
     if (processMatchesSidecar(command, sidecarDirs)) pids.push(pid);
   }
   for (const pid of pids) killProcessId(pid, "SIGTERM");

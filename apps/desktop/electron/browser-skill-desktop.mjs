@@ -8,6 +8,8 @@ import { accessSync, constants as fsConstants } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+import { resolveWindowsAwareSpawnSpec } from "./personal-agent-runtime/windows-spawn.mjs";
+
 const INSTALL_SH =
   "https://raw.githubusercontent.com/Tencent/BrowserSkill/main/install.sh";
 const CHROME_WEB_STORE =
@@ -15,9 +17,17 @@ const CHROME_WEB_STORE =
 const DOCS =
   "https://github.com/Tencent/BrowserSkill#quick-start";
 
-/** One-liner users can paste or we open in Terminal. */
-export const BROWSER_SKILL_INSTALL_COMMAND =
-  `curl -fsSL ${INSTALL_SH} | sh && bsk doctor`;
+const WINDOWS_INSTALL_COMMAND =
+  "Install bsk.exe from https://github.com/Tencent/BrowserSkill/releases (see the Windows section at https://github.com/Tencent/BrowserSkill#quick-start), add it to PATH, then run: bsk doctor";
+
+/** Platform-aware install copy. Windows must not receive curl|sh. */
+export function browserSkillInstallCommand(platform = process.platform) {
+  if (platform === "win32") return WINDOWS_INSTALL_COMMAND;
+  return `curl -fsSL ${INSTALL_SH} | sh && bsk doctor`;
+}
+
+/** One-liner for the current host (desktop status / copy button). */
+export const BROWSER_SKILL_INSTALL_COMMAND = browserSkillInstallCommand();
 
 /**
  * @param {string} command
@@ -32,9 +42,12 @@ function runCommand(command, args, opts = {}) {
     /** @type {import("node:child_process").ChildProcessWithoutNullStreams | null} */
     let child = null;
     try {
-      child = spawn(command, args, {
+      const spec = resolveWindowsAwareSpawnSpec(command, args);
+      child = spawn(spec.command, spec.args, {
         env: process.env,
         stdio: ["ignore", "pipe", "pipe"],
+        windowsHide: true,
+        windowsVerbatimArguments: spec.windowsVerbatimArguments,
       });
     } catch (error) {
       resolve({
@@ -95,20 +108,55 @@ function runCommand(command, args, opts = {}) {
   });
 }
 
+function pathExists(candidate) {
+  try {
+    accessSync(candidate, fsConstants.X_OK);
+    return true;
+  } catch {
+    try {
+      accessSync(candidate, fsConstants.F_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+export function windowsBskCandidates(home, env = {}) {
+  const localAppData = env.LOCALAPPDATA || join(home, "AppData", "Local");
+  return [
+    join(home, ".local", "bin", "bsk.exe"),
+    join(home, ".local", "bin", "bsk.cmd"),
+    join(home, ".local", "bin", "bsk"),
+    join(home, ".bsk", "bin", "bsk.exe"),
+    join(home, ".bsk", "bin", "bsk.cmd"),
+    join(localAppData, "bsk", "bsk.exe"),
+    join(localAppData, "Programs", "bsk", "bsk.exe"),
+  ];
+}
+
 /**
  * Resolve `bsk` binary on PATH or common install locations.
+ * @param {{ platform?: NodeJS.Platform; home?: string; env?: NodeJS.ProcessEnv; exists?: (path: string) => boolean }} [options]
  * @returns {{ path: string | null; source: "path" | "home-local" | "missing" }}
  */
-export function resolveBskBinary() {
-  const homeLocal = join(homedir(), ".local", "bin", "bsk");
-  try {
-    accessSync(homeLocal, fsConstants.X_OK);
-    return { path: homeLocal, source: "home-local" };
-  } catch {
-    // fall through
+export function resolveBskBinary(options = {}) {
+  const platform = options.platform ?? process.platform;
+  const home = options.home ?? homedir();
+  const env = options.env ?? process.env;
+  const exists = options.exists ?? pathExists;
+  const candidates =
+    platform === "win32"
+      ? windowsBskCandidates(home, env)
+      : [join(home, ".local", "bin", "bsk")];
+
+  for (const candidate of candidates) {
+    if (exists(candidate)) {
+      return { path: candidate, source: "home-local" };
+    }
   }
 
-  return { path: "bsk", source: "path" };
+  return { path: platform === "win32" ? "bsk.exe" : "bsk", source: "path" };
 }
 
 /**
@@ -133,7 +181,7 @@ export async function checkBrowserSkillStatus() {
       installCliUrl: INSTALL_SH,
       chromeWebStoreUrl: CHROME_WEB_STORE,
       docsUrl: DOCS,
-      installCommand: BROWSER_SKILL_INSTALL_COMMAND,
+      installCommand: browserSkillInstallCommand(),
     };
   }
 

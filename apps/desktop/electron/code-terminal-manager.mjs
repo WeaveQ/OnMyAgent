@@ -5,6 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import pty from "node-pty";
 
+import { resolveInAppTerminalShell } from "./code-terminal-shell.mjs";
+
 // node-pty ships `spawn-helper` binaries under prebuilds/. pnpm can drop the
 // executable bit while unpacking from its content-addressed store, and the
 // resulting `posix_spawnp failed.` is swallowed by the renderer, so the
@@ -44,19 +46,7 @@ const DEFAULT_COLS = 96;
 const DEFAULT_ROWS = 28;
 
 function terminalShell() {
-  if (process.platform === "win32") {
-    return {
-      command: process.env.COMSPEC || "powershell.exe",
-      args: [],
-      label: path.basename(process.env.COMSPEC || "powershell.exe"),
-    };
-  }
-  const command = process.env.SHELL || (process.platform === "darwin" ? "/bin/zsh" : "/bin/bash");
-  return {
-    command,
-    args: [],
-    label: path.basename(command),
-  };
+  return resolveInAppTerminalShell();
 }
 
 function terminalEnv() {

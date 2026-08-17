@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -37,6 +36,7 @@ import {
   terminateProcessTree,
   uniqueModelOptions,
 } from "./utils.mjs";
+import { spawnAgentProcess } from "./spawn-agent-process.mjs";
 import { legacyPersonalAssistantRunLogRoot, legacyRunLogRoot, runLogRoot } from "./workdir.mjs";
 
 const AGENT_MANAGEMENT_PREF_FILE = "agent-management.json";
@@ -595,7 +595,7 @@ export function createPersonalAgentLegacyHarness(options = {}) {
         ...(options.runtimePathEntries?.() ?? []),
       ],
     });
-    const child = spawn(detected.executablePath, args, {
+    const child = spawnAgentProcess(detected.executablePath, args, {
       cwd: state.workspaceRoot,
       env: runExec.processEnv({
         PWD: state.workspaceRoot,

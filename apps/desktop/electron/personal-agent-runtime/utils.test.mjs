@@ -59,6 +59,16 @@ test("writeJsonFile survives concurrent writers to same target (no ENOENT rename
   }
 });
 
+test("taskkill spawn sites attach an error listener so missing taskkill cannot crash", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const src = await readFile(new URL("./utils.mjs", import.meta.url), "utf8");
+  const taskkillSpawns = src.match(/spawn\(plan\.command[\s\S]{0,220}/g) ?? [];
+  assert.ok(taskkillSpawns.length >= 2, "expected taskkill spawn sites");
+  for (const snippet of taskkillSpawns) {
+    assert.match(snippet, /\.on(?:ce)?\("error"/);
+  }
+});
+
 test("resolveProcessTreeKillPlan uses taskkill /T /F on win32", () => {
   const plan = resolveProcessTreeKillPlan({ platform: "win32", pid: 4242, force: true });
   assert.equal(plan.kind, "taskkill");

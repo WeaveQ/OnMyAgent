@@ -359,7 +359,8 @@ export function forceKillProcessTree(child, { platform = process.platform } = {}
   const plan = resolveProcessTreeKillPlan({ platform, pid, force: true });
   if (plan.kind === "taskkill") {
     try {
-      spawn(plan.command, plan.args, { windowsHide: true, stdio: "ignore" });
+      const killer = spawn(plan.command, plan.args, { windowsHide: true, stdio: "ignore" });
+      killer.on("error", () => {});
       return;
     } catch {
       // Fall through to direct kill.
@@ -443,7 +444,8 @@ export async function terminateProcessTree(child, { graceMs = 1_000 } = {}) {
       const plan = resolveProcessTreeKillPlan({ platform: "win32", pid, force: true });
       if (plan.kind === "taskkill") {
         try {
-          spawn(plan.command, plan.args, { windowsHide: true, stdio: "ignore" });
+          const killer = spawn(plan.command, plan.args, { windowsHide: true, stdio: "ignore" });
+          killer.on("error", () => {});
         } catch {
           forceKillProcessTree(child);
         }

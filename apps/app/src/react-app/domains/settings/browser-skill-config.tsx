@@ -11,8 +11,9 @@ import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 import { registerExtensionConfig } from "../shared";
 
-const FALLBACK_INSTALL_COMMAND =
-  "curl -fsSL https://raw.githubusercontent.com/Tencent/BrowserSkill/main/install.sh | sh && bsk doctor";
+import { browserSkillFallbackInstallCommand } from "./browser-skill-install";
+
+const FALLBACK_INSTALL_COMMAND = browserSkillFallbackInstallCommand();
 
 type BrowserSkillStatus = {
   ok: boolean;
