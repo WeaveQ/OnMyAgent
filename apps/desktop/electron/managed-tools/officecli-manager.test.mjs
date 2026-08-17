@@ -469,6 +469,91 @@ test("marks an installed runtime unusable when its binary is tampered with", asy
   }
 });
 
+test("keeps a rewritten live skill usable when the binary hash still matches", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-skill-drift-"));
+  try {
+    const binary = Buffer.from("officecli-1.0.102-binary");
+    const skill = "---\nname: officecli\n---\nUse OfficeCLI.\n";
+    const releaseManifest = release("1.0.102", binary, skill);
+    const manager = createOfficeCliManager({
+      downloadConfig: false,
+      homeDir: home,
+      manifestUrl: "https://oss.test/officecli/manifest.json",
+      fetchImpl: fixtureFetch({
+        pointerManifest: pointer("1.0.102", releaseManifest),
+        releaseManifest,
+        binary,
+        skill,
+      }),
+      platform: "darwin",
+      arch: "arm64",
+      runBinaryVersion: async () => true,
+      refreshSkillLinks: async () => undefined,
+    });
+
+    await manager.installLatest();
+    await writeFile(
+      path.join(resolveLocalSkillsRoot(home), "officecli", "SKILL.md"),
+      "---\nname: officecli\n---\nVendor overwrite.\n",
+      "utf8",
+    );
+
+    const status = await manager.getStatus();
+
+    assert.equal(status.usable, true);
+    assert.equal(status.state, "installed");
+    assert.equal(status.errorCode, undefined);
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test("keeps a self-updated binary usable when it still reports a version", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-self-update-"));
+  try {
+    const binary = Buffer.from("officecli-1.0.102-binary");
+    const skill = "---\nname: officecli\n---\nUse OfficeCLI.\n";
+    const releaseManifest = release("1.0.102", binary, skill);
+    const manager = createOfficeCliManager({
+      downloadConfig: false,
+      homeDir: home,
+      manifestUrl: "https://oss.test/officecli/manifest.json",
+      fetchImpl: fixtureFetch({
+        pointerManifest: pointer("1.0.102", releaseManifest),
+        releaseManifest,
+        binary,
+        skill,
+      }),
+      platform: "darwin",
+      arch: "arm64",
+      runBinaryVersion: async () => true,
+      refreshSkillLinks: async () => undefined,
+    });
+
+    await manager.installLatest();
+    const binaryPath = path.join(
+      manager.paths.managedRoot,
+      "releases",
+      "1.0.102",
+      "officecli-mac-arm64",
+      "officecli",
+    );
+    await writeFile(
+      binaryPath,
+      "#!/usr/bin/env node\nprocess.stdout.write(\"1.0.144\\n\");\n",
+      { encoding: "utf8", mode: 0o755 },
+    );
+
+    const status = await manager.getStatus();
+
+    assert.equal(status.usable, true);
+    assert.equal(status.state, "installed");
+    assert.equal(status.errorCode, undefined);
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
 test("selects the Windows x64 asset and launcher names", async () => {
   const home = await mkdtemp(path.join(os.tmpdir(), "oma-officecli-win32-"));
   try {

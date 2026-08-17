@@ -394,16 +394,28 @@ async function writeJsonAtomic(target, value) {
   await rename(temporary, target);
 }
 
-async function defaultRunBinaryVersion(binaryPath, expectedVersion) {
+function parseSemverTokens(output) {
+  return (
+    output.match(/\bv?\d+\.\d+\.\d+\b/g)?.map((version) => version.replace(/^v/, "")) ?? []
+  );
+}
+
+function collectBinaryVersionOutput(binaryPath) {
   return new Promise((resolve) => {
-    const child = spawn(binaryPath, ["--version"], {
-      stdio: ["ignore", "pipe", "pipe"],
-      windowsHide: true,
-    });
+    let child;
+    try {
+      child = spawn(binaryPath, ["--version"], {
+        stdio: ["ignore", "pipe", "pipe"],
+        windowsHide: true,
+      });
+    } catch {
+      resolve(null);
+      return;
+    }
     let output = "";
     const timer = setTimeout(() => {
       child.kill();
-      resolve(false);
+      resolve(null);
     }, 15_000);
     child.stdout?.on("data", (chunk) => {
       output += chunk.toString("utf8");
@@ -413,20 +425,37 @@ async function defaultRunBinaryVersion(binaryPath, expectedVersion) {
     });
     child.once("error", () => {
       clearTimeout(timer);
-      resolve(false);
+      resolve(null);
     });
     child.once("close", (code) => {
       clearTimeout(timer);
-      const versions = output.match(/\bv?\d+\.\d+\.\d+\b/g)?.map((version) =>
-        version.replace(/^v/, ""),
-      ) ?? [];
-      resolve(
-        code === 0 &&
-          versions.length > 0 &&
-          versions.every((version) => version === expectedVersion),
-      );
+      resolve(code === 0 ? output : null);
     });
   });
+}
+
+async function defaultRunBinaryVersion(binaryPath, expectedVersion) {
+  const output = await collectBinaryVersionOutput(binaryPath);
+  if (output == null) return false;
+  const versions = parseSemverTokens(output);
+  return versions.length > 0 && versions.every((version) => version === expectedVersion);
+}
+
+async function binaryReportsAnyVersion(binaryPath) {
+  const output = await collectBinaryVersionOutput(binaryPath);
+  if (output == null) return false;
+  return parseSemverTokens(output).length > 0;
+}
+
+async function officeCliStillRunnable(binaryPath, skillMdPath, expectedBinarySha256) {
+  if (!(await pathExists(skillMdPath))) return false;
+  try {
+    const binaryDigest = await hashFile(binaryPath, MAX_BINARY_BYTES, "OfficeCLI binary");
+    verifyHash(binaryDigest.sha256, expectedBinarySha256, "OfficeCLI binary");
+    return true;
+  } catch {
+    return binaryReportsAnyVersion(binaryPath);
+  }
 }
 
 function statusBase(platform) {
@@ -889,10 +918,18 @@ export function createOfficeCliManager(options = {}) {
             verifyHash(binaryDigest.sha256, expectedRelease.binarySha256, "OfficeCLI binary");
             verifyHash(skillDigest.sha256, expectedRelease.skillSha256, "OfficeCLI SKILL.md");
           } catch (error) {
-            status.usable = false;
-            status.state = "error";
-            status.errorCode = errorCode(error);
-            status.errorMessage = error instanceof Error ? error.message : String(error);
+            const skillMdPath = path.join(skillPath, "SKILL.md");
+            const stillRunnable = await officeCliStillRunnable(
+              binaryPath,
+              skillMdPath,
+              expectedRelease.binarySha256,
+            );
+            if (!stillRunnable) {
+              status.usable = false;
+              status.state = "error";
+              status.errorCode = errorCode(error);
+              status.errorMessage = error instanceof Error ? error.message : String(error);
+            }
           }
         }
       }
