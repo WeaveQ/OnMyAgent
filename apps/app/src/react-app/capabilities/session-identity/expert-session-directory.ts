@@ -156,21 +156,38 @@ export function shouldIsolateExpertSessionDirectory(
 }
 
 /**
- * Side-panel file root for a session. The session's own directory (stored in
- * the session record by the server at create time) is the primary source.
- * The localStorage boundDirectory is a fallback for legacy sessions created
- * before the directory was persisted to the session record.
+ * Files-panel listing root. Only a per-session isolated directory is safe to
+ * scan — a shared space/catalog folder would leak other sessions' deliverables.
+ * Shared folders fall back to this session's verified artifact chips.
  */
 export function resolveSelectedSessionFileRoot(input: {
   boundDirectory?: string | null;
   sessionDirectory?: string | null;
   workspaceRoot: string;
 }): string {
-  const candidates = [
-    input.sessionDirectory?.trim() ?? "",
-    input.boundDirectory?.trim() ?? "",
-  ].filter(Boolean);
-  return candidates[0] ?? "";
+  const sessionDir = input.sessionDirectory?.trim() ?? "";
+  const boundDir = input.boundDirectory?.trim() ?? "";
+  if (sessionDir && isIsolatedExpertSessionDirectory(sessionDir)) return sessionDir;
+  if (boundDir && isIsolatedExpertSessionDirectory(boundDir)) return boundDir;
+  return "";
+}
+
+/**
+ * Where to verify artifact cards on disk. Isolated session dirs win. Legacy
+ * space-bound chats still wrote into the user-picked folder, so that binding
+ * remains the fallback when the session itself is not isolated.
+ */
+export function resolveSessionArtifactVerifyRoot(input: {
+  boundDirectory?: string | null;
+  sessionDirectory?: string | null;
+  workspaceRoot: string;
+}): string {
+  const sessionDir = input.sessionDirectory?.trim() ?? "";
+  const boundDir = input.boundDirectory?.trim() ?? "";
+  if (sessionDir && isIsolatedExpertSessionDirectory(sessionDir)) return sessionDir;
+  if (boundDir && isIsolatedExpertSessionDirectory(boundDir)) return boundDir;
+  if (boundDir) return boundDir;
+  return sessionDir || input.workspaceRoot.trim();
 }
 
 /**

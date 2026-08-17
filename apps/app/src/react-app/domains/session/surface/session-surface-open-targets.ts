@@ -16,6 +16,17 @@ import {
   type OpenTarget,
 } from "../artifacts/open-target";
 
+export async function listSessionProductFiles(root: string): Promise<ListedWorkspaceFile[]> {
+  const { isElectronRuntime } = await import("../../../../app/utils");
+  if (!isElectronRuntime()) return [];
+  const { listCodeWorkspaceFiles } = await import("../../../../app/lib/desktop");
+  const result = await listCodeWorkspaceFiles({
+    workspacePath: root,
+    recursive: true,
+  });
+  return result.items ?? [];
+}
+
 export type SessionSurfaceOpenTargetsClient = {
   resolveArtifacts: (
     workspaceId: string,
@@ -23,6 +34,17 @@ export type SessionSurfaceOpenTargetsClient = {
     options?: { sessionRoot?: string },
   ) => Promise<{ items: OpenTarget[] }>;
 };
+
+export type ListedWorkspaceFile = {
+  path: string;
+  kind?: string;
+  size?: number;
+  mtimeMs?: number;
+};
+
+export type SessionSurfaceOpenTargetsListFiles = (
+  root: string,
+) => Promise<ListedWorkspaceFile[]>;
 
 export type UseSessionSurfaceOpenTargetsInput = {
   sessionId: string;
@@ -33,6 +55,11 @@ export type UseSessionSurfaceOpenTargetsInput = {
   /** Stable fingerprint so effect does not re-fire on referential churn. */
   openTargetsFingerprint: string;
   chatStreaming: boolean;
+  /**
+   * Desktop-only: list files under the product root (space folder) so
+   * deliverables written outside the catalog workspace still verify.
+   */
+  listLocalFiles?: SessionSurfaceOpenTargetsListFiles;
   onOpenTarget?: (target: OpenTarget, options?: { auto?: boolean }) => void;
   onOpenTargetsChange?: (targets: OpenTarget[]) => void;
 };
@@ -104,6 +131,72 @@ export function normalizeVerifiedOpenTargets(targets: OpenTarget[]): OpenTarget[
   });
 }
 
+function listedFileKey(path: string): string {
+  return path.replace(/\\/g, "/").replace(/^\.\//, "").toLowerCase();
+}
+
+function listedFileBasename(path: string): string {
+  const posix = path.replace(/\\/g, "/");
+  return (posix.split("/").pop() ?? posix).toLowerCase();
+}
+
+/**
+ * Mark file targets as existing when they appear in a local directory listing.
+ * Used for space-bound sessions whose folder is outside the catalog workspace
+ * (server resolve then returns [] / exists:false).
+ */
+export function applyListedFilesToOpenTargets(
+  targets: OpenTarget[],
+  listed: ListedWorkspaceFile[],
+): OpenTarget[] {
+  if (!targets.length || !listed.length) return targets;
+  const byPath = new Map<string, ListedWorkspaceFile>();
+  const byBase = new Map<string, ListedWorkspaceFile[]>();
+  for (const item of listed) {
+    if (item.kind === "dir") continue;
+    const key = listedFileKey(item.path);
+    if (!key) continue;
+    byPath.set(key, item);
+    const base = listedFileBasename(item.path);
+    const bucket = byBase.get(base) ?? [];
+    bucket.push(item);
+    byBase.set(base, bucket);
+  }
+
+  return targets.map((target) => {
+    if (target.kind !== "file") return target;
+    const exact = byPath.get(listedFileKey(target.value));
+    const baseMatches = byBase.get(listedFileBasename(target.value)) ?? [];
+    const match = exact ?? (baseMatches.length === 1 ? baseMatches[0] : undefined);
+    if (!match) return target;
+    const preview =
+      target.preview === "external"
+        ? classifyOpenTarget(match.path || target.value, "file")
+        : target.preview;
+    return {
+      ...target,
+      exists: true,
+      size: typeof match.size === "number" ? match.size : target.size,
+      updatedAt: typeof match.mtimeMs === "number" ? match.mtimeMs : target.updatedAt,
+      preview,
+    };
+  });
+}
+
+async function applyLocalFileListing(
+  targets: OpenTarget[],
+  input: Pick<UseSessionSurfaceOpenTargetsInput, "listLocalFiles" | "sessionRoot">,
+): Promise<OpenTarget[]> {
+  const root = input.sessionRoot?.trim() ?? "";
+  if (!root || !input.listLocalFiles) return targets;
+  try {
+    const listed = await input.listLocalFiles(root);
+    return applyListedFilesToOpenTargets(targets, listed);
+  } catch {
+    return targets;
+  }
+}
+
 export function useSessionSurfaceOpenTargets(
   input: UseSessionSurfaceOpenTargetsInput,
 ) {
@@ -143,30 +236,41 @@ export function useSessionSurfaceOpenTargets(
           input.openTargets,
           { sessionRoot: input.sessionRoot },
         );
-        if (!cancelled) {
-          const nextTargets = normalizeVerifiedOpenTargets(
-            response.items as OpenTarget[],
-          );
-          autoOpenStateRef.current = initializeAutoOpenSessionState(
-            autoOpenStateRef.current,
-            sessionId,
-            candidateIdFromTargets(nextTargets),
-          );
-          setVerifiedOpenTargets(nextTargets);
-        }
+        if (cancelled) return;
+        const serverTargets = normalizeVerifiedOpenTargets(
+          response.items as OpenTarget[],
+        );
+        const nextTargets = await applyLocalFileListing(
+          serverTargets.length ? serverTargets : input.openTargets,
+          {
+            sessionRoot: input.sessionRoot,
+            listLocalFiles: input.listLocalFiles ?? listSessionProductFiles,
+          },
+        );
+        if (cancelled) return;
+        autoOpenStateRef.current = initializeAutoOpenSessionState(
+          autoOpenStateRef.current,
+          sessionId,
+          candidateIdFromTargets(nextTargets),
+        );
+        setVerifiedOpenTargets(nextTargets);
       } catch {
-        if (!cancelled) {
-          const nextTargets = input.openTargets.map((target) => ({
-            ...target,
-            exists: target.kind === "url",
-          }));
-          autoOpenStateRef.current = initializeAutoOpenSessionState(
-            autoOpenStateRef.current,
-            sessionId,
-            candidateIdFromTargets(nextTargets),
-          );
-          setVerifiedOpenTargets(nextTargets);
-        }
+        if (cancelled) return;
+        const fallback = input.openTargets.map((target) => ({
+          ...target,
+          exists: target.kind === "url",
+        }));
+        const nextTargets = await applyLocalFileListing(fallback, {
+          sessionRoot: input.sessionRoot,
+          listLocalFiles: input.listLocalFiles ?? listSessionProductFiles,
+        });
+        if (cancelled) return;
+        autoOpenStateRef.current = initializeAutoOpenSessionState(
+          autoOpenStateRef.current,
+          sessionId,
+          candidateIdFromTargets(nextTargets),
+        );
+        setVerifiedOpenTargets(nextTargets);
       }
     }
     void verifyTargets();
@@ -180,6 +284,7 @@ export function useSessionSurfaceOpenTargets(
     input.workspaceId,
     input.sessionRoot,
     input.openTargets,
+    input.listLocalFiles,
   ]);
 
   // 3) Auto-open newly verified high-confidence targets when not streaming.

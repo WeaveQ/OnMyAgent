@@ -35,6 +35,11 @@ export default {
     "No releases have been published yet. You can still open the releases page.",
   "settings.update_check_unavailable":
     "Could not check for updates right now. You can open the release page in a browser instead.",
+  "settings.update_still_verifying":
+    "The update package is still being verified. Try again in a moment.",
+  "settings.update_not_downloaded": "The update has not finished downloading yet.",
+  "settings.update_still_downloading":
+    "The update is still downloading. Try again when it finishes.",
   "settings.download_update": "Download update",
   "settings.restart_and_install": "Restart and install",
   "settings.update_installing": "Restarting to install…",

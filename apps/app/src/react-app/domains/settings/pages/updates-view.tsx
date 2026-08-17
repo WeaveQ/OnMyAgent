@@ -79,13 +79,15 @@ export function UpdatesView(props: UpdatesViewProps) {
   const downloadedBytes = formatBytes(props.updateStatus?.downloadedBytes);
   const totalBytes = formatBytes(props.updateStatus?.totalBytes);
   const softNotice =
-    (updateState === "idle" || updateState === "error") &&
     updateErrorMessage &&
-    (props.updateStatus?.soft || updateState === "idle")
+    (props.updateStatus?.soft || updateState === "idle") &&
+    (updateState === "idle" || updateState === "error" || updateState === "ready")
       ? updateErrorMessage
       : null;
   const hardError =
-    updateState === "error" && updateErrorMessage && !props.updateStatus?.soft
+    updateErrorMessage &&
+    !props.updateStatus?.soft &&
+    (updateState === "error" || updateState === "ready")
       ? updateErrorMessage
       : null;
   const showOpenReleaseWithSoft =

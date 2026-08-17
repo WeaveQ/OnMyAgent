@@ -41,14 +41,15 @@ describe("collectExpertMissingSkills", () => {
     ).toEqual(["fleet-data-consolidation", "vehicle-candidate-ranking"]);
   });
 
-  test("falls back to the directory union when no agent is selected", () => {
-    expect(collectExpertMissingSkills(records, null)).toEqual([
-      "anti-distill",
-      "fleet-data-consolidation",
-      "market-researcher",
-      "marketing-skills",
-      "vehicle-candidate-ranking",
-    ]);
+  test("does not paint another expert's missing skills when no agent is resolved", () => {
+    expect(collectExpertMissingSkills(records, null)).toEqual([]);
+    expect(collectExpertMissingSkills(records, "")).toEqual([]);
+    expect(
+      collectExpertMissingSkills(
+        records,
+        "fleet-management-specialist:fleet-management-specialist",
+      ),
+    ).toEqual(["fleet-data-consolidation", "vehicle-candidate-ranking"]);
   });
 
   test("tolerates missing missingSkills arrays without throwing", () => {
@@ -59,7 +60,7 @@ describe("collectExpertMissingSkills", () => {
           { agentId: "b" },
           { agentId: "c", missingSkills: ["ok"] },
         ] as Array<{ agentId: string; missingSkills?: readonly string[] | null }>,
-        null,
+        "c",
       ),
     ).toEqual(["ok"]);
   });
@@ -91,6 +92,141 @@ function directoryProjection(
     ...input,
   };
 }
+
+describe("missing-skill banner stays on the visible expert", () => {
+  test("does not show review-expert skills while viewing media expert", () => {
+    const incoming = directoryProjection({
+      records: [
+        {
+          agentId: "kol-media-specialist:kol-media-specialist",
+          packageName: "kol-media-specialist",
+          sessionIds: ["ses-media"],
+          runtimeDirectories: [],
+          sessions: [{
+            sessionId: "ses-media",
+            runtimeMissing: false,
+            declaredSkills: ["kol-brief-structuring"],
+            installedSkills: ["kol-brief-structuring"],
+            missingSkills: [],
+          }],
+          runtimeMissing: false,
+          declaredSkills: ["kol-brief-structuring"],
+          installedSkills: ["kol-brief-structuring"],
+          missingSkills: [],
+        },
+        {
+          agentId: "kol-project-review-specialist:kol-project-review-specialist",
+          packageName: "kol-project-review-specialist",
+          sessionIds: ["ses-review"],
+          runtimeDirectories: [],
+          sessions: [{
+            sessionId: "ses-review",
+            runtimeMissing: false,
+            declaredSkills: ["kol-margin-effect-analysis"],
+            installedSkills: [],
+            missingSkills: [
+              "kol-content-performance-attribution",
+              "kol-margin-effect-analysis",
+              "kol-project-review-framework",
+              "kol-review-report-audit",
+            ],
+          }],
+          runtimeMissing: false,
+          declaredSkills: ["kol-margin-effect-analysis"],
+          installedSkills: [],
+          missingSkills: [
+            "kol-content-performance-attribution",
+            "kol-margin-effect-analysis",
+            "kol-project-review-framework",
+            "kol-review-report-audit",
+          ],
+        },
+      ],
+    });
+    const identity = buildExpertPageIdentityModel({
+      directoryPage: buildExpertDirectoryPageModel({
+        query: { data: incoming, lastComplete: incoming },
+      }),
+      workspaceSessions: [{ id: "ses-media", title: "媒介专家" }],
+      registry: null,
+      selectedSessionId: "ses-media",
+      directoryQuery: { data: incoming, lastComplete: incoming },
+    });
+    expect(identity.currentConversationAgentId).toBe(
+      "kol-media-specialist:kol-media-specialist",
+    );
+    expect(identity.expertDirectoryMissingSkills).toEqual([]);
+  });
+
+  test("shows the visible review expert's missing skills only", () => {
+    const incoming = directoryProjection({
+      records: [
+        {
+          agentId: "kol-media-specialist:kol-media-specialist",
+          packageName: "kol-media-specialist",
+          sessionIds: ["ses-media"],
+          runtimeDirectories: [],
+          sessions: [{
+            sessionId: "ses-media",
+            runtimeMissing: false,
+            declaredSkills: ["kol-brief-structuring"],
+            installedSkills: ["kol-brief-structuring"],
+            missingSkills: [],
+          }],
+          runtimeMissing: false,
+          declaredSkills: ["kol-brief-structuring"],
+          installedSkills: ["kol-brief-structuring"],
+          missingSkills: [],
+        },
+        {
+          agentId: "kol-project-review-specialist:kol-project-review-specialist",
+          packageName: "kol-project-review-specialist",
+          sessionIds: ["ses-review"],
+          runtimeDirectories: [],
+          sessions: [{
+            sessionId: "ses-review",
+            runtimeMissing: false,
+            declaredSkills: ["kol-margin-effect-analysis"],
+            installedSkills: [],
+            missingSkills: [
+              "kol-content-performance-attribution",
+              "kol-margin-effect-analysis",
+              "kol-project-review-framework",
+              "kol-review-report-audit",
+            ],
+          }],
+          runtimeMissing: false,
+          declaredSkills: ["kol-margin-effect-analysis"],
+          installedSkills: [],
+          missingSkills: [
+            "kol-content-performance-attribution",
+            "kol-margin-effect-analysis",
+            "kol-project-review-framework",
+            "kol-review-report-audit",
+          ],
+        },
+      ],
+    });
+    const identity = buildExpertPageIdentityModel({
+      directoryPage: buildExpertDirectoryPageModel({
+        query: { data: incoming, lastComplete: incoming },
+      }),
+      workspaceSessions: [{ id: "ses-review", title: "复盘专家" }],
+      registry: null,
+      selectedSessionId: "ses-review",
+      directoryQuery: { data: incoming, lastComplete: incoming },
+    });
+    expect(identity.currentConversationAgentId).toBe(
+      "kol-project-review-specialist:kol-project-review-specialist",
+    );
+    expect(identity.expertDirectoryMissingSkills).toEqual([
+      "kol-content-performance-attribution",
+      "kol-margin-effect-analysis",
+      "kol-project-review-framework",
+      "kol-review-report-audit",
+    ]);
+  });
+});
 
 describe("stale lastComplete is not live ready identity", () => {
   test("incomplete newer projection without session-a is not ready from lastComplete", () => {

@@ -13,6 +13,10 @@
 !macro customInit
   SetDetailsPrint both
   DetailPrint "Preparing OnMyAgent installer..."
+  ; Detached Task Supervisor is another OnMyAgent.exe. Close leftovers before
+  ; old-uninstaller runs or NSIS blocks on "please close the application".
+  DetailPrint "Closing leftover OnMyAgent processes..."
+  nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /F /IM OnMyAgent.exe /T'
 !macroend
 
 !macro customInstall

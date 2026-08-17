@@ -25,22 +25,39 @@ import type {
 
 type ExpertDirectoryPage = ReturnType<typeof buildExpertDirectoryPageModel>;
 
-/** Prefer the active expert's missing skills; fall back to full directory union. */
+/**
+ * Missing-skill banner for the expert currently on screen.
+ * Never union the whole fleet — that paints another expert's repair list
+ * onto a working conversation (e.g. 媒介专家 showing 项目复盘专家 skills).
+ */
 export function collectExpertMissingSkills(
   records: readonly { agentId: string; missingSkills?: readonly string[] | null }[] | null | undefined,
   currentAgentId: string | null | undefined,
 ): string[] {
   const list = records ?? [];
-  const agentId = currentAgentId?.trim() || null;
-  const scoped = agentId
-    ? list.filter((record) => record.agentId === agentId)
-    : list;
+  const agentId = currentAgentId?.trim() || "";
+  if (!agentId) return [];
   return [...new Set(
-    scoped
+    list
+      .filter((record) => record.agentId === agentId)
       .flatMap((record) => record.missingSkills ?? [])
       .map((skill) => (typeof skill === "string" ? skill.trim() : ""))
       .filter(Boolean),
   )].sort();
+}
+
+function selectAgentIdFromConversationGroups(
+  groups: readonly AgentConversationGroup[],
+  sessionId: string | null | undefined,
+): string | null {
+  const id = sessionId?.trim() || "";
+  if (!id) return null;
+  for (const group of groups) {
+    const agentId = group.agentId?.trim() || "";
+    if (!agentId) continue;
+    if (group.sessions.some((session) => session.id === id)) return agentId;
+  }
+  return null;
 }
 
 export type ExpertPageIdentityModel = {
@@ -93,19 +110,22 @@ export function buildExpertPageIdentityModel(input: {
     ? input.selectedSessionId
     : null;
   const routeRealSessionId = readRealSessionId(effectiveSelectedSessionId);
-  const currentConversationAgentId = routeRealSessionId
-    ? selectAgentIdForSession(payload, routeRealSessionId)
-    : null;
-  // Scope the banner to the active expert conversation when possible so
-  // fleet users do not see proposal-strategist skill names mixed in.
-  const expertDirectoryMissingSkills = collectExpertMissingSkills(
-    payload?.records,
-    currentConversationAgentId,
-  );
   const conversationGroups = buildAgentConversationGroups(
     input.workspaceSessions,
     input.registry,
     expertDirectoryIdentity,
+  );
+  const selectedId = routeRealSessionId ?? input.selectedSessionId;
+  const currentConversationAgentId =
+    (routeRealSessionId
+      ? selectAgentIdForSession(payload, routeRealSessionId)
+      : null)
+    ?? selectAgentIdFromConversationGroups(conversationGroups, selectedId);
+  // Scope the banner to the active expert only. A null agent must not
+  // fall back to the fleet-wide missing-skill union.
+  const expertDirectoryMissingSkills = collectExpertMissingSkills(
+    payload?.records,
+    currentConversationAgentId,
   );
   return {
     expertDirectoryIdentity,
