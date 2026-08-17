@@ -262,7 +262,7 @@ importers:
         specifier: 1.18.18
         version: 1.18.18
       onmyagent-server:
-        specifier: 0.5.11
+        specifier: 0.5.12
         version: link:../server
     devDependencies:
       '@types/node':
