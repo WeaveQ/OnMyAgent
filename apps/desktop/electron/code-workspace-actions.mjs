@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { unlink } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -126,6 +126,41 @@ export function resolveEditorCommand() {
     commandPath("code.exe") ||
     null
   );
+}
+
+export async function openDevFileInEditor({ request, workspaceRoot, openPath }) {
+  const rawPath = typeof request === "string" ? request : request?.path;
+  if (typeof rawPath !== "string" || !rawPath.trim()) {
+    return { ok: false, reason: "A file path is required." };
+  }
+  const parsedTarget = parseEditorTarget(rawPath.trim(), request);
+  const targetPath = path.isAbsolute(parsedTarget.path)
+    ? path.normalize(parsedTarget.path)
+    : path.resolve(workspaceRoot, parsedTarget.path);
+  const resolvedPath = existsSync(targetPath) ? realpathSync(targetPath) : path.normalize(targetPath);
+  const editorCommand = resolveEditorCommand();
+  if (!editorCommand) {
+    const openError = await openPath(resolvedPath);
+    return {
+      ok: !openError,
+      path: resolvedPath,
+      command: "shell.openPath",
+      args: [resolvedPath],
+      reason: openError || undefined,
+    };
+  }
+  const editorArgs = [
+    "-g",
+    `${resolvedPath}${parsedTarget.line ? `:${parsedTarget.line}${parsedTarget.column ? `:${parsedTarget.column}` : ""}` : ""}`,
+  ];
+  const launched = await spawnDetachedDesktopCommand(editorCommand, editorArgs);
+  return {
+    ok: launched.ok,
+    path: resolvedPath,
+    command: launched.command || editorCommand,
+    args: editorArgs,
+    reason: launched.ok ? undefined : launched.error || "Failed to launch editor.",
+  };
 }
 
 /**

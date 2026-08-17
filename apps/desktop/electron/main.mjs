@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
-import { existsSync, realpathSync } from "node:fs";
+import { existsSync } from "node:fs";
 import {
   cp,
   mkdir,
@@ -97,9 +97,7 @@ import { createAgentManagementSkills } from "./agent-management-skills.mjs";
 import { createExpertMarketplace } from "./expert-marketplace.mjs";
 import {
   createCodeWorkspaceActions,
-  parseEditorTarget,
-  resolveEditorCommand,
-  spawnDetachedDesktopCommand,
+  openDevFileInEditor,
 } from "./code-workspace-actions.mjs";
 import { createElectronBrowserController } from "./browser-runtime/electron-browser-controller.mjs";
 import { createUiControlServer } from "./ui-control-server.mjs";
@@ -1014,38 +1012,11 @@ ipcMain.handle("onmyagent:dev:openInEditor", async (_event, request) => {
   if (!isDevMode) {
     return { ok: false, reason: "open-in-editor is only available in development mode." };
   }
-
-  const rawPath = typeof request === "string" ? request : request?.path;
-  if (typeof rawPath !== "string" || !rawPath.trim()) {
-    return { ok: false, reason: "A file path is required." };
-  }
-
-  const parsedTarget = parseEditorTarget(rawPath.trim(), request);
-  const workspaceRoot = path.resolve(__dirname, "../../..");
-  const targetPath = path.isAbsolute(parsedTarget.path)
-    ? path.normalize(parsedTarget.path)
-    : path.resolve(workspaceRoot, parsedTarget.path);
-  const resolvedPath = existsSync(targetPath) ? realpathSync(targetPath) : path.normalize(targetPath);
-  const editorCommand = resolveEditorCommand();
-  if (!editorCommand) {
-    const openError = await shell.openPath(resolvedPath);
-    return {
-      ok: !openError,
-      path: resolvedPath,
-      command: "shell.openPath",
-      args: [resolvedPath],
-      reason: openError || undefined,
-    };
-  }
-  const editorArgs = ["-g", `${resolvedPath}${parsedTarget.line ? `:${parsedTarget.line}${parsedTarget.column ? `:${parsedTarget.column}` : ""}` : ""}`];
-  const launched = await spawnDetachedDesktopCommand(editorCommand, editorArgs);
-  return {
-    ok: launched.ok,
-    path: resolvedPath,
-    command: launched.command || editorCommand,
-    args: editorArgs,
-    reason: launched.ok ? undefined : launched.error || "Failed to launch editor.",
-  };
+  return openDevFileInEditor({
+    request,
+    workspaceRoot: path.resolve(__dirname, "../../.."),
+    openPath: (target) => shell.openPath(target),
+  });
 });
 ipcMain.handle("onmyagent:system:architecture", async () =>
   resolveArchitectureInfo(),
