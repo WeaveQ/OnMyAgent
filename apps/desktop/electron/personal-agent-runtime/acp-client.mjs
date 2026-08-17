@@ -1,7 +1,6 @@
-import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 
-import { buildWindowsCmdSpawnSpec, isWindowsCmdShim } from "./windows-spawn.mjs";
+import { spawnAgentProcess } from "./spawn-agent-process.mjs";
 
 function textValue(value) {
   return value === undefined || value === null ? "" : String(value).trim();
@@ -371,12 +370,9 @@ export function spawnAcpClient({ command, args = [], cwd = process.cwd(), env = 
   // That lets the caller kill the whole tree (child + any grandchildren
   // it spawns, e.g. codex-acp → codex) via `process.kill(-pid, signal)`.
   const useDetached = detached && process.platform !== "win32";
-  const windowsShim = isWindowsCmdShim(command);
-  const spawnSpec = windowsShim ? buildWindowsCmdSpawnSpec(command, args, { env }) : { command, args, windowsVerbatimArguments: false };
-  const child = spawn(spawnSpec.command, spawnSpec.args, {
+  const child = spawnAgentProcess(command, args, {
     cwd,
     env,
-    windowsVerbatimArguments: spawnSpec.windowsVerbatimArguments,
     windowsHide: true,
     stdio: ["pipe", "pipe", "pipe"],
     detached: useDetached,

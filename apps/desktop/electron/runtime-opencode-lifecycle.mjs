@@ -56,7 +56,7 @@ export function processMatchesSidecar(command, sidecarDirs = []) {
     (
       value.includes("onmyagent-orchestrator") ||
       value.includes("onmyagent-server") ||
-      /(?:^|[\\/\s"])opencode(?:\.exe)?\s+serve\b/i.test(value)
+      /(?:^|[\\/\s"])opencode(?:\.exe)?"?\s+serve\b/i.test(value)
     );
 }
 

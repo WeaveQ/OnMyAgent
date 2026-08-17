@@ -11,9 +11,45 @@ import {
   escapeWindowsCmdCommand,
   isNodeModulesCmdShim,
   isWindowsCmdShim,
+  parseUnixShebangLine,
   resolveWindowsAwareSpawnSpec,
+  resolveWindowsInterpreter,
   shouldUseWindowsCmdSpawn,
 } from "./windows-spawn.mjs";
+
+test("parseUnixShebangLine reads env and absolute interpreters", () => {
+  assert.deepEqual(parseUnixShebangLine("#!/usr/bin/env node"), { interpreter: "node", extraArgs: [] });
+  assert.deepEqual(parseUnixShebangLine("#!/usr/bin/env -S node --no-warnings"), {
+    interpreter: "node",
+    extraArgs: ["--no-warnings"],
+  });
+  assert.deepEqual(parseUnixShebangLine("#!/usr/bin/node"), { interpreter: "node", extraArgs: [] });
+  assert.equal(parseUnixShebangLine("echo hi"), null);
+});
+
+test("Windows shebang scripts spawn via the resolved interpreter, not cmd", () => {
+  const script = "D:\\soft\\workbuddy\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy";
+  const spec = resolveWindowsAwareSpawnSpec(script, ["--acp"], {
+    platform: "win32",
+    env: { PATH: "C:\\Program Files\\nodejs", PATHEXT: ".EXE;.CMD" },
+    readFileSync: () => "#!/usr/bin/env node\nconsole.log(1)\n",
+    exists: (candidate) => String(candidate).replaceAll("/", "\\").toLowerCase().endsWith("\\nodejs\\node.exe"),
+  });
+  assert.match(String(spec.command).replaceAll("/", "\\"), /\\nodejs\\node\.exe$/i);
+  assert.deepEqual(spec.args, [script, "--acp"]);
+  assert.equal(spec.windowsVerbatimArguments, false);
+  assert.equal(spec.shebang, true);
+  assert.doesNotMatch(spec.command, /cmd\.exe$/i);
+});
+
+test("resolveWindowsInterpreter finds node.exe on a Windows PATH", () => {
+  const found = resolveWindowsInterpreter("node", {
+    platform: "win32",
+    env: { PATH: "C:\\Windows\\System32;C:\\Program Files\\nodejs", PATHEXT: ".EXE;.CMD" },
+    exists: (candidate) => String(candidate).replaceAll("/", "\\").toLowerCase() === "c:\\program files\\nodejs\\node.exe",
+  });
+  assert.match(String(found).replaceAll("/", "\\"), /\\nodejs\\node\.exe$/i);
+});
 
 test("uses cmd.exe for bare names and cmd shims on Windows", () => {
   assert.equal(shouldUseWindowsCmdSpawn("claude", "win32"), true);
@@ -127,4 +163,37 @@ test("cmd shim timeout kills its descendant process tree on Windows", { skip: pr
   } finally {
     await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
+});
+
+test("executes an extensionless shebang CLI via node on Windows", { skip: process.platform !== "win32" }, async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "onmyagent-windows-shebang-"));
+  try {
+    const script = path.join(dir, "codebuddy");
+    await writeFile(script, "#!/usr/bin/env node\nprocess.stdout.write(JSON.stringify(process.argv.slice(2)));\n", "utf8");
+    const spec = resolveWindowsAwareSpawnSpec(script, ["--version"], { platform: "win32" });
+    assert.match(spec.command, /node(\.exe)?$/i);
+    assert.equal(spec.args[0], script);
+    const result = await createExecHelpers().runCommandCapture(script, ["--acp", "ok"], {
+      cwd: dir,
+      timeoutMs: 5_000,
+    });
+    assert.equal(result.ok, true, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), ["--acp", "ok"]);
+  } finally {
+    await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
+
+test("WorkBuddy embedded shebang CLI reports its version through the Windows spawn helper", {
+  skip: process.platform !== "win32",
+}, async () => {
+  const script = "D:\\soft\\workbuddy\\resources\\app.asar.unpacked\\cli\\bin\\codebuddy";
+  const { existsSync } = await import("node:fs");
+  if (!existsSync(script)) return;
+  const spec = resolveWindowsAwareSpawnSpec(script, ["--version"], { platform: "win32" });
+  assert.match(spec.command, /node(\.exe)?$/i);
+  assert.equal(spec.args[0], script);
+  const result = await createExecHelpers().runCommandCapture(script, ["--version"], { timeoutMs: 8_000 });
+  assert.equal(result.ok, true, result.stderr);
+  assert.match(result.stdout, /\d+\.\d+/);
 });
