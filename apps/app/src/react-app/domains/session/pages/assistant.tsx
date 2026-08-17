@@ -248,13 +248,6 @@ export function AssistantPage(props: AssistantPageProps) {
   const [agentPanelCollapsed, setAgentPanelCollapsed] = useState(false);
   const { agentPanelWidth, setAgentPanelWidth, startAgentPanelResize } =
     useAgentPanelResize(AGENT_PANEL_DEFAULT_WIDTH);
-  const sidePanelVisible =
-    sidePanelOpen && !isAutomationRailView(activeSidebarView) && activeSidebarView !== "taskCenter";
-
-  const openAssistantSessionView = useCallback(() => {
-    openRailView("assistant");
-  }, [openRailView]);
-
   const [focusAutomationId, setFocusAutomationId] = useState<string | null>(null);
   const [automationNav, setAutomationNav] = useState<AutomationNavKey>("tasks");
   const [automationCreateRequestId, setAutomationCreateRequestId] = useState(0);
@@ -266,6 +259,14 @@ export function AssistantPage(props: AssistantPageProps) {
   const [automationEmbeddedSessionId, setAutomationEmbeddedSessionId] = useState<string | null>(
     null,
   );
+  const sidePanelVisible =
+    sidePanelOpen &&
+    (!isAutomationRailView(activeSidebarView) || Boolean(automationEmbeddedSessionId)) &&
+    activeSidebarView !== "taskCenter";
+
+  const openAssistantSessionView = useCallback(() => {
+    openRailView("assistant");
+  }, [openRailView]);
 
   const openScheduledTasksView = useCallback(() => {
     // Canonical primary-rail id (legacy scheduledTasks still resolves as known).
@@ -1003,7 +1004,8 @@ export function AssistantPage(props: AssistantPageProps) {
     }
   }, [props.onStaticHomeReady, props.selectedSessionId]);
   // Workspace side panel only belongs on chat surfaces (not 市场/管理/本地/文件…).
-  const sidePanelVisibleOnSession = sidePanelVisible && isPrimarySessionView;
+  const sidePanelVisibleOnSession =
+    sidePanelVisible && (isPrimarySessionView || showAutomationEmbeddedSession);
 
   useEffect(() => {
     const intent = agentManagementIntent;
@@ -1112,6 +1114,11 @@ export function AssistantPage(props: AssistantPageProps) {
             // Rail changes push history via ?view= (bookmark still written for cold start).
             if (view === "assistant") {
               setAgentPanelCollapsed(false);
+              if (showAutomationEmbeddedSession) {
+                setAutomationEmbeddedSessionId(null);
+                openAssistantNewTask(assistantCategoryId);
+                return;
+              }
               openAssistantSessionView();
               return;
             }

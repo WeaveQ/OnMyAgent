@@ -553,12 +553,7 @@ export function WelcomeRoute() {
             <img
               src={resolvePublicAssetUrl("/onmyagent-boot-mark.png")}
               alt="OnMyAgent"
-              className="size-full object-contain dark:hidden"
-            />
-            <img
-              src={resolvePublicAssetUrl("/onmyagent-logo.webp")}
-              alt="OnMyAgent"
-              className="hidden size-full rounded-lg object-contain dark:block"
+              className="size-full object-contain"
             />
           </div>
           <div className={welcomeTextClass.heroTitle}>

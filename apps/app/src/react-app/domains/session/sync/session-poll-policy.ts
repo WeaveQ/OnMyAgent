@@ -23,6 +23,15 @@ export const RELOAD_EVENTS_POLL_INTERVAL_MS = 10_000;
  */
 export const SESSION_SNAPSHOT_STALE_TIME_MS = 30_000;
 
+/** While a focused session still looks busy, refresh the snapshot so a missed idle SSE cannot stick. */
+export const SESSION_BUSY_SNAPSHOT_REFETCH_MS = 4_000;
+
+export function sessionBusySnapshotRefetchIntervalMs(input: {
+  remoteBusy: boolean;
+}): number | false {
+  return input.remoteBusy ? SESSION_BUSY_SNAPSHOT_REFETCH_MS : false;
+}
+
 /**
  * Conversation-history panel/popover snapshot message cap.
  * Align with sidebar-scale lists rather than a hard 200-message pull.

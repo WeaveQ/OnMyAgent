@@ -17,6 +17,7 @@ import {
 } from "../../../shell";
 import { useComposerStateStore } from "../surface/composer-state-store";
 import { useVisitedRailViews } from "../sidebar/keep-alive-pane";
+import { isAutomationRailView } from "../sidebar/main-rail";
 import { isPrimarySessionRailView } from "../sidebar/rail-navigation-memory";
 import type { SessionArchiveResumeRequest } from "../chat/session-page-session-archive-page";
 import { useRailLocation } from "./use-rail-location";
@@ -309,10 +310,11 @@ export function useSessionPageHostState(options: SessionPageHostStateOptions) {
   const isPrimarySessionView = isPrimarySessionRailView(activeSidebarView);
 
   // Leaving 助理/专家 chat for other rail pages must close the workspace panel.
+  // Automation embedded run sessions still need the artifact preview rail.
   useEffect(() => {
-    if (isPrimarySessionView) return;
+    if (isPrimarySessionView || isAutomationRailView(activeSidebarView)) return;
     setCurrentSidePanel(null);
-  }, [isPrimarySessionView, setCurrentSidePanel]);
+  }, [activeSidebarView, isPrimarySessionView, setCurrentSidePanel]);
 
   return {
     activeSidebarView,

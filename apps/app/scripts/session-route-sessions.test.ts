@@ -15,6 +15,7 @@ import {
   maxSequence,
   mergeFetchedSessionsWithPending,
   mergeWorkspaceFetchedSessions,
+  updateSidebarSessionTitle,
   sessionBelongsToAnotherWorkspace,
   sessionListOwnsSession,
   shouldKeepWorkspaceSessionItem,
@@ -180,6 +181,50 @@ describe("session route aggregate loader", () => {
     });
     expect(merged.map((item) => item.id)).toEqual(["pending_keep", "fetched"]);
     expect(pendingByWorkspaceId.ws_a).toEqual({ pending_keep: 1_000, pending_expired: 1_000 });
+  });
+
+  test("keeps assistant and titled local rows when a complete fetch omits them", () => {
+    const merged = mergeFetchedSessionsWithPending({
+      workspaceId: "ws_a",
+      fetched: [session({ id: "fetched", title: "Server" })],
+      current: [
+        session({ id: "assistant_local", title: "你好" }),
+        session({ id: "space_local", title: "空间任务", directory: "/tmp/space" }),
+        session({ id: "fetched", title: "你好" }),
+      ],
+      pendingByWorkspaceId: {},
+      explicitAssistantSessionIds: new Set(["assistant_local"]),
+      now: 20_000,
+    });
+    expect(merged.map((item) => item.id)).toEqual([
+      "assistant_local",
+      "space_local",
+      "fetched",
+    ]);
+    expect(merged.find((item) => item.id === "fetched")?.title).toBe("Server");
+  });
+
+  test("keeps a cached real title over a default fetched title", () => {
+    const merged = mergeFetchedSessionsWithPending({
+      workspaceId: "ws_a",
+      fetched: [session({ id: "ses_1", title: "New session" })],
+      current: [session({ id: "ses_1", title: "周报总结" })],
+      pendingByWorkspaceId: {},
+      explicitAssistantSessionIds: new Set(),
+      now: 20_000,
+    });
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.title).toBe("周报总结");
+  });
+
+  test("updateSidebarSessionTitle patches one row", () => {
+    const next = updateSidebarSessionTitle({
+      current: { ws_a: [session({ id: "ses_1", title: "旧标题" })] },
+      workspaceId: "ws_a",
+      sessionId: "ses_1",
+      title: "新标题",
+    });
+    expect(next.ws_a?.[0]?.title).toBe("新标题");
   });
 
   test("merges one workspace without touching another and keeps warming rows", () => {

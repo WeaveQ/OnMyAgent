@@ -30,6 +30,10 @@ export default {
   "settings.update_check_unavailable": "暫時無法檢查更新。可在瀏覽器打開發佈頁。",
   "settings.download_update": "下載更新",
   "settings.restart_and_install": "重啟並安裝",
+  "settings.update_installing": "正在重啟並安裝…",
+  "settings.update_installing_notice_title": "正在重啟並安裝",
+  "settings.update_installing_notice_body":
+    "OnMyAgent 即將關閉以安裝 v{version}，請稍候。",
   "settings.update_downloading": "正在下載更新… {percent}%",
   "settings.update_downloading_title": "正在下載 v{version}…",
   "settings.update_ready_to_download_desc": "新版本已就緒，可在背景下載。",

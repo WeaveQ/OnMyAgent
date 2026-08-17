@@ -339,7 +339,7 @@ export function SessionRouteRender() {
   } = useSessionRouteSessionLoader({
     endpointForWorkspace,
     pendingCreatedSessionIdsRef,
-    sessionsByWorkspaceIdRef,
+    sessionsByWorkspaceId, sessionsByWorkspaceIdRef,
     setErrorsByWorkspaceId,
     setRetryingWorkspaceIds,
     setSessionsByWorkspaceId,

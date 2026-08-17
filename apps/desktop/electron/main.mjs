@@ -42,7 +42,7 @@ import { createTaskSupervisorClient, createSafeRelaunchHandler } from "./task-su
 import { createDesktopTaskLifecycle } from "./desktop-task-lifecycle.mjs";
 import { channelEventBus, CHANNEL_EVENTS } from "./channels/index.mjs";
 import { createChannelTaskCreateInputResolver, createDeferredMessagingTaskRouter, createTaskBackgroundRuntime, startTaskSupervisorBackground, subscribeTaskBackgroundEvents } from "./task-background-runtime.mjs";
-import { registerUpdaterIpc } from "./updater.mjs";
+import { registerUpdaterIpc, shouldBypassSafeQuitForUpdate } from "./updater.mjs";
 import {
   parseJsonLikeObject,
   looksLikeIncompleteJson,
@@ -1043,7 +1043,7 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   app.on("before-quit", (event) => {
     statusItem.markQuitting();
-    if (desktopTaskLifecycle.isDisposed()) return;
+    if (desktopTaskLifecycle.isDisposed() || shouldBypassSafeQuitForUpdate(disposeRuntimeBeforeQuit)) return;
     event.preventDefault();
     if (safeQuitPromise) return;
     safeQuitPromise = (async () => {

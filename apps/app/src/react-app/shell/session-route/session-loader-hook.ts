@@ -55,6 +55,7 @@ import {
   type PendingCreatedSessionMap,
 } from "./sessions";
 import { beginSessionRouteColdEnter } from "./cold-path-budget";
+import { useSidebarSessionCacheSync } from "./sidebar-session-cache-hook";
 
 type EndpointForWorkspace = (
   workspace: RouteWorkspace | null | undefined,
@@ -63,6 +64,7 @@ type EndpointForWorkspace = (
 type Input = {
   endpointForWorkspace: EndpointForWorkspace;
   pendingCreatedSessionIdsRef: MutableRefObject<PendingCreatedSessionMap>;
+  sessionsByWorkspaceId: Record<string, SidebarSessionItem[]>;
   sessionsByWorkspaceIdRef: MutableRefObject<
     Record<string, SidebarSessionItem[]>
   >;
@@ -83,6 +85,7 @@ export function useSessionRouteSessionLoader(input: Input) {
   const {
     endpointForWorkspace,
     pendingCreatedSessionIdsRef,
+    sessionsByWorkspaceId,
     sessionsByWorkspaceIdRef,
     setErrorsByWorkspaceId,
     setRetryingWorkspaceIds,
@@ -90,6 +93,8 @@ export function useSessionRouteSessionLoader(input: Input) {
     setWorkspaceConnectionOverrides,
     workspacesRef,
   } = input;
+
+  useSidebarSessionCacheSync(sessionsByWorkspaceId);
 
   const backgroundSessionLoadInFlight = useRef<Map<string, number>>(new Map());
 
@@ -203,6 +208,9 @@ export function useSessionRouteSessionLoader(input: Input) {
             normalizeDirectoryPath,
             limit: SIDEBAR_SESSION_LIST_LIMIT,
           });
+          if (collection.skippedByColdPathBudget) {
+            return;
+          }
 
           setSessionsByWorkspaceId((current) => {
             const fetched = collection.complete

@@ -38,13 +38,14 @@ describe("main rail primary icon contract", () => {
     expect(railSource).toContain("w-rail shrink-0");
     expect(railSource).toContain("flex-1 flex-col items-center gap-2.5");
     expect(railSource).not.toContain("w-[68px]");
-    // Brand mark above destinations (peer-app style app icon tile).
+    // Brand mark above destinations (peer-app style app icon).
     expect(railSource).toContain("RailBrandMark");
-    // Prefer lighter webp over the multi-hundred-KB PNG.
-    expect(railSource).toContain("onmyagent-logo.webp");
+    // Transparent mark — the webp wordmark is RGB-only and paints a black plate.
+    expect(railSource).toContain("onmyagent-boot-mark.png");
+    expect(railSource).not.toContain("onmyagent-logo.webp");
     expect(railSource).not.toContain("onmyagent-logo.png");
-    // Dark rail: near-black tile + blue mark — not a pure-white flash plate.
-    expect(railSource).toContain("dark:bg-neutral-950");
+    expect(railSource).not.toContain("bg-black");
+    expect(railSource).not.toContain("dark:bg-neutral-950");
     expect(railSource).not.toMatch(
       /function RailBrandMark[\s\S]*?dark:bg-white/,
     );

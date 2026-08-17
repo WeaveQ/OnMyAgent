@@ -107,6 +107,8 @@ export function UpdateAvailableNoticeMonitor() {
     // download so we can take it down when the update becomes ready.
     const progressToastIdRef = { current: null as string | null };
     const readyToastIdRef = { current: null as string | null };
+    const availableToastIdRef = { current: null as string | null };
+    const installingRef = { current: false };
     /** True while we dismiss a toast ourselves (ready ↔ progress swap). */
     const programmaticDismissRef = { current: false };
     const dismissProgressToast = (versionKey: string) => {
@@ -133,9 +135,42 @@ export function UpdateAvailableNoticeMonitor() {
         readyToastIdRef.current = null;
       }
     };
+    const dismissAvailableToast = () => {
+      if (availableToastIdRef.current) {
+        programmaticDismissRef.current = true;
+        try {
+          dismissToast(availableToastIdRef.current);
+        } finally {
+          programmaticDismissRef.current = false;
+        }
+        availableToastIdRef.current = null;
+      }
+    };
+
+    const showInstallingToast = (versionKey: string) => {
+      dismissAvailableToast();
+      dismissProgressToast(versionKey);
+      dismissReadyToast();
+      readyToastIdRef.current = showToast({
+        tone: "info",
+        tag: `updater-installing:${versionKey}`,
+        icon: Loader2,
+        spinIcon: true,
+        title: t("settings.update_installing_notice_title"),
+        description: t("settings.update_installing_notice_body", {
+          version: versionKey,
+        }),
+        durationMs: 0,
+        onDismiss: () => {
+          readyToastIdRef.current = null;
+        },
+      });
+    };
 
     const showReadyToast = (versionKey: string) => {
+      if (installingRef.current) return;
       // Take down any in-progress download toast for this version.
+      dismissAvailableToast();
       dismissProgressToast(versionKey);
       // Keep the version key so onDownloadProgress can still route if a
       // cache-miss re-download starts after a seeded "ready" state.
@@ -150,7 +185,16 @@ export function UpdateAvailableNoticeMonitor() {
         }),
         actionLabel: t("settings.restart_and_install"),
         onAction: () => {
-          void bridge.installAndRestart?.();
+          if (installingRef.current) return;
+          installingRef.current = true;
+          showInstallingToast(versionKey);
+          void bridge.installAndRestart?.().then((result) => {
+            if (result && result.ok === false) {
+              installingRef.current = false;
+              lastReadyVersionRef.current = null;
+              showReadyToast(versionKey);
+            }
+          });
         },
         dismissLabel: t("common.dismiss"),
         durationMs: 0,
@@ -184,11 +228,40 @@ export function UpdateAvailableNoticeMonitor() {
       });
     };
 
+    const showAvailableToast = (versionKey: string, inApp: boolean) => {
+      if (installingRef.current) return;
+      if (progressToastIdRef.current) return;
+      if (lastReadyVersionRef.current === versionKey) return;
+      if (availableToastIdRef.current) return;
+      lastAvailableVersionRef.current = versionKey;
+      availableToastIdRef.current = showToast({
+        tone: "info",
+        tag: `updater-available:${versionKey}`,
+        title: t("settings.update_available_notice_title"),
+        description: t("settings.update_available_notice_body", {
+          version: versionKey,
+        }),
+        actionLabel: inApp
+          ? t("settings.download_update")
+          : t("settings.open_release_page"),
+        onAction: () => {
+          dismissAvailableToast();
+          void bridge.download?.();
+        },
+        dismissLabel: t("common.dismiss"),
+        durationMs: 0,
+        onDismiss: () => {
+          availableToastIdRef.current = null;
+        },
+      });
+    };
+
     const showDownloadProgressToast = (
       versionKey: string,
       progress: UpdaterProgressPayload | null,
     ) => {
       if (dismissedProgressRef.current.has(versionKey)) return;
+      dismissAvailableToast();
       lastAvailableVersionRef.current = versionKey;
       const tag = progressTagFor(versionKey);
       progressToastTagRef.current = tag;
@@ -267,24 +340,8 @@ export function UpdateAvailableNoticeMonitor() {
 
           if (!payload.available) return;
 
-          if (lastAvailableVersionRef.current === versionKey) return;
-          lastAvailableVersionRef.current = versionKey;
           const inApp = payload.platformFlow === "in-app";
-          showToast({
-            tone: "info",
-            title: t("settings.update_available_notice_title"),
-            description: t("settings.update_available_notice_body", {
-              version: versionKey,
-            }),
-            actionLabel: inApp
-              ? t("settings.download_update")
-              : t("settings.open_release_page"),
-            onAction: () => {
-              void bridge.download?.();
-            },
-            dismissLabel: t("common.dismiss"),
-            durationMs: 0,
-          });
+          showAvailableToast(versionKey, inApp);
         }),
       );
     }
@@ -301,24 +358,7 @@ export function UpdateAvailableNoticeMonitor() {
         if (payload.readyToInstall) {
           showReadyToast(versionKey);
         } else if (payload.available) {
-          if (lastAvailableVersionRef.current === versionKey) return;
-          lastAvailableVersionRef.current = versionKey;
-          const inApp = payload.platformFlow === "in-app";
-          showToast({
-            tone: "info",
-            title: t("settings.update_available_notice_title"),
-            description: t("settings.update_available_notice_body", {
-              version: versionKey,
-            }),
-            actionLabel: inApp
-              ? t("settings.download_update")
-              : t("settings.open_release_page"),
-            onAction: () => {
-              void bridge.download?.();
-            },
-            dismissLabel: t("common.dismiss"),
-            durationMs: 0,
-          });
+          showAvailableToast(versionKey, payload.platformFlow === "in-app");
         }
       });
     }

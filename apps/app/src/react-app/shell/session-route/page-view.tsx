@@ -122,6 +122,7 @@ import {
   findFirstSessionIdMatching,
   insertSidebarSession,
   sessionListOwnsSession,
+  updateSidebarSessionTitle,
 } from "./sessions";
 import { tryRecordColdTitleSnapshot } from "./cold-path-budget";
 import {
@@ -1090,16 +1091,34 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               ? async (sessionId, nextTitle) => {
                   const trimmed = nextTitle.trim();
                   if (!trimmed) return;
+                  const listedSession = selectedWorkspaceId
+                    ? (sessionsByWorkspaceId[selectedWorkspaceId] ?? []).find(
+                        (session) => session.id === sessionId,
+                      )
+                    : undefined;
                   const assistantSessionWorkspace =
                     readAssistantSessionWorkspace(sessionId);
                   await opencodeClient.session.update({
                     sessionID: sessionId,
                     title: trimmed,
                     directory:
+                      listedSession?.directory ||
                       assistantSessionWorkspace?.directory ||
                       selectedWorkspaceRoot ||
                       undefined,
                   });
+                  if (selectedWorkspaceId) {
+                    setSessionsByWorkspaceId((current) => {
+                      const next = updateSidebarSessionTitle({
+                        current,
+                        workspaceId: selectedWorkspaceId,
+                        sessionId,
+                        title: trimmed,
+                      });
+                      sessionsByWorkspaceIdRef.current = next;
+                      return next;
+                    });
+                  }
                   if (assistantSessionWorkspace?.ownerWorkspaceId) {
                     renameAutomationSessionRecord(
                       assistantSessionWorkspace.ownerWorkspaceId,
@@ -1107,7 +1126,6 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                       trimmed,
                     );
                   }
-                  await refreshRouteState();
                 }
               : undefined
           }

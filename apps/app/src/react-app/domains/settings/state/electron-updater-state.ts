@@ -363,6 +363,8 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
    * Quit and install the downloaded update (in-app path only). On the
    * fallback path (Linux/dev), this opens the release page instead.
    */
+  const [installing, setInstalling] = useState(false);
+
   const installUpdateAndRestart = useCallback(async () => {
     const bridge = electronUpdaterBridge();
     if (!bridge?.installAndRestart) {
@@ -371,9 +373,12 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
       setError(message);
       return;
     }
+    if (installing) return;
+    setInstalling(true);
     try {
       const result = await bridge.installAndRestart();
       if (!result?.ok) {
+        setInstalling(false);
         setUpdateStatus({
           state: "error",
           message: result?.reason ?? "Failed to restart and install the update.",
@@ -381,9 +386,10 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
       }
       // On success the app quits; nothing else to update.
     } catch (error) {
+      setInstalling(false);
       setUpdateStatus({ state: "error", message: describeError(error) });
     }
-  }, [setError]);
+  }, [installing, setError]);
 
   /**
    * Trigger the update flow. In-app path: start the background download and
@@ -561,6 +567,7 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
     checkForUpdates,
     downloadUpdate,
     installUpdateAndRestart,
+    installing,
     setReleaseChannel,
   };
 }
