@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, test } from "node:test";
 
-import { searchKnowledgeNotes } from "./knowledge-vault-index.mjs";
+import { buildFtsMatchQuery, searchKnowledgeNotes } from "./knowledge-vault-index.mjs";
 import {
   rebuildKnowledgeVaultIndex,
   searchKnowledgeVault,
@@ -12,6 +12,34 @@ import {
 } from "./knowledge-vault-io.mjs";
 
 describe("knowledge FTS reuse", () => {
+  test("FTS match query ORs the hyphenated form of a spaced phrase", () => {
+    assert.match(buildFtsMatchQuery("Getting started"), /getting-started/);
+  });
+
+  test("FTS phrase Getting started hits getting-started.md", async () => {
+    const home = await mkdtemp(path.join(os.tmpdir(), "oma-kv-fts-hyphen-"));
+    try {
+      await writeKnowledgeFile({
+        homeDir: home,
+        scope: "user",
+        relPath: "getting-started.md",
+        content: "# Knowledge vault / 知识库\n\nPersonal notes only.\n",
+      });
+      const result = await searchKnowledgeVault({
+        homeDir: home,
+        query: "Getting started",
+        scope: "user",
+      });
+      assert.equal(result.ok, true);
+      assert.ok(
+        result.hits.some((hit) => hit.relPath === "getting-started.md"),
+        `FTS/scan missed hyphenated seed: backend=${result.backend} hits=${JSON.stringify(result.hits)}`,
+      );
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
   test("second search over an unchanged vault reuses the standing index", async () => {
     const home = await mkdtemp(path.join(os.tmpdir(), "oma-kv-fts-"));
     try {

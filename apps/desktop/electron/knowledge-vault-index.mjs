@@ -13,6 +13,10 @@ import {
   resolveKnowledgeRoot,
   resolveKnowledgeScopeDir,
 } from "./knowledge-vault-paths.mjs";
+import {
+  foldKnowledgeNeedle,
+  knowledgeTextMatchesQuery,
+} from "./knowledge-search-match.mjs";
 import { WALK_MAX_BYTES, walkKnowledgeTree } from "./knowledge-vault-walk.mjs";
 
 const MAX_INDEX_BYTES = WALK_MAX_BYTES;
@@ -24,7 +28,13 @@ const DEFAULT_LIMIT = 20;
 export function buildFtsMatchQuery(query) {
   const raw = String(query ?? "").trim();
   if (!raw) return null;
-  return `"${raw.replace(/"/g, '""')}"`;
+  const quote = (value) => `"${String(value).replace(/"/g, '""')}"`;
+  const parts = [quote(raw)];
+  const folded = foldKnowledgeNeedle(raw);
+  if (folded && folded !== raw.toLowerCase()) parts.push(quote(folded));
+  const hyphenated = raw.toLowerCase().replace(/\s+/g, "-");
+  if (hyphenated && hyphenated !== raw.toLowerCase()) parts.push(quote(hyphenated));
+  return [...new Set(parts)].join(" OR ");
 }
 
 /**
@@ -224,7 +234,10 @@ export function rebuildKnowledgeIndex(input) {
       "INSERT INTO notes_fts (scope, rel_path, title, body) VALUES (?, ?, ?, ?)",
     );
     for (const note of input.notes) {
-      insert.run(note.scope, note.relPath, note.title, note.body);
+      const folded = [foldKnowledgeNeedle(note.relPath), foldKnowledgeNeedle(note.title)]
+        .filter(Boolean)
+        .join("\n");
+      insert.run(note.scope, note.relPath, note.title, folded ? `${note.body}\n${folded}` : note.body);
     }
   } finally {
     db.close();
@@ -304,13 +317,12 @@ export async function searchKnowledgeNotes(input) {
       homeDir: input.homeDir,
       scopes,
     });
-    const lowered = query.toLowerCase();
     const hits = notes
       .filter((note) => {
         return (
-          note.title.toLowerCase().includes(lowered) ||
-          note.relPath.toLowerCase().includes(lowered) ||
-          note.body.toLowerCase().includes(lowered)
+          knowledgeTextMatchesQuery(note.title, query) ||
+          knowledgeTextMatchesQuery(note.relPath, query) ||
+          knowledgeTextMatchesQuery(note.body, query)
         );
       })
       .slice(0, limit)

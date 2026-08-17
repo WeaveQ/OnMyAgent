@@ -1,9 +1,9 @@
 /**
  * Knowledge vault roundtrip e2e (no live model).
  *
- * Live smoke: knowledge_search("Getting started") returned hits=[] because the
- * seed title is "Knowledge vault" and the filename uses a hyphen. A unique
- * token planted in the same vault the generated plugin embeds must hit.
+ * Live smoke: knowledge_search("Getting started") used to miss getting-started.md
+ * (hyphen vs space). Matching now folds those separators. A unique token
+ * planted in the same vault the generated plugin embeds must still hit.
  */
 import assert from "node:assert/strict";
 import { readFile, rm } from "node:fs/promises";
@@ -56,6 +56,16 @@ describe("desktop knowledge vault roundtrip e2e", () => {
     const source = await readFile(pluginPath, "utf8");
     const knowledgeRoot = resolveKnowledgeRoot(sandbox.realHome);
     assert.match(source, new RegExp(knowledgeRoot.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+
+    const gettingStarted = await executeKnowledgeSearch({
+      knowledgeRoot,
+      query: "Getting started",
+      env: {},
+    });
+    assert.ok(
+      gettingStarted.hits.some((hit) => hit.relPath === "getting-started.md"),
+      `live-smoke query should hit the seed note: ${JSON.stringify(gettingStarted.hits)}`,
+    );
 
     const result = await executeKnowledgeSearch({
       knowledgeRoot,

@@ -33,6 +33,7 @@ describe("knowledge_search plugin", () => {
     assert.match(source, /ONMYAGENT_KNOWLEDGE_EXPERT_ID/);
     assert.match(source, /session-defaults\.json/);
     assert.match(source, /from "\.\/knowledge-vault-walk\.mjs"/);
+    assert.match(source, /knowledgeTextMatchesQuery/);
     assert.doesNotMatch(source, /const walk = async/);
     const read = renderKnowledgeReadPluginSource("/tmp/knowledge");
     assert.match(read, /export default async \(\) => \(\{/);
@@ -41,7 +42,7 @@ describe("knowledge_search plugin", () => {
     assert.match(property, /knowledge_property_set: tool\(/);
   });
 
-  test("space query does not match a hyphenated filename unless title or body contains the phrase", async () => {
+  test("space query hits a hyphenated filename even when the title differs", async () => {
     const home = await mkdtemp(path.join(os.tmpdir(), "oma-kv-plugin-hyphen-"));
     try {
       await writeKnowledgeFile({
@@ -50,23 +51,22 @@ describe("knowledge_search plugin", () => {
         relPath: "getting-started.md",
         content: "# Knowledge vault / 知识库\n\nPersonal notes only.\n",
       });
-      const miss = await executeKnowledgeSearch({
+      const spaced = await executeKnowledgeSearch({
         knowledgeRoot: resolveKnowledgeRoot(home),
         query: "Getting started",
         env: {},
       });
-      assert.equal(miss.ok, true);
-      assert.equal(
-        miss.hits.length,
-        0,
-        `hyphenated filename should not match spaced query: ${JSON.stringify(miss.hits)}`,
+      assert.equal(spaced.ok, true);
+      assert.ok(
+        spaced.hits.some((item) => item.relPath === "getting-started.md"),
+        `spaced query should hit hyphenated filename: ${JSON.stringify(spaced.hits)}`,
       );
-      const hit = await executeKnowledgeSearch({
+      const hyphen = await executeKnowledgeSearch({
         knowledgeRoot: resolveKnowledgeRoot(home),
         query: "getting-started",
         env: {},
       });
-      assert.ok(hit.hits.some((item) => item.relPath === "getting-started.md"));
+      assert.ok(hyphen.hits.some((item) => item.relPath === "getting-started.md"));
     } finally {
       await rm(home, { recursive: true, force: true });
     }

@@ -12,6 +12,10 @@ import {
   resolveKnowledgeSessionDefaultsPath,
 } from "./knowledge-vault-paths.mjs";
 import { resolveUserVaultDirFromKnowledgeRoot } from "./knowledge-vault-config.mjs";
+import {
+  KNOWLEDGE_MATCH_INLINE_SOURCE,
+  knowledgeTextMatchesQuery,
+} from "./knowledge-search-match.mjs";
 import { walkKnowledgeTree } from "./knowledge-vault-walk.mjs";
 
 export const KNOWLEDGE_SEARCH_PLUGIN_FILE = "knowledge-search.mjs";
@@ -118,7 +122,6 @@ export async function executeKnowledgeSearch(input) {
   if ((scope === "all" || scope === "expert") && ids.expertId) {
     targets.push({ scope: "expert", dir: path.join(root, "experts", ids.expertId) });
   }
-  const lowered = query.toLowerCase();
   const hits = [];
   for (const target of targets) {
     const files = await walkKnowledgeTree(target.dir);
@@ -130,9 +133,9 @@ export async function executeKnowledgeSearch(input) {
         (titleLine && titleLine[1].trim()) ||
         path.posix.basename(rel, path.posix.extname(rel));
       if (
-        title.toLowerCase().includes(lowered) ||
-        rel.toLowerCase().includes(lowered) ||
-        body.toLowerCase().includes(lowered)
+        knowledgeTextMatchesQuery(title, query) ||
+        knowledgeTextMatchesQuery(rel, query) ||
+        knowledgeTextMatchesQuery(body, query)
       ) {
         hits.push({
           scope: target.scope,
@@ -275,6 +278,8 @@ const readDefaults = async () => {
   }
 }
 
+${KNOWLEDGE_MATCH_INLINE_SOURCE}
+
 const snippet = (body, query) => {
   const text = String(body ?? "").replace(/\\s+/g, " ").trim()
   const needle = String(query ?? "").trim()
@@ -326,7 +331,6 @@ export default async () => ({
         if ((scope === "all" || scope === "expert") && ids.expertId) {
           targets.push({ scope: "expert", dir: path.join(ROOT, "experts", ids.expertId) })
         }
-        const lowered = query.toLowerCase()
         const hits = []
         for (const target of targets) {
           const files = await walkKnowledgeTree(target.dir)
@@ -336,9 +340,9 @@ export default async () => ({
             const titleLine = body.match(/^\\s*#\\s+(.+)$/m)
             const title = (titleLine && titleLine[1].trim()) || path.posix.basename(rel, path.posix.extname(rel))
             if (
-              title.toLowerCase().includes(lowered) ||
-              rel.toLowerCase().includes(lowered) ||
-              body.toLowerCase().includes(lowered)
+              knowledgeTextMatchesQuery(title, query) ||
+              knowledgeTextMatchesQuery(rel, query) ||
+              knowledgeTextMatchesQuery(body, query)
             ) {
               hits.push({
                 scope: target.scope,
