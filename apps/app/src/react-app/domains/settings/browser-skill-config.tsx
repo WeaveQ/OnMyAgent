@@ -10,13 +10,21 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 import { registerExtensionConfig } from "../shared";
-import { browserSkillFallbackInstallCommand } from "./browser-skill-install";
 
-export {
-  BROWSER_SKILL_INSTALL_UNIX,
-  BROWSER_SKILL_INSTALL_WINDOWS,
-  browserSkillFallbackInstallCommand,
-} from "./browser-skill-install";
+/** Renderer fallback only. Desktop `status.installCommand` is the source of truth. */
+export const BROWSER_SKILL_INSTALL_UNIX =
+  "curl -fsSL https://raw.githubusercontent.com/Tencent/BrowserSkill/main/install.sh | sh && bsk doctor";
+
+export const BROWSER_SKILL_INSTALL_WINDOWS =
+  "Install bsk.exe from https://github.com/Tencent/BrowserSkill/releases (see the Windows section at https://github.com/Tencent/BrowserSkill#quick-start), add it to PATH, then run: bsk doctor";
+
+export function browserSkillFallbackInstallCommand(
+  userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent,
+) {
+  return /windows/i.test(String(userAgent ?? ""))
+    ? BROWSER_SKILL_INSTALL_WINDOWS
+    : BROWSER_SKILL_INSTALL_UNIX;
+}
 
 const FALLBACK_INSTALL_COMMAND = browserSkillFallbackInstallCommand();
 

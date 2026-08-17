@@ -97,7 +97,7 @@ describe("built-in BrowserSkill (Path B)", () => {
 
   test("Windows fallback install copy is not curl|sh", async () => {
     const { browserSkillFallbackInstallCommand } = await import(
-      "../src/react-app/domains/settings/browser-skill-install"
+      "../src/react-app/domains/settings/browser-skill-config"
     );
     const win = browserSkillFallbackInstallCommand("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
     expect(win).toContain("bsk doctor");
