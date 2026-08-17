@@ -30,6 +30,10 @@ export default {
   "settings.update_check_unavailable": "暂时无法检查更新。可在浏览器打开发布页。",
   "settings.download_update": "下载更新",
   "settings.restart_and_install": "重启并安装",
+  "settings.update_installing": "正在重启并安装…",
+  "settings.update_installing_notice_title": "正在重启并安装",
+  "settings.update_installing_notice_body":
+    "OnMyAgent 即将关闭以安装 v{version}，请稍候。",
   "settings.update_downloading": "正在下载更新… {percent}%",
   "settings.update_downloading_title": "正在下载 v{version}…",
   "settings.update_ready_to_download_desc": "新版本已就绪，可在后台下载。",

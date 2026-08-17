@@ -30,6 +30,7 @@ export type UpdatesViewProps = {
   checkForUpdates: () => void | Promise<void>;
   downloadUpdate: () => void | Promise<void>;
   installUpdateAndRestart: () => void | Promise<void>;
+  installing?: boolean;
   /** Currently selected release channel. Optional; callers may omit. */
   releaseChannel?: ReleaseChannel;
   /**
@@ -248,9 +249,12 @@ export function UpdatesView(props: UpdatesViewProps) {
                 type="button"
                 size="sm"
                 className="gap-1.5"
+                disabled={props.installing === true}
                 onClick={() => void props.installUpdateAndRestart()}
               >
-                {t("settings.restart_and_install")}
+                {props.installing
+                  ? t("settings.update_installing")
+                  : t("settings.restart_and_install")}
               </Button>
             }
           />

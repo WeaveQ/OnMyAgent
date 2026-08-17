@@ -161,6 +161,25 @@ export {
   parseComparableVersion,
 };
 
+let quitForUpdateRequested = false;
+
+/** True after the user confirmed Restart and install (quitAndInstall in flight). */
+export function isUpdaterQuitForUpdateRequested() {
+  return quitForUpdateRequested === true;
+}
+
+/** Skip preventDefault-safe-quit when electron-updater is already quitting. */
+export function shouldBypassSafeQuitForUpdate(disposeRuntime) {
+  if (!quitForUpdateRequested) return false;
+  void disposeRuntime();
+  return true;
+}
+
+/** @internal test helper */
+export function resetUpdaterQuitForUpdateRequested() {
+  quitForUpdateRequested = false;
+}
+
 /** electron-updater download cache — never sandbox HOME Caches. */
 export function resolveUpdaterCacheDir(userData) {
   const root = String(userData ?? "").trim() || ".";
@@ -1104,10 +1123,15 @@ export function registerUpdaterIpc({
       };
     }
     try {
+      // Signal main's before-quit not to preventDefault — otherwise
+      // Task Supervisor drain keeps the window alive and the user can
+      // click Restart again while electron-updater is already quitting.
+      quitForUpdateRequested = true;
       // isSilent=false (show installer UI on Windows), isForceRunAfter=true.
       autoUpdater.quitAndInstall(false, true);
       return { ok: true, platformFlow };
     } catch (error) {
+      quitForUpdateRequested = false;
       return {
         ok: false,
         reason: classifyFetchError(error).message,

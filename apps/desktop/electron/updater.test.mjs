@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { once, EventEmitter } from "node:events";
+import { readFileSync } from "node:fs";
 
 import {
   compareVersions,
@@ -155,6 +156,13 @@ test("getLastKnown returns current version even before any check", async () => {
   const last = await harness.invoke("onmyagent:updater:getLastKnown");
   assert.equal(last.available, false);
   assert.equal(last.currentVersion, "0.4.24");
+});
+
+test("installAndRestart marks quit-for-update immediately before quitAndInstall", () => {
+  const source = readFileSync(new URL("./updater.mjs", import.meta.url), "utf8");
+  const mark = source.indexOf("quitForUpdateRequested = true");
+  const install = source.indexOf("autoUpdater.quitAndInstall(false, true)");
+  assert.ok(mark >= 0 && install > mark);
 });
 
 test("installAndRestart in dev falls back to opening the release page", async () => {

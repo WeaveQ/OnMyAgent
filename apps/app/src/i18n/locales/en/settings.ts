@@ -37,6 +37,10 @@ export default {
     "Could not check for updates right now. You can open the release page in a browser instead.",
   "settings.download_update": "Download update",
   "settings.restart_and_install": "Restart and install",
+  "settings.update_installing": "Restarting to install…",
+  "settings.update_installing_notice_title": "Restarting to install",
+  "settings.update_installing_notice_body":
+    "OnMyAgent is closing so it can install v{version}. This can take a moment.",
   "settings.update_downloading": "Downloading update… {percent}%",
   "settings.update_downloading_title": "Downloading v{version}…",
   "settings.update_ready_to_download_desc": "A new version is ready to download in the background.",

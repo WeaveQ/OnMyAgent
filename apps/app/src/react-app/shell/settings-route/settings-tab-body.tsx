@@ -531,6 +531,7 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
             checkForUpdates={ctx.electronUpdaterState.checkForUpdates}
             downloadUpdate={ctx.electronUpdaterState.downloadUpdate}
             installUpdateAndRestart={ctx.electronUpdaterState.installUpdateAndRestart}
+            installing={ctx.electronUpdaterState.installing}
             releaseChannel={ctx.local.prefs.releaseChannel ?? "stable"}
             onReleaseChannelChange={ctx.electronUpdaterState.setReleaseChannel}
             alphaChannelSupported={ctx.electronUpdaterState.alphaSupported === true}

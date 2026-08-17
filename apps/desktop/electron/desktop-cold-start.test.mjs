@@ -221,6 +221,10 @@ describe("MAIN_WINDOW_EAGER_BLANK_BROWSER_TAB contract", () => {
     assert.ok(pause >= 0 && terminalDispose > pause, "desktop cleanup follows durable pause");
     assert.match(lifecycle, /if \(safeQuitPromise\) return/);
     assert.match(lifecycle, /statusItem\.cancelQuitting\(\)/);
+    assert.match(
+      lifecycle,
+      /isDisposed\(\) \|\| shouldBypassSafeQuitForUpdate\(disposeRuntimeBeforeQuit\)/,
+    );
   });
 });
 
