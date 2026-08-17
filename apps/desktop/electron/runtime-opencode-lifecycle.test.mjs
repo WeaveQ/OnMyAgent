@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
+  WINDOWS_SIDECAR_CIM_COMMAND,
   parseProcessListRows,
   processMatchesSidecar,
 } from "./runtime-opencode-lifecycle.mjs";
@@ -42,7 +43,10 @@ test("parseProcessListRows accepts a single Windows process object and ignores b
 test("cleanupPackagedSidecars enumerates Windows processes via Get-CimInstance parse", () => {
   const src = readFileSync(new URL("./runtime-opencode-lifecycle.mjs", import.meta.url), "utf8");
   assert.match(src, /parseProcessListRows\(/);
-  assert.match(src, /Get-CimInstance Win32_Process/);
+  assert.match(WINDOWS_SIDECAR_CIM_COMMAND, /Get-CimInstance Win32_Process/);
+  assert.match(WINDOWS_SIDECAR_CIM_COMMAND, /Where-Object/);
+  assert.match(WINDOWS_SIDECAR_CIM_COMMAND, /opencode\|onmyagent-server\|onmyagent-orchestrator/);
+  assert.match(src, /Windows process list failed|JSON was unusable/);
 });
 
 test("processMatchesSidecar requires sidecar dir and product binary", () => {

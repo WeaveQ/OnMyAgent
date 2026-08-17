@@ -380,5 +380,12 @@ export function spawnAcpClient({ command, args = [], cwd = process.cwd(), env = 
   child.unref?.();
   appendEvent?.({ type: "log", text: `${command} ${args.join(" ")}`.trim() });
   appendEvent?.({ type: "log", text: `pid ${child.pid ?? "unknown"}` });
-  return { child, client: new AcpJsonRpcClient({ child, appendEvent, onNotification, onRequest }) };
+  const client = new AcpJsonRpcClient({ child, appendEvent, onNotification, onRequest });
+  child.once("error", (error) => {
+    const detail = error instanceof Error ? error.message : String(error);
+    appendEvent?.({ type: "error", text: detail });
+    client.rejectAll(error instanceof Error ? error : new Error(detail));
+    client.dispose();
+  });
+  return { child, client };
 }

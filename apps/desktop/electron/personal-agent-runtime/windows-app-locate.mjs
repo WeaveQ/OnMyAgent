@@ -118,25 +118,37 @@ function walkShortcutFiles(root, depth, namePattern) {
   return found;
 }
 
-export function resolveWindowsShortcutTarget(lnkPath) {
-  const raw = String(lnkPath ?? "").trim();
-  if (!raw || process.platform !== "win32") return "";
+export const MAX_WINDOWS_SHORTCUT_RESOLVES = 8;
+
+export function resolveWindowsShortcutTargets(lnkPaths, options = {}) {
+  const platform = options.platform ?? process.platform;
+  const limit = Number.isFinite(options.limit) ? options.limit : MAX_WINDOWS_SHORTCUT_RESOLVES;
+  const paths = [...new Set((Array.isArray(lnkPaths) ? lnkPaths : []).map((item) => String(item ?? "").trim()).filter(Boolean))]
+    .slice(0, Math.max(0, limit));
+  if (!paths.length || platform !== "win32") return [];
   try {
-    const escaped = raw.replace(/'/g, "''");
+    const psArray = paths.map((item) => `'${item.replace(/'/g, "''")}'`).join(",");
     const result = spawnSync(
       "powershell.exe",
       [
         "-NoProfile",
         "-NonInteractive",
         "-Command",
-        `(New-Object -ComObject WScript.Shell).CreateShortcut('${escaped}').TargetPath`,
+        `$s = New-Object -ComObject WScript.Shell; foreach ($p in @(${psArray})) { $s.CreateShortcut($p).TargetPath }`,
       ],
-      { encoding: "utf8", timeout: 4000, windowsHide: true },
+      { encoding: "utf8", timeout: 8_000, windowsHide: true },
     );
-    return firstExistingPath(String(result.stdout ?? "").trim().split(/\r?\n/)[0]);
+    return String(result.stdout ?? "")
+      .split(/\r?\n/)
+      .map((line) => firstExistingPath(line.trim()))
+      .filter(Boolean);
   } catch {
-    return "";
+    return [];
   }
+}
+
+export function resolveWindowsShortcutTarget(lnkPath) {
+  return resolveWindowsShortcutTargets([lnkPath])[0] ?? "";
 }
 
 export function windowsShortcutRoots(env = process.env, home = os.homedir()) {
@@ -157,19 +169,20 @@ export function collectWindowsAppInstallDirs(input) {
     const raw = String(dir ?? "").trim();
     if (raw && firstExistingPath(raw)) dirs.add(raw);
   }
+  if (dirs.size > 0 && input.probeExtras !== true) return [...dirs];
   for (const entry of readWindowsUninstallEntries()) {
     if (!namePattern.test(String(entry.displayName ?? ""))) continue;
     const installDir = installDirFromUninstallFields(entry);
     if (installDir) dirs.add(installDir);
   }
+  const shortcuts = [];
   for (const root of windowsShortcutRoots()) {
     const depth = /Desktop$/i.test(root) ? 0 : 3;
-    for (const lnk of walkShortcutFiles(root, depth, namePattern)) {
-      const target = resolveWindowsShortcutTarget(lnk);
-      if (!target) continue;
-      const installDir = dirname(target);
-      if (installDir && firstExistingPath(installDir)) dirs.add(installDir);
-    }
+    shortcuts.push(...walkShortcutFiles(root, depth, namePattern));
+  }
+  for (const target of resolveWindowsShortcutTargets(shortcuts)) {
+    const installDir = dirname(target);
+    if (installDir && firstExistingPath(installDir)) dirs.add(installDir);
   }
   return [...dirs];
 }

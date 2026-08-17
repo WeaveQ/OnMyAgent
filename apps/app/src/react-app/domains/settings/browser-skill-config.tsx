@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 import { registerExtensionConfig } from "../shared";
 
+/** Renderer fallback only. Desktop `status.installCommand` is the source of truth. */
 export const BROWSER_SKILL_INSTALL_UNIX =
   "curl -fsSL https://raw.githubusercontent.com/Tencent/BrowserSkill/main/install.sh | sh && bsk doctor";
 

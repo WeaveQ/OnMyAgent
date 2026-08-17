@@ -68,6 +68,7 @@ test("catalog includes WorkBuddy and CodeBuddy as separate entries", () => {
   assert.ok(ids.includes("codebuddy"));
   const workbuddy = KNOWN_DISCOVERABLE_AGENTS.find((item) => item.id === "workbuddy");
   assert.ok(Array.isArray(workbuddy.wellKnownPaths) && workbuddy.wellKnownPaths.length > 0);
+  assert.equal(typeof workbuddy.resolveWellKnownPaths, "function");
   assert.deepEqual(workbuddy.acpArgs, ["--acp"]);
   const codebuddy = KNOWN_DISCOVERABLE_AGENTS.find((item) => item.id === "codebuddy");
   assert.equal(codebuddy.skipWorkBuddyEmbedded, true);
