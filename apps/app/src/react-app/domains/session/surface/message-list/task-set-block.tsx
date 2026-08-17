@@ -133,6 +133,7 @@ export function TaskSetBlock(props: {
                   {details ? (
                     <SpecializedToolDetails
                       details={details}
+                      running={isRunningStepStatus(item.status)}
                       onOpenCodePath={props.onOpenCodePath}
                     />
                   ) : null}

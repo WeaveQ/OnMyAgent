@@ -10,11 +10,13 @@ import {
   clusterStepTimelineParts,
   flattenStepTimelineParts,
 } from "../src/react-app/domains/session/surface/message-list/step-cluster";
+import { t } from "../src/i18n";
 import {
   taskSetCompletedCount,
   taskSetRowCanExpand,
   toTaskSetRowModels,
 } from "../src/react-app/domains/session/surface/message-list/task-set-block";
+import { taskToolInnerCopy } from "../src/react-app/domains/session/surface/specialized-tool-details";
 import type { StepTimelineGroup } from "../src/react-app/domains/session/surface/message-list/types";
 import {
   buildTranscriptToolPresentation,
@@ -547,5 +549,62 @@ describe("session transcript parallel task set", () => {
     expect(rows[1]?.status).toBe("completed");
     expect(rows[1]?.error).toBeUndefined();
     expect(taskSetCompletedCount(rows)).toBe(2);
+  });
+
+  test("running parent task with no output has visible inner copy", () => {
+    const { processSegments } = liveProcessItems([
+      assistant("msg-1", [
+        taskToolPart("t1", "金安国际基本面财务分析", "task", "input-available"),
+        taskToolPart("t2", "金安国际行业竞争分析", "subagent", "input-available"),
+        taskToolPart("t3", "金安国际市场资金面分析", "runagent", "input-available"),
+      ]),
+    ], "streaming");
+
+    expect(processSegments).toHaveLength(1);
+    if (processSegments[0]?.kind !== "process") return;
+    const rows = processRows(processSegments[0].items);
+    expect(taskSetCompletedCount(rows)).toBe(0);
+    for (const row of rows) {
+      expect(row.status).toBe("running");
+      expect(row.presentation.details?.kind).toBe("task");
+      if (row.presentation.details?.kind !== "task") return;
+      expect(row.presentation.details.finalResult).toBeNull();
+      expect(row.presentation.details.toolItems).toEqual([]);
+      const inner = taskToolInnerCopy(row.presentation.details, { running: true });
+      expect(inner).toBe(t("session.tool_task_running"));
+      expect(inner && inner.length > 0).toBe(true);
+    }
+  });
+
+  test("completed parent task inner copy is the result and increments the set count", () => {
+    const { processSegments } = liveProcessItems([
+      assistant("msg-1", [
+        taskToolPart("t1", "Check HK stocks", "task", "output-available"),
+      ]),
+    ]);
+    expect(processSegments).toHaveLength(1);
+    if (processSegments[0]?.kind !== "process") return;
+    const rows = processRows(processSegments[0].items);
+    expect(taskSetCompletedCount(rows)).toBe(1);
+    const details = rows[0]?.presentation.details;
+    expect(details?.kind).toBe("task");
+    if (details?.kind !== "task") return;
+    expect(taskToolInnerCopy(details, { running: false })).toBe("Check HK stocks done");
+    expect(taskToolInnerCopy(details, { running: true })).toBe("Check HK stocks done");
+  });
+
+  test("completed task result renders through MarkdownBlock, not raw pre-wrap", async () => {
+    const source = await Bun.file(
+      new URL(
+        "../src/react-app/domains/session/surface/specialized-tool-details.tsx",
+        import.meta.url,
+      ),
+    ).text();
+    const taskBranch = source.slice(source.indexOf('if (details.kind === "task")'));
+    expect(taskBranch).toContain("MarkdownBlock");
+    expect(taskBranch).toContain("details.finalResult");
+    expect(taskBranch).not.toMatch(
+      /finalResult \?[\s\S]*whitespace-pre-wrap wrap-break-word">\{details\.finalResult\}/,
+    );
   });
 });

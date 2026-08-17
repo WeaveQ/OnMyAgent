@@ -25,10 +25,11 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { t } from "@/i18n";
+import { currentLocale, t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { ArtifactIcon } from "../../../capabilities/artifacts/artifact-icon";
 import { usePlatform } from "../../../kernel/platform";
+import { MarkdownBlock } from "./markdown";
 import type {
   TranscriptSpecializedToolDetails,
   TranscriptDiffLine,
@@ -279,6 +280,24 @@ export function specializedToolCanExpand(details: TranscriptSpecializedToolDetai
   }
   if (details.kind === "image-gen") return true;
   return Boolean(details.toolItems.length || details.finalResult);
+}
+
+/** Visible inner copy for a parent task row. Running + no payload must not be empty. */
+export function taskToolInnerCopy(
+  details: TranscriptSpecializedToolDetails,
+  options?: { running?: boolean },
+): string | null {
+  if (details.kind !== "task") return null;
+  const result = details.finalResult?.trim() ?? "";
+  if (result) return result;
+  if (details.toolItems.length > 0) {
+    const lines = details.toolItems
+      .map((item) => [item.name, item.summary].filter(Boolean).join(" ").trim())
+      .filter(Boolean);
+    if (lines.length > 0) return lines.join("\n");
+  }
+  if (options?.running) return t("session.tool_task_running");
+  return null;
 }
 
 export function ImageGenerationToolCard(props: {
@@ -772,6 +791,7 @@ export function VisualizerReadMeToolRow(props: {
 
 export function SpecializedToolDetails(props: {
   details: TranscriptSpecializedToolDetails;
+  running?: boolean;
   onOpenCodePath?: (path: string) => void;
 }) {
   const platform = usePlatform();
@@ -1126,29 +1146,44 @@ export function SpecializedToolDetails(props: {
 
   if (details.kind === "image-gen") return null;
 
-  return (
-    <div className="overflow-hidden rounded-xl bg-dls-surface-muted px-4 py-3">
-      {details.toolItems.length > 0 ? (
-        <div className="max-h-[200px] overflow-y-auto pb-2">
-          {details.toolItems.map((item, index) => (
-            <div key={`${item.name}:${index}`} className="flex items-center gap-2 py-1 text-xs text-dls-secondary">
-              <Network className="size-3.5 shrink-0" />
-              <span className="font-medium text-dls-text">{item.name}</span>
-              {item.summary ? <span className="min-w-0 truncate">{item.summary}</span> : null}
-              {item.status ? <span className="ml-auto shrink-0">{item.status}</span> : null}
-            </div>
-          ))}
-        </div>
-      ) : null}
-      {details.finalResult ? (
-        <div className="border-t border-dls-border pt-2 text-xs leading-5 text-dls-text first:border-t-0 first:pt-0">
-          <div className="mb-1 inline-flex items-center gap-2 font-medium text-dls-secondary">
-            <FileX2 className="size-3.5" />
-            {t("session.tool_task_result")}
+  if (details.kind === "task") {
+    const runningLine = taskToolInnerCopy(details, { running: props.running });
+    return (
+      <div className="overflow-hidden rounded-xl bg-dls-surface-muted px-4 py-3">
+        {details.toolItems.length > 0 ? (
+          <div className="max-h-[200px] overflow-y-auto pb-2">
+            {details.toolItems.map((item, index) => (
+              <div key={`${item.name}:${index}`} className="flex items-center gap-2 py-1 text-xs text-dls-secondary">
+                <Network className="size-3.5 shrink-0" />
+                <span className="font-medium text-dls-text">{item.name}</span>
+                {item.summary ? <span className="min-w-0 truncate">{item.summary}</span> : null}
+                {item.status ? <span className="ml-auto shrink-0">{item.status}</span> : null}
+              </div>
+            ))}
           </div>
-          <div className="whitespace-pre-wrap wrap-break-word">{details.finalResult}</div>
-        </div>
-      ) : null}
-    </div>
-  );
+        ) : null}
+        {details.finalResult ? (
+          <div className="border-t border-dls-border pt-2 text-xs leading-5 text-dls-text first:border-t-0 first:pt-0">
+            <div className="mb-1 inline-flex items-center gap-2 font-medium text-dls-secondary">
+              <FileX2 className="size-3.5" />
+              {t("session.tool_task_result")}
+            </div>
+            <div className="max-h-[360px] overflow-y-auto">
+              <MarkdownBlock
+                text={details.finalResult}
+                streaming={false}
+                showStreamingCursor={false}
+                locale={currentLocale()}
+                onOpenCodePath={props.onOpenCodePath}
+              />
+            </div>
+          </div>
+        ) : runningLine ? (
+          <div className="text-xs leading-5 text-dls-secondary">{runningLine}</div>
+        ) : null}
+      </div>
+    );
+  }
+
+  return null;
 }
