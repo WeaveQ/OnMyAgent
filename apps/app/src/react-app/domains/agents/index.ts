@@ -40,6 +40,7 @@ export {
   buildExpertPreviewSystemPrompt,
   createExpertPreviewAcceptanceGate,
   runExpertPreviewTurn,
+  submitExpertPreviewTurn,
 } from "./expert-creation-preview-runtime";
 export {
   buildExpertCreationCoachWorkflowInstructions,

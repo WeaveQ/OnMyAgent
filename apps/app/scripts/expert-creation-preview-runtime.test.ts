@@ -7,6 +7,7 @@ import {
   createExpertPreviewStreamLifetime,
   createExpertPreviewStreamState,
   readLatestExpertPreviewReply,
+  submitExpertPreviewTurn,
 } from "../src/react-app/domains/agents/expert-creation-preview-runtime";
 import { createBlankWizardDraft, createDefaultAgentRegistry } from "../src/react-app/domains/agents/agent-registry";
 
@@ -38,6 +39,32 @@ describe("expert creation preview stream", () => {
     lifetime.release();
 
     expect(lifetime.signal.aborted).toBe(true);
+  });
+
+  test("keeps session sync alive after submission until the assistant turn settles", async () => {
+    const gate = createExpertPreviewAcceptanceGate();
+    let finishTurn = () => {};
+    const turn = new Promise<void>((resolve) => {
+      finishTurn = resolve;
+    });
+    let released = false;
+
+    const submitted = submitExpertPreviewTurn({
+      turn,
+      waitForSubmission: gate.waitForSubmission,
+      onSettled: () => {
+        released = true;
+      },
+    });
+
+    gate.accept();
+    await submitted;
+    expect(released).toBe(false);
+
+    finishTurn();
+    await turn;
+    await Promise.resolve();
+    expect(released).toBe(true);
   });
 
   test("forwards caller cancellation to the per-turn event stream", () => {
@@ -100,6 +127,24 @@ describe("expert creation preview stream", () => {
       type: "session.idle",
       properties: { sessionID: sessionId },
     }, sessionId, state)).toEqual({ kind: "done", text: "Hello there" });
+  });
+
+  test("finishes on the current session.status idle event", () => {
+    const state = createExpertPreviewStreamState();
+    const sessionId = "preview-session";
+
+    expect(applyExpertPreviewStreamEvent({
+      type: "session.status",
+      properties: { sessionID: sessionId, status: { type: "idle" } },
+    }, sessionId, state)).toEqual({ kind: "done", text: "" });
+    expect(applyExpertPreviewStreamEvent({
+      type: "session.status",
+      properties: { sessionID: sessionId, status: { type: "busy" } },
+    }, sessionId, state)).toBeNull();
+    expect(applyExpertPreviewStreamEvent({
+      type: "session.status",
+      properties: { sessionID: "other", status: { type: "idle" } },
+    }, sessionId, state)).toBeNull();
   });
 
   test("ignores user and unrelated session events", () => {

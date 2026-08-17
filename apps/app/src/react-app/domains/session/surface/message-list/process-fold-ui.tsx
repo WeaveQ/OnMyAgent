@@ -17,6 +17,7 @@ import {
   processFoldChipMeta,
   processItemToLegacyPart,
   processPlanDetails,
+  resolveProcessFoldExpandedAfterRunningChange,
   shouldDefaultExpandProcessFold,
 } from "./process-fold";
 import { StepRow } from "./step-row";
@@ -116,6 +117,18 @@ export function WorkBuddyProcessFold(props: {
       running: props.running,
     }),
   );
+  const previousRunningRef = useRef(props.running);
+  useEffect(() => {
+    const wasRunning = previousRunningRef.current;
+    previousRunningRef.current = props.running;
+    setExpanded((current) =>
+      resolveProcessFoldExpandedAfterRunningChange({
+        expanded: current,
+        wasRunning,
+        running: props.running,
+      }),
+    );
+  }, [props.running]);
   if (plan) {
     return (
       <WorkBuddyTaskList

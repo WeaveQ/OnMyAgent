@@ -72,6 +72,28 @@ afterEach(() => {
 });
 
 describe("session sync tracking", () => {
+  test("bootstraps a directory stream when an isolated preview is the first tracker", () => {
+    const previewInput = {
+      ...syncInput,
+      directory: "/tmp/expert-creation-preview",
+    };
+
+    expect(__hasWorkspaceSessionSyncForTest(previewInput)).toBe(false);
+
+    const release = trackWorkspaceSessionSync(previewInput, "ses_preview");
+
+    expect(__getWorkspaceSessionSyncResourcesForTest(previewInput)).toEqual({
+      exists: true,
+      refs: 1,
+      trackedSessions: 1,
+      retainedSessions: 0,
+    });
+
+    release();
+    __expireRetainedSessionForTest(previewInput, "ses_preview");
+    expect(__hasWorkspaceSessionSyncForTest(previewInput)).toBe(false);
+  });
+
   test("gives a slow replacement handshake a fresh watchdog window", async () => {
     const first = deferred<{ stream: AsyncIterable<unknown> }>();
     const second = deferred<{ stream: AsyncIterable<unknown> }>();
