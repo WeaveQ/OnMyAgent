@@ -43,6 +43,7 @@ import { createDesktopTaskLifecycle } from "./desktop-task-lifecycle.mjs";
 import { channelEventBus, CHANNEL_EVENTS } from "./channels/index.mjs";
 import { createChannelTaskCreateInputResolver, createDeferredMessagingTaskRouter, createTaskBackgroundRuntime, startTaskSupervisorBackground, subscribeTaskBackgroundEvents } from "./task-background-runtime.mjs";
 import { registerUpdaterIpc, shouldBypassSafeQuitForUpdate } from "./updater.mjs";
+import { raceTimeout, terminateOtherOnMyAgentProcesses } from "./updater-prepare-install.mjs";
 import {
   parseJsonLikeObject,
   looksLikeIncompleteJson,
@@ -1026,12 +1027,29 @@ registerDesktopBrowserIpc({ ipcMain, browserController });
 registerDesktopArtifactPreviewIpc({ ipcMain, artifactPreviewController });
 
 registerMigrationIpc({ app, ipcMain });
+async function prepareForUpdateInstall() {
+  try {
+    await raceTimeout(disposeRuntimeBeforeQuit("updater_install"), 8_000);
+  } catch (error) {
+    console.warn("[updater] drain before install failed:", error);
+  }
+  try {
+    await raceTimeout(taskOrchestrator.close("updater_install"), 5_000);
+  } catch (error) {
+    console.warn("[updater] supervisor close before install failed:", error);
+  }
+  await terminateOtherOnMyAgentProcesses().catch((error) => {
+    console.warn("[updater] leftover OnMyAgent.exe cleanup failed:", error);
+  });
+}
+
 const { ensureAutoUpdater } = registerUpdaterIpc({
   app,
   ipcMain,
   getMainWindow: () => mainWindow,
   Notification,
   shell,
+  prepareForUpdateInstall,
 });
 
 if (!app.requestSingleInstanceLock()) {

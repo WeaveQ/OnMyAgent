@@ -485,6 +485,7 @@ function supportsInAppUpdater(app, platform) {
  *   Notification?: typeof import("electron").Notification,
  *   shell?: import("electron").Shell,
  *   platform?: NodeJS.Platform,
+ *   prepareForUpdateInstall?: () => Promise<unknown>,
  * }} options
  */
 export function registerUpdaterIpc({
@@ -494,6 +495,7 @@ export function registerUpdaterIpc({
   Notification,
   shell,
   platform = process.platform,
+  prepareForUpdateInstall,
 }) {
   const inAppSupported = supportsInAppUpdater(app, platform);
   const platformFlow = inAppSupported ? "in-app" : "open-browser";
@@ -1123,6 +1125,11 @@ export function registerUpdaterIpc({
       };
     }
     try {
+      // Detached Task Supervisor is another OnMyAgent.exe. Drain and kill it
+      // before NSIS old-uninstaller or the install blocks on a live process.
+      if (typeof prepareForUpdateInstall === "function") {
+        await prepareForUpdateInstall();
+      }
       // Signal main's before-quit not to preventDefault — otherwise
       // Task Supervisor drain keeps the window alive and the user can
       // click Restart again while electron-updater is already quitting.
