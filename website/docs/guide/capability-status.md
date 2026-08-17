@@ -23,8 +23,10 @@ title: 功能与平台状态
 | 能力 | 当前状态 | 说明 |
 |------|----------|------|
 | 首页会话、专家、自动化、文件、市场 | 正式可用 | 仍需模型、工作区等基础前提 |
+| 知识库 | 正式可用 | 主栏入口；本机 Markdown，会话按需检索 |
 | 消息渠道 | 条件可用 | 微信、飞书、Telegram、Discord 需真实账号和平台 E2E |
 | 企业 | 条件可用 | 仅连接 OnMyCompany 后显示 |
+| 任务中心 | 隐藏 / 开发者 | 正式包不显示主栏入口；本地开发仍可见 |
 | 项目 | 隐藏 + Coming Soon | 主栏入口已隐藏；文件页「项目」分类仍不能作为正式项目管理使用 |
 | 用量 | 隐藏 deep link | 当前不在设置普通导航中 |
 | Debug / UI control | 开发者能力 | 不按普通用户功能宣传 |
@@ -49,5 +51,5 @@ Typecheck、单元测试、Fake API、服务进程存活和 `WebSocket open` 都
 
 ## 5. 相关
 
-- [界面与工作区](./overview) · [项目（预告）](./projects) · [消息渠道](./channels)
+- [界面与工作区](./overview) · [知识库](./knowledge) · [项目（预告）](./projects) · [消息渠道](./channels)
 - [macOS](../install/macos) · [Windows](../install/windows) · [安全与数据](../security)

@@ -37,7 +37,7 @@ const sidebarZh = [
     text: "功能指南",
     collapsed: false,
     // Order mirrors product UI: main rail → channels → account menu → settings.
-    // Rail: 首页 · 专家 · 自动 · 文件 · 市场 · Company（连接后）；项目入口已隐藏。bottom: 消息渠道。
+    // Rail: 首页 · 专家 · 自动 · 文件 · 市场 · 知识库 · Company（连接后）；项目入口已隐藏。bottom: 消息渠道。
     items: [
       { text: "界面与工作区", link: "/guide/overview" },
       { text: "工作区", link: "/guide/workspaces" },

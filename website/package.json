@@ -8,8 +8,8 @@
     "dev:docs": "vitepress dev docs --port 5173",
     "build": "node scripts/build.mjs",
     "build:docs": "vitepress build docs",
-    "check": "node --test scripts/check-helpers.test.mjs && node scripts/check.mjs --source-only",
-    "check:dist": "node --test scripts/check-helpers.test.mjs && node scripts/check.mjs --require-dist",
+    "check": "node --test scripts/check-helpers.test.mjs scripts/handbook-product-copy.test.mjs && node scripts/check.mjs --source-only",
+    "check:dist": "node --test scripts/check-helpers.test.mjs scripts/handbook-product-copy.test.mjs && node scripts/check.mjs --require-dist",
     "preview": "node scripts/serve.mjs --dist",
     "test": "pnpm run check"
   },

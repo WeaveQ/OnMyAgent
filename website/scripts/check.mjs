@@ -26,7 +26,7 @@ const docsDir = resolve(root, "docs");
 const docsOutputDir = resolve(distDir, "docs");
 const checkMode = checkModeFromArgs(process.argv.slice(2));
 // Deliberate bilingual handbook contract; increase only with a matched zh/en pair.
-const expectedLocaleRouteCount = 56;
+const expectedLocaleRouteCount = 57;
 const html = await readFile(htmlPath, "utf8");
 
 const required = [

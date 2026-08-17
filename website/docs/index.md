@@ -27,6 +27,7 @@ OnMyAgent 是**本地优先的办公 Agent 工作台**。你用自然语言描�
 | **一句话派活** | 首页会话描述目标；Agent 拆解步骤并执行，可中途补充材料 |
 | **本机文件** | 在授权工作区读写、导入；文件区按类型浏览、预览、外编 |
 | **技能与专家** | Skill 扩展动作；专家是带人设与场景的对话入口 |
+| **知识库** | 本机 Markdown 笔记；主栏查阅，会话里按需检索 |
 | **自动化** | 定时或触发类办公任务（汇报、提醒、汇总） |
 | **审批与权限** | 高风险本机动作可要求确认，再继续执行 |
 | **模型自选（BYOK）** | 接入兼容 API 或本机模型；密钥与端点你自己管 |
@@ -43,6 +44,7 @@ OnMyAgent 是**本地优先的办公 Agent 工作台**。你用自然语言描�
 | **自动** | 自动化任务、模板与调度 |
 | **文件** | 工作区与任务产物：筛选、搜索、预览 |
 | **市场** | 专家 / 技能 / 连接器 |
+| **知识库** | 本机 Markdown 笔记：阅读、源码编辑、同步索引 |
 
 底部账号菜单可打开 **Agent 对话**、**Agent 管理** 与 **设置**（模型、偏好、公司、记忆、系统权限等）。主栏不再显示「项目」；文件页里的项目分类仍是预告，见 [项目（预告）](./guide/projects)。
 
@@ -121,6 +123,6 @@ OnMyAgent 是**本地优先的办公 Agent 工作台**。你用自然语言描�
 3. [场景使用说明](./scenarios/usage-guide) — 通用工作法（公式、循环、选型）  
 4. [高效使用技巧](./guide/efficient-tips) — 10 条上手习惯  
 5. [实践案例总览](./scenarios/practice/) — 文件/文档/表格/自动化等端到端案例  
-6. [界面与工作区](./guide/overview) · [Agent 对话](./guide/agent-chat) · [Agent 管理](./guide/agent-management) · [技能](./guide/skills) · [安全与数据](./security)
+6. [界面与工作区](./guide/overview) · [知识库](./guide/knowledge) · [Agent 对话](./guide/agent-chat) · [Agent 管理](./guide/agent-management) · [技能](./guide/skills) · [安全与数据](./security)
 
 站点落地页在文档上一级路径（本地为站点根 `/`，GitHub Pages 为仓库根 URL）。

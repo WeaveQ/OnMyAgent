@@ -31,6 +31,12 @@ A first visit opens the getting-started note. An empty tab is not the same as an
 
 Sessions use `knowledge_search` / `knowledge_read` / `knowledge_create` on the same disk notes as this rail (not the marketplace Obsidian skill). After a search or read, the transcript shows **From knowledge · note.md**. Click it to open that note.
 
-## 5. Related
+## 5. Tips
 
-- [Overview](./overview) · [Files](./files) · [Skills](./skills) · [Memory](./memory)
+- Search covers `.md` / `.txt` / `.csv`. Excel / Word / PDF are not indexed in this version.
+- If search is stale after edits, click **Sync index** once.
+- Do not copy secrets or customer originals into a folder you use for demos.
+
+## 6. Related
+
+- [Overview](/en/guide/overview) · [Files](/en/guide/files) · [Skills](/en/guide/skills) · [Memory](/en/guide/memory)

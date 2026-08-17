@@ -8,14 +8,41 @@ For the complete assets and release notes, use [GitHub Releases](https://github.
 
 ## Unreleased
 
-- **Recent** lists parent tasks only; child subtask sessions no longer get their own row
-- Parallel subtasks group as **N/M subtasks**; return text is readable, and same-description retries collapse into one row
-- Context usage prefers the catalog window (million-token windows show as **1M**) and separates occupancy from last-turn generation
-- Market **Create skill** prefills `/skill-creator …`; **New task** keeps that seed when it clears other leftover drafts
+## 0.5.10
+
+- Preview builds are **notarized** again (Developer ID + Apple notarization)
+
+## 0.5.9
+
+- Main-rail **Knowledge Base**: local Markdown notes, searchable in chat via `knowledge_search`
+- Sending `/skill-creator` injects **SKILL.md** into the turn instead of a bare slash command
+- Builtin skill cards prefer Chinese copy; builtin skills cannot be uninstalled
+- Market **Go to chat** opens a session on the Home primary rail
+- Knowledge index can be rebuilt; snippets stay cleaner
+- Linux window background and launch / permission fixes
+
+## 0.5.8
+
+- Signed and notarized preview build
+- **Recent** lists parent tasks only; parallel subtasks group as **N/M subtasks**
+- Context usage follows the model window (million-token windows show as **1M**)
+- Market **Create skill** prefills `/skill-creator …`; **New task** keeps that seed
 - Expert-attached skills no longer appear under **Installed**; `/` still reaches core bundled skills in a sandbox
 - **Projects** is hidden from the main rail (the Files tab remains a preview)
 - Conversation body text supports Cut / Copy / Paste / Select all
 - Markdown deliverables in a session open as file links, not “open artifact” pills
+
+## 0.5.7
+
+- Signed and notarized preview build
+
+## 0.5.6
+
+- Preview build
+
+## 0.5.5
+
+- Updater: quit-and-install after download works again
 
 ## 0.5.4
 
