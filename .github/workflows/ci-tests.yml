@@ -235,6 +235,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
 
+      - name: Extract Electron dist
+        run: node scripts/dev/ensure-electron-dist.mjs
+
       - name: Windows runtime contracts
         run: pnpm test:windows-runtime
         env:
