@@ -79,6 +79,7 @@ test("engine start/stop path sets and clears inProcess on the factory state", ()
     "utf8",
   );
   assert.match(runtimeSource, /engineState\.inProcess\s*=\s*true/);
+  assert.match(runtimeSource, /async function stopInProcessServer/);
   assert.match(runtimeSource, /clearInProcessRuntimeFlags\(engineState,\s*onmyagentServerState\)/);
   assert.match(runtimeSource, /Object\.assign\(engineState,\s*createEngineState\(\)\)/);
 });
