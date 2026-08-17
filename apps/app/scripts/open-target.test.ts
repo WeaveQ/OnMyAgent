@@ -592,6 +592,20 @@ describe("deriveOpenTargets", () => {
     ]);
   });
 
+  it("shows a verified card for 交付文件: CJK-bracket filenames without backticks", () => {
+    const filename = "【视频脚本-栖光修护精华-晚晚要早睡】审核留痕版.docx";
+    const finalText =
+      `已生成完毕。\n\n交付文件：${filename} （当前会话目录下，43816 字节）`;
+    const messages = [message("msg_final", "assistant", finalText)] satisfies UIMessage[];
+    const verified = [{ ...fileTarget(filename, "document"), exists: true }];
+
+    expect(extractAssistantDeliveryManifestPaths(finalText)).toContain(filename);
+    expect(deriveOpenTargets(messages).map((target) => target.value)).toContain(filename);
+    expect(selectTurnOpenTargets(messages, verified).map((target) => target.value)).toEqual([
+      filename,
+    ]);
+  });
+
   it("does not treat arbitrary code-spanned file mentions as a delivery manifest", () => {
     const text = "我参考了 `输入台账.xlsx`，但还没有开始生成文件。";
 

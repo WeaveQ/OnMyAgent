@@ -46,7 +46,9 @@ const WORKSPACE_ID_PREFIX_PATTERN = /^workspace\/(?:ws_[^/]+|\d+|[0-9a-f-]{6,})\
 
 // Path segments allow Unicode letters/numbers (e.g. agents/应收台账模板.xlsx).
 // \w alone is ASCII-only and dropped Chinese filenames from the files panel.
-const FILE_PATH_SEGMENT = String.raw`[\p{L}\p{N}._\-]+`;
+// Include CJK title brackets commonly used in deliverable filenames
+// (e.g. 【视频脚本-栖光修护精华】审核留痕版.docx).
+const FILE_PATH_SEGMENT = String.raw`[\p{L}\p{N}._\-【】「」『』（）／]+`;
 const FILE_PATTERN = new RegExp(
   String.raw`(?:^|[\s"'` +
     "`" +
@@ -675,7 +677,7 @@ const EXPLICIT_ARTIFACT_LINK_PATTERNS = [
 ];
 
 const ASSISTANT_DELIVERY_CONTEXT_PATTERN =
-  /(?:交付物|交付清单|交付如下|最终产物|产物清单|输出文件|deliverables?|ONMYAGENT_DELIVERABLE|已拆出|均保存在|保存在|独立(?:Excel|表格|工作簿|文件))/iu;
+  /(?:交付物|交付文件|交付清单|交付如下|最终产物|产物清单|输出文件|deliverables?|ONMYAGENT_DELIVERABLE|已拆出|均保存在|保存在|独立(?:Excel|表格|工作簿|文件))/iu;
 const ASSISTANT_DELIVERY_CODE_FILE_PATTERN =
   /`([^`\r\n]+?\.[a-z][a-z0-9]{0,9})`/giu;
 const ASSISTANT_DELIVERY_LINK_LABEL_PATTERN =
@@ -727,6 +729,10 @@ export function extractAssistantDeliveryManifestPaths(text: string): string[] {
         paths.push(path);
       }
     }
+  }
+
+  for (const declared of extractDeclaredDeliverablePaths(text)) {
+    paths.push(declared);
   }
 
   const seen = new Set<string>();
