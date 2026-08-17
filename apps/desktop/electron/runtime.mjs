@@ -24,6 +24,7 @@ import {
   DIRECT_RUNTIME,
   resolveShippedEngineRuntime,
   createEngineState,
+  clearInProcessRuntimeFlags,
   snapshotEngineState,
   createOnMyAgentServerState,
   snapshotOnMyAgentServerState,
@@ -371,6 +372,7 @@ export function createRuntimeManager({
       try { await inProcessServer.stop(); } catch { /* ignore */ }
       inProcessServer = null;
     }
+    clearInProcessRuntimeFlags(engineState, onmyagentServerState);
     await stopChild(onmyagentServerState);
 
     const workspacePaths = options.workspacePaths.filter((value) => value.trim().length > 0);
@@ -456,6 +458,7 @@ export function createRuntimeManager({
     const baseUrl = handle.url;
 
     onmyagentServerState.inProcess = true;
+    engineState.inProcess = true;
     onmyagentServerState.remoteAccessEnabled = options.remoteAccessEnabled;
     onmyagentServerState.host = host;
     onmyagentServerState.port = boundPort;
@@ -529,6 +532,7 @@ export function createRuntimeManager({
       try { await inProcessServer.stop(); } catch { /* ignore */ }
       inProcessServer = null;
     }
+    clearInProcessRuntimeFlags(engineState, onmyagentServerState);
     await stopChild(onmyagentServerState);
     await stopChild(orchestratorState, {
       requestShutdown: () => requestOrchestratorShutdown(orchestratorState.dataDir || orchestratorDataDir()),

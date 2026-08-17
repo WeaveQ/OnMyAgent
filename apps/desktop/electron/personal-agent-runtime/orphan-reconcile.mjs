@@ -1,7 +1,7 @@
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { getAgentProcess, unregisterAgentProcess } from "./process-registry.mjs";
-import { personalAgentRuntimeStateRoot } from "./runtime-state.mjs";
+import { personalRunWorkspacesRoot } from "./runtime-state.mjs";
 import { readSupervisorOwnedRunIds, shouldFinalizeOrphanRunLog } from "./supervisor-owned-runs.mjs";
 import { buildFinalizedOrphanMeta, rewriteOrphanRunLogContent } from "./run-helpers.mjs";
 
@@ -47,9 +47,8 @@ export function createOrphanReconcile({
   // process session left behind.
   async function reconcileOrphanRuns() {
     const reconcileCutoff = reconcileCutoffMs;
-    const supervisorOwnedRunIds = await readSupervisorOwnedRunIds(userDataDir);
-    const root = personalAgentRuntimeStateRoot();
-    const workspacesRoot = path.join(root, "personal-assistant", "workspaces");
+    const supervisorOwned = await readSupervisorOwnedRunIds(userDataDir);
+    const workspacesRoot = personalRunWorkspacesRoot();
     const workspaces = await readdir(workspacesRoot).catch(() => []);
     for (const workspace of workspaces) {
       const runsDir = path.join(workspacesRoot, workspace, "runs");
@@ -71,7 +70,8 @@ export function createOrphanReconcile({
           inMemory: runs.has(meta.runId),
           startedAt,
           reconcileCutoffMs: reconcileCutoff,
-          supervisorOwnedRunIds,
+          supervisorOwnedRunIds: supervisorOwned.runIds,
+          supervisorRegistryReadable: supervisorOwned.registryReadable,
         })) continue;
         // Do NOT skip a running run merely because its pid is still alive — a
         // process can be hung (e.g. blocked on the network) yet never finish,

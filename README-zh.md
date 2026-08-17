@@ -192,7 +192,7 @@ pnpm task test server:automation
 apps/desktop        Electron shell、IPC、sidecar/runtime 管理
 apps/app            React UI、会话工作区、设置、Artifacts、i18n
 apps/server         本地 HTTP API，用于 workspace/session/skill/MCP 操作
-apps/orchestrator   启动 OpenCode、server、sandbox 的宿主进程
+apps/orchestrator   可选编排进程：spawn onmyagent-server 二进制 + OpenCode（默认桌面不启动）
 packages/types      共享 Zod schema 和类型边界
 packages/ui         共享 React 视觉组件（`@onmyagent/ui/react`）
 packages/handsfree  macOS Computer Use（HandsFree）；Windows CU 见桌面 Cua Driver

@@ -35,6 +35,7 @@ export function shouldFinalizeOrphanRunLog({
   startedAt = 0,
   reconcileCutoffMs = 0,
   supervisorOwnedRunIds = null,
+  supervisorRegistryReadable = true,
 }) {
   const id = String(runId ?? "").trim();
   if (!id) return false;
@@ -42,17 +43,31 @@ export function shouldFinalizeOrphanRunLog({
   const started = Number(startedAt ?? 0);
   const cutoff = Number(reconcileCutoffMs ?? 0);
   if (started && cutoff && started >= cutoff) return false;
+  if (supervisorRegistryReadable === false) return false;
   if (supervisorOwnedRunIds instanceof Set && supervisorOwnedRunIds.has(id)) return false;
   return true;
 }
 
+/**
+ * @returns {Promise<{ runIds: Set<string>, registryReadable: boolean }>}
+ * Missing file (ENOENT) is empty-owned-ids and readable.
+ * Corrupt JSON / other IO errors are fail-closed: registryReadable=false.
+ */
 export async function readSupervisorOwnedRunIds(userDataDir) {
   const filePath = resolveTaskSupervisorRegistryFile(userDataDir);
-  if (!filePath) return new Set();
+  if (!filePath) {
+    return { runIds: new Set(), registryReadable: true };
+  }
   try {
     const raw = JSON.parse(await readFile(filePath, "utf8"));
-    return supervisorOwnedRunIdsFromRegistry(raw);
-  } catch {
-    return new Set();
+    return {
+      runIds: supervisorOwnedRunIdsFromRegistry(raw),
+      registryReadable: true,
+    };
+  } catch (error) {
+    if (error && (error.code === "ENOENT" || error.code === "ENOTDIR")) {
+      return { runIds: new Set(), registryReadable: true };
+    }
+    return { runIds: new Set(), registryReadable: false };
   }
 }

@@ -193,7 +193,7 @@ For the full documentation map, see `docs/README.md`.
 apps/desktop        Electron shell, IPC, sidecar/runtime management
 apps/app            React UI, session workspace, settings, artifacts, i18n
 apps/server         Local HTTP API for workspace/session/skill/MCP operations
-apps/orchestrator   Host process that starts OpenCode, server, sandbox
+apps/orchestrator   Optional process: spawn onmyagent-server + OpenCode (not started on the default desktop path)
 packages/types      Shared Zod schemas and type boundaries
 packages/ui         Shared React visual components (`@onmyagent/ui/react`)
 packages/handsfree  macOS Computer Use (HandsFree); Win CU is desktop Cua Driver

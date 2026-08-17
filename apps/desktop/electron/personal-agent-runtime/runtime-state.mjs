@@ -5,6 +5,7 @@ import path from "node:path";
 let configuredRuntimeStateRoot = process.env.ONMYAGENT_PERSONAL_AGENT_RUNTIME_STATE_ROOT
   ? path.resolve(process.env.ONMYAGENT_PERSONAL_AGENT_RUNTIME_STATE_ROOT)
   : "";
+let configuredPersonalAssistantRoot = "";
 
 function safeSegment(value) {
   return String(value ?? "")
@@ -15,17 +16,38 @@ function safeSegment(value) {
     .slice(0, 48) || "workspace";
 }
 
+export function resolveInteractivePersonalRuntimeStateRoot(userDataDir) {
+  const root = String(userDataDir ?? "").trim();
+  if (!root) return "";
+  return path.join(path.resolve(root), "runtime-state");
+}
+
+/** Supervisor subtree under runtime-state (registry + isolated persist parent). */
+export function resolveTaskSupervisorPersonalRuntimeStateRoot(userDataDir) {
+  const interactive = resolveInteractivePersonalRuntimeStateRoot(userDataDir);
+  if (!interactive) return "";
+  return path.join(interactive, "task-center-supervisor");
+}
+
+/** Isolated Personal workspace persist (runs / conversations / events). */
+export function resolveTaskSupervisorPersonalAssistantRoot(userDataDir) {
+  const supervisorRoot = resolveTaskSupervisorPersonalRuntimeStateRoot(userDataDir);
+  if (!supervisorRoot) return "";
+  return path.join(supervisorRoot, "personal-assistant");
+}
+
 export function configurePersonalAgentRuntimeState(options = {}) {
   const root = String(options.runtimeStateRoot ?? "").trim();
   if (root) {
     configuredRuntimeStateRoot = path.resolve(root);
-    return configuredRuntimeStateRoot;
+  } else {
+    const userDataDir = String(options.userDataDir ?? "").trim();
+    if (userDataDir) {
+      configuredRuntimeStateRoot = resolveInteractivePersonalRuntimeStateRoot(userDataDir);
+    }
   }
-  const userDataDir = String(options.userDataDir ?? "").trim();
-  if (userDataDir) {
-    configuredRuntimeStateRoot = path.join(userDataDir, "runtime-state");
-    return configuredRuntimeStateRoot;
-  }
+  const persist = String(options.personalAssistantRoot ?? "").trim();
+  configuredPersonalAssistantRoot = persist ? path.resolve(persist) : "";
   return personalAgentRuntimeStateRoot();
 }
 
@@ -39,8 +61,27 @@ export function workspaceIdentity(workspaceRoot) {
   return `${safeSegment(path.basename(resolved))}-${hash}`;
 }
 
+export function personalAssistantRoot() {
+  return configuredPersonalAssistantRoot
+    || path.join(personalAgentRuntimeStateRoot(), "personal-assistant");
+}
+
+export function personalRunWorkspacesRoot() {
+  return path.join(personalAssistantRoot(), "workspaces");
+}
+
+export function personalAgentRootAt(runtimeStateRoot, workspaceRoot) {
+  const stateRoot = String(runtimeStateRoot ?? "").trim();
+  return path.join(
+    stateRoot ? path.resolve(stateRoot) : personalAgentRuntimeStateRoot(),
+    "personal-assistant",
+    "workspaces",
+    workspaceIdentity(workspaceRoot),
+  );
+}
+
 export function personalAgentRoot(workspaceRoot) {
-  return path.join(personalAgentRuntimeStateRoot(), "personal-assistant", "workspaces", workspaceIdentity(workspaceRoot));
+  return path.join(personalAssistantRoot(), "workspaces", workspaceIdentity(workspaceRoot));
 }
 
 export function sessionArchiveRoot(workspaceRoot) {
