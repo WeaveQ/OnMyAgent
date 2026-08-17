@@ -65,7 +65,7 @@ describe("surface + page-view snapshot prefetch wiring", () => {
     const surface = readFileSync(
       join(
         appRoot,
-        "src/react-app/domains/session/surface/session-surface.tsx",
+        "src/react-app/domains/session/surface/session-surface-snapshot.ts",
       ),
       "utf8",
     );

@@ -12,7 +12,9 @@ import {
   CODE_TERMINAL_SNAPSHOT_INTERVAL_MS,
   CONVERSATION_HISTORY_SNAPSHOT_LIMIT,
   RELOAD_EVENTS_POLL_INTERVAL_MS,
+  SESSION_BUSY_SNAPSHOT_REFETCH_MS,
   SESSION_SNAPSHOT_STALE_TIME_MS,
+  sessionBusySnapshotRefetchIntervalMs,
   SIDEBAR_SESSION_LIST_LIMIT,
   automationListRefetchIntervalMs,
   codeReviewPollIntervalMs,
@@ -43,6 +45,18 @@ describe("reload-events + session snapshot quiet policy (shipped)", () => {
 
   test("focused session snapshot staleTime is at least 30s", () => {
     expect(SESSION_SNAPSHOT_STALE_TIME_MS).toBeGreaterThanOrEqual(30_000);
+  });
+
+  test("busy focused snapshot polls until the run looks idle", () => {
+    expect(sessionBusySnapshotRefetchIntervalMs({ remoteBusy: false })).toBe(false);
+    expect(sessionBusySnapshotRefetchIntervalMs({ remoteBusy: true })).toBe(
+      SESSION_BUSY_SNAPSHOT_REFETCH_MS,
+    );
+    const surface = readFileSync(
+      join(appRoot, "src/react-app/domains/session/surface/session-surface-snapshot.ts"),
+      "utf8",
+    );
+    expect(surface).toContain("sessionBusySnapshotRefetchIntervalMs");
   });
 
   test("conversation history snapshot limit is sidebar-scale, not 200", () => {
