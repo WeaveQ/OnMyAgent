@@ -17,7 +17,7 @@ Layered gate (Phase A):
 | Layer | When | Job | What |
 |-------|------|-----|------|
 | **L1** | every PR | Checks (ubuntu + macos) | `pnpm check` + rename; **Linux only**: `test:windows-runtime` (mocked win32) |
-| **L2** | path match **or** `ci:windows` | Windows compat (`windows-2022`) | Real host: `test:windows-runtime` + preflight `--ci`. Unrelated PRs skip. |
+| **L2** | path match **or** `ci:windows` | Windows compat (`windows-2022`) | Real host: extract Electron dist + `test:windows-runtime` + preflight `--ci`. Unrelated PRs skip. |
 | **L3** | release / later | (not PR) | NSIS package / install smoke — see Roadmap |
 
 | Job | OS | Why |
@@ -67,7 +67,8 @@ a Testing checkbox for Windows host / `ci:windows` / `pnpm check:windows`.
 ### Local gate commands (copy-paste)
 
 ```bat
-:: After pnpm install — environment / electron / native modules
+:: After pnpm install — Electron 42+ first-run extract, then environment / native modules
+node scripts/dev/ensure-electron-dist.mjs
 node scripts/dev/windows-preflight.mjs --ci
 
 :: Mocked win32 contracts (any host) + Windows host preflight when on windows-2022
@@ -81,7 +82,7 @@ pnpm test:windows-runtime
 
 Use a Developer Mode shell (or admin) so junctions work, then:
 
-1. **Install & preflight** — `pnpm install` then `node scripts/dev/windows-preflight.mjs --ci` (fix only).
+1. **Install & preflight** — `pnpm install` then `node scripts/dev/ensure-electron-dist.mjs` then `node scripts/dev/windows-preflight.mjs --ci` (fix only).
 2. **Start** — `scripts\dev\windows.cmd` (or `pnpm dev -- desktop`); app window + tray appear.
 3. **Workspace** — open an existing workspace; create or switch once; no crash.
 4. **Terminal** — open the in-app code terminal; confirm it is PowerShell (`ONMYAGENT_TERMINAL_SHELL` can override). The wt → PowerShell → cmd cascade is only for “open terminal in workspace”.

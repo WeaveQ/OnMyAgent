@@ -153,6 +153,14 @@ const electronDist = resolve(
   "electron",
   "dist",
 );
+// Electron 42+ no longer extracts dist in npm postinstall.
+if (!existsSync(electronDist)) {
+  spawnSync(process.execPath, [resolve(scriptDir, "ensure-electron-dist.mjs")], {
+    cwd: repoRoot,
+    stdio: "inherit",
+    env: process.env,
+  });
+}
 const electronPresent = existsSync(electronDist);
 record(
   "electron/dist present",
@@ -160,7 +168,6 @@ record(
   electronPresent
     ? electronDist
     : "missing after install — run: node scripts/dev/ensure-electron-dist.mjs",
-  // After pnpm install on a healthy runner this should exist.
   true,
 );
 

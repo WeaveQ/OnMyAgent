@@ -39,7 +39,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "electron": "^39.8.10",
+    "electron": "^43.4.0",
     "electron-builder": "^26.15.3"
   },
   "packageManager": "pnpm@10.27.0",
