@@ -1,6 +1,6 @@
 {
   "name": "onmyagent-orchestrator",
-  "version": "0.5.12",
+  "version": "0.5.13",
   "description": "OnMyAgent host orchestrator for opencode + OnMyAgent server",
   "private": true,
   "type": "module",
@@ -46,7 +46,7 @@
   },
   "dependencies": {
     "@opencode-ai/sdk": "1.18.18",
-    "onmyagent-server": "0.5.12"
+    "onmyagent-server": "0.5.13"
   },
   "devDependencies": {
     "@types/node": "^24.13.2",
