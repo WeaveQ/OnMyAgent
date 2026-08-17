@@ -39,6 +39,39 @@ export function windowsTitleBarAppearance(isDark) {
 }
 
 /**
+ * Guest-view fill for Linux system-frame windows.
+ * Electron defaults to #FFFFFF; dark UI then shows a white ring at the CSD edge.
+ */
+export function themeWindowBackgroundColor(isDark) {
+  return isDark
+    ? WINDOWS_TITLEBAR_COLORS.dark.backgroundColor
+    : WINDOWS_TITLEBAR_COLORS.light.backgroundColor;
+}
+
+/**
+ * @param {boolean} isDark
+ */
+export function linuxWindowAppearance(isDark) {
+  return { backgroundColor: themeWindowBackgroundColor(isDark) };
+}
+
+/**
+ * @param {import("electron").BrowserWindow | null | undefined} win
+ * @param {boolean} isDark
+ * @param {{ color?: string } | null | undefined} [overlay]
+ */
+export function applyLinuxWindowBackground(win, isDark, overlay) {
+  if (!win || typeof win.isDestroyed === "function" && win.isDestroyed()) return false;
+  const color = normalizeOverlayColor(overlay?.color) ?? themeWindowBackgroundColor(isDark);
+  try {
+    win.setBackgroundColor?.(color);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * @param {string | null | undefined} value
  */
 export function normalizeOverlayColor(value) {
