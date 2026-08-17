@@ -119,6 +119,44 @@ describe("composer skill catalog product model", () => {
     expect(items[0]?.description).toBe("Douyin surge notes");
   });
 
+  test("SkillCard locale copy wins over cached OpenCode command.label", () => {
+    const localized: SkillCard[] = [
+      {
+        name: "douyin-content-surge",
+        path: "/x/skills/douyin-content-surge",
+        description: "fallback desc",
+        descriptionZh: "抖音飙升榜说明",
+        descriptionEn: "Douyin surge notes",
+        displayNameZh: "抖音每日点赞飙升榜",
+        displayNameEn: "Douyin Daily Like Surge",
+        scope: "onmyagent",
+      },
+    ];
+    const cached: SlashCommandOption[] = [
+      {
+        id: "cmd:douyin-content-surge",
+        name: "douyin-content-surge",
+        label: "抖音每日点赞飙升榜",
+        description: "抖音飙升榜说明",
+        source: "skill",
+      },
+    ];
+    const items = buildCombinedSkillItems(
+      localized,
+      cached,
+      new Set(["douyin-content-surge"]),
+      "en",
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0]?.label).toBe("Douyin Daily Like Surge");
+    expect(items[0]?.description).toBe("Douyin surge notes");
+
+    const merged = mergeSlashCommandsWithSkills(cached, localized, "en");
+    expect(merged.commands).toHaveLength(1);
+    expect(merged.commands[0]?.label).toBe("Douyin Daily Like Surge");
+    expect(merged.commands[0]?.description).toBe("Douyin surge notes");
+  });
+
   test("slash merge keeps managed skills including local", () => {
     const cmds: SlashCommandOption[] = [
       {

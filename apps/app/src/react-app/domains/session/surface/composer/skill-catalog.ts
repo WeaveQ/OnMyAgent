@@ -141,8 +141,8 @@ export function buildCombinedSkillItems(
       ...command,
       id: command.source === "skill" || !command.source ? `skill:${name}` : command.id,
       name,
-      // Keep marketplace-style label from SkillCard when OpenCode row has none.
-      label: command.label?.trim() || existing?.label,
+      // SkillCard locale-resolved copy wins over cached OpenCode command.label.
+      label: existing?.label || command.label?.trim() || undefined,
       description: existing?.description || command.description,
     });
   }
