@@ -4,6 +4,10 @@ import path from "node:path";
 
 import { createPersonalAgentLegacyHarness } from "../personal-agent-runtime/legacy-harness.mjs";
 import { createPersonalAgentRuntime } from "../personal-agent-runtime/index.mjs";
+import {
+  resolveTaskSupervisorPersonalAssistantRoot,
+  resolveTaskSupervisorPersonalRuntimeStateRoot,
+} from "../personal-agent-runtime/runtime-state.mjs";
 import { createTaskOrchestrator } from "../task-orchestrator/index.mjs";
 import { randomSupervisorEpoch } from "./protocol.mjs";
 
@@ -48,12 +52,14 @@ export async function createTaskSupervisorService(options = {}) {
   });
   const personalAgentRuntime = options.personalAgentRuntime ?? createPersonalAgentRuntime({
     userDataDir,
+    personalAssistantRoot: resolveTaskSupervisorPersonalAssistantRoot(userDataDir),
     legacy,
-    // The detached Supervisor is the sole owner of Task Center provider
-    // children.  Keep its registry physically and logically separate from
-    // the interactive Personal runtime in Electron main so cross-process
-    // startup cleanup can never reap a live task provider.
-    processRegistryFile: path.join(userDataDir, "runtime-state", "task-center-supervisor", "personal-agent-process-registry.json"),
+    // Isolate Task persist (runs / conversations) only. Shared runtime-state
+    // keeps managed ACP / extensions resolvable from the interactive install.
+    processRegistryFile: path.join(
+      resolveTaskSupervisorPersonalRuntimeStateRoot(userDataDir),
+      "personal-agent-process-registry.json",
+    ),
     processRegistryNamespace: "task-supervisor",
     deferStartupReconcileMs: Number(options.deferStartupReconcileMs ?? 0),
     engineInfo: async () => {

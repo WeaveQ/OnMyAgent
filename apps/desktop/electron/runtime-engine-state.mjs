@@ -29,6 +29,7 @@ export function createEngineState() {
   return {
     child: null,
     childExited: true,
+    inProcess: false,
     runtime: DIRECT_RUNTIME,
     projectDir: null,
     hostname: null,
@@ -43,10 +44,16 @@ export function createEngineState() {
   };
 }
 
+export function clearInProcessRuntimeFlags(engine, server) {
+  if (engine && typeof engine === "object") engine.inProcess = false;
+  if (server && typeof server === "object") server.inProcess = false;
+}
+
 export function snapshotEngineState(state) {
   const child = state.childExited ? null : state.child;
+  const childRunning = Boolean(child && child.exitCode === null && !child.killed);
   return {
-    running: Boolean(child && child.exitCode === null && !child.killed),
+    running: Boolean(state.inProcess) || childRunning,
     runtime: state.runtime,
     baseUrl: state.baseUrl,
     projectDir: state.projectDir,

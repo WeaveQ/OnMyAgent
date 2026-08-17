@@ -24,6 +24,7 @@ import {
   DIRECT_RUNTIME,
   resolveShippedEngineRuntime,
   createEngineState,
+  clearInProcessRuntimeFlags,
   snapshotEngineState,
   createOnMyAgentServerState,
   snapshotOnMyAgentServerState,
@@ -362,15 +363,16 @@ export function createRuntimeManager({
     return token || null;
   }
 
-  // In-process server handle. Kept alive across restarts so we can stop it.
   let inProcessServer = null;
 
+  async function stopInProcessServer() {
+    try { await inProcessServer?.stop(); } catch { /* ignore */ }
+    inProcessServer = null;
+    clearInProcessRuntimeFlags(engineState, onmyagentServerState);
+  }
+
   async function startOnMyAgentServer(options) {
-    // Stop any previously running in-process server
-    if (inProcessServer) {
-      try { await inProcessServer.stop(); } catch { /* ignore */ }
-      inProcessServer = null;
-    }
+    await stopInProcessServer();
     await stopChild(onmyagentServerState);
 
     const workspacePaths = options.workspacePaths.filter((value) => value.trim().length > 0);
@@ -456,6 +458,7 @@ export function createRuntimeManager({
     const baseUrl = handle.url;
 
     onmyagentServerState.inProcess = true;
+    engineState.inProcess = true;
     onmyagentServerState.remoteAccessEnabled = options.remoteAccessEnabled;
     onmyagentServerState.host = host;
     onmyagentServerState.port = boundPort;
@@ -524,11 +527,7 @@ export function createRuntimeManager({
   }
 
   async function stopAllRuntimeChildren() {
-    // Stop the in-process server (and its managed OpenCode child) if running.
-    if (inProcessServer) {
-      try { await inProcessServer.stop(); } catch { /* ignore */ }
-      inProcessServer = null;
-    }
+    await stopInProcessServer();
     await stopChild(onmyagentServerState);
     await stopChild(orchestratorState, {
       requestShutdown: () => requestOrchestratorShutdown(orchestratorState.dataDir || orchestratorDataDir()),

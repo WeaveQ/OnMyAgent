@@ -184,11 +184,11 @@ OpenCode binary pin is `constants.json` → `opencodeVersion` (**v1.18.18**); pr
 
 ```text
 desktop(electron) → runtime.mjs → engineStart
-  default DIRECT_RUNTIME (shipped desktop):
+  shipped DIRECT_RUNTIME (default desktop; resolveShippedEngineRuntime always returns this):
     └→ startEmbeddedServer (in-process in the Electron app)
          └→ manage OpenCode binary (manageOpencode: true)
-  optional ORCHESTRATOR_RUNTIME (not the product default):
-    └→ spawn onmyagent-orchestrator daemon
+  optional apps/orchestrator (not engineStart; not the desktop default):
+    └→ spawn onmyagent-orchestrator daemon (sandbox / detached only)
          └→ spawn onmyagent-server binary (never import server source)
          └→ OpenCode + approval router / Slack / Telegram
   app(React) ← server HTTP API via onmyagent-server client
@@ -211,7 +211,7 @@ app(React) ← @onmyagent/types ← packages/types（Zod schema + DesktopCommand
 | --- | --- | --- |
 | 定位 | 软件运行底层与主会话真相源 | 桌面侧便利入口：把本机 CLI/ACP agent 接到同一产品 UI |
 | 典型用户价值 | 工作区会话、server API、archive、SSE、分析、主聊天 | 在 OnMyAgent 内使用 Claude Code / Codex / Hermes / OpenClaw / 自定义 CLI 等 |
-| 宿主进程 | server sidecar + OpenCode binary（及 orchestrator 编排） | Electron main 内 `personal-agent-runtime` kernel |
+| 宿主进程 | Electron 进程内 embedded server（`direct`）管理 OpenCode；orchestrator 可选、非桌面默认 | Electron main 内 `personal-agent-runtime` kernel |
 | UI 域 | `domains/session` | `domains/local-agents` |
 | 传输 | HTTP `onmyagent-server` + OpenCode SDK / SSE | Desktop IPC `localAgents` |
 | 状态归属 | server session + session-archive（SQLite 等） | personal conversation store / run 状态（desktop 侧） |
@@ -282,7 +282,8 @@ claim→send→ack，断线后按每个 event stream cursor 重放；附件只�
   Continuation Capsule，再用冻结 identity 继续。provider prompt 结束不等于 Task
   完成；只有结构化 acceptance decision 或用户确认可以结束 Run。
 - Orchestrator 只保存 Personal `runId` / `conversationId` 引用，不打开或改写
-  Personal conversation/session/run 文件；Personal 仍对自己的 worker 状态负责。
+  交互侧 Personal conversation/session/run 文件；Task Supervisor 的 Personal persist
+  落在 `runtime-state/task-center-supervisor/`，与主栏 `personal-assistant/` 分开。
 - 它不写 server session archive，不把 Personal 变成主引擎，也不承担
   OpenCode/server sidecar 生命周期。
 - `restricted` 使用 durable approval gate；`full-allow` 只在冻结 task/run、真实
@@ -384,7 +385,7 @@ Adapter 工厂通常接收 `{ appendEvent, registerCancel, requestApproval?, app
 
 `runtime.mjs` 职责分层：
 
-1. **`createRuntimeManager`** — OpenCode / OnMyAgent server / orchestrator **sidecar 生命周期**。`engineStart` 只走 in-process OnMyAgent server（`DIRECT_RUNTIME` + `manageOpencode: true`），并序列化 lifecycle 防并发竞态。`engineState.runtime` 类型仍允许 `"onmyagent-orchestrator"`，但当前启动路径不会赋这个值。打包的 `onmyagent-orchestrator` sidecar 和 `orchestratorStartDetached` 仍在，不是这条 `engineStart` 路径。
+1. **`createRuntimeManager`** — OpenCode / OnMyAgent server / orchestrator **sidecar 生命周期**。`engineStart` 只走 in-process OnMyAgent server（`DIRECT_RUNTIME` + `manageOpencode: true`），并序列化 lifecycle 防并发竞态。出货快照 `EngineInfo.runtime` 恒为 `"direct"`；线上 `EngineStartOptions.runtime` 仍可传 `"onmyagent-orchestrator"`，但 `resolveShippedEngineRuntime` 会丢弃。打包的 `onmyagent-orchestrator` sidecar 和 `orchestratorStartDetached` 仍在，不是这条 `engineStart` 路径。
 2. **`createDesktopPersonalRuntimeServices`** — 组装 Personal Local Agent：**kernel**（`createPersonalAgentRuntime`）+ **legacy harness** + heartbeat + native sessions + messaging channels。Kernel 负责 run 状态、conversation store、approval、extensions；adapters 只做 provider 协议翻译。
 
 ### 边界

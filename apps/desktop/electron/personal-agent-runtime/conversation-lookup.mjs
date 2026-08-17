@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { personalAgentRuntimeStateRoot } from "./runtime-state.mjs";
+import { personalRunWorkspacesRoot } from "./runtime-state.mjs";
 import { readJsonLikeFile } from "./utils.mjs";
 import {
   CONVERSATION_DIR,
@@ -44,7 +44,7 @@ export const CHANNEL_AGENT_ID_RE = /-(weixin|feishu|wecom|lark|dingtalk|telegram
  * @returns {Promise<Array<{ file: string, dir: string }>>}
  */
 async function listAllConversationFiles() {
-  const root = path.join(personalAgentRuntimeStateRoot(), "personal-assistant", "workspaces");
+  const root = personalRunWorkspacesRoot();
   let workspaceDirs = [];
   try {
     workspaceDirs = (await fs.promises.readdir(root, { withFileTypes: true }))
