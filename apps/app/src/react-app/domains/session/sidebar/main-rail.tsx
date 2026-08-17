@@ -179,7 +179,7 @@ const BOTTOM_RAIL_ITEMS: BottomRailItem[] = [
 
 /**
  * Brand mark above primary rail items (same slot as peer apps' app icon).
- * Rounded solid tile + product logo; click returns to Home.
+ * Transparent product mark on the rail — no baked-in black tile.
  */
 function RailBrandMark(props: { onClick: () => void }) {
   return (
@@ -190,21 +190,18 @@ function RailBrandMark(props: { onClick: () => void }) {
       title={APP_NAME}
       aria-label={APP_NAME}
       className={cn(
-        // 44px tile / 24px mark — 2px under prior 46 / 26.
-        "flex size-[44px] shrink-0 items-center justify-center rounded-2xl ",
-        // Both themes: near-black tile + blue mark (readable without a pure-white flash on dark rails).
-        "bg-black ring-1 ring-black/20 hover:bg-neutral-900",
-        "dark:bg-neutral-950 dark:ring-white/12 dark:hover:bg-neutral-900",
+        "flex size-[44px] shrink-0 items-center justify-center rounded-2xl",
+        "hover:bg-dls-rail-hover",
         "transition-colors focus-visible:outline-none",
         "focus-visible:ring-2 focus-visible:ring-dls-focus focus-visible:ring-offset-2",
       )}
     >
       <img
-        src={resolvePublicAssetUrl("/onmyagent-logo.webp")}
+        src={resolvePublicAssetUrl("/onmyagent-boot-mark.png")}
         alt=""
-        width={24}
-        height={24}
-        className="size-6 object-contain"
+        width={28}
+        height={28}
+        className="size-7 object-contain"
         draggable={false}
       />
     </button>

@@ -46,10 +46,13 @@ describe("icon asset cleanup contracts", () => {
     expect(hits).toEqual([]);
   });
 
-  test("main rail and welcome brand use webp asset that exists", () => {
+  test("main rail uses the transparent boot mark; welcome keeps the webp wordmark", () => {
     const webp = resolve(root, "apps/app/public/onmyagent-logo.webp");
+    const bootMark = resolve(root, "apps/app/public/onmyagent-boot-mark.png");
     expect(existsSync(webp)).toBe(true);
+    expect(existsSync(bootMark)).toBe(true);
     expect(statSync(webp).size).toBeLessThan(100_000);
+    expect(statSync(bootMark).size).toBeLessThan(40_000);
     const rail = readFileSync(
       resolve(
         root,
@@ -61,7 +64,8 @@ describe("icon asset cleanup contracts", () => {
       resolve(root, "apps/app/src/react-app/shell/welcome-route.tsx"),
       "utf8",
     );
-    expect(rail).toContain("onmyagent-logo.webp");
+    expect(rail).toContain("onmyagent-boot-mark.png");
+    expect(rail).not.toContain("onmyagent-logo.webp");
     expect(welcome).toContain("onmyagent-logo.webp");
   });
 
