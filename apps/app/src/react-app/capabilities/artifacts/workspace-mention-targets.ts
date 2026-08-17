@@ -113,9 +113,105 @@ function mentionLabelForEntry(
 ): string {
   const name = basename(entry.path);
   if (entry.kind === "dir") {
+    const parts = entry.path.replace(/\\/g, "/").split("/").filter(Boolean);
+    if (
+      parts[0]?.toLowerCase() === WORKSPACE_EXPERTS_DIR &&
+      parts.length === 2
+    ) {
+      return formatExpertFolderDisplayName(name);
+    }
     return formatWorkspaceFolderDisplayName(name, entry.mtimeMs);
   }
   return name;
+}
+
+export function isExpertMentionPath(path: string): boolean {
+  const top = path.replace(/\\/g, "/").split("/").filter(Boolean)[0]?.toLowerCase();
+  return top === WORKSPACE_EXPERTS_DIR;
+}
+
+export function prefixExpertRuntimePath(path: string): string {
+  const normalized = path.replace(/\\/g, "/").replace(/^\/+/, "");
+  if (!normalized) return WORKSPACE_EXPERTS_DIR;
+  if (
+    normalized === WORKSPACE_EXPERTS_DIR ||
+    normalized.startsWith(`${WORKSPACE_EXPERTS_DIR}/`)
+  ) {
+    return normalized;
+  }
+  return `${WORKSPACE_EXPERTS_DIR}/${normalized}`;
+}
+
+export function stripExpertRuntimePath(path: string): string {
+  const normalized = path.replace(/\\/g, "/").replace(/^\/+/, "");
+  if (normalized === WORKSPACE_EXPERTS_DIR) return "";
+  if (normalized.startsWith(`${WORKSPACE_EXPERTS_DIR}/`)) {
+    return normalized.slice(WORKSPACE_EXPERTS_DIR.length + 1);
+  }
+  return normalized;
+}
+
+export function prefixExpertRuntimeEntries(
+  entries: OnMyAgentWorkspaceFileCatalogEntry[],
+): OnMyAgentWorkspaceFileCatalogEntry[] {
+  return entries.map((entry) => ({
+    ...entry,
+    path: prefixExpertRuntimePath(entry.path),
+  }));
+}
+
+/** Root leftovers Files → 任务 shows (not under uploads/tasks/experts/projects). */
+export function leftoverTaskCatalogEntries(
+  entries: OnMyAgentWorkspaceFileCatalogEntry[],
+): OnMyAgentWorkspaceFileCatalogEntry[] {
+  return entries.filter((entry) => {
+    const parts = entry.path.replace(/\\/g, "/").split("/").filter(Boolean);
+    if (parts.length !== 1) return false;
+    if (isWorkspaceLayoutTopDir(parts[0]) || isWorkspaceSystemTopDir(parts[0])) {
+      return false;
+    }
+    return !isMentionHiddenPath(entry.path);
+  });
+}
+
+/**
+ * Immediate children of `folderPath` from a (possibly deep/flat) catalog.
+ * Expert runtime files are file-only; this synthesizes the agent/session dirs.
+ */
+export function workspaceDirectoryTargetsFromCatalog(
+  entries: OnMyAgentWorkspaceFileCatalogEntry[],
+  folderPath: string,
+): ComposerMentionTarget[] {
+  const folder = folderPath.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
+  const prefix = folder ? `${folder}/` : "";
+  const children = new Map<string, OnMyAgentWorkspaceFileCatalogEntry>();
+
+  for (const entry of entries) {
+    const itemPath = entry.path.replace(/\\/g, "/");
+    if (folder && itemPath !== folder && !itemPath.startsWith(prefix)) continue;
+    const rest = folder ? itemPath.slice(prefix.length) : itemPath;
+    if (!rest) continue;
+    const first = rest.split("/").filter(Boolean)[0];
+    if (!first) continue;
+    const childPath = folder ? `${folder}/${first}` : first;
+    const isDirectFile = rest === first && entry.kind === "file";
+    if (isDirectFile) {
+      children.set(childPath, { ...entry, path: childPath });
+      continue;
+    }
+    const existing = children.get(childPath);
+    if (!existing || existing.kind !== "file") {
+      children.set(childPath, {
+        path: childPath,
+        kind: "dir",
+        size: existing?.size ?? 0,
+        mtimeMs: Math.max(existing?.mtimeMs ?? 0, entry.mtimeMs ?? 0),
+        revision: "",
+      });
+    }
+  }
+
+  return workspaceDirectoryTargets([...children.values()]);
 }
 
 function toTarget(
@@ -176,6 +272,7 @@ function productSourceRank(path: string): number {
   if (top === WORKSPACE_UPLOADS_DIR) return 0;
   if (top === WORKSPACE_TASKS_DIR || top === WORKSPACE_PROJECTS_DIR) return 1;
   if (top === WORKSPACE_EXPERTS_DIR) return 2;
+  if (top && !isWorkspaceLayoutTopDir(top) && !isWorkspaceSystemTopDir(top)) return 1;
   return 9;
 }
 
@@ -183,12 +280,16 @@ function isUnderProductSourceRoot(path: string): boolean {
   const normalized = path.replace(/\\/g, "/").replace(/^\/+/, "");
   if (!normalized || isMentionHiddenPath(normalized)) return false;
   const top = normalized.split("/").filter(Boolean)[0]?.toLowerCase() ?? "";
-  return (
+  if (
     top === WORKSPACE_UPLOADS_DIR ||
     top === WORKSPACE_TASKS_DIR ||
     top === WORKSPACE_PROJECTS_DIR ||
     top === WORKSPACE_EXPERTS_DIR
-  );
+  ) {
+    return true;
+  }
+  // Files → 任务 also shows leftover root files/folders.
+  return Boolean(top) && !isWorkspaceLayoutTopDir(top) && !isWorkspaceSystemTopDir(top);
 }
 
 /**

@@ -10,10 +10,16 @@ import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server
 import { isElectronRuntime } from "../../../../app/utils";
 import type { ComposerMentionTarget } from "../../../../app/types";
 import {
+  WORKSPACE_EXPERTS_DIR,
   WORKSPACE_PROJECTS_DIR,
   WORKSPACE_TASKS_DIR,
+  isExpertMentionPath,
+  leftoverTaskCatalogEntries,
   mergeTaskSourceDirectoryTargets,
+  prefixExpertRuntimeEntries,
+  stripExpertRuntimePath,
   workspaceDirectoryTargets,
+  workspaceDirectoryTargetsFromCatalog,
   workspaceMentionTargets,
 } from "../../../capabilities/artifacts/workspace-mention-targets";
 import { WORKSPACE_INBOX_DIR } from "../../workspace";
@@ -35,20 +41,28 @@ export async function searchSessionMentionTargets(input: {
   query: string;
 }): Promise<ComposerMentionTarget[]> {
   const workspaceRoot = input.workspaceRoot.trim();
-  // Electron still needs an absolute workspace path for the local FS bridge.
-  if (isElectronRuntime()) {
-    if (!workspaceRoot) return [];
-    const result = await listCodeWorkspaceFiles({ workspacePath: workspaceRoot });
-    return workspaceMentionTargets(
-      result.items.map((item) => ({ ...item, revision: "" })),
-      input.query,
-    );
-  }
-  const result = await input.client.listWorkspaceFiles(input.workspaceId, {
-    includeDirs: true,
-    limit: 10_000,
-  });
-  return workspaceMentionTargets(result.items, input.query);
+  const [workspaceItems, expertItems] = await Promise.all([
+    (async () => {
+      if (isElectronRuntime()) {
+        if (!workspaceRoot) return [];
+        const result = await listCodeWorkspaceFiles({
+          workspacePath: workspaceRoot,
+          recursive: true,
+        });
+        return result.items.map((item) => ({ ...item, revision: "" }));
+      }
+      const result = await input.client.listWorkspaceFiles(input.workspaceId, {
+        includeDirs: true,
+        limit: 10_000,
+      });
+      return result.items;
+    })(),
+    input.client
+      .listExpertSessionFiles(input.workspaceId)
+      .then((result) => prefixExpertRuntimeEntries(result.items))
+      .catch(() => []),
+  ]);
+  return workspaceMentionTargets([...workspaceItems, ...expertItems], input.query);
 }
 
 export async function listSessionMentionFolder(input: {
@@ -82,13 +96,47 @@ export async function listSessionMentionFolder(input: {
     return workspaceDirectoryTargets(result.items);
   };
 
-  // Task source root also surfaces projects/ (same Files → Task bucket).
+  // Expert artifacts live in the managed runtime, not workspace/experts/.
+  if (isExpertMentionPath(input.path) || input.path === WORKSPACE_EXPERTS_DIR) {
+    const result = await input.client
+      .listExpertSessionFiles(input.workspaceId)
+      .catch(() => ({ items: [] }));
+    return workspaceDirectoryTargetsFromCatalog(
+      prefixExpertRuntimeEntries(result.items),
+      input.path || WORKSPACE_EXPERTS_DIR,
+    );
+  }
+
+  // Task source root also surfaces projects/ and leftover root files
+  // (same Files → Task bucket).
   if (input.path === WORKSPACE_TASKS_DIR) {
-    const [taskTargets, projectTargets] = await Promise.all([
+    const [taskTargets, projectTargets, leftoverTargets] = await Promise.all([
       listShallow(WORKSPACE_TASKS_DIR),
       listShallow(WORKSPACE_PROJECTS_DIR).catch(() => []),
+      (async () => {
+        if (isElectronRuntime()) {
+          if (!workspaceRoot) return [];
+          const result = await listCodeWorkspaceFiles({
+            workspacePath: workspaceRoot,
+          });
+          return workspaceDirectoryTargets(
+            leftoverTaskCatalogEntries(
+              result.items.map((item) => ({ ...item, revision: "" })),
+            ),
+          );
+        }
+        const result = await input.client.listWorkspaceFiles(input.workspaceId, {
+          includeDirs: true,
+          limit: 10_000,
+          shallow: true,
+        });
+        return workspaceDirectoryTargets(leftoverTaskCatalogEntries(result.items));
+      })().catch(() => []),
     ]);
-    return mergeTaskSourceDirectoryTargets(taskTargets, projectTargets);
+    return mergeTaskSourceDirectoryTargets(
+      mergeTaskSourceDirectoryTargets(taskTargets, projectTargets),
+      leftoverTargets,
+    );
   }
 
   return listShallow(input.path);
@@ -156,6 +204,23 @@ export async function loadSessionMentionFiles(input: {
   const files = await Promise.all(
     input.paths.map(async (rawPath) => {
       const name = basenamePath(rawPath);
+      if (isExpertMentionPath(rawPath)) {
+        const runtimePath = stripExpertRuntimePath(rawPath);
+        if (runtimePath) {
+          try {
+            const result = await input.client.downloadExpertSessionFile(
+              input.workspaceId,
+              runtimePath,
+            );
+            return new File([new Uint8Array(result.data)], name, {
+              type: mimeForWorkspaceFile(runtimePath, result.contentType),
+            });
+          } catch {
+            // Fall through to workspace copies if the same file was mirrored.
+          }
+        }
+      }
+
       if (isElectronRuntime()) {
         if (!workspaceRoot) {
           throw new Error("workspace root is required");
