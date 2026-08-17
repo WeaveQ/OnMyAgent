@@ -99,6 +99,7 @@ import {
   createCodeWorkspaceActions,
   parseEditorTarget,
   resolveEditorCommand,
+  spawnDetachedDesktopCommand,
 } from "./code-workspace-actions.mjs";
 import { createElectronBrowserController } from "./browser-runtime/electron-browser-controller.mjs";
 import { createUiControlServer } from "./ui-control-server.mjs";
@@ -134,6 +135,7 @@ import {
   envFlagEnabled,
   execResult,
   forwardedDeepLinks,
+  isNonFatalDesktopSpawnError,
   isTransientNetworkError,
   normalizeDesktopBootstrapConfig,
   normalizeWorkspaceEntry,
@@ -154,8 +156,8 @@ import { createDesktopWorkspaceStore } from "./desktop-workspace-state.mjs";
 
 process.on("unhandledRejection", (reason) => {
   const error = reason instanceof Error ? reason : new Error(String(reason));
-  if (isTransientNetworkError(error)) {
-    console.warn("[main] unhandledRejection (network, ignored):", error.message);
+  if (isTransientNetworkError(error) || isNonFatalDesktopSpawnError(error)) {
+    console.warn("[main] unhandledRejection (ignored):", error.message);
     return;
   }
   console.error("[main] unhandledRejection:", error?.stack ?? error);
@@ -163,15 +165,15 @@ process.on("unhandledRejection", (reason) => {
 
 process.on("uncaughtException", (error) => {
   try {
-    if (isTransientNetworkError(error)) {
-      console.warn("[main] uncaughtException (network, kept alive):", error?.message ?? error);
+    if (isTransientNetworkError(error) || isNonFatalDesktopSpawnError(error)) {
+      console.warn("[main] uncaughtException (kept alive):", error?.message ?? error);
       return;
     }
     console.error("[main] uncaughtException:", error?.stack ?? error);
   } catch {
     // Never let the guard itself crash the process.
   }
-  if (isTransientNetworkError(error)) return;
+  if (isTransientNetworkError(error) || isNonFatalDesktopSpawnError(error)) return;
   // Non-transient: let the app terminate rather than run in a corrupted state.
   try {
     if (typeof app?.exit === "function") app.exit(1);
@@ -1025,21 +1027,24 @@ ipcMain.handle("onmyagent:dev:openInEditor", async (_event, request) => {
     : path.resolve(workspaceRoot, parsedTarget.path);
   const resolvedPath = existsSync(targetPath) ? realpathSync(targetPath) : path.normalize(targetPath);
   const editorCommand = resolveEditorCommand();
+  if (!editorCommand) {
+    const openError = await shell.openPath(resolvedPath);
+    return {
+      ok: !openError,
+      path: resolvedPath,
+      command: "shell.openPath",
+      args: [resolvedPath],
+      reason: openError || undefined,
+    };
+  }
   const editorArgs = ["-g", `${resolvedPath}${parsedTarget.line ? `:${parsedTarget.line}${parsedTarget.column ? `:${parsedTarget.column}` : ""}` : ""}`];
-  const fallbackCommand = editorCommand ?? "open";
-  const fallbackArgs = editorCommand ? editorArgs : [resolvedPath];
-
-  const child = spawn(fallbackCommand, fallbackArgs, {
-    detached: true,
-    stdio: "ignore",
-  });
-  child.unref();
-
+  const launched = await spawnDetachedDesktopCommand(editorCommand, editorArgs);
   return {
-    ok: true,
+    ok: launched.ok,
     path: resolvedPath,
-    command: fallbackCommand,
-    args: fallbackArgs,
+    command: launched.command || editorCommand,
+    args: editorArgs,
+    reason: launched.ok ? undefined : launched.error || "Failed to launch editor.",
   };
 });
 ipcMain.handle("onmyagent:system:architecture", async () =>

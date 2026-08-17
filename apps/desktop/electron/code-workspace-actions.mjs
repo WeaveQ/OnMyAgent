@@ -5,7 +5,7 @@ import { unlink } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { buildWindowsCmdSpawnSpec, isWindowsCmdShim } from "./personal-agent-runtime/windows-spawn.mjs";
+import { buildWindowsCmdSpawnSpec, isWindowsCmdShim, resolveWindowsAwareSpawnSpec } from "./personal-agent-runtime/windows-spawn.mjs";
 
 let runtimeManager = null;
 let shell = null;
@@ -113,10 +113,60 @@ export function resolveWindowsTerminalLaunch(workspacePath, options = {}) {
 
 export function resolveEditorCommand() {
   const configured = process.env.ONMYAGENT_EDITOR || process.env.VISUAL || process.env.EDITOR;
-  if (configured && commandExists(configured)) return configured;
-  if (commandExists("cursor")) return "cursor";
-  if (commandExists("code")) return "code";
-  return null;
+  if (configured) {
+    const resolved = commandPath(configured) || (commandExists(configured) ? configured : null);
+    if (resolved) return resolved;
+  }
+  return (
+    commandPath("cursor") ||
+    commandPath("cursor.cmd") ||
+    commandPath("cursor.exe") ||
+    commandPath("code") ||
+    commandPath("code.cmd") ||
+    commandPath("code.exe") ||
+    null
+  );
+}
+
+/**
+ * Launch an editor/terminal without crashing Electron when the binary is missing.
+ * Windows .cmd shims and bare names go through cmd.exe.
+ */
+export function spawnDetachedDesktopCommand(command, args = []) {
+  return new Promise((resolve) => {
+    const spec = resolveWindowsAwareSpawnSpec(command, args);
+    let settled = false;
+    const settle = (result) => {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    };
+    try {
+      const child = spawn(spec.command, spec.args, {
+        detached: true,
+        stdio: "ignore",
+        windowsHide: true,
+        windowsVerbatimArguments: spec.windowsVerbatimArguments,
+      });
+      child.once("error", (error) => {
+        settle({
+          ok: false,
+          command: spec.command,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+      child.once("spawn", () => {
+        child.unref();
+        settle({ ok: true, command: spec.command, error: null });
+      });
+    } catch (error) {
+      settle({
+        ok: false,
+        command: spec.command,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
 }
 
 function commandPath(command) {
@@ -670,20 +720,19 @@ async function openCodeWorkspace(input = {}) {
       command = "open";
       args = ["-a", target.macOpenName, resolvedWorkspacePath];
     } else {
-      command = resolvedTarget.command;
+      command = resolvedTarget.path || resolvedTarget.command;
       args = [resolvedWorkspacePath];
     }
   }
 
-  const child = spawn(command, args, { detached: true, stdio: "ignore" });
-  child.unref();
+  const launched = await spawnDetachedDesktopCommand(command, args);
   return {
-    ok: true,
+    ok: launched.ok,
     targetId,
     workspacePath: resolvedWorkspacePath,
-    command,
+    command: launched.command || command,
     args,
-    reason: null,
+    reason: launched.ok ? null : launched.error || "Failed to launch the selected application.",
   };
 }
 
