@@ -1,17 +1,22 @@
 /**
  * Task Supervisor vs interactive Personal persist e2e (no live model, no Electron window).
  *
- * Constructs the shipped Supervisor service and desktop Personal services against
- * an isolated userData sandbox, then asserts conversations / run logs / orphan
- * reconcile stay on disjoint trees while managed ACP stays on interactive
- * runtime-state.
+ * Constructs the shipped Supervisor runtime + service and desktop Personal
+ * services against an isolated userData sandbox, then asserts conversations /
+ * run logs / orphan reconcile stay on disjoint trees while managed ACP stays
+ * on interactive runtime-state.
+ *
+ * Supervisor writes go through `personalAgentRuntime.createConversation` (the
+ * same handle Task Orchestrator receives). Run logs use `ensureRunLogPath`
+ * after that runtime has configured the persist global — the same helper
+ * persistRun uses internally. Heartbeat is closed before any persist flip.
  */
 import assert from "node:assert/strict";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { after, describe, test } from "node:test";
 
-import { conversationFile, createConversation } from "../personal-agent-runtime/conversation-store.mjs";
+import { conversationFile } from "../personal-agent-runtime/conversation-store.mjs";
 import { managedAcpToolRoot } from "../personal-agent-runtime/managed-acp-tools.mjs";
 import { createOrphanReconcile } from "../personal-agent-runtime/orphan-reconcile.mjs";
 import {
@@ -20,18 +25,22 @@ import {
 } from "../personal-agent-runtime/process-registry.mjs";
 import {
   configurePersonalAgentRuntimeState,
+  resetPersonalAgentRuntimeState,
   resolveInteractivePersonalRuntimeStateRoot,
   resolveTaskSupervisorPersonalAssistantRoot,
 } from "../personal-agent-runtime/runtime-state.mjs";
 import { ensureRunLogPath } from "../personal-agent-runtime/workdir.mjs";
 import { createDesktopPersonalRuntimeServices } from "../personal-runtime-services.mjs";
-import { createTaskSupervisorService } from "../task-supervisor/service.mjs";
+import {
+  createTaskSupervisorPersonalRuntime,
+  createTaskSupervisorService,
+} from "../task-supervisor/service.mjs";
 import { createDesktopE2eSandbox } from "./sandbox.mjs";
 
 const roots = [];
 
 after(async () => {
-  configurePersonalAgentRuntimeState({ userDataDir: "" });
+  resetPersonalAgentRuntimeState();
   configureProcessRegistry({ filePath: null, namespace: "personal-agent-runtime" });
   while (roots.length) {
     await rm(roots.pop(), { recursive: true, force: true });
@@ -79,18 +88,26 @@ describe("desktop task persist isolation e2e", () => {
     const isolatedAssistant = resolveTaskSupervisorPersonalAssistantRoot(userDataDir);
     const interactiveAssistant = interactiveAssistantRoot(userDataDir);
 
+    const supervisorRuntime = createTaskSupervisorPersonalRuntime({
+      userDataDir,
+      deferStartupReconcileMs: 60_000,
+    });
     const supervisor = await createTaskSupervisorService({
       userDataDir,
+      personalAgentRuntime: supervisorRuntime,
       maintenanceEnabled: false,
       deferStartupReconcileMs: 60_000,
     });
     let supervisorConversationId = "";
     let supervisorLog = "";
+    let mainLog = "";
     try {
-      const supervisorConv = await createConversation(workspace, "codex", "codex", {
+      const supervisorCreated = await supervisorRuntime.createConversation({
+        workspaceRoot: workspace,
+        agent: { provider: "codex", id: "codex" },
         title: "Task Supervisor e2e",
       });
-      supervisorConversationId = supervisorConv.id;
+      supervisorConversationId = supervisorCreated.conversation.id;
       supervisorLog = await writeRunningLog(workspace, "sup-e2e-run");
       const supervisorConvFile = conversationFile(workspace, "codex", "codex");
       const acp = managedAcpToolRoot("codex");
@@ -137,7 +154,7 @@ describe("desktop task persist isolation e2e", () => {
         agent: { provider: "codex", id: "codex" },
         title: "Interactive e2e",
       });
-      const mainLog = await writeRunningLog(workspace, "main-e2e-run");
+      mainLog = await writeRunningLog(workspace, "main-e2e-run");
       const mainConvFile = conversationFile(workspace, "codex", "codex");
 
       assert.ok(
@@ -169,19 +186,25 @@ describe("desktop task persist isolation e2e", () => {
       assert.match(mainAfterMainReconcile, /"status":"failed"/);
       assert.match(supervisorAfterMainReconcile, /"status":"running"/);
       assert.doesNotMatch(supervisorAfterMainReconcile, /"status":"failed"/);
+    } finally {
+      await services.personalAgentHeartbeatScheduler.close();
+      await services.personalAgentRuntime.close();
+    }
 
-      configurePersonalAgentRuntimeState({
-        userDataDir,
-        personalAssistantRoot: isolatedAssistant,
-      });
+    resetPersonalAgentRuntimeState();
+    configureProcessRegistry({ filePath: null, namespace: "personal-agent-runtime" });
+    configurePersonalAgentRuntimeState({
+      userDataDir,
+      personalAssistantRoot: isolatedAssistant,
+    });
+    try {
       await createOrphanHarness(userDataDir).reconcileOrphanRuns();
       const supervisorAfterIsolatedReconcile = await readFile(supervisorLog, "utf8");
       const mainAfterIsolatedReconcile = await readFile(mainLog, "utf8");
       assert.match(supervisorAfterIsolatedReconcile, /"status":"failed"/);
       assert.match(mainAfterIsolatedReconcile, /"status":"failed"/);
     } finally {
-      await services.personalAgentRuntime.close();
-      await services.personalAgentHeartbeatScheduler.close();
+      resetPersonalAgentRuntimeState();
     }
   });
 });

@@ -30,6 +30,57 @@ async function readJson(filePath, fallback = null) {
 }
 
 /**
+ * Same Personal runtime the Supervisor constructs. Tests inject this instance
+ * and write through `createConversation` so persist isolation is locked on
+ * the shipped runtime API, not the module-global store helpers.
+ */
+export function createTaskSupervisorPersonalRuntime(options = {}) {
+  const configuredUserDataDir = String(options.userDataDir ?? "").trim();
+  if (!configuredUserDataDir) throw new Error("Task Supervisor userDataDir is required");
+  const userDataDir = path.resolve(configuredUserDataDir);
+  const runtimeStatePath = path.join(userDataDir, "onmyagent-server-state.json");
+  const tokenStorePath = path.join(userDataDir, "onmyagent-server-tokens.json");
+  const legacy = options.legacy ?? createPersonalAgentLegacyHarness({
+    runtimePathEntries: () => [],
+  });
+  return createPersonalAgentRuntime({
+    userDataDir,
+    personalAssistantRoot: resolveTaskSupervisorPersonalAssistantRoot(userDataDir),
+    legacy,
+    // Isolate Task persist (runs / conversations) only. Shared runtime-state
+    // keeps managed ACP / extensions resolvable from the interactive install.
+    processRegistryFile: path.join(
+      resolveTaskSupervisorPersonalRuntimeStateRoot(userDataDir),
+      "personal-agent-process-registry.json",
+    ),
+    processRegistryNamespace: "task-supervisor",
+    deferStartupReconcileMs: Number(options.deferStartupReconcileMs ?? 0),
+    engineInfo: options.engineInfo ?? (async () => {
+      // The main process owns the engine lifecycle.  The Supervisor only needs
+      // a read-only endpoint/token view to connect provider adapters.
+      const state = await readJson(runtimeStatePath, {});
+      return {
+        baseUrl: state?.engine?.baseUrl ?? null,
+        projectDir: state?.engine?.projectDir ?? null,
+        opencodeUsername: state?.engine?.opencodeUsername ?? null,
+        opencodePassword: state?.engine?.opencodePassword ?? null,
+      };
+    }),
+    onmyagentServerInfo: options.onmyagentServerInfo ?? (async () => {
+      const state = await readJson(runtimeStatePath, {});
+      if (state?.baseUrl || state?.clientToken || state?.ownerToken) return state;
+      const tokens = await readJson(tokenStorePath, {});
+      const first = Object.values(tokens?.workspaces ?? {})[0] ?? {};
+      return {
+        baseUrl: null,
+        clientToken: first.clientToken ?? null,
+        ownerToken: first.ownerToken ?? null,
+      };
+    }),
+  });
+}
+
+/**
  * Build the Personal runtime inside the detached Supervisor.  The Electron
  * window process deliberately does not pass runtime closures across IPC.
  * Runtime state that is safe to share (the local server endpoint/token) is
@@ -45,46 +96,8 @@ export async function createTaskSupervisorService(options = {}) {
   const userDataDir = path.resolve(configuredUserDataDir);
   const structuredLog = options.structuredLog;
   const supervisorEpoch = String(options.supervisorEpoch ?? randomSupervisorEpoch());
-  const runtimeStatePath = path.join(userDataDir, "onmyagent-server-state.json");
-  const tokenStorePath = path.join(userDataDir, "onmyagent-server-tokens.json");
-  const legacy = options.legacy ?? createPersonalAgentLegacyHarness({
-    runtimePathEntries: () => [],
-  });
-  const personalAgentRuntime = options.personalAgentRuntime ?? createPersonalAgentRuntime({
-    userDataDir,
-    personalAssistantRoot: resolveTaskSupervisorPersonalAssistantRoot(userDataDir),
-    legacy,
-    // Isolate Task persist (runs / conversations) only. Shared runtime-state
-    // keeps managed ACP / extensions resolvable from the interactive install.
-    processRegistryFile: path.join(
-      resolveTaskSupervisorPersonalRuntimeStateRoot(userDataDir),
-      "personal-agent-process-registry.json",
-    ),
-    processRegistryNamespace: "task-supervisor",
-    deferStartupReconcileMs: Number(options.deferStartupReconcileMs ?? 0),
-    engineInfo: async () => {
-      // The main process owns the engine lifecycle.  The Supervisor only needs
-      // a read-only endpoint/token view to connect provider adapters.
-      const state = await readJson(runtimeStatePath, {});
-      return {
-        baseUrl: state?.engine?.baseUrl ?? null,
-        projectDir: state?.engine?.projectDir ?? null,
-        opencodeUsername: state?.engine?.opencodeUsername ?? null,
-        opencodePassword: state?.engine?.opencodePassword ?? null,
-      };
-    },
-    onmyagentServerInfo: async () => {
-      const state = await readJson(runtimeStatePath, {});
-      if (state?.baseUrl || state?.clientToken || state?.ownerToken) return state;
-      const tokens = await readJson(tokenStorePath, {});
-      const first = Object.values(tokens?.workspaces ?? {})[0] ?? {};
-      return {
-        baseUrl: null,
-        clientToken: first.clientToken ?? null,
-        ownerToken: first.ownerToken ?? null,
-      };
-    },
-  });
+  const personalAgentRuntime = options.personalAgentRuntime
+    ?? createTaskSupervisorPersonalRuntime(options);
   const store = options.store ?? (typeof options.storeFactory === "function"
     ? await options.storeFactory({ userDataDir, supervisorEpoch })
     : undefined);

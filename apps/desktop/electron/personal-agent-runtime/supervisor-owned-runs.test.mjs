@@ -16,7 +16,9 @@ import {
   configurePersonalAgentRuntimeState,
   personalAgentRoot,
   personalAgentRootAt,
+  personalAgentRuntimeStateRoot,
   personalAssistantRoot,
+  resetPersonalAgentRuntimeState,
   resolveInteractivePersonalRuntimeStateRoot,
   resolveTaskSupervisorPersonalAssistantRoot,
   resolveTaskSupervisorPersonalRuntimeStateRoot,
@@ -202,6 +204,23 @@ describe("supervisor-owned run skip", () => {
     assert.ok(!mainPersist.startsWith(`${supervisorPersist}${path.sep}`));
   });
 
+  it("resetPersonalAgentRuntimeState clears persist and runtimeStateRoot overrides", () => {
+    const userDataDir = path.join("/onmyagent-user-data", "reset-globals");
+    configurePersonalAgentRuntimeState({
+      userDataDir,
+      personalAssistantRoot: resolveTaskSupervisorPersonalAssistantRoot(userDataDir),
+    });
+    try {
+      assert.match(personalAgentRuntimeStateRoot(), /[/\\]runtime-state$/);
+      assert.match(personalAssistantRoot(), /[/\\]task-center-supervisor[/\\]personal-assistant$/);
+      resetPersonalAgentRuntimeState();
+      assert.doesNotMatch(personalAgentRuntimeStateRoot(), /onmyagent-user-data/);
+      assert.doesNotMatch(personalAssistantRoot(), /task-center-supervisor/);
+    } finally {
+      resetPersonalAgentRuntimeState();
+    }
+  });
+
   it("keeps managed ACP on interactive runtime-state when Supervisor persist is isolated", () => {
     const userDataDir = path.join("/onmyagent-user-data", "shared-acp");
     const workspace = "/Users/demo/project";
@@ -217,7 +236,7 @@ describe("supervisor-owned run skip", () => {
       assert.match(acp, /[/\\]runtime-state[/\\]managed-resources[/\\]acp[/\\]/);
       assert.doesNotMatch(acp, /task-center-supervisor/);
     } finally {
-      configurePersonalAgentRuntimeState({ userDataDir });
+      resetPersonalAgentRuntimeState();
     }
   });
 
@@ -232,6 +251,7 @@ describe("supervisor-owned run skip", () => {
     assert.match(reconcileSource, /supervisorRegistryReadable/);
     assert.match(reconcileSource, /personalRunWorkspacesRoot\(/);
     assert.doesNotMatch(reconcileSource, /personalAgentRuntimeStateRoot\(\)/);
+    assert.match(supervisorSource, /export function createTaskSupervisorPersonalRuntime/);
     assert.match(supervisorSource, /personalAssistantRoot:\s*resolveTaskSupervisorPersonalAssistantRoot\(/);
     assert.doesNotMatch(supervisorSource, /runtimeStateRoot:\s*resolveTaskSupervisorPersonalRuntimeStateRoot\(/);
     assert.match(supervisorSource, /resolveTaskSupervisorPersonalRuntimeStateRoot\(/);

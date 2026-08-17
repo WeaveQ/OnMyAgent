@@ -37,9 +37,9 @@ export function resolveTaskSupervisorPersonalAssistantRoot(userDataDir) {
 }
 
 export function configurePersonalAgentRuntimeState(options = {}) {
-  const root = String(options.runtimeStateRoot ?? "").trim();
-  if (root) {
-    configuredRuntimeStateRoot = path.resolve(root);
+  if (Object.prototype.hasOwnProperty.call(options, "runtimeStateRoot")) {
+    const root = String(options.runtimeStateRoot ?? "").trim();
+    configuredRuntimeStateRoot = root ? path.resolve(root) : "";
   } else {
     const userDataDir = String(options.userDataDir ?? "").trim();
     if (userDataDir) {
@@ -49,6 +49,14 @@ export function configurePersonalAgentRuntimeState(options = {}) {
   const persist = String(options.personalAssistantRoot ?? "").trim();
   configuredPersonalAssistantRoot = persist ? path.resolve(persist) : "";
   return personalAgentRuntimeStateRoot();
+}
+
+/** Clear process-global persist overrides so later `node --test` files see defaults. */
+export function resetPersonalAgentRuntimeState() {
+  configuredRuntimeStateRoot = process.env.ONMYAGENT_PERSONAL_AGENT_RUNTIME_STATE_ROOT
+    ? path.resolve(process.env.ONMYAGENT_PERSONAL_AGENT_RUNTIME_STATE_ROOT)
+    : "";
+  configuredPersonalAssistantRoot = "";
 }
 
 export function personalAgentRuntimeStateRoot() {
