@@ -46,7 +46,7 @@ describe("icon asset cleanup contracts", () => {
     expect(hits).toEqual([]);
   });
 
-  test("main rail uses the transparent boot mark; welcome keeps the webp wordmark", () => {
+  test("rail and welcome hero use the transparent boot mark; ambient watermark keeps webp", () => {
     const webp = resolve(root, "apps/app/public/onmyagent-logo.webp");
     const bootMark = resolve(root, "apps/app/public/onmyagent-boot-mark.png");
     expect(existsSync(webp)).toBe(true);
@@ -66,7 +66,9 @@ describe("icon asset cleanup contracts", () => {
     );
     expect(rail).toContain("onmyagent-boot-mark.png");
     expect(rail).not.toContain("onmyagent-logo.webp");
+    expect(welcome).toContain("onmyagent-boot-mark.png");
     expect(welcome).toContain("onmyagent-logo.webp");
+    expect(welcome).not.toContain("dark:block");
   });
 
   test("heavy product assets stay under post-cleanup size caps", () => {
