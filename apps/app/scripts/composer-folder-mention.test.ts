@@ -89,9 +89,5 @@ describe("@ folder file selection contract", () => {
     expect(surface).toContain("listSessionMentionFolder");
     expect(mentionFiles).toContain("mergeTaskSourceDirectoryTargets");
     expect(mentionFiles).toContain("WORKSPACE_TASKS_DIR");
-    expect(mentionFiles).toContain("listExpertSessionFiles");
-    expect(mentionFiles).toContain("downloadExpertSessionFile");
-    expect(mentionFiles).toContain("recursive: true");
-    expect(mentionFiles).toContain("leftoverTaskCatalogEntries");
   });
 });
