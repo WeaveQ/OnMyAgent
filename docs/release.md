@@ -1,6 +1,6 @@
 # Release Process
 
-**Source of truth** for PR merge → tag → GitHub Release → signing / notarize / sidecar publish.
+**Source of truth** for PR merge → tag → GitHub Release → signing / notarize / sidecar publish / OSS update feed.
 
 Local `package:electron` smoke only: see [`../BUILD.md`](../BUILD.md). Full doc map: [`README.md`](README.md).
 
@@ -17,7 +17,20 @@ Packaged desktop builds use **electron-updater** (`apps/desktop/electron/updater
 - On **Linux**, in **dev/unpackaged** builds, or if electron-updater fails to initialize, the fallback fetches the same OSS yaml and opens the matching installer URL in a browser.
 - IPC payloads carry a `platformFlow` (`"in-app"` | `"open-browser"`) so the renderer shows a progress bar + restart button for in-app builds, and an "open release page" button for the fallback.
 
-For differential downloads, keep publishing `latest.yml` / `latest-mac.yml` plus blockmaps next to the installers on OSS (same filenames as the GitHub Release assets). Overwrite the two yaml files each release; put versioned artifacts under `onmyagent/<version>/` and point `url` at those relative paths.
+OSS is the customer download/update channel. **Prereleases never sync.** Only a published GitHub Release that is **not** marked pre-release updates OSS (`latest.yml` / website-download). Ways that happens:
+
+- `Release App` with `prerelease: false` (and not left as a draft)
+- Uncheck **Set as a pre-release** on an existing GitHub Release (fires `released`; workflow **Sync OSS on GitHub Release**)
+
+`Release App` with the usual `prerelease: true` still publishes GitHub assets for testers, but does **not** overwrite the OSS feed. When a full release does sync, the job:
+
+- uploads installers + blockmaps to `onmyagent/<version>/`
+- rewrites `latest.yml` / `latest-mac.yml` `url` values to `<version>/<filename>` (sha512 / size unchanged) and overwrites the two pointers at `onmyagent/`
+- overwrites the stable website copies at `onmyagent/website-download/` (`onmyagent-mac-arm64.dmg`, `onmyagent-mac-x64.dmg`, `onmyagent-win-x64.exe`)
+
+Old version prefixes are left in place. Put `OSS_ACCESS_KEY_ID` and `OSS_ACCESS_KEY_SECRET` in **GitHub Actions secrets** (repo **Settings → Secrets and variables → Actions**), never in git, workflow YAML, or local files. RAM user only needs `oss:PutObject` + `oss:GetObject` on `weaveq-onmyagent/onmyagent/*`. Optional env overrides (also not required in git): `OSS_BUCKET`, `OSS_ENDPOINT`, `OSS_PREFIX`.
+
+For differential downloads, keep publishing `latest.yml` / `latest-mac.yml` plus blockmaps. Overwrite the two yaml files each release; put versioned artifacts under `onmyagent/<version>/` and point `url` at those relative paths.
 
 #### macOS unsigned preview caveat
 
@@ -201,6 +214,8 @@ Use this flow before Apple signing and notarization are configured.
    - `latest-mac.yml` (macOS auto-update metadata)
    - `latest.yml` (Windows auto-update metadata)
 
+   After those assets exist, OSS sync runs only when the GitHub Release is a full (non-prerelease) release. Preview cuts (`prerelease: true`) stay on GitHub. The job fails the workflow if OSS secrets are missing or upload/verify fails.
+
 ## Production Release Requirements
 
 macOS release signing identity is the repository secret `CSC_NAME`. Do not commit the common name, Team ID, or certificate fingerprint.
@@ -220,6 +235,8 @@ Before publishing a stable public release, configure Apple signing and notarizat
 - `APPLE_NOTARY_API_KEY_P8_BASE64`
 - `APPLE_NOTARY_API_KEY_ID`
 - `APPLE_NOTARY_API_ISSUER_ID`
+- `OSS_ACCESS_KEY_ID`
+- `OSS_ACCESS_KEY_SECRET`
 
 Then run `Release App` with:
 

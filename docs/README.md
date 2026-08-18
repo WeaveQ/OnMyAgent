@@ -28,7 +28,7 @@
 docs/
   README.md                 ← this map
   Architecture.md           ← monorepo / runtime / commands / boundaries
-  release.md                ← GitHub release / tags / signing
+  release.md                ← GitHub release / tags / signing / OSS update feed
   officecli-oss-release.md  ← OfficeCLI optional plugin OSS layout / validation
   loop/
     rules.md                ← non-trivial Loop / ledger / kill switch / graphify
