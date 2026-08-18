@@ -917,3 +917,9 @@ body.oma-zoom-open {
     max-width: 100%;
   }
 }
+
+/* One language control only: nav EN / 中文. Hide VitePress's extra 文 menu. */
+.VPNavBarTranslations,
+.VPNavScreenTranslations {
+  display: none !important;
+}
