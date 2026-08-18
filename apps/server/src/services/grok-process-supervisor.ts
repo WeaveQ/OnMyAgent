@@ -47,6 +47,7 @@ export class GrokProcessSupervisor {
   readonly #onRequest: (method: string, params: unknown) => Promise<unknown>;
   readonly #onNotification: (method: string, params: unknown) => void;
   readonly #onDiagnostic: (diagnostic: GrokProcessDiagnostic) => void;
+  #draining = false;
 
   constructor(input: {
     spawnProcess?: SpawnProcess;
@@ -60,32 +61,58 @@ export class GrokProcessSupervisor {
     this.#onDiagnostic = input.onDiagnostic ?? (() => undefined);
   }
 
+  get draining(): boolean {
+    return this.#draining;
+  }
+
+  beginDrain(): void {
+    this.#draining = true;
+  }
+
   start(key: GrokProcessKey, policy: GrokProcessPolicy): Promise<GrokProcessHandle> {
     const id = processKey(key);
     const active = this.#active.get(id);
     if (active?.isAlive()) return Promise.resolve(active);
     if (active) this.#active.delete(id);
+    if (this.#draining) return Promise.reject(grokRuntimeDraining());
     const pending = this.#inflight.get(id);
     if (pending) return pending;
-    const start = this.#start(key, policy, () => this.#active.delete(id)).then((handle) => {
+    const start = this.#start(key, policy, () => this.#active.delete(id)).then(async (handle) => {
+      if (this.#draining) {
+        await handle.stop();
+        throw grokRuntimeDraining();
+      }
       this.#active.set(id, handle);
       return handle;
     }).finally(() => this.#inflight.delete(id));
     this.#inflight.set(id, start);
+    if (this.#draining) {
+      return start.then(async (handle) => {
+        await handle.stop();
+        throw grokRuntimeDraining();
+      });
+    }
     return start;
   }
 
   async stopAll(): Promise<void> {
-    const startingChildren = [...this.#children];
-    await Promise.all(startingChildren.map((child) => terminateProcessTree(child, 0)));
-    const pending = await Promise.allSettled(this.#inflight.values());
-    const handles = new Set(this.#active.values());
-    for (const item of pending) if (item.status === "fulfilled") handles.add(item.value);
-    await Promise.all([...handles].map((handle) => handle.stop()));
-    this.#active.clear();
+    this.beginDrain();
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      if (this.#children.size === 0 && this.#inflight.size === 0 && this.#active.size === 0) {
+        return;
+      }
+      const startingChildren = [...this.#children];
+      await Promise.all(startingChildren.map((child) => terminateProcessTree(child, 0)));
+      const pending = await Promise.allSettled(this.#inflight.values());
+      const handles = new Set(this.#active.values());
+      for (const item of pending) if (item.status === "fulfilled") handles.add(item.value);
+      await Promise.all([...handles].map((handle) => handle.stop()));
+      this.#active.clear();
+    }
   }
 
   async #start(key: GrokProcessKey, policy: GrokProcessPolicy, onClosed: () => void): Promise<GrokProcessHandle> {
+    if (this.#draining) throw grokRuntimeDraining();
     const command = requireValue(policy.binaryPath, "binaryPath");
     const cwd = requireValue(key.workspaceRoot, "workspaceRoot");
     const args = ["--no-auto-update", "--permission-mode", "default", "agent"];
@@ -101,6 +128,10 @@ export class GrokProcessSupervisor {
       },
     });
     this.#children.add(child);
+    if (this.#draining) {
+      await terminateProcessTree(child, 0);
+      throw grokRuntimeDraining();
+    }
     const transport = new GrokAcpTransport({
       child,
       onRequest: this.#onRequest,
@@ -181,6 +212,10 @@ function defaultSpawn(input: Parameters<SpawnProcess>[0]): ChildProcessWithoutNu
     windowsHide: true,
     detached: process.platform !== "win32",
   });
+}
+
+function grokRuntimeDraining(): ApiError {
+  return new ApiError(503, "grok_runtime_draining", "Grok runtime is shutting down");
 }
 
 function processKey(key: GrokProcessKey): string {

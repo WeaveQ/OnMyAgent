@@ -92,6 +92,14 @@ describe("grok closeout raw-evidence predicates", () => {
     writeJson("a1.json", { text: "PONG2 attached notes.md" });
     writeFileSync(join(repoRoot, "a1.png"), "png");
     writeJson("delete.json", { deleteClicked: true });
+    writeJson("compact.json", {
+      newUpdates: [
+        { params: { update: { sessionUpdate: "compaction_checkpoint" } } },
+        { params: { update: { sessionUpdate: "auto_compact_completed" } } },
+        { params: { update: { sessionUpdate: "turn_completed" } } },
+      ],
+    });
+    writeJson("inventory-after.json", { binding: false, nativeDir: null });
     const expertDom = writeJson("c9-expert-ok.json", {
       text: "爆款选题策划专家\n好的，这是选题建议。",
     });
@@ -108,8 +116,10 @@ describe("grok closeout raw-evidence predicates", () => {
         }],
         assertions: { deleteSemantics: true },
         details: {
+          compact: { ok: true, sidecar: "compact.json" },
           deleteSidecar: "delete.json",
           deleteClicked: true,
+          afterDelete: { inventoryAfter: "inventory-after.json" },
           restore2: { text: "PONG2 attached notes.md" },
         },
       },
@@ -169,5 +179,64 @@ describe("grok closeout raw-evidence predicates", () => {
     const result = evaluateElectronRawEvidence(smoke, import.meta.dir);
     expect(result.ok).toBe(false);
     expect(result.reasons.join(" ")).toMatch(/Runtime command failed|deleteClicked is false/);
+  });
+
+  test("rejects claimed compact when the sidecar is missing or has no native completion events", () => {
+    writeJson("delete-ok.json", { deleteClicked: true });
+    writeJson("inventory-ok.json", { binding: false, nativeDir: null });
+    writeJson("compact-summary-only.json", {
+      completedEvent: "compaction_checkpoint+auto_compact_completed+turn_completed",
+    });
+    const missing = evaluateElectronRawEvidence({
+      assertions: { deleteSemantics: true },
+      details: {
+        compact: { ok: true, sidecar: "missing-compact.json" },
+        deleteSidecar: "delete-ok.json",
+        afterDelete: { inventoryAfter: "inventory-ok.json" },
+        deleteClicked: true,
+      },
+    }, repoRoot);
+    expect(missing.ok).toBe(false);
+    expect(missing.reasons.join(" ")).toMatch(/independent compact sidecar is missing/);
+
+    const summaryOnly = evaluateElectronRawEvidence({
+      assertions: { deleteSemantics: true },
+      details: {
+        compact: { ok: true, sidecar: "compact-summary-only.json" },
+        deleteSidecar: "delete-ok.json",
+        afterDelete: { inventoryAfter: "inventory-ok.json" },
+        deleteClicked: true,
+      },
+    }, repoRoot);
+    expect(summaryOnly.ok).toBe(false);
+    expect(summaryOnly.reasons.join(" ")).toMatch(/missing native compaction_checkpoint|missing native auto_compact_completed|missing native turn_completed/);
+  });
+
+  test("rejects deleteSemantics when inventory-after is missing or still has a native dir", () => {
+    writeJson("delete-click.json", { deleteClicked: true });
+    const missingInventory = evaluateElectronRawEvidence({
+      assertions: { deleteSemantics: true },
+      details: {
+        deleteSidecar: "delete-click.json",
+        deleteClicked: true,
+      },
+    }, repoRoot);
+    expect(missingInventory.ok).toBe(false);
+    expect(missingInventory.reasons.join(" ")).toMatch(/independent inventory-after sidecar is missing/);
+
+    writeJson("inventory-still-there.json", {
+      binding: true,
+      nativeDir: "/tmp/native-session",
+    });
+    const stillThere = evaluateElectronRawEvidence({
+      assertions: { deleteSemantics: true },
+      details: {
+        deleteSidecar: "delete-click.json",
+        afterDelete: { inventoryAfter: "inventory-still-there.json" },
+        deleteClicked: true,
+      },
+    }, repoRoot);
+    expect(stillThere.ok).toBe(false);
+    expect(stillThere.reasons.join(" ")).toMatch(/binding:false|nativeDir/);
   });
 });

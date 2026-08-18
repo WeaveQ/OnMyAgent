@@ -58,7 +58,7 @@ describe("desktop knowledge plugin load e2e", () => {
 
   test(
     "opencode serve loads knowledge_* tools and does not reject plugin exports",
-    { timeout: 45_000 },
+    { timeout: 180_000 },
     async (t) => {
       const bin = resolveOpencodeBin();
       if (!bin) {

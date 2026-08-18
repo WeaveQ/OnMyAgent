@@ -39,6 +39,49 @@ export const HOME_CONFIG_SLASH_SKILL_NAMES = Object.freeze([
 export const OPENCODE_SANDBOX_DIR_NAME = "opencode-sandbox";
 
 /**
+ * OpenCode starts a background dependency reconcile for every config
+ * directory. Managed sandboxes only use product-owned local plugins, so an
+ * empty node_modules plus a lockfile entry prevents that reconcile from
+ * reaching the network (and retrying forever when offline).
+ *
+ * @param {string} configDir
+ */
+async function ensureLocalPluginDependencyState(configDir) {
+  const root = String(configDir ?? "").trim();
+  if (!root) return;
+  const nodeModules = path.join(root, "node_modules");
+  const packageJson = path.join(root, "package.json");
+  const packageLock = path.join(root, "package-lock.json");
+  await mkdir(nodeModules, { recursive: true });
+  if (!existsSync(packageJson)) {
+    await writeFile(
+      packageJson,
+      `${JSON.stringify({ private: true, dependencies: { "@opencode-ai/plugin": "*" } }, null, 2)}\n`,
+      "utf8",
+    );
+  }
+  if (!existsSync(packageLock)) {
+    await writeFile(
+      packageLock,
+      `${JSON.stringify(
+        {
+          name: "onmyagent-opencode-sandbox",
+          private: true,
+          lockfileVersion: 3,
+          requires: true,
+          packages: {
+            "": { dependencies: { "@opencode-ai/plugin": "*" } },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+  }
+}
+
+/**
  * @param {string} userDataDir
  */
 export function resolveOpencodeSandboxRoot(userDataDir) {
@@ -100,6 +143,7 @@ export function buildSandboxOpencodeConfig(source) {
  * @param {{
  *   userDataDir: string,
  *   realHomeDir?: string,
+ *   installKnowledgePlugins?: boolean,
  * }} input
  */
 export async function prepareOpencodeSandboxHome(input) {
@@ -135,22 +179,25 @@ export async function prepareOpencodeSandboxHome(input) {
   }
 
   const sandboxConfig = buildSandboxOpencodeConfig(sourceConfig);
-  try {
-    await ensureKnowledgeVault({ homeDir: realHome });
-    const installed = await installKnowledgeSearchPlugin({
-      configDir: path.dirname(paths.opencodeConfigPath),
-      homeDir: realHome,
-    });
-    if (installed.ok) {
-      const paths = Array.isArray(installed.pluginPaths) && installed.pluginPaths.length
-        ? installed.pluginPaths
-        : installed.pluginPath
-          ? [installed.pluginPath]
-          : [];
-      if (paths.length) sandboxConfig.plugin = paths;
+  await ensureLocalPluginDependencyState(path.dirname(paths.opencodeConfigPath));
+  if (input.installKnowledgePlugins !== false) {
+    try {
+      await ensureKnowledgeVault({ homeDir: realHome });
+      const installed = await installKnowledgeSearchPlugin({
+        configDir: path.dirname(paths.opencodeConfigPath),
+        homeDir: realHome,
+      });
+      if (installed.ok) {
+        const pluginPaths = Array.isArray(installed.pluginPaths) && installed.pluginPaths.length
+          ? installed.pluginPaths
+          : installed.pluginPath
+            ? [installed.pluginPath]
+            : [];
+        if (pluginPaths.length) sandboxConfig.plugin = pluginPaths;
+      }
+    } catch (error) {
+      console.warn("[knowledge] install knowledge_search plugin failed", error);
     }
-  } catch (error) {
-    console.warn("[knowledge] install knowledge_search plugin failed", error);
   }
   await writeFile(
     paths.opencodeConfigPath,

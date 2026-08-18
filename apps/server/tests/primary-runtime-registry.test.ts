@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { join } from "node:path";
 import type {
   AgentRuntimeKind,
   RuntimeSessionBinding,
@@ -10,6 +12,7 @@ import {
 } from "../src/services/primary-runtime-registry.js";
 import { ApiError } from "../src/core/errors.js";
 import { PrimaryRuntimeEventBus } from "../src/services/primary-runtime-events.js";
+import { GrokProcessSupervisor } from "../src/services/grok-process-supervisor.js";
 
 const workspace: WorkspaceInfo = {
   id: "workspace-a",
@@ -885,5 +888,130 @@ describe("PrimaryRuntimeRegistry", () => {
     await expect(registry.setSessionMode(workspace.id, "opencode-mode", "plan"))
       .rejects.toMatchObject({ code: "agent_runtime_capability_unsupported" });
     expect(bindings.values.get("opencode-mode")?.mode).toBeUndefined();
+  });
+
+  test("stop awaits a delayed prompt start and leaves no live Grok child", async () => {
+    const spawned: ChildProcessWithoutNullStreams[] = [];
+    const supervisor = new GrokProcessSupervisor({
+      onRequest: async () => ({ outcome: "cancelled" }),
+      spawnProcess() {
+        const child = spawn(process.execPath, [join(import.meta.dir, "fixtures/fake-grok-acp.mjs")], {
+          stdio: ["pipe", "pipe", "pipe"],
+          detached: process.platform !== "win32",
+        });
+        spawned.push(child);
+        return child;
+      },
+    });
+    const grok = adapter("grok-build");
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    grok.value.prompt = async () => {
+      await gate;
+      await supervisor.start(
+        { profileId: "system", workspaceRoot: workspace.path },
+        { binaryPath: "/fixture/grok", runtimeHome: "/fixture/home" },
+      );
+      return {};
+    };
+    grok.value.cancel = async () => { release(); };
+    grok.value.stop = () => supervisor.stopAll();
+    const bindings = memoryBindings();
+    bindings.values.set("delayed-prompt", {
+      productSessionId: "delayed-prompt",
+      runtimeKind: "grok-build",
+      runtimeSessionId: "native-delayed",
+      workspaceId: workspace.id,
+      cwd: workspace.path,
+      profileId: "system",
+      runtimeHome: "/runtime/grok-build",
+      createdAt: 1,
+    });
+    const registry = new PrimaryRuntimeRegistry({
+      workspaces: [workspace],
+      selection: {
+        async resolve() { return { runtimeKind: "grok-build" as const, source: "global-default" as const, revision: 0 }; },
+        async read() { return { state: "missing" as const, complete: true, config: { version: 1 as const, revision: 0, defaultRuntimeKind: "grok-build" as const, workspaceOverrides: {} } }; },
+      },
+      adapters: [grok.value],
+      bindingStore: () => bindings.store,
+    });
+    await registry.promptSession(workspace.id, "delayed-prompt", { text: "hello" });
+    await registry.stop();
+    await expect(supervisor.start(
+      { profileId: "system", workspaceRoot: "/workspace/late" },
+      { binaryPath: "/fixture/grok", runtimeHome: "/fixture/home" },
+    )).rejects.toMatchObject({ code: "grok_runtime_draining" });
+    expect(spawned.every((child) => child.exitCode !== null || child.signalCode !== null)).toBe(true);
+    expect(supervisor.draining).toBe(true);
+  });
+
+  test("cross-runtime fork keeps the newest user message instead of the oldest 16k", async () => {
+    const newest = "UNIQUE_NEWEST_USER_QUESTION_XYZ";
+    const oldest = "oldest-context-".repeat(800);
+    const middle = "middle-context-".repeat(800);
+    const grok = adapter("grok-build");
+    const openCode = adapter("opencode");
+    let targetSystemPrompt = "";
+    const create = grok.value.createSession;
+    grok.value.createSession = async (input) => {
+      targetSystemPrompt = input.profile?.kind === "assistant"
+        ? input.profile.systemPrompt ?? ""
+        : "";
+      return create.call(grok.value, input);
+    };
+    openCode.value.readMessages = async () => ({
+      complete: true,
+      messages: [
+        {
+          id: "m1",
+          productSessionId: "source",
+          role: "user",
+          parts: [{ type: "text", id: "t1", text: oldest }],
+          createdAt: 1,
+        },
+        {
+          id: "m2",
+          productSessionId: "source",
+          role: "assistant",
+          parts: [{ type: "text", id: "t2", text: middle }],
+          createdAt: 2,
+        },
+        {
+          id: "m3",
+          productSessionId: "source",
+          role: "user",
+          parts: [{ type: "text", id: "t3", text: newest }],
+          createdAt: 3,
+        },
+      ],
+    });
+    const bindings = memoryBindings();
+    bindings.values.set("source", {
+      productSessionId: "source",
+      runtimeKind: "opencode",
+      runtimeSessionId: "native-source",
+      workspaceId: workspace.id,
+      cwd: workspace.path,
+      profileId: "primary-opencode",
+      runtimeHome: "/runtime/opencode",
+      profile: { kind: "assistant" },
+      createdAt: 1,
+    });
+    const registry = new PrimaryRuntimeRegistry({
+      workspaces: [workspace],
+      selection: {
+        async resolve() { return { runtimeKind: "opencode" as const, source: "global-default" as const, revision: 0 }; },
+        async read() { return { state: "missing" as const, complete: true, config: { version: 1 as const, revision: 0, defaultRuntimeKind: "opencode" as const, workspaceOverrides: {} } }; },
+      },
+      adapters: [openCode.value, grok.value],
+      bindingStore: () => bindings.store,
+    });
+    await expect(registry.forkSession(workspace.id, "source", "forked", "grok-build"))
+      .resolves.toMatchObject({ productSessionId: "forked", runtimeKind: "grok-build" });
+    expect(`${oldest}\n${middle}\n${newest}`.length).toBeGreaterThan(16_000);
+    expect(targetSystemPrompt).toContain(newest);
+    expect(targetSystemPrompt.includes("oldest-context-")).toBe(false);
+    expect(targetSystemPrompt).toContain("Only respond to the newest user message");
   });
 });

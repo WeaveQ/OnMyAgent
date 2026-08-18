@@ -19,7 +19,11 @@ import {
   type RequestContext,
   type Route,
 } from "./route-core.js";
-import { parsePromptParts } from "../services/agent-runtime-prompt-parts.js";
+import {
+  AGENT_RUNTIME_PROMPT_HTTP_BODY_MAX_BYTES,
+  assertPromptAggregateWithinBudget,
+  parsePromptParts,
+} from "../services/agent-runtime-prompt-parts.js";
 
 export function registerAgentRuntimeRoutes(input: {
   routes: Route[];
@@ -28,7 +32,10 @@ export function registerAgentRuntimeRoutes(input: {
   events: PrimaryRuntimeEventBus;
   ensureWritable: (config: RequestContext["config"]) => void;
   requireClientScope: (ctx: RequestContext, required: "collaborator") => void;
-  readJsonBody: (request: Request) => Promise<Record<string, unknown>>;
+  readJsonBody: (
+    request: Request,
+    options?: { maxBytes?: number },
+  ) => Promise<Record<string, unknown>>;
   readConnectorMcpProjection?: () => Promise<ConnectorMcpProjectionSnapshot>;
 }): void {
   const {
@@ -442,13 +449,20 @@ export function registerAgentRuntimeRoutes(input: {
     "client",
     async (ctx) => {
       assertWrite(ctx, input);
-      const body = await readJsonBody(ctx.request);
+      const body = await readJsonBody(ctx.request, {
+        maxBytes: AGENT_RUNTIME_PROMPT_HTTP_BODY_MAX_BYTES,
+      });
       const text = typeof body.text === "string" ? body.text.trim() : "";
       if (!text) throw invalidPayload("text is required");
       const systemPrompt = body.systemPrompt === undefined
         ? undefined
         : optionalText(body.systemPrompt, "systemPrompt", 128 * 1024);
       const parts = body.parts === undefined ? undefined : parsePromptParts(body.parts);
+      assertPromptAggregateWithinBudget({
+        text,
+        ...(systemPrompt ? { systemPrompt } : {}),
+        ...(parts?.length ? { parts } : {}),
+      });
       const messageId = body.messageId === undefined
         ? undefined
         : requiredId(body.messageId, "messageId");

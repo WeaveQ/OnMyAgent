@@ -24,6 +24,7 @@ import { ApiError } from "../core/errors.js";
 import type { AgentRuntimeSelectionStore } from "./agent-runtime-selection.js";
 import { RuntimeSessionBindingStore } from "./runtime-session-bindings.js";
 import type { PrimaryRuntimeEventBus } from "./primary-runtime-events.js";
+import { clipCrossRuntimeForkContext } from "./cross-runtime-fork-context.js";
 
 export type RuntimeAdapterSessionInput = {
   productSessionId: string;
@@ -95,7 +96,10 @@ export interface AgentRuntimeAdapter {
     items: AgentRuntimeCommand[];
     complete: boolean;
   }>;
-  listWorkspaceCommands?(workspace: WorkspaceInfo): Promise<{
+  listWorkspaceCommands?(
+    workspace: WorkspaceInfo,
+    context: { profileId: string },
+  ): Promise<{
     items: AgentRuntimeCommand[];
     complete: boolean;
   }>;
@@ -124,6 +128,10 @@ export class PrimaryRuntimeRegistry {
   readonly #grokNewSessionsEnabled: boolean;
   readonly #grokWorkspaceAllowlist: ReadonlySet<string> | null;
   #draining = false;
+  readonly #inflightAdapterOps = new Set<{
+    binding: RuntimeSessionBinding;
+    promise: Promise<unknown>;
+  }>();
 
   get opencodeProfileId(): string { return this.#opencodeProfileId; }
 
@@ -383,13 +391,7 @@ export class PrimaryRuntimeRegistry {
     let contextText = "";
     try {
       const read = await this.readSessionMessages(workspace.id, source.productSessionId);
-      const parts = read.messages
-        .filter((message) => message.role === "assistant" || message.role === "user")
-        .flatMap((message) => message.parts
-          .filter((part) => part.type === "text")
-          .map((part) => part.text))
-        .filter(Boolean);
-      contextText = parts.join("\n").trim().slice(0, 16_000);
+      contextText = clipCrossRuntimeForkContext(read.messages);
     } catch {
       // Context is best-effort; a bare cross-runtime fork remains valid.
     }
@@ -643,6 +645,7 @@ export class PrimaryRuntimeRegistry {
   ): Promise<{ turnId?: string }> {
     this.#assertAccepting();
     const binding = await this.#requireBinding(workspaceId, productSessionId);
+    this.#assertAccepting();
     this.#bindEventSession(binding);
     const turnId = randomUUID();
     const messageId = input.messageId?.trim() || `message-${randomUUID()}`;
@@ -674,8 +677,8 @@ export class PrimaryRuntimeRegistry {
       kind: "session.status",
       status: { type: "busy", turnId, startedAt: now },
     });
-    void callAdapter("prompt", () =>
-      adapter.prompt(binding, promptInput)).then(
+    void this.#trackAdapterOperation(binding, () =>
+      callAdapter("prompt", () => adapter.prompt(binding, promptInput))).then(
       () => {
         this.#settleBlockingPromptTurn(adapter, binding);
       },
@@ -719,8 +722,12 @@ export class PrimaryRuntimeRegistry {
         "Runtime commands are not supported by this adapter",
       );
     }
+    const selection = await this.#selection.read();
+    const profileId = selected.runtimeKind === "grok-build"
+      ? selectedGrokProfileId(selection.config?.grokBuild)
+      : this.#opencodeProfileId;
     const listed = adapter.listWorkspaceCommands
-      ? await callAdapter("read", () => adapter.listWorkspaceCommands!(workspace))
+      ? await callAdapter("read", () => adapter.listWorkspaceCommands!(workspace, { profileId }))
       : { items: [], complete: false };
     return {
       runtimeKind: selected.runtimeKind,
@@ -768,6 +775,7 @@ export class PrimaryRuntimeRegistry {
       throw new ApiError(400, "invalid_payload", "command name is required");
     }
     const binding = await this.#requireBinding(workspaceId, productSessionId);
+    this.#assertAccepting();
     const adapter = this.#requireAdapter(binding.runtimeKind);
     if (!adapter.executeCommand) {
       throw new ApiError(
@@ -797,11 +805,11 @@ export class PrimaryRuntimeRegistry {
       kind: "session.status",
       status: { type: "busy", turnId, startedAt: now },
     });
-    void callAdapter("prompt", () => adapter.executeCommand!(
+    void this.#trackAdapterOperation(binding, () => callAdapter("prompt", () => adapter.executeCommand!(
       binding,
       commandName,
       { ...(argumentsText ? { arguments: argumentsText } : {}) },
-    )).then(
+    ))).then(
       () => {
         this.#settleBlockingPromptTurn(adapter, binding);
       },
@@ -989,7 +997,31 @@ export class PrimaryRuntimeRegistry {
 
   async stop(): Promise<void> {
     this.beginDrain();
+    const inflight = [...this.#inflightAdapterOps];
+    await Promise.allSettled(inflight.map(async (operation) => {
+      try {
+        await this.#requireAdapter(operation.binding.runtimeKind).cancel(operation.binding);
+      } catch {
+        // Cancel is best-effort so drain can still wait for the adapter call.
+      }
+    }));
+    await Promise.allSettled(inflight.map((operation) => operation.promise));
     await Promise.all([...this.#adapters.values()].map((adapter) => adapter.stop()));
+  }
+
+  #trackAdapterOperation<T>(
+    binding: RuntimeSessionBinding,
+    run: () => Promise<T>,
+  ): Promise<T> {
+    const operation = {
+      binding,
+      promise: Promise.resolve() as Promise<T>,
+    };
+    operation.promise = run().finally(() => {
+      this.#inflightAdapterOps.delete(operation);
+    });
+    this.#inflightAdapterOps.add(operation);
+    return operation.promise;
   }
 
   beginDrain(): void {

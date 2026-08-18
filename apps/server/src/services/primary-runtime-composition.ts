@@ -17,6 +17,7 @@ import { RuntimeSessionBindingStore } from "./runtime-session-bindings.js";
 import { PrimaryRuntimeEventBus } from "./primary-runtime-events.js";
 import { GrokEventNormalizer } from "./grok-event-normalizer.js";
 import { compileMinimalGrokExpertProfile } from "./grok-expert-profile-compiler.js";
+import { assertCompiledExpertPromptBudget } from "./expert-runtime-contract.js";
 import {
   grokNativeAgentProfilePayload,
   materializeGrokExpertPlugin,
@@ -344,7 +345,7 @@ export function createPrimaryRuntimeServices(input: {
           await removeManagedGrokExpertDirectory(root, binding.cwd);
         }
       },
-      async assertPromptContract(binding) {
+      async assertPromptContract(binding, input) {
         if (binding.profile?.kind !== "expert") return;
         const root = join(
           runtimeDataRoot,
@@ -372,13 +373,17 @@ export function createPrimaryRuntimeServices(input: {
             { missingSkills: missing },
           );
         }
-        compileMinimalGrokExpertProfile({
+        const compiled = compileMinimalGrokExpertProfile({
           expertId: binding.profile.expertId,
           description: binding.profile.description,
           systemPrompt: binding.profile.systemPrompt,
           declaredSkillNames: binding.profile.declaredSkillNames,
           activatedSkillNames: binding.profile.activatedSkillNames,
           allowedBuiltInToolIds: GROK_EXPERT_TOOL_IDS,
+        });
+        assertCompiledExpertPromptBudget({
+          compiledSystemPrompt: compiled.agentProfile.promptBody,
+          userPrompt: input.text,
         });
       },
     }));

@@ -3,6 +3,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ApiError } from "../src/core/errors.js";
 import {
+  AGENT_RUNTIME_PROMPT_AGGREGATE_MAX_BYTES,
+  assertPromptAggregateWithinBudget,
+  measurePromptAggregateBytes,
   parsePromptPart,
   parsePromptParts,
   publishedAgentRuntimePromptPartTypes,
@@ -68,6 +71,18 @@ describe("parsePromptParts production HTTP parser", () => {
       type: "staged_file",
       path: "/tmp/ok/../../etc/passwd",
     })).toThrow(ApiError);
+  });
+
+  test("rejects aggregated prompt text and parts over the byte cap", () => {
+    const parts = parsePromptParts([
+      { type: "text", text: "a".repeat(300 * 1024) },
+      { type: "text", text: "b".repeat(300 * 1024) },
+    ]);
+    expect(measurePromptAggregateBytes({ text: "ok", parts }))
+      .toBeGreaterThan(AGENT_RUNTIME_PROMPT_AGGREGATE_MAX_BYTES);
+    expect(() => assertPromptAggregateWithinBudget({ text: "ok", parts }))
+      .toThrow(expect.objectContaining({ code: "payload_too_large" }));
+    expect(() => assertPromptAggregateWithinBudget({ text: "hello" })).not.toThrow();
   });
 
   test("rejects unknown kinds", () => {

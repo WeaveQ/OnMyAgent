@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import type { WorkspaceInfo } from "@onmyagent/types/server";
 
 import {
+  assertCompiledExpertPromptBudget,
   assertExpertPromptTokenBudget,
   assertExpertRuntimeContract,
   ensureAndAssertExpertRuntimeContract,
@@ -13,6 +14,7 @@ import {
   EXPERT_PROMPT_TOKEN_LIMIT,
   resolveExpertPromptAgent,
 } from "../src/services/expert-runtime-contract.js";
+import { readFileSync } from "node:fs";
 import { createExpertSessionRuntimeDirectory } from "../src/services/expert-session-runtime.js";
 import { getExpertLifecycleEventsSnapshot, resetExpertLifecycleEventsForTest } from "../src/services/expert-lifecycle-events.js";
 
@@ -199,6 +201,23 @@ describe("Expert runtime contract", () => {
     expect(getExpertLifecycleEventsSnapshot().events.filter((event) =>
       event.kind === "contract_assertion" && event.code === "prompt_budget_exceeded",
     )).toHaveLength(1);
+  });
+
+  test("rejects compiled Grok Expert system+user text over the same 8k budget", () => {
+    expect(() => assertCompiledExpertPromptBudget({
+      compiledSystemPrompt: "system context ".repeat(20_000),
+      userPrompt: "first user turn",
+    })).toThrow(expect.objectContaining({ code: "prompt_token_budget" }));
+    expect(assertCompiledExpertPromptBudget({
+      compiledSystemPrompt: "Stay in role.",
+      userPrompt: "hello",
+    })).toBeLessThanOrEqual(EXPERT_PROMPT_TOKEN_LIMIT);
+    const composition = readFileSync(
+      join(import.meta.dir, "../src/services/primary-runtime-composition.ts"),
+      "utf8",
+    );
+    expect(composition).toContain("assertCompiledExpertPromptBudget");
+    expect(composition).toContain("userPrompt: input.text");
   });
 });
 

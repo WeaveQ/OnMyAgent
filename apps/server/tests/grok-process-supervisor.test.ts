@@ -97,4 +97,39 @@ describe("GrokProcessSupervisor", () => {
     await expect(starting).rejects.toBeDefined();
     expect(child?.exitCode !== null || child?.signalCode !== null).toBe(true);
   });
+
+  test("stopAll wins a delayed start and post-drain start fails closed", async () => {
+    const spawned: ChildProcessWithoutNullStreams[] = [];
+    const supervisor = new GrokProcessSupervisor({
+      onRequest: async () => ({ outcome: "cancelled" }),
+      spawnProcess() {
+        const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 10_000)"], {
+          stdio: ["pipe", "pipe", "pipe"],
+          detached: process.platform !== "win32",
+        });
+        spawned.push(child);
+        children.push(child);
+        return child;
+      },
+    });
+    const policy = { binaryPath: "/fixture/grok", runtimeHome: "/fixture/home" };
+    const hanging = supervisor.start(
+      { profileId: "system", workspaceRoot: "/workspace/a" },
+      policy,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const stopping = supervisor.stopAll();
+    await expect(supervisor.start(
+      { profileId: "system", workspaceRoot: "/workspace/b" },
+      policy,
+    )).rejects.toMatchObject({ code: "grok_runtime_draining" });
+    await expect(stopping).resolves.toBeUndefined();
+    await expect(hanging).rejects.toBeDefined();
+    await expect(supervisor.start(
+      { profileId: "system", workspaceRoot: "/workspace/c" },
+      policy,
+    )).rejects.toMatchObject({ code: "grok_runtime_draining" });
+    expect(supervisor.draining).toBe(true);
+    expect(spawned.every((child) => child.exitCode !== null || child.signalCode !== null)).toBe(true);
+  });
 });

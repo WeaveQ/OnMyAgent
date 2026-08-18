@@ -66,11 +66,27 @@ test("prepareOpencodeSandboxHome writes providers-only config and auth", async (
   assert.match(String(written.plugin[0]), /knowledge-search\.mjs$/);
   assert.match(String(written.plugin[1]), /knowledge-read\.mjs$/);
   assert.ok(written.plugin.every((item) => !String(item).includes(`${path.sep}skills${path.sep}`)));
+  assert.equal(existsSync(path.join(sandboxOpencodeConfigDir(paths), "node_modules")), true);
+  const packageLock = JSON.parse(
+    await readFile(path.join(sandboxOpencodeConfigDir(paths), "package-lock.json"), "utf8"),
+  );
+  assert.deepEqual(
+    packageLock.packages?.[""].dependencies,
+    { "@opencode-ai/plugin": "*" },
+  );
   assert.equal(written.provider.huoshan.options.apiKey, "k");
   assert.equal(
     await readFile(path.join(paths.opencodeDataDir, "auth.json"), "utf8"),
     JSON.stringify({ token: "t" }),
   );
+
+  const bare = await prepareOpencodeSandboxHome({
+    userDataDir: path.join(root, "user-data-bare"),
+    realHomeDir: realHome,
+    installKnowledgePlugins: false,
+  });
+  const bareConfig = JSON.parse(await readFile(bare.opencodeConfigPath, "utf8"));
+  assert.deepEqual(bareConfig.plugin, []);
 
   const env = applyOpencodeSandboxEnv(
     {

@@ -11,6 +11,55 @@ const PUBLISHED_PART_TYPES = [
 ] as const;
 
 export const publishedAgentRuntimePromptPartTypes = PUBLISHED_PART_TYPES;
+export const AGENT_RUNTIME_PROMPT_HTTP_BODY_MAX_BYTES = 1024 * 1024;
+export const AGENT_RUNTIME_PROMPT_AGGREGATE_MAX_BYTES = 512 * 1024;
+
+export function measurePromptAggregateBytes(input: {
+  text: string;
+  systemPrompt?: string;
+  parts?: readonly AgentRuntimePromptPartInput[];
+}): number {
+  let total = utf8Bytes(input.text) + utf8Bytes(input.systemPrompt ?? "");
+  for (const part of input.parts ?? []) {
+    if (part.type === "text") {
+      total += utf8Bytes(part.text);
+      continue;
+    }
+    if (part.type === "agent") {
+      total += utf8Bytes(part.name);
+      continue;
+    }
+    if (part.type === "file") {
+      total += utf8Bytes(part.url) + utf8Bytes(part.filename ?? "") + utf8Bytes(part.mime);
+      continue;
+    }
+    if (part.type === "resource_link") {
+      total += utf8Bytes(part.uri) + utf8Bytes(part.filename ?? "") + utf8Bytes(part.mime ?? "");
+      continue;
+    }
+    if (part.type === "staged_file") {
+      total += utf8Bytes(part.path) + utf8Bytes(part.filename ?? "") + utf8Bytes(part.mime ?? "");
+      continue;
+    }
+    total += utf8Bytes(part.url ?? "") + utf8Bytes(part.path ?? "")
+      + utf8Bytes(part.filename ?? "") + utf8Bytes(part.mime ?? "");
+  }
+  return total;
+}
+
+export function assertPromptAggregateWithinBudget(input: {
+  text: string;
+  systemPrompt?: string;
+  parts?: readonly AgentRuntimePromptPartInput[];
+}): void {
+  if (measurePromptAggregateBytes(input) > AGENT_RUNTIME_PROMPT_AGGREGATE_MAX_BYTES) {
+    throw new ApiError(413, "payload_too_large", "Prompt exceeds the allowed size");
+  }
+}
+
+function utf8Bytes(value: string): number {
+  return Buffer.byteLength(value, "utf8");
+}
 
 function invalidPayload(message: string): ApiError {
   return new ApiError(400, "invalid_payload", message);

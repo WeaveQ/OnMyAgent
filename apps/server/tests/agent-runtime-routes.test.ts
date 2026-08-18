@@ -10,6 +10,10 @@ import type {
   RuntimeAdapterCreatedSession,
   RuntimeAdapterSessionInput,
 } from "../src/services/primary-runtime-registry.js";
+import {
+  AGENT_RUNTIME_PROMPT_AGGREGATE_MAX_BYTES,
+  AGENT_RUNTIME_PROMPT_HTTP_BODY_MAX_BYTES,
+} from "../src/services/agent-runtime-prompt-parts.js";
 
 describe("agent runtime routes", () => {
   test("keeps default OpenCode and rejects selecting an unavailable runtime", async () => {
@@ -413,6 +417,68 @@ describe("agent runtime routes", () => {
       );
       expect(removedCatalog.status).toBe(404);
       expect(await removedCatalog.json()).toMatchObject({ code: "workspace_not_found" });
+    } finally {
+      await fixture.stop();
+    }
+  });
+
+  test("rejects oversized prompt payloads before the adapter and still accepts an in-limit prompt", async () => {
+    const native = adapter("grok-build");
+    const fixture = await startFixture([native]);
+    try {
+      expect((await fixture.request("/agent-runtime/selection/grok-build", {
+        method: "POST",
+        body: JSON.stringify({ selection: { profileId: "system" }, expectedRevision: 0 }),
+      })).status).toBe(200);
+      expect((await fixture.request("/agent-runtime/selection/default", {
+        method: "POST",
+        body: JSON.stringify({ runtimeKind: "grok-build", expectedRevision: 1 }),
+      })).status).toBe(200);
+      expect((await fixture.request(
+        `/workspace/${fixture.workspace.id}/runtime-sessions`,
+        {
+          method: "POST",
+          body: JSON.stringify({ productSessionId: "limit-session" }),
+        },
+      )).status).toBe(201);
+
+      const overBody = await fixture.request(
+        `/workspace/${fixture.workspace.id}/runtime-sessions/limit-session/prompt`,
+        {
+          method: "POST",
+          headers: { Connection: "close" },
+          body: JSON.stringify({
+            text: "x".repeat(AGENT_RUNTIME_PROMPT_HTTP_BODY_MAX_BYTES + 8),
+          }),
+        },
+      );
+      expect(overBody.status).toBe(413);
+      expect(await overBody.json()).toMatchObject({ code: "payload_too_large" });
+
+      const overAggregate = await fixture.request(
+        `/workspace/${fixture.workspace.id}/runtime-sessions/limit-session/prompt`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            text: "ok",
+            parts: [
+              { type: "text", text: "a".repeat(AGENT_RUNTIME_PROMPT_AGGREGATE_MAX_BYTES / 2) },
+              { type: "text", text: "b".repeat(AGENT_RUNTIME_PROMPT_AGGREGATE_MAX_BYTES / 2) },
+            ],
+          }),
+        },
+      );
+      expect(overAggregate.status).toBe(413);
+      expect(await overAggregate.json()).toMatchObject({ code: "payload_too_large" });
+      expect(native.seen.get.filter((entry) => entry.startsWith("prompt:"))).toEqual([]);
+
+      const allowed = await fixture.request(
+        `/workspace/${fixture.workspace.id}/runtime-sessions/limit-session/prompt`,
+        { method: "POST", body: JSON.stringify({ text: "hello" }) },
+      );
+      expect(allowed.status).toBe(202);
+      await Bun.sleep(0);
+      expect(native.seen.get).toContain("prompt:limit-session");
     } finally {
       await fixture.stop();
     }

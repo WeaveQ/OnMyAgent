@@ -67,7 +67,7 @@ export class GrokRuntimeAdapter implements AgentRuntimeAdapter {
   ) => readonly GrokAcpMcpServer[] | Promise<readonly GrokAcpMcpServer[]>;
   readonly #availableProfileIds: ReadonlySet<string> | null;
   readonly #readCommandCatalog: (runtimeSessionId: string) => Array<{ name: string; description?: string }>;
-  #lastCommandCatalog: AgentRuntimeCommand[] = [];
+  readonly #commandCatalogs = new Map<string, AgentRuntimeCommand[]>();
   readonly #attachedSessions = new WeakMap<object, Set<string>>();
   readonly #attachRequests = new WeakMap<object, Map<string, Promise<void>>>();
   readonly #authenticatedProcesses = new WeakSet<object>();
@@ -570,36 +570,53 @@ export class GrokRuntimeAdapter implements AgentRuntimeAdapter {
     } catch {
       listed = null;
     }
+    const partition = this.#commandCatalogPartition({
+      profileId: binding.profileId,
+      runtimeHome: binding.runtimeHome,
+      workspaceRoot: binding.cwd,
+      sessionId: binding.runtimeSessionId,
+    });
     if (listed && listed.items.length > 0) {
-      this.#lastCommandCatalog = listed.items;
+      this.#rememberCommandCatalog(partition, listed.items);
       return listed;
     }
     const cachedItems = commandsFromCatalog(
       this.#readCommandCatalog(binding.runtimeSessionId),
     );
     if (cachedItems.length > 0) {
-      this.#lastCommandCatalog = cachedItems;
+      this.#rememberCommandCatalog(partition, cachedItems);
       return { items: cachedItems, complete: true };
     }
-    if (this.#lastCommandCatalog.length > 0) {
-      return { items: this.#lastCommandCatalog, complete: false };
+    const partitioned = this.#commandCatalogs.get(partition) ?? [];
+    if (partitioned.length > 0) {
+      return { items: partitioned.map(cloneCommand), complete: false };
     }
     return { items: [], complete: false };
   }
 
-  async listWorkspaceCommands(workspace: WorkspaceInfo): Promise<{
+  async listWorkspaceCommands(
+    workspace: WorkspaceInfo,
+    context: { profileId: string },
+  ): Promise<{
     items: AgentRuntimeCommand[];
     complete: boolean;
   }> {
-    if (this.#lastCommandCatalog.length > 0) {
-      return { items: this.#lastCommandCatalog, complete: true };
-    }
+    const profileId = requireCatalogProfileId(context.profileId);
     const input: RuntimeAdapterSessionInput = {
       productSessionId: "grok-command-catalog",
       workspace,
-      profileId: "system",
+      profileId,
     };
     const policy = this.#policy(input);
+    const partition = this.#commandCatalogPartition({
+      profileId,
+      runtimeHome: policy.runtimeHome,
+      workspaceRoot: workspace.path,
+    });
+    const cached = this.#commandCatalogs.get(partition) ?? [];
+    if (cached.length > 0) {
+      return { items: cached.map(cloneCommand), complete: true };
+    }
     const process = await this.#process(input, policy, workspace.path);
     this.#recordReady(process.initialized);
     const created = asObject(await process.transport.request("session/new", {
@@ -612,7 +629,7 @@ export class GrokRuntimeAdapter implements AgentRuntimeAdapter {
         this.#readCommandCatalog(runtimeSessionId),
       );
       if (fromNotify.length > 0) {
-        this.#lastCommandCatalog = fromNotify;
+        this.#rememberCommandCatalog(partition, fromNotify);
         return { items: fromNotify, complete: true };
       }
       const result = await new GrokExtensionClient(process.transport).call(
@@ -621,9 +638,10 @@ export class GrokRuntimeAdapter implements AgentRuntimeAdapter {
         decodeGrokCommandEnvelope,
       );
       const items = result.ok ? result.value.items : [];
-      if (items.length > 0) this.#lastCommandCatalog = items;
+      if (items.length > 0) this.#rememberCommandCatalog(partition, items);
+      const fallback = this.#commandCatalogs.get(partition) ?? [];
       return {
-        items: items.length > 0 ? items : this.#lastCommandCatalog,
+        items: items.length > 0 ? items : fallback.map(cloneCommand),
         complete: items.length > 0,
       };
     } finally {
@@ -649,10 +667,7 @@ export class GrokRuntimeAdapter implements AgentRuntimeAdapter {
     const process = await this.#processFromBinding(binding);
     await this.#ensureAttached(process, binding);
     const catalog = await this.listCommands(binding);
-    const known = new Set([
-      ...catalog.items.map((command) => command.name),
-      ...this.#lastCommandCatalog.map((command) => command.name),
-    ]);
+    const known = new Set(catalog.items.map((command) => command.name));
     // Empty/incomplete catalogs happen on draft-home list then session execute.
     // Native Grok still accepts `/${name}` via session/prompt; only 404 when a
     // complete non-empty catalog explicitly omits the command.
@@ -687,6 +702,19 @@ export class GrokRuntimeAdapter implements AgentRuntimeAdapter {
   }
 
   stop(): Promise<void> { return this.#supervisor.stopAll(); }
+
+  #commandCatalogPartition(input: {
+    profileId: string;
+    runtimeHome: string;
+    workspaceRoot: string;
+    sessionId?: string;
+  }): string {
+    return grokCommandCatalogPartitionKey(input);
+  }
+
+  #rememberCommandCatalog(partition: string, items: readonly AgentRuntimeCommand[]): void {
+    this.#commandCatalogs.set(partition, items.map(cloneCommand));
+  }
 
   #process(input: RuntimeAdapterSessionInput, policy: GrokProcessPolicy, workspaceRoot: string): Promise<GrokProcessHandle> {
     const key: GrokProcessKey = {
@@ -895,6 +923,32 @@ function supportsAuditedCommandExtension(nativeVersion: string): boolean {
 }
 
 const UNSAFE_GROK_COMMANDS = new Set(["always-approve", "yolo"]);
+
+export function grokCommandCatalogPartitionKey(input: {
+  profileId: string;
+  runtimeHome: string;
+  workspaceRoot: string;
+  sessionId?: string;
+}): string {
+  return JSON.stringify([
+    input.profileId.trim(),
+    input.runtimeHome.trim(),
+    input.workspaceRoot.trim(),
+    input.sessionId?.trim() ?? "",
+  ]);
+}
+
+function cloneCommand(command: AgentRuntimeCommand): AgentRuntimeCommand {
+  return { ...command };
+}
+
+function requireCatalogProfileId(profileId: string): string {
+  const resolved = profileId.trim();
+  if (!resolved) {
+    throw new ApiError(400, "invalid_payload", "profileId is required");
+  }
+  return resolved;
+}
 
 export function normalizeGrokCommandName(name: string): string {
   const trimmed = name.trim().replace(/^\/+/, "");

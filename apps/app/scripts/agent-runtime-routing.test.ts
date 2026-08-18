@@ -281,6 +281,7 @@ describe("agent runtime route selection", () => {
     expect(sessionSurface).toContain("props.selectedRuntimeKind !== \"grok-build\"");
     expect(sessionSurface).toContain("const runtimeSupportsOpenCodeComposerTools =");
     expect(sessionSurface).toContain('runtimeKind !== "grok-build"');
+    expect(surface).toContain("selectedRuntimeKind === \"grok-build\"");
     expect(surface).toContain("resolveComposerCommandSource");
     expect(surface).not.toMatch(/routeRuntimeKind === "grok-build"[\s\S]*listSlashCommands\(/);
   });

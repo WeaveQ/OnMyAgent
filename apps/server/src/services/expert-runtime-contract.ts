@@ -175,6 +175,25 @@ export function normalizeApprovedAgentIds(
  * It deliberately counts non-ASCII code points more densely than ASCII so the
  * source gate fails closed instead of allowing a large CJK context through.
  */
+export function assertCompiledExpertPromptBudget(input: {
+  compiledSystemPrompt: string;
+  userPrompt: string;
+}): number {
+  const promptTokens = estimateExpertPromptTokens({
+    systemPrompt: input.compiledSystemPrompt,
+    userPrompt: input.userPrompt,
+  });
+  if (promptTokens > EXPERT_PROMPT_TOKEN_LIMIT) {
+    throw new ApiError(
+      413,
+      "prompt_token_budget",
+      "The Expert request exceeds the 8,000-token context budget",
+      { promptTokens, tokenLimit: EXPERT_PROMPT_TOKEN_LIMIT },
+    );
+  }
+  return promptTokens;
+}
+
 export function estimateExpertPromptTokens(body: unknown): number {
   const serialized = typeof body === "string" ? body : JSON.stringify(body ?? {});
   let ascii = 0;

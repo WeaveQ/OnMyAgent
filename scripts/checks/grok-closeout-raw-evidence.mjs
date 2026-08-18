@@ -117,6 +117,69 @@ function requireArtifact(repoRoot, artifactPath, label, reasons) {
   return true;
 }
 
+const REQUIRED_COMPACT_EVENTS = [
+  "compaction_checkpoint",
+  "auto_compact_completed",
+  "turn_completed",
+];
+
+function collectSessionUpdates(value, into = []) {
+  if (typeof value === "string") return into;
+  if (Array.isArray(value)) {
+    for (const item of value) collectSessionUpdates(item, into);
+    return into;
+  }
+  if (value && typeof value === "object") {
+    if (typeof value.sessionUpdate === "string") into.push(value.sessionUpdate);
+    for (const item of Object.values(value)) collectSessionUpdates(item, into);
+  }
+  return into;
+}
+
+function evaluateCompactNativeCompletion(smoke, repoRoot, reasons) {
+  const compact = smoke?.details?.compact;
+  const sidecarPath = compact?.sidecar
+    || compact?.path
+    || smoke?.details?.compactSidecar
+    || smoke?.compactSidecar;
+  if (!compact && !sidecarPath) return;
+  if (!requireArtifact(repoRoot, sidecarPath, "independent compact sidecar", reasons)) {
+    return;
+  }
+  const sidecar = readJsonArtifact(repoRoot, sidecarPath);
+  if (!sidecar) {
+    reasons.push("independent compact sidecar is not valid JSON");
+    return;
+  }
+  const updates = collectSessionUpdates(sidecar);
+  for (const eventName of REQUIRED_COMPACT_EVENTS) {
+    if (!updates.includes(eventName)) {
+      reasons.push(`independent compact sidecar is missing native ${eventName}`);
+    }
+  }
+}
+
+function evaluateDeleteInventoryAbsence(smoke, deleteSidecar, repoRoot, reasons) {
+  const inventoryPath = smoke?.details?.afterDelete?.inventoryAfter
+    || smoke?.details?.inventoryAfter
+    || smoke?.inventoryAfter
+    || deleteSidecar?.inventoryAfterPath;
+  if (!requireArtifact(repoRoot, inventoryPath, "independent inventory-after sidecar", reasons)) {
+    return;
+  }
+  const inventory = readJsonArtifact(repoRoot, inventoryPath);
+  if (!inventory) {
+    reasons.push("independent inventory-after sidecar is not valid JSON");
+    return;
+  }
+  if (inventory.binding !== false) {
+    reasons.push("independent inventory-after sidecar does not record binding:false");
+  }
+  if (inventory.nativeDir) {
+    reasons.push("independent inventory-after sidecar still records a nativeDir");
+  }
+}
+
 export function evaluateElectronRawEvidence(smoke, repoRoot) {
   const reasons = [];
   const texts = collectSmokeCorpus(smoke, repoRoot).join("\n");
@@ -140,6 +203,7 @@ export function evaluateElectronRawEvidence(smoke, repoRoot) {
       reasons.push(`attempt ${index + 1} reply is not present in independent sidecar`);
     }
   }
+  evaluateCompactNativeCompletion(smoke, repoRoot, reasons);
   const deleteSemantics = smoke?.assertions?.deleteSemantics === true;
   if (deleteSemantics) {
     const sidecarPath = smoke?.details?.deleteSidecar
@@ -153,6 +217,7 @@ export function evaluateElectronRawEvidence(smoke, repoRoot) {
     if (!sidecarClicks.includes(true)) {
       reasons.push("independent delete sidecar does not record deleteClicked:true");
     }
+    evaluateDeleteInventoryAbsence(smoke, sidecar, repoRoot, reasons);
   }
   const deleteClicks = findDeleteClicked(smoke);
   if (deleteSemantics && deleteClicks.some((clicked) => clicked === false)) {

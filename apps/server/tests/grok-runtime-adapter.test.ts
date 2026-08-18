@@ -284,6 +284,35 @@ describe("GrokRuntimeAdapter", () => {
     }]);
   });
 
+  test("rejects an over-budget Expert prompt before session/prompt", async () => {
+    const { assertCompiledExpertPromptBudget } = await import("../src/services/expert-runtime-contract.js");
+    const fixture = processFixture();
+    const adapter = new GrokRuntimeAdapter({
+      supervisor: { async start() { return fixture.handle; }, async stopAll() {} },
+      resolvePolicy: () => ({ binaryPath: "grok", runtimeHome: "/runtime/grok" }),
+      assertPromptContract(_binding, input) {
+        assertCompiledExpertPromptBudget({
+          compiledSystemPrompt: "system context ".repeat(20_000),
+          userPrompt: input.text,
+        });
+      },
+    });
+    await expect(adapter.prompt({
+      ...binding,
+      profile: {
+        kind: "expert",
+        expertId: "expert",
+        name: "Expert",
+        description: "Fixture",
+        systemPrompt: "Stay in role.",
+        declaredSkillNames: [],
+        activatedSkillNames: [],
+        approvedAgentIds: [],
+      },
+    }, { text: "hello" })).rejects.toMatchObject({ code: "prompt_token_budget" });
+    expect(fixture.requests.map((request) => request.method)).not.toContain("session/prompt");
+  });
+
   test("accepts only the exact sticky system profile and rejects per-turn tool overrides", async () => {
     const fixture = processFixture();
     const adapter = new GrokRuntimeAdapter({
@@ -537,11 +566,101 @@ describe("GrokRuntimeAdapter", () => {
       path: "/workspace",
       preset: "starter",
       workspaceType: "local",
-    })).resolves.toMatchObject({
+    }, { profileId: "system" })).resolves.toMatchObject({
       complete: true,
       items: [expect.objectContaining({ name: "compact" })],
     });
     expect(fixture.requests.map((request) => request.method)).toContain("session/new");
+  });
+
+  test("does not leak command catalogs across workspace or profile partitions", async () => {
+    const fixture = processFixture();
+    const seenPolicies: string[] = [];
+    fixture.handle.transport.request = async (method, params) => {
+      fixture.requests.push({ method, params });
+      if (method === "session/new") {
+        const cwd = String((params as { cwd?: string }).cwd ?? "");
+        return { sessionId: cwd.includes("workspace-b") ? "native-workspace-b" : "native-workspace-a" };
+      }
+      if (method === "x.ai/commands/list" || method === "_x.ai/commands/list") {
+        const sessionId = String((params as { sessionId?: string }).sessionId ?? "");
+        if (sessionId === "native-a") {
+          return { commands: [{ name: "workflow-a", description: "Workspace A only" }] };
+        }
+        if (sessionId === "native-b") {
+          return { commands: [{ name: "workflow-b", description: "Workspace B only" }] };
+        }
+        if (sessionId === "native-workspace-b") {
+          return { commands: [{ name: "managed-board", description: "Managed profile only" }] };
+        }
+        return { commands: [{ name: "system-board", description: "System profile" }] };
+      }
+      return {};
+    };
+    const adapter = new GrokRuntimeAdapter({
+      supervisor: { async start() { return fixture.handle; }, async stopAll() {} },
+      resolvePolicy: (input) => {
+        seenPolicies.push(input.profileId);
+        return {
+          binaryPath: "grok",
+          runtimeHome: input.profileId === "managed" ? "/runtime/managed" : "/runtime/system",
+        };
+      },
+    });
+    const bindingA = {
+      ...binding,
+      productSessionId: "session-a",
+      runtimeSessionId: "native-a",
+      workspaceId: "workspace-a",
+      cwd: "/workspace-a",
+      profileId: "system",
+      runtimeHome: "/runtime/system",
+    };
+    const bindingB = {
+      ...binding,
+      productSessionId: "session-b",
+      runtimeSessionId: "native-b",
+      workspaceId: "workspace-b",
+      cwd: "/workspace-b",
+      profileId: "system",
+      runtimeHome: "/runtime/system",
+    };
+    await expect(adapter.listCommands(bindingA)).resolves.toMatchObject({
+      items: [expect.objectContaining({ name: "workflow-a", description: "Workspace A only" })],
+    });
+    await expect(adapter.listCommands(bindingB)).resolves.toMatchObject({
+      items: [expect.objectContaining({ name: "workflow-b", description: "Workspace B only" })],
+    });
+    fixture.handle.transport.request = async (method, params) => {
+      fixture.requests.push({ method, params });
+      if (method === "x.ai/commands/list" || method === "_x.ai/commands/list") {
+        throw new ApiError(502, "grok_acp_remote_error", `Grok ACP ${method} failed`);
+      }
+      return {};
+    };
+    const cachedA = await adapter.listCommands(bindingA);
+    expect(cachedA.items[0]?.name).toBe("workflow-a");
+    expect(cachedA.items[0]?.description).toBe("Workspace A only");
+    const workspace = {
+      id: "workspace-b",
+      name: "Workspace B",
+      path: "/workspace-b",
+      preset: "starter" as const,
+      workspaceType: "local" as const,
+    };
+    fixture.handle.transport.request = async (method, params) => {
+      fixture.requests.push({ method, params });
+      if (method === "session/new") return { sessionId: "native-workspace-b" };
+      if (method === "x.ai/commands/list" || method === "_x.ai/commands/list") {
+        return { commands: [{ name: "managed-board", description: "Managed profile only" }] };
+      }
+      return {};
+    };
+    const managed = await adapter.listWorkspaceCommands(workspace, { profileId: "managed" });
+    expect(seenPolicies).toContain("managed");
+    expect(managed.items.map((item) => item.name)).toEqual(["managed-board"]);
+    expect(managed.items.map((item) => item.name)).not.toContain("workflow-a");
+    expect(managed.items.map((item) => item.name)).not.toContain("workflow-b");
   });
 
   test("uses _x.ai/commands/list when the unprefixed method is missing", async () => {
