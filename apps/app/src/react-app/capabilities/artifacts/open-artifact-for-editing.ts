@@ -1,5 +1,5 @@
 export type ArtifactEditingBridge = {
-  openForEditing?: (request: { filePath: string }) => Promise<{ ok: boolean }>;
+  openForEditing?: (request: { filePath: string; allowedRoot?: string }) => Promise<{ ok: boolean }>;
 };
 
 type EditableArtifactTarget = {
@@ -25,11 +25,15 @@ export function canEditArtifactTarget(target: EditableArtifactTarget): boolean {
 export async function openArtifactForEditing(
   filePath: string,
   bridge?: ArtifactEditingBridge,
+  allowedRoot?: string,
 ): Promise<void> {
   const editingBridge = bridge ?? (
     typeof window === "undefined" ? undefined : window.__ONMYAGENT_ELECTRON__?.artifactPreview
   );
   if (!editingBridge?.openForEditing) throw new Error("Artifact editing is unavailable");
-  const result = await editingBridge.openForEditing({ filePath });
+  const result = await editingBridge.openForEditing({
+    filePath,
+    ...(allowedRoot?.trim() ? { allowedRoot: allowedRoot.trim() } : {}),
+  });
   if (!result.ok) throw new Error("Artifact editing failed");
 }

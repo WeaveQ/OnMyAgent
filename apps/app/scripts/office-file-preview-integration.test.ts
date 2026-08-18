@@ -27,6 +27,7 @@ test("adds local Office and media preview inside the existing session Files tool
   expect(sessionPanel).toContain('import { OfficeFilePreview }');
   expect(sessionPanel).toContain("absoluteWorkspaceFilePath");
   expect(sessionPanel).toContain("filePath={preview.filePath}");
+  expect(sessionPanel).toContain("allowedRoot={previewAllowedRoot}");
   expect(sessionPanel).toContain('<OfficeFilePreview');
   expect(sessionPanel).toContain('<ResizablePanelGroup orientation="horizontal"');
   expect(sessionPanel).toContain('<ResizableHandle aria-label={t("files.resize_tree")}');
@@ -128,6 +129,7 @@ test("session artifact panel uses OfficeFilePreview for local binary sheets", ()
   expect(artifactPanel).toContain("shouldPreviewOfficeBinaryViaOverlay");
   expect(artifactPanel).toContain("<OfficeFilePreview");
   expect(artifactPanel).toContain("filePath={externalPath}");
+  expect(artifactPanel).toContain("allowedRoot={workspaceRoot}");
   // Binary local path no longer exclusively dead-ends on UnsupportedBinaryNotice.
   expect(artifactPanel).toContain("useLocalOfficePreview");
   // Shared L1 action bar (open / reveal / copy / ask agent).
