@@ -686,7 +686,7 @@ const ASSISTANT_DELIVERY_LINK_LABEL_PATTERN =
   /\[([^\]\r\n]+?\.[a-z][a-z0-9]{0,9})\]\([^\r\n)]+\)/giu;
 const ASSISTANT_DELIVERY_DIRECTORY_PATTERN = /`([^`\r\n]+[/\\])`/gu;
 const ASSISTANT_DELIVERY_LIST_FILE_PATTERN =
-  /^(?:[-*•]|\d+[.)])\s+[`「"'“]?([^\s`」"'”]+?\.[a-z][a-z0-9]{0,9})[`」"'”]?\s*$/gmu;
+  /^(?:[-*•]|\d+[.)])\s+[`「"'“]?([^\s`」"'”]+?\.[a-z][a-z0-9]{0,9})[`」"'”]?/gmu;
 
 /**
  * File paths intentionally listed in the assistant's final delivery summary.

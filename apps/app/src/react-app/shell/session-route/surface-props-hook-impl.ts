@@ -61,7 +61,6 @@ import {
 } from "../../domains/session";
 import {
   createIsolatedExpertSessionRuntimeDirectory,
-  isSameDirectory,
   resolveSessionArtifactVerifyRoot,
   shouldIsolateExpertSessionDirectory,
 } from "../../capabilities/session-identity/expert-session-directory";

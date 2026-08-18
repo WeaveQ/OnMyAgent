@@ -1218,6 +1218,32 @@ describe("deriveOpenTargets", () => {
       ["发布效果.xlsx", "投流内容明细.xlsx", "点位周报.xlsx", "项目目标与口径.xlsx"].sort(),
     );
   });
+
+  it("shows listed xlsx files when the delivery bullets include size notes", () => {
+    const text = [
+      "已把原工作簿的 4 个 sheet 拆成 4 个独立文件，行数/列数/非空单元格均与源表一致，无公式错误：",
+      "",
+      "- 项目目标与口径.xlsx (8 行 × 4 列)",
+      "- 发布效果.xlsx (9 行 × 16 列)",
+      "- 点位周报.xlsx (7 行 × 9 列)",
+      "- 投流内容明细.xlsx (15 行 × 13 列)",
+    ].join("\n");
+    expect(extractAssistantDeliveryManifestPaths(text).sort()).toEqual(
+      ["发布效果.xlsx", "投流内容明细.xlsx", "点位周报.xlsx", "项目目标与口径.xlsx"].sort(),
+    );
+    const messages = [message("msg_final", "assistant", text)] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("output/项目目标与口径.xlsx", "sheet"), exists: true },
+      { ...fileTarget("output/发布效果.xlsx", "sheet"), exists: true },
+      { ...fileTarget("output/点位周报.xlsx", "sheet"), exists: true },
+      { ...fileTarget("output/投流内容明细.xlsx", "sheet"), exists: true },
+    ];
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.name).sort(),
+    ).toEqual(
+      ["发布效果.xlsx", "投流内容明细.xlsx", "点位周报.xlsx", "项目目标与口径.xlsx"].sort(),
+    );
+  });
 });
 
 describe("resolveArtifactAbsolutePath", () => {
