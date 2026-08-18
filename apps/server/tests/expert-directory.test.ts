@@ -76,6 +76,29 @@ describe("expert directory projection", () => {
       .toEqual(["started", "succeeded"]);
   });
 
+  test("assistant-origin sessions are not projected from leftover expert markers", async () => {
+    const current = await workspace("assistant-origin-skip");
+    const marker = await markerRoot(current, "greeting", "session-home");
+    await writeMarker(marker.directory, current.id, {
+      isolationVersion: 3,
+      agentId: "greeting-expert",
+      packageName: "greeting",
+      sessionId: marker.session,
+      declaredSkills: [],
+      installedSkills: [],
+      missingSkills: [],
+    });
+    await upsertSessionOrigin(current, marker.session, {
+      kind: "assistant",
+      directory: marker.directory,
+    });
+    const projection = await buildExpertDirectory(current, {
+      runtimeRoot: marker.runtimeRoot,
+      readSessions: async () => [{ id: marker.session, directory: marker.directory }],
+    });
+    expect(projection.records.flatMap((record) => record.sessionIds)).not.toContain(marker.session);
+  });
+
   test("origins-only projection stays complete and marks runtime missing", async () => {
     const current = await workspace("origins-only");
     await upsertSessionOrigin(current, "session-origin", {

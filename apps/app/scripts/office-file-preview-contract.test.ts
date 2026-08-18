@@ -18,6 +18,7 @@ test("uses a dedicated native preview viewport in the shared capability", () => 
   const source = readFileSync(previewPath, "utf8");
   expect(source).toContain("artifactPreview");
   expect(source).toContain("filePath: props.filePath");
+  expect(source).toContain("allowedRoot");
   expect(source).toContain("document.documentElement.lang");
   expect(source).toContain("locale");
   expect(source).toContain("getBoundingClientRect");

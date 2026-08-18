@@ -698,11 +698,9 @@ export function AssistantPage(props: AssistantPageProps) {
 
   const wrappedOnSendDraft = useCallback(
     async (draft: ComposerDraft) => {
-      if (!props.selectedSessionId) {
-        usePendingAgentStore.getState().setAgent(null);
-        if (props.onCreateSessionForAgent) {
-          props.onCreateSessionForAgent();
-        }
+      usePendingAgentStore.getState().setAgent(null);
+      if (!props.selectedSessionId && props.onCreateSessionForAgent) {
+        props.onCreateSessionForAgent();
       }
       // Always stamp assistant intent so force-new / auto-new-session creates
       // are registered as assistant sessions. Missing intent left sessions

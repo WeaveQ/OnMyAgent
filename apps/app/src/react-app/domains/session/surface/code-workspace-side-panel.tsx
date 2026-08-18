@@ -348,6 +348,7 @@ function WorkspaceFilesPanel(props: {
   const treeScrollRef = useRef<HTMLDivElement>(null);
   const fileRoot =
     props.fileRoot === undefined ? props.workspacePath : props.fileRoot?.trim() ?? "";
+  const previewAllowedRoot = fileRoot || props.workspacePath;
   const hasScopedFileRoot = props.fileRoot !== undefined && Boolean(fileRoot);
   const requiresSessionFileRoot = props.fileRoot !== undefined;
   const rootRelativePrefix = useMemo(() => {
@@ -464,7 +465,7 @@ function WorkspaceFilesPanel(props: {
   const editFile = useCallback(
     async (filePath: string) => {
       try {
-        await openArtifactForEditing(filePath);
+        await openArtifactForEditing(filePath, undefined, previewAllowedRoot);
       } catch {
         showToast({
           tone: "error",
@@ -474,7 +475,7 @@ function WorkspaceFilesPanel(props: {
         });
       }
     },
-    [showToast],
+    [previewAllowedRoot, showToast],
   );
 
   const selectFile = useCallback(
@@ -824,6 +825,7 @@ function WorkspaceFilesPanel(props: {
           <OfficeFilePreview
             className="min-h-0 flex-1"
             filePath={preview.filePath}
+            allowedRoot={previewAllowedRoot}
             name={preview.name}
           />
         ) : preview.kind === "binary" ? (

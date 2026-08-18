@@ -80,7 +80,7 @@ describe("expert session directory isolation", () => {
     expect(shouldIsolateExpertSessionDirectory("", "/tmp/x")).toBe(false);
   });
 
-  test("session file listing root only accepts isolated per-session directories", () => {
+  test("session file listing root prefers isolated dirs, then the space folder", () => {
     expect(
       resolveSelectedSessionFileRoot({
         boundDirectory: "/Users/me/Work",
@@ -94,7 +94,7 @@ describe("expert session directory isolation", () => {
         sessionDirectory: "/Users/me/Work/orders",
         workspaceRoot: "/Users/me/Work",
       }),
-    ).toBe("");
+    ).toBe("/Users/me/Desktop/work");
     expect(
       resolveSelectedSessionFileRoot({
         boundDirectory: "/Users/me/Library/Application Support/OnMyAgent/expert-sessions/ws/agent/1753456789000",

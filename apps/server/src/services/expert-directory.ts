@@ -182,6 +182,11 @@ export async function buildExpertDirectory(
 
   const grouped = new Map<string, MutableDirectoryRecord>();
   const originSessionIds = new Set<string>();
+  const assistantOriginSessionIds = new Set(
+    origins.items
+      .filter((item) => item.kind === "assistant")
+      .map((item) => item.sessionId),
+  );
   for (const origin of origins.items.filter((item) => item.kind === "expert")) {
     originSessionIds.add(origin.sessionId);
     if (tombstones.has(origin.sessionId)) continue;
@@ -220,7 +225,13 @@ export async function buildExpertDirectory(
   }
 
   for (const [sessionId, entries] of entriesBySession) {
-    if (originSessionIds.has(sessionId) || tombstones.has(sessionId)) continue;
+    if (
+      originSessionIds.has(sessionId) ||
+      assistantOriginSessionIds.has(sessionId) ||
+      tombstones.has(sessionId)
+    ) {
+      continue;
+    }
     const entry = entries[0]!;
     const identity = markerIdentityOf(entry.marker);
     if (!identity) continue;

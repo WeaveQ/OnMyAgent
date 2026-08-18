@@ -156,9 +156,10 @@ export function shouldIsolateExpertSessionDirectory(
 }
 
 /**
- * Files-panel listing root. Only a per-session isolated directory is safe to
- * scan — a shared space/catalog folder would leak other sessions' deliverables.
- * Shared folders fall back to this session's verified artifact chips.
+ * Files-panel listing + Office preview root.
+ * Isolated per-session dirs win. Space-bound home chats still write into the
+ * user-picked folder. Do not fall back to the shared catalog workspace — that
+ * would list every other session's files.
  */
 export function resolveSelectedSessionFileRoot(input: {
   boundDirectory?: string | null;
@@ -169,6 +170,8 @@ export function resolveSelectedSessionFileRoot(input: {
   const boundDir = input.boundDirectory?.trim() ?? "";
   if (sessionDir && isIsolatedExpertSessionDirectory(sessionDir)) return sessionDir;
   if (boundDir && isIsolatedExpertSessionDirectory(boundDir)) return boundDir;
+  if (boundDir && !isSameDirectory(boundDir, input.workspaceRoot)) return boundDir;
+  if (sessionDir && !isSameDirectory(sessionDir, input.workspaceRoot)) return sessionDir;
   return "";
 }
 

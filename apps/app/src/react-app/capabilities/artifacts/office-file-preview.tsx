@@ -25,6 +25,8 @@ function sameBounds(left: Bounds | null, right: Bounds) {
 export function OfficeFilePreview(props: {
   filePath: string;
   name: string;
+  /** Home space folder or isolated session dir — not always a registered workspace. */
+  allowedRoot?: string;
   revision?: string | number;
   className?: string;
 }) {
@@ -61,7 +63,13 @@ export function OfficeFilePreview(props: {
       if (!shown) {
         const theme = document.documentElement.classList.contains("dark") || document.documentElement.dataset.theme === "dark" ? "dark" : "light";
         const locale = document.documentElement.lang || navigator.language;
-        void Promise.resolve(preview.show?.({ filePath: props.filePath, bounds, theme, locale }))
+        void Promise.resolve(preview.show?.({
+          filePath: props.filePath,
+          ...(props.allowedRoot?.trim() ? { allowedRoot: props.allowedRoot.trim() } : {}),
+          bounds,
+          theme,
+          locale,
+        }))
           .then(() => preview.setBounds?.(bounds))
           .catch(reportPreviewFailure);
         shown = true;
@@ -89,7 +97,7 @@ export function OfficeFilePreview(props: {
       void Promise.resolve(preview.hide?.()).catch(() => undefined);
       lastBoundsRef.current = null;
     };
-  }, [props.filePath, props.revision]);
+  }, [props.filePath, props.allowedRoot, props.revision]);
 
   return (
     <div ref={containerRef} className={cn("h-full min-h-0 overflow-hidden bg-dls-surface-muted/30", props.className)} data-office-file-preview={props.name}>

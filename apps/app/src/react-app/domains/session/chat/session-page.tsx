@@ -1119,7 +1119,9 @@ export function SessionPage(props: SessionPageProps) {
                     <ArtifactPanel
                       client={props.onmyagentServerClient}
                       workspaceId={props.runtimeWorkspaceId}
-                      workspaceRoot={props.selectedWorkspaceRoot}
+                      workspaceRoot={
+                        props.selectedSessionFileRoot?.trim() || props.selectedWorkspaceRoot
+                      }
                       isRemoteWorkspace={props.surface?.isRemoteWorkspace ?? false}
                       target={visibleArtifactTarget}
                       targets={artifactFileTargets}

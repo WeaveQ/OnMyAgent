@@ -48,7 +48,9 @@ const WORKSPACE_ID_PREFIX_PATTERN = /^workspace\/(?:ws_[^/]+|\d+|[0-9a-f-]{6,})\
 // \w alone is ASCII-only and dropped Chinese filenames from the files panel.
 // Include CJK title brackets commonly used in deliverable filenames
 // (e.g. 【视频脚本-栖光修护精华】审核留痕版.docx).
-const FILE_PATH_SEGMENT = String.raw`[\p{L}\p{N}._\-【】「」『』（）／]+`;
+// "Application Support" is the only spaced segment we accept — a generic
+// space class would swallow prose like "Wrote agents/ledger.xlsx".
+const FILE_PATH_SEGMENT = String.raw`(?:Application Support|[\p{L}\p{N}._\-【】「」『』（）／]+)`;
 const FILE_PATTERN = new RegExp(
   String.raw`(?:^|[\s"'` +
     "`" +
@@ -684,7 +686,7 @@ const ASSISTANT_DELIVERY_LINK_LABEL_PATTERN =
   /\[([^\]\r\n]+?\.[a-z][a-z0-9]{0,9})\]\([^\r\n)]+\)/giu;
 const ASSISTANT_DELIVERY_DIRECTORY_PATTERN = /`([^`\r\n]+[/\\])`/gu;
 const ASSISTANT_DELIVERY_LIST_FILE_PATTERN =
-  /^(?:[-*•]|\d+[.)])\s+[`「"'“]?([^\s`」"'”]+?\.[a-z][a-z0-9]{0,9})[`」"'”]?\s*$/gmu;
+  /^(?:[-*•]|\d+[.)])\s+[`「"'“]?([^\s`」"'”]+?\.[a-z][a-z0-9]{0,9})[`」"'”]?/gmu;
 
 /**
  * File paths intentionally listed in the assistant's final delivery summary.

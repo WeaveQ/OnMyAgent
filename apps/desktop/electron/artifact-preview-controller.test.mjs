@@ -177,6 +177,42 @@ test("artifact preview opens files in the managed expert session runtime root", 
   );
 });
 
+test("artifact preview opens a home space folder when allowedRoot is the session directory", async (t) => {
+  const workspaceRoot = await createTempWorkspace(t);
+  const spaceRoot = await createTempWorkspace(t);
+  const filePath = path.join(spaceRoot, "04_投流内容明细.xlsx");
+  await writeFile(filePath, "space-sheet");
+  const harness = createPreviewHarness(workspaceRoot);
+
+  await assert.rejects(
+    harness.controller.show({
+      filePath,
+      bounds: { x: 0, y: 0, width: 600, height: 400 },
+    }),
+    /registered local workspaces/,
+  );
+  assert.deepEqual(
+    await harness.controller.show({
+      filePath,
+      allowedRoot: spaceRoot,
+      bounds: { x: 0, y: 0, width: 600, height: 400 },
+    }),
+    { ok: true, kind: "office" },
+  );
+
+  const siblingRoot = await createTempWorkspace(t);
+  const siblingPath = path.join(siblingRoot, "outside.xlsx");
+  await writeFile(siblingPath, "outside");
+  await assert.rejects(
+    harness.controller.show({
+      filePath: siblingPath,
+      allowedRoot: spaceRoot,
+      bounds: { x: 0, y: 0, width: 600, height: 400 },
+    }),
+    /registered local workspaces/,
+  );
+});
+
 test("artifact preview rejects files outside workspace and managed expert roots", async (t) => {
   const workspaceRoot = await createTempWorkspace(t);
   const userDataRoot = await createTempWorkspace(t);

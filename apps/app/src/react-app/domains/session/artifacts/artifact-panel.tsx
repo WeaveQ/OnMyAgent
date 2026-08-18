@@ -527,12 +527,12 @@ export function ArtifactPanel({
           copied={copiedPath}
           onEdit={
             isElectronRuntime() && canEditArtifactTarget(target) && externalPath
-              ? () => void openArtifactForEditing(externalPath)
+              ? () => void openArtifactForEditing(externalPath, undefined, workspaceRoot)
               : undefined
           }
           onOpenExternally={
             isElectronRuntime() && externalPath
-              ? () => void openArtifactForEditing(externalPath).catch(() => void openExternal())
+              ? () => void openArtifactForEditing(externalPath, undefined, workspaceRoot).catch(() => void openExternal())
               : undefined
           }
           onOpenInFolder={
@@ -574,6 +574,7 @@ export function ArtifactPanel({
         ) : useLocalOfficePreview ? (
           <OfficeFilePreview
             filePath={externalPath}
+            allowedRoot={workspaceRoot}
             name={target.name || target.value}
             revision={target.updatedAt ?? target.id}
             className="h-full w-full"

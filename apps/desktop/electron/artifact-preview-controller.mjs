@@ -46,6 +46,7 @@ export function createArtifactPreviewController(options) {
   let activePath = null;
   let activeTarget = null;
   let activePayload = null;
+  let activeAllowedRoots = [];
   let intentVersion = 0;
   let watchedPath = null;
   let refreshTimer = null;
@@ -92,9 +93,15 @@ export function createArtifactPreviewController(options) {
     activePath = null;
     activeTarget = null;
     activePayload = null;
+    activeAllowedRoots = [];
   }
 
-  async function validateFile(requestedPath) {
+  function extraAllowedRootsFrom(request) {
+    const raw = request?.allowedRoot;
+    return typeof raw === "string" && raw.trim() ? [raw.trim()] : [];
+  }
+
+  async function validateFile(requestedPath, extraRoots = []) {
     if (typeof requestedPath !== "string" || !path.isAbsolute(requestedPath)) {
       throw new Error("Artifact preview requires an absolute local file path.");
     }
@@ -112,7 +119,7 @@ export function createArtifactPreviewController(options) {
         throw error;
       }
     };
-    const [realWorkspaceRoots, realManagedRoots] = await Promise.all([
+    const [realWorkspaceRoots, realManagedRoots, realExtraRoots] = await Promise.all([
       Promise.all(
         workspaceRoots
           .filter((root) => typeof root === "string" && root.trim())
@@ -123,8 +130,13 @@ export function createArtifactPreviewController(options) {
           .filter((root) => typeof root === "string" && root.trim())
           .map((root) => resolveExistingRoot(root, true)),
       ),
+      Promise.all(
+        extraRoots
+          .filter((root) => typeof root === "string" && root.trim())
+          .map((root) => resolveExistingRoot(root, false)),
+      ),
     ]);
-    const realRoots = [...realWorkspaceRoots, ...realManagedRoots].filter(Boolean);
+    const realRoots = [...realWorkspaceRoots, ...realManagedRoots, ...realExtraRoots].filter(Boolean);
     if (!realRoots.some((root) => isWithinRoot(candidate, root))) {
       throw new Error("Artifact preview is limited to registered local workspaces.");
     }
@@ -155,7 +167,7 @@ export function createArtifactPreviewController(options) {
     const filePath = activePath;
     if (!filePath || !view || version !== intentVersion || view.webContents.isDestroyed()) return;
     try {
-      const target = await validateFile(filePath);
+      const target = await validateFile(filePath, activeAllowedRoots);
       if (!view || version !== intentVersion || activePath !== filePath || view.webContents.isDestroyed()) return;
       if (activeTarget && target.mtimeMs === activeTarget.mtimeMs && target.size === activeTarget.size) return;
       if (NATIVE_FILE_EXTENSIONS.has(target.extension)) {
@@ -194,11 +206,12 @@ export function createArtifactPreviewController(options) {
 
   async function show(request) {
     const version = ++intentVersion;
-    const target = await validateFile(request?.filePath);
+    const target = await validateFile(request?.filePath, extraAllowedRootsFrom(request));
     if (version !== intentVersion) return { ok: false, stale: true };
     bounds = safeBounds(request?.bounds);
     visible = true;
     if (view && activePath === target.filePath) {
+      activeAllowedRoots = extraAllowedRootsFrom(request);
       startWatching(target.filePath, version);
       if (activeTarget && (target.mtimeMs !== activeTarget.mtimeMs || target.size !== activeTarget.size)) {
         scheduleRefresh(version);
@@ -210,6 +223,7 @@ export function createArtifactPreviewController(options) {
     destroyView();
     activePath = target.filePath;
     activeTarget = target;
+    activeAllowedRoots = extraAllowedRootsFrom(request);
     const isNativeFile = NATIVE_FILE_EXTENSIONS.has(target.extension);
     view = new options.WebContentsView({
       webPreferences: {
@@ -253,7 +267,7 @@ export function createArtifactPreviewController(options) {
 
   async function openForEditing(request) {
     if (typeof options.openPath !== "function") throw new TypeError("openPath is required");
-    const target = await validateFile(request?.filePath);
+    const target = await validateFile(request?.filePath, extraAllowedRootsFrom(request));
     const error = await options.openPath(target.filePath);
     if (typeof error === "string" && error.trim()) throw new Error(error);
     return { ok: true };

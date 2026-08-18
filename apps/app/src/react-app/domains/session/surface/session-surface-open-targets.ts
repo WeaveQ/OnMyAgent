@@ -136,8 +136,12 @@ function listedFileKey(path: string): string {
 }
 
 function listedFileBasename(path: string): string {
+  return listedFileDisplayName(path).toLowerCase();
+}
+
+function listedFileDisplayName(path: string): string {
   const posix = path.replace(/\\/g, "/");
-  return (posix.split("/").pop() ?? posix).toLowerCase();
+  return posix.split("/").filter(Boolean).pop() ?? path;
 }
 
 /**
@@ -173,8 +177,14 @@ export function applyListedFilesToOpenTargets(
       target.preview === "external"
         ? classifyOpenTarget(match.path || target.value, "file")
         : target.preview;
+    const listedPath = match.path.trim();
     return {
       ...target,
+      // Listing path is session-relative (output/a.xlsx). Keep that so
+      // Office preview joins fileRoot + value instead of a truncated
+      // "Support/com.differential..." leftover from Application Support.
+      value: listedPath || target.value,
+      name: listedFileDisplayName(listedPath) || target.name,
       exists: true,
       size: typeof match.size === "number" ? match.size : target.size,
       updatedAt: typeof match.mtimeMs === "number" ? match.mtimeMs : target.updatedAt,

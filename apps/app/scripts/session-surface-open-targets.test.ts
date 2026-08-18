@@ -42,6 +42,27 @@ describe("local space-folder existence merge", () => {
     expect(merged[0]?.size).toBe(5120);
     expect(merged[1]?.size).toBe(5900);
   });
+
+  test("rewrites truncated Application Support leftovers to the listed relative path", () => {
+    const merged = applyListedFilesToOpenTargets(
+      [
+        {
+          id: "file:support/com.differential.onmyagent/expert-sessions/ws/agent/1/output/点位周报.xlsx",
+          kind: "file",
+          value:
+            "Support/com.differential.onmyagent/expert-sessions/ws/agent/1/output/点位周报.xlsx",
+          name: "点位周报.xlsx",
+          preview: "sheet",
+          confidence: 65,
+          reason: "message",
+        },
+      ],
+      [{ path: "output/点位周报.xlsx", kind: "file", size: 18800, mtimeMs: 3 }],
+    );
+    expect(merged[0]?.exists).toBe(true);
+    expect(merged[0]?.value).toBe("output/点位周报.xlsx");
+    expect(merged[0]?.name).toBe("点位周报.xlsx");
+  });
 });
 
 describe("verified open-target normalization", () => {

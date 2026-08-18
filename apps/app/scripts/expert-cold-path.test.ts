@@ -174,6 +174,35 @@ describe("expert cold path queue + prewarm", () => {
 });
 
 describe("expert cold path wiring contracts", () => {
+  test("home first send does not enter the expert cold-path isolate", async () => {
+    const source = await readFile(
+      new URL(
+        "../src/react-app/shell/session-route/surface-props-hook-impl.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    expect(source).toContain("if (pageMode === \"expert\" && sendPlan.needsNewSession)");
+    expect(source).not.toContain("pageMode === \"expert\" || pageMode === \"assistant\"");
+    expect(source).not.toContain('agentName: "assistant"');
+  });
+
+  test("home send clears leftover pending expert before first prompt", async () => {
+    const source = await readFile(
+      new URL(
+        "../src/react-app/domains/session/pages/assistant.tsx",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    const send = source.indexOf("async (draft: ComposerDraft)");
+    const clear = source.indexOf("usePendingAgentStore.getState().setAgent(null)", send);
+    const ifNoSession = source.indexOf("if (!props.selectedSessionId", send);
+    expect(send).toBeGreaterThan(0);
+    expect(clear).toBeGreaterThan(send);
+    expect(ifNoSession === -1 || clear < ifNoSession).toBe(true);
+  });
+
   test("send path claims expert cold session for isolated first send", async () => {
     const source = await readFile(
       new URL(
@@ -192,7 +221,7 @@ describe("expert cold path wiring contracts", () => {
   test("draft activation starts expert cold prewarm", async () => {
     const source = await readFile(
       new URL(
-        "../src/react-app/domains/session/pages/use-expert-page.tsx",
+        "../src/react-app/domains/session/pages/use-expert-page-navigation.ts",
         import.meta.url,
       ),
       "utf8",
