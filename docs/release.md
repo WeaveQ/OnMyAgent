@@ -24,9 +24,9 @@ OSS is the customer download/update channel. **Prereleases never sync.** Only a 
 
 `Release App` with the usual `prerelease: true` still publishes GitHub assets for testers, but does **not** overwrite the OSS feed. When a full release does sync, the job:
 
-- uploads installers + blockmaps to `onmyagent/<version>/`
-- rewrites `latest.yml` / `latest-mac.yml` `url` values to `<version>/<filename>` (sha512 / size unchanged) and overwrites the two pointers at `onmyagent/`
-- overwrites the stable website copies at `onmyagent/website-download/` (`onmyagent-mac-arm64.dmg`, `onmyagent-mac-x64.dmg`, `onmyagent-win-x64.exe`)
+- uploads only updater binaries to `onmyagent/<version>/`: mac zip + zip.blockmap (arm64/x64) and win exe + exe.blockmap
+- rewrites `latest.yml` / `latest-mac.yml` to `version`, zip/exe `url` + `sha512` + `size`, and `releaseDate` (drops dmg entries) and overwrites the two pointers at `onmyagent/`
+- overwrites the stable website copies at `onmyagent/website-download/` using those exact names: `onmyagent-mac-arm64.dmg`, `onmyagent-mac-x64.dmg`, `onmyagent-win-x64.exe`
 
 Old version prefixes are left in place. Put `OSS_ACCESS_KEY_ID` and `OSS_ACCESS_KEY_SECRET` in **GitHub Actions secrets** (repo **Settings → Secrets and variables → Actions**), never in git, workflow YAML, or local files. RAM user only needs `oss:PutObject` + `oss:GetObject` on `weaveq-onmyagent/onmyagent/*`. Optional env overrides (also not required in git): `OSS_BUCKET`, `OSS_ENDPOINT`, `OSS_PREFIX`.
 

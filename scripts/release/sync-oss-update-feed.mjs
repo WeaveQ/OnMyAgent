@@ -71,24 +71,73 @@ export function prefixRelativeArtifactUrl(url, version) {
   return `${version}/${relative}`;
 }
 
-export function rewriteManifestUrls(raw, version) {
-  const text = String(raw ?? "");
-  let versionValue = "";
-  const rewritten = text.replace(/^(\s*-\s+url:\s*)(\S.*?)\s*$/gm, (_full, prefix, urlRaw) => {
-    const next = prefixRelativeArtifactUrl(unquoteYamlScalar(urlRaw), version);
-    return `${prefix}${next}`;
-  });
+function parseUpdaterManifest(raw) {
+  const files = [];
+  let version = "";
+  let releaseDate = "";
+  let current = null;
+  for (const line of String(raw ?? "").split(/\r?\n/)) {
+    const fileStart = line.match(/^\s*-\s+url:\s*(.*?)\s*$/);
+    if (fileStart) {
+      current = { url: unquoteYamlScalar(fileStart[1]), sha512: "", size: "" };
+      files.push(current);
+      continue;
+    }
+    const fileProp = line.match(/^\s+(sha512|size):\s*(.*?)\s*$/);
+    if (fileProp && current) {
+      current[fileProp[1]] = unquoteYamlScalar(fileProp[2]);
+      continue;
+    }
+    const top = line.match(/^(version|releaseDate):\s*(.*?)\s*$/);
+    if (top) {
+      current = null;
+      const value = unquoteYamlScalar(top[2]);
+      if (top[1] === "version") version = value;
+      else releaseDate = value;
+    }
+  }
+  return { version, releaseDate, files };
+}
 
-  const versionLine = rewritten.match(/^version:\s*(.*?)\s*$/m);
-  if (versionLine) versionValue = unquoteYamlScalar(versionLine[1]);
-  if (!versionValue) throw new Error("Updater manifest is missing version.");
-  if (versionValue !== version) {
-    throw new Error(`Updater manifest version ${versionValue} does not match tag version ${version}.`);
+function isCustomerFeedUrl(url, manifestName) {
+  const base = String(url ?? "").split("/").pop() ?? "";
+  if (manifestName === "latest-mac.yml") return /^onmyagent-mac-(arm64|x64)-.+\.zip$/i.test(base);
+  if (manifestName === "latest.yml") return /^onmyagent-win-x64-.+\.exe$/i.test(base);
+  return false;
+}
+
+export function stringifyCustomerManifest(manifest) {
+  const lines = [`version: ${manifest.version}`, "files:"];
+  for (const file of manifest.files) {
+    lines.push(`  - url: ${file.url}`);
+    if (file.sha512) lines.push(`    sha512: ${file.sha512}`);
+    if (file.size !== "" && file.size != null) lines.push(`    size: ${file.size}`);
   }
-  if (!/^\s*-\s+url:\s*\S/m.test(rewritten)) {
-    throw new Error("Updater manifest has no file urls.");
+  if (manifest.releaseDate) lines.push(`releaseDate: '${manifest.releaseDate}'`);
+  return `${lines.join("\n")}\n`;
+}
+
+export function rewriteManifestUrls(raw, version, manifestName = "latest-mac.yml") {
+  const parsed = parseUpdaterManifest(raw);
+  if (!parsed.version) throw new Error("Updater manifest is missing version.");
+  if (parsed.version !== version) {
+    throw new Error(`Updater manifest version ${parsed.version} does not match tag version ${version}.`);
   }
-  return rewritten.endsWith("\n") ? rewritten : `${rewritten}\n`;
+  const files = parsed.files
+    .filter((file) => isCustomerFeedUrl(file.url, manifestName))
+    .map((file) => ({
+      url: prefixRelativeArtifactUrl(file.url, version),
+      sha512: file.sha512,
+      size: file.size,
+    }));
+  if (files.length === 0) {
+    throw new Error(`${manifestName} has no customer feed urls.`);
+  }
+  return stringifyCustomerManifest({
+    version: parsed.version,
+    releaseDate: parsed.releaseDate,
+    files,
+  });
 }
 
 export function requiredVersionedAssetNames(version) {
@@ -97,16 +146,22 @@ export function requiredVersionedAssetNames(version) {
     `onmyagent-mac-arm64-${version}.zip.blockmap`,
     `onmyagent-mac-x64-${version}.zip`,
     `onmyagent-mac-x64-${version}.zip.blockmap`,
-    `onmyagent-mac-arm64-${version}.dmg`,
-    `onmyagent-mac-x64-${version}.dmg`,
     `onmyagent-win-x64-${version}.exe`,
     `onmyagent-win-x64-${version}.exe.blockmap`,
   ];
 }
 
-function installerNamePattern(version) {
+export function requiredWebsiteAssetNames(version) {
+  return [
+    `onmyagent-mac-arm64-${version}.dmg`,
+    `onmyagent-mac-x64-${version}.dmg`,
+    `onmyagent-win-x64-${version}.exe`,
+  ];
+}
+
+function versionFolderAssetPattern(version) {
   return new RegExp(
-    `^onmyagent-(mac-arm64|mac-x64|win-x64)-${version.replaceAll(".", "\\.")}\\.(zip|dmg|exe)(\\.blockmap)?$`,
+    `^onmyagent-(mac-arm64|mac-x64|win-x64)-${version.replaceAll(".", "\\.")}\\.(zip|exe)(\\.blockmap)?$`,
   );
 }
 
@@ -135,9 +190,9 @@ export function prepareOssSyncStaging({ sourceDir, stagingDir, version, prefix =
   const staging = resolve(stagingDir);
   const feedPrefix = String(prefix ?? "").replace(/^\/+|\/+$/g, "") || DEFAULT_OSS_PREFIX;
   const names = listFiles(source);
-  const missing = [...MANIFEST_NAMES, ...requiredVersionedAssetNames(version)].filter(
-    (name) => !names.includes(name),
-  );
+  const missing = [
+    ...new Set([...MANIFEST_NAMES, ...requiredVersionedAssetNames(version), ...requiredWebsiteAssetNames(version)]),
+  ].filter((name) => !names.includes(name));
   if (missing.length) {
     throw new Error(`Missing required release assets: ${missing.join(", ")}`);
   }
@@ -147,17 +202,18 @@ export function prepareOssSyncStaging({ sourceDir, stagingDir, version, prefix =
   mkdirSync(join(staging, "website-download"), { recursive: true });
 
   const objects = [];
-  const installerRe = installerNamePattern(version);
+  const versionAssetRe = versionFolderAssetPattern(version);
   for (const name of names) {
-    if (!installerRe.test(name)) continue;
-    const relative = `${version}/${name}`;
-    const localPath = join(staging, relative);
-    copyFileSync(join(source, name), localPath);
-    objects.push({
-      localPath,
-      key: `${feedPrefix}/${relative}`,
-      contentType: contentTypeForKey(relative),
-    });
+    if (versionAssetRe.test(name)) {
+      const relative = `${version}/${name}`;
+      const localPath = join(staging, relative);
+      copyFileSync(join(source, name), localPath);
+      objects.push({
+        localPath,
+        key: `${feedPrefix}/${relative}`,
+        contentType: contentTypeForKey(relative),
+      });
+    }
 
     const websiteKey = websiteDownloadKey(name, version);
     if (websiteKey) {
@@ -172,7 +228,7 @@ export function prepareOssSyncStaging({ sourceDir, stagingDir, version, prefix =
   }
 
   for (const name of MANIFEST_NAMES) {
-    const rewritten = rewriteManifestUrls(readFileSync(join(source, name), "utf8"), version);
+    const rewritten = rewriteManifestUrls(readFileSync(join(source, name), "utf8"), version, name);
     const localPath = join(staging, name);
     writeFileSync(localPath, rewritten, "utf8");
     objects.push({
@@ -327,7 +383,9 @@ function runGh(args) {
 
 export function missingRequiredReleaseAssets(dir, version) {
   const names = new Set(listFiles(dir));
-  return [...MANIFEST_NAMES, ...requiredVersionedAssetNames(version)].filter((name) => !names.has(name));
+  return [
+    ...new Set([...MANIFEST_NAMES, ...requiredVersionedAssetNames(version), ...requiredWebsiteAssetNames(version)]),
+  ].filter((name) => !names.has(name));
 }
 
 export function downloadGithubReleaseAssets(tag, destDir, { repo, run = runGh } = {}) {

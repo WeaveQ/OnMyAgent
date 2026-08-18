@@ -77,6 +77,9 @@ async function writeReleaseFixture(root) {
 
 test("versionFromReleaseTag reads a v-prefixed semver tag", () => {
   assert.equal(versionFromReleaseTag("v0.5.19"), "0.5.19");
+  assert.equal(versionFromReleaseTag("v0.6.1"), "0.6.1");
+  assert.equal(versionFromReleaseTag("v1.7.12"), "1.7.12");
+  assert.equal(versionFromReleaseTag("v10.0.0"), "10.0.0");
   assert.throws(() => versionFromReleaseTag("0.5.19"), /Invalid release tag/);
 });
 
@@ -103,12 +106,19 @@ test("prefixRelativeArtifactUrl adds the version directory once", () => {
   );
 });
 
-test("rewriteManifestUrls prefixes urls and keeps hashes", () => {
-  const rewritten = rewriteManifestUrls(sampleMacManifest(), version);
+test("rewriteManifestUrls prefixes urls, keeps hashes, and drops dmg entries", () => {
+  const rewritten = rewriteManifestUrls(sampleMacManifest(), version, "latest-mac.yml");
   assert.match(rewritten, /^  - url: 0\.5\.19\/onmyagent-mac-arm64-0\.5\.19\.zip$/m);
   assert.match(rewritten, /^    sha512: macziphash==$/m);
-  assert.equal(rewriteManifestUrls(sampleMacManifest({ prefixed: true }), version), sampleMacManifest({ prefixed: true }));
-  assert.throws(() => rewriteManifestUrls("version: 0.5.18\nfiles:\n  - url: a.zip\n", version), /does not match/);
+  assert.doesNotMatch(rewritten, /\.dmg/);
+  assert.match(
+    rewriteManifestUrls(sampleMacManifest({ prefixed: true }), version, "latest-mac.yml"),
+    /url: 0\.5\.19\/onmyagent-mac-arm64-0\.5\.19\.zip/,
+  );
+  assert.throws(
+    () => rewriteManifestUrls("version: 0.5.18\nfiles:\n  - url: a.zip\n", version, "latest-mac.yml"),
+    /does not match/,
+  );
 });
 
 test("websiteDownloadKey maps versioned installers onto stable names", () => {
@@ -131,6 +141,8 @@ test("prepareOssSyncStaging stages versioned packages, rewritten yml, and websit
   assert.ok(keys.includes("onmyagent/0.5.19/onmyagent-mac-arm64-0.5.19.zip"));
   assert.ok(keys.includes("onmyagent/0.5.19/onmyagent-mac-arm64-0.5.19.zip.blockmap"));
   assert.ok(keys.includes("onmyagent/0.5.19/onmyagent-win-x64-0.5.19.exe"));
+  assert.ok(!keys.some((key) => key.includes("/0.5.19/") && key.endsWith(".dmg")));
+  assert.ok(!keys.some((key) => key.endsWith(".dmg.blockmap")));
   assert.ok(keys.includes("onmyagent/website-download/onmyagent-mac-arm64.dmg"));
   assert.ok(keys.includes("onmyagent/website-download/onmyagent-mac-x64.dmg"));
   assert.ok(keys.includes("onmyagent/website-download/onmyagent-win-x64.exe"));
@@ -144,6 +156,59 @@ test("prepareOssSyncStaging stages versioned packages, rewritten yml, and websit
   const macYml = await readFile(path.join(staging, "latest-mac.yml"), "utf8");
   assert.match(macYml, /url: 0\.5\.19\/onmyagent-mac-arm64-0\.5\.19\.zip/);
   assert.match(macYml, /sha512: macziphash==/);
+  assert.doesNotMatch(macYml, /\.dmg/);
+});
+
+test("prepareOssSyncStaging uses the tag version folder, not a hard-coded 0.5.x", async () => {
+  const nextVersion = "1.7.12";
+  const root = await mkdtemp(path.join(tmpdir(), "oss-sync-semver-"));
+  const staging = path.join(root, "staging");
+  const assets = [
+    `onmyagent-mac-arm64-${nextVersion}.zip`,
+    `onmyagent-mac-arm64-${nextVersion}.zip.blockmap`,
+    `onmyagent-mac-arm64-${nextVersion}.dmg`,
+    `onmyagent-mac-x64-${nextVersion}.zip`,
+    `onmyagent-mac-x64-${nextVersion}.zip.blockmap`,
+    `onmyagent-mac-x64-${nextVersion}.dmg`,
+    `onmyagent-win-x64-${nextVersion}.exe`,
+    `onmyagent-win-x64-${nextVersion}.exe.blockmap`,
+  ];
+  for (const name of assets) {
+    await writeFile(path.join(root, name), name, "utf8");
+  }
+  await writeFile(
+    path.join(root, "latest-mac.yml"),
+    [
+      `version: ${nextVersion}`,
+      "files:",
+      `  - url: onmyagent-mac-arm64-${nextVersion}.zip`,
+      "    sha512: hash==",
+      "    size: 1",
+      `  - url: onmyagent-mac-x64-${nextVersion}.zip`,
+      "    sha512: hash==",
+      "    size: 1",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  await writeFile(
+    path.join(root, "latest.yml"),
+    [
+      `version: ${nextVersion}`,
+      "files:",
+      `  - url: onmyagent-win-x64-${nextVersion}.exe`,
+      "    sha512: hash==",
+      "    size: 1",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+
+  const plan = prepareOssSyncStaging({ sourceDir: root, stagingDir: staging, version: nextVersion });
+  const keys = plan.objects.map((object) => object.key);
+  assert.ok(keys.includes(`onmyagent/${nextVersion}/onmyagent-mac-arm64-${nextVersion}.zip`));
+  assert.ok(keys.includes(`onmyagent/${nextVersion}/onmyagent-win-x64-${nextVersion}.exe`));
+  assert.ok(!keys.some((key) => key.includes("/0.5.")));
 });
 
 test("prepareOssSyncStaging fails when a required installer is missing", async () => {
