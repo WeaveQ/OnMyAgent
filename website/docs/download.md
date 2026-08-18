@@ -6,12 +6,7 @@ title: 下载与安装
 
 ## 获取安装包
 
-请从官方发布渠道获取当前版本：
-
-- **GitHub Releases**：<https://github.com/WeaveQ/OnMyAgent/releases>
-- 本地从源码打包：见 monorepo 根目录 `BUILD.md`
-
-> 站点不内嵌易过期的直链；请以 Release 页资产名为准。当前发布为 **pre-release**（Developer ID 签名并公证）。资产名形如 `onmyagent-mac-arm64-<version>.dmg` / `onmyagent-win-x64-<version>.exe`。
+<DownloadPackages />
 
 ## 系统要求
 
@@ -25,8 +20,7 @@ title: 下载与安装
 
 1. 下载 `.dmg` 或指定架构安装包
 2. 拖入「应用程序」或按安装器完成
-3. 首次打开若遇「已损坏 / 无法打开」，先执行 `xattr -cr /Applications/OnMyAgent.app`，或在「系统设置 → 隐私与安全性」中仍要打开
-4. 启动后进入 [快速开始](./quickstart)
+3. 启动后进入 [快速开始](./quickstart)
 
 更多：[macOS 安装](./install/macos)
 
