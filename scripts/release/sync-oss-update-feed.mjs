@@ -28,13 +28,26 @@ const WEBSITE_DOWNLOAD = {
   "win-x64.exe": "website-download/onmyagent-win-x64.exe",
 };
 
+export function isDesktopReleaseTag(tag) {
+  return /^v\d+\.\d+\.\d+(?:[.-][0-9A-Za-z.-]+)?$/.test(String(tag ?? "").trim());
+}
+
 export function versionFromReleaseTag(tag) {
   const trimmed = String(tag ?? "").trim();
-  const match = trimmed.match(/^v(\d+\.\d+\.\d+(?:[.-][0-9A-Za-z.-]+)?)$/);
-  if (!match) {
+  if (!isDesktopReleaseTag(trimmed)) {
     throw new Error(`Invalid release tag: ${trimmed || "(empty)"} (expected vX.Y.Z)`);
   }
-  return match[1];
+  return trimmed.slice(1);
+}
+
+function isTruthyFlag(value) {
+  return value === true || value === "true";
+}
+
+/** Customer OSS feed only follows published, non-prerelease desktop tags. */
+export function shouldSyncCustomerOssFeed({ draft, prerelease, tag } = {}) {
+  if (isTruthyFlag(draft) || isTruthyFlag(prerelease)) return false;
+  return isDesktopReleaseTag(tag);
 }
 
 export function unquoteYamlScalar(value) {
@@ -312,14 +325,42 @@ function runGh(args) {
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
+export function missingRequiredReleaseAssets(dir, version) {
+  const names = new Set(listFiles(dir));
+  return [...MANIFEST_NAMES, ...requiredVersionedAssetNames(version)].filter((name) => !names.has(name));
+}
+
 export function downloadGithubReleaseAssets(tag, destDir, { repo, run = runGh } = {}) {
   if (!repo) throw new Error("GITHUB_REPOSITORY is required to download release assets.");
   mkdirSync(destDir, { recursive: true });
   run(["release", "download", tag, "--repo", repo, "--dir", destDir, "--clobber"]);
 }
 
+export async function waitAndDownloadGithubReleaseAssets(
+  tag,
+  destDir,
+  { repo, run = runGh, waitSeconds = 0, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), now = Date.now } = {},
+) {
+  const version = versionFromReleaseTag(tag);
+  const deadline = now() + Math.max(0, Number(waitSeconds) || 0) * 1000;
+  let lastError = new Error(`Missing required release assets for ${tag}.`);
+  while (true) {
+    try {
+      downloadGithubReleaseAssets(tag, destDir, { repo, run });
+      const missing = missingRequiredReleaseAssets(destDir, version);
+      if (missing.length === 0) return;
+      lastError = new Error(`Missing required release assets: ${missing.join(", ")}`);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+    if (now() >= deadline) throw lastError;
+    console.log(`waiting for GitHub Release assets: ${lastError.message}`);
+    await sleep(15_000);
+  }
+}
+
 export function parseCliArgs(argv) {
-  const parsed = { tag: "", source: "", out: "", dryRun: false, probe: false };
+  const parsed = { tag: "", source: "", out: "", dryRun: false, probe: false, waitAssetsSeconds: 0 };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--dry-run") {
@@ -328,6 +369,16 @@ export function parseCliArgs(argv) {
     }
     if (arg === "--probe") {
       parsed.probe = true;
+      continue;
+    }
+    if (arg === "--wait-assets-seconds") {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) throw new Error(`${arg} requires a value.`);
+      parsed.waitAssetsSeconds = Number(value);
+      if (!Number.isFinite(parsed.waitAssetsSeconds) || parsed.waitAssetsSeconds < 0) {
+        throw new Error(`${arg} must be a non-negative number.`);
+      }
+      index += 1;
       continue;
     }
     if (arg === "--tag" || arg === "--source" || arg === "--out") {
@@ -349,13 +400,20 @@ export async function syncOssUpdateFeed(argv = process.argv.slice(2), env = proc
     console.log(`oss probe ok ${probed.url}`);
     return probed;
   }
-  if (!args.tag) throw new Error("Usage: node scripts/release/sync-oss-update-feed.mjs --tag vX.Y.Z [--source DIR] [--out DIR] [--dry-run] | --probe");
+  if (!args.tag) {
+    throw new Error(
+      "Usage: node scripts/release/sync-oss-update-feed.mjs --tag vX.Y.Z [--source DIR] [--out DIR] [--wait-assets-seconds N] [--dry-run] | --probe",
+    );
+  }
   const version = versionFromReleaseTag(args.tag);
   const workRoot = args.out ? resolve(args.out) : mkdtempSync(join(tmpdir(), "onmyagent-oss-sync-"));
   const sourceDir = args.source ? resolve(args.source) : join(workRoot, "download");
   const stagingDir = join(workRoot, "staging");
   if (!args.source) {
-    downloadGithubReleaseAssets(args.tag, sourceDir, { repo: env.GITHUB_REPOSITORY });
+    await waitAndDownloadGithubReleaseAssets(args.tag, sourceDir, {
+      repo: env.GITHUB_REPOSITORY,
+      waitSeconds: args.waitAssetsSeconds,
+    });
   }
   const plan = prepareOssSyncStaging({
     sourceDir,

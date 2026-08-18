@@ -1,0 +1,34 @@
+name: Sync OSS on GitHub Release
+
+on:
+  release:
+    types: [released]
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Sync desktop release to OSS
+    if: |
+      github.event.release.draft == false &&
+      github.event.release.prerelease == false &&
+      startsWith(github.event.release.tag_name, 'v')
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      OSS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
+      OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Upload release assets and updater manifests to OSS
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release/sync-oss-update-feed.mjs --tag "$RELEASE_TAG" --wait-assets-seconds 1200

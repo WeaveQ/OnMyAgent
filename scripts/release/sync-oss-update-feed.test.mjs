@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { cpSync } from "node:fs";
 import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -11,9 +12,11 @@ import {
   prepareOssSyncStaging,
   publicOssObjectUrl,
   rewriteManifestUrls,
+  shouldSyncCustomerOssFeed,
   syncOssUpdateFeed,
   uploadOssSyncPlan,
   versionFromReleaseTag,
+  waitAndDownloadGithubReleaseAssets,
   websiteDownloadKey,
 } from "./sync-oss-update-feed.mjs";
 
@@ -75,6 +78,14 @@ async function writeReleaseFixture(root) {
 test("versionFromReleaseTag reads a v-prefixed semver tag", () => {
   assert.equal(versionFromReleaseTag("v0.5.19"), "0.5.19");
   assert.throws(() => versionFromReleaseTag("0.5.19"), /Invalid release tag/);
+});
+
+test("shouldSyncCustomerOssFeed only allows published non-prerelease desktop tags", () => {
+  assert.equal(shouldSyncCustomerOssFeed({ draft: false, prerelease: false, tag: "v0.5.19" }), true);
+  assert.equal(shouldSyncCustomerOssFeed({ draft: "false", prerelease: "false", tag: "v0.5.19" }), true);
+  assert.equal(shouldSyncCustomerOssFeed({ draft: true, prerelease: false, tag: "v0.5.19" }), false);
+  assert.equal(shouldSyncCustomerOssFeed({ draft: false, prerelease: true, tag: "v0.5.19" }), false);
+  assert.equal(shouldSyncCustomerOssFeed({ draft: false, prerelease: false, tag: "onmyagent-orchestrator-v0.4.20" }), false);
 });
 
 test("prefixRelativeArtifactUrl adds the version directory once", () => {
@@ -184,6 +195,7 @@ test("parseCliArgs and dry-run skip upload", async () => {
     out: "",
     dryRun: true,
     probe: false,
+    waitAssetsSeconds: 0,
   });
 
   const root = await mkdtemp(path.join(tmpdir(), "oss-sync-cli-"));
@@ -261,4 +273,30 @@ test("syncOssUpdateFeed --probe PUTs a tiny object and reads it back", async () 
   assert.equal(result.key, "onmyagent/.github-oss-probe.txt");
   assert.match(result.url, /\/onmyagent\/\.github-oss-probe\.txt$/);
   assert.match(bodies[0] ?? "", /^ok /);
+});
+
+test("waitAndDownloadGithubReleaseAssets retries until required files exist", async () => {
+  const fixture = await mkdtemp(path.join(tmpdir(), "oss-sync-wait-src-"));
+  const dest = await mkdtemp(path.join(tmpdir(), "oss-sync-wait-dest-"));
+  await writeReleaseFixture(fixture);
+  let attempts = 0;
+  await waitAndDownloadGithubReleaseAssets("v0.5.19", dest, {
+    repo: "WeaveQ/OnMyAgent",
+    waitSeconds: 30,
+    now: (() => {
+      let current = 0;
+      return () => {
+        const value = current;
+        current += 10_000;
+        return value;
+      };
+    })(),
+    sleep: async () => {},
+    run: () => {
+      attempts += 1;
+      if (attempts < 2) throw new Error("assets not ready");
+      cpSync(fixture, dest, { recursive: true });
+    },
+  });
+  assert.equal(attempts, 2);
 });

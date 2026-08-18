@@ -792,6 +792,7 @@ jobs:
       always() &&
       needs.resolve-release.result == 'success' &&
       needs.resolve-release.outputs.build_electron == 'true' &&
+      needs.resolve-release.outputs.prerelease != 'true' &&
       needs.publish-electron-assets.result == 'success' &&
       (
         needs.resolve-release.outputs.draft != 'true' ||

@@ -17,7 +17,12 @@ Packaged desktop builds use **electron-updater** (`apps/desktop/electron/updater
 - On **Linux**, in **dev/unpackaged** builds, or if electron-updater fails to initialize, the fallback fetches the same OSS yaml and opens the matching installer URL in a browser.
 - IPC payloads carry a `platformFlow` (`"in-app"` | `"open-browser"`) so the renderer shows a progress bar + restart button for in-app builds, and an "open release page" button for the fallback.
 
-`Release App` job **Sync Electron assets to OSS** downloads the published GitHub Release after Electron assets exist (and after a draft is published, if the run started as a draft). It then:
+OSS is the customer download/update channel. **Prereleases never sync.** Only a published GitHub Release that is **not** marked pre-release updates OSS (`latest.yml` / website-download). Ways that happens:
+
+- `Release App` with `prerelease: false` (and not left as a draft)
+- Uncheck **Set as a pre-release** on an existing GitHub Release (fires `released`; workflow **Sync OSS on GitHub Release**)
+
+`Release App` with the usual `prerelease: true` still publishes GitHub assets for testers, but does **not** overwrite the OSS feed. When a full release does sync, the job:
 
 - uploads installers + blockmaps to `onmyagent/<version>/`
 - rewrites `latest.yml` / `latest-mac.yml` `url` values to `<version>/<filename>` (sha512 / size unchanged) and overwrites the two pointers at `onmyagent/`
@@ -209,7 +214,7 @@ Use this flow before Apple signing and notarization are configured.
    - `latest-mac.yml` (macOS auto-update metadata)
    - `latest.yml` (Windows auto-update metadata)
 
-   After those assets exist, **Sync Electron assets to OSS** mirrors them to the Aliyun feed (see Desktop update discovery above). The job fails the workflow if OSS secrets are missing or upload/verify fails.
+   After those assets exist, OSS sync runs only when the GitHub Release is a full (non-prerelease) release. Preview cuts (`prerelease: true`) stay on GitHub. The job fails the workflow if OSS secrets are missing or upload/verify fails.
 
 ## Production Release Requirements
 
