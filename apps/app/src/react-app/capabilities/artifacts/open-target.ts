@@ -444,6 +444,14 @@ function shellOutputText(output: unknown): string {
 const RUNTIME_DELIVERABLE_MARKER =
   /(?:^|\n)[ \t]*(?:[-*][ \t]+)?(?:\*\*|__)?ONMYAGENT_DELIVERABLE:[ \t]*(.+?)[ \t]*(?:\*\*|__)?[ \t]*(?=\n|$)/g;
 
+/**
+ * Helper scripts (Python, Node, …) often print `SAVED:` / `Wrote` / `Created:`
+ * for any user-facing file type. Treat those as registered deliverables so
+ * product cards do not depend on a specific runtime command.
+ */
+const SHELL_SAVED_PATH_MARKER =
+  /(?:^|\n)[ \t]*(?:SAVED|WROTE|CREATED|Wrote|Saved|Created)[:：][ \t]*["']?(\S+?\.[A-Za-z][A-Za-z0-9]{0,9})["']?[ \t]*(?=\n|$)/g;
+
 function shellWorkingDirectory(command: string): string | undefined {
   const match = command.match(
     /^\s*cd(?:\s+\/d)?\s+(?:"([^"]+)"|'([^']+)'|([^\s;&]+))\s*&&/i,
@@ -464,8 +472,9 @@ const OFFICECLI_MUTATING_VERB =
   /\b(create|save|close|set|add|remove|move|swap|batch|raw-set|add-part|refresh|merge)\b/i;
 
 /**
- * Paths registered by first-class artifact-runtime writes:
+ * Paths registered by first-class writes and helper-script output:
  * - `ONMYAGENT_DELIVERABLE: path` lines
+ * - `SAVED:` / `Wrote` / `Created:` lines from helper scripts
  * - JSON payloads with `deliverable: true` + `wrote[]` / `path`
  * - `write-xlsx` / `extract-sheets --out <file>` command args
  * - OfficeCLI mutating commands (create/save/set/…)
@@ -481,6 +490,12 @@ export function collectRuntimeRegisteredDeliverablePaths(
 
   RUNTIME_DELIVERABLE_MARKER.lastIndex = 0;
   for (const match of out.matchAll(RUNTIME_DELIVERABLE_MARKER)) {
+    const raw = (match[1] ?? "").trim().replace(/^["']|["']$/g, "");
+    if (raw) paths.push(resolveRuntimePath(raw, workingDirectory));
+  }
+
+  SHELL_SAVED_PATH_MARKER.lastIndex = 0;
+  for (const match of out.matchAll(SHELL_SAVED_PATH_MARKER)) {
     const raw = (match[1] ?? "").trim().replace(/^["']|["']$/g, "");
     if (raw) paths.push(resolveRuntimePath(raw, workingDirectory));
   }
@@ -625,10 +640,10 @@ function shellToolLooksLikeFileWrite(input: unknown, output: unknown): boolean {
   }
   const blob = `${command}\n${out}`;
   return (
-    /\b(writeFile|write_file|XLSX\.write|workbook\.xlsx|exceljs|toFile|fs\.write|saveAs|saveas)\b/i.test(
+    /\b(writeFile|write_file|XLSX\.write|workbook\.xlsx|exceljs|openpyxl|toFile|fs\.write|saveAs|saveas)\b/i.test(
       blob,
     )
-    || /\b(Wrote|Saved|Created|written to|输出到|已写入|已生成|保存为)\b/i.test(out)
+    || /\b(Wrote|Saved|Created|SAVED|WROTE|written to|输出到|已写入|已生成|保存为)\b/i.test(out)
   );
 }
 
@@ -679,7 +694,7 @@ const EXPLICIT_ARTIFACT_LINK_PATTERNS = [
 ];
 
 const ASSISTANT_DELIVERY_CONTEXT_PATTERN =
-  /(?:交付物|交付文件|交付清单|交付如下|最终产物|产物清单|输出文件|deliverables?|ONMYAGENT_DELIVERABLE|已拆出|均保存在|保存在|独立(?:Excel|表格|工作簿|文件))/iu;
+  /(?:交付物|交付文件|交付清单|交付如下|最终产物|产物清单|输出文件|deliverables?|ONMYAGENT_DELIVERABLE|已拆出|已拆成|均保存在|保存在|独立(?:Excel|表格|工作簿|文件))/iu;
 const ASSISTANT_DELIVERY_CODE_FILE_PATTERN =
   /`([^`\r\n]+?\.[a-z][a-z0-9]{0,9})`/giu;
 const ASSISTANT_DELIVERY_LINK_LABEL_PATTERN =
@@ -687,6 +702,9 @@ const ASSISTANT_DELIVERY_LINK_LABEL_PATTERN =
 const ASSISTANT_DELIVERY_DIRECTORY_PATTERN = /`([^`\r\n]+[/\\])`/gu;
 const ASSISTANT_DELIVERY_LIST_FILE_PATTERN =
   /^(?:[-*•]|\d+[.)])\s+[`「"'“]?([^\s`」"'”]+?\.[a-z][a-z0-9]{0,9})[`」"'”]?/gmu;
+/** Plain filename lines after a delivery sentence, any extension. */
+const ASSISTANT_DELIVERY_BARE_FILE_PATTERN =
+  /^[`「"'“]?((?:[\p{L}\p{N}._\-【】「」『』（）／]+[/\\])*[\p{L}\p{N}._\-【】「」『』（）／]+\.[a-z][a-z0-9]{0,9})[`」"'”]?(?:\s*[（(].*)?$/gmu;
 
 /**
  * File paths intentionally listed in the assistant's final delivery summary.
@@ -717,6 +735,7 @@ export function extractAssistantDeliveryManifestPaths(text: string): string[] {
       ASSISTANT_DELIVERY_CODE_FILE_PATTERN,
       ASSISTANT_DELIVERY_LINK_LABEL_PATTERN,
       ASSISTANT_DELIVERY_LIST_FILE_PATTERN,
+      ASSISTANT_DELIVERY_BARE_FILE_PATTERN,
     ]) {
       pattern.lastIndex = 0;
       for (const match of line.matchAll(pattern)) {
