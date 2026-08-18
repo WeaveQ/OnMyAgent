@@ -2,6 +2,33 @@ import { assertOnMyAgentServerReady } from "./runtime-engine-state.mjs";
 
 export { assertOnMyAgentServerReady };
 
+export function isOnMyAgentServerSnapshotReady(snapshot) {
+  return Boolean(
+    snapshot?.running &&
+      String(snapshot.baseUrl ?? "").trim() &&
+      (String(snapshot.ownerToken ?? "").trim() || String(snapshot.clientToken ?? "").trim()),
+  );
+}
+
+export async function waitForOnMyAgentServerReady(readInfo, options = {}) {
+  const timeoutMs = Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : 8_000;
+  const intervalMs = Number(options.intervalMs) > 0 ? Number(options.intervalMs) : 250;
+  const now = typeof options.now === "function" ? options.now : Date.now;
+  const sleep =
+    typeof options.sleep === "function"
+      ? options.sleep
+      : (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const deadline = now() + timeoutMs;
+  let last = null;
+  while (now() <= deadline) {
+    last = await readInfo();
+    if (isOnMyAgentServerSnapshotReady(last)) return last;
+    if (now() + intervalMs > deadline) break;
+    await sleep(intervalMs);
+  }
+  return assertOnMyAgentServerReady(last);
+}
+
 /**
  * Composition-root helpers for first packaged runtime bootstrap.
  * engineStart stays on the direct desktop runtime — never onmyagent-orchestrator.
@@ -18,12 +45,16 @@ export { assertOnMyAgentServerReady };
  *     orchestratorWorkspaceActivate: (input: { workspacePath: string, name?: string | null }) => Promise<unknown>,
  *     onmyagentServerInfo: () => Promise<any>,
  *   },
+ *   healthTimeoutMs?: number,
+ *   retryDelayMs?: number,
  * }} deps
  */
 export function createDesktopRuntimeBoot({
   readWorkspaceState,
   writeWorkspaceState,
   runtimeManager,
+  healthTimeoutMs,
+  retryDelayMs,
 }) {
   let runtimeBootstrapPromise = null;
 
@@ -100,9 +131,32 @@ export function createDesktopRuntimeBoot({
         name: bootWorkspace.name ?? bootWorkspace.displayName ?? null,
       })
       .catch(() => undefined);
-    const onmyagentServer = assertOnMyAgentServerReady(
-      await runtimeManager.onmyagentServerInfo(),
-    );
+    const readInfo = () => runtimeManager.onmyagentServerInfo();
+    const readyOptions = {
+      timeoutMs: healthTimeoutMs,
+      intervalMs: 250,
+    };
+    let onmyagentServer;
+    try {
+      onmyagentServer = await waitForOnMyAgentServerReady(readInfo, readyOptions);
+    } catch {
+      const delay = Number(retryDelayMs) >= 0 ? Number(retryDelayMs) : 800;
+      if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+      engine = await runtimeManager.engineStart(bootWorkspaceRoot, {
+        runtime: "direct",
+        workspacePaths: [
+          bootWorkspaceRoot,
+          ...workspacePaths.filter((entry) => entry !== bootWorkspaceRoot),
+        ],
+      });
+      await runtimeManager
+        .orchestratorWorkspaceActivate({
+          workspacePath: bootWorkspaceRoot,
+          name: bootWorkspace.name ?? bootWorkspace.displayName ?? null,
+        })
+        .catch(() => undefined);
+      onmyagentServer = await waitForOnMyAgentServerReady(readInfo, readyOptions);
+    }
     return {
       ok: true,
       skipped: false,

@@ -73,6 +73,12 @@ describe("userFacingBootError", () => {
     expect(a.message.length).toBeGreaterThan(0);
     expect(a.technicalDetail).toContain("did not finish starting");
 
+    const stayed = userFacingBootError(
+      "OnMyAgent server did not stay running after startup.",
+    );
+    expect(stayed.message.length).toBeGreaterThan(0);
+    expect(stayed.technicalDetail).toContain("did not stay running");
+
     const b = userFacingBootError("Failed to start OnMyAgent runtime");
     expect(b.message.length).toBeGreaterThan(0);
     expect(b.technicalDetail).toContain("Failed to start");

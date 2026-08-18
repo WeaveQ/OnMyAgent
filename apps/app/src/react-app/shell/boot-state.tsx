@@ -117,7 +117,7 @@ export function userFacingBootError(
       trimmed.length < 160
     ) {
       // Prefer known friendly templates when the string matches English internals.
-      if (/did not finish starting/i.test(trimmed)) {
+      if (/did not (?:stay running|finish starting)/i.test(trimmed)) {
         return {
           message: t("system.boot_server_not_ready"),
           technicalDetail: trimmed,
