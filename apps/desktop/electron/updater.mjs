@@ -10,33 +10,30 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { showDesktopNotification } from "./desktop-notification.mjs";
+import {
+  parseUpdaterManifest,
+  pickFallbackArtifactUrl,
+  resolveFeedArtifactUrl,
+  resolveUpdateFeedUrl,
+  resolveUpdaterManifestUrl,
+  updaterManifestName,
+} from "./update-feed.mjs";
 
 // Background auto-update for packaged desktop builds.
 //
-// Primary path (packaged macOS / Windows): electron-updater reads
-// app-update.yml (GitHub provider), checks for updates (including
-// prereleases), and surfaces them. Download starts when the user clicks.
-// Nothing installs until they click "Restart and install"
+// Primary path (packaged macOS / Windows): electron-updater uses the generic
+// OSS feed (latest.yml / latest-mac.yml). Download starts when the user
+// clicks. Nothing installs until they click "Restart and install"
 // (autoInstallOnAppQuit is false by design).
 //
 // Fallback path (Linux, dev, or when electron-updater fails to initialize):
-// the hand-written GitHub Releases API checker detects a newer version and
-// opens the release page in the default browser. The list endpoint (not
-// /latest) is used so prereleases are visible.
-//
-// Prerelease note: all current OnMyAgent releases are prereleases. GitHub's
-// /releases/latest ignores them, so allowPrerelease=true (electron-updater)
-// and the /releases list endpoint (fallback) are both required for updates to
-// be detected at all.
+// fetch the same OSS yaml and open the matching installer URL in a browser.
 
-const DEFAULT_RELEASES_LIST_API =
-  "https://api.github.com/repos/WeaveQ/OnMyAgent/releases?per_page=5";
-const RELEASES_HTML_URL =
-  "https://github.com/WeaveQ/OnMyAgent/releases/latest";
+const RELEASES_HTML_URL = resolveUpdateFeedUrl();
 /** Same cadence for packaged + unpackaged (dev) builds. */
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6h
 const INITIAL_CHECK_DELAY_MS = 30 * 1000; // ~30s after app ready
-/** Slightly generous: api.github.com is often slow or filtered. */
+/** Slightly generous: OSS / CDN is often slow or filtered. */
 const FETCH_TIMEOUT_MS = 15 * 1000;
 const FETCH_RETRY_COUNT = 1;
 const FETCH_RETRY_DELAY_MS = 1_200;
@@ -54,7 +51,7 @@ const UPDATE_CHECK_IN_DEV_DISABLED =
   UPDATE_CHECK_IN_DEV_ENV === "0" ||
   UPDATE_CHECK_IN_DEV_ENV === "false" ||
   UPDATE_CHECK_IN_DEV_ENV === "off";
-/** Optional mirror / override for the releases list JSON endpoint. */
+/** Optional full URL override for the fallback yaml fetch. */
 const RELEASES_LIST_API_OVERRIDE = String(
   process.env.ONMYAGENT_UPDATE_API ?? "",
 ).trim();
@@ -367,7 +364,7 @@ function classifyFetchError(error) {
       soft: true,
     };
   }
-  if (/GitHub API responded/i.test(message)) {
+  if (/GitHub API responded|Update server responded/i.test(message)) {
     return { code: "http", message, soft: true };
   }
   return {
@@ -381,72 +378,65 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function normalizeReleaseEntry(data) {
-  if (!data || typeof data !== "object") return null;
-  const tagName = typeof data.tag_name === "string" ? data.tag_name : null;
-  if (!tagName) return null;
+function releaseFromManifest(raw, platform, arch) {
+  const manifest = parseUpdaterManifest(raw);
+  const version = String(manifest.version ?? "").trim();
+  if (!version) return { notPublished: true };
+  const relative = pickFallbackArtifactUrl(manifest, platform, arch);
+  const htmlUrl =
+    resolveFeedArtifactUrl(resolveUpdateFeedUrl(), relative) || RELEASES_HTML_URL;
   return {
-    tagName,
-    htmlUrl:
-      typeof data.html_url === "string" ? data.html_url : RELEASES_HTML_URL,
-    name: typeof data.name === "string" ? data.name : null,
-    publishedAt:
-      typeof data.published_at === "string" ? data.published_at : null,
-    body: typeof data.body === "string" ? data.body : null,
-    prerelease: data.prerelease === true,
-    draft: data.draft === true,
+    tagName: version,
+    htmlUrl,
+    name: version,
+    publishedAt: manifest.releaseDate || null,
+    body: null,
+    prerelease: false,
+    draft: false,
   };
 }
 
+async function fetchUpdaterManifest(url, signal) {
+  return fetch(url, {
+    headers: {
+      Accept: "text/yaml, text/plain, */*",
+      "User-Agent": "OnMyAgent-UpdateChecker",
+    },
+    signal,
+  });
+}
+
 /**
- * Fetch the newest non-draft release from the GitHub list endpoint. Prereleases
- * are included because /releases/latest ignores them and all current releases
- * are prereleases. The list is already newest-first; we pick the first entry
- * that is newer than the running version (so a stable patch above a prerelease
- * is reachable too).
- */
-/**
- * @param {{ currentVersion?: string }} [options]
+ * @param {{ platform?: NodeJS.Platform, arch?: string }} [options]
  */
 async function fetchLatestReleaseOnce(options = {}) {
-  const { currentVersion } = options;
-  const apiUrl = RELEASES_LIST_API_OVERRIDE || DEFAULT_RELEASES_LIST_API;
+  const { platform = process.platform, arch = process.arch } = options;
+  const manifestUrl =
+    RELEASES_LIST_API_OVERRIDE || resolveUpdaterManifestUrl(platform);
   const controller = new AbortController();
   const timer = setTimeout(
     () => controller.abort(new Error("timeout")),
     FETCH_TIMEOUT_MS,
   );
   try {
-    const response = await fetch(apiUrl, {
-      headers: {
-        Accept: "application/vnd.github+json",
-        "User-Agent": "OnMyAgent-UpdateChecker",
-      },
-      signal: controller.signal,
-    });
+    let response = await fetchUpdaterManifest(manifestUrl, controller.signal);
+    if (
+      response.status === 404 &&
+      platform === "linux" &&
+      !RELEASES_LIST_API_OVERRIDE
+    ) {
+      response = await fetchUpdaterManifest(
+        `${resolveUpdateFeedUrl()}/${updaterManifestName("win32")}`,
+        controller.signal,
+      );
+    }
     if (response.status === 404) {
       return { notPublished: true };
     }
     if (!response.ok) {
-      throw new Error(`GitHub API responded ${response.status}`);
+      throw new Error(`Update server responded ${response.status}`);
     }
-    const data = await response.json();
-    if (!Array.isArray(data) || data.length === 0) {
-      return { notPublished: true };
-    }
-    const releases = data
-      .map(normalizeReleaseEntry)
-      .filter((entry) => entry && !entry.draft);
-    if (releases.length === 0) {
-      return { notPublished: true };
-    }
-    if (!currentVersion) return releases[0];
-    // First entry newer than current; fall back to the newest entry if none is
-    // (caller decides availability via isVersionNewer anyway).
-    const newer = releases.find((entry) =>
-      isVersionNewer(entry.tagName, currentVersion),
-    );
-    return newer ?? releases[0];
+    return releaseFromManifest(await response.text(), platform, arch);
   } finally {
     clearTimeout(timer);
   }
@@ -719,7 +709,12 @@ export function registerUpdaterIpc({
       if (!autoUpdater) {
         throw new Error("electron-updater did not expose an autoUpdater instance.");
       }
-      // All current releases are prereleases; without this, nothing is found.
+      if (typeof autoUpdater.setFeedURL === "function") {
+        autoUpdater.setFeedURL({
+          provider: "generic",
+          url: resolveUpdateFeedUrl(),
+        });
+      }
       autoUpdater.allowPrerelease = true;
       applyUpdaterCacheDir(autoUpdater, resolveUserDataPath(app));
       // Check can run on a timer; download starts only when the user clicks.
@@ -932,7 +927,7 @@ export function registerUpdaterIpc({
     }
   }
 
-  // -- Fallback GitHub API checker (Linux / dev / init failure) --------------
+  // -- Fallback OSS yaml checker (Linux / dev / init failure) --------------
 
   /**
    * @param {{ silent: boolean }} options
@@ -941,7 +936,10 @@ export function registerUpdaterIpc({
   async function performFallbackCheck({ silent }) {
     const currentVersion = resolveAppVersion(app);
     try {
-      const release = await fetchLatestRelease({ currentVersion });
+      const release = await fetchLatestRelease({
+        currentVersion,
+        platform,
+      });
       if (release?.notPublished) {
         return persistLastKnown(
           buildAvailabilityPayload({
@@ -1102,7 +1100,7 @@ export function registerUpdaterIpc({
   });
 
   // In-app path: start (or resume) the electron-updater download.
-  // Fallback path: open the GitHub release page in the browser.
+  // Fallback path: open the OSS installer URL in the browser.
   ipcMain.handle("onmyagent:updater:download", async () => {
     if (downloadState.ready) {
       return { ok: true, readyToInstall: true, platformFlow };
@@ -1139,6 +1137,7 @@ export function registerUpdaterIpc({
     try {
       const release = await fetchLatestRelease({
         currentVersion: resolveAppVersion(app),
+        platform,
       });
       openReleasePage(release?.htmlUrl);
       return { ok: true, platformFlow };

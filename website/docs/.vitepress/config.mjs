@@ -278,6 +278,7 @@ export default defineConfig({
           { text: "简介", link: "/" },
           { text: "快速开始", link: "/quickstart" },
           { text: "下载", link: "/download" },
+          { text: "EN", link: "/en/" },
         ],
         sidebar: sidebarZh,
         outline: {
@@ -326,6 +327,7 @@ export default defineConfig({
           { text: "Introduction", link: "/en/" },
           { text: "Quick start", link: "/en/quickstart" },
           { text: "Download", link: "/en/download" },
+          { text: "中文", link: "/" },
         ],
         sidebar: sidebarEn,
         outline: {

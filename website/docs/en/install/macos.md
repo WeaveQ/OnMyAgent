@@ -8,10 +8,9 @@ macOS is the **primary supported platform**, on both Apple Silicon and Intel.
 
 ## 1. Steps
 
-1. Download the macOS package (`.dmg` or the package for your architecture) from [GitHub Releases](https://github.com/WeaveQ/OnMyAgent/releases)
+1. Download the Apple Silicon or Intel `.dmg` from [Download and install](/en/download)
 2. Open the installer and drag OnMyAgent into **Applications**
-3. If the first launch is blocked or macOS says the app is damaged, run `xattr -cr /Applications/OnMyAgent.app`, or open System Settings → **Privacy & Security** → **Open Anyway**
-4. After launch, follow [Quickstart](/en/quickstart) to configure the workspace and model
+3. After launch, follow [Quickstart](/en/quickstart) to configure the workspace and model
 
 ## 2. System permissions you may need
 
