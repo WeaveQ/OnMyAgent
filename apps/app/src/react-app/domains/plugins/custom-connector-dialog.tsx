@@ -130,20 +130,22 @@ function serverAvatarInitial(name: string): string {
   return trimmed.slice(0, 1).toUpperCase();
 }
 
+/** Hashed avatar plates — DLS fills only, not default Tailwind palettes. */
+export const CUSTOM_CONNECTOR_AVATAR_TONES = [
+  "bg-dls-status-danger",
+  "bg-dls-accent",
+  "bg-dls-status-warning",
+  "bg-dls-status-success",
+  "bg-dls-online",
+  "bg-dls-decision",
+] as const;
+
 function avatarToneClass(name: string): string {
-  const tones = [
-    "bg-rose-500",
-    "bg-sky-500",
-    "bg-violet-500",
-    "bg-amber-500",
-    "bg-emerald-500",
-    "bg-orange-500",
-  ] as const;
   let hash = 0;
   for (let i = 0; i < name.length; i += 1) {
-    hash = (hash + name.charCodeAt(i) * (i + 1)) % tones.length;
+    hash = (hash + name.charCodeAt(i) * (i + 1)) % CUSTOM_CONNECTOR_AVATAR_TONES.length;
   }
-  return tones[hash] ?? tones[0];
+  return CUSTOM_CONNECTOR_AVATAR_TONES[hash] ?? CUSTOM_CONNECTOR_AVATAR_TONES[0];
 }
 
 function statusOf(statuses: McpStatusMap, name: string): McpStatus | undefined {

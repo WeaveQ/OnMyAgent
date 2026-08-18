@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DingtalkConnectionStatus } from "@onmyagent/types/dingtalk-connector";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
 import {
@@ -220,9 +221,6 @@ export function DingtalkPluginCard(props: {
     setDetailOpen(false);
   };
 
-  const inputClass =
-    "w-full rounded-lg border border-dls-border bg-dls-surface px-3 py-2 text-sm text-dls-text outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/40";
-
   return (
     <div className="min-w-0">
       <ConnectorStatusCard
@@ -342,8 +340,8 @@ export function DingtalkPluginCard(props: {
               <span className="text-dls-secondary">
                 {t("plugins.dingtalk_client_id_label")}
               </span>
-              <input
-                className={inputClass}
+              <Input
+                variant="dls"
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
                 placeholder={t("plugins.dingtalk_client_id_placeholder")}
@@ -355,8 +353,8 @@ export function DingtalkPluginCard(props: {
               <span className="text-dls-secondary">
                 {t("plugins.dingtalk_client_secret_label")}
               </span>
-              <input
-                className={inputClass}
+              <Input
+                variant="dls"
                 type="password"
                 value={clientSecret}
                 onChange={(e) => setClientSecret(e.target.value)}
