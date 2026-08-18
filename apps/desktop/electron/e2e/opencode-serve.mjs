@@ -224,7 +224,11 @@ export async function fetchOpencodeJson(baseUrl, pathname, opts = {}) {
  * @param {{ timeoutMs?: number, pollMs?: number }} [opts]
  */
 export async function waitForHealthy(server, opts = {}) {
-  const timeoutMs = opts.timeoutMs ?? (isCi() ? 45_000 : 20_000);
+  // OpenCode can spend well over a minute on its first plugin/config boot on
+  // a cold CI runner. Keep each probe short so the overall readiness budget
+  // is real even when the port is accepting connections but the route is not
+  // responding yet.
+  const timeoutMs = opts.timeoutMs ?? (isCi() ? 150_000 : 20_000);
   const pollMs = opts.pollMs ?? 250;
   const start = Date.now();
   let lastError = "";
@@ -233,7 +237,10 @@ export async function waitForHealthy(server, opts = {}) {
       throw new Error(`OpenCode exited before healthy: ${server.getOutput()}`);
     }
     try {
-      const health = await fetchOpencodeJson(server.baseUrl, "/global/health");
+      const remainingMs = Math.max(1, timeoutMs - (Date.now() - start));
+      const health = await fetchOpencodeJson(server.baseUrl, "/global/health", {
+        timeoutMs: Math.min(2_000, remainingMs),
+      });
       if (health.ok && health.body && health.body.healthy === true) {
         return health.body;
       }

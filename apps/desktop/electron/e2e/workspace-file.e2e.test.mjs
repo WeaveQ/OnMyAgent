@@ -34,7 +34,7 @@ after(async () => {
 describe("desktop workspace file e2e", () => {
   test(
     "OpenCode lists and reads a first-task workspace file",
-    { timeout: 45_000 },
+    { timeout: 180_000 },
     async (t) => {
       const bin = resolveOpencodeBin();
       if (!bin) {
