@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import type { AgentRuntimeKind } from "@onmyagent/types/agent-runtime";
+import type { AgentRuntimeHealth, AgentRuntimeKind } from "@onmyagent/types/agent-runtime";
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -148,7 +148,7 @@ export function AgentRuntimeSettingsSection(props: {
               : t("settings.agent_runtime_version_unknown")}
             actions={
               <StatusBadge tone={healthTone(item.health.health)} shape="soft">
-                {t(`settings.agent_runtime_health_${item.health.health}` as never)}
+                {healthLabel(item.health.health)}
               </StatusBadge>
             }
           />
@@ -303,4 +303,21 @@ function healthTone(health: string): "success" | "warning" | "danger" | "neutral
   if (health === "needs_auth" || health === "degraded") return "warning";
   if (health === "crashed" || health === "missing") return "danger";
   return "neutral";
+}
+
+function healthLabel(health: AgentRuntimeHealth): string {
+  switch (health) {
+    case "missing":
+      return t("settings.agent_runtime_health_missing");
+    case "process_ready":
+      return t("settings.agent_runtime_health_process_ready");
+    case "needs_auth":
+      return t("settings.agent_runtime_health_needs_auth");
+    case "ready":
+      return t("settings.agent_runtime_health_ready");
+    case "degraded":
+      return t("settings.agent_runtime_health_degraded");
+    case "crashed":
+      return t("settings.agent_runtime_health_crashed");
+  }
 }
