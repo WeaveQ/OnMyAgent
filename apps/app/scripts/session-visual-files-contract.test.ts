@@ -139,6 +139,14 @@ describe("session visual and file contracts", () => {
     expect(sidePanel).toContain('targetPreview === "image"');
     expect(sidePanel).toContain('targetPreview === "html"');
     expect(sidePanel).toContain('<HTMLPreview className="min-h-0 flex-1" type="text"');
+    const htmlPreview = readWorkspaceFile(
+      "apps/app/src/react-app/capabilities/artifacts/preview.tsx",
+    );
+    expect(htmlPreview).toContain("relative h-full min-h-0 min-w-0 overflow-hidden");
+    expect(htmlPreview).toContain("absolute inset-0 h-full w-full border-0");
+    expect(htmlPreview).not.toMatch(
+      /return <iframe srcDoc=\{props\.content\} title=\{props\.title\} className=\{cn\("h-full w-full border-0"/,
+    );
     expect(sidePanel).not.toContain('setPreview({ kind: "browser"');
     expect(sidePanel).toContain("client.downloadWorkspaceFile(workspaceId, requestPath)");
     expect(sidePanel).toContain("client.deleteWorkspaceFile(");
