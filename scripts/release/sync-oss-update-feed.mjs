@@ -19,6 +19,7 @@ export const DEFAULT_OSS_BUCKET = "weaveq-onmyagent";
 export const DEFAULT_OSS_ENDPOINT = "oss-cn-hangzhou.aliyuncs.com";
 export const DEFAULT_OSS_PREFIX = "onmyagent";
 export const DEFAULT_OSS_OBJECT_ACL = "public-read";
+export const OSS_PROBE_OBJECT = ".github-oss-probe.txt";
 
 const MANIFEST_NAMES = ["latest-mac.yml", "latest.yml"];
 const WEBSITE_DOWNLOAD = {
@@ -274,6 +275,24 @@ export async function verifyPublicOssObject(url, { contains, fetchImpl = fetch, 
   throw lastError;
 }
 
+export async function probeOssCredentials(env = process.env, fetchImpl = fetch) {
+  const config = resolveOssConfig(env);
+  const token = `ok ${new Date().toISOString()}`;
+  const key = `${config.prefix}/${OSS_PROBE_OBJECT}`;
+  await putOssObject(
+    config,
+    {
+      key,
+      contentType: "text/plain",
+      body: token,
+    },
+    fetchImpl,
+  );
+  const url = publicOssObjectUrl({ ...config, key });
+  await verifyPublicOssObject(url, { contains: token, fetchImpl });
+  return { key, url };
+}
+
 export async function uploadOssSyncPlan(plan, config, fetchImpl = fetch) {
   for (const object of plan.objects) {
     await putOssObject(config, object, fetchImpl);
@@ -300,11 +319,15 @@ export function downloadGithubReleaseAssets(tag, destDir, { repo, run = runGh } 
 }
 
 export function parseCliArgs(argv) {
-  const parsed = { tag: "", source: "", out: "", dryRun: false };
+  const parsed = { tag: "", source: "", out: "", dryRun: false, probe: false };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--dry-run") {
       parsed.dryRun = true;
+      continue;
+    }
+    if (arg === "--probe") {
+      parsed.probe = true;
       continue;
     }
     if (arg === "--tag" || arg === "--source" || arg === "--out") {
@@ -321,7 +344,12 @@ export function parseCliArgs(argv) {
 
 export async function syncOssUpdateFeed(argv = process.argv.slice(2), env = process.env, fetchImpl = fetch) {
   const args = parseCliArgs(argv);
-  if (!args.tag) throw new Error("Usage: node scripts/release/sync-oss-update-feed.mjs --tag vX.Y.Z [--source DIR] [--out DIR] [--dry-run]");
+  if (args.probe) {
+    const probed = await probeOssCredentials(env, fetchImpl);
+    console.log(`oss probe ok ${probed.url}`);
+    return probed;
+  }
+  if (!args.tag) throw new Error("Usage: node scripts/release/sync-oss-update-feed.mjs --tag vX.Y.Z [--source DIR] [--out DIR] [--dry-run] | --probe");
   const version = versionFromReleaseTag(args.tag);
   const workRoot = args.out ? resolve(args.out) : mkdtempSync(join(tmpdir(), "onmyagent-oss-sync-"));
   const sourceDir = args.source ? resolve(args.source) : join(workRoot, "download");

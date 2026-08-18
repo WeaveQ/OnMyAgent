@@ -183,6 +183,7 @@ test("parseCliArgs and dry-run skip upload", async () => {
     source: "",
     out: "",
     dryRun: true,
+    probe: false,
   });
 
   const root = await mkdtemp(path.join(tmpdir(), "oss-sync-cli-"));
@@ -241,4 +242,23 @@ test("uploadOssSyncPlan PUTs every object then verifies the two manifests", asyn
     ],
   );
   assert.ok(calls.every((call) => call.method !== "PUT" || call.acl === "public-read"));
+});
+
+test("syncOssUpdateFeed --probe PUTs a tiny object and reads it back", async () => {
+  const bodies = [];
+  const result = await syncOssUpdateFeed(
+    ["--probe"],
+    {
+      OSS_ACCESS_KEY_ID: "id",
+      OSS_ACCESS_KEY_SECRET: "secret",
+    },
+    async (url, init) => {
+      const body = init?.body ? String(init.body) : "";
+      if (init?.method === "PUT") bodies.push(body);
+      return { ok: true, status: 200, text: async () => bodies[0] ?? "" };
+    },
+  );
+  assert.equal(result.key, "onmyagent/.github-oss-probe.txt");
+  assert.match(result.url, /\/onmyagent\/\.github-oss-probe\.txt$/);
+  assert.match(bodies[0] ?? "", /^ok /);
 });
