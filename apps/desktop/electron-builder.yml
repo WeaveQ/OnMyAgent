@@ -69,12 +69,11 @@ electronLanguages:
   - zh-TW
 afterPack: scripts/electron-after-pack.cjs
 afterSign: scripts/electron-after-sign.cjs
-# electron-updater feed. Matches the existing release workflow's GitHub target.
+# electron-updater generic feed (Aliyun OSS). CI still uploads GitHub copies
+# separately via scripts/release/publish-electron-assets.mjs.
 publish:
-  - provider: github
-    owner: WeaveQ
-    repo: onmyagent
-    releaseType: release
+  - provider: generic
+    url: https://weaveq-onmyagent.oss-cn-hangzhou.aliyuncs.com/onmyagent
 mac:
   icon: resources/icons/icon.icns
   category: public.app-category.developer-tools

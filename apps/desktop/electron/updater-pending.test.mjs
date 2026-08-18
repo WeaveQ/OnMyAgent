@@ -115,6 +115,7 @@ function createMockAutoUpdater({ version = "0.5.13", emitDownloaded = true } = {
     quitAndInstallCalls: 0,
     on: emitter.on.bind(emitter),
     emit: emitter.emit.bind(emitter),
+    setFeedURL() {},
     async checkForUpdates() {
       autoUpdater.checkCalls += 1;
       checked = true;
