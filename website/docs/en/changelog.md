@@ -8,6 +8,36 @@ For the complete assets and release notes, use [GitHub Releases](https://github.
 
 ## Unreleased
 
+## 0.5.15
+
+- Drop the expert missing-skills toast for declared-but-unmaterializable skills
+
+## 0.5.14
+
+- Expert-creation preview stays live; running process folds expand
+- Windows update install, session artifact cards, and a missing-skills notice scoped to the visible expert
+
+## 0.5.13
+
+- Running parallel subtasks show an in-progress line; completed results render as a Markdown preview instead of raw source
+- OfficeCLI stays a runnable install after hash drift (self-updated binary or rewritten SKILL.md)
+
+## 0.5.12
+
+- Electron **43.4.0**; Windows Settings is visible again
+- Do not overwrite the live transcript while a run is busy (hotfix vs 0.5.11)
+- Keep sessions, titles, and summoned experts after leaving Settings
+- Automation run artifact preview; Home no longer leaks the run session
+- Transparent rail / welcome logos (no black plate)
+
+## 0.5.11
+
+- Keep sessions, titles, and summoned experts after leaving Settings
+- Automation run artifact preview
+- Clear stuck running transcript state after a missed idle event
+- Transparent rail / welcome logos (no black plate)
+- Dismiss the available-update toast when download starts; lock Restart and install
+
 ## 0.5.10
 
 - Preview builds are **notarized** again (Developer ID + Apple notarization)

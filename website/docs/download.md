@@ -11,7 +11,7 @@ title: 下载与安装
 - **GitHub Releases**：<https://github.com/WeaveQ/OnMyAgent/releases>
 - 本地从源码打包：见 monorepo 根目录 `BUILD.md`
 
-> 站点不内嵌易过期的直链；请以 Release 页资产名为准。当前发布为 **pre-release**（未公证）。资产名形如 `onmyagent-mac-arm64-<version>.dmg` / `onmyagent-win-x64-<version>.exe`。
+> 站点不内嵌易过期的直链；请以 Release 页资产名为准。当前发布为 **pre-release**（Developer ID 签名并公证）。资产名形如 `onmyagent-mac-arm64-<version>.dmg` / `onmyagent-win-x64-<version>.exe`。
 
 ## 系统要求
 

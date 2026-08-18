@@ -11,7 +11,7 @@ Use an official release channel for the current version:
 - **GitHub Releases**: <https://github.com/WeaveQ/OnMyAgent/releases>
 - Build locally from source: see `BUILD.md` at the monorepo root
 
-> The website does not embed direct links that can become stale. Use the asset names on the Releases page as the source of truth. Current builds are **prereleases** (not notarized). Typical names: `onmyagent-mac-arm64-<version>.dmg` / `onmyagent-win-x64-<version>.exe`.
+> The website does not embed direct links that can become stale. Use the asset names on the Releases page as the source of truth. Current builds are **prereleases** (Developer ID signed and notarized). Typical names: `onmyagent-mac-arm64-<version>.dmg` / `onmyagent-win-x64-<version>.exe`.
 
 ## System requirements
 
