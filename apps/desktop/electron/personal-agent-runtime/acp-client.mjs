@@ -1,4 +1,8 @@
 import { createInterface } from "node:readline";
+import {
+  encodeJsonRpcMessage,
+  parseJsonRpcMessage,
+} from "@onmyagent/acp-runtime";
 
 import { spawnAgentProcess } from "./spawn-agent-process.mjs";
 
@@ -162,7 +166,7 @@ export class AcpJsonRpcClient {
       return Promise.reject(new Error(`ACP client is closed: ${method}`));
     }
     const id = this.nextId++;
-    const payload = `${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`;
+    const payload = encodeJsonRpcMessage({ jsonrpc: "2.0", id, method, params });
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
@@ -320,10 +324,8 @@ export class AcpJsonRpcClient {
   handleLine(line) {
     const trimmed = String(line ?? "").trim();
     if (!trimmed) return;
-    let message;
-    try {
-      message = JSON.parse(trimmed);
-    } catch {
+    const message = parseJsonRpcMessage(trimmed);
+    if (!message) {
       this.appendEvent({ type: "log", text: `stdout> ${trimmed}` });
       return;
     }
@@ -340,7 +342,10 @@ export class AcpJsonRpcClient {
       if (message.error) {
         /** @type {Error & { acpRpcCode?: number, acpMethod?: string }} */
         const error = new Error(`${entry.method}: ${formatAcpError(message.error)}`);
-        const rpcCode = Number(message.error.code);
+        const rpcError = message.error && typeof message.error === "object"
+          ? /** @type {{ code?: unknown }} */ (message.error)
+          : {};
+        const rpcCode = Number(rpcError.code);
         if (Number.isFinite(rpcCode)) error.acpRpcCode = rpcCode;
         error.acpMethod = entry.method;
         entry.reject(error);
@@ -357,7 +362,10 @@ export class AcpJsonRpcClient {
       } else if (message.id !== undefined) {
         this.rejectRequest(message.id, -32601, `method not found: ${message.method}`, { allowUntracked: true });
       } else {
-        this.onNotification({ update: { sessionUpdate: "permission_request", ...(message.params ?? {}) } }, message);
+        const params = message.params && typeof message.params === "object" && !Array.isArray(message.params)
+          ? message.params
+          : {};
+        this.onNotification({ update: { sessionUpdate: "permission_request", ...params } }, message);
       }
       return;
     }

@@ -77,7 +77,7 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | --- | --- |
 | Commands (`dev` / `task` / checks) | root `package.json`, `scripts/cli/*`, summarized in `Architecture.md` |
 | Monorepo & package boundaries | `Architecture.md` |
-| Dual runtime (OpenCode 主 / Personal 辅) + archive 热路径 | `Architecture.md` → **Dual Runtime Boundary**, **Server Archive Runtime** |
+| Dual runtime (Primary OpenCode / Grok Build 主轨 + Personal 辅轨) + archive 热路径 | `Architecture.md` → **Dual Runtime Boundary**, **Server Archive Runtime** |
 | Product platforms (mac / win / not Linux packages) | `Architecture.md` Product phase + root `README*` / `BUILD.md` |
 | Skills write/scan roots + list resilience | `Architecture.md` Product phase hard constraints + server `listSkills` |
 | React domains + shell load/boot UX | `apps/app/src/react-app/ARCHITECTURE.md` (+ **Shell load / boot**) + `domains/*/README.md` |

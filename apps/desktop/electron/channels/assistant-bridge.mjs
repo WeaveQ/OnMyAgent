@@ -1,9 +1,7 @@
 // AssistantBridge: routes an IM chat bound to the `onmyagent` pseudo-agent to
-// the desktop "助理" tab. It talks to the SAME OpenCode instance the assistant
-// tab uses, via the OnMyAgent server proxy (opencodeBaseUrl + Bearer token).
-// Because the assistant tab's session list (`listWorkspaceSessions`) proxies
-// `opencode.session.list` with no surface filtering (P0-03), a session created
-// here appears natively in the assistant tab — zero renderer changes.
+// the desktop Assistant tab through the same canonical primary-runtime API as
+// the renderer. Runtime selection belongs to the workspace and the persisted
+// product session remains sticky across OpenCode/Grok switches and restarts.
 //
 // Product exception (Architecture Dual Runtime): IM「本地助理」must appear in
 // the desktop assistant tab, so this path hot-writes the OpenCode main session
@@ -12,15 +10,15 @@
 // provider `onmyagent-assistant` reach this module. Every other agent keeps
 // using the ACP runtime exactly as before (no behavior change for codex/claude/
 // opencode/etc.).
-import { createOpencodeClient } from "@opencode-ai/sdk/v2/client";
+import path from "node:path";
 
 const POLL_INTERVAL_MS = 900;
 const POLL_TIMEOUT_MS = 180_000;
 
 function assistantMessageKey(message) {
-  const id = String(message?.info?.id ?? message?.info?.messageID ?? message?.id ?? "").trim();
+  const id = String(message?.id ?? "").trim();
   if (id) return `id:${id}`;
-  const role = String(message?.info?.role ?? message?.role ?? "").toLowerCase();
+  const role = String(message?.role ?? "").toLowerCase();
   if (role !== "assistant") return "";
   const parts = Array.isArray(message?.parts) ? message.parts : [];
   const text = parts
@@ -32,7 +30,7 @@ function assistantMessageKey(message) {
 }
 
 function collectAssistantText(message) {
-  const role = String(message?.info?.role ?? message?.role ?? "").toLowerCase();
+  const role = String(message?.role ?? "").toLowerCase();
   if (role !== "assistant") return "";
   const parts = Array.isArray(message?.parts) ? message.parts : [];
   return parts
@@ -57,103 +55,145 @@ function latestNewAssistantText(messages, existingKeys) {
   return "";
 }
 
-function trackPromise(promise) {
-  const state = { status: "pending", value: undefined, reason: undefined };
-  promise.then(
-    (value) => { state.status = "fulfilled"; state.value = value; },
-    (reason) => { state.status = "rejected"; state.reason = reason; },
-  );
-  return state;
-}
-
-async function pollAssistantText(client, sessionId, directory, existingKeys, promptState, appendLog) {
+async function pollAssistantText(client, workspaceId, sessionId, existingKeys, appendLog) {
   const deadline = Date.now() + POLL_TIMEOUT_MS;
-  let lastStatus = "pending";
+  let pollCount = 0;
   while (Date.now() < deadline) {
-    if (promptState) {
-      if (promptState.status === "rejected") throw promptState.reason;
-      if (promptState.status === "fulfilled" && promptState.value?.error) {
-        throw new Error(typeof promptState.value.error === "string" ? promptState.value.error : JSON.stringify(promptState.value.error).slice(0, 300));
-      }
-    }
-    const messagesResult = await client.session.messages({ sessionID: sessionId, directory, limit: 50 });
-    if (messagesResult.error) {
-      throw new Error(
-        typeof messagesResult.error === "string" ? messagesResult.error : "failed to read assistant messages",
-      );
-    }
-    const output = latestNewAssistantText(messagesResult.data ?? [], existingKeys);
+    const messagesResult = await client.messages(workspaceId, sessionId);
+    const output = latestNewAssistantText(messagesResult.messages, existingKeys);
     if (output.trim()) return output;
-    const status = promptState?.status ?? "pending";
-    if (status !== lastStatus) {
-      lastStatus = status;
-      appendLog?.({ type: "log", text: `assistant-bridge: poll promptState=${status} messages=${(messagesResult.data ?? []).length}` });
+    pollCount += 1;
+    if (pollCount === 1 || pollCount % 10 === 0) {
+      appendLog?.({
+        type: "log",
+        text: `assistant-bridge: waiting polls=${pollCount} messages=${messagesResult.messages.length} complete=${messagesResult.complete}`,
+      });
     }
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
   }
   throw new Error("本地助理会话超时未返回回复");
 }
 
+function normalizedDirectory(value) {
+  const resolved = path.resolve(String(value ?? "").trim());
+  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+}
+
+function createCanonicalRuntimeClient({ baseUrl, token, fetchImpl = globalThis.fetch }) {
+  const request = async (pathname, init = {}) => {
+    const response = await fetchImpl(new URL(pathname, `${baseUrl.replace(/\/$/, "")}/`), {
+      ...init,
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${token}`,
+        ...(init.body ? { "content-type": "application/json" } : {}),
+      },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const code = typeof payload?.error?.code === "string" ? payload.error.code : "primary_runtime_request_failed";
+      const error = Object.assign(
+        new Error(typeof payload?.error?.message === "string" ? payload.error.message : code),
+        { code, status: response.status },
+      );
+      throw error;
+    }
+    return payload;
+  };
+  const sessionPath = (workspaceId, sessionId) =>
+    `/workspace/${encodeURIComponent(workspaceId)}/runtime-sessions/${encodeURIComponent(sessionId)}`;
+  return {
+    workspaces: () => request("/workspaces"),
+    create: (workspaceId) => request(
+      `/workspace/${encodeURIComponent(workspaceId)}/runtime-sessions`,
+      { method: "POST", body: JSON.stringify({ profile: { kind: "assistant" } }) },
+    ),
+    get: (workspaceId, sessionId) => request(sessionPath(workspaceId, sessionId)),
+    prompt: (workspaceId, sessionId, text) => request(
+      `${sessionPath(workspaceId, sessionId)}/prompt`,
+      { method: "POST", body: JSON.stringify({ text }) },
+    ),
+    messages: (workspaceId, sessionId) => request(
+      `${sessionPath(workspaceId, sessionId)}/messages`,
+    ),
+  };
+}
+
+async function resolveWorkspaceId(client, workspaceRoot) {
+  const response = await client.workspaces();
+  const target = normalizedDirectory(workspaceRoot);
+  const matches = (response.items ?? []).filter((workspace) =>
+    typeof workspace?.path === "string"
+    && normalizedDirectory(workspace.path) === target);
+  if (matches.length !== 1 || typeof matches[0]?.id !== "string") {
+    throw new Error("OnMyAgent workspace is unavailable or ambiguous for this channel");
+  }
+  return matches[0].id;
+}
+
 /**
  * @param {object} input
- * @param {object} [input.opencodeConnection] - { opencodeBaseUrl, onmyagentServerToken, opencodeAuthorization }
+ * @param {object} [input.runtimeConnection] - OnMyAgent server base URL and client token
  * @param {string} input.workspaceRoot
  * @param {string} input.chatId
  * @param {string} input.text
- * @param {() => Promise<string|null>} [input.readSessionId] - returns persisted OpenCode session id for this chat
- * @param {(id: string) => Promise<void>} [input.writeSessionId] - persists the OpenCode session id for this chat
- * @param {Function} [input.createClient] - injectable for tests (defaults to real OpenCode SDK client)
+ * @param {() => Promise<string|null>} [input.readSessionId] - returns persisted product session id for this chat
+ * @param {(id: string) => Promise<void>} [input.writeSessionId] - persists the product session id for this chat
+ * @param {Function} [input.createClient] - injectable canonical client for tests
  * @param {(entry: { type: string, text: string }) => void} [input.appendLog] - optional structured logger from the channel service
  */
 export async function runAssistantTurn(input) {
   const {
-    opencodeConnection,
+    runtimeConnection,
     workspaceRoot,
     chatId,
     text,
     readSessionId,
     writeSessionId,
-    createClient = createOpencodeClient,
+    createClient = createCanonicalRuntimeClient,
     appendLog,
   } = input;
 
-  const baseUrl = opencodeConnection?.opencodeBaseUrl;
-  const token = opencodeConnection?.onmyagentServerToken;
-  const authorization = opencodeConnection?.opencodeAuthorization || (token ? `Bearer ${token}` : "");
-  const authKind = authorization.startsWith("Basic ") ? "Basic" : authorization.startsWith("Bearer ") ? "Bearer" : authorization ? "other" : "none";
-  appendLog?.({ type: "log", text: `assistant-bridge: connection baseUrl=${baseUrl} auth=${authKind} hasToken=${Boolean(token)}` });
-  if (!baseUrl || !authorization) {
-    throw new Error("OpenCode 连接不可用：缺少 opencodeBaseUrl 或认证信息（assistant bridge）。");
+  const baseUrl = runtimeConnection?.onmyagentServerBaseUrl;
+  const token = runtimeConnection?.onmyagentServerToken;
+  appendLog?.({ type: "log", text: `assistant-bridge: canonical connection available=${Boolean(baseUrl && token)}` });
+  if (!baseUrl || !token) {
+    throw new Error("OnMyAgent 主运行时连接不可用（assistant bridge）。");
   }
-  const directory = opencodeConnection?.workspacePath || String(workspaceRoot ?? "").trim() || undefined;
-  appendLog?.({ type: "log", text: `assistant-bridge: directory=${directory} workspacePath=${opencodeConnection?.workspacePath} workspaceRoot=${workspaceRoot}` });
-
-  const client = createClient({ baseUrl, directory, headers: { authorization } });
+  const directory = String(workspaceRoot ?? "").trim();
+  if (!directory) throw new Error("OnMyAgent workspace is unavailable for this channel");
+  const client = createClient({ baseUrl, token });
+  const workspaceId = await resolveWorkspaceId(client, directory);
 
   let sessionId = String((typeof readSessionId === "function" ? await readSessionId() : null) ?? "").trim();
   if (sessionId) {
-    const existing = await client.session.get({ sessionID: sessionId, directory });
-    const existingDir = existing?.data?.directory ?? existing?.directory ?? existing?.data?.worktree ?? existing?.worktree ?? null;
-    appendLog?.({ type: "log", text: `assistant-bridge: resume session=${sessionId} dir=${existingDir} target=${directory} err=${JSON.stringify(existing?.error)?.slice(0, 120)}` });
-    if (existing.error || (directory && existingDir && String(existingDir) !== String(directory))) {
+    try {
+      const existing = await client.get(workspaceId, sessionId);
+      if (normalizedDirectory(existing.session?.cwd) !== normalizedDirectory(directory)) {
+        throw new Error("runtime session workspace mismatch");
+      }
+      appendLog?.({ type: "log", text: "assistant-bridge: resumed sticky runtime session" });
+    } catch (error) {
+      if (error?.status !== 404 && error?.code !== "runtime_session_binding_not_found") throw error;
       appendLog?.({ type: "log", text: `assistant-bridge: stale session ${sessionId}, recreating` });
       sessionId = "";
     }
   }
   if (!sessionId) {
-    appendLog?.({ type: "log", text: `assistant-bridge: creating OpenCode session for chat ${chatId}` });
-    const created = await client.session.create({ directory, title: `本地助理 · IM (${chatId})` });
-    sessionId = created.data?.id ?? created.id;
+    appendLog?.({ type: "log", text: "assistant-bridge: creating selected runtime session" });
+    const created = await client.create(workspaceId);
+    sessionId = created.session?.productSessionId;
+    if (!sessionId) throw new Error("OnMyAgent created a runtime session without an id");
     if (typeof writeSessionId === "function") await writeSessionId(sessionId);
   }
 
-  const before = await client.session.messages({ sessionID: sessionId, directory, limit: 100 });
-  const existingKeys = new Set((before.data ?? []).map((message) => assistantMessageKey(message)).filter(Boolean));
+  const before = await client.messages(workspaceId, sessionId);
+  const existingKeys = new Set(before.messages.map((message) => assistantMessageKey(message)).filter(Boolean));
 
-  appendLog?.({ type: "log", text: `assistant-bridge: prompting session ${sessionId}` });
-  const promptState = trackPromise(client.session.promptAsync({ sessionID: sessionId, directory, agent: "build", parts: [{ type: "text", text }] }));
+  appendLog?.({ type: "log", text: "assistant-bridge: prompting selected runtime session" });
+  await client.prompt(workspaceId, sessionId, text);
 
-  const output = await pollAssistantText(client, sessionId, directory, existingKeys, promptState, appendLog);
+  const output = await pollAssistantText(client, workspaceId, sessionId, existingKeys, appendLog);
   return { output, sessionId };
 }
 
@@ -185,11 +225,11 @@ export function createOnMyAgentAssistantAgent() {
 /**
  * Shared dispatch path used by weixin / feishu / channels agent-dispatch when a
  * chat is bound to the `onmyagent` pseudo-agent. Runs one assistant turn against
- * the desktop assistant tab's OpenCode instance and hands the reply text back to
- * the caller via `deliverReply` (each channel sends replies differently).
+ * the desktop Assistant tab's selected primary runtime and hands the reply text
+ * back to the caller via `deliverReply` (each channel sends replies differently).
  *
  * @param {object} deps
- * @param {object} deps.runtime - personal agent runtime (provides getOpencodeConnection)
+ * @param {object} deps.runtime - desktop runtime (provides getPrimaryRuntimeConnection)
  * @param {object} deps.store - channel store (provides writeChatSetting)
  * @param {object} deps.session - channel session
  * @param {object} deps.event - inbound message event ({ chatId, senderId, text })
@@ -197,15 +237,16 @@ export function createOnMyAgentAssistantAgent() {
  * @param {(session: object, chatId: string) => Promise<object|null>} deps.readChatSetting
  * @param {(session: object, event: object, text: string) => Promise<void>} deps.deliverReply
  * @param {(entry: { type: string, text: string }) => void} [deps.appendLog]
+ * @param {Function} [deps.createClient] - injectable canonical client for tests
  * @returns {Promise<{ output: string, sessionId: string|null }>}
  */
 export async function runAssistantBridgeTurn(deps) {
   const { runtime, store, session, event, platformLabel, readChatSetting, deliverReply, appendLog } = deps;
-  const connection = typeof runtime?.getOpencodeConnection === "function"
-    ? await runtime.getOpencodeConnection()
+  const connection = typeof runtime?.getPrimaryRuntimeConnection === "function"
+    ? await runtime.getPrimaryRuntimeConnection()
     : null;
   const result = await runAssistantTurn({
-    opencodeConnection: connection,
+    runtimeConnection: connection,
     workspaceRoot: session.options.workspaceRoot,
     chatId: event.chatId,
     text: event.text,
@@ -217,6 +258,7 @@ export async function runAssistantBridgeTurn(deps) {
       await store.writeChatSetting(session.account.accountId, event.chatId, { assistantSessionId: id }).catch(() => undefined);
     },
     appendLog,
+    createClient: deps.createClient,
   }).catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
     appendLog?.({ type: "error", text: `${platformLabel} assistant-bridge failed: ${message}` });

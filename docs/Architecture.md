@@ -79,7 +79,7 @@ packages/
 
 | 主题 | SoT |
 | --- | --- |
-| OpenCode 主轨 vs Personal 辅轨 | 下文 **Dual Runtime Boundary** |
+| Primary OpenCode/Grok Build 主轨 vs Personal 辅轨 | 下文 **Dual Runtime Boundary** |
 | Session goal 生命周期 | 下文 **Session Goal Lifecycle** + `domains/session` 代码/测试 |
 | **Expert 会话面架构**（surface FSM / draft / tab / cold-open / pending 语义 / 禁止项） | [`design/expert-surface-architecture.md`](./design/expert-surface-architecture.md) ← **改 Expert 会话 UI 先读** |
 | Expert 创建 / 选中 / 删除 / 多 tab（服务端 lifecycle） | 下表 **Expert lifecycle hard rules** + `expert-session-lifecycle.ts` / `expert-hard-delete.ts`；UI 域见 React ARCHITECTURE + **expert-surface-architecture** |
@@ -151,7 +151,7 @@ apps/app/src/react-app/
   capabilities/    跨域复用能力：artifacts / conversation（双运行时 timeline）/ layout（content-column）/ model-selection / session-identity
   design-system/   产品级复合组件（ConfirmModal、SelectMenu 等）
   domains/
-    session/       **OpenCode 主轨**会话：composer/surface/sync/sidebar（底栏 channels+devices）/artifacts/browser/goal；hub freeze 见上表
+    session/       **Primary 主轨**会话：OpenCode/Grok Build canonical composer/surface/sync/sidebar（底栏 channels+devices）/artifacts/browser/goal；expert/skills marketplace
     knowledge/     本地 Markdown vault（从 session/knowledge 抽出）；禁止 knowledge→session
     local-agents/  **Personal 辅轨**：ACP / 本地 agent 编辑、卡片、agent-management、personal host
     messaging/     自动化（含 list model / wait-complete UX）+ 飞书/微信等 messaging channels（桌面 channel 纯单元门禁：`node --test apps/desktop/electron/channels/test/*.test.mjs`，无需 live 凭证）
@@ -203,23 +203,42 @@ app(React) ← opencode.ts(SDK) ← opencode binary
 app(React) ← @onmyagent/types ← packages/types（Zod schema + DesktopCommandMap）
 ```
 
-## Dual Runtime Boundary（OpenCode vs Personal Local Agent）
+## Dual Runtime Boundary（Primary OpenCode/Grok Build vs Personal Local Agent）
 
-产品内存在两套会话相关运行时。**主辅关系固定，不因 UI 共用而模糊。**
+产品内有一条可切换的 **Primary Runtime** 主轨，以及独立的 Personal Local Agent 辅轨。Primary session 在创建时选择 OpenCode 或 Grok Build；创建后由 durable binding 固定 runtime/profile/native id，禁止同一会话热切 backend。**主辅关系固定，不因 UI 共用而模糊。**
 
-| | **OpenCode（主）** | **Personal Local Agent（辅）** |
+| | **Primary Runtime（主）** | **Personal Local Agent（辅）** |
 | --- | --- | --- |
-| 定位 | 软件运行底层与主会话真相源 | 桌面侧便利入口：把本机 CLI/ACP agent 接到同一产品 UI |
+| 定位 | 软件运行底层与主会话真相源；adapter 可为 OpenCode HTTP/SSE 或 Grok Build ACP stdio | 桌面侧便利入口：把本机 CLI/ACP agent 接到同一产品 UI |
 | 典型用户价值 | 工作区会话、server API、archive、SSE、分析、主聊天 | 在 OnMyAgent 内使用 Claude Code / Codex / Hermes / OpenClaw / 自定义 CLI 等 |
-| 宿主进程 | Electron 进程内 embedded server（`direct`）管理 OpenCode；orchestrator 可选、非桌面默认 | Electron main 内 `personal-agent-runtime` kernel |
+| 宿主进程 | server-owned `PrimaryRuntimeRegistry` + OpenCode client 或 Grok child supervisor；Electron/orchestrator只注入host policy | Electron main 内 `personal-agent-runtime` kernel |
 | UI 域 | `domains/session` | `domains/local-agents` |
-| 传输 | HTTP `onmyagent-server` + OpenCode SDK / SSE | Desktop IPC `localAgents` |
-| 状态归属 | server session + session-archive（SQLite 等） | personal conversation store / run 状态（desktop 侧） |
+| 传输 | renderer只用canonical `onmyagent-server` HTTP/SSE；adapter内部才使用OpenCode SDK或Grok ACP JSON-RPC stdio | Desktop IPC `localAgents` |
+| 状态归属 | server runtime binding + canonical archive；OpenCode/Grok native store各自保留但不互写 | personal conversation store / run 状态（desktop 侧） |
 | 是否主引擎 | **是** | **否**——不替代 OpenCode，不作为产品主会话底座 |
 
 ### 一句话
 
-**OpenCode = 主运行时；Personal = 本机 CLI agent 的统一 harness（适配层），不是第二套主引擎。**
+**Primary Runtime = OpenCode 或 Grok Build 的 server-owned adapter；Personal = 本机 CLI agent 的统一 harness（适配层），不是第二套主引擎。** OpenCode 保持默认；设置只影响新会话，既有会话按 binding sticky。
+
+### Primary Runtime ownership and safety
+
+- `apps/server` 是唯一 `PrimaryRuntimeRegistry` owner，负责 selection、binding、canonical API/SSE、permission、archive projection 和 shutdown draining；Electron/CLI 不创建第二个 registry。
+- Grok Build 通过独立 child `grok --no-auto-update --permission-mode default agent --no-leader stdio` 接入；stdout只承载bounded ACP JSONL，stderr只记脱敏byte count。禁止默认 `--always-approve` / yolo。
+- `system` profile 原地使用用户现有 `~/.grok`（不复制、不删除auth/model/config）；`managed` profile 使用app userData外部runtime root并需独立登录。`GROK_HOME`、binary path与secret不进入renderer或用户selection。
+- OnMyAgent canonical archive是历史/search/usage UI真相源；adapter可以读取native history用于恢复，但renderer不得直接把OpenCode/Grok native store当第二真相源。
+- Assistant可经canonical API fork为一个新product session；Expert fork必须先创建新的隔离profile/marker，首版因此fail closed，不能复用源Expert目录。
+- 跨 runtime 继续（O-01）：`forkSession` 支持 `targetRuntimeKind`，可在 OpenCode/Grok Build 间把会话 fork 到另一 runtime；新会话注入源会话消息摘要作为上下文，binding 记录 `parentProductSessionId` + `parentRuntimeKind`（provenance）。同 runtime fork 走 adapter 原生 fork；跨 runtime 走 createSession + 上下文注入。
+
+### Grok Build platform security policy
+
+| Platform | Policy |
+| --- | --- |
+| macOS | Primary dogfood。Grok child沿用进程用户权限；OnMyAgent sandbox profile只在明确启用时生效，child network限制不应被描述为完全断网或强隔离。 |
+| Windows | Developer preview。没有与macOS `sandbox-exec` 等价的Grok sandbox；child以启动用户权限运行，必须在UI/诊断中视为安全能力降级。发布前要求真实Windows create/prompt/tool/permission/restart/delete与process-tree cleanup smoke。 |
+| Linux | 不发布desktop package；CI或orchestrator实现存在不等于产品支持承诺。 |
+
+安全能力不相等时必须通过runtime capability/health显示真实状态，禁止为了“parity”宣称等价隔离。
 
 ### Task Orchestrator（中立协调层，不是第三套运行时）
 
@@ -301,27 +320,27 @@ claim→send→ack，断线后按每个 event stream cursor 重放；附件只�
 
 ### 禁止交叉写 / 禁止混用（硬边界）
 
-1. **Personal 不得**直接打开、写入或 dispose OpenCode / server 的 session-archive、主会话 SQLite 热路径。
-2. **OpenCode / server 生命周期**不得把 Personal conversation store 当作主会话真相源；Personal run 结束也不应「顺便」写主 archive，除非未来有**显式、单向、有主的**导出合同（默认无）。
+1. **Personal 不得**直接打开、写入或 dispose Primary server 的 session-archive、主会话 SQLite 热路径。
+2. **Primary server 生命周期**不得把 Personal conversation store 当作主会话真相源；Personal run 结束也不应「顺便」写主 archive，除非未来有**显式、单向、有主的**导出合同（默认无）。
 3. **同一用户意图**不得对同一逻辑会话同时挂两套热写路径（一边 HTTP session stream，一边 personal run 写同一 archive 行）。
    **例外**：IM「本地助理」只走 OpenCode 主轨（见上），不得再挂一条 Personal run 写同一会话。
 4. **Renderer 禁止** import `personal-agent-runtime/**` 或 adapter 实现；只经 `desktop.ts` IPC 与 `onmyagent-server` HTTP。
-5. **Adapter 只做协议翻译**（CLI/ACP ↔ contract 事件）；kernel 管 run/conversation/approval；sidecar `createRuntimeManager` 管 OpenCode/server 进程——三层不要互相越权改对方 store。
-6. **注销 / dispose**：OpenCode client、archive pool、Personal runtime 各自 teardown；一边失败不得留下另一边半开写句柄。
-7. **新增能力默认落主轨**：工作区主聊天、归档分析、SSE 推送优化优先 OpenCode/server；仅当需求是「接某个本机 CLI agent」时才加 Personal adapter / `local-agents` UI。
+5. **Adapter 只做协议翻译**（OpenCode/Grok wire ↔ canonical events）；Primary registry管binding/session/approval/archive，Personal kernel管自己的run/conversation/approval；三层不要互相越权改对方store。
+6. **注销 / dispose**：server先drain新请求并cancel pending approval，再停Primary adapters/archive/HTTP；Personal runtime独立teardown。一边失败不得留下另一边半开写句柄。
+7. **新增能力默认落Primary server contract**：工作区主聊天、归档分析、SSE推送优化不得直接绑OpenCode或Grok native API；仅本机CLI agent需求才加Personal adapter / `local-agents` UI。
 
 ### 决策启发式（改代码前）
 
-- 改的是主会话、archive、SSE、workspace 会话 API？→ **OpenCode / server**。
+- 改的是主会话、archive、SSE、workspace 会话 API？→ **Primary server contract + runtime adapter**。
 - 改的是本机 Claude/Codex/… 进程、ACP、local agent 卡片、personal 通道发消息？→ **Personal**。
 - 两边 UI 看起来像同一个聊天？→ 只共享 **conversation capability 展示**，不共享写存储。
-- 不确定谁写？→ **默认 OpenCode 主轨**；Personal 只读或独立 store，直到有书面合同。
+- 不确定谁写？→ **默认Primary server主轨**；OpenCode仍是新会话默认runtime，Personal只读或独立store，直到有书面合同。
 
 实现细节与 adapter 列表见 **Runtime Adapter**；主轨 archive 热路径见 **Server Archive Runtime**。
 
 ## Server Archive Runtime（主轨热路径）
 
-OpenCode 主会话的归档/分析/SSE 落在 `apps/server`，**不是** Personal runtime 的一部分。
+Primary主会话的归档/分析/SSE落在 `apps/server`，**不是**任一native runtime或Personal runtime的一部分。
 
 ### 模块分工（`apps/server/src/services/`）
 
@@ -347,7 +366,7 @@ HTTP 入口：`routes/workspace-session-archive-routes.ts`（列表/同步/SSE/a
 
 ### 与双运行时边界的关系
 
-Archive pool / change-bus / analytics **仅服务 OpenCode 主轨**。Personal conversation store 不进这些模块；Personal 也不得直接 `openSessionArchiveStore`。
+Archive pool / change-bus / analytics **服务Primary canonical主轨（OpenCode与Grok Build）**。Personal conversation store不进这些模块；Personal也不得直接`openSessionArchiveStore`。Primary projector只单向写OnMyAgent archive，绝不回写OpenCode/Grok native store。
 
 ## Runtime Adapter (multi-agent harness)
 

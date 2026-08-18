@@ -8,7 +8,7 @@ import {
 } from "react";
 import { useNavigationType } from "react-router-dom";
 
-import { createClient, unwrap } from "../../../app/lib/opencode";
+import { createClient } from "../../../app/lib/opencode";
 import {
   readOnMyAgentServerSettings,
   type OnMyAgentServerClient,
@@ -91,8 +91,6 @@ import { ensureDesktopLocalOnMyAgentConnection } from "../desktop-local-onmyagen
 import { useStatusToasts } from "../../domains/shell-feedback";
 import {
   readAssistantSessionWorkspace,
-  seedPermissionState,
-  seedQuestionState,
   useSessionActivityStore,
 } from "../../domains/session";
 import { resolveSelectedSessionFileRoot } from "../../capabilities/session-identity/expert-session-directory";
@@ -116,11 +114,14 @@ import {
   shouldRedirectSessionRouteToWelcome,
 } from "./control";
 import {
+  resolveSessionModelAvailabilityBlocksTask,
   resolveSessionRouteCanCreateTask,
   resolveSessionRouteShowPreparingStatus,
 } from "./runtime-session-state";
 import { useSessionRouteProviderAuth } from "./provider-auth-hook";
 import { useBufferedSidebarRuntimeUpdates } from "./sidebar-runtime-update-hook";
+import { useRuntimeRoute } from "./runtime-route-hook";
+import { useSessionRouteApprovalSnapshots } from "./use-session-route-approval-snapshots";
 
 export function SessionRouteRender() {
   const {
@@ -178,10 +179,6 @@ export function SessionRouteRender() {
       (selectedWorkspaceId ? null : (workspaces[0] ?? null)),
     [selectedWorkspaceId, workspaces],
   );
-  // API calls use resolveWorkspaceEndpoint so remote workspaces hit the owner.
-  //
-  // Route refs let stable callbacks read current workspace/session/server
-  // values without cascading refresh loops.
   const {
     localServerRef,
     sessionsByWorkspaceIdRef,
@@ -267,7 +264,6 @@ export function SessionRouteRender() {
     denSessionVersion,
   } = useSessionRouteModelPickerState();
 
-  // Ensure agent registry is loaded when a workspace is selected
   useEnsureAgentRegistry(client, selectedWorkspaceId || undefined);
 
   const {
@@ -400,7 +396,6 @@ export function SessionRouteRender() {
     [enqueueSidebarRuntimeUpdate, selectedWorkspaceId],
   );
 
-  /** Keep list-row `status` in sync with SSE so seed + activeSessionIds don't lag. */
   const handleRuntimeSessionStatus = useCallback(
     (update: { sessionId: string; status: unknown }) => {
       if (!selectedWorkspaceId) return;
@@ -521,8 +516,6 @@ export function SessionRouteRender() {
     workspaces,
   ]);
 
-  // Redirect to /welcome when onboarding is incomplete (including after
-  // Settings → 重置入门). Workspaces may already exist; guide still re-runs.
   useEffect(() => {
     if (
       !shouldRedirectSessionRouteToWelcome({
@@ -540,13 +533,6 @@ export function SessionRouteRender() {
     workspaces.length,
   ]);
 
-  // NOTE: Blueprint seeding was removed from the route.
-  // It was firing `materializeBlueprintSessions` + a session re-fetch on every
-  // workspace change, which cascaded setState updates and froze the UI after
-  // a few rapid switches. Empty workspaces now simply show "No tasks yet." and
-  // the user creates their first session explicitly via "New task". Seeding
-  // can be reintroduced later as a one-shot triggered from a button or from
-  // the onboarding flow, not from the route effect loop.
 
   const workspaceSessionGroups = useMemo(
     () =>
@@ -691,8 +677,19 @@ export function SessionRouteRender() {
       selectedWorkspaceServerToken,
     ],
   );
+  const {
+    routeRuntimeKind,
+    runtimeModelCatalog,
+    opencodeCatalogClient,
+    activeRuntimeSession,
+  } = useRuntimeRoute({
+    client,
+    opencodeClient,
+    workspaceId: selectedWorkspaceId,
+    sessionId: selectedSessionId,
+  });
   const providerListQuery = useProviderListQuery({
-    client: opencodeClient,
+    client: opencodeCatalogClient,
     baseUrl: opencodeBaseUrl,
     directory: sessionWorkspaceRoot || undefined,
     enabled: sessionRouteProviderListEnabled({
@@ -729,7 +726,7 @@ export function SessionRouteRender() {
     compactModelPickerOpen,
     navigate,
     opencodeBaseUrl,
-    opencodeClient,
+    opencodeClient: opencodeCatalogClient,
     pageMode,
     pendingAgentModel: pendingAgent?.model,
     providerListData: providerListQuery.data,
@@ -745,24 +742,19 @@ export function SessionRouteRender() {
     sidebarActiveWorkspaceId,
   });
 
-  // Use the same model the composer shows (session override / pending agent /
-  // global default). Checking only prefs.defaultModel false-positives
-  // "模型已不可用" when the session has a valid override.
   const selectedModelUnavailable = isSelectedModelUnavailable({
     model: effectiveModelRef,
     checkRestriction: checkDesktopRestriction,
     connectedProviderIds: providerConnectedIds,
     providerListData: providerListQuery.data,
-    // Only suppress while the first list has not arrived; background refetch
-    // should still re-evaluate against the last known list.
     providerListLoading:
       !providerListQuery.data &&
       (providerListQuery.isPending || providerListQuery.isFetching),
   });
-  // Always surface the composer banner when the active model is not pickable
-  // (including the app default ghost opencode/big-pickle). Do not hide the
-  // banner for signed-in users — the model menu would still show "未找到模型".
-  const modelAvailabilityBlocksTask = selectedModelUnavailable;
+  const modelAvailabilityBlocksTask = resolveSessionModelAvailabilityBlocksTask({
+    runtimeKind: routeRuntimeKind,
+    unavailable: selectedModelUnavailable,
+  });
   const canCreateTask = resolveSessionRouteCanCreateTask({
     hasOpencodeClient: Boolean(opencodeClient),
     selectedWorkspaceId,
@@ -847,63 +839,13 @@ export function SessionRouteRender() {
     writeSessionTodos(lastVisibleTodosBySessionId);
   }, [lastVisibleTodosBySessionId]);
   const visibleTodos = useMemo(() => todos, [todos]);
-  useEffect(() => {
-    if (!opencodeClient || !selectedWorkspaceId || !selectedSessionId) return;
-    let cancelled = false;
-    const directory = sessionWorkspaceRoot || undefined;
-    void (async () => {
-      const snapshotStartedAt = Date.now();
-      try {
-        const list = unwrap(
-          await opencodeClient.permission.list({ directory }),
-        );
-        if (!cancelled) {
-          seedPermissionState(selectedWorkspaceId, selectedSessionId, list, {
-            snapshotStartedAt,
-          });
-        }
-      } catch {
-        // Keep event-synced permission state if the snapshot read fails.
-        // Hiding a pending approval can block the running task.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [
+  useSessionRouteApprovalSnapshots({
+    runtimeKind: activeRuntimeSession?.runtimeKind,
     opencodeClient,
-    selectedSessionId,
-    selectedWorkspaceId,
-    sessionWorkspaceRoot,
-  ]);
-
-  useEffect(() => {
-    if (!opencodeClient || !selectedWorkspaceId || !selectedSessionId) return;
-    let cancelled = false;
-    const directory = sessionWorkspaceRoot || undefined;
-    void (async () => {
-      const snapshotStartedAt = Date.now();
-      try {
-        const list = unwrap(await opencodeClient.question.list({ directory }));
-        if (!cancelled) {
-          seedQuestionState(selectedWorkspaceId, selectedSessionId, list, {
-            snapshotStartedAt,
-          });
-        }
-      } catch {
-        // Keep event-synced question state if the snapshot read fails.
-        // Hiding a pending question can block the running task.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    opencodeClient,
-    selectedSessionId,
-    selectedWorkspaceId,
-    sessionWorkspaceRoot,
-  ]);
+    workspaceId: selectedWorkspaceId,
+    sessionId: selectedSessionId,
+    workspaceRoot: sessionWorkspaceRoot,
+  });
 
   const {
     activePermission,
@@ -911,6 +853,7 @@ export function SessionRouteRender() {
     activeQuestion,
     respondQuestion,
   } = useSessionRoutePermissionQuestionHandlers({
+    client,
     opencodeClient,
     pendingPermissions,
     pendingQuestions,
@@ -921,6 +864,7 @@ export function SessionRouteRender() {
     selectedWorkspaceId,
     sessionAccessModeById,
     sessionWorkspaceRoot,
+    routeRuntimeKind,
     setAutoApprovedPermissionNoticeBySessionId,
     setPermissionReplyBusy,
     setQuestionReplyBusy,
@@ -962,6 +906,8 @@ export function SessionRouteRender() {
     providerConnectedIds,
     refreshCreatedSessionSnapshot,
     refreshRouteState,
+    routeRuntimeKind,
+    runtimeModelCatalog,
     rememberPendingCreatedSession,
     selectedAgent,
     selectedSessionId,
@@ -1049,6 +995,7 @@ export function SessionRouteRender() {
     useSessionRouteQuickCapture({
       baseUrl,
       token,
+      client,
       pageMode,
       workspaces,
       selectedWorkspaceId,
@@ -1086,6 +1033,7 @@ export function SessionRouteRender() {
     setModelPickerOpen,
     setCommandPaletteOpen,
     refreshRouteState,
+    routeRuntimeKind,
   });
 
   const paletteSessionOptions = useMemo(

@@ -36,6 +36,7 @@ type Input = {
   setModelPickerOpen: Dispatch<SetStateAction<boolean>>;
   setCommandPaletteOpen: Dispatch<SetStateAction<boolean>>;
   refreshRouteState: () => void | Promise<void>;
+  routeRuntimeKind?: "opencode" | "grok-build" | null;
 };
 
 export function useSessionRouteControlWiring(input: Input) {
@@ -53,6 +54,7 @@ export function useSessionRouteControlWiring(input: Input) {
     setModelPickerOpen,
     setCommandPaletteOpen,
     refreshRouteState,
+    routeRuntimeKind,
   } = input;
 
   const navigateToSessionForControl = useCallback(
@@ -97,6 +99,7 @@ export function useSessionRouteControlWiring(input: Input) {
     },
     openModelPicker: openModelPickerForControl,
     refreshRouteState,
+    routeRuntimeKind,
   });
 
   const commandPaletteControlAction = useMemo(

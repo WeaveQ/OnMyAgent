@@ -656,9 +656,9 @@ describe("expert marketplace UI contract", () => {
 
     expect(lockStart).toBeGreaterThan(-1);
     expect(lockEnd).toBeGreaterThan(lockStart);
-    expect(creationBlock.indexOf("try {")).toBeLessThan(
-      creationBlock.indexOf("createIsolatedExpertSessionRuntimeDirectory"),
-    );
+    expect(creationBlock).toContain("try {");
+    expect(creationBlock).toContain("runtimeClient.createRuntimeSession(");
+    expect(creationBlock).not.toContain("createIsolatedExpertSessionRuntimeDirectory");
     expect(surfaceProps).not.toContain("materializeExpertSessionDirectory");
     expect(surfaceProps).not.toContain("resolveExpertSessionDirectoryMarker");
   });

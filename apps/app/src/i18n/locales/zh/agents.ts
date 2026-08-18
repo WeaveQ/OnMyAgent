@@ -356,4 +356,6 @@ export default {
   "agents.expert_creation_discard_exit": "丢弃草稿",
   "agents.expert_creation_keep_exit": "保留草稿并退出",
   "agents.expert_creation_name_required": "请输入专家名称后继续。",
+  "agents.expert_creation_grok_unsupported":
+    "Grok Build 暂不支持专家创建教练和预览。请将此工作区切换到 OpenCode 后使用。",
 } as const;

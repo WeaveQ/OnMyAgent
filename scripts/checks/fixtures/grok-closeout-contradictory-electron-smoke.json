@@ -1,0 +1,32 @@
+{
+  "ok": true,
+  "actualOnMyAgentWindow": true,
+  "syntheticHtmlHarness": false,
+  "attempts": [
+    {
+      "ok": true,
+      "screenshot": "c7-attempt-1-restore.png",
+      "log": "c7-attempt-1-reopen.log",
+      "sessionId": "242d18b9-8fa4-4455-98f9-85c1886b04d3"
+    },
+    {
+      "ok": true,
+      "screenshot": "c7-attempt-2-restore.png",
+      "log": "c7-attempt-2-reopen.log",
+      "sessionId": "76cb6828-a7c6-445a-954b-e4a12ec1c827"
+    }
+  ],
+  "assertions": {
+    "deleteSemantics": true
+  },
+  "details": {
+    "restore2": {
+      "href": "http://127.0.0.1:5173/#/workspace/ws_91073ff93fa4/assistant/76cb6828-a7c6-445a-954b-e4a12ec1c827",
+      "text": "Runtime command failed\n可稍后重新发送这条消息。"
+    },
+    "deleteClicked": false,
+    "afterDelete": {
+      "text": "Runtime command failed\n可稍后重新发送这条消息。"
+    }
+  }
+}

@@ -63,12 +63,11 @@ import {
   resolveOpencodeDirectory,
 } from "./services/opencode-proxy.js";
 import { getWorkspaceOpencodeClient } from "./services/opencode-client-pool.js";
-import {
-  startAutomationScheduler,
-} from "./services/automation-runner.js";
+import { startAutomationScheduler } from "./services/automation-runner.js";
 import { createSessionArchiveSyncWorkerRunner } from "./services/session-archive-sync-worker-runner.js";
 import { resolveSessionArchiveRuntimePaths, syncSessionArchiveWithRunner } from "./services/session-archive-sync.js";
-
+import type { createPrimaryRuntimeServices } from "./services/primary-runtime-composition.js";
+import { startPrimaryRuntimeServerLifecycle, type AgentRuntimeAdapter, type PrimaryRuntimeServerPolicy } from "./services/primary-runtime-server-lifecycle.js";
 // Public API re-exports (tests/cli import these from server)
 export { createServerLogger } from "./core/server-logger.js";
 export {
@@ -89,9 +88,14 @@ const opencodeEngineReloaders = new WeakMap<
   ServerConfig,
   ReturnType<typeof createOpencodeEngineReloader>
 >();
-export type ServerRuntimeHooks = { onGlobalSkillsChanged?: () => Promise<unknown> };
+export type ServerRuntimeHooks = { onGlobalSkillsChanged?: () => Promise<unknown>; primaryRuntime?: PrimaryRuntimeServerPolicy; primaryRuntimeAdapters?: readonly AgentRuntimeAdapter[] };
 export async function startServer(config: ServerConfig, runtimeHooks: ServerRuntimeHooks = {}): Promise<ServeResult> {
   const approvals = new ApprovalService(config.approval);
+  const primaryRuntimeLifecycle = startPrimaryRuntimeServerLifecycle({
+    config, approvals, policy: runtimeHooks.primaryRuntime,
+    additionalAdapters: runtimeHooks.primaryRuntimeAdapters,
+  });
+  const primaryRuntime = primaryRuntimeLifecycle.services;
   const reloadEvents = new ReloadEventStore();
   const tokens = new TokenService(config);
   const env = new EnvService();
@@ -100,11 +104,8 @@ export async function startServer(config: ServerConfig, runtimeHooks: ServerRunt
   const opencodeEngineReloader = createOpencodeEngineReloader();
   opencodeEngineReloaders.set(config, opencodeEngineReloader);
   let watcherHandle = startReloadWatchers({ config, reloadEvents, logger });
-  const automationScheduler = startAutomationScheduler(config, logger);
-  const refreshWorkspaceReloadBaseline = (
-    workspaceId: string,
-    reasons?: ReloadReason[],
-  ) => watcherHandle.refreshWorkspace(workspaceId, reasons);
+  const automationScheduler = startAutomationScheduler(config, logger, async (workspaceId) => (await primaryRuntime.selection.resolve(workspaceId)).runtimeKind, { registry: primaryRuntime.registry, events: primaryRuntime.events });
+  const refreshWorkspaceReloadBaseline = (workspaceId: string, reasons?: ReloadReason[]) => watcherHandle.refreshWorkspace(workspaceId, reasons);
   reloadBaselineRefreshers.set(config, refreshWorkspaceReloadBaseline);
   const restartReloadWatchers = () => {
     watcherHandle.close();
@@ -122,6 +123,7 @@ export async function startServer(config: ServerConfig, runtimeHooks: ServerRunt
     (workspace) => sessionArchiveSyncRunner.dispose(
       resolveSessionArchiveRuntimePaths({ workspace }).dbPath,
     ),
+    primaryRuntime,
   );
 
   const serverOptions: {
@@ -132,6 +134,7 @@ export async function startServer(config: ServerConfig, runtimeHooks: ServerRunt
     hostname: config.host,
     port: config.port,
     fetch: async (request: Request) => {
+      if (stopping) return jsonResponse({ code: "server_stopping", message: "Server is stopping" }, 503);
       const url = new URL(request.url);
       const startedAt = Date.now();
       let authMode: AuthMode = "none";
@@ -255,19 +258,13 @@ export async function startServer(config: ServerConfig, runtimeHooks: ServerRunt
     },
   };
 
-  const server = await serve({
-    ...serverOptions,
-    idleTimeout: 120,
-  });
-
+  let stopping = false; const server = await serve({ ...serverOptions, idleTimeout: 120 });
   return {
     ...server,
     stop: async () => {
-      automationScheduler.close();
-      watcherHandle.close();
-      reloadBaselineRefreshers.delete(config);
-      await sessionArchiveSyncRunner.disposeAll();
-      await server.stop();
+      stopping = true; primaryRuntime.registry.beginDrain();
+      await server.stop(); await automationScheduler.close(); await primaryRuntimeLifecycle.stop();
+      watcherHandle.close(); reloadBaselineRefreshers.delete(config); await sessionArchiveSyncRunner.disposeAll();
     },
   };
 }
@@ -417,8 +414,8 @@ function createRoutes(
   onWorkspacesChanged: () => void,
   runtimeHooks: ServerRuntimeHooks,
   reloadEngine: (workspace: WorkspaceInfo) => Promise<void>,
-  syncSessionArchive: Parameters<typeof registerServerRoutes>[0]["syncSessionArchive"],
-  disposeWorkspaceArchiveSync: Parameters<typeof registerServerRoutes>[0]["disposeWorkspaceArchiveSync"],
+  syncSessionArchive: Parameters<typeof registerServerRoutes>[0]["syncSessionArchive"], disposeWorkspaceArchiveSync: Parameters<typeof registerServerRoutes>[0]["disposeWorkspaceArchiveSync"],
+  primaryRuntime: ReturnType<typeof createPrimaryRuntimeServices>,
 ): Route[] {
   const routes: Route[] = [];
   const fileSessions = new FileSessionStore();
@@ -451,7 +448,7 @@ function createRoutes(
     emitReloadEvent,
     buildConfigTrigger,
     persistServerWorkspaceState,
-    onWorkspacesChanged,
+    onWorkspacesChanged: () => { primaryRuntime.registry.syncWorkspaces(config.workspaces); onWorkspacesChanged(); },
     reloadOpencodeEngine: (_config, workspace) => reloadEngine(workspace),
     syncSessionArchive,
     disposeWorkspaceArchiveSync,
@@ -461,6 +458,9 @@ function createRoutes(
     materializeBlueprintSessions,
     recordWorkspaceFileEvent,
     onGlobalSkillsChanged: runtimeHooks.onGlobalSkillsChanged,
+    primaryRuntimeRegistry: primaryRuntime.registry, agentRuntimeSelection: primaryRuntime.selection,
+    primaryRuntimeEvents: primaryRuntime.events, readConnectorMcpProjection: primaryRuntime.readConnectorMcpProjection,
+    expertRuntimeRoots: primaryRuntime.expertRuntimeRoots,
   });
 
   return routes;

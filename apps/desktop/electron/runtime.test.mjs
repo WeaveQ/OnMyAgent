@@ -7,7 +7,17 @@ import os from "node:os";
 import path from "node:path";
 
 import { resolveLocalSkillsRoot } from "./config-profile-paths.mjs";
-import { createRuntimeManager, prioritizeWorkspacePaths, snapshotOnMyAgentServerState } from "./runtime.mjs";
+import {
+  resolveDesktopOpencodeRuntimeIdentity,
+  resolveDesktopGrokRuntimePolicy,
+  resolveDesktopGrokProxyEnvironment,
+  resolveDesktopOpencodeRuntimeHome,
+} from "./primary-runtime-policy.mjs";
+import {
+  createRuntimeManager,
+  prioritizeWorkspacePaths,
+  snapshotOnMyAgentServerState,
+} from "./runtime.mjs";
 
 async function linkOrShimExecutable(source, target) {
   try {
@@ -67,6 +77,270 @@ describe("snapshotOnMyAgentServerState", () => {
     assert.equal(snapshot.running, false);
     assert.equal(snapshot.baseUrl, "http://127.0.0.1:61276");
     assert.equal(snapshot.pid, null);
+  });
+});
+
+describe("primary runtime MCP descriptor provider", () => {
+  it("accepts only a host callback", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "onmyagent-mcp-provider-"));
+    const manager = createRuntimeManager({
+      app: {
+        getPath(name) {
+          if (name === "home") return path.join(root, "home");
+          if (name === "exe") return process.execPath;
+          return path.join(root, name);
+        },
+      },
+      desktopRoot: path.join(root, "desktop"),
+      listLocalWorkspacePaths: async () => [],
+    });
+    try {
+      assert.throws(
+        () => manager.setPrimaryRuntimeMcpProjectionProvider(null),
+        /must be a function/,
+      );
+      assert.doesNotThrow(() => manager.setPrimaryRuntimeMcpProjectionProvider(async () => ({
+        descriptors: [],
+        accounts: [],
+        complete: true,
+      })));
+    } finally {
+      await manager.dispose();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("resolveDesktopOpencodeRuntimeHome", () => {
+  it("uses the exact managed XDG data root", () => {
+    assert.equal(
+      resolveDesktopOpencodeRuntimeHome(
+        { XDG_DATA_HOME: "/fixture/managed/data" },
+        { homeDir: "/fixture/home" },
+      ),
+      path.join("/fixture/managed/data", "opencode"),
+    );
+  });
+
+  it("matches OpenCode's xdg-basedir fallback when XDG is absent", () => {
+    assert.equal(
+      resolveDesktopOpencodeRuntimeHome(
+        { APPDATA: "C:\\Users\\fixture\\AppData\\Roaming" },
+        { homeDir: "C:\\Users\\fixture" },
+      ),
+      path.join("C:\\Users\\fixture", ".local", "share", "opencode"),
+    );
+    assert.equal(
+      resolveDesktopOpencodeRuntimeHome(
+        {},
+        { homeDir: "/Users/fixture" },
+      ),
+      path.join("/Users/fixture", ".local", "share", "opencode"),
+    );
+  });
+
+  it("keeps managed and explicit real-home identities distinct", () => {
+    assert.deepEqual(
+      resolveDesktopOpencodeRuntimeIdentity(
+        { XDG_DATA_HOME: "/fixture/managed/data" },
+        { homeDir: "/Users/fixture" },
+      ),
+      {
+        profileId: "desktop-managed",
+        runtimeHome: path.join("/fixture/managed/data", "opencode"),
+        sandboxProfile: "desktop-managed",
+      },
+    );
+    assert.deepEqual(
+      resolveDesktopOpencodeRuntimeIdentity(
+        { ONMYAGENT_OPENCODE_USE_REAL_HOME: "1" },
+        { homeDir: "/Users/fixture" },
+      ),
+      {
+        profileId: "desktop-system",
+        runtimeHome: path.join("/Users/fixture", ".local", "share", "opencode"),
+      },
+    );
+  });
+});
+
+describe("resolveDesktopGrokRuntimePolicy", () => {
+  it("uses the existing system Grok profile without exposing a new home", () => {
+    assert.deepEqual(
+      resolveDesktopGrokRuntimePolicy(
+        { path: "/Users/fixture/.grok/bin/grok", version: "grok 1.0.0 (fixture)" },
+        {
+          PATH: "/fixture/bin",
+          HTTPS_PROXY: "http://proxy.invalid",
+          UNRELATED_SECRET: "must-not-enter-child",
+        },
+        { homeDir: "/Users/fixture" },
+      ),
+      {
+        profileId: "system",
+        binaryPath: "/Users/fixture/.grok/bin/grok",
+        expectedVersion: "1.0.0",
+        runtimeHome: path.join("/Users/fixture", ".grok"),
+        environment: {
+          PATH: "/fixture/bin",
+          HTTPS_PROXY: "http://proxy.invalid",
+        },
+        rollout: {
+          newSessionsEnabled: true,
+          workspaceAllowlist: [],
+        },
+      },
+    );
+    assert.equal(
+      resolveDesktopGrokRuntimePolicy(null, {}, { homeDir: "/Users/fixture" }),
+      null,
+    );
+  });
+
+  it("keeps Grok unavailable when no audited system binary is discovered", () => {
+    assert.equal(
+      resolveDesktopGrokRuntimePolicy(null, {}, { homeDir: "/Users/fixture" }),
+      null,
+    );
+  });
+
+  it("accepts audited Grok 1.0.3 without assuming session-admin extensions", () => {
+    assert.equal(
+      resolveDesktopGrokRuntimePolicy(
+        { path: "/fixture/grok", version: "grok 1.0.3 (fixture)" },
+        {},
+        { homeDir: "/Users/fixture" },
+      )?.expectedVersion,
+      "1.0.3",
+    );
+  });
+
+  it("enables new Grok sessions by default and still honors an explicit disable", () => {
+    const enabled = resolveDesktopGrokRuntimePolicy(
+      { path: "/fixture/grok", version: "grok 1.0.1" },
+      {},
+      { homeDir: "/Users/fixture" },
+    );
+    assert.equal(enabled.rollout.newSessionsEnabled, true);
+    const disabled = resolveDesktopGrokRuntimePolicy(
+      { path: "/fixture/grok", version: "grok 1.0.1" },
+      { ONMYAGENT_GROK_PRIMARY_ENABLED: "0" },
+      { homeDir: "/Users/fixture" },
+    );
+    assert.equal(disabled.rollout.newSessionsEnabled, false);
+  });
+
+  it("projects a host-only kill switch and bounded workspace allowlist", () => {
+    const policy = resolveDesktopGrokRuntimePolicy(
+      { path: "/fixture/grok", version: "grok 1.0.1" },
+      {
+        ONMYAGENT_GROK_PRIMARY_KILL_SWITCH: "1",
+        ONMYAGENT_GROK_PRIMARY_ENABLED: "1",
+        ONMYAGENT_GROK_PRIMARY_WORKSPACE_ALLOWLIST: "alpha, beta,alpha",
+      },
+      { homeDir: "/Users/fixture" },
+    );
+    assert.equal(policy.rollout.newSessionsEnabled, false);
+    assert.deepEqual(policy.rollout.workspaceAllowlist, ["alpha", "beta"]);
+  });
+
+  it("offers an isolated managed profile without changing the system default", () => {
+    const policy = resolveDesktopGrokRuntimePolicy(
+      { path: "/fixture/grok", version: "grok 1.0.1" },
+      {
+        PATH: "/fixture/bin",
+        XAI_API_KEY: "fixture-key",
+        HTTPS_PROXY: "http://proxy.invalid",
+      },
+      { homeDir: "/Users/fixture", userDataDir: "/Users/fixture/Library/OnMyAgent" },
+    );
+    assert.equal(policy.profileId, "system");
+    assert.equal(policy.runtimeHome, path.join("/Users/fixture", ".grok"));
+    assert.deepEqual(policy.profiles.managed, {
+      binaryPath: "/fixture/grok",
+      expectedVersion: "1.0.1",
+      runtimeHome: path.join(
+        "/Users/fixture/Library/OnMyAgent",
+        "runtime-state",
+        "grok",
+      ),
+      sandboxProfile: "desktop-managed",
+      environment: {
+        PATH: "/fixture/bin",
+        HTTPS_PROXY: "http://proxy.invalid",
+      },
+    });
+  });
+
+  it("offers checksum-verified bundled binaries independently of profile home", () => {
+    const policy = resolveDesktopGrokRuntimePolicy(
+      { path: "/Users/fixture/.grok/bin/grok", version: "grok 1.0.3" },
+      { PATH: "/fixture/bin" },
+      {
+        homeDir: "/Users/fixture",
+        userDataDir: "/Users/fixture/Library/OnMyAgent",
+        bundledBinary: { path: "/app/sidecars/grok", version: "1.0.1" },
+        scutilOutput: "",
+      },
+    );
+    assert.deepEqual(policy.profiles["system-bundled"], {
+      binaryPath: "/app/sidecars/grok",
+      expectedVersion: "1.0.1",
+      runtimeHome: path.join("/Users/fixture", ".grok"),
+      environment: { PATH: "/fixture/bin" },
+    });
+    assert.deepEqual(policy.profiles["managed-bundled"], {
+      binaryPath: "/app/sidecars/grok",
+      expectedVersion: "1.0.1",
+      runtimeHome: path.join(
+        "/Users/fixture/Library/OnMyAgent",
+        "runtime-state",
+        "grok",
+      ),
+      sandboxProfile: "desktop-managed",
+      environment: { PATH: "/fixture/bin" },
+    });
+  });
+
+  it("fails closed for unknown or unaudited system binary versions", () => {
+    assert.equal(
+      resolveDesktopGrokRuntimePolicy(
+        { path: "/fixture/grok", version: "grok future" },
+        {},
+        { homeDir: "/Users/fixture" },
+      ),
+      null,
+    );
+    assert.equal(
+      resolveDesktopGrokRuntimePolicy(
+        { path: "/fixture/grok", version: "grok 2.0.0" },
+        {},
+        { homeDir: "/Users/fixture" },
+      ),
+      null,
+    );
+  });
+});
+
+describe("resolveDesktopGrokProxyEnvironment", () => {
+  it("keeps explicit proxy env and maps enabled macOS system proxies", () => {
+    assert.deepEqual(
+      resolveDesktopGrokProxyEnvironment(
+        { HTTPS_PROXY: "http://explicit.invalid:80" },
+        { platform: "darwin", scutilOutput: "HTTPSProxy : ignored" },
+      ),
+      { HTTPS_PROXY: "http://explicit.invalid:80" },
+    );
+    assert.deepEqual(
+      resolveDesktopGrokProxyEnvironment({}, {
+        platform: "darwin",
+        scutilOutput: `\n<dictionary> {\n  HTTPEnable : 1\n  HTTPPort : 7890\n  HTTPProxy : 127.0.0.1\n  HTTPSEnable : 1\n  HTTPSPort : 7890\n  HTTPSProxy : 127.0.0.1\n}\n`,
+      }),
+      {
+        HTTP_PROXY: "http://127.0.0.1:7890",
+        HTTPS_PROXY: "http://127.0.0.1:7890",
+      },
+    );
   });
 });
 

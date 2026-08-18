@@ -165,6 +165,36 @@ export function buildCombinedSkillItems(
   return [...installed, ...rest];
 }
 
+/**
+ * `/` menu includes native runtime commands (Grok `/compact`, OpenCode custom
+ * commands) plus the managed skill catalog used by the `+` flyout.
+ */
+export function buildSlashCatalogItems(
+  skills: SkillCard[],
+  commands: SlashCommandOption[],
+  onmyagentInstalledNames: Set<string>,
+): SlashCommandOption[] {
+  const skillItems = buildCombinedSkillItems(
+    skills,
+    commands,
+    onmyagentInstalledNames,
+  );
+  const byName = new Map(skillItems.map((item) => [item.name, item]));
+  const native: SlashCommandOption[] = [];
+  for (const command of commands) {
+    if (command.source !== "command") continue;
+    const name = String(command.name ?? "").trim();
+    if (!name || byName.has(name)) continue;
+    native.push(command);
+  }
+  native.sort((left, right) => {
+    const leftTitle = left.label?.trim() || left.name;
+    const rightTitle = right.label?.trim() || right.name;
+    return leftTitle.localeCompare(rightTitle, "en", { sensitivity: "base" });
+  });
+  return [...native, ...skillItems];
+}
+
 /** Resolve pin storage key for a catalog row (supports legacy cmd:/skill: aliases). */
 export function resolveSkillPinId(
   item: SlashCommandOption,

@@ -263,6 +263,9 @@ export interface ExpertDirectoryIdentity {
   agentId: string;
   packageName: string;
   sessionId: string;
+  runtimeKind?: "opencode" | "grok-build";
+  runtimeSessionId?: string;
+  profileId?: string;
   directory: string;
 }
 
@@ -274,9 +277,12 @@ export interface ExpertDirectorySkills {
 
 export interface ExpertDirectorySession extends ExpertDirectorySkills {
   sessionId: string;
+  runtimeKind?: "opencode" | "grok-build";
+  runtimeSessionId?: string;
+  profileId?: string;
   directory?: string;
   runtimeMissing: boolean;
-  /** Unknown when OpenCode lookup was unavailable/incomplete. */
+  /** Unknown when the authoritative runtime lookup was unavailable/incomplete. */
   sessionMissing?: boolean;
   tombstoned?: boolean;
 }
@@ -337,6 +343,9 @@ export interface ExpertDirectoryHealAction {
   sessionId?: string;
   agentId?: string;
   packageName?: string;
+  runtimeKind?: "opencode" | "grok-build";
+  runtimeSessionId?: string;
+  profileId?: string;
   directory?: string;
   kind: "upgrade_marker" | "repair_skills" | "write_origin" | "restore_origin" | "skip";
   result: "planned" | "applied" | "skipped" | "failed";
@@ -366,6 +375,7 @@ export type ExpertDeleteStepState = "pending" | "completed" | "skipped" | "faile
 
 export interface ExpertDeleteStep {
   sessionId: string;
+  runtimeKind?: "opencode" | "grok-build";
   openCode: ExpertDeleteStepState;
   runtime: ExpertDeleteStepState;
   tombstone: ExpertDeleteStepState;

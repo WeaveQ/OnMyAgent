@@ -57,7 +57,7 @@ pnpm test:ui
 
 ## 双运行时
 
-OpenCode 主 · Personal 辅 · 禁止交叉写 store/archive。  
+Primary OpenCode / Grok Build 主轨（server-owned，session 创建时选择、binding 固定）· Personal Local Agent 辅轨 · 禁止交叉写 store/archive。
 长文 → Architecture **Dual Runtime Boundary**。
 
 ## Experts / Session 不变量

@@ -2,6 +2,12 @@
  * Session delete policy: resolve directory, classify remote failures, and
  * keep recently-deleted ids out of sidebar re-hydration (dirty / ghost rows).
  */
+import {
+  resolveGrokSessionDeleteDecision,
+  selectGrokFeatureStates,
+  type GrokSessionDeleteDecision,
+} from "../../../capabilities/agent-runtime/grok-feature-states";
+import { t } from "../../../../i18n";
 
 /** Max time the delete confirm dialog waits on remote DELETE before closing. */
 export const SESSION_DELETE_REMOTE_BUDGET_MS = 3_000;
@@ -15,6 +21,7 @@ type PendingSessionDelete = {
   workspaceId: string;
   sessionId: string;
   directory?: string;
+  runtimeKind?: "opencode" | "grok-build";
   createdAt: number;
   attempt: number;
 };
@@ -24,6 +31,14 @@ type SessionDeleteClient = {
     workspaceId: string,
     sessionId: string,
     options?: { directory?: string },
+  ) => Promise<unknown>;
+  getRuntimeSession?: (
+    workspaceId: string,
+    sessionId: string,
+  ) => Promise<{ session: { runtimeKind: string } }>;
+  deleteRuntimeSession?: (
+    workspaceId: string,
+    sessionId: string,
   ) => Promise<unknown>;
 };
 
@@ -80,6 +95,9 @@ function hydratePendingDeletes() {
         ...(typeof record.directory === "string" && record.directory.trim()
           ? { directory: record.directory.trim() }
           : {}),
+        ...(record.runtimeKind === "opencode" || record.runtimeKind === "grok-build"
+          ? { runtimeKind: record.runtimeKind }
+          : {}),
         createdAt: record.createdAt,
         attempt: record.attempt,
       });
@@ -102,6 +120,7 @@ function isPendingSessionDeleteRecord(
     typeof value.createdAt === "number" &&
     "attempt" in value &&
     typeof value.attempt === "number"
+    && (!("runtimeKind" in value) || value.runtimeKind === "opencode" || value.runtimeKind === "grok-build")
   );
 }
 
@@ -170,6 +189,7 @@ export function registerPendingSessionDelete(input: {
   workspaceId: string;
   sessionId: string;
   directory?: string;
+  runtimeKind?: "opencode" | "grok-build";
   nowMs?: number;
 }) {
   hydratePendingDeletes();
@@ -182,6 +202,9 @@ export function registerPendingSessionDelete(input: {
     workspaceId,
     sessionId,
     ...(input.directory?.trim() ? { directory: input.directory.trim() } : {}),
+    ...(input.runtimeKind || previous?.runtimeKind
+      ? { runtimeKind: input.runtimeKind ?? previous?.runtimeKind }
+      : {}),
     createdAt: previous?.createdAt ?? input.nowMs ?? Date.now(),
     attempt: previous?.attempt ?? 0,
   });
@@ -251,11 +274,24 @@ export function executePendingSessionDelete(input: {
   const existing = pendingDeleteRequests.get(key);
   if (existing) return existing;
 
-  const request = withPendingDeleteSlot(() =>
-    input.client.deleteSession(input.remoteWorkspaceId, sessionId, {
+  const request = withPendingDeleteSlot(async () => {
+    const runtimeKind = await resolvePendingDeleteRuntimeKind({
+      record,
+      client: input.client,
+      remoteWorkspaceId: input.remoteWorkspaceId,
+      workspaceId,
+      sessionId,
+    });
+    if (runtimeKind) {
+      if (!input.client.deleteRuntimeSession) {
+        throw new Error("Canonical runtime delete is unavailable");
+      }
+      return input.client.deleteRuntimeSession(input.remoteWorkspaceId, sessionId);
+    }
+    return input.client.deleteSession(input.remoteWorkspaceId, sessionId, {
       ...(record.directory ? { directory: record.directory } : {}),
-    }),
-  )
+    });
+  })
     .then(() => {
       clearPendingSessionDelete(workspaceId, sessionId);
     })
@@ -272,6 +308,34 @@ export function executePendingSessionDelete(input: {
     });
   pendingDeleteRequests.set(key, request);
   return request;
+}
+
+async function resolvePendingDeleteRuntimeKind(input: {
+  record: PendingSessionDelete;
+  client: SessionDeleteClient;
+  remoteWorkspaceId: string;
+  workspaceId: string;
+  sessionId: string;
+}): Promise<"opencode" | "grok-build" | null> {
+  if (input.record.runtimeKind) return input.record.runtimeKind;
+  if (!input.client.getRuntimeSession || !input.client.deleteRuntimeSession) return null;
+  try {
+    const runtime = await input.client.getRuntimeSession(
+      input.remoteWorkspaceId,
+      input.sessionId,
+    );
+    if (runtime.session.runtimeKind !== "opencode" && runtime.session.runtimeKind !== "grok-build") return null;
+    const key = pendingDeleteKey(input.workspaceId, input.sessionId);
+    pendingDeletesByKey.set(key, {
+      ...input.record,
+      runtimeKind: runtime.session.runtimeKind,
+    });
+    persistPendingDeletes();
+    return runtime.session.runtimeKind;
+  } catch (error) {
+    if (isConfirmedDeletedSession(error)) return null;
+    throw error;
+  }
 }
 
 export function retryPendingSessionDeletesForWorkspace(input: {
@@ -492,6 +556,77 @@ export function isTolerableSessionDeleteFailure(error: unknown): boolean {
  * we tolerate; rethrow only for unexpected non-tolerable errors is optional
  * at the call site (callers may still always clean local state).
  */
+
+export function readGrokSessionDeleteDecision(input: {
+  workspaceId: string;
+  runtimeKind?: "opencode" | "grok-build" | null;
+  getQueryData: (queryKey: readonly unknown[]) => unknown;
+}): GrokSessionDeleteDecision {
+  const selection = input.getQueryData(["agent-runtime-selection", input.workspaceId]);
+  return resolveGrokSessionDeleteDecision({
+    runtimeKind: input.runtimeKind,
+    featureStates: selectGrokFeatureStates(
+      selection as Parameters<typeof selectGrokFeatureStates>[0],
+    ),
+  });
+}
+
+export async function loadGrokSessionDeleteDecision(input: {
+  workspaceId: string;
+  runtimeKind?: "opencode" | "grok-build" | null;
+  getQueryData: (queryKey: readonly unknown[]) => unknown;
+  setQueryData?: (queryKey: readonly unknown[], value: unknown) => void;
+  fetchSelection?: () => Promise<unknown>;
+}): Promise<GrokSessionDeleteDecision> {
+  const cached = readGrokSessionDeleteDecision(input);
+  if (
+    input.runtimeKind !== "grok-build"
+    || cached.outcome !== "unknown"
+    || !input.fetchSelection
+  ) {
+    return cached;
+  }
+  const selection = await input.fetchSelection();
+  input.setQueryData?.(
+    ["agent-runtime-selection", input.workspaceId],
+    selection,
+  );
+  return resolveGrokSessionDeleteDecision({
+    runtimeKind: input.runtimeKind,
+    featureStates: selectGrokFeatureStates(
+      selection as Parameters<typeof selectGrokFeatureStates>[0],
+    ),
+  });
+}
+
+function throwIfDeleteBlocked(decision: GrokSessionDeleteDecision) {
+  if (decision.allowed) return decision;
+  const error = new Error(t("session.grok_native_delete_unsupported"));
+  Object.assign(error, {
+    code: "agent_runtime_capability_unsupported",
+    deleted: false,
+  });
+  throw error;
+}
+
+export function assertProductSessionDeleteAllowed(input: {
+  workspaceId: string;
+  runtimeKind?: "opencode" | "grok-build" | null;
+  getQueryData: (queryKey: readonly unknown[]) => unknown;
+}): GrokSessionDeleteDecision {
+  return throwIfDeleteBlocked(readGrokSessionDeleteDecision(input));
+}
+
+export async function assertLoadedProductSessionDeleteAllowed(input: {
+  workspaceId: string;
+  runtimeKind?: "opencode" | "grok-build" | null;
+  getQueryData: (queryKey: readonly unknown[]) => unknown;
+  setQueryData?: (queryKey: readonly unknown[], value: unknown) => void;
+  fetchSelection?: () => Promise<unknown>;
+}): Promise<GrokSessionDeleteDecision> {
+  return throwIfDeleteBlocked(await loadGrokSessionDeleteDecision(input));
+}
+
 export function shouldContinueLocalSessionCleanupAfterRemoteDelete(
   error: unknown | null,
 ): boolean {

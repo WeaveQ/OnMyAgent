@@ -13,11 +13,7 @@ import {
   type PendingAgentContext,
 } from "../../agents";
 import type { ExpertDirectoryIdentityIndex } from "../../../capabilities/session-identity/expert-directory-store";
-import { createClient, unwrap } from "../../../../app/lib/opencode";
-import { createIsolatedExpertSessionRuntimeDirectory } from "../../../capabilities/session-identity/expert-session-directory";
-import { normalizeExpertWritePackageName } from "../../../capabilities/session-identity/expert-package-name";
 import { prewarmOnMyAgentEnvSystemContext } from "../../shared";
-import { startExpertColdPrewarm } from "../sync/expert-cold-path";
 import {
   readExpertSessionSelection,
   resolveExpertSessionSelection,
@@ -63,54 +59,6 @@ export function useExpertPageNavigation(input: {
     usePendingAgentStore.getState().setAgent(agent);
     input.openSurfaceDraft(agent);
     prewarmOnMyAgentEnvSystemContext(props.onmyagentServerClient);
-    const workspaceId =
-      props.runtimeWorkspaceId?.trim() || props.selectedWorkspaceId.trim();
-    const workspaceRoot =
-      props.workspaceFilesRoot?.trim() || props.selectedWorkspaceRoot?.trim() || "";
-    const baseUrl = props.opencodeBaseUrl?.trim() ?? "";
-    const token = props.onmyagentServerToken?.trim() ?? "";
-    const client = props.onmyagentServerClient;
-    if (!workspaceId || !workspaceRoot || !baseUrl || !client) return;
-    const agentId = agent.id.trim();
-    const agentName = agent.name.trim() || "expert";
-    const skillNames = agent.skillIds ?? [];
-    const packageName = normalizeExpertWritePackageName({
-      agentId,
-      packageName: agent.marketplaceExpert?.packageName,
-    });
-    const approvedAgentIds = agent.approvedAgentIds ?? [];
-    window.setTimeout(() => {
-      const current = usePendingAgentStore.getState().getAgent();
-      if (!current || current.id.trim() !== agentId) return;
-      startExpertColdPrewarm({
-        workspaceId,
-        agentId,
-        agentName,
-        packageName,
-        approvedAgentIds,
-        skillNames,
-      }, {
-        createIsolatedDirectory: () =>
-          createIsolatedExpertSessionRuntimeDirectory({
-            client,
-            workspaceId,
-            workspaceRoot,
-            agentName,
-            agentId,
-            packageName,
-            approvedAgentIds,
-            skillNames,
-          }),
-        createSession: async (directory) => {
-          const opencode = createClient(baseUrl, directory || undefined, {
-            mode: "onmyagent",
-            token: token || undefined,
-          });
-          const created = unwrap(await opencode.session.create({ directory }));
-          return { id: created.id };
-        },
-      });
-    }, 400);
   }, [input.openSurfaceDraft, input.setDraftAgentContexts, props]);
 
   const openFreshExpertDraft = useCallback(() => {

@@ -5,11 +5,12 @@
  * Enforces the Dual Runtime Boundary hard rules that can be checked statically:
  * 1. Renderer / app UI source must not import personal-agent-runtime internals
  *    (must go through desktop IPC only).
- * 2. personal-agent-runtime must not import server archive hot-path modules
- *    (session-archive*) — Personal must not write/open OpenCode archive stores.
- * 3. server must not import personal-agent-runtime.
- * 4. No production file may import both session-archive and conversation-store.
- * 5. Legacy pre-rename desktop IPC channel must not return.
+ * 2. Renderer must not speak Grok/ACP native protocols directly.
+ * 3. Primary runtime services must not reuse Personal runtime kernel/store.
+ * 4. Personal runtime must not write primary binding/archive stores.
+ * 5. server must not import personal-agent-runtime.
+ * 6. No production file may import both session-archive and conversation-store.
+ * 7. Legacy pre-rename desktop IPC channel must not return.
  *
  * Usage:
  *   node scripts/checks/check-dual-runtime-boundary.mjs
@@ -50,12 +51,41 @@ const rules = [
       "Renderer/app must not import personal-agent-runtime (use desktop IPC / desktop.ts only)",
   },
   {
-    id: "personal-no-server-archive",
+    id: "renderer-no-native-grok-acp",
+    roots: ["apps/app/src"],
+    forbiddenImport:
+      /from\s+["'][^"']*(?:grok-acp|grok-runtime-adapter|grok-process-supervisor)[^"']*["']|import\s*\(\s*["'][^"']*(?:grok-acp|grok-runtime-adapter|grok-process-supervisor)[^"']*["']\s*\)/,
+    message:
+      "Renderer/app must consume the canonical server runtime API, never Grok/ACP native transports",
+  },
+  {
+    id: "primary-no-personal-kernel",
+    roots: [
+      "apps/server/src/services/primary-runtime-composition.ts",
+      "apps/server/src/services/grok-runtime-adapter.ts",
+      "apps/server/src/services/grok-acp-transport.ts",
+      "apps/server/src/services/grok-extension-client.ts",
+      "apps/server/src/services/grok-extension-registry.ts",
+      "apps/server/src/services/grok-process-supervisor.ts",
+      "apps/server/src/services/grok-permission-bridge.ts",
+      "apps/server/src/services/grok-event-normalizer.ts",
+      "apps/server/src/services/grok-expert-profile-compiler.ts",
+      "apps/server/src/services/grok-expert-profile-guard.ts",
+      "apps/server/src/services/grok-attachment-staging.ts",
+      "apps/server/src/services/grok-native-mcp-inventory.ts",
+    ],
+    forbiddenImport:
+      /from\s+["'][^"']*personal-agent-runtime[^"']*["']|import\s*\(\s*["'][^"']*personal-agent-runtime[^"']*["']\s*\)|require\s*\(\s*["'][^"']*personal-agent-runtime[^"']*["']\s*\)/,
+    message:
+      "Primary runtime must own its registry/transport/store and cannot reuse the Personal runtime kernel",
+  },
+  {
+    id: "personal-no-primary-store",
     roots: ["apps/desktop/electron/personal-agent-runtime"],
     forbiddenImport:
-      /from\s+["'][^"']*session-archive[^"']*["']|import\s*\(\s*["'][^"']*session-archive[^"']*["']\s*\)|require\s*\(\s*["'][^"']*session-archive[^"']*["']\s*\)|from\s+["'][^"']*apps\/server\/src\/services\/session-archive/,
+      /from\s+["'][^"']*(?:session-archive|runtime-session-bindings|primary-runtime)[^"']*["']|import\s*\(\s*["'][^"']*(?:session-archive|runtime-session-bindings|primary-runtime)[^"']*["']\s*\)|require\s*\(\s*["'][^"']*(?:session-archive|runtime-session-bindings|primary-runtime)[^"']*["']\s*\)/,
     message:
-      "Personal agent runtime must not import server session-archive hot path (no cross-runtime store writes)",
+      "Personal runtime must not import primary session binding/archive stores (no cross-runtime writes)",
   },
   {
     id: "server-no-personal-runtime",
@@ -146,6 +176,43 @@ for (const file of collectFiles([
       file: relative(repoRoot, file).split(/[\\/]/).join("/"),
       message:
         "One file must not import both session-archive and Personal conversation-store (two hot writers)",
+    });
+  }
+}
+
+const XAI_LITERAL = /["'`]x\.ai\/[^"'`]+["'`]/;
+const XAI_ALLOWED = new Set([
+  "apps/server/src/services/grok-extension-registry.ts",
+  "apps/server/src/services/grok-extension-client.ts",
+]);
+for (const file of collectFiles(["apps/server/src", "apps/app/src", "apps/desktop/electron"])) {
+  const rel = relative(repoRoot, file).split(/[\\/]/).join("/");
+  if (XAI_ALLOWED.has(rel)) continue;
+  if (/(^|\/)(tests|test|fixtures)(\/|$)/.test(rel)) continue;
+  const source = readFileSync(file, "utf8");
+  if (XAI_LITERAL.test(source)) {
+    violations.push({
+      rule: "xai-literals-only-in-extension-registry",
+      file: rel,
+      message: "x.ai/* literals must live in grok-extension-registry/client or fixtures",
+    });
+  }
+}
+
+for (const file of collectFiles(["apps/server/src/services/grok-expert-profile-compiler.ts"])) {
+  const source = readFileSync(file, "utf8");
+  if (!/injectDefaultTools:\s*false/.test(source)) {
+    violations.push({
+      rule: "expert-no-default-tools",
+      file: relative(repoRoot, file).split(/[\\/]/).join("/"),
+      message: "Expert compiler must keep injectDefaultTools:false",
+    });
+  }
+  if (!/toolConfig:\s*\{/.test(source)) {
+    violations.push({
+      rule: "expert-toolconfig-object",
+      file: relative(repoRoot, file).split(/[\\/]/).join("/"),
+      message: "Expert compiler must emit an object toolConfig",
     });
   }
 }

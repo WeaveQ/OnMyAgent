@@ -64,6 +64,38 @@ test("dual-runtime gate fails when renderer imports personal-agent-runtime", () 
   }
 });
 
+test("dual-runtime gate fails when renderer imports the native Grok transport", () => {
+  const sandbox = mkdtempSync(join(tmpdir(), "dual-runtime-native-"));
+  try {
+    mkdirSync(join(sandbox, "apps/app/src/runtime"), { recursive: true });
+    writeFileSync(
+      join(sandbox, "apps/app/src/runtime/bad.ts"),
+      `import { GrokAcpTransport } from "../../../../server/src/services/grok-acp-transport";\nexport const x = GrokAcpTransport;\n`,
+    );
+    const result = run(sandbox);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /renderer-no-native-grok-acp/);
+  } finally {
+    rmSync(sandbox, { recursive: true, force: true });
+  }
+});
+
+test("dual-runtime gate fails when primary runtime imports the Personal kernel", () => {
+  const sandbox = mkdtempSync(join(tmpdir(), "dual-runtime-primary-"));
+  try {
+    mkdirSync(join(sandbox, "apps/server/src/services"), { recursive: true });
+    writeFileSync(
+      join(sandbox, "apps/server/src/services/grok-runtime-adapter.ts"),
+      `import { createPersonalAgentRuntime } from "../../../desktop/electron/personal-agent-runtime/index.mjs";\nexport const x = createPersonalAgentRuntime;\n`,
+    );
+    const result = run(sandbox);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /primary-no-personal-kernel/);
+  } finally {
+    rmSync(sandbox, { recursive: true, force: true });
+  }
+});
+
 test("dual-runtime gate fails when personal runtime imports session-archive", () => {
   const sandbox = mkdtempSync(join(tmpdir(), "dual-runtime-archive-"));
   try {
@@ -78,7 +110,7 @@ test("dual-runtime gate fails when personal runtime imports session-archive", ()
 
     const result = run(sandbox);
     assert.equal(result.status, 1);
-    assert.match(result.stderr, /personal-no-server-archive|session-archive/);
+    assert.match(result.stderr, /personal-no-primary-store|session-archive/);
   } finally {
     rmSync(sandbox, { recursive: true, force: true });
   }
@@ -128,6 +160,48 @@ test("dual-runtime gate fails when production code uses the retired desktop IPC 
     const result = run(sandbox);
     assert.equal(result.status, 1);
     assert.match(result.stderr, /no-legacy-desktop-ipc-channel/);
+  } finally {
+    rmSync(sandbox, { recursive: true, force: true });
+  }
+});
+
+test("x.ai literals must use the exact registry owner and a non-stateful match", () => {
+  const sandbox = mkdtempSync(join(tmpdir(), "dual-runtime-xai-owner-"));
+  try {
+    mkdirSync(join(sandbox, "apps/server/src/services"), { recursive: true });
+    mkdirSync(join(sandbox, "apps/app/src"), { recursive: true });
+    writeFileSync(
+      join(sandbox, "apps/server/src/services/grok-extension-registry.ts"),
+      `export const methods = ["x.ai/commands/list"];\n`,
+    );
+    writeFileSync(
+      join(sandbox, "apps/server/src/services/grok-extension-client.ts"),
+      `export const client = true;\n`,
+    );
+    writeFileSync(
+      join(sandbox, "apps/server/src/services/grok-extension-helper.ts"),
+      `export const leaked = "x.ai/session/delete";\n`,
+    );
+    writeFileSync(join(sandbox, "apps/app/src/ok.ts"), `export const ok = 1;\n`);
+    const first = run(sandbox);
+    assert.equal(first.status, 1);
+    assert.match(first.stderr, /xai-literals-only-in-extension-registry/);
+    assert.match(first.stderr, /grok-extension-helper.ts/);
+
+    writeFileSync(
+      join(sandbox, "apps/server/src/services/grok-extension-helper.ts"),
+      `export const helper = true;\n`,
+    );
+    writeFileSync(
+      join(sandbox, "apps/app/src/ok.ts"),
+      `export const stillOk = 1;\nexport const note = "no extension methods";\n`,
+    );
+    const second = run(sandbox);
+    assert.equal(
+      second.status,
+      0,
+      `stateful regexp must not keep failing a later file:\n${second.stderr}\n${second.stdout}`,
+    );
   } finally {
     rmSync(sandbox, { recursive: true, force: true });
   }

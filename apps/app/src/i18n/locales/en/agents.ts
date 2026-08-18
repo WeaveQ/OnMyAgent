@@ -375,4 +375,6 @@ export default {
   "agents.expert_creation_discard_exit": "Discard draft",
   "agents.expert_creation_keep_exit": "Keep draft and leave",
   "agents.expert_creation_name_required": "Enter an expert name to continue.",
+  "agents.expert_creation_grok_unsupported":
+    "Expert creation coach and preview are not available with Grok Build yet. Switch this workspace to OpenCode to use them.",
 } as const;

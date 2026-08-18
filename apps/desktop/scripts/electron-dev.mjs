@@ -523,6 +523,7 @@ electronChild = run(pnpmCmd, ["exec", "electron", "./electron/main.mjs"], {
     ...linuxEnvDefaults,
     ONMYAGENT_DEV_MODE: process.env.ONMYAGENT_DEV_MODE ?? "1",
     ONMYAGENT_DATA_DIR: process.env.ONMYAGENT_DATA_DIR ?? defaultDevDataDir,
+    ONMYAGENT_GROK_PRIMARY_ENABLED: process.env.ONMYAGENT_GROK_PRIMARY_ENABLED ?? "1",
     ONMYAGENT_ELECTRON_START_URL: resolvedStartUrl,
     ELECTRON_EXTRA_LAUNCH_ARGS: extraLaunchArgs,
   },

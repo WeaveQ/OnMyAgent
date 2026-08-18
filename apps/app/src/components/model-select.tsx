@@ -78,7 +78,7 @@ export interface ModelSelectViewProps {
   open: boolean;
   value: ModelRef;
   onOpenChange: (open: boolean) => void;
-  onChange: (model: ModelRef) => void;
+  onChange: (model: ModelRef) => void | Promise<void>;
   disabled?: boolean;
   options: ModelOption[];
   /** False until provider.list has resolved at least once for this client. */
@@ -99,6 +99,7 @@ export function ModelSelectView({
   onOpenModelPicker,
 }: ModelSelectViewProps) {
   const [search, setSearch] = React.useState("");
+  const [changeError, setChangeError] = React.useState(false);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
 
   const focusSearchInput = React.useCallback(() => {
@@ -137,10 +138,16 @@ export function ModelSelectView({
 
   const groups = React.useMemo(() => groupByProvider(options), [options]);
 
-  const handleSelect = (option: ModelOption) => {
-    onChange({ providerID: option.providerID, modelID: option.modelID });
-    setSearch("");
-    onOpenChange(false);
+  const handleSelect = async (option: ModelOption) => {
+    if (option.disabled) return;
+    setChangeError(false);
+    try {
+      await onChange({ providerID: option.providerID, modelID: option.modelID });
+      setSearch("");
+      onOpenChange(false);
+    } catch {
+      setChangeError(true);
+    }
   };
 
   return (
@@ -237,8 +244,16 @@ export function ModelSelectView({
               </CommandGroup>
             )}
           </CommandList>
-          {/* Link to full model picker */}
-          <div className="border-t border-dls-border px-2 py-1.5">
+          {changeError ? (
+            <div
+              role="alert"
+              className="border-t border-dls-border px-3 py-2 text-xs text-dls-status-danger-fg"
+            >
+              {t("settings.model_change_failed")}
+            </div>
+          ) : null}
+          {/* Link to the OpenCode provider manager. Runtime-owned catalogs omit it. */}
+          {onOpenModelPicker ? <div className="border-t border-dls-border px-2 py-1.5">
             <MenuRowButton
               type="button"
               align="center"
@@ -247,13 +262,13 @@ export function ModelSelectView({
               onClick={() => {
                 onOpenChange(false);
                 setSearch("");
-                onOpenModelPicker?.();
+                onOpenModelPicker();
               }}
             >
               <Settings2 className="size-3.5" />
               {t("settings.model_all_models")}
             </MenuRowButton>
-          </div>
+          </div> : null}
         </Command>
       </PopoverContent>
     </Popover>

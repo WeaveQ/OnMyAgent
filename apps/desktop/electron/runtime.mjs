@@ -15,11 +15,11 @@ import { createRuntimeBinaryResolver } from "./runtime-binaries.mjs";
 import { createRuntimeChildEnv } from "./runtime-child-env.mjs";
 import { createRuntimeSandbox } from "./runtime-sandbox.mjs";
 import { createRuntimeTokenPortStore } from "./runtime-token-port.mjs";
+import { createPrimaryRuntimeMcpProjectionProvider, resolveDesktopPrimaryRuntimePolicy } from "./primary-runtime-policy.mjs";
 export {
   createDesktopPersonalRuntimeServices,
   wrapChannelApiForLazyInit,
 } from "./personal-runtime-services.mjs";
-
 import {
   DIRECT_RUNTIME,
   resolveShippedEngineRuntime,
@@ -55,7 +55,6 @@ import {
 
 export { snapshotOnMyAgentServerState, DIRECT_RUNTIME, ORCHESTRATOR_RUNTIME } from "./runtime-engine-state.mjs";
 export { prioritizeWorkspacePaths, normalizeWorkspaceKey } from "./runtime-helpers.mjs";
-
 const __runtimeDir = path.dirname(fileURLToPath(import.meta.url));
 
 /** @returns {string | null} */
@@ -107,7 +106,7 @@ export function createRuntimeManager({
   // stopAllRuntimeChildren kills the previous call's freshly-spawned
   // orchestrator daemon, and the prior call then times out its /health probe.
   let runtimeLifecycleQueue = Promise.resolve();
-  let lifecycleState = "idle", activeOpencodeConfigDir = null;
+  let lifecycleState = "idle", activeOpencodeConfigDir = null; const primaryRuntimeMcp = createPrimaryRuntimeMcpProjectionProvider();
   function withRuntimeLifecycle(fn) {
     const next = runtimeLifecycleQueue.then(fn, fn);
     runtimeLifecycleQueue = next.catch(() => {});
@@ -437,6 +436,7 @@ export function createRuntimeManager({
       }
     }
     const { startEmbeddedServer } = await import(embeddedUrl.href);
+    const primaryRuntimePolicy = resolveDesktopPrimaryRuntimePolicy({ serverEnv, homeDir: resolvedHomeDir, userDataDir, resolveBinary, resolveBundledBinaryInfo, probeVersion });
     const handle = await startEmbeddedServer({
       host,
       port,
@@ -450,6 +450,7 @@ export function createRuntimeManager({
       manageOpencode: options.manageOpencode === true,
       opencodeBin: managedOpencode?.path ?? undefined,
       opencodeCwd: managedOpencodeWorkdir(),
+      ...primaryRuntimePolicy, readConnectorMcpProjection: primaryRuntimeMcp.read,
       onGlobalSkillsChanged: refreshSkillLinks,
     });
     inProcessServer = handle;
@@ -843,7 +844,7 @@ export function createRuntimeManager({
     /** Config dir last prepared for the desktop OpenCode session. */
     getActiveOpencodeConfigDir: () => activeOpencodeConfigDir,
     resolveLocalOpencodeConfigDir,
-    onmyagentOpencodeConfigDir,
+    onmyagentOpencodeConfigDir, setPrimaryRuntimeMcpProjectionProvider: primaryRuntimeMcp.set,
     sandboxDoctor,
     sandboxStop,
     sandboxCleanupOnMyAgentContainers,

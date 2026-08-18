@@ -1,7 +1,7 @@
 import { spawn, type SpawnOptions } from 'node:child_process';
 import { once } from 'node:events';
-import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { homedir, tmpdir } from 'node:os';
+import { dirname, join, posix, resolve, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { type LogFormat, type OpencodeHotReload } from './cli-args.js';
@@ -30,6 +30,15 @@ type OpencodeStateLayout = {
 };
 
 type ApprovalMode = 'manual' | 'auto';
+
+export type PrimaryOpencodeRuntimeIdentity = {
+  profileId: string;
+  runtimeHome: string;
+  sandboxProfile?: string;
+};
+
+const ORCHESTRATOR_DEV_OPENCODE_PROFILE_ID = 'orchestrator-dev';
+const ORCHESTRATOR_SYSTEM_OPENCODE_PROFILE_ID = 'orchestrator-system';
 
 const SOURCE_DIR = dirname(fileURLToPath(import.meta.url));
 const ORCHESTRATOR_ROOT_DIR = resolve(SOURCE_DIR, '..');
@@ -92,6 +101,73 @@ export function mergeResourceAttributes(
   return Array.from(entries.entries())
     .map(([key, value]) => `${key}=${value}`)
     .join(',');
+}
+
+export function buildOnMyAgentServerRuntimeEnv(options: {
+  dataDir: string;
+  opencodeRuntimeIdentity: PrimaryOpencodeRuntimeIdentity;
+  token: string;
+  hostToken: string;
+  runId: string;
+  logFormat: LogFormat;
+}): NodeJS.ProcessEnv {
+  return {
+    ONMYAGENT_PRIMARY_RUNTIME_DATA_ROOT: options.dataDir,
+    ONMYAGENT_PRIMARY_OPENCODE_PROFILE_ID:
+      options.opencodeRuntimeIdentity.profileId,
+    ONMYAGENT_PRIMARY_OPENCODE_RUNTIME_HOME:
+      options.opencodeRuntimeIdentity.runtimeHome,
+    ...(options.opencodeRuntimeIdentity.sandboxProfile
+      ? {
+          ONMYAGENT_PRIMARY_OPENCODE_SANDBOX_PROFILE:
+            options.opencodeRuntimeIdentity.sandboxProfile,
+        }
+      : {}),
+    ONMYAGENT_TOKEN: options.token,
+    ONMYAGENT_HOST_TOKEN: options.hostToken,
+    ONMYAGENT_RUN_ID: options.runId,
+    ONMYAGENT_LOG_FORMAT: options.logFormat,
+  };
+}
+
+function pathJoinForPlatform(
+  platform: NodeJS.Platform,
+  ...parts: string[]
+): string {
+  return platform === 'win32' ? win32.join(...parts) : posix.join(...parts);
+}
+
+/**
+ * Resolve the native OpenCode data directory from the same environment that is
+ * passed to the OpenCode child. Workspace/cwd never participates in identity.
+ */
+export function resolvePrimaryOpencodeRuntimeIdentity(options: {
+  stateLayout: OpencodeStateLayout;
+  environment?: NodeJS.ProcessEnv;
+  platform?: NodeJS.Platform;
+  homeDir?: string;
+}): PrimaryOpencodeRuntimeIdentity {
+  const environment = options.environment ?? process.env;
+  const platform = options.platform ?? process.platform;
+  const effectiveEnv = { ...environment, ...options.stateLayout.env };
+  const explicitDataHome = effectiveEnv.XDG_DATA_HOME?.trim();
+  const homeDir = options.homeDir ?? homedir();
+
+  let dataHome: string;
+  if (explicitDataHome) {
+    dataHome = explicitDataHome;
+  } else {
+    // OpenCode uses xdg-basedir on every supported platform. Its fallback is
+    // <homedir>/.local/share even on macOS and Windows.
+    dataHome = pathJoinForPlatform(platform, homeDir, '.local', 'share');
+  }
+
+  return {
+    profileId: options.stateLayout.devMode
+      ? ORCHESTRATOR_DEV_OPENCODE_PROFILE_ID
+      : ORCHESTRATOR_SYSTEM_OPENCODE_PROFILE_ID,
+    runtimeHome: pathJoinForPlatform(platform, dataHome, 'opencode'),
+  };
 }
 
 export function looksLikeOtelLogLine(line: string): boolean {
@@ -258,6 +334,8 @@ export async function startOnMyAgentServer(options: {
   host: string;
   port: number;
   workspace: string;
+  dataDir: string;
+  opencodeRuntimeIdentity: PrimaryOpencodeRuntimeIdentity;
   token: string;
   hostToken: string;
   approvalMode: ApprovalMode;
@@ -316,10 +394,7 @@ export async function startOnMyAgentServer(options: {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
-        ONMYAGENT_TOKEN: options.token,
-        ONMYAGENT_HOST_TOKEN: options.hostToken,
-        ONMYAGENT_RUN_ID: options.runId,
-        ONMYAGENT_LOG_FORMAT: options.logFormat,
+        ...buildOnMyAgentServerRuntimeEnv(options),
         OTEL_RESOURCE_ATTRIBUTES: mergeResourceAttributes(
           {
             'service.name': 'onmyagent-server',

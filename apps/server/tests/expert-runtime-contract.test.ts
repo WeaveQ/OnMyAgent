@@ -36,7 +36,7 @@ describe("Expert runtime contract", () => {
     expect(() => resolveExpertPromptAgent("unlisted", ["package-agent"])).toThrow();
   });
 
-  test("asserts marker v3, identity, default agent, plugin isolation, and skills", async () => {
+  test("asserts a runtime-aware marker, identity, default agent, plugin isolation, and skills", async () => {
     const workspace = testWorkspace(join(root, "workspace"));
     await mkdir(workspace.path, { recursive: true });
     const runtimeRoot = join(root, "runtime");
@@ -60,7 +60,7 @@ describe("Expert runtime contract", () => {
       promptBody: { agent: "package-agent", parts: [{ type: "text", text: "hello" }] },
     });
     expect(valid).toMatchObject({
-      contractVersion: 3,
+      contractVersion: 4,
       sessionId: "session-1",
       agent: "package-agent",
       declaredSkills: ["declared-skill"],
@@ -125,17 +125,23 @@ describe("Expert runtime contract", () => {
       ensureAndAssertExpertRuntimeContract({
         workspace,
         sessionId: "session-lazy",
+        runtimeKind: "opencode",
+        runtimeSessionId: "session-lazy",
+        profileId: "primary-opencode",
         directory: created.directory,
         runtimeRoot,
       }),
       ensureAndAssertExpertRuntimeContract({
         workspace,
         sessionId: "session-lazy",
+        runtimeKind: "opencode",
+        runtimeSessionId: "session-lazy",
+        profileId: "primary-opencode",
         directory: created.directory,
         runtimeRoot,
       }),
     ]);
-    expect(results[0].marker.isolationVersion).toBe(3);
+    expect(results[0].marker.isolationVersion).toBe(4);
     expect(results[1].sessionId).toBe("session-lazy");
   });
 

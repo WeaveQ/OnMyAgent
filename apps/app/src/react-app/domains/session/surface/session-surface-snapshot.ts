@@ -11,6 +11,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "../../../../app/lib/opencode";
 import type { OnMyAgentSessionSnapshot } from "../../../../app/lib/onmyagent-server";
 import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
+import { OnMyAgentServerError } from "../../../../app/lib/onmyagent-server";
 import {
   resolveRenderedSessionSnapshot,
 } from "./session-render-state";
@@ -74,6 +75,26 @@ export function useSessionSurfaceSnapshot(input: SessionSurfaceSnapshotInput) {
   );
 
   const snapshotQueryKey = sessionSnapshotQueryKey(workspaceId, sessionId);
+  const runtimeBindingQuery = useQuery({
+    queryKey: ["agent-runtime-session", workspaceId, sessionId] as const,
+    enabled: !draftOnly && Boolean(sessionId.trim()),
+    queryFn: async () => {
+      try {
+        return (await client.getRuntimeSession(workspaceId, sessionId)).session;
+      } catch (error) {
+        if (error instanceof OnMyAgentServerError && error.status === 404) {
+          return null;
+        }
+        throw error;
+      }
+    },
+    retry: false,
+    staleTime: 30_000,
+  });
+  // Any durable primary-runtime binding uses the canonical server transcript
+  // and control surface. Only legacy OpenCode sessions without a binding fall
+  // back to the direct SDK snapshot path.
+  const canonicalRuntime = Boolean(runtimeBindingQuery.data);
   const transcriptQueryKey = useMemo(
     () => reactTranscriptKey(workspaceId, sessionId),
     [workspaceId, sessionId],
@@ -96,7 +117,11 @@ export function useSessionSurfaceSnapshot(input: SessionSurfaceSnapshotInput) {
 
   const snapshotQuery = useQuery<OnMyAgentSessionSnapshot>({
     queryKey: snapshotQueryKey,
-    enabled: !draftOnly && Boolean(sessionId.trim()),
+    enabled:
+      !draftOnly
+      && Boolean(sessionId.trim())
+      && runtimeBindingQuery.isFetched
+      && !canonicalRuntime,
     queryFn: ({ signal }) =>
       scheduleSessionSnapshot({
         workspaceId,
@@ -175,6 +200,8 @@ export function useSessionSurfaceSnapshot(input: SessionSurfaceSnapshotInput) {
     statusState,
     snapshot,
     liveStatus,
+    canonicalRuntime,
+    runtimeKind: runtimeBindingQuery.data?.runtimeKind ?? null,
     /** Reset hydration key when the active session changes (caller owns other resets). */
     resetHydrationKey: () => {
       hydratedKeyRef.current = null;

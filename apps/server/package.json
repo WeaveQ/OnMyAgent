@@ -52,6 +52,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@onmyagent/acp-runtime": "workspace:*",
     "@opencode-ai/sdk": "1.18.18",
     "@onmyagent/types": "workspace:*",
     "jsonc-parser": "^3.2.1",

@@ -300,6 +300,54 @@ describe("Expert delete saga", () => {
     }
   });
 
+  test("deletes sticky Grok Expert bindings through the canonical registry without OpenCode origins", async () => {
+    const value = await fixture();
+    const grokDirectory = join(value.root, "grok-runtime", "expert-session");
+    await mkdir(grokDirectory, { recursive: true });
+    const deleted: string[] = [];
+    try {
+      const result = await runDelete(value, {
+        sessionIds: ["grok-product"],
+      }, {
+        listRuntimeExpertSessions: async () => [{
+          productSessionId: "grok-product",
+          runtimeKind: "grok-build",
+          runtimeSessionId: "grok-native",
+          workspaceId: value.workspace.id,
+          cwd: grokDirectory,
+          profileId: "system",
+          runtimeHome: join(value.root, "grok-home"),
+          profile: {
+            kind: "expert",
+            expertId: "agent-1",
+            name: "Agent 1",
+            description: "Fixture Expert",
+            systemPrompt: "Fixture prompt",
+            packageName: "package-1",
+            declaredSkillNames: [],
+            activatedSkillNames: [],
+          },
+          createdAt: 1,
+        }],
+        deleteRuntimeSession: async (_workspaceId, sessionId) => {
+          deleted.push(sessionId);
+        },
+      });
+      expect(result.state).toBe("completed");
+      expect(result.steps).toEqual([{
+        sessionId: "grok-product",
+        runtimeKind: "grok-build",
+        openCode: "completed",
+        runtime: "skipped",
+        tombstone: "skipped",
+      }]);
+      expect(deleted).toEqual(["grok-product"]);
+      expect((await listSessionOrigins(value.workspace)).items).toHaveLength(1);
+    } finally {
+      await rm(value.root, { recursive: true, force: true });
+    }
+  });
+
   test("does not tombstone an unauthorized runtime directory", async () => {
     const value = await fixture();
     const outside = join(value.root, "outside");

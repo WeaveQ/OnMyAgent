@@ -1,5 +1,6 @@
 /** Surface props (composer + session chat controls) for SessionPage. */
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -7,6 +8,11 @@ import {
   type MutableRefObject,
   type SetStateAction,
 } from "react";
+import type {
+  AgentRuntimeKind,
+  AgentRuntimeModelCatalog,
+  AgentRuntimePromptPartInput,
+} from "@onmyagent/types/agent-runtime";
 
 import skillCreatorTemplate from "../../../../../desktop/resources/bundled-skills/skill-creator/SKILL.md?raw";
 import {
@@ -15,7 +21,10 @@ import {
   pickDirectory,
   readLocalSkill,
 } from "../../../app/lib/desktop";
-import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
+import {
+  OnMyAgentServerError,
+  type OnMyAgentServerClient,
+} from "../../../app/lib/onmyagent-server";
 import { buildOnMyAgentEnvRuntimeKey } from "../../../app/lib/onmyagent-env-runtime";
 import { listCommands, revertSession, shellInSession } from "../../../app/lib/opencode-session";
 import { unwrap } from "../../../app/lib/opencode";
@@ -50,11 +59,11 @@ import {
   clearOptimisticSessionUserMessage,
   createInjectedSkillContentLoader,
   dispatchAssistantSessionWorkspacesChanged,
+  isDraftSessionId,
   readAssistantSessionWorkspace,
   resolveSlashSkillSend,
   seedOptimisticSessionUserMessage,
   shouldForwardPromptMessageId,
-  startExpertColdPrewarm,
   trackWorkspaceSessionSync,
   writeAssistantSessionWorkspace,
   type ExpertColdPathResult,
@@ -96,6 +105,7 @@ import {
   buildLanguageSystemPrompt,
   deriveGoalSummary,
   draftHasSendableContent,
+  composeGrokPromptInputFromDraft,
   draftToParts,
   isComposerGoalMode,
   isComposerPlanningMode,
@@ -136,6 +146,20 @@ import type { OnMyAgentServerInfo } from "../../../app/lib/desktop";
 import { writeActiveWorkspaceId, writeLastSessionFor } from "../session-memory";
 import type { NavigateFunction } from "react-router-dom";
 import { updateDefaultModelPrefs } from "./composer";
+import {
+  composeCanonicalGrokPromptInput,
+  GROK_PRIMARY_MODEL,
+  grokCommandCatalogUsable,
+  mergeGrokComposerCommands,
+  resolveComposerCommandSource,
+  resolveConfiguredRuntimeKind,
+  selectGrokFeatureStates,
+  supportsCanonicalGrokDraft,
+} from "./agent-runtime-routing";
+import {
+  commandCatalogKey,
+  firstNonEmptyGrokCatalog,
+} from "../../capabilities/agent-runtime/grok-feature-states";
 import { bagSessionSurfaceProps } from "../../domains/session";
 
 type NavigateToWorkspaceSession = (
@@ -180,6 +204,8 @@ export type SessionRouteSurfacePropsInput = {
   providerConnectedIds: string[];
   refreshCreatedSessionSnapshot: (sessionId: string, directory: string) => Promise<void>;
   refreshRouteState: () => Promise<void> | void;
+  routeRuntimeKind: "opencode" | "grok-build" | null;
+  runtimeModelCatalog: AgentRuntimeModelCatalog | null;
   rememberPendingCreatedSession: (workspaceId: string, sessionId: string) => void;
   selectedAgent: string | null;
   selectedSessionId: string | null;
@@ -246,6 +272,8 @@ export function useSessionRouteSurfaceProps(
     providerConnectedIds,
     refreshCreatedSessionSnapshot,
     refreshRouteState,
+    routeRuntimeKind,
+    runtimeModelCatalog,
     rememberPendingCreatedSession,
     selectedAgent,
     selectedSessionId,
@@ -343,75 +371,74 @@ export function useSessionRouteSurfaceProps(
     setSelectedAgent,
   ]);
 
-  // Backup prewarm on the *same* client/workspaceId as send (claim key match).
-  // activateDraftAgent also prewarms; getOrStart dedupes identical keys.
-  useEffect(() => {
-    if (pageMode !== "expert") return;
-    if (!client || !opencodeClient || !selectedWorkspaceId) return;
-    const pending = pendingAgentForPrewarm;
-    if (!pending?.id?.trim()) return;
-    // Real bound chat: no cold create needed until force-new.
-    if (
-      selectedSessionId &&
-      pending.boundSessionId &&
-      pending.boundSessionId === selectedSessionId
-    ) {
-      return;
+  const listGrokCommands = useCallback(async () => {
+    const runtimeClient = selectedWorkspaceEndpoint?.client ?? client;
+    const workspaceId = selectedWorkspaceEndpoint?.workspaceId
+      ?? selectedWorkspaceId;
+    if (!runtimeClient || !workspaceId) return [];
+    try {
+      const queryClient = getReactQueryClient();
+      const realSessionId = selectedSessionId && !isDraftSessionId(selectedSessionId)
+        ? selectedSessionId
+        : null;
+      const sessionCatalog = realSessionId
+        ? queryClient.getQueryData<Array<{ name: string; description?: string }>>(
+          commandCatalogKey(workspaceId, realSessionId),
+        )
+        : undefined;
+      const workspaceCatalogs = queryClient.getQueriesData<
+        Array<{ name: string; description?: string }>
+      >({ queryKey: ["react-session-command-catalog", workspaceId] })
+        .map(([, data]) => data);
+      const liveItems = firstNonEmptyGrokCatalog([
+        sessionCatalog,
+        ...workspaceCatalogs,
+      ]);
+      if (!realSessionId) {
+        const workspaceListed = await runtimeClient.listRuntimeWorkspaceCommands(
+          workspaceId,
+          "grok-build",
+        );
+        return mergeGrokComposerCommands({
+          liveItems,
+          listedItems: workspaceListed.items,
+        });
+      }
+      try {
+        const response = await runtimeClient.listRuntimeSessionCommands(
+          workspaceId,
+          realSessionId,
+        );
+        const listedItems = response.items.length > 0
+          ? response.items
+          : (await runtimeClient.listRuntimeWorkspaceCommands(
+            workspaceId,
+            "grok-build",
+          )).items;
+        return mergeGrokComposerCommands({
+          liveItems,
+          listedItems,
+        });
+      } catch {
+        try {
+          const workspaceListed = await runtimeClient.listRuntimeWorkspaceCommands(
+            workspaceId,
+            "grok-build",
+          );
+          return mergeGrokComposerCommands({
+            liveItems,
+            listedItems: workspaceListed.items,
+          });
+        } catch {
+          return mergeGrokComposerCommands({ liveItems });
+        }
+      }
+    } catch {
+      return [];
     }
-    // Viewing an existing session without draft intent — skip.
-    if (selectedSessionId && !pending.draftSource && pending.boundSessionId) {
-      return;
-    }
-    const workspaceRoot = selectedWorkspace?.path?.trim() || "";
-    if (!workspaceRoot) return;
-    const ensureWorkspaceId = selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
-    const agentId = pending.id.trim();
-    const agentName = pending.name?.trim() || "expert";
-    const skillNames = pending.skillIds ?? [];
-    const packageName = normalizeExpertWritePackageName({
-      agentId,
-      packageName: pending.marketplaceExpert?.packageName,
-    });
-    const approvedAgentIds = pending.approvedAgentIds ?? [];
-    const timer = window.setTimeout(() => {
-      const still = usePendingAgentStore.getState().getAgent();
-      if (!still || still.id?.trim() !== agentId) return;
-      startExpertColdPrewarm(
-        {
-          workspaceId: ensureWorkspaceId,
-          agentId,
-          agentName,
-          packageName,
-          approvedAgentIds,
-          skillNames,
-        },
-        {
-          createIsolatedDirectory: () =>
-            createIsolatedExpertSessionRuntimeDirectory({
-              client: selectedWorkspaceEndpoint?.client ?? client,
-              workspaceId: ensureWorkspaceId,
-              workspaceRoot,
-              agentName,
-              agentId,
-              packageName,
-              approvedAgentIds,
-              skillNames,
-            }),
-          createSession: async (directory) => {
-            const created = unwrap(await opencodeClient.session.create({ directory }));
-            return { id: created.id };
-          },
-        },
-      );
-    }, 450);
-    return () => window.clearTimeout(timer);
   }, [
     client,
-    opencodeClient,
-    pageMode,
-    pendingAgentForPrewarm,
     selectedSessionId,
-    selectedWorkspace,
     selectedWorkspaceEndpoint,
     selectedWorkspaceId,
   ]);
@@ -471,20 +498,52 @@ export function useSessionRouteSurfaceProps(
       workspaceRoot: selectedWorkspace?.path?.trim() || "",
     });
     const flatSurfaceProps = {
+      selectedRuntimeKind: routeRuntimeKind,
       workspaceRoot: sessionWorkspaceRoot,
       // Product Files / @ Mine use the catalog workspace, not expert session cwd.
       filesWorkspaceRoot: catalogWorkspaceRoot,
       sessionFileRoot: sessionArtifactVerifyRoot || sessionWorkspaceRoot,
       connectedProviderIds: providerConnectedIds,
       developerMode: false,
-      modelLabel,
+      modelLabel: routeRuntimeKind === "grok-build"
+        ? runtimeModelCatalog?.models.find((model) =>
+            model.ref.modelId === (
+              sessionModelOverrideById[composerModeSessionId]?.modelID
+              ?? runtimeModelCatalog.defaultModelRef?.modelId
+              ?? GROK_PRIMARY_MODEL.modelId
+            ))?.displayName ?? "Grok 4.5"
+        : modelLabel,
       onModelClick: () => {
         setModelPickerQuery("");
         setModelPickerOpen(true);
       },
       modelPickerOpen: compactModelPickerOpen,
+      modelPickerVisible: routeRuntimeKind !== "grok-build"
+        || Boolean(runtimeModelCatalog?.models.length),
       modelUnavailable: modelAvailabilityBlocksTask,
-      selectedModel: effectiveModelRef ?? { providerID: "", modelID: "" },
+      selectedModel: routeRuntimeKind === "grok-build"
+        ? {
+            providerID: "grok-build",
+            modelID: sessionModelOverrideById[composerModeSessionId]?.modelID
+              ?? runtimeModelCatalog?.defaultModelRef?.modelId
+              ?? GROK_PRIMARY_MODEL.modelId,
+          }
+        : effectiveModelRef ?? { providerID: "", modelID: "" },
+      modelOptions: routeRuntimeKind === "grok-build"
+        ? (runtimeModelCatalog?.models ?? []).map((model) => ({
+            providerID: "grok-build",
+            modelID: model.ref.modelId,
+            title: model.displayName,
+            description: "Grok Build",
+            behaviorTitle: "",
+            behaviorLabel: "",
+            behaviorDescription: "",
+            behaviorValue: model.ref.variant ?? null,
+            disabled: !model.available,
+            isFree: false,
+            isConnected: runtimeModelCatalog?.auth.state === "ready",
+          }))
+        : undefined,
       catalogContextWindow,
       sessionAccessMode,
       onSessionAccessModeChange: (mode: ComposerDraft["accessMode"]) => {
@@ -531,15 +590,41 @@ export function useSessionRouteSurfaceProps(
         );
       },
       onModelPickerOpenChange: setCompactModelPickerOpen,
-      onModelChange: (model: ModelRef) => {
-        // 1) Pin model for the current session/draft (existing sessions stay put).
-        // 2) Remember as global default so new-task / new-session homes pick it next.
-        setSessionModelOverrideById((current) => ({
-          ...current,
-          [composerModeSessionId]: model,
-        }));
-        local.setPrefs((previous) => updateDefaultModelPrefs(previous, model));
-        writeStoredDefaultModel(model);
+      onModelChange: async (model: ModelRef) => {
+        if (routeRuntimeKind && selectedSessionId) {
+          const runtimeClient = selectedWorkspaceEndpoint?.client ?? client;
+          const runtimeWorkspaceId =
+            selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
+          const updated = await runtimeClient.setRuntimeSessionModel(
+            runtimeWorkspaceId,
+            selectedSessionId,
+            routeRuntimeKind === "grok-build"
+              ? { modelId: model.modelID, variant: GROK_PRIMARY_MODEL.variant }
+              : { providerId: model.providerID, modelId: model.modelID },
+          );
+          const appliedModelId = updated.session.modelRef?.modelId ?? model.modelID;
+          setSessionModelOverrideById((current) => ({
+            ...current,
+            [composerModeSessionId]: {
+              providerID: routeRuntimeKind === "grok-build"
+                ? "grok-build"
+                : updated.session.modelRef?.providerId ?? model.providerID,
+              modelID: appliedModelId,
+            },
+          }));
+        } else if (routeRuntimeKind === "grok-build") {
+          setSessionModelOverrideById((current) => ({
+            ...current,
+            [composerModeSessionId]: model,
+          }));
+        } else {
+          setSessionModelOverrideById((current) => ({
+            ...current,
+            [composerModeSessionId]: model,
+          }));
+          local.setPrefs((previous) => updateDefaultModelPrefs(previous, model));
+          writeStoredDefaultModel(model);
+        }
         setCompactModelPickerOpen(false);
       },
       onOpenSettingsSection: (section: SettingsSection) => {
@@ -548,8 +633,6 @@ export function useSessionRouteSurfaceProps(
       onSendDraft: async (draft: ComposerDraft) => {
         const text = resolveDraftText(draft);
         if (!draftHasSendableContent(draft)) return;
-        if (modelAvailabilityBlocksTask)
-          throw new Error(t("session.model_unavailable_send_blocked"));
         const planningMode = isComposerPlanningMode(draft.collaborationMode);
 
         // Honor the "click +新会话 then send" flow: if the user activated
@@ -588,6 +671,73 @@ export function useSessionRouteSurfaceProps(
         });
         forceNewSessionOnNextSendRef.current = false;
         let { explicitAssistantWorkspace, taskWorkspaceRoot } = sendPlan;
+        const runtimeClient = selectedWorkspaceEndpoint?.client ?? client;
+        const canonicalWorkspaceId =
+          selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
+        let selectedRuntimeKind: AgentRuntimeKind | null = null;
+        if ((pageMode === "assistant" || pageMode === "expert") && runtimeClient) {
+          if (sendPlan.initialSessionId) {
+            try {
+              selectedRuntimeKind = (
+                await runtimeClient.getRuntimeSession(
+                  canonicalWorkspaceId,
+                  sendPlan.initialSessionId,
+                )
+              ).session.runtimeKind;
+            } catch (error) {
+              if (
+                error instanceof OnMyAgentServerError
+                && error.code === "runtime_session_binding_not_found"
+              ) {
+                selectedRuntimeKind = null;
+              } else {
+                throw error;
+              }
+            }
+          } else {
+            const selection = await runtimeClient.getAgentRuntimeSelection(
+              canonicalWorkspaceId,
+            );
+            selectedRuntimeKind = resolveConfiguredRuntimeKind(
+              selection,
+              canonicalWorkspaceId,
+            );
+          }
+        }
+        const canonicalGrok = selectedRuntimeKind === "grok-build";
+        const canonicalSession =
+          (pageMode === "assistant" || pageMode === "expert")
+          && selectedRuntimeKind !== null;
+        const canonicalAssistant = pageMode === "assistant" && canonicalSession;
+        const canonicalExpert = pageMode === "expert" && canonicalSession;
+        const pendingForColdPath = usePendingAgentStore.getState().getAgent();
+        // Grok Build supports plain text prompts only. Tool access only counts
+        // as an override when the user explicitly configured a custom agent's
+        // tools; the default craft collaboration mode's implicit
+        // DEFAULT_EXECUTION_TOOLS are not a user tool override and must not
+        // block a plain-text Grok prompt.
+        const preCreateRuntimeToolAccess = canonicalGrok
+          ? pendingForColdPath?.tools
+          : resolveComposerRuntimeTools(
+              pendingForColdPath?.tools,
+              draft.collaborationMode,
+            );
+        if (canonicalGrok && !supportsCanonicalGrokDraft({
+          mode: draft.mode,
+          hasCommand: Boolean(draft.command),
+          hasFileAttachments: draft.attachments.length > 0
+            || draft.parts.some((part) => part.type === "file"),
+          hasNonTextParts: draft.parts.some((part) =>
+            part.type === "agent" || part.type === "directory"),
+          hasCustomWorkspace: Boolean(explicitAssistantWorkspace.trim()),
+          hasAgentOverride: Boolean(selectedAgent),
+          hasToolOverrides: Object.keys(preCreateRuntimeToolAccess ?? {}).length > 0,
+        })) {
+          throw new Error(t("session.grok_runtime_draft_unsupported"));
+        }
+        if (!canonicalGrok && modelAvailabilityBlocksTask) {
+          throw new Error(t("session.model_unavailable_send_blocked"));
+        }
 
         // Expert new-session: force taskWorkspaceRoot to the workspace root.
         // sessionWorkspaceRoot may still point at the previous expert's session
@@ -615,8 +765,9 @@ export function useSessionRouteSurfaceProps(
         // Summon already kickoffs install; coordinator makes this a no-op / join.
         // Env keys are process-stable — do NOT key the cache by sessionId (that
         // re-fetched listUserEnvKeys on every new expert chat and stretched 准备中).
-        const pendingForColdPath = usePendingAgentStore.getState().getAgent();
-        const marketplaceInstallPromise = kickoffMarketplaceExpertInstall(pendingForColdPath);
+        const marketplaceInstallPromise = kickoffMarketplaceExpertInstall(
+          pendingForColdPath,
+        );
         const envRuntimeKey = buildOnMyAgentEnvRuntimeKey({
           baseUrl: client?.baseUrl ?? null,
           pid: onmyagentServerHostInfoState?.pid ?? null,
@@ -632,7 +783,11 @@ export function useSessionRouteSurfaceProps(
         // A+B: isolate + session.create claimed from draft prewarm, or created
         // under the global expert cold-path queue (never parallel cold boots).
         let expertColdClaim: ExpertColdPathResult | null = null;
-        if (pageMode === "expert" && sendPlan.needsNewSession) {
+        if (
+          pageMode === "expert" &&
+          sendPlan.needsNewSession &&
+          !canonicalSession
+        ) {
           const explicitFolder = explicitAssistantWorkspace.trim();
           const isolate = shouldIsolateExpertSessionDirectory(
             workspaceRootForSession,
@@ -683,6 +838,7 @@ export function useSessionRouteSurfaceProps(
           }
         } else if (
           pageMode === "expert" &&
+          !canonicalSession &&
           taskWorkspaceRoot &&
           ensureClient &&
           typeof ensureClient.ensureExpertSessionIsolation === "function"
@@ -707,10 +863,12 @@ export function useSessionRouteSurfaceProps(
         if (draft.command) {
           const command = draft.command;
           const commandSource =
-            command.source ??
-            (await listCommands(opencodeClient, taskWorkspaceRoot || undefined)).find(
-              (item) => item.name === command.name,
-            )?.source;
+            resolveComposerCommandSource({
+              runtimeKind: selectedRuntimeKind,
+              declaredSource: command.source,
+            }) ??
+            (await listCommands(opencodeClient, taskWorkspaceRoot || undefined))
+              .find((item) => item.name === command.name)?.source;
           const skillClient = selectedWorkspaceEndpoint?.client ?? client;
           const skillWorkspaceId = selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId;
           const skillDecision = await resolveSlashSkillSend({
@@ -795,13 +953,109 @@ export function useSessionRouteSurfaceProps(
           if (creatingSessionWorkspaceIdsRef.current.has(selectedWorkspaceId)) return;
           creatingSessionWorkspaceIdsRef.current.add(selectedWorkspaceId);
           try {
-            createdSession = unwrap(
-              await opencodeClient.session.create({
-                directory: taskWorkspaceRoot || undefined,
-              }),
-            );
+            if (canonicalSession && runtimeClient) {
+              if (canonicalExpert) await marketplaceInstallPromise;
+              const assistantSystemPrompt = joinSystemParts([
+                buildOnboardingProfileSystemPrompt(
+                  local.prefs.onboardingProfile,
+                  local.prefs.conversationMemory,
+                ) || undefined,
+                buildResponseToneSystemPrompt(local.prefs.responseTone) || undefined,
+                buildCustomInstructionsSystemPrompt(local.prefs.customInstructions) || undefined,
+                buildLanguageSystemPrompt(localeSnapshot),
+              ]);
+              const canonicalInitialSystem = selectedRuntimeKind === "grok-build"
+                ? joinSystemParts([
+                    await envSystemContextPromise,
+                    skillCommandPrompt?.systemPrompt,
+                    buildOnboardingProfileSystemPrompt(
+                      local.prefs.onboardingProfile,
+                      local.prefs.conversationMemory,
+                      canonicalExpert && pendingForColdPath?.id
+                        ? { expertId: pendingForColdPath.id }
+                        : undefined,
+                    ) || undefined,
+                    buildResponseToneSystemPrompt(local.prefs.responseTone) || undefined,
+                    buildCustomInstructionsSystemPrompt(local.prefs.customInstructions) || undefined,
+                    canonicalExpert ? pendingForColdPath?.systemPrompt : undefined,
+                    buildCollaborationModeSystemPrompt(draft.collaborationMode) || undefined,
+                    buildGoalRuntimeSystemPrompt(
+                      draft.goalIntent
+                        ? { objective: draft.goalIntent.objective }
+                        : undefined,
+                    ) || undefined,
+                    buildAccessModeSystemPrompt(draft.accessMode) || undefined,
+                    draft.hiddenSystemPrompt,
+                    buildLanguageSystemPrompt(localeSnapshot),
+                  ])
+                : undefined;
+              const created = (
+                await runtimeClient.createRuntimeSession(canonicalWorkspaceId, {
+                  ...(selectedRuntimeKind === "grok-build"
+                    ? {
+                        modelRef: {
+                          modelId:
+                            sessionModelOverrideById[composerModeSessionId]?.modelID
+                            ?? runtimeModelCatalog?.defaultModelRef?.modelId
+                            ?? GROK_PRIMARY_MODEL.modelId,
+                          variant: GROK_PRIMARY_MODEL.variant,
+                        },
+                      }
+                    : sessionModelOverrideById[composerModeSessionId]
+                        ?? local.prefs.defaultModel
+                      ? {
+                          modelRef: {
+                            providerId: (
+                              sessionModelOverrideById[composerModeSessionId]
+                              ?? local.prefs.defaultModel!
+                            ).providerID,
+                            modelId: (
+                              sessionModelOverrideById[composerModeSessionId]
+                              ?? local.prefs.defaultModel!
+                            ).modelID,
+                          },
+                        }
+                      : {}),
+                  profile: canonicalExpert
+                    ? (() => {
+                        const expert = pendingForColdPath;
+                        if (!expert?.id?.trim() || !expert.systemPrompt.trim()) {
+                          throw new Error(t("session.expert_runtime_profile_unavailable"));
+                        }
+                        return {
+                          kind: "expert" as const,
+                          expertId: expert.id.trim(),
+                          name: expert.name.trim() || expert.id.trim(),
+                          description: expert.description.trim() || expert.name.trim(),
+                          systemPrompt:
+                            canonicalInitialSystem || expert.systemPrompt.trim(),
+                          packageName: expert.marketplaceExpert?.packageName || expert.id.trim(),
+                          declaredSkillNames: expertSkillNames,
+                          activatedSkillNames: [],
+                          approvedAgentIds: expert.approvedAgentIds ?? [],
+                        };
+                      })()
+                    : {
+                        kind: "assistant" as const,
+                        ...(canonicalInitialSystem || assistantSystemPrompt
+                          ? { systemPrompt: canonicalInitialSystem || assistantSystemPrompt }
+                          : {}),
+                      },
+                })
+              ).session;
+              createdSession = {
+                id: created.productSessionId,
+                directory: created.cwd,
+              };
+            } else {
+              createdSession = unwrap(
+                await opencodeClient.session.create({
+                  directory: taskWorkspaceRoot || undefined,
+                }),
+              );
+            }
             sessionId = createdSession.id;
-            createdSession.directory = taskWorkspaceRoot;
+            createdSession.directory = createdSession.directory ?? taskWorkspaceRoot;
             if (explicitAssistantWorkspace) {
               writeAssistantSessionWorkspace({
                 sessionId,
@@ -895,7 +1149,7 @@ export function useSessionRouteSurfaceProps(
               }
             }
           }
-          if (pageMode === "expert" && createdSession.directory && ensureClient) {
+          if (pageMode === "expert" && !canonicalSession && createdSession.directory && ensureClient) {
             const markerAgentId = pendingForColdPath?.id?.trim() || undefined;
             const markerPackageName = markerAgentId
               ? normalizeExpertWritePackageName({
@@ -940,7 +1194,7 @@ export function useSessionRouteSurfaceProps(
             sessionsByWorkspaceIdRef.current = next;
             return next;
           });
-          if (pageMode === "expert") {
+          if (pageMode === "expert" && !canonicalSession) {
             void writeSessionOriginDurable({
               client: selectedWorkspaceEndpoint?.client ?? client,
               workspaceId: selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId,
@@ -959,7 +1213,7 @@ export function useSessionRouteSurfaceProps(
                 queryKey: ["expert-directory", selectedWorkspaceId],
               }),
             );
-          } else {
+          } else if (!canonicalSession) {
             void writeSessionOriginDurable({
               client: selectedWorkspaceEndpoint?.client ?? client,
               workspaceId: selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId,
@@ -1122,16 +1376,25 @@ export function useSessionRouteSurfaceProps(
             );
           }
           const command = draft.command;
-          const result = await runWithCreatedSessionRuntimeSync(() =>
-            opencodeClient.session.command({
-              sessionID: sessionId,
-              command: command.name,
-              arguments: command.arguments,
-              directory: taskWorkspaceRoot || undefined,
-            }),
-          );
-          if (result.error) {
-            throw new Error(serializeSDKError(result.error));
+          if (canonicalSession && runtimeClient) {
+            await runtimeClient.executeRuntimeSessionCommand(
+              canonicalWorkspaceId,
+              sessionId,
+              command.name,
+              { ...(command.arguments ? { arguments: command.arguments } : {}) },
+            );
+          } else {
+            const result = await runWithCreatedSessionRuntimeSync(() =>
+              opencodeClient.session.command({
+                sessionID: sessionId,
+                command: command.name,
+                arguments: command.arguments,
+                directory: taskWorkspaceRoot || undefined,
+              }),
+            );
+            if (result.error) {
+              throw new Error(serializeSDKError(result.error));
+            }
           }
           if (createdSession) {
             await refreshCreatedSessionSnapshot(sessionId, taskWorkspaceRoot);
@@ -1162,18 +1425,28 @@ export function useSessionRouteSurfaceProps(
           workspaceId: selectedWorkspaceEndpoint?.workspaceId,
         });
 
-        const parts = await draftToParts(promptDraft, taskWorkspaceRoot, {
-          uploadAttachment: attachmentUploadTarget
-            ? async (attachment, uploadPath) => {
-                const { uploadUserFileToWorkspace } = await import("../../domains/workspace");
-                return uploadUserFileToWorkspace(
-                  attachmentUploadTarget.client,
-                  attachmentUploadTarget.workspaceId,
-                  attachment.file,
-                  { path: uploadPath },
-                );
+        const grokPromptInput = selectedRuntimeKind === "grok-build"
+          ? await composeGrokPromptInputFromDraft(promptDraft, taskWorkspaceRoot, {
+              messageId: promptDraft.messageID ?? optimisticMessageId ?? undefined,
+            })
+          : null;
+        const parts = grokPromptInput
+          ? []
+          : await draftToParts(promptDraft, taskWorkspaceRoot, {
+          uploadAttachment:
+            attachmentUploadTarget
+              ? async (attachment, uploadPath) => {
+                  const { uploadUserFileToWorkspace } = await import(
+                    "../../domains/workspace"
+                  );
+                  return uploadUserFileToWorkspace(
+                    attachmentUploadTarget.client,
+                    attachmentUploadTarget.workspaceId,
+                    attachment.file,
+                    { path: uploadPath },
+                  );
               }
-            : undefined,
+              : undefined,
           // User files land under uploads/ on the catalog workspace; expert task
           // cwd may be an isolated session subdir — do not nest under that cwd.
           inboxWorkspaceRoot: workspaceRootForSession || taskWorkspaceRoot || undefined,
@@ -1316,8 +1589,36 @@ export function useSessionRouteSurfaceProps(
           });
         }
         try {
-          const result = await runWithCreatedSessionRuntimeSync(() =>
-            opencodeClient.session.promptAsync({
+          const result = canonicalSession && runtimeClient
+            ? await runtimeClient.promptRuntimeSession(
+                canonicalWorkspaceId,
+                sessionId,
+                selectedRuntimeKind === "grok-build"
+                  ? {
+                      // Grok per-turn instructions must match the sticky
+                      // session profile saved at create time. The per-turn
+                      // combinedSystem (env context, collaboration mode,
+                      // hidden prompts, …) is assembled differently from the
+                      // create-time profile, so it must not be resent; the
+                      // adapter rejects any systemPrompt/agentId/toolAccess
+                      // that differs from the bound profile.
+                      ...(grokPromptInput ?? composeCanonicalGrokPromptInput({
+                        text: userTurnText,
+                        messageId: runtimeMessageId ?? undefined,
+                        parts: parts as AgentRuntimePromptPartInput[],
+                      })),
+                    }
+                  : {
+                      text: userTurnText,
+                      ...(runtimeMessageId ? { messageId: runtimeMessageId } : {}),
+                      ...(combinedSystem ? { systemPrompt: combinedSystem } : {}),
+                      ...(selectedAgent ? { agentId: selectedAgent } : {}),
+                      ...(runtimeToolAccess ? { toolAccess: runtimeToolAccess } : {}),
+                      parts: parts as AgentRuntimePromptPartInput[],
+                    },
+              )
+            : await runWithCreatedSessionRuntimeSync(() =>
+              opencodeClient.session.promptAsync({
               sessionID: sessionId,
               parts,
               ...(forwardedMessageId ? { messageID: forwardedMessageId } : {}),
@@ -1339,9 +1640,9 @@ export function useSessionRouteSurfaceProps(
               ...(runtimeToolAccess ? { tools: runtimeToolAccess } : {}),
               ...(combinedSystem ? { system: combinedSystem } : {}),
               directory: taskWorkspaceRoot || undefined,
-            }),
-          );
-          if (result.error) {
+              }),
+            );
+          if ("error" in result && result.error) {
             throw new Error(serializeSDKError(result.error));
           }
         } catch (error) {
@@ -1376,7 +1677,7 @@ export function useSessionRouteSurfaceProps(
             scheduleSyncMemoryAwarenessFiles(nextMemory);
           }
         }
-        if (createdSession) {
+        if (createdSession && !canonicalSession) {
           await refreshCreatedSessionSnapshot(sessionId, taskWorkspaceRoot);
         }
       },
@@ -1396,6 +1697,7 @@ export function useSessionRouteSurfaceProps(
         : t("session.default_agent"),
       selectedAgent,
       listAgents: async () => {
+        if (routeRuntimeKind === "grok-build") return [];
         const list = unwrap(await opencodeClient.app.agents());
         const visible = list.filter((agent) => !agent.hidden && agent.mode !== "subagent");
         return pageMode === "expert"
@@ -1419,9 +1721,12 @@ export function useSessionRouteSurfaceProps(
         }
         setSelectedAgent(normalized);
       },
-      listCommands: listSlashCommands,
+      listCommands: routeRuntimeKind === "grok-build"
+        ? listGrokCommands
+        : listSlashCommands,
       recentFiles: [],
       searchFiles: async (query: string) => {
+        if (routeRuntimeKind === "grok-build") return [];
         const trimmed = query.trim();
         if (!trimmed) return [];
         const result = unwrap(
@@ -1435,8 +1740,10 @@ export function useSessionRouteSurfaceProps(
         return result.map((path): ComposerMentionTarget => ({ path, kind: "file" }));
       },
       isRemoteWorkspace: selectedWorkspace?.workspaceType === "remote",
-      isSandboxWorkspace: selectedWorkspace ? isSandboxWorkspace(selectedWorkspace) : false,
-      onRevertToMessage: (messageId: string) => {
+      isSandboxWorkspace: selectedWorkspace
+        ? isSandboxWorkspace(selectedWorkspace)
+        : false,
+      onRevertToMessage: routeRuntimeKind === "grok-build" ? undefined : (messageId: string) => {
         void (async () => {
           if (!selectedSessionId) return;
           try {
@@ -1534,6 +1841,7 @@ export function useSessionRouteSurfaceProps(
     handleRuntimeSessionStatus,
     handleOpenSettings,
     local,
+    listGrokCommands,
     listSlashCommands,
     modelAvailabilityBlocksTask,
     modelBehaviorOptions,
@@ -1546,6 +1854,8 @@ export function useSessionRouteSurfaceProps(
     pageMode,
     providerConnectedIds,
     refreshCreatedSessionSnapshot,
+    routeRuntimeKind,
+    runtimeModelCatalog,
     selectedAgent,
     selectedSessionId,
     selectedWorkspace,

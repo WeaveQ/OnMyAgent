@@ -182,7 +182,9 @@ describe("expert cold path wiring contracts", () => {
       ),
       "utf8",
     );
-    expect(source).toContain("if (pageMode === \"expert\" && sendPlan.needsNewSession)");
+    expect(source).toContain('pageMode === "expert"');
+    expect(source).toContain("sendPlan.needsNewSession");
+    expect(source).toContain("!canonicalSession");
     expect(source).not.toContain("pageMode === \"expert\" || pageMode === \"assistant\"");
     expect(source).not.toContain('agentName: "assistant"');
   });
@@ -218,22 +220,7 @@ describe("expert cold path wiring contracts", () => {
     expect(source).not.toContain("parseSkillNamesFromAgentMarkdown");
   });
 
-  test("draft activation starts expert cold prewarm", async () => {
-    const source = await readFile(
-      new URL(
-        "../src/react-app/domains/session/pages/use-expert-page-navigation.ts",
-        import.meta.url,
-      ),
-      "utf8",
-    );
-    expect(source).toContain("startExpertColdPrewarm(");
-    expect(source).toContain("createIsolatedExpertSessionRuntimeDirectory");
-    // Must use registry workspace path + endpoint workspace id (not session root).
-    expect(source).toContain("workspaceFilesRoot");
-    expect(source).toContain("runtimeWorkspaceId");
-  });
-
-  test("surface props also prewarms with send-path workspace id", async () => {
+  test("new Expert isolation is owned by the canonical server adapter", async () => {
     const source = await readFile(
       new URL(
         "../src/react-app/shell/session-route/surface-props-hook-impl.ts",
@@ -241,13 +228,30 @@ describe("expert cold path wiring contracts", () => {
       ),
       "utf8",
     );
-    expect(source).toContain("startExpertColdPrewarm(");
-    expect(source).toContain(
-      "selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspaceId",
+    const composition = await readFile(
+      new URL("../../server/src/services/primary-runtime-composition.ts", import.meta.url),
+      "utf8",
     );
+    expect(source).not.toContain("startExpertColdPrewarm(");
+    expect(composition).toContain("async compileSessionProfile(runtimeInput)");
+    expect(composition).toContain('runtimeKind: "opencode"');
+    expect(composition).toContain("ensureExpertSessionRuntimeIsolation({");
   });
 
-  test("empty expert shell create uses cold path claim", async () => {
+  test("canonical Expert create sends the complete package profile", async () => {
+    const source = await readFile(
+      new URL(
+        "../src/react-app/shell/session-route/surface-props-hook-impl.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    expect(source).toContain("canonicalExpert");
+    expect(source).toContain("declaredSkillNames: expertSkillNames");
+    expect(source).toContain("approvedAgentIds: expert.approvedAgentIds ?? []");
+  });
+
+  test("empty expert shell create uses the canonical runtime registry", async () => {
     const source = await readFile(
       new URL(
         "../src/react-app/shell/session-route/page-view.tsx",
@@ -255,6 +259,8 @@ describe("expert cold path wiring contracts", () => {
       ),
       "utf8",
     );
-    expect(source).toContain("claimOrCreateExpertColdSession(");
+    expect(source).toContain("runtimeClient.createRuntimeSession(ensureWorkspaceId");
+    expect(source).not.toContain("claimOrCreateExpertColdSession(");
+    expect(source).not.toContain("openCodeRuntimeClient.session.create(");
   });
 });

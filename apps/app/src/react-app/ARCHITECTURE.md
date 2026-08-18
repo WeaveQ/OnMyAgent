@@ -23,7 +23,7 @@ src/react-app/
 ├── infra/                     React-only runtime infra (e.g. QueryClient)
 ├── capabilities/              Cross-domain application capabilities with neutral ownership
 │   ├── artifacts/             Markdown, Office preview, open-target and artifact contracts
-│   ├── conversation/          Dual-runtime timeline / item VM (OpenCode + Personal → one UI shape)
+│   ├── conversation/          Runtime-neutral timeline VM (OpenCode/Grok + Personal → one UI shape)
 │   ├── layout/                Session content-column / transcript layout contracts (pure helpers)
 │   ├── model-selection/       Shared model picker modal + select container + hidden-model state
 │   └── session-identity/      Session/workspace identity persistence shared by domains
@@ -68,7 +68,8 @@ Atoms live outside this tree: `apps/app/src/components/ui/*` (see `DESIGN.md` §
 Domain ownership gives every feature one obvious home.
 
 - `session/` owns the **live conversation runtime** (surface, sync, composer, voice, goal
-  lifecycle) on the **OpenCode primary path** (HTTP/SSE/archive). It must not re-absorb
+  lifecycle) on the **canonical primary path** (OpenCode HTTP/SSE or Grok ACP, normalized
+  by the server runtime API/archive). It must not re-absorb
   agent management or messaging channels.
   Composer attachments (including **Appshot** desktop capture) live under
   `domains/session/surface/composer/`; Appshot is macOS-only and talks to the

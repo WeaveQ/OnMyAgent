@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { ensureBunTest } from "./ensure-bun-test";
+ensureBunTest(import.meta.path);
 
 import {
   applySessionAccessMode,
@@ -454,6 +456,36 @@ describe("session route composer", () => {
         text: "Referenced local directory: /tmp/workspace/报价/历史 方案 (workspace-relative path: 报价/历史 方案). This is a directory, not an uploaded file. Inspect only the files needed for this request.",
       },
     ]);
+  });
+
+  test("Grok drafts keep paperclip files as file parts instead of upload text", async () => {
+    const parts = await draftToParts(
+      draft({
+        text: "summarize",
+        attachments: [
+          attachment({
+            name: "notes.md",
+            kind: "file",
+            mimeType: "text/markdown",
+            file: new File(["hello"], "notes.md", { type: "text/markdown" }),
+          }),
+        ],
+      }),
+      "/tmp/workspace",
+      {
+        runtimeKind: "grok-build",
+        uploadAttachment: async () => {
+          throw new Error("Grok drafts must not upload into the workspace");
+        },
+      },
+    );
+    expect(parts).toHaveLength(1);
+    expect(parts[0]).toMatchObject({
+      type: "file",
+      filename: "notes.md",
+      mime: "text/markdown",
+    });
+    expect(String((parts[0] as { url: string }).url)).toMatch(/^data:text\/markdown/);
   });
 
   test("uploads non-native attachments and appends local path instructions", async () => {

@@ -77,6 +77,6 @@ title: 界面与工作区
 
 ## 6. 相关
 
-- [会话](./sessions) · [知识库](./knowledge) · [Agent 对话](./agent-chat) · [Agent 管理](./agent-management)  
+- [会话](./sessions) · [知识库](./knowledge) · [Agent 对话](./agent-chat) · [Agent 管理](./agent-management)
 - [工作区](./workspaces) · [文件](./files) · [消息渠道](./channels)
 - [设置](./settings) · [快速开始](../quickstart)

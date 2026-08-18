@@ -14,8 +14,11 @@ import {
 } from "react";
 import type { NavigateFunction } from "react-router-dom";
 
-import { createClient, unwrap } from "../../../app/lib/opencode";
-import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
+import { createClient } from "../../../app/lib/opencode";
+import {
+  OnMyAgentServerError,
+  type OnMyAgentServerClient,
+} from "../../../app/lib/onmyagent-server";
 import {
   resolveWorkspaceEndpoint,
   type ResolvedWorkspaceEndpoint,
@@ -45,6 +48,7 @@ import {
   SESSION_SNAPSHOT_STALE_TIME_MS,
   SessionPage,
   buildSessionSnapshotPrefetchSpec,
+  assertLoadedProductSessionDeleteAllowed,
   collectSessionSubtreeIds,
   permanentlyRemoveAssistantArchivedTaskTree,
   executePendingSessionDelete,
@@ -84,24 +88,19 @@ import {
 import {
   removeAssistantSession,
 } from "../../domains/agents";
-import { writeSessionOriginDurable } from "../../domains/agents";
 import {
   removeAutomationSessionRecord,
   renameAutomationSessionRecord,
 } from "../../domains/session";
 import {
-  claimOrCreateExpertColdSession,
   dispatchAssistantSessionWorkspacesChanged,
   readAssistantSessionWorkspace,
   removeAssistantSessionWorkspace,
   saveSessionDraft,
   writeAssistantSessionWorkspace,
 } from "../../domains/session";
-import {
-  createIsolatedExpertSessionRuntimeDirectory,
-  shouldIsolateExpertSessionDirectory,
-} from "../../capabilities/session-identity/expert-session-directory";
 import { normalizeExpertWritePackageName } from "../../capabilities/session-identity/expert-package-name";
+import { writeSessionOriginDurable } from "../../domains/agents";
 import { useExpertDirectoryStore } from "../../capabilities/session-identity/expert-directory-store";
 import { CloudSessionProvider } from "../../domains/settings";
 import { installMarketplaceExpertAfterSessionCreated } from "./intent";
@@ -124,6 +123,7 @@ import {
   sessionListOwnsSession,
   updateSidebarSessionTitle,
 } from "./sessions";
+import { runtimeSessionToSidebarItem } from "./runtime-session-sidebar";
 import { tryRecordColdTitleSnapshot } from "./cold-path-budget";
 import {
   activateDesktopSessionWorkspaceInBackground,
@@ -131,6 +131,7 @@ import {
 import {
   focusPromptSoon,
 } from "./state";
+import { resolveConfiguredRuntimeKind } from "./agent-runtime-routing";
 import {
   resolveSessionRouteModeSwitchPath,
   resolveWorkspaceSelectionSessionTarget,
@@ -447,7 +448,8 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
         opencodeBaseUrl={opencodeBaseUrl}
         selectedWorkspaceRoot={sessionWorkspaceRoot}
       >
-        {opencodeClient &&
+        {client &&
+        opencodeClient &&
         selectedWorkspaceEndpoint &&
         opencodeBaseUrl &&
         selectedWorkspaceServerToken ? (
@@ -457,6 +459,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             // the keys SessionSurface reads from. Otherwise events arrive but
             // the UI never sees them and gets stuck on "thinking".
             workspaceId={selectedWorkspaceEndpoint.workspaceId}
+            client={client}
             sessionId={selectedSessionId}
             activeSessionIds={activeSelectedWorkspaceSessionIds}
             directory={sessionWorkspaceRoot}
@@ -619,7 +622,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             // present in the left-side agent list. We must create a real
             // session right now (so the new agent is visible on the left as
             // soon as we navigate to that session).
-            if (!opencodeClient) return;
+            if (!client) return;
             if (creatingSessionWorkspaceIdsRef.current.has(workspaceId)) return;
             creatingSessionWorkspaceIdsRef.current.add(workspaceId);
             let newSession: {
@@ -630,72 +633,48 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             } | null = null;
             const pendingAgentSnapshot =
               usePendingAgentStore.getState().getAgent();
-            let bindDirectory = "";
             try {
-              const workspaceRoot = selectedWorkspaceRoot?.trim() || "";
-              const draftRoot =
-                surfaceProps?.draftWorkspace?.draftWorkspaceDirectory?.trim() || "";
-              let sessionDirectory = draftRoot || workspaceRoot || undefined;
-              bindDirectory = draftRoot;
-              // Treat empty draft and "draft == workspace root" as no real folder pick.
-              // Default sessions must bind to the external runtime-state directory.
-              if (shouldIsolateExpertSessionDirectory(workspaceRoot, draftRoot)) {
-                const agentName =
-                  pendingAgentSnapshot?.name?.trim() || "expert";
-                const agentId = pendingAgentSnapshot?.id?.trim() || "";
-                const packageName = normalizeExpertWritePackageName({
-                  agentId,
-                  packageName: pendingAgentSnapshot?.marketplaceExpert?.packageName,
-                });
-                const approvedAgentIds =
-                  pendingAgentSnapshot?.approvedAgentIds ?? [];
-                const skillNames = pendingAgentSnapshot?.skillIds ?? [];
-                const ensureWorkspaceId =
-                  selectedWorkspaceEndpoint?.workspaceId ?? workspaceId;
-                // A+B: claim draft prewarm or create under global cold queue.
-                const cold = await claimOrCreateExpertColdSession(
-                  {
-                    workspaceId: ensureWorkspaceId,
-                    agentId,
-                    agentName,
-                    packageName,
-                    approvedAgentIds,
-                    skillNames,
-                  },
-                  {
-                    createIsolatedDirectory: () =>
-                      createIsolatedExpertSessionRuntimeDirectory({
-                        client: selectedWorkspaceEndpoint?.client ?? client,
-                        workspaceId: ensureWorkspaceId,
-                        workspaceRoot,
-                        agentName,
-                        agentId,
-                        packageName,
-                        approvedAgentIds,
-                        skillNames,
-                      }),
-                    createSession: async (directory) => {
-                      const created = unwrap(
-                        await opencodeClient.session.create({ directory }),
-                      );
-                      return { id: created.id };
-                    },
-                  },
-                );
-                sessionDirectory = cold.directory;
-                bindDirectory = cold.directory;
-                newSession = {
-                  id: cold.sessionId,
-                  directory: cold.directory,
-                };
-              } else {
-                newSession = unwrap(
-                  await opencodeClient.session.create({
-                    directory: sessionDirectory,
-                  }),
-                );
-                newSession.directory = sessionDirectory;
+              const ensureWorkspaceId =
+                selectedWorkspaceEndpoint?.workspaceId ?? workspaceId;
+              const runtimeClient = selectedWorkspaceEndpoint?.client ?? client;
+              const runtimeKind = resolveConfiguredRuntimeKind(
+                await runtimeClient.getAgentRuntimeSelection(ensureWorkspaceId),
+                ensureWorkspaceId,
+              );
+              if (!pendingAgentSnapshot?.id.trim() || !pendingAgentSnapshot.systemPrompt.trim()) {
+                throw new Error(t("session.expert_runtime_profile_unavailable"));
               }
+              await installMarketplaceExpertAfterSessionCreated(pendingAgentSnapshot);
+              const selectedModel = pendingAgentSnapshot.model ?? local.prefs.defaultModel;
+              const created = (
+                await runtimeClient.createRuntimeSession(ensureWorkspaceId, {
+                  ...(runtimeKind === "grok-build"
+                    ? { modelRef: { modelId: "grok-4.5", variant: "low" } }
+                    : selectedModel
+                      ? { modelRef: {
+                          providerId: selectedModel.providerID,
+                          modelId: selectedModel.modelID,
+                        } }
+                      : {}),
+                  profile: {
+                    kind: "expert",
+                    expertId: pendingAgentSnapshot.id,
+                    name: pendingAgentSnapshot.name,
+                    description: pendingAgentSnapshot.description,
+                    systemPrompt: pendingAgentSnapshot.systemPrompt,
+                    ...(pendingAgentSnapshot.marketplaceExpert?.packageName
+                      ? { packageName: pendingAgentSnapshot.marketplaceExpert.packageName }
+                      : {}),
+                    declaredSkillNames: pendingAgentSnapshot.skillIds ?? [],
+                    activatedSkillNames: [],
+                    approvedAgentIds: pendingAgentSnapshot.approvedAgentIds ?? [],
+                  },
+                })
+              ).session;
+              newSession = {
+                id: created.productSessionId,
+                directory: created.cwd,
+              };
               // Do NOT startRun here: this path only opens an empty expert
               // session shell. Marking runActive without a prompt leaves the
               // transcript stuck on "准备中 / thinking" forever (no messages,
@@ -739,39 +718,14 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
               // install. First prompt (and summon) join the same coordinator.
               void installMarketplaceExpertAfterSessionCreated(agentToBind);
             }
-            if (bindDirectory) {
+            if (newSession.directory) {
               writeAssistantSessionWorkspace({
                 sessionId: newSession.id,
                 ownerWorkspaceId: workspaceId,
-                directory: bindDirectory,
+                directory: newSession.directory,
               });
               dispatchAssistantSessionWorkspacesChanged(workspaceId);
             }
-
-            const markerClient = selectedWorkspaceEndpoint?.client ?? client;
-            const markerWorkspaceId = selectedWorkspaceEndpoint?.workspaceId ?? workspaceId;
-            const markerAgentId = agentToBind?.id?.trim() || undefined;
-            const markerPackageName = markerAgentId
-              ? normalizeExpertWritePackageName({
-                  agentId: markerAgentId,
-                  packageName: agentToBind?.marketplaceExpert?.packageName,
-                })
-              : undefined;
-            if (newSession.directory && markerClient) {
-              try {
-                await markerClient.ensureExpertSessionIsolation(markerWorkspaceId, {
-                  directory: newSession.directory,
-                  agentId: markerAgentId,
-                  packageName: markerPackageName,
-                  sessionId: newSession.id,
-                  approvedAgentIds: agentToBind?.approvedAgentIds ?? [],
-                });
-              } catch (error) {
-                console.warn("[expert-session] marker identity upgrade failed", error);
-              }
-            }
-            // Await durable origin so reload recovery has agentId + directory.
-            // Do not block navigation on the promise beyond microtask settle.
             void writeSessionOriginDurable({
               client: selectedWorkspaceEndpoint?.client ?? client,
               workspaceId: selectedWorkspaceEndpoint?.workspaceId ?? workspaceId,
@@ -966,16 +920,15 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                   token,
                 });
                 if (!endpoint?.token) return;
-                const workspaceClient = createClient(
-                  endpoint.opencodeBaseUrl,
-                  workspace.path?.trim() || undefined,
-                  { token: endpoint.token, mode: "onmyagent" },
-                );
                 try {
-                  const session = unwrap(
-                    await workspaceClient.session.create({
-                      directory: workspace.path?.trim() || undefined,
-                    }),
+                  const runtimeSession = (
+                    await endpoint.client.createRuntimeSession(endpoint.workspaceId, {
+                      profile: { kind: "assistant" },
+                    })
+                  ).session;
+                  const session = runtimeSessionToSidebarItem(
+                    runtimeSession,
+                    prompt,
                   );
                   // Composer reads Zustand store — saveSessionDraft alone is not enough.
                   const { useComposerStateStore } = await import(
@@ -1087,7 +1040,7 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
           respondQuestion={respondQuestion}
           safeStringify={safeStringify}
           onRenameSession={
-            opencodeClient
+            client || opencodeClient
               ? async (sessionId, nextTitle) => {
                   const trimmed = nextTitle.trim();
                   if (!trimmed) return;
@@ -1098,15 +1051,39 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
                     : undefined;
                   const assistantSessionWorkspace =
                     readAssistantSessionWorkspace(sessionId);
-                  await opencodeClient.session.update({
-                    sessionID: sessionId,
-                    title: trimmed,
-                    directory:
-                      listedSession?.directory ||
-                      assistantSessionWorkspace?.directory ||
-                      selectedWorkspaceRoot ||
-                      undefined,
-                  });
+                  const runtimeClient = selectedWorkspaceEndpoint?.client ?? client;
+                  const runtimeWorkspaceId = selectedWorkspaceEndpoint?.workspaceId
+                    ?? selectedWorkspaceId;
+                  let renamedCanonical = false;
+                  if (runtimeClient && runtimeWorkspaceId) {
+                    try {
+                      await runtimeClient.renameRuntimeSession(
+                        runtimeWorkspaceId,
+                        sessionId,
+                        trimmed,
+                      );
+                      renamedCanonical = true;
+                    } catch (error) {
+                      if (
+                        !(error instanceof OnMyAgentServerError)
+                        || error.code !== "runtime_session_binding_not_found"
+                      ) {
+                        throw error;
+                      }
+                    }
+                  }
+                  if (!renamedCanonical) {
+                    if (!opencodeClient) throw new Error("OpenCode is not connected");
+                    await opencodeClient.session.update({
+                      sessionID: sessionId,
+                      title: trimmed,
+                      directory:
+                        listedSession?.directory ||
+                        assistantSessionWorkspace?.directory ||
+                        selectedWorkspaceRoot ||
+                        undefined,
+                    });
+                  }
                   if (selectedWorkspaceId) {
                     setSessionsByWorkspaceId((current) => {
                       const next = updateSidebarSessionTitle({
@@ -1133,6 +1110,17 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
             client && selectedWorkspaceId
               ? async (sessionId) => {
                   const endpoint = endpointForWorkspace(selectedWorkspace);
+                  await assertLoadedProductSessionDeleteAllowed({
+                    workspaceId: selectedWorkspaceId,
+                    runtimeKind: surfaceProps?.selectedRuntimeKind ?? null,
+                    getQueryData: (queryKey) =>
+                      getReactQueryClient().getQueryData(queryKey),
+                    setQueryData: (queryKey, value) => {
+                      getReactQueryClient().setQueryData(queryKey, value);
+                    },
+                    fetchSelection: () =>
+                      client.getAgentRuntimeSelection(selectedWorkspaceId),
+                  });
                   const listedSessions =
                     sessionsByWorkspaceId[selectedWorkspaceId] ?? [];
                   const subtreeIds = collectSessionSubtreeIds(

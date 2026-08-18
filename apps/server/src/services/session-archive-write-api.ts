@@ -128,7 +128,8 @@ const upsertSessionStatement = db.prepare(`
     message_count, user_message_count, parent_session_id, relationship_type,
     deleted_at, termination_status, file_path, file_size, file_mtime,
     file_inode, file_device, file_hash, local_modified_at, cwd, git_branch,
-    source_session_id, source_version, parser_malformed_lines, is_truncated,
+    source_session_id, source_version, runtime_kind, runtime_session_id,
+    runtime_profile_id, parser_malformed_lines, is_truncated,
     secret_leak_count, secrets_rules_version,
     total_output_tokens, peak_context_tokens, has_total_output_tokens,
     has_peak_context_tokens, is_automated, is_teammate, is_index_only,
@@ -137,7 +138,7 @@ const upsertSessionStatement = db.prepare(`
     consecutive_failure_max, final_failure_streak, compaction_count,
     mid_task_compaction_count, context_pressure_max, quality_signals_json,
     health_score_basis_json, health_penalties_json, created_at
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     project = excluded.project,
     machine = excluded.machine,
@@ -164,6 +165,9 @@ const upsertSessionStatement = db.prepare(`
     git_branch = excluded.git_branch,
     source_session_id = excluded.source_session_id,
     source_version = excluded.source_version,
+    runtime_kind = excluded.runtime_kind,
+    runtime_session_id = excluded.runtime_session_id,
+    runtime_profile_id = excluded.runtime_profile_id,
     parser_malformed_lines = excluded.parser_malformed_lines,
     is_truncated = excluded.is_truncated,
     secret_leak_count = CASE
@@ -298,6 +302,9 @@ function upsertSession(session: SessionArchiveSession) {
     parsed.git_branch ?? "",
     parsed.source_session_id ?? "",
     parsed.source_version ?? "",
+    parsed.runtime_kind ?? null,
+    parsed.runtime_session_id ?? null,
+    parsed.runtime_profile_id ?? null,
     parsed.parser_malformed_lines ?? 0,
     boolToInt(parsed.is_truncated) ?? 0,
     parsed.secret_leak_count ?? 0,

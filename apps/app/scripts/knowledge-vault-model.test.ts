@@ -115,7 +115,6 @@ describe("knowledge vault model", () => {
     expect(canDropKnowledgeItem({ kind: "dir", path: "briefs" }, "briefs/deep")).toBe(false);
   });
 });
-
 import {
   openKnowledgeNoteInRail,
   takePendingKnowledgeNote,
@@ -173,4 +172,3 @@ describe("knowledge preview and search hits", () => {
     expect(takePendingKnowledgeNote()).toBeNull();
   });
 });
-

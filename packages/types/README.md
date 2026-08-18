@@ -23,6 +23,7 @@ need one narrow slice.
 | `@onmyagent/types/server` | Local HTTP API types (types-only export). |
 | `@onmyagent/types/server-client-methods` | Runtime method table for typed HTTP client wiring. |
 | `@onmyagent/types/channel` | Messaging channel (Feishu / Weixin) contract shared across desktop, server, and renderer. |
+| `@onmyagent/types/agent-runtime` | Runtime-neutral primary agent session, event, model, permission, binding, and selection contracts. |
 | `@onmyagent/types/den/*` | Den (cloud) restrictions, policies, and inference schemas. |
 
 ## Boundary Rules

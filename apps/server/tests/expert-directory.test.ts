@@ -52,11 +52,126 @@ async function writeMarker(directory: string, workspaceId: string, input: Record
 }
 
 describe("expert directory projection", () => {
+  test("projects Grok native identity from a v4 marker and sticky binding without an OpenCode origin", async () => {
+    const current = await workspace("grok-runtime-aware");
+    const marker = await markerRoot(current, "grok-expert", "product-grok");
+    await writeMarker(marker.directory, current.id, {
+      isolationVersion: 4,
+      agentId: "grok-expert",
+      packageName: "grok-package",
+      sessionId: marker.session,
+      runtimeKind: "grok-build",
+      runtimeSessionId: "native-grok-session",
+      profileId: "system",
+      declaredSkills: [],
+      installedSkills: [],
+      missingSkills: [],
+    });
+    const binding = {
+      productSessionId: marker.session,
+      runtimeKind: "grok-build" as const,
+      runtimeSessionId: "native-grok-session",
+      workspaceId: current.id,
+      cwd: await realpath(marker.directory),
+      profileId: "system",
+      runtimeHome: "/runtime/grok",
+      profile: {
+        kind: "expert" as const,
+        expertId: "grok-expert",
+        name: "Grok Expert",
+        description: "Fixture",
+        systemPrompt: "Fixture prompt",
+        packageName: "grok-package",
+        declaredSkillNames: [],
+        activatedSkillNames: [],
+      },
+      createdAt: 1,
+    };
+    const options = {
+      runtimeRoot: marker.runtimeRoot,
+      readRuntimeBindings: async () => [binding],
+    };
+    const projection = await buildExpertDirectory(current, options);
+    expect(projection.complete).toBe(true);
+    expect(projection.records[0]?.sessions[0]).toMatchObject({
+      sessionId: marker.session,
+      runtimeKind: "grok-build",
+      runtimeSessionId: "native-grok-session",
+      profileId: "system",
+      sessionMissing: false,
+    });
+    const heal = await healExpertDirectory(current, {}, options);
+    expect(heal.actions.some((action) => action.kind === "write_origin")).toBe(false);
+    expect((await listSessionOrigins(current)).items).toEqual([]);
+  });
+
+  test("marks a v4 marker missing when its sticky native identity conflicts", async () => {
+    const current = await workspace("grok-runtime-conflict");
+    const marker = await markerRoot(current, "grok-expert", "product-grok-conflict");
+    await writeMarker(marker.directory, current.id, {
+      isolationVersion: 4,
+      agentId: "grok-expert",
+      packageName: "grok-package",
+      sessionId: marker.session,
+      runtimeKind: "grok-build",
+      runtimeSessionId: "native-marker",
+      profileId: "system",
+      declaredSkills: [], installedSkills: [], missingSkills: [],
+    });
+    const projection = await buildExpertDirectory(current, {
+      runtimeRoot: marker.runtimeRoot,
+      readRuntimeBindings: async () => [{
+        productSessionId: marker.session,
+        runtimeKind: "grok-build",
+        runtimeSessionId: "native-other",
+        workspaceId: current.id,
+        cwd: await realpath(marker.directory),
+        profileId: "system",
+        runtimeHome: "/runtime/grok",
+        createdAt: 1,
+      }],
+    });
+    expect(projection.records[0]?.sessions[0]).toMatchObject({
+      runtimeSessionId: "native-other",
+      sessionMissing: true,
+    });
+  });
+
+  test("keeps a binding-backed Grok projection complete when OpenCode lookup is unavailable", async () => {
+    const current = await workspace("grok-partial-opencode");
+    const marker = await markerRoot(current, "grok-expert", "product-grok-partial");
+    await writeMarker(marker.directory, current.id, {
+      isolationVersion: 4,
+      agentId: "grok-expert", packageName: "grok-package", sessionId: marker.session,
+      runtimeKind: "grok-build", runtimeSessionId: "native-grok", profileId: "system",
+      declaredSkills: [], installedSkills: [], missingSkills: [],
+    });
+    const projection = await buildExpertDirectory(current, {
+      runtimeRoot: marker.runtimeRoot,
+      readRuntimeBindings: async () => [{
+        productSessionId: marker.session,
+        runtimeKind: "grok-build",
+        runtimeSessionId: "native-grok",
+        workspaceId: current.id,
+        cwd: await realpath(marker.directory),
+        profileId: "system",
+        runtimeHome: "/runtime/grok",
+        createdAt: 1,
+      }],
+      readSessions: async () => { throw new Error("OpenCode offline"); },
+    });
+    expect(projection.complete).toBe(true);
+    expect(projection.failures).toEqual([]);
+  });
+
   test("marker-only workspace is complete and dry-run heal plans an origin", async () => {
     const current = await workspace();
     const marker = await markerRoot(current, "expert-a", "session-real");
     await writeMarker(marker.directory, current.id, {
-      isolationVersion: 3,
+      isolationVersion: 4,
+      runtimeKind: "opencode",
+      runtimeSessionId: marker.session,
+      profileId: "primary-opencode",
       agentId: "expert-a",
       packageName: "expert-package",
       sessionId: marker.session,
@@ -253,13 +368,13 @@ describe("expert directory projection", () => {
     expect(lookupCalls).toBe(2);
     const incomplete = await buildExpertDirectory(first, {
       runtimeRoot,
-      readSessions: async () => { throw new Error("OpenCode unavailable"); },
+      readRuntimeBindings: async () => { throw new Error("binding store unavailable"); },
     });
     expect(incomplete.complete).toBe(false);
     expect(incomplete.lastComplete).toMatchObject({ revision: firstResult.revision });
     const other = await buildExpertDirectory(second, {
       runtimeRoot,
-      readSessions: async () => { throw new Error("workspace must not reuse another cache"); },
+      readRuntimeBindings: async () => { throw new Error("workspace must not reuse another cache"); },
     });
     expect(other.complete).toBe(false);
     expect(other.lastComplete).toBeUndefined();
@@ -287,6 +402,7 @@ describe("expert directory projection", () => {
       expectedRevision: result.revision,
     }, {
       runtimeRoot: first.runtimeRoot,
+      opencodeProfileId: "primary-opencode",
       readSessions: async () => [{ id: "same-session", directory: first.directory }],
     });
     expect(healed.complete).toBe(true);
@@ -383,7 +499,10 @@ describe("expert directory projection", () => {
     );
     await mkdir(secondDirectory, { recursive: true });
     await writeMarker(first.directory, current.id, {
-      isolationVersion: 3,
+      isolationVersion: 4,
+      runtimeKind: "opencode",
+      runtimeSessionId: "same-session",
+      profileId: "primary-opencode",
       agentId: "expert-a",
       packageName: "pkg-a",
       sessionId: "same-session",
@@ -392,7 +511,10 @@ describe("expert directory projection", () => {
       missingSkills: [],
     });
     await writeMarker(secondDirectory, current.id, {
-      isolationVersion: 3,
+      isolationVersion: 4,
+      runtimeKind: "opencode",
+      runtimeSessionId: "same-session",
+      profileId: "primary-opencode",
       agentId: "expert-b",
       packageName: "pkg-b",
       sessionId: "same-session",
@@ -436,7 +558,7 @@ describe("expert directory projection", () => {
       apply: true,
       restoreTombstoned: true,
       expectedRevision: (await listSessionOrigins(current)).revision,
-    }, { runtimeRoot: marker.runtimeRoot, readSessions: lookup });
+    }, { runtimeRoot: marker.runtimeRoot, opencodeProfileId: "primary-opencode", readSessions: lookup });
     expect(restored.complete).toBe(true);
     expect((await listSessionOrigins(current)).items).toMatchObject([{ sessionId: "tombstoned-session" }]);
   });
@@ -456,7 +578,7 @@ describe("expert directory projection", () => {
     const applied = await healExpertDirectory(current, {
       apply: true,
       expectedRevision: 0,
-    }, { runtimeRoot: marker.runtimeRoot, readSessions: lookup });
+    }, { runtimeRoot: marker.runtimeRoot, opencodeProfileId: "primary-opencode", readSessions: lookup });
     expect(applied.actions.map((action) => action.kind)).toEqual([
       "upgrade_marker",
       "write_origin",
@@ -465,7 +587,10 @@ describe("expert directory projection", () => {
       await Bun.file(join(marker.directory, "onmyagent-session.json")).text(),
     ) as Record<string, unknown>;
     expect(persistedMarker).toMatchObject({
-      isolationVersion: 3,
+      isolationVersion: 4,
+      runtimeKind: "opencode",
+      runtimeSessionId: marker.session,
+      profileId: "primary-opencode",
       sessionId: marker.session,
       agentId: "legacy-agent",
       packageName: "legacy-agent",

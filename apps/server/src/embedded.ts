@@ -13,6 +13,14 @@ import { ensureAllWorkspaceFiles } from "./workspace/workspace-init.js";
 import { onmyagentExtensionsPreviewPluginPath } from "./onmyagent-extensions-plugin-path.js";
 import type { ServeResult } from "./serve-node.js";
 import type { ServerConfig } from "@onmyagent/types/server";
+import type { PrimaryOpencodeHostIdentity } from "./services/primary-runtime-host-state.js";
+import {
+  preparePrimaryRuntimeBootstrap,
+  stopPrimaryRuntimeHostLifecycle,
+  type PrimaryRuntimeBackfillReport,
+} from "./services/primary-runtime-bootstrap.js";
+import type { GrokRuntimeHostPolicy } from "./services/primary-runtime-composition.js";
+import type { ConnectorMcpProjectionSnapshot } from "./services/runtime-mcp-projection.js";
 
 export type EmbeddedServerOptions = CliArgs & {
   /** When true, spawn a managed OpenCode child process. */
@@ -23,6 +31,19 @@ export type EmbeddedServerOptions = CliArgs & {
   opencodeCwd?: string;
   /** Re-materialize runtime skill links after a global skill import. */
   onGlobalSkillsChanged?: () => Promise<unknown>;
+  /** Host-owned native identity; paths are persisted only in server runtime state. */
+  opencodeRuntimeIdentity?: PrimaryOpencodeHostIdentity;
+  /** Host-owned app/orchestrator state root. */
+  dataRoot?: string;
+  /** Host-owned Grok sidecar policy. The sidecar stays lazy until selected. */
+  grokRuntimePolicy?: GrokRuntimeHostPolicy;
+  /** In-process Electron credential projection; never serialized over HTTP. */
+  readConnectorMcpProjection?: () => Promise<ConnectorMcpProjectionSnapshot>;
+  /** Host-only rollout gate. Existing sticky Grok bindings remain usable. */
+  grokRuntimeRollout?: {
+    grokNewSessionsEnabled: boolean;
+    grokWorkspaceAllowlist?: readonly string[];
+  };
 };
 
 export type EmbeddedServerHandle = {
@@ -85,6 +106,13 @@ export function resolveOpencodeModelsUrl(
 
 export async function startEmbeddedServer(options: EmbeddedServerOptions): Promise<EmbeddedServerHandle> {
   const config = await resolveServerConfig(options);
+  const runtimeDataRoot = options.dataRoot?.trim() || undefined;
+  const runtimeBootstrap = await preparePrimaryRuntimeBootstrap({
+    config,
+    dataRoot: runtimeDataRoot,
+    opencodeRuntimeIdentity: options.opencodeRuntimeIdentity,
+    onReport: logPrimaryRuntimeBackfillReport,
+  });
   const serverUrl = `http://${config.host === "0.0.0.0" ? "127.0.0.1" : config.host}:${config.port}`;
   // Prefer explicit override. Do not hard-require localhost:8791 in dev — when
   // nothing listens there, OpenCode /provider hangs and Settings "加载服务商"
@@ -93,101 +121,144 @@ export async function startEmbeddedServer(options: EmbeddedServerOptions): Promi
 
   // Spawn managed OpenCode if requested and no explicit base URL was provided.
   let managedOpencode: ManagedOpencodeServer | null = null;
+  let server: ServeResult | null = null;
 
-  // Desktop restart / server boot: make the active workspace ready before the
-  // managed OpenCode/server path starts.  Re-syncing every known workspace is
-  // retained below as deferred maintenance; doing it serially here made cold
-  // start scale with the total number of saved workspaces.
-  if (!config.readOnly) {
-    await ensureAllWorkspaceFiles(config.workspaces.slice(0, 1), {
-      log: (level, message, meta) => {
-        const detail = meta ? ` ${JSON.stringify(meta)}` : "";
-        console[level === "warn" ? "warn" : "log"](
-          `[onmyagent-server] ${message}${detail}`,
-        );
-      },
-    });
-  }
-
-  if (!config.opencodeBaseUrl && options.manageOpencode) {
-    const workspace = config.workspaces[0];
-    if (workspace?.path) {
-      const onmyagentExtensionsPreviewConfig = JSON.stringify({
-        plugin: [onmyagentExtensionsPreviewPluginPath()],
-      });
-      const cwd = options.opencodeCwd
-        || process.env.ONMYAGENT_MANAGED_OPENCODE_CWD?.trim()
-        || workspace.path;
-      await mkdir(cwd, { recursive: true });
-
-      managedOpencode = await createManagedOpencodeServer({
-        bin: options.opencodeBin || process.env.ONMYAGENT_OPENCODE_BIN,
-        cwd,
-        env: {
-          ...(process.env.ONMYAGENT_DEV_MODE ? { ONMYAGENT_DEV_MODE: process.env.ONMYAGENT_DEV_MODE } : {}),
-          ONMYAGENT_SERVER_URL: serverUrl,
-          ONMYAGENT_SERVER_TOKEN: config.token,
-          OPENCODE_CONFIG_CONTENT: onmyagentExtensionsPreviewConfig,
-          OPENCODE_MODELS_URL: opencodeModelsUrl,
+  try {
+    // Desktop restart / server boot: make the active workspace ready before the
+    // managed OpenCode/server path starts. Re-syncing every known workspace is
+    // retained below as deferred maintenance; doing it serially here made cold
+    // start scale with the total number of saved workspaces.
+    if (!config.readOnly) {
+      await ensureAllWorkspaceFiles(config.workspaces.slice(0, 1), {
+        log: (level, message, meta) => {
+          const detail = meta ? ` ${JSON.stringify(meta)}` : "";
+          console[level === "warn" ? "warn" : "log"](
+            `[onmyagent-server] ${message}${detail}`,
+          );
         },
       });
-
-      config.opencodeBaseUrl = managedOpencode.url;
-      config.opencodeUsername = managedOpencode.username;
-      config.opencodePassword = managedOpencode.password;
-      for (const entry of config.workspaces) {
-        entry.baseUrl ??= managedOpencode.url;
-        entry.opencodeUsername ??= managedOpencode.username;
-        entry.opencodePassword ??= managedOpencode.password;
-        entry.directory ??= entry.path;
-      }
     }
-  }
 
-  const server = await startServer(config, {
-    onGlobalSkillsChanged: options.onGlobalSkillsChanged,
-  });
+    if (!config.opencodeBaseUrl && options.manageOpencode) {
+      const workspace = config.workspaces[0];
+      if (workspace?.path) {
+        const onmyagentExtensionsPreviewConfig = JSON.stringify({
+          plugin: [onmyagentExtensionsPreviewPluginPath()],
+        });
+        const cwd = options.opencodeCwd
+          || process.env.ONMYAGENT_MANAGED_OPENCODE_CWD?.trim()
+          || workspace.path;
+        await mkdir(cwd, { recursive: true });
 
-  let stopDeferredWorkspaceSync: () => Promise<void> = async () => undefined;
-  if (!config.readOnly && config.workspaces.length > 1) {
-    // Keep product updates eventually consistent for every saved workspace,
-    // without keeping the first usable server response behind unrelated disk
-    // work. The loop checks the latch before each workspace, so stop() never
-    // expands the maintenance work after shutdown begins.
-    stopDeferredWorkspaceSync = scheduleDeferredWorkspaceSync({
-      run: async (shouldContinue) => {
-        await ensureAllWorkspaceFiles(config.workspaces.slice(1), {
-          shouldContinue,
-          log: (level, message, meta) => {
-            const detail = meta ? ` ${JSON.stringify(meta)}` : "";
-            console[level === "warn" ? "warn" : "log"](
-              `[onmyagent-server] deferred ${message}${detail}`,
-            );
+        managedOpencode = await createManagedOpencodeServer({
+          bin: options.opencodeBin || process.env.ONMYAGENT_OPENCODE_BIN,
+          cwd,
+          env: {
+            ...(process.env.ONMYAGENT_DEV_MODE
+              ? { ONMYAGENT_DEV_MODE: process.env.ONMYAGENT_DEV_MODE }
+              : {}),
+            ONMYAGENT_SERVER_URL: serverUrl,
+            ONMYAGENT_SERVER_TOKEN: config.token,
+            OPENCODE_CONFIG_CONTENT: onmyagentExtensionsPreviewConfig,
+            OPENCODE_MODELS_URL: opencodeModelsUrl,
           },
         });
-      },
-      onError: (error) => {
-        console.warn(
-          "[onmyagent-server] deferred workspace refresh failed",
-          error,
-        );
+
+        config.opencodeBaseUrl = managedOpencode.url;
+        config.opencodeUsername = managedOpencode.username;
+        config.opencodePassword = managedOpencode.password;
+        for (const entry of config.workspaces) {
+          entry.baseUrl ??= managedOpencode.url;
+          entry.opencodeUsername ??= managedOpencode.username;
+          entry.opencodePassword ??= managedOpencode.password;
+          entry.directory ??= entry.path;
+        }
+      }
+    }
+
+    server = await startServer(config, {
+      onGlobalSkillsChanged: options.onGlobalSkillsChanged,
+      primaryRuntime: {
+        dataRoot: runtimeDataRoot,
+        ...(options.opencodeRuntimeIdentity
+          ? { opencodeIdentity: options.opencodeRuntimeIdentity }
+          : {}),
+        ...(options.grokRuntimePolicy
+          ? { grok: options.grokRuntimePolicy }
+          : {}),
+        ...(options.readConnectorMcpProjection
+          ? { readConnectorMcpProjection: options.readConnectorMcpProjection }
+          : {}),
+        ...(options.grokRuntimeRollout
+          ? { rollout: options.grokRuntimeRollout }
+          : {}),
       },
     });
-  }
+    const runningServer = server;
+    runtimeBootstrap.start();
 
-  let stopping: Promise<void> | null = null;
-  return {
-    port: server.port,
-    url: `http://${config.host === "0.0.0.0" ? "127.0.0.1" : config.host}:${server.port}`,
-    config,
-    stop() {
-      if (stopping) return stopping;
-      stopping = (async () => {
-        await stopDeferredWorkspaceSync();
-        managedOpencode?.close();
-        await server.stop();
-      })();
-      return stopping;
-    },
-  };
+    let stopDeferredWorkspaceSync: () => Promise<void> = async () => undefined;
+    if (!config.readOnly && config.workspaces.length > 1) {
+      // Keep product updates eventually consistent for every saved workspace,
+      // without keeping the first usable server response behind unrelated disk
+      // work. The loop checks the latch before each workspace, so stop() never
+      // expands the maintenance work after shutdown begins.
+      stopDeferredWorkspaceSync = scheduleDeferredWorkspaceSync({
+        run: async (shouldContinue) => {
+          await ensureAllWorkspaceFiles(config.workspaces.slice(1), {
+            shouldContinue,
+            log: (level, message, meta) => {
+              const detail = meta ? ` ${JSON.stringify(meta)}` : "";
+              console[level === "warn" ? "warn" : "log"](
+                `[onmyagent-server] deferred ${message}${detail}`,
+              );
+            },
+          });
+        },
+        onError: (error) => {
+          console.warn(
+            "[onmyagent-server] deferred workspace refresh failed",
+            error,
+          );
+        },
+      });
+    }
+
+    let stopping: Promise<void> | null = null;
+    return {
+      port: runningServer.port,
+      url: `http://${config.host === "0.0.0.0" ? "127.0.0.1" : config.host}:${runningServer.port}`,
+      config,
+      stop() {
+        if (stopping) return stopping;
+        stopping = stopPrimaryRuntimeHostLifecycle({
+          bootstrap: runtimeBootstrap,
+          stopServerOwners: async () => {
+            await stopDeferredWorkspaceSync();
+            await runningServer.stop();
+          },
+          stopManagedRuntime: () => managedOpencode?.close(),
+        });
+        return stopping;
+      },
+    };
+  } catch (error) {
+    await stopPrimaryRuntimeHostLifecycle({
+      bootstrap: runtimeBootstrap,
+      stopServerOwners: () => server
+        ? Promise.resolve(server.stop())
+        : Promise.resolve(),
+      stopManagedRuntime: () => managedOpencode?.close(),
+    });
+    throw error;
+  }
+}
+
+function logPrimaryRuntimeBackfillReport(
+  report: PrimaryRuntimeBackfillReport,
+): void {
+  console[report.level === "warn" ? "warn" : "log"](
+    `[onmyagent-server] ${report.code}`,
+    { ...report.counts, reasonCounts: report.reasonCounts },
+  );
 }

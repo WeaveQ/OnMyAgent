@@ -65,6 +65,9 @@ export type ExpertRuntimeContractSnapshot = {
 export type ExpertRuntimeContractInput = {
   workspace: WorkspaceInfo;
   sessionId: string;
+  runtimeKind?: "opencode" | "grok-build";
+  runtimeSessionId?: string;
+  profileId?: string;
   directory: string;
   /** Agent selected in the first prompt body. Empty means the light default. */
   agent?: string;
@@ -317,8 +320,8 @@ export async function assertExpertRuntimeContract(
   }
 
   const marker = await readMarker(directory, input);
-  if (!marker || marker.isolationVersion !== EXPERT_RUNTIME_CONTRACT_VERSION) {
-    throw violation(input, "marker_version", "Expert runtime marker v3 is required");
+  if (!marker || (marker.isolationVersion ?? 0) < 3) {
+    throw violation(input, "marker_version", "Expert runtime marker v3 or newer is required");
   }
   if (marker.workspaceId !== input.workspace.id) {
     throw violation(input, "workspace_identity", "Expert runtime belongs to another workspace");
@@ -434,6 +437,9 @@ export async function ensureAndAssertExpertRuntimeContract(
         agentId: input.agentId?.trim() || marker?.agentId,
         packageName: input.packageName?.trim() || marker?.packageName,
         sessionId: input.sessionId.trim(),
+        runtimeKind: input.runtimeKind,
+        runtimeSessionId: input.runtimeSessionId,
+        profileId: input.profileId,
         skillNames: input.declaredSkills ?? marker?.declaredSkills,
         approvedAgentIds: input.approvedAgentIds ?? marker?.approvedAgentIds,
       }).finally(() => {

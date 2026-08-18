@@ -29,6 +29,7 @@ export default {
   "session.no_expert_conversations_action": "选择专家",
   "session.expert_directory_incomplete_title": "部分专家会话暂时无法加载",
   "session.expert_directory_incomplete_body": "当前可用会话仍会正常显示，数据不会丢失；刷新工作区可重试缺失来源。",
+  "session.expert_runtime_profile_unavailable": "所选专家配置不可用，请重新打开该专家后再试。",
   "session.surface_crash_title": "当前页面加载失败",
   "session.surface_crash_body": "打开此界面时出错。可先重试，若仍失败请重新加载应用。",
   "session.surface_crash_retry": "重试",
@@ -343,6 +344,8 @@ export default {
   "session.delete_session_generic":
     "这将永久删除所选会话及其消息，并删除该会话生成的工作区文件。此操作无法撤销。",
   "session.delete_session_title": "删除会话？",
+  "session.grok_native_delete_unsupported":
+    "当前 Grok 运行时不支持原生删除会话，产品不会将删除标记为完成。",
   "session.deleting": "正在删除…",
   "session.deny": "拒绝",
   "session.details": "详情",
@@ -882,6 +885,9 @@ export default {
   "session.collapse_folder_tasks": "收起",
   "session.send_message": "发送",
   "session.new_session": "新会话",
+  "session.grok_runtime_draft_unsupported":
+    "Grok Build 目前支持主工作区中的文本提示。请移除 Shell 模式或自定义任务文件夹后重试。",
+  "session.runtime_badge": "此会话已绑定到 {runtime}",
   "session.browser_close": "关闭浏览器",
   "session.browser_close_panel": "关闭浏览器面板",
   "session.jump_to_latest": "跳到最新",
@@ -1071,4 +1077,8 @@ export default {
   "session.inferred_plan_generic_step_1": "确认任务目标和执行范围",
   "session.inferred_plan_generic_step_2": "按计划完成核心操作",
   "session.inferred_plan_generic_step_3": "验证结果并向用户汇报",
+  "session.continue_in_runtime": "在其他运行时中继续",
+  "session.continue_in_opencode": "在 OpenCode 中继续",
+  "session.continue_in_grok": "在 Grok Build 中继续",
+  "session.continue_in_runtime_failed": "无法在 {runtime} 中继续此会话",
 } as const;

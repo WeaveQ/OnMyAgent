@@ -1,10 +1,12 @@
 import type { AgentPartInput, FilePartInput, TextPartInput } from "@opencode-ai/sdk/v2/client";
+import type { AgentRuntimePromptPartInput } from "@onmyagent/types/agent-runtime";
 import type {
   ComposerAccessMode,
   ComposerAttachment,
   ComposerDraft,
   ModelRef,
 } from "../../../app/types";
+import { composeCanonicalGrokPromptInput } from "./agent-runtime-routing";
 export {
   isLowRiskSessionPermission as isLowRiskPermission,
   resolveAccessModePermissionReply,
@@ -218,14 +220,18 @@ export function clearConsumedPermissionNotice(
 }
 
 export async function fileToDataUrl(file: File) {
-  return await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () =>
-      reject(new Error(`Failed to read attachment: ${file.name}`));
-    reader.onload = () =>
-      resolve(typeof reader.result === "string" ? reader.result : "");
-    reader.readAsDataURL(file);
-  });
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const mime = file.type || "application/octet-stream";
+  return `data:${mime};base64,${bytesToBase64(bytes)}`;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(bytes).toString("base64");
+  }
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
 }
 
 export function isModelNativeAttachment(attachment: ComposerAttachment) {
@@ -579,6 +585,7 @@ export async function draftToParts(
      * here so absolute paths in the upload instruction stay correct.
      */
     inboxWorkspaceRoot?: string;
+    runtimeKind?: "opencode" | "grok-build";
   },
 ) {
   const parts: Array<TextPartInput | FilePartInput | AgentPartInput> = [];
@@ -634,6 +641,13 @@ export async function draftToParts(
     }
   }
 
+  if (options?.runtimeKind === "grok-build") {
+    for (const attachment of draft.attachments) {
+      parts.push(await grokAttachmentToFilePart(attachment, root));
+    }
+    return parts;
+  }
+
   const uploadedFiles: Array<{
     name: string;
     mimeType: string;
@@ -685,4 +699,42 @@ export async function draftToParts(
   }
 
   return parts;
+}
+
+export async function composeGrokPromptInputFromDraft(
+  draft: ComposerDraft,
+  workspaceRoot: string,
+  options?: { messageId?: string },
+) {
+  const parts = await draftToParts(draft, workspaceRoot, { runtimeKind: "grok-build" });
+  return composeCanonicalGrokPromptInput({
+    text: resolveDraftText(draft),
+    messageId: options?.messageId ?? draft.messageID,
+    parts: parts as AgentRuntimePromptPartInput[],
+  });
+}
+
+async function grokAttachmentToFilePart(
+  attachment: ComposerAttachment,
+  workspaceRoot: string,
+): Promise<FilePartInput> {
+  const source = attachment.sourcePath?.trim() ?? "";
+  const useWorkspaceFile = Boolean(
+    source
+    && (source.startsWith("/") || /^[a-zA-Z]:\\/.test(source))
+    && isLexicalInsideWorkspace(workspaceRoot, source),
+  );
+  return {
+    type: "file",
+    url: useWorkspaceFile ? `file://${source}` : await fileToDataUrl(attachment.file),
+    filename: attachment.name,
+    mime: attachment.mimeType || "application/octet-stream",
+  };
+}
+
+function isLexicalInsideWorkspace(workspaceRoot: string, candidate: string): boolean {
+  const root = workspaceRoot.replace(/\\/g, "/").replace(/\/+$/, "");
+  const path = candidate.replace(/\\/g, "/");
+  if (!root) return false;
+  return path === root || path.startsWith(`${root}/`);
 }

@@ -110,6 +110,12 @@ mac:
       to: sidecars
       filter:
         - opencode
+        - grok-aarch64-apple-darwin
+        - grok-x86_64-apple-darwin
+        - grok-build-manifest.json
+        - GROK_BUILD_LICENSE.txt
+        - GROK_BUILD_THIRD_PARTY_NOTICES.md
+        - GROK_BUILD_MODIFICATIONS.txt
         - onmyagent-orchestrator
         - versions.json
     - from: resources/helpers
@@ -143,6 +149,12 @@ win:
       to: sidecars
       filter:
         - opencode.exe
+        - grok-aarch64-pc-windows-msvc.exe
+        - grok-x86_64-pc-windows-msvc.exe
+        - grok-build-manifest.json
+        - GROK_BUILD_LICENSE.txt
+        - GROK_BUILD_THIRD_PARTY_NOTICES.md
+        - GROK_BUILD_MODIFICATIONS.txt
         - onmyagent-orchestrator.exe
         - versions.json
   target:

@@ -868,6 +868,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                   <ModelSelectContainer
                     open={props.modelPickerOpen}
                     value={props.selectedModel}
+                    options={props.modelOptions}
                     onOpenChange={props.onModelPickerOpenChange}
                     onChange={props.onModelChange}
                     disabled={props.busy}

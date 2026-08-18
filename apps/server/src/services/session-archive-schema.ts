@@ -31,6 +31,9 @@ export function initializeArchiveDb(db: SqliteDatabase) {
       git_branch TEXT NOT NULL DEFAULT '',
       source_session_id TEXT NOT NULL DEFAULT '',
       source_version TEXT NOT NULL DEFAULT '',
+      runtime_kind TEXT,
+      runtime_session_id TEXT,
+      runtime_profile_id TEXT,
       parser_malformed_lines INTEGER NOT NULL DEFAULT 0,
       is_truncated INTEGER NOT NULL DEFAULT 0,
       secret_leak_count INTEGER NOT NULL DEFAULT 0,
@@ -303,6 +306,9 @@ export function ensureArchiveSchemaColumns(db: SqliteDatabase) {
   addColumnIfMissing(db, "sessions", sessionColumns, "git_branch", "TEXT NOT NULL DEFAULT ''");
   addColumnIfMissing(db, "sessions", sessionColumns, "source_session_id", "TEXT NOT NULL DEFAULT ''");
   addColumnIfMissing(db, "sessions", sessionColumns, "source_version", "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing(db, "sessions", sessionColumns, "runtime_kind", "TEXT");
+  addColumnIfMissing(db, "sessions", sessionColumns, "runtime_session_id", "TEXT");
+  addColumnIfMissing(db, "sessions", sessionColumns, "runtime_profile_id", "TEXT");
   addColumnIfMissing(db, "sessions", sessionColumns, "parser_malformed_lines", "INTEGER NOT NULL DEFAULT 0");
   addColumnIfMissing(db, "sessions", sessionColumns, "is_truncated", "INTEGER NOT NULL DEFAULT 0");
   addColumnIfMissing(db, "sessions", sessionColumns, "secret_leak_count", "INTEGER NOT NULL DEFAULT 0");

@@ -37,6 +37,7 @@ import {
 } from "electron";
 import { registerMigrationIpc } from "./migration.mjs";
 import { createDesktopPersonalRuntimeServices, createRuntimeManager } from "./runtime.mjs";
+import { createDesktopConnectorMcpProjection } from "./primary-runtime-mcp-projection.mjs";
 import { cleanupRegisteredAgentProcesses } from "./personal-agent-runtime/process-registry.mjs";
 import { createTaskSupervisorClient, createSafeRelaunchHandler } from "./task-supervisor/index.mjs";
 import { createDesktopTaskLifecycle } from "./desktop-task-lifecycle.mjs";
@@ -48,9 +49,7 @@ import {
   parseJsonLikeObject,
   looksLikeIncompleteJson,
   readJsonLikeFile,
-  readJsonFile,
   parseFirstJsonObject,
-  writeJsonFileAtomic,
 } from "./desktop-json.mjs";
 import {
   exportWorkspaceConfig,
@@ -58,7 +57,6 @@ import {
 } from "./workspace-archive.mjs";
 import {
   onmyagentWorkspaceDisplayName,
-  selectOnMyAgentWorkspaceForConnection,
 } from "./remote-workspace.mjs";
 import {
   PERSONAL_LOCAL_AGENT_CAPABILITIES,
@@ -136,7 +134,6 @@ import {
   forwardedDeepLinks,
   isNonFatalDesktopSpawnError,
   isTransientNetworkError,
-  normalizeDesktopBootstrapConfig,
   normalizeWorkspaceEntry,
 } from "./desktop-main-helpers.mjs";
 import { runDesktopWhenReady } from "./desktop-cold-start.mjs";
@@ -294,7 +291,6 @@ const DEFAULT_DEN_BASE_URL = "https://app.onmyagentlabs.com";
 const DEFAULT_LOCAL_BASE_URL = "http://127.0.0.1:4096";
 const FORCE_DESKTOP_REQUIRE_SIGNIN = envFlagEnabled("ONMYAGENT_FORCE_SIGNIN");
 const DEFAULT_DESKTOP_REQUIRE_SIGNIN = FORCE_DESKTOP_REQUIRE_SIGNIN;
-
 const EMPTY_WORKSPACE_LIST = Object.freeze({
   selectedId: "",
   watchedId: null,
@@ -576,7 +572,6 @@ function builtinSkillPackageSource(packageName) {
   return { safePackage, candidates };
 }
 
-
 // In-process onmyagent-server (session-archive, etc.) must see the real user
 // home even after OpenCode sandbox rewrites process.env.HOME.
 if (!process.env.ONMYAGENT_REAL_HOME?.trim()) {
@@ -693,6 +688,12 @@ const {
   runtimeManager,
   globalOpencodeRoot,
 });
+
+runtimeManager.setPrimaryRuntimeMcpProjectionProvider(createDesktopConnectorMcpProjection({
+  "tencent-docs": tencentDocsConnector, "baidu-drive": baiduDriveConnector,
+  kdocs: kdocsConnector, dingtalk: dingtalkConnector,
+  "tencent-meeting": tencentMeetingConnector,
+}));
 
 // Push channel state / pairing changes from the main process to the renderer
 // (parity: AionUi event-push for pluginStatusChanged / pairingRequested). The

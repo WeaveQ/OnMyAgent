@@ -201,6 +201,7 @@ function materializeDeployTree(nodeModulesDir) {
 }
 
 run(nodeCmd, [resolve(__dirname, "prepare-sidecar.mjs"), "--force", "--outdir", electronSidecarDir], desktopRoot);
+run(nodeCmd, [resolve(__dirname, "prepare-grok-sidecar.mjs"), "--outdir", electronSidecarDir], desktopRoot);
 run(nodeCmd, [resolve(__dirname, "prepare-runtimes.mjs"), "--outdir", electronRuntimeDir], desktopRoot);
 run(nodeCmd, [resolve(__dirname, "prepare-computer-use-helper.mjs"), "--force", "--outdir", electronHelperDir], desktopRoot);
 // Windows Computer Use: stage Cua Driver (full binary pack) next to HandsFree helpers.

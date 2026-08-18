@@ -15,6 +15,7 @@ import {
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import type { WorkspaceInfo } from "@onmyagent/types/server";
+import type { AgentRuntimeKind } from "@onmyagent/types/agent-runtime";
 
 import {
   globalSkillsDir,
@@ -28,9 +29,10 @@ export const EXPERT_SESSION_DEFAULT_AGENT = "onmyagent";
 /**
  * v1: opencode.json + declared skills
  * v2: lean .opencode/agents/onmyagent.md so default_agent always resolves
- * v3: explicit agent/package/session identity + declared/installed/missing skills
+ * v3: explicit agent/package/product-session identity + skill state (legacy OpenCode)
+ * v4: runtime-aware native identity; product ids never stand in for native ids
  */
-export const EXPERT_SESSION_ISOLATION_VERSION = 3;
+export const EXPERT_SESSION_ISOLATION_VERSION = 4;
 /** A directory allocated before OpenCode returns a real session id stays v2. */
 const EXPERT_SESSION_PENDING_ISOLATION_VERSION = 2;
 
@@ -57,6 +59,9 @@ export type ExpertSessionRuntimeDirectory = {
   agentId?: string;
   packageName?: string;
   sessionId?: string;
+  runtimeKind?: AgentRuntimeKind;
+  runtimeSessionId?: string;
+  profileId?: string;
   approvedAgentIds: string[];
   declaredSkills: string[];
   /** Skill folders copied into the session-local skills root. */
@@ -74,6 +79,9 @@ export type ExpertSessionMarker = {
   agentId?: string;
   packageName?: string;
   sessionId?: string;
+  runtimeKind?: AgentRuntimeKind;
+  runtimeSessionId?: string;
+  profileId?: string;
   agent?: string;
   sessionKey?: string;
   runtime?: boolean;
@@ -343,6 +351,9 @@ export async function applyExpertSessionIsolation(input: {
   agentId?: string;
   packageName?: string;
   sessionId?: string;
+  runtimeKind?: AgentRuntimeKind;
+  runtimeSessionId?: string;
+  profileId?: string;
   agentSegment?: string;
   sessionKey?: string;
   skillNames?: readonly string[];
@@ -356,6 +367,9 @@ export async function applyExpertSessionIsolation(input: {
   agentId?: string;
   packageName?: string;
   sessionId?: string;
+  runtimeKind?: AgentRuntimeKind;
+  runtimeSessionId?: string;
+  profileId?: string;
   declaredSkills: string[];
   approvedAgentIds: string[];
   installedSkills: string[];
@@ -447,7 +461,19 @@ export async function applyExpertSessionIsolation(input: {
     (migratingLegacyMarker && agentId ? agentId : undefined);
   const sessionId = input.sessionId?.trim() ||
     (typeof prior.sessionId === "string" && prior.sessionId.trim() ? prior.sessionId.trim() : undefined);
-  const hasCompleteIdentity = Boolean(agentId && packageName && sessionId);
+  const hasProductIdentity = Boolean(agentId && packageName && sessionId);
+  const runtimeKind = input.runtimeKind ??
+    (prior.runtimeKind === "opencode" || prior.runtimeKind === "grok-build"
+      ? prior.runtimeKind : undefined);
+  const runtimeSessionId = input.runtimeSessionId?.trim() ||
+    (typeof prior.runtimeSessionId === "string" && prior.runtimeSessionId.trim()
+      ? prior.runtimeSessionId.trim() : undefined);
+  const profileId = input.profileId?.trim() ||
+    (typeof prior.profileId === "string" && prior.profileId.trim()
+      ? prior.profileId.trim() : undefined);
+  const isolationVersion = hasProductIdentity && runtimeKind && runtimeSessionId && profileId
+    ? EXPERT_SESSION_ISOLATION_VERSION
+    : hasProductIdentity ? 3 : EXPERT_SESSION_PENDING_ISOLATION_VERSION;
 
   await writeMarkerAtomically(join(directory, EXPERT_SESSION_MARKER_NAME), {
       ...prior,
@@ -456,6 +482,9 @@ export async function applyExpertSessionIsolation(input: {
       ...(agentId ? { agentId } : {}),
       ...(packageName ? { packageName } : {}),
       ...(sessionId ? { sessionId } : {}),
+      ...(runtimeKind ? { runtimeKind } : {}),
+      ...(runtimeSessionId ? { runtimeSessionId } : {}),
+      ...(profileId ? { profileId } : {}),
       agent:
         input.agentSegment?.trim() ||
         (typeof prior.agent === "string" ? prior.agent : "expert"),
@@ -463,9 +492,7 @@ export async function applyExpertSessionIsolation(input: {
         input.sessionKey?.trim() ||
         (typeof prior.sessionKey === "string" ? prior.sessionKey : undefined),
       runtime: true,
-      isolationVersion: hasCompleteIdentity
-        ? EXPERT_SESSION_ISOLATION_VERSION
-        : EXPERT_SESSION_PENDING_ISOLATION_VERSION,
+      isolationVersion,
       defaultAgent,
       approvedAgentIds,
       declaredSkills,
@@ -477,13 +504,14 @@ export async function applyExpertSessionIsolation(input: {
     ...(agentId ? { agentId } : {}),
     ...(packageName ? { packageName } : {}),
     ...(sessionId ? { sessionId } : {}),
+    ...(runtimeKind ? { runtimeKind } : {}),
+    ...(runtimeSessionId ? { runtimeSessionId } : {}),
+    ...(profileId ? { profileId } : {}),
     approvedAgentIds,
     declaredSkills,
     installedSkills: effectiveInstalledSkills,
     missingSkills,
-    isolationVersion: hasCompleteIdentity
-      ? EXPERT_SESSION_ISOLATION_VERSION
-      : EXPERT_SESSION_PENDING_ISOLATION_VERSION,
+    isolationVersion,
     defaultAgent,
   };
 }
@@ -499,6 +527,9 @@ export async function ensureExpertSessionRuntimeIsolation(input: {
   agentId?: string;
   packageName?: string;
   sessionId?: string;
+  runtimeKind?: AgentRuntimeKind;
+  runtimeSessionId?: string;
+  profileId?: string;
   skillNames?: readonly string[];
   approvedAgentIds?: readonly string[];
   skillsSourceRoot?: string;
@@ -509,6 +540,9 @@ export async function ensureExpertSessionRuntimeIsolation(input: {
   agentId?: string;
   packageName?: string;
   sessionId?: string;
+  runtimeKind?: AgentRuntimeKind;
+  runtimeSessionId?: string;
+  profileId?: string;
   approvedAgentIds: string[];
   declaredSkills: string[];
   installedSkills: string[];
@@ -543,9 +577,10 @@ export async function ensureExpertSessionRuntimeIsolation(input: {
     `${EXPERT_SESSION_DEFAULT_AGENT}.md`,
   );
   const requestedCompleteIdentity = Boolean(
-    input.agentId?.trim() && input.packageName?.trim() && input.sessionId?.trim(),
+    input.agentId?.trim() && input.packageName?.trim() && input.sessionId?.trim()
+      && input.runtimeKind && input.runtimeSessionId?.trim() && input.profileId?.trim(),
   );
-  const existingCompleteIdentity = Boolean(
+  const existingProductIdentity = Boolean(
     typeof existingMarker?.agentId === "string" && existingMarker.agentId.trim() &&
     typeof existingMarker?.packageName === "string" && existingMarker.packageName.trim() &&
     typeof existingMarker?.sessionId === "string" && existingMarker.sessionId.trim(),
@@ -557,10 +592,13 @@ export async function ensureExpertSessionRuntimeIsolation(input: {
       (typeof existingMarker?.agent === "string" && existingMarker.agent.trim())
     ),
   );
-  const needsUpgrade =
-    !existsSync(agentPath) ||
-    (currentVersion < EXPERT_SESSION_ISOLATION_VERSION &&
-      (requestedCompleteIdentity || existingCompleteIdentity || canBindLegacyIdentity));
+  const requestedProductIdentity = Boolean(
+    input.agentId?.trim() && input.packageName?.trim() && input.sessionId?.trim(),
+  );
+  const desiredVersion = requestedCompleteIdentity
+    ? EXPERT_SESSION_ISOLATION_VERSION
+    : requestedProductIdentity || existingProductIdentity || canBindLegacyIdentity ? 3 : 2;
+  const needsUpgrade = !existsSync(agentPath) || currentVersion < desiredVersion;
   // An explicit empty declaration is meaningful: it asks a lazy repair to
   // remove stale materialized skill folders. Checking only list length would
   // leave rogue folders behind when an Expert declares no skills.
@@ -569,6 +607,9 @@ export async function ensureExpertSessionRuntimeIsolation(input: {
     [input.agentId, existingMarker?.agentId],
     [input.packageName, existingMarker?.packageName],
     [input.sessionId, existingMarker?.sessionId],
+    [input.runtimeKind, existingMarker?.runtimeKind],
+    [input.runtimeSessionId, existingMarker?.runtimeSessionId],
+    [input.profileId, existingMarker?.profileId],
   ].some(([requested, existing]) =>
     typeof requested === "string" && requested.trim() && requested.trim() !== existing,
   );
@@ -606,6 +647,12 @@ export async function ensureExpertSessionRuntimeIsolation(input: {
           ? { packageName: existingMarker.packageName.trim() } : {}),
         ...(typeof existingMarker?.sessionId === "string" && existingMarker.sessionId.trim()
           ? { sessionId: existingMarker.sessionId.trim() } : {}),
+        ...(existingMarker?.runtimeKind === "opencode" || existingMarker?.runtimeKind === "grok-build"
+          ? { runtimeKind: existingMarker.runtimeKind } : {}),
+        ...(typeof existingMarker?.runtimeSessionId === "string" && existingMarker.runtimeSessionId.trim()
+          ? { runtimeSessionId: existingMarker.runtimeSessionId.trim() } : {}),
+        ...(typeof existingMarker?.profileId === "string" && existingMarker.profileId.trim()
+          ? { profileId: existingMarker.profileId.trim() } : {}),
         approvedAgentIds: existingApprovedAgentIds,
         declaredSkills: markerDeclaredSkills,
         installedSkills: physicalInstalledSkills,
@@ -637,6 +684,9 @@ export async function ensureExpertSessionRuntimeIsolation(input: {
     agentId: input.agentId,
     packageName: input.packageName,
     sessionId: input.sessionId,
+    runtimeKind: input.runtimeKind,
+    runtimeSessionId: input.runtimeSessionId,
+    profileId: input.profileId,
     skillNames: skillNamesForApply,
     approvedAgentIds: input.approvedAgentIds,
     skillsSourceRoot: input.skillsSourceRoot,
@@ -718,6 +768,9 @@ export async function createExpertSessionRuntimeDirectory(input: {
   agentId?: string;
   packageName?: string;
   sessionId?: string;
+  runtimeKind?: AgentRuntimeKind;
+  runtimeSessionId?: string;
+  profileId?: string;
   sessionKey?: string;
   runtimeRoot?: string;
   /** Declared expert skills (frontmatter / package). Only these are linked. */
@@ -753,6 +806,9 @@ export async function createExpertSessionRuntimeDirectory(input: {
     agentId: input.agentId,
     packageName: input.packageName?.trim() || input.agentId?.trim(),
     sessionId: input.sessionId,
+    runtimeKind: input.runtimeKind,
+    runtimeSessionId: input.runtimeSessionId,
+    profileId: input.profileId,
     agentSegment,
     sessionKey,
     skillNames: input.skillNames,
@@ -768,6 +824,9 @@ export async function createExpertSessionRuntimeDirectory(input: {
     ...(applied.agentId ? { agentId: applied.agentId } : {}),
     ...(applied.packageName ? { packageName: applied.packageName } : {}),
     ...(applied.sessionId ? { sessionId: applied.sessionId } : {}),
+    ...(applied.runtimeKind ? { runtimeKind: applied.runtimeKind } : {}),
+    ...(applied.runtimeSessionId ? { runtimeSessionId: applied.runtimeSessionId } : {}),
+    ...(applied.profileId ? { profileId: applied.profileId } : {}),
     approvedAgentIds: applied.approvedAgentIds,
     declaredSkills: applied.declaredSkills,
     installedSkills: applied.installedSkills,
@@ -847,7 +906,7 @@ export function parseExpertSessionMarker(
   if (typeof version !== "number" || !Number.isSafeInteger(version) || version < 1 || version > EXPERT_SESSION_ISOLATION_VERSION) {
     return null;
   }
-  if (version < EXPERT_SESSION_ISOLATION_VERSION) return value as ExpertSessionMarker;
+  if (version < 3) return value as ExpertSessionMarker;
   if (!["agentId", "packageName", "sessionId"].every(
     (field) => typeof value[field] === "string" && String(value[field]).trim(),
   )) return null;
@@ -866,6 +925,14 @@ export function parseExpertSessionMarker(
   if (!( [...installed].every((skill) => declared.has(skill)) &&
     [...missing].every((skill) => declared.has(skill)) &&
     [...installed].every((skill) => !missing.has(skill)))) return null;
+  if (version === 3) return value as ExpertSessionMarker;
+  if (
+    (value.runtimeKind !== "opencode" && value.runtimeKind !== "grok-build")
+    || typeof value.runtimeSessionId !== "string"
+    || !value.runtimeSessionId.trim()
+    || typeof value.profileId !== "string"
+    || !value.profileId.trim()
+  ) return null;
   return value as ExpertSessionMarker;
 }
 

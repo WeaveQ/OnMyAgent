@@ -386,9 +386,30 @@ export function createDingtalkConnectorManager(options) {
     }
   }
 
+  /** @returns {Promise<import("../../../server/src/services/runtime-mcp-projection.js").ConnectorMcpDescriptor[]>} */
+  async function getRuntimeMcpDescriptors() {
+    const creds = await readCredentials();
+    if (!credentialsUsable(creds)) return [];
+    const entry = buildDingtalkMcpEntry({
+      clientId: String(creds.client_id),
+      clientSecret: String(creds.client_secret),
+      activeProfiles: creds.active_profiles
+        ? String(creds.active_profiles)
+        : undefined,
+    });
+    return [{
+      name: MCP_SERVER_NAME,
+      transport: "stdio",
+      command: entry.command[0],
+      args: entry.command.slice(1),
+      env: entry.environment,
+    }];
+  }
+
   return {
     getStatus,
     connectWithCredentials,
     disconnect,
+    getRuntimeMcpDescriptors,
   };
 }

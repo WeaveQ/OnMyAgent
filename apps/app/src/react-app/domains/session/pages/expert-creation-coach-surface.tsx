@@ -14,6 +14,7 @@ import { trackWorkspaceSessionSync } from "../sync/session-sync";
 import { SessionSurface } from "../surface/session-surface";
 import type { SessionSurfaceAssemblyProps } from "../surface/session-surface-types";
 import { buildIsolatedExpertCreationModel } from "./expert-creation-embedded-model";
+import { supportsNewExpertCreationSession } from "../../../capabilities/agent-runtime/expert-creation-gate";
 import {
   ExpertCreationSuggestionAccessory,
   confirmExpertCreationSuggestion,
@@ -138,6 +139,9 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
       let activeSessionId = sessionIdRef.current;
       let createdSession = false;
       if (draftOnly || activeSessionId.startsWith("draft:")) {
+        if (!await supportsNewExpertCreationSession(props.client, props.workspaceId)) {
+          throw new Error(t("agents.expert_creation_grok_unsupported"));
+        }
         activeSessionId = unwrap(
           await opencode.session.create({
             directory: props.workspaceRoot || undefined,

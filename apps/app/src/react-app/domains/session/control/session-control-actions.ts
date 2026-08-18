@@ -6,6 +6,7 @@ import type {
   OnMyAgentServerClient,
   OnMyAgentWorkspaceInfo,
 } from "../../../../app/lib/onmyagent-server";
+import { OnMyAgentServerError } from "../../../../app/lib/onmyagent-server";
 import { getDisplaySessionTitle } from "../../../../app/lib/session-title";
 import {
   useControlAction,
@@ -13,6 +14,8 @@ import {
 } from "../../../shell";
 import { t } from "../../../../i18n";
 import { APP_NAME } from "../../../../i18n/locales/brand";
+import { getReactQueryClient } from "../../../infra/query-client";
+import { loadGrokSessionDeleteDecision } from "../sync/session-delete-policy";
 import { collectSessionSubtreeIds } from "../../shared";
 
 type SessionLike = {
@@ -43,6 +46,7 @@ type UseSessionControlActionsInput = {
   createTaskInWorkspace: (workspaceId: string) => Promise<unknown> | unknown;
   openModelPicker: () => void;
   refreshRouteState: () => Promise<unknown> | unknown;
+  routeRuntimeKind?: "opencode" | "grok-build" | null;
 };
 
 function workspaceLabel(workspace: SessionControlWorkspace) {
@@ -96,6 +100,7 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
     selectedWorkspaceRoot,
     sessionsByWorkspaceId,
     workspaces,
+    routeRuntimeKind,
   } = input;
 
   const createTaskControlAction = useMemo<OnMyAgentControlAction>(
@@ -199,32 +204,52 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
           description: t("session.control_new_session_title_desc"),
         },
       ],
-      disabled: !opencodeClient,
+      disabled: !onmyagentClient && !opencodeClient,
       execute: async (args) => {
         const sessionId = stringArg(args, "sessionId");
         const title = stringArg(args, "title");
         if (!sessionId) return { ok: false, error: "sessionId is required" };
         if (!title) return { ok: false, error: "title is required" };
-        if (!opencodeClient)
-          return { ok: false, error: t("session.control_opencode_not_connected") };
-
         const targetWorkspace = findSessionWorkspace(
           workspaces,
           sessionsByWorkspaceId,
           sessionId,
         );
-        await opencodeClient.session.update({
-          sessionID: sessionId,
-          title,
-          directory:
-            targetWorkspace?.path || selectedWorkspaceRoot || undefined,
-        });
+        if (!targetWorkspace) {
+          return { ok: false, error: t("session.control_session_not_found") };
+        }
+        let renamedCanonical = false;
+        if (onmyagentClient) {
+          try {
+            await onmyagentClient.renameRuntimeSession(
+              targetWorkspace.id,
+              sessionId,
+              title,
+            );
+            renamedCanonical = true;
+          } catch (error) {
+            if (!(error instanceof OnMyAgentServerError) || error.status !== 404) {
+              throw error;
+            }
+          }
+        }
+        if (!renamedCanonical) {
+          if (!opencodeClient) {
+            return { ok: false, error: t("session.control_opencode_not_connected") };
+          }
+          await opencodeClient.session.update({
+            sessionID: sessionId,
+            title,
+            directory: targetWorkspace.path || selectedWorkspaceRoot || undefined,
+          });
+        }
         await refreshRouteState();
         return { ok: true, sessionId, title };
       },
     }),
     [
       opencodeClient,
+      onmyagentClient,
       refreshRouteState,
       selectedWorkspaceRoot,
       sessionsByWorkspaceId,
@@ -268,6 +293,25 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
         if (!onmyagentClient)
           return { ok: false, error: `${APP_NAME} server is not connected` };
 
+        const deleteDecision = await loadGrokSessionDeleteDecision({
+          workspaceId: selectedWorkspaceId,
+          runtimeKind: routeRuntimeKind,
+          getQueryData: (queryKey) => getReactQueryClient().getQueryData(queryKey),
+          setQueryData: (queryKey, value) => {
+            getReactQueryClient().setQueryData(queryKey, value);
+          },
+          fetchSelection: selectedWorkspaceId
+            ? () => onmyagentClient.getAgentRuntimeSelection(selectedWorkspaceId)
+            : undefined,
+        });
+        if (!deleteDecision.allowed) {
+          return {
+            ok: false,
+            deleted: false,
+            error: t("session.grok_native_delete_unsupported"),
+          };
+        }
+
         const targetWorkspace = findSessionWorkspace(
           workspaces,
           sessionsByWorkspaceId,
@@ -300,8 +344,10 @@ export function useSessionControlActions(input: UseSessionControlActionsInput) {
       onmyagentClient,
       refreshRouteState,
       selectedSessionId,
+      selectedWorkspaceId,
       sessionsByWorkspaceId,
       workspaces,
+      routeRuntimeKind,
     ],
   );
   useControlAction(deleteSessionControlAction);

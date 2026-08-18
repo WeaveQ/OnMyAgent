@@ -88,7 +88,7 @@ describe("workspace expert directory routes", () => {
     await expect(invoke(routes, "POST", { apply: "yes" })).rejects.toMatchObject({ status: 400, code: "invalid_payload" } satisfies Partial<ApiError>);
   });
 
-  test("GET reports incomplete when aggregate session lookup is partial", async () => {
+  test("GET keeps an empty runtime-neutral directory complete when OpenCode aggregate is partial", async () => {
     const routes = routesFor(() => ({
       scope: "workspace",
       items: [],
@@ -98,9 +98,9 @@ describe("workspace expert directory routes", () => {
     const response = await invoke(routes, "GET");
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      complete: false,
-      state: "session_lookup_failed",
-      failures: [{ source: "opencode", code: "session_lookup_failed" }],
+      complete: true,
+      state: "missing",
+      failures: [],
     });
   });
 

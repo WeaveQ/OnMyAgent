@@ -10,6 +10,7 @@ import type {
   ServerConfig,
   WorkspaceInfo,
 } from "@onmyagent/types/server";
+import type { AgentRuntimeKind, RuntimeSessionBinding } from "@onmyagent/types/agent-runtime";
 import { ApiError, isApiError } from "../core/errors.js";
 import { deleteWorkspaceSession } from "./workspace-sessions.js";
 import {
@@ -24,7 +25,12 @@ const DELETE_CONCURRENCY = 4;
 const JOURNAL_VERSION = 1;
 const journalLocks = new Map<string, Promise<void>>();
 
-type Target = SessionOriginRecord & { directory: string };
+type Target = {
+  sessionId: string;
+  directory: string;
+  runtimeKind: AgentRuntimeKind;
+  originBacked: boolean;
+};
 type JournalStep = ExpertDeleteStep;
 type JournalEntry = {
   version: 1;
@@ -50,6 +56,15 @@ export type ExpertDeleteSagaOptions = {
   removeRuntimeDirectory?: (directory: string) => Promise<void>;
   beforeTombstone?: (sessionId: string) => Promise<void>;
   afterTombstone?: (sessionId: string) => Promise<void>;
+  listRuntimeExpertSessions?: (
+    workspaceId: string,
+    agentId: string,
+    packageName: string,
+  ) => Promise<RuntimeSessionBinding[]>;
+  deleteRuntimeSession?: (
+    workspaceId: string,
+    sessionId: string,
+  ) => Promise<void>;
 };
 
 /**
@@ -128,13 +143,18 @@ export async function deleteExpertSessions(
     // `known` and `selected` share this live origin set; journal steps and
     // tombstones are replay-only and must not widen to every same-agentId row.
     const records = selectExpertDeleteOriginRecords(originState.items, request);
+    const runtimeBindings = options.listRuntimeExpertSessions
+      ? await options.listRuntimeExpertSessions(
+          workspace.id,
+          request.agentId,
+          request.packageName,
+        )
+      : [];
     const requestedIds = request.sessionIds?.map((id) => id.trim()).filter(Boolean);
-    const selected = records.filter((record) =>
-      !requestedIds || requestedIds.length === 0 || requestedIds.includes(record.sessionId),
-    );
     if (requestedIds && requestedIds.length > 0) {
       const known = new Set([
         ...records.map((record) => record.sessionId),
+        ...runtimeBindings.map((binding) => binding.productSessionId),
         ...(previous?.steps ?? []).map((step) => step.sessionId),
         ...originState.tombstones.map((tombstone) => tombstone.sessionId),
       ]);
@@ -143,18 +163,47 @@ export async function deleteExpertSessions(
         throw new ApiError(404, "expert_delete_target_not_found", "Expert session target was not found");
       }
     }
-    if (selected.length === 0 && !previous) {
+    const selectedOrigins = records.filter((record) =>
+      !requestedIds || requestedIds.length === 0 || requestedIds.includes(record.sessionId),
+    );
+    const selectedBindings = runtimeBindings.filter((binding) =>
+      !requestedIds || requestedIds.length === 0 || requestedIds.includes(binding.productSessionId),
+    );
+    const selectedIds = new Set([
+      ...selectedOrigins.map((record) => record.sessionId),
+      ...selectedBindings.map((binding) => binding.productSessionId),
+    ]);
+    if (selectedIds.size === 0 && !previous) {
       throw new ApiError(404, "expert_delete_target_not_found", "Expert session target was not found");
     }
-    if (selected.length > MAX_TARGETS) {
+    if (selectedIds.size > MAX_TARGETS) {
       throw new ApiError(400, "expert_delete_target_limit", "Too many Expert sessions in one delete operation");
     }
     const targets: Target[] = [];
-    for (const record of selected) {
+    for (const record of selectedOrigins) {
       if (!record.directory?.trim()) {
         throw new ApiError(409, "expert_delete_directory_missing", "Expert session directory is unavailable");
       }
-      targets.push({ ...record, directory: record.directory.trim() });
+      targets.push({
+        sessionId: record.sessionId,
+        directory: record.directory.trim(),
+        runtimeKind: "opencode",
+        originBacked: true,
+      });
+    }
+    for (const binding of selectedBindings) {
+      const existing = targets.find((target) => target.sessionId === binding.productSessionId);
+      if (existing) {
+        existing.runtimeKind = binding.runtimeKind;
+        existing.directory = binding.cwd;
+      } else {
+        targets.push({
+          sessionId: binding.productSessionId,
+          directory: binding.cwd,
+          runtimeKind: binding.runtimeKind,
+          originBacked: false,
+        });
+      }
     }
     recordExpertLifecycleEvent({
       kind: "delete",
@@ -176,9 +225,10 @@ export async function deleteExpertSessions(
       state: "failed",
       steps: targets.map((target) => ({
         sessionId: target.sessionId,
+        runtimeKind: target.runtimeKind,
         openCode: "pending",
         runtime: "pending",
-        tombstone: "pending",
+        tombstone: target.originBacked ? "pending" : "skipped",
       })),
     };
     const existingTombstones = new Set(originState.tombstones.map((item) => item.sessionId));
@@ -191,9 +241,10 @@ export async function deleteExpertSessions(
       if (!entry.steps.some((step) => step.sessionId === target.sessionId)) {
         entry.steps.push({
           sessionId: target.sessionId,
+          runtimeKind: target.runtimeKind,
           openCode: "pending",
           runtime: "pending",
-          tombstone: "pending",
+          tombstone: target.originBacked ? "pending" : "skipped",
         });
       }
     }
@@ -214,7 +265,18 @@ export async function deleteExpertSessions(
       const step = entry.steps.find((item) => item.sessionId === target.sessionId)!;
       if (step.openCode === "pending" || step.openCode === "failed") {
         try {
-          await deleteSession(config, workspace, target.sessionId, target.directory);
+          if (target.runtimeKind === "grok-build") {
+            if (!options.deleteRuntimeSession) {
+              throw new ApiError(
+                409,
+                "agent_runtime_unavailable",
+                "Canonical runtime delete is unavailable",
+              );
+            }
+            await options.deleteRuntimeSession(workspace.id, target.sessionId);
+          } else {
+            await deleteSession(config, workspace, target.sessionId, target.directory);
+          }
           step.openCode = "completed";
           if (step.code === "opencode_delete_failed") delete step.code;
         } catch (error) {
@@ -229,6 +291,11 @@ export async function deleteExpertSessions(
         recordDeleteStepEvent(workspace, request, step, "opencode");
       }
       if (step.openCode === "failed") {
+        await checkpoint();
+        return;
+      }
+      if (target.runtimeKind === "grok-build") {
+        step.runtime = "skipped";
         await checkpoint();
         return;
       }
@@ -404,6 +471,7 @@ function isJournalStep(value: unknown): value is JournalStep {
     !isDeleteStepState(step.openCode) ||
     !isDeleteStepState(step.runtime) ||
     !isDeleteStepState(step.tombstone)) return false;
+  if (step.runtimeKind !== undefined && step.runtimeKind !== "opencode" && step.runtimeKind !== "grok-build") return false;
   return step.code === undefined || isNonEmptyString(step.code);
 }
 

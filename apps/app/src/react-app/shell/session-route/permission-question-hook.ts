@@ -10,6 +10,10 @@ import {
 } from "react";
 
 import { unwrap } from "../../../app/lib/opencode";
+import {
+  OnMyAgentServerError,
+  type OnMyAgentServerClient,
+} from "../../../app/lib/onmyagent-server";
 import type {
   Client,
   ComposerDraft,
@@ -29,6 +33,7 @@ import {
 } from "./state";
 
 type Input = {
+  client: OnMyAgentServerClient | null;
   opencodeClient: Client | null;
   pendingPermissions: PendingPermission[];
   pendingQuestions: PendingQuestion[];
@@ -39,6 +44,7 @@ type Input = {
   selectedWorkspaceId: string;
   sessionAccessModeById: Record<string, NonNullable<ComposerDraft["accessMode"]>>;
   sessionWorkspaceRoot: string;
+  routeRuntimeKind: "opencode" | "grok-build" | null;
   setAutoApprovedPermissionNoticeBySessionId: Dispatch<
     SetStateAction<Record<string, string>>
   >;
@@ -54,6 +60,7 @@ type Input = {
 
 export function useSessionRoutePermissionQuestionHandlers(input: Input) {
   const {
+    client,
     opencodeClient,
     pendingPermissions,
     pendingQuestions,
@@ -64,6 +71,7 @@ export function useSessionRoutePermissionQuestionHandlers(input: Input) {
     selectedWorkspaceId,
     sessionAccessModeById,
     sessionWorkspaceRoot,
+    routeRuntimeKind,
     setAutoApprovedPermissionNoticeBySessionId,
     setPermissionReplyBusy,
     setQuestionReplyBusy,
@@ -74,18 +82,28 @@ export function useSessionRoutePermissionQuestionHandlers(input: Input) {
   const activePermission = pendingPermissions[0] ?? null;
   const respondPermission = useCallback(
     async (requestID: string, reply: "once" | "always" | "reject") => {
-      if (!opencodeClient || !selectedWorkspaceId || !selectedSessionId) return;
+      if (!selectedWorkspaceId || !selectedSessionId) return;
       if (permissionReplyBusyRef.current) return;
       permissionReplyBusyRef.current = true;
       setPermissionReplyBusy(true);
       try {
-        unwrap(
-          await opencodeClient.permission.reply({
+        const runtimePermission = activePermission?.permission === "grok_runtime_permission";
+        if (runtimePermission) {
+          if (!client) return;
+          await client.respondRuntimePermission(
             requestID,
-            reply,
-            directory: sessionWorkspaceRoot || undefined,
-          }),
-        );
+            reply === "reject" ? "deny" : "allow",
+          );
+        } else {
+          if (!opencodeClient) return;
+          unwrap(
+            await opencodeClient.permission.reply({
+              requestID,
+              reply,
+              directory: sessionWorkspaceRoot || undefined,
+            }),
+          );
+        }
         getReactQueryClient().setQueryData<PendingPermission[]>(
           requiredPermissionQueryKey(selectedWorkspaceId, selectedSessionId),
           (current = []) =>
@@ -103,6 +121,8 @@ export function useSessionRoutePermissionQuestionHandlers(input: Input) {
       }
     },
     [
+      activePermission?.permission,
+      client,
       opencodeClient,
       selectedSessionId,
       selectedWorkspaceId,
@@ -158,15 +178,30 @@ export function useSessionRoutePermissionQuestionHandlers(input: Input) {
   );
   const respondQuestion = useCallback(
     async (requestID: string, answers: string[][]) => {
-      if (!opencodeClient || !selectedWorkspaceId || !selectedSessionId) return;
+      if (!selectedWorkspaceId || !selectedSessionId) return;
       if (questionReplyBusyRef.current) return;
       questionReplyBusyRef.current = true;
       setQuestionReplyBusy(true);
       const directory = sessionWorkspaceRoot || undefined;
+      const runtimeQuestion =
+        activeQuestion?.tool?.messageID === "onmyagent:grok-runtime-question";
+      const openCodeQuestionClient = opencodeClient;
       try {
+        if (runtimeQuestion || routeRuntimeKind === "grok-build") {
+          if (!client) return;
+          await client.respondRuntimeQuestion(
+            selectedWorkspaceId,
+            selectedSessionId,
+            requestID,
+            answers,
+          );
+          clearLocalQuestion(requestID);
+          return;
+        }
+        if (!openCodeQuestionClient) return;
         try {
           unwrap(
-            await opencodeClient.question.reply({
+            await openCodeQuestionClient.question.reply({
               requestID,
               answers,
               directory,
@@ -175,12 +210,12 @@ export function useSessionRoutePermissionQuestionHandlers(input: Input) {
         } catch (firstError) {
           // Retry once without query directory (client header only) — some
           // OpenCode instances key questions on the header project, and a
-          // mismatched query can 404 even when the request still exists.
+          // mismatched query can report the request absent even when it exists.
           if (!directory || !isQuestionNotFoundError(firstError)) {
             throw firstError;
           }
           unwrap(
-            await opencodeClient.question.reply({
+            await openCodeQuestionClient.question.reply({
               requestID,
               answers,
             }),
@@ -190,11 +225,18 @@ export function useSessionRoutePermissionQuestionHandlers(input: Input) {
       } catch (error) {
         // Stale/expired question (session directory switch, double-submit,
         // agent already continued). Drop local UI instead of blocking the user.
-        if (isQuestionNotFoundError(error)) {
+        if (
+          isQuestionNotFoundError(error)
+          || (runtimeQuestion
+            && error instanceof OnMyAgentServerError
+            && error.code === "agent_runtime_question_not_found")
+        ) {
           clearLocalQuestion(requestID);
+          if (runtimeQuestion) return;
+          if (!openCodeQuestionClient) return;
           try {
             const list = unwrap(
-              await opencodeClient.question.list({ directory }),
+              await openCodeQuestionClient.question.list({ directory }),
             );
             getReactQueryClient().setQueryData<PendingQuestion[]>(
               requiredQuestionQueryKey(selectedWorkspaceId, selectedSessionId),
@@ -228,7 +270,10 @@ export function useSessionRoutePermissionQuestionHandlers(input: Input) {
     },
     [
       clearLocalQuestion,
+      activeQuestion?.tool?.messageID,
+      client,
       opencodeClient,
+      routeRuntimeKind,
       selectedSessionId,
       selectedWorkspaceId,
       sessionWorkspaceRoot,

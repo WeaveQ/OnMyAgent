@@ -337,9 +337,24 @@ export function createKdocsConnectorManager(options) {
     }
   }
 
+  /** @returns {Promise<import("../../../server/src/services/runtime-mcp-projection.js").ConnectorMcpDescriptor[]>} */
+  async function getRuntimeMcpDescriptors() {
+    const tokens = await readTokens();
+    const accessToken = String(tokens?.access_token ?? "").trim();
+    if (!accessToken) return [];
+    const entry = buildKdocsMcpEntry(accessToken);
+    return [{
+      name: MCP_SERVER_NAME,
+      transport: "http",
+      url: entry.url,
+      headers: entry.headers,
+    }];
+  }
+
   return {
     getStatus,
     connectWithToken,
     disconnect,
+    getRuntimeMcpDescriptors,
   };
 }

@@ -22,12 +22,15 @@ type ModelSelectContainerProps = {
   open: boolean;
   value: ModelRef;
   onOpenChange: (open: boolean) => void;
-  onChange: (model: ModelRef) => void;
+  onChange: (model: ModelRef) => void | Promise<void>;
   disabled?: boolean;
+  options?: ModelOption[];
 };
 
 export function ModelSelectContainer(props: ModelSelectContainerProps) {
-  const { options, catalogReady: optionsCatalogReady } = useModelOptions(props.open);
+  const discovered = useModelOptions(props.open, props.options === undefined);
+  const options = props.options ?? discovered.options;
+  const optionsCatalogReady = props.options === undefined ? discovered.catalogReady : true;
 
   return (
     <ModelSelectView
@@ -46,12 +49,14 @@ export function ModelSelectContainer(props: ModelSelectContainerProps) {
           size={14}
         />
       )}
-      onOpenModelPicker={() => window.dispatchEvent(new CustomEvent(openModelPickerEvent))}
+      onOpenModelPicker={props.options === undefined
+        ? () => window.dispatchEvent(new CustomEvent(openModelPickerEvent))
+        : undefined}
     />
   );
 }
 
-function useModelOptions(open: boolean): {
+function useModelOptions(open: boolean, enabled: boolean): {
   options: ModelOption[];
   catalogReady: boolean;
 } {
@@ -62,25 +67,25 @@ function useModelOptions(open: boolean): {
     client,
     baseUrl: opencodeBaseUrl,
     directory: selectedWorkspaceRoot,
-    enabled: sessionRouteProviderListEnabled({
+    enabled: enabled && sessionRouteProviderListEnabled({
       hasClient: Boolean(client),
       pickerOpen: open,
     }),
   });
 
   React.useEffect(() => {
-    if (!open || !client) return;
+    if (!enabled || !open || !client) return;
     void refetch();
-  }, [client, open, refetch]);
+  }, [client, enabled, open, refetch]);
 
   React.useEffect(() => {
-    if (!client) return;
+    if (!enabled || !client) return;
     const handler = () => {
       void refetch();
     };
     window.addEventListener(newProvidersEvent, handler);
     return () => window.removeEventListener(newProvidersEvent, handler);
-  }, [client, refetch]);
+  }, [client, enabled, refetch]);
 
   return React.useMemo(() => {
     const hidden = readHiddenModels();

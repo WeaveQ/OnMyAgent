@@ -27,6 +27,7 @@ docs/x-project-bp/
 
 # Desktop local runtime artifacts (do not commit)
 apps/desktop/resources/sidecars/
+apps/desktop/resources/sidecar-downloads/
 apps/desktop/resources/runtimes/
 apps/desktop/resources/runtime-downloads/*
 !apps/desktop/resources/runtime-downloads/README.md

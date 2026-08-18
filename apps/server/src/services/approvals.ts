@@ -27,11 +27,15 @@ export class ApprovalService {
 
   async requestApproval(
     input: Omit<ApprovalRequest, "id" | "createdAt">,
+    options: { forceManual?: boolean; requestId?: string } = {},
   ): Promise<ApprovalResult> {
-    if (this.config.mode === "auto") {
+    if (this.config.mode === "auto" && !options.forceManual) {
       return { id: "auto", allowed: true };
     }
-    const id = shortId();
+    const id = options.requestId?.trim() || shortId();
+    if (this.pending.has(id)) {
+      throw new Error("approval_request_id_conflict");
+    }
     const request: ApprovalRequest = {
       ...input,
       id,
@@ -62,5 +66,13 @@ export class ApprovalService {
     };
     pending.resolve(result);
     return result;
+  }
+
+  cancelAll(reason = "server_shutdown"): void {
+    for (const [id, pending] of this.pending) {
+      if (pending.timeout) clearTimeout(pending.timeout);
+      this.pending.delete(id);
+      pending.resolve({ id, allowed: false, reason });
+    }
   }
 }
