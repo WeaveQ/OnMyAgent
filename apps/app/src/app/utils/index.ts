@@ -325,6 +325,12 @@ export function normalizeDirectoryPath(input?: string | null) {
   return isWindowsPlatform() || isMacPlatform() ? normalized.toLowerCase() : normalized;
 }
 
+function eventEnvelopeProperties(record: Record<string, unknown>): unknown {
+  if (record.properties !== undefined) return record.properties;
+  if (record.data !== undefined) return record.data;
+  return undefined;
+}
+
 export function normalizeEvent(raw: unknown): OpencodeEvent | null {
   if (!raw || typeof raw !== "object") {
     return null;
@@ -335,7 +341,7 @@ export function normalizeEvent(raw: unknown): OpencodeEvent | null {
   if (typeof record.type === "string") {
     return {
       type: record.type,
-      properties: record.properties,
+      properties: eventEnvelopeProperties(record),
     };
   }
 
@@ -344,7 +350,7 @@ export function normalizeEvent(raw: unknown): OpencodeEvent | null {
     if (typeof payload.type === "string") {
       return {
         type: payload.type,
-        properties: payload.properties,
+        properties: eventEnvelopeProperties(payload),
       };
     }
   }

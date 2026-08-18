@@ -1064,6 +1064,67 @@ describe("deriveOpenTargets", () => {
     ).toEqual(["云雾轻乳_项目Brief与待确认项.docx"]);
   });
 
+  it("mints product cards from helper-script SAVED: lines for any deliverable type", () => {
+    const paths = collectRuntimeRegisteredDeliverablePaths(
+      { command: "python3 /tmp/oma-export.py" },
+      [
+        "SAVED: 返点毛利计划单.xlsx",
+        "SAVED: 合同摘要.docx",
+        "SAVED: 核对说明.pdf",
+        "SAVED: 封面.png",
+      ].join("\n"),
+    );
+    expect(paths).toEqual([
+      "返点毛利计划单.xlsx",
+      "合同摘要.docx",
+      "核对说明.pdf",
+      "封面.png",
+    ]);
+
+    const targets = deriveOpenTargets([
+      toolMessage(
+        "msg_tool",
+        "bash",
+        { command: "python3 /var/folders/xx/oma-export.py" },
+        [
+          "SAVED: 返点毛利计划单.xlsx",
+          "SAVED: 合同摘要.docx",
+          "SAVED: 核对说明.pdf",
+          "SAVED: 封面.png",
+        ].join("\n"),
+      ),
+      message("msg_final", "assistant", "文件都已生成在工作区根目录。"),
+    ]);
+    expect(targets.map((target) => target.value)).toEqual([
+      "返点毛利计划单.xlsx",
+      "合同摘要.docx",
+      "核对说明.pdf",
+      "封面.png",
+    ]);
+  });
+
+  it("shows verified files listed as bare lines after a delivery sentence", () => {
+    const text = [
+      "已拆成三个独立文件，可直接打开使用：",
+      "",
+      "返点毛利计划单.xlsx（A1:O13）",
+      "合同摘要.docx",
+      "核对说明.pdf",
+    ].join("\n");
+    expect(extractAssistantDeliveryManifestPaths(text).sort()).toEqual(
+      ["合同摘要.docx", "核对说明.pdf", "返点毛利计划单.xlsx"].sort(),
+    );
+    const messages = [message("msg_final", "assistant", text)] satisfies UIMessage[];
+    const verified = [
+      { ...fileTarget("返点毛利计划单.xlsx", "sheet"), exists: true },
+      { ...fileTarget("合同摘要.docx", "document"), exists: true },
+      { ...fileTarget("核对说明.pdf", "pdf"), exists: true },
+    ];
+    expect(
+      selectTurnOpenTargets(messages, verified).map((target) => target.value).sort(),
+    ).toEqual(["合同摘要.docx", "核对说明.pdf", "返点毛利计划单.xlsx"].sort());
+  });
+
   it("collects write-xlsx --out even when stdout only has the marker", () => {
     const paths = collectRuntimeRegisteredDeliverablePaths(
       {

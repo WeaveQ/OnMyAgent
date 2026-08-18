@@ -3,6 +3,12 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
+try {
+  require("./launcher-bootstrap.cjs").applyRuntimeNodePath(__dirname);
+} catch {
+  // Launchers already set NODE_PATH; ignore if bootstrap is unavailable.
+}
+
 function emit(payload, code = 0) {
   process.stdout.write(`${JSON.stringify(payload)}\n`);
   process.exitCode = code;

@@ -103,6 +103,35 @@ test("managed links resolve to package-local Artifact skills", async () => {
   }
 });
 
+test("materialized spreadsheet launcher resolves xlsx without ONMYAGENT_ARTIFACT_RUNTIME_ROOT", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "onmyagent-ss-runtime-"));
+  try {
+    const result = await materializeEnabledArtifactSkills({
+      pluginRoot: bundledPluginsRoot,
+      managedSkillsRoot: path.join(tempRoot, "skills"),
+      enabledSkillIds: new Set(["spreadsheets"]),
+    });
+    assert.deepEqual(result.diagnostics, []);
+    const item = result.items.find((entry) => entry.skillId === "spreadsheets");
+    assert.ok(item);
+    const launcher = path.join(item.destinationPath, "runtime", "artifact_runtime.cjs");
+    const env = { ...process.env };
+    delete env.ONMYAGENT_ARTIFACT_RUNTIME_ROOT;
+    delete env.NODE_PATH;
+    const doctor = spawnSync(process.execPath, [launcher, "doctor"], {
+      cwd: tempRoot,
+      encoding: "utf8",
+      env,
+    });
+    assert.equal(doctor.status, 0, doctor.stderr || doctor.stdout);
+    const payload = JSON.parse(doctor.stdout.split("\n").find((line) => line.startsWith("{")) ?? "{}");
+    assert.equal(payload.status, "ready");
+    assert.equal(payload.dependencies?.xlsx, true);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("desktop packaging copies bundled plugin packages into application resources", async () => {
   const builderConfig = await readFile(
     path.resolve(scriptDir, "..", "electron-builder.yml"),
