@@ -109,6 +109,14 @@ export class GrokProcessSupervisor {
       await Promise.all([...handles].map((handle) => handle.stop()));
       this.#active.clear();
     }
+    const counts = {
+      children: this.#children.size,
+      inflight: this.#inflight.size,
+      active: this.#active.size,
+    };
+    if (counts.children || counts.inflight || counts.active) {
+      throw grokRuntimeDraining(counts);
+    }
   }
 
   async #start(key: GrokProcessKey, policy: GrokProcessPolicy, onClosed: () => void): Promise<GrokProcessHandle> {
@@ -214,8 +222,13 @@ function defaultSpawn(input: Parameters<SpawnProcess>[0]): ChildProcessWithoutNu
   });
 }
 
-function grokRuntimeDraining(): ApiError {
-  return new ApiError(503, "grok_runtime_draining", "Grok runtime is shutting down");
+function grokRuntimeDraining(details?: { children: number; inflight: number; active: number }): ApiError {
+  return new ApiError(
+    503,
+    "grok_runtime_draining",
+    "Grok runtime is shutting down",
+    details,
+  );
 }
 
 function processKey(key: GrokProcessKey): string {

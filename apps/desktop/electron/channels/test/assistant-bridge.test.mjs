@@ -45,6 +45,7 @@ function createMockClient({ assistantText = "你好，我是本地助理" } = {}
         role: "assistant",
         parts: [{ type: "text", id: `text-${calls.prompt}`, text: assistantText }],
         createdAt: calls.prompt,
+        completedAt: calls.prompt,
       });
       sessionMessages.set(sessionId, list);
       return { ok: true };
@@ -162,5 +163,30 @@ assert.deepEqual(writtenSettings, [{
   value: { assistantSessionId: "sess-1" },
 }]);
 assert.deepEqual(delivered, [{ chatId: "channel-chat", text: "channel reply" }]);
+
+console.log("Test 7: channel bridge waits for a terminal message projection, not the first streamed chunk");
+const { client: streamingClient, calls: streamingCalls } = createMockClient({ assistantText: "complete channel reply" });
+const originalStreamingMessages = streamingClient.messages;
+let streamingPolls = 0;
+streamingClient.messages = async (...args) => {
+  const result = await originalStreamingMessages(...args);
+  streamingPolls += 1;
+  if (streamingPolls === 2 && result.messages.length) {
+    return {
+      ...result,
+      messages: result.messages.map((message) => ({ ...message, completedAt: undefined })),
+    };
+  }
+  return result;
+};
+const delayed = await runAssistantTurn({
+  runtimeConnection: connection,
+  workspaceRoot: "/tmp/ws",
+  chatId: "chat-streaming",
+  text: "streaming",
+  createClient: () => streamingClient,
+});
+assert.equal(delayed.output, "complete channel reply");
+assert.ok(streamingCalls.messages >= 3, "must poll beyond the first non-terminal chunk");
 
 console.log("\n✅ All canonical assistant-bridge tests passed!");

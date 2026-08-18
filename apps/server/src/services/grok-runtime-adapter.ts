@@ -333,13 +333,18 @@ export class GrokRuntimeAdapter implements AgentRuntimeAdapter {
           cursor = next;
           if (page === 19) {
             truncated = true;
-            failedRuntimeSessionIds.push(...group.map((binding) => binding.runtimeSessionId));
           }
         }
-        if (truncated) return;
         for (const binding of group) {
-          if (seen.has(binding.runtimeSessionId)) sessions.push(sessionFromBinding(binding));
-          else missingRuntimeSessionIds.push(binding.runtimeSessionId);
+          if (seen.has(binding.runtimeSessionId)) {
+            sessions.push(sessionFromBinding(binding));
+          } else if (truncated) {
+            // A capped listing cannot prove that an unseen sticky id is gone;
+            // surface an incomplete source instead of reporting a native miss.
+            failedRuntimeSessionIds.push(binding.runtimeSessionId);
+          } else {
+            missingRuntimeSessionIds.push(binding.runtimeSessionId);
+          }
         }
       } catch {
         failedRuntimeSessionIds.push(...group.map((binding) => binding.runtimeSessionId));
@@ -376,8 +381,10 @@ export class GrokRuntimeAdapter implements AgentRuntimeAdapter {
     }
     this.#attachedSessions.get(process)?.delete(binding.runtimeSessionId);
     this.#unbindPermissionSession(binding.runtimeSessionId);
-    await cleanupGrokStagedAttachments({ sessionId: binding.productSessionId });
-    await this.#cleanupSession(binding);
+    // Native history is already gone. Cleanup is secondary and must not leave
+    // the product binding sticky when a staged-file or directory cleanup fails.
+    await cleanupGrokStagedAttachments({ sessionId: binding.productSessionId }).catch(() => undefined);
+    await Promise.resolve(this.#cleanupSession(binding)).catch(() => undefined);
   }
 
   async renameSession(binding: RuntimeSessionBinding, title: string): Promise<void> {
@@ -427,6 +434,11 @@ export class GrokRuntimeAdapter implements AgentRuntimeAdapter {
     const runtimeSessionId = sessionIdFrom({
       sessionId: response.newSessionId ?? response.new_session_id ?? requestedNativeId,
     });
+    this.#bindPermissionSession(runtimeSessionId, newProductSessionId, {
+      id: binding.workspaceId,
+      path: binding.cwd,
+    });
+    this.#markAttached(process, runtimeSessionId);
     return {
       runtimeSessionId,
       cwd: binding.cwd,

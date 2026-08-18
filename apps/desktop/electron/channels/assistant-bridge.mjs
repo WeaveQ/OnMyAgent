@@ -4,8 +4,9 @@
 // product session remains sticky across OpenCode/Grok switches and restarts.
 //
 // Product exception (Architecture Dual Runtime): IM「本地助理」must appear in
-// the desktop assistant tab, so this path hot-writes the OpenCode main session
-// store. Do not also start a Personal run for the same chat.
+// the desktop assistant tab, so this bridge reuses the server-owned product
+// session. It never writes an OpenCode/ACP native store from Electron. Do not
+// also start a Personal run for the same chat.
 // This is a strictly additive dispatch path: only chats whose bound agent has
 // provider `onmyagent-assistant` reach this module. Every other agent keeps
 // using the ACP runtime exactly as before (no behavior change for codex/claude/
@@ -49,6 +50,11 @@ function latestNewAssistantText(messages, existingKeys) {
   for (const message of (messages ?? []).slice().reverse()) {
     const key = assistantMessageKey(message);
     if (key && existingKeys.has(key)) continue;
+    // `messages.complete` only means the history page was fully read; it is
+    // not a turn-terminal signal. Wait for the canonical message projection
+    // to carry completedAt so a streaming first chunk is never sent as the
+    // final channel reply.
+    if (message?.completedAt === undefined && !message?.error) continue;
     const text = collectAssistantText(message);
     if (text) return text;
   }

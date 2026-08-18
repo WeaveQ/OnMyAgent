@@ -258,6 +258,23 @@ describe("GrokRuntimeAdapter", () => {
     expect(cleaned).toEqual(["product-session"]);
   });
 
+  test("keeps native-delete success even when local cleanup fails", async () => {
+    const fixture = processFixture();
+    const unbound: string[] = [];
+    const adapter = new GrokRuntimeAdapter({
+      supervisor: { async start() { return fixture.handle; }, async stopAll() {} },
+      resolvePolicy: () => ({ binaryPath: "grok", runtimeHome: "/runtime/grok" }),
+      unbindPermissionSession: (runtimeSessionId) => { unbound.push(runtimeSessionId); },
+      cleanupSession: async () => { throw new Error("fixture cleanup failed"); },
+    });
+    await expect(adapter.deleteSession(binding)).resolves.toBeUndefined();
+    expect(unbound).toEqual(["native-session"]);
+    expect(fixture.requests.map((request) => request.method)).toEqual([
+      "x.ai/session/delete",
+      "session/close",
+    ]);
+  });
+
   test("prompts and cancels through base ACP without changing the sticky binding", async () => {
     const fixture = processFixture();
     const notifications: Array<{ method: string; params: Record<string, unknown> }> = [];
@@ -371,6 +388,7 @@ describe("GrokRuntimeAdapter", () => {
 
   test("forks through the audited extension with an explicit native id", async () => {
     const fixture = processFixture();
+    const bound: Array<{ runtimeSessionId: string; productSessionId: string }> = [];
     fixture.handle.transport.request = async (method, params) => {
       fixture.requests.push({ method, params });
       if (method === "x.ai/session/fork") {
@@ -381,6 +399,9 @@ describe("GrokRuntimeAdapter", () => {
     const adapter = new GrokRuntimeAdapter({
       supervisor: { async start() { return fixture.handle; }, async stopAll() {} },
       resolvePolicy: () => ({ binaryPath: "grok", runtimeHome: "/runtime/grok" }),
+      bindPermissionSession: (runtimeSessionId, productSessionId) => {
+        bound.push({ runtimeSessionId, productSessionId });
+      },
     });
     const forked = await adapter.forkSession(binding, "fork-product");
     expect(forked).toMatchObject({
@@ -399,6 +420,10 @@ describe("GrokRuntimeAdapter", () => {
         newSessionId: forked.runtimeSessionId,
         sessionKind: "fork",
       },
+    }]);
+    expect(bound).toEqual([{
+      runtimeSessionId: forked.runtimeSessionId,
+      productSessionId: "fork-product",
     }]);
   });
 
@@ -813,6 +838,34 @@ describe("GrokRuntimeAdapter", () => {
       { method: "session/list", params: { cwd: "/workspace" } },
       { method: "session/list", params: { cwd: "/workspace", cursor: "page-2" } },
     ]);
+  });
+
+  test("keeps seen sessions when a capped native listing is incomplete", async () => {
+    const fixture = processFixture();
+    const unseen: RuntimeSessionBinding = {
+      ...binding,
+      productSessionId: "unseen-product",
+      runtimeSessionId: "unseen-native",
+    };
+    fixture.handle.transport.request = async (method, params) => {
+      fixture.requests.push({ method, params });
+      if (method !== "session/list") return {};
+      const page = typeof params.cursor === "string" ? Number(params.cursor) : 0;
+      return {
+        sessions: page === 0 ? [{ sessionId: "native-session" }] : [],
+        nextCursor: String(page + 1),
+      };
+    };
+    const adapter = new GrokRuntimeAdapter({
+      supervisor: { async start() { return fixture.handle; }, async stopAll() {} },
+      resolvePolicy: () => ({ binaryPath: "grok", runtimeHome: "/runtime/grok" }),
+    });
+    await expect(adapter.refreshSessions([binding, unseen])).resolves.toEqual({
+      sessions: [expect.objectContaining({ productSessionId: "product-session" })],
+      missingRuntimeSessionIds: [],
+      failedRuntimeSessionIds: ["unseen-native"],
+      complete: false,
+    });
   });
 
   test("reports needs_auth after a typed session creation failure", async () => {

@@ -1,10 +1,44 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { EventEmitter } from "node:events";
 import { join } from "node:path";
+import { PassThrough } from "node:stream";
+import { encodeJsonRpcMessage } from "@onmyagent/acp-runtime";
 import { GrokProcessSupervisor } from "../src/services/grok-process-supervisor.js";
 
 const children: ChildProcessWithoutNullStreams[] = [];
 afterEach(() => { for (const child of children.splice(0)) child.kill("SIGKILL"); });
+
+function stubbornChild(): ChildProcessWithoutNullStreams {
+  const child = new EventEmitter();
+  const stdin = new PassThrough();
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+  const value = Object.assign(child, {
+    stdin,
+    stdout,
+    stderr,
+    pid: undefined,
+    exitCode: null,
+    signalCode: null,
+    kill: () => true,
+  }) as unknown as ChildProcessWithoutNullStreams;
+  stdin.on("data", (chunk) => {
+    const request = JSON.parse(String(chunk));
+    if (request.method === "initialize") {
+      stdout.write(encodeJsonRpcMessage({
+        jsonrpc: "2.0",
+        id: request.id,
+        result: {
+          protocolVersion: 1,
+          agentCapabilities: { sessionCapabilities: { list: {}, load: {} } },
+          _meta: { agentVersion: "1.0.0" },
+        },
+      }));
+    }
+  });
+  return value;
+}
 
 describe("GrokProcessSupervisor", () => {
   test("starts once per profile/workspace/sandbox and fixes safe CLI policy", async () => {
@@ -131,5 +165,20 @@ describe("GrokProcessSupervisor", () => {
     )).rejects.toMatchObject({ code: "grok_runtime_draining" });
     expect(supervisor.draining).toBe(true);
     expect(spawned.every((child) => child.exitCode !== null || child.signalCode !== null)).toBe(true);
+  });
+
+  test("stopAll fails closed when a child remains after termination attempts", async () => {
+    const supervisor = new GrokProcessSupervisor({
+      onRequest: async () => ({ outcome: "cancelled" }),
+      spawnProcess: () => stubbornChild(),
+    });
+    await supervisor.start(
+      { profileId: "system", workspaceRoot: "/workspace/stubborn" },
+      { binaryPath: "/fixture/grok", runtimeHome: "/fixture/home", expectedVersion: "1.0.0" },
+    );
+    await expect(supervisor.stopAll()).rejects.toMatchObject({
+      code: "grok_runtime_draining",
+      details: { children: 1, inflight: 0, active: 0 },
+    });
   });
 });

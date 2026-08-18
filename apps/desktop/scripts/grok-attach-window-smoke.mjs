@@ -4,9 +4,8 @@
  * drives the shipped composer → staging prompt pipeline.
  */
 import { app, BrowserWindow } from "electron";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { createServer } from "node:http";
-import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,15 +14,25 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(__dirname, "../..");
 const evidenceDir = process.env.GROK_ATTACH_SMOKE_EVIDENCE?.trim()
   || join(repoRoot, ".loop", "runs");
-const bunBin = process.env.BUN_BIN?.trim()
-  || ["/Users/huangchunan/.bun/bin/bun", "/opt/homebrew/bin/bun", "bun"].find((candidate) => {
-    try {
-      return candidate === "bun" || existsSync(candidate);
-    } catch {
-      return false;
-    }
-  })
-  || "bun";
+
+function resolveBunBinary() {
+  const explicit = process.env.BUN_BIN?.trim();
+  if (explicit) return explicit;
+  const locator = process.platform === "win32" ? "where.exe" : "which";
+  try {
+    const output = execFileSync(locator, ["bun"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    const resolved = String(output).split(/\r?\n/).map((line) => line.trim()).find(Boolean);
+    if (resolved) return resolved;
+  } catch {
+    // Fall through to a typed operator-facing error below.
+  }
+  throw new Error("Bun is required for this smoke; set BUN_BIN or install bun on PATH");
+}
+
+const bunBin = resolveBunBinary();
 
 function log(message) {
   process.stdout.write(`[grok-attach-smoke] ${message}\n`);

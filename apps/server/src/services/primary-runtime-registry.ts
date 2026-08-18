@@ -387,6 +387,12 @@ export class PrimaryRuntimeRegistry {
   ): Promise<AgentRuntimeSession> {
     const targetAdapter = this.#requireAdapter(targetKind);
     this.assertRuntimeSelectable(targetKind, workspace.id);
+    // Cross-runtime forks intentionally start with the target runtime's
+    // default model/mode. The prior runtime's context is copied as text only;
+    // provider-specific model ids and native modes are not portable across
+    // OpenCode and Grok Build. The new binding therefore records target
+    // defaults rather than pretending the source native configuration carried
+    // over.
     // Read the source conversation so the new runtime can continue the thread.
     let contextText = "";
     try {
@@ -428,7 +434,7 @@ export class PrimaryRuntimeRegistry {
       parentProductSessionId: source.productSessionId,
       parentRuntimeKind: source.runtimeKind,
       ...(created.modelRef ? { modelRef: created.modelRef } : {}),
-      ...(source.mode ? { mode: source.mode } : {}),
+      ...(created.session.mode ? { mode: created.session.mode } : {}),
       ...(created.sandboxProfile ? { sandboxProfile: created.sandboxProfile } : {}),
       createdAt: Date.now(),
       source: "explicit",

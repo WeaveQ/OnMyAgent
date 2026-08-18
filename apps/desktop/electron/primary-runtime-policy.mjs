@@ -123,6 +123,8 @@ function buildGrokRuntimePolicy(input) {
     environment: input.environment,
     ...(Object.keys(profiles).length ? { profiles } : {}),
     rollout: {
+      // Grok is the shipped primary runtime when an audited binary exists;
+      // operators retain an explicit env opt-out and kill switch for rollout.
       newSessionsEnabled:
         String(input.env.ONMYAGENT_GROK_PRIMARY_ENABLED ?? "1").trim() !== "0"
         && String(input.env.ONMYAGENT_GROK_PRIMARY_KILL_SWITCH ?? "").trim() !== "1",
