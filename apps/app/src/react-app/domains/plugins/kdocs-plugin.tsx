@@ -5,6 +5,7 @@ import type { KdocsConnectionStatus } from "@onmyagent/types/kdocs-connector";
 
 import { Button } from "@/components/ui/button";
 import { NoticeBox } from "@/components/ui/notice-box";
+import { Textarea } from "@/components/ui/textarea";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
 import {
   connectKdocsWithToken,
@@ -327,8 +328,8 @@ export function KdocsPluginCard(props: {
               <span className="text-dls-secondary">
                 {t("plugins.kdocs_token_label")}
               </span>
-              <textarea
-                className="min-h-24 w-full resize-y rounded-lg border border-dls-border bg-dls-surface px-3 py-2 text-sm text-dls-text outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/40"
+              <Textarea
+                className="min-h-20 resize-y bg-dls-surface"
                 value={accessToken}
                 onChange={(e) => setAccessToken(e.target.value)}
                 placeholder={t("plugins.kdocs_token_placeholder")}

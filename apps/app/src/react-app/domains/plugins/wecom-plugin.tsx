@@ -7,6 +7,7 @@ import type {
 } from "@onmyagent/types/wecom-connector";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
@@ -318,9 +319,6 @@ export function WecomPluginCard(props: {
     setDetailOpen(false);
   };
 
-  const inputClass =
-    "w-full rounded-lg border border-dls-border bg-dls-surface px-3 py-2 text-sm text-dls-text outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/40";
-
   return (
     <div className="min-w-0">
       <ConnectorStatusCard
@@ -455,8 +453,8 @@ export function WecomPluginCard(props: {
               <span className="text-dls-secondary">
                 {t("plugins.wecom_bot_id_label")}
               </span>
-              <input
-                className={inputClass}
+              <Input
+                variant="dls"
                 value={botId}
                 onChange={(e) => setBotId(e.target.value)}
                 placeholder={t("plugins.wecom_bot_id_placeholder")}
@@ -468,8 +466,8 @@ export function WecomPluginCard(props: {
               <span className="text-dls-secondary">
                 {t("plugins.wecom_secret_label")}
               </span>
-              <input
-                className={inputClass}
+              <Input
+                variant="dls"
                 type="password"
                 value={secret}
                 onChange={(e) => setSecret(e.target.value)}

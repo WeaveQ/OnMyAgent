@@ -136,8 +136,9 @@ Message roles, streaming cursor, presence, tool approval, code
 § 4d / § 4e / § 4f / § 4g / § 4h and the `message-roles:` /
 `streaming:` / `presence:` / `tool-approval:` / `artifact-hue:`
 YAML blocks). Runtime primitives `StreamingCursor` and
-`ToolApprovalCard` are tracked in Known Gaps until they ship.
-Closing a gap is documented in § 13 Iteration Guide.
+`ToolApprovalCard` have first landings in `components/ui/` (see DESIGN.md
+§ 14); remaining Known Gaps stay in DESIGN.md, not here.
+Closing a gap is documented in DESIGN.md § 13 Iteration Guide.
 
 ## Scrollbars
 

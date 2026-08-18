@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Folder, FolderPlus, Loader2, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { cn } from "@/lib/utils";
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
@@ -325,7 +326,7 @@ export function MineMoveToDialog(props: MineMoveDialogProps) {
 
         {createOpen ? (
           <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-dls-border px-4 py-2">
-            <input
+            <Input
               autoFocus
               value={createName}
               onChange={(event) => setCreateName(event.target.value)}
@@ -337,7 +338,7 @@ export function MineMoveToDialog(props: MineMoveDialogProps) {
               }}
               placeholder={t("files.create_folder_placeholder")}
               disabled={busy}
-              className="h-9 min-w-0 flex-1 rounded-lg border border-dls-border bg-dls-background px-3 text-sm"
+              className="min-w-0 flex-1"
             />
             <Button
               type="button"

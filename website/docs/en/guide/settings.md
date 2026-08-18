@@ -141,7 +141,7 @@ The page shows the current version and **Check for updates**. A cold start also 
 | **Packaged desktop** | Checks prereleases and stables. When a new version is found, a notice appears; **click the notice or Download update** to start the download. Then click **Restart and install**. Nothing installs silently or on quit. |
 | **Development build** | Can check only. Clicking the notice opens the release page; it cannot replace a running dev build in-app. |
 
-Current preview builds are not notarized. If macOS blocks the app after an in-app update, run:
+Current preview builds are signed and notarized. If macOS still blocks the app after an in-app update, run:
 
 ```bash
 xattr -cr /Applications/OnMyAgent.app
