@@ -7,14 +7,20 @@ const Module = require("node:module");
 
 function resolveRuntimeRoot() {
   const env = process.env.ONMYAGENT_ARTIFACT_RUNTIME_ROOT?.trim();
-  const candidates = [
-    env,
+  let realDir = __dirname;
+  try {
+    realDir = path.dirname(fs.realpathSync(__filename));
+  } catch {
+    realDir = __dirname;
+  }
+  const fromDir = (dir) => [
     // monorepo from bundled-plugins/<plugin>/skills/<skill>/runtime
-    path.resolve(__dirname, "../../../../../../../../packages/artifact-runtime"),
+    path.resolve(dir, "../../../../../../../../packages/artifact-runtime"),
     // packaged electron resources/artifact-runtime
-    path.resolve(__dirname, "../../../../../artifact-runtime"),
-    path.resolve(__dirname, "../../../../artifact-runtime"),
-  ].filter(Boolean);
+    path.resolve(dir, "../../../../../artifact-runtime"),
+    path.resolve(dir, "../../../../artifact-runtime"),
+  ];
+  const candidates = [env, ...fromDir(realDir), ...fromDir(__dirname)].filter(Boolean);
   for (const candidate of candidates) {
     if (fs.existsSync(path.join(candidate, "spreadsheet-runtime.cjs"))) {
       return candidate;

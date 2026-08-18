@@ -13,16 +13,30 @@ const Module = require("node:module");
 
 function candidateRoots(launcherDirname, runtimeEntryFile) {
   const env = process.env.ONMYAGENT_ARTIFACT_RUNTIME_ROOT?.trim();
+  let realDir = launcherDirname;
+  try {
+    realDir = path.dirname(fs.realpathSync(path.join(launcherDirname, "artifact_runtime.cjs")));
+  } catch {
+    try {
+      realDir = fs.realpathSync(launcherDirname);
+    } catch {
+      realDir = launcherDirname;
+    }
+  }
+  const fromDir = (dir) => [
+    // monorepo: apps/desktop/resources/bundled-plugins/<plugin>/skills/<skill>/runtime
+    path.resolve(dir, "../../../../../../../../packages/artifact-runtime"),
+    // monorepo: apps/desktop/resources/bundled-skills/<skill>/runtime
+    path.resolve(dir, "../../../../../../packages/artifact-runtime"),
+    // packaged electron: resources/artifact-runtime next to bundled plugins/skills
+    path.resolve(dir, "../../../../../artifact-runtime"),
+    path.resolve(dir, "../../../../artifact-runtime"),
+    path.resolve(dir, "../../../artifact-runtime"),
+  ];
   return [
     env,
-    // monorepo: apps/desktop/resources/bundled-plugins/<plugin>/skills/<skill>/runtime
-    path.resolve(launcherDirname, "../../../../../../../../packages/artifact-runtime"),
-    // monorepo: apps/desktop/resources/bundled-skills/<skill>/runtime
-    path.resolve(launcherDirname, "../../../../../../packages/artifact-runtime"),
-    // packaged electron: resources/artifact-runtime next to bundled plugins/skills
-    path.resolve(launcherDirname, "../../../../../artifact-runtime"),
-    path.resolve(launcherDirname, "../../../../artifact-runtime"),
-    path.resolve(launcherDirname, "../../../artifact-runtime"),
+    ...fromDir(realDir),
+    ...fromDir(launcherDirname),
   ].filter(Boolean).filter((candidate, index, all) => all.indexOf(candidate) === index)
     .filter((candidate) => fs.existsSync(path.join(candidate, runtimeEntryFile)));
 }
