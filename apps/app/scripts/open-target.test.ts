@@ -1235,6 +1235,22 @@ describe("resolveArtifactAbsolutePath", () => {
     ).toBe("/Users/me/ws/order-entry-clerk/abc123/output/物流单.pdf");
   });
 
+  it("keeps macOS Application Support paths as one absolute file", () => {
+    const isolated =
+      "/Users/me/Library/Application Support/com.differential.onmyagent/expert-sessions/ws/agent/1753456789000";
+    const abs = `${isolated}/output/点位周报.xlsx`;
+    expect(resolveArtifactAbsolutePath(abs, isolated)).toBe(abs);
+    expect(
+      deriveOpenTargets([
+        {
+          id: "msg_1",
+          role: "assistant",
+          parts: [{ type: "text", text: `已写入 ${abs}` }],
+        },
+      ], { includeFileMentions: true }).map((target) => target.value),
+    ).toContain(abs);
+  });
+
   it("joins catalog-relative paths under the workspace catalog root", () => {
     expect(
       resolveArtifactAbsolutePath(

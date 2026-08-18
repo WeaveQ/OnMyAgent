@@ -48,7 +48,9 @@ const WORKSPACE_ID_PREFIX_PATTERN = /^workspace\/(?:ws_[^/]+|\d+|[0-9a-f-]{6,})\
 // \w alone is ASCII-only and dropped Chinese filenames from the files panel.
 // Include CJK title brackets commonly used in deliverable filenames
 // (e.g. 【视频脚本-栖光修护精华】审核留痕版.docx).
-const FILE_PATH_SEGMENT = String.raw`[\p{L}\p{N}._\-【】「」『』（）／]+`;
+// "Application Support" is the only spaced segment we accept — a generic
+// space class would swallow prose like "Wrote agents/ledger.xlsx".
+const FILE_PATH_SEGMENT = String.raw`(?:Application Support|[\p{L}\p{N}._\-【】「」『』（）／]+)`;
 const FILE_PATTERN = new RegExp(
   String.raw`(?:^|[\s"'` +
     "`" +
