@@ -34,27 +34,19 @@ The workflow **builds the tag**, not the branch you pick in “Use workflow from
 ref: ${{ env.RELEASE_TAG }}
 ```
 
+Pushing an annotated `vX.Y.Z` tag **starts `Release App` automatically**. The job always creates a **published pre-release** (not a draft, not a full release). It never writes OSS by itself.
+
 | You want | Do this |
 | --- | --- |
-| 0.5.x package | Bump + tag on `release/0.5` (`v0.5.23`, …). Run `Release App` with `tag: v0.5.23`. “Use workflow from” can stay **`main`** (latest YAML). |
-| 1.x package | Bump + tag on `main` (`v1.0.0`, …). Same workflow, `tag: v1.0.0`. |
+| 0.5.x package | Bump on `release/0.5`, tag `v0.5.23`, `git push origin v0.5.23`. |
+| 1.x package | Bump on `main`, tag `v1.0.0`, `git push origin v1.0.0`. |
+| Customer / OSS (0.5.x only today) | After assets are up, open the GitHub Release and **unset “Set as a pre-release”**. That fires **Sync OSS**. |
 
-Leave the GitHub UI default on `main`. Do not set the workflow’s default ref to `release/0.5`.
+“Use workflow from” only matters for a **manual** re-run; leave it on **`main`**. Checkout is still the tag.
 
-```bash
-# 0.5.x preview (default): always prerelease, no OSS
-gh workflow run "Release App" --ref main -f tag=v0.5.23 -f draft=false -f build_electron=true
+`Release App` ignores `prerelease: false` on `workflow_dispatch`. Do not use the workflow to publish a full release.
 
-# 0.5.x customer/OSS cut — only v0.5.x may set prerelease=false
-gh workflow run "Release App" --ref main -f tag=v0.5.23 -f draft=false -f prerelease=false -f build_electron=true
-
-# 1.x — prerelease=false is ignored; stays prerelease, no OSS
-gh workflow run "Release App" --ref main -f tag=v1.0.0 -f draft=false -f build_electron=true
-```
-
-`Release App` **forces prerelease** except when the tag is `v0.5.x` **and** the operator sets `prerelease: false`. 1.x / `main` tags cannot publish a full GitHub Release through this workflow.
-
-OSS `latest.yml` / `latest-mac.yml` is a **single** pointer. **Sync OSS** only runs for published, non-prerelease **`v0.5.*`** tags. Unchecking “pre-release” on a `v1.*` GitHub Release will not update the customer feed. When 1.x becomes the customer channel, lift that tag filter in `sync-oss-on-github-release.yml`.
+OSS `latest.yml` / `latest-mac.yml` is a **single** pointer. **Sync OSS** only runs for published, non-prerelease **`v0.5.*`** tags. Unchecking pre-release on a `v1.*` GitHub Release will not update the customer feed. When 1.x becomes the customer channel, lift that tag filter in `sync-oss-on-github-release.yml`.
 
 ### Desktop update discovery (installed apps)
 
@@ -238,7 +230,7 @@ Use this flow before Apple signing and notarization are configured.
    git push origin v0.5.23
    ```
 
-3. Run `Release App` with that **tag**. “Use workflow from” can stay `main`. The job checks out the tag. Tag push does **not** start the workflow.
+3. Push the tag. `Release App` starts automatically and publishes a **pre-release**. After you verify the assets, unset “Set as a pre-release” on the GitHub Release to sync OSS (`v0.5.*` only today).
 
    Recommended **published** preview inputs (`draft: false` so electron-updater and the in-app check can see the release):
 
@@ -290,16 +282,9 @@ Before publishing a stable public release, configure Apple signing and notarizat
 - `OSS_ACCESS_KEY_ID`
 - `OSS_ACCESS_KEY_SECRET`
 
-Then run `Release App` with:
+Push the version tag. `Release App` always publishes a **pre-release** (it cannot create a full release). After `spctl` / `stapler validate`, unset “Set as a pre-release” on the GitHub Release to publish to customers / OSS (`v0.5.*` only until that filter is lifted).
 
-```text
-draft: false
-prerelease: false
-notarize: true
-build_electron: true
-```
-
-`Release App` now honors the `notarize` input (it used to force `false`). First signed+notarized cut should stay `prerelease: true` until `spctl` / `stapler validate` pass.
+`Release App` honors the `notarize` input on a manual re-run (it used to force `false`).
 
 Only enable these after the release destinations are intentionally configured:
 
