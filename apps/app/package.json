@@ -74,7 +74,7 @@
   "devDependencies": {
     "@file-viewer/vite-plugin": "2.2.8",
     "@tailwindcss/vite": "^4.3.3",
-    "@types/node": "^24.13.2",
+    "@types/node": "^26.2.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^5.2.0",
