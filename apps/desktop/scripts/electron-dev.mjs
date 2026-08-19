@@ -3,6 +3,10 @@ import net from "node:net";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  RESET_RELAUNCH_EXIT_CODE,
+  waitForPendingFullResetMarkerGone,
+} from "../electron/reset-onmyagent-state.mjs";
+import {
   clearElectronDevHttpCaches,
   clearViteDepsCache,
   inspectViteDeps,
@@ -516,19 +520,32 @@ const linuxEnvDefaults = resolveLinuxDesktopEnvDefaults({
   env: process.env,
 });
 
-electronChild = run(pnpmCmd, ["exec", "electron", "./electron/main.mjs"], {
-  cwd: desktopRoot,
-  env: {
-    ...process.env,
-    ...linuxEnvDefaults,
-    ONMYAGENT_DEV_MODE: process.env.ONMYAGENT_DEV_MODE ?? "1",
-    ONMYAGENT_DATA_DIR: process.env.ONMYAGENT_DATA_DIR ?? defaultDevDataDir,
-    ONMYAGENT_ELECTRON_START_URL: resolvedStartUrl,
-    ELECTRON_EXTRA_LAUNCH_ARGS: extraLaunchArgs,
-  },
-});
+function spawnElectronChild() {
+  const child = run(pnpmCmd, ["exec", "electron", "./electron/main.mjs"], {
+    cwd: desktopRoot,
+    env: {
+      ...process.env,
+      ...linuxEnvDefaults,
+      ONMYAGENT_DEV_MODE: process.env.ONMYAGENT_DEV_MODE ?? "1",
+      ONMYAGENT_DATA_DIR: process.env.ONMYAGENT_DATA_DIR ?? defaultDevDataDir,
+      ONMYAGENT_ELECTRON_START_URL: resolvedStartUrl,
+      ELECTRON_EXTRA_LAUNCH_ARGS: extraLaunchArgs,
+    },
+  });
+  child.on("exit", (code) => {
+    if (stopping) return;
+    if (code === RESET_RELAUNCH_EXIT_CODE) {
+      console.log("[electron-dev] App reset finished; restarting Electron…");
+      void (async () => {
+        await waitForPendingFullResetMarkerGone({ timeoutMs: 30_000 });
+        if (stopping) return;
+        electronChild = spawnElectronChild();
+      })();
+      return;
+    }
+    void stopAll(code ?? 0);
+  });
+  return child;
+}
 
-electronChild.on("exit", (code) => {
-  if (stopping) return;
-  void stopAll(code ?? 0);
-});
+electronChild = spawnElectronChild();

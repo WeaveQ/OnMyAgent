@@ -87,7 +87,7 @@ export type AgentRecord = {
   userBackground: string;
   agentMemory?: string;
   userMemory?: string;
-  marketplaceSource?: "mine";
+  marketplaceSource?: "mine" | "installed";
   marketplacePath?: string;
   marketplacePackageName?: string;
   sourceTemplateId: string | null;

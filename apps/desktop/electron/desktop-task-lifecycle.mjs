@@ -29,7 +29,10 @@ export function createDesktopTaskLifecycle(options) {
         .map((process) => ({ runId: process.runId, provider: process.provider, status: process.status }));
       return { active: items.length > 0, activeCount: items.length, items };
     },
-    stopDependentRuntimes: stopDependents,
+    stopDependentRuntimes: async (reason) => {
+      const destructive = reason === "full_reset" || reason === "full_nuke";
+      await stopDependents({ suppressErrors: destructive });
+    },
     onDrained: () => { disposed = true; },
   });
 

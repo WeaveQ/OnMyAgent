@@ -1,5 +1,4 @@
 import type { Actor, ServerConfig, WorkspaceInfo } from "@onmyagent/types/server";
-import { resolve } from "node:path";
 import { ApiError } from "../core/errors.js";
 import { resolveWorkspaceOpencodeConnection } from "./opencode-connection.js";
 import {
@@ -9,6 +8,8 @@ import {
 import {
   ensureAndAssertExpertRuntimeContract,
   EXPERT_PROMPT_BODY_MAX_BYTES,
+  EXPERT_PROMPT_BODY_MAX_BYTES_WITH_FILES,
+  expertPromptHasFileParts,
   ExpertRuntimeContractError,
   resolveExpertRuntimeDirectoryCandidate,
   type ExpertRuntimeContractEvent,
@@ -368,32 +369,17 @@ export async function proxyOpencodeRequest(input: {
     const directorySources = [queryDirectory, headerDirectory, bodyDirectory]
       .filter((value): value is string => Boolean(value));
     const requestedDirectory = directorySources[0] ?? null;
-    // An ordinary workspace prompt has no managed Expert marker. Keep it on
-    // the existing forwarding path even when its JSON is malformed/large.
-    const expertCandidates = await Promise.all(
-      directorySources.map((source) => resolveExpertRuntimeDirectoryCandidate({
+    // Query owns routing (OpenCode SDK v2). Header/body are fallbacks only
+    // when query is absent. A leftover Expert header must not 409 an ordinary
+    // workspace prompt whose query points at the workspace root.
+    const routedIsExpert = requestedDirectory
+      ? await resolveExpertRuntimeDirectoryCandidate({
           workspaceId: workspace.id,
-          sessionRoot: source,
-          // A direct `/opencode/*` proxy has no routed workspace segment. A
-          // managed marker from another workspace must still be detected so
-          // the strict assertion fails closed instead of forwarding into it.
+          sessionRoot: requestedDirectory,
           allowWorkspaceMismatch: true,
-        })),
-    );
-    const authorizedExpertDirectory = expertCandidates[0] ?? null;
-    const candidatePaths = new Set(
-      expertCandidates.filter((value): value is string => Boolean(value)).map((value) => resolve(value)),
-    );
-    if (candidatePaths.size > 0 && (!authorizedExpertDirectory || candidatePaths.size > 1)) {
-      const error = new ExpertRuntimeContractError(
-        "authorized_directory",
-        { workspace, sessionId: sessionId ?? "", directory: requestedDirectory ?? "" },
-        "Expert prompt directory sources conflict",
-      );
-      emitExpertContractViolation(input.onExpertContractViolation, error.toEvent());
-      throw error;
-    }
-    if (authorizedExpertDirectory) {
+        })
+      : null;
+    if (routedIsExpert) {
       const expertDirectory = requestedDirectory as string;
       if (!sessionId) {
         const error = new ExpertRuntimeContractError(
@@ -409,7 +395,7 @@ export async function proxyOpencodeRequest(input: {
           "prompt_body_too_large",
           { workspace, sessionId, directory: expertDirectory },
           "Expert prompt body exceeds the bounded proxy inspection limit",
-          { bodyLimitBytes: EXPERT_PROMPT_BODY_MAX_BYTES },
+          { bodyLimitBytes: preview.bodyLimitBytes },
         );
         emitExpertContractViolation(input.onExpertContractViolation, error.toEvent());
         throw error;
@@ -502,15 +488,22 @@ function assertionForViolationCode(
 type BoundedJsonClone = {
   body: Record<string, unknown> | null;
   tooLarge: boolean;
+  bodyLimitBytes: number;
 };
 
 async function readBoundedJsonClone(request: Request): Promise<BoundedJsonClone> {
   const contentLength = Number(request.headers.get("content-length") ?? "");
-  if (Number.isFinite(contentLength) && contentLength > EXPERT_PROMPT_BODY_MAX_BYTES) {
-    return { body: null, tooLarge: true };
+  if (Number.isFinite(contentLength) && contentLength > EXPERT_PROMPT_BODY_MAX_BYTES_WITH_FILES) {
+    return {
+      body: null,
+      tooLarge: true,
+      bodyLimitBytes: EXPERT_PROMPT_BODY_MAX_BYTES_WITH_FILES,
+    };
   }
   const clone = request.clone();
-  if (!clone.body) return { body: null, tooLarge: false };
+  if (!clone.body) {
+    return { body: null, tooLarge: false, bodyLimitBytes: EXPERT_PROMPT_BODY_MAX_BYTES };
+  }
   const reader = clone.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
@@ -519,9 +512,13 @@ async function readBoundedJsonClone(request: Request): Promise<BoundedJsonClone>
       const next = await reader.read();
       if (next.done) break;
       total += next.value.byteLength;
-      if (total > EXPERT_PROMPT_BODY_MAX_BYTES) {
+      if (total > EXPERT_PROMPT_BODY_MAX_BYTES_WITH_FILES) {
         await reader.cancel();
-        return { body: null, tooLarge: true };
+        return {
+          body: null,
+          tooLarge: true,
+          bodyLimitBytes: EXPERT_PROMPT_BODY_MAX_BYTES_WITH_FILES,
+        };
       }
       chunks.push(next.value);
     }
@@ -535,17 +532,32 @@ async function readBoundedJsonClone(request: Request): Promise<BoundedJsonClone>
     offset += chunk.byteLength;
   }
   const text = new TextDecoder().decode(bytes).trim();
-  if (!text) return { body: null, tooLarge: false };
+  if (!text) {
+    return { body: null, tooLarge: false, bodyLimitBytes: EXPERT_PROMPT_BODY_MAX_BYTES };
+  }
   try {
     const parsed = JSON.parse(text) as unknown;
+    const body = parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null;
+    if (
+      body &&
+      total > EXPERT_PROMPT_BODY_MAX_BYTES &&
+      !expertPromptHasFileParts(body)
+    ) {
+      return {
+        body: null,
+        tooLarge: true,
+        bodyLimitBytes: EXPERT_PROMPT_BODY_MAX_BYTES,
+      };
+    }
     return {
-      body: parsed && typeof parsed === "object" && !Array.isArray(parsed)
-        ? parsed as Record<string, unknown>
-        : null,
+      body,
       tooLarge: false,
+      bodyLimitBytes: EXPERT_PROMPT_BODY_MAX_BYTES,
     };
   } catch {
-    return { body: null, tooLarge: false };
+    return { body: null, tooLarge: false, bodyLimitBytes: EXPERT_PROMPT_BODY_MAX_BYTES };
   }
 }
 

@@ -24,6 +24,7 @@ import {
   archiveAgentIconId,
   archiveSessionPreviewLine,
   cleanArchiveMessageContent,
+  isArchiveDatabaseLockedError,
   isNoisyArchiveMessage,
   isVisibleArchiveAgent,
   groupSessionsByAgent,
@@ -45,6 +46,7 @@ export {
   archiveAgentIconId,
   archiveSessionPreviewLine,
   cleanArchiveMessageContent,
+  isArchiveDatabaseLockedError,
   isNoisyArchiveMessage,
   isVisibleArchiveAgent,
   VISIBLE_AGENTS,
@@ -55,6 +57,14 @@ export {
   shortProjectLabel,
   extractArchiveTitleLine,
 } from "./session-archive-helpers";
+
+function formatArchiveError(cause: unknown): string {
+  const raw = cause instanceof Error ? cause.message : String(cause ?? "");
+  if (isArchiveDatabaseLockedError(raw)) {
+    return t("session_archive.error_database_locked");
+  }
+  return raw;
+}
 
 /** First-screen page size — never mount thousands of list rows at once. */
 const PAGE_LIMIT = 50;
@@ -176,7 +186,7 @@ export function SessionArchivePage(props: Props) {
         // Default session selection (first visible row) is applied in the
         // flatSessions effect so it matches the sorted list the user sees.
       } catch (cause: unknown) {
-        setError(cause instanceof Error ? cause.message : String(cause));
+        setError(formatArchiveError(cause));
       } finally {
         setLoadingList(false);
         setLoadingMore(false);
@@ -210,7 +220,7 @@ export function SessionArchivePage(props: Props) {
               warnings: stats?.warnings ?? (status.error ? [status.error] : []),
             });
             if (status.status === "failed" && status.error) {
-              setError(status.error);
+              setError(formatArchiveError(status.error));
             }
             break;
           }
@@ -221,7 +231,7 @@ export function SessionArchivePage(props: Props) {
         // Refresh first page only (cheap) after sync.
         await loadSessionList();
       } catch (cause: unknown) {
-        setError(cause instanceof Error ? cause.message : String(cause));
+        setError(formatArchiveError(cause));
       } finally {
         setSyncing(false);
       }
@@ -352,7 +362,7 @@ export function SessionArchivePage(props: Props) {
       lastLoadedSessionRef.current = null;
       refreshList();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(formatArchiveError(cause));
     }
   }, [props.client, props.workspaceId, selectedSessionId, sessions, refreshList]);
 

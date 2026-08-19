@@ -26,6 +26,8 @@ function createHarness() {
   const handlers = createRuntimeDomainHandlers({
     runtimeManager,
     taskLifecycle,
+    scheduleDeferredReset: () => { order.push("schedule-deferred"); },
+    queueAppExit: (appRef, code = 0) => { order.push(`exit-code:${code}`); appRef.exit(code); },
     app: {
       getPath: (name) => name === "userData" ? "/tmp/onmyagent-runtime-handler-user-data" : "/tmp",
       exit: (code) => order.push(`exit:${code}`),
@@ -89,6 +91,8 @@ test("full reset invokes the same destructive lifecycle boundary before any targ
   await handlers.resetOnMyAgentState({}, ["all"]);
   assert.equal(order[0], "prepare:full_reset");
   assert.match(order[1], /^rm:/);
+  assert.ok(order.includes("schedule-deferred"));
+  assert.ok(order.some((item) => /^exit:\d+$/.test(item)));
 });
 
 test("failed full-reset drain never deletes a target", async () => {
