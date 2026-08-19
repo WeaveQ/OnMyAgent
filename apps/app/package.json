@@ -60,7 +60,7 @@
     "marked": "^17.0.1",
     "marked-emoji": "^2.0.3",
     "mermaid": "^11.16.1",
-    "motion": "^12.38.0",
+    "motion": "^13.1.0",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-resizable-panels": "^4.12.2",
