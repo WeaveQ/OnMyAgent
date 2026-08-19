@@ -40,13 +40,13 @@ Pushing an annotated `vX.Y.Z` tag **starts `Release App` automatically**. The jo
 | --- | --- |
 | 0.5.x package | Bump on `release/0.5`, tag `v0.5.23`, `git push origin v0.5.23`. |
 | 1.x package | Bump on `main`, tag `v1.0.0`, `git push origin v1.0.0`. |
-| Customer / OSS (0.5.x only today) | After assets are up, open the GitHub Release and **unset “Set as a pre-release”**. That fires **Sync OSS**. |
+| Customer / OSS | After assets are up, open the GitHub Release and **unset “Set as a pre-release”**. That fires **Sync OSS** (any `v*` tag). |
 
 “Use workflow from” only matters for a **manual** re-run; leave it on **`main`**. Checkout is still the tag.
 
 `Release App` ignores `prerelease: false` on `workflow_dispatch`. Do not use the workflow to publish a full release.
 
-OSS `latest.yml` / `latest-mac.yml` is a **single** pointer. **Sync OSS** only runs for published, non-prerelease **`v0.5.*`** tags. Unchecking pre-release on a `v1.*` GitHub Release will not update the customer feed. When 1.x becomes the customer channel, lift that tag filter in `sync-oss-on-github-release.yml`.
+OSS `latest.yml` / `latest-mac.yml` is a **single** pointer. **Sync OSS** runs when a published GitHub Release is **not** a pre-release (any `v*` tag, 0.5.x or 1.x). The last promoted release overwrites the customer feed.
 
 ### Desktop update discovery (installed apps)
 
@@ -59,10 +59,7 @@ Packaged desktop builds use **electron-updater** (`apps/desktop/electron/updater
 - On **Linux**, in **dev/unpackaged** builds, or if electron-updater fails to initialize, the fallback fetches the same OSS yaml and opens the matching installer URL in a browser.
 - IPC payloads carry a `platformFlow` (`"in-app"` | `"open-browser"`) so the renderer shows a progress bar + restart button for in-app builds, and an "open release page" button for the fallback.
 
-OSS is the customer download/update channel. **Prereleases never sync.** Only a published **`v0.5.*`** GitHub Release that is **not** marked pre-release updates OSS (`latest.yml` / website-download). Ways that happens:
-
-- `Release App` with tag `v0.5.x` and `prerelease: false` (and not left as a draft)
-- Uncheck **Set as a pre-release** on an existing **`v0.5.*`** GitHub Release (fires `released`; workflow **Sync OSS on GitHub Release**)
+OSS is the customer download/update channel. **Prereleases never sync.** Only a published GitHub Release that is **not** marked pre-release updates OSS (`latest.yml` / website-download). That happens when you uncheck **Set as a pre-release** on any `v*` GitHub Release (fires `released`; workflow **Sync OSS on GitHub Release**).
 
 `Release App` with the usual `prerelease: true` still publishes GitHub assets for testers, but does **not** overwrite the OSS feed. When a full release does sync, the job:
 
@@ -230,7 +227,7 @@ Use this flow before Apple signing and notarization are configured.
    git push origin v0.5.23
    ```
 
-3. Push the tag. `Release App` starts automatically and publishes a **pre-release**. After you verify the assets, unset “Set as a pre-release” on the GitHub Release to sync OSS (`v0.5.*` only today).
+3. Push the tag. `Release App` starts automatically and publishes a **pre-release**. After you verify the assets, unset “Set as a pre-release” on the GitHub Release to sync OSS.
 
    Recommended **published** preview inputs (`draft: false` so electron-updater and the in-app check can see the release):
 
@@ -282,7 +279,7 @@ Before publishing a stable public release, configure Apple signing and notarizat
 - `OSS_ACCESS_KEY_ID`
 - `OSS_ACCESS_KEY_SECRET`
 
-Push the version tag. `Release App` always publishes a **pre-release** (it cannot create a full release). After `spctl` / `stapler validate`, unset “Set as a pre-release” on the GitHub Release to publish to customers / OSS (`v0.5.*` only until that filter is lifted).
+Push the version tag. `Release App` always publishes a **pre-release** (it cannot create a full release). After `spctl` / `stapler validate`, unset “Set as a pre-release” on the GitHub Release to publish to customers / OSS.
 
 `Release App` honors the `notarize` input on a manual re-run (it used to force `false`).
 
