@@ -1,6 +1,9 @@
 name: Release App
 
 on:
+  push:
+    tags:
+      - "v*.*.*"
   workflow_dispatch:
     inputs:
       tag:
@@ -21,7 +24,7 @@ on:
         type: boolean
         default: true
       prerelease:
-        description: "Mark as prerelease (does not overwrite OSS latest). Ignored/forced true except for v0.5.x tags, which may set false for a stable OSS cut."
+        description: "Ignored. Release App always creates a published pre-release. Promote to a full release in the GitHub Release UI to sync OSS."
         required: false
         type: boolean
         default: true
@@ -124,25 +127,24 @@ jobs:
               "- Electron updater feeds: latest-mac.yml (macOS) and latest.yml (Windows)."
           fi
 
-          draft="${INPUT_DRAFT:-}"
-          if [ -z "$draft" ]; then
-            if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
-              # Keep tag-triggered releases out of /releases/latest until assets + latest.json are ready.
-              draft="true"
-            else
-              draft="false"
-            fi
-          fi
-          # Default prerelease. Only v0.5.x may publish a full (OSS) release,
-          # and only when the operator explicitly sets prerelease=false.
-          # 1.x / main tags cannot overwrite customer latest.yml by accident.
-          if [[ "$TAG" =~ ^v0\.5\.[0-9]+$ ]] && [ "${INPUT_PRERELEASE}" = "false" ]; then
-            prerelease="false"
-            echo "0.5.x full release requested for $TAG (OSS sync will run after publish)."
+          # Always a published pre-release. Tag push and dispatch cannot
+          # create a full release. Promote in the GitHub UI (unset
+          # pre-release) so Sync OSS can run.
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            draft="false"
           else
-            prerelease="true"
-            if [ "${INPUT_PRERELEASE}" = "false" ]; then
-              echo "Ignoring prerelease=false for $TAG; only v0.5.x may publish a stable OSS release."
+            draft="${INPUT_DRAFT:-false}"
+          fi
+          prerelease="true"
+          if [ "${INPUT_PRERELEASE}" = "false" ]; then
+            echo "Ignoring prerelease=false; Release App only publishes pre-releases."
+          fi
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            if [ -z "${INPUT_PUBLISH_SIDECARS:-}" ]; then
+              INPUT_PUBLISH_SIDECARS="${DEFAULT_PUBLISH_SIDECARS:-false}"
+            fi
+            if [ -z "${INPUT_PUBLISH_NPM:-}" ]; then
+              INPUT_PUBLISH_NPM="${DEFAULT_PUBLISH_NPM:-false}"
             fi
           fi
           notarize="${INPUT_NOTARIZE:-}"
