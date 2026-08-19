@@ -581,7 +581,7 @@ Root `check:type`、可缓存的 `test:*` 和 `pnpm task check/test <target>` �
 
 `@onmyagent/app` 的低频专项测试统一由 `apps/app/scripts/test.mjs` 分发，包内 `package.json` 只保留 `test:app`、`test:e2e`、`test:ui`、`test:version-gate` 等高层入口；人类和 Agent 日常仍优先使用 root `pnpm task test <target>`。
 
-CI 主测试 workflow 拆为 `checks` 与 `tests` matrix，并缓存 pnpm store 与 `.turbo`。主线自动化统一以 `main` 为 push / pull request 目标；alpha、i18n、MCP package 等专项 workflow 也从 `main` 派生，避免旧 `dev` 分支漏跑或误触发。如果仓库配置 `TURBO_TOKEN` secret 和 `TURBO_TEAM` variable，Turbo 会自动使用 remote cache；未配置时仍使用 GitHub Actions `.turbo` local cache restore/save。
+CI 主测试 workflow 拆为 `checks` 与 `tests` matrix，并缓存 pnpm store 与 `.turbo`。日常 PR / push 目标是 `dev`；允许的整支合入方向是 `release/*` → `dev` → `main`（反向禁止）。`OnMyAgent Tests`、i18n、PR Gates、Design Check、MCP package 检查在这三条线上触发。网站 Pages 仍只从 `main` 部署。如果仓库配置 `TURBO_TOKEN` secret 和 `TURBO_TEAM` variable，Turbo 会自动使用 remote cache；未配置时仍使用 GitHub Actions `.turbo` local cache restore/save。
 
 当前策略：
 
