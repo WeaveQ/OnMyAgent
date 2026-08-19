@@ -147,9 +147,16 @@ jobs:
               INPUT_PUBLISH_NPM="${DEFAULT_PUBLISH_NPM:-false}"
             fi
           fi
-          notarize="${INPUT_NOTARIZE:-}"
-          if [ -z "$notarize" ]; then
-            notarize="${DEFAULT_NOTARIZE:-false}"
+          # Tag push has no workflow_dispatch inputs. Always notarize so
+          # `pnpm release:ship` cannot inherit a stale MACOS_NOTARIZE=false.
+          # Manual re-run can still set notarize=false.
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            notarize="true"
+          else
+            notarize="${INPUT_NOTARIZE:-}"
+            if [ -z "$notarize" ]; then
+              notarize="${DEFAULT_NOTARIZE:-true}"
+            fi
           fi
 
           build_electron="${INPUT_BUILD_ELECTRON:-}"
@@ -356,7 +363,7 @@ jobs:
         if: matrix.os_type == 'macos' && needs.resolve-release.outputs.notarize != 'true' && (needs.resolve-release.outputs.draft == 'true' || needs.resolve-release.outputs.prerelease == 'true')
         shell: bash
         run: |
-          echo "Building an unnotarized macOS preview release because this release is draft or prerelease."
+          echo "Building an unnotarized macOS preview (notarize=false). Gatekeeper will block downloaded apps until xattr -cr / Open Anyway."
 
       - name: Build Electron app
         shell: bash
