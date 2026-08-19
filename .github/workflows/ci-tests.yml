@@ -4,11 +4,13 @@ on:
   pull_request:
     branches:
       - main
+      - release/0.5
     # labeled: re-run when `ci:windows` is applied to force the host gate.
     types: [opened, synchronize, reopened, labeled, unlabeled]
   push:
     branches:
       - main
+      - release/0.5
 
 permissions:
   contents: read
