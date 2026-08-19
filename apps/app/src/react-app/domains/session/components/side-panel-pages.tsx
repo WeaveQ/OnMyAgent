@@ -357,6 +357,7 @@ export function StorePage(props: {
   onActiveTabChange?: (tab: StorePrimaryTab) => void;
   onSummonMarketplaceExpert?: ExpertMarketplaceSummonHandler;
   onCreateExpert?: () => void;
+  onDeleteExpert?: (expert: ExpertMarketplaceEntry) => void;
   /** Leave store → assistant office home + seed create-skill draft (new task). */
   onCreateSkill?: () => void;
   /** Open chat with a skill slash chip for usage. */
@@ -578,6 +579,7 @@ export function StorePage(props: {
               props.onSummonMarketplaceExpert?.(expert, initialPrompt);
             }}
             onCreateExpert={props.onCreateExpert ?? showComingSoonToast}
+            onDeleteExpert={props.onDeleteExpert}
           />
         ) : activeTab === "skills" ? (
           <SkillsMarketplacePage

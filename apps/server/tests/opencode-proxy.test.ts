@@ -114,6 +114,88 @@ describe("OpenCode Expert prompt proxy contract", () => {
     expect(forwardedBody).toBe(requestBody);
   });
 
+  test("uses the query Expert directory when the SDK header still points at another runtime", async () => {
+    const workspace = testWorkspace(join(root, "workspace-query"));
+    await mkdir(workspace.path, { recursive: true });
+    const runtimeRoot = join(root, "runtime-query");
+    process.env.ONMYAGENT_EXPERT_SESSION_RUNTIME_ROOT = runtimeRoot;
+    const current = await createExpertSessionRuntimeDirectory({
+      workspace,
+      runtimeRoot,
+      agentName: "Current Expert",
+      agentId: "current-expert",
+      packageName: "current-package",
+      sessionId: "session-current",
+    });
+    const leftover = await createExpertSessionRuntimeDirectory({
+      workspace,
+      runtimeRoot,
+      agentName: "Leftover Expert",
+      agentId: "leftover-expert",
+      packageName: "leftover-package",
+      sessionId: "session-leftover",
+    });
+    let forwarded = 0;
+    globalThis.fetch = (async () => {
+      forwarded += 1;
+      return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+    }) as typeof fetch;
+    const requestUrl = `http://server.test/workspace/ws_query/opencode/session/session-current/prompt_async?directory=${encodeURIComponent(current.directory)}`;
+    const response = await proxyOpencodeRequest({
+      config: config(workspace),
+      request: new Request(requestUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-opencode-directory": leftover.directory,
+        },
+        body: JSON.stringify({ agent: "onmyagent", parts: [{ type: "text", text: "hi" }] }),
+      }),
+      url: new URL(requestUrl),
+      workspace,
+      proxyPath: "/opencode/session/session-current/prompt_async",
+    });
+    expect(response.status).toBe(200);
+    expect(forwarded).toBe(1);
+  });
+
+  test("forwards an ordinary workspace prompt when the SDK header is a leftover Expert runtime", async () => {
+    const workspace = testWorkspace(join(root, "workspace-ordinary-leftover"));
+    await mkdir(workspace.path, { recursive: true });
+    const runtimeRoot = join(root, "runtime-ordinary-leftover");
+    process.env.ONMYAGENT_EXPERT_SESSION_RUNTIME_ROOT = runtimeRoot;
+    const leftover = await createExpertSessionRuntimeDirectory({
+      workspace,
+      runtimeRoot,
+      agentName: "Leftover Expert",
+      agentId: "leftover-ordinary",
+      packageName: "leftover-ordinary-package",
+      sessionId: "session-leftover-ordinary",
+    });
+    let forwarded = 0;
+    globalThis.fetch = (async () => {
+      forwarded += 1;
+      return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+    }) as typeof fetch;
+    const requestUrl = `http://server.test/workspace/ws_ordinary_leftover/opencode/session/session-ordinary/prompt_async?directory=${encodeURIComponent(workspace.path)}`;
+    const response = await proxyOpencodeRequest({
+      config: config(workspace),
+      request: new Request(requestUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-opencode-directory": leftover.directory,
+        },
+        body: JSON.stringify({ agent: "onmyagent", parts: [{ type: "text", text: "ordinary" }] }),
+      }),
+      url: new URL(requestUrl),
+      workspace,
+      proxyPath: "/opencode/session/session-ordinary/prompt_async",
+    });
+    expect(response.status).toBe(200);
+    expect(forwarded).toBe(1);
+  });
+
   test("fails closed for malformed marker instead of treating it as an ordinary prompt", async () => {
     const workspace = testWorkspace(join(root, "workspace-broken"));
     await mkdir(workspace.path, { recursive: true });
@@ -256,11 +338,71 @@ describe("OpenCode Expert prompt proxy contract", () => {
       url: new URL("http://server.test/w/ws_bounded/opencode/session/session-bounded/prompt_async"),
       workspace,
       proxyPath: "/opencode/session/session-bounded/prompt_async",
-    })).rejects.toMatchObject({ violationCode: "prompt_body_too_large" });
+    })).rejects.toMatchObject({
+      violationCode: "prompt_body_too_large",
+      details: { bodyLimitBytes: 512 * 1024 },
+    });
     expect(forwarded).toBe(0);
     expect(getExpertLifecycleEventsSnapshot().events.filter((event) =>
       event.kind === "contract_assertion" && event.outcome === "failed",
     )).toHaveLength(1);
+  });
+
+  test("forwards Expert prompts whose size comes from file parts, not text", async () => {
+    const workspace = testWorkspace(join(root, "workspace-file-parts"));
+    await mkdir(workspace.path, { recursive: true });
+    const runtimeRoot = join(root, "runtime-file-parts");
+    process.env.ONMYAGENT_EXPERT_SESSION_RUNTIME_ROOT = runtimeRoot;
+    const created = await createExpertSessionRuntimeDirectory({
+      workspace,
+      runtimeRoot,
+      agentName: "File Expert",
+      agentId: "file-expert",
+      packageName: "file-package",
+      sessionId: "session-file-parts",
+    });
+    const requestPayload = {
+      agent: "onmyagent",
+      parts: [
+        { type: "text", text: "这是相关资料，你先看一下" },
+        {
+          type: "file",
+          filename: "项目表.xlsx",
+          mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          url: `data:application/octet-stream;base64,${"A".repeat(600_000)}`,
+        },
+      ],
+    };
+    const requestBody = JSON.stringify(requestPayload);
+    expect(requestBody.length).toBeGreaterThan(512 * 1024);
+    expect(estimateExpertPromptTokens(requestPayload)).toBeLessThanOrEqual(
+      EXPERT_PROMPT_TOKEN_LIMIT,
+    );
+    let forwarded = 0;
+    let forwardedBody = "";
+    globalThis.fetch = (async (_input, init) => {
+      forwarded += 1;
+      forwardedBody = new TextDecoder().decode(init?.body as ArrayBuffer);
+      return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+    }) as typeof fetch;
+    const requestUrl = `http://server.test/workspace/ws_file/opencode/session/session-file-parts/prompt_async?directory=${encodeURIComponent(created.directory)}`;
+    const response = await proxyOpencodeRequest({
+      config: config(workspace),
+      request: new Request(requestUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-opencode-directory": created.directory,
+        },
+        body: requestBody,
+      }),
+      url: new URL(requestUrl),
+      workspace,
+      proxyPath: "/opencode/session/session-file-parts/prompt_async",
+    });
+    expect(response.status).toBe(200);
+    expect(forwarded).toBe(1);
+    expect(forwardedBody).toBe(requestBody);
   });
 
   test("leaves a non-Expert workspace prompt unchanged", async () => {

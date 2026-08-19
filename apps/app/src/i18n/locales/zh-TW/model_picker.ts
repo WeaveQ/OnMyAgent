@@ -20,4 +20,5 @@ export default {
   "model_picker.model_count_one": "{count} 個模型",
   "model_picker.model_count_other": "{count} 個模型",
   "model_picker.free": "免費",
+  "model_picker.vision": "視覺",
 } as const;

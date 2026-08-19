@@ -212,11 +212,22 @@ describe("Expert delete saga", () => {
     }
   });
 
-  test("refuses built-in marketplace before writing a journal", async () => {
+  test("accepts the summoned experts marketplace for origin cleanup", async () => {
     const value = await fixture();
     try {
-      await expect(runDelete(value, { marketplace: "experts" })).rejects.toMatchObject({
-        code: "expert_builtin_delete_forbidden",
+      const result = await runDelete(value, { marketplace: "experts" });
+      expect(result.state).toBe("completed");
+      expect(result.steps).toHaveLength(1);
+    } finally {
+      await rm(value.root, { recursive: true, force: true });
+    }
+  });
+
+  test("refuses an unknown marketplace before writing a journal", async () => {
+    const value = await fixture();
+    try {
+      await expect(runDelete(value, { marketplace: "bundled" as "my-experts" })).rejects.toMatchObject({
+        code: "invalid_payload",
       } satisfies Partial<ApiError>);
     } finally {
       await rm(value.root, { recursive: true, force: true });
