@@ -167,7 +167,7 @@ The OSS generic feed has no GitHub `/releases/latest` prerelease gap: whatever `
 
 After a merge to `main`, the same mainline branch is the source for automated CI and release-channel workflows:
 
-- `OnMyAgent Tests` and `i18n Audit` run on matching `main` pushes.
+- `OnMyAgent Tests`, `i18n Audit`, `PR Gates`, and Design Check run on PRs/pushes to `main` and `release/0.5`.
 - `onmyagent-ui-mcp` runs on `main` pushes that touch the MCP package and still publishes only from `onmyagent-ui-mcp-v*` tags.
 - `Alpha Channel (macOS arm64)` publishes the rolling alpha channel from `main`; use `Release App` for tagged preview or stable releases.
 
