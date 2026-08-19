@@ -42,14 +42,19 @@ ref: ${{ env.RELEASE_TAG }}
 Leave the GitHub UI default on `main`. Do not set the workflow’s default ref to `release/0.5`.
 
 ```bash
-# 0.5.x
+# 0.5.x preview (default): always prerelease, no OSS
+gh workflow run "Release App" --ref main -f tag=v0.5.23 -f draft=false -f build_electron=true
+
+# 0.5.x customer/OSS cut — only v0.5.x may set prerelease=false
 gh workflow run "Release App" --ref main -f tag=v0.5.23 -f draft=false -f prerelease=false -f build_electron=true
 
-# 1.x
-gh workflow run "Release App" --ref main -f tag=v1.0.0 -f draft=false -f prerelease=true -f build_electron=true
+# 1.x — prerelease=false is ignored; stays prerelease, no OSS
+gh workflow run "Release App" --ref main -f tag=v1.0.0 -f draft=false -f build_electron=true
 ```
 
-OSS `latest.yml` / `latest-mac.yml` is a **single** pointer. Until 1.x is the customer channel, only **non-prerelease 0.5.x** releases should overwrite it. Keep 1.x cuts `prerelease: true` (or a separate feed) so 0.5 clients are not pulled to 1.x.
+`Release App` **forces prerelease** except when the tag is `v0.5.x` **and** the operator sets `prerelease: false`. 1.x / `main` tags cannot publish a full GitHub Release through this workflow.
+
+OSS `latest.yml` / `latest-mac.yml` is a **single** pointer. **Sync OSS** only runs for published, non-prerelease **`v0.5.*`** tags. Unchecking “pre-release” on a `v1.*` GitHub Release will not update the customer feed. When 1.x becomes the customer channel, lift that tag filter in `sync-oss-on-github-release.yml`.
 
 ### Desktop update discovery (installed apps)
 
@@ -62,10 +67,10 @@ Packaged desktop builds use **electron-updater** (`apps/desktop/electron/updater
 - On **Linux**, in **dev/unpackaged** builds, or if electron-updater fails to initialize, the fallback fetches the same OSS yaml and opens the matching installer URL in a browser.
 - IPC payloads carry a `platformFlow` (`"in-app"` | `"open-browser"`) so the renderer shows a progress bar + restart button for in-app builds, and an "open release page" button for the fallback.
 
-OSS is the customer download/update channel. **Prereleases never sync.** Only a published GitHub Release that is **not** marked pre-release updates OSS (`latest.yml` / website-download). Ways that happens:
+OSS is the customer download/update channel. **Prereleases never sync.** Only a published **`v0.5.*`** GitHub Release that is **not** marked pre-release updates OSS (`latest.yml` / website-download). Ways that happens:
 
-- `Release App` with `prerelease: false` (and not left as a draft)
-- Uncheck **Set as a pre-release** on an existing GitHub Release (fires `released`; workflow **Sync OSS on GitHub Release**)
+- `Release App` with tag `v0.5.x` and `prerelease: false` (and not left as a draft)
+- Uncheck **Set as a pre-release** on an existing **`v0.5.*`** GitHub Release (fires `released`; workflow **Sync OSS on GitHub Release**)
 
 `Release App` with the usual `prerelease: true` still publishes GitHub assets for testers, but does **not** overwrite the OSS feed. When a full release does sync, the job:
 
