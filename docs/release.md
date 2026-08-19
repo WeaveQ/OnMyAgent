@@ -6,6 +6,14 @@ Local `package:electron` smoke only: see [`../BUILD.md`](../BUILD.md). Full doc 
 
 This repository uses pull requests for code changes and GitHub Actions for release packaging.
 
+## Branch merges
+
+Allowed direction (whole branch): `release/*` → `dev` → `main`. Reverse is forbidden. Do not merge `dev` or `main` into `release/0.5`.
+
+When this line is merged into `dev`, keep **`dev` version numbers**. Take the fix, drop the `0.5.x` bump.
+
+Version bump on this line: `pnpm release:prepare` (or `--set 0.5.23`). After the bump PR merges: `pnpm release:ship`.
+
 ### Desktop update discovery (installed apps)
 
 Packaged desktop builds use **electron-updater** (`apps/desktop/electron/updater.mjs`):
