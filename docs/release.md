@@ -6,24 +6,28 @@ Local `package:electron` smoke only: see [`../BUILD.md`](../BUILD.md). Full doc 
 
 This repository uses pull requests for code changes and GitHub Actions for release packaging.
 
-## Branch model (0.5 stable / 1.x main)
+## Branch model (0.5 stable / 1.x)
 
 | Line | Branch | Version | Allowed changes |
 | --- | --- | --- | --- |
+| Daily 1.x | `dev` | `1.0.0` and up | Features and refactors via PR. Preview packs. |
+| 1.x ship | `main` | same 1.x line | Only `dev` → `main` integration PRs. |
 | 0.5 stable | `release/0.5` (from `v0.5.22`) | `0.5.x` patch only | Small bugfixes via PR. No features. |
-| 1.x development | `main` | `1.0.0` and up | Features and refactors via PR. |
 | 0.5 hotfix topic | `fix/0.5-<slug>` | stays `0.5.x` until release bump | PR **into** `release/0.5`. |
-| 1.x topic | `codex/<slug>` / `feat/<slug>` | stays on `main` version | PR **into** `main`. |
+| 1.x topic | `codex/<slug>` / `feat/<slug>` | stays on `dev` version | PR **into** `dev`. |
 
-Do **not** merge `main` into `release/0.5`. That would ship 1.x work on the 0.5 line.
+Do **not** merge `dev` or `main` into `release/0.5`. That would ship 1.x work on the 0.5 line.
+
+Set the GitHub **default branch** to `dev` so New PR targets daily integration. Website / Pages still deploy from `main` only.
 
 ### Forward-port 0.5 fixes to 1.x
 
 After a `release/0.5` PR merges:
 
-1. Open a PR to `main` that `git cherry-pick -x <sha>` the fix commit(s).
-2. If the pick conflicts or the 0.5-only shim does not apply, re-implement on `main` instead of merging the whole stable branch.
+1. Open a PR to `dev` that `git cherry-pick -x <sha>` the fix commit(s).
+2. If the pick conflicts or the 0.5-only shim does not apply, re-implement on `dev` instead of merging the whole stable branch.
 3. Skip the forward-port when the fix is 0.5-only compatibility.
+4. The pick rides `dev` → `main` on the next integration PR.
 
 ### Release App (which ref?)
 
@@ -39,10 +43,10 @@ Pushing an annotated `vX.Y.Z` tag **starts `Release App` automatically**. The jo
 | You want | Do this |
 | --- | --- |
 | 0.5.x package | Bump on `release/0.5`, tag `v0.5.23`, `git push origin v0.5.23`. |
-| 1.x package | Bump on `main`, tag `v1.0.0`, `git push origin v1.0.0`. |
-| Customer / OSS | After assets are up, open the GitHub Release and **unset “Set as a pre-release”**. That fires **Sync OSS** (any `v*` tag). |
+| 1.x preview | Bump on `dev`, tag `v1.0.0`, `git push origin v1.0.0`. |
+| 1.x customer / OSS | Merge `dev` → `main` if that tag is not yet on `main`, then unset “Set as a pre-release”. That fires **Sync OSS** (any `v*` tag). |
 
-“Use workflow from” only matters for a **manual** re-run; leave it on **`main`**. Checkout is still the tag.
+“Use workflow from” only matters for a **manual** re-run; `dev` or `main` is fine. Checkout is still the tag.
 
 `Release App` ignores `prerelease: false` on `workflow_dispatch`. Do not use the workflow to publish a full release.
 
@@ -119,12 +123,12 @@ The OSS generic feed has no GitHub `/releases/latest` prerelease gap: whatever `
 
 ## Daily PR Flow
 
-0.5 hotfix: start from `release/0.5`, branch `fix/0.5-<slug>`, PR back to `release/0.5`, then forward-port to `main` (see Branch model).
+0.5 hotfix: start from `release/0.5`, branch `fix/0.5-<slug>`, PR back to `release/0.5`, then forward-port to `dev` (see Branch model).
 
-1. Start from the latest `main` (1.x).
+1. Start from the latest `dev` (1.x daily).
 
    ```bash
-   git switch main
+   git switch dev
    git pull --ff-only
    git switch -c codex/<short-change-name>
    ```
@@ -150,7 +154,7 @@ The OSS generic feed has no GitHub `/releases/latest` prerelease gap: whatever `
    git push -u origin codex/<short-change-name>
    ```
 
-4. Open a pull request into `main` and wait for the required checks.
+4. Open a pull request into `dev` and wait for the required checks.
 
    - `OnMyAgent Tests` runs workspace checks and unit/API/runtime/UI tests.
    - `i18n Audit` checks translation coverage.
@@ -159,11 +163,12 @@ The OSS generic feed has no GitHub `/releases/latest` prerelease gap: whatever `
 
 5. Merge only after the PR checks are green and the review notes are resolved.
 
-After a merge to `main`, the same mainline branch is the source for automated CI and release-channel workflows:
+After a merge to `dev`, CI on that branch is the daily gate. Promote 1.x to the ship line with a `dev` → `main` PR.
 
-- `OnMyAgent Tests`, `i18n Audit`, `PR Gates`, and Design Check run on PRs/pushes to `main` and `release/0.5`.
-- `onmyagent-ui-mcp` runs on `main` pushes that touch the MCP package and still publishes only from `onmyagent-ui-mcp-v*` tags.
-- `Alpha Channel (macOS arm64)` publishes the rolling alpha channel from `main`; use `Release App` for tagged preview or stable releases.
+- `OnMyAgent Tests`, `i18n Audit`, `PR Gates`, and Design Check run on PRs/pushes to `dev`, `main`, and `release/0.5`.
+- `onmyagent-ui-mcp` runs on those branches when the MCP package is touched and still publishes only from `onmyagent-ui-mcp-v*` tags.
+- Website Pages deploy from `main` only.
+- `Alpha Channel (macOS arm64)` is `workflow_dispatch`; use `Release App` for tagged preview or stable releases.
 
 ## Expert migration rollout and rollback
 
@@ -213,10 +218,10 @@ release blockers if present.
 
 Use this flow before Apple signing and notarization are configured.
 
-1. Make sure the **release line** contains the version-bump commit (app / desktop / server / orchestrator / root `package.json` all match the tag). 0.5.x: PR into `release/0.5`. 1.x: PR into `main`.
+1. Make sure the **release line** contains the version-bump commit (app / desktop / server / orchestrator / root `package.json` all match the tag). 0.5.x: PR into `release/0.5`. 1.x preview: bump on `dev`. 1.x ship: PR `dev` → `main` first.
 
    ```bash
-   git switch release/0.5   # or main for 1.x
+   git switch release/0.5   # or dev for 1.x preview
    git pull --ff-only
    ```
 

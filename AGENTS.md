@@ -14,7 +14,7 @@ Architecture 是 monorepo SoT；包级 AGENTS 只做验证入口，不另写政�
 | Expert lifecycle / 冷启动**预算** | Architecture → Session / Expert / cold-path |
 | Loop / ledger / kill switch / graphify | [`docs/loop/rules.md`](docs/loop/rules.md) |
 | 打包 | [`BUILD.md`](BUILD.md) |
-| 发版 / 公证 / 0.5 稳定线 | [`docs/release.md`](docs/release.md)（`release/0.5` = 0.5.x 热修；`main` = 1.x） |
+| 发版 / 公证 / 0.5 稳定线 | [`docs/release.md`](docs/release.md)（`release/0.5` = 0.5.x 热修；`dev` = 1.x 日常；`main` = 1.x 发布点） |
 | 安全报告 | [`SECURITY.md`](SECURITY.md) |
 | 平台 / Computer Use / Appshot | [`docs/windows-compat.md`](docs/windows-compat.md) + Architecture Product platforms |
 
