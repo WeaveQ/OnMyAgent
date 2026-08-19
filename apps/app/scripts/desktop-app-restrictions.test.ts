@@ -118,6 +118,8 @@ describe("modelSupportsVision", () => {
   });
 
   test("falls back to known vision model ids when modalities are omitted", () => {
+    expect(modelSupportsVision({}, "ark-code-latest")).toBe(true);
+    expect(modelSupportsVision({}, "ark-coding-openai/ark-code-latest")).toBe(true);
     expect(modelSupportsVision({}, "mimo-v2.5-free")).toBe(true);
     expect(modelSupportsVision({ id: "opencode/kimi-k2.5" })).toBe(true);
     expect(modelSupportsVision({}, "qwen3.8-max")).toBe(true);

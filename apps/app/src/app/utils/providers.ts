@@ -7,6 +7,7 @@ const PINNED_PROVIDER_ORDER = ["opencode", "openai", "anthropic"] as const;
  * by containment after normalizing `.` and `-`. Do not list those suffixes here.
  */
 const KNOWN_VISION_MODEL_IDS = [
+  "ark-code-latest",
   "claude-3-5-haiku",
   "claude-fable-5",
   "claude-haiku-4-5",
