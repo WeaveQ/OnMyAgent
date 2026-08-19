@@ -6,6 +6,51 @@ Local `package:electron` smoke only: see [`../BUILD.md`](../BUILD.md). Full doc 
 
 This repository uses pull requests for code changes and GitHub Actions for release packaging.
 
+## Branch model (0.5 stable / 1.x main)
+
+| Line | Branch | Version | Allowed changes |
+| --- | --- | --- | --- |
+| 0.5 stable | `release/0.5` (from `v0.5.22`) | `0.5.x` patch only | Small bugfixes via PR. No features. |
+| 1.x development | `main` | `1.0.0` and up | Features and refactors via PR. |
+| 0.5 hotfix topic | `fix/0.5-<slug>` | stays `0.5.x` until release bump | PR **into** `release/0.5`. |
+| 1.x topic | `codex/<slug>` / `feat/<slug>` | stays on `main` version | PR **into** `main`. |
+
+Do **not** merge `main` into `release/0.5`. That would ship 1.x work on the 0.5 line.
+
+### Forward-port 0.5 fixes to 1.x
+
+After a `release/0.5` PR merges:
+
+1. Open a PR to `main` that `git cherry-pick -x <sha>` the fix commit(s).
+2. If the pick conflicts or the 0.5-only shim does not apply, re-implement on `main` instead of merging the whole stable branch.
+3. Skip the forward-port when the fix is 0.5-only compatibility.
+
+### Release App (which ref?)
+
+The workflow **builds the tag**, not the branch you pick in “Use workflow from”:
+
+```yaml
+# publish-electron / verify-release
+ref: ${{ env.RELEASE_TAG }}
+```
+
+| You want | Do this |
+| --- | --- |
+| 0.5.x package | Bump + tag on `release/0.5` (`v0.5.23`, …). Run `Release App` with `tag: v0.5.23`. “Use workflow from” can stay **`main`** (latest YAML). |
+| 1.x package | Bump + tag on `main` (`v1.0.0`, …). Same workflow, `tag: v1.0.0`. |
+
+Leave the GitHub UI default on `main`. Do not set the workflow’s default ref to `release/0.5`.
+
+```bash
+# 0.5.x
+gh workflow run "Release App" --ref main -f tag=v0.5.23 -f draft=false -f prerelease=false -f build_electron=true
+
+# 1.x
+gh workflow run "Release App" --ref main -f tag=v1.0.0 -f draft=false -f prerelease=true -f build_electron=true
+```
+
+OSS `latest.yml` / `latest-mac.yml` is a **single** pointer. Until 1.x is the customer channel, only **non-prerelease 0.5.x** releases should overwrite it. Keep 1.x cuts `prerelease: true` (or a separate feed) so 0.5 clients are not pulled to 1.x.
+
 ### Desktop update discovery (installed apps)
 
 Packaged desktop builds use **electron-updater** (`apps/desktop/electron/updater.mjs`):
@@ -80,7 +125,9 @@ The OSS generic feed has no GitHub `/releases/latest` prerelease gap: whatever `
 
 ## Daily PR Flow
 
-1. Start from the latest `main`.
+0.5 hotfix: start from `release/0.5`, branch `fix/0.5-<slug>`, PR back to `release/0.5`, then forward-port to `main` (see Branch model).
+
+1. Start from the latest `main` (1.x).
 
    ```bash
    git switch main
@@ -172,21 +219,21 @@ release blockers if present.
 
 Use this flow before Apple signing and notarization are configured.
 
-1. Make sure `main` contains the **version-bump commit** (app / desktop / server / orchestrator / root `package.json` all match the tag). Typical path: PR `chore(release): bump to x.y.z`, then merge.
+1. Make sure the **release line** contains the version-bump commit (app / desktop / server / orchestrator / root `package.json` all match the tag). 0.5.x: PR into `release/0.5`. 1.x: PR into `main`.
 
    ```bash
-   git switch main
+   git switch release/0.5   # or main for 1.x
    git pull --ff-only
    ```
 
 2. Create and push an annotated version tag on that commit.
 
    ```bash
-   git tag -a v0.5.2 -m "OnMyAgent v0.5.2"
-   git push origin v0.5.2
+   git tag -a v0.5.23 -m "OnMyAgent v0.5.23"
+   git push origin v0.5.23
    ```
 
-3. Open GitHub Actions and run `Release App` on `main` if the tag push did not start it.
+3. Run `Release App` with that **tag**. “Use workflow from” can stay `main`. The job checks out the tag. Tag push does **not** start the workflow.
 
    Recommended **published** preview inputs (`draft: false` so electron-updater and the in-app check can see the release):
 
