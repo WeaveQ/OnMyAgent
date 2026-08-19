@@ -85,37 +85,35 @@ Old version prefixes are left in place. Put `OSS_ACCESS_KEY_ID` and `OSS_ACCESS_
 
 For differential downloads, keep publishing `latest.yml` / `latest-mac.yml` plus blockmaps. Overwrite the two yaml files each release; put versioned artifacts under `onmyagent/<version>/` and point `url` at those relative paths.
 
-#### macOS unsigned preview caveat
+#### macOS Gatekeeper caveat (unnotarized only)
 
-Because macOS builds are not notarized (`notarize: false`), after an in-app update replaces `/Applications/OnMyAgent.app`, Gatekeeper may quarantine the new bundle and refuse to launch. The Settings "ready to install" state surfaces the recovery command:
+Notarized GitHub builds (the default for `Release App` tag push) open without this step. If a run used `notarize: false`, Gatekeeper may quarantine the new bundle after an in-app update. The Settings "ready to install" state surfaces:
 
 ```bash
 xattr -cr /Applications/OnMyAgent.app
 ```
 
-Once Apple notarization is enabled, the `macQuarantineNotice` flag and this caveat can be removed.
-
 Release packaging and code signing still follow the flows below; the updater only needs a normal GitHub Release with a semver tag.
 
-## Developer preview (signed Developer ID, not notarized)
+## Developer preview (signed + notarized pre-release)
 
-GitHub macOS builds are signed with a Developer ID Application identity supplied by CI (`CSC_NAME` repository secret). Notarization is still **off** until notary API secrets exist, so ship GitHub builds as **developer preview** only:
+GitHub macOS builds are signed with a Developer ID Application identity (`CSC_NAME`) and **notarized** on tag push. `Release App` still publishes a **pre-release** (no OSS sync) until you unset “Set as a pre-release”:
 
 ```text
 draft: false
 prerelease: true
-notarize: false
+notarize: true
 build_electron: true
 ```
 
 ### Who it is for
 
-- Developers and internal testers who can run one Terminal command
-- **Not** for end users who expect “download and double-click”
+- Internal testers of GitHub pre-releases (signed + notarized; double-click should work)
+- OSS / end-user download only after unsetting pre-release (Sync OSS)
 
 ### macOS “damaged / can’t be opened”
 
-Unsigned preview builds are **not corrupt**. Gatekeeper blocks apps downloaded from the internet without notarization. Local `pnpm dev` / local package often works because those paths usually have no `com.apple.quarantine` flag.
+This is **not** expected on a notarized GitHub asset. If a run used `notarize: false`, or the `.app` is a local unsigned package, Gatekeeper may block it. Local `pnpm dev` / local package often works because those paths usually have no `com.apple.quarantine` flag.
 
 After installing the `.app` (e.g. into Applications):
 
@@ -124,8 +122,6 @@ xattr -cr /Applications/OnMyAgent.app
 ```
 
 Then open the app again. Alternatively: **System Settings → Privacy & Security → Open Anyway**.
-
-Put the same instructions in the GitHub Release notes for every preview tag.
 
 ### Updater / latest
 
@@ -257,13 +253,13 @@ pnpm release:ship
 
 ## Preview Release Flow
 
-Use this flow before Apple signing and notarization are configured.
+Tag push (`pnpm release:ship`) always notarizes macOS. Do not rely on repo variable `MACOS_NOTARIZE` for tag-push runs — a stale `false` used to skip notarization. To skip notarization, re-run **Release App** with `workflow_dispatch` and `notarize: false`.
 
 1. Bump on the line you want to package (`pnpm release:prepare` above). `release/0.5` stays on `0.5.x`. Daily preview: bump on `dev`. Promote to stable: PR `dev` → `main` first if that tag is not yet on `main`.
 
-2. After the bump PR merges, run `pnpm release:ship` (or `git push origin vX.Y.Z`). Do not push the protected branch.
+2. After the bump PR merges, run `pnpm release:ship` (or `git push origin vX.Y.Z`). Do not push the protected branch. Do not move the tag to the merge commit while Release App is running (`concurrency` cancels the in-progress run).
 
-3. `Release App` starts automatically and publishes a **pre-release**. After you verify the assets, unset “Set as a pre-release” on the GitHub Release to sync OSS.
+3. `Release App` starts automatically and publishes a **signed + notarized pre-release**. After you verify the assets, unset “Set as a pre-release” on the GitHub Release to sync OSS.
 
    Recommended **published** preview inputs (`draft: false` so electron-updater and the in-app check can see the release):
 
@@ -273,7 +269,7 @@ Use this flow before Apple signing and notarization are configured.
    release_body: Preview release.
    draft: false
    prerelease: true
-   notarize: false
+   notarize: true
    publish_sidecars: false
    publish_npm: false
    build_electron: true
@@ -317,7 +313,7 @@ Before publishing a stable public release, configure Apple signing and notarizat
 
 Push the version tag. `Release App` always publishes a **pre-release** (it cannot create a full release). After `spctl` / `stapler validate`, unset “Set as a pre-release” on the GitHub Release to publish to customers / OSS.
 
-`Release App` honors the `notarize` input on a manual re-run (it used to force `false`).
+Tag push always sets `notarize: true`. `Release App` honors the `notarize` input on a manual `workflow_dispatch` re-run (it used to force `false`, and tag push used to inherit repo var `MACOS_NOTARIZE`).
 
 Only enable these after the release destinations are intentionally configured:
 
