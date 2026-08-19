@@ -107,6 +107,7 @@ export function createSessionRouteProviderAuthStore(input: {
     selectedWorkspaceDisplay: () =>
       sessionProviderAuthWorkspaceDisplay(bag().selectedWorkspace),
     selectedWorkspaceRoot: () => bag().selectedWorkspaceRoot,
+    opencodeBaseUrl: () => bag().selectedWorkspaceEndpoint?.opencodeBaseUrl ?? "",
     runtimeWorkspaceId: () => bag().selectedWorkspaceEndpoint?.workspaceId ?? null,
     onmyagentServer: {
       getSnapshot: () =>

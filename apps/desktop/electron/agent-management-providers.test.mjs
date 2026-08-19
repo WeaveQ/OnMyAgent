@@ -136,6 +136,11 @@ test("writes explicit model capabilities into OpenCode provider config", async (
       context: 200_000,
       output: 131_072,
     });
+    assert.equal(config.provider.zai.models["glm-5.2"].attachment, true);
+    assert.deepEqual(config.provider.zai.models["glm-5.2"].modalities, {
+      input: ["text", "image"],
+      output: ["text"],
+    });
   } finally {
     await rm(home, { recursive: true, force: true });
   }

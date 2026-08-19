@@ -91,16 +91,19 @@ export function useRecoveryViewModel(
 
     void (async () => {
       try {
+        let quitAfterReset = false;
         if (isDesktopRuntime()) {
-          await resetOnMyAgentState(resetModalMode);
+          const result = await resetOnMyAgentState(resetModalMode);
+          quitAfterReset = result?.quit === true;
         }
-        // Onboarding: rewrite prefs (hasCompletedOnboarding=false + empty profile)
-        // then soft-reload into #/welcome (do NOT app.relaunch in desktop dev —
-        // that orphans Electron from Vite and blanks the window).
-        // All: wipe every localStorage key + full process relaunch.
+        // Onboarding: rewrite prefs then soft-reload into #/welcome.
+        // Full wipe: main process exits after scheduling a deferred cleaner
+        // (do not app.relaunch here — that races the live userData delete).
         clearLocalStorageForOnMyAgentReset(resetModalMode);
         if (resetModalMode === "onboarding") {
           softReenterWelcomeGuide();
+        } else if (quitAfterReset) {
+          return;
         } else if (isDesktopRuntime()) {
           await relaunchDesktopApp();
         } else {

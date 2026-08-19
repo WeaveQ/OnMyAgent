@@ -8,12 +8,14 @@ import {
   cleanArchiveMessageContent,
   groupSessionsByAgent,
   humanizeArchiveTitle,
+  isArchiveDatabaseLockedError,
   isNoisyArchiveMessage,
   isVisibleArchiveAgent,
   mergeArchiveSessionPages,
   RESUMABLE_AGENTS,
   shortProjectLabel,
 } from "../src/react-app/domains/session/chat/session-page-session-archive-page";
+import { resolveAgentIconUrl } from "../src/react-app/domains/local-agents/agent-icon-map";
 
 function session(overrides: Partial<OnMyAgentSessionArchiveSession> & { id: string; agent: string }): OnMyAgentSessionArchiveSession {
   return {
@@ -218,6 +220,17 @@ describe("session archive page helpers", () => {
     expect(archiveAgentIconId("codex")).toBe("codex");
     expect(archiveAgentIconId("grok")).toBe("grok");
     expect(archiveAgentIconId("vscode-copilot")).toBe("vscode-copilot");
+    expect(archiveAgentIconId("cursor")).toBe("cursor");
+    expect(resolveAgentIconUrl({ id: "cursor", provider: "cursor" })).toBeTruthy();
+    expect(resolveAgentIconUrl({ id: "cursor-agent", provider: "cursor-agent" })).toBe(
+      resolveAgentIconUrl({ id: "cursor", provider: "cursor" }),
+    );
+  });
+
+  it("detects archive SQLite lock errors", () => {
+    expect(isArchiveDatabaseLockedError("database is locked")).toBe(true);
+    expect(isArchiveDatabaseLockedError("SQLITE_BUSY: database is locked")).toBe(true);
+    expect(isArchiveDatabaseLockedError("network error")).toBe(false);
   });
 
   it("labels grok and vscode-copilot friendly names", () => {
