@@ -75,6 +75,79 @@ const LAST_KNOWN_PERSISTED_KEYS = [
 const __updater_dirname = path.dirname(fileURLToPath(import.meta.url));
 let _cachedAppVersion = null;
 
+/**
+ * @param {string | null | undefined} appLocale
+ * @returns {"en" | "zh" | "zh-TW"}
+ */
+export function resolveUpdaterLocale(appLocale) {
+  const raw = String(appLocale ?? "en").trim().toLowerCase().replace(/_/g, "-");
+  if (raw.startsWith("zh-tw") || raw.startsWith("zh-hant")) return "zh-TW";
+  if (raw.startsWith("zh")) return "zh";
+  return "en";
+}
+
+const UPDATE_NOTIFICATION_COPY = Object.freeze({
+  en: Object.freeze({
+    availableTitle: "OnMyAgent update available",
+    availableBody: (version) =>
+      `Version ${version} is available. Open OnMyAgent to download.`,
+    readyTitle: "OnMyAgent update ready",
+    readyBody: (version) =>
+      `Version ${version} is downloaded. Restart to install.`,
+    fallbackTitle: "OnMyAgent update available",
+    fallbackBody: (version) =>
+      `Version ${version} is available. Click to open the release page.`,
+  }),
+  zh: Object.freeze({
+    availableTitle: "发现新版本",
+    availableBody: (version) => `OnMyAgent v${version} 可用。打开应用即可下载。`,
+    readyTitle: "更新已就绪",
+    readyBody: (version) => `v${version} 已下载。重启即可安装。`,
+    fallbackTitle: "发现新版本",
+    fallbackBody: (version) => `OnMyAgent v${version} 可用。点击打开发布页。`,
+  }),
+  "zh-TW": Object.freeze({
+    availableTitle: "發現新版本",
+    availableBody: (version) => `OnMyAgent v${version} 可用。打開應用即可下載。`,
+    readyTitle: "更新已就緒",
+    readyBody: (version) => `v${version} 已下載。重新啟動即可安裝。`,
+    fallbackTitle: "發現新版本",
+    fallbackBody: (version) => `OnMyAgent v${version} 可用。點一下開啟發布頁。`,
+  }),
+});
+
+/**
+ * @param {{
+ *   locale?: string | null,
+ *   version?: string | null,
+ *   kind?: "available" | "ready" | "fallback",
+ * }} [input]
+ * @returns {{ title: string, body: string }}
+ */
+export function buildUpdateNotificationCopy(input = {}) {
+  const locale = resolveUpdaterLocale(input.locale);
+  const version = String(input.version ?? "").trim() || "?";
+  const kind =
+    input.kind === "ready" || input.kind === "fallback" ? input.kind : "available";
+  const copy = UPDATE_NOTIFICATION_COPY[locale] ?? UPDATE_NOTIFICATION_COPY.en;
+  if (kind === "ready") {
+    return { title: copy.readyTitle, body: copy.readyBody(version) };
+  }
+  if (kind === "fallback") {
+    return { title: copy.fallbackTitle, body: copy.fallbackBody(version) };
+  }
+  return { title: copy.availableTitle, body: copy.availableBody(version) };
+}
+
+function resolveAppLocale(app) {
+  try {
+    if (typeof app?.getLocale === "function") return app.getLocale();
+  } catch {
+    // App may not be ready in tests.
+  }
+  return "en";
+}
+
 function resolveAppVersion(app) {
   if (_cachedAppVersion) return _cachedAppVersion;
   const electronVersion = app.getVersion();
@@ -912,12 +985,15 @@ export function registerUpdaterIpc({
     if (lastNotifiedVersion === version && !isReady) return;
     lastNotifiedVersion = version;
     try {
+      const copy = buildUpdateNotificationCopy({
+        locale: resolveAppLocale(app),
+        version,
+        kind: isReady ? "ready" : "available",
+      });
       showDesktopNotification(
         {
-          title: isReady ? "OnMyAgent update ready" : "OnMyAgent update available",
-          body: isReady
-            ? `Version ${version} is downloaded. Restart to install.`
-            : `Version ${version} is available. Open OnMyAgent to download.`,
+          title: copy.title,
+          body: copy.body,
           force: true,
         },
         { getMainWindow, Notification },
@@ -983,9 +1059,14 @@ export function registerUpdaterIpc({
           lastNotifiedVersion = release.tagName;
           try {
             if (Notification?.isSupported?.()) {
+              const copy = buildUpdateNotificationCopy({
+                locale: resolveAppLocale(app),
+                version: payload.latestVersion,
+                kind: "fallback",
+              });
               const notification = new Notification({
-                title: "OnMyAgent update available",
-                body: `Version ${payload.latestVersion} is available. Click to open the release page.`,
+                title: copy.title,
+                body: copy.body,
                 silent: false,
               });
               notification.on("click", () => openReleasePage(release.htmlUrl));

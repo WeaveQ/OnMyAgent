@@ -6,6 +6,7 @@ import { getReactQueryClient } from "../src/react-app/infra/query-client";
 import { useExpertUnreadStore } from "../src/react-app/domains/session/status/expert-unread-store";
 import { useSessionActivityStore } from "../src/react-app/domains/session/status/session-activity-store";
 import { readTranscriptMessageMetadata } from "../src/react-app/domains/session/sync/message-metadata";
+import { normalizeEvent } from "../src/app/utils";
 import {
   __applySessionSyncEventForTest,
   __createSessionSyncConnectionForTest,
@@ -16,6 +17,9 @@ import {
   __hasWorkspaceSessionSyncForTest,
   __retentionTtlForUntrackedSessionForTest,
   disposeWorkspaceSessionSyncs,
+  permissionKey,
+  questionKey,
+  toPermissionRequest,
   trackWorkspaceSessionSync,
   transcriptKey,
 } from "../src/react-app/domains/session/sync/session-sync";
@@ -69,6 +73,109 @@ beforeEach(() => {
 
 afterEach(() => {
   __disposeWorkspaceSessionSyncForTest(syncInput);
+});
+
+describe("session sync pending approval events", () => {
+  test("toPermissionRequest maps v1 and v2 payloads", () => {
+    expect(
+      toPermissionRequest({
+        id: "perm_v1",
+        sessionID: "ses_1",
+        permission: "external_directory",
+        patterns: ["/tmp/uploads/*"],
+        metadata: { path: "/tmp/uploads" },
+        always: ["external_directory"],
+      }),
+    ).toMatchObject({
+      id: "perm_v1",
+      permission: "external_directory",
+      patterns: ["/tmp/uploads/*"],
+    });
+    expect(
+      toPermissionRequest({
+        id: "perm_v2",
+        sessionID: "ses_1",
+        action: "external_directory",
+        resources: ["/tmp/uploads/*"],
+        save: ["external_directory"],
+      }),
+    ).toMatchObject({
+      id: "perm_v2",
+      permission: "external_directory",
+      patterns: ["/tmp/uploads/*"],
+      always: ["external_directory"],
+    });
+  });
+
+  test("normalizeEvent reads properties or durable data", () => {
+    expect(
+      normalizeEvent({
+        type: "permission.v2.asked",
+        data: { id: "perm_data", sessionID: "ses_1", action: "read" },
+      }),
+    ).toEqual({
+      type: "permission.v2.asked",
+      properties: { id: "perm_data", sessionID: "ses_1", action: "read" },
+    });
+    expect(
+      normalizeEvent({
+        type: "question.v2.asked",
+        properties: { id: "q1", sessionID: "ses_1", questions: [] },
+      })?.properties,
+    ).toMatchObject({ id: "q1" });
+  });
+
+  test("permission.v2.asked writes the composer approval cache", () => {
+    const input = { ...syncInput, directory: "/tmp/perm-v2" };
+    const releaseWorkspace = __createWorkspaceSessionSyncForTest(input);
+    const releaseSession = trackWorkspaceSessionSync(input, "ses_perm");
+    __applySessionSyncEventForTest(input, {
+      type: "permission.v2.asked",
+      properties: {
+        id: "perm_1",
+        sessionID: "ses_perm",
+        action: "external_directory",
+        resources: ["/Users/me/uploads/*"],
+      },
+    });
+    expect(
+      getReactQueryClient().getQueryData(permissionKey(input.workspaceId, "ses_perm")),
+    ).toMatchObject([
+      {
+        id: "perm_1",
+        permission: "external_directory",
+        patterns: ["/Users/me/uploads/*"],
+      },
+    ]);
+    __applySessionSyncEventForTest(input, {
+      type: "permission.v2.replied",
+      properties: { sessionID: "ses_perm", requestID: "perm_1", reply: "once" },
+    });
+    expect(
+      getReactQueryClient().getQueryData(permissionKey(input.workspaceId, "ses_perm")),
+    ).toEqual([]);
+    releaseSession();
+    releaseWorkspace();
+  });
+
+  test("question.v2.asked still writes the question cache", () => {
+    const input = { ...syncInput, directory: "/tmp/question-v2" };
+    const releaseWorkspace = __createWorkspaceSessionSyncForTest(input);
+    const releaseSession = trackWorkspaceSessionSync(input, "ses_q");
+    __applySessionSyncEventForTest(input, {
+      type: "question.v2.asked",
+      properties: {
+        id: "q_1",
+        sessionID: "ses_q",
+        questions: [{ header: "Pick", question: "Which?", options: [] }],
+      },
+    });
+    expect(
+      getReactQueryClient().getQueryData(questionKey(input.workspaceId, "ses_q")),
+    ).toMatchObject([{ id: "q_1", sessionID: "ses_q" }]);
+    releaseSession();
+    releaseWorkspace();
+  });
 });
 
 describe("session sync tracking", () => {

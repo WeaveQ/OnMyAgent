@@ -4,12 +4,16 @@ on:
   pull_request:
     branches:
       - main
+      - dev
+      - release/0.5
     paths:
       - apps/app/src/**
       - scripts/checks/i18n-audit.mjs
   push:
     branches:
       - main
+      - dev
+      - release/0.5
     paths:
       - apps/app/src/**
       - scripts/checks/i18n-audit.mjs

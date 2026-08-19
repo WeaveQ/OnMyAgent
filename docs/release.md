@@ -6,6 +6,62 @@ Local `package:electron` smoke only: see [`../BUILD.md`](../BUILD.md). Full doc 
 
 This repository uses pull requests for code changes and GitHub Actions for release packaging.
 
+## Branch model
+
+| Line | Branch | Version | Allowed changes |
+| --- | --- | --- | --- |
+| Daily | `dev` | `1.0.0` and up | Features via PR. Preview packs. |
+| Stable | `main` | last promoted `dev` | Only `dev` → `main`. |
+| Release | `release/0.5` (from `v0.5.22`) | `0.5.x` patch only | Hotfixes via PR. No features. |
+| Release hotfix topic | `fix/0.5-<slug>` | stays `0.5.x` until release bump | PR **into** `release/0.5`. |
+| Daily topic | `codex/<slug>` / `feat/<slug>` | stays on `dev` version | PR **into** `dev`. |
+
+Allowed merge direction (whole branch):
+
+```text
+release/*  →  dev  →  main
+```
+
+| Merge | Allowed |
+| --- | --- |
+| `release/*` → `dev` | Yes. Brings hotfixes onto daily. |
+| `dev` → `main` | Yes. Promotes daily to stable. |
+| `dev` → `release/*` | **No** |
+| `main` → `dev` | **No** |
+| `main` → `release/*` | **No** |
+| `release/*` → `main` | **No.** Go through `dev`. |
+
+When merging `release/0.5` → `dev`, keep **`dev` version numbers** (root / app / desktop / server / orchestrator `package.json` and the `onmyagent-server` pin). Take the fix, drop the `0.5.x` bump. Skip 0.5-only compatibility shims that do not apply on daily.
+
+A single-commit cherry-pick onto `dev` is still fine. Do not merge `dev` or `main` into `release/*`.
+
+Set the GitHub **default branch** to `dev` so New PR targets daily integration. Website / Pages still deploy from `main` only.
+
+Branch rulesets `Protect dev`, `Protect main`, and `Protect release/0.5` each require a PR and the same four status checks: `Checks (ubuntu-latest)`, `Test Summary`, `PR English + Privacy`, `Per-commit type gate`.
+
+### Release App (which ref?)
+
+The workflow **builds the tag**, not the branch you pick in “Use workflow from”:
+
+```yaml
+# publish-electron / verify-release
+ref: ${{ env.RELEASE_TAG }}
+```
+
+Pushing an annotated `vX.Y.Z` tag **starts `Release App` automatically**. The job always creates a **published pre-release** (not a draft, not a full release). It never writes OSS by itself.
+
+| You want | Do this |
+| --- | --- |
+| 0.5.x package | Bump on `release/0.5`, tag `v0.5.23`, `git push origin v0.5.23`. |
+| 1.x preview | Bump on `dev`, tag `v1.0.0`, `git push origin v1.0.0`. |
+| 1.x customer / OSS | Merge `dev` → `main` if that tag is not yet on `main`, then unset “Set as a pre-release”. That fires **Sync OSS** (any `v*` tag). |
+
+“Use workflow from” only matters for a **manual** re-run; `dev` or `main` is fine. Checkout is still the tag.
+
+`Release App` ignores `prerelease: false` on `workflow_dispatch`. Do not use the workflow to publish a full release.
+
+OSS `latest.yml` / `latest-mac.yml` is a **single** pointer. **Sync OSS** runs when a published GitHub Release is **not** a pre-release (any `v*` tag, 0.5.x or 1.x). The last promoted release overwrites the customer feed.
+
 ### Desktop update discovery (installed apps)
 
 Packaged desktop builds use **electron-updater** (`apps/desktop/electron/updater.mjs`):
@@ -17,10 +73,7 @@ Packaged desktop builds use **electron-updater** (`apps/desktop/electron/updater
 - On **Linux**, in **dev/unpackaged** builds, or if electron-updater fails to initialize, the fallback fetches the same OSS yaml and opens the matching installer URL in a browser.
 - IPC payloads carry a `platformFlow` (`"in-app"` | `"open-browser"`) so the renderer shows a progress bar + restart button for in-app builds, and an "open release page" button for the fallback.
 
-OSS is the customer download/update channel. **Prereleases never sync.** Only a published GitHub Release that is **not** marked pre-release updates OSS (`latest.yml` / website-download). Ways that happens:
-
-- `Release App` with `prerelease: false` (and not left as a draft)
-- Uncheck **Set as a pre-release** on an existing GitHub Release (fires `released`; workflow **Sync OSS on GitHub Release**)
+OSS is the customer download/update channel. **Prereleases never sync.** Only a published GitHub Release that is **not** marked pre-release updates OSS (`latest.yml` / website-download). That happens when you uncheck **Set as a pre-release** on any `v*` GitHub Release (fires `released`; workflow **Sync OSS on GitHub Release**).
 
 `Release App` with the usual `prerelease: true` still publishes GitHub assets for testers, but does **not** overwrite the OSS feed. When a full release does sync, the job:
 
@@ -80,10 +133,12 @@ The OSS generic feed has no GitHub `/releases/latest` prerelease gap: whatever `
 
 ## Daily PR Flow
 
-1. Start from the latest `main`.
+0.5 hotfix: start from `release/0.5`, branch `fix/0.5-<slug>`, PR back to `release/0.5`, then merge `release/0.5` → `dev` (keep `dev` versions; see Branch model).
+
+1. Start from the latest `dev` (1.x daily).
 
    ```bash
-   git switch main
+   git switch dev
    git pull --ff-only
    git switch -c codex/<short-change-name>
    ```
@@ -109,7 +164,7 @@ The OSS generic feed has no GitHub `/releases/latest` prerelease gap: whatever `
    git push -u origin codex/<short-change-name>
    ```
 
-4. Open a pull request into `main` and wait for the required checks.
+4. Open a pull request into `dev` and wait for the required checks.
 
    - `OnMyAgent Tests` runs workspace checks and unit/API/runtime/UI tests.
    - `i18n Audit` checks translation coverage.
@@ -118,11 +173,12 @@ The OSS generic feed has no GitHub `/releases/latest` prerelease gap: whatever `
 
 5. Merge only after the PR checks are green and the review notes are resolved.
 
-After a merge to `main`, the same mainline branch is the source for automated CI and release-channel workflows:
+After a merge to `dev`, CI on that branch is the daily gate. Promote 1.x to the ship line with a `dev` → `main` PR.
 
-- `OnMyAgent Tests` and `i18n Audit` run on matching `main` pushes.
-- `onmyagent-ui-mcp` runs on `main` pushes that touch the MCP package and still publishes only from `onmyagent-ui-mcp-v*` tags.
-- `Alpha Channel (macOS arm64)` publishes the rolling alpha channel from `main`; use `Release App` for tagged preview or stable releases.
+- `OnMyAgent Tests`, `i18n Audit`, `PR Gates`, and Design Check run on PRs/pushes to `dev`, `main`, and `release/0.5`.
+- `onmyagent-ui-mcp` runs on those branches when the MCP package is touched and still publishes only from `onmyagent-ui-mcp-v*` tags.
+- Website Pages deploy from `main` only.
+- `Alpha Channel (macOS arm64)` is `workflow_dispatch`; use `Release App` for tagged preview or stable releases.
 
 ## Expert migration rollout and rollback
 
@@ -168,25 +224,46 @@ enums, counters, durations, error codes, and one-way identifier hashes. Prompts,
 message bodies, token values, secrets, raw home paths, and user file content are
 release blockers if present.
 
+## Version bump (`release:prepare` / `release:ship`)
+
+Run these on the line you want to package. They work on `dev`, `main`, `release/*`, or a topic branch based on one of those.
+
+| Command | Effect |
+| --- | --- |
+| `pnpm release:prepare` | Patch +1 from this line's `apps/app` version |
+| `pnpm release:prepare minor` / `major` | Minor / major bump |
+| `pnpm release:prepare --set 0.5.23` | Set an exact version |
+| `pnpm release:prepare --base release/0.5` | Topic branch: PR into this line |
+
+`prepare` updates root `package.json`, `app` / `desktop` / `server` / `orchestrator`, and orchestrator's `onmyagent-server` pin. On a protected line it creates `chore/bump-X.Y.Z`, commits, creates a local annotated tag, pushes the topic branch, and opens a PR into **that line**. It does **not** push the tag, and it does not push `dev` / `main` / `release/*`.
+
+`release/0.5` can only bump `0.5.x`. An existing remote tag with the same name stops the script.
+
+Merge the bump PR with a **merge commit**, not squash. Then:
+
+```bash
+pnpm release:ship
+```
+
+`ship` 只推 `vX.Y.Z`（tag 必须已经在 `origin/dev` / `origin/main` / `origin/release/*` 上）。推上后 `Release App` 自动打 **Pre-release**。
+
+```bash
+git switch dev                 # 或 main / release/0.5
+git pull --ff-only
+pnpm release:prepare           # 或 --set 0.5.23
+# merge the chore/bump PR
+pnpm release:ship
+```
+
 ## Preview Release Flow
 
 Use this flow before Apple signing and notarization are configured.
 
-1. Make sure `main` contains the **version-bump commit** (app / desktop / server / orchestrator / root `package.json` all match the tag). Typical path: PR `chore(release): bump to x.y.z`, then merge.
+1. Bump on the line you want to package (`pnpm release:prepare` above). `release/0.5` stays on `0.5.x`. Daily preview: bump on `dev`. Promote to stable: PR `dev` → `main` first if that tag is not yet on `main`.
 
-   ```bash
-   git switch main
-   git pull --ff-only
-   ```
+2. After the bump PR merges, run `pnpm release:ship` (or `git push origin vX.Y.Z`). Do not push the protected branch.
 
-2. Create and push an annotated version tag on that commit.
-
-   ```bash
-   git tag -a v0.5.2 -m "OnMyAgent v0.5.2"
-   git push origin v0.5.2
-   ```
-
-3. Open GitHub Actions and run `Release App` on `main` if the tag push did not start it.
+3. `Release App` starts automatically and publishes a **pre-release**. After you verify the assets, unset “Set as a pre-release” on the GitHub Release to sync OSS.
 
    Recommended **published** preview inputs (`draft: false` so electron-updater and the in-app check can see the release):
 
@@ -238,16 +315,9 @@ Before publishing a stable public release, configure Apple signing and notarizat
 - `OSS_ACCESS_KEY_ID`
 - `OSS_ACCESS_KEY_SECRET`
 
-Then run `Release App` with:
+Push the version tag. `Release App` always publishes a **pre-release** (it cannot create a full release). After `spctl` / `stapler validate`, unset “Set as a pre-release” on the GitHub Release to publish to customers / OSS.
 
-```text
-draft: false
-prerelease: false
-notarize: true
-build_electron: true
-```
-
-`Release App` now honors the `notarize` input (it used to force `false`). First signed+notarized cut should stay `prerelease: true` until `spctl` / `stapler validate` pass.
+`Release App` honors the `notarize` input on a manual re-run (it used to force `false`).
 
 Only enable these after the release destinations are intentionally configured:
 

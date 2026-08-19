@@ -4,16 +4,51 @@ import { once, EventEmitter } from "node:events";
 import { readFileSync } from "node:fs";
 
 import {
+  buildUpdateNotificationCopy,
   compareVersions,
   isVersionNewer,
   parseComparableVersion,
   readPersistedUpdaterAutoCheck,
   registerUpdaterIpc,
   resolveUpdaterCacheDir,
+  resolveUpdaterLocale,
   shouldScheduleAutoChecks,
   shouldScheduleColdStartCheck,
   writePersistedUpdaterAutoCheck,
 } from "./updater.mjs";
+
+test("update notification copy follows en / zh / zh-TW", () => {
+  assert.equal(resolveUpdaterLocale("en-US"), "en");
+  assert.equal(resolveUpdaterLocale("zh-CN"), "zh");
+  assert.equal(resolveUpdaterLocale("zh"), "zh");
+  assert.equal(resolveUpdaterLocale("zh-TW"), "zh-TW");
+  assert.equal(resolveUpdaterLocale("zh_Hant_TW"), "zh-TW");
+  assert.equal(resolveUpdaterLocale(null), "en");
+
+  const en = buildUpdateNotificationCopy({ locale: "en-US", version: "0.5.19" });
+  assert.equal(en.title, "OnMyAgent update available");
+  assert.match(en.body, /0\.5\.19/);
+
+  const zh = buildUpdateNotificationCopy({ locale: "zh-CN", version: "0.5.19" });
+  assert.equal(zh.title, "发现新版本");
+  assert.equal(zh.body, "OnMyAgent v0.5.19 可用。打开应用即可下载。");
+
+  const zhTw = buildUpdateNotificationCopy({
+    locale: "zh-TW",
+    version: "0.5.19",
+    kind: "ready",
+  });
+  assert.equal(zhTw.title, "更新已就緒");
+  assert.match(zhTw.body, /0\.5\.19/);
+
+  const fallback = buildUpdateNotificationCopy({
+    locale: "zh",
+    version: "0.5.19",
+    kind: "fallback",
+  });
+  assert.equal(fallback.title, "发现新版本");
+  assert.match(fallback.body, /发布页/);
+});
 
 test("parseComparableVersion normalizes v-prefix and prerelease", () => {
   assert.deepEqual(parseComparableVersion("v1.2.3"), {

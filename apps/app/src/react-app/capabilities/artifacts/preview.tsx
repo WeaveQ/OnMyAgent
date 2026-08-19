@@ -66,11 +66,31 @@ interface BinaryHTMLPreviewProps {
 type HTMLPreviewProps = { className?: string } & (TextHTMLPreviewProps | BinaryHTMLPreviewProps);
 
 export function HTMLPreview({ className, ...props }: HTMLPreviewProps) {
-  if (props.type === "text") {
-    return <iframe srcDoc={props.content} title={props.title} className={cn("h-full w-full border-0", className)} sandbox="allow-scripts allow-same-origin" />;
-  }
-
-  return <iframe src={props.url} title={props.title} className={cn("h-full w-full border-0", className)} sandbox="allow-scripts allow-same-origin" />;
+  // Replaced iframe elements ignore flex-1 on first layout: the files rail
+  // opens with an auto-height iframe (document-tall), the parent clips it,
+  // and wheel scroll does nothing. Switching files remounts into a sized
+  // pane so internal document scroll starts working. Pin the iframe to a
+  // definite wrapper box instead.
+  const iframeClassName = "absolute inset-0 h-full w-full border-0";
+  return (
+    <div className={cn("relative h-full min-h-0 min-w-0 overflow-hidden", className)}>
+      {props.type === "text" ? (
+        <iframe
+          srcDoc={props.content}
+          title={props.title}
+          className={iframeClassName}
+          sandbox="allow-scripts allow-same-origin"
+        />
+      ) : (
+        <iframe
+          src={props.url}
+          title={props.title}
+          className={iframeClassName}
+          sandbox="allow-scripts allow-same-origin"
+        />
+      )}
+    </div>
+  );
 }
 
 interface ImagePreviewProps extends React.ComponentProps<"div"> {

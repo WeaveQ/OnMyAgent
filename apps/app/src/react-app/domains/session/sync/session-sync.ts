@@ -369,6 +369,67 @@ function sortPermissions(a: PendingPermission, b: PendingPermission) {
   return a.receivedAt - b.receivedAt || a.id.localeCompare(b.id);
 }
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function stringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function eventProperties(event: OpencodeEvent): Record<string, unknown> {
+  return isPlainRecord(event.properties) ? event.properties : {};
+}
+
+function permissionToolFromUnknown(value: unknown): PermissionRequest["tool"] {
+  if (!isPlainRecord(value)) return undefined;
+  const source =
+    value.type === "tool"
+      ? value
+      : isPlainRecord(value.source) && value.source.type === "tool"
+        ? value.source
+        : value;
+  const messageID = source.messageID;
+  const callID = source.callID;
+  if (typeof messageID !== "string" || typeof callID !== "string") return undefined;
+  return { messageID, callID };
+}
+
+/** Accept v1 (`permission`/`patterns`) and v2 (`action`/`resources`) payloads. */
+export function toPermissionRequest(raw: unknown): PermissionRequest | null {
+  if (!isPlainRecord(raw)) return null;
+  const id = typeof raw.id === "string" ? raw.id : "";
+  const sessionID = typeof raw.sessionID === "string" ? raw.sessionID : "";
+  if (!id || !sessionID) return null;
+  const metadata = isPlainRecord(raw.metadata) ? raw.metadata : {};
+  if (typeof raw.permission === "string") {
+    const tool = permissionToolFromUnknown(raw.tool);
+    return {
+      id,
+      sessionID,
+      permission: raw.permission,
+      patterns: stringList(raw.patterns),
+      metadata,
+      always: stringList(raw.always),
+      ...(tool ? { tool } : {}),
+    };
+  }
+  if (typeof raw.action === "string") {
+    const tool = permissionToolFromUnknown(raw.source);
+    return {
+      id,
+      sessionID,
+      permission: raw.action,
+      patterns: stringList(raw.resources),
+      metadata,
+      always: stringList(raw.save),
+      ...(tool ? { tool } : {}),
+    };
+  }
+  return null;
+}
+
 function sortQuestions(a: PendingQuestion, b: PendingQuestion) {
   return a.receivedAt - b.receivedAt || a.id.localeCompare(b.id);
 }
@@ -383,9 +444,10 @@ export function seedPermissionState(
     workspaceId,
     sessionId,
     "permission",
-    permissions.flatMap((permission) =>
-      permission.sessionID === sessionId ? [permission.id] : [],
-    ),
+    permissions.flatMap((permission) => {
+      const normalized = toPermissionRequest(permission);
+      return normalized?.sessionID === sessionId ? [normalized.id] : [];
+    }),
   );
   const queryClient = getReactQueryClient();
   const now = Date.now();
@@ -395,16 +457,17 @@ export function seedPermissionState(
       const receivedAtById = new Map(
         current.map((permission) => [permission.id, permission.receivedAt]),
       );
-      const seeded = permissions.flatMap((permission) =>
-        permission.sessionID === sessionId
+      const seeded = permissions.flatMap((permission) => {
+        const normalized = toPermissionRequest(permission);
+        return normalized?.sessionID === sessionId
           ? [
               withReceivedAt(
-                permission,
-                receivedAtById.get(permission.id) ?? now,
+                normalized,
+                receivedAtById.get(normalized.id) ?? now,
               ),
             ]
-          : [],
-      );
+          : [];
+      });
       const seededIds = new Set(seeded.map((permission) => permission.id));
       const snapshotStartedAt = options.snapshotStartedAt;
       const liveAfterSnapshot =
@@ -987,9 +1050,12 @@ function applyEvent(
     return;
   }
 
-  if (event.type === "permission.asked") {
-    const permission = event.properties as PermissionRequest;
-    if (!permission?.id || !permission.sessionID) return;
+  if (
+    event.type === "permission.asked" ||
+    event.type === "permission.v2.asked"
+  ) {
+    const permission = toPermissionRequest(eventProperties(event));
+    if (!permission) return;
     useSessionActivityStore
       .getState()
       .setWaitingRequest(
@@ -1020,32 +1086,40 @@ function applyEvent(
     return;
   }
 
-  if (event.type === "permission.replied") {
-    const props = (event.properties ?? {}) as {
-      sessionID?: string;
-      requestID?: string;
-    };
-    if (!props.sessionID || !props.requestID) return;
+  if (
+    event.type === "permission.replied" ||
+    event.type === "permission.v2.replied"
+  ) {
+    const props = eventProperties(event);
+    const sessionID =
+      typeof props.sessionID === "string" ? props.sessionID : "";
+    const requestID =
+      typeof props.requestID === "string"
+        ? props.requestID
+        : typeof props.permissionID === "string"
+          ? props.permissionID
+          : "";
+    if (!sessionID || !requestID) return;
     useSessionActivityStore
       .getState()
       .setWaitingRequest(
         workspaceId,
-        props.sessionID,
+        sessionID,
         "permission",
-        props.requestID,
+        requestID,
         false,
       );
-    if (!isTrackedSession(entry, props.sessionID)) return;
+    if (!isTrackedSession(entry, sessionID)) return;
     queryClient.setQueryData<PendingPermission[]>(
-      permissionKey(workspaceId, props.sessionID),
+      permissionKey(workspaceId, sessionID),
       (current = []) =>
-        current.filter((permission) => permission.id !== props.requestID),
+        current.filter((permission) => permission.id !== requestID),
     );
     return;
   }
 
   if (event.type === "question.asked" || event.type === "question.v2.asked") {
-    const question = event.properties as QuestionRequest;
+    const question = eventProperties(event) as QuestionRequest;
     if (!question?.id || !question.sessionID) return;
     useSessionActivityStore
       .getState()

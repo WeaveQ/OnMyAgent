@@ -1,10 +1,13 @@
 name: Release App
 
 on:
+  push:
+    tags:
+      - "v*.*.*"
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to release (e.g., v0.1.2). Leave empty to use current ref."
+        description: "Git tag to build and publish (e.g. v0.5.23 or v1.0.0). Checkout uses this tag, not Use workflow from. Leave empty to use current ref name. 0.5.x tags must point at release/0.5."
         required: false
         type: string
       release_name:
@@ -21,7 +24,7 @@ on:
         type: boolean
         default: true
       prerelease:
-        description: "Mark the GitHub Release as a prerelease"
+        description: "Ignored. Release App always creates a published pre-release. Promote to a full release in the GitHub Release UI to sync OSS."
         required: false
         type: boolean
         default: true
@@ -124,16 +127,26 @@ jobs:
               "- Electron updater feeds: latest-mac.yml (macOS) and latest.yml (Windows)."
           fi
 
-          draft="${INPUT_DRAFT:-}"
-          if [ -z "$draft" ]; then
-            if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
-              # Keep tag-triggered releases out of /releases/latest until assets + latest.json are ready.
-              draft="true"
-            else
-              draft="false"
+          # Always a published pre-release. Tag push and dispatch cannot
+          # create a full release. Promote in the GitHub UI (unset
+          # pre-release) so Sync OSS can run.
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            draft="false"
+          else
+            draft="${INPUT_DRAFT:-false}"
+          fi
+          prerelease="true"
+          if [ "${INPUT_PRERELEASE}" = "false" ]; then
+            echo "Ignoring prerelease=false; Release App only publishes pre-releases."
+          fi
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            if [ -z "${INPUT_PUBLISH_SIDECARS:-}" ]; then
+              INPUT_PUBLISH_SIDECARS="${DEFAULT_PUBLISH_SIDECARS:-false}"
+            fi
+            if [ -z "${INPUT_PUBLISH_NPM:-}" ]; then
+              INPUT_PUBLISH_NPM="${DEFAULT_PUBLISH_NPM:-false}"
             fi
           fi
-          prerelease="${INPUT_PRERELEASE:-false}"
           notarize="${INPUT_NOTARIZE:-}"
           if [ -z "$notarize" ]; then
             notarize="${DEFAULT_NOTARIZE:-false}"
