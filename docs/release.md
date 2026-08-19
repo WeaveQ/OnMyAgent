@@ -6,30 +6,38 @@ Local `package:electron` smoke only: see [`../BUILD.md`](../BUILD.md). Full doc 
 
 This repository uses pull requests for code changes and GitHub Actions for release packaging.
 
-## Branch model (0.5 stable / 1.x)
+## Branch model
 
 | Line | Branch | Version | Allowed changes |
 | --- | --- | --- | --- |
-| Daily 1.x | `dev` | `1.0.0` and up | Features and refactors via PR. Preview packs. |
-| 1.x ship | `main` | same 1.x line | Only `dev` → `main` integration PRs. |
-| 0.5 stable | `release/0.5` (from `v0.5.22`) | `0.5.x` patch only | Small bugfixes via PR. No features. |
-| 0.5 hotfix topic | `fix/0.5-<slug>` | stays `0.5.x` until release bump | PR **into** `release/0.5`. |
-| 1.x topic | `codex/<slug>` / `feat/<slug>` | stays on `dev` version | PR **into** `dev`. |
+| Daily | `dev` | `1.0.0` and up | Features via PR. Preview packs. |
+| Stable | `main` | last promoted `dev` | Only `dev` → `main`. |
+| Release | `release/0.5` (from `v0.5.22`) | `0.5.x` patch only | Hotfixes via PR. No features. |
+| Release hotfix topic | `fix/0.5-<slug>` | stays `0.5.x` until release bump | PR **into** `release/0.5`. |
+| Daily topic | `codex/<slug>` / `feat/<slug>` | stays on `dev` version | PR **into** `dev`. |
 
-Do **not** merge `dev` or `main` into `release/0.5`. That would ship 1.x work on the 0.5 line.
+Allowed merge direction (whole branch):
+
+```text
+release/*  →  dev  →  main
+```
+
+| Merge | Allowed |
+| --- | --- |
+| `release/*` → `dev` | Yes. Brings hotfixes onto daily. |
+| `dev` → `main` | Yes. Promotes daily to stable. |
+| `dev` → `release/*` | **No** |
+| `main` → `dev` | **No** |
+| `main` → `release/*` | **No** |
+| `release/*` → `main` | **No.** Go through `dev`. |
+
+When merging `release/0.5` → `dev`, keep **`dev` version numbers** (root / app / desktop / server / orchestrator `package.json` and the `onmyagent-server` pin). Take the fix, drop the `0.5.x` bump. Skip 0.5-only compatibility shims that do not apply on daily.
+
+A single-commit cherry-pick onto `dev` is still fine. Do not merge `dev` or `main` into `release/*`.
 
 Set the GitHub **default branch** to `dev` so New PR targets daily integration. Website / Pages still deploy from `main` only.
 
 Branch rulesets `Protect dev`, `Protect main`, and `Protect release/0.5` each require a PR and the same four status checks: `Checks (ubuntu-latest)`, `Test Summary`, `PR English + Privacy`, `Per-commit type gate`.
-
-### Forward-port 0.5 fixes to 1.x
-
-After a `release/0.5` PR merges:
-
-1. Open a PR to `dev` that `git cherry-pick -x <sha>` the fix commit(s).
-2. If the pick conflicts or the 0.5-only shim does not apply, re-implement on `dev` instead of merging the whole stable branch.
-3. Skip the forward-port when the fix is 0.5-only compatibility.
-4. The pick rides `dev` → `main` on the next integration PR.
 
 ### Release App (which ref?)
 
@@ -125,7 +133,7 @@ The OSS generic feed has no GitHub `/releases/latest` prerelease gap: whatever `
 
 ## Daily PR Flow
 
-0.5 hotfix: start from `release/0.5`, branch `fix/0.5-<slug>`, PR back to `release/0.5`, then forward-port to `dev` (see Branch model).
+0.5 hotfix: start from `release/0.5`, branch `fix/0.5-<slug>`, PR back to `release/0.5`, then merge `release/0.5` → `dev` (keep `dev` versions; see Branch model).
 
 1. Start from the latest `dev` (1.x daily).
 
@@ -216,25 +224,46 @@ enums, counters, durations, error codes, and one-way identifier hashes. Prompts,
 message bodies, token values, secrets, raw home paths, and user file content are
 release blockers if present.
 
+## Version bump (`release:prepare` / `release:ship`)
+
+Run these on the line you want to package. They work on `dev`, `main`, `release/*`, or a topic branch based on one of those.
+
+| Command | Effect |
+| --- | --- |
+| `pnpm release:prepare` | Patch +1 from this line's `apps/app` version |
+| `pnpm release:prepare minor` / `major` | Minor / major bump |
+| `pnpm release:prepare --set 0.5.23` | Set an exact version |
+| `pnpm release:prepare --base release/0.5` | Topic branch: PR into this line |
+
+`prepare` updates root `package.json`, `app` / `desktop` / `server` / `orchestrator`, and orchestrator's `onmyagent-server` pin. On a protected line it creates `chore/bump-X.Y.Z`, commits, creates a local annotated tag, pushes the topic branch, and opens a PR into **that line**. It does **not** push the tag, and it does not push `dev` / `main` / `release/*`.
+
+`release/0.5` can only bump `0.5.x`. An existing remote tag with the same name stops the script.
+
+Merge the bump PR with a **merge commit**, not squash. Then:
+
+```bash
+pnpm release:ship
+```
+
+`ship` 只推 `vX.Y.Z`（tag 必须已经在 `origin/dev` / `origin/main` / `origin/release/*` 上）。推上后 `Release App` 自动打 **Pre-release**。
+
+```bash
+git switch dev                 # 或 main / release/0.5
+git pull --ff-only
+pnpm release:prepare           # 或 --set 0.5.23
+# merge the chore/bump PR
+pnpm release:ship
+```
+
 ## Preview Release Flow
 
 Use this flow before Apple signing and notarization are configured.
 
-1. Make sure the **release line** contains the version-bump commit (app / desktop / server / orchestrator / root `package.json` all match the tag). 0.5.x: PR into `release/0.5`. 1.x preview: bump on `dev`. 1.x ship: PR `dev` → `main` first.
+1. Bump on the line you want to package (`pnpm release:prepare` above). `release/0.5` stays on `0.5.x`. Daily preview: bump on `dev`. Promote to stable: PR `dev` → `main` first if that tag is not yet on `main`.
 
-   ```bash
-   git switch release/0.5   # or dev for 1.x preview
-   git pull --ff-only
-   ```
+2. After the bump PR merges, run `pnpm release:ship` (or `git push origin vX.Y.Z`). Do not push the protected branch.
 
-2. Create and push an annotated version tag on that commit.
-
-   ```bash
-   git tag -a v0.5.23 -m "OnMyAgent v0.5.23"
-   git push origin v0.5.23
-   ```
-
-3. Push the tag. `Release App` starts automatically and publishes a **pre-release**. After you verify the assets, unset “Set as a pre-release” on the GitHub Release to sync OSS.
+3. `Release App` starts automatically and publishes a **pre-release**. After you verify the assets, unset “Set as a pre-release” on the GitHub Release to sync OSS.
 
    Recommended **published** preview inputs (`draft: false` so electron-updater and the in-app check can see the release):
 
