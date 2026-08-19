@@ -2,11 +2,21 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { pathToFileURL } from "node:url";
+
 const SCRIPT_ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const CWD_ROOT = process.cwd();
 const ROOT = path.basename(CWD_ROOT) === "app" ? CWD_ROOT : SCRIPT_ROOT;
 const REPO_ROOT = path.resolve(ROOT, "../..");
 const args = process.argv.slice(2);
+
+export const VERSION_FILES = [
+  "package.json",
+  "apps/app/package.json",
+  "apps/desktop/package.json",
+  "apps/orchestrator/package.json",
+  "apps/server/package.json",
+];
 
 const usage = () => {
   console.log(`Usage:
@@ -20,20 +30,11 @@ const isDryRun = args.includes("--dry-run");
 // "pnpm bump:set -- 0.1.21" works as expected.
 const filtered = args.filter((arg) => arg !== "--dry-run" && arg !== "--");
 
-if (!filtered.length) {
-  usage();
-  process.exit(1);
-}
-
 let mode = filtered[0];
 let explicit = null;
 
 if (mode === "--set") {
   explicit = filtered[1] ?? null;
-  if (!explicit) {
-    console.error("--set requires a version like 0.1.21");
-    process.exit(1);
-  }
 }
 
 const semverPattern = /^\d+\.\d+\.\d+$/;
@@ -41,7 +42,7 @@ const semverPattern = /^\d+\.\d+\.\d+$/;
 const readJson = async (filePath) =>
   JSON.parse(await readFile(filePath, "utf8"));
 
-const bump = (value, bumpMode) => {
+export const bump = (value, bumpMode) => {
   if (!semverPattern.test(value)) {
     throw new Error(`Invalid version: ${value}`);
   }
@@ -59,6 +60,7 @@ const targetVersion = async () => {
 };
 
 const updatePackageJson = async (nextVersion) => {
+  const rootPkgPath = path.join(REPO_ROOT, "package.json");
   const uiPath = path.join(ROOT, "package.json");
   const tauriPath = path.join(REPO_ROOT, "apps", "desktop", "package.json");
   const orchestratorPath = path.join(
@@ -68,20 +70,22 @@ const updatePackageJson = async (nextVersion) => {
     "package.json",
   );
   const serverPath = path.join(REPO_ROOT, "apps", "server", "package.json");
+  const rootData = await readJson(rootPkgPath);
   const uiData = await readJson(uiPath);
   const tauriData = await readJson(tauriPath);
   const orchestratorData = await readJson(orchestratorPath);
   const serverData = await readJson(serverPath);
+  rootData.version = nextVersion;
   uiData.version = nextVersion;
   tauriData.version = nextVersion;
   orchestratorData.version = nextVersion;
 
-  // Ensure onmyagent-orchestrator uses the same onmyagent-server version.
   orchestratorData.dependencies = orchestratorData.dependencies ?? {};
   orchestratorData.dependencies["onmyagent-server"] = nextVersion;
 
   serverData.version = nextVersion;
   if (!isDryRun) {
+    await writeFile(rootPkgPath, JSON.stringify(rootData, null, 2) + "\n");
     await writeFile(uiPath, JSON.stringify(uiData, null, 2) + "\n");
     await writeFile(tauriPath, JSON.stringify(tauriData, null, 2) + "\n");
     await writeFile(
@@ -93,6 +97,14 @@ const updatePackageJson = async (nextVersion) => {
 };
 
 const main = async () => {
+  if (!filtered.length) {
+    usage();
+    process.exit(1);
+  }
+  if (mode === "--set" && !explicit) {
+    console.error("--set requires a version like 0.1.21");
+    process.exit(1);
+  }
   if (explicit && !semverPattern.test(explicit)) {
     throw new Error(`Invalid explicit version: ${explicit}`);
   }
@@ -109,12 +121,7 @@ const main = async () => {
         ok: true,
         version: nextVersion,
         dryRun: isDryRun,
-        files: [
-          "apps/app/package.json",
-          "apps/desktop/package.json",
-          "apps/orchestrator/package.json",
-          "apps/server/package.json",
-        ],
+        files: VERSION_FILES,
       },
       null,
       2,
@@ -122,8 +129,16 @@ const main = async () => {
   );
 };
 
-main().catch((error) => {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(JSON.stringify({ ok: false, error: message }));
-  process.exit(1);
-});
+const isMainModule = () => {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  return import.meta.url === pathToFileURL(path.resolve(entry)).href;
+};
+
+if (isMainModule()) {
+  main().catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(JSON.stringify({ ok: false, error: message }));
+    process.exit(1);
+  });
+}

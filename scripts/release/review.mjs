@@ -11,6 +11,7 @@ const readJson = (path) => JSON.parse(readFileSync(path, "utf8"));
 const readText = (path) => readFileSync(path, "utf8");
 
 
+const rootPkg = readJson(resolve(root, "package.json"));
 const appPkg = readJson(resolve(root, "apps", "app", "package.json"));
 const desktopPkg = readJson(resolve(root, "apps", "desktop", "package.json"));
 const orchestratorPkg = readJson(
@@ -23,6 +24,7 @@ const pinnedOpencodeVersion = String(
   .replace(/^v/, "");
 const serverPkg = readJson(resolve(root, "apps", "server", "package.json"));
 const versions = {
+  root: rootPkg.version ?? null,
   app: appPkg.version ?? null,
   desktop: desktopPkg.version ?? null,
   server: serverPkg.version ?? null,
@@ -43,6 +45,11 @@ const addCheck = (label, pass, details) => {
 
 const addWarning = (message) => warnings.push(message);
 
+addCheck(
+  "Root/app versions match",
+  versions.root && versions.app && versions.root === versions.app,
+  `${versions.root ?? "?"} vs ${versions.app ?? "?"}`,
+);
 addCheck(
   "App/desktop versions match",
   versions.app && versions.desktop && versions.app === versions.desktop,
