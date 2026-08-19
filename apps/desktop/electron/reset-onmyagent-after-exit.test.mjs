@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildResetRelaunchEnv,
   isPidAlive,
   runResetAfterExit,
 } from "./reset-onmyagent-after-exit.mjs";
@@ -44,11 +45,21 @@ test("runResetAfterExit waits for the pid then wipes targets and the marker", as
       removeMarker: async (file) => {
         removed.push(`marker:${file}`);
       },
-      spawnRelaunch: (execPath, args) => {
-        relaunched = { execPath, args };
+      spawnRelaunch: (execPath, args, env) => {
+        relaunched = { execPath, args, env };
       },
     },
   );
   assert.deepEqual(removed, ["/tmp/a", "/tmp/b", "marker:/tmp/marker"]);
-  assert.deepEqual(relaunched, { execPath: "/bin/echo", args: ["hello"] });
+  assert.equal(relaunched.execPath, "/bin/echo");
+  assert.deepEqual(relaunched.args, ["hello"]);
+});
+
+test("reset relaunch env unsets ELECTRON_RUN_AS_NODE instead of blanking it", () => {
+  const env = buildResetRelaunchEnv({
+    ELECTRON_RUN_AS_NODE: "1",
+    PATH: "/usr/bin",
+  });
+  assert.equal(Object.hasOwn(env, "ELECTRON_RUN_AS_NODE"), false);
+  assert.equal(env.PATH, "/usr/bin");
 });

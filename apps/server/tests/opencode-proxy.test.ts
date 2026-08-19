@@ -159,6 +159,43 @@ describe("OpenCode Expert prompt proxy contract", () => {
     expect(forwarded).toBe(1);
   });
 
+  test("forwards an ordinary workspace prompt when the SDK header is a leftover Expert runtime", async () => {
+    const workspace = testWorkspace(join(root, "workspace-ordinary-leftover"));
+    await mkdir(workspace.path, { recursive: true });
+    const runtimeRoot = join(root, "runtime-ordinary-leftover");
+    process.env.ONMYAGENT_EXPERT_SESSION_RUNTIME_ROOT = runtimeRoot;
+    const leftover = await createExpertSessionRuntimeDirectory({
+      workspace,
+      runtimeRoot,
+      agentName: "Leftover Expert",
+      agentId: "leftover-ordinary",
+      packageName: "leftover-ordinary-package",
+      sessionId: "session-leftover-ordinary",
+    });
+    let forwarded = 0;
+    globalThis.fetch = (async () => {
+      forwarded += 1;
+      return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+    }) as typeof fetch;
+    const requestUrl = `http://server.test/workspace/ws_ordinary_leftover/opencode/session/session-ordinary/prompt_async?directory=${encodeURIComponent(workspace.path)}`;
+    const response = await proxyOpencodeRequest({
+      config: config(workspace),
+      request: new Request(requestUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-opencode-directory": leftover.directory,
+        },
+        body: JSON.stringify({ agent: "onmyagent", parts: [{ type: "text", text: "ordinary" }] }),
+      }),
+      url: new URL(requestUrl),
+      workspace,
+      proxyPath: "/opencode/session/session-ordinary/prompt_async",
+    });
+    expect(response.status).toBe(200);
+    expect(forwarded).toBe(1);
+  });
+
   test("fails closed for malformed marker instead of treating it as an ordinary prompt", async () => {
     const workspace = testWorkspace(join(root, "workspace-broken"));
     await mkdir(workspace.path, { recursive: true });
@@ -301,7 +338,10 @@ describe("OpenCode Expert prompt proxy contract", () => {
       url: new URL("http://server.test/w/ws_bounded/opencode/session/session-bounded/prompt_async"),
       workspace,
       proxyPath: "/opencode/session/session-bounded/prompt_async",
-    })).rejects.toMatchObject({ violationCode: "prompt_body_too_large" });
+    })).rejects.toMatchObject({
+      violationCode: "prompt_body_too_large",
+      details: { bodyLimitBytes: 512 * 1024 },
+    });
     expect(forwarded).toBe(0);
     expect(getExpertLifecycleEventsSnapshot().events.filter((event) =>
       event.kind === "contract_assertion" && event.outcome === "failed",

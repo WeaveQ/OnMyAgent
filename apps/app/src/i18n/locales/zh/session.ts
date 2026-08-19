@@ -224,6 +224,8 @@ export default {
     "此专家技能尚未就绪，请重新打开专家对话后再试。",
   "session.error_expert_runtime_prompt_size":
     "这条正文对专家运行环境来说太大，请拆分文字后再试。",
+  "session.error_expert_runtime_prompt_attachment":
+    "这个附件对专家运行环境来说太大，请换更小的文件后再试。",
   "session.error_expert_runtime_prompt_invalid":
     "这条消息无法作为专家提示发送，请重试。",
   "session.error_network": "网络异常，请检查连接后重试。",

@@ -185,6 +185,40 @@ describe("expert delete marketplace and directory resolution", () => {
     ).toBe("my-experts");
   });
 
+  test("maps a registry-only summoned agent to the experts install root", () => {
+    const registry = {
+      version: 1 as const,
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      avatars: [],
+      templates: [],
+      agents: [
+        {
+          id: "summoned",
+          name: "Summoned",
+          marketplaceSource: "installed" as const,
+        },
+        {
+          id: "custom",
+          name: "Custom",
+          marketplaceSource: "mine" as const,
+        },
+      ],
+      skills: [],
+    };
+    expect(
+      resolveExpertPackageDeleteMarketplace({
+        agentId: "summoned",
+        registry: registry as never,
+      }),
+    ).toBe("experts");
+    expect(
+      resolveExpertPackageDeleteMarketplace({
+        agentId: "custom",
+        registry: registry as never,
+      }),
+    ).toBe("my-experts");
+  });
+
   test("prefers the session directory carried on the delete target", () => {
     expect(
       resolveExpertDeleteSessionDirectory({

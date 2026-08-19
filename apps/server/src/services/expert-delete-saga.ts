@@ -96,9 +96,6 @@ export async function deleteExpertSessions(
   options: ExpertDeleteSagaOptions = {},
 ): Promise<ExpertDeleteResult> {
   validateRequest(request);
-  if (request.marketplace !== "my-experts") {
-    throw new ApiError(409, "expert_builtin_delete_forbidden", "Built-in experts cannot be deleted");
-  }
   throwIfAborted(options.signal);
 
   const journalPath = resolveJournalPath(config, workspace, options.journalPath);
@@ -323,6 +320,9 @@ function validateRequest(request: ExpertDeleteRequest): void {
   if (request.sessionIds !== undefined &&
     (!Array.isArray(request.sessionIds) || request.sessionIds.some((id) => typeof id !== "string"))) {
     throw new ApiError(400, "invalid_payload", "sessionIds must be strings");
+  }
+  if (request.marketplace !== "my-experts" && request.marketplace !== "experts") {
+    throw new ApiError(400, "invalid_payload", "marketplace must be my-experts or experts");
   }
   if (request.expectedRevision !== undefined &&
     (!Number.isSafeInteger(request.expectedRevision) || request.expectedRevision < 0)) {

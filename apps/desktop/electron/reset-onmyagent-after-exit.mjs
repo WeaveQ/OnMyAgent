@@ -11,6 +11,12 @@ import { pathToFileURL } from "node:url";
 const DEFAULT_WAIT_MS = 30_000;
 const POLL_MS = 200;
 
+export function buildResetRelaunchEnv(source = process.env) {
+  const env = { ...source };
+  delete env.ELECTRON_RUN_AS_NODE;
+  return env;
+}
+
 export function isPidAlive(pid, killFn = process.kill) {
   if (!Number.isInteger(pid) || pid <= 0) return false;
   try {
@@ -34,7 +40,7 @@ export function isPidAlive(pid, killFn = process.kill) {
  *   alive?: (pid: number) => boolean,
  *   remove?: (target: string) => Promise<void>,
  *   removeMarker?: (path: string) => Promise<void>,
- *   spawnRelaunch?: (execPath: string, args: string[]) => void,
+ *   spawnRelaunch?: (execPath: string, args: string[], env: NodeJS.ProcessEnv) => void,
  *   waitMs?: number,
  * }} [io]
  */
@@ -77,15 +83,15 @@ export async function runResetAfterExit(plan, io = {}) {
     const args = Array.isArray(relaunch.args) ? relaunch.args : [];
     const spawnRelaunch =
       io.spawnRelaunch ??
-      ((file, spawnArgs) => {
+      ((file, spawnArgs, env) => {
         const child = spawn(file, spawnArgs, {
           detached: true,
           stdio: "ignore",
-          env: { ...process.env, ELECTRON_RUN_AS_NODE: "" },
+          env,
         });
         child.unref();
       });
-    spawnRelaunch(execPath, args);
+    spawnRelaunch(execPath, args, buildResetRelaunchEnv());
   }
 }
 

@@ -55,8 +55,9 @@ export function expertRuntimeContractUserMessage(violationCode?: string | null):
     case "skills_mismatch":
       return t("session.error_expert_runtime_skills");
     case "prompt_token_budget":
-    case "prompt_body_too_large":
       return t("session.error_expert_runtime_prompt_size");
+    case "prompt_body_too_large":
+      return t("session.error_expert_runtime_prompt_attachment");
     case "prompt_body_invalid":
       return t("session.error_expert_runtime_prompt_invalid");
     default:

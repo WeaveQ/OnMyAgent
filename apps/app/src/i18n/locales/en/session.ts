@@ -232,6 +232,8 @@ export default {
     "This Expert's skills are not ready. Open a new Expert chat and try again.",
   "session.error_expert_runtime_prompt_size":
     "This message text is too large for the Expert runtime. Split the text and try again.",
+  "session.error_expert_runtime_prompt_attachment":
+    "This attachment is too large for the Expert runtime. Attach a smaller file and try again.",
   "session.error_expert_runtime_prompt_invalid":
     "This message could not be sent as an Expert prompt. Try again.",
   "session.error_network": "Network error. Check your connection and try again.",

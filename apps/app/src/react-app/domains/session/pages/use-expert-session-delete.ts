@@ -144,8 +144,7 @@ export function resolveExpertPackageDeleteMarketplace(input: {
   if (input.source === "installed") return "experts";
   if (input.source === "mine") return "my-experts";
   const agent = input.registry?.agents.find((item) => item.id === input.agentId.trim());
-  if (agent?.marketplaceSource === "mine") return "my-experts";
-  return agent ? "my-experts" : "experts";
+  return agent?.marketplaceSource === "installed" ? "experts" : "my-experts";
 }
 
 export function resolveExpertDeleteSessionDirectory(input: {
@@ -261,7 +260,11 @@ export function useExpertSessionDelete(input: {
             operationId,
             agentId: target.agentId,
             packageName,
-            marketplace: "my-experts",
+            marketplace: resolveExpertPackageDeleteMarketplace({
+              source: target.source,
+              agentId: target.agentId,
+              registry: input.registry ?? null,
+            }),
             sessionIds: target.sessionIds,
           });
         } catch (error) {

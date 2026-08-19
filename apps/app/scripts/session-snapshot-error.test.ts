@@ -36,6 +36,15 @@ describe("humanizeSessionErrorMessage quota / plan", () => {
     expect(parsed.message).toMatch(/Expert runtime|专家运行环境|專家執行環境|不允许|不允許/);
   });
 
+  test("maps prompt_body_too_large to attachment copy, not text-split copy", () => {
+    const parsed = parseSessionError(JSON.stringify({
+      code: "expert_runtime_contract_violated",
+      details: { violationCode: "prompt_body_too_large" },
+    }));
+    expect(parsed.message).toMatch(/attachment|附件|檔案/i);
+    expect(parsed.message).not.toMatch(/split the text|拆分文字/);
+  });
+
   test("maps prompt_agent_not_allowed to agent-specific copy", () => {
     const parsed = parseSessionError(JSON.stringify({
       code: "expert_runtime_contract_violated",

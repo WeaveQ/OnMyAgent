@@ -428,8 +428,8 @@ function parseAgent(value: unknown): AgentRecord | null {
       typeof value.sourceTemplateId === "string"
         ? value.sourceTemplateId
         : null,
-    ...(value.marketplaceSource === "mine"
-      ? { marketplaceSource: "mine" as const }
+    ...(value.marketplaceSource === "mine" || value.marketplaceSource === "installed"
+      ? { marketplaceSource: value.marketplaceSource }
       : {}),
     ...(typeof value.marketplacePath === "string"
       ? { marketplacePath: value.marketplacePath }

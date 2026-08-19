@@ -369,20 +369,17 @@ export async function proxyOpencodeRequest(input: {
     const directorySources = [queryDirectory, headerDirectory, bodyDirectory]
       .filter((value): value is string => Boolean(value));
     const requestedDirectory = directorySources[0] ?? null;
-    // Query owns routing (OpenCode SDK v2). Header/body are fallbacks when
-    // query is absent. Do not 409 when the client-default workspace header
-    // points at a different leftover Expert directory than the per-call query.
-    const expertCandidates: string[] = [];
-    for (const source of directorySources) {
-      const candidate = await resolveExpertRuntimeDirectoryCandidate({
-        workspaceId: workspace.id,
-        sessionRoot: source,
-        allowWorkspaceMismatch: true,
-      });
-      if (candidate) expertCandidates.push(candidate);
-    }
-    const authorizedExpertDirectory = expertCandidates[0] ?? null;
-    if (authorizedExpertDirectory) {
+    // Query owns routing (OpenCode SDK v2). Header/body are fallbacks only
+    // when query is absent. A leftover Expert header must not 409 an ordinary
+    // workspace prompt whose query points at the workspace root.
+    const routedIsExpert = requestedDirectory
+      ? await resolveExpertRuntimeDirectoryCandidate({
+          workspaceId: workspace.id,
+          sessionRoot: requestedDirectory,
+          allowWorkspaceMismatch: true,
+        })
+      : null;
+    if (routedIsExpert) {
       const expertDirectory = requestedDirectory as string;
       if (!sessionId) {
         const error = new ExpertRuntimeContractError(
@@ -398,7 +395,7 @@ export async function proxyOpencodeRequest(input: {
           "prompt_body_too_large",
           { workspace, sessionId, directory: expertDirectory },
           "Expert prompt body exceeds the bounded proxy inspection limit",
-          { bodyLimitBytes: EXPERT_PROMPT_BODY_MAX_BYTES },
+          { bodyLimitBytes: preview.bodyLimitBytes },
         );
         emitExpertContractViolation(input.onExpertContractViolation, error.toEvent());
         throw error;
@@ -491,15 +488,22 @@ function assertionForViolationCode(
 type BoundedJsonClone = {
   body: Record<string, unknown> | null;
   tooLarge: boolean;
+  bodyLimitBytes: number;
 };
 
 async function readBoundedJsonClone(request: Request): Promise<BoundedJsonClone> {
   const contentLength = Number(request.headers.get("content-length") ?? "");
   if (Number.isFinite(contentLength) && contentLength > EXPERT_PROMPT_BODY_MAX_BYTES_WITH_FILES) {
-    return { body: null, tooLarge: true };
+    return {
+      body: null,
+      tooLarge: true,
+      bodyLimitBytes: EXPERT_PROMPT_BODY_MAX_BYTES_WITH_FILES,
+    };
   }
   const clone = request.clone();
-  if (!clone.body) return { body: null, tooLarge: false };
+  if (!clone.body) {
+    return { body: null, tooLarge: false, bodyLimitBytes: EXPERT_PROMPT_BODY_MAX_BYTES };
+  }
   const reader = clone.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
@@ -510,7 +514,11 @@ async function readBoundedJsonClone(request: Request): Promise<BoundedJsonClone>
       total += next.value.byteLength;
       if (total > EXPERT_PROMPT_BODY_MAX_BYTES_WITH_FILES) {
         await reader.cancel();
-        return { body: null, tooLarge: true };
+        return {
+          body: null,
+          tooLarge: true,
+          bodyLimitBytes: EXPERT_PROMPT_BODY_MAX_BYTES_WITH_FILES,
+        };
       }
       chunks.push(next.value);
     }
@@ -524,7 +532,9 @@ async function readBoundedJsonClone(request: Request): Promise<BoundedJsonClone>
     offset += chunk.byteLength;
   }
   const text = new TextDecoder().decode(bytes).trim();
-  if (!text) return { body: null, tooLarge: false };
+  if (!text) {
+    return { body: null, tooLarge: false, bodyLimitBytes: EXPERT_PROMPT_BODY_MAX_BYTES };
+  }
   try {
     const parsed = JSON.parse(text) as unknown;
     const body = parsed && typeof parsed === "object" && !Array.isArray(parsed)
@@ -535,11 +545,19 @@ async function readBoundedJsonClone(request: Request): Promise<BoundedJsonClone>
       total > EXPERT_PROMPT_BODY_MAX_BYTES &&
       !expertPromptHasFileParts(body)
     ) {
-      return { body: null, tooLarge: true };
+      return {
+        body: null,
+        tooLarge: true,
+        bodyLimitBytes: EXPERT_PROMPT_BODY_MAX_BYTES,
+      };
     }
-    return { body, tooLarge: false };
+    return {
+      body,
+      tooLarge: false,
+      bodyLimitBytes: EXPERT_PROMPT_BODY_MAX_BYTES,
+    };
   } catch {
-    return { body: null, tooLarge: false };
+    return { body: null, tooLarge: false, bodyLimitBytes: EXPERT_PROMPT_BODY_MAX_BYTES };
   }
 }
 
