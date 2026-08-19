@@ -152,9 +152,9 @@ export default {
   "session.expert_delete_conversation": "Delete expert",
   "session.delete_expert_title": "Delete expert?",
   "session.delete_named_expert_message":
-    "This permanently deletes expert “{name}”, all of its sessions and messages, and workspace files those sessions generated. This cannot be undone.",
+    "This permanently deletes all sessions for expert “{name}”, workspace files those sessions generated, and the locally installed expert package. This cannot be undone.",
   "session.delete_expert_generic":
-    "This permanently deletes this expert, all of its sessions and messages, and workspace files those sessions generated. This cannot be undone.",
+    "This permanently deletes this expert's sessions, workspace files those sessions generated, and the locally installed expert package. This cannot be undone.",
   "session.delete_retry": "Retry cleanup",
   "session.delete_partial_message": "Cleanup is incomplete ({error}). Retry to resume safely.",
   "session.badge_cloud": "Cloud",
@@ -224,6 +224,18 @@ export default {
   "session.error_streaming_failed": "The reply was interrupted. Please try again.",
   "session.error_expert_runtime_contract":
     "This Expert runtime is not safely configured. Repair the Expert environment and try again.",
+  "session.error_expert_runtime_agent":
+    "This Expert does not allow the selected agent. Open a new Expert chat and try again.",
+  "session.error_expert_runtime_directory":
+    "The Expert runtime directory does not match this chat. Open a new Expert chat and try again.",
+  "session.error_expert_runtime_skills":
+    "This Expert's skills are not ready. Open a new Expert chat and try again.",
+  "session.error_expert_runtime_prompt_size":
+    "This message text is too large for the Expert runtime. Split the text and try again.",
+  "session.error_expert_runtime_prompt_attachment":
+    "This attachment is too large for the Expert runtime. Attach a smaller file and try again.",
+  "session.error_expert_runtime_prompt_invalid":
+    "This message could not be sent as an Expert prompt. Try again.",
   "session.error_network": "Network error. Check your connection and try again.",
   "session.error_timeout": "The request timed out. Please try again.",
   "session.error_rate_limit": "Too many requests. Please wait and try again.",

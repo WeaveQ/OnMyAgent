@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronDown, Check, Settings2 } from "lucide-react";
+import { ChevronDown, Check, Eye, Settings2 } from "lucide-react";
 
 import type { ModelOption, ModelRef } from "@/app/types";
 import { resolveModelDisplayName } from "@/app/utils";
@@ -217,6 +217,12 @@ export function ModelSelectView({
                               getProviderDisplayName(option.providerID)}
                           </span>
                         </span>
+                        {option.supportsVision ? (
+                          <Eye
+                            className="size-3 shrink-0 text-dls-secondary"
+                            aria-label={t("model_picker.vision")}
+                          />
+                        ) : null}
                         {option.isFree ? (
                           <StatusBadge
                             shape="soft"

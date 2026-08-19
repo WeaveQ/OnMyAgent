@@ -9,7 +9,7 @@ import { ModelSelectView } from "@/components/model-select";
 import { t } from "@/i18n";
 import { ProviderIcon } from "@/react-app/design-system/provider-icon";
 import { useCheckDesktopRestriction } from "@/react-app/domains/shared";
-import { isProviderModelFree } from "@/app/utils/providers";
+import { isProviderModelFree, modelSupportsVision } from "@/app/utils/providers";
 import {
   getConnectedProviderItems,
   sessionRouteProviderListEnabled,
@@ -104,6 +104,7 @@ function useModelOptions(open: boolean): {
             modelId: id,
             model,
           }),
+          supportsVision: modelSupportsVision(model, id),
           isConnected: true,
         })),
       );

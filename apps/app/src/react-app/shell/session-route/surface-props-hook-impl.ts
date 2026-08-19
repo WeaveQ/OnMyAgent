@@ -321,9 +321,16 @@ export function useSessionRouteSurfaceProps(
       ...new Set([
         ...(activePendingAgent?.approvedAgentIds ?? []),
         ...(activeExpertPackage?.approvedAgentIds ?? []),
+        ...(activeExpertPackage?.leadAgentName?.trim()
+          ? [activeExpertPackage.leadAgentName.trim()]
+          : []),
       ]),
     ];
-  }, [activeExpertPackage?.approvedAgentIds, activePendingAgent?.approvedAgentIds]);
+  }, [
+    activeExpertPackage?.approvedAgentIds,
+    activeExpertPackage?.leadAgentName,
+    activePendingAgent?.approvedAgentIds,
+  ]);
   const expertPackageMetadataReady =
     !isElectronRuntime() ||
     activePendingAgent?.approvedAgentIds !== undefined ||

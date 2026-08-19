@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronRight, Search, Star } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Eye, Search, Star } from "lucide-react";
 
 import {
   Dialog,
@@ -453,6 +453,13 @@ function DefaultModelRow({
         </span>
         <span className="ml-2 font-mono text-xs text-dls-secondary/60">{opt.modelID}</span>
       </div>
+      {opt.supportsVision ? (
+        <Eye
+          size={12}
+          className="shrink-0 text-dls-secondary"
+          aria-label={t("model_picker.vision")}
+        />
+      ) : null}
       {active ? <Check size={14} className="shrink-0 text-dls-accent" /> : null}
     </MenuRowButton>
   );

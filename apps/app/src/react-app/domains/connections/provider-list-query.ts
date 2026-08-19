@@ -41,7 +41,20 @@ export function providerListQueryKey(input: {
 
 export async function refreshProviderListQueries(queryClient: QueryClient) {
   await queryClient.invalidateQueries({ queryKey: PROVIDER_LIST_QUERY_ROOT });
-  await queryClient.refetchQueries({ queryKey: PROVIDER_LIST_QUERY_ROOT, type: "active" });
+  // Settings unmounts SessionRoute. The homepage catalog is the same cache
+  // key with no active observer — refetch inactive entries or 首页 keeps
+  // the pre-save list until the picker opens.
+  await queryClient.refetchQueries({ queryKey: PROVIDER_LIST_QUERY_ROOT, type: "all" });
+}
+
+export function isProviderListQueryInvalidated(
+  queryClient: QueryClient,
+  input: {
+    baseUrl?: string | null;
+    directory?: string | null;
+  },
+): boolean {
+  return Boolean(queryClient.getQueryState(providerListQueryKey(input))?.isInvalidated);
 }
 
 export async function fetchProviderList(input: {
@@ -210,6 +223,7 @@ export function ensureProviderListQuery(
   return queryClient.ensureQueryData({
     ...options,
     staleTime: PROVIDER_LIST_CACHE_MS,
+    revalidateIfStale: true,
   });
 }
 
