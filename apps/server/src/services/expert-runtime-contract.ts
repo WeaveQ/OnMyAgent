@@ -22,8 +22,14 @@ import { recordExpertLifecycleEvent } from "./expert-lifecycle-events.js";
 /** Expert prompt contracts are intentionally stricter than ordinary sessions. */
 export const EXPERT_RUNTIME_CONTRACT_VERSION = EXPERT_SESSION_ISOLATION_VERSION;
 export const EXPERT_PROMPT_TOKEN_LIMIT = 8_000;
-/** Bounded clone used by the server proxy before the original body is forwarded. */
+/**
+ * Inspection cap for text-only Expert prompts. File-bearing bodies use
+ * `EXPERT_PROMPT_BODY_MAX_BYTES_WITH_FILES` so a spreadsheet/PDF/image
+ * data URL cannot trip the proxy before the text budget is checked.
+ */
 export const EXPERT_PROMPT_BODY_MAX_BYTES = 512 * 1024;
+/** Hard read cap when the prompt includes file parts (data URLs or paths). */
+export const EXPERT_PROMPT_BODY_MAX_BYTES_WITH_FILES = 16 * 1024 * 1024;
 
 export type ExpertRuntimeContractViolationCode =
   | "authorized_directory"
@@ -167,16 +173,89 @@ export function normalizeApprovedAgentIds(
 }
 
 /**
- * Conservative UTF-8 estimator for the complete request JSON. This is not a
- * provider tokenizer; the release smoke still needs an exact live measurement.
- * It deliberately counts non-ASCII code points more densely than ASCII so the
- * source gate fails closed instead of allowing a large CJK context through.
+ * Marketplace packages often omit `approvedAgentIds` and only declare
+ * `agentName` / `agents[]`. The lead identity is still an allowed prompt
+ * agent; Sisyphus and other unlisted ids stay rejected.
+ */
+export function resolveDeclaredExpertAgentIds(input: {
+  approvedAgentIds?: readonly string[];
+  markerAgent?: string | null;
+  agentId?: string | null;
+  packageName?: string | null;
+  agentName?: string | null;
+}): string[] {
+  const extras: string[] = [];
+  for (const raw of [
+    input.markerAgent,
+    input.agentId,
+    input.packageName,
+    input.agentName,
+  ]) {
+    const value = typeof raw === "string" ? raw.trim() : "";
+    if (!value) continue;
+    extras.push(value);
+    const tail = value.includes(":") ? value.slice(value.lastIndexOf(":") + 1).trim() : "";
+    if (tail) extras.push(tail);
+  }
+  return normalizeApprovedAgentIds([...(input.approvedAgentIds ?? []), ...extras]);
+}
+
+/**
+ * Conservative UTF-8 estimator for prompt *text* only (`system` + text parts).
+ * File / image parts (including data URLs) are excluded: review experts need
+ * to attach tables and PDFs, and those bytes are not prompt tokens.
+ * This is not a provider tokenizer; the release smoke still needs a live
+ * measurement. Non-ASCII is counted more densely so a large CJK context
+ * still fails closed.
  */
 export function estimateExpertPromptTokens(body: unknown): number {
-  const serialized = typeof body === "string" ? body : JSON.stringify(body ?? {});
+  return estimateTextTokens(collectExpertPromptText(body));
+}
+
+export function expertPromptHasFileParts(body: unknown): boolean {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return false;
+  const parts = (body as Record<string, unknown>).parts;
+  if (!Array.isArray(parts)) return false;
+  return parts.some((part) => isExpertPromptFilePart(part));
+}
+
+function isExpertPromptFilePart(part: unknown): boolean {
+  if (!part || typeof part !== "object" || Array.isArray(part)) return false;
+  const item = part as Record<string, unknown>;
+  const type = typeof item.type === "string" ? item.type : "";
+  if (type === "file" || type === "image" || type === "binary") return true;
+  const url = typeof item.url === "string" ? item.url : "";
+  return url.startsWith("data:") || url.startsWith("file:");
+}
+
+function collectExpertPromptText(body: unknown): string {
+  if (typeof body === "string") return body;
+  if (!body || typeof body !== "object") return "";
+  const record = body as Record<string, unknown>;
+  const chunks: string[] = [];
+  const system = record.system;
+  if (typeof system === "string") chunks.push(system);
+  else if (Array.isArray(system)) {
+    for (const item of system) {
+      if (typeof item === "string") chunks.push(item);
+    }
+  }
+  const parts = record.parts;
+  if (Array.isArray(parts)) {
+    for (const part of parts) {
+      if (!part || typeof part !== "object" || Array.isArray(part)) continue;
+      if (isExpertPromptFilePart(part)) continue;
+      const text = (part as Record<string, unknown>).text;
+      if (typeof text === "string") chunks.push(text);
+    }
+  }
+  return chunks.join("\n");
+}
+
+function estimateTextTokens(text: string): number {
   let ascii = 0;
   let nonAscii = 0;
-  for (const character of serialized) {
+  for (const character of text) {
     if (character.charCodeAt(0) <= 0x7f) ascii += 1;
     else nonAscii += 1;
   }
@@ -367,10 +446,15 @@ export async function assertExpertRuntimeContract(
     throw violation(input, "skills_mismatch", "Expert runtime materialized skills do not match the marker");
   }
 
-  const approvedAgentIds = normalizeApprovedAgentIds([
-    ...(input.approvedAgentIds ?? []),
-    ...(marker.approvedAgentIds ?? []),
-  ]);
+  const approvedAgentIds = resolveDeclaredExpertAgentIds({
+    approvedAgentIds: [
+      ...(input.approvedAgentIds ?? []),
+      ...(marker.approvedAgentIds ?? []),
+    ],
+    markerAgent: marker.agent,
+    agentId: input.agentId ?? marker.agentId,
+    packageName: input.packageName ?? marker.packageName,
+  });
   let agent: string;
   try {
     agent = resolveExpertPromptAgent(input.agent, approvedAgentIds);

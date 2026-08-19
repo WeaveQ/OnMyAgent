@@ -11,15 +11,55 @@
  * ~/.codex, ~/.openclaw, ~/.agents, …).
  */
 
-import { rm } from "node:fs/promises";
+import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 /** @typedef {"onboarding" | "all"} ResetOnMyAgentMode */
 
 // Legacy product home under $HOME (pre-rename). Split so rename-consistency
 // does not flag the historical path we still wipe for old installs.
 const LEGACY_PRODUCT_HOME_DIR = `.${"open"}${"work"}`;
+
+const AFTER_EXIT_SCRIPT = fileURLToPath(
+  new URL("./reset-onmyagent-after-exit.mjs", import.meta.url),
+);
+
+/** electron-dev respawns the Electron child when it sees this exit code. */
+export const RESET_RELAUNCH_EXIT_CODE = 82;
+
+export async function waitForPendingFullResetMarkerGone(input = {}) {
+  const markerPath = String(
+    input.markerPath ?? pendingFullResetMarkerPath(input.homeDir),
+  );
+  const exists = input.exists ?? existsSync;
+  const now = input.now ?? Date.now;
+  const sleep =
+    input.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const timeoutMs = Number(input.timeoutMs ?? 30_000);
+  const pollMs = Number(input.pollMs ?? 150);
+  const deadline = now() + timeoutMs;
+  while (exists(markerPath) && now() < deadline) {
+    await sleep(pollMs);
+  }
+  return !exists(markerPath);
+}
+
+/** Marker lives next to $HOME, not inside ~/.onmyagent, so the wipe cannot delete it first. */
+export function pendingFullResetMarkerPath(homeDir = os.homedir()) {
+  return path.join(String(homeDir || os.homedir()), ".onmyagent-pending-full-reset");
+}
+
+export function isRetryableResetFsError(error) {
+  const code =
+    error && typeof error === "object" && "code" in error
+      ? String(/** @type {{ code?: unknown }} */ (error).code ?? "")
+      : "";
+  return code === "EBUSY" || code === "EPERM" || code === "EACCES" || code === "ENOTEMPTY";
+}
 
 /**
  * @param {object} input
@@ -105,7 +145,12 @@ export function listOnMyAgentResetTargets(input = {}) {
  * @param {NodeJS.Platform} [input.platform]
  * @param {(reason: string) => Promise<unknown>} [input.prepareDestructiveReset]
  * @param {(target: string) => Promise<void>} [input.remove]
- * @returns {Promise<{ removed: string[]; missing: string[]; errors: string[] }>}
+ * @param {(input: { contents: string, path: string }) => Promise<void>} [input.writeMarker]
+ * @param {(plan: {
+ *   targets: string[],
+ *   markerPath: string,
+ * }) => void} [input.scheduleDeferred]
+ * @returns {Promise<{ removed: string[]; missing: string[]; errors: string[]; deferred: string[] }>}
  */
 export async function resetOnMyAgentLocalData(input = {}) {
   const mode = normalizeResetMode(input.mode);
@@ -128,6 +173,22 @@ export async function resetOnMyAgentLocalData(input = {}) {
   const missing = [];
   /** @type {string[]} */
   const errors = [];
+  /** @type {string[]} */
+  const deferred = [];
+
+  const markerPath = pendingFullResetMarkerPath(input.homeDir);
+  if (mode === "all") {
+    const writeMarker =
+      input.writeMarker ??
+      (async ({ path: file, contents }) => {
+        await mkdir(path.dirname(file), { recursive: true });
+        await writeFile(file, contents, "utf8");
+      });
+    await writeMarker({
+      path: markerPath,
+      contents: `${JSON.stringify({ at: new Date().toISOString(), targets })}\n`,
+    });
+  }
 
   // Longer paths first so nested deletes under userData do not race parents.
   const ordered = [...targets].sort((a, b) => b.length - a.length);
@@ -147,11 +208,55 @@ export async function resetOnMyAgentLocalData(input = {}) {
       }
       const message =
         error instanceof Error ? error.message : String(error ?? "unknown error");
+      if (isRetryableResetFsError(error)) {
+        deferred.push(`${target}: ${message}`);
+        continue;
+      }
       errors.push(`${target}: ${message}`);
     }
   }
 
-  return { removed, missing, errors };
+  if (mode === "all" && typeof input.scheduleDeferred === "function") {
+    input.scheduleDeferred({ targets, markerPath });
+  }
+
+  return { removed, missing, errors, deferred };
+}
+
+/**
+ * Spawn a detached Node helper that wipes after this Electron pid exits.
+ * Uses ELECTRON_RUN_AS_NODE so packaged `process.execPath` is not a GUI relaunch.
+ *
+ * @param {object} input
+ * @param {number} input.pid
+ * @param {string[]} input.targets
+ * @param {string} input.markerPath
+ * @param {{ execPath: string, args?: string[] } | null} [input.relaunch]
+ * @param {string} [input.execPath]
+ * @param {string} [input.scriptPath]
+ * @param {typeof spawn} [input.spawn]
+ */
+export function scheduleDeferredFullReset(input) {
+  const execPath = String(input.execPath ?? process.execPath);
+  const scriptPath = String(input.scriptPath ?? AFTER_EXIT_SCRIPT);
+  const plan = {
+    pid: Number(input.pid),
+    targets: Array.isArray(input.targets) ? input.targets : [],
+    markerPath: String(input.markerPath ?? ""),
+    relaunch: input.relaunch ?? null,
+  };
+  const spawnImpl = input.spawn ?? spawn;
+  const child = spawnImpl(execPath, [scriptPath], {
+    detached: true,
+    stdio: "ignore",
+    env: {
+      ...process.env,
+      ELECTRON_RUN_AS_NODE: "1",
+      ONMYAGENT_RESET_PLAN: JSON.stringify(plan),
+    },
+  });
+  child.unref?.();
+  return { pid: child.pid ?? null };
 }
 
 /**

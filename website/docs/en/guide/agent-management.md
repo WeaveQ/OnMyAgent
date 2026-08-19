@@ -91,7 +91,7 @@ Finding a CLI proves only that a candidate command exists in PATH or configurati
 
 ## 5. Model providers and BYOK
 
-Agent management can maintain providers recognized by **each local Agent**:
+Agent management can maintain providers recognized by **each local Agent**. Opening a saved provider shows **Edit model provider**: **Connection** on the left (ID, display name, endpoint, key), **Fetch models** and the catalog on the right, and **Save changes** at the bottom. Step-by-step copy is in [Models and BYOK · Edit a model provider](/en/guide/models#2-edit-a-model-provider).
 
 - API URL, API Key, and display name;
 - A model list fetched remotely or populated manually with model IDs;

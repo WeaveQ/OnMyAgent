@@ -364,8 +364,14 @@ export function createAgentManagementProviders(options = {}) {
           const capability = capabilityByModel.get(item);
           const context = positiveInteger(capability?.contextWindow);
           const output = positiveInteger(capability?.outputTokenLimit);
+          const attachment = capability?.attachment === false ? false : true;
           return [item, {
             name: String(capability?.name ?? item).trim() || item,
+            attachment,
+            modalities: {
+              input: attachment ? ["text", "image"] : ["text"],
+              output: ["text"],
+            },
             ...(context && output ? { limit: { context, output } } : {}),
           }];
         })),

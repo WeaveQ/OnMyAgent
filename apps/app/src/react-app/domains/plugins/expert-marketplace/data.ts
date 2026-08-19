@@ -111,6 +111,25 @@ function manifestApprovedAgentIds(value: string[] | null | undefined): string[] 
     .filter(Boolean))];
 }
 
+function agentNameFromAgentsField(value: ExpertPackageManifest["agents"]): string[] {
+  const items = Array.isArray(value) ? value : value ? [value] : [];
+  return items
+    .map((item) => String(item ?? "").trim().replace(/\\/g, "/").replace(/\/$/, ""))
+    .map((item) => (item.split("/").pop() ?? "").replace(/\.md$/i, ""))
+    .filter((item) => /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(item));
+}
+
+function resolveApprovedAgentIds(
+  manifest: ExpertPackageManifest,
+  leadAgentName: string,
+): string[] {
+  return [...new Set([
+    leadAgentName.trim(),
+    ...agentNameFromAgentsField(manifest.agents),
+    ...manifestApprovedAgentIds(manifest.approvedAgentIds),
+  ].filter(Boolean))];
+}
+
 function parseJson(input: string): ExpertPackageManifest {
   try {
     const parsed = JSON.parse(input);
@@ -365,7 +384,7 @@ export function listBuiltinMarketplaceExperts(): ExpertMarketplaceEntry[] {
         teamWorkflow: null,
         skills: manifestSkillNames(manifest.skills),
         introStyle: manifestIntroStyle(manifest.introStyle),
-        approvedAgentIds: manifestApprovedAgentIds(manifest.approvedAgentIds),
+        approvedAgentIds: resolveApprovedAgentIds(manifest, leadAgentName),
       };
     })
     .sort((left, right) => left.displayName.localeCompare(right.displayName, "zh-Hans-CN"));

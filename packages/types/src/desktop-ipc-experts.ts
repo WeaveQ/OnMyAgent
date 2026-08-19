@@ -53,8 +53,11 @@ export type ExpertPackageDeleteInput = {
   operationId: string;
   agentId: string;
   packageName: string;
-  /** Custom Expert packages are the only deletable marketplace entries. */
-  marketplace: "my-experts";
+  /**
+   * User-writable root to remove. `my-experts` is self-created; `experts` is the
+   * summoned local install. Never the bundled catalog under resources/.
+   */
+  marketplace: "my-experts" | "experts";
 };
 
 export type ExpertPackageDeleteStep = {

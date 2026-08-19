@@ -516,6 +516,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   const runtimeWorkspaceId =
     selectedWorkspaceEndpoint?.workspaceId ?? selectedWorkspace?.id ?? null;
   routeStateRef.current.runtimeWorkspaceId = runtimeWorkspaceId;
+  routeStateRef.current.opencodeBaseUrl = opencodeBaseUrl;
 
   const opencodeClient = useMemo(() => {
     if (!selectedWorkspaceEndpoint || !selectedWorkspaceEndpoint.token) return null;

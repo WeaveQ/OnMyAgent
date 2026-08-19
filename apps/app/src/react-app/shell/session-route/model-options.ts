@@ -10,7 +10,7 @@ import type {
   ModelRef,
   ProviderListItem,
 } from "../../../app/types";
-import { isProviderModelFree } from "../../../app/utils/providers";
+import { isProviderModelFree, modelSupportsVision } from "../../../app/utils/providers";
 import { t } from "../../../i18n";
 import { readCatalogContextWindow } from "../../capabilities/context-usage/context-usage-model";
 import {
@@ -137,6 +137,7 @@ export function buildConnectedModelOptions(input: {
           modelId: id,
           model,
         }),
+        supportsVision: modelSupportsVision(model, id),
         isConnected: true,
         isRecommended: isNew,
         source: /^lpr_/i.test(provider.id) ? "cloud" : undefined,

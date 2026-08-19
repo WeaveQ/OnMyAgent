@@ -202,6 +202,51 @@ describe("session route model options", () => {
     ]);
   });
 
+  test("marks catalog vision models only when modalities list image", () => {
+    const options = buildConnectedModelOptions({
+      data: {
+        all: [
+          {
+            id: "opencode",
+            name: "OpenCode Zen",
+            models: {
+              "mimo-v2.5-free": {
+                id: "mimo-v2.5-free",
+                name: "MiMo V2.5 Free",
+                modalities: { input: ["text", "image", "audio", "video"] },
+              },
+              "deepseek-v4-flash-free": {
+                id: "deepseek-v4-flash-free",
+                name: "DeepSeek V4 Flash Free",
+                attachment: false,
+                modalities: { input: ["text"] },
+              },
+              "custom-plain": {
+                id: "custom-plain",
+                name: "Custom Plain",
+              },
+              "kimi-k2.5": {
+                id: "kimi-k2.5",
+                name: "Kimi K2.5",
+              },
+            },
+          } as never,
+        ],
+        connected: ["opencode"],
+        default: { opencode: "mimo-v2.5-free" },
+      },
+      seenProviderIds: new Set(),
+      recentProviderIds: new Set(),
+    });
+
+    expect(options.map((item) => `${item.modelID}:${item.supportsVision === true}`)).toEqual([
+      "mimo-v2.5-free:true",
+      "deepseek-v4-flash-free:false",
+      "custom-plain:false",
+      "kimi-k2.5:true",
+    ]);
+  });
+
   test("allows OpenCode Zen when allowZenModel is open", () => {
     const options = [
       option({ providerID: "opencode", modelID: "big-pickle", isConnected: true, isFree: true }),

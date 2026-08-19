@@ -87,6 +87,7 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
     myExpertPackages,
     openCustomConnector,
     openDeleteExpertModal,
+    handleDeleteMarketplaceExpert,
     openDeleteModal,
     openExpertCreation,
     openExpertMarket,
@@ -295,6 +296,7 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
                         onActiveTabChange={setStoreActiveTab}
                         onSummonMarketplaceExpert={handleStartMarketplaceExpert}
                         onCreateExpert={openExpertCreation}
+                        onDeleteExpert={handleDeleteMarketplaceExpert}
                         onCreateSkill={handleCreateSkill}
                         onChatWithSkill={handleChatWithSkill}
                         onEditSkill={handleEditSkill}

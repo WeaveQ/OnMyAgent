@@ -5,7 +5,7 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 
 import type { Client, ModelOption } from "../../../app/types";
-import { isProviderModelFree } from "../../../app/utils/providers";
+import { isProviderModelFree, modelSupportsVision } from "../../../app/utils/providers";
 import { t } from "../../../i18n";
 import {
   ensureProviderListQuery,
@@ -139,6 +139,7 @@ export function useSettingsModelPicker(input: SettingsModelPickerInput) {
                 modelId: id,
                 model,
               }),
+              supportsVision: modelSupportsVision(model, id),
               isConnected: true,
               isRecommended: isNew,
               source: /^lpr_/i.test(provider.id) ? ("cloud" as const) : undefined,
