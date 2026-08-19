@@ -38,6 +38,7 @@ import {
 import { getReactQueryClient } from "../../infra/query-client";
 import {
   ensureProviderListQuery,
+  isProviderListQueryInvalidated,
   sessionRouteProviderListEnabled,
 } from "../../domains/connections";
 import { seedSessionState } from "../../domains/session";
@@ -135,6 +136,28 @@ export function useSessionRouteModelCatalog(input: Input) {
     opencodeBaseUrl,
     sessionWorkspaceRoot,
   });
+
+  // Settings invalidates the catalog while SessionRoute is unmounted. Cold
+  // enter still skips provider.list; only an invalidated existing cache is
+  // refetched so 首页 does not keep the pre-save model list.
+  useEffect(() => {
+    if (!opencodeClient) return;
+    const queryClient = getReactQueryClient();
+    if (
+      !isProviderListQueryInvalidated(queryClient, {
+        baseUrl: opencodeBaseUrl,
+        directory: sessionWorkspaceRoot || undefined,
+      })
+    ) {
+      return;
+    }
+    void ensureProviderListQuery(queryClient, {
+      client: opencodeClient,
+      baseUrl: opencodeBaseUrl,
+      directory: sessionWorkspaceRoot || undefined,
+      force: true,
+    }).catch(() => null);
+  }, [opencodeBaseUrl, opencodeClient, sessionWorkspaceRoot]);
 
   const { showToast } = useStatusToasts();
   const defaultModelRef = useRef(local.prefs.defaultModel);

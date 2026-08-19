@@ -4,8 +4,12 @@
  */
 
 import {
+  listOnMyAgentResetTargets,
   normalizeResetMode,
+  pendingFullResetMarkerPath,
+  RESET_RELAUNCH_EXIT_CODE,
   resetOnMyAgentLocalData,
+  scheduleDeferredFullReset,
 } from "../reset-onmyagent-state.mjs";
 
 export const HANDLER_COMMAND_NAMES = Object.freeze([
@@ -50,6 +54,12 @@ export function createRuntimeDomainHandlers({
   desktopBootstrapPath,
   os,
   taskLifecycle,
+  scheduleDeferredReset = scheduleDeferredFullReset,
+  queueAppExit = (appRef, code = 0) => {
+    if (typeof appRef?.exit === "function") {
+      setTimeout(() => appRef.exit(code), 80);
+    }
+  },
 } = {}) {
   async function withTaskLifecycleGuard(operation, action) {
     if (typeof taskLifecycle?.withNoActiveTaskWork === "function") {
@@ -74,7 +84,7 @@ export function createRuntimeDomainHandlers({
         ? desktopBootstrapPath()
         : desktopBootstrapPath;
 
-    return resetOnMyAgentLocalData({
+    const result = await resetOnMyAgentLocalData({
       mode,
       homeDir,
       userDataDir,
@@ -91,7 +101,32 @@ export function createRuntimeDomainHandlers({
         const { rm: nodeRm } = await import("node:fs/promises");
         await nodeRm(target, { recursive: true, force: true });
       },
+      scheduleDeferred:
+        mode === "all"
+          ? ({ targets, markerPath }) => {
+              const packaged = process.env.ONMYAGENT_DEV_MODE !== "1";
+              scheduleDeferredReset({
+                pid: process.pid,
+                targets: targets.length
+                  ? targets
+                  : listOnMyAgentResetTargets({
+                      mode,
+                      homeDir,
+                      userDataDir,
+                      appDataDir,
+                      desktopBootstrapPath: bootstrap,
+                      platform: process.platform,
+                    }),
+                markerPath: markerPath || pendingFullResetMarkerPath(homeDir),
+                relaunch: packaged
+                  ? { execPath: process.execPath, args: process.argv.slice(1) }
+                  : null,
+              });
+              queueAppExit(app, packaged ? 0 : RESET_RELAUNCH_EXIT_CODE);
+            }
+          : undefined,
     });
+    return { ...result, quit: mode === "all" };
   }
 
   return {

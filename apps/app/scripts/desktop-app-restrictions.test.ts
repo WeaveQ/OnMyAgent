@@ -4,7 +4,7 @@ import {
   DESKTOP_RESTRICTION_OPENCODE_PROVIDER_ID,
   isDesktopProviderBlocked,
 } from "../src/app/cloud/desktop-app-restrictions";
-import { isProviderModelFree } from "../src/app/utils/providers";
+import { isProviderModelFree, modelSupportsVision } from "../src/app/utils/providers";
 
 describe("isDesktopProviderBlocked", () => {
   test("allows OpenCode Zen when allowZenModel is not restricted", () => {
@@ -90,5 +90,55 @@ describe("isProviderModelFree", () => {
         model: { name: "qwen3.7-max", cost: { input: 0, output: 0 } },
       }),
     ).toBe(false);
+  });
+});
+
+describe("modelSupportsVision", () => {
+  test("requires an explicit image/vision input modality", () => {
+    expect(
+      modelSupportsVision({
+        attachment: true,
+        modalities: { input: ["text", "image", "audio", "video"] },
+      }),
+    ).toBe(true);
+    expect(
+      modelSupportsVision({
+        modalities: { input: ["text", "VISION"] },
+      }),
+    ).toBe(true);
+    expect(
+      modelSupportsVision({
+        attachment: true,
+        modalities: { input: ["text"] },
+      }),
+    ).toBe(false);
+    expect(modelSupportsVision({ attachment: true })).toBe(false);
+    expect(modelSupportsVision({ name: "MiMo V2.5 Free" } as never)).toBe(false);
+    expect(modelSupportsVision(null)).toBe(false);
+  });
+
+  test("falls back to known vision model ids when modalities are omitted", () => {
+    expect(modelSupportsVision({}, "mimo-v2.5-free")).toBe(true);
+    expect(modelSupportsVision({ id: "opencode/kimi-k2.5" })).toBe(true);
+    expect(modelSupportsVision({}, "qwen3.8-max")).toBe(true);
+    expect(modelSupportsVision({}, "qwen3.8-max-preview")).toBe(true);
+    expect(modelSupportsVision({}, "qwen3-8-max")).toBe(true);
+    expect(modelSupportsVision({}, "qwen3.7-plus")).toBe(true);
+    expect(modelSupportsVision({}, "qwen3.7-flash")).toBe(true);
+    expect(modelSupportsVision({}, "qwen3.6-plus-free")).toBe(true);
+    expect(modelSupportsVision({}, "doubao-seed-1.8")).toBe(true);
+    expect(modelSupportsVision({}, "doubao-seed-1-8-251215")).toBe(true);
+    expect(modelSupportsVision({}, "doubao-seed-evolving")).toBe(true);
+    expect(modelSupportsVision({}, "doubao-seed-2.0-pro")).toBe(true);
+    expect(modelSupportsVision({}, "kimi-k2.5-free")).toBe(true);
+    expect(modelSupportsVision({}, "deepseek-v4-flash-free")).toBe(false);
+    expect(modelSupportsVision({}, "big-pickle")).toBe(false);
+    expect(modelSupportsVision({}, "qwen3.7-max")).toBe(false);
+    expect(modelSupportsVision({}, "qwen3-max")).toBe(false);
+    expect(modelSupportsVision({}, "qwen3.8-2.4t-a95b")).toBe(false);
+    expect(modelSupportsVision({}, "seed-oss-36b-instruct")).toBe(false);
+    expect(modelSupportsVision({}, "gpt-5-codex")).toBe(false);
+    expect(modelSupportsVision({}, "kimi-k2.7-code")).toBe(false);
+    expect(modelSupportsVision({}, "doubao-seed-2.0-code")).toBe(false);
   });
 });

@@ -33,7 +33,16 @@ describe("humanizeSessionErrorMessage quota / plan", () => {
     }));
     expect(parsed.code).toBe("expert_runtime_contract_violated");
     expect(parsed.message).not.toContain("selected agent");
-    expect(parsed.message).toMatch(/Expert runtime|专家运行环境|專家執行環境/);
+    expect(parsed.message).toMatch(/Expert runtime|专家运行环境|專家執行環境|不允许|不允許/);
+  });
+
+  test("maps prompt_agent_not_allowed to agent-specific copy", () => {
+    const parsed = parseSessionError(JSON.stringify({
+      code: "expert_runtime_contract_violated",
+      details: { violationCode: "prompt_agent_not_allowed" },
+    }));
+    expect(parsed.message).toMatch(/agent|Agent|对话|對話/i);
+    expect(parsed.message).not.toMatch(/不安全/);
   });
 });
 

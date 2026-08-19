@@ -58,6 +58,7 @@ export type SettingsRouteStateRef = {
   selectedWorkspaceRoot: string;
   selectedWorkspaceType: "local" | "remote";
   runtimeWorkspaceId: string | null;
+  opencodeBaseUrl: string;
   onmyagentServerClient: OnMyAgentServerClient | null;
   onmyagentServerStatus: "connected" | "disconnected";
   onmyagentServerCapabilities: OnMyAgentServerCapabilities | null;
@@ -135,6 +136,7 @@ export function useSettingsRouteStores(input: SettingsRouteStoresInput) {
     selectedWorkspaceRoot: "",
     selectedWorkspaceType: "local",
     runtimeWorkspaceId: null,
+    opencodeBaseUrl: "",
     onmyagentServerClient: null,
     onmyagentServerStatus: "disconnected",
     onmyagentServerCapabilities: null,
@@ -152,6 +154,7 @@ export function useSettingsRouteStores(input: SettingsRouteStoresInput) {
     selectedWorkspaceRoot,
     selectedWorkspaceType,
     runtimeWorkspaceId,
+    opencodeBaseUrl: routeStateRef.current.opencodeBaseUrl,
     onmyagentServerClient: onmyagentClient,
     onmyagentServerStatus: onmyagentClient ? "connected" : "disconnected",
     onmyagentServerCapabilities: onmyagentClient ? ROUTE_ONMYAGENT_CAPABILITIES : null,
@@ -220,6 +223,7 @@ export function useSettingsRouteStores(input: SettingsRouteStoresInput) {
         checkDesktopAppRestriction: checkDesktopRestriction,
         selectedWorkspaceDisplay: () => routeStateRef.current.selectedWorkspaceDisplay,
         selectedWorkspaceRoot: () => routeStateRef.current.selectedWorkspaceRoot,
+        opencodeBaseUrl: () => routeStateRef.current.opencodeBaseUrl,
         runtimeWorkspaceId: () => routeStateRef.current.runtimeWorkspaceId,
         onmyagentServer: onmyagentServerStore,
         setProviders,

@@ -24,4 +24,6 @@ export default {
   "session_archive.role_tool": "工具",
   "session_archive.message_count": "{count} 條消息",
   "session_archive.resume": "恢復",
+  "session_archive.error_database_locked":
+    "歸檔庫正在同步，暫時打不開。請稍等幾秒再試，或點同步。",
 } as const;

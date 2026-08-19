@@ -148,9 +148,9 @@ export default {
   "session.expert_delete_conversation": "删除专家",
   "session.delete_expert_title": "删除专家？",
   "session.delete_named_expert_message":
-    "这将永久删除专家「{name}」、其全部会话消息，以及这些会话生成的工作区文件，且不可恢复。",
+    "这将永久删除专家「{name}」的全部会话、这些会话生成的工作区文件，以及本机安装的专家包，且不可恢复。",
   "session.delete_expert_generic":
-    "这将永久删除该专家、其全部会话消息，以及这些会话生成的工作区文件，且不可恢复。",
+    "这将永久删除该专家的全部会话、这些会话生成的工作区文件，以及本机安装的专家包，且不可恢复。",
   "session.delete_retry": "重试清理",
   "session.delete_partial_message": "清理未完成（{error}），可重试以安全恢复。",
   "session.provider_enable": "启用",
@@ -216,6 +216,16 @@ export default {
   "session.error_streaming_failed": "回复中断，请重试。",
   "session.error_expert_runtime_contract":
     "此专家运行环境配置不安全，请修复专家环境后重试。",
+  "session.error_expert_runtime_agent":
+    "此专家不允许当前 Agent，请重新打开专家对话后再试。",
+  "session.error_expert_runtime_directory":
+    "专家运行目录与当前对话不一致，请重新打开专家对话后再试。",
+  "session.error_expert_runtime_skills":
+    "此专家技能尚未就绪，请重新打开专家对话后再试。",
+  "session.error_expert_runtime_prompt_size":
+    "这条正文对专家运行环境来说太大，请拆分文字后再试。",
+  "session.error_expert_runtime_prompt_invalid":
+    "这条消息无法作为专家提示发送，请重试。",
   "session.error_network": "网络异常，请检查连接后重试。",
   "session.error_timeout": "请求超时，请重试。",
   "session.error_rate_limit": "请求过于频繁，请稍后再试。",

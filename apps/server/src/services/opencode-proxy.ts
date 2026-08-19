@@ -1,5 +1,4 @@
 import type { Actor, ServerConfig, WorkspaceInfo } from "@onmyagent/types/server";
-import { resolve } from "node:path";
 import { ApiError } from "../core/errors.js";
 import { resolveWorkspaceOpencodeConnection } from "./opencode-connection.js";
 import {
@@ -9,6 +8,8 @@ import {
 import {
   ensureAndAssertExpertRuntimeContract,
   EXPERT_PROMPT_BODY_MAX_BYTES,
+  EXPERT_PROMPT_BODY_MAX_BYTES_WITH_FILES,
+  expertPromptHasFileParts,
   ExpertRuntimeContractError,
   resolveExpertRuntimeDirectoryCandidate,
   type ExpertRuntimeContractEvent,
@@ -368,31 +369,19 @@ export async function proxyOpencodeRequest(input: {
     const directorySources = [queryDirectory, headerDirectory, bodyDirectory]
       .filter((value): value is string => Boolean(value));
     const requestedDirectory = directorySources[0] ?? null;
-    // An ordinary workspace prompt has no managed Expert marker. Keep it on
-    // the existing forwarding path even when its JSON is malformed/large.
-    const expertCandidates = await Promise.all(
-      directorySources.map((source) => resolveExpertRuntimeDirectoryCandidate({
-          workspaceId: workspace.id,
-          sessionRoot: source,
-          // A direct `/opencode/*` proxy has no routed workspace segment. A
-          // managed marker from another workspace must still be detected so
-          // the strict assertion fails closed instead of forwarding into it.
-          allowWorkspaceMismatch: true,
-        })),
-    );
-    const authorizedExpertDirectory = expertCandidates[0] ?? null;
-    const candidatePaths = new Set(
-      expertCandidates.filter((value): value is string => Boolean(value)).map((value) => resolve(value)),
-    );
-    if (candidatePaths.size > 0 && (!authorizedExpertDirectory || candidatePaths.size > 1)) {
-      const error = new ExpertRuntimeContractError(
-        "authorized_directory",
-        { workspace, sessionId: sessionId ?? "", directory: requestedDirectory ?? "" },
-        "Expert prompt directory sources conflict",
-      );
-      emitExpertContractViolation(input.onExpertContractViolation, error.toEvent());
-      throw error;
+    // Query owns routing (OpenCode SDK v2). Header/body are fallbacks when
+    // query is absent. Do not 409 when the client-default workspace header
+    // points at a different leftover Expert directory than the per-call query.
+    const expertCandidates: string[] = [];
+    for (const source of directorySources) {
+      const candidate = await resolveExpertRuntimeDirectoryCandidate({
+        workspaceId: workspace.id,
+        sessionRoot: source,
+        allowWorkspaceMismatch: true,
+      });
+      if (candidate) expertCandidates.push(candidate);
     }
+    const authorizedExpertDirectory = expertCandidates[0] ?? null;
     if (authorizedExpertDirectory) {
       const expertDirectory = requestedDirectory as string;
       if (!sessionId) {
@@ -506,7 +495,7 @@ type BoundedJsonClone = {
 
 async function readBoundedJsonClone(request: Request): Promise<BoundedJsonClone> {
   const contentLength = Number(request.headers.get("content-length") ?? "");
-  if (Number.isFinite(contentLength) && contentLength > EXPERT_PROMPT_BODY_MAX_BYTES) {
+  if (Number.isFinite(contentLength) && contentLength > EXPERT_PROMPT_BODY_MAX_BYTES_WITH_FILES) {
     return { body: null, tooLarge: true };
   }
   const clone = request.clone();
@@ -519,7 +508,7 @@ async function readBoundedJsonClone(request: Request): Promise<BoundedJsonClone>
       const next = await reader.read();
       if (next.done) break;
       total += next.value.byteLength;
-      if (total > EXPERT_PROMPT_BODY_MAX_BYTES) {
+      if (total > EXPERT_PROMPT_BODY_MAX_BYTES_WITH_FILES) {
         await reader.cancel();
         return { body: null, tooLarge: true };
       }
@@ -538,12 +527,17 @@ async function readBoundedJsonClone(request: Request): Promise<BoundedJsonClone>
   if (!text) return { body: null, tooLarge: false };
   try {
     const parsed = JSON.parse(text) as unknown;
-    return {
-      body: parsed && typeof parsed === "object" && !Array.isArray(parsed)
-        ? parsed as Record<string, unknown>
-        : null,
-      tooLarge: false,
-    };
+    const body = parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null;
+    if (
+      body &&
+      total > EXPERT_PROMPT_BODY_MAX_BYTES &&
+      !expertPromptHasFileParts(body)
+    ) {
+      return { body: null, tooLarge: true };
+    }
+    return { body, tooLarge: false };
   } catch {
     return { body: null, tooLarge: false };
   }

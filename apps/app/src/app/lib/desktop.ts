@@ -917,11 +917,13 @@ const {
   updaterEnvironment,
   readOpencodeConfig,
   writeOpencodeConfig,
-  resetOnMyAgentState,
   resetOpencodeCache,
   opencodeMcpAuth,
   setWindowDecorations,
 } = desktopBridge;
+
+export const resetOnMyAgentState = (mode?: "onboarding" | "all") =>
+  invokeDesktopCommand("resetOnMyAgentState", mode);
 
 export const installExpertPackage = (input: ExpertPackageInstallInput) =>
   invokeDesktopCommand("installExpertPackage", input);
@@ -1467,7 +1469,6 @@ export {
   updaterEnvironment,
   readOpencodeConfig,
   writeOpencodeConfig,
-  resetOnMyAgentState,
   resetOpencodeCache,
   opencodeMcpAuth,
   setWindowDecorations,

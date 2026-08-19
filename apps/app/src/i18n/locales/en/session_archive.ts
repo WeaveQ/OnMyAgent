@@ -24,4 +24,6 @@ export default {
   "session_archive.role_tool": "Tool",
   "session_archive.message_count": "{count} messages",
   "session_archive.resume": "Resume",
+  "session_archive.error_database_locked":
+    "The archive database is busy syncing. Wait a few seconds and try again, or click Sync.",
 } as const;

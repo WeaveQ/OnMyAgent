@@ -536,6 +536,28 @@ describe("expert marketplace UI contract", () => {
     expect(dialog).toContain("openChatCta ? t(\"session.open_chat\") : t(\"session.summon\")");
   });
 
+  test("my-experts cards expose hard-delete for self-created and summoned installs", () => {
+    const dialog = readMarketplaceFile("expert-marketplace-dialog.tsx");
+    const storePage = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/components/side-panel-pages.tsx",
+    );
+    const expertPage = [
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-page.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-hard-delete-ui.ts"),
+    ].join("\n");
+    expect(dialog).toContain("onDeleteExpert?: (expert: ExpertMarketplaceEntry) => void");
+    expect(dialog).toContain('expert.source === "mine" || expert.source === "installed"');
+    expect(dialog).toContain('t("session.expert_delete_conversation")');
+    expect(dialog).toContain('t("session.delete")');
+    expect(dialog).toContain('variant="destructive"');
+    expect(dialog).not.toContain("window.confirm");
+    expect(storePage).toContain("onDeleteExpert={props.onDeleteExpert}");
+    expect(expertPage).toContain("handleDeleteMarketplaceExpert");
+    expect(expertPage).toContain("onDeleteExpert={handleDeleteMarketplaceExpert}");
+    expect(expertPage).toContain("resolveMarketplaceExpertHardDeleteTarget");
+  });
+
   test("store page hosts the expert marketplace and expert icon jumps there", () => {
     const expertPage = [
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
