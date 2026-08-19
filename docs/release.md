@@ -20,6 +20,8 @@ Do **not** merge `dev` or `main` into `release/0.5`. That would ship 1.x work on
 
 Set the GitHub **default branch** to `dev` so New PR targets daily integration. Website / Pages still deploy from `main` only.
 
+Branch rulesets `Protect dev`, `Protect main`, and `Protect release/0.5` each require a PR and the same four status checks: `Checks (ubuntu-latest)`, `Test Summary`, `PR English + Privacy`, `Per-commit type gate`.
+
 ### Forward-port 0.5 fixes to 1.x
 
 After a `release/0.5` PR merges:
