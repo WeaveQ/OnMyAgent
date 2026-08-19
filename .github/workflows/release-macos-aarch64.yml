@@ -21,7 +21,7 @@ on:
         type: boolean
         default: true
       prerelease:
-        description: "Mark the GitHub Release as a prerelease"
+        description: "Mark as prerelease (does not overwrite OSS latest). Ignored/forced true except for v0.5.x tags, which may set false for a stable OSS cut."
         required: false
         type: boolean
         default: true
@@ -133,7 +133,18 @@ jobs:
               draft="false"
             fi
           fi
-          prerelease="${INPUT_PRERELEASE:-false}"
+          # Default prerelease. Only v0.5.x may publish a full (OSS) release,
+          # and only when the operator explicitly sets prerelease=false.
+          # 1.x / main tags cannot overwrite customer latest.yml by accident.
+          if [[ "$TAG" =~ ^v0\.5\.[0-9]+$ ]] && [ "${INPUT_PRERELEASE}" = "false" ]; then
+            prerelease="false"
+            echo "0.5.x full release requested for $TAG (OSS sync will run after publish)."
+          else
+            prerelease="true"
+            if [ "${INPUT_PRERELEASE}" = "false" ]; then
+              echo "Ignoring prerelease=false for $TAG; only v0.5.x may publish a stable OSS release."
+            fi
+          fi
           notarize="${INPUT_NOTARIZE:-}"
           if [ -z "$notarize" ]; then
             notarize="${DEFAULT_NOTARIZE:-false}"

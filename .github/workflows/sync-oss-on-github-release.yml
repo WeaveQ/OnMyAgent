@@ -13,7 +13,7 @@ jobs:
     if: |
       github.event.release.draft == false &&
       github.event.release.prerelease == false &&
-      startsWith(github.event.release.tag_name, 'v')
+      startsWith(github.event.release.tag_name, 'v0.5.')
     runs-on: ubuntu-latest
     env:
       RELEASE_TAG: ${{ github.event.release.tag_name }}
