@@ -6,7 +6,7 @@
 
 ## 1. 结论
 
-采用“保留 OnMyAgent MCP/授权/AX/截图上层，替换底层输入路由”的适配方案，不重写整个 Computer Use，也不使用已废弃的 `computer-use-v2`。
+采用“保留 OnMyAgent MCP/授权/AX/截图上层，替换底层输入路由”的适配方案，不重写整个 Computer Use。
 
 原因：OnMyAgent 已具备应用授权、窗口发现、ScreenCaptureKit 截图、AX 语义树、稳定 ref、动作结果和 MCP 集成。实际差距集中在窗口激活与输入注入层；重写会重复已有能力并扩大权限、打包和回归范围。
 
@@ -113,6 +113,7 @@ quiet window 只约束显式启用的前台兼容模式。该模式仍通过共�
 
 ## 6. 边界与维护要求
 
+- 当前验收版本由 `ComputerUseBehaviorContract.swift` 集中声明默认 strict、硬件光标容差、Sky 工具面和虚拟光标比例；高风险实现由 `packages/handsfree/computer-use-contract.lock.json` 锁定。根 `pnpm check` 会在所有平台校验 hash 并扫描危险 API，macOS CI 额外运行完整 Swift 与 MCP parity tests。未来修改受保护文件必须遵循 `packages/handsfree/AGENTS.md`，不得只更新 lock 规避门禁。
 - SkyLight/CPS 是 macOS 私有接口，系统升级可能改变符号或事件布局；实现使用运行时解析，并在能力不完整时严格拒绝，不静默切换前台 HID。
 - 该能力适合直接分发/公证的桌面应用，不应假设满足 Mac App Store 私有 API 审核规则。
 - Codex 完整的专有 focus-preventer 状态机无法从 hardened 二进制恢复为源码；OnMyAgent 以动态事件指纹和真实行为 E2E 为兼容边界。后续若事件指纹或行为测试不再成立，应当停止支持该 macOS 版本，而不是宣称仍与 Codex 等价。

@@ -5,7 +5,10 @@ enum MCPToolProfile: Equatable {
     case compatibility
 
     static func current(environment: [String: String] = ProcessInfo.processInfo.environment) -> MCPToolProfile {
-        environment["ONMYAGENT_COMPUTER_USE_COMPAT_TOOLS"] == "1" ? .compatibility : .sky
+        environment[ComputerUseBehaviorContract.compatibilityToolsEnvironmentKey]
+            == ComputerUseBehaviorContract.compatibilityToolsEnabledValue
+            ? .compatibility
+            : .sky
     }
 }
 

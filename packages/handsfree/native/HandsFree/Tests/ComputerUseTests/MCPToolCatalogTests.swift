@@ -23,6 +23,7 @@ final class MCPToolCatalogTests: XCTestCase {
         })
 
         XCTAssertEqual(Set(byName.keys), Set(skyRequired.keys))
+        XCTAssertEqual(Set(byName.keys), ComputerUseBehaviorContract.skyToolNames)
 
         for (name, required) in skyRequired {
             let schema = try XCTUnwrap(byName[name], "Missing Sky tool \(name)")
@@ -66,6 +67,20 @@ final class MCPToolCatalogTests: XCTestCase {
         XCTAssertEqual(
             MCPToolProfile.current(environment: ["ONMYAGENT_COMPUTER_USE_COMPAT_TOOLS": "true"]),
             .sky
+        )
+    }
+
+    func testDefaultProfileCannotRequestForegroundFallback() {
+        XCTAssertEqual(
+            ComputerUseBehaviorContract.requestedStrictMode(profile: .sky, requested: false),
+            true
+        )
+        XCTAssertEqual(
+            ComputerUseBehaviorContract.requestedStrictMode(profile: .compatibility, requested: false),
+            false
+        )
+        XCTAssertNil(
+            ComputerUseBehaviorContract.requestedStrictMode(profile: .compatibility, requested: nil)
         )
     }
 

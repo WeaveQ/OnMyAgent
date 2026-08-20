@@ -96,7 +96,7 @@ actor MCPServer {
                     imageY: doubleArg(args, "y"),
                     clickCount: intArg(args, "click_count") ?? 1,
                     mouseButton: SkyCompatibility.mouseButton(args["mouse_button"] as? String) ?? .left,
-                    strict: boolArg(args, "strict")
+                    strict: strictArg(args)
                 )
                 return jsonResult(metadata.dictionary)
             case "drag":
@@ -106,15 +106,15 @@ actor MCPServer {
                     fromImageY: doubleArg(args, "from_y") ?? 0,
                     toImageX: doubleArg(args, "to_x") ?? 0,
                     toImageY: doubleArg(args, "to_y") ?? 0,
-                    strict: boolArg(args, "strict")
+                    strict: strictArg(args)
                 )
                 return jsonResult(metadata.dictionary)
             case "type_text":
-                let metadata = try await runtime.typeText(snapshotID: snapshotIDArg(args), text: args["text"] as? String ?? "", strict: boolArg(args, "strict"))
+                let metadata = try await runtime.typeText(snapshotID: snapshotIDArg(args), text: args["text"] as? String ?? "", strict: strictArg(args))
                 return jsonResult(metadata.dictionary)
             case "press_key":
                 let rawKey = args["key"] as? String ?? args["combo"] as? String ?? ""
-                let metadata = try await runtime.pressKey(snapshotID: snapshotIDArg(args), combo: SkyCompatibility.keyCombo(rawKey), strict: boolArg(args, "strict"))
+                let metadata = try await runtime.pressKey(snapshotID: snapshotIDArg(args), combo: SkyCompatibility.keyCombo(rawKey), strict: strictArg(args))
                 return jsonResult(metadata.dictionary)
             case "scroll":
                 let target = SkyCompatibility.elementTarget(args["element_index"] as? String)
@@ -126,7 +126,7 @@ actor MCPServer {
                     pages: doubleArg(args, "pages") ?? 1,
                     imageX: doubleArg(args, "x"),
                     imageY: doubleArg(args, "y"),
-                    strict: boolArg(args, "strict")
+                    strict: strictArg(args)
                 )
                 return jsonResult(metadata.dictionary)
             case "set_value":
@@ -298,7 +298,7 @@ actor MCPServer {
     private func snapshotResult(args: [String: Any]) async throws -> [[String: Any]] {
         let application = try await applicationForAuthorization(appName: args["app"] as? String)
         try await appAuthorization.authorize(application)
-        let snapshot = try await runtime.snapshot(appName: args["app"] as? String, strict: boolArg(args, "strict"))
+        let snapshot = try await runtime.snapshot(appName: args["app"] as? String, strict: strictArg(args))
         AgentCursorOverlay.shared.setActivityState(.loading)
         try? activityStore.update(phase: .running, app: snapshot.appName, reason: nil)
         var payload = snapshotPayload(snapshot)
@@ -675,6 +675,13 @@ actor MCPServer {
             if value == "false" { return false }
         }
         return nil
+    }
+
+    private func strictArg(_ args: [String: Any]) -> Bool? {
+        ComputerUseBehaviorContract.requestedStrictMode(
+            profile: toolProfile,
+            requested: boolArg(args, "strict")
+        )
     }
 
     private func snapshotIDArg(_ args: [String: Any]) -> String? {
