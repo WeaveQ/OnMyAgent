@@ -33,7 +33,7 @@
     "@dicebear/pixel-art": "^9.4.2",
     "@file-viewer/react": "2.2.8",
     "@file-viewer/renderer-presentation": "2.2.8",
-    "@file-viewer/renderer-spreadsheet": "2.2.8",
+    "@file-viewer/renderer-spreadsheet": "2.2.9",
     "@file-viewer/renderer-word": "2.2.8",
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/ibm-plex-sans": "^5.3.0",
