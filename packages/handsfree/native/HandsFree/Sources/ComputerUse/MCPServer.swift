@@ -14,6 +14,7 @@ actor MCPServer {
     private let skysight = SkysightController()
     private let activityStore = ComputerUseActivityStore()
     private var cuaSnapshotFrontmostPID: pid_t?
+    private var cuaCursorTarget: AgentCursorTarget?
     private var deliveredInstructionBundleIdentifiers: Set<String> = []
 
     func run() async {
@@ -57,7 +58,7 @@ actor MCPServer {
             }
         }
         _ = try? recordAndReplay.stop(reason: "mcp_ended")
-        await MainActor.run { ComputerUsePIPOverlay.shared.hide() }
+        AgentCursorOverlay.shared.hide()
         try? activityStore.update(phase: .inactive, app: nil, reason: nil)
     }
 
@@ -218,17 +219,28 @@ actor MCPServer {
                 return try await cuaScreenshotResult()
             case "cua_click":
                 try validateCuaSnapshotFresh()
-                AgentCursorOverlay.shared.show(at: CGPoint(x: intArg(args, "x") ?? 0, y: intArg(args, "y") ?? 0))
+                await AgentCursorOverlay.shared.move(
+                    to: CGPoint(x: intArg(args, "x") ?? 0, y: intArg(args, "y") ?? 0),
+                    target: cuaCursorTarget
+                )
+                AgentCursorOverlay.shared.indicateAction()
                 try await input.click(point: CGPoint(x: intArg(args, "x") ?? 0, y: intArg(args, "y") ?? 0))
                 return jsonResult(["ok": true])
             case "cua_double_click":
                 try validateCuaSnapshotFresh()
-                AgentCursorOverlay.shared.show(at: CGPoint(x: intArg(args, "x") ?? 0, y: intArg(args, "y") ?? 0))
+                await AgentCursorOverlay.shared.move(
+                    to: CGPoint(x: intArg(args, "x") ?? 0, y: intArg(args, "y") ?? 0),
+                    target: cuaCursorTarget
+                )
+                AgentCursorOverlay.shared.indicateAction()
                 try await input.click(point: CGPoint(x: intArg(args, "x") ?? 0, y: intArg(args, "y") ?? 0), clickCount: 2)
                 return jsonResult(["ok": true])
             case "cua_move":
                 try validateCuaSnapshotFresh()
-                AgentCursorOverlay.shared.show(at: CGPoint(x: intArg(args, "x") ?? 0, y: intArg(args, "y") ?? 0))
+                await AgentCursorOverlay.shared.move(
+                    to: CGPoint(x: intArg(args, "x") ?? 0, y: intArg(args, "y") ?? 0),
+                    target: cuaCursorTarget
+                )
                 try input.moveMouse(point: CGPoint(x: intArg(args, "x") ?? 0, y: intArg(args, "y") ?? 0))
                 return jsonResult(["ok": true])
             case "cua_type":
@@ -241,7 +253,10 @@ actor MCPServer {
                 return jsonResult(["ok": true])
             case "cua_scroll":
                 try validateCuaSnapshotFresh()
-                AgentCursorOverlay.shared.show(at: CGPoint(x: intArg(args, "x") ?? 0, y: intArg(args, "y") ?? 0))
+                await AgentCursorOverlay.shared.move(
+                    to: CGPoint(x: intArg(args, "x") ?? 0, y: intArg(args, "y") ?? 0),
+                    target: cuaCursorTarget
+                )
                 try input.scroll(
                     point: CGPoint(x: intArg(args, "x") ?? 0, y: intArg(args, "y") ?? 0),
                     deltaX: Int32(intArg(args, "scroll_x") ?? 0),
@@ -252,7 +267,11 @@ actor MCPServer {
                 try validateCuaSnapshotFresh()
                 let path = parsePointPath(args["path"])
                 if let first = path.first {
-                    AgentCursorOverlay.shared.show(at: first)
+                    await AgentCursorOverlay.shared.move(to: first, target: cuaCursorTarget)
+                }
+                if let last = path.last {
+                    await AgentCursorOverlay.shared.move(to: last, target: cuaCursorTarget)
+                    AgentCursorOverlay.shared.indicateAction()
                 }
                 try await input.drag(path: path)
                 return jsonResult(["ok": true])
@@ -278,13 +297,6 @@ actor MCPServer {
         let application = try await applicationForAuthorization(appName: args["app"] as? String)
         try await appAuthorization.authorize(application)
         let snapshot = try await runtime.snapshot(appName: args["app"] as? String, strict: boolArg(args, "strict"))
-        await MainActor.run {
-            ComputerUsePIPOverlay.shared.update(
-                appName: snapshot.appName,
-                processID: snapshot.pid,
-                imageData: snapshot.screenshotData
-            )
-        }
         try? activityStore.update(phase: .running, app: snapshot.appName, reason: nil)
         var payload = snapshotPayload(snapshot)
         if let settle = await runtime.uiSettleMetadata() {
@@ -411,9 +423,14 @@ actor MCPServer {
         if let url = accessibility.currentBrowserURL(application: frontmostApplication),
            ComputerUseTargetPolicy.isBlockedBrowserURL(url) {
             cuaSnapshotFrontmostPID = nil
+            cuaCursorTarget = nil
             throw ComputerUseError.blockedBrowserURL
         }
         cuaSnapshotFrontmostPID = frontmostApplication.processIdentifier
+        let target = try? accessibility.resolveTarget(
+            appName: frontmostApplication.bundleIdentifier ?? frontmostApplication.localizedName
+        )
+        cuaCursorTarget = target.flatMap(AgentCursorTarget.init(windowTarget:))
         let cgImage = await screenCaptureKitDisplayImage() ?? CGWindowListCreateImage(CGRect.null, .optionOnScreenOnly, kCGNullWindowID, [.bestResolution])
         guard let cgImage else {
             throw ComputerUseError.screenshotFailed

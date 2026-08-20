@@ -132,7 +132,8 @@ actor ComputerUseRuntime {
         if let record = findRecord(ref: ref, index: index, in: snapshot) {
             let fresh = freshRecord(matching: record, in: snapshot)
             if let fresh {
-                AgentCursorOverlay.shared.show(at: fresh.semantic.frame.center)
+                await moveCursor(to: fresh.semantic.frame.center, for: snapshot)
+                AgentCursorOverlay.shared.indicateAction()
                 if mouseButton == .left, fresh.semantic.capabilities.canPress, accessibility.press(record: fresh) {
                     return recordAction(ActionMetadata(ok: true, path: .accessibility, strictMode: effectiveStrict, backgroundSafe: true, fallbackUsed: false, message: "Pressed \(fresh.semantic.ref) via AXPress."))
                 }
@@ -193,7 +194,7 @@ actor ComputerUseRuntime {
             }
             return CGPoint(x: snapshot.screenshotMeta.capturedBounds.midX, y: snapshot.screenshotMeta.capturedBounds.midY)
         }()
-        AgentCursorOverlay.shared.show(at: point)
+        await moveCursor(to: point, for: snapshot)
 
         if effectiveStrict {
             let amount = MouseInputGeometry.scrollPixels(
@@ -226,7 +227,9 @@ actor ComputerUseRuntime {
         let start = snapshot.screenshotMeta.toScreen(imageX: fromImageX, imageY: fromImageY)
         let end = snapshot.screenshotMeta.toScreen(imageX: toImageX, imageY: toImageY)
         let path = MouseInputGeometry.linearPath(from: start, to: end)
-        AgentCursorOverlay.shared.show(at: start)
+        await moveCursor(to: start, for: snapshot)
+        await moveCursor(to: end, for: snapshot)
+        AgentCursorOverlay.shared.indicateAction()
         if effectiveStrict {
             let (session, windowNumber) = try strictSession(for: snapshot)
             try await session.drag(windowNumber: windowNumber, path: path)
@@ -236,7 +239,7 @@ actor ComputerUseRuntime {
         return recordAction(ActionMetadata(ok: true, path: .foregroundCGEvent, strictMode: false, backgroundSafe: false, fallbackUsed: true, message: "Dragged with foreground HID fallback."))
     }
 
-    func setValue(snapshotID: String?, ref: String?, index: Int?, value: String) throws -> ActionMetadata {
+    func setValue(snapshotID: String?, ref: String?, index: Int?, value: String) async throws -> ActionMetadata {
         let snapshot = try requireSnapshot(snapshotID: snapshotID)
         try validateSnapshotForAction(snapshot: snapshot, strict: snapshot.strictMode)
         guard let record = findRecord(ref: ref, index: index, in: snapshot) else {
@@ -245,7 +248,8 @@ actor ComputerUseRuntime {
         guard let fresh = freshRecord(matching: record, in: snapshot) else {
             throw ComputerUseError.staleSnapshot("The target element changed. Take a new snapshot before setting its value.")
         }
-        AgentCursorOverlay.shared.show(at: fresh.semantic.frame.center)
+        await moveCursor(to: fresh.semantic.frame.center, for: snapshot)
+        AgentCursorOverlay.shared.indicateAction()
         let ok = accessibility.setValue(record: fresh, value: value)
         return recordAction(ActionMetadata(ok: ok, path: .accessibility, strictMode: snapshot.strictMode, backgroundSafe: true, fallbackUsed: false, message: ok ? "Set \(fresh.semantic.ref) via AXValue." : "Element value is not settable."))
     }
@@ -258,7 +262,7 @@ actor ComputerUseRuntime {
         prefix: String?,
         suffix: String?,
         selection: TextSelectionMode
-    ) throws -> ActionMetadata {
+    ) async throws -> ActionMetadata {
         let snapshot = try requireSnapshot(snapshotID: snapshotID)
         try validateSnapshotForAction(snapshot: snapshot, strict: snapshot.strictMode)
         guard let record = findRecord(ref: ref, index: index, in: snapshot) else {
@@ -267,7 +271,8 @@ actor ComputerUseRuntime {
         guard let fresh = freshRecord(matching: record, in: snapshot) else {
             throw ComputerUseError.staleSnapshot("The text element changed. Take a new snapshot before selecting text.")
         }
-        AgentCursorOverlay.shared.show(at: fresh.semantic.frame.center)
+        await moveCursor(to: fresh.semantic.frame.center, for: snapshot)
+        AgentCursorOverlay.shared.indicateAction()
         let ok = accessibility.selectText(
             record: fresh,
             text: text,
@@ -285,7 +290,7 @@ actor ComputerUseRuntime {
         ))
     }
 
-    func performAction(snapshotID: String?, ref: String?, index: Int?, action: String) throws -> ActionMetadata {
+    func performAction(snapshotID: String?, ref: String?, index: Int?, action: String) async throws -> ActionMetadata {
         let snapshot = try requireSnapshot(snapshotID: snapshotID)
         try validateSnapshotForAction(snapshot: snapshot, strict: snapshot.strictMode)
         guard let record = findRecord(ref: ref, index: index, in: snapshot) else {
@@ -294,7 +299,8 @@ actor ComputerUseRuntime {
         guard let fresh = freshRecord(matching: record, in: snapshot) else {
             throw ComputerUseError.staleSnapshot("The target element changed. Take a new snapshot before performing another action.")
         }
-        AgentCursorOverlay.shared.show(at: fresh.semantic.frame.center)
+        await moveCursor(to: fresh.semantic.frame.center, for: snapshot)
+        AgentCursorOverlay.shared.indicateAction()
         let ok = accessibility.performAction(record: fresh, action: action)
         return recordAction(ActionMetadata(ok: ok, path: .accessibility, strictMode: snapshot.strictMode, backgroundSafe: true, fallbackUsed: false, message: ok ? "Performed \(action) on \(fresh.semantic.ref)." : "AX action \(action) failed."))
     }
@@ -308,7 +314,8 @@ actor ComputerUseRuntime {
     private func clickPoint(_ point: CGPoint, clickCount: Int, mouseButton: ComputerMouseButton, strict: Bool, fallbackUsed: Bool) async throws -> ActionMetadata {
         let snapshot = try requireSnapshot()
         try validateSnapshotForAction(snapshot: snapshot, strict: strict)
-        AgentCursorOverlay.shared.show(at: point)
+        await moveCursor(to: point, for: snapshot)
+        AgentCursorOverlay.shared.indicateAction()
         if strict {
             let (session, windowNumber) = try strictSession(for: snapshot)
             try await session.click(windowNumber: windowNumber, point: point, button: mouseButton, clickCount: clickCount)
@@ -327,7 +334,11 @@ actor ComputerUseRuntime {
         let nextActivationKey = "\(previousPID):\(target.pid)"
         if activationKey != nextActivationKey {
             resetBackgroundActivation()
-            let next = BackgroundInteractionSession(previousPID: previousPID, targetPID: target.pid)
+            let next = BackgroundInteractionSession(
+                previousPID: previousPID,
+                targetPID: target.pid,
+                physicalInputMonitor: physicalInputMonitor
+            )
             try next.start()
             activationSession = next
             activationKey = nextActivationKey
@@ -345,6 +356,13 @@ actor ComputerUseRuntime {
             activatedWindowKey = nextWindowKey
         }
         return !target.isFrontmost
+    }
+
+    private func moveCursor(to point: CGPoint, for snapshot: AppSnapshot) async {
+        await AgentCursorOverlay.shared.move(
+            to: point,
+            target: AgentCursorTarget(snapshot: snapshot)
+        )
     }
 
     private func strictSession(for snapshot: AppSnapshot) throws -> (BackgroundInteractionSession, Int) {

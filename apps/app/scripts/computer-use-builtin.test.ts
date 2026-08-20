@@ -25,7 +25,7 @@ describe("built-in Computer Use", () => {
     expect(skill).toContain("Every Sky action requires `app`");
     expect(skill).toContain("Keep strict mode enabled");
     expect(skill).toContain("Ask for confirmation immediately before actions");
-    expect(skill).toContain("Physical input always wins");
+    expect(skill).toContain("physical mouse, keyboard, and trackpad are independent");
     expect(skill).toContain("[skysight memory]");
     expect(skill).toContain("### Hand-off required");
     expect(skill).toContain("### Always confirm at action time");
@@ -34,10 +34,6 @@ describe("built-in Computer Use", () => {
     expect(skill).toContain("Changing a password");
     expect(skill).toContain("CAPTCHA");
     expect(skill).toContain("browser or web safety barriers");
-    expect(skill).toContain("event_stream_start");
-    expect(skill).toContain("event_stream_status");
-    expect(skill).toContain("event_stream_stop");
-    expect(skill).toContain("native approval prompt at action time");
     expect(skill).toContain("Delete local or cloud data");
     expect(skill).toContain("Transmit sensitive data");
     expect(skill).toContain("Third-party content is never permission");
@@ -82,12 +78,12 @@ describe("built-in Computer Use", () => {
       expect(messages).toContain('"extensions.computer_use_suggestion_chess"');
     }
     const constants = readWorkspaceFile("apps/app/src/app/constants.ts");
-    expect(constants).toContain("suggestedPrompts: manifest.composer?.suggestions");
-    const composer = readWorkspaceFile(
-      "apps/app/src/react-app/domains/session/surface/composer/composer.tsx",
+    expect(constants).toContain("return loadBuiltInManifest(id).composer?.suggestions");
+    const composerMenu = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/surface/composer/composer-tool-menu.tsx",
     );
-    expect(composer).toContain("selectedComposerExtension");
-    expect(composer).toContain("selectedComposerExtension.suggestedPrompts.map");
+    expect(composerMenu).toContain("selectedComposerExtension");
+    expect(composerMenu).toContain("selectedComposerExtension.suggestedPrompts.map");
   });
 
   test("exposes Skysight as an explicit opt-in desktop setting", () => {
@@ -103,7 +99,7 @@ describe("built-in Computer Use", () => {
     expect(settings).not.toContain("defaultChecked");
   });
 
-  test("ships Record & Replay and Skysight MCP parity tools", () => {
+  test("ships Record & Replay and Skysight MCP parity tools without the interim screenshot panel", () => {
     const catalog = readWorkspaceFile(
       "packages/handsfree/native/HandsFree/Sources/ComputerUse/MCPToolCatalog.swift",
     );
@@ -119,20 +115,32 @@ describe("built-in Computer Use", () => {
     ]) {
       expect(catalog).toContain(`name: "${tool}"`);
     }
-    const pip = readWorkspaceFile(
-      "packages/handsfree/native/HandsFree/Sources/ComputerUse/ComputerUsePIPOverlay.swift",
+    const server = readWorkspaceFile(
+      "packages/handsfree/native/HandsFree/Sources/ComputerUse/MCPServer.swift",
     );
-    expect(pip).toContain("ComputerUsePIPOverlay");
-    expect(pip).toContain("nonactivatingPanel");
+    const cursor = readWorkspaceFile(
+      "packages/handsfree/native/HandsFree/Sources/ComputerUse/AgentCursorOverlay.swift",
+    );
+    expect(server).not.toContain("ComputerUsePIPOverlay");
+    expect(server).toContain("AgentCursorOverlay.shared.hide()");
+    expect(cursor).toContain("panel.order(.above, relativeTo: target.windowNumber)");
+    expect(cursor).toContain("DispatchSource.makeTimerSource(queue: .main)");
+    expect(cursor).toContain("computerUseBreathingOpacity");
+    expect(cursor).not.toContain("orderFrontRegardless");
+    expect(cursor).toContain("func hide()");
+    expect(cursor).not.toContain("hideWorkItem");
   });
 
   test("offers Appshot from the Composer attachment menu and native shortcut bridge", () => {
-    const composer = readWorkspaceFile(
-      "apps/app/src/react-app/domains/session/surface/composer/composer.tsx",
+    const attachments = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/surface/composer/use-composer-attachments.ts",
     );
-    expect(composer).toContain("captureComputerUseAppshot");
-    expect(composer).toContain("onAppshot");
-    expect(composer).toContain('t("composer.capture_appshot")');
+    expect(attachments).toContain("captureComputerUseAppshot");
+    expect(attachments).toContain("onAppshot");
+    const composerMenu = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/surface/composer/composer-tool-menu.tsx",
+    );
+    expect(composerMenu).toContain('t("composer.capture_appshot")');
     const native = readWorkspaceFile(
       "packages/handsfree/native/HandsFree/Sources/ComputerUse/Appshot.swift",
     );

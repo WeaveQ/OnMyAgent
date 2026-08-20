@@ -95,12 +95,20 @@ enum BackgroundInteractionInvariant {
         baseline: BackgroundInteractionBaseline,
         frontmostPID: pid_t?,
         cursorPosition: CGPoint?,
+        physicalInputIsActive: Bool = false,
         tolerance: CGFloat = 0.5
     ) throws {
         guard frontmostPID == baseline.frontmostPID else {
             throw ComputerUseError.strictModeViolation("the foreground application changed during background input")
         }
-        guard let before = baseline.cursorPosition, let after = cursorPosition else { return }
+        // Process-directed input never owns the hardware pointer. If the
+        // physical-input tap observed the user moving it during this action,
+        // that movement is expected and must not cancel the independent agent
+        // channel. Without physical input, retain the regression invariant
+        // that our synthetic path did not move the system cursor.
+        guard !physicalInputIsActive,
+              let before = baseline.cursorPosition,
+              let after = cursorPosition else { return }
         guard abs(before.x - after.x) <= tolerance, abs(before.y - after.y) <= tolerance else {
             throw ComputerUseError.strictModeViolation(
                 "the system cursor moved during background input (\(Int(before.x)),\(Int(before.y)) -> \(Int(after.x)),\(Int(after.y)))"
@@ -113,12 +121,14 @@ enum BackgroundInteractionInvariant {
 /// action temporarily guards the user's process from focus-steal messages,
 /// routes synthetic focus and input to the target process/window, then removes
 /// target focus. The real frontmost PID, window order, Space, and hardware
-/// pointer are invariant.
+/// pointer is invariant unless the physical-input monitor confirms the user
+/// moved it independently during the action.
 final class BackgroundInteractionSession: @unchecked Sendable {
     private let previousPID: pid_t
     private let targetPID: pid_t
     private let bridge: SkyLightBridge
     private let cursorTolerance: CGFloat
+    private let physicalInputMonitor: PhysicalInputMonitor
     private let focusStealGuard: ScopedFocusStealGuard?
     private var started = false
     private var target: WindowTarget?
@@ -127,12 +137,14 @@ final class BackgroundInteractionSession: @unchecked Sendable {
         previousPID: pid_t,
         targetPID: pid_t,
         bridge: SkyLightBridge = .shared,
-        cursorTolerance: CGFloat = 0.5
+        cursorTolerance: CGFloat = 0.5,
+        physicalInputMonitor: PhysicalInputMonitor = PhysicalInputMonitor()
     ) {
         self.previousPID = previousPID
         self.targetPID = targetPID
         self.bridge = bridge
         self.cursorTolerance = cursorTolerance
+        self.physicalInputMonitor = physicalInputMonitor
         focusStealGuard = previousPID == targetPID ? nil : ScopedFocusStealGuard(pid: previousPID)
     }
 
@@ -316,6 +328,7 @@ final class BackgroundInteractionSession: @unchecked Sendable {
             baseline: baseline,
             frontmostPID: NSWorkspace.shared.frontmostApplication?.processIdentifier,
             cursorPosition: CGEvent(source: nil)?.location,
+            physicalInputIsActive: physicalInputMonitor.isPaused(),
             tolerance: cursorTolerance
         )
     }

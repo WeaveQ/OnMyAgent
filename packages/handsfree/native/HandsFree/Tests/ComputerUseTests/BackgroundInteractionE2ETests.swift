@@ -89,7 +89,7 @@ final class BackgroundInteractionE2ETests: XCTestCase {
             pid: initial.pid,
             windowNumber: initial.windowNumber,
             windowTitle: "Background Interaction Fixture",
-            bounds: initial.bounds.cgRect,
+            bounds: try XCTUnwrap(cgWindowBounds(windowNumber: initial.windowNumber)),
             isFrontmost: false,
             axWindow: nil
         )
@@ -100,6 +100,34 @@ final class BackgroundInteractionE2ETests: XCTestCase {
         try session.start()
         defer { session.stop() }
         try await session.establish(target: target)
+
+        let cursorTarget = try XCTUnwrap(AgentCursorTarget(windowTarget: target))
+        let cursorStart = CGPoint(x: target.bounds.minX + 80, y: target.bounds.midY)
+        let cursorEnd = CGPoint(x: target.bounds.maxX - 80, y: target.bounds.midY)
+        await AgentCursorOverlay.shared.move(to: cursorStart, target: cursorTarget, animated: false)
+        defer { AgentCursorOverlay.shared.hide() }
+        let cursorMotionStarted = ContinuousClock().now
+        await AgentCursorOverlay.shared.move(to: cursorEnd, target: cursorTarget)
+        let cursorMotionDuration = cursorMotionStarted.duration(to: ContinuousClock().now)
+        XCTAssertGreaterThanOrEqual(cursorMotionDuration, .milliseconds(170))
+
+        let cursorState = await AgentCursorOverlay.shared.debugState()
+        XCTAssertTrue(cursorState.isVisible)
+        XCTAssertEqual(cursorState.targetWindowNumber, initial.windowNumber)
+        XCTAssertEqual(try XCTUnwrap(cursorState.point).x, cursorEnd.x, accuracy: 0.5)
+        XCTAssertEqual(try XCTUnwrap(cursorState.point).y, cursorEnd.y, accuracy: 0.5)
+        let cursorWindowNumber = try XCTUnwrap(cursorState.windowNumber)
+        let orderedWindowNumbers = try XCTUnwrap(CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements],
+            kCGNullWindowID
+        ) as? [[String: Any]]).compactMap {
+            ($0[kCGWindowNumber as String] as? NSNumber)?.intValue
+        }
+        let foregroundIndex = try XCTUnwrap(orderedWindowNumbers.firstIndex(of: foregroundState.windowNumber))
+        let cursorIndex = try XCTUnwrap(orderedWindowNumbers.firstIndex(of: cursorWindowNumber))
+        let targetIndex = try XCTUnwrap(orderedWindowNumbers.firstIndex(of: initial.windowNumber))
+        XCTAssertLessThan(foregroundIndex, cursorIndex)
+        XCTAssertLessThan(cursorIndex, targetIndex)
 
         let center = target.center
         try await session.click(windowNumber: initial.windowNumber, point: center)
@@ -225,6 +253,22 @@ final class BackgroundInteractionE2ETests: XCTestCase {
         }
         XCTFail("Foreground sentinel did not become the real frontmost application")
         throw CocoaError(.userCancelled)
+    }
+
+    private func cgWindowBounds(windowNumber: Int) -> CGRect? {
+        guard let windows = CGWindowListCopyWindowInfo(
+            [.optionIncludingWindow, .excludeDesktopElements],
+            CGWindowID(windowNumber)
+        ) as? [[String: Any]],
+        let info = windows.first,
+        let rawBounds = info[kCGWindowBounds as String] as? [String: Any],
+        let x = (rawBounds["X"] as? NSNumber)?.doubleValue,
+        let y = (rawBounds["Y"] as? NSNumber)?.doubleValue,
+        let width = (rawBounds["Width"] as? NSNumber)?.doubleValue,
+        let height = (rawBounds["Height"] as? NSNumber)?.doubleValue else {
+            return nil
+        }
+        return CGRect(x: x, y: y, width: width, height: height)
     }
 
 }

@@ -54,4 +54,18 @@ final class BackgroundInteractionInvariantTests: XCTestCase {
             cursorPosition: CGPoint(x: 40.25, y: 79.75)
         ))
     }
+
+    func testAllowsIndependentUserCursorMovementWhenPhysicalInputWasObserved() throws {
+        let baseline = BackgroundInteractionBaseline(
+            frontmostPID: 100,
+            cursorPosition: CGPoint(x: 40, y: 80)
+        )
+
+        XCTAssertNoThrow(try BackgroundInteractionInvariant.validate(
+            baseline: baseline,
+            frontmostPID: 100,
+            cursorPosition: CGPoint(x: 240, y: 380),
+            physicalInputIsActive: true
+        ))
+    }
 }
