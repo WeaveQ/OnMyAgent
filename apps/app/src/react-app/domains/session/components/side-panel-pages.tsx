@@ -49,6 +49,8 @@ import {
   type ExpertMarketplaceView,
 } from "@/react-app/domains/plugins";
 import { useStatusToasts } from "../../shell-feedback";
+import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
+import { useImportLocalExpert } from "./use-import-local-expert";
 import { PROJECTS_PLACEHOLDER_ASSET } from "@/react-app/design-system/empty-state-assets";
 import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import { FeaturePreviewPlaceholder } from "./feature-preview-placeholder";
@@ -358,6 +360,7 @@ export function StorePage(props: {
   onSummonMarketplaceExpert?: ExpertMarketplaceSummonHandler;
   onCreateExpert?: () => void;
   onDeleteExpert?: (expert: ExpertMarketplaceEntry) => void;
+  onEditExpert?: (expert: ExpertMarketplaceEntry) => void;
   /** Leave store → assistant office home + seed create-skill draft (new task). */
   onCreateSkill?: () => void;
   /** Open chat with a skill slash chip for usage. */
@@ -369,6 +372,7 @@ export function StorePage(props: {
   onOpenCustomConnector?: () => void;
 }) {
   const { showToast } = useStatusToasts();
+  const expertImport = useImportLocalExpert();
   const [uncontrolledActiveTab, setUncontrolledActiveTab] =
     useState<StorePrimaryTab>(props.activeTab ?? "experts");
   const [expertView, setExpertView] = useState<ExpertMarketplaceView>("market");
@@ -490,16 +494,52 @@ export function StorePage(props: {
             </>
           ) : null}
           {activeTab === "experts" && expertView === "mine" ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => (props.onCreateExpert ?? showComingSoonToast)()}
-              className="gap-1.5 text-dls-text mac:titlebar-no-drag"
-            >
-              <UserPlus className="size-3.5 shrink-0 text-dls-text" strokeWidth={2} aria-hidden />
-              {t("session.create_expert")}
-            </Button>
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={expertImport.busy}
+                      className="gap-1.5 text-dls-text mac:titlebar-no-drag"
+                    >
+                      <Upload className="size-3.5 shrink-0 text-dls-text" strokeWidth={2} aria-hidden />
+                      {t("store.import_expert")}
+                    </Button>
+                  }
+                />
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={6}
+                  className="min-w-40 border border-dls-border bg-dls-surface-solid p-1.5 text-dls-text"
+                >
+                  <DropdownMenuItem
+                    className="cursor-pointer gap-2 text-dls-text focus:bg-dls-hover"
+                    onClick={() => void expertImport.pickAndImport("zip")}
+                  >
+                    {t("store.import_expert_zip")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="cursor-pointer gap-2 text-dls-text focus:bg-dls-hover"
+                    onClick={() => void expertImport.pickAndImport("folder")}
+                  >
+                    {t("store.import_expert_folder")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => (props.onCreateExpert ?? showComingSoonToast)()}
+                className="gap-1.5 text-dls-text mac:titlebar-no-drag"
+              >
+                <UserPlus className="size-3.5 shrink-0 text-dls-text" strokeWidth={2} aria-hidden />
+                {t("session.create_expert")}
+              </Button>
+            </>
           ) : null}
           {activeTab === "skills" && skillView === "market" ? (
             <>
@@ -580,6 +620,18 @@ export function StorePage(props: {
             }}
             onCreateExpert={props.onCreateExpert ?? showComingSoonToast}
             onDeleteExpert={props.onDeleteExpert}
+            onEditExpert={props.onEditExpert}
+            onExportExpert={
+              expertImport.exportPackage
+                ? (expert) => {
+                    void expertImport.exportPackage(expert);
+                  }
+                : undefined
+            }
+            onImportExpert={(kind) => {
+              void expertImport.pickAndImport(kind);
+            }}
+            importBusy={expertImport.busy}
           />
         ) : activeTab === "skills" ? (
           <SkillsMarketplacePage
@@ -606,6 +658,25 @@ export function StorePage(props: {
         ) : null}
       </div>
       {/* Local dialog only when parent does not own a shared instance. */}
+      <ConfirmModal
+        open={Boolean(expertImport.overwriteName)}
+        title={t("store.import_expert_conflict_title")}
+        message={t("store.import_expert_conflict_message", {
+          name:
+            (props.myExperts ?? []).find(
+              (expert) => expert.packageName === expertImport.overwriteName,
+            )?.displayName || (expertImport.overwriteName ?? ""),
+        })}
+        confirmLabel={t("store.import_expert_as_copy")}
+        cancelLabel={t("common.cancel")}
+        closeLabel={t("common.close")}
+        showCloseButton
+        secondaryLabel={t("store.import_expert_reset")}
+        confirmButtonVariant="outline"
+        onSecondary={() => void expertImport.confirmOverwrite()}
+        onConfirm={() => void expertImport.confirmCopy()}
+        onCancel={expertImport.cancelOverwrite}
+      />
       {customConnectorControlled ? null : (
         <CustomConnectorDialog
           open={localCustomConnectorOpen}

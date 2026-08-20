@@ -103,18 +103,13 @@ export function AgentConversationItem(props: {
   /** Prefer last-message preview (WeChat-style); fall back to expert capability. */
   const subtitle =
     props.group.preview?.trim() || props.group.description;
-  const canDeleteExpert = Boolean(props.onDeleteExpert) && Boolean(agentId) && !isDraftSession;
-  const canEditExpert = Boolean(props.onEditExpert) && Boolean(agentId) && !isDraftSession;
-  const hasMenu =
-    Boolean(agentId) &&
+  const canDeleteExpert = Boolean(props.onDeleteExpert) && Boolean(agentId);
+  const canEditExpert = Boolean(props.onEditExpert) && Boolean(agentId);
+  const canPinOrUnread =
     !isDraftSession &&
-    Boolean(
-      props.onTogglePinned ||
-      props.onMarkUnread ||
-      props.onMarkRead ||
-        canEditExpert ||
-        canDeleteExpert,
-    );
+    Boolean(props.onTogglePinned || props.onMarkUnread || props.onMarkRead);
+  const hasMenu =
+    Boolean(agentId) && Boolean(canPinOrUnread || canEditExpert || canDeleteExpert);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{
@@ -232,7 +227,7 @@ export function AgentConversationItem(props: {
             onClick={(event) => event.stopPropagation()}
             onContextMenu={(event) => event.preventDefault()}
           >
-            {props.onTogglePinned && agentId ? (
+            {!isDraftSession && props.onTogglePinned && agentId ? (
               <ExpertMenuItem
                 onClick={() => {
                   setMenuOpen(false);
@@ -247,7 +242,7 @@ export function AgentConversationItem(props: {
                 {pinned ? t("session.unpin") : t("session.pin")}
               </ExpertMenuItem>
             ) : null}
-            {unreadRecord && props.onMarkRead && agentId ? (
+            {!isDraftSession && unreadRecord && props.onMarkRead && agentId ? (
               <ExpertMenuItem
                 onClick={() => {
                   setMenuOpen(false);
@@ -258,7 +253,7 @@ export function AgentConversationItem(props: {
                 {t("session.expert_mark_read")}
               </ExpertMenuItem>
             ) : null}
-            {!unreadRecord && props.onMarkUnread && agentId ? (
+            {!isDraftSession && !unreadRecord && props.onMarkUnread && agentId ? (
               <ExpertMenuItem
                 onClick={() => {
                   setMenuOpen(false);

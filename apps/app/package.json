@@ -1,7 +1,7 @@
 {
   "name": "@onmyagent/app",
   "private": true,
-  "version": "0.5.24",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "ONMYAGENT_DEV_MODE=1 vite",

@@ -497,8 +497,21 @@ describe("expert marketplace UI contract", () => {
     // Create expert: store header + mine empty-state CTA (not the mine card grid).
     expect(dialog).toContain('t("session.create_expert")');
     expect(dialog).toContain("my_experts_empty");
+    expect(dialog).toContain('t("store.import_expert")');
+    expect(dialog).toContain("onImportExpert");
+    expect(dialog).toContain('props.onImportExpert?.("zip")');
+    expect(dialog).toContain('props.onImportExpert?.("folder")');
+    expect(storePage).toContain("onImportExpert={(kind) => {");
     expect(storePage).toContain('t("session.create_expert")');
     expect(storePage).toContain("onCreateExpert");
+    expect(storePage).toContain('t("store.import_expert")');
+    expect(storePage).toContain('pickAndImport("zip")');
+    expect(storePage).toContain('pickAndImport("folder")');
+    expect(storePage).toContain('t("store.import_expert_conflict_title")');
+    expect(storePage).toContain('t("store.import_expert_as_copy")');
+    expect(storePage).toContain('t("store.import_expert_reset")');
+    expect(storePage).toContain("showCloseButton");
+    expect(storePage).toContain("confirmCopy");
     expect(dialog).toContain('t("session.summon")');
     expect(dialog).toContain('t("session.summon_expert"');
     // Mine shelf uses open-chat CTA (already summoned); market keeps summon.
@@ -516,6 +529,21 @@ describe("expert marketplace UI contract", () => {
     expect(dialog).not.toContain("MyExpertCard");
     expect(dialog).not.toContain("AgentRecord");
     expect(dialog).not.toContain("onSummonMyExpert");
+    expect(dialog).toContain("canMineExpertPackageAction");
+    expect(dialog).toContain('expert.source === "mine"');
+    expect(dialog).toContain('t("store.edit_expert")');
+    expect(dialog).toContain('t("store.export_expert")');
+    expect(storePage).toContain("onEditExpert={props.onEditExpert}");
+    expect(storePage).toContain("onExportExpert=");
+    expect(storePage).toContain("expertImport.exportPackage");
+    const creationActions = readWorkspaceFile(
+      "apps/app/src/react-app/domains/agents/expert-creation-actions.ts",
+    );
+    expect(creationActions).toContain('t("agents.expert_created_title"');
+    expect(creationActions).toContain('t("agents.expert_created_desc")');
+    expect(creationActions).not.toContain('actionLabel: t("store.export_package")');
+    expect(creationActions).not.toContain("pickAndExportMineExpertPackage");
+    expect(creationActions).not.toContain("unsaved");
   });
 
   test("expert cards reveal CTA on hover; summoned uses open-chat, market uses summon", () => {
@@ -524,16 +552,20 @@ describe("expert marketplace UI contract", () => {
     expect(dialog).toContain("hover:border-dls-border");
     // Market grid is browse-only: no drag-select highlight on titles/tags.
     expect(dialog).toContain("select-none");
-    // Summon / open-chat both hover-reveal (not always-on).
+    expect(dialog).toContain("ExpertCardFooterAction");
+    expect(dialog).toContain("divide-x divide-dls-border border-t border-dls-border");
+    expect(dialog).toContain("{isMine ? (");
     expect(dialog).toContain("opacity-0");
     expect(dialog).toContain("group-hover:opacity-100");
-    expect(dialog).toContain("group-hover:pointer-events-auto");
-    expect(dialog).toContain("pointer-events-none");
     expect(dialog).toContain("event.stopPropagation()");
     expect(dialog).toContain("props.onSummon(props.expert)");
     // Already-summoned market cards reuse open-chat CTA (no duplicate 召唤).
     expect(dialog).toContain("alreadySummoned={isAlreadySummonedExpert(expert, shelfExperts)}");
     expect(dialog).toContain("openChatCta ? t(\"session.open_chat\") : t(\"session.summon\")");
+    expect(dialog).toContain("canEdit ?");
+    expect(dialog).toContain("canExport ?");
+    expect(dialog).toContain('shelf="market"');
+    expect(dialog).not.toContain("onEdit={props.onEditExpert}");
   });
 
   test("my-experts cards expose hard-delete for self-created and summoned installs", () => {
@@ -545,6 +577,8 @@ describe("expert marketplace UI contract", () => {
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-page.tsx"),
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx"),
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-hard-delete-ui.ts"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-session-expert-creation.tsx"),
+      readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-page-navigation.ts"),
     ].join("\n");
     expect(dialog).toContain("onDeleteExpert?: (expert: ExpertMarketplaceEntry) => void");
     expect(dialog).toContain('expert.source === "mine" || expert.source === "installed"');
@@ -555,7 +589,24 @@ describe("expert marketplace UI contract", () => {
     expect(storePage).toContain("onDeleteExpert={props.onDeleteExpert}");
     expect(expertPage).toContain("handleDeleteMarketplaceExpert");
     expect(expertPage).toContain("onDeleteExpert={handleDeleteMarketplaceExpert}");
+    expect(expertPage).toContain("mergeLocalShelfWithConversations");
     expect(expertPage).toContain("resolveMarketplaceExpertHardDeleteTarget");
+    expect(dialog).toContain("canMineExpertPackageAction(expert, props.onEditExpert)");
+    expect(dialog).toContain("canMineExpertPackageAction(expert, props.onExportExpert)");
+    expect(dialog).toContain("canMineExpertPackageAction(selectedExpert, props.onEditExpert)");
+    expect(dialog).toContain("canMineExpertPackageAction(selectedExpert, props.onExportExpert)");
+    expect(expertPage).toContain("handleEditMarketplaceExpert");
+    expect(expertPage).toContain("onEditExpert={handleEditMarketplaceExpert}");
+    expect(expertPage).toContain("collectCreationEditableIdentityKeys");
+    expect(expertPage).toContain("findCreationEditableAgent");
+    expect(expertPage).toContain("findCreationEditableAgentByPackageName");
+    const conversationItem = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/sidebar/agent-conversation-item.tsx",
+    );
+    expect(conversationItem).toContain('t("session.expert_edit")');
+    expect(conversationItem).toContain("canEditExpert");
+    expect(conversationItem).toContain("canPinOrUnread");
+    expect(expertPage).toContain("resolveUnstartedMinePending");
   });
 
   test("store page hosts the expert marketplace and expert icon jumps there", () => {
@@ -907,12 +958,17 @@ describe("expert marketplace UI contract", () => {
     const conversationModel = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/pages/expert-conversation-model.ts",
     );
+    const navigationModel = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/expert-page-navigation-model.ts",
+    );
     const tabs = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/agent-session-tabs.tsx");
     const panel = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/agent-conversation-panel.tsx");
     const expertHost = [expertPage, conversationModel].join("\n");
 
     expect(expertPage).toContain("draftAgentContexts");
+    expect(conversationModel).toContain("export function listUnstartedMineExpertContexts");
     expect(conversationModel).toContain("export function buildDraftAgentGroups");
+    expect(navigationModel).toContain("listUnstartedMineExpertContexts");
     expect(expertHost).toContain("`draft:${selectedWorkspaceId}:${agent.id}`");
     expect(expertPage).toContain("onOpenDraftSession={input.handleOpenDraftSession}");
     expect(expertPage).toContain("draftAgentGroups={draftAgentGroups}");

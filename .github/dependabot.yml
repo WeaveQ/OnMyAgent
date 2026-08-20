@@ -1,17 +1,35 @@
 version: 2
 updates:
+  # Version-bump PRs (weekly). CVE fixes are Dependabot security updates
+  # (repo setting), not this grouped schedule — keep those PRs ungrouped.
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
     groups:
-      npm-patch-and-minor:
+      # Safe-to-batch patches only. Human-gate / known-breaking packages stay
+      # ungrouped so each bump is its own PR (see #353).
+      npm-patches:
         update-types:
           - patch
-          - minor
+        exclude-patterns:
+          - "electron"
+          - "@opencode-ai/sdk"
+          - "lexical"
+          - "@lexical/react"
+          - "@file-viewer/*"
+          - "@opentui/*"
+          - "solid-js"
+          - "hono"
+    # Minors are individual PRs (limit 5). Do not group them with patches.
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      github-actions-patches:
+        update-types:
+          - patch
