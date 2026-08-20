@@ -168,6 +168,58 @@ describe("session route model options", () => {
       ]);
   });
 
+  test("follows Settings provider order ids", () => {
+    const options = buildConnectedModelOptions({
+      data: providerListData(),
+      seenProviderIds: new Set(["openai", "lpr_org"]),
+      recentProviderIds: new Set(),
+      orderIds: ["lpr_org", "openai"],
+    });
+    expect([...new Set(options.map((item) => item.providerID))]).toEqual([
+      "lpr_org",
+      "openai",
+    ]);
+  });
+
+  test("inventory custom source matches Settings default grouping", () => {
+    const options = buildConnectedModelOptions({
+      data: {
+        all: [
+          {
+            id: "opencode",
+            name: "OpenCode Zen",
+            source: "api",
+            models: { free: { id: "free", name: "Free" } },
+          } as never,
+          {
+            id: "deepseek",
+            name: "DeepSeek",
+            source: "config",
+            models: { v4: { id: "v4", name: "V4" } },
+          } as never,
+        ],
+        connected: ["opencode", "deepseek"],
+        default: {},
+      },
+      seenProviderIds: new Set(["opencode", "deepseek"]),
+      recentProviderIds: new Set(),
+      orderIds: [],
+      managedProviders: [
+        {
+          id: "deepseek",
+          name: "DeepSeek官方",
+          livePresent: true,
+          models: [{ id: "v4" }],
+          settingsConfig: {},
+        },
+      ],
+    });
+    expect([...new Set(options.map((item) => item.providerID))]).toEqual([
+      "deepseek",
+      "opencode",
+    ]);
+  });
+
   test("marks OpenCode Zen free models in connected options", () => {
     const options = buildConnectedModelOptions({
       data: {

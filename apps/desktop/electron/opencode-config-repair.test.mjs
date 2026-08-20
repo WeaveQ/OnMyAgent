@@ -56,6 +56,29 @@ test("parseOpencodeConfigText tolerates // comments", () => {
   assert.equal(parsed.ok, true);
 });
 
+test("parseOpencodeConfigText tolerates jsonc trailing commas", () => {
+  const parsed = parseOpencodeConfigText(`{
+    // custom providers
+    "enabled_providers": [
+      "deepseek",
+      "volcengine-agent-plan",
+    ],
+    "provider": {
+      "deepseek": { "name": "DeepSeek官方", "note": "keep,}" },
+    },
+  }`);
+  assert.equal(parsed.ok, true);
+  if (!parsed.ok) return;
+  assert.deepEqual(parsed.data.enabled_providers, [
+    "deepseek",
+    "volcengine-agent-plan",
+  ]);
+  assert.equal(
+    /** @type {any} */ (parsed.data.provider).deepseek.note,
+    "keep,}",
+  );
+});
+
 test("repairOpencodeEngineConfigs rewrites broken file with backup", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "oma-oc-repair-"));
   const dir = path.join(root, "opencode");
