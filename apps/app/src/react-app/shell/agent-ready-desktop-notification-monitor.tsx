@@ -90,7 +90,7 @@ export function AgentReadyDesktopNotificationMonitor() {
             const sessionTitle = lookupCachedSessionTitle(workspaceId, sessionId);
             const body = buildAgentReadyNotificationBody({
               sessionTitle,
-              userSnippet: null,
+              placeholderTitles: [t("session.default_title")],
               bodyWithSnippet: (snippet) =>
                 t("settings.agent_ready_notification_body", { snippet }),
               fallbackBody: t("settings.agent_ready_notification_body_fallback"),

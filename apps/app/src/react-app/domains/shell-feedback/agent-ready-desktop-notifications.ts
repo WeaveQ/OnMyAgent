@@ -4,6 +4,11 @@
  * export this without depending on session.
  */
 
+import {
+  DEFAULT_SESSION_TITLE,
+  isGeneratedSessionTitle,
+} from "../../../app/lib/session-title";
+
 /** Minimal activity phase set (mirrors session activity, no cross-domain import). */
 export type AgentActivityPhase =
   | "idle"
@@ -36,30 +41,50 @@ export function shouldNotifyAgentReadyTransition(
 const SNIPPET_MAX_CHARS = 28;
 
 export function looksLikeSessionId(text: string): boolean {
-  return /^ses_[a-z0-9]+$/i.test(text.trim());
+  return /^ses_[a-z0-9_]+$/i.test(text.trim());
 }
 
-/** Truncated user prompt / human session title for the "task finished" body. */
+export function looksLikePlaceholderSessionTitle(
+  text: string,
+  extraPlaceholders: readonly string[] = [],
+): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return true;
+  if (looksLikeSessionId(trimmed)) return true;
+  if (trimmed === DEFAULT_SESSION_TITLE) return true;
+  if (isGeneratedSessionTitle(trimmed)) return true;
+  return extraPlaceholders.some((item) => item.trim() && item.trim() === trimmed);
+}
+
+/** Truncated user prompt or human session title for the "task finished" body. */
 export function resolveAgentReadyTaskSnippet(input: {
   userSnippet?: string | null;
   sessionTitle?: string | null;
+  placeholderTitles?: readonly string[] | null;
 }): string {
+  const placeholders = input.placeholderTitles ?? [];
   const user = collapseOneLine(input.userSnippet);
-  if (user && !looksLikeSessionId(user)) return truncateSnippet(user);
+  if (user && !looksLikePlaceholderSessionTitle(user, placeholders)) {
+    return truncateSnippet(user);
+  }
   const title = collapseOneLine(input.sessionTitle);
-  if (title && !looksLikeSessionId(title)) return truncateSnippet(title);
+  if (title && !looksLikePlaceholderSessionTitle(title, placeholders)) {
+    return truncateSnippet(title);
+  }
   return "";
 }
 
 export function buildAgentReadyNotificationBody(input: {
   sessionTitle: string | null | undefined;
-  userSnippet: string | null | undefined;
+  userSnippet?: string | null;
+  placeholderTitles?: readonly string[] | null;
   fallbackBody: string;
   bodyWithSnippet: (snippet: string) => string;
 }): string {
   const snippet = resolveAgentReadyTaskSnippet({
     userSnippet: input.userSnippet,
     sessionTitle: input.sessionTitle,
+    placeholderTitles: input.placeholderTitles,
   });
   if (snippet) return input.bodyWithSnippet(snippet);
   return input.fallbackBody;
