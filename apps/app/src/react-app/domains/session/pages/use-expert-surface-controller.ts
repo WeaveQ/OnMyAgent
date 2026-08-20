@@ -3,6 +3,7 @@ import { useCallback, useLayoutEffect, useMemo, useReducer } from "react";
 import type { PendingAgentContext } from "../../agents";
 import {
   createExpertSurfaceInitialState,
+  createExpertSurfaceOperationId,
   reduceExpertSurface,
   type ExpertSurfaceEvent,
 } from "./expert-surface-machine";
@@ -31,8 +32,9 @@ export function useExpertSurfaceController(input: {
   const mode = useMemo(() => selectExpertSurfaceMode(state), [state]);
   const openDraft = useCallback(
     (agent: PendingAgentContext) => {
-      const operationId = agent.operationId?.trim() ?? "";
-      if (!operationId) return;
+      const operationId =
+        agent.operationId?.trim() || createExpertSurfaceOperationId();
+      if (!agent.id.trim()) return;
       dispatch({
         type: "OPEN_DRAFT",
         workspaceId: input.workspaceId,

@@ -14,9 +14,12 @@ import {
   type ExpertCreationSuggestionApplyOptions,
   type ExpertDraftSuggestion,
   type PendingAgentContext,
-  isCreationExpertEditable,
+  collectCreationEditableIdentityKeys,
+  findCreationEditableAgent,
+  findCreationEditableAgentByPackageName,
   useExpertCreationController,
 } from "../../agents";
+import type { ExpertMarketplaceEntry } from "../../plugins";
 import type { ReactNode } from "react";
 import { resolveExpertCreationWorkspaceRoot } from "./expert-creation-workspace-root";
 
@@ -185,20 +188,33 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
     onCreatedAgent: input.onCreatedAgent,
   });
   const editableExpertIds = useMemo(
-    () =>
-      new Set(
-        (input.registry?.agents ?? [])
-          .filter(isCreationExpertEditable)
-          .map((agent) => agent.id),
-      ),
+    () => collectCreationEditableIdentityKeys(input.registry?.agents),
     [input.registry],
   );
   const handleEditExpert = useCallback(
     (agentId: string) => {
-      const agent = input.registry?.agents.find((item) => item.id === agentId);
+      const agent = findCreationEditableAgent(input.registry?.agents, agentId);
       if (agent) controller.openExpertCreationForEdit(agent);
     },
     [controller.openExpertCreationForEdit, input.registry],
+  );
+  const handleEditMarketplaceExpert = useCallback(
+    (expert: Pick<ExpertMarketplaceEntry, "packageName" | "source">) => {
+      if (expert.source !== "mine") return;
+      const agent = findCreationEditableAgentByPackageName(
+        input.registry?.agents,
+        expert.packageName,
+      );
+      if (!agent) {
+        input.showToast({
+          title: t("store.edit_expert_unavailable"),
+          tone: "info",
+        });
+        return;
+      }
+      controller.openExpertCreationForEdit(agent);
+    },
+    [controller.openExpertCreationForEdit, input.registry, input.showToast],
   );
   const closeExpertCreationThen = useCallback(
     (next?: () => void) => () => {
@@ -212,5 +228,6 @@ export function useSessionExpertCreation(input: SessionExpertCreationInput) {
     closeExpertCreationThen,
     editableExpertIds,
     handleEditExpert,
+    handleEditMarketplaceExpert,
   };
 }

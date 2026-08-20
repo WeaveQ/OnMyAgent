@@ -40,7 +40,7 @@ export default {
   "session.my_experts_count": "{count} total",
   "session.my_experts_empty_title": "No summoned experts yet",
   "session.my_experts_empty_desc":
-    "Summon an expert from All experts, or tap Create my expert to build your own.",
+    "Summon an expert from All experts, import a package, or tap Create my expert to build your own.",
   "session.search_experts_placeholder": "Search expert title or description",
   "session.search_tasks_placeholder": "Search task title",
   "session.create_expert": "Create my expert",
