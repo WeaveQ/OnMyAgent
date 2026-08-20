@@ -39,7 +39,7 @@ export function looksLikeSessionId(text: string): boolean {
   return /^ses_[a-z0-9]+$/i.test(text.trim());
 }
 
-/** Truncated user prompt / human session title for “xxx 任务完成了”. */
+/** Truncated user prompt / human session title for the "task finished" body. */
 export function resolveAgentReadyTaskSnippet(input: {
   userSnippet?: string | null;
   sessionTitle?: string | null;
