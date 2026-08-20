@@ -202,7 +202,7 @@ bound 之后若 chrome 标志已清，允许 cold-open 恢复。
 | 本文 / surface | 路由、草稿、tab、cold-open、UI 稳定性 | OpenCode HOME、插件列表 |
 | `expert-runtime-isolation.md` | session 目录 materialize、`agent=onmyagent`、sandbox HOME、`plugin:[]` | React 状态机 |
 
-Dev models 目录：默认 `https://models.onmyagentlabs.com/`；仅 `ONMYAGENT_MODELS_LOCAL=1` 时用 `localhost:8791`（避免 /provider 挂死）。见 `apps/server/src/embedded.ts`。
+Dev models 目录：不默认注入 `OPENCODE_MODELS_URL`（OpenCode 1.18.18 默认 `models.opencode.ai` + `models.json`）。`models.onmyagentlabs.com` 未上线，不要指向它。仅 `ONMYAGENT_MODELS_LOCAL=1` 时用 `localhost:8791`。桌面第一次启动把随包 `models.json.gz` 写入沙箱缓存，并设置 `OPENCODE_MODELS_PATH`。见 `embedded.ts`、`opencode-models-cache.mjs`。
 
 ---
 

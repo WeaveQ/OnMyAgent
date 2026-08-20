@@ -7,12 +7,12 @@ import {
 
 describe("resolveOpencodeModelsUrl", () => {
   test("strips trailing slashes so OpenCode does not request //api.json", () => {
-    expect(resolveOpencodeModelsUrl({})).toBe("https://models.onmyagentlabs.com");
+    expect(resolveOpencodeModelsUrl({})).toBeNull();
     expect(
       resolveOpencodeModelsUrl({
-        OPENCODE_MODELS_URL: "https://models.onmyagentlabs.com/",
+        OPENCODE_MODELS_URL: "https://models.dev/",
       }),
-    ).toBe("https://models.onmyagentlabs.com");
+    ).toBe("https://models.dev");
     expect(
       resolveOpencodeModelsUrl({
         ONMYAGENT_OPENCODE_MODELS_URL: "https://mirror.example/models///",
