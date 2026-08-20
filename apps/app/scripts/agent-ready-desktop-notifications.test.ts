@@ -89,10 +89,10 @@ describe("agent ready desktop notifications", () => {
     expect(monitor).toContain("lookupSidebarSessionTitle");
     expect(monitor).not.toContain("userSnippet: null");
     expect(monitor).not.toContain("readCachedSidebarSessionsByWorkspace");
-    const route = readFileSync(
-      join(appRoot, "src/react-app/shell/session-route/render.tsx"),
+    const refs = readFileSync(
+      join(appRoot, "src/react-app/shell/session-route/refs.ts"),
       "utf8",
     );
-    expect(route).toContain("rememberLiveSidebarSessionsByWorkspace(sessionsByWorkspaceId)");
+    expect(refs).toContain("rememberLiveSidebarSessionsByWorkspace(input.sessionsByWorkspaceId)");
   });
 });
