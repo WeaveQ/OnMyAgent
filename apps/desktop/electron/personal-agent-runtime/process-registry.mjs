@@ -63,12 +63,14 @@ function normalizeProcessRecord(input = {}, current = {}) {
   if (!runId) return null;
   const provider = textOrNull(input.provider ?? input.backend) ?? textOrNull(current.provider ?? current.backend);
   const backend = textOrNull(input.backend ?? input.provider) ?? textOrNull(current.backend ?? current.provider);
+  const agentId = patchedText(input, current, "agentId") ?? patchedText(input, current, "agent_id");
   return {
     ...current,
     ...input,
     runId,
     pid: Number.isFinite(input.pid) ? input.pid : (Number.isFinite(current.pid) ? current.pid : null),
     pgid: Number.isFinite(input.pgid) ? input.pgid : (Number.isFinite(current.pgid) ? current.pgid : null),
+    agentId,
     provider,
     backend,
     conversationId: patchedText(input, current, "conversationId"),

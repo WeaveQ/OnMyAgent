@@ -404,16 +404,16 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     setDraftsByAgent((current) => current[chatKey] === value ? current : { ...current, [chatKey]: value });
   }, []);
   const activeRuns = useMemo(() => {
-    return Object.entries(activeRunIdByAgent)
-      .map(([chatKey, runId]) => {
-        if (!runId) return null;
-        const agentId = agentIdFromChatKey(chatKey);
-        const agent = agents.find((item) => item.id === agentId) ?? null;
-        const run = lastRunForAgent(messagesByAgent[chatKey]);
-        if (!run || run.runId !== runId || run.status !== "running") return null;
-        return { chatKey, agentId, agent, run };
-      })
-      .filter((item): item is { chatKey: string; agentId: string; agent: PersonalLocalAgent | null; run: PersonalLocalAgentRunResult } => Boolean(item));
+    const seenRunIds = new Set<string>();
+    return Object.entries(activeRunIdByAgent).flatMap(([chatKey, runId]) => {
+      if (!runId || seenRunIds.has(runId)) return [];
+      const agentId = agentIdFromChatKey(chatKey);
+      const agent = agents.find((item) => item.id === agentId) ?? null;
+      const run = lastRunForAgent(messagesByAgent[chatKey]);
+      if (!run || run.runId !== runId || run.status !== "running") return [];
+      seenRunIds.add(runId);
+      return [{ chatKey, agentId, agent, run }];
+    });
   }, [activeRunIdByAgent, agents, messagesByAgent]);
   usePersonalLocalAgentProcessSync({
     agents,

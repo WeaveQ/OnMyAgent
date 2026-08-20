@@ -137,7 +137,7 @@ return (
     data-onmyagent-view="personal-assistant"
     // Transparent root so nested frosted layers do not lighten the list pane
     // vs assistant/expert AgentConversationPanel (sibling under one shell bg).
-    className="relative flex h-full min-h-0 overflow-hidden bg-transparent text-dls-text"
+    className="relative flex h-full min-h-0 min-w-0 w-full overflow-hidden bg-transparent text-dls-text"
   >
     <aside
       className="flex shrink-0 flex-col overflow-hidden bg-dls-sidebar pb-5 mac:bg-dls-sidebar"

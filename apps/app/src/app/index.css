@@ -839,6 +839,35 @@ body.agent-wizard-open [data-slot="sidebar-inner"] {
     --session-content-cell: var(--dls-surface);
   }
 
+  /* Local Agent (and any host) markdown is not wrapped in
+     `.session-transcript-assistant-copy`. Without a global bound, long
+     streaming tokens / inline code expand the flex min-content past the
+     product window when the agent list is open. */
+  .markdown-content {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .markdown-content pre,
+  .markdown-content [data-markdown-code-block] {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .markdown-content code {
+    overflow-wrap: anywhere;
+    word-break: break-all;
+  }
+
+  .markdown-content .katex-display {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
   .session-markdown-table {
     /* Bound width so overflow-x-auto can scroll instead of expanding ancestors. */
     box-sizing: border-box;

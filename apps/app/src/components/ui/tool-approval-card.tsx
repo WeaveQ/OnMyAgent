@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
  * safe: no left border; careful: 2px warning; destructive: 4px danger.
  */
 const toolApprovalCardVariants = cva(
-  "rounded-xl border border-dls-border bg-dls-surface text-dls-text",
+  "min-w-0 max-w-full overflow-hidden rounded-xl border border-dls-border bg-dls-surface text-dls-text",
   {
     variants: {
       risk: {
@@ -45,7 +45,7 @@ function ToolApprovalCardHeader({ className, ...props }: ComponentProps<"div">) 
   return (
     <div
       data-slot="tool-approval-header"
-      className={cn("flex items-start gap-3 px-4 pt-4", className)}
+      className={cn("flex min-w-0 w-full items-start gap-3 px-4 pt-4", className)}
       {...props}
     />
   )
@@ -53,7 +53,11 @@ function ToolApprovalCardHeader({ className, ...props }: ComponentProps<"div">) 
 
 function ToolApprovalCardBody({ className, ...props }: ComponentProps<"div">) {
   return (
-    <div data-slot="tool-approval-body" className={cn("space-y-3 px-4 py-3", className)} {...props} />
+    <div
+      data-slot="tool-approval-body"
+      className={cn("min-w-0 space-y-3 px-4 py-3", className)}
+      {...props}
+    />
   )
 }
 
@@ -84,17 +88,17 @@ function ToolApprovalCardFooter({
     <div
       data-slot="tool-approval-footer"
       className={cn(
-        "flex flex-col gap-2.5 border-t border-dls-border/70 px-4 py-3",
+        "flex min-w-0 flex-col gap-2.5 border-t border-dls-border/70 px-4 py-3",
         className,
       )}
       {...props}
     >
       {children ? (
-        <div className="min-w-0 text-xs leading-5 text-dls-secondary">
+        <div className="min-w-0 break-words text-xs leading-5 text-dls-secondary">
           {children}
         </div>
       ) : null}
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
         <Button
           type="button"
           variant="ghost"

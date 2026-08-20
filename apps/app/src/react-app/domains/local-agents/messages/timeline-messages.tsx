@@ -4,7 +4,13 @@ import { useState } from "react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { t } from "@/i18n";
-import type { PersonalLocalAgentConversationMessage, PersonalLocalAgentRunResult } from "../../../../app/lib/desktop";
+import type {
+  PersonalLocalAgentApprovalDecision,
+  PersonalLocalAgentApprovalRequest,
+  PersonalLocalAgentConversationMessage,
+  PersonalLocalAgentRunResult,
+} from "../../../../app/lib/desktop";
+import { LocalAgentApprovalCard } from "./local-agent-approval-card";
 import {
   ConversationItemView,
   mapPersonalRunToMessages,
@@ -640,6 +646,11 @@ function PersonalConversationItem(props: {
   message: PersonalLocalAgentConversationMessage;
   streaming?: boolean;
   runStatus?: string;
+  pendingApprovals?: PersonalLocalAgentApprovalRequest[];
+  onResolveApproval?: (
+    approval: PersonalLocalAgentApprovalRequest,
+    decision: PersonalLocalAgentApprovalDecision,
+  ) => void;
 }) {
   // Tools get display-normalized titles/status when possible so the shared row
   // matches LocalAgentToolCard chrome without pulling in expandable detail.
@@ -659,26 +670,14 @@ function PersonalConversationItem(props: {
   ]);
   if (!item) return null;
 
-  // Enrich approval cards with title/summary when present on the message.
   if (item.kind === "approval" && props.message.approval) {
     const approval = props.message.approval;
+    const live = (props.pendingApprovals ?? []).find((pending) => pending.id === approval.id);
     return (
-      <ConversationItemView
-        item={{
-          ...item,
-          meta: {
-            ...item.meta,
-            title: typeof approval.title === "string" ? approval.title : item.meta?.title,
-            summary:
-              typeof approval.summary === "string"
-                ? approval.summary
-                : typeof approval.command === "string"
-                  ? approval.command
-                  : item.meta?.summary,
-            command: typeof approval.command === "string" ? approval.command : item.meta?.command,
-          },
-        }}
-        streaming={props.streaming}
+      <LocalAgentApprovalCard
+        approval={live ?? approval}
+        pending={Boolean(live)}
+        onResolve={live ? props.onResolveApproval : undefined}
       />
     );
   }
@@ -690,6 +689,11 @@ export function LocalAgentTimelineMessage(props: {
   message: PersonalLocalAgentConversationMessage;
   streaming: boolean;
   runStatus?: string;
+  pendingApprovals?: PersonalLocalAgentApprovalRequest[];
+  onResolveApproval?: (
+    approval: PersonalLocalAgentApprovalRequest,
+    decision: PersonalLocalAgentApprovalDecision,
+  ) => void;
   onResolveTip?: (message: PersonalLocalAgentConversationMessage) => void;
 }) {
   if (props.message.type === "tips") {
@@ -711,6 +715,8 @@ export function LocalAgentTimelineMessage(props: {
         message={props.message}
         streaming={props.streaming}
         runStatus={props.runStatus}
+        pendingApprovals={props.pendingApprovals}
+        onResolveApproval={props.onResolveApproval}
       />
     );
   }
@@ -722,6 +728,8 @@ export function LocalAgentTimelineMessage(props: {
         message={{ ...props.message, text: body }}
         streaming={props.streaming && props.message.type !== "finish"}
         runStatus={props.runStatus}
+        pendingApprovals={props.pendingApprovals}
+        onResolveApproval={props.onResolveApproval}
       />
     );
   }
@@ -731,6 +739,8 @@ export function LocalAgentTimelineMessage(props: {
         message={props.message}
         streaming={props.streaming}
         runStatus={props.runStatus}
+        pendingApprovals={props.pendingApprovals}
+        onResolveApproval={props.onResolveApproval}
       />
     );
   }

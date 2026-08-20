@@ -1211,7 +1211,7 @@ function scanToolApproval(rootDir) {
     if (!/\b(Approve|approve|Deny|deny)\b/.test(src)) continue
     const rel = path.slice(rootDir.length + 1)
     const hasTier = /\b(risk-tier|riskTier|tier)\b/.test(src)
-    const hasBorderToken = /border-l-\[.*(dls-warning|dls-danger)|border-dls-(warning|danger)/.test(src)
+    const hasBorderToken = /border-l-\[.*(dls-warning|dls-danger)|border-dls-(warning|danger)|ToolApprovalCard/.test(src)
     if (!hasTier || !hasBorderToken) {
       result.candidates.push({ file: rel, hasTier, hasBorderToken })
     }

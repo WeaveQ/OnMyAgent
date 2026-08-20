@@ -24,14 +24,18 @@ export function ConversationItemView(props: ConversationItemViewProps) {
   switch (item.kind) {
     case "tool":
       return <ToolItemRow item={item} className={className} />;
-    case "thinking":
+    case "thinking": {
+      const thinkingDone = /^(done|completed|complete)$/i.test(
+        `${item.thinkingStatus ?? item.status ?? ""}`,
+      );
       return (
         <ThinkingBlock
           item={item}
           className={className}
-          defaultExpanded={streaming ? true : undefined}
+          defaultExpanded={streaming && !thinkingDone ? true : undefined}
         />
       );
+    }
     case "plan":
       return <PlanBlock item={item} className={className} streaming={streaming} />;
     case "approval":

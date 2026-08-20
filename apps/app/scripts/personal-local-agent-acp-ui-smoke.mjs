@@ -167,8 +167,28 @@ async function main() {
     await page.fillTextarea("approval smoke");
     await page.clickSend();
     await page.waitForText("需要你审批后继续", 15000);
-    await page.waitForText(["始终允许", "Always allow"], 10000);
+    await page.waitForText(["本次会话允许", "Allow for session"], 10000);
+    await page.waitForText(["允许一次", "Allow once"], 10000);
     await screenshot(page, "studio-running.png");
+    const approvalOverflow = await page.evaluate(`(() => {
+      const cards = Array.from(document.querySelectorAll('[data-testid="local-agent-approval-card"]'));
+      const results = cards.map((card) => {
+        const rect = card.getBoundingClientRect();
+        const childOverflow = Array.from(card.querySelectorAll('*')).some((node) => {
+          const child = node.getBoundingClientRect();
+          if (child.width === 0 && child.height === 0) return false;
+          return child.right > rect.right + 1.5 || child.left < rect.left - 1.5;
+        });
+        return {
+          scrollWidth: card.scrollWidth,
+          clientWidth: card.clientWidth,
+          overflow: childOverflow || card.scrollWidth > card.clientWidth + 1,
+        };
+      });
+      return { count: cards.length, overflow: results.some((item) => item.overflow), results };
+    })()`);
+    assert.equal(approvalOverflow.count, 1, "pending approval should render a single card");
+    assert.equal(approvalOverflow.overflow, false, "approval card children must stay inside the card: " + JSON.stringify(approvalOverflow.results));
     await page.clickText(["允许一次", "Allow once"]);
     await page.waitForText("ACP approved reply", 15000);
 
@@ -262,9 +282,26 @@ function desktopBridgeMockSource(workspaceRoot) {
     metadata[1].handshake.available_commands = [];
     const finish = (run, text) => ({ ...run, ok: true, status: 'completed', finishedAt: Date.now(), output: text, events: [...run.events, { type: 'assistant', text, at: Date.now() }] });
     window.__LOCAL_AGENT_ACP_SMOKE__ = { runs, calls: [], configSets: [], processPolls: 0, loadedProviderSession: false, closedProviderSession: false, forkedProviderSession: false, setConfigOption: false, warmedConversation: false, createdCustomAgent: false, updatedCustomAgent: false, deletedCustomAgent: false, get turn() { return turn; } };
+    const workspaceList = {
+      selectedId: 'ws_local_agent_acp_smoke',
+      watchedId: 'ws_local_agent_acp_smoke',
+      activeId: 'ws_local_agent_acp_smoke',
+      workspaces: [{
+        id: 'ws_local_agent_acp_smoke',
+        name: 'ACP Smoke Workspace',
+        path: workspaceRoot,
+        preset: 'starter',
+        workspaceType: 'local',
+        displayName: 'ACP Smoke Workspace',
+      }],
+    };
     const invokeDesktop = async (command, ...args) => {
       window.__LOCAL_AGENT_ACP_SMOKE__.calls.push(command);
-      if (command === 'workspaceList') return { items: [{ id: 'ws_local_agent_acp_smoke', name: 'ACP Smoke Workspace', path: workspaceRoot, workspaceType: 'local' }], selectedId: 'ws_local_agent_acp_smoke' };
+      if (command === 'workspaceBootstrap' || command === 'workspaceList') return workspaceList;
+      if (command === 'engineInfo') return { name: 'opencode', version: 'smoke', baseUrl: null };
+      if (command === 'onmyagentServerInfo') return { running: false, pid: null, port: null };
+      if (command === 'runtimeBootstrap') return { ok: true, skipped: true };
+      if (command === 'userAgentRegistryRead') return { agents: [] };
       if (command === 'personalLocalAgentAcpAgentsList' || command === 'personalLocalAgentAcpAgentsRefresh' || command === 'personalLocalAgentMetadataList') return { agents: metadata };
       if (command === 'personalLocalAgentsList') return { agents, metadata };
       if (command === 'personalLocalAgentValidate') return agents.find((item) => item.provider === ((args[0] || {}).provider || (args[0] || {}).agent?.provider)) || agents[0];
@@ -356,7 +393,7 @@ function desktopBridgeMockSource(workspaceRoot) {
         runs.set(run.runId, run);
         window.__LOCAL_AGENT_ACP_SMOKE__.lastRunId = run.runId;
         if (String(input.prompt || '').includes('approval')) {
-          run.pendingApprovals = [{ id: 'approval-' + turn, runId: run.runId, provider: 'opencode', method: 'session/request_permission', kind: 'command', title: 'ACP permission request', summary: 'Run harmless command', command: 'touch /tmp/acp-smoke', cwd: workspaceRoot, readonly: false, params: {}, createdAt: now }];
+          run.pendingApprovals = [{ id: 'approval-' + turn, runId: run.runId, provider: 'opencode', method: 'session/request_permission', kind: 'command', title: 'ACP permission request', summary: 'Run harmless command', command: 'python3 /Users/huangchunan/Library/ApplicationSupport/OnMyAgent/workspaces/very-long-workspace-name/scripts/deploy.py --config=/Users/huangchunan/Library/ApplicationSupport/OnMyAgent/workspaces/very-long-workspace-name/config/production.generated.json --token=abcdefghijklmnopqrstuvwxyz0123456789', cwd: workspaceRoot + '/apps/app/src/react-app/domains/local-agents/messages', readonly: false, params: {}, createdAt: now }];
           run.events.push({ type: 'approval_request', text: 'Run harmless command', at: now, approval: run.pendingApprovals[0] });
           runs.set(run.runId, run);
           return run;

@@ -887,7 +887,7 @@ export type PersonalLocalAgentStatusInput = {
 export type PersonalLocalAgentProcessRecord = {
   runId: string;
   pid: number | null;
-  pgid?: number | null;
+  pgid?: number | null; agentId?: string | null;
   provider: string | null;
   backend: string | null;
   conversationId: string | null;

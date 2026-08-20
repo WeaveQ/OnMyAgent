@@ -1230,15 +1230,14 @@ describe("personal agent process registry", () => {
   it("preserves provider and command fields through boundary updates", () => {
     clearAgentProcesses();
     const command = `fake-acp ${"x".repeat(1000)}`;
-    const registered = registerAgentProcess({ runId: " run-1 ", pid: 1234, provider: " codex ", conversationId: " conv-1 ", command, startedAt: 10 });
-    assert.equal(registered.runId, "run-1");
-    assert.equal(registered.provider, "codex");
-    assert.equal(registered.backend, "codex");
+    const registered = registerAgentProcess({ runId: " run-1 ", pid: 1234, agentId: " workbuddy ", provider: " custom ", conversationId: " conv-1 ", command, startedAt: 10 });
+    assert.deepEqual({ runId: registered.runId, agentId: registered.agentId, provider: registered.provider, backend: registered.backend }, { runId: "run-1", agentId: "workbuddy", provider: "custom", backend: "custom" });
     assert.equal(registered.command, command);
     const updated = updateAgentProcess("run-1", { pid: Number.NaN, command: "" });
     assert.equal(updated.pid, 1234);
     assert.equal(updated.command, command);
     assert.equal(updated.conversationId, "conv-1");
+    assert.equal(updated.agentId, "workbuddy");
   });
 
   it("filters process records by normalized provider and conversation", () => {

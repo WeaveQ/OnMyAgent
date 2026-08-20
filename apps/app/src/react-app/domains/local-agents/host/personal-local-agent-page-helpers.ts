@@ -133,6 +133,17 @@ export function shouldJoinAssistantChunkTightly(current: string, next: string) {
   return false;
 }
 
+const ASSISTANT_BODY_TYPES = new Set(["text", "finish", "content", "assistant"]);
+
+export function isAssistantBodyConversationMessage(message: {
+  role?: string;
+  type?: string;
+}): boolean {
+  if (message.role !== "assistant") return false;
+  const type = String(message.type ?? "text").trim() || "text";
+  return ASSISTANT_BODY_TYPES.has(type);
+}
+
 export function runningAssistantTextForRun(run: PersonalLocalAgentRunResult) {
   const chunks = run.events
     .filter((event) => event.type === "assistant_chunk" || event.type === "chunk")
@@ -164,11 +175,13 @@ export function messageTextForRun(
   if (run.conversationMessages?.length) {
     const finalMessage = [...run.conversationMessages].reverse().find((message) => message.type === "finish" && message.text.trim());
     if (finalMessage) return sanitizeAssistantTranscriptText(finalMessage.text).text;
-    const latestAssistant = [...run.conversationMessages].reverse().find((message) => message.role === "assistant" && message.text.trim());
-    if (latestAssistant) return sanitizeAssistantTranscriptText(latestAssistant.text).text;
+    const latestBody = [...run.conversationMessages].reverse().find((message) => isAssistantBodyConversationMessage(message) && message.text.trim());
+    if (latestBody) return sanitizeAssistantTranscriptText(latestBody.text).text;
   }
-  const output = sanitizeAssistantTranscriptText(run.output).text;
-  if (output) return output;
+  if (run.status !== "running") {
+    const output = sanitizeAssistantTranscriptText(run.output).text;
+    if (output) return output;
+  }
   const liveAssistantText = runningAssistantTextForRun(run);
   if (liveAssistantText) {
     if (run.status === "running" && run.pendingApprovals?.length) {
@@ -177,13 +190,48 @@ export function messageTextForRun(
     return liveAssistantText;
   }
   if (run.status === "running" && run.pendingApprovals?.length) return t("local_agent.waiting_for_approval");
-  if (run.status === "running") return t("local_agent.running");
+  // Thinking/plan cards own in-progress reasoning. Do not copy that text into
+  // the bubble body or it will race the thinking card as tokens arrive.
+  if (run.status === "running") {
+    const hasThinking = (run.conversationMessages ?? []).some((message) => message.type === "thinking" || message.type === "thought");
+    if (hasThinking) return "";
+    return t("local_agent.running");
+  }
   if (run.status === "completed") return sanitizeAssistantTranscriptText(fallback).text;
   if (run.status === "cancelled") return t("local_agent.cancelled");
   return sanitizeAssistantTranscriptText(fallback).text;
 }
 
-export function placeholderRunFromProcess(process: PersonalLocalAgentProcessRecord): PersonalLocalAgentRunResult | null {
+export function resolveBackgroundProcessAgentId(
+  process: PersonalLocalAgentProcessRecord,
+  agents: readonly PersonalLocalAgent[] = [],
+): string | null {
+  const explicit = String(process.agentId ?? "").trim();
+  if (explicit) return explicit;
+  const provider = String(process.provider ?? process.backend ?? "").trim();
+  if (!provider || !isPersonalLocalAgentProvider(provider)) return null;
+  const matches = agents.filter((agent) => agent.id === provider || agent.provider === provider);
+  if (matches.length === 1) return matches[0]!.id;
+  // Several custom agents share provider "custom". Never invent a phantom
+  // chat keyed as "custom" — that shows up as an extra background process.
+  if (matches.length !== 1 && provider === "custom") return null;
+  return provider;
+}
+
+export function messagesAlreadyContainRun(
+  messagesByAgent: Record<string, ChatMessage[]>,
+  runId: string,
+): boolean {
+  if (!runId) return false;
+  return Object.values(messagesByAgent).some((messages) =>
+    messages.some((message) => message.run?.runId === runId),
+  );
+}
+
+export function placeholderRunFromProcess(
+  process: PersonalLocalAgentProcessRecord,
+  agents: readonly PersonalLocalAgent[] = [],
+): PersonalLocalAgentRunResult | null {
   const runId = process.runId.trim();
   const providerRaw = (process.provider ?? process.backend ?? "").trim();
   if (!runId || !providerRaw || !isPersonalLocalAgentProvider(providerRaw)) return null;
@@ -192,11 +240,13 @@ export function placeholderRunFromProcess(process: PersonalLocalAgentProcessReco
   // placeholder run that pollRun can never resolve, causing repeated orphaned
   // errors and an activeRunId set/clear loop every sync tick.
   if (process.status === "stale") return null;
+  const agentId = resolveBackgroundProcessAgentId(process, agents);
+  if (!agentId) return null;
   const provider: PersonalLocalAgentProvider = providerRaw;
   return {
     ok: false,
     runId,
-    agentId: provider,
+    agentId,
     agentProvider: provider,
     connectionMode: process.agentType === "acp" ? `${PROVIDER_LABELS[provider] ?? provider} ACP session` : process.agentType,
     status: "running",

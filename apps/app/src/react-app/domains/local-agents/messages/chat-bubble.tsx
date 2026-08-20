@@ -7,24 +7,17 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { MessageRoleRow } from "@/components/ui/message-role";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
-import {
-  ToolApprovalCard,
-  ToolApprovalCardBody,
-  ToolApprovalCardFooter,
-  ToolApprovalCardHeader,
-} from "@/components/ui/tool-approval-card";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { openDesktopPath, revealDesktopItemInDir, type PersonalLocalAgent, type PersonalLocalAgentApprovalDecision, type PersonalLocalAgentApprovalRequest, type PersonalLocalAgentConversationMessage, type PersonalLocalAgentRunResult } from "../../../../app/lib/desktop";
-import { shortTime } from "../local-agent-formatters";
+import { openDesktopPath, revealDesktopItemInDir, type PersonalLocalAgent, type PersonalLocalAgentApprovalDecision, type PersonalLocalAgentApprovalRequest, type PersonalLocalAgentConversationMessage } from "../../../../app/lib/desktop";
 import type { OpenTarget } from "../../../capabilities/artifacts/open-target";
 import { ArtifactIcon } from "../../../capabilities/artifacts/artifact-icon";
 import { MarkdownBlock } from "../../../capabilities/artifacts/markdown";
 import { sanitizeAssistantTranscriptText } from "../../../capabilities/conversation/assistant-text-sanitize";
+import { LocalAgentApprovalCard } from "./local-agent-approval-card";
 import { MessageFileChanges } from "./message-file-changes";
-import { MessageTips } from "./message-tips";
 import type { ChatMessage } from "./message-types";
-import { approvalClass, localAgentLayoutClass, localAgentTextClass } from "./message-style";
+import { localAgentLayoutClass, localAgentTextClass } from "./message-style";
 import {
   classifiedRunFailureMessage,
   collectRunOpenTargets,
@@ -171,7 +164,7 @@ export const ChatBubble = memo(function ChatBubble(props: {
   if (!hasContent) return null;
 
   return (
-    <div className={cn("flex gap-3", isUser && "justify-end")}>
+    <div className={cn("flex min-w-0 gap-3", isUser && "justify-end")}>
       {!isUser ? (
         <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-dls-decision-soft text-dls-accent">
           <Bot className="size-4" />
@@ -182,7 +175,7 @@ export const ChatBubble = memo(function ChatBubble(props: {
           <pre className="whitespace-pre-wrap break-words font-sans">{props.message.text}</pre>
         ) : null}
 
-        {!isUser && throttledThought ? (
+        {!isUser && throttledThought && !timelineMessages.some((message) => message.type === "thinking") ? (
           <MessageRoleRow role="thinking" className="rounded-md border border-dls-border/60 bg-dls-surface-muted/60 px-3 py-2 text-sm leading-5 text-dls-secondary" data-testid="local-agent-thought-hint">
             <div className="flex items-center gap-2">
               <LoadingSpinner size="sm" className="text-dls-signal" />
@@ -205,6 +198,8 @@ export const ChatBubble = memo(function ChatBubble(props: {
                     message={item.message}
                     streaming={run?.status === "running"}
                     runStatus={run?.status}
+                    pendingApprovals={run?.pendingApprovals}
+                    onResolveApproval={props.onResolveApproval}
                     onResolveTip={props.onResolveTip}
                   />
                 )}
@@ -229,31 +224,16 @@ export const ChatBubble = memo(function ChatBubble(props: {
             ) : null}
             {run.pendingApprovals?.length ? (
               <div className="space-y-2">
-                <div className={localAgentTextClass.approvalTitle}>{t("local_agent.approval_required")}</div>
-                {run.pendingApprovals.map((approval) => {
-                  const risk = approval.readonly ? "safe" as const : "careful" as const;
-                  return (
-                  <ToolApprovalCard key={approval.id} risk={risk}>
-                    <ToolApprovalCardHeader className="flex-col gap-1 pb-0">
-                      <div className="truncate text-xs font-medium text-dls-text">{approval.title}</div>
-                      <div className={approvalClass.meta}>{approval.readonly ? t("local_agent.approval_readonly") : t("local_agent.approval_side_effect")}  {approval.method}</div>
-                    </ToolApprovalCardHeader>
-                    <ToolApprovalCardBody>
-                      <pre className={approvalClass.command}>{approval.command || approval.summary}</pre>
-                      <div className={approvalClass.cwd}>cwd: {approval.cwd || "--"}</div>
-                    </ToolApprovalCardBody>
-                    <ToolApprovalCardFooter
-                      risk={risk}
-                      denyLabel={t("local_agent.approval_decline")}
-                      allowOnceLabel={t("local_agent.approval_allow_once")}
-                      allowAlwaysLabel={t("local_agent.approval_allow_session")}
-                      onDeny={() => props.onResolveApproval?.(approval, "decline")}
-                      onAllowOnce={() => props.onResolveApproval?.(approval, "accept")}
-                      onAllowAlways={() => props.onResolveApproval?.(approval, "acceptForSession")}
+                {run.pendingApprovals
+                  .filter((approval) => !timelineMessages.some((message) => message.approval?.id === approval.id))
+                  .map((approval) => (
+                    <LocalAgentApprovalCard
+                      key={approval.id}
+                      approval={approval}
+                      pending
+                      onResolve={props.onResolveApproval}
                     />
-                  </ToolApprovalCard>
-                  );
-                })}
+                  ))}
               </div>
             ) : null}
             {run?.fileChanges?.length ? (

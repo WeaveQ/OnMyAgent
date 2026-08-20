@@ -1038,12 +1038,11 @@ export function createPersonalAgentRuntime(options) {
       runId: state.runId,
       pid: numericPid,
       pgid: numericPid,
+      agentId: state.agentId,
       provider: state.agentProvider,
       backend: state.agentProvider,
       conversationId: state.conversationId,
-      agentType,
-      command,
-      startedAt: state.startedAt,
+      agentType, command, startedAt: state.startedAt,
     });
     state.processStartToken = registered?.processStartToken ?? state.processStartToken ?? null; publishRuntimeEvent(state, "process.changed");
     // A provider may report its child PID after the caller-owned operation has

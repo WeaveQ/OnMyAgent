@@ -20,6 +20,7 @@ const monoLogBoxVariants = cva(
       wrap: {
         break: "break-all",
         wrap: "whitespace-pre-wrap break-words",
+        preBreak: "whitespace-pre-wrap break-all",
         none: "",
       },
       density: {
