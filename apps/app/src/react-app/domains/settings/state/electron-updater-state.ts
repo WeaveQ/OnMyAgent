@@ -216,6 +216,8 @@ function statusFromAvailability(
     : { ...base, state: "idle" };
 }
 
+export { isUpToDateUpdateStatus } from "../../../../app/lib/update-check-status";
+
 export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions) {
   const {
     releaseChannel,
@@ -472,13 +474,16 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
     }
   }, [installUpdateAndRestart, setError, updateStatus?.state]);
 
-  const checkForUpdates = useCallback(async () => {
+  const checkForUpdates = useCallback(async (): Promise<SettingsUpdateStatus> => {
     const bridge = electronUpdaterBridge();
     if (!bridge?.check) {
-      const message = "Electron update checks are available only in the Electron desktop app.";
-      setUpdateStatus({ state: "error", message });
-      setError(message);
-      return;
+      const status: Exclude<SettingsUpdateStatus, null> = {
+        state: "error",
+        message: "Electron update checks are available only in the Electron desktop app.",
+      };
+      setUpdateStatus(status);
+      setError(status.message ?? null);
+      return status;
     }
 
     setUpdateStatus((current) => ({
@@ -495,12 +500,16 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
         onReleaseChannelChange(result.channel);
       }
       if (result.reason === "unavailable") {
-        setUpdateStatus((current) => ({
+        const status: Exclude<SettingsUpdateStatus, null> = {
           state: "idle",
           message: t("settings.auto_updates_packaged_only"),
+          platformFlow: result.platformFlow,
+        };
+        setUpdateStatus((current) => ({
+          ...status,
           platformFlow: result.platformFlow ?? current?.platformFlow,
         }));
-        return;
+        return status;
       }
 
       // Stable: trust the main-process GitHub comparison (no Den allow-list).
@@ -514,23 +523,28 @@ export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions)
           : false;
 
       if (result.reason && !result.available && !result.latestVersion) {
-        setUpdateStatus(statusFromAvailability(result, false));
-        return;
+        const status = statusFromAvailability(result, false);
+        setUpdateStatus(status);
+        return status;
       }
 
-      setUpdateStatus(statusFromAvailability(result, availableAllowed));
+      const status = statusFromAvailability(result, availableAllowed);
+      setUpdateStatus(status);
       // Intentionally do NOT auto-open the browser when prefs say "auto download".
       // The lightweight updater has no in-app download path.
+      return status;
     } catch (error) {
       // Renderer-side exceptions are rare; still soft so Settings stays calm.
-      setUpdateStatus({
+      const status: Exclude<SettingsUpdateStatus, null> = {
         state: "idle",
         lastCheckedAt: Date.now(),
         message: t("settings.update_check_unavailable"),
         soft: true,
         showOpenReleasePage: true,
-      });
+      };
+      setUpdateStatus(status);
       void error;
+      return status;
     }
   }, [desktopConfig, onReleaseChannelChange, releaseChannel, setError]);
 
