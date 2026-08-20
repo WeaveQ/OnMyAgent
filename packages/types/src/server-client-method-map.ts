@@ -3,9 +3,8 @@
  *
  * Maps each `ServerClientMethodName` (from `server-client-methods.mjs`) to its
  * call `args` tuple and `result`. Methods with shared payload types in
- * `server.ts` / `session-archive.ts` are typed explicitly; remaining methods
- * default to `unknown[]` / `unknown` so the key set stays complete and can be
- * tightened over time.
+ * `server.ts` / `session-archive.ts` are typed explicitly; the map is kept
+ * complete so domain clients cannot silently fall back to an untyped call.
  */
 import { serverClientMethodNames } from "./server-client-methods.mjs";
 import type {
@@ -102,17 +101,16 @@ import type {
   SessionArchiveWorktreeMappingInput,
   SessionArchiveWorktreeMappingsResponse,
 } from "./session-archive";
+import type {
+  OpenCodeRouterMethodMap,
+  ServerClientMethodContract,
+  WorkspaceFileMethodMap,
+} from "./server-client-contracts.js";
+
+export type { ServerClientMethodContract } from "./server-client-contracts.js";
 
 /** Literal union of every registered HTTP client method name. */
 export type ServerClientMethodName = (typeof serverClientMethodNames)[number];
-
-export type ServerClientMethodContract<
-  Args extends readonly unknown[] = readonly unknown[],
-  Result = unknown,
-> = {
-  args: Args;
-  result: Result;
-};
 
 type WorkspaceListPayload = {
   items: WorkspaceInfo[];
@@ -864,12 +862,12 @@ type TypedServerClientMethodMap = {
     [workspaceId: string],
     SessionArchiveSyncStatus
   >;
-};
+} & WorkspaceFileMethodMap & OpenCodeRouterMethodMap;
 
 /**
- * Complete method map: every `ServerClientMethodName` is a key.
- * Typed entries come from `TypedServerClientMethodMap`; others are untyped placeholders
- * (OpenCode router identities and similar client-local shapes).
+ * Complete method map: every `ServerClientMethodName` is a key. The mapped
+ * fallback remains as a forward-compatibility guard for a newly registered
+ * method, while the current inventory is checked to be fully explicit.
  */
 export type ServerClientMethodMap = {
   [K in ServerClientMethodName]: K extends keyof TypedServerClientMethodMap

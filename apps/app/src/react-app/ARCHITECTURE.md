@@ -119,11 +119,10 @@ reusable product composites belong in `design-system/`.
 ┌────────────────────────────────────────────────────────────┐
 │  react-app/shell/providers.tsx (AppProviders composition)  │
 │   ServerProvider                                           │
-│   └─ GlobalSDKProvider                                     │
-│      └─ GlobalSyncProvider                                 │
-│         └─ LocalProvider                                   │
-│            └─ (QueryClientProvider + PlatformProvider      │
-│               wrap AppProviders in index.react.tsx)        │
+│   └─ ArchitectureMismatchGate / DesktopRuntimeBoot         │
+│      └─ LocalProvider                                      │
+│         └─ (QueryClientProvider + PlatformProvider         │
+│            wrap AppProviders in index.react.tsx)           │
 └────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -147,16 +146,15 @@ reusable product composites belong in `design-system/`.
 | --- | --- | --- |
 | Workspace / session identity | URL params (`workspaceId`, `sessionId`) | App-global “current session” as source of truth |
 | Server lists, caches, refetch | TanStack Query (`infra/query-client.ts`) | Duplicating the same list in Zustand |
-| Connection / SDK / local runtime | `kernel/*-provider.tsx` | New top-level providers without updating `shell/providers.tsx` |
+| Connection / local runtime | Mounted providers under `kernel/` | New top-level providers without updating `shell/providers.tsx` |
 | Feature UI ephemeral (drawer open, draft text) | Domain store or local `useState` | Kernel store |
 | Cross-route user prefs | One named domain store + explicit storage key | Ad-hoc `localStorage` in page JSX |
-| App-wide rare flags | `kernel/store.ts` (keep thin) | Growing kernel into a god store |
+| App-wide rare flags | `kernel/system-state.ts` (keep thin) | Growing kernel into a god store |
 | Goal runtime (pursue goal) | Session-scoped stores under `session/` keyed by `sessionId` / `draft:<workspaceId>` | Workspace-global goal state |
 
 ### Existing homes
 
-- `react-app/kernel/store.ts`: thin Zustand app-wide container; selectors in `kernel/selectors.ts`.
-- `react-app/kernel/{server,global-sdk,global-sync,local}-provider.tsx`: server, SDK, sync, local runtime.
+- `react-app/kernel/{server,local}-provider.tsx`: server and local runtime boundaries mounted by `shell/providers.tsx`.
 - `react-app/kernel/platform.tsx`: `PlatformProvider` + `createDefaultPlatform()` (Electron vs web).
 - `react-app/kernel/system-state.ts`: reload + reset modal state.
 - `react-app/kernel/model-config.ts`: model parse/serialize + `useDefaultModel()`.

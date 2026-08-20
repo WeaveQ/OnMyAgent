@@ -1,3 +1,8 @@
+import type {
+  PersonalLocalAgentMetadataRuntimeExtensions,
+  PersonalLocalAgentRuntimeExtensions,
+} from "./desktop-ipc-local-agent-extensions.js";
+
 // Personal Local Agent desktop IPC wire types.
 // Extracted from desktop-ipc.ts (re-exported for public entry compatibility).
 
@@ -92,7 +97,7 @@ export type PersonalLocalAgent = {
   enabled?: boolean;
   /** Source discriminator used by the management UI to split detected vs custom agents. */
   agentSource?: string;
-};
+} & PersonalLocalAgentRuntimeExtensions;
 
 export type PersonalLocalAgentMetadata = {
   id: string;
@@ -131,7 +136,7 @@ export type PersonalLocalAgentMetadata = {
     available_commands?: unknown;
   };
   capability?: PersonalLocalAgentCapability | null;
-};
+} & PersonalLocalAgentMetadataRuntimeExtensions;
 
 export type PersonalLocalAgentRunArtifact = {
   /** Stable id (sha1 slice) used for renderer dedupe. */
@@ -203,6 +208,16 @@ export type PersonalLocalAgentRunEvent = {
   startedAt?: number | null;
   subject?: string | null;
   description?: string | null;
+};
+
+/** Push-first runtime notification; payloads contain identity, not transcripts. */
+export type PersonalLocalAgentRuntimeEvent = {
+  type: "run.started" | "run.snapshot" | "run.delta" | "run.finished" | "process.changed" | "catalog.invalidated";
+  runId: string | null;
+  workspaceRoot: string;
+  conversationId: string | null;
+  status: "running" | "completed" | "failed" | "cancelled" | string;
+  updatedAt: number;
 };
 
 export type PersonalLocalAgentToolCall = {

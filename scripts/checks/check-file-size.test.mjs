@@ -87,3 +87,23 @@ test("file-size --write drops vendor paths from the baseline", () => {
     rmSync(sandbox, { recursive: true, force: true });
   }
 });
+
+test("file-size discovery catches a new large source file", () => {
+  const sandbox = mkdtempSync(join(tmpdir(), "file-size-discovery-"));
+  try {
+    const sourceRel = "apps/app/src/new-god-file.ts";
+    mkdirSync(dirname(join(sandbox, sourceRel)), { recursive: true });
+    writeFileSync(join(sandbox, sourceRel), `${"export const line = 1;\n".repeat(801)}`);
+    writeBaseline(sandbox, {});
+    mkdirSync(join(sandbox, "scripts/checks/baselines"), { recursive: true });
+    writeFileSync(
+      join(sandbox, "scripts/checks/baselines/file-size-discovery.json"),
+      `${JSON.stringify({ threshold: 800, entries: {} }, null, 2)}\n`,
+    );
+    const result = run([], sandbox);
+    assert.equal(result.status, 1);
+    assert.match(`${result.stderr}\n${result.stdout}`, /missing from discovery baseline/);
+  } finally {
+    rmSync(sandbox, { recursive: true, force: true });
+  }
+});

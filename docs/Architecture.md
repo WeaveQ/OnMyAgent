@@ -461,10 +461,13 @@ baseline `scripts/checks/baselines/circular-deps.json` **只减不增**（当前
 发现。这条规则来自 AGENTS.md 的"不用 `any`、类型断言 `as`"硬性禁止。
 
 `pnpm check:file-size` 是**文件体量基线门禁**（`scripts/checks/baselines/file-size.json`）：
-已登记大文件只允许缩减、禁止无说明膨胀。新增大文件应先拆分或显式刷新 baseline；
+已登记大文件只允许缩减、禁止无说明膨胀。另有
+`scripts/checks/baselines/file-size-discovery.json` 的 800 行发现基线，覆盖已跟踪及未跟踪的源码，
+用于防止新 god-file 绕过登记；新增大文件应先拆分或显式刷新 discovery baseline。
 与 god-file 治理（`server.ts`、`session-archive.ts`、`session-surface.tsx`、`main.mjs` 等）配套。
 **不登记** `apps/desktop/resources/marketplace/**`、`bundled-skills/**`、`graphify-out/**`
 （捆绑内容包 / 生成图，不是产品债；`--write` 会丢掉误加条目）。
+`pnpm check:unused` 同时保护 React kernel composition 的可达性，并接入根 `pnpm check`。
 
 当前检查覆盖：
 

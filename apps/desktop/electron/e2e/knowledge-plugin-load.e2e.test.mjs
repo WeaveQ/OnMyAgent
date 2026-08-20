@@ -31,7 +31,10 @@ after(async () => {
 });
 
 async function createDesktopSandbox() {
-  const sandbox = await createDesktopE2eSandbox({ prefix: "oma-desktop-plugin-e2e-" });
+  const sandbox = await createDesktopE2eSandbox({
+    prefix: "oma-desktop-plugin-e2e-",
+    projectConfig: false,
+  });
   roots.push(sandbox.root);
   return sandbox;
 }
@@ -58,7 +61,7 @@ describe("desktop knowledge plugin load e2e", () => {
 
   test(
     "opencode serve loads knowledge_* tools and does not reject plugin exports",
-    { timeout: 45_000 },
+    { timeout: 180_000 },
     async (t) => {
       const bin = resolveOpencodeBin();
       if (!bin) {

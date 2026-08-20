@@ -95,6 +95,7 @@ import {
 } from "../workspace-picker/recent-workspaces";
 import type { SessionArchiveResumeRequest } from "./archive-resume-types";
 import {
+  hasOptimisticUserMessageForRun,
   lastRunForAgent,
   messageTextForRun,
   nowId,
@@ -783,10 +784,11 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
                 ? { ...message, text: messageTextForRun(effectiveSnapshot, message.text), run: effectiveSnapshot }
                 : message,
             );
-            if (!userText || next.some((m) => m.id === userMessageId)) {
+            const assistantIndex = next.findIndex((m) => m.run?.runId === runId);
+            const hasOptimisticUser = hasOptimisticUserMessageForRun(next, assistantIndex, userText);
+            if (!userText || next.some((m) => m.id === userMessageId) || hasOptimisticUser) {
               return { ...current, [chatKey]: next };
             }
-            const assistantIndex = next.findIndex((m) => m.run?.runId === runId);
             if (assistantIndex === -1) return { ...current, [chatKey]: next };
             const userMessage = {
               id: userMessageId,
@@ -819,13 +821,28 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     for (const [chatKey, runId] of activeEntries) {
       if (runId) pollRun(chatKey, runId);
     }
+    const unsubscribe = window.__ONMYAGENT_ELECTRON__?.personalAgentRuntime?.onEvent?.((event) => {
+      if (
+        event.type !== "run.started"
+        && event.type !== "run.snapshot"
+        && event.type !== "run.delta"
+        && event.type !== "run.finished"
+        && event.type !== "process.changed"
+      ) return;
+      if (!event.runId) return;
+      const matching = activeEntries.find(([, runId]) => runId === event.runId);
+      if (matching) pollRun(matching[0], event.runId);
+    });
     const timer = window.setInterval(() => {
       if (!shouldRunPollTick(isDocumentHidden())) return;
       for (const [chatKey, runId] of activeEntries) {
         if (runId) pollRun(chatKey, runId);
       }
-    }, 1500);
-    return () => window.clearInterval(timer);
+    }, 10000);
+    return () => {
+      unsubscribe?.();
+      window.clearInterval(timer);
+    };
   }, [activeRunIdByAgent, agents, effectiveWorkspaceRoot, rememberRunResult, selectedAgent]);
   const startAgentRun = useCallback(async (prompt: string, options?: { healthCheck?: boolean }) => {
     if (!prompt || !selectedAgent || selectedAgent.status !== "online" || running) return;

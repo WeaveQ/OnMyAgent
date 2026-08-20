@@ -5,6 +5,8 @@
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
 import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import net from "node:net";
 
 import { OPENCODE_BIN_ENV_KEYS } from "../runtime-helpers.mjs";
@@ -29,6 +31,14 @@ export function resolveOpencodeBin() {
     const value = process.env[key]?.trim();
     if (value && existsSync(value)) return value;
   }
+  const sidecarRoot = join(dirname(fileURLToPath(import.meta.url)), "../../resources/sidecars");
+  const sidecar = [
+    join(sidecarRoot, "opencode"),
+    join(sidecarRoot, "opencode-aarch64-apple-darwin"),
+    join(sidecarRoot, "opencode-x64-osx"),
+    join(sidecarRoot, "opencode.exe"),
+  ].find((candidate) => existsSync(candidate));
+  if (sidecar) return sidecar;
   const whichCmd = process.platform === "win32" ? "where" : "which";
   const probed = spawnSync(whichCmd, ["opencode"], { encoding: "utf8" });
   const candidate = String(probed.stdout ?? "")
@@ -67,7 +77,7 @@ export function spawnOpencodeServe(input) {
   const hostname = input.hostname ?? "127.0.0.1";
   const child = spawn(
     input.bin,
-    ["serve", "--hostname", hostname, "--port", String(input.port)],
+    ["serve", "--hostname", hostname, "--port", String(input.port), "--cors", "*"],
     {
       cwd: input.cwd,
       stdio: ["ignore", "pipe", "pipe"],
@@ -148,7 +158,26 @@ export function spawnOpencodeServe(input) {
  *   body?: unknown,
  * }} [opts]
  */
+let directoryRequestTail = Promise.resolve();
+
 export async function requestOpencodeJson(baseUrl, pathname, opts = {}) {
+  if (opts.directory) {
+    const previous = directoryRequestTail;
+    let release = () => {};
+    directoryRequestTail = new Promise((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      return await requestOpencodeJsonUnlocked(baseUrl, pathname, opts);
+    } finally {
+      release();
+    }
+  }
+  return requestOpencodeJsonUnlocked(baseUrl, pathname, opts);
+}
+
+async function requestOpencodeJsonUnlocked(baseUrl, pathname, opts = {}) {
   const url = new URL(pathname, baseUrl);
   if (opts.directory) url.searchParams.set("directory", opts.directory);
   if (opts.query) {
@@ -163,7 +192,7 @@ export async function requestOpencodeJson(baseUrl, pathname, opts = {}) {
   const init = {
     method,
     headers,
-    signal: AbortSignal.timeout(opts.timeoutMs ?? 15_000),
+    signal: AbortSignal.timeout(opts.timeoutMs ?? 180_000),
   };
   if (opts.body !== undefined) {
     headers.set("content-type", "application/json");

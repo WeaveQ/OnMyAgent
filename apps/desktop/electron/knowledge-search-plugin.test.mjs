@@ -32,6 +32,8 @@ describe("knowledge_search plugin", () => {
     assert.match(source, /ONMYAGENT_KNOWLEDGE_WORKSPACE_ID/);
     assert.match(source, /ONMYAGENT_KNOWLEDGE_EXPERT_ID/);
     assert.match(source, /session-defaults\.json/);
+    assert.match(source, /from "\.\/knowledge-plugin-runtime\.mjs"/);
+    assert.doesNotMatch(source, /@opencode-ai\/plugin/);
     assert.match(source, /from "\.\/knowledge-vault-walk\.mjs"/);
     assert.match(source, /knowledgeTextMatchesQuery/);
     assert.doesNotMatch(source, /const walk = async/);
@@ -129,6 +131,9 @@ describe("knowledge_search plugin", () => {
       assert.equal(result.knowledgeRoot, resolveKnowledgeRoot(home));
       assert.ok(!result.pluginPath.includes(`${path.sep}skills${path.sep}`));
       assert.equal(result.pluginPaths?.length, 5);
+      assert.ok(
+        await readFile(path.join(configDir, "plugins", "knowledge-plugin-runtime.mjs"), "utf8"),
+      );
       assert.ok(result.skillPath?.endsWith(`${path.sep}knowledge-vault${path.sep}SKILL.md`));
       const body = await readFile(result.pluginPath, "utf8");
       assert.match(body, /export default async \(\) => \(\{/);

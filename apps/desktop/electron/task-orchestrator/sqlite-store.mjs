@@ -9,19 +9,15 @@ import {
   taskOrchestratorArtifactContentResultSchema,
   taskOrchestratorArtifactMetadataSchema,
   taskOrchestratorArtifactsListResultSchema,
-  taskOrchestratorDiagnosticsHealthResultSchema,
-  taskOrchestratorDiagnosticsProcessAggregateSchema,
   taskOrchestratorEventSchema,
   taskOrchestratorEventsListResultSchema,
   taskOrchestratorHandoffArtifactSchema,
   taskOrchestratorHumanGateSchema,
   taskOrchestratorLegacyTaskSchema,
-  taskOrchestratorMaintenanceResultSchema,
   taskOrchestratorRunsListResultSchema,
   taskOrchestratorRunSummarySchema,
   taskOrchestratorRunSchema,
   taskOrchestratorSnapshotSchema,
-  taskOrchestratorStoreHealthResultSchema,
   taskOrchestratorTaskExportManifestResultSchema,
   taskOrchestratorTaskPurgeResultSchema,
   taskOrchestratorTaskListResultSchema,
@@ -33,25 +29,18 @@ import {
 import {
   configureTaskCenterDatabase,
   createTaskCenterSchema,
-  readTaskCenterMigrationHistory,
-  readTaskCenterSchemaVersion,
   taskCenterQuickCheck,
 } from "./sqlite-schema.mjs";
 import {
   assertNoSqliteCorruptionMarker,
   isSqliteCorruptionError,
   preserveCorruptSqliteDatabase,
-  sqliteCorruptionMarkerPath,
 } from "./sqlite-corruption.mjs";
 import { createTaskExportManifestPage } from "./sqlite-export-manifest.mjs";
 import {
-  maintainTaskCenterStorage,
-  normalizeTaskCenterMaintenancePolicy,
-  pruneTaskCenterOperationalRows,
-  taskCenterDiagnosticsAggregate,
-  taskCenterRowCounts,
   taskCenterStorageMetricsForPath,
 } from "./sqlite-maintenance.mjs";
+import { createTaskCenterHealthRuntime } from "./sqlite-health-runtime.mjs";
 import {
   sanitizeArtifact,
   sanitizeEvent,
@@ -87,8 +76,6 @@ const ACTIVE_CHECKER_ATTEMPT_STATUSES = new Set(["ready", "running"]);
 const READY_RUN_STATUSES = new Set(["queued", "running", "checkpointing", "backoff"]);
 const TERMINAL_PROCESS_STATUSES = new Set(["exited", "failed", "cancelled", "stopped", "terminated", "tombstoned", "stale"]);
 const ACTIVE_PROCESS_STATUSES = new Set(["starting", "running", "stopping"]);
-const DIAGNOSTICS_HEALTH_CACHE_TTL_MS = 5_000;
-
 function requireSafeId(value, label) {
   const id = String(value ?? "").trim();
   if (!id || id.length > 120 || !SAFE_ID.test(id)) throw new Error(`${label} is invalid`);
@@ -648,7 +635,6 @@ export function createTaskOrchestratorSqliteStore(options = {}) {
   let initializePromise = null;
   let mutationTail = Promise.resolve();
   let replayInFlight = null;
-  let diagnosticsHealthCache = null;
 
   function requireDb() {
     if (!db || closed) throw new Error("Task Center SQLite store is not initialized");
@@ -2297,60 +2283,6 @@ export function createTaskOrchestratorSqliteStore(options = {}) {
     return rows.map((row) => ({ ...parseJson(row.payload_json, "process payload"), id: row.id, runId: row.run_id, attemptId: row.attempt_id, pid: row.pid, status: row.status, updatedAt: Number(row.updated_at), ownerEpoch: row.owner_epoch ?? null, processStartToken: row.process_start_token ?? null, tombstonedAt: row.tombstoned_at == null ? null : Number(row.tombstoned_at) }));
   }
 
-  /**
-   * Bounded process/storage aggregate for high-frequency diagnostics.  This
-   * intentionally never selects process payloads; callers only receive
-   * grouped state counts and a bounded PID projection.
-   */
-  async function diagnosticsAggregate(input = {}) {
-    await initialize();
-    const runId = input.runId == null ? null : requireSafeId(input.runId, "runId");
-    const aggregate = await serialized(() => taskCenterDiagnosticsAggregate(requireDb(), {
-      runId,
-      pidLimit: input.pidLimit,
-      stateLimit: input.stateLimit,
-      dbPath,
-      fileSize: statSync,
-    }));
-    return {
-      ...aggregate,
-      processes: taskOrchestratorDiagnosticsProcessAggregateSchema.parse(aggregate.processes),
-    };
-  }
-
-  /**
-   * Cached, integrity-check-free store health for active diagnostics polling.
-   * The full `health()` method remains the explicit quick_check boundary.
-   */
-  async function diagnosticsHealth(input = {}) {
-    await initialize();
-    const observedAt = now();
-    const maxAgeMs = input.maxAgeMs == null ? DIAGNOSTICS_HEALTH_CACHE_TTL_MS : Number(input.maxAgeMs);
-    if (!Number.isInteger(maxAgeMs) || maxAgeMs < 0 || maxAgeMs > DIAGNOSTICS_HEALTH_CACHE_TTL_MS) {
-      throw new Error(`maxAgeMs must be an integer between 0 and ${DIAGNOSTICS_HEALTH_CACHE_TTL_MS}`);
-    }
-    if (diagnosticsHealthCache && observedAt - diagnosticsHealthCache.observedAt <= maxAgeMs) {
-      return { ...diagnosticsHealthCache, stale: false };
-    }
-    const aggregate = await diagnosticsAggregate();
-    const maintenanceRow = requireDb().prepare("SELECT value FROM metadata WHERE key = 'last_maintenance'").get();
-    const lastMaintenance = maintenanceRow ? parseJson(maintenanceRow.value, "last maintenance metrics") : null;
-    const value = taskOrchestratorDiagnosticsHealthResultSchema.parse({
-      observed: true,
-      observedAt,
-      stale: false,
-      // This is an availability check, not an integrity claim.  A full
-      // PRAGMA quick_check is still reserved for `health()`/maintenance.
-      healthy: storageFailure === null,
-      rows: aggregate.rows,
-      storage: aggregate.storage,
-      processes: aggregate.processes,
-      lastMaintenance,
-    });
-    diagnosticsHealthCache = value;
-    return value;
-  }
-
   async function tombstoneProcess(input = {}) {
     const id = requireSafeId(input.id ?? input.processId, "process id");
     const status = String(input.status ?? "exited");
@@ -2394,68 +2326,6 @@ export function createTaskOrchestratorSqliteStore(options = {}) {
       ).run(leaseId);
       return Number(changed.changes) === 1;
     }));
-  }
-
-  async function health() {
-    await initialize();
-    const connection = requireDb();
-    const pragmas = configureTaskCenterDatabase(connection);
-    const quickCheck = taskCenterQuickCheck(connection);
-    const maintenanceRow = connection.prepare("SELECT value FROM metadata WHERE key = 'last_maintenance'").get();
-    return taskOrchestratorStoreHealthResultSchema.parse({
-      dbPath,
-      corruptionMarkerPath: sqliteCorruptionMarkerPath(dbPath),
-      pragmas,
-      quickCheck,
-      healthy: quickCheck.length === 1 && quickCheck[0].toLowerCase() === "ok",
-      rows: taskCenterRowCounts(connection),
-      storage: storageMetrics(connection),
-      maintenancePolicy: normalizeTaskCenterMaintenancePolicy(),
-      lastMaintenance: maintenanceRow ? parseJson(maintenanceRow.value, "last maintenance metrics") : null,
-    });
-  }
-
-  async function schemaVersion() {
-    await initialize();
-    return readTaskCenterSchemaVersion(requireDb());
-  }
-
-  async function migrationHistory() {
-    await initialize();
-    return readTaskCenterMigrationHistory(requireDb());
-  }
-
-  async function runMaintenance(input = {}) {
-    await initialize();
-    const timestamp = now();
-    return serialized(() => {
-      const connection = requireDb();
-      const pruned = withTransaction((transaction) => pruneTaskCenterOperationalRows(transaction, {
-        ...input,
-        now: timestamp,
-      }));
-      const storage = maintainTaskCenterStorage(connection, pruned.policy.incrementalVacuumPages, {
-        dbPath,
-        fileSize: (target) => statSync(target).size,
-      });
-      const result = {
-        ranAt: timestamp,
-        policy: pruned.policy,
-        cutoff: pruned.cutoff,
-        before: pruned.before,
-        after: pruned.after,
-        deleted: pruned.deleted,
-        protectedRows: pruned.protectedRows,
-        storage,
-      };
-      withTransaction((transaction) => {
-        transaction.prepare(
-          `INSERT INTO metadata(key, value, updated_at) VALUES('last_maintenance', ?, ?)
-           ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at`,
-        ).run(json(result), timestamp);
-      });
-      return taskOrchestratorMaintenanceResultSchema.parse(result);
-    });
   }
 
   async function claimRpcRequest(input = {}) {
@@ -2535,6 +2405,27 @@ export function createTaskOrchestratorSqliteStore(options = {}) {
     closed = true;
     initialized = false;
   }
+
+  const healthRuntime = createTaskCenterHealthRuntime({
+    initialize,
+    now,
+    serialized,
+    requireDb,
+    withTransaction,
+    dbPath,
+    storageMetrics,
+    getStorageFailure: () => storageFailure,
+    parseJson,
+    fileSize: (target) => statSync(target).size,
+  });
+  const {
+    diagnosticsAggregate,
+    diagnosticsHealth,
+    health,
+    schemaVersion,
+    migrationHistory,
+    runMaintenance,
+  } = healthRuntime;
 
   const api = {
     rootDirectory,

@@ -108,6 +108,23 @@ export function lastRunForAgent(messages: ChatMessage[] | undefined) {
   return [...(messages ?? [])].reverse().find((message) => message.run)?.run ?? null;
 }
 
+/**
+ * The renderer seeds a user bubble before the runtime can return a run id.
+ * When the first status snapshot replays that same user event, identify the
+ * optimistic bubble by its position immediately before this run's assistant
+ * placeholder instead of relying on the later canonical `user-${runId}` id.
+ */
+export function hasOptimisticUserMessageForRun(
+  messages: ChatMessage[],
+  assistantIndex: number,
+  userText: string,
+) {
+  const normalizedText = userText.trim();
+  if (!normalizedText || assistantIndex <= 0) return false;
+  const previous = messages[assistantIndex - 1];
+  return previous?.role === "user" && previous.text.trim() === normalizedText;
+}
+
 export function shouldJoinAssistantChunkTightly(current: string, next: string) {
   if (!current || /^\s/.test(next) || /\s$/.test(current)) return true;
   if (/^[,.;:!?，。！？、；：）)\]}]/.test(next)) return true;
