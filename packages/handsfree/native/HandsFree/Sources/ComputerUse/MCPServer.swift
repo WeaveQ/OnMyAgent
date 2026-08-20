@@ -79,6 +79,7 @@ actor MCPServer {
                 "scroll", "drag", "press_key", "type_text",
             ]
             if skyActionNames.contains(name) {
+                AgentCursorOverlay.shared.setActivityState(.idle)
                 try await runtime.validateAppSession(appName: args["app"] as? String)
                 try? activityStore.update(phase: .running, app: args["app"] as? String, reason: nil)
             }
@@ -283,6 +284,7 @@ actor MCPServer {
             }
         } catch {
             if case ComputerUseError.physicalInputPaused = error {
+                AgentCursorOverlay.shared.setActivityState(.paused)
                 try? activityStore.update(
                     phase: .paused,
                     app: args["app"] as? String,
@@ -297,6 +299,7 @@ actor MCPServer {
         let application = try await applicationForAuthorization(appName: args["app"] as? String)
         try await appAuthorization.authorize(application)
         let snapshot = try await runtime.snapshot(appName: args["app"] as? String, strict: boolArg(args, "strict"))
+        AgentCursorOverlay.shared.setActivityState(.loading)
         try? activityStore.update(phase: .running, app: snapshot.appName, reason: nil)
         var payload = snapshotPayload(snapshot)
         if let settle = await runtime.uiSettleMetadata() {

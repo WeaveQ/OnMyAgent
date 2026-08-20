@@ -7,6 +7,12 @@ enum AgentCursorEffect: Sendable {
     case action
 }
 
+enum AgentCursorActivityState: Sendable {
+    case idle
+    case loading
+    case paused
+}
+
 struct AgentCursorTarget: Equatable, Sendable {
     let pid: pid_t
     let windowNumber: Int
@@ -69,10 +75,14 @@ struct AgentCursorTargetWindowState: Equatable {
 
 enum AgentCursorGeometry {
     /// Codex's fog cursor reports the center of its fitting size as its hotspot.
-    /// A compact 34 pt surface keeps the nine-point cursor core and its halo
-    /// visible without obscuring the target beneath it.
-    static let panelSize = CGSize(width: 34, height: 34)
-    static let hotSpot = CGPoint(x: 17, y: 17)
+    /// Its 126 pt carrier is presented at the user-tuned two-thirds scale,
+    /// leaving the same three-sigma tail around the scaled fog without clipping.
+    private static let sourcePanelSize = CGSize(width: 126, height: 126)
+    static let panelSize = CGSize(
+        width: sourcePanelSize.width * AgentCursorArtwork.displayScale,
+        height: sourcePanelSize.height * AgentCursorArtwork.displayScale
+    )
+    static let hotSpot = CGPoint(x: panelSize.width / 2, y: panelSize.height / 2)
 
     static func panelFrame(
         for topLeftGlobalPoint: CGPoint,
@@ -203,6 +213,12 @@ final class AgentCursorOverlay: @unchecked Sendable {
         }
     }
 
+    func setActivityState(_ state: AgentCursorActivityState) {
+        DispatchQueue.main.async { [weak self] in
+            self?.panel?.cursorView.activityState = state
+        }
+    }
+
     func hide() {
         DispatchQueue.main.async { [weak self] in
             self?.hideOnMain()
@@ -246,7 +262,8 @@ final class AgentCursorOverlay: @unchecked Sendable {
             return
         }
 
-        _ = ensurePanel()
+        let panel = ensurePanel()
+        panel.cursorView.activityState = .idle
         self.target = target
         wantsToBeVisible = true
         startOrderingMonitor()
@@ -261,6 +278,7 @@ final class AgentCursorOverlay: @unchecked Sendable {
             currentPoint = point
             setPanelPosition(point)
             reconcileWindowOrdering()
+            panel.cursorView.activityState = .loading
             completion()
             return
         }
@@ -271,7 +289,10 @@ final class AgentCursorOverlay: @unchecked Sendable {
             targetBounds: target.bounds,
             startedAt: CACurrentMediaTime(),
             duration: AgentCursorGeometry.animationDuration(from: start, to: point),
-            completion: completion
+            completion: { [weak panel] in
+                panel?.cursorView.activityState = .loading
+                completion()
+            }
         )
         reconcileWindowOrdering()
         startMotionTimer()
@@ -345,8 +366,10 @@ final class AgentCursorOverlay: @unchecked Sendable {
     private func setActionEffectOnMain() {
         actionResetWorkItem?.cancel()
         panel?.cursorView.effect = .action
+        panel?.cursorView.activityState = .idle
         let reset = DispatchWorkItem { [weak panel] in
             panel?.cursorView.effect = .move
+            panel?.cursorView.activityState = .loading
         }
         actionResetWorkItem = reset
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.24, execute: reset)
@@ -387,6 +410,7 @@ final class AgentCursorOverlay: @unchecked Sendable {
         }
 
         panel.level = NSWindow.Level(rawValue: state.layer)
+        panel.cursorView.ensureActivityAnimation()
         panel.order(.above, relativeTo: target.windowNumber)
     }
 
@@ -473,8 +497,7 @@ final class AgentCursorPanel: NSPanel {
 }
 
 final class AgentCursorView: NSView {
-    private let outerGlowLayer = CAShapeLayer()
-    private let innerGlowLayer = CAShapeLayer()
+    private let fogLayer = AgentCursorFogLayer()
     private let cursorLayer = CAShapeLayer()
 
     var effect: AgentCursorEffect = .move {
@@ -485,6 +508,10 @@ final class AgentCursorView: NSView {
         didSet { updateMotionTilt() }
     }
 
+    var activityState: AgentCursorActivityState = .loading {
+        didSet { updateActivityAnimation() }
+    }
+
     override var isOpaque: Bool { false }
     override var isFlipped: Bool { true }
 
@@ -492,16 +519,23 @@ final class AgentCursorView: NSView {
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.masksToBounds = false
-        [outerGlowLayer, innerGlowLayer, cursorLayer].forEach {
+        [fogLayer, cursorLayer].forEach {
             $0.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
             layer?.addSublayer($0)
         }
         cursorLayer.lineJoin = .round
         cursorLayer.lineCap = .round
-        cursorLayer.lineWidth = 1.15
+        cursorLayer.lineWidth = 2.15 * AgentCursorArtwork.displayScale
+        cursorLayer.shadowColor = NSColor.black.cgColor
+        cursorLayer.shadowOpacity = 0.42
+        cursorLayer.shadowRadius = 1.6 * AgentCursorArtwork.displayScale
+        cursorLayer.shadowOffset = CGSize(
+            width: 0,
+            height: 0.8 * AgentCursorArtwork.displayScale
+        )
         updateLayerGeometry()
         updateAppearance()
-        startBreathingAnimation()
+        updateActivityAnimation()
     }
 
     @available(*, unavailable)
@@ -514,44 +548,40 @@ final class AgentCursorView: NSView {
         updateLayerGeometry()
     }
 
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        ensureActivityAnimation()
+    }
+
     private func updateLayerGeometry() {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        outerGlowLayer.frame = bounds
-        innerGlowLayer.frame = bounds
+        let center = CGPoint(x: bounds.midX, y: bounds.midY)
+        fogLayer.frame = bounds
+        fogLayer.setNeedsDisplay()
         cursorLayer.frame = bounds
-        outerGlowLayer.path = CGPath(ellipseIn: bounds.insetBy(dx: 3.5, dy: 3.5), transform: nil)
-        innerGlowLayer.path = CGPath(ellipseIn: bounds.insetBy(dx: 7.5, dy: 7.5), transform: nil)
-
-        let arrow = CGMutablePath()
-        arrow.move(to: CGPoint(x: 17, y: 16))
-        arrow.addLine(to: CGPoint(x: 17.8, y: 28.4))
-        arrow.addLine(to: CGPoint(x: 21.0, y: 24.8))
-        arrow.addLine(to: CGPoint(x: 24.0, y: 30.2))
-        arrow.addLine(to: CGPoint(x: 27.0, y: 28.5))
-        arrow.addLine(to: CGPoint(x: 23.9, y: 23.2))
-        arrow.addLine(to: CGPoint(x: 28.5, y: 22.8))
-        arrow.closeSubpath()
-        cursorLayer.path = arrow
+        let artworkRect = CGRect(
+            x: center.x - AgentCursorArtwork.displaySize.width / 2,
+            y: center.y - AgentCursorArtwork.displaySize.height / 2,
+            width: AgentCursorArtwork.displaySize.width,
+            height: AgentCursorArtwork.displaySize.height
+        )
+        let artworkPath = AgentCursorArtwork.path(in: artworkRect)
+        cursorLayer.path = artworkPath
+        cursorLayer.shadowPath = artworkPath
         CATransaction.commit()
     }
 
     private func updateAppearance() {
         CATransaction.begin()
         CATransaction.setAnimationDuration(0.10)
-        if effect == .action {
-            outerGlowLayer.fillColor = NSColor.systemRed.withAlphaComponent(0.20).cgColor
-            innerGlowLayer.fillColor = NSColor.systemRed.withAlphaComponent(0.16).cgColor
-            innerGlowLayer.strokeColor = NSColor.white.withAlphaComponent(0.54).cgColor
-            cursorLayer.fillColor = NSColor.systemRed.withAlphaComponent(0.96).cgColor
-        } else {
-            outerGlowLayer.fillColor = NSColor.systemBlue.withAlphaComponent(0.14).cgColor
-            innerGlowLayer.fillColor = NSColor(calibratedWhite: 0.72, alpha: 0.14).cgColor
-            innerGlowLayer.strokeColor = NSColor.white.withAlphaComponent(0.42).cgColor
-            cursorLayer.fillColor = NSColor(calibratedWhite: 0.58, alpha: 0.90).cgColor
-        }
-        innerGlowLayer.lineWidth = 0.8
-        cursorLayer.strokeColor = NSColor.white.withAlphaComponent(0.94).cgColor
+        cursorLayer.fillColor = NSColor(
+            calibratedRed: effect == .action ? 0.43 : 0.38,
+            green: effect == .action ? 0.72 : 0.66,
+            blue: effect == .action ? 0.86 : 0.80,
+            alpha: 0.96
+        ).cgColor
+        cursorLayer.strokeColor = NSColor(calibratedWhite: 0.90, alpha: 0.96).cgColor
         CATransaction.commit()
     }
 
@@ -569,21 +599,55 @@ final class AgentCursorView: NSView {
         CATransaction.commit()
     }
 
-    private func startBreathingAnimation() {
-        let opacity = CAKeyframeAnimation(keyPath: "opacity")
-        opacity.values = [0.46, 0.92, 0.46]
-        opacity.keyTimes = [0, 0.5, 1]
-        opacity.duration = 1.55
-        opacity.repeatCount = .infinity
-        opacity.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        outerGlowLayer.add(opacity, forKey: "computerUseBreathingOpacity")
+    func ensureActivityAnimation() {
+        guard activityState == .loading,
+              !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+              fogLayer.animation(forKey: "computerUseFogBreathingOpacity") == nil else {
+            return
+        }
+        startBreathingAnimation()
+    }
 
-        let scale = CAKeyframeAnimation(keyPath: "transform.scale")
-        scale.values = [0.90, 1.06, 0.90]
-        scale.keyTimes = [0, 0.5, 1]
-        scale.duration = 1.55
-        scale.repeatCount = .infinity
-        scale.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        outerGlowLayer.add(scale, forKey: "computerUseBreathingScale")
+    private func updateActivityAnimation() {
+        fogLayer.removeAllAnimations()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer?.opacity = activityState == .paused
+            ? AgentCursorBreathingProfile.pausedOpacity
+            : 1
+        let isLoading = activityState == .loading
+        fogLayer.opacity = isLoading
+            ? AgentCursorBreathingProfile.loadingFogOpacity
+            : AgentCursorBreathingProfile.idleFogOpacity
+        fogLayer.setAffineTransform(.identity)
+        CATransaction.commit()
+
+        guard isLoading,
+              !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+            return
+        }
+        startBreathingAnimation()
+    }
+
+    private func startBreathingAnimation() {
+        let fogOpacity = CAKeyframeAnimation(keyPath: "opacity")
+        fogOpacity.values = [
+            AgentCursorBreathingProfile.idleFogOpacity,
+            AgentCursorBreathingProfile.loadingFogOpacity,
+            AgentCursorBreathingProfile.idleFogOpacity,
+        ]
+        fogOpacity.keyTimes = [0, 0.5, 1]
+        fogOpacity.duration = AgentCursorBreathingProfile.cycleDuration
+        fogOpacity.repeatCount = .infinity
+        fogOpacity.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        fogLayer.add(fogOpacity, forKey: "computerUseFogBreathingOpacity")
+
+        let fogScale = CAKeyframeAnimation(keyPath: "transform.scale")
+        fogScale.values = [0.92, 1.08, 0.92]
+        fogScale.keyTimes = [0, 0.5, 1]
+        fogScale.duration = AgentCursorBreathingProfile.cycleDuration
+        fogScale.repeatCount = .infinity
+        fogScale.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        fogLayer.add(fogScale, forKey: "computerUseFogBreathingScale")
     }
 }

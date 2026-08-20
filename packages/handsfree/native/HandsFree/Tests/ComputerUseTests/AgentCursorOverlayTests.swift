@@ -10,8 +10,8 @@ final class AgentCursorOverlayTests: XCTestCase {
             mainDisplayHeight: 900
         )
 
-        XCTAssertEqual(frame.origin.x, 470, accuracy: 0.001)
-        XCTAssertEqual(frame.origin.y, 340, accuracy: 0.001)
+        XCTAssertEqual(frame.origin.x, 445, accuracy: 0.001)
+        XCTAssertEqual(frame.origin.y, 315, accuracy: 0.001)
         let roundTrip = AgentCursorGeometry.topLeftGlobalPoint(
             for: frame,
             mainDisplayHeight: 900
@@ -26,8 +26,8 @@ final class AgentCursorOverlayTests: XCTestCase {
             mainDisplayHeight: 900
         )
 
-        XCTAssertEqual(frame.origin.x, 1_583, accuracy: 0.001)
-        XCTAssertEqual(frame.origin.y, 643, accuracy: 0.001)
+        XCTAssertEqual(frame.origin.x, 1_558, accuracy: 0.001)
+        XCTAssertEqual(frame.origin.y, 618, accuracy: 0.001)
     }
 
     func testCursorMovementUsesBoundedVisibleAnimation() {
@@ -47,6 +47,35 @@ final class AgentCursorOverlayTests: XCTestCase {
             0.48,
             accuracy: 0.001
         )
+    }
+
+    func testLoadingBreathingProfileMatchesCodexFogCursorMeasurements() {
+        XCTAssertEqual(AgentCursorBreathingProfile.fogRadius, 21, accuracy: 0.001)
+        XCTAssertEqual(AgentCursorBreathingProfile.cycleDuration, 1.369863013698, accuracy: 0.000_001)
+        XCTAssertEqual(AgentCursorBreathingProfile.idleFogGain, 0.16, accuracy: 0.001)
+        XCTAssertEqual(AgentCursorBreathingProfile.loadingFogGain, 0.24, accuracy: 0.001)
+        XCTAssertEqual(AgentCursorBreathingProfile.pausedOpacity, 0.5, accuracy: 0.001)
+    }
+
+    func testCursorPresentationIsOneThirdSmallerWithoutMovingItsHotSpot() {
+        XCTAssertEqual(AgentCursorArtwork.displayScale, 2.0 / 3.0, accuracy: 0.001)
+        XCTAssertEqual(AgentCursorArtwork.displaySize.width, 14, accuracy: 0.001)
+        XCTAssertEqual(AgentCursorArtwork.displaySize.height, 14.666_667, accuracy: 0.001)
+        XCTAssertEqual(AgentCursorBreathingProfile.displayFogRadius, 14, accuracy: 0.001)
+        XCTAssertEqual(AgentCursorGeometry.panelSize.width, 84, accuracy: 0.001)
+        XCTAssertEqual(AgentCursorGeometry.panelSize.height, 84, accuracy: 0.001)
+        XCTAssertEqual(AgentCursorGeometry.hotSpot.x, 42, accuracy: 0.001)
+        XCTAssertEqual(AgentCursorGeometry.hotSpot.y, 42, accuracy: 0.001)
+    }
+
+    func testAgentCursorArtworkUsesCodexVectorBounds() {
+        let rect = CGRect(origin: .zero, size: AgentCursorArtwork.size)
+        let bounds = AgentCursorArtwork.path(in: rect).boundingBoxOfPath
+
+        XCTAssertGreaterThan(bounds.width, 18)
+        XCTAssertGreaterThan(bounds.height, 19)
+        XCTAssertLessThanOrEqual(bounds.maxX, rect.maxX)
+        XCTAssertLessThanOrEqual(bounds.maxY, rect.maxY)
     }
 
     func testLongMovementUsesAVisibleCurvedPathInsideTheTargetWindow() {

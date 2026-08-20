@@ -30,7 +30,9 @@
 - service 内存在 `VirtualCursor`、`ComputerUseCursor`、`AgentCursor`、`SoftwareCursorStyle`、`SyntheticAppFocusEnforcer`、`SystemFocusStealPreventer`、`FocusStealSuppression`、`SystemFrontmostApplicationTracker` 等实现类型。Codex 的 agent 光标是独立软件层，不是系统箭头。
 - 光标并非全局 floating overlay。Swift 符号直接公开 `targetWindowID`、`correspondingWindowID`、`correspondingApplicationPID`、`AppMonitor.cursorWindow/appIsActive/menusOpen`，以及 `move(to:aboveWindowID:relativeToWindow:nextInteractionTiming:animated:fadeIn:isDelegate:)`。反汇编确认显示路径读取目标 CGWindow layer，调用 `setLevel:` 后执行 `orderWindow:relativeTo:`，以 `.above` 相对目标 window number 排序；窗口遮挡、屏幕与 Space 改变均有回调。
 - 位移动画由 `DisplayLinkAnimationDriver` 与 `DynamicPropertyAnimator` 驱动，不是一次 AppKit animator proxy。`MotionConfiguration` 包含路径候选、边界 margin、起终点 handle、arc size/flow、短距离直线阈值、spring response/damping，以及 scoot 位置、旋转、拉伸参数；窗口保存 `currentInterpolatedOrigin`，所以每帧都有明确插值位置。
-- 当前视觉样式存在 `FogCursorStyle`、`FogCursorViewModel`、SwiftUI `AgentCursor`/`CursorView`。`FogCursorStyle.hotSpot` 的机器码返回 view fitting size 的中心，`makeView` 路径含 9 pt 光标核心；view model 还维护 velocity、pressed、activity state、attached、angle、stretch/tilt，UI 字段包含 `fogRadius` 与 loading animation token。它解释了小型居中热点、移动形变和持续状态光晕，而不是旧实现的大号系统箭头。
+- 当前视觉样式存在 `FogCursorStyle`、`FogCursorViewModel`、SwiftUI `AgentCursor`/`CursorView`。运行光标不是 `Assets.car` 里的 `SoftwareCursor` 图片（该资源是带软盘角标的旧图标），而是 `AgentCursor.path(in:)` 通过 7 段归一化 line/Bezier 路径实时绘制的灰蓝三角箭头；OnMyAgent 在独立的 `AgentCursorArtwork.swift` 中按二进制常量还原了这条路径。
+- `FogCursorStyle.hotSpot` 的机器码返回 view fitting size 的中心，实际 `Software Cursor` 窗口为 `126 × 126 pt`。`CursorView` 使用 21 pt `fogRadius` 的蓝色径向柔焦蒙层，窗口为约三倍 blur radius 的尾部留出空间，而不是绘制一条硬边圆环；view model 还维护 velocity、pressed、activity state、attached、angle、stretch/tilt。
+- Swift reflection 直接给出 `ActivityState` 的 `idle/loading/paused` 三态。反汇编给出 fog loading gain `0.16 → 0.24`、paused 整体视觉 `0.5`，半周期约 `0.6849315s`、完整周期约 `1.369863s`。逐帧抓取实际 `Software Cursor` 窗口确认 loading 时外围 fog 像素持续变化、箭头本体保持稳定，idle 时停止；呼吸作用在径向蒙层而不是箭头或额外硬圆圈。
 - 对隔离测试窗口执行 Codex 点击时，目标进程依次收到定向 mouse-move、AppKit focus record、mouse-down/up；focus record 为 type 13/subtype 1，实测字段 59 为 `786432`。目标进程内部变为 active/key，但 `NSWorkspace.frontmostApplication` 始终仍是 Codex。
 - 同一时刻，目标事件的 `CGEvent.location` 是目标点，而另行读取的硬件光标仍停在用户位置。两者不是同一个状态。Codex 没有通过把事件全局坐标伪装成硬件光标位置来实现后台点击。
 - `type_text` 逐字符发送真实 virtual keycode 的 down/up；drag 为 down、两段 dragged、up；scroll 为 continuous pixel scroll。事件都带目标 PID 和目标 CGWindowID。
@@ -85,9 +87,9 @@ quiet window 只约束显式启用的前台兼容模式。该模式仍通过共�
 ### 4.6 虚拟光标呈现
 
 - 每个动作把当前 snapshot 的 PID、CGWindowID 和窗口 bounds 一并交给虚拟光标。透明非激活窗口同步目标 CGWindow layer，并用 `.above` 相对目标 window number 排序；不会调用 `orderFrontRegardless`。因此用户的其他应用窗口仍位于它之上，目标窗口最小化、离开当前 Space、关闭或热点跑出目标 bounds 时光标自动隐藏。
-- 虚拟光标是 34 pt 的居中 fog cursor，不修改系统硬件光标。热点按 Codex 的 view-center 模型实现，并在 CG 顶左坐标与 AppKit 底左坐标之间双向验证；多屏坐标不重复叠加屏幕原点。
+- 虚拟光标保留 Codex 的 126 pt 承载面、21 pt fog radius 和 21 × 22 pt 箭头作为逆向基准，但按用户视觉验收整体缩小 1/3 展示：透明承载面为 84 pt，等效 fog radius 为 14 pt，箭头约为 14 × 14.7 pt。三者统一使用 2/3 比例，热点仍位于承载面正中心，不修改系统硬件光标。热点按 Codex 的 view-center 模型实现，并在 CG 顶左坐标与 AppKit 底左坐标之间双向验证；多屏坐标不重复叠加屏幕原点。
 - 首次动作直接在目标热点出现；后续位置变化由主线程 60 fps timer 显式推进 180–480 ms 的受边界约束二次曲线路径。模型动作会等待光标运动到位再投递，避免只更新一次 animator 目标但窗口看起来固定。系统开启“减少动态效果”时取消位移动画。
-- 常态使用小型灰白箭头与低饱和蓝灰 fog halo；halo 以 1.55 秒 opacity/scale 周期持续呼吸。点击、拖拽终点和 AX 动作短暂切换为红色动作态，移动方向给箭头轻微倾斜反馈。
+- 与 Codex 一样区分 `idle/loading/paused`。动作执行时进入 idle/动作态，动作完成和模型继续工作时进入 loading；只有外围 fog 蒙层以约 1.37 秒 opacity/scale 周期呼吸，箭头素材保持稳定，paused 整体降为半透明。移动方向仍给箭头轻微倾斜反馈；系统开启“减少动态效果”时保留静态 fog 而不播放 transform 动画。
 - 光标首次出现后保持显示，直到 MCP Computer Use 会话结束；不再按固定计时自动消失。
 - 临时的右下角截图面板已移除。Codex 风格的实时 Mac 画中画属于后续独立工作，不在本次实现中用静态截图窗口替代。
 
