@@ -7,10 +7,8 @@ import { formatRelativeTime, isMacPlatform } from "../../../../app/utils";
 import { t } from "../../../../i18n";
 import type { ReleaseChannel } from "../../../../app/types";
 import { useStatusToasts } from "../../shell-feedback";
-import {
-  isUpToDateUpdateStatus,
-  type SettingsUpdateStatus,
-} from "../state/electron-updater-state";
+import type { SettingsUpdateStatus } from "../state/electron-updater-state";
+import { isUpToDateUpdateStatus } from "../../../../app/lib/update-check-status";
 import { SelectMenu } from "../../../design-system/select-menu";
 import {
   SettingsBlock,
@@ -176,6 +174,8 @@ export function UpdatesView(props: UpdatesViewProps) {
                 onClick={() => {
                   void (async () => {
                     const status = await props.checkForUpdates();
+                    // Available row / soft Alert already cover those outcomes;
+                    // do not mirror the account-menu toasts for them.
                     if (isUpToDateUpdateStatus(status ?? null)) {
                       showToast({
                         tone: "success",

@@ -216,10 +216,7 @@ function statusFromAvailability(
     : { ...base, state: "idle" };
 }
 
-/** Manual check with no newer build and no error/soft notice. */
-export function isUpToDateUpdateStatus(status: SettingsUpdateStatus): boolean {
-  return Boolean(status && status.state === "idle" && !status.message);
-}
+export { isUpToDateUpdateStatus } from "../../../../app/lib/update-check-status";
 
 export function useElectronUpdaterState(options: UseElectronUpdaterStateOptions) {
   const {

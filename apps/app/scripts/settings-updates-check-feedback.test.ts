@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { isUpToDateUpdateStatus } from "../src/react-app/domains/settings/state/electron-updater-state";
+import { isUpToDateUpdateStatus } from "../src/app/lib/update-check-status";
 
 describe("isUpToDateUpdateStatus", () => {
   test("true only for a quiet idle check", () => {
@@ -16,6 +16,7 @@ describe("isUpToDateUpdateStatus", () => {
         soft: true,
       }),
     ).toBe(false);
+    expect(isUpToDateUpdateStatus({ state: "idle" })).toBe(false);
     expect(
       isUpToDateUpdateStatus({
         state: "idle",
@@ -26,7 +27,7 @@ describe("isUpToDateUpdateStatus", () => {
 });
 
 describe("settings updates check feedback", () => {
-  test("manual check toasts the same latest copy as the account menu", () => {
+  test("button awaits check then toasts latest via the shared predicate", () => {
     const view = readFileSync(
       path.join(
         import.meta.dir,
@@ -34,8 +35,8 @@ describe("settings updates check feedback", () => {
       ),
       "utf8",
     );
-    expect(view).toContain("isUpToDateUpdateStatus");
-    expect(view).toContain("account_menu.update_latest");
-    expect(view).toContain("showToast");
+    expect(view).toMatch(
+      /await props\.checkForUpdates\(\)[\s\S]*isUpToDateUpdateStatus\(status[\s\S]*account_menu\.update_latest/,
+    );
   });
 });

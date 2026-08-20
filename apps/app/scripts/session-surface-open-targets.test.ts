@@ -73,6 +73,34 @@ describe("local space-folder existence merge", () => {
     expect(merged[0]?.size).toBe(7000);
   });
 
+  test("collapses relative and absolute aliases even when the listing is empty", () => {
+    const merged = applyListedFilesToOpenTargets(
+      [
+        {
+          id: "file:返点毛利计划单.xlsx",
+          kind: "file",
+          value: "返点毛利计划单.xlsx",
+          name: "返点毛利计划单.xlsx",
+          preview: "sheet",
+          confidence: 95,
+          reason: "write tool metadata",
+        },
+        {
+          id: "file:/users/me/.onmyagent/spaces/session1/返点毛利计划单.xlsx",
+          kind: "file",
+          value: "/Users/me/.onmyagent/spaces/session1/返点毛利计划单.xlsx",
+          name: "返点毛利计划单.xlsx",
+          preview: "sheet",
+          confidence: 65,
+          reason: "message",
+        },
+      ],
+      [],
+    );
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.value).toBe("返点毛利计划单.xlsx");
+  });
+
   test("rewrites truncated Application Support leftovers to the listed relative path", () => {
     const merged = applyListedFilesToOpenTargets(
       [

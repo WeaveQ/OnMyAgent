@@ -2,7 +2,10 @@ import { describe, expect, test } from "bun:test";
 import type { UIMessage } from "ai";
 
 import { classifyOpenTarget, type OpenTarget } from "../src/react-app/domains/session/artifacts/open-target";
-import { selectTurnOpenTargets } from "../src/react-app/domains/session/surface/message-list/open-targets";
+import {
+  collapseDuplicateFileTargets,
+  selectTurnOpenTargets,
+} from "../src/react-app/domains/session/surface/message-list/open-targets";
 
 function message(id: string, role: "user" | "assistant", text: string): UIMessage {
   return { id, role, parts: [{ type: "text", text, state: "done" }] };
@@ -69,8 +72,29 @@ describe("space session artifact cards", () => {
       { ...fileTarget("分析口径与阈值.xlsx"), exists: true, size: 5900 },
       { ...fileTarget(absScope), exists: true, size: 5900 },
     ];
-    expect(
-      selectTurnOpenTargets(messages, verified).map((target) => target.name).sort(),
-    ).toEqual(["分析口径与阈值.xlsx", "返点毛利计划单.xlsx"].sort());
+    const cards = selectTurnOpenTargets(messages, verified);
+    expect(cards.map((target) => target.name).sort()).toEqual(
+      ["分析口径与阈值.xlsx", "返点毛利计划单.xlsx"].sort(),
+    );
+    expect(cards.map((target) => target.value).sort()).toEqual(
+      ["分析口径与阈值.xlsx", "返点毛利计划单.xlsx"].sort(),
+    );
+  });
+
+  test("keeps two full paths with the same basename in different folders", () => {
+    const kept = collapseDuplicateFileTargets([
+      {
+        ...fileTarget("output/a.xlsx"),
+        exists: true,
+      },
+      {
+        ...fileTarget("archive/a.xlsx"),
+        exists: true,
+      },
+    ]);
+    expect(kept.map((target) => target.value).sort()).toEqual([
+      "archive/a.xlsx",
+      "output/a.xlsx",
+    ]);
   });
 });
