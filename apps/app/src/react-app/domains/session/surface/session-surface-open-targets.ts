@@ -167,7 +167,7 @@ export function applyListedFilesToOpenTargets(
     byBase.set(base, bucket);
   }
 
-  return targets.map((target) => {
+  const mapped = targets.map((target) => {
     if (target.kind !== "file") return target;
     const exact = byPath.get(listedFileKey(target.value));
     const baseMatches = byBase.get(listedFileBasename(target.value)) ?? [];
@@ -191,6 +191,24 @@ export function applyListedFilesToOpenTargets(
       preview,
     };
   });
+  return collapseOpenTargetsByListedPath(mapped);
+}
+
+function collapseOpenTargetsByListedPath(targets: OpenTarget[]): OpenTarget[] {
+  const urls: OpenTarget[] = [];
+  const files = new Map<string, OpenTarget>();
+  for (const target of targets) {
+    if (target.kind !== "file") {
+      urls.push(target);
+      continue;
+    }
+    const key = listedFileKey(target.value);
+    const existing = files.get(key);
+    if (!existing || (target.confidence ?? 0) >= (existing.confidence ?? 0)) {
+      files.set(key, target);
+    }
+  }
+  return [...urls, ...files.values()];
 }
 
 async function applyLocalFileListing(
