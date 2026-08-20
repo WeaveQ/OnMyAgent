@@ -217,11 +217,27 @@ final class AccessibilityService: @unchecked Sendable {
 
     private func semanticRecords(window: AXUIElement) -> [AXElementRecord] {
         var records: [AXElementRecord] = []
-        collect(element: window, depth: 0, records: &records)
+        var pid: pid_t = 0
+        let hitTestRoot = AXUIElementGetPid(window, &pid) == .success
+            ? AXUIElementCreateApplication(pid)
+            : nil
+        collect(
+            element: window,
+            parentFrame: nil,
+            hitTestRoot: hitTestRoot,
+            depth: 0,
+            records: &records
+        )
         return records
     }
 
-    private func collect(element: AXUIElement, depth: Int, records: inout [AXElementRecord]) {
+    private func collect(
+        element: AXUIElement,
+        parentFrame: CGRect?,
+        hitTestRoot: AXUIElement?,
+        depth: Int,
+        records: inout [AXElementRecord]
+    ) {
         guard depth <= maxDepth, records.count < maxElements else { return }
 
         let rawRole = axString(element, kAXRoleAttribute) ?? "AXUnknown"
@@ -229,7 +245,16 @@ final class AccessibilityService: @unchecked Sendable {
         let value = axString(element, kAXValueAttribute).map { String($0.prefix(120)) }
         let label = semanticLabel(element: element, role: role, value: value)
         let actions = axActions(element)
-        let frame = axFrame(element)
+        let frame = axFrame(element).map { rawFrame in
+            AccessibilityFrameResolver.resolve(
+                rawFrame: rawFrame,
+                parentFrame: parentFrame,
+                hitMatchesElement: { point in
+                    guard let hitTestRoot else { return false }
+                    return self.hitTest(point: point, root: hitTestRoot, belongsTo: element)
+                }
+            )
+        }
         let capabilities = capabilitiesFor(element: element, rawRole: rawRole, actions: actions)
         let shouldSurface = shouldSurfaceElement(rawRole: rawRole, label: label, value: value, frame: frame, capabilities: capabilities)
 
@@ -254,9 +279,44 @@ final class AccessibilityService: @unchecked Sendable {
         }
 
         for child in axChildren(element) {
-            collect(element: child, depth: depth + 1, records: &records)
+            collect(
+                element: child,
+                parentFrame: frame ?? parentFrame,
+                hitTestRoot: hitTestRoot,
+                depth: depth + 1,
+                records: &records
+            )
             if records.count >= maxElements { break }
         }
+    }
+
+    private func hitTest(point: CGPoint, root: AXUIElement, belongsTo element: AXUIElement) -> Bool {
+        var hitElement: AXUIElement?
+        guard AXUIElementCopyElementAtPosition(
+            root,
+            Float(point.x),
+            Float(point.y),
+            &hitElement
+        ) == .success, let hitElement else {
+            return false
+        }
+
+        var current = hitElement
+        for _ in 0..<12 {
+            if CFEqual(current, element) { return true }
+            var parentValue: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(
+                current,
+                kAXParentAttribute as CFString,
+                &parentValue
+            ) == .success,
+            let parentValue,
+            CFGetTypeID(parentValue) == AXUIElementGetTypeID() else {
+                return false
+            }
+            current = unsafeBitCast(parentValue, to: AXUIElement.self)
+        }
+        return false
     }
 
     private func shouldSurfaceElement(rawRole: String, label: String, value: String?, frame: CGRect?, capabilities: AXElementCapabilities) -> Bool {
