@@ -186,6 +186,10 @@ jobs:
       - name: Run workspace checks
         run: pnpm check
 
+      - name: Run macOS Computer Use behavior contracts
+        if: runner.os == 'macOS'
+        run: pnpm --filter @onmyagent/handsfree test
+
       - name: Run rename consistency check
         run: pnpm test:rename-consistency
 

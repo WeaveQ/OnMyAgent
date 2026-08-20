@@ -96,7 +96,7 @@ enum BackgroundInteractionInvariant {
         frontmostPID: pid_t?,
         cursorPosition: CGPoint?,
         physicalInputIsActive: Bool = false,
-        tolerance: CGFloat = 0.5
+        tolerance: CGFloat = ComputerUseBehaviorContract.hardwareCursorTolerance
     ) throws {
         guard frontmostPID == baseline.frontmostPID else {
             throw ComputerUseError.strictModeViolation("the foreground application changed during background input")
@@ -137,7 +137,7 @@ final class BackgroundInteractionSession: @unchecked Sendable {
         previousPID: pid_t,
         targetPID: pid_t,
         bridge: SkyLightBridge = .shared,
-        cursorTolerance: CGFloat = 0.5,
+        cursorTolerance: CGFloat = ComputerUseBehaviorContract.hardwareCursorTolerance,
         physicalInputMonitor: PhysicalInputMonitor = PhysicalInputMonitor()
     ) {
         self.previousPID = previousPID

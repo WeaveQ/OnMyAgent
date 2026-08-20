@@ -9,7 +9,7 @@ import CoreGraphics
 enum AgentCursorArtwork {
     /// User-tuned presentation size: one third smaller than Codex's source
     /// measurements while preserving the same vector proportions.
-    static let displayScale: CGFloat = 2.0 / 3.0
+    static let displayScale = ComputerUseBehaviorContract.cursorPresentationScale
     static let size = CGSize(width: 21, height: 22)
     static let displaySize = CGSize(
         width: size.width * displayScale,

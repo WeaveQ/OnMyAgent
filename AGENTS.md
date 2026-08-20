@@ -73,6 +73,7 @@ packages/onmyagent-ui-mcp  UI 控制面 MCP
 | `apps/server` | [`apps/server/AGENTS.md`](apps/server/AGENTS.md) |
 | `apps/orchestrator` | [`apps/orchestrator/AGENTS.md`](apps/orchestrator/AGENTS.md) |
 | `packages/types` | [`packages/types/AGENTS.md`](packages/types/AGENTS.md) |
+| `packages/handsfree` | [`packages/handsfree/AGENTS.md`](packages/handsfree/AGENTS.md) |
 
 ### 双运行时 / Expert-Session（指针）
 

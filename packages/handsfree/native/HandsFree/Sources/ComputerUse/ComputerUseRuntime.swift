@@ -7,7 +7,7 @@ actor ComputerUseRuntime {
     private let displaySleepAssertion = DisplaySleepAssertion()
     private let physicalInputMonitor = PhysicalInputMonitor()
     private var lastSnapshot: AppSnapshot?
-    private var strictMode = true
+    private var strictMode = ComputerUseBehaviorContract.strictModeByDefault
     private var activationSession: BackgroundInteractionSession?
     private var activationKey: String?
     private var activatedWindowKey: String?

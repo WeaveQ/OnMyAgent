@@ -9,10 +9,14 @@
     "onmyagent-handsfree-computer-use": "bin/onmyagent-handsfree-computer-use.mjs"
   },
   "scripts": {
-    "check": "pnpm run check:js && pnpm run check:native",
+    "check": "pnpm run check:contract && pnpm run check:js && pnpm run check:native",
+    "check:contract": "node scripts/check-computer-use-contract.mjs && node --test scripts/check-computer-use-contract.test.mjs",
     "check:js": "node --check bin/onmyagent-handsfree-computer-use.mjs && node --check src/cua-runner.mjs && node --check src/realtime-tools.mjs",
     "build:native": "swift build --package-path native/HandsFree -c release --product HandsFreeComputerUse",
-    "check:native": "swift build --package-path native/HandsFree --product HandsFreeComputerUse"
+    "check:native": "swift build --package-path native/HandsFree --product HandsFreeComputerUse",
+    "test": "pnpm run check:contract && pnpm run test:native && pnpm run test:mcp",
+    "test:mcp": "pnpm run check:native && node --test src/mcp-parity.test.mjs",
+    "test:native": "swift test --package-path native/HandsFree"
   },
   "files": [
     "bin",
