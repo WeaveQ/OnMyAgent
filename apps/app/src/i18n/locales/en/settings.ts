@@ -586,8 +586,9 @@ export default {
   "settings.agent_ready_notifications_label": "Task completion alerts",
   "settings.agent_ready_notifications_desc":
     "When on, send a desktop notification after the assistant finishes a turn and the app is in the background. Off by default; the first time you enable it, the app will request system notification permission.",
-  "settings.agent_ready_notification_title": "Assistant is ready",
-  "settings.agent_ready_notification_body": "Session “{title}” is ready for your next message.",
+  "settings.agent_ready_notification_title": "Task finished",
+  "settings.agent_ready_notification_body": "{snippet} is done",
+  "settings.agent_ready_notification_body_fallback": "Task finished",
   "settings.preferences": "Preferences",
   "settings.preferences_card_description":
     "Language, theme, font size, layout, and session habits",

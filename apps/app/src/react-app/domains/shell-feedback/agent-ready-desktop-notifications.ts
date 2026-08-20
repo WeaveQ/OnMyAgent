@@ -33,18 +33,35 @@ export function shouldNotifyAgentReadyTransition(
   );
 }
 
+const SNIPPET_MAX_CHARS = 28;
+
+export function looksLikeSessionId(text: string): boolean {
+  return /^ses_[a-z0-9]+$/i.test(text.trim());
+}
+
+/** Truncated user prompt / human session title for “xxx 任务完成了”. */
+export function resolveAgentReadyTaskSnippet(input: {
+  userSnippet?: string | null;
+  sessionTitle?: string | null;
+}): string {
+  const user = collapseOneLine(input.userSnippet);
+  if (user && !looksLikeSessionId(user)) return truncateSnippet(user);
+  const title = collapseOneLine(input.sessionTitle);
+  if (title && !looksLikeSessionId(title)) return truncateSnippet(title);
+  return "";
+}
+
 export function buildAgentReadyNotificationBody(input: {
   sessionTitle: string | null | undefined;
   userSnippet: string | null | undefined;
-  assistantSnippet: string | null | undefined;
   fallbackBody: string;
+  bodyWithSnippet: (snippet: string) => string;
 }): string {
-  const lines: string[] = [];
-  const user = collapseOneLine(input.userSnippet);
-  const assistant = lastNonEmptyLine(input.assistantSnippet);
-  if (user) lines.push(`User: ${user}`);
-  if (assistant) lines.push(`Assistant: ${assistant}`);
-  if (lines.length > 0) return lines.join("\n");
+  const snippet = resolveAgentReadyTaskSnippet({
+    userSnippet: input.userSnippet,
+    sessionTitle: input.sessionTitle,
+  });
+  if (snippet) return input.bodyWithSnippet(snippet);
   return input.fallbackBody;
 }
 
@@ -54,15 +71,10 @@ function collapseOneLine(text: string | null | undefined): string {
     .split(/\r?\n/g)
     .map((line) => line.trim())
     .filter(Boolean)
-    .join(" ")
-    .slice(0, 160);
+    .join(" ");
 }
 
-function lastNonEmptyLine(text: string | null | undefined): string {
-  if (!text) return "";
-  const lines = text
-    .split(/\r?\n/g)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  return (lines.at(-1) ?? "").slice(0, 160);
+function truncateSnippet(text: string): string {
+  if (text.length <= SNIPPET_MAX_CHARS) return text;
+  return `${text.slice(0, SNIPPET_MAX_CHARS).trimEnd()}…`;
 }

@@ -16,6 +16,8 @@ export type {
 export type { StatusToastProps } from "./status-toast";
 export {
   buildAgentReadyNotificationBody,
+  resolveAgentReadyTaskSnippet,
+  looksLikeSessionId,
   shouldNotifyAgentReadyTransition,
   type AgentActivityPhase,
 } from "./agent-ready-desktop-notifications";

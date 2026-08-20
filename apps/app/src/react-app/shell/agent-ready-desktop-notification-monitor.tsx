@@ -1,6 +1,7 @@
 /** @jsxImportSource react */
 import { useEffect, useRef } from "react";
 
+import { getDisplaySessionTitle } from "@/app/lib/session-title";
 import { t } from "@/i18n";
 import { listAllAutomationOwnedSessionIds } from "../domains/messaging";
 import {
@@ -12,6 +13,7 @@ import {
 import { useSessionActivityStore } from "../domains/session";
 import { useLocal } from "../kernel/local-provider";
 import { usePlatform } from "../kernel/platform";
+import { readCachedSidebarSessionsByWorkspace } from "./session-memory";
 
 /**
  * Composes session activity + preferences in the shell layer so domains stay
@@ -85,13 +87,13 @@ export function AgentReadyDesktopNotificationMonitor() {
 
           if (wantNotify) {
             const title = t("settings.agent_ready_notification_title");
+            const sessionTitle = lookupCachedSessionTitle(workspaceId, sessionId);
             const body = buildAgentReadyNotificationBody({
-              sessionTitle: sessionId,
+              sessionTitle,
               userSnippet: null,
-              assistantSnippet: null,
-              fallbackBody: t("settings.agent_ready_notification_body", {
-                title: sessionId.slice(0, 12),
-              }),
+              bodyWithSnippet: (snippet) =>
+                t("settings.agent_ready_notification_body", { snippet }),
+              fallbackBody: t("settings.agent_ready_notification_body_fallback"),
             });
             void platformRef.current.notify(title, body);
           }
@@ -106,6 +108,12 @@ export function AgentReadyDesktopNotificationMonitor() {
   }, []);
 
   return null;
+}
+
+function lookupCachedSessionTitle(workspaceId: string, sessionId: string): string {
+  const rows = readCachedSidebarSessionsByWorkspace()[workspaceId] ?? [];
+  const row = rows.find((item) => item.id === sessionId);
+  return getDisplaySessionTitle(row?.title ?? "", "");
 }
 
 function playAgentReadyBeep(): void {
