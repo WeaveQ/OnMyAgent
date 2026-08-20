@@ -83,6 +83,7 @@ import {
   readLastSessionFor,
   readSessionTodos,
   readWorkspaceOrderIds,
+  rememberLiveSidebarSessionsByWorkspace,
   writeSessionTodos,
 } from "../session-memory";
 import { useShellInteractiveLoad } from "../use-shell-interactive-load";
@@ -160,6 +161,9 @@ export function SessionRouteRender() {
   const [sessionsByWorkspaceId, setSessionsByWorkspaceId] = useState<
     Record<string, SidebarSessionItem[]>
   >(() => filterExpertCreationEphemeralSessionsByWorkspace(readCachedSidebarSessionsByWorkspace()));
+  useEffect(() => {
+    rememberLiveSidebarSessionsByWorkspace(sessionsByWorkspaceId);
+  }, [sessionsByWorkspaceId]);
   const [errorsByWorkspaceId, setErrorsByWorkspaceId] = useState<
     Record<string, string | null>
   >({});

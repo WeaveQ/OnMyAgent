@@ -8,6 +8,9 @@ import {
   DEFAULT_SESSION_TITLE,
   isGeneratedSessionTitle,
 } from "../../../app/lib/session-title";
+import enSession from "../../../i18n/locales/en/session";
+import zhSession from "../../../i18n/locales/zh/session";
+import zhTwSession from "../../../i18n/locales/zh-TW/session";
 
 /** Minimal activity phase set (mirrors session activity, no cross-domain import). */
 export type AgentActivityPhase =
@@ -44,6 +47,15 @@ export function looksLikeSessionId(text: string): boolean {
   return /^ses_[a-z0-9_]+$/i.test(text.trim());
 }
 
+export function agentReadyPlaceholderTitles(): string[] {
+  return [
+    DEFAULT_SESSION_TITLE,
+    enSession["session.default_title"],
+    zhSession["session.default_title"],
+    zhTwSession["session.default_title"],
+  ].filter((item, index, all) => item.trim() && all.indexOf(item) === index);
+}
+
 export function looksLikePlaceholderSessionTitle(
   text: string,
   extraPlaceholders: readonly string[] = [],
@@ -53,6 +65,8 @@ export function looksLikePlaceholderSessionTitle(
   if (looksLikeSessionId(trimmed)) return true;
   if (trimmed === DEFAULT_SESSION_TITLE) return true;
   if (isGeneratedSessionTitle(trimmed)) return true;
+  const builtins = agentReadyPlaceholderTitles();
+  if (builtins.includes(trimmed)) return true;
   return extraPlaceholders.some((item) => item.trim() && item.trim() === trimmed);
 }
 

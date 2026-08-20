@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  agentReadyPlaceholderTitles,
   buildAgentReadyNotificationBody,
   looksLikePlaceholderSessionTitle,
   looksLikeSessionId,
@@ -31,10 +32,12 @@ describe("agent ready desktop notifications", () => {
     expect(
       looksLikePlaceholderSessionTitle("New session - 2026-08-20T01:00:00.000Z"),
     ).toBe(true);
-    expect(
-      looksLikePlaceholderSessionTitle("新建会话", ["新建会话"]),
-    ).toBe(true);
+    expect(looksLikePlaceholderSessionTitle("新建会话")).toBe(true);
+    expect(looksLikePlaceholderSessionTitle("新建會話")).toBe(true);
     expect(looksLikePlaceholderSessionTitle("核对六月运输账单")).toBe(false);
+    expect(agentReadyPlaceholderTitles()).toEqual(
+      expect.arrayContaining(["New session", "新建会话", "新建會話"]),
+    );
   });
 
   test("prefers truncated user prompt over session id", () => {
@@ -53,12 +56,9 @@ describe("agent ready desktop notifications", () => {
   });
 
   test("production path with no prompt and a placeholder title uses fallback", () => {
-    expect(
-      resolveAgentReadyTaskSnippet({
-        sessionTitle: "New session",
-        placeholderTitles: ["新建会话"],
-      }),
-    ).toBe("");
+    expect(resolveAgentReadyTaskSnippet({ sessionTitle: "New session" })).toBe("");
+    expect(resolveAgentReadyTaskSnippet({ sessionTitle: "新建会话" })).toBe("");
+    expect(resolveAgentReadyTaskSnippet({ sessionTitle: "新建會話" })).toBe("");
     expect(
       buildAgentReadyNotificationBody({
         sessionTitle: "新建会话",
@@ -85,7 +85,14 @@ describe("agent ready desktop notifications", () => {
       ),
       "utf8",
     );
-    expect(monitor).toContain('placeholderTitles: [t("session.default_title")]');
+    expect(monitor).toContain("agentReadyPlaceholderTitles()");
+    expect(monitor).toContain("lookupSidebarSessionTitle");
     expect(monitor).not.toContain("userSnippet: null");
+    expect(monitor).not.toContain("readCachedSidebarSessionsByWorkspace");
+    const route = readFileSync(
+      join(appRoot, "src/react-app/shell/session-route/render.tsx"),
+      "utf8",
+    );
+    expect(route).toContain("rememberLiveSidebarSessionsByWorkspace(sessionsByWorkspaceId)");
   });
 });
