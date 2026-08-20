@@ -6,7 +6,11 @@ import { Button } from "@/components/ui/button";
 import { formatRelativeTime, isMacPlatform } from "../../../../app/utils";
 import { t } from "../../../../i18n";
 import type { ReleaseChannel } from "../../../../app/types";
-import type { SettingsUpdateStatus } from "../state/electron-updater-state";
+import { useStatusToasts } from "../../shell-feedback";
+import {
+  isUpToDateUpdateStatus,
+  type SettingsUpdateStatus,
+} from "../state/electron-updater-state";
 import { SelectMenu } from "../../../design-system/select-menu";
 import {
   SettingsBlock,
@@ -27,7 +31,7 @@ export type UpdatesViewProps = {
   toggleUpdateAutoDownload?: () => void;
   updateStatus: SettingsUpdateStatus;
   anyActiveRuns: boolean;
-  checkForUpdates: () => void | Promise<void>;
+  checkForUpdates: () => void | Promise<void | SettingsUpdateStatus>;
   downloadUpdate: () => void | Promise<void>;
   installUpdateAndRestart: () => void | Promise<void>;
   installing?: boolean;
@@ -61,6 +65,7 @@ function formatBytes(value: number | null | undefined): string | null {
 }
 
 export function UpdatesView(props: UpdatesViewProps) {
+  const { showToast } = useStatusToasts();
   const updateState = props.updateStatus?.state ?? "idle";
   const updateVersion = props.updateStatus?.version ?? null;
   const updateDate = props.updateStatus?.date ?? null;
@@ -168,7 +173,17 @@ export function UpdatesView(props: UpdatesViewProps) {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => void props.checkForUpdates()}
+                onClick={() => {
+                  void (async () => {
+                    const status = await props.checkForUpdates();
+                    if (isUpToDateUpdateStatus(status ?? null)) {
+                      showToast({
+                        tone: "success",
+                        title: t("account_menu.update_latest"),
+                      });
+                    }
+                  })();
+                }}
                 disabled={props.busy || updateState === "checking"}
               >
                 {updateState === "checking"
