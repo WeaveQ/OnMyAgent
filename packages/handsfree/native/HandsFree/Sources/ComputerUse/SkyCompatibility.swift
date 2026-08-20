@@ -49,7 +49,7 @@ enum MouseInputGeometry {
         max(1, min(requested, 4))
     }
 
-    static func linearPath(from: CGPoint, to: CGPoint, segments: Int = 12) -> [CGPoint] {
+    static func linearPath(from: CGPoint, to: CGPoint, segments: Int = 2) -> [CGPoint] {
         let count = max(1, segments)
         return (0...count).map { step in
             let progress = CGFloat(step) / CGFloat(count)
@@ -62,6 +62,11 @@ enum MouseInputGeometry {
 
     static func scrollLines(pages: Double) -> Int32 {
         max(1, Int32((pages * 5).rounded()))
+    }
+
+    static func scrollPixels(pages: Double, viewportHeight: CGFloat) -> Int32 {
+        let raw = max(1, (pages * viewportHeight).rounded())
+        return Int32(min(raw, Double(Int32.max)))
     }
 }
 

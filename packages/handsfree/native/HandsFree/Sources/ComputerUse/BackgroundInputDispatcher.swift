@@ -1,42 +1,90 @@
-import Foundation
 import CoreGraphics
+import Foundation
 
 enum BackgroundInputDispatcher {
-    private static let privateWindowField = CGEventField(rawValue: 51)
-    private static let privateRouteField = CGEventField(rawValue: 58)
+    static func primeMouse(
+        pid: pid_t,
+        windowNumber: Int,
+        windowBounds: CGRect,
+        point: CGPoint,
+        bridge: SkyLightBridge
+    ) throws {
+        guard let source = CGEventSource(stateID: .hidSystemState),
+              let event = CGEvent(
+                mouseEventSource: source,
+                mouseType: .mouseMoved,
+                mouseCursorPosition: point,
+                mouseButton: .left
+              ) else {
+            throw ComputerUseError.eventCreationFailed
+        }
+        try bridge.postMouse(
+            event,
+            pid: pid,
+            windowNumber: windowNumber,
+            screenPoint: point,
+            windowBounds: windowBounds,
+            clickState: 1,
+            buttonNumber: 0,
+            subtype: 3,
+            publicRoute: true
+        )
+    }
 
     static func click(
         pid: pid_t,
         windowNumber: Int,
+        windowBounds: CGRect,
         point: CGPoint,
         button: ComputerMouseButton = .left,
-        clickCount requestedClickCount: Int = 1
+        clickCount requestedClickCount: Int = 1,
+        bridge: SkyLightBridge
     ) async throws {
-        guard let source = CGEventSource(stateID: .combinedSessionState) else {
+        guard let source = CGEventSource(stateID: .hidSystemState) else {
             throw ComputerUseError.eventSourceFailed
         }
 
         let clickCount = MouseInputGeometry.clickCount(requestedClickCount)
         for clickState in 1...clickCount {
-            guard let down = CGEvent(mouseEventSource: source, mouseType: button.downEventType, mouseCursorPosition: point, mouseButton: button.cgButton),
-                  let up = CGEvent(mouseEventSource: source, mouseType: button.upEventType, mouseCursorPosition: point, mouseButton: button.cgButton) else {
+            guard let down = CGEvent(
+                mouseEventSource: source,
+                mouseType: button.downEventType,
+                mouseCursorPosition: point,
+                mouseButton: button.cgButton
+            ), let up = CGEvent(
+                mouseEventSource: source,
+                mouseType: button.upEventType,
+                mouseCursorPosition: point,
+                mouseButton: button.cgButton
+            ) else {
                 throw ComputerUseError.eventCreationFailed
             }
 
-            address(down, pid: pid, windowNumber: windowNumber)
-            down.setIntegerValueField(.mouseEventClickState, value: Int64(clickState))
-            down.setDoubleValueField(.mouseEventPressure, value: 1)
-            down.postToPid(pid)
-
-            try await Task.sleep(nanoseconds: 30_000_000)
-
-            address(up, pid: pid, windowNumber: windowNumber)
-            up.setIntegerValueField(.mouseEventClickState, value: Int64(clickState))
-            up.setDoubleValueField(.mouseEventPressure, value: 0)
-            up.postToPid(pid)
+            try bridge.postMouse(
+                down,
+                pid: pid,
+                windowNumber: windowNumber,
+                screenPoint: point,
+                windowBounds: windowBounds,
+                clickState: Int64(clickState),
+                buttonNumber: button.number,
+                subtype: 3,
+                dualRoute: true
+            )
+            try await Task.sleep(for: .milliseconds(1))
+            try bridge.postMouse(
+                up,
+                pid: pid,
+                windowNumber: windowNumber,
+                screenPoint: point,
+                windowBounds: windowBounds,
+                clickState: Int64(clickState),
+                buttonNumber: button.number,
+                subtype: 3
+            )
 
             if clickState < clickCount {
-                try await Task.sleep(nanoseconds: 50_000_000)
+                try await Task.sleep(for: .milliseconds(80))
             }
         }
     }
@@ -44,91 +92,156 @@ enum BackgroundInputDispatcher {
     static func drag(
         pid: pid_t,
         windowNumber: Int,
+        windowBounds: CGRect,
         path: [CGPoint],
-        button: ComputerMouseButton = .left
+        button: ComputerMouseButton = .left,
+        bridge: SkyLightBridge
     ) async throws {
         guard path.count >= 2,
               let first = path.first,
               let last = path.last,
-              let source = CGEventSource(stateID: .combinedSessionState),
-              let down = CGEvent(mouseEventSource: source, mouseType: button.downEventType, mouseCursorPosition: first, mouseButton: button.cgButton),
-              let up = CGEvent(mouseEventSource: source, mouseType: button.upEventType, mouseCursorPosition: last, mouseButton: button.cgButton) else {
+              let source = CGEventSource(stateID: .hidSystemState),
+              let down = CGEvent(
+                mouseEventSource: source,
+                mouseType: button.downEventType,
+                mouseCursorPosition: first,
+                mouseButton: button.cgButton
+              ),
+              let up = CGEvent(
+                mouseEventSource: source,
+                mouseType: button.upEventType,
+                mouseCursorPosition: last,
+                mouseButton: button.cgButton
+              ) else {
             throw ComputerUseError.eventCreationFailed
         }
-        address(down, pid: pid, windowNumber: windowNumber)
-        down.postToPid(pid)
-        for point in path.dropFirst().dropLast() {
-            guard let drag = CGEvent(mouseEventSource: source, mouseType: button.dragEventType, mouseCursorPosition: point, mouseButton: button.cgButton) else {
+
+        try bridge.postMouse(
+            down,
+            pid: pid,
+            windowNumber: windowNumber,
+            screenPoint: first,
+            windowBounds: windowBounds,
+            clickState: 1,
+            buttonNumber: button.number,
+            subtype: 3,
+            dualRoute: true
+        )
+        try await Task.sleep(for: .milliseconds(12))
+
+        var previousPoint = first
+        for point in path.dropFirst() {
+            guard let drag = CGEvent(
+                mouseEventSource: source,
+                mouseType: button.dragEventType,
+                mouseCursorPosition: point,
+                mouseButton: button.cgButton
+            ) else {
                 throw ComputerUseError.eventCreationFailed
             }
-            address(drag, pid: pid, windowNumber: windowNumber)
-            drag.postToPid(pid)
-            try await Task.sleep(nanoseconds: 12_000_000)
+            drag.setIntegerValueField(.mouseEventDeltaX, value: Int64((point.x - previousPoint.x).rounded()))
+            drag.setIntegerValueField(.mouseEventDeltaY, value: Int64((point.y - previousPoint.y).rounded()))
+            try bridge.postMouse(
+                drag,
+                pid: pid,
+                windowNumber: windowNumber,
+                screenPoint: point,
+                windowBounds: windowBounds,
+                clickState: 1,
+                buttonNumber: button.number,
+                subtype: 3
+            )
+            try await Task.sleep(for: .milliseconds(12))
+            previousPoint = point
         }
-        address(up, pid: pid, windowNumber: windowNumber)
-        up.postToPid(pid)
+
+        try bridge.postMouse(
+            up,
+            pid: pid,
+            windowNumber: windowNumber,
+            screenPoint: last,
+            windowBounds: windowBounds,
+            clickState: 1,
+            buttonNumber: button.number,
+            subtype: 3
+        )
     }
 
-    static func scroll(pid: pid_t, windowNumber: Int, point: CGPoint, deltaX: Int32, deltaY: Int32) throws {
-        guard let source = CGEventSource(stateID: .combinedSessionState) else {
-            throw ComputerUseError.eventSourceFailed
-        }
-        guard let event = CGEvent(scrollWheelEvent2Source: source, units: .line, wheelCount: 2, wheel1: deltaY, wheel2: deltaX, wheel3: 0) else {
+    static func scroll(
+        pid: pid_t,
+        windowNumber: Int,
+        windowBounds: CGRect,
+        point: CGPoint,
+        deltaX: Int32,
+        deltaY: Int32,
+        bridge: SkyLightBridge
+    ) throws {
+        guard let source = CGEventSource(stateID: .hidSystemState),
+              let event = CGEvent(
+                scrollWheelEvent2Source: source,
+                units: .pixel,
+                wheelCount: 2,
+                wheel1: deltaY,
+                wheel2: deltaX,
+                wheel3: 0
+              ) else {
             throw ComputerUseError.eventCreationFailed
         }
-        event.location = point
-        address(event, pid: pid, windowNumber: windowNumber)
-        event.postToPid(pid)
+        try bridge.postMouse(
+            event,
+            pid: pid,
+            windowNumber: windowNumber,
+            screenPoint: point,
+            windowBounds: windowBounds,
+            clickState: 0,
+            buttonNumber: 0,
+            subtype: 0
+        )
     }
 
-    static func typeText(pid: pid_t, text: String) throws {
-        guard let source = CGEventSource(stateID: .combinedSessionState) else {
+    static func typeText(
+        pid: pid_t,
+        windowNumber: Int,
+        text: String,
+        bridge: SkyLightBridge
+    ) throws {
+        guard let source = CGEventSource(stateID: .hidSystemState) else {
             throw ComputerUseError.eventSourceFailed
         }
 
-        let units = Array(text.utf16)
-        let chunkSize = 20
-        for start in stride(from: 0, to: units.count, by: chunkSize) {
-            let end = min(start + chunkSize, units.count)
-            let chunk = Array(units[start..<end])
-            guard let event = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true) else {
+        for character in text {
+            let units = Array(String(character).utf16)
+            let keyCode = textKeyCode(for: character)
+            guard let down = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true),
+                  let up = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false) else {
                 throw ComputerUseError.eventCreationFailed
             }
-            event.setIntegerValueField(.eventTargetUnixProcessID, value: Int64(pid))
-            event.keyboardSetUnicodeString(stringLength: chunk.count, unicodeString: chunk)
-            event.postToPid(pid)
-            Thread.sleep(forTimeInterval: 0.01)
+            down.flags = []
+            up.flags = []
+            down.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units)
+            up.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units)
+            try bridge.postKeyboard(down, pid: pid, windowNumber: windowNumber)
+            try bridge.postKeyboard(up, pid: pid, windowNumber: windowNumber)
         }
     }
 
-    static func pressKey(pid: pid_t, combo: String) throws {
+    static func pressKey(
+        pid: pid_t,
+        windowNumber: Int,
+        combo: String,
+        bridge: SkyLightBridge
+    ) throws {
         let parsed = try parseCombo(combo)
-        guard let source = CGEventSource(stateID: .combinedSessionState) else {
-            throw ComputerUseError.eventSourceFailed
-        }
-        guard let down = CGEvent(keyboardEventSource: source, virtualKey: parsed.keyCode, keyDown: true),
+        guard let source = CGEventSource(stateID: .hidSystemState),
+              let down = CGEvent(keyboardEventSource: source, virtualKey: parsed.keyCode, keyDown: true),
               let up = CGEvent(keyboardEventSource: source, virtualKey: parsed.keyCode, keyDown: false) else {
             throw ComputerUseError.eventCreationFailed
         }
 
         down.flags = parsed.flags
         up.flags = parsed.flags
-        down.setIntegerValueField(.eventTargetUnixProcessID, value: Int64(pid))
-        up.setIntegerValueField(.eventTargetUnixProcessID, value: Int64(pid))
-        down.postToPid(pid)
-        up.postToPid(pid)
-    }
-
-    static func address(_ event: CGEvent, pid: pid_t, windowNumber: Int) {
-        event.setIntegerValueField(.eventTargetUnixProcessID, value: Int64(pid))
-        event.setIntegerValueField(.mouseEventWindowUnderMousePointer, value: Int64(windowNumber))
-        event.setIntegerValueField(.mouseEventWindowUnderMousePointerThatCanHandleThisEvent, value: Int64(windowNumber))
-        if let privateWindowField {
-            event.setIntegerValueField(privateWindowField, value: Int64(windowNumber))
-        }
-        if let privateRouteField {
-            event.setIntegerValueField(privateRouteField, value: 1)
-        }
+        try bridge.postKeyboard(down, pid: pid, windowNumber: windowNumber)
+        try bridge.postKeyboard(up, pid: pid, windowNumber: windowNumber)
     }
 
     static func parseCombo(_ combo: String) throws -> (flags: CGEventFlags, keyCode: CGKeyCode) {
@@ -152,8 +265,13 @@ enum BackgroundInputDispatcher {
         return (flags, keyCode)
     }
 
+    private static func textKeyCode(for character: Character) -> CGKeyCode {
+        let normalized = String(character).lowercased()
+        return keyCodes[normalized] ?? 0
+    }
+
     private static let keyCodes: [String: CGKeyCode] = [
-        "return": 0x24, "enter": 0x24, "tab": 0x30, "space": 0x31,
+        "return": 0x24, "enter": 0x24, "tab": 0x30, "space": 0x31, " ": 0x31,
         "delete": 0x33, "backspace": 0x33, "escape": 0x35, "esc": 0x35,
         "up": 0x7E, "down": 0x7D, "left": 0x7B, "right": 0x7C,
         "home": 0x73, "end": 0x77, "pageup": 0x74, "pagedown": 0x79,
@@ -173,4 +291,14 @@ enum BackgroundInputDispatcher {
         "\\": 0x2A, ";": 0x29, "'": 0x27, ",": 0x2B,
         ".": 0x2F, "/": 0x2C, "`": 0x32,
     ]
+}
+
+private extension ComputerMouseButton {
+    var number: Int64 {
+        switch self {
+        case .left: return 0
+        case .right: return 1
+        case .middle: return 2
+        }
+    }
 }
