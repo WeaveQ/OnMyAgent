@@ -189,8 +189,8 @@ importers:
         version: 5.0.14(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8))
     devDependencies:
       '@file-viewer/vite-plugin':
-        specifier: 2.2.8
-        version: 2.2.8(vite@6.4.3(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
+        specifier: 2.2.9
+        version: 2.2.9(vite@6.4.3(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@6.4.3(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
@@ -1542,8 +1542,8 @@ packages:
   '@file-viewer/renderer-word@2.2.8':
     resolution: {integrity: sha512-1teGBZrgSvOb+Fujyk8HwIN/UiXYlCYmGoj20LcDhBA7w+mdk43zqQY5dW/jF284aAe0zU7gW3V/M92GhSB8Ew==}
 
-  '@file-viewer/vite-plugin@2.2.8':
-    resolution: {integrity: sha512-LH4TgU/n4YLcxHbHcjIAm/9/M4Y0zmdJ4OFVYSmJMfA9HK74VvZTQoqvTgxYnRvOHtMs3i/5B7K13hdd+oTjVQ==}
+  '@file-viewer/vite-plugin@2.2.9':
+    resolution: {integrity: sha512-fQFSoGHMoSRtb6lMV6XGOtQfdPoZCSudObVfClgXIeb7EmXuRmQKWLCM6Qj6Ro07+vipT4wHztC5n+9STyvvdg==}
     peerDependencies:
       vite: '>=5 <9'
 
@@ -8231,7 +8231,7 @@ snapshots:
       jszip: 3.10.1
       rtf.js: 3.0.9
 
-  '@file-viewer/vite-plugin@2.2.8(vite@6.4.3(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))':
+  '@file-viewer/vite-plugin@2.2.9(vite@6.4.3(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))':
     dependencies:
       vite: 6.4.3(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0)
 
