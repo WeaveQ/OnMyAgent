@@ -77,8 +77,8 @@ importers:
         specifier: 2.2.8
         version: 2.2.8
       '@file-viewer/renderer-spreadsheet':
-        specifier: 2.2.8
-        version: 2.2.8
+        specifier: 2.2.9
+        version: 2.2.9
       '@file-viewer/renderer-word':
         specifier: 2.2.8
         version: 2.2.8
@@ -189,8 +189,8 @@ importers:
         version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8))
     devDependencies:
       '@file-viewer/vite-plugin':
-        specifier: 2.2.8
-        version: 2.2.8(vite@6.4.3(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
+        specifier: 2.2.9
+        version: 2.2.9(vite@6.4.3(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@6.4.3(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
@@ -1515,6 +1515,9 @@ packages:
   '@file-viewer/core@2.2.8':
     resolution: {integrity: sha512-3N9akTWAiqLt0tsJHqAvQkGzf4jFrYkbDSjd3XzFEn1s6H1aqufa2K7Eoq5Y/M9xmWeRrCzeofb67Vc4J5YXOw==}
 
+  '@file-viewer/core@2.2.9':
+    resolution: {integrity: sha512-EyNjx4LsaDIJIirDdWC/JaxVwMNB28LHNs67yjdMrZr9nw9OLURDWYjGNFlu/VI/jbZCN/HMkPSuOJtVhUiwUA==}
+
   '@file-viewer/doc@2.2.8':
     resolution: {integrity: sha512-WbF5qsNmsJ7uULgFfchzVMlrYYICfLSOSqqE2AIr84YcBJ/6DH4ov5osaAFzT0NhbwiWhf4fBllxC1By5dBq7w==}
 
@@ -1536,25 +1539,19 @@ packages:
   '@file-viewer/renderer-presentation@2.2.8':
     resolution: {integrity: sha512-emZc/nhdEKveClfLSaBmA17YsYSMbE8iDcAkojizZU1CzxstasyNX/+xfWwKYvhQHxx3h42dPwllgdHVBMu0DA==}
 
-  '@file-viewer/renderer-spreadsheet@2.2.8':
-    resolution: {integrity: sha512-yGg1pbpT2yuWYW6DCbkwckp61NU6+ivwDhqnmzwnzMOceqpZU35lkvk311P+PwrZXxfvZ+1dcT68ZBZ8qhfXkA==}
+  '@file-viewer/renderer-spreadsheet@2.2.9':
+    resolution: {integrity: sha512-mdWsbAILkjZOK+uI/UnIfy9f+gTZL53G/HfT+957el5jQjcHsEGrOd6FRxt9YS36uzWkW0D8diIre/+KcGS26g==}
 
   '@file-viewer/renderer-word@2.2.8':
     resolution: {integrity: sha512-1teGBZrgSvOb+Fujyk8HwIN/UiXYlCYmGoj20LcDhBA7w+mdk43zqQY5dW/jF284aAe0zU7gW3V/M92GhSB8Ew==}
 
-  '@file-viewer/vite-plugin@2.2.8':
-    resolution: {integrity: sha512-LH4TgU/n4YLcxHbHcjIAm/9/M4Y0zmdJ4OFVYSmJMfA9HK74VvZTQoqvTgxYnRvOHtMs3i/5B7K13hdd+oTjVQ==}
+  '@file-viewer/vite-plugin@2.2.9':
+    resolution: {integrity: sha512-fQFSoGHMoSRtb6lMV6XGOtQfdPoZCSudObVfClgXIeb7EmXuRmQKWLCM6Qj6Ro07+vipT4wHztC5n+9STyvvdg==}
     peerDependencies:
       vite: '>=5 <9'
 
-  '@floating-ui/core@1.7.5':
-    resolution: {integrity: sha512-1Ih4WTWyw0+lKyFMcBHGbb5U5FtuHJuujoyyr5zTaWS5EYMeT6Jb2AuDeftsCsEuchO+mM2ij5+q9crhydzLhQ==}
-
   '@floating-ui/core@1.8.0':
     resolution: {integrity: sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ==}
-
-  '@floating-ui/dom@1.7.6':
-    resolution: {integrity: sha512-9gZSAI5XM36880PPMm//9dfiEngYoC6Am2izES1FF406YFsjvyBMmeJ2g4SAju3xWwtuynNRFL2s9hgxpLI5SQ==}
 
   '@floating-ui/dom@1.8.0':
     resolution: {integrity: sha512-yXSrzeHZBTZadLOlfyhCkJHNeLJnHRnRInwdZ40L7ZiaAtrBwoYlsDrX3v5zB1Utk7CLfzcOVnVVWoXEky7Ceg==}
@@ -8187,6 +8184,8 @@ snapshots:
 
   '@file-viewer/core@2.2.8': {}
 
+  '@file-viewer/core@2.2.9': {}
+
   '@file-viewer/doc@2.2.8': {}
 
   '@file-viewer/docx@0.3.26':
@@ -8215,9 +8214,9 @@ snapshots:
       '@file-viewer/ppt': 0.3.3
       '@file-viewer/pptx': 2.2.8
 
-  '@file-viewer/renderer-spreadsheet@2.2.8':
+  '@file-viewer/renderer-spreadsheet@2.2.9':
     dependencies:
-      '@file-viewer/core': 2.2.8
+      '@file-viewer/core': 2.2.9
       '@xmldom/xmldom': 0.9.10
       e-virt-table: 1.4.6
       jszip: 3.10.1
@@ -8232,21 +8231,12 @@ snapshots:
       jszip: 3.10.1
       rtf.js: 3.0.9
 
-  '@file-viewer/vite-plugin@2.2.8(vite@6.4.3(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))':
+  '@file-viewer/vite-plugin@2.2.9(vite@6.4.3(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))':
     dependencies:
       vite: 6.4.3(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  '@floating-ui/core@1.7.5':
-    dependencies:
-      '@floating-ui/utils': 0.2.12
-
   '@floating-ui/core@1.8.0':
     dependencies:
-      '@floating-ui/utils': 0.2.12
-
-  '@floating-ui/dom@1.7.6':
-    dependencies:
-      '@floating-ui/core': 1.7.5
       '@floating-ui/utils': 0.2.12
 
   '@floating-ui/dom@1.8.0':
@@ -11369,7 +11359,7 @@ snapshots:
 
   e-virt-table@1.4.6:
     dependencies:
-      '@floating-ui/dom': 1.7.6
+      '@floating-ui/dom': 1.8.0
 
   eastasianwidth@0.2.0: {}
 
