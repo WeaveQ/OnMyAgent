@@ -22,6 +22,7 @@ import {
   installKnowledgeSearchPlugin,
   readKnowledgeSessionDefaultsSync,
 } from "./knowledge-search-plugin.mjs";
+import { parseOpencodeConfigText } from "./opencode-config-repair.mjs";
 
 /**
  * OpenCode 1.18 skill tool scans `~/.config/opencode/skills` via $HOME, not
@@ -117,17 +118,15 @@ export async function prepareOpencodeSandboxHome(input) {
     path.join(realHome, ".config", "opencode", "opencode.json"),
     path.join(realHome, ".config", "opencode", "opencode.jsonc"),
     path.join(realHome, ".opencode", "opencode.json"),
+    path.join(realHome, ".opencode", "opencode.jsonc"),
   ];
   let sourceConfig = {};
   for (const candidate of userConfigCandidates) {
     if (!existsSync(candidate)) continue;
     try {
-      const raw = await readFile(candidate, "utf8");
-      // jsonc may have comments — strip naive // and /* */ for best effort
-      const stripped = raw
-        .replace(/\/\*[\s\S]*?\*\//g, "")
-        .replace(/^\s*\/\/.*$/gm, "");
-      sourceConfig = JSON.parse(stripped);
+      const parsed = parseOpencodeConfigText(await readFile(candidate, "utf8"));
+      if (!parsed.ok) continue;
+      sourceConfig = parsed.data;
       break;
     } catch {
       // try next

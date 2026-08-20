@@ -100,6 +100,40 @@ test("prepareOpencodeSandboxHome writes providers-only config and auth", async (
   );
 });
 
+test("prepareOpencodeSandboxHome copies providers from jsonc with trailing commas", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "oma-sandbox-jsonc-"));
+  const realHome = path.join(root, "real-home");
+  const userData = path.join(root, "user-data");
+  await mkdir(path.join(realHome, ".config", "opencode"), { recursive: true });
+  await writeFile(
+    path.join(realHome, ".config", "opencode", "opencode.json"),
+    `{
+  "plugin": ["oh-my-openagent"],
+  "enabled_providers": [
+    "volces-deepseek",
+    "deepseek",
+  ],
+  "provider": {
+    "deepseek": {
+      "name": "DeepSeek官方",
+      "options": { "apiKey": "k" },
+    },
+  },
+}
+`,
+    "utf8",
+  );
+
+  const paths = await prepareOpencodeSandboxHome({
+    userDataDir: userData,
+    realHomeDir: realHome,
+  });
+  const written = JSON.parse(await readFile(paths.opencodeConfigPath, "utf8"));
+  assert.equal(written.provider.deepseek.name, "DeepSeek官方");
+  assert.equal(written.provider.deepseek.options.apiKey, "k");
+  assert.equal(written.enabled_providers, undefined);
+});
+
 test("linkHomeConfigOpencodeSkills exposes skill-creator under HOME/.config", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "oma-home-skills-"));
   const configDir = path.join(root, "xdg", "config", "opencode");
