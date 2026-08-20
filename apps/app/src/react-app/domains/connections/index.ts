@@ -21,8 +21,10 @@ export * from "./provider-list-query";
 export {
   connectedProviderIdSet,
   countOpenCodeProviderModels,
+  listOrderedConnectedProviders,
   mergeConnectedProviders,
   normalizeMergedProviderSource,
+  type ListOrderedConnectedProvidersInput,
   type MergedConnectedProvider,
   type MergedConnectedProviderSource,
   type MergeConnectedProvidersInput,
@@ -30,10 +32,12 @@ export {
 export {
   CONNECTED_PROVIDER_ORDER_KEY,
   defaultConnectedProviderOrderIds,
+  getConnectedProviderOrderSnapshot,
   moveConnectedProviderInOrder,
   orderConnectedProviders,
   readConnectedProviderOrderIds,
   reorderConnectedProviderIds,
+  subscribeConnectedProviderOrder,
   writeConnectedProviderOrderIds,
   type OrderableProvider,
 } from "./order-connected-providers";

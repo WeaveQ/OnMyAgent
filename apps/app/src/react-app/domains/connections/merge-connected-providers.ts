@@ -6,6 +6,10 @@
  */
 import type { ProviderListItem } from "../../../app/types";
 import type { AgentManagementManagedProvider } from "../../../app/lib/desktop";
+import {
+  orderConnectedProviders,
+  readConnectedProviderOrderIds,
+} from "./order-connected-providers";
 
 export type MergedConnectedProviderSource = "env" | "api" | "config" | "custom";
 
@@ -108,6 +112,20 @@ export function mergeConnectedProviders(
   }
 
   return [...byId.values()];
+}
+
+export type ListOrderedConnectedProvidersInput = MergeConnectedProvidersInput & {
+  orderIds?: ReadonlyArray<string>;
+};
+
+/** Settings → Models and session picker share this ordered list. */
+export function listOrderedConnectedProviders(
+  input: ListOrderedConnectedProvidersInput,
+): MergedConnectedProvider[] {
+  return orderConnectedProviders(
+    mergeConnectedProviders(input),
+    input.orderIds ?? readConnectedProviderOrderIds(),
+  );
 }
 
 /** Stable id set for Settings vs Session catalog consistency checks. */
