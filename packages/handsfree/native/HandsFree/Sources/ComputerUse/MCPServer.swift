@@ -4,6 +4,7 @@ import Foundation
 import ScreenCaptureKit
 
 actor MCPServer {
+    private let toolProfile = MCPToolProfile.current()
     private let runtime = ComputerUseRuntime()
     private let input = InputService()
     private let appCatalog = AppCatalog()
@@ -61,11 +62,17 @@ actor MCPServer {
     }
 
     private func toolSchemas() -> [[String: Any]] {
-        MCPToolCatalog.schemas()
+        MCPToolCatalog.schemas(profile: toolProfile)
     }
 
     private func executeTool(name: String, args: [String: Any]) async -> [[String: Any]] {
         do {
+            guard MCPToolCatalog.toolNames(profile: toolProfile).contains(name) else {
+                return jsonResult([
+                    "ok": false,
+                    "error": "Tool '\(name)' is not available in the active Computer Use profile.",
+                ])
+            }
             let skyActionNames: Set<String> = [
                 "click", "perform_secondary_action", "set_value", "select_text",
                 "scroll", "drag", "press_key", "type_text",

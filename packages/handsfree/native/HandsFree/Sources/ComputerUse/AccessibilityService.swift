@@ -450,7 +450,7 @@ final class AccessibilityService: @unchecked Sendable {
     }
 
     private func firstCGWindowInfo(pid: pid_t, title: String?) -> (number: Int, title: String?, bounds: CGRect)? {
-        guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
+        guard let list = CGWindowListCopyWindowInfo([.excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
             return nil
         }
 
@@ -502,7 +502,7 @@ final class AccessibilityService: @unchecked Sendable {
     private func screenCaptureKitImage(target: WindowTarget) async -> CGImage? {
         guard let windowNumber = target.windowNumber else { return nil }
         do {
-            let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+            let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
             guard let window = content.windows.first(where: { Int($0.windowID) == windowNumber }) else { return nil }
             let configuration = SCStreamConfiguration()
             let scale = screenScale(for: target.bounds)

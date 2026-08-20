@@ -8,7 +8,7 @@ actor ComputerUseRuntime {
     private let physicalInputMonitor = PhysicalInputMonitor()
     private var lastSnapshot: AppSnapshot?
     private var strictMode = true
-    private var activationSession: BackgroundActivationSession?
+    private var activationSession: BackgroundInteractionSession?
     private var activationKey: String?
     private var activatedWindowKey: String?
     private var activationPreviousPID: pid_t?
@@ -36,10 +36,13 @@ actor ComputerUseRuntime {
     }
 
     func snapshot(appName: String?, strict requestedStrict: Bool?) async throws -> AppSnapshot {
-        if physicalInputMonitor.isPaused() {
+        let effectiveStrict = requestedStrict ?? strictMode
+        if PhysicalInputPausePolicy.shouldPause(
+            strictMode: effectiveStrict,
+            physicalInputIsActive: physicalInputMonitor.isPaused()
+        ) {
             throw ComputerUseError.physicalInputPaused
         }
-        let effectiveStrict = requestedStrict ?? strictMode
         if !effectiveStrict {
             resetBackgroundActivation()
         }
@@ -49,9 +52,10 @@ actor ComputerUseRuntime {
         var target = try await resolveTargetWhenReady(appName: appName)
         try validateBrowserURL(target: target)
         let backgroundActivated: Bool
-        if effectiveStrict, !target.isFrontmost {
-            backgroundActivated = try await ensureBackgroundActivation(target: target)
+        if effectiveStrict {
+            backgroundActivated = try await ensureBackgroundInteraction(target: target)
             target = try await resolveTargetWhenReady(appName: appName)
+            _ = try await ensureBackgroundInteraction(target: target)
         } else {
             backgroundActivated = false
         }
@@ -98,7 +102,10 @@ actor ComputerUseRuntime {
                 "The action targets \(target.appName), but the active snapshot belongs to \(snapshot.appName). Call get_app_state first."
             )
         }
-        if physicalInputMonitor.isPaused() {
+        if PhysicalInputPausePolicy.shouldPause(
+            strictMode: snapshot.strictMode,
+            physicalInputIsActive: physicalInputMonitor.isPaused()
+        ) {
             throw ComputerUseError.physicalInputPaused
         }
     }
@@ -145,38 +152,38 @@ actor ComputerUseRuntime {
         throw ComputerUseError.invalidElement(ref ?? index.map(String.init) ?? "<missing>")
     }
 
-    func typeText(snapshotID: String?, text: String, strict requestedStrict: Bool?) throws -> ActionMetadata {
+    func typeText(snapshotID: String?, text: String, strict requestedStrict: Bool?) async throws -> ActionMetadata {
         let snapshot = try requireSnapshot(snapshotID: snapshotID)
         let effectiveStrict = requestedStrict ?? snapshot.strictMode
         try validateSnapshotForAction(snapshot: snapshot, strict: effectiveStrict)
         if effectiveStrict {
-            try BackgroundInputDispatcher.typeText(pid: snapshot.pid, text: text)
-            return recordAction(ActionMetadata(ok: true, path: .backgroundCGEvent, strictMode: true, backgroundSafe: true, fallbackUsed: false, message: "Typed text with postToPid."))
+            let (session, windowNumber) = try strictSession(for: snapshot)
+            try await session.typeText(windowNumber: windowNumber, text: text)
+            return recordAction(ActionMetadata(ok: true, path: .backgroundCGEvent, strictMode: true, backgroundSafe: true, fallbackUsed: false, message: "Typed text through the target-window session."))
         }
 
         try foregroundInput.typeText(text)
         return recordAction(ActionMetadata(ok: true, path: .foregroundCGEvent, strictMode: false, backgroundSafe: false, fallbackUsed: true, message: "Typed text with foreground HID fallback."))
     }
 
-    func pressKey(snapshotID: String?, combo: String, strict requestedStrict: Bool?) throws -> ActionMetadata {
+    func pressKey(snapshotID: String?, combo: String, strict requestedStrict: Bool?) async throws -> ActionMetadata {
         let snapshot = try requireSnapshot(snapshotID: snapshotID)
         let effectiveStrict = requestedStrict ?? snapshot.strictMode
         try validateSnapshotForAction(snapshot: snapshot, strict: effectiveStrict)
         if effectiveStrict {
-            try BackgroundInputDispatcher.pressKey(pid: snapshot.pid, combo: combo)
-            return recordAction(ActionMetadata(ok: true, path: .backgroundCGEvent, strictMode: true, backgroundSafe: true, fallbackUsed: false, message: "Pressed key with postToPid."))
+            let (session, windowNumber) = try strictSession(for: snapshot)
+            try await session.pressKey(windowNumber: windowNumber, combo: combo)
+            return recordAction(ActionMetadata(ok: true, path: .backgroundCGEvent, strictMode: true, backgroundSafe: true, fallbackUsed: false, message: "Pressed key through the target-window session."))
         }
 
         try foregroundInput.pressKey(combo)
         return recordAction(ActionMetadata(ok: true, path: .foregroundCGEvent, strictMode: false, backgroundSafe: false, fallbackUsed: true, message: "Pressed key with foreground HID fallback."))
     }
 
-    func scroll(snapshotID: String?, ref: String? = nil, index: Int? = nil, direction: String?, pages: Double, imageX: Double?, imageY: Double?, strict requestedStrict: Bool?) throws -> ActionMetadata {
+    func scroll(snapshotID: String?, ref: String? = nil, index: Int? = nil, direction: String?, pages: Double, imageX: Double?, imageY: Double?, strict requestedStrict: Bool?) async throws -> ActionMetadata {
         let snapshot = try requireSnapshot(snapshotID: snapshotID)
         let effectiveStrict = requestedStrict ?? snapshot.strictMode
         try validateSnapshotForAction(snapshot: snapshot, strict: effectiveStrict)
-        let amount = MouseInputGeometry.scrollLines(pages: pages)
-        let deltas = scrollDeltas(direction: direction, amount: amount)
         let point: CGPoint = {
             if let record = findRecord(ref: ref, index: index, in: snapshot) {
                 return freshRecord(matching: record, in: snapshot)?.semantic.frame.center ?? record.semantic.frame.center
@@ -189,13 +196,18 @@ actor ComputerUseRuntime {
         AgentCursorOverlay.shared.show(at: point)
 
         if effectiveStrict {
-            guard let windowNumber = snapshot.windowNumber else {
-                throw ComputerUseError.strictModeViolation("background scroll requires a CG window number")
-            }
-            try BackgroundInputDispatcher.scroll(pid: snapshot.pid, windowNumber: windowNumber, point: point, deltaX: deltas.x, deltaY: deltas.y)
-            return recordAction(ActionMetadata(ok: true, path: .backgroundCGEvent, strictMode: true, backgroundSafe: true, fallbackUsed: false, message: "Scrolled with postToPid."))
+            let amount = MouseInputGeometry.scrollPixels(
+                pages: pages,
+                viewportHeight: snapshot.screenshotMeta.capturedBounds.height
+            )
+            let deltas = scrollDeltas(direction: direction, amount: amount)
+            let (session, windowNumber) = try strictSession(for: snapshot)
+            try await session.scroll(windowNumber: windowNumber, point: point, deltaX: deltas.x, deltaY: deltas.y)
+            return recordAction(ActionMetadata(ok: true, path: .backgroundCGEvent, strictMode: true, backgroundSafe: true, fallbackUsed: false, message: "Scrolled through the target-window session."))
         }
 
+        let amount = MouseInputGeometry.scrollLines(pages: pages)
+        let deltas = scrollDeltas(direction: direction, amount: amount)
         try foregroundInput.scroll(point: point, deltaX: deltas.x, deltaY: deltas.y)
         return recordAction(ActionMetadata(ok: true, path: .foregroundCGEvent, strictMode: false, backgroundSafe: false, fallbackUsed: true, message: "Scrolled with foreground HID fallback."))
     }
@@ -216,11 +228,9 @@ actor ComputerUseRuntime {
         let path = MouseInputGeometry.linearPath(from: start, to: end)
         AgentCursorOverlay.shared.show(at: start)
         if effectiveStrict {
-            guard let windowNumber = snapshot.windowNumber else {
-                throw ComputerUseError.strictModeViolation("background drag requires a CG window number")
-            }
-            try await BackgroundInputDispatcher.drag(pid: snapshot.pid, windowNumber: windowNumber, path: path)
-            return recordAction(ActionMetadata(ok: true, path: .backgroundCGEvent, strictMode: true, backgroundSafe: true, fallbackUsed: false, message: "Dragged with postToPid."))
+            let (session, windowNumber) = try strictSession(for: snapshot)
+            try await session.drag(windowNumber: windowNumber, path: path)
+            return recordAction(ActionMetadata(ok: true, path: .backgroundCGEvent, strictMode: true, backgroundSafe: true, fallbackUsed: false, message: "Dragged through the target-window session."))
         }
         try await foregroundInput.drag(path: path)
         return recordAction(ActionMetadata(ok: true, path: .foregroundCGEvent, strictMode: false, backgroundSafe: false, fallbackUsed: true, message: "Dragged with foreground HID fallback."))
@@ -300,18 +310,16 @@ actor ComputerUseRuntime {
         try validateSnapshotForAction(snapshot: snapshot, strict: strict)
         AgentCursorOverlay.shared.show(at: point)
         if strict {
-            guard let windowNumber = snapshot.windowNumber else {
-                throw ComputerUseError.strictModeViolation("background click requires a CG window number")
-            }
-            try await BackgroundInputDispatcher.click(pid: snapshot.pid, windowNumber: windowNumber, point: point, button: mouseButton, clickCount: clickCount)
-            return recordAction(ActionMetadata(ok: true, path: .backgroundCGEvent, strictMode: true, backgroundSafe: true, fallbackUsed: fallbackUsed, message: "Clicked with postToPid at \(Int(point.x)),\(Int(point.y))."))
+            let (session, windowNumber) = try strictSession(for: snapshot)
+            try await session.click(windowNumber: windowNumber, point: point, button: mouseButton, clickCount: clickCount)
+            return recordAction(ActionMetadata(ok: true, path: .backgroundCGEvent, strictMode: true, backgroundSafe: true, fallbackUsed: fallbackUsed, message: "Clicked through the target-window session at \(Int(point.x)),\(Int(point.y))."))
         }
 
         try await foregroundInput.click(point: point, button: mouseButton, clickCount: clickCount)
         return recordAction(ActionMetadata(ok: true, path: .foregroundCGEvent, strictMode: false, backgroundSafe: false, fallbackUsed: true, message: "Clicked with foreground HID fallback at \(Int(point.x)),\(Int(point.y))."))
     }
 
-    private func ensureBackgroundActivation(target: WindowTarget) async throws -> Bool {
+    private func ensureBackgroundInteraction(target: WindowTarget) async throws -> Bool {
         ensureFrontmostMonitor()
         guard let previousPID = NSWorkspace.shared.frontmostApplication?.processIdentifier else {
             throw ComputerUseError.noFrontmostApplication
@@ -319,7 +327,7 @@ actor ComputerUseRuntime {
         let nextActivationKey = "\(previousPID):\(target.pid)"
         if activationKey != nextActivationKey {
             resetBackgroundActivation()
-            let next = BackgroundActivationSession(previousPID: previousPID, targetPID: target.pid)
+            let next = BackgroundInteractionSession(previousPID: previousPID, targetPID: target.pid)
             try next.start()
             activationSession = next
             activationKey = nextActivationKey
@@ -333,10 +341,20 @@ actor ComputerUseRuntime {
             guard let activationSession else {
                 throw ComputerUseError.strictModeViolation("background activation session was not created")
             }
-            try await activationSession.activate(target: target)
+            try await activationSession.establish(target: target)
             activatedWindowKey = nextWindowKey
         }
-        return true
+        return !target.isFrontmost
+    }
+
+    private func strictSession(for snapshot: AppSnapshot) throws -> (BackgroundInteractionSession, Int) {
+        guard let activationSession, activationTargetPID == snapshot.pid else {
+            throw ComputerUseError.staleSnapshot("The target app no longer has a background interaction session. Take a new snapshot before retrying.")
+        }
+        guard let windowNumber = snapshot.windowNumber else {
+            throw ComputerUseError.strictModeViolation("targeted background input requires a CG window number")
+        }
+        return (activationSession, windowNumber)
     }
 
     private func ensureFrontmostMonitor() {
@@ -377,7 +395,10 @@ actor ComputerUseRuntime {
     }
 
     private func validateSnapshotForAction(snapshot: AppSnapshot, strict: Bool) throws {
-        if physicalInputMonitor.isPaused() {
+        if PhysicalInputPausePolicy.shouldPause(
+            strictMode: strict,
+            physicalInputIsActive: physicalInputMonitor.isPaused()
+        ) {
             throw ComputerUseError.physicalInputPaused
         }
         if let staleSnapshotReason {
