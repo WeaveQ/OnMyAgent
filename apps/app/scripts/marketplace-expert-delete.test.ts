@@ -94,6 +94,8 @@ describe("marketplace expert hard-delete target", () => {
       sessionIds: ["ses_1"],
       packageName: "pkg",
       source: "installed",
+      deletePackage: false,
+      allowPackageDelete: false,
     });
   });
 
@@ -102,6 +104,8 @@ describe("marketplace expert hard-delete target", () => {
       id: "ops:ops",
       packageName: "ops",
       source: "mine",
+      deletePackage: false,
+      allowPackageDelete: true,
       displayName: "Ops",
     });
     expect(expertDeleteIdentityEquals(expert, "kol-ops:kol-ops")).toBe(false);
@@ -122,6 +126,8 @@ describe("marketplace expert hard-delete target", () => {
       sessionIds: ["ses_ops"],
       packageName: "ops",
       source: "mine",
+      deletePackage: false,
+      allowPackageDelete: true,
     });
   });
 
@@ -143,6 +149,8 @@ describe("marketplace expert hard-delete target", () => {
       sessionIds: [],
       packageName: "review",
       source: "mine",
+      deletePackage: false,
+      allowPackageDelete: true,
     });
   });
 
@@ -151,6 +159,8 @@ describe("marketplace expert hard-delete target", () => {
       id: "ops:ops",
       packageName: "ops",
       source: "mine",
+      deletePackage: false,
+      allowPackageDelete: true,
       displayName: "Ops",
     });
     expect(
@@ -171,6 +181,8 @@ describe("marketplace expert hard-delete target", () => {
       packageName: "ops",
       source: "mine",
       sessionDirectories: { ses_1: "experts/报价作业-ops/ses_1" },
+      deletePackage: false,
+      allowPackageDelete: true,
     });
   });
 });

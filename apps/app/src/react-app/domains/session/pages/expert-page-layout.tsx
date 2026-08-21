@@ -173,6 +173,9 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
     expertDeleteConfirmLabel,
     expertDeleteMessage,
     expertDeleteTitle,
+    deletePackageOptionVisible,
+    deletePackageSelected,
+    setDeletePackageSelected,
     renameBusy,
     renameOpen,
     renameTitle,
@@ -574,6 +577,9 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
         expertDeleteTitle={expertDeleteTitle}
         expertDeleteMessage={expertDeleteMessage}
         expertDeleteConfirmLabel={expertDeleteConfirmLabel}
+        deletePackageOptionVisible={deletePackageOptionVisible}
+        deletePackageSelected={deletePackageSelected}
+        setDeletePackageSelected={setDeletePackageSelected}
         confirmDelete={confirmDelete}
         closeDeleteModal={closeDeleteModal}
         customConnectorOpen={customConnectorOpen}

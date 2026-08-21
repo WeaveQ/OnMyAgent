@@ -152,6 +152,11 @@ export default {
     "这将永久删除专家「{name}」的全部会话、这些会话生成的工作区文件，以及本机安装的专家包，且不可恢复。",
   "session.delete_expert_generic":
     "这将永久删除该专家的全部会话、这些会话生成的工作区文件，以及本机安装的专家包，且不可恢复。",
+  "session.delete_named_expert_sessions_message":
+    "这将永久删除专家「{name}」的全部会话及这些会话生成的工作区文件，专家包会保留。",
+  "session.delete_expert_sessions_generic":
+    "这将永久删除该专家的全部会话及这些会话生成的工作区文件，专家包会保留。",
+  "session.delete_expert_package_option": "同时删除专家包（不可恢复）",
   "session.delete_retry": "重试清理",
   "session.delete_partial_message": "清理未完成（{error}），可重试以安全恢复。",
   "session.provider_enable": "启用",

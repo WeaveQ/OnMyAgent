@@ -4,6 +4,8 @@ import type { AgentCardItem, AgentRegistry } from "../../agents";
 import { ProviderAuthModal } from "../../connections";
 import { ShareWorkspaceModal } from "../../workspace";
 import { CustomConnectorDialog } from "@/react-app/domains/plugins";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 import type { AppStatusToastInput } from "../../shell-feedback";
 import {
   SessionTaskRenameDeleteModals,
@@ -36,6 +38,9 @@ export type ExpertPageModalsProps = {
   expertDeleteTitle: string;
   expertDeleteMessage: string;
   expertDeleteConfirmLabel: string;
+  deletePackageOptionVisible: boolean;
+  deletePackageSelected: boolean;
+  setDeletePackageSelected: (selected: boolean) => void;
   confirmDelete: () => void | Promise<void>;
   closeDeleteModal: () => void;
   customConnectorOpen: boolean;
@@ -69,6 +74,9 @@ export function ExpertPageModals({
   expertDeleteTitle,
   expertDeleteMessage,
   expertDeleteConfirmLabel,
+  deletePackageOptionVisible,
+  deletePackageSelected,
+  setDeletePackageSelected,
   confirmDelete,
   closeDeleteModal,
   customConnectorOpen,
@@ -109,6 +117,28 @@ export function ExpertPageModals({
         deleteTitle={expertDeleteTitle}
         deleteMessage={expertDeleteMessage}
         deleteConfirmLabel={expertDeleteConfirmLabel}
+        deleteExtra={
+          deletePackageOptionVisible ? (
+            <label
+              className={cn(
+                "flex cursor-pointer items-center gap-2 text-xs transition-colors",
+                deletePackageSelected
+                  ? "text-dls-status-danger-fg"
+                  : "text-dls-secondary/60",
+              )}
+            >
+              <Checkbox
+                checked={deletePackageSelected}
+                onCheckedChange={setDeletePackageSelected}
+                className={cn(
+                  "border-dls-border bg-dls-surface-muted",
+                  "data-checked:border-dls-status-danger data-checked:bg-dls-status-danger",
+                )}
+              />
+              <span>{t("session.delete_expert_package_option")}</span>
+            </label>
+          ) : undefined
+        }
         onDeleteConfirm={() => void confirmDelete()}
         onDeleteCancel={closeDeleteModal}
       />

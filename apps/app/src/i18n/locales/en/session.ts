@@ -156,6 +156,12 @@ export default {
     "This permanently deletes all sessions for expert “{name}”, workspace files those sessions generated, and the locally installed expert package. This cannot be undone.",
   "session.delete_expert_generic":
     "This permanently deletes this expert's sessions, workspace files those sessions generated, and the locally installed expert package. This cannot be undone.",
+  "session.delete_named_expert_sessions_message":
+    "This permanently deletes all sessions for expert “{name}” and the workspace files they generated. The expert package will be kept.",
+  "session.delete_expert_sessions_generic":
+    "This permanently deletes this expert's sessions and the workspace files they generated. The expert package will be kept.",
+  "session.delete_expert_package_option":
+    "Also delete expert package (cannot be undone)",
   "session.delete_retry": "Retry cleanup",
   "session.delete_partial_message": "Cleanup is incomplete ({error}). Retry to resume safely.",
   "session.badge_cloud": "Cloud",

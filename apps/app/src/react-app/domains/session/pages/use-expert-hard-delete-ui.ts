@@ -17,6 +17,8 @@ export type ExpertHardDeleteTarget = {
   packageName?: string;
   source?: "mine" | "installed";
   sessionDirectories?: Record<string, string>;
+  deletePackage?: boolean;
+  allowPackageDelete?: boolean;
 };
 
 function shortPackageNameFromAgentId(agentId: string): string {
@@ -91,6 +93,8 @@ export function resolveMarketplaceExpertHardDeleteTarget(input: {
     name: input.expert.displayName.trim() || packageName || agentId,
     sessionIds,
     source: input.expert.source,
+    deletePackage: false,
+    allowPackageDelete: input.expert.source === "mine",
     ...(packageName ? { packageName } : {}),
     ...(Object.keys(sessionDirectories).length > 0 ? { sessionDirectories } : {}),
   };
@@ -107,6 +111,8 @@ export function useExpertHardDeleteUi(input: {
     packageName?: string;
     source?: "mine" | "installed";
     sessionDirectories?: Record<string, string>;
+    deletePackage: boolean;
+    allowPackageDelete?: boolean;
     operationId: string;
   }) => void;
 }) {
@@ -129,6 +135,8 @@ export function useExpertHardDeleteUi(input: {
         ...(packageName ? { packageName } : {}),
         ...(target.source ? { source: target.source } : {}),
         ...(target.sessionDirectories ? { sessionDirectories: target.sessionDirectories } : {}),
+        deletePackage: target.deletePackage ?? true,
+        ...(target.allowPackageDelete ? { allowPackageDelete: true } : {}),
         operationId,
       });
     },
