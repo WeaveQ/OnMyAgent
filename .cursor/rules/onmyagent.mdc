@@ -1,0 +1,8 @@
+---
+description: OnMyAgent project operating rules. Same SoT as root AGENTS.md.
+alwaysApply: true
+---
+
+Follow root `AGENTS.md`. Do not duplicate policy in this file.
+
+Engineering skills live in `.agents/skills/` (this repo's `.cursor/skills` is a symlink). Edit skills only under `.agents/skills/`.
