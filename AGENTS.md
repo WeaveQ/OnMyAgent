@@ -202,5 +202,5 @@ src/react-app/domains/ → 业务域；不跨域直引 store
 ## 项目 Skills
 
 编辑源与分工 → [`.agents/README.md`](.agents/README.md)。  
-工程 skill **只**在 `.agents/skills/**` 改；勿复制到 `.codex/` / `.claude/` / `.grok/` 或 `~/.codex/skills/`。  
+工程 skill **只**在 `.agents/skills/**` 改；勿复制到 `.codex/` / `.claude/` / `.grok/` / `.cursor/` 或 `~/.codex/skills/`。
 产品 bundled skills：`apps/desktop/resources/bundled-skills/**`（与工程 skill 不同步）。`.opencode/` = OpenCode 工作区配置。

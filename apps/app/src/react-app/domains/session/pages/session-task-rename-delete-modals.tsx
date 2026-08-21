@@ -1,5 +1,4 @@
 /** @jsxImportSource react */
-import type { ReactNode } from "react";
 import { t } from "../../../../i18n";
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import { RenameSessionModal } from "../modals/rename-session-modal";
@@ -21,7 +20,6 @@ export type SessionTaskRenameDeleteModalsProps = {
   deleteBusy: boolean;
   deleteTitle: string;
   deleteMessage: string;
-  deleteExtra?: ReactNode;
   deleteConfirmLabel: string;
   onDeleteConfirm: () => void;
   onDeleteCancel: () => void;
@@ -52,14 +50,7 @@ export function SessionTaskRenameDeleteModals(
         <ConfirmModal
           open={props.deleteOpen}
           title={props.deleteTitle}
-          message={
-            props.deleteExtra ? (
-              <div className="space-y-4">
-                <p>{props.deleteMessage}</p>
-                {props.deleteExtra}
-              </div>
-            ) : props.deleteMessage
-          }
+          message={props.deleteMessage}
           confirmLabel={props.deleteConfirmLabel}
           cancelLabel={t("common.cancel")}
           variant="danger"

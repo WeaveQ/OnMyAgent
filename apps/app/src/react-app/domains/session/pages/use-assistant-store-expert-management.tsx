@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import type { AgentRegistry, PendingAgentContext } from "../../agents";
 import type { AgentConversationGroup } from "../sidebar/session-chrome";
 import type { SessionPageProps } from "./session-page-types";
-import { ExpertDeleteModal } from "./expert-delete-modal";
+import { ExpertDeleteModal } from "./expert-page-modals";
 import { useExpertPageModals } from "./use-expert-page-modals";
 import { useSessionExpertCreation } from "./use-session-expert-creation";
 
