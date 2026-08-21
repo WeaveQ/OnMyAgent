@@ -37,7 +37,7 @@ Watch subtask progress in the current conversation; see [Parallel subtasks](#par
 | `/` | Open commands, skills, and prompt entries | Availability depends on the installed catalog and current runtime |
 | Skills, MCP, and connectors | Give the Agent additional actions | On first use, verify the account and target resource |
 | Work mode | Select Ask, Craft, Plan, or another collaboration mode | In Plan mode, confirm the plan before execution |
-| Model and reasoning level | Choose the model and reasoning effort for this task | Providers differ in capability, cost, and context window |
+| Model and reasoning level | Choose the model and reasoning effort for this task. Order matches Settings → Models | Providers differ in capability, cost, and context window. A model added in Settings is available when you return to Home |
 | Context usage | See how much of the current window is occupied. The limit prefers the model's **catalog** context window (million-token windows show as **1M**, not 1048.6K). Occupancy splits into system prompt, tools and sub-agents, messages, skills, cache hits, and similar buckets | Near the limit, start a new task or compact the context. **Reply** and **Reasoning** are last-turn generation and are **not** part of occupancy |
 | Body context menu | Select conversation body text; right-click **Cut / Copy / Paste / Select all** | Uses the system clipboard |
 | Access permissions | Decide which actions run automatically and which require a prompt | Keep approvals for external sends, deletes, and sensitive writes |
@@ -48,7 +48,7 @@ Watch subtask progress in the current conversation; see [Parallel subtasks](#par
 - Plan mode can produce a plan first, which you then approve for execution or cancel.
 - Goal can pause, resume, and clean up a longer objective; pausing does not delete files already produced.
 - When the Agent needs a business decision, it can ask a single-choice, multiple-choice, or free-text question.
-- For a permission request, you may see **Allow once**, **Allow for session**, or a deny action; use the choices shown by the actual dialog.
+- For a permission request, the prompt appears immediately (you do not wait for the turn to finish). You may see **Allow once**, **Allow for session**, or a deny action; use the choices shown by the actual dialog.
 
 Do not treat “plan generated” as task completion, and do not treat a successful tool call as proof that the final deliverable passed acceptance.
 
@@ -65,7 +65,7 @@ A green subtask card is not acceptance. Still check the deliverable in the next 
 
 ## 4. Deliverables, browser, and side panel
 
-A session can display files, diffs, images, Office documents, web pages, and browser results. Supported formats can be previewed in the app; unsupported or very large files are downloaded or passed to a system application. Markdown files written to the workspace appear as **file links** in the conversation (open the file preview), not as “open artifact” pills.
+A session can display files, diffs, images, Office documents, web pages, and browser results. Supported formats can be previewed in the app; unsupported or very large files are downloaded or passed to a system application. Markdown files written to the workspace appear as **file links** in the conversation (open the file preview), not as “open artifact” pills. HTML preview can scroll on first open. Office and PDF open from the session file path. Files written by helper scripts appear as product cards; a space session shows one card per deliverable. Home sessions stay off the Experts rail.
 
 Recommended acceptance order:
 

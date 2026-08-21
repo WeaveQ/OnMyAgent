@@ -18,7 +18,15 @@ IM-based digital employees belong to **OnMyBuddy**. The desktop workspace is **O
 
 ### Which models are supported?
 
-OnMyAgent uses BYOK and supports compatible APIs and local models such as Ollama. Connect a provider under [Settings → Models](/en/guide/models).
+OnMyAgent uses BYOK and supports compatible APIs and local models such as Ollama. Connect a provider under [Settings → Models](/en/guide/models). After you save, Home sessions can use the model, in the same order as Settings.
+
+### Settings model list spins on first open?
+
+Current preview builds ship a catalog snapshot, so the list should appear quickly. If it still hangs, check the network and restart. See [Models troubleshooting](/en/guide/models#models-troubleshooting).
+
+### Sending a spreadsheet or PDF to an Expert fails?
+
+Attach it in the chat. Split a long text message, or send a smaller file. See [Experts](/en/guide/experts).
 
 ### Where is Settings?
 
@@ -46,4 +54,4 @@ See [Download and installation](/en/download).
 
 ### How do I update OnMyAgent?
 
-Open Settings → **Updates** → **Check for updates** (a cold start also checks once). When a new version is found, **click the notice or Download update** to start the download. In a packaged build, click **Restart and install** when it finishes. In a development build, install from [GitHub Releases](https://github.com/WeaveQ/OnMyAgent/releases) instead. If macOS says the app is damaged, run `xattr -cr /Applications/OnMyAgent.app` and open it again.
+Open Settings → **Updates** → **Check for updates** (a cold start also checks once). If you are already on the latest build, the app says so. When a new version is found, **click the notice or Download update** to start the download. In a packaged build, click **Restart and install** when it finishes. In a development build, install from [GitHub Releases](https://github.com/WeaveQ/OnMyAgent/releases) instead. If macOS says the app is damaged, run `xattr -cr /Applications/OnMyAgent.app` and open it again.

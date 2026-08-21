@@ -94,7 +94,7 @@ App-wide choices for language, theme, font, and panel layout. These settings do 
 Common items include:
 
 - **Interface**: language and theme—Light, Dark, or System.
-- **Display**: font size, conversation width, whether model-reasoning traces are expanded, and system-tray icon.
+- **Display**: font size, conversation width, whether model-reasoning traces are expanded, and system-tray icon (the tray menu follows the OS language).
 - **Session management**: automatic context compaction and automatically starting a new session after a long idle period.
 
 ### System
@@ -134,11 +134,11 @@ The page supports search and **Restore all defaults**.
 
 Inspect the current version and check for updates.
 
-The page shows the current version and **Check for updates**. A cold start also checks once (about 30 seconds after launch).
+The page shows the current version and **Check for updates**. A cold start also checks once (about 30 seconds after launch). If you are already on the latest build, the app says so instead of pretending to download.
 
 | Build | Behavior |
 |-------|----------|
-| **Packaged desktop** | Checks prereleases and stables. When a new version is found, a notice appears; **click the notice or Download update** to start the download. Then click **Restart and install**. Nothing installs silently or on quit. |
+| **Packaged desktop** | Checks prereleases and stables. When a new version is found, a notice appears; **click the notice or Download update** to start the download. Then click **Restart and install**. After restart, the app retries if the local server is not up yet. Nothing installs silently or on quit. |
 | **Development build** | Can check only. Clicking the notice opens the release page; it cannot replace a running dev build in-app. |
 
 Current preview builds are signed and notarized. If macOS still blocks the app after an in-app update, run:
