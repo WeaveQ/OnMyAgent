@@ -283,6 +283,8 @@ export type DesktopCommandName =
   | "installExpertPackage"
   | "uninstallExpertPackage"
   | "deleteExpertPackage"
+  | "importExpertPackage"
+  | "exportExpertPackage"
   | "installBuiltinSkillPackage"
   | "writeMyExpertPackage"
   | "stageMyExpertKnowledge"

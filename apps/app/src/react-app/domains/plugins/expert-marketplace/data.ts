@@ -309,6 +309,80 @@ export function filterLocalShelfExperts(
   });
 }
 
+export type LocalShelfConversationRef = {
+  agentId: string | null;
+  name: string;
+  description: string;
+  avatarUrl: string | null;
+};
+
+function lastAgentIdSegment(agentId: string): string {
+  const trimmed = agentId.trim();
+  const colon = trimmed.lastIndexOf(":");
+  return colon >= 0 ? trimmed.slice(colon + 1) : trimmed;
+}
+
+function synthesizeMineShelfExpert(
+  ref: LocalShelfConversationRef & { agentId: string },
+): ExpertMarketplaceEntry {
+  const packageName = lastAgentIdSegment(ref.agentId);
+  const displayName = ref.name.trim() || packageName;
+  return {
+    id: `${packageName}:${packageName}`,
+    packageName,
+    source: "mine",
+    packagePath: "",
+    displayName,
+    profession: displayName,
+    description: ref.description,
+    categoryId: "all",
+    categoryIds: [],
+    categoryLabel: "",
+    categoryLabels: [],
+    tags: [],
+    quickPrompts: [],
+    promptTemplates: [],
+    avatarUrl: ref.avatarUrl,
+    expertType: "agent",
+    leadAgentName: displayName,
+    systemPrompt: ref.description,
+    version: null,
+    teamWorkflow: null,
+    skills: [],
+    introStyle: "default",
+    approvedAgentIds: [],
+  };
+}
+
+/**
+ * Sidebar conversations and on-disk packages can diverge (delayed builtin
+ * install, leftover sessions). Fill the 已召唤/我的 shelf from live
+ * conversations so the two lists stay aligned.
+ */
+export function mergeLocalShelfWithConversations(
+  packages: readonly ExpertMarketplaceEntry[],
+  conversations: readonly LocalShelfConversationRef[],
+): ExpertMarketplaceEntry[] {
+  const extras: ExpertMarketplaceEntry[] = [];
+  for (const conversation of conversations) {
+    const agentId = conversation.agentId?.trim() ?? "";
+    if (!agentId) continue;
+    const known = [...packages, ...extras].some((expert) =>
+      expertPackageMatchesAgentId(expert, agentId),
+    );
+    if (known) continue;
+    const builtin =
+      findBuiltinMarketplaceExpertById(agentId) ??
+      findBuiltinMarketplaceExpertById(lastAgentIdSegment(agentId));
+    extras.push(
+      builtin
+        ? { ...builtin, source: "installed" }
+        : synthesizeMineShelfExpert({ ...conversation, agentId }),
+    );
+  }
+  return [...packages, ...extras];
+}
+
 /** @deprecated Use filterLocalShelfExperts — installed alone is not "summoned". */
 export function isLocalShelfExpert(
   entry: Pick<ExpertMarketplaceEntry, "source">,

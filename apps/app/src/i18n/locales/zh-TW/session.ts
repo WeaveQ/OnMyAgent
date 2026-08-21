@@ -36,7 +36,7 @@ export default {
   "session.my_experts": "已召喚專家",
   "session.my_experts_count": "共 {count} 位",
   "session.my_experts_empty_title": "還沒有召喚專家",
-  "session.my_experts_empty_desc": "從全部專家裡召喚一位，或點「我要創建」從零打造專屬專家。",
+  "session.my_experts_empty_desc": "從全部專家裡召喚一位，或導入專家包，或點「我要創建」從零打造專屬專家。",
   "session.search_experts_placeholder": "搜尋專家職稱或描述",
   "session.search_tasks_placeholder": "搜尋任務標題",
   "session.create_expert": "我要創建",

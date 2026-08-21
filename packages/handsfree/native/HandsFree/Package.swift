@@ -9,6 +9,10 @@ let package = Package(
             name: "HandsFreeComputerUse",
             path: "Sources/ComputerUse"
         ),
+        .executableTarget(
+            name: "BackgroundInteractionFixture",
+            path: "Tests/Fixtures/BackgroundInteractionFixture"
+        ),
         .testTarget(
             name: "ComputerUseTests",
             dependencies: ["HandsFreeComputerUse"],

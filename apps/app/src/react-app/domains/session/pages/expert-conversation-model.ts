@@ -4,7 +4,11 @@
 import { t } from "../../../../i18n";
 import type { SidebarSessionItem, WorkspaceSessionGroup } from "../../../../app/types";
 import type { PendingAgentContext, AgentRegistry } from "../../agents";
-import { buildPendingAgentFromRecord } from "../../agents";
+import {
+  buildPendingAgentFromRecord,
+  createExpertOperationId,
+  isCreationExpertEditable,
+} from "../../agents";
 import {
   buildAgentConversationGroups,
   type AgentConversationGroup,
@@ -46,6 +50,60 @@ export function buildExpertWorkspaceSessions(input: {
 
 export function buildExpertSidebarSessionGroups(input: { groups: WorkspaceSessionGroup[] }) {
   return input.groups;
+}
+
+/**
+ * Self-created / imported mine experts live on disk + registry even before the
+ * first chat. Keep them in the expert conversation list so leaving the page
+ * (which drops in-memory draftAgentContexts) does not hide them.
+ */
+export function listUnstartedMineExpertContexts(input: {
+  registry: AgentRegistry | null | undefined;
+  occupiedAgentIds: Iterable<string>;
+}): Record<string, PendingAgentContext> {
+  const occupied = new Set(
+    [...input.occupiedAgentIds].map((id) => id.trim()).filter(Boolean),
+  );
+  const next: Record<string, PendingAgentContext> = {};
+  for (const agent of input.registry?.agents ?? []) {
+    if (!isCreationExpertEditable(agent) || occupied.has(agent.id)) continue;
+    const pending = buildPendingAgentFromRecord(agent, input.registry!);
+    if (!pending) continue;
+    const createdAt = Date.parse(agent.updatedAt) || Date.parse(agent.createdAt) || Date.now();
+    next[agent.id] = {
+      ...pending,
+      draftSource: "agent-selection",
+      draftCreatedAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
+      ...(agent.marketplacePackageName
+        ? {
+            marketplaceExpert: {
+              source: "mine" as const,
+              packageName: agent.marketplacePackageName,
+              packagePath: agent.marketplacePath ?? "",
+            },
+          }
+        : {}),
+    };
+  }
+  return next;
+}
+
+/** Restore a mine pending context after remount; occupancy must not block reopen. */
+export function resolveUnstartedMinePending(
+  registry: AgentRegistry | null | undefined,
+  agentId: string,
+): PendingAgentContext | undefined {
+  const id = agentId.trim();
+  if (!id) return undefined;
+  const pending = listUnstartedMineExpertContexts({
+    registry,
+    occupiedAgentIds: [],
+  })[id];
+  if (!pending) return undefined;
+  return {
+    ...pending,
+    operationId: pending.operationId?.trim() || createExpertOperationId(),
+  };
 }
 
 export function buildDraftAgentGroups(

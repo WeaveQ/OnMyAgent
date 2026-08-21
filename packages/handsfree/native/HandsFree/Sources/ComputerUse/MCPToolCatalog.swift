@@ -1,8 +1,29 @@
 import Foundation
 
+enum MCPToolProfile: Equatable {
+    case sky
+    case compatibility
+
+    static func current(environment: [String: String] = ProcessInfo.processInfo.environment) -> MCPToolProfile {
+        environment[ComputerUseBehaviorContract.compatibilityToolsEnvironmentKey]
+            == ComputerUseBehaviorContract.compatibilityToolsEnabledValue
+            ? .compatibility
+            : .sky
+    }
+}
+
 enum MCPToolCatalog {
-    static func schemas() -> [[String: Any]] {
-        skySchemas() + extensionSchemas()
+    static func schemas(profile: MCPToolProfile = .sky) -> [[String: Any]] {
+        switch profile {
+        case .sky:
+            return skySchemas()
+        case .compatibility:
+            return skySchemas() + extensionSchemas()
+        }
+    }
+
+    static func toolNames(profile: MCPToolProfile = .sky) -> Set<String> {
+        Set(schemas(profile: profile).compactMap { $0["name"] as? String })
     }
 
     private static func skySchemas() -> [[String: Any]] {
