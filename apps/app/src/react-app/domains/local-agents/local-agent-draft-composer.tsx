@@ -11,15 +11,22 @@ import React, {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
-import { Folder, Paperclip, Plus, Quote, SlashSquare, X } from "lucide-react";
+import { Plus, Quote, Square, X } from "lucide-react";
 
 import { ContextUsageIndicator } from "./context-usage-indicator";
 
 import { Button } from "@/components/ui/button";
-import { MenuRowButton } from "@/components/ui/action-row";
 import { SendButton } from "@/components/ui/send-button";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  localAgentComposerClass,
+  resolveLocalAgentComposerLayout,
+} from "./local-agent-composer-layout";
+import {
+  LocalAgentComposerMentionMenu,
+  LocalAgentComposerSlashMenu,
+  LocalAgentComposerToolMenu,
+} from "./local-agent-composer-menus-view";
 import {
   localAgentComposerListFiles,
   localAgentComposerSaveAttachment,
@@ -166,11 +173,10 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
   slashCommands: LocalAgentSlashCommand[];
   onDraftCommit: (draftKey: string, value: string) => void;
   onSubmit: (payload: LocalAgentComposerSubmit) => void;
+  onStop?: () => void;
   onSlashCommandExecute?: (command: LocalAgentSlashCommand) => void;
   toolbarLeft?: ReactNode;
   toolbarRight?: ReactNode;
-  /** Workbench-style strip under the card (workspace / approval). */
-  bottomAccessory?: ReactNode;
   contextUsage?: { used: number; total: number; label?: string | null } | null;
 }) {
   const [value, setValue] = useState(props.initialDraft);
@@ -531,32 +537,22 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
     !props.disabled &&
     !props.submitting;
 
-  const hasFooter = Boolean(props.bottomAccessory);
+  const hasAttachments = attachments.length > 0 || quotes.length > 0 || uploading > 0;
+  const showStop = Boolean(props.submitting && props.onStop);
+  const layout = resolveLocalAgentComposerLayout({
+    hasAttachments,
+    dragActive,
+    menuOpen: slashOpen || (atState.active && mentionFiles.length > 0),
+  });
 
   return (
-    // One outer silhouette so focus never paints a blue top half + gray footer.
-    // Keep overflow visible so slash/mention menus can escape upward.
-    // Always solid surface — glass-mixed tokens make the composer look hollow
-    // and grey out controls on mac vibrancy.
     <div
-      className={cn(
-        // overflow visible: slash/mention menus open upward past the shell.
-        "mac:titlebar-no-drag w-full min-w-0 max-w-full rounded-xl border bg-dls-surface-solid transition-[border-color,box-shadow]",
-        dragActive
-          ? "border-dls-accent/60"
-          : focused
-            ? "border-dls-border-strong"
-            : "border-dls-border",
-      )}
+      className="@container/local-composer mac:titlebar-no-drag w-full min-w-0 max-w-full"
       data-local-agent-composer-shell="true"
+      data-local-agent-composer-focused={focused ? "true" : "false"}
     >
       <div
-        className={cn(
-          // No overflow-x-hidden here: with overflow-y visible CSS forces y→auto and
-          // clips the upward slash/mention menus (button looked "unclickable").
-          "relative min-w-0 max-w-full overflow-visible bg-dls-surface-solid",
-          hasFooter ? "rounded-t-xl" : "rounded-xl",
-        )}
+        className={layout.panelChromeClass}
         data-local-agent-composer-root="true"
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
@@ -564,101 +560,32 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
         onDrop={handleDrop}
       >
         {dragActive ? (
-          <div className="pointer-events-none absolute inset-2 z-30 flex items-center justify-center rounded-xl border-2 border-dashed border-dls-accent bg-dls-accent/10 text-sm font-medium text-dls-accent">
-            {t("local_agent.composer_drop_here")}
-          </div>
-        ) : null}
-        {slashOpen ? (
-          <div
-            className="absolute bottom-full left-0 right-0 z-50 mb-2 max-h-60 overflow-y-auto rounded-xl border border-dls-border bg-dls-surface-solid p-2 "
-            data-testid="local-agent-slash-menu"
-          >
-            {visibleSlashCommands.length ? (
-              <div className="grid gap-1">
-                {visibleSlashCommands.map((command) => (
-                  <button
-                    key={`${command.source}:${command.name}`}
-                    type="button"
-                    className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-dls-hover"
-                    onClick={() => selectSlashCommand(command)}
-                    data-testid={`local-agent-slash-${command.name.replace(/^\//, "")}`}
-                  >
-                    <SlashSquare size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate text-xs font-medium text-dls-text">
-                          {command.name}
-                        </span>
-                        <div className="flex items-center gap-1">
-                          {command.hint ? (
-                            <kbd className="rounded-sm border border-dls-border bg-dls-surface-muted px-1 py-0.5 text-xs font-mono text-dls-secondary">
-                              {command.hint}
-                            </kbd>
-                          ) : null}
-                          <StatusBadge size="tiny" tone="surface">
-                            {command.source === "acp" ? "ACP" : t("local_agent.slash_builtin")}
-                          </StatusBadge>
-                        </div>
-                      </div>
-                      {command.description ? (
-                        <div className="truncate text-xs text-dls-secondary">
-                          {command.description}
-                        </div>
-                      ) : null}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div
-                className="px-3 py-2 text-xs text-dls-secondary"
-                data-testid="local-agent-slash-empty"
-              >
-                {t("local_agent.slash_empty")}
-              </div>
-            )}
-          </div>
-        ) : null}
-        {atState.active && mentionFiles.length ? (
-          <div
-            className="absolute bottom-full left-0 right-0 z-50 mb-2 max-h-60 overflow-y-auto rounded-xl border border-dls-border bg-dls-surface-solid p-2 "
-            data-testid="local-agent-mention-menu"
-          >
-            <div className="grid gap-1">
-              {mentionFiles.map((entry, index) => (
-                <button
-                  key={entry.path}
-                  type="button"
-                  className={cn(
-                    "flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-dls-hover",
-                    index === mentionIndex && "bg-dls-hover",
-                  )}
-                  onMouseEnter={() => setMentionIndex(index)}
-                  onClick={() => insertMention(entry)}
-                >
-                  {entry.isDirectory ? (
-                    <Folder className="mt-0.5 size-3.5 shrink-0 text-dls-secondary" />
-                  ) : (
-                    <ArtifactIcon name={entry.name} className="mt-0.5 size-3.5 shrink-0" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-xs font-medium text-dls-text">
-                      {entry.name}
-                      {entry.isDirectory ? "/" : ""}
-                    </div>
-                    <div className="truncate text-xs text-dls-secondary">{entry.relativePath}</div>
-                  </div>
-                </button>
-              ))}
+          <div className={localAgentComposerClass.dropOverlay}>
+            <div className="rounded-xl border border-dls-border bg-dls-surface px-5 py-4 text-center text-sm font-medium text-dls-text">
+              {t("local_agent.composer_drop_here")}
             </div>
           </div>
         ) : null}
-        {attachments.length > 0 || quotes.length > 0 || uploading > 0 ? (
-          <div className="flex flex-wrap gap-2 px-4 pt-3">
+        {slashOpen ? (
+          <LocalAgentComposerSlashMenu
+            commands={visibleSlashCommands}
+            onSelect={selectSlashCommand}
+          />
+        ) : null}
+        {atState.active && mentionFiles.length ? (
+          <LocalAgentComposerMentionMenu
+            files={mentionFiles}
+            mentionIndex={mentionIndex}
+            onHover={setMentionIndex}
+            onSelect={insertMention}
+          />
+        ) : null}
+        {hasAttachments ? (
+          <div className={localAgentComposerClass.attachmentRail}>
             {attachments.map((att) => (
               <div
                 key={att.id}
-                className="group/att flex max-w-full items-center gap-2 rounded-lg bg-dls-surface-muted px-2 py-1.5 text-xs"
+                className={localAgentComposerClass.attachmentChip}
                 data-testid="local-agent-attachment"
               >
                 {att.kind === "image" && att.previewUrl ? (
@@ -692,7 +619,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
             {quotes.map((q) => (
               <div
                 key={q.id}
-                className="group/att flex max-w-full items-center gap-2 rounded-lg bg-dls-surface-muted px-2 py-1.5 text-xs"
+                className={localAgentComposerClass.attachmentChip}
                 data-testid="local-agent-quote"
               >
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-dls-surface text-dls-secondary">
@@ -725,12 +652,12 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
             ) : null}
           </div>
         ) : null}
-        <div className="px-3.5 pt-3 pb-2.5">
+        <div className={layout.editorPadClass}>
           <div className="relative">
             <div
               aria-hidden
               data-local-agent-mirror="true"
-              className="pointer-events-none absolute inset-0 whitespace-pre-wrap break-words text-sm leading-6"
+              className="pointer-events-none absolute inset-0 whitespace-pre-wrap break-words text-composer"
               style={{ color: "transparent" }}
             >
               {renderMirror(value, mentions)}
@@ -738,7 +665,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
             <Textarea
               ref={textareaRef}
               rows={2}
-              className="relative min-h-[52px] resize-none border-0 bg-transparent p-0 text-sm leading-6 text-dls-text shadow-none placeholder:text-dls-secondary/70 focus-visible:border-transparent focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-transparent"
+              className="relative min-h-[52px] resize-none border-0 bg-transparent p-0 text-composer text-dls-text shadow-none placeholder:text-dls-secondary/70 focus-visible:border-transparent focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-transparent sm:text-composer md:text-composer"
               style={{
                 color: mentionSpans.length ? "transparent" : undefined,
                 caretColor: "var(--dls-text, currentColor)",
@@ -762,9 +689,14 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
               disabled={props.disabled || props.submitting}
             />
           </div>
-          {/* Match home composer action row: + menu left, send right. */}
-          <div className="mt-2 flex items-end justify-between gap-1.5">
-            <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-0.5 overflow-visible">
+          <div
+            className={localAgentComposerClass.actionRow}
+            data-local-agent-composer-toolbar="true"
+          >
+            <div
+              className={localAgentComposerClass.toolsCluster}
+              data-local-agent-composer-tools="true"
+            >
               <input
                 type="file"
                 multiple
@@ -776,15 +708,16 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
                   event.currentTarget.value = "";
                 }}
               />
-              <div ref={toolMenuRef} className="relative -ml-1">
+              <div ref={toolMenuRef} className="relative -ml-2">
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className={cn(
-                    "size-8 shrink-0 rounded-md text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
-                    toolMenuOpen && "bg-dls-surface-muted text-dls-text",
-                  )}
+                  className={
+                    toolMenuOpen
+                      ? localAgentComposerClass.activeToolButton
+                      : localAgentComposerClass.toolButton
+                  }
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => {
                     setSlashOpen(false);
@@ -806,82 +739,48 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
                   />
                 </Button>
                 {toolMenuOpen ? (
-                  <div
-                    className="absolute bottom-full left-0 z-50 mb-2 w-56 overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid p-1.5 "
-                    style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}
-                    role="menu"
-                    data-testid="local-agent-tool-menu"
-                  >
-                    <MenuRowButton
-                      type="button"
-                      align="center"
-                      density="compact"
-                      className="justify-start gap-2 text-dls-text hover:text-dls-text"
-                      onClick={openFilePicker}
-                    >
-                      <Paperclip className="size-3.5 shrink-0 text-dls-text" />
-                      <span className="truncate text-sm leading-5">{t("composer.add_file")}</span>
-                    </MenuRowButton>
-                    {props.slashCommands.length > 0 ? (
-                      <>
-                        <div className="my-1 h-px bg-dls-border/80" role="separator" />
-                        <div className="px-2 py-1 text-2xs font-medium uppercase tracking-wide text-dls-secondary">
-                          {t("local_agent.slash_menu_title")}
-                        </div>
-                        <div className="max-h-48 overflow-y-auto">
-                          {props.slashCommands.map((command) => (
-                            <MenuRowButton
-                              key={`${command.source}:${command.name}`}
-                              type="button"
-                              align="start"
-                              density="compact"
-                              className="w-full justify-start gap-2 text-dls-text hover:text-dls-text"
-                              onClick={() => selectSlashCommand(command)}
-                              data-testid={`local-agent-tool-slash-${command.name.replace(/^\//, "")}`}
-                            >
-                              <SlashSquare className="mt-0.5 size-3.5 shrink-0 text-dls-secondary" />
-                              <span className="min-w-0 flex-1 text-left">
-                                <span className="block truncate text-sm font-medium leading-5">
-                                  {command.name}
-                                </span>
-                                {command.description ? (
-                                  <span className="block truncate text-xs leading-4 text-dls-secondary">
-                                    {command.description}
-                                  </span>
-                                ) : null}
-                              </span>
-                            </MenuRowButton>
-                          ))}
-                        </div>
-                      </>
-                    ) : null}
-                  </div>
+                  <LocalAgentComposerToolMenu
+                    slashCommands={props.slashCommands}
+                    onAddFile={openFilePicker}
+                    onSelectSlash={selectSlashCommand}
+                  />
                 ) : null}
               </div>
               {props.toolbarLeft}
             </div>
-            <div className="ml-auto flex shrink-0 items-center gap-1">
-              {props.contextUsage ? <ContextUsageIndicator usage={props.contextUsage} /> : null}
+            <div
+              className={localAgentComposerClass.trailingCluster}
+              data-local-agent-composer-trailing="true"
+            >
+              {props.contextUsage ? (
+                <ContextUsageIndicator usage={props.contextUsage} size={16} className="p-0.5" />
+              ) : null}
               {props.toolbarRight}
-              <SendButton
-                type="button"
-                aria-label={t("local_agent.send_aria")}
-                onClick={submit}
-                disabled={!canSend}
-                loading={props.submitting}
-              />
+              {showStop ? (
+                <Button
+                  variant="destructive"
+                  size="icon-lg"
+                  type="button"
+                  onClick={props.onStop}
+                  className={localAgentComposerClass.stopButton}
+                  title={t("composer.stop")}
+                  aria-label={t("composer.stop")}
+                  data-testid="local-agent-composer-stop"
+                >
+                  <Square size={12} fill="currentColor" />
+                </Button>
+              ) : (
+                <SendButton
+                  type="button"
+                  aria-label={t("local_agent.send_aria")}
+                  onClick={submit}
+                  disabled={!canSend}
+                />
+              )}
             </div>
           </div>
         </div>
       </div>
-      {props.bottomAccessory ? (
-        <div
-          className="relative z-10 mt-0 flex min-h-10 w-full min-w-0 max-w-full items-center gap-1.5 overflow-visible rounded-b-xl border-t border-dls-border bg-dls-surface-muted/80 px-2 py-1 text-xs font-normal leading-none text-dls-secondary"
-          data-local-agent-composer-footer="true"
-        >
-          {props.bottomAccessory}
-        </div>
-      ) : null}
     </div>
   );
 });

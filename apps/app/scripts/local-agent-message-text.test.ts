@@ -6,6 +6,7 @@ import type { PersonalLocalAgentRunResult } from "../src/app/lib/desktop";
 import {
   isAssistantBodyConversationMessage,
   messageTextForRun,
+  resolveLocalAgentStopTarget,
 } from "../src/react-app/domains/local-agents/host/personal-local-agent-page-helpers";
 
 function run(overrides: Partial<PersonalLocalAgentRunResult>): PersonalLocalAgentRunResult {
@@ -98,6 +99,14 @@ describe("assistant body vs thinking card", () => {
       "正在调用…",
     );
     expect(text).toBe("结论是可以。");
+  });
+});
+
+describe("composer stop during ACP start", () => {
+  test("pending start is a stoppable target before runId exists", () => {
+    expect(resolveLocalAgentStopTarget({ activeRunId: null, starting: true })).toBe("pending-start");
+    expect(resolveLocalAgentStopTarget({ activeRunId: "run-1", starting: true })).toBe("run");
+    expect(resolveLocalAgentStopTarget({ activeRunId: null, starting: false })).toBe("idle");
   });
 });
 

@@ -144,6 +144,16 @@ export function isAssistantBodyConversationMessage(message: {
   return ASSISTANT_BODY_TYPES.has(type);
 }
 
+/** Stop during ACP spawn (before runId exists) must not be a no-op. */
+export function resolveLocalAgentStopTarget(input: {
+  activeRunId?: string | null;
+  starting?: boolean;
+}): "run" | "pending-start" | "idle" {
+  if (input.activeRunId) return "run";
+  if (input.starting) return "pending-start";
+  return "idle";
+}
+
 export function runningAssistantTextForRun(run: PersonalLocalAgentRunResult) {
   const chunks = run.events
     .filter((event) => event.type === "assistant_chunk" || event.type === "chunk")

@@ -5,11 +5,18 @@ import { join } from "node:path";
 const repoRoot = join(import.meta.dir, "../../..");
 
 describe("local agent composer chrome aligns with workbench", () => {
-  test("uses soft mist border and flush bottom accessory strip", () => {
+  test("uses one solid composer surface and reference state-dependent controls", () => {
     const composer = readFileSync(
       join(
         repoRoot,
         "apps/app/src/react-app/domains/local-agents/local-agent-draft-composer.tsx",
+      ),
+      "utf8",
+    );
+    const layout = readFileSync(
+      join(
+        repoRoot,
+        "apps/app/src/react-app/domains/local-agents/local-agent-composer-layout.ts",
       ),
       "utf8",
     );
@@ -28,23 +35,42 @@ describe("local agent composer chrome aligns with workbench", () => {
       "utf8",
     );
 
-    expect(composer).toContain("bottomAccessory");
-    expect(composer).toContain("border-dls-border");
-    expect(composer).toContain("rounded-t-xl");
-    expect(composer).toContain("data-local-agent-composer-footer");
-    expect(composer).not.toContain("ring-2 ring-dls-accent/15");
+    expect(composer).not.toContain("bottomAccessory");
+    expect(composer).not.toContain("data-local-agent-composer-footer");
+    expect(composer).toContain("onStop");
+    expect(composer).toContain("text-composer");
+    expect(composer).toContain("placeholder:text-dls-secondary/70");
+    expect(layout).toContain("border-dls-border");
+    expect(layout).toContain('"rounded-xl"');
+    expect(layout).not.toContain("rounded-t-[18px]");
+    expect(layout).not.toContain("rounded-2xl");
+    expect(layout).not.toContain("rounded-b-none");
+    expect(layout).not.toContain("footer");
+    expect(layout).toContain("focus-within:ring-1");
+    expect(layout).toContain("focus-within:ring-dls-focus");
+    expect(layout).not.toContain("focus-visible:!ring-0");
+    expect(`${composer}\n${layout}`).not.toContain("ring-2 ring-dls-accent/15");
 
     expect(page).toContain('density="compact"');
-    expect(page).toContain("bottomAccessory=");
+    expect(page).not.toContain("bottomAccessory=");
     // Solid footer plate (no gradient glass wash).
     expect(page).toContain("Solid footer plate");
     expect(page).toContain("overflow-x-hidden");
-    // Workspace + approval live under the card (workbench pattern).
-    expect(page).toMatch(/bottomAccessory=\{[\s\S]*WorkspaceFootnote[\s\S]*SelectMenu/);
-    // Approval select must not force w-full (was causing horizontal scrollbar).
-    expect(page).toContain("w-auto min-w-[9.5rem] max-w-[14rem] shrink-0");
+    // Draft workspace and approval live in the primary action row.
+    expect(page).toMatch(/toolbarLeft=\{[\s\S]*chipEditable[\s\S]*WorkspaceFootnote[\s\S]*LocalAgentComposerApprovalSelect/);
+    expect(page).toContain('data-testid="local-agent-draft-workspace"');
+    expect(page).toContain("onChange={setApprovalMode}");
+    expect(page).not.toContain("readOnly={!chipEditable}");
 
     expect(footnote).toContain('density?: "default" | "compact"');
     expect(footnote).toContain('density === "compact"');
+  });
+
+  test("online placeholder copy matches Expert/Assistant composer watermark", () => {
+    const { setLocale, t } = require("../src/i18n") as typeof import("../src/i18n");
+    for (const locale of ["zh", "zh-TW", "en"] as const) {
+      setLocale(locale);
+      expect(t("local_agent.input_placeholder")).toBe(t("composer.placeholder"));
+    }
   });
 });

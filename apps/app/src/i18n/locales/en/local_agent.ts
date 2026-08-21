@@ -136,6 +136,7 @@ export default {
   "local_agent.context_usage_limit_unknown": "This model's context limit is unavailable, so usage percentage and over-limit status are unknown.",
   "local_agent.context_usage_exceeded": "The reported usage is over this model's context window. Compact or start a new conversation before continuing.",
   "local_agent.tool_output_preview_truncated": "Preview truncated",
+  "local_agent.process_plan": "Plan",
   "local_agent.context_reset_warning": "The provider session was reset, so earlier conversation context was not replayed into this turn.",
   "local_agent.context_usage_bucket_system": "System prompts",
   "local_agent.context_usage_bucket_tools": "Tools & subagents",
@@ -196,7 +197,7 @@ export default {
   "local_agent.heartbeat_run_id": "Run {id}",
   "local_agent.heartbeat_run_no_output": "This run did not return visible output.",
   "local_agent.input_placeholder":
-    "Send a task to the local agent. Shift+Enter for a new line...",
+    "What can I help with today? @ reference conversation files, / use skills and commands",
   "local_agent.input_placeholder_unavailable":
     "The local agent is unavailable. Refresh or check the matching CLI configuration first.",
   "local_agent.input_aria": "Local agent chat input",

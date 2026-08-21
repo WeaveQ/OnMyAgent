@@ -135,6 +135,7 @@ export default {
   "local_agent.context_usage_limit_unknown": "当前模型的上下文上限未知，因此无法推断使用比例或是否超限。",
   "local_agent.context_usage_exceeded": "当前用量已超过该模型的上下文窗口，请先压缩或新建对话再继续。",
   "local_agent.tool_output_preview_truncated": "预览已截断",
+  "local_agent.process_plan": "计划",
   "local_agent.context_reset_warning": "Provider 会话已重置，本轮没有重放此前的对话上下文。",
   "local_agent.context_usage_bucket_system": "系统提示词",
   "local_agent.context_usage_bucket_tools": "工具及子智能体",
@@ -194,7 +195,7 @@ export default {
   "local_agent.heartbeat_run_finished": "结束：{time}",
   "local_agent.heartbeat_run_id": "Run {id}",
   "local_agent.heartbeat_run_no_output": "这次运行没有返回可展示输出。",
-  "local_agent.input_placeholder": "给本地 Agent 发任务，Shift+Enter 换行...",
+  "local_agent.input_placeholder": "今天帮你做些什么？ @ 引用对话文件，/ 调用技能与指令",
   "local_agent.input_placeholder_unavailable":
     "本机 Agent 不可用，先刷新或检查对应 CLI 配置",
   "local_agent.input_aria": "本地 Agent 聊天输入",
