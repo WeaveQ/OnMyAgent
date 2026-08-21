@@ -50,6 +50,7 @@ import {
   writeAssistantSpaceFolderOrder,
   snapshotConversationSummary,
   type AgentConversationGroup,
+  type AgentConversationPackageAvatar,
   type AgentStarterItem,
   type AssistantGlobalPin,
   type TaskStatusIndicator,
@@ -173,6 +174,7 @@ export function AgentConversationPanel(props: {
   sessionStatusById: Record<string, string>;
   draftAgentGroup?: AgentConversationGroup | null;
   draftAgentGroups?: AgentConversationGroup[];
+  expertPackageAvatars?: readonly AgentConversationPackageAvatar[];
   query: string;
   onQueryChange: (value: string) => void;
   onOpenSession: (workspaceId: string, sessionId: string) => void;
@@ -665,11 +667,13 @@ export function AgentConversationPanel(props: {
             registry,
             props.expertDirectoryIdentity ?? EMPTY_EXPERT_DIRECTORY_IDENTITY,
             expertPreviewBySessionId,
+            props.expertPackageAvatars,
           ),
     [
       assistantPreviewBySessionId,
       assistantTitleFallbacks,
       expertPreviewBySessionId,
+      props.expertPackageAvatars,
       props.expertDirectoryIdentity,
       mode,
       registry,

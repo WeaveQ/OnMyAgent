@@ -230,6 +230,7 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
               sessionStatusById={props.sidebar.sessionStatusById}
               draftAgentGroup={draftAgentGroup}
               draftAgentGroups={draftAgentGroups}
+              expertPackageAvatars={myExpertPackages}
               query={agentSearch}
               onQueryChange={setAgentSearch}
               onToggleCollapsed={() => setAgentPanelCollapsed((value) => !value)}

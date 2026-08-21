@@ -57,6 +57,14 @@ export type AgentConversationGroup = {
   latestSession: WorkspaceSessionGroup["sessions"][number];
 };
 
+export type AgentConversationPackageAvatar = {
+  id: string;
+  packageName: string;
+  leadAgentName: string;
+  source: "builtin" | "installed" | "mine";
+  avatarUrl: string | null;
+};
+
 export type AgentStarterItem = {
   key: string;
   agentId: string;
@@ -630,6 +638,7 @@ export function buildAgentConversationGroups(
     agentIdBySessionId: ReadonlyMap<string, string>;
   },
   previewBySessionId?: Map<string, string>,
+  packageAvatars?: readonly AgentConversationPackageAvatar[],
 ): AgentConversationGroup[] {
   const groups = new Map<string, AgentConversationGroup>();
   for (const session of sessions) {
@@ -648,6 +657,16 @@ export function buildAgentConversationGroups(
     const marketplaceExpert = restoredAgent ? null : findBuiltinMarketplaceExpertById(agentId);
     const sessionAgentSnapshot =
       restoredAgent || marketplaceExpert ? null : readSessionAgentSnapshot(session.id);
+    const shortAgentId = agentId.split(":").filter(Boolean).at(-1) ?? agentId;
+    const packageAvatar = packageAvatars?.find(
+      (item) =>
+        item.id === agentId ||
+        item.id === shortAgentId ||
+        item.packageName === agentId ||
+        item.packageName === shortAgentId ||
+        item.leadAgentName === agentId ||
+        item.leadAgentName === shortAgentId,
+    );
     const key = `agent:${agentId}`;
     const existing = groups.get(key);
     const sessionPreview =
@@ -679,25 +698,28 @@ export function buildAgentConversationGroups(
           sessionAgentSnapshot?.description ??
           t("session.agent_config_missing"));
 
-    const useMineAvatarFallback = Boolean(
-      agent &&
-      "marketplaceSource" in agent &&
-      agent.marketplaceSource === "mine" &&
-      "customAvatarDataUrl" in agent &&
-      !agent.customAvatarDataUrl?.trim(),
-    );
+    const useMineAvatarFallback =
+      Boolean(
+        agent &&
+        "marketplaceSource" in agent &&
+        agent.marketplaceSource === "mine" &&
+        "customAvatarDataUrl" in agent &&
+        !agent.customAvatarDataUrl?.trim(),
+      ) || Boolean(packageAvatar?.source === "mine" && !packageAvatar.avatarUrl);
     groups.set(key, {
       key,
       agentId,
       name,
       description,
       preview: sessionPreview,
-      avatarUrl: useMineAvatarFallback
-        ? null
-        : (restoredAgent?.avatar.avatarUrl ??
-          marketplaceExpert?.avatarUrl ??
-          sessionAgentSnapshot?.avatarUrl ??
-          null),
+      avatarUrl:
+        packageAvatar?.avatarUrl ??
+        (useMineAvatarFallback
+          ? null
+          : (restoredAgent?.avatar.avatarUrl ??
+            marketplaceExpert?.avatarUrl ??
+            sessionAgentSnapshot?.avatarUrl ??
+            null)),
       avatarBackground:
         restoredAgent?.avatar.avatarBackground ??
         sessionAgentSnapshot?.avatarBackground ??

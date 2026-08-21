@@ -151,6 +151,32 @@ describe("unstarted mine experts stay in the conversation list", () => {
     expect(groups[0]?.avatarUrl).toBeNull();
   });
 
+  it("uses the package avatar for a legacy summoned expert missing from the registry", () => {
+    const packageAvatar = "data:image/png;base64,package-avatar";
+    const groups = buildAgentConversationGroups(
+      [{ id: "session-legacy", title: "Wrong fallback" }],
+      registryWith([]),
+      {
+        sessionIds: new Set(["session-legacy"]),
+        agentIdBySessionId: new Map([
+          ["session-legacy", "agent-1787307268585:agent-1787307268585"],
+        ]),
+      },
+      undefined,
+      [
+        {
+          id: "agent-1787307268585:agent-1787307268585",
+          packageName: "agent-1787307268585",
+          leadAgentName: "agent-1787307268585",
+          source: "mine",
+          avatarUrl: packageAvatar,
+        },
+      ],
+    );
+
+    expect(groups[0]?.avatarUrl).toBe(packageAvatar);
+  });
+
   it("does not duplicate a mine expert that already has a session or live draft", () => {
     expect(
       listUnstartedMineExpertContexts({
