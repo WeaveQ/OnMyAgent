@@ -13,6 +13,7 @@ import type {
 import { isProviderModelFree, modelSupportsVision } from "../../../app/utils/providers";
 import { t } from "../../../i18n";
 import { readCatalogContextWindow } from "../../capabilities/context-usage/context-usage-model";
+import type { AgentManagementManagedProvider } from "../../../app/lib/desktop";
 import {
   connectedProviderIdSet,
   getConnectedProviderItems,
@@ -111,10 +112,20 @@ export function buildConnectedModelOptions(input: {
    * aliyuncs → 阿里TokenPlan instead of npm default 千问).
    */
   displayNameByProviderId?: Readonly<Record<string, string>>;
+  managedProviders?: ReadonlyArray<
+    Pick<
+      AgentManagementManagedProvider,
+      "id" | "name" | "livePresent" | "models" | "settingsConfig"
+    >
+  >;
+  orderIds?: ReadonlyArray<string>;
 }): ModelOption[] {
   const options: ModelOption[] = [];
   const displayNames = input.displayNameByProviderId ?? {};
-  for (const provider of getConnectedProviderItems(input.data)) {
+  for (const provider of getConnectedProviderItems(input.data, {
+    managedProviders: input.managedProviders,
+    orderIds: input.orderIds,
+  })) {
     const modelIds = Object.keys(provider.models);
     const isNew =
       !input.seenProviderIds.has(provider.id) ||

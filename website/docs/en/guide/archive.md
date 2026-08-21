@@ -28,7 +28,9 @@ Personal Local Agent conversation storage is separate from OpenCode's main Sessi
 
 The archive can provide a session list, message search, usage, stars, pinned messages, analysis, and insights. Analysis is derived from the local archive read model; results may be incomplete while synchronization is unfinished or a source is unsupported.
 
-After finding a session, verify its source Agent, workspace, and time before restoring or exporting it. This avoids selecting another project's session with the same title.
+After finding a session, verify its source Agent, workspace, and time before restoring or exporting it. This avoids selecting another project's session with the same title. Cursor sessions use the Cursor mark.
+
+If a banner says the archive database is busy syncing, wait a few seconds or click **Sync**. The sessions are not gone.
 
 ## 4. Import and export
 

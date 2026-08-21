@@ -22,6 +22,11 @@ import {
   installKnowledgeSearchPlugin,
   readKnowledgeSessionDefaultsSync,
 } from "./knowledge-search-plugin.mjs";
+import {
+  resolveOpencodeModelsCachePath,
+  seedOpencodeModelsCache,
+} from "./opencode-models-cache.mjs";
+import { parseOpencodeConfigText } from "./opencode-config-repair.mjs";
 
 /**
  * OpenCode 1.18 skill tool scans `~/.config/opencode/skills` via $HOME, not
@@ -112,22 +117,23 @@ export async function prepareOpencodeSandboxHome(input) {
     mkdir(paths.xdgCacheHome, { recursive: true }),
     mkdir(paths.xdgStateHome, { recursive: true }),
   ]);
+  await seedOpencodeModelsCache({ xdgCacheHome: paths.xdgCacheHome }).catch((error) => {
+    console.warn("[runtime] Failed to seed OpenCode models cache:", error);
+  });
 
   const userConfigCandidates = [
     path.join(realHome, ".config", "opencode", "opencode.json"),
     path.join(realHome, ".config", "opencode", "opencode.jsonc"),
     path.join(realHome, ".opencode", "opencode.json"),
+    path.join(realHome, ".opencode", "opencode.jsonc"),
   ];
   let sourceConfig = {};
   for (const candidate of userConfigCandidates) {
     if (!existsSync(candidate)) continue;
     try {
-      const raw = await readFile(candidate, "utf8");
-      // jsonc may have comments — strip naive // and /* */ for best effort
-      const stripped = raw
-        .replace(/\/\*[\s\S]*?\*\//g, "")
-        .replace(/^\s*\/\/.*$/gm, "");
-      sourceConfig = JSON.parse(stripped);
+      const parsed = parseOpencodeConfigText(await readFile(candidate, "utf8"));
+      if (!parsed.ok) continue;
+      sourceConfig = parsed.data;
       break;
     } catch {
       // try next
@@ -245,6 +251,11 @@ export function applyOpencodeSandboxEnv(env, paths) {
   env.OPENCODE_CONFIG_DIR = sandboxOpencodeConfigDir(paths);
   if (!shouldKeepOpenCodeConfigOverlay(env.OPENCODE_CONFIG, paths.root)) {
     delete env.OPENCODE_CONFIG;
+  }
+  // 1.18.18: Flag.OPENCODE_MODELS_PATH wins over URL-hashed cache names.
+  const modelsCache = resolveOpencodeModelsCachePath(paths.xdgCacheHome);
+  if (existsSync(modelsCache)) {
+    env.OPENCODE_MODELS_PATH = modelsCache;
   }
   const realHomeForKnowledge = env.ONMYAGENT_REAL_HOME?.trim() || "";
   if (realHomeForKnowledge && !realHomeForKnowledge.includes("opencode-sandbox")) {

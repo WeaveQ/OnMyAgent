@@ -8,12 +8,31 @@ import { join } from "node:path";
 
 import {
   defaultConnectedProviderOrderIds,
+  getConnectedProviderOrderSnapshot,
   moveConnectedProviderInOrder,
   orderConnectedProviders,
   reorderConnectedProviderIds,
+  subscribeConnectedProviderOrder,
+  writeConnectedProviderOrderIds,
 } from "../src/react-app/domains/connections/order-connected-providers";
 
 const appRoot = join(import.meta.dir, "..");
+
+describe("connected provider order store", () => {
+  test("write notifies subscribers and updates snapshot", () => {
+    writeConnectedProviderOrderIds([]);
+    let calls = 0;
+    const unsubscribe = subscribeConnectedProviderOrder(() => {
+      calls += 1;
+    });
+    writeConnectedProviderOrderIds(["deepseek", "opencode"]);
+    expect(getConnectedProviderOrderSnapshot()).toEqual(["deepseek", "opencode"]);
+    expect(calls).toBe(1);
+    writeConnectedProviderOrderIds([]);
+    unsubscribe();
+    expect(getConnectedProviderOrderSnapshot()).toEqual([]);
+  });
+});
 
 describe("orderConnectedProviders", () => {
   test("applies stored order and appends unknown providers (custom first)", () => {
@@ -190,8 +209,9 @@ describe("settings provider order + badge UI contracts", () => {
     expect(controller).toContain("moveConnectedProvider");
     expect(controller).toContain("moveConnectedProviderInOrder");
     expect(controller).toContain("writeConnectedProviderOrderIds");
-    expect(controller).toContain("readConnectedProviderOrderIds");
-    expect(controller).toContain("orderConnectedProviders");
+    expect(controller).toContain("listOrderedConnectedProviders");
+    expect(controller).toContain("subscribeConnectedProviderOrder");
+    expect(controller).toContain("getConnectedProviderOrderSnapshot");
   });
 
   test("home/session pickers share order via getConnectedProviderItems", () => {
@@ -199,14 +219,14 @@ describe("settings provider order + badge UI contracts", () => {
       join(appRoot, "src/react-app/domains/connections/provider-list-query.ts"),
       "utf8",
     );
-    expect(query).toContain("orderConnectedProviders");
+    expect(query).toContain("listOrderedConnectedProviders");
     expect(query).toContain("readConnectedProviderOrderIds");
     const picker = readFileSync(
       join(appRoot, "src/react-app/capabilities/model-selection/model-picker-modal.tsx"),
       "utf8",
     );
-    // Groups must preserve option order, not re-sort by name.
     expect(picker).toContain("seenOrder");
     expect(picker).not.toMatch(/return a\.name\.localeCompare\(b\.name\)/);
+    expect(picker).not.toContain("a.isDisabled !== b.isDisabled");
   });
 });

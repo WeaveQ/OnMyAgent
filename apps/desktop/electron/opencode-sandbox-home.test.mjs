@@ -15,6 +15,7 @@ import {
   sandboxOpencodeConfigDir,
   shouldKeepOpenCodeConfigOverlay,
 } from "./opencode-sandbox-home.mjs";
+import { resolveOpencodeModelsCachePath } from "./opencode-models-cache.mjs";
 
 test("buildSandboxOpencodeConfig strips plugins and keeps providers", () => {
   const out = buildSandboxOpencodeConfig({
@@ -60,6 +61,9 @@ test("prepareOpencodeSandboxHome writes providers-only config and auth", async (
   });
   const expected = resolveOpencodeSandboxPaths(userData);
   assert.equal(paths.homeDir, expected.homeDir);
+  const modelsCache = resolveOpencodeModelsCachePath(paths.xdgCacheHome);
+  assert.equal(existsSync(modelsCache), true);
+  assert.ok(JSON.parse(await readFile(modelsCache, "utf8")));
 
   const written = JSON.parse(await readFile(paths.opencodeConfigPath, "utf8"));
   assert.equal(written.plugin.length, 5);
@@ -90,6 +94,10 @@ test("prepareOpencodeSandboxHome writes providers-only config and auth", async (
   assert.equal(env.OPENCODE_TEST_HOME, paths.homeDir);
   assert.equal(env.OPENCODE_CONFIG_DIR, sandboxOpencodeConfigDir(paths));
   assert.equal(env.OPENCODE_CONFIG, undefined);
+  assert.equal(
+    env.OPENCODE_MODELS_PATH,
+    resolveOpencodeModelsCachePath(paths.xdgCacheHome),
+  );
   assert.equal(pathIsInsideRoot(env.OPENCODE_CONFIG_DIR, paths.root), true);
   assert.equal(
     shouldKeepOpenCodeConfigOverlay(
@@ -98,6 +106,40 @@ test("prepareOpencodeSandboxHome writes providers-only config and auth", async (
     ),
     false,
   );
+});
+
+test("prepareOpencodeSandboxHome copies providers from jsonc with trailing commas", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "oma-sandbox-jsonc-"));
+  const realHome = path.join(root, "real-home");
+  const userData = path.join(root, "user-data");
+  await mkdir(path.join(realHome, ".config", "opencode"), { recursive: true });
+  await writeFile(
+    path.join(realHome, ".config", "opencode", "opencode.json"),
+    `{
+  "plugin": ["oh-my-openagent"],
+  "enabled_providers": [
+    "volces-deepseek",
+    "deepseek",
+  ],
+  "provider": {
+    "deepseek": {
+      "name": "DeepSeek官方",
+      "options": { "apiKey": "k" },
+    },
+  },
+}
+`,
+    "utf8",
+  );
+
+  const paths = await prepareOpencodeSandboxHome({
+    userDataDir: userData,
+    realHomeDir: realHome,
+  });
+  const written = JSON.parse(await readFile(paths.opencodeConfigPath, "utf8"));
+  assert.equal(written.provider.deepseek.name, "DeepSeek官方");
+  assert.equal(written.provider.deepseek.options.apiKey, "k");
+  assert.equal(written.enabled_providers, undefined);
 });
 
 test("linkHomeConfigOpencodeSkills exposes skill-creator under HOME/.config", async () => {

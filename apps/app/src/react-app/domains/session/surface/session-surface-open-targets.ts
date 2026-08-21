@@ -15,6 +15,7 @@ import {
   selectAutoOpenTarget,
   type OpenTarget,
 } from "../artifacts/open-target";
+import { collapseDuplicateFileTargets } from "./message-list/open-targets";
 
 export async function listSessionProductFiles(root: string): Promise<ListedWorkspaceFile[]> {
   const { isElectronRuntime } = await import("../../../../app/utils");
@@ -153,7 +154,8 @@ export function applyListedFilesToOpenTargets(
   targets: OpenTarget[],
   listed: ListedWorkspaceFile[],
 ): OpenTarget[] {
-  if (!targets.length || !listed.length) return targets;
+  if (!targets.length) return targets;
+  if (!listed.length) return collapseDuplicateFileTargets(targets);
   const byPath = new Map<string, ListedWorkspaceFile>();
   const byBase = new Map<string, ListedWorkspaceFile[]>();
   for (const item of listed) {
@@ -167,7 +169,7 @@ export function applyListedFilesToOpenTargets(
     byBase.set(base, bucket);
   }
 
-  return targets.map((target) => {
+  const mapped = targets.map((target) => {
     if (target.kind !== "file") return target;
     const exact = byPath.get(listedFileKey(target.value));
     const baseMatches = byBase.get(listedFileBasename(target.value)) ?? [];
@@ -191,6 +193,7 @@ export function applyListedFilesToOpenTargets(
       preview,
     };
   });
+  return collapseDuplicateFileTargets(mapped);
 }
 
 async function applyLocalFileListing(

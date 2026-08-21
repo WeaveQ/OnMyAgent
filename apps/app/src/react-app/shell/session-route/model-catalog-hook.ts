@@ -38,8 +38,10 @@ import {
 import { getReactQueryClient } from "../../infra/query-client";
 import {
   ensureProviderListQuery,
+  getConnectedProviderOrderSnapshot,
   isProviderListQueryInvalidated,
   sessionRouteProviderListEnabled,
+  subscribeConnectedProviderOrder,
 } from "../../domains/connections";
 import { seedSessionState } from "../../domains/session";
 import { useStatusToasts } from "../../domains/shell-feedback";
@@ -386,22 +388,35 @@ export function useSessionRouteModelCatalog(input: Input) {
     [effectiveModelRef, providerCatalog],
   );
 
-  const buildDisplayNameByProviderId = useCallback(async () => {
+  const providerOrderIds = useSyncExternalStore(
+    subscribeConnectedProviderOrder,
+    getConnectedProviderOrderSnapshot,
+    getConnectedProviderOrderSnapshot,
+  );
+
+  const loadManagedCatalog = useCallback(async () => {
     const root = sessionWorkspaceRoot?.trim() || "";
-    if (!root) return {} as Record<string, string>;
+    if (!root) {
+      return {
+        managed: [] as NonNullable<
+          ReturnType<typeof peekOpenCodeManagedProvidersCache>
+        >,
+        displayNameByProviderId: {} as Record<string, string>,
+      };
+    }
     let managed = peekOpenCodeManagedProvidersCache(root);
     if (!managed || managed.length === 0) {
       managed = await loadOpenCodeManagedProvidersForWorkspace(root).catch(
         () => [],
       );
     }
-    const map: Record<string, string> = {};
+    const displayNameByProviderId: Record<string, string> = {};
     for (const provider of managed) {
       const id = provider.id?.trim();
       const name = provider.name?.trim();
-      if (id && name) map[id] = name;
+      if (id && name) displayNameByProviderId[id] = name;
     }
-    return map;
+    return { managed, displayNameByProviderId };
   }, [sessionWorkspaceRoot]);
 
   // Keep composer/full picker options in sync whenever the connected provider
@@ -414,7 +429,7 @@ export function useSessionRouteModelCatalog(input: Input) {
     }
     let cancelled = false;
     void (async () => {
-      const displayNameByProviderId = await buildDisplayNameByProviderId();
+      const { managed, displayNameByProviderId } = await loadManagedCatalog();
       if (cancelled) return;
       setModelOptions(
         buildConnectedModelOptions({
@@ -422,6 +437,8 @@ export function useSessionRouteModelCatalog(input: Input) {
           seenProviderIds: readWindowSeenProviderIds(),
           recentProviderIds,
           displayNameByProviderId,
+          managedProviders: managed,
+          orderIds: providerOrderIds,
         }),
       );
     })();
@@ -429,8 +446,9 @@ export function useSessionRouteModelCatalog(input: Input) {
       cancelled = true;
     };
   }, [
-    buildDisplayNameByProviderId,
+    loadManagedCatalog,
     providerListData,
+    providerOrderIds,
     recentProviderIds,
     setModelOptions,
   ]);
@@ -443,14 +461,14 @@ export function useSessionRouteModelCatalog(input: Input) {
     let cancelled = false;
     void (async () => {
       try {
-        const [data, displayNameByProviderId] = await Promise.all([
+        const [data, catalog] = await Promise.all([
           ensureProviderListQuery(getReactQueryClient(), {
             client: opencodeClient,
             baseUrl: opencodeBaseUrl,
             directory: sessionWorkspaceRoot || undefined,
             force: true,
           }),
-          buildDisplayNameByProviderId(),
+          loadManagedCatalog(),
         ]);
         if (cancelled || !data?.all) return;
         setModelOptions(
@@ -458,7 +476,9 @@ export function useSessionRouteModelCatalog(input: Input) {
             data,
             seenProviderIds: readWindowSeenProviderIds(),
             recentProviderIds,
-            displayNameByProviderId,
+            displayNameByProviderId: catalog.displayNameByProviderId,
+            managedProviders: catalog.managed,
+            orderIds: providerOrderIds,
           }),
         );
       } catch {
@@ -469,11 +489,12 @@ export function useSessionRouteModelCatalog(input: Input) {
       cancelled = true;
     };
   }, [
-    buildDisplayNameByProviderId,
+    loadManagedCatalog,
     compactModelPickerOpen,
     modelPickerOpen,
     opencodeBaseUrl,
     opencodeClient,
+    providerOrderIds,
     recentProviderIds,
     sessionWorkspaceRoot,
     setModelOptions,
