@@ -5,6 +5,7 @@
 
 import {
   listExpertPackageSkillDeclarations,
+  listExpertPackageSkillSources,
 } from "../expert-package-skills.mjs";
 import {
   exportExpertPackageToZip,
@@ -509,6 +510,8 @@ export function createSkillsDomainHandlers({
       cp,
       extractZipToDir,
       listDeclaredSkills: listExpertPackageSkillDeclarations,
+      listBundledSkillNames: async (packageDir) =>
+        (await listExpertPackageSkillSources(packageDir)).map(({ skillName }) => skillName),
     });
   },
 

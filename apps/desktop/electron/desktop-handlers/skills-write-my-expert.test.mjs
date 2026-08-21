@@ -56,6 +56,32 @@ async function writeSkill(root, name, files = {}) {
   return skillRoot;
 }
 
+test("importExpertPackage does not report skills bundled inside the package as missing", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "onmyagent-expert-import-skills-"));
+  try {
+    const packageRoot = path.join(root, "source", "translation-helper");
+    await mkdir(path.join(packageRoot, ".expert-plugin"), { recursive: true });
+    await writeSkill(path.join(packageRoot, "skills"), "documents");
+    await writeFile(
+      path.join(packageRoot, ".expert-plugin", "plugin.json"),
+      `${JSON.stringify({
+        name: "translation-helper",
+        skills: ["./skills/documents"],
+      }, null, 2)}\n`,
+      "utf8",
+    );
+    const handlers = createHandlers(root);
+
+    const imported = await handlers.importExpertPackage({}, [{ sourcePath: packageRoot }]);
+
+    assert.equal(imported.ok, true);
+    assert.deepEqual(imported.declaredSkills, ["documents"]);
+    assert.deepEqual(imported.missingSkills, []);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("writeMyExpertPackage stores knowledge under the English knowledge directory", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "onmyagent-expert-write-"));
   try {
