@@ -2,14 +2,14 @@ name: onmyagent-ui-mcp
 
 on:
   push:
-    branches: [main, dev, release/0.5]
+    branches: [main, dev, release/0.5, release/0.6]
     paths:
       - "packages/onmyagent-ui-mcp/**"
       - ".github/workflows/ci-onmyagent-ui-mcp.yml"
     tags:
       - "onmyagent-ui-mcp-v*"
   pull_request:
-    branches: [main, dev, release/0.5]
+    branches: [main, dev, release/0.5, release/0.6]
     paths:
       - "packages/onmyagent-ui-mcp/**"
       - ".github/workflows/ci-onmyagent-ui-mcp.yml"

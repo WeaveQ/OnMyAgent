@@ -72,6 +72,12 @@ jobs:
       publish_sidecars: ${{ steps.resolve.outputs.publish_sidecars }}
       publish_npm: ${{ steps.resolve.outputs.publish_npm }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 1
+
       - name: Resolve metadata
         id: resolve
         shell: bash
@@ -119,12 +125,12 @@ jobs:
           if [ -n "$RELEASE_BODY_INPUT" ]; then
             RELEASE_BODY="$RELEASE_BODY_INPUT"
           else
-            printf -v RELEASE_BODY '%s\n\nOnMyAgent %s desktop release.\n\n%s\n%s\n%s' \
-              "## What's new" \
-              "$TAG" \
-              "- Download the attached macOS installer for your Mac." \
-              "- Download the attached Windows installer (NSIS / x64)." \
-              "- Electron updater feeds: latest-mac.yml (macOS) and latest.yml (Windows)."
+            VERSION="${TAG#v}"
+            if NOTES="$(node scripts/release/extract-changelog-section.mjs "$VERSION" 2>/dev/null)"; then
+              RELEASE_BODY="$NOTES"
+            else
+              RELEASE_BODY="Preview release ${TAG}."$'\n\n'"See the handbook changelog for user-visible notes."
+            fi
           fi
 
           # Always a published pre-release. Tag push and dispatch cannot

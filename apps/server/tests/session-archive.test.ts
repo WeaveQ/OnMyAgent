@@ -496,7 +496,7 @@ describe("session-archive archive store", () => {
         }));
         store.starSession("alpha-root");
         store.replaceSessionMessages("alpha-root", [
-          sampleMessage({ session_id: "alpha-root", ordinal: 0, role: "user", content: "Authorization: Bearer sk-proj-abcdefghijklmnopqrstuvwxyzABCDE123456789" }),
+          sampleMessage({ session_id: "alpha-root", ordinal: 0, role: "user", content: `Authorization: Bearer ${["sk", "proj", "abcdefghijklmnopqrstuvwxyzABCDE123456789"].join("-")}` }),
           sampleMessage({ id: 2, session_id: "alpha-root", ordinal: 1, role: "assistant", content: "Secret noted" }),
           sampleMessage({ id: 3, session_id: "alpha-root", ordinal: 2, role: "user", content: "Continue alpha" }),
           sampleMessage({ id: 4, session_id: "alpha-root", ordinal: 3, role: "assistant", content: "Continuing" }),

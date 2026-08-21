@@ -35,6 +35,11 @@ function safeSet(key: string, value: string | null): void {
   }
 }
 
+const EMPTY_CONNECTED_PROVIDER_ORDER: string[] = [];
+const connectedProviderOrderListeners = new Set<() => void>();
+let connectedProviderOrderSnapshot: string[] = EMPTY_CONNECTED_PROVIDER_ORDER;
+let connectedProviderOrderSnapshotReady = false;
+
 export function readConnectedProviderOrderIds(): string[] {
   const raw = safeGet(CONNECTED_PROVIDER_ORDER_KEY);
   if (!raw) return [];
@@ -50,6 +55,28 @@ export function readConnectedProviderOrderIds(): string[] {
   }
 }
 
+function refreshConnectedProviderOrderSnapshot(): string[] {
+  const next = readConnectedProviderOrderIds();
+  connectedProviderOrderSnapshot =
+    next.length === 0 ? EMPTY_CONNECTED_PROVIDER_ORDER : next;
+  connectedProviderOrderSnapshotReady = true;
+  return connectedProviderOrderSnapshot;
+}
+
+export function getConnectedProviderOrderSnapshot(): string[] {
+  if (!connectedProviderOrderSnapshotReady) {
+    return refreshConnectedProviderOrderSnapshot();
+  }
+  return connectedProviderOrderSnapshot;
+}
+
+export function subscribeConnectedProviderOrder(onStoreChange: () => void): () => void {
+  connectedProviderOrderListeners.add(onStoreChange);
+  return () => {
+    connectedProviderOrderListeners.delete(onStoreChange);
+  };
+}
+
 export function writeConnectedProviderOrderIds(ids: string[]): void {
   const normalized = ids.flatMap((id) => {
     const trimmed = id.trim();
@@ -59,6 +86,10 @@ export function writeConnectedProviderOrderIds(ids: string[]): void {
     CONNECTED_PROVIDER_ORDER_KEY,
     normalized.length ? JSON.stringify(normalized) : null,
   );
+  connectedProviderOrderSnapshot =
+    normalized.length === 0 ? EMPTY_CONNECTED_PROVIDER_ORDER : normalized;
+  connectedProviderOrderSnapshotReady = true;
+  for (const listener of connectedProviderOrderListeners) listener();
 }
 
 function isCustomProvider(provider: OrderableProvider): boolean {

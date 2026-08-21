@@ -21,6 +21,16 @@ test("changelog ships 0.5.9 before the old 0.5.4 heading", () => {
   assert.match(text, /去对话/);
 });
 
+test("changelog lists 0.5.25 user-visible notes before 0.5.15", () => {
+  const text = readDoc("changelog.md");
+  const latest = text.indexOf("## 0.5.25");
+  const older = text.indexOf("## 0.5.15");
+  assert.ok(latest >= 0, "changelog must have ## 0.5.25");
+  assert.ok(older > latest, "0.5.25 must appear before 0.5.15");
+  assert.match(text, /模型列表/);
+  assert.match(text, /货架快照/);
+});
+
 test("intro main-rail table includes 知识库", () => {
   const text = readDoc("index.md");
   const rail = text.slice(text.indexOf("## 3. 界面怎么走"));

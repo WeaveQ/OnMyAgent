@@ -16,7 +16,7 @@ OnMyAgent is **not tied to one model vendor**. Connect your own key or compatibl
 6. Return to a session and choose the current model on the right side of the composer.
 
 
-## 2. Edit a model provider
+## 2. Edit a model provider {#edit-model-provider}
 
 Open a saved provider to get **Edit model provider** (new providers use **Add model provider**). Connection is on the left; the catalog is on the right.
 
@@ -46,7 +46,7 @@ These configurations do not necessarily synchronize. A Provider that connects su
 
 ## 4. Switch within a session
 
-The model selector on the right side of the composer can change vendor, model, or reasoning effort. A new session uses the most recently selected model or the configured default.
+The model selector on the right side of the composer can change vendor, model, or reasoning effort. The list order matches [Settings → Models](/en/guide/settings). After you save or add a model in Settings, it is available on Home without restarting the app. A new session uses the most recently selected model or the configured default.
 
 Models vary in context size, reasoning levels, tool use, image input, and cost. After switching, inspect the Provider/model actually shown for the current session; do not infer the endpoint from a display name alone.
 
@@ -75,12 +75,14 @@ Models vary in context size, reasoning levels, tool use, image input, and cost. 
 
 Model calls can consume API quota and incur cost. Limit the number of calls before a batch video demonstration or automation run.
 
-## 8. Troubleshooting
+## 8. Troubleshooting {#models-troubleshooting}
 
 | Symptom | Action |
 |---------|--------|
 | No response or authentication failure | Check the Key, Base URL, proxy, and quota |
 | Model list is empty | Confirm that the provider is connected and enabled |
+| Settings model list spins on first open | Current preview builds ship a catalog snapshot. If it still hangs, check the network, then restart; do not wait indefinitely on Loading providers |
+| A model saved in Settings does not appear on Home | Return to Home and open the model list. If it is still missing, confirm the save in Settings and start a new session |
 | Local model cannot connect | Confirm that the local service is running and its address/port are correct |
 | Agent chat still uses the old model | Inspect that Agent's independent configuration and session-override support in Agent management |
 | Models can be listed, but chat fails | Check the real chat/responses protocol, model permission, and endpoint version |

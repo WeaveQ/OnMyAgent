@@ -6,6 +6,11 @@
 import {
   listExpertPackageSkillDeclarations,
 } from "../expert-package-skills.mjs";
+import {
+  exportExpertPackageToZip,
+  importExpertPackageFromSource,
+} from "../expert-package-import.mjs";
+import { createZipFromDir, extractZipToDir } from "../managed-tools/managed-cli/archive.mjs";
 import { toPortableRelativePath } from "../lib/portable-path.mjs";
 
 export const HANDLER_COMMAND_NAMES = Object.freeze([
@@ -21,6 +26,8 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "installExpertPackage",
   "uninstallExpertPackage",
   "deleteExpertPackage",
+  "importExpertPackage",
+  "exportExpertPackage",
   "installBuiltinSkillPackage",
   "writeMyExpertPackage",
   "stageMyExpertKnowledge",
@@ -446,6 +453,36 @@ export function createSkillsDomainHandlers({
       await refreshRuntimeSkillLinks().catch(() => undefined);
     }
     return { ok: true, path: destination, packageName: safePackage, skillName: safeSkillName };
+  },
+
+  importExpertPackage: async (event, args) => {
+    const payload = args[0] ?? {};
+    return importExpertPackageFromSource({
+      sourcePath: payload.sourcePath,
+      overwrite: payload.overwrite === true,
+      asCopy: payload.asCopy === true,
+      marketplaceRoot: onmyagentMarketplaceRoot("my-experts"),
+      validateExpertPackageName,
+      pathExists,
+      mkdir,
+      rm,
+      cp,
+      extractZipToDir,
+      listDeclaredSkills: listExpertPackageSkillDeclarations,
+    });
+  },
+
+  exportExpertPackage: async (event, args) => {
+    const payload = args[0] ?? {};
+    return exportExpertPackageToZip({
+      packageName: payload.packageName,
+      destPath: payload.destPath,
+      marketplaceRoot: onmyagentMarketplaceRoot("my-experts"),
+      validateExpertPackageName,
+      pathExists,
+      mkdir,
+      createZipFromDir,
+    });
   },
 
   writeMyExpertPackage: async (event, args) => {

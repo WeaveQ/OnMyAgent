@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   connectedProviderIdSet,
   countOpenCodeProviderModels,
+  listOrderedConnectedProviders,
   mergeConnectedProviders,
   normalizeMergedProviderSource,
 } from "../src/react-app/domains/connections/merge-connected-providers";
@@ -210,5 +211,49 @@ describe("mergeConnectedProviders", () => {
     });
     const sessionIds = connectedProviderIdSet(settingsSide);
     expect([...sessionIds].sort()).toEqual(["a", "b"]);
+  });
+});
+
+describe("listOrderedConnectedProviders", () => {
+  test("applies stored order then custom-first for inventory rows", () => {
+    const ordered = listOrderedConnectedProviders({
+      sdkProviders: [
+        {
+          id: "opencode",
+          name: "OpenCode Zen",
+          source: "api",
+          models: { free: { name: "free" } as never },
+        },
+        {
+          id: "deepseek",
+          name: "DeepSeek",
+          source: "config",
+          models: { v4: { name: "v4" } as never },
+        },
+        {
+          id: "alibaba",
+          name: "Alibaba",
+          source: "api",
+          models: { q: { name: "q" } as never },
+        },
+      ],
+      connectedIds: ["opencode", "deepseek", "alibaba"],
+      managedProviders: [
+        {
+          id: "deepseek",
+          name: "DeepSeek官方",
+          livePresent: true,
+          models: [{ id: "v4" }],
+          settingsConfig: {},
+        },
+      ],
+      orderIds: ["alibaba", "opencode"],
+    });
+    expect(ordered.map((item) => item.id)).toEqual([
+      "alibaba",
+      "opencode",
+      "deepseek",
+    ]);
+    expect(ordered.find((item) => item.id === "deepseek")?.source).toBe("custom");
   });
 });

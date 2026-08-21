@@ -27,6 +27,9 @@ const SIDEBAR_SESSIONS_CACHE_KEY =
 const SIDEBAR_SESSIONS_CACHE_MAX_PER_WORKSPACE = 40;
 const SIDEBAR_SESSIONS_CACHE_MAX_WORKSPACES = 24;
 
+/** In-memory sidebar rows from the live route, preferred over the 40-row cache. */
+let liveSidebarSessionsByWorkspace: Record<string, SidebarSessionItem[]> = {};
+
 export type ShellSessionMode = "assistant" | "expert";
 const GOAL_RUNTIME_BY_SESSION_KEY = "onmyagent.react.goalRuntimeBySession.v1";
 const TODOS_BY_SESSION_KEY = "onmyagent.react.todosBySession.v1";
@@ -542,6 +545,25 @@ export function writeSessionTodos(todosBySessionId: Record<string, TodoItem[]>):
  * Read last successful sidebar session list per workspace. Used to paint the
  * shell immediately on cold start while OpenCode finishes indexing.
  */
+export function rememberLiveSidebarSessionsByWorkspace(
+  sessionsByWorkspaceId: Record<string, SidebarSessionItem[]>,
+): void {
+  liveSidebarSessionsByWorkspace = sessionsByWorkspaceId ?? {};
+}
+
+export function lookupSidebarSessionTitle(
+  workspaceId: string,
+  sessionId: string,
+): string {
+  const wsId = workspaceId.trim();
+  const id = sessionId.trim();
+  if (!wsId || !id) return "";
+  const live = liveSidebarSessionsByWorkspace[wsId] ?? [];
+  const cached = readCachedSidebarSessionsByWorkspace()[wsId] ?? [];
+  const row = live.find((item) => item.id === id) ?? cached.find((item) => item.id === id);
+  return typeof row?.title === "string" ? row.title.trim() : "";
+}
+
 export function readCachedSidebarSessionsByWorkspace(): Record<
   string,
   SidebarSessionItem[]

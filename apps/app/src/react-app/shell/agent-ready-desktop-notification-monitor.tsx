@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { t } from "@/i18n";
 import { listAllAutomationOwnedSessionIds } from "../domains/messaging";
 import {
+  agentReadyPlaceholderTitles,
   buildAgentReadyNotificationBody,
   shouldNotifyAgentReadyTransition,
   shouldSuppressAgentReadyForOwner,
@@ -12,6 +13,7 @@ import {
 import { useSessionActivityStore } from "../domains/session";
 import { useLocal } from "../kernel/local-provider";
 import { usePlatform } from "../kernel/platform";
+import { lookupSidebarSessionTitle } from "./session-memory";
 
 /**
  * Composes session activity + preferences in the shell layer so domains stay
@@ -85,13 +87,13 @@ export function AgentReadyDesktopNotificationMonitor() {
 
           if (wantNotify) {
             const title = t("settings.agent_ready_notification_title");
+            const sessionTitle = lookupSidebarSessionTitle(workspaceId, sessionId);
             const body = buildAgentReadyNotificationBody({
-              sessionTitle: sessionId,
-              userSnippet: null,
-              assistantSnippet: null,
-              fallbackBody: t("settings.agent_ready_notification_body", {
-                title: sessionId.slice(0, 12),
-              }),
+              sessionTitle,
+              placeholderTitles: agentReadyPlaceholderTitles(),
+              bodyWithSnippet: (snippet) =>
+                t("settings.agent_ready_notification_body", { snippet }),
+              fallbackBody: t("settings.agent_ready_notification_body_fallback"),
             });
             void platformRef.current.notify(title, body);
           }

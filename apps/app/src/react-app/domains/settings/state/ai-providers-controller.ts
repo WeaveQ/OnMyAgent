@@ -11,6 +11,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
   type Dispatch,
   type SetStateAction,
 } from "react";
@@ -19,11 +20,12 @@ import type { AgentManagementManagedProvider } from "../../../../app/lib/desktop
 import { agentManagementSnapshot } from "../../../../app/lib/desktop";
 import type { ProviderListItem } from "../../../../app/types";
 import {
+  listOrderedConnectedProviders,
   mergeConnectedProviders,
   moveConnectedProviderInOrder,
-  orderConnectedProviders,
-  readConnectedProviderOrderIds,
+  getConnectedProviderOrderSnapshot,
   reorderConnectedProviderIds,
+  subscribeConnectedProviderOrder,
   writeConnectedProviderOrderIds,
   type MergedConnectedProvider,
 } from "../../connections";
@@ -248,67 +250,65 @@ export function useAiProvidersController(
     root,
   ]);
 
-  // Persisted display order (drag-reorder in Settings → Models). Empty
-  // preference → custom providers first via orderConnectedProviders.
-  const [providerOrderIds, setProviderOrderIds] = useState(() =>
-    readConnectedProviderOrderIds(),
+  const providerOrderIds = useSyncExternalStore(
+    subscribeConnectedProviderOrder,
+    getConnectedProviderOrderSnapshot,
+    getConnectedProviderOrderSnapshot,
   );
 
-  const connectedProviders = useMemo(() => {
-    const merged = mergeConnectedProviders({
-      sdkProviders: input.sdkProviders,
-      connectedIds: input.connectedIds,
-      managedProviders: opencodeManagedProviders,
-      isBlocked: input.isBlocked,
-    });
-    return orderConnectedProviders(merged, providerOrderIds);
-  }, [
-    input.connectedIds,
-    input.isBlocked,
-    input.sdkProviders,
-    opencodeManagedProviders,
-    providerOrderIds,
-  ]);
+  const connectedProviders = useMemo(
+    () =>
+      listOrderedConnectedProviders({
+        sdkProviders: input.sdkProviders,
+        connectedIds: input.connectedIds,
+        managedProviders: opencodeManagedProviders,
+        isBlocked: input.isBlocked,
+        orderIds: providerOrderIds,
+      }),
+    [
+      input.connectedIds,
+      input.isBlocked,
+      input.sdkProviders,
+      opencodeManagedProviders,
+      providerOrderIds,
+    ],
+  );
 
   const reorderConnectedProviders = useCallback(
     (fromId: string, toId: string) => {
       if (!fromId || !toId || fromId === toId) return;
-      setProviderOrderIds((prev) => {
-        const merged = mergeConnectedProviders({
-          sdkProviders: input.sdkProviders,
-          connectedIds: input.connectedIds,
-          managedProviders: opencodeManagedProviders,
-          isBlocked: input.isBlocked,
-        });
-        const next = reorderConnectedProviderIds(prev, merged, fromId, toId);
-        writeConnectedProviderOrderIds(next);
-        return next;
+      const merged = mergeConnectedProviders({
+        sdkProviders: input.sdkProviders,
+        connectedIds: input.connectedIds,
+        managedProviders: opencodeManagedProviders,
+        isBlocked: input.isBlocked,
       });
+      writeConnectedProviderOrderIds(
+        reorderConnectedProviderIds(providerOrderIds, merged, fromId, toId),
+      );
     },
     [
       input.connectedIds,
       input.isBlocked,
       input.sdkProviders,
       opencodeManagedProviders,
+      providerOrderIds,
     ],
   );
 
   const moveConnectedProvider = useCallback(
     (providerId: string, direction: "up" | "down") => {
       if (!providerId) return;
-      setProviderOrderIds((prev) => {
-        const present = connectedProviders.map((item) => item.id);
-        const next = moveConnectedProviderInOrder(
-          prev,
-          present,
+      writeConnectedProviderOrderIds(
+        moveConnectedProviderInOrder(
+          providerOrderIds,
+          connectedProviders.map((item) => item.id),
           providerId,
           direction,
-        );
-        writeConnectedProviderOrderIds(next);
-        return next;
-      });
+        ),
+      );
     },
-    [connectedProviders],
+    [connectedProviders, providerOrderIds],
   );
 
   const providersDiscovering =

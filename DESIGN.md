@@ -807,10 +807,12 @@ Drift check: `pnpm task check design`. Philosophy narrative only: `docs/design/t
 
 ## 1. Visual Theme
 
-OnMyAgent is a **local-first agentic workbench** for engineers, tinkerers,
-and knowledge workers who run agents on their own machines. It replaces the
-web-chatbot metaphor with a **desktop console**: rail-first navigation,
-strong decision entry points, dense but calm surfaces, no marketing gloss.
+OnMyAgent is a **local-first office desktop workspace** (Phase 2): a durable
+config foundation with optional intranet B-side control (OnMyCompany).
+Logged-out local use remains the default; company connect is opt-in, not a
+login wall. It replaces the web-chatbot metaphor with a **desktop console**:
+rail-first navigation, strong decision entry points, dense but calm
+surfaces, no marketing gloss.
 
 The visual voice is **precise and quiet, not playful**:
 
@@ -1800,8 +1802,8 @@ that look.
   (EmptyStateBox / Empty dual-track, NoticeBox, LoadingSpinner,
   ConfirmModal, plus SegmentedTabGroup, FilterChip, Input/InputGroup,
   ToolApprovalCard, StreamingCursor, formatShortcut).
-- Give primary decisions visual weight: solid `--ow-primary`, white text,
-  `size="lg"` on dialog footers.
+- Give primary decisions visual weight: solid `dls-primary` / `--dls-primary`
+  (not legacy `--ow-*` aliases), white text, `size="lg"` on dialog footers.
 - Add `mac:titlebar-no-drag` to any interactive control inside macOS
   titlebar or sidebar-header regions.
 - Route all user-visible strings through the i18n layer. Do not hardcode

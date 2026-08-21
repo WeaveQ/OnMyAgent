@@ -70,6 +70,53 @@ export function stripJsoncComments(text) {
 }
 
 /**
+ * Drop trailing commas before `}` / `]` outside strings.
+ * @param {string} text
+ */
+export function stripJsoncTrailingCommas(text) {
+  let out = "";
+  let i = 0;
+  let inString = false;
+  let stringQuote = "";
+  let escaped = false;
+  while (i < text.length) {
+    const ch = text[i];
+    if (inString) {
+      out += ch;
+      if (escaped) {
+        escaped = false;
+      } else if (ch === "\\") {
+        escaped = true;
+      } else if (ch === stringQuote) {
+        inString = false;
+      }
+      i += 1;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      inString = true;
+      stringQuote = ch;
+      out += ch;
+      i += 1;
+      continue;
+    }
+    if (ch === ",") {
+      let j = i + 1;
+      while (j < text.length && (text[j] === " " || text[j] === "\t" || text[j] === "\n" || text[j] === "\r")) {
+        j += 1;
+      }
+      if (text[j] === "}" || text[j] === "]") {
+        i += 1;
+        continue;
+      }
+    }
+    out += ch;
+    i += 1;
+  }
+  return out;
+}
+
+/**
  * @param {unknown} entry
  */
 export function isValidMcpEntry(entry) {
@@ -110,7 +157,7 @@ export function tryRepairMcpEntry(entry) {
  */
 export function parseOpencodeConfigText(raw) {
   try {
-    const stripped = stripJsoncComments(raw);
+    const stripped = stripJsoncTrailingCommas(stripJsoncComments(raw));
     const data = JSON.parse(stripped);
     if (!data || typeof data !== "object" || Array.isArray(data)) {
       return { ok: false, error: "root_not_object" };
