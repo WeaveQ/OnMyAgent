@@ -45,4 +45,10 @@ final class InputCompatibilityTests: XCTestCase {
         XCTAssertEqual(MouseInputGeometry.scrollLines(pages: 1), 5)
         XCTAssertEqual(MouseInputGeometry.scrollLines(pages: 2.25), 11)
     }
+
+    func testStrictScrollUsesViewportPixelDistance() {
+        XCTAssertEqual(MouseInputGeometry.scrollPixels(pages: 1, viewportHeight: 312), 312)
+        XCTAssertEqual(MouseInputGeometry.scrollPixels(pages: 0.5, viewportHeight: 312), 156)
+        XCTAssertEqual(MouseInputGeometry.scrollPixels(pages: 0, viewportHeight: 312), 1)
+    }
 }

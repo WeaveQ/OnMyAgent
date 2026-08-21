@@ -22,7 +22,8 @@ final class MCPToolCatalogTests: XCTestCase {
             return (name, schema)
         })
 
-        XCTAssertTrue(Set(skyRequired.keys).isSubset(of: Set(byName.keys)))
+        XCTAssertEqual(Set(byName.keys), Set(skyRequired.keys))
+        XCTAssertEqual(Set(byName.keys), ComputerUseBehaviorContract.skyToolNames)
 
         for (name, required) in skyRequired {
             let schema = try XCTUnwrap(byName[name], "Missing Sky tool \(name)")
@@ -39,8 +40,15 @@ final class MCPToolCatalogTests: XCTestCase {
         }
     }
 
-    func testOnMyAgentExtensionToolsRemainAvailable() {
-        let names = Set(MCPToolCatalog.schemas().compactMap { $0["name"] as? String })
+    func testForegroundCompatibilityToolsAreNotExposedByDefault() {
+        let names = MCPToolCatalog.toolNames()
+        XCTAssertFalse(names.contains("activate_app"))
+        XCTAssertFalse(names.contains("cua_click"))
+        XCTAssertFalse(names.contains("cua_move"))
+    }
+
+    func testOnMyAgentExtensionToolsRequireCompatibilityProfile() {
+        let names = MCPToolCatalog.toolNames(profile: .compatibility)
         let extensions: Set<String> = [
             "snapshot", "perform_action", "wait", "set_strict_mode", "check_permissions",
             "launch_app", "activate_app", "open_url", "clipboard_read", "clipboard_write",
@@ -50,8 +58,34 @@ final class MCPToolCatalogTests: XCTestCase {
         XCTAssertTrue(extensions.isSubset(of: names))
     }
 
+    func testCompatibilityProfileIsExplicitlyOptIn() {
+        XCTAssertEqual(MCPToolProfile.current(environment: [:]), .sky)
+        XCTAssertEqual(
+            MCPToolProfile.current(environment: ["ONMYAGENT_COMPUTER_USE_COMPAT_TOOLS": "1"]),
+            .compatibility
+        )
+        XCTAssertEqual(
+            MCPToolProfile.current(environment: ["ONMYAGENT_COMPUTER_USE_COMPAT_TOOLS": "true"]),
+            .sky
+        )
+    }
+
+    func testDefaultProfileCannotRequestForegroundFallback() {
+        XCTAssertEqual(
+            ComputerUseBehaviorContract.requestedStrictMode(profile: .sky, requested: false),
+            true
+        )
+        XCTAssertEqual(
+            ComputerUseBehaviorContract.requestedStrictMode(profile: .compatibility, requested: false),
+            false
+        )
+        XCTAssertNil(
+            ComputerUseBehaviorContract.requestedStrictMode(profile: .compatibility, requested: nil)
+        )
+    }
+
     func testRecordAndReplaySchemasMatchObservedCodexContract() throws {
-        let schemas = MCPToolCatalog.schemas()
+        let schemas = MCPToolCatalog.schemas(profile: .compatibility)
         let byName = Dictionary(uniqueKeysWithValues: schemas.compactMap { schema -> (String, [String: Any])? in
             guard let name = schema["name"] as? String else { return nil }
             return (name, schema)
@@ -75,7 +109,7 @@ final class MCPToolCatalogTests: XCTestCase {
     }
 
     func testSkysightSchemasMatchObservedCodexContract() throws {
-        let schemas = MCPToolCatalog.schemas()
+        let schemas = MCPToolCatalog.schemas(profile: .compatibility)
         let byName = Dictionary(uniqueKeysWithValues: schemas.compactMap { schema -> (String, [String: Any])? in
             guard let name = schema["name"] as? String else { return nil }
             return (name, schema)

@@ -4,6 +4,7 @@
  */
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 
+import type { AgentManagementManagedProvider } from "../../../app/lib/desktop";
 import type { Client, ModelOption } from "../../../app/types";
 import { isProviderModelFree, modelSupportsVision } from "../../../app/utils/providers";
 import { t } from "../../../i18n";
@@ -95,19 +96,21 @@ export function useSettingsModelPicker(input: SettingsModelPickerInput) {
         // Prefer Settings inventory names so renames (阿里TokenPlan / 火山)
         // match the Models list instead of npm defaults (千问).
         const displayNameByProviderId: Record<string, string> = {};
+        let managed: AgentManagementManagedProvider[] = [];
         try {
           const {
             loadOpenCodeManagedProvidersForWorkspace,
             peekOpenCodeManagedProvidersCache,
           } = await import("../../domains/settings");
           const root = selectedWorkspaceRoot || "";
-          let managed = root
+          const cached = root
             ? peekOpenCodeManagedProvidersCache(root)
             : null;
-          if (root && (!managed || managed.length === 0)) {
-            managed = await loadOpenCodeManagedProvidersForWorkspace(root);
-          }
-          for (const provider of managed ?? []) {
+          managed =
+            root && (!cached || cached.length === 0)
+              ? await loadOpenCodeManagedProvidersForWorkspace(root)
+              : cached ?? [];
+          for (const provider of managed) {
             const id = provider.id?.trim();
             const name = provider.name?.trim();
             if (id && name) displayNameByProviderId[id] = name;
@@ -116,7 +119,9 @@ export function useSettingsModelPicker(input: SettingsModelPickerInput) {
           // best-effort label overlay
         }
         const options: ModelOption[] = [];
-        for (const provider of getConnectedProviderItems(data)) {
+        for (const provider of getConnectedProviderItems(data, {
+          managedProviders: managed,
+        })) {
           const modelIds = Object.keys(provider.models);
           const isNew = !seenIds.has(provider.id);
           const displayName =

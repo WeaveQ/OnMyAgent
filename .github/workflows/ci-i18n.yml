@@ -6,6 +6,7 @@ on:
       - main
       - dev
       - release/0.5
+      - release/0.6
     paths:
       - apps/app/src/**
       - scripts/checks/i18n-audit.mjs
@@ -14,6 +15,7 @@ on:
       - main
       - dev
       - release/0.5
+      - release/0.6
     paths:
       - apps/app/src/**
       - scripts/checks/i18n-audit.mjs

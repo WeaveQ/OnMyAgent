@@ -6,6 +6,7 @@ on:
       - main
       - dev
       - release/0.5
+      - release/0.6
     paths:
       - "DESIGN.md"
       - "docs/design/**"
@@ -19,6 +20,7 @@ on:
       - main
       - dev
       - release/0.5
+      - release/0.6
     paths:
       - "DESIGN.md"
       - "docs/design/**"

@@ -44,7 +44,7 @@ Common actions that can require confirmation include:
 
 Outbound messages, cloud-document writes, Git push, publishing, purchases, data clearing, and permanent deletion should also require explicit confirmation, even if a specific tool does not show an automatic prompt.
 
-When interrupted, verify the exact command or tool, absolute path, target account/chat, impact scope, and reversibility. Then choose a one-time allowance, a current-scope allowance, or rejection. Do not make an unknown action permanently allowed just to suppress repeated prompts.
+Confirmation prompts appear as soon as the session asks; you do not wait for the turn to finish. When interrupted, verify the exact command or tool, absolute path, target account/chat, impact scope, and reversibility. Then choose a one-time allowance, a current-scope allowance, or rejection. Do not make an unknown action permanently allowed just to suppress repeated prompts.
 
 ## 5. Auto approval and unattended work
 

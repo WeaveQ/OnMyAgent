@@ -4,6 +4,14 @@
  * export this without depending on session.
  */
 
+import {
+  DEFAULT_SESSION_TITLE,
+  isGeneratedSessionTitle,
+} from "../../../app/lib/session-title";
+import enSession from "../../../i18n/locales/en/session";
+import zhSession from "../../../i18n/locales/zh/session";
+import zhTwSession from "../../../i18n/locales/zh-TW/session";
+
 /** Minimal activity phase set (mirrors session activity, no cross-domain import). */
 export type AgentActivityPhase =
   | "idle"
@@ -33,18 +41,66 @@ export function shouldNotifyAgentReadyTransition(
   );
 }
 
+const SNIPPET_MAX_CHARS = 28;
+
+export function looksLikeSessionId(text: string): boolean {
+  return /^ses_[a-z0-9_]+$/i.test(text.trim());
+}
+
+export function agentReadyPlaceholderTitles(): string[] {
+  return [
+    DEFAULT_SESSION_TITLE,
+    enSession["session.default_title"],
+    zhSession["session.default_title"],
+    zhTwSession["session.default_title"],
+  ].filter((item, index, all) => item.trim() && all.indexOf(item) === index);
+}
+
+export function looksLikePlaceholderSessionTitle(
+  text: string,
+  extraPlaceholders: readonly string[] = [],
+): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return true;
+  if (looksLikeSessionId(trimmed)) return true;
+  if (trimmed === DEFAULT_SESSION_TITLE) return true;
+  if (isGeneratedSessionTitle(trimmed)) return true;
+  const builtins = agentReadyPlaceholderTitles();
+  if (builtins.includes(trimmed)) return true;
+  return extraPlaceholders.some((item) => item.trim() && item.trim() === trimmed);
+}
+
+/** Truncated user prompt or human session title for the "task finished" body. */
+export function resolveAgentReadyTaskSnippet(input: {
+  userSnippet?: string | null;
+  sessionTitle?: string | null;
+  placeholderTitles?: readonly string[] | null;
+}): string {
+  const placeholders = input.placeholderTitles ?? [];
+  const user = collapseOneLine(input.userSnippet);
+  if (user && !looksLikePlaceholderSessionTitle(user, placeholders)) {
+    return truncateSnippet(user);
+  }
+  const title = collapseOneLine(input.sessionTitle);
+  if (title && !looksLikePlaceholderSessionTitle(title, placeholders)) {
+    return truncateSnippet(title);
+  }
+  return "";
+}
+
 export function buildAgentReadyNotificationBody(input: {
   sessionTitle: string | null | undefined;
-  userSnippet: string | null | undefined;
-  assistantSnippet: string | null | undefined;
+  userSnippet?: string | null;
+  placeholderTitles?: readonly string[] | null;
   fallbackBody: string;
+  bodyWithSnippet: (snippet: string) => string;
 }): string {
-  const lines: string[] = [];
-  const user = collapseOneLine(input.userSnippet);
-  const assistant = lastNonEmptyLine(input.assistantSnippet);
-  if (user) lines.push(`User: ${user}`);
-  if (assistant) lines.push(`Assistant: ${assistant}`);
-  if (lines.length > 0) return lines.join("\n");
+  const snippet = resolveAgentReadyTaskSnippet({
+    userSnippet: input.userSnippet,
+    sessionTitle: input.sessionTitle,
+    placeholderTitles: input.placeholderTitles,
+  });
+  if (snippet) return input.bodyWithSnippet(snippet);
   return input.fallbackBody;
 }
 
@@ -54,15 +110,10 @@ function collapseOneLine(text: string | null | undefined): string {
     .split(/\r?\n/g)
     .map((line) => line.trim())
     .filter(Boolean)
-    .join(" ")
-    .slice(0, 160);
+    .join(" ");
 }
 
-function lastNonEmptyLine(text: string | null | undefined): string {
-  if (!text) return "";
-  const lines = text
-    .split(/\r?\n/g)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  return (lines.at(-1) ?? "").slice(0, 160);
+function truncateSnippet(text: string): string {
+  if (text.length <= SNIPPET_MAX_CHARS) return text;
+  return `${text.slice(0, SNIPPET_MAX_CHARS).trimEnd()}…`;
 }

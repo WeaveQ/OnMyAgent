@@ -32,6 +32,8 @@ export default {
   "agent_manager.provider_modal.api_endpoint_placeholder": "https://api.example.com/v1",
   "agent_manager.provider_modal.api_key": "访问密钥",
   "agent_manager.provider_modal.api_key_placeholder": "粘贴 API Key",
+  "agent_manager.provider_modal.hide_api_key": "隐藏访问密钥",
+  "agent_manager.provider_modal.show_api_key": "显示访问密钥",
   "agent_manager.provider_modal.delete_provider": "删除供应商",
   "agent_manager.provider_modal.edit_provider": "编辑模型服务商",
   "agent_manager.provider_modal.edit_provider_subtitle": "{id}",

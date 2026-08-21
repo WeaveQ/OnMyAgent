@@ -132,11 +132,9 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
       }
     }
     const orderIndex = new Map(seenOrder.map((id, index) => [id, index]));
-    return [...map.values()].sort((a, b) => {
-      // Disabled providers stay at the bottom; otherwise keep user order.
-      if (a.isDisabled !== b.isDisabled) return a.isDisabled ? 1 : -1;
-      return (orderIndex.get(a.id) ?? 0) - (orderIndex.get(b.id) ?? 0);
-    });
+    return [...map.values()].sort(
+      (a, b) => (orderIndex.get(a.id) ?? 0) - (orderIndex.get(b.id) ?? 0),
+    );
   }, [filteredOptions, props.current, disabledSet]);
 
   // Auto-expand on search

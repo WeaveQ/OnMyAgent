@@ -30,9 +30,15 @@ function helperPath() {
   ].find(existsSync);
 }
 
-function toolsList(binary) {
+function toolsList(binary, { compatibility = false } = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(binary, ["mcp"], { stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn(binary, ["mcp"], {
+      env: {
+        ...process.env,
+        ONMYAGENT_COMPUTER_USE_COMPAT_TOOLS: compatibility ? "1" : "0",
+      },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
     let stderr = "";
     const timeout = setTimeout(() => {
       child.kill("SIGTERM");
@@ -60,9 +66,15 @@ function toolsList(binary) {
   });
 }
 
-function callTool(binary, name, args = {}) {
+function callTool(binary, name, args = {}, { compatibility = false } = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(binary, ["mcp"], { stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn(binary, ["mcp"], {
+      env: {
+        ...process.env,
+        ONMYAGENT_COMPUTER_USE_COMPAT_TOOLS: compatibility ? "1" : "0",
+      },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
     let stderr = "";
     const timeout = setTimeout(() => {
       child.kill("SIGTERM");
@@ -100,6 +112,7 @@ test("Sky tool surface matches the sanitized observed Codex fixture", async () =
   assert.ok(binary, "Build the native Computer Use helper before running parity tests");
   const tools = await toolsList(binary);
   const expectedNames = new Set(fixture.tools.map((tool) => tool.name));
+  assert.deepEqual(new Set(tools.map((tool) => tool.name)), expectedNames);
   const projection = tools
     .filter((tool) => expectedNames.has(tool.name))
     .map((tool) => ({
@@ -127,6 +140,26 @@ test("Sky tool surface matches the sanitized observed Codex fixture", async () =
   assert.deepEqual(projection, expected);
 });
 
+test("foreground CUA tools cannot be invoked through the default MCP profile", async () => {
+  const binary = helperPath();
+  assert.ok(binary, "Build the native Computer Use helper before running parity tests");
+  const result = await callTool(binary, "cua_move", { x: 0, y: 0 });
+  const payload = JSON.parse(result.content[0].text);
+  assert.equal(payload.ok, false);
+  assert.match(payload.error, /not available/);
+});
+
+test("strict background input never takes over the hardware cursor", () => {
+  const sourceRoot = path.join(packageRoot, "native", "HandsFree", "Sources", "ComputerUse");
+  const dispatcher = readFileSync(path.join(sourceRoot, "BackgroundInputDispatcher.swift"), "utf8");
+  const bridge = readFileSync(path.join(sourceRoot, "SkyLightBridge.swift"), "utf8");
+
+  assert.doesNotMatch(dispatcher, /cghidEventTap|CGAssociateMouseAndMouseCursorPosition|CGWarpMouseCursorPosition/);
+  assert.doesNotMatch(dispatcher, /\.post\(tap:/);
+  assert.match(bridge, /event\.location = screenPoint/);
+  assert.match(bridge, /setWindowLocation\(pointer, local\.x, local\.y\)/);
+});
+
 test("list_apps is callable through the live MCP transport without UI permissions", async () => {
   const binary = helperPath();
   assert.ok(binary, "Build the native Computer Use helper before running parity tests");
@@ -145,7 +178,7 @@ test("list_apps is callable through the live MCP transport without UI permission
 test("Record & Replay tool surface matches the observed Codex subserver", async () => {
   const binary = helperPath();
   assert.ok(binary, "Build the native Computer Use helper before running parity tests");
-  const tools = await toolsList(binary);
+  const tools = await toolsList(binary, { compatibility: true });
   const expectedNames = new Set(recordAndReplayFixture.tools.map((tool) => tool.name));
   const projection = tools
     .filter((tool) => expectedNames.has(tool.name))
@@ -172,7 +205,7 @@ test("Record & Replay tool surface matches the observed Codex subserver", async 
 test("Skysight tool surface matches the reverse-audited Codex subserver", async () => {
   const binary = helperPath();
   assert.ok(binary, "Build the native Computer Use helper before running parity tests");
-  const tools = await toolsList(binary);
+  const tools = await toolsList(binary, { compatibility: true });
   const expectedNames = new Set(skysightFixture.tools.map((tool) => tool.name));
   const projection = tools
     .filter((tool) => expectedNames.has(tool.name))

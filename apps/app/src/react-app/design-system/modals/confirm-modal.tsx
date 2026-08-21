@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import type { ReactNode } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, X } from "lucide-react";
 
 import {
   AlertDialog,
@@ -25,6 +25,11 @@ export type ConfirmModalProps = {
   variant?: "danger" | "warning";
   confirmButtonVariant?: "secondary" | "ghost" | "outline" | "destructive";
   cancelButtonVariant?: "secondary" | "ghost" | "outline" | "destructive";
+  showCloseButton?: boolean;
+  closeLabel?: string;
+  secondaryLabel?: string;
+  secondaryButtonVariant?: "secondary" | "ghost" | "outline" | "destructive";
+  onSecondary?: () => void;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -33,6 +38,7 @@ export function ConfirmModal(props: ConfirmModalProps) {
   const variant = props.variant ?? "warning";
   const confirmVariant = props.confirmButtonVariant ?? (variant === "danger" ? "destructive" : undefined);
   const cancelVariant = props.cancelButtonVariant ?? "outline";
+  const secondaryVariant = props.secondaryButtonVariant ?? "destructive";
 
   let iconTileClass = "bg-dls-status-warning-soft text-dls-status-warning-fg";
   if (variant === "danger") iconTileClass = "bg-dls-status-danger-soft text-dls-status-danger-fg";
@@ -44,7 +50,17 @@ export function ConfirmModal(props: ConfirmModalProps) {
         if (!open) props.onCancel();
       }}
     >
-      <AlertDialogContent>
+      <AlertDialogContent className={props.showCloseButton ? "relative pt-12" : undefined}>
+        {props.showCloseButton ? (
+          <AlertDialogCancel
+            variant="ghost"
+            size="icon"
+            className="absolute top-3 end-3 size-8"
+            aria-label={props.closeLabel ?? props.cancelLabel}
+          >
+            <X className="size-4" />
+          </AlertDialogCancel>
+        ) : null}
         <AlertDialogHeader>
           <AlertDialogMedia className={iconTileClass}>
             <AlertTriangle />
@@ -53,9 +69,20 @@ export function ConfirmModal(props: ConfirmModalProps) {
           <AlertDialogDescription>{props.message}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel variant={cancelVariant} size="lg">
-            {props.cancelLabel}
-          </AlertDialogCancel>
+          {props.secondaryLabel ? (
+            <Button
+              type="button"
+              variant={secondaryVariant}
+              size="lg"
+              onClick={props.onSecondary}
+            >
+              {props.secondaryLabel}
+            </Button>
+          ) : (
+            <AlertDialogCancel variant={cancelVariant} size="lg">
+              {props.cancelLabel}
+            </AlertDialogCancel>
+          )}
           <AlertDialogAction
             variant={confirmVariant}
             size="lg"

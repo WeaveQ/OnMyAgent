@@ -530,8 +530,9 @@ export default {
   "settings.agent_ready_notifications_label": "任務完成通知",
   "settings.agent_ready_notifications_desc":
     "開啟後，助手完成一輪回覆且應用不在前台時會發送桌面通知。默認關閉；首次開啟時會請求系統通知權限。",
-  "settings.agent_ready_notification_title": "助手已就緒",
-  "settings.agent_ready_notification_body": "會話「{title}」可以繼續輸入。",
+  "settings.agent_ready_notification_title": "任務完成",
+  "settings.agent_ready_notification_body": "{snippet} 任務完成了",
+  "settings.agent_ready_notification_body_fallback": "任務完成了",
   "settings.ai_providers": "模型",
   "settings.ai_providers_card_description": "連接 AI 模型服務商",
   "settings.shell_view_current_version_description": "當前版本號",

@@ -113,9 +113,20 @@ export {
   serializeUserAgentRegistry,
 } from "./agent-registry";
 export {
+  collectCreationEditableIdentityKeys,
+  findCreationEditableAgent,
+  findCreationEditableAgentByPackageName,
   isCreationExpertEditable,
+  registerImportedMineExpert,
   updateExpertRecordFromDraft,
+  type ImportedMineExpertSeed,
 } from "./expert-creation-save-model";
+export { persistImportedMineExpert } from "./expert-import-registry";
+export {
+  expertPackageExportFileName,
+  pickAndExportMineExpertPackage,
+  type PickAndExportMineExpertResult,
+} from "./expert-package-export";
 export {
   canHardDeleteExpert,
   clearExpertLocalSessionBindings,

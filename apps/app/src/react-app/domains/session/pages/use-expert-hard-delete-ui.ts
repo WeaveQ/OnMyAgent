@@ -4,6 +4,7 @@
 import { useCallback, useMemo } from "react";
 import {
   canHardDeleteExpert,
+  collectCreationEditableIdentityKeys,
   type AgentRegistry,
 } from "../../agents";
 import type { ExpertMarketplaceEntry } from "../../plugins";
@@ -148,7 +149,7 @@ export function useExpertHardDeleteUi(input: {
   );
 
   const deletableExpertIds = useMemo(() => {
-    const ids = new Set<string>();
+    const ids = collectCreationEditableIdentityKeys(input.registry?.agents);
     for (const group of input.conversationGroups) {
       const agentId = group.agentId?.trim() ?? "";
       if (agentId && canHardDeleteExpert(agentId, input.registry)) {

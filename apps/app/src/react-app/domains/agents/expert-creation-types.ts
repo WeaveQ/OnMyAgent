@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
 import type { ModelRef } from "../../../app/types";
+import type { AppStatusToastInput } from "../shell-feedback";
 import type {
   AgentRecord,
   AgentRegistry,
@@ -25,12 +26,7 @@ export type ExpertKnowledgeEntry = {
 export type ExpertKnowledgeNode = ExpertKnowledgeEntry & { name: string };
 
 export type ExpertCreationPageProps = {
-  showToast?: (input: {
-    title: string;
-    description: string;
-    tone: "success";
-    durationMs: number;
-  }) => void;
+  showToast?: (input: AppStatusToastInput) => void;
   workspaceId: string;
   workspaceRoot: string;
   opencodeBaseUrl: string | null;
