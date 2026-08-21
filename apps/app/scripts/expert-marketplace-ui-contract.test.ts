@@ -861,6 +861,18 @@ describe("expert marketplace UI contract", () => {
     expect(assistantPage).toContain("onImportedAgent={handleImportedExpert}");
   });
 
+  test("assistant store scopes summoned experts to the shared directory session source", () => {
+    const assistantPage = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/assistant.tsx",
+    );
+
+    expect(assistantPage).toContain("useExpertDirectoryQuery({");
+    expect(assistantPage).toContain("listExpertAgentIdsWithSessions(directory)");
+    expect(assistantPage).toContain(
+      "activeExpertAgentIds={activeExpertAgentIds}",
+    );
+  });
+
   test("vite regenerates marketplace manifests from desktop resources", () => {
     const viteConfig = readWorkspaceFile("apps/app/vite.config.ts");
 

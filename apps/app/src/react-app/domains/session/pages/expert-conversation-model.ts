@@ -3,6 +3,7 @@
  */
 import { t } from "../../../../i18n";
 import type { SidebarSessionItem, WorkspaceSessionGroup } from "../../../../app/types";
+import type { ExpertDirectoryProjection } from "@onmyagent/types/server";
 import type { PendingAgentContext, AgentRegistry } from "../../agents";
 import {
   buildPendingAgentFromRecord,
@@ -40,6 +41,21 @@ export function listVisibleExpertAgentSessions(
     const agentId = identity.agentIdBySessionId.get(session.id);
     return agentId ? [{ sessionId: session.id, agentId }] : [];
   });
+}
+
+export function listExpertAgentIdsWithSessions(
+  directory: ExpertDirectoryProjection | null | undefined,
+): string[] {
+  if (!directory?.complete) return [];
+  return Array.from(
+    new Set(
+      directory.records.flatMap((record) =>
+        record.sessionIds.length > 0 && record.agentId.trim()
+          ? [record.agentId.trim()]
+          : [],
+      ),
+    ),
+  );
 }
 
 export function buildExpertWorkspaceSessions(input: {

@@ -19,6 +19,7 @@ import {
 import {
   buildExpertSidebarSessionGroups,
   buildExpertWorkspaceSessions,
+  listExpertAgentIdsWithSessions,
   listVisibleExpertAgentSessions,
 } from "../src/react-app/domains/session/pages/expert-conversation-model";
 
@@ -95,6 +96,45 @@ describe("shared agent session state", () => {
 
     expect(isAssistantSession("ses-1")).toBe(false);
     expect(readAssistantSessionCategory("unknown")).toBe("office");
+  });
+
+  test("lists only directory experts that own at least one session", () => {
+    expect(
+      listExpertAgentIdsWithSessions({
+        version: 1,
+        schema: "onmyagent.expert-directory.v1",
+        revision: 7,
+        complete: true,
+        state: "ok",
+        failures: [],
+        inventoryFingerprint: "fingerprint",
+        tombstonedSessionIds: [],
+        records: [
+          {
+            agentId: "expert-with-session",
+            packageName: "with-session",
+            sessionIds: ["session-1"],
+            runtimeDirectories: [],
+            sessions: [],
+            declaredSkills: [],
+            installedSkills: [],
+            missingSkills: [],
+            runtimeMissing: false,
+          },
+          {
+            agentId: "expert-without-session",
+            packageName: "without-session",
+            sessionIds: [],
+            runtimeDirectories: [],
+            sessions: [],
+            declaredSkills: [],
+            installedSkills: [],
+            missingSkills: [],
+            runtimeMissing: false,
+          },
+        ],
+      }),
+    ).toEqual(["expert-with-session"]);
   });
 
   test("scopes expert entries to real sessions in the selected workspace", () => {

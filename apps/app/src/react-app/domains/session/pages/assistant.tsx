@@ -145,6 +145,8 @@ import {
 import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
 import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
 import { isStreamingSessionStatus } from "../sidebar/utils";
+import { useExpertDirectoryQuery } from "../../../capabilities/session-identity/expert-directory-query";
+import { listExpertAgentIdsWithSessions } from "./expert-conversation-model";
 
 // Keep in sync with DEFAULT/MIN workspace right sidebar (outer rail = browser panel).
 const ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH = DEFAULT_WORKSPACE_RIGHT_SIDEBAR_EXPANDED_WIDTH;
@@ -238,6 +240,27 @@ export function AssistantPage(props: AssistantPageProps) {
   const myExpertPackages = useMyExpertPackages({
     enabled: activeSidebarView === "store",
   });
+  const pendingExpertAgentId = usePendingAgentStore(
+    (state) => state.agent?.id.trim() || null,
+  );
+  const expertDirectoryQuery = useExpertDirectoryQuery({
+    workspaceId: props.selectedWorkspaceId,
+    serverWorkspaceId: props.runtimeWorkspaceId ?? props.selectedWorkspaceId,
+    client: props.onmyagentServerClient,
+    enabled: activeSidebarView === "store",
+  });
+  const activeExpertAgentIds = useMemo(() => {
+    const directory = expertDirectoryQuery.data?.complete
+      ? expertDirectoryQuery.data
+      : expertDirectoryQuery.lastComplete;
+    const ids = listExpertAgentIdsWithSessions(directory);
+    if (pendingExpertAgentId) ids.push(pendingExpertAgentId);
+    return Array.from(new Set(ids));
+  }, [
+    expertDirectoryQuery.data,
+    expertDirectoryQuery.lastComplete,
+    pendingExpertAgentId,
+  ]);
   const {
     customConnectorOpen,
     setCustomConnectorOpen,
@@ -1285,6 +1308,7 @@ export function AssistantPage(props: AssistantPageProps) {
                         client={props.onmyagentServerClient}
                         activeTab={storeActiveTab}
                         myExperts={myExpertPackages}
+                        activeExpertAgentIds={activeExpertAgentIds}
                         onActiveTabChange={setStoreActiveTab}
                         onSummonMarketplaceExpert={handleSummonMarketplaceExpert}
                         onImportedAgent={handleImportedExpert}
