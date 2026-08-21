@@ -26,17 +26,22 @@ src/react-app/
 │   ├── conversation/          Dual-runtime timeline / item VM (OpenCode + Personal → one UI shape)
 │   ├── layout/                Session content-column / transcript layout contracts (pure helpers)
 │   ├── model-selection/       Shared model picker modal + select container + hidden-model state
-│   └── session-identity/      Session/workspace identity persistence shared by domains
+│   ├── session-identity/      Session/workspace identity persistence shared by domains
+│   ├── account-avatar/        Account avatar prefs + user avatar chip
+│   └── context-usage/         Session context-window usage model
 ├── design-system/             Product composites (ConfirmModal, SelectMenu, LabeledInput, …)
 └── domains/                   Feature-scoped code, one folder per product domain
     ├── session/               Live conversation runtime (transcript, composer, sync, goal)
+    │   ├── pages/              Host pages; Expert surface FSM (`expert-surface-machine.ts`,
+    │   │                        `expert-surface-mode.ts`, `use-expert-route-lifecycle.ts`)
     │   ├── chat/               Session host pages + light panels (personal host re-exports)
     │   ├── surface/           Transcript, composer, plan-goal helpers, markdown
     │   ├── sync/              Session state plumbing
     │   ├── components/        Session-local UI (permission modal, status bar, side-panel pages, …)
     │   ├── sidebar/           Rail, conversation lists, chrome barrel (session-chrome.ts)
     │   │                        main rail bottom: channels + devices icons
-    │   ├── voice/ browser/ infinite-canvas/
+    │   ├── artifacts/ status/ navigation/ control/ hooks/
+    │   ├── browser/ infinite-canvas/
     │   └── modals/
     ├── local-agents/          ACP / local agent editors, cards, agent-management, personal host
     ├── task-center/           Durable cross-agent workflow list/detail/actions via Desktop IPC
@@ -67,7 +72,7 @@ Atoms live outside this tree: `apps/app/src/components/ui/*` (see `DESIGN.md` §
 
 Domain ownership gives every feature one obvious home.
 
-- `session/` owns the **live conversation runtime** (surface, sync, composer, voice, goal
+- `session/` owns the **live conversation runtime** (surface, sync, composer, goal
   lifecycle) on the **OpenCode primary path** (HTTP/SSE/archive). It must not re-absorb
   agent management or messaging channels.
   Composer attachments (including **Appshot** desktop capture) live under
@@ -227,10 +232,15 @@ Product behavior invariants live in `docs/Architecture.md` Session / Expert (pac
 | --- | --- |
 | `env-context.ts` | OnMyAgent/env system context helpers |
 | `extension-state.ts` | Extension enable/hide flags |
+| `extension-registry.tsx` | Extension config/runtime registration |
 | `desktop-config-context.ts` | Desktop config context |
 | `onmyagent-server-store.ts` | Local server connection store |
 | `onmyagent-den-help-link.tsx` | Den help link composite |
-| `index.ts` | Infra exports + thin re-exports of session-identity helpers from `agents/` |
+| `assistant-archived-tasks.ts` | Archived-task helpers used by chrome |
+| `session-parent-tree.ts` | Session parent-tree walk helpers |
+| `memory/` | Conversation / work-memory file sync |
+| `personalization/` | Onboarding vertical rank / automations |
+| `index.ts` | Infra exports only (no session-identity re-export) |
 
 Do not add product pages, modals, or registries here.
 
