@@ -322,7 +322,8 @@ export function AgentConversationItem(props: {
               props.group.avatarUrl
                 ? "bg-dls-surface-muted text-dls-secondary ring-1 ring-dls-border/60"
                 : "bg-dls-accent/10 text-dls-accent ring-1 ring-dls-accent/30",
-              props.group.avatarUrl && "dark:bg-dls-surface-solid dark:text-dls-text dark:ring-dls-border",
+              props.group.avatarUrl &&
+                "dark:bg-dls-surface-solid dark:text-dls-text dark:ring-dls-border",
             )}
           >
             {props.group.avatarUrl ? (

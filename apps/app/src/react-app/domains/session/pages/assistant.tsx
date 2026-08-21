@@ -147,10 +147,13 @@ import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
 import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
 import { isStreamingSessionStatus } from "../sidebar/utils";
 import { useExpertDirectoryQuery } from "../../../capabilities/session-identity/expert-directory-query";
+import { selectLiveDirectoryPayload } from "../../../capabilities/session-identity/expert-directory-page-model";
 import {
   buildAgentConversationGroups,
   buildStoreExpertShelf,
 } from "./expert-conversation-model";
+import { buildExpertPageNavigationModel } from "./expert-page-navigation-model";
+import { useAssistantStoreExpertManagement } from "./use-assistant-store-expert-management";
 
 // Keep in sync with DEFAULT/MIN workspace right sidebar (outer rail = browser panel).
 const ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH = DEFAULT_WORKSPACE_RIGHT_SIDEBAR_EXPANDED_WIDTH;
@@ -244,9 +247,7 @@ export function AssistantPage(props: AssistantPageProps) {
   const myExpertPackages = useMyExpertPackages({
     enabled: activeSidebarView === "store",
   });
-  const pendingExpertAgentId = usePendingAgentStore(
-    (state) => state.agent?.id.trim() || null,
-  );
+  const pendingExpertAgent = usePendingAgentStore((state) => state.agent);
   const agentRegistry = useAgentRegistryStore((state) => state.registry);
   const expertDirectoryQuery = useExpertDirectoryQuery({
     workspaceId: props.selectedWorkspaceId,
@@ -254,14 +255,21 @@ export function AssistantPage(props: AssistantPageProps) {
     client: props.onmyagentServerClient,
     enabled: activeSidebarView === "store",
   });
-  const storeExpertShelf = useMemo(() => {
-    const directory = expertDirectoryQuery.data?.complete
-      ? expertDirectoryQuery.data
-      : expertDirectoryQuery.lastComplete;
+  const liveExpertDirectory = useMemo(
+    () =>
+      selectLiveDirectoryPayload({
+        data: expertDirectoryQuery.data,
+        lastComplete: expertDirectoryQuery.lastComplete,
+      }),
+    [expertDirectoryQuery.data, expertDirectoryQuery.lastComplete],
+  );
+  const storeExpertConversationGroups = useMemo(() => {
     const identity = {
-      sessionIds: new Set(directory?.records.flatMap((record) => record.sessionIds) ?? []),
+      sessionIds: new Set(
+        liveExpertDirectory?.records.flatMap((record) => record.sessionIds) ?? [],
+      ),
       agentIdBySessionId: new Map(
-        (directory?.records ?? []).flatMap((record) =>
+        (liveExpertDirectory?.records ?? []).flatMap((record) =>
           record.sessionIds.map((sessionId) => [sessionId, record.agentId] as const),
         ),
       ),
@@ -269,24 +277,47 @@ export function AssistantPage(props: AssistantPageProps) {
     const workspaceSessions = props.sidebar.workspaceSessionGroups.find(
       (group) => group.workspace.id === props.selectedWorkspaceId,
     )?.sessions ?? [];
-    return buildStoreExpertShelf({
-      packages: myExpertPackages,
-      conversations: buildAgentConversationGroups(workspaceSessions, agentRegistry, identity),
-    });
+    return buildAgentConversationGroups(workspaceSessions, agentRegistry, identity);
   }, [
     agentRegistry,
-    expertDirectoryQuery.data,
-    expertDirectoryQuery.lastComplete,
-    myExpertPackages,
+    liveExpertDirectory,
     props.selectedWorkspaceId,
     props.sidebar.workspaceSessionGroups,
   ]);
-  const activeExpertAgentIds = useMemo(
-    () => Array.from(new Set([
-      ...storeExpertShelf.activeExpertAgentIds,
-      ...(pendingExpertAgentId ? [pendingExpertAgentId] : []),
-    ])),
-    [pendingExpertAgentId, storeExpertShelf.activeExpertAgentIds],
+  const storeExpertNavigationModel = useMemo(
+    () =>
+      buildExpertPageNavigationModel({
+        draftAgentContexts: pendingExpertAgent
+          ? { [pendingExpertAgent.id]: pendingExpertAgent }
+          : {},
+        selectedWorkspaceId: props.selectedWorkspaceId,
+        draftAgentId: pendingExpertAgent?.id ?? null,
+        activeConversationAgentId: null,
+        conversationGroups: storeExpertConversationGroups,
+        pendingAgent: pendingExpertAgent,
+        registry: agentRegistry,
+      }),
+    [
+      agentRegistry,
+      pendingExpertAgent,
+      props.selectedWorkspaceId,
+      storeExpertConversationGroups,
+    ],
+  );
+  const storeExpertGroups = useMemo(
+    () => [
+      ...storeExpertConversationGroups,
+      ...storeExpertNavigationModel.draftAgentGroups,
+    ],
+    [storeExpertConversationGroups, storeExpertNavigationModel.draftAgentGroups],
+  );
+  const storeExpertShelf = useMemo(
+    () =>
+      buildStoreExpertShelf({
+        packages: myExpertPackages,
+        conversations: storeExpertGroups,
+      }),
+    [myExpertPackages, storeExpertGroups],
   );
   const {
     customConnectorOpen,
@@ -313,6 +344,17 @@ export function AssistantPage(props: AssistantPageProps) {
       props.sidebar.onCreateTaskInWorkspace,
     ],
   );
+  const {
+    handleDeleteMarketplaceExpert,
+    handleEditMarketplaceExpert,
+    overlays: storeExpertManagementOverlays,
+  } = useAssistantStoreExpertManagement({
+    props,
+    registry: agentRegistry,
+    conversationGroups: storeExpertGroups,
+    showToast,
+    onCreatedAgent: handleImportedExpert,
+  });
   useEffect(() => subscribeOpenKnowledgeNote(() => openRailView("knowledgeBase")), [openRailView]);
   const [agentSearch, setAgentSearch] = useState("");
   const [agentPanelCollapsed, setAgentPanelCollapsed] = useState(false);
@@ -1335,11 +1377,13 @@ export function AssistantPage(props: AssistantPageProps) {
                         client={props.onmyagentServerClient}
                         activeTab={storeActiveTab}
                         myExperts={storeExpertShelf.experts}
-                        activeExpertAgentIds={activeExpertAgentIds}
+                        activeExpertAgentIds={storeExpertShelf.activeExpertAgentIds}
                         onActiveTabChange={setStoreActiveTab}
                         onSummonMarketplaceExpert={handleSummonMarketplaceExpert}
                         onImportedAgent={handleImportedExpert}
                         onCreateExpert={handleCreateExpert}
+                        onDeleteExpert={handleDeleteMarketplaceExpert}
+                        onEditExpert={handleEditMarketplaceExpert}
                         onCreateSkill={handleCreateSkill}
                         onChatWithSkill={handleChatWithSkill}
                         onEditSkill={handleEditSkill}
@@ -1751,6 +1795,7 @@ export function AssistantPage(props: AssistantPageProps) {
               </>
             ) : null}
           </ResizablePanelGroup>
+          {storeExpertManagementOverlays}
         </div>
       </div>
 

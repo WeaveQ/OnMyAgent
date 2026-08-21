@@ -5,6 +5,7 @@ import type {
   AgentRegistry,
 } from "../src/react-app/domains/agents/agent-registry-types";
 import {
+  buildAgentConversationGroups,
   buildDraftAgentGroups,
   listUnstartedMineExpertContexts,
   resolveUnstartedMinePending,
@@ -85,6 +86,69 @@ describe("unstarted mine experts stay in the conversation list", () => {
     }).draftAgentGroups;
     expect(groups.map((group) => group.agentId)).toEqual(["agent-222"]);
     expect(groups[0]?.sessions[0]?.id).toBe("draft:ws-1:agent-222");
+    expect(groups[0]?.avatarUrl).toBeNull();
+  });
+
+  it("keeps an uploaded mine avatar while suppressing generated placeholders", () => {
+    const customAvatar = "data:image/png;base64,custom";
+    const groups = buildDraftAgentGroups(
+      {
+        generated: {
+          id: "generated",
+          name: "Generated",
+          description: "",
+          avatar: {
+            avatarStyle: "pixel",
+            avatarOptionId: "pixel-tech",
+            customAvatarDataUrl: null,
+            avatarUrl: "data:image/svg+xml,generated",
+            avatarBackground: null,
+          },
+          systemPrompt: "",
+          marketplaceExpert: {
+            source: "mine",
+            packageName: "generated",
+            packagePath: "/tmp/generated",
+          },
+        },
+        uploaded: {
+          id: "uploaded",
+          name: "Uploaded",
+          description: "",
+          avatar: {
+            avatarStyle: "pixel",
+            avatarOptionId: "pixel-tech",
+            customAvatarDataUrl: customAvatar,
+            avatarUrl: customAvatar,
+            avatarBackground: null,
+          },
+          systemPrompt: "",
+          marketplaceExpert: {
+            source: "mine",
+            packageName: "uploaded",
+            packagePath: "/tmp/uploaded",
+          },
+        },
+      },
+      "ws-1",
+    );
+
+    expect(groups.find((group) => group.agentId === "generated")?.avatarUrl).toBeNull();
+    expect(groups.find((group) => group.agentId === "uploaded")?.avatarUrl).toBe(customAvatar);
+  });
+
+  it("restores a mine expert when Directory uses its composite runtime id", () => {
+    const groups = buildAgentConversationGroups(
+      [{ id: "session-1", title: "Wrong fallback" }],
+      registryWith([mineAgent]),
+      {
+        sessionIds: new Set(["session-1"]),
+        agentIdBySessionId: new Map([["session-1", "agent-222:agent-222"]]),
+      },
+    );
+
+    expect(groups[0]?.name).toBe("222");
+    expect(groups[0]?.avatarUrl).toBeNull();
   });
 
   it("does not duplicate a mine expert that already has a session or live draft", () => {

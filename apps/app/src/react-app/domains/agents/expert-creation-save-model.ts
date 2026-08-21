@@ -34,10 +34,13 @@ export function findCreationEditableAgent(
 ): AgentRecord | undefined {
   const key = agentIdOrPackageName.trim();
   if (!key) return undefined;
+  const compositePackageName = key.split(":").filter(Boolean).at(-1) ?? key;
   return (agents ?? []).find(
     (agent) =>
       isCreationExpertEditable(agent) &&
-      (agent.id === key || agent.marketplacePackageName === key),
+      (agent.id === key ||
+        agent.marketplacePackageName === key ||
+        agent.marketplacePackageName === compositePackageName),
   );
 }
 

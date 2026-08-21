@@ -584,6 +584,9 @@ describe("expert marketplace UI contract", () => {
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-session-expert-creation.tsx"),
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-page-navigation.ts"),
     ].join("\n");
+    const assistantPage = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/assistant.tsx",
+    );
     expect(dialog).toContain("onDeleteExpert?: (expert: ExpertMarketplaceEntry) => void");
     expect(dialog).toContain('expert.source === "mine" || expert.source === "installed"');
     expect(dialog).toContain('t("session.expert_delete_conversation")');
@@ -593,7 +596,7 @@ describe("expert marketplace UI contract", () => {
     expect(storePage).toContain("onDeleteExpert={props.onDeleteExpert}");
     expect(expertPage).toContain("handleDeleteMarketplaceExpert");
     expect(expertPage).toContain("onDeleteExpert={handleDeleteMarketplaceExpert}");
-    expect(expertPage).toContain("mergeLocalShelfWithConversations");
+    expect(expertPage).toContain("buildStoreExpertShelf");
     expect(expertPage).toContain("resolveMarketplaceExpertHardDeleteTarget");
     expect(expertPage).toContain("deletePackage: target.deletePackage ?? false");
     expect(expertPage).toContain("onDeleteExpert={openDeleteExpertModal}");
@@ -603,6 +606,8 @@ describe("expert marketplace UI contract", () => {
     expect(dialog).toContain("canMineExpertPackageAction(selectedExpert, props.onExportExpert)");
     expect(expertPage).toContain("handleEditMarketplaceExpert");
     expect(expertPage).toContain("onEditExpert={handleEditMarketplaceExpert}");
+    expect(assistantPage).toContain("onDeleteExpert={handleDeleteMarketplaceExpert}");
+    expect(assistantPage).toContain("onEditExpert={handleEditMarketplaceExpert}");
     expect(expertPage).toContain("collectCreationEditableIdentityKeys");
     expect(expertPage).toContain("findCreationEditableAgent");
     expect(expertPage).toContain("findCreationEditableAgentByPackageName");
@@ -861,17 +866,22 @@ describe("expert marketplace UI contract", () => {
     expect(assistantPage).toContain("onImportedAgent={handleImportedExpert}");
   });
 
-  test("assistant store builds summoned experts from the shared conversation source", () => {
+  test("assistant store builds the same summoned shelf as the expert route", () => {
     const assistantPage = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/pages/assistant.tsx",
     );
+    const expertLayout = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx",
+    );
 
     expect(assistantPage).toContain("useExpertDirectoryQuery({");
+    expect(assistantPage).toContain("selectLiveDirectoryPayload({");
+    expect(assistantPage).toContain("buildExpertPageNavigationModel({");
     expect(assistantPage).toContain("buildStoreExpertShelf({");
-    expect(assistantPage).toContain("buildAgentConversationGroups(workspaceSessions, agentRegistry, identity)");
-    expect(assistantPage).toContain(
-      "activeExpertAgentIds={activeExpertAgentIds}",
-    );
+    expect(assistantPage).toContain("myExperts={storeExpertShelf.experts}");
+    expect(assistantPage).not.toContain("expertDirectoryQuery.data?.complete");
+    expect(assistantPage).toContain("activeExpertAgentIds={storeExpertShelf.activeExpertAgentIds}");
+    expect(expertLayout).toContain("buildStoreExpertShelf({");
   });
 
   test("vite regenerates marketplace manifests from desktop resources", () => {
@@ -1041,6 +1051,8 @@ describe("expert marketplace UI contract", () => {
     expect(item).toContain(
       'itemTitle: "min-w-0 flex-1 truncate text-sm font-medium leading-5 text-dls-text"',
     );
+    expect(item).toContain('"bg-dls-accent/10 text-dls-accent ring-1 ring-dls-accent/30"');
+    expect(item).not.toContain("backgroundColor: props.group.avatarBackground");
     // Streaming / activity uses ExpertStatusDots (not raw accent pill).
     expect(item).toContain("ExpertStatusDots");
     expect(item).not.toContain(

@@ -15,6 +15,7 @@ import { createDefaultAgentRegistry } from "../../agents";
 import { resolveAgentAvatarUrl } from "../../agents";
 import type { AgentRegistry, AgentTemplate } from "../../agents";
 import { buildPendingAgentFromRecord } from "../../agents";
+import { findCreationEditableAgent } from "../../agents";
 import { findBuiltinMarketplaceExpertById } from "@/react-app/domains/plugins";
 import {
   readSessionAgentSnapshot,
@@ -64,16 +65,6 @@ export type AgentStarterItem = {
   avatarUrl: string | null;
   avatarBackground: string;
 };
-
-/** Mine experts without an uploaded avatar use the marketplace initial tile. */
-export function shouldUseMarketplaceAvatarFallback(
-  agent: {
-    marketplacePackageName?: string;
-    customAvatarDataUrl?: string | null;
-  } | null | undefined,
-): boolean {
-  return Boolean(agent?.marketplacePackageName?.trim() && !agent.customAvatarDataUrl?.trim());
-}
 
 export function workspaceTaskStatus(
   clientConnected: boolean,
@@ -649,7 +640,8 @@ export function buildAgentConversationGroups(
     if (!agentId) continue;
     const agent =
       registry && agentId
-        ? (registry.agents.find((item) => item.id === agentId) ??
+        ? (findCreationEditableAgent(registry.agents, agentId) ??
+          registry.agents.find((item) => item.id === agentId) ??
           registry.templates.find((item) => item.id === agentId))
         : null;
     const restoredAgent = agent && registry ? buildPendingAgentFromRecord(agent, registry) : null;
@@ -687,18 +679,20 @@ export function buildAgentConversationGroups(
           sessionAgentSnapshot?.description ??
           t("session.agent_config_missing"));
 
-    const useMarketplaceAvatarFallback =
-      agent !== null &&
-      agent !== undefined &&
-      "marketplacePackageName" in agent &&
-      shouldUseMarketplaceAvatarFallback(agent);
+    const useMineAvatarFallback = Boolean(
+      agent &&
+      "marketplaceSource" in agent &&
+      agent.marketplaceSource === "mine" &&
+      "customAvatarDataUrl" in agent &&
+      !agent.customAvatarDataUrl?.trim(),
+    );
     groups.set(key, {
       key,
       agentId,
       name,
       description,
       preview: sessionPreview,
-      avatarUrl: useMarketplaceAvatarFallback
+      avatarUrl: useMineAvatarFallback
         ? null
         : (restoredAgent?.avatar.avatarUrl ??
           marketplaceExpert?.avatarUrl ??

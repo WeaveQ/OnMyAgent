@@ -50,7 +50,7 @@ export function listVisibleExpertAgentSessions(
 export function listExpertAgentIdsWithSessions(
   directory: ExpertDirectoryProjection | null | undefined,
 ): string[] {
-  if (!directory?.complete) return [];
+  if (!directory) return [];
   return Array.from(
     new Set(
       directory.records.flatMap((record) =>
@@ -62,23 +62,27 @@ export function listExpertAgentIdsWithSessions(
   );
 }
 
-/**
- * Market and Expert derive the summoned shelf from the same conversations.
- * Package enumeration can lag, but an existing session must stay visible.
- */
+/** Keep the Store shelf identical to the Expert list, including unstarted mine experts. */
 export function buildStoreExpertShelf(input: {
   packages: readonly ExpertMarketplaceEntry[];
-  conversations: readonly Pick<AgentConversationGroup, "agentId" | "name" | "description" | "avatarUrl">[];
+  conversations: readonly Pick<
+    AgentConversationGroup,
+    "agentId" | "name" | "description" | "avatarUrl"
+  >[];
 }): {
   experts: ExpertMarketplaceEntry[];
   activeExpertAgentIds: string[];
 } {
   const conversations = input.conversations.flatMap((conversation) =>
-    conversation.agentId?.trim() ? [{ ...conversation, agentId: conversation.agentId.trim() }] : [],
+    conversation.agentId?.trim()
+      ? [{ ...conversation, agentId: conversation.agentId.trim() }]
+      : [],
   );
   return {
     experts: mergeLocalShelfWithConversations(input.packages, conversations),
-    activeExpertAgentIds: Array.from(new Set(conversations.map((conversation) => conversation.agentId))),
+    activeExpertAgentIds: Array.from(
+      new Set(conversations.map((conversation) => conversation.agentId)),
+    ),
   };
 }
 
@@ -168,7 +172,11 @@ export function buildDraftAgentGroups(
         agentId: agent.id,
         name: agent.name,
         description: agent.description.trim() || t("session.cmd_new_session_title"),
-        avatarUrl: agent.avatar.avatarUrl,
+        avatarUrl:
+          agent.marketplaceExpert?.source === "mine" &&
+          !agent.avatar.customAvatarDataUrl?.trim()
+            ? null
+            : agent.avatar.avatarUrl,
         avatarBackground: agent.avatar.avatarBackground ?? "var(--dls-primary-soft)",
         sessions: [draftSession],
         latestSession: draftSession,

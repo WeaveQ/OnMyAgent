@@ -23,7 +23,6 @@ import {
   listExpertAgentIdsWithSessions,
   listVisibleExpertAgentSessions,
 } from "../src/react-app/domains/session/pages/expert-conversation-model";
-import { shouldUseMarketplaceAvatarFallback } from "../src/react-app/domains/session/sidebar/conversation-model";
 
 const storageKeys = [
   "onmyagent:assistantSessionIds",
@@ -139,63 +138,63 @@ describe("shared agent session state", () => {
     ).toEqual(["expert-with-session"]);
   });
 
-  test("builds the market summoned shelf from every expert conversation, not only loaded packages", () => {
+  test("uses the newest incomplete directory records instead of an older complete count", () => {
+    expect(
+      listExpertAgentIdsWithSessions({
+        version: 1,
+        schema: "onmyagent.expert-directory.v1",
+        revision: 8,
+        complete: false,
+        state: "degraded",
+        failures: ["runtime_pending"],
+        inventoryFingerprint: "fingerprint-new",
+        tombstonedSessionIds: [],
+        records: Array.from({ length: 5 }, (_, index) => ({
+          agentId: `expert-${index + 1}`,
+          packageName: `package-${index + 1}`,
+          sessionIds: [`session-${index + 1}`],
+          runtimeDirectories: [],
+          sessions: [],
+          declaredSkills: [],
+          installedSkills: [],
+          missingSkills: [],
+          runtimeMissing: index === 4,
+        })),
+      }),
+    ).toEqual(["expert-1", "expert-2", "expert-3", "expert-4", "expert-5"]);
+  });
+
+  test("builds one store shelf from real conversations and unstarted mine experts", () => {
     const shelf = buildStoreExpertShelf({
-      packages: [
-        {
-          id: "kol-content-ops-specialist:kol-content-ops-specialist",
-          packageName: "kol-content-ops-specialist",
-          source: "installed",
-          displayName: "达人运营专家",
-          profession: "达人运营专家",
-          description: "",
-          categoryId: "all",
-          categoryIds: [],
-          categoryLabel: "",
-          categoryLabels: [],
-          tags: [],
-          quickPrompts: [],
-          promptTemplates: [],
-          avatarUrl: null,
-          expertType: "agent",
-          leadAgentName: "达人运营专家",
-          systemPrompt: "",
-          version: null,
-          teamWorkflow: null,
-          packagePath: "",
-          skills: [],
-          introStyle: "default",
-          approvedAgentIds: [],
-        },
-      ],
+      packages: [],
       conversations: [
-        { agentId: "kol-content-ops-specialist", name: "达人运营专家", description: "", avatarUrl: null },
         { agentId: "aihot", name: "资讯速递专家", description: "", avatarUrl: null },
-        { agentId: "custom-translation", name: "翻译专家", description: "", avatarUrl: null },
+        {
+          agentId: "kol-content-ops-specialist",
+          name: "达人运营专家",
+          description: "",
+          avatarUrl: null,
+        },
+        { agentId: "imported", name: "导入专家", description: "", avatarUrl: null },
+        { agentId: "translation", name: "翻译专家", description: "", avatarUrl: null },
+        { agentId: "business", name: "商务翻译专家", description: "", avatarUrl: null },
       ],
     });
 
     expect(shelf.activeExpertAgentIds).toEqual([
-      "kol-content-ops-specialist",
       "aihot",
-      "custom-translation",
+      "kol-content-ops-specialist",
+      "imported",
+      "translation",
+      "business",
     ]);
-    expect(shelf.experts).toHaveLength(3);
-  });
-
-  test("uses the marketplace fallback avatar for a mine expert without an uploaded image", () => {
-    expect(
-      shouldUseMarketplaceAvatarFallback({
-        marketplacePackageName: "custom-translation",
-        customAvatarDataUrl: null,
-      }),
-    ).toBe(true);
-    expect(
-      shouldUseMarketplaceAvatarFallback({
-        marketplacePackageName: "custom-translation",
-        customAvatarDataUrl: "data:image/png;base64,avatar",
-      }),
-    ).toBe(false);
+    expect(shelf.experts.map((expert) => expert.displayName)).toEqual([
+      "资讯速递专家",
+      "达人运营专家",
+      "导入专家",
+      "翻译专家",
+      "商务翻译专家",
+    ]);
   });
 
   test("scopes expert entries to real sessions in the selected workspace", () => {
