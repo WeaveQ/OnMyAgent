@@ -41,7 +41,10 @@ test("reset destroys a session kernel and clears its state", async () => {
 });
 
 test("node kernels respawn after the worker process dies", async () => {
-  const manager = createNodeKernelManager({ timeoutMs: 200 });
+  // Keep the test timeout well above a loaded Linux runner's worker startup
+  // time. The awaited never-resolving expression still deterministically
+  // exercises the timeout/SIGKILL path without making cold start the subject.
+  const manager = createNodeKernelManager({ timeoutMs: 1_000 });
   try {
     await manager.evaluate("session-a", "globalThis.kept = 'first'");
 
@@ -50,7 +53,7 @@ test("node kernels respawn after the worker process dies", async () => {
     // hanging until the next timeout.
     await assert.rejects(
       manager.evaluate("session-a", "await new Promise(() => {})"),
-      /node kernel timed out after 200ms/,
+      /node kernel timed out after 1000ms/,
     );
 
     // The exit handler fires async after SIGKILL; retry until the kernel is
