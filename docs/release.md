@@ -169,37 +169,34 @@ The OSS generic feed has no GitHub `/releases/latest` prerelease gap: whatever `
 
 5. Merge only after the PR checks are green and the review notes are resolved.
 
-After a merge to `dev`, CI on that branch is the daily gate. Promote 1.x to the ship line with a `dev` → `main` PR.
+After a merge to `dev`, GitHub **branch protection** on `dev` is the daily merge gate (required checks). Promote 1.x to the ship line with a `dev` → `main` PR.
 
-- `OnMyAgent Tests`, `i18n Audit`, `PR Gates`, and Design Check run on PRs/pushes to `dev`, `main`, and `release/0.5`.
+- `OnMyAgent Tests` and `PR Gates` `on.pull_request.branches` / `on.push.branches` are `main` and `release/0.5` (not `dev`). `Protect dev` still requires the same status-check names on PRs into `dev`.
+- `i18n Audit` and Design Check follow their workflow YAML path filters; they are not a third `dev` PR-branch list in those two files.
 - `onmyagent-ui-mcp` runs on those branches when the MCP package is touched and still publishes only from `onmyagent-ui-mcp-v*` tags.
 - Website Pages deploy from `main` only.
 - `Alpha Channel (macOS arm64)` is `workflow_dispatch`; use `Release App` for tagged preview or stable releases.
 
 ## Expert migration rollout and rollback
 
-Expert identity, deletion, and runtime isolation use a compatibility train. Do
-not collapse these steps into one release, and do not enable destructive user
-data paths from a source-only verification result.
+Expert identity, deletion, and runtime isolation **current rules** live in
+`docs/Architecture.md` Expert lifecycle (origins v2, marker v3, Expert
+Directory as list SoT, `hard_delete` sagas). This section is the release
+compat/rollback train — it is **not** “dual-write + deletion disabled” as the
+shipped stage.
 
-1. **R0 reader first** — ship a server that tolerantly reads origins v1/v2,
-   preserves parseable future records, and fails closed on unsafe mutation.
-   Prove it can read the fixture set before any v2 writer is released.
-2. **Dual-write + shadow** — ship origins v2, marker v3, workspace aggregation,
-   Expert Directory/heal, and the renderer shadow comparison. Keep deletion
-   disabled. Soak at least one agreed release window and export the process-local,
-   redacted lifecycle ring for unexplained directory/contract differences.
-3. **Primary cutover** — make Expert Directory authoritative only after the four
-   scenarios below are clean. Retain the rollback flag and keep deprecated
-   readers for the supported downgrade window.
-4. **Delete enablement** — enable the server/desktop sagas only after a stable
-   version has no unclassified shadow/contract events. Keep an emergency kill
-   switch; run destructive smoke exclusively against isolated disposable
-   userData/runtime roots.
-5. **Cleanup** — remove temporary shadow and deprecated migration readers only
-   after the accepted soak/downgrade window. Their presence before then is an
-   intentional rollback dependency, not permission to use them as renderer
-   authority.
+Do not collapse remaining cleanup into one release, and do not enable extra
+destructive user-data paths from a source-only verification result.
+
+1. **Shipped current rules** — Architecture’s table is SoT: origins v2 +
+   marker v3, Directory `loading / ready / incomplete / error`, and the
+   server/desktop `hard_delete` sagas. Do not claim extra user-visible
+   enablement beyond that table.
+2. **Rollback / compat** — retain deprecated readers and any rollback flag
+   for the supported downgrade window. Their presence is an intentional
+   rollback dependency, not permission to treat them as renderer authority.
+3. **Cleanup** — remove temporary shadow and deprecated migration readers
+   only after the accepted soak/downgrade window.
 
 Required release scenarios:
 
