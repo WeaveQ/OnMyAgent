@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 
 import type { SidebarSessionItem } from "../../../app/types";
+import { rememberLiveSidebarSessionsByWorkspace } from "../session-memory";
 import type { RouteWorkspace } from "./model";
 
 export type SessionLocalServerRefValue = {
@@ -50,6 +51,7 @@ export function useSessionRouteRefs(input: {
 
   useEffect(() => {
     sessionsByWorkspaceIdRef.current = input.sessionsByWorkspaceId;
+    rememberLiveSidebarSessionsByWorkspace(input.sessionsByWorkspaceId);
   }, [input.sessionsByWorkspaceId]);
 
   return {

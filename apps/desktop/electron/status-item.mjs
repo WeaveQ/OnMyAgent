@@ -10,7 +10,7 @@ import {
   STATUS_ITEM_EVENTS,
   buildStatusItemMenuSpec,
   resolveStatusItemIcon,
-  resolveStatusItemLocale,
+  resolveStatusItemLocaleFromEnvironment,
   shouldHideMainWindowOnClose,
   shouldInstallStatusItem,
   shouldQuitOnWindowAllClosed,
@@ -132,9 +132,21 @@ export function createStatusItemController(input) {
   let acceleratorOverrides = {};
 
   function buildNativeMenu() {
-    const locale = resolveStatusItemLocale(
-      typeof app.getLocale === "function" ? app.getLocale() : "en",
-    );
+    const preferred =
+      typeof app.getPreferredSystemLanguages === "function"
+        ? app.getPreferredSystemLanguages()
+        : [];
+    let timeZone = "";
+    try {
+      timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch {
+      timeZone = "";
+    }
+    const locale = resolveStatusItemLocaleFromEnvironment({
+      languages: preferred,
+      timeZone,
+      appLocale: typeof app.getLocale === "function" ? app.getLocale() : "en",
+    });
     const spec = buildStatusItemMenuSpec({
       locale,
       accelerators: acceleratorOverrides,

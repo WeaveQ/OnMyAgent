@@ -20,6 +20,49 @@ function normalizePathKey(path: string) {
   return path.replace(/[\\]+/g, "/").replace(/^\.\//, "");
 }
 
+function isSameDeliverableFile(left: OpenTarget, right: OpenTarget): boolean {
+  if (left.kind !== "file" || right.kind !== "file") return false;
+  const a = normalizePathKey(left.value).toLowerCase();
+  const b = normalizePathKey(right.value).toLowerCase();
+  if (a === b) return true;
+  const aBase = basenameOf(a).toLowerCase();
+  const bBase = basenameOf(b).toLowerCase();
+  if (aBase !== bBase) return false;
+  return a.endsWith(`/${b}`) || b.endsWith(`/${a}`) || a === aBase || b === bBase;
+}
+
+function preferDeliverableFile(left: OpenTarget, right: OpenTarget): OpenTarget {
+  const leftExists = left.exists === true;
+  const rightExists = right.exists === true;
+  if (leftExists !== rightExists) return rightExists ? right : left;
+  const leftConfidence = left.confidence ?? 0;
+  const rightConfidence = right.confidence ?? 0;
+  if (rightConfidence !== leftConfidence) {
+    return rightConfidence > leftConfidence ? right : left;
+  }
+  return normalizePathKey(right.value).length < normalizePathKey(left.value).length
+    ? right
+    : left;
+}
+
+/** Collapse relative + absolute mentions of the same space-folder file. */
+export function collapseDuplicateFileTargets(targets: OpenTarget[]): OpenTarget[] {
+  const kept: OpenTarget[] = [];
+  for (const target of targets) {
+    if (target.kind === "url") {
+      if (!kept.some((existing) => existing.id === target.id)) kept.push(target);
+      continue;
+    }
+    const index = kept.findIndex((existing) => isSameDeliverableFile(existing, target));
+    if (index < 0) {
+      kept.push(target);
+      continue;
+    }
+    kept[index] = preferDeliverableFile(kept[index]!, target);
+  }
+  return kept;
+}
+
 function fileExtension(path: string): string {
   const base = basenameOf(path).toLowerCase();
   const dot = base.lastIndexOf(".");
@@ -357,5 +400,5 @@ export function selectTurnOpenTargets(
     addVerifiedFile(declared);
   }
 
-  return Array.from(inlineTargets.values());
+  return collapseDuplicateFileTargets(Array.from(inlineTargets.values()));
 }

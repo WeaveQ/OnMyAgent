@@ -71,7 +71,7 @@ The typical structure is:
 | **+ New session** | Start another conversation with the same expert |
 | Introduction / Resources | Review the expert description and supporting material |
 | Main conversation | Collaborate across turns, reference files with `@`, and invoke skills with `/` |
-| Composer | Switch permission mode and model, as in a Home session |
+| Composer | Switch permission mode and model, as in a Home session; attach spreadsheets, PDFs, and images |
 
 ### Recommended steps
 
@@ -87,7 +87,7 @@ include the hypothesis, minimum action, and success metric.
 Write the result to notes/startup-weekly.md.
 ```
 
-5. When source material is needed, [import it into Files](/en/guide/files) and reference it with `@`.
+5. When source material is needed, attach a spreadsheet, PDF, or image in the chat, or [import it into Files](/en/guide/files) and reference it with `@`. Do not send many large files at once. Split a long text message; send a smaller file if the attachment is too large.
 6. Accept the deliverable from **Files**, where expert output can be filtered by source when attribution is available.
 
 ### Prompting tips

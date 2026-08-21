@@ -44,10 +44,12 @@ Common tabs include:
 |------|------------------|
 | Markdown, text, and code | Read in the app, with syntax or diff presentation for some formats. A `.md` file written to the workspace appears in the conversation as a **file link** (opens the file preview), not an “open artifact” pill |
 | Images | Preview in the app |
-| HTML and web deliverables | Safe preview or browser open, depending on the content |
+| HTML and web deliverables | Safe preview or browser open; scrolling works on first open |
 | Spreadsheets | In-app table preview or a system application |
-| Word, presentations, and PDF | Product preview when supported; otherwise open externally or download |
+| Word, presentations, and PDF | Product preview when supported, opened from the session file path; otherwise open externally or download |
 | Audio and video | Native media preview or a system player |
+
+Files in a space session can be previewed. The same deliverable should not appear as two cards; if it does, refresh the session or open the original from Files.
 
 A successful preview does not prove that the content is correct. Reopen important documents, spreadsheets, and presentations in an independent application, then inspect page count, formulas, fonts, charts, and media playback.
 
