@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   expertPackageMatchesAgentId,
   filterLocalShelfExperts,
+  filterMyExperts,
   isLocalShelfPackage,
   mergeLocalShelfWithConversations,
 } from "../src/react-app/domains/plugins/expert-marketplace/data";
@@ -37,15 +38,20 @@ function stub(
 }
 
 describe("local expert shelf filter", () => {
-  test("mine category is conditional and follows All", () => {
+  test("market categories never duplicate the dedicated My experts page", () => {
     expect(
-      expertMarketplaceCategories(false).map((category) => category.id),
+      expertMarketplaceCategories().map((category) => category.id),
     ).not.toContain("mine");
-    expect(
-      expertMarketplaceCategories(true)
-        .slice(0, 3)
-        .map((category) => category.id),
-    ).toEqual(["all", "mine", "01-OPC"]);
+  });
+
+  test("My experts contains only user-created or imported packages", () => {
+    const experts = [
+      stub({ id: "mine:mine", packageName: "mine", source: "mine" }),
+      stub({ id: "summoned:summoned", packageName: "summoned", source: "installed" }),
+      stub({ id: "builtin:builtin", packageName: "builtin", source: "builtin" }),
+    ];
+
+    expect(filterMyExperts(experts).map((expert) => expert.packageName)).toEqual(["mine"]);
   });
 
   test("package matcher embeds packageName in session agent ids", () => {

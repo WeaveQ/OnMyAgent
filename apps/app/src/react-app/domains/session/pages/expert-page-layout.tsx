@@ -76,7 +76,6 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
     editableExpertIds,
     expertDirectoryIdentity,
     handleChatWithSkill,
-    handleCreatedOrImportedExpert,
     handleCreateCurrentAgentSession,
     handleCreateSkill,
     handleEditExpert,
@@ -178,9 +177,6 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
     expertDeleteConfirmLabel,
     expertDeleteMessage,
     expertDeleteTitle,
-    deletePackageOptionVisible,
-    deletePackageSelected,
-    setDeletePackageSelected,
     renameBusy,
     renameOpen,
     renameTitle,
@@ -303,7 +299,6 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
                         activeExpertAgentIds={storeExpertShelf.activeExpertAgentIds}
                         onActiveTabChange={setStoreActiveTab}
                         onSummonMarketplaceExpert={handleStartMarketplaceExpert}
-                        onImportedAgent={handleCreatedOrImportedExpert}
                         onCreateExpert={openExpertCreation}
                         onDeleteExpert={handleDeleteMarketplaceExpert}
                         onEditExpert={handleEditMarketplaceExpert}
@@ -578,9 +573,6 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
         expertDeleteTitle={expertDeleteTitle}
         expertDeleteMessage={expertDeleteMessage}
         expertDeleteConfirmLabel={expertDeleteConfirmLabel}
-        deletePackageOptionVisible={deletePackageOptionVisible}
-        deletePackageSelected={deletePackageSelected}
-        setDeletePackageSelected={setDeletePackageSelected}
         confirmDelete={confirmDelete}
         closeDeleteModal={closeDeleteModal}
         customConnectorOpen={customConnectorOpen}

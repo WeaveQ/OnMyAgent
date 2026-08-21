@@ -47,7 +47,6 @@ export type ExpertGroupDeleteTarget = {
   source?: "mine" | "installed";
   sessionDirectories?: Record<string, string>;
   deletePackage: boolean;
-  allowPackageDelete?: boolean;
   operationId: string;
 };
 

@@ -9,12 +9,10 @@ import { isElectronRuntime } from "../../../../app/utils";
 import { t } from "../../../../i18n";
 import {
   buildImportedMineExpertSeed,
-  buildSavedExpertPendingContext,
   persistImportedMineExpert,
   pickAndExportMineExpertPackage,
   refreshExpertPackageQuery,
 } from "../../agents";
-import type { PendingAgentContext } from "../../agents";
 import { useStatusToasts } from "../../shell-feedback";
 import type { ExpertPackageImportFailureCode } from "@onmyagent/types/desktop-ipc";
 import type { ExpertMarketplaceEntry } from "../../plugins";
@@ -26,9 +24,7 @@ function failureCopy(code: ExpertPackageImportFailureCode): string {
   return t("store.import_expert_invalid");
 }
 
-export function useImportLocalExpert(options: {
-  onImportedAgent?: (agent: PendingAgentContext) => void;
-} = {}) {
+export function useImportLocalExpert() {
   const { showToast } = useStatusToasts();
   const pendingPath = useRef<string | null>(null);
   const [overwriteName, setOverwriteName] = useState<string | null>(null);
@@ -64,14 +60,9 @@ export function useImportLocalExpert(options: {
           return;
         }
         let registered = true;
-        let importedAgent: PendingAgentContext | null = null;
         try {
-          const persisted = await persistImportedMineExpert(
+          await persistImportedMineExpert(
             buildImportedMineExpertSeed(result),
-          );
-          importedAgent = buildSavedExpertPendingContext(
-            persisted.agent,
-            persisted.registry,
           );
         } catch (error) {
           registered = false;
@@ -90,7 +81,6 @@ export function useImportLocalExpert(options: {
               : undefined,
           tone: !registered || missing.length > 0 ? "warning" : "success",
         });
-        if (registered && importedAgent) options.onImportedAgent?.(importedAgent);
       } catch (error) {
         showToast({
           title: t("store.import_expert_failed"),
@@ -101,7 +91,7 @@ export function useImportLocalExpert(options: {
         setBusy(false);
       }
     },
-    [options.onImportedAgent, showToast],
+    [showToast],
   );
 
   const pickAndImport = useCallback(

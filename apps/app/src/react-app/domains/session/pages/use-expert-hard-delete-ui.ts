@@ -18,7 +18,6 @@ export type ExpertHardDeleteTarget = {
   source?: "mine" | "installed";
   sessionDirectories?: Record<string, string>;
   deletePackage?: boolean;
-  allowPackageDelete?: boolean;
 };
 
 function shortPackageNameFromAgentId(agentId: string): string {
@@ -62,13 +61,13 @@ function collectDeleteSessionState(groups: readonly AgentConversationGroup[]): {
   return { sessionIds, sessionDirectories };
 }
 
-/** Mine shelf: self-created and summoned installs. Catalog cards stay undeletable. */
+/** My experts shelf: only user-created/imported packages are permanently deletable. */
 export function resolveMarketplaceExpertHardDeleteTarget(input: {
   expert: ExpertMarketplaceEntry;
   conversationGroups: readonly AgentConversationGroup[];
   registry: AgentRegistry | null;
 }): ExpertHardDeleteTarget | null {
-  if (input.expert.source !== "mine" && input.expert.source !== "installed") return null;
+  if (input.expert.source !== "mine") return null;
   const packageName = input.expert.packageName.trim();
   const matchedGroups = input.conversationGroups.filter((group) =>
     expertDeleteIdentityEquals(input.expert, group.agentId),
@@ -93,8 +92,7 @@ export function resolveMarketplaceExpertHardDeleteTarget(input: {
     name: input.expert.displayName.trim() || packageName || agentId,
     sessionIds,
     source: input.expert.source,
-    deletePackage: false,
-    allowPackageDelete: input.expert.source === "mine",
+    deletePackage: true,
     ...(packageName ? { packageName } : {}),
     ...(Object.keys(sessionDirectories).length > 0 ? { sessionDirectories } : {}),
   };
@@ -112,7 +110,6 @@ export function useExpertHardDeleteUi(input: {
     source?: "mine" | "installed";
     sessionDirectories?: Record<string, string>;
     deletePackage: boolean;
-    allowPackageDelete?: boolean;
     operationId: string;
   }) => void;
 }) {
@@ -135,10 +132,8 @@ export function useExpertHardDeleteUi(input: {
         ...(packageName ? { packageName } : {}),
         ...(target.source ? { source: target.source } : {}),
         ...(target.sessionDirectories ? { sessionDirectories: target.sessionDirectories } : {}),
-        // Sidebar deletion is session cleanup. Package removal is opt-in only
-        // from the marketplace card flow and is injected at confirm time.
+        // Sidebar deletion keeps the package; My experts deletion always removes it.
         deletePackage: target.deletePackage ?? false,
-        ...(target.allowPackageDelete ? { allowPackageDelete: true } : {}),
         operationId,
       });
     },

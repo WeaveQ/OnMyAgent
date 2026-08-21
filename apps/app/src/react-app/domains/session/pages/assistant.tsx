@@ -330,7 +330,7 @@ export function AssistantPage(props: AssistantPageProps) {
     onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
     onNavigateToMode: props.onNavigateToMode,
   });
-  const handleImportedExpert = useCallback(
+  const handleCreatedExpert = useCallback(
     (pending: PendingAgentContext) =>
       startPendingExpertInWorkspace({
         pending,
@@ -353,7 +353,7 @@ export function AssistantPage(props: AssistantPageProps) {
     registry: agentRegistry,
     conversationGroups: storeExpertGroups,
     showToast,
-    onCreatedAgent: handleImportedExpert,
+    onCreatedAgent: handleCreatedExpert,
   });
   useEffect(() => subscribeOpenKnowledgeNote(() => openRailView("knowledgeBase")), [openRailView]);
   const [agentSearch, setAgentSearch] = useState("");
@@ -1380,7 +1380,6 @@ export function AssistantPage(props: AssistantPageProps) {
                         activeExpertAgentIds={storeExpertShelf.activeExpertAgentIds}
                         onActiveTabChange={setStoreActiveTab}
                         onSummonMarketplaceExpert={handleSummonMarketplaceExpert}
-                        onImportedAgent={handleImportedExpert}
                         onCreateExpert={handleCreateExpert}
                         onDeleteExpert={handleDeleteMarketplaceExpert}
                         onEditExpert={handleEditMarketplaceExpert}

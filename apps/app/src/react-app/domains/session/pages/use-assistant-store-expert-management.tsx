@@ -48,9 +48,6 @@ export function useAssistantStoreExpertManagement(input: {
           title={deletion.expertDeleteTitle}
           message={deletion.expertDeleteMessage}
           confirmLabel={deletion.expertDeleteConfirmLabel}
-          packageOptionVisible={deletion.deletePackageOptionVisible}
-          packageSelected={deletion.deletePackageSelected}
-          onPackageSelectedChange={deletion.setDeletePackageSelected}
           onConfirm={() => void deletion.confirmDelete()}
           onCancel={deletion.closeDeleteModal}
         />

@@ -37,9 +37,6 @@ export type ExpertPageModalsProps = {
   expertDeleteTitle: string;
   expertDeleteMessage: string;
   expertDeleteConfirmLabel: string;
-  deletePackageOptionVisible: boolean;
-  deletePackageSelected: boolean;
-  setDeletePackageSelected: (selected: boolean) => void;
   confirmDelete: () => void | Promise<void>;
   closeDeleteModal: () => void;
   customConnectorOpen: boolean;
@@ -73,9 +70,6 @@ export function ExpertPageModals({
   expertDeleteTitle,
   expertDeleteMessage,
   expertDeleteConfirmLabel,
-  deletePackageOptionVisible,
-  deletePackageSelected,
-  setDeletePackageSelected,
   confirmDelete,
   closeDeleteModal,
   customConnectorOpen,
@@ -125,9 +119,6 @@ export function ExpertPageModals({
         title={expertDeleteTitle}
         message={expertDeleteMessage}
         confirmLabel={expertDeleteConfirmLabel}
-        packageOptionVisible={deletePackageOptionVisible}
-        packageSelected={deletePackageSelected}
-        onPackageSelectedChange={setDeletePackageSelected}
         onConfirm={() => void confirmDelete()}
         onCancel={closeDeleteModal}
       />

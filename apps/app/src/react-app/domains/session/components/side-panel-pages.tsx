@@ -43,13 +43,12 @@ import {
   PluginsPage,
   SkillsMarketplacePage,
   type ArtifactPluginPromptSelection,
-  filterLocalShelfExperts,
+  filterMyExperts,
   type ExpertMarketplaceEntry,
   type ExpertMarketplaceSummonHandler,
   type ExpertMarketplaceView,
 } from "@/react-app/domains/plugins";
 import { useStatusToasts } from "../../shell-feedback";
-import type { PendingAgentContext } from "../../agents";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
 import { useImportLocalExpert } from "./use-import-local-expert";
 import { PROJECTS_PLACEHOLDER_ASSET } from "@/react-app/design-system/empty-state-assets";
@@ -362,7 +361,6 @@ export function StorePage(props: {
   onCreateExpert?: () => void;
   onDeleteExpert?: (expert: ExpertMarketplaceEntry) => void;
   onEditExpert?: (expert: ExpertMarketplaceEntry) => void;
-  onImportedAgent?: (agent: PendingAgentContext) => void;
   /** Leave store → assistant office home + seed create-skill draft (new task). */
   onCreateSkill?: () => void;
   /** Open chat with a skill slash chip for usage. */
@@ -374,9 +372,7 @@ export function StorePage(props: {
   onOpenCustomConnector?: () => void;
 }) {
   const { showToast } = useStatusToasts();
-  const expertImport = useImportLocalExpert({
-    onImportedAgent: props.onImportedAgent,
-  });
+  const expertImport = useImportLocalExpert();
   const [uncontrolledActiveTab, setUncontrolledActiveTab] =
     useState<StorePrimaryTab>(props.activeTab ?? "experts");
   const [expertView, setExpertView] = useState<ExpertMarketplaceView>("market");
@@ -386,14 +382,7 @@ export function StorePage(props: {
   const [skillImportOpen, setSkillImportOpen] = useState(false);
   const [localCustomConnectorOpen, setLocalCustomConnectorOpen] = useState(false);
   const activeTab = props.activeTab ?? uncontrolledActiveTab;
-  const shelfExperts = useMemo(
-    () =>
-      filterLocalShelfExperts(
-        props.myExperts ?? [],
-        props.activeExpertAgentIds,
-      ),
-    [props.activeExpertAgentIds, props.myExperts],
-  );
+  const myExperts = useMemo(() => filterMyExperts(props.myExperts ?? []), [props.myExperts]);
   const openCustomConnector =
     props.onOpenCustomConnector ?? (() => setLocalCustomConnectorOpen(true));
   const customConnectorControlled = Boolean(props.onOpenCustomConnector);
@@ -477,9 +466,9 @@ export function StorePage(props: {
               >
                 <Users className="size-3.5 shrink-0 text-dls-text" strokeWidth={2} aria-hidden />
                 {t("session.my_experts")}
-                {shelfExperts.length > 0 ? (
+                {myExperts.length > 0 ? (
                   <CountBadge size="dot" className="ml-0.5">
-                    {shelfExperts.length}
+                    {myExperts.length}
                   </CountBadge>
                 ) : null}
               </Button>

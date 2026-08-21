@@ -25,7 +25,11 @@ import { isDesktopRuntime } from "@/app/utils";
 import { t } from "../../../../i18n";
 import { FilterChip } from "@/components/ui/action-row";
 import { expertMarketplaceCategories } from "./categories";
-import { BUILTIN_MARKETPLACE_EXPERTS, filterLocalShelfExperts } from "./data";
+import {
+  BUILTIN_MARKETPLACE_EXPERTS,
+  filterLocalShelfExperts,
+  filterMyExperts,
+} from "./data";
 import type { ExpertMarketplaceEntry, ExpertMarketplaceSummonHandler } from "./types";
 
 export type ExpertMarketplaceView = "market" | "mine" | "company";
@@ -88,7 +92,7 @@ function canDeleteShelfExpert(
   expert: Pick<ExpertMarketplaceEntry, "source">,
   onDelete?: (expert: ExpertMarketplaceEntry) => void,
 ): boolean {
-  return Boolean(onDelete) && (expert.source === "mine" || expert.source === "installed");
+  return Boolean(onDelete) && expert.source === "mine";
 }
 
 function canMineExpertPackageAction(
@@ -284,14 +288,8 @@ export function ExpertMarketplacePage(props: {
   const [companyExperts, setCompanyExperts] = useState<Array<{ id: string; name: string }>>([]);
   const [companyHint, setCompanyHint] = useState<string | null>(null);
   const [companyConnected, setCompanyConnected] = useState(false);
-  const mineExperts = useMemo(
-    () => props.myExperts.filter((expert) => expert.source === "mine"),
-    [props.myExperts],
-  );
-  const visibleCategories = useMemo(
-    () => expertMarketplaceCategories(mineExperts.length > 0),
-    [mineExperts.length],
-  );
+  const mineExperts = useMemo(() => filterMyExperts(props.myExperts), [props.myExperts]);
+  const visibleCategories = useMemo(() => expertMarketplaceCategories(), []);
 
   useEffect(() => {
     if (view !== "company") return undefined;
@@ -335,12 +333,9 @@ export function ExpertMarketplacePage(props: {
 
   const filteredExperts = useMemo(() => {
     const normalizedQuery = (props.query ?? "").trim().toLowerCase();
-    const experts =
-      categoryId === "mine" ? mineExperts : BUILTIN_MARKETPLACE_EXPERTS;
-    return experts.filter((expert) => {
+    return BUILTIN_MARKETPLACE_EXPERTS.filter((expert) => {
       if (
         categoryId !== "all" &&
-        categoryId !== "mine" &&
         !expert.categoryIds.includes(categoryId)
       ) {
         return false;
@@ -358,11 +353,7 @@ export function ExpertMarketplacePage(props: {
         .toLowerCase();
       return text.includes(normalizedQuery);
     });
-  }, [categoryId, mineExperts, props.query]);
-
-  useEffect(() => {
-    if (categoryId === "mine" && mineExperts.length === 0) setCategoryId("all");
-  }, [categoryId, mineExperts.length]);
+  }, [categoryId, props.query]);
 
   // Local shelf ("已召唤专家"): self-created + installed packages that match
   // sidebar session agents — not every pre-seeded package under experts/installed.
@@ -469,7 +460,7 @@ export function ExpertMarketplacePage(props: {
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             {/* Same rhythm as skills installed: tight top, no second page title. */}
             <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-3">
-              {shelfExperts.length === 0 ? (
+              {mineExperts.length === 0 ? (
                 <div className="flex min-h-[min(22rem,60vh)] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-dls-border/80 bg-dls-surface/60 px-6 py-10 text-center">
                   <p className="text-sm font-medium text-dls-text">
                     {t("session.my_experts_empty_title")}
@@ -527,7 +518,7 @@ export function ExpertMarketplacePage(props: {
                 </div>
               ) : (
                 <div className={EXPERT_MINE_CARD_GRID}>
-                  {shelfExperts.map((expert) => (
+                  {mineExperts.map((expert) => (
                     <ExpertCard
                       key={expert.id}
                       expert={expert}

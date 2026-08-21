@@ -36,11 +36,11 @@ export default {
   "session.surface_crash_body": "Something went wrong while opening this screen. Try again, or reload the app if it keeps failing.",
   "session.surface_crash_retry": "Try again",
   "session.surface_crash_reload": "Reload app",
-  "session.my_experts": "Summoned experts",
+  "session.my_experts": "My experts",
   "session.my_experts_count": "{count} total",
-  "session.my_experts_empty_title": "No summoned experts yet",
+  "session.my_experts_empty_title": "No experts of your own yet",
   "session.my_experts_empty_desc":
-    "Summon an expert from All experts, import a package, or tap Create my expert to build your own.",
+    "Import an expert package or create your own. After importing, you decide when to summon it.",
   "session.search_experts_placeholder": "Search expert title or description",
   "session.search_tasks_placeholder": "Search task title",
   "session.create_expert": "Create my expert",
@@ -81,7 +81,6 @@ export default {
   "session.open_chat": "Chat",
   "session.open_chat_with": "Chat with {name}",
   "session.expert_marketplace_category_all": "All",
-  "session.expert_marketplace_category_mine": "Mine",
   "session.expert_marketplace_category_opc": "OPC Solo Company",
   "session.expert_marketplace_category_product_development": "Product R&D",
   "session.expert_marketplace_category_game_spatial": "Game & spatial",
@@ -160,8 +159,6 @@ export default {
     "This permanently deletes all sessions for expert “{name}” and the workspace files they generated. The expert package will be kept.",
   "session.delete_expert_sessions_generic":
     "This permanently deletes this expert's sessions and the workspace files they generated. The expert package will be kept.",
-  "session.delete_expert_package_option":
-    "Also delete expert package (cannot be undone)",
   "session.delete_retry": "Retry cleanup",
   "session.delete_partial_message": "Cleanup is incomplete ({error}). Retry to resume safely.",
   "session.badge_cloud": "Cloud",

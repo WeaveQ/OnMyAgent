@@ -250,6 +250,13 @@ export function isLocalShelfPackage(
   return entry.source === "mine" || entry.source === "installed";
 }
 
+/** The dedicated My experts page contains only user-created/imported packages. */
+export function filterMyExperts(
+  experts: readonly ExpertMarketplaceEntry[],
+): ExpertMarketplaceEntry[] {
+  return experts.filter((expert) => expert.source === "mine");
+}
+
 /**
  * Match a local package to a live expert agent id (session / sidebar group).
  * Session agent ids often embed packageName, e.g.
