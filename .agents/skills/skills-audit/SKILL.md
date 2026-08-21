@@ -27,7 +27,7 @@ find -L .agents/skills -name SKILL.md -exec wc -l {} \; | sort -rn
 Confirm tool symlinks still point at the source tree:
 
 ```bash
-readlink .codex/skills .claude/skills .grok/skills
+readlink .codex/skills .claude/skills .grok/skills .cursor/skills
 # expected: ../.agents/skills (each)
 ```
 

@@ -104,6 +104,12 @@ vendor/opencode/
 .claude/*
 # Track shared skill symlink (source of truth is .agents/skills)
 !.claude/skills
+.cursor/*
+!.cursor/skills
+!.cursor/rules/
+!.cursor/rules/onmyagent.mdc
+!.cursor/agents/
+!.cursor/agents/design-system-optimizer.md
 .onmyagent/*
 .gitnexus
 
