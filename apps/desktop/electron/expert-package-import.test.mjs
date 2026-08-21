@@ -48,6 +48,17 @@ async function writeMinimalPackage(packageDir, packageName = path.basename(packa
   await writeFile(path.join(packageDir, "knowledge", "note.md"), "context\n", "utf8");
 }
 
+const TINY_PNG_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+
+async function writePackageAvatar(packageDir) {
+  await mkdir(path.join(packageDir, "avatars"), { recursive: true });
+  await writeFile(
+    path.join(packageDir, "avatars", "avatar.png"),
+    Buffer.from(TINY_PNG_BASE64, "base64"),
+  );
+}
+
 function importDeps(root) {
   return {
     marketplaceRoot: path.join(root, "my-experts"),
@@ -108,6 +119,45 @@ test("importExpertPackageFromSource copies a folder into my-experts", async () =
         "context\n",
       );
     }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("importExpertPackageFromSource returns the copied package avatar", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "onmyagent-expert-avatar-"));
+  try {
+    const source = path.join(root, "source", "review-helper");
+    await writeMinimalPackage(source);
+    await writePackageAvatar(source);
+
+    const result = await importExpertPackageFromSource({
+      sourcePath: source,
+      ...importDeps(root),
+    });
+
+    assert.equal(result.ok, true);
+    if (result.ok) {
+      assert.equal(result.avatarDataUrl, `data:image/png;base64,${TINY_PNG_BASE64}`);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("importExpertPackageFromSource returns null when the package has no avatar", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "onmyagent-expert-no-avatar-"));
+  try {
+    const source = path.join(root, "source", "review-helper");
+    await writeMinimalPackage(source);
+
+    const result = await importExpertPackageFromSource({
+      sourcePath: source,
+      ...importDeps(root),
+    });
+
+    assert.equal(result.ok, true);
+    if (result.ok) assert.equal(result.avatarDataUrl, null);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

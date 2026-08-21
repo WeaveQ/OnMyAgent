@@ -69,6 +69,66 @@ export type ImportedMineExpertSeed = {
   customAvatarDataUrl?: string | null;
 };
 
+export type ImportedMineExpertPackageSeedSource = {
+  path: string;
+  packageName: string;
+  displayName: string;
+  description: string;
+  declaredSkills: readonly string[];
+  rolePrompt: string;
+  memory: string;
+  avatarDataUrl: string | null;
+};
+
+export type MineExpertPackageAvatarSource = {
+  packageName: string;
+  source: "mine" | "installed";
+  avatarUrl: string | null;
+};
+
+export function buildImportedMineExpertSeed(
+  source: ImportedMineExpertPackageSeedSource,
+): ImportedMineExpertSeed {
+  return {
+    packageName: source.packageName,
+    packagePath: source.path,
+    displayName: source.displayName || source.packageName,
+    description: source.description || "",
+    skillIds: source.declaredSkills,
+    userNote: source.rolePrompt,
+    agentMemory: source.memory,
+    customAvatarDataUrl: source.avatarDataUrl ?? null,
+  };
+}
+
+/** Keep imported registry records aligned with the package directory SoT. */
+export function reconcileImportedMineExpertAvatars(
+  registry: AgentRegistry,
+  packages: readonly MineExpertPackageAvatarSource[],
+): AgentRegistry {
+  const avatarByPackageName = new Map(
+    packages
+      .filter((entry) => entry.source === "mine")
+      .map((entry) => [entry.packageName, entry.avatarUrl] as const),
+  );
+  let changed = false;
+  const agents = registry.agents.map((agent) => {
+    const packageName = agent.marketplacePackageName?.trim();
+    if (
+      agent.marketplaceSource !== "mine" ||
+      !packageName ||
+      !avatarByPackageName.has(packageName)
+    ) {
+      return agent;
+    }
+    const avatarDataUrl = avatarByPackageName.get(packageName) ?? null;
+    if (agent.customAvatarDataUrl === avatarDataUrl) return agent;
+    changed = true;
+    return { ...agent, customAvatarDataUrl: avatarDataUrl };
+  });
+  return changed ? { ...registry, agents } : registry;
+}
+
 export type RegisterImportedMineExpertInput = ImportedMineExpertSeed & {
   registry: AgentRegistry;
   nowIso: string;

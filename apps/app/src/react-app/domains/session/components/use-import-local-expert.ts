@@ -8,6 +8,7 @@ import {
 import { isElectronRuntime } from "../../../../app/utils";
 import { t } from "../../../../i18n";
 import {
+  buildImportedMineExpertSeed,
   buildSavedExpertPendingContext,
   persistImportedMineExpert,
   pickAndExportMineExpertPackage,
@@ -65,15 +66,9 @@ export function useImportLocalExpert(options: {
         let registered = true;
         let importedAgent: PendingAgentContext | null = null;
         try {
-          const persisted = await persistImportedMineExpert({
-            packageName: result.packageName,
-            packagePath: result.path,
-            displayName: result.displayName || result.packageName,
-            description: result.description || "",
-            skillIds: result.declaredSkills,
-            userNote: result.rolePrompt,
-            agentMemory: result.memory,
-          });
+          const persisted = await persistImportedMineExpert(
+            buildImportedMineExpertSeed(result),
+          );
           importedAgent = buildSavedExpertPendingContext(
             persisted.agent,
             persisted.registry,

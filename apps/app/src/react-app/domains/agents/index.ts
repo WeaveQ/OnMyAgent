@@ -113,11 +113,13 @@ export {
   serializeUserAgentRegistry,
 } from "./agent-registry";
 export {
+  buildImportedMineExpertSeed,
   collectCreationEditableIdentityKeys,
   buildSavedExpertPendingContext,
   findCreationEditableAgent,
   findCreationEditableAgentByPackageName,
   isCreationExpertEditable,
+  reconcileImportedMineExpertAvatars,
   registerImportedMineExpert,
   updateExpertRecordFromDraft,
   type ImportedMineExpertSeed,

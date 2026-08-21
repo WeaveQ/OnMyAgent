@@ -174,6 +174,7 @@ export type ExpertPackageImportResult =
       description: string;
       rolePrompt: string;
       memory: string;
+      avatarDataUrl: string | null;
     }
   | {
       ok: false;

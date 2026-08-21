@@ -221,7 +221,11 @@ export function buildPendingAgentFromRecord(
 ): PendingAgentContext | null {
   const customAvatarDataUrl =
     "customAvatarDataUrl" in agent ? (agent.customAvatarDataUrl ?? null) : null;
-  const { url: avatarUrl, background: avatarBackground } = resolveAgentAvatarUrl(
+  const useNameInitialAvatar =
+    "marketplaceSource" in agent &&
+    agent.marketplaceSource === "mine" &&
+    !customAvatarDataUrl?.trim();
+  const { url: resolvedAvatarUrl, background: avatarBackground } = resolveAgentAvatarUrl(
     {
       avatarStyle: agent.avatarStyle,
       avatarOptionId: agent.avatarOptionId,
@@ -229,6 +233,7 @@ export function buildPendingAgentFromRecord(
     },
     registry,
   );
+  const avatarUrl = useNameInitialAvatar ? null : resolvedAvatarUrl;
   const modelRef = isValidSdkModelRef(agent.sdkProviderID, agent.sdkModelID)
     ? { providerID: agent.sdkProviderID!, modelID: agent.sdkModelID! }
     : friendlyModelNameToModelRef(agent.modelProvider, agent.model);
