@@ -114,6 +114,7 @@ export {
 } from "./agent-registry";
 export {
   collectCreationEditableIdentityKeys,
+  buildSavedExpertPendingContext,
   findCreationEditableAgent,
   findCreationEditableAgentByPackageName,
   isCreationExpertEditable,

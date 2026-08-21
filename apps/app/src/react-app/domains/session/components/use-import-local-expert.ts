@@ -8,10 +8,12 @@ import {
 import { isElectronRuntime } from "../../../../app/utils";
 import { t } from "../../../../i18n";
 import {
+  buildSavedExpertPendingContext,
   persistImportedMineExpert,
   pickAndExportMineExpertPackage,
   refreshExpertPackageQuery,
 } from "../../agents";
+import type { PendingAgentContext } from "../../agents";
 import { useStatusToasts } from "../../shell-feedback";
 import type { ExpertPackageImportFailureCode } from "@onmyagent/types/desktop-ipc";
 import type { ExpertMarketplaceEntry } from "../../plugins";
@@ -23,14 +25,19 @@ function failureCopy(code: ExpertPackageImportFailureCode): string {
   return t("store.import_expert_invalid");
 }
 
-export function useImportLocalExpert() {
+export function useImportLocalExpert(options: {
+  onImportedAgent?: (agent: PendingAgentContext) => void;
+} = {}) {
   const { showToast } = useStatusToasts();
   const pendingPath = useRef<string | null>(null);
   const [overwriteName, setOverwriteName] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const runImport = useCallback(
-    async (sourcePath: string, options: { overwrite?: boolean; asCopy?: boolean } = {}) => {
+    async (
+      sourcePath: string,
+      importOptions: { overwrite?: boolean; asCopy?: boolean } = {},
+    ) => {
       if (!isElectronRuntime()) {
         showToast({ title: t("store.import_expert_desktop_only"), tone: "info" });
         return;
@@ -39,8 +46,8 @@ export function useImportLocalExpert() {
       try {
         const result = await importExpertPackage({
           sourcePath,
-          overwrite: options.overwrite === true,
-          asCopy: options.asCopy === true,
+          overwrite: importOptions.overwrite === true,
+          asCopy: importOptions.asCopy === true,
         });
         if (!result.ok) {
           if (result.code === "already_exists") {
@@ -56,8 +63,9 @@ export function useImportLocalExpert() {
           return;
         }
         let registered = true;
+        let importedAgent: PendingAgentContext | null = null;
         try {
-          await persistImportedMineExpert({
+          const persisted = await persistImportedMineExpert({
             packageName: result.packageName,
             packagePath: result.path,
             displayName: result.displayName || result.packageName,
@@ -66,6 +74,10 @@ export function useImportLocalExpert() {
             userNote: result.rolePrompt,
             agentMemory: result.memory,
           });
+          importedAgent = buildSavedExpertPendingContext(
+            persisted.agent,
+            persisted.registry,
+          );
         } catch (error) {
           registered = false;
           console.warn("[expert-import] failed to register mine expert", error);
@@ -83,6 +95,7 @@ export function useImportLocalExpert() {
               : undefined,
           tone: !registered || missing.length > 0 ? "warning" : "success",
         });
+        if (registered && importedAgent) options.onImportedAgent?.(importedAgent);
       } catch (error) {
         showToast({
           title: t("store.import_expert_failed"),
@@ -93,7 +106,7 @@ export function useImportLocalExpert() {
         setBusy(false);
       }
     },
-    [showToast],
+    [options.onImportedAgent, showToast],
   );
 
   const pickAndImport = useCallback(

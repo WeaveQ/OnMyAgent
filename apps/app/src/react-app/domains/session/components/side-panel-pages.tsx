@@ -49,6 +49,7 @@ import {
   type ExpertMarketplaceView,
 } from "@/react-app/domains/plugins";
 import { useStatusToasts } from "../../shell-feedback";
+import type { PendingAgentContext } from "../../agents";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
 import { useImportLocalExpert } from "./use-import-local-expert";
 import { PROJECTS_PLACEHOLDER_ASSET } from "@/react-app/design-system/empty-state-assets";
@@ -361,6 +362,7 @@ export function StorePage(props: {
   onCreateExpert?: () => void;
   onDeleteExpert?: (expert: ExpertMarketplaceEntry) => void;
   onEditExpert?: (expert: ExpertMarketplaceEntry) => void;
+  onImportedAgent?: (agent: PendingAgentContext) => void;
   /** Leave store → assistant office home + seed create-skill draft (new task). */
   onCreateSkill?: () => void;
   /** Open chat with a skill slash chip for usage. */
@@ -372,7 +374,9 @@ export function StorePage(props: {
   onOpenCustomConnector?: () => void;
 }) {
   const { showToast } = useStatusToasts();
-  const expertImport = useImportLocalExpert();
+  const expertImport = useImportLocalExpert({
+    onImportedAgent: props.onImportedAgent,
+  });
   const [uncontrolledActiveTab, setUncontrolledActiveTab] =
     useState<StorePrimaryTab>(props.activeTab ?? "experts");
   const [expertView, setExpertView] = useState<ExpertMarketplaceView>("market");

@@ -833,6 +833,34 @@ describe("expert marketplace UI contract", () => {
     expect(sessionStarters).toContain("initialPrompt?.trim()");
   });
 
+  test("import completion reuses the create completion handoff and auto summons", () => {
+    const importHook = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/components/use-import-local-expert.ts",
+    );
+    const storePage = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/components/side-panel-pages.tsx",
+    );
+    const expertPage = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/use-expert-page.tsx",
+    );
+    const expertLayout = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/expert-page-layout.tsx",
+    );
+    const assistantPage = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/assistant.tsx",
+    );
+
+    expect(importHook).toContain("buildSavedExpertPendingContext(");
+    expect(importHook).toContain("options.onImportedAgent?.(importedAgent)");
+    expect(storePage).toContain("onImportedAgent: props.onImportedAgent");
+    expect(expertPage).toContain("onCreatedAgent: handleCreatedOrImportedExpert");
+    expect(expertLayout).toContain(
+      "onImportedAgent={handleCreatedOrImportedExpert}",
+    );
+    expect(assistantPage).toContain("startPendingExpertInWorkspace({");
+    expect(assistantPage).toContain("onImportedAgent={handleImportedExpert}");
+  });
+
   test("vite regenerates marketplace manifests from desktop resources", () => {
     const viteConfig = readWorkspaceFile("apps/app/vite.config.ts");
 

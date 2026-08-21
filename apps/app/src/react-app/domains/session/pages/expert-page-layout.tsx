@@ -76,6 +76,7 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
     editableExpertIds,
     expertDirectoryIdentity,
     handleChatWithSkill,
+    handleCreatedOrImportedExpert,
     handleCreateCurrentAgentSession,
     handleCreateSkill,
     handleEditExpert,
@@ -303,6 +304,7 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
                         ].filter((id): id is string => Boolean(id?.trim()))}
                         onActiveTabChange={setStoreActiveTab}
                         onSummonMarketplaceExpert={handleStartMarketplaceExpert}
+                        onImportedAgent={handleCreatedOrImportedExpert}
                         onCreateExpert={openExpertCreation}
                         onDeleteExpert={handleDeleteMarketplaceExpert}
                         onEditExpert={handleEditMarketplaceExpert}

@@ -36,7 +36,10 @@ import { SessionArchivePage } from "../chat/session-page-session-archive-page";
 import { createCanvasSessionKey } from "../infinite-canvas";
 import { LazyCodeWorkspaceSidePanel, LazyInfiniteCanvasPanel } from "./lazy-session-side-panels";
 import { installSummonedMarketplaceExpert } from "@/react-app/domains/plugins";
-import { buildPendingAgentFromMarketplaceExpert } from "@/react-app/domains/agents";
+import {
+  buildPendingAgentFromMarketplaceExpert,
+  type PendingAgentContext,
+} from "@/react-app/domains/agents";
 import type { ExpertMarketplaceEntry } from "@/react-app/domains/plugins";
 
 import type { SessionAgentManagementIntent, SessionPageProps } from "./session-page-types";
@@ -135,7 +138,10 @@ import { useCustomConnectorDialog } from "./use-custom-connector-dialog";
 import { useMyExpertPackages } from "./use-my-expert-packages";
 import { useAgentPanelResize } from "./use-agent-panel-resize";
 import { useSessionPageHostState } from "./use-session-page-host-state";
-import { useSummonMarketplaceExpert } from "./use-summon-marketplace-expert";
+import {
+  startPendingExpertInWorkspace,
+  useSummonMarketplaceExpert,
+} from "./use-summon-marketplace-expert";
 import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
 import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
 import { isStreamingSessionStatus } from "../sidebar/utils";
@@ -243,6 +249,20 @@ export function AssistantPage(props: AssistantPageProps) {
     onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
     onNavigateToMode: props.onNavigateToMode,
   });
+  const handleImportedExpert = useCallback(
+    (pending: PendingAgentContext) =>
+      startPendingExpertInWorkspace({
+        pending,
+        selectedWorkspaceId: props.selectedWorkspaceId,
+        onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
+        onNavigateToMode: props.onNavigateToMode,
+      }),
+    [
+      props.onNavigateToMode,
+      props.selectedWorkspaceId,
+      props.sidebar.onCreateTaskInWorkspace,
+    ],
+  );
   useEffect(() => subscribeOpenKnowledgeNote(() => openRailView("knowledgeBase")), [openRailView]);
   const [agentSearch, setAgentSearch] = useState("");
   const [agentPanelCollapsed, setAgentPanelCollapsed] = useState(false);
@@ -1267,6 +1287,7 @@ export function AssistantPage(props: AssistantPageProps) {
                         myExperts={myExpertPackages}
                         onActiveTabChange={setStoreActiveTab}
                         onSummonMarketplaceExpert={handleSummonMarketplaceExpert}
+                        onImportedAgent={handleImportedExpert}
                         onCreateExpert={handleCreateExpert}
                         onCreateSkill={handleCreateSkill}
                         onChatWithSkill={handleChatWithSkill}
