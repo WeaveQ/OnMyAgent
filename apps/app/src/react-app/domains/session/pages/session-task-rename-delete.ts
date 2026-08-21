@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { WorkspaceSessionGroup } from "../../../../app/types";
 import { sessionTitleForId } from "../sidebar/session-chrome";
@@ -48,6 +48,7 @@ export function useSessionTaskRenameDelete<
   const [renameBusy, setRenameBusy] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const deleteBusyRef = useRef(false);
   const [sessionActionId, setSessionActionId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<
     SessionDeleteSessionTarget | TGroupDelete | null
@@ -66,10 +67,10 @@ export function useSessionTaskRenameDelete<
     setRenameOpen(false);
     setRenameBusy(false);
     setSessionActionId(null);
-    if (deleteBusy) return;
+    if (deleteBusyRef.current) return;
     setDeleteOpen(false);
     setDeleteTarget(null);
-  }, [selectedSessionId, deleteBusy]);
+  }, [selectedSessionId]);
 
   const openRenameModal = useCallback(
     (sessionId: string, title: string) => {
@@ -134,22 +135,24 @@ export function useSessionTaskRenameDelete<
     ) {
       return;
     }
+    if (deleteBusyRef.current) return;
+    deleteBusyRef.current = true;
     setDeleteBusy(true);
     try {
       await executeDelete(deleteTarget);
       setDeleteOpen(false);
       setDeleteTarget(null);
     } finally {
+      deleteBusyRef.current = false;
       setDeleteBusy(false);
     }
   }, [deleteTarget, executeDelete, onDeleteSession]);
 
   const closeDeleteModal = useCallback(() => {
-    if (!deleteBusy) {
-      setDeleteOpen(false);
-      setDeleteTarget(null);
-    }
-  }, [deleteBusy]);
+    if (deleteBusyRef.current) return;
+    setDeleteOpen(false);
+    setDeleteTarget(null);
+  }, []);
 
   const closeRenameModal = useCallback(() => {
     if (!renameBusy) setRenameOpen(false);

@@ -6,10 +6,18 @@ import {
   resolveMarketplaceExpertHardDeleteTarget,
 } from "../src/react-app/domains/session/pages/use-expert-hard-delete-ui";
 import {
+  awaitExpertDeleteStep,
   isExpertDeleteTargetNotFound,
   resolveExpertDeleteSessionDirectory,
   resolveExpertPackageDeleteMarketplace,
+  runExpertHardDelete,
+  realExpertDeleteSessionIds,
+  shouldContinueExpertDeleteAfterServerError,
+  shouldProceedWithDesktopPackageDelete,
+  shouldSkipServerExpertSessionDelete,
 } from "../src/react-app/domains/session/pages/use-expert-session-delete";
+import type { ExpertPackageDeleteInput, ExpertPackageDeleteResult } from "@onmyagent/types/desktop-ipc";
+import type { ExpertDeleteRequest, ExpertDeleteResult } from "@onmyagent/types/server";
 import type { ExpertMarketplaceEntry } from "../src/react-app/domains/plugins/expert-marketplace/types";
 import type { AgentConversationGroup } from "../src/react-app/domains/session/sidebar/conversation-model";
 
@@ -249,5 +257,185 @@ describe("expert delete 404", () => {
     ).toBe(false);
     expect(isExpertDeleteTargetNotFound(new Error("expert_delete_target_not_found"))).toBe(true);
     expect(isExpertDeleteTargetNotFound(new Error("other"))).toBe(false);
+  });
+
+  test("continues desktop uninstall when leftover sessions have no origins", () => {
+    const missing = new OnMyAgentServerError(404, "expert_delete_target_not_found", "missing");
+    expect(shouldContinueExpertDeleteAfterServerError(missing)).toBe(true);
+    expect(shouldSkipServerExpertSessionDelete([])).toBe(false);
+    expect(realExpertDeleteSessionIds([])).toEqual([]);
+    expect(shouldSkipServerExpertSessionDelete(["draft:ws:agent-3444"])).toBe(true);
+    expect(shouldSkipServerExpertSessionDelete(["ses_real"])).toBe(false);
+    expect(
+      shouldProceedWithDesktopPackageDelete({
+        source: "mine",
+        sessionIds: ["ses_leftover"],
+        serverMissed: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldProceedWithDesktopPackageDelete({
+        source: "mine",
+        sessionIds: [],
+        serverMissed: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldProceedWithDesktopPackageDelete({
+        source: "installed",
+        sessionIds: ["ses_1"],
+        serverMissed: false,
+        serverResult: { state: "failed", steps: [] },
+      }),
+    ).toBe(false);
+  });
+
+  test("awaitExpertDeleteStep rejects hung server/desktop work so busy can clear", async () => {
+    await expect(
+      awaitExpertDeleteStep(new Promise(() => undefined), 20, "expert_delete_server"),
+    ).rejects.toThrow("expert_delete_server_timeout");
+    await expect(awaitExpertDeleteStep(Promise.resolve("ok"), 50, "expert_delete_desktop")).resolves.toBe(
+      "ok",
+    );
+  });
+});
+
+function completedPackage(input: ExpertPackageDeleteInput): ExpertPackageDeleteResult {
+  return {
+    ok: true,
+    operationId: input.operationId,
+    packageName: input.packageName,
+    state: "completed",
+    steps: [{ target: input.marketplace, state: "completed" }],
+    removedSkills: [],
+  };
+}
+
+const leftoverHardDelete = {
+  workspaceId: "ws_local",
+  operationId: "op-3444",
+  agentId: "3444:3444",
+  packageName: "3444",
+  marketplace: "my-experts" as const,
+  sessionIds: ["ses_leftover_3444"],
+  source: "mine" as const,
+};
+
+describe("runExpertHardDelete shipped RPCs", () => {
+  test("leftover sessionIds + 404 still invoke deleteExpertPackage", async () => {
+    const expertCalls: Array<[string, ExpertDeleteRequest]> = [];
+    const packageCalls: ExpertPackageDeleteInput[] = [];
+    const result = await runExpertHardDelete(leftoverHardDelete, {
+      deleteExpert: async (workspaceId, request) => {
+        expertCalls.push([workspaceId, request]);
+        throw new OnMyAgentServerError(404, "expert_delete_target_not_found", "missing origins");
+      },
+      deleteExpertPackage: async (input) => {
+        packageCalls.push(input);
+        return completedPackage(input);
+      },
+    });
+    expect(expertCalls.map(([, request]) => request.sessionIds)).toEqual([
+      ["ses_leftover_3444"],
+      [],
+    ]);
+    expect(expertCalls[0]?.[0]).toBe("ws_local");
+    expect(packageCalls).toEqual([
+      {
+        operationId: "op-3444",
+        agentId: "3444:3444",
+        packageName: "3444",
+        marketplace: "my-experts",
+      },
+    ]);
+    expect(result.serverMissed).toBe(true);
+    expect(result.desktop.state).toBe("completed");
+  });
+
+  test("hung deleteExpert times out so busy can clear without calling deleteExpertPackage", async () => {
+    const packageCalls: ExpertPackageDeleteInput[] = [];
+    await expect(
+      runExpertHardDelete(leftoverHardDelete, {
+        timeoutMs: 25,
+        deleteExpert: () => new Promise<ExpertDeleteResult>(() => undefined),
+        deleteExpertPackage: async (input) => {
+          packageCalls.push(input);
+          return completedPackage(input);
+        },
+      }),
+    ).rejects.toThrow("expert_delete_server_timeout");
+    expect(packageCalls).toEqual([]);
+  });
+
+  test("hung deleteExpertPackage after leftover 404 times out so busy can clear", async () => {
+    const expertCalls: Array<[string, ExpertDeleteRequest]> = [];
+    await expect(
+      runExpertHardDelete(leftoverHardDelete, {
+        timeoutMs: 25,
+        deleteExpert: async (workspaceId, request) => {
+          expertCalls.push([workspaceId, request]);
+          throw new OnMyAgentServerError(404, "expert_delete_target_not_found", "missing origins");
+        },
+        deleteExpertPackage: () => new Promise<ExpertPackageDeleteResult>(() => undefined),
+      }),
+    ).rejects.toThrow("expert_delete_desktop_timeout");
+    expect(expertCalls.map(([, request]) => request.sessionIds)).toEqual([
+      ["ses_leftover_3444"],
+      [],
+    ]);
+  });
+
+  test("empty sessionIds still call deleteExpert so remaining origins are deleted", async () => {
+    const expertCalls: Array<[string, ExpertDeleteRequest]> = [];
+    const packageCalls: ExpertPackageDeleteInput[] = [];
+    await runExpertHardDelete(
+      { ...leftoverHardDelete, sessionIds: [] },
+      {
+        deleteExpert: async (workspaceId, request) => {
+          expertCalls.push([workspaceId, request]);
+          throw new OnMyAgentServerError(404, "expert_delete_target_not_found", "no origins");
+        },
+        deleteExpertPackage: async (input) => {
+          packageCalls.push(input);
+          return completedPackage(input);
+        },
+      },
+    );
+    expect(expertCalls).toHaveLength(1);
+    expect(expertCalls[0]?.[1]?.sessionIds).toEqual([]);
+    expect(packageCalls).toHaveLength(1);
+  });
+
+  test("leftover 404 then remaining origins still uninstall after origin cleanup", async () => {
+    const expertCalls: string[][] = [];
+    const result = await runExpertHardDelete(leftoverHardDelete, {
+      deleteExpert: async (_workspaceId, request) => {
+        expertCalls.push(request.sessionIds ?? []);
+        if ((request.sessionIds?.length ?? 0) > 0) {
+          throw new OnMyAgentServerError(404, "expert_delete_target_not_found", "leftover");
+        }
+        return {
+          operationId: request.operationId,
+          workspaceId: leftoverHardDelete.workspaceId,
+          agentId: request.agentId,
+          packageName: request.packageName,
+          revision: 2,
+          state: "completed",
+          steps: [
+            {
+              sessionId: "ses_origin",
+              openCode: "completed",
+              runtime: "completed",
+              tombstone: "completed",
+            },
+          ],
+        };
+      },
+      deleteExpertPackage: async (input) => completedPackage(input),
+    });
+    expect(expertCalls).toEqual([["ses_leftover_3444"], []]);
+    expect(result.serverMissed).toBe(false);
+    expect(result.server?.steps[0]?.sessionId).toBe("ses_origin");
+    expect(result.desktop.state).toBe("completed");
   });
 });

@@ -28,6 +28,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { MatrixButton, MenuRowButton, NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { EmptyStateBox } from "@/components/ui/notice-box";
 import { CountBadge, StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -50,6 +56,12 @@ import { t } from "../../../../i18n";
 import { AgentBrandIcon, type AgentBrandIconSize } from "../agent-brand-icon";
 import { visibleFleetConfigAgentKeys } from "./agent-fleet-model";
 import type { AgentManagementHealthResult } from "./agent-management-health";
+import {
+  displaySettingsJsonWithApiKeyVisibility,
+  parseSettingsObject,
+  stringifySettingsFromDraft,
+  syncProviderDraftSettingsJson,
+} from "./provider-draft-settings-json";
 
 export const AGENT_MANAGER_PROVIDER_LABELS: Record<string, string> = {
   opencode: "OpenCode CLI",
@@ -250,7 +262,7 @@ export function defaultProviderDraft(appType: AgentManagementProviderApp): Provi
     : appType === "opencode" || appType === "openclaw" || appType === "hermes"
       ? [createProviderModelDraftRow()]
       : [];
-  return {
+  const draft: ProviderDraft = {
     editingId: null,
     id: "",
     name: "",
@@ -269,6 +281,10 @@ export function defaultProviderDraft(appType: AgentManagementProviderApp): Provi
     codexCatalogRows: appType === "codex" ? [createCodexCatalogDraftRow({ displayName: "GPT 5.1", model: defaultModel })] : [],
     settingsJson: "",
   };
+  if (appType === "opencode" || appType === "openclaw" || appType === "hermes") {
+    draft.settingsJson = stringifySettingsFromDraft(appType, draft);
+  }
+  return draft;
 }
 
 function extractCodexBaseUrlFromToml(config: string) {
@@ -478,10 +494,27 @@ export function AgentManagementProviderModal(props: {
     >
   >({});
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [apiKeyRevealed, setApiKeyRevealed] = useState(false);
   const fetchModelsRunRef = useRef(0);
   const modelTestRunByRowRef = useRef(new Map<string, number>());
   const modalOpenRef = useRef(props.open);
-  const updateDraft = (patch: Partial<ProviderDraft>) => props.onDraftChange({ ...props.draft, ...patch });
+  const updateDraft = (
+    patch: Partial<ProviderDraft>,
+    source: "form" | "json" = "form",
+  ) => {
+    const synced = syncProviderDraftSettingsJson(props.appType, props.draft, patch, source);
+    if (source === "json") {
+      props.onDraftChange({
+        ...synced,
+        modelRows: synced.modelRows.map((row) => {
+          const existing = props.draft.modelRows.find((current) => current.id.trim() === row.id.trim());
+          return createProviderModelDraftRow({ ...row, rowId: existing?.rowId });
+        }),
+      });
+      return;
+    }
+    props.onDraftChange(synced);
+  };
   const canSubmit = props.draft.name.trim() && (props.draft.id.trim() || props.draft.name.trim());
   const editing = Boolean(props.draft.editingId);
   const providerKeyInvalid = props.draft.id.trim() !== "" && !/^[a-z0-9]+(?:[-_.][a-z0-9]+)*$/.test(props.draft.id.trim());
@@ -506,6 +539,7 @@ export function AgentManagementProviderModal(props: {
     setModelTestByRowId({});
     modelTestRunByRowRef.current.clear();
     setAdvancedOpen(false);
+    setApiKeyRevealed(false);
   }, [props.open, props.appType, props.draft.editingId]);
 
   const renderFetchedModelSelect = (onSelect: (model: AgentManagementFetchedModel) => void) => {
@@ -781,13 +815,36 @@ export function AgentManagementProviderModal(props: {
                   <span className={labelClass}>
                     {t("agent_manager.provider_modal.api_key")}
                   </span>
-                  <Input
-                    value={props.draft.apiKey}
-                    onChange={(event) => updateDraft({ apiKey: event.currentTarget.value })}
-                    placeholder={t("agent_manager.provider_modal.api_key_placeholder")}
-                    type="password"
-                    className={fieldClass}
-                  />
+                  <InputGroup tone="surface" radius="lg" className="bg-dls-surface">
+                    <InputGroupInput
+                      value={props.draft.apiKey}
+                      onChange={(event) => updateDraft({ apiKey: event.currentTarget.value })}
+                      placeholder={t("agent_manager.provider_modal.api_key_placeholder")}
+                      type={apiKeyRevealed ? "text" : "password"}
+                      autoComplete="off"
+                      spellCheck={false}
+                      className="placeholder:text-dls-secondary"
+                    />
+                    <InputGroupAddon align="inline-end">
+                      <InputGroupButton
+                        type="button"
+                        size="icon-xs"
+                        aria-label={
+                          apiKeyRevealed
+                            ? t("agent_manager.provider_modal.hide_api_key")
+                            : t("agent_manager.provider_modal.show_api_key")
+                        }
+                        aria-pressed={apiKeyRevealed}
+                        onClick={() => setApiKeyRevealed((open) => !open)}
+                      >
+                        {apiKeyRevealed ? (
+                          <EyeOff className="size-3.5" aria-hidden="true" />
+                        ) : (
+                          <Eye className="size-3.5" aria-hidden="true" />
+                        )}
+                      </InputGroupButton>
+                    </InputGroupAddon>
+                  </InputGroup>
                 </label>
 
               </div>
@@ -1239,9 +1296,13 @@ export function AgentManagementProviderModal(props: {
               {advancedOpen ? (
                 <div className="border-t border-dls-border px-4 py-3">
                   <Textarea
-                    value={props.draft.settingsJson}
+                    value={displaySettingsJsonWithApiKeyVisibility(
+                      props.draft.settingsJson,
+                      props.draft.apiKey,
+                      apiKeyRevealed,
+                    )}
                     onChange={(event) =>
-                      updateDraft({ settingsJson: event.currentTarget.value })
+                      updateDraft({ settingsJson: event.currentTarget.value }, "json")
                     }
                     placeholder={
                       props.appType === "opencode"
@@ -1327,9 +1388,9 @@ export function OpenCodeProviderConfigDialog(props: {
     setError(null);
     const isEdit = Boolean(draft.editingId);
     try {
-      // Form fields are the source of truth. Never re-send the settingsJson
-      // snapshot from open — it freezes the pre-edit model list and makes
-      // "add model → save → re-open" show the old catalog.
+      // Form fields stay authoritative via `simple`. Valid Advanced JSON is
+      // sent as settingsConfig so extras (npm, options) survive merge.
+      const settingsConfig = parseSettingsObject(draft.settingsJson);
       const result = await agentManagementProviderAction({
         action: "save",
         appType: "opencode",
@@ -1340,6 +1401,7 @@ export function OpenCodeProviderConfigDialog(props: {
         provider: {
           id: draft.editingId || draft.id,
           name: draft.name,
+          ...(settingsConfig ? { settingsConfig } : {}),
           simple: {
             id: draft.editingId || draft.id,
             name: draft.name,

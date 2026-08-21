@@ -269,6 +269,118 @@ test("snapshot prefers live opencode.json models over stale DB catalog", async (
   }
 });
 
+test("mirrors OpenCode provider saves into the engine sandbox config", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "onmyagent-provider-home-"));
+  const liveDir = await mkdtemp(path.join(os.tmpdir(), "onmyagent-provider-live-"));
+  const livePath = path.join(liveDir, "opencode.json");
+  try {
+    await writeFile(
+      livePath,
+      `${JSON.stringify({
+        provider: {
+          "huoshan-1": {
+            name: "火山",
+            models: { "ark-code-latest": { name: "ark-code-latest" } },
+          },
+        },
+        model: "huoshan-1/ark-code-latest",
+      }, null, 2)}\n`,
+      "utf8",
+    );
+    const providers = createAgentManagementProviders({
+      getRealHomeDir: () => home,
+      getOpenCodeLiveConfigPath: () => livePath,
+    });
+    await providers.agentManagementProviderAction({
+      action: "save",
+      appType: "opencode",
+      syncLive: true,
+      provider: {
+        id: "ollama",
+        name: "Ollama",
+        simple: {
+          id: "ollama",
+          name: "Ollama",
+          baseUrl: "http://localhost:11434/v1",
+          models: "ornith-1.5:9b",
+        },
+      },
+    });
+
+    const homeConfig = JSON.parse(
+      await readFile(path.join(home, ".config", "opencode", "opencode.json"), "utf8"),
+    );
+    const liveConfig = JSON.parse(await readFile(livePath, "utf8"));
+    assert.ok(homeConfig.provider.ollama?.models["ornith-1.5:9b"]);
+    assert.ok(liveConfig.provider.ollama?.models["ornith-1.5:9b"]);
+    assert.ok(liveConfig.provider["huoshan-1"]?.models["ark-code-latest"], "must keep engine providers");
+    assert.equal(liveConfig.model, "ollama/ornith-1.5:9b");
+
+    await providers.agentManagementProviderAction({
+      action: "save",
+      appType: "opencode",
+      syncLive: true,
+      setDefault: false,
+      provider: {
+        id: "ollama",
+        name: "Ollama",
+        simple: {
+          id: "ollama",
+          name: "Ollama",
+          baseUrl: "http://localhost:11434/v1",
+          models: "ornith-1.5:9b",
+        },
+      },
+    });
+    const liveAfterReedit = JSON.parse(await readFile(livePath, "utf8"));
+    assert.equal(liveAfterReedit.model, "ollama/ornith-1.5:9b");
+
+    await writeFile(
+      livePath,
+      `${JSON.stringify({
+        ...liveAfterReedit,
+        model: "huoshan-1/ark-code-latest",
+      }, null, 2)}\n`,
+      "utf8",
+    );
+    await providers.agentManagementProviderAction({
+      action: "save",
+      appType: "opencode",
+      syncLive: true,
+      setDefault: false,
+      provider: {
+        id: "ollama",
+        name: "Ollama local",
+        simple: {
+          id: "ollama",
+          name: "Ollama local",
+          baseUrl: "http://localhost:11434/v1",
+          models: "ornith-1.5:9b",
+        },
+      },
+    });
+    const liveKeepsEngineDefault = JSON.parse(await readFile(livePath, "utf8"));
+    assert.equal(liveKeepsEngineDefault.model, "huoshan-1/ark-code-latest");
+    assert.equal(liveKeepsEngineDefault.provider.ollama.name, "Ollama local");
+
+    await providers.agentManagementProviderAction({
+      action: "delete",
+      appType: "opencode",
+      providerId: "ollama",
+    });
+    const liveAfterDelete = JSON.parse(await readFile(livePath, "utf8"));
+    const homeAfterDelete = JSON.parse(
+      await readFile(path.join(home, ".config", "opencode", "opencode.json"), "utf8"),
+    );
+    assert.equal(liveAfterDelete.provider.ollama, undefined);
+    assert.ok(liveAfterDelete.provider["huoshan-1"]?.models["ark-code-latest"]);
+    assert.equal(homeAfterDelete.provider.ollama, undefined);
+  } finally {
+    await rm(home, { recursive: true, force: true });
+    await rm(liveDir, { recursive: true, force: true });
+  }
+});
+
 test("re-edit merges form fields into existing OpenCode settingsConfig", async () => {
   const home = await mkdtemp(path.join(os.tmpdir(), "onmyagent-provider-reedit-"));
   try {

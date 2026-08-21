@@ -32,6 +32,8 @@ export default {
   "agent_manager.provider_modal.api_endpoint_placeholder": "https://api.example.com/v1",
   "agent_manager.provider_modal.api_key": "存取金鑰",
   "agent_manager.provider_modal.api_key_placeholder": "貼上 API Key",
+  "agent_manager.provider_modal.hide_api_key": "隱藏存取金鑰",
+  "agent_manager.provider_modal.show_api_key": "顯示存取金鑰",
   "agent_manager.provider_modal.delete_provider": "刪除供應商",
   "agent_manager.provider_modal.edit_provider": "編輯模型服務商",
   "agent_manager.provider_modal.edit_provider_subtitle": "{id}",

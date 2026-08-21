@@ -32,6 +32,8 @@ export default {
   "agent_manager.provider_modal.api_endpoint_placeholder": "https://api.example.com/v1",
   "agent_manager.provider_modal.api_key": "API key",
   "agent_manager.provider_modal.api_key_placeholder": "Paste API key",
+  "agent_manager.provider_modal.hide_api_key": "Hide API key",
+  "agent_manager.provider_modal.show_api_key": "Show API key",
   "agent_manager.provider_modal.delete_provider": "Delete provider",
   "agent_manager.provider_modal.edit_provider": "Edit model provider",
   "agent_manager.provider_modal.edit_provider_subtitle": "{id}",

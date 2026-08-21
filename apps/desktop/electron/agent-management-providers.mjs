@@ -13,13 +13,17 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 /**
- * @param {Partial<{ getRealHomeDir: () => string }>} options
+ * @param {Partial<{
+ *   getRealHomeDir: () => string,
+ *   getOpenCodeLiveConfigPath?: () => string | null | undefined,
+ * }>} options
  */
 export function createAgentManagementProviders(options = {}) {
   const getRealHomeDir = options.getRealHomeDir;
   if (typeof getRealHomeDir !== "function") {
     throw new Error("createAgentManagementProviders requires getRealHomeDir");
   }
+  const getOpenCodeLiveConfigPath = options.getOpenCodeLiveConfigPath;
 
   function parseJsonLikeObject(raw) {
     const text = String(raw ?? "").replace(/^\uFEFF/, "");
@@ -811,10 +815,25 @@ export function createAgentManagementProviders(options = {}) {
     return (await readJsonLikeFile(configPath)) ?? {};
   }
 
+  function openCodeLiveConfigPath() {
+    if (typeof getOpenCodeLiveConfigPath !== "function") return "";
+    return String(getOpenCodeLiveConfigPath() ?? "").trim();
+  }
+
+  /** Engine OpenCode reads sandbox XDG; agent-management also writes ~/.config. */
+  function openCodeConfigWritePaths() {
+    const homePath = agentManagementConfigPath("opencode");
+    const livePath = openCodeLiveConfigPath();
+    if (!livePath || path.resolve(livePath) === path.resolve(homePath)) {
+      return { homePath, livePath: "" };
+    }
+    return { homePath, livePath };
+  }
+
   async function writeOpenCodeProviderLive(provider, options = {}) {
-    const configPath = agentManagementConfigPath("opencode");
-    const config = await readAgentManagementJsonConfig("opencode");
-    const providerMap = config.provider && typeof config.provider === "object" ? config.provider : {};
+    const { homePath, livePath } = openCodeConfigWritePaths();
+    const config = (await readJsonLikeFile(homePath)) ?? {};
+    const providerMap = config.provider && typeof config.provider === "object" ? { ...config.provider } : {};
     providerMap[provider.id] = provider.settingsConfig;
     config.provider = providerMap;
     // Product expectation: fill in a custom provider → it becomes usable immediately.
@@ -828,7 +847,15 @@ export function createAgentManagementProviders(options = {}) {
         config.model = `${provider.id}/${modelId}`;
       }
     }
-    await writeJsonFileAtomic(configPath, config);
+    await writeJsonFileAtomic(homePath, config);
+    if (!livePath) return;
+    const liveConfig = (await readJsonLikeFile(livePath)) ?? {};
+    const liveProviders =
+      liveConfig.provider && typeof liveConfig.provider === "object" ? liveConfig.provider : {};
+    liveConfig.provider = { ...liveProviders, [provider.id]: provider.settingsConfig };
+    const setDefault = options.setDefault !== false || options.switchDefault === true;
+    if (setDefault && typeof config.model === "string") liveConfig.model = config.model;
+    await writeJsonFileAtomic(livePath, liveConfig);
   }
 
   function workspaceOpencodeConfigCandidates(workspaceRoot) {
@@ -866,10 +893,13 @@ export function createAgentManagementProviders(options = {}) {
 
   async function removeOpenCodeProviderLive(providerId, workspaceRoot = "") {
     // 1) Global ~/.config/opencode/opencode.json (agent-management live store)
-    const configPath = agentManagementConfigPath("opencode");
-    const config = await readAgentManagementJsonConfig("opencode");
-    if (stripProviderFromOpencodeConfig(config, providerId)) {
-      await writeJsonFileAtomic(configPath, config);
+    //    plus the engine sandbox copy OpenCode actually loads.
+    const { homePath, livePath } = openCodeConfigWritePaths();
+    for (const configPath of [homePath, livePath].filter(Boolean)) {
+      const config = (await readJsonLikeFile(configPath)) ?? {};
+      if (stripProviderFromOpencodeConfig(config, providerId)) {
+        await writeJsonFileAtomic(configPath, config);
+      }
     }
 
     // 2) Workspace project config — Ollama / connector installs land here via
@@ -1303,15 +1333,6 @@ export function createAgentManagementProviders(options = {}) {
       if (!provider) throw new Error(`Provider ${providerId} does not exist`);
       if (AGENT_MANAGEMENT_ADDITIVE_PROVIDER_APPS.has(appType)) {
         await writeAgentManagementProviderLive(provider, { switchDefault: true });
-        if (appType === "opencode") {
-          const modelId = provider.models[0]?.id;
-          if (modelId) {
-            const configPath = agentManagementConfigPath("opencode");
-            const config = await readAgentManagementJsonConfig("opencode");
-            config.model = `${provider.id}/${modelId}`;
-            await writeJsonFileAtomic(configPath, config);
-          }
-        }
       } else {
         setStudioSwitchCurrentProvider(appType, providerId);
         await writeAgentManagementProviderLive(provider);

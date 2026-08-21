@@ -13,7 +13,6 @@ import type {
 import { isProviderModelFree, modelSupportsVision } from "../../../app/utils/providers";
 import { t } from "../../../i18n";
 import { readCatalogContextWindow } from "../../capabilities/context-usage/context-usage-model";
-import type { AgentManagementManagedProvider } from "../../../app/lib/desktop";
 import {
   connectedProviderIdSet,
   getConnectedProviderItems,
@@ -112,20 +111,10 @@ export function buildConnectedModelOptions(input: {
    * aliyuncs → 阿里TokenPlan instead of npm default 千问).
    */
   displayNameByProviderId?: Readonly<Record<string, string>>;
-  managedProviders?: ReadonlyArray<
-    Pick<
-      AgentManagementManagedProvider,
-      "id" | "name" | "livePresent" | "models" | "settingsConfig"
-    >
-  >;
-  orderIds?: ReadonlyArray<string>;
 }): ModelOption[] {
   const options: ModelOption[] = [];
   const displayNames = input.displayNameByProviderId ?? {};
-  for (const provider of getConnectedProviderItems(input.data, {
-    managedProviders: input.managedProviders,
-    orderIds: input.orderIds,
-  })) {
+  for (const provider of getConnectedProviderItems(input.data)) {
     const modelIds = Object.keys(provider.models);
     const isNew =
       !input.seenProviderIds.has(provider.id) ||
@@ -187,6 +176,41 @@ export function filterAllowedModelOptions(input: {
  * picker shows "未找到模型" in that case, so the default ghost
  * (opencode/big-pickle) must also surface as unavailable.
  */
+function providerIdsMatch(left: string, right: string): boolean {
+  return left.trim().toLowerCase() === right.trim().toLowerCase();
+}
+
+function modelIdsMatch(left: string, right: string): boolean {
+  return left.trim().toLowerCase() === right.trim().toLowerCase();
+}
+
+function connectedProviderRecord(
+  data: ProviderListResponse | null | undefined,
+  providerId: string,
+) {
+  const want = providerId.trim();
+  if (!want || !data) return undefined;
+  const connected = new Set(
+    (data.connected ?? []).map((id) => String(id).trim().toLowerCase()).filter(Boolean),
+  );
+  if (connected.size === 0) return undefined;
+  return (data.all ?? []).find((provider) => {
+    const id = String(provider.id ?? "").trim();
+    return id && connected.has(id.toLowerCase()) && providerIdsMatch(id, want);
+  });
+}
+
+/** Connected provider is present but live `/models` has not arrived yet. */
+export function connectedProviderCatalogPending(
+  data: ProviderListResponse | null | undefined,
+  model: ModelRef | null | undefined,
+): boolean {
+  if (!model?.providerID) return false;
+  const provider = connectedProviderRecord(data, model.providerID);
+  if (!provider) return false;
+  return Object.keys(provider.models ?? {}).length === 0;
+}
+
 export function isModelPickableInConnectedCatalog(
   data: ProviderListResponse | null | undefined,
   model: ModelRef | null | undefined,
@@ -196,17 +220,14 @@ export function isModelPickableInConnectedCatalog(
   const modelId = model.modelID.trim();
   if (!providerId || !modelId) return false;
 
-  for (const provider of getConnectedProviderItems(data)) {
-    if (provider.id !== providerId) continue;
-    const models = provider.models ?? {};
-    const keys = Object.keys(models);
-    // Empty catalog → nothing to pick (do not trust ghost defaults).
-    if (keys.length === 0) return false;
-    if (models[modelId]) return true;
-    const want = modelId.toLowerCase();
-    return keys.some((id) => id.toLowerCase() === want);
-  }
-  return false;
+  const provider = connectedProviderRecord(data, providerId);
+  if (!provider) return false;
+  const models = provider.models ?? {};
+  const keys = Object.keys(models);
+  // Empty catalog → nothing to pick (do not trust ghost defaults).
+  if (keys.length === 0) return false;
+  if (models[modelId]) return true;
+  return keys.some((id) => modelIdsMatch(id, modelId));
 }
 
 export function isSelectedModelUnavailable(input: {
@@ -257,8 +278,29 @@ export function isSelectedModelUnavailable(input: {
   if (isModelPickableInConnectedCatalog(input.providerListData, model)) {
     return false;
   }
+  // Connected provider with an empty live map is a refresh hole, not removal.
+  if (connectedProviderCatalogPending(input.providerListData, model)) {
+    return false;
+  }
   // Zero pickable models → ghost default is unavailable (e.g. big-pickle with
   // no provider connected). Non-empty catalog but missing selection → same.
+  return true;
+}
+
+/**
+ * Session-scoped toast gate. Unavailable → emit once per key. Available /
+ * flicker must not delete the key, or dismiss + catalog tick re-stacks the
+ * same “原模型已不可用” warning.
+ */
+export function shouldRecordUnavailableModelToast(
+  toastedKeys: Set<string>,
+  modelKey: string,
+  unavailable: boolean,
+): boolean {
+  const key = modelKey.trim();
+  if (!key || !unavailable) return false;
+  if (toastedKeys.has(key)) return false;
+  toastedKeys.add(key);
   return true;
 }
 
