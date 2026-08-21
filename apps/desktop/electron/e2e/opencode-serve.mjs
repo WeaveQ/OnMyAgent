@@ -220,11 +220,12 @@ export async function fetchOpencodeJson(baseUrl, pathname, opts = {}) {
 
 /**
  * @param {ReturnType<typeof spawnOpencodeServe>} server
- * @param {{ timeoutMs?: number, pollMs?: number }} [opts]
+ * @param {{ timeoutMs?: number, pollMs?: number, requestTimeoutMs?: number }} [opts]
  */
 export async function waitForHealthy(server, opts = {}) {
   const timeoutMs = opts.timeoutMs ?? (isCi() ? 45_000 : 20_000);
   const pollMs = opts.pollMs ?? 250;
+  const requestTimeoutMs = opts.requestTimeoutMs ?? 2_000;
   const start = Date.now();
   let lastError = "";
   while (Date.now() - start < timeoutMs) {
@@ -232,7 +233,9 @@ export async function waitForHealthy(server, opts = {}) {
       throw new Error(`OpenCode exited before healthy: ${server.getOutput()}`);
     }
     try {
-      const health = await fetchOpencodeJson(server.baseUrl, "/global/health");
+      const health = await fetchOpencodeJson(server.baseUrl, "/global/health", {
+        timeoutMs: requestTimeoutMs,
+      });
       if (health.ok && health.body && health.body.healthy === true) {
         return health.body;
       }
