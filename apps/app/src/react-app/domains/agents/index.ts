@@ -133,6 +133,7 @@ export {
   clearExpertLocalSessionBindings,
   deleteExpertPackageForAgent,
   deleteExpertPackagesForAgent,
+  finalizeExpertRegistryAfterDelete,
   packageNameCandidatesForAgent,
   packageNameForAgent,
   removeExpertFromRegistry,

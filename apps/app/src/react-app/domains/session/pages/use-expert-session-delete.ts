@@ -12,8 +12,8 @@ import { t } from "../../../../i18n";
 import {
   canHardDeleteExpert,
   clearExpertLocalSessionBindings,
+  finalizeExpertRegistryAfterDelete,
   invalidateExpertPackageQuery,
-  useAgentRegistryStore,
   type AgentRegistry,
 } from "../../agents";
 import {
@@ -365,13 +365,11 @@ export function useExpertSessionDelete(input: {
         for (const sessionId of deletedSessionIds) {
           permanentlyRemoveAssistantArchivedTask(input.workspaceId, sessionId);
         }
-        const registry = input.registry;
-        if (target.deletePackage && registry) {
-          useAgentRegistryStore.getState().setRegistry({
-            ...registry,
-            agents: registry.agents.filter((agent) => agent.id !== target.agentId),
-          });
-        }
+        await finalizeExpertRegistryAfterDelete({
+          agentId: target.agentId,
+          registry: input.registry ?? null,
+          deletePackage: target.deletePackage,
+        });
         setDeleteProgress({
           status: "completed",
           operationId,
