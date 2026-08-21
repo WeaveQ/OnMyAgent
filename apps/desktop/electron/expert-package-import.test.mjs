@@ -219,7 +219,7 @@ test("exportExpertPackageToZip fails when the package is missing", async () => {
   }
 });
 
-test("export then import round-trips plugin.json and knowledge bytes", async () => {
+test("export then import round-trips plugin.json, knowledge, and bundled skill trees", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "onmyagent-expert-roundtrip-"));
   try {
     const packageDir = path.join(root, "my-experts", "review-helper");
@@ -231,6 +231,19 @@ test("export then import round-trips plugin.json and knowledge bytes", async () 
       "utf8",
     );
     await writeFile(path.join(packageDir, "README.md"), "# Review helper\n", "utf8");
+    await mkdir(path.join(packageDir, "skills", "demo-skill", "scripts"), {
+      recursive: true,
+    });
+    await writeFile(
+      path.join(packageDir, "skills", "demo-skill", "SKILL.md"),
+      "---\nname: demo-skill\ndescription: Demo\n---\n",
+      "utf8",
+    );
+    await writeFile(
+      path.join(packageDir, "skills", "demo-skill", "scripts", "run.mjs"),
+      "export const run = true;\n",
+      "utf8",
+    );
     const destPath = path.join(root, "portable", "review-helper.zip");
     const exported = await exportExpertPackageToZip({
       packageName: "review-helper",
@@ -270,6 +283,17 @@ test("export then import round-trips plugin.json and knowledge bytes", async () 
       assert.equal(
         await readFile(path.join(copied, "README.md"), "utf8"),
         "# Review helper\n",
+      );
+      assert.match(
+        await readFile(path.join(copied, "skills", "demo-skill", "SKILL.md"), "utf8"),
+        /name: demo-skill/,
+      );
+      assert.equal(
+        await readFile(
+          path.join(copied, "skills", "demo-skill", "scripts", "run.mjs"),
+          "utf8",
+        ),
+        "export const run = true;\n",
       );
     }
   } finally {

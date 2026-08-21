@@ -154,6 +154,25 @@ export function createExpertRecordForSave(
   return createAgentRecordFromDraft(draft, nowIso, availableSkills);
 }
 
+export function resolveExpertPackageSkillNames(
+  skillIds: readonly string[],
+  availableSkills: readonly AgentSkillItem[],
+): string[] {
+  const skillNameById = new Map(
+    availableSkills.map((skill) => [skill.id, skill.name.trim()] as const),
+  );
+  return Array.from(
+    new Set(
+      skillIds
+        .map((skillId) => {
+          const normalizedId = skillId.trim();
+          return skillNameById.get(normalizedId) || normalizedId;
+        })
+        .filter(Boolean),
+    ),
+  );
+}
+
 export function updateExpertRecordFromDraft(
   agent: AgentRecord,
   draft: AgentWizardDraft,

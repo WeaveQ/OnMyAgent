@@ -120,6 +120,8 @@ export type MyExpertPackageWriteInput = {
   preserveKnowledge?: boolean;
   /** Canonical package skill declarations. */
   skills: string[];
+  /** Workspace used by Desktop to resolve selected local skill sources. */
+  skillSourceWorkspaceRoot?: string;
   introStyle?: ExpertIntroStyle;
   approvedAgentIds?: string[];
   knowledge?: Array<{

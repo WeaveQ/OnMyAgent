@@ -38,6 +38,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/i18n";
 import { useStatusToasts } from "../shell-feedback";
 import { refreshExpertPackageQuery } from "./expert-package-query";
+import { resolveExpertPackageSkillNames } from "./expert-creation-save-model";
 import { normalizeExpertWritePackageName } from "../../capabilities/session-identity/expert-package-name";
 import { SelectMenu } from "../../design-system/select-menu";
 import {
@@ -669,7 +670,11 @@ export function AgentsPage(props: AgentsPageProps) {
         name: createdAgent.name,
         description: createdAgent.description,
         quote: createdAgent.quote,
-        skills: [...createdAgent.skillIds],
+        skills: resolveExpertPackageSkillNames(
+          createdAgent.skillIds,
+          mergedSkills,
+        ),
+        skillSourceWorkspaceRoot: props.workspaceRoot,
       });
       await refreshExpertPackageQuery();
       agent = {

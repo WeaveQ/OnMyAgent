@@ -89,6 +89,46 @@ export function createSkillsDomainHandlers({
         : match[1].slice("image/".length);
     return { extension, bytes: Buffer.from(match[2], "base64") };
   };
+  const selectedExpertSkillNames = (value) => Array.from(new Set(
+    (Array.isArray(value) ? value : [])
+      .map((skillName) => String(skillName ?? "").trim())
+      .filter(Boolean)
+      .map((skillName) => validateSkillName(skillName)),
+  ));
+  const unquoteYamlScalar = (value) => {
+    const normalized = String(value ?? "").trim();
+    if (
+      normalized.length >= 2
+      && ((normalized.startsWith('"') && normalized.endsWith('"'))
+        || (normalized.startsWith("'") && normalized.endsWith("'")))
+    ) {
+      return normalized.slice(1, -1).trim();
+    }
+    return normalized;
+  };
+  const skillDescriptionFromMarkdown = (markdown) => {
+    const frontmatter = String(markdown ?? "").match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)?.[1];
+    if (!frontmatter) return "";
+    const lines = frontmatter.split(/\r?\n/);
+    for (let index = 0; index < lines.length; index += 1) {
+      const match = lines[index].match(/^(\s*)description\s*:\s*(.*?)\s*$/i);
+      if (!match) continue;
+      const scalar = match[2].trim();
+      if (scalar && !/^[>|][-+]?$/u.test(scalar)) return unquoteYamlScalar(scalar);
+      if (!/^[>|][-+]?$/u.test(scalar)) return "";
+      const indent = match[1].length;
+      const parts = [];
+      for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
+        const line = lines[cursor];
+        if (!line.trim()) continue;
+        const contentMatch = line.match(/^(\s+)(.*)$/);
+        if (!contentMatch || contentMatch[1].length <= indent) break;
+        parts.push(contentMatch[2].trim());
+      }
+      return parts.join(" ").trim();
+    }
+    return "";
+  };
   return {
   importSkill: async (event, args) => {
     const projectDir = String(args[0] ?? "").trim();
@@ -490,12 +530,72 @@ export function createSkillsDomainHandlers({
     const safePackage = validateExpertPackageName(input.packageName ?? input.id);
     const destinationRoot = onmyagentMarketplaceRoot("my-experts");
     const destination = path.join(destinationRoot, safePackage);
-    const files = myExpertPackageFiles(input, safePackage);
+    const skillNames = selectedExpertSkillNames(input.skills);
     const avatar = parseAvatarDataUrl(input.avatarDataUrl);
-    if (avatar) files.plugin.avatar = `./avatars/avatar.${avatar.extension}`;
     const knowledgeRoot = path.join(destination, "knowledge");
+    const skillDetails = [];
+    let files;
     let preservedKnowledgeRoot = null;
+    let stagedSkillsRoot = null;
+    let previousPackageRoot = null;
+    let destinationPrepared = false;
+    let writeCompleted = false;
     try {
+      if (skillNames.length > 0) {
+        const workspaceRoot = String(input.skillSourceWorkspaceRoot ?? "").trim();
+        const availableSkills = workspaceRoot && typeof listLocalSkills === "function"
+          ? await listLocalSkills(workspaceRoot)
+          : [];
+        /** @type {Map<string, Record<string, unknown>>} */
+        const availableSkillByName = new Map();
+        for (const skill of Array.isArray(availableSkills) ? availableSkills : []) {
+          const name = String(skill?.name ?? "").trim();
+          const skillPath = String(skill?.path ?? "").trim();
+          if (name && skillPath) availableSkillByName.set(name, skill);
+        }
+        stagedSkillsRoot = path.join(
+          destinationRoot,
+          `.skills-backup-${safePackage}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        );
+        await rm(stagedSkillsRoot, { recursive: true, force: true });
+        await mkdir(stagedSkillsRoot, { recursive: true });
+        for (const skillName of skillNames) {
+          const availableSkill = availableSkillByName.get(skillName);
+          const localSource = String(availableSkill?.path ?? "").trim();
+          const existingSource = path.join(destination, "skills", skillName);
+          const source = localSource && await pathExists(path.join(localSource, "SKILL.md"))
+            ? localSource
+            : await pathExists(path.join(existingSource, "SKILL.md"))
+              ? existingSource
+              : null;
+          if (!source) {
+            throw new Error(`Expert skill source not found: ${skillName}`);
+          }
+          await cp(source, path.join(stagedSkillsRoot, skillName), {
+            recursive: true,
+            dereference: true,
+          });
+          const catalogDescription = String(
+            availableSkill?.descriptionZh
+              ?? availableSkill?.description
+              ?? availableSkill?.descriptionEn
+              ?? "",
+          ).trim();
+          const sourceMarkdown = typeof readFile === "function"
+            ? await readFile(path.join(source, "SKILL.md"), "utf8")
+            : "";
+          skillDetails.push({
+            name: skillName,
+            description: catalogDescription || skillDescriptionFromMarkdown(sourceMarkdown),
+          });
+        }
+      }
+      files = myExpertPackageFiles({
+        ...input,
+        skills: skillNames,
+        skillDetails,
+      }, safePackage);
+      if (avatar) files.plugin.avatar = `./avatars/avatar.${avatar.extension}`;
       if (input.preserveKnowledge === true && await pathExists(knowledgeRoot)) {
         preservedKnowledgeRoot = path.join(
           destinationRoot,
@@ -504,7 +604,15 @@ export function createSkillsDomainHandlers({
         await rm(preservedKnowledgeRoot, { recursive: true, force: true });
         await cp(knowledgeRoot, preservedKnowledgeRoot, { recursive: true });
       }
-      await rm(destination, { recursive: true, force: true });
+      if (await pathExists(destination)) {
+        previousPackageRoot = path.join(
+          destinationRoot,
+          `.package-backup-${safePackage}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        );
+        await rm(previousPackageRoot, { recursive: true, force: true });
+        await rename(destination, previousPackageRoot);
+      }
+      destinationPrepared = true;
       await mkdir(path.join(destination, ".expert-plugin"), { recursive: true });
       await mkdir(path.join(destination, "agents"), { recursive: true });
       if (avatar) {
@@ -513,6 +621,17 @@ export function createSkillsDomainHandlers({
         await writeFile(path.join(avatarRoot, `avatar.${avatar.extension}`), avatar.bytes);
       }
       await mkdir(knowledgeRoot, { recursive: true });
+      if (stagedSkillsRoot) {
+        const skillsRoot = path.join(destination, "skills");
+        await mkdir(skillsRoot, { recursive: true });
+        for (const skillName of skillNames) {
+          await cp(
+            path.join(stagedSkillsRoot, skillName),
+            path.join(skillsRoot, skillName),
+            { recursive: true },
+          );
+        }
+      }
       if (preservedKnowledgeRoot) {
         await cp(preservedKnowledgeRoot, knowledgeRoot, { recursive: true });
       }
@@ -550,10 +669,25 @@ export function createSkillsDomainHandlers({
         const safeDraft = validateExpertPackageName(input.draftId);
         await rm(path.join(destinationRoot, ".drafts", safeDraft), { recursive: true, force: true });
       }
+      writeCompleted = true;
       return { ok: true, path: destination, packageName: safePackage, marketplace: "my-experts" };
+    } catch (error) {
+      if (destinationPrepared) {
+        await rm(destination, { recursive: true, force: true });
+        if (previousPackageRoot && await pathExists(previousPackageRoot)) {
+          await rename(previousPackageRoot, destination);
+        }
+      }
+      throw error;
     } finally {
       if (preservedKnowledgeRoot) {
         await rm(preservedKnowledgeRoot, { recursive: true, force: true });
+      }
+      if (stagedSkillsRoot) {
+        await rm(stagedSkillsRoot, { recursive: true, force: true });
+      }
+      if (writeCompleted && previousPackageRoot) {
+        await rm(previousPackageRoot, { recursive: true, force: true });
       }
     }
   },

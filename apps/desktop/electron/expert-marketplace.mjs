@@ -93,6 +93,22 @@ export function createExpertMarketplace(options = {}) {
       .filter((item) => /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(item)))];
   }
 
+  function expertSkillDetails(value, skillNames) {
+    const descriptionByName = new Map(
+      (Array.isArray(value) ? value : [])
+        .map((item) => ({
+          name: String(item?.name ?? "").trim(),
+          description: String(item?.description ?? "").trim(),
+        }))
+        .filter((item) => item.name && item.description)
+        .map((item) => [item.name, item.description]),
+    );
+    return skillNames.map((name) => ({
+      name,
+      description: descriptionByName.get(name) || "当任务与该技能的能力范围匹配时。",
+    }));
+  }
+
   /**
    * One-train migration reader for legacy agent markdown frontmatter.
    * @deprecated Package manifests are the canonical source for declared skills.
@@ -470,6 +486,7 @@ export function createExpertMarketplace(options = {}) {
     const rolePrompt = String(input.rolePrompt ?? "").trim();
     const memory = String(input.memory ?? "").trim();
     const skillNames = manifestSkillNames(input.skills);
+    const skillDetails = expertSkillDetails(input.skillDetails, skillNames);
     const skills = skillNames.map((skillName) => `./skills/${skillName}`);
     const introStyle = manifestIntroStyle(input.introStyle);
     const approvedAgentIds = manifestApprovedAgentIds(input.approvedAgentIds);
@@ -500,35 +517,56 @@ export function createExpertMarketplace(options = {}) {
       },
       createdAt: now,
     };
-    const agentMarkdown = `---
-  name: ${packageName}
-  description: "${escapeMarkdownFrontmatterValue(description || quote)}"
-  displayName:
-    zh: "${escapeMarkdownFrontmatterValue(name)}"
-    en: "${escapeMarkdownFrontmatterValue(name)}"
-  profession:
-    zh: "${escapeMarkdownFrontmatterValue(name)}"
-    en: "${escapeMarkdownFrontmatterValue(name)}"
-  maxTurns: 50
-  ---
-
-  # ${name}
-
-  ${quote || description || "我是一个专业的智能体助手。"}
-
-  ## 角色提示词
-
-  ${rolePrompt || description || quote || "根据用户目标提供结构化、可执行的帮助。"}
-
-  ${memory ? `## 专家记忆
-
-  ${memory}
-
-  ` : ""}${skillNames.length > 0 ? `## 已配置技能
-
-  仅在需要时优先使用以下已安装技能：${skillNames.map((skillId) => `\`${skillId}\``).join("、")}。
-  ` : ""}
-  `;
+    const frontmatterSkills = skillNames.length > 0
+      ? ["skills:", ...skillNames.map((skillName) => `  - ${skillName}`)]
+      : ["skills: []"];
+    const skillGuide = skillDetails.length > 0
+      ? [
+          "## 已配置技能",
+          "",
+          "以下技能随专家包保存，并在专家会话启动时按声明物化到运行目录。仅在任务与“使用时机”匹配时使用。",
+          "",
+          ...skillDetails.flatMap((skill) => [
+            `### \`${skill.name}\``,
+            "",
+            `- 使用时机：${skill.description}`,
+            `- 包内说明：\`../skills/${skill.name}/SKILL.md\``,
+            `- 运行时说明：\`.opencode/skills/${skill.name}/SKILL.md\``,
+            "",
+          ]),
+          "## 技能使用规则",
+          "",
+          "1. 先判断任务是否与技能的使用时机匹配，只选择完成任务所需的最小技能集合。",
+          "2. 使用技能前，先读取对应的完整 `SKILL.md`，并遵循其中的流程、工具约束与验证要求。",
+          "3. 不要因为技能已配置就无条件调用；任务不匹配时按普通专家能力处理。",
+          "",
+        ]
+      : [];
+    const agentMarkdown = [
+      "---",
+      `name: ${packageName}`,
+      `description: "${escapeMarkdownFrontmatterValue(description || quote)}"`,
+      "displayName:",
+      `  zh: "${escapeMarkdownFrontmatterValue(name)}"`,
+      `  en: "${escapeMarkdownFrontmatterValue(name)}"`,
+      "profession:",
+      `  zh: "${escapeMarkdownFrontmatterValue(name)}"`,
+      `  en: "${escapeMarkdownFrontmatterValue(name)}"`,
+      ...frontmatterSkills,
+      "maxTurns: 50",
+      "---",
+      "",
+      `# ${name}`,
+      "",
+      quote || description || "我是一个专业的智能体助手。",
+      "",
+      "## 角色提示词",
+      "",
+      rolePrompt || description || quote || "根据用户目标提供结构化、可执行的帮助。",
+      "",
+      ...(memory ? ["## 专家记忆", "", memory, ""] : []),
+      ...skillGuide,
+    ].join("\n").trimEnd() + "\n";
     const readme = `# ${name}
 
   ${description || quote || "由 OnMyAgent 创建的自定义专家。"}
