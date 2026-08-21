@@ -7,6 +7,7 @@ import {
   mergeLocalShelfWithConversations,
 } from "../src/react-app/domains/plugins/expert-marketplace/data";
 import { isAlreadySummonedExpert } from "../src/react-app/domains/plugins/expert-marketplace/expert-marketplace-dialog";
+import { expertMarketplaceCategories } from "../src/react-app/domains/plugins/expert-marketplace/categories";
 import type { ExpertMarketplaceEntry } from "../src/react-app/domains/plugins/expert-marketplace/types";
 
 function stub(
@@ -36,6 +37,17 @@ function stub(
 }
 
 describe("local expert shelf filter", () => {
+  test("mine category is conditional and follows All", () => {
+    expect(
+      expertMarketplaceCategories(false).map((category) => category.id),
+    ).not.toContain("mine");
+    expect(
+      expertMarketplaceCategories(true)
+        .slice(0, 3)
+        .map((category) => category.id),
+    ).toEqual(["all", "mine", "01-OPC"]);
+  });
+
   test("package matcher embeds packageName in session agent ids", () => {
     const expert = stub({
       id: "kol-media:kol-media-specialist",

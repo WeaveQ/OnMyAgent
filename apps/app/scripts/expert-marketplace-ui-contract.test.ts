@@ -489,7 +489,11 @@ describe("expert marketplace UI contract", () => {
     );
 
     expect(dialog).toContain('export type ExpertMarketplaceView = "market" | "mine"');
-    expect(dialog).toContain("BUILTIN_MARKETPLACE_EXPERTS.filter");
+    expect(dialog).toContain(
+      'categoryId === "mine" ? mineExperts : BUILTIN_MARKETPLACE_EXPERTS',
+    );
+    expect(dialog).toContain('expert.source === "mine"');
+    expect(dialog).toContain("expertMarketplaceCategories(mineExperts.length > 0)");
     expect(dialog).toContain("props.query ??");
     expect(dialog).toContain("myExperts: ExpertMarketplaceEntry[]");
     expect(dialog).toContain("onOpen={setSelectedExpert}");

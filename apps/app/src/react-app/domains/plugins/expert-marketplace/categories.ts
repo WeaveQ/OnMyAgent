@@ -18,6 +18,24 @@ export const EXPERT_MARKETPLACE_CATEGORIES: ExpertMarketplaceCategory[] = [
   { id: "15-CreatorOps", labelKey: "session.expert_marketplace_category_creator_ops", searchLabel: "达人运营 creator ops KOL 媒介 内容运营 复盘 种草" },
 ];
 
+export const EXPERT_MARKETPLACE_MINE_CATEGORY: ExpertMarketplaceCategory = {
+  id: "mine",
+  labelKey: "session.expert_marketplace_category_mine",
+  searchLabel: "我的 mine custom imported created",
+};
+
+/** Insert the conditional user-owned shelf immediately after “All”. */
+export function expertMarketplaceCategories(
+  hasMineExperts: boolean,
+): ExpertMarketplaceCategory[] {
+  if (!hasMineExperts) return EXPERT_MARKETPLACE_CATEGORIES;
+  return [
+    EXPERT_MARKETPLACE_CATEGORIES[0],
+    EXPERT_MARKETPLACE_MINE_CATEGORY,
+    ...EXPERT_MARKETPLACE_CATEGORIES.slice(1),
+  ];
+}
+
 export function normalizeExpertMarketplaceCategoryId(
   categoryId: string | null | undefined,
 ): string {

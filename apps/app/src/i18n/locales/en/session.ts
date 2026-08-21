@@ -81,6 +81,7 @@ export default {
   "session.open_chat": "Chat",
   "session.open_chat_with": "Chat with {name}",
   "session.expert_marketplace_category_all": "All",
+  "session.expert_marketplace_category_mine": "Mine",
   "session.expert_marketplace_category_opc": "OPC Solo Company",
   "session.expert_marketplace_category_product_development": "Product R&D",
   "session.expert_marketplace_category_game_spatial": "Game & spatial",

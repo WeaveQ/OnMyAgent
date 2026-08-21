@@ -75,6 +75,7 @@ export default {
   "session.open_chat": "去聊天",
   "session.open_chat_with": "与 {name} 聊天",
   "session.expert_marketplace_category_all": "全部",
+  "session.expert_marketplace_category_mine": "我的",
   "session.expert_marketplace_category_opc": "OPC-一人公司",
   "session.expert_marketplace_category_product_development": "产品研发",
   "session.expert_marketplace_category_game_spatial": "游戏空间",

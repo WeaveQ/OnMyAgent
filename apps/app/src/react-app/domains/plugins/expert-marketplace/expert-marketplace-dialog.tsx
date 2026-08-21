@@ -24,7 +24,7 @@ import { desktopBridge } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
 import { t } from "../../../../i18n";
 import { FilterChip } from "@/components/ui/action-row";
-import { EXPERT_MARKETPLACE_CATEGORIES } from "./categories";
+import { expertMarketplaceCategories } from "./categories";
 import { BUILTIN_MARKETPLACE_EXPERTS, filterLocalShelfExperts } from "./data";
 import type { ExpertMarketplaceEntry, ExpertMarketplaceSummonHandler } from "./types";
 
@@ -284,6 +284,14 @@ export function ExpertMarketplacePage(props: {
   const [companyExperts, setCompanyExperts] = useState<Array<{ id: string; name: string }>>([]);
   const [companyHint, setCompanyHint] = useState<string | null>(null);
   const [companyConnected, setCompanyConnected] = useState(false);
+  const mineExperts = useMemo(
+    () => props.myExperts.filter((expert) => expert.source === "mine"),
+    [props.myExperts],
+  );
+  const visibleCategories = useMemo(
+    () => expertMarketplaceCategories(mineExperts.length > 0),
+    [mineExperts.length],
+  );
 
   useEffect(() => {
     if (view !== "company") return undefined;
@@ -327,8 +335,16 @@ export function ExpertMarketplacePage(props: {
 
   const filteredExperts = useMemo(() => {
     const normalizedQuery = (props.query ?? "").trim().toLowerCase();
-    return BUILTIN_MARKETPLACE_EXPERTS.filter((expert) => {
-      if (categoryId !== "all" && !expert.categoryIds.includes(categoryId)) return false;
+    const experts =
+      categoryId === "mine" ? mineExperts : BUILTIN_MARKETPLACE_EXPERTS;
+    return experts.filter((expert) => {
+      if (
+        categoryId !== "all" &&
+        categoryId !== "mine" &&
+        !expert.categoryIds.includes(categoryId)
+      ) {
+        return false;
+      }
       if (!normalizedQuery) return true;
       const text = [
         expert.displayName,
@@ -342,7 +358,11 @@ export function ExpertMarketplacePage(props: {
         .toLowerCase();
       return text.includes(normalizedQuery);
     });
-  }, [categoryId, props.query]);
+  }, [categoryId, mineExperts, props.query]);
+
+  useEffect(() => {
+    if (categoryId === "mine" && mineExperts.length === 0) setCategoryId("all");
+  }, [categoryId, mineExperts.length]);
 
   // Local shelf ("已召唤专家"): self-created + installed packages that match
   // sidebar session agents — not every pre-seeded package under experts/installed.
@@ -416,7 +436,7 @@ export function ExpertMarketplacePage(props: {
         {view === "market" ? (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="flex shrink-0 items-center gap-0.5 overflow-x-auto px-6 py-2.5">
-              {EXPERT_MARKETPLACE_CATEGORIES.map((category) => {
+              {visibleCategories.map((category) => {
                 const active = categoryId === category.id;
                 return (
                   <FilterChip
