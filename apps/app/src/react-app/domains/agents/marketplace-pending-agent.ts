@@ -11,7 +11,7 @@ export function buildPendingAgentFromMarketplaceExpert(
     avatar: {
       avatarStyle: "robot",
       avatarOptionId: "marketplace-expert",
-      customAvatarDataUrl: null,
+      customAvatarDataUrl: expert.source === "mine" ? expert.avatarUrl : null,
       avatarUrl: expert.avatarUrl,
       avatarBackground: "var(--dls-primary-soft)",
     },

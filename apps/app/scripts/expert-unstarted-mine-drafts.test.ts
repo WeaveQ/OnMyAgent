@@ -4,6 +4,7 @@ import type {
   AgentRecord,
   AgentRegistry,
 } from "../src/react-app/domains/agents/agent-registry-types";
+import { buildPendingAgentFromMarketplaceExpert } from "../src/react-app/domains/agents/marketplace-pending-agent";
 import {
   buildAgentConversationGroups,
   buildDraftAgentGroups,
@@ -109,6 +110,39 @@ describe("unstarted mine expert conversation visibility", () => {
 
     expect(groups.find((group) => group.agentId === "generated")?.avatarUrl).toBeNull();
     expect(groups.find((group) => group.agentId === "uploaded")?.avatarUrl).toBe(customAvatar);
+  });
+
+  it("keeps an imported package avatar before its first session is created", () => {
+    const packageAvatar = "data:image/png;base64,package-avatar";
+    const pending = buildPendingAgentFromMarketplaceExpert({
+      id: "fitness-expert:fitness-expert",
+      packageName: "fitness-expert",
+      source: "mine",
+      packagePath: "/tmp/my-experts/fitness-expert",
+      displayName: "Fitness Expert",
+      profession: "Fitness Expert",
+      description: "Personal training",
+      categoryId: "all",
+      categoryIds: [],
+      categoryLabel: "",
+      categoryLabels: [],
+      tags: [],
+      quickPrompts: [],
+      promptTemplates: [],
+      avatarUrl: packageAvatar,
+      expertType: "agent",
+      leadAgentName: "fitness-expert",
+      systemPrompt: "Train safely",
+      version: "1.0.0",
+      teamWorkflow: null,
+      skills: [],
+      introStyle: "default",
+      approvedAgentIds: [],
+    });
+
+    const groups = buildDraftAgentGroups({ [pending.id]: pending }, "ws-1");
+
+    expect(groups[0]?.avatarUrl).toBe(packageAvatar);
   });
 
   it("restores a mine expert when Directory uses its composite runtime id", () => {
