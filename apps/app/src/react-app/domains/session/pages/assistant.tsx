@@ -46,6 +46,7 @@ import type { SessionAgentManagementIntent, SessionPageProps } from "./session-p
 
 import {
   addAssistantSession,
+  useAgentRegistryStore,
   usePendingAgentStore,
   writeAssistantSessionCategory,
 } from "../../agents";
@@ -146,7 +147,10 @@ import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
 import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
 import { isStreamingSessionStatus } from "../sidebar/utils";
 import { useExpertDirectoryQuery } from "../../../capabilities/session-identity/expert-directory-query";
-import { listExpertAgentIdsWithSessions } from "./expert-conversation-model";
+import {
+  buildAgentConversationGroups,
+  buildStoreExpertShelf,
+} from "./expert-conversation-model";
 
 // Keep in sync with DEFAULT/MIN workspace right sidebar (outer rail = browser panel).
 const ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH = DEFAULT_WORKSPACE_RIGHT_SIDEBAR_EXPANDED_WIDTH;
@@ -243,24 +247,47 @@ export function AssistantPage(props: AssistantPageProps) {
   const pendingExpertAgentId = usePendingAgentStore(
     (state) => state.agent?.id.trim() || null,
   );
+  const agentRegistry = useAgentRegistryStore((state) => state.registry);
   const expertDirectoryQuery = useExpertDirectoryQuery({
     workspaceId: props.selectedWorkspaceId,
     serverWorkspaceId: props.runtimeWorkspaceId ?? props.selectedWorkspaceId,
     client: props.onmyagentServerClient,
     enabled: activeSidebarView === "store",
   });
-  const activeExpertAgentIds = useMemo(() => {
+  const storeExpertShelf = useMemo(() => {
     const directory = expertDirectoryQuery.data?.complete
       ? expertDirectoryQuery.data
       : expertDirectoryQuery.lastComplete;
-    const ids = listExpertAgentIdsWithSessions(directory);
-    if (pendingExpertAgentId) ids.push(pendingExpertAgentId);
-    return Array.from(new Set(ids));
+    const identity = {
+      sessionIds: new Set(directory?.records.flatMap((record) => record.sessionIds) ?? []),
+      agentIdBySessionId: new Map(
+        (directory?.records ?? []).flatMap((record) =>
+          record.sessionIds.map((sessionId) => [sessionId, record.agentId] as const),
+        ),
+      ),
+    };
+    const workspaceSessions = props.sidebar.workspaceSessionGroups.find(
+      (group) => group.workspace.id === props.selectedWorkspaceId,
+    )?.sessions ?? [];
+    return buildStoreExpertShelf({
+      packages: myExpertPackages,
+      conversations: buildAgentConversationGroups(workspaceSessions, agentRegistry, identity),
+    });
   }, [
+    agentRegistry,
     expertDirectoryQuery.data,
     expertDirectoryQuery.lastComplete,
-    pendingExpertAgentId,
+    myExpertPackages,
+    props.selectedWorkspaceId,
+    props.sidebar.workspaceSessionGroups,
   ]);
+  const activeExpertAgentIds = useMemo(
+    () => Array.from(new Set([
+      ...storeExpertShelf.activeExpertAgentIds,
+      ...(pendingExpertAgentId ? [pendingExpertAgentId] : []),
+    ])),
+    [pendingExpertAgentId, storeExpertShelf.activeExpertAgentIds],
+  );
   const {
     customConnectorOpen,
     setCustomConnectorOpen,
@@ -1307,7 +1334,7 @@ export function AssistantPage(props: AssistantPageProps) {
                         workspaceRoot={props.selectedWorkspaceRoot}
                         client={props.onmyagentServerClient}
                         activeTab={storeActiveTab}
-                        myExperts={myExpertPackages}
+                        myExperts={storeExpertShelf.experts}
                         activeExpertAgentIds={activeExpertAgentIds}
                         onActiveTabChange={setStoreActiveTab}
                         onSummonMarketplaceExpert={handleSummonMarketplaceExpert}

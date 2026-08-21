@@ -861,13 +861,14 @@ describe("expert marketplace UI contract", () => {
     expect(assistantPage).toContain("onImportedAgent={handleImportedExpert}");
   });
 
-  test("assistant store scopes summoned experts to the shared directory session source", () => {
+  test("assistant store builds summoned experts from the shared conversation source", () => {
     const assistantPage = readWorkspaceFile(
       "apps/app/src/react-app/domains/session/pages/assistant.tsx",
     );
 
     expect(assistantPage).toContain("useExpertDirectoryQuery({");
-    expect(assistantPage).toContain("listExpertAgentIdsWithSessions(directory)");
+    expect(assistantPage).toContain("buildStoreExpertShelf({");
+    expect(assistantPage).toContain("buildAgentConversationGroups(workspaceSessions, agentRegistry, identity)");
     expect(assistantPage).toContain(
       "activeExpertAgentIds={activeExpertAgentIds}",
     );

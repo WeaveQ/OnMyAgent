@@ -17,11 +17,13 @@ import {
   syncAutomationSessionRecords,
 } from "../src/react-app/domains/messaging/automation-session-groups";
 import {
+  buildStoreExpertShelf,
   buildExpertSidebarSessionGroups,
   buildExpertWorkspaceSessions,
   listExpertAgentIdsWithSessions,
   listVisibleExpertAgentSessions,
 } from "../src/react-app/domains/session/pages/expert-conversation-model";
+import { shouldUseMarketplaceAvatarFallback } from "../src/react-app/domains/session/sidebar/conversation-model";
 
 const storageKeys = [
   "onmyagent:assistantSessionIds",
@@ -135,6 +137,65 @@ describe("shared agent session state", () => {
         ],
       }),
     ).toEqual(["expert-with-session"]);
+  });
+
+  test("builds the market summoned shelf from every expert conversation, not only loaded packages", () => {
+    const shelf = buildStoreExpertShelf({
+      packages: [
+        {
+          id: "kol-content-ops-specialist:kol-content-ops-specialist",
+          packageName: "kol-content-ops-specialist",
+          source: "installed",
+          displayName: "达人运营专家",
+          profession: "达人运营专家",
+          description: "",
+          categoryId: "all",
+          categoryIds: [],
+          categoryLabel: "",
+          categoryLabels: [],
+          tags: [],
+          quickPrompts: [],
+          promptTemplates: [],
+          avatarUrl: null,
+          expertType: "agent",
+          leadAgentName: "达人运营专家",
+          systemPrompt: "",
+          version: null,
+          teamWorkflow: null,
+          packagePath: "",
+          skills: [],
+          introStyle: "default",
+          approvedAgentIds: [],
+        },
+      ],
+      conversations: [
+        { agentId: "kol-content-ops-specialist", name: "达人运营专家", description: "", avatarUrl: null },
+        { agentId: "aihot", name: "资讯速递专家", description: "", avatarUrl: null },
+        { agentId: "custom-translation", name: "翻译专家", description: "", avatarUrl: null },
+      ],
+    });
+
+    expect(shelf.activeExpertAgentIds).toEqual([
+      "kol-content-ops-specialist",
+      "aihot",
+      "custom-translation",
+    ]);
+    expect(shelf.experts).toHaveLength(3);
+  });
+
+  test("uses the marketplace fallback avatar for a mine expert without an uploaded image", () => {
+    expect(
+      shouldUseMarketplaceAvatarFallback({
+        marketplacePackageName: "custom-translation",
+        customAvatarDataUrl: null,
+      }),
+    ).toBe(true);
+    expect(
+      shouldUseMarketplaceAvatarFallback({
+        marketplacePackageName: "custom-translation",
+        customAvatarDataUrl: "data:image/png;base64,avatar",
+      }),
+    ).toBe(false);
   });
 
   test("scopes expert entries to real sessions in the selected workspace", () => {

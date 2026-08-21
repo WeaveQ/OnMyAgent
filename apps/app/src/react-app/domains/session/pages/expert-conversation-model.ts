@@ -14,7 +14,11 @@ import {
   buildAgentConversationGroups,
   type AgentConversationGroup,
 } from "../sidebar/session-chrome";
-import { findBuiltinMarketplaceExpertById } from "@/react-app/domains/plugins";
+import {
+  findBuiltinMarketplaceExpertById,
+  mergeLocalShelfWithConversations,
+  type ExpertMarketplaceEntry,
+} from "@/react-app/domains/plugins";
 import { resolveExpertSessionSelection } from "../sidebar/expert-session-selection-memory";
 
 export { buildAgentConversationGroups };
@@ -56,6 +60,26 @@ export function listExpertAgentIdsWithSessions(
       ),
     ),
   );
+}
+
+/**
+ * Market and Expert derive the summoned shelf from the same conversations.
+ * Package enumeration can lag, but an existing session must stay visible.
+ */
+export function buildStoreExpertShelf(input: {
+  packages: readonly ExpertMarketplaceEntry[];
+  conversations: readonly Pick<AgentConversationGroup, "agentId" | "name" | "description" | "avatarUrl">[];
+}): {
+  experts: ExpertMarketplaceEntry[];
+  activeExpertAgentIds: string[];
+} {
+  const conversations = input.conversations.flatMap((conversation) =>
+    conversation.agentId?.trim() ? [{ ...conversation, agentId: conversation.agentId.trim() }] : [],
+  );
+  return {
+    experts: mergeLocalShelfWithConversations(input.packages, conversations),
+    activeExpertAgentIds: Array.from(new Set(conversations.map((conversation) => conversation.agentId))),
+  };
 }
 
 export function buildExpertWorkspaceSessions(input: {

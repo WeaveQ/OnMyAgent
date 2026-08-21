@@ -65,6 +65,16 @@ export type AgentStarterItem = {
   avatarBackground: string;
 };
 
+/** Mine experts without an uploaded avatar use the marketplace initial tile. */
+export function shouldUseMarketplaceAvatarFallback(
+  agent: {
+    marketplacePackageName?: string;
+    customAvatarDataUrl?: string | null;
+  } | null | undefined,
+): boolean {
+  return Boolean(agent?.marketplacePackageName?.trim() && !agent.customAvatarDataUrl?.trim());
+}
+
 export function workspaceTaskStatus(
   clientConnected: boolean,
   onmyagentServerStatus: OnMyAgentServerStatus,
@@ -677,17 +687,23 @@ export function buildAgentConversationGroups(
           sessionAgentSnapshot?.description ??
           t("session.agent_config_missing"));
 
+    const useMarketplaceAvatarFallback =
+      agent !== null &&
+      agent !== undefined &&
+      "marketplacePackageName" in agent &&
+      shouldUseMarketplaceAvatarFallback(agent);
     groups.set(key, {
       key,
       agentId,
       name,
       description,
       preview: sessionPreview,
-      avatarUrl:
-        restoredAgent?.avatar.avatarUrl ??
-        marketplaceExpert?.avatarUrl ??
-        sessionAgentSnapshot?.avatarUrl ??
-        null,
+      avatarUrl: useMarketplaceAvatarFallback
+        ? null
+        : (restoredAgent?.avatar.avatarUrl ??
+          marketplaceExpert?.avatarUrl ??
+          sessionAgentSnapshot?.avatarUrl ??
+          null),
       avatarBackground:
         restoredAgent?.avatar.avatarBackground ??
         sessionAgentSnapshot?.avatarBackground ??
