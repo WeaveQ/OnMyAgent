@@ -135,7 +135,9 @@ export function useExpertHardDeleteUi(input: {
         ...(packageName ? { packageName } : {}),
         ...(target.source ? { source: target.source } : {}),
         ...(target.sessionDirectories ? { sessionDirectories: target.sessionDirectories } : {}),
-        deletePackage: target.deletePackage ?? true,
+        // Sidebar deletion is session cleanup. Package removal is opt-in only
+        // from the marketplace card flow and is injected at confirm time.
+        deletePackage: target.deletePackage ?? false,
         ...(target.allowPackageDelete ? { allowPackageDelete: true } : {}),
         operationId,
       });

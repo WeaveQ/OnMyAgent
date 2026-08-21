@@ -595,6 +595,8 @@ describe("expert marketplace UI contract", () => {
     expect(expertPage).toContain("onDeleteExpert={handleDeleteMarketplaceExpert}");
     expect(expertPage).toContain("mergeLocalShelfWithConversations");
     expect(expertPage).toContain("resolveMarketplaceExpertHardDeleteTarget");
+    expect(expertPage).toContain("deletePackage: target.deletePackage ?? false");
+    expect(expertPage).toContain("onDeleteExpert={openDeleteExpertModal}");
     expect(dialog).toContain("canMineExpertPackageAction(expert, props.onEditExpert)");
     expect(dialog).toContain("canMineExpertPackageAction(expert, props.onExportExpert)");
     expect(dialog).toContain("canMineExpertPackageAction(selectedExpert, props.onEditExpert)");
