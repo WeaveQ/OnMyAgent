@@ -224,6 +224,13 @@ test("export then import round-trips plugin.json and knowledge bytes", async () 
   try {
     const packageDir = path.join(root, "my-experts", "review-helper");
     await writeMinimalPackage(packageDir);
+    await mkdir(path.join(packageDir, "agents"), { recursive: true });
+    await writeFile(
+      path.join(packageDir, "agents", "review-helper.md"),
+      "---\nname: review-helper\n---\n\nReview carefully.\n",
+      "utf8",
+    );
+    await writeFile(path.join(packageDir, "README.md"), "# Review helper\n", "utf8");
     const destPath = path.join(root, "portable", "review-helper.zip");
     const exported = await exportExpertPackageToZip({
       packageName: "review-helper",
@@ -255,6 +262,14 @@ test("export then import round-trips plugin.json and knowledge bytes", async () 
       assert.equal(
         await readFile(path.join(copied, "knowledge", "note.md"), "utf8"),
         "context\n",
+      );
+      assert.equal(
+        await readFile(path.join(copied, "agents", "review-helper.md"), "utf8"),
+        await readFile(path.join(packageDir, "agents", "review-helper.md"), "utf8"),
+      );
+      assert.equal(
+        await readFile(path.join(copied, "README.md"), "utf8"),
+        "# Review helper\n",
       );
     }
   } finally {
