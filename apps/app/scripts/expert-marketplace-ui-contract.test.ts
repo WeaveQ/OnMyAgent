@@ -1021,9 +1021,8 @@ describe("expert marketplace UI contract", () => {
     const expertHost = [expertPage, conversationModel].join("\n");
 
     expect(expertPage).toContain("draftAgentContexts");
-    expect(conversationModel).toContain("export function listUnstartedMineExpertContexts");
     expect(conversationModel).toContain("export function buildDraftAgentGroups");
-    expect(navigationModel).toContain("listUnstartedMineExpertContexts");
+    expect(navigationModel).toContain("input.draftAgentContexts");
     expect(expertHost).toContain("`draft:${selectedWorkspaceId}:${agent.id}`");
     expect(expertPage).toContain("onOpenDraftSession={input.handleOpenDraftSession}");
     expect(expertPage).toContain("draftAgentGroups={draftAgentGroups}");

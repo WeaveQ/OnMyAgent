@@ -38,14 +38,6 @@ const mineAgent: AgentRecord = {
   updatedAt: "2026-08-20T00:00:00.000Z",
 };
 
-const summonedAgent: AgentRecord = {
-  ...mineAgent,
-  id: "summoned-kol",
-  name: "Summoned",
-  marketplaceSource: "installed",
-  marketplacePackageName: "kol-ops",
-};
-
 function registryWith(agents: AgentRecord[]): AgentRegistry {
   return {
     version: 1,
@@ -57,24 +49,8 @@ function registryWith(agents: AgentRecord[]): AgentRegistry {
   };
 }
 
-describe("unstarted mine experts stay in the conversation list", () => {
-  it("seeds a mine expert that has no sessions after in-memory drafts are dropped", () => {
-    const seeded = listUnstartedMineExpertContexts({
-      registry: registryWith([mineAgent, summonedAgent]),
-      occupiedAgentIds: [],
-    });
-    expect(Object.keys(seeded)).toEqual(["agent-222"]);
-    expect(seeded["agent-222"]).toMatchObject({
-      id: "agent-222",
-      name: "222",
-      draftSource: "agent-selection",
-      marketplaceExpert: {
-        source: "mine",
-        packageName: "agent-222",
-      },
-    });
-    expect(seeded["agent-222"]?.operationId).toBeUndefined();
-
+describe("unstarted mine expert conversation visibility", () => {
+  it("does not seed a mine expert that has no session or active in-memory draft", () => {
     const groups = buildExpertPageNavigationModel({
       draftAgentContexts: {},
       selectedWorkspaceId: "ws-1",
@@ -84,9 +60,7 @@ describe("unstarted mine experts stay in the conversation list", () => {
       pendingAgent: null,
       registry: registryWith([mineAgent]),
     }).draftAgentGroups;
-    expect(groups.map((group) => group.agentId)).toEqual(["agent-222"]);
-    expect(groups[0]?.sessions[0]?.id).toBe("draft:ws-1:agent-222");
-    expect(groups[0]?.avatarUrl).toBeNull();
+    expect(groups).toEqual([]);
   });
 
   it("keeps an uploaded mine avatar while suppressing generated placeholders", () => {

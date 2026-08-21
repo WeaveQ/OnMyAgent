@@ -62,7 +62,7 @@ export function listExpertAgentIdsWithSessions(
   );
 }
 
-/** Keep the Store shelf identical to the Expert list, including unstarted mine experts. */
+/** Keep the Store shelf identical to the active Expert conversation list. */
 export function buildStoreExpertShelf(input: {
   packages: readonly ExpertMarketplaceEntry[];
   conversations: readonly Pick<
