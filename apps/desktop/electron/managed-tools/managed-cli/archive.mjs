@@ -152,3 +152,49 @@ export async function extractZipToDir(input) {
     maxBuffer: 32 * 1024 * 1024,
   });
 }
+
+/**
+ * Zip a directory so the archive contains `{basename(sourceDir)}/` at the root.
+ * Uses system `zip` / PowerShell Compress-Archive — no extra compression library.
+ *
+ * @param {{
+ *   sourceDir: string,
+ *   destPath: string,
+ *   platform?: NodeJS.Platform,
+ * }} input
+ */
+export async function createZipFromDir(input) {
+  const sourceDir = String(input.sourceDir ?? "").trim();
+  const destPath = String(input.destPath ?? "").trim();
+  const platform = input.platform ?? process.platform;
+  if (!sourceDir || !destPath) {
+    throw new Error("createZipFromDir requires sourceDir and destPath");
+  }
+
+  const info = await stat(sourceDir);
+  if (!info.isDirectory()) {
+    throw new Error("createZipFromDir sourceDir must be a directory");
+  }
+
+  const resolvedDest = path.resolve(destPath);
+  await mkdir(path.dirname(resolvedDest), { recursive: true });
+  await rm(resolvedDest, { force: true });
+
+  if (platform === "win32") {
+    const script = [
+      `$ErrorActionPreference = 'Stop'`,
+      `Compress-Archive -LiteralPath '${sourceDir.replaceAll("'", "''")}' -DestinationPath '${resolvedDest.replaceAll("'", "''")}' -Force`,
+    ].join("; ");
+    await execFileAsync(
+      "powershell.exe",
+      ["-NoProfile", "-NonInteractive", "-Command", script],
+      { windowsHide: true, maxBuffer: 32 * 1024 * 1024 },
+    );
+    return;
+  }
+
+  await execFileAsync("zip", ["-r", resolvedDest, path.basename(sourceDir)], {
+    cwd: path.dirname(sourceDir),
+    maxBuffer: 32 * 1024 * 1024,
+  });
+}

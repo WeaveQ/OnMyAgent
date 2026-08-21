@@ -24,8 +24,8 @@ This package focuses on the reusable control layer:
 - Strict background mode that avoids foreground cursor/HID fallbacks.
 - Target-window screenshots via `CGWindowListCreateImage(.optionIncludingWindow)`.
 - Historical **Appshot** CLI in Swift is reference only (product capture is Electron).
-- Background input through `CGEvent.postToPid` with window-addressing fields.
-- Background activation using per-process event taps plus AppKit and center-click primers.
+- Background input through the isolated target PID/CGWindowID bridge.
+- Background focus using a per-process focus guard and target-window messages without activating the user's foreground app.
 - Non-UI orchestration modules from the original Electron prototype: realtime tool schemas/instructions and the GPT computer-use loop.
 
 Computer Use renders a lightweight second cursor overlay from the helper app so
@@ -50,3 +50,25 @@ pnpm --filter @onmyagent/handsfree exec onmyagent-handsfree-computer-use mcp
 ```
 
 The core runtime is intentionally MCP-independent. `ComputerUseRuntime` exposes a small direct surface (`snapshot`, `click`, `typeText`, `pressKey`, `scroll`, `wait`, `setValue`, `performAction`); `MCPServer` is only a thin stdio wrapper.
+
+## Regression protection
+
+The accepted strict runtime and virtual-cursor implementation are protected by
+`computer-use-contract.lock.json`. The contract check verifies the protected
+source hashes and scans all production Swift files, including newly added files,
+for global HID posting, hardware-cursor warp, foreground activation, and
+unconditional window ordering outside explicit compatibility/UI exceptions.
+
+Run the cross-platform guard without building AppKit code:
+
+```bash
+pnpm --filter @onmyagent/handsfree check:contract
+```
+
+On macOS, run the complete behavior suite and live MCP parity tests:
+
+```bash
+pnpm --filter @onmyagent/handsfree test
+```
+
+See [`AGENTS.md`](./AGENTS.md) before intentionally modifying a protected file.
