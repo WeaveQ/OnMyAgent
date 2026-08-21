@@ -104,6 +104,61 @@ export function checkDocsCommandSot(root = repoRoot) {
   if (!/document:\s*radix-indigo-9/.test(design)) {
     findings.push("DESIGN.md: artifact-hue.document is not indigo");
   }
+  if (design.includes("solid `--ow-primary`")) {
+    findings.push("DESIGN.md: Do's still prescribe solid --ow-primary");
+  }
+  if (/for engineers, tinkerers/.test(design)) {
+    findings.push("DESIGN.md: §1 audience is still engineer/tinkerer/knowledge-worker only");
+  }
+
+  const architecture = read("docs/Architecture.md");
+  if (!architecture.includes("    task-center/")) {
+    findings.push("Architecture.md: domain tree missing task-center/");
+  }
+  for (const group of ["knowledge", "company", "computerUse", "managedTools"]) {
+    if (!architecture.includes(group)) {
+      findings.push(`Architecture.md: desktop-handler groups missing ${group}`);
+    }
+  }
+  if (!architecture.includes("session→knowledge") && !architecture.includes("session>knowledge")) {
+    findings.push("Architecture.md: missing session→knowledge policy edge");
+  }
+  if (/settings→session/.test(architecture)) {
+    findings.push("Architecture.md: lists settings→session which policy does not allow");
+  }
+  if (architecture.includes("GRAPH_REPORT.md")) {
+    findings.push("Architecture.md: still presents GRAPH_REPORT.md as a reading artifact");
+  }
+
+  const reactArch = read("apps/app/src/react-app/ARCHITECTURE.md");
+  if (!reactArch.includes("account-avatar/")) {
+    findings.push("ARCHITECTURE.md: capabilities tree missing account-avatar/");
+  }
+  if (!reactArch.includes("context-usage/")) {
+    findings.push("ARCHITECTURE.md: capabilities tree missing context-usage/");
+  }
+  if (/session\/voice|├── voice\//.test(reactArch)) {
+    findings.push("ARCHITECTURE.md: still lists deleted session/voice/");
+  }
+  if (!reactArch.includes("expert-surface-machine.ts")) {
+    findings.push("ARCHITECTURE.md: Expert surface files not described at pages/");
+  }
+
+  const appAgents = read("apps/app/AGENTS.md");
+  if (appAgents.includes("domains/session/pages/expert.tsx")) {
+    findings.push("apps/app/AGENTS.md: still lists 14-line expert.tsx as a file-size hotspot");
+  }
+  if (!appAgents.includes("session-route/render.tsx")) {
+    findings.push("apps/app/AGENTS.md: hotspot list missing session-route/render.tsx");
+  }
+
+  const release = read("docs/release.md");
+  if (/run on PRs\/pushes to `dev`/.test(release)) {
+    findings.push("release.md: claims Tests/Gates run on dev");
+  }
+  if (/Keep deletion\s+disabled/.test(release)) {
+    findings.push("release.md: Expert migration still says Keep deletion disabled as current stage");
+  }
 
   return { ok: findings.length === 0, findings };
 }

@@ -8,15 +8,16 @@ OnMyAgent engineering skills use a **single source tree** plus tool-specific sym
 | `.codex/skills` | Symlink → `../.agents/skills` | Codex discovery |
 | `.claude/skills` | Symlink → `../.agents/skills` | Claude Code discovery |
 | `.grok/skills` | Symlink → `../.agents/skills` | Grok discovery |
+| `.cursor/skills` | Symlink → `../.agents/skills` | Cursor discovery |
 | `.opencode/` | Product / workspace OpenCode config (not a full skill mirror) | Keep separate |
 | `apps/desktop/resources/bundled-skills/` | Skills shipped inside the desktop app | **Real files only** (no symlinks) |
 
 ## Rules
 
-1. Never maintain a second edited copy of the same engineering skill under `.codex/`, `.claude/`, or `.grok/`.
+1. Never maintain a second edited copy of the same engineering skill under `.codex/`, `.claude/`, `.grok/`, or `.cursor/`.
 2. Do not symlink `apps/desktop/resources/bundled-skills/**`; packaging must see real files.
 3. Do not put temporary plans under `.agents/`; use local `.loop/plans/`.
-4. This repo does not use `.cursor/` for skills.
+4. Cursor also has `.cursor/rules/onmyagent.mdc` (always-on pointer to `AGENTS.md`) and optional `.cursor/agents/` specialists. Those are not a second skill tree.
 
 ## Validation
 
@@ -25,11 +26,12 @@ OnMyAgent engineering skills use a **single source tree** plus tool-specific sym
 find -L .agents/skills -name SKILL.md | sort
 
 # Symlinks resolve
-readlink .codex/skills .claude/skills .grok/skills
+readlink .codex/skills .claude/skills .grok/skills .cursor/skills
 
 # Same SKILL.md through every link
 test -f .agents/skills/documentation-audit/SKILL.md
 test -f .codex/skills/documentation-audit/SKILL.md
 test -f .claude/skills/documentation-audit/SKILL.md
 test -f .grok/skills/documentation-audit/SKILL.md
+test -f .cursor/skills/documentation-audit/SKILL.md
 ```

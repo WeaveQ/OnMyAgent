@@ -1,8 +1,21 @@
 /** @jsxImportSource react */
-import { useEffect, useMemo, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
+import {
+  ChevronRight,
+  Download,
+  MessageSquare,
+  Pencil,
+  Trash2,
+  Upload,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { MARKETPLACE_CARD_GRID } from "@/components/ui/skill-marketplace-card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -78,12 +91,49 @@ function canDeleteShelfExpert(
   return Boolean(onDelete) && (expert.source === "mine" || expert.source === "installed");
 }
 
+function canMineExpertPackageAction(
+  expert: Pick<ExpertMarketplaceEntry, "source">,
+  action?: (expert: ExpertMarketplaceEntry) => void,
+): boolean {
+  return Boolean(action) && expert.source === "mine";
+}
+
+function ExpertCardFooterAction(props: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  destructive?: boolean;
+  emphasis?: boolean;
+  onClick: () => void;
+}) {
+  const Icon = props.icon;
+  return (
+    <button
+      type="button"
+      className={cn(
+        "inline-flex min-w-0 flex-1 items-center justify-center gap-1 px-1.5 py-2 text-xs font-medium leading-4 transition-colors",
+        "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
+        props.emphasis && "text-dls-text",
+        props.destructive &&
+          "text-dls-status-danger-fg hover:bg-dls-status-danger-soft hover:text-dls-status-danger-fg",
+      )}
+      aria-label={props.label}
+      onClick={(event) => {
+        event.stopPropagation();
+        props.onClick();
+      }}
+    >
+      <Icon className="size-3.5 shrink-0" aria-hidden />
+      <span className="whitespace-nowrap">{props.label}</span>
+    </button>
+  );
+}
+
 function ExpertCard(props: {
   expert: ExpertMarketplaceEntry;
   active?: boolean;
   /**
-   * Mine / already summoned → “去聊天”; market not summoned → “召唤”.
-   * Both CTAs only reveal on card hover / focus (keeps the grid clean).
+   * Mine: bottom toolbar (edit / export / delete / open chat).
+   * Market: original hover 召唤 / 去聊天 in the title row.
    */
   shelf?: "market" | "mine";
   /** Market only: package already on the local shelf — show open-chat, not re-summon. */
@@ -91,16 +141,21 @@ function ExpertCard(props: {
   onOpen: (expert: ExpertMarketplaceEntry) => void;
   onSummon: (expert: ExpertMarketplaceEntry) => void;
   onDelete?: (expert: ExpertMarketplaceEntry) => void;
+  onEdit?: (expert: ExpertMarketplaceEntry) => void;
+  onExport?: (expert: ExpertMarketplaceEntry) => void;
 }) {
   const isMine = props.shelf === "mine";
   const openChatCta = isMine || Boolean(props.alreadySummoned);
   const canDelete = Boolean(props.onDelete);
+  const canEdit = canMineExpertPackageAction(props.expert, props.onEdit);
+  const canExport = canMineExpertPackageAction(props.expert, props.onExport);
   return (
     <div
       role="button"
       tabIndex={0}
       className={cn(
-        "group flex h-full min-h-[8.5rem] cursor-pointer select-none flex-col rounded-2xl border border-transparent bg-dls-surface px-4 py-3.5 text-left transition-colors hover:border-dls-border hover:bg-dls-hover focus-visible:border-dls-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30 mac:titlebar-no-drag",
+        "group flex h-full min-h-[8.5rem] cursor-pointer select-none flex-col rounded-2xl border border-transparent bg-dls-surface px-4 text-left transition-colors hover:border-dls-border hover:bg-dls-hover focus-visible:border-dls-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dls-accent/30 mac:titlebar-no-drag",
+        isMine ? "pt-3.5" : "py-3.5",
         props.active && "border-dls-border bg-dls-accent/10",
       )}
       onClick={() => props.onOpen(props.expert)}
@@ -125,49 +180,35 @@ function ExpertCard(props: {
                 </div>
               ) : null}
             </div>
-            <div
-              className={cn(
-                "flex shrink-0 items-center gap-1",
-                "pointer-events-none opacity-0 shadow-none transition-opacity",
-                "group-hover:pointer-events-auto group-hover:opacity-100",
-                "group-focus-within:pointer-events-auto group-focus-within:opacity-100",
-              )}
-            >
-              {canDelete ? (
+            {isMine ? null : (
+              <div
+                className={cn(
+                  "flex shrink-0 items-center gap-1",
+                  "pointer-events-none opacity-0 shadow-none transition-opacity",
+                  "group-hover:pointer-events-auto group-hover:opacity-100",
+                  "group-focus-within:pointer-events-auto group-focus-within:opacity-100",
+                )}
+              >
                 <Button
                   type="button"
-                  variant="destructive"
+                  variant={openChatCta ? "outline" : "default"}
                   size="xs"
                   tabIndex={-1}
-                  className="shadow-none"
-                  aria-label={t("session.expert_delete_conversation")}
+                  className={cn(
+                    "shadow-none",
+                    openChatCta
+                      ? "border-dls-border bg-dls-surface text-dls-text hover:bg-dls-hover hover:text-dls-text"
+                      : "border-transparent bg-dls-decision text-white hover:bg-dls-decision-hover hover:text-white",
+                  )}
                   onClick={(event) => {
                     event.stopPropagation();
-                    props.onDelete?.(props.expert);
+                    props.onSummon(props.expert);
                   }}
                 >
-                  {t("session.delete")}
+                  {openChatCta ? t("session.open_chat") : t("session.summon")}
                 </Button>
-              ) : null}
-              <Button
-                type="button"
-                variant={openChatCta ? "outline" : "default"}
-                size="xs"
-                tabIndex={-1}
-                className={cn(
-                  "shadow-none",
-                  openChatCta
-                    ? "border-dls-border bg-dls-surface text-dls-text hover:bg-dls-hover hover:text-dls-text"
-                    : "border-transparent bg-dls-decision text-white hover:bg-dls-decision-hover hover:text-white",
-                )}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  props.onSummon(props.expert);
-                }}
-              >
-                {openChatCta ? t("session.open_chat") : t("session.summon")}
-              </Button>
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -181,6 +222,38 @@ function ExpertCard(props: {
               {tag}
             </StatusBadge>
           ))}
+        </div>
+      ) : null}
+      {isMine ? (
+        <div className="-mx-4 mt-3 flex divide-x divide-dls-border border-t border-dls-border">
+          {canEdit ? (
+            <ExpertCardFooterAction
+              icon={Pencil}
+              label={t("store.edit_expert")}
+              onClick={() => props.onEdit?.(props.expert)}
+            />
+          ) : null}
+          {canExport ? (
+            <ExpertCardFooterAction
+              icon={Download}
+              label={t("store.export_expert")}
+              onClick={() => props.onExport?.(props.expert)}
+            />
+          ) : null}
+          {canDelete ? (
+            <ExpertCardFooterAction
+              icon={Trash2}
+              label={t("session.delete")}
+              destructive
+              onClick={() => props.onDelete?.(props.expert)}
+            />
+          ) : null}
+          <ExpertCardFooterAction
+            icon={MessageSquare}
+            label={t("session.open_chat")}
+            emphasis
+            onClick={() => props.onSummon(props.expert)}
+          />
         </div>
       ) : null}
     </div>
@@ -199,6 +272,10 @@ export function ExpertMarketplacePage(props: {
   onSummonMarketplaceExpert: ExpertMarketplaceSummonHandler;
   onCreateExpert: () => void;
   onDeleteExpert?: (expert: ExpertMarketplaceEntry) => void;
+  onEditExpert?: (expert: ExpertMarketplaceEntry) => void;
+  onExportExpert?: (expert: ExpertMarketplaceEntry) => void;
+  onImportExpert?: (kind: "zip" | "folder") => void;
+  importBusy?: boolean;
   className?: string;
 }) {
   const view = props.view ?? "market";
@@ -380,15 +457,53 @@ export function ExpertMarketplacePage(props: {
                   <p className="max-w-sm text-xs leading-5 text-dls-secondary">
                     {t("session.my_experts_empty_desc")}
                   </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-1 gap-1.5 text-dls-text"
-                    onClick={props.onCreateExpert}
-                  >
-                    {t("session.create_expert")}
-                  </Button>
+                  <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
+                    {props.onImportExpert ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={props.importBusy}
+                              className="gap-1.5 text-dls-text"
+                            >
+                              <Upload className="size-3.5 shrink-0 text-dls-text" strokeWidth={2} aria-hidden />
+                              {t("store.import_expert")}
+                            </Button>
+                          }
+                        />
+                        <DropdownMenuContent
+                          align="center"
+                          sideOffset={6}
+                          className="min-w-40 border border-dls-border bg-dls-surface-solid p-1.5 text-dls-text"
+                        >
+                          <DropdownMenuItem
+                            className="cursor-pointer gap-2 text-dls-text focus:bg-dls-hover"
+                            onClick={() => props.onImportExpert?.("zip")}
+                          >
+                            {t("store.import_expert_zip")}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="cursor-pointer gap-2 text-dls-text focus:bg-dls-hover"
+                            onClick={() => props.onImportExpert?.("folder")}
+                          >
+                            {t("store.import_expert_folder")}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : null}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-dls-text"
+                      onClick={props.onCreateExpert}
+                    >
+                      {t("session.create_expert")}
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <div className={EXPERT_MINE_CARD_GRID}>
@@ -405,6 +520,21 @@ export function ExpertMarketplacePage(props: {
                           ? (item) => {
                               setSelectedExpert(null);
                               props.onDeleteExpert?.(item);
+                            }
+                          : undefined
+                      }
+                      onEdit={
+                        canMineExpertPackageAction(expert, props.onEditExpert)
+                          ? (item) => {
+                              setSelectedExpert(null);
+                              props.onEditExpert?.(item);
+                            }
+                          : undefined
+                      }
+                      onExport={
+                        canMineExpertPackageAction(expert, props.onExportExpert)
+                          ? (item) => {
+                              props.onExportExpert?.(item);
                             }
                           : undefined
                       }
@@ -515,6 +645,36 @@ export function ExpertMarketplacePage(props: {
                             name: selectedExpert.displayName,
                           })}
                     </Button>
+                    {canMineExpertPackageAction(selectedExpert, props.onEditExpert) ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="lg"
+                        className="mt-3 w-full"
+                        onClick={() => {
+                          const expert = selectedExpert;
+                          setSelectedExpert(null);
+                          window.setTimeout(() => {
+                            props.onEditExpert?.(expert);
+                          }, MARKETPLACE_DIALOG_EXIT_DURATION_MS);
+                        }}
+                      >
+                        {t("store.edit_expert")}
+                      </Button>
+                    ) : null}
+                    {canMineExpertPackageAction(selectedExpert, props.onExportExpert) ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="lg"
+                        className="mt-3 w-full"
+                        onClick={() => {
+                          props.onExportExpert?.(selectedExpert);
+                        }}
+                      >
+                        {t("store.export_expert")}
+                      </Button>
+                    ) : null}
                     {canDeleteShelfExpert(selectedExpert, props.onDeleteExpert) ? (
                       <Button
                         type="button"
@@ -549,6 +709,10 @@ export function ExpertMarketplaceDialog(props: {
   onSummonMarketplaceExpert: ExpertMarketplaceSummonHandler;
   onCreateExpert: () => void;
   onDeleteExpert?: (expert: ExpertMarketplaceEntry) => void;
+  onEditExpert?: (expert: ExpertMarketplaceEntry) => void;
+  onExportExpert?: (expert: ExpertMarketplaceEntry) => void;
+  onImportExpert?: (kind: "zip" | "folder") => void;
+  importBusy?: boolean;
 }) {
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
@@ -561,6 +725,10 @@ export function ExpertMarketplaceDialog(props: {
           onSummonMarketplaceExpert={props.onSummonMarketplaceExpert}
           onCreateExpert={props.onCreateExpert}
           onDeleteExpert={props.onDeleteExpert}
+          onEditExpert={props.onEditExpert}
+          onExportExpert={props.onExportExpert}
+          onImportExpert={props.onImportExpert}
+          importBusy={props.importBusy}
         />
       </DialogContent>
     </Dialog>

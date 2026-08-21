@@ -28,6 +28,8 @@ extraResources:
     to: bundled-plugins
   - from: resources/marketplace
     to: marketplace
+  - from: resources/opencode-models
+    to: opencode-models
   - from: resources/browser
     to: browser
   - from: resources/runtimes

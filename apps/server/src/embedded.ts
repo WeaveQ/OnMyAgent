@@ -70,25 +70,29 @@ export function scheduleDeferredWorkspaceSync(input: {
   };
 }
 
-/** OpenCode appends `/api.json`; a trailing slash becomes `//api.json`. */
+/**
+ * OpenCode 1.18.18 caches `models.json` only when the URL is omitted (default
+ * `https://models.opencode.ai`) or equals that host. Injecting models.dev
+ * hashes the cache filename and ignores the seeded snapshot.
+ * Return null when the user did not override, so we do not set the env.
+ */
 export function resolveOpencodeModelsUrl(
   env: NodeJS.ProcessEnv = process.env,
-): string {
+): string | null {
   const raw =
     env.OPENCODE_MODELS_URL?.trim() ||
     env.ONMYAGENT_OPENCODE_MODELS_URL?.trim() ||
-    (env.ONMYAGENT_MODELS_LOCAL === "1"
-      ? "http://localhost:8791/models"
-      : "https://models.onmyagentlabs.com");
+    (env.ONMYAGENT_MODELS_LOCAL === "1" ? "http://localhost:8791/models" : "");
+  if (!raw) return null;
   return raw.replace(/\/+$/, "");
 }
 
 export async function startEmbeddedServer(options: EmbeddedServerOptions): Promise<EmbeddedServerHandle> {
   const config = await resolveServerConfig(options);
   const serverUrl = `http://${config.host === "0.0.0.0" ? "127.0.0.1" : config.host}:${config.port}`;
-  // Prefer explicit override. Do not hard-require localhost:8791 in dev — when
-  // nothing listens there, OpenCode /provider hangs and Settings "加载服务商"
-  // sticks. Opt into the local mirror with ONMYAGENT_MODELS_LOCAL=1.
+  // Do not default OPENCODE_MODELS_URL: OpenCode 1.18.18 already uses
+  // models.opencode.ai and models.json. models.onmyagentlabs.com is not live.
+  // Opt into localhost:8791 with ONMYAGENT_MODELS_LOCAL=1.
   const opencodeModelsUrl = resolveOpencodeModelsUrl();
 
   // Spawn managed OpenCode if requested and no explicit base URL was provided.
@@ -128,7 +132,7 @@ export async function startEmbeddedServer(options: EmbeddedServerOptions): Promi
           ONMYAGENT_SERVER_URL: serverUrl,
           ONMYAGENT_SERVER_TOKEN: config.token,
           OPENCODE_CONFIG_CONTENT: onmyagentExtensionsPreviewConfig,
-          OPENCODE_MODELS_URL: opencodeModelsUrl,
+          ...(opencodeModelsUrl ? { OPENCODE_MODELS_URL: opencodeModelsUrl } : {}),
         },
       });
 

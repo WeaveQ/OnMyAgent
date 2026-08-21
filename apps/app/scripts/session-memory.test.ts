@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   forgetWorkspaceMemory,
   readActiveWorkspaceId,
+  lookupSidebarSessionTitle,
   readCachedSidebarSessionsByWorkspace,
   readLastSessionFor,
   readSessionAccessModes,
@@ -11,6 +12,7 @@ import {
   readSessionModelOverrides,
   readWorkspaceOrderIds,
   writeActiveWorkspaceId,
+  rememberLiveSidebarSessionsByWorkspace,
   writeCachedSidebarSessionsForWorkspace,
   writeLastSessionFor,
   writeSessionAccessModes,
@@ -47,6 +49,7 @@ beforeEach(() => {
     configurable: true,
     value: { localStorage: createLocalStorage() },
   });
+  rememberLiveSidebarSessionsByWorkspace({});
 });
 
 afterEach(() => {
@@ -366,5 +369,17 @@ describe("session memory", () => {
     ]);
     forgetWorkspaceMemory("ws_b");
     expect(readCachedSidebarSessionsByWorkspace()).toEqual({});
+  });
+
+  test("prefers live sidebar titles over the cold-start cache", () => {
+    writeCachedSidebarSessionsForWorkspace("ws_a", [
+      { id: "ses_1", title: "New session" },
+    ]);
+    expect(lookupSidebarSessionTitle("ws_a", "ses_1")).toBe("New session");
+    rememberLiveSidebarSessionsByWorkspace({
+      ws_a: [{ id: "ses_1", title: "核对六月运输账单" }],
+    });
+    expect(lookupSidebarSessionTitle("ws_a", "ses_1")).toBe("核对六月运输账单");
+    expect(lookupSidebarSessionTitle("ws_a", "ses_missing")).toBe("");
   });
 });

@@ -43,6 +43,7 @@ import { NO_EXPERT_CONVERSATIONS_ASSET } from "./expert-page-utils";
 import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import { ExpertDirectoryIncompleteNotice } from "./expert-directory-incomplete-notice";
 
+import { mergeLocalShelfWithConversations } from "../../plugins";
 import { ExpertPageAfterPrimary, ExpertPageSessionSurface } from "./expert-page-main-surface";
 import { ExpertPageModals } from "./expert-page-modals";
 import { ExpertPageRail } from "./expert-page-rail";
@@ -78,6 +79,7 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
     handleCreateCurrentAgentSession,
     handleCreateSkill,
     handleEditExpert,
+    handleEditMarketplaceExpert,
     handleEditSkill,
     handleOpenDraftSession,
     handleOpenExpertFromSidebar,
@@ -288,7 +290,10 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
                         workspaceRoot={props.selectedWorkspaceRoot}
                         client={props.onmyagentServerClient}
                         activeTab={storeActiveTab}
-                        myExperts={myExpertPackages}
+                        myExperts={mergeLocalShelfWithConversations(
+                          myExpertPackages,
+                          [...conversationGroups, ...draftAgentGroups],
+                        )}
                         activeExpertAgentIds={[
                           ...conversationGroups.map((group) => group.agentId),
                           ...draftAgentGroups.map((group) => group.agentId),
@@ -297,6 +302,7 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
                         onSummonMarketplaceExpert={handleStartMarketplaceExpert}
                         onCreateExpert={openExpertCreation}
                         onDeleteExpert={handleDeleteMarketplaceExpert}
+                        onEditExpert={handleEditMarketplaceExpert}
                         onCreateSkill={handleCreateSkill}
                         onChatWithSkill={handleChatWithSkill}
                         onEditSkill={handleEditSkill}

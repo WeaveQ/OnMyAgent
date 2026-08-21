@@ -8,6 +8,62 @@ For the complete assets and release notes, use [GitHub Releases](https://github.
 
 ## Unreleased
 
+## 0.5.25
+
+- First Settings model list no longer hangs: the catalog ships in the app
+- Session model picker order matches Settings
+- Checking for updates says so when you are already on the latest build
+- Space-session artifact cards no longer appear twice
+- Agent-ready notifications include a short snippet of the task
+- Tray menu follows the OS language
+
+## 0.5.24
+
+- macOS preview builds are notarized again, so the installer should open normally
+
+## 0.5.23
+
+- Expert chats can send spreadsheets, PDFs, and images without the whole message being rejected as too large
+- Models added in Settings show up on Home
+- Archive Cursor sessions use the Cursor mark; a busy archive database explains how to retry
+
+## 0.5.22
+
+- Permission prompts appear as soon as the session asks
+- Update system notifications follow the app language
+- HTML file preview can scroll on first open
+- Files written by helper scripts show up as product cards
+
+## 0.5.21
+
+- Packaging-only preview. No separate product changes from 0.5.20.
+
+## 0.5.20
+
+- Handbook nav can switch between Chinese and English
+- Website downloads use the public installer URL
+
+## 0.5.19
+
+- Packaging-only preview. No separate product changes from 0.5.18.
+
+## 0.5.18
+
+- In-app update checks use the public update feed
+- Plugin cards in Settings match the rest of the UI
+
+## 0.5.17
+
+- Packaging-only preview. No separate product changes from 0.5.16.
+
+## 0.5.16
+
+- After an update relaunch, the app retries if the local server is not up yet
+- Home sessions stay off the expert rail
+- Files in a space session can be previewed
+- Delivery-list cards with size notes no longer disappear
+- Office preview opens from the session file path
+
 ## 0.5.15
 
 - Drop the expert missing-skills toast for declared-but-unmaterializable skills
@@ -127,7 +183,7 @@ For the complete assets and release notes, use [GitHub Releases](https://github.
 
 - OS notifications and quick capture work outside the session page
 
-## 0.4.22 – 0.4.24
+## 0.4.22 to 0.4.24
 
 - Packaged boot, welcome assets, and provider-ready state fixes
 

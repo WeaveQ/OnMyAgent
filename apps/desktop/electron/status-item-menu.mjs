@@ -65,9 +65,50 @@ export const STATUS_ITEM_DEFAULT_ACCELERATORS = Object.freeze({
  */
 export function resolveStatusItemLocale(appLocale) {
   const raw = String(appLocale ?? "en").trim().toLowerCase().replace(/_/g, "-");
-  if (raw.startsWith("zh-tw") || raw.startsWith("zh-hant")) return "zh-TW";
+  if (raw.startsWith("zh-tw") || raw.startsWith("zh-hant") || raw.startsWith("zh-hk") || raw.startsWith("zh-mo")) {
+    return "zh-TW";
+  }
   if (raw.startsWith("zh")) return "zh";
   return "en";
+}
+
+const CHINESE_REGION_TIME_ZONES = new Set([
+  "Asia/Shanghai",
+  "Asia/Chongqing",
+  "Asia/Harbin",
+  "Asia/Urumqi",
+  "Asia/Hong_Kong",
+  "Asia/Macau",
+  "Asia/Taipei",
+]);
+
+/**
+ * Match in-app `detectInitialLanguage`: preferred OS languages first, then
+ * Chinese-region time zone. Do not use Chromium `app.getLocale()` alone —
+ * packaged Electron often reports en even when the UI defaults to zh.
+ *
+ * @param {{
+ *   languages?: string[] | null,
+ *   timeZone?: string | null,
+ *   appLocale?: string | null,
+ * }} [input]
+ * @returns {"en" | "zh" | "zh-TW"}
+ */
+export function resolveStatusItemLocaleFromEnvironment(input = {}) {
+  const languages = Array.isArray(input.languages) ? input.languages : [];
+  for (const raw of languages) {
+    if (typeof raw !== "string" || !raw.trim()) continue;
+    const mapped = resolveStatusItemLocale(raw);
+    if (mapped !== "en") return mapped;
+  }
+  const timeZone = String(input.timeZone ?? "").trim();
+  if (CHINESE_REGION_TIME_ZONES.has(timeZone)) {
+    if (timeZone === "Asia/Taipei" || timeZone === "Asia/Hong_Kong" || timeZone === "Asia/Macau") {
+      return "zh-TW";
+    }
+    return "zh";
+  }
+  return resolveStatusItemLocale(input.appLocale);
 }
 
 /**

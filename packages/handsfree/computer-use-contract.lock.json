@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "sourceRoot": "native/HandsFree/Sources/ComputerUse",
+  "protectedFiles": {
+    "AGENTS.md": "bc3b96b2e69b98e599bc20795d39409abe040563fb55aeee99c34b0aff42b870",
+    "native/HandsFree/Sources/ComputerUse/AccessibilityFrameResolver.swift": "c3574f4225c2dc79a56bd202b352ce1b1131a563863756ab0c8daeefb998f7ed",
+    "native/HandsFree/Sources/ComputerUse/AccessibilityService.swift": "4f41edaed43d7e55478b6807ecd833061e417ad0a8ced087ee98afcd66d11c7c",
+    "native/HandsFree/Sources/ComputerUse/AgentCursorArtwork.swift": "6f2bcb058f4700343b5f94cba5cb7c3bfb15cf82f8273a53f6becc590458ec7f",
+    "native/HandsFree/Sources/ComputerUse/AgentCursorOverlay.swift": "c3a82436233f5b0804f48230aaaa5c816f58871ef7cb97dc48ee6112089bdcac",
+    "native/HandsFree/Sources/ComputerUse/BackgroundActivationSession.swift": "24d5597500cd962d717e51f91092b2d3b7dda207e5e3f1420d53df1b4c44e521",
+    "native/HandsFree/Sources/ComputerUse/BackgroundInputDispatcher.swift": "0086f1eb9d6bc17b1b721d8343f609e48279a41522df8d73cb68fa84cb1f0c10",
+    "native/HandsFree/Sources/ComputerUse/ComputerUseBehaviorContract.swift": "01b27d772c909d1e6e5feab63a63ad6511fbe0798dbb2378b3d2466a844eaad3",
+    "native/HandsFree/Sources/ComputerUse/ComputerUseRuntime.swift": "6cce424de9036b0b479475caaca4226335b072fe9f43045d54c1ca669d4cf595",
+    "native/HandsFree/Sources/ComputerUse/MCPServer.swift": "6b83dbc5df0737191f0ae9056629e265a32f078b9104ecb7643688e15f57d618",
+    "native/HandsFree/Sources/ComputerUse/MCPToolCatalog.swift": "12b071883d8c66e20da6d326d1f87245a3e3b94240e831176cbf6f2b0ce1c60c",
+    "native/HandsFree/Sources/ComputerUse/PhysicalInputMonitor.swift": "2a21f9af527bbcc4634cfa805b6873b7845ff7d2343447f24a56028ba0fe03e5",
+    "native/HandsFree/Sources/ComputerUse/SkyCompatibility.swift": "f9e94e0cadf2582b0085a1d5823812c8450d3ee87a55388582cbfc19c22590ca",
+    "native/HandsFree/Sources/ComputerUse/SkyLightBridge.swift": "ba9353c518268e8aafc7aa34ee0bf24652aa8704db2fd86fed5af600435c3107",
+    "native/HandsFree/Sources/ComputerUse/Types.swift": "3dfaee39f780d1ac57eeedf7948506455f8936f7b5c078b086f2a8b8ffb8345b",
+    "package.json": "1254ebb208bba81a325cc62ef603cfc25bda1c140422f350771089b3e6b63c78",
+    "scripts/check-computer-use-contract.mjs": "9cee96c99d15a31030336ffdb843c5fd9033d73c33f00f48cc37607e5b5f9770",
+    "scripts/check-computer-use-contract.test.mjs": "a1f5d99a90e26c60b459d57a10b36a4c0eb0f124b7e9c2767003bf21b798d29f"
+  },
+  "dangerousApiRules": [
+    {
+      "id": "hardware-cursor-warp",
+      "pattern": "\\b(?:CGWarpMouseCursorPosition|CGAssociateMouseAndMouseCursorPosition|CGEventPost(?:ToPid|ToPSN)?|CGPostMouseEvent|CGPostKeyboardEvent)\\b",
+      "allowedFiles": []
+    },
+    {
+      "id": "global-event-posting",
+      "pattern": "\\.post\\(tap:\\s*\\.(?:cghidEventTap|cgSessionEventTap)\\)",
+      "allowedFiles": [
+        "native/HandsFree/Sources/ComputerUse/InputService.swift"
+      ]
+    },
+    {
+      "id": "targeted-event-routing",
+      "pattern": "\\.postToPid\\(",
+      "allowedFiles": [
+        "native/HandsFree/Sources/ComputerUse/SkyLightBridge.swift"
+      ]
+    },
+    {
+      "id": "unconditional-window-ordering",
+      "pattern": "\\borderFrontRegardless\\s*\\(",
+      "allowedFiles": [
+        "native/HandsFree/Sources/ComputerUse/Appshot.swift",
+        "native/HandsFree/Sources/ComputerUse/RecordAndReplayUI.swift"
+      ]
+    },
+    {
+      "id": "foreground-application-activation",
+      "pattern": "NSApplication\\.shared\\.activate\\(ignoringOtherApps:|[A-Za-z_][A-Za-z0-9_]*\\??\\.activate\\(\\s*\\)",
+      "allowedFiles": [
+        "native/HandsFree/Sources/ComputerUse/AppAuthorizationPrompt.swift",
+        "native/HandsFree/Sources/ComputerUse/AppCatalog.swift",
+        "native/HandsFree/Sources/ComputerUse/MCPServer.swift",
+        "native/HandsFree/Sources/ComputerUse/PermissionSetupApp.swift",
+        "native/HandsFree/Sources/ComputerUse/RecordAndReplayUI.swift",
+        "native/HandsFree/Sources/ComputerUse/SkysightControl.swift"
+      ]
+    }
+  ]
+}

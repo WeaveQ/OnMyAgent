@@ -5,9 +5,10 @@ import { unwrap } from "../../../app/lib/opencode";
 import { dispatchNewProviders } from "../../../app/lib/provider-events";
 import type { ProviderListResponse } from "@opencode-ai/sdk/v2/client";
 import {
-  orderConnectedProviders,
-  readConnectedProviderOrderIds,
-} from "./order-connected-providers";
+  listOrderedConnectedProviders,
+  type MergeConnectedProvidersInput,
+} from "./merge-connected-providers";
+import { readConnectedProviderOrderIds } from "./order-connected-providers";
 
 export const PROVIDER_LIST_CACHE_MS = 5 * 60 * 1000;
 const PROVIDER_LIST_QUERY_ROOT = ["opencode-provider-list"] as const;
@@ -71,15 +72,37 @@ export async function fetchProviderList(input: {
   return value;
 }
 
-export function getConnectedProviderItems(value: ProviderListResponse | null | undefined) {
+export function getConnectedProviderItems(
+  value: ProviderListResponse | null | undefined,
+  options?: {
+    managedProviders?: MergeConnectedProvidersInput["managedProviders"];
+    orderIds?: ReadonlyArray<string>;
+    isBlocked?: (providerId: string) => boolean;
+  },
+) {
   const connected = new Set(value?.connected ?? []);
   const items = (value?.all ?? []).filter(
     (provider) =>
       connected.has(provider.id) &&
       (provider.source !== "custom" || provider.id === "opencode" || Object.keys(provider.models ?? {}).length > 0),
   );
-  // Same preference as Settings → Models (custom-first default + user drag order).
-  return orderConnectedProviders(items, readConnectedProviderOrderIds());
+  const ordered = listOrderedConnectedProviders({
+    sdkProviders: items,
+    connectedIds: value?.connected ?? items.map((provider) => provider.id),
+    managedProviders: options?.managedProviders,
+    orderIds: options?.orderIds ?? readConnectedProviderOrderIds(),
+    isBlocked: options?.isBlocked,
+  });
+  const byId = new Map(items.map((provider) => [provider.id, provider]));
+  const result: ProviderListItem[] = [];
+  const seen = new Set<string>();
+  for (const row of ordered) {
+    const sdk = byId.get(row.id);
+    if (!sdk || seen.has(sdk.id)) continue;
+    seen.add(sdk.id);
+    result.push(sdk);
+  }
+  return result;
 }
 
 export function getConnectedProviderSnapshot(value: ProviderListResponse | null | undefined): ConnectedProviderSnapshot {

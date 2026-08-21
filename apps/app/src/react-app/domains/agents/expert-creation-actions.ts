@@ -9,6 +9,7 @@ import {
 import { isElectronRuntime } from "../../../app/utils";
 import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
 import type { ModelRef } from "../../../app/types";
+import type { AppStatusToastInput } from "../shell-feedback";
 import {
   AGENT_REGISTRY_PATH,
   createAgentRecordFromDraft,
@@ -91,12 +92,7 @@ export type ExpertCreationControllerInput = {
   renderCoachPanel?: import("./expert-creation-page").ExpertCreationPageProps["renderCoachPanel"];
   renderPreviewPanel?: import("./expert-creation-page").ExpertCreationPageProps["renderPreviewPanel"];
   renderComposer: (props: ExpertCreationComposerProps) => ReactNode;
-  showToast: (input: {
-    title: string;
-    description: string;
-    tone: "success";
-    durationMs: number;
-  }) => void;
+  showToast: (input: AppStatusToastInput) => void;
   onCreatedAgent: (agent: PendingAgentContext) => void;
 };
 
@@ -324,10 +320,8 @@ export function useExpertCreationController(
       useAgentRegistryStore.getState().setRegistry(result.registry);
       if (editingAgent) {
         input.showToast({
-          title: t("agents.updated_agent_title", { name: result.agent.name }),
-          description: t("agents.config_written_desc", {
-            path: result.configPath,
-          }),
+          title: t("agents.expert_updated_title", { name: result.agent.name }),
+          description: t("agents.expert_updated_desc"),
           tone: "success",
           durationMs: 4000,
         });
@@ -339,10 +333,8 @@ export function useExpertCreationController(
         result.registry,
       );
       input.showToast({
-        title: t("agents.created_title", { name: result.agent.name }),
-        description: t("agents.config_written_desc", {
-          path: result.configPath,
-        }),
+        title: t("agents.expert_created_title", { name: result.agent.name }),
+        description: t("agents.expert_created_desc"),
         tone: "success",
         durationMs: 4000,
       });

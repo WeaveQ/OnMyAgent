@@ -19,11 +19,43 @@ struct PhysicalInputPauseState: Sendable {
     }
 }
 
+enum PhysicalInputClassifier {
+    /// Hardware events arrive without an originating userspace process. Events
+    /// synthesized by this helper or another automation process must not pause
+    /// the session as if the user had touched a device.
+    static func isPhysical(sourcePID: pid_t) -> Bool {
+        sourcePID <= 0
+    }
+
+    static func isPointerMotion(_ type: CGEventType) -> Bool {
+        type == .mouseMoved
+            || type == .leftMouseDragged
+            || type == .rightMouseDragged
+            || type == .otherMouseDragged
+    }
+
+    static func pointerMoved(from previous: CGPoint?, to current: CGPoint, tolerance: CGFloat = 0.5) -> Bool {
+        guard let previous else { return true }
+        return abs(previous.x - current.x) > tolerance || abs(previous.y - current.y) > tolerance
+    }
+}
+
+enum PhysicalInputPausePolicy {
+    /// Strict Computer Use owns a process/window-directed virtual input channel,
+    /// so the user's hardware devices remain independent. Physical-input pause
+    /// only applies to the foreground compatibility path, which posts through
+    /// the shared system HID channel and can contend with the user.
+    static func shouldPause(strictMode: Bool, physicalInputIsActive: Bool) -> Bool {
+        !strictMode && physicalInputIsActive
+    }
+}
+
 final class PhysicalInputMonitor: @unchecked Sendable {
     private let lock = NSLock()
     private var state = PhysicalInputPauseState()
     private var eventTap: CFMachPort?
     private var runLoop: CFRunLoop?
+    private var lastPointerLocation = CGEvent(source: nil)?.location
 
     init() {
         let thread = Thread { [weak self] in
@@ -78,7 +110,13 @@ final class PhysicalInputMonitor: @unchecked Sendable {
             return
         }
         let sourcePID = pid_t(event.getIntegerValueField(.eventSourceUnixProcessID))
-        guard sourcePID != getpid() else { return }
+        guard PhysicalInputClassifier.isPhysical(sourcePID: sourcePID) else { return }
+        if PhysicalInputClassifier.isPointerMotion(type) {
+            let location = event.location
+            let moved = PhysicalInputClassifier.pointerMoved(from: lastPointerLocation, to: location)
+            lastPointerLocation = location
+            guard moved else { return }
+        }
         recordPhysicalInput()
     }
 

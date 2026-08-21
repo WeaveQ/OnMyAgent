@@ -27,6 +27,7 @@ import {
 import type { StorePrimaryTab } from "../components/side-panel-pages";
 import {
   resolveExpertSidebarOpen,
+  resolveUnstartedMinePending,
   shouldExitDraftForExpertSidebarTarget,
 } from "./expert-conversation-model";
 import { useExpertBoundDraftTransition } from "./use-expert-bound-draft-transition";
@@ -119,12 +120,21 @@ export function useExpertPageNavigation(input: {
 
   const handleOpenDraftSession = useCallback((sessionId: string) => {
     const agentId = sessionId.split(":").slice(2).join(":");
-    const agent = agentId ? input.draftAgentContexts[agentId] : null;
+    const live = agentId ? input.draftAgentContexts[agentId] : null;
+    const restored = agentId
+      ? resolveUnstartedMinePending(input.registry, agentId)
+      : undefined;
+    const agent = live ?? restored ?? null;
     if (!agent) return;
     activateDraftAgent(agent);
     openFreshExpertDraft();
     activateDraftAgent(agent);
-  }, [activateDraftAgent, input.draftAgentContexts, openFreshExpertDraft]);
+  }, [
+    activateDraftAgent,
+    input.draftAgentContexts,
+    input.registry,
+    openFreshExpertDraft,
+  ]);
 
   const resolveSessionTabForAgent = useCallback(
     (agentId: string, sessionIds: readonly string[]) => {

@@ -51,6 +51,7 @@ import {
   resolveSelectedModelContextWindow,
   filterAllowedModelOptions,
   isSelectedModelUnavailable,
+  shouldRecordUnavailableModelToast,
   resolveModelVariantState,
   resolveUsableDefaultModel,
   type ProviderModelCatalog,
@@ -330,10 +331,15 @@ export function useSessionRouteModelCatalog(input: Input) {
       providerListData,
     });
 
-    if (!effectiveUnavailable) return;
-
-    if (toastedUnavailableModelKeys.has(effectiveModelKey)) return;
-    toastedUnavailableModelKeys.add(effectiveModelKey);
+    if (
+      !shouldRecordUnavailableModelToast(
+        toastedUnavailableModelKeys,
+        effectiveModelKey,
+        effectiveUnavailable,
+      )
+    ) {
+      return;
+    }
 
     const modelLabel =
       resolveModelDisplayName(effectiveModelRef!.modelID) || effectiveModelKey;
