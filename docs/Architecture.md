@@ -148,11 +148,12 @@ apps/app/src/react-app/
   kernel/          Zustand store + platform/sdk/server provider + user-error 产品错误模板
   shell/           路由 + progressive boot + route-load-registry + layout + command-palette（只编排，不深链 domain 子路径）
   infra/           React-only 运行时基建（如 QueryClient）
-  capabilities/    跨域复用能力：artifacts / conversation（双运行时 timeline）/ layout（content-column）/ model-selection / session-identity
+  capabilities/    跨域复用能力：artifacts / conversation（双运行时 timeline）/ layout（content-column）/ model-selection / session-identity / account-avatar / context-usage
   design-system/   产品级复合组件（ConfirmModal、SelectMenu 等）
   domains/
     session/       **OpenCode 主轨**会话：composer/surface/sync/sidebar（底栏 channels+devices）/artifacts/browser/goal；hub freeze 见上表
     knowledge/     本地 Markdown vault（从 session/knowledge 抽出）；禁止 knowledge→session
+    task-center/   跨 agent 工作流列表/详情（typed Desktop IPC；不直连 Personal worker）
     local-agents/  **Personal 辅轨**：ACP / 本地 agent 编辑、卡片、agent-management、personal host
     messaging/     自动化（含 list model / wait-complete UX）+ 飞书/微信等 messaging channels（桌面 channel 纯单元门禁：`node --test apps/desktop/electron/channels/test/*.test.mjs`，无需 live 凭证）
     agents/        agent registry + 注册表 UI
@@ -196,7 +197,7 @@ desktop(electron) → runtime.mjs → engineStart
 app(React) ← desktop.ts(command-validated IPC bridge)
   ← preload.mjs
   ← desktop-command-router.mjs（按 desktopCommandGroups 路由）
-  ← desktop-handlers/*（workspace / system / local-agents / task-orchestrator / messaging / agent-management / opencode / runtime / skills）
+  ← desktop-handlers/*（workspace / system / knowledge / company / computerUse / local-agents / task-orchestrator / messaging / agent-management / opencode / runtime / skills / managedTools）
   ← main.mjs（组装 services + createAllDesktopDomainHandlers）
 app(React) ← onmyagent-server.ts(compat barrel) ← onmyagent-server/client.ts + domains.ts ← server
 app(React) ← opencode.ts(SDK) ← opencode binary
@@ -485,8 +486,9 @@ baseline `scripts/checks/baselines/circular-deps.json` **只减不增**（当前
      按 Map 约束 args/result。preload / main dispatch 仍是运行时边界；handler 级
      parity 可继续加严，但不能把「命令名 parity」当成端到端 payload 已全部闭环。
 - **Desktop handlers 已域拆分**：实现在 `apps/desktop/electron/desktop-handlers/`
-  （`workspace` / `system` / `local-agents` / `task-orchestrator` / `messaging` / `agent-management` /
-  `opencode` / `runtime` / `skills`），由 `createAllDesktopDomainHandlers` 组装；
+  （`workspace` / `system` / `knowledge` / `company` / `computerUse` / `local-agents` /
+  `task-orchestrator` / `messaging` / `agent-management` / `opencode` / `runtime` / `skills` /
+  `managedTools`），由 `createAllDesktopDomainHandlers` 组装；
   `desktop-command-router.mjs` 按 `desktopCommandGroups` 路由；`main.mjs` 只做
   composition root。新 IPC 优先加 domain handler + types map，而不是堆进 main。
 - Renderer-facing HTTP client 方法以 `packages/types/src/server-client-methods.mjs`
@@ -514,8 +516,8 @@ baseline `scripts/checks/baselines/circular-deps.json` **只减不增**（当前
   当前已登记方向包括（摘要，以 policy 文件为准）：
   `agents→connections|plugins|shell-feedback`、`local-agents→shell-feedback`、
   `messaging→agents|shell-feedback`（自动化 archive toast 等）、
-  `session→agents|connections|local-agents|messaging|plugins|shell-feedback|workspace`、
-  `settings→session|connections|plugins|shell-feedback`。
+  `session→agents|connections|local-agents|messaging|plugins|shell-feedback|workspace`、`session→knowledge`、
+  `settings→connections|plugins|shell-feedback`。
 - **文件级深链过渡白名单** `allowedDomainImports`（`scripts/checks/check-boundaries.mjs`）
   **已清零**（Set 为空）：历史 `file|importPath` 例外已收完。该 Set 仍保留为文档 +
   可选再启用位；**只减不增**（不得再写入新例外）。跨域 import 必须走目标域一级 barrel。
@@ -642,7 +644,7 @@ scripts/release/      release review, prepare, ship, and asset publishing
 - `graphify-out/graph.json` 是当前源码级图谱（生成产物，默认不手改）。规模随代码库变化，**不在文档里硬编码节点/边数**。
 - **AST-only 一条命令（无需 LLM key）**：`pnpm task graphify build` → `scripts/cli/graphify-build.mjs`
   （`graphify update . --force --no-cluster`，校验 `graphify-out/graph.json`；CLI 缺失时非零退出 + 明确错误；可设 `GRAPHIFY_BIN`）。
-- 推荐阅读入口：`graphify-out/GRAPH_REPORT.md` 与 `graphify query` / `graphify path`。完整交互 HTML 不是必需产物。
+- 推荐阅读入口：`graphify-out/graph.json`（本地 `pnpm task graphify build` 产物）与 `graphify query` / `graphify path`。完整交互 HTML 不是必需产物。
 - 修改代码后优先 `pnpm task graphify build`；无法运行时记入本地 `.loop/`。
 
 ## Renderer network & logging（P0）

@@ -43,15 +43,16 @@ pnpm test:ui
 | 专家会话面 FSM / tab / cold-open | `docs/design/expert-surface-architecture.md` | `pnpm test:ui`（§10 已编入 ui-contracts） |
 | hard_delete / create flush / listSessions 预算 | Architecture Expert lifecycle + Cold-path | `pnpm test:ui`（expert-hard-delete + cold-path-budget） |
 | 域拆分 / shell import | ARCHITECTURE + 根 AGENTS 边界 | `pnpm check:boundaries` |
-| 大页 expert/assistant/render | 下文热点 | `pnpm check:file-size` |
+| 大页 session-route / settings-route / surface | 下文热点 | `pnpm check:file-size` |
 
 ## 热点文件（先拆再改）
 
-贴近 `pnpm check:file-size` 基线，**禁止为功能直接抬高 baseline**：
+贴近 `pnpm check:file-size` 基线，**禁止为功能直接抬高 baseline**。当前 app 侧大文件以 baseline 为准，例如：
 
-- `src/react-app/domains/session/pages/expert.tsx`
-- `src/react-app/domains/session/pages/assistant.tsx`
 - `src/react-app/shell/session-route/render.tsx`
+- `src/react-app/shell/settings-route/render.tsx`
+- `src/react-app/domains/session/surface/session-surface.tsx`
+- `src/react-app/domains/workspace/workspace-files-browser-panel.tsx`
 
 顺序：抽 hook / pure model → 再改行为 → `pnpm check:file-size`。
 
