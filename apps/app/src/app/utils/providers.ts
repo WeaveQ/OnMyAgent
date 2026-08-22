@@ -62,6 +62,7 @@ const KNOWN_VISION_MODEL_IDS = [
   "doubao-seed-1.6-flash",
   "doubao-seed-1.6-thinking",
   "doubao-seed-1.6-vision",
+  "deepseek-v4-flash-vision",
   "doubao-seed-1.8",
   "doubao-seed-2.0-lite",
   "doubao-seed-2.0-mini",
@@ -89,7 +90,7 @@ const KNOWN_VISION_IDS_NORMALIZED = KNOWN_VISION_MODEL_IDS
 
 function isAllowedIdVariantSuffix(rest: string): boolean {
   if (/(^|-)(code|codex|coder)(-|$)/.test(rest)) return false;
-  return /^(?:preview|free|32k|\d{6,8})(?:-(?:preview|free|32k|\d{6,8}))*$/.test(rest);
+  return /^(?:preview|free|exp|experimental|32k|\d{6,8})(?:-(?:preview|free|exp|experimental|32k|\d{6,8}))*$/.test(rest);
 }
 
 function idMatchesKnownVision(id: string): boolean {
@@ -105,13 +106,19 @@ function idMatchesKnownVision(id: string): boolean {
 }
 
 /**
- * True when the live catalog lists image/vision input, or the model id is a
- * known vision entry. Do not infer from `attachment: true` alone.
+ * True when the live catalog lists image/vision input, the id is a known
+ * vision entry, or the id/name contains a "vision" token. Do not infer from
+ * `attachment: true` alone.
  */
+function looksLikeVisionLabel(id: string, name: string): boolean {
+  return /(^|[^a-z0-9])vision([^a-z0-9]|$)/.test(`${id} ${name}`.toLowerCase());
+}
+
 export function modelSupportsVision(
   model:
     | {
         id?: unknown;
+        name?: unknown;
         attachment?: unknown;
         modalities?: { input?: unknown } | null;
       }
@@ -130,7 +137,9 @@ export function modelSupportsVision(
     if (listed) return true;
   }
   const id = catalogModelId(modelId ?? String(model?.id ?? ""));
-  return id.length > 0 && idMatchesKnownVision(id);
+  if (id.length > 0 && idMatchesKnownVision(id)) return true;
+  const name = typeof model?.name === "string" ? model.name : "";
+  return looksLikeVisionLabel(id, name);
 }
 
 /** Free tier: OpenCode Zen zero-cost entries, or name/id containing "free". */

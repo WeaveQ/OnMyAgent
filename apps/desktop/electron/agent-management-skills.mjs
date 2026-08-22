@@ -285,6 +285,8 @@ export function createAgentManagementSkills(options = {}) {
         return path.join(home, ".claude", "skills");
       case "codex":
         return path.join(home, ".codex", "skills");
+      case "gemini":
+        return path.join(home, ".gemini", "skills");
       case "hermes":
         return path.join(home, ".hermes", "skills");
       case "openclaw":
@@ -916,7 +918,7 @@ export function createAgentManagementSkills(options = {}) {
           realpath(destination).catch(() => path.resolve(destination)),
         ]);
         if (realSource === realDestination) {
-          throw new Error("未托管 Skill 位于当前应用目录，已拒绝直接删除；请先同步到 Studio Switch/Agents 源目录后再禁用。");
+          throw new Error("Unmanaged skill is in the app directory");
         }
         await removePathIfPresent(destination);
       }

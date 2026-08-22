@@ -39,6 +39,15 @@ export default {
   "skills.matrix_clear_filters": "清除篩選條件",
   "skills.matrix_column_label": "{label} 列：{count} 個 skill{filtered}",
   "skills.matrix_column_tooltip": "{label}（點擊篩選 · Shift 多選）",
+  "skills.error_directory_not_found": "找不到該 Skill 目錄。",
+  "skills.error_generic": "這次沒能更新 Skill，請再試一次。",
+  "skills.error_invalid_directory": "Skill 名稱無效。",
+  "skills.error_missing_skill_md": "這個 Skill 缺少 SKILL.md，無法啟用。",
+  "skills.error_unmanaged_in_app_dir":
+    "這個 Skill 在應用目錄裡。請先匯入到 Studio Switch，再停用。",
+  "skills.error_unsupported_action": "不支援這個 Skill 操作。",
+  "skills.error_unsupported_agent":
+    "這個 Agent 不能從這裡安裝 Skill。請在 OpenCode、Claude、Codex、Gemini、Hermes、OpenClaw 或 OnMyAgent 上啟用。",
   "skills.matrix_copy_path": "複製路徑",
   "skills.matrix_column_unavailable": "{label} 未納入「我的智能體」或未安裝",
   "skills.matrix_count": "顯示 {visible} / 共 {total}",
@@ -71,6 +80,7 @@ export default {
   "skills.matrix_tooltip_busy": "{label} 處理中…",
   "skills.matrix_tooltip_managed": "{label} 已啟用（Studio Switch 託管） · 點擊禁用",
   "skills.matrix_tooltip_native": "{label} 原生啟用 · 來源在原始目錄",
+  "skills.matrix_tooltip_no_skill_sync": "{label} 在機群裡，但不能從這張表啟用或關閉 Skill",
   "skills.matrix_tooltip_readonly": "{label} 來源只讀，不可同步",
   "skills.matrix_unmanaged": "未託管",
   "skills.matrix_unmanaged_hint": "導入到 Studio Switch 後可在多個 Agent 間一鍵啟用 / 禁用。",

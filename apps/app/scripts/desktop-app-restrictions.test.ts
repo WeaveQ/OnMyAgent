@@ -134,6 +134,10 @@ describe("modelSupportsVision", () => {
     expect(modelSupportsVision({}, "doubao-seed-2.0-pro")).toBe(true);
     expect(modelSupportsVision({}, "kimi-k2.5-free")).toBe(true);
     expect(modelSupportsVision({}, "deepseek-v4-flash-free")).toBe(false);
+    expect(modelSupportsVision({}, "deepseek-v4-flash-vision-exp")).toBe(true);
+    expect(
+      modelSupportsVision({ name: "DeepSeek V4 Flash Vision Exp" }, "custom-deepseek"),
+    ).toBe(true);
     expect(modelSupportsVision({}, "big-pickle")).toBe(false);
     expect(modelSupportsVision({}, "qwen3.7-max")).toBe(false);
     expect(modelSupportsVision({}, "qwen3-max")).toBe(false);

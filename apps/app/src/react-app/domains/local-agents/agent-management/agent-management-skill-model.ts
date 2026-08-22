@@ -37,6 +37,11 @@ export function skillAgentLabel(agent: string) {
 
 export const STUDIO_SWITCH_SKILL_AGENT_OPTIONS: AgentManagementSkillAgent[] = ["opencode", "codex", "claude", "gemini", "hermes", "openclaw", "onmyagent"];
 
+/** Enable/disable IPC only works for Studio Switch + OnMyAgent skill roots. */
+export function isStudioSkillSyncAgent(agent: string): boolean {
+  return (STUDIO_SWITCH_SKILL_AGENT_OPTIONS as readonly string[]).includes(agent);
+}
+
 // Prefer brand-step /10 soft fills over Radix step-3 solids: in dark mode
 // step 3 becomes a heavy navy slab (e.g. blue-3 ≈ #0d2847) that fights
 // the skill-matrix accent checkmarks. Opacity tints read lightly on both themes.

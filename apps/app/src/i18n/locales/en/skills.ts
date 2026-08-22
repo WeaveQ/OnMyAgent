@@ -41,6 +41,15 @@ export default {
   "skills.matrix_clear_filters": "Clear filters",
   "skills.matrix_column_label": "{label} column: {count} skill{filtered}",
   "skills.matrix_column_tooltip": "{label} (click to filter · Shift for multi-select)",
+  "skills.error_directory_not_found": "That skill folder was not found.",
+  "skills.error_generic": "Couldn't update this skill. Try again.",
+  "skills.error_invalid_directory": "That skill name is not valid.",
+  "skills.error_missing_skill_md": "This skill is missing SKILL.md, so it cannot be enabled.",
+  "skills.error_unmanaged_in_app_dir":
+    "This skill lives in the app folder. Import it to Studio Switch before disabling.",
+  "skills.error_unsupported_action": "That skill action is not supported.",
+  "skills.error_unsupported_agent":
+    "This agent cannot receive skills from here. Enable it on OpenCode, Claude, Codex, Gemini, Hermes, OpenClaw, or OnMyAgent.",
   "skills.matrix_copy_path": "Copy path",
   "skills.matrix_column_unavailable": "{label} is not in My agents or not installed",
   "skills.matrix_count": "Showing {visible} / {total}",
@@ -73,6 +82,8 @@ export default {
   "skills.matrix_tooltip_busy": "{label} is processing…",
   "skills.matrix_tooltip_managed": "{label} is enabled (Studio Switch managed) · click to disable",
   "skills.matrix_tooltip_native": "{label} is natively enabled · source is in the original directory",
+  "skills.matrix_tooltip_no_skill_sync":
+    "{label} is listed in Fleet, but skills cannot be enabled or disabled for it from this matrix",
   "skills.matrix_tooltip_readonly": "{label} source is read-only and cannot sync",
   "skills.matrix_unmanaged": "Unmanaged",
   "skills.matrix_unmanaged_hint": "Import to Studio Switch to enable or disable it across Agents in one click.",

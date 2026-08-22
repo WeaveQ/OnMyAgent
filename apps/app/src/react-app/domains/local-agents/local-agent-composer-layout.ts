@@ -30,9 +30,9 @@ export function resolveLocalAgentComposerLayout(input: {
   dragActive: boolean;
   menuOpen: boolean;
 }) {
-  const panelRoundedClass = input.menuOpen
-    ? "rounded-t-xl border-t-transparent"
-    : "rounded-xl";
+  // Menus sit `absolute bottom-full` above the card. Keep all four corners
+  // rounded so focus-within ring matches the idle silhouette (no square feet).
+  const panelRoundedClass = "rounded-xl";
   const panelChromeClass = cn(
     "relative min-w-0 max-w-full overflow-visible bg-dls-surface-solid focus-within:ring-1 focus-within:ring-dls-focus focus-within:ring-offset-0",
     input.dragActive

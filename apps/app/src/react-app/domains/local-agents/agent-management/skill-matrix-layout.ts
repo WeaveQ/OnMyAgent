@@ -8,7 +8,10 @@ import type {
   AgentManagementSkill,
   AgentManagementSkillAgent,
 } from "../../../../app/lib/desktop";
-import { skillAgentLabel } from "./agent-management-skill-model";
+import {
+  isStudioSkillSyncAgent,
+  skillAgentLabel,
+} from "./agent-management-skill-model";
 
 export type SkillCellState =
   | "native"
@@ -46,6 +49,12 @@ export function resolveSkillCellState(
     };
   }
   const enabled = skill.agents.includes(agent);
+  if (!isStudioSkillSyncAgent(agent)) {
+    return {
+      state: enabled ? "native" : "readonly",
+      tooltip: t("skills.matrix_tooltip_no_skill_sync", { label }),
+    };
+  }
   const ownsSource = skill.sources.some(
     (source) =>
       source.agent === agent &&
