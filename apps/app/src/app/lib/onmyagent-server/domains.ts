@@ -22,7 +22,17 @@ export type OnMyAgentWorkspaceClient = Pick<OnMyAgentServerClient,
 export type OnMyAgentSessionClient = Pick<OnMyAgentServerClient,
   | "deleteSession" | "listSessions" | "getSession" | "getSessionMessages"
   | "getSessionSnapshot" | "listSessionOrigins" | "upsertSessionOrigin"
-  | "deleteSessionOrigin" | "deleteExpert"
+  | "deleteSessionOrigin" | "deleteExpert" | "getAgentRuntimeSelection" | "getAgentRuntimeModelCatalog" | "getAgentRuntimeConnectorTools" | "authenticateAgentRuntime"
+  | "setDefaultAgentRuntime" | "setWorkspaceAgentRuntime"
+  | "setGrokBuildRuntimeSelection" | "createRuntimeSession"
+  | "listRuntimeSessions" | "getRuntimeSession" | "deleteRuntimeSession" | "renameRuntimeSession" | "forkRuntimeSession" | "promptRuntimeSession"
+  | "cancelRuntimeSession" | "closeRuntimeSession" | "resumeRuntimeSession" | "openRuntimeSessionEvents"
+  | "setRuntimeSessionModel" | "setRuntimeSessionMode"
+  | "listRuntimeSessionCommands" | "listRuntimeWorkspaceCommands" | "executeRuntimeSessionCommand"
+  | "respondRuntimeQuestion"
+  | "getRuntimeSessionEventSnapshot"
+  | "getRuntimeSessionMessages"
+  | "respondRuntimePermission"
 >;
 
 export type OnMyAgentExtensionClient = Pick<OnMyAgentServerClient,

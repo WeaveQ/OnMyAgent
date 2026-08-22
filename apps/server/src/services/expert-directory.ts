@@ -1,4 +1,6 @@
 import { realpath } from "node:fs/promises";
+import { resolve, sep } from "node:path";
+import type { RuntimeSessionBinding } from "@onmyagent/types/agent-runtime";
 import type {
   ExpertDirectoryFailure,
   ExpertDirectoryHealAction,
@@ -41,11 +43,24 @@ import { recordExpertLifecycleEvent } from "./expert-lifecycle-events.js";
 export type ExpertDirectoryBuildOptions = {
   signal?: AbortSignal;
   runtimeRoot?: string;
+  runtimeRoots?: readonly string[];
+  opencodeProfileId?: string;
+  /** Durable runtime-neutral identities; native stores are never guessed. */
+  readRuntimeBindings?: () => Promise<readonly RuntimeSessionBinding[]>;
   /** Bounded OpenCode/session lookup. Routes supply this; tests can inject it. */
   readSessions?: (signal?: AbortSignal) => Promise<readonly {
     id: string;
     directory?: string;
   }[]>;
+};
+
+type RuntimeAwareExpertIdentity = {
+  agentId: string;
+  packageName: string;
+  sessionId: string;
+  runtimeKind?: "opencode" | "grok-build";
+  runtimeSessionId?: string;
+  profileId?: string;
 };
 
 export function clearExpertDirectoryCache(): void {
@@ -95,11 +110,7 @@ export async function buildExpertDirectory(
 
   let inventory;
   try {
-    inventory = await scanWorkspaceExpertSessionMarkers({
-      workspace,
-      runtimeRoot: options.runtimeRoot,
-      signal: options.signal,
-    });
+    inventory = await scanExpertRuntimeRoots(workspace, options);
   } catch (error) {
     if (isAbortError(error)) throw error;
     recordExpertLifecycleEvent({
@@ -122,28 +133,51 @@ export async function buildExpertDirectory(
   })));
   let lookupSessions: readonly { id: string; directory?: string }[] = [];
   const sessionIds = new Set<string>();
-  let lookupComplete = false;
+  const bindingsByProductId = new Map<string, RuntimeSessionBinding>();
+  let bindingLookupComplete = !options.readRuntimeBindings;
+  let opencodeLookupComplete = !options.readSessions;
+  if (options.readRuntimeBindings) {
+    try {
+      for (const binding of await options.readRuntimeBindings()) {
+        bindingsByProductId.set(binding.productSessionId, binding);
+      }
+      bindingLookupComplete = true;
+    } catch (error) {
+      if (isAbortError(error)) throw error;
+      failures.push({ source: "expert-runtime", key: hashKey("binding-lookup"), index: 0, code: "session_lookup_failed" });
+    }
+  }
   if (options.readSessions) {
     try {
       lookupSessions = await options.readSessions(options.signal);
       for (const session of lookupSessions) {
         if (session.id.trim()) sessionIds.add(session.id.trim());
       }
-      lookupComplete = true;
+      opencodeLookupComplete = true;
     } catch (error) {
       if (isAbortError(error)) throw error;
-      failures.push({ source: "opencode", key: hashKey("session-lookup"), index: 0, code: "session_lookup_failed" });
     }
-  } else {
+  }
+
+  const requiresOpenCodeLookup = origins.items.some((origin) =>
+    origin.kind === "expert" && !bindingsByProductId.has(origin.sessionId))
+    || inventory.entries.some((entry) =>
+      (entry.marker.isolationVersion ?? 0) < 4
+      && !bindingsByProductId.has(entry.marker.sessionId?.trim() ?? ""));
+  if (requiresOpenCodeLookup && !opencodeLookupComplete) {
     failures.push({ source: "opencode", key: hashKey("session-lookup"), index: 0, code: "session_lookup_failed" });
   }
+  const lookupComplete = bindingLookupComplete
+    && (opencodeLookupComplete || !requiresOpenCodeLookup);
 
   const tombstones = new Set(
     origins.tombstones.map((tombstone) => tombstone.sessionId),
   );
   const originsAuthoritative = origins.complete || origins.state === "missing";
   const sessionFingerprint = lookupComplete
-    ? sessionLookupFingerprint(lookupSessions)
+    ? hashKey(`${sessionLookupFingerprint(lookupSessions)}\n${[...bindingsByProductId.values()]
+      .map((binding) => `${binding.productSessionId}:${binding.runtimeKind}:${binding.runtimeSessionId}:${binding.profileId}`)
+      .sort().join("\n")}`)
     : "";
   if (
     originsAuthoritative && inventory.complete && lookupComplete &&
@@ -217,9 +251,12 @@ export async function buildExpertDirectory(
       agentId,
       packageName,
       sessionId: origin.sessionId,
+      ...runtimeIdentityFor(origin.sessionId, marker, bindingsByProductId),
       directory,
       runtimeMissing: !markerIdentity,
-      sessionMissing: lookupComplete ? !sessionIds.has(origin.sessionId) : undefined,
+      sessionMissing: lookupComplete
+        ? sessionIsMissing(origin.sessionId, marker, bindingsByProductId, sessionIds)
+        : undefined,
       skills: skillsFromMarker(marker),
     });
   }
@@ -238,9 +275,12 @@ export async function buildExpertDirectory(
     addSession(grouped, {
       ...identity,
       sessionId,
+      ...runtimeIdentityFor(sessionId, entry.marker, bindingsByProductId),
       directory: entry.directory,
       runtimeMissing: false,
-      sessionMissing: lookupComplete ? !sessionIds.has(sessionId) : undefined,
+      sessionMissing: lookupComplete
+        ? sessionIsMissing(sessionId, entry.marker, bindingsByProductId, sessionIds)
+        : undefined,
       skills: skillsFromMarker(entry.marker),
     });
   }
@@ -327,15 +367,13 @@ export async function healExpertDirectory(
       throw new ApiError(409, "expert_directory_incomplete", "Expert directory is incomplete");
     }
   }
-  const inventory = await scanWorkspaceExpertSessionMarkers({
-    workspace,
-    runtimeRoot: options.runtimeRoot,
-    signal: options.signal,
-  });
+  const inventory = await scanExpertRuntimeRoots(workspace, options);
   const origins = await listSessionOrigins(workspace);
-  const ensureRuntimeRoot = options.runtimeRoot
-    ? await realpath(options.runtimeRoot).catch(() => options.runtimeRoot)
-    : options.runtimeRoot;
+  const configuredRuntimeRoots = options.runtimeRoots?.length
+    ? options.runtimeRoots
+    : options.runtimeRoot ? [options.runtimeRoot] : [];
+  const runtimeRoots = await Promise.all(configuredRuntimeRoots.map((root) =>
+    realpath(root).catch(() => root)));
   const originsById = new Map(
     origins.items
       .filter((item) => item.kind === "expert")
@@ -343,6 +381,16 @@ export async function healExpertDirectory(
   );
   const tombstones = new Set(origins.tombstones.map((item) => item.sessionId));
   let lookupSessions: readonly { id: string; directory?: string }[] = [];
+  const runtimeBindings = new Map<string, RuntimeSessionBinding>();
+  if (options.readRuntimeBindings) {
+    try {
+      for (const binding of await options.readRuntimeBindings()) {
+        runtimeBindings.set(binding.productSessionId, binding);
+      }
+    } catch (error) {
+      if (isAbortError(error)) throw error;
+    }
+  }
   if (options.readSessions) {
     try {
       lookupSessions = await options.readSessions(options.signal);
@@ -376,7 +424,23 @@ export async function healExpertDirectory(
       actions.push({ directory: entry.directory, kind: "skip", result: "skipped", code: legacy.code });
       continue;
     }
-    const identity = legacy.identity;
+    const bindingIdentity = runtimeBindings.get(legacy.identity.sessionId);
+    const authoritativeOpenCodeSession = lookupSessions.some((session) =>
+      session.id === legacy.identity.sessionId
+      && Boolean(session.directory?.trim())
+      && resolve(session.directory!) === resolve(entry.directory));
+    const identity: RuntimeAwareExpertIdentity = {
+      ...legacy.identity,
+      ...(bindingIdentity ? {
+        runtimeKind: bindingIdentity.runtimeKind,
+        runtimeSessionId: bindingIdentity.runtimeSessionId,
+        profileId: bindingIdentity.profileId,
+      } : authoritativeOpenCodeSession && options.opencodeProfileId ? {
+        runtimeKind: "opencode",
+        runtimeSessionId: legacy.identity.sessionId,
+        profileId: options.opencodeProfileId,
+      } : {}),
+    };
     const sessionId = identity.sessionId;
     const sameSessionMarkers = markerEntriesBySession.get(sessionId) ?? [];
     if (
@@ -394,7 +458,7 @@ export async function healExpertDirectory(
       failures.push({ source: "heal", key: entry.key, index: failures.length, code: "tombstone_protected" });
       continue;
     }
-    const needsMarkerUpgrade = entry.marker.isolationVersion !== 3;
+    const needsMarkerUpgrade = (entry.marker.isolationVersion ?? 0) < 4;
     // Isolation v3 sessions can still have empty physical skills after a failed
     // first materialize; re-ensure so heal restores them without requiring upgrade.
     const needsSkillRepair = (entry.marker.missingSkills?.length ?? 0) > 0;
@@ -419,10 +483,13 @@ export async function healExpertDirectory(
           const ensured = await ensureExpertSessionRuntimeIsolation({
             workspace,
             directory: entry.directory,
-            runtimeRoot: ensureRuntimeRoot,
+            runtimeRoot: runtimeRootForDirectory(entry.directory, runtimeRoots),
             agentId: identity.agentId,
             packageName: identity.packageName,
             sessionId,
+            runtimeKind: identity.runtimeKind,
+            runtimeSessionId: identity.runtimeSessionId,
+            profileId: identity.profileId,
             skillNames: entry.marker.declaredSkills,
           });
           assertBoundMarker(ensured, identity);
@@ -434,6 +501,9 @@ export async function healExpertDirectory(
         }
       }
     }
+    // Grok native identity is owned by the sticky binding + v4 marker. Writing
+    // an OpenCode origin would create a fake cross-runtime identity.
+    if (identity.runtimeKind === "grok-build") continue;
     if (hasVisibleOrigin) continue;
     const originAction: ExpertDirectoryHealAction = {
       ...identity,
@@ -447,10 +517,13 @@ export async function healExpertDirectory(
       const ensured = await ensureExpertSessionRuntimeIsolation({
         workspace,
         directory: entry.directory,
-        runtimeRoot: ensureRuntimeRoot,
+        runtimeRoot: runtimeRootForDirectory(entry.directory, runtimeRoots),
         agentId: identity.agentId,
         packageName: identity.packageName,
         sessionId,
+        runtimeKind: identity.runtimeKind,
+        runtimeSessionId: identity.runtimeSessionId,
+        profileId: identity.profileId,
         skillNames: entry.marker.declaredSkills,
       });
       assertBoundMarker(ensured, identity);
@@ -541,12 +614,88 @@ function assertBoundMarker(
   marker: Awaited<ReturnType<typeof ensureExpertSessionRuntimeIsolation>>,
   identity: { agentId: string; packageName: string; sessionId: string },
 ): asserts marker is NonNullable<typeof marker> {
-  if (!marker || marker.isolationVersion !== 3 ||
+  if (!marker || (marker.isolationVersion ?? 0) < 3 ||
     marker.agentId !== identity.agentId ||
     marker.packageName !== identity.packageName ||
     marker.sessionId !== identity.sessionId) {
     throw new Error("Expert session marker identity binding failed");
   }
+}
+
+async function scanExpertRuntimeRoots(
+  workspace: WorkspaceInfo,
+  options: ExpertDirectoryBuildOptions,
+) {
+  const roots = options.runtimeRoots?.length
+    ? [...new Set(options.runtimeRoots.map((root) => root.trim()).filter(Boolean))]
+    : [options.runtimeRoot];
+  const inventories = await Promise.all(roots.map((runtimeRoot) =>
+    scanWorkspaceExpertSessionMarkers({
+      workspace,
+      runtimeRoot,
+      signal: options.signal,
+    })));
+  const entries = inventories.flatMap((inventory) => inventory.entries);
+  const failures = inventories.flatMap((inventory) => inventory.failures);
+  return {
+    entries,
+    failures,
+    complete: inventories.every((inventory) => inventory.complete),
+    fingerprint: hashKey(inventories.map((inventory) => inventory.fingerprint).join("\n")),
+  };
+}
+
+function runtimeIdentityFor(
+  productSessionId: string,
+  marker: WorkspaceSessionMarkerInventoryEntry["marker"] | undefined,
+  bindings: ReadonlyMap<string, RuntimeSessionBinding>,
+) {
+  const binding = bindings.get(productSessionId);
+  if (binding) return {
+    runtimeKind: binding.runtimeKind,
+    runtimeSessionId: binding.runtimeSessionId,
+    profileId: binding.profileId,
+  };
+  return {
+    ...(marker?.runtimeKind ? { runtimeKind: marker.runtimeKind } : {}),
+    ...(marker?.runtimeSessionId?.trim() ? { runtimeSessionId: marker.runtimeSessionId.trim() } : {}),
+    ...(marker?.profileId?.trim() ? { profileId: marker.profileId.trim() } : {}),
+  };
+}
+
+function bindingMatchesMarker(
+  binding: RuntimeSessionBinding | undefined,
+  marker: WorkspaceSessionMarkerInventoryEntry["marker"] | undefined,
+): boolean {
+  if (!binding) return false;
+  if (!marker || (marker.isolationVersion ?? 0) < 4) return true;
+  return binding.runtimeKind === marker.runtimeKind
+    && binding.runtimeSessionId === marker.runtimeSessionId
+    && binding.profileId === marker.profileId;
+}
+
+function sessionIsMissing(
+  productSessionId: string,
+  marker: WorkspaceSessionMarkerInventoryEntry["marker"] | undefined,
+  bindings: ReadonlyMap<string, RuntimeSessionBinding>,
+  opencodeSessionIds: ReadonlySet<string>,
+): boolean {
+  const binding = bindings.get(productSessionId);
+  if ((marker?.isolationVersion ?? 0) >= 4) {
+    return !bindingMatchesMarker(binding, marker);
+  }
+  return !binding && !opencodeSessionIds.has(productSessionId);
+}
+
+function runtimeRootForDirectory(
+  directory: string,
+  roots: readonly string[],
+): string | undefined {
+  const candidate = resolve(directory);
+  return roots.find((root) => {
+    const normalized = resolve(root);
+    return candidate === normalized || candidate.startsWith(`${normalized}${sep}`);
+  });
 }
 
 function isAbortError(error: unknown): boolean {

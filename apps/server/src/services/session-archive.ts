@@ -6,7 +6,6 @@ import { createSessionArchiveSearchApi } from "./session-archive-search-api.js";
 import type { SessionArchiveStore } from "./session-archive-types.js";
 import { createSessionArchiveUsageApi } from "./session-archive-usage.js";
 import { createSessionArchiveWriteApi } from "./session-archive-write-api.js";
-
 export type {
   SessionArchiveActivityReportInput,
   SessionArchiveContentSearchInput,
@@ -112,6 +111,7 @@ export function createSessionArchiveStore(
     getSessionIncludingDeleted,
     isSessionExcluded,
     listMessages,
+    listAllMessages,
     listToolCalls,
     listChildren,
     getActivity,

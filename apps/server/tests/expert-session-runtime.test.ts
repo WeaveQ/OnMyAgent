@@ -243,7 +243,7 @@ describe("expert session runtime directory", () => {
       skillsSourceRoot: skillsSource,
     });
     expect(created.installedSkills).toEqual(["fleet-data-consolidation"]);
-    expect(created.isolationVersion).toBe(EXPERT_SESSION_ISOLATION_VERSION);
+    expect(created.isolationVersion).toBe(3);
     await rm(join(created.directory, ".opencode", "skills", "fleet-data-consolidation"), {
       recursive: true,
       force: true,
@@ -418,7 +418,7 @@ describe("expert session runtime directory", () => {
     expect(again?.upgraded).toBe(false);
   });
 
-  test("upgrades pending marker to v3 only with an explicit session identity", async () => {
+  test("upgrades pending marker to runtime-aware v4 with an explicit OpenCode identity", async () => {
     const workspace = testWorkspace(join(tempRoot, "project-v3"));
     const runtimeRoot = join(tempRoot, "app-user-data", "expert-sessions");
     await mkdir(workspace.path, { recursive: true });
@@ -442,6 +442,9 @@ describe("expert session runtime directory", () => {
       agentId: "agent-v3",
       packageName: "package-v3",
       sessionId: "session-v3",
+      runtimeKind: "opencode",
+      runtimeSessionId: "session-v3",
+      profileId: "primary-opencode",
       skillNames: ["missing-skill"],
     });
     expect(upgraded).toMatchObject({
@@ -456,7 +459,10 @@ describe("expert session runtime directory", () => {
     });
     const marker = JSON.parse(await readFile(join(created.directory, "onmyagent-session.json"))) as Record<string, unknown>;
     expect(marker).toMatchObject({
-      isolationVersion: 3,
+      isolationVersion: 4,
+      runtimeKind: "opencode",
+      runtimeSessionId: "session-v3",
+      profileId: "primary-opencode",
       agentId: "agent-v3",
       packageName: "package-v3",
       sessionId: "session-v3",

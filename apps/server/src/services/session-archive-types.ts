@@ -74,6 +74,8 @@ export type SessionArchiveStore = {
   getSessionIncludingDeleted: (sessionId: string) => SessionArchiveSession | null;
   isSessionExcluded: (sessionId: string) => boolean;
   listMessages: (sessionId: string, input?: SessionArchiveMessagesInput) => SessionArchiveMessagesResponse;
+  /** Internal unbounded read for durable projections; HTTP callers must use listMessages. */
+  listAllMessages: (sessionId: string) => SessionArchiveMessage[];
   listToolCalls: (sessionId: string) => SessionArchiveToolCallListResponse;
   listChildren: (sessionId: string) => SessionArchiveSession[];
   getActivity: (sessionId: string) => SessionArchiveSessionActivityResponse | null;
@@ -291,4 +293,3 @@ export type SessionArchiveListCursor = {
   id: string;
   total: number;
 };
-

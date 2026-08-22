@@ -2,11 +2,25 @@ import { ApiError } from "./errors.js";
 
 export async function readJsonBody(
   request: Request,
+  options?: { maxBytes?: number },
 ): Promise<Record<string, unknown>> {
   try {
+    const maxBytes = options?.maxBytes;
+    if (maxBytes != null) {
+      const contentLength = Number(request.headers.get("content-length") ?? "");
+      if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+        throw new ApiError(413, "payload_too_large", "Request body exceeds the allowed size");
+      }
+      const buffer = new Uint8Array(await request.arrayBuffer());
+      if (buffer.byteLength > maxBytes) {
+        throw new ApiError(413, "payload_too_large", "Request body exceeds the allowed size");
+      }
+      return JSON.parse(new TextDecoder().decode(buffer)) as Record<string, unknown>;
+    }
     const json = await request.json();
     return json as Record<string, unknown>;
-  } catch {
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
     throw new ApiError(400, "invalid_json", "Invalid JSON body");
   }
 }

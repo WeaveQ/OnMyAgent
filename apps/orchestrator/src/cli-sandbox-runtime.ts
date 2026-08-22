@@ -188,6 +188,10 @@ export async function writeSandboxEntrypoint(options: {
     `export OPENCODE_HOT_RELOAD_COOLDOWN_MS=${shQuote(String(options.opencode.hotReload.cooldownMs))}`,
     `export ONMYAGENT=1`,
     `export ONMYAGENT_DEV_MODE=${shQuote(onmyagentDevMode ? "1" : "0")}`,
+    `export ONMYAGENT_PRIMARY_RUNTIME_DATA_ROOT=${shQuote("/persist")}`,
+    `export ONMYAGENT_PRIMARY_OPENCODE_PROFILE_ID=${shQuote("orchestrator-sandbox")}`,
+    'export ONMYAGENT_PRIMARY_OPENCODE_RUNTIME_HOME="$XDG_DATA_HOME/opencode"',
+    `export ONMYAGENT_PRIMARY_OPENCODE_SANDBOX_PROFILE=${shQuote(`orchestrator-${options.backend}`)}`,
     `export ONMYAGENT_RUN_ID=${shQuote(options.runId)}`,
     `export ONMYAGENT_LOG_FORMAT=${shQuote(options.logFormat)}`,
     `export ONMYAGENT_SANDBOX_ENABLED=1`,
@@ -600,4 +604,3 @@ export async function startAppleContainerSandbox(options: {
 
   return { child, cleanup: staged.cleanup };
 }
-

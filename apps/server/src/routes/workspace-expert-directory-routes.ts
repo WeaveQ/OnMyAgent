@@ -9,6 +9,7 @@ import {
   healExpertDirectory,
 } from "../services/expert-directory.js";
 import { recordExpertLifecycleEvent } from "../services/expert-lifecycle-events.js";
+import type { PrimaryRuntimeRegistry } from "../services/primary-runtime-registry.js";
 import { addRoute, systemJsonResponse, type RequestContext, type Route } from "./route-core.js";
 
 type SessionListResult = {
@@ -30,6 +31,8 @@ export function registerWorkspaceExpertDirectoryRoutes(input: {
     workspace: WorkspaceInfo,
     input: { scope: "workspace"; start: number; limit: number; roots: boolean; signal?: AbortSignal },
   ) => Promise<unknown>;
+  primaryRuntimeRegistry?: Pick<PrimaryRuntimeRegistry, "listSessionBindings" | "opencodeProfileId">;
+  expertRuntimeRoots?: readonly string[];
 }): void {
   const {
     routes,
@@ -39,6 +42,8 @@ export function registerWorkspaceExpertDirectoryRoutes(input: {
     resolveWorkspace,
     readJsonBody,
     listWorkspaceSessions,
+    primaryRuntimeRegistry,
+    expertRuntimeRoots,
   } = input;
 
   const readSessions = (workspace: WorkspaceInfo, signal?: AbortSignal) =>
@@ -49,6 +54,11 @@ export function registerWorkspaceExpertDirectoryRoutes(input: {
     const workspace = await resolveWorkspace(config, ctx.params.id);
     return systemJsonResponse(await buildExpertDirectory(workspace, {
       signal: ctx.request.signal,
+      runtimeRoots: expertRuntimeRoots,
+      opencodeProfileId: primaryRuntimeRegistry?.opencodeProfileId,
+      ...(primaryRuntimeRegistry
+        ? { readRuntimeBindings: () => primaryRuntimeRegistry.listSessionBindings(workspace.id) }
+        : {}),
       readSessions: (signal) => readSessions(workspace, signal),
     }));
   });
@@ -78,6 +88,11 @@ export function registerWorkspaceExpertDirectoryRoutes(input: {
     const request = parseHealRequest(await readJsonBody(ctx.request));
     return systemJsonResponse(await healExpertDirectory(workspace, request, {
       signal: ctx.request.signal,
+      runtimeRoots: expertRuntimeRoots,
+      opencodeProfileId: primaryRuntimeRegistry?.opencodeProfileId,
+      ...(primaryRuntimeRegistry
+        ? { readRuntimeBindings: () => primaryRuntimeRegistry.listSessionBindings(workspace.id) }
+        : {}),
       readSessions: (signal) => readSessions(workspace, signal),
     }));
   });

@@ -32,6 +32,8 @@ describe("knowledge_search plugin", () => {
     assert.match(source, /ONMYAGENT_KNOWLEDGE_WORKSPACE_ID/);
     assert.match(source, /ONMYAGENT_KNOWLEDGE_EXPERT_ID/);
     assert.match(source, /session-defaults\.json/);
+    assert.match(source, /from "\.\/knowledge-plugin-runtime\.mjs"/);
+    assert.doesNotMatch(source, /@opencode-ai\/plugin/);
     assert.match(source, /from "\.\/knowledge-vault-walk\.mjs"/);
     assert.match(source, /knowledgeTextMatchesQuery/);
     assert.doesNotMatch(source, /const walk = async/);

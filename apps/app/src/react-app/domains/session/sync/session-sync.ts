@@ -93,6 +93,7 @@ export const permissionKey = (workspaceId: string, sessionId: string) =>
   ["react-session-permissions", workspaceId, sessionId] as const;
 export const questionKey = (workspaceId: string, sessionId: string) =>
   ["react-session-questions", workspaceId, sessionId] as const;
+export { commandCatalogKey } from "../../../capabilities/agent-runtime/grok-feature-states";
 
 export function seedOptimisticSessionUserMessage(input: {
   workspaceId: string;

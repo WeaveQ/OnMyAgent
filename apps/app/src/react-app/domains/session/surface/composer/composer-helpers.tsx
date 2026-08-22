@@ -18,6 +18,7 @@ import type {
   McpServerEntry,
   McpStatusMap,
   ModelRef,
+  ModelOption,
   SkillCard,
   SlashCommandOption,
 } from "../../../../../app/types";
@@ -214,8 +215,9 @@ export type ComposerProps = {
   modelPickerOpen: boolean;
   modelPickerVisible?: boolean;
   selectedModel: ModelRef;
+  modelOptions?: ModelOption[];
   onModelPickerOpenChange: (open: boolean) => void;
-  onModelChange: (model: ModelRef) => void;
+  onModelChange: (model: ModelRef) => void | Promise<void>;
   attachments: ComposerAttachment[];
   onAttachFiles: (files: File[]) => void;
   onRemoveAttachment: (id: string) => void;

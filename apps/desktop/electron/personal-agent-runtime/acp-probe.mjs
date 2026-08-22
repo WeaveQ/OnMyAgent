@@ -70,7 +70,12 @@ export async function probeAcpCommand({ command, args = [], cwd = process.cwd(),
       const message = error instanceof Error ? error.message : String(error);
       // A process that exits or never speaks JSON-RPC failed at the CLI layer;
       // an initialize that is answered with an error is an ACP-layer failure.
-      const step = /ACP process exited|ENOENT|command not found|not found|spawn/i.test(message) ? "fail_cli" : "fail_acp";
+      const step =
+        /ACP process exited|initialize timed out|ENOENT|command not found|not found|spawn/i.test(
+          message,
+        )
+          ? "fail_cli"
+          : "fail_acp";
       return {
         ok: false,
         step,

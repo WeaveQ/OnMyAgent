@@ -67,6 +67,17 @@ test("connectWithCredentials writes credentials + opencode mcp", async () => {
     assert.equal(status.phase, "connected");
     assert.equal(status.authorized, true);
     assert.equal(status.mcpConfigured, true);
+    assert.deepEqual(await manager.getRuntimeMcpDescriptors(), [{
+      name: MCP_SERVER_NAME,
+      transport: "stdio",
+      command: "npx",
+      args: ["-y", MCP_PACKAGE],
+      env: {
+        DINGTALK_Client_ID: "app-id",
+        DINGTALK_Client_Secret: "app-secret",
+        ACTIVE_PROFILES: DEFAULT_PROFILES,
+      },
+    }]);
 
     const raw = await readFile(path.join(opencodeRoot, "opencode.json"), "utf8");
     const config = JSON.parse(raw);
@@ -78,6 +89,7 @@ test("connectWithCredentials writes credentials + opencode mcp", async () => {
     const disconnected = await manager.disconnect();
     assert.equal(disconnected.phase, "disconnected");
     assert.equal(disconnected.authorized, false);
+    assert.deepEqual(await manager.getRuntimeMcpDescriptors(), []);
   } finally {
     await rm(home, { recursive: true, force: true });
   }

@@ -130,6 +130,7 @@ describe("frontend host thin modules", () => {
       "src/react-app/domains/session/surface/composer/use-composer-catalogs.ts",
     );
     expect(composer).toContain("mergeSlashCommandsWithSkills");
+    expect(composer).toContain("buildSlashCatalogItems");
   });
 });
 

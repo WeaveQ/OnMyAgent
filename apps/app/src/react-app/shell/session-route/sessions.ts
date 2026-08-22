@@ -25,6 +25,12 @@ import type { SessionOption as PaletteSessionOption } from "../command-palette";
 import {
   tryRecordColdListSessions,
 } from "./cold-path-budget";
+import { useExpertDirectoryStore } from "../../capabilities/session-identity/expert-directory-store";
+import {
+  runtimeExpertIdentityEntries,
+  runtimeSessionToSidebarItem,
+} from "./runtime-session-sidebar";
+import { listRuntimeSessionsFailVisible } from "./runtime-session-list-policy";
 
 export type PendingCreatedSessionMap = Record<string, Record<string, number>>;
 
@@ -64,6 +70,16 @@ export function toSidebarSessionItems(values: unknown[]): SidebarSessionItem[] {
     const item = toSidebarSessionItem(value);
     return item ? [item] : [];
   });
+}
+
+function projectRuntimeExpertIdentities(
+  workspaceId: string,
+  sessions: Parameters<typeof runtimeExpertIdentityEntries>[0],
+): void {
+  const store = useExpertDirectoryStore.getState();
+  for (const entry of runtimeExpertIdentityEntries(sessions)) {
+    store.upsertIdentity(workspaceId, entry.sessionId, entry.expertId);
+  }
 }
 
 export function shouldKeepWorkspaceSessionItem(input: {
@@ -123,10 +139,16 @@ export async function collectWorkspaceSessionItemsWithStatus(input: {
       skippedByColdPathBudget: true,
     };
   }
-  const response = await input.client.listSessions(input.workspaceId, {
-    scope: "workspace",
-    limit,
-  });
+  const [response, runtimeResponse] = await Promise.all([
+    input.client.listSessions(input.workspaceId, {
+      scope: "workspace",
+      limit,
+    }),
+    listRuntimeSessionsFailVisible({
+      workspaceId: input.workspaceId,
+      listRuntimeSessions: (workspaceId) => input.client.listRuntimeSessions(workspaceId),
+    }),
+  ]);
   const assistantSessionIds = new Set(
     input.assistantSessionRecords.map((item) => item.sessionId),
   );
@@ -162,12 +184,22 @@ export async function collectWorkspaceSessionItemsWithStatus(input: {
   // A workspace-scoped response is already authorized by the server's marker
   // inventory. Keep every non-ephemeral item, including isolated Expert
   // directories; root filtering would hide them again in the renderer.
-  const items = fetchedItems.filter((session) =>
+  const legacyItems = fetchedItems.filter((session) =>
     !isExpertCreationEphemeralSession(session?.id ?? ""),
   );
+  projectRuntimeExpertIdentities(input.workspaceId, runtimeResponse.items);
+  const items = Array.from(new Map<string, SidebarSessionItem>([
+    ...toSidebarSessionItems(legacyItems).map((item) => [item.id, item] as const),
+    ...runtimeResponse.items
+      .filter((session) => session.runtimeKind === "grok-build")
+      .map((session) => {
+        const item = runtimeSessionToSidebarItem(session, t("session.new_session"));
+        return [item.id, item] as const;
+      }),
+  ]).values());
   const filteredItems = filterPendingDeletedSessions({
     workspaceId: input.workspaceId,
-    items: toSidebarSessionItems(items),
+    items,
   });
   const complete =
     typeof response === "object" && response !== null &&
@@ -179,7 +211,11 @@ export async function collectWorkspaceSessionItemsWithStatus(input: {
     "failures" in response && Array.isArray(response.failures)
       ? response.failures
       : [];
-  return { items: filteredItems, complete, failures };
+  return {
+    items: filteredItems,
+    complete: complete && runtimeResponse.complete,
+    failures: [...failures, ...runtimeResponse.failures],
+  };
 }
 
 /**

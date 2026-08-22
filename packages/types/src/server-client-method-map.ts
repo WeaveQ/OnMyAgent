@@ -55,6 +55,23 @@ import type {
 } from "./server";
 import type { ArtifactPluginConnectionState } from "./artifact-plugin";
 import type {
+  AgentRuntimeCreateSessionInput,
+  AgentRuntimeCommandInput,
+  AgentRuntimeCommandListResponse,
+  AgentRuntimeEventSnapshot,
+  AgentRuntimeKind,
+  AgentRuntimeModelCatalog,
+  AgentRuntimeConnectorToolsResponse,
+  AgentRuntimeMessagesResponse,
+  AgentRuntimePromptAccepted,
+  AgentRuntimePromptInput,
+  AgentRuntimeSelectionConfig,
+  AgentRuntimeSelectionResponse,
+  AgentRuntimeSession,
+  AgentRuntimeSessionListResponse,
+  GrokBuildRuntimeSelection,
+} from "./agent-runtime";
+import type {
   SessionArchiveActivityReport,
   SessionArchiveAnalyticsActivityResponse,
   SessionArchiveAnalyticsBatchResponse,
@@ -402,6 +419,131 @@ type TypedServerClientMethodMap = {
   deleteExpert: ServerClientMethodContract<
     [workspaceId: string, request: ExpertDeleteRequest],
     ExpertDeleteResult
+  >;
+  getAgentRuntimeSelection: ServerClientMethodContract<
+    [workspaceId?: string],
+    AgentRuntimeSelectionResponse
+  >;
+  getAgentRuntimeModelCatalog: ServerClientMethodContract<
+    [workspaceId: string, runtimeKind?: AgentRuntimeKind],
+    AgentRuntimeModelCatalog
+  >;
+  getAgentRuntimeConnectorTools: ServerClientMethodContract<
+    [workspaceId: string, runtimeKind?: AgentRuntimeKind],
+    AgentRuntimeConnectorToolsResponse
+  >;
+  setDefaultAgentRuntime: ServerClientMethodContract<
+    [runtimeKind: AgentRuntimeKind, options?: { expectedRevision?: number }],
+    { config: AgentRuntimeSelectionConfig }
+  >;
+  setWorkspaceAgentRuntime: ServerClientMethodContract<
+    [
+      workspaceId: string,
+      runtimeKind: AgentRuntimeKind | null,
+      options?: { expectedRevision?: number },
+    ],
+    { config: AgentRuntimeSelectionConfig }
+  >;
+  setGrokBuildRuntimeSelection: ServerClientMethodContract<
+    [selection: GrokBuildRuntimeSelection | null, options?: { expectedRevision?: number }],
+    { config: AgentRuntimeSelectionConfig }
+  >;
+  createRuntimeSession: ServerClientMethodContract<
+    [workspaceId: string, input?: AgentRuntimeCreateSessionInput],
+    { session: AgentRuntimeSession }
+  >;
+  listRuntimeSessions: ServerClientMethodContract<
+    [workspaceId: string],
+    AgentRuntimeSessionListResponse
+  >;
+  getRuntimeSession: ServerClientMethodContract<
+    [workspaceId: string, productSessionId: string],
+    { session: AgentRuntimeSession }
+  >;
+  deleteRuntimeSession: ServerClientMethodContract<
+    [workspaceId: string, productSessionId: string],
+    OkResult
+  >;
+  renameRuntimeSession: ServerClientMethodContract<
+    [workspaceId: string, productSessionId: string, title: string],
+    { session: AgentRuntimeSession }
+  >;
+  forkRuntimeSession: ServerClientMethodContract<
+    [
+      workspaceId: string,
+      productSessionId: string,
+      newProductSessionId?: string,
+      targetRuntimeKind?: AgentRuntimeKind,
+    ],
+    { session: AgentRuntimeSession }
+  >;
+  promptRuntimeSession: ServerClientMethodContract<
+    [workspaceId: string, productSessionId: string, input: AgentRuntimePromptInput],
+    AgentRuntimePromptAccepted
+  >;
+  cancelRuntimeSession: ServerClientMethodContract<
+    [workspaceId: string, productSessionId: string],
+    OkResult
+  >;
+  closeRuntimeSession: ServerClientMethodContract<
+    [workspaceId: string, productSessionId: string],
+    OkResult
+  >;
+  resumeRuntimeSession: ServerClientMethodContract<
+    [workspaceId: string, productSessionId: string],
+    { session: AgentRuntimeSession }
+  >;
+  setRuntimeSessionModel: ServerClientMethodContract<
+    [workspaceId: string, productSessionId: string, modelRef: NonNullable<AgentRuntimeCreateSessionInput["modelRef"]>],
+    { session: AgentRuntimeSession }
+  >;
+  setRuntimeSessionMode: ServerClientMethodContract<
+    [workspaceId: string, productSessionId: string, mode: string],
+    { session: AgentRuntimeSession }
+  >;
+  listRuntimeSessionCommands: ServerClientMethodContract<
+    [workspaceId: string, productSessionId: string],
+    AgentRuntimeCommandListResponse
+  >;
+  listRuntimeWorkspaceCommands: ServerClientMethodContract<
+    [workspaceId: string, runtimeKind?: AgentRuntimeKind],
+    {
+      runtimeKind: AgentRuntimeKind;
+      items: AgentRuntimeCommandListResponse["items"];
+      complete: boolean;
+    }
+  >;
+  executeRuntimeSessionCommand: ServerClientMethodContract<
+    [workspaceId: string, productSessionId: string, commandName: string, input?: AgentRuntimeCommandInput],
+    AgentRuntimePromptAccepted
+  >;
+  authenticateAgentRuntime: ServerClientMethodContract<
+    [workspaceId: string, runtimeKind: AgentRuntimeKind, methodId: string],
+    AgentRuntimeModelCatalog
+  >;
+  respondRuntimePermission: ServerClientMethodContract<
+    [permissionId: string, reply: "allow" | "deny"],
+    { ok: boolean; allowed: boolean }
+  >;
+  respondRuntimeQuestion: ServerClientMethodContract<
+    [workspaceId: string, productSessionId: string, questionId: string, answers: string[][]],
+    { ok: boolean }
+  >;
+  openRuntimeSessionEvents: ServerClientMethodContract<
+    [workspaceId: string, productSessionId: string, options?: { signal?: AbortSignal }],
+    Response
+  >;
+  getRuntimeSessionEventSnapshot: ServerClientMethodContract<
+    [
+      workspaceId: string,
+      productSessionId: string,
+      options?: { afterSequence?: number; limit?: number },
+    ],
+    AgentRuntimeEventSnapshot
+  >;
+  getRuntimeSessionMessages: ServerClientMethodContract<
+    [workspaceId: string, productSessionId: string],
+    AgentRuntimeMessagesResponse
   >;
 
   // extensions — plugins / skills / MCP / commands / automations

@@ -2,7 +2,16 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronDown, ChevronUp, PanelRight, Search, X, Zap } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+  PanelRight,
+  Search,
+  X,
+  Zap,
+  GitBranch,
+} from "lucide-react";
 
 import { t } from "../../../../i18n";
 import { formatShortcut } from "../../../../lib/format-shortcut";
@@ -10,6 +19,7 @@ import { readLocalAuthUser } from "../../../../app/lib/local-auth";
 import type { ComposerDraft } from "../../../../app/types";
 import { type OpenTarget } from "../artifacts/open-target";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { IconTile } from "@/components/ui/action-row";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { ProviderAuthModal } from "../../connections";
@@ -123,6 +133,8 @@ export type AssistantPageProps = SessionPageProps & {
   onNavigateToMode: (mode: "assistant" | "expert") => void;
   agentManagementIntent?: SessionAgentManagementIntent | null;
   onAgentManagementIntentConsumed?: (key: string) => void;
+  /** Refresh the runtime session list after a cross-runtime fork. */
+  onRuntimeSessionsChanged?: () => void;
 };
 
 import {
@@ -1037,6 +1049,25 @@ export function AssistantPage(props: AssistantPageProps) {
         ? "0/0"
         : "";
 
+  const [continueRuntimeOpen, setContinueRuntimeOpen] = useState(false);
+  const [continueRuntimeBusy, setContinueRuntimeBusy] = useState(false);
+  const continueInRuntime = useCallback(async (target: "opencode" | "grok-build") => {
+    const sessionId = props.selectedSessionId?.trim();
+    const workspaceId = props.runtimeWorkspaceId?.trim() || props.selectedWorkspaceId.trim();
+    const client = props.onmyagentServerClient;
+    if (!sessionId || !workspaceId || !client) return;
+    setContinueRuntimeBusy(true);
+    try {
+      await client.forkRuntimeSession(workspaceId, sessionId, undefined, target);
+      props.onRuntimeSessionsChanged?.();
+    } catch (error) {
+      console.warn("[assistant] cross-runtime continue failed", target, error);
+    } finally {
+      setContinueRuntimeBusy(false);
+      setContinueRuntimeOpen(false);
+    }
+  }, [props.selectedSessionId, props.runtimeWorkspaceId, props.selectedWorkspaceId, props.onmyagentServerClient, props.onRuntimeSessionsChanged]);
+
   const headerPanelControls = (
     <>
       {showAutomationEmbeddedSession ? (
@@ -1051,45 +1082,68 @@ export function AssistantPage(props: AssistantPageProps) {
           {t("automation.back")}
         </Button>
       ) : null}
-      <SessionHistorySearchChrome
-        searchOpen={historySearchOpen}
-        searchQuery={historySearchQuery}
-        matchLabel={historyMatchLabel}
-        matchCount={historyMatchCount}
-        shortcutLabel={historySearchShortcut}
-        inputRef={historySearchInputRef}
-        onQueryChange={setHistorySearchQuery}
-        onOpen={openHistorySearch}
-        onClose={closeHistorySearch}
-        onPrev={() =>
-          setHistoryActiveMatch((i) =>
-            historyMatchCount ? (i - 1 + historyMatchCount) % historyMatchCount : 0,
-          )
-        }
-        onNext={() =>
-          setHistoryActiveMatch((i) => (historyMatchCount ? (i + 1) % historyMatchCount : 0))
-        }
-        onEnterNavigate={(shiftKey) =>
-          setHistoryActiveMatch((i) =>
-            shiftKey
-              ? (i - 1 + historyMatchCount) % historyMatchCount
-              : (i + 1) % historyMatchCount,
-          )
-        }
-        historyPopover={
-          <ConversationHistoryPopover
-            client={props.onmyagentServerClient}
-            workspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
-            sessionId={props.selectedSessionId}
-            onSelectPrompt={handleHistorySelectPrompt}
-          />
-        }
-        sidePanelOpen={sidePanelOpen}
-        onToggleSidePanel={(event) => {
-          event.stopPropagation();
-          openAssistantSidePanelMenu();
-        }}
-      />
+    <SessionHistorySearchChrome
+      searchOpen={historySearchOpen}
+      searchQuery={historySearchQuery}
+      matchLabel={historyMatchLabel}
+      matchCount={historyMatchCount}
+      shortcutLabel={historySearchShortcut}
+      inputRef={historySearchInputRef}
+      onQueryChange={setHistorySearchQuery}
+      onOpen={openHistorySearch}
+      onClose={closeHistorySearch}
+      onPrev={() =>
+        setHistoryActiveMatch((i) =>
+          historyMatchCount ? (i - 1 + historyMatchCount) % historyMatchCount : 0,
+        )
+      }
+      onNext={() =>
+        setHistoryActiveMatch((i) =>
+          historyMatchCount ? (i + 1) % historyMatchCount : 0,
+        )
+      }
+      onEnterNavigate={(shiftKey) =>
+        setHistoryActiveMatch((i) =>
+          shiftKey
+            ? (i - 1 + historyMatchCount) % historyMatchCount
+            : (i + 1) % historyMatchCount,
+        )
+      }
+      historyPopover={
+        <ConversationHistoryPopover
+          client={props.onmyagentServerClient}
+          workspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
+        sessionId={props.selectedSessionId}
+          onSelectPrompt={handleHistorySelectPrompt}
+        />
+      }
+      sidePanelOpen={sidePanelOpen}
+      onToggleSidePanel={(event) => {
+        event.stopPropagation();
+        openAssistantSidePanelMenu();
+      }}
+    />
+      {props.selectedSessionId ? (
+        <DropdownMenu open={continueRuntimeOpen} onOpenChange={setContinueRuntimeOpen}>
+          <DropdownMenuTrigger
+            className="inline-flex items-center justify-center rounded-md p-2 text-dls-secondary hover:bg-dls-hover hover:text-dls-text disabled:opacity-50"
+            disabled={continueRuntimeBusy}
+            title={t("session.continue_in_runtime")}
+            aria-label={t("session.continue_in_runtime")}
+          >
+            <GitBranch className="size-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>{t("session.continue_in_runtime")}</DropdownMenuLabel>
+            <DropdownMenuItem onSelect={() => void continueInRuntime("opencode")}>
+              {t("session.continue_in_opencode")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void continueInRuntime("grok-build")}>
+              {t("session.continue_in_grok")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
     </>
   );
 

@@ -3,10 +3,12 @@
  * Session surface top header (agent name + toolbar actions).
  */
 import type { ReactNode } from "react";
+import type { AgentRuntimeKind } from "@onmyagent/types/agent-runtime";
 import { Settings2 } from "lucide-react";
 
 import { t } from "../../../../../i18n";
 import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { LIST_LANE_HEADER_CLASS } from "@/components/ui/sidebar-chrome";
 import { cn } from "@/lib/utils";
 import { PendingAgentAvatar } from "./avatars";
@@ -20,6 +22,7 @@ export type SessionSurfaceHeaderAgent = {
 
 export function SessionSurfaceHeader(props: {
   agent: SessionSurfaceHeaderAgent;
+  runtimeKind?: AgentRuntimeKind | null;
   codeSceneToolbar: ReactNode;
   personalAssistantHome?: boolean;
   onOpenAgentSettings?: () => void;
@@ -51,6 +54,16 @@ export function SessionSurfaceHeader(props: {
         <div className={sessionSurfaceTextClass.headerAgentName}>
           {props.agent.name}
         </div>
+        {props.runtimeKind ? (
+          <StatusBadge
+            size="tiny"
+            shape="soft"
+            tone={props.runtimeKind === "grok-build" ? "accent" : "neutral"}
+            title={t("session.runtime_badge", { runtime: runtimeLabel(props.runtimeKind) })}
+          >
+            {runtimeLabel(props.runtimeKind)}
+          </StatusBadge>
+        ) : null}
       </div>
       <div className="relative flex items-center gap-1.5 mac:titlebar-no-drag">
         {props.codeSceneToolbar}
@@ -71,4 +84,8 @@ export function SessionSurfaceHeader(props: {
       </div>
     </header>
   );
+}
+
+function runtimeLabel(kind: AgentRuntimeKind): string {
+  return kind === "grok-build" ? "Grok Build" : "OpenCode";
 }

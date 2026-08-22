@@ -74,6 +74,11 @@
       "development": "./src/artifact-plugin.ts",
       "default": "./dist/artifact-plugin.js"
     },
+    "./agent-runtime": {
+      "types": "./src/agent-runtime.ts",
+      "development": "./src/agent-runtime.ts",
+      "default": "./dist/agent-runtime.js"
+    },
     "./officecli": {
       "types": "./src/officecli.ts",
       "development": "./src/officecli.ts",

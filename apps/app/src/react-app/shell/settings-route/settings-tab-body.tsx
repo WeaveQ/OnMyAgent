@@ -431,6 +431,8 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
       return (
         <SettingsTabSuspense>
           <LazyPreferencesView
+            onmyagentClient={ctx.onmyagentClient}
+            selectedWorkspaceId={ctx.selectedWorkspaceId}
             busy={ctx.busy}
             showThinking={ctx.local.prefs.showThinking}
             onToggleShowThinking={() => {

@@ -76,6 +76,11 @@ import {
   reconcileAutomationRuns,
 } from "./services/automation-runner.js";
 import type { SessionArchiveSyncInput } from "./services/session-archive-sync.js";
+import type { AgentRuntimeSelectionStore } from "./services/agent-runtime-selection.js";
+import type { PrimaryRuntimeRegistry } from "./services/primary-runtime-registry.js";
+import type { PrimaryRuntimeEventBus } from "./services/primary-runtime-events.js";
+import { registerAgentRuntimeRoutes } from "./routes/agent-runtime-routes.js";
+import type { ConnectorMcpProjectionSnapshot } from "./services/runtime-mcp-projection.js";
 
 export type RegisterServerRoutesInput = {
   routes: Route[];
@@ -130,6 +135,11 @@ export type RegisterServerRoutesInput = {
     },
   ) => unknown;
   onGlobalSkillsChanged?: () => Promise<unknown>;
+  primaryRuntimeRegistry: PrimaryRuntimeRegistry;
+  agentRuntimeSelection: AgentRuntimeSelectionStore;
+  primaryRuntimeEvents: PrimaryRuntimeEventBus;
+  readConnectorMcpProjection?: () => Promise<ConnectorMcpProjectionSnapshot>;
+  expertRuntimeRoots?: readonly string[];
 };
 
 /**
@@ -163,7 +173,23 @@ export function registerServerRoutes(input: RegisterServerRoutesInput): void {
     materializeBlueprintSessions,
     recordWorkspaceFileEvent,
     onGlobalSkillsChanged,
+    primaryRuntimeRegistry,
+    agentRuntimeSelection,
+    primaryRuntimeEvents,
+    readConnectorMcpProjection,
+    expertRuntimeRoots,
   } = input;
+
+  registerAgentRuntimeRoutes({
+    routes,
+    registry: primaryRuntimeRegistry,
+    selection: agentRuntimeSelection,
+    events: primaryRuntimeEvents,
+    ensureWritable,
+    requireClientScope,
+    readJsonBody,
+    readConnectorMcpProjection,
+  });
 
   registerSystemRoutes({
     routes,
@@ -217,25 +243,61 @@ export function registerServerRoutes(input: RegisterServerRoutesInput): void {
     requireClientScope,
     resolveWorkspace,
     reconcileAutomationRuns: async (workspace) => {
-      await reconcileAutomationRuns(config, workspace);
+      await reconcileAutomationRuns(config, workspace, {
+        registry: primaryRuntimeRegistry,
+        events: primaryRuntimeEvents,
+      });
     },
-    runAutomationTask: async (workspace, task, onStarted) => {
-      const execution = await startAutomationTask(config, workspace, task);
+    runAutomationTask: async (workspace, task, onStarted, signal) => {
+      const execution = await startAutomationTask(config, workspace, task, {
+        runtimeKind: (await agentRuntimeSelection.resolve(workspace.id)).runtimeKind,
+        primaryRuntime: {
+          registry: primaryRuntimeRegistry,
+          events: primaryRuntimeEvents,
+        },
+        signal,
+      });
       await onStarted(execution);
       const leaseId = task.running?.leaseId?.trim();
       await waitForAutomationSession(
         config,
         workspace,
         execution,
-        leaseId
-          ? {
+        {
+          ...(leaseId ? { ownership: {
               workspaceRoot: workspace.path,
               automationId: task.id,
               leaseId,
-            }
-          : undefined,
+            } } : {}),
+          primaryRuntime: {
+            registry: primaryRuntimeRegistry,
+            events: primaryRuntimeEvents,
+          },
+          signal,
+        },
       );
       return execution;
+    },
+    abortSession: async (workspace, running) => {
+      const sessionId = running.sessionId?.trim();
+      if (!sessionId) return;
+      try {
+        await primaryRuntimeRegistry.cancelSession(workspace.id, sessionId);
+      } catch (error) {
+        if (
+          error instanceof Error
+          && "code" in error
+          && (error.code === "runtime_session_binding_not_found"
+            || error.code === "not_found")
+        ) {
+          const { abortAutomationOpencodeSession } = await import(
+            "./services/automation-cancel.js"
+          );
+          await abortAutomationOpencodeSession(config, workspace, running);
+          return;
+        }
+        throw error;
+      }
     },
     requireApproval,
     readJsonBody,
@@ -333,6 +395,7 @@ export function registerServerRoutes(input: RegisterServerRoutesInput): void {
     readWorkspaceSessionMessages,
     readWorkspaceSessionSnapshot,
     deleteWorkspaceSession,
+    opencodeProfileId: primaryRuntimeRegistry.opencodeProfileId,
   });
 
   registerWorkspaceSessionOriginRoutes({
@@ -352,6 +415,8 @@ export function registerServerRoutes(input: RegisterServerRoutesInput): void {
     resolveWorkspace,
     readJsonBody,
     listWorkspaceSessions,
+    primaryRuntimeRegistry,
+    expertRuntimeRoots,
   });
 
   registerWorkspaceExpertDeleteRoutes({
@@ -361,6 +426,7 @@ export function registerServerRoutes(input: RegisterServerRoutesInput): void {
     requireClientScope,
     resolveWorkspace,
     readJsonBody,
+    primaryRuntimeRegistry,
   });
 
   registerWorkspaceRoutes({

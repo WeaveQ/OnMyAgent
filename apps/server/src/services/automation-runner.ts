@@ -1,6 +1,10 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
+import type {
+  AgentRuntimeKind,
+  AgentRuntimeModelRef,
+} from "@onmyagent/types/agent-runtime";
 import type {
   AutomationTaskItem,
   ServerConfig,
@@ -41,11 +45,19 @@ import {
 import { decideAutomationWaitTick } from "./automation-wait-policy.js";
 import { defaultOpencodeClientPool } from "./opencode-client-pool.js";
 import { upsertSessionOrigin } from "./session-origins.js";
+import type { PrimaryRuntimeRegistry } from "./primary-runtime-registry.js";
+import type { PrimaryRuntimeEventBus } from "./primary-runtime-events.js";
 
 export type AutomationExecution = {
   sessionId: string;
   groupName: string;
   outputDirectory: string;
+  runtimeKind?: AgentRuntimeKind;
+};
+
+export type AutomationPrimaryRuntime = {
+  registry: PrimaryRuntimeRegistry;
+  events: PrimaryRuntimeEventBus;
 };
 
 type AutomationModel = {
@@ -53,17 +65,35 @@ type AutomationModel = {
   modelID: string;
 };
 
-export function startAutomationScheduler(config: ServerConfig, logger: ServerLogger) {
+export function startAutomationScheduler(
+  config: ServerConfig,
+  logger: ServerLogger,
+  resolveRuntimeKind: (workspaceId: string) => Promise<AgentRuntimeKind>
+    = async () => "opencode",
+  primaryRuntime?: AutomationPrimaryRuntime,
+) {
   const inFlight = new Set<string>();
+  const executions = new Set<Promise<void>>();
+  const controller = new AbortController();
   let closed = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let sweep: Promise<void> | null = null;
+
+  const triggerRun = () => {
+    if (closed || sweep) return;
+    const task = run();
+    sweep = task;
+    void task.finally(() => {
+      if (sweep === task) sweep = null;
+    });
+  };
 
   const scheduleNext = (delayMs: number) => {
     if (closed) return;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       timer = null;
-      void run();
+      triggerRun();
     }, delayMs);
     timer.unref?.();
   };
@@ -76,6 +106,7 @@ export function startAutomationScheduler(config: ServerConfig, logger: ServerLog
     let hasExpiringLease = false;
 
     for (const workspace of config.workspaces) {
+      if (controller.signal.aborted) break;
       const workspaceId = workspace.id.trim();
       if (!workspaceId || inFlight.has(workspaceId)) continue;
       inFlight.add(workspaceId);
@@ -95,7 +126,19 @@ export function startAutomationScheduler(config: ServerConfig, logger: ServerLog
             nextRunAts.push(task.nextRunAt);
           }
         }
-        await runDueWorkspaceAutomations(config, workspace, logger, tasks);
+        await runDueWorkspaceAutomations(
+          config,
+          workspace,
+          logger,
+          tasks,
+          resolveRuntimeKind,
+          primaryRuntime,
+          controller.signal,
+          (execution) => {
+            executions.add(execution);
+            void execution.finally(() => executions.delete(execution));
+          },
+        );
       } catch (error) {
         logger.log("warn", "Automation scheduler failed", {
           workspaceId,
@@ -115,13 +158,16 @@ export function startAutomationScheduler(config: ServerConfig, logger: ServerLog
     scheduleNext(wakeMs || AUTOMATION_SCHEDULER_DEFAULT_MS);
   };
 
-  void run();
+  triggerRun();
 
   return {
-    close: () => {
+    close: async () => {
       closed = true;
+      controller.abort();
       if (timer) clearTimeout(timer);
       timer = null;
+      await sweep;
+      await Promise.allSettled([...executions]);
     },
   };
 }
@@ -131,6 +177,11 @@ async function runDueWorkspaceAutomations(
   workspace: WorkspaceInfo,
   logger: ServerLogger,
   prefetchedTasks?: AutomationTaskItem[],
+  resolveRuntimeKind: (workspaceId: string) => Promise<AgentRuntimeKind>
+    = async () => "opencode",
+  primaryRuntime?: AutomationPrimaryRuntime,
+  signal?: AbortSignal,
+  onExecution?: (execution: Promise<void>) => void,
 ) {
   await recordOverlappingAutomationSkips(workspace.path);
   const tasks = prefetchedTasks ?? (await listAutomations(workspace.path));
@@ -147,14 +198,25 @@ async function runDueWorkspaceAutomations(
 
   let task = await claimDueAutomation(workspace.path);
   while (task) {
+    if (signal?.aborted) return;
     const claimed = task;
-    void executeClaimedAutomation(config, workspace, claimed, logger).catch((error: unknown) => {
+    const execution = executeClaimedAutomation(
+      config,
+      workspace,
+      claimed,
+      logger,
+      resolveRuntimeKind,
+      primaryRuntime,
+      signal,
+    ).catch((error: unknown) => {
       logger.log("error", "Automation execution bookkeeping failed", {
         workspaceId: workspace.id,
         automationId: claimed.id,
         error: error instanceof Error ? error.message : String(error),
       });
     });
+    onExecution?.(execution);
+    void execution;
     task = await claimDueAutomation(workspace.path);
   }
 }
@@ -164,10 +226,17 @@ async function executeClaimedAutomation(
   workspace: WorkspaceInfo,
   task: ClaimedAutomationTask,
   logger: ServerLogger,
+  resolveRuntimeKind: (workspaceId: string) => Promise<AgentRuntimeKind>,
+  primaryRuntime?: AutomationPrimaryRuntime,
+  signal?: AbortSignal,
 ) {
   let execution: AutomationExecution | null = null;
   try {
-    execution = await startAutomationTask(config, workspace, task);
+    execution = await startAutomationTask(config, workspace, task, {
+      runtimeKind: await resolveRuntimeKind(workspace.id),
+      primaryRuntime,
+      signal,
+    });
     await bindAutomationRunSession(
       workspace.path,
       task.id,
@@ -177,9 +246,13 @@ async function executeClaimedAutomation(
       execution.outputDirectory,
     );
     await waitForAutomationSession(config, workspace, execution, {
-      workspaceRoot: workspace.path,
-      automationId: task.id,
-      leaseId: task.running.leaseId,
+      ownership: {
+        workspaceRoot: workspace.path,
+        automationId: task.id,
+        leaseId: task.running.leaseId,
+      },
+      primaryRuntime,
+      signal,
     });
     await recordAutomationRun(workspace.path, task.id, {
       status: "success",
@@ -206,7 +279,11 @@ async function executeClaimedAutomation(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     // Stop/replace already finalized this generation — do not write a second outcome.
-    if (isApiError(error) && error.code === "automation_run_superseded") {
+    if (
+      isApiError(error)
+      && (error.code === "automation_run_superseded"
+        || error.code === "automation_scheduler_stopped")
+    ) {
       logger.log("info", "Automation task wait ended after stop or replace", {
         workspaceId: workspace.id,
         automationId: task.id,
@@ -257,7 +334,27 @@ export async function startAutomationTask(
   config: ServerConfig,
   workspace: WorkspaceInfo,
   task: Pick<AutomationTaskItem, "title" | "prompt" | "workspaceDirectory" | "model" | "agent" | "accessMode">,
+  options: {
+    runtimeKind?: AgentRuntimeKind;
+    primaryRuntime?: AutomationPrimaryRuntime;
+    signal?: AbortSignal;
+  } = {},
 ): Promise<AutomationExecution> {
+  assertAutomationWaitActive(options.signal);
+  const runtimeKind = options.runtimeKind ?? "opencode";
+  if (options.primaryRuntime) {
+    return startCanonicalAutomationTask(
+      config,
+      workspace,
+      task,
+      runtimeKind,
+      options.primaryRuntime,
+      options.signal,
+    );
+  }
+  if (runtimeKind !== "opencode") {
+    throw new ApiError(500, "automation_runtime_misconfigured", "Canonical runtime services are required for Grok Build automation");
+  }
   // Resolve model before creating a session so empty-model runs fail fast
   // without leaving orphan sessions that only show the user prompt.
   const model = await resolveAutomationRunModel(task);
@@ -350,6 +447,161 @@ export async function startAutomationTask(
   return { sessionId, groupName, outputDirectory };
 }
 
+async function startCanonicalAutomationTask(
+  config: ServerConfig,
+  workspace: WorkspaceInfo,
+  task: Pick<AutomationTaskItem, "title" | "prompt" | "workspaceDirectory" | "model" | "agent" | "accessMode">,
+  runtimeKind: AgentRuntimeKind,
+  primaryRuntime: AutomationPrimaryRuntime,
+  signal?: AbortSignal,
+): Promise<AutomationExecution> {
+  assertAutomationWaitActive(signal);
+  const workspaceRoot = task.workspaceDirectory?.trim() || workspace.path;
+  assertAutomationWorkspaceAuthorized(config, workspace, workspaceRoot);
+  const expertRuntimeTarget = await resolveExpertRuntimeDirectoryCandidate({
+    workspaceId: workspace.id,
+    sessionRoot: workspaceRoot,
+    allowWorkspaceMismatch: true,
+  });
+  if (expertRuntimeTarget) {
+    throw new ExpertRuntimeContractError(
+      "authorized_directory",
+      { workspace, sessionId: "", directory: workspaceRoot },
+      "Automation cannot target an Expert runtime directory",
+    );
+  }
+  const modelRef = await resolveCanonicalAutomationModel(
+    workspace.id,
+    runtimeKind,
+    task,
+    primaryRuntime.registry,
+  );
+  assertAutomationWaitActive(signal);
+  const { groupName, outputDirectory } = await createAutomationOutputDirectory(workspaceRoot);
+  await writeFile(
+    join(outputDirectory, "任务说明.md"),
+    `# ${task.title}\n\n${task.prompt}\n`,
+    "utf8",
+  );
+  const productSessionId = `automation-${shortId()}`;
+  const systemPrompt = automationSystemPrompt(task);
+  await primaryRuntime.registry.createSession({
+    productSessionId,
+    workspaceId: workspace.id,
+    runtimeKind,
+    modelRef,
+    workingDirectory: outputDirectory,
+    workingDirectoryRoots: [workspace.path, ...(config.authorizedRoots ?? [])],
+    profile: {
+      kind: "assistant",
+      ...(systemPrompt ? { systemPrompt } : {}),
+    },
+  });
+  const command = parseAutomationPromptCommand(task.prompt);
+  const outputInstructions = [
+    `本次自动化任务的工作目录是：${outputDirectory}`,
+    "请将本次任务生成的报告、文档、图片和其他文件全部保存到当前工作目录。",
+    "请至少把最终结果保存为“执行结果.md”，不要把生成文件写到工作区的其他目录。",
+  ];
+  try {
+    if (command) {
+      await primaryRuntime.registry.executeSessionCommand(
+        workspace.id,
+        productSessionId,
+        command.name,
+        {
+          arguments: [command.arguments, ...outputInstructions]
+            .filter(Boolean)
+            .join("\n"),
+        },
+      );
+    } else {
+      await primaryRuntime.registry.promptSession(workspace.id, productSessionId, {
+        text: [task.prompt, "", ...outputInstructions].join("\n"),
+      });
+    }
+  } catch (error) {
+    await primaryRuntime.registry.closeSession(workspace.id, productSessionId)
+      .catch(() => undefined);
+    throw error;
+  }
+  return {
+    sessionId: productSessionId,
+    groupName,
+    outputDirectory,
+    runtimeKind,
+  };
+}
+
+function assertAutomationWorkspaceAuthorized(
+  config: ServerConfig,
+  workspace: WorkspaceInfo,
+  directory: string,
+): void {
+  const target = join(directory);
+  const roots = [workspace.path, ...(config.authorizedRoots ?? [])];
+  const authorized = roots.some((root) => {
+    const relativePath = relative(resolve(root), resolve(target));
+    return relativePath === ""
+      || (relativePath !== ".."
+        && !relativePath.startsWith(`..${sep}`)
+        && !isAbsolute(relativePath));
+  });
+  if (!authorized) {
+    throw new ApiError(
+      403,
+      "automation_workspace_unauthorized",
+      "Automation workspace directory is outside the authorized roots",
+    );
+  }
+}
+
+async function resolveCanonicalAutomationModel(
+  workspaceId: string,
+  runtimeKind: AgentRuntimeKind,
+  task: Pick<AutomationTaskItem, "model" | "agent">,
+  registry: PrimaryRuntimeRegistry,
+): Promise<AgentRuntimeModelRef> {
+  if (runtimeKind === "opencode") {
+    const model = await resolveAutomationRunModel(task);
+    if (!model) {
+      throw new ApiError(
+        400,
+        "automation_model_missing",
+        "Automation requires an available OpenCode model",
+      );
+    }
+    return { providerId: model.providerID, modelId: model.modelID };
+  }
+
+  const catalog = await registry.getModelCatalog(workspaceId, runtimeKind);
+  if (catalog.auth.state !== "ready") {
+    throw new ApiError(
+      409,
+      "agent_runtime_auth_required",
+      "Grok Build authentication is required before running automation",
+    );
+  }
+  const requested = task.model ?? task.agent?.model;
+  const requestedModelId = requested?.providerID?.trim() === "grok-build"
+    ? requested.modelID?.trim()
+    : undefined;
+  const selected = requestedModelId
+    ? catalog.models.find((model) => model.available && model.ref.modelId === requestedModelId)?.ref
+    : catalog.defaultModelRef
+      ?? catalog.models.find((model) => model.available)?.ref;
+  if (!selected) {
+    throw new ApiError(
+      400,
+      "automation_model_missing",
+      "Automation requires an available Grok Build model",
+    );
+  }
+  return selected.modelId === "grok-4.5" && !selected.variant
+    ? { ...selected, variant: "low" }
+    : selected;
+}
+
 function automationSystemPrompt(
   task: Pick<AutomationTaskItem, "agent" | "accessMode">,
 ) {
@@ -367,12 +619,26 @@ export type AutomationWaitOwnership = {
   leaseId: string;
 };
 
+export type AutomationWaitOptions = {
+  ownership?: AutomationWaitOwnership;
+  primaryRuntime?: AutomationPrimaryRuntime;
+  signal?: AbortSignal;
+};
+
 export async function waitForAutomationSession(
   config: ServerConfig,
   workspace: WorkspaceInfo,
   execution: AutomationExecution,
-  ownership?: AutomationWaitOwnership,
+  options: AutomationWaitOptions = {},
 ): Promise<void> {
+  if (options.primaryRuntime && execution.runtimeKind) {
+    return waitForCanonicalAutomationSession(
+      workspace,
+      execution,
+      options,
+    );
+  }
+  const ownership = options.ownership;
   const opencode = defaultOpencodeClientPool.get(config, workspace, execution.outputDirectory);
   const startedAt = Date.now();
   const timeoutAt = startedAt + 2 * 60 * 60 * 1000;
@@ -383,6 +649,7 @@ export async function waitForAutomationSession(
   const OWNERSHIP_CHECK_EVERY_TICKS = 3;
 
   while (Date.now() < timeoutAt) {
+    assertAutomationWaitActive(options.signal);
     if (ownership) {
       ownershipCheckCounter += 1;
       if (ownershipCheckCounter === 1 || ownershipCheckCounter % OWNERSHIP_CHECK_EVERY_TICKS === 0) {
@@ -446,6 +713,80 @@ export async function waitForAutomationSession(
   throw new ApiError(504, "automation_timeout", "Automation session timed out");
 }
 
+async function waitForCanonicalAutomationSession(
+  workspace: WorkspaceInfo,
+  execution: AutomationExecution,
+  options: AutomationWaitOptions,
+): Promise<void> {
+  const primaryRuntime = options.primaryRuntime;
+  if (!primaryRuntime) {
+    throw new ApiError(
+      500,
+      "automation_runtime_misconfigured",
+      "Canonical runtime services are unavailable",
+    );
+  }
+  const startedAt = Date.now();
+  const timeoutAt = startedAt + 2 * 60 * 60 * 1000;
+  let ownershipCheckCounter = 0;
+  let completionObservedAt: number | null = null;
+  while (Date.now() < timeoutAt) {
+    assertAutomationWaitActive(options.signal);
+    if (options.ownership) {
+      ownershipCheckCounter += 1;
+      if (ownershipCheckCounter === 1 || ownershipCheckCounter % 3 === 0) {
+        await assertAutomationLeaseStillHeld(options.ownership);
+      }
+    }
+    const snapshot = primaryRuntime.events.snapshot(execution.sessionId);
+    const terminal = snapshot.events.slice().reverse().find((event) =>
+      event.kind === "turn.completed" || event.kind === "session.error");
+    if (terminal?.kind === "session.error") {
+      throw new ApiError(
+        502,
+        "automation_session_failed",
+        terminal.error.message,
+      );
+    }
+    if (terminal?.kind === "turn.completed") {
+      if (terminal.outcome !== "completed") {
+        throw new ApiError(
+          502,
+          "automation_session_failed",
+          terminal.error?.message || `Automation session ${terminal.outcome}`,
+        );
+      }
+      completionObservedAt ??= Date.now();
+    }
+    const output = await saveCanonicalAutomationSessionOutput(
+      primaryRuntime.registry,
+      workspace,
+      execution,
+    );
+    if (output.saved && (completionObservedAt !== null || output.completed)) {
+      return;
+    }
+    if (completionObservedAt !== null && Date.now() - completionObservedAt >= 10_000) {
+      throw new ApiError(
+        502,
+        "automation_empty_output",
+        "Runtime completed without assistant output",
+      );
+    }
+    await new Promise<void>((resolveWait) => setTimeout(resolveWait, 1_000));
+  }
+  throw new ApiError(504, "automation_timeout", "Automation session timed out");
+}
+
+function assertAutomationWaitActive(signal?: AbortSignal): void {
+  if (!signal?.aborted) return;
+  throw new ApiError(
+    409,
+    "automation_scheduler_stopped",
+    "Automation scheduler stopped before the run completed",
+  );
+}
+
 async function assertAutomationLeaseStillHeld(
   ownership: AutomationWaitOwnership,
 ): Promise<void> {
@@ -482,6 +823,7 @@ async function readAutomationSessionError(
 export async function reconcileAutomationRuns(
   config: ServerConfig,
   workspace: WorkspaceInfo,
+  primaryRuntime?: AutomationPrimaryRuntime,
 ) {
   const automations = await listAutomations(workspace.path);
   for (const automation of automations) {
@@ -492,6 +834,25 @@ export async function reconcileAutomationRuns(
         !run.outputDirectory
       ) continue;
       try {
+        if (primaryRuntime) {
+          try {
+            const output = await saveCanonicalAutomationSessionOutput(
+              primaryRuntime.registry,
+              workspace,
+              {
+                sessionId: run.sessionId,
+                groupName: run.groupName ?? basename(run.outputDirectory),
+                outputDirectory: run.outputDirectory,
+              },
+            );
+            if (output.saved && output.completed) {
+              await reconcileAutomationRunSuccess(workspace.path, automation.id, run.ranAt);
+            }
+            continue;
+          } catch (error) {
+            if (!isUnboundCanonicalAutomation(error)) continue;
+          }
+        }
         const opencode = defaultOpencodeClientPool.get(config, workspace, run.outputDirectory);
         const saved = await saveAutomationSessionOutput(opencode, {
           sessionId: run.sessionId,
@@ -505,7 +866,12 @@ export async function reconcileAutomationRuns(
       }
     }
     // Clear stuck "运行中" leases when the session already finished or the lease expired.
-    await reconcileStuckRunningLease(config, workspace, automation).catch(() => undefined);
+    await reconcileStuckRunningLease(
+      config,
+      workspace,
+      automation,
+      primaryRuntime,
+    ).catch(() => undefined);
   }
 }
 
@@ -517,6 +883,7 @@ async function reconcileStuckRunningLease(
   config: ServerConfig,
   workspace: WorkspaceInfo,
   automation: AutomationTaskItem,
+  primaryRuntime?: AutomationPrimaryRuntime,
 ) {
   const running = automation.running;
   if (!running) return;
@@ -544,6 +911,67 @@ async function reconcileStuckRunningLease(
     groupName: running.groupName ?? basename(running.outputDirectory),
     outputDirectory: running.outputDirectory,
   };
+
+  if (primaryRuntime) {
+    try {
+      const canonicalOutput = await saveCanonicalAutomationSessionOutput(
+        primaryRuntime.registry,
+        workspace,
+        execution,
+      );
+      if (canonicalOutput.saved && canonicalOutput.completed) {
+        await recordAutomationRun(
+          workspace.path,
+          automation.id,
+          {
+            status: "success",
+            source: "scheduled",
+            ranAt: now,
+            sessionId: execution.sessionId,
+            groupName: execution.groupName,
+            outputDirectory: execution.outputDirectory,
+          },
+          running.leaseId,
+        );
+        return;
+      }
+      if (!leaseExpired) return;
+      await recordAutomationRun(
+        workspace.path,
+        automation.id,
+        {
+          status: "failed",
+          source: "scheduled",
+          ranAt: now,
+          error: "Automation run lease expired before completion",
+          sessionId: execution.sessionId,
+          groupName: execution.groupName,
+          outputDirectory: execution.outputDirectory,
+        },
+        running.leaseId,
+      );
+      return;
+    } catch (error) {
+      if (!isUnboundCanonicalAutomation(error)) {
+        if (!leaseExpired) return;
+        await recordAutomationRun(
+          workspace.path,
+          automation.id,
+          {
+            status: "failed",
+            source: "scheduled",
+            ranAt: now,
+            error: "Automation run lease expired before completion",
+            sessionId: execution.sessionId,
+            groupName: execution.groupName,
+            outputDirectory: execution.outputDirectory,
+          },
+          running.leaseId,
+        );
+        return;
+      }
+    }
+  }
 
   try {
     const opencode = defaultOpencodeClientPool.get(
@@ -685,6 +1113,55 @@ async function saveAutomationSessionOutput(
     "utf8",
   );
   return true;
+}
+
+async function saveCanonicalAutomationSessionOutput(
+  registry: PrimaryRuntimeRegistry,
+  workspace: WorkspaceInfo,
+  execution: AutomationExecution,
+): Promise<{ saved: boolean; completed: boolean }> {
+  const resultPath = join(execution.outputDirectory, "执行结果.md");
+  let existingOutput = false;
+  try {
+    if ((await readFile(resultPath, "utf8")).trim()) {
+      existingOutput = true;
+    }
+  } catch {
+  }
+  const response = await registry.readSessionMessages(
+    workspace.id,
+    execution.sessionId,
+  );
+  const assistantText = response.messages
+    .filter((message) => message.role === "assistant")
+    .flatMap((message) => message.parts.map(readAutomationTextPart))
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
+  if (!assistantText) {
+    return {
+      saved: existingOutput,
+      completed: existingOutput && completionObservedAtFromMessages(response.messages),
+    };
+  }
+  if (!existingOutput) {
+    await writeFile(resultPath, `${assistantText}\n`, "utf8");
+  }
+  return {
+    saved: true,
+    completed: completionObservedAtFromMessages(response.messages),
+  };
+}
+
+function completionObservedAtFromMessages(
+  messages: readonly import("@onmyagent/types/agent-runtime").AgentRuntimeMessage[],
+): boolean {
+  return messages.some((message) =>
+    message.role === "assistant" && message.completedAt !== undefined);
+}
+
+export function isUnboundCanonicalAutomation(error: unknown): boolean {
+  return isApiError(error) && error.code === "runtime_session_binding_not_found";
 }
 
 function readAutomationTextPart(value: unknown) {

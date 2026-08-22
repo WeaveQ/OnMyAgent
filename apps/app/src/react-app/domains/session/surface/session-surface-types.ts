@@ -10,6 +10,7 @@ import type {
   ComposerDraft,
   ComposerMentionTarget,
   ModelRef,
+  ModelOption,
   PendingPermission,
   PendingQuestion,
   TodoItem,
@@ -28,7 +29,8 @@ export type SessionSurfaceModelBag = {
   /** Provider catalog `limit.context` for the selected model, when known. */
   catalogContextWindow?: number | null;
   onModelPickerOpenChange: (open: boolean) => void;
-  onModelChange: (model: ModelRef) => void;
+  onModelChange: (model: ModelRef) => void | Promise<void>;
+  modelOptions?: ModelOption[];
   modelVariantLabel: string;
   modelVariant: string | null;
   modelBehaviorOptions?: { value: string | null; label: string }[];
@@ -143,6 +145,8 @@ export type SessionSurfaceProps = {
   listCommands: () => Promise<
     import("../../../../app/types").SlashCommandOption[]
   >;
+  /** Route-level runtime for composer catalogs. Snapshot runtimeKind can lag. */
+  selectedRuntimeKind?: "opencode" | "grok-build" | null;
   recentFiles: string[];
   searchFiles: (query: string) => Promise<ComposerMentionTarget[]>;
   isRemoteWorkspace: boolean;
@@ -237,6 +241,7 @@ export function bagSessionSurfaceProps(
     catalogContextWindow,
     onModelPickerOpenChange,
     onModelChange,
+    modelOptions,
     modelVariantLabel,
     modelVariant,
     modelBehaviorOptions,
@@ -282,6 +287,7 @@ export function bagSessionSurfaceProps(
       catalogContextWindow,
       onModelPickerOpenChange,
       onModelChange,
+      modelOptions,
       modelVariantLabel,
       modelVariant,
       modelBehaviorOptions,

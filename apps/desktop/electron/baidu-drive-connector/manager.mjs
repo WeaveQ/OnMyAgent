@@ -682,6 +682,17 @@ export function createBaiduDriveConnectorManager(options) {
     }
   }
 
+  /** @returns {Promise<import("../../../server/src/services/runtime-mcp-projection.js").ConnectorMcpDescriptor[]>} */
+  async function getRuntimeMcpDescriptors() {
+    const tokens = await readTokens();
+    if (!tokenUsable(tokens)) return [];
+    return [{
+      name: MCP_SERVER_NAME,
+      transport: "sse",
+      url: buildBaiduDriveMcpUrl(String(tokens.access_token)),
+    }];
+  }
+
   return {
     getStatus,
     startConnect,
@@ -690,5 +701,6 @@ export function createBaiduDriveConnectorManager(options) {
     disconnect,
     connectWithToken,
     oauthConfigured,
+    getRuntimeMcpDescriptors,
   };
 }

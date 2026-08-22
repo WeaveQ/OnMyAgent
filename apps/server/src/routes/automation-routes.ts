@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import type {
+  AutomationRunLease,
   ApprovalRequest,
   AutomationTaskItem,
   ServerConfig,
@@ -44,8 +45,13 @@ export function registerAutomationRoutes(input: {
       groupName: string;
       outputDirectory: string;
     }) => Promise<void>,
+    signal: AbortSignal,
   ) => Promise<{ sessionId: string; groupName: string; outputDirectory: string }>;
   reconcileAutomationRuns?: (workspace: WorkspaceInfo) => Promise<void>;
+  abortSession?: (
+    workspace: WorkspaceInfo,
+    running: AutomationRunLease,
+  ) => Promise<void>;
   requireApproval: (
     ctx: RequestContext,
     input: Omit<ApprovalRequest, "id" | "createdAt" | "actor">,
@@ -60,6 +66,7 @@ export function registerAutomationRoutes(input: {
     resolveWorkspace,
     runAutomationTask,
     reconcileAutomationRuns = async () => {},
+    abortSession,
     requireApproval,
     readJsonBody,
   } = input;
@@ -145,7 +152,7 @@ export function registerAutomationRoutes(input: {
     });
 
     const result = await runAutomationManually(workspace.path, task.id, (automation, onStarted) => (
-      runAutomationTask(workspace, automation, onStarted)
+      runAutomationTask(workspace, automation, onStarted, ctx.request.signal)
     ));
     if (result.ok) {
       await recordAudit(workspace.path, {
@@ -187,6 +194,9 @@ export function registerAutomationRoutes(input: {
     const item = await cancelAutomationRun(workspace.path, automationId, {
       config,
       workspace,
+      ...(abortSession
+        ? { abortSession: (running) => abortSession(workspace, running) }
+        : {}),
     });
     await recordAudit(workspace.path, {
       id: shortId(),

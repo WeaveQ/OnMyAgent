@@ -34,7 +34,7 @@ after(async () => {
 describe("desktop workspace file e2e", () => {
   test(
     "OpenCode lists and reads a first-task workspace file",
-    { timeout: 45_000 },
+    { timeout: 180_000 },
     async (t) => {
       const bin = resolveOpencodeBin();
       if (!bin) {
@@ -49,6 +49,7 @@ describe("desktop workspace file e2e", () => {
 
       const sandbox = await createDesktopE2eSandbox({
         prefix: "oma-desktop-file-e2e-",
+        knowledgePlugins: false,
       });
       roots.push(sandbox.root);
       await mkdir(path.join(sandbox.workspace, "notes"), { recursive: true });

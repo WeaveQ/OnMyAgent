@@ -68,6 +68,11 @@ test("connectWithToken writes tokens + opencode mcp when oauth not configured", 
     assert.equal(status.phase, "connected");
     assert.equal(status.authorized, true);
     assert.equal(status.mcpConfigured, true);
+    assert.deepEqual(await manager.getRuntimeMcpDescriptors(), [{
+      name: MCP_SERVER_NAME,
+      transport: "sse",
+      url: buildBaiduDriveMcpUrl("access-xyz"),
+    }]);
 
     const raw = await readFile(path.join(opencodeRoot, "opencode.json"), "utf8");
     const config = JSON.parse(raw);
@@ -79,6 +84,7 @@ test("connectWithToken writes tokens + opencode mcp when oauth not configured", 
     const disconnected = await manager.disconnect();
     assert.equal(disconnected.phase, "disconnected");
     assert.equal(disconnected.authorized, false);
+    assert.deepEqual(await manager.getRuntimeMcpDescriptors(), []);
   } finally {
     await rm(home, { recursive: true, force: true });
   }

@@ -12,6 +12,7 @@ import {
 } from "react";
 import type { QueryClient, UseQueryResult } from "@tanstack/react-query";
 import type { OnMyAgentSessionSnapshot } from "../../../../app/lib/onmyagent-server";
+import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
 import { abortSessionSafe } from "../../../../app/lib/opencode-session";
 import { createClient } from "../../../../app/lib/opencode";
 import { t } from "../../../../i18n";
@@ -111,6 +112,8 @@ export type SessionSurfaceRunHandlersInput = {
   onPlanRuntimeChange?: (runtime: CollaborationPlanRuntime | null) => void;
   outputLimitedAssistantMessage: UIMessage | null | undefined;
   opencodeClient: OpencodeClient;
+  onmyagentClient: OnMyAgentServerClient;
+  canonicalRuntime: boolean;
   queryClient: QueryClient;
   snapshotQueryKey: readonly unknown[];
   statusQueryKey: readonly unknown[];
@@ -167,6 +170,8 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
     onPlanRuntimeChange,
     outputLimitedAssistantMessage,
     opencodeClient,
+    onmyagentClient,
+    canonicalRuntime,
     queryClient,
     snapshotQueryKey,
     statusQueryKey,
@@ -601,10 +606,16 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
             : current,
       );
     }
-    await abortSessionSafe(opencodeClient, sessionId);
-    await snapshotQuery.refetch();
+    if (canonicalRuntime) {
+      await onmyagentClient.cancelRuntimeSession(workspaceId, sessionId);
+    } else {
+      await abortSessionSafe(opencodeClient, sessionId);
+      await snapshotQuery.refetch();
+    }
   }, [
+    canonicalRuntime,
     draftOnly,
+    onmyagentClient,
     opencodeClient,
     queryClient,
     sessionId,

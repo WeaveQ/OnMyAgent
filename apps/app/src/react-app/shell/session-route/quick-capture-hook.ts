@@ -41,6 +41,12 @@ import {
 } from "./sessions";
 import type { RouteWorkspace } from "./model";
 import type { SidebarSessionItem } from "../../../app/types";
+import type { OnMyAgentServerClient } from "../../../app/lib/onmyagent-server";
+import {
+  GROK_PRIMARY_MODEL,
+  resolveConfiguredRuntimeKind,
+} from "./agent-runtime-routing";
+import { runtimeSessionToSidebarItem } from "./runtime-session-sidebar";
 
 type ModelRef = { providerID: string; modelID: string } | null | undefined;
 
@@ -54,6 +60,7 @@ type ModelOption = {
 type Input = {
   baseUrl: string;
   token: string;
+  client: OnMyAgentServerClient | null;
   pageMode: "assistant" | "expert";
   workspaces: RouteWorkspace[];
   selectedWorkspaceId: string;
@@ -77,6 +84,7 @@ export function useSessionRouteQuickCapture(input: Input) {
   const {
     baseUrl,
     token,
+    client,
     pageMode,
     workspaces,
     selectedWorkspaceId,
@@ -117,17 +125,45 @@ export function useSessionRouteQuickCapture(input: Input) {
         setComposerDraftAfterNewTask(workspaceId, text);
         return;
       }
+      let runtimeKind: "opencode" | "grok-build";
+      try {
+        if (!client) throw new Error("agent_runtime_client_unavailable");
+        runtimeKind = resolveConfiguredRuntimeKind(
+          await client.getAgentRuntimeSelection(workspaceId),
+          workspaceId,
+        );
+      } catch (error) {
+        console.warn("[quick-capture] runtime selection unavailable; draft preserved", error);
+        void handleCreateTaskInWorkspace(workspaceId);
+        setComposerDraftAfterNewTask(workspaceId, text);
+        return;
+      }
+      if (runtimeKind === "grok-build" && pageMode === "expert") {
+        // The main send path owns the complete Expert profile compiler. Never
+        // create an identity-less Grok Expert from the mini capture window.
+        void handleCreateTaskInWorkspace(workspaceId);
+        setComposerDraftAfterNewTask(workspaceId, text);
+        return;
+      }
       const workspaceClient = createClient(
         endpoint.opencodeBaseUrl,
         workspace.path?.trim() || undefined,
         { token: endpoint.token, mode: "onmyagent" },
       );
       try {
-        const session = unwrap(
-          await workspaceClient.session.create({
-            directory: workspace.path?.trim() || undefined,
-          }),
-        );
+        const runtimeSession = runtimeKind === "grok-build"
+          ? (await client.createRuntimeSession(workspaceId, {
+              modelRef: GROK_PRIMARY_MODEL,
+              profile: { kind: "assistant" },
+            })).session
+          : null;
+        const session = runtimeSession
+          ? runtimeSessionToSidebarItem(runtimeSession, text)
+          : unwrap(
+              await workspaceClient.session.create({
+                directory: workspace.path?.trim() || undefined,
+              }),
+            );
         writeActiveWorkspaceId(workspaceId || null);
         writeLastSessionFor(workspaceId, session.id, pageMode);
         rememberPendingCreatedSession(workspaceId, session.id);
@@ -158,20 +194,24 @@ export function useSessionRouteQuickCapture(input: Input) {
           focusPromptSoon();
         };
 
-        if (model?.providerID && model?.modelID) {
+        if (runtimeSession || (model?.providerID && model?.modelID)) {
           // Ensure composer is empty while the turn streams in.
           useComposerStateStore.getState().setDraft(session.id, "");
           clearSessionDraft(workspaceId, session.id);
           void (async () => {
             try {
-              await workspaceClient.session.promptAsync({
-                sessionID: session.id,
-                model: {
-                  providerID: model.providerID,
-                  modelID: model.modelID,
-                },
-                parts: [{ type: "text", text }],
-              });
+              if (runtimeSession) {
+                await client.promptRuntimeSession(workspaceId, session.id, { text });
+              } else if (model?.providerID && model.modelID) {
+                await workspaceClient.session.promptAsync({
+                  sessionID: session.id,
+                  model: {
+                    providerID: model.providerID,
+                    modelID: model.modelID,
+                  },
+                  parts: [{ type: "text", text }],
+                });
+              }
               // Re-clear in case surface remount rehydrated a draft.
               useComposerStateStore.getState().setDraft(session.id, "");
               clearSessionDraft(workspaceId, session.id);
@@ -195,6 +235,7 @@ export function useSessionRouteQuickCapture(input: Input) {
     },
     [
       baseUrl,
+      client,
       effectiveModelRef,
       handleCreateTaskInWorkspace,
       navigateToWorkspaceSession,

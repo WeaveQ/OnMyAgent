@@ -27,6 +27,7 @@ import type {
   McpServerEntry,
   McpStatusMap,
   ModelRef,
+  ModelOption,
   SkillCard,
   SlashCommandOption,
 } from "../../../../app/types";
@@ -76,6 +77,7 @@ import {
 import type { AssistantCategoryId } from "./personal-assistant-config";
 import type { SessionError } from "./session-surface-support";
 import type { Agent } from "@opencode-ai/sdk/v2/client";
+import type { AgentRuntimeKind } from "@onmyagent/types/agent-runtime";
 import { KeyboardShortcutsGuideButton } from "./chrome/keyboard-shortcuts-guide";
 
 export type SessionSurfaceViewProps = {
@@ -86,6 +88,7 @@ export type SessionSurfaceViewProps = {
   draftWorkspaceAccessoryActive: boolean;
   conversationTabs?: ReactNode;
   chatHeaderAgent: SessionSurfaceHeaderAgent;
+  runtimeKind?: AgentRuntimeKind | null;
   codeSceneToolbar: ReactNode;
   personalAssistantHome?: boolean;
   onOpenAgentSettings?: () => void;
@@ -180,9 +183,10 @@ export type SessionSurfaceViewProps = {
   modelPickerOpen: boolean;
   modelPickerVisible?: boolean;
   selectedModel: ModelRef;
+  modelOptions?: ModelOption[];
   catalogContextWindow?: number | null;
   onModelPickerOpenChange: (open: boolean) => void;
-  onModelChange: (model: ModelRef) => void;
+  onModelChange: (model: ModelRef) => void | Promise<void>;
   attachments: ComposerAttachment[];
   onAttachFiles: (files: File[]) => void;
   onRemoveAttachment: (id: string) => void;
@@ -351,6 +355,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
         {!personalAssistantDraftHome && props.chrome !== "embedded" ? (
           <SessionSurfaceHeader
             agent={props.chatHeaderAgent}
+            runtimeKind={props.runtimeKind}
             codeSceneToolbar={props.codeSceneToolbar}
             personalAssistantHome={props.personalAssistantHome}
             onOpenAgentSettings={props.onOpenAgentSettings}
@@ -529,6 +534,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
               modelPickerOpen={props.modelPickerOpen}
               modelPickerVisible={props.modelPickerVisible}
               selectedModel={props.selectedModel}
+              modelOptions={props.modelOptions}
               onModelPickerOpenChange={props.onModelPickerOpenChange}
               onModelChange={props.onModelChange}
               attachments={props.attachments}

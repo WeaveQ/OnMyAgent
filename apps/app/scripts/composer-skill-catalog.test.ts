@@ -7,6 +7,7 @@ import {
   buildActiveMcpItems,
   buildCombinedSkillItems,
   buildOnmyagentInstalledNames,
+  buildSlashCatalogItems,
   builtInExtensionMcpServerNames,
   isComposerManagedSkill,
 } from "../src/react-app/domains/session/surface/composer/skill-catalog";
@@ -93,6 +94,40 @@ describe("composer skill catalog product model", () => {
     expect(items[0]?.label).toBe("抖音每日点赞飙升榜");
     expect(items[0]?.description).toBe("抖音飙升榜说明");
     expect(items[0]?.name).toBe("douyin-content-surge");
+  });
+
+  test("slash catalog keeps native Grok commands that are not skills", () => {
+    const names = buildOnmyagentInstalledNames(skills);
+    const commands: SlashCommandOption[] = [
+      {
+        id: "grok:command:compact",
+        name: "compact",
+        description: "Compress conversation history to save context window",
+        source: "command",
+      },
+      {
+        id: "grok:command:init",
+        name: "init",
+        description: "Create or update AGENTS.md",
+        source: "command",
+      },
+      {
+        id: "cmd:find-skills",
+        name: "find-skills",
+        source: "skill",
+      },
+    ];
+    const skillOnly = buildCombinedSkillItems(skills, commands, names);
+    expect(skillOnly.map((item) => item.name)).not.toContain("compact");
+    const slash = buildSlashCatalogItems(skills, commands, names);
+    expect(slash.map((item) => item.name)).toEqual([
+      "compact",
+      "init",
+      "find-skills",
+      "getworkbuddy",
+      "browser-automation",
+      "documents",
+    ]);
   });
 
   test("uses English display labels when locale is en", () => {

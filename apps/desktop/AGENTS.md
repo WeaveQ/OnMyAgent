@@ -34,3 +34,5 @@ Desktop OpenCode e2e：`apps/desktop/electron/e2e/*.e2e.test.mjs`（编入 `test
 - **Computer Use / Appshot 矩阵**：只在 `windows-compat.md` + Architecture Product platforms。Appshot 勿引入 Rust/xcap helper。
 - **Managed CLI（OfficeCLI / 飞书）**：`electron/managed-tools/**` + 对应 plugins；见 [`electron/managed-tools/AGENTS.md`](electron/managed-tools/AGENTS.md)。契约：`node --test electron/managed-tools/recommended-managed-cli.boundary.test.mjs`（`test:runtime`）。
 - **Expert package metadata**：manifest 的 `skills` / `introStyle` / `approvedAgentIds` 是声明 SoT；desktop 可在一个兼容周期内读取缺少 `skills` 字段的 legacy agent frontmatter，但 renderer 不得恢复 markdown parser。显式 `skills: []` 必须覆盖 fallback。
+- **Expert package delete**：desktop 只删除 `my-experts` registry 与 owner-safe skill materialization，并以 operation journal 保证重放；OpenCode session、runtime 目录和 origin tombstone 属 server saga，禁止跨层代删。
+- **Primary Runtime（OpenCode/Grok Build）**：server-owned registry 是唯一主轨；desktop 仅注入 host policy（binary/home/env/sandbox），禁止在 Electron 侧复制 primary registry/store。Grok sidecar：`scripts/prepare-grok-sidecar.mjs`（构建时从官方源 stage，含 binary/notices/license 校验），`resources/sidecars/` 不入库。
