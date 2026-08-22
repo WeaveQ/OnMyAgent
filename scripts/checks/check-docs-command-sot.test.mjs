@@ -37,6 +37,7 @@ test("SoT checker rejects stale Files/memory/isolation/Appshot/data-flow claims"
     "session-archive-resume",
     "useArchiveResume",
     "Dual Runtime missing archive-resume named exception",
+    "orchestrator must spawn the onmyagent-server binary declared in package.json",
   ]) {
     assert.ok(source.includes(needle), needle);
   }

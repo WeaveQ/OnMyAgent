@@ -277,6 +277,11 @@ export function checkDocsCommandSot(root = repoRoot) {
     findings.push("apps/app/AGENTS.md: hotspot list missing session-route/render.tsx");
   }
 
+  const boundaries = read("scripts/checks/check-boundaries.mjs");
+  if (!boundaries.includes("orchestrator must spawn the onmyagent-server binary declared in package.json")) {
+    findings.push("check-boundaries.mjs: missing orchestrator spawn-binary / no-server-src rule");
+  }
+
   const release = read("docs/release.md");
   const yamlBranches = new Set();
   for (const file of TEST_GATE_WORKFLOW_FILES) {

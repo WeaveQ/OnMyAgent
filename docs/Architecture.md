@@ -434,7 +434,7 @@ pnpm check:boundaries
 
 `pnpm check:boundaries` 实际串行五道（勿再写成「三组 / 四道」）：
 
-1. `scripts/checks/check-boundaries.mjs` — package + domain + shell-import-depth
+1. `scripts/checks/check-boundaries.mjs` + `check-boundaries.test.mjs` — package + domain + shell-import-depth；orchestrator `src/**` 不得 import server 源码
 2. `scripts/checks/check-circular-deps.mjs` — Tarjan SCC，baseline 只减不增
 3. `scripts/checks/check-dual-runtime-boundary.mjs` — renderer 不得 import `personal-agent-runtime/**`；Personal 不得 import `session-archive*`
 4. `node --test scripts/checks/check-dual-runtime-boundary.test.mjs`
@@ -481,6 +481,7 @@ baseline `scripts/checks/baselines/circular-deps.json` **只减不增**（当前
 - `packages/ui` 不依赖 app/server/desktop 业务包。
 - `apps/server` 不依赖 renderer、desktop 或 UI 包。
 - `apps/desktop` 不直接 import renderer 包；renderer 交互必须走 IPC/preload/server API。
+- `apps/orchestrator` production `src/**` 不得 `import "onmyagent-server"` 或 `apps/server/src`（该包 `exports["."]` 指向 server 源码）。依赖按 `apps/orchestrator/package.json` 声明的 `onmyagent-server` 版本；运行时 spawn 二进制 / `require.resolve("onmyagent-server/package.json")`。`tests/` 可为哈希对齐 import server 源码。
 - **Desktop IPC 三层 SoT**：
   1. 命令名：`packages/types/src/desktop-ipc-commands.mjs`（运行时 groups）+
      `desktop-ipc-commands.d.mts`（字面量联合）；parity test 要求每条命令恰好声明和实现一次。
