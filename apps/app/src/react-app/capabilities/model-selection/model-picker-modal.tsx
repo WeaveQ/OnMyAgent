@@ -40,7 +40,7 @@ export type ModelPickerModalProps = {
   onBehaviorChange: (model: ModelRef, value: string | null) => void;
   onToggleProvider?: (providerId: string, enabled: boolean) => void;
   onOpenSettings: () => void;
-  /** Footer 去设置. Defaults to onOpenSettings (session picker → /settings/ai). */
+  /** Footer Go to settings. Defaults to onOpenSettings (session picker → /settings/ai). */
   onGoToSettings?: () => void;
   onClose: (options?: { restorePromptFocus?: boolean }) => void;
   /** When true and options empty, show spinner instead of empty connect CTA. */
