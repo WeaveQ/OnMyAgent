@@ -23,7 +23,7 @@ import { schedulePersonalAgentStartupReconcile } from "./startup-reconcile.mjs";
 import { getAgentOverrides, setAgentOverrides } from "./custom-agent-store.mjs";
 import { buildErrorTip, buildProviderContextResetEvents, classifyErrorInfo } from "./error-diagnostics.mjs";
 import { forgetRememberedApprovalDecision, rememberApprovalDecision } from "./approval-store.mjs";
-import { createRunPersistence } from "./run-persistence.mjs";
+import { attachRuntimePersistPublisher, createRunPersistence } from "./run-persistence.mjs";
 import { createPersonalRunPersistence } from "./run-persistence-store.mjs";
 import { createRuntimeEventPublisher } from "./runtime-events.mjs";
 import { createAdapterRegistry } from "./adapter-registry.mjs";
@@ -212,19 +212,12 @@ export function createPersonalAgentRuntime(options) {
   });
   const persistRun = createPersonalRunPersistence({ options, visibleArtifacts, metaBuilder: buildRunMeta });
 
-  const { schedulePersistRun: schedulePersistRunRaw, flushPersistRun, retainCompletedRunBriefly } = createRunPersistence({ persistRun, runs });
-  async function persistTerminalRun(state) {
-    await flushPersistRun(state, true);
-    publishRuntimeEvent(state, "run.finished");
-  }
-  function schedulePersistRun(state) {
-    if (state.status === "running") {
-      schedulePersistRunRaw(state);
-      publishRuntimeEvent(state, "run.delta");
-      return;
-    }
-    void persistTerminalRun(state).catch(() => undefined);
-  }
+  const persistence = createRunPersistence({ persistRun, runs });
+  const { flushPersistRun, retainCompletedRunBriefly } = persistence;
+  const { schedulePersistRun, persistTerminalRun } = attachRuntimePersistPublisher({
+    ...persistence,
+    publishRuntimeEvent,
+  });
   const { requestRunApproval, resolveApproval } = createApprovalRuntime({
     runs,
     flushPersistRun,

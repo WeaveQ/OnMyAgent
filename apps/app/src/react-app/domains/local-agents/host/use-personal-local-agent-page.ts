@@ -68,8 +68,7 @@ import {
   personalAgentApprovalModeKey,
   personalAgentChatStateKey,
   personalAgentModelPrefKey,
-  chatKeyForActiveRun,
-  recoverActiveRunIds,
+  chatKeyForActiveRun, recoverActiveRunIds,
   safeReadApprovalMode,
   safeReadCachedAgents,
   safeReadLocalAgentSidebarOrder,
@@ -1305,7 +1304,6 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   }, [activeRunId, cancelAgentRun, selectedAgent, selectedChatKey, startingByAgent]);
   const resolveApproval = useCallback(async (approval: PersonalLocalAgentApprovalRequest, decision: PersonalLocalAgentApprovalDecision, options?: { alwaysAllow?: boolean }) => {
     const chatKey = chatKeyForActiveRun(activeRunIdByAgent, approval.runId) ?? selectedChatKey;
-    const errorAgentId = chatKey.split("::")[0] || selectedAgentId;
     try {
       const result = await personalLocalAgentAcpResolveApproval({
         runId: approval.runId,
@@ -1326,7 +1324,7 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       rememberRunResult(snapshot.agentId, snapshot);
     } catch (nextError) {
       const message = nextError instanceof Error ? nextError.message : String(nextError);
-      setErrorsByAgent((current) => ({ ...current, [errorAgentId]: message }));
+      setErrorsByAgent((current) => ({ ...current, [chatKey.split("::")[0] || selectedAgentId]: message }));
     }
   }, [activeRunIdByAgent, effectiveWorkspaceRoot, rememberRunResult, selectedAgentId, selectedChatKey]);
   return {
