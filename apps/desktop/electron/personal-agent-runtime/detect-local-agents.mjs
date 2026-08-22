@@ -254,7 +254,10 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
     id: "grok",
     displayName: "Grok Build CLI",
     commands: ["grok"],
-    skillsDirs: [join(HOME, ".grok", "skills")],
+    skillsDirs: [
+      join(HOME, ".grok", "skills"),
+      join(HOME, ".grok", "bundled", "skills"),
+    ],
     // Packaged Electron often has a short PATH; also probe common install roots.
     wellKnownPaths: [
       join(HOME, ".grok", "bin", "grok"),

@@ -121,4 +121,33 @@ describe("agent-management-skills fleet native roots", () => {
       );
     });
   });
+
+  it("scans Grok bundled skills and tags them grok", async () => {
+    await withTempHome(async (home) => {
+      const api = createSkillsApi(home);
+      const userRoot = path.join(home, ".grok", "skills");
+      const bundledRoot = path.join(home, ".grok", "bundled", "skills");
+      await writeSkillPackage(userRoot, "better-harness");
+      await writeSkillPackage(bundledRoot, "grok-bundled-review");
+
+      const fleetAgents = [
+        {
+          id: "grok",
+          provider: "custom",
+          name: "Grok Build CLI",
+          nativeSkillsDirs: [userRoot, bundledRoot],
+        },
+      ];
+
+      const skills = await api.scanAgentManagementSkills(path.join(home, "ws"), { fleetAgents });
+      const bundled = skills.find((skill) => skill.name === "grok-bundled-review");
+      assert.ok(bundled, "bundled grok skill is scanned");
+      assert.ok(
+        bundled.agents.includes("grok"),
+        `expected grok tag, got ${JSON.stringify(bundled.agents)}`,
+      );
+      const user = skills.find((skill) => skill.name === "better-harness");
+      assert.ok(user?.agents.includes("grok"), "user grok skill still tagged");
+    });
+  });
 });

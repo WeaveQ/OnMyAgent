@@ -80,6 +80,8 @@ describe("ai providers chrome i18n keys", () => {
       expect(src).toContain("settings.loading_providers_list");
       expect(src).toContain("settings.loading_providers_inventory");
       expect(src).toContain("settings.connect_provider_empty_hint");
+      expect(src).toContain("settings.provider_enable");
+      expect(src).toContain("settings.provider_disable");
       expect(src).toContain("settings.provider_remove");
       expect(src).toContain("settings.provider_remove_confirm_title");
       expect(src).toContain("settings.provider_source_env_hint");
@@ -97,6 +99,44 @@ describe("ai providers chrome i18n keys", () => {
         expect(src).toContain("連接模型服務商");
       }
     }
+  });
+});
+
+describe("settings AI provider enable icon", () => {
+  test("disable persist applies live and skips reload banner when OpenCode accepts it", () => {
+    const store = readFileSync(
+      path.join(
+        import.meta.dir,
+        "../src/react-app/domains/connections/provider-auth/store.ts",
+      ),
+      "utf8",
+    );
+    const live = readFileSync(
+      path.join(
+        import.meta.dir,
+        "../src/react-app/domains/connections/provider-auth/disabled-and-disconnect.ts",
+      ),
+      "utf8",
+    );
+    expect(store).toContain("applyDisabledProvidersLive(options.client(), nextDisabled, options.markOpencodeConfigReloadRequired)");
+    expect(live).toContain("await c.config.update({ config: nextConfig })");
+    expect(live).toContain("if (!appliedLive)");
+    expect(live).toContain("markOpencodeConfigReloadRequired()");
+  });
+
+  test("row wires Power toggle to onToggleProviderEnabled", () => {
+    const view = readFileSync(
+      path.join(
+        import.meta.dir,
+        "../src/react-app/domains/settings/pages/ai-view.tsx",
+      ),
+      "utf8",
+    );
+    expect(view).toContain("onToggleProviderEnabled");
+    expect(view).toContain("<Power");
+    expect(view).toContain("settings.provider_enable");
+    expect(view).toContain("settings.provider_disable");
+    expect(view).toContain("disabledProviderIds");
   });
 });
 

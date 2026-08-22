@@ -46,6 +46,9 @@
   ],
   "exclude": [
     "src/react-app/domains/plugins/expert-marketplace/builtin-experts/plugins/**",
-    "src/react-app/domains/plugins/skills-marketplace/builtin-skills/**"
+    "src/react-app/domains/plugins/skills-marketplace/builtin-skills/**",
+    // bun:test files are not on the renderer type graph
+    "**/*.test.ts",
+    "**/*.test.tsx"
   ]
 }

@@ -4,7 +4,6 @@ import { Check, ChevronDown, ChevronRight, Eye, Search, Star } from "lucide-reac
 
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -41,6 +40,8 @@ export type ModelPickerModalProps = {
   onBehaviorChange: (model: ModelRef, value: string | null) => void;
   onToggleProvider?: (providerId: string, enabled: boolean) => void;
   onOpenSettings: () => void;
+  /** Footer Go to settings. Defaults to onOpenSettings (session picker → /settings/ai). */
+  onGoToSettings?: () => void;
   onClose: (options?: { restorePromptFocus?: boolean }) => void;
   /** When true and options empty, show spinner instead of empty connect CTA. */
   loading?: boolean;
@@ -281,7 +282,12 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
 
         {/* Footer */}
         <DialogFooter className="shrink-0">
-          <DialogClose render={<Button variant="outline" />}>{t("settings.done")}</DialogClose>
+          <Button
+            variant="outline"
+            onClick={() => (props.onGoToSettings ?? props.onOpenSettings)()}
+          >
+            {t("model_picker.go_to_settings")}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
