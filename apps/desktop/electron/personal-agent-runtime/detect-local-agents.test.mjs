@@ -141,6 +141,15 @@ test("Grok catalog uses well-known paths and enriched PATH resolution", () => {
     "official Windows grok.exe next to ~/.grok/bin/grok",
   );
   assert.deepEqual(grok.acpArgs, ["agent", "stdio"]);
+  const grokSkillDirs = (grok.skillsDirs ?? []).map((p) => String(p).replaceAll("\\", "/"));
+  assert.ok(
+    grokSkillDirs.some((p) => p.endsWith("/.grok/skills")),
+    "user Grok skills ~/.grok/skills",
+  );
+  assert.ok(
+    grokSkillDirs.some((p) => p.endsWith("/.grok/bundled/skills")),
+    "bundled Grok skills ~/.grok/bundled/skills",
+  );
 
   // Source contract: resolveOnPath must walk enrichedPath, not raw process.env.PATH only.
   const src = readFileSync(new URL("./detect-local-agents.mjs", import.meta.url), "utf8");
