@@ -34,6 +34,9 @@ test("SoT checker rejects stale Files/memory/isolation/Appshot/data-flow claims"
     "autoCapture=false",
     "applyAutoCaptureMemory",
     "P0 row missing landed C1 unlink",
+    "session-archive-resume",
+    "useArchiveResume",
+    "Dual Runtime missing archive-resume named exception",
   ]) {
     assert.ok(source.includes(needle), needle);
   }

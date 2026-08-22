@@ -182,6 +182,9 @@ export function checkDocsCommandSot(root = repoRoot) {
   if (!/Appshot/.test(reactArch) || !/Windows/.test(reactArch) || !/Linux/.test(reactArch)) {
     findings.push("ARCHITECTURE.md: Appshot must name macOS, Windows, and Linux");
   }
+  if (!reactArch.includes("session-archive-resume")) {
+    findings.push("ARCHITECTURE.md: local-agents missing archive-resume Dual Runtime exception");
+  }
 
   if (/opencode\.ts\(SDK\) ← opencode binary/.test(architecture)) {
     findings.push("Architecture.md: still presents SDK ← opencode binary as shipped topology");
@@ -191,6 +194,18 @@ export function checkDocsCommandSot(root = repoRoot) {
   }
   if (!architecture.includes("`#task`/`/task`")) {
     findings.push("Architecture.md: Dual Runtime IM path missing #task / /task");
+  }
+  const dualRuntimeHeading = architecture.indexOf("## Dual Runtime Boundary");
+  const archiveRuntimeHeading = architecture.indexOf("## Server Archive Runtime");
+  const dualRuntime =
+    dualRuntimeHeading >= 0 && archiveRuntimeHeading > dualRuntimeHeading
+      ? architecture.slice(dualRuntimeHeading, archiveRuntimeHeading)
+      : "";
+  if (!dualRuntime.includes("session-archive-resume") || !dualRuntime.includes("useArchiveResume")) {
+    findings.push("Architecture.md: Dual Runtime missing archive-resume named exception");
+  }
+  if (!dualRuntime.includes("单向")) {
+    findings.push("Architecture.md: archive-resume exception must be named as a one-way copy");
   }
 
   const appshotHeading = architecture.indexOf("Computer Use / Appshot");

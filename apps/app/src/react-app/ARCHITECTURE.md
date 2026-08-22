@@ -85,6 +85,9 @@ Domain ownership gives every feature one obvious home.
   harness UI): local/ACP agent edit, cards, messages UI, `agent-management/` pages,
   and the personal host under `host/`. Not the product main session engine—see
   monorepo `docs/Architecture.md` **Dual Runtime Boundary**.
+  Archive **Resume** (`host/use-archive-resume.ts`, `source: session-archive-resume`)
+  is that boundary's one-way copy: OpenCode session-archive → Personal conversation
+  store for the local-agent view. Do not write back to the main archive.
   Public exports (`AgentBrandIcon`, recent-workspace helpers, …) go through
   `domains/local-agents/index.ts` for other domains.
 - `task-center/` owns the neutral multi-agent workflow UI. Task/Run/Turn truth remains

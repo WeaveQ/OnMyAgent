@@ -201,7 +201,7 @@ packages/onmyagent-ui-mcp 让 Agent 检查/控制 UI 的 MCP server
 
 运行时，桌面应用可以启动本地 host stack，连接已有 OpenCode server，或接入远程 worker。UI 通过 OpenCode SDK 和 OnMyAgent 本地 API 与 Agent 后端通信。
 
-**双运行时主辅：** OpenCode 是产品主会话与 server 真相源；Personal Local Agent 是桌面侧本机 CLI agent 的统一 harness（辅轨）。展示层可共用 conversation timeline，存储与热写路径不交叉。细则见 `docs/Architecture.md` 的 **Dual Runtime Boundary** 与 **Server Archive Runtime**。
+**双运行时主辅：** OpenCode 是产品主会话与 server 真相源；Personal Local Agent 是桌面侧本机 CLI agent 的统一 harness（辅轨）。展示层可共用 conversation timeline，存储与热写路径不交叉（Dual Runtime 点名例外除外：IM 本地助理；归档恢复单向副本）。细则见 `docs/Architecture.md` 的 **Dual Runtime Boundary** 与 **Server Archive Runtime**。
 
 更详细的架构说明见 `docs/Architecture.md`。
 
