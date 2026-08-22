@@ -57,6 +57,7 @@ export function wrapChannelApiForLazyInit(api, ensureReady) {
  *   claudeProjectsRoot?: () => string,
  *   deferStartupReconcileMs?: number,
  *   taskMessageRouter?: (input: object) => Promise<object>,
+ *   onRuntimeEvent?: (event: object) => void,
  *   providerEnvironment?: NodeJS.ProcessEnv,
  * }} [options]
  */
@@ -91,6 +92,7 @@ export function createDesktopPersonalRuntimeServices(options = {}) {
     onmyagentServerInfo: () => runtimeManager.onmyagentServerInfo(),
     legacy: personalAgentLegacyHarness,
     providerEnvironment,
+    onEvent: options.onRuntimeEvent,
     bundledExtensionRoots: bundledExtensionRootPaths(),
     // Defer orphan/process reconcile off the critical cold-start path.
     deferStartupReconcileMs,

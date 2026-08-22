@@ -615,6 +615,7 @@ const {
   readWorkspaceState,
   claudeProjectsRoot,
   taskMessageRouter: deferredMessagingTasks.route,
+  onRuntimeEvent: (event) => { if (!mainWindow?.isDestroyed() && !mainWindow?.webContents.isDestroyed()) mainWindow.webContents.send("onmyagent:personal-agent:event", event); },
 });
 
 const taskOrchestrator = createTaskSupervisorClient({

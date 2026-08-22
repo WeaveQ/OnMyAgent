@@ -88,6 +88,15 @@ describe("conversation shared UI contract", () => {
     expect(read("ui/plan-block.tsx")).toContain("export function PlanBlock");
   });
 
+  test("shared ApprovalCard contains long command/path text inside the card", () => {
+    const source = read("ui/approval-card.tsx");
+    expect(source).toContain("ToolApprovalCard");
+    expect(source).toContain("MonoLogBox");
+    expect(source).toContain('wrap="preBreak"');
+    expect(source).toContain("break-words");
+    expect(source).not.toContain("id: {item.approvalId}");
+  });
+
   test("OpenCode session transcript keeps WorkBuddy process fold and reasoning chrome", () => {
     const surfaceDir = join(
       import.meta.dir,
@@ -125,7 +134,10 @@ describe("conversation shared UI contract", () => {
     expect(timeline).toContain("ConversationItemView");
     expect(timeline).toContain("personalMessagesToConversationItems");
     expect(timeline).toContain('kind: "tool"');
-    // Compact tools + approval + default kinds go through shared view.
+    expect(timeline).toContain("LocalAgentApprovalCard");
+    expect(timeline).toContain("pendingApprovals");
+    // Compact tools + default kinds go through shared view; permission cards
+    // stay on the host approval surface so long commands cannot overflow.
     expect(timeline).toContain("PersonalConversationItem");
     expect(timeline).toContain("<ConversationItemView");
     // Rich expandable I/O remains host extension-style only.

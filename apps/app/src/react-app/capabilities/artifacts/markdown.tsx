@@ -320,7 +320,7 @@ const baseMarkedOptions = {
       return `<div data-markdown-code-block class="my-4 overflow-hidden rounded-xl border border-dls-mist bg-dls-surface-muted">${markdownCodeHeader(info)}<pre class="overflow-x-auto px-4 py-3 text-xs leading-6 text-dls-secondary"><code${codeLanguageClass(info.language)}>${escapeHtml(text)}</code></pre></div>`;
     },
     codespan({ text }) {
-      return `<code data-markdown-inline-code="${escapeAttribute(text)}" class="rounded-md bg-dls-surface-muted px-1.5 py-0.5 font-mono text-sm text-dls-text">${escapeHtml(text)}</code>`;
+      return `<code data-markdown-inline-code="${escapeAttribute(text)}" class="break-all rounded-md bg-dls-surface-muted px-1.5 py-0.5 font-mono text-sm text-dls-text">${escapeHtml(text)}</code>`;
     },
     del({ raw, tokens }) {
       if (!raw.startsWith("~~")) return escapeHtml(raw);
@@ -642,7 +642,7 @@ function MarkdownBlockInner(props: {
   if (!html && !props.streaming) return null;
 
   return (
-    <div className="markdown-content max-w-none text-dls-text">
+    <div className="markdown-content min-w-0 max-w-full text-dls-text">
       {html ? (
         <div
           ref={rootRef}

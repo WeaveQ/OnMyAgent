@@ -172,7 +172,7 @@ function renderNamedToolPlugin(knowledgeRoot, spec) {
   const argLines = spec.args
     .map((item) => `    ${item.name}: ${item.schema},`)
     .join("\n");
-  return `import { tool } from "@opencode-ai/plugin"
+  return `import { tool } from "./knowledge-plugin-runtime.mjs"
 import { ${spec.fn} } from "./knowledge-ops.mjs"
 const ROOT = ${rootJson}
 export default async () => ({
@@ -259,7 +259,7 @@ export function renderKnowledgeSearchPluginSource(knowledgeRoot) {
   const expertEnv = JSON.stringify(KNOWLEDGE_EXPERT_ENV);
   return `import { readFile } from "node:fs/promises"
 import path from "node:path"
-import { tool } from "@opencode-ai/plugin"
+import { tool } from "./knowledge-plugin-runtime.mjs"
 import { walkKnowledgeTree } from "./knowledge-vault-walk.mjs"
 
 const ROOT = ${rootJson}
@@ -379,6 +379,7 @@ export async function installKnowledgeSearchPlugin(input) {
   await copyFile(here("knowledge-vault-walk.mjs"), path.join(pluginDir, "knowledge-vault-walk.mjs"));
   await copyFile(here("knowledge-target.mjs"), path.join(pluginDir, "knowledge-target.mjs"));
   await copyFile(here("knowledge-ops.mjs"), path.join(pluginDir, "knowledge-ops.mjs"));
+  await copyFile(here("knowledge-plugin-runtime.mjs"), path.join(pluginDir, "knowledge-plugin-runtime.mjs"));
   const writers = {
     "knowledge-search.mjs": renderKnowledgeSearchPluginSource,
     "knowledge-read.mjs": renderKnowledgeReadPluginSource,

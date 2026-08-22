@@ -8,7 +8,7 @@ export type * from "./expert-team-workflow.js";
 
 export type * from "./desktop-ipc-system.js";
 export type * from "./desktop-ipc-workspace.js";
-export type * from "./desktop-ipc-runtime.js";
+export type * from "./desktop-ipc-runtime.js"; export type * from "./desktop-ipc-company.js";
 
 // Code Workspace IPC contracts live in @onmyagent/types (desktop-ipc).
 // Re-exported here for backward-compatible app/lib imports.

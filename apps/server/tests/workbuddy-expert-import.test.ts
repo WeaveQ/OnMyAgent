@@ -136,7 +136,7 @@ describe("WorkBuddy expert import", () => {
     process.env.OPENCODE_GLOBAL_SKILLS_DIR = roots.skillsRoot;
     try {
       const listed = await listSkills(join(tempRoot, "workspace"), true);
-      expect(listed.map((item) => item.name)).not.toContain("fullstack-dev");
+      expect(listed.some((item) => item.path.startsWith(`${roots.skillsRoot}/`))).toBe(false);
     } finally {
       if (previous === undefined) delete process.env.OPENCODE_GLOBAL_SKILLS_DIR;
       else process.env.OPENCODE_GLOBAL_SKILLS_DIR = previous;

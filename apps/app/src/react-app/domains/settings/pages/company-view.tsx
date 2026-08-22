@@ -18,41 +18,23 @@ import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { desktopBridge } from "../../../../app/lib/desktop";
+import { createBrowserStorageRegistry } from "@/react-app/kernel/storage-registry";
+import {
+  invokeDesktopCommand,
+} from "../../../../app/lib/desktop";
 import { isDesktopRuntime } from "../../../../app/utils";
+import type {
+  CompanyCatalogSnapshot,
+  CompanyConnectResult,
+  CompanyHealthResult,
+  CompanySessionSnapshot,
+  CompanySettingsPatch,
+  CompanySyncConfigResult,
+} from "@onmyagent/types/desktop-ipc";
 import { SettingsNotice } from "../settings-section";
 import { LayoutStack } from "../settings-layout";
 
-type CompanyCatalogSnapshot = {
-  connected?: boolean;
-  email?: string;
-  memberId?: string;
-  lastSyncedVersion?: string;
-  lastSyncedAt?: string;
-  companyBaseUrl?: string;
-  adminConsoleUrl?: string;
-  skills?: Array<{ id: string; name: string }>;
-  experts?: Array<{ id: string; name: string }>;
-  models?: Array<{ id: string; name: string }>;
-  gatewayServices?: Array<{ id: string; name: string }>;
-  policy?: {
-    allowedActions?: string[];
-    blockedActions?: string[];
-    egress?: { mode?: string };
-  } | null;
-};
-
-const STORAGE_KEY = "onmyagent.companySettings";
-
-type CompanySettings = {
-  companyBaseUrl?: string;
-  memberToken?: string;
-  memberId?: string;
-  email?: string;
-  activeProfile?: "local" | "company";
-  lastSyncedVersion?: string;
-  lastSyncedAt?: string;
-};
+type CompanySettings = CompanySessionSnapshot;
 
 type CompanyViewProps = {
   busy?: boolean;
@@ -68,17 +50,52 @@ function normalizeBaseUrl(url: string): string {
   return url.trim().replace(/\/+$/, "");
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object";
+}
+
+function parseCompanySettings(value: unknown): CompanySettings {
+  const parsed = isRecord(value) ? value : {};
+  return {
+    companyBaseUrl: typeof parsed.companyBaseUrl === "string" ? parsed.companyBaseUrl : undefined,
+    connected: parsed.connected === true,
+    memberId: typeof parsed.memberId === "string" ? parsed.memberId : undefined,
+    email: typeof parsed.email === "string" ? parsed.email : undefined,
+    activeProfile: parsed.activeProfile === "company" || parsed.activeProfile === "local"
+      ? parsed.activeProfile
+      : undefined,
+    lastSyncedVersion: typeof parsed.lastSyncedVersion === "string" ? parsed.lastSyncedVersion : undefined,
+    lastSyncedAt: typeof parsed.lastSyncedAt === "string" ? parsed.lastSyncedAt : undefined,
+  };
+}
+
+const browserStorage = createBrowserStorageRegistry({
+  companySettings: {
+    key: "onmyagent.companySettings",
+    owner: "settings.company",
+    schemaVersion: 1,
+    sensitivity: "private",
+    defaultValue: {},
+    parse: parseCompanySettings,
+  },
+});
+
 function readLocalFallback(): CompanySettings {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") as CompanySettings;
+    return browserStorage.read("companySettings");
   } catch {
     return {};
   }
 }
 
 function writeLocalFallback(next: CompanySettings): CompanySettings {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  return next;
+  const safe = parseCompanySettings(next);
+  try {
+    browserStorage.write("companySettings", safe);
+  } catch {
+    // Browser storage is a fallback only; desktop IPC remains authoritative.
+  }
+  return safe;
 }
 
 function formatError(err: unknown, fallback: string): string {
@@ -135,7 +152,7 @@ function summarizePolicyActions(actions: string[] | undefined): string[] {
 async function readDurableSettings(): Promise<CompanySettings> {
   if (isDesktopRuntime()) {
     try {
-      const result = (await desktopBridge.companySettingsRead()) as CompanySettings;
+      const result = await invokeDesktopCommand("companySettingsRead");
       return result && typeof result === "object" ? result : {};
     } catch {
       return readLocalFallback();
@@ -144,10 +161,10 @@ async function readDurableSettings(): Promise<CompanySettings> {
   return readLocalFallback();
 }
 
-async function writeDurableSettings(patch: CompanySettings): Promise<CompanySettings> {
+async function writeDurableSettings(patch: CompanySettingsPatch): Promise<CompanySettings> {
   if (isDesktopRuntime()) {
     try {
-      const result = (await desktopBridge.companySettingsWrite(patch)) as CompanySettings;
+      const result = await invokeDesktopCommand("companySettingsWrite", patch);
       writeLocalFallback(result);
       return result;
     } catch {
@@ -160,7 +177,7 @@ async function writeDurableSettings(patch: CompanySettings): Promise<CompanySett
 async function disconnectDurable(): Promise<CompanySettings> {
   if (isDesktopRuntime()) {
     try {
-      const result = (await desktopBridge.companySettingsDisconnect()) as CompanySettings;
+      const result = await invokeDesktopCommand("companySettingsDisconnect");
       writeLocalFallback(result);
       return result;
     } catch (err) {
@@ -206,7 +223,7 @@ export function CompanySettingsView(props: CompanyViewProps) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const busy = loading || hostBusy;
-  const connected = Boolean(settings.memberToken);
+  const connected = settings.connected === true;
 
   const refreshCatalog = useCallback(async () => {
     if (!isDesktopRuntime()) {
@@ -214,7 +231,7 @@ export function CompanySettingsView(props: CompanyViewProps) {
       return;
     }
     try {
-      const raw = (await desktopBridge.companyCatalog()) as CompanyCatalogSnapshot;
+      const raw = await invokeDesktopCommand("companyCatalog");
       setCatalog(raw && typeof raw === "object" ? raw : null);
     } catch {
       setCatalog(null);
@@ -228,11 +245,11 @@ export function CompanySettingsView(props: CompanyViewProps) {
       if (loaded.companyBaseUrl) setBaseUrl(loaded.companyBaseUrl);
       if (loaded.email) setEmail(loaded.email);
       setStoreMode(isDesktopRuntime() ? "desktop" : "local");
-      if (loaded.memberToken) await refreshCatalog();
+      if (loaded.connected) await refreshCatalog();
     })();
   }, [refreshCatalog]);
 
-  const applyHealth = useCallback((body: { orgId?: string; version?: string; ok?: boolean }) => {
+  const applyHealth = useCallback((body: CompanyHealthResult) => {
     setHealth({
       ok: body.ok !== false,
       orgId: body.orgId || "default",
@@ -250,11 +267,7 @@ export function CompanySettingsView(props: CompanyViewProps) {
     setError(null);
     try {
       if (isDesktopRuntime()) {
-        const body = (await desktopBridge.companyHealth(root)) as {
-          orgId?: string;
-          version?: string;
-          ok?: boolean;
-        };
+        const body = await invokeDesktopCommand("companyHealth", root);
         applyHealth(body);
       } else {
         const res = await fetch(`${root}/api/company/health`);
@@ -277,11 +290,7 @@ export function CompanySettingsView(props: CompanyViewProps) {
       const root = normalizeBaseUrl(settings.companyBaseUrl || baseUrl);
       if (!root || !isDesktopRuntime()) return;
       try {
-        const body = (await desktopBridge.companyHealth(root)) as {
-          orgId?: string;
-          version?: string;
-          ok?: boolean;
-        };
+        const body = await invokeDesktopCommand("companyHealth", root);
         applyHealth(body);
         setError(null);
       } catch (err) {
@@ -290,7 +299,7 @@ export function CompanySettingsView(props: CompanyViewProps) {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only when session/settings first applied
-  }, [settings.companyBaseUrl, settings.memberToken]);
+  }, [settings.companyBaseUrl, settings.connected]);
 
   async function connect(): Promise<void> {
     setLoading(true);
@@ -305,15 +314,12 @@ export function CompanySettingsView(props: CompanyViewProps) {
         throw new Error(t("settings.company_error_desktop_only"));
       }
 
-      const result = (await desktopBridge.companyConnect({
+      const result: CompanyConnectResult = await invokeDesktopCommand("companyConnect", {
         companyBaseUrl: root,
         email,
         code,
-      })) as {
-        settings?: CompanySettings;
-        pulled?: { version?: string; packagesWritten?: number };
-      };
-      const next = result.settings ?? (await readDurableSettings());
+      });
+      const next = result.settings;
       setSettings(next);
       const packagesWritten =
         typeof result.pulled?.packagesWritten === "number"
@@ -330,11 +336,7 @@ export function CompanySettingsView(props: CompanyViewProps) {
         }),
       );
       try {
-        const body = (await desktopBridge.companyHealth(root)) as {
-          orgId?: string;
-          version?: string;
-          ok?: boolean;
-        };
+        const body = await invokeDesktopCommand("companyHealth", root);
         applyHealth(body);
       } catch {
         // non-fatal
@@ -355,11 +357,8 @@ export function CompanySettingsView(props: CompanyViewProps) {
     setLoading(true);
     setError(null);
     try {
-      const result = (await desktopBridge.companySyncConfig()) as {
-        settings?: CompanySettings;
-        pulled?: { version?: string };
-      };
-      if (result.settings) setSettings(result.settings);
+      const result: CompanySyncConfigResult = await invokeDesktopCommand("companySyncConfig");
+      setSettings(result.settings);
       setStatus(
         t("settings.company_status_synced", {
           version:

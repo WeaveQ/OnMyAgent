@@ -3,50 +3,48 @@
  * Extracted from runtime.mjs (factory; re-used by createRuntimeManager).
  */
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
 
 import { nowMs } from "./runtime-engine-state.mjs";
 import { normalizeWorkspaceKey } from "./runtime-helpers.mjs";
 import { findFreePort, portAvailable } from "./runtime-path-env.mjs";
+import { createDurableStateRegistry } from "./durable-state.mjs";
 
-/**
- * @param {{
- *   userDataDir: string,
- *   readJsonFile: (targetPath: string, fallback: unknown) => Promise<any>,
- * }} deps
- */
-export function createRuntimeTokenPortStore({ userDataDir, readJsonFile }) {
-  function onmyagentServerTokenStorePath() {
-    return path.join(userDataDir, "onmyagent-server-tokens.json");
-  }
-
-  function onmyagentServerStatePath() {
-    return path.join(userDataDir, "onmyagent-server-state.json");
-  }
+/** @param {{ userDataDir: string }} deps */
+export function createRuntimeTokenPortStore({ userDataDir }) {
+  const durableState = createDurableStateRegistry({
+    rootDir: userDataDir,
+    definitions: {
+      serverTokens: {
+        fileName: "onmyagent-server-tokens.json",
+        owner: "desktop.runtime.server-tokens",
+        schemaVersion: 1,
+        sensitivity: "secret",
+        defaultValue: { version: 1, workspaces: {} },
+      },
+      serverState: {
+        fileName: "onmyagent-server-state.json",
+        owner: "desktop.runtime.server-state",
+        schemaVersion: 3,
+        sensitivity: "private",
+        defaultValue: { version: 3, workspacePorts: {}, preferredPort: null },
+      },
+    },
+  });
 
   async function loadTokenStore() {
-    return readJsonFile(onmyagentServerTokenStorePath(), { version: 1, workspaces: {} });
+    return durableState.read("serverTokens");
   }
 
   async function saveTokenStore(store) {
-    const filePath = onmyagentServerTokenStorePath();
-    await mkdir(path.dirname(filePath), { recursive: true });
-    await writeFile(filePath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
+    await durableState.write("serverTokens", store);
   }
 
   async function loadPortState() {
-    return readJsonFile(onmyagentServerStatePath(), {
-      version: 3,
-      workspacePorts: {},
-      preferredPort: null,
-    });
+    return durableState.read("serverState");
   }
 
   async function savePortState(state) {
-    const filePath = onmyagentServerStatePath();
-    await mkdir(path.dirname(filePath), { recursive: true });
-    await writeFile(filePath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
+    await durableState.write("serverState", state);
   }
 
   async function loadOrCreateWorkspaceTokens(workspaceKey) {

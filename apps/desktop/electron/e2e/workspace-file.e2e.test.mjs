@@ -49,6 +49,7 @@ describe("desktop workspace file e2e", () => {
 
       const sandbox = await createDesktopE2eSandbox({
         prefix: "oma-desktop-file-e2e-",
+        knowledgePlugins: false,
       });
       roots.push(sandbox.root);
       await mkdir(path.join(sandbox.workspace, "notes"), { recursive: true });

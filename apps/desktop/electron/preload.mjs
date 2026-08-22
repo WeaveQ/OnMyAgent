@@ -14,6 +14,7 @@ const NATIVE_MENU_OPEN_MARKET_EVENT =
   "onmyagent:native-menu:open-expert-marketplace";
 const DESKTOP_IPC_CHANNEL = "onmyagent:desktop";
 const TASK_ORCHESTRATOR_EVENT = "onmyagent:task-orchestrator:event";
+const PERSONAL_AGENT_RUNTIME_EVENT = "onmyagent:personal-agent:event";
 
 function normalizePlatform(value) {
   if (value === "darwin" || value === "linux") return value;
@@ -60,6 +61,15 @@ contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
       ipcRenderer.on(TASK_ORCHESTRATOR_EVENT, handler);
       return () => {
         ipcRenderer.removeListener(TASK_ORCHESTRATOR_EVENT, handler);
+      };
+    },
+  },
+  personalAgentRuntime: {
+    onEvent(callback) {
+      const handler = (_event, payload) => callback(payload);
+      ipcRenderer.on(PERSONAL_AGENT_RUNTIME_EVENT, handler);
+      return () => {
+        ipcRenderer.removeListener(PERSONAL_AGENT_RUNTIME_EVENT, handler);
       };
     },
   },

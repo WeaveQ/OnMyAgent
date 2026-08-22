@@ -4,6 +4,12 @@
  * Optional onApprove / onReject keep the component host-driven.
  */
 import { Button } from "@/components/ui/button";
+import { MonoLogBox } from "@/components/ui/mono-log-box";
+import {
+  ToolApprovalCard,
+  ToolApprovalCardBody,
+  ToolApprovalCardHeader,
+} from "@/components/ui/tool-approval-card";
 import { cn } from "@/lib/utils";
 import type { ConversationItemVM } from "../item-types";
 
@@ -24,12 +30,6 @@ function resolveRiskTier(item: ConversationItemVM): "safe" | "careful" | "destru
   if (raw === "low") return "safe";
   return "careful";
 }
-
-const riskTierBorderClass: Record<"safe" | "careful" | "destructive", string> = {
-  safe: "border-l-0",
-  careful: "border-l-[2px] border-l-dls-warning",
-  destructive: "border-l-[4px] border-l-dls-danger",
-};
 
 export function ApprovalCard(props: ApprovalCardProps) {
   const {
@@ -56,32 +56,31 @@ export function ApprovalCard(props: ApprovalCardProps) {
           : null;
 
   return (
-    <div
-      className={cn(
-        "min-w-0 rounded-xl border border-dls-border bg-dls-surface text-dls-text",
-        riskTierBorderClass[riskTier],
-        className,
-      )}
+    <ToolApprovalCard
+      risk={riskTier}
+      className={cn(className)}
       data-kind="approval"
       data-risk-tier={riskTier}
       data-approval-id={item.approvalId ?? undefined}
       data-testid="conversation-approval-card"
     >
-      <div className="space-y-2 px-4 py-3">
-        <div className="text-xs font-medium text-dls-text">{title}</div>
-        {detail ? (
-          <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words font-sans text-xs leading-5 text-dls-secondary">
+      <ToolApprovalCardHeader className="min-w-0 flex-col items-stretch gap-1 pb-0">
+        <div className="min-w-0 break-words text-xs font-medium leading-5 text-dls-text">
+          {title}
+        </div>
+      </ToolApprovalCardHeader>
+      {detail ? (
+        <ToolApprovalCardBody className="min-w-0 pt-2">
+          <MonoLogBox
+            wrap="preBreak"
+            className="max-h-40 min-w-0 overflow-auto"
+          >
             {detail}
-          </pre>
-        ) : null}
-        {item.approvalId ? (
-          <div className="font-mono text-2xs text-dls-text-tertiary">
-            id: {item.approvalId}
-          </div>
-        ) : null}
-      </div>
+          </MonoLogBox>
+        </ToolApprovalCardBody>
+      ) : null}
       {showActions ? (
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-dls-border px-4 py-3">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 border-t border-dls-border/70 px-4 py-3">
           {onReject ? (
             <Button
               type="button"
@@ -105,6 +104,6 @@ export function ApprovalCard(props: ApprovalCardProps) {
           ) : null}
         </div>
       ) : null}
-    </div>
+    </ToolApprovalCard>
   );
 }

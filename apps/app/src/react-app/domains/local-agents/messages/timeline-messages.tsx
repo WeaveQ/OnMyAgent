@@ -4,7 +4,13 @@ import { useState } from "react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { t } from "@/i18n";
-import type { PersonalLocalAgentConversationMessage, PersonalLocalAgentRunResult } from "../../../../app/lib/desktop";
+import type {
+  PersonalLocalAgentApprovalDecision,
+  PersonalLocalAgentApprovalRequest,
+  PersonalLocalAgentConversationMessage,
+  PersonalLocalAgentRunResult,
+} from "../../../../app/lib/desktop";
+import { LocalAgentApprovalCard } from "./local-agent-approval-card";
 import {
   ConversationItemView,
   mapPersonalRunToMessages,
@@ -15,6 +21,8 @@ import {
 import { sanitizeAssistantTranscriptText } from "../../../capabilities/conversation/assistant-text-sanitize";
 import { MessageTips } from "./message-tips";
 import { extractDiff, toKeyedLines, diffLineClass, copyText } from "../../../capabilities/artifacts/diff-utils";
+
+import { LocalAgentPlanFold } from "./local-agent-plan-fold";
 
 export function lastEventTime(run: PersonalLocalAgentRunResult | null | undefined) {
   const event = run?.events?.[run.events.length - 1];
@@ -63,9 +71,18 @@ export function toConversationItems(run: PersonalLocalAgentRunResult | null | un
 
 type LocalAgentToolStatus = "running" | "completed" | "failed" | "pending";
 
-type LocalAgentTimelineItem =
-  | { kind: "message"; id: string; message: PersonalLocalAgentConversationMessage }
-  | { kind: "tool_group"; id: string; messages: PersonalLocalAgentConversationMessage[] };
+function localAgentToolStatusLabel(status: LocalAgentToolStatus) {
+  switch (status) {
+    case "completed":
+      return t("local_agent.status_completed");
+    case "failed":
+      return t("local_agent.status_failed");
+    case "pending":
+      return t("local_agent.status_running");
+    default:
+      return t("local_agent.status_running");
+  }
+}
 
 // Precise status mapping (mirrors Upstream normalizeAcpStatus / normalizeToolCallStatus).
 function mapRawStatus(status: string): LocalAgentToolStatus | null {
@@ -150,6 +167,10 @@ const LOCAL_AGENT_TOOL_KIND_LABELS: Record<string, string> = {
   webfetch: "Fetch",
   think: "Thinking",
   thinking: "Thinking",
+  task: "Task",
+  subagent: "Task",
+  todowrite: "Plan",
+  todoread: "Plan",
   mcp: "MCP Tool",
 };
 
@@ -381,89 +402,6 @@ function localAgentToolDisplay(message: PersonalLocalAgentConversationMessage, r
   };
 }
 
-function createStableRenderKeyAllocator() {
-  const usedKeys = new Set<string>();
-  const nextSuffixByBase = new Map<string, number>();
-  return (candidate: string | null | undefined, fallback: string): string => {
-    const base = candidate?.trim() || fallback;
-    let key = base;
-    if (usedKeys.has(key)) {
-      let suffix = nextSuffixByBase.get(base) ?? 2;
-      do {
-        key = `${base}#${suffix}`;
-        suffix += 1;
-      } while (usedKeys.has(key));
-      nextSuffixByBase.set(base, suffix);
-    } else {
-      nextSuffixByBase.set(base, 2);
-    }
-    usedKeys.add(key);
-    return key;
-  };
-}
-
-export function groupLocalAgentTimeline(messages: PersonalLocalAgentConversationMessage[]): LocalAgentTimelineItem[] {
-  const items: LocalAgentTimelineItem[] = [];
-  const allocateItemId = createStableRenderKeyAllocator();
-  let toolBuffer: PersonalLocalAgentConversationMessage[] = [];
-  let toolBufferId: string | null = null;
-  const flushTools = () => {
-    if (!toolBuffer.length) return;
-    const visibleTools = toolBuffer.filter((message) => localAgentToolDisplay(message) !== null);
-    if (visibleTools.length) {
-      items.push({
-        kind: "tool_group",
-        // Keep the first source row/group ID. Appending another streaming tool
-        // must not change this React key and remount every existing tool card.
-        id: allocateItemId(
-          toolBufferId ?? visibleTools[0]!.id,
-          `tool-group-${items.length + 1}`,
-        ),
-        messages: visibleTools,
-      });
-    }
-    toolBuffer = [];
-    toolBufferId = null;
-  };
-  for (const message of messages) {
-    if (message.type === "tool") {
-      toolBufferId ??= message.id;
-      toolBuffer.push(message);
-      continue;
-    }
-    if (message.type === "tool_group") {
-      const visibleTools = (message.toolCalls ?? []).filter(
-        (toolMessage) => localAgentToolDisplay(toolMessage) !== null,
-      );
-      if (visibleTools.length) toolBufferId ??= message.id;
-      toolBuffer.push(...visibleTools);
-      continue;
-    }
-    if (message.type === "acp_tool_call") {
-      toolBufferId ??= message.id;
-      toolBuffer.push(message);
-      continue;
-    }
-    flushTools();
-    items.push({
-      kind: "message",
-      id: allocateItemId(message.id, `message-${items.length + 1}`),
-      message,
-    });
-  }
-  flushTools();
-  return items;
-}
-
-export function localAgentToolRenderKeys(
-  messages: PersonalLocalAgentConversationMessage[],
-): string[] {
-  const allocateKey = createStableRenderKeyAllocator();
-  return messages.map((message, index) => (
-    allocateKey(message.id, `tool-${index + 1}`)
-  ));
-}
-
 function normalizeLocalToolText(value: string) {
   return value
     // Some Windows command wrappers produce CRCRLF. Treat the whole sequence
@@ -499,7 +437,7 @@ function LocalAgentToolCard(props: { message: PersonalLocalAgentConversationMess
     <div className="rounded-xl border border-dls-border bg-dls-surface-muted px-3 py-2.5">
       <button
         type="button"
-        className="flex w-full items-start justify-between gap-3 text-left text-dls-secondary hover:bg-transparent"
+        className="flex w-full items-start justify-between gap-3 rounded-sm text-left text-dls-secondary outline-none hover:bg-transparent focus-visible:ring-1 focus-visible:ring-dls-focus focus-visible:ring-offset-0"
         disabled={!hasDetail}
         aria-expanded={hasDetail ? expanded : undefined}
         onClick={() => {
@@ -512,7 +450,7 @@ function LocalAgentToolCard(props: { message: PersonalLocalAgentConversationMess
             <div className="truncate font-mono text-xs text-dls-secondary" title={tool.description}>{tool.description}</div>
           ) : null}
         </div>
-        <StatusBadge tone={tone} shape="pill" size="tiny">{tool.status}</StatusBadge>
+        <StatusBadge tone={tone} shape="pill" size="tiny">{localAgentToolStatusLabel(tool.status)}</StatusBadge>
       </button>
       {expanded && hasDetail ? (
         <div className="mt-2 space-y-2">
@@ -600,46 +538,16 @@ function sharedToolItemFromMessage(
   };
 }
 
-export function LocalAgentToolGroupSummary(props: { messages: PersonalLocalAgentConversationMessage[]; runStatus?: string }) {
-  // Prefer shared ConversationItemView for compact tool rows. Keep the rich
-  // LocalAgentToolCard only when expandable Input/Output is present.
-  const renderKeys = localAgentToolRenderKeys(props.messages);
-  const tools = props.messages
-    .map((message, index) => ({
-      message,
-      renderKey: renderKeys[index]!,
-      display: localAgentToolDisplay(message, props.runStatus),
-    }))
-    .filter((entry) => entry.display !== null);
-
-  if (tools.length === 0) return null;
-
-  return (
-    <div className="flex max-w-full flex-col gap-1">
-      {tools.map((entry) => {
-        const display = entry.display!;
-        if (toolNeedsRichInputOutputCard(display)) {
-          return (
-            <LocalAgentToolCard
-              key={entry.renderKey}
-              message={entry.message}
-              runStatus={props.runStatus}
-            />
-          );
-        }
-        const item = sharedToolItemFromMessage(entry.message, display);
-        if (!item) return null;
-        return <ConversationItemView key={entry.renderKey} item={item} />;
-      })}
-    </div>
-  );
-}
-
 /** Map a personal timeline message → ConversationItemVM (adapter) then shared UI. */
 function PersonalConversationItem(props: {
   message: PersonalLocalAgentConversationMessage;
   streaming?: boolean;
   runStatus?: string;
+  pendingApprovals?: PersonalLocalAgentApprovalRequest[];
+  onResolveApproval?: (
+    approval: PersonalLocalAgentApprovalRequest,
+    decision: PersonalLocalAgentApprovalDecision,
+  ) => void | Promise<void>;
 }) {
   // Tools get display-normalized titles/status when possible so the shared row
   // matches LocalAgentToolCard chrome without pulling in expandable detail.
@@ -651,7 +559,13 @@ function PersonalConversationItem(props: {
     }
     const toolItem = sharedToolItemFromMessage(props.message, display);
     if (!toolItem) return null;
-    return <ConversationItemView item={toolItem} streaming={props.streaming} />;
+    return (
+      <ConversationItemView
+        item={toolItem}
+        streaming={props.streaming}
+        collapseThinkingWhenDone
+      />
+    );
   }
 
   const [item] = personalMessagesToConversationItems([
@@ -659,37 +573,55 @@ function PersonalConversationItem(props: {
   ]);
   if (!item) return null;
 
-  // Enrich approval cards with title/summary when present on the message.
   if (item.kind === "approval" && props.message.approval) {
     const approval = props.message.approval;
+    const live = (props.pendingApprovals ?? []).find((pending) => pending.id === approval.id);
     return (
-      <ConversationItemView
-        item={{
-          ...item,
-          meta: {
-            ...item.meta,
-            title: typeof approval.title === "string" ? approval.title : item.meta?.title,
-            summary:
-              typeof approval.summary === "string"
-                ? approval.summary
-                : typeof approval.command === "string"
-                  ? approval.command
-                  : item.meta?.summary,
-            command: typeof approval.command === "string" ? approval.command : item.meta?.command,
-          },
-        }}
-        streaming={props.streaming}
+      <LocalAgentApprovalCard
+        approval={live ?? approval}
+        pending={Boolean(live)}
+        onResolve={live ? props.onResolveApproval : undefined}
       />
     );
   }
 
-  return <ConversationItemView item={item} streaming={props.streaming} />;
+  if (props.message.type === "plan") {
+    return <LocalAgentPlanFold item={item} streaming={props.streaming} />;
+  }
+
+  if (props.message.type === "thinking" && props.runStatus !== "running") {
+    return (
+      <ConversationItemView
+        item={{
+          ...item,
+          thinkingStatus: /^(done|completed|complete)$/i.test(item.thinkingStatus ?? "")
+            ? item.thinkingStatus
+            : "done",
+        }}
+        streaming={false}
+        collapseThinkingWhenDone
+      />
+    );
+  }
+
+  return (
+    <ConversationItemView
+      item={item}
+      streaming={props.streaming}
+      collapseThinkingWhenDone
+    />
+  );
 }
 
 export function LocalAgentTimelineMessage(props: {
   message: PersonalLocalAgentConversationMessage;
   streaming: boolean;
   runStatus?: string;
+  pendingApprovals?: PersonalLocalAgentApprovalRequest[];
+  onResolveApproval?: (
+    approval: PersonalLocalAgentApprovalRequest,
+    decision: PersonalLocalAgentApprovalDecision,
+  ) => void | Promise<void>;
   onResolveTip?: (message: PersonalLocalAgentConversationMessage) => void;
 }) {
   if (props.message.type === "tips") {
@@ -711,6 +643,8 @@ export function LocalAgentTimelineMessage(props: {
         message={props.message}
         streaming={props.streaming}
         runStatus={props.runStatus}
+        pendingApprovals={props.pendingApprovals}
+        onResolveApproval={props.onResolveApproval}
       />
     );
   }
@@ -722,6 +656,8 @@ export function LocalAgentTimelineMessage(props: {
         message={{ ...props.message, text: body }}
         streaming={props.streaming && props.message.type !== "finish"}
         runStatus={props.runStatus}
+        pendingApprovals={props.pendingApprovals}
+        onResolveApproval={props.onResolveApproval}
       />
     );
   }
@@ -731,6 +667,8 @@ export function LocalAgentTimelineMessage(props: {
         message={props.message}
         streaming={props.streaming}
         runStatus={props.runStatus}
+        pendingApprovals={props.pendingApprovals}
+        onResolveApproval={props.onResolveApproval}
       />
     );
   }

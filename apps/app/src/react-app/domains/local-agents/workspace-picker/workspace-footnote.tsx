@@ -17,7 +17,7 @@ export type WorkspaceFootnoteProps = {
   /** When true the chip is locked to an existing conversation's workdir and
    * shows a hint to start a new conversation to switch directory. */
   readOnly?: boolean;
-  /** compact = workbench bottom-bar chip (borderless); default = standalone chip. */
+  /** compact = workbench composer action-row chip (borderless); default = standalone chip. */
   density?: "default" | "compact";
   onSelect: (path: string) => void;
   onClear: () => void;
@@ -26,7 +26,7 @@ export type WorkspaceFootnoteProps = {
 
 /**
  * Local-agent variant of Upstream's `GuidWorkspaceFootnote`. Renders a compact
- * chip beneath the composer that toggles between three states (empty /
+ * chip in the composer action row that toggles between three states (empty /
  * picked / temporary) and a searchable dropdown of recent workspace roots
  * with browse + clear actions.
  */
@@ -137,7 +137,12 @@ export function WorkspaceFootnote(props: WorkspaceFootnoteProps): React.ReactEle
               ) : (
                 <FolderPlus className="h-3.5 w-3.5 shrink-0" />
               )}
-              <span className="min-w-0 truncate">{chipLabel}</span>
+              <span
+                className="min-w-0 truncate @max-[32rem]/local-composer:hidden"
+                data-testid="local-agent-workspace-label"
+              >
+                {chipLabel}
+              </span>
             </button>
           }
         />

@@ -9,6 +9,7 @@ import {
   resolveTaskSupervisorPersonalRuntimeStateRoot,
 } from "../personal-agent-runtime/runtime-state.mjs";
 import { createTaskOrchestrator } from "../task-orchestrator/index.mjs";
+import { createProcessLifecycleContract } from "../process-lifecycle-contract.mjs";
 import { randomSupervisorEpoch } from "./protocol.mjs";
 
 const TASK_CENTER_MAINTENANCE_INTERVAL_MS = 60 * 60 * 1_000;
@@ -107,6 +108,8 @@ export async function createTaskSupervisorService(options = {}) {
     supervisorEpoch,
     ...(store ? { store } : {}),
   });
+  const lifecycle = createProcessLifecycleContract({ name: "task-supervisor" });
+  lifecycle.transition("starting", { operation: "service-create" });
   const maintenanceOptions = options.maintenance && typeof options.maintenance === "object" ? options.maintenance : {};
   const maintenanceEnabled = maintenanceOptions.enabled ?? options.maintenanceEnabled !== false;
   const requestedMaintenanceIntervalMs = Number(maintenanceOptions.intervalMs ?? options.maintenanceIntervalMs ?? TASK_CENTER_MAINTENANCE_INTERVAL_MS);
@@ -131,7 +134,37 @@ export async function createTaskSupervisorService(options = {}) {
     lastRunAt: null,
     lastSuccessAt: null,
     lastError: null,
+    lastPressure: "unknown",
   };
+  lifecycle.transition("healthy", { operation: "service-create" });
+
+  async function resolveMaintenancePolicy() {
+    const base = { ...maintenancePolicy };
+    if (typeof orchestrator.getSupervisorRuntimeHealth !== "function") return base;
+    try {
+      const runtimeHealth = await orchestrator.getSupervisorRuntimeHealth();
+      const storage = runtimeHealth?.store?.storage;
+      const warnings = Array.isArray(storage?.warnings) ? storage.warnings : [];
+      const exhausted = storage?.exhausted === true;
+      const reclaimableBytes = Number(storage?.reclaimableBytes ?? 0);
+      const pageSize = Number(storage?.pageSize ?? 0);
+      const reclaimablePages = pageSize > 0 ? Math.floor(reclaimableBytes / pageSize) : 0;
+      const requestedPages = Number(base.incrementalVacuumPages ?? 256);
+      const boundedPages = Number.isInteger(requestedPages) ? requestedPages : 256;
+      if (exhausted) {
+        maintenanceState.lastPressure = "exhausted";
+        return { ...base, incrementalVacuumPages: Math.max(boundedPages, 4_096) };
+      }
+      if (warnings.length > 0 || reclaimablePages >= 1_024) {
+        maintenanceState.lastPressure = "high";
+        return { ...base, incrementalVacuumPages: Math.min(4_096, Math.max(boundedPages, 1_024)) };
+      }
+      maintenanceState.lastPressure = reclaimablePages > 256 ? "moderate" : "normal";
+    } catch {
+      maintenanceState.lastPressure = "unknown";
+    }
+    return base;
+  }
 
   async function runAutomaticMaintenance(reason = "supervisor-maintenance") {
     if (!maintenanceState.enabled || typeof orchestrator.runMaintenance !== "function") return null;
@@ -140,7 +173,8 @@ export async function createTaskSupervisorService(options = {}) {
     maintenanceState.runs += 1;
     maintenanceState.lastRunAt = Date.now();
     maintenanceInFlight = Promise.resolve()
-      .then(() => orchestrator.runMaintenance({ ...maintenancePolicy }))
+      .then(() => resolveMaintenancePolicy())
+      .then((policy) => orchestrator.runMaintenance(policy))
       .then((result) => {
         maintenanceState.lastSuccessAt = Date.now();
         maintenanceState.lastError = null;
@@ -235,6 +269,7 @@ export async function createTaskSupervisorService(options = {}) {
     return {
       supervisorEpoch,
       observedAt: Date.now(),
+      lifecycle: lifecycle.snapshot(),
       maintenance: { ...maintenanceState, lastError: maintenanceState.lastError ? { ...maintenanceState.lastError } : null },
       activeWork,
       runtime,
@@ -243,15 +278,22 @@ export async function createTaskSupervisorService(options = {}) {
   let drained = false;
   async function pauseAllAndDrain(reason = "explicit_quit") {
     if (drained) return { ok: true, reason, alreadyDrained: true };
+    lifecycle.transition("stopping", { operation: reason });
     clearAutomaticMaintenance();
-    await maintenanceInFlight?.catch(() => undefined);
-    const pause = typeof orchestrator.pauseAllAndDrain === "function"
-      ? orchestrator.pauseAllAndDrain.bind(orchestrator)
-      : orchestrator.close.bind(orchestrator);
-    await pause(reason);
-    await personalAgentRuntime.close?.();
-    drained = true;
-    return { ok: true, reason };
+    try {
+      await maintenanceInFlight?.catch(() => undefined);
+      const pause = typeof orchestrator.pauseAllAndDrain === "function"
+        ? orchestrator.pauseAllAndDrain.bind(orchestrator)
+        : orchestrator.close.bind(orchestrator);
+      await pause(reason);
+      await personalAgentRuntime.close?.();
+      drained = true;
+      lifecycle.transition("stopped", { operation: reason });
+      return { ok: true, reason };
+    } catch (error) {
+      lifecycle.transition("error", { operation: reason, error });
+      throw error;
+    }
   }
   return {
     ...orchestrator,

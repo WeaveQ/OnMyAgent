@@ -20,6 +20,7 @@ import {
 import type { ChatMessage } from "../messages/message-types";
 import {
   messageTextForRun,
+  messagesAlreadyContainRun,
   nowId,
   placeholderRunFromProcess,
 } from "./personal-local-agent-page-helpers";
@@ -40,22 +41,15 @@ export function usePersonalLocalAgentProcessSync(input: {
         const result = await personalLocalAgentAcpProcessesList();
         if (cancelled) return;
         for (const process of result.processes) {
-          const run = placeholderRunFromProcess(process);
+          const run = placeholderRunFromProcess(process, agents);
           if (!run) continue;
           const chatKey = localAgentChatKey(
             run.agentId,
             process.conversationId || undefined,
           );
-          setActiveRunIdByAgent((current) =>
-            current[chatKey] === run.runId
-              ? current
-              : { ...current, [chatKey]: run.runId },
-          );
           setMessagesByAgent((current) => {
+            if (messagesAlreadyContainRun(current, run.runId)) return current;
             const existing = current[chatKey] ?? [];
-            if (existing.some((message) => message.run?.runId === run.runId)) {
-              return current;
-            }
             const agent = agents.find((item) => item.id === run.agentId) ?? null;
             return {
               ...current,
@@ -74,6 +68,12 @@ export function usePersonalLocalAgentProcessSync(input: {
                 },
               ],
             };
+          });
+          setActiveRunIdByAgent((current) => {
+            if (Object.values(current).includes(run.runId)) return current;
+            return current[chatKey] === run.runId
+              ? current
+              : { ...current, [chatKey]: run.runId };
           });
         }
       } catch {

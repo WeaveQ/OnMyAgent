@@ -7,12 +7,22 @@
  * - No profiles/company write until login + successful config pull
  * - Logged-out stays local-only (D1)
  */
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import {
   normalizeOnMyAgentHome,
   resolveCompanyConfigRoot,
   resolveCompanySettingsPath,
+  resolveLocalSkillsRoot,
 } from "./config-profile-paths.mjs";
 
 /**
@@ -26,6 +36,65 @@ import {
  *   lastSyncedAt?: string,
  * }} CompanySettings
  */
+
+/**
+ * Renderer-safe company session state. Secrets are intentionally absent from
+ * this contract; only Electron main may read the private member token.
+ * @typedef {{
+ *   companyBaseUrl?: string,
+ *   activeProfile?: "local" | "company",
+ *   connected?: boolean,
+ *   memberId?: string,
+ *   email?: string,
+ *   lastSyncedVersion?: string,
+ *   lastSyncedAt?: string,
+ * }} CompanySessionSnapshot
+ */
+
+/**
+ * @param {CompanySettings} settings
+ * @returns {CompanySessionSnapshot}
+ */
+export function toCompanySessionSnapshot(settings) {
+  return {
+    companyBaseUrl: settings.companyBaseUrl,
+    activeProfile: settings.activeProfile,
+    connected: hasCompanySession(settings),
+    memberId: settings.memberId,
+    email: settings.email,
+    lastSyncedVersion: settings.lastSyncedVersion,
+    lastSyncedAt: settings.lastSyncedAt,
+  };
+}
+
+/**
+ * Keep the settings directory and file private and replace the file atomically
+ * so a crash cannot leave a partially written session record.
+ * @param {string} filePath
+ * @param {CompanySettings} value
+ */
+function writePrivateJsonAtomic(filePath, value) {
+  const directory = path.dirname(filePath);
+  mkdirSync(directory, { recursive: true, mode: 0o700 });
+  chmodSync(directory, 0o700);
+  const tempPath = `${filePath}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  try {
+    writeFileSync(tempPath, `${JSON.stringify(value, null, 2)}\n`, {
+      encoding: "utf8",
+      mode: 0o600,
+      flag: "wx",
+    });
+    chmodSync(tempPath, 0o600);
+    renameSync(tempPath, filePath);
+    chmodSync(filePath, 0o600);
+  } finally {
+    try {
+      if (existsSync(tempPath)) unlinkSync(tempPath);
+    } catch {
+      // Best-effort cleanup; the atomic target is already valid if rename won.
+    }
+  }
+}
 
 /**
  * @param {string | undefined} homeDir
@@ -50,8 +119,7 @@ export function writeCompanySettings(homeDir, patch) {
   const current = readCompanySettings(homeDir);
   const next = normalizeSettings({ ...current, ...patch });
   const filePath = resolveCompanySettingsPath(homeDir);
-  mkdirSync(path.dirname(filePath), { recursive: true });
-  writeFileSync(filePath, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+  writePrivateJsonAtomic(filePath, next);
   return next;
 }
 
@@ -468,6 +536,18 @@ export function resolveActiveConfigRoot(homeDir) {
 }
 
 /**
+ * Runtime skill source for the active profile. Company skills are consumed
+ * from the materialized installed tree; local skills retain the existing
+ * profile resolver. This resolver never creates a company profile.
+ * @param {string | undefined} homeDir
+ */
+export function resolveActiveSkillsRoot(homeDir) {
+  const active = resolveActiveConfigRoot(homeDir);
+  if (active.profile === "company") return resolveCompanySkillsInstalledRoot(homeDir);
+  return resolveLocalSkillsRoot(homeDir);
+}
+
+/**
  * S4: personal skills root under local profile (mine).
  * @param {string | undefined} homeDir
  */
@@ -760,9 +840,19 @@ export function evaluateCompanyActionPolicy(homeDir, actionId) {
   try {
     policy = JSON.parse(readFileSync(path.join(companyRoot, "policy.json"), "utf8"));
   } catch {
-    return { allowed: true, source: "none" };
+    return {
+      allowed: false,
+      reason: "组织策略不可用，已阻止企业操作",
+      source: "org",
+    };
   }
-  if (!policy || typeof policy !== "object") return { allowed: true, source: "none" };
+  if (!policy || typeof policy !== "object") {
+    return {
+      allowed: false,
+      reason: "组织策略无效，已阻止企业操作",
+      source: "org",
+    };
+  }
 
   const action = String(actionId ?? "").trim();
   if (!action) return { allowed: true, source: "org" };
@@ -803,6 +893,19 @@ export function evaluateCompanyActionPolicy(homeDir, actionId) {
   }
 
   return { allowed: true, source: "org" };
+}
+
+/**
+ * Enforce mirrored company policy at a privileged main-process boundary.
+ * @param {string | undefined} homeDir
+ * @param {string} actionId
+ */
+export function assertCompanyActionAllowed(homeDir, actionId) {
+  const decision = evaluateCompanyActionPolicy(homeDir, actionId);
+  if (!decision.allowed) {
+    throw new Error(decision.reason || `Company policy denied: ${actionId}`);
+  }
+  return decision;
 }
 
 /**

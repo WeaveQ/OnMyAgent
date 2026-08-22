@@ -17,7 +17,6 @@ import {
 import { resolveCompanyConfigRoot } from "../config-profile-paths.mjs";
 import { HOME_CONFIG_SLASH_SKILL_NAMES } from "../opencode-sandbox-home.mjs";
 import {
-  KNOWLEDGE_TOOL_IDS,
   PLUGIN_LOAD_FAILURE_RE,
   findFreePort,
   isCi,
@@ -84,6 +83,7 @@ describe("desktop sandbox isolation e2e", () => {
         prefix: "oma-desktop-isolation-e2e-",
         poisonPlugin: true,
         linkSlashSkills: true,
+        knowledgePlugins: false,
       });
       roots.push(sandbox.root);
       assert.ok(existsSync(sandbox.poisonPath));
@@ -122,10 +122,6 @@ describe("desktop sandbox isolation e2e", () => {
           false,
           `sandbox loaded real-home poison tool: ${JSON.stringify(toolIds)}`,
         );
-        for (const toolId of KNOWLEDGE_TOOL_IDS) {
-          assert.ok(toolIds.includes(toolId), `missing ${toolId} in ${JSON.stringify(toolIds)}`);
-        }
-
         const commands = await requestOpencodeJson(server.baseUrl, "/command", {
           directory: sandbox.workspace,
         });

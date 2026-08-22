@@ -2,7 +2,7 @@
  * M5 company client unit tests (no live server).
  */
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, test } from "node:test";
@@ -10,6 +10,7 @@ import {
   allowPersonalSkills,
   connectCompany,
   disconnectCompany,
+  evaluateCompanyActionPolicy,
   hasCompanySession,
   listCompanyCatalog,
   listPersonalSkillPackages,
@@ -17,10 +18,13 @@ import {
   normalizeCompanyBaseUrl,
   readCompanySettings,
   resolveActiveConfigRoot,
+  resolveActiveSkillsRoot,
+  resolveCompanySkillsInstalledRoot,
   resolvePersonalSkillsRoot,
   shouldCallCompany,
   writeCompanySettings,
 } from "./company-client.mjs";
+import { createCompanyDomainHandlers } from "./desktop-handlers/company.mjs";
 import {
   resolveCompanyConfigRoot,
   resolveCompanySettingsPath,
@@ -52,7 +56,10 @@ describe("company-client M5", () => {
       assert.equal(s.companyBaseUrl, "http://gw.example:3000");
       assert.equal(s.activeProfile, "local");
       assert.equal(shouldCallCompany(s), false);
-      assert.ok((await readFile(resolveCompanySettingsPath(home), "utf8")).includes("gw.example"));
+      const settingsPath = resolveCompanySettingsPath(home);
+      assert.ok((await readFile(settingsPath, "utf8")).includes("gw.example"));
+      assert.equal((await stat(settingsPath)).mode & 0o777, 0o600);
+      assert.equal((await stat(path.dirname(settingsPath))).mode & 0o777, 0o700);
     } finally {
       await rm(home, { recursive: true, force: true });
     }
@@ -82,6 +89,7 @@ describe("company-client M5", () => {
       const active = resolveActiveConfigRoot(home);
       assert.equal(active.profile, "company");
       assert.equal(active.root, companyRoot);
+      assert.equal(resolveActiveSkillsRoot(home), resolveCompanySkillsInstalledRoot(home));
     } finally {
       await rm(home, { recursive: true, force: true });
     }
@@ -116,6 +124,48 @@ describe("company-client M5", () => {
       assert.equal(disk.memberToken, undefined);
       assert.equal(disk.companyBaseUrl, "http://company.example:3000");
       assert.equal(shouldCallCompany(disk), false);
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
+  test("renderer-facing company handlers never return or accept memberToken", async () => {
+    const home = await mkdtemp(path.join(os.tmpdir(), "oma-co-"));
+    try {
+      writeCompanySettings(home, {
+        companyBaseUrl: "http://company.example:3000",
+        memberToken: "main-only-token",
+        memberId: "member-xyz",
+        activeProfile: "company",
+      });
+      const handlers = createCompanyDomainHandlers({ getRealHomeDir: () => home });
+      const read = await handlers.companySettingsRead({}, []);
+      assert.equal("memberToken" in read, false);
+      assert.equal(read.connected, true);
+
+      const written = await handlers.companySettingsWrite({}, [{
+        companyBaseUrl: "http://company.example:3000",
+        memberToken: "renderer-injected-token",
+      }]);
+      assert.equal("memberToken" in written, false);
+      assert.equal(readCompanySettings(home).memberToken, "main-only-token");
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
+  test("connected company fails closed when mirrored policy is missing", async () => {
+    const home = await mkdtemp(path.join(os.tmpdir(), "oma-co-"));
+    try {
+      writeCompanySettings(home, {
+        companyBaseUrl: "http://company.example:3000",
+        memberToken: "main-only-token",
+        activeProfile: "company",
+      });
+      const decision = evaluateCompanyActionPolicy(home, "company.catalog.read");
+      assert.equal(decision.allowed, false);
+      assert.equal(decision.source, "org");
+      assert.match(decision.reason, /策略不可用/);
     } finally {
       await rm(home, { recursive: true, force: true });
     }

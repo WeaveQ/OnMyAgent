@@ -253,6 +253,16 @@ import type {
   TaskOrchestratorTaskPurgeResult,
   TaskOrchestratorTaskUpdateInput,
 } from "./desktop-ipc-task-orchestrator.js";
+import type {
+  CompanyCatalogSnapshot,
+  CompanyConnectInput,
+  CompanyConnectResult,
+  CompanyHealthResult,
+  CompanyPolicyDecision,
+  CompanySessionSnapshot,
+  CompanySettingsPatch,
+  CompanySyncConfigResult,
+} from "./desktop-ipc-company.js";
 
 export type DesktopCommandContract<
   Args extends readonly unknown[] = readonly unknown[],
@@ -301,6 +311,19 @@ type TypedDesktopCommandMap = {
     [{ path: string }],
     WorkspaceList
   >;
+
+  // company
+  companySettingsRead: DesktopCommandContract<[], CompanySessionSnapshot>;
+  companySettingsWrite: DesktopCommandContract<
+    [CompanySettingsPatch],
+    CompanySessionSnapshot
+  >;
+  companySettingsDisconnect: DesktopCommandContract<[], CompanySessionSnapshot>;
+  companyConnect: DesktopCommandContract<[CompanyConnectInput], CompanyConnectResult>;
+  companySyncConfig: DesktopCommandContract<[], CompanySyncConfigResult>;
+  companyCatalog: DesktopCommandContract<[], CompanyCatalogSnapshot>;
+  companyHealth: DesktopCommandContract<[string], CompanyHealthResult>;
+  companyEvaluateAction: DesktopCommandContract<[string], CompanyPolicyDecision>;
 
   // code workspace
   codeWorkspaceOpenTargets: DesktopCommandContract<[], CodeWorkspaceOpenTargetsResult>;

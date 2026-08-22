@@ -182,8 +182,8 @@ function connectorHealthDot(status: McpStatus | undefined, busy: boolean) {
 
 export function CustomConnectorDialog(props: CustomConnectorDialogProps) {
   const reloadCoordinator = useReloadCoordinator();
-  // GlobalSDKProvider is not mounted in the app shell; use the active server
-  // URL + createClient (same path as session/settings) for MCP connect/status.
+  // Use the active server URL + createClient (same path as session/settings)
+  // for MCP connect/status; there is no parallel global SDK provider.
   const server = useServer();
   const [view, setView] = useState<ViewMode>("list");
   const [loading, setLoading] = useState(false);

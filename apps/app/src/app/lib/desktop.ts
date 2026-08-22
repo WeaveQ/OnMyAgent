@@ -122,6 +122,7 @@ import type {
   TencentMeetingConnectionStatus,
 } from "@onmyagent/types/tencent-meeting-connector";
 import type { TaskOrchestratorDesktopEvent } from "@onmyagent/types/task-orchestrator";
+import type { PersonalLocalAgentRuntimeEvent } from "@onmyagent/types/desktop-ipc";
 
 import type { WorkspaceList } from "./desktop-types";
 import type {
@@ -160,6 +161,11 @@ declare global {
       taskOrchestrator?: {
         onEvent?: (
           callback: (event: TaskOrchestratorDesktopEvent) => void,
+        ) => () => void;
+      };
+      personalAgentRuntime?: {
+        onEvent?: (
+          callback: (event: PersonalLocalAgentRuntimeEvent) => void,
         ) => () => void;
       };
       computerUse?: {

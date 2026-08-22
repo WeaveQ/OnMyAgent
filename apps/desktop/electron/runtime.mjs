@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { chmod, copyFile, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-
+import { resolveActiveSkillsRoot } from "./company-client.mjs";
 import {
   resolveLocalExpertsRoot,
   resolveLocalManagedToolsBinRoot,
@@ -15,6 +15,7 @@ import { createRuntimeBinaryResolver } from "./runtime-binaries.mjs";
 import { createRuntimeChildEnv } from "./runtime-child-env.mjs";
 import { createRuntimeSandbox } from "./runtime-sandbox.mjs";
 import { createRuntimeTokenPortStore } from "./runtime-token-port.mjs";
+import { createProcessLifecycleContract } from "./process-lifecycle-contract.mjs";
 export {
   createDesktopPersonalRuntimeServices,
   wrapChannelApiForLazyInit,
@@ -107,7 +108,7 @@ export function createRuntimeManager({
   // stopAllRuntimeChildren kills the previous call's freshly-spawned
   // orchestrator daemon, and the prior call then times out its /health probe.
   let runtimeLifecycleQueue = Promise.resolve();
-  let lifecycleState = "idle", activeOpencodeConfigDir = null;
+  const lifecycle = createProcessLifecycleContract({ name: "desktop-runtime" }); let activeOpencodeConfigDir = null;
   function withRuntimeLifecycle(fn) {
     const next = runtimeLifecycleQueue.then(fn, fn);
     runtimeLifecycleQueue = next.catch(() => {});
@@ -186,7 +187,7 @@ export function createRuntimeManager({
     persistWorkspaceOwnerToken,
     persistPreferredOnMyAgentPort,
     resolveOnMyAgentPort,
-  } = createRuntimeTokenPortStore({ userDataDir, readJsonFile });
+  } = createRuntimeTokenPortStore({ userDataDir });
 
   function managedOpencodeWorkdir() {
     return path.join(userDataDir, "managed-opencode-workdir");
@@ -210,6 +211,7 @@ export function createRuntimeManager({
       },
       bundledSkillsRootPath,
       onmyagentUserSkillsRoot,
+      onmyagentActiveSkillsRoot: () => resolveActiveSkillsRoot(resolvedHomeDir),
       bundledPluginsRootPath,
     });
   }
@@ -406,7 +408,7 @@ export function createRuntimeManager({
         ),
         // Server install/list root (profile). Managed OpenCode child strips
         // this so Expert sessions only see <session>/.opencode/skills.
-        OPENCODE_GLOBAL_SKILLS_DIR: onmyagentUserSkillsRoot(),
+        OPENCODE_GLOBAL_SKILLS_DIR: resolveActiveSkillsRoot(resolvedHomeDir),
       },
       { workspaceRoot: activeWorkspace },
     );
@@ -541,12 +543,11 @@ export function createRuntimeManager({
   }
 
   async function prepareFreshRuntime() {
-    lifecycleState = "cleaning";
+    lifecycle.transition("cleaning", { operation: "prepare-fresh-runtime" });
     await stopAllRuntimeChildren();
     await cleanupPackagedSidecars();
-    lifecycleState = "idle";
+    lifecycle.transition("idle", { operation: "prepare-fresh-runtime" });
   }
-
   async function ensureOnMyAgent(options) {
     let onmyagentServer;
     try {
@@ -566,7 +567,6 @@ export function createRuntimeManager({
 
     assertOnMyAgentServerReady(onmyagentServer);
   }
-
   async function engineStart(projectDir, options = {}) {
     const safeProjectDir = String(projectDir ?? "").trim();
     if (!safeProjectDir) {
@@ -582,7 +582,7 @@ export function createRuntimeManager({
     const runtime = resolveShippedEngineRuntime(options.runtime);
 
     try {
-      lifecycleState = "starting";
+      lifecycle.transition("starting", { operation: "engine-start" });
       engineState.runtime = runtime;
       engineState.projectDir = safeProjectDir;
       engineState.child = null;
@@ -596,18 +596,18 @@ export function createRuntimeManager({
         opencodeBinPath: options.opencodeBinPath,
       });
 
-      lifecycleState = "healthy";
+      lifecycle.transition("healthy", { operation: "engine-start" });
       return snapshotEngineState(engineState);
     } catch (error) {
-      lifecycleState = "error";
+      lifecycle.transition("error", { operation: "engine-start", error });
       throw error;
     }
   }
 
   async function engineStop() {
-    lifecycleState = "stopping";
+    lifecycle.transition("stopping", { operation: "engine-stop" });
     await stopAllRuntimeChildren();
-    lifecycleState = "idle";
+    lifecycle.transition("idle", { operation: "engine-stop" });
     return snapshotEngineState(engineState);
   }
 
@@ -625,12 +625,13 @@ export function createRuntimeManager({
   }
 
   async function engineInfo() {
-    return { ...snapshotEngineState(engineState), lifecycleState };
+    return { ...snapshotEngineState(engineState), lifecycleState: lifecycle.state() };
   }
 
   async function runtimeStatus() {
     return {
-      lifecycleState,
+      lifecycleState: lifecycle.state(),
+      lifecycle: lifecycle.snapshot(),
       engine: await engineInfo(),
       onmyagentServer: await verifiedOnMyAgentServerSnapshot(),
     };

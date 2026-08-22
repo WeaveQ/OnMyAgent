@@ -13,7 +13,6 @@ import { usePersonalLocalAgentProcessSync } from "./use-personal-local-agent-pro
 import { t } from "@/i18n";
 import { useStatusToasts } from "../../shell-feedback";
 import {
-  personalLocalAgentAcpCancel,
   personalLocalAgentAcpAgentsList,
   personalLocalAgentAcpResolveApproval,
   personalLocalAgentAcpSend,
@@ -69,7 +68,7 @@ import {
   personalAgentApprovalModeKey,
   personalAgentChatStateKey,
   personalAgentModelPrefKey,
-  recoverActiveRunIds,
+  chatKeyForActiveRun, recoverActiveRunIds,
   safeReadApprovalMode,
   safeReadCachedAgents,
   safeReadLocalAgentSidebarOrder,
@@ -94,10 +93,13 @@ import {
   readWorkspaceOverride,
 } from "../workspace-picker/recent-workspaces";
 import type { SessionArchiveResumeRequest } from "./archive-resume-types";
+import { cancelPersonalLocalAgentRun } from "./personal-local-agent-cancel-run";
 import {
+  hasOptimisticUserMessageForRun,
   lastRunForAgent,
   messageTextForRun,
   nowId,
+  resolveLocalAgentStopTarget,
 } from "./personal-local-agent-page-helpers";
 import { useArchiveResume } from "./use-archive-resume";
 import { useWorkspaceOverride } from "./use-workspace-override";
@@ -161,6 +163,7 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const [draftsByAgent, setDraftsByAgent] = useState<Record<string, string>>(persistedState.draftsByAgent ?? {});
   const [refreshing, setRefreshing] = useState(initialAgents.length === 0);
   const [startingByAgent, setStartingByAgent] = useState<Record<string, boolean>>({});
+  const startAbortByChatRef = useRef<Record<string, boolean>>({});
 
   const [errorsByAgent, setErrorsByAgent] = useState<Record<string, string | null>>(sanitizedErrorsByAgent);
   const [activeRunIdByAgent, setActiveRunIdByAgent] = useState<Record<string, string | null>>(
@@ -403,16 +406,16 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     setDraftsByAgent((current) => current[chatKey] === value ? current : { ...current, [chatKey]: value });
   }, []);
   const activeRuns = useMemo(() => {
-    return Object.entries(activeRunIdByAgent)
-      .map(([chatKey, runId]) => {
-        if (!runId) return null;
-        const agentId = agentIdFromChatKey(chatKey);
-        const agent = agents.find((item) => item.id === agentId) ?? null;
-        const run = lastRunForAgent(messagesByAgent[chatKey]);
-        if (!run || run.runId !== runId || run.status !== "running") return null;
-        return { chatKey, agentId, agent, run };
-      })
-      .filter((item): item is { chatKey: string; agentId: string; agent: PersonalLocalAgent | null; run: PersonalLocalAgentRunResult } => Boolean(item));
+    const seenRunIds = new Set<string>();
+    return Object.entries(activeRunIdByAgent).flatMap(([chatKey, runId]) => {
+      if (!runId || seenRunIds.has(runId)) return [];
+      const agentId = agentIdFromChatKey(chatKey);
+      const agent = agents.find((item) => item.id === agentId) ?? null;
+      const run = lastRunForAgent(messagesByAgent[chatKey]);
+      if (!run || run.runId !== runId || run.status !== "running") return [];
+      seenRunIds.add(runId);
+      return [{ chatKey, agentId, agent, run }];
+    });
   }, [activeRunIdByAgent, agents, messagesByAgent]);
   usePersonalLocalAgentProcessSync({
     agents,
@@ -783,10 +786,11 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
                 ? { ...message, text: messageTextForRun(effectiveSnapshot, message.text), run: effectiveSnapshot }
                 : message,
             );
-            if (!userText || next.some((m) => m.id === userMessageId)) {
+            const assistantIndex = next.findIndex((m) => m.run?.runId === runId);
+            const hasOptimisticUser = hasOptimisticUserMessageForRun(next, assistantIndex, userText);
+            if (!userText || next.some((m) => m.id === userMessageId) || hasOptimisticUser) {
               return { ...current, [chatKey]: next };
             }
-            const assistantIndex = next.findIndex((m) => m.run?.runId === runId);
             if (assistantIndex === -1) return { ...current, [chatKey]: next };
             const userMessage = {
               id: userMessageId,
@@ -819,14 +823,41 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     for (const [chatKey, runId] of activeEntries) {
       if (runId) pollRun(chatKey, runId);
     }
+    const unsubscribe = window.__ONMYAGENT_ELECTRON__?.personalAgentRuntime?.onEvent?.((event) => {
+      if (
+        event.type !== "run.started"
+        && event.type !== "run.snapshot"
+        && event.type !== "run.delta"
+        && event.type !== "run.finished"
+        && event.type !== "process.changed"
+      ) return;
+      if (!event.runId) return;
+      const matching = activeEntries.find(([, runId]) => runId === event.runId);
+      if (matching) pollRun(matching[0], event.runId);
+    });
     const timer = window.setInterval(() => {
       if (!shouldRunPollTick(isDocumentHidden())) return;
       for (const [chatKey, runId] of activeEntries) {
         if (runId) pollRun(chatKey, runId);
       }
-    }, 1500);
-    return () => window.clearInterval(timer);
+    }, 10000);
+    return () => {
+      unsubscribe?.();
+      window.clearInterval(timer);
+    };
   }, [activeRunIdByAgent, agents, effectiveWorkspaceRoot, rememberRunResult, selectedAgent]);
+  const cancelAgentRun = useCallback(async (runId: string, chatKey: string) => {
+    await cancelPersonalLocalAgentRun({
+      runId,
+      chatKey,
+      agents,
+      workspaceRoot: effectiveWorkspaceRoot,
+      rememberRunResult,
+      setErrorsByAgent,
+      setMessagesByAgent,
+      setActiveRunIdByAgent,
+    });
+  }, [agents, effectiveWorkspaceRoot, rememberRunResult]);
   const startAgentRun = useCallback(async (prompt: string, options?: { healthCheck?: boolean }) => {
     if (!prompt || !selectedAgent || selectedAgent.status !== "online" || running) return;
     const runAgent = selectedAgent;
@@ -842,6 +873,7 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     if (!options?.healthCheck) {
       setDraftsByAgent((current) => ({ ...current, [runChatKey]: "" }));
     }
+    startAbortByChatRef.current[runChatKey] = false;
     setStartingByAgent((current) => ({ ...current, [runChatKey]: true }));
     setErrorsByAgent((current) => ({ ...current, [runAgent.id]: null }));
     if (options?.healthCheck) {
@@ -913,6 +945,12 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
             : message,
         ),
       }));
+      if (startAbortByChatRef.current[runChatKey]) {
+        startAbortByChatRef.current[runChatKey] = false;
+        if (started.status === "running") await cancelAgentRun(started.runId, runChatKey);
+        else setActiveRunIdByAgent((current) => ({ ...current, [runChatKey]: null }));
+        return;
+      }
       if (started.status !== "running") {
         setActiveRunIdByAgent((current) => ({ ...current, [runChatKey]: null }));
       }
@@ -942,9 +980,10 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
         }));
       }
     } finally {
+      startAbortByChatRef.current[runChatKey] = false;
       setStartingByAgent((current) => ({ ...current, [runChatKey]: false }));
     }
-  }, [approvalMode, props.workspaceRoot, rememberRunResult, running, selectedAgent, selectedConversationId, selectedModel]);
+  }, [approvalMode, cancelAgentRun, props.workspaceRoot, rememberRunResult, running, selectedAgent, selectedConversationId, selectedModel]);
   const resetAgentChat = useCallback((agent: PersonalLocalAgent) => {
     const welcome = welcomeMessageForAgent(agent);
     const key = localAgentChatKey(agent.id, selectedConversationIdByAgent[agent.id]);
@@ -1254,39 +1293,17 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     await submitComposerPayload({ text: value, attachments: [], mentions: {}, quotes: [], unresolvedMentions: [] });
   }, [submitComposerPayload]);
   const handleSlashCommandExecute = useCallback((command: LocalAgentSlashCommand) => { void submitComposerValue(command.name); }, [submitComposerValue]);
-  const cancelAgentRun = useCallback(async (runId: string, chatKey: string) => {
-    if (!runId || !chatKey) return;
-    const agentId = chatKey.split("::")[0] ?? chatKey;
-    const runAgent = agents.find((agent) => agent.id === agentId) ?? null;
-    setErrorsByAgent((current) => ({ ...current, [agentId]: null }));
-    try {
-      const result = await personalLocalAgentAcpCancel(runId);
-      if (!result.ok) {
-        setErrorsByAgent((current) => ({ ...current, [agentId]: result.error ?? t("local_agent.cancel_failed") }));
-      }
-      const snapshot = await personalLocalAgentStatus({ runId, workspaceRoot: effectiveWorkspaceRoot });
-      setMessagesByAgent((current) => ({
-        ...current,
-        [chatKey]: (current[chatKey] ?? (runAgent ? [welcomeMessageForAgent(runAgent)] : [])).map((message) =>
-          message.run?.runId === runId
-            ? { ...message, text: messageTextForRun(snapshot, message.text), run: snapshot }
-            : message,
-        ),
-      }));
-      setActiveRunIdByAgent((current) => ({ ...current, [chatKey]: null }));
-      rememberRunResult(agentId, snapshot);
-    } catch (nextError) {
-      setErrorsByAgent((current) => ({
-        ...current,
-        [agentId]: nextError instanceof Error ? nextError.message : String(nextError),
-      }));
-    }
-  }, [agents, props.workspaceRoot, rememberRunResult]);
   const cancelRun = useCallback(async () => {
-    if (!activeRunId || !selectedAgent) return;
-    await cancelAgentRun(activeRunId, selectedChatKey);
-  }, [activeRunId, cancelAgentRun, selectedAgent, selectedChatKey]);
+    if (!selectedAgent) return;
+    const target = resolveLocalAgentStopTarget({
+      activeRunId,
+      starting: Boolean(startingByAgent[selectedChatKey]),
+    });
+    if (target === "pending-start") startAbortByChatRef.current[selectedChatKey] = true;
+    else if (target === "run" && activeRunId) await cancelAgentRun(activeRunId, selectedChatKey);
+  }, [activeRunId, cancelAgentRun, selectedAgent, selectedChatKey, startingByAgent]);
   const resolveApproval = useCallback(async (approval: PersonalLocalAgentApprovalRequest, decision: PersonalLocalAgentApprovalDecision, options?: { alwaysAllow?: boolean }) => {
+    const chatKey = chatKeyForActiveRun(activeRunIdByAgent, approval.runId) ?? selectedChatKey;
     try {
       const result = await personalLocalAgentAcpResolveApproval({
         runId: approval.runId,
@@ -1298,7 +1315,7 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       const snapshot = await personalLocalAgentStatus({ runId: approval.runId, workspaceRoot: effectiveWorkspaceRoot });
       setMessagesByAgent((current) => ({
         ...current,
-        [selectedChatKey]: (current[selectedChatKey] ?? []).map((message) =>
+        [chatKey]: (current[chatKey] ?? []).map((message) =>
           message.run?.runId === approval.runId
             ? { ...message, text: messageTextForRun(snapshot, message.text), run: snapshot }
             : message,
@@ -1307,9 +1324,9 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       rememberRunResult(snapshot.agentId, snapshot);
     } catch (nextError) {
       const message = nextError instanceof Error ? nextError.message : String(nextError);
-      setErrorsByAgent((current) => ({ ...current, [selectedAgentId]: message }));
+      setErrorsByAgent((current) => ({ ...current, [chatKey.split("::")[0] || selectedAgentId]: message }));
     }
-  }, [props.workspaceRoot, rememberRunResult, selectedAgentId, selectedChatKey]);
+  }, [activeRunIdByAgent, effectiveWorkspaceRoot, rememberRunResult, selectedAgentId, selectedChatKey]);
   return {
     onOpenAgentManagement: props.onOpenAgentManagement,
     onOpenArtifact: props.onOpenArtifact,

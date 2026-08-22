@@ -2,6 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
+import { setLocale } from "../src/i18n";
+import type {
+  PersonalLocalAgentConversationMessage,
+  PersonalLocalAgentRunResult,
+} from "../src/app/lib/desktop";
+
 import {
   mapOpenCodeReasoningPartToItem,
   mapOpenCodeToolPartToItem,
@@ -14,10 +20,41 @@ import {
   type ConversationItemKind,
 } from "../src/react-app/capabilities/conversation";
 import {
-  LocalAgentToolGroupSummary,
-  groupLocalAgentTimeline,
-  localAgentToolRenderKeys,
+  LocalAgentTimelineMessage,
 } from "../src/react-app/domains/local-agents/messages/timeline-messages";
+import { buildLocalAgentTurnPresentation } from "../src/react-app/domains/local-agents/messages/local-agent-turn-presentation";
+
+function runWith(
+  messages: PersonalLocalAgentConversationMessage[],
+  status: PersonalLocalAgentRunResult["status"] = "completed",
+): PersonalLocalAgentRunResult {
+  return {
+    ok: true,
+    runId: "test-run",
+    agentId: "codex",
+    status,
+    startedAt: 1,
+    finishedAt: status === "running" ? null : 2,
+    pid: null,
+    command: "",
+    output: "",
+    error: null,
+    events: [],
+    conversationMessages: messages,
+    logPath: null,
+  };
+}
+
+function renderTimelineMessage(
+  message: PersonalLocalAgentConversationMessage,
+  runStatus: PersonalLocalAgentRunResult["status"] = "completed",
+) {
+  return renderToStaticMarkup(createElement(LocalAgentTimelineMessage, {
+    message,
+    streaming: runStatus === "running",
+    runStatus,
+  }));
+}
 
 describe("personal conversation adapter", () => {
   test("drops empty ACP tool groups and keeps raw Windows tool details", () => {
@@ -47,36 +84,35 @@ describe("personal conversation adapter", () => {
     };
     const emptyMessages = mapPersonalRunToMessages({ conversationMessages: [emptyGroup] });
     expect(emptyMessages).toEqual([]);
-    expect(groupLocalAgentTimeline(emptyMessages)).toEqual([]);
 
-    const visible = groupLocalAgentTimeline([
-      {
-        id: "windows-group",
-        type: "tool_group",
-        role: "tool",
-        text: "PowerShell",
-        createdAt: 2,
-        toolCalls: [
-          {
-            id: "windows-update",
-            type: "acp_tool_call",
-            role: "tool",
-            text: "PowerShell",
-            createdAt: 2,
-            update: {
-              toolCallId: "windows",
-              title: "PowerShell",
-              kind: "execute",
-              status: "completed",
-              rawInput: { command: "Get-ChildItem" },
-              rawOutput: "one\r\r\ntwo",
-            },
+    const windowsGroup: PersonalLocalAgentConversationMessage = {
+      id: "windows-group",
+      type: "tool_group",
+      role: "tool",
+      text: "PowerShell",
+      createdAt: 2,
+      toolCalls: [
+        {
+          id: "windows-update",
+          type: "acp_tool_call",
+          role: "tool",
+          text: "PowerShell",
+          createdAt: 2,
+          update: {
+            toolCallId: "windows",
+            title: "PowerShell",
+            kind: "execute",
+            status: "completed",
+            rawInput: { command: "Get-ChildItem" },
+            rawOutput: "one\r\r\ntwo",
           },
-        ],
-      },
-    ]);
-    expect(visible).toHaveLength(1);
-    expect(visible[0]?.kind).toBe("tool_group");
+        },
+      ],
+    };
+    const turn = buildLocalAgentTurnPresentation(runWith([windowsGroup]), [], "");
+    expect(turn.processSteps).toHaveLength(1);
+    expect(turn.processSteps[0]?.message.type).toBe("acp_tool_call");
+    expect(renderTimelineMessage(turn.processSteps[0]!.message)).toContain("Get-ChildItem");
   });
 
   test("keeps an ID-only failed ACP terminal update visible", () => {
@@ -98,20 +134,16 @@ describe("personal conversation adapter", () => {
     const timelineMessages = mapPersonalRunToMessages({ conversationMessages: [failedGroup] });
     expect(timelineMessages[0]?.text).toBe("");
     expect(timelineMessages[0]?.toolCalls?.[0]?.text).toBe("");
-    const grouped = groupLocalAgentTimeline(timelineMessages);
-    expect(grouped).toHaveLength(1);
-    expect(grouped[0]?.kind).toBe("tool_group");
-    if (grouped[0]?.kind !== "tool_group") throw new Error("expected failed tool group");
-    const html = renderToStaticMarkup(createElement(LocalAgentToolGroupSummary, {
-      messages: grouped[0].messages,
-    }));
+    const turn = buildLocalAgentTurnPresentation(runWith([failedGroup], "failed"), [], "");
+    expect(turn.processSteps).toHaveLength(1);
+    const html = renderTimelineMessage(turn.processSteps[0]!.message, "failed");
     expect(html).toContain("failed");
     expect(html).toContain("failed-tool-7");
   });
 
   test("keeps a long PowerShell command to one compact collapsed summary", () => {
     const command = `Get-ChildItem \\\\server\\${"deep\\".repeat(20)}report.txt\r\n| Select-Object FullName`;
-    const message: Parameters<typeof LocalAgentToolGroupSummary>[0]["messages"][number] = {
+    const message: PersonalLocalAgentConversationMessage = {
       id: "long-powershell",
       type: "acp_tool_call",
       role: "tool",
@@ -126,10 +158,7 @@ describe("personal conversation adapter", () => {
         rawOutput: "done",
       },
     };
-    const html = renderToStaticMarkup(createElement(LocalAgentToolGroupSummary, {
-      messages: [message],
-      runStatus: "completed",
-    }));
+    const html = renderTimelineMessage(message);
     expect(html).toContain("Shell Command");
     expect(html).toContain("truncate font-mono text-xs");
     expect(html).toContain("…");
@@ -137,7 +166,7 @@ describe("personal conversation adapter", () => {
   });
 
   test("keeps a running tool running when ACP sends an empty output placeholder", () => {
-    const message: Parameters<typeof LocalAgentToolGroupSummary>[0]["messages"][number] = {
+    const message: PersonalLocalAgentConversationMessage = {
       id: "running-powershell",
       type: "acp_tool_call",
       role: "tool",
@@ -153,16 +182,14 @@ describe("personal conversation adapter", () => {
         rawOutput: {},
       },
     };
-    const html = renderToStaticMarkup(createElement(LocalAgentToolGroupSummary, {
-      messages: [message],
-      runStatus: "running",
-    }));
-    expect(html).toContain("running");
-    expect(html).not.toContain("completed");
+    setLocale("en");
+    const html = renderTimelineMessage(message, "running");
+    expect(html).toContain("Running");
+    expect(html).not.toContain("Completed");
   });
 
   test("meaningful raw ACP aliases win over empty normalized placeholders", () => {
-    const message: Parameters<typeof LocalAgentToolGroupSummary>[0]["messages"][number] = {
+    const message: PersonalLocalAgentConversationMessage = {
       id: "mixed-aliases",
       type: "acp_tool_call",
       role: "tool",
@@ -176,16 +203,13 @@ describe("personal conversation adapter", () => {
         rawOutput: "SUCCESS",
       },
     };
-    expect(groupLocalAgentTimeline([message])).toHaveLength(1);
-    const html = renderToStaticMarkup(createElement(LocalAgentToolGroupSummary, {
-      messages: [message],
-      runStatus: "running",
-    }));
-    expect(html).toContain("completed");
+    setLocale("en");
+    const html = renderTimelineMessage(message, "running");
+    expect(html).toContain("Completed");
     expect(html).not.toBe("");
   });
 
-  test("coalesces adjacent ACP tool groups into one compact timeline block", () => {
+  test("keeps adjacent ACP tools interleaved as separate production timeline steps", () => {
     const toolGroup = (id: string, title: string) => ({
       id: `group-${id}`,
       type: "tool_group" as const,
@@ -202,15 +226,16 @@ describe("personal conversation adapter", () => {
       }],
     });
     const first = toolGroup("tool-1", "PowerShell");
-    const prefix = groupLocalAgentTimeline([first]);
-    const grouped = groupLocalAgentTimeline([first, toolGroup("tool-2", "Read file")]);
-    expect(grouped).toHaveLength(1);
-    expect(grouped[0]?.kind).toBe("tool_group");
-    if (prefix[0]?.kind === "tool_group" && grouped[0]?.kind === "tool_group") {
-      expect(grouped[0].messages).toHaveLength(2);
-      expect(grouped[0].id).toBe(prefix[0].id);
-      expect(grouped[0].id).toBe("group-tool-1");
-    }
+    const prefix = buildLocalAgentTurnPresentation(runWith([first]), [], "");
+    const streamed = buildLocalAgentTurnPresentation(
+      runWith([first, toolGroup("tool-2", "Read file")]),
+      [],
+      "",
+    );
+    expect(streamed.processSteps.map((step) => step.id)).toEqual(["tool-1", "tool-2"]);
+    expect(streamed.processSteps.slice(0, prefix.processSteps.length).map((step) => step.id)).toEqual(
+      prefix.processSteps.map((step) => step.id),
+    );
   });
 
   test("assigns stable unique child keys when legacy tool IDs collide", () => {
@@ -222,16 +247,25 @@ describe("personal conversation adapter", () => {
       createdAt: 1,
       update: { toolCallId: id, title: id, status: "completed" },
     });
-    const prefix = [message("duplicate"), message("duplicate")];
-    const prefixKeys = localAgentToolRenderKeys(prefix);
-    const streamedKeys = localAgentToolRenderKeys([...prefix, message("duplicate#2")]);
+    const prefix = buildLocalAgentTurnPresentation(
+      runWith([message("duplicate"), message("duplicate")]),
+      [],
+      "",
+    );
+    const streamed = buildLocalAgentTurnPresentation(
+      runWith([message("duplicate"), message("duplicate"), message("duplicate#2")]),
+      [],
+      "",
+    );
+    const prefixKeys = prefix.processSteps.map((step) => step.id);
+    const streamedKeys = streamed.processSteps.map((step) => step.id);
     expect(prefixKeys).toEqual(["duplicate", "duplicate#2"]);
     expect(streamedKeys).toEqual(["duplicate", "duplicate#2", "duplicate#2#2"]);
     expect(new Set(streamedKeys).size).toBe(streamedKeys.length);
     expect(streamedKeys.slice(0, prefixKeys.length)).toEqual(prefixKeys);
   });
 
-  test("assigns stable unique top-level keys to separated legacy tool groups", () => {
+  test("assigns stable unique keys to duplicate tools from separated legacy groups", () => {
     const toolGroup = (toolId: string) => ({
       id: "legacy-group",
       type: "tool_group" as const,
@@ -247,27 +281,16 @@ describe("personal conversation adapter", () => {
         update: { toolCallId: toolId, title: toolId, status: "completed" },
       }],
     });
-    const separator = {
-      id: "separator",
-      type: "tips" as const,
-      role: "system" as const,
-      text: "separator",
-      createdAt: 2,
-    };
-    const prefix = groupLocalAgentTimeline([toolGroup("first"), separator]);
-    const streamed = groupLocalAgentTimeline([
-      toolGroup("first"),
-      separator,
-      toolGroup("second"),
-    ]);
-    expect(prefix.map((item) => item.id)).toEqual(["legacy-group", "separator"]);
-    expect(streamed.map((item) => item.id)).toEqual([
-      "legacy-group",
-      "separator",
-      "legacy-group#2",
-    ]);
-    expect(streamed.slice(0, prefix.length).map((item) => item.id)).toEqual(
-      prefix.map((item) => item.id),
+    const prefix = buildLocalAgentTurnPresentation(runWith([toolGroup("duplicate")]), [], "");
+    const streamed = buildLocalAgentTurnPresentation(
+      runWith([toolGroup("duplicate"), toolGroup("duplicate")]),
+      [],
+      "",
+    );
+    expect(prefix.processSteps.map((step) => step.id)).toEqual(["duplicate"]);
+    expect(streamed.processSteps.map((step) => step.id)).toEqual(["duplicate", "duplicate#2"]);
+    expect(streamed.processSteps.slice(0, prefix.processSteps.length).map((step) => step.id)).toEqual(
+      prefix.processSteps.map((step) => step.id),
     );
   });
 

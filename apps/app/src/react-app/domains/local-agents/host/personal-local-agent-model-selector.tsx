@@ -4,6 +4,7 @@ import { useStatusToasts } from "../../shell-feedback";
 import { personalLocalAgentSetAcpConfigOption, type PersonalLocalAgent } from "../../../../app/lib/desktop";
 import { modelSelectorLabel } from "../local-agent-page-model";
 import { useAcpModelInfo } from "../hooks/use-acp-model-info";
+import { localAgentComposerClass } from "../local-agent-composer-layout";
 type AcpModelInfo = ReturnType<typeof useAcpModelInfo>;
 
 type PersonalLocalAgentModelSelectorProps = {
@@ -33,9 +34,14 @@ export function PersonalLocalAgentModelSelector({
   const { showToast } = useStatusToasts();
   const loadingModels = Boolean(agent?.status === "online" && acpModelInfo.options.length === 0);
   return (
-    <div className="mac:titlebar-no-drag min-w-[160px] max-w-[220px]">
+    <div
+      className="mac:titlebar-no-drag min-w-0 max-w-40 shrink @max-[32rem]/local-composer:max-w-20"
+      data-testid="local-agent-model-selector"
+    >
       <SelectMenu
         size="compact"
+        placement="top"
+        className={localAgentComposerClass.modelChip}
         ariaLabel={modelSelectorLabel(agent)}
         options={[
           { value: "", label: t("local_agent.use_default_config") },
