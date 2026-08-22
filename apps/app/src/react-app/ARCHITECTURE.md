@@ -76,8 +76,8 @@ Domain ownership gives every feature one obvious home.
   lifecycle) on the **OpenCode primary path** (HTTP/SSE/archive). It must not re-absorb
   agent management or messaging channels.
   Composer attachments (including **Appshot** desktop capture) live under
-  `domains/session/surface/composer/`. Appshot is Electron `desktopCapturer` on
-  darwin / win32 / linux (`isComputerUseAppshotSupported`), not macOS-only, and
+  `domains/session/surface/composer/`. Appshot is macOS / Windows / Linux via
+  Electron `desktopCapturer` (`isComputerUseAppshotSupported`), not macOS-only, and
   talks to the desktop bridge (`captureComputerUseAppshot` /
   `computerUse.onAppshot`). Multi-skill slash chips are Lexical token nodes in
   `composer/editor.tsx`.

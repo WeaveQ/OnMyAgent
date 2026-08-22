@@ -176,6 +176,83 @@ export function checkDocsCommandSot(root = repoRoot) {
   if (!reactArch.includes("expert-surface-machine.ts")) {
     findings.push("ARCHITECTURE.md: Expert surface files not described at pages/");
   }
+  if (/Appshot is macOS-only/.test(reactArch)) {
+    findings.push("ARCHITECTURE.md: Appshot is still described as macOS-only");
+  }
+  if (!/Appshot/.test(reactArch) || !/Windows/.test(reactArch) || !/Linux/.test(reactArch)) {
+    findings.push("ARCHITECTURE.md: Appshot must name macOS, Windows, and Linux");
+  }
+
+  if (/opencode\.ts\(SDK\) ← opencode binary/.test(architecture)) {
+    findings.push("Architecture.md: still presents SDK ← opencode binary as shipped topology");
+  }
+  if (/OpenCode \+ approval router \/ Slack \/ Telegram/.test(architecture)) {
+    findings.push("Architecture.md: still hangs Slack/Telegram off the optional orchestrator as the IM path");
+  }
+  if (!architecture.includes("`#task`/`/task`")) {
+    findings.push("Architecture.md: Dual Runtime IM path missing #task / /task");
+  }
+
+  const appshotHeading = architecture.indexOf("Computer Use / Appshot");
+  const appshotImpl = architecture.indexOf("实现入口");
+  const appshotSection =
+    appshotHeading >= 0 && appshotImpl > appshotHeading
+      ? architecture.slice(appshotHeading, appshotImpl)
+      : "";
+  if (!appshotSection.includes("Composer Appshot")) {
+    findings.push("Architecture.md: product-platform table missing Composer Appshot");
+  }
+  if (!/macOS/.test(appshotSection) || !/Windows/.test(appshotSection) || !/Linux/.test(appshotSection)) {
+    findings.push("Architecture.md: Appshot product-platform table must name macOS, Windows, and Linux");
+  }
+  const appshotRow = appshotSection.split("\n").find((line) => line.includes("Composer Appshot")) ?? "";
+  if (/非产品目标|勿当支持承诺/.test(appshotRow)) {
+    findings.push("Architecture.md: Appshot row still treats a platform as unsupported");
+  }
+
+  const filesSpec = read("docs/design/files-module-product-spec.md");
+  if (/默认打开 Tab[：:].*用户上传/.test(filesSpec)) {
+    findings.push("files-module-product-spec.md: default Files tab is still 用户上传");
+  }
+  if (!/默认打开 Tab[：:].*任务/.test(filesSpec) && !/DEFAULT_FILES_SOURCE_TAB/.test(filesSpec)) {
+    findings.push("files-module-product-spec.md: default Files tab is not 任务 / task");
+  }
+  if (/文件跟工作区、不跟会话陪葬/.test(filesSpec) || /删会话\/归档默认不删文件/.test(filesSpec)) {
+    findings.push("files-module-product-spec.md: leftover keep-files default contradicts C1 unlink");
+  }
+  if (/删会话默认留生成文件/.test(filesSpec)) {
+    findings.push("files-module-product-spec.md: leftover keep-generated-files default");
+  }
+  const filesP0 = filesSpec.split("\n").find((line) => line.includes("**P0**")) ?? "";
+  if (!/C1/.test(filesP0) || !/连删|unlink/.test(filesP0)) {
+    findings.push("files-module-product-spec.md: P0 row missing landed C1 unlink");
+  }
+
+  const memoryPlan = read("docs/design/2026-08-02-work-memory-plan.md");
+  if (/默认 `autoCaptureMode = confirm_first`/.test(memoryPlan)) {
+    findings.push("work-memory-plan.md: still states confirm_first as the shipped default");
+  }
+  if (/^\| 6 \| confirm_first；pending 与 UI 同交付 \|/m.test(memoryPlan)) {
+    findings.push("work-memory-plan.md: decision #6 still locks pending confirm_first as shipped");
+  }
+  if (!memoryPlan.includes("enabled=false") || !memoryPlan.includes("autoCapture=false")) {
+    findings.push("work-memory-plan.md: shipped default is not capture off");
+  }
+  if (!memoryPlan.includes("applyAutoCaptureMemory")) {
+    findings.push("work-memory-plan.md: missing immediate applyAutoCaptureMemory write path");
+  }
+  const memorySettings = memoryPlan.split("\n").find((line) => line.includes("settings.json")) ?? "";
+  if (memorySettings.includes("autoCaptureMode") && !memorySettings.includes("未落地")) {
+    findings.push("work-memory-plan.md: settings.json still lists autoCaptureMode as a live field");
+  }
+
+  const isolation = read("docs/design/expert-runtime-isolation.md");
+  if (/isolationVersion.*current \*\*2\*\*/.test(isolation)) {
+    findings.push("expert-runtime-isolation.md: isolationVersion current is still 2");
+  }
+  if (!/isolationVersion.*current \*\*3\*\*/.test(isolation)) {
+    findings.push("expert-runtime-isolation.md: isolationVersion current is not 3");
+  }
 
   const appAgents = read("apps/app/AGENTS.md");
   if (appAgents.includes("domains/session/pages/expert.tsx")) {
