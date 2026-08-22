@@ -9,8 +9,6 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
-  ChevronDown,
-  ChevronUp,
   FileCode,
   GripVertical,
   Pencil,
@@ -106,10 +104,6 @@ export type AiSettingsViewProps = {
    * When omitted (or fewer than 2 rows), rows are not draggable.
    */
   onReorderProviders?: (fromId: string, toId: string) => void;
-  /**
-   * Move one step up/down (keyboard / Windows touch accessible).
-   */
-  onMoveProvider?: (providerId: string, direction: "up" | "down") => void;
   /** Workspace `disabled_providers` ids. */
   disabledProviderIds?: string[];
   onToggleProviderEnabled?: (
@@ -348,7 +342,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
 
         <SettingsBlock>
           {props.connectedProviders.length > 0 ? (
-            props.connectedProviders.map((provider, providerIndex) => {
+            props.connectedProviders.map((provider) => {
               const sourceLabel = providerSourceLabel(provider.source);
               const isCloud = props.cloudProviderIds?.has(provider.id) === true;
               const rowBusy =
@@ -361,13 +355,6 @@ export function AiSettingsView(props: AiSettingsViewProps) {
               const isDragging = dragFromId === provider.id;
               const isDropTarget =
                 dropTargetId === provider.id && dragFromId !== provider.id;
-              const canMove =
-                typeof props.onMoveProvider === "function" &&
-                props.connectedProviders.length > 1 &&
-                !actionsDisabled;
-              const canMoveUp = canMove && providerIndex > 0;
-              const canMoveDown =
-                canMove && providerIndex < props.connectedProviders.length - 1;
               const removeMode = isCloud
                 ? null
                 : props.resolveRemoveMode(provider);
@@ -474,7 +461,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                     </span>
                   }
                   actions={
-                    canToggleEnabled || !isCloud || canMove ? (
+                    canToggleEnabled || !isCloud ? (
                       <div className="inline-flex items-center gap-0.5">
                         {canToggleEnabled ? (
                           <Tooltip>
@@ -512,62 +499,6 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                                 : t("settings.provider_enable")}
                             </TooltipContent>
                           </Tooltip>
-                        ) : null}
-                        {canMove ? (
-                          <>
-                            <Tooltip>
-                              <TooltipTrigger
-                                render={(
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    className="text-dls-secondary"
-                                    disabled={!canMoveUp || props.busy || rowBusy}
-                                    onClick={() =>
-                                      props.onMoveProvider?.(provider.id, "up")
-                                    }
-                                    aria-label={t("settings.provider_move_up")}
-                                  >
-                                    <ChevronUp
-                                      aria-hidden="true"
-                                      className="size-3.5"
-                                    />
-                                  </Button>
-                                )}
-                              />
-                              <TooltipContent>
-                                {t("settings.provider_move_up")}
-                              </TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger
-                                render={(
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    className="text-dls-secondary"
-                                    disabled={
-                                      !canMoveDown || props.busy || rowBusy
-                                    }
-                                    onClick={() =>
-                                      props.onMoveProvider?.(provider.id, "down")
-                                    }
-                                    aria-label={t("settings.provider_move_down")}
-                                  >
-                                    <ChevronDown
-                                      aria-hidden="true"
-                                      className="size-3.5"
-                                    />
-                                  </Button>
-                                )}
-                              />
-                              <TooltipContent>
-                                {t("settings.provider_move_down")}
-                              </TooltipContent>
-                            </Tooltip>
-                          </>
                         ) : null}
                         {!isCloud && props.canEditProvider?.(provider) ? (
                           <Tooltip>
