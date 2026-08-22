@@ -37,11 +37,13 @@
     <div class="pv-swatch"><div class="pv-chip" style="background:#2C2C2C;border:1px solid #3A3A3A"></div><div class="pv-swatch-label"><strong>surface</strong><span>#2C2C2C</span></div></div>
     <div class="pv-swatch"><div class="pv-chip" style="background:#333333;border:1px solid #3A3A3A"></div><div class="pv-swatch-label"><strong>surface-muted</strong><span>#333333</span></div></div>
     <div class="pv-swatch"><div class="pv-chip" style="background:#1F1F1F;border:1px solid #3A3A3A"></div><div class="pv-swatch-label"><strong>background</strong><span>#1F1F1F</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:var(--pv-app-bg);border:1px solid var(--pv-border)"></div><div class="pv-swatch-label"><strong>app-bg</strong><span>#1F1F1F</span></div></div>
     <div class="pv-swatch"><div class="pv-chip" style="background:#2A2A2A;border:1px solid #3A3A3A"></div><div class="pv-swatch-label"><strong>sidebar</strong><span>#2A2A2A</span></div></div>
     <div class="pv-swatch"><div class="pv-chip" style="background:#141414"></div><div class="pv-swatch-label"><strong>rail-bg</strong><span>#141414</span></div></div>
     <div class="pv-swatch"><div class="pv-chip" style="background:#404040"></div><div class="pv-swatch-label"><strong>rail-active</strong><span>#404040 · sidebar rows</span></div></div>
     <div class="pv-swatch"><div class="pv-chip" style="background:#2A2A2A;border:1px solid #3A3A3A"></div><div class="pv-swatch-label"><strong>rail-hover</strong><span>#2A2A2A</span></div></div>
-    <div class="pv-swatch"><div class="pv-chip" style="background:#555555"></div><div class="pv-swatch-label"><strong>rail-pill-active</strong><span>#555555 · free-float chips</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:var(--pv-rail-pill-active)"></div><div class="pv-swatch-label"><strong>rail-pill-active</strong><span>#555555 · free-float chips</span></div></div>
+    <div class="pv-swatch"><div class="pv-chip" style="background:var(--pv-rail-pill-hover);border:1px solid var(--pv-border)"></div><div class="pv-swatch-label"><strong>rail-pill-hover</strong><span>#FFFFFF · YAML base</span></div></div>
     <div class="pv-swatch"><div class="pv-chip" style="background:#323232"></div><div class="pv-swatch-label"><strong>hover</strong><span>#323232 · neutral</span></div></div>
     <div class="pv-swatch"><div class="pv-chip" style="background:#454545"></div><div class="pv-swatch-label"><strong>list-selected</strong><span>#454545</span></div></div>
     <div class="pv-swatch"><div class="pv-chip" style="background:#F87171"></div><div class="pv-swatch-label"><strong>danger</strong><span>#F87171</span></div></div>
@@ -595,7 +597,7 @@
   </div>
 
   <h3 class="pv-h3" style="margin-top:1.5rem;">ArtifactCard hues (§ 4h · isolated palette)</h3>
-  <p class="pv-body" style="font-size:12px;color:var(--pv-slate);">Radix shade 9 (light) / shade 4 (dark). Used only on <code>ArtifactCard</code>; leakage flagged by <code>pnpm task check design</code>.</p>
+  <p class="pv-body" style="font-size:12px;color:var(--pv-slate);">Radix shade 9 (light) / shade 11 (dark). Used only on <code>ArtifactCard</code>; leakage flagged by <code>pnpm task check design</code>.</p>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.5rem;margin-top:0.5rem;">
     <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-hue-image);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 6px 6px 0;font-size:13px;">image<div style="font-size:11px;color:var(--pv-slate);">screenshot.png</div></div>
     <div style="padding:0.5rem 0.75rem;background:var(--pv-surface);border-left:2px solid var(--pv-hue-code);border-top:1px solid var(--pv-border);border-right:1px solid var(--pv-border);border-bottom:1px solid var(--pv-border);border-radius:0 6px 6px 0;font-size:13px;">code<div style="font-size:11px;color:var(--pv-slate);">DESIGN.md</div></div>

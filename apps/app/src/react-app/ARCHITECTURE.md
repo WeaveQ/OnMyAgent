@@ -56,7 +56,7 @@ src/react-app/
     │                            `merge-connected-providers.ts` shared inventory merge
     ├── cloud/                 Den auth + restrictions + org onboarding
     ├── shell-feedback/        Reload banner, toasts, top-right notifications
-    └── shared/                Cross-domain infra only (see below)
+    └── shared/                Infra + existing helpers (see below)
 ```
 
 **`domains/plugins/`** owns the skills/plugins UI implementation (`plugins-page.tsx`,
@@ -76,9 +76,11 @@ Domain ownership gives every feature one obvious home.
   lifecycle) on the **OpenCode primary path** (HTTP/SSE/archive). It must not re-absorb
   agent management or messaging channels.
   Composer attachments (including **Appshot** desktop capture) live under
-  `domains/session/surface/composer/`; Appshot is macOS-only and talks to the
-  desktop bridge (`captureComputerUseAppshot` / `computerUse.onAppshot`). Multi-skill
-  slash chips are Lexical token nodes in `composer/editor.tsx`.
+  `domains/session/surface/composer/`. Appshot is Electron `desktopCapturer` on
+  darwin / win32 / linux (`isComputerUseAppshotSupported`), not macOS-only, and
+  talks to the desktop bridge (`captureComputerUseAppshot` /
+  `computerUse.onAppshot`). Multi-skill slash chips are Lexical token nodes in
+  `composer/editor.tsx`.
 - `local-agents/` owns the **Personal Local Agent auxiliary path** (desktop CLI/ACP
   harness UI): local/ACP agent edit, cards, messages UI, `agent-management/` pages,
   and the personal host under `host/`. Not the product main session engine—see
@@ -102,8 +104,9 @@ Domain ownership gives every feature one obvious home.
 - `connections/` owns MCP and provider auth UI (**canonical**).
 - `cloud/` owns organization and Den authentication flows.
 - `shell-feedback/` owns reload banners, status toasts, and top-right notification chrome.
-- `shared/` is **infra only** (env/extension/desktop-config/server-store + thin re-exports).
-  Product features must not land here.
+- `shared/` is cross-domain **infra plus existing product helpers** already on
+  the barrel (`personalization/`, `memory/`, `assistant-archived-tasks`). Do not
+  grow the barrel or land new product pages here.
 
 Cross-domain imports must be declared by `scripts/checks/domain-boundary-policy.mjs`
 and go through the target public entrypoint (`domains/<name>/index.ts`). Undeclared
@@ -224,7 +227,8 @@ Product behavior invariants live in `docs/Architecture.md` Session / Expert (pac
 
 ## `shared/` contents (current)
 
-`domains/shared/` is **not** a product domain. Physical contents today:
+`domains/shared/` is **not** a product domain to grow. Physical contents today
+are infra plus helpers already exported from `index.ts`:
 
 | Path | Role |
 | --- | --- |
@@ -238,9 +242,9 @@ Product behavior invariants live in `docs/Architecture.md` Session / Expert (pac
 | `session-parent-tree.ts` | Session parent-tree walk helpers |
 | `memory/` | Conversation / work-memory file sync |
 | `personalization/` | Onboarding vertical rank / automations |
-| `index.ts` | Infra exports only (no session-identity re-export) |
+| `index.ts` | Barrel for the rows above (no session-identity re-export; do not grow) |
 
-Do not add product pages, modals, or registries here.
+Do not add product pages, modals, registries, or new barrel exports here.
 
 ### Historical migration (done; keep for archaeology)
 

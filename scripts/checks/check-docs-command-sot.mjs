@@ -3,6 +3,39 @@ import { join } from "node:path";
 
 const repoRoot = new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
 
+export const TEST_GATE_WORKFLOW_FILES = [
+  ".github/workflows/ci-tests.yml",
+  ".github/workflows/pr-gates.yml",
+];
+
+export const TEST_GATE_REQUIRED_BRANCHES = ["dev", "release/0.6"];
+
+/** Collect `on.pull_request.branches` / `on.push.branches` list items. */
+export function extractWorkflowOnBranches(yamlText) {
+  const onBlock = yamlText.match(
+    /^on:\n([\s\S]*?)(?=\n(?:permissions|jobs|env|concurrency|defaults|run-name):|\n[A-Za-z])/m,
+  );
+  if (!onBlock) return new Set();
+  const names = new Set();
+  let inBranches = false;
+  for (const rawLine of onBlock[1].split("\n")) {
+    const line = rawLine.replace(/\s+#.*$/, "");
+    if (/^\s+branches:\s*$/.test(line)) {
+      inBranches = true;
+      continue;
+    }
+    if (inBranches) {
+      const item = line.match(/^\s+- (\S+)\s*$/);
+      if (item) {
+        names.add(item[1]);
+        continue;
+      }
+      inBranches = false;
+    }
+  }
+  return names;
+}
+
 function readRepo(relPath) {
   return readFileSync(join(repoRoot, relPath), "utf8");
 }
@@ -153,8 +186,44 @@ export function checkDocsCommandSot(root = repoRoot) {
   }
 
   const release = read("docs/release.md");
-  if (/run on PRs\/pushes to `dev`/.test(release)) {
-    findings.push("release.md: claims Tests/Gates run on dev");
+  const yamlBranches = new Set();
+  for (const file of TEST_GATE_WORKFLOW_FILES) {
+    const fileBranches = extractWorkflowOnBranches(read(file));
+    for (const branch of fileBranches) yamlBranches.add(branch);
+    for (const branch of TEST_GATE_REQUIRED_BRANCHES) {
+      if (!fileBranches.has(branch)) {
+        findings.push(`${file}: on.pull_request/push branches missing \`${branch}\``);
+      }
+    }
+  }
+
+  const testsGatesLine = release.split("\n").find(
+    (line) =>
+      /`OnMyAgent Tests`/.test(line) &&
+      /`PR Gates`/.test(line) &&
+      /`on\.pull_request\.branches`/.test(line),
+  );
+  if (!testsGatesLine) {
+    findings.push(
+      "release.md: missing Tests/Gates on.pull_request.branches / on.push.branches line",
+    );
+  } else {
+    if (/\(not `dev`\)/.test(testsGatesLine)) {
+      findings.push("release.md: Tests/Gates still claims not to run on `dev`");
+    }
+    const listing = testsGatesLine
+      .replace(/\(not [^)]*\)/g, "")
+      .replace(/`Protect dev`[\s\S]*/, "")
+      .replace(/^[\s\S]*?are /, "");
+    const listed = [...listing.matchAll(/`([^`]+)`/g)].map((item) => item[1]);
+    const mustList = new Set([...TEST_GATE_REQUIRED_BRANCHES, ...yamlBranches]);
+    for (const branch of mustList) {
+      if (!listed.includes(branch)) {
+        findings.push(
+          `release.md: Tests/Gates trigger branches missing \`${branch}\` (must match workflow YAML)`,
+        );
+      }
+    }
   }
   if (/Keep deletion\s+disabled/.test(release)) {
     findings.push("release.md: Expert migration still says Keep deletion disabled as current stage");

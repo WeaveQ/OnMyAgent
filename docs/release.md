@@ -13,7 +13,9 @@ This repository uses pull requests for code changes and GitHub Actions for relea
 | Daily | `dev` | `1.0.0` and up | Features via PR. Preview packs. |
 | Stable | `main` | last promoted `dev` | Only `dev` → `main`. |
 | Release | `release/0.5` (from `v0.5.22`) | `0.5.x` patch only | Hotfixes via PR. No features. |
+| Release | `release/0.6` | active release line | PRs into this line also run Tests/Gates. |
 | Release hotfix topic | `fix/0.5-<slug>` | stays `0.5.x` until release bump | PR **into** `release/0.5`. |
+| Release hotfix topic | `fix/0.6-<slug>` | topic for the 0.6 line | PR **into** `release/0.6`. |
 | Daily topic | `codex/<slug>` / `feat/<slug>` | stays on `dev` version | PR **into** `dev`. |
 
 Allowed merge direction (whole branch):
@@ -171,7 +173,7 @@ The OSS generic feed has no GitHub `/releases/latest` prerelease gap: whatever `
 
 After a merge to `dev`, GitHub **branch protection** on `dev` is the daily merge gate (required checks). Promote 1.x to the ship line with a `dev` → `main` PR.
 
-- `OnMyAgent Tests` and `PR Gates` `on.pull_request.branches` / `on.push.branches` are `main` and `release/0.5` (not `dev`). `Protect dev` still requires the same status-check names on PRs into `dev`.
+- `OnMyAgent Tests` and `PR Gates` `on.pull_request.branches` / `on.push.branches` are `main`, `dev`, `release/0.5`, and `release/0.6`. `Protect dev` requires the same status-check names on PRs into `dev`.
 - `i18n Audit` and Design Check follow their workflow YAML path filters; they are not a third `dev` PR-branch list in those two files.
 - `onmyagent-ui-mcp` runs on those branches when the MCP package is touched and still publishes only from `onmyagent-ui-mcp-v*` tags.
 - Website Pages deploy from `main` only.

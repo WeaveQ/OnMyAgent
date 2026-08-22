@@ -8,6 +8,12 @@ For the complete assets and release notes, use [GitHub Releases](https://github.
 
 ## Unreleased
 
+- Windows in-app terminal defaults to PowerShell
+
+## 0.5.26
+
+- Packaging/preview cut; no separate product changes.
+
 ## 0.5.25
 
 - First Settings model list no longer hangs: the catalog ships in the app
@@ -152,7 +158,7 @@ For the complete assets and release notes, use [GitHub Releases](https://github.
 
 ## 0.5.0
 
-- Packaged builds hide the Task Center rail entry (still visible in local dev)
+- Main rail always hides Task Center; open it from the account menu as Agent Tasks
 
 ## 0.4.29
 

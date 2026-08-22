@@ -125,20 +125,23 @@ locally under `.loop/plans/` (gitignored) before touching tokens.
 ## Known Gaps
 
 `DESIGN.md` § 14 Known Gaps is the honest list of what the contract
-does *not* cover today — data-viz, copy voice, brand assets, marketing
-surface, mono typography, domain composites v2, animation
-choreography, Windows/Linux titlebar drag-region. State machines,
-notifications, keyboard contract, CJK space budget, CI gate, and the
-auto-fix codemod are v4 additions (see § 4a / § 4b / § 5a / § 10 and
-`scripts/design/codemod/`).
+does *not* cover today. Remaining open items live there — this file
+does not keep a second gap list.
+
+v4 shipped state machines, notifications, keyboard contract, CJK space
+budget, the design-check CI gate, and the auto-fix codemod (see § 4a /
+§ 4b / § 5a / § 10, `scripts/design/codemod/`, and
+`.github/workflows/design-check.yml`). The live gate is
+`pnpm task check design -- --strict --baseline`.
 Message roles, streaming cursor, presence, tool approval, code
 + diff, and session/artifact variants are v5 additions (see § 4c /
 § 4d / § 4e / § 4f / § 4g / § 4h and the `message-roles:` /
 `streaming:` / `presence:` / `tool-approval:` / `artifact-hue:`
-YAML blocks). Runtime primitives `StreamingCursor` and
+YAML blocks). v6 shipped `typography.font-mono` — mono typography is
+no longer an open gap.
+Runtime primitives `StreamingCursor` and
 `ToolApprovalCard` have first landings in `components/ui/` (see DESIGN.md
-§ 14); remaining Known Gaps stay in DESIGN.md, not here.
-Closing a gap is documented in DESIGN.md § 13 Iteration Guide.
+§ 14). Closing a gap is documented in DESIGN.md § 13 Iteration Guide.
 
 ## Scrollbars
 
@@ -237,8 +240,9 @@ part of a `frontend-primitive-refactor` audit; see
 [`.agents/skills/frontend-primitive-refactor/SKILL.md`](../../.agents/skills/frontend-primitive-refactor/SKILL.md)):
 
 For token-level drift between `DESIGN.md` YAML and the code-side sources
-(colors / typography / radii), run `pnpm task check design`. Add `-- --strict`
-to make drift fail the check (future CI seam).
+(colors / typography / radii), run `pnpm task check design`. The live CI
+gate is `.github/workflows/design-check.yml` running
+`pnpm task check design -- --strict --baseline`.
 
 | Check | Target | Command |
 | --- | --- | --- |
