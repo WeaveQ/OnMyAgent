@@ -14,6 +14,7 @@ import {
   FileCode,
   GripVertical,
   Pencil,
+  Power,
   Trash2,
 } from "lucide-react";
 import {
@@ -109,6 +110,12 @@ export type AiSettingsViewProps = {
    * Move one step up/down (keyboard / Windows touch accessible).
    */
   onMoveProvider?: (providerId: string, direction: "up" | "down") => void;
+  /** Workspace `disabled_providers` ids. */
+  disabledProviderIds?: string[];
+  onToggleProviderEnabled?: (
+    providerId: string,
+    enabled: boolean,
+  ) => void | Promise<void>;
 };
 
 /** Interactive controls that must not start a row drag. */
@@ -364,6 +371,11 @@ export function AiSettingsView(props: AiSettingsViewProps) {
               const removeMode = isCloud
                 ? null
                 : props.resolveRemoveMode(provider);
+              const providerEnabled = !(
+                props.disabledProviderIds ?? []
+              ).includes(provider.id);
+              const canToggleEnabled =
+                typeof props.onToggleProviderEnabled === "function";
 
               return (
                 <SettingsBlockRow
@@ -371,6 +383,7 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                   className={cn(
                     canReorder && "select-none",
                     isDragging && "opacity-50",
+                    !providerEnabled && "opacity-55",
                     isDropTarget &&
                       "relative before:absolute before:inset-x-3 before:top-0 before:h-0.5 before:rounded-full before:bg-dls-accent",
                   )}
@@ -461,8 +474,45 @@ export function AiSettingsView(props: AiSettingsViewProps) {
                     </span>
                   }
                   actions={
-                    !isCloud || canMove ? (
+                    canToggleEnabled || !isCloud || canMove ? (
                       <div className="inline-flex items-center gap-0.5">
+                        {canToggleEnabled ? (
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={(
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  className={cn(
+                                    "text-dls-secondary",
+                                    !providerEnabled && "text-dls-secondary/70",
+                                  )}
+                                  disabled={props.busy || rowBusy}
+                                  aria-pressed={providerEnabled}
+                                  onClick={() =>
+                                    void props.onToggleProviderEnabled?.(
+                                      provider.id,
+                                      !providerEnabled,
+                                    )
+                                  }
+                                  aria-label={
+                                    providerEnabled
+                                      ? t("settings.provider_disable")
+                                      : t("settings.provider_enable")
+                                  }
+                                >
+                                  <Power aria-hidden="true" />
+                                </Button>
+                              )}
+                            />
+                            <TooltipContent>
+                              {providerEnabled
+                                ? t("settings.provider_disable")
+                                : t("settings.provider_enable")}
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : null}
                         {canMove ? (
                           <>
                             <Tooltip>

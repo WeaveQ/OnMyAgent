@@ -80,6 +80,8 @@ describe("ai providers chrome i18n keys", () => {
       expect(src).toContain("settings.loading_providers_list");
       expect(src).toContain("settings.loading_providers_inventory");
       expect(src).toContain("settings.connect_provider_empty_hint");
+      expect(src).toContain("settings.provider_enable");
+      expect(src).toContain("settings.provider_disable");
       expect(src).toContain("settings.provider_remove");
       expect(src).toContain("settings.provider_remove_confirm_title");
       expect(src).toContain("settings.provider_source_env_hint");
@@ -97,6 +99,23 @@ describe("ai providers chrome i18n keys", () => {
         expect(src).toContain("連接模型服務商");
       }
     }
+  });
+});
+
+describe("settings AI provider enable icon", () => {
+  test("row wires Power toggle to onToggleProviderEnabled", () => {
+    const view = readFileSync(
+      path.join(
+        import.meta.dir,
+        "../src/react-app/domains/settings/pages/ai-view.tsx",
+      ),
+      "utf8",
+    );
+    expect(view).toContain("onToggleProviderEnabled");
+    expect(view).toContain("<Power");
+    expect(view).toContain("settings.provider_enable");
+    expect(view).toContain("settings.provider_disable");
+    expect(view).toContain("disabledProviderIds");
   });
 });
 

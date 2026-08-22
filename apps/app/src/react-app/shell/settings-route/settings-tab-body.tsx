@@ -247,6 +247,14 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
             }
             canEditProvider={canEditOpenCodeProvider}
             onEditProvider={ctx.handleEditOpenCodeProvider}
+            disabledProviderIds={
+              Array.isArray(ctx.disabledProviders) ? ctx.disabledProviders : []
+            }
+            onToggleProviderEnabled={
+              typeof ctx.handleToggleProviderEnabled === "function"
+                ? ctx.handleToggleProviderEnabled
+                : undefined
+            }
             onDeleteProvider={async (provider) => {
               if (ctx.providerActionBusyId || ctx.providerSyncBusy) return;
               await deleteOpenCodeManagedProvider({

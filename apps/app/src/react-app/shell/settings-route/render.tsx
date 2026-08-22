@@ -694,6 +694,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     handleOpenCustomProviderConfig,
     handleOpenProviderAuth,
     handleEditOpenCodeProvider,
+    handleToggleProviderEnabled,
     applyEngineConfigForProviders,
   } = useSettingsProviderHandlers({
     routeStateRef,
@@ -877,6 +878,8 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     setProviderActionError,
     opencodeInventoryReady,
     handleEditOpenCodeProvider,
+    handleToggleProviderEnabled,
+    disabledProviders,
     setProviderSyncBusy,
     setOpenCodeManagedProviders,
     applyEngineConfigForProviders,

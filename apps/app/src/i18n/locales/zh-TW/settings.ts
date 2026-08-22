@@ -421,6 +421,8 @@ export default {
   "settings.provider_source_env_hint":
     "此服務商透過環境變數接入。請到「設定 → 環境變數」修改或清除後重新啟動應用。",
   "settings.provider_source_env_hint_short": "請在環境變數中管理",
+  "settings.provider_enable": "啟用此模型服務商",
+  "settings.provider_disable": "關閉此模型服務商",
   "settings.provider_remove": "移除",
   "settings.provider_removing": "正在移除…",
   "settings.provider_badge_cloud": "雲端",

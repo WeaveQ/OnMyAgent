@@ -229,6 +229,32 @@ export function useSettingsProviderHandlers(input: SettingsProviderHandlersInput
     ],
   );
 
+  const handleToggleProviderEnabled = useCallback(
+    async (providerId: string, enabled: boolean) => {
+      const id = providerId.trim();
+      if (!id || providerActionBusyId) return;
+      setProviderActionBusyId(id);
+      setProviderActionError(null);
+      try {
+        await providerAuthStore.ensureProjectProviderDisabledState(id, !enabled);
+      } catch (error) {
+        setProviderActionError(
+          error instanceof Error && error.message.trim()
+            ? error.message
+            : t("settings.provider_error_retry"),
+        );
+      } finally {
+        setProviderActionBusyId(null);
+      }
+    },
+    [
+      providerActionBusyId,
+      providerAuthStore,
+      setProviderActionBusyId,
+      setProviderActionError,
+    ],
+  );
+
   /**
    * Apply engine config so a newly saved provider/model is usable immediately.
    * Prefer soft OpenCode instance dispose (fast); fall back to full desktop
@@ -317,6 +343,7 @@ export function useSettingsProviderHandlers(input: SettingsProviderHandlersInput
     handleOpenCustomProviderConfig,
     handleOpenProviderAuth,
     handleEditOpenCodeProvider,
+    handleToggleProviderEnabled,
     isProviderBlocked,
     applyEngineConfigForProviders,
     reloadWorkspaceEngineFromUi,

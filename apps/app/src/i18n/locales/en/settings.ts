@@ -435,6 +435,8 @@ export default {
   "settings.provider_source_env_hint":
     "This provider is connected via environment variables. Change or clear them under Settings → Environment, then restart the app.",
   "settings.provider_source_env_hint_short": "Manage in Environment",
+  "settings.provider_enable": "Enable this provider",
+  "settings.provider_disable": "Disable this provider",
   "settings.provider_remove": "Remove",
   "settings.provider_removing": "Removing…",
   "settings.provider_badge_cloud": "Cloud",
