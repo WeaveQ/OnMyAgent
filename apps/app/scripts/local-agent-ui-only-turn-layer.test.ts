@@ -134,6 +134,7 @@ describe("Local Agent turn layer UI-only", () => {
       "最终答案",
     );
     expect(turn.processSteps.map((step) => step.message.id)).toEqual(["tool-1"]);
+    expect(turn.alwaysVisibleSteps.map((step) => step.message.id)).toEqual(["mid-1"]);
     expect(turn.processSteps.some((step) => step.message.text === "先说一句进度")).toBe(false);
   });
 

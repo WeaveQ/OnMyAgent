@@ -17,6 +17,7 @@ const PROCESS_TYPES = new Set([
   "file-change",
 ]);
 const ALWAYS_VISIBLE_TYPES = new Set(["error", "tips"]);
+const ASSISTANT_NARRATION_TYPES = new Set(["text", "content", "assistant"]);
 
 export type LocalAgentTurnProcessStep = {
   id: string;
@@ -147,6 +148,18 @@ export function buildLocalAgentTurnPresentation(
       continue;
     }
     if (isFinalBodyMessage(message, body)) continue;
+    if (
+      message.role === "assistant"
+      && ASSISTANT_NARRATION_TYPES.has(message.type)
+      && textOf(message)
+    ) {
+      alwaysVisibleSteps.push({
+        id: allocateVisibleStepId(message.id, `visible:${index}`),
+        message,
+      });
+      index += 1;
+      continue;
+    }
     const isProcessType = PROCESS_TYPES.has(message.type)
       || message.type === "permission"
       || Boolean(message.approval);
