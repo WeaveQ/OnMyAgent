@@ -4,16 +4,14 @@ ensureBunTest(import.meta.path);
 import type { AgentRuntimeEvent } from "@onmyagent/types/agent-runtime";
 import {
   applyCanonicalRuntimeEvent,
-  canonicalMessagesToUI,
-  emptyCanonicalRuntimeState,
-  seedCanonicalRuntimeMessages,
-} from "../src/react-app/domains/session/sync/canonical-runtime-state";
-import {
   applySnapshot,
   applyLiveCanonicalRuntimeEvent,
   CanonicalRuntimeSequenceGapError,
+  canonicalMessagesToUI,
   canonicalQuestionsToPending,
+  emptyCanonicalRuntimeState,
   readSse,
+  seedCanonicalRuntimeMessages,
 } from "../src/react-app/domains/session/sync/canonical-runtime-sync";
 
 function event(
