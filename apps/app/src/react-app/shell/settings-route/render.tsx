@@ -691,10 +691,8 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
   } = aiProviders;
 
   const {
-    handleOpenCustomProviderConfig,
-    handleOpenProviderAuth,
-    handleEditOpenCodeProvider,
-    handleToggleProviderEnabled,
+    handleOpenCustomProviderConfig, handleOpenProviderAuth,
+    handleEditOpenCodeProvider, handleToggleProviderEnabled,
     applyEngineConfigForProviders,
   } = useSettingsProviderHandlers({
     routeStateRef,
@@ -877,9 +875,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
     setProviderActionBusyId,
     setProviderActionError,
     opencodeInventoryReady,
-    handleEditOpenCodeProvider,
-    handleToggleProviderEnabled,
-    disabledProviders,
+    handleEditOpenCodeProvider, handleToggleProviderEnabled, disabledProviders,
     setProviderSyncBusy,
     setOpenCodeManagedProviders,
     applyEngineConfigForProviders,
@@ -1160,9 +1156,7 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
           setModelPickerOpen(false);
           handleOpenProviderAuth();
         }}
-        onGoToSettings={() => {
-          setModelPickerOpen(false);
-        }}
+        onGoToSettings={() => setModelPickerOpen(false)}
         onClose={() => setModelPickerOpen(false)}
       />
     </>

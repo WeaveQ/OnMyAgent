@@ -23,7 +23,7 @@ import { compareProviders, filterProviderList } from "../../../../app/utils/prov
 import { getReactQueryClient } from "../../../infra/query-client";
 import { ensureProviderListQuery } from "../../connections/provider-list-query";
 import {
-  disabledProvidersListsEqual,
+  applyDisabledProvidersLive, disabledProvidersListsEqual,
   isBuiltinOpenCodeZenProvider,
   nextDisabledProvidersList,
   normalizeDisabledProviders,
@@ -437,28 +437,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     }
 
     options.setDisabledProviders(nextDisabled);
-    let appliedLive = false;
-    const c = options.client();
-    if (c) {
-      try {
-        const config = unwrap(await c.config.get()) as Record<string, unknown>;
-        const nextConfig = { ...config };
-        if (nextDisabled.length) {
-          nextConfig.disabled_providers = nextDisabled;
-        } else {
-          delete nextConfig.disabled_providers;
-        }
-        await c.config.update({ config: nextConfig });
-        appliedLive = true;
-      } catch {
-        appliedLive = false;
-      }
-    }
-    // Enable/disable is a live OpenCode config patch; only prompt reload when
-    // the running instance could not take the new disabled_providers list.
-    if (!appliedLive) {
-      options.markOpencodeConfigReloadRequired();
-    }
+    await applyDisabledProvidersLive(options.client(), nextDisabled, options.markOpencodeConfigReloadRequired);
     refreshSnapshot();
     emitChange();
     return true;

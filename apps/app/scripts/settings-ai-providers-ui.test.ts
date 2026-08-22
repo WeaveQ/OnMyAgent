@@ -111,9 +111,17 @@ describe("settings AI provider enable icon", () => {
       ),
       "utf8",
     );
-    expect(store).toContain("await c.config.update({ config: nextConfig })");
-    expect(store).toContain("if (!appliedLive)");
-    expect(store).toContain("options.markOpencodeConfigReloadRequired()");
+    const live = readFileSync(
+      path.join(
+        import.meta.dir,
+        "../src/react-app/domains/connections/provider-auth/disabled-and-disconnect.ts",
+      ),
+      "utf8",
+    );
+    expect(store).toContain("applyDisabledProvidersLive(options.client(), nextDisabled, options.markOpencodeConfigReloadRequired)");
+    expect(live).toContain("await c.config.update({ config: nextConfig })");
+    expect(live).toContain("if (!appliedLive)");
+    expect(live).toContain("markOpencodeConfigReloadRequired()");
   });
 
   test("row wires Power toggle to onToggleProviderEnabled", () => {

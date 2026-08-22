@@ -418,8 +418,7 @@ export default {
   "settings.provider_move_up": "上移",
   "settings.provider_move_down": "下移",
   "settings.provider_source_env": "環境變量",
-  "settings.provider_source_env_hint":
-    "此服務商透過環境變數接入。請到「設定 → 環境變數」修改或清除後重新啟動應用。",
+  "settings.provider_source_env_hint": "此服務商透過環境變數接入。請到「設定 → 環境變數」修改或清除後重新啟動應用。",
   "settings.provider_source_env_hint_short": "請在環境變數中管理",
   "settings.provider_enable": "啟用此模型服務商",
   "settings.provider_disable": "關閉此模型服務商",
@@ -429,8 +428,7 @@ export default {
   "settings.provider_reorder_hint": "拖曳把手或使用箭頭調整順序",
   "settings.provider_reorder_aria": "調整模型服務商順序",
   "settings.providers_dialog_title": "模型服務商",
-  "settings.providers_dialog_description":
-    "選擇服務商並填寫金鑰，僅保存在本機。",
+  "settings.providers_dialog_description": "選擇服務商並填寫金鑰，僅保存在本機。",
   "settings.quit_hint": `${APP_NAME}在清理後立即退出，以便下次啟動時從此模式的全新本地狀態開始`,
   "settings.recent_events": "最近的事件",
   "settings.removing_local_state": "正在移除本地狀態…",
