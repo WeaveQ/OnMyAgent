@@ -72,18 +72,10 @@ describe("local agent composer chrome aligns with workbench", () => {
     const idle = resolveLocalAgentComposerLayout({
       hasAttachments: false,
       dragActive: false,
-      menuOpen: false,
-    });
-    const open = resolveLocalAgentComposerLayout({
-      hasAttachments: false,
-      dragActive: false,
-      menuOpen: true,
     });
     expect(idle.panelRoundedClass).toBe("rounded-xl");
-    expect(open.panelRoundedClass).toBe("rounded-xl");
     expect(idle.panelChromeClass).toContain("focus-within:ring-1");
-    expect(open.panelChromeClass).toContain("rounded-xl");
-    expect(open.panelChromeClass).not.toContain("rounded-b-none");
+    expect(idle.panelChromeClass).not.toContain("rounded-b-none");
   });
 
   test("online placeholder copy matches Expert/Assistant composer watermark", () => {

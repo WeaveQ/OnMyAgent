@@ -17,8 +17,6 @@ export type ComposerLayoutInput = {
   flushShell?: boolean;
   hasBottomAccessory?: boolean;
   hasAttachments?: boolean;
-  mentionOpen?: boolean;
-  slashOpen?: boolean;
 };
 
 export type ComposerLayoutClasses = {

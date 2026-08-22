@@ -480,8 +480,6 @@ export function ReactSessionComposer(props: ComposerProps) {
     flushShell: props.flushShell,
     hasBottomAccessory: Boolean(props.bottomAccessory),
     hasAttachments: props.attachments.length > 0,
-    mentionOpen,
-    slashOpen,
   });
   const {
     homeLayout,

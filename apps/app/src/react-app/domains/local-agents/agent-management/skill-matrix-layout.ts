@@ -48,13 +48,13 @@ export function resolveSkillCellState(
       tooltip: t("skills.matrix_tooltip_agent_missing", { label }),
     };
   }
-  const enabled = skill.agents.includes(agent);
   if (!isStudioSkillSyncAgent(agent)) {
     return {
-      state: enabled ? "native" : "readonly",
+      state: "readonly",
       tooltip: t("skills.matrix_tooltip_no_skill_sync", { label }),
     };
   }
+  const enabled = skill.agents.includes(agent);
   const ownsSource = skill.sources.some(
     (source) =>
       source.agent === agent &&

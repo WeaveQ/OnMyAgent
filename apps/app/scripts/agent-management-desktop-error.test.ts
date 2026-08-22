@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { t } from "../src/i18n";
 
 import {
   formatAgentManagementDesktopError,
@@ -39,25 +40,33 @@ describe("agent-management desktop skill errors", () => {
   });
 
   test("maps Unsupported skill agent to i18n, not the raw invoke string", () => {
-    const message = formatAgentManagementDesktopError(new Error(ipc));
-    expect(message).not.toMatch(/onmyagent:desktop/);
-    expect(message).not.toMatch(/Unsupported skill agent/);
-    expect(message.length).toBeGreaterThan(8);
+    expect(formatAgentManagementDesktopError(new Error(ipc))).toBe(
+      t("skills.error_unsupported_agent"),
+    );
   });
 
-  test("maps unmanaged-in-app-dir English IPC without hard-coded CJK", () => {
-    const message = formatAgentManagementDesktopError(
-      new Error("Unmanaged skill is in the app directory"),
-    );
-    expect(message).not.toMatch(/Unmanaged skill is in the app directory/);
-    expect(message.length).toBeGreaterThan(8);
+  test("maps other desktop skill throws", () => {
+    expect(
+      formatAgentManagementDesktopError(new Error("Skill source is missing SKILL.md")),
+    ).toBe(t("skills.error_missing_skill_md"));
+    expect(
+      formatAgentManagementDesktopError(new Error("Skill directory not found")),
+    ).toBe(t("skills.error_directory_not_found"));
+    expect(
+      formatAgentManagementDesktopError(new Error("Unsupported skill action")),
+    ).toBe(t("skills.error_unsupported_action"));
+    expect(
+      formatAgentManagementDesktopError(new Error("Invalid skill directory")),
+    ).toBe(t("skills.error_invalid_directory"));
+    expect(
+      formatAgentManagementDesktopError(new Error("Unmanaged skill is in the app directory")),
+    ).toBe(t("skills.error_unmanaged_in_app_dir"));
   });
 });
 
 describe("skill matrix cells for fleet agents without skill sync", () => {
-  test("Grok is readonly, not clickable-available", () => {
-    const { state, tooltip } = resolveSkillCellState(skill([]), "grok", null, false);
-    expect(state).toBe("readonly");
-    expect(tooltip.toLowerCase()).not.toContain("click to enable");
+  test("Grok is readonly whether or not the skill is already enabled", () => {
+    expect(resolveSkillCellState(skill([]), "grok", null, false).state).toBe("readonly");
+    expect(resolveSkillCellState(skill(["grok"]), "grok", null, false).state).toBe("readonly");
   });
 });

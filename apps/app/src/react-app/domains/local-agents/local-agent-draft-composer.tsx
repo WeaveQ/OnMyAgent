@@ -542,7 +542,6 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
   const layout = resolveLocalAgentComposerLayout({
     hasAttachments,
     dragActive,
-    menuOpen: slashOpen || (atState.active && mentionFiles.length > 0),
   });
 
   return (

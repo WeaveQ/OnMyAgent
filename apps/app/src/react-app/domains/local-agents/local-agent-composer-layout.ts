@@ -28,7 +28,6 @@ export const localAgentComposerClass = {
 export function resolveLocalAgentComposerLayout(input: {
   hasAttachments: boolean;
   dragActive: boolean;
-  menuOpen: boolean;
 }) {
   // Menus sit `absolute bottom-full` above the card. Keep all four corners
   // rounded so focus-within ring matches the idle silhouette (no square feet).
