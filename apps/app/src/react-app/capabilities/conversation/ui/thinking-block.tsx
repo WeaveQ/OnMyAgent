@@ -29,8 +29,9 @@ export function ThinkingBlock(props: ThinkingBlockProps) {
   );
 
   useEffect(() => {
+    if (props.defaultExpanded !== undefined) return;
     if (done) setExpanded(false);
-  }, [done]);
+  }, [done, props.defaultExpanded]);
 
   const bodyText = item.text?.trim() || "Thinking...";
   const durationMs =

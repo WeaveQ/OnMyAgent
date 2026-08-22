@@ -1,9 +1,22 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  chatKeyForActiveRun,
   mergeLocalAgentSidebarOrder,
   sortLocalAgentsBySidebarOrder,
 } from "../src/react-app/domains/local-agents/local-agent-page-model";
+
+describe("active run chat key lookup", () => {
+  test("binds a run to the chat key captured before await", () => {
+    expect(
+      chatKeyForActiveRun(
+        { "codex::conv-a": "run-a", "codex::conv-b": "run-b" },
+        "run-b",
+      ),
+    ).toBe("codex::conv-b");
+    expect(chatKeyForActiveRun({ "codex::conv-a": "run-a" }, "run-missing")).toBeUndefined();
+  });
+});
 
 describe("local agent sidebar order", () => {
   test("merge keeps saved relative order and appends newcomers", () => {

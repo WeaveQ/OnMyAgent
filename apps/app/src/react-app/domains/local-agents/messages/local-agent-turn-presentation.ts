@@ -149,8 +149,7 @@ export function buildLocalAgentTurnPresentation(
     if (isFinalBodyMessage(message, body)) continue;
     const isProcessType = PROCESS_TYPES.has(message.type)
       || message.type === "permission"
-      || Boolean(message.approval)
-      || (message.role === "assistant" && textOf(message) && message.type !== "finish");
+      || Boolean(message.approval);
     if (!isProcessType) continue;
     for (const step of explodeProcessMessage(message)) {
       const previous = processSteps.at(-1)?.message;

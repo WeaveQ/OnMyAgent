@@ -213,9 +213,17 @@ export function createPersonalAgentRuntime(options) {
   const persistRun = createPersonalRunPersistence({ options, visibleArtifacts, metaBuilder: buildRunMeta });
 
   const { schedulePersistRun: schedulePersistRunRaw, flushPersistRun, retainCompletedRunBriefly } = createRunPersistence({ persistRun, runs });
+  async function persistTerminalRun(state) {
+    await flushPersistRun(state, true);
+    publishRuntimeEvent(state, "run.finished");
+  }
   function schedulePersistRun(state) {
-    schedulePersistRunRaw(state);
-    publishRuntimeEvent(state, state.status === "running" ? "run.delta" : "run.finished");
+    if (state.status === "running") {
+      schedulePersistRunRaw(state);
+      publishRuntimeEvent(state, "run.delta");
+      return;
+    }
+    void persistTerminalRun(state).catch(() => undefined);
   }
   const { requestRunApproval, resolveApproval } = createApprovalRuntime({
     runs,
@@ -524,7 +532,7 @@ export function createPersonalAgentRuntime(options) {
       state.finishedAt = Date.now();
       appendContractEvent(events, { type: "error", text: state.error });
       appendContractEvent(events, buildErrorTip(state.errorInfo));
-      await flushPersistRun(state, true);
+      await persistTerminalRun(state);
       return snapshot(state);
     }
     if ((provider === "codex" || provider === "claude") && !Object.prototype.hasOwnProperty.call(injectedAdapters, provider)) {
@@ -541,7 +549,7 @@ export function createPersonalAgentRuntime(options) {
         state.finishedAt = Date.now();
         appendContractEvent(events, { type: "error", text: state.error });
         appendContractEvent(events, buildErrorTip(state.errorInfo));
-        await flushPersistRun(state, true);
+        await persistTerminalRun(state);
         return snapshot(state);
       }
     }
@@ -641,7 +649,7 @@ export function createPersonalAgentRuntime(options) {
             state.error = state.errorInfo.message;
             state.finishedAt = Date.now();
             appendContractEvent(events, { type: "error", text: state.error });
-            await flushPersistRun(state, true);
+            await persistTerminalRun(state);
             return;
           }
         }
@@ -1103,8 +1111,8 @@ export function createPersonalAgentRuntime(options) {
       type: isTimeout ? "error" : "status",
       text: isTimeout ? state.error : `${state.agentProvider} run cancelled${diagnostic ? ` (${diagnostic})` : ""}`,
     });
-    publishRuntimeEvent(state, "run.finished");
     await flushPersistRun(state, true);
+    publishRuntimeEvent(state, "run.finished");
   }
 
   async function cancel(id, options = {}) {
@@ -1185,7 +1193,7 @@ export function createPersonalAgentRuntime(options) {
         state.finishedAt = Date.now();
         state.updatedAt = Date.now();
         appendContractEvent(state.events, { type: "error", text: state.error });
-        await flushPersistRun(state, true);
+        await persistTerminalRun(state);
         return { ok: false, error: state.error };
       }
       if (processRecord) {
@@ -1212,7 +1220,7 @@ export function createPersonalAgentRuntime(options) {
         state.updatedAt = Date.now();
         appendContractEvent(state.events, { type: "error", text: state.error });
       }
-      await flushPersistRun(state, true).catch(() => undefined);
+      await persistTerminalRun(state).catch(() => undefined);
       return { ok: false, error: message };
     } finally {
       if (state.cancelPromise === cancellation) state.cancelPromise = null;

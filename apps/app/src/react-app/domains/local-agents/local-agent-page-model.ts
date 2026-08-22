@@ -394,6 +394,15 @@ export function compactMessagesByAgent(messagesByAgent: Record<string, ChatMessa
   return next;
 }
 
+export function chatKeyForActiveRun(
+  activeRunIdByAgent: Record<string, string | null | undefined>,
+  runId: string,
+): string | undefined {
+  const want = runId.trim();
+  if (!want) return undefined;
+  return Object.entries(activeRunIdByAgent).find(([, id]) => id === want)?.[0];
+}
+
 export function recoverActiveRunIds(
   messagesByAgent: Record<string, ChatMessage[]> | undefined,
   persistedActiveRunIds: Record<string, string | null> | undefined,

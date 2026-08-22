@@ -547,7 +547,7 @@ function PersonalConversationItem(props: {
   onResolveApproval?: (
     approval: PersonalLocalAgentApprovalRequest,
     decision: PersonalLocalAgentApprovalDecision,
-  ) => void;
+  ) => void | Promise<void>;
 }) {
   // Tools get display-normalized titles/status when possible so the shared row
   // matches LocalAgentToolCard chrome without pulling in expandable detail.
@@ -559,7 +559,13 @@ function PersonalConversationItem(props: {
     }
     const toolItem = sharedToolItemFromMessage(props.message, display);
     if (!toolItem) return null;
-    return <ConversationItemView item={toolItem} streaming={props.streaming} />;
+    return (
+      <ConversationItemView
+        item={toolItem}
+        streaming={props.streaming}
+        collapseThinkingWhenDone
+      />
+    );
   }
 
   const [item] = personalMessagesToConversationItems([
@@ -593,11 +599,18 @@ function PersonalConversationItem(props: {
             : "done",
         }}
         streaming={false}
+        collapseThinkingWhenDone
       />
     );
   }
 
-  return <ConversationItemView item={item} streaming={props.streaming} />;
+  return (
+    <ConversationItemView
+      item={item}
+      streaming={props.streaming}
+      collapseThinkingWhenDone
+    />
+  );
 }
 
 export function LocalAgentTimelineMessage(props: {
@@ -608,7 +621,7 @@ export function LocalAgentTimelineMessage(props: {
   onResolveApproval?: (
     approval: PersonalLocalAgentApprovalRequest,
     decision: PersonalLocalAgentApprovalDecision,
-  ) => void;
+  ) => void | Promise<void>;
   onResolveTip?: (message: PersonalLocalAgentConversationMessage) => void;
 }) {
   if (props.message.type === "tips") {

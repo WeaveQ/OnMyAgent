@@ -111,12 +111,27 @@ describe("composer stop during ACP start", () => {
 });
 
 describe("thinking card collapse", () => {
-  test("collapses when reasoning is done even if the turn is still streaming", () => {
-    const source = readFileSync(
+  test("keeps Expert streaming thinking open and lets Local Agent collapse on done", () => {
+    const thinking = readFileSync(
       join(import.meta.dir, "../src/react-app/capabilities/conversation/ui/thinking-block.tsx"),
       "utf8",
     );
-    expect(source).toContain("if (done) setExpanded(false)");
-    expect(source).not.toContain("if (props.defaultExpanded !== undefined) return");
+    const sharedView = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/capabilities/conversation/ui/conversation-item-view.tsx",
+      ),
+      "utf8",
+    );
+    const localTimeline = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/local-agents/messages/timeline-messages.tsx",
+      ),
+      "utf8",
+    );
+    expect(thinking).toContain("if (props.defaultExpanded !== undefined) return");
+    expect(sharedView).toContain("collapseThinkingWhenDone");
+    expect(localTimeline).toContain("collapseThinkingWhenDone");
   });
 });

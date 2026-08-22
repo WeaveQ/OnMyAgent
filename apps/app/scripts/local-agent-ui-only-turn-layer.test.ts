@@ -113,6 +113,30 @@ describe("Local Agent turn layer UI-only", () => {
     expect(bodyIndex).toBeGreaterThan(statusIndex);
   });
 
+  test("does not hide intermediate assistant text inside the process fold", () => {
+    const snapshot = run({
+      conversationMessages: [
+        { id: "mid-1", type: "text", role: "assistant", text: "先说一句进度", createdAt: 2 },
+        {
+          id: "tool-1",
+          type: "tool",
+          role: "tool",
+          text: "Read README.md",
+          createdAt: 3,
+          toolCall: { id: "tool-1", name: "read", status: "completed", input: "README.md" },
+        },
+        { id: "finish-1", type: "finish", role: "assistant", text: "最终答案", createdAt: 4 },
+      ],
+    });
+    const turn = buildLocalAgentTurnPresentation(
+      snapshot,
+      visibleRunTimelineMessages(snapshot),
+      "最终答案",
+    );
+    expect(turn.processSteps.map((step) => step.message.id)).toEqual(["tool-1"]);
+    expect(turn.processSteps.some((step) => step.message.text === "先说一句进度")).toBe(false);
+  });
+
   test("running turns keep interleaved process visible without a completed-time fold", () => {
     setLocale("en");
     const html = renderToStaticMarkup(createElement(ChatBubble, {

@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { useState } from "react";
 import { HardDrive } from "lucide-react";
 
 import { MonoLogBox } from "@/components/ui/mono-log-box";
@@ -21,10 +22,18 @@ export function LocalAgentApprovalCard(props: {
   onResolve?: (
     approval: PersonalLocalAgentApprovalRequest,
     decision: PersonalLocalAgentApprovalDecision,
-  ) => void;
+  ) => void | Promise<void>;
 }) {
   const { approval, onResolve } = props;
   const pending = props.pending ?? Boolean(onResolve);
+  const [busy, setBusy] = useState(false);
+  const resolve = (decision: PersonalLocalAgentApprovalDecision) => {
+    if (!onResolve || busy) return;
+    setBusy(true);
+    void Promise.resolve(onResolve(approval, decision)).finally(() => {
+      setBusy(false);
+    });
+  };
   const risk = approval.readonly ? "safe" as const : "careful" as const;
   const command = (approval.command || approval.summary || "").trim();
   const method = approval.method?.trim() || "";
@@ -90,12 +99,13 @@ export function LocalAgentApprovalCard(props: {
       {pending && onResolve ? (
         <ToolApprovalCardFooter
           risk={risk}
+          busy={busy}
           denyLabel={t("local_agent.approval_decline")}
           allowOnceLabel={t("local_agent.approval_allow_once")}
           allowAlwaysLabel={t("local_agent.approval_allow_session")}
-          onDeny={() => onResolve(approval, "decline")}
-          onAllowOnce={() => onResolve(approval, "accept")}
-          onAllowAlways={() => onResolve(approval, "acceptForSession")}
+          onDeny={() => resolve("decline")}
+          onAllowOnce={() => resolve("accept")}
+          onAllowAlways={() => resolve("acceptForSession")}
         />
       ) : null}
     </ToolApprovalCard>

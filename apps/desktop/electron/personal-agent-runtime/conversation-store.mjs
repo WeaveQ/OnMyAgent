@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { appendFile, mkdir, unlink } from "node:fs/promises";
+import { appendFile, mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { readSession, writeSession } from "./session-store.mjs";
@@ -216,8 +216,31 @@ export async function writeConversationEvents(workspaceRoot, provider, agentId =
     messages: normalizedMessages,
   };
   await writeJsonFile(conversationEventsFile(workspaceRoot, provider, agentId, id), payload);
-  await unlink(conversationEventsLogFile(workspaceRoot, provider, agentId, id)).catch(() => undefined);
+  const logPath = conversationEventsLogFile(workspaceRoot, provider, agentId, id);
+  await writeFile(logPath, "").catch(() => unlink(logPath).catch(() => undefined));
   return payload;
+}
+
+export function conversationEventKey(event) {
+  if (!event || typeof event !== "object") return JSON.stringify(event);
+  const id = typeof event.id === "string" ? event.id.trim() : "";
+  if (id) return `id:${id}`;
+  const type = String(event.type ?? "");
+  const at = event.at ?? event.ts ?? "";
+  const text = String(event.text ?? "");
+  return `${type}|${at}|${text}`;
+}
+
+export function mergeConversationEvents(checkpointEvents, logEvents) {
+  const merged = [];
+  const seen = new Set();
+  for (const event of [...(Array.isArray(checkpointEvents) ? checkpointEvents : []), ...(Array.isArray(logEvents) ? logEvents : [])]) {
+    const key = conversationEventKey(event);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(event);
+  }
+  return merged;
 }
 
 /** Append new run events without rewriting the checkpoint JSON. */
@@ -260,10 +283,10 @@ export async function readConversationEvents(workspaceRoot, provider, agentId = 
   } catch {
     appendedEvents = [];
   }
-  const events = [
-    ...(Array.isArray(raw?.events) ? raw.events : []),
-    ...appendedEvents,
-  ];
+  const events = mergeConversationEvents(
+    Array.isArray(raw?.events) ? raw.events : [],
+    appendedEvents,
+  );
   return {
     version: Number(raw?.version) || 1,
     provider,

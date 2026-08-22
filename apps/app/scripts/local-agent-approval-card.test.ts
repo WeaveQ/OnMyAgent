@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -80,6 +83,18 @@ function assistantMessage(run: PersonalLocalAgentRunResult): ChatMessage {
 }
 
 describe("local agent approval card wrapping", () => {
+  test("wires footer busy so a second click cannot resolve twice", () => {
+    const source = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/local-agents/messages/local-agent-approval-card.tsx",
+      ),
+      "utf8",
+    );
+    expect(source).toContain("busy={busy}");
+    expect(source).toContain("if (!onResolve || busy) return");
+  });
+
   test("keeps long commands and paths inside a wrapping card", () => {
     setLocale("zh");
     const html = renderToStaticMarkup(

@@ -67,7 +67,7 @@ export function LocalAgentPlanFold(props: {
       </button>
       {expanded ? (
         <div className="border-t border-dls-border/60 px-2.5 py-2" data-testid="local-agent-plan-fold-body">
-          <ConversationItemView item={props.item} streaming={props.streaming} />
+          <ConversationItemView item={props.item} streaming={props.streaming} collapseThinkingWhenDone />
         </div>
       ) : null}
     </section>

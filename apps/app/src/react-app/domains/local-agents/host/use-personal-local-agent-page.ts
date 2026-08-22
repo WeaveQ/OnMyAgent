@@ -68,6 +68,7 @@ import {
   personalAgentApprovalModeKey,
   personalAgentChatStateKey,
   personalAgentModelPrefKey,
+  chatKeyForActiveRun,
   recoverActiveRunIds,
   safeReadApprovalMode,
   safeReadCachedAgents,
@@ -1303,6 +1304,8 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     else if (target === "run" && activeRunId) await cancelAgentRun(activeRunId, selectedChatKey);
   }, [activeRunId, cancelAgentRun, selectedAgent, selectedChatKey, startingByAgent]);
   const resolveApproval = useCallback(async (approval: PersonalLocalAgentApprovalRequest, decision: PersonalLocalAgentApprovalDecision, options?: { alwaysAllow?: boolean }) => {
+    const chatKey = chatKeyForActiveRun(activeRunIdByAgent, approval.runId) ?? selectedChatKey;
+    const errorAgentId = chatKey.split("::")[0] || selectedAgentId;
     try {
       const result = await personalLocalAgentAcpResolveApproval({
         runId: approval.runId,
@@ -1314,7 +1317,7 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       const snapshot = await personalLocalAgentStatus({ runId: approval.runId, workspaceRoot: effectiveWorkspaceRoot });
       setMessagesByAgent((current) => ({
         ...current,
-        [selectedChatKey]: (current[selectedChatKey] ?? []).map((message) =>
+        [chatKey]: (current[chatKey] ?? []).map((message) =>
           message.run?.runId === approval.runId
             ? { ...message, text: messageTextForRun(snapshot, message.text), run: snapshot }
             : message,
@@ -1323,9 +1326,9 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       rememberRunResult(snapshot.agentId, snapshot);
     } catch (nextError) {
       const message = nextError instanceof Error ? nextError.message : String(nextError);
-      setErrorsByAgent((current) => ({ ...current, [selectedAgentId]: message }));
+      setErrorsByAgent((current) => ({ ...current, [errorAgentId]: message }));
     }
-  }, [props.workspaceRoot, rememberRunResult, selectedAgentId, selectedChatKey]);
+  }, [activeRunIdByAgent, effectiveWorkspaceRoot, rememberRunResult, selectedAgentId, selectedChatKey]);
   return {
     onOpenAgentManagement: props.onOpenAgentManagement,
     onOpenArtifact: props.onOpenArtifact,
