@@ -44,6 +44,14 @@ describe("agent-management desktop skill errors", () => {
     expect(message).not.toMatch(/Unsupported skill agent/);
     expect(message.length).toBeGreaterThan(8);
   });
+
+  test("maps unmanaged-in-app-dir English IPC without hard-coded CJK", () => {
+    const message = formatAgentManagementDesktopError(
+      new Error("Unmanaged skill is in the app directory"),
+    );
+    expect(message).not.toMatch(/Unmanaged skill is in the app directory/);
+    expect(message.length).toBeGreaterThan(8);
+  });
 });
 
 describe("skill matrix cells for fleet agents without skill sync", () => {

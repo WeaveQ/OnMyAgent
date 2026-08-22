@@ -26,10 +26,7 @@ export function formatAgentManagementDesktopError(raw: unknown): string {
   if (/Invalid skill directory/i.test(inner)) {
     return t("skills.error_invalid_directory");
   }
-  if (
-    /Unmanaged skill is in the app directory/i.test(inner) ||
-    /未托管 Skill 位于当前应用目录/.test(inner)
-  ) {
+  if (/Unmanaged skill is in the app directory/i.test(inner)) {
     return t("skills.error_unmanaged_in_app_dir");
   }
   if (
