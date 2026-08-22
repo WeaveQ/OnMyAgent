@@ -37,7 +37,7 @@
 
 页标题与主栏短名统一为 **文件**（i18n：`files.title` / `nav.files` 应对齐，避免「我的文件」双轨）。
 
-默认打开 Tab：**用户上传**（deep link `?view=files` 无子参数时落此 Tab）。
+默认打开 Tab：**任务文件**（Task files；deep link `?view=files` 无子参数时落此 Tab）。
 
 ---
 

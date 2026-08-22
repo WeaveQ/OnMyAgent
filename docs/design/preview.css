@@ -13,6 +13,7 @@
   --pv-surface: #FFFFFF;
   --pv-surface-muted: #F4F4F5;
   --pv-background: #FAFAFA;
+  --pv-app-bg: #F5F5F5;
   --pv-sidebar: #F0F0F0;
   --pv-rail-bg: #E4E2E3;
   /* Sidebar list active / hover (not free-float pill). */
@@ -20,6 +21,8 @@
   --pv-rail-hover: #E2E2E2;
   /* Free-float rail selected pill (light solid white). */
   --pv-rail-pill-active: #FFFFFF;
+  /* YAML rail-pill-hover base hex; index.css mixes at 5%. */
+  --pv-rail-pill-hover: #000000;
   --pv-border: #E5E7EB;
   --pv-border-strong: #CBD5E1;
   /* Neutral grays — blue-tinted hover/active read as selected chips (DESIGN.md). */
@@ -41,7 +44,7 @@
   /* Artifact hue palette (DESIGN.md § 4h). Radix shade 9. */
   --pv-hue-image: #6e56cf;
   --pv-hue-code: #0090ff;
-  --pv-hue-document: #8b8d98;
+  --pv-hue-document: #3e63dd;
   --pv-hue-data: #12a594;
   --pv-hue-plot: #46a758;
   --pv-hue-3d: #ab4aba;
@@ -51,11 +54,12 @@
   --dls-primary: var(--pv-primary);
   --dls-surface: var(--pv-surface);
   --dls-surface-muted: var(--pv-surface-muted);
-  --dls-app-bg: var(--pv-background);
+  --dls-app-bg: var(--pv-app-bg);
   --dls-rail-bg: var(--pv-rail-bg);
   --dls-rail-active: var(--pv-rail-active);
   --dls-rail-hover: var(--pv-rail-hover);
   --dls-rail-pill-active: var(--pv-rail-pill-active);
+  --dls-rail-pill-hover: var(--pv-rail-pill-hover);
   --dls-border: var(--pv-border);
   --dls-border-strong: var(--pv-border-strong);
   --dls-hover: var(--pv-hover);
@@ -64,7 +68,7 @@
   --dls-list-hover: var(--pv-list-hover);
   --dls-text-primary: var(--pv-ink);
   --dls-text-secondary: var(--pv-slate);
-  --dls-text-tertiary: #94A3B8;
+  --dls-text-tertiary: #64748B;
   --dls-danger: var(--pv-danger);
   --dls-warning: var(--pv-warning);
   --dls-success-fg: var(--pv-success-fg);
@@ -83,12 +87,15 @@
   --pv-surface: #2C2C2C;
   --pv-surface-muted: #333333;
   --pv-background: #1F1F1F;
+  --pv-app-bg: #1F1F1F;
   --pv-sidebar: #2A2A2A;
   --pv-rail-bg: #141414;
   --pv-rail-active: #404040;
   --pv-rail-hover: #2A2A2A;
   /* Free-float selected pill — lighter than rail-active so chips do not read black. */
   --pv-rail-pill-active: #555555;
+  /* YAML rail-pill-hover base hex; index.css mixes at 5%. */
+  --pv-rail-pill-hover: #FFFFFF;
   --pv-border: #3A3A3A;
   --pv-border-strong: #4A4A4A;
   --pv-hover: #323232;
@@ -106,24 +113,25 @@
   --pv-icon-bg: #102A5C;
   --pv-icon-fg: #7FB0FF;
   --pv-code-bg: #2A2A2A;
-  /* Artifact hue palette (DESIGN.md § 4h). Radix shade 4 for dark mode chroma. */
-  --pv-hue-image: #33255b;
-  --pv-hue-code: #003362;
-  --pv-hue-document: #272a2d;
-  --pv-hue-data: #023b37;
-  --pv-hue-plot: #1d3a24;
-  --pv-hue-3d: #451d47;
-  --pv-hue-audio: #4b143d;
-  --pv-hue-video: #4d122f;
+  /* Artifact hue palette (DESIGN.md § 4h). Radix shade 11 (icon/text), not step 4. */
+  --pv-hue-image: #baa7ff;
+  --pv-hue-code: #70b8ff;
+  --pv-hue-document: #9eb1ff;
+  --pv-hue-data: #0bd8b6;
+  --pv-hue-plot: #71d083;
+  --pv-hue-3d: #e796f3;
+  --pv-hue-audio: #ff8dcc;
+  --pv-hue-video: #ff92ad;
   /* DLS aliases so section 10–14 markup using var(--dls-*) resolves against this preview stylesheet. */
   --dls-primary: var(--pv-primary);
   --dls-surface: var(--pv-surface);
   --dls-surface-muted: var(--pv-surface-muted);
-  --dls-app-bg: var(--pv-background);
+  --dls-app-bg: var(--pv-app-bg);
   --dls-rail-bg: var(--pv-rail-bg);
   --dls-rail-active: var(--pv-rail-active);
   --dls-rail-hover: var(--pv-rail-hover);
   --dls-rail-pill-active: var(--pv-rail-pill-active);
+  --dls-rail-pill-hover: var(--pv-rail-pill-hover);
   --dls-border: var(--pv-border);
   --dls-border-strong: var(--pv-border-strong);
   --dls-hover: var(--pv-hover);
@@ -132,7 +140,7 @@
   --dls-list-hover: var(--pv-list-hover);
   --dls-text-primary: var(--pv-ink);
   --dls-text-secondary: var(--pv-slate);
-  --dls-text-tertiary: #64748B;
+  --dls-text-tertiary: #94A3B8;
   --dls-danger: var(--pv-danger);
   --dls-warning: var(--pv-warning);
   --dls-success-fg: var(--pv-success-fg);

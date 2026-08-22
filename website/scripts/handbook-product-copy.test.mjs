@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
@@ -8,6 +8,21 @@ const docs = join(dirname(fileURLToPath(import.meta.url)), "../docs");
 
 function readDoc(relative) {
   return readFileSync(join(docs, relative), "utf8");
+}
+
+function listMarkdownDocs(dir = docs, prefix = "") {
+  const entries = readdirSync(dir, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+    const abs = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...listMarkdownDocs(abs, rel));
+    } else if (entry.name.endsWith(".md")) {
+      files.push(rel);
+    }
+  }
+  return files;
 }
 
 test("changelog ships 0.5.9 before the old 0.5.4 heading", () => {
@@ -31,6 +46,33 @@ test("changelog lists 0.5.25 user-visible notes before 0.5.15", () => {
   assert.match(text, /货架快照/);
 });
 
+test("zh and en changelogs ship 0.5.26 before 0.5.25", () => {
+  for (const rel of ["changelog.md", "en/changelog.md"]) {
+    const text = readDoc(rel);
+    const latest = text.indexOf("## 0.5.26");
+    const older = text.indexOf("## 0.5.25");
+    assert.ok(latest >= 0, `${rel} must have ## 0.5.26`);
+    assert.ok(older >= 0, `${rel} must have ## 0.5.25`);
+    assert.ok(older > latest, `${rel}: 0.5.26 must appear before 0.5.25`);
+  }
+});
+
+test("Task Center copy does not claim local/dev still shows the rail", () => {
+  const stale = [
+    "本地开发仍可见",
+    "still visible in local dev",
+    "local/dev still shows the rail",
+  ];
+  const hits = [];
+  for (const rel of listMarkdownDocs()) {
+    const text = readDoc(rel);
+    for (const needle of stale) {
+      if (text.includes(needle)) hits.push(`${rel}: ${needle}`);
+    }
+  }
+  assert.equal(hits.length, 0, `stale Task Center rail copy:\n${hits.join("\n")}`);
+});
+
 test("intro main-rail table includes 知识库", () => {
   const text = readDoc("index.md");
   const rail = text.slice(text.indexOf("## 3. 界面怎么走"));
@@ -41,6 +83,8 @@ test("capability-status marks 知识库 正式可用 and hides 任务中心", ()
   const text = readDoc("guide/capability-status.md");
   assert.match(text, /^\| 知识库 \| 正式可用 \|/m);
   assert.match(text, /^\| 任务中心 \| 隐藏 \/ 开发者 \|/m);
+  assert.match(text, /账号菜单.*Agent 任务/);
+  assert.doesNotMatch(text, /本地开发仍可见/);
 });
 
 test("skills guide documents builtin lock, inject, and 去对话", () => {
