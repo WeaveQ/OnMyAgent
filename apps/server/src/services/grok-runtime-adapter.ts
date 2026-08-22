@@ -383,8 +383,18 @@ export class GrokRuntimeAdapter implements AgentRuntimeAdapter {
     this.#unbindPermissionSession(binding.runtimeSessionId);
     // Native history is already gone. Cleanup is secondary and must not leave
     // the product binding sticky when a staged-file or directory cleanup fails.
-    await cleanupGrokStagedAttachments({ sessionId: binding.productSessionId }).catch(() => undefined);
-    await Promise.resolve(this.#cleanupSession(binding)).catch(() => undefined);
+    await cleanupGrokStagedAttachments({ sessionId: binding.productSessionId }).catch((error) => {
+      console.warn("[onmyagent-server] grok staged-attachment cleanup failed after native delete", {
+        productSessionId: binding.productSessionId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+    await Promise.resolve(this.#cleanupSession(binding)).catch((error) => {
+      console.warn("[onmyagent-server] grok session cleanup failed after native delete", {
+        productSessionId: binding.productSessionId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
   }
 
   async renameSession(binding: RuntimeSessionBinding, title: string): Promise<void> {

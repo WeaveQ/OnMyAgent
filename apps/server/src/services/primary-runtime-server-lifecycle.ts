@@ -32,8 +32,22 @@ export function startPrimaryRuntimeServerLifecycle(input: {
     async stop() {
       services.registry.beginDrain();
       input.approvals.cancelAll();
-      await services.registry.stop();
-      await archive.stop();
+      await stopPrimaryRuntimeOwners({
+        stopRegistry: () => services.registry.stop(),
+        stopArchive: () => archive.stop(),
+      });
     },
   };
+}
+
+/** Drain adapters first; always stop archive even if Grok/OpenCode stop throws. */
+export async function stopPrimaryRuntimeOwners(input: {
+  stopRegistry: () => Promise<void>;
+  stopArchive: () => Promise<void>;
+}): Promise<void> {
+  try {
+    await input.stopRegistry();
+  } finally {
+    await input.stopArchive();
+  }
 }

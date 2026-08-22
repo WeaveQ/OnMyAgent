@@ -261,18 +261,26 @@ describe("GrokRuntimeAdapter", () => {
   test("keeps native-delete success even when local cleanup fails", async () => {
     const fixture = processFixture();
     const unbound: string[] = [];
+    const warnings: unknown[] = [];
+    const originalWarn = console.warn;
+    console.warn = (...args: unknown[]) => { warnings.push(args); };
     const adapter = new GrokRuntimeAdapter({
       supervisor: { async start() { return fixture.handle; }, async stopAll() {} },
       resolvePolicy: () => ({ binaryPath: "grok", runtimeHome: "/runtime/grok" }),
       unbindPermissionSession: (runtimeSessionId) => { unbound.push(runtimeSessionId); },
       cleanupSession: async () => { throw new Error("fixture cleanup failed"); },
     });
-    await expect(adapter.deleteSession(binding)).resolves.toBeUndefined();
+    try {
+      await expect(adapter.deleteSession(binding)).resolves.toBeUndefined();
+    } finally {
+      console.warn = originalWarn;
+    }
     expect(unbound).toEqual(["native-session"]);
     expect(fixture.requests.map((request) => request.method)).toEqual([
       "x.ai/session/delete",
       "session/close",
     ]);
+    expect(JSON.stringify(warnings)).toContain("grok session cleanup failed after native delete");
   });
 
   test("prompts and cancels through base ACP without changing the sticky binding", async () => {
