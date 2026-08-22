@@ -7,6 +7,7 @@ import {
   createExpertOperationId,
   refreshExpertPackageQuery,
   usePendingAgentStore,
+  type PendingAgentContext,
 } from "../../agents";
 import { installSummonedMarketplaceExpert } from "@/react-app/domains/plugins";
 import { buildPendingAgentFromMarketplaceExpert } from "@/react-app/domains/agents";
@@ -16,6 +17,30 @@ import {
   setExpertComposerDraftAfterNewTask,
   setExpertComposerTemplateAfterNewTask,
 } from "./shared-page-utils";
+
+export function startPendingExpertInWorkspace(input: {
+  pending: PendingAgentContext;
+  selectedWorkspaceId: string;
+  onCreateTaskInWorkspace: (workspaceId: string) => void;
+  onNavigateToMode: (mode: "expert") => void;
+}) {
+  const {
+    pending,
+    selectedWorkspaceId,
+    onCreateTaskInWorkspace,
+    onNavigateToMode,
+  } = input;
+  usePendingAgentStore.getState().setAgent(pending);
+  onCreateTaskInWorkspace(selectedWorkspaceId);
+  usePendingAgentStore.getState().setAgent({
+    ...pending,
+    boundSessionId: undefined,
+    operationId: createExpertOperationId(),
+    draftCreatedAt: Date.now(),
+    draftSource: "agent-selection",
+  });
+  onNavigateToMode("expert");
+}
 
 export function useSummonMarketplaceExpert(options: {
   selectedWorkspaceId: string;
@@ -39,18 +64,13 @@ export function useSummonMarketplaceExpert(options: {
             error,
           );
         });
-      // Bind pending agent BEFORE create-task: that path clears pendingAgent
-      // synchronously, which used to drop the expert id on race.
       const pending = buildPendingAgentFromMarketplaceExpert(expert);
-      usePendingAgentStore.getState().setAgent(pending);
-      onCreateTaskInWorkspace(selectedWorkspaceId);
-      // Re-assert after create-task's setAgent(null).
-      usePendingAgentStore.getState().setAgent({
-        ...pending,
-        boundSessionId: undefined,
-        operationId: createExpertOperationId(),
-        draftCreatedAt: Date.now(),
-        draftSource: "agent-selection",
+      // Bind before create-task and re-assert after it clears pending state.
+      startPendingExpertInWorkspace({
+        pending,
+        selectedWorkspaceId,
+        onCreateTaskInWorkspace,
+        onNavigateToMode,
       });
       // Prefill only explicit quick-prompt or logistics templates (not default intro).
       if (startPrompt?.template) {
@@ -66,7 +86,6 @@ export function useSummonMarketplaceExpert(options: {
           startPrompt.prompt,
         );
       }
-      onNavigateToMode("expert");
     },
     [onCreateTaskInWorkspace, onNavigateToMode, selectedWorkspaceId],
   );

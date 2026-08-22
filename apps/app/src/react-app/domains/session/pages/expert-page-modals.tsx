@@ -11,6 +11,40 @@ import {
 import type { CustomConnectorDialogView } from "./use-custom-connector-dialog";
 import type { SessionPageProps } from "./session-page-types";
 
+export type ExpertDeleteModalProps = {
+  open: boolean;
+  busy: boolean;
+  title: string;
+  message: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+};
+
+/** Shared expert-delete confirmation for Expert and Store entry routes. */
+export function ExpertDeleteModal(props: ExpertDeleteModalProps) {
+  return (
+    <SessionTaskRenameDeleteModals
+      canRename={false}
+      renameOpen={false}
+      renameTitle=""
+      renameBusy={false}
+      canSaveRename={false}
+      onRenameClose={() => undefined}
+      onRenameSave={() => undefined}
+      onRenameTitleChange={() => undefined}
+      showDelete={props.open}
+      deleteOpen={props.open}
+      deleteBusy={props.busy}
+      deleteTitle={props.title}
+      deleteMessage={props.message}
+      deleteConfirmLabel={props.confirmLabel}
+      onDeleteConfirm={props.onConfirm}
+      onDeleteCancel={props.onCancel}
+    />
+  );
+}
+
 export type ExpertPageModalsProps = {
   selectedWorkspaceId: string;
   selectedWorkspaceRoot: string;
@@ -103,14 +137,23 @@ export function ExpertPageModals({
         onRenameClose={closeRenameModal}
         onRenameSave={() => void submitRename()}
         onRenameTitleChange={setRenameTitle}
-        showDelete={deleteOpen}
-        deleteOpen={deleteOpen}
-        deleteBusy={deleteBusy}
-        deleteTitle={expertDeleteTitle}
-        deleteMessage={expertDeleteMessage}
-        deleteConfirmLabel={expertDeleteConfirmLabel}
-        onDeleteConfirm={() => void confirmDelete()}
-        onDeleteCancel={closeDeleteModal}
+        showDelete={false}
+        deleteOpen={false}
+        deleteBusy={false}
+        deleteTitle=""
+        deleteMessage=""
+        deleteConfirmLabel=""
+        onDeleteConfirm={() => undefined}
+        onDeleteCancel={() => undefined}
+      />
+      <ExpertDeleteModal
+        open={deleteOpen}
+        busy={deleteBusy}
+        title={expertDeleteTitle}
+        message={expertDeleteMessage}
+        confirmLabel={expertDeleteConfirmLabel}
+        onConfirm={() => void confirmDelete()}
+        onCancel={closeDeleteModal}
       />
       {shareWorkspaceModal ? <ShareWorkspaceModal {...shareWorkspaceModal} /> : null}
       <CustomConnectorDialog

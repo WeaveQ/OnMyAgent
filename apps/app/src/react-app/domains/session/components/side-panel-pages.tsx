@@ -43,7 +43,7 @@ import {
   PluginsPage,
   SkillsMarketplacePage,
   type ArtifactPluginPromptSelection,
-  filterLocalShelfExperts,
+  filterMyExperts,
   type ExpertMarketplaceEntry,
   type ExpertMarketplaceSummonHandler,
   type ExpertMarketplaceView,
@@ -382,14 +382,7 @@ export function StorePage(props: {
   const [skillImportOpen, setSkillImportOpen] = useState(false);
   const [localCustomConnectorOpen, setLocalCustomConnectorOpen] = useState(false);
   const activeTab = props.activeTab ?? uncontrolledActiveTab;
-  const shelfExperts = useMemo(
-    () =>
-      filterLocalShelfExperts(
-        props.myExperts ?? [],
-        props.activeExpertAgentIds,
-      ),
-    [props.activeExpertAgentIds, props.myExperts],
-  );
+  const myExperts = useMemo(() => filterMyExperts(props.myExperts ?? []), [props.myExperts]);
   const openCustomConnector =
     props.onOpenCustomConnector ?? (() => setLocalCustomConnectorOpen(true));
   const customConnectorControlled = Boolean(props.onOpenCustomConnector);
@@ -473,9 +466,9 @@ export function StorePage(props: {
               >
                 <Users className="size-3.5 shrink-0 text-dls-text" strokeWidth={2} aria-hidden />
                 {t("session.my_experts")}
-                {shelfExperts.length > 0 ? (
+                {myExperts.length > 0 ? (
                   <CountBadge size="dot" className="ml-0.5">
-                    {shelfExperts.length}
+                    {myExperts.length}
                   </CountBadge>
                 ) : null}
               </Button>

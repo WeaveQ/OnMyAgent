@@ -14,6 +14,10 @@ test("my expert packages preserve role prompt, memory, and selected skills", () 
     rolePrompt: "Ask for constraints before making a recommendation.",
     memory: "Remember the user's preferred risk level.",
     skills: ["research", "planning"],
+    skillDetails: [
+      { name: "research", description: "Use when evidence must be found and compared." },
+      { name: "planning", description: "Use when goals need an executable plan." },
+    ],
     introStyle: "short-colleague",
   }, "decision-coach");
 
@@ -28,7 +32,11 @@ test("my expert packages preserve role prompt, memory, and selected skills", () 
   assert.match(files.agentMarkdown, /Ask for constraints/);
   assert.match(files.agentMarkdown, /## 专家记忆/);
   assert.match(files.agentMarkdown, /preferred risk level/);
-  assert.match(files.agentMarkdown, /`research`、`planning`/);
+  assert.match(files.agentMarkdown, /skills:\s+?- research\s+?- planning/);
+  assert.match(files.agentMarkdown, /Use when evidence must be found and compared\./);
+  assert.match(files.agentMarkdown, /\.\.\/skills\/research\/SKILL\.md/);
+  assert.match(files.agentMarkdown, /\.opencode\/skills\/research\/SKILL\.md/);
+  assert.match(files.agentMarkdown, /先读取对应的完整 `SKILL\.md`/);
 });
 
 test("imported team packages expose their single-lead workflow", async (context) => {

@@ -1,10 +1,12 @@
 /** Reactive owner for locally installed Expert package metadata. */
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { listExpertPackages } from "../../../app/lib/desktop";
 import type { ExpertPackageListEntry } from "../../../app/lib/desktop";
 import { isElectronRuntime } from "../../../app/utils";
 import { getReactQueryClient } from "../../infra/query-client";
+import { reconcilePersistedMineExpertAvatars } from "./expert-import-registry";
 
 export const EXPERT_PACKAGE_QUERY_KEY = ["expert-packages", "local"] as const;
 
@@ -44,12 +46,19 @@ export function useExpertPackageQuery(
   enabled = true,
   marketplaces: readonly ExpertPackageMarketplace[] = ["experts", "my-experts"],
 ) {
-  return useQuery<ExpertPackageListEntry[], Error>({
+  const query = useQuery<ExpertPackageListEntry[], Error>({
     queryKey: [...EXPERT_PACKAGE_QUERY_KEY, ...marketplaces],
     queryFn: () => fetchExpertPackageEntries(marketplaces),
     enabled: enabled && isElectronRuntime(),
     staleTime: 30_000,
   });
+  useEffect(() => {
+    if (!query.data) return;
+    void reconcilePersistedMineExpertAvatars(query.data).catch((error) => {
+      console.warn("[expert-package] avatar reconciliation failed", error);
+    });
+  }, [query.data]);
+  return query;
 }
 
 /** Mark package metadata stale after an install, rewrite, or delete. */

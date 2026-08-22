@@ -43,7 +43,7 @@ import { NO_EXPERT_CONVERSATIONS_ASSET } from "./expert-page-utils";
 import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import { ExpertDirectoryIncompleteNotice } from "./expert-directory-incomplete-notice";
 
-import { mergeLocalShelfWithConversations } from "../../plugins";
+import { buildStoreExpertShelf } from "./expert-conversation-model";
 import { ExpertPageAfterPrimary, ExpertPageSessionSurface } from "./expert-page-main-surface";
 import { ExpertPageModals } from "./expert-page-modals";
 import { ExpertPageRail } from "./expert-page-rail";
@@ -107,6 +107,10 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
     visitedRailViews,
     handleSelectArtifactPrompt,
   } = rail;
+  const storeExpertShelf = buildStoreExpertShelf({
+    packages: myExpertPackages,
+    conversations: [...conversationGroups, ...draftAgentGroups],
+  });
   useEffect(() => subscribeOpenKnowledgeNote(() => openRailView("knowledgeBase")), [openRailView]);
   const {
     activeAgentContext,
@@ -222,6 +226,7 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
               sessionStatusById={props.sidebar.sessionStatusById}
               draftAgentGroup={draftAgentGroup}
               draftAgentGroups={draftAgentGroups}
+              expertPackageAvatars={myExpertPackages}
               query={agentSearch}
               onQueryChange={setAgentSearch}
               onToggleCollapsed={() => setAgentPanelCollapsed((value) => !value)}
@@ -290,14 +295,8 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
                         workspaceRoot={props.selectedWorkspaceRoot}
                         client={props.onmyagentServerClient}
                         activeTab={storeActiveTab}
-                        myExperts={mergeLocalShelfWithConversations(
-                          myExpertPackages,
-                          [...conversationGroups, ...draftAgentGroups],
-                        )}
-                        activeExpertAgentIds={[
-                          ...conversationGroups.map((group) => group.agentId),
-                          ...draftAgentGroups.map((group) => group.agentId),
-                        ].filter((id): id is string => Boolean(id?.trim()))}
+                        myExperts={storeExpertShelf.experts}
+                        activeExpertAgentIds={storeExpertShelf.activeExpertAgentIds}
                         onActiveTabChange={setStoreActiveTab}
                         onSummonMarketplaceExpert={handleStartMarketplaceExpert}
                         onCreateExpert={openExpertCreation}

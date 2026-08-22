@@ -184,6 +184,7 @@ export {
   isLocalShelfExpert,
   expertPackageMatchesAgentId,
   filterLocalShelfExperts,
+  filterMyExperts,
   mergeLocalShelfWithConversations,
 } from "./expert-marketplace/data";
 export {

@@ -1,5 +1,7 @@
 import type { UIMessage } from "ai";
 
+import { readTranscriptMessageMetadata } from "./message-metadata";
+
 import { skillTurnTextsEquivalent } from "../surface/skill-reference";
 
 type OptimisticSessionUserMessageInput = {
@@ -51,7 +53,20 @@ export function addOptimisticSessionUserMessage(
     metadata: { opencode: { created: input.createdAt } },
     parts: [{ type: "text", text: input.text, state: "done" }],
   };
-  return [...current, message];
+  const insertionIndex = current.findIndex((item) => {
+    const createdAt = readTranscriptMessageMetadata(item.metadata).created;
+    if (createdAt === null) return false;
+    return (
+      createdAt > input.createdAt ||
+      (createdAt === input.createdAt && item.role === "assistant")
+    );
+  });
+  if (insertionIndex === -1) return [...current, message];
+  return [
+    ...current.slice(0, insertionIndex),
+    message,
+    ...current.slice(insertionIndex),
+  ];
 }
 
 export function removeOptimisticSessionUserMessage(

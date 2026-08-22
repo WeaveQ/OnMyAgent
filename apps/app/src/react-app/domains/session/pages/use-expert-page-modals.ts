@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import type { AgentRegistry } from "../../agents";
 import type { AgentConversationGroup } from "../sidebar/session-chrome";
 import type { SidebarSessionItem } from "../../../../app/types";
@@ -38,10 +39,16 @@ export function useExpertPageModals(input: {
     executeDelete: executeExpertDelete,
     requireGroupSessionIds: false,
   });
+  const openDeleteGroupModal = useCallback(
+    (target: ExpertGroupDeleteTarget) => {
+      modal.openDeleteGroupModal(target);
+    },
+    [modal.openDeleteGroupModal],
+  );
   const hardDelete = useExpertHardDeleteUi({
     registry: input.registry,
     conversationGroups: input.conversationGroups,
-    openDeleteGroupModal: modal.openDeleteGroupModal,
+    openDeleteGroupModal,
   });
   const copy = resolveExpertDeleteCopy({
     deleteTarget: modal.deleteTarget,
@@ -52,6 +59,7 @@ export function useExpertPageModals(input: {
   return {
     ...modal,
     ...hardDelete,
+    openDeleteGroupModal,
     expertDeleteTitle: copy.title,
     expertDeleteMessage: copy.message,
     expertDeleteConfirmLabel: copy.confirmLabel,

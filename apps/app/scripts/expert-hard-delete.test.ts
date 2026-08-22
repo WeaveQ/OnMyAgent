@@ -7,11 +7,13 @@ import type {
 import {
   canHardDeleteExpert,
   deleteExpertPackageForAgent,
+  finalizeExpertRegistryAfterDelete,
   packageNameCandidatesForAgent,
   packageNameForAgent,
 } from "../src/react-app/domains/agents/expert-hard-delete";
 import type { AgentRegistry } from "../src/react-app/domains/agents";
 import { EXPERT_CREATION_COACH_AGENT_ID } from "../src/react-app/domains/agents";
+import { buildExpertPageNavigationModel } from "../src/react-app/domains/session/pages/expert-page-navigation-model";
 
 function emptyRegistry(agents: AgentRegistry["agents"] = []): AgentRegistry {
   return {
@@ -25,6 +27,54 @@ function emptyRegistry(agents: AgentRegistry["agents"] = []): AgentRegistry {
 }
 
 describe("expert hard delete", () => {
+  test("removes the summoned expert definition even when its reusable package is retained", async () => {
+    const registry = emptyRegistry([
+      {
+        id: "agent-1",
+        name: "Retained package expert",
+        description: "",
+        quote: "",
+        tone: "friendly",
+        avatarStyle: "lorelei",
+        avatarOptionId: "lorelei-mentor",
+        customAvatarDataUrl: null,
+        modelProvider: "auto",
+        model: "Auto",
+        enabledToolIds: [],
+        defaultWorkspace: "",
+        skillIds: [],
+        preferredName: "",
+        preferredLanguage: "zh",
+        userNote: "",
+        userBackground: "",
+        sourceTemplateId: null,
+        marketplaceSource: "mine",
+        marketplacePackageName: "pkg-a",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
+
+    const next = await finalizeExpertRegistryAfterDelete({
+      agentId: "agent-1",
+      registry,
+      deletePackage: false,
+    });
+
+    expect(next?.agents).toEqual([]);
+    expect(
+      buildExpertPageNavigationModel({
+        draftAgentContexts: {},
+        selectedWorkspaceId: "ws-1",
+        draftAgentId: null,
+        activeConversationAgentId: null,
+        conversationGroups: [],
+        pendingAgent: null,
+        registry: next,
+      }).draftAgentGroups,
+    ).toEqual([]);
+  });
+
   test("blocks product builtin coach", () => {
     expect(canHardDeleteExpert(EXPERT_CREATION_COACH_AGENT_ID, emptyRegistry())).toBe(
       false,

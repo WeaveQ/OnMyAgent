@@ -116,6 +116,22 @@ export async function removeExpertFromRegistry(input: {
 }
 
 /**
+ * Finalize expert membership after a successful hard-delete saga.
+ * Package retention is independent: keeping a reusable package must not keep
+ * the expert summoned in the registry-backed sidebar.
+ */
+export async function finalizeExpertRegistryAfterDelete(input: {
+  agentId: string;
+  registry: AgentRegistry | null;
+  deletePackage: boolean;
+}): Promise<AgentRegistry | null> {
+  return removeExpertFromRegistry({
+    agentId: input.agentId,
+    registry: input.registry,
+  });
+}
+
+/**
  * Delete custom marketplace packages through the replay-safe desktop saga.
  *
  * The marketplace package name is authoritative when present, with the agent id

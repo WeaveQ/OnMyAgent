@@ -15,6 +15,7 @@ import { createDefaultAgentRegistry } from "../../agents";
 import { resolveAgentAvatarUrl } from "../../agents";
 import type { AgentRegistry, AgentTemplate } from "../../agents";
 import { buildPendingAgentFromRecord } from "../../agents";
+import { findCreationEditableAgent } from "../../agents";
 import { findBuiltinMarketplaceExpertById } from "@/react-app/domains/plugins";
 import {
   readSessionAgentSnapshot,
@@ -54,6 +55,14 @@ export type AgentConversationGroup = {
   avatarBackground: string;
   sessions: WorkspaceSessionGroup["sessions"];
   latestSession: WorkspaceSessionGroup["sessions"][number];
+};
+
+export type AgentConversationPackageAvatar = {
+  id: string;
+  packageName: string;
+  leadAgentName: string;
+  source: "builtin" | "installed" | "mine";
+  avatarUrl: string | null;
 };
 
 export type AgentStarterItem = {
@@ -629,6 +638,7 @@ export function buildAgentConversationGroups(
     agentIdBySessionId: ReadonlyMap<string, string>;
   },
   previewBySessionId?: Map<string, string>,
+  packageAvatars?: readonly AgentConversationPackageAvatar[],
 ): AgentConversationGroup[] {
   const groups = new Map<string, AgentConversationGroup>();
   for (const session of sessions) {
@@ -639,13 +649,24 @@ export function buildAgentConversationGroups(
     if (!agentId) continue;
     const agent =
       registry && agentId
-        ? (registry.agents.find((item) => item.id === agentId) ??
+        ? (findCreationEditableAgent(registry.agents, agentId) ??
+          registry.agents.find((item) => item.id === agentId) ??
           registry.templates.find((item) => item.id === agentId))
         : null;
     const restoredAgent = agent && registry ? buildPendingAgentFromRecord(agent, registry) : null;
     const marketplaceExpert = restoredAgent ? null : findBuiltinMarketplaceExpertById(agentId);
     const sessionAgentSnapshot =
       restoredAgent || marketplaceExpert ? null : readSessionAgentSnapshot(session.id);
+    const shortAgentId = agentId.split(":").filter(Boolean).at(-1) ?? agentId;
+    const packageAvatar = packageAvatars?.find(
+      (item) =>
+        item.id === agentId ||
+        item.id === shortAgentId ||
+        item.packageName === agentId ||
+        item.packageName === shortAgentId ||
+        item.leadAgentName === agentId ||
+        item.leadAgentName === shortAgentId,
+    );
     const key = `agent:${agentId}`;
     const existing = groups.get(key);
     const sessionPreview =
@@ -677,6 +698,14 @@ export function buildAgentConversationGroups(
           sessionAgentSnapshot?.description ??
           t("session.agent_config_missing"));
 
+    const useMineAvatarFallback =
+      Boolean(
+        agent &&
+        "marketplaceSource" in agent &&
+        agent.marketplaceSource === "mine" &&
+        "customAvatarDataUrl" in agent &&
+        !agent.customAvatarDataUrl?.trim(),
+      ) || Boolean(packageAvatar?.source === "mine" && !packageAvatar.avatarUrl);
     groups.set(key, {
       key,
       agentId,
@@ -684,10 +713,13 @@ export function buildAgentConversationGroups(
       description,
       preview: sessionPreview,
       avatarUrl:
-        restoredAgent?.avatar.avatarUrl ??
-        marketplaceExpert?.avatarUrl ??
-        sessionAgentSnapshot?.avatarUrl ??
-        null,
+        packageAvatar?.avatarUrl ??
+        (useMineAvatarFallback
+          ? null
+          : (restoredAgent?.avatar.avatarUrl ??
+            marketplaceExpert?.avatarUrl ??
+            sessionAgentSnapshot?.avatarUrl ??
+            null)),
       avatarBackground:
         restoredAgent?.avatar.avatarBackground ??
         sessionAgentSnapshot?.avatarBackground ??
