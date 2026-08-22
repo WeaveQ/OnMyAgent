@@ -153,9 +153,11 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
   {
     id: "cursor-agent",
     displayName: "Cursor Agent CLI",
-    commands: ["cursor-agent", "cursor"],
+    // Editor `cursor` is VS Code's `code` shim, not the ACP agent.
+    commands: ["cursor-agent"],
     skillsDirs: [],
-    acpArgs: ["agent", "acp"],
+    wellKnownPaths: [join(HOME, ".local", "bin", "cursor-agent")],
+    acpArgs: ["acp"],
   },
   {
     id: "qwen",

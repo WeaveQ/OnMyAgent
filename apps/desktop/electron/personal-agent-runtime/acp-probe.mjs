@@ -9,6 +9,14 @@ function isAuthError(message) {
   return AUTH_ERROR_PATTERN.test(String(message ?? ""));
 }
 
+function probeErrorText(error, events) {
+  const message = error instanceof Error ? error.message : String(error);
+  const logs = (events ?? [])
+    .map((event) => String(event?.text ?? event?.message ?? "").trim())
+    .filter(Boolean);
+  return [message, ...logs].filter(Boolean).join("\n");
+}
+
 /**
  * Soft "logged-out but session/new still succeeds" agents (Upstream pattern).
  * Grok / Pi / WorkBuddy always advertise authMethods even when credentials work,
@@ -67,10 +75,25 @@ export async function probeAcpCommand({ command, args = [], cwd = process.cwd(),
         clientCapabilities: {},
       }, timeoutMs);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      // A process that exits or never speaks JSON-RPC failed at the CLI layer;
-      // an initialize that is answered with an error is an ACP-layer failure.
-      const step = /ACP process exited|ENOENT|command not found|not found|spawn/i.test(message) ? "fail_cli" : "fail_acp";
+      const message = probeErrorText(error, events);
+      // Cursor Agent prints "Authentication required" and exits — that is
+      // installed-but-logged-out, not a missing binary.
+      if (isAuthError(message)) {
+        return {
+          ok: false,
+          step: "needs_auth",
+          status: "needs_auth",
+          initialized: null,
+          sessionResult: null,
+          error: message,
+          events,
+        };
+      }
+      // Spawn ENOENT is missing. A process that starts then exits (wrong argv,
+      // auth, protocol) is installed → fail_acp / offline so auto-adopt still runs.
+      const missing = /ENOENT|command not found|no such file/i.test(message)
+        && !/ACP process exited/i.test(message);
+      const step = missing ? "fail_cli" : "fail_acp";
       return {
         ok: false,
         step,
@@ -126,7 +149,7 @@ export async function probeAcpCommand({ command, args = [], cwd = process.cwd(),
       }
       return { ok: true, step: "online", status: "online", initialized, sessionResult, error: null, events };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = probeErrorText(error, events);
       if (isAuthError(message)) {
         return { ok: false, step: "needs_auth", status: "needs_auth", initialized, sessionResult: null, error: message, events };
       }
