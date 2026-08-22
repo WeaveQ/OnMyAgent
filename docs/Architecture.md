@@ -66,7 +66,7 @@ packages/
 | 能力 | macOS | Windows | Linux desktop (dev-runnable, not a shipped SKU) |
 | --- | --- | --- | --- |
 | Agent Computer Use MCP | HandsFree helper（默认开，helper 就绪时） | Bundled **Cua Driver**（staged；MCP **默认关**） | 无产品包 / 无 helper |
-| Composer Appshot | Electron `desktopCapturer` | 同左 | 非产品目标（实现层或仍有 `platform===linux` 分支，勿当支持承诺） |
+| Composer Appshot | Electron `desktopCapturer` | 同左 | 同左 |
 | HandsFree AX / Skysight | ✓ | — | — |
 
 实现入口：`apps/desktop/electron/computer-use-desktop.mjs`、`computer-use-runtime-config.mjs`、`prepare-cua-helper.mjs`、`computer-use-appshot.mjs`。详表见 [`windows-compat.md`](./windows-compat.md)。
@@ -191,8 +191,11 @@ desktop(electron) → runtime.mjs → engineStart
   optional apps/orchestrator (not engineStart; not the desktop default):
     └→ spawn onmyagent-orchestrator daemon (sandbox / detached only)
          └→ spawn onmyagent-server binary (never import server source)
-         └→ OpenCode + approval router / Slack / Telegram
+         └→ OpenCode + approval router
   app(React) ← server HTTP API via onmyagent-server client
+    renderer → workspace `/opencode` HTTP mount
+    session list/get → workspace API (`/workspace/:id/sessions`)
+    OpenCode process managed by the embedded server (not a renderer SDK↔binary hop)
 
 app(React) ← desktop.ts(command-validated IPC bridge)
   ← preload.mjs
@@ -200,7 +203,7 @@ app(React) ← desktop.ts(command-validated IPC bridge)
   ← desktop-handlers/*（workspace / system / knowledge / company / computerUse / local-agents / task-orchestrator / messaging / agent-management / opencode / runtime / skills / managedTools）
   ← main.mjs（组装 services + createAllDesktopDomainHandlers）
 app(React) ← onmyagent-server.ts(compat barrel) ← onmyagent-server/client.ts + domains.ts ← server
-app(React) ← opencode.ts(SDK) ← opencode binary
+app(React) ← opencode.ts (SDK client/compat → workspace `/opencode` HTTP; not SDK ← binary)
 app(React) ← @onmyagent/types ← packages/types（Zod schema + DesktopCommandMap）
 ```
 
@@ -257,8 +260,8 @@ Electron main 另有主动 Supervisor watchdog（bounded backoff/jitter/circuit 
 工作中断；真实 `powerMonitor suspend/resume` 区间才从 Turn liveness budget 扣除，
 普通 event-loop/SQLite/provider stall 不享受豁免。
 
-微信、飞书、Telegram、Discord 的普通消息仍走 Personal runtime；只有显式
-`#task`/`/task` 进入共享 Messaging Task Adapter。
+微信、飞书、Telegram、Discord 的普通消息仍走 Personal runtime / desktop channels；只有显式
+`#task`/`/task` 进入共享 Messaging Task Adapter。Orchestrator 不是产品 IM 路径。
 绑 `onmyagent` / `onmyagent-assistant`（「本地助理」）的 IM 聊天是**产品例外**：
 `channels/assistant-bridge` 对 OpenCode 主轨 `session.create` / `promptAsync` 热写，
 会话出现在助手 tab 与 archive-sync（`listWorkspaceSessions` 无 surface 过滤）。

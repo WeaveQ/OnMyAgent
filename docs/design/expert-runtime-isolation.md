@@ -22,7 +22,7 @@ Expert sessions only injected persona via `system` while OpenCode still:
 | Skills | Copy **only** declared skill names from profile / `OPENCODE_GLOBAL_SKILLS_DIR` / legacy into `<session>/.opencode/skills/` |
 | Prompt | Expert / bound-expert turns force `agent` via `resolveExpertPromptAgent` (never Sisyphus) |
 | Lazy ensure | `POST .../expert-session-isolation` upgrades old dirs before next prompt |
-| Marker | `isolationVersion` (current **2**), `defaultAgent`, `installedSkills` on `onmyagent-session.json` |
+| Marker | `isolationVersion` (current **3**; previous **2**), `defaultAgent`, `installedSkills` on `onmyagent-session.json` |
 
 ## Path B — OpenCode process HOME sandbox (landed)
 

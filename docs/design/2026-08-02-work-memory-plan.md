@@ -139,7 +139,7 @@
 ~/.onmyagent/
   profiles/local/config/
     memory/
-      settings.json           # enabled, autoCapture, autoCaptureMode, schemaVersion
+      settings.json           # enabled, autoCapture, schemaVersion（autoCaptureMode 未落地）
     experts/                  # 【安装包】配置迁移负责，本模块只读 expertId
     skills/                   # 安装包
   data/user/awareness/
@@ -148,7 +148,7 @@
       style.md                # 语气 + 自定义指令
       profile.md              # 用户画像
       MEMORY.md               # 全局长期记忆
-      pending.json            # 全局待确认
+      pending.json            # 全局待确认（confirm_first 未落地）
       short/YYYY-MM-DD.md     # 近期摘要
       activity.log.jsonl      # 可选
       experts/
@@ -270,6 +270,18 @@ A 专家 systemPrompt
 
 ### 5.1 流水线
 
+**当前默认（已落地）：** `enabled=false`、`autoCapture=false`。打开 `autoCapture` 后 `applyAutoCaptureMemory` **立即**写入 `items`/`shortTerm`（专家会话写 C，否则全局），**无** pending / `confirm_first` 闸。
+
+```text
+用户消息（local composer）
+  → settings.enabled && autoCapture？
+  → 敏感过滤
+  → 规则抽取 → Candidate
+  → applyAutoCaptureMemory → items / shortTerm（立即）
+```
+
+**未落地 / 非当前默认：** pending 队列 + UI 确认（模式名 `confirm_first`）。勿当已交付。
+
 ```text
 用户消息（local composer）
   → settings.autoCapture？
@@ -280,9 +292,8 @@ A 专家 systemPrompt
   → 确认 → 对应 MEMORY.md（带 sessionId, source, updatedAt）
 ```
 
-- 默认 `autoCaptureMode = confirm_first`  
-- handbook **禁止**自动写  
-- **禁止**「只写 pending 无 UI」分开发布  
+- 工作区 handbook.md / 仓库 AGENTS.md **禁止**自动写（人工 only；与对话「自动写入」开关无关）
+- 若落地 confirm_first：**禁止**「只写 pending 无 UI」分开发布
 - P1 显式「记入记忆」入口（不靠 regex  alone）
 
 ### 5.2 Provenance 最低线（对齐 0726）
@@ -508,7 +519,7 @@ Desktop 改动注意 human gate。
 | 3 | 注入 B'；仅主轨 |
 | 4 | Personal 不做 |
 | 5 | 无向量 v1 |
-| 6 | confirm_first；pending 与 UI 同交付 |
+| 6 | 已落地默认：`enabled=false` / `autoCapture=false`；开 autoCapture 立即写 items/shortTerm。`confirm_first`（pending 与 UI 同交付）为 **未落地 / 非当前默认** |
 | 7 | 专家域 C 必做；与安装包分离 |
 | 8 | provenance：source + time + sessionId |
 | 9 | 双模式方案 1：逻辑同步 + 始终写本机 + 登录后异步备份企业 |
