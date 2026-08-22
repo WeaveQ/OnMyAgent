@@ -1157,6 +1157,9 @@ function SettingsRouteContent(props: SettingsSurfaceProps = {}) {
           setModelPickerOpen(false);
           handleOpenProviderAuth();
         }}
+        onGoToSettings={() => {
+          setModelPickerOpen(false);
+        }}
         onClose={() => setModelPickerOpen(false)}
       />
     </>
