@@ -10,7 +10,7 @@ import type {
 } from "@onmyagent/types/agent-runtime";
 import type { WorkspaceInfo } from "@onmyagent/types/server";
 import { ApiError } from "../core/errors.js";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type {
   AgentRuntimeAdapter,
   RuntimeAdapterCreatedSession,
@@ -384,16 +384,10 @@ export class GrokRuntimeAdapter implements AgentRuntimeAdapter {
     // Native history is already gone. Cleanup is secondary and must not leave
     // the product binding sticky when a staged-file or directory cleanup fails.
     await cleanupGrokStagedAttachments({ sessionId: binding.productSessionId }).catch((error) => {
-      console.warn("[onmyagent-server] grok staged-attachment cleanup failed after native delete", {
-        productSessionId: binding.productSessionId,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      warnGrokDeleteCleanup("staged_attachment", binding.productSessionId, error);
     });
     await Promise.resolve(this.#cleanupSession(binding)).catch((error) => {
-      console.warn("[onmyagent-server] grok session cleanup failed after native delete", {
-        productSessionId: binding.productSessionId,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      warnGrokDeleteCleanup("session", binding.productSessionId, error);
     });
   }
 
@@ -1197,4 +1191,30 @@ function assertGrokModelRef(
     "agent_runtime_model_ref_invalid",
     "Grok model references must use a runtime-scoped model id",
   );
+}
+
+function hashSessionId(id: string): string {
+  return `sha256:${createHash("sha256").update(id).digest("hex").slice(0, 16)}`;
+}
+
+function nodeErrorCode(error: unknown): string {
+  if (error instanceof ApiError) return error.code;
+  if (error && typeof error === "object" && "code" in error) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === "string" && /^[A-Z][A-Z0-9_]+$/.test(code)) return code;
+  }
+  return "unknown";
+}
+
+function warnGrokDeleteCleanup(
+  kind: "session" | "staged_attachment",
+  productSessionId: string,
+  error: unknown,
+): void {
+  console.warn("[onmyagent-server] grok cleanup failed after native delete", {
+    reason: "cleanup_failed",
+    kind,
+    sessionHash: hashSessionId(productSessionId),
+    errorCode: nodeErrorCode(error),
+  });
 }

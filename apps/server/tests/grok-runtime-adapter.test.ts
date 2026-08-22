@@ -280,7 +280,12 @@ describe("GrokRuntimeAdapter", () => {
       "x.ai/session/delete",
       "session/close",
     ]);
-    expect(JSON.stringify(warnings)).toContain("grok session cleanup failed after native delete");
+    const payload = JSON.stringify(warnings);
+    expect(payload).toContain("cleanup_failed");
+    expect(payload).toContain("\"kind\":\"session\"");
+    expect(payload).toContain("sha256:");
+    expect(payload).not.toContain("product-session");
+    expect(payload).not.toContain("fixture cleanup failed");
   });
 
   test("prompts and cancels through base ACP without changing the sticky binding", async () => {
