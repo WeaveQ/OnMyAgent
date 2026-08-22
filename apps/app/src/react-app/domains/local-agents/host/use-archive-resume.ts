@@ -33,9 +33,10 @@ type UseArchiveResumeParams = {
 };
 
 /**
- * Drives "resume a session-archive session into the local Agent view" (诉求2).
- * Extracted verbatim from `personal-local-agent-page.tsx` so the page stays
- * under the file-size gate; behavior is unchanged.
+ * Resume a session-archive entry into the local Agent view.
+ * Dual Runtime exception (Architecture): one-way copy of OpenCode archive
+ * messages into the Personal conversation store (`session-archive-resume`).
+ * Do not write back to session-archive.
  */
 export function useArchiveResume(params: UseArchiveResumeParams) {
   const {

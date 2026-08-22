@@ -307,6 +307,7 @@ claim→send→ack，断线后按每个 event stream cursor 重放；附件只�
 
 1. **Personal 不得**直接打开、写入或 dispose OpenCode / server 的 session-archive、主会话 SQLite 热路径。
 2. **OpenCode / server 生命周期**不得把 Personal conversation store 当作主会话真相源；Personal run 结束也不应「顺便」写主 archive，除非未来有**显式、单向、有主的**导出合同（默认无）。
+   **例外**：归档「恢复」(`useArchiveResume`，`source: session-archive-resume`) 是**单向副本**：renderer 经 `onmyagent-server` HTTP 读 session-archive 消息，再经 desktop IPC 写入 Personal conversation store，只为本地 Agent 视图展示历史。不写回主 archive，不把 Personal 当主会话真相源。静态门禁仍禁止同一文件混 import 两套 store。
 3. **同一用户意图**不得对同一逻辑会话同时挂两套热写路径（一边 HTTP session stream，一边 personal run 写同一 archive 行）。
    **例外**：IM「本地助理」只走 OpenCode 主轨（见上），不得再挂一条 Personal run 写同一会话。
 4. **Renderer 禁止** import `personal-agent-runtime/**` 或 adapter 实现；只经 `desktop.ts` IPC 与 `onmyagent-server` HTTP。
@@ -319,6 +320,7 @@ claim→send→ack，断线后按每个 event stream cursor 重放；附件只�
 - 改的是主会话、archive、SSE、workspace 会话 API？→ **OpenCode / server**。
 - 改的是本机 Claude/Codex/… 进程、ACP、local agent 卡片、personal 通道发消息？→ **Personal**。
 - 两边 UI 看起来像同一个聊天？→ 只共享 **conversation capability 展示**，不共享写存储。
+- 归档页 Resume 到本地 Agent 视图？→ **单向 copy** 进 Personal（`session-archive-resume`）；禁止写回 OpenCode archive。
 - 不确定谁写？→ **默认 OpenCode 主轨**；Personal 只读或独立 store，直到有书面合同。
 
 实现细节与 adapter 列表见 **Runtime Adapter**；主轨 archive 热路径见 **Server Archive Runtime**。
