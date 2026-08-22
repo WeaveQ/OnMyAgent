@@ -285,8 +285,7 @@ export function createAgentManagementSkills(options = {}) {
         return path.join(home, ".claude", "skills");
       case "codex":
         return path.join(home, ".codex", "skills");
-      case "gemini":
-        return path.join(home, ".gemini", "skills");
+      case "gemini": return path.join(home, ".gemini", "skills");
       case "hermes":
         return path.join(home, ".hermes", "skills");
       case "openclaw":

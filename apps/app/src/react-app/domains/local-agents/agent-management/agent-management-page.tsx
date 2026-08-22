@@ -43,7 +43,7 @@ import {
   visibleSkillMatrixAgents,
 } from "./agent-fleet-model";
 import { formatAgentManagementDesktopError } from "./agent-management-desktop-error";
-import { isStudioSkillSyncAgent, STUDIO_SWITCH_SKILL_AGENT_OPTIONS } from "./agent-management-skill-model";
+import { STUDIO_SWITCH_SKILL_AGENT_OPTIONS } from "./agent-management-skill-model";
 import {
   countFleetRelatedSkills,
   countSharedPoolSkills,
@@ -713,7 +713,6 @@ export function AgentManagementPage(props: {
       setCheckingAgentId(null);
     }
   }, [props.workspaceRoot, refresh]);
-
   const runSkillAction = useCallback(async (
     skill: AgentManagementSkill,
     agent: AgentManagementSkillAgent,
@@ -722,14 +721,6 @@ export function AgentManagementPage(props: {
     const key = action === "import" ? `${skill.path}:${agent}:import` : `${skill.path}:${agent}`;
     setSkillActionKey(key);
     setError(null);
-    if (
-      (action === "enable" || action === "disable") &&
-      !isStudioSkillSyncAgent(agent)
-    ) {
-      setError(t("skills.error_unsupported_agent"));
-      setSkillActionKey(null);
-      return;
-    }
     try {
       await agentManagementSkillAction({
         action,
