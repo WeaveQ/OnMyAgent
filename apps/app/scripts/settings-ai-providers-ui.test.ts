@@ -103,6 +103,19 @@ describe("ai providers chrome i18n keys", () => {
 });
 
 describe("settings AI provider enable icon", () => {
+  test("disable persist applies live and skips reload banner when OpenCode accepts it", () => {
+    const store = readFileSync(
+      path.join(
+        import.meta.dir,
+        "../src/react-app/domains/connections/provider-auth/store.ts",
+      ),
+      "utf8",
+    );
+    expect(store).toContain("await c.config.update({ config: nextConfig })");
+    expect(store).toContain("if (!appliedLive)");
+    expect(store).toContain("options.markOpencodeConfigReloadRequired()");
+  });
+
   test("row wires Power toggle to onToggleProviderEnabled", () => {
     const view = readFileSync(
       path.join(
