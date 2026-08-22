@@ -195,6 +195,22 @@ export function createExpertMarketplace(options = {}) {
       .filter(Boolean))];
   }
 
+  function agentNameFromAgentsField(value) {
+    const items = Array.isArray(value) ? value : value ? [value] : [];
+    return items
+      .map((item) => String(item ?? "").trim().replace(/\\/g, "/").replace(/\/$/, ""))
+      .map((item) => (item.split("/").pop() ?? "").replace(/\.md$/i, ""))
+      .filter((item) => /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(item));
+  }
+
+  function resolveApprovedAgentIds(manifest, leadAgentName) {
+    return [...new Set([
+      String(leadAgentName ?? "").trim(),
+      ...agentNameFromAgentsField(manifest?.agents),
+      ...manifestApprovedAgentIds(manifest?.approvedAgentIds),
+    ].filter(Boolean))];
+  }
+
   function localizedExpertPromptTemplates(packagePath, value) {
     const source =
       typeof value === "string"
@@ -378,6 +394,10 @@ export function createExpertMarketplace(options = {}) {
       displayName ||
       packageName;
     const manifestName = typeof manifest.name === "string" ? manifest.name.trim() : "";
+    const leadAgentName =
+      typeof manifest.agentName === "string" && manifest.agentName.trim()
+        ? manifest.agentName.trim()
+        : manifestName || packageName;
     return {
       id: `${manifestName || packageName}:${packageName}`,
       packageName,
@@ -397,10 +417,7 @@ export function createExpertMarketplace(options = {}) {
       ).slice(0, 4),
       avatarUrl: resolvePackageAvatarDataUrl(packagePath, manifest.avatar),
       expertType: manifest.expertType === "team" ? "team" : "agent",
-      leadAgentName:
-        typeof manifest.agentName === "string" && manifest.agentName.trim()
-          ? manifest.agentName.trim()
-          : manifestName || packageName,
+      leadAgentName,
       systemPrompt: agentMarkdown || readme,
       version: typeof manifest.version === "string" && manifest.version.trim()
         ? manifest.version.trim()
@@ -408,7 +425,7 @@ export function createExpertMarketplace(options = {}) {
       teamWorkflow: expertTeamWorkflow(manifest.teamWorkflow),
       skills,
       introStyle: manifestIntroStyle(manifest.introStyle),
-      approvedAgentIds: manifestApprovedAgentIds(manifest.approvedAgentIds),
+      approvedAgentIds: resolveApprovedAgentIds(manifest, leadAgentName),
     };
   }
 

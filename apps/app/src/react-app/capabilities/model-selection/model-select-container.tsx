@@ -9,12 +9,17 @@ import { ModelSelectView } from "@/components/model-select";
 import { t } from "@/i18n";
 import { ProviderIcon } from "@/react-app/design-system/provider-icon";
 import { useCheckDesktopRestriction } from "@/react-app/domains/shared";
-import { isProviderModelFree } from "@/app/utils/providers";
+import { isProviderModelFree, modelSupportsVision } from "@/app/utils/providers";
 import {
   getConnectedProviderItems,
+  getConnectedProviderOrderSnapshot,
   sessionRouteProviderListEnabled,
+  subscribeConnectedProviderOrder,
   useProviderListQuery,
 } from "@/react-app/domains/connections";
+import {
+  peekOpenCodeManagedProvidersCache,
+} from "@/react-app/domains/settings";
 import { readHiddenModels } from "./hidden-models-store";
 import { openModelPickerEvent, useWorkspace } from "@/react-app/shell";
 
@@ -62,6 +67,11 @@ function useModelOptions(open: boolean, enabled: boolean): {
 } {
   const { client, opencodeBaseUrl, selectedWorkspaceRoot } = useWorkspace();
   const checkDesktopRestriction = useCheckDesktopRestriction();
+  const providerOrderIds = React.useSyncExternalStore(
+    subscribeConnectedProviderOrder,
+    getConnectedProviderOrderSnapshot,
+    getConnectedProviderOrderSnapshot,
+  );
 
   const { data, refetch, isFetched } = useProviderListQuery({
     client,
@@ -93,25 +103,31 @@ function useModelOptions(open: boolean, enabled: boolean): {
       restriction: "allowCustomProviders",
     });
 
-    const options = getConnectedProviderItems(data)
-      .flatMap((provider) =>
-        Object.entries(provider.models).map(([id, model]) => ({
-          providerID: provider.id,
-          modelID: id,
-          title: model.name,
-          description: provider.name,
-          behaviorTitle: t("app.model_behavior_title"),
-          behaviorLabel: t("settings.default_label"),
-          behaviorDescription: "",
-          behaviorValue: null,
-          isFree: isProviderModelFree({
-            providerId: provider.id,
-            modelId: id,
-            model,
-          }),
-          isConnected: true,
-        })),
-      );
+    const managed = selectedWorkspaceRoot
+      ? (peekOpenCodeManagedProvidersCache(selectedWorkspaceRoot) ?? undefined)
+      : undefined;
+    const options = getConnectedProviderItems(data, {
+      managedProviders: managed,
+      orderIds: providerOrderIds,
+    }).flatMap((provider) =>
+      Object.entries(provider.models).map(([id, model]) => ({
+        providerID: provider.id,
+        modelID: id,
+        title: model.name,
+        description: provider.name,
+        behaviorTitle: t("app.model_behavior_title"),
+        behaviorLabel: t("settings.default_label"),
+        behaviorDescription: "",
+        behaviorValue: null,
+        isFree: isProviderModelFree({
+          providerId: provider.id,
+          modelId: id,
+          model,
+        }),
+        supportsVision: modelSupportsVision(model, id),
+        isConnected: true,
+      })),
+    );
 
     return {
       options: options.filter((option) => {
@@ -136,5 +152,12 @@ function useModelOptions(open: boolean, enabled: boolean): {
       }),
       catalogReady: data !== undefined || isFetched,
     };
-  }, [checkDesktopRestriction, data, isFetched, open]);
+  }, [
+    checkDesktopRestriction,
+    data,
+    isFetched,
+    open,
+    providerOrderIds,
+    selectedWorkspaceRoot,
+  ]);
 }

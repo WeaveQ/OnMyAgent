@@ -53,8 +53,11 @@ export type ExpertPackageDeleteInput = {
   operationId: string;
   agentId: string;
   packageName: string;
-  /** Custom Expert packages are the only deletable marketplace entries. */
-  marketplace: "my-experts";
+  /**
+   * User-writable root to remove. `my-experts` is self-created; `experts` is the
+   * summoned local install. Never the bundled catalog under resources/.
+   */
+  marketplace: "my-experts" | "experts";
 };
 
 export type ExpertPackageDeleteStep = {
@@ -142,3 +145,58 @@ export type MyExpertKnowledgeStageResult = {
   path: string;
   draftId: string;
 };
+
+export type ExpertPackageImportInput = {
+  /** Zip archive or unpacked expert package directory. */
+  sourcePath: string;
+  overwrite?: boolean;
+  /** Import beside the existing package as `{name}-copy`. Ignored when overwrite is true. */
+  asCopy?: boolean;
+};
+
+export type ExpertPackageImportFailureCode =
+  | "already_exists"
+  | "invalid_package"
+  | "not_found"
+  | "path_escape";
+
+export type ExpertPackageImportResult =
+  | {
+      ok: true;
+      path: string;
+      packageName: string;
+      marketplace: "my-experts";
+      declaredSkills: string[];
+      missingSkills: string[];
+      displayName: string;
+      description: string;
+      rolePrompt: string;
+      memory: string;
+    }
+  | {
+      ok: false;
+      code: ExpertPackageImportFailureCode;
+      packageName?: string;
+      message: string;
+    };
+
+export type ExpertPackageExportInput = {
+  packageName: string;
+  destPath: string;
+};
+
+export type ExpertPackageExportFailureCode = "not_found" | "invalid_package";
+
+export type ExpertPackageExportResult =
+  | {
+      ok: true;
+      destPath: string;
+      packageName: string;
+      marketplace: "my-experts";
+    }
+  | {
+      ok: false;
+      code: ExpertPackageExportFailureCode;
+      packageName?: string;
+      message: string;
+    };

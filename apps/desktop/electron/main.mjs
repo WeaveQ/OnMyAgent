@@ -92,6 +92,7 @@ import {
   readCodeWorkspaceFile,
 } from "./code-workspace-files.mjs";
 import { createAgentManagementProviders } from "./agent-management-providers.mjs";
+import { resolveOpencodeSandboxPaths } from "./opencode-sandbox-home.mjs";
 import { createAgentManagementSkills } from "./agent-management-skills.mjs";
 import { createExpertMarketplace } from "./expert-marketplace.mjs";
 import {
@@ -521,7 +522,11 @@ const {
   agentManagementTestModel,
   agentManagementProviderAction,
   readAgentManagementProvidersSnapshot,
-} = createAgentManagementProviders({ getRealHomeDir });
+} = createAgentManagementProviders({
+  getRealHomeDir,
+  getOpenCodeLiveConfigPath: () =>
+    resolveOpencodeSandboxPaths(app.getPath("userData")).opencodeConfigPath,
+});
 
 const {
   agentManagementSkillAction,

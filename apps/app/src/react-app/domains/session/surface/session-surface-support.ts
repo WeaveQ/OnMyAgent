@@ -36,6 +36,35 @@ function readModel(value: unknown) {
   return providerID && modelID ? { providerID, modelID } : null;
 }
 
+function readViolationCode(record: Record<string, unknown> | null): string | undefined {
+  const direct = readIdentifier(record, "violationCode");
+  if (direct) return direct;
+  const details = isRecord(record?.details) ? record.details : null;
+  return readIdentifier(details, "violationCode");
+}
+
+export function expertRuntimeContractUserMessage(violationCode?: string | null): string {
+  switch (violationCode) {
+    case "prompt_agent_not_allowed":
+    case "agent_identity":
+      return t("session.error_expert_runtime_agent");
+    case "authorized_directory":
+    case "session_identity":
+    case "workspace_identity":
+      return t("session.error_expert_runtime_directory");
+    case "skills_mismatch":
+      return t("session.error_expert_runtime_skills");
+    case "prompt_token_budget":
+      return t("session.error_expert_runtime_prompt_size");
+    case "prompt_body_too_large":
+      return t("session.error_expert_runtime_prompt_attachment");
+    case "prompt_body_invalid":
+      return t("session.error_expert_runtime_prompt_invalid");
+    default:
+      return t("session.error_expert_runtime_contract");
+  }
+}
+
 /** Strip wrapping quotes / JSON noise and map known engine errors to product copy. */
 export function humanizeSessionErrorMessage(raw: string): string {
   let text = raw.trim();
@@ -50,7 +79,18 @@ export function humanizeSessionErrorMessage(raw: string): string {
 
   const lower = text.toLowerCase();
   if (/expert_runtime_contract_violated/.test(lower)) {
-    return t("session.error_expert_runtime_contract");
+    let violationCode: string | undefined;
+    try {
+      const parsed: unknown = JSON.parse(text);
+      const parsedRecord = isRecord(parsed) ? parsed : null;
+      const data = isRecord(parsedRecord?.data) ? parsedRecord.data : null;
+      violationCode =
+        readViolationCode(data) ??
+        readViolationCode(parsedRecord);
+    } catch {
+      /* raw string */
+    }
+    return expertRuntimeContractUserMessage(violationCode);
   }
   if (
     /streaming response failed/.test(lower) ||
@@ -138,8 +178,11 @@ export function parseSessionError(thrown: unknown): SessionError {
       ...(traceId ? { traceId } : {}),
     };
     if (code === "expert_runtime_contract_violated") {
+      const violationCode =
+        readViolationCode(data) ??
+        readViolationCode(parsedRecord);
       return {
-        message: t("session.error_expert_runtime_contract"),
+        message: expertRuntimeContractUserMessage(violationCode),
         ...details,
       };
     }

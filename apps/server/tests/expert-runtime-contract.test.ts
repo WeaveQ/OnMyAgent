@@ -12,6 +12,7 @@ import {
   estimateExpertPromptTokens,
   ExpertRuntimeContractError,
   EXPERT_PROMPT_TOKEN_LIMIT,
+  resolveDeclaredExpertAgentIds,
   resolveExpertPromptAgent,
 } from "../src/services/expert-runtime-contract.js";
 import { readFileSync } from "node:fs";
@@ -36,6 +37,40 @@ describe("Expert runtime contract", () => {
     expect(() => resolveExpertPromptAgent("package-agent", ["pkg:package-agent"])).toThrow();
     expect(() => resolveExpertPromptAgent("sisyphus")).toThrow();
     expect(() => resolveExpertPromptAgent("unlisted", ["package-agent"])).toThrow();
+    const derived = resolveDeclaredExpertAgentIds({
+      approvedAgentIds: [],
+      markerAgent: "kol-content-ops-specialist",
+      packageName: "kol-content-ops-specialist",
+      agentId: "kol-content-ops-specialist:kol-content-ops-specialist",
+    });
+    expect(derived).toContain("kol-content-ops-specialist");
+    expect(resolveExpertPromptAgent("kol-content-ops-specialist", derived)).toBe(
+      "kol-content-ops-specialist",
+    );
+    expect(() => resolveExpertPromptAgent("sisyphus", derived)).toThrow();
+  });
+
+  test("accepts the package lead agent when approvedAgentIds is empty", async () => {
+    const workspace = testWorkspace(join(root, "workspace-lead"));
+    await mkdir(workspace.path, { recursive: true });
+    const runtimeRoot = join(root, "runtime-lead");
+    const created = await createExpertSessionRuntimeDirectory({
+      workspace,
+      runtimeRoot,
+      agentName: "kol-content-ops-specialist",
+      agentId: "kol-content-ops-specialist:kol-content-ops-specialist",
+      packageName: "kol-content-ops-specialist",
+      sessionId: "session-lead",
+    });
+    const snapshot = await assertExpertRuntimeContract({
+      workspace,
+      sessionId: "session-lead",
+      directory: created.directory,
+      agent: "kol-content-ops-specialist",
+      runtimeRoot,
+      promptBody: { agent: "kol-content-ops-specialist", parts: [{ type: "text", text: "hi" }] },
+    });
+    expect(snapshot.agent).toBe("kol-content-ops-specialist");
   });
 
   test("asserts a runtime-aware marker, identity, default agent, plugin isolation, and skills", async () => {
@@ -183,7 +218,7 @@ describe("Expert runtime contract", () => {
     })).toMatchObject({ installedSkills: [] });
   });
 
-  test("counts the complete first-request JSON and enforces the 8,000-token gate", () => {
+  test("counts system and text parts and enforces the 8,000-token gate", () => {
     const body = {
       agent: "onmyagent",
       tools: { read: true, write: true },
@@ -218,6 +253,29 @@ describe("Expert runtime contract", () => {
     );
     expect(composition).toContain("assertCompiledExpertPromptBudget");
     expect(composition).toContain("userPrompt: input.text");
+  });
+
+  test("does not count file data URLs toward the 8,000-token text budget", () => {
+    const body = {
+      agent: "onmyagent",
+      parts: [
+        { type: "text", text: "这是相关资料，你先看一下" },
+        {
+          type: "file",
+          filename: "项目表.xlsx",
+          mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          url: `data:application/octet-stream;base64,${"A".repeat(600_000)}`,
+        },
+      ],
+    };
+    const tokens = estimateExpertPromptTokens(body);
+    expect(tokens).toBeLessThan(EXPERT_PROMPT_TOKEN_LIMIT);
+    expect(assertExpertPromptTokenBudget({
+      workspace: testWorkspace(join(root, "workspace-file-budget")),
+      sessionId: "file-budget-session",
+      directory: join(root, "runtime-file-budget"),
+      promptBody: body,
+    })).toBe(tokens);
   });
 });
 

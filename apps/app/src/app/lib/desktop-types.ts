@@ -256,6 +256,8 @@ export type CacheResetResult = {
   removed: string[];
   missing: string[];
   errors: string[];
+  deferred?: string[];
+  quit?: boolean;
 };
 
 export type SystemPermissionType =

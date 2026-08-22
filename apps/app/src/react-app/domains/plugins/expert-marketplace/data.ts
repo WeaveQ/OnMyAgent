@@ -111,6 +111,25 @@ function manifestApprovedAgentIds(value: string[] | null | undefined): string[] 
     .filter(Boolean))];
 }
 
+function agentNameFromAgentsField(value: ExpertPackageManifest["agents"]): string[] {
+  const items = Array.isArray(value) ? value : value ? [value] : [];
+  return items
+    .map((item) => String(item ?? "").trim().replace(/\\/g, "/").replace(/\/$/, ""))
+    .map((item) => (item.split("/").pop() ?? "").replace(/\.md$/i, ""))
+    .filter((item) => /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(item));
+}
+
+function resolveApprovedAgentIds(
+  manifest: ExpertPackageManifest,
+  leadAgentName: string,
+): string[] {
+  return [...new Set([
+    leadAgentName.trim(),
+    ...agentNameFromAgentsField(manifest.agents),
+    ...manifestApprovedAgentIds(manifest.approvedAgentIds),
+  ].filter(Boolean))];
+}
+
 function parseJson(input: string): ExpertPackageManifest {
   try {
     const parsed = JSON.parse(input);
@@ -290,6 +309,80 @@ export function filterLocalShelfExperts(
   });
 }
 
+export type LocalShelfConversationRef = {
+  agentId: string | null;
+  name: string;
+  description: string;
+  avatarUrl: string | null;
+};
+
+function lastAgentIdSegment(agentId: string): string {
+  const trimmed = agentId.trim();
+  const colon = trimmed.lastIndexOf(":");
+  return colon >= 0 ? trimmed.slice(colon + 1) : trimmed;
+}
+
+function synthesizeMineShelfExpert(
+  ref: LocalShelfConversationRef & { agentId: string },
+): ExpertMarketplaceEntry {
+  const packageName = lastAgentIdSegment(ref.agentId);
+  const displayName = ref.name.trim() || packageName;
+  return {
+    id: `${packageName}:${packageName}`,
+    packageName,
+    source: "mine",
+    packagePath: "",
+    displayName,
+    profession: displayName,
+    description: ref.description,
+    categoryId: "all",
+    categoryIds: [],
+    categoryLabel: "",
+    categoryLabels: [],
+    tags: [],
+    quickPrompts: [],
+    promptTemplates: [],
+    avatarUrl: ref.avatarUrl,
+    expertType: "agent",
+    leadAgentName: displayName,
+    systemPrompt: ref.description,
+    version: null,
+    teamWorkflow: null,
+    skills: [],
+    introStyle: "default",
+    approvedAgentIds: [],
+  };
+}
+
+/**
+ * Sidebar conversations and on-disk packages can diverge (delayed builtin
+ * install, leftover sessions). Fill the 已召唤/我的 shelf from live
+ * conversations so the two lists stay aligned.
+ */
+export function mergeLocalShelfWithConversations(
+  packages: readonly ExpertMarketplaceEntry[],
+  conversations: readonly LocalShelfConversationRef[],
+): ExpertMarketplaceEntry[] {
+  const extras: ExpertMarketplaceEntry[] = [];
+  for (const conversation of conversations) {
+    const agentId = conversation.agentId?.trim() ?? "";
+    if (!agentId) continue;
+    const known = [...packages, ...extras].some((expert) =>
+      expertPackageMatchesAgentId(expert, agentId),
+    );
+    if (known) continue;
+    const builtin =
+      findBuiltinMarketplaceExpertById(agentId) ??
+      findBuiltinMarketplaceExpertById(lastAgentIdSegment(agentId));
+    extras.push(
+      builtin
+        ? { ...builtin, source: "installed" }
+        : synthesizeMineShelfExpert({ ...conversation, agentId }),
+    );
+  }
+  return [...packages, ...extras];
+}
+
 /** @deprecated Use filterLocalShelfExperts — installed alone is not "summoned". */
 export function isLocalShelfExpert(
   entry: Pick<ExpertMarketplaceEntry, "source">,
@@ -365,7 +458,7 @@ export function listBuiltinMarketplaceExperts(): ExpertMarketplaceEntry[] {
         teamWorkflow: null,
         skills: manifestSkillNames(manifest.skills),
         introStyle: manifestIntroStyle(manifest.introStyle),
-        approvedAgentIds: manifestApprovedAgentIds(manifest.approvedAgentIds),
+        approvedAgentIds: resolveApprovedAgentIds(manifest, leadAgentName),
       };
     })
     .sort((left, right) => left.displayName.localeCompare(right.displayName, "zh-Hans-CN"));

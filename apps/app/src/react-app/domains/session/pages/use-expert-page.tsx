@@ -354,7 +354,7 @@ export function useExpertPage(props: ExpertPageProps) {
     onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
   });
 
-  const { openExpertCreation, closeExpertCreation, closeExpertCreationThen, expertCreationPage, editableExpertIds, handleEditExpert } =
+  const { openExpertCreation, closeExpertCreation, closeExpertCreationThen, expertCreationPage, editableExpertIds, handleEditExpert, handleEditMarketplaceExpert } =
     useSessionExpertCreation({
       props,
       registry,
@@ -462,6 +462,7 @@ export function useExpertPage(props: ExpertPageProps) {
     closeDeleteModal,
     closeRenameModal,
     openDeleteExpertModal,
+    handleDeleteMarketplaceExpert,
     deletableExpertIds,
     expertDeleteTitle,
     expertDeleteMessage,
@@ -550,7 +551,9 @@ export function useExpertPage(props: ExpertPageProps) {
       handleChatWithSkill,
       handleCreateCurrentAgentSession,
       handleCreateSkill,
+      handleDeleteMarketplaceExpert,
       handleEditExpert,
+      handleEditMarketplaceExpert,
       handleEditSkill,
       handleOpenDraftSession,
       handleOpenExpertFromSidebar,

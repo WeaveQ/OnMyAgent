@@ -100,6 +100,12 @@ export function archiveAgentIconId(agent: string): string {
   return ARCHIVE_ICON_ID[key] ?? ARCHIVE_ICON_ID[key.toLowerCase()] ?? key.toLowerCase();
 }
 
+/** SQLite SQLITE_BUSY from the archive index while sync still holds the file. */
+export function isArchiveDatabaseLockedError(raw: string): boolean {
+  const text = String(raw ?? "");
+  return /database is locked/i.test(text) || /SQLITE_BUSY/i.test(text);
+}
+
 /**
  * Agents the archive UI is willing to surface.
  * Option A: any backend-scanned source with sessions is visible — no tight

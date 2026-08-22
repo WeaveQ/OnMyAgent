@@ -1,6 +1,6 @@
 # Project Agent Skills
 
-Cross-harness skill catalog for OnMyAgent coding agents (Grok, Claude Code, Codex, etc.).
+Cross-harness skill catalog for OnMyAgent coding agents (Grok, Claude Code, Codex, Cursor, etc.).
 
 ## Layout (LobeHub-style)
 
@@ -10,10 +10,10 @@ Cross-harness skill catalog for OnMyAgent coding agents (Grok, Claude Code, Code
 .codex/skills  → ../.agents/skills   (symlink)
 .claude/skills → ../.agents/skills   (symlink)
 .grok/skills   → ../.agents/skills   (symlink)
+.cursor/skills → ../.agents/skills   (symlink)
 ```
 
-Do **not** create a second copy under `.codex/`, `.claude/`, or `.grok/`.
-Do **not** add `.cursor/` in this repo (not used).
+Do **not** create a second copy under `.codex/`, `.claude/`, `.grok/`, or `.cursor/`.
 
 Desktop **product** skills stay in `apps/desktop/resources/bundled-skills/` as real files (packaging).
 OpenCode product/workspace config stays under `.opencode/` (not a mirror of this tree).
@@ -32,7 +32,7 @@ OpenCode product/workspace config stays under `.opencode/` (not a mirror of this
 2. Required frontmatter: `name`, `description` (when to use).
 3. Optional: `user-invocable`, `disable-model-invocation`, `display_name_zh` / `display_name_en`.
 4. Keep the body actionable; link to `docs/` for durable architecture.
-5. Symlinks already cover Codex / Claude / Grok — no extra copy.
+5. Symlinks already cover Codex / Claude / Grok / Cursor — no extra copy.
 6. Update the skill index in root `AGENTS.md`.
 
 ## Catalog (current)

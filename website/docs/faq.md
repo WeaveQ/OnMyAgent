@@ -18,7 +18,15 @@ IM 数字员工属于 **OnMyBuddy**；本机工作台是 **OnMyAgent**。见 [�
 
 ### 支持哪些模型？
 
-BYOK：兼容 API、本机模型（如 Ollama）等。在 [设置 → 模型](./guide/models) 中连接服务商。
+BYOK：兼容 API、本机模型（如 Ollama）等。在 [设置 → 模型](./guide/models) 中连接服务商。设置里保存后，首页会话即可选用，顺序与设置一致。
+
+### 第一次打开设置，模型列表一直转圈？
+
+当前预览包装有模型货架快照，一般很快能列出。若仍很久，检查网络后重启，或见 [模型排障](./guide/models#models-troubleshooting)。
+
+### 专家发表格或 PDF 失败？
+
+可以附在对话里发。正文太长请拆开；文件太大请换更小的再发，见 [专家](./guide/experts)。
 
 ### 设置在哪里？
 
@@ -46,4 +54,4 @@ BYOK：兼容 API、本机模型（如 Ollama）等。在 [设置 → 模型](./
 
 ### 如何更新？
 
-设置 → **更新** → **检查更新**（冷启动也会自动查一次）。发现新版本后**点提示或「下载更新」**才会下载；打包版下完再点 **重启并安装**。开发构建请从 [GitHub Releases](https://github.com/WeaveQ/OnMyAgent/releases) 安装。macOS 若提示应用已损坏，执行 `xattr -cr /Applications/OnMyAgent.app` 后再打开。
+设置 → **更新** → **检查更新**（冷启动也会自动查一次）。已经是最新会明确提示。发现新版本后**点提示或「下载更新」**才会下载；打包版下完再点 **重启并安装**。开发构建请从 [GitHub Releases](https://github.com/WeaveQ/OnMyAgent/releases) 安装。macOS 若提示应用已损坏，执行 `xattr -cr /Applications/OnMyAgent.app` 后再打开。

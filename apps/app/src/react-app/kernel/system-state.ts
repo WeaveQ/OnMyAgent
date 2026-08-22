@@ -195,14 +195,18 @@ export function useSystemState(
     options.setError(null);
 
     try {
+      let quitAfterReset = false;
       if (isDesktopRuntime()) {
-        await resetOnMyAgentState(resetModalMode);
+        const result = await resetOnMyAgentState(resetModalMode);
+        quitAfterReset = result?.quit === true;
       }
       clearLocalStorageForOnMyAgentReset(resetModalMode);
       // Onboarding: soft re-enter #/welcome (keeps Vite parent in desktop dev).
-      // Full wipe: process relaunch to clear Electron-side state.
+      // Full wipe: main exits after a deferred cleaner; do not relaunch here.
       if (resetModalMode === "onboarding") {
         softReenterWelcomeGuide();
+      } else if (quitAfterReset) {
+        return;
       } else if (isDesktopRuntime()) {
         await relaunchDesktopApp();
       } else {

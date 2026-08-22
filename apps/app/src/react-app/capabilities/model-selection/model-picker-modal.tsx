@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronRight, Search, Star } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Eye, Search, Star } from "lucide-react";
 
 import {
   Dialog,
@@ -132,11 +132,9 @@ export function ModelPickerModal(props: ModelPickerModalProps) {
       }
     }
     const orderIndex = new Map(seenOrder.map((id, index) => [id, index]));
-    return [...map.values()].sort((a, b) => {
-      // Disabled providers stay at the bottom; otherwise keep user order.
-      if (a.isDisabled !== b.isDisabled) return a.isDisabled ? 1 : -1;
-      return (orderIndex.get(a.id) ?? 0) - (orderIndex.get(b.id) ?? 0);
-    });
+    return [...map.values()].sort(
+      (a, b) => (orderIndex.get(a.id) ?? 0) - (orderIndex.get(b.id) ?? 0),
+    );
   }, [filteredOptions, props.current, disabledSet]);
 
   // Auto-expand on search
@@ -453,6 +451,13 @@ function DefaultModelRow({
         </span>
         <span className="ml-2 font-mono text-xs text-dls-secondary/60">{opt.modelID}</span>
       </div>
+      {opt.supportsVision ? (
+        <Eye
+          size={12}
+          className="shrink-0 text-dls-secondary"
+          aria-label={t("model_picker.vision")}
+        />
+      ) : null}
       {active ? <Check size={14} className="shrink-0 text-dls-accent" /> : null}
     </MenuRowButton>
   );

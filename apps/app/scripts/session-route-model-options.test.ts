@@ -5,6 +5,7 @@ import {
   buildProviderModelCatalog,
   filterAllowedModelOptions,
   isSelectedModelUnavailable,
+  shouldRecordUnavailableModelToast,
   readSeenProviderIds,
   resolveModelVariantState,
   resolveProviderDefaultModel,
@@ -202,6 +203,51 @@ describe("session route model options", () => {
     ]);
   });
 
+  test("marks catalog vision models only when modalities list image", () => {
+    const options = buildConnectedModelOptions({
+      data: {
+        all: [
+          {
+            id: "opencode",
+            name: "OpenCode Zen",
+            models: {
+              "mimo-v2.5-free": {
+                id: "mimo-v2.5-free",
+                name: "MiMo V2.5 Free",
+                modalities: { input: ["text", "image", "audio", "video"] },
+              },
+              "deepseek-v4-flash-free": {
+                id: "deepseek-v4-flash-free",
+                name: "DeepSeek V4 Flash Free",
+                attachment: false,
+                modalities: { input: ["text"] },
+              },
+              "custom-plain": {
+                id: "custom-plain",
+                name: "Custom Plain",
+              },
+              "kimi-k2.5": {
+                id: "kimi-k2.5",
+                name: "Kimi K2.5",
+              },
+            },
+          } as never,
+        ],
+        connected: ["opencode"],
+        default: { opencode: "mimo-v2.5-free" },
+      },
+      seenProviderIds: new Set(),
+      recentProviderIds: new Set(),
+    });
+
+    expect(options.map((item) => `${item.modelID}:${item.supportsVision === true}`)).toEqual([
+      "mimo-v2.5-free:true",
+      "deepseek-v4-flash-free:false",
+      "custom-plain:false",
+      "kimi-k2.5:true",
+    ]);
+  });
+
   test("allows OpenCode Zen when allowZenModel is open", () => {
     const options = [
       option({ providerID: "opencode", modelID: "big-pickle", isConnected: true, isFree: true }),
@@ -279,8 +325,7 @@ describe("session route model options", () => {
         providerListData: providerListData(),
       }),
     ).toBe(true);
-    // Connected custom with empty models map is NOT pickable — matches the
-    // composer menu ("未找到模型") so ghost defaults show "模型已不可用" on load.
+    // Connected provider with an empty live map is still refreshing, not removed.
     expect(
       isSelectedModelUnavailable({
         model: { providerID: "ark", modelID: "ark-code-latest" },
@@ -299,7 +344,7 @@ describe("session route model options", () => {
           default: {},
         } as never,
       }),
-    ).toBe(true);
+    ).toBe(false);
     // Default ghost (opencode/big-pickle) with no connected catalog → unavailable.
     expect(
       isSelectedModelUnavailable({
@@ -323,6 +368,70 @@ describe("session route model options", () => {
         providerListLoading: true,
       }),
     ).toBe(false);
+  });
+
+  test("treats a listed Ollama tag as available and empty refresh as not removed", () => {
+    const ollamaList = {
+      all: [
+        {
+          id: "ollama",
+          name: "Ollama",
+          source: "custom",
+          models: {
+            "ornith-1.5:9b": { id: "ornith-1.5:9b", name: "Ornith 1.5:9B" },
+            "qwen3.8:27b-n": { id: "qwen3.8:27b-n", name: "Qwen3.8" },
+          },
+        },
+      ],
+      connected: ["ollama"],
+      default: { ollama: "ornith-1.5:9b" },
+    } as never;
+    const selected = { providerID: "ollama", modelID: "ornith-1.5:9b" };
+    expect(
+      isSelectedModelUnavailable({
+        model: selected,
+        checkRestriction: () => false,
+        connectedProviderIds: ["ollama"],
+        providerListData: ollamaList,
+      }),
+    ).toBe(false);
+    expect(
+      isSelectedModelUnavailable({
+        model: { providerID: "OLLAMA", modelID: "ORNITH-1.5:9B" },
+        checkRestriction: () => false,
+        connectedProviderIds: ["ollama"],
+        providerListData: ollamaList,
+      }),
+    ).toBe(false);
+    expect(
+      isSelectedModelUnavailable({
+        model: selected,
+        checkRestriction: () => false,
+        connectedProviderIds: ["ollama"],
+        providerListData: {
+          all: [
+            {
+              id: "ollama",
+              name: "Ollama",
+              source: "custom",
+              models: {},
+            },
+          ],
+          connected: ["ollama"],
+          default: {},
+        } as never,
+      }),
+    ).toBe(false);
+  });
+
+  test("does not re-arm the unavailable toast after dismiss or catalog flicker", () => {
+    const toasted = new Set<string>();
+    const key = "ollama/ornith-1.5:9b";
+    expect(shouldRecordUnavailableModelToast(toasted, key, true)).toBe(true);
+    expect(shouldRecordUnavailableModelToast(toasted, key, true)).toBe(false);
+    expect(shouldRecordUnavailableModelToast(toasted, key, false)).toBe(false);
+    expect(shouldRecordUnavailableModelToast(toasted, key, true)).toBe(false);
+    expect([...toasted]).toEqual([key]);
   });
 
   test("resolves OpenCode suggested default without mutating prefs", () => {

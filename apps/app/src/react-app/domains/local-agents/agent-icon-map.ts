@@ -37,6 +37,8 @@ const AGENT_ICON_BY_ID: Record<string, string> = {
   kiro: kiroIconUrl,
   goose: gooseIconUrl,
   "cursor-agent": cursorAgentIconUrl,
+  // Archive scanner key is `cursor`; CLI / local-agent id is `cursor-agent`.
+  cursor: cursorAgentIconUrl,
   qwen: qwenIconUrl,
   kimi: kimiIconUrl,
   copilot: copilotIconUrl,

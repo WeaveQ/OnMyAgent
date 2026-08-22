@@ -165,4 +165,23 @@ describe("shared provider list query contract", () => {
       catalog.lastIndexOf("ensureProviderListQuery"),
     );
   });
+
+  test("refresh after Settings save refetches inactive homepage catalog entries", () => {
+    const appRoot = join(import.meta.dir, "..");
+    const query = readFileSync(
+      join(appRoot, "src/react-app/domains/connections/provider-list-query.ts"),
+      "utf8",
+    );
+    expect(query).toContain('type: "all"');
+    expect(query).not.toContain('type: "active"');
+    expect(query).toContain("revalidateIfStale: true");
+    expect(query).toContain("isProviderListQueryInvalidated");
+
+    const catalog = readFileSync(
+      join(appRoot, "src/react-app/shell/session-route/model-catalog-hook.ts"),
+      "utf8",
+    );
+    expect(catalog).toContain("isProviderListQueryInvalidated");
+    expect(catalog).toContain("force: true");
+  });
 });

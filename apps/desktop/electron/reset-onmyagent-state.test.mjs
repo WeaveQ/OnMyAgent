@@ -5,8 +5,27 @@ import path from "node:path";
 import {
   listOnMyAgentResetTargets,
   normalizeResetMode,
+  RESET_RELAUNCH_EXIT_CODE,
   resetOnMyAgentLocalData,
+  waitForPendingFullResetMarkerGone,
 } from "./reset-onmyagent-state.mjs";
+
+test("waitForPendingFullResetMarkerGone returns once the marker disappears", async () => {
+  assert.equal(RESET_RELAUNCH_EXIT_CODE, 82);
+  let present = true;
+  let now = 0;
+  const gone = await waitForPendingFullResetMarkerGone({
+    markerPath: "/tmp/fake-pending-reset",
+    exists: () => present,
+    now: () => now,
+    sleep: async () => {
+      present = false;
+      now += 150;
+    },
+    timeoutMs: 1_000,
+  });
+  assert.equal(gone, true);
+});
 
 test("normalizeResetMode defaults to onboarding", () => {
   assert.equal(normalizeResetMode(undefined), "onboarding");
@@ -105,7 +124,7 @@ test("onboarding reset returns empty result without calling remove", async () =>
     },
   });
   assert.equal(calls, 0);
-  assert.deepEqual(result, { removed: [], missing: [], errors: [] });
+  assert.deepEqual(result, { removed: [], missing: [], errors: [], deferred: [] });
 });
 
 test("full reset drains runtimes before deleting its first target", async () => {
@@ -136,6 +155,38 @@ test("failed full-reset drain leaves every target intact", async () => {
     /drain failed/,
   );
   assert.equal(removes, 0);
+});
+
+test("retryable busy locks are deferred instead of failing the reset", async () => {
+  const result = await resetOnMyAgentLocalData({
+    mode: "all",
+    homeDir: "/tmp/reset-home-busy",
+    userDataDir: "/tmp/reset-user-data-busy",
+    writeMarker: async () => undefined,
+    remove: async (target) => {
+      if (target === "/tmp/reset-user-data-busy") {
+        throw Object.assign(new Error("resource busy"), { code: "EBUSY" });
+      }
+    },
+  });
+  assert.equal(result.errors.length, 0);
+  assert.ok(result.deferred.some((item) => item.includes("EBUSY") || item.includes("busy")));
+});
+
+test("full reset writes a pending marker and schedules deferred cleanup", async () => {
+  const order = [];
+  await resetOnMyAgentLocalData({
+    mode: "all",
+    homeDir: "/tmp/reset-home-defer",
+    userDataDir: "/tmp/reset-user-data-defer",
+    writeMarker: async ({ path: file }) => order.push(`marker:${file}`),
+    prepareDestructiveReset: async () => order.push("prepare"),
+    remove: async (target) => order.push(`remove:${target}`),
+    scheduleDeferred: ({ markerPath }) => order.push(`schedule:${markerPath}`),
+  });
+  assert.equal(order[0], "prepare");
+  assert.ok(order.some((item) => item.startsWith("marker:")));
+  assert.ok(order.at(-1)?.startsWith("schedule:"));
 });
 
 test("onboarding reset does not drain long-running tasks", async () => {

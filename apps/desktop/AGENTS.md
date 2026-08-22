@@ -28,7 +28,7 @@ Desktop OpenCode e2e：`apps/desktop/electron/e2e/*.e2e.test.mjs`（编入 `test
 
 - `apps/desktop/electron/**` = **Human gate**（改前说明，改后完整验证）。
 - 产品 bundled skills：`resources/bundled-skills/**` ≠ 工程 skill（`.agents/skills/**`），不同步。
-- Dual Runtime / Expert delete-saga：Architecture **Dual Runtime Boundary** + Expert lifecycle。desktop 只删 `my-experts` registry 与 owner-safe skill materialization（operation journal 重放）；OpenCode session / runtime / origin tombstone 属 server。
+- Dual Runtime / Expert delete-saga：Architecture **Dual Runtime Boundary** + Expert lifecycle。desktop 按请求 `marketplace` 只删对应 user-writable 根：`my-experts`（自建）或 `experts`（召唤安装），外加 registry / owner-safe skill materialization（operation journal 重放）；禁止动 bundled `resources/marketplace`。OpenCode session / runtime / origin tombstone 属 server。
 - **配置 / skills 根**：`config-profile-paths` resolve；`runtime.mjs` skill 物化必须走 resolve（禁止写死 `~/.onmyagent/skills`）。细则 → config-consistency。
 - Phase-2 未登录 / 迁移：根 AGENTS 硬入口；本页不复述。
 - **Computer Use / Appshot 矩阵**：只在 `windows-compat.md` + Architecture Product platforms。Appshot 勿引入 Rust/xcap helper。

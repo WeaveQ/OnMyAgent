@@ -196,6 +196,9 @@ test("electron-dev resets Chromium caches only with a forced Vite rebuild", asyn
   assert.match(source, /ONMYAGENT_FORCE_ELECTRON_CACHE_RESET/);
   assert.match(source, /resolveElectronExtraLaunchArgs/);
   assert.match(source, /resetHttpCache:\s*resetElectronDevCaches/);
+  assert.match(source, /RESET_RELAUNCH_EXIT_CODE/);
+  assert.match(source, /waitForPendingFullResetMarkerGone/);
+  assert.match(source, /App reset finished; restarting Electron/);
   const flags = await import("node:fs/promises").then((fs) =>
     fs.readFile(new URL("../electron/startup-flags.mjs", import.meta.url), "utf8"),
   );

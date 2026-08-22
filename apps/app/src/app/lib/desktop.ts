@@ -77,6 +77,10 @@ export type {
   ExpertPackageInstallResult,
   ExpertPackageDeleteInput,
   ExpertPackageDeleteResult,
+  ExpertPackageImportInput,
+  ExpertPackageImportResult,
+  ExpertPackageExportInput,
+  ExpertPackageExportResult,
   ExpertPackageListEntry,
   ExpertRegistryListEntry,
   MyExpertPackageWriteInput,
@@ -131,6 +135,10 @@ import type {
   ExpertPackageInstallResult,
   ExpertPackageDeleteInput,
   ExpertPackageDeleteResult,
+  ExpertPackageImportInput,
+  ExpertPackageImportResult,
+  ExpertPackageExportInput,
+  ExpertPackageExportResult,
   MessagingChannelStatus,
   MyExpertKnowledgeStageInput,
   MyExpertPackageWriteInput,
@@ -917,11 +925,13 @@ const {
   updaterEnvironment,
   readOpencodeConfig,
   writeOpencodeConfig,
-  resetOnMyAgentState,
   resetOpencodeCache,
   opencodeMcpAuth,
   setWindowDecorations,
 } = desktopBridge;
+
+export const resetOnMyAgentState = (mode?: "onboarding" | "all") =>
+  invokeDesktopCommand("resetOnMyAgentState", mode);
 
 export const installExpertPackage = (input: ExpertPackageInstallInput) =>
   invokeDesktopCommand("installExpertPackage", input);
@@ -952,6 +962,16 @@ export const deleteExpertPackage = (
   input: ExpertPackageDeleteInput,
 ): Promise<ExpertPackageDeleteResult> =>
   invokeDesktopCommand("deleteExpertPackage", input);
+
+export const importExpertPackage = (
+  input: ExpertPackageImportInput,
+): Promise<ExpertPackageImportResult> =>
+  invokeDesktopCommand("importExpertPackage", input);
+
+export const exportExpertPackage = (
+  input: ExpertPackageExportInput,
+): Promise<ExpertPackageExportResult> =>
+  invokeDesktopCommand("exportExpertPackage", input);
 
 export const stageMyExpertKnowledge = (input: MyExpertKnowledgeStageInput) =>
   invokeDesktopCommand("stageMyExpertKnowledge", input);
@@ -1467,7 +1487,6 @@ export {
   updaterEnvironment,
   readOpencodeConfig,
   writeOpencodeConfig,
-  resetOnMyAgentState,
   resetOpencodeCache,
   opencodeMcpAuth,
   setWindowDecorations,

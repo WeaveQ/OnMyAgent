@@ -45,7 +45,7 @@ function handlers(fixture, overrides = {}) {
   });
 }
 
-test("deleteExpertPackage removes custom package, preserves shared skills, and protects built-in copy", async () => {
+test("deleteExpertPackage removes custom package and leaves summoned install", async () => {
   const fixture = await createFixture();
   try {
     const result = await handlers(fixture).deleteExpertPackage({}, [{
@@ -58,7 +58,7 @@ test("deleteExpertPackage removes custom package, preserves shared skills, and p
     assert.equal(existsSync(fixture.packageDir), false);
     assert.equal(existsSync(fixture.builtinDir), true);
     assert.deepEqual(JSON.parse(await readFile(path.join(fixture.skillsRoot, "shared-skill", ".onmyagent-expert-owners.json"), "utf8")), { owners: ["custom-expert", "other-expert"] });
-    assert.equal(result.steps.find((step) => step.target === "experts").code, "builtin_protected");
+    assert.equal(result.steps.find((step) => step.target === "experts").code, "not_targeted");
     assert.deepEqual(JSON.parse(await readFile(fixture.registryPath, "utf8")).agents, []);
     const replay = await handlers(fixture).deleteExpertPackage({}, [{
       operationId: "desktop-delete-1",
@@ -72,11 +72,30 @@ test("deleteExpertPackage removes custom package, preserves shared skills, and p
   }
 });
 
-test("deleteExpertPackage refuses built-in marketplace and malformed journal", async () => {
+test("deleteExpertPackage removes summoned install without touching custom package", async () => {
+  const fixture = await createFixture();
+  try {
+    const result = await handlers(fixture).deleteExpertPackage({}, [{
+      operationId: "desktop-delete-summoned",
+      agentId: "pkg:pkg",
+      packageName: "custom-expert",
+      marketplace: "experts",
+    }]);
+    assert.equal(result.state, "completed");
+    assert.equal(result.steps.find((step) => step.target === "my-experts").code, "not_targeted");
+    assert.equal(result.steps.find((step) => step.target === "experts").state, "completed");
+    assert.equal(existsSync(fixture.packageDir), true);
+    assert.equal(existsSync(fixture.builtinDir), false);
+  } finally {
+    await rm(fixture.fixtureRoot, { recursive: true, force: true });
+  }
+});
+
+test("deleteExpertPackage refuses unknown marketplace and malformed journal", async () => {
   const fixture = await createFixture();
   try {
     await assert.rejects(
-      handlers(fixture).deleteExpertPackage({}, [{ operationId: "op", agentId: "agent-1", packageName: "custom-expert", marketplace: "experts" }]),
+      handlers(fixture).deleteExpertPackage({}, [{ operationId: "op", agentId: "agent-1", packageName: "custom-expert", marketplace: "bundled" }]),
       /Built-in expert packages cannot be deleted/,
     );
     await mkdir(path.dirname(fixture.journalPath), { recursive: true });

@@ -2,11 +2,18 @@
  * Expert permanent-delete: sessions + workspace files + registry + packages.
  */
 import { useCallback, useState } from "react";
-import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
+import {
+  OnMyAgentServerError,
+  type OnMyAgentServerClient,
+} from "../../../../app/lib/onmyagent-server";
 import { deleteExpertPackage } from "../../../../app/lib/desktop";
 import { getReactQueryClient } from "../../../infra/query-client";
 import { t } from "../../../../i18n";
 import {
+  canHardDeleteExpert,
+  clearExpertLocalSessionBindings,
+  invalidateExpertPackageQuery,
+  useAgentRegistryStore,
   type AgentRegistry,
 } from "../../agents";
 import {
@@ -21,14 +28,16 @@ import {
   writeExpertPinnedAgentIds,
 } from "../sidebar/conversation-model";
 import { useExpertUnreadStore } from "../status/expert-unread-store";
-import {
-  canHardDeleteExpert,
-  clearExpertLocalSessionBindings,
-} from "../../agents";
 import { isElectronRuntime } from "../../../../app/utils";
-import { useAgentRegistryStore } from "../../agents";
-import type { ExpertDeleteResult, ExpertDirectoryProjection } from "@onmyagent/types/server";
-import type { ExpertPackageDeleteResult } from "@onmyagent/types/desktop-ipc";
+import type {
+  ExpertDeleteRequest,
+  ExpertDeleteResult,
+  ExpertDirectoryProjection,
+} from "@onmyagent/types/server";
+import type {
+  ExpertPackageDeleteInput,
+  ExpertPackageDeleteResult,
+} from "@onmyagent/types/desktop-ipc";
 import {
   evictExpertDirectorySessions,
   stripExpertDirectorySessionsFromProjection,
@@ -42,6 +51,8 @@ export type ExpertGroupDeleteTarget = {
   name: string;
   sessionIds: string[];
   packageName?: string;
+  source?: "mine" | "installed";
+  sessionDirectories?: Record<string, string>;
   operationId: string;
 };
 
@@ -123,6 +134,194 @@ export function shouldUninstallExpertPackage(serverResult: Pick<ExpertDeleteResu
   return serverResult.state === "completed" && (serverResult.steps?.length ?? 0) > 0;
 }
 
+/** Unused shelf experts have no origin rows; the server reports this before desktop uninstall. */
+export function isExpertDeleteTargetNotFound(error: unknown): boolean {
+  if (error instanceof OnMyAgentServerError) {
+    return error.code === "expert_delete_target_not_found";
+  }
+  return error instanceof Error && error.message === "expert_delete_target_not_found";
+}
+
+export function realExpertDeleteSessionIds(sessionIds: readonly string[]): string[] {
+  return sessionIds.map((id) => id.trim()).filter((id) => id && !id.startsWith("draft:"));
+}
+
+/** Draft-only UI rows skip the origin saga. Empty means “delete every origin”. */
+export function shouldSkipServerExpertSessionDelete(sessionIds: readonly string[]): boolean {
+  return sessionIds.length > 0 && realExpertDeleteSessionIds(sessionIds).length === 0;
+}
+
+/** Leftover UI sessions without origin rows must not block package uninstall. */
+export function shouldContinueExpertDeleteAfterServerError(error: unknown): boolean {
+  return isExpertDeleteTargetNotFound(error);
+}
+
+export function shouldProceedWithDesktopPackageDelete(input: {
+  source?: "mine" | "installed";
+  sessionIds: readonly string[];
+  serverResult?: Pick<ExpertDeleteResult, "state" | "steps">;
+  serverMissed: boolean;
+}): boolean {
+  if (input.serverMissed) return true;
+  if (input.source === "mine") return true;
+  if (!input.serverResult) return shouldSkipServerExpertSessionDelete(input.sessionIds);
+  return input.serverResult.state === "completed";
+}
+
+export async function awaitExpertDeleteStep<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  label: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label}_timeout`)), timeoutMs);
+      }),
+    ]);
+  } catch (error) {
+    void promise.then(() => undefined, () => undefined);
+    throw error;
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
+export const EXPERT_DELETE_SERVER_TIMEOUT_MS = 60_000;
+export const EXPERT_DELETE_DESKTOP_TIMEOUT_MS = 15_000;
+
+export type RunExpertHardDeleteInput = {
+  workspaceId: string;
+  operationId: string;
+  agentId: string;
+  packageName: string;
+  marketplace: ExpertPackageDeleteInput["marketplace"];
+  sessionIds: readonly string[];
+  source?: "mine" | "installed";
+};
+
+export type RunExpertHardDeleteDeps = {
+  deleteExpert: OnMyAgentServerClient["deleteExpert"];
+  deleteExpertPackage: (input: ExpertPackageDeleteInput) => Promise<ExpertPackageDeleteResult>;
+  timeoutMs?: number;
+  onServerResult?: (result: ExpertDeleteResult) => void;
+  onBeforeDesktop?: (input: {
+    serverResult?: ExpertDeleteResult;
+    serverMissed: boolean;
+  }) => void | Promise<void>;
+};
+
+/**
+ * Shipped expert hard-delete RPCs: server session origins then desktop package.
+ * Leftover UI sessionIds that 404 origins still uninstall the package.
+ */
+export async function runExpertHardDelete(
+  input: RunExpertHardDeleteInput,
+  deps: RunExpertHardDeleteDeps,
+): Promise<{
+  server?: ExpertDeleteResult;
+  desktop: ExpertPackageDeleteResult;
+  serverMissed: boolean;
+}> {
+  const serverTimeoutMs = deps.timeoutMs ?? EXPERT_DELETE_SERVER_TIMEOUT_MS;
+  const desktopTimeoutMs = deps.timeoutMs ?? EXPERT_DELETE_DESKTOP_TIMEOUT_MS;
+  const requestedIds = realExpertDeleteSessionIds(input.sessionIds);
+  const request: ExpertDeleteRequest = {
+    operationId: input.operationId,
+    agentId: input.agentId,
+    packageName: input.packageName,
+    marketplace: input.marketplace,
+    sessionIds: requestedIds,
+  };
+  let serverResult: ExpertDeleteResult | undefined;
+  let serverMissed = false;
+  const runServerDelete = (sessionIds: string[]) =>
+    awaitExpertDeleteStep(
+      deps.deleteExpert(input.workspaceId, { ...request, sessionIds }),
+      serverTimeoutMs,
+      "expert_delete_server",
+    );
+  if (!shouldSkipServerExpertSessionDelete(input.sessionIds)) {
+    try {
+      serverResult = await runServerDelete(requestedIds);
+    } catch (error) {
+      if (!shouldContinueExpertDeleteAfterServerError(error)) {
+        throw error;
+      }
+      if (requestedIds.length === 0) {
+        serverMissed = true;
+      } else {
+        try {
+          serverResult = await runServerDelete([]);
+        } catch (retryError) {
+          if (!shouldContinueExpertDeleteAfterServerError(retryError)) {
+            throw retryError;
+          }
+          serverMissed = true;
+        }
+      }
+    }
+  }
+  if (serverResult) {
+    deps.onServerResult?.(serverResult);
+    if (serverResult.state !== "completed") {
+      throw new Error(summarizeExpertDeleteProgress({ server: serverResult }));
+    }
+  }
+  if (
+    !shouldProceedWithDesktopPackageDelete({
+      source: input.source,
+      sessionIds: input.sessionIds,
+      serverResult,
+      serverMissed,
+    })
+  ) {
+    throw new Error("expert_delete_target_not_found");
+  }
+  await deps.onBeforeDesktop?.({ serverResult, serverMissed });
+  const desktop = await awaitExpertDeleteStep(
+    deps.deleteExpertPackage({
+      operationId: input.operationId,
+      agentId: input.agentId,
+      packageName: input.packageName,
+      marketplace: input.marketplace,
+    }),
+    desktopTimeoutMs,
+    "expert_delete_desktop",
+  );
+  return { server: serverResult, desktop, serverMissed };
+}
+
+/** Self-created packages live in my-experts; summoned installs live in experts. */
+export function resolveExpertPackageDeleteMarketplace(input: {
+  source?: "mine" | "installed";
+  agentId: string;
+  registry?: AgentRegistry | null;
+}): "my-experts" | "experts" {
+  if (input.source === "installed") return "experts";
+  if (input.source === "mine") return "my-experts";
+  const agent = input.registry?.agents.find((item) => item.id === input.agentId.trim());
+  return agent?.marketplaceSource === "installed" ? "experts" : "my-experts";
+}
+
+export function resolveExpertDeleteSessionDirectory(input: {
+  sessionId: string;
+  sessionDirectories?: Record<string, string>;
+  currentAgentSessions: ReadonlyArray<{ id: string; directory?: string | null }>;
+  archivedDirectory?: string | null;
+}): string | null {
+  const id = input.sessionId.trim();
+  if (!id) return null;
+  return (
+    input.sessionDirectories?.[id]?.trim() ||
+    input.currentAgentSessions.find((session) => session.id === id)?.directory?.trim() ||
+    input.archivedDirectory?.trim() ||
+    null
+  );
+}
+
 export function useExpertSessionDelete(input: {
   workspaceId: string;
   workspaceRoot: string;
@@ -138,18 +337,26 @@ export function useExpertSessionDelete(input: {
 }) {
   const [deleteProgress, setDeleteProgress] = useState<ExpertDeleteProgress>({ status: "idle" });
   const purgeExpertSessionFiles = useCallback(
-    async (sessionId: string, agentSlug?: string | null) => {
+    async (
+      sessionId: string,
+      agentSlug?: string | null,
+      directoryOverride?: string | null,
+    ) => {
       const client = input.client;
       const workspaceId = input.workspaceId.trim();
       const id = sessionId.trim();
       if (!client || !workspaceId || !id) return;
-      const match = input.currentAgentSessions.find(
-        (session) => session.id === id,
-      );
       const archived = readAssistantArchivedTasks(workspaceId).find(
         (task) => task.sessionId === id,
       );
-      const directory = match?.directory ?? archived?.directory ?? null;
+      const directory = resolveExpertDeleteSessionDirectory({
+        sessionId: id,
+        sessionDirectories: directoryOverride?.trim()
+          ? { [id]: directoryOverride.trim() }
+          : undefined,
+        currentAgentSessions: input.currentAgentSessions,
+        archivedDirectory: archived?.directory ?? null,
+      });
       await deleteSessionOwnedWorkspaceFiles({
         client,
         workspaceId,
@@ -206,51 +413,73 @@ export function useExpertSessionDelete(input: {
       if (!operationId) throw new Error("Expert delete operation id is missing");
       setDeleteProgress({ status: "running", operationId });
       try {
-        const serverResult = await client.deleteExpert(input.workspaceId, {
-          operationId,
+        const marketplace = resolveExpertPackageDeleteMarketplace({
+          source: target.source,
           agentId: target.agentId,
-          packageName,
-          marketplace: "my-experts",
-          sessionIds: target.sessionIds,
+          registry: input.registry ?? null,
         });
-        setDeleteProgress({ status: "running", operationId, server: serverResult });
-        if (serverResult.state !== "completed") {
-          const error = summarizeExpertDeleteProgress({ server: serverResult });
-          setDeleteProgress({ status: "failed", operationId, server: serverResult, error });
-          throw new Error(error);
-        }
-        if (!shouldUninstallExpertPackage(serverResult)) {
-          throw new Error("expert_delete_target_not_found");
-        }
-        evictExpertDirectorySessions(input.workspaceId, target.sessionIds);
-        const directoryStore = useExpertDirectoryStore.getState();
-        directoryStore.expireOverlay(input.workspaceId, target.sessionIds);
-        const identity = directoryStore.getProjectionIdentity(input.workspaceId);
-        const remainingIds = new Set(identity.sessionIds);
-        const remainingAgents = new Map(identity.agentIdBySessionId);
-        for (const sessionId of target.sessionIds) {
-          remainingIds.delete(sessionId);
-          remainingAgents.delete(sessionId);
-        }
-        directoryStore.setIdentity(input.workspaceId, {
-          sessionIds: remainingIds,
-          agentIdBySessionId: remainingAgents,
-        });
+        let deletedSessionIds: string[] = [];
+        const { server: serverResult, desktop: desktopResult } = await runExpertHardDelete(
+          {
+            workspaceId: input.workspaceId,
+            operationId,
+            agentId: target.agentId,
+            packageName,
+            marketplace,
+            sessionIds: target.sessionIds,
+            source: target.source,
+          },
+          {
+            deleteExpert: (workspaceId, request) => client.deleteExpert(workspaceId, request),
+            deleteExpertPackage,
+            onServerResult: (server) => {
+              setDeleteProgress({ status: "running", operationId, server });
+            },
+            onBeforeDesktop: async ({ serverResult: completedServer }) => {
+              deletedSessionIds =
+                target.sessionIds.length > 0
+                  ? [...target.sessionIds]
+                  : (completedServer?.steps ?? [])
+                      .map((step) => step.sessionId.trim())
+                      .filter(Boolean);
+              for (const sessionId of deletedSessionIds) {
+                await purgeExpertSessionFiles(
+                  sessionId,
+                  target.packageName || target.agentId,
+                  target.sessionDirectories?.[sessionId],
+                );
+              }
+              const queryClient = getReactQueryClient();
+              const directoryQueryKey = expertDirectoryQueryKey(input.workspaceId);
+              if (deletedSessionIds.length > 0) {
+                evictExpertDirectorySessions(input.workspaceId, deletedSessionIds);
+                const directoryStore = useExpertDirectoryStore.getState();
+                directoryStore.expireOverlay(input.workspaceId, deletedSessionIds);
+                const identity = directoryStore.getProjectionIdentity(input.workspaceId);
+                const remainingIds = new Set(identity.sessionIds);
+                const remainingAgents = new Map(identity.agentIdBySessionId);
+                for (const sessionId of deletedSessionIds) {
+                  remainingIds.delete(sessionId);
+                  remainingAgents.delete(sessionId);
+                }
+                directoryStore.setIdentity(input.workspaceId, {
+                  sessionIds: remainingIds,
+                  agentIdBySessionId: remainingAgents,
+                });
+                const currentDirectory =
+                  queryClient.getQueryData<ExpertDirectoryProjection>(directoryQueryKey);
+                if (currentDirectory) {
+                  queryClient.setQueryData(
+                    directoryQueryKey,
+                    stripExpertDirectorySessionsFromProjection(currentDirectory, deletedSessionIds),
+                  );
+                }
+              }
+            },
+          },
+        );
         const queryClient = getReactQueryClient();
         const directoryQueryKey = expertDirectoryQueryKey(input.workspaceId);
-        const currentDirectory = queryClient.getQueryData<ExpertDirectoryProjection>(directoryQueryKey);
-        if (currentDirectory) {
-          queryClient.setQueryData(
-            directoryQueryKey,
-            stripExpertDirectorySessionsFromProjection(currentDirectory, target.sessionIds),
-          );
-        }
-        const desktopResult = await deleteExpertPackage({
-          operationId,
-          agentId: target.agentId,
-          packageName,
-          marketplace: "my-experts",
-        });
         setDeleteProgress({ status: "running", operationId, server: serverResult, desktop: desktopResult });
         if (desktopResult.state !== "completed") {
           const error = summarizeExpertDeleteProgress({ server: serverResult, desktop: desktopResult });
@@ -258,8 +487,9 @@ export function useExpertSessionDelete(input: {
           throw new Error(error);
         }
         await queryClient.invalidateQueries({ queryKey: directoryQueryKey });
-        clearExpertLocalSessionBindings(target.sessionIds);
-        for (const sessionId of target.sessionIds) {
+        await invalidateExpertPackageQuery();
+        clearExpertLocalSessionBindings(deletedSessionIds);
+        for (const sessionId of deletedSessionIds) {
           permanentlyRemoveAssistantArchivedTask(input.workspaceId, sessionId);
         }
         const registry = input.registry;

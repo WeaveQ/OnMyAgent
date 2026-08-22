@@ -12,6 +12,7 @@ import {
   shouldQuitOnWindowAllClosed,
   statusItemActionIds,
   statusItemLabels,
+  resolveStatusItemLocaleFromEnvironment,
 } from "./status-item-menu.mjs";
 
 test("status item installs on darwin and win32", () => {
@@ -66,6 +67,41 @@ test("locale resolution covers en / zh / zh-TW", () => {
   assert.equal(resolveStatusItemLocale("zh-TW"), "zh-TW");
   assert.equal(resolveStatusItemLocale("zh_Hant_TW"), "zh-TW");
   assert.equal(resolveStatusItemLocale(null), "en");
+});
+
+test("environment locale prefers OS languages and Chinese-region time zone over Chromium en", () => {
+  assert.equal(
+    resolveStatusItemLocaleFromEnvironment({
+      languages: ["zh-CN", "en-US"],
+      timeZone: "UTC",
+      appLocale: "en-US",
+    }),
+    "zh",
+  );
+  assert.equal(
+    resolveStatusItemLocaleFromEnvironment({
+      languages: ["en-US"],
+      timeZone: "Asia/Shanghai",
+      appLocale: "en-US",
+    }),
+    "zh",
+  );
+  assert.equal(
+    resolveStatusItemLocaleFromEnvironment({
+      languages: ["en-US"],
+      timeZone: "America/New_York",
+      appLocale: "en-US",
+    }),
+    "en",
+  );
+  assert.equal(
+    resolveStatusItemLocaleFromEnvironment({
+      languages: [],
+      timeZone: "Asia/Taipei",
+      appLocale: "en",
+    }),
+    "zh-TW",
+  );
 });
 
 test("labels are localized for zh and zh-TW", () => {

@@ -1,0 +1,10 @@
+OpenCode models catalog snapshot for first-launch cache.
+
+Source: https://models.dev/api.json
+Captured: 2026-08-20
+Runtime dest: $XDG_CACHE_HOME/opencode/models.json (sandbox)
+OpenCode 1.18.18 reads this via OPENCODE_MODELS_PATH (and as models.json
+when OPENCODE_MODELS_URL is unset / models.opencode.ai).
+
+Do not point OPENCODE_MODELS_URL at models.onmyagentlabs.com until that host is live.
+Refresh this gzip from models.dev when the catalog is badly stale.

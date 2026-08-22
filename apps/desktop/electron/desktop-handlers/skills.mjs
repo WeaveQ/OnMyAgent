@@ -6,6 +6,11 @@
 import {
   listExpertPackageSkillDeclarations,
 } from "../expert-package-skills.mjs";
+import {
+  exportExpertPackageToZip,
+  importExpertPackageFromSource,
+} from "../expert-package-import.mjs";
+import { createZipFromDir, extractZipToDir } from "../managed-tools/managed-cli/archive.mjs";
 import { toPortableRelativePath } from "../lib/portable-path.mjs";
 
 export const HANDLER_COMMAND_NAMES = Object.freeze([
@@ -21,6 +26,8 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "installExpertPackage",
   "uninstallExpertPackage",
   "deleteExpertPackage",
+  "importExpertPackage",
+  "exportExpertPackage",
   "installBuiltinSkillPackage",
   "writeMyExpertPackage",
   "stageMyExpertKnowledge",
@@ -231,7 +238,8 @@ export function createSkillsDomainHandlers({
     const safePackage = validateExpertPackageName(input.packageName ?? input.id);
     if (!operationId || operationId.length > 160) throw new Error("operationId is required");
     if (!agentId || agentId.length > 160) throw new Error("agentId is required");
-    if (String(input.marketplace ?? "") !== "my-experts") {
+    const marketplace = String(input.marketplace ?? "").trim();
+    if (marketplace !== "my-experts" && marketplace !== "experts") {
       throw new Error("Built-in expert packages cannot be deleted");
     }
     const journalPath = String(expertDeleteJournalPath ?? "").trim();
@@ -327,26 +335,44 @@ export function createSkillsDomainHandlers({
     const customPackageDir = path.join(customRoot, safePackage);
     const customStep = result.steps.find((entry) => entry.target === "my-experts");
     if (customStep?.state === "pending" || customStep?.state === "failed") {
-      try {
-        if (!existsSync(customPackageDir)) {
-          update("my-experts", "skipped", "package_missing");
-        } else {
-          await rm(customPackageDir, { recursive: true, force: true });
-          update("my-experts", "completed");
+      if (marketplace !== "my-experts") {
+        update("my-experts", "skipped", "not_targeted");
+      } else {
+        try {
+          if (!existsSync(customPackageDir)) {
+            update("my-experts", "skipped", "package_missing");
+          } else {
+            await rm(customPackageDir, { recursive: true, force: true });
+            update("my-experts", "completed");
+          }
+        } catch {
+          update("my-experts", "failed", "package_delete_failed");
         }
-      } catch {
-        update("my-experts", "failed", "package_delete_failed");
       }
       await checkpoint();
     }
 
-    const builtinPackageDir = path.join(onmyagentMarketplaceRoot("experts"), safePackage);
-    if (existsSync(builtinPackageDir)) {
-      update("experts", "skipped", "builtin_protected");
-    } else {
-      update("experts", "skipped", "marketplace_missing");
+    const installPackageDir = path.join(onmyagentMarketplaceRoot("experts"), safePackage);
+    const expertsStep = result.steps.find((entry) => entry.target === "experts");
+    if (expertsStep?.state === "pending" || expertsStep?.state === "failed") {
+      if (marketplace !== "experts") {
+        update("experts", "skipped", "not_targeted");
+      } else {
+        try {
+          if (!existsSync(installPackageDir)) {
+            update("experts", "skipped", "marketplace_missing");
+          } else {
+            await rm(installPackageDir, { recursive: true, force: true });
+            update("experts", "completed");
+          }
+        } catch {
+          update("experts", "failed", "package_delete_failed");
+        }
+      }
+      await checkpoint();
     }
-    const packageBlocked = customStep?.state === "failed" || customStep?.state === "pending";
+    const targetedStep = marketplace === "experts" ? expertsStep : customStep;
+    const packageBlocked = targetedStep?.state === "failed" || targetedStep?.state === "pending";
     const registryStep = result.steps.find((entry) => entry.target === "registry");
     if (!packageBlocked && (registryStep?.state === "pending" || registryStep?.state === "failed")) {
       try {
@@ -427,6 +453,36 @@ export function createSkillsDomainHandlers({
       await refreshRuntimeSkillLinks().catch(() => undefined);
     }
     return { ok: true, path: destination, packageName: safePackage, skillName: safeSkillName };
+  },
+
+  importExpertPackage: async (event, args) => {
+    const payload = args[0] ?? {};
+    return importExpertPackageFromSource({
+      sourcePath: payload.sourcePath,
+      overwrite: payload.overwrite === true,
+      asCopy: payload.asCopy === true,
+      marketplaceRoot: onmyagentMarketplaceRoot("my-experts"),
+      validateExpertPackageName,
+      pathExists,
+      mkdir,
+      rm,
+      cp,
+      extractZipToDir,
+      listDeclaredSkills: listExpertPackageSkillDeclarations,
+    });
+  },
+
+  exportExpertPackage: async (event, args) => {
+    const payload = args[0] ?? {};
+    return exportExpertPackageToZip({
+      packageName: payload.packageName,
+      destPath: payload.destPath,
+      marketplaceRoot: onmyagentMarketplaceRoot("my-experts"),
+      validateExpertPackageName,
+      pathExists,
+      mkdir,
+      createZipFromDir,
+    });
   },
 
   writeMyExpertPackage: async (event, args) => {

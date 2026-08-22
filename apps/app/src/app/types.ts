@@ -498,6 +498,8 @@ export type ModelOption = {
   behaviorOptions?: ModelBehaviorOption[];
   disabled?: boolean;
   isFree: boolean;
+  /** Catalog listed image/vision input. Absent/false when unknown. */
+  supportsVision?: boolean;
   isConnected: boolean;
   isRecommended?: boolean;
   /** "cloud" for org-managed providers (lpr_*), undefined for local. */
