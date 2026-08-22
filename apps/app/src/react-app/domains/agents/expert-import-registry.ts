@@ -11,8 +11,10 @@ import {
 import { useAgentRegistryStore } from "./agent-registry-store";
 import type { AgentRecord, AgentRegistry } from "./agent-registry-types";
 import {
+  reconcileImportedMineExpertAvatars,
   registerImportedMineExpert,
   type ImportedMineExpertSeed,
+  type MineExpertPackageAvatarSource,
 } from "./expert-creation-save-model";
 
 export type { ImportedMineExpertSeed };
@@ -44,4 +46,16 @@ export async function persistImportedMineExpert(
   }
   useAgentRegistryStore.getState().setRegistry(next.registry);
   return next;
+}
+
+export async function reconcilePersistedMineExpertAvatars(
+  packages: readonly MineExpertPackageAvatarSource[],
+): Promise<void> {
+  const current = await loadBaseRegistry();
+  const next = reconcileImportedMineExpertAvatars(current, packages);
+  if (next === current) return;
+  if (isElectronRuntime()) {
+    await writeUserAgentRegistry(serializeUserAgentRegistry(next));
+  }
+  useAgentRegistryStore.getState().setRegistry(next);
 }

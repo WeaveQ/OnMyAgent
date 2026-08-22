@@ -2,7 +2,6 @@ import type { PendingAgentContext, AgentRegistry } from "../../agents";
 import type { AgentConversationGroup } from "../sidebar/session-chrome";
 import {
   buildDraftAgentGroups,
-  listUnstartedMineExpertContexts,
   resolveActiveAgentContext,
   resolveActiveConversationGroup,
 } from "./expert-conversation-model";
@@ -22,17 +21,8 @@ export function buildExpertPageNavigationModel(input: {
   pendingAgent: PendingAgentContext | null;
   registry: AgentRegistry | null;
 }): ExpertPageNavigationModel {
-  const unstartedMineContexts = listUnstartedMineExpertContexts({
-    registry: input.registry,
-    occupiedAgentIds: [
-      ...Object.keys(input.draftAgentContexts),
-      ...input.conversationGroups
-        .map((group) => group.agentId?.trim() ?? "")
-        .filter(Boolean),
-    ],
-  });
   const draftAgentGroups = buildDraftAgentGroups(
-    { ...unstartedMineContexts, ...input.draftAgentContexts },
+    input.draftAgentContexts,
     input.selectedWorkspaceId,
   );
   const activeConversationGroup = resolveActiveConversationGroup({

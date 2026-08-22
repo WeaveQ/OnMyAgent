@@ -5,6 +5,7 @@ import {
 } from "./expert-creation-coach-model";
 
 const STORAGE_KEY_PREFIX = "onmyagent.expert-creation.v1";
+const STORAGE_VERSION = 2;
 
 export type ExpertCoachMessage = {
   id: string;
@@ -86,9 +87,13 @@ function parseCoachState(value: unknown): ExpertCoachState {
   };
 }
 
-function restoreDraft(value: unknown, fallback: AgentWizardDraft): AgentWizardDraft {
+function restoreDraft(
+  value: unknown,
+  fallback: AgentWizardDraft,
+  restoreSkillIds: boolean,
+): AgentWizardDraft {
   if (!isRecord(value)) return fallback;
-  const skillIds = Array.isArray(value.skillIds)
+  const storedSkillIds = Array.isArray(value.skillIds)
     ? value.skillIds.filter((item): item is string => typeof item === "string")
     : fallback.skillIds;
   return {
@@ -99,7 +104,7 @@ function restoreDraft(value: unknown, fallback: AgentWizardDraft): AgentWizardDr
     customAvatarDataUrl: optionalNullableString(value.customAvatarDataUrl, fallback.customAvatarDataUrl),
     userNote: optionalString(value.userNote, fallback.userNote),
     agentMemory: optionalString(value.agentMemory, fallback.agentMemory),
-    skillIds,
+    skillIds: restoreSkillIds ? storedSkillIds : fallback.skillIds,
   };
 }
 
@@ -112,11 +117,11 @@ export function readExpertCreationStoredState(
     const raw = window.localStorage.getItem(storageKey(workspaceId));
     if (!raw) return { draft: fallbackDraft, coach: EMPTY_EXPERT_COACH_STATE };
     const parsed: unknown = JSON.parse(raw);
-    if (!isRecord(parsed) || parsed.version !== 1) {
+    if (!isRecord(parsed) || (parsed.version !== 1 && parsed.version !== STORAGE_VERSION)) {
       return { draft: fallbackDraft, coach: EMPTY_EXPERT_COACH_STATE };
     }
     return {
-      draft: restoreDraft(parsed.draft, fallbackDraft),
+      draft: restoreDraft(parsed.draft, fallbackDraft, parsed.version === STORAGE_VERSION),
       coach: parseCoachState(parsed.coach),
     };
   } catch {
@@ -130,7 +135,10 @@ export function writeExpertCreationStoredState(
 ): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(storageKey(workspaceId), JSON.stringify({ version: 1, ...state }));
+    window.localStorage.setItem(
+      storageKey(workspaceId),
+      JSON.stringify({ version: STORAGE_VERSION, ...state }),
+    );
   } catch {
     // Storage is a recovery aid; creation must remain usable when it is unavailable.
   }

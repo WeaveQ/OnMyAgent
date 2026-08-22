@@ -3,10 +3,12 @@ import { describe, expect, test } from "bun:test";
 import {
   expertPackageMatchesAgentId,
   filterLocalShelfExperts,
+  filterMyExperts,
   isLocalShelfPackage,
   mergeLocalShelfWithConversations,
 } from "../src/react-app/domains/plugins/expert-marketplace/data";
 import { isAlreadySummonedExpert } from "../src/react-app/domains/plugins/expert-marketplace/expert-marketplace-dialog";
+import { expertMarketplaceCategories } from "../src/react-app/domains/plugins/expert-marketplace/categories";
 import type { ExpertMarketplaceEntry } from "../src/react-app/domains/plugins/expert-marketplace/types";
 
 function stub(
@@ -36,6 +38,22 @@ function stub(
 }
 
 describe("local expert shelf filter", () => {
+  test("market categories never duplicate the dedicated My experts page", () => {
+    expect(
+      expertMarketplaceCategories().map((category) => category.id),
+    ).not.toContain("mine");
+  });
+
+  test("My experts contains only user-created or imported packages", () => {
+    const experts = [
+      stub({ id: "mine:mine", packageName: "mine", source: "mine" }),
+      stub({ id: "summoned:summoned", packageName: "summoned", source: "installed" }),
+      stub({ id: "builtin:builtin", packageName: "builtin", source: "builtin" }),
+    ];
+
+    expect(filterMyExperts(experts).map((expert) => expert.packageName)).toEqual(["mine"]);
+  });
+
   test("package matcher embeds packageName in session agent ids", () => {
     const expert = stub({
       id: "kol-media:kol-media-specialist",
@@ -54,7 +72,7 @@ describe("local expert shelf filter", () => {
     expect(expertPackageMatchesAgentId(expert, "unrelated-agent")).toBe(false);
   });
 
-  test("shelf keeps mine always; installed only when agent has sessions", () => {
+  test("scoped shelf keeps only experts with sidebar sessions", () => {
     const experts = [
       stub({
         id: "a:kol-media-specialist",
@@ -78,10 +96,10 @@ describe("local expert shelf filter", () => {
       }),
     ];
 
-    // Explicit empty scope (expert host, no sidebar sessions) → only self-created.
+    // Explicit empty scope (expert host, no sidebar sessions) → no summoned experts.
     expect(
       filterLocalShelfExperts(experts, []).map((e) => e.packageName),
-    ).toEqual(["my-custom"]);
+    ).toEqual([]);
 
     // No scope signal (main 市场 rail) → all installed + mine, never builtin.
     expect(
@@ -91,12 +109,18 @@ describe("local expert shelf filter", () => {
       filterLocalShelfExperts(experts).map((e) => e.packageName),
     ).toEqual(["kol-media-specialist", "warehouse-manager", "my-custom"]);
 
-    // Active media expert session → media install + mine (not warehouse preseed).
+    // Active media expert session → media install only (not unstarted mine/warehouse).
     expect(
       filterLocalShelfExperts(experts, [
         "媒介专家-kol-media-specialistkol-media-specialist",
       ]).map((e) => e.packageName),
-    ).toEqual(["kol-media-specialist", "my-custom"]);
+    ).toEqual(["kol-media-specialist"]);
+
+    expect(
+      filterLocalShelfExperts(experts, ["c:my-custom"]).map(
+        (expert) => expert.packageName,
+      ),
+    ).toEqual(["my-custom"]);
 
     expect(isLocalShelfPackage({ source: "installed" })).toBe(true);
     expect(isLocalShelfPackage({ source: "builtin" })).toBe(false);

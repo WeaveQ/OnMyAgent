@@ -34,10 +34,13 @@ export function findCreationEditableAgent(
 ): AgentRecord | undefined {
   const key = agentIdOrPackageName.trim();
   if (!key) return undefined;
+  const compositePackageName = key.split(":").filter(Boolean).at(-1) ?? key;
   return (agents ?? []).find(
     (agent) =>
       isCreationExpertEditable(agent) &&
-      (agent.id === key || agent.marketplacePackageName === key),
+      (agent.id === key ||
+        agent.marketplacePackageName === key ||
+        agent.marketplacePackageName === compositePackageName),
   );
 }
 
@@ -65,6 +68,66 @@ export type ImportedMineExpertSeed = {
   agentMemory?: string;
   customAvatarDataUrl?: string | null;
 };
+
+export type ImportedMineExpertPackageSeedSource = {
+  path: string;
+  packageName: string;
+  displayName: string;
+  description: string;
+  declaredSkills: readonly string[];
+  rolePrompt: string;
+  memory: string;
+  avatarDataUrl: string | null;
+};
+
+export type MineExpertPackageAvatarSource = {
+  packageName: string;
+  source: "mine" | "installed";
+  avatarUrl: string | null;
+};
+
+export function buildImportedMineExpertSeed(
+  source: ImportedMineExpertPackageSeedSource,
+): ImportedMineExpertSeed {
+  return {
+    packageName: source.packageName,
+    packagePath: source.path,
+    displayName: source.displayName || source.packageName,
+    description: source.description || "",
+    skillIds: source.declaredSkills,
+    userNote: source.rolePrompt,
+    agentMemory: source.memory,
+    customAvatarDataUrl: source.avatarDataUrl ?? null,
+  };
+}
+
+/** Keep imported registry records aligned with the package directory SoT. */
+export function reconcileImportedMineExpertAvatars(
+  registry: AgentRegistry,
+  packages: readonly MineExpertPackageAvatarSource[],
+): AgentRegistry {
+  const avatarByPackageName = new Map(
+    packages
+      .filter((entry) => entry.source === "mine")
+      .map((entry) => [entry.packageName, entry.avatarUrl] as const),
+  );
+  let changed = false;
+  const agents = registry.agents.map((agent) => {
+    const packageName = agent.marketplacePackageName?.trim();
+    if (
+      agent.marketplaceSource !== "mine" ||
+      !packageName ||
+      !avatarByPackageName.has(packageName)
+    ) {
+      return agent;
+    }
+    const avatarDataUrl = avatarByPackageName.get(packageName) ?? null;
+    if (agent.customAvatarDataUrl === avatarDataUrl) return agent;
+    changed = true;
+    return { ...agent, customAvatarDataUrl: avatarDataUrl };
+  });
+  return changed ? { ...registry, agents } : registry;
+}
 
 export type RegisterImportedMineExpertInput = ImportedMineExpertSeed & {
   registry: AgentRegistry;
@@ -149,6 +212,25 @@ export function createExpertRecordForSave(
   availableSkills: readonly AgentSkillItem[],
 ): AgentRecord {
   return createAgentRecordFromDraft(draft, nowIso, availableSkills);
+}
+
+export function resolveExpertPackageSkillNames(
+  skillIds: readonly string[],
+  availableSkills: readonly AgentSkillItem[],
+): string[] {
+  const skillNameById = new Map(
+    availableSkills.map((skill) => [skill.id, skill.name.trim()] as const),
+  );
+  return Array.from(
+    new Set(
+      skillIds
+        .map((skillId) => {
+          const normalizedId = skillId.trim();
+          return skillNameById.get(normalizedId) || normalizedId;
+        })
+        .filter(Boolean),
+    ),
+  );
 }
 
 export function updateExpertRecordFromDraft(

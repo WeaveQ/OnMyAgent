@@ -354,17 +354,21 @@ export function useExpertPage(props: ExpertPageProps) {
     onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
   });
 
+  const handleCreatedOrImportedExpert = useCallback(
+    (createdAgent: PendingAgentContext) => {
+      activateDraftAgent(createdAgent);
+      openFreshExpertDraft();
+      activateDraftAgent(createdAgent);
+      openRailView("chat");
+    },
+    [activateDraftAgent, openFreshExpertDraft, openRailView],
+  );
   const { openExpertCreation, closeExpertCreation, closeExpertCreationThen, expertCreationPage, editableExpertIds, handleEditExpert, handleEditMarketplaceExpert } =
     useSessionExpertCreation({
       props,
       registry,
       showToast,
-      onCreatedAgent: (createdAgent) => {
-        activateDraftAgent(createdAgent);
-        openFreshExpertDraft();
-        activateDraftAgent(createdAgent);
-        openRailView("chat");
-      },
+      onCreatedAgent: handleCreatedOrImportedExpert,
     });
   const seedChatDraft = useCallback(
     (draft: string) => {

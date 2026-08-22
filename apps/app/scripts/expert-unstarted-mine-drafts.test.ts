@@ -4,7 +4,9 @@ import type {
   AgentRecord,
   AgentRegistry,
 } from "../src/react-app/domains/agents/agent-registry-types";
+import { buildPendingAgentFromMarketplaceExpert } from "../src/react-app/domains/agents/marketplace-pending-agent";
 import {
+  buildAgentConversationGroups,
   buildDraftAgentGroups,
   listUnstartedMineExpertContexts,
   resolveUnstartedMinePending,
@@ -37,14 +39,6 @@ const mineAgent: AgentRecord = {
   updatedAt: "2026-08-20T00:00:00.000Z",
 };
 
-const summonedAgent: AgentRecord = {
-  ...mineAgent,
-  id: "summoned-kol",
-  name: "Summoned",
-  marketplaceSource: "installed",
-  marketplacePackageName: "kol-ops",
-};
-
 function registryWith(agents: AgentRecord[]): AgentRegistry {
   return {
     version: 1,
@@ -56,24 +50,8 @@ function registryWith(agents: AgentRecord[]): AgentRegistry {
   };
 }
 
-describe("unstarted mine experts stay in the conversation list", () => {
-  it("seeds a mine expert that has no sessions after in-memory drafts are dropped", () => {
-    const seeded = listUnstartedMineExpertContexts({
-      registry: registryWith([mineAgent, summonedAgent]),
-      occupiedAgentIds: [],
-    });
-    expect(Object.keys(seeded)).toEqual(["agent-222"]);
-    expect(seeded["agent-222"]).toMatchObject({
-      id: "agent-222",
-      name: "222",
-      draftSource: "agent-selection",
-      marketplaceExpert: {
-        source: "mine",
-        packageName: "agent-222",
-      },
-    });
-    expect(seeded["agent-222"]?.operationId).toBeUndefined();
-
+describe("unstarted mine expert conversation visibility", () => {
+  it("does not seed a mine expert that has no session or active in-memory draft", () => {
     const groups = buildExpertPageNavigationModel({
       draftAgentContexts: {},
       selectedWorkspaceId: "ws-1",
@@ -83,8 +61,128 @@ describe("unstarted mine experts stay in the conversation list", () => {
       pendingAgent: null,
       registry: registryWith([mineAgent]),
     }).draftAgentGroups;
-    expect(groups.map((group) => group.agentId)).toEqual(["agent-222"]);
-    expect(groups[0]?.sessions[0]?.id).toBe("draft:ws-1:agent-222");
+    expect(groups).toEqual([]);
+  });
+
+  it("keeps an uploaded mine avatar while suppressing generated placeholders", () => {
+    const customAvatar = "data:image/png;base64,custom";
+    const groups = buildDraftAgentGroups(
+      {
+        generated: {
+          id: "generated",
+          name: "Generated",
+          description: "",
+          avatar: {
+            avatarStyle: "pixel",
+            avatarOptionId: "pixel-tech",
+            customAvatarDataUrl: null,
+            avatarUrl: "data:image/svg+xml,generated",
+            avatarBackground: null,
+          },
+          systemPrompt: "",
+          marketplaceExpert: {
+            source: "mine",
+            packageName: "generated",
+            packagePath: "/tmp/generated",
+          },
+        },
+        uploaded: {
+          id: "uploaded",
+          name: "Uploaded",
+          description: "",
+          avatar: {
+            avatarStyle: "pixel",
+            avatarOptionId: "pixel-tech",
+            customAvatarDataUrl: customAvatar,
+            avatarUrl: customAvatar,
+            avatarBackground: null,
+          },
+          systemPrompt: "",
+          marketplaceExpert: {
+            source: "mine",
+            packageName: "uploaded",
+            packagePath: "/tmp/uploaded",
+          },
+        },
+      },
+      "ws-1",
+    );
+
+    expect(groups.find((group) => group.agentId === "generated")?.avatarUrl).toBeNull();
+    expect(groups.find((group) => group.agentId === "uploaded")?.avatarUrl).toBe(customAvatar);
+  });
+
+  it("keeps an imported package avatar before its first session is created", () => {
+    const packageAvatar = "data:image/png;base64,package-avatar";
+    const pending = buildPendingAgentFromMarketplaceExpert({
+      id: "fitness-expert:fitness-expert",
+      packageName: "fitness-expert",
+      source: "mine",
+      packagePath: "/tmp/my-experts/fitness-expert",
+      displayName: "Fitness Expert",
+      profession: "Fitness Expert",
+      description: "Personal training",
+      categoryId: "all",
+      categoryIds: [],
+      categoryLabel: "",
+      categoryLabels: [],
+      tags: [],
+      quickPrompts: [],
+      promptTemplates: [],
+      avatarUrl: packageAvatar,
+      expertType: "agent",
+      leadAgentName: "fitness-expert",
+      systemPrompt: "Train safely",
+      version: "1.0.0",
+      teamWorkflow: null,
+      skills: [],
+      introStyle: "default",
+      approvedAgentIds: [],
+    });
+
+    const groups = buildDraftAgentGroups({ [pending.id]: pending }, "ws-1");
+
+    expect(groups[0]?.avatarUrl).toBe(packageAvatar);
+  });
+
+  it("restores a mine expert when Directory uses its composite runtime id", () => {
+    const groups = buildAgentConversationGroups(
+      [{ id: "session-1", title: "Wrong fallback" }],
+      registryWith([mineAgent]),
+      {
+        sessionIds: new Set(["session-1"]),
+        agentIdBySessionId: new Map([["session-1", "agent-222:agent-222"]]),
+      },
+    );
+
+    expect(groups[0]?.name).toBe("222");
+    expect(groups[0]?.avatarUrl).toBeNull();
+  });
+
+  it("uses the package avatar for a legacy summoned expert missing from the registry", () => {
+    const packageAvatar = "data:image/png;base64,package-avatar";
+    const groups = buildAgentConversationGroups(
+      [{ id: "session-legacy", title: "Wrong fallback" }],
+      registryWith([]),
+      {
+        sessionIds: new Set(["session-legacy"]),
+        agentIdBySessionId: new Map([
+          ["session-legacy", "agent-1787307268585:agent-1787307268585"],
+        ]),
+      },
+      undefined,
+      [
+        {
+          id: "agent-1787307268585:agent-1787307268585",
+          packageName: "agent-1787307268585",
+          leadAgentName: "agent-1787307268585",
+          source: "mine",
+          avatarUrl: packageAvatar,
+        },
+      ],
+    );
+
+    expect(groups[0]?.avatarUrl).toBe(packageAvatar);
   });
 
   it("does not duplicate a mine expert that already has a session or live draft", () => {

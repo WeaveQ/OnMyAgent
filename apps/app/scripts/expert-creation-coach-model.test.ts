@@ -74,7 +74,7 @@ describe("expert creation coach model", () => {
     expect(parseExpertCoachTurnResult(null)).toBeNull();
   });
 
-  test("applies only supported fields and available skill ids", () => {
+  test("applies coach fields without changing skills selected by the user", () => {
     const registry = createDefaultAgentRegistry();
     const enabledSkill = {
       id: "research",
@@ -84,7 +84,10 @@ describe("expert creation coach model", () => {
       description: "Find and compare evidence.",
       enabled: true,
     };
-    const draft = createBlankWizardDraft(registry, [enabledSkill]);
+    const draft = {
+      ...createBlankWizardDraft(registry, [enabledSkill]),
+      skillIds: ["user-selected-skill"],
+    };
     const next = applyExpertCoachProposal(draft, {
       name: "Planning expert",
       description: "Turns goals into plans.",
@@ -96,7 +99,7 @@ describe("expert creation coach model", () => {
     expect(next.name).toBe("Planning expert");
     expect(next.userNote).toContain("desired outcome");
     expect(next.agentMemory).toContain("constraints");
-    expect(next.skillIds).toEqual([enabledSkill.id]);
+    expect(next.skillIds).toEqual(["user-selected-skill"]);
     expect(next.model).toBe(draft.model);
     expect(next.customAvatarDataUrl).toBe(draft.customAvatarDataUrl);
   });
