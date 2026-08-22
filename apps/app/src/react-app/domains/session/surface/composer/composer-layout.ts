@@ -17,8 +17,6 @@ export type ComposerLayoutInput = {
   flushShell?: boolean;
   hasBottomAccessory?: boolean;
   hasAttachments?: boolean;
-  mentionOpen?: boolean;
-  slashOpen?: boolean;
 };
 
 export type ComposerLayoutClasses = {
@@ -46,14 +44,11 @@ export function resolveComposerLayoutClasses(input: ComposerLayoutInput): Compos
   const underCardAccessory = Boolean(input.hasBottomAccessory) && !inlineToolbarAccessory;
   // When workspace/permission bar sits under the card, share the outer silhouette:
   // full width + square joint (no top corners on the bar, no bottom corners on the card).
-  const panelRoundedClass =
-    input.mentionOpen || input.slashOpen
-      ? "rounded-t-[18px] border-t-transparent"
-      : underCardAccessory
-        ? "rounded-t-xl rounded-b-none"
-        : heroHome
-          ? "rounded-2xl"
-          : "rounded-xl";
+  const panelRoundedClass = underCardAccessory
+    ? "rounded-t-xl rounded-b-none"
+    : heroHome
+      ? "rounded-2xl"
+      : "rounded-xl";
 
   // Same width for hero home, expert empty, and in-session (1120 + side pad).
   // Bottom inset matches in-session chat so draft-home is not flush to the edge.

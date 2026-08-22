@@ -72,7 +72,7 @@
     "apps/app/src/react-app/shell/welcome-route.tsx": 892,
     "apps/app/src/styles/tailwind-colors.ts": 813,
     "apps/desktop/electron/agent-management-providers.mjs": 1364,
-    "apps/desktop/electron/agent-management-skills.mjs": 1122,
+    "apps/desktop/electron/agent-management-skills.mjs": 1123,
     "apps/desktop/electron/browser-runtime/browser-host.mjs": 806,
     "apps/desktop/electron/channels/agent-dispatch.mjs": 1934,
     "apps/desktop/electron/channels/test/agent-dispatch-resilience.test.mjs": 1010,

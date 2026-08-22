@@ -42,6 +42,7 @@ import {
   collectUnavailableSkillAgents,
   visibleSkillMatrixAgents,
 } from "./agent-fleet-model";
+import { formatAgentManagementDesktopError } from "./agent-management-desktop-error";
 import { STUDIO_SWITCH_SKILL_AGENT_OPTIONS } from "./agent-management-skill-model";
 import {
   countFleetRelatedSkills,
@@ -325,7 +326,7 @@ export function AgentManagementPage(props: {
       // Keep latest cache on screen when background revalidate fails.
       const latest = readCachedAgentManagerSnapshot(cacheKey);
       if (!latest) {
-        setError(loadError instanceof Error ? loadError.message : String(loadError));
+        setError(formatAgentManagementDesktopError(loadError));
       }
       return latest ?? cached;
     } finally {
@@ -522,7 +523,7 @@ export function AgentManagementPage(props: {
       }
       const message = /command is required|editor_error_command|\u4e0d\u80fd\u4e3a\u7a7a/i.test(raw)
         ? t("local_agent.editor_error_command")
-        : raw;
+        : formatAgentManagementDesktopError(addError);
       setError(message);
       showToast({
         tone: "error",
@@ -622,7 +623,7 @@ export function AgentManagementPage(props: {
       await personalLocalAgentUpdateCustomAgent({ workspaceRoot: props.workspaceRoot, id: agent.id, agent: { enabled } });
       await refresh({ force: true, domains: domainsForAgentMutation() });
     } catch (toggleError) {
-      setError(toggleError instanceof Error ? toggleError.message : String(toggleError));
+      setError(formatAgentManagementDesktopError(toggleError));
     }
   }, [props.workspaceRoot, refresh]);
 
@@ -631,7 +632,7 @@ export function AgentManagementPage(props: {
       await personalLocalAgentDeleteCustomAgent({ workspaceRoot: props.workspaceRoot, id: agent.id });
       await refresh({ force: true, domains: domainsForAgentMutation() });
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : String(deleteError));
+      setError(formatAgentManagementDesktopError(deleteError));
     }
   }, [props.workspaceRoot, refresh]);
 
@@ -696,7 +697,7 @@ export function AgentManagementPage(props: {
       }));
       await refresh({ force: true, domains: domainsForAgentMutation() });
     } catch (connError) {
-      const message = connError instanceof Error ? connError.message : String(connError);
+      const message = formatAgentManagementDesktopError(connError);
       setHealthResults((current) => ({
         ...current,
         [agent.id]: {
@@ -712,7 +713,6 @@ export function AgentManagementPage(props: {
       setCheckingAgentId(null);
     }
   }, [props.workspaceRoot, refresh]);
-
   const runSkillAction = useCallback(async (
     skill: AgentManagementSkill,
     agent: AgentManagementSkillAgent,
@@ -733,7 +733,7 @@ export function AgentManagementPage(props: {
       });
       if (action !== "open") await refresh({ force: true, domains: domainsForSkillMutation() });
     } catch (skillError) {
-      setError(skillError instanceof Error ? skillError.message : String(skillError));
+      setError(formatAgentManagementDesktopError(skillError));
     } finally {
       setSkillActionKey(null);
     }

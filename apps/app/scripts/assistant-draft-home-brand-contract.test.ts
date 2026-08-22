@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { resolveComposerLayoutClasses } from "../src/react-app/domains/session/surface/composer/composer-layout";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -66,5 +67,14 @@ describe("assistant draft home brand contract", () => {
     // Card joint rounding lives in composer-layout with the under-card accessory.
     expect(composerLayout).toContain("rounded-t-xl rounded-b-none");
     expect(composer).not.toContain("bg-dls-surface-muted/40");
+    expect(composerLayout).not.toContain("mentionOpen");
+    expect(composerLayout).not.toContain("slashOpen");
+    expect(
+      resolveComposerLayoutClasses({
+        homeLayout: true,
+        heroHome: false,
+        showOuterBorder: true,
+      }).panelRoundedClass,
+    ).toBe("rounded-xl");
   });
 });
