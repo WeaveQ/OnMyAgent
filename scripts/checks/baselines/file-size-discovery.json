@@ -23,7 +23,7 @@
     "apps/app/src/react-app/domains/connections/provider-auth/store.ts": 1149,
     "apps/app/src/react-app/domains/connections/store.ts": 1006,
     "apps/app/src/react-app/domains/knowledge/knowledge-vault-page.tsx": 1177,
-    "apps/app/src/react-app/domains/local-agents/agent-management/agent-management-page.tsx": 1125,
+    "apps/app/src/react-app/domains/local-agents/agent-management/agent-management-page.tsx": 1190,
     "apps/app/src/react-app/domains/local-agents/agent-management/agent-management-providers.tsx": 1471,
     "apps/app/src/react-app/domains/local-agents/agent-management/agent-management-skill-matrix.tsx": 1102,
     "apps/app/src/react-app/domains/local-agents/host/use-personal-local-agent-page.ts": 1406,
