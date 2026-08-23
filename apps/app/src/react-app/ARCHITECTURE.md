@@ -283,6 +283,7 @@ Summary for implementers:
 - Goal preview shows before first send; first send creates session-scoped goal runtime.
 - Pause / resume / clear affect only the current `sessionId` (draft key migrates on create).
 - Goal and planning runtimes are mutually exclusive in the UI.
+- Prompt queue is in-memory per `sessionId` (`useSessionPromptQueueStore` inside `composer-state-store.ts`); enqueue only on a live (non-`draft:*`, non-`draftOnly`) session while `isPromptQueueTurnBusy`. Drain latch waits for remote-busy-then-idle; Stop pauses drain; failed sends restore the taken item; queued drain must not clear or overwrite the live composer draft. Covered by `scripts/session-prompt-queue.test.ts`, `composer-focus-policy.test.ts`, `follow-up-suggestions.test.ts`, `session-send-reliability.test.ts` (run directly via `bun test`; not yet wired into `pnpm test:ui`).
 
 ## File size / route rules (engineering)
 

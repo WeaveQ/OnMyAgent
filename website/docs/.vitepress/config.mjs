@@ -21,7 +21,15 @@ const sidebarZh = [
       { text: "第一个任务", link: "/first-task" },
       { text: "高效使用技巧", link: "/guide/efficient-tips" },
       { text: "下载与安装", link: "/download" },
-      { text: "更新日志", link: "/changelog" },
+      {
+        text: "更新日志",
+        collapsed: true,
+        items: [
+          { text: "0.6.x", link: "/changelog/0.6" },
+          { text: "0.5.x", link: "/changelog/0.5" },
+          { text: "0.4.x", link: "/changelog/0.4" },
+        ],
+      },
     ],
   },
   {
@@ -125,7 +133,15 @@ const sidebarEn = [
       { text: "Your first task", link: "/en/first-task" },
       { text: "Tips for working efficiently", link: "/en/guide/efficient-tips" },
       { text: "Download and installation", link: "/en/download" },
-      { text: "Changelog", link: "/en/changelog" },
+      {
+        text: "Changelog",
+        collapsed: true,
+        items: [
+          { text: "0.6.x", link: "/en/changelog/0.6" },
+          { text: "0.5.x", link: "/en/changelog/0.5" },
+          { text: "0.4.x", link: "/en/changelog/0.4" },
+        ],
+      },
     ],
   },
   {
