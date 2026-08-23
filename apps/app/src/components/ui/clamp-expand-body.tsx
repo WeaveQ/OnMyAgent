@@ -10,13 +10,11 @@ import { ChevronDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-const COLLAPSE_LINES = 10;
-// Plain body renders at text-sm/leading-relaxed (14px * 1.625 ≈ 22.75px/line).
-// Markdown headings/lists are taller, so this is an approximate "10 line"
-// threshold measured against the real rendered content. The collapsed preview
-// uses a literal Tailwind class (max-h-[228px]) so the JIT scanner can see it.
-const COLLAPSE_PX = COLLAPSE_LINES * 14 * 1.625;
-const COLLAPSE_MAX_HEIGHT_CLASS = "max-h-[228px]";
+// Collapsed preview uses DESIGN.md § chat/illustration ceiling `max-h-60`
+// (240px, ~10 lines at text-sm/leading-relaxed); the overflow test matches
+// that rendered ceiling against real content height.
+const COLLAPSE_PX = 240;
+const COLLAPSE_MAX_HEIGHT_CLASS = "max-h-60";
 
 /**
  * Clamps a block of children to a max-height preview with a bottom fade and a
@@ -80,7 +78,7 @@ export function ClampExpandBody({
         <div
           ref={bodyRef}
           className={cn(
-            "min-w-0 overflow-hidden transition-[max-height] duration-200 ease-out",
+            "min-w-0 overflow-hidden transition-[max-height] duration-200 ease-[cubic-bezier(0.2,0,0,1)]",
             collapsed && COLLAPSE_MAX_HEIGHT_CLASS,
           )}
         >
