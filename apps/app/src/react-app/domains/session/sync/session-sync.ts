@@ -19,7 +19,6 @@ import { snapshotToUIMessages } from "./usechat-adapter";
 import type { OnMyAgentSessionSnapshot } from "@/app/lib/onmyagent-server";
 import { reconcileTranscriptMessages } from "./transcript-reconcile";
 import { useSessionActivityStore } from "../status/session-activity-store";
-import { clearSessionPromptQueueState } from "../surface/composer/prompt-queue-store";
 import { useExpertUnreadStore } from "../status/expert-unread-store";
 import {
   createTranscriptMessageMetadata,
@@ -968,10 +967,8 @@ function applyEvent(
       info?: { id?: string };
     };
     const sessionId = props.sessionID ?? props.info?.id ?? "";
-    if (sessionId) {
+    if (sessionId)
       useSessionActivityStore.getState().removeSession(workspaceId, sessionId);
-      clearSessionPromptQueueState(sessionId);
-    }
     return;
   }
 

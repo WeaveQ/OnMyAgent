@@ -2,6 +2,7 @@
 import { create } from "zustand";
 
 import { t } from "../../../../i18n";
+import { clearSessionPromptQueueState } from "../surface/composer/prompt-queue-store";
 
 export type SessionActivityStatus =
   | "idle"
@@ -434,6 +435,7 @@ export const useSessionActivityStore = create<SessionActivityStore>((set, get) =
     const workspace = workspaceId.trim();
     const session = sessionId.trim();
     if (!workspace || !session) return;
+    clearSessionPromptQueueState(session);
     set((state) => {
       const workspaceRecords = state.recordsByWorkspaceId[workspace];
       const workspaceStatuses = state.statusesByWorkspaceId[workspace];

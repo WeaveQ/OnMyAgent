@@ -348,11 +348,14 @@ describe("session prompt queue cleanup", () => {
     expect(sessionPromptQueueDrainLatchBlocks(sessionId)).toBe(false);
   });
 
-  test("session.deleted clears the prompt queue", () => {
+  test("session activity teardown clears the prompt queue", () => {
     const src = readFileSync(
-      join(import.meta.dir, "../src/react-app/domains/session/sync/session-sync.ts"),
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/status/session-activity-store.ts",
+      ),
       "utf8",
     );
-    expect(src).toContain("clearSessionPromptQueueState(sessionId)");
+    expect(src).toContain("clearSessionPromptQueueState(session)");
   });
 });
