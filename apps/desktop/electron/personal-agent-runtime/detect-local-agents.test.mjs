@@ -158,6 +158,21 @@ test("Grok catalog uses well-known paths and enriched PATH resolution", () => {
   assert.match(src, /from "\.\.\/runtime-path-env\.mjs"/);
 });
 
+test("Cursor Agent CLI uses cursor-agent acp, not the editor cursor shim", () => {
+  const cursor = KNOWN_DISCOVERABLE_AGENTS.find((item) => item.id === "cursor-agent");
+  assert.ok(cursor, "cursor-agent catalog entry present");
+  assert.deepEqual(cursor.commands, ["cursor-agent"]);
+  assert.deepEqual(cursor.acpArgs, ["acp"]);
+  assert.ok(
+    (cursor.wellKnownPaths ?? []).some((p) => String(p).replaceAll("\\", "/").endsWith("/.local/bin/cursor-agent")),
+    "~/.local/bin/cursor-agent",
+  );
+  const drafts = discoverableAgentDrafts();
+  const draft = drafts.find((item) => item.id === "cursor-agent");
+  assert.ok(draft);
+  assert.deepEqual(draft.acpArgs, ["acp"]);
+});
+
 test("Pi catalog prefers pi-acp then pi, with protocol-aware acpArgs", () => {
   const pi = KNOWN_DISCOVERABLE_AGENTS.find((item) => item.id === "pi");
   assert.ok(pi, "pi catalog entry present");

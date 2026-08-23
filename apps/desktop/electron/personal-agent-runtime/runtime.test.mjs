@@ -790,8 +790,8 @@ describe("personal agent ACP JSON-RPC client", () => {
       timeoutMs: 500,
     });
     assert.equal(result.ok, false);
-    assert.equal(result.step, "fail_cli");
-    assert.equal(result.status, "missing");
+    assert.equal(result.step, "fail_acp");
+    assert.equal(result.status, "offline");
     assert.match(result.error, /ACP process exited: 1|initialize timed out/);
   });
 
