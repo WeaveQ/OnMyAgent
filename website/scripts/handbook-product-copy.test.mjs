@@ -26,10 +26,10 @@ function listMarkdownDocs(dir = docs, prefix = "") {
 }
 
 test("changelog ships 0.5.9 before the old 0.5.4 heading", () => {
-  const text = readDoc("changelog.md");
+  const text = readDoc("changelog/0.5.md");
   const nine = text.indexOf("## 0.5.9");
   const four = text.indexOf("## 0.5.4");
-  assert.ok(nine >= 0, "changelog must have ## 0.5.9");
+  assert.ok(nine >= 0, "changelog/0.5 must have ## 0.5.9");
   assert.ok(four > nine, "0.5.9 must appear before 0.5.4");
   assert.match(text, /知识库/);
   assert.match(text, /skill-creator/);
@@ -37,17 +37,17 @@ test("changelog ships 0.5.9 before the old 0.5.4 heading", () => {
 });
 
 test("changelog lists 0.5.25 user-visible notes before 0.5.15", () => {
-  const text = readDoc("changelog.md");
+  const text = readDoc("changelog/0.5.md");
   const latest = text.indexOf("## 0.5.25");
   const older = text.indexOf("## 0.5.15");
-  assert.ok(latest >= 0, "changelog must have ## 0.5.25");
+  assert.ok(latest >= 0, "changelog/0.5 must have ## 0.5.25");
   assert.ok(older > latest, "0.5.25 must appear before 0.5.15");
   assert.match(text, /模型列表/);
   assert.match(text, /货架快照/);
 });
 
 test("zh and en changelogs ship 0.5.26 before 0.5.25", () => {
-  for (const rel of ["changelog.md", "en/changelog.md"]) {
+  for (const rel of ["changelog/0.5.md", "en/changelog/0.5.md"]) {
     const text = readDoc(rel);
     const latest = text.indexOf("## 0.5.26");
     const older = text.indexOf("## 0.5.25");

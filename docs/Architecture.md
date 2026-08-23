@@ -129,6 +129,7 @@ Gate: `scripts/checks/check-session-hub-budget.mjs` (wired into `pnpm check:boun
 | **skills / intro** | Package manifest metadata is the declaration SoT for `skills`, `introStyle`, and `approvedAgentIds`; marker v3 reports declared / physically installed / missing skills | `expert-marketplace.mjs` + `expert-session-runtime.ts` |
 | **prompt** | Every managed Expert `prompt_async` request must pass the same runtime contract: authorized directory, marker/workspace/session identity, `onmyagent` or manifest-approved agent, empty plugin list, physical skills, and bounded first request | `expert-runtime-contract.ts` + `opencode-proxy.ts` |
 | **surface UI** | Single FSM (`reduceExpertSurface`); mode is pure projection; never merge tab-highlight / create-operation / composer-pending; cold-open suppressed during create/draft; tab title snapshots only for selected (≤1) | [`design/expert-surface-architecture.md`](./design/expert-surface-architecture.md) |
+| **prompt queue** | Busy live session may enqueue follow-up prompts in memory (≤20); drain waits for remote-busy-then-idle latch; Stop pauses drain; failed send restores the taken item; queued drain must not clear the live composer draft; `draft:*` / `draftOnly` sessions do not queue | `composer-state-store.ts` + `session-prompt-queue.test.ts` |
 
 ### Cold-path budget (numeric)
 
