@@ -18,6 +18,13 @@ const PROCESS_TYPES = new Set([
 ]);
 const ALWAYS_VISIBLE_TYPES = new Set(["error", "tips"]);
 const ASSISTANT_NARRATION_TYPES = new Set(["text", "content", "assistant"]);
+// Runtime/protocol telemetry persisted as conversationMessages but never shown
+// as transcript steps. Must match filterPersonalTimelineMessages.
+const HIDDEN_CONVERSATION_TYPES = new Set([
+  "agent_status",
+  "available_commands",
+  "context_usage",
+]);
 
 export type LocalAgentTurnProcessStep = {
   id: string;
@@ -139,6 +146,7 @@ export function buildLocalAgentTurnPresentation(
     if (sanitized.wasSkillCatalogDump && !sanitized.text.trim()) continue;
     const message = sanitized.text === raw.text ? raw : { ...raw, text: sanitized.text };
     if (message.role === "user") continue;
+    if (HIDDEN_CONVERSATION_TYPES.has(message.type)) continue;
     if (ALWAYS_VISIBLE_TYPES.has(message.type) || isPendingApproval(message, pendingIds)) {
       alwaysVisibleSteps.push({
         id: allocateVisibleStepId(message.id, `visible:${index}`),

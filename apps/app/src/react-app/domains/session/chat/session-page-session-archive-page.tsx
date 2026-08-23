@@ -1,6 +1,12 @@
 /** @jsxImportSource react */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, PlayCircle, RefreshCw, Search, Trash2 } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { PlayCircle, RefreshCw, Search, Trash2 } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import type {
@@ -19,6 +25,7 @@ import { NoticeBox } from "@/components/ui/notice-box";
 import { cn } from "@/lib/utils";
 import { ARCHIVE_EMPTY_STATE_ASSET } from "@/react-app/design-system/empty-state-assets";
 import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
+import { ClampExpandBody } from "@/components/ui/clamp-expand-body";
 import type { SessionArchiveResumeRequest } from "./session-archive-helpers";
 import {
   agentLabel,
@@ -111,66 +118,39 @@ export function sortArchiveSessionsByRecency(
   });
 }
 
-/** Archived user/tool/system turns render verbatim; only assistant bodies go through MarkdownBlock. */
+/** Archived tool/system turns render verbatim; user and assistant bodies go through MarkdownBlock. */
 export function archiveBodyIsPlain(role: string): boolean {
-  return role === "user" || role === "tool" || role === "system";
+  return role === "tool" || role === "system";
 }
 
-const ARCHIVE_BODY_COLLAPSE_LINES = 10;
-// Plain body renders at text-sm/leading-relaxed (14px * 1.625 ≈ 22.75px/line).
-// Markdown headings/lists are taller, so this is an approximate "10 line"
-// threshold measured against the real rendered content.
-const ARCHIVE_BODY_COLLAPSE_PX =
-  ARCHIVE_BODY_COLLAPSE_LINES * 14 * 1.625;
+function archiveBubbleClass(role: string): string {
+  if (role === "user") {
+    return "max-w-[80%] gap-1.5 self-end rounded-2xl bg-dls-chat-user-bg px-3.5 py-2.5 text-left";
+  }
+  if (role === "tool") return "gap-1 rounded-xl border border-dls-border/50 bg-dls-surface-muted/60 px-3 py-2 font-mono text-xs leading-5 text-dls-secondary";
+  if (role === "system") return "gap-2 rounded-xl border border-dashed border-dls-border/50 bg-dls-surface/40 px-3.5 py-2.5 text-xs leading-5 text-dls-secondary";
+  return "gap-2 rounded-xl bg-dls-surface px-3.5 py-2.5 text-dls-text";
+}
 
-/**
- * Long archive turns collapse to a max-height preview with a "show more"
- * toggle. Overflow is measured from the real rendered block so both plain text
- * and markdown share one threshold.
- */
-function ArchiveMessageBody({ content, plain }: { content: string; plain: boolean }) {
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const [expanded, setExpanded] = useState(false);
-  const [isOverflowing, setIsOverflowing] = useState(false);
+function archiveFadeClass(role: string): string {
+  if (role === "user") return "from-dls-chat-user-bg";
+  if (role === "tool") return "from-dls-surface-muted/60";
+  if (role === "system") return "from-dls-surface/40";
+  return "from-dls-surface";
+}
 
-  useEffect(() => {
-    const el = bodyRef.current;
-    if (!el) return;
-    // Measure with the clamp removed, then restore so we get the true content
-    // height on every content change instead of the clamped box height.
-    const prev = el.style.maxHeight;
-    el.style.maxHeight = "none";
-    const full = el.scrollHeight;
-    el.style.maxHeight = prev;
-    setIsOverflowing(full - ARCHIVE_BODY_COLLAPSE_PX > 2);
-  }, [content, plain]);
-
-  const collapsed = isOverflowing && !expanded;
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div
-        ref={bodyRef}
-        className={cn(
-          "min-w-0 overflow-hidden transition-[max-height] duration-200 ease-out",
-          collapsed && "max-h-[228px]",
-        )}
-      >
-        {plain ? content : <MarkdownBlock text={content} />}
-      </div>
-      {isOverflowing && (
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="inline-flex w-fit items-center gap-0.5 text-2xs font-medium text-dls-accent hover:underline"
-        >
-          {expanded ? t("session_archive.show_less") : t("session_archive.show_more")}
-          <ChevronDown
-            className={cn("size-3 transition-transform", expanded && "rotate-180")}
-          />
-        </button>
-      )}
-    </div>
+function archiveItemClass(role: string, index: number): string {
+  const isUser = role === "user";
+  const isTool = role === "tool";
+  const isSystem = role === "system";
+  const isAssistant = !isUser && !isTool && !isSystem;
+  return cn(
+    "break-words",
+    isUser ? "text-sm leading-relaxed text-dls-text" : "min-w-0",
+    (isTool || isSystem) && "whitespace-pre-wrap",
+    isAssistant && "w-full text-sm leading-relaxed",
+    index > 0 && (isTool || isSystem) && "border-t border-dls-border/40 pt-1",
+    index > 0 && isAssistant && "border-t border-dls-border/50 pt-2",
   );
 }
 
@@ -491,10 +471,28 @@ export function SessionArchivePage(props: Props) {
       .filter((message) => !isNoisyArchiveMessage(message));
   }, [messages]);
 
+  // Group consecutive same-role turns so the role label shows once per run
+  // and short assistant lines do not stack into a column of redundant cards.
+  const messageGroups = useMemo(() => {
+    const groups: Array<{
+      role: string;
+      items: typeof displayMessages;
+    }> = [];
+    for (const message of displayMessages) {
+      const last = groups[groups.length - 1];
+      if (last && last.role === message.role) {
+        last.items.push(message);
+      } else {
+        groups.push({ role: message.role, items: [message] });
+      }
+    }
+    return groups;
+  }, [displayMessages]);
+
   return (
-    <div className="flex h-full min-h-0 w-full flex-col bg-dls-background">
-      {/* Toolbar flush with content gutter (no extra horizontal inset). */}
-      <div className="flex shrink-0 flex-col gap-2 border-b border-dls-border/60 py-2.5">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid">
+      {/* Toolbar */}
+      <div className="flex shrink-0 flex-col gap-2 border-b border-dls-border/60 px-3 py-3">
         <div className="flex items-center gap-2">
           <InputGroup controlSize="sm" radius="md" tone="surface" className="min-w-0 flex-1">
             <InputGroupAddon align="inline-start">
@@ -694,7 +692,7 @@ export function SessionArchivePage(props: Props) {
           </div>
         </aside>
 
-        <section className="flex min-h-0 min-w-0 flex-1 flex-col bg-dls-background">
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col">
           {selectedSession ? (
             <>
               <header className="flex shrink-0 items-center justify-between gap-4 border-b border-dls-border/60 px-5 py-3">
@@ -785,18 +783,16 @@ export function SessionArchivePage(props: Props) {
                     <span>{t("session_archive.no_messages")}</span>
                   </div>
                 ) : (
-                  <ol className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-5 py-6">
-                    {displayMessages.map((message) => {
-                      const isUser = message.role === "user";
-                      const isTool = message.role === "tool";
-                      const isSystem = message.role === "system";
-                      const isPlainBody = archiveBodyIsPlain(message.role);
+                  <ol className="flex w-full flex-col gap-5 px-6 py-6">
+                    {messageGroups.map((group) => {
+                      const isUser = group.role === "user";
+                      const isPlainBody = archiveBodyIsPlain(group.role);
                       return (
                         <li
-                          key={message.id}
+                          key={group.items[0]!.id}
                           className={cn(
-                            "flex flex-col gap-1.5",
-                            isUser ? "items-end" : "items-start",
+                            "flex flex-col",
+                            isUser ? "items-end gap-1.5" : "items-start gap-1.5",
                           )}
                         >
                           <div
@@ -807,27 +803,28 @@ export function SessionArchivePage(props: Props) {
                                 : "bg-dls-surface-muted text-dls-secondary",
                             )}
                           >
-                            {roleLabel(message.role)}
+                            {roleLabel(group.role)}
                           </div>
-                          <div
-                            className={cn(
-                              "max-w-[min(100%,42rem)] break-words text-sm leading-relaxed",
-                              isUser &&
-                                "whitespace-pre-wrap rounded-2xl bg-dls-chat-user-bg px-3.5 py-2.5 text-dls-text",
-                              isTool &&
-                                "whitespace-pre-wrap rounded-xl border border-dls-border/50 bg-dls-surface-muted/60 px-3 py-2 font-mono text-xs leading-5 text-dls-secondary",
-                              isSystem &&
-                                "whitespace-pre-wrap rounded-xl border border-dashed border-dls-border/50 bg-dls-surface/40 px-3.5 py-2.5 text-xs leading-5 text-dls-secondary",
-                              !isUser &&
-                                !isTool &&
-                                !isSystem &&
-                                "rounded-2xl border border-dls-border/40 bg-dls-surface px-3.5 py-2.5 text-dls-text",
-                            )}
-                          >
-                            <ArchiveMessageBody
-                              content={message.content}
-                              plain={isPlainBody}
-                            />
+                          <div className={cn("flex flex-col", archiveBubbleClass(group.role))}>
+                            <ClampExpandBody
+                              groupKey={String(group.items[0]!.id)}
+                              fadeFromClass={archiveFadeClass(group.role)}
+                              showMoreLabel={t("session_archive.show_more")}
+                              showLessLabel={t("session_archive.show_less")}
+                            >
+                              {group.items.map((message, index) => (
+                                <div
+                                  key={message.id}
+                                  className={archiveItemClass(group.role, index)}
+                                >
+                                  {isPlainBody ? (
+                                    message.content
+                                  ) : (
+                                    <MarkdownBlock text={message.content} />
+                                  )}
+                                </div>
+                              ))}
+                            </ClampExpandBody>
                           </div>
                         </li>
                       );

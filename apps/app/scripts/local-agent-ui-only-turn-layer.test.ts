@@ -138,6 +138,34 @@ describe("Local Agent turn layer UI-only", () => {
     expect(turn.processSteps.some((step) => step.message.text === "先说一句进度")).toBe(false);
   });
 
+  test("hides internal ACP status and available-commands messages from the transcript", () => {
+    const snapshot = run({
+      conversationMessages: [
+        { id: "status-1", type: "agent_status", role: "system", text: "custom ACP flow started", createdAt: 2 },
+        { id: "cmds-1", type: "available_commands", role: "system", text: "acp_available_commands> [{\"command\":\"bash\"}]", createdAt: 3 },
+        { id: "usage-1", type: "context_usage", role: "system", text: "acp_context_usage> {}", createdAt: 4 },
+        { id: "think-1", type: "thinking", role: "assistant", text: "定位文件", createdAt: 5, status: "done" },
+        { id: "finish-1", type: "finish", role: "assistant", text: "完成", createdAt: 6 },
+      ],
+    });
+    const turn = buildLocalAgentTurnPresentation(
+      snapshot,
+      visibleRunTimelineMessages(snapshot),
+      "完成",
+    );
+    expect(turn.processSteps.map((step) => step.message.id)).toEqual(["think-1"]);
+    expect(turn.alwaysVisibleSteps.map((step) => step.message.id)).toEqual([]);
+    for (const step of [...turn.processSteps, ...turn.alwaysVisibleSteps]) {
+      expect(step.message.text).not.toMatch(/acp_available_commands|ACP flow started/);
+    }
+    const html = renderToStaticMarkup(createElement(ChatBubble, {
+      message: { id: "acp-noise", role: "assistant", text: "完成", createdAt: 6, run: snapshot },
+      workspaceRoot: "/tmp",
+    }));
+    expect(html).not.toContain("acp_available_commands");
+    expect(html).not.toContain("custom ACP flow started");
+  });
+
   test("running turns keep interleaved process visible without a completed-time fold", () => {
     setLocale("en");
     const html = renderToStaticMarkup(createElement(ChatBubble, {

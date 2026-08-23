@@ -4,6 +4,15 @@ import { personalLocalAgentConversationStatus, type PersonalLocalAgent } from ".
 import { localAgentChatKey } from "../local-agent-page-model";
 import type { ChatMessage } from "../messages/message-types";
 
+// Persisted conversation-message types that carry runtime/protocol telemetry
+// rather than user-facing transcript content. Mirrors the filter in
+// capabilities/conversation/adapters/personal.ts `filterPersonalTimelineMessages`.
+const HIDDEN_HISTORY_MESSAGE_TYPES = new Set([
+  "agent_status",
+  "available_commands",
+  "context_usage",
+]);
+
 // Replay a persisted transcript (e.g. an archived session imported via
 // "resume from archive") into the chat as individual user/assistant bubbles so
 // the full back-and-forth is visible. Each bubble gets a stable, history-scoped
@@ -34,19 +43,24 @@ export function useConversationHistoryHydration(input: {
         if (!persisted.length) return;
         hydratedRef.current.add(chatKey);
         const historyPrefix = `history-${chatKey}-`;
-        const historyMessages: ChatMessage[] = persisted.map((message, index) => {
-          // Local bubbles only support user/assistant/system; map anything else
-          // (e.g. "tool") to assistant so the content is still shown.
-          const role: ChatMessage["role"] =
-            message.role === "user" ? "user" : message.role === "system" ? "system" : "assistant";
-          return {
-            id: `${historyPrefix}${message.id ?? index}`,
-            role,
-            text: message.text ?? "",
-            createdAt: Number(message.createdAt) || Date.now() + index,
-            run: null,
-          };
-        });
+        const historyMessages: ChatMessage[] = persisted
+          // Internal runtime status / protocol lines (ACP flow markers, available
+          // command lists, context-usage telemetry) are not conversation content;
+          // the live timeline filters them, so the hydrated transcript must too.
+          .filter((message) => !HIDDEN_HISTORY_MESSAGE_TYPES.has(String(message.type ?? "")))
+          .map((message, index) => {
+            // Local bubbles only support user/assistant/system; map anything else
+            // (e.g. "tool") to assistant so the content is still shown.
+            const role: ChatMessage["role"] =
+              message.role === "user" ? "user" : message.role === "system" ? "system" : "assistant";
+            return {
+              id: `${historyPrefix}${message.id ?? index}`,
+              role,
+              text: message.text ?? "",
+              createdAt: Number(message.createdAt) || Date.now() + index,
+              run: null,
+            };
+          });
         setMessagesByAgent((current) => {
           const list = current[chatKey] ?? [];
           const filtered = list.filter(
