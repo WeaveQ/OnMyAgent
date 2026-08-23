@@ -11,21 +11,35 @@ import { cn } from "@/lib/utils";
 import type { ComposerAttachment, ComposerDraft } from "../../../../../app/types";
 import { t } from "../../../../../i18n";
 import {
+  advanceSessionPromptQueueDrainLatch,
   composerDraftToRequeue,
   isPromptQueueTurnBusy,
-  shouldDrainQueuedPrompt,
-  shouldEnqueuePrompt,
-  type QueuedPrompt,
-} from "./prompt-queue-model";
-import {
-  advanceSessionPromptQueueDrainLatch,
   isSessionPromptQueueDrainPaused,
   markSessionPromptQueueSendStarted,
   pauseSessionPromptQueueDrain,
   releaseSessionPromptQueueDrainPause,
   sessionPromptQueueDrainLatchBlocks,
+  shouldDrainQueuedPrompt,
+  shouldEnqueuePrompt,
   useSessionPromptQueueStore,
-} from "./prompt-queue-store";
+  type QueuedPrompt,
+} from "../composer-state-store";
+
+/** Busy + empty composer keeps Stop; any sendable draft shows Send (queues). */
+export function composerShowsStopButton(input: {
+  busy: boolean;
+  canSend: boolean;
+}): boolean {
+  return input.busy && !input.canSend;
+}
+
+export function shouldRestoreComposerFocus(input: {
+  wasBusy: boolean;
+  busy: boolean;
+  externalEditorActive: boolean;
+}): boolean {
+  return input.wasBusy && !input.busy && !input.externalEditorActive;
+}
 
 function QueueIconButton(props: {
   label: string;

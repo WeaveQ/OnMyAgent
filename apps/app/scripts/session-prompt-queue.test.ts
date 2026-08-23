@@ -20,7 +20,7 @@ import {
   shouldTouchComposerOnSend,
   takeQueuedPrompt,
   MAX_QUEUED_PROMPTS,
-} from "../src/react-app/domains/session/surface/composer/prompt-queue-model";
+} from "../src/react-app/domains/session/surface/composer-state-store";
 
 function draft(text: string): ComposerDraft {
   return {
@@ -201,7 +201,7 @@ describe("shouldDrainQueuedPrompt", () => {
     const src = readFileSync(
       join(
         import.meta.dir,
-        "../src/react-app/domains/session/surface/composer/composer-prompt-queue.tsx",
+        "../src/react-app/domains/session/surface/composer/composer-focus-policy.tsx",
       ),
       "utf8",
     );
@@ -217,7 +217,7 @@ describe("shouldDrainQueuedPrompt", () => {
     const src = readFileSync(
       join(
         import.meta.dir,
-        "../src/react-app/domains/session/surface/composer/composer-prompt-queue.tsx",
+        "../src/react-app/domains/session/surface/composer/composer-focus-policy.tsx",
       ),
       "utf8",
     );
@@ -332,7 +332,7 @@ describe("session prompt queue cleanup", () => {
       sessionPromptQueueDrainLatchBlocks,
       useSessionPromptQueueStore,
     } = await import(
-      "../src/react-app/domains/session/surface/composer/prompt-queue-store"
+      "../src/react-app/domains/session/surface/composer-state-store"
     );
     const sessionId = "ses_cleanup";
     useSessionPromptQueueStore.getState().enqueue(sessionId, draft("later"));

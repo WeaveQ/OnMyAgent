@@ -2,7 +2,7 @@
 import { create } from "zustand";
 
 import { t } from "../../../../i18n";
-import { clearSessionPromptQueueState } from "../surface/composer/prompt-queue-store";
+import { clearSessionPromptQueueState } from "../surface/composer-state-store";
 
 export type SessionActivityStatus =
   | "idle"

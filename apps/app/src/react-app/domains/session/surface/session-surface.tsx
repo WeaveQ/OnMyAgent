@@ -60,7 +60,7 @@ import { useSessionSurfaceOpenTargets } from "./session-surface-open-targets";
 import { useSessionSurfaceActivityStall } from "./session-surface-activity-stall";
 import { useSessionSurfacePlanGoalEffects } from "./session-surface-plan-goal-effects";
 import { useSessionSurfaceTranscriptNotices } from "./session-surface-transcript-notices";
-import { useSessionSurfaceActivityModel } from "./session-surface-activity-model"; import { useSessionPromptQueue } from "./composer/composer-prompt-queue";
+import { useSessionSurfaceActivityModel } from "./session-surface-activity-model"; import { useSessionPromptQueue } from "./composer/composer-focus-policy";
 import { SessionSurfaceView } from "./session-surface-view";
 import { deriveSessionSurfaceLayoutMode } from "./session-surface-layout-mode";
 import { assistantScenarioDraftToken, isUserCancelledError } from "./chrome/personal-assistant";

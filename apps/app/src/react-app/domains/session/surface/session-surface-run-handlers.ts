@@ -24,8 +24,10 @@ import type {
   TodoItem,
 } from "../../../../app/types";
 import { useSessionActivityStore } from "../status/session-activity-store";
-import { shouldTouchComposerOnSend } from "./composer/prompt-queue-model";
-import { pauseSessionPromptQueueDrain } from "./composer/prompt-queue-store";
+import {
+  pauseSessionPromptQueueDrain,
+  shouldTouchComposerOnSend,
+} from "./composer-state-store";
 import {
   OUTPUT_LIMIT_CONTINUATION_MESSAGE_PREFIX,
   buildOutputLimitContinuationDraft,
