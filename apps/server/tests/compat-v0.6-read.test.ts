@@ -12,10 +12,18 @@ import { fileURLToPath } from "node:url";
 import type { WorkspaceInfo } from "@onmyagent/types/server";
 
 import { readJsoncFile } from "../src/core/jsonc.js";
-import { parseExpertSessionMarker } from "../src/services/expert-session-runtime.js";
+import { parseFrontmatter } from "../src/core/frontmatter.js";
+import {
+  EXPERT_SESSION_ISOLATION_VERSION,
+  parseExpertSessionMarker,
+} from "../src/services/expert-session-runtime.js";
 import { listSessionOrigins, sessionOriginsPath } from "../src/services/session-origins.js";
 import { scanWorkspaceExpertSessionMarkers } from "../src/services/workspace-session-marker-inventory.js";
-import { opencodeConfigPath } from "../src/workspace/workspace-files.js";
+import {
+  legacyOnmyagentSkillsDir,
+  opencodeConfigPath,
+  profileSkillsDir,
+} from "../src/workspace/workspace-files.js";
 
 const fixtureDir = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -99,6 +107,28 @@ describe("compat v0.6 previous-format reads", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+
+  test("parseExpertSessionMarker still recognizes current isolationVersion", async () => {
+    const raw = await readFixtureJson("onmyagent-session.isolation-v3.json");
+    expect(raw).toMatchObject({ isolationVersion: EXPERT_SESSION_ISOLATION_VERSION });
+    const marker = parseExpertSessionMarker(raw, "ws_compat_v06");
+    expect(marker).not.toBeNull();
+    expect(marker?.isolationVersion).toBe(EXPERT_SESSION_ISOLATION_VERSION);
+    expect(marker?.sessionId).toBe("ses_compat_v3");
+  });
+
+  test("legacy skill SKILL.md still parses after profile-path split", async () => {
+    const home = join(tmpdir(), "compat-v06-home-shape");
+    expect(legacyOnmyagentSkillsDir(home)).toBe(join(home, ".onmyagent", "skills"));
+    expect(profileSkillsDir(home)).toBe(
+      join(home, ".onmyagent", "profiles", "local", "config", "skills"),
+    );
+    expect(legacyOnmyagentSkillsDir(home)).not.toBe(profileSkillsDir(home));
+    const markdown = await readFile(join(fixtureDir, "SKILL.md"), "utf8");
+    const parsed = parseFrontmatter(markdown);
+    expect(parsed.data.name).toBe("compat-legacy-skill");
+    expect(String(parsed.data.description ?? "")).toContain("legacy skills");
   });
 
   test("readJsoncFile parses prior opencode.json disabled_providers identity", async () => {
