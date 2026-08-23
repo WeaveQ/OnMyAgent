@@ -20,6 +20,7 @@ describe("session send reliability", () => {
     const source = await readFile(handlerPath, "utf8");
 
     expect(source).toContain("await onSendDraft(nextDraft);");
+    expect(source).toContain("if (shouldTouchComposerOnSend(queuedDraft)) {");
     expect(source).toContain("clearComposerSession(sessionId);");
     expect(source).toContain("onDraftChange(buildDraft(\"\", []));");
     expect(source).not.toContain("setComposerDraft(sessionId, draft);");
@@ -27,6 +28,7 @@ describe("session send reliability", () => {
     // still-visible composer draft remains the recovery path.
     expect(source).toContain("setPendingOutgoingUserMessage");
     expect(source).toContain("setPendingOutgoingUserMessage(null)");
+    expect(source).toContain("return false;");
   });
 
   test("paints a local user bubble before the cold create/prompt path finishes", async () => {

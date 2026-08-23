@@ -6,6 +6,7 @@ import type { ComposerDraft } from "../src/app/types";
 import {
   EMPTY_PROMPT_QUEUE_DRAIN_LATCH,
   advancePromptQueueDrainLatch,
+  composerDraftToRequeue,
   insertQueuedPrompt,
   isPromptQueueTurnBusy,
   moveQueuedPrompt,
@@ -16,9 +17,10 @@ import {
   restoreQueuedPrompt,
   shouldDrainQueuedPrompt,
   shouldEnqueuePrompt,
+  shouldTouchComposerOnSend,
   takeQueuedPrompt,
   MAX_QUEUED_PROMPTS,
-} from "../src/react-app/domains/session/surface/composer/composer-focus-policy";
+} from "../src/react-app/domains/session/surface/composer/prompt-queue-model";
 
 function draft(text: string): ComposerDraft {
   return {
@@ -199,7 +201,7 @@ describe("shouldDrainQueuedPrompt", () => {
     const src = readFileSync(
       join(
         import.meta.dir,
-        "../src/react-app/domains/session/surface/composer/composer-focus-policy.tsx",
+        "../src/react-app/domains/session/surface/composer/composer-prompt-queue.tsx",
       ),
       "utf8",
     );
@@ -207,6 +209,7 @@ describe("shouldDrainQueuedPrompt", () => {
     expect(src).toContain("markSessionPromptQueueSendStarted");
     expect(src).toContain(".restore(");
     expect(src).toContain("if (started) releaseSessionPromptQueueDrainPause");
+    expect(src).toContain("composerDraftToRequeue");
     expect(src).not.toContain("wasBusyRef");
   });
 
@@ -214,7 +217,7 @@ describe("shouldDrainQueuedPrompt", () => {
     const src = readFileSync(
       join(
         import.meta.dir,
-        "../src/react-app/domains/session/surface/composer/composer-focus-policy.tsx",
+        "../src/react-app/domains/session/surface/composer/composer-prompt-queue.tsx",
       ),
       "utf8",
     );
@@ -281,6 +284,29 @@ describe("queued prompt list ops", () => {
     ]);
   });
 
+  test("edit puts a non-empty live composer draft back on the queue", () => {
+    expect(composerDraftToRequeue(draft("still typing"))?.text).toBe("still typing");
+    expect(composerDraftToRequeue(draft("   "))).toBeNull();
+    expect(
+      composerDraftToRequeue({
+        ...draft(""),
+        attachments: [{
+          id: "a1",
+          name: "note.md",
+          mimeType: "text/markdown",
+          size: 12,
+          kind: "file",
+        }] as ComposerDraft["attachments"],
+      })?.attachments,
+    ).toHaveLength(1);
+  });
+
+  test("queued drain must not touch the live composer", () => {
+    expect(shouldTouchComposerOnSend()).toBe(true);
+    expect(shouldTouchComposerOnSend(undefined)).toBe(true);
+    expect(shouldTouchComposerOnSend(draft("queued"))).toBe(false);
+  });
+
   test("caps the queue and does not mix session keys in policy", () => {
     let items = [];
     for (let i = 0; i < MAX_QUEUED_PROMPTS + 3; i += 1) {
@@ -293,5 +319,40 @@ describe("queued prompt list ops", () => {
     expect(
       shouldEnqueuePrompt({ busy: true, draftOnly: false, sessionId: "ses_expert" }),
     ).toBe(true);
+  });
+});
+
+describe("session prompt queue cleanup", () => {
+  test("deleting a session drops its in-memory queue and drain latch", async () => {
+    const {
+      clearSessionPromptQueueState,
+      markSessionPromptQueueSendStarted,
+      pauseSessionPromptQueueDrain,
+      isSessionPromptQueueDrainPaused,
+      sessionPromptQueueDrainLatchBlocks,
+      useSessionPromptQueueStore,
+    } = await import(
+      "../src/react-app/domains/session/surface/composer/prompt-queue-store"
+    );
+    const sessionId = "ses_cleanup";
+    useSessionPromptQueueStore.getState().enqueue(sessionId, draft("later"));
+    pauseSessionPromptQueueDrain(sessionId);
+    markSessionPromptQueueSendStarted(sessionId);
+    expect(useSessionPromptQueueStore.getState().bySession[sessionId]).toHaveLength(1);
+    expect(isSessionPromptQueueDrainPaused(sessionId)).toBe(true);
+    expect(sessionPromptQueueDrainLatchBlocks(sessionId)).toBe(true);
+
+    clearSessionPromptQueueState(sessionId);
+    expect(useSessionPromptQueueStore.getState().bySession[sessionId]).toBeUndefined();
+    expect(isSessionPromptQueueDrainPaused(sessionId)).toBe(false);
+    expect(sessionPromptQueueDrainLatchBlocks(sessionId)).toBe(false);
+  });
+
+  test("session.deleted clears the prompt queue", () => {
+    const src = readFileSync(
+      join(import.meta.dir, "../src/react-app/domains/session/sync/session-sync.ts"),
+      "utf8",
+    );
+    expect(src).toContain("clearSessionPromptQueueState(sessionId)");
   });
 });

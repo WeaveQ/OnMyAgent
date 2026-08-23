@@ -24,7 +24,8 @@ import type {
   TodoItem,
 } from "../../../../app/types";
 import { useSessionActivityStore } from "../status/session-activity-store";
-import { pauseSessionPromptQueueDrain } from "./composer/composer-focus-policy";
+import { shouldTouchComposerOnSend } from "./composer/prompt-queue-model";
+import { pauseSessionPromptQueueDrain } from "./composer/prompt-queue-store";
 import {
   OUTPUT_LIMIT_CONTINUATION_MESSAGE_PREFIX,
   buildOutputLimitContinuationDraft,
@@ -349,10 +350,12 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
         createdAt: startedAt,
       });
     }
-    // Clear the box immediately (text + chips). Revoke blob previews only after
-    // the network path accepts, so failure can restore the draft intact.
-    clearComposerSession(sessionId);
-    onDraftChange(buildDraft("", []));
+    // Live composer send: clear immediately. Queued drain must leave the box
+    // alone — the user may already be typing the next follow-up.
+    if (shouldTouchComposerOnSend(queuedDraft)) {
+      clearComposerSession(sessionId);
+      onDraftChange(buildDraft("", []));
+    }
     try {
       const stallKey = sessionId;
       const hadStallRecovery = Boolean(stallRecoveryBySessionId[stallKey]);
@@ -389,13 +392,15 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
           .getState()
           .setError(workspaceId, sessionId, parsed.message);
       }
-      // Drop the local bubble on failure; restore composer so the user can
-      // edit and retry (we cleared optimistically before the network path).
+      // Drop the local bubble on failure. Live sends restore the composer;
+      // queued drains restore the taken item instead of overwriting the box.
       setPendingOutgoingUserMessage(null);
-      onDraftChange(nextDraftBase);
+      if (shouldTouchComposerOnSend(queuedDraft)) {
+        onDraftChange(nextDraftBase);
+      }
       setAwaitingAssistantBaseline(null);
       setNoVisibleAssistantOutputBaseline(null);
-      return true;
+      return false;
     } finally {
       sendInFlightBySessionRef.current.delete(sessionId);
       setSending(false);
