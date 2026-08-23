@@ -125,7 +125,7 @@ export function archiveBodyIsPlain(role: string): boolean {
 
 function archiveBubbleClass(role: string): string {
   if (role === "user") {
-    return "max-w-[80%] gap-1.5 self-end rounded-2xl bg-dls-chat-user-bg px-3.5 py-2.5 text-left";
+    return "max-w-[80%] gap-1.5 self-end rounded-xl bg-dls-chat-user-bg px-3.5 py-2.5 text-left";
   }
   if (role === "tool") return "gap-1 rounded-xl border border-dls-border/50 bg-dls-surface-muted/60 px-3 py-2 font-mono text-xs leading-5 text-dls-secondary";
   if (role === "system") return "gap-2 rounded-xl border border-dashed border-dls-border/50 bg-dls-surface/40 px-3.5 py-2.5 text-xs leading-5 text-dls-secondary";
