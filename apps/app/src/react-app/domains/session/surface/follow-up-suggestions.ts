@@ -498,6 +498,22 @@ export function latestAssistantText(
   return "";
 }
 
+/** True when the transcript is waiting on an assistant reply. */
+export function transcriptHasTrailingUserTurn(
+  messages: ReadonlyArray<{
+    role?: string;
+    parts?: ReadonlyArray<{ type?: string; text?: string }>;
+  }>,
+): boolean {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message) continue;
+    if (message.role === "user") return Boolean(messageText(message));
+    if (message.role === "assistant" && messageText(message)) return false;
+  }
+  return false;
+}
+
 /** User text that immediately precedes the latest assistant reply. */
 export function latestUserTextBeforeAssistant(
   messages: ReadonlyArray<{ role?: string; parts?: ReadonlyArray<{ type?: string; text?: string }> }>,
