@@ -188,6 +188,9 @@ jobs:
       - name: Run workspace checks
         run: pnpm check
 
+      - name: Previous-format golden reads
+        run: pnpm test:compat
+
       - name: Run macOS Computer Use behavior contracts
         if: runner.os == 'macOS'
         run: pnpm --filter @onmyagent/handsfree test

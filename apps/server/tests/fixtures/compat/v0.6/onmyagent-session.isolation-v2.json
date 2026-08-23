@@ -1,0 +1,12 @@
+{
+  "kind": "expert-session",
+  "workspaceId": "ws_compat_v06",
+  "isolationVersion": 2,
+  "agentId": "agent-compat-v2",
+  "packageName": "pkg.compat-v2",
+  "sessionId": "ses_compat_v2",
+  "defaultAgent": "onmyagent",
+  "declaredSkills": ["compat-skill"],
+  "installedSkills": ["compat-skill"],
+  "missingSkills": []
+}

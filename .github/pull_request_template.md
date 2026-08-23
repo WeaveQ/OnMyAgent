@@ -40,6 +40,7 @@
 - [ ] No secrets, runtime artifacts, or local caches included
 - [ ] No release/package publishing side effects
 - [ ] User-facing copy is covered by i18n when applicable
+- [ ] On-disk format unchanged. If this change alters on-disk format (config JSON/JSONC, SQLite archive, expert markers, session origins), dual-read previous shapes and the golden previous-format read tests are required.
 
 ## Screenshots / Evidence
 - N/A

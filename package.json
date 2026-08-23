@@ -28,6 +28,7 @@
     "check:commit-types": "node scripts/checks/check-commit-types.mjs",
     "check:forbidden-types": "node scripts/checks/check-forbidden-types.mjs",
     "test:rename-consistency": "node scripts/checks/rename-consistency.test.mjs",
+    "test:compat": "bun test apps/server/tests/compat-v0.6-read.test.ts apps/server/tests/compat-v0.6-write.test.ts && bun scripts/compat-downgrade-drill.mjs",
     "test:unit": "turbo run test:unit --filter onmyagent-server --filter onmyagent-orchestrator",
     "test:api": "turbo run test:e2e --filter onmyagent-server",
     "test:runtime": "turbo run test:runtime --filter @onmyagent/desktop",
