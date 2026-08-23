@@ -144,7 +144,7 @@ const MODEL_CONTEXT_LIMITS: Record<string, number> = {
   "claude-3-opus": 200_000,
   "claude-3-haiku": 200_000,
   // ByteDance / Doubao (Seed series is 256k unless a specific row says otherwise)
-  "doubao-seed-evolving": 256_000,
+  "doubao-seed-evolving": 1_000_000,
   "doubao-seed-code": 256_000,
   "doubao-seed-1.8": 256_000,
   "doubao-seed-1.6": 256_000,
