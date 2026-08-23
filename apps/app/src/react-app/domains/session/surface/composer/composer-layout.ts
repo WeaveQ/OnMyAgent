@@ -17,6 +17,7 @@ export type ComposerLayoutInput = {
   flushShell?: boolean;
   hasBottomAccessory?: boolean;
   hasAttachments?: boolean;
+  hasPromptQueue?: boolean;
 };
 
 export type ComposerLayoutClasses = {
@@ -71,8 +72,12 @@ export function resolveComposerLayoutClasses(input: ComposerLayoutInput): Compos
         ? "px-5 pb-2.5 pt-3"
         : "px-4 pb-2 pt-2"
       : heroHome
-        ? "px-5 pb-2.5 pt-4"
-        : "px-4 pb-2 pt-3";
+        ? input.hasPromptQueue
+          ? "px-5 pb-2.5 pt-2.5"
+          : "px-5 pb-2.5 pt-4"
+        : input.hasPromptQueue
+          ? "px-4 pb-2 pt-2"
+          : "px-4 pb-2 pt-3";
 
   const rootChromeClass =
     homeLayout || heroHome || input.flushShell

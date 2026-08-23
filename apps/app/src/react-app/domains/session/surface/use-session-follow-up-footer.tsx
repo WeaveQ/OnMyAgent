@@ -6,6 +6,7 @@ import {
   latestAssistantText,
   latestUserTextBeforeAssistant,
   resolveFollowUpSuggestions,
+  transcriptHasTrailingUserTurn,
 } from "./follow-up-suggestions";
 
 export function useSessionFollowUpFooter(input: {
@@ -31,6 +32,7 @@ export function useSessionFollowUpFooter(input: {
       || Boolean(input.outputLimitedAssistantMessage)
       || input.draftOnly
       || input.renderedMessages.length === 0
+      || transcriptHasTrailingUserTurn(input.renderedMessages)
     ) {
       return [];
     }

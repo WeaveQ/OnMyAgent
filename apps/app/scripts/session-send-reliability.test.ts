@@ -10,17 +10,17 @@ describe("session send reliability", () => {
   test("deduplicates a pending submit without blocking an accepted follow-up", async () => {
     const source = await readFile(handlerPath, "utf8");
 
-    expect(source).toContain("const sendInFlightRef = useRef(false)");
-    expect(source).toContain("if (sendInFlightRef.current) return;");
-    expect(source).toContain("sendInFlightRef.current = true;");
-    expect(source).toContain("sendInFlightRef.current = false;");
-    expect(source).toContain("Intentionally allow sending while the assistant is still streaming");
+    expect(source).toContain("const sendInFlightBySessionRef = useRef(new Set<string>())");
+    expect(source).toContain("if (sendInFlightBySessionRef.current.has(sessionId)) return false;");
+    expect(source).toContain("sendInFlightBySessionRef.current.add(sessionId)");
+    expect(source).toContain("sendInFlightBySessionRef.current.delete(sessionId)");
   });
 
   test("keeps the live composer on failure and only clears after acceptance", async () => {
     const source = await readFile(handlerPath, "utf8");
 
     expect(source).toContain("await onSendDraft(nextDraft);");
+    expect(source).toContain("if (shouldTouchComposerOnSend(queuedDraft)) {");
     expect(source).toContain("clearComposerSession(sessionId);");
     expect(source).toContain("onDraftChange(buildDraft(\"\", []));");
     expect(source).not.toContain("setComposerDraft(sessionId, draft);");
@@ -28,6 +28,7 @@ describe("session send reliability", () => {
     // still-visible composer draft remains the recovery path.
     expect(source).toContain("setPendingOutgoingUserMessage");
     expect(source).toContain("setPendingOutgoingUserMessage(null)");
+    expect(source).toContain("return false;");
   });
 
   test("paints a local user bubble before the cold create/prompt path finishes", async () => {

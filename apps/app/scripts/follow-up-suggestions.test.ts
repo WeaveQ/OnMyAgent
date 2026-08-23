@@ -5,6 +5,7 @@ import {
   parseFollowUpMarkers,
   resolveFollowUpSuggestions,
   stripFollowUpMarkers,
+  transcriptHasTrailingUserTurn,
 } from "../src/react-app/domains/session/surface/follow-up-suggestions";
 
 describe("follow-up suggestions", () => {
@@ -155,5 +156,21 @@ describe("follow-up suggestions", () => {
     ];
     expect(latestAssistantText(messages)).toBe("资料丢过来就行。");
     expect(latestUserTextBeforeAssistant(messages)).toBe("帮我整理发货信息");
+  });
+
+  test("hides follow-ups when the latest turn is still a user message", () => {
+    const messages = [
+      { role: "user", parts: [{ type: "text", text: "现金流预测" }] },
+      { role: "assistant", parts: [{ type: "text", text: "先看工资。" }] },
+      { role: "user", parts: [{ type: "text", text: "看看南京的新闻" }] },
+      { role: "user", parts: [{ type: "text", text: "看看北京的新闻" }] },
+    ];
+    expect(transcriptHasTrailingUserTurn(messages)).toBe(true);
+    expect(
+      transcriptHasTrailingUserTurn([
+        { role: "user", parts: [{ type: "text", text: "现金流预测" }] },
+        { role: "assistant", parts: [{ type: "text", text: "先看工资。" }] },
+      ]),
+    ).toBe(false);
   });
 });

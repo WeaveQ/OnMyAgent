@@ -138,6 +138,7 @@ export type SessionSurfaceViewProps = {
   onOpenModelPicker: () => void;
   renderedMessages: UIMessage[];
   chatStreaming: boolean;
+  composerTurnBusy?: boolean;
   showThinking: boolean;
   interruptionDividers: SessionTranscriptDivider[];
   resolveTranscriptScrollElement: () => HTMLElement | null | undefined;
@@ -234,6 +235,7 @@ export type SessionSurfaceViewProps = {
     | ((files: File[]) => void | Promise<unknown>)
     | null;
   composerAccessory: ReactNode;
+  promptQueueBar?: ReactNode;
   // Draft workspace accessory
   draftWorkspaceDirectory?: string | null;
   draftWorkspaceOwnerId?: string | null;
@@ -514,7 +516,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
               onDraftChange={props.onDraftChange}
               onSend={props.onSend}
               onStop={props.onStop}
-              busy={props.chatStreaming}
+              busy={props.composerTurnBusy ?? props.chatStreaming}
               disabled={
                 props.composerDisabled
                 || (props.transitionState !== "idle"
@@ -582,6 +584,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
               }
               homeLayout={homeComposerLayout}
               heroHome={Boolean(personalAssistantDraftHome)}
+              promptQueueBar={props.promptQueueBar}
               topAccessory={props.composerAccessory}
               // Coach / try-preview column is narrow — drop permission chip so
               // model + send keep room (permission is not the task here).
