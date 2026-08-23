@@ -11,6 +11,7 @@ import {
   domainsForSkillMutation,
   domainsNotInFlight,
   isDomainFresh,
+  MANAGEMENT_DOMAIN_TTL_MS,
   markDomainsFetched,
   mergeManagementDomainSnapshot,
   missingDomains,
@@ -51,6 +52,27 @@ describe("agent-management-load-cache", () => {
     ]);
     const stale = markDomainsFetched({}, ["core"], now - ttl - 1);
     expect(missingDomains(stale, ["core"], now, ttl)).toEqual(["core"]);
+  });
+
+  it("applies independent per-domain TTLs from the record", () => {
+    const now = 1_000_000;
+    // core loaded 9 minutes ago — still within its 10 min budget.
+    // providers loaded 90s ago — past its 60s TTL.
+    // skills never loaded.
+    const loaded = markDomainsFetched(
+      markDomainsFetched({}, ["core"], now - 9 * 60_000),
+      ["providers"],
+      now - 90_000,
+    );
+    expect(isDomainFresh(loaded, "core", now, MANAGEMENT_DOMAIN_TTL_MS)).toBe(true);
+    expect(isDomainFresh(loaded, "providers", now, MANAGEMENT_DOMAIN_TTL_MS)).toBe(false);
+    expect(missingDomains(loaded, ["core", "skills", "providers"], now, MANAGEMENT_DOMAIN_TTL_MS)).toEqual([
+      "skills",
+      "providers",
+    ]);
+    // At the 11-minute mark core is stale too.
+    const later = now + 2 * 60_000;
+    expect(isDomainFresh(loaded, "core", later, MANAGEMENT_DOMAIN_TTL_MS)).toBe(false);
   });
 
   it("merges partial domain snapshots without wiping unloaded domains", () => {

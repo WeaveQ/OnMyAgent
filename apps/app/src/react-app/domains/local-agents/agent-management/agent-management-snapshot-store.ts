@@ -11,7 +11,7 @@ import {
 import {
   addInFlightDomains,
   applyPartialDomainSnapshotToLatest,
-  DEFAULT_MANAGEMENT_DOMAIN_TTL_MS,
+  MANAGEMENT_DOMAIN_TTL_MS,
   domainsNotInFlight,
   markDomainsFetched,
   missingDomains,
@@ -26,8 +26,12 @@ export type AgentManagerSnapshotCacheEntry = {
   domains: DomainFreshnessMap;
 };
 
-/** Soft TTL: re-entry within this window reuses cache without network. */
-export const AGENT_MANAGER_SNAPSHOT_TTL_MS = DEFAULT_MANAGEMENT_DOMAIN_TTL_MS;
+/**
+ * Re-entry inside the per-domain TTL window reuses cache without network.
+ * Defaults to the `core` TTL (longest); callers needing a different domain
+ * pass the explicit TTL map.
+ */
+export const AGENT_MANAGER_SNAPSHOT_TTL_MS = MANAGEMENT_DOMAIN_TTL_MS;
 
 const AGENT_MANAGER_SNAPSHOT_CACHE = new Map<
   string,

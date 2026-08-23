@@ -70,6 +70,10 @@ import {
   setAgentManagerDomainInFlight,
   writeCachedAgentManagerSnapshot,
 } from "./agent-management-snapshot-store";
+import {
+  hasAutoAdopted,
+  markAutoAdopted,
+} from "./agent-management-auto-adopt-memory";
 import { SkillMatrixPanel } from "./agent-management-skill-matrix";
 
 type AgentManagementPanel = "agents" | "skills" | "archive";
@@ -238,6 +242,12 @@ export function AgentManagementPage(props: {
     domains?: ManagementLoadDomain[];
     /** When true, skip full-page loading even if no cache (domain tab fill). */
     quiet?: boolean;
+    /**
+     * When true, re-fetch domains past their TTL even when a cache exists.
+     * Defaults to false on panel entry so reopening the page within a session
+     * does not rescan; set true on window focus, manual refresh, or mutation.
+     */
+    revalidate?: boolean;
   }) => {
     const requested = options?.domains?.length
       ? options.domains
@@ -256,9 +266,14 @@ export function AgentManagementPage(props: {
       setLoading(false);
     }
 
+    // On entry with a warm cache we do NOT auto-revalidate past TTL — opening
+    // 管理 repeatedly should not rescan local agents. Only explicit forces
+    // (manual refresh / mutation / window focus) re-run the desktop probe.
     const staleOrMissing = options?.force
       ? needed
-      : missingDomains(domainState, needed, Date.now(), AGENT_MANAGER_SNAPSHOT_TTL_MS);
+      : options?.revalidate
+        ? missingDomains(domainState, needed, Date.now(), AGENT_MANAGER_SNAPSHOT_TTL_MS)
+        : needed.filter((domain) => !domainState[domain]);
 
     // Per-domain flight gate: skip domains already mid-fetch (do not coalesce all into one key).
     const flying = getAgentManagerDomainInFlight(cacheKey);
@@ -358,11 +373,16 @@ export function AgentManagementPage(props: {
       return;
     }
     const cachedSnap = readCachedAgentManagerSnapshot(cacheKey);
-    // If any managed card is still 需登录 in the TTL cache, force a re-probe —
-    // listAgents often recovers to online after login while the 60s cache sticks.
+    const coreFetchedAt = readCachedAgentManagerDomains(cacheKey).core?.fetchedAt ?? 0;
+    const cacheAgeMs = Date.now() - coreFetchedAt;
+    // If a managed card is still 需登录 and the cache is at least 30s old, force
+    // one re-probe (listAgents often recovers after login). We do NOT force on
+    // every mount — the 10-minute TTL already absorbs reopens within a session.
+    const RETRY_NEEDS_AUTH_AFTER_MS = 30_000;
     const hasStaleNeedsAuth =
       needed.includes("core") &&
       Array.isArray(cachedSnap?.agents) &&
+      cacheAgeMs >= RETRY_NEEDS_AUTH_AFTER_MS &&
       cachedSnap.agents.some((agent) => agent?.status === "needs_auth");
     void refresh({
       domains: needed,
@@ -370,6 +390,27 @@ export function AgentManagementPage(props: {
       quiet: Boolean(cachedSnap),
     });
   }, [activePanel, cacheKey, props.workspaceRoot, refresh]);
+
+  // Window focus: opportunistically revalidate domains past TTL. This is the
+  // only path that re-runs the desktop probe without a manual refresh while
+  // the page is open; entering the page itself stays cache-first.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let scheduled = false;
+    const onFocus = () => {
+      if (scheduled) return;
+      scheduled = true;
+      // Defer one frame so a quick refocus does not double-fire.
+      window.setTimeout(() => {
+        scheduled = false;
+        const needed = domainsForPanel(activePanel);
+        if (needed.length === 0) return;
+        void refresh({ domains: needed, revalidate: true, quiet: true });
+      }, 0);
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [activePanel, refresh]);
 
   useEffect(() => {
     writeAgentManagementUi(cacheKey, {
@@ -536,19 +577,22 @@ export function AgentManagementPage(props: {
     }
   }, [addingAgentId, catalogAgentToStoreInput, props.workspaceRoot, refresh, showToast]);
 
-  // Idempotent auto-adopt: installed common catalog agents enter the fleet store.
+  // Idempotent auto-adopt: installed catalog agents enter the fleet store once.
+  // Adoption memory is persisted (localStorage) so reopening 管理 within the
+  // same machine does not re-issue create calls or trigger a forced core rescan.
   useEffect(() => {
     if (!snapshot?.agents?.length || !String(props.workspaceRoot ?? "").trim()) return;
     if (autoAdoptInFlightRef.current) return;
     const candidates = snapshot.agents.filter((agent) => {
       if (!shouldAutoAdoptToStore(agent, healthResults[agent.id])) return false;
       if (autoAdoptedIdsRef.current.has(agent.id)) return false;
+      if (hasAutoAdopted(agent)) return false;
       return true;
     });
     if (candidates.length === 0) return;
     autoAdoptInFlightRef.current = true;
     void (async () => {
-      const adoptedNames: string[] = [];
+      const adopted: AgentManagementAgent[] = [];
       for (const agent of candidates) {
         autoAdoptedIdsRef.current.add(agent.id);
         try {
@@ -558,30 +602,51 @@ export function AgentManagementPage(props: {
             id: payload.id,
             agent: payload.agent,
           });
-          adoptedNames.push(agent.name);
+          markAutoAdopted(agent);
+          adopted.push(agent);
         } catch (error) {
           const raw = error instanceof Error ? error.message : String(error);
-          // Already in store: still counts as managed membership.
-          if (!/already exists/i.test(raw)) {
+          // Already in store: still counts as managed membership — remember it.
+          if (/already exists/i.test(raw)) {
+            markAutoAdopted(agent);
+          } else {
             autoAdoptedIdsRef.current.delete(agent.id);
           }
         }
       }
       autoAdoptInFlightRef.current = false;
-      if (adoptedNames.length > 0) {
-        // Agents-only refresh: do not rescan skills after auto-adopt.
-        await refresh({ force: true, domains: domainsForAgentMutation() });
-        showToast({
-          tone: "success",
-          title: t("agent_manager.fleet_auto_adopt_title"),
-          description: t("agent_manager.fleet_auto_adopt_desc", {
-            names: adoptedNames.slice(0, 4).join("、"),
-            count: adoptedNames.length,
-          }),
-        });
-      }
+      if (adopted.length === 0) return;
+
+      // Optimistic flip: adopted catalog rows become "mine" in the cached
+      // snapshot without a second desktop probe. A real rescan on next focus
+      // / manual refresh reconciles any drift.
+      const adoptedIds = new Set(adopted.map((agent) => agent.id));
+      const mergedAgents = snapshot.agents.map((agent) => {
+        if (!adoptedIds.has(agent.id)) return agent;
+        return {
+          ...agent,
+          agent_source: "custom",
+          provider: "custom",
+          discoverable: false,
+        } as AgentManagementAgent;
+      });
+      const mergedSnapshot: AgentManagementSnapshot = {
+        ...snapshot,
+        agents: mergedAgents,
+      };
+      writeCachedAgentManagerSnapshot(cacheKey, mergedSnapshot, ["core"]);
+      setSnapshot(mergedSnapshot);
+
+      showToast({
+        tone: "success",
+        title: t("agent_manager.fleet_auto_adopt_title"),
+        description: t("agent_manager.fleet_auto_adopt_desc", {
+          names: adopted.slice(0, 4).map((agent) => agent.name).join("、"),
+          count: adopted.length,
+        }),
+      });
     })();
-  }, [catalogAgentToStoreInput, healthResults, props.workspaceRoot, refresh, showToast, snapshot?.agents]);
+  }, [cacheKey, catalogAgentToStoreInput, healthResults, props.workspaceRoot, showToast, snapshot]);
 
   const handleSaveCustomAgent = useCallback(async (value: InlineAgentEditorValue) => {
     setEditorBusy(true);
