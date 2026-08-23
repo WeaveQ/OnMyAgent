@@ -3,6 +3,7 @@ import type { OnMyAgentSessionArchiveSession } from "../src/app/lib/onmyagent-se
 import {
   agentLabel,
   archiveAgentIconId,
+  archiveBodyIsPlain,
   archiveSessionPreviewLine,
   buildResumeRequest,
   cleanArchiveMessageContent,
@@ -269,5 +270,20 @@ describe("session archive page helpers", () => {
         }),
       ),
     ).toBe("Grok Build · onmyagent");
+  });
+
+  it("classifies archived user/tool/system bodies as plain and assistant as markdown", () => {
+    // Markdown-significant characters typed by the user must not be reinterpreted:
+    // the gate is role-only, so the same content is plain for user/tool/system
+    // and markdown-routed for assistant.
+    const markdownSignificant = ["a < b", "# heading", "[x](y)"];
+    for (const content of markdownSignificant) {
+      expect(content.length).toBeGreaterThan(0);
+      expect(archiveBodyIsPlain("user")).toBe(true);
+      expect(archiveBodyIsPlain("tool")).toBe(true);
+      expect(archiveBodyIsPlain("system")).toBe(true);
+      expect(archiveBodyIsPlain("assistant")).toBe(false);
+    }
+    expect(archiveBodyIsPlain("unknown")).toBe(false);
   });
 });

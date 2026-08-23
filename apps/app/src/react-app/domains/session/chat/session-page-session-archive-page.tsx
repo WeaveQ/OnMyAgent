@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PlayCircle, RefreshCw, Search, Trash2 } from "lucide-react";
+import { ChevronDown, PlayCircle, RefreshCw, Search, Trash2 } from "lucide-react";
 
 import { t } from "../../../../i18n";
 import type {
@@ -10,6 +10,7 @@ import type {
 } from "../../../../app/lib/onmyagent-server";
 import { formatRelativeTime } from "../../../../app/utils";
 import { AgentBrandIcon } from "../../../domains/local-agents";
+import { MarkdownBlock } from "../../../capabilities/artifacts/markdown";
 import { FilterChip } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
@@ -108,6 +109,69 @@ export function sortArchiveSessionsByRecency(
     if (bt !== at) return bt - at;
     return a.id.localeCompare(b.id);
   });
+}
+
+/** Archived user/tool/system turns render verbatim; only assistant bodies go through MarkdownBlock. */
+export function archiveBodyIsPlain(role: string): boolean {
+  return role === "user" || role === "tool" || role === "system";
+}
+
+const ARCHIVE_BODY_COLLAPSE_LINES = 10;
+// Plain body renders at text-sm/leading-relaxed (14px * 1.625 ≈ 22.75px/line).
+// Markdown headings/lists are taller, so this is an approximate "10 line"
+// threshold measured against the real rendered content.
+const ARCHIVE_BODY_COLLAPSE_PX =
+  ARCHIVE_BODY_COLLAPSE_LINES * 14 * 1.625;
+
+/**
+ * Long archive turns collapse to a max-height preview with a "show more"
+ * toggle. Overflow is measured from the real rendered block so both plain text
+ * and markdown share one threshold.
+ */
+function ArchiveMessageBody({ content, plain }: { content: string; plain: boolean }) {
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    // Measure with the clamp removed, then restore so we get the true content
+    // height on every content change instead of the clamped box height.
+    const prev = el.style.maxHeight;
+    el.style.maxHeight = "none";
+    const full = el.scrollHeight;
+    el.style.maxHeight = prev;
+    setIsOverflowing(full - ARCHIVE_BODY_COLLAPSE_PX > 2);
+  }, [content, plain]);
+
+  const collapsed = isOverflowing && !expanded;
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div
+        ref={bodyRef}
+        className={cn(
+          "min-w-0 overflow-hidden transition-[max-height] duration-200 ease-out",
+          collapsed && "max-h-[228px]",
+        )}
+      >
+        {plain ? content : <MarkdownBlock text={content} />}
+      </div>
+      {isOverflowing && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="inline-flex w-fit items-center gap-0.5 text-2xs font-medium text-dls-accent hover:underline"
+        >
+          {expanded ? t("session_archive.show_less") : t("session_archive.show_more")}
+          <ChevronDown
+            className={cn("size-3 transition-transform", expanded && "rotate-180")}
+          />
+        </button>
+      )}
+    </div>
+  );
 }
 
 export function SessionArchivePage(props: Props) {
@@ -461,7 +525,7 @@ export function SessionArchivePage(props: Props) {
                     // click another → switch. (No "all" null unless forced empty.)
                     setAgentFilter(g.agent);
                   }}
-                  className="rounded-md"
+                  className="justify-start rounded-md"
                   label={
                     <span className="inline-flex min-w-0 items-center gap-1.5 leading-none">
                       <AgentBrandIcon
@@ -726,6 +790,7 @@ export function SessionArchivePage(props: Props) {
                       const isUser = message.role === "user";
                       const isTool = message.role === "tool";
                       const isSystem = message.role === "system";
+                      const isPlainBody = archiveBodyIsPlain(message.role);
                       return (
                         <li
                           key={message.id}
@@ -739,29 +804,30 @@ export function SessionArchivePage(props: Props) {
                               "inline-flex h-5 items-center rounded-md px-1.5 text-2xs font-medium",
                               isUser
                                 ? "bg-dls-accent/10 text-dls-accent"
-                                : isTool || isSystem
-                                  ? "bg-dls-surface-muted text-dls-secondary"
-                                  : "bg-dls-surface-muted text-dls-secondary",
+                                : "bg-dls-surface-muted text-dls-secondary",
                             )}
                           >
                             {roleLabel(message.role)}
                           </div>
                           <div
                             className={cn(
-                              "max-w-[min(100%,42rem)] whitespace-pre-wrap break-words text-sm leading-relaxed",
+                              "max-w-[min(100%,42rem)] break-words text-sm leading-relaxed",
                               isUser &&
-                                "rounded-2xl bg-dls-chat-user-bg px-3.5 py-2.5 text-dls-text",
+                                "whitespace-pre-wrap rounded-2xl bg-dls-chat-user-bg px-3.5 py-2.5 text-dls-text",
                               isTool &&
-                                "rounded-xl border border-dls-border/50 bg-dls-surface-muted/60 px-3 py-2 font-mono text-xs leading-5 text-dls-secondary",
+                                "whitespace-pre-wrap rounded-xl border border-dls-border/50 bg-dls-surface-muted/60 px-3 py-2 font-mono text-xs leading-5 text-dls-secondary",
                               isSystem &&
-                                "rounded-xl border border-dashed border-dls-border/50 bg-dls-surface/40 px-3.5 py-2.5 text-xs leading-5 text-dls-secondary",
+                                "whitespace-pre-wrap rounded-xl border border-dashed border-dls-border/50 bg-dls-surface/40 px-3.5 py-2.5 text-xs leading-5 text-dls-secondary",
                               !isUser &&
                                 !isTool &&
                                 !isSystem &&
                                 "rounded-2xl border border-dls-border/40 bg-dls-surface px-3.5 py-2.5 text-dls-text",
                             )}
                           >
-                            {message.content}
+                            <ArchiveMessageBody
+                              content={message.content}
+                              plain={isPlainBody}
+                            />
                           </div>
                         </li>
                       );

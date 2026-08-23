@@ -23,6 +23,8 @@ export default {
   "session_archive.role_system": "系统",
   "session_archive.role_tool": "工具",
   "session_archive.message_count": "{count} 条消息",
+  "session_archive.show_more": "展开更多",
+  "session_archive.show_less": "收起",
   "session_archive.resume": "恢复",
   "session_archive.error_database_locked":
     "归档库正在同步，暂时打不开。请稍等几秒再试，或点同步。",

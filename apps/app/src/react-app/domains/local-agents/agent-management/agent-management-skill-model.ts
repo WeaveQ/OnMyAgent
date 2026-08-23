@@ -35,7 +35,7 @@ export function skillAgentLabel(agent: string) {
   return SKILL_AGENT_LABELS[agent] ?? agent;
 }
 
-export const STUDIO_SWITCH_SKILL_AGENT_OPTIONS: AgentManagementSkillAgent[] = ["opencode", "codex", "claude", "gemini", "hermes", "openclaw", "onmyagent"];
+export const STUDIO_SWITCH_SKILL_AGENT_OPTIONS: AgentManagementSkillAgent[] = ["opencode", "codex", "claude", "gemini", "hermes", "openclaw", "cursor-agent", "onmyagent"];
 
 /** Enable/disable IPC only works for Studio Switch + OnMyAgent skill roots. */
 export function isStudioSkillSyncAgent(agent: string): boolean {
@@ -90,6 +90,12 @@ export const SKILL_AGENT_TONES: Record<string, { active: string; badge: string; 
     badge: "bg-dls-surface-muted text-dls-secondary",
     iconActive: "bg-dls-surface-muted hover:bg-dls-active",
     dot: "bg-dls-secondary",
+  },
+  "cursor-agent": {
+    active: "bg-slate-9/15 text-dls-text ring-1 ring-slate-9/35 hover:bg-slate-9/20",
+    badge: "bg-slate-9/15 text-slate-11",
+    iconActive: "bg-slate-9/15 hover:bg-slate-9/20",
+    dot: "bg-slate-9",
   },
   unknown: {
     active: "bg-dls-surface-muted text-dls-secondary ring-1 ring-dls-border hover:bg-dls-active",
