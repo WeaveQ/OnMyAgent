@@ -91,7 +91,8 @@ function isAgentManagementPanel(value: unknown): value is AgentManagementPanel {
 }
 
 function isAgentManagementSkillAgent(value: unknown): value is AgentManagementSkillAgent {
-  return value === "opencode" || value === "codex" || value === "claude" || value === "hermes" || value === "openclaw" || value === "onmyagent" || value === "unknown";
+  // Accept any non-blank catalog agent id; the column-filter union is intentionally open.
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 function defaultAgentManagementUiCache(): AgentManagementUiCache {
@@ -135,7 +136,7 @@ function describeAgentTestConnection(result: PersonalLocalAgentTestConnectionRes
   });
 }
 
-function coerceAgentManagementUiCache(input: unknown): AgentManagementUiCache {
+export function coerceAgentManagementUiCache(input: unknown): AgentManagementUiCache {
   const fallback = defaultAgentManagementUiCache();
   if (!isRecordStringUnknown(input)) return fallback;
   return {

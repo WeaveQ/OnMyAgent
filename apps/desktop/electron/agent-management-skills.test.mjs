@@ -119,6 +119,15 @@ describe("agent-management-skills fleet native roots", () => {
           })
           .includes("workbuddy"),
       );
+      assert.ok(
+        api
+          .skillAgentsFromPath({
+            path: path.join(home, ".cursor", "skills-cursor", "x"),
+            root: path.join(home, ".cursor", "skills-cursor"),
+          })
+          .includes("cursor-agent"),
+        "Cursor Agent skills root must infer cursor-agent via the fallback path",
+      );
     });
   });
 

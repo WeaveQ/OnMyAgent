@@ -55,6 +55,7 @@ describe("agent management skill model", () => {
       "gemini",
       "hermes",
       "openclaw",
+      "cursor-agent",
       "onmyagent",
     ]);
 

@@ -23,6 +23,8 @@ export default {
   "session_archive.role_system": "System",
   "session_archive.role_tool": "Tool",
   "session_archive.message_count": "{count} messages",
+  "session_archive.show_more": "Show more",
+  "session_archive.show_less": "Show less",
   "session_archive.resume": "Resume",
   "session_archive.error_database_locked":
     "The archive database is busy syncing. Wait a few seconds and try again, or click Sync.",
