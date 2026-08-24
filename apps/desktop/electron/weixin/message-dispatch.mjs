@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import {
   ONMYAGENT_ASSISTANT_PROVIDER,
   runAssistantBridgeTurn,
@@ -28,6 +30,7 @@ export function createMessageDispatch({
   appendLog,
   setState,
   sendText,
+  sendStudioPromptMirror,
   deliverAgentOutput,
   maybeSendTyping,
   agentBusyNoticeAt,
@@ -40,6 +43,7 @@ export function createMessageDispatch({
   scheduleActiveRunPoll,
   getChannelSession,
   appendChannelSessionHistory,
+  channelTranscriptStore,
 }) {
   // Routes an IM chat bound to the `onmyagent` pseudo-agent to the desktop
   // assistant tab via the shared AssistantBridge helper. Pure additive path —
@@ -53,7 +57,17 @@ export function createMessageDispatch({
       platformLabel: "weixin",
       appendLog,
       readChatSetting: storeSafeReadChatSetting,
-      deliverReply: (s, e, text) => sendText(s, e.chatId, text, e.senderId),
+      deliverReply: (s, e, text) => sendText(
+        s,
+        e.chatId,
+        text,
+        e.senderId,
+        null,
+        e.agentSnapshot,
+      ),
+      deliverLocalNotice: async (s, e, text) => {
+        await sendRunNotice(s, { ...e, agent: e.agentSnapshot }, text);
+      },
     });
   }
 
@@ -75,7 +89,12 @@ export function createMessageDispatch({
         appendLog({ type: "error", text: `weixin dispatch failed: ${message}` });
         // Surface dispatch failures to the user instead of failing silently so
         // a broken agent runtime does not look like "the bot ignores me".
-        void sendText(session, batchEvent.chatId, `处理失败：${message}\n\n请检查 Studio 中微信通道的本地 Agent 配置。`, batchEvent.senderId).catch(() => undefined);
+        void sendText(
+          session,
+          batchEvent.chatId,
+          `处理失败：${message}\n\n请检查 Studio 中微信通道的本地 Agent 配置。`,
+          batchEvent.senderId,
+        ).catch(() => undefined);
       });
     }, session.options.textBatchDelayMs);
     pendingBatches.set(key, { event: batchEvent, agent, timer });
@@ -85,11 +104,23 @@ export function createMessageDispatch({
     if (!runtime?.runMessage && (!runtime?.startMessage || !runtime?.getRun)) {
       throw new Error("personal agent runtime is unavailable");
     }
-    await maybeSendTyping(session, event.chatId, TYPING_START);
+    if (!event.isLocalPrompt) {
+      await maybeSendTyping(session, event.chatId, TYPING_START);
+    }
     if (session.controller.signal.aborted) return null;
     try {
       const agent = event.agentSnapshot ?? await currentAgentForChat(session, event.chatId);
+      channelTranscriptStore?.setActiveAgent?.({
+        platformType: "wechat",
+        accountId: session.account.accountId,
+        chatId: event.chatId,
+        agentId: agent?.id,
+        agentName: agent?.name ?? agent?.id,
+      });
       if (agent.provider === ONMYAGENT_ASSISTANT_PROVIDER) {
+        if (typeof event.onAccepted === "function") {
+          await event.onAccepted({ agent, runKey: null });
+        }
         if (session.controller.signal.aborted) return null;
         return await runWeixinAssistantBridgeTurn(session, event);
       }
@@ -104,11 +135,19 @@ export function createMessageDispatch({
         const busyKey = `${session.account.accountId}:${runKey}`;
         const nowTs = Date.now();
         const lastAt = agentBusyNoticeAt.get(busyKey) ?? 0;
-        if (nowTs - lastAt >= AGENT_BUSY_NOTICE_INTERVAL_MS) {
+        if (
+          !event.isLocalPrompt
+          && nowTs - lastAt >= AGENT_BUSY_NOTICE_INTERVAL_MS
+        ) {
           agentBusyNoticeAt.set(busyKey, nowTs);
-          await sendText(session, event.chatId, `${agentLabel(agent)} 还在处理上一条消息，请稍后再试。发送 #status 查看进度，或 #cancel 取消后再重发。`, event.senderId).catch(() => undefined);
+          await sendText(
+            session,
+            event.chatId,
+            `${agentLabel(agent)} 还在处理上一条消息，请稍后再试。发送 #status 查看进度，或 #cancel 取消后再重发。`,
+            event.senderId,
+          ).catch(() => undefined);
         }
-        return existingRun;
+        return { ...existingRun, existingRun: true };
       }
       const reservation = reserveActiveRun(session.account.accountId, runKey, {
         accountId: session.account.accountId,
@@ -119,24 +158,51 @@ export function createMessageDispatch({
         startedAt: Date.now(),
       });
       if (!reservation.acquired) {
-        if (reservation.record?.runId) scheduleActiveRunPoll(session, reservation.record, 0);
+        if (reservation.record?.runId) {
+          scheduleActiveRunPoll(session, reservation.record, 0);
+        }
         const busyKey = `${session.account.accountId}:${runKey}`;
         const nowTs = Date.now();
         const lastAt = agentBusyNoticeAt.get(busyKey) ?? 0;
-        if (nowTs - lastAt >= AGENT_BUSY_NOTICE_INTERVAL_MS) {
+        if (
+          !event.isLocalPrompt
+          && nowTs - lastAt >= AGENT_BUSY_NOTICE_INTERVAL_MS
+        ) {
           agentBusyNoticeAt.set(busyKey, nowTs);
-          await sendText(session, event.chatId, `${agentLabel(agent)} 还在处理上一条消息，请稍后再试。发送 #status 查看进度，或 #cancel 取消后再重发。`, event.senderId).catch(() => undefined);
+          await sendText(
+            session,
+            event.chatId,
+            `${agentLabel(agent)} 还在处理上一条消息，请稍后再试。发送 #status 查看进度，或 #cancel 取消后再重发。`,
+            event.senderId,
+          ).catch(() => undefined);
         }
-        return reservation.record;
+        return reservation.record
+          ? { ...reservation.record, existingRun: true }
+          : null;
       }
       let reservationPromoted = false;
       try {
+        if (typeof event.onAccepted === "function") {
+          await event.onAccepted({ agent, runKey });
+        }
         const runtimeAgent = scopedWeixinRuntimeAgent(agent, event);
         const channelSession = await getChannelSession(session, event, runtimeAgent);
-        const history = await store.readChatHistory(session.account.accountId, historyKey, session.options.historyLimit).catch(() => []);
+        const history = await store.readChatHistory(
+          session.account.accountId,
+          historyKey,
+          session.options.historyLimit,
+        ).catch(() => []);
         const prompt = buildPrompt(event, { mode: promptMode, history, agent });
-        if (typeof runtime.startMessage !== "function" || typeof runtime.getRun !== "function") {
-          const legacyModel = await validatedModelForAgent(session, event.chatId, agent, { store, appendLog });
+        if (
+          typeof runtime.startMessage !== "function"
+          || typeof runtime.getRun !== "function"
+        ) {
+          const legacyModel = await validatedModelForAgent(
+            session,
+            event.chatId,
+            agent,
+            { store, appendLog },
+          );
           if (session.controller.signal.aborted) return null;
           const result = await runAgentTurn(runtime, {
             workspaceRoot: session.options.workspaceRoot,
@@ -150,10 +216,20 @@ export function createMessageDispatch({
           });
           if (session.controller.signal.aborted) return result;
           setState({ lastRunId: result?.runId ?? null });
-          await handleSynchronousAgentResult(session, event, { agent, historyKey, result, channelSession });
+          await handleSynchronousAgentResult(session, event, {
+            agent,
+            historyKey,
+            result,
+            channelSession,
+          });
           return result;
         }
-        const chatModel = await validatedModelForAgent(session, event.chatId, agent, { store, appendLog });
+        const chatModel = await validatedModelForAgent(
+          session,
+          event.chatId,
+          agent,
+          { store, appendLog },
+        );
         if (session.controller.signal.aborted) return null;
         const started = await runtime.startMessage({
           workspaceRoot: session.options.workspaceRoot,
@@ -167,12 +243,23 @@ export function createMessageDispatch({
           timeoutMs: session.options.timeoutMs,
         });
         if (session.controller.signal.aborted) {
-          if (started?.runId && typeof runtime.cancelRun === "function") await runtime.cancelRun(started.runId, { reason: "weixin_stopped" }).catch(() => undefined);
+          if (started?.runId && typeof runtime.cancelRun === "function") {
+            await runtime.cancelRun(
+              started.runId,
+              { reason: "weixin_stopped" },
+            ).catch(() => undefined);
+          }
           return started;
         }
         setState({ lastRunId: started?.runId ?? null });
         if (!started?.runId) {
-          await handleSynchronousAgentResult(session, event, { agent, historyKey, result: started, channelSession }); return started;
+          await handleSynchronousAgentResult(session, event, {
+            agent,
+            historyKey,
+            result: started,
+            channelSession,
+          });
+          return started;
         }
         const trackedRun = await writeActiveRunSafely(session.account.accountId, runKey, {
           status: started.status ?? "running",
@@ -188,6 +275,7 @@ export function createMessageDispatch({
           promptMode,
           prompt,
           userText: event.text,
+          isLocalPrompt: Boolean(event.isLocalPrompt),
           approvalMode: session.options.approvalMode,
           historyStoreLimit: session.options.historyStoreLimit,
           channelSessionId: channelSession?.id ?? null,
@@ -195,29 +283,81 @@ export function createMessageDispatch({
           startedAt: Date.now(),
         });
         if (!trackedRun?.runId) {
-          if (session.controller.signal.aborted && typeof runtime.cancelRun === "function") await runtime.cancelRun(started.runId, { reason: "weixin_stopped" }).catch(() => undefined);
+          if (session.controller.signal.aborted && typeof runtime.cancelRun === "function") {
+            await runtime.cancelRun(
+              started.runId,
+              { reason: "weixin_stopped" },
+            ).catch(() => undefined);
+          }
           return trackedRun;
         }
         reservationPromoted = true;
-        clearedActiveRunKeys.delete(activeRunGuardKey(session.account.accountId, runKey));
+        clearedActiveRunKeys.delete(
+          activeRunGuardKey(session.account.accountId, runKey),
+        );
         scheduleActiveRunPoll(session, trackedRun, 0);
         return trackedRun;
       } finally {
-        if (!reservationPromoted) releaseActiveRunReservation(session.account.accountId, runKey, reservation.token);
+        if (!reservationPromoted) {
+          releaseActiveRunReservation(
+            session.account.accountId,
+            runKey,
+            reservation.token,
+          );
+        }
       }
     } finally {
-      if (!session.controller.signal.aborted) await maybeSendTyping(session, event.chatId, TYPING_STOP);
+      if (!event.isLocalPrompt && !session.controller.signal.aborted) {
+        await maybeSendTyping(session, event.chatId, TYPING_STOP);
+      }
     }
   }
 
-  async function handleSynchronousAgentResult(session, event, { agent, historyKey, result, channelSession }) {
+  async function sendRunNotice(session, record, text, role = "error") {
+    if (record?.isLocalPrompt) {
+      await channelTranscriptStore?.recordLocalNotice?.({
+        platformType: "wechat",
+        accountId: session.account.accountId,
+        chatId: record.chatId,
+        platformUserId: record.senderId,
+        content: text,
+        role,
+        agentId: record.agent?.id,
+        agentName: record.agent?.name ?? record.agent?.id,
+      }).catch(() => undefined);
+      return null;
+    }
+    return sendText(
+      session,
+      record.chatId,
+      text,
+      record.senderId,
+      null,
+      record.agent,
+    );
+  }
+
+  async function handleSynchronousAgentResult(
+    session,
+    event,
+    { agent, historyKey, result, channelSession },
+  ) {
     const resultState = getChannelRunSnapshotState(result);
     if (resultState.status === "running" && resultState.hasPendingApprovals) {
-      await sendText(session, event.chatId, "需要在 Studio 中审批后继续处理。", event.senderId);
+      await sendRunNotice(
+        session,
+        { ...event, agent },
+        "需要在 Studio 中审批后继续处理。",
+        "system",
+      );
       return;
     }
     if (!resultState.isCompletedWithOutput) {
-      await sendText(session, event.chatId, "本次处理失败，请在 Studio 查看本地 Agent 日志。", event.senderId);
+      await sendRunNotice(
+        session,
+        { ...event, agent },
+        "本次处理失败，请在 Studio 查看本地 Agent 日志。",
+      );
       return;
     }
     const deliveredOutput = formatAgentResultOutput(result);
@@ -227,14 +367,153 @@ export function createMessageDispatch({
       agent,
       result: { ...result, output: deliveredOutput },
     });
-    await appendAgentHistory(session, historyKey, event.text, deliveredOutput, agent, session.options.historyStoreLimit);
-    await appendChannelSessionHistory(channelSession, event.text, deliveredOutput, agent);
+    await appendAgentHistory(
+      session,
+      historyKey,
+      event.text,
+      deliveredOutput,
+      agent,
+      session.options.historyStoreLimit,
+    );
+    if (!event.isLocalPrompt) {
+      await appendChannelSessionHistory(
+        channelSession,
+        event.text,
+        deliveredOutput,
+        agent,
+      );
+    }
   }
 
-  async function appendAgentHistory(session, historyKey, userText, output, agent, limit) {
+  async function runLocalPrompt(session, input = {}) {
+    if (!session || session.controller?.signal.aborted) {
+      return { ok: false, error: "Weixin is not running" };
+    }
+    const accountId = String(input.accountId ?? session.account?.accountId ?? "").trim();
+    const chatId = String(input.chatId ?? "").trim();
+    const text = String(input.text ?? "").trim();
+    if (!accountId || accountId !== String(session.account?.accountId ?? "")) {
+      return { ok: false, error: "Weixin account is not active" };
+    }
+    if (!chatId || !text) return { ok: false, error: "chatId and text are required" };
+    const senderId = String(input.platformUserId ?? input.senderId ?? chatId).trim() || chatId;
+    const agent = await currentAgentForChat(session, chatId);
+    const runKey = activeRunKey(chatId, agent);
+    const existingRun = agent.provider === ONMYAGENT_ASSISTANT_PROVIDER
+      ? null
+      : await readActiveRunSafely(accountId, runKey);
+    if (existingRun) {
+      if (existingRun.runId) scheduleActiveRunPoll(session, existingRun, 0);
+      return {
+        ok: false,
+        error: "当前 Agent 仍在处理上一条消息，请等待完成后再试。",
+        runId: existingRun.runId ?? null,
+        status: existingRun.status ?? "running",
+        existingRun: true,
+        chatId,
+        platformType: "wechat",
+      };
+    }
+    channelTranscriptStore?.setActiveAgent?.({
+      platformType: "wechat",
+      accountId,
+      chatId,
+      agentId: agent?.id,
+      agentName: agent?.name ?? agent?.id,
+    });
+    const event = {
+      accountId,
+      senderId,
+      chatId,
+      messageId: `studio-${randomUUID()}`,
+      text,
+      chatType: "dm",
+      source: "operator",
+      isLocalPrompt: true,
+      agentSnapshot: agent,
+      onAccepted: async () => {
+        // Keep the canonical operator prompt local while mirroring the
+        // accepted Studio prompt through iLink. The mirror intentionally
+        // skips `recordOutbound` so the transcript has one right-side
+        // operator row rather than an extra assistant row.
+        try {
+          await sendStudioPromptMirror(session, {
+            chatId,
+            peerId: senderId,
+            text,
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          throw new Error(`微信消息同步失败，Agent 未启动：${message}`, { cause: error });
+        }
+        await channelTranscriptStore?.recordOperatorPrompt?.({
+          platformType: "wechat",
+          accountId,
+          chatId,
+          platformUserId: senderId,
+          content: text,
+          metadata: { visibility: "local", mirroredToWeixin: true },
+        }).catch(() => undefined);
+      },
+    };
+    let result;
+    try {
+      result = await dispatchToAgent(session, event);
+    } catch (error) {
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+        chatId,
+        platformType: "wechat",
+      };
+    }
+    if (!result || result.existingRun) {
+      return {
+        ok: false,
+        error: "当前 Agent 仍在处理上一条消息，请等待完成后再试。",
+        runId: result?.runId ?? null,
+        status: result?.status ?? "running",
+        existingRun: Boolean(result?.existingRun),
+        chatId,
+        platformType: "wechat",
+      };
+    }
+    const resultStatus = String(result.status ?? "");
+    if (resultStatus && resultStatus !== "running" && resultStatus !== "completed") {
+      return {
+        ok: false,
+        error: result.error ?? "Agent prompt failed before a reply was produced.",
+        status: resultStatus,
+        chatId,
+        platformType: "wechat",
+      };
+    }
+    return {
+      ok: true,
+      runId: result?.runId ?? null,
+      status: result?.status ?? "queued",
+      chatId,
+      platformType: "wechat",
+    };
+  }
+
+  async function appendAgentHistory(
+    session,
+    historyKey,
+    userText,
+    output,
+    agent,
+    limit,
+  ) {
     await store.appendChatHistory(session.account.accountId, historyKey, [
       { role: "user", text: userText, at: Date.now() },
-      { role: "assistant", text: output, at: Date.now(), agentId: agent.id, agentProvider: agent.provider },
+      {
+        role: "assistant",
+        text: output,
+        at: Date.now(),
+        agentId: agent.id,
+        agentProvider: agent.provider,
+      },
     ], limit).catch(() => undefined);
   }
 
@@ -244,5 +523,6 @@ export function createMessageDispatch({
     handleSynchronousAgentResult,
     appendAgentHistory,
     runWeixinAssistantBridgeTurn,
+    runLocalPrompt,
   };
 }

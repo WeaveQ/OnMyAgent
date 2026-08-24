@@ -12,6 +12,8 @@ import {
   CHANNEL_EVENTS,
   ChannelPairingService,
   ChannelSessionStore,
+  ChannelTranscriptStore,
+  normalizeChannelPlatform,
   channelMessageAdapter,
   ChannelPluginRegistry,
   createLegacyServicePlugin,
@@ -89,6 +91,7 @@ export function createMessagingChannelServices(options = {}) {
     channelEventBus: infrastructure.eventBus,
     pairingService: infrastructure.pairingService,
     sessionStore: infrastructure.sessionStore,
+    transcriptStore: infrastructure.transcriptStore,
     messageAdapter: infrastructure.messageAdapter,
     assistantBindingStore: infrastructure.assistantBindingStore,
     registry,
@@ -133,6 +136,7 @@ export function createMessagingChannelServices(options = {}) {
     channelEventBus: infrastructure.eventBus,
     pairingService: infrastructure.pairingService,
     sessionStore: infrastructure.sessionStore,
+    transcriptStore: infrastructure.transcriptStore,
     messageAdapter: infrastructure.messageAdapter,
     assistantBindingStore: infrastructure.assistantBindingStore,
 
@@ -149,6 +153,7 @@ export function createMessagingChannelServices(options = {}) {
         infrastructure.sessionStore.initialize(),
         infrastructure.assistantBindingStore.initialize(),
       ]);
+      await infrastructure.transcriptStore.initialize({ sessionStore: infrastructure.sessionStore });
       await registry.initializeAll();
       console.log("[channel-runtime] channel infrastructure initialized (plugins=" + registry.size() + ")");
     },
@@ -158,6 +163,7 @@ export function createMessagingChannelServices(options = {}) {
       await Promise.all([
         infrastructure.pairingService.dispose(),
         infrastructure.sessionStore.dispose(),
+        infrastructure.transcriptStore.dispose(),
         infrastructure.messageAdapter.dispose(),
         infrastructure.assistantBindingStore.dispose(),
       ]);
@@ -173,10 +179,12 @@ const BUILT_IN_STUB_PLUGINS = [
 ];
 
 function createChannelInfrastructure({ userDataDir }) {
+  const sessionStore = new ChannelSessionStore({ userDataDir });
   return {
     eventBus: channelEventBus,
     pairingService: new ChannelPairingService({ userDataDir }),
-    sessionStore: new ChannelSessionStore({ userDataDir }),
+    sessionStore,
+    transcriptStore: new ChannelTranscriptStore({ userDataDir, sessionStore, eventBus: channelEventBus }),
     messageAdapter: channelMessageAdapter,
     assistantBindingStore: new ChannelAssistantBindingStore({ userDataDir }),
   };
@@ -191,6 +199,7 @@ function createPlatformServiceOptions({ userDataDir, personalAgentRuntime, taskM
     channelMessageAdapter: infrastructure.messageAdapter,
     channelPairingService: infrastructure.pairingService,
     channelSessionStore: infrastructure.sessionStore,
+    channelTranscriptStore: infrastructure.transcriptStore,
     channelAssistantBindingStore: infrastructure.assistantBindingStore,
     // Tunnel channel HTTP through the proxy when HTTPS_PROXY/ALL_PROXY is set
     // (region/corporate firewalls block api.telegram.org etc. otherwise).
@@ -228,7 +237,7 @@ export async function probeAccessibleRoot(input = {}) {
 
 export { CHANNEL_EVENTS };
 export function createChannelInfrastructureApi(services, extras = {}) {
-  const { pairingService, sessionStore, channelEventBus, registry, assistantBindingStore } = services;
+  const { pairingService, sessionStore, transcriptStore, channelEventBus, registry, assistantBindingStore } = services;
   const { relayStudioMessage } = extras;
 
   return {
@@ -337,6 +346,32 @@ export function createChannelInfrastructureApi(services, extras = {}) {
      */
     async getSessionsByUser(platformType, platformUserId) {
       return sessionStore.getSessionsByUser(platformType, platformUserId);
+    },
+
+    /** Canonical product-facing chat threads, isolated by account + chat id. */
+    async getTranscriptThreads(platformType, options = {}) {
+      return transcriptStore?.listThreads(platformType, options) ?? [];
+    },
+
+    /** Read one chronological channel transcript page. */
+    async getTranscript(input = {}) {
+      return transcriptStore?.read(input) ?? { messages: [], hasMore: false, nextBefore: null, nextBeforeId: null };
+    },
+
+    /** Invoke the selected chat's currently bound Agent and relay its final output. */
+    async runAgentPrompt(input = {}) {
+      const platformType = normalizeChannelPlatform(input.platformType);
+      const service = platformType === "wechat"
+        ? services.weixinService
+        : services[`${platformType}Service`];
+      if (!service || typeof service.runLocalPrompt !== "function") {
+        return { ok: false, error: "channel agent prompt is unavailable" };
+      }
+      try {
+        return await service.runLocalPrompt({ ...input, platformType });
+      } catch (error) {
+        return { ok: false, error: error?.message ?? String(error) };
+      }
     },
 
     /**

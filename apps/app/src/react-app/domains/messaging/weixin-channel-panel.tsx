@@ -1,7 +1,6 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ExternalLink, FolderOpen, Play, Plug, QrCode, RefreshCw, Save, Square } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { SelectMenu } from "../../design-system/select-menu";
 import { AccessibleRootRow } from "../../design-system/accessible-root-row";
 import { t } from "../../../i18n";
+import { channelRuntimeStatusLabel } from "./messaging-model";
 import {
   openDesktopUrl,
   personalLocalAgentsList,
@@ -120,7 +120,7 @@ function PanelSection(props: {
   return (
     <section
       className={cn(
-        // h-full: equal-height cards in the 3-column channel layout.
+        // h-full keeps cards in each responsive row aligned without forcing a fixed height.
         "flex h-full min-w-0 flex-col gap-3 rounded-xl border border-dls-border bg-dls-surface p-4",
         props.className,
       )}
@@ -662,7 +662,7 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-dls-border bg-dls-surface px-3 py-2.5 text-xs text-dls-secondary">
         <div className="flex items-center gap-2">
           <StatusBadge tone={statusTone(serviceState.status)} shape="pill" size="tiny">
-            {serviceState.status ?? "stopped"}
+            {channelRuntimeStatusLabel(serviceState.status)}
           </StatusBadge>
           <Button
             type="button"
@@ -722,8 +722,7 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
         </NoticeBox>
       ) : null}
 
-      {/* Account | Workspace | Routing — one row on wide screens to cut vertical bulk. */}
-      <div className="grid gap-3 lg:grid-cols-3">
+      <div data-testid="messaging-settings-card-grid" data-settings-card-grid="wechat" className="grid min-w-0 gap-3 lg:grid-cols-2">
         <PanelSection title={t("messaging.weixin_account")}>
           <div className="flex flex-col gap-2">
             <Input
