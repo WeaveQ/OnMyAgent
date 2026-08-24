@@ -218,7 +218,7 @@ function TreeNodeRow(props: {
             onDrop={(event) => props.onFolderDrop(event, folder.path)}
             onClick={() => props.onToggle(folder.path)}
             className={cn(
-              "flex w-full items-center gap-1 rounded-md py-1 pr-2 text-left text-sm",
+              "flex h-[34px] w-full items-center gap-1 rounded-md pr-2 text-left text-sm",
               dropping
                 ? "bg-dls-accent-soft text-dls-accent"
                 : "text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
@@ -291,7 +291,7 @@ function TreeNodeRow(props: {
           }}
           onClick={() => props.onSelect({ scope: props.scope, relPath: file.relPath })}
           className={cn(
-            "flex w-full items-center gap-1 rounded-md py-1 pr-2 text-left text-sm",
+            "flex h-[34px] w-full items-center gap-1 rounded-md pr-2 text-left text-sm",
             active
               ? "bg-dls-list-selected text-dls-text"
               : "text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
