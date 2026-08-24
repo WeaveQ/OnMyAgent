@@ -61,6 +61,7 @@ describe("knowledge editor tabs", () => {
     expect(source).toContain("cursor-pointer");
     expect(source).not.toContain("max-w-48");
     expect(source).not.toContain("min-w-28");
+    expect(source.match(/onClick=\{\(\) => props\.onActivate\(tab\.id\)\}/g)).toHaveLength(1);
   });
 
   test("fills an empty active tab instead of leaving a blank leftover", () => {

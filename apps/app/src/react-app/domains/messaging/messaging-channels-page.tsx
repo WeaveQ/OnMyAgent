@@ -485,7 +485,7 @@ export function MessagingChannelsPage(props: { workspaceRoot?: string }) {
             </div>
           </div>
           <nav
-            className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2.5 pt-1.5"
+            className="flex min-h-0 flex-1 gap-1 overflow-x-auto px-2.5 pt-1.5 max-md:flex-row md:flex-col md:overflow-y-auto"
             aria-label={t("messaging.channels_tab")}
           >
             {MESSAGING_CHANNELS.map((channel) => {
@@ -504,6 +504,7 @@ export function MessagingChannelsPage(props: { workspaceRoot?: string }) {
                   size="expert"
                   active={isSelected}
                   data-channel-id={channel.id}
+                  className="max-md:h-12 max-md:min-w-52"
                   onClick={() => setSelectedChannel(channel.id)}
                   aria-current={isSelected ? "page" : undefined}
                 >
@@ -531,12 +532,12 @@ export function MessagingChannelsPage(props: { workspaceRoot?: string }) {
         </aside>
 
         <main className="flex min-w-0 flex-1 flex-col">
-          <header className={cn(LIST_LANE_HEADER_CLASS, "justify-between gap-3 border-b border-dls-border px-5")}>
+          <header className={cn(LIST_LANE_HEADER_CLASS, "h-auto min-h-14 justify-between gap-3 border-b border-dls-border px-5 py-1.5")}>
             <div className="flex min-w-0 items-center gap-3">
               <ChannelIcon channelId={selectedChannel} connected={connected} />
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h2 className="truncate text-base font-medium text-dls-text">
+                  <h2 className="truncate text-sm font-medium leading-5 text-dls-text">
                     {settingsOpen
                       ? t("messaging.chat_settings_title", {
                         channel: platformLabel(selectedChannel),

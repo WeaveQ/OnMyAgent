@@ -41,47 +41,47 @@ export function KnowledgeVaultTabBar(props: KnowledgeVaultTabBarProps) {
           const dirty = tab.draft !== tab.loaded;
           const label = tabLabel(tab);
           return (
-            <div key={tab.id} className="flex h-full w-32 shrink-0 items-center overflow-hidden">
+            <div key={tab.id} className="group relative flex h-full w-32 shrink-0 items-center overflow-hidden">
               {index > 0 ? (
                 <span className="h-4 w-px shrink-0 bg-dls-border" aria-hidden />
               ) : null}
-              <div
+              <button
+                type="button"
                 className={cn(
-                  "group relative flex h-full min-w-0 flex-1 cursor-pointer items-center overflow-hidden px-3",
+                  "flex h-full min-w-0 flex-1 cursor-pointer items-center overflow-hidden px-3",
                   active ? "text-dls-text" : "text-dls-secondary hover:text-dls-text",
                 )}
+                title={label}
+                aria-current={active ? "page" : undefined}
                 onClick={() => props.onActivate(tab.id)}
               >
-                <button
-                  type="button"
+                <span
                   className={cn(
-                    "block min-w-0 w-full cursor-pointer truncate pe-5 text-left text-sm leading-none",
+                    "block min-w-0 w-full truncate pe-5 text-left text-sm leading-none",
                     active ? "font-medium" : "font-normal",
                   )}
-                  title={label}
-                  onClick={() => props.onActivate(tab.id)}
                 >
                   {dirty ? "• " : ""}
                   {label}
-                </button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="absolute right-1 top-1/2 size-6 -translate-y-1/2 opacity-0 group-hover:opacity-100 data-[active=true]:opacity-70"
-                  data-active={active}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    props.onClose(tab.id);
-                  }}
-                  aria-label={t("knowledge.close_tab")}
-                  title={t("knowledge.close_tab")}
-                >
-                  <X className="size-3" />
-                </Button>
-                {active ? (
-                  <span className="absolute inset-x-3 bottom-0 h-px bg-dls-text" aria-hidden />
-                ) : null}
-              </div>
+                </span>
+              </button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="absolute right-1 top-1/2 size-6 -translate-y-1/2 opacity-0 group-hover:opacity-100 data-[active=true]:opacity-70"
+                data-active={active}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  props.onClose(tab.id);
+                }}
+                aria-label={t("knowledge.close_tab")}
+                title={t("knowledge.close_tab")}
+              >
+                <X className="size-3" />
+              </Button>
+              {active ? (
+                <span className="absolute inset-x-3 bottom-0 h-px bg-dls-text" aria-hidden />
+              ) : null}
             </div>
           );
         })}
