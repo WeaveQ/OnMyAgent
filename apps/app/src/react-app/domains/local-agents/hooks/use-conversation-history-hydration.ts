@@ -1,17 +1,22 @@
-import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
+import { useEffect, type Dispatch, type SetStateAction } from "react";
 
-import { personalLocalAgentConversationStatus, type PersonalLocalAgent } from "../../../../app/lib/desktop";
-import { localAgentChatKey } from "../local-agent-page-model";
+import {
+  personalLocalAgentConversationStatus,
+  personalLocalAgentConversationTranscript,
+  type PersonalLocalAgent,
+  type PersonalLocalAgentConversation,
+} from "../../../../app/lib/desktop";
+import {
+  isUnsupportedNativeTranscriptError,
+  localAgentChatKey,
+  nativeSessionResumeOnlyMessage,
+  transcriptMessagesForAgent,
+} from "../local-agent-page-model";
 import type { ChatMessage } from "../messages/message-types";
-
-// Persisted conversation-message types that carry runtime/protocol telemetry
-// rather than user-facing transcript content. Mirrors the filter in
-// capabilities/conversation/adapters/personal.ts `filterPersonalTimelineMessages`.
-const HIDDEN_HISTORY_MESSAGE_TYPES = new Set([
-  "agent_status",
-  "available_commands",
-  "context_usage",
-]);
+import {
+  conversationStatusToChatMessages,
+  mergeHydratedChatMessages,
+} from "./personal-local-agent-history";
 
 // Replay a persisted transcript (e.g. an archived session imported via
 // "resume from archive") into the chat as individual user/assistant bubbles so
@@ -21,70 +26,96 @@ export function useConversationHistoryHydration(input: {
   workspaceRoot: string;
   agent: PersonalLocalAgent | null | undefined;
   conversationId: string | null | undefined;
-  messagesByAgent: Record<string, ChatMessage[]>;
+  conversation?: PersonalLocalAgentConversation | null;
+  chatKey?: string;
+  /**
+   * Re-hydrate when the selected conversation enters or leaves an active run.
+   * The terminal renderer snapshot can be intentionally compact, while the
+   * conversation checkpoint owns the complete thought/tool event timeline.
+   */
+  refreshKey?: string | null;
+  allowNativeFallback?: boolean;
   setMessagesByAgent: Dispatch<SetStateAction<Record<string, ChatMessage[]>>>;
+  setErrorsByAgent?: Dispatch<SetStateAction<Record<string, string | null>>>;
 }) {
-  const hydratedRef = useRef<Set<string>>(new Set<string>());
-  const { workspaceRoot, agent, conversationId, setMessagesByAgent } = input;
+  const {
+    workspaceRoot,
+    agent,
+    conversationId,
+    conversation,
+    chatKey: explicitChatKey,
+    refreshKey,
+    allowNativeFallback = true,
+    setMessagesByAgent,
+    setErrorsByAgent,
+  } = input;
   useEffect(() => {
     if (!agent || !conversationId) return;
-    const chatKey = localAgentChatKey(agent.id, conversationId);
-    console.log("[hydrate] checking", { chatKey, agent: { provider: agent.provider, id: agent.id }, conversationId });
-    if (hydratedRef.current.has(chatKey)) {
-      console.log("[hydrate] already hydrated", chatKey);
-      return;
-    }
+    const chatKey = explicitChatKey || localAgentChatKey(agent.id, conversationId);
     let cancelled = false;
-    void personalLocalAgentConversationStatus({ workspaceRoot, agent, conversationId })
-      .then((result) => {
-        if (cancelled) return;
-        const persisted = result.conversationMessages ?? [];
-        console.log("[hydrate] status", { chatKey, count: persisted.length });
-        if (!persisted.length) return;
-        hydratedRef.current.add(chatKey);
-        const historyPrefix = `history-${chatKey}-`;
-        const historyMessages: ChatMessage[] = persisted
-          // Internal runtime status / protocol lines (ACP flow markers, available
-          // command lists, context-usage telemetry) are not conversation content;
-          // the live timeline filters them, so the hydrated transcript must too.
-          .filter((message) => !HIDDEN_HISTORY_MESSAGE_TYPES.has(String(message.type ?? "")))
-          .map((message, index) => {
-            // Local bubbles only support user/assistant/system; map anything else
-            // (e.g. "tool") to assistant so the content is still shown.
-            const role: ChatMessage["role"] =
-              message.role === "user" ? "user" : message.role === "system" ? "system" : "assistant";
-            return {
-              id: `${historyPrefix}${message.id ?? index}`,
-              role,
-              text: message.text ?? "",
-              createdAt: Number(message.createdAt) || Date.now() + index,
-              run: null,
-            };
+    void (async () => {
+      let historyMessages: ChatMessage[] = [];
+      let activeRunId: string | null = null;
+      try {
+        const result = await personalLocalAgentConversationStatus({ workspaceRoot, agent, conversationId });
+        historyMessages = conversationStatusToChatMessages(chatKey, result);
+        activeRunId = result.activeRun?.status === "running" ? result.activeRun.runId : null;
+      } catch {
+        // Native provider transcript remains an empty-runtime fallback below.
+      }
+      if (
+        historyMessages.length === 0
+        && allowNativeFallback
+        && conversation
+        && (conversation.resumeKey || conversation.providerSessionId)
+      ) {
+        try {
+          const result = await personalLocalAgentConversationTranscript({
+            workspaceRoot,
+            conversationId,
+            providerSessionId: conversation.providerSessionId,
+            resumeKey: conversation.resumeKey,
+            agent,
+            limit: 80,
           });
-        setMessagesByAgent((current) => {
-          const list = current[chatKey] ?? [];
-          const filtered = list.filter(
-            (m) => !(typeof m.id === "string" && (m.id.startsWith(historyPrefix) || m.id.startsWith("native-session-")))
-          );
-          // If the user already sent messages in this conversation (a user message or
-          // a live assistant run exists), skip hydration to avoid appending a
-          // duplicate history below the real transcript.
-          const hasLiveMessages = filtered.some((m) => m.role === "user" || Boolean(m.run));
-          if (hasLiveMessages) {
-            console.log("[hydrate] skipped (has live messages)", chatKey);
-            return current;
+          historyMessages = result.messages.length
+            ? transcriptMessagesForAgent(agent, result.messages)
+            : isUnsupportedNativeTranscriptError(result.error)
+              ? [nativeSessionResumeOnlyMessage(agent, conversation)]
+              : [];
+          if (!cancelled && result.error && !isUnsupportedNativeTranscriptError(result.error)) {
+            setErrorsByAgent?.((current) => ({ ...current, [agent.id]: result.error ?? null }));
           }
-          if (filtered.some((m) => typeof m.id === "string" && m.id.startsWith(historyPrefix))) return current;
-          console.log("[hydrate] adding", chatKey, historyMessages.length);
-          return {
-            ...current,
-            [chatKey]: [...filtered, ...historyMessages],
-          };
-        });
-      })
-      .catch(() => undefined);
+        } catch (nextError) {
+          if (!cancelled) {
+            setErrorsByAgent?.((current) => ({
+              ...current,
+              [agent.id]: nextError instanceof Error ? nextError.message : String(nextError),
+            }));
+          }
+        }
+      }
+      if (cancelled || historyMessages.length === 0) return;
+      setMessagesByAgent((current) => {
+        const list = current[chatKey] ?? [];
+        return {
+          ...current,
+          [chatKey]: mergeHydratedChatMessages(list, historyMessages, activeRunId),
+        };
+      });
+    })();
     return () => {
       cancelled = true;
     };
-  }, [agent, conversationId, setMessagesByAgent, workspaceRoot]);
+  }, [
+    agent,
+    allowNativeFallback,
+    conversation,
+    conversationId,
+    explicitChatKey,
+    refreshKey,
+    setErrorsByAgent,
+    setMessagesByAgent,
+    workspaceRoot,
+  ]);
 }

@@ -20,6 +20,8 @@ export function ExpertPageSidePanel({
   onmyagentServerClient,
   sidePanelOpen,
   isPrimarySessionView,
+  isLocalAgentView,
+  browserSessionScopeId,
   browserPanelRef,
   activeSidePanel,
   canvasSessionKey,
@@ -33,7 +35,7 @@ export function ExpertPageSidePanel({
   snapToBrowserWidth,
   activeExpertFeatureCategoryId,
 }: ExpertPageSidePanelProps) {
-  if (!sidePanelOpen || !isPrimarySessionView) return null;
+  if (!sidePanelOpen || (!isPrimarySessionView && !isLocalAgentView)) return null;
   return (
     <>
       <ResizableHandle className="hidden w-[2px] before:hidden lg:flex" />
@@ -67,7 +69,7 @@ export function ExpertPageSidePanel({
             focusPath={artifactTarget?.value ?? null}
             focusToken={artifactFocusToken}
             workspaceId={runtimeWorkspaceId}
-            sessionId={selectedSessionId}
+            sessionId={isLocalAgentView ? (browserSessionScopeId ?? null) : selectedSessionId}
             automationSourceSessionId={selectedSessionId}
             client={onmyagentServerClient}
             initialKind={

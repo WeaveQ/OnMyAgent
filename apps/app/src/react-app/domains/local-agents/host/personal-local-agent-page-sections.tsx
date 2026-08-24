@@ -66,6 +66,9 @@ export function PersonalLocalAgentPageLayout(props: { m: PersonalLocalAgentPageM
     refreshing,
     refreshAgents,
     filteredAgents,
+    channelAgent,
+    channelConversations,
+    loadingChannelConversations,
     activeRunIdByAgent,
     messagesByAgent,
     setSelectedAgentId,
@@ -73,6 +76,7 @@ export function PersonalLocalAgentPageLayout(props: { m: PersonalLocalAgentPageM
     startAgentListResize,
     isChannelView,
     selectedAgent,
+    channelRuntimeAgent,
     selectedConversations,
     selectedConversationId,
     setSelectedChannelConversationId,
@@ -204,6 +208,33 @@ return (
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
+            {channelAgent ? (
+              <div className="border-b border-dls-mist py-1">
+                <SessionRowButton
+                  type="button"
+                  onClick={() => setSelectedAgentId(channelAgent.id)}
+                  active={selectedAgentId === channelAgent.id}
+                  className={localAgentLayoutClass.agentRow}
+                  data-testid="local-agent-channel-sessions"
+                >
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-dls-surface-muted text-dls-secondary">
+                    <MessageSquare className="size-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className={localAgentTextClass.rowTitle}>{channelAgent.name}</div>
+                    <div className="mt-1 truncate text-xs leading-5 text-dls-secondary">
+                      {t("local_agent.channel_session_readonly")}
+                    </div>
+                  </div>
+                  <CountBadge>{channelConversations.length}</CountBadge>
+                </SessionRowButton>
+              </div>
+            ) : loadingChannelConversations ? (
+              <div className="flex items-center gap-2 border-b border-dls-mist px-4 py-3 text-xs text-dls-secondary">
+                <LoadingSpinner size="sm" />
+                <span>{t("local_agent.channel_sessions_title")}</span>
+              </div>
+            ) : null}
             {filteredAgents.length > 0 ? (
               <div>
                 {filteredAgents.map((agent) => {
@@ -314,7 +345,7 @@ return (
                   </div>
                 </div>
               </div>
-            ) : (
+            ) : channelAgent ? null : (
               <div className="flex h-full items-center justify-center px-4 text-center text-sm leading-5 text-dls-secondary">
                 {t("local_agent.empty")}
               </div>
@@ -466,9 +497,9 @@ return (
               size="icon-sm"
               className="relative"
               onClick={() => setShowScheduledTasks((open) => !open)}
-              disabled={!selectedAgent}
+              disabled={!selectedAgent || isChannelView}
               data-testid="local-agent-scheduled-tasks-button"
-              aria-expanded={showScheduledTasks}
+              aria-expanded={!isChannelView && showScheduledTasks}
               title={t("local_agent.heartbeat_title")}
               aria-label={t("local_agent.heartbeat_title")}
             >
@@ -481,7 +512,7 @@ return (
             </Button>
           </div>
         </div>
-        {showScheduledTasks && selectedAgent ? (
+        {showScheduledTasks && selectedAgent && !isChannelView ? (
           <div ref={scheduledTasksPanelRef} className={heartbeatClass.overlay} data-testid="local-agent-scheduled-tasks-panel">
             <HeartbeatPanel
               agent={selectedAgent}
@@ -504,9 +535,9 @@ return (
       </header>
       <LocalAgentStatusRail
         workspaceRoot={effectiveWorkspaceRoot}
-        agent={selectedAgent ?? null}
+        agent={isChannelView ? channelRuntimeAgent : selectedAgent ?? null}
         conversationId={selectedConversationId ?? null}
-        onOpenManagement={() => onOpenAgentManagement?.("skills")}
+        onOpenManagement={!isChannelView && onOpenAgentManagement ? () => onOpenAgentManagement("skills") : undefined}
       />
       <div
         ref={scrollRef}
@@ -523,12 +554,12 @@ return (
             <ChatBubble
               key={message.id}
               message={message}
-              workspaceRoot={effectiveWorkspaceRoot}
-              agent={selectedAgent}
+              workspaceRoot={displayWorkspaceRoot}
+              agent={isChannelView ? channelRuntimeAgent : selectedAgent}
               selectedModel={selectedModel}
               onOpenArtifact={onOpenArtifact}
-              onResolveApproval={resolveApproval}
-              onResolveTip={() => onOpenAgentManagement?.("skills")}
+              onResolveApproval={isChannelView ? undefined : resolveApproval}
+              onResolveTip={!isChannelView && onOpenAgentManagement ? () => onOpenAgentManagement("skills") : undefined}
             />
           ))}
           {selectedError ? <NoticeBox tone="error">{selectedError}</NoticeBox> : null}
@@ -552,7 +583,7 @@ return (
             onStop={() => { void cancelRun(); }}
             toolbarLeft={
               <>
-                {chipEditable ? (
+                {!isChannelView && chipEditable ? (
                   <div className="min-w-0 shrink" data-testid="local-agent-draft-workspace">
                     <WorkspaceFootnote
                       density="compact"
@@ -568,7 +599,7 @@ return (
                 <LocalAgentComposerApprovalSelect
                   value={approvalMode}
                   onChange={setApprovalMode}
-                  disabled={running || (selectedCapability ? selectedCapability.supportsApproval === false : false)}
+                  disabled={isChannelView || running || (selectedCapability ? selectedCapability.supportsApproval === false : false)}
                 />
               </>
             }
@@ -581,6 +612,9 @@ return (
                   workspaceRoot={effectiveWorkspaceRoot}
                   disabled={!selectedAgent || running}
                   acpModelInfo={selectedAcpModelInfo}
+                  conversationId={selectedConversation?.id ?? null}
+                  providerSessionId={selectedConversation?.providerSessionId ?? null}
+                  resumeKey={selectedConversation?.resumeKey ?? null}
                 />
               ) : null
             }

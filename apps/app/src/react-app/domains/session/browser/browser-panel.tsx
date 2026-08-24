@@ -19,7 +19,10 @@ import {
   useBrowserState,
 } from "./use-browser-state";
 import { BROWSER_HOME_URL } from "./open-in-app-browser";
-import { filterTabsForSession } from "./session-browser-tabs";
+import {
+  filterTabsForSession,
+  resolveBrowserSessionForPanel,
+} from "./session-browser-tabs";
 import {
   shouldRunBrowserBoundsRaf,
   shouldStartBrowserBoundsLoop,
@@ -349,7 +352,6 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
   const urlFocusedRef = useRef(false);
   const urlInputRef = useRef<HTMLInputElement>(null);
   const sessionIdRef = useRef(sessionId);
-  sessionIdRef.current = sessionId;
 
   // Subscribe to state changes from the main process
   useEffect(() => {
@@ -380,19 +382,25 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
     return unsub;
   }, []);
 
-  const sessionTabs = filterTabsForSession(state.tabs, sessionId);
+  const browserSessionId = resolveBrowserSessionForPanel(
+    state.tabs,
+    state.activeTabId,
+    sessionId,
+  );
+  sessionIdRef.current = browserSessionId;
+  const sessionTabs = filterTabsForSession(state.tabs, browserSessionId);
   const sessionActiveTab =
     sessionTabs.find((tab) => tab.tabId === state.activeTabId || tab.isActive) ??
     sessionTabs[0] ??
     null;
-  const hasSessionScopedTabs = Boolean(sessionId) && sessionTabs.length > 0;
+  const hasSessionScopedTabs = Boolean(browserSessionId) && sessionTabs.length > 0;
 
   // Keep the native selected tab inside this chat session's tab set.
   useEffect(() => {
-    if (!sessionId || !sessionActiveTab) return;
+    if (!browserSessionId || !sessionActiveTab) return;
     if (sessionActiveTab.tabId === state.activeTabId) return;
     void getElectronBrowser()?.selectTab?.(sessionActiveTab.tabId);
-  }, [sessionId, sessionActiveTab?.tabId, state.activeTabId]);
+  }, [browserSessionId, sessionActiveTab?.tabId, state.activeTabId]);
 
   // Sync URL bar to this session's active tab when switching sessions/tabs.
   useEffect(() => {

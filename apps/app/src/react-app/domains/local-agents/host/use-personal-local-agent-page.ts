@@ -4,10 +4,6 @@
  * Extracted from personal-local-agent-page (P1-5 residual file-size split).
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import {
-  isDocumentHidden,
-  shouldRunPollTick,
-} from "../../../infra/visibility-poll";
 import { useVisibilityInterval } from "../../../infra/use-visibility-interval";
 import { usePersonalLocalAgentProcessSync } from "./use-personal-local-agent-process-sync";
 import { t } from "@/i18n";
@@ -17,7 +13,6 @@ import {
   personalLocalAgentAcpResolveApproval,
   personalLocalAgentAcpSend,
   personalLocalAgentConversationCreate,
-  personalLocalAgentConversationTranscript,
   personalLocalAgentChannelConversationsList,
   personalLocalAgentConversationsListByProvider,
   personalLocalAgentHeartbeatCreate,
@@ -57,18 +52,16 @@ import {
   agentIdFromChatKey,
   builtinSlashCommands,
   chooseInitialModel,
-  compactMessagesByAgent,
-  isUnsupportedNativeTranscriptError,
   localAgentChatKey,
   mergeLocalAgentSidebarOrder,
   mergeSlashCommands,
-  nativeSessionResumeOnlyMessage,
   normalizeAcpSlashCommandList,
   normalizeAcpSlashCommands,
   personalAgentApprovalModeKey,
   personalAgentChatStateKey,
   personalAgentModelPrefKey,
-  chatKeyForActiveRun, recoverActiveRunIds,
+  chatKeyForActiveRun,
+  reconcileConversationSelection,
   safeReadApprovalMode,
   safeReadCachedAgents,
   safeReadLocalAgentSidebarOrder,
@@ -76,7 +69,6 @@ import {
   safeWriteCachedAgents,
   safeWriteLocalAgentSidebarOrder,
   sortLocalAgentsBySidebarOrder,
-  transcriptMessagesForAgent,
   welcomeMessageForAgent,
   type PersistedLocalAgentChatState,
 } from "../local-agent-page-model";
@@ -95,40 +87,49 @@ import {
 import type { SessionArchiveResumeRequest } from "./archive-resume-types";
 import { cancelPersonalLocalAgentRun } from "./personal-local-agent-cancel-run";
 import {
-  hasOptimisticUserMessageForRun,
   lastRunForAgent,
   messageTextForRun,
   nowId,
   resolveLocalAgentStopTarget,
 } from "./personal-local-agent-page-helpers";
 import { useArchiveResume } from "./use-archive-resume";
+import { usePersonalLocalAgentStream } from "./use-personal-local-agent-stream";
 import { useWorkspaceOverride } from "./use-workspace-override";
+
+export type PersonalLocalAgentHostCapabilities = {
+  artifacts?: {
+    open?: (target: OpenTarget) => Promise<void> | void;
+    onTargetsChange?: (targets: OpenTarget[]) => void;
+  };
+  agentManagement?: {
+    open: (panel?: "skills" | "agents") => void;
+  };
+  archiveResume?: {
+    request: SessionArchiveResumeRequest | null;
+    onConsumed: () => void;
+    serverClient: OnMyAgentServerClient | null;
+    runtimeWorkspaceId: string | null;
+  };
+};
 
 export type PersonalLocalAgentPageProps = {
   workspaceRoot: string;
   workspaceName?: string | null;
-  onOpenArtifact?: (target: OpenTarget) => Promise<void> | void;
   /**
-   * Forward this run's artifacts (URLs / files) to the host so they show up
-   * in the global Workspace/Artifacts panel and Browser, exactly like the
-   * expert and assistant surfaces do.
+   * Explicit host affordances. Missing capabilities are hidden rather than
+   * rendered as no-op actions in Assistant/Expert/legacy mounts.
    */
-  onOpenTargetsChange?: (targets: OpenTarget[]) => void;
-  /** Navigate to the Agent Management tab (skills panel by default). */
-  onOpenAgentManagement?: (panel?: "skills" | "agents") => void;
-  resumeRequest?: SessionArchiveResumeRequest | null;
-  onResumeConsumed?: () => void;
-  /** OnMyAgent server client used to fetch archived session messages when
-   *  resuming a cross-workspace / server-side session (see 诉求2). */
-  onmyagentServerClient?: OnMyAgentServerClient | null;
-  /** Workspace id used to query the session-archive API (may differ from the
-   *  local filesystem workspaceRoot). */
-  runtimeWorkspaceId?: string | null;
+  hostCapabilities?: PersonalLocalAgentHostCapabilities;
 };
 
+function isStartAbortRequested(state: Record<string, boolean>, chatKey: string) {
+  return state[chatKey] === true;
+}
 
 export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const { showToast } = useStatusToasts();
+  const hostCapabilities = props.hostCapabilities;
+  const archiveResume = hostCapabilities?.archiveResume;
   const initialPersistedStateRef = useRef<PersistedLocalAgentChatState | null>(null);
   if (initialPersistedStateRef.current === null) {
     initialPersistedStateRef.current = safeReadPersistedChatState(props.workspaceRoot) ?? { version: 1 };
@@ -138,22 +139,6 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     initialAgentsRef.current = safeReadCachedAgents(props.workspaceRoot);
   }
   const persistedState = initialPersistedStateRef.current;
-  // Drop orphaned run errors cached from a previous process restart. These are
-  // stale false failures — the run may have since completed on disk — and their
-  // persisted error text misleads the user on every app restart.
-  const sanitizedMessagesByAgent: Record<string, ChatMessage[]> = {};
-  for (const [key, messages] of Object.entries(persistedState.messagesByAgent ?? {})) {
-    sanitizedMessagesByAgent[key] = (messages ?? []).filter((message) => {
-      const run = message.run;
-      if (run?.errorInfo?.code === "orphaned") return false;
-      if (run?.status === "failed" && typeof message.text === "string" && message.text.includes("\u8BE5 run \u56E0\u4E3B\u8FDB\u7A0B\u91CD\u542F")) return false;
-      return true;
-    });
-  }
-  const sanitizedErrorsByAgent: Record<string, string | null> = {};
-  for (const [key, value] of Object.entries(persistedState.errorsByAgent ?? {})) {
-    sanitizedErrorsByAgent[key] = typeof value === "string" && value.includes("\u8BE5 run \u56E0\u4E3B\u8FDB\u7A0B\u91CD\u542F") ? null : value;
-  }
   const initialAgents = initialAgentsRef.current;
   const [agents, setAgents] = useState<PersonalLocalAgent[]>(initialAgents);
   const [selectedAgentId, setSelectedAgentId] = useState(persistedState.selectedAgentId || "opencode");
@@ -164,13 +149,15 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const [refreshing, setRefreshing] = useState(initialAgents.length === 0);
   const [startingByAgent, setStartingByAgent] = useState<Record<string, boolean>>({});
   const startAbortByChatRef = useRef<Record<string, boolean>>({});
+  const startPendingByChatRef = useRef<Record<string, boolean>>({});
 
-  const [errorsByAgent, setErrorsByAgent] = useState<Record<string, string | null>>(sanitizedErrorsByAgent);
-  const [activeRunIdByAgent, setActiveRunIdByAgent] = useState<Record<string, string | null>>(
-    recoverActiveRunIds(sanitizedMessagesByAgent, persistedState.activeRunIdByAgent),
-  );
-  const [healthResults, setHealthResults] = useState<Record<string, AgentHealthResult>>(persistedState.healthResults ?? {});
-  const [messagesByAgent, setMessagesByAgent] = useState<Record<string, ChatMessage[]>>(sanitizedMessagesByAgent);
+  // Runtime conversation events are the only durable transcript/run truth.
+  // localStorage keeps navigation preferences and drafts only; replaying its
+  // stale run snapshots after a restart can resurrect finished turns.
+  const [errorsByAgent, setErrorsByAgent] = useState<Record<string, string | null>>({});
+  const [activeRunIdByAgent, setActiveRunIdByAgent] = useState<Record<string, string | null>>({});
+  const [healthResults, setHealthResults] = useState<Record<string, AgentHealthResult>>({});
+  const [messagesByAgent, setMessagesByAgent] = useState<Record<string, ChatMessage[]>>({});
   const [conversationsByAgent, setConversationsByAgent] = useState<Record<string, PersonalLocalAgentConversation[]>>({});
   const [heartbeatJobs, setHeartbeatJobs] = useState<PersonalLocalAgentHeartbeatJob[]>([]);
   const [heartbeatDraft, setHeartbeatDraft] = useState<HeartbeatDraft>({
@@ -185,12 +172,15 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const [showActiveRunsPanel, setShowActiveRunsPanel] = useState(false);
   const [selectedConversationIdByAgent, setSelectedConversationIdByAgent] = useState<Record<string, string>>(persistedState.selectedConversationIdByAgent ?? {});
   const [loadingConversationsByAgent, setLoadingConversationsByAgent] = useState<Record<string, boolean>>({});
+  const conversationPartitionByAgentRef = useRef<Record<string, string>>({});
+  const conversationLoadSequenceRef = useRef<Record<string, number>>({});
   // Channel-bound conversations (source:"channel") live under scoped agents
   // not present in the ACP agent list, so they are tracked separately and
   // surfaced in a dedicated "Channel sessions" group above the agent list.
   const [channelConversations, setChannelConversations] = useState<PersonalLocalAgentConversation[]>([]);
-  const [loadingChannelConversations, setLoadingChannelConversations] = useState(false);
+  const [loadingChannelConversations, setLoadingChannelConversations] = useState(true);
   const [selectedChannelConversationId, setSelectedChannelConversationId] = useState<string | null>(null);
+  const channelConversationLoadSequenceRef = useRef(0);
   // When a channel conversation is the active view, the rest of the page reads
   // from these "virtual" selections instead of the ACP agent partition.
   const activeChannelConversation = channelConversations.find((item) => item.id === selectedChannelConversationId) ?? null;
@@ -264,6 +254,14 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const selectedConversation = isChannelView
     ? activeChannelConversation
     : selectedConversations.find((item) => item.id === selectedConversationId) ?? selectedConversations[0] ?? null;
+  const channelRuntimeAgent = useMemo<PersonalLocalAgent | null>(() => {
+    if (!isChannelView || !activeChannelConversation || !channelAgent) return null;
+    return {
+      ...channelAgent,
+      id: activeChannelConversation.agentId,
+      provider: activeChannelConversation.provider,
+    };
+  }, [activeChannelConversation, channelAgent, isChannelView]);
   // Per-conversation workspace binding: an existing conversation shows its own
   // `workdir` and locks the chip (read-only). A not-yet-created / empty
   // conversation uses the page-level override (editable) so the user can pick a
@@ -307,7 +305,26 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       })
       .catch(() => undefined);
   }, [effectiveWorkspaceRoot, props.workspaceRoot, selectedAgent, selectedConversationId]);
-  useAcpInitialMessage({ workspaceRoot: effectiveWorkspaceRoot, agent: selectedAgent, conversationId: selectedConversationId, approvalMode, model: selectedModel, disabled: isChannelView, onWarmup: handleWarmupResult }); useConversationHistoryHydration({ workspaceRoot: effectiveWorkspaceRoot, agent: isChannelView ? null : selectedAgent, conversationId: selectedConversationId, messagesByAgent, setMessagesByAgent });
+  useAcpInitialMessage({
+    workspaceRoot: effectiveWorkspaceRoot,
+    agent: selectedAgent,
+    conversationId: selectedConversationId,
+    approvalMode,
+    model: selectedModel,
+    disabled: isChannelView,
+    onWarmup: handleWarmupResult,
+  });
+  useConversationHistoryHydration({
+    workspaceRoot: effectiveWorkspaceRoot,
+    agent: isChannelView ? channelRuntimeAgent : selectedAgent,
+    conversationId: selectedConversationId,
+    conversation: selectedConversation,
+    chatKey: selectedChatKey,
+    refreshKey: selectedAgent ? activeRunIdByAgent[selectedChatKey] ?? null : null,
+    allowNativeFallback: !isChannelView,
+    setMessagesByAgent,
+    setErrorsByAgent,
+  });
   // Stable sidebar order: status (online / ENOENT) only updates row chrome.
   // Relative order is persisted per workspace so re-entering the page does not reshuffle.
   const sidebarOrder = useMemo(() => {
@@ -428,75 +445,99 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   }, [approvalMode, props.workspaceRoot]);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const healthSnapshot: Record<string, AgentHealthResult> = {};
-    for (const [agentId, result] of Object.entries(healthResults)) {
-      healthSnapshot[agentId] = result.status === "running"
-        ? { ...result, status: "idle", error: null }
-        : result;
-    }
     const payload: PersistedLocalAgentChatState = {
       version: 1,
       selectedAgentId,
       selectedConversationIdByAgent,
-      messagesByAgent: compactMessagesByAgent(messagesByAgent),
       draftsByAgent,
-      activeRunIdByAgent,
-      healthResults: healthSnapshot,
-      errorsByAgent,
     };
     try {
       window.localStorage.setItem(personalAgentChatStateKey(props.workspaceRoot), JSON.stringify(payload));
     } catch {
-      // Local history is best-effort; quota errors should not break chat.
+      // Navigation preferences and drafts are best-effort.
     }
-  }, [activeRunIdByAgent, draftsByAgent, errorsByAgent, healthResults, messagesByAgent, props.workspaceRoot, selectedAgentId, selectedConversationIdByAgent]);
+  }, [draftsByAgent, props.workspaceRoot, selectedAgentId, selectedConversationIdByAgent]);
   const loadConversationsForAgent = useCallback(async (agent: PersonalLocalAgent) => {
+    const requestSequence = (conversationLoadSequenceRef.current[agent.id] ?? 0) + 1;
+    conversationLoadSequenceRef.current[agent.id] = requestSequence;
+    const workspaceRoot = effectiveWorkspaceRoot;
     setLoadingConversationsByAgent((current) => ({ ...current, [agent.id]: true }));
-    if (!effectiveWorkspaceRoot) {
+    if (!workspaceRoot) {
+      setConversationsByAgent((current) => ({ ...current, [agent.id]: [] }));
       setLoadingConversationsByAgent((current) => ({ ...current, [agent.id]: false }));
       return;
     }
     try {
-      const result = await personalLocalAgentConversationsListByProvider({ workspaceRoot: effectiveWorkspaceRoot, agent });
+      const result = await personalLocalAgentConversationsListByProvider({ workspaceRoot, agent });
+      if (conversationLoadSequenceRef.current[agent.id] !== requestSequence) return;
       setConversationsByAgent((current) => ({ ...current, [agent.id]: result.conversations }));
-      const nextId = selectedConversationIdByAgent[agent.id] && result.conversations.some((item) => item.id === selectedConversationIdByAgent[agent.id])
-        ? selectedConversationIdByAgent[agent.id]
-        : result.activeConversationId ?? result.conversations[0]?.id ?? "";
-      if (nextId) {
-        setSelectedConversationIdByAgent((current) => ({ ...current, [agent.id]: current[agent.id] ?? nextId }));
-      }
+      setSelectedConversationIdByAgent((current) => {
+        const nextId = reconcileConversationSelection(
+          current[agent.id],
+          result.conversations,
+          result.activeConversationId,
+        );
+        if (nextId === current[agent.id]) return current;
+        if (!nextId) {
+          const { [agent.id]: _removed, ...rest } = current;
+          return rest;
+        }
+        return { ...current, [agent.id]: nextId };
+      });
     } catch (nextError) {
+      if (conversationLoadSequenceRef.current[agent.id] !== requestSequence) return;
+      setConversationsByAgent((current) => ({ ...current, [agent.id]: [] }));
       setErrorsByAgent((current) => ({
         ...current,
         [agent.id]: nextError instanceof Error ? nextError.message : String(nextError),
       }));
     } finally {
-      setLoadingConversationsByAgent((current) => ({ ...current, [agent.id]: false }));
+      if (conversationLoadSequenceRef.current[agent.id] === requestSequence) {
+        setLoadingConversationsByAgent((current) => ({ ...current, [agent.id]: false }));
+      }
     }
-  }, [effectiveWorkspaceRoot, selectedConversationIdByAgent]);
+  }, [effectiveWorkspaceRoot]);
   useEffect(() => {
-    if (!selectedAgent) return;
-    if (conversationsByAgent[selectedAgent.id]) return;
+    if (!selectedAgent || isChannelView) return;
+    const loadedPartition = conversationPartitionByAgentRef.current[selectedAgent.id];
+    if (
+      loadedPartition === effectiveWorkspaceRoot
+      && (conversationsByAgent[selectedAgent.id] || loadingConversationsByAgent[selectedAgent.id])
+    ) return;
+    conversationPartitionByAgentRef.current[selectedAgent.id] = effectiveWorkspaceRoot;
+    setConversationsByAgent((current) => {
+      if (!(selectedAgent.id in current)) return current;
+      const { [selectedAgent.id]: _stale, ...rest } = current;
+      return rest;
+    });
     void loadConversationsForAgent(selectedAgent);
-  }, [conversationsByAgent, loadConversationsForAgent, selectedAgent]);
+  }, [conversationsByAgent, effectiveWorkspaceRoot, isChannelView, loadConversationsForAgent, loadingConversationsByAgent, selectedAgent]);
   // Channel conversations are not tied to any ACP agent, so load them directly
   // from the runtime (which scans every partition for source:"channel").
   const loadChannelConversations = useCallback(async () => {
+    const requestSequence = channelConversationLoadSequenceRef.current + 1;
+    channelConversationLoadSequenceRef.current = requestSequence;
     setLoadingChannelConversations(true);
     if (!effectiveWorkspaceRoot) {
-      setChannelConversations([]);
-      setLoadingChannelConversations(false);
+      if (channelConversationLoadSequenceRef.current === requestSequence) {
+        setChannelConversations([]);
+        setLoadingChannelConversations(false);
+      }
       return;
     }
     try {
       const result = await personalLocalAgentChannelConversationsList({ workspaceRoot: effectiveWorkspaceRoot });
-      setChannelConversations(result.conversations ?? []);
+      if (channelConversationLoadSequenceRef.current === requestSequence) {
+        setChannelConversations(result.conversations ?? []);
+      }
     } catch {
-      setChannelConversations([]);
+      if (channelConversationLoadSequenceRef.current === requestSequence) setChannelConversations([]);
     } finally {
-      setLoadingChannelConversations(false);
+      if (channelConversationLoadSequenceRef.current === requestSequence) {
+        setLoadingChannelConversations(false);
+      }
     }
-  }, [props.workspaceRoot, effectiveWorkspaceRoot]);
+  }, [effectiveWorkspaceRoot]);
   useEffect(() => {
     void loadChannelConversations();
   }, [loadChannelConversations]);
@@ -504,23 +545,26 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   useEffect(() => {
     if (channelConversations.length === 0) {
       if (selectedChannelConversationId !== null) setSelectedChannelConversationId(null);
+      if (!loadingChannelConversations && selectedAgentId === CHANNEL_AGENT_ID && agents[0]) {
+        setSelectedAgentId(agents[0].id);
+      }
       return;
     }
     if (!channelConversations.some((item) => item.id === selectedChannelConversationId)) {
       setSelectedChannelConversationId(channelConversations[0].id);
     }
-  }, [channelConversations, selectedChannelConversationId]);
+  }, [agents, channelConversations, loadingChannelConversations, selectedAgentId, selectedChannelConversationId]);
   useArchiveResume({
-    resumeRequest: props.resumeRequest,
+    resumeRequest: archiveResume?.request,
     agents,
     conversationsByAgent,
     channelConversations,
     effectiveWorkspaceRoot,
     workspaceRoot: props.workspaceRoot,
     channelAgentId: CHANNEL_AGENT_ID,
-    onResumeConsumed: props.onResumeConsumed,
-    onmyagentServerClient: props.onmyagentServerClient,
-    runtimeWorkspaceId: props.runtimeWorkspaceId,
+    onResumeConsumed: archiveResume?.onConsumed,
+    onmyagentServerClient: archiveResume?.serverClient,
+    runtimeWorkspaceId: archiveResume?.runtimeWorkspaceId,
     setChannelConversations,
     setSelectedAgentId,
     setSelectedChannelConversationId,
@@ -588,7 +632,7 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
         patch: { sessionContext },
       }).then(() => loadHeartbeats()).catch(() => undefined);
     }
-  }, [heartbeatJobs, loadHeartbeats, messagesByAgent, props.workspaceRoot]);
+  }, [effectiveWorkspaceRoot, heartbeatJobs, loadHeartbeats, messagesByAgent]);
   useEffect(() => {
     if (!showScheduledTasks) return;
     const onPointerDown = (event: PointerEvent) => {
@@ -616,7 +660,7 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   // Mirror the latest run's artifacts (urls + files) into the host page so the
   // Browser/Workspace side panels and the global Workspace list pick up local
   // Agent products the same way they pick up expert/assistant artifacts.
-  const onOpenTargetsChange = props.onOpenTargetsChange;
+  const onOpenTargetsChange = hostCapabilities?.artifacts?.onTargetsChange;
   const lastRunForSelected = useMemo(
     () => (selectedAgent ? lastRunForAgent(messagesByAgent[selectedChatKey]) : null),
     [messagesByAgent, selectedAgent, selectedChatKey],
@@ -627,9 +671,9 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       onOpenTargetsChange([]);
       return;
     }
-    const targets = collectRunOpenTargets(lastRunForSelected, props.workspaceRoot);
+    const targets = collectRunOpenTargets(lastRunForSelected, displayWorkspaceRoot);
     onOpenTargetsChange(targets);
-  }, [lastRunForSelected, onOpenTargetsChange, props.workspaceRoot, selectedAgent]);
+  }, [displayWorkspaceRoot, lastRunForSelected, onOpenTargetsChange, selectedAgent]);
   const refreshAgents = useCallback(async (options?: { notify?: boolean }) => {
     const notify = options?.notify === true;
     setRefreshing(true);
@@ -741,117 +785,53 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       }));
     }
   }, []);
-  const activeRunPollsRef = useRef(new Set<string>());
-  useEffect(() => {
-    const activeEntries = Object.entries(activeRunIdByAgent).filter(([, runId]) => Boolean(runId));
-    if (!activeEntries.length) return;
-    const pollRun = (chatKey: string, runId: string) => {
-      if (activeRunPollsRef.current.has(runId)) return;
-      activeRunPollsRef.current.add(runId);
-      void personalLocalAgentStatus({ runId, workspaceRoot: effectiveWorkspaceRoot })
-        .then((snapshot) => {
-          const agentId = chatKey.split("::")[0] ?? chatKey;
-          if (!snapshot) {
-            setActiveRunIdByAgent((current) => ({
-              ...current,
-              [chatKey]: current[chatKey] === runId ? null : current[chatKey] ?? null,
-            }));
-            return;
-          }
-          // If this turn already finished, ignore any late snapshot
-          // that still reports "running" so the transcript cannot flip back into
-          // the running state after the finish event.
-          const alreadyFinished = turnFinishedRef.current[runId] === true;
-          const effectiveSnapshot = alreadyFinished && snapshot.status === "running"
-            ? { ...snapshot, status: "completed" as const }
-            : snapshot;
-          if (effectiveSnapshot.status !== "running") {
-            turnFinishedRef.current[runId] = true;
-          }
-          const fallbackAgent = agents.find((agent) => agent.id === effectiveSnapshot.agentId) ?? agents.find((agent) => agent.id === agentId) ?? selectedAgent;
-          setMessagesByAgent((current) => {
-            const list = current[chatKey] ?? (fallbackAgent ? [welcomeMessageForAgent(fallbackAgent)] : []);
-            // For channel-initiated runs there is no renderer-side optimistic
-            // user input, so the user's message would be invisible. Extract it
-            // from the run's conversationMessages (recorded by the runtime as a
-            // `user` event) and surface it as a real user ChatMessage bubble
-            // right before the assistant reply. Dedup by a stable id so polling
-            // never duplicates it.
-            const userText = effectiveSnapshot.conversationMessages
-              ?.find((m) => m.role === "user" && String(m.text ?? "").trim())
-              ?.text?.trim() ?? "";
-            const userMessageId = `user-${runId}`;
-            const next = list.map((message) =>
-              message.run?.runId === runId
-                ? { ...message, text: messageTextForRun(effectiveSnapshot, message.text), run: effectiveSnapshot }
-                : message,
-            );
-            const assistantIndex = next.findIndex((m) => m.run?.runId === runId);
-            const hasOptimisticUser = hasOptimisticUserMessageForRun(next, assistantIndex, userText);
-            if (!userText || next.some((m) => m.id === userMessageId) || hasOptimisticUser) {
-              return { ...current, [chatKey]: next };
-            }
-            if (assistantIndex === -1) return { ...current, [chatKey]: next };
-            const userMessage = {
-              id: userMessageId,
-              role: "user" as const,
-              text: userText,
-              createdAt: effectiveSnapshot.startedAt ?? Date.now(),
-            };
-            const withUser = [...next.slice(0, assistantIndex), userMessage, ...next.slice(assistantIndex)];
-            return { ...current, [chatKey]: withUser };
-          });
-          rememberRunResult(agentId, effectiveSnapshot);
-          if (effectiveSnapshot.status !== "running") {
-            setActiveRunIdByAgent((current) => ({
-              ...current,
-              [chatKey]: current[chatKey] === runId ? null : current[chatKey] ?? null,
-            }));
-          }
-        })
-        .catch((nextError) => {
-          const agentId = chatKey.split("::")[0] ?? chatKey;
-          setErrorsByAgent((current) => ({
-            ...current,
-            [agentId]: nextError instanceof Error ? nextError.message : String(nextError),
-          }));
-        })
-        .finally(() => {
-          activeRunPollsRef.current.delete(runId);
-        });
-    };
-    for (const [chatKey, runId] of activeEntries) {
-      if (runId) pollRun(chatKey, runId);
-    }
-    const unsubscribe = window.__ONMYAGENT_ELECTRON__?.personalAgentRuntime?.onEvent?.((event) => {
-      if (
-        event.type !== "run.started"
-        && event.type !== "run.snapshot"
-        && event.type !== "run.delta"
-        && event.type !== "run.finished"
-        && event.type !== "process.changed"
-      ) return;
-      if (!event.runId) return;
-      const matching = activeEntries.find(([, runId]) => runId === event.runId);
-      if (matching) pollRun(matching[0], event.runId);
-    });
-    const timer = window.setInterval(() => {
-      if (!shouldRunPollTick(isDocumentHidden())) return;
-      for (const [chatKey, runId] of activeEntries) {
-        if (runId) pollRun(chatKey, runId);
-      }
-    }, 10000);
-    return () => {
-      unsubscribe?.();
-      window.clearInterval(timer);
-    };
-  }, [activeRunIdByAgent, agents, effectiveWorkspaceRoot, rememberRunResult, selectedAgent]);
-  const cancelAgentRun = useCallback(async (runId: string, chatKey: string) => {
+  usePersonalLocalAgentStream({
+    activeRunIdByAgent,
+    agents,
+    effectiveWorkspaceRoot,
+    selectedAgent,
+    selectedMessages,
+    turnFinishedRef,
+    setActiveRunIdByAgent,
+    setMessagesByAgent,
+    setErrorsByAgent,
+    rememberRunResult,
+  });
+  // Resolve workspace rebases before a run captures its immutable routing
+  // context. This prevents an immediate send after project selection from
+  // escaping into the previous workspace/conversation partition.
+  const {
+    chipEditable,
+    applyWorkspaceOverride,
+    clearWorkspaceOverride,
+    browseWorkspaceOverride,
+    workspaceRecentList,
+    resolveWorkspaceRunContext,
+  } = useWorkspaceOverride({
+    selectedConversation,
+    selectedConversationId,
+    selectedAgent,
+    running,
+    effectiveWorkspaceRoot,
+    propsWorkspaceRoot: props.workspaceRoot,
+    selectedChatKey,
+    selectedConversationWorkdir,
+    messagesByAgent,
+    recentWorkspaces,
+    setConversationsByAgent,
+    setSelectedConversationIdByAgent,
+    setMessagesByAgent,
+    setDraftsByAgent,
+    setActiveRunIdByAgent,
+    setWorkspaceOverrideState,
+    setRecentWorkspaces,
+  });
+  const cancelAgentRun = useCallback(async (runId: string, chatKey: string, workspaceRoot = effectiveWorkspaceRoot) => {
     await cancelPersonalLocalAgentRun({
       runId,
       chatKey,
       agents,
-      workspaceRoot: effectiveWorkspaceRoot,
+      workspaceRoot,
       rememberRunResult,
       setErrorsByAgent,
       setMessagesByAgent,
@@ -859,10 +839,45 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     });
   }, [agents, effectiveWorkspaceRoot, rememberRunResult]);
   const startAgentRun = useCallback(async (prompt: string, options?: { healthCheck?: boolean }) => {
-    if (!prompt || !selectedAgent || selectedAgent.status !== "online" || running) return;
+    if (!prompt || !selectedAgent || selectedAgent.status !== "online" || running || isChannelView) return;
     const runAgent = selectedAgent;
-    const runConversationId = selectedConversationId;
+    const requestedChatKey = selectedChatKey;
+    if (startPendingByChatRef.current[requestedChatKey]) return;
+    startPendingByChatRef.current[requestedChatKey] = true;
+    startAbortByChatRef.current[requestedChatKey] = false;
+    setStartingByAgent((current) => ({ ...current, [requestedChatKey]: true }));
+    let runContext: Awaited<ReturnType<typeof resolveWorkspaceRunContext>>;
+    try {
+      runContext = await resolveWorkspaceRunContext();
+    } catch (nextError) {
+      setErrorsByAgent((current) => ({
+        ...current,
+        [runAgent.id]: nextError instanceof Error ? nextError.message : String(nextError),
+      }));
+      startPendingByChatRef.current[requestedChatKey] = false;
+      startAbortByChatRef.current[requestedChatKey] = false;
+      setStartingByAgent((current) => ({ ...current, [requestedChatKey]: false }));
+      return;
+    }
+    const runConversationId = runContext.conversationId;
+    const runWorkspaceRoot = runContext.workspaceRoot;
     const runChatKey = localAgentChatKey(runAgent.id, runConversationId);
+    if (runChatKey !== requestedChatKey) {
+      startPendingByChatRef.current[runChatKey] = true;
+      startAbortByChatRef.current[runChatKey] = isStartAbortRequested(startAbortByChatRef.current, requestedChatKey);
+      setStartingByAgent((current) => ({ ...current, [requestedChatKey]: true, [runChatKey]: true }));
+    }
+    const clearStartState = () => {
+      startPendingByChatRef.current[requestedChatKey] = false;
+      startPendingByChatRef.current[runChatKey] = false;
+      startAbortByChatRef.current[requestedChatKey] = false;
+      startAbortByChatRef.current[runChatKey] = false;
+      setStartingByAgent((current) => ({ ...current, [requestedChatKey]: false, [runChatKey]: false }));
+    };
+    if (isStartAbortRequested(startAbortByChatRef.current, requestedChatKey) || isStartAbortRequested(startAbortByChatRef.current, runChatKey)) {
+      clearStartState();
+      return;
+    }
     const userMessage: ChatMessage = {
       id: nowId("user"),
       role: "user",
@@ -873,8 +888,6 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     if (!options?.healthCheck) {
       setDraftsByAgent((current) => ({ ...current, [runChatKey]: "" }));
     }
-    startAbortByChatRef.current[runChatKey] = false;
-    setStartingByAgent((current) => ({ ...current, [runChatKey]: true }));
     setErrorsByAgent((current) => ({ ...current, [runAgent.id]: null }));
     if (options?.healthCheck) {
       setHealthResults((current) => ({
@@ -907,11 +920,11 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     try {
       const requestedModel = selectedModel || null;
       const started = await personalLocalAgentAcpSend({
-        workspaceRoot: effectiveWorkspaceRoot,
+        workspaceRoot: runWorkspaceRoot,
         prompt,
         approvalMode,
         conversationId: runConversationId,
-        workdir: effectiveWorkspaceRoot || null,
+        workdir: runWorkspaceRoot || null,
         agent: {
           ...runAgent,
           model: requestedModel,
@@ -931,7 +944,7 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
         let snapshot = started;
         for (let attempt = 0; snapshot.status === "running" && attempt < 180; attempt += 1) {
           await new Promise((resolve) => window.setTimeout(resolve, 1000));
-          snapshot = await personalLocalAgentStatus({ runId: started.runId, workspaceRoot: effectiveWorkspaceRoot });
+          snapshot = await personalLocalAgentStatus({ runId: started.runId, workspaceRoot: runWorkspaceRoot });
           rememberRunResult(runAgent.id, snapshot);
         }
         return;
@@ -945,9 +958,8 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
             : message,
         ),
       }));
-      if (startAbortByChatRef.current[runChatKey]) {
-        startAbortByChatRef.current[runChatKey] = false;
-        if (started.status === "running") await cancelAgentRun(started.runId, runChatKey);
+      if (isStartAbortRequested(startAbortByChatRef.current, requestedChatKey) || isStartAbortRequested(startAbortByChatRef.current, runChatKey)) {
+        if (started.status === "running") await cancelAgentRun(started.runId, runChatKey, runWorkspaceRoot);
         else setActiveRunIdByAgent((current) => ({ ...current, [runChatKey]: null }));
         return;
       }
@@ -980,13 +992,12 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
         }));
       }
     } finally {
-      startAbortByChatRef.current[runChatKey] = false;
-      setStartingByAgent((current) => ({ ...current, [runChatKey]: false }));
+      clearStartState();
     }
-  }, [approvalMode, cancelAgentRun, props.workspaceRoot, rememberRunResult, running, selectedAgent, selectedConversationId, selectedModel]);
-  const resetAgentChat = useCallback((agent: PersonalLocalAgent) => {
+  }, [approvalMode, cancelAgentRun, isChannelView, rememberRunResult, resolveWorkspaceRunContext, running, selectedAgent, selectedChatKey, selectedModel]);
+  const resetAgentChat = useCallback((agent: PersonalLocalAgent, conversationId: string | null) => {
     const welcome = welcomeMessageForAgent(agent);
-    const key = localAgentChatKey(agent.id, selectedConversationIdByAgent[agent.id]);
+    const key = localAgentChatKey(agent.id, conversationId);
     setMessagesByAgent((current) => ({ ...current, [key]: [welcome] }));
     setDraftsByAgent((current) => ({ ...current, [key]: "" }));
     setActiveRunIdByAgent((current) => ({ ...current, [key]: null }));
@@ -995,9 +1006,9 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       ...current,
       [agent.id]: DEFAULT_HEALTH_RESULT,
     }));
-  }, [selectedConversationIdByAgent]);
+  }, []);
   const clearCurrentAgentChat = useCallback(async () => {
-    if (!selectedAgent || running) return;
+    if (!selectedAgent || running || isChannelView) return;
     const agent = selectedAgent;
     setErrorsByAgent((current) => ({ ...current, [agent.id]: null }));
     try {
@@ -1009,7 +1020,7 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       if (!result.ok) {
         throw new Error(result.error || result.errors?.join("\n") || t("local_agent.clear_conversation_failed"));
       }
-      resetAgentChat(agent);
+      resetAgentChat(agent, selectedConversationId);
     } catch (nextError) {
       setErrorsByAgent((current) => ({
         ...current,
@@ -1017,36 +1028,7 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
       }));
     } finally {
     }
-  }, [props.workspaceRoot, resetAgentChat, running, selectedAgent, selectedConversationId]);
-  // Workspace freshness + override logic (chip editable state, re-base into a
-  // different project partition, recent-workspace list). Extracted into
-  // `useWorkspaceOverride` so this page stays below the god-file line gate while
-  // keeping the original behavior identical.
-  const {
-    chipEditable,
-    applyWorkspaceOverride,
-    clearWorkspaceOverride,
-    browseWorkspaceOverride,
-    workspaceRecentList,
-  } = useWorkspaceOverride({
-    selectedConversation,
-    selectedConversationId,
-    selectedAgent,
-    running,
-    effectiveWorkspaceRoot,
-    propsWorkspaceRoot: props.workspaceRoot,
-    selectedChatKey,
-    selectedConversationWorkdir,
-    messagesByAgent,
-    recentWorkspaces,
-    setConversationsByAgent,
-    setSelectedConversationIdByAgent,
-    setMessagesByAgent,
-    setDraftsByAgent,
-    setActiveRunIdByAgent,
-    setWorkspaceOverrideState,
-    setRecentWorkspaces,
-  });
+  }, [effectiveWorkspaceRoot, isChannelView, resetAgentChat, running, selectedAgent, selectedConversationId]);
   const creatingConversation = Boolean(
     selectedAgent && !isChannelView && loadingConversationsByAgent[selectedAgent.id],
   );
@@ -1109,7 +1091,7 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     }
   }, [effectiveWorkspaceRoot, isChannelView, running, selectedAgent, showToast]);
   const createHeartbeat = useCallback(async () => {
-    if (!selectedAgent || selectedAgent.status !== "online") return;
+    if (!selectedAgent || selectedAgent.status !== "online" || isChannelView) return;
     const prompt = heartbeatDraft.prompt.trim();
     if (!prompt) {
       setHeartbeatError(t("local_agent.heartbeat_prompt_required"));
@@ -1142,7 +1124,7 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     } finally {
       setHeartbeatBusy(null);
     }
-  }, [approvalMode, heartbeatDraft, loadHeartbeats, messagesByAgent, props.workspaceRoot, selectedAgent, selectedConversationId]);
+  }, [approvalMode, effectiveWorkspaceRoot, heartbeatDraft, isChannelView, loadHeartbeats, messagesByAgent, selectedAgent, selectedConversationId]);
   const updateHeartbeatEnabled = useCallback(async (job: PersonalLocalAgentHeartbeatJob, enabled: boolean) => {
     setHeartbeatBusy(job.id);
     try {
@@ -1158,7 +1140,7 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     } finally {
       setHeartbeatBusy(null);
     }
-  }, [loadHeartbeats, props.workspaceRoot]);
+  }, [effectiveWorkspaceRoot, loadHeartbeats]);
   const runHeartbeatNow = useCallback(async (job: PersonalLocalAgentHeartbeatJob) => {
     setHeartbeatBusy(job.id);
     try {
@@ -1170,7 +1152,7 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     } finally {
       setHeartbeatBusy(null);
     }
-  }, [loadHeartbeats, props.workspaceRoot]);
+  }, [effectiveWorkspaceRoot, loadHeartbeats]);
   const deleteHeartbeat = useCallback(async (job: PersonalLocalAgentHeartbeatJob) => {
     setHeartbeatBusy(job.id);
     try {
@@ -1182,55 +1164,9 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     } finally {
       setHeartbeatBusy(null);
     }
-  }, [loadHeartbeats, props.workspaceRoot]);
-  const loadConversationTranscript = useCallback(async (agent: PersonalLocalAgent, conversation: PersonalLocalAgentConversation) => {
-    const key = localAgentChatKey(agent.id, conversation.id);
-    const sessionId = conversation.resumeKey || conversation.providerSessionId;
-    if (!sessionId) {
-      setMessagesByAgent((current) => current[key] ? current : { ...current, [key]: [welcomeMessageForAgent(agent)] });
-      return;
-    }
-    try {
-      const result = await personalLocalAgentConversationTranscript({
-        workspaceRoot: effectiveWorkspaceRoot,
-        conversationId: conversation.id,
-        providerSessionId: conversation.providerSessionId,
-        resumeKey: conversation.resumeKey,
-        agent,
-        limit: 80,
-      });
-      setMessagesByAgent((current) => {
-        // Preserve any history already hydrated from Studio's own persisted
-        // transcript (conversation-events). The native provider transcript is
-        // often unavailable (e.g. "Codex session transcript file was not found"),
-        // and in that case we must NOT overwrite the real Studio history with a
-        // "this agent does not expose a transcript" placeholder.
-        const existing = current[key];
-        const hasExisting = Array.isArray(existing) && existing.length > 0;
-        const next = result.messages.length
-          ? transcriptMessagesForAgent(agent, result.messages)
-          : isUnsupportedNativeTranscriptError(result.error)
-            ? (hasExisting ? existing : [nativeSessionResumeOnlyMessage(agent, conversation)])
-            : (hasExisting ? existing : [welcomeMessageForAgent(agent)]);
-        return { ...current, [key]: next };
-      });
-      if (result.error && !isUnsupportedNativeTranscriptError(result.error)) {
-        setErrorsByAgent((current) => ({ ...current, [agent.id]: result.error ?? null }));
-      }
-    } catch (nextError) {
-      setErrorsByAgent((current) => ({
-        ...current,
-        [agent.id]: nextError instanceof Error ? nextError.message : String(nextError),
-      }));
-    }
-  }, [props.workspaceRoot]);
-  useEffect(() => {
-    if (!selectedAgent || !selectedConversation) return;
-    const key = localAgentChatKey(selectedAgent.id, selectedConversation.id);
-    if (messagesByAgent[key]?.length) return;
-    void loadConversationTranscript(selectedAgent, selectedConversation);
-  }, [loadConversationTranscript, messagesByAgent, selectedAgent, selectedConversation]);
+  }, [effectiveWorkspaceRoot, loadHeartbeats]);
   const submitComposerPayload = useCallback(async (payload: LocalAgentComposerSubmit) => {
+    if (isChannelView) return;
     const trimmed = payload.text.trim();
     if (trimmed.startsWith("/") && payload.attachments.length === 0 && payload.quotes.length === 0) {
       const acpMatch = selectedSlashCommands.find((command) => command.source === "acp" && command.name.toLowerCase() === trimmed.toLowerCase());
@@ -1288,7 +1224,7 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     const augmented = buildLocalAgentPrompt(payload);
     if (!augmented) return;
     await startAgentRun(augmented);
-  }, [clearCurrentAgentChat, createNewConversation, selectedAgentId, startAgentRun]);
+  }, [clearCurrentAgentChat, createNewConversation, isChannelView, refreshAgents, selectedAgentId, selectedMessages, selectedSlashCommands, selectedChatKey, startAgentRun]);
   const submitComposerValue = useCallback(async (value: string) => {
     await submitComposerPayload({ text: value, attachments: [], mentions: {}, quotes: [], unresolvedMentions: [] });
   }, [submitComposerPayload]);
@@ -1328,8 +1264,8 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     }
   }, [activeRunIdByAgent, effectiveWorkspaceRoot, rememberRunResult, selectedAgentId, selectedChatKey]);
   return {
-    onOpenAgentManagement: props.onOpenAgentManagement,
-    onOpenArtifact: props.onOpenArtifact,
+    onOpenAgentManagement: hostCapabilities?.agentManagement?.open,
+    onOpenArtifact: hostCapabilities?.artifacts?.open,
     agentListCollapsed,
     agentListWidth,
     setAgentListCollapsed,
@@ -1340,6 +1276,9 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     refreshing,
     refreshAgents,
     filteredAgents,
+    channelAgent,
+    channelConversations,
+    loadingChannelConversations,
     activeRunIdByAgent,
     messagesByAgent,
     setSelectedAgentId,
@@ -1347,6 +1286,7 @@ export function usePersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
     startAgentListResize,
     isChannelView,
     selectedAgent,
+    channelRuntimeAgent,
     selectedConversations,
     selectedConversationId,
     setSelectedChannelConversationId,

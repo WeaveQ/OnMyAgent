@@ -231,6 +231,14 @@ export function createSessionOperations(deps) {
     if (!optionId) throw new Error("optionId is required");
     const detected = await legacy.detectAgent(agent, workspaceRoot).catch(() => agent);
     const provider = detected.provider ?? agent.provider;
+    const agentId = detected.id ?? agent.id ?? provider;
+    const conversationId = String(input.conversationId ?? "").trim();
+    let conversation = null;
+    if (conversationId) {
+      const listed = await listConversations(workspaceRoot, provider, agentId);
+      conversation = listed.conversations.find((item) => item.id === conversationId) ?? null;
+      if (!conversation) throw new Error(`conversation ${conversationId} not found`);
+    }
     const adapterFactory = adapterFactoryForProvider(provider, detected);
     if (!adapterFactory) throw new Error(`No adapter for ${provider}`);
     if ((provider === "codex" || provider === "claude") && !Object.prototype.hasOwnProperty.call(injectedAdapters, provider)) {
@@ -243,7 +251,38 @@ export function createSessionOperations(deps) {
     if (typeof adapter.setConfigOption !== "function") {
       throw new Error(`${provider} does not support ACP config options`);
     }
-    return adapter.setConfigOption({ ...input, optionId, workspaceRoot, agent: detected, providerEnvironment });
+    const providerSessionId = conversation
+      ? conversation.providerSessionId ?? conversation.resumeKey ?? null
+      : input.providerSessionId ?? input.sessionId ?? input.resumeKey ?? null;
+    const resumeKey = conversation
+      ? conversation.resumeKey ?? conversation.providerSessionId ?? null
+      : input.resumeKey ?? input.providerSessionId ?? input.sessionId ?? null;
+    const conversationWorkdir = conversation?.workdir
+      ?? input.conversationWorkdir
+      ?? input.workdir
+      ?? null;
+    const result = await adapter.setConfigOption({
+      ...input,
+      optionId,
+      workspaceRoot,
+      agent: detected,
+      providerEnvironment,
+      sessionId: providerSessionId ?? resumeKey,
+      providerSessionId,
+      resumeKey,
+      conversationWorkdir,
+      workdir: conversationWorkdir,
+    });
+    const resultSessionId = String(
+      result?.providerSessionId ?? result?.sessionId ?? result?.resumeKey ?? "",
+    ).trim();
+    if (conversation && result?.ok !== false && resultSessionId) {
+      await updateConversation(workspaceRoot, provider, agentId, conversation.id, {
+        providerSessionId: resultSessionId,
+        resumeKey: resultSessionId,
+      });
+    }
+    return result;
   }
 
   return {

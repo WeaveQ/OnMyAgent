@@ -65,6 +65,7 @@ export const localAgentComposerSaveAttachment = (input: {
   workspaceRoot: string;
   name: string;
   dataUrl: string;
+  size?: number;
 }) => invokeDesktopCommand("localAgentComposerSaveAttachment", input);
 
 export const personalLocalAgentAcpSend = (input: PersonalLocalAgentRunInput) =>
@@ -302,4 +303,3 @@ export const personalLocalAgentHeartbeatRunNow = (
 export const personalLocalAgentHeartbeatRuns = (
   input: PersonalLocalAgentHeartbeatRunsInput,
 ) => invokeDesktopCommand("personalLocalAgentHeartbeatRuns", input);
-

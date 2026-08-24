@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from "react";
 import { SelectMenu } from "../../../design-system/select-menu";
 import { t } from "@/i18n";
 import { useStatusToasts } from "../../shell-feedback";
@@ -14,6 +15,9 @@ type PersonalLocalAgentModelSelectorProps = {
   workspaceRoot: string;
   disabled: boolean;
   acpModelInfo: AcpModelInfo;
+  conversationId?: string | null;
+  providerSessionId?: string | null;
+  resumeKey?: string | null;
 };
 
 /**
@@ -30,8 +34,20 @@ export function PersonalLocalAgentModelSelector({
   workspaceRoot,
   disabled,
   acpModelInfo,
+  conversationId = null,
+  providerSessionId = null,
+  resumeKey = null,
 }: PersonalLocalAgentModelSelectorProps) {
   const { showToast } = useStatusToasts();
+  const latestRequestIdRef = useRef(0);
+
+  // A conversation/provider switch invalidates all pending config writes from
+  // the previous session. This keeps a late response from changing the new
+  // conversation's selection or showing a stale toast.
+  useLayoutEffect(() => {
+    latestRequestIdRef.current += 1;
+  }, [agent?.id, conversationId, providerSessionId, resumeKey, workspaceRoot]);
+
   const loadingModels = Boolean(agent?.status === "online" && acpModelInfo.options.length === 0);
   return (
     <div
@@ -51,17 +67,26 @@ export function PersonalLocalAgentModelSelector({
         value={selectedModel}
         onChange={(value) => {
           if (value === "__loading") return;
+          const requestId = latestRequestIdRef.current + 1;
+          latestRequestIdRef.current = requestId;
           onModelChange(value);
-          if (value && agent && acpModelInfo.supportsModelOverride) {
+          if (agent && acpModelInfo.supportsModelOverride) {
             const previousModel = selectedModel;
-            const optionLabel = acpModelInfo.options.find((option) => option.id === value)?.label ?? value;
+            const optionLabel = value
+              ? acpModelInfo.options.find((option) => option.id === value)?.label ?? value
+              : t("local_agent.use_default_config");
             personalLocalAgentSetAcpConfigOption({
               workspaceRoot,
               agent,
               optionId: acpModelInfo.modelOptionId,
-              value,
+              value: value || null,
+              conversationId,
+              sessionId: providerSessionId ?? resumeKey,
+              providerSessionId,
+              resumeKey,
             })
               .then((result) => {
+                if (latestRequestIdRef.current !== requestId) return;
                 if (result.ok) {
                   showToast({
                     tone: "success",
@@ -78,6 +103,7 @@ export function PersonalLocalAgentModelSelector({
                 }
               })
               .catch((nextError) => {
+                if (latestRequestIdRef.current !== requestId) return;
                 onModelChange(previousModel);
                 showToast({
                   tone: "error",

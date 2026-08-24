@@ -76,9 +76,11 @@ export function useSessionPageHostState(options: SessionPageHostStateOptions) {
       ? (selectedSessionId ?? `assistant-draft:${selectedWorkspaceId}`)
       : selectedSessionId;
   const browserSessionScopeId =
-    mode === "assistant"
-      ? (sidePanelSessionKey as string)
-      : selectedSessionId ?? undefined;
+    activeSidebarView === "localAgent"
+      ? `localAgent:${selectedWorkspaceId}`
+      : mode === "assistant"
+        ? (sidePanelSessionKey as string)
+        : selectedSessionId ?? undefined;
 
   const resolvedSidePanelScopeId =
     options.sidePanelScopeId !== undefined
@@ -159,12 +161,13 @@ export function useSessionPageHostState(options: SessionPageHostStateOptions) {
       preserveSidePanelOnPanelOpenRef.current = false;
       return;
     }
-    // Only auto-open for a real chat session — never for draft / new-task.
-    if (!selectedSessionId) return;
+    // Local Agent uses a workspace panel scope that resolves to the active
+    // conversation-scoped Browser tab; draft / new-task still has no scope.
+    if (!browserSessionScopeId) return;
     snapToBrowserWidth();
     setCurrentSidePanel("browser");
-  }, [selectedSessionId, setCurrentSidePanel, snapToBrowserWidth]);
-  useAutoOpenBrowserPanel(openBrowserPanelFromAgent, selectedSessionId);
+  }, [browserSessionScopeId, setCurrentSidePanel, snapToBrowserWidth]);
+  useAutoOpenBrowserPanel(openBrowserPanelFromAgent, browserSessionScopeId);
 
   const openWorkspaceSidePanelMenu = useCallback(() => {
     snapToMenuWidth();

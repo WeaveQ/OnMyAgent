@@ -147,7 +147,7 @@ describe("Local Agent composer UI-only parity", () => {
     expect(html).not.toContain('data-testid="local-agent-draft-workspace"');
     expect(html).toContain('data-testid="local-agent-composer-approval"');
     expect(html).not.toContain("data-local-agent-composer-footer");
-    expect(pageSrc).toContain("{chipEditable ? (");
+    expect(pageSrc).toContain("{!isChannelView && chipEditable ? (");
     expect(pageSrc).toContain("<WorkspaceFootnote");
     expect(pageSrc).toContain("<LocalAgentComposerApprovalSelect");
     expect(pageSrc).toContain("onChange={setApprovalMode}");

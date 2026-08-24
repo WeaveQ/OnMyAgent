@@ -165,6 +165,34 @@ describe("personal conversation adapter", () => {
     expect(html).not.toContain(command);
   });
 
+  test("presents Browser MCP calls as MCP tools instead of shell commands", () => {
+    const message: PersonalLocalAgentConversationMessage = {
+      id: "browser-mcp",
+      type: "acp_tool_call",
+      role: "tool",
+      text: "",
+      createdAt: 1,
+      update: {
+        toolCallId: "browser-mcp-open-tab",
+        title: "mcp.onmyagent-in-app-browser.browser_open_tab",
+        kind: "execute",
+        status: "completed",
+        rawInput: {
+          server: "onmyagent-in-app-browser",
+          tool: "browser_open_tab",
+          arguments: { url: "https://example.com" },
+        },
+        rawOutput: { result: { ok: true } },
+        _meta: { is_mcp_tool_call: true },
+      },
+    };
+
+    const html = renderTimelineMessage(message);
+    expect(html).toContain("browser_open_tab");
+    expect(html).toContain("https://example.com");
+    expect(html).not.toContain("Shell Command");
+  });
+
   test("keeps a running tool running when ACP sends an empty output placeholder", () => {
     const message: PersonalLocalAgentConversationMessage = {
       id: "running-powershell",
@@ -188,7 +216,7 @@ describe("personal conversation adapter", () => {
     expect(html).not.toContain("Completed");
   });
 
-  test("meaningful raw ACP aliases win over empty normalized placeholders", () => {
+  test("meaningful raw ACP aliases win over empty normalized placeholders in the quiet completed state", () => {
     const message: PersonalLocalAgentConversationMessage = {
       id: "mixed-aliases",
       type: "acp_tool_call",
@@ -205,8 +233,8 @@ describe("personal conversation adapter", () => {
     };
     setLocale("en");
     const html = renderTimelineMessage(message, "running");
-    expect(html).toContain("Completed");
-    expect(html).not.toBe("");
+    expect(html).toContain("Get-ChildItem");
+    expect(html).not.toContain("Running");
   });
 
   test("keeps adjacent ACP tools interleaved as separate production timeline steps", () => {

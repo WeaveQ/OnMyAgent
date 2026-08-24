@@ -704,10 +704,9 @@ export function SessionPage(props: SessionPageProps) {
                       <PersonalLocalAgentPage
                         workspaceRoot={props.selectedWorkspaceRoot}
                         workspaceName={props.selectedWorkspaceDisplay.name}
-                        onOpenArtifact={openTarget}
-                        onOpenTargetsChange={handleOpenTargetsChange}
-                        onmyagentServerClient={props.onmyagentServerClient}
-                        runtimeWorkspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
+                        hostCapabilities={{
+                          artifacts: { open: openTarget, onTargetsChange: handleOpenTargetsChange },
+                        }}
                       />
                     ) : null}
 
@@ -1167,7 +1166,7 @@ export function SessionPage(props: SessionPageProps) {
                       onClose={closeRightPane}
                     />
                   ) : (
-                    <BrowserPanel sessionId={props.selectedSessionId} onClose={closeRightPane} />
+                    <BrowserPanel sessionId={sidePanelScopeId} onClose={closeRightPane} />
                   )}
                 </ResizablePanel>
               </>

@@ -123,7 +123,7 @@ describe("conversation shared UI contract", () => {
     expect(messageList).toContain("mapOpenCodeToolPartToItem");
   });
 
-  test("Personal timeline primary path uses shared ConversationItemView", () => {
+  test("Personal timeline keeps shared semantics and reference-style Local process chrome", () => {
     const timeline = readFileSync(
       join(
         import.meta.dir,
@@ -133,24 +133,27 @@ describe("conversation shared UI contract", () => {
     );
     expect(timeline).toContain("ConversationItemView");
     expect(timeline).toContain("personalMessagesToConversationItems");
-    expect(timeline).toContain('kind: "tool"');
     expect(timeline).toContain("LocalAgentApprovalCard");
     expect(timeline).toContain("pendingApprovals");
-    // Compact tools + default kinds go through shared view; permission cards
-    // stay on the host approval surface so long commands cannot overflow.
+    // Permission/error rows keep shared semantics, while thinking/tool/plan
+    // use the same process grammar as the Expert/Assistant transcript.
     expect(timeline).toContain("PersonalConversationItem");
     expect(timeline).toContain("<ConversationItemView");
-    // Rich expandable I/O remains host extension-style only.
-    expect(timeline).toContain("toolNeedsRichInputOutputCard");
-    expect(timeline).toContain("LocalAgentToolCard");
+    expect(timeline).toContain("LocalAgentThinkingFold");
+    expect(timeline).toContain("LocalAgentPlanFold");
+    expect(timeline).toContain("LocalAgentToolRow");
+    expect(timeline).not.toContain("LocalAgentToolCard");
+    expect(timeline).not.toContain("toolNeedsRichInputOutputCard");
     expect(timeline).toContain("acpUpdate?.rawInput");
     expect(timeline).toContain("acpUpdate?.rawOutput");
     expect(timeline).toContain("data-testid=\"local-agent-tool-detail\"");
     expect(timeline).toContain("data-testid=\"local-agent-tool-detail-truncated\"");
     expect(timeline).toContain("section.truncated");
     expect(timeline).toContain("max-h-64 overflow-auto whitespace-pre-wrap break-words");
-    expect(timeline).toContain("font-mono text-xs leading-normal");
-    expect(timeline).not.toContain("text-xs leading-6 text-dls-secondary");
+    expect(timeline).toContain("font-mono text-xs leading-6 text-dls-secondary");
+    expect(timeline).toContain('data-testid="local-agent-reference-tool-row"');
+    expect(timeline).toContain('data-testid="local-agent-process-narration"');
+    expect(timeline).toContain("hover:bg-transparent hover:text-dls-text");
     expect(timeline).not.toContain("grid gap-1 overflow-hidden");
     expect(timeline).not.toContain("leading-relaxed");
   });

@@ -104,7 +104,7 @@ import {
 import { createElectronBrowserController } from "./browser-runtime/electron-browser-controller.mjs";
 import { createUiControlServer } from "./ui-control-server.mjs";
 import { createDesktopCommandRouter } from "./desktop-command-router.mjs";
-import { createAllDesktopDomainHandlers } from "./desktop-handlers/index.mjs";
+import { createAllDesktopDomainHandlers, createLocalAgentBrowserMcpResolver } from "./desktop-handlers/index.mjs";
 import { createDesktopPaths } from "./desktop-paths.mjs";
 import { createDesktopWindowController } from "./desktop-window.mjs";
 import { registerDesktopBrowserIpc } from "./desktop-ipc-browser.mjs";
@@ -767,7 +767,6 @@ async function mutateWorkspaceState(mutator) {
 function engineDoctor(options = {}) {
   return runtimeManager.engineDoctor(options);
 }
-
 const desktopCommandHandlers = createAllDesktopDomainHandlers({
   // messaging
   weixinService,
@@ -783,6 +782,7 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   taskOrchestrator,
   taskLifecycle,
   scanAgentManagementSkills,
+  resolveLocalAgentBrowserMcpServer: createLocalAgentBrowserMcpResolver({ browserController, execPath: process.execPath, electronRuntime: Boolean(process.versions.electron) }),
   app,
   // agent management
   personalAgentLegacyHarness,

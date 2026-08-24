@@ -23,8 +23,15 @@ function normalizeAccessibleWorkspaceRoots(value, workspaceRoot = "") {
   return roots;
 }
 
-function buildContextBlock({ provider, workspaceRoot, accessibleWorkspaceRoots = [] }) {
+function mcpServerNames(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map((server) => String(server?.name ?? "").trim()).filter(Boolean))];
+}
+
+function buildContextBlock({ provider, workspaceRoot, accessibleWorkspaceRoots = [], mcpServers = [] }) {
   const extraRoots = normalizeAccessibleWorkspaceRoots(accessibleWorkspaceRoots, workspaceRoot);
+  const serverNames = mcpServerNames(mcpServers);
+  const hasOnMyAgentBrowser = serverNames.includes("onmyagent-in-app-browser");
   return [
     "# OnMyAgent Personal Assistant",
     "",
@@ -43,6 +50,16 @@ function buildContextBlock({ provider, workspaceRoot, accessibleWorkspaceRoots =
           "When the user asks you to plan, outline steps, list todos, or work step-by-step, you MUST call your `update_plan` tool with a structured entries array before executing. Do not respond with a markdown-only plan.",
         ]
       : []),
+    ...(hasOnMyAgentBrowser
+      ? [
+          "",
+          "## OnMyAgent in-app Browser",
+          "The authoritative browser surface for this session is the named MCP server `onmyagent-in-app-browser`.",
+          "For browser work, call its `browser_*` tools directly (for example `browser_get_info`, `browser_open_tab`, and `browser_tab_content`).",
+          "Do not read or follow the Codex Desktop `control-in-app-browser` skill, and do not use `node_repl`, `mcp.node_repl.js`, or a browser-client module for browser access. Those belong to a different desktop host and can incorrectly report `No browser is available` inside OnMyAgent.",
+          "Temporary research tabs should stay in the background. Only mark a tab as `deliverable` or `handoff` when the user needs to see or continue with that page.",
+        ]
+      : []),
   ].join("\n");
 }
 
@@ -58,9 +75,9 @@ function replaceManagedBlock(existing, block) {
   return `${existing}${separator}${block}\n`;
 }
 
-export async function injectPersonalAgentContext({ workdir, provider, workspaceRoot, accessibleWorkspaceRoots = [] }) {
+export async function injectPersonalAgentContext({ workdir, provider, workspaceRoot, accessibleWorkspaceRoots = [], mcpServers = [] }) {
   const filePath = path.join(workdir, contextFileName(provider));
-  const body = buildContextBlock({ provider, workspaceRoot, accessibleWorkspaceRoots });
+  const body = buildContextBlock({ provider, workspaceRoot, accessibleWorkspaceRoots, mcpServers });
   const block = `${MARKER_BEGIN}\n${body}\n${MARKER_END}`;
   let existing = "";
   try {
@@ -72,4 +89,4 @@ export async function injectPersonalAgentContext({ workdir, provider, workspaceR
   return filePath;
 }
 
-export const __test__ = { buildContextBlock, normalizeAccessibleWorkspaceRoots };
+export const __test__ = { buildContextBlock, mcpServerNames, normalizeAccessibleWorkspaceRoots };

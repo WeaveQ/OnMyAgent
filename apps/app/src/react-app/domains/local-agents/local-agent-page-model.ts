@@ -14,11 +14,7 @@ export type PersistedLocalAgentChatState = {
   version: 1;
   selectedAgentId?: string;
   selectedConversationIdByAgent?: Record<string, string>;
-  messagesByAgent?: Record<string, ChatMessage[]>;
   draftsByAgent?: Record<string, string>;
-  activeRunIdByAgent?: Record<string, string | null>;
-  healthResults?: Record<string, AgentHealthResult>;
-  errorsByAgent?: Record<string, string | null>;
 };
 
 export {
@@ -353,13 +349,36 @@ export function safeReadPersistedChatState(workspaceRoot: string): PersistedLoca
   try {
     const raw = window.localStorage.getItem(personalAgentChatStateKey(workspaceRoot));
     if (!raw) return null;
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || !("version" in parsed) || parsed.version !== 1) return null;
-    // Structural guard above validates the persistence version; downstream fields are optional.
-    return parsed as PersistedLocalAgentChatState;
+    return persistedChatPreferences(JSON.parse(raw));
   } catch {
     return null;
   }
+}
+
+function stringRecord(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const entries = Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string");
+  return entries.length ? Object.fromEntries(entries) : undefined;
+}
+
+/**
+ * localStorage is navigation-only. Older builds persisted transcript and run
+ * snapshots in the same object; intentionally discard those fields so runtime
+ * conversation events remain the sole durable message source.
+ */
+export function persistedChatPreferences(value: unknown): PersistedLocalAgentChatState | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  if (record.version !== 1) return null;
+  const selectedAgentId = typeof record.selectedAgentId === "string" ? record.selectedAgentId : undefined;
+  const selectedConversationIdByAgent = stringRecord(record.selectedConversationIdByAgent);
+  const draftsByAgent = stringRecord(record.draftsByAgent);
+  return {
+    version: 1,
+    ...(selectedAgentId ? { selectedAgentId } : {}),
+    ...(selectedConversationIdByAgent ? { selectedConversationIdByAgent } : {}),
+    ...(draftsByAgent ? { draftsByAgent } : {}),
+  };
 }
 
 export function safeReadCachedAgents(workspaceRoot: string): PersonalLocalAgent[] {
@@ -386,14 +405,6 @@ export function safeWriteCachedAgents(workspaceRoot: string, agents: PersonalLoc
   }
 }
 
-export function compactMessagesByAgent(messagesByAgent: Record<string, ChatMessage[]>) {
-  const next: Record<string, ChatMessage[]> = {};
-  for (const [agentId, messages] of Object.entries(messagesByAgent)) {
-    next[agentId] = messages.slice(-80);
-  }
-  return next;
-}
-
 export function chatKeyForActiveRun(
   activeRunIdByAgent: Record<string, string | null | undefined>,
   runId: string,
@@ -403,21 +414,16 @@ export function chatKeyForActiveRun(
   return Object.entries(activeRunIdByAgent).find(([, id]) => id === want)?.[0];
 }
 
-export function recoverActiveRunIds(
-  messagesByAgent: Record<string, ChatMessage[]> | undefined,
-  persistedActiveRunIds: Record<string, string | null> | undefined,
+export function reconcileConversationSelection(
+  currentId: string | undefined,
+  conversations: PersonalLocalAgentConversation[],
+  activeConversationId: string | null | undefined,
 ) {
-  const next: Record<string, string | null> = { ...(persistedActiveRunIds ?? {}) };
-  for (const [agentId, messages] of Object.entries(messagesByAgent ?? {})) {
-    const persistedRunId = next[agentId];
-    const persistedRun = persistedRunId
-      ? messages.find((message) => message.run?.runId === persistedRunId)?.run
-      : null;
-    if (persistedRun?.status === "running") continue;
-    const runningRun = [...messages].reverse().find((message) => message.run?.status === "running")?.run;
-    next[agentId] = runningRun?.runId ?? null;
+  if (currentId && conversations.some((conversation) => conversation.id === currentId)) return currentId;
+  if (activeConversationId && conversations.some((conversation) => conversation.id === activeConversationId)) {
+    return activeConversationId;
   }
-  return next;
+  return conversations[0]?.id;
 }
 
 export function chooseInitialModel(agent: PersonalLocalAgent | null) {

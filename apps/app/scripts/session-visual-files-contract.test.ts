@@ -116,7 +116,9 @@ describe("session visual and file contracts", () => {
     expect(preview).toContain("TextEditContextMenu");
 
     for (const source of [chatPage, assistantPage, expertPage]) {
-      expect(source).toContain("onOpenArtifact={openTarget}");
+      expect(source).toContain("hostCapabilities={{");
+      expect(source).toContain("open: openTarget");
+      expect(source).toContain("onTargetsChange: handleOpenTargetsChange");
     }
   });
 

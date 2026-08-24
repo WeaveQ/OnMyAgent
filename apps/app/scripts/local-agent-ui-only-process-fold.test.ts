@@ -62,6 +62,9 @@ describe("Local Agent UI-only process fold", () => {
 
     expect(html).not.toContain('data-testid="local-agent-process-fold"');
     expect(html).not.toContain('data-testid="local-agent-tool-group"');
+    expect(html.match(/data-testid="local-agent-reference-tool-row"/g)).toHaveLength(2);
+    expect(html).toContain("hover:bg-transparent");
+    expect(html).not.toContain("rounded-xl border border-dls-border bg-dls-surface-muted");
     expect(html).toContain("pnpm test");
     expect(html).toContain("git status");
   });
@@ -80,6 +83,7 @@ describe("Local Agent UI-only process fold", () => {
     expect(html).not.toContain(">completed<");
     expect(html).not.toContain(">failed<");
     expect(html).not.toContain(">pending<");
+    expect(html).toContain('data-testid="local-agent-reference-tool-row"');
   });
 
   test("preserves a failed tool identifier without packing it", () => {
@@ -114,6 +118,8 @@ describe("Local Agent UI-only process fold", () => {
     expect(terminalHtml).toContain('data-plan-status="completed"');
     expect(terminalHtml).toContain('aria-expanded="false"');
     expect(terminalHtml).not.toContain('data-testid="local-agent-plan-fold-body"');
+    expect(terminalHtml).toContain("session-workbuddy-task-list");
+    expect(terminalHtml).toContain("session-workbuddy-task-header");
     expect(terminalHtml).toContain("focus-visible:ring-dls-focus");
 
     const streamingHtml = renderToStaticMarkup(createElement(LocalAgentPlanFold, {
@@ -123,6 +129,8 @@ describe("Local Agent UI-only process fold", () => {
     expect(streamingHtml).toContain('data-plan-status="running"');
     expect(streamingHtml).toContain('aria-expanded="true"');
     expect(streamingHtml).toContain('data-testid="local-agent-plan-fold-body"');
+    expect(streamingHtml).toContain("session-workbuddy-task-detail");
+    expect(streamingHtml).not.toContain("conversation-plan-block");
   });
 
   test("process-fold source is gone from the production tree", () => {

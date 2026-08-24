@@ -7,12 +7,18 @@ import { readSession, writeSession } from "../session-store.mjs";
 import { createExecHelpers, stringifyAgentCommand, terminateProcessTree, waitForExit } from "../utils.mjs";
 import { resolveAgentExecutionWorkdirs } from "../workdir.mjs";
 import { extractPromptUsageMetrics, extractPromptUsageTotals } from "../context-usage.mjs";
+import { persistFailedToolSessionHealth } from "../acp-session-health.mjs";
 import { buildProviderContextResetEvents } from "../error-diagnostics.mjs";
 import { evaluateTaskPermission } from "../task-permission-policy.mjs";
 import { isolateTaskProviderEnvironment } from "../task-provider-isolation.mjs";
 import { approvalRequestExpired, normalizeApprovalExpiry } from "../run-helpers.mjs";
 import { createProviderRequestDiagnosticsAccumulator } from "../../task-orchestrator/provider-request-diagnostics.mjs";
 import { preferCodexHttpsTransport } from "../codex-transport.mjs";
+import { setAcpConfigOptionWithSessionRecovery } from "./acp-config-option.mjs";
+import {
+  isLocalAgentBrowserMcpToolName,
+  LOCAL_AGENT_BROWSER_MCP_NAME,
+} from "../../browser-runtime/browser-mcp-contract.mjs";
 
 // Long-running coding tasks can legitimately spend hours in tool calls or
 // sub-agent coordination. Keep a finite safety ceiling for abandoned turns,
@@ -322,6 +328,33 @@ function sanitizeToolCallUpdateForStorage(data) {
   return next;
 }
 
+function trustedLocalAgentBrowserMcpInput(data) {
+  const rawInput = data?.rawInput ?? data?.raw_input ?? data?.input;
+  if (!rawInput || typeof rawInput !== "object" || Array.isArray(rawInput)) return null;
+  if (rawInput.server !== LOCAL_AGENT_BROWSER_MCP_NAME) return null;
+  const tool = textValue(rawInput.tool);
+  if (!isLocalAgentBrowserMcpToolName(tool)) return null;
+  return rawInput;
+}
+
+function normalizeTrustedLocalAgentBrowserMcpUpdate(data) {
+  if (data?._meta?.is_mcp_tool_call !== true || !trustedLocalAgentBrowserMcpInput(data)) return data;
+  return {
+    ...data,
+    kind: "mcp",
+    _meta: {
+      ...data._meta,
+      onmyagent_in_app_browser: true,
+    },
+  };
+}
+
+function shouldAutoAcceptTrustedLocalAgentBrowserMcpPermission(params, operation, context = {}) {
+  if (params?._meta?.is_mcp_tool_approval !== true) return false;
+  if (textValue(context?.taskId ?? context?.taskRunId)) return false;
+  return Boolean(trustedLocalAgentBrowserMcpInput({ rawInput: operation?.input }));
+}
+
 function acpToolCallFromUpdate(type, data) {
   const id = textValue(data?.tool_call_id ?? data?.toolCallId ?? data?.id);
   if (!id) return null;
@@ -523,11 +556,6 @@ function mergeConfigOptions(previous, next) {
 
 function configOptionCurrentValue(option) {
   return textValue(option?.currentValue ?? option?.current_value ?? option?.value);
-}
-
-function isAcpMethodUnsupported(error) {
-  if (Number(error?.acpRpcCode) === -32601) return true;
-  return /\bmethod(?:\s+[\w/.-]+)?\s+(?:not found|not supported|unsupported)\b/i.test(String(error?.message ?? error));
 }
 
 // `waitForExit` and `terminateProcessTree` now live in `../utils.mjs` so the
@@ -878,6 +906,9 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
       sessionId,
       workdir,
       health: "healthy",
+      lastFailureCode: undefined,
+      lastFailure: undefined,
+      lastFailureAt: undefined,
       updatedAt: Date.now(),
       ...(sessionMetadata ? { sessionMetadata } : {}),
     });
@@ -904,7 +935,7 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
         ctx.agent.id,
         ctx.conversationWorkdir,
       );
-      await injectPersonalAgentContext({ workdir: providerWorkdir, provider, workspaceRoot: ctx.workspaceRoot, accessibleWorkspaceRoots: ctx.accessibleWorkspaceRoots });
+      await injectPersonalAgentContext({ workdir: providerWorkdir, provider, workspaceRoot: ctx.workspaceRoot, accessibleWorkspaceRoots: ctx.accessibleWorkspaceRoots, mcpServers: ctx.mcpServers });
       const args = acpArgsForProvider(provider, ctx, workdir);
       const env = processEnvironmentForContext(ctx, workdir);
       // codex-acp fires publishAvailableCommandsAsync() from newSession as
@@ -1019,53 +1050,14 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
     async setConfigOption(ctx) {
       const optionId = textValue(ctx.optionId ?? ctx.configOptionId ?? ctx.id);
       if (!optionId) throw new Error("optionId is required");
-      return withAcpSessionClient(ctx, appendEvent, async ({ client, workdir }) => {
-        let sessionId = textValue(ctx.sessionId ?? ctx.providerSessionId ?? ctx.resumeKey);
-        if (!sessionId) {
-          // ACP session/new requires `mcpServers` (array). Omitting it makes
-          // CodeBuddy and other strict ACP backends reject with
-          // "Invalid params: mcpServers expected array, received undefined".
-          // Align with `createOrResumeSession` which always passes `mcpServers: []`.
-          const created = await client.createSession({ cwd: workdir, mcpServers: [] });
-          sessionId = extractAcpSessionId(created);
-        }
-        if (!sessionId) throw new Error("session/set_config_option requires an ACP sessionId");
-        let result;
-        try {
-          result = await client.setConfigOption(sessionId, optionId, ctx.value, { cwd: workdir });
-        } catch (error) {
-          const standardUnsupported = isAcpMethodUnsupported(error);
-          if (!standardUnsupported) throw error;
-          // Older ACP backends such as CodeBuddy predate the standard
-          // `session/set_config_option` method and expose `config/set` instead.
-          // Keep that compatibility path explicit and bounded to this generic
-          // UI config entrypoint; task-worker model selection above remains
-          // standard-only and fail-closed.
-          try {
-            result = await client.setLegacyConfigOption(sessionId, optionId, ctx.value, { cwd: workdir });
-          } catch (legacyError) {
-            const legacyUnsupported = isAcpMethodUnsupported(legacyError);
-            if (!legacyUnsupported || optionId !== "model") throw legacyError;
-            // Oldest model-capable ACP agents may expose only the legacy
-            // `session/set_model` extension. Never use it for non-model config.
-            result = await client.setModel(sessionId, String(ctx.value), { cwd: workdir });
-          }
-        }
-        const configOptions = Array.isArray(result?.configOptions)
-          ? result.configOptions
-          : Array.isArray(result?.config_options)
-            ? result.config_options
-            : [];
-        return {
-          ok: true,
-          sessionId,
+      return withAcpSessionClient(ctx, appendEvent, ({ client, workdir }) =>
+        setAcpConfigOptionWithSessionRecovery({
+          client,
+          workdir,
+          sessionId: ctx.sessionId ?? ctx.providerSessionId ?? ctx.resumeKey,
           optionId,
           value: ctx.value,
-          confirmation: textValue(result?.confirmation ?? result?.message) || null,
-          configOptions,
-          raw: result,
-        };
-      });
+        }));
     },
     async sendMessage(ctx) {
       const provider = ctx.agent.provider;
@@ -1076,7 +1068,7 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
         ctx.agent.id,
         ctx.conversationWorkdir,
       );
-      await injectPersonalAgentContext({ workdir: providerWorkdir, provider, workspaceRoot: ctx.workspaceRoot, accessibleWorkspaceRoots: ctx.accessibleWorkspaceRoots });
+      await injectPersonalAgentContext({ workdir: providerWorkdir, provider, workspaceRoot: ctx.workspaceRoot, accessibleWorkspaceRoots: ctx.accessibleWorkspaceRoots, mcpServers: ctx.mcpServers });
       const args = acpArgsForProvider(provider, ctx, workdir);
       const command = stringifyAgentCommand(executablePath, args);
       const env = processEnvironmentForContext(ctx, workdir);
@@ -1185,11 +1177,12 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
           }
           if (type === "tool_call" || type === "tool_call_update") {
             thinking.finishOnBoundary(type);
-            rememberAcpToolOperation(observedToolOperations, data);
-            const storedUpdate = sanitizeToolCallUpdateForStorage(data);
+            const normalizedData = normalizeTrustedLocalAgentBrowserMcpUpdate(data);
+            rememberAcpToolOperation(observedToolOperations, normalizedData);
+            const storedUpdate = sanitizeToolCallUpdateForStorage(normalizedData);
             const textPreview = previewString(textFromAcpContent(storedUpdate) || JSON.stringify(storedUpdate ?? {}));
             const toolText = textPreview.text;
-            const toolCall = acpToolCallFromUpdate(type, data);
+            const toolCall = acpToolCallFromUpdate(type, normalizedData);
             appendEvent({
               type: "acp_tool_call",
               text: toolText,
@@ -1223,10 +1216,14 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
           const readonly = isReadOnlyPermission(params);
           const expiresAt = normalizeApprovalExpiry(params);
           const operation = permissionOperation(params, message.id, method, workdir, observedToolOperations);
+          const trustedBrowserMcpPermission = shouldAutoAcceptTrustedLocalAgentBrowserMcpPermission(params, operation, ctx);
           const expiredOrAborted = () => approvalRequestExpired(params, { signal: ctx.signal });
           let decision = "decline";
           if (expiredOrAborted()) {
             appendEvent({ type: "status", text: "task permission decline: approval-expired" });
+          } else if (trustedBrowserMcpPermission) {
+            decision = "accept";
+            appendEvent({ type: "status", text: "trusted in-app Browser MCP permission accepted" });
           } else if (ctx.taskPermissionMode === "full-allow") {
             const policy = await evaluateTaskPermission({
               taskPermissionGrant: ctx.taskPermissionGrant,
@@ -1354,8 +1351,9 @@ export function createGenericAcpAdapter({ appendEvent, registerCancel }) {
         }
         if (failedToolUpdates.length) {
           const detail = failedToolUpdates.at(-1);
-          const code = /"exit_code"\s*:\s*null|terminal_exit/i.test(detail ?? "") ? "acp_bridge_interrupted" : "acp_tool_failed";
-          await writeSession(ctx.workspaceRoot, provider, ctx.agent.id, { sessionId, workdir, health: "unhealthy", lastFailureCode: code, lastFailure: detail, updatedAt: Date.now() });
+          const code = await persistFailedToolSessionHealth({
+            detail, workspaceRoot: ctx.workspaceRoot, provider, agentId: ctx.agent.id, sessionId, workdir,
+          });
           if (output) {
             appendEvent({ type: "status", text: `${provider} ACP reported a failed tool after assistant output; preserving the assistant response.` });
           } else {
@@ -1477,6 +1475,8 @@ export const __test__ = {
   extractAcpSessionMetadata,
   rememberAcpToolOperation,
   permissionOperation,
+  normalizeTrustedLocalAgentBrowserMcpUpdate,
+  shouldAutoAcceptTrustedLocalAgentBrowserMcpPermission,
   permissionDecisionPayload,
   createGenericAcpAdapterForTest: createGenericAcpAdapter,
 };

@@ -10,6 +10,7 @@ import net from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { startLocalAgentSmokeServer } from "./local-agent-smoke-server.mjs";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const appRoot = resolve(__dirname, "..");
@@ -58,32 +59,84 @@ async function httpJson(url) {
   return await res.json();
 }
 
-function bridgeMockSource(defaultWorkspace, pickedWorkspace) {
+function bridgeMockSource(defaultWorkspace, pickedWorkspace, serverBaseUrl, serverToken, serverHostToken) {
   return `(() => {
     const defaultWs = ${JSON.stringify(defaultWorkspace)};
     const pickedWs = ${JSON.stringify(pickedWorkspace)};
+    const serverBaseUrl = ${JSON.stringify(serverBaseUrl)};
+    const serverToken = ${JSON.stringify(serverToken)};
+    const serverHostToken = ${JSON.stringify(serverHostToken)};
     const conversations = [];
+    const runs = new Map();
     const capability = { installed: true, authenticated: true, minVersionOk: true, supportsStreaming: true, supportsResume: true, supportsModelOverride: true, supportsPermissionAutoApprove: true, supportsAcp: true, supportsApproval: true, targetKind: 'model', smokePrompt: 'OK', warning: null };
     const modelOptions = [{ id: 'ark-code-latest', label: 'ark-code-latest' }];
     const makeAgent = (id, name) => ({ id, name, provider: id, executablePath: name, model: null, customArgs: [], modelOptions, defaultModel: modelOptions[0].id, connectionMode: name + ' ACP session', status: 'online', version: '1.0.0', error: null, capability, handshake: { available_models: modelOptions, available_commands: [], config_options: [], agent_capabilities: { loadSession: true, _meta: { supportsAcp: true } } }, lastCheckedAt: Date.now() });
     const agents = [makeAgent('opencode', 'OpenCode'), makeAgent('codex', 'Codex'), makeAgent('claude', 'Claude Code')];
     const metadata = agents.map((a) => ({ id: a.id, name: a.name, backend: a.id, agent_type: 'acp', agent_source: 'builtin', enabled: true, available: true, command: a.name, args: [], connectionMode: a.connectionMode, status: 'online', error: null, capability, handshake: a.handshake }));
-    window.__WORKSPACE_PICKER_SMOKE__ = { conversationCreates: [], pickDirectoryCalls: 0, processPolls: 0 };
+    window.__WORKSPACE_PICKER_SMOKE__ = { conversationCreates: [], sends: [], pickDirectoryCalls: 0, processPolls: 0 };
     const invokeDesktop = async (command, ...args) => {
       const input = args[0] || {};
       if (command === 'workspaceList') return { items: [{ id: 'ws_smoke', name: 'Smoke Workspace', path: defaultWs, workspaceType: 'local' }], selectedId: 'ws_smoke' };
+      if (command === 'engineInfo') return { name: 'opencode', version: 'smoke', running: true, baseUrl: serverBaseUrl };
+      if (command === 'onmyagentServerInfo') return { running: true, pid: 4241, port: Number(new URL(serverBaseUrl).port), baseUrl: serverBaseUrl, ownerToken: serverToken, hostToken: serverHostToken };
+      if (command === 'runtimeBootstrap') return { ok: true, skipped: true };
       if (command === 'pickDirectory') { window.__WORKSPACE_PICKER_SMOKE__.pickDirectoryCalls += 1; return pickedWs; }
       if (command === 'personalLocalAgentAcpAgentsList' || command === 'personalLocalAgentAcpAgentsRefresh' || command === 'personalLocalAgentMetadataList') return { agents: metadata };
       if (command === 'personalLocalAgentsList') return { agents, metadata };
       if (command === 'personalLocalAgentValidate') return agents.find((a) => a.provider === (input.provider || input.agent?.provider)) || agents[0];
       if (command === 'personalLocalAgentConversationsList') return { conversations, activeConversationId: null };
+      if (command === 'personalLocalAgentConversationsListByProvider') return { conversations, activeConversationId: conversations[0]?.id || null };
+      if (command === 'personalLocalAgentChannelConversationsList') return { conversations: [] };
       if (command === 'personalLocalAgentConversationCreate') {
-        window.__WORKSPACE_PICKER_SMOKE__.conversationCreates.push({ workspaceRoot: input.workspaceRoot, agentId: input.agent?.id });
         const conv = { id: 'conv-' + (conversations.length + 1), provider: input.agent?.provider || 'opencode', agentId: input.agent?.id || 'opencode', title: 'Smoke conv', providerSessionId: null, resumeKey: null, workdir: input.workspaceRoot || null, createdAt: Date.now(), updatedAt: Date.now(), lastRunId: null, lastStatus: null, source: 'studio-created' };
         conversations.unshift(conv);
+        window.__WORKSPACE_PICKER_SMOKE__.conversationCreates.push({ id: conv.id, workspaceRoot: input.workspaceRoot, agentId: input.agent?.id });
         return { conversation: conv };
       }
+      if (command === 'personalLocalAgentAcpSend') {
+        const runId = 'run-picker-immediate-' + (window.__WORKSPACE_PICKER_SMOKE__.sends.length + 1);
+        const now = Date.now();
+        const run = {
+          ok: true,
+          runId,
+          agentId: input.agent?.id || 'opencode',
+          agentProvider: input.agent?.provider || 'opencode',
+          connectionMode: 'OpenCode ACP session',
+          status: 'completed',
+          startedAt: now,
+          finishedAt: now,
+          pid: null,
+          command: 'opencode acp',
+          output: 'Workspace picked reply',
+          error: null,
+          events: [{ type: 'assistant', text: 'Workspace picked reply', at: now }],
+          conversationMessages: [
+            { id: runId + '-user', type: 'text', role: 'user', text: input.prompt || '', createdAt: now, sourceEventType: 'user' },
+            { id: runId + '-assistant', type: 'finish', role: 'assistant', text: 'Workspace picked reply', createdAt: now, sourceEventType: 'assistant' },
+          ],
+          logPath: null,
+          workdir: input.workspaceRoot || null,
+          conversationId: input.conversationId || null,
+          providerSessionId: null,
+          resumeKey: null,
+          metadata: { agent_type: 'acp' },
+          approvalMode: input.approvalMode || 'ask',
+          pendingApprovals: [],
+          artifacts: [],
+        };
+        runs.set(runId, run);
+        window.__WORKSPACE_PICKER_SMOKE__.sends.push({ workspaceRoot: input.workspaceRoot, conversationId: input.conversationId, prompt: input.prompt });
+        return run;
+      }
+      if (command === 'personalLocalAgentStatus') {
+        const runId = input.runId || input;
+        return runs.get(runId) || null;
+      }
       if (command === 'personalLocalAgentConversationTranscript') return { messages: [] };
+      if (command === 'personalLocalAgentConversationStatus') {
+        const activeRun = [...runs.values()].find((run) => run.conversationId === input.conversationId) || null;
+        return { conversation: conversations.find((conversation) => conversation.id === input.conversationId) || conversations[0] || null, activeRun, running: activeRun?.status === 'running', status: activeRun?.status || 'idle' };
+      }
       if (command === 'personalLocalAgentHeartbeatsList') return { jobs: [] };
       if (command === 'personalLocalAgentAcpProcessesList') { window.__WORKSPACE_PICKER_SMOKE__.processPolls += 1; return { processes: [] }; }
       if (command === 'personalLocalAgentAcpHealth') return { ok: true, agents: metadata };
@@ -139,7 +192,7 @@ async function connectCdp(port) {
     for (const label of labels) {
     rect = await evaluate(`(() => {
       const needle = ${JSON.stringify(label)};
-      const nodes = Array.from(document.querySelectorAll('button,[role="button"]'));
+      const nodes = Array.from(document.querySelectorAll('button,[role="button"],[role="menuitem"]'));
       const el = nodes.find((n) => [n.getAttribute('aria-label'), n.getAttribute('title'), n.innerText].some((v) => String(v || '').includes(needle)));
       if (!el) return null;
       el.scrollIntoView({block:'center'});
@@ -154,7 +207,48 @@ async function connectCdp(port) {
     await send("Input.dispatchMouseEvent", { type: "mouseReleased", x: rect.x, y: rect.y, button: "left", clickCount: 1 });
     await wait(400);
   };
-  return { send, evaluate, waitFor, clickAria };
+  const fillTextarea = async (value) => {
+    const rect = await evaluate(`(() => {
+      const el = document.querySelector('textarea[data-local-agent-composer="true"]');
+      if (!el || el.disabled) return false;
+      el.scrollIntoView({ block: 'center', inline: 'center' });
+      const bounds = el.getBoundingClientRect();
+      return { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 };
+    })()`);
+    assert.ok(rect && typeof rect.x === "number", "enabled Local Agent composer should accept immediate workspace send");
+    await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: rect.x, y: rect.y });
+    await send("Input.dispatchMouseEvent", { type: "mousePressed", x: rect.x, y: rect.y, button: "left", clickCount: 1 });
+    await send("Input.dispatchMouseEvent", { type: "mouseReleased", x: rect.x, y: rect.y, button: "left", clickCount: 1 });
+    await send("Input.dispatchKeyEvent", { type: "keyDown", key: "a", code: "KeyA", modifiers: 2 });
+    await send("Input.dispatchKeyEvent", { type: "keyUp", key: "a", code: "KeyA", modifiers: 2 });
+    await send("Input.insertText", { text: value });
+    await evaluate(`(() => {
+      const el = document.querySelector('textarea[data-local-agent-composer="true"]');
+      if (!el) return false;
+      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+      setter?.call(el, ${JSON.stringify(value)});
+      el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: ${JSON.stringify(value)} }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    })()`);
+    await wait(250);
+  };
+  const clickSend = async () => {
+    const clicked = await evaluate(`(() => {
+      const composer = document.querySelector('textarea[data-local-agent-composer="true"]');
+      const root = composer?.closest('form,section,div') || document;
+      const buttons = Array.from(root.querySelectorAll('button')).filter((button) => !button.disabled);
+      const el = buttons.find((button) => (button.innerText || button.getAttribute('aria-label') || '').includes('发送'))
+        || buttons.find((button) => (button.innerText || button.getAttribute('aria-label') || '').includes('Send'))
+        || Array.from(document.querySelectorAll('button')).filter((button) => !button.disabled).find((button) => (button.innerText || button.getAttribute('aria-label') || '').includes('发送'))
+        || Array.from(document.querySelectorAll('button')).filter((button) => !button.disabled).find((button) => (button.innerText || button.getAttribute('aria-label') || '').includes('Send'));
+      el?.click();
+      return Boolean(el);
+    })()`);
+    assert.equal(clicked, true, "send button should be clickable after workspace selection");
+    await wait(500);
+  };
+  return { send, evaluate, waitFor, clickAria, fillTextarea, clickSend };
 }
 
 async function main() {
@@ -168,22 +262,28 @@ async function main() {
     mkdir(pickedWorkspace, { recursive: true }),
     mkdir(chromeProfile, { recursive: true }),
   ]);
+  const smokeServer = await startLocalAgentSmokeServer({
+    workspaceId: "ws_smoke",
+    workspaceRoot: defaultWorkspace,
+    workspaceName: "Smoke Workspace",
+  });
   const webPort = await findFreePort();
   const cdpPort = await findFreePort();
   const appBaseUrl = `http://127.0.0.1:${webPort}`;
   const vite = spawnProcess("corepack", ["pnpm", "--filter", "@onmyagent/app", "exec", "vite", "--host", "127.0.0.1", "--port", String(webPort), "--strictPort"], { cwd: repoRoot, env: process.env }, viteLog);
   const chrome = spawnProcess(chromePath, [`--remote-debugging-port=${cdpPort}`, `--user-data-dir=${chromeProfile}`, "--no-first-run", "--no-default-browser-check", "--disable-gpu", "--disable-dev-shm-usage", "--window-size=1440,1000", "--headless=new", "about:blank"], { cwd: repoRoot, env: process.env }, chromeLog);
   const cleanup = async () => {
-    await Promise.allSettled([killProcess(chrome), killProcess(vite)]);
+    await Promise.allSettled([killProcess(chrome), killProcess(vite), smokeServer.close()]);
     if (process.env.KEEP_WORKSPACE_PICKER_SMOKE_TEMP !== "1") await rm(tempRoot, { recursive: true, force: true });
   };
+  let page = null;
   try {
     await waitForHttp(appBaseUrl);
     await waitForHttp(`http://127.0.0.1:${cdpPort}/json/version`);
-    const page = await connectCdp(cdpPort);
+    page = await connectCdp(cdpPort);
     await page.send("Page.enable");
     await page.send("Runtime.enable");
-    const bridge = bridgeMockSource(defaultWorkspace, pickedWorkspace);
+    const bridge = bridgeMockSource(defaultWorkspace, pickedWorkspace, smokeServer.baseUrl, smokeServer.token, smokeServer.hostToken);
     const bootstrap = `${bridge}\nlocalStorage.setItem('onmyagent.preferences', JSON.stringify({ hasCompletedOnboarding: true }));\nlocalStorage.removeItem('onmyagent.local-agent.workspace-override');\nlocalStorage.removeItem('onmyagent.local-agent.recent-workspaces');`;
     await page.send("Page.addScriptToEvaluateOnNewDocument", { source: bootstrap });
     await page.send("Page.navigate", { url: `${appBaseUrl}/#/workspace/ws_smoke/assistant` });
@@ -192,8 +292,23 @@ async function main() {
     await page.send("Page.navigate", { url: `${appBaseUrl}/#/workspace/ws_smoke/assistant` });
     await wait(2500);
     // Enter local agent tab
-    await page.waitFor(() => Array.from(document.querySelectorAll("body *")).some((n) => (n.textContent || "").includes("本地")), 30000);
-    await page.clickAria("本地");
+    await page.waitFor(() => Boolean(document.querySelector('button[aria-label="设置"],button[title="设置"],button[aria-label="Settings"],button[title="Settings"]')), 30000);
+    assert.equal(await page.evaluate(`(() => {
+      const button = Array.from(document.querySelectorAll('button')).find((node) => ['设置', 'Settings'].some((label) => [node.getAttribute('aria-label'), node.getAttribute('title')].includes(label)));
+      button?.click();
+      return Boolean(button);
+    })()`), true, "account menu trigger should be clickable");
+    await page.waitFor(() => Array.from(document.querySelectorAll("body *")).some((n) => {
+      const text = n.textContent || "";
+      return text.includes("Agent 对话") || text.includes("Agent chat") || text.includes("本地 Agent") || text.includes("Local Agent");
+    }), 30000);
+    assert.equal(await page.evaluate(`(() => {
+      const labels = ["Agent 对话", "Agent chat", "本地 Agent", "Local Agent"];
+      const nodes = Array.from(document.querySelectorAll('[role="menuitem"],button,a'));
+      const item = nodes.find((node) => labels.some((label) => (node.innerText || node.getAttribute('aria-label') || '').includes(label)));
+      item?.click();
+      return Boolean(item);
+    })()`), true, "Local Agent account-menu item should be clickable");
     await wait(1500);
     // Wait for footnote chip (empty state shows "Work in project" or 中文)
     const chipText = await page.waitFor(() => {
@@ -206,10 +321,9 @@ async function main() {
     }, 20000);
     assert.ok(chipText, "workspace footnote chip should render in empty state");
 
-    // Trigger new conversation (click plus button labeled New conversation)
-    await page.clickAria(["New conversation", "新建对话", "新建會話", "新建对话（新会话）"]);
-    await wait(800);
-    // Grab conversation-create payload count before picking workspace.
+    // Keep the initial fresh conversation uncommitted while choosing a
+    // workspace. The current Local Agent contract exposes the editable chip
+    // on this empty state; creating first would immediately lock it.
     const before = await page.evaluate(`window.__WORKSPACE_PICKER_SMOKE__.conversationCreates.length`);
 
     // Click chip -> popover opens
@@ -227,26 +341,39 @@ async function main() {
       return el ? el.textContent.trim() : null;
     }, 8000);
     assert.ok(chipAfter, "chip should relabel to picked workspace basename");
-    // Trigger another new conversation and verify workspaceRoot matches pickedWorkspace
+    // Trigger another new conversation and immediately send. Waiting only for
+    // the create bridge record intentionally leaves the renderer's selection
+    // update on its natural async path, covering the workspace/conversation
+    // race rather than hiding it behind a fixed sleep.
     await page.clickAria(["New conversation", "新建对话", "新建會話"]);
-    await wait(1200);
+    await page.waitFor(() => window.__WORKSPACE_PICKER_SMOKE__.conversationCreates.length > 0, 8000);
     const creates = await page.evaluate(`JSON.parse(JSON.stringify(window.__WORKSPACE_PICKER_SMOKE__.conversationCreates))`);
     const lastCreate = creates[creates.length - 1];
     assert.ok(lastCreate && typeof lastCreate.workspaceRoot === "string", "conversationCreate should record workspaceRoot");
     assert.equal(lastCreate.workspaceRoot, pickedWorkspace, "conversationCreate should use picked workspace as workspaceRoot");
     assert.ok(creates.length > before, "at least one new conversation created after picking workspace");
+    await page.fillTextarea("workspace picker immediate send");
+    await page.clickSend();
+    await page.waitFor(() => (document.body.innerText || "").includes("Workspace picked reply"), 10000);
+    const sends = await page.evaluate(`JSON.parse(JSON.stringify(window.__WORKSPACE_PICKER_SMOKE__.sends))`);
+    const lastSend = sends[sends.length - 1];
+    assert.ok(lastSend && typeof lastSend.workspaceRoot === "string", "personalLocalAgentAcpSend should record workspaceRoot");
+    assert.equal(lastSend.workspaceRoot, pickedWorkspace, "immediate send should use picked workspace as workspaceRoot");
+    assert.equal(lastSend.conversationId, lastCreate.id, "immediate send should use the newly created conversationId");
 
     // Per-conversation lock (D-01/D-02 fix): now that a conversation exists with
-    // a bound workdir, the chip must be disabled (read-only) instead of editable,
-    // and should NOT silently fall back to the global override.
+    // a bound workdir, no editable workspace picker may remain. The current
+    // composition hides the chip after commit; a future locked-chip treatment
+    // is accepted only when it exposes the read-only test id.
     const lockState = await page.waitFor(() => {
       const nodes = Array.from(document.querySelectorAll("button"));
-      const el = nodes.find((n) => (n.textContent || "").includes("picked-project"));
-      if (!el) return null;
-      return { disabled: el.disabled === true || el.getAttribute("disabled") !== null, text: el.textContent.trim() };
+      const editable = nodes.find((n) => (n.textContent || "").includes("picked-project") || (n.getAttribute("aria-label") || "").includes("picked-project"));
+      const locked = document.querySelector('[data-testid="local-agent-workspace-locked"]');
+      if (editable) return { editable: true, readOnly: false, text: editable.textContent.trim() };
+      if (locked) return { editable: false, readOnly: true, text: locked.textContent.trim() };
+      return { editable: false, readOnly: false, text: "workspace picker is not rendered for committed conversation" };
     }, 8000);
-    assert.ok(lockState, "chip for existing conversation should still show picked-project");
-    assert.equal(lockState.disabled, true, "chip should be read-only (disabled) once bound to an existing conversation");
+    assert.equal(lockState.editable, false, "committed conversation must not keep an editable workspace picker");
 
     // Cross-conversation isolation: clearing override + creating a fresh
     // conversation must NOT reuse the previous conversation's workdir unless
@@ -259,11 +386,16 @@ async function main() {
     if (shot?.data) {
       await writeFile(join(evidenceRoot, "workspace-picker-picked.png"), Buffer.from(shot.data, "base64"));
     }
-    await writeFile(join(evidenceRoot, "report.json"), JSON.stringify({ ok: true, pickCalls, creates, chipAfter }, null, 2));
-    console.log("workspace-picker smoke OK", { pickCalls, creates: creates.length, chipAfter });
+    await writeFile(join(evidenceRoot, "report.json"), JSON.stringify({ ok: true, pickCalls, creates, sends, chipAfter }, null, 2));
+    console.log("workspace-picker smoke OK", { pickCalls, creates: creates.length, sends: sends.length, chipAfter });
   } catch (error) {
     await writeFile(join(evidenceRoot, "vite.log"), viteLog.join(""));
     await writeFile(join(evidenceRoot, "chrome.log"), chromeLog.join(""));
+    if (page) {
+      await writeFile(join(evidenceRoot, "failure-dom.txt"), String(await page.evaluate(`document.body ? document.body.innerText : ''`)));
+      await writeFile(join(evidenceRoot, "failure-state.json"), JSON.stringify(await page.evaluate(`window.__WORKSPACE_PICKER_SMOKE__ || null`), null, 2));
+      await writeFile(join(evidenceRoot, "failure-interactives.json"), JSON.stringify(await page.evaluate(`Array.from(document.querySelectorAll('button,textarea,[role="button"]')).map((node) => ({ tag: node.tagName, aria: node.getAttribute('aria-label'), title: node.getAttribute('title'), text: (node.innerText || node.textContent || '').trim(), value: node.value, disabled: Boolean(node.disabled), testId: node.getAttribute('data-testid') }))`), null, 2));
+    }
     console.error(error);
     process.exitCode = 1;
   } finally {

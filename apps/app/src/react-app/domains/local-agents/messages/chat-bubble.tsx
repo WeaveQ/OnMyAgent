@@ -26,6 +26,7 @@ import {
   runTimelineAlreadyShowsFailure,
 } from "./message-utils";
 import { LocalAgentTurnStatus } from "./local-agent-turn-status";
+import { localAgentFinalBodyFromEvents } from "./local-agent-turn-event-timeline";
 import { buildLocalAgentTurnPresentation } from "./local-agent-turn-presentation";
 import { LocalAgentTimelineMessage, visibleRunTimelineMessages } from "./timeline-messages";
 
@@ -132,9 +133,15 @@ export const ChatBubble = memo(function ChatBubble(props: {
         : direct;
       if (run?.pendingApprovals?.length && withoutDerivedStatus === waitingText) return "";
       if (run?.status === "running" && withoutDerivedStatus === runningText) return "";
+      const orderedBody = run?.status === "failed" || run?.status === "missing"
+        ? null
+        : localAgentFinalBodyFromEvents(run?.events);
+      if (orderedBody !== null && (orderedBody || run?.status !== "cancelled")) {
+        return sanitizeAssistantTranscriptText(orderedBody).text.trim();
+      }
       return withoutDerivedStatus || sanitizeAssistantTranscriptText(presentation.finalText).text.trim();
     },
-    [isUser, presentation.finalText, props.message.text, run?.pendingApprovals?.length, run?.status],
+    [isUser, presentation.finalText, props.message.text, run?.events, run?.pendingApprovals?.length, run?.status],
   );
   const turn = useMemo(
     () => buildLocalAgentTurnPresentation(run, timelineMessages, assistantBodyText),
@@ -267,7 +274,10 @@ export const ChatBubble = memo(function ChatBubble(props: {
         ) : null}
 
         {showProcess ? (
-          <div className={cn("flex flex-col gap-2.5", throttledThought ? "mt-2" : "")} data-testid="local-agent-timeline-body">
+          <div
+            className={cn("session-workbuddy-turn-content", throttledThought ? "mt-2" : "")}
+            data-testid="local-agent-timeline-body"
+          >
             {turn.processSteps.map((step) => (
               <div key={step.id} className="min-w-0" data-local-agent-process-kind={step.message.type}>
                 <LocalAgentTimelineMessage

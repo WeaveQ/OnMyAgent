@@ -170,7 +170,10 @@ export type PersonalLocalAgentRunFileChange = {
 };
 
 export type PersonalLocalAgentRunEvent = {
+  /** Stable within one run; used by renderer delta reconciliation. */
+  eventId?: string;
   type:
+    | "user"
     | "log"
     | "status"
     | "assistant_chunk"
@@ -210,7 +213,7 @@ export type PersonalLocalAgentRunEvent = {
   description?: string | null;
 };
 
-/** Push-first runtime notification; payloads contain identity, not transcripts. */
+/** Push-first runtime notification with a bounded event delta when available. */
 export type PersonalLocalAgentRuntimeEvent = {
   type: "run.started" | "run.snapshot" | "run.delta" | "run.finished" | "process.changed" | "catalog.invalidated";
   runId: string | null;
@@ -218,6 +221,13 @@ export type PersonalLocalAgentRuntimeEvent = {
   conversationId: string | null;
   status: "running" | "completed" | "failed" | "cancelled" | string;
   updatedAt: number;
+  /** Monotonic event revision for this run. */
+  revision?: number;
+  /** Revision assigned to the first event in `events`. */
+  revisionStart?: number;
+  /** Bounded raw event delta; absent when an authoritative snapshot is needed. */
+  events?: PersonalLocalAgentRunEvent[];
+  snapshotRequired?: boolean;
 };
 
 export type PersonalLocalAgentToolCall = {
@@ -327,6 +337,8 @@ export type PersonalLocalAgentRunResult = {
   error: string | null;
   errorInfo?: PersonalLocalAgentErrorInfo | null;
   events: PersonalLocalAgentRunEvent[];
+  /** Monotonic revision corresponding to the last event in this snapshot. */
+  eventRevision?: number;
   conversationMessages?: PersonalLocalAgentConversationMessage[];
   logPath: string | null;
   workdir?: string | null;
@@ -447,6 +459,7 @@ export type PersonalLocalAgentAcpConfigOptionInput = {
   workspaceRoot: string;
   optionId: string;
   value: PersonalLocalAgentAcpConfigOptionValue;
+  conversationId?: string | null;
   sessionId?: string | null;
   providerSessionId?: string | null;
   resumeKey?: string | null;
@@ -498,35 +511,7 @@ export type PersonalLocalAgentAcpConfigOptionsResult = {
   unsupportedReason?: string | null;
 };
 
-export type LocalAgentComposerFileEntry = {
-  path: string;
-  relativePath: string;
-  name: string;
-  isDirectory: boolean;
-};
-
-export type LocalAgentComposerListFilesInput = {
-  workspaceRoot: string;
-  query?: string;
-  limit?: number;
-};
-
-export type LocalAgentComposerListFilesResult = {
-  files: LocalAgentComposerFileEntry[];
-};
-
-export type LocalAgentComposerSaveAttachmentInput = {
-  workspaceRoot: string;
-  name: string;
-  dataUrl: string;
-};
-
-export type LocalAgentComposerSaveAttachmentResult = {
-  path: string;
-  relativePath: string;
-  name: string;
-  size: number;
-};
+export * from "./desktop-ipc-local-agent-composer.js";
 
 export type PersonalLocalAgentAcpConfigOptionResult = {
   ok: boolean;

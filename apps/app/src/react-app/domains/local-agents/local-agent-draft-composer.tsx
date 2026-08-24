@@ -12,10 +12,12 @@ import React, {
   type ReactNode,
 } from "react";
 import { Plus, Quote, Square, X } from "lucide-react";
+import { LOCAL_AGENT_COMPOSER_ATTACHMENT_MAX_BYTES } from "@onmyagent/types/desktop-ipc";
 
 import { ContextUsageIndicator } from "./context-usage-indicator";
 
 import { Button } from "@/components/ui/button";
+import { NoticeBox } from "@/components/ui/notice-box";
 import { SendButton } from "@/components/ui/send-button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -35,6 +37,20 @@ import {
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { ArtifactIcon } from "../../capabilities/artifacts/artifact-icon";
+import {
+  canSubmitLocalAgentComposer,
+  fileToDataUrl,
+  findAllMentionSpans,
+  findAtQuery,
+  formatAttachmentBytes,
+  getNativeFilePath,
+  isImageMime,
+  renderMentionMirror,
+  resolveLocalAgentComposerTextPresentation,
+  shouldCommitLocalAgentAttachment,
+  type AtQueryState,
+} from "./local-agent-draft-composer-support";
+import { assembleLocalAgentPrompt } from "./local-agent-prompt-assembly";
 
 export type {
   LocalAgentAttachment,
@@ -42,6 +58,11 @@ export type {
   LocalAgentQuoteChip,
   LocalAgentSlashCommand,
 } from "./local-agent-composer-types";
+export {
+  canSubmitLocalAgentComposer,
+  resolveLocalAgentComposerTextPresentation,
+  shouldCommitLocalAgentAttachment,
+} from "./local-agent-draft-composer-support";
 import type {
   LocalAgentAttachment,
   LocalAgentComposerSubmit,
@@ -50,118 +71,6 @@ import type {
 } from "./local-agent-composer-types";
 
 const LONG_PASTE_THRESHOLD = 800;
-
-import { assembleLocalAgentPrompt } from "./local-agent-prompt-assembly";
-
-function isImageMime(mime: string): boolean {
-  return mime.startsWith("image/");
-}
-
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error ?? new Error("read failed"));
-    reader.onload = () => resolve(String(reader.result ?? ""));
-    reader.readAsDataURL(file);
-  });
-}
-
-function getNativeFilePath(file: File): string | null {
-  type ElectronBridge = { files?: { getPathForFile?: (file: File) => string | null } };
-  const globalScope = globalThis as typeof globalThis & { __ONMYAGENT_ELECTRON__?: ElectronBridge };
-  const bridge = globalScope.__ONMYAGENT_ELECTRON__;
-  const helper = bridge?.files?.getPathForFile;
-  if (typeof helper === "function") {
-    try {
-      return helper(file) ?? null;
-    } catch {
-      return null;
-    }
-  }
-  const legacyPath = (file as File & { path?: string }).path;
-  return typeof legacyPath === "string" && legacyPath ? legacyPath : null;
-}
-
-function bytes(n?: number): string {
-  if (!n) return "";
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-type AtQueryState = {
-  active: boolean;
-  query: string;
-  start: number;
-  end: number;
-};
-
-type MentionSpan = { start: number; end: number };
-function findAllMentionSpans(value: string, mentions: Record<string, string>): MentionSpan[] {
-  const spans: MentionSpan[] = [];
-  const tokens = Object.keys(mentions).sort((a, b) => b.length - a.length);
-  if (!tokens.length) return spans;
-  let cursor = 0;
-  while (cursor < value.length) {
-    let matched = false;
-    for (const token of tokens) {
-      if (value.startsWith(token, cursor)) {
-        const before = cursor === 0 ? " " : value[cursor - 1];
-        if (!before || /\s/.test(before) || cursor === 0) {
-          const end = cursor + token.length;
-          const after = value[end];
-          if (after === undefined || /\s/.test(after) || after === "") {
-            spans.push({ start: cursor, end });
-            cursor = end;
-            matched = true;
-            break;
-          }
-        }
-      }
-    }
-    if (!matched) cursor += 1;
-  }
-  return spans;
-}
-
-function findAtQuery(value: string, caret: number): AtQueryState {
-  if (caret <= 0) return { active: false, query: "", start: -1, end: -1 };
-  let i = caret - 1;
-  while (i >= 0) {
-    const ch = value[i];
-    if (ch === "@") {
-      const before = i === 0 ? " " : value[i - 1];
-      if (before && /\s/.test(before) === false && i !== 0) {
-        return { active: false, query: "", start: -1, end: -1 };
-      }
-      const query = value.slice(i + 1, caret);
-      if (/\s/.test(query)) return { active: false, query: "", start: -1, end: -1 };
-      return { active: true, query, start: i, end: caret };
-    }
-    if (/\s/.test(value[i])) break;
-    i -= 1;
-  }
-  return { active: false, query: "", start: -1, end: -1 };
-}
-
-function renderMirror(value: string, mentions: Record<string, string>): React.ReactNode[] {
-  const spans = findAllMentionSpans(value, mentions);
-  if (!spans.length) return [value + "\u200b"];
-  const nodes: React.ReactNode[] = [];
-  let cursor = 0;
-  spans.forEach((span, i) => {
-    if (cursor < span.start) nodes.push(value.slice(cursor, span.start));
-    nodes.push(
-      <span key={`m-${i}`} style={{ color: "var(--dls-accent, #2563eb)" }}>
-        {value.slice(span.start, span.end)}
-      </span>,
-    );
-    cursor = span.end;
-  });
-  if (cursor < value.length) nodes.push(value.slice(cursor));
-  nodes.push("\u200b");
-  return nodes;
-}
 
 export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(props: {
   draftKey: string;
@@ -195,11 +104,16 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
   const [mentionFiles, setMentionFiles] = useState<LocalAgentComposerFileEntry[]>([]);
   const [mentionIndex, setMentionIndex] = useState(0);
   const [uploading, setUploading] = useState(0);
+  const [uploadFailure, setUploadFailure] = useState<{ file: File; name: string } | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const toolMenuRef = useRef<HTMLDivElement | null>(null);
   const composingRef = useRef(false);
   const dragCounterRef = useRef(0);
+  const uploadingRef = useRef(0);
+  const uploadCountsByDraftRef = useRef(new Map<string, number>());
+  const draftKeyRef = useRef(props.draftKey);
+  draftKeyRef.current = props.draftKey;
   const fileInputId = `local-agent-file-input-${props.draftKey}`;
 
   const slashQuery = value.startsWith("/") && !/\s/.test(value) ? value.toLowerCase() : "";
@@ -218,6 +132,10 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
     setAttachments([]);
     setQuotes([]);
     setMentions({});
+    setUploadFailure(null);
+    const count = uploadCountsByDraftRef.current.get(props.draftKey) ?? 0;
+    uploadingRef.current = count;
+    setUploading(count);
   }, [props.draftKey]);
   useEffect(() => {
     const timer = window.setTimeout(() => props.onDraftCommit(props.draftKey, value), 350);
@@ -251,7 +169,18 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
 
   const submit = useCallback(() => {
     const text = value;
-    if (!text.trim() && attachments.length === 0 && quotes.length === 0) return;
+    if (
+      !canSubmitLocalAgentComposer({
+        text,
+        attachmentCount: attachments.length,
+        quoteCount: quotes.length,
+        uploading: uploadingRef.current,
+        disabled: props.disabled,
+        submitting: props.submitting,
+      })
+    ) {
+      return;
+    }
     props.onDraftCommit(props.draftKey, "");
     const assembled = assembleLocalAgentPrompt({ text, attachments, mentions, quotes });
     props.onSubmit({
@@ -267,6 +196,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
     setMentions({});
     setAtState({ active: false, query: "", start: -1, end: -1 });
     setSlashOpen(false);
+    setUploadFailure(null);
   }, [attachments, mentions, props, quotes, value]);
 
   const selectSlashCommand = useCallback(
@@ -334,7 +264,12 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
   const addAttachmentFromFile = useCallback(
     async (file: File) => {
       if (!props.workspaceRoot) return;
-      setUploading((n) => n + 1);
+      const uploadDraftKey = props.draftKey;
+      const draftUploadCount = (uploadCountsByDraftRef.current.get(uploadDraftKey) ?? 0) + 1;
+      uploadCountsByDraftRef.current.set(uploadDraftKey, draftUploadCount);
+      uploadingRef.current = draftUploadCount;
+      setUploading(draftUploadCount);
+      setUploadFailure(null);
       try {
         const nativePath = getNativeFilePath(file);
         const kind: LocalAgentAttachment["kind"] = isImageMime(file.type) ? "image" : "file";
@@ -345,38 +280,54 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
         if (nativePath) {
           absolutePath = nativePath;
           displayPath = nativePath;
-          if (kind === "image") previewUrl = await fileToDataUrl(file).catch(() => undefined);
+          if (kind === "image" && file.size <= LOCAL_AGENT_COMPOSER_ATTACHMENT_MAX_BYTES) {
+            previewUrl = await fileToDataUrl(file).catch(() => undefined);
+          }
         } else {
+          if (file.size > LOCAL_AGENT_COMPOSER_ATTACHMENT_MAX_BYTES) {
+            throw new Error("attachment exceeds local payload limit");
+          }
           const dataUrl = await fileToDataUrl(file);
           const saved = await localAgentComposerSaveAttachment({
             workspaceRoot: props.workspaceRoot,
             name: file.name,
             dataUrl,
+            size: file.size,
           });
           absolutePath = saved.path;
           displayPath = saved.path;
           size = saved.size;
           if (kind === "image") previewUrl = dataUrl;
         }
-        setAttachments((current) => [
-          ...current,
-          {
-            id: `att-${Date.now().toString(36)}-${current.length}`,
-            name: file.name,
-            absolutePath,
-            relativePath: displayPath,
-            size,
-            kind,
-            previewUrl,
-          },
-        ]);
-      } catch (error) {
-        console.warn("[local-agent composer] attach failed", error);
+        if (shouldCommitLocalAgentAttachment(draftKeyRef.current, uploadDraftKey)) {
+          setAttachments((current) => [
+            ...current,
+            {
+              id: `att-${Date.now().toString(36)}-${current.length}`,
+              name: file.name,
+              absolutePath,
+              relativePath: displayPath,
+              size,
+              kind,
+              previewUrl,
+            },
+          ]);
+        }
+      } catch {
+        if (shouldCommitLocalAgentAttachment(draftKeyRef.current, uploadDraftKey)) {
+          setUploadFailure({ file, name: file.name });
+        }
       } finally {
-        setUploading((n) => Math.max(0, n - 1));
+        const remaining = Math.max(0, (uploadCountsByDraftRef.current.get(uploadDraftKey) ?? 1) - 1);
+        if (remaining === 0) uploadCountsByDraftRef.current.delete(uploadDraftKey);
+        else uploadCountsByDraftRef.current.set(uploadDraftKey, remaining);
+        if (draftKeyRef.current === uploadDraftKey) {
+          uploadingRef.current = remaining;
+          setUploading(remaining);
+        }
       }
     },
-    [props.workspaceRoot],
+    [props.draftKey, props.workspaceRoot],
   );
 
   const handleFiles = useCallback(
@@ -392,12 +343,10 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
     async (event: ReactClipboardEvent<HTMLTextAreaElement>) => {
       const items = Array.from(event.clipboardData?.items ?? []);
       const files: File[] = [];
-      let hadImage = false;
       for (const item of items) {
         if (item.kind === "file") {
           const file = item.getAsFile();
           if (file) {
-            if (isImageMime(file.type)) hadImage = true;
             files.push(file);
           }
         }
@@ -417,7 +366,6 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
         };
         setQuotes((current) => [...current, chip]);
       }
-      void hadImage;
     },
     [handleFiles],
   );
@@ -454,6 +402,12 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
   const removeQuote = useCallback((id: string) => {
     setQuotes((current) => current.filter((q) => q.id !== id));
   }, []);
+
+  const retryUpload = useCallback(() => {
+    const failure = uploadFailure;
+    if (!failure) return;
+    void addAttachmentFromFile(failure.file);
+  }, [addAttachmentFromFile, uploadFailure]);
 
   const handleKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
@@ -532,12 +486,18 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
   }, []);
 
   const mentionSpans = useMemo(() => findAllMentionSpans(value, mentions), [value, mentions]);
-  const canSend =
-    (Boolean(value.trim()) || attachments.length > 0 || quotes.length > 0) &&
-    !props.disabled &&
-    !props.submitting;
+  const textPresentation = resolveLocalAgentComposerTextPresentation(mentionSpans.length > 0);
+  const canSend = canSubmitLocalAgentComposer({
+    text: value,
+    attachmentCount: attachments.length,
+    quoteCount: quotes.length,
+    uploading,
+    disabled: props.disabled,
+    submitting: props.submitting,
+  });
 
-  const hasAttachments = attachments.length > 0 || quotes.length > 0 || uploading > 0;
+  const hasAttachments =
+    attachments.length > 0 || quotes.length > 0 || uploading > 0 || uploadFailure !== null;
   const showStop = Boolean(props.submitting && props.onStop);
   const layout = resolveLocalAgentComposerLayout({
     hasAttachments,
@@ -600,14 +560,14 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
                   <div className="truncate text-xs font-medium text-dls-text">{att.name}</div>
                   <div className="truncate text-2xs text-dls-secondary">
                     {att.relativePath}
-                    {att.size ? ` · ${bytes(att.size)}` : ""}
+                    {att.size ? ` · ${formatAttachmentBytes(att.size)}` : ""}
                   </div>
                 </div>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  className="ml-0.5 size-5 shrink-0 rounded-md text-dls-secondary opacity-70 hover:bg-dls-hover hover:text-dls-text hover:opacity-100 group-hover/att:opacity-100"
+                  className="ml-0.5 shrink-0 text-dls-secondary opacity-70 hover:bg-dls-hover hover:text-dls-text hover:opacity-100 group-hover/att:opacity-100"
                   onClick={() => removeAttachment(att.id)}
                   aria-label={t("action.remove")}
                 >
@@ -636,7 +596,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  className="ml-0.5 size-5 shrink-0 rounded-md text-dls-secondary opacity-70 hover:bg-dls-hover hover:text-dls-text hover:opacity-100 group-hover/att:opacity-100"
+                  className="ml-0.5 shrink-0 text-dls-secondary opacity-70 hover:bg-dls-hover hover:text-dls-text hover:opacity-100 group-hover/att:opacity-100"
                   onClick={() => removeQuote(q.id)}
                   aria-label={t("action.remove")}
                 >
@@ -649,6 +609,26 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
                 {t("local_agent.composer_uploading", { count: uploading })}
               </div>
             ) : null}
+            {uploadFailure ? (
+              <NoticeBox
+                tone="error"
+                className="flex min-w-0 items-center gap-2"
+                role="alert"
+                data-testid="local-agent-upload-error"
+              >
+                <span className="min-w-0 truncate">{uploadFailure.name}</span>
+                <span className="shrink-0">{t("files.upload_failed")}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  className="ml-auto shrink-0 text-dls-status-danger-fg hover:bg-dls-hover"
+                  onClick={retryUpload}
+                >
+                  {t("system.error_action_retry")}
+                </Button>
+              </NoticeBox>
+            ) : null}
           </div>
         ) : null}
         <div className={layout.editorPadClass}>
@@ -657,18 +637,18 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
               aria-hidden
               data-local-agent-mirror="true"
               className="pointer-events-none absolute inset-0 whitespace-pre-wrap break-words text-composer"
-              style={{ color: "transparent" }}
+              style={{ color: textPresentation.mirrorColor }}
             >
-              {renderMirror(value, mentions)}
+              {renderMentionMirror(value, mentions)}
             </div>
             <Textarea
               ref={textareaRef}
               rows={2}
               className="relative min-h-[52px] resize-none border-0 bg-transparent p-0 text-composer text-dls-text shadow-none placeholder:text-dls-secondary/70 focus-visible:border-transparent focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-transparent sm:text-composer md:text-composer"
               style={{
-                color: mentionSpans.length ? "transparent" : undefined,
+                color: textPresentation.textareaColor,
                 caretColor: "var(--dls-text, currentColor)",
-                WebkitTextFillColor: mentionSpans.length ? "transparent" : undefined,
+                WebkitTextFillColor: textPresentation.textareaTextFillColor,
               }}
               aria-label={t("local_agent.input_aria")}
               data-local-agent-composer="true"
@@ -732,7 +712,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
                   <Plus
                     size={16}
                     className={cn(
-                      "transition-transform duration-200 ease-out",
+                      "transition-transform duration-200 ease-out motion-reduce:rotate-0 motion-reduce:transition-none",
                       toolMenuOpen ? "rotate-45" : "rotate-0",
                     )}
                   />

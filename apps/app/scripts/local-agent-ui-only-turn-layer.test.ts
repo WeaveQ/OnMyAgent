@@ -5,7 +5,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { setLocale } from "../src/i18n";
 import type { PersonalLocalAgentRunResult } from "../src/app/lib/desktop";
 import { ChatBubble } from "../src/react-app/domains/local-agents/messages/chat-bubble";
-import { visibleRunTimelineMessages } from "../src/react-app/domains/local-agents/messages/timeline-messages";
+import { localAgentFinalBodyFromEvents } from "../src/react-app/domains/local-agents/messages/local-agent-turn-event-timeline";
+import {
+  LocalAgentTimelineMessage,
+  visibleRunTimelineMessages,
+} from "../src/react-app/domains/local-agents/messages/timeline-messages";
 import { buildLocalAgentTurnPresentation } from "../src/react-app/domains/local-agents/messages/local-agent-turn-presentation";
 
 function run(overrides: Partial<PersonalLocalAgentRunResult> = {}): PersonalLocalAgentRunResult {
@@ -106,14 +110,15 @@ describe("Local Agent turn layer UI-only", () => {
     const statusIndex = html.indexOf('data-testid="local-agent-turn-status"');
     const bodyIndex = html.indexOf("Final answer after the tool");
     expect(statusIndex).toBeGreaterThanOrEqual(0);
-    expect(html).toContain("Completed 12s");
+    expect(html).toContain("Thought for 12s");
+    expect(html).not.toContain("Completed 12s");
     expect(html).toContain('aria-expanded="false"');
     expect(html).not.toContain('data-testid="local-agent-timeline-body"');
     expect(html).not.toContain('data-testid="local-agent-process-fold"');
     expect(bodyIndex).toBeGreaterThan(statusIndex);
   });
 
-  test("does not hide intermediate assistant text inside the process fold", () => {
+  test("keeps intermediate assistant text inside the chronological process fold", () => {
     const snapshot = run({
       conversationMessages: [
         { id: "mid-1", type: "text", role: "assistant", text: "先说一句进度", createdAt: 2 },
@@ -133,9 +138,83 @@ describe("Local Agent turn layer UI-only", () => {
       visibleRunTimelineMessages(snapshot),
       "最终答案",
     );
-    expect(turn.processSteps.map((step) => step.message.id)).toEqual(["tool-1"]);
-    expect(turn.alwaysVisibleSteps.map((step) => step.message.id)).toEqual(["mid-1"]);
-    expect(turn.processSteps.some((step) => step.message.text === "先说一句进度")).toBe(false);
+    expect(turn.processSteps.map((step) => step.message.id)).toEqual(["mid-1", "tool-1"]);
+    expect(turn.alwaysVisibleSteps).toEqual([]);
+    expect(turn.processSteps.some((step) => step.message.text === "先说一句进度")).toBe(true);
+  });
+
+  test("rebuilds thinking, tools, and narration in raw event order", () => {
+    const snapshot = run({
+      output: "先定位中间检查最终答案",
+      events: [
+        { eventId: "thought-hint", type: "thought", text: "先定位", subject: "先定位", at: 2 },
+        { eventId: "think-1", type: "thinking", text: "先定位", status: "thinking", msgId: "reason-1", at: 3 },
+        { eventId: "think-done", type: "thinking", text: "", status: "done", msgId: "reason-1", durationMs: 1_000, at: 4 },
+        { eventId: "tool-1-start", type: "acp_tool_call", text: "search", at: 5, update: { toolCallId: "tool-1", title: "Search", kind: "read", status: "in_progress", input: { query: "turn UI" } } },
+        { eventId: "tool-1-done", type: "acp_tool_call", text: "search", at: 6, update: { toolCallId: "tool-1", status: "completed", output: "found" } },
+        { eventId: "mid-1", type: "assistant_chunk", text: "中间检查", at: 7 },
+        { eventId: "tool-2-start", type: "acp_tool_call", text: "read", at: 8, update: { toolCallId: "tool-2", title: "Read", kind: "read", status: "in_progress", input: { path: "README.md" } } },
+        { eventId: "tool-2-done", type: "acp_tool_call", text: "read", at: 9, update: { toolCallId: "tool-2", status: "completed", output: "ok" } },
+        { eventId: "final-1", type: "assistant_chunk", text: "最终", at: 10 },
+        { eventId: "final-2", type: "assistant_chunk", text: "答案", at: 11 },
+        { eventId: "finish-1", type: "assistant", text: "先定位中间检查最终答案", at: 12 },
+      ],
+      conversationMessages: [
+        { id: "compacted-text", type: "text", role: "assistant", text: "中间检查最终答案", createdAt: 7, sourceEventType: "assistant_chunk" },
+        { id: "compacted-finish", type: "finish", role: "assistant", text: "先定位中间检查最终答案", createdAt: 12 },
+      ],
+    });
+    const finalBody = localAgentFinalBodyFromEvents(snapshot.events);
+    expect(finalBody).toBe("最终答案");
+    const turn = buildLocalAgentTurnPresentation(
+      snapshot,
+      visibleRunTimelineMessages(snapshot),
+      finalBody ?? "",
+    );
+    expect(turn.processSteps.map((step) => step.message.type)).toEqual([
+      "thinking",
+      "acp_tool_call",
+      "text",
+      "acp_tool_call",
+    ]);
+    expect(turn.processSteps.map((step) => step.message.text)).toEqual([
+      "先定位",
+      "search",
+      "中间检查",
+      "read",
+    ]);
+    expect(turn.processSteps[1]?.message.update).toMatchObject({
+      toolCallId: "tool-1",
+      title: "Search",
+      status: "completed",
+      output: "found",
+    });
+    expect(turn.alwaysVisibleSteps).toEqual([]);
+  });
+
+  test("does not repeat streamed final chunks above the authoritative final body", () => {
+    const snapshot = run({
+      output: "Final answer with artifact details",
+      conversationMessages: [
+        { id: "chunk-1", type: "text", role: "assistant", text: "Final answer ", createdAt: 2, sourceEventType: "assistant_chunk" },
+        { id: "chunk-2", type: "text", role: "assistant", text: "with artifact", createdAt: 3, sourceEventType: "assistant_chunk" },
+        { id: "finish-1", type: "finish", role: "assistant", text: "Final answer with artifact details", createdAt: 4 },
+      ],
+    });
+    const turn = buildLocalAgentTurnPresentation(
+      snapshot,
+      visibleRunTimelineMessages(snapshot),
+      "Final answer with artifact details",
+    );
+    expect(turn.alwaysVisibleSteps).toEqual([]);
+    expect(turn.processSteps).toEqual([]);
+  });
+
+  test("uses an authoritative terminal suffix for a tool-free streamed reply", () => {
+    expect(localAgentFinalBodyFromEvents([
+      { eventId: "chunk-1", type: "assistant_chunk", text: "streamed", at: 1 },
+      { eventId: "finish-1", type: "assistant", text: "streamed complete", at: 2 },
+    ])).toBe("streamed complete");
   });
 
   test("hides internal ACP status and available-commands messages from the transcript", () => {
@@ -195,10 +274,32 @@ describe("Local Agent turn layer UI-only", () => {
     }));
     expect(html).not.toContain('data-testid="local-agent-turn-status"');
     expect(html).toContain('data-testid="local-agent-timeline-body"');
-    const thinkingIndex = html.indexOf("先定位");
+    const thinkingIndex = html.indexOf('data-testid="conversation-thinking-header"');
     const toolIndex = html.indexOf("Read README.md");
     expect(thinkingIndex).toBeGreaterThanOrEqual(0);
     expect(toolIndex).toBeGreaterThan(thinkingIndex);
+    expect(html).not.toContain("先定位");
+    expect(html).toContain("Deep thinking");
+    expect(html).toContain('data-testid="local-agent-reference-tool-row"');
+  });
+
+  test("renders intermediate narration as a plain transcript body", () => {
+    setLocale("en");
+    const html = renderToStaticMarkup(createElement(LocalAgentTimelineMessage, {
+      message: {
+        id: "mid-1",
+        type: "text",
+        role: "assistant",
+        text: "Checking the workspace",
+        createdAt: 2,
+      },
+      streaming: true,
+      runStatus: "running",
+    }));
+    expect(html).toContain('data-testid="local-agent-process-narration"');
+    expect(html).toContain("session-workbuddy-turn-body");
+    expect(html).toContain("Checking the workspace");
+    expect(html).not.toContain('data-testid="conversation-assistant-message"');
   });
 
   test("keeps a pending approval visible while the completed process is collapsed", () => {

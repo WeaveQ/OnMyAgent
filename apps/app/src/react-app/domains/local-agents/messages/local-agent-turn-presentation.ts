@@ -4,6 +4,7 @@ import type {
   PersonalLocalAgentRunResult,
 } from "../../../../app/lib/desktop";
 import { sanitizeAssistantTranscriptText } from "../../../capabilities/conversation/assistant-text-sanitize";
+import { localAgentTurnMessagesFromEvents } from "./local-agent-turn-event-timeline";
 
 const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled", "missing"]);
 const PROCESS_TYPES = new Set([
@@ -55,6 +56,10 @@ function textOf(message: PersonalLocalAgentConversationMessage) {
   return (message.text ?? "").trim();
 }
 
+function isAssistantChunkMessage(message: PersonalLocalAgentConversationMessage) {
+  return message.sourceEventType === "assistant_chunk" || message.sourceEventType === "chunk";
+}
+
 function isPendingApproval(
   message: PersonalLocalAgentConversationMessage,
   pendingIds: Set<string>,
@@ -86,8 +91,45 @@ function sourceMessages(
   run: PersonalLocalAgentRunResult,
   timelineMessages: PersonalLocalAgentConversationMessage[],
 ) {
+  const eventMessages = localAgentTurnMessagesFromEvents(run.events);
+  if (eventMessages.some((message) => message.type !== "finish")) return eventMessages;
   if (run.conversationMessages?.length) return run.conversationMessages;
-  return timelineMessages;
+  return eventMessages.length ? eventMessages : timelineMessages;
+}
+
+function trailingFinalNarrationIndexes(
+  messages: PersonalLocalAgentConversationMessage[],
+  finalText: string,
+) {
+  const indexes: number[] = [];
+  let cursor = messages.length - 1;
+  while (cursor >= 0) {
+    const message = messages[cursor];
+    if (!message) break;
+    if (
+      message.type === "finish"
+      || HIDDEN_CONVERSATION_TYPES.has(message.type)
+      || ALWAYS_VISIBLE_TYPES.has(message.type)
+    ) {
+      cursor -= 1;
+      continue;
+    }
+    if (
+      message.role === "assistant"
+      && ASSISTANT_NARRATION_TYPES.has(message.type)
+      && isAssistantChunkMessage(message)
+      && textOf(message)
+    ) {
+      indexes.unshift(cursor);
+      cursor -= 1;
+      continue;
+    }
+    break;
+  }
+  const streamedTail = indexes.map((index) => messages[index]?.text ?? "").join("").trim();
+  return streamedTail && (finalText.startsWith(streamedTail) || finalText.endsWith(streamedTail))
+    ? new Set(indexes)
+    : new Set<number>();
 }
 
 function canMergeThinking(
@@ -138,8 +180,10 @@ export function buildLocalAgentTurnPresentation(
   const alwaysVisibleSteps: LocalAgentTurnProcessStep[] = [];
   const allocateProcessStepId = createStableStepIdAllocator();
   const allocateVisibleStepId = createStableStepIdAllocator();
+  const sources = sourceMessages(run, timelineMessages);
+  const finalNarrationIndexes = trailingFinalNarrationIndexes(sources, body);
   let index = 0;
-  for (const raw of sourceMessages(run, timelineMessages)) {
+  for (const [sourceIndex, raw] of sources.entries()) {
     const sanitized = raw.role === "assistant" || raw.type === "text" || raw.type === "finish"
       ? sanitizeAssistantTranscriptText(raw.text)
       : { text: raw.text, wasSkillCatalogDump: false };
@@ -147,6 +191,7 @@ export function buildLocalAgentTurnPresentation(
     const message = sanitized.text === raw.text ? raw : { ...raw, text: sanitized.text };
     if (message.role === "user") continue;
     if (HIDDEN_CONVERSATION_TYPES.has(message.type)) continue;
+    if (finalNarrationIndexes.has(sourceIndex)) continue;
     if (ALWAYS_VISIBLE_TYPES.has(message.type) || isPendingApproval(message, pendingIds)) {
       alwaysVisibleSteps.push({
         id: allocateVisibleStepId(message.id, `visible:${index}`),
@@ -161,8 +206,8 @@ export function buildLocalAgentTurnPresentation(
       && ASSISTANT_NARRATION_TYPES.has(message.type)
       && textOf(message)
     ) {
-      alwaysVisibleSteps.push({
-        id: allocateVisibleStepId(message.id, `visible:${index}`),
+      processSteps.push({
+        id: allocateProcessStepId(message.id, `process:${index}`),
         message,
       });
       index += 1;

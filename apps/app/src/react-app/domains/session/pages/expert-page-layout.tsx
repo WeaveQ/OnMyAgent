@@ -149,6 +149,7 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
     artifactFocusToken,
     artifactTarget,
     browserPanelRef,
+    browserSessionScopeId,
     canvasSessionKey,
     closeRightPane,
     codeWorkspaceCatalogRoot,
@@ -161,6 +162,8 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
     sidePanelOpen,
     snapToBrowserWidth,
   } = sidePanel;
+  const sidePanelVisible =
+    sidePanelOpen && (isPrimarySessionView || activeSidebarView === "localAgent");
   const {
     agentCreateRequestKey,
     canSaveRename,
@@ -266,14 +269,14 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
           <ResizablePanelGroup
             orientation="horizontal"
             onLayoutChanged={
-              sidePanelOpen && isPrimarySessionView ? commitBrowserPanelWidth : undefined
+              sidePanelVisible ? commitBrowserPanelWidth : undefined
             }
             className="min-h-0 flex-1"
           >
             <ResizablePanel minSize="360px" className="min-w-0">
               <SessionPageMainColumn
                 activeSidebarView={activeSidebarView}
-                sidePanelBorderOpen={sidePanelOpen && isPrimarySessionView}
+                sidePanelBorderOpen={sidePanelVisible}
               >
                 <SessionRailKeepAliveStack
                   activeSidebarView={activeSidebarView}
@@ -312,14 +315,20 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
                     company: <CompanyRailPane onChatWithSkill={handleChatWithSkill} />,
                     localAgent: (
                       <PersonalLocalAgentPage
-                        resumeRequest={pendingArchiveResume}
-                        onResumeConsumed={() => setPendingArchiveResume(null)}
                         workspaceRoot={props.selectedWorkspaceRoot}
                         workspaceName={props.selectedWorkspaceDisplay.name}
-                        onmyagentServerClient={props.onmyagentServerClient}
-                        runtimeWorkspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
-                        onOpenArtifact={openTarget}
-                        onOpenTargetsChange={handleOpenTargetsChange}
+                        hostCapabilities={{
+                          artifacts: {
+                            open: openTarget,
+                            onTargetsChange: handleOpenTargetsChange,
+                          },
+                          archiveResume: {
+                            request: pendingArchiveResume,
+                            onConsumed: () => setPendingArchiveResume(null),
+                            serverClient: props.onmyagentServerClient,
+                            runtimeWorkspaceId: props.runtimeWorkspaceId ?? props.selectedWorkspaceId ?? null,
+                          },
+                        }}
                       />
                     ),
                     agentManagement: (
@@ -530,6 +539,8 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
               onmyagentServerClient={props.onmyagentServerClient}
               sidePanelOpen={sidePanelOpen}
               isPrimarySessionView={isPrimarySessionView}
+              isLocalAgentView={activeSidebarView === "localAgent"}
+              browserSessionScopeId={browserSessionScopeId}
               browserPanelRef={browserPanelRef}
               activeSidePanel={activeSidePanel}
               canvasSessionKey={canvasSessionKey}

@@ -57,6 +57,15 @@ test("mergeConversationEvents keeps new log events after the checkpoint", () => 
   ]);
 });
 
+test("mergeConversationEvents keeps identical cross-turn text with distinct event ids", () => {
+  const merged = mergeConversationEvents(
+    [{ eventId: "run-1:1", type: "user", text: "repeat", at: 1 }],
+    [{ eventId: "run-2:1", type: "user", text: "repeat", at: 1 }],
+  );
+  assert.equal(merged.length, 2);
+  assert.deepEqual(merged.map((event) => event.eventId), ["run-1:1", "run-2:1"]);
+});
+
 test("appendConversationEvents after checkpoint still hydrates new lines", async () => serial(async () => {
   const workspaceRoot = await tempWorkspace();
   await writeConversationEvents(
@@ -76,4 +85,31 @@ test("appendConversationEvents after checkpoint still hydrates new lines", async
   );
   const loaded = await readConversationEvents(workspaceRoot, "codex", "codex", "conv-2");
   assert.deepEqual(loaded.events.map((event) => event.type), ["user", "status"]);
+}));
+
+test("readConversationEvents preserves archive-only checkpoint messages beside event-derived turns", async () => serial(async () => {
+  const workspaceRoot = await tempWorkspace();
+  await writeConversationEvents(
+    workspaceRoot,
+    "codex",
+    "codex",
+    "conv-archive",
+    [],
+    [
+      { id: "archive-user", type: "text", role: "user", text: "archived-user", createdAt: 1 },
+      { id: "archive-assistant", type: "text", role: "assistant", text: "archived-assistant", createdAt: 2 },
+    ],
+  );
+  await appendConversationEvents(
+    workspaceRoot,
+    "codex",
+    "codex",
+    "conv-archive",
+    [{ eventId: "run-1:1", type: "user", text: "new-user", at: 3 }],
+  );
+  const loaded = await readConversationEvents(workspaceRoot, "codex", "codex", "conv-archive");
+  assert.deepEqual(
+    loaded.messages.map((message) => message.text),
+    ["archived-user", "archived-assistant", "new-user"],
+  );
 }));

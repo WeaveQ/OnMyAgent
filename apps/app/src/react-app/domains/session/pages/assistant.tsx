@@ -1114,8 +1114,8 @@ export function AssistantPage(props: AssistantPageProps) {
     }
   }, [props.onStaticHomeReady, props.selectedSessionId]);
   // Workspace side panel only belongs on chat surfaces (not 市场/管理/本地/文件…).
-  const sidePanelVisibleOnSession =
-    sidePanelVisible && (isPrimarySessionView || showAutomationEmbeddedSession);
+  const sidePanelVisibleOnSession = sidePanelVisible &&
+    (isPrimarySessionView || showAutomationEmbeddedSession || activeSidebarView === "localAgent");
 
   useEffect(() => {
     const intent = agentManagementIntent;
@@ -1393,21 +1393,21 @@ export function AssistantPage(props: AssistantPageProps) {
                     company: <CompanyRailPane onChatWithSkill={handleChatWithSkill} />,
                     localAgent: (
                       <PersonalLocalAgentPage
-                        resumeRequest={pendingArchiveResume}
-                        onResumeConsumed={() => setPendingArchiveResume(null)}
                         workspaceRoot={props.selectedWorkspaceRoot}
                         workspaceName={props.selectedWorkspaceDisplay.name}
-                        onmyagentServerClient={props.onmyagentServerClient}
-                        runtimeWorkspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
-                        onOpenArtifact={openTarget}
-                        onOpenTargetsChange={handleOpenTargetsChange}
-                        onOpenAgentManagement={(panel) => {
-                          setAgentManagementPageIntent({
-                            key: `open-panel-${Date.now()}`,
-                            action: "openPanel",
-                            panel: panel ?? "skills",
-                          });
-                          openRailView("agentManagement");
+                        hostCapabilities={{
+                          artifacts: { open: openTarget, onTargetsChange: handleOpenTargetsChange },
+                          archiveResume: {
+                            request: pendingArchiveResume,
+                            onConsumed: () => setPendingArchiveResume(null),
+                            serverClient: props.onmyagentServerClient,
+                            runtimeWorkspaceId: props.runtimeWorkspaceId ?? props.selectedWorkspaceId ?? null,
+                          },
+                          agentManagement: {
+                            open: (panel) => {
+                              setAgentManagementPageIntent({ key: `open-panel-${Date.now()}`, action: "openPanel", panel: panel ?? "skills" });
+                              openRailView("agentManagement");
+                            } },
                         }}
                       />
                     ),

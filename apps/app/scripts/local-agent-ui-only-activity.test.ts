@@ -91,7 +91,7 @@ describe("Local Agent UI-only activity presentation", () => {
     expect(cancelledHtml).toContain('data-testid="local-agent-activity-row"');
   });
 
-  test("keeps the final answer after the completed-time status row", () => {
+  test("keeps the final answer after the collapsed thought-duration row", () => {
     setLocale("en");
     const html = renderToStaticMarkup(createElement(ChatBubble, {
       message: assistant(run({
@@ -123,6 +123,8 @@ describe("Local Agent UI-only activity presentation", () => {
     const statusIndex = html.indexOf('data-testid="local-agent-turn-status"');
     const finalIndex = html.indexOf("Final answer after the tool");
     expect(statusIndex).toBeGreaterThanOrEqual(0);
+    expect(html).toContain("Thought for 12s");
+    expect(html).not.toContain("Completed 12s");
     expect(finalIndex).toBeGreaterThan(statusIndex);
     expect(html).not.toContain('data-testid="local-agent-timeline-body"');
   });

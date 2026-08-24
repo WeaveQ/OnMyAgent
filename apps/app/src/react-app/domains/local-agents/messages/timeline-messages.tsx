@@ -1,9 +1,19 @@
 /** @jsxImportSource react */
 import { useState } from "react";
+import {
+  Box,
+  ChevronDown,
+  Eye,
+  Folder,
+  Pencil,
+  Search,
+  Terminal,
+} from "lucide-react";
 
-import { StatusBadge } from "@/components/ui/status-badge";
+import { DisclosureRowButton } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import { t } from "@/i18n";
+import { cn } from "@/lib/utils";
 import type {
   PersonalLocalAgentApprovalDecision,
   PersonalLocalAgentApprovalRequest,
@@ -19,10 +29,12 @@ import {
   type PersonalAdapterMessage,
 } from "../../../capabilities/conversation";
 import { sanitizeAssistantTranscriptText } from "../../../capabilities/conversation/assistant-text-sanitize";
+import { MarkdownBlock } from "../../../capabilities/artifacts/markdown";
 import { MessageTips } from "./message-tips";
 import { extractDiff, toKeyedLines, diffLineClass, copyText } from "../../../capabilities/artifacts/diff-utils";
 
 import { LocalAgentPlanFold } from "./local-agent-plan-fold";
+import { LocalAgentThinkingFold } from "./local-agent-thinking-fold";
 
 export function lastEventTime(run: PersonalLocalAgentRunResult | null | undefined) {
   const event = run?.events?.[run.events.length - 1];
@@ -208,6 +220,20 @@ function parseToolInput(input?: unknown): Record<string, unknown> | null {
   return null;
 }
 
+function parseMcpToolInput(input?: unknown): { tool: string; arguments: Record<string, unknown> | null } | null {
+  const raw = parseToolInput(input);
+  if (!raw || typeof raw.server !== "string" || typeof raw.tool !== "string") return null;
+  const tool = raw.tool.trim();
+  if (!raw.server.trim() || !tool) return null;
+  const args = raw.arguments;
+  return {
+    tool,
+    arguments: args && typeof args === "object" && !Array.isArray(args)
+      ? args as Record<string, unknown>
+      : null,
+  };
+}
+
 // Extract a short human-readable summary from the tool input, keyed by kind.
 // Mirrors Upstream's buildParamSummary so the description is always meaningful.
 function extractParamSummary(kind: string | null | undefined, input?: unknown): string | null {
@@ -316,6 +342,7 @@ function shortToolId(id?: string | null) {
 }
 
 type LocalAgentToolDisplay = {
+  kind: string;
   title: string;
   description: string;
   status: LocalAgentToolStatus;
@@ -329,9 +356,10 @@ type LocalAgentToolDisplay = {
 function localAgentToolDisplay(message: PersonalLocalAgentConversationMessage, runStatus?: string): LocalAgentToolDisplay | null {
   const tool = message.toolCall;
   const acpUpdate = message.update;
-  const rawName = firstNonEmptyToolString(tool?.name, acpUpdate?.title);
-  const rawKind = firstNonEmptyToolString(tool?.kind, acpUpdate?.kind);
   const rawInput = firstMeaningfulToolValue(tool?.input, acpUpdate?.input, acpUpdate?.rawInput, acpUpdate?.raw_input);
+  const mcpInput = parseMcpToolInput(rawInput);
+  const rawName = mcpInput?.tool ?? firstNonEmptyToolString(tool?.name, acpUpdate?.title);
+  const rawKind = mcpInput ? "mcp" : firstNonEmptyToolString(tool?.kind, acpUpdate?.kind);
   const rawOutput = firstMeaningfulToolValue(tool?.output, acpUpdate?.output, acpUpdate?.rawOutput, acpUpdate?.raw_output);
   const meaningfulInput = hasMeaningfulToolValue(rawInput);
   const meaningfulOutput = hasMeaningfulToolValue(rawOutput);
@@ -340,7 +368,7 @@ function localAgentToolDisplay(message: PersonalLocalAgentConversationMessage, r
   const toolCallId = tool?.id ?? acpUpdate?.toolCallId ?? acpUpdate?.tool_call_id ?? "";
   const status = resolveLocalAgentToolStatus(message, runStatus);
   const meaningfulFailure = status === "failed" && Boolean(toolCallId);
-  const paramSummary = extractParamSummary(rawKind, rawInput);
+  const paramSummary = extractParamSummary(rawKind, mcpInput?.arguments ?? rawInput);
   const compactRawName = compactToolSummary(rawName);
   const rawNameLooksLikePayload = Boolean(
     rawName
@@ -395,6 +423,7 @@ function localAgentToolDisplay(message: PersonalLocalAgentConversationMessage, r
   if (locations) detailSections.push({ label: "Locations", value: locations });
 
   return {
+    kind: rawKind || rawName,
     title,
     description,
     status,
@@ -411,12 +440,43 @@ function normalizeLocalToolText(value: string) {
     .replace(/\n+$/, "");
 }
 
-// Card-style tool call that mirrors the expert/assistant `ToolCallView`:
-// a rounded bordered card with a StatusBadge and expandable Input/Output,
-// including diff highlighting for file edits.
-const GENERIC_TOOL_TITLES = new Set(["tool", "tool call"]);
+function LocalAgentToolIcon(props: { kind: string }) {
+  const className = "size-4 shrink-0 text-dls-secondary";
+  const kind = props.kind.trim().toLowerCase();
+  if (["execute", "command", "shell", "bash"].some((value) => kind.includes(value))) {
+    return <Terminal className={className} strokeWidth={1.9} />;
+  }
+  if (kind.includes("read")) return <Eye className={className} strokeWidth={1.7} />;
+  if (["edit", "write"].some((value) => kind.includes(value))) {
+    return <Pencil className={className} strokeWidth={1.8} />;
+  }
+  if (kind.includes("glob")) return <Folder className={className} strokeWidth={1.9} />;
+  if (["search", "grep"].some((value) => kind.includes(value))) {
+    return <Search className={className} strokeWidth={1.9} />;
+  }
+  return <Box className={className} strokeWidth={1.9} />;
+}
 
-function LocalAgentToolCard(props: { message: PersonalLocalAgentConversationMessage; runStatus?: string }) {
+function localAgentToolDetailLabel(label: string) {
+  switch (label) {
+    case "Input":
+      return t("session.tool_request");
+    case "Output":
+      return t("session.tool_result");
+    case "Content":
+      return t("local_agent.tool_content");
+    case "Locations":
+      return t("local_agent.tool_locations");
+    default:
+      return label;
+  }
+}
+
+/** Local Agent tool event using the same borderless row grammar as Expert/Assistant. */
+function LocalAgentToolRow(props: {
+  message: PersonalLocalAgentConversationMessage;
+  runStatus?: string;
+}) {
   const tool = localAgentToolDisplay(props.message, props.runStatus);
   const [expanded, setExpanded] = useState(false);
 
@@ -424,36 +484,54 @@ function LocalAgentToolCard(props: { message: PersonalLocalAgentConversationMess
   if (!tool) return null;
 
   const hasDetail = tool.detail.length > 0;
-  const tone =
-    tool.status === "running"
-      ? "accent"
-      : tool.status === "failed"
-        ? "danger"
-        : tool.status === "pending"
-          ? "neutral"
-          : "success";
+  const statusText = tool.status === "completed" ? null : localAgentToolStatusLabel(tool.status);
 
   return (
-    <div className="rounded-xl border border-dls-border bg-dls-surface-muted px-3 py-2.5">
-      <button
+    <div
+      className="font-sans text-sm leading-6 antialiased"
+      data-testid="local-agent-reference-tool-row"
+    >
+      <DisclosureRowButton
         type="button"
-        className="flex w-full items-start justify-between gap-3 rounded-sm text-left text-dls-secondary outline-none hover:bg-transparent focus-visible:ring-1 focus-visible:ring-dls-focus focus-visible:ring-offset-0"
+        density="flush"
+        className="text-dls-secondary hover:bg-transparent hover:text-dls-text disabled:cursor-default"
         disabled={!hasDetail}
         aria-expanded={hasDetail ? expanded : undefined}
         onClick={() => {
           if (hasDetail) setExpanded((value) => !value);
         }}
       >
-        <div className="min-w-0 space-y-1">
-          <div className="truncate text-xs font-medium text-dls-text" title={tool.title}>{tool.title}</div>
-          {tool.description && tool.description !== tool.title ? (
-            <div className="truncate font-mono text-xs text-dls-secondary" title={tool.description}>{tool.description}</div>
+        <span className="inline-flex min-w-0 max-w-[760px] items-center gap-3">
+          <LocalAgentToolIcon kind={tool.kind} />
+          <span className="min-w-0 flex-1">
+            <span className="block wrap-break-word">{tool.title}</span>
+            {tool.description && tool.description !== tool.title ? (
+              <span
+                className="mt-0.5 block truncate font-mono text-xs text-dls-secondary"
+                title={tool.description}
+              >
+                {tool.description}
+              </span>
+            ) : null}
+          </span>
+          {hasDetail ? (
+            <ChevronDown
+              size={14}
+              className={cn(
+                "shrink-0 text-dls-secondary transition-transform duration-200 ease-out motion-reduce:transition-none",
+                !expanded && "-rotate-90",
+              )}
+            />
           ) : null}
+        </span>
+      </DisclosureRowButton>
+      {statusText ? (
+        <div className="mt-2 ml-7 text-sm leading-6 text-dls-secondary">
+          {statusText}
         </div>
-        <StatusBadge tone={tone} shape="pill" size="tiny">{localAgentToolStatusLabel(tool.status)}</StatusBadge>
-      </button>
+      ) : null}
       {expanded && hasDetail ? (
-        <div className="mt-2 space-y-2">
+        <div className="mt-3 ml-7 space-y-3">
           {tool.detail.map((section) => {
             const displayValue = normalizeLocalToolText(section.value);
             const isOutput = section.label === "Output";
@@ -461,32 +539,30 @@ function LocalAgentToolCard(props: { message: PersonalLocalAgentConversationMess
             const diffLines = diff ? toKeyedLines(normalizeLocalToolText(diff)) : [];
             return (
               <div key={section.label} className="min-w-0">
-                <div className="mb-1 flex items-center justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-dls-secondary">
-                    <span>{section.label}</span>
+                <div className="mb-1.5 flex items-center justify-between gap-2 text-xs text-dls-secondary">
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <span>{localAgentToolDetailLabel(section.label)}</span>
                     {section.truncated ? (
-                      <StatusBadge
-                        tone="warning"
-                        shape="pill"
-                        size="tiny"
+                      <span
+                        className="text-dls-status-warning-fg"
                         data-testid="local-agent-tool-detail-truncated"
                       >
                         {t("local_agent.tool_output_preview_truncated")}
-                      </StatusBadge>
+                      </span>
                     ) : null}
                   </div>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="link"
                     size="xs"
-                    className="text-dls-text hover:bg-dls-hover"
+                    className="h-auto p-0 font-normal"
                     onClick={() => void copyText(section.value)}
                   >
                     {t("session.copy")}
                   </Button>
                 </div>
                 {Boolean(diff) ? (
-                  <div className="max-h-64 overflow-auto rounded-md border border-dls-mist bg-dls-surface">
+                  <div className="max-h-64 overflow-auto rounded-xl border border-dls-mist bg-dls-surface py-2">
                     {diffLines.map(({ key, line }) => (
                       <div
                         key={key}
@@ -498,7 +574,7 @@ function LocalAgentToolCard(props: { message: PersonalLocalAgentConversationMess
                   </div>
                 ) : (
                   <pre
-                    className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md border border-dls-mist bg-dls-surface px-3 py-2 font-mono text-xs leading-normal text-dls-secondary"
+                    className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-dls-mist bg-dls-surface px-4 py-3 font-mono text-xs leading-6 text-dls-secondary"
                     data-testid="local-agent-tool-detail"
                   >
                     {displayValue}
@@ -513,31 +589,6 @@ function LocalAgentToolCard(props: { message: PersonalLocalAgentConversationMess
   );
 }
 
-/** True when the tool needs the expandable Input/Output card (not Content/Locations alone). */
-function toolNeedsRichInputOutputCard(display: LocalAgentToolDisplay): boolean {
-  return display.detail.some((section) => section.label === "Input" || section.label === "Output");
-}
-
-function sharedToolItemFromMessage(
-  message: PersonalLocalAgentConversationMessage,
-  display: LocalAgentToolDisplay,
-) {
-  const [item] = personalMessagesToConversationItems([message as PersonalAdapterMessage]);
-  if (!item) return null;
-  return {
-    ...item,
-    kind: "tool" as const,
-    toolName: display.title || item.toolName,
-    toolStatus: display.status || item.toolStatus,
-    text: display.description || item.text,
-    meta: {
-      ...item.meta,
-      description:
-        display.description !== display.title ? display.description : undefined,
-    },
-  };
-}
-
 /** Map a personal timeline message → ConversationItemVM (adapter) then shared UI. */
 function PersonalConversationItem(props: {
   message: PersonalLocalAgentConversationMessage;
@@ -549,23 +600,8 @@ function PersonalConversationItem(props: {
     decision: PersonalLocalAgentApprovalDecision,
   ) => void | Promise<void>;
 }) {
-  // Tools get display-normalized titles/status when possible so the shared row
-  // matches LocalAgentToolCard chrome without pulling in expandable detail.
   if (props.message.type === "tool" || props.message.type === "acp_tool_call") {
-    const display = localAgentToolDisplay(props.message, props.runStatus);
-    if (!display) return null;
-    if (toolNeedsRichInputOutputCard(display)) {
-      return <LocalAgentToolCard message={props.message} runStatus={props.runStatus} />;
-    }
-    const toolItem = sharedToolItemFromMessage(props.message, display);
-    if (!toolItem) return null;
-    return (
-      <ConversationItemView
-        item={toolItem}
-        streaming={props.streaming}
-        collapseThinkingWhenDone
-      />
-    );
+    return <LocalAgentToolRow message={props.message} runStatus={props.runStatus} />;
   }
 
   const [item] = personalMessagesToConversationItems([
@@ -589,17 +625,18 @@ function PersonalConversationItem(props: {
     return <LocalAgentPlanFold item={item} streaming={props.streaming} />;
   }
 
-  if (props.message.type === "thinking" && props.runStatus !== "running") {
+  if (props.message.type === "thinking") {
     return (
-      <ConversationItemView
+      <LocalAgentThinkingFold
         item={{
           ...item,
-          thinkingStatus: /^(done|completed|complete)$/i.test(item.thinkingStatus ?? "")
+          thinkingStatus: props.runStatus === "running"
             ? item.thinkingStatus
-            : "done",
+            : /^(done|completed|complete)$/i.test(item.thinkingStatus ?? "")
+              ? item.thinkingStatus
+              : "done",
         }}
-        streaming={false}
-        collapseThinkingWhenDone
+        streaming={props.runStatus === "running" && props.streaming}
       />
     );
   }
@@ -652,13 +689,13 @@ export function LocalAgentTimelineMessage(props: {
     const body = sanitizeAssistantTranscriptText(props.message.text).text;
     if (!body.trim()) return null;
     return (
-      <PersonalConversationItem
-        message={{ ...props.message, text: body }}
-        streaming={props.streaming && props.message.type !== "finish"}
-        runStatus={props.runStatus}
-        pendingApprovals={props.pendingApprovals}
-        onResolveApproval={props.onResolveApproval}
-      />
+      <div className="session-workbuddy-turn-body" data-testid="local-agent-process-narration">
+        <MarkdownBlock
+          text={body}
+          streaming={props.streaming && props.message.type !== "finish"}
+          showStreamingCursor={false}
+        />
+      </div>
     );
   }
   if (props.message.role === "system" || props.message.role === "user") {

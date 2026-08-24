@@ -17,9 +17,6 @@ import { runEventsToConversationMessages } from "./contract.mjs";
 // keep working; they live in conversation-paths.mjs to avoid an import cycle
 // with conversation-lookup.mjs.
 export { CONVERSATION_DIR, conversationRoot, normalizeConversation, nowTitle } from "./conversation-paths.mjs";
-// Local import (in addition to the re-export below) so internal callers such as
-// `listConversationsByProvider` can reference `listChannelConversations`.
-import { listChannelConversations } from "./conversation-lookup.mjs";
 
 const CONVERSATION_EVENTS_DIR = "conversation-events";
 
@@ -223,6 +220,8 @@ export async function writeConversationEvents(workspaceRoot, provider, agentId =
 
 export function conversationEventKey(event) {
   if (!event || typeof event !== "object") return JSON.stringify(event);
+  const eventId = typeof event.eventId === "string" ? event.eventId.trim() : "";
+  if (eventId) return `event:${eventId}`;
   const id = typeof event.id === "string" ? event.id.trim() : "";
   if (id) return `id:${id}`;
   const type = String(event.type ?? "");
@@ -287,6 +286,15 @@ export async function readConversationEvents(workspaceRoot, provider, agentId = 
     Array.isArray(raw?.events) ? raw.events : [],
     appendedEvents,
   );
+  const checkpointMessages = Array.isArray(raw?.messages) ? raw.messages : [];
+  const derivedMessages = events.length > 0 ? runEventsToConversationMessages(events) : [];
+  const derivedMessageIds = new Set(
+    derivedMessages.map((message) => String(message?.id ?? "").trim()).filter(Boolean),
+  );
+  const preservedMessages = checkpointMessages.filter((message) => {
+    const messageId = String(message?.id ?? "").trim();
+    return !messageId || !derivedMessageIds.has(messageId);
+  });
   return {
     version: Number(raw?.version) || 1,
     provider,
@@ -294,30 +302,23 @@ export async function readConversationEvents(workspaceRoot, provider, agentId = 
     conversationId: id,
     updatedAt: Number(raw?.updatedAt) || null,
     events,
-    messages: events.length > 0
-      ? runEventsToConversationMessages(events)
-      : (Array.isArray(raw?.messages) ? raw.messages : []),
+    checkpointMessages,
+    messages: derivedMessages.length > 0
+      ? [...preservedMessages, ...derivedMessages]
+      : checkpointMessages,
   };
 }
 
 /**
- * Aggregate every conversation that belongs to an agent: the normal sessions
- * stored under `<provider>-<agentId>.json` plus the communication-channel
- * sessions (`source:"channel"`, persisted under scoped `<provider>-<platform>-<hash>`
- * files). Channel sessions are filtered by `provider` so the dropdown for a
- * given agent shows all of its sessions regardless of which file they live in.
+ * List the writable Studio conversations for one agent partition.
+ *
+ * Channel conversations have a separate ownership and delivery path. They
+ * are exposed by `listChannelConversations` for the dedicated channel view;
+ * merging them here would make a normal Studio selection point at a
+ * channel-owned conversation and send to the wrong destination.
  */
 export async function listConversationsByProvider(workspaceRoot, provider, agentId = "default") {
-  const [normal, channel] = await Promise.all([
-    listConversations(workspaceRoot, provider, agentId),
-    listChannelConversations(workspaceRoot),
-  ]);
-  const channelForProvider = channel.conversations.filter((conversation) => conversation.provider === provider);
-  const merged = [...normal.conversations, ...channelForProvider].sort((a, b) => b.updatedAt - a.updatedAt);
-  return {
-    conversations: merged,
-    activeConversationId: normal.activeConversationId ?? merged[0]?.id ?? null,
-  };
+  return listConversations(workspaceRoot, provider, agentId);
 }
 
 /**
@@ -334,7 +335,6 @@ export async function listConversationsByProvider(workspaceRoot, provider, agent
  */
 export async function importConversationFromArchive(workspaceRoot, provider, agentId = "default", input = {}) {
   const requestedId = String(input.conversationId ?? "").trim();
-  console.log("[runtime] importConversationFromArchive", { workspaceRoot, provider, agentId, conversationId: requestedId, messageCount: Array.isArray(input.messages) ? input.messages.length : 0 });
   let conversation = requestedId ? await getConversation(workspaceRoot, provider, agentId, requestedId) : null;
   if (!conversation) {
     conversation = await createConversation(workspaceRoot, provider, agentId, {
@@ -362,7 +362,6 @@ export async function importConversationFromArchive(workspaceRoot, provider, age
       createdAt: Number(message.createdAt) || Date.now() + index,
     };
   });
-  console.log("[runtime] writing", { conversationId, messageCount: messages.length });
   await writeConversationEvents(workspaceRoot, provider, agentId, conversationId, [], messages);
   return { conversation, importedMessageCount: messages.length };
 }

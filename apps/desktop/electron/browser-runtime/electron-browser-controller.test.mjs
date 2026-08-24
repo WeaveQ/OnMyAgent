@@ -126,6 +126,56 @@ test("agent createTab selects the tab and asks the renderer to open the browser 
   await controller.close();
 });
 
+test("Local Agent temporary tabs stay in the background until explicitly handed off", async () => {
+  const harness = createHarness();
+  const sent = [];
+  harness.mainWindow.webContents.send = (channel, ...args) => {
+    sent.push({ channel, args });
+  };
+  const controller = createElectronBrowserController({
+    WebContentsView: harness.WebContentsView,
+    dirname: "/tmp",
+    openExternal: async () => true,
+  });
+  controller.setMainWindow(harness.mainWindow);
+  const userTab = controller.createBrowserTab("https://user.example", {
+    select: true,
+    sessionId: "localAgent:workspace-1",
+  });
+  sent.length = 0;
+  const context = {
+    workspaceId: "workspace-1",
+    sessionId: "localAgent:workspace-1:conversation-1",
+    messageId: "message-1",
+    turnId: "turn-1",
+    agentId: "codex",
+    backend: "in-app",
+  };
+  const { tab: agentTab } = await controller.runtime.host.dispatch(
+    "createTab",
+    { url: "https://research.example", temporary: true },
+    context,
+  );
+
+  assert.equal(controller.browserStatePayload().activeTabId, userTab.tabId);
+  assert.equal(
+    sent.some((entry) => entry.channel === "onmyagent:browser:panel-opened"),
+    false,
+  );
+
+  await controller.runtime.host.dispatch(
+    "markTab",
+    { tabId: agentTab.tabId, deliverable: true },
+    context,
+  );
+  assert.equal(controller.browserStatePayload().activeTabId, agentTab.tabId);
+  assert.equal(
+    sent.some((entry) => entry.channel === "onmyagent:browser:panel-opened"),
+    true,
+  );
+  await controller.close();
+});
+
 test("agent tabs.new via nodeReplWrite also opens the browser panel", async () => {
   const harness = createHarness();
   const sent = [];
@@ -188,4 +238,36 @@ test("turn cleanup closes temporary agent tabs but preserves user tabs", async (
 
   assert.deepEqual(controller.listBrowserTabs().map((tab) => tab.owner), ["user"]);
   await controller.close();
+});
+
+test("controller exposes the same Browser enablement resolver used by runtime dispatch", async () => {
+  const harness = createHarness();
+  let checks = 0;
+  const controller = createElectronBrowserController({
+    WebContentsView: harness.WebContentsView,
+    dirname: "/tmp",
+    openExternal: async () => true,
+    isBrowserEnabled: async () => {
+      checks += 1;
+      return false;
+    },
+  });
+  try {
+    assert.equal(await controller.isAutomationEnabled(), false);
+    assert.equal(checks, 1);
+    await assert.rejects(
+      controller.runtime.dispatch("createTab", { url: "https://example.com" }, {
+        workspaceId: "workspace-1",
+        sessionId: "session-1",
+        messageId: "message-1",
+        turnId: "turn-1",
+        agentId: "agent-1",
+        backend: "in-app",
+      }),
+      /Browser automation is disabled/,
+    );
+    assert.equal(checks, 2);
+  } finally {
+    await controller.close();
+  }
 });

@@ -33,6 +33,18 @@ test("turn cleanup closes temporary agent tabs but preserves user and deliverabl
   assert.deepEqual(registry.list().map((tab) => tab.tabId).sort(), ["deliverable", "user"]);
 });
 
+test("mark persists deliverable and handoff flags for lifecycle decisions", () => {
+  const registry = createBrowserTabRegistry();
+  registry.register({ tabId: "agent", owner: "agent", sessionId: "session-a", temporary: true });
+
+  const marked = registry.mark("agent", "session-a", { deliverable: true, handoff: true });
+
+  assert.equal(marked.deliverable, true);
+  assert.equal(marked.handoff, true);
+  assert.equal(registry.get("agent").deliverable, true);
+  assert.deepEqual(registry.turnEnded("session-a"), []);
+});
+
 test("explicit finalize closes only tabs selected from the current session", () => {
   const registry = createBrowserTabRegistry();
   registry.register({ tabId: "one", owner: "agent", sessionId: "session-a", temporary: false });
