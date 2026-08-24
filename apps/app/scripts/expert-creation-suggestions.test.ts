@@ -140,6 +140,45 @@ describe("expert creation coach suggestions", () => {
     expect(parsed.suggestion?.userNote).toBe(completeRolePrompt);
   });
 
+  test("extracts a standard markdown role prompt that blanks the line after each heading", () => {
+    const markdownPrompt = [
+      "## 专家简介",
+      "",
+      "面向产品团队交付研究结论。",
+      "",
+      "## 核心能力",
+      "",
+      "- 拆解问题",
+      "- 比较证据",
+      "",
+      "## 关键规则",
+      "",
+      "先确认目标和约束。",
+      "",
+      "## 禁止行为",
+      "",
+      "不编造事实，不越权承诺。",
+      "",
+      "## 工作流程",
+      "",
+      "澄清、分析、验证、交付。",
+      "",
+      "## 内容结构",
+      "",
+      "结论、依据、风险、下一步。",
+      "",
+      "## 沟通风格",
+      "",
+      "简洁直接，先给结论。",
+    ].join("\n");
+    const parsed = parseExpertDraftSuggestion(
+      `<expert-update>${JSON.stringify({ name: "研究专家", userNote: markdownPrompt })}</expert-update>`,
+    );
+    expect(parsed.suggestion?.name).toBe("研究专家");
+    expect(parsed.suggestion?.userNote).toContain("- 拆解问题");
+    expect(parsed.suggestion?.userNote).toContain("## 沟通风格");
+  });
+
   test("recovers a seven-section role prompt from visible text when the machine block omits it", () => {
     const parsed = parseExpertDraftSuggestion([
       completeRolePrompt,
