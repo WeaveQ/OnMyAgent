@@ -48,6 +48,9 @@ const fileAllowlist = new Set([
   // Agent-output matching heuristics (product cards / follow-up chips), not UI copy.
   'apps/app/src/react-app/capabilities/artifacts/open-target.ts',
   'apps/app/src/react-app/domains/session/surface/follow-up-suggestions.ts',
+  // Coach output parser: regex strips trailing LLM proposal prose across locales,
+  // not user-facing chrome.
+  'apps/app/src/react-app/domains/agents/expert-creation-coach-contract.ts',
   // Work-memory disk templates (USER/style/MEMORY/AGENTS.md): locale-aware file
   // bodies for the user's machine, not in-app chrome. Content language follows
   // Settings language (zh / zh-TW / en); CJK hardcode gate does not apply here.

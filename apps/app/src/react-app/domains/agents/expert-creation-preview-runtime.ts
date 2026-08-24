@@ -307,14 +307,19 @@ export async function runExpertPreviewTurn(input: ExpertPreviewTurnInput): Promi
     if (promptResult.error) throw new Error(readErrorMessage(promptResult.error) || "Expert preview request failed");
     input.onPromptAccepted?.();
     await consume;
-    if (!finalText.trim()) {
+    try {
       const messages = unwrap(await client.session.messages({
         sessionID: sessionId,
         directory: input.config.workspaceRoot || undefined,
         limit: 20,
       }));
-      finalText = readLatestExpertPreviewReply(messages);
-      if (finalText) input.onTextChange?.(finalText);
+      const fromStore = readLatestExpertPreviewReply(messages);
+      if (fromStore.length > finalText.length) {
+        finalText = fromStore;
+        input.onTextChange?.(finalText);
+      }
+    } catch {
+      // Keep streamed text if the persisted snapshot cannot be read.
     }
     return { sessionId, content: finalText };
   } finally {

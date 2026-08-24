@@ -44,6 +44,7 @@ export {
 } from "./expert-creation-preview-runtime";
 export {
   buildExpertCreationCoachWorkflowInstructions,
+  extractExpertCreationRolePrompt,
   validateExpertCreationRolePrompt,
 } from "./expert-creation-coach-contract";
 export {

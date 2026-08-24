@@ -215,11 +215,19 @@ export function ExpertCreationCoachSurface(props: ExpertCreationCoachSurfaceProp
       });
       const completedTurn = turn
         .then((result) => {
-          if (confirmedSuggestion) return;
           ingestAssistantText(
             `${activeSessionId}:assistant-output`,
             result.content,
           );
+          if (!confirmedSuggestion) return;
+          const parsed = parseExpertDraftSuggestion(result.content);
+          if (!parsed.suggestion) return;
+          const leftover = partitionExpertDraftSuggestion(
+            draftRef.current,
+            parsed.suggestion,
+          );
+          if (leftover.emptyFillKeys.length === 0) return;
+          props.onApplyDraftSuggestion(parsed.suggestion, { mode: "empty-only" });
         })
         .finally(() => {
           release();

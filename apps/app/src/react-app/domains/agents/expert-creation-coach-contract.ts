@@ -5,32 +5,64 @@ export type ExpertCreationRolePromptValidation = {
   missingSectionCount: number;
 };
 
-type ParsedRolePromptSection = {
-  body: string;
-};
+function rolePromptHeadingPattern(): RegExp {
+  return /^##(?!#)\s*([^\n]+)(?:\n|$)([\s\S]*?)(?=^##(?!#)\s*|$)/gm;
+}
 
-function readRolePromptSections(value: string): ParsedRolePromptSection[] {
-  const headingPattern = /^##(?!#)\s*([^\n]+)(?:\n|$)([\s\S]*?)(?=^##(?!#)\s*|$)/gm;
-  return [...value.matchAll(headingPattern)].map((match) => ({
-    body: (match[2] ?? "").replace(/\s+/g, " ").trim(),
-  }));
+function rolePromptSectionBody(raw: string): string {
+  return raw.replace(/\s+/g, " ").trim();
+}
+
+function isValidRolePromptSectionBody(body: string): boolean {
+  return body.length > 0 && !body.includes("[TODO]");
+}
+
+function decodeMaybeEscapedNewlines(value: string): string {
+  if (value.includes("\n") || value.includes("\r")) return value;
+  if (!value.includes("\\n")) return value;
+  return value.replace(/\\n/g, "\n").replace(/\\r/g, "\r");
+}
+
+function matchRolePromptSections(value: string): RegExpMatchArray[] {
+  return [...decodeMaybeEscapedNewlines(value).matchAll(rolePromptHeadingPattern())];
+}
+
+function clipTrailingProposalProse(value: string): string {
+  return value.replace(
+    /\n{2,}(?:请审阅|Please review|If you(?:'d)? like|如果你|角色提示词[:：]|Role prompt[:：]|[•\-\*]\s).*$/isu,
+    "",
+  ).trim();
+}
+
+/** Pull a complete seven-section role prompt out of coach text or a tagged payload. */
+export function extractExpertCreationRolePrompt(value: string): string | undefined {
+  const decoded = decodeMaybeEscapedNewlines(value).trim();
+  if (!decoded) return undefined;
+  const matches = [...decoded.matchAll(rolePromptHeadingPattern())];
+  const valid = matches.filter((match) => (
+    isValidRolePromptSectionBody(rolePromptSectionBody(match[2] ?? ""))
+  ));
+  if (valid.length < EXPERT_CREATION_ROLE_PROMPT_SECTION_COUNT) return undefined;
+  const start = valid[0]?.index;
+  const last = valid[valid.length - 1];
+  if (start === undefined || last?.index === undefined) return undefined;
+  return clipTrailingProposalProse(
+    decoded.slice(start, last.index + last[0].length).trim(),
+  );
 }
 
 export function validateExpertCreationRolePrompt(
   value: string,
 ): ExpertCreationRolePromptValidation {
-  const sections = readRolePromptSections(value);
-  const validSections = sections.filter(
-    (section) => section.body.length > 0 && !section.body.includes("[TODO]"),
-  );
+  const validCount = matchRolePromptSections(value).filter((match) => (
+    isValidRolePromptSectionBody(rolePromptSectionBody(match[2] ?? ""))
+  )).length;
   const missingSectionCount = Math.max(
     0,
-    EXPERT_CREATION_ROLE_PROMPT_SECTION_COUNT - validSections.length,
+    EXPERT_CREATION_ROLE_PROMPT_SECTION_COUNT - validCount,
   );
   return {
-    valid:
-      sections.length >= EXPERT_CREATION_ROLE_PROMPT_SECTION_COUNT &&
-      validSections.length === sections.length,
+    valid: validCount >= EXPERT_CREATION_ROLE_PROMPT_SECTION_COUNT,
     missingSectionCount,
   };
 }
