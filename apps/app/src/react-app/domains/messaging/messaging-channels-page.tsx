@@ -2,13 +2,13 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowLeft, Inbox, MessageSquare, RefreshCw, Settings2 } from "lucide-react";
 
-import { MenuRowButton } from "@/components/ui/action-row";
+import { MenuRowButton, SessionRowButton } from "@/components/ui/action-row";
+import { LIST_LANE_HEADER_CLASS } from "@/components/ui/sidebar-chrome";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { SendButton } from "@/components/ui/send-button";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { StatusDot } from "@/components/ui/status-dot";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -190,10 +190,10 @@ export function MessagingChannelsPage(props: { workspaceRoot?: string }) {
     accounts.forEach((result, index) => {
       if (result.status !== "fulfilled") return;
       const accountId = String(result.value.account?.accountId ?? "").trim();
-      setConfiguredAccountByChannel((current) => ({
-        ...current,
-        [ids[index]]: accountId,
-      }));
+      setConfiguredAccountByChannel((current) => {
+        if (current[ids[index]] === accountId) return current;
+        return { ...current, [ids[index]]: accountId };
+      });
     });
   }, [updateStatus]);
 
@@ -370,6 +370,22 @@ export function MessagingChannelsPage(props: { workspaceRoot?: string }) {
     },
     [updateStatus],
   );
+  const onWeixinStatusChange = useCallback(
+    (status: MessagingChannelStatus) => setChannelStatus("wechat", status),
+    [setChannelStatus],
+  );
+  const onFeishuStatusChange = useCallback(
+    (status: MessagingChannelStatus) => setChannelStatus("feishu", status),
+    [setChannelStatus],
+  );
+  const onTelegramStatusChange = useCallback(
+    (status: MessagingChannelStatus) => setChannelStatus("telegram", status),
+    [setChannelStatus],
+  );
+  const onDiscordStatusChange = useCallback(
+    (status: MessagingChannelStatus) => setChannelStatus("discord", status),
+    [setChannelStatus],
+  );
 
   const closeSettings = useCallback(() => {
     setSettingsOpen(false);
@@ -458,13 +474,15 @@ export function MessagingChannelsPage(props: { workspaceRoot?: string }) {
       className="flex h-full w-full min-h-0 flex-col bg-dls-background text-dls-text"
     >
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        <aside className="flex w-full shrink-0 flex-col border-b border-dls-border bg-dls-surface-muted/20 md:w-56 md:border-b-0 md:border-e">
-          <div className="border-b border-dls-border px-4 py-4">
-            <h1 className="text-base font-medium text-dls-text">{t("messaging.title")}</h1>
-            <p className="text-xs leading-5 text-dls-secondary">{t("messaging.chat_desc")}</p>
+        <aside className="flex w-full shrink-0 flex-col border-b border-dls-border bg-dls-sidebar md:w-[260px] md:border-b-0 md:border-e">
+          <div className={cn(LIST_LANE_HEADER_CLASS, "border-b border-dls-border px-4")}>
+            <div className="min-w-0">
+              <h1 className="truncate text-sm font-medium leading-5 text-dls-text">{t("messaging.title")}</h1>
+              <p className="truncate text-xs leading-4 text-dls-secondary">{t("messaging.chat_desc")}</p>
+            </div>
           </div>
           <nav
-            className="flex shrink-0 gap-1 overflow-x-auto p-3 md:min-h-0 md:flex-1 md:flex-col md:overflow-y-auto"
+            className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2.5 pt-1.5"
             aria-label={t("messaging.channels_tab")}
           >
             {MESSAGING_CHANNELS.map((channel) => {
@@ -477,42 +495,40 @@ export function MessagingChannelsPage(props: { workspaceRoot?: string }) {
                   ? t("messaging.channel_stopped")
                   : t("messaging.not_linked");
               return (
-                <MenuRowButton
+                <SessionRowButton
                   key={channel.id}
-                  data-channel-id={channel.id}
+                  type="button"
+                  size="expert"
                   active={isSelected}
-                  align="center"
-                  className={cn(
-                    "min-w-44 border md:min-w-0",
-                    isSelected
-                      ? "border-dls-border-strong bg-dls-surface"
-                      : "border-transparent",
-                  )}
+                  data-channel-id={channel.id}
                   onClick={() => setSelectedChannel(channel.id)}
                   aria-current={isSelected ? "page" : undefined}
                 >
-                  <ChannelIcon channelId={channel.id} connected={isConnected} />
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-2">
-                      <span className="truncate text-sm font-medium text-dls-text">{channel.name}</span>
-                      <StatusDot size="xs" tone={isConnected ? "active" : "muted"} />
-                      <span className="sr-only">{statusText}</span>
-                    </span>
-                    <span className="mt-0.5 block truncate text-xs text-dls-secondary">
+                  <ChannelIcon channelId={channel.id} connected={isConnected} size="lg" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-baseline gap-2">
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium leading-5 text-dls-text">
+                        {channel.name}
+                      </span>
+                      <span className="shrink-0 text-xs leading-none text-dls-text-tertiary">
+                        {statusText}
+                      </span>
+                    </div>
+                    <div className="mt-1 min-w-0 truncate text-xs leading-5 text-dls-secondary">
                       {channel.subtitle}
-                    </span>
-                  </span>
-                </MenuRowButton>
+                    </div>
+                  </div>
+                </SessionRowButton>
               );
             })}
           </nav>
-          <div className="hidden border-t border-dls-border px-3 py-3 text-xs text-dls-secondary md:block">
+          <div className="hidden shrink-0 border-t border-dls-border px-4 py-3 text-xs leading-5 text-dls-secondary md:block">
             {channelPolicyHint}
           </div>
         </aside>
 
         <main className="flex min-w-0 flex-1 flex-col">
-          <header className="flex shrink-0 items-center justify-between gap-3 border-b border-dls-border px-5 py-3">
+          <header className={cn(LIST_LANE_HEADER_CLASS, "justify-between gap-3 border-b border-dls-border px-5")}>
             <div className="flex min-w-0 items-center gap-3">
               <ChannelIcon channelId={selectedChannel} connected={connected} />
               <div className="min-w-0">
@@ -524,13 +540,15 @@ export function MessagingChannelsPage(props: { workspaceRoot?: string }) {
                       })
                       : platformLabel(selectedChannel)}
                   </h2>
-                  <StatusBadge
-                    tone={connected ? "accent" : "neutral"}
-                    size="tiny"
-                    shape="pill"
-                  >
-                    {channelStatusText}
-                  </StatusBadge>
+                  {settingsOpen ? null : (
+                    <StatusBadge
+                      tone={connected ? "accent" : "neutral"}
+                      size="tiny"
+                      shape="pill"
+                    >
+                      {channelStatusText}
+                    </StatusBadge>
+                  )}
                 </div>
                 <p className="truncate text-xs text-dls-secondary">
                   {settingsOpen
@@ -586,10 +604,10 @@ export function MessagingChannelsPage(props: { workspaceRoot?: string }) {
             <MessagingSettingsContent
               channelId={selectedChannel}
               workspaceRoot={props.workspaceRoot}
-              onWeixinStatusChange={(status) => setChannelStatus("wechat", status)}
-              onFeishuStatusChange={(status) => setChannelStatus("feishu", status)}
-              onTelegramStatusChange={(status) => setChannelStatus("telegram", status)}
-              onDiscordStatusChange={(status) => setChannelStatus("discord", status)}
+              onWeixinStatusChange={onWeixinStatusChange}
+              onFeishuStatusChange={onFeishuStatusChange}
+              onTelegramStatusChange={onTelegramStatusChange}
+              onDiscordStatusChange={onDiscordStatusChange}
             />
           ) : (
             <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
@@ -655,7 +673,7 @@ export function MessagingChannelsPage(props: { workspaceRoot?: string }) {
                 {configureOnly ? (
                   <Empty
                     variant="ghost"
-                    className="m-5 flex-1 border border-dls-border bg-dls-surface/40"
+                    className="flex-1"
                   >
                     <EmptyHeader>
                       <EmptyMedia variant="icon">

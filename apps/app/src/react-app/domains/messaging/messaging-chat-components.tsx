@@ -8,6 +8,7 @@ import type { ChannelTranscriptMessage } from "../../../app/lib/desktop-messagin
 import { t } from "../../../i18n";
 import { ChannelPairingPanel } from "./ChannelPairingPanel";
 import { FeishuChannelPanel } from "./feishu-channel-panel";
+import { PanelSection } from "./settings-primitives";
 import type { MessagingChannel } from "./messaging-model";
 import { TokenChannelPanel } from "./token-channel-panel";
 import { WeixinChannelPanel } from "./weixin-channel-panel";
@@ -25,6 +26,7 @@ export function formatChannelMessageTime(value: number) {
 export function ChannelIcon(props: {
   channelId: MessagingChatChannelId;
   connected?: boolean;
+  size?: "sm" | "default" | "lg";
 }) {
   const iconSrcByChannel: Record<MessagingChatChannelId, string> = {
     wechat: "/connector-icons/wechat.png",
@@ -32,10 +34,17 @@ export function ChannelIcon(props: {
     telegram: "/connector-icons/telegram.svg",
     discord: "/connector-icons/discord.svg",
   };
+  const sizeClass = props.size === "sm"
+    ? "size-5"
+    : props.size === "lg"
+      ? "size-10"
+      : "size-9";
   return (
     <div
       className={cn(
-        "flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md",
+        "flex shrink-0 items-center justify-center overflow-hidden rounded-md",
+        sizeClass,
+        props.size === "lg" && "ring-1 ring-dls-border/60",
         !props.connected && "opacity-50",
       )}
     >
@@ -173,15 +182,13 @@ export function MessagingSettingsContent(props: {
             onStatusChange={props.onDiscordStatusChange}
           />
         ) : null}
-        <section
+        <PanelSection
           data-testid="messaging-pairing-section"
-          className="space-y-3 rounded-xl border border-dls-border bg-dls-surface p-4"
+          headerLayout="inline"
+          title={t("messaging.pairing_management")}
         >
-          <h3 className="text-sm font-medium text-dls-text">
-            {t("messaging.pairing_management")}
-          </h3>
           <ChannelPairingPanel />
-        </section>
+        </PanelSection>
       </div>
     </div>
   );
