@@ -18,6 +18,7 @@ import {
   type BrowserTabInfo,
   useBrowserState,
 } from "./use-browser-state";
+import { hasVisibleNativePreviewOccluder } from "../../../capabilities/native-preview-occlusion";
 import { BROWSER_HOME_URL } from "./open-in-app-browser";
 import { filterTabsForSession } from "./session-browser-tabs";
 import {
@@ -119,15 +120,6 @@ function sameBounds(
       left.width === right.width &&
       left.height === right.height,
   );
-}
-
-function hasNativeBrowserOccluder() {
-  const overlays = document.querySelectorAll('[role="dialog"], [role="alertdialog"]');
-  for (const overlay of overlays) {
-    if (!(overlay instanceof HTMLElement)) continue;
-    if (overlay.offsetParent !== null || overlay.getClientRects().length > 0) return true;
-  }
-  return false;
 }
 
 type BrowserTabProps = {
@@ -240,7 +232,7 @@ export function EmbeddedBrowserViewport({
     }
 
     const bounds = computeBounds(content);
-    if (bounds.width < 1 || bounds.height < 1 || hasNativeBrowserOccluder()) return;
+    if (bounds.width < 1 || bounds.height < 1 || hasVisibleNativePreviewOccluder()) return;
     browser.show?.(bounds);
     shownRef.current = true;
     lastBoundsRef.current = bounds;
@@ -268,7 +260,7 @@ export function EmbeddedBrowserViewport({
 
       const bounds = computeBounds(content);
 
-      if (bounds.width < 1 || bounds.height < 1 || hasNativeBrowserOccluder()) {
+      if (bounds.width < 1 || bounds.height < 1 || hasVisibleNativePreviewOccluder()) {
         if (shownRef.current) {
           void browser.hide?.();
           shownRef.current = false;
