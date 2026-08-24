@@ -11,7 +11,7 @@ import {
   reduceWorkspaceFilesPanelLayout,
   resolveWorkspaceFilesPanelMode,
   type WorkspaceFilesPanelLayoutState,
-} from "../src/react-app/domains/session/surface/workspace-files-panel-layout";
+} from "../src/react-app/capabilities/layout/workspace-files-panel-layout";
 
 const selectedLayout: WorkspaceFilesPanelLayoutState = {
   selectedPath: "reports/forecast.xlsx",

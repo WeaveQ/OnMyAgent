@@ -53,7 +53,7 @@ import {
   reduceWorkspaceFilesPanelLayout,
   resolveWorkspaceFilesPanelMode,
   type WorkspaceFilesPanelLayoutState,
-} from "./workspace-files-panel-layout";
+} from "../../../capabilities/layout/workspace-files-panel-layout";
 
 const FILES_TREE_DEFAULT_WIDTH = 220;
 const FILES_TREE_MIN_WIDTH = 160;
