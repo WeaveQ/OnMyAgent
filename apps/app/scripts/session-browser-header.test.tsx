@@ -1,48 +1,32 @@
 import { describe, expect, test } from "bun:test";
-import { createElement, Fragment } from "react";
+import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Globe } from "lucide-react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
-import {
-  BrowserPanel,
-  BrowserPageTabHeader,
-  createWorkspaceToolAddHandler,
-  WorkspaceHeaderCloseButton,
-  WorkspaceHeaderToolChooser,
-  WorkspaceToolHeaderBoundary,
-} from "../src/react-app/domains/session/browser/browser-panel";
-import type { BrowserStatePayload, BrowserTabInfo } from "../src/react-app/domains/session/browser/use-browser-state";
-import {
-  CodeWorkspaceSidePanel,
-} from "../src/react-app/domains/session/surface/code-workspace-side-panel";
+import { BROWSER_HOME_URL, openInAppBrowser } from "../src/react-app/domains/session/browser/open-in-app-browser";
+import { CodeWorkspaceSidePanel } from "../src/react-app/domains/session/surface/code-workspace-side-panel";
 
-function browserTab(
-  tabId: string,
-  title: string,
-  isActive = false,
-): BrowserTabInfo {
-  return {
-    tabId,
-    owner: "user",
-    sessionId: "session-a",
-    url: `https://example.com/${tabId}`,
-    title,
-    favicon: null,
-    canGoBack: false,
-    canGoForward: false,
-    isLoading: false,
-    isActive,
-  };
-}
+const browserSource = readFileSync(
+  join(import.meta.dir, "../src/react-app/domains/session/browser/browser-panel.tsx"),
+  "utf8",
+);
+const workspaceSource = readFileSync(
+  join(
+    import.meta.dir,
+    "../src/react-app/domains/session/surface/code-workspace-side-panel.tsx",
+  ),
+  "utf8",
+);
 
 describe("single browser page-tab header", () => {
-  test("CodeWorkspaceSidePanel delegates its active Browser title row and controls", () => {
+  test("integrated Browser owns exactly one title row with chooser and close", () => {
     const html = renderToStaticMarkup(
       createElement(CodeWorkspaceSidePanel, {
         workspacePath: null,
         workspaceCatalogRoot: "",
         workspaceId: "workspace-a",
-        sessionId: "session-integrated",
+        sessionId: "session-a",
         client: null,
         initialKind: "browser",
         onClose: () => undefined,
@@ -58,157 +42,33 @@ describe("single browser page-tab header", () => {
     expect(html).not.toContain("browser-singleton");
   });
 
-  test("keeps delegated workspace controls in the desktop-only Browser fallback", () => {
-    const html = renderToStaticMarkup(
-      createElement(BrowserPanel, {
-        onClose: () => undefined,
-        sessionId: "session-a",
-        renderToolMenu: () => createElement(WorkspaceHeaderToolChooser, {
-          items: [{
-            kind: "browser",
-            labelKey: "session.code_side_panel_browser",
-            icon: Globe,
-          }],
-          busyKind: null,
-          onAdd: () => undefined,
-        }),
-        renderPanelClose: () => createElement(WorkspaceHeaderCloseButton, {
-          onClose: () => undefined,
-        }),
-      }),
-    );
-
-    expect(html.match(/data-panel-titlebar-row=/g)).toHaveLength(1);
-    expect(html.match(/data-workspace-tool-chooser="true"/g)).toHaveLength(1);
-    expect(html.match(/data-code-side-panel-close="true"/g)).toHaveLength(1);
-    expect(html).toContain("Browser is available in the desktop app.");
-  });
-
-  test("renders page tabs and the tool chooser as the only workspace title row", () => {
-    const tabs = [
-      browserTab("page-alpha", "Alpha", true),
-      browserTab("page-beta", "Beta"),
-    ];
-
-    const html = renderToStaticMarkup(
-      createElement(
-        Fragment,
-        null,
-        createElement(
-          WorkspaceToolHeaderBoundary,
-          { activeKind: "browser" },
-          createElement(
-            "header",
-            {
-              "data-panel-titlebar-row": "workspace-tools",
-              "data-tool-tab-id": "browser-singleton",
-            },
-            "Browser",
-          ),
-        ),
-        createElement(BrowserPageTabHeader, {
-          tabs,
-          onReorder: () => undefined,
-          renderToolMenu: () => createElement(WorkspaceHeaderToolChooser, {
-            items: [{
-              kind: "browser",
-              labelKey: "session.code_side_panel_browser",
-              icon: Globe,
-            }],
-            busyKind: null,
-            onAdd: () => undefined,
-          }),
-        }),
-      ),
-    );
-
-    expect(html.match(/data-panel-titlebar-row=/g)).toHaveLength(1);
-    expect(html).toContain("Alpha");
-    expect(html).toContain("Beta");
-    expect(html.match(/data-workspace-tool-chooser="true"/g)).toHaveLength(1);
-    expect(html).not.toContain("browser-singleton");
-    expect(html).not.toContain(">Browser<");
-  });
-
-  test("production workspace add handler routes active Browser pages and preserves singleton paths", async () => {
+  test("explicit Browser choice creates one session-scoped home page", async () => {
     const originalWindow = globalThis.window;
-    const tabs = [browserTab("page-alpha", "Alpha", true)];
-    let activeTabId = "page-alpha";
-
-    const state = (): BrowserStatePayload => ({
-      url: tabs.find((tab) => tab.tabId === activeTabId)?.url ?? "",
-      title: tabs.find((tab) => tab.tabId === activeTabId)?.title ?? "",
-      canGoBack: false,
-      canGoForward: false,
-      isLoading: false,
-      activeTabId,
-      tabs: tabs.map((tab) => ({ ...tab, isActive: tab.tabId === activeTabId })),
-    });
-
+    const created: Array<{ url?: string; sessionId?: string }> = [];
+    let panelOpenCount = 0;
     Object.defineProperty(globalThis, "window", {
       configurable: true,
       value: {
         __ONMYAGENT_ELECTRON__: {
           browser: {
             createTab: async (url?: string, options?: { sessionId?: string }) => {
-              const created = browserTab("page-beta", "Beta");
-              created.url = url ?? "about:blank";
-              created.sessionId = options?.sessionId;
-              tabs.push(created);
-              return { tabId: created.tabId, sessionId: created.sessionId };
+              created.push({ url, sessionId: options?.sessionId });
+              return { tabId: "page-new", sessionId: options?.sessionId };
             },
-            selectTab: async (tabId: string) => {
-              activeTabId = tabId;
-              return tabId;
-            },
-            getState: async () => state(),
           },
         },
       },
     });
 
     try {
-      let browserOpenCount = 0;
-      let selectedKind: "browser" | "files" = "files";
-      const continued: Array<{
-        kind: "browser" | "files";
-        options?: { seedHomeWhenEmpty?: boolean; ensureToolOnly?: boolean };
-      }> = [];
-      const addTab = createWorkspaceToolAddHandler({
-        getSelectedKind: () => selectedKind,
+      const result = await openInAppBrowser({
+        openSidePanel: () => { panelOpenCount += 1; },
+        url: BROWSER_HOME_URL,
         sessionId: "session-a",
-        onBrowserOpen: () => {
-          browserOpenCount += 1;
-        },
-        continueAdd: async (kind, options) => {
-          continued.push({ kind, options });
-        },
       });
-
-      await addTab("browser", { seedHomeWhenEmpty: true });
-      selectedKind = "browser";
-      await addTab("files");
-      await addTab("browser", { seedHomeWhenEmpty: true, ensureToolOnly: true });
-      await addTab("browser", { seedHomeWhenEmpty: true });
-      const next = state();
-
-      expect(continued).toEqual([
-        { kind: "browser", options: { seedHomeWhenEmpty: true } },
-        { kind: "files", options: undefined },
-        {
-          kind: "browser",
-          options: { seedHomeWhenEmpty: true, ensureToolOnly: true },
-        },
-      ]);
-      expect(browserOpenCount).toBe(1);
-      expect(next?.tabs?.map((tab) => tab.tabId)).toEqual([
-        "page-alpha",
-        "page-beta",
-      ]);
-      expect(next?.activeTabId).toBe("page-beta");
-      expect(next?.tabs?.find((tab) => tab.tabId === "page-beta")?.sessionId).toBe(
-        "session-a",
-      );
+      expect(created).toEqual([{ url: BROWSER_HOME_URL, sessionId: "session-a" }]);
+      expect(result.tabId).toBe("page-new");
+      expect(panelOpenCount).toBe(1);
     } finally {
       Object.defineProperty(globalThis, "window", {
         configurable: true,
@@ -217,14 +77,18 @@ describe("single browser page-tab header", () => {
     }
   });
 
-  test("CodeWorkspaceSidePanel installs the tested handler factory as addTab", async () => {
-    const source = await Bun.file(new URL(
-      "../src/react-app/domains/session/surface/code-workspace-side-panel.tsx",
-      import.meta.url,
-    )).text();
-
-    expect(source).toMatch(
-      /const addTab = useCallback\(\s*createWorkspaceToolAddHandler\(\{/,
-    );
+  test("uses direct workspace ownership without exported orchestration seams", () => {
+    for (const removed of [
+      "createWorkspaceToolAddHandler",
+      "WorkspaceToolHeaderBoundary",
+      "createSessionBrowserPageTab",
+    ]) {
+      expect(browserSource).not.toContain(removed);
+      expect(workspaceSource).not.toContain(removed);
+    }
+    expect(browserSource).not.toContain("export function WorkspaceHeader");
+    expect(workspaceSource).toContain('activeTab?.kind !== "browser"');
+    expect(workspaceSource).toContain('selectedKind === "browser"');
+    expect(workspaceSource).toContain("url: BROWSER_HOME_URL");
   });
 });

@@ -21,12 +21,6 @@ import {
 } from "@/components/ui/input-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   type BrowserStatePayload,
   type BrowserTabInfo,
   useBrowserState,
@@ -102,46 +96,6 @@ function getElectronBrowser() {
   }
 
   return window.__ONMYAGENT_ELECTRON__?.browser ?? null;
-}
-
-export async function createSessionBrowserPageTab(
-  sessionId: string | null | undefined,
-): Promise<BrowserStatePayload | null> {
-  const scopedSessionId = sessionId?.trim();
-  const browser = getElectronBrowser();
-  if (!scopedSessionId || !browser?.createTab) return null;
-
-  const created = await browser.createTab(BROWSER_HOME_URL, {
-    sessionId: scopedSessionId,
-  });
-  if (created?.tabId && browser.selectTab) {
-    await browser.selectTab(created.tabId).catch(() => undefined);
-  }
-
-  return browser.getState?.().catch(() => null) ?? null;
-}
-
-export type WorkspaceToolAddOptions = {
-  seedHomeWhenEmpty?: boolean;
-  ensureToolOnly?: boolean;
-};
-
-export function createWorkspaceToolAddHandler<TKind extends string>(input: {
-  getSelectedKind: () => TKind | null;
-  sessionId: string | null;
-  isHidden?: (kind: TKind) => boolean;
-  onBrowserOpen?: () => void;
-  continueAdd: (kind: TKind, options?: WorkspaceToolAddOptions) => void | Promise<void>;
-}) {
-  return async (kind: TKind, options?: WorkspaceToolAddOptions) => {
-    if (input.isHidden?.(kind)) return;
-    if (!options?.ensureToolOnly && kind === "browser" && input.getSelectedKind() === "browser") {
-      input.onBrowserOpen?.();
-      await createSessionBrowserPageTab(input.sessionId).catch(() => null);
-      return;
-    }
-    await input.continueAdd(kind, options);
-  };
 }
 
 if (import.meta.hot) {
@@ -303,75 +257,6 @@ export function BrowserPageTabHeader(props: {
       ) : null}
       {props.renderPanelClose?.()}
     </div>
-  );
-}
-
-export function WorkspaceToolHeaderBoundary(props: {
-  activeKind?: string | null;
-  children: ReactNode;
-}) {
-  return props.activeKind === "browser" ? null : <>{props.children}</>;
-}
-
-export function WorkspaceHeaderToolChooser<TKind extends string>(props: {
-  items: Array<{ kind: TKind; labelKey: string; icon: typeof Globe }>;
-  busyKind?: TKind | null;
-  onAdd: (kind: TKind) => void;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            data-workspace-tool-chooser="true"
-            aria-label={t("session.code_side_panel_add_tool")}
-          >
-            <Plus />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="start" className="w-48">
-        {props.items.map((item) => {
-          const Icon = item.icon;
-          const busy = item.kind === props.busyKind;
-          return (
-            <DropdownMenuItem
-              key={item.kind}
-              disabled={busy}
-              onClick={() => props.onAdd(item.kind)}
-            >
-              {busy ? <LoadingSpinner size="sm" className="size-4" /> : <Icon />}
-              {t(item.labelKey)}
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-export function WorkspaceHeaderCloseButton(props: {
-  onClose: () => void;
-  "data-code-side-panel-close"?: "true";
-  className?: string;
-  icon?: ReactNode;
-}) {
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon-xs"
-      data-code-side-panel-close={props["data-code-side-panel-close"] ?? "true"}
-      className={props.className ?? "text-dls-secondary hover:bg-dls-hover hover:text-dls-text"}
-      onMouseDown={(event) => event.preventDefault()}
-      onClick={props.onClose}
-      aria-label={t("session.code_side_panel_close")}
-      title={t("session.code_side_panel_close")}
-    >
-      {props.icon ?? <PanelRight className="size-3.5" />}
-    </Button>
   );
 }
 
@@ -591,7 +476,13 @@ export function BrowserPanel({
     // Explicit "+" new tab from the user → Baidu home; refresh state so the
     // viewport becomes active without waiting for a late IPC event.
     void (async () => {
-      const next = await createSessionBrowserPageTab(sid);
+      const browser = getElectronBrowser();
+      if (!browser?.createTab) return;
+      const created = await browser.createTab(BROWSER_HOME_URL, { sessionId: sid });
+      if (created?.tabId && browser.selectTab) {
+        await browser.selectTab(created.tabId).catch(() => undefined);
+      }
+      const next = await browser.getState?.().catch(() => null);
       if (next) {
         dispatch({
           type: "browserStateChanged",
@@ -646,7 +537,21 @@ export function BrowserPanel({
               renderToolMenu={renderToolMenu}
               renderPanelClose={
                 renderPanelClose ??
-                (() => <WorkspaceHeaderCloseButton onClose={onClose} />)
+                (() => (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    data-code-side-panel-close="true"
+                    className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={onClose}
+                    aria-label={t("session.code_side_panel_close")}
+                    title={t("session.code_side_panel_close")}
+                  >
+                    <PanelRight className="size-3.5" />
+                  </Button>
+                ))
               }
             />
           </div>
