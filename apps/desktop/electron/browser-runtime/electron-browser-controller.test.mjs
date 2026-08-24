@@ -61,27 +61,47 @@ function createHarness({ onLoadURL } = {}) {
   return { WebContentsView, mainWindow, views, windowChildren };
 }
 
-test("page-created HTTP windows become user tabs in the exact source session", async () => {
-  const harness = createHarness();
-  const openedExternal = [];
-  const sent = [];
-  harness.mainWindow.webContents.send = (channel) => {
-    sent.push(channel);
-  };
-  const controller = createElectronBrowserController({
-    WebContentsView: harness.WebContentsView,
-    dirname: "/tmp",
-    openExternal: async (url) => { openedExternal.push(url); },
-  });
-  controller.setMainWindow(harness.mainWindow);
-  const sourceContext = {
+function agentContext(sessionId = "session-1") {
+  return {
     workspaceId: "workspace-1",
-    sessionId: "session-source",
+    sessionId,
     messageId: "message-1",
     turnId: "turn-1",
     agentId: "agent-1",
     backend: "in-app",
   };
+}
+
+function createController(harness, options = {}) {
+  const openedExternal = [];
+  const controller = createElectronBrowserController({
+    WebContentsView: harness.WebContentsView,
+    dirname: "/tmp",
+    openExternal: async (url) => {
+      openedExternal.push(url);
+      return true;
+    },
+    ...options,
+  });
+  return { controller, openedExternal };
+}
+
+function projectTabs(controller) {
+  return controller.listBrowserTabs().map(({ owner, sessionId, url, isActive }) =>
+    ({ owner, sessionId, url, isActive }));
+}
+
+const tabState = (owner, sessionId, url, isActive) => ({ owner, sessionId, url, isActive });
+
+test("page-created HTTP windows become user tabs in the exact source session", async () => {
+  const harness = createHarness();
+  const sent = [];
+  harness.mainWindow.webContents.send = (channel) => {
+    sent.push(channel);
+  };
+  const { controller, openedExternal } = createController(harness);
+  controller.setMainWindow(harness.mainWindow);
+  const sourceContext = agentContext("session-source");
   const { tab: sourceTab } = await controller.runtime.host.dispatch(
     "createTab",
     { url: "https://source.example" },
@@ -99,31 +119,11 @@ test("page-created HTTP windows become user tabs in the exact source session", a
   assert.deepEqual(result, { action: "deny" });
   assert.equal(controller.listBrowserTabs().length, 3);
   assert.deepEqual(
-    controller.listBrowserTabs().map(({ owner, sessionId, url, isActive }) => ({
-      owner,
-      sessionId,
-      url,
-      isActive,
-    })),
+    projectTabs(controller),
     [
-      {
-        owner: "agent",
-        sessionId: "session-source",
-        url: "https://source.example",
-        isActive: false,
-      },
-      {
-        owner: "user",
-        sessionId: "session-other",
-        url: "https://other.example",
-        isActive: false,
-      },
-      {
-        owner: "user",
-        sessionId: "session-source",
-        url: "https://child.example",
-        isActive: true,
-      },
+      tabState("agent", "session-source", "https://source.example", false),
+      tabState("user", "session-other", "https://other.example", false),
+      tabState("user", "session-source", "https://child.example", true),
     ],
   );
   assert.equal(sourceTab.owner, "agent");
@@ -134,25 +134,15 @@ test("page-created HTTP windows become user tabs in the exact source session", a
 
 test("page-created unsupported and malformed URLs are denied without fallback", async () => {
   const harness = createHarness();
-  const openedExternal = [];
-  const controller = createElectronBrowserController({
-    WebContentsView: harness.WebContentsView,
-    dirname: "/tmp",
-    openExternal: async (url) => { openedExternal.push(url); },
-  });
+  const { controller, openedExternal } = createController(harness);
   controller.createBrowserTab("https://source.example", {
     sessionId: "session-source",
   });
   const sourceWebContents = harness.views[0].webContents;
 
-  assert.deepEqual(
-    sourceWebContents.windowOpenHandler({ url: "mailto:person@example.com" }),
-    { action: "deny" },
-  );
-  assert.deepEqual(
-    sourceWebContents.windowOpenHandler({ url: "not a valid URL" }),
-    { action: "deny" },
-  );
+  for (const url of ["mailto:person@example.com", "not a valid URL"]) {
+    assert.deepEqual(sourceWebContents.windowOpenHandler({ url }), { action: "deny" });
+  }
   assert.equal(controller.listBrowserTabs().length, 1);
   assert.deepEqual(openedExternal, []);
   await controller.close();
@@ -169,20 +159,8 @@ test("a popup during initial agent navigation stays selected in the source sessi
       }
     },
   });
-  const openedExternal = [];
-  const controller = createElectronBrowserController({
-    WebContentsView: harness.WebContentsView,
-    dirname: "/tmp",
-    openExternal: async (url) => { openedExternal.push(url); },
-  });
-  const context = {
-    workspaceId: "workspace-1",
-    sessionId: "session-initial",
-    messageId: "message-1",
-    turnId: "turn-1",
-    agentId: "agent-1",
-    backend: "in-app",
-  };
+  const { controller, openedExternal } = createController(harness);
+  const context = agentContext("session-initial");
 
   await controller.runtime.host.dispatch(
     "createTab",
@@ -192,25 +170,10 @@ test("a popup during initial agent navigation stays selected in the source sessi
 
   assert.deepEqual(popupResult, { action: "deny" });
   assert.deepEqual(
-    controller.listBrowserTabs().map(({ owner, sessionId, url, isActive }) => ({
-      owner,
-      sessionId,
-      url,
-      isActive,
-    })),
+    projectTabs(controller),
     [
-      {
-        owner: "agent",
-        sessionId: "session-initial",
-        url: "https://source-initial.example",
-        isActive: false,
-      },
-      {
-        owner: "user",
-        sessionId: "session-initial",
-        url: "https://child-initial.example",
-        isActive: true,
-      },
+      tabState("agent", "session-initial", "https://source-initial.example", false),
+      tabState("user", "session-initial", "https://child-initial.example", true),
     ],
   );
   assert.deepEqual(openedExternal, []);
@@ -219,21 +182,9 @@ test("a popup during initial agent navigation stays selected in the source sessi
 
 test("a popup after claim uses the authoritative claimed session", async () => {
   const harness = createHarness();
-  const openedExternal = [];
-  const controller = createElectronBrowserController({
-    WebContentsView: harness.WebContentsView,
-    dirname: "/tmp",
-    openExternal: async (url) => { openedExternal.push(url); },
-  });
+  const { controller, openedExternal } = createController(harness);
   const sourceTab = controller.createBrowserTab("https://source-claimed.example");
-  const context = {
-    workspaceId: "workspace-1",
-    sessionId: "session-claimed",
-    messageId: "message-1",
-    turnId: "turn-1",
-    agentId: "agent-1",
-    backend: "in-app",
-  };
+  const context = agentContext("session-claimed");
   await controller.runtime.host.dispatch(
     "claimTab",
     { tabId: sourceTab.tabId },
@@ -246,25 +197,10 @@ test("a popup after claim uses the authoritative claimed session", async () => {
 
   assert.deepEqual(result, { action: "deny" });
   assert.deepEqual(
-    controller.listBrowserTabs().map(({ owner, sessionId, url, isActive }) => ({
-      owner,
-      sessionId,
-      url,
-      isActive,
-    })),
+    projectTabs(controller),
     [
-      {
-        owner: "claimed",
-        sessionId: "session-claimed",
-        url: "https://source-claimed.example",
-        isActive: false,
-      },
-      {
-        owner: "user",
-        sessionId: "session-claimed",
-        url: "https://child-claimed.example",
-        isActive: true,
-      },
+      tabState("claimed", "session-claimed", "https://source-claimed.example", false),
+      tabState("user", "session-claimed", "https://child-claimed.example", true),
     ],
   );
   assert.deepEqual(openedExternal, []);
@@ -279,17 +215,12 @@ test("a rejected popup navigation is handled while the window stays denied", asy
       }
     },
   });
-  const openedExternal = [];
   const unhandledRejections = [];
   const onUnhandledRejection = (error) => {
     unhandledRejections.push(error);
   };
   process.on("unhandledRejection", onUnhandledRejection);
-  const controller = createElectronBrowserController({
-    WebContentsView: harness.WebContentsView,
-    dirname: "/tmp",
-    openExternal: async (url) => { openedExternal.push(url); },
-  });
+  const { controller, openedExternal } = createController(harness);
   const sourceTab = controller.createBrowserTab("https://source.example", {
     sessionId: "session-source",
   });
@@ -322,20 +253,8 @@ test("navigate selects its source unless the load creates a newer popup selectio
       }
     },
   });
-  const openedExternal = [];
-  const controller = createElectronBrowserController({
-    WebContentsView: harness.WebContentsView,
-    dirname: "/tmp",
-    openExternal: async (url) => { openedExternal.push(url); },
-  });
-  const context = {
-    workspaceId: "workspace-1",
-    sessionId: "session-navigate",
-    messageId: "message-1",
-    turnId: "turn-1",
-    agentId: "agent-1",
-    backend: "in-app",
-  };
+  const { controller, openedExternal } = createController(harness);
+  const context = agentContext("session-navigate");
   const { tab: sourceTab } = await controller.runtime.host.dispatch(
     "createTab",
     { url: "https://source-before-navigate.example" },
@@ -405,20 +324,8 @@ test("navigate preserves an explicit ABA selection made while loading", async ()
       }
     },
   });
-  const openedExternal = [];
-  const controller = createElectronBrowserController({
-    WebContentsView: harness.WebContentsView,
-    dirname: "/tmp",
-    openExternal: async (url) => { openedExternal.push(url); },
-  });
-  const context = {
-    workspaceId: "workspace-1",
-    sessionId: "session-deferred",
-    messageId: "message-1",
-    turnId: "turn-1",
-    agentId: "agent-1",
-    backend: "in-app",
-  };
+  const { controller, openedExternal } = createController(harness);
+  const context = agentContext("session-deferred");
   const { tab: sourceTab } = await controller.runtime.host.dispatch(
     "createTab",
     { url: "https://source-before-deferred.example" },
@@ -455,21 +362,10 @@ test("navigate preserves an explicit ABA selection made while loading", async ()
 
 test("controller shares one WebContents model for user and agent tabs", async () => {
   const harness = createHarness();
-  const controller = createElectronBrowserController({
-    WebContentsView: harness.WebContentsView,
-    dirname: "/tmp",
-    openExternal: async () => true,
-  });
+  const { controller } = createController(harness);
   controller.setMainWindow(harness.mainWindow);
   const userTab = controller.createBrowserTab("https://example.com", { select: true });
-  const context = {
-    workspaceId: "workspace-1",
-    sessionId: "session-1",
-    messageId: "message-1",
-    turnId: "turn-1",
-    agentId: "agent-1",
-    backend: "in-app",
-  };
+  const context = agentContext();
   const { tab: agentTab } = await controller.runtime.dispatch(
     "createTab",
     { url: "https://agent.example", temporary: true },
@@ -489,22 +385,11 @@ test("agent createTab selects the tab and asks the renderer to open the browser 
   harness.mainWindow.webContents.send = (channel, ...args) => {
     sent.push({ channel, args });
   };
-  const controller = createElectronBrowserController({
-    WebContentsView: harness.WebContentsView,
-    dirname: "/tmp",
-    openExternal: async () => true,
-  });
+  const { controller } = createController(harness);
   controller.setMainWindow(harness.mainWindow);
   controller.createBrowserTab("about:blank", { select: true });
   controller.attachBrowserView({ x: 10, y: 20, width: 800, height: 600 });
-  const context = {
-    workspaceId: "workspace-1",
-    sessionId: "session-1",
-    messageId: "message-1",
-    turnId: "turn-1",
-    agentId: "agent-1",
-    backend: "in-app",
-  };
+  const context = agentContext();
   // Direct host path (what agent tabs.new uses via node-kernel browserRequest)
   const { tab: agentTab } = await controller.runtime.host.dispatch(
     "createTab",
@@ -527,21 +412,11 @@ test("agent tabs.new via nodeReplWrite also opens the browser panel", async () =
   harness.mainWindow.webContents.send = (channel) => {
     sent.push(channel);
   };
-  const controller = createElectronBrowserController({
-    WebContentsView: harness.WebContentsView,
-    dirname: "/tmp",
-    openExternal: async () => true,
+  const { controller } = createController(harness, {
     isBrowserEnabled: async () => true,
   });
   controller.setMainWindow(harness.mainWindow);
-  const context = {
-    workspaceId: "workspace-1",
-    sessionId: "session-repl",
-    messageId: "message-1",
-    turnId: "turn-1",
-    agentId: "agent-1",
-    backend: "in-app",
-  };
+  const context = agentContext("session-repl");
   const result = await controller.runtime.dispatch(
     "nodeReplWrite",
     {
@@ -564,20 +439,9 @@ return { id: tab.id, url: await tab.url() };
 
 test("turn cleanup closes temporary agent tabs but preserves user tabs", async () => {
   const harness = createHarness();
-  const controller = createElectronBrowserController({
-    WebContentsView: harness.WebContentsView,
-    dirname: "/tmp",
-    openExternal: async () => true,
-  });
+  const { controller } = createController(harness);
   controller.createBrowserTab("about:blank");
-  const context = {
-    workspaceId: "workspace-1",
-    sessionId: "session-1",
-    messageId: "message-1",
-    turnId: "turn-1",
-    agentId: "agent-1",
-    backend: "in-app",
-  };
+  const context = agentContext();
   await controller.runtime.dispatch("createTab", { temporary: true }, context);
   await controller.runtime.dispatch("turnEnded", {}, context);
 
