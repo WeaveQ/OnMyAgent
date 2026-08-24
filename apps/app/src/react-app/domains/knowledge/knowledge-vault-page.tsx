@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronsDown,
   ChevronsUp,
@@ -27,7 +27,6 @@ import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { NoticeBox } from "@/components/ui/notice-box";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
 import { t } from "../../../i18n";
 import { isElectronRuntime } from "../../../app/utils";
@@ -62,6 +61,7 @@ import {
   createKnowledgeEditorTab,
 } from "./knowledge-vault-tabs";
 import { KnowledgeVaultTree } from "./knowledge-vault-tree";
+import { ToolbarIconButton } from "./knowledge-vault-toolbar-button";
 import {
   canDropKnowledgeItem,
   defaultKnowledgeNote,
@@ -1152,35 +1152,5 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
         onCancel={() => setDeleteOpen(false)}
       />
     </div>
-  );
-}
-
-function ToolbarIconButton(props: {
-  label: string;
-  hint: string;
-  disabled?: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-dls-secondary hover:text-dls-text"
-            disabled={props.disabled}
-            onClick={props.onClick}
-            aria-label={props.label}
-          />
-        }
-      >
-        {props.children}
-      </TooltipTrigger>
-      <TooltipContent side="bottom" sideOffset={6} className="max-w-56">
-        {props.hint}
-      </TooltipContent>
-    </Tooltip>
   );
 }
