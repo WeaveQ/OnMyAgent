@@ -140,6 +140,43 @@ describe("expert creation coach suggestions", () => {
     expect(parsed.suggestion?.userNote).toBe(completeRolePrompt);
   });
 
+  test("recovers a seven-section role prompt from visible text when the machine block omits it", () => {
+    const parsed = parseExpertDraftSuggestion([
+      completeRolePrompt,
+      "",
+      "请审阅以上完整方案。如果你回复“确认”，我将把以下内容回填到表单：",
+      "角色提示词：以上七段式内容",
+      "<expert-update>",
+      "<name>编曲专家</name>",
+      "<description>面向独立音乐人的编曲专家。</description>",
+      "<user-note>以上七段式内容</user-note>",
+      "<agent-memory>1. 用户乐理基础较弱。</agent-memory>",
+      "</expert-update>",
+    ].join("\n"));
+
+    expect(parsed.suggestion).toEqual({
+      name: "编曲专家",
+      description: "面向独立音乐人的编曲专家。",
+      userNote: completeRolePrompt,
+      agentMemory: "1. 用户乐理基础较弱。",
+    });
+    expect(parsed.content).toContain("角色提示词：以上七段式内容");
+    expect(parsed.content.includes("<expert-update>")).toBe(false);
+  });
+
+  test("recovers a role prompt that used escaped newlines in tagged output", () => {
+    const parsed = parseExpertDraftSuggestion([
+      "方案已经整理完成，请确认。",
+      "<expert-update>",
+      "<name>研究专家</name>",
+      `<user-note>${completeRolePrompt.replaceAll("\n", "\\n")}</user-note>`,
+      "</expert-update>",
+    ].join("\n"));
+
+    expect(parsed.suggestion?.name).toBe("研究专家");
+    expect(parsed.suggestion?.userNote).toBe(completeRolePrompt);
+  });
+
   test("parses field-tag output without breaking on quotes inside the role prompt", () => {
     const rolePromptWithQuotes = completeRolePrompt.replace(
       "先确认目标和约束。",
