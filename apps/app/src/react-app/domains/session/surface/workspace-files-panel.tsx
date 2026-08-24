@@ -48,15 +48,23 @@ import {
   type WorkspaceFileTreeNode,
 } from "../chat/session-page-files-model";
 import { EmbeddedBrowserViewport } from "../browser/browser-panel";
+import {
+  createWorkspaceFilesPanelLayoutControllerForPanel,
+  reduceWorkspaceFilesPanelLayout,
+  resolveWorkspaceFilesPanelMode,
+  type WorkspaceFilesPanelLayoutState,
+} from "./workspace-files-panel-layout";
 
 const FILES_TREE_DEFAULT_WIDTH = 220;
 const FILES_TREE_MIN_WIDTH = 160;
 const FILES_TREE_MAX_WIDTH_PX = 480;
 
 /** Session-lifetime layout for the files tree column. */
-let filesTreeLayoutMemory: { widthPx: number; collapsed: boolean } = {
-  widthPx: FILES_TREE_DEFAULT_WIDTH,
-  collapsed: false,
+const filesTreeLayoutMemory = {
+  current: {
+    widthPx: FILES_TREE_DEFAULT_WIDTH,
+    collapsed: false,
+  },
 };
 
 type FilePreviewState =
@@ -231,19 +239,18 @@ export function WorkspaceFilesPanel(props: {
   const [tree, setTree] = useState<WorkspaceFileTreeNode | null>(null);
   const [treeLoading, setTreeLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [preview, setPreview] = useState<FilePreviewState>({ status: "idle" });
   const [treeError, setTreeError] = useState<string | null>(null);
   const [loadedDirectories, setLoadedDirectories] = useState<Set<string>>(
     () => new Set(),
   );
 
-  const [treeCollapsed, setTreeCollapsed] = useState(
-    () => filesTreeLayoutMemory.collapsed,
-  );
-  const [treeWidthPx, setTreeWidthPx] = useState(() =>
-    clampTreeWidth(filesTreeLayoutMemory.widthPx),
-  );
+  const [layout, setLayout] = useState<WorkspaceFilesPanelLayoutState>(() => ({
+    selectedPath: null,
+    treeCollapsed: filesTreeLayoutMemory.current.collapsed,
+    treeWidthPx: clampTreeWidth(filesTreeLayoutMemory.current.widthPx),
+  }));
+  const { selectedPath, treeCollapsed, treeWidthPx } = layout;
   const splitRowRef = useRef<HTMLDivElement>(null);
   const treeWidthRef = useRef(treeWidthPx);
   treeWidthRef.current = treeWidthPx;
@@ -274,27 +281,32 @@ export function WorkspaceFilesPanel(props: {
 
   const resetSelection = useCallback(() => {
     previewRequestIdRef.current += 1;
-    setSelectedPath(null);
+    setLayout((current) =>
+      reduceWorkspaceFilesPanelLayout(current, { type: "reset-selection" }),
+    );
     setPreview({ status: "idle" });
   }, []);
 
-  const rememberTreeWidth = useCallback((widthPx: number, collapsed: boolean) => {
-    const containerWidth = splitRowRef.current?.getBoundingClientRect().width;
-    const next = clampTreeWidth(widthPx, containerWidth);
-    setTreeWidthPx(next);
-    treeWidthRef.current = next;
-    filesTreeLayoutMemory = { widthPx: next, collapsed };
-  }, []);
+  const layoutController = useMemo(
+    () =>
+      createWorkspaceFilesPanelLayoutControllerForPanel({
+        treeWidthRef,
+        filesTreeLayoutMemory,
+        setLayout,
+        readContainerWidthPx: () =>
+          splitRowRef.current?.getBoundingClientRect().width,
+        clampTreeWidthPx: clampTreeWidth,
+      }),
+    [],
+  );
 
   const collapseTree = useCallback(() => {
-    rememberTreeWidth(treeWidthRef.current, true);
-    setTreeCollapsed(true);
-  }, [rememberTreeWidth]);
+    layoutController.collapse();
+  }, [layoutController]);
 
   const expandTree = useCallback(() => {
-    filesTreeLayoutMemory = { ...filesTreeLayoutMemory, collapsed: false };
-    setTreeCollapsed(false);
-  }, []);
+    layoutController.expand();
+  }, [layoutController]);
 
   /** Pointer-drag splitter between tree and preview (reliable hit target). */
   const startTreeResize = useCallback(
@@ -308,12 +320,12 @@ export function WorkspaceFilesPanel(props: {
       handle.setPointerCapture(event.pointerId);
 
       const onMove = (moveEvent: PointerEvent) => {
-        const next = clampTreeWidth(
-          startWidth + (moveEvent.clientX - startX),
-          containerWidth,
-        );
-        setTreeWidthPx(next);
-        treeWidthRef.current = next;
+        layoutController.resizeFromPointer({
+          startWidthPx: startWidth,
+          startClientX: startX,
+          clientX: moveEvent.clientX,
+          containerWidthPx: containerWidth,
+        });
       };
       const onUp = (upEvent: PointerEvent) => {
         try {
@@ -324,14 +336,14 @@ export function WorkspaceFilesPanel(props: {
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
         window.removeEventListener("pointercancel", onUp);
-        rememberTreeWidth(treeWidthRef.current, false);
+        layoutController.finishResize();
       };
 
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
       window.addEventListener("pointercancel", onUp);
     },
-    [rememberTreeWidth],
+    [layoutController],
   );
 
   // Load / reload the file tree when the listing root changes.
@@ -464,7 +476,12 @@ export function WorkspaceFilesPanel(props: {
         mtimeMs: 0,
       });
 
-      setSelectedPath(path);
+      setLayout((current) =>
+        reduceWorkspaceFilesPanelLayout(current, {
+          type: "select",
+          selectedPath: path,
+        }),
+      );
       setTreeError(null);
 
       // Browser-openable (e.g. html) — embedded viewport.
@@ -571,7 +588,8 @@ export function WorkspaceFilesPanel(props: {
 
   const selectedName = selectedPath ? basenamePath(selectedPath) : null;
   /** Preview pane only mounts after the user picks a file — no empty detail column on open. */
-  const detailOpen = Boolean(selectedPath);
+  const panelMode = resolveWorkspaceFilesPanelMode(layout);
+  const detailOpen = panelMode !== "tree";
 
   const treeBody = treeLoading ? (
     <div className="flex h-full min-h-24 flex-col items-center justify-center gap-2 px-3 py-8 text-dls-secondary">
@@ -696,7 +714,7 @@ export function WorkspaceFilesPanel(props: {
   );
 
   // No file selected → tree only (do not reserve an empty detail column).
-  if (!detailOpen) {
+  if (panelMode === "tree") {
     return (
       <div className="flex h-full min-h-0 flex-col bg-dls-background">
         {treeColumn}
@@ -705,7 +723,7 @@ export function WorkspaceFilesPanel(props: {
   }
 
   // Detail open + tree collapsed → preview only.
-  if (treeCollapsed) {
+  if (panelMode === "preview") {
     return (
       <div className="flex h-full min-h-0 flex-col bg-dls-background">
         {previewHeader}
@@ -734,11 +752,11 @@ export function WorkspaceFilesPanel(props: {
         aria-label={t("files.resize_tree")}
         tabIndex={0}
         onPointerDown={startTreeResize}
+        onDoubleClick={collapseTree}
         onKeyDown={(event) => {
-          if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+          const handled = layoutController.resizeByKeyboard(event.key);
+          if (!handled) return;
           event.preventDefault();
-          const delta = event.key === "ArrowLeft" ? -16 : 16;
-          rememberTreeWidth(treeWidthRef.current + delta, false);
         }}
         className={cn(
           "group relative z-20 hidden w-2 shrink-0 cursor-col-resize touch-none outline-none sm:block",
