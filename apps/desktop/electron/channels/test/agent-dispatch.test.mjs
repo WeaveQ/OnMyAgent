@@ -45,6 +45,7 @@ assert.equal(
   1,
   "exactly one onmyagent entry",
 );
+assert.equal(dup.find((a) => a.id === ONMYAGENT_ASSISTANT_AGENT_ID)?.provider, ONMYAGENT_ASSISTANT_PROVIDER);
 console.log("✓ no duplicate");
 
 console.log("Test D: resolveAgentAlias matches onmyagent variants");

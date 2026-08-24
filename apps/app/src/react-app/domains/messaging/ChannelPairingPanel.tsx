@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
-import { useState, useEffect, useCallback } from "react";
-import { Check, X, UserPlus, Users, RefreshCw, MessageSquare } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Check, MessageSquare, RefreshCw, UserPlus, Users, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -13,6 +13,7 @@ import {
   channelRevokeUserAuthorization,
   channelGetSessionsByPlatform,
   onChannelPairing,
+  onChannelUserAuthorized,
   type ChannelPairingRequest,
   type ChannelAuthorizedUser,
   type ChannelSession,
@@ -25,7 +26,62 @@ function shortDate(value: number | undefined): string {
 }
 
 function sessionsForUser(sessions: ChannelSession[], user: ChannelAuthorizedUser): ChannelSession[] {
-  return sessions.filter((session) => session.platformType === user.platformType && session.platformUserId === user.platformUserId);
+  return sessions.filter(
+    (session) => session.platformType === user.platformType
+      && session.platformUserId === user.platformUserId,
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function parsePairingRequest(payload: unknown): ChannelPairingRequest | null {
+  if (!isRecord(payload) || !isRecord(payload.pairingRequest)) return null;
+  const request = payload.pairingRequest;
+  const code = typeof request.code === "string" ? request.code.trim() : "";
+  const platformType = typeof request.platformType === "string" ? request.platformType.trim() : "";
+  const platformUserId = typeof request.platformUserId === "string" ? request.platformUserId.trim() : "";
+  const requestedAt = typeof request.requestedAt === "number" ? request.requestedAt : NaN;
+  const expiresAt = typeof request.expiresAt === "number" ? request.expiresAt : NaN;
+  const status = typeof request.status === "string" ? request.status : "";
+  if (
+    !code
+    || !platformType
+    || !platformUserId
+    || !Number.isFinite(requestedAt)
+    || !Number.isFinite(expiresAt)
+    || !status
+  ) {
+    return null;
+  }
+  return {
+    code,
+    platformType,
+    platformUserId,
+    displayName: typeof request.displayName === "string" ? request.displayName : undefined,
+    requestedAt,
+    expiresAt,
+    status,
+  };
+}
+
+function parseAuthorizedUser(payload: unknown): ChannelAuthorizedUser | null {
+  if (!isRecord(payload) || !isRecord(payload.user)) return null;
+  const user = payload.user;
+  const id = typeof user.id === "string" ? user.id.trim() : "";
+  const platformType = typeof user.platformType === "string" ? user.platformType.trim() : "";
+  const platformUserId = typeof user.platformUserId === "string" ? user.platformUserId.trim() : "";
+  const authorizedAt = typeof user.authorizedAt === "number" ? user.authorizedAt : NaN;
+  if (!id || !platformType || !platformUserId || !Number.isFinite(authorizedAt)) return null;
+  return {
+    id,
+    platformType,
+    platformUserId,
+    displayName: typeof user.displayName === "string" ? user.displayName : undefined,
+    authorizedAt,
+    lastActive: typeof user.lastActive === "number" ? user.lastActive : undefined,
+  };
 }
 
 /**
@@ -53,10 +109,12 @@ function PairingRequestCard(props: {
   const isExpired = request.expiresAt < Date.now();
 
   return (
-    <div className={cn(
-      "rounded-lg border bg-dls-card p-3",
-      isExpired ? "border-dls-border opacity-50" : "border-dls-border"
-    )}>
+    <div
+      className={cn(
+        "rounded-lg border border-dls-border bg-dls-card p-3",
+        isExpired && "opacity-50",
+      )}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2.5">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-dls-accent/10">
@@ -79,17 +137,21 @@ function PairingRequestCard(props: {
         <div className="flex items-center gap-1.5">
           <Button
             variant="destructive"
-            size="sm"
+            size="icon-sm"
             disabled={isProcessing || isExpired}
             onClick={() => onDeny(request.code)}
+            aria-label={t("messaging.pairing_deny")}
+            title={t("messaging.pairing_deny")}
           >
             <X className="size-4" />
           </Button>
           <Button
             variant="default"
-            size="sm"
+            size="icon-sm"
             disabled={isProcessing || isExpired}
             onClick={() => onApprove(request.code)}
+            aria-label={t("messaging.pairing_approve")}
+            title={t("messaging.pairing_approve")}
           >
             <Check className="size-4" />
           </Button>
@@ -118,34 +180,36 @@ function AuthorizedUserCard(props: {
   return (
     <div className="rounded-lg border border-dls-border bg-dls-card p-3">
       <div className="flex items-center justify-between gap-2">
-      <div className="flex min-w-0 items-center gap-2.5">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-dls-surface">
-          <Users className="size-5 text-dls-secondary" />
-        </div>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-medium text-dls-text">
-              {user.displayName || user.platformUserId}
-            </span>
-              <StatusBadge tone="accent" size="sm">
-              {user.platformType}
-            </StatusBadge>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-dls-surface">
+            <Users className="size-5 text-dls-secondary" />
           </div>
-          <p className="mt-0.5 truncate text-xs text-dls-secondary">
-            {t("session.channel_pairing_last_active", { value: shortDate(user.lastActive || user.authorizedAt) })}
-          </p>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="truncate text-sm font-medium text-dls-text">
+                {user.displayName || user.platformUserId}
+              </span>
+              <StatusBadge tone="accent" size="sm">
+                {user.platformType}
+              </StatusBadge>
+            </div>
+            <p className="mt-0.5 truncate text-xs text-dls-secondary">
+              {t("session.channel_pairing_last_active", {
+                value: shortDate(user.lastActive || user.authorizedAt),
+              })}
+            </p>
+          </div>
         </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={isProcessing}
+          onClick={() => onRevoke(user.platformType, user.platformUserId)}
+        >
+          {t("session.channel_pairing_revoke")}
+        </Button>
       </div>
-      <Button
-        variant="secondary"
-        size="sm"
-        disabled={isProcessing}
-        onClick={() => onRevoke(user.platformType, user.platformUserId)}
-      >
-        {t("session.channel_pairing_revoke")}
-      </Button>
-      </div>
-      <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+      <div className="mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
         <div className="rounded-lg border border-dls-border bg-dls-surface px-2 py-1.5">
           <div className="text-dls-secondary">{t("session.channel_pairing_metric_active")}</div>
           <div className="mt-1 font-medium text-dls-text">{activeSessions.length}</div>
@@ -173,36 +237,94 @@ export function ChannelPairingPanel() {
   const [channelSessions, setChannelSessions] = useState<ChannelSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [processingCode, setProcessingCode] = useState<string | null>(null);
+  const loadGenerationRef = useRef(0);
 
   // Load data
   const loadData = useCallback(async () => {
+    const generation = ++loadGenerationRef.current;
     setIsLoading(true);
     try {
-      const [requests, users, wechatSessions, feishuSessions] = await Promise.all([
+      const [
+        requests,
+        users,
+        wechatSessions,
+        feishuSessions,
+        telegramSessions,
+        discordSessions,
+      ] = await Promise.all([
         channelGetPendingPairingRequests(),
         channelGetAuthorizedUsers(),
         channelGetSessionsByPlatform("wechat"),
         channelGetSessionsByPlatform("feishu"),
+        channelGetSessionsByPlatform("telegram"),
+        channelGetSessionsByPlatform("discord"),
       ]);
+      if (generation !== loadGenerationRef.current) return;
       setPendingRequests(requests);
       setAuthorizedUsers(users);
-      setChannelSessions([...wechatSessions, ...feishuSessions]);
+      setChannelSessions([
+        ...wechatSessions,
+        ...feishuSessions,
+        ...telegramSessions,
+        ...discordSessions,
+      ]);
     } catch (error) {
+      if (generation !== loadGenerationRef.current) return;
       console.error("[ChannelPairingPanel] Failed to load data:", error);
     } finally {
-      setIsLoading(false);
+      if (generation === loadGenerationRef.current) setIsLoading(false);
     }
+  }, []);
+
+  const applyPairingRequest = useCallback((request: ChannelPairingRequest) => {
+    setPendingRequests((current) => {
+      const index = current.findIndex((item) => item.code === request.code);
+      if (index < 0) return [...current, request];
+      const next = [...current];
+      next[index] = request;
+      return next;
+    });
+  }, []);
+
+  const applyAuthorizedUser = useCallback((user: ChannelAuthorizedUser) => {
+    setPendingRequests((current) => current.filter(
+      (request) => request.platformType !== user.platformType
+        || request.platformUserId !== user.platformUserId,
+    ));
+    setAuthorizedUsers((current) => {
+      const index = current.findIndex(
+        (item) => item.id === user.id
+          || (
+            item.platformType === user.platformType
+            && item.platformUserId === user.platformUserId
+          ),
+      );
+      if (index < 0) return [...current, user];
+      const next = [...current];
+      next[index] = user;
+      return next;
+    });
   }, []);
 
   // Initial load, then refresh on backend pairing pushes (parity: AionUi
   // event-push for pairingRequested) instead of a fixed 5s poll.
   useEffect(() => {
     void loadData();
-    const unsubscribe = onChannelPairing(() => {
+    const unsubscribePairing = onChannelPairing((payload) => {
+      const request = parsePairingRequest(payload);
+      if (request) applyPairingRequest(request);
       void loadData();
     });
-    return unsubscribe;
-  }, [loadData]);
+    const unsubscribeAuthorized = onChannelUserAuthorized((payload) => {
+      const user = parseAuthorizedUser(payload);
+      if (user) applyAuthorizedUser(user);
+      void loadData();
+    });
+    return () => {
+      unsubscribePairing();
+      unsubscribeAuthorized();
+    };
+  }, [applyAuthorizedUser, applyPairingRequest, loadData]);
 
   // Handle approve pairing
   const handleApprove = async (code: string) => {
@@ -253,7 +375,7 @@ export function ChannelPairingPanel() {
     <div className="space-y-4">
       {/* Pending Pairing Requests */}
       <div>
-        <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <h4 className="text-sm font-medium text-dls-text">{t("session.channel_pairing_pending_title")}</h4>
             {pendingRequests.length > 0 && (
@@ -264,9 +386,11 @@ export function ChannelPairingPanel() {
           </div>
           <Button
             variant="secondary"
-            size="sm"
+            size="icon-sm"
             onClick={loadData}
             disabled={isLoading}
+            aria-label={t("messaging.pairing_refresh")}
+            title={t("messaging.pairing_refresh")}
           >
             <RefreshCw className={cn("size-4", isLoading && "animate-spin")} />
           </Button>
@@ -293,7 +417,7 @@ export function ChannelPairingPanel() {
 
       {/* Authorized Users */}
       <div>
-        <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <MessageSquare className="size-4 text-dls-secondary" />
             <h4 className="text-sm font-medium text-dls-text">{t("session.channel_pairing_authorized_title")}</h4>

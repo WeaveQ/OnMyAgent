@@ -4,53 +4,39 @@ export type MessagingChannel = {
   id: "wechat" | "feishu" | "telegram" | "discord";
   name: string;
   subtitle: string;
-  status: "connected" | "unlinked";
-  stats: Array<{ label: string; value?: string }>;
 };
+
+export function channelRuntimeStatusLabel(status?: string) {
+  if (status === "running") return t("messaging.channel_running");
+  if (status === "backoff") return t("messaging.channel_reconnecting");
+  return t("messaging.channel_stopped");
+}
+
+export function channelConnectionStateLabel(state?: string) {
+  if (state === "open") return t("messaging.connected");
+  if (state === "connecting") return t("messaging.channel_reconnecting");
+  return t("messaging.not_linked");
+}
 
 export const MESSAGING_CHANNELS: MessagingChannel[] = [
   {
     id: "wechat",
     get name() { return t("messaging.wechat"); },
     get subtitle() { return t("messaging.wechat_clawbot"); },
-    status: "unlinked",
-    stats: [
-      { get label() { return t("messaging.channel_runtime_state"); }, value: "--" },
-      { get label() { return t("messaging.channel_reply_counts"); }, value: "0/0" },
-      { get label() { return t("messaging.weixin_last_message"); }, value: "--" },
-    ],
   },
   {
     id: "feishu",
     get name() { return t("messaging.feishu"); },
     get subtitle() { return t("messaging.feishu_bot"); },
-    status: "unlinked",
-    stats: [
-      { get label() { return t("messaging.channel_runtime_state"); }, value: "--" },
-      { get label() { return t("messaging.channel_reply_counts"); }, value: "0/0" },
-      { get label() { return t("messaging.weixin_last_message"); }, value: "--" },
-    ],
   },
   {
     id: "telegram",
     get name() { return t("messaging.telegram"); },
     get subtitle() { return t("messaging.telegram_bot"); },
-    status: "unlinked",
-    stats: [
-      { get label() { return t("messaging.channel_runtime_state"); }, value: "--" },
-      { get label() { return t("messaging.channel_reply_counts"); }, value: "0/0" },
-      { get label() { return t("messaging.weixin_last_message"); }, value: "--" },
-    ],
   },
   {
     id: "discord",
     get name() { return t("messaging.discord"); },
     get subtitle() { return t("messaging.discord_bot"); },
-    status: "unlinked",
-    stats: [
-      { get label() { return t("messaging.channel_runtime_state"); }, value: "--" },
-      { get label() { return t("messaging.channel_reply_counts"); }, value: "0/0" },
-      { get label() { return t("messaging.weixin_last_message"); }, value: "--" },
-    ],
   },
 ];

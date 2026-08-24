@@ -380,6 +380,11 @@ contextBridge.exposeInMainWorld("__ONMYAGENT_ELECTRON__", {
       ipcRenderer.on("onmyagent:channel:user:authorized", handler);
       return () => ipcRenderer.removeListener("onmyagent:channel:user:authorized", handler);
     },
+    onTranscript(callback) {
+      const handler = (_event, payload) => callback(payload);
+      ipcRenderer.on("onmyagent:channel:transcript", handler);
+      return () => ipcRenderer.removeListener("onmyagent:channel:transcript", handler);
+    },
   },
 });
 

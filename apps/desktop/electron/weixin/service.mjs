@@ -44,6 +44,7 @@ import {
   mimeFromFilename,
 } from "./helpers.mjs";
 import { createInboundMediaCollector } from "./inbound-media.mjs";
+import { createWeixinInboundProcessor } from "./inbound-message.mjs";
 import { createMessageDispatch } from "./message-dispatch.mjs";
 import { createOutboundDelivery } from "./outbound-delivery.mjs";
 import {
@@ -70,6 +71,7 @@ export function createWeixinService(options = {}) {
   const appendLog = typeof options.appendLog === "function" ? options.appendLog : () => undefined;
   const channelPairingService = options.channelPairingService ?? null;
   const channelSessionStore = options.channelSessionStore ?? null;
+  const channelTranscriptStore = options.channelTranscriptStore ?? null;
   const channelEventBus = options.channelEventBus ?? null;
   const channelAssistantBindingStore = options.channelAssistantBindingStore ?? null;
   const messagingTasks = createWeixinMessagingTaskIntegration(options);
@@ -118,6 +120,7 @@ export function createWeixinService(options = {}) {
 
   const {
     sendText,
+    sendStudioPromptMirror,
     deliverAgentOutput,
     maybeSendTyping,
   } = createOutboundDelivery({
@@ -126,6 +129,7 @@ export function createWeixinService(options = {}) {
     setState,
     getSentCount: () => state.sentCount,
     appendLog,
+    channelTranscriptStore,
   });
 
   const {
@@ -168,8 +172,12 @@ export function createWeixinService(options = {}) {
     pollIntervalMs: ACTIVE_RUN_POLL_INTERVAL_MS,
     pendingPollIntervalMs: ACTIVE_RUN_PENDING_POLL_INTERVAL_MS,
     getRunSnapshotState: getChannelRunSnapshotState,
-    deliverAgentOutput, appendAgentHistory, appendChannelSessionHistoryById,
-    sendText, renderApprovalPrompt,
+    deliverAgentOutput,
+    appendAgentHistory,
+    appendChannelSessionHistoryById,
+    channelTranscriptStore,
+    sendText,
+    renderApprovalPrompt,
     setLastRunId: (runId) => setState({ lastRunId: runId }),
     setLastError: (message) => setState({ lastError: message }),
   });
@@ -198,12 +206,13 @@ export function createWeixinService(options = {}) {
     closeChannelSessionForAgent,
   });
 
-  const { enqueueText } = createMessageDispatch({
+  const { enqueueText, runLocalPrompt: dispatchLocalPrompt } = createMessageDispatch({
     runtime,
     store,
     appendLog,
     setState,
     sendText,
+    sendStudioPromptMirror,
     deliverAgentOutput,
     maybeSendTyping,
     agentBusyNoticeAt,
@@ -216,6 +225,22 @@ export function createWeixinService(options = {}) {
     scheduleActiveRunPoll,
     getChannelSession,
     appendChannelSessionHistory,
+    channelTranscriptStore,
+  });
+
+  const processMessage = createWeixinInboundProcessor({
+    messagingTasks,
+    dedup,
+    channelTranscriptStore,
+    channelPairingService,
+    store,
+    collectMediaFiles,
+    sendText,
+    maybeHandleControlCommand,
+    enqueueText,
+    appendLog,
+    setState,
+    getProcessedCount: () => state.processedCount,
   });
 
   function runtimeOptions(input = {}) {
@@ -285,7 +310,16 @@ export function createWeixinService(options = {}) {
     if (!account?.token) return { ok: false, error: "Weixin account is not configured" };
     const controller = new AbortController();
     active = { controller, account, store, options: runtimeOptions(input), task: null };
-    setState({ status: "running", accountId, workspaceRoot: active.options.workspaceRoot, accessibleWorkspaceRoots: active.options.accessibleWorkspaceRoots, startedAt: Date.now(), lastError: null, activeAgentId: active.options.agent.id, approvalMode: active.options.approvalMode });
+    setState({
+      status: "running",
+      accountId,
+      workspaceRoot: active.options.workspaceRoot,
+      accessibleWorkspaceRoots: active.options.accessibleWorkspaceRoots,
+      startedAt: Date.now(),
+      lastError: null,
+      activeAgentId: active.options.agent.id,
+      approvalMode: active.options.approvalMode,
+    });
     await persistServiceConfig({ ...input, accountId, autoStart: input.autoStart ?? true });
     active.task = pollLoop(active).catch((error) => {
       if (!controller.signal.aborted) {
@@ -300,17 +334,25 @@ export function createWeixinService(options = {}) {
   async function stop(input = {}) {
     const current = active;
     if (input.persist !== false) await store.writeConfig({ autoStart: false });
-    if (!current) return { ok: true, status: snapshot({ status: state.status === "error" ? "error" : "stopped" }) };
+    if (!current) {
+      agentByChat.clear();
+      promptModeByChat.clear();
+      return {
+        ok: true,
+        status: snapshot({ status: state.status === "error" ? "error" : "stopped" }),
+      };
+    }
     current.controller.abort();
     active = null;
     for (const entry of pendingBatches.values()) clearTimeout(entry.timer);
     pendingBatches.clear();
     await stopActiveRunPolling(current.task);
+    agentByChat.clear();
+    promptModeByChat.clear();
     unsubscribeStudioRelay();
     setState({ status: "stopped" });
     return { ok: true, status: snapshot() };
   }
-
   async function pollLoop(session) {
     let syncBuf = await store.readSyncBuf(session.account.accountId);
     let timeoutMs = LONG_POLL_TIMEOUT_MS;
@@ -361,66 +403,6 @@ export function createWeixinService(options = {}) {
         if (failures >= 3) failures = 0;
       }
     }
-  }
-
-  async function processMessage(session, message) {
-    const senderId = String(message?.from_user_id ?? "").trim();
-    if (!senderId || senderId === session.account.accountId) return null;
-    const messageId = String(message?.message_id ?? "").trim();
-    if (messageId && dedup.hasOrAdd(`id:${messageId}`)) return null;
-    const itemList = Array.isArray(message?.item_list) ? message.item_list : [];
-    const text = extractText(itemList).trim();
-    if (!text) return null;
-    // 控制命令不应被 content dedup 吞掉；固定短文本命令可能在短时间内重复发送
-    const isControlCommand = messagingTasks.canRoute(text) || parseApprovalCommand(text) || parseRunCommand(text) || parseModeCommand(text) || parseModelSwitchCommand(text) || parseAgentSwitchCommand(text);
-    if (!isControlCommand) {
-      const contentKey = `content:${senderId}:${text}`;
-      if (dedup.hasOrAdd(contentKey)) return null;
-    }
-    const chat = guessChatType(message, session.account.accountId);
-    if (!isAllowed(session.options, chat, senderId)) {
-      appendLog({ type: "warn", text: `weixin inbound dropped (policy): sender=${senderId} chatType=${chat.chatType}` });
-      return null;
-    }
-    if (!(await ensureChannelUserAuthorized(session, { platformType: "wechat", platformUserId: senderId, chatId: chat.chatId, displayName: senderId }))) {
-      appendLog({ type: "warn", text: `weixin inbound dropped (unauthorized): sender=${senderId} chatId=${chat.chatId}` });
-      return null;
-    }
-    const contextToken = String(message?.context_token ?? "").trim();
-    if (contextToken) await store.writeContextToken(session.account.accountId, senderId, contextToken);
-    const mediaFiles = await collectMediaFiles(session, itemList);
-    const event = { accountId: session.account.accountId, senderId, messageId, text, mediaFiles, raw: message, ...chat };
-    setState({ lastMessageAt: Date.now(), processedCount: state.processedCount + 1 });
-    const taskRoute = await messagingTasks.route(event, {
-      appendLog,
-      reply: (replyText) => sendText(session, event.chatId, replyText, event.senderId),
-    });
-    if (taskRoute.handled) return event;
-    if (await maybeHandleControlCommand(session, event)) return event;
-    void enqueueText(session, event).catch((error) => {
-      const message = error instanceof Error ? error.message : String(error);
-      setState({ lastError: message });
-      appendLog({ type: "error", text: `weixin enqueue failed: ${message}` });
-      void sendText(session, event.chatId, `处理失败：${message}`, event.senderId).catch(() => undefined);
-    });
-    return event;
-  }
-
-  async function ensureChannelUserAuthorized(session, input) {
-    if (!channelPairingService) return true;
-    if (channelPairingService.isUserAuthorized(input.platformType, input.platformUserId)) {
-      channelPairingService.updateUserActivity(input.platformType, input.platformUserId);
-      return true;
-    }
-    const result = await channelPairingService.requestPairing(input);
-    const code = result?.pairingRequest?.code;
-    if (code) {
-      await sendText(session, input.chatId, `需要先在 Studio 本机批准配对。配对码：${code}`, input.platformUserId).catch(() => undefined);
-      appendLog({ type: "warn", text: `weixin pairing requested for ${input.platformUserId}, code=${code}` });
-    } else {
-      appendLog({ type: "warn", text: `weixin pairing request returned no code for ${input.platformUserId}` });
-    }
-    return false;
   }
 
   async function loginStart(input = {}) {
@@ -505,7 +487,12 @@ export function createWeixinService(options = {}) {
       account: sanitizeAccount(account),
       status: snapshot({
         workspaceRoot: state.workspaceRoot || String(lastStartOptions.workspaceRoot ?? ""),
-        accessibleWorkspaceRoots: state.accessibleWorkspaceRoots?.length ? state.accessibleWorkspaceRoots : normalizeAccessibleWorkspaceRoots(lastStartOptions.accessibleWorkspaceRoots, lastStartOptions.workspaceRoot),
+        accessibleWorkspaceRoots: state.accessibleWorkspaceRoots?.length
+          ? state.accessibleWorkspaceRoots
+          : normalizeAccessibleWorkspaceRoots(
+            lastStartOptions.accessibleWorkspaceRoots,
+            lastStartOptions.workspaceRoot,
+          ),
         approvalMode: state.approvalMode || normalizeApprovalMode(lastStartOptions.approvalMode),
       }),
       config: {
@@ -572,6 +559,11 @@ export function createWeixinService(options = {}) {
       const session = active ?? { account: input.account, store, options: runtimeOptions(input), controller: new AbortController() };
       return processMessage(session, message);
     },
+    runLocalPrompt: async (input = {}) => (
+      !active || state.status !== "running"
+        ? { ok: false, error: "Weixin is not running" }
+        : dispatchLocalPrompt(active, input)
+    ),
     sendTaskDelivery,
   };
 }

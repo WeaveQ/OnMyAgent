@@ -46,7 +46,8 @@ export class ChannelSessionStore {
   /**
    * Get or create a session for a user + agent + workspace combination
    * @param {Object} options
-   * @param {string} [options.platformType] - Platform type (wechat, feishu)
+   * @param {string} [options.platformType] - Platform type (wechat, feishu, telegram, discord)
+   * @param {string} [options.accountId] - Bot/account identity
    * @param {string} [options.platformUserId] - Platform user ID
    * @param {string} [options.agentType] - Agent type (codex, claude-code, etc.)
    * @param {string} [options.workspace] - Workspace path
@@ -55,14 +56,28 @@ export class ChannelSessionStore {
    */
   async getOrCreateSession(options = {}) {
     const { platformType, platformUserId, agentType, workspace, chatId } = options;
+    const accountId = String(options.accountId ?? "").trim();
 
     if (!platformType || !platformUserId || !agentType) {
       throw new Error("platformType, platformUserId, and agentType are required");
     }
 
-    // Check for existing active session for this user + agent
-    const userAgentKey = this._getUserAgentKey(platformType, platformUserId, agentType);
-    const existingSessionId = this._userAgentMap.get(userAgentKey);
+    // A caller that provides chatId must use the full account+chat identity.
+    // Older callers omitted chatId; preserve their single-session fallback
+    // without allowing an ambiguous sender/Agent lookup to cross chats.
+    const hasChatId = Boolean(String(chatId ?? "").trim());
+    const userAgentKey = this._getUserAgentKey(platformType, accountId, platformUserId, agentType, chatId);
+    let existingSessionId = hasChatId ? this._userAgentMap.get(userAgentKey) : null;
+    if (!hasChatId) {
+      const candidates = [...this._sessions.values()].filter((session) => (
+        !session.closedAt
+        && session.platformType === platformType
+        && String(session.accountId ?? "") === accountId
+        && session.platformUserId === platformUserId
+        && session.agentType === agentType
+      ));
+      if (candidates.length === 1) existingSessionId = candidates[0].id;
+    }
 
     if (existingSessionId) {
       const session = this._sessions.get(existingSessionId);
@@ -79,6 +94,7 @@ export class ChannelSessionStore {
     const session = {
       id: sessionId,
       platformType,
+      accountId: accountId || null,
       platformUserId,
       agentType,
       workspace: workspace || null,
@@ -164,6 +180,7 @@ export class ChannelSessionStore {
           id: session.id,
           chatId: session.chatId,
           platformType: session.platformType,
+          accountId: session.accountId,
           platformUserId: session.platformUserId,
         };
       }
@@ -263,8 +280,10 @@ export class ChannelSessionStore {
     // Remove from active user-agent mapping
     const userAgentKey = this._getUserAgentKey(
       session.platformType,
+      session.accountId,
       session.platformUserId,
-      session.agentType
+      session.agentType,
+      session.chatId,
     );
     this._userAgentMap.delete(userAgentKey);
 
@@ -303,8 +322,15 @@ export class ChannelSessionStore {
   /**
    * Get user-agent key for map storage
    */
-  _getUserAgentKey(platformType, platformUserId, agentType) {
-    return `${platformType}:${platformUserId}:${agentType}`;
+  _getUserAgentKey(platformType, accountId, platformUserId, agentType, chatId) {
+    // Account + chat are part of the identity. Keep the empty sentinels for
+    // legacy callers/files so old tests and sessions remain readable.
+    return JSON.stringify([platformType, accountId || "legacy-account", platformUserId, agentType, chatId || "legacy-chat"]);
+  }
+
+  /** Return all loaded sessions, including closed legacy records. */
+  getAllSessions() {
+    return [...this._sessions.values()];
   }
 
   /**
@@ -333,8 +359,10 @@ export class ChannelSessionStore {
           if (!session.closedAt) {
             const userAgentKey = this._getUserAgentKey(
               session.platformType,
+              session.accountId,
               session.platformUserId,
-              session.agentType
+              session.agentType,
+              session.chatId,
             );
             this._userAgentMap.set(userAgentKey, session.id);
           }

@@ -7,6 +7,11 @@ import type {
   DesktopChannelAuthorizedUser,
   DesktopChannelPairingRequest,
   DesktopChannelSession,
+  DesktopChannelTranscriptMessage,
+  DesktopChannelTranscriptEvent,
+  DesktopChannelTranscriptThread,
+  DesktopChannelTranscriptInput,
+  ChannelAgentPromptInput,
   DiscordAccountStatusInput,
   DiscordSaveAccountInput,
   DiscordServiceStartInput,
@@ -160,10 +165,19 @@ export function onChannelUserAuthorized(
   return api.channels.onUserAuthorized(callback);
 }
 
+export function onChannelTranscript(callback: (payload: DesktopChannelTranscriptEvent) => void): () => void {
+  const api = window.__ONMYAGENT_ELECTRON__;
+  if (!api?.channels?.onTranscript) return () => {};
+  return api.channels.onTranscript(callback);
+}
+
 // --- Channel Infrastructure API ---
 export type ChannelPairingRequest = DesktopChannelPairingRequest;
 export type ChannelAuthorizedUser = DesktopChannelAuthorizedUser;
 export type ChannelSession = DesktopChannelSession;
+export type ChannelTranscriptMessage = DesktopChannelTranscriptMessage;
+export type ChannelTranscriptThread = DesktopChannelTranscriptThread;
+export type { DesktopChannelTranscriptMessage, DesktopChannelTranscriptThread };
 
 export const channelGetPendingPairingRequests = () =>
   invokeDesktopCommand("channelGetPendingPairingRequests");
@@ -197,6 +211,7 @@ export const channelRevokeUserAuthorization = (
 
 export const channelGetOrCreateSession = (options: {
   platformType: string;
+  accountId?: string;
   platformUserId: string;
   agentType: string;
   workspace?: string;
@@ -218,6 +233,15 @@ export const channelGetSessionsByUser = (
     platformUserId,
   });
 
+export const channelGetTranscriptThreads = (input: { platformType: string; accountId?: string }) =>
+  invokeDesktopCommand("channelGetTranscriptThreads", input);
+
+export const channelGetTranscript = (input: DesktopChannelTranscriptInput) =>
+  invokeDesktopCommand("channelGetTranscript", input);
+
+export const channelRunAgentPrompt = (input: ChannelAgentPromptInput) =>
+  invokeDesktopCommand("channelRunAgentPrompt", input);
+
 export const channelCloseSession = (sessionId: string) =>
   invokeDesktopCommand("channelCloseSession", { sessionId });
 
@@ -237,4 +261,3 @@ export const channelGetEventHistory = (
   invokeDesktopCommand("channelGetEventHistory", { limit, filterEvent });
 
 // --- End Channel Infrastructure API ---
-

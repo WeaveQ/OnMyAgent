@@ -23,17 +23,25 @@
  *  - streaming reply via sendMessage then editMessageText/message.edit patch
  */
 
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
-import { normalizePersonalLocalAgent } from "../personal-agent-runtime/provider-registry.mjs";
 import {
   ONMYAGENT_ASSISTANT_AGENT_ID,
   ONMYAGENT_ASSISTANT_PROVIDER,
   createOnMyAgentAssistantAgent,
+  normalizeChannelAgent,
   runAssistantBridgeTurn,
 } from "./assistant-bridge.mjs";
 import { formatAgentReply, formatAgentResultOutput } from "./AgentReplyHeader.mjs";
 import { CHANNEL_EVENTS } from "./ChannelEventBus.mjs";
+import {
+  activeRunGuardKey, activeRunKey, agentLabel, buildPrompt, chatAgentHistoryKey,
+  getChannelRunSnapshotState, normalizePromptMode, parseAgentSwitchCommand,
+  parseApprovalCommand, parseModeCommand, parseModelSwitchCommand, parseRunCommand,
+  renderAgentHelp, renderApprovalPrompt, renderModeHelp, renderRunsList,
+  renderRunStatus, resolveAgentAlias, runAgentTurn, safeId, scopedRuntimeAgent,
+  sleep, splitTextForPlatform,
+} from "./agent-dispatch-helpers.mjs";
 import { createMessagingTaskAdapter } from "./messaging-task-adapter.mjs";
 
 const DEFAULT_TEXT_BATCH_DELAY_MS = 3_000;
@@ -49,61 +57,6 @@ const MESSAGE_DEDUP_TTL_MS = 5 * 60_000;
 // in the runtime process and is lost if the desktop app restarts. This
 // guarantees a conversation is never stuck behind a "running" task forever.
 const ACTIVE_RUN_MAX_AGE_MS = 12 * 60 * 60 * 1000 + 15 * 60 * 1000;
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function safeId(value, keep = 8) {
-  const raw = String(value ?? "").trim();
-  if (!raw) return "?";
-  return raw.length <= keep ? raw : raw.slice(0, keep);
-}
-
-function getChannelRunSnapshotState(snapshot) {
-  const status = String(snapshot?.status ?? "");
-  const pendingApprovals = Array.isArray(snapshot?.pendingApprovals) ? snapshot.pendingApprovals : [];
-  return {
-    status,
-    pendingApprovals,
-    hasPendingApprovals: pendingApprovals.length > 0,
-    isCompletedWithOutput: status === "completed" && Boolean(snapshot?.output),
-    isRunning: !status || status === "running",
-    isTerminal: Boolean(status && status !== "running"),
-  };
-}
-
-function splitTextForPlatform(text, maxLength = 2000) {
-  const raw = String(text ?? "").trim();
-  if (!raw) return [];
-  const limit = Number.isFinite(Number(maxLength)) ? Math.max(2, Math.floor(Number(maxLength))) : 2000;
-  if (raw.length <= limit) return [raw];
-  const chunks = [];
-  let rest = raw;
-  while (rest.length > limit) {
-    let cut = rest.lastIndexOf("\n\n", limit);
-    if (cut < limit * 0.5) cut = rest.lastIndexOf("\n", limit);
-    if (cut < limit * 0.5) cut = rest.lastIndexOf("。", limit);
-    if (cut < limit * 0.5) cut = limit;
-    // JavaScript string offsets count UTF-16 code units. Moving a fallback
-    // split one unit left keeps emoji and other supplementary characters from
-    // being emitted as two invalid lone surrogates across transport calls.
-    if (
-      cut > 0
-      && cut < rest.length
-      && rest.charCodeAt(cut - 1) >= 0xD800
-      && rest.charCodeAt(cut - 1) <= 0xDBFF
-      && rest.charCodeAt(cut) >= 0xDC00
-      && rest.charCodeAt(cut) <= 0xDFFF
-    ) {
-      cut -= 1;
-    }
-    chunks.push(rest.slice(0, cut).trim());
-    rest = rest.slice(cut).trim();
-  }
-  if (rest) chunks.push(rest);
-  return chunks.filter(Boolean);
-}
 
 class TtlSet {
   constructor(ttlMs) {
@@ -135,6 +88,7 @@ export function createChannelAgentDispatcher(options = {}) {
   const buildSimulatedInbound = typeof options.buildSimulatedInbound === "function" ? options.buildSimulatedInbound : null;
   const channelPairingService = options.channelPairingService ?? null;
   const channelSessionStore = options.channelSessionStore ?? null;
+  const channelTranscriptStore = options.channelTranscriptStore ?? null;
   const channelEventBus = options.channelEventBus ?? null;
   const channelMessageAdapter = options.channelMessageAdapter ?? null;
   const channelAssistantBindingStore = options.channelAssistantBindingStore ?? null;
@@ -310,7 +264,11 @@ export function createChannelAgentDispatcher(options = {}) {
   async function stop(input = {}) {
     const current = active;
     if (input.persist !== false) await store.writeConfig({ autoStart: false });
-    if (!current) return { ok: true, status: snapshot({ status: state.status === "error" ? "error" : "stopped" }) };
+    if (!current) {
+      agentByChat.clear();
+      promptModeByChat.clear();
+      return { ok: true, status: snapshot({ status: state.status === "error" ? "error" : "stopped" }) };
+    }
     current.controller.abort();
     active = null;
     for (const entry of pendingBatches.values()) clearTimeout(entry.timer);
@@ -332,6 +290,12 @@ export function createChannelAgentDispatcher(options = {}) {
     }
     activeRunReservations.clear();
     activeRunErrorNoticeAt.clear();
+    // Agent/mode overrides are chat-scoped, but the dispatcher can be reused
+    // for another account after stop. Drop the in-memory cache so an account
+    // switch cannot inherit the prior account's binding for the same chat id;
+    // the durable chat setting is read again on the next start.
+    agentByChat.clear();
+    promptModeByChat.clear();
     unsubscribeStudioRelay();
     setState({ status: "stopped", botUsername: undefined, hasToken: false });
     return { ok: true, status: snapshot() };
@@ -360,6 +324,16 @@ export function createChannelAgentDispatcher(options = {}) {
       const contentKey = `content:${event.senderId}:${event.chatId}:${event.text}`;
       if (dedup.hasOrAdd(contentKey)) return null;
     }
+    await channelTranscriptStore?.recordInbound?.({
+      platformType,
+      accountId: event.accountId ?? session.account.accountId,
+      chatId: event.chatId,
+      platformUserId: event.senderId,
+      externalId: event.messageId,
+      content: event.text,
+      role: isControlCommand ? "command" : "user",
+      metadata: { chatType: event.chatType },
+    }).catch(() => undefined);
     if (!isAllowed(session.options, event, event.senderId)) {
       const policyMessage = `${platformType} 消息被策略拦截（sender=${event.senderId}, chatType=${event.chatType}）`;
       appendLog({ type: "warn", text: `${platformType} inbound dropped (policy): sender=${event.senderId} chatType=${event.chatType}` });
@@ -428,8 +402,11 @@ export function createChannelAgentDispatcher(options = {}) {
       platformLabel: platformType,
       appendLog,
       readChatSetting: storeSafeReadChatSetting,
-      deliverReply: async (s, e, text) => {
-        await deliverReply(s, e.chatId, e.senderId, text);
+      deliverReply: (s, e, text) => (
+        deliverReply(s, e.chatId, e.senderId, text, { agent: e.agentSnapshot })
+      ),
+      deliverLocalNotice: async (s, e, text) => {
+        await deliverRunNotice(s, { ...e, agent: e.agentSnapshot }, text);
       },
     });
   }
@@ -543,6 +520,8 @@ export function createChannelAgentDispatcher(options = {}) {
   }
 
   async function notifyAgentBusy(session, event, agent, runKey) {
+    // A Studio-local prompt must not create an external busy acknowledgement.
+    if (event.isLocalPrompt) return;
     const busyKey = activeRunGuardKey(session.account.accountId, runKey);
     const nowTs = Date.now();
     const lastAt = agentBusyNoticeAt.get(busyKey) ?? 0;
@@ -556,14 +535,39 @@ export function createChannelAgentDispatcher(options = {}) {
     ).catch(() => undefined);
   }
 
+  async function deliverRunNotice(session, record, text, role = "error") {
+    if (record?.isLocalPrompt) {
+      await channelTranscriptStore?.recordLocalNotice?.({
+        platformType,
+        accountId: session.account.accountId,
+        chatId: record.chatId,
+        platformUserId: record.senderId,
+        content: text,
+        role,
+        agentId: record.agent?.id,
+        agentName: record.agent ? agentLabel(record.agent) : undefined,
+      }).catch(() => undefined);
+      return { ok: true, local: true };
+    }
+    return deliverReply(session, record.chatId, record.senderId, text, { agent: record.agent });
+  }
+
   async function dispatchToAgent(session, event) {
     if (session.controller?.signal.aborted) return null;
     if (!runtime?.runMessage && (!runtime?.startMessage || !runtime?.getRun)) {
       throw new Error("personal agent runtime is unavailable");
     }
     const agent = event.agentSnapshot ?? await currentAgentForChat(platformType, session, event.chatId);
+    channelTranscriptStore?.setActiveAgent?.({
+      platformType,
+      accountId: session.account.accountId,
+      chatId: event.chatId,
+      agentId: agent?.id,
+      agentName: agentLabel(agent),
+    });
     if (session.controller?.signal.aborted) return null;
     if (agent.provider === ONMYAGENT_ASSISTANT_PROVIDER) {
+      if (typeof event.onAccepted === "function") await event.onAccepted({ agent, runKey: null });
       return await runChannelAssistantBridgeTurn(session, event);
     }
     const promptMode = await currentPromptModeForChat(session, event.chatId);
@@ -576,7 +580,7 @@ export function createChannelAgentDispatcher(options = {}) {
     if (existingRun) {
       if (existingRun.runId) scheduleActiveRunPoll(session, existingRun, 0);
       await notifyAgentBusy(session, event, agent, runKey);
-      return existingRun;
+      return { ...existingRun, existingRun: true };
     }
     const reservation = reserveActiveRun(accountId, runKey, {
       chatId: event.chatId,
@@ -589,9 +593,12 @@ export function createChannelAgentDispatcher(options = {}) {
     if (!reservation.acquired) {
       if (reservation.record?.runId) scheduleActiveRunPoll(session, reservation.record, 0);
       await notifyAgentBusy(session, event, agent, runKey);
-      return reservation.record;
+      return reservation.record ? { ...reservation.record, existingRun: true } : null;
     }
     try {
+      if (typeof event.onAccepted === "function") {
+        await event.onAccepted({ agent, runKey });
+      }
       const runtimeAgent = scopedRuntimeAgent(platformType, platformName, agent, event);
       const channelSession = await getChannelSession(session, event, agent);
       if (session.controller?.signal.aborted) return null;
@@ -612,8 +619,11 @@ export function createChannelAgentDispatcher(options = {}) {
         });
         if (session.controller?.signal.aborted) return result;
         setState({ lastRunId: result?.runId ?? null });
-        await handleSynchronousAgentResult(session, event, { agent, historyKey, result, channelSession });
-        return result;
+        return await handleSynchronousAgentResult(
+          session,
+          event,
+          { agent, historyKey, result, channelSession },
+        );
       }
       const chatModel = await currentModelForChat(session, event.chatId);
       if (session.controller?.signal.aborted) return null;
@@ -639,8 +649,11 @@ export function createChannelAgentDispatcher(options = {}) {
       }
       setState({ lastRunId: started?.runId ?? null });
       if (!started?.runId) {
-        await handleSynchronousAgentResult(session, event, { agent, historyKey, result: started, channelSession });
-        return started;
+        return await handleSynchronousAgentResult(
+          session,
+          event,
+          { agent, historyKey, result: started, channelSession },
+        );
       }
       if (session.controller?.signal.aborted) return started;
       const pollKey = activeRunGuardKey(accountId, runKey);
@@ -659,6 +672,7 @@ export function createChannelAgentDispatcher(options = {}) {
         promptMode,
         prompt,
         userText: event.text,
+        isLocalPrompt: Boolean(event.isLocalPrompt),
         approvalMode: session.options.approvalMode,
         historyStoreLimit: session.options.historyStoreLimit,
         channelSessionId: channelSession?.id ?? null,
@@ -692,18 +706,29 @@ export function createChannelAgentDispatcher(options = {}) {
   async function handleSynchronousAgentResult(session, event, { agent, historyKey, result, channelSession }) {
     const resultState = getChannelRunSnapshotState(result);
     if (resultState.status === "running" && resultState.hasPendingApprovals) {
-      await deliverReply(session, event.chatId, event.senderId, "需要在 Studio 中审批后继续处理。");
-      return;
+      await deliverRunNotice(session, { ...event, agent }, "需要在 Studio 中审批后继续处理。", "system");
+      return result;
     }
     if (!resultState.isCompletedWithOutput) {
-      await deliverReply(session, event.chatId, event.senderId, "本次处理失败，请在 Studio 查看本地 Agent 日志。");
-      return;
+      await deliverRunNotice(session, { ...event, agent }, "本次处理失败，请在 Studio 查看本地 Agent 日志。");
+      return result;
     }
     const deliveredOutput = formatAgentResultOutput(result);
-    const delivery = await deliverReply(session, event.chatId, event.senderId, formatAgentReply({ agent, text: deliveredOutput }));
-    if (delivery?.ok === false) return;
+    const delivery = await deliverReply(session, event.chatId, event.senderId, formatAgentReply({ agent, text: deliveredOutput }), { agent });
+    if (delivery?.ok === false) {
+      const error = delivery.error ?? `Agent reply delivery to ${platformName} failed`;
+      if (event.isLocalPrompt) {
+        await deliverRunNotice(
+          session,
+          { ...event, agent },
+          `Agent 回复已生成，但发送到 ${platformName} 失败：${error}`,
+        );
+      }
+      return { ...result, status: "failed", error };
+    }
     await appendAgentHistory(session, historyKey, event.text, deliveredOutput, agent, session.options.historyStoreLimit);
-    await appendChannelSessionHistory(channelSession, event.text, deliveredOutput, agent);
+    if (!event.isLocalPrompt) await appendChannelSessionHistory(channelSession, event.text, deliveredOutput, agent);
+    return result;
   }
 
   async function appendAgentHistory(session, historyKey, userText, output, agent, limit) {
@@ -835,7 +860,7 @@ export function createChannelAgentDispatcher(options = {}) {
         const lastNoticeAt = activeRunErrorNoticeAt.get(pollKey) ?? 0;
         if (!clearedActiveRunKeys.has(pollKey) && nowTs - lastNoticeAt >= 30_000) {
           activeRunErrorNoticeAt.set(pollKey, nowTs);
-          void deliverReply(session, run.chatId, run.senderId, `任务状态查询失败：${message}`).catch(() => undefined);
+          void deliverRunNotice(session, run, `任务状态查询失败：${message}`).catch(() => undefined);
         }
         if (clearedActiveRunKeys.has(pollKey)) return;
         scheduleActiveRunPoll(session, run, ACTIVE_RUN_POLL_INTERVAL_MS);
@@ -884,7 +909,7 @@ export function createChannelAgentDispatcher(options = {}) {
     if (!result) {
       const message = "本次本地 Agent 任务已不在运行（可能主进程重启/崩溃后遗留，或已超时中断）。已自动清除会话锁，可重新发送消息。";
       const claim = await claimTerminalDelivery(session, runKey, record);
-      if (claim.shouldDeliver) await deliverReply(session, record.chatId, record.senderId, message).catch(() => undefined);
+      if (claim.shouldDeliver) await deliverRunNotice(session, record, message).catch(() => undefined);
       if (claim.shouldCleanup) await finalizeActiveRun(session, runKey, record);
       return;
     }
@@ -899,12 +924,22 @@ export function createChannelAgentDispatcher(options = {}) {
       const deliveredOutput = formatAgentResultOutput(result);
       let preserveForResume = false;
       try {
+        channelTranscriptStore?.setActiveAgent?.({
+          platformType,
+          accountId: session.account.accountId,
+          chatId: record.chatId,
+          agentId: record.agent?.id,
+          agentName: agentLabel(record.agent),
+        });
         const delivery = await deliverReply(
           session,
           record.chatId,
           record.senderId,
           formatAgentReply({ agent: record.agent, text: deliveredOutput }),
-          { beforeFirstTransport: () => markTerminalDeliveryAttempted(session, runKey, record) },
+          {
+            beforeFirstTransport: () => markTerminalDeliveryAttempted(session, runKey, record),
+            agent: record.agent,
+          },
         );
         if (delivery?.cancelled === true && delivery.attemptedTransports === 0) {
           preserveForResume = true;
@@ -913,7 +948,9 @@ export function createChannelAgentDispatcher(options = {}) {
         }
         if (delivery?.ok !== false) {
           await appendAgentHistory(session, record.historyKey, record.userText, deliveredOutput, record.agent, record.historyStoreLimit ?? session.options.historyStoreLimit);
-          await appendChannelSessionHistoryById(record.channelSessionId, record.userText, deliveredOutput, record.agent);
+          if (!record.isLocalPrompt) await appendChannelSessionHistoryById(record.channelSessionId, record.userText, deliveredOutput, record.agent);
+        } else if (record.isLocalPrompt) {
+          await deliverRunNotice(session, record, `Agent 回复已生成，但发送到${platformName}失败：${delivery?.error ?? "unknown error"}`);
         }
       } catch (error) {
         if (error?.retryTerminalDelivery === true) {
@@ -933,7 +970,7 @@ export function createChannelAgentDispatcher(options = {}) {
       const message = resultState.status === "cancelled" ? "本次本地 Agent 任务已取消。" : `本次处理失败，请在 Studio 查看本地 Agent 日志。${result?.error ? `\n${result.error}` : ""}`;
       const claim = await claimTerminalDelivery(session, runKey, record);
       try {
-        if (claim.shouldDeliver) await deliverReply(session, record.chatId, record.senderId, message);
+        if (claim.shouldDeliver) await deliverRunNotice(session, record, message, resultState.status === "cancelled" ? "system" : "error");
       } finally {
         if (claim.shouldCleanup) await finalizeActiveRun(session, runKey, record);
       }
@@ -944,7 +981,7 @@ export function createChannelAgentDispatcher(options = {}) {
     if (Date.now() - (record.startedAt ?? 0) > ACTIVE_RUN_MAX_AGE_MS) {
       const message = `本次本地 Agent 任务运行已超过上限（约 ${Math.round(ACTIVE_RUN_MAX_AGE_MS / 3_600_000)} 小时），已自动超时并清除会话锁。可重新发送消息。`;
       const claim = await claimTerminalDelivery(session, runKey, record);
-      if (claim.shouldDeliver) await deliverReply(session, record.chatId, record.senderId, message).catch(() => undefined);
+      if (claim.shouldDeliver) await deliverRunNotice(session, record, message).catch(() => undefined);
       if (claim.shouldCleanup) await finalizeActiveRun(session, runKey, record);
       return;
     }
@@ -957,7 +994,7 @@ export function createChannelAgentDispatcher(options = {}) {
         pendingApprovals,
       }, record);
       if (!updated || clearedActiveRunKeys.has(pollKey)) return;
-      await deliverReply(session, record.chatId, record.senderId, renderApprovalPrompt(updated, pendingApprovals));
+      await deliverRunNotice(session, updated, renderApprovalPrompt(updated, pendingApprovals), "system");
       scheduleActiveRunPoll(session, updated, ACTIVE_RUN_PENDING_POLL_INTERVAL_MS);
       return;
     }
@@ -983,10 +1020,11 @@ export function createChannelAgentDispatcher(options = {}) {
    * may patch the current message. Once the accumulated body would cross the
    * platform limit, delivery rolls over to a new message instead.
    */
-  async function deliverReply(session, chatId, peerId, text, { beforeFirstTransport = null } = {}) {
+  async function deliverReply(session, chatId, peerId, text, { beforeFirstTransport = null, agent = null } = {}) {
     const chunks = splitTextForPlatform(text, maxMessageLength);
     if (chunks.length === 0) return null;
     let messageId = null;
+    let currentDedupeKey = "";
     let currentMessageText = "";
     let successfulSends = 0;
     let attemptedTransports = 0;
@@ -1022,14 +1060,41 @@ export function createChannelAgentDispatcher(options = {}) {
           .catch((error) => ({ ok: false, error: error?.message ?? String(error) }));
         if (edited?.ok === false) return failureResult("edit", edited);
         currentMessageText = editedText;
+        await channelTranscriptStore?.recordOutbound?.({
+          platformType,
+          accountId: session.account?.accountId ?? state.accountId,
+          chatId,
+          platformUserId: peerId,
+          content: currentMessageText,
+          externalId: messageId,
+          dedupeKey: currentDedupeKey,
+          replaceExisting: true,
+          agentId: agent?.id,
+          agentName: agent ? agentLabel(agent) : undefined,
+          metadata: { transportAction: "edit" },
+        }).catch(() => undefined);
       } else {
+        const transportDedupeKey = randomUUID();
         attemptedTransports += 1;
         const sent = await sendTextTo(chatId, chunk, peerId)
           .catch((error) => ({ ok: false, error: error?.message ?? String(error) }));
         if (sent?.ok === false) return failureResult("send", sent);
         successfulSends += 1;
         messageId = sent?.messageId ?? null;
+        currentDedupeKey = messageId || transportDedupeKey;
         currentMessageText = chunk;
+        await channelTranscriptStore?.recordOutbound?.({
+          platformType,
+          accountId: session.account?.accountId ?? state.accountId,
+          chatId,
+          platformUserId: peerId,
+          content: chunk,
+          externalId: messageId,
+          dedupeKey: currentDedupeKey,
+          agentId: agent?.id,
+          agentName: agent ? agentLabel(agent) : undefined,
+          metadata: { transportAction: "send", chunkIndex: index },
+        }).catch(() => undefined);
       }
       if (session.controller?.signal.aborted) return cancelledResult();
       if (index < chunks.length - 1) {
@@ -1064,6 +1129,7 @@ export function createChannelAgentDispatcher(options = {}) {
     if (!channelSessionStore) return null;
     const channelSession = await channelSessionStore.getOrCreateSession({
       platformType,
+      accountId: session.account.accountId,
       platformUserId: event.senderId,
       agentType: `${agent.provider}/${agent.id}`,
       workspace: session.options.workspaceRoot,
@@ -1460,7 +1526,100 @@ export function createChannelAgentDispatcher(options = {}) {
     if (!active || state.status !== "running") return { ok: false, error: `${platformName} is not running` };
     if (accountId && accountId !== String(active.account?.accountId ?? state.accountId)) return { ok: false, error: `${platformName} account is not active` };
     if (!chatId || !text) return { ok: false, error: "chatId and text are required" };
-    return sendTextTo(chatId, text);
+    const result = await sendTextTo(chatId, text);
+    if (result?.ok !== false) {
+      await channelTranscriptStore?.recordOutbound?.({
+        platformType,
+        accountId: active.account?.accountId ?? state.accountId,
+        chatId,
+        content: text,
+        externalId: result?.messageId,
+        metadata: { source: "task-delivery" },
+      }).catch(() => undefined);
+    }
+    return result;
+  }
+
+  async function runLocalPrompt(input = {}) {
+    if (!active || state.status !== "running") return { ok: false, error: `${platformName} is not running` };
+    const accountId = String(input.accountId ?? active.account?.accountId ?? state.accountId).trim();
+    const chatId = String(input.chatId ?? "").trim();
+    const text = String(input.text ?? "").trim();
+    if (!chatId || !text) return { ok: false, error: "chatId and text are required" };
+    if (accountId !== String(active.account?.accountId ?? state.accountId)) return { ok: false, error: `${platformName} account is not active` };
+    const senderId = String(input.platformUserId ?? input.senderId ?? chatId).trim() || chatId;
+    const agent = await currentAgentForChat(platformType, active, chatId);
+    const runKey = activeRunKey(chatId, agent);
+    const existingRun = agent.provider === ONMYAGENT_ASSISTANT_PROVIDER
+      ? null
+      : await readActiveRunWithReservation(accountId, runKey);
+    if (existingRun) {
+      if (existingRun.runId) scheduleActiveRunPoll(active, existingRun, 0);
+      return {
+        ok: false,
+        error: "当前 Agent 仍在处理上一条消息，请等待完成后再试。",
+        runId: existingRun.runId ?? null,
+        status: existingRun.status ?? "running",
+        existingRun: true,
+        chatId,
+        platformType,
+      };
+    }
+    channelTranscriptStore?.setActiveAgent?.({
+      platformType,
+      accountId,
+      chatId,
+      agentId: agent?.id,
+      agentName: agentLabel(agent),
+    });
+    const event = {
+      accountId,
+      senderId,
+      chatId,
+      messageId: `studio-${randomUUID()}`,
+      text,
+      chatType: "dm",
+      source: "operator",
+      isLocalPrompt: true,
+      agentSnapshot: agent,
+      onAccepted: () => channelTranscriptStore?.recordOperatorPrompt?.({
+        platformType,
+        accountId,
+        chatId,
+        platformUserId: senderId,
+        content: text,
+        metadata: { visibility: "local" },
+      }).catch(() => undefined),
+    };
+    const result = await dispatchToAgent(active, event);
+    if (!result || result.existingRun) {
+      return {
+        ok: false,
+        error: "当前 Agent 仍在处理上一条消息，请等待完成后再试。",
+        runId: result?.runId ?? null,
+        status: result?.status ?? "running",
+        existingRun: Boolean(result?.existingRun),
+        chatId,
+        platformType,
+      };
+    }
+    const resultStatus = String(result.status ?? "");
+    if (resultStatus && resultStatus !== "running" && resultStatus !== "completed") {
+      return {
+        ok: false,
+        error: result.error ?? "Agent prompt failed before a reply was produced.",
+        status: resultStatus,
+        chatId,
+        platformType,
+      };
+    }
+    return {
+      ok: true,
+      runId: result?.runId ?? null,
+      status: result?.status ?? "queued",
+      chatId,
+      platformType,
+    };
   }
 
   return {
@@ -1473,6 +1632,7 @@ export function createChannelAgentDispatcher(options = {}) {
     autoStart,
     simulateInbound,
     probe,
+    runLocalPrompt,
     processInbound,
     deliverReply,
     sendTaskDelivery,
@@ -1493,7 +1653,7 @@ function sanitizeAccount(account) {
 }
 
 function normalizeRuntimeOptions(input = {}) {
-  const agent = normalizePersonalLocalAgent(input.agent ?? { provider: "opencode" });
+  const agent = normalizeChannelAgent(input.agent ?? { provider: "opencode" });
   const availableAgents = normalizeAvailableAgents(input.availableAgents ?? input.agents, agent);
   const allowedUsers = normalizeList(input.allowedUsers ?? input.allowFrom);
   const allowedGroups = normalizeList(input.allowedGroups ?? input.groupAllowFrom);
@@ -1541,17 +1701,11 @@ function normalizeAccessibleWorkspaceRoots(value, workspaceRoot = "") {
   return roots;
 }
 
-function normalizePromptMode(value) {
-  const mode = String(value ?? "raw").trim().toLowerCase();
-  if (mode === "debug") return "debug";
-  return "raw";
-}
-
 function normalizeAvailableAgents(value, fallbackAgent) {
   const source = Array.isArray(value) ? value : [];
   const byId = new Map();
   for (const item of [fallbackAgent, ...source]) {
-    const agent = normalizePersonalLocalAgent(item);
+    const agent = normalizeChannelAgent(item);
     byId.set(agent.id, agent);
   }
   if (!byId.has(ONMYAGENT_ASSISTANT_AGENT_ID)) {
@@ -1587,7 +1741,7 @@ async function currentAgentForChat(platformType, session, chatId) {
   const memoryAgent = session.options.agentByChat.get(chatId);
   if (memoryAgent) return memoryAgent;
   const setting = await storeSafeReadChatSetting(session, chatId);
-  const storedAgent = setting?.agent ? normalizePersonalLocalAgent(setting.agent) : null;
+  const storedAgent = setting?.agent ? normalizeChannelAgent(setting.agent) : null;
   if (storedAgent) {
     const available = resolveAgentAlias(session.options.availableAgents, storedAgent.id) ?? storedAgent;
     session.options.agentByChat.set(chatId, available);
@@ -1716,191 +1870,6 @@ async function storeSafeReadChatSetting(session, chatId) {
   } catch {
     return null;
   }
-}
-
-function parseAgentSwitchCommand(text) {
-  const raw = String(text ?? "").trim();
-  const match = raw.match(/^(?:#agent|\/agent|切换agent|切换Agent|切换代理)(?:\s+(.+))?$/i);
-  if (!match) return null;
-  return { target: String(match[1] ?? "").trim() };
-}
-
-function parseModeCommand(text) {
-  const raw = String(text ?? "").trim();
-  const match = raw.match(/^(?:#mode|\/mode|#prompt|\/prompt|切换模式)(?:\s+(.+))?$/i);
-  if (!match) return null;
-  return { target: String(match[1] ?? "").trim() };
-}
-
-function parseModelSwitchCommand(text) {
-  const raw = String(text ?? "").trim();
-  const match = raw.match(/^(?:#model|\/model|切换模型)(?:\s+(.+))?$/i);
-  if (!match) return null;
-  return { target: String(match[1] ?? "").trim() };
-}
-
-function parseRunCommand(text) {
-  const raw = String(text ?? "").trim().toLowerCase();
-  if (raw === "#status" || raw === "/status" || raw === "状态") return { name: "status" };
-  if (raw === "#runs" || raw === "/runs" || raw === "任务") return { name: "runs" };
-  if (raw === "#cancel" || raw === "/cancel" || raw === "取消") return { name: "cancel" };
-  if (raw === "#continue" || raw === "/continue" || raw === "继续") return { name: "continue" };
-  if (["#new", "/new", "#new session", "/new session", "#reset", "/reset", "#reset session", "/reset session", "新会话", "重置会话"].includes(raw)) return { name: "new" };
-  return null;
-}
-
-function parseApprovalCommand(text) {
-  const raw = String(text ?? "").trim().toLowerCase();
-  const match = raw.match(/^(?:#|\/)?(approve|allow|yes|批准|同意|通过|deny|reject|no|拒绝|不同意)(?:\s+(.+))?$/i);
-  if (!match) return null;
-  const verb = String(match[1] ?? "").toLowerCase();
-  const args = String(match[2] ?? "").toLowerCase().split(/\s+/).filter(Boolean);
-  const accept = ["approve", "allow", "yes", "批准", "同意", "通过"].includes(verb);
-  const session = args.some((arg) => ["session", "always", "本次", "本轮"].includes(arg));
-  return {
-    decision: accept ? (session ? "acceptForSession" : "accept") : "decline",
-    all: args.includes("all") || args.includes("全部"),
-  };
-}
-
-function agentLabel(agent) {
-  return `${agent.name || agent.id} (${agent.provider}${agent.id && agent.id !== agent.provider ? `/${agent.id}` : ""})`;
-}
-
-function agentAliases(agent) {
-  return [agent.id, agent.provider, agent.name]
-    .map((item) => String(item ?? "").trim().toLowerCase())
-    .filter(Boolean);
-}
-
-function resolveAgentAlias(agents, target) {
-  const normalized = String(target ?? "").trim().toLowerCase();
-  if (!normalized) return null;
-  return agents.find((agent) => agentAliases(agent).includes(normalized)) ?? null;
-}
-
-function stableHash(value) {
-  return createHash("sha256").update(String(value ?? "")).digest("hex").slice(0, 12);
-}
-
-function safeSegment(value) {
-  return String(value ?? "").trim().replace(/[^A-Za-z0-9_.@-]/g, "_").slice(0, 48) || "default";
-}
-
-function chatAgentHistoryKey(chatId, agent) {
-  return `${String(chatId ?? "").trim()}::agent:${agent.provider}/${agent.id}`;
-}
-
-function activeRunKey(chatId, agent) {
-  return `${String(chatId ?? "").trim()}::agent:${agent.provider}/${agent.id}`;
-}
-
-function activeRunGuardKey(accountId, runKey) {
-  return `${String(accountId ?? "").trim()}:${String(runKey ?? "").trim()}`;
-}
-
-function scopedRuntimeAgent(platformType, platformName, agent, event) {
-  const scopeHash = stableHash(`${event.accountId}\n${event.chatId}\n${agent.provider}\n${agent.id}`);
-  return {
-    ...agent,
-    id: `${safeSegment(agent.id)}-${platformType}-${scopeHash}`,
-    name: agent.name ? `${agent.name} · ${platformName}` : `${agent.provider} · ${platformName}`,
-  };
-}
-
-function renderAgentHelp(session, chatId) {
-  const current = session.options.agentByChat.get(chatId) ?? session.options.agent;
-  return [
-    `当前回复 Agent：${agentLabel(current)}`,
-    "可用 Agent：",
-    ...session.options.availableAgents.map((agent) => `- ${agent.id}: ${agentLabel(agent)}`),
-    "",
-    "发送 #agent <id> 切换，例如：#agent codex 或 #agent onmyagent（连接本地助理）",
-  ].join("\n");
-}
-
-function renderModeHelp(session, chatId) {
-  const current = session.options.promptModeByChat.get(chatId) ?? session.options.promptMode;
-  return [
-    `当前转发模式：${current}`,
-    "可用模式：raw、debug",
-    "发送 #mode raw 使用原文直通；发送 #mode debug 使用调试上下文。",
-  ].join("\n");
-}
-
-function renderRunStatus(run) {
-  const agent = run?.agent ? agentLabel(run.agent) : "unknown";
-  const status = String(run?.status ?? "running");
-  const runIdValue = safeId(run?.runId, 12);
-  const startedAt = run?.startedAt ? new Date(run.startedAt).toISOString().replace("T", " ").slice(0, 19) : "unknown";
-  const approval = Array.isArray(run?.pendingApprovals) && run.pendingApprovals.length ? `\n待审批：${run.pendingApprovals.length}` : "";
-  return [`当前任务：${status}`, `Agent：${agent}`, `runId：${runIdValue}`, `开始时间：${startedAt}${approval}`].join("\n");
-}
-
-function renderApprovalPrompt(run, pendingApprovals) {
-  const approvals = Array.isArray(pendingApprovals) ? pendingApprovals : [];
-  const first = approvals[0] ?? {};
-  return [
-    "本地 Agent 请求权限审批。",
-    `Agent：${run?.agent ? agentLabel(run.agent) : "unknown"}`,
-    `runId：${safeId(run?.runId, 12)}`,
-    first.title ? `标题：${first.title}` : null,
-    first.summary ? `说明：${first.summary}` : null,
-    first.command ? `命令：${first.command}` : null,
-    first.cwd ? `目录：${first.cwd}` : null,
-    approvals.length > 1 ? `待审批数量：${approvals.length}` : null,
-    "",
-    "回复 #approve 批准一次；#approve session 批准本轮；#deny 拒绝。",
-    approvals.length > 1 ? "可用 #approve all 或 #deny all 处理全部。" : null,
-  ].filter(Boolean).join("\n");
-}
-
-function renderRunsList(platformName, runs) {
-  const items = Array.isArray(runs) ? runs : [];
-  if (!items.length) return `当前账号没有运行中的${platformName}本地 Agent 任务。`;
-  return [
-    "当前账号运行中的任务：",
-    ...items.map((run) => `- ${String(run.chatId ?? "?")} / ${run?.agent?.id ?? "unknown"}: ${String(run.status ?? "running")} (${safeId(run.runId, 12)})`),
-  ].join("\n");
-}
-
-function buildPrompt(platformName, event, options = {}) {
-  const mode = normalizePromptMode(options.mode);
-  const history = Array.isArray(options.history) ? options.history : [];
-  const historyLines = history.length
-    ? ["", "最近对话:", ...history.map((item) => `- ${item.role || "unknown"}${item.agentId ? `/${item.agentId}` : ""}: ${String(item.text ?? "").trim()}`)]
-    : [];
-  const agent = options.agent ?? {};
-  return [
-    `来源: ${platformName}`,
-    `chat_id: ${event.chatId}`,
-    `user_id: ${event.senderId}`,
-    event.messageId ? `message_id: ${event.messageId}` : null,
-    agent.id ? `agent: ${agent.provider || "unknown"}/${agent.id}` : null,
-    `prompt_mode: ${mode}`,
-    ...historyLines,
-    "",
-    "用户消息:",
-    event.text,
-  ].filter((line) => line !== null).join("\n");
-}
-
-async function runAgentTurn(runtime, input) {
-  if (typeof runtime.startMessage !== "function" || typeof runtime.getRun !== "function") {
-    return await runtime.runMessage(input);
-  }
-  const started = await runtime.startMessage(input);
-  const runId = started?.runId;
-  if (!runId) return started;
-  const deadline = Date.now() + Math.max(30_000, Number(input.timeoutMs ?? 15 * 60_000));
-  while (Date.now() < deadline) {
-    const snapshot = await runtime.getRun({ runId, workspaceRoot: input.workspaceRoot });
-    const snapshotState = getChannelRunSnapshotState(snapshot);
-    if (snapshotState.hasPendingApprovals) return snapshot;
-    if (snapshotState.isTerminal) return snapshot;
-    await sleep(250);
-  }
-  return await runtime.getRun({ runId, workspaceRoot: input.workspaceRoot });
 }
 
 export const __test__ = {

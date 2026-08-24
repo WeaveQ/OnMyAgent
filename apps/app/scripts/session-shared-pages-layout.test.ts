@@ -27,10 +27,10 @@ describe("session shared page layouts", () => {
     expect(filesPage).toContain('className="flex h-full w-full min-h-0 flex-col');
     expect(filesPage).not.toContain("max-w-[1180px]");
     expect(managementPage).not.toContain('"mx-auto w-full max-w-7xl"');
-    expect(channelsPage).toContain('className="w-full"');
+    expect(channelsPage).toContain('className="flex h-full w-full min-h-0 flex-col');
     expect(channelsPage).not.toContain("mx-auto max-w-screen-2xl");
     // plugins / skills marketplace: full-width content (no max-w squeeze)
-    expect(toolsPage).toContain('pageContainer: "w-full px-6 pb-10 pt-5"');
+    expect(toolsPage).toContain('pageContainer: "w-full px-6 pb-16 pt-5"');
     expect(toolsPage).not.toContain("max-w-5xl");
     expect(toolsPage).not.toContain("mx-auto w-full max-w-screen-2xl");
   });

@@ -2104,9 +2104,16 @@ in dedicated registry files, not in ordinary JSX:
   composer) mounts only on chat host views (`activeSidebarView` is
   `chat` or `assistant`) in `assistant.tsx` / `expert.tsx`. Local ACP
   chat uses `PersonalLocalAgentPage` + `LocalAgentDraftComposer` and
-  must never stack the global composer. Manage / files / market /
-  devices / channels / billing never host a composer. Violating this
-  reintroduces the dual-composer / chrome-leak regression.
+  must never stack the global composer. The approved exception is the
+  channels-owned messaging chat surface (`domains/messaging`): its Studio
+  prompt uses the shared `Input`/`Textarea` + `SendButton` primitives,
+  invokes the selected channel's bound Agent, and renders the canonical
+  channel transcript. Feishu, Telegram and Discord keep the operator prompt
+  local-only; the Weixin surface mirrors an accepted prompt as a labelled BOT
+  message before the Agent turn, while the Agent's final reply is relayed to
+  the external chat. Manage / files / market / devices / billing still never
+  host a composer. Do not mount the global
+  `SessionSurface` inside channels or create a second composer there.
 
 If a scan hit does not match one of these, prefer moving it to a `dls-*`
 token, a shared variant, or a named local class map before leaving it in

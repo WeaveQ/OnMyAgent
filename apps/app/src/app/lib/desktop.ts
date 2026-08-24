@@ -377,6 +377,7 @@ declare global {
         ) => () => void;
         onPairing?: (callback: (payload: unknown) => void) => () => void;
         onUserAuthorized?: (callback: (payload: unknown) => void) => () => void;
+        onTranscript?: (callback: (payload: import("./desktop-types").DesktopChannelTranscriptEvent) => void) => () => void;
       };
       browser?: {
         diagnostics?: () => Promise<{
@@ -1414,9 +1415,7 @@ export {
   discordSimulateInbound,
   channelTestPlugin,
   testChannelConnection,
-  onChannelStatus,
-  onChannelPairing,
-  onChannelUserAuthorized,
+  onChannelStatus, onChannelPairing, onChannelUserAuthorized, onChannelTranscript,
   channelGetPendingPairingRequests,
   channelApprovePairing,
   channelDenyPairing,
@@ -1427,15 +1426,16 @@ export {
   channelGetSession,
   channelGetSessionsByPlatform,
   channelGetSessionsByUser,
+  channelGetTranscriptThreads, channelGetTranscript, channelRunAgentPrompt,
   channelCloseSession,
   channelUpdateSessionMetadata,
   channelGetEventHistory,
 } from "./desktop-messaging";
-
 export type {
   ChannelPairingRequest,
   ChannelAuthorizedUser,
   ChannelSession,
+  ChannelTranscriptMessage, ChannelTranscriptThread,
 } from "./desktop-messaging";
 
 export const agentManagementSnapshot = (

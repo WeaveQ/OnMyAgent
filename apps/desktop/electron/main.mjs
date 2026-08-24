@@ -715,8 +715,8 @@ const {
   channelEventBus.subscribe(CHANNEL_EVENTS.USER_AUTHORIZED, (event) => {
     mainWindow?.webContents?.send("onmyagent:channel:user:authorized", event?.payload ?? {});
   });
+  channelEventBus.subscribe(CHANNEL_EVENTS.TRANSCRIPT_UPDATED, (event) => mainWindow?.webContents?.send("onmyagent:channel:transcript", event?.payload ?? {}));
 })();
-
 const codeWorkspaceActions = createCodeWorkspaceActions({
   runtimeManager,
   shell,
