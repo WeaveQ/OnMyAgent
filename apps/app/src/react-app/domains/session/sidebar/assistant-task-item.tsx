@@ -11,6 +11,7 @@ import {
   Archive,
   Box,
   FolderOpen,
+  ListChecks,
   MoreHorizontal,
   Pencil,
   Pin,
@@ -40,6 +41,7 @@ import {
 } from "./conversation-model";
 import { ExpertStatusDots } from "./expert-status-dots";
 import { resolveTaskRowTrailingStatus } from "./task-row-trailing-status";
+import { AssistantBatchCheckbox } from "./assistant-sidebar-controls";
 import { resolveOpenFolderPath } from "../../shared";
 
 // Re-export shared chrome for session sidebar consumers (stable import path).
@@ -109,6 +111,10 @@ type AssistantTaskItemProps = {
   onRenameSession?: (sessionId: string, currentTitle: string) => void;
   onArchiveSession?: (sessionId: string, title: string) => void;
   onDeleteSession?: (sessionId: string) => void;
+  batchMode?: boolean;
+  batchSelected?: boolean;
+  onToggleBatchSelected?: (sessionId: string) => void;
+  onEnterBatchMode?: () => void;
   onOpenFolder?: (path: string) => void;
   /** Bind this task to a project folder (appears under spaces). */
   onSaveToSpace?: (sessionId: string) => void;
@@ -160,21 +166,27 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
   }, [menuOpen]);
 
   const singleLine = props.singleLine === true;
+  const batchMode = props.batchMode === true;
+  const rowSelected = !batchMode && props.selected;
   const openSession = () => {
+    if (batchMode) {
+      props.onToggleBatchSelected?.(latestSession.id);
+      return;
+    }
     props.onOpenSession(props.workspaceId, latestSession.id);
   };
 
   return (
     <div
       data-assistant-task-row="true"
-      role="button"
-      tabIndex={0}
+      role={batchMode ? undefined : "button"}
+      tabIndex={batchMode ? undefined : 0}
       // Whole-row open: nested Button inside HTML5-draggable ancestors was
       // unreliable in Electron (clicks swallowed). Actions stopPropagation.
       // No data-no-drag on the open surface — pin reorder drags from this row.
       onClick={openSession}
       onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
+        if (!batchMode && (event.key === "Enter" || event.key === " ")) {
           event.preventDefault();
           openSession();
         }
@@ -186,15 +198,34 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
           ? // Match LIST_ROW_H in assistant-conversation-sections (strict 34px).
             "h-[34px] min-h-[34px] max-h-[34px] shrink-0 items-center overflow-hidden py-0"
           : "items-start py-1.5",
-        props.selected
+        rowSelected
           ? "bg-dls-list-selected/75 text-dls-text"
           : "text-dls-text hover:bg-dls-list-hover/80",
       )}
-      onPointerEnter={() =>
-        props.onPrefetchSession?.(props.workspaceId, latestSession.id)
-      }
+      onPointerEnter={() => {
+        if (!batchMode) {
+          props.onPrefetchSession?.(props.workspaceId, latestSession.id);
+        }
+      }}
     >
-      {!singleLine && props.typeIcon ? (
+      {batchMode ? (
+        <span
+          data-no-drag
+          className="flex h-8 shrink-0 items-center"
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
+          <AssistantBatchCheckbox
+            checked={props.batchSelected === true}
+            aria-label={t("session.batch_select_task", {
+              title: props.group.description,
+            })}
+            onCheckedChange={() =>
+              props.onToggleBatchSelected?.(latestSession.id)
+            }
+          />
+        </span>
+      ) : !singleLine && props.typeIcon ? (
         <span className="shrink-0 text-dls-secondary">{props.typeIcon}</span>
       ) : null}
       <div
@@ -203,7 +234,7 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
           singleLine
             ? "flex h-8 min-h-0 max-h-8 flex-row items-center gap-0 py-0 leading-none"
             : "flex h-auto flex-col items-start justify-center gap-0.5",
-          props.selected ? "font-medium" : "font-normal",
+          rowSelected ? "font-medium" : "font-normal",
         )}
       >
         <span
@@ -227,7 +258,8 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
       */}
       <div
         className={cn(
-          "pointer-events-none shrink-0 group-hover:hidden",
+          "pointer-events-none shrink-0",
+          !batchMode && "group-hover:hidden",
           singleLine
             ? "flex h-8 min-w-[2.75rem] items-center justify-end self-center"
             : "self-start pt-0.5",
@@ -259,90 +291,92 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
           </span>
         )}
       </div>
-      <TooltipProvider delay={200}>
-      <div
-        data-no-drag
-        className={cn(
-          "hidden shrink-0 items-center justify-end gap-0.5 group-hover:flex",
-          singleLine ? "h-8 self-center" : "self-start",
-          menuOpen && "flex",
-        )}
-        // Keep ⋯ / pin / archive from also opening the session row / starting drag.
-        onClick={(event) => event.stopPropagation()}
-        onKeyDown={(event) => event.stopPropagation()}
-      >
-        <IconHoverTip label={t("session.task_actions")}>
-          <button
-            ref={anchorRef}
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              if (anchorRef.current) {
-                setMenuPosition(
-                  positionTaskContextMenu(
-                    anchorRef.current.getBoundingClientRect(),
-                  ),
-                );
-              }
-              setMenuOpen((value) => !value);
-            }}
-            className={TASK_ROW_ACTION_CLASS}
-            aria-label={t("session.task_actions")}
+      {!batchMode ? (
+        <TooltipProvider delay={200}>
+          <div
+            data-no-drag
+            className={cn(
+              "hidden shrink-0 items-center justify-end gap-0.5 group-hover:flex",
+              singleLine ? "h-8 self-center" : "self-start",
+              menuOpen && "flex",
+            )}
+            // Keep ⋯ / pin / archive from also opening the session row / starting drag.
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
           >
-            <MoreHorizontal strokeWidth={1.75} />
-          </button>
-        </IconHoverTip>
-        {pinnable && props.onTogglePinned ? (
-          <IconHoverTip
-            label={props.pinned ? t("session.unpin") : t("session.pin")}
-          >
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                setMenuOpen(false);
-                props.onTogglePinned?.(latestSession.id);
-              }}
-              className={cn(
-                TASK_ROW_ACTION_CLASS,
-                // Pinned → accent “unpin”; unpinned → quiet secondary “pin”.
-                props.pinned
-                  ? "text-dls-accent hover:text-dls-accent"
-                  : "text-dls-secondary",
-              )}
-              aria-label={props.pinned ? t("session.unpin") : t("session.pin")}
-            >
-              {props.pinned ? (
-                <PinOff strokeWidth={1.75} />
-              ) : (
-                <Pin strokeWidth={1.75} />
-              )}
-            </button>
-          </IconHoverTip>
-        ) : null}
-        {props.onArchiveSession ? (
-          <IconHoverTip label={t("session.archive_task")}>
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                setMenuOpen(false);
-                props.onArchiveSession?.(
-                  latestSession.id,
-                  props.group.description,
-                );
-              }}
-              className={TASK_ROW_ARCHIVE_CHIP_CLASS}
-              aria-label={t("session.archive_task")}
-            >
-              <Archive strokeWidth={1.75} />
-            </button>
-          </IconHoverTip>
-        ) : null}
-      </div>
-      </TooltipProvider>
+            <IconHoverTip label={t("session.task_actions")}>
+              <button
+                ref={anchorRef}
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (anchorRef.current) {
+                    setMenuPosition(
+                      positionTaskContextMenu(
+                        anchorRef.current.getBoundingClientRect(),
+                      ),
+                    );
+                  }
+                  setMenuOpen((value) => !value);
+                }}
+                className={TASK_ROW_ACTION_CLASS}
+                aria-label={t("session.task_actions")}
+              >
+                <MoreHorizontal strokeWidth={1.75} />
+              </button>
+            </IconHoverTip>
+            {pinnable && props.onTogglePinned ? (
+              <IconHoverTip
+                label={props.pinned ? t("session.unpin") : t("session.pin")}
+              >
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuOpen(false);
+                    props.onTogglePinned?.(latestSession.id);
+                  }}
+                  className={cn(
+                    TASK_ROW_ACTION_CLASS,
+                    // Pinned → accent “unpin”; unpinned → quiet secondary “pin”.
+                    props.pinned
+                      ? "text-dls-accent hover:text-dls-accent"
+                      : "text-dls-secondary",
+                  )}
+                  aria-label={props.pinned ? t("session.unpin") : t("session.pin")}
+                >
+                  {props.pinned ? (
+                    <PinOff strokeWidth={1.75} />
+                  ) : (
+                    <Pin strokeWidth={1.75} />
+                  )}
+                </button>
+              </IconHoverTip>
+            ) : null}
+            {props.onArchiveSession ? (
+              <IconHoverTip label={t("session.archive_task")}>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuOpen(false);
+                    props.onArchiveSession?.(
+                      latestSession.id,
+                      props.group.description,
+                    );
+                  }}
+                  className={TASK_ROW_ARCHIVE_CHIP_CLASS}
+                  aria-label={t("session.archive_task")}
+                >
+                  <Archive strokeWidth={1.75} />
+                </button>
+              </IconHoverTip>
+            ) : null}
+          </div>
+        </TooltipProvider>
+      ) : null}
 
-      {menuOpen && menuPosition ? (
+      {!batchMode && menuOpen && menuPosition ? (
         <div
           ref={menuRef}
           className={TASK_CONTEXT_MENU_CLASS}
@@ -350,6 +384,17 @@ export function AssistantTaskItem(props: AssistantTaskItemProps) {
           style={{ left: menuPosition.left, top: menuPosition.top }}
           onClick={(event) => event.stopPropagation()}
         >
+          {props.onEnterBatchMode ? (
+            <TaskMenuItem
+              onClick={() => {
+                setMenuOpen(false);
+                props.onEnterBatchMode?.();
+              }}
+            >
+              <ListChecks strokeWidth={1.75} />
+              {t("session.batch_actions")}
+            </TaskMenuItem>
+          ) : null}
           {openFolderPath && props.onOpenFolder ? (
             <TaskMenuItem
               onClick={() => {

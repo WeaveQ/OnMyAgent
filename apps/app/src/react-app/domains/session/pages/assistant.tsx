@@ -70,9 +70,7 @@ import {
   archiveAssistantTask,
   archiveAssistantTasks,
   collectSessionDescendantIds,
-  collectSessionSubtreeIds,
   permanentlyRemoveAssistantArchivedTask,
-  permanentlyRemoveAssistantArchivedTaskTree,
   readAssistantArchivedTasks,
 } from "../../shared";
 import { buildFilesOpenSessionMeta } from "./session-files-open-meta";
@@ -133,6 +131,7 @@ import {
   clearComposerDraftForNewTask,
   createWorkspaceFilesAgentHandlers,
   setComposerDraftAfterNewTask,
+  useAssistantSessionDeleteExecution,
 } from "./shared-page-utils";
 import { buildAskAgentFileInstruction } from "../../../capabilities/artifacts/file-preview-policy";
 import { useCustomConnectorDialog } from "./use-custom-connector-dialog";
@@ -886,20 +885,19 @@ export function AssistantPage(props: AssistantPageProps) {
     ],
   );
 
+  const { executeSessionDelete: executeAssistantSessionDelete, executeBatchDelete: executeAssistantBatchDelete } =
+    useAssistantSessionDeleteExecution({
+    workspaceId: props.selectedWorkspaceId,
+    workspaceSessionGroups: props.sidebar.workspaceSessionGroups,
+    onDeleteSession: props.onDeleteSession,
+    purgeSessionWorkspaceFiles,
+  });
+
   const executeAssistantDelete = useCallback(
     async (target: { kind: "session"; sessionId: string } | AssistantGroupDeleteTarget) => {
       if (!props.onDeleteSession) return;
       if (target.kind === "session") {
-        const listed =
-          props.sidebar.workspaceSessionGroups.find(
-            (item) => item.workspace.id === props.selectedWorkspaceId,
-          )?.sessions ?? [];
-        const subtreeIds = collectSessionSubtreeIds(listed, target.sessionId);
-        for (const id of subtreeIds) {
-          await purgeSessionWorkspaceFiles(id);
-        }
-        permanentlyRemoveAssistantArchivedTaskTree(props.selectedWorkspaceId, target.sessionId);
-        await props.onDeleteSession(target.sessionId);
+        await executeAssistantSessionDelete(target.sessionId);
         return;
       }
       // 1) Delete every run session under the group (history rows).
@@ -947,6 +945,7 @@ export function AssistantPage(props: AssistantPageProps) {
       props.onDeleteSession,
       props.onmyagentServerClient,
       props.selectedWorkspaceId,
+      executeAssistantSessionDelete,
       purgeSessionWorkspaceFiles,
       showToast,
     ],
@@ -1296,6 +1295,7 @@ export function AssistantPage(props: AssistantPageProps) {
               onPrefetchSession={props.sidebar.onPrefetchSession}
               onRenameSession={openRenameModal}
               onDeleteSession={openDeleteModal}
+              onDeleteSessions={props.onDeleteSession ? executeAssistantBatchDelete : undefined}
               onDeleteAutomationGroup={openDeleteAutomationGroupModal}
             />
           ) : null}

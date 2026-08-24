@@ -25,6 +25,7 @@ import providers from "./providers";
 import providerAuth from "./provider_auth";
 import questionModal from "./question_modal";
 import session from "./session";
+import sessionBatch from "./session_batch";
 import settings from "./settings";
 import share from "./share";
 import shareSkillDestination from "./share_skill_destination";
@@ -77,6 +78,7 @@ export default {
   ...providerAuth,
   ...questionModal,
   ...session,
+  ...sessionBatch,
   ...settings,
   ...share,
   ...shareSkillDestination,

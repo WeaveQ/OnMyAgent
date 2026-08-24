@@ -46,6 +46,8 @@ import {
 } from "./assistant-task-item";
 import { useExpertUnreadStore } from "../status/expert-unread-store";
 import { pickAggregateSessionStatus } from "./utils";
+import type { AssistantBatchSelectionState } from "./assistant-list-model";
+import { AssistantBatchCheckbox } from "./assistant-sidebar-controls";
 
 /** Recent list preview before "show more". */
 export const RECENT_PREVIEW_LIMIT = 10;
@@ -121,6 +123,10 @@ export function AssistantTaskRows(props: {
   onRenameSession?: (sessionId: string, currentTitle: string) => void;
   onArchiveSession?: (sessionId: string, title: string) => void;
   onDeleteSession?: (sessionId: string) => void;
+  batchMode?: boolean;
+  batchSelectedSessionIds?: ReadonlySet<string>;
+  onToggleBatchSession?: (sessionId: string) => void;
+  onEnterBatchMode?: () => void;
   onOpenFolder?: (path: string) => void;
   onSaveToSpace?: (sessionId: string) => void;
 }) {
@@ -168,6 +174,10 @@ export function AssistantTaskRows(props: {
             onRenameSession={props.onRenameSession}
             onArchiveSession={props.onArchiveSession}
             onDeleteSession={props.onDeleteSession}
+            batchMode={props.batchMode}
+            batchSelected={props.batchSelectedSessionIds?.has(item.latestSession.id)}
+            onToggleBatchSelected={props.onToggleBatchSession}
+            onEnterBatchMode={props.onEnterBatchMode}
             onOpenFolder={props.onOpenFolder}
             // Already in a space folder — no "save to space" again.
             onSaveToSpace={props.folderPath?.trim() ? undefined : props.onSaveToSpace}
@@ -217,6 +227,10 @@ export function SpaceFolderDragList(props: {
   onRenameSession?: (sessionId: string, currentTitle: string) => void;
   onArchiveSession?: (sessionId: string, title: string) => void;
   onDeleteSession?: (sessionId: string) => void;
+  batchMode?: boolean;
+  batchSelectedSessionIds?: ReadonlySet<string>;
+  onToggleBatchSession?: (sessionId: string) => void;
+  onEnterBatchMode?: () => void;
   onSaveToSpace?: (sessionId: string) => void;
   onToggleShowAllFolder: (folderKey: string) => void;
 }) {
@@ -224,7 +238,8 @@ export function SpaceFolderDragList(props: {
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [dropSlot, setDropSlot] = useState<number | null>(null);
   const count = props.folders.length;
-  const canDrag = Boolean(props.onReorderSpaceFolders) && count > 1;
+  const canDrag =
+    !props.batchMode && Boolean(props.onReorderSpaceFolders) && count > 1;
 
   const clearDrag = () => {
     dragFromRef.current = null;
@@ -327,6 +342,7 @@ export function SpaceFolderDragList(props: {
                   onArchiveDirectory={props.onArchiveDirectory}
                   onRemoveFromList={props.onRemoveFromList}
                   onCreateTask={props.onCreateTask}
+                  batchMode={props.batchMode}
                 />
               </div>
               {expandedDir ? (
@@ -355,6 +371,10 @@ export function SpaceFolderDragList(props: {
                             onRenameSession={props.onRenameSession}
                             onArchiveSession={props.onArchiveSession}
                             onDeleteSession={props.onDeleteSession}
+                            batchMode={props.batchMode}
+                            batchSelectedSessionIds={props.batchSelectedSessionIds}
+                            onToggleBatchSession={props.onToggleBatchSession}
+                            onEnterBatchMode={props.onEnterBatchMode}
                             onOpenFolder={props.onOpenFolder}
                             onSaveToSpace={props.onSaveToSpace}
                           />
@@ -387,6 +407,10 @@ export function SectionHeader(props: {
   trailing?: ReactNode;
   /** Quieter label (no count) — WorkBuddy section chrome. */
   quiet?: boolean;
+  batchSelection?: {
+    state: AssistantBatchSelectionState;
+    onToggle: () => void;
+  };
 }) {
   // WorkBuddy: quiet section labels; optional (n); chevron after title.
   return (
@@ -394,6 +418,15 @@ export function SectionHeader(props: {
       className={cn(LIST_ROW_CLASS, "group/section gap-0.5 text-dls-secondary")}
       data-assistant-section-header="true"
     >
+      {props.batchSelection ? (
+        <AssistantBatchCheckbox
+          checked={props.batchSelection.state.checked}
+          indeterminate={props.batchSelection.state.indeterminate}
+          disabled={props.batchSelection.state.totalCount === 0}
+          aria-label={t("session.batch_select_section", { section: props.label })}
+          onCheckedChange={props.batchSelection.onToggle}
+        />
+      ) : null}
       <button
         type="button"
         onClick={props.onToggle}
@@ -496,6 +529,7 @@ export function SpaceDirectoryRow(props: {
   onArchiveDirectory?: (directory: string) => void;
   onRemoveFromList?: (directory: string) => void;
   onCreateTask?: (directory: string) => void;
+  batchMode?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
@@ -542,13 +576,14 @@ export function SpaceDirectoryRow(props: {
         className={cn(menuOpen && "bg-dls-list-hover text-dls-text")}
         icon={<Folder className="size-3.5 shrink-0 text-dls-secondary" strokeWidth={1.6} />}
         trailing={
-          <div
-            data-no-drag
-            className={cn(
-              "flex h-full items-center gap-0 opacity-0 transition-opacity group-hover:opacity-100",
-              menuOpen && "opacity-100",
-            )}
-          >
+          props.batchMode ? undefined : (
+            <div
+              data-no-drag
+              className={cn(
+                "flex h-full items-center gap-0 opacity-0 transition-opacity group-hover:opacity-100",
+                menuOpen && "opacity-100",
+              )}
+            >
             <IconHoverTip label={t("session.task_actions")}>
               <button
                 ref={anchorRef}
@@ -602,10 +637,11 @@ export function SpaceDirectoryRow(props: {
                 </button>
               </IconHoverTip>
             ) : null}
-          </div>
+            </div>
+          )
         }
       />
-      {menuOpen && menuPosition ? (
+      {!props.batchMode && menuOpen && menuPosition ? (
         <div
           ref={menuRef}
           className={TASK_CONTEXT_MENU_CLASS}
