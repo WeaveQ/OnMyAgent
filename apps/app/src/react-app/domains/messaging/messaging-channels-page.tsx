@@ -190,6 +190,9 @@ export function MessagingChannelsPage(props: { workspaceRoot?: string }) {
     accounts.forEach((result, index) => {
       if (result.status !== "fulfilled") return;
       const accountId = String(result.value.account?.accountId ?? "").trim();
+      // Match updateStatus: never wipe a known account with "". An empty
+      // telegram/discord account payload was flashing sidebar "not linked".
+      if (!accountId) return;
       setConfiguredAccountByChannel((current) => {
         if (current[ids[index]] === accountId) return current;
         return { ...current, [ids[index]]: accountId };

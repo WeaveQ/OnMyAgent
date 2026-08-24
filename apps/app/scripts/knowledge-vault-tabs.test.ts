@@ -51,10 +51,11 @@ describe("knowledge editor tabs", () => {
       join(dirname(fileURLToPath(import.meta.url)), "../src/react-app/domains/knowledge/knowledge-vault-tab-bar.tsx"),
       "utf8",
     );
-    expect(source).toContain("w-36");
+    expect(source).toContain("w-32");
     expect(source).toContain("truncate");
-    expect(source).toContain("justify-center");
-    expect(source).toContain("text-center");
+    expect(source).toContain("text-left");
+    expect(source).not.toContain("justify-center");
+    expect(source).not.toContain("text-center");
     expect(source).not.toContain("border-r border-dls-border");
     expect(source).toContain("mac:titlebar-no-drag");
     expect(source).toContain("cursor-pointer");

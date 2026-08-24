@@ -138,7 +138,9 @@ export function applyKnowledgeNoteProps(markdown: string, props: KnowledgeNotePr
 }
 
 export function headingTitleFromBody(body: string): string {
-  return body.match(/^\s*#\s+(.+)$/m)?.[1]?.trim() ?? "";
+  // Leading h1 only. `/m` would treat a later "# Section" as the document title
+  // and the reader would hide its synthetic h1.
+  return body.match(/^\s*#\s+([^\n\r]+)/)?.[1]?.trim() ?? "";
 }
 
 export function countKnowledgeBody(body: string): { words: number; chars: number } {
