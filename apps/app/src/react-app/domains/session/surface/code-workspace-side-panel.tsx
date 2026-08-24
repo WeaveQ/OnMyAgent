@@ -13,7 +13,6 @@ import {
   MoreHorizontal,
   PanelRight,
   Pencil,
-  Plus,
   SquareTerminal,
   Trash2,
 } from "lucide-react";
@@ -33,9 +32,7 @@ import {
   revealDesktopItemInDir,
   writeCodeWorkspaceTerminal,
 } from "../../../../app/lib/desktop";
-import type {
-  CodeWorkspaceTerminal,
-} from "@onmyagent/types";
+import type { CodeWorkspaceTerminal } from "@onmyagent/types";
 import { t } from "../../../../i18n";
 import { isElectronRuntime } from "../../../../app/utils";
 import { classifyOpenTarget, resolveArtifactAbsolutePath, type OpenTarget } from "../artifacts/open-target";
@@ -90,20 +87,24 @@ import {
   workspaceFileParentPaths,
   type WorkspaceFileTreeNode,
 } from "../chat/session-page-files-model";
-import { BrowserPanel } from "../browser/browser-panel";
+import {
+  BrowserPanel,
+  createWorkspaceToolAddHandler,
+  WorkspaceHeaderCloseButton,
+  WorkspaceHeaderToolChooser,
+  WorkspaceToolHeaderBoundary,
+} from "../browser/browser-panel";
 import { openInAppBrowser } from "../browser/open-in-app-browser";
 import { CodeWorkspaceReviewPanel } from "./code-workspace-review";
 import { automationsForSourceSession } from "../artifacts/session-automation-panel-model";
 
 type ToolKind = "review" | "terminal" | "browser" | "files" | "automations";
-
 type ToolTab = {
   id: string;
   kind: ToolKind;
   label: string;
   terminal?: CodeWorkspaceTerminal;
 };
-
 /** Durable tool chips (no live terminal handle) restored after side-panel unmount. */
 type DurableToolTab = {
   id: string;
@@ -1208,30 +1209,25 @@ export function CodeWorkspaceSidePanel(props: {
   const cacheKey = workspacePanelCacheKey(props.sessionId, props.workspaceId);
   const cacheKeyRef = useRef(cacheKey);
   cacheKeyRef.current = cacheKey;
-
-  const [tabs, setTabs] = useState<ToolTab[]>(() => {
-    const snapshot = readWorkspacePanelSnapshot(cacheKey);
-    return snapshot?.tabs.map((tab) => ({ ...tab })) ?? [];
-  });
-  const [activeId, setActiveId] = useState<string | null>(() => {
-    const snapshot = readWorkspacePanelSnapshot(cacheKey);
-    return snapshot?.activeId ?? null;
-  });
+  const initialSnapshot = readWorkspacePanelSnapshot(cacheKey);
+  const initialSingletonKind = props.initialKind && props.initialKind !== "terminal" && !props.hiddenKinds?.includes(props.initialKind) ? props.initialKind : null;
+  const initialTabs =
+    initialSnapshot?.tabs.map((tab) => ({ ...tab })) ??
+    (initialSingletonKind
+      ? [{ id: `${initialSingletonKind}-singleton`, kind: initialSingletonKind,
+          label: t(toolItems.find((item) => item.kind === initialSingletonKind)?.labelKey ?? "session.code_side_panel_files") }]
+      : []);
+  const [tabs, setTabs] = useState<ToolTab[]>(initialTabs);
+  const [activeId, setActiveId] = useState<string | null>(initialSnapshot?.activeId ?? initialTabs[0]?.id ?? null);
   const [terminalBusy, setTerminalBusy] = useState(false);
   const [terminalError, setTerminalError] = useState<string | null>(null);
   const tabsRef = useRef<ToolTab[]>(tabs);
   const activeIdRef = useRef<string | null>(activeId);
-  const restoredKind =
-    tabs.find((tab) => tab.id === activeId)?.kind
-    ?? tabs[0]?.kind
-    ?? null;
-  const lastInitialKindRef = useRef<ToolKind | null>(
-    restoredKind === "terminal" ? null : restoredKind,
-  );
+  const restoredKind = tabs.find((tab) => tab.id === activeId)?.kind ?? tabs[0]?.kind ?? null;
+  const lastInitialKindRef = useRef<ToolKind | null>(initialSnapshot && restoredKind !== "terminal" ? restoredKind : null);
   // Fall back to the first tab when activeId is briefly out of sync (e.g. after
   // async addTab) so content is never blank while a top tab chip is visible.
-  const activeTab =
-    tabs.find((tab) => tab.id === activeId) ?? tabs[0] ?? null;
+  const activeTab = tabs.find((tab) => tab.id === activeId) ?? tabs[0] ?? null;
   // Empty-state menu: shorter translated labels first (e.g. zh 终端/文件 → 浏览器 → 自动化任务).
   const visibleToolItems = useMemo(
     () =>
@@ -1304,9 +1300,12 @@ export function CodeWorkspaceSidePanel(props: {
   );
 
   const addTab = useCallback(
-    async (kind: ToolKind, options?: { seedHomeWhenEmpty?: boolean }) => {
-      if (props.hiddenKinds?.includes(kind)) return;
-
+    createWorkspaceToolAddHandler({
+      getSelectedKind: () => (tabsRef.current.find((tab) => tab.id === activeIdRef.current) ?? tabsRef.current[0] ?? null)?.kind ?? null,
+      sessionId: props.sessionId,
+      isHidden: (kind) => props.hiddenKinds?.includes(kind) ?? false,
+      onBrowserOpen: props.onBrowserOpen,
+      continueAdd: async (kind, options) => {
       // One browser/files/review tool surface per session side panel. Multiple
       // page tabs live *inside* BrowserPanel, not as duplicate tool chips.
       if (kind !== "terminal") {
@@ -1380,7 +1379,8 @@ export function CodeWorkspaceSidePanel(props: {
       } finally {
         setTerminalBusy(false);
       }
-    },
+      },
+    }),
     [
       props.fileRoot,
       props.hiddenKinds,
@@ -1413,7 +1413,7 @@ export function CodeWorkspaceSidePanel(props: {
     // when there is no page tab yet, so agent tabs that already exist are preserved.
     void addTab(
       nextInitialKind,
-      nextInitialKind === "browser" ? { seedHomeWhenEmpty: true } : undefined,
+      nextInitialKind === "browser" ? { seedHomeWhenEmpty: true, ensureToolOnly: true } : undefined,
     );
   }, [addTab, props.hiddenKinds, props.initialKind]);
 
@@ -1449,6 +1449,21 @@ export function CodeWorkspaceSidePanel(props: {
         <BrowserPanel
           sessionId={props.sessionId}
           onClose={() => void closeTab(activeTab)}
+          renderToolMenu={() => (
+            <WorkspaceHeaderToolChooser
+              items={visibleToolItems}
+              busyKind={terminalBusy ? "terminal" : null}
+              onAdd={(kind) => {
+                void addTab(
+                  kind,
+                  kind === "browser" ? { seedHomeWhenEmpty: true } : undefined,
+                );
+              }}
+            />
+          )}
+          renderPanelClose={() => (
+            <WorkspaceHeaderCloseButton onClose={props.onClose} data-code-side-panel-close="true" className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text" icon={<PanelRight className="size-3.5" />} />
+          )}
         />
       );
     }
@@ -1487,99 +1502,72 @@ export function CodeWorkspaceSidePanel(props: {
     props.fileTargets,
     props.focusPath,
     props.focusToken,
+    props.onClose,
     props.onViewAutomation,
     props.workspaceId,
     props.workspacePath,
+    addTab,
+    terminalBusy,
+    visibleToolItems,
   ]);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background" data-code-workspace-side-panel="true">
-      <header
-        data-panel-titlebar="true"
-        className="flex h-14 shrink-0 items-center gap-1 border-b border-dls-mist px-2 mac:titlebar-drag"
-      >
-        {/*
-          Empty header chrome stays draggable. Tabs/buttons already use
-          titlebar-no-drag via Button — do not blanket the scroller.
-        */}
-        <div
-          data-panel-titlebar-controls="true"
-          className="min-w-0 flex-1 overflow-x-auto"
+      <WorkspaceToolHeaderBoundary activeKind={activeTab?.kind}>
+        <header
+          data-panel-titlebar="true"
+          data-panel-titlebar-row="workspace-tools"
+          className="flex h-14 shrink-0 items-center gap-1 border-b border-dls-mist px-2 mac:titlebar-drag"
         >
-          <div className="flex min-w-max items-center gap-1">
-            <PanelTabList values={tabs.map((tab) => tab.id)} onReorder={() => undefined}>
-              {tabs.map((tab) => {
-                const Icon = toolIcon(tab.kind);
-                return (
-                  <PanelTabItem key={tab.id} value={tab.id} id={tab.id} className="w-40">
-                    <div className="relative">
-                      <PanelTab
-                        active={tab.id === activeId}
-                        onClick={() => {
-                          if (tab.kind === "browser") {
-                            props.onBrowserOpen?.();
-                          }
-                          setActiveId(tab.id);
-                        }}
-                        title={tab.label}
-                      >
-                        <Icon />
-                        <span className="truncate">{tab.label}</span>
-                      </PanelTab>
-                      <PanelTabClose active={tab.id === activeId} label={tab.label} onClose={() => void closeTab(tab)} />
-                    </div>
-                  </PanelTabItem>
-                );
-              })}
-            </PanelTabList>
-            {tabs.length > 0 ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={<Button variant="ghost" size="icon-xs" aria-label={t("session.browser_new_tab")}><Plus /></Button>}
-                />
-                <DropdownMenuContent align="start" className="w-48">
-                  {visibleToolItems.map((item) => {
-                    const Icon = item.icon;
-                    const isTerminal = item.kind === "terminal";
-                    return (
-                      <DropdownMenuItem
-                        key={item.kind}
-                        disabled={isTerminal && terminalBusy}
-                        onClick={() =>
-                          void addTab(
-                            item.kind,
-                            item.kind === "browser" ? { seedHomeWhenEmpty: true } : undefined,
-                          )
-                        }
-                      >
-                        {isTerminal && terminalBusy ? (
-                          <LoadingSpinner size="sm" className="size-4" />
-                        ) : (
+          {/*
+            Empty header chrome stays draggable. Tabs/buttons already use
+            titlebar-no-drag via Button — do not blanket the scroller.
+          */}
+          <div
+            data-panel-titlebar-controls="true"
+            className="min-w-0 flex-1 overflow-x-auto"
+          >
+            <div className="flex min-w-max items-center gap-1">
+              <PanelTabList values={tabs.map((tab) => tab.id)} onReorder={() => undefined}>
+                {tabs.map((tab) => {
+                  const Icon = toolIcon(tab.kind);
+                  return (
+                    <PanelTabItem key={tab.id} value={tab.id} id={tab.id} className="w-40">
+                      <div className="relative">
+                        <PanelTab
+                          active={tab.id === activeId}
+                          onClick={() => {
+                            if (tab.kind === "browser") props.onBrowserOpen?.();
+                            setActiveId(tab.id);
+                          }}
+                          title={tab.label}
+                        >
                           <Icon />
-                        )}
-                        {t(item.labelKey)}
-                      </DropdownMenuItem>
+                          <span className="truncate">{tab.label}</span>
+                        </PanelTab>
+                        <PanelTabClose active={tab.id === activeId} label={tab.label} onClose={() => void closeTab(tab)} />
+                      </div>
+                    </PanelTabItem>
+                  );
+                })}
+              </PanelTabList>
+              {tabs.length > 0 ? (
+                <WorkspaceHeaderToolChooser
+                  items={visibleToolItems}
+                  busyKind={terminalBusy ? "terminal" : null}
+                  onAdd={(kind) => {
+                    void addTab(
+                      kind,
+                      kind === "browser" ? { seedHomeWhenEmpty: true } : undefined,
                     );
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : null}
+                  }}
+                />
+              ) : null}
+            </div>
           </div>
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          data-code-side-panel-close="true"
-          className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={props.onClose}
-          aria-label={t("session.code_side_panel_close")}
-          title={t("session.code_side_panel_close")}
-        >
-          <PanelRight className="size-3.5" />
-        </Button>
-      </header>
+          <WorkspaceHeaderCloseButton onClose={props.onClose} data-code-side-panel-close="true" className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text" icon={<PanelRight className="size-3.5" />} />
+        </header>
+      </WorkspaceToolHeaderBoundary>
       {terminalError ? (
         <div className="shrink-0 border-b border-dls-border px-3 py-2">
           <NoticeBox tone="error" size="default" className="flex items-start justify-between gap-2">

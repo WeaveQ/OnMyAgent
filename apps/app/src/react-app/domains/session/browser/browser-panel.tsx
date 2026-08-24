@@ -1,7 +1,14 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
-import { useCallback, useEffect, useLayoutEffect, useRef, type MouseEvent } from "react";
-import { ArrowLeft, ArrowRight, Bot, Globe, Plus, RotateCw, X } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
+import { ArrowLeft, ArrowRight, Bot, Globe, PanelRight, Plus, RotateCw, X } from "lucide-react";
 import { useDragControls } from "motion/react";
 import { isElectronRuntime } from "@/app/utils";
 import { PanelTab, PanelTabClose, PanelTabItem, PanelTabList } from "@/components/panel-tabs";
@@ -13,6 +20,12 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   type BrowserStatePayload,
   type BrowserTabInfo,
@@ -30,6 +43,10 @@ type BrowserPanelProps = {
   onClose: () => void;
   /** Chat session id — scopes page tabs so A/B sessions do not share tabs. */
   sessionId?: string | null;
+  /** Workspace-owned tool chooser replaces the standalone browser new-tab action. */
+  renderToolMenu?: () => ReactNode;
+  /** Workspace close action stays available when Browser owns the title row. */
+  renderPanelClose?: () => ReactNode;
 };
 type EmbeddedBrowserViewportProps = {
   url?: string;
@@ -85,6 +102,46 @@ function getElectronBrowser() {
   }
 
   return window.__ONMYAGENT_ELECTRON__?.browser ?? null;
+}
+
+export async function createSessionBrowserPageTab(
+  sessionId: string | null | undefined,
+): Promise<BrowserStatePayload | null> {
+  const scopedSessionId = sessionId?.trim();
+  const browser = getElectronBrowser();
+  if (!scopedSessionId || !browser?.createTab) return null;
+
+  const created = await browser.createTab(BROWSER_HOME_URL, {
+    sessionId: scopedSessionId,
+  });
+  if (created?.tabId && browser.selectTab) {
+    await browser.selectTab(created.tabId).catch(() => undefined);
+  }
+
+  return browser.getState?.().catch(() => null) ?? null;
+}
+
+export type WorkspaceToolAddOptions = {
+  seedHomeWhenEmpty?: boolean;
+  ensureToolOnly?: boolean;
+};
+
+export function createWorkspaceToolAddHandler<TKind extends string>(input: {
+  getSelectedKind: () => TKind | null;
+  sessionId: string | null;
+  isHidden?: (kind: TKind) => boolean;
+  onBrowserOpen?: () => void;
+  continueAdd: (kind: TKind, options?: WorkspaceToolAddOptions) => void | Promise<void>;
+}) {
+  return async (kind: TKind, options?: WorkspaceToolAddOptions) => {
+    if (input.isHidden?.(kind)) return;
+    if (!options?.ensureToolOnly && kind === "browser" && input.getSelectedKind() === "browser") {
+      input.onBrowserOpen?.();
+      await createSessionBrowserPageTab(input.sessionId).catch(() => null);
+      return;
+    }
+    await input.continueAdd(kind, options);
+  };
 }
 
 if (import.meta.hot) {
@@ -193,6 +250,128 @@ function BrowserTab({ tab }: BrowserTabProps) {
         <PanelTabClose active={tab.isActive} label={label} onClose={closeTab} />
       </div>
     </PanelTabItem>
+  );
+}
+
+export function BrowserPageTabHeader(props: {
+  tabs: BrowserTabInfo[];
+  onReorder: (tabIds: unknown[]) => void;
+  onCreateTab?: () => void;
+  renderToolMenu?: () => ReactNode;
+  renderPanelClose?: () => ReactNode;
+}) {
+  return (
+    <div
+      data-panel-titlebar-row="browser-pages"
+      className="flex h-14 items-center gap-1 border-b border-dls-border/60 px-2"
+    >
+      {/*
+        Keep this strip as a window-drag region (the BrowserPanel parent owns
+        titlebar-drag). Only tabs/buttons opt out through shared primitives.
+      */}
+      <div
+        data-panel-titlebar-controls="true"
+        className="min-w-0 flex-1 overflow-x-auto"
+      >
+        <PanelTabList
+          values={props.tabs.map((tab) => tab.tabId)}
+          onReorder={props.onReorder}
+        >
+          {props.tabs.map((tab) => (
+            <BrowserTab key={tab.tabId} tab={tab} />
+          ))}
+        </PanelTabList>
+      </div>
+      {props.renderToolMenu ? (
+        props.renderToolMenu()
+      ) : props.onCreateTab ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={(
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={props.onCreateTab}
+                aria-label={t("session.browser_new_tab")}
+              >
+                <Plus />
+              </Button>
+            )}
+          />
+          <TooltipContent>{t("session.browser_new_tab")}</TooltipContent>
+        </Tooltip>
+      ) : null}
+      {props.renderPanelClose?.()}
+    </div>
+  );
+}
+
+export function WorkspaceToolHeaderBoundary(props: {
+  activeKind?: string | null;
+  children: ReactNode;
+}) {
+  return props.activeKind === "browser" ? null : <>{props.children}</>;
+}
+
+export function WorkspaceHeaderToolChooser<TKind extends string>(props: {
+  items: Array<{ kind: TKind; labelKey: string; icon: typeof Globe }>;
+  busyKind?: TKind | null;
+  onAdd: (kind: TKind) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            data-workspace-tool-chooser="true"
+            aria-label={t("session.code_side_panel_add_tool")}
+          >
+            <Plus />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="start" className="w-48">
+        {props.items.map((item) => {
+          const Icon = item.icon;
+          const busy = item.kind === props.busyKind;
+          return (
+            <DropdownMenuItem
+              key={item.kind}
+              disabled={busy}
+              onClick={() => props.onAdd(item.kind)}
+            >
+              {busy ? <LoadingSpinner size="sm" className="size-4" /> : <Icon />}
+              {t(item.labelKey)}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+export function WorkspaceHeaderCloseButton(props: {
+  onClose: () => void;
+  "data-code-side-panel-close"?: "true";
+  className?: string;
+  icon?: ReactNode;
+}) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-xs"
+      data-code-side-panel-close={props["data-code-side-panel-close"] ?? "true"}
+      className={props.className ?? "text-dls-secondary hover:bg-dls-hover hover:text-dls-text"}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={props.onClose}
+      aria-label={t("session.code_side_panel_close")}
+      title={t("session.code_side_panel_close")}
+    >
+      {props.icon ?? <PanelRight className="size-3.5" />}
+    </Button>
   );
 }
 
@@ -336,7 +515,12 @@ export function EmbeddedBrowserViewport({
   return <div ref={contentRef} className={className ?? "min-h-0 flex-1 overflow-hidden"} />;
 }
 
-export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
+export function BrowserPanel({
+  onClose,
+  sessionId = null,
+  renderToolMenu,
+  renderPanelClose,
+}: BrowserPanelProps) {
   const [state, dispatch] = useBrowserState();
   const urlFocusedRef = useRef(false);
   const urlInputRef = useRef<HTMLInputElement>(null);
@@ -407,10 +591,7 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
     // Explicit "+" new tab from the user → Baidu home; refresh state so the
     // viewport becomes active without waiting for a late IPC event.
     void (async () => {
-      const browser = getElectronBrowser();
-      if (!browser?.createTab) return;
-      await browser.createTab(BROWSER_HOME_URL, { sessionId: sid });
-      const next = await browser.getState?.().catch(() => null);
+      const next = await createSessionBrowserPageTab(sid);
       if (next) {
         dispatch({
           type: "browserStateChanged",
@@ -453,9 +634,27 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
 
   if (!isElectronRuntime() || !browser) {
     return (
-      <div className="flex h-full items-center justify-center p-4 text-center text-dls-secondary">
-        <p className="text-sm">{t("session.browser_desktop_only")}</p>
-      </div>
+      <TooltipProvider delay={1000}>
+        <div className="flex h-full flex-col">
+          <div
+            data-panel-titlebar="true"
+            className="shrink-0 border-b border-dls-border bg-dls-background mac:titlebar-drag"
+          >
+            <BrowserPageTabHeader
+              tabs={sessionTabs}
+              onReorder={reorderTabs}
+              renderToolMenu={renderToolMenu}
+              renderPanelClose={
+                renderPanelClose ??
+                (() => <WorkspaceHeaderCloseButton onClose={onClose} />)
+              }
+            />
+          </div>
+          <div className="flex min-h-0 flex-1 items-center justify-center p-4 text-center text-dls-secondary">
+            <p className="text-sm">{t("session.browser_desktop_only")}</p>
+          </div>
+        </div>
+      </TooltipProvider>
     );
   }
 
@@ -470,39 +669,13 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
           data-panel-titlebar="true"
           className="shrink-0 border-b border-dls-border bg-dls-background mac:bg-dls-background/80 mac:titlebar-drag mac:backdrop-blur-2xl mac:backdrop-saturate-150"
         >
-          <div className="flex h-10 items-center gap-1 border-b border-dls-border/60 px-2">
-            {/*
-              Keep this strip as a window-drag region (parent has titlebar-drag).
-              Only tabs/buttons opt out via Button's titlebar-no-drag — do not
-              no-drag the whole flex-1 scroller or empty top chrome becomes undraggable.
-            */}
-            <div
-              data-panel-titlebar-controls="true"
-              className="min-w-0 flex-1 overflow-x-auto"
-            >
-              <PanelTabList
-                values={sessionTabs.map((tab) => tab.tabId)}
-                onReorder={reorderTabs}
-              >
-                {sessionTabs.map((tab) => (
-                  <BrowserTab
-                    key={tab.tabId}
-                    tab={tab}
-                  />
-                ))}
-              </PanelTabList>
-            </div>
-            <Tooltip>
-              <TooltipTrigger
-                render={(
-                  <Button variant="ghost" size="icon-sm" onClick={createTab} aria-label={t("session.browser_new_tab")}>
-                    <Plus />
-                  </Button>
-                )}
-              />
-              <TooltipContent>{t("session.browser_new_tab")}</TooltipContent>
-            </Tooltip>
-          </div>
+          <BrowserPageTabHeader
+            tabs={sessionTabs}
+            onReorder={reorderTabs}
+            onCreateTab={createTab}
+            renderToolMenu={renderToolMenu}
+            renderPanelClose={renderPanelClose}
+          />
           <div className="flex h-10 items-center gap-1 px-2">
             <Tooltip>
               <TooltipTrigger
