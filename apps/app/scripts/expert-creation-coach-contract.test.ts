@@ -50,6 +50,54 @@ describe("expert creation coach quality contract", () => {
     expect(extractExpertCreationRolePrompt(`请审阅方案。\n\n${prompt}`)).toContain("##沟通风格");
   });
 
+  test("accepts standard markdown with a blank line after each heading", () => {
+    const prompt = [
+      "## 专家简介",
+      "",
+      "面向产品团队交付研究结论。",
+      "",
+      "## 核心能力",
+      "",
+      "- 拆解问题",
+      "- 比较证据",
+      "",
+      "## 关键规则",
+      "",
+      "先确认目标和约束。",
+      "",
+      "## 禁止行为",
+      "",
+      "不编造事实，不越权承诺。",
+      "",
+      "## 工作流程",
+      "",
+      "澄清、分析、验证、交付。",
+      "",
+      "## 内容结构",
+      "",
+      "结论、依据、风险、下一步。",
+      "",
+      "## 沟通风格",
+      "",
+      "简洁直接，先给结论。",
+      "",
+      "如果你不确定，先提问。",
+    ].join("\n");
+
+    expect(validateExpertCreationRolePrompt(prompt)).toEqual({
+      valid: true,
+      missingSectionCount: 0,
+    });
+    const extracted = extractExpertCreationRolePrompt(
+      `方案如下。\n\n${prompt}\n\n请审阅以上完整方案。如果你回复“确认”，我将回填。\n\n角色提示词：以上七段式内容`,
+    );
+    expect(extracted).toContain("- 拆解问题");
+    expect(extracted).toContain("如果你不确定，先提问。");
+    expect(extracted).toContain("## 沟通风格");
+    expect(extracted?.includes("请审阅以上完整方案")).toBe(false);
+    expect(extracted?.includes("角色提示词")).toBe(false);
+  });
+
   test("workflow instructions require clarification before a complete proposal", () => {
     const instructions = buildExpertCreationCoachWorkflowInstructions();
     expect(instructions).toContain("one focused question");
