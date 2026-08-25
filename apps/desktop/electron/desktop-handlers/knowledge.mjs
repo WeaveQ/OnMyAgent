@@ -2,7 +2,7 @@
  * knowledge domain IPC handlers for the Electron desktop bridge.
  * Command names stay the same; group is `knowledge` in desktop-ipc-commands.
  */
-import { readKnowledgeConfig, writePersonalVaultPath } from "../knowledge-vault-config.mjs";
+import { addVault, readKnowledgeConfig, removeVault, writePersonalVaultPath } from "../knowledge-vault-config.mjs";
 import { invalidateKnowledgeIndex } from "../knowledge-vault-index.mjs";
 import { ensureKnowledgeVault } from "../ensure-knowledge-vault.mjs";
 import {
@@ -24,6 +24,8 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "knowledgeRebuildIndex",
   "knowledgeGetConfig",
   "knowledgeSetPersonalVaultPath",
+  "knowledgeAddVault",
+  "knowledgeRemoveVault",
 ]);
 
 /**
@@ -142,6 +144,31 @@ export function createKnowledgeDomainHandlers({
           ? null
           : String(payload.path);
       const result = await writePersonalVaultPath(next, homeDir);
+      if (result.ok) {
+        invalidateKnowledgeIndex(homeDir);
+        await ensureKnowledgeVault({ homeDir });
+      }
+      return result;
+    },
+
+    knowledgeAddVault: async (event, args) => {
+      const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+      const homeDir = homeDirOf();
+      const result = await addVault(homeDir, {
+        name: payload.name,
+        path: payload.path,
+      });
+      if (result.ok) {
+        invalidateKnowledgeIndex(homeDir);
+        await ensureKnowledgeVault({ homeDir });
+      }
+      return result;
+    },
+
+    knowledgeRemoveVault: async (event, args) => {
+      const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+      const homeDir = homeDirOf();
+      const result = await removeVault(homeDir, String(payload.path ?? ""));
       if (result.ok) {
         invalidateKnowledgeIndex(homeDir);
         await ensureKnowledgeVault({ homeDir });
