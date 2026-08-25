@@ -133,4 +133,9 @@ export default {
   "knowledge.recent_location": "Location",
   "knowledge.recent_accessed": "Last accessed",
   "knowledge.recent_empty": "Notes you open will appear here.",
+  "knowledge.new_menu": "New",
+  "knowledge.new_csv": "New spreadsheet",
+  "knowledge.upload_files": "Upload files",
+  "knowledge.upload_folder": "Upload folder",
+  "knowledge.html_readonly": "Read-only HTML preview · {name}",
 } as const;

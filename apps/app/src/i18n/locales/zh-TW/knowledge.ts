@@ -130,4 +130,9 @@ export default {
   "knowledge.recent_location": "位置",
   "knowledge.recent_accessed": "最近存取",
   "knowledge.recent_empty": "開啟過的筆記會顯示在這裡。",
+  "knowledge.new_menu": "新增",
+  "knowledge.new_csv": "新增試算表",
+  "knowledge.upload_files": "上傳檔案",
+  "knowledge.upload_folder": "上傳資料夾",
+  "knowledge.html_readonly": "HTML 唯讀預覽 · {name}",
 } as const;

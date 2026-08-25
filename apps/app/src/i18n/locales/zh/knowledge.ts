@@ -130,4 +130,9 @@ export default {
   "knowledge.recent_location": "位置",
   "knowledge.recent_accessed": "最近访问",
   "knowledge.recent_empty": "打开过的笔记会显示在这里。",
+  "knowledge.new_menu": "新建",
+  "knowledge.new_csv": "新建表格",
+  "knowledge.upload_files": "上传文件",
+  "knowledge.upload_folder": "上传文件夹",
+  "knowledge.html_readonly": "HTML 只读预览 · {name}",
 } as const;
