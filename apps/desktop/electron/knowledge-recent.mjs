@@ -52,7 +52,8 @@ function toArray(entries) {
  * @param {{ scope: string, relPath: string, vaultLabel?: string, now?: number | Date }} access
  * @returns {Array<{ key: string, scope: string, relPath: string, name: string, location: string, accessedAt: string }>}
  */
-export function recordRecentAccess(entries, { scope, relPath, vaultLabel, now } = {}) {
+export function recordRecentAccess(entries, access) {
+  const { scope, relPath, vaultLabel, now } = access ?? {};
   const key = recentEntryKey({ scope, relPath });
   const accessedAt = new Date(now ?? Date.now()).toISOString();
   const name = recentDisplayName(relPath);

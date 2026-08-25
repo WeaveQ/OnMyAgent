@@ -27,7 +27,8 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 import { t } from "../../../i18n";
-import { addKnowledgeVault, pickDirectory, removeKnowledgeVault } from "../../../app/lib/desktop";
+import { pickDirectory } from "../../../app/lib/desktop";
+import { addKnowledgeVault, removeKnowledgeVault } from "../../../app/lib/desktop-knowledge";
 import { ConfirmModal } from "../../design-system/modals/confirm-modal";
 import type { KnowledgeVaultScope } from "./knowledge-vault-model";
 

@@ -27,3 +27,9 @@ export const recordKnowledgeRecentAccess = (input: {
 
 export const listKnowledgeRecent = (input?: { limit?: number }) =>
   invokeDesktopCommand("knowledgeListRecent", input);
+
+export const addKnowledgeVault = (input: { name?: string; path?: string }) =>
+  invokeDesktopCommand("knowledgeAddVault", input);
+
+export const removeKnowledgeVault = (input: { path?: string }) =>
+  invokeDesktopCommand("knowledgeRemoveVault", input);

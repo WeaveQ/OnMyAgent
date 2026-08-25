@@ -1,12 +1,6 @@
 /** @jsxImportSource react */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ChevronsDown,
-  ChevronsUp,
-  FilePlus,
-  FolderOpen,
-  FolderPlus,
-  RefreshCw,
   Search,
 } from "lucide-react";
 
@@ -43,6 +37,10 @@ import {
 } from "../../../app/lib/desktop";
 import { KnowledgeVaultReader } from "./knowledge-vault-reader";
 import { KnowledgeVaultSplitEditor } from "./knowledge-vault-split-editor";
+import { KnowledgeNewMenu } from "./knowledge-new-menu";
+import { KnowledgeHtmlView } from "./knowledge-html-view";
+import { KnowledgeRecentView } from "./knowledge-recent-view";
+import { recordKnowledgeRecentAccess } from "../../../app/lib/desktop-knowledge";
 import { subscribeOpenKnowledgeNote, takePendingKnowledgeNote } from "./knowledge-vault-navigation";
 import {
   applyKnowledgeNoteProps,
@@ -61,7 +59,7 @@ import {
   createKnowledgeEditorTab,
 } from "./knowledge-vault-tabs";
 import { KnowledgeVaultTree } from "./knowledge-vault-tree";
-import { ToolbarIconButton } from "./knowledge-vault-toolbar-button";
+import { KnowledgeVaultToolbar } from "./knowledge-vault-toolbar";
 import {
   canDropKnowledgeItem,
   defaultKnowledgeNote,
@@ -127,6 +125,7 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
   const [editorMode, setEditorMode] = useState<"view" | "edit">("view");
   const [editLayout, setEditLayout] = useState<"source" | "split">("split");
   const [indexing, setIndexing] = useState(false);
+  const [showRecent, setShowRecent] = useState(false);
   const [tabs, setTabs] = useState(() => [createKnowledgeEditorTab()]);
   const [activeTabId, setActiveTabId] = useState(() => tabs[0]?.id ?? "");
   const editorSessionRef = useRef(createKnowledgeEditorSession());
@@ -224,6 +223,13 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
       setDraft(content);
       setLoaded(content);
       setSaveState("saved");
+      // Best-effort recent-access record; never blocks opening.
+      void recordKnowledgeRecentAccess({
+        scope: note.scope,
+        relPath: note.relPath,
+        workspaceId,
+        expertId,
+      });
       const next = activateOrReuseTab(tabsRef.current, activeTabIdRef.current, note, content);
       setTabs(next.tabs);
       setActiveTabId(next.activeId);
@@ -867,64 +873,32 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
           />
         </div>
         <aside className="flex min-h-0 flex-col overflow-hidden border-r border-dls-border">
-          <div className="flex h-8 shrink-0 items-center gap-0.5 px-2 text-dls-secondary mac:titlebar-no-drag">
-            <ToolbarIconButton
-              label={t("knowledge.new_note")}
-              hint={t("knowledge.toolbar_new_note")}
-              onClick={() => {
-                setCreateFolderPrefix("");
-                setCreateName(suggestKnowledgeNoteName());
-                setCreateOpen(true);
-              }}
-            >
-              <FilePlus className="size-3.5" strokeWidth={1.75} />
-            </ToolbarIconButton>
-            <ToolbarIconButton
-              label={t("knowledge.new_folder")}
-              hint={t("knowledge.toolbar_new_folder")}
-              onClick={() => {
-                setCreateFolderPrefix("");
-                setFolderOpen(true);
-              }}
-            >
-              <FolderPlus className="size-3.5" strokeWidth={1.75} />
-            </ToolbarIconButton>
-            <span className="mx-0.5 h-3.5 w-px shrink-0 bg-dls-border" aria-hidden />
-            <ToolbarIconButton
-              label={t("knowledge.open_folder")}
-              hint={t("knowledge.toolbar_open_folder")}
-              onClick={() => void openKnowledgeVaultFolder()}
-            >
-              <FolderOpen className="size-3.5" strokeWidth={1.75} />
-            </ToolbarIconButton>
-            <span className="mx-0.5 h-3.5 w-px shrink-0 bg-dls-border" aria-hidden />
-            <ToolbarIconButton
-              label={t("knowledge.expand_all")}
-              hint={t("knowledge.toolbar_expand_all")}
-              onClick={() => setExpandNonce((value) => value + 1)}
-            >
-              <ChevronsDown className="size-3.5" strokeWidth={1.75} />
-            </ToolbarIconButton>
-            <ToolbarIconButton
-              label={t("knowledge.collapse_all")}
-              hint={t("knowledge.toolbar_collapse_all")}
-              onClick={() => setCollapseNonce((value) => value + 1)}
-            >
-              <ChevronsUp className="size-3.5" strokeWidth={1.75} />
-            </ToolbarIconButton>
-            <span className="mx-0.5 h-3.5 w-px shrink-0 bg-dls-border" aria-hidden />
-            <ToolbarIconButton
-              label={t("knowledge.sync_index")}
-              hint={t("knowledge.toolbar_sync_index")}
-              disabled={indexing}
-              onClick={() => void handleRebuildIndex()}
-            >
-              <RefreshCw
-                className={`size-3.5 ${indexing ? "animate-spin" : ""}`}
-                strokeWidth={1.75}
-              />
-            </ToolbarIconButton>
-          </div>
+          <KnowledgeVaultToolbar
+            scope={scope}
+            workspaceId={workspaceId}
+            expertId={expertId}
+            indexing={indexing}
+            onNewNote={() => {
+              setCreateFolderPrefix("");
+              setCreateName(suggestKnowledgeNoteName());
+              setCreateOpen(true);
+            }}
+            onNewCsv={() => {
+              setCreateFolderPrefix("");
+              setCreateName(suggestKnowledgeNoteName().replace(/\.md$/, ".csv"));
+              setCreateOpen(true);
+            }}
+            onNewFolder={() => {
+              setCreateFolderPrefix("");
+              setFolderOpen(true);
+            }}
+            onUploaded={() => void refresh()}
+            onOpenFolder={() => void openKnowledgeVaultFolder()}
+            onExpandAll={() => setExpandNonce((value) => value + 1)}
+            onCollapseAll={() => setCollapseNonce((value) => value + 1)}
+            onToggleRecent={() => setShowRecent((value) => !value)}
+            onRebuildIndex={() => void handleRebuildIndex()}
+          />
           {error ? (
             <div className="px-2 pt-2">
               <NoticeBox tone="error">{error}</NoticeBox>
@@ -935,6 +909,19 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
               <div className="flex h-full items-center justify-center">
                 <LoadingSpinner />
               </div>
+            ) : showRecent ? (
+              <KnowledgeRecentView
+                onOpenNote={(note) => void openNote(note)}
+                scopeFor={(entry) =>
+                  entry.location
+                    ? entry.location
+                    : entry.scope === "project"
+                      ? t("knowledge.scope_project")
+                      : entry.scope === "expert"
+                        ? t("knowledge.scope_expert")
+                        : t("knowledge.scope_user")
+                }
+              />
             ) : visibleFiles.length === 0 && query.trim() ? (
               <div className="px-3 py-8 text-center text-sm text-dls-secondary">
                 {t("knowledge.no_results")}
@@ -970,6 +957,8 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
                   onLayoutChange={setEditLayout}
                 />
               </>
+            ) : selected.relPath.toLowerCase().endsWith(".html") ? (
+              <KnowledgeHtmlView content={draft} fileName={selected.relPath} />
             ) : (
               <KnowledgeVaultReader
                 markdown={draft}

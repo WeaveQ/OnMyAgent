@@ -200,7 +200,7 @@ export async function addVault(homeDir, input = {}) {
 /**
  * Remove a non-default user vault by resolved path. If the active
  * personalVaultPath pointed at it, the selection resets to the default vault.
- * @param {string} [homeDir]
+ * @param {string} homeDir
  * @param {string} targetPath
  */
 export async function removeVault(homeDir, targetPath) {
