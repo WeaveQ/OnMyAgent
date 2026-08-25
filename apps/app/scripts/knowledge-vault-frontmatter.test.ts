@@ -58,4 +58,66 @@ related:
       "# Hello\n",
     );
   });
+
+  test("unknown top-level keys and their block lists survive a save roundtrip", () => {
+    const source = `---
+title: My Note
+created: 2026/06/10
+tags:
+  - alpha
+author: Jane
+custom: value with spaces
+labels:
+  - a
+  - b
+nested:
+  key: kept
+---
+
+# Body
+`;
+    const props = parseKnowledgeNoteProps(source);
+    expect(props.title).toBe("My Note");
+    expect(props.tags).toEqual(["alpha"]);
+
+    const next = applyKnowledgeNoteProps(source, { ...props, tags: [...props.tags, "beta"] });
+
+    // Unknown keys remain verbatim, including their indented block bodies.
+    expect(next).toContain("author: Jane");
+    expect(next).toContain("custom: value with spaces");
+    expect(next).toContain("labels:\n  - a\n  - b");
+    expect(next).toContain("nested:\n  key: kept");
+
+    // Known field edit took effect.
+    expect(parseKnowledgeNoteProps(next).tags).toEqual(["alpha", "beta"]);
+
+    // Body untouched.
+    expect(next).toContain("# Body");
+  });
+
+  test("editing title preserves unknown keys", () => {
+    const source = `---
+title: Old
+author: Jane
+---
+body`;
+    const props = parseKnowledgeNoteProps(source);
+    const next = applyKnowledgeNoteProps(source, { ...props, title: "New" });
+    expect(parseKnowledgeNoteProps(next).title).toBe("New");
+    expect(next).toContain("author: Jane");
+    expect(next).toContain("body");
+  });
+
+  test("unknown keys with no known props still produce a preserving fence", () => {
+    const source = `---
+author: Jane
+---
+
+# Body
+`;
+    const props = parseKnowledgeNoteProps(source);
+    const next = applyKnowledgeNoteProps(source, props);
+    expect(next).toContain("author: Jane");
+    expect(next).toContain("# Body");
+  });
 });
