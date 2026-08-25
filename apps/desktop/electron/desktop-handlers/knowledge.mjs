@@ -4,7 +4,12 @@
  */
 import path from "node:path";
 
-import { readKnowledgeConfig, writePersonalVaultPath } from "../knowledge-vault-config.mjs";
+import {
+  addVault,
+  readKnowledgeConfig,
+  removeVault,
+  writePersonalVaultPath,
+} from "../knowledge-vault-config.mjs";
 import { invalidateKnowledgeIndex } from "../knowledge-vault-index.mjs";
 import { ensureKnowledgeVault } from "../ensure-knowledge-vault.mjs";
 import {
@@ -34,6 +39,8 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "knowledgeSetPersonalVaultPath",
   "knowledgeRecordAccess",
   "knowledgeListRecent",
+  "knowledgeAddVault",
+  "knowledgeRemoveVault",
 ]);
 
 function folderPart(relPath) {
@@ -227,6 +234,31 @@ export function createKnowledgeDomainHandlers({
         console.warn("[knowledge] list recent failed", error);
         return { ok: false, reason: "list_failed", entries: [] };
       }
+    },
+
+    knowledgeAddVault: async (event, args) => {
+      const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+      const homeDir = homeDirOf();
+      const result = await addVault(homeDir, {
+        name: payload.name,
+        path: payload.path,
+      });
+      if (result.ok) {
+        invalidateKnowledgeIndex(homeDir);
+        await ensureKnowledgeVault({ homeDir });
+      }
+      return result;
+    },
+
+    knowledgeRemoveVault: async (event, args) => {
+      const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+      const homeDir = homeDirOf();
+      const result = await removeVault(homeDir, String(payload.path ?? ""));
+      if (result.ok) {
+        invalidateKnowledgeIndex(homeDir);
+        await ensureKnowledgeVault({ homeDir });
+      }
+      return result;
     },
   };
 }

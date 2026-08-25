@@ -89,6 +89,8 @@ export type DesktopCommandName =
   | "knowledgeSetPersonalVaultPath"
   | "knowledgeRecordAccess"
   | "knowledgeListRecent"
+  | "knowledgeAddVault"
+  | "knowledgeRemoveVault"
   | "companySettingsRead"
   | "companySettingsWrite"
   | "companySettingsDisconnect"

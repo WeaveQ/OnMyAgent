@@ -167,6 +167,66 @@ export async function writePersonalVaultPath(nextPath, homeDir) {
 }
 
 /**
+ * Add a non-default user vault folder to the additive vaults list.
+ * Deduplicates by resolved path. The active personalVaultPath is left unchanged.
+ * @param {string} [homeDir]
+ * @param {{ name?: string, path?: string }} input
+ */
+export async function addVault(homeDir, input = {}) {
+  const defaultPath = resolveDefaultUserVaultDir(homeDir);
+  const checked = validatePersonalVaultPath(input.path, homeDir);
+  if (checked.ok === false) {
+    return { ok: false, reason: checked.reason, ...readKnowledgeConfig(homeDir) };
+  }
+  if (checked.path === path.resolve(defaultPath)) {
+    return { ok: false, reason: "reserved_default", ...readKnowledgeConfig(homeDir) };
+  }
+  const prev = readRawConfig(homeDir);
+  const known = listKnowledgeVaults(homeDir)
+    .filter((item) => !item.isDefault)
+    .map((item) => ({ name: item.name, path: item.path }));
+  const label = String(input.name ?? "").trim() || folderLabel(checked.path);
+  if (!known.some((item) => item.path === checked.path)) {
+    known.push({ name: label, path: checked.path });
+  }
+  const active = String(prev.personalVaultPath ?? "").trim();
+  await persistConfig(
+    { personalVaultPath: active || null, vaults: known },
+    homeDir,
+  );
+  return { ok: true, ...readKnowledgeConfig(homeDir) };
+}
+
+/**
+ * Remove a non-default user vault by resolved path. If the active
+ * personalVaultPath pointed at it, the selection resets to the default vault.
+ * @param {string} [homeDir]
+ * @param {string} targetPath
+ */
+export async function removeVault(homeDir, targetPath) {
+  const defaultPath = resolveDefaultUserVaultDir(homeDir);
+  const target = path.resolve(String(targetPath ?? "").trim());
+  if (!target || target === path.resolve(defaultPath)) {
+    return { ok: false, reason: "reserved_default", ...readKnowledgeConfig(homeDir) };
+  }
+  const known = listKnowledgeVaults(homeDir)
+    .filter((item) => !item.isDefault)
+    .map((item) => ({ name: item.name, path: item.path }));
+  const next = known.filter((item) => item.path !== target);
+  if (next.length === known.length) {
+    return { ok: false, reason: "not_found", ...readKnowledgeConfig(homeDir) };
+  }
+  const prev = readRawConfig(homeDir);
+  const active = String(prev.personalVaultPath ?? "").trim();
+  const resetActive = !!(active && path.resolve(active) === target);
+  await persistConfig(
+    { personalVaultPath: resetActive ? null : active || null, vaults: next },
+    homeDir,
+  );
+  return { ok: true, ...readKnowledgeConfig(homeDir) };
+}
+
+/**
  * @param {{ personalVaultPath?: string | null, vaults?: Array<{ name?: string, path?: string }> }} config
  * @param {string} [homeDir]
  */

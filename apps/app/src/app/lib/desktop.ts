@@ -810,6 +810,12 @@ export const getKnowledgeVaultConfig = () =>
 export const setKnowledgePersonalVaultPath = (path: string | null) =>
   invokeDesktopCommand("knowledgeSetPersonalVaultPath", { path });
 
+export const addKnowledgeVault = (input: { name: string; path: string }) =>
+  invokeDesktopCommand("knowledgeAddVault", input);
+
+export const removeKnowledgeVault = (input: { path: string }) =>
+  invokeDesktopCommand("knowledgeRemoveVault", input);
+
 export const rebuildKnowledgeVaultIndex = (input?: {
   scope?: KnowledgeVaultScope | "all";
   workspaceId?: string;

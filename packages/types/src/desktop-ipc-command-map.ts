@@ -786,6 +786,28 @@ type TypedDesktopCommandMap = DesktopMessagingCommandMap & {
       reason?: string;
     }
   >;
+  knowledgeAddVault: DesktopCommandContract<
+    [{ name?: string; path?: string }],
+    {
+      ok: boolean;
+      personalVaultPath?: string | null;
+      resolvedUserVaultDir?: string;
+      usingDefault?: boolean;
+      vaults?: Array<{ name: string; path: string; isDefault: boolean }>;
+      reason?: string;
+    }
+  >;
+  knowledgeRemoveVault: DesktopCommandContract<
+    [{ path?: string }],
+    {
+      ok: boolean;
+      personalVaultPath?: string | null;
+      resolvedUserVaultDir?: string;
+      usingDefault?: boolean;
+      vaults?: Array<{ name: string; path: string; isDefault: boolean }>;
+      reason?: string;
+    }
+  >;
   openBrowserSkillInstallPage: DesktopCommandContract<
     [("cli" | "extension" | "docs")?],
     OkResult & {
