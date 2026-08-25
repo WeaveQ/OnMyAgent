@@ -55,6 +55,8 @@ const commandGroups = /** @type {const} */ ({
     "knowledgeRebuildIndex",
     "knowledgeGetConfig",
     "knowledgeSetPersonalVaultPath",
+    "knowledgeRecordAccess",
+    "knowledgeListRecent",
   ],
   company: [
     "companySettingsRead",

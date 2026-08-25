@@ -760,6 +760,32 @@ type TypedDesktopCommandMap = DesktopMessagingCommandMap & {
       reason?: string;
     }
   >;
+  knowledgeRecordAccess: DesktopCommandContract<
+    [
+      {
+        scope?: "user" | "project" | "expert";
+        relPath: string;
+        workspaceId?: string;
+        expertId?: string;
+      },
+    ],
+    { ok: boolean; reason?: string }
+  >;
+  knowledgeListRecent: DesktopCommandContract<
+    [{ limit?: number }?],
+    {
+      ok: boolean;
+      entries: Array<{
+        key: string;
+        scope: "user" | "project" | "expert";
+        relPath: string;
+        name: string;
+        location: string;
+        accessedAt: string;
+      }>;
+      reason?: string;
+    }
+  >;
   openBrowserSkillInstallPage: DesktopCommandContract<
     [("cli" | "extension" | "docs")?],
     OkResult & {

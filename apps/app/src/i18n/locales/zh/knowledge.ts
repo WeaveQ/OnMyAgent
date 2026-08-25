@@ -98,4 +98,9 @@ export default {
   "knowledge.toolbar_expand_all": "展开全部文件夹",
   "knowledge.toolbar_collapse_all": "收起全部文件夹",
   "knowledge.toolbar_sync_index": "重新建立检索索引，让搜索跟上最新笔记",
+  "knowledge.recent_title": "最近访问",
+  "knowledge.recent_name": "名称",
+  "knowledge.recent_location": "位置",
+  "knowledge.recent_accessed": "最近访问",
+  "knowledge.recent_empty": "打开过的笔记会显示在这里。",
 } as const;
