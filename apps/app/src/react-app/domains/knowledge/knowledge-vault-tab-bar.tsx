@@ -34,69 +34,68 @@ function tabLabel(tab: KnowledgeEditorTab): string {
 
 export function KnowledgeVaultTabBar(props: KnowledgeVaultTabBarProps) {
   return (
-    <div className="flex h-full min-h-0 w-full items-stretch bg-dls-background mac:titlebar-drag">
-      <div className="flex min-w-0 shrink-0 items-stretch overflow-x-auto mac:titlebar-no-drag">
+    <div className="flex h-14 min-h-0 w-full min-w-0 items-center bg-dls-background mac:titlebar-drag">
+      <div className="flex h-full min-w-0 flex-1 items-center overflow-x-auto mac:titlebar-no-drag">
         {props.tabs.map((tab, index) => {
           const active = tab.id === props.activeId;
           const dirty = tab.draft !== tab.loaded;
+          const label = tabLabel(tab);
           return (
-            <div key={tab.id} className="flex h-full shrink-0 items-center">
+            <div key={tab.id} className="group relative flex h-full w-32 shrink-0 items-center overflow-hidden">
               {index > 0 ? (
-                <span className="h-3.5 w-px shrink-0 bg-dls-border" aria-hidden />
+                <span className="h-4 w-px shrink-0 bg-dls-border" aria-hidden />
               ) : null}
-              <div
+              <button
+                type="button"
                 className={cn(
-                  "group relative flex h-full w-36 cursor-pointer items-center justify-center px-6",
+                  "flex h-full min-w-0 flex-1 cursor-pointer items-center overflow-hidden px-3",
                   active ? "text-dls-text" : "text-dls-secondary hover:text-dls-text",
                 )}
+                title={label}
+                aria-current={active ? "page" : undefined}
                 onClick={() => props.onActivate(tab.id)}
               >
-                <button
-                  type="button"
+                <span
                   className={cn(
-                    "max-w-full cursor-pointer truncate text-center text-sm leading-none",
+                    "block min-w-0 w-full truncate pe-5 text-left text-sm leading-none",
                     active ? "font-medium" : "font-normal",
                   )}
-                  title={tabLabel(tab)}
-                  onClick={() => props.onActivate(tab.id)}
                 >
                   {dirty ? "• " : ""}
-                  {tabLabel(tab)}
-                </button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="absolute right-1 top-1/2 size-5 -translate-y-1/2 opacity-0 group-hover:opacity-100 data-[active=true]:opacity-70"
-                  data-active={active}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    props.onClose(tab.id);
-                  }}
-                  aria-label={t("knowledge.close_tab")}
-                  title={t("knowledge.close_tab")}
-                >
-                  <X className="size-3" />
-                </Button>
-                {active ? (
-                  <span className="absolute inset-x-4 bottom-1 h-px bg-dls-text" aria-hidden />
-                ) : null}
-              </div>
+                  {label}
+                </span>
+              </button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="absolute right-1 top-1/2 size-6 -translate-y-1/2 opacity-0 group-hover:opacity-100 data-[active=true]:opacity-70"
+                data-active={active}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  props.onClose(tab.id);
+                }}
+                aria-label={t("knowledge.close_tab")}
+                title={t("knowledge.close_tab")}
+              >
+                <X className="size-3" />
+              </Button>
+              {active ? (
+                <span className="absolute inset-x-3 bottom-0 h-px bg-dls-text" aria-hidden />
+              ) : null}
             </div>
           );
         })}
       </div>
-      <div className="min-w-4 flex-1" aria-hidden />
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        className="m-1 shrink-0 mac:titlebar-no-drag"
-        onClick={props.onAdd}
-        aria-label={t("knowledge.new_tab")}
-        title={t("knowledge.new_tab")}
-      >
-        <Plus className="size-4" />
-      </Button>
-      <div className="flex shrink-0 items-center gap-0.5 px-1 mac:titlebar-no-drag">
+      <div className="flex h-10 shrink-0 items-center gap-0.5 pe-2.5 mac:titlebar-no-drag">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={props.onAdd}
+          aria-label={t("knowledge.new_tab")}
+          title={t("knowledge.new_tab")}
+        >
+          <Plus className="size-4" />
+        </Button>
         <Button
           variant="ghost"
           size="icon-sm"

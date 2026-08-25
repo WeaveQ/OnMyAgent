@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronsDown,
   ChevronsUp,
@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { LIST_LANE_HEADER_CLASS } from "@/components/ui/sidebar-chrome";
+import { cn } from "@/lib/utils";
 import { KNOWLEDGE_BASE_PLACEHOLDER_ASSET } from "@/react-app/design-system/empty-state-assets";
 import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import {
@@ -25,7 +27,6 @@ import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { NoticeBox } from "@/components/ui/notice-box";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
 import { t } from "../../../i18n";
 import { isElectronRuntime } from "../../../app/utils";
@@ -60,6 +61,7 @@ import {
   createKnowledgeEditorTab,
 } from "./knowledge-vault-tabs";
 import { KnowledgeVaultTree } from "./knowledge-vault-tree";
+import { ToolbarIconButton } from "./knowledge-vault-toolbar-button";
 import {
   canDropKnowledgeItem,
   defaultKnowledgeNote,
@@ -827,20 +829,27 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background">
       <div className="grid min-h-0 flex-1 grid-cols-[16rem_minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto]">
-        <div className="flex h-10 items-center border-b border-r border-dls-border px-1.5 mac:titlebar-no-drag">
-          <InputGroup controlSize="sm">
-            <InputGroupAddon>
-              <Search className="size-3.5" />
+        <div
+          className={cn(
+            LIST_LANE_HEADER_CLASS,
+            "border-b border-r border-dls-border px-2.5 mac:titlebar-no-drag",
+          )}
+        >
+          <InputGroup controlSize="lg" radius="lg" tone="surface" className="w-full">
+            <InputGroupAddon align="inline-start" inset="tight">
+              <Search className="size-4" />
             </InputGroupAddon>
             <InputGroupInput
               ref={searchRef}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t("knowledge.search_placeholder")}
+              aria-label={t("knowledge.search_placeholder")}
+              className="text-sm placeholder:text-dls-secondary/75"
             />
           </InputGroup>
         </div>
-        <div className="flex h-10 min-w-0 border-b border-dls-border">
+        <div className={cn(LIST_LANE_HEADER_CLASS, "min-w-0 w-full items-stretch border-b border-dls-border")}>
           <KnowledgeVaultTabBar
             tabs={tabs}
             activeId={activeTabId}
@@ -858,7 +867,7 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
           />
         </div>
         <aside className="flex min-h-0 flex-col overflow-hidden border-r border-dls-border">
-          <div className="flex h-10 shrink-0 items-center justify-center gap-0.5 px-1.5 text-dls-secondary mac:titlebar-no-drag">
+          <div className="flex h-8 shrink-0 items-center gap-0.5 px-2 text-dls-secondary mac:titlebar-no-drag">
             <ToolbarIconButton
               label={t("knowledge.new_note")}
               hint={t("knowledge.toolbar_new_note")}
@@ -1143,35 +1152,5 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
         onCancel={() => setDeleteOpen(false)}
       />
     </div>
-  );
-}
-
-function ToolbarIconButton(props: {
-  label: string;
-  hint: string;
-  disabled?: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-dls-secondary hover:text-dls-text"
-            disabled={props.disabled}
-            onClick={props.onClick}
-            aria-label={props.label}
-          />
-        }
-      >
-        {props.children}
-      </TooltipTrigger>
-      <TooltipContent side="bottom" sideOffset={6} className="max-w-56">
-        {props.hint}
-      </TooltipContent>
-    </Tooltip>
   );
 }

@@ -1,6 +1,6 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ExternalLink, FolderOpen, Play, Plug, QrCode, RefreshCw, Save, Square } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -8,11 +8,11 @@ import { Input } from "@/components/ui/input";
 import { MonoLogBox } from "@/components/ui/mono-log-box";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { cn } from "@/lib/utils";
 import { SelectMenu } from "../../design-system/select-menu";
 import { AccessibleRootRow } from "../../design-system/accessible-root-row";
 import { t } from "../../../i18n";
 import { channelRuntimeStatusLabel } from "./messaging-model";
+import { FieldLabel, MetricInline, PanelSection, SettingsCardGrid } from "./settings-primitives";
 import {
   openDesktopUrl,
   personalLocalAgentsList,
@@ -108,56 +108,6 @@ function statusTone(status: string | undefined) {
   if (status === "backoff" || status === "needs_login") return "warning";
   if (status === "error") return "danger";
   return "neutral";
-}
-
-function PanelSection(props: {
-  title: string;
-  description?: string;
-  actions?: ReactNode;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <section
-      className={cn(
-        // h-full keeps cards in each responsive row aligned without forcing a fixed height.
-        "flex h-full min-w-0 flex-col gap-3 rounded-xl border border-dls-border bg-dls-surface p-4",
-        props.className,
-      )}
-    >
-      {/* Stack title + actions: side-by-side squeezes CJK to 1-char lines in 3-col cards. */}
-      <div className="min-w-0 space-y-2">
-        <div className="min-w-0">
-          <div className="text-sm font-medium leading-5 text-dls-text break-words">
-            {props.title}
-          </div>
-          {props.description ? (
-            <p className="mt-1 text-xs leading-5 text-dls-secondary break-words">
-              {props.description}
-            </p>
-          ) : null}
-        </div>
-        {props.actions ? (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {props.actions}
-          </div>
-        ) : null}
-      </div>
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">{props.children}</div>
-    </section>
-  );
-}
-
-function FieldLabel(props: { label: string; children: ReactNode; hint?: string }) {
-  return (
-    <label className="flex min-w-0 flex-col gap-1.5 text-xs text-dls-secondary">
-      <span className="font-medium text-dls-secondary">{props.label}</span>
-      {props.children}
-      {props.hint ? (
-        <span className="text-xs leading-4 text-dls-secondary/90">{props.hint}</span>
-      ) : null}
-    </label>
-  );
 }
 
 export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChange?: (status: WeixinPanelState) => void }) {
@@ -657,11 +607,11 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
   }, [effectiveAccountId]);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* Runtime status strip */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-dls-border bg-dls-surface px-3 py-2.5 text-xs text-dls-secondary">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-dls-border bg-dls-surface px-4 py-3 text-xs text-dls-secondary">
         <div className="flex items-center gap-2">
-          <StatusBadge tone={statusTone(serviceState.status)} shape="pill" size="tiny">
+          <StatusBadge tone={statusTone(serviceState.status)} shape="pill" size="sm">
             {channelRuntimeStatusLabel(serviceState.status)}
           </StatusBadge>
           <Button
@@ -680,7 +630,7 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
             )}
           </Button>
         </div>
-        <span className="hidden h-3 w-px bg-dls-border sm:block" aria-hidden />
+        <span className="hidden h-4 w-px bg-dls-border sm:block" aria-hidden />
         <MetricInline
           label={t("messaging.weixin_account")}
           value={account?.accountId || effectiveAccountId || "--"}
@@ -705,10 +655,11 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
           </Button>
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={stopService}
             disabled={!running || Boolean(busy)}
+            className="text-dls-secondary hover:text-dls-text"
           >
             {busy === "stop" ? busyIcon : <Square className="size-3.5" />}
             {t("messaging.weixin_stop")}
@@ -722,27 +673,44 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
         </NoticeBox>
       ) : null}
 
-      <div data-testid="messaging-settings-card-grid" data-settings-card-grid="wechat" className="grid min-w-0 gap-3 lg:grid-cols-2">
+      <SettingsCardGrid channel="wechat">
         <PanelSection title={t("messaging.weixin_account")}>
-          <div className="flex flex-col gap-2">
-            <Input
-              value={accountId}
-              onChange={(event) => setAccountId(event.currentTarget.value)}
-              placeholder="account_id"
-            />
-            <Input
-              value={token}
-              onChange={(event) => setToken(event.currentTarget.value)}
-              placeholder="token"
-              type="password"
-            />
-            <Input
-              value={baseUrl}
-              onChange={(event) => setBaseUrl(event.currentTarget.value)}
-              placeholder="base_url"
-            />
+          <div className="flex flex-col gap-3">
+            <FieldLabel label={t("messaging.weixin_account_id")}>
+              <Input
+                value={accountId}
+                onChange={(event) => setAccountId(event.currentTarget.value)}
+                placeholder="weixin-account-id"
+                autoComplete="off"
+              />
+            </FieldLabel>
+            <FieldLabel label={t("messaging.weixin_token")}>
+              <Input
+                value={token}
+                onChange={(event) => setToken(event.currentTarget.value)}
+                type="password"
+                autoComplete="off"
+              />
+            </FieldLabel>
+            <FieldLabel label={t("messaging.weixin_base_url")}>
+              <Input
+                value={baseUrl}
+                onChange={(event) => setBaseUrl(event.currentTarget.value)}
+                placeholder="https://ilinkai.weixin.qq.com"
+                autoComplete="off"
+              />
+            </FieldLabel>
           </div>
           <div className="flex flex-wrap gap-1.5">
+            <Button
+              type="button"
+              size="sm"
+              onClick={startLogin}
+              disabled={Boolean(busy)}
+            >
+              {busy === "login" ? busyIcon : <QrCode className="size-3.5" />}
+              {t("messaging.weixin_qr_login")}
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -755,17 +723,7 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
             </Button>
             <Button
               type="button"
-              variant="outline"
-              size="sm"
-              onClick={startLogin}
-              disabled={Boolean(busy)}
-            >
-              {busy === "login" ? busyIcon : <QrCode className="size-3.5" />}
-              {t("messaging.weixin_qr_login")}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={testConnection}
               disabled={!effectiveAccountId || Boolean(busy)}
@@ -774,6 +732,7 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
                   ? undefined
                   : t("messaging.weixin_test_need_account")
               }
+              className="text-dls-secondary hover:text-dls-text"
             >
               {busy === "test" ? busyIcon : <Plug className="size-3.5" />}
               {t("messaging.weixin_test_connection")}
@@ -797,8 +756,16 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
         <PanelSection
           title={t("messaging.weixin_access_workspace_title")}
           description={t("messaging.weixin_access_workspace_desc")}
-          actions={
-            <>
+        >
+          <div className="flex min-w-0 flex-col gap-2">
+            <Input
+              className="min-w-0 flex-1 font-mono text-xs"
+              value={effectiveWorkspaceRoot}
+              onChange={(event) => setAccessWorkspaceRoot(event.currentTarget.value)}
+              placeholder={t("messaging.weixin_access_workspace_placeholder")}
+              disabled={running || Boolean(busy)}
+            />
+            <div className="flex shrink-0 flex-wrap items-center gap-1.5">
               <Button
                 type="button"
                 variant="outline"
@@ -820,17 +787,9 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
                   {t("messaging.weixin_access_workspace_use_current")}
                 </Button>
               ) : null}
-            </>
-          }
-        >
-          <Input
-            className="font-mono text-xs"
-            value={effectiveWorkspaceRoot}
-            onChange={(event) => setAccessWorkspaceRoot(event.currentTarget.value)}
-            placeholder={t("messaging.weixin_access_workspace_placeholder")}
-            disabled={running || Boolean(busy)}
-          />
-          <div className="rounded-lg border border-dls-border/70 bg-dls-background/60 px-3 py-2.5">
+            </div>
+          </div>
+          <div className="rounded-lg bg-dls-background/60 px-3 py-2.5">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-medium text-dls-secondary">
                 {t("messaging.weixin_access_workspace_extra_title")}
@@ -867,6 +826,8 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
         </PanelSection>
 
         <PanelSection
+          className="lg:col-span-2"
+          headerLayout="inline"
           title={t("identities.message_routing_title")}
           actions={
             <Button
@@ -881,7 +842,7 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
             </Button>
           }
         >
-          <div className="flex flex-col gap-2.5">
+          <div className="grid min-w-0 gap-3 sm:grid-cols-3">
             <FieldLabel label={t("messaging.weixin_reply_agent")}>
               <SelectMenu
                 size="compact"
@@ -895,14 +856,7 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
                 }))}
               />
             </FieldLabel>
-            <FieldLabel
-              label={t("messaging.weixin_approval_mode")}
-              hint={
-                running
-                  ? t("messaging.weixin_approval_mode_live_desc")
-                  : t("messaging.weixin_approval_mode_desc")
-              }
-            >
+            <FieldLabel label={t("messaging.weixin_approval_mode")}>
               <SelectMenu
                 size="compact"
                 value={approvalMode}
@@ -927,6 +881,11 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
               />
             </FieldLabel>
           </div>
+          <p className="text-xs leading-5 text-dls-secondary">
+            {running
+              ? t("messaging.weixin_approval_mode_live_desc")
+              : t("messaging.weixin_approval_mode_desc")}
+          </p>
           <p className="rounded-lg bg-dls-background/70 px-3 py-2 text-xs leading-5 text-dls-secondary">
             {t("messaging.weixin_agent_command_help_prefix")}{" "}
             <span className="font-mono text-dls-text">#agent</span>{" "}
@@ -935,10 +894,11 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
             {t("messaging.weixin_agent_command_help_suffix")}
           </p>
         </PanelSection>
-      </div>
+      </SettingsCardGrid>
 
       {qrCode || qrCodeUrl ? (
         <PanelSection
+          headerLayout="inline"
           title={t("messaging.weixin_qr_status", { status: qrStatus || "wait" })}
           actions={
             <Button
@@ -1008,14 +968,5 @@ export function WeixinChannelPanel(props: { workspaceRoot?: string; onStatusChan
         </PanelSection>
       ) : null}
     </div>
-  );
-}
-
-function MetricInline(props: { label: string; value: string }) {
-  return (
-    <span className="inline-flex min-w-0 max-w-full items-baseline gap-1.5">
-      <span className="shrink-0 text-dls-secondary">{props.label}</span>
-      <span className="truncate font-medium text-dls-text">{props.value}</span>
-    </span>
   );
 }

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   applyKnowledgeNoteProps,
+  headingTitleFromBody,
   parseKnowledgeNoteProps,
   splitMarkdownFrontmatter,
 } from "../src/react-app/domains/knowledge/knowledge-vault-frontmatter";
@@ -41,6 +42,13 @@ related:
     expect(applyKnowledgeNoteProps("# Hello\n", parseKnowledgeNoteProps("# Hello\n"))).toBe(
       "# Hello\n",
     );
+  });
+
+  test("headingTitleFromBody only reads a leading h1", () => {
+    expect(headingTitleFromBody("# Hello\n")).toBe("Hello");
+    expect(headingTitleFromBody("\n\n# Hello\n")).toBe("Hello");
+    expect(headingTitleFromBody("Intro\n\n# Later\n")).toBe("");
+    expect(headingTitleFromBody("## Not h1\n")).toBe("");
   });
 
   test("empty frontmatter fences do not leak into the editor body", () => {
