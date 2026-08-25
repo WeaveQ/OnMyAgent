@@ -6,6 +6,12 @@ import { readKnowledgeConfig, writePersonalVaultPath } from "../knowledge-vault-
 import { invalidateKnowledgeIndex } from "../knowledge-vault-index.mjs";
 import { ensureKnowledgeVault } from "../ensure-knowledge-vault.mjs";
 import {
+  createKnowledgeFolder,
+  uploadKnowledgeFiles,
+  uploadKnowledgeFolder,
+  uploadKnowledgeFolderFromDisk,
+} from "../knowledge-vault-upload.mjs";
+import {
   deleteKnowledgeFile,
   listKnowledgeVault,
   readKnowledgeFile,
@@ -24,6 +30,10 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "knowledgeRebuildIndex",
   "knowledgeGetConfig",
   "knowledgeSetPersonalVaultPath",
+  "knowledgeCreateFolder",
+  "knowledgeUploadFiles",
+  "knowledgeUploadFolder",
+  "knowledgeUploadFolderFromDisk",
 ]);
 
 /**
@@ -147,6 +157,69 @@ export function createKnowledgeDomainHandlers({
         await ensureKnowledgeVault({ homeDir });
       }
       return result;
+    },
+
+    knowledgeCreateFolder: async (event, args) => {
+      const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+      try {
+        return await createKnowledgeFolder({
+          homeDir: homeDirOf(),
+          scope: payload.scope,
+          relPath: payload.relPath,
+          workspaceId: payload.workspaceId,
+          expertId: payload.expertId,
+        });
+      } catch (error) {
+        return { ok: false, reason: error?.reason ?? "create_folder_failed" };
+      }
+    },
+
+    knowledgeUploadFiles: async (event, args) => {
+      const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+      try {
+        return await uploadKnowledgeFiles({
+          homeDir: homeDirOf(),
+          scope: payload.scope,
+          destFolder: payload.destFolder,
+          files: payload.files,
+          workspaceId: payload.workspaceId,
+          expertId: payload.expertId,
+        });
+      } catch (error) {
+        return { ok: false, reason: error?.reason ?? "upload_failed", results: [] };
+      }
+    },
+
+    knowledgeUploadFolder: async (event, args) => {
+      const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+      try {
+        return await uploadKnowledgeFolder({
+          homeDir: homeDirOf(),
+          scope: payload.scope,
+          destFolder: payload.destFolder,
+          entries: payload.entries,
+          workspaceId: payload.workspaceId,
+          expertId: payload.expertId,
+        });
+      } catch (error) {
+        return { ok: false, reason: error?.reason ?? "upload_failed", results: [] };
+      }
+    },
+
+    knowledgeUploadFolderFromDisk: async (event, args) => {
+      const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+      try {
+        return await uploadKnowledgeFolderFromDisk({
+          homeDir: homeDirOf(),
+          scope: payload.scope,
+          sourcePath: payload.sourcePath,
+          destFolder: payload.destFolder,
+          workspaceId: payload.workspaceId,
+          expertId: payload.expertId,
+        });
+      } catch (error) {
+        return { ok: false, reason: error?.reason ?? "upload_failed", results: [] };
+      }
     },
   };
 }

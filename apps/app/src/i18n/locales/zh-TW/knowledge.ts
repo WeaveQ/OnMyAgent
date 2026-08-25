@@ -98,4 +98,9 @@ export default {
   "knowledge.toolbar_expand_all": "展開全部資料夾",
   "knowledge.toolbar_collapse_all": "收合全部資料夾",
   "knowledge.toolbar_sync_index": "重新建立檢索索引，讓搜尋跟上最新筆記",
+  "knowledge.new_menu": "新增",
+  "knowledge.new_csv": "新增試算表",
+  "knowledge.upload_files": "上傳檔案",
+  "knowledge.upload_folder": "上傳資料夾",
+  "knowledge.html_readonly": "HTML 唯讀預覽 · {name}",
 } as const;

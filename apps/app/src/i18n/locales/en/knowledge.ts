@@ -101,4 +101,9 @@ export default {
   "knowledge.toolbar_expand_all": "Expand all folders",
   "knowledge.toolbar_collapse_all": "Collapse all folders",
   "knowledge.toolbar_sync_index": "Rebuild the search index from current notes",
+  "knowledge.new_menu": "New",
+  "knowledge.new_csv": "New spreadsheet",
+  "knowledge.upload_files": "Upload files",
+  "knowledge.upload_folder": "Upload folder",
+  "knowledge.html_readonly": "Read-only HTML preview · {name}",
 } as const;

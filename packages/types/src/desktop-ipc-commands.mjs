@@ -55,6 +55,10 @@ const commandGroups = /** @type {const} */ ({
     "knowledgeRebuildIndex",
     "knowledgeGetConfig",
     "knowledgeSetPersonalVaultPath",
+    "knowledgeCreateFolder",
+    "knowledgeUploadFiles",
+    "knowledgeUploadFolder",
+    "knowledgeUploadFolderFromDisk",
   ],
   company: [
     "companySettingsRead",

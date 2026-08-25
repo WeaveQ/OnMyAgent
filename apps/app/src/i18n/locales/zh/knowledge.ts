@@ -98,4 +98,9 @@ export default {
   "knowledge.toolbar_expand_all": "展开全部文件夹",
   "knowledge.toolbar_collapse_all": "收起全部文件夹",
   "knowledge.toolbar_sync_index": "重新建立检索索引，让搜索跟上最新笔记",
+  "knowledge.new_menu": "新建",
+  "knowledge.new_csv": "新建表格",
+  "knowledge.upload_files": "上传文件",
+  "knowledge.upload_folder": "上传文件夹",
+  "knowledge.html_readonly": "HTML 只读预览 · {name}",
 } as const;
