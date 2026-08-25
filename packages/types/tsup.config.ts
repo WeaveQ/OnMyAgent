@@ -14,6 +14,7 @@ export default defineConfig({
     "task-orchestrator": "src/task-orchestrator.ts",
     channel: "src/channel.ts",
     "artifact-plugin": "src/artifact-plugin.ts",
+    "agent-runtime": "src/agent-runtime.ts",
     officecli: "src/officecli.ts",
     "lark-cli-auth": "src/lark-cli-auth.ts",
     "tencent-docs-connector": "src/tencent-docs-connector.ts",

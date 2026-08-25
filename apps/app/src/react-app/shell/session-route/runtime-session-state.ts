@@ -155,6 +155,15 @@ export function applyRuntimeSessionStatusUpdate(
   return { ...current, [workspaceId]: nextList };
 }
 
+export function resolveSessionModelAvailabilityBlocksTask(input: {
+  runtimeKind: "opencode" | "grok-build" | null;
+  unavailable: boolean;
+}): boolean {
+  // Grok uses a runtime-scoped catalog, not the OpenCode provider list.
+  if (input.runtimeKind === "grok-build") return false;
+  return input.unavailable;
+}
+
 /** Whether the composer may create a new task in the selected workspace. */
 export function resolveSessionRouteCanCreateTask(input: {
   hasOpencodeClient: boolean;

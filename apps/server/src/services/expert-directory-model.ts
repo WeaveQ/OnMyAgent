@@ -46,6 +46,9 @@ export function addSession(
     agentId: string;
     packageName: string;
     sessionId: string;
+    runtimeKind?: "opencode" | "grok-build";
+    runtimeSessionId?: string;
+    profileId?: string;
     directory?: string;
     runtimeMissing: boolean;
     sessionMissing?: boolean;
@@ -60,6 +63,9 @@ export function addSession(
   };
   record.sessions.set(input.sessionId, {
     sessionId: input.sessionId,
+    ...(input.runtimeKind ? { runtimeKind: input.runtimeKind } : {}),
+    ...(input.runtimeSessionId ? { runtimeSessionId: input.runtimeSessionId } : {}),
+    ...(input.profileId ? { profileId: input.profileId } : {}),
     ...(input.directory ? { directory: input.directory } : {}),
     runtimeMissing: input.runtimeMissing,
     ...(input.sessionMissing !== undefined ? { sessionMissing: input.sessionMissing } : {}),
@@ -107,17 +113,23 @@ export function markerIdentityOf(marker: ExpertSessionMarker | undefined): {
   agentId: string;
   packageName: string;
   sessionId: string;
+  runtimeKind?: "opencode" | "grok-build";
+  runtimeSessionId?: string;
+  profileId?: string;
 } | null {
   if (!marker?.agentId?.trim() || !marker.packageName?.trim() || !marker.sessionId?.trim()) return null;
   return {
     agentId: marker.agentId.trim(),
     packageName: marker.packageName.trim(),
     sessionId: marker.sessionId.trim(),
+    ...(marker.runtimeKind ? { runtimeKind: marker.runtimeKind } : {}),
+    ...(marker.runtimeSessionId?.trim() ? { runtimeSessionId: marker.runtimeSessionId.trim() } : {}),
+    ...(marker.profileId?.trim() ? { profileId: marker.profileId.trim() } : {}),
   };
 }
 
 export function explicitMarkerSessionId(marker: ExpertSessionMarker): string | null {
-  return marker.isolationVersion === 3 && marker.sessionId?.trim() ? marker.sessionId.trim() : null;
+  return (marker.isolationVersion ?? 0) >= 3 && marker.sessionId?.trim() ? marker.sessionId.trim() : null;
 }
 
 export function skillsFromMarker(marker: ExpertSessionMarker | undefined): ExpertSessionSkillState {
@@ -130,7 +142,12 @@ export function skillsFromMarker(marker: ExpertSessionMarker | undefined): Exper
 
 export function sameMarkerIdentity(left: ExpertSessionMarker, right: ExpertSessionMarker | undefined): boolean {
   if (!right) return false;
-  return left.agentId === right.agentId && left.packageName === right.packageName && left.sessionId === right.sessionId;
+  return left.agentId === right.agentId
+    && left.packageName === right.packageName
+    && left.sessionId === right.sessionId
+    && left.runtimeKind === right.runtimeKind
+    && left.runtimeSessionId === right.runtimeSessionId
+    && left.profileId === right.profileId;
 }
 
 export function hashKey(value: string): string {

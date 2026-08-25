@@ -1,15 +1,6 @@
-import {
-  type ChildProcess,
-} from "node:child_process";
-
-import {
-  randomUUID,
-} from "node:crypto";
-
-import {
-  mkdir,
-  access,
-} from "node:fs/promises";
+import { type ChildProcess } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { mkdir, access } from "node:fs/promises";
 
 import {
   createServer as createHttpServer,
@@ -49,6 +40,7 @@ import {
 } from "../runtime-health.js";
 
 import {
+  resolvePrimaryOpencodeRuntimeIdentity,
   startOpenCodeRouter,
   startOpencode,
   startOnMyAgentServer,
@@ -225,6 +217,7 @@ export async function runStart(args: ParsedArgs) {
     workspace: resolvedWorkspace,
     devMode,
   });
+  const opencodeRuntimeIdentity = resolvePrimaryOpencodeRuntimeIdentity({ stateLayout: opencodeStateLayout });
   const opencodeConfigDir = opencodeStateLayout.configDir;
   await ensureOpencodeStateLayout(opencodeStateLayout);
   await ensureOpencodeManagedTools(opencodeConfigDir);
@@ -675,7 +668,7 @@ export async function runStart(args: ParsedArgs) {
       bin: onmyagentServerBinary.bin,
       host: onmyagentHost,
       port: onmyagentPort,
-      workspace: resolvedWorkspace,
+      workspace: resolvedWorkspace, dataDir, opencodeRuntimeIdentity,
       token: onmyagentToken,
       hostToken: onmyagentHostToken,
       approvalMode: approvalMode === "auto" ? "auto" : "manual",
@@ -1378,7 +1371,7 @@ export async function runStart(args: ParsedArgs) {
         bin: onmyagentServerBinary.bin,
         host: onmyagentHost,
         port: onmyagentPort,
-        workspace: resolvedWorkspace,
+        workspace: resolvedWorkspace, dataDir, opencodeRuntimeIdentity,
         token: onmyagentToken,
         hostToken: onmyagentHostToken,
         approvalMode: approvalMode === "auto" ? "auto" : "manual",

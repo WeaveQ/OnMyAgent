@@ -1,3 +1,4 @@
+import "lexical";
 import { describe, expect, test } from "bun:test";
 
 import {
@@ -90,6 +91,7 @@ describe("session route aggregate loader", () => {
     let calls = 0;
     const result = await collectWorkspaceSessionItemsWithStatus({
       client: {
+        listRuntimeSessions: async () => ({ items: [], complete: true, failures: [] }),
         listSessions: async (_workspaceId, options) => {
           calls += 1;
           expect(options?.scope).toBe("workspace");
@@ -120,6 +122,7 @@ describe("session route aggregate loader", () => {
     let calls = 0;
     const result = await collectWorkspaceSessionItemsWithStatus({
       client: {
+        listRuntimeSessions: async () => ({ items: [], complete: true, failures: [] }),
         listSessions: async () => {
           calls += 1;
           return { scope: "workspace" as const, complete: true, failures: [], items: [{ id: "assistant", directory: "/assistant" }] };
@@ -133,6 +136,57 @@ describe("session route aggregate loader", () => {
     });
     expect(calls).toBe(1);
     expect(result.items.map((item) => item.id)).toEqual(["assistant"]);
+  });
+
+  test("merges Grok bindings without duplicating backfilled OpenCode sessions", async () => {
+    const result = await collectWorkspaceSessionItemsWithStatus({
+      client: {
+        listSessions: async () => ({
+          scope: "workspace" as const,
+          complete: true,
+          failures: [],
+          items: [{ id: "legacy-open", directory: "/root" }],
+        }),
+        listRuntimeSessions: async () => ({
+          complete: true,
+          failures: [],
+          items: [
+            {
+              productSessionId: "legacy-open",
+              runtimeKind: "opencode" as const,
+              runtimeSessionId: "legacy-open",
+              workspaceId: "workspace-a",
+              cwd: "/root",
+              profileId: "primary-opencode",
+              createdAt: 1,
+              updatedAt: 1,
+              status: { type: "idle" as const },
+            },
+            {
+              productSessionId: "grok-product",
+              runtimeKind: "grok-build" as const,
+              runtimeSessionId: "grok-native",
+              workspaceId: "workspace-a",
+              cwd: "/root",
+              profileId: "system",
+              title: "Grok task",
+              createdAt: 2,
+              updatedAt: 3,
+              status: { type: "idle" as const },
+            },
+          ],
+        }),
+      },
+      workspaceId: "workspace-a",
+      workspaceRoot: "/root",
+      isRemoteOnMyAgentWorkspace: false,
+      assistantSessionRecords: [],
+      normalizeDirectoryPath: (path) => path,
+    });
+    expect(result.items.map((item) => item.id)).toEqual([
+      "legacy-open",
+      "grok-product",
+    ]);
   });
 
   test("skips a second listSessions on the same cold enter", async () => {

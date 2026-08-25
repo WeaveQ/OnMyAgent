@@ -18,6 +18,8 @@ import {
   SettingsPageSection,
 } from "../settings-section";
 import { LayoutStack } from "../settings-layout";
+import type { OnMyAgentServerClient } from "../../../../app/lib/onmyagent-server";
+import { AgentRuntimeSettingsSection } from "../../../capabilities/agent-runtime/settings-section";
 
 export type PreferencesViewProps = {
   busy: boolean;
@@ -35,6 +37,8 @@ export type PreferencesViewProps = {
   /** Menu-bar / system-tray icon; desktop only. Default true. */
   menuBarStatusItem?: boolean;
   onMenuBarStatusItemChange?: (enabled: boolean) => void;
+  onmyagentClient: OnMyAgentServerClient | null;
+  selectedWorkspaceId: string;
 };
 
 export function PreferencesView(props: PreferencesViewProps) {
@@ -74,6 +78,10 @@ export function PreferencesView(props: PreferencesViewProps) {
 
   return (
     <LayoutStack>
+      <AgentRuntimeSettingsSection
+        client={props.onmyagentClient}
+        workspaceId={props.selectedWorkspaceId}
+      />
       {/* 1. Interface — language + theme (chrome). */}
       <SettingsPageSection title={t("settings.interface_settings_title")}>
         <SettingsBlock>

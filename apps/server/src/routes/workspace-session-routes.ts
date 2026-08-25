@@ -75,6 +75,7 @@ export function registerWorkspaceSessionRoutes(input: {
     sessionId: string,
     directory?: string,
   ) => Promise<void>;
+  opencodeProfileId?: string;
 }) {
   const {
     routes,
@@ -116,6 +117,9 @@ export function registerWorkspaceSessionRoutes(input: {
         agentId: typeof body.agentId === "string" ? body.agentId : undefined,
         packageName: typeof body.packageName === "string" ? body.packageName : undefined,
         sessionId: typeof body.sessionId === "string" ? body.sessionId : undefined,
+        ...(typeof body.sessionId === "string" && body.sessionId.trim() && input.opencodeProfileId
+          ? { runtimeKind: "opencode" as const, runtimeSessionId: body.sessionId, profileId: input.opencodeProfileId }
+          : {}),
         sessionKey: typeof body.sessionKey === "string" ? body.sessionKey : undefined,
         approvedAgentIds,
         skillNames,
@@ -150,6 +154,9 @@ export function registerWorkspaceSessionRoutes(input: {
         agentId: typeof body.agentId === "string" ? body.agentId : undefined,
         packageName: typeof body.packageName === "string" ? body.packageName : undefined,
         sessionId: typeof body.sessionId === "string" ? body.sessionId : undefined,
+        ...(typeof body.sessionId === "string" && body.sessionId.trim() && input.opencodeProfileId
+          ? { runtimeKind: "opencode" as const, runtimeSessionId: body.sessionId, profileId: input.opencodeProfileId }
+          : {}),
         approvedAgentIds,
         skillNames,
       });

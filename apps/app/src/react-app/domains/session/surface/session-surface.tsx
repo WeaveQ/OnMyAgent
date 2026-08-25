@@ -268,6 +268,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     transcriptState,
     snapshot,
     liveStatus,
+    canonicalRuntime, runtimeKind,
     resetHydrationKey,
   } = useSessionSurfaceSnapshot({
     workspaceId: props.workspaceId,
@@ -278,6 +279,8 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     onmyagentToken: props.onmyagentToken,
     client: props.client,
   });
+  const runtimeSupportsOpenCodeComposerTools =
+    props.selectedRuntimeKind !== "grok-build" && runtimeKind !== "grok-build";
 
   useEffect(() => {
     if (!props.personalAssistantHome) return;
@@ -500,9 +503,8 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     renderedSessionId:
       renderedMessages.length > 0 || snapshot ? props.sessionId : null,
     hasSnapshot: Boolean(snapshot) || renderedMessages.length > 0,
-    isFetching: !props.draftOnly && snapshotQuery.isFetching,
-    isError:
-      (!props.draftOnly && snapshotQuery.isError) || Boolean(visibleError),
+    isFetching: !props.draftOnly && !canonicalRuntime && snapshotQuery.isFetching,
+    isError: (!props.draftOnly && !canonicalRuntime && snapshotQuery.isError) || Boolean(visibleError),
   });
   const buildDraft = useCallback(
     (text: string, nextAttachments: ComposerAttachment[]): ComposerDraft =>
@@ -572,6 +574,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     onPlanRuntimeChange: props.onPlanRuntimeChange,
     outputLimitedAssistantMessage,
     opencodeClient,
+    onmyagentClient: props.client, canonicalRuntime,
     queryClient,
     snapshotQueryKey,
     statusQueryKey,
@@ -946,7 +949,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       chrome={props.chrome}
       emptyContent={props.emptyContent}
       conversationTabs={props.conversationTabs}
-      chatHeaderAgent={chatHeaderAgent}
+      chatHeaderAgent={chatHeaderAgent} runtimeKind={runtimeKind}
       codeSceneToolbar={codeSceneToolbar}
       onOpenShortcutsSettings={props.onOpenShortcutsSettings}
       personalAssistantHome={props.personalAssistantHome}
@@ -1033,15 +1036,14 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       })}
       modelPickerOpen={props.modelPickerOpen}
       modelPickerVisible={props.modelPickerVisible}
-      selectedModel={props.selectedModel}
+      selectedModel={props.selectedModel} modelOptions={props.modelOptions}
       catalogContextWindow={props.catalogContextWindow}
       onModelPickerOpenChange={props.onModelPickerOpenChange}
       onModelChange={props.onModelChange}
       attachments={attachments}
       onAttachFiles={handleAttachFiles}
       onRemoveAttachment={handleRemoveAttachment}
-      attachmentsEnabled={props.attachmentsEnabled}
-      attachmentsDisabledReason={props.attachmentsDisabledReason}
+      attachmentsEnabled={props.attachmentsEnabled} attachmentsDisabledReason={props.attachmentsDisabledReason}
       modelVariantLabel={props.modelVariantLabel}
       modelVariant={props.modelVariant}
       modelBehaviorOptions={props.modelBehaviorOptions}
@@ -1051,22 +1053,20 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       listAgents={props.listAgents}
       onSelectAgent={props.onSelectAgent}
       listCommands={props.listCommands}
-      listSkills={listSkills}
-      skills={toolSkills}
-      listMcp={listMcp}
-      mcpServers={toolMcpServers}
-      mcpStatus={toolMcpStatus}
-      mcpStatuses={toolMcpStatuses}
-      listImportedPlugins={listImportedPlugins}
-      importedPlugins={toolImportedPlugins}
+      listSkills={runtimeSupportsOpenCodeComposerTools ? listSkills : async () => []} skills={runtimeSupportsOpenCodeComposerTools ? toolSkills : []}
+      listMcp={runtimeSupportsOpenCodeComposerTools ? listMcp : async () => ({ servers: [], statuses: {}, status: null })}
+      mcpServers={runtimeSupportsOpenCodeComposerTools ? toolMcpServers : []} mcpStatus={runtimeSupportsOpenCodeComposerTools ? toolMcpStatus : null}
+      mcpStatuses={runtimeSupportsOpenCodeComposerTools ? toolMcpStatuses : {}}
+      listImportedPlugins={runtimeSupportsOpenCodeComposerTools ? listImportedPlugins : async () => []}
+      importedPlugins={runtimeSupportsOpenCodeComposerTools ? toolImportedPlugins : []}
       onOpenSettingsSection={props.onOpenSettingsSection}
       onOpenSkillsMarketplace={props.onOpenSkillsMarketplace}
       onOpenConnectorsMarketplace={props.onOpenConnectorsMarketplace}
       onOpenCustomConnector={props.onOpenCustomConnector}
       recentFiles={props.recentFiles}
-      searchFiles={searchSessionMentionTargets}
-      listFolderFiles={listSessionMentionFolder}
-      loadWorkspaceFiles={loadSessionMentionFiles}
+      searchFiles={runtimeSupportsOpenCodeComposerTools ? searchSessionMentionTargets : async () => []}
+      listFolderFiles={runtimeSupportsOpenCodeComposerTools ? listSessionMentionFolder : async () => []}
+      loadWorkspaceFiles={runtimeSupportsOpenCodeComposerTools ? loadSessionMentionFiles : async () => []}
       onInsertMention={handleInsertMention}
       notice={notice}
       onNotice={setNotice}

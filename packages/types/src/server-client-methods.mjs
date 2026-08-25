@@ -26,7 +26,11 @@ const methodGroups = /** @type {const} */ ({
   sessions: [
     "deleteSession", "listSessions", "getSession", "getSessionMessages",
     "getSessionSnapshot", "listSessionOrigins", "upsertSessionOrigin",
-    "deleteSessionOrigin", "deleteExpert",
+    "deleteSessionOrigin", "deleteExpert", "getAgentRuntimeSelection", "getAgentRuntimeModelCatalog", "getAgentRuntimeConnectorTools", "authenticateAgentRuntime",
+    "setDefaultAgentRuntime", "setWorkspaceAgentRuntime",
+    "setGrokBuildRuntimeSelection", "createRuntimeSession",
+    "listRuntimeSessions", "getRuntimeSession", "deleteRuntimeSession", "renameRuntimeSession", "forkRuntimeSession", "promptRuntimeSession",
+    "cancelRuntimeSession", "closeRuntimeSession", "resumeRuntimeSession", "setRuntimeSessionModel", "setRuntimeSessionMode", "listRuntimeSessionCommands", "listRuntimeWorkspaceCommands", "executeRuntimeSessionCommand", "respondRuntimePermission", "respondRuntimeQuestion", "openRuntimeSessionEvents", "getRuntimeSessionEventSnapshot", "getRuntimeSessionMessages",
   ],
   extensions: [
     "listPlugins", "addPlugin", "removePlugin", "listSkills", "listHubSkills",

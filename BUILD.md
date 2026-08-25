@@ -133,6 +133,22 @@ pnpm --dir apps/desktop package:electron:dir
 
 For runtime, sidecar, or updater changes, launch the packaged `.app` from `apps/desktop/dist-electron/` and perform a smoke test against a local workspace.
 
+### Grok Build runtime packaging gate
+
+The default `system` Grok Build profile discovers the user's installed binary
+and keeps the existing `~/.grok` home in place. It must not copy, rewrite, or
+delete the user's auth, model, or session files. A future `bundled` profile may
+ship only when every supported OS/architecture has an official pinned artifact,
+SHA-256, audited source revision, Apache-2.0 license, required third-party
+notices, and a checker that rejects missing or mismatched assets. Until that
+manifest is complete, packaged builds must fail closed for `binaryMode=bundled`
+rather than silently falling back to an unverified download.
+
+For a runtime-changing package, verify both the ordinary OpenCode default and
+the explicitly selected Grok `system` profile. Record the actual runtime badge,
+health/version, permission mode, sticky reopen, exact child cleanup, and confirm
+that no provider secret or `GROK_HOME` path appears in renderer-visible output.
+
 ## Common Issues
 
 ### Electron Download Fails

@@ -13,7 +13,6 @@ import { readJsoncFile, updateJsoncTopLevel } from "../src/core/jsonc.js";
 import {
   createExpertSessionRuntimeDirectory,
   ensureExpertSessionRuntimeIsolation,
-  EXPERT_SESSION_ISOLATION_VERSION,
   parseExpertSessionMarker,
 } from "../src/services/expert-session-runtime.js";
 import { listSessionOrigins, sessionOriginsPath, upsertSessionOrigin } from "../src/services/session-origins.js";
@@ -114,7 +113,7 @@ describe("compat v0.6 write-back keeps previous identities", () => {
         skillNames: ["compat-skill"],
       });
       expect(upgraded?.upgraded).toBe(true);
-      expect(upgraded?.isolationVersion).toBe(EXPERT_SESSION_ISOLATION_VERSION);
+      expect(upgraded?.isolationVersion).toBe(3);
       expect(upgraded?.agentId).toBe("agent-compat-v2");
       expect(upgraded?.sessionId).toBe("ses_compat_v2");
 
@@ -126,7 +125,7 @@ describe("compat v0.6 write-back keeps previous identities", () => {
       expect(disk.sessionId).toBe("ses_compat_v2");
       expect(disk.declaredSkills).toEqual(["compat-skill"]);
       expect(parseExpertSessionMarker(disk, ws.id)?.isolationVersion).toBe(
-        EXPERT_SESSION_ISOLATION_VERSION,
+        3,
       );
     } finally {
       await rm(root, { recursive: true, force: true });

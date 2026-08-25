@@ -44,9 +44,9 @@ export const HOME_CONFIG_SLASH_SKILL_NAMES = Object.freeze([
 export const OPENCODE_SANDBOX_DIR_NAME = "opencode-sandbox";
 
 /**
- * OpenCode reconciles dependencies for every config directory. The managed
- * sandbox only uses product-owned local plugins, so seed a local package
- * state and keep startup from repeatedly attempting a network install.
+ * OpenCode reconciles dependencies for every config directory. Managed
+ * sandboxes only use product-owned local plugins, so seed a complete local
+ * package state and prevent startup from reaching the network when offline.
  * @param {string} configDir
  */
 async function ensureLocalPluginDependencyState(configDir) {

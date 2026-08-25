@@ -71,6 +71,9 @@ export type ExpertRuntimeContractSnapshot = {
 export type ExpertRuntimeContractInput = {
   workspace: WorkspaceInfo;
   sessionId: string;
+  runtimeKind?: "opencode" | "grok-build";
+  runtimeSessionId?: string;
+  profileId?: string;
   directory: string;
   /** Agent selected in the first prompt body. Empty means the light default. */
   agent?: string;
@@ -208,6 +211,25 @@ export function resolveDeclaredExpertAgentIds(input: {
  * measurement. Non-ASCII is counted more densely so a large CJK context
  * still fails closed.
  */
+export function assertCompiledExpertPromptBudget(input: {
+  compiledSystemPrompt: string;
+  userPrompt: string;
+}): number {
+  const promptTokens = estimateExpertPromptTokens({
+    systemPrompt: input.compiledSystemPrompt,
+    userPrompt: input.userPrompt,
+  });
+  if (promptTokens > EXPERT_PROMPT_TOKEN_LIMIT) {
+    throw new ApiError(
+      413,
+      "prompt_token_budget",
+      "The Expert request exceeds the 8,000-token context budget",
+      { promptTokens, tokenLimit: EXPERT_PROMPT_TOKEN_LIMIT },
+    );
+  }
+  return promptTokens;
+}
+
 export function estimateExpertPromptTokens(body: unknown): number {
   return estimateTextTokens(collectExpertPromptText(body));
 }
@@ -235,6 +257,10 @@ function collectExpertPromptText(body: unknown): string {
   const chunks: string[] = [];
   const system = record.system;
   if (typeof system === "string") chunks.push(system);
+  const systemPrompt = record.systemPrompt;
+  if (typeof systemPrompt === "string") chunks.push(systemPrompt);
+  const userPrompt = record.userPrompt;
+  if (typeof userPrompt === "string") chunks.push(userPrompt);
   else if (Array.isArray(system)) {
     for (const item of system) {
       if (typeof item === "string") chunks.push(item);
@@ -396,8 +422,8 @@ export async function assertExpertRuntimeContract(
   }
 
   const marker = await readMarker(directory, input);
-  if (!marker || marker.isolationVersion !== EXPERT_RUNTIME_CONTRACT_VERSION) {
-    throw violation(input, "marker_version", "Expert runtime marker v3 is required");
+  if (!marker || (marker.isolationVersion ?? 0) < 3) {
+    throw violation(input, "marker_version", "Expert runtime marker v3 or newer is required");
   }
   if (marker.workspaceId !== input.workspace.id) {
     throw violation(input, "workspace_identity", "Expert runtime belongs to another workspace");
@@ -518,6 +544,9 @@ export async function ensureAndAssertExpertRuntimeContract(
         agentId: input.agentId?.trim() || marker?.agentId,
         packageName: input.packageName?.trim() || marker?.packageName,
         sessionId: input.sessionId.trim(),
+        runtimeKind: input.runtimeKind,
+        runtimeSessionId: input.runtimeSessionId,
+        profileId: input.profileId,
         skillNames: input.declaredSkills ?? marker?.declaredSkills,
         approvedAgentIds: input.approvedAgentIds ?? marker?.approvedAgentIds,
       }).finally(() => {

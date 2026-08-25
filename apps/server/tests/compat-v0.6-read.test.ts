@@ -13,10 +13,7 @@ import type { WorkspaceInfo } from "@onmyagent/types/server";
 
 import { readJsoncFile } from "../src/core/jsonc.js";
 import { parseFrontmatter } from "../src/core/frontmatter.js";
-import {
-  EXPERT_SESSION_ISOLATION_VERSION,
-  parseExpertSessionMarker,
-} from "../src/services/expert-session-runtime.js";
+import { parseExpertSessionMarker } from "../src/services/expert-session-runtime.js";
 import { listSessionOrigins, sessionOriginsPath } from "../src/services/session-origins.js";
 import { scanWorkspaceExpertSessionMarkers } from "../src/services/workspace-session-marker-inventory.js";
 import {
@@ -109,12 +106,12 @@ describe("compat v0.6 previous-format reads", () => {
     }
   });
 
-  test("parseExpertSessionMarker still recognizes current isolationVersion", async () => {
+  test("parseExpertSessionMarker still recognizes isolationVersion 3", async () => {
     const raw = await readFixtureJson("onmyagent-session.isolation-v3.json");
-    expect(raw).toMatchObject({ isolationVersion: EXPERT_SESSION_ISOLATION_VERSION });
+    expect(raw).toMatchObject({ isolationVersion: 3 });
     const marker = parseExpertSessionMarker(raw, "ws_compat_v06");
     expect(marker).not.toBeNull();
-    expect(marker?.isolationVersion).toBe(EXPERT_SESSION_ISOLATION_VERSION);
+    expect(marker?.isolationVersion).toBe(3);
     expect(marker?.sessionId).toBe("ses_compat_v3");
   });
 

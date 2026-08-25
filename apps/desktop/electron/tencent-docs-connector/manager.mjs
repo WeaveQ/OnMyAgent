@@ -34,6 +34,7 @@ import {
   TOKEN_SKEW_MS,
 } from "./constants.mjs";
 import {
+  buildTencentDocsMcpMap,
   hasManagedTencentDocsMcp,
   readGlobalOpencodeConfig,
   removeTencentDocsMcp,
@@ -778,12 +779,29 @@ export function createTencentDocsConnectorManager(options) {
     }
   }
 
+  /** @returns {Promise<import("../../../server/src/services/runtime-mcp-projection.js").ConnectorMcpDescriptor[]>} */
+  async function getRuntimeMcpDescriptors() {
+    const tokens = await ensureFreshTokens();
+    const accessToken = String(tokens?.access_token ?? "").trim();
+    if (!accessToken) return [];
+    return Object.entries(buildTencentDocsMcpMap(accessToken)).map(([name, raw]) => {
+      const entry = /** @type {Record<string, unknown>} */ (raw);
+      return {
+        name,
+        transport: "http",
+        url: String(entry.url),
+        headers: /** @type {Record<string, string>} */ (entry.headers ?? {}),
+      };
+    });
+  }
+
   return {
     getStatus,
     startConnect,
     completeConnect,
     cancelConnect,
     disconnect,
+    getRuntimeMcpDescriptors,
     // test hooks
     _internals: {
       managedRoot,

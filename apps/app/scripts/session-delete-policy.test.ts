@@ -23,6 +23,9 @@ import {
   retryPendingSessionDeletesForWorkspace,
   resolveSessionDeleteDirectory,
   shouldContinueLocalSessionCleanupAfterRemoteDelete,
+  readGrokSessionDeleteDecision,
+  assertProductSessionDeleteAllowed,
+  loadGrokSessionDeleteDecision,
 } from "../src/react-app/domains/session/sync/session-delete-policy";
 
 const appRoot = join(import.meta.dir, "..");
@@ -197,6 +200,62 @@ describe("persistent pending delete tombstones", () => {
     expect(SESSION_PENDING_DELETE_MAX_ATTEMPTS).toBeGreaterThan(1);
   });
 
+  test("persists Grok runtime ownership before canonical delete and keeps retries canonical", async () => {
+    registerPendingSessionDelete({ workspaceId: "ws", sessionId: "ses_grok" });
+    let resolves = 0;
+    let canonicalDeletes = 0;
+    let legacyDeletes = 0;
+    const client = {
+      getRuntimeSession: async () => {
+        resolves += 1;
+        return { session: { runtimeKind: "grok-build" } };
+      },
+      deleteRuntimeSession: async () => {
+        canonicalDeletes += 1;
+        throw new Error("response lost");
+      },
+      deleteSession: async () => {
+        legacyDeletes += 1;
+      },
+    };
+    await expect(executePendingSessionDelete({
+      workspaceId: "ws",
+      remoteWorkspaceId: "runtime_ws",
+      sessionId: "ses_grok",
+      client,
+    })).rejects.toThrow("response lost");
+    expect(getPendingSessionDeleteForTests("ws", "ses_grok")?.runtimeKind).toBe("grok-build");
+    await expect(executePendingSessionDelete({
+      workspaceId: "ws",
+      remoteWorkspaceId: "runtime_ws",
+      sessionId: "ses_grok",
+      client,
+    })).rejects.toThrow("response lost");
+    expect({ resolves, canonicalDeletes, legacyDeletes }).toEqual({
+      resolves: 1,
+      canonicalDeletes: 2,
+      legacyDeletes: 0,
+    });
+  });
+
+  test("deletes a bound OpenCode session through the canonical registry", async () => {
+    registerPendingSessionDelete({ workspaceId: "ws", sessionId: "ses_open" });
+    let canonicalDeletes = 0;
+    let legacyDeletes = 0;
+    await executePendingSessionDelete({
+      workspaceId: "ws",
+      remoteWorkspaceId: "runtime_ws",
+      sessionId: "ses_open",
+      client: {
+        getRuntimeSession: async () => ({ session: { runtimeKind: "opencode" } }),
+        deleteRuntimeSession: async () => { canonicalDeletes += 1; },
+        deleteSession: async () => { legacyDeletes += 1; },
+      },
+    });
+    expect(canonicalDeletes).toBe(1);
+    expect(legacyDeletes).toBe(0);
+  });
+
   test("retries pending deletes once per workspace with at most two requests", async () => {
     for (const sessionId of ["ses_1", "ses_2", "ses_3"]) {
       registerPendingSessionDelete({ workspaceId: "ws", sessionId });
@@ -305,8 +364,127 @@ describe("page-view + group delete wiring", () => {
     // Refresh must not block dialog close with a long await race.
     expect(pageView).toContain("void Promise.resolve(refreshRouteState())");
     expect(pageView).toContain("sessionDirectory: listedDirectory");
+    expect(pageView).toContain("assertLoadedProductSessionDeleteAllowed");
     expect(pageView).toContain("collectSessionSubtreeIds");
     expect(pageView).toContain("permanentlyRemoveAssistantArchivedTaskTree");
+  });
+
+  test("unsupported Grok native delete cannot look like success", () => {
+    const unsupported = {
+      feature: "session.delete" as const,
+      state: "unsupported" as const,
+      source: "initialize" as const,
+    };
+    const decision = readGrokSessionDeleteDecision({
+      workspaceId: "ws_1",
+      runtimeKind: "grok-build",
+      getQueryData: () => ({
+        health: [{
+          health: {
+            runtimeKind: "grok-build",
+            health: "ready",
+            checkedAt: 1,
+            capabilities: {
+              protocolVersion: "1",
+              features: [],
+              featureStates: [unsupported],
+            },
+          },
+        }],
+      }),
+    });
+    expect(decision).toEqual({
+      allowed: false,
+      outcome: "unsupported",
+      deleted: false,
+    });
+    expect(() => assertProductSessionDeleteAllowed({
+      workspaceId: "ws_1",
+      runtimeKind: "grok-build",
+      getQueryData: () => ({
+        health: [{
+          health: {
+            runtimeKind: "grok-build",
+            health: "ready",
+            checkedAt: 1,
+            capabilities: {
+              protocolVersion: "1",
+              features: [],
+              featureStates: [unsupported],
+            },
+          },
+        }],
+      }),
+    })).toThrow(/will not report delete|不会将删除|不會將刪除/);
+    const allowed = readGrokSessionDeleteDecision({
+      workspaceId: "ws_1",
+      runtimeKind: "grok-build",
+      getQueryData: () => ({
+        health: [{
+          health: {
+            runtimeKind: "grok-build",
+            health: "ready",
+            checkedAt: 1,
+            capabilities: {
+              protocolVersion: "1",
+              features: ["session.delete"],
+              featureStates: [{
+                feature: "session.delete",
+                state: "supported",
+                source: "initialize",
+              }],
+            },
+          },
+        }],
+      }),
+    });
+    expect(allowed.allowed).toBe(true);
+    expect(allowed.deleted).not.toBe(false);
+    expect(readGrokSessionDeleteDecision({
+      workspaceId: "ws_1",
+      runtimeKind: "grok-build",
+      getQueryData: () => undefined,
+    })).toEqual({
+      allowed: false,
+      outcome: "unknown",
+      deleted: false,
+    });
+  });
+
+  test("empty cache loads selection before deciding Grok delete", async () => {
+    const stored: unknown[] = [];
+    const decision = await loadGrokSessionDeleteDecision({
+      workspaceId: "ws_1",
+      runtimeKind: "grok-build",
+      getQueryData: () => undefined,
+      setQueryData: (_key, value) => {
+        stored.push(value);
+      },
+      fetchSelection: async () => ({
+        health: [{
+          health: {
+            runtimeKind: "grok-build",
+            health: "ready",
+            checkedAt: 1,
+          },
+          capabilities: {
+            protocolVersion: "1",
+            features: ["session.delete"],
+            featureStates: [{
+              feature: "session.delete",
+              state: "supported",
+              source: "initialize",
+            }],
+          },
+        }],
+      }),
+    });
+    expect(decision).toEqual({
+      allowed: true,
+      outcome: "allowed",
+      deleted: undefined,
+    });
+    expect(stored).toHaveLength(1);
   });
 
   test("list merge filters recently deleted ids", () => {
@@ -318,7 +496,7 @@ describe("page-view + group delete wiring", () => {
     expect(sessions).toContain("filterPendingDeletedSessions");
   });
 
-  test("expert and assistant group deletes run sessions in parallel", () => {
+  test("expert uses the server delete saga while assistant group deletes run in parallel", () => {
     const expertDelete = readFileSync(
       join(appRoot, "src/react-app/domains/session/pages/use-expert-session-delete.ts"),
       "utf8",
@@ -327,6 +505,8 @@ describe("page-view + group delete wiring", () => {
       join(appRoot, "src/react-app/domains/session/pages/assistant.tsx"),
       "utf8",
     );
+    expect(expertDelete).toContain("client.deleteExpert");
+    expect(expertDelete).toContain("sessionIds: target.sessionIds");
     expect(expertDelete).toContain("collectSessionSubtreeIds");
     expect(expertDelete).toContain("deleteExpert");
     expect(assistant).toContain("collectSessionSubtreeIds");

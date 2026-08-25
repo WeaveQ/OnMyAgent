@@ -32,12 +32,13 @@ export function resolveOpencodeBin() {
     if (value && existsSync(value)) return value;
   }
   const sidecarRoot = join(dirname(fileURLToPath(import.meta.url)), "../../resources/sidecars");
-  const sidecar = [
+  const sidecarCandidates = [
     join(sidecarRoot, "opencode"),
     join(sidecarRoot, "opencode-aarch64-apple-darwin"),
     join(sidecarRoot, "opencode-x64-osx"),
     join(sidecarRoot, "opencode.exe"),
-  ].find((candidate) => existsSync(candidate));
+  ];
+  const sidecar = sidecarCandidates.find((candidate) => existsSync(candidate));
   if (sidecar) return sidecar;
   const whichCmd = process.platform === "win32" ? "where" : "which";
   const probed = spawnSync(whichCmd, ["opencode"], { encoding: "utf8" });
@@ -223,7 +224,11 @@ export async function fetchOpencodeJson(baseUrl, pathname, opts = {}) {
  * @param {{ timeoutMs?: number, pollMs?: number, requestTimeoutMs?: number }} [opts]
  */
 export async function waitForHealthy(server, opts = {}) {
-  const timeoutMs = opts.timeoutMs ?? (isCi() ? 45_000 : 20_000);
+  // OpenCode can spend well over a minute on its first plugin/config boot on
+  // a cold CI runner. Keep each probe short so the overall readiness budget
+  // is real even when the port is accepting connections but the route is not
+  // responding yet.
+  const timeoutMs = opts.timeoutMs ?? (isCi() ? 150_000 : 20_000);
   const pollMs = opts.pollMs ?? 250;
   const requestTimeoutMs = opts.requestTimeoutMs ?? 2_000;
   const start = Date.now();
@@ -233,8 +238,9 @@ export async function waitForHealthy(server, opts = {}) {
       throw new Error(`OpenCode exited before healthy: ${server.getOutput()}`);
     }
     try {
+      const remainingMs = Math.max(1, timeoutMs - (Date.now() - start));
       const health = await fetchOpencodeJson(server.baseUrl, "/global/health", {
-        timeoutMs: requestTimeoutMs,
+        timeoutMs: Math.min(requestTimeoutMs, remainingMs),
       });
       if (health.ok && health.body && health.body.healthy === true) {
         return health.body;

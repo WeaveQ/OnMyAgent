@@ -213,6 +213,14 @@ test("manager materializes skill and writes mcp config from tokens", async () =>
   assert.equal(status.mcpConfigured, true);
   assert.equal(status.skillInstalled, true);
   assert.equal(status.phase, "connected");
+  const descriptors = await manager.getRuntimeMcpDescriptors();
+  assert.equal(descriptors.length, 4);
+  assert.deepEqual(descriptors[0], {
+    name: "tencent-docs",
+    transport: "http",
+    url: "https://docs.qq.com/openapi/mcp",
+    headers: { Authorization: "Bearer access-1" },
+  });
 
   const skillMd = await readFile(
     path.join(home, ".onmyagent", "profiles", "local", "config", "skills", "tencent-docs", "SKILL.md"),
@@ -233,6 +241,7 @@ test("manager materializes skill and writes mcp config from tokens", async () =>
   assert.equal(after.authorized, false);
   assert.equal(after.mcpConfigured, false);
   assert.equal(after.skillInstalled, false);
+  assert.deepEqual(await manager.getRuntimeMcpDescriptors(), []);
 
   await rm(home, { recursive: true, force: true });
 });

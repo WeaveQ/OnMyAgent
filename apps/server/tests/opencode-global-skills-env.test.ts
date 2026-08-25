@@ -41,4 +41,3 @@ describe("OpenCode child global skills env", () => {
     expect(source).toContain("expertSessionDirectory");
   });
 });
-

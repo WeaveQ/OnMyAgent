@@ -1,7 +1,7 @@
 /**
  * Local OpenCode `tool` helper for generated knowledge plugins.
- * Keeping this helper beside the generated files avoids resolving a package
- * from the temporary sandbox config directory during OpenCode startup.
+ * Keeping this helper beside generated files avoids resolving or fetching
+ * `@opencode-ai/plugin` from temporary sandbox config during startup.
  */
 
 function schemaNode(spec) {

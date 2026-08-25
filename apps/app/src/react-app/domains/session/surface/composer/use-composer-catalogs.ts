@@ -31,6 +31,7 @@ import {
   buildActiveMcpItems,
   buildCombinedSkillItems,
   buildOnmyagentInstalledNames,
+  buildSlashCatalogItems,
   builtInExtensionMcpServerNames,
   collectPluginSkillFiles,
   filterComposerExtensions,
@@ -432,9 +433,16 @@ export function useComposerCatalogs(input: UseComposerCatalogsInput) {
     () => orderSkillCatalog(combinedSkillItems, pinnedSkillIds),
     [combinedSkillItems, pinnedSkillIds],
   );
+  const slashCatalogOrdered = useMemo(
+    () => orderSkillCatalog(
+      buildSlashCatalogItems(skills, commands, onmyagentInstalledNames),
+      pinnedSkillIds,
+    ),
+    [commands, onmyagentInstalledNames, skills, pinnedSkillIds],
+  );
   const slashFiltered = useMemo(
-    () => filterSlashSkillItems(skillCatalogOrdered, input.slashOpen, input.slashQuery),
-    [skillCatalogOrdered, input.slashOpen, input.slashQuery],
+    () => filterSlashSkillItems(slashCatalogOrdered, input.slashOpen, input.slashQuery),
+    [slashCatalogOrdered, input.slashOpen, input.slashQuery],
   );
 
   const pluginSkillFiles = useMemo(

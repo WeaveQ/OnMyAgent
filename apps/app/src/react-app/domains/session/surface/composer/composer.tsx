@@ -51,7 +51,6 @@ import { useComposerAgentMenu } from "./use-composer-agent-menu";
 import { useComposerMineFiles } from "./use-composer-mine-files";
 import { composerShowsStopButton, shouldRestoreComposerFocus } from "./composer-focus-policy";
 import { ComposerAttachmentChips } from "./composer-attachment-chips";
-
 export function ReactSessionComposer(props: ComposerProps) {
   const builtInExtensionsDisabled = useDesktopRestriction("allowBuiltInExtensions");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -868,6 +867,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                   <ModelSelectContainer
                     open={props.modelPickerOpen}
                     value={props.selectedModel}
+                    options={props.modelOptions}
                     onOpenChange={props.onModelPickerOpenChange}
                     onChange={props.onModelChange}
                     disabled={props.busy}

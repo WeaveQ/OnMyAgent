@@ -237,6 +237,13 @@ If your install is elsewhere, set `ONMYAGENT_DOCKER_BIN` to the absolute path.
 - **Sandbox profiles** (macOS-only isolation): `apps/orchestrator/src/runtime-sandbox.ts`
   returns an empty profile on non-macOS. Orchestrator still runs, but without
   `sandbox-exec` isolation.
+- **Grok Build Primary Runtime**: the `grok agent stdio` child runs with the
+  launching user's OS permissions. Windows has no equivalent of the macOS
+  `sandbox-exec` profile, so the product must report this as reduced isolation,
+  never as security parity. Before enabling Grok Build in a Windows release,
+  run a native-host create/prompt/tool/permission/restart/delete smoke and
+  confirm `taskkill /T /F` reaps the exact child tree. Mocked win32 tests are
+  necessary but do not replace that device gate.
 - **`.env` file `chmod 0o600`**: `apps/server/src/services/env-file.ts`
   catches the Windows no-op. Secret files are readable by other Windows
   users unless you set NTFS ACLs manually.

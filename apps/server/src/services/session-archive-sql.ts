@@ -115,6 +115,9 @@ export function sessionFromRow(row: unknown): SessionArchiveSession {
     git_branch: optionalStringField(row, "git_branch"),
     source_session_id: optionalStringField(row, "source_session_id"),
     source_version: optionalStringField(row, "source_version"),
+    runtime_kind: optionalStringField(row, "runtime_kind"),
+    runtime_session_id: optionalStringField(row, "runtime_session_id"),
+    runtime_profile_id: optionalStringField(row, "runtime_profile_id"),
     parser_malformed_lines: optionalNumberField(row, "parser_malformed_lines"),
     is_truncated: intToOptionalBool(objectField(row, "is_truncated")),
     secret_leak_count: optionalNumberField(row, "secret_leak_count"),
@@ -875,4 +878,3 @@ export function tokenFloat(value: unknown, ...keys: string[]): number | undefine
   }
   return undefined;
 }
-

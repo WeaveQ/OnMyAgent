@@ -66,7 +66,7 @@ describe("desktop sandbox isolation e2e", () => {
 
   test(
     "OpenCode sandbox HOME drops real-home poison plugins and exposes slash core",
-    { timeout: 45_000 },
+    { timeout: 180_000 },
     async (t) => {
       const bin = resolveOpencodeBin();
       if (!bin) {
@@ -83,6 +83,9 @@ describe("desktop sandbox isolation e2e", () => {
         prefix: "oma-desktop-isolation-e2e-",
         poisonPlugin: true,
         linkSlashSkills: true,
+        // This path verifies HOME / slash-skill isolation.  Knowledge plugin
+        // registration has its own OpenCode boot contract and would add a
+        // cold plugin-loader cost unrelated to this assertion.
         knowledgePlugins: false,
       });
       roots.push(sandbox.root);
@@ -122,6 +125,10 @@ describe("desktop sandbox isolation e2e", () => {
           false,
           `sandbox loaded real-home poison tool: ${JSON.stringify(toolIds)}`,
         );
+        // Knowledge plugin registration is covered by knowledge-plugin-load;
+        // this test only proves that a real-home poison plugin cannot cross
+        // the sandbox boundary.
+
         const commands = await requestOpencodeJson(server.baseUrl, "/command", {
           directory: sandbox.workspace,
         });

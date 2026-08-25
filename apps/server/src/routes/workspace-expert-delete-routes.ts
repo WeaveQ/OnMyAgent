@@ -10,6 +10,7 @@ import {
   type ExpertDeleteSagaOptions,
 } from "../services/expert-delete-saga.js";
 import { addRoute, systemJsonResponse, type RequestContext, type Route } from "./route-core.js";
+import type { PrimaryRuntimeRegistry } from "../services/primary-runtime-registry.js";
 
 export function registerWorkspaceExpertDeleteRoutes(input: {
   routes: Route[];
@@ -20,6 +21,10 @@ export function registerWorkspaceExpertDeleteRoutes(input: {
   readJsonBody: (request: Request) => Promise<Record<string, unknown>>;
   deleteExpertSessions?: typeof deleteExpertSessions;
   sagaOptions?: ExpertDeleteSagaOptions;
+  primaryRuntimeRegistry?: Pick<
+    PrimaryRuntimeRegistry,
+    "listExpertSessionBindings" | "deleteSession"
+  >;
 }): void {
   const {
     routes,
@@ -38,7 +43,22 @@ export function registerWorkspaceExpertDeleteRoutes(input: {
       config,
       workspace,
       request,
-      { ...input.sagaOptions, signal: ctx.request.signal },
+      {
+        ...input.sagaOptions,
+        ...(input.primaryRuntimeRegistry
+          ? {
+              listRuntimeExpertSessions: (workspaceId, agentId, packageName) =>
+                input.primaryRuntimeRegistry!.listExpertSessionBindings(
+                  workspaceId,
+                  agentId,
+                  packageName,
+                ),
+              deleteRuntimeSession: (workspaceId, sessionId) =>
+                input.primaryRuntimeRegistry!.deleteSession(workspaceId, sessionId),
+            }
+          : {}),
+        signal: ctx.request.signal,
+      },
     );
     return systemJsonResponse(result);
   });
