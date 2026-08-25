@@ -1,5 +1,14 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -176,6 +185,43 @@ test("isolated integration: dirty current worktree is byte/status unchanged", ()
     assert.deepEqual(readFileSync(join(fixture.root, "tracked.txt")), beforeTracked);
     assert.deepEqual(readFileSync(join(fixture.root, "untracked.txt")), beforeUntracked);
     assert.equal(existsSync(join(fixture.root, "worktree-only.txt")), false);
+  } finally {
+    rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("isolated integration: workspace dependency links resolve inside the detached worktree", () => {
+  const fixture = fixtureRepo();
+  try {
+    mkdirSync(join(fixture.root, "apps/app"), { recursive: true });
+    mkdirSync(join(fixture.root, "packages/types"), { recursive: true });
+    writeFileSync(join(fixture.root, "apps/app/package.json"), `${JSON.stringify({ name: "@fixture/app" })}\n`);
+    writeFileSync(join(fixture.root, "packages/types/package.json"), `${JSON.stringify({ name: "@onmyagent/types" })}\n`);
+    git(fixture.root, ["add", "apps/app/package.json", "packages/types/package.json"]);
+    git(fixture.root, ["commit", "-q", "-m", "add workspace packages"]);
+    const commit = git(fixture.root, ["rev-parse", "HEAD"]);
+
+    const sourceScope = join(fixture.root, "apps/app/node_modules/@onmyagent");
+    const sourceLink = join(sourceScope, "types");
+    mkdirSync(sourceScope, { recursive: true });
+    symlinkSync(
+      process.platform === "win32" ? join(fixture.root, "packages/types") : "../../../../packages/types",
+      sourceLink,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+
+    const result = runTypeChecksForCommits({
+      repoRoot: fixture.root,
+      commits: [commit],
+      runCheck: ({ cwd }) => {
+        const resolvedDependency = realpathSync(join(cwd, "apps/app/node_modules/@onmyagent/types"));
+        assert.equal(resolvedDependency, realpathSync(join(cwd, "packages/types")));
+        assert.notEqual(resolvedDependency, realpathSync(join(fixture.root, "packages/types")));
+        return { status: 0 };
+      },
+    });
+
+    assert.deepEqual(result.checked, [commit]);
   } finally {
     rmSync(fixture.root, { recursive: true, force: true });
   }
