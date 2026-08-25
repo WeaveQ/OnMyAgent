@@ -87,6 +87,8 @@ export type DesktopCommandName =
   | "knowledgeRebuildIndex"
   | "knowledgeGetConfig"
   | "knowledgeSetPersonalVaultPath"
+  | "knowledgeRecordAccess"
+  | "knowledgeListRecent"
   | "companySettingsRead"
   | "companySettingsWrite"
   | "companySettingsDisconnect"

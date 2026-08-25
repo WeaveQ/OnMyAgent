@@ -108,4 +108,9 @@ export default {
   "knowledge.toolbar_expand_all": "展開全部資料夾",
   "knowledge.toolbar_collapse_all": "收合全部資料夾",
   "knowledge.toolbar_sync_index": "重新建立檢索索引，讓搜尋跟上最新筆記",
+  "knowledge.recent_title": "最近存取",
+  "knowledge.recent_name": "名稱",
+  "knowledge.recent_location": "位置",
+  "knowledge.recent_accessed": "最近存取",
+  "knowledge.recent_empty": "開啟過的筆記會顯示在這裡。",
 } as const;

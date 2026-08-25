@@ -111,4 +111,9 @@ export default {
   "knowledge.toolbar_expand_all": "Expand all folders",
   "knowledge.toolbar_collapse_all": "Collapse all folders",
   "knowledge.toolbar_sync_index": "Rebuild the search index from current notes",
+  "knowledge.recent_title": "Recent",
+  "knowledge.recent_name": "Name",
+  "knowledge.recent_location": "Location",
+  "knowledge.recent_accessed": "Last accessed",
+  "knowledge.recent_empty": "Notes you open will appear here.",
 } as const;
