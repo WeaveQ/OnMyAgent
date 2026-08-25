@@ -28,5 +28,6 @@ export default {
   "account_menu.update_check_failed": "Could not check for updates",
   "account_menu.update_latest": "You're on the latest version",
   "account_menu.used_percent": "28% used",
+  "account_menu.user_guide": "User guide",
   "account_menu.view_details": "Details",
 } as const;

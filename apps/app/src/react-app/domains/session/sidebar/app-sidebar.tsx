@@ -3,6 +3,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import * as React from "react";
 import {
   AlertCircle,
+  BookOpen,
   Bot,
   ChevronDown,
   ChevronRight,
@@ -32,13 +33,11 @@ import { getDisplaySessionTitle, isGeneratedSessionTitle } from "../../../../app
 import { readLocalAuthUser } from "../../../../app/lib/local-auth";
 import { APP_NAME } from "../../../../i18n/locales/brand";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import type { WorkspaceInfo } from "../../../../app/lib/desktop";
+import { type WorkspaceInfo, openDesktopUrl } from "../../../../app/lib/desktop";
 import { OnMyAgentDenHelpLink } from "../../shared";
 import type { WorkspaceConnectionState, WorkspaceSessionGroup } from "../../../../app/types";
 import {
-  isRemoteConnectionErrorMessage,
-  getWorkspaceTaskLoadErrorDisplay,
-  isRemoteConnectionWorkspace,
+  isRemoteConnectionErrorMessage, getWorkspaceTaskLoadErrorDisplay, isRemoteConnectionWorkspace,
 } from "../../../../app/utils";
 import { t } from "../../../../i18n";
 
@@ -56,16 +55,10 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
 import {
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -83,12 +76,10 @@ import {
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import { useStatusToasts } from "../../shell-feedback";
 import {
-  readProfileUserNameFromStorage,
-  resolveAccountDisplayName,
+  readProfileUserNameFromStorage, resolveAccountDisplayName,
 } from "../../../capabilities/account-avatar/account-avatar-prefs";
 import { AccountUserAvatar } from "../../../capabilities/account-avatar/account-user-avatar";
-import { SidebarContext, useSidebarContext } from "./app-sidebar-provider";
-import type { SidebarContextValue } from "./app-sidebar-provider";
+import { SidebarContext, useSidebarContext, type SidebarContextValue } from "./app-sidebar-provider";
 import {
   MAX_SESSIONS_PREVIEW,
   buildSessionTreeState,
@@ -1075,6 +1066,14 @@ export function SidebarAccountButton(props: {
           onSelect={() => {
             if (checkingUpdates) return;
             void handleCheckUpdates();
+          }}
+        />
+        <SidebarAccountMenuItem
+          icon={BookOpen}
+          label={t("account_menu.user_guide")}
+          onSelect={() => {
+            closeMenu();
+            void openDesktopUrl("https://onmyagent.com/docs/");
           }}
         />
       </div>
