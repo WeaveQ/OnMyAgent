@@ -82,7 +82,7 @@ packages/onmyagent-ui-mcp  UI 控制面 MCP
 | OpenCode 主 · Personal 辅 · 禁交叉写 archive | Architecture **Dual Runtime Boundary** |
 | Archive pool / change-bus / SSE | Architecture **Server Archive Runtime** |
 | 产品行为（空壳 busy、origin、draft、首发、SSE 代际） | Architecture Session / Expert + React ARCHITECTURE；契约 `expert-session-invariants.test.ts` |
-| Session 写路径 | 每个 session PR 必须点名写路径 owner：OpenCode / Personal / Task（IM-assistant 例外） |
+| Session 写路径 | 每个 session PR 必须点名写路径 owner：OpenCode / Personal / Task（IM-assistant 例外）；skill `session-write-path` |
 | hard_delete / create flush / 冷启动数值预算 | Architecture Expert lifecycle + Cold-path budget |
 
 ## 构建与验证
@@ -158,7 +158,7 @@ src/react-app/domains/ → 业务域；不跨域直引 store
 |------|------|------|
 | Allowlist | `apps/**`, `packages/**`, `docs/**`, `AGENTS.md`, `README.md`, `README-zh.md`, `BUILD.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `DESIGN.md` | 任务范围内可改 |
 | Human gate | `package.json`, `pnpm-lock.yaml`, `apps/server/src/**`, `apps/desktop/electron/**`, `apps/orchestrator/src/**` | 改前说明，改后完整验证 |
-| Denylist | `.env*`, secrets, `node_modules/**`, `graphify-out/**`, generated cache | 默认不改不提交 |
+| Denylist | `.env*`, secrets, `node_modules/**`, `graphify-out/**`, generated cache | 默认不改不提交；PreToolUse hook 见 `.agents/hooks/README.md` |
 | Search noise | `apps/desktop/resources/marketplace/**`, `bundled-skills/**`（非有意产品工作时）、`graphify-out/**` | 见 `.rgignore` |
 | Dirty guard | 用户已有脏文件 | 禁止覆盖/顺手清理非本轮变更 |
 
@@ -181,6 +181,7 @@ src/react-app/domains/ → 业务域；不跨域直引 store
 - 可自动：实现、文档、修明确的 lint/typecheck/test。
 - 必须问人：schema/真实资源、push/deploy/外发、越界、连续 3 次同错、产品/架构取舍。
 - 动态状态只写 **`.loop/`**（gitignored）。禁止提交 `docs/plans|archive|features|superpowers`。
+- 产品已接受、准备开工的意图写 **`docs/intent/`**（模板 [`docs/intent/_TEMPLATE.md`](docs/intent/_TEMPLATE.md)）。执行 ledger 仍只在 `.loop/`。
 
 ## 文档导航
 
@@ -198,9 +199,22 @@ src/react-app/domains/ → 业务域；不跨域直引 store
 | Loop | `docs/loop/rules.md` |
 | 打包 / 发版 | `BUILD.md` · `docs/release.md` |
 | 本地 handoff | `.loop/state/PROGRESS.md` · `.loop/runs/` |
+| 已接受意图 | [`docs/intent/`](docs/intent/) |
 
 ## 项目 Skills
 
 编辑源与分工 → [`.agents/README.md`](.agents/README.md)。  
 工程 skill **只**在 `.agents/skills/**` 改；勿复制到 `.codex/` / `.claude/` / `.grok/` / `.cursor/` 或 `~/.codex/skills/`。  
 产品 bundled skills：`apps/desktop/resources/bundled-skills/**`（与工程 skill 不同步）。`.opencode/` = OpenCode 工作区配置。
+
+| Skill | 何时 |
+|-------|------|
+| `documentation-audit` | 工程文档过期 / 断链 |
+| `product-handbook-write` | VitePress handbook |
+| `docs-screenshot-capture` | handbook 截图 |
+| `ui-regression-audit` | UI 回归 |
+| `frontend-primitive-refactor` | 组件复用 / token |
+| `skills-audit` | skill 目录体检 |
+| `dual-runtime` | 会话 / archive / Personal 交叉写 |
+| `session-write-path` | session PR 点名写路径 owner |
+| `human-gate` | Human gate 路径、凭据、企业 API |
