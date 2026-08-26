@@ -87,9 +87,10 @@ escalation: 超限或触及 Human gate 时停止并上报用户
 | `.loop/state/intent-debt.md` | 本地 AI 猜错、边界模糊和临时债务，不提交；稳定规则再提升到 `../../AGENTS.md` 或 skill |
 | `docs/loop/incidents.md` | 仅记录严重事故：误删、越权、真实资源/生产/成本风险 |
 | `docs/README.md` | 文档地图；不写动态 loop 状态 |
+| `docs/intent/` | 产品已接受、可提交的 proto-spec；执行 ledger 不放这里 |
 | `.loop/archive/` | 本地历史归档，不提交 |
 
-卫生规则：运行前读 `.loop/state/PROGRESS.md`（不存在则继续）；运行后把验证摘要追加到 `.loop/runs/YYYY-MM-DD.md`；动态 loop 状态只写 `.loop/`；重复问题回写 `../../AGENTS.md` 或 skill；普通 TODO 不写进事故复盘。执行 plan 只写 `.loop/plans/`（`docs/plans/` / `docs/archive/` / `docs/features/` / `docs/superpowers/` 已 gitignore，禁止提交）。
+卫生规则：运行前读 `.loop/state/PROGRESS.md`（不存在则继续）；运行后把验证摘要追加到 `.loop/runs/YYYY-MM-DD.md`；动态 loop 状态只写 `.loop/`；重复问题回写 `../../AGENTS.md` 或 skill；普通 TODO 不写进事故复盘。执行 plan 只写 `.loop/plans/`（`docs/plans/` / `docs/archive/` / `docs/features/` / `docs/superpowers/` 已 gitignore，禁止提交）。产品已接受的意图用 `docs/intent/`（见 `_TEMPLATE.md`），不要把 ledger 提交进 `docs/intent/`。
 
 ### Durable Long Task / Plan Ledger Rule
 

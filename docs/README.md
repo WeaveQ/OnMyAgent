@@ -33,6 +33,9 @@ docs/
   loop/
     rules.md                ← non-trivial Loop / ledger / kill switch / graphify
     incidents.md            ← severe incident log only
+  intent/
+    README.md               ← accepted intent home (not execution ledgers)
+    _TEMPLATE.md            ← fields for a committed proto-spec
   design/
     theme-system.md         ← design philosophy (tokens live in ../DESIGN.md)
     ui-primitive-refactor-best-practices.md
@@ -70,6 +73,7 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | Release / tags | [`release.md`](release.md) |
 | OfficeCLI OSS 发布 | [`officecli-oss-release.md`](officecli-oss-release.md) |
 | Heavy Loop work | [`loop/rules.md`](loop/rules.md) |
+| Accepted product intent | [`intent/README.md`](intent/README.md) |
 | Windows support | [`windows-compat.md`](windows-compat.md) |
 
 ## Sources of truth
@@ -100,6 +104,7 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | Capability shelf (recommended placement) | `design/2026-08-09-capability-shelf.md` + `capability-shelf.ts` |
 | Windows / Computer Use / Appshot | `windows-compat.md` |
 | Agent operating rules | `../AGENTS.md` + `loop/rules.md` |
+| Accepted product intent (proto-spec) | `intent/` (template `_TEMPLATE.md`); execution ledgers stay in `.loop/` |
 | Local packaging | `../BUILD.md` |
 | Release | `release.md` |
 | OfficeCLI OSS release contract | `officecli-oss-release.md` + `packages/types/src/officecli.ts` |
@@ -121,6 +126,7 @@ Root public entries stay outside `docs/`: `README*`, `AGENTS.md`, `DESIGN.md`, `
 | Shipped version / user-visible notes | root `CHANGELOG.md` + `website/docs/changelog.md` (+ `en/`) |
 | Agent hard rules | `AGENTS.md` / `loop/rules.md` |
 | Execution / design drafts | `.loop/` only — never under `docs/features`, `docs/plans`, `docs/archive`, or `docs/superpowers` |
+| Accepted product intent | `docs/intent/<slug>.md` from `_TEMPLATE.md`; not a second Architecture |
 
 ## Not in git
 
