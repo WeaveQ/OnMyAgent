@@ -1,14 +1,21 @@
 import { t } from "../../../../i18n";
 import type { OnMyAgentSessionSnapshot } from "../../../../app/lib/onmyagent-server";
 import type { ComposerAttachment } from "../../../../app/types";
-import { unwrapDesktopIpcError } from "../../local-agents";
+import {
+  formatDesktopIpcError,
+  unwrapDesktopIpcError,
+} from "../../../../app/lib/desktop-ipc-error";
 
 export function formatCodeWorkspaceTerminalOpenError(raw: unknown): string {
+  const formatted = formatDesktopIpcError(raw);
   const inner = unwrapDesktopIpcError(raw);
-  if (/posix_spawnp|spawn helper/i.test(inner)) {
+  if (
+    formatted === t("system.desktop_spawn_failed") ||
+    /posix_spawnp|spawn helper/i.test(inner)
+  ) {
     return t("session.code_side_panel_terminal_open_failed");
   }
-  return inner || t("session.code_side_panel_terminal_open_failed");
+  return formatted || t("session.code_side_panel_terminal_open_failed");
 }
 
 export type SessionError = {

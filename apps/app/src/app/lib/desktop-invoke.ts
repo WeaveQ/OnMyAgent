@@ -9,6 +9,7 @@ import type {
   DesktopCommandName,
   DesktopInvoke,
 } from "@onmyagent/types/desktop-ipc";
+import { formatDesktopIpcError } from "./desktop-ipc-error";
 
 export type {
   DesktopCommandMap,
@@ -27,9 +28,15 @@ export async function invokeElectronHelper<T>(
     | DesktopInvoke
     | undefined;
   if (!invokeDesktop) {
-    throw new Error(`Electron desktop helper is unavailable: ${command}`);
+    throw new Error(formatDesktopIpcError(`Electron desktop helper is unavailable: ${command}`));
   }
-  return (await invokeDesktop(command, ...(args as never[]))) as T;
+  try {
+    return (await invokeDesktop(command, ...(args as never[]))) as T;
+  } catch (error) {
+    const message = formatDesktopIpcError(error);
+    if (error instanceof Error && error.message === message) throw error;
+    throw new Error(message, { cause: error });
+  }
 }
 
 /** Map-backed typed invoke for renderer call sites and public wrappers. */

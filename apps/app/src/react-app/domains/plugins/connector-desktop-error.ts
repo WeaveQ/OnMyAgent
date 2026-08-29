@@ -1,3 +1,4 @@
+import { formatDesktopIpcError } from "@/app/lib/desktop-ipc-error";
 import { t } from "@/i18n";
 
 /**
@@ -36,10 +37,11 @@ export function formatDesktopConnectorError(
 ): string {
   const text = String(raw ?? "").trim();
   if (!text) return productFallback;
-  if (isIpcRestartCopy(text)) {
+  const formatted = formatDesktopIpcError(raw);
+  if (isIpcRestartCopy(text) || isIpcRestartCopy(formatted)) {
     return t("plugins.connector_ipc_restart_hint");
   }
-  return text;
+  return formatted;
 }
 
 /**
@@ -51,12 +53,13 @@ export function formatDesktopConnectorErrorShort(
 ): string {
   const text = String(raw ?? "").trim();
   if (!text) return productFallback;
-  if (isIpcRestartCopy(text)) {
+  const formatted = formatDesktopIpcError(raw);
+  if (isIpcRestartCopy(text) || isIpcRestartCopy(formatted)) {
     return t("plugins.connector_ipc_restart_short");
   }
   // Keep card quiet: long product errors collapse to a short line.
-  if (text.length > 16) {
+  if (formatted.length > 16) {
     return t("plugins.connector_error_short");
   }
-  return text;
+  return formatted;
 }

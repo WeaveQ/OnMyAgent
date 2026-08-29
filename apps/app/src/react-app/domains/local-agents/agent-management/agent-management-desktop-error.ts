@@ -1,13 +1,10 @@
 import { t } from "@/i18n";
+import {
+  formatDesktopIpcError,
+  unwrapDesktopIpcError,
+} from "@/app/lib/desktop-ipc-error";
 
-/** Strip Electron's `Error invoking remote method '…': Error: ` wrapper. */
-export function unwrapDesktopIpcError(raw: unknown): string {
-  const text = raw instanceof Error ? raw.message : String(raw ?? "");
-  const match = text.match(
-    /Error invoking remote method '[^']+': (?:Error:\s*)?([\s\S]+)$/i,
-  );
-  return (match?.[1] ?? text).trim();
-}
+export { unwrapDesktopIpcError };
 
 export function formatAgentManagementDesktopError(raw: unknown): string {
   const inner = unwrapDesktopIpcError(raw);
@@ -36,5 +33,5 @@ export function formatAgentManagementDesktopError(raw: unknown): string {
   ) {
     return t("plugins.connector_ipc_restart_hint");
   }
-  return inner || t("skills.error_generic");
+  return formatDesktopIpcError(raw) || t("skills.error_generic");
 }

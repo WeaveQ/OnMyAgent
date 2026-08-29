@@ -284,7 +284,7 @@ export function SessionDraftWorkspaceAccessory(props: {
             align="start"
             side="top"
             sideOffset={6}
-            className="w-72 gap-0 p-0"
+            className="w-44 gap-0 overflow-hidden p-0"
           >
             <div className="px-2 pt-2 pb-1">
               {/* Soft pill search — shared look with skills / connectors flyouts. */}
@@ -302,10 +302,13 @@ export function SessionDraftWorkspaceAccessory(props: {
 
             <div className="max-h-52 overflow-y-auto px-1.5 pb-1.5 pt-0">
               {filtered.length === 0 ? (
-                <div className="px-2.5 py-2.5 text-center text-xs leading-5 text-dls-secondary whitespace-nowrap">
-                  {knownWorkspaces.length === 0
-                    ? t("session.workspace_recent_empty")
-                    : t("session.workspace_recent_no_match")}
+                <div className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs leading-5 text-dls-secondary">
+                  <span className="size-3.5 shrink-0" aria-hidden />
+                  <span className="min-w-0">
+                    {knownWorkspaces.length === 0
+                      ? t("session.workspace_recent_empty")
+                      : t("session.workspace_recent_no_match")}
+                  </span>
                 </div>
               ) : (
                 filtered.map((path) => {

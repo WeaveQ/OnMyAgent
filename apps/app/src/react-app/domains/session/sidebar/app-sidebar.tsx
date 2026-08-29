@@ -29,6 +29,11 @@ import {
   UserRound,
 } from "lucide-react";
 
+import {
+  formatAppMilestoneLabel,
+  formatAppVersionLabel,
+  readAppVersion,
+} from "../../../../app/lib/app-version";
 import { getDisplaySessionTitle, isGeneratedSessionTitle } from "../../../../app/lib/session-title";
 import { readLocalAuthUser } from "../../../../app/lib/local-auth";
 import { APP_NAME } from "../../../../i18n/locales/brand";
@@ -843,6 +848,14 @@ export function SidebarAccountButton(props: {
     accountName: account?.name,
     accountEmail: account?.email,
   });
+  const appVersion = readAppVersion();
+  const appVersionLabel = formatAppVersionLabel(appVersion);
+  const appMilestoneLabel = formatAppMilestoneLabel(appVersion);
+  const versionBadge = appVersionLabel
+    ? appMilestoneLabel
+      ? `${appVersionLabel} · ${t("account_menu.milestone", { milestone: appMilestoneLabel })}`
+      : appVersionLabel
+    : "";
 
   React.useEffect(
     () =>
@@ -947,22 +960,19 @@ export function SidebarAccountButton(props: {
           title={t("account_menu.avatar_open_profile")}
           aria-label={t("account_menu.avatar_open_profile")}
         >
-          <AccountUserAvatar
-            displayName={displayName}
-            size="md"
-            trailing={
-              displayName ? (
-                <div className={appSidebarTextClass.menuTitle} title={displayName}>
-                  {displayName}
-                </div>
-              ) : (
-                <div className={cn(appSidebarTextClass.menuTitle, "text-dls-secondary")}>
-                  {t("account_menu.avatar_unnamed")}
-                </div>
-              )
-            }
-          />
-          <ChevronRight className="ml-auto size-3.5 shrink-0 text-dls-secondary" aria-hidden />
+          <AccountUserAvatar displayName={displayName} size="md" className="flex-none" />
+          <span className="min-w-0 flex-1">
+            <span className={appSidebarTextClass.menuTitle} title={displayName || undefined}>
+              {displayName || t("account_menu.avatar_unnamed")}
+            </span>
+            <span className="mt-0.5 flex items-center gap-2 text-xs font-normal text-dls-secondary">
+              <span className="min-w-0 truncate">{t("account_menu.personal_workspace")}</span>
+              {versionBadge ? (
+                <span className="ml-auto shrink-0 tabular-nums text-dls-secondary">{versionBadge}</span>
+              ) : null}
+            </span>
+          </span>
+          <ChevronRight className="size-3.5 shrink-0 text-dls-secondary" aria-hidden />
         </DropdownMenuItem>
       </div>
 
@@ -1063,6 +1073,7 @@ export function SidebarAccountButton(props: {
               ? t("account_menu.checking_for_updates")
               : t("account_menu.check_for_updates")
           }
+          trailing={checkingUpdates ? undefined : versionBadge || undefined}
           onSelect={() => {
             if (checkingUpdates) return;
             void handleCheckUpdates();
@@ -1140,9 +1151,14 @@ export function SidebarAccountButton(props: {
               <span className={appSidebarTextClass.accountName}>
                 {displayName || t("account_menu.avatar_unnamed")}
               </span>
-              {account?.email ? (
-                <span className={appSidebarTextClass.accountEmail}>{account.email}</span>
-              ) : null}
+              <span className={cn(appSidebarTextClass.accountEmail, "flex items-center gap-2")}>
+                <span className="min-w-0 truncate">
+                  {account?.email || t("account_menu.personal_workspace")}
+                </span>
+                {versionBadge ? (
+                  <span className="ml-auto shrink-0 tabular-nums">{versionBadge}</span>
+                ) : null}
+              </span>
             </span>
             <ChevronDown className="size-4 shrink-0 text-sidebar-foreground/55" />
           </Button>
@@ -1180,6 +1196,7 @@ function SidebarAccountMenuItem(props: {
   destructive?: boolean;
   /** Trailing chevron for items that open another page / panel. */
   showChevron?: boolean;
+  trailing?: string;
 }) {
   const Icon = props.icon;
 
@@ -1202,6 +1219,11 @@ function SidebarAccountMenuItem(props: {
     <DropdownMenuItem onClick={props.onSelect} className={sidebarAccountMenuRowClass}>
       <Icon className="size-3.5 shrink-0" />
       <span className="min-w-0 flex-1 truncate">{props.label}</span>
+      {props.trailing ? (
+        <span className="shrink-0 text-xs font-normal tabular-nums text-dls-secondary">
+          {props.trailing}
+        </span>
+      ) : null}
       {props.showChevron ? (
         <ChevronRight className="size-3.5 shrink-0 text-dls-secondary" aria-hidden />
       ) : null}
