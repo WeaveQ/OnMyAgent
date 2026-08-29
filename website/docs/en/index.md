@@ -28,6 +28,7 @@ Data stays in the local workspace by default. Network access occurs only when a 
 | **Delegate in one sentence** | Describe a goal in a Home session; the Agent breaks it into steps and executes them, while letting you add materials mid-run |
 | **Local files** | Read, write, and import within an authorized workspace; browse by type, preview, and edit externally from Files |
 | **Skills and experts** | A Skill extends what an Agent can do; an expert is a role- and scenario-specific conversation entry point |
+| **Knowledge** | Local notes: multiple vaults, a block editor, and save-from-session; look them up from the rail, search them in chat |
 | **Automation** | Run scheduled or triggered office tasks such as reports, reminders, and summaries |
 | **Approvals and permissions** | Require confirmation before higher-risk actions on your machine continue |
 | **Model choice (BYOK)** | Connect a compatible API or local model; you control the keys and endpoints |
@@ -44,6 +45,7 @@ The left main rail switches between primary modules. The middle column shows a l
 | **Automation** | Manage automation tasks, cases, and schedules |
 | **Files** | Browse workspaces and task deliverables; filter, search, and preview |
 | **Market** | Browse experts, skills, and connectors |
+| **Knowledge** | Local notes: multiple vaults, a block editor, and save-from-session |
 
 The account menu at the bottom opens **Agent management**, **Agent chat**, and **Settings** for models, preferences, Company, memory, system permissions, and more. **Projects** is no longer on the main rail; the Files Projects tab remains a preview. See [Projects preview](/en/guide/projects).
 

@@ -25,6 +25,7 @@ const sidebarZh = [
         text: "更新日志",
         collapsed: true,
         items: [
+          { text: "0.7.x", link: "/changelog/0.7" },
           { text: "0.6.x", link: "/changelog/0.6" },
           { text: "0.5.x", link: "/changelog/0.5" },
           { text: "0.4.x", link: "/changelog/0.4" },
@@ -137,6 +138,7 @@ const sidebarEn = [
         text: "Changelog",
         collapsed: true,
         items: [
+          { text: "0.7.x", link: "/en/changelog/0.7" },
           { text: "0.6.x", link: "/en/changelog/0.6" },
           { text: "0.5.x", link: "/en/changelog/0.5" },
           { text: "0.4.x", link: "/en/changelog/0.4" },
