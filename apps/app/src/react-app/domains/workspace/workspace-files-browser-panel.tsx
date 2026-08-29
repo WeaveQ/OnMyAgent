@@ -14,6 +14,8 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { MenuRowButton } from "@/components/ui/action-row";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { EmptyStateBox } from "@/components/ui/notice-box";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
@@ -849,13 +851,11 @@ export function WorkspaceFilesBrowserPanel(props: {
 
       <div className="relative flex min-h-0 flex-1 flex-col">
         {loading && entries.length === 0 ? (
-          <div className="flex h-full min-h-48 items-center justify-center text-sm text-dls-secondary">
-            {t("files.loading")}
+          <div className="flex h-full min-h-48 flex-col items-center justify-center gap-2 text-sm text-dls-secondary" role="status" aria-busy="true">
+            <LoadingSpinner /> {t("files.loading")}
           </div>
         ) : error ? (
-          <div className="flex h-full min-h-48 items-center justify-center px-6 text-center text-sm text-dls-secondary">
-            {error}
-          </div>
+          <EmptyStateBox size="comfortable" className="m-6">{error}</EmptyStateBox>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col gap-3">
             {(!filterActive ? treeRows.length : listedNodes.length) > 0 ? (

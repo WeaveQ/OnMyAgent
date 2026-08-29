@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, ChevronRight } from "lucide-react";
 
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { ConversationItemVM } from "../item-types";
 
@@ -33,7 +34,7 @@ export function ThinkingBlock(props: ThinkingBlockProps) {
     if (done) setExpanded(false);
   }, [done, props.defaultExpanded]);
 
-  const bodyText = item.text?.trim() || "Thinking...";
+  const bodyText = item.text?.trim() || t("session.thinking_in_progress");
   const durationMs =
     typeof item.meta?.durationMs === "number" ? item.meta.durationMs : null;
   const durationSec =
@@ -42,11 +43,11 @@ export function ThinkingBlock(props: ThinkingBlockProps) {
       : null;
   const summary = done
     ? durationSec
-      ? `Thought for ${durationSec}s`
-      : "Thinking complete"
+      ? t("session.thinking_thought_for", { seconds: durationSec })
+      : t("session.thinking_complete")
     : durationSec
-      ? `Thinking... ${durationSec}s`
-      : "Thinking...";
+      ? t("session.thinking_in_progress_duration", { seconds: durationSec })
+      : t("session.thinking_in_progress");
 
   return (
     <div

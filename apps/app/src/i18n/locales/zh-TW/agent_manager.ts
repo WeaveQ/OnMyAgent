@@ -134,7 +134,7 @@ export default {
   "agent_manager.skill_agent_unknown": "未識別",
   "agent_manager.skill.kind_runtime": "Runtime",
   "agent_manager.skill.kind_slash": "Slash",
-  "agent_manager.skill.kind_plugin": "Plugin",
+  "agent_manager.skill.kind_plugin": "插件",
   "agent_manager.agent_card.expand": "展開 {name} 的詳情與操作",
   "agent_manager.agent_card.collapse": "收起 {name} 的詳情與操作",
   "agent_manager.conn_ok": "連線正常",

@@ -19,9 +19,11 @@
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { diffComponentContracts } from './component-contracts.mjs'
+import { loadDesignYaml } from './design-yaml.mjs'
 import { scanUiFlags } from './scan-ui-flags.mjs'
 
 const repoRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))))
@@ -98,100 +100,6 @@ Report categories:
 
 DESIGN.md is authoritative. When drift is reported, default remediation is to
 fix code, unless the contract itself is demonstrably outdated.`)
-}
-
-// ---------- YAML front-matter parser (scoped to DESIGN.md shape) ----------
-
-function readFrontMatter(path) {
-  const raw = readFileSync(path, 'utf8')
-  const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/)
-  if (!match) {
-    throw new Error(`No YAML front matter found at ${path}`)
-  }
-  return match[1]
-}
-
-function parseFrontMatter(yaml) {
-  const lines = yaml.split(/\r?\n/)
-  const root = {}
-  const stack = [{ indent: -1, obj: root }]
-
-  for (const rawLine of lines) {
-    if (!rawLine.trim() || rawLine.trim().startsWith('#')) continue
-    const indent = rawLine.match(/^ */)[0].length
-    const line = rawLine.slice(indent)
-
-    while (stack.length > 1 && indent <= stack[stack.length - 1].indent) {
-      stack.pop()
-    }
-    const parent = stack[stack.length - 1].obj
-
-    const listMatch = line.match(/^-\s+(.+)$/)
-    if (listMatch) {
-      const lastKey = getLastKey(parent)
-      if (lastKey === null) continue
-      if (!Array.isArray(parent[lastKey])) parent[lastKey] = []
-      parent[lastKey].push(coerceScalar(listMatch[1]))
-      continue
-    }
-
-    const kv = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/)
-    if (!kv) continue
-    const key = kv[1]
-    const rawValue = kv[2]
-    if (rawValue === '') {
-      const child = {}
-      parent[key] = child
-      stack.push({ indent, obj: child })
-    } else if (rawValue.startsWith('{') && rawValue.endsWith('}')) {
-      parent[key] = parseInlineMap(rawValue)
-    } else {
-      parent[key] = coerceScalar(rawValue)
-    }
-  }
-  return root
-}
-
-function getLastKey(obj) {
-  const keys = Object.keys(obj)
-  return keys.length ? keys[keys.length - 1] : null
-}
-
-function coerceScalar(v) {
-  const s = v.trim()
-  if (s.startsWith('"') && s.endsWith('"')) return s.slice(1, -1)
-  if (s === 'true') return true
-  if (s === 'false') return false
-  if (/^-?\d+$/.test(s)) return Number(s)
-  return s
-}
-
-function parseInlineMap(s) {
-  const inner = s.slice(1, -1).trim()
-  const out = {}
-  for (const pair of splitInlineList(inner)) {
-    const [k, ...rest] = pair.split(':')
-    out[k.trim()] = coerceScalar(rest.join(':').trim())
-  }
-  return out
-}
-
-function splitInlineList(s) {
-  const parts = []
-  let depth = 0
-  let current = ''
-  for (const ch of s) {
-    if (ch === ',' && depth === 0) {
-      parts.push(current)
-      current = ''
-    } else {
-      if (ch === '(' || ch === '[' || ch === '{') depth++
-      if (ch === ')' || ch === ']' || ch === '}') depth--
-      current += ch
-    }
-  }
-  if (current.trim()) parts.push(current)
-  return parts
 }
 
 // ---------- CSS custom-property parser ----------
@@ -1002,6 +910,12 @@ function enforceBaseline(baseline, report) {
     uiFlagsRingZero: (report.uiFlags?.ringZero || []).map(
       (h) => `${h.file}:${h.snippet}`,
     ),
+    componentContracts: (report.componentContracts?.mismatches || []).map(
+      (h) => `${h.id}:${h.field}`,
+    ),
+    extraTypeSizes: (report.componentContracts?.extraTypeSizes || []).map(
+      (h) => `${h.cssName}:${h.px}`,
+    ),
   }
 
   for (const [name, current] of Object.entries(buckets)) {
@@ -1302,6 +1216,18 @@ function renderReport(report) {
   emit('UI flags — shadow elevation', (report.uiFlags?.shadows || []).map((x) => `${x.file}: ${x.snippet}`))
   emit('UI flags — rounded-full CTA outside §11', (report.uiFlags?.pillCtas || []).map((x) => `${x.file}: ${x.snippet}`))
   emit('UI flags — focus-visible:ring-0 on chrome', (report.uiFlags?.ringZero || []).map((x) => `${x.file}: ${x.snippet}`))
+  emit(
+    'component contracts — default class mismatch',
+    (report.componentContracts?.mismatches || []).map(
+      (x) => `${x.id}.${x.field}: ${x.detail}`,
+    ),
+  )
+  emit(
+    'typography — extra global type size',
+    (report.componentContracts?.extraTypeSizes || []).map(
+      (x) => `${x.cssName} = ${x.px}px — ${x.detail}`,
+    ),
+  )
 
   lines.push('')
   lines.push(`DESIGN.md is authoritative. Fix code to match, unless the contract itself is outdated.`)
@@ -1341,7 +1267,9 @@ function totalDrift(report) {
     (report.uiFlags?.hex.length || 0) +
     (report.uiFlags?.shadows.length || 0) +
     (report.uiFlags?.pillCtas.length || 0) +
-    (report.uiFlags?.ringZero.length || 0)
+    (report.uiFlags?.ringZero.length || 0) +
+    (report.componentContracts?.mismatches.length || 0) +
+    (report.componentContracts?.extraTypeSizes.length || 0)
   )
 }
 
@@ -1366,13 +1294,9 @@ function renderBaselineViolations(violations, baselinePath) {
 
 // ---------- main ----------
 
-try {
-  const yaml = parseFrontMatter(readFrontMatter(DESIGN_MD))
+export function buildDesignReport() {
+  const yaml = loadDesignYaml(DESIGN_MD)
   const css = parseCssTokens(APP_INDEX_CSS)
-  // tailwind config currently aliases through CSS vars, so the CSS is the
-  // authoritative code-side source. parseTailwindTokens() is retained as a
-  // helper for future use.
-
   const iconScan = scanIconUsage(APP_SRC)
   const stateTimingsScan = scanStateTimings(APP_SRC)
   const notificationsScan = scanNotifications(APP_SRC)
@@ -1383,7 +1307,8 @@ try {
   const toolApprovalScan = scanToolApproval(APP_SRC)
   const artifactHueScan = scanArtifactHue(APP_SRC)
   const uiFlags = scanUiFlags(repoRoot)
-  const report = {
+  const componentContracts = diffComponentContracts(repoRoot)
+  return {
     colors: diffColors(yaml, css),
     typography: diffTypography(yaml, css),
     radii: diffRadii(yaml, css),
@@ -1399,36 +1324,56 @@ try {
     toolApproval: diffToolApproval(yaml, toolApprovalScan),
     artifactHue: diffArtifactHue(yaml, artifactHueScan),
     uiFlags,
+    componentContracts,
   }
+}
 
-  const baseline = loadBaseline(flags.baseline)
-  const violations = enforceBaseline(baseline, report)
+function runCli() {
+  try {
+    const report = buildDesignReport()
+    const baseline = loadBaseline(flags.baseline)
+    const violations = enforceBaseline(baseline, report)
 
-  if (flags.json) {
-    console.log(JSON.stringify({ report, baseline: { path: flags.baseline, violations } }, null, 2))
-  } else {
-    console.log(renderReport(report))
-    if (baseline) {
-      renderBaselineViolations(violations, flags.baseline)
+    if (flags.json) {
+      console.log(JSON.stringify({ report, baseline: { path: flags.baseline, violations } }, null, 2))
+    } else {
+      console.log(renderReport(report))
+      if (baseline) {
+        renderBaselineViolations(violations, flags.baseline)
+      }
     }
-  }
 
-  const drift = totalDrift(report)
-  if (flags.strict) {
-    if (baseline) {
-      const failCount = violations.newSignatures.length + violations.growth.length
-      if (failCount > 0) {
-        if (!flags.json) console.log(`\nStrict mode with baseline: exiting 1 (${failCount} baseline violations).`)
+    const drift = totalDrift(report)
+    if (flags.strict) {
+      if (baseline) {
+        const failCount = violations.newSignatures.length + violations.growth.length
+        if (failCount > 0) {
+          if (!flags.json) console.log(`\nStrict mode with baseline: exiting 1 (${failCount} baseline violations).`)
+          process.exit(1)
+        }
+      } else if (drift > 0) {
+        if (!flags.json) console.log(`\nStrict mode: exiting 1 (${drift} drift entries).`)
         process.exit(1)
       }
-    } else if (drift > 0) {
-      if (!flags.json) console.log(`\nStrict mode: exiting 1 (${drift} drift entries).`)
-      process.exit(1)
     }
+    process.exit(0)
+  } catch (err) {
+    console.error(`extract-tokens failed: ${err.message}`)
+    if (process.env.DEBUG) console.error(err.stack)
+    process.exit(2)
   }
-  process.exit(0)
-} catch (err) {
-  console.error(`extract-tokens failed: ${err.message}`)
-  if (process.env.DEBUG) console.error(err.stack)
-  process.exit(2)
 }
+
+function isCliEntry() {
+  const entry = process.argv[1]
+  if (!entry) return false
+  try {
+    return import.meta.url === pathToFileURL(resolve(entry)).href
+  } catch {
+    return false
+  }
+}
+
+if (isCliEntry()) runCli()
+
+export { evaluatePrimitiveDefault, walkComponentContracts, extraGlobalTypeSizes, diffComponentContracts } from './component-contracts.mjs'

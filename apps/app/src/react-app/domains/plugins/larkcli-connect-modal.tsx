@@ -672,7 +672,8 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                     <div className="space-y-3">
                       <div className="space-y-1.5">
                         <Label htmlFor="lark-app-id">
-                          App ID <span className="text-dls-danger">*</span>
+                          {t("messaging.feishu_app_id_label")}{" "}
+                          <span className="text-dls-danger">*</span>
                         </Label>
                         <Input
                           id="lark-app-id"
@@ -684,14 +685,15 @@ export function LarkCliConnectModal(props: LarkCliConnectModalProps) {
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="lark-app-secret">
-                          App Secret <span className="text-dls-danger">*</span>
+                          {t("plugins.larkcli_app_secret_label")}{" "}
+                          <span className="text-dls-danger">*</span>
                         </Label>
                         <Input
                           id="lark-app-secret"
                           type="password"
                           value={appSecret}
                           onChange={(e) => setAppSecret(e.target.value)}
-                          placeholder="Your Lark App Secret"
+                          placeholder={t("plugins.larkcli_app_secret_placeholder")}
                           autoComplete="off"
                         />
                       </div>

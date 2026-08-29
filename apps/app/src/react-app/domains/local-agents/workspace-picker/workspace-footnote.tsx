@@ -153,14 +153,14 @@ export function WorkspaceFootnote(props: WorkspaceFootnoteProps): React.ReactEle
           className="w-72 border-dls-border bg-dls-surface-solid p-0"
         >
           <div className="border-b border-dls-border p-2">
-            <div className="flex items-center gap-1.5 rounded-md border border-dls-border bg-dls-surface px-2 py-1">
+            <div className="flex items-center gap-1.5 rounded-md border border-dls-border bg-dls-surface px-2 py-1 focus-within:ring-1 focus-within:ring-dls-focus focus-within:ring-offset-0">
               <Search className="h-3.5 w-3.5 text-dls-secondary" />
               <Input
                 autoFocus
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={t("local_agent.workspace_search_placeholder")}
-                className="h-6 border-0 bg-transparent p-0 text-xs shadow-none focus-visible:ring-0"
+                className="h-6 border-0 bg-transparent p-0 text-xs shadow-none"
               />
             </div>
           </div>

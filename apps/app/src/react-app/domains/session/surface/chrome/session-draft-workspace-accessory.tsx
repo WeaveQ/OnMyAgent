@@ -288,14 +288,14 @@ export function SessionDraftWorkspaceAccessory(props: {
           >
             <div className="px-2 pt-2 pb-1">
               {/* Soft pill search — shared look with skills / connectors flyouts. */}
-              <div className="flex h-8 items-center gap-1.5 rounded-lg border border-dls-border/50 bg-dls-surface-muted px-2.5">
+              <div className="flex h-8 items-center gap-1.5 rounded-lg border border-dls-border/50 bg-dls-surface-muted px-2.5 focus-within:ring-1 focus-within:ring-dls-focus focus-within:ring-offset-0">
                 <Search className="size-3.5 shrink-0 text-dls-secondary" />
                 <Input
                   autoFocus
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder={t("session.workspace_search_placeholder")}
-                  className="h-7 border-0 bg-transparent p-0 text-sm leading-5 text-dls-text shadow-none placeholder:text-dls-secondary/70 focus-visible:ring-0"
+                  className="h-7 border-0 bg-transparent p-0 text-sm leading-5 text-dls-text shadow-none placeholder:text-dls-secondary/70"
                 />
               </div>
             </div>
