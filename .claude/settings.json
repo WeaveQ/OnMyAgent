@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read|Write|Edit|MultiEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.agents/hooks/pretooluse.mjs\" --format=claude",
+            "statusMessage": "OnMyAgent path gates"
+          }
+        ]
+      }
+    ]
+  }
+}
