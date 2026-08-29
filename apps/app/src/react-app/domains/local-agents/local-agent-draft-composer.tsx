@@ -752,7 +752,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
               data-local-agent-composer-trailing="true"
             >
               {props.contextUsage ? (
-                <ContextUsageIndicator usage={props.contextUsage} size={16} className="p-0.5" />
+                <ContextUsageIndicator usage={props.contextUsage} />
               ) : null}
               {props.toolbarRight}
               {showStop ? (

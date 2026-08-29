@@ -1,6 +1,7 @@
 /** @jsxImportSource react */
 import { useMemo, type ReactNode } from "react";
 import type { UIMessage } from "ai";
+import { useLocal } from "../../../kernel/local-provider";
 import { FollowUpSuggestionChips } from "./follow-up-suggestion-chips";
 import {
   latestAssistantText,
@@ -23,7 +24,12 @@ export function useSessionFollowUpFooter(input: {
   reserveAssistantStatusSpace: boolean;
   typeComposerText: (prompt: string) => void | Promise<void>;
 }): ReactNode {
+  const local = useLocal();
+  const showFollowUpSuggestions = local.prefs.showFollowUpSuggestions !== false;
   const followUpSuggestions = useMemo(() => {
+    if (!showFollowUpSuggestions) {
+      return [];
+    }
     if (
       input.chatStreaming
       || input.sending
@@ -51,6 +57,7 @@ export function useSessionFollowUpFooter(input: {
     input.renderedMessages,
     input.sending,
     input.showInlineActivityIndicator,
+    showFollowUpSuggestions,
     input.showNoVisibleAssistantOutput,
   ]);
 

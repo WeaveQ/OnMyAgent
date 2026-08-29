@@ -11,4 +11,7 @@ export default {
   "session.thinking_in_progress": "思考中...",
   "session.thinking_in_progress_duration": "思考中... {seconds} 秒",
   "session.thinking_thought_for": "思考了 {seconds} 秒",
+  "settings.show_follow_up_suggestions": "推荐问我",
+  "settings.show_follow_up_suggestions_desc":
+    "回复结束后在对话里展示后续提问建议。关闭后首页和专家会话都不再显示",
 } as const;

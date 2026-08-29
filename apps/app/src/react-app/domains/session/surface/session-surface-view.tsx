@@ -19,6 +19,7 @@ import type { UIMessage } from "ai";
 
 import type { OnMyAgentSessionSnapshot } from "../../../../app/lib/onmyagent-server";
 import type {
+  Client,
   ComposerAccessMode,
   ComposerAttachment,
   ComposerCollaborationMode,
@@ -34,6 +35,8 @@ import type { CloudImportedPlugin } from "../../../../app/cloud/import-state";
 import type { PendingAgentContext } from "../../agents";
 import { AgentPromptSuggestions } from "../../agents";
 import { DevProfiler } from "../../../shell";
+import { workspaceFolderNameFromPath } from "../../../../app/lib/enhance-home-prompt-model";
+import { compactPromptEnhanceTurns } from "../../../../app/lib/opencode-enhance-prompt";
 import type { OpenTarget } from "../artifacts/open-target";
 import type { SessionRenderModel } from "../sync/transition-controller";
 import { ReactSessionComposer } from "./composer/composer";
@@ -251,6 +254,7 @@ export type SessionSurfaceViewProps = {
   onCreateDraftWorkspace?: (name: string) => Promise<string>;
   onPickDraftWorkspace?: () => void;
   onClearDraftWorkspace?: () => void;
+  promptEnhanceClient?: Client | null;
 };
 
 export function SessionSurfaceView(props: SessionSurfaceViewProps) {
@@ -287,6 +291,19 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
     composerOuterBorderVisible,
     draftWorkspaceAccessoryActive,
   } = props;
+  const promptEnhanceDirectory =
+    props.chrome === "embedded"
+      ? null
+      : personalAssistantDraftHome
+        ? (props.draftWorkspaceDirectory?.trim() || props.workspaceRoot)
+        : props.workspaceRoot;
+  const promptEnhanceRecentTurns = useMemo(
+    () =>
+      props.chrome === "embedded" || personalAssistantDraftHome
+        ? []
+        : compactPromptEnhanceTurns(props.renderedMessages),
+    [personalAssistantDraftHome, props.chrome, props.renderedMessages],
+  );
 
   // Context ring next to model select: last assistant prompt occupancy vs model window.
   const sessionContextUsage = useMemo(() => {
@@ -601,6 +618,12 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
               }
               homeLayout={homeComposerLayout}
               heroHome={Boolean(personalAssistantDraftHome)}
+              promptEnhanceClient={
+                props.chrome === "embedded" ? null : props.promptEnhanceClient ?? null
+              }
+              promptEnhanceDirectory={promptEnhanceDirectory}
+              promptEnhanceRecentTurns={promptEnhanceRecentTurns}
+              workspaceFolderName={workspaceFolderNameFromPath(promptEnhanceDirectory)}
               promptQueueBar={props.promptQueueBar}
               topAccessory={props.composerAccessory}
               // Coach / try-preview column is narrow — drop permission chip so

@@ -2,7 +2,9 @@
 /** Pure helpers, types, and styles for the session composer (mechanical extract). */
 import type { ComponentType, ReactNode } from "react";
 import type { Agent } from "@opencode-ai/sdk/v2/client";
-import { ClipboardList, MessageCircle, Rocket, Target } from "lucide-react";
+import { AlertCircle, ClipboardList, MessageCircle, Rocket, Sparkles, Target, Undo2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { McpDirectoryInfo } from "../../../../../app/constants";
 import type { StatusBadgeTone } from "@/components/ui/status-badge";
 import type {
@@ -10,6 +12,7 @@ import type {
   CloudImportedPluginFile,
 } from "../../../../../app/cloud/import-state";
 import type {
+  Client,
   ComposerAccessMode,
   ComposerAttachment,
   ComposerCollaborationMode,
@@ -21,6 +24,7 @@ import type {
   SkillCard,
   SlashCommandOption,
 } from "../../../../../app/types";
+import type { PromptEnhanceTurn } from "../../../../../app/lib/opencode-enhance-prompt";
 import { t } from "../../../../../i18n";
 import { isOnMyAgentExtensionEnabled } from "../../../shared";
 import { collaborationModeOptionKeys, type CollaborationModeOptionKey } from "./tool-menu-model";
@@ -282,6 +286,11 @@ export type ComposerProps = {
    * brand title (width stays the same as in-session). Not expert empty / chat.
    */
   heroHome?: boolean;
+  /** OpenCode client for prompt enhance. Ignored when flushShell is true. */
+  promptEnhanceClient?: Client | null;
+  promptEnhanceDirectory?: string | null;
+  promptEnhanceRecentTurns?: readonly PromptEnhanceTurn[];
+  workspaceFolderName?: string | null;
   topAccessory?: ReactNode;
   /** Queued follow-ups; renders inside the composer card, flush with the field. */
   promptQueueBar?: ReactNode;
@@ -468,6 +477,76 @@ export const COMPOSER_CONTAIN_STYLE = { contain: "layout style" };
 // Re-export from plugins domain so session composer shares one icon helper
 // without plugins depending on session.
 export { extensionIcon, extensionIconTileClassName } from "@/react-app/domains/plugins";
+
+export function HomePromptEnhanceButton(props: {
+  mode: "disabled" | "enhance" | "loading" | "undo";
+  onPress: () => void;
+}) {
+  const tooltip =
+    props.mode === "undo"
+      ? t("composer.enhance_prompt_undo")
+      : props.mode === "enhance" || props.mode === "loading"
+        ? t("composer.enhance_prompt")
+        : t("composer.enhance_prompt_need_draft");
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      className={composerMenuClass.toolButton}
+      disabled={props.mode === "disabled" || props.mode === "loading"}
+      onClick={props.onPress}
+      title={tooltip}
+      aria-label={tooltip}
+      aria-busy={props.mode === "loading"}
+    >
+      {props.mode === "loading" ? (
+        <LoadingSpinner size="default" />
+      ) : props.mode === "undo" ? (
+        <Undo2 size={16} />
+      ) : (
+        <Sparkles size={16} />
+      )}
+    </Button>
+  );
+}
+
+export function ComposerDropzoneHint() {
+  return (
+    <div className="pointer-events-none absolute inset-3 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-dls-accent bg-dls-accent-mix-10">
+      <div className="rounded-xl border border-dls-border bg-dls-surface px-5 py-4 text-center backdrop-blur-sm">
+        <div className="text-sm font-medium text-dls-text">{t("composer.attach_files")}</div>
+        <div className="mt-1 text-xs text-dls-secondary">
+          {t("composer.any_file_type_supported")}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ComposerModelUnavailableButton(props: {
+  onOpenSettingsSection?: ComposerProps["onOpenSettingsSection"];
+  onModelPickerOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={composerTextClass.modelUnavailable}
+      onClick={() => {
+        if (props.onOpenSettingsSection) {
+          props.onOpenSettingsSection("ai");
+          return;
+        }
+        props.onModelPickerOpenChange(true);
+      }}
+      title={t("system.error_action_open_ai_settings")}
+      aria-label={t("settings.model_unavailable")}
+    >
+      <AlertCircle className="size-3.5 shrink-0" />
+      <span className="min-w-0 truncate">{t("settings.model_unavailable")}</span>
+    </button>
+  );
+}
 
 export function pluginSlashCommandName(file: CloudImportedPluginFile) {
   const path = file.path.trim();

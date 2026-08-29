@@ -6,7 +6,7 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
-import { AlertCircle, ClipboardList, Plus, Square } from "lucide-react";
+import { ClipboardList, Plus, Square } from "lucide-react";
 import type { CloudImportedPluginFile } from "../../../../../app/cloud/import-state";
 import type { SlashCommandOption } from "../../../../../app/types";
 import type { McpDirectoryInfo } from "../../../../../app/constants";
@@ -28,7 +28,6 @@ import {
   type MentionItem,
   type ToolMenuSection,
   type CollaborationModeOption,
-  composerTextClass,
   composerMenuClass,
   EMPTY_COLLABORATION_MODE,
   DEFAULT_OFFICE_COLLABORATION_MODE,
@@ -39,8 +38,12 @@ import {
   FOCUS_PROMPT_EVENT,
   parseClipboardUriList,
   COMPOSER_CONTAIN_STYLE,
+  ComposerDropzoneHint,
+  ComposerModelUnavailableButton,
+  HomePromptEnhanceButton,
   pluginSlashCommandName,
 } from "./composer-helpers";
+import { useHomePromptEnhance } from "../../../../capabilities/home-prompt-enhance";
 import { ComposerSlashMenu, ComposerMentionMenu } from "./slash-mention-menus";
 import { ComposerToolMenu } from "./composer-tool-menu";
 import { resolveComposerLayoutClasses } from "./composer-layout";
@@ -95,6 +98,21 @@ export function ReactSessionComposer(props: ComposerProps) {
     },
     [props.onDraftChange],
   );
+  const homePromptEnhance = useHomePromptEnhance({
+    enabled: !props.flushShell,
+    draft: props.draft,
+    onDraftChange: handleDraftChange,
+    selectedModel: props.selectedModel,
+    modelUnavailable: props.modelUnavailable,
+    modelVariant: props.modelVariant,
+    attachments: props.attachments,
+    workspaceFolderName: props.workspaceFolderName,
+    recentTurns: props.promptEnhanceRecentTurns,
+    directory: props.promptEnhanceDirectory,
+    client: props.promptEnhanceClient ?? null,
+    onNotice: props.onNotice,
+  });
+  const sendDraft = homePromptEnhance.wrapSend(props.onSend);
 
   // Open slash menu whenever the caret-side draft ends with `/` or `/partial`.
   // Previous regex required the *entire* draft to be a slash token, so after a
@@ -554,18 +572,7 @@ export function ReactSessionComposer(props: ComposerProps) {
  not render a pasted-text chip or rail here.
  */}
 
-          {dropzoneActive ? (
-            <div className="pointer-events-none absolute inset-3 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-dls-accent bg-dls-accent-mix-10">
-              <div className="rounded-xl border border-dls-border bg-dls-surface px-5 py-4 text-center backdrop-blur-sm">
-                <div className="text-sm font-medium text-dls-text">
-                  {t("composer.attach_files")}
-                </div>
-                <div className="mt-1 text-xs text-dls-secondary">
-                  {t("composer.any_file_type_supported")}
-                </div>
-              </div>
-            </div>
-          ) : null}
+          {dropzoneActive ? <ComposerDropzoneHint /> : null}
 
           <div className={editorPadClass}>
             {/* Editor */}
@@ -580,7 +587,7 @@ export function ReactSessionComposer(props: ComposerProps) {
               embedded={Boolean(props.flushShell)}
               placeholder={props.placeholder ?? t("composer.placeholder")}
               onChange={handleDraftChange}
-              onSubmit={props.onSend}
+              onSubmit={sendDraft}
               onPaste={(event) => {
                 // Paste policy:
                 // 1. Actual files on the clipboard -> attach them.
@@ -841,28 +848,19 @@ export function ReactSessionComposer(props: ComposerProps) {
                   />
                 )}
                 {props.modelUnavailable ? (
-                  <button
-                    type="button"
-                    className={composerTextClass.modelUnavailable}
-                    onClick={() => {
-                      // Closed loop: unavailable model → AI/provider settings
-                      // so users can reconnect credentials or pick another
-                      // default. Model select next door still switches models.
-                      if (props.onOpenSettingsSection) {
-                        props.onOpenSettingsSection("ai");
-                        return;
-                      }
-                      props.onModelPickerOpenChange(true);
-                    }}
-                    title={t("system.error_action_open_ai_settings")}
-                    aria-label={t("settings.model_unavailable")}
-                  >
-                    <AlertCircle className="size-3.5 shrink-0" />
-                    <span className="min-w-0 truncate">{t("settings.model_unavailable")}</span>
-                  </button>
+                  <ComposerModelUnavailableButton
+                    onOpenSettingsSection={props.onOpenSettingsSection}
+                    onModelPickerOpenChange={props.onModelPickerOpenChange}
+                  />
                 ) : null}
-                {props.flushShell || !props.contextUsage ? null : (
-                  <ContextUsageIndicator usage={props.contextUsage} size={16} className="p-0.5" />
+                {props.flushShell || homeLayout || !props.contextUsage ? null : (
+                  <ContextUsageIndicator usage={props.contextUsage} />
+                )}
+                {props.flushShell ? null : (
+                  <HomePromptEnhanceButton
+                    mode={homePromptEnhance.mode}
+                    onPress={homePromptEnhance.onPress}
+                  />
                 )}
                 {props.modelPickerVisible !== false ? (
                   <ModelSelectContainer
@@ -888,7 +886,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                 ) : (
                   <SendButton
                     type="button"
-                    onClick={canSend && !props.modelUnavailable ? props.onSend : undefined}
+                    onClick={canSend && !props.modelUnavailable ? sendDraft : undefined}
                     disabled={props.disabled || props.modelUnavailable || !canSend}
                     title={
                       props.modelUnavailable

@@ -442,6 +442,15 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
                 showThinking: !previous.showThinking,
               }));
             }}
+            showFollowUpSuggestions={
+              ctx.local.prefs.showFollowUpSuggestions !== false
+            }
+            onToggleShowFollowUpSuggestions={() => {
+              ctx.local.setPrefs((previous) => ({
+                ...previous,
+                showFollowUpSuggestions: previous.showFollowUpSuggestions === false,
+              }));
+            }}
             autoCompactContext={ctx.autoCompactContext}
             autoCompactContextBusy={ctx.autoCompactContextBusy}
             onToggleAutoCompactContext={ctx.toggleAutoCompactContext}

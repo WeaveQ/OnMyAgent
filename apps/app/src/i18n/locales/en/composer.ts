@@ -103,4 +103,8 @@ export default {
   "composer.quick_actions": "Add context",
   "composer.remove_collaboration_mode": "Remove {mode} mode",
   "composer.send_message": "Send message",
+  "composer.enhance_prompt": "Enhance prompt",
+  "composer.enhance_prompt_need_draft": "Write a prompt first",
+  "composer.enhance_prompt_undo": "Restore original",
+  "composer.enhance_prompt_failed": "Couldn't enhance the prompt",
 } as const;
