@@ -10,6 +10,7 @@ import {
   parseBookmarkHref,
   safeArchiveFileName,
   safeBookmarkFileName,
+  sessionArchiveDefaultTitle,
   sessionSource,
 } from "../src/react-app/domains/knowledge/knowledge-bookmark";
 import { parseKnowledgeNoteProps } from "../src/react-app/domains/knowledge/knowledge-vault-frontmatter";
@@ -78,5 +79,11 @@ describe("knowledge session archive", () => {
     expect(safeArchiveFileName("already.md")).toBe("already.md");
     expect(safeArchiveFileName("   ")).toBe("session.md");
     expect(safeArchiveFileName("a/b/../c")).not.toContain("..");
+  });
+
+  test("sessionArchiveDefaultTitle prefers a non-empty session title", () => {
+    expect(sessionArchiveDefaultTitle({ title: "Weather" }, "ses_1")).toBe("Weather");
+    expect(sessionArchiveDefaultTitle({ title: "   " }, "ses_1")).toBe("ses_1");
+    expect(sessionArchiveDefaultTitle(null, "ses_1")).toBe("ses_1");
   });
 });

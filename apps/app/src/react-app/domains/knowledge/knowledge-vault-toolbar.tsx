@@ -20,6 +20,7 @@ type KnowledgeVaultToolbarProps = {
   onNewNote: () => void;
   onNewCsv: () => void;
   onNewFolder: () => void;
+  onNewLink: () => void;
   onUploaded: () => void;
   onOpenFolder: () => void;
   onExpandAll: () => void;
@@ -38,6 +39,7 @@ export function KnowledgeVaultToolbar(props: KnowledgeVaultToolbarProps) {
         onNewNote={props.onNewNote}
         onNewCsv={props.onNewCsv}
         onNewFolder={props.onNewFolder}
+        onNewLink={props.onNewLink}
         onUploaded={props.onUploaded}
       />
       <span className="mx-0.5 h-3.5 w-px shrink-0 bg-dls-border" aria-hidden />

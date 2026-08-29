@@ -140,6 +140,14 @@ export function safeArchiveFileName(title: string): string {
  * Build the vault note for an archived session. Frontmatter records the source
  * as `session:<id>`; the transcript body is stored verbatim after the fence.
  */
+export function sessionArchiveDefaultTitle(
+  session: { title?: unknown } | null | undefined,
+  fallback: string,
+): string {
+  const title = session && typeof session === "object" ? session.title : null;
+  return typeof title === "string" && title.trim() ? title.trim() : fallback;
+}
+
 export function buildSessionArchiveMarkdown(input: BuildSessionArchiveInput): string {
   const title = String(input.title ?? "").trim() || "Session";
   const props: KnowledgeNoteProps = {

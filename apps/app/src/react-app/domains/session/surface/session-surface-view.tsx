@@ -77,6 +77,11 @@ import type { AssistantCategoryId } from "./personal-assistant-config";
 import type { SessionError } from "./session-surface-support";
 import type { Agent } from "@opencode-ai/sdk/v2/client";
 import { KeyboardShortcutsGuideButton } from "./chrome/keyboard-shortcuts-guide";
+import {
+  KnowledgeArchiveSessionButton,
+  sessionArchiveDefaultTitle,
+} from "../../knowledge";
+import { transcriptToText } from "./session-surface-model";
 
 export type SessionSurfaceViewProps = {
   // Layout / chrome
@@ -356,7 +361,19 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
             codeSceneToolbar={props.codeSceneToolbar}
             personalAssistantHome={props.personalAssistantHome}
             onOpenAgentSettings={props.onOpenAgentSettings}
-            headerActions={props.headerActions}
+            headerActions={
+              <>
+                <KnowledgeArchiveSessionButton
+                  sessionId={props.sessionId}
+                  defaultTitle={sessionArchiveDefaultTitle(
+                    props.snapshot?.session,
+                    props.chatHeaderAgent.name || props.sessionId,
+                  )}
+                  markdown={transcriptToText(props.renderedMessages)}
+                />
+                {props.headerActions}
+              </>
+            }
             showBottomBorder={!sessionTabsExpanded}
           />
         ) : null}

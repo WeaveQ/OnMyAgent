@@ -139,6 +139,7 @@ export default {
   "knowledge.bookmark_title_label": "標題",
   "knowledge.bookmark_url_label": "網址",
   "knowledge.bookmark_url_invalid": "請輸入有效的 http(s) 網址",
+  "knowledge.bookmark_hint": "將網頁存為 Markdown 筆記，網址寫在屬性裡。",
   "knowledge.open_link": "開啟連結",
   "knowledge.save_to_knowledge": "存入知識庫",
   "knowledge.archive_dialog_title": "將工作階段存入知識庫",

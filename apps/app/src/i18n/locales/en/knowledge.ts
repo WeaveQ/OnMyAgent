@@ -142,6 +142,7 @@ export default {
   "knowledge.bookmark_title_label": "Title",
   "knowledge.bookmark_url_label": "URL",
   "knowledge.bookmark_url_invalid": "Enter a valid http(s) URL",
+  "knowledge.bookmark_hint": "Save a web page as a Markdown note with the URL in properties.",
   "knowledge.open_link": "Open link",
   "knowledge.save_to_knowledge": "Save to knowledge",
   "knowledge.archive_dialog_title": "Save conversation to knowledge",

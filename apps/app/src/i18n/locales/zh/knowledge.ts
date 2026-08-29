@@ -139,6 +139,7 @@ export default {
   "knowledge.bookmark_title_label": "标题",
   "knowledge.bookmark_url_label": "网址",
   "knowledge.bookmark_url_invalid": "请输入有效的 http(s) 网址",
+  "knowledge.bookmark_hint": "将网页存为 Markdown 笔记，网址写在属性里。",
   "knowledge.open_link": "打开链接",
   "knowledge.save_to_knowledge": "存入知识库",
   "knowledge.archive_dialog_title": "将会话存入知识库",

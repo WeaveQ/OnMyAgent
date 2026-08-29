@@ -4,11 +4,11 @@ import {
   ChevronRight,
   Folder,
   FolderPlus,
-  Loader2,
   Trash2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
   Collapsible,
   CollapsibleContent,
@@ -271,7 +271,7 @@ export function KnowledgeVaultGroups(props: KnowledgeVaultGroupsProps) {
               disabled={add.busy}
               onClick={() => void submitAdd()}
             >
-              {add.busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
+              {add.busy ? <LoadingSpinner size="sm" /> : null}
               {t("knowledge.add_vault_confirm")}
             </Button>
           </DialogFooter>
@@ -360,7 +360,7 @@ function VaultRow(props: {
       <Folder className="size-3.5 shrink-0 text-dls-secondary" />
       <span className="min-w-0 flex-1 truncate">{props.name}</span>
       {props.trailingHint ? (
-        <span className="shrink-0 text-[10px] text-dls-secondary">
+        <span className="shrink-0 text-xs text-dls-secondary">
           {props.trailingHint}
         </span>
       ) : null}

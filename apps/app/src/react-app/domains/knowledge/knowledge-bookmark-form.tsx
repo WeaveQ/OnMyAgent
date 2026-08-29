@@ -46,7 +46,7 @@ export function KnowledgeBookmarkForm(props: KnowledgeBookmarkFormProps) {
             <LinkIcon className="size-4 text-dls-secondary" />
             {t("knowledge.add_link")}
           </DialogTitle>
-          <DialogDescription>{t("knowledge.bookmark_url_invalid")}</DialogDescription>
+          <DialogDescription>{t("knowledge.bookmark_hint")}</DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-2">
           <label className="block text-sm font-medium text-dls-text">

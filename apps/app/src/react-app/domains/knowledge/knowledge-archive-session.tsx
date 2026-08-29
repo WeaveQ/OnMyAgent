@@ -45,7 +45,6 @@ type KnowledgeArchiveSessionDialogProps = {
 export function KnowledgeArchiveSessionDialog(props: KnowledgeArchiveSessionDialogProps) {
   const [fileName, setFileName] = useState("");
   const [scopeIndex, setScopeIndex] = useState(0);
-  const [folder, setFolder] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -53,7 +52,6 @@ export function KnowledgeArchiveSessionDialog(props: KnowledgeArchiveSessionDial
     if (props.open) {
       setFileName(safeArchiveFileName(props.defaultTitle).replace(/\.md$/i, ""));
       setScopeIndex(0);
-      setFolder("");
       setError(null);
     }
   }, [props.open, props.defaultTitle]);
@@ -66,7 +64,7 @@ export function KnowledgeArchiveSessionDialog(props: KnowledgeArchiveSessionDial
 
   const save = async (): Promise<KnowledgeArchiveSessionResult> => {
     if (!selected) return { ok: false, reason: "no_scope" };
-    const relPath = joinKnowledgeRelPath(folder, previewName);
+    const relPath = joinKnowledgeRelPath("", previewName);
     const content = buildSessionArchiveMarkdown({
       sessionId: props.sessionId,
       title: previewName.replace(/\.md$/i, ""),

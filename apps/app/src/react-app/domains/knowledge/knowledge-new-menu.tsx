@@ -2,6 +2,7 @@
 import {
   FilePlus2,
   FolderPlus,
+  Link as LinkIcon,
   Sheet,
   Upload,
 } from "lucide-react";
@@ -33,6 +34,7 @@ type KnowledgeNewMenuProps = {
   onNewNote: (folder: string) => void;
   onNewCsv: (folder: string) => void;
   onNewFolder: (folder: string) => void;
+  onNewLink: (folder: string) => void;
   onUploaded: () => void;
 };
 
@@ -98,6 +100,10 @@ export function KnowledgeNewMenu(props: KnowledgeNewMenuProps) {
         <DropdownMenuItem className="gap-2" onClick={() => props.onNewFolder(folder)}>
           <FolderPlus className="size-3.5 shrink-0 text-dls-secondary" />
           {t("knowledge.new_folder")}
+        </DropdownMenuItem>
+        <DropdownMenuItem className="gap-2" onClick={() => props.onNewLink(folder)}>
+          <LinkIcon className="size-3.5 shrink-0 text-dls-secondary" />
+          {t("knowledge.add_link")}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem className="gap-2" onClick={() => void handleUploadFiles()}>
