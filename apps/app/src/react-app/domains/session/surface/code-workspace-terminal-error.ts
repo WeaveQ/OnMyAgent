@@ -1,4 +1,4 @@
-import { unwrapDesktopIpcError } from "../../local-agents/agent-management/agent-management-desktop-error";
+import { unwrapDesktopIpcError } from "../../local-agents";
 import { t } from "../../../../i18n";
 
 export function formatCodeWorkspaceTerminalOpenError(raw: unknown): string {

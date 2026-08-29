@@ -51,7 +51,7 @@ src/react-app/
     ├── workspace/             Create + share + rename + workspace files
     ├── settings/              Settings shell + tab bodies under pages/ (incl. global Updates,
     │                            `state/ai-providers-controller.ts` for AI tab load/merge UX)
-    ├── knowledge/             Local Markdown vault (rail page + CodeMirror editor)
+    ├── knowledge/             Local Markdown vault (rail page + Plate editor)
     ├── connections/           MCP + provider auth (canonical owner);
     │                            `merge-connected-providers.ts` shared inventory merge
     ├── cloud/                 Den auth + restrictions + org onboarding

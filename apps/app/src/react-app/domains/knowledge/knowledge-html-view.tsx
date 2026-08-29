@@ -6,7 +6,7 @@ import { CodeXml } from "lucide-react";
 import { t } from "../../../i18n";
 
 const HTML_SANDBOX_CSP =
-  "default-src 'none'; style-src 'unsafe-inline' data:; img-src data: blob: https:; media-src data: blob: https:; font-src data:;";
+  "default-src 'none'; style-src 'unsafe-inline' data:; img-src data: blob:; media-src data: blob:; font-src data:;";
 
 function sanitizeHtmlDocument(source: string): string {
   if (typeof window === "undefined") return "";
@@ -71,7 +71,7 @@ export function KnowledgeHtmlView(props: KnowledgeHtmlViewProps) {
         title={props.fileName}
         srcDoc={documentHtml}
         sandbox=""
-        className="min-h-0 flex-1 border-0 bg-white"
+        className="min-h-0 flex-1 border-0 bg-dls-surface"
         referrerPolicy="no-referrer"
       />
     </div>
