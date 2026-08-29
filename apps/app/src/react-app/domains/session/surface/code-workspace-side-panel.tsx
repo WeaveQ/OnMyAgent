@@ -37,6 +37,7 @@ import type {
   CodeWorkspaceTerminal,
 } from "@onmyagent/types";
 import { t } from "../../../../i18n";
+import { formatCodeWorkspaceTerminalOpenError } from "./code-workspace-terminal-error";
 import { isElectronRuntime } from "../../../../app/utils";
 import { classifyOpenTarget, resolveArtifactAbsolutePath, type OpenTarget } from "../artifacts/open-target";
 import { ArtifactIcon } from "../artifacts/artifact-icon";
@@ -1371,11 +1372,7 @@ export function CodeWorkspaceSidePanel(props: {
         setTabs((current) => [...current, next]);
         setActiveId(id);
       } catch (error) {
-        const message =
-          error instanceof Error && error.message.trim()
-            ? error.message
-            : t("session.code_side_panel_terminal_open_failed");
-        setTerminalError(message);
+        setTerminalError(formatCodeWorkspaceTerminalOpenError(error));
         console.error("Failed to open terminal:", error);
       } finally {
         setTerminalBusy(false);
