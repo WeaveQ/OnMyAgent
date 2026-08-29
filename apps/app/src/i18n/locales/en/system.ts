@@ -43,6 +43,9 @@ export default {
   "system.boot_repair_done": "Repaired and backed up old config — try again",
   "system.boot_repair_failed":
     "Automatic repair failed. Open the config folder and check manually",
+  "system.desktop_ipc_failed": "The desktop action failed. Try again.",
+  "system.desktop_spawn_failed":
+    "Couldn't start a desktop helper. Fully quit the app and open it again.",
   "system.error_action_retry": "Try again",
   "system.error_action_reload_app": "Restart app",
   "system.error_action_open_ai_settings": "Open model settings",

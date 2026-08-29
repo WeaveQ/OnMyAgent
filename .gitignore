@@ -134,6 +134,9 @@ docs/archive/
 docs/features/
 docs/superpowers/
 
+# DeepSeek Harness iPPT exports (product SoT is docs/design/, not repo-root design/)
+/design/
+
 # Native/build caches
 **/.build/
 **/__pycache__/

@@ -58,6 +58,11 @@ export default {
   "composer.access_delegate_desc": "僅風險操作需確認",
   "composer.access_full": "完全訪問",
   "composer.access_full_desc": "可訪問網路和本機檔案",
+  "composer.access_full_allow": "允許完全訪問",
+  "composer.access_full_warning":
+    "目前權限為允許完全訪問，請注意資料安全，建議只執行可信任的任務。",
+  "composer.access_full_enable_hint":
+    "打開後將不再逐項詢問檔案、命令和連網操作。",
   "composer.access_high_risk": "高風險",
   "composer.add_file": "添加文件",
   "composer.capture_appshot": "擷取桌面",
