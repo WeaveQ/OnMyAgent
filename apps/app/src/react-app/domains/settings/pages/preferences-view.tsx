@@ -23,6 +23,8 @@ export type PreferencesViewProps = {
   busy: boolean;
   showThinking: boolean;
   onToggleShowThinking: () => void;
+  showFollowUpSuggestions: boolean;
+  onToggleShowFollowUpSuggestions: () => void;
   autoCompactContext: boolean;
   autoCompactContextBusy: boolean;
   onToggleAutoCompactContext: () => void;
@@ -123,6 +125,18 @@ export function PreferencesView(props: PreferencesViewProps) {
                 checked={props.showThinking}
                 disabled={props.busy}
                 onCheckedChange={props.onToggleShowThinking}
+              />
+            }
+          />
+          <SettingsBlockRow
+            title={t("settings.show_follow_up_suggestions")}
+            description={t("settings.show_follow_up_suggestions_desc")}
+            actions={
+              <Switch
+                aria-label={t("settings.show_follow_up_suggestions")}
+                checked={props.showFollowUpSuggestions}
+                disabled={props.busy}
+                onCheckedChange={props.onToggleShowFollowUpSuggestions}
               />
             }
           />

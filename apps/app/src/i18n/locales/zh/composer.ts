@@ -96,4 +96,8 @@ export default {
   "composer.quick_actions": "添加上下文",
   "composer.remove_collaboration_mode": "移除{mode}模式",
   "composer.send_message": "发送消息",
+  "composer.enhance_prompt": "增强提示词",
+  "composer.enhance_prompt_need_draft": "先写一点提示词",
+  "composer.enhance_prompt_undo": "还原原文",
+  "composer.enhance_prompt_failed": "无法增强提示词",
 } as const;

@@ -1076,10 +1076,10 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       onExpandPastedText={handleExpandPastedText}
       onRevealPastedText={handleRevealPastedText}
       onRemovePastedText={handleRemovePastedText}
-      isRemoteWorkspace={props.isRemoteWorkspace}
-      isSandboxWorkspace={props.isSandboxWorkspace}
+      isRemoteWorkspace={props.isRemoteWorkspace} isSandboxWorkspace={props.isSandboxWorkspace}
       onUploadInboxFiles={props.onUploadInboxFiles ?? handleUploadInboxFiles}
       composerAccessory={composerAccessory} promptQueueBar={promptQueue.bar}
+      promptEnhanceClient={opencodeClient}
       draftWorkspaceDirectory={props.draftWorkspaceDirectory}
       draftWorkspaceOwnerId={props.draftWorkspaceOwnerId}
       assistantFeatureCategoryId={assistantFeatureCategoryId}
