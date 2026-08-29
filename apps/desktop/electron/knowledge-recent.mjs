@@ -53,7 +53,11 @@ function toArray(entries) {
  * @returns {Array<{ key: string, scope: string, relPath: string, name: string, location: string, accessedAt: string }>}
  */
 export function recordRecentAccess(entries, access) {
-  const { scope, relPath, vaultLabel, now } = access ?? {};
+  const raw = access && typeof access === "object" ? access : {};
+  const scope = String(raw.scope ?? "");
+  const relPath = String(raw.relPath ?? "");
+  const vaultLabel = raw.vaultLabel;
+  const now = raw.now;
   const key = recentEntryKey({ scope, relPath });
   const accessedAt = new Date(now ?? Date.now()).toISOString();
   const name = recentDisplayName(relPath);

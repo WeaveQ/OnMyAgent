@@ -37,7 +37,7 @@ import type {
   CodeWorkspaceTerminal,
 } from "@onmyagent/types";
 import { t } from "../../../../i18n";
-import { formatCodeWorkspaceTerminalOpenError } from "./code-workspace-terminal-error";
+import { formatCodeWorkspaceTerminalOpenError } from "./session-surface-support";
 import { isElectronRuntime } from "../../../../app/utils";
 import { classifyOpenTarget, resolveArtifactAbsolutePath, type OpenTarget } from "../artifacts/open-target";
 import { ArtifactIcon } from "../artifacts/artifact-icon";

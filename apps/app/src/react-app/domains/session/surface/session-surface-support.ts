@@ -1,6 +1,15 @@
 import { t } from "../../../../i18n";
 import type { OnMyAgentSessionSnapshot } from "../../../../app/lib/onmyagent-server";
 import type { ComposerAttachment } from "../../../../app/types";
+import { unwrapDesktopIpcError } from "../../local-agents";
+
+export function formatCodeWorkspaceTerminalOpenError(raw: unknown): string {
+  const inner = unwrapDesktopIpcError(raw);
+  if (/posix_spawnp|spawn helper/i.test(inner)) {
+    return t("session.code_side_panel_terminal_open_failed");
+  }
+  return inner || t("session.code_side_panel_terminal_open_failed");
+}
 
 export type SessionError = {
   message: string;

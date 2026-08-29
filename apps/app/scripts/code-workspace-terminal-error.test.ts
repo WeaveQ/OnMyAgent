@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { t } from "../../../../i18n";
-import { formatCodeWorkspaceTerminalOpenError } from "./code-workspace-terminal-error";
+import { t } from "../src/i18n";
+import { formatCodeWorkspaceTerminalOpenError } from "../src/react-app/domains/session/surface/session-surface-support";
 
 const ipcPrefix = "Error invoking remote method 'onmyagent:desktop': Error: ";
 

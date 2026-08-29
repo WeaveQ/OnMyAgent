@@ -224,7 +224,7 @@ export function KnowledgeSlashMenu({ editor }: KnowledgeSlashMenuProps) {
 
   return (
     <div
-      className="fixed z-50 w-64 overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid p-1 shadow-xl"
+      className="fixed z-50 w-64 overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid p-1"
       style={{ top: rect.top, left: rect.left }}
       role="listbox"
     >
