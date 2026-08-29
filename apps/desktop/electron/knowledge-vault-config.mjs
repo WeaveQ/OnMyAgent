@@ -139,7 +139,6 @@ export function readKnowledgeConfig(homeDir) {
  */
 export async function writePersonalVaultPath(nextPath, homeDir) {
   const defaultPath = resolveDefaultUserVaultDir(homeDir);
-  const prev = readRawConfig(homeDir);
   const known = listKnowledgeVaults(homeDir)
     .filter((item) => !item.isDefault)
     .map((item) => ({ name: item.name, path: item.path }));
@@ -159,7 +158,6 @@ export async function writePersonalVaultPath(nextPath, homeDir) {
     {
       personalVaultPath: usingDefault ? null : checked.path,
       vaults: known,
-      ...(prev && typeof prev === "object" ? {} : {}),
     },
     homeDir,
   );
@@ -227,13 +225,18 @@ export async function removeVault(homeDir, targetPath) {
 }
 
 /**
- * @param {{ personalVaultPath?: string | null, vaults?: Array<{ name?: string, path?: string }> }} config
+ * Merge a known-key patch onto on-disk config.json so unknown keys
+ * (future schema, user edits) survive add / remove / activate writes.
+ * @param {{ personalVaultPath?: string | null, vaults?: Array<{ name?: string, path?: string }> }} patch
  * @param {string} [homeDir]
  */
-async function persistConfig(config, homeDir) {
+async function persistConfig(patch, homeDir) {
+  const prev = readRawConfig(homeDir);
+  const base = prev && typeof prev === "object" && !Array.isArray(prev) ? { ...prev } : {};
+  const next = { ...base, ...patch };
   const filePath = resolveKnowledgeConfigPath(homeDir);
   await mkdir(path.dirname(filePath), { recursive: true });
   const tmp = `${filePath}.tmp`;
-  await writeFile(tmp, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  await writeFile(tmp, `${JSON.stringify(next, null, 2)}\n`, "utf8");
   await rename(tmp, filePath);
 }

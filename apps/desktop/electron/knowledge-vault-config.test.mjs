@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, test } from "node:test";
@@ -12,7 +12,10 @@ import {
   writePersonalVaultPath,
 } from "./knowledge-vault-config.mjs";
 import { ensureKnowledgeVault } from "./ensure-knowledge-vault.mjs";
-import { GETTING_STARTED_REL_PATH } from "./knowledge-vault-paths.mjs";
+import {
+  GETTING_STARTED_REL_PATH,
+  resolveKnowledgeConfigPath,
+} from "./knowledge-vault-paths.mjs";
 import { listKnowledgeVault } from "./knowledge-vault-io.mjs";
 
 describe("personal vault path override", () => {
@@ -137,6 +140,44 @@ describe("personal vault path override", () => {
       assert.equal(removedInactive.ok, true);
       assert.equal(removedInactive.usingDefault, true);
       assert.equal(removedInactive.personalVaultPath, null);
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
+  test("persistConfig keeps unknown config.json keys across add/remove", async () => {
+    const home = await mkdtemp(path.join(os.tmpdir(), "oma-kv-keep-"));
+    try {
+      await ensureKnowledgeVault({ homeDir: home });
+      const configPath = resolveKnowledgeConfigPath(home);
+      const extra = path.join(home, "KeepVault");
+      await mkdir(extra, { recursive: true });
+      await writeFile(
+        configPath,
+        `${JSON.stringify(
+          {
+            schemaVersion: 2,
+            customFlag: true,
+            personalVaultPath: null,
+            vaults: [],
+          },
+          null,
+          2,
+        )}\n`,
+        "utf8",
+      );
+
+      const added = await addVault(home, { name: "Keep", path: extra });
+      assert.equal(added.ok, true);
+      const afterAdd = JSON.parse(await readFile(configPath, "utf8"));
+      assert.equal(afterAdd.schemaVersion, 2);
+      assert.equal(afterAdd.customFlag, true);
+
+      const removed = await removeVault(home, extra);
+      assert.equal(removed.ok, true);
+      const afterRemove = JSON.parse(await readFile(configPath, "utf8"));
+      assert.equal(afterRemove.schemaVersion, 2);
+      assert.equal(afterRemove.customFlag, true);
     } finally {
       await rm(home, { recursive: true, force: true });
     }
