@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { formatAppMilestoneLabel, formatAppVersionLabel } from "./app-version";
+import {
+  formatAccountVersionBadge,
+  formatAppMilestoneLabel,
+  formatAppVersionLabel,
+} from "./app-version";
 
 describe("app version labels", () => {
   test("prefixes a v when missing", () => {
@@ -12,5 +16,12 @@ describe("app version labels", () => {
     expect(formatAppMilestoneLabel("0.7.0")).toBe("0.7");
     expect(formatAppMilestoneLabel("v0.6.2")).toBe("0.6");
     expect(formatAppMilestoneLabel("1.0.0-rc.1")).toBe("1.0");
+  });
+
+  test("account badge joins version and localized milestone", () => {
+    expect(formatAccountVersionBadge("0.7.0", (milestone) => `milestone ${milestone}`)).toBe(
+      "v0.7.0 · milestone 0.7",
+    );
+    expect(formatAccountVersionBadge("", () => "milestone")).toBe("");
   });
 });

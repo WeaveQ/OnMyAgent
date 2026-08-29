@@ -29,11 +29,7 @@ import {
   UserRound,
 } from "lucide-react";
 
-import {
-  formatAppMilestoneLabel,
-  formatAppVersionLabel,
-  readAppVersion,
-} from "../../../../app/lib/app-version";
+import { formatAccountVersionBadge, readAppVersion } from "../../../../app/lib/app-version";
 import { getDisplaySessionTitle, isGeneratedSessionTitle } from "../../../../app/lib/session-title";
 import { readLocalAuthUser } from "../../../../app/lib/local-auth";
 import { APP_NAME } from "../../../../i18n/locales/brand";
@@ -86,6 +82,10 @@ import {
 import { AccountUserAvatar } from "../../../capabilities/account-avatar/account-user-avatar";
 import { SidebarContext, useSidebarContext, type SidebarContextValue } from "./app-sidebar-provider";
 import {
+  SidebarAccountMenuItem,
+  sidebarAccountMenuRowClass,
+} from "./sidebar-account-menu-item";
+import {
   MAX_SESSIONS_PREVIEW,
   buildSessionTreeState,
   getRootSessions,
@@ -97,9 +97,6 @@ import {
   getSessionActivityStatusLabel,
   type SessionActivityStatus,
 } from "../status/session-activity-store";
-
-const sidebarAccountMenuRowClass =
-  "flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 text-sm font-medium text-sidebar-foreground hover:!bg-dls-hover hover:!text-dls-text focus:!bg-dls-hover focus:!text-dls-text data-highlighted:!bg-dls-hover data-highlighted:!text-dls-text data-open:!bg-dls-hover data-open:!text-dls-text data-popup-open:!bg-dls-hover data-popup-open:!text-dls-text data-state-open:!bg-dls-hover data-state-open:!text-dls-text aria-expanded:!bg-dls-hover aria-expanded:!text-dls-text [&_svg]:text-current";
 
 const sidebarAccountThemeChipClass = "rounded-md px-2 py-0.5 text-xs font-medium transition-colors";
 
@@ -848,14 +845,9 @@ export function SidebarAccountButton(props: {
     accountName: account?.name,
     accountEmail: account?.email,
   });
-  const appVersion = readAppVersion();
-  const appVersionLabel = formatAppVersionLabel(appVersion);
-  const appMilestoneLabel = formatAppMilestoneLabel(appVersion);
-  const versionBadge = appVersionLabel
-    ? appMilestoneLabel
-      ? `${appVersionLabel} · ${t("account_menu.milestone", { milestone: appMilestoneLabel })}`
-      : appVersionLabel
-    : "";
+  const versionBadge = formatAccountVersionBadge(readAppVersion(), (milestone) =>
+    t("account_menu.milestone", { milestone }),
+  );
 
   React.useEffect(
     () =>
@@ -1186,48 +1178,6 @@ export function SidebarAccountButton(props: {
         }}
       />
     </DropdownMenu>
-  );
-}
-
-function SidebarAccountMenuItem(props: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  onSelect?: () => void;
-  destructive?: boolean;
-  /** Trailing chevron for items that open another page / panel. */
-  showChevron?: boolean;
-  trailing?: string;
-}) {
-  const Icon = props.icon;
-
-  if (props.destructive) {
-    return (
-      <DropdownMenuItem
-        onClick={props.onSelect}
-        className={cn(
-          sidebarAccountMenuRowClass,
-          "flex text-dls-status-danger hover:!bg-dls-status-danger-soft hover:text-dls-status-danger focus:!bg-dls-status-danger-soft focus:text-dls-status-danger data-highlighted:!bg-dls-status-danger-soft data-highlighted:!text-dls-status-danger",
-        )}
-      >
-        <Icon className="size-3.5 text-dls-status-danger" />
-        <span className="flex-1 text-dls-status-danger">{props.label}</span>
-      </DropdownMenuItem>
-    );
-  }
-
-  return (
-    <DropdownMenuItem onClick={props.onSelect} className={sidebarAccountMenuRowClass}>
-      <Icon className="size-3.5 shrink-0" />
-      <span className="min-w-0 flex-1 truncate">{props.label}</span>
-      {props.trailing ? (
-        <span className="shrink-0 text-xs font-normal tabular-nums text-dls-secondary">
-          {props.trailing}
-        </span>
-      ) : null}
-      {props.showChevron ? (
-        <ChevronRight className="size-3.5 shrink-0 text-dls-secondary" aria-hidden />
-      ) : null}
-    </DropdownMenuItem>
   );
 }
 
