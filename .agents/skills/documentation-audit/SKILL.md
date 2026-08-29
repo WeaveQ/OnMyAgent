@@ -55,6 +55,7 @@ docs/
   officecli-oss-release.md
   windows-compat.md  windows-remote-debug-from-mac.md
   loop/rules.md  loop/incidents.md
+  intent/README.md  intent/_TEMPLATE.md
   design/*
 ```
 
@@ -87,6 +88,7 @@ CORE_DOCS=(
   README.md README-zh.md BUILD.md CONTRIBUTING.md AGENTS.md
   docs/README.md docs/Architecture.md docs/release.md
   docs/loop/rules.md docs/loop/incidents.md
+  docs/intent/README.md docs/intent/_TEMPLATE.md
   apps/server/README.md apps/orchestrator/README.md
   packages/ui/README.md packages/handsfree/README.md
   apps/app/src/react-app/ARCHITECTURE.md
@@ -131,7 +133,7 @@ Use a link smoke for core docs:
 python3 - <<'PY'
 from pathlib import Path
 import re
-files = [Path(p) for p in ['README.md','README-zh.md','BUILD.md','CONTRIBUTING.md','AGENTS.md','docs/README.md','docs/Architecture.md','docs/release.md','docs/loop/rules.md','docs/loop/incidents.md','apps/server/README.md','apps/orchestrator/README.md','packages/ui/README.md','packages/handsfree/README.md','apps/app/src/react-app/ARCHITECTURE.md']]
+files = [Path(p) for p in ['README.md','README-zh.md','BUILD.md','CONTRIBUTING.md','AGENTS.md','docs/README.md','docs/Architecture.md','docs/release.md','docs/loop/rules.md','docs/loop/incidents.md','docs/intent/README.md','docs/intent/_TEMPLATE.md','apps/server/README.md','apps/orchestrator/README.md','packages/ui/README.md','packages/handsfree/README.md','apps/app/src/react-app/ARCHITECTURE.md']]
 missing=[]
 for f in files:
     if not f.exists():

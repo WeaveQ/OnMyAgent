@@ -53,6 +53,9 @@ A good PR includes:
 
 - A short summary of the user-visible change.
 - The reason for the change.
+- A **Plan** section: files, order, risks, and the proof commands you ran (see `.github/pull_request_template.md`).
+- Session / expert / IM / Task changes must name a write-path owner: OpenCode, Personal, or Task.
+- Accepted product work should point at `docs/intent/<slug>.md` (copy `docs/intent/_TEMPLATE.md`). Keep execution ledgers in local `.loop/`.
 - The exact files or areas touched.
 - The commands you ran and their results.
 - Screenshots or recordings for UI changes.

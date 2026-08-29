@@ -217,6 +217,47 @@ function brandWindowsExecutable(context) {
   console.log(`[afterPack] Branded Windows executable: ${exePath}`);
 }
 
+function restoreNodePtySpawnHelperExecutable(context) {
+  if (context.electronPlatformName === "win32") return;
+  const roots = [];
+  const macApp = resolveMacAppPath(context);
+  if (macApp) {
+    roots.push(path.join(macApp, "Contents", "Resources"));
+  } else {
+    roots.push(path.join(context.appOutDir, "resources"));
+  }
+  const skipDirNames = new Set(["app-dist", "marketplace", "bundled-skills", "bundled-plugins"]);
+  let restored = 0;
+  for (const root of roots) {
+    if (!fs.existsSync(root)) continue;
+    const stack = [root];
+    while (stack.length) {
+      const dir = stack.pop();
+      let entries = [];
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const entry of entries) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (skipDirNames.has(entry.name)) continue;
+          stack.push(full);
+          continue;
+        }
+        if (entry.name !== "spawn-helper") continue;
+        const mode = fs.statSync(full).mode;
+        if ((mode & 0o111) === 0) fs.chmodSync(full, mode | 0o755);
+        restored += 1;
+      }
+    }
+  }
+  if (restored > 0) {
+    console.log(`[afterPack] restored +x on ${restored} node-pty spawn-helper binary(ies)`);
+  }
+}
+
 function logDirSize(label, dirPath) {
   if (!dirPath || !fs.existsSync(dirPath)) {
     console.log(`[afterPack] ${label}: (missing)`);
@@ -251,6 +292,7 @@ async function afterPack(context) {
   logDirSize("artifact-runtime", artifactRuntimeDir);
   logDirSize("app", resolveMacAppPath(context) || context.appOutDir);
 
+  restoreNodePtySpawnHelperExecutable(context);
   signComputerUseHelper(context);
   signSquirrelFramework(context);
   brandWindowsExecutable(context);
