@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createCodeTerminalManager } from "./code-terminal-manager.mjs";
+import { createCodeTerminalManager, toAsarUnpackedPath } from "./code-terminal-manager.mjs";
 import { resolveInAppTerminalShell } from "./code-terminal-shell.mjs";
 
 function waitForOutput(manager, terminalId, expected) {
@@ -30,6 +30,25 @@ test("Windows in-app terminal defaults to PowerShell, not COMSPEC", () => {
   assert.match(shell.command.replaceAll("/", "\\"), /WindowsPowerShell\\v1\.0\\powershell\.exe$/i);
   assert.deepEqual(shell.args, ["-NoLogo"]);
   assert.equal(shell.label, "powershell.exe");
+});
+
+test("toAsarUnpackedPath rewrites packaged asar paths, not already-unpacked or dev paths", () => {
+  assert.equal(
+    toAsarUnpackedPath(
+      "/Applications/OnMyAgent.app/Contents/Resources/app.asar/node_modules/node-pty/prebuilds/darwin-arm64/spawn-helper",
+    ),
+    "/Applications/OnMyAgent.app/Contents/Resources/app.asar.unpacked/node_modules/node-pty/prebuilds/darwin-arm64/spawn-helper",
+  );
+  assert.equal(
+    toAsarUnpackedPath(
+      "/Applications/OnMyAgent.app/Contents/Resources/app.asar.unpacked/node_modules/node-pty/prebuilds/darwin-arm64/spawn-helper",
+    ),
+    "/Applications/OnMyAgent.app/Contents/Resources/app.asar.unpacked/node_modules/node-pty/prebuilds/darwin-arm64/spawn-helper",
+  );
+  assert.equal(
+    toAsarUnpackedPath("/Users/work/code/weaveq/onmyagent/apps/desktop/node_modules/node-pty/lib/index.js"),
+    "/Users/work/code/weaveq/onmyagent/apps/desktop/node_modules/node-pty/lib/index.js",
+  );
 });
 
 test("ONMYAGENT_TERMINAL_SHELL overrides the Windows default", () => {
