@@ -84,7 +84,7 @@ import { SidebarContext, useSidebarContext, type SidebarContextValue } from "./a
 import {
   SidebarAccountMenuItem,
   sidebarAccountMenuRowClass,
-} from "./sidebar-account-menu-item";
+} from "../../../capabilities/account-avatar/sidebar-account-menu-item";
 import {
   MAX_SESSIONS_PREVIEW,
   buildSessionTreeState,
