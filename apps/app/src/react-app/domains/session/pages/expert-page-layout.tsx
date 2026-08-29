@@ -43,7 +43,7 @@ import { NO_EXPERT_CONVERSATIONS_ASSET } from "./expert-page-utils";
 import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import { ExpertDirectoryIncompleteNotice } from "./expert-directory-incomplete-notice";
 
-import { mergeLocalShelfWithConversations } from "../../plugins";
+import { buildStoreExpertShelf } from "./expert-conversation-model";
 import { ExpertPageAfterPrimary, ExpertPageSessionSurface } from "./expert-page-main-surface";
 import { ExpertPageModals } from "./expert-page-modals";
 import { ExpertPageRail } from "./expert-page-rail";
@@ -107,6 +107,10 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
     visitedRailViews,
     handleSelectArtifactPrompt,
   } = rail;
+  const storeExpertShelf = buildStoreExpertShelf({
+    packages: myExpertPackages,
+    conversations: [...conversationGroups, ...draftAgentGroups],
+  });
   useEffect(() => subscribeOpenKnowledgeNote(() => openRailView("knowledgeBase")), [openRailView]);
   const {
     activeAgentContext,
@@ -145,6 +149,7 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
     artifactFocusToken,
     artifactTarget,
     browserPanelRef,
+    browserSessionScopeId,
     canvasSessionKey,
     closeRightPane,
     codeWorkspaceCatalogRoot,
@@ -157,6 +162,8 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
     sidePanelOpen,
     snapToBrowserWidth,
   } = sidePanel;
+  const sidePanelVisible =
+    sidePanelOpen && (isPrimarySessionView || activeSidebarView === "localAgent");
   const {
     agentCreateRequestKey,
     canSaveRename,
@@ -222,6 +229,7 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
               sessionStatusById={props.sidebar.sessionStatusById}
               draftAgentGroup={draftAgentGroup}
               draftAgentGroups={draftAgentGroups}
+              expertPackageAvatars={myExpertPackages}
               query={agentSearch}
               onQueryChange={setAgentSearch}
               onToggleCollapsed={() => setAgentPanelCollapsed((value) => !value)}
@@ -261,14 +269,14 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
           <ResizablePanelGroup
             orientation="horizontal"
             onLayoutChanged={
-              sidePanelOpen && isPrimarySessionView ? commitBrowserPanelWidth : undefined
+              sidePanelVisible ? commitBrowserPanelWidth : undefined
             }
             className="min-h-0 flex-1"
           >
             <ResizablePanel minSize="360px" className="min-w-0">
               <SessionPageMainColumn
                 activeSidebarView={activeSidebarView}
-                sidePanelBorderOpen={sidePanelOpen && isPrimarySessionView}
+                sidePanelBorderOpen={sidePanelVisible}
               >
                 <SessionRailKeepAliveStack
                   activeSidebarView={activeSidebarView}
@@ -290,14 +298,8 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
                         workspaceRoot={props.selectedWorkspaceRoot}
                         client={props.onmyagentServerClient}
                         activeTab={storeActiveTab}
-                        myExperts={mergeLocalShelfWithConversations(
-                          myExpertPackages,
-                          [...conversationGroups, ...draftAgentGroups],
-                        )}
-                        activeExpertAgentIds={[
-                          ...conversationGroups.map((group) => group.agentId),
-                          ...draftAgentGroups.map((group) => group.agentId),
-                        ].filter((id): id is string => Boolean(id?.trim()))}
+                        myExperts={storeExpertShelf.experts}
+                        activeExpertAgentIds={storeExpertShelf.activeExpertAgentIds}
                         onActiveTabChange={setStoreActiveTab}
                         onSummonMarketplaceExpert={handleStartMarketplaceExpert}
                         onCreateExpert={openExpertCreation}
@@ -313,14 +315,20 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
                     company: <CompanyRailPane onChatWithSkill={handleChatWithSkill} />,
                     localAgent: (
                       <PersonalLocalAgentPage
-                        resumeRequest={pendingArchiveResume}
-                        onResumeConsumed={() => setPendingArchiveResume(null)}
                         workspaceRoot={props.selectedWorkspaceRoot}
                         workspaceName={props.selectedWorkspaceDisplay.name}
-                        onmyagentServerClient={props.onmyagentServerClient}
-                        runtimeWorkspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
-                        onOpenArtifact={openTarget}
-                        onOpenTargetsChange={handleOpenTargetsChange}
+                        hostCapabilities={{
+                          artifacts: {
+                            open: openTarget,
+                            onTargetsChange: handleOpenTargetsChange,
+                          },
+                          archiveResume: {
+                            request: pendingArchiveResume,
+                            onConsumed: () => setPendingArchiveResume(null),
+                            serverClient: props.onmyagentServerClient,
+                            runtimeWorkspaceId: props.runtimeWorkspaceId ?? props.selectedWorkspaceId ?? null,
+                          },
+                        }}
                       />
                     ),
                     agentManagement: (
@@ -531,6 +539,8 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
               onmyagentServerClient={props.onmyagentServerClient}
               sidePanelOpen={sidePanelOpen}
               isPrimarySessionView={isPrimarySessionView}
+              isLocalAgentView={activeSidebarView === "localAgent"}
+              browserSessionScopeId={browserSessionScopeId}
               browserPanelRef={browserPanelRef}
               activeSidePanel={activeSidePanel}
               canvasSessionKey={canvasSessionKey}

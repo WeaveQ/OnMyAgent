@@ -10,7 +10,7 @@ import {
   type PersonalLocalAgentPageProps,
 } from "./use-personal-local-agent-page";
 
-export type { PersonalLocalAgentPageProps };
+export type { PersonalLocalAgentHostCapabilities, PersonalLocalAgentPageProps } from "./use-personal-local-agent-page";
 
 export function PersonalLocalAgentPage(props: PersonalLocalAgentPageProps) {
   const m = usePersonalLocalAgentPage(props);

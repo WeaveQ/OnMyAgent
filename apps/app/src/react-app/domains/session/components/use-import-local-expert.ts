@@ -8,6 +8,7 @@ import {
 import { isElectronRuntime } from "../../../../app/utils";
 import { t } from "../../../../i18n";
 import {
+  buildImportedMineExpertSeed,
   persistImportedMineExpert,
   pickAndExportMineExpertPackage,
   refreshExpertPackageQuery,
@@ -30,7 +31,10 @@ export function useImportLocalExpert() {
   const [busy, setBusy] = useState(false);
 
   const runImport = useCallback(
-    async (sourcePath: string, options: { overwrite?: boolean; asCopy?: boolean } = {}) => {
+    async (
+      sourcePath: string,
+      importOptions: { overwrite?: boolean; asCopy?: boolean } = {},
+    ) => {
       if (!isElectronRuntime()) {
         showToast({ title: t("store.import_expert_desktop_only"), tone: "info" });
         return;
@@ -39,8 +43,8 @@ export function useImportLocalExpert() {
       try {
         const result = await importExpertPackage({
           sourcePath,
-          overwrite: options.overwrite === true,
-          asCopy: options.asCopy === true,
+          overwrite: importOptions.overwrite === true,
+          asCopy: importOptions.asCopy === true,
         });
         if (!result.ok) {
           if (result.code === "already_exists") {
@@ -57,15 +61,9 @@ export function useImportLocalExpert() {
         }
         let registered = true;
         try {
-          await persistImportedMineExpert({
-            packageName: result.packageName,
-            packagePath: result.path,
-            displayName: result.displayName || result.packageName,
-            description: result.description || "",
-            skillIds: result.declaredSkills,
-            userNote: result.rolePrompt,
-            agentMemory: result.memory,
-          });
+          await persistImportedMineExpert(
+            buildImportedMineExpertSeed(result),
+          );
         } catch (error) {
           registered = false;
           console.warn("[expert-import] failed to register mine expert", error);

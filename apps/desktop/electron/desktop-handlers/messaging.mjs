@@ -47,6 +47,9 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "channelGetSession",
   "channelGetSessionsByPlatform",
   "channelGetSessionsByUser",
+  "channelGetTranscriptThreads",
+  "channelGetTranscript",
+  "channelRunAgentPrompt",
   "channelCloseSession",
   "channelUpdateSessionMetadata",
   "channelGetEventHistory",
@@ -236,6 +239,18 @@ export function createMessagingDomainHandlers({
 
   channelGetSessionsByUser: async (event, args) => {
     return channelInfrastructureApi.getSessionsByUser(args[0]?.platformType, args[0]?.platformUserId);
+  },
+
+  channelGetTranscriptThreads: async (event, args) => {
+    return channelInfrastructureApi.getTranscriptThreads(args[0]?.platformType, args[0] ?? {});
+  },
+
+  channelGetTranscript: async (event, args) => {
+    return channelInfrastructureApi.getTranscript(args[0] ?? {});
+  },
+
+  channelRunAgentPrompt: async (event, args) => {
+    return channelInfrastructureApi.runAgentPrompt(args[0] ?? {});
   },
 
   channelCloseSession: async (event, args) => {

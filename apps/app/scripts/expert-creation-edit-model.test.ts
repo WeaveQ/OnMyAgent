@@ -111,6 +111,7 @@ describe("expert creation edit model", () => {
     expect(keys.has("kol-ops")).toBe(false);
     expect(findCreationEditableAgent([custom], "agent-222")?.id).toBe("agent-222");
     expect(findCreationEditableAgent([custom], "review-helper")?.id).toBe("agent-222");
+    expect(findCreationEditableAgent([custom], "review-helper:review-helper")?.id).toBe("agent-222");
     expect(findCreationEditableAgent([custom], "kol-ops")).toBeUndefined();
   });
 

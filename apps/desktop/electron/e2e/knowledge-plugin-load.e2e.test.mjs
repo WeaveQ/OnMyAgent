@@ -31,7 +31,10 @@ after(async () => {
 });
 
 async function createDesktopSandbox() {
-  const sandbox = await createDesktopE2eSandbox({ prefix: "oma-desktop-plugin-e2e-" });
+  const sandbox = await createDesktopE2eSandbox({
+    prefix: "oma-desktop-plugin-e2e-",
+    projectConfig: false,
+  });
   roots.push(sandbox.root);
   return sandbox;
 }

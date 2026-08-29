@@ -285,6 +285,8 @@ export type ComposerProps = {
    */
   heroHome?: boolean;
   topAccessory?: ReactNode;
+  /** Queued follow-ups; renders inside the composer card, flush with the field. */
+  promptQueueBar?: ReactNode;
   bottomAccessory?: ReactNode;
   hideAccessPermissionSelect?: boolean;
   /** Context window occupancy for the ring next to the model control. */

@@ -34,10 +34,10 @@ export default {
   "session.surface_crash_body": "打开此界面时出错。可先重试，若仍失败请重新加载应用。",
   "session.surface_crash_retry": "重试",
   "session.surface_crash_reload": "重新加载应用",
-  "session.my_experts": "已召唤专家",
+  "session.my_experts": "我的专家",
   "session.my_experts_count": "共 {count} 位",
-  "session.my_experts_empty_title": "还没有召唤专家",
-  "session.my_experts_empty_desc": "从全部专家里召唤一位，或导入专家包，或点「我要创建」从零打造专属专家。",
+  "session.my_experts_empty_title": "还没有我的专家",
+  "session.my_experts_empty_desc": "导入专家包，或点「我要创建」从零打造专属专家。导入后由你决定何时召唤。",
   "session.search_experts_placeholder": "搜索专家职称或描述",
   "session.search_tasks_placeholder": "搜索任务标题",
   "session.create_expert": "我要创建",
@@ -152,6 +152,10 @@ export default {
     "这将永久删除专家「{name}」的全部会话、这些会话生成的工作区文件，以及本机安装的专家包，且不可恢复。",
   "session.delete_expert_generic":
     "这将永久删除该专家的全部会话、这些会话生成的工作区文件，以及本机安装的专家包，且不可恢复。",
+  "session.delete_named_expert_sessions_message":
+    "这将永久删除专家「{name}」的全部会话及这些会话生成的工作区文件，专家包会保留。",
+  "session.delete_expert_sessions_generic":
+    "这将永久删除该专家的全部会话及这些会话生成的工作区文件，专家包会保留。",
   "session.delete_retry": "重试清理",
   "session.delete_partial_message": "清理未完成（{error}），可重试以安全恢复。",
   "session.provider_enable": "启用",

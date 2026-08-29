@@ -10,6 +10,7 @@ const noStandardConfig = process.argv.includes("--no-standard-config");
 const noLegacyConfig = process.argv.includes("--no-legacy-config");
 const rejectStandardConfig = process.argv.includes("--reject-standard-config");
 const failToolAfterAssistant = process.argv.includes("--fail-tool-after-assistant");
+const failTerminalToolAfterAssistant = process.argv.includes("--fail-terminal-tool-after-assistant");
 const transportDisconnectAfterAssistant = process.argv.includes("--transport-disconnect-after-assistant");
 const truncatedReply = process.argv.includes("--truncated-reply");
 const emptyReply = process.argv.includes("--empty-reply");
@@ -202,13 +203,19 @@ function handleRequest(message) {
         update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: chunk } },
       });
     }
-    if (failToolAfterAssistant) {
+    if (failToolAfterAssistant || failTerminalToolAfterAssistant) {
       sendNotification("session/update", {
         sessionId,
         update: {
           sessionUpdate: "tool_call_update",
           status: "failed",
-          content: [{ type: "text", text: "User refused permission to run tool" }],
+          ...(failTerminalToolAfterAssistant
+            ? {
+                toolCallId: "exec-failed-tool",
+                rawOutput: { formatted_output: "command failed\n", exit_code: 1 },
+                _meta: { terminal_exit: { exit_code: 1, signal: null, terminal_id: "exec-failed-tool" } },
+              }
+            : { content: [{ type: "text", text: "User refused permission to run tool" }] }),
         },
       });
     }
@@ -246,6 +253,10 @@ function handleRequest(message) {
   }
   if (method === "session/set_config_option") {
     recordSessionMethod(method, params);
+    if (params?.sessionId === "missing-provider-session") {
+      process.stdout.write(`${JSON.stringify({ jsonrpc: "2.0", id, error: { code: -32004, message: `Internal error: ${JSON.stringify({ details: `Session ${params.sessionId} not found` })}` } })}\n`);
+      return;
+    }
     if (noStandardConfig) {
       process.stdout.write(`${JSON.stringify({ jsonrpc: "2.0", id, error: { code: -32601, message: "Method not found: session/set_config_option" } })}\n`);
       return;

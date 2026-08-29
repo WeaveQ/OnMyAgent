@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { appendFile, mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { readSession, writeSession } from "./session-store.mjs";
@@ -11,13 +12,11 @@ import {
   normalizeConversation,
   nowTitle,
 } from "./conversation-paths.mjs";
+import { runEventsToConversationMessages } from "./contract.mjs";
 // Re-export the pure path/normalize helpers so existing importers of this module
 // keep working; they live in conversation-paths.mjs to avoid an import cycle
 // with conversation-lookup.mjs.
 export { CONVERSATION_DIR, conversationRoot, normalizeConversation, nowTitle } from "./conversation-paths.mjs";
-// Local import (in addition to the re-export below) so internal callers such as
-// `listConversationsByProvider` can reference `listChannelConversations`.
-import { listChannelConversations } from "./conversation-lookup.mjs";
 
 const CONVERSATION_EVENTS_DIR = "conversation-events";
 
@@ -32,6 +31,11 @@ export function legacyConversationFile(workspaceRoot, provider, agentId = "defau
 export function conversationEventsFile(workspaceRoot, provider, agentId = "default", conversationId = "default") {
   const id = String(conversationId ?? "").trim() || "default";
   return path.join(personalAgentRoot(workspaceRoot), CONVERSATION_EVENTS_DIR, `${personalAgentPartitionName(provider, agentId)}-${id}.json`);
+}
+
+export function conversationEventsLogFile(workspaceRoot, provider, agentId = "default", conversationId = "default") {
+  const id = String(conversationId ?? "").trim() || "default";
+  return path.join(personalAgentRoot(workspaceRoot), CONVERSATION_EVENTS_DIR, `${personalAgentPartitionName(provider, agentId)}-${id}.jsonl`);
 }
 
 async function readConversationState(workspaceRoot, provider, agentId = "default") {
@@ -209,42 +213,112 @@ export async function writeConversationEvents(workspaceRoot, provider, agentId =
     messages: normalizedMessages,
   };
   await writeJsonFile(conversationEventsFile(workspaceRoot, provider, agentId, id), payload);
+  const logPath = conversationEventsLogFile(workspaceRoot, provider, agentId, id);
+  await writeFile(logPath, "").catch(() => unlink(logPath).catch(() => undefined));
   return payload;
+}
+
+export function conversationEventKey(event) {
+  if (!event || typeof event !== "object") return JSON.stringify(event);
+  const eventId = typeof event.eventId === "string" ? event.eventId.trim() : "";
+  if (eventId) return `event:${eventId}`;
+  const id = typeof event.id === "string" ? event.id.trim() : "";
+  if (id) return `id:${id}`;
+  const type = String(event.type ?? "");
+  const at = event.at ?? event.ts ?? "";
+  const text = String(event.text ?? "");
+  return `${type}|${at}|${text}`;
+}
+
+export function mergeConversationEvents(checkpointEvents, logEvents) {
+  const merged = [];
+  const seen = new Set();
+  for (const event of [...(Array.isArray(checkpointEvents) ? checkpointEvents : []), ...(Array.isArray(logEvents) ? logEvents : [])]) {
+    const key = conversationEventKey(event);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(event);
+  }
+  return merged;
+}
+
+/** Append new run events without rewriting the checkpoint JSON. */
+export async function appendConversationEvents(workspaceRoot, provider, agentId = "default", conversationId = "", events = []) {
+  const id = String(conversationId ?? "").trim();
+  const normalizedEvents = Array.isArray(events) ? events : [];
+  if (!id || normalizedEvents.length === 0) return null;
+  const logPath = conversationEventsLogFile(workspaceRoot, provider, agentId, id);
+  await mkdir(path.dirname(logPath), { recursive: true });
+  await appendFile(
+    logPath,
+    `${normalizedEvents.map((event) => JSON.stringify(event)).join("\n")}\n`,
+    "utf8",
+  );
+  return { count: normalizedEvents.length, logPath };
 }
 
 export async function readConversationEvents(workspaceRoot, provider, agentId = "default", conversationId = "") {
   const id = String(conversationId ?? "").trim();
   if (!id) return { events: [], messages: [] };
   const raw = await readJsonLikeFile(conversationEventsFile(workspaceRoot, provider, agentId, id));
+  let appendedEvents = [];
+  try {
+    const log = await fs.promises.readFile(
+      conversationEventsLogFile(workspaceRoot, provider, agentId, id),
+      "utf8",
+    );
+    appendedEvents = log
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .flatMap((line) => {
+        try {
+          const parsed = JSON.parse(line);
+          return parsed && typeof parsed === "object" ? [parsed] : [];
+        } catch {
+          return [];
+        }
+      });
+  } catch {
+    appendedEvents = [];
+  }
+  const events = mergeConversationEvents(
+    Array.isArray(raw?.events) ? raw.events : [],
+    appendedEvents,
+  );
+  const checkpointMessages = Array.isArray(raw?.messages) ? raw.messages : [];
+  const derivedMessages = events.length > 0 ? runEventsToConversationMessages(events) : [];
+  const derivedMessageIds = new Set(
+    derivedMessages.map((message) => String(message?.id ?? "").trim()).filter(Boolean),
+  );
+  const preservedMessages = checkpointMessages.filter((message) => {
+    const messageId = String(message?.id ?? "").trim();
+    return !messageId || !derivedMessageIds.has(messageId);
+  });
   return {
     version: Number(raw?.version) || 1,
     provider,
     agentId,
     conversationId: id,
     updatedAt: Number(raw?.updatedAt) || null,
-    events: Array.isArray(raw?.events) ? raw.events : [],
-    messages: Array.isArray(raw?.messages) ? raw.messages : [],
+    events,
+    checkpointMessages,
+    messages: derivedMessages.length > 0
+      ? [...preservedMessages, ...derivedMessages]
+      : checkpointMessages,
   };
 }
 
 /**
- * Aggregate every conversation that belongs to an agent: the normal sessions
- * stored under `<provider>-<agentId>.json` plus the communication-channel
- * sessions (`source:"channel"`, persisted under scoped `<provider>-<platform>-<hash>`
- * files). Channel sessions are filtered by `provider` so the dropdown for a
- * given agent shows all of its sessions regardless of which file they live in.
+ * List the writable Studio conversations for one agent partition.
+ *
+ * Channel conversations have a separate ownership and delivery path. They
+ * are exposed by `listChannelConversations` for the dedicated channel view;
+ * merging them here would make a normal Studio selection point at a
+ * channel-owned conversation and send to the wrong destination.
  */
 export async function listConversationsByProvider(workspaceRoot, provider, agentId = "default") {
-  const [normal, channel] = await Promise.all([
-    listConversations(workspaceRoot, provider, agentId),
-    listChannelConversations(workspaceRoot),
-  ]);
-  const channelForProvider = channel.conversations.filter((conversation) => conversation.provider === provider);
-  const merged = [...normal.conversations, ...channelForProvider].sort((a, b) => b.updatedAt - a.updatedAt);
-  return {
-    conversations: merged,
-    activeConversationId: normal.activeConversationId ?? merged[0]?.id ?? null,
-  };
+  return listConversations(workspaceRoot, provider, agentId);
 }
 
 /**
@@ -261,7 +335,6 @@ export async function listConversationsByProvider(workspaceRoot, provider, agent
  */
 export async function importConversationFromArchive(workspaceRoot, provider, agentId = "default", input = {}) {
   const requestedId = String(input.conversationId ?? "").trim();
-  console.log("[runtime] importConversationFromArchive", { workspaceRoot, provider, agentId, conversationId: requestedId, messageCount: Array.isArray(input.messages) ? input.messages.length : 0 });
   let conversation = requestedId ? await getConversation(workspaceRoot, provider, agentId, requestedId) : null;
   if (!conversation) {
     conversation = await createConversation(workspaceRoot, provider, agentId, {
@@ -289,7 +362,6 @@ export async function importConversationFromArchive(workspaceRoot, provider, age
       createdAt: Number(message.createdAt) || Date.now() + index,
     };
   });
-  console.log("[runtime] writing", { conversationId, messageCount: messages.length });
   await writeConversationEvents(workspaceRoot, provider, agentId, conversationId, [], messages);
   return { conversation, importedMessageCount: messages.length };
 }

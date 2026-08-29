@@ -16,9 +16,40 @@ import { classifySpawnErrorStep, mapProbeStepToTestStep } from "./run-helpers.mj
  * @param {Record<string, unknown>} deps.injectedAdapters
  * @param {(input?: object) => Promise<object>} deps.listAgents  bound listAgents (for health-by-id)
  * @param {NodeJS.ProcessEnv} deps.providerEnvironment
+ * @param {number} [deps.healthTtlMs]
  */
 export function createConnectionProbes(deps) {
   const { legacy, injectedAdapters, listAgents, providerEnvironment } = deps;
+  const healthTtlMs = Math.max(1_000, Number(deps.healthTtlMs) || 5_000);
+  const healthCache = new Map();
+  const healthInFlight = new Map();
+
+  function healthCacheKey(input, agent) {
+    return JSON.stringify([
+      String(input.workspaceRoot ?? "").trim(),
+      String(agent.provider ?? "").trim(),
+      String(agent.id ?? "").trim(),
+      String(input.timeoutMs ?? ""),
+    ]);
+  }
+
+  async function cachedHealth(input, agent, producer) {
+    const key = healthCacheKey(input, agent);
+    if (input.refresh === true) healthCache.delete(key);
+    const cached = healthCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+    const running = healthInFlight.get(key);
+    if (running) return running;
+    const request = Promise.resolve()
+      .then(producer)
+      .then((value) => {
+        healthCache.set(key, { value, expiresAt: Date.now() + healthTtlMs });
+        return value;
+      })
+      .finally(() => healthInFlight.delete(key));
+    healthInFlight.set(key, request);
+    return request;
+  }
 
   // Run a two-step ACP probe (CLI spawn -> initialize -> session/new) against
   // an agent and return a structured connection result the UI can render.
@@ -135,7 +166,7 @@ export function createConnectionProbes(deps) {
     }
   }
 
-  async function checkProviderHealth(input = {}) {
+  async function checkProviderHealthUncached(input = {}) {
     const checkedAt = Date.now();
     try {
       const agent = await legacy.normalizeAgent(input.agent ?? {});
@@ -186,6 +217,11 @@ export function createConnectionProbes(deps) {
         configOptions: [],
       };
     }
+  }
+
+  async function checkProviderHealth(input = {}) {
+    const agent = await legacy.normalizeAgent(input.agent ?? {});
+    return cachedHealth(input, agent, () => checkProviderHealthUncached({ ...input, agent }));
   }
 
   async function checkManagedAgentHealthById(input = {}) {

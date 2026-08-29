@@ -1,10 +1,10 @@
 import os from "node:os";
 import path from "node:path";
 
-import { normalizePersonalLocalAgent } from "../personal-agent-runtime/provider-registry.mjs";
 import {
   ONMYAGENT_ASSISTANT_AGENT_ID,
   createOnMyAgentAssistantAgent,
+  normalizeChannelAgent,
 } from "../channels/assistant-bridge.mjs";
 import {
   DEFAULT_HISTORY_LIMIT,
@@ -15,7 +15,7 @@ import {
 const DEFAULT_WORKSPACE_ROOT = path.join(os.homedir(), ".onmyagent", "weixin-workspace");
 
 export function normalizeRuntimeOptions(input = {}) {
-  const agent = normalizePersonalLocalAgent(input.agent ?? { provider: "opencode" });
+  const agent = normalizeChannelAgent(input.agent ?? { provider: "opencode" });
   const availableAgents = normalizeAvailableAgents(input.availableAgents ?? input.agents, agent);
   const allowedUsers = normalizeList(input.allowedUsers ?? input.allowFrom);
   const allowedGroups = normalizeList(input.allowedGroups ?? input.groupAllowFrom);
@@ -73,7 +73,7 @@ export function normalizeAvailableAgents(value, fallbackAgent) {
   const source = Array.isArray(value) ? value : [];
   const byId = new Map();
   for (const item of [fallbackAgent, ...source]) {
-    const agent = normalizePersonalLocalAgent(item);
+    const agent = normalizeChannelAgent(item);
     byId.set(agent.id, agent);
   }
   if (!byId.has(ONMYAGENT_ASSISTANT_AGENT_ID)) {

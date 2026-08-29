@@ -41,9 +41,9 @@ function runGate() {
   // process.execPath = node). Bun's import.meta.resolve resolves bare
   // specifiers globally regardless of parent URL, which would mask a missing
   // dependency — so force Node here to match the real runtime.
-  const nodeBin = process.env.NODE || process.execPath.endsWith("bun")
+  const nodeBin = process.env.NODE || (process.versions.bun
     ? (process.platform === "win32" ? "node.exe" : "node")
-    : process.execPath;
+    : process.execPath);
   return spawnSync(nodeBin, [gateScript], {
     cwd: fixtureRoot,
     encoding: "utf8",

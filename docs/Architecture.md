@@ -66,7 +66,7 @@ packages/
 | 能力 | macOS | Windows | Linux desktop (dev-runnable, not a shipped SKU) |
 | --- | --- | --- | --- |
 | Agent Computer Use MCP | HandsFree helper（默认开，helper 就绪时） | Bundled **Cua Driver**（staged；MCP **默认关**） | 无产品包 / 无 helper |
-| Composer Appshot | Electron `desktopCapturer` | 同左 | 非产品目标（实现层或仍有 `platform===linux` 分支，勿当支持承诺） |
+| Composer Appshot | Electron `desktopCapturer` | 同左 | 同左 |
 | HandsFree AX / Skysight | ✓ | — | — |
 
 实现入口：`apps/desktop/electron/computer-use-desktop.mjs`、`computer-use-runtime-config.mjs`、`prepare-cua-helper.mjs`、`computer-use-appshot.mjs`。详表见 [`windows-compat.md`](./windows-compat.md)。
@@ -129,6 +129,7 @@ Gate: `scripts/checks/check-session-hub-budget.mjs` (wired into `pnpm check:boun
 | **skills / intro** | Package manifest metadata is the declaration SoT for `skills`, `introStyle`, and `approvedAgentIds`; marker v3 reports declared / physically installed / missing skills | `expert-marketplace.mjs` + `expert-session-runtime.ts` |
 | **prompt** | Every managed Expert `prompt_async` request must pass the same runtime contract: authorized directory, marker/workspace/session identity, `onmyagent` or manifest-approved agent, empty plugin list, physical skills, and bounded first request | `expert-runtime-contract.ts` + `opencode-proxy.ts` |
 | **surface UI** | Single FSM (`reduceExpertSurface`); mode is pure projection; never merge tab-highlight / create-operation / composer-pending; cold-open suppressed during create/draft; tab title snapshots only for selected (≤1) | [`design/expert-surface-architecture.md`](./design/expert-surface-architecture.md) |
+| **prompt queue** | Busy live session may enqueue follow-up prompts in memory (≤20); drain waits for remote-busy-then-idle latch; Stop pauses drain; failed send restores the taken item; queued drain must not clear the live composer draft; `draft:*` / `draftOnly` sessions do not queue | `composer-state-store.ts` + `session-prompt-queue.test.ts` |
 
 ### Cold-path budget (numeric)
 
@@ -191,8 +192,11 @@ desktop(electron) → runtime.mjs → engineStart
   optional apps/orchestrator (not engineStart; not the desktop default):
     └→ spawn onmyagent-orchestrator daemon (sandbox / detached only)
          └→ spawn onmyagent-server binary (never import server source)
-         └→ OpenCode + approval router / Slack / Telegram
+         └→ OpenCode + approval router
   app(React) ← server HTTP API via onmyagent-server client
+    renderer → workspace `/opencode` HTTP mount
+    session list/get → workspace API (`/workspace/:id/sessions`)
+    OpenCode process managed by the embedded server (not a renderer SDK↔binary hop)
 
 app(React) ← desktop.ts(command-validated IPC bridge)
   ← preload.mjs
@@ -200,7 +204,7 @@ app(React) ← desktop.ts(command-validated IPC bridge)
   ← desktop-handlers/*（workspace / system / knowledge / company / computerUse / local-agents / task-orchestrator / messaging / agent-management / opencode / runtime / skills / managedTools）
   ← main.mjs（组装 services + createAllDesktopDomainHandlers）
 app(React) ← onmyagent-server.ts(compat barrel) ← onmyagent-server/client.ts + domains.ts ← server
-app(React) ← opencode.ts(SDK) ← opencode binary
+app(React) ← opencode.ts (SDK client/compat → workspace `/opencode` HTTP; not SDK ← binary)
 app(React) ← @onmyagent/types ← packages/types（Zod schema + DesktopCommandMap）
 ```
 
@@ -276,8 +280,8 @@ Electron main 另有主动 Supervisor watchdog（bounded backoff/jitter/circuit 
 工作中断；真实 `powerMonitor suspend/resume` 区间才从 Turn liveness budget 扣除，
 普通 event-loop/SQLite/provider stall 不享受豁免。
 
-微信、飞书、Telegram、Discord 的普通消息仍走 Personal runtime；只有显式
-`#task`/`/task` 进入共享 Messaging Task Adapter。
+微信、飞书、Telegram、Discord 的普通消息仍走 Personal runtime / desktop channels；只有显式
+`#task`/`/task` 进入共享 Messaging Task Adapter。Orchestrator 不是产品 IM 路径。
 绑 `onmyagent` / `onmyagent-assistant`（「本地助理」）的 IM 聊天是**产品例外**：
 `channels/assistant-bridge` 对 OpenCode 主轨 `session.create` / `promptAsync` 热写，
 会话出现在助手 tab 与 archive-sync（`listWorkspaceSessions` 无 surface 过滤）。
@@ -287,6 +291,50 @@ Electron main 另有主动 Supervisor watchdog（bounded backoff/jitter/circuit 
 真相仍只在 Supervisor。重复 webhook 以稳定 message identity 去重，终态/审批消息
 claim→send→ack，断线后按每个 event stream cursor 重放；附件只进入有界元数据引用，
 不把凭证、raw app state 或任意本地路径带入 contract/output。
+
+### Messaging channel canonical transcript path
+
+Messaging chat history has one Electron-owned canonical timeline. Inbound
+provider events and successful outbound transport calls append to
+`ChannelTranscriptStore`, persisted below app `userData` at
+`channel-transcript/messages.json`. The identity key is the normalized
+`platformType + accountId + chatId` tuple; the runtime's historical `weixin`
+alias is normalized to the canonical `wechat` id at the transcript boundary. A provider message's
+external id is deduplicated only inside that tuple and direction, so two
+accounts or chats cannot silently share a transcript.
+
+`ChannelSessionStore` remains the per-Agent runtime/session binding owner. On
+transcript initialization it is read only for best-effort legacy backfill;
+legacy session files are never deleted or rewritten by the transcript store.
+Legacy records without a reliable bot account stay under an explicit
+`legacy-unknown-account` identity and therefore cannot be mislabeled as a
+future exact account.
+
+The renderer reads thread lists and paginated transcript pages through typed
+Desktop IPC (`channelGetTranscriptThreads` / `channelGetTranscript`); the
+timestamp + message-id cursor keeps equal-timestamp page boundaries lossless.
+It only uses transcript push events to refresh the visible timeline. The
+channels page does not maintain a second business-truth store. Its local
+composer invokes `channelRunAgentPrompt`, which calls the selected service's
+existing bound Agent dispatch. Feishu, Telegram and Discord keep the operator
+prompt local and send only the final Agent response through the provider's real
+send abstraction. Weixin first mirrors an accepted operator prompt as the
+labelled BOT message `你（Studio）：<prompt>` through iLink, then starts the Agent
+and relays its final response. The mirror is deliberately not recorded as a
+second outbound assistant row: the canonical timeline retains exactly one
+`local`/`operator` record on the user side. If the mirror transport fails, the
+Agent turn does not start and the renderer receives an actionable error.
+
+Active-run records persist the local-prompt flag and exact Agent snapshot
+across restart/resume, preventing legacy session double-append and cross-Agent
+attribution. Intermediate approval, failure, cancellation, and timeout notices
+for a Studio-local prompt remain in the local transcript; they are not sent to
+the external chat. On Weixin inbound, iLink `context_token` is stored after
+channel-policy admission but before the local pairing gate, so approval makes
+that chat immediately sendable. Provider message IDs enter execution dedupe
+only after authorization; ID-less payloads use content fallback at the same
+point. Thus a pre-approval delivery never runs automatically and cannot poison
+the provider's post-approval retry.
 
 - Renderer 的 `domains/task-center` 只调用 typed Desktop IPC；不 import
   Personal adapter，也不复制 Task 真相到 OpenCode archive 或 renderer store。
@@ -323,6 +371,7 @@ claim→send→ack，断线后按每个 event stream cursor 重放；附件只�
 
 1. **Personal 不得**直接打开、写入或 dispose Primary server 的 session-archive、主会话 SQLite 热路径。
 2. **Primary server 生命周期**不得把 Personal conversation store 当作主会话真相源；Personal run 结束也不应「顺便」写主 archive，除非未来有**显式、单向、有主的**导出合同（默认无）。
+   **例外**：归档「恢复」(`useArchiveResume`，`source: session-archive-resume`) 是**单向副本**：renderer 经 `onmyagent-server` HTTP 读 session-archive 消息，再经 desktop IPC 写入 Personal conversation store，只为本地 Agent 视图展示历史。不写回主 archive，不把 Personal 当主会话真相源。静态门禁仍禁止同一文件混 import 两套 store。
 3. **同一用户意图**不得对同一逻辑会话同时挂两套热写路径（一边 HTTP session stream，一边 personal run 写同一 archive 行）。
    **例外**：IM「本地助理」只走 OpenCode 主轨（见上），不得再挂一条 Personal run 写同一会话。
 4. **Renderer 禁止** import `personal-agent-runtime/**` 或 adapter 实现；只经 `desktop.ts` IPC 与 `onmyagent-server` HTTP。
@@ -335,6 +384,7 @@ claim→send→ack，断线后按每个 event stream cursor 重放；附件只�
 - 改的是主会话、archive、SSE、workspace 会话 API？→ **Primary server contract + runtime adapter**。
 - 改的是本机 Claude/Codex/… 进程、ACP、local agent 卡片、personal 通道发消息？→ **Personal**。
 - 两边 UI 看起来像同一个聊天？→ 只共享 **conversation capability 展示**，不共享写存储。
+- 归档页 Resume 到本地 Agent 视图？→ **单向 copy** 进 Personal（`session-archive-resume`）；禁止写回 Primary archive。
 - 不确定谁写？→ **默认Primary server主轨**；OpenCode仍是新会话默认runtime，Personal只读或独立store，直到有书面合同。
 
 实现细节与 adapter 列表见 **Runtime Adapter**；主轨 archive 热路径见 **Server Archive Runtime**。
@@ -448,7 +498,7 @@ pnpm check:boundaries
 
 `pnpm check:boundaries` 实际串行五道（勿再写成「三组 / 四道」）：
 
-1. `scripts/checks/check-boundaries.mjs` — package + domain + shell-import-depth
+1. `scripts/checks/check-boundaries.mjs` + `check-boundaries.test.mjs` — package + domain + shell-import-depth；orchestrator `src/**` 不得 import server 源码
 2. `scripts/checks/check-circular-deps.mjs` — Tarjan SCC，baseline 只减不增
 3. `scripts/checks/check-dual-runtime-boundary.mjs` — renderer 不得 import `personal-agent-runtime/**`；Personal 不得 import `session-archive*`
 4. `node --test scripts/checks/check-dual-runtime-boundary.test.mjs`
@@ -481,10 +531,13 @@ baseline `scripts/checks/baselines/circular-deps.json` **只减不增**（当前
 发现。这条规则来自 AGENTS.md 的"不用 `any`、类型断言 `as`"硬性禁止。
 
 `pnpm check:file-size` 是**文件体量基线门禁**（`scripts/checks/baselines/file-size.json`）：
-已登记大文件只允许缩减、禁止无说明膨胀。新增大文件应先拆分或显式刷新 baseline；
+已登记大文件只允许缩减、禁止无说明膨胀。另有
+`scripts/checks/baselines/file-size-discovery.json` 的 800 行发现基线，覆盖已跟踪及未跟踪的源码，
+用于防止新 god-file 绕过登记；新增大文件应先拆分或显式刷新 discovery baseline。
 与 god-file 治理（`server.ts`、`session-archive.ts`、`session-surface.tsx`、`main.mjs` 等）配套。
 **不登记** `apps/desktop/resources/marketplace/**`、`bundled-skills/**`、`graphify-out/**`
 （捆绑内容包 / 生成图，不是产品债；`--write` 会丢掉误加条目）。
+`pnpm check:unused` 同时保护 React kernel composition 的可达性，并接入根 `pnpm check`。
 
 当前检查覆盖：
 
@@ -492,6 +545,7 @@ baseline `scripts/checks/baselines/circular-deps.json` **只减不增**（当前
 - `packages/ui` 不依赖 app/server/desktop 业务包。
 - `apps/server` 不依赖 renderer、desktop 或 UI 包。
 - `apps/desktop` 不直接 import renderer 包；renderer 交互必须走 IPC/preload/server API。
+- `apps/orchestrator` production `src/**` 不得 `import "onmyagent-server"` 或 `apps/server/src`（该包 `exports["."]` 指向 server 源码）。依赖按 `apps/orchestrator/package.json` 声明的 `onmyagent-server` 版本；运行时 spawn 二进制 / `require.resolve("onmyagent-server/package.json")`。`tests/` 可为哈希对齐 import server 源码。
 - **Desktop IPC 三层 SoT**：
   1. 命令名：`packages/types/src/desktop-ipc-commands.mjs`（运行时 groups）+
      `desktop-ipc-commands.d.mts`（字面量联合）；parity test 要求每条命令恰好声明和实现一次。

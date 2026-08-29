@@ -44,46 +44,79 @@ export const HOME_CONFIG_SLASH_SKILL_NAMES = Object.freeze([
 export const OPENCODE_SANDBOX_DIR_NAME = "opencode-sandbox";
 
 /**
- * OpenCode starts a background dependency reconcile for every config
- * directory. Managed sandboxes only use product-owned local plugins, so an
- * empty node_modules plus a lockfile entry prevents that reconcile from
- * reaching the network (and retrying forever when offline).
- *
+ * OpenCode reconciles dependencies for every config directory. Managed
+ * sandboxes only use product-owned local plugins, so seed a complete local
+ * package state and prevent startup from reaching the network when offline.
  * @param {string} configDir
  */
 async function ensureLocalPluginDependencyState(configDir) {
   const root = String(configDir ?? "").trim();
   if (!root) return;
   const nodeModules = path.join(root, "node_modules");
+  const pluginPackageDir = path.join(nodeModules, "@opencode-ai", "plugin");
   const packageJson = path.join(root, "package.json");
   const packageLock = path.join(root, "package-lock.json");
   await mkdir(nodeModules, { recursive: true });
-  if (!existsSync(packageJson)) {
-    await writeFile(
-      packageJson,
-      `${JSON.stringify({ private: true, dependencies: { "@opencode-ai/plugin": "*" } }, null, 2)}\n`,
-      "utf8",
-    );
-  }
-  if (!existsSync(packageLock)) {
-    await writeFile(
-      packageLock,
-      `${JSON.stringify(
-        {
-          name: "onmyagent-opencode-sandbox",
-          private: true,
-          lockfileVersion: 3,
-          requires: true,
-          packages: {
-            "": { dependencies: { "@opencode-ai/plugin": "*" } },
+  await mkdir(pluginPackageDir, { recursive: true });
+  await writeFile(
+    packageJson,
+    `${JSON.stringify(
+      {
+        private: true,
+        dependencies: { "@opencode-ai/plugin": "*" },
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+  await writeFile(
+    packageLock,
+    `${JSON.stringify(
+      {
+        name: "onmyagent-opencode-sandbox",
+        private: true,
+        lockfileVersion: 3,
+        requires: true,
+        packages: {
+          "": {
+            dependencies: { "@opencode-ai/plugin": "*" },
+          },
+          "node_modules/@opencode-ai/plugin": {
+            version: "0.0.0",
+            resolved: "file:node_modules/@opencode-ai/plugin",
           },
         },
-        null,
-        2,
-      )}\n`,
-      "utf8",
-    );
-  }
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+  await writeFile(
+    path.join(pluginPackageDir, "package.json"),
+    `${JSON.stringify(
+      {
+        name: "@opencode-ai/plugin",
+        version: "0.0.0",
+        type: "module",
+        exports: { ".": "./index.js", "./tool": "./tool.js" },
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+  await writeFile(
+    path.join(pluginPackageDir, "index.js"),
+    "export const tool = (definition) => definition;\n",
+    "utf8",
+  );
+  await writeFile(
+    path.join(pluginPackageDir, "tool.js"),
+    "export const tool = (definition) => definition;\n",
+    "utf8",
+  );
 }
 
 /**
@@ -185,12 +218,13 @@ export async function prepareOpencodeSandboxHome(input) {
   }
 
   const sandboxConfig = buildSandboxOpencodeConfig(sourceConfig);
-  await ensureLocalPluginDependencyState(path.dirname(paths.opencodeConfigPath));
+  const configDir = path.dirname(paths.opencodeConfigPath);
+  await ensureLocalPluginDependencyState(configDir);
   if (input.installKnowledgePlugins !== false) {
     try {
       await ensureKnowledgeVault({ homeDir: realHome });
       const installed = await installKnowledgeSearchPlugin({
-        configDir: path.dirname(paths.opencodeConfigPath),
+        configDir,
         homeDir: realHome,
       });
       if (installed.ok) {

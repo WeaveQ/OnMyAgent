@@ -153,9 +153,11 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
   {
     id: "cursor-agent",
     displayName: "Cursor Agent CLI",
-    commands: ["cursor-agent", "cursor"],
-    skillsDirs: [],
-    acpArgs: ["agent", "acp"],
+    // Editor `cursor` is VS Code's `code` shim, not the ACP agent.
+    commands: ["cursor-agent"],
+    skillsDirs: [join(HOME, ".cursor", "skills-cursor")],
+    wellKnownPaths: [join(HOME, ".local", "bin", "cursor-agent")],
+    acpArgs: ["acp"],
   },
   {
     id: "qwen",
@@ -254,7 +256,10 @@ export const KNOWN_DISCOVERABLE_AGENTS = [
     id: "grok",
     displayName: "Grok Build CLI",
     commands: ["grok"],
-    skillsDirs: [join(HOME, ".grok", "skills")],
+    skillsDirs: [
+      join(HOME, ".grok", "skills"),
+      join(HOME, ".grok", "bundled", "skills"),
+    ],
     // Packaged Electron often has a short PATH; also probe common install roots.
     wellKnownPaths: [
       join(HOME, ".grok", "bin", "grok"),

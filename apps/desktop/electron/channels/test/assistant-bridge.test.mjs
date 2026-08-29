@@ -189,4 +189,30 @@ const delayed = await runAssistantTurn({
 assert.equal(delayed.output, "complete channel reply");
 assert.ok(streamingCalls.messages >= 3, "must poll beyond the first non-terminal chunk");
 
+console.log("Test 8: a rejected assistant reply delivery is returned and recorded locally");
+const localNotices = [];
+const bridgeResult = await runAssistantBridgeTurn({
+  runtime: { async getPrimaryRuntimeConnection() { return connection; } },
+  store: { async writeChatSetting() {} },
+  session: {
+    account: { accountId: "acct" },
+    options: { workspaceRoot: "/tmp/ws" },
+  },
+  event: {
+    chatId: "chat-5",
+    senderId: "peer-5",
+    text: "hello",
+    isLocalPrompt: true,
+  },
+  platformLabel: "telegram",
+  readChatSetting: async () => null,
+  executeAssistantTurn: async () => ({ output: "finished", sessionId: "sess-5" }),
+  deliverReply: async () => ({ ok: false, error: "transport down" }),
+  deliverLocalNotice: async (_session, _event, text) => { localNotices.push(text); },
+});
+assert.equal(bridgeResult.status, "failed");
+assert.match(bridgeResult.error, /transport down/);
+assert.equal(localNotices.length, 1);
+assert.match(localNotices[0], /transport down/);
+
 console.log("\n✅ All canonical assistant-bridge tests passed!");

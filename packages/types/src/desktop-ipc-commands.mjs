@@ -139,7 +139,8 @@ const commandGroups = /** @type {const} */ ({
     "channelApprovePairing", "channelDenyPairing", "channelGetAuthorizedUsers",
     "channelIsUserAuthorized", "channelRevokeUserAuthorization",
     "channelGetOrCreateSession", "channelGetSession", "channelGetSessionsByPlatform",
-    "channelGetSessionsByUser", "channelCloseSession", "channelUpdateSessionMetadata",
+    "channelGetSessionsByUser", "channelGetTranscriptThreads", "channelGetTranscript",
+    "channelRunAgentPrompt", "channelCloseSession", "channelUpdateSessionMetadata",
     "channelGetEventHistory",
   ],
   agentManagement: [

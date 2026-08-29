@@ -5,6 +5,7 @@ import {
   buildAgentToolAccess,
   usePendingAgentStore,
 } from "../src/react-app/domains/agents/pending-agent-store";
+import { startPendingExpertInWorkspace } from "../src/react-app/domains/session/pages/use-summon-marketplace-expert";
 
 describe("shared pending agent store contract", () => {
   test("builds first-message system prompts from persona fields", () => {
@@ -72,5 +73,50 @@ describe("shared pending agent store contract", () => {
       boundSessionId: "ses-1",
       model: { providerID: "openai", modelID: "gpt-4.1" },
     });
+  });
+
+  test("rebinds an imported expert after creating its fresh workspace task", () => {
+    const events: string[] = [];
+    usePendingAgentStore.getState().setAgent(null);
+
+    startPendingExpertInWorkspace({
+      pending: {
+        id: "imported-expert",
+        name: "Imported expert",
+        description: "Imported package",
+        avatar: {
+          avatarStyle: "robot",
+          avatarOptionId: "generated:robot:0:1",
+          customAvatarDataUrl: null,
+          avatarUrl: null,
+          avatarBackground: null,
+        },
+        systemPrompt: "Help the user.",
+        operationId: "import-operation",
+        boundSessionId: "old-session",
+        marketplaceExpert: {
+          source: "mine",
+          packageName: "imported-expert",
+          packagePath: "/tmp/imported-expert",
+        },
+      },
+      selectedWorkspaceId: "workspace-1",
+      onCreateTaskInWorkspace: (workspaceId) => {
+        events.push(`create:${workspaceId}`);
+        usePendingAgentStore.getState().setAgent(null);
+      },
+      onNavigateToMode: (mode) => events.push(`navigate:${mode}`),
+    });
+
+    expect(events).toEqual(["create:workspace-1", "navigate:expert"]);
+    expect(usePendingAgentStore.getState().getAgent()).toMatchObject({
+      id: "imported-expert",
+      boundSessionId: undefined,
+      draftSource: "agent-selection",
+      marketplaceExpert: { source: "mine", packageName: "imported-expert" },
+    });
+    expect(usePendingAgentStore.getState().getAgent()?.operationId).not.toBe(
+      "import-operation",
+    );
   });
 });

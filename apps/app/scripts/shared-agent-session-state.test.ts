@@ -17,8 +17,10 @@ import {
   syncAutomationSessionRecords,
 } from "../src/react-app/domains/messaging/automation-session-groups";
 import {
+  buildStoreExpertShelf,
   buildExpertSidebarSessionGroups,
   buildExpertWorkspaceSessions,
+  listExpertAgentIdsWithSessions,
   listVisibleExpertAgentSessions,
 } from "../src/react-app/domains/session/pages/expert-conversation-model";
 
@@ -95,6 +97,104 @@ describe("shared agent session state", () => {
 
     expect(isAssistantSession("ses-1")).toBe(false);
     expect(readAssistantSessionCategory("unknown")).toBe("office");
+  });
+
+  test("lists only directory experts that own at least one session", () => {
+    expect(
+      listExpertAgentIdsWithSessions({
+        version: 1,
+        schema: "onmyagent.expert-directory.v1",
+        revision: 7,
+        complete: true,
+        state: "ok",
+        failures: [],
+        inventoryFingerprint: "fingerprint",
+        tombstonedSessionIds: [],
+        records: [
+          {
+            agentId: "expert-with-session",
+            packageName: "with-session",
+            sessionIds: ["session-1"],
+            runtimeDirectories: [],
+            sessions: [],
+            declaredSkills: [],
+            installedSkills: [],
+            missingSkills: [],
+            runtimeMissing: false,
+          },
+          {
+            agentId: "expert-without-session",
+            packageName: "without-session",
+            sessionIds: [],
+            runtimeDirectories: [],
+            sessions: [],
+            declaredSkills: [],
+            installedSkills: [],
+            missingSkills: [],
+            runtimeMissing: false,
+          },
+        ],
+      }),
+    ).toEqual(["expert-with-session"]);
+  });
+
+  test("uses the newest incomplete directory records instead of an older complete count", () => {
+    expect(
+      listExpertAgentIdsWithSessions({
+        version: 1,
+        schema: "onmyagent.expert-directory.v1",
+        revision: 8,
+        complete: false,
+        state: "degraded",
+        failures: ["runtime_pending"],
+        inventoryFingerprint: "fingerprint-new",
+        tombstonedSessionIds: [],
+        records: Array.from({ length: 5 }, (_, index) => ({
+          agentId: `expert-${index + 1}`,
+          packageName: `package-${index + 1}`,
+          sessionIds: [`session-${index + 1}`],
+          runtimeDirectories: [],
+          sessions: [],
+          declaredSkills: [],
+          installedSkills: [],
+          missingSkills: [],
+          runtimeMissing: index === 4,
+        })),
+      }),
+    ).toEqual(["expert-1", "expert-2", "expert-3", "expert-4", "expert-5"]);
+  });
+
+  test("builds one store shelf from real conversations and unstarted mine experts", () => {
+    const shelf = buildStoreExpertShelf({
+      packages: [],
+      conversations: [
+        { agentId: "aihot", name: "资讯速递专家", description: "", avatarUrl: null },
+        {
+          agentId: "kol-content-ops-specialist",
+          name: "达人运营专家",
+          description: "",
+          avatarUrl: null,
+        },
+        { agentId: "imported", name: "导入专家", description: "", avatarUrl: null },
+        { agentId: "translation", name: "翻译专家", description: "", avatarUrl: null },
+        { agentId: "business", name: "商务翻译专家", description: "", avatarUrl: null },
+      ],
+    });
+
+    expect(shelf.activeExpertAgentIds).toEqual([
+      "aihot",
+      "kol-content-ops-specialist",
+      "imported",
+      "translation",
+      "business",
+    ]);
+    expect(shelf.experts.map((expert) => expert.displayName)).toEqual([
+      "资讯速递专家",
+      "达人运营专家",
+      "导入专家",
+      "翻译专家",
+      "商务翻译专家",
+    ]);
   });
 
   test("scopes expert entries to real sessions in the selected workspace", () => {

@@ -3,6 +3,7 @@
  */
 import { t } from "../../../../i18n";
 import type { SidebarSessionItem, WorkspaceSessionGroup } from "../../../../app/types";
+import type { ExpertDirectoryProjection } from "@onmyagent/types/server";
 import type { PendingAgentContext, AgentRegistry } from "../../agents";
 import {
   buildPendingAgentFromRecord,
@@ -13,7 +14,11 @@ import {
   buildAgentConversationGroups,
   type AgentConversationGroup,
 } from "../sidebar/session-chrome";
-import { findBuiltinMarketplaceExpertById } from "@/react-app/domains/plugins";
+import {
+  findBuiltinMarketplaceExpertById,
+  mergeLocalShelfWithConversations,
+  type ExpertMarketplaceEntry,
+} from "@/react-app/domains/plugins";
 import { resolveExpertSessionSelection } from "../sidebar/expert-session-selection-memory";
 
 export { buildAgentConversationGroups };
@@ -40,6 +45,45 @@ export function listVisibleExpertAgentSessions(
     const agentId = identity.agentIdBySessionId.get(session.id);
     return agentId ? [{ sessionId: session.id, agentId }] : [];
   });
+}
+
+export function listExpertAgentIdsWithSessions(
+  directory: ExpertDirectoryProjection | null | undefined,
+): string[] {
+  if (!directory) return [];
+  return Array.from(
+    new Set(
+      directory.records.flatMap((record) =>
+        record.sessionIds.length > 0 && record.agentId.trim()
+          ? [record.agentId.trim()]
+          : [],
+      ),
+    ),
+  );
+}
+
+/** Keep the Store shelf identical to the active Expert conversation list. */
+export function buildStoreExpertShelf(input: {
+  packages: readonly ExpertMarketplaceEntry[];
+  conversations: readonly Pick<
+    AgentConversationGroup,
+    "agentId" | "name" | "description" | "avatarUrl"
+  >[];
+}): {
+  experts: ExpertMarketplaceEntry[];
+  activeExpertAgentIds: string[];
+} {
+  const conversations = input.conversations.flatMap((conversation) =>
+    conversation.agentId?.trim()
+      ? [{ ...conversation, agentId: conversation.agentId.trim() }]
+      : [],
+  );
+  return {
+    experts: mergeLocalShelfWithConversations(input.packages, conversations),
+    activeExpertAgentIds: Array.from(
+      new Set(conversations.map((conversation) => conversation.agentId)),
+    ),
+  };
 }
 
 export function buildExpertWorkspaceSessions(input: {
@@ -128,7 +172,11 @@ export function buildDraftAgentGroups(
         agentId: agent.id,
         name: agent.name,
         description: agent.description.trim() || t("session.cmd_new_session_title"),
-        avatarUrl: agent.avatar.avatarUrl,
+        avatarUrl:
+          agent.marketplaceExpert?.source === "mine" &&
+          !agent.avatar.customAvatarDataUrl?.trim()
+            ? null
+            : agent.avatar.avatarUrl,
         avatarBackground: agent.avatar.avatarBackground ?? "var(--dls-primary-soft)",
         sessions: [draftSession],
         latestSession: draftSession,

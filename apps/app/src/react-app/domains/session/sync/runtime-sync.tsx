@@ -8,7 +8,7 @@ import { useSessionActivityStore } from "../status/session-activity-store";
 import {
   synchronizeCanonicalRuntimeSession,
   type CanonicalRuntimeSyncMode,
-} from "./canonical-runtime-sync";
+} from "../../../capabilities/agent-runtime/canonical-runtime-sync";
 
 type ReactSessionRuntimeProps = {
   workspaceId: string;

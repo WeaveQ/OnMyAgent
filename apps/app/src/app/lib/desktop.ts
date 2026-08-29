@@ -122,6 +122,7 @@ import type {
   TencentMeetingConnectionStatus,
 } from "@onmyagent/types/tencent-meeting-connector";
 import type { TaskOrchestratorDesktopEvent } from "@onmyagent/types/task-orchestrator";
+import type { PersonalLocalAgentRuntimeEvent } from "@onmyagent/types/desktop-ipc";
 
 import type { WorkspaceList } from "./desktop-types";
 import type {
@@ -160,6 +161,11 @@ declare global {
       taskOrchestrator?: {
         onEvent?: (
           callback: (event: TaskOrchestratorDesktopEvent) => void,
+        ) => () => void;
+      };
+      personalAgentRuntime?: {
+        onEvent?: (
+          callback: (event: PersonalLocalAgentRuntimeEvent) => void,
         ) => () => void;
       };
       computerUse?: {
@@ -371,6 +377,7 @@ declare global {
         ) => () => void;
         onPairing?: (callback: (payload: unknown) => void) => () => void;
         onUserAuthorized?: (callback: (payload: unknown) => void) => () => void;
+        onTranscript?: (callback: (payload: import("./desktop-types").DesktopChannelTranscriptEvent) => void) => () => void;
       };
       browser?: {
         diagnostics?: () => Promise<{
@@ -1408,9 +1415,7 @@ export {
   discordSimulateInbound,
   channelTestPlugin,
   testChannelConnection,
-  onChannelStatus,
-  onChannelPairing,
-  onChannelUserAuthorized,
+  onChannelStatus, onChannelPairing, onChannelUserAuthorized, onChannelTranscript,
   channelGetPendingPairingRequests,
   channelApprovePairing,
   channelDenyPairing,
@@ -1421,15 +1426,16 @@ export {
   channelGetSession,
   channelGetSessionsByPlatform,
   channelGetSessionsByUser,
+  channelGetTranscriptThreads, channelGetTranscript, channelRunAgentPrompt,
   channelCloseSession,
   channelUpdateSessionMetadata,
   channelGetEventHistory,
 } from "./desktop-messaging";
-
 export type {
   ChannelPairingRequest,
   ChannelAuthorizedUser,
   ChannelSession,
+  ChannelTranscriptMessage, ChannelTranscriptThread,
 } from "./desktop-messaging";
 
 export const agentManagementSnapshot = (

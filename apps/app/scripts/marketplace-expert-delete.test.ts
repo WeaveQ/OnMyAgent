@@ -73,7 +73,7 @@ function stubGroup(
 }
 
 describe("marketplace expert hard-delete target", () => {
-  test("refuses catalog cards but allows summoned installs", () => {
+  test("refuses catalog and summoned-install cards", () => {
     expect(
       resolveMarketplaceExpertHardDeleteTarget({
         expert: stubExpert({
@@ -96,13 +96,7 @@ describe("marketplace expert hard-delete target", () => {
         conversationGroups: [stubGroup("pkg:pkg", ["ses_1"])],
         registry: null,
       }),
-    ).toEqual({
-      agentId: "pkg:pkg",
-      name: "Summoned",
-      sessionIds: ["ses_1"],
-      packageName: "pkg",
-      source: "installed",
-    });
+    ).toBeNull();
   });
 
   test("does not attach another expert whose id merely contains the package name", () => {
@@ -130,6 +124,7 @@ describe("marketplace expert hard-delete target", () => {
       sessionIds: ["ses_ops"],
       packageName: "ops",
       source: "mine",
+      deletePackage: true,
     });
   });
 
@@ -151,6 +146,7 @@ describe("marketplace expert hard-delete target", () => {
       sessionIds: [],
       packageName: "review",
       source: "mine",
+      deletePackage: true,
     });
   });
 
@@ -179,6 +175,7 @@ describe("marketplace expert hard-delete target", () => {
       packageName: "ops",
       source: "mine",
       sessionDirectories: { ses_1: "experts/报价作业-ops/ses_1" },
+      deletePackage: true,
     });
   });
 });
@@ -322,6 +319,31 @@ const leftoverHardDelete = {
 };
 
 describe("runExpertHardDelete shipped RPCs", () => {
+  test("session-only delete keeps the reusable expert package", async () => {
+    const packageCalls: ExpertPackageDeleteInput[] = [];
+    const result = await runExpertHardDelete(
+      { ...leftoverHardDelete, deletePackage: false },
+      {
+        deleteExpert: async (_workspaceId, request) => ({
+          operationId: request.operationId,
+          workspaceId: leftoverHardDelete.workspaceId,
+          agentId: request.agentId,
+          packageName: request.packageName,
+          revision: 2,
+          state: "completed",
+          steps: [],
+        }),
+        deleteExpertPackage: async (input) => {
+          packageCalls.push(input);
+          return completedPackage(input);
+        },
+      },
+    );
+
+    expect(packageCalls).toEqual([]);
+    expect(result.desktop).toBeUndefined();
+  });
+
   test("leftover sessionIds + 404 still invoke deleteExpertPackage", async () => {
     const expertCalls: Array<[string, ExpertDeleteRequest]> = [];
     const packageCalls: ExpertPackageDeleteInput[] = [];

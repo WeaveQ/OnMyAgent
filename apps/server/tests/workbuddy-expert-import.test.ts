@@ -136,6 +136,7 @@ describe("WorkBuddy expert import", () => {
     process.env.OPENCODE_GLOBAL_SKILLS_DIR = roots.skillsRoot;
     try {
       const listed = await listSkills(join(tempRoot, "workspace"), true);
+      expect(listed.some((item) => item.path.startsWith(`${roots.skillsRoot}/`))).toBe(false);
       const importedSkillPath = join(first.destination, "skills", "fullstack-dev", "SKILL.md");
       expect(listed.some((item) => item.path === importedSkillPath)).toBe(false);
     } finally {

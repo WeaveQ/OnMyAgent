@@ -102,7 +102,7 @@ import {
 import { createElectronBrowserController } from "./browser-runtime/electron-browser-controller.mjs";
 import { createUiControlServer } from "./ui-control-server.mjs";
 import { createDesktopCommandRouter } from "./desktop-command-router.mjs";
-import { createAllDesktopDomainHandlers } from "./desktop-handlers/index.mjs";
+import { createAllDesktopDomainHandlers, createLocalAgentBrowserMcpResolver } from "./desktop-handlers/index.mjs";
 import { createDesktopPaths } from "./desktop-paths.mjs";
 import { createDesktopWindowController } from "./desktop-window.mjs";
 import { registerDesktopBrowserIpc } from "./desktop-ipc-browser.mjs";
@@ -610,6 +610,7 @@ const {
   readWorkspaceState,
   claudeProjectsRoot,
   taskMessageRouter: deferredMessagingTasks.route,
+  onRuntimeEvent: (event) => { if (!mainWindow?.isDestroyed() && !mainWindow?.webContents.isDestroyed()) mainWindow.webContents.send("onmyagent:personal-agent:event", event); },
 });
 
 const taskOrchestrator = createTaskSupervisorClient({
@@ -699,7 +700,6 @@ runtimeManager.setPrimaryRuntimeMcpProjectionProvider(createDesktopConnectorMcpP
   kdocs: kdocsConnector, dingtalk: dingtalkConnector,
   "tencent-meeting": tencentMeetingConnector,
 }));
-
 // Push channel state / pairing changes from the main process to the renderer
 // (parity: AionUi event-push for pluginStatusChanged / pairingRequested). The
 // singleton event bus is shared by every channel service's dispatcher, so a
@@ -715,8 +715,8 @@ runtimeManager.setPrimaryRuntimeMcpProjectionProvider(createDesktopConnectorMcpP
   channelEventBus.subscribe(CHANNEL_EVENTS.USER_AUTHORIZED, (event) => {
     mainWindow?.webContents?.send("onmyagent:channel:user:authorized", event?.payload ?? {});
   });
+  channelEventBus.subscribe(CHANNEL_EVENTS.TRANSCRIPT_UPDATED, (event) => mainWindow?.webContents?.send("onmyagent:channel:transcript", event?.payload ?? {}));
 })();
-
 const codeWorkspaceActions = createCodeWorkspaceActions({
   runtimeManager,
   shell,
@@ -767,7 +767,6 @@ async function mutateWorkspaceState(mutator) {
 function engineDoctor(options = {}) {
   return runtimeManager.engineDoctor(options);
 }
-
 const desktopCommandHandlers = createAllDesktopDomainHandlers({
   // messaging
   weixinService,
@@ -783,6 +782,7 @@ const desktopCommandHandlers = createAllDesktopDomainHandlers({
   taskOrchestrator,
   taskLifecycle,
   scanAgentManagementSkills,
+  resolveLocalAgentBrowserMcpServer: createLocalAgentBrowserMcpResolver({ browserController, execPath: process.execPath, electronRuntime: Boolean(process.versions.electron) }),
   app,
   // agent management
   personalAgentLegacyHarness,

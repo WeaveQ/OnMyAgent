@@ -1,5 +1,6 @@
 import { HANDLER_COMMAND_NAMES as messagingCommands, createMessagingDomainHandlers } from "./messaging.mjs";
 import { HANDLER_COMMAND_NAMES as localAgentsCommands, createLocalAgentsDomainHandlers } from "./local-agents.mjs";
+import { createLocalAgentBrowserMcpResolver } from "./local-agent-browser-mcp-resolver.mjs";
 import { HANDLER_COMMAND_NAMES as agentManagementCommands, createAgentManagementDomainHandlers } from "./agent-management.mjs";
 import { HANDLER_COMMAND_NAMES as workspaceCommands, createWorkspaceDomainHandlers } from "./workspace.mjs";
 import { HANDLER_COMMAND_NAMES as runtimeCommands, createRuntimeDomainHandlers } from "./runtime.mjs";
@@ -15,6 +16,7 @@ import { HANDLER_COMMAND_NAMES as taskOrchestratorCommands, createTaskOrchestrat
 export {
   createMessagingDomainHandlers,
   createLocalAgentsDomainHandlers,
+  createLocalAgentBrowserMcpResolver,
   createAgentManagementDomainHandlers,
   createWorkspaceDomainHandlers,
   createRuntimeDomainHandlers,

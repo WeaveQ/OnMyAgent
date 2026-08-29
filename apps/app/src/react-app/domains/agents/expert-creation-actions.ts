@@ -40,6 +40,7 @@ import {
   buildSavedExpertPendingContext,
   createExpertRecordForSave,
   isCreationExpertEditable,
+  resolveExpertPackageSkillNames,
   updateExpertRecordFromDraft,
 } from "./expert-creation-save-model";
 import { deleteExpertCreationEphemeralSession } from "./expert-creation-ephemeral-sessions";
@@ -66,6 +67,7 @@ export type SaveExpertCreationInput = {
   availableSkills: AgentSkillItem[];
   registry: AgentRegistry | null;
   workspaceId: string;
+  workspaceRoot: string;
   client: OnMyAgentServerClient | null;
   draftId?: string;
 };
@@ -129,7 +131,11 @@ export async function saveExpertCreation(
       quote: createdAgent.quote,
       rolePrompt: createdAgent.userNote,
       memory: createdAgent.agentMemory,
-      skills: [...createdAgent.skillIds],
+      skills: resolveExpertPackageSkillNames(
+        createdAgent.skillIds,
+        input.availableSkills,
+      ),
+      skillSourceWorkspaceRoot: input.workspaceRoot,
       knowledge,
       ...(createdAgent.customAvatarDataUrl
         ? { avatarDataUrl: createdAgent.customAvatarDataUrl }
@@ -202,7 +208,11 @@ export async function updateExpertCreation(
       quote: updatedDraftAgent.quote,
       rolePrompt: updatedDraftAgent.userNote,
       memory: updatedDraftAgent.agentMemory,
-      skills: [...updatedDraftAgent.skillIds],
+      skills: resolveExpertPackageSkillNames(
+        updatedDraftAgent.skillIds,
+        input.availableSkills,
+      ),
+      skillSourceWorkspaceRoot: input.workspaceRoot,
       preserveKnowledge: true,
       ...(updatedDraftAgent.customAvatarDataUrl
         ? { avatarDataUrl: updatedDraftAgent.customAvatarDataUrl }
@@ -293,6 +303,7 @@ export function useExpertCreationController(
             availableSkills,
             registry: input.registry,
             workspaceId: input.workspaceId,
+            workspaceRoot: input.workspaceRoot,
             client: input.client,
           })
         : await saveExpertCreation({
@@ -301,6 +312,7 @@ export function useExpertCreationController(
             availableSkills,
             registry: input.registry,
             workspaceId: input.workspaceId,
+            workspaceRoot: input.workspaceRoot,
             client: input.client,
             draftId,
           });

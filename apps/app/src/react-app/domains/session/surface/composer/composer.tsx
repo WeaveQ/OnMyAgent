@@ -49,9 +49,8 @@ import { useComposerCatalogs } from "./use-composer-catalogs";
 import { useComposerAttachments } from "./use-composer-attachments";
 import { useComposerAgentMenu } from "./use-composer-agent-menu";
 import { useComposerMineFiles } from "./use-composer-mine-files";
-import { shouldRestoreComposerFocus } from "./composer-focus-policy";
+import { composerShowsStopButton, shouldRestoreComposerFocus } from "./composer-focus-policy";
 import { ComposerAttachmentChips } from "./composer-attachment-chips";
-
 export function ReactSessionComposer(props: ComposerProps) {
   const builtInExtensionsDisabled = useDesktopRestriction("allowBuiltInExtensions");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -480,8 +479,7 @@ export function ReactSessionComposer(props: ComposerProps) {
     flushShell: props.flushShell,
     hasBottomAccessory: Boolean(props.bottomAccessory),
     hasAttachments: props.attachments.length > 0,
-    mentionOpen,
-    slashOpen,
+    hasPromptQueue: Boolean(props.promptQueueBar),
   });
   const {
     homeLayout,
@@ -510,6 +508,7 @@ export function ReactSessionComposer(props: ComposerProps) {
       <div className={`mx-auto w-full ${contentMaxWidthClass}`}>
         {/* Main composer panel — input + primary toolbar only (WorkBuddy layout). */}
         <div className={panelChromeClass}>
+          {props.promptQueueBar}
           {props.topAccessory ? <div className="relative z-10">{props.topAccessory}</div> : null}
           <ReactComposerNotice notice={props.notice} />
 
@@ -874,7 +873,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                     disabled={props.busy}
                   />
                 ) : null}
-                {props.busy ? (
+                {composerShowsStopButton({ busy: props.busy, canSend }) ? (
                   <Button
                     variant="destructive"
                     size="icon-lg"

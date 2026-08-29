@@ -1,17 +1,15 @@
 import { readFileSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   detectAvailableLocalAgents,
 } from "./detect-local-agents.mjs";
-import { appendContractEvent, normalizeAdapterResult, runEventsToConversationMessages } from "./contract.mjs";
+import { appendContractEvent as appendContractEventRaw, normalizeAdapterResult, runEventsToConversationMessages } from "./contract.mjs";
 import {
   createConversation,
   getOrCreateConversation,
   listConversations,
   resetConversationPointer,
   updateConversation,
-  writeConversationEvents,
 } from "./conversation-store.mjs";
 import { clearSession } from "./session-store.mjs";
 import { createConversationRuntimeApi } from "./conversation-runtime-api.mjs";
@@ -25,7 +23,9 @@ import { schedulePersonalAgentStartupReconcile } from "./startup-reconcile.mjs";
 import { getAgentOverrides, setAgentOverrides } from "./custom-agent-store.mjs";
 import { buildErrorTip, buildProviderContextResetEvents, classifyErrorInfo } from "./error-diagnostics.mjs";
 import { forgetRememberedApprovalDecision, rememberApprovalDecision } from "./approval-store.mjs";
-import { createRunPersistence } from "./run-persistence.mjs";
+import { attachRuntimePersistPublisher, createRunPersistence } from "./run-persistence.mjs";
+import { createPersonalRunPersistence } from "./run-persistence-store.mjs";
+import { createRuntimeEventPublisher } from "./runtime-events.mjs";
 import { createAdapterRegistry } from "./adapter-registry.mjs";
 import { createApprovalRuntime } from "./approval-runtime.mjs";
 import { createOrphanReconcile } from "./orphan-reconcile.mjs";
@@ -137,6 +137,10 @@ export function createPersonalAgentRuntime(options) {
   const forgetRememberedApprovalDecisionFn = typeof options.forgetRememberedApprovalDecision === "function"
     ? options.forgetRememberedApprovalDecision
     : forgetRememberedApprovalDecision;
+  const eventPublisher = createRuntimeEventPublisher({ onEvent: options?.onEvent });
+  const appendContractEvent = (events, event) => eventPublisher.append(appendContractEventRaw, events, event); const publishRuntimeEvent = eventPublisher.publish;
+  const invalidateCatalog = eventPublisher.invalidateCatalog;
+  const wrapCatalogMutation = eventPublisher.wrapCatalogMutation;
   if (options.processRegistryFile || options.processRegistryNamespace) {
     configureProcessRegistry({
       filePath: options.processRegistryFile,
@@ -206,30 +210,14 @@ export function createPersonalAgentRuntime(options) {
     getRun: status,
     reconcileOrphanRuns,
   });
+  const persistRun = createPersonalRunPersistence({ options, visibleArtifacts, metaBuilder: buildRunMeta });
 
-  async function persistRun(state) {
-    if (typeof options.persistRun === "function") {
-      await options.persistRun(state);
-      return;
-    }
-    const meta = buildRunMeta(state, { visibleArtifacts });
-    const lines = [meta, ...state.events].map((entry) => JSON.stringify(entry)).join("\n");
-    if (!state.logPath) return;
-    await mkdir(path.dirname(state.logPath), { recursive: true });
-    await writeFile(state.logPath, `${lines}${lines ? "\n" : ""}`, "utf8");
-    if (state.workspaceRoot && state.agentProvider && state.agentId && state.conversationId) {
-      await writeConversationEvents(
-        state.workspaceRoot,
-        state.agentProvider,
-        state.agentId,
-        state.conversationId,
-        state.events,
-        runEventsToConversationMessages(state.events),
-      ).catch(() => undefined);
-    }
-  }
-
-  const { schedulePersistRun, flushPersistRun, retainCompletedRunBriefly } = createRunPersistence({ persistRun, runs });
+  const persistence = createRunPersistence({ persistRun, runs });
+  const { flushPersistRun, retainCompletedRunBriefly } = persistence;
+  const { schedulePersistRun, persistTerminalRun } = attachRuntimePersistPublisher({
+    ...persistence,
+    publishRuntimeEvent,
+  });
   const { requestRunApproval, resolveApproval } = createApprovalRuntime({
     runs,
     flushPersistRun,
@@ -467,6 +455,9 @@ export function createPersonalAgentRuntime(options) {
       outputParts: [],
       error: null,
       events,
+      persistedEventCount: 0,
+      conversationPersistedEventCount: 0,
+      persistedTerminalMeta: false,
       logPath: await ensureRunLogPath(workspaceRoot, id),
       metadata: null,
       workdir: null,
@@ -516,6 +507,7 @@ export function createPersonalAgentRuntime(options) {
       return snapshot(state);
     }
     runs.set(id, state);
+    eventPublisher.register(events, state); publishRuntimeEvent(state, "run.started"); publishRuntimeEvent(state, "run.snapshot");
     // Record the user's prompt as the first event of the run so the Studio
     // conversation view (and conversation-store hydration) can render the user
     // message for channel-initiated runs, which have no renderer-side optimistic
@@ -534,7 +526,7 @@ export function createPersonalAgentRuntime(options) {
       state.finishedAt = Date.now();
       appendContractEvent(events, { type: "error", text: state.error });
       appendContractEvent(events, buildErrorTip(state.errorInfo));
-      await flushPersistRun(state, true);
+      await persistTerminalRun(state);
       return snapshot(state);
     }
     if ((provider === "codex" || provider === "claude") && !Object.prototype.hasOwnProperty.call(injectedAdapters, provider)) {
@@ -551,7 +543,7 @@ export function createPersonalAgentRuntime(options) {
         state.finishedAt = Date.now();
         appendContractEvent(events, { type: "error", text: state.error });
         appendContractEvent(events, buildErrorTip(state.errorInfo));
-        await flushPersistRun(state, true);
+        await persistTerminalRun(state);
         return snapshot(state);
       }
     }
@@ -651,7 +643,7 @@ export function createPersonalAgentRuntime(options) {
             state.error = state.errorInfo.message;
             state.finishedAt = Date.now();
             appendContractEvent(events, { type: "error", text: state.error });
-            await flushPersistRun(state, true);
+            await persistTerminalRun(state);
             return;
           }
         }
@@ -1048,14 +1040,13 @@ export function createPersonalAgentRuntime(options) {
       runId: state.runId,
       pid: numericPid,
       pgid: numericPid,
+      agentId: state.agentId,
       provider: state.agentProvider,
       backend: state.agentProvider,
       conversationId: state.conversationId,
-      agentType,
-      command,
-      startedAt: state.startedAt,
+      agentType, command, startedAt: state.startedAt,
     });
-    state.processStartToken = registered?.processStartToken ?? state.processStartToken ?? null;
+    state.processStartToken = registered?.processStartToken ?? state.processStartToken ?? null; publishRuntimeEvent(state, "process.changed");
     // A provider may report its child PID after the caller-owned operation has
     // already timed out. Reap that late process through the same identity-
     // fenced path as normal cancellation; never leave a registry residue.
@@ -1115,6 +1106,7 @@ export function createPersonalAgentRuntime(options) {
       text: isTimeout ? state.error : `${state.agentProvider} run cancelled${diagnostic ? ` (${diagnostic})` : ""}`,
     });
     await flushPersistRun(state, true);
+    publishRuntimeEvent(state, "run.finished");
   }
 
   async function cancel(id, options = {}) {
@@ -1195,7 +1187,7 @@ export function createPersonalAgentRuntime(options) {
         state.finishedAt = Date.now();
         state.updatedAt = Date.now();
         appendContractEvent(state.events, { type: "error", text: state.error });
-        await flushPersistRun(state, true);
+        await persistTerminalRun(state);
         return { ok: false, error: state.error };
       }
       if (processRecord) {
@@ -1222,7 +1214,7 @@ export function createPersonalAgentRuntime(options) {
         state.updatedAt = Date.now();
         appendContractEvent(state.events, { type: "error", text: state.error });
       }
-      await flushPersistRun(state, true).catch(() => undefined);
+      await persistTerminalRun(state).catch(() => undefined);
       return { ok: false, error: message };
     } finally {
       if (state.cancelPromise === cancellation) state.cancelPromise = null;
@@ -1266,14 +1258,22 @@ export function createPersonalAgentRuntime(options) {
     testCustomAgent,
     checkProviderHealth,
     checkManagedAgentHealthById,
-  } = createConnectionProbes({ legacy, injectedAdapters, listAgents, providerEnvironment });
+  } = createConnectionProbes({
+    legacy,
+    injectedAdapters,
+    listAgents,
+    providerEnvironment,
+    healthTtlMs: options.healthTtlMs,
+  });
   const getHostStatus = createHostStatusService({ legacy, getConversationStatus });
 
   async function listAcpAgents(input = {}) {
     return listAvailableAgentMetadata(input);
   }
   async function refreshAcpAgents(input = {}) {
-    return listAvailableAgentMetadata({ ...input, refresh: true });
+    const result = await listAvailableAgentMetadata({ ...input, refresh: true });
+    invalidateCatalog(input.workspaceRoot);
+    return result;
   }
   async function acpSendMessage(input = {}) {
     return start(input);
@@ -1341,7 +1341,7 @@ export function createPersonalAgentRuntime(options) {
     listAgents,
     listAgentMetadata,
     listExtensions,
-    setExtensionEnabled: setExtensionEnabledMethod,
+    setExtensionEnabled: wrapCatalogMutation(setExtensionEnabledMethod),
     listAcpAgents,
     refreshAcpAgents,
     acpHealth,
@@ -1352,10 +1352,10 @@ export function createPersonalAgentRuntime(options) {
     getTaskCapability,
     acpConfigOptions,
     setConfigOption: setAgentConfigOption,
-    createCustomAgent: createAgent,
-    updateCustomAgent: updateAgent,
+    createCustomAgent: wrapCatalogMutation(createAgent),
+    updateCustomAgent: wrapCatalogMutation(updateAgent),
     detectAvailableLocalAgents,
-    deleteCustomAgent: deleteAgent,
+    deleteCustomAgent: wrapCatalogMutation(deleteAgent),
     getAgentOverrides: async (input = {}) => getAgentOverrides(String(input.workspaceRoot ?? "").trim(), String(input.id ?? input.agentId ?? "").trim()),
     setAgentOverrides: async (input = {}) => setAgentOverrides(String(input.workspaceRoot ?? "").trim(), String(input.id ?? input.agentId ?? "").trim(), input.overrides ?? {}),
     listProcesses,

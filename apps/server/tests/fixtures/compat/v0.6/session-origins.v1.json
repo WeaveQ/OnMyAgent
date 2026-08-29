@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "records": [
+    {
+      "workspaceId": "ws_compat_v06",
+      "sessionId": "ses_compat_origin_v1",
+      "kind": "expert",
+      "agentId": "agent-compat-v2",
+      "packageName": "pkg.compat-v2",
+      "directory": "runtime/compat/ses_compat_origin_v1",
+      "createdAt": 1700000000000,
+      "updatedAt": 1700000000000
+    }
+  ]
+}

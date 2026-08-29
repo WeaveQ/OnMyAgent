@@ -46,13 +46,17 @@ import { SessionArchivePage } from "../chat/session-page-session-archive-page";
 import { createCanvasSessionKey } from "../infinite-canvas";
 import { LazyCodeWorkspaceSidePanel, LazyInfiniteCanvasPanel } from "./lazy-session-side-panels";
 import { installSummonedMarketplaceExpert } from "@/react-app/domains/plugins";
-import { buildPendingAgentFromMarketplaceExpert } from "@/react-app/domains/agents";
+import {
+  buildPendingAgentFromMarketplaceExpert,
+  type PendingAgentContext,
+} from "@/react-app/domains/agents";
 import type { ExpertMarketplaceEntry } from "@/react-app/domains/plugins";
 
 import type { SessionAgentManagementIntent, SessionPageProps } from "./session-page-types";
 
 import {
   addAssistantSession,
+  useAgentRegistryStore,
   usePendingAgentStore,
   writeAssistantSessionCategory,
 } from "../../agents";
@@ -147,10 +151,21 @@ import { useCustomConnectorDialog } from "./use-custom-connector-dialog";
 import { useMyExpertPackages } from "./use-my-expert-packages";
 import { useAgentPanelResize } from "./use-agent-panel-resize";
 import { useSessionPageHostState } from "./use-session-page-host-state";
-import { useSummonMarketplaceExpert } from "./use-summon-marketplace-expert";
+import {
+  startPendingExpertInWorkspace,
+  useSummonMarketplaceExpert,
+} from "./use-summon-marketplace-expert";
 import { useSessionTaskRenameDelete } from "./session-task-rename-delete";
 import { SessionTaskRenameDeleteModals } from "./session-task-rename-delete-modals";
 import { isStreamingSessionStatus } from "../sidebar/utils";
+import { useExpertDirectoryQuery } from "../../../capabilities/session-identity/expert-directory-query";
+import { selectLiveDirectoryPayload } from "../../../capabilities/session-identity/expert-directory-page-model";
+import {
+  buildAgentConversationGroups,
+  buildStoreExpertShelf,
+} from "./expert-conversation-model";
+import { buildExpertPageNavigationModel } from "./expert-page-navigation-model";
+import { useAssistantStoreExpertManagement } from "./use-assistant-store-expert-management";
 
 // Keep in sync with DEFAULT/MIN workspace right sidebar (outer rail = browser panel).
 const ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH = DEFAULT_WORKSPACE_RIGHT_SIDEBAR_EXPANDED_WIDTH;
@@ -244,6 +259,78 @@ export function AssistantPage(props: AssistantPageProps) {
   const myExpertPackages = useMyExpertPackages({
     enabled: activeSidebarView === "store",
   });
+  const pendingExpertAgent = usePendingAgentStore((state) => state.agent);
+  const agentRegistry = useAgentRegistryStore((state) => state.registry);
+  const expertDirectoryQuery = useExpertDirectoryQuery({
+    workspaceId: props.selectedWorkspaceId,
+    serverWorkspaceId: props.runtimeWorkspaceId ?? props.selectedWorkspaceId,
+    client: props.onmyagentServerClient,
+    enabled: activeSidebarView === "store",
+  });
+  const liveExpertDirectory = useMemo(
+    () =>
+      selectLiveDirectoryPayload({
+        data: expertDirectoryQuery.data,
+        lastComplete: expertDirectoryQuery.lastComplete,
+      }),
+    [expertDirectoryQuery.data, expertDirectoryQuery.lastComplete],
+  );
+  const storeExpertConversationGroups = useMemo(() => {
+    const identity = {
+      sessionIds: new Set(
+        liveExpertDirectory?.records.flatMap((record) => record.sessionIds) ?? [],
+      ),
+      agentIdBySessionId: new Map(
+        (liveExpertDirectory?.records ?? []).flatMap((record) =>
+          record.sessionIds.map((sessionId) => [sessionId, record.agentId] as const),
+        ),
+      ),
+    };
+    const workspaceSessions = props.sidebar.workspaceSessionGroups.find(
+      (group) => group.workspace.id === props.selectedWorkspaceId,
+    )?.sessions ?? [];
+    return buildAgentConversationGroups(workspaceSessions, agentRegistry, identity);
+  }, [
+    agentRegistry,
+    liveExpertDirectory,
+    props.selectedWorkspaceId,
+    props.sidebar.workspaceSessionGroups,
+  ]);
+  const storeExpertNavigationModel = useMemo(
+    () =>
+      buildExpertPageNavigationModel({
+        draftAgentContexts: pendingExpertAgent
+          ? { [pendingExpertAgent.id]: pendingExpertAgent }
+          : {},
+        selectedWorkspaceId: props.selectedWorkspaceId,
+        draftAgentId: pendingExpertAgent?.id ?? null,
+        activeConversationAgentId: null,
+        conversationGroups: storeExpertConversationGroups,
+        pendingAgent: pendingExpertAgent,
+        registry: agentRegistry,
+      }),
+    [
+      agentRegistry,
+      pendingExpertAgent,
+      props.selectedWorkspaceId,
+      storeExpertConversationGroups,
+    ],
+  );
+  const storeExpertGroups = useMemo(
+    () => [
+      ...storeExpertConversationGroups,
+      ...storeExpertNavigationModel.draftAgentGroups,
+    ],
+    [storeExpertConversationGroups, storeExpertNavigationModel.draftAgentGroups],
+  );
+  const storeExpertShelf = useMemo(
+    () =>
+      buildStoreExpertShelf({
+        packages: myExpertPackages,
+        conversations: storeExpertGroups,
+      }),
+    [myExpertPackages, storeExpertGroups],
+  );
   const {
     customConnectorOpen,
     setCustomConnectorOpen,
@@ -254,6 +341,31 @@ export function AssistantPage(props: AssistantPageProps) {
     selectedWorkspaceId: props.selectedWorkspaceId,
     onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
     onNavigateToMode: props.onNavigateToMode,
+  });
+  const handleCreatedExpert = useCallback(
+    (pending: PendingAgentContext) =>
+      startPendingExpertInWorkspace({
+        pending,
+        selectedWorkspaceId: props.selectedWorkspaceId,
+        onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace,
+        onNavigateToMode: props.onNavigateToMode,
+      }),
+    [
+      props.onNavigateToMode,
+      props.selectedWorkspaceId,
+      props.sidebar.onCreateTaskInWorkspace,
+    ],
+  );
+  const {
+    handleDeleteMarketplaceExpert,
+    handleEditMarketplaceExpert,
+    overlays: storeExpertManagementOverlays,
+  } = useAssistantStoreExpertManagement({
+    props,
+    registry: agentRegistry,
+    conversationGroups: storeExpertGroups,
+    showToast,
+    onCreatedAgent: handleCreatedExpert,
   });
   useEffect(() => subscribeOpenKnowledgeNote(() => openRailView("knowledgeBase")), [openRailView]);
   const [agentSearch, setAgentSearch] = useState("");
@@ -1014,8 +1126,8 @@ export function AssistantPage(props: AssistantPageProps) {
     }
   }, [props.onStaticHomeReady, props.selectedSessionId]);
   // Workspace side panel only belongs on chat surfaces (not 市场/管理/本地/文件…).
-  const sidePanelVisibleOnSession =
-    sidePanelVisible && (isPrimarySessionView || showAutomationEmbeddedSession);
+  const sidePanelVisibleOnSession = sidePanelVisible &&
+    (isPrimarySessionView || showAutomationEmbeddedSession || activeSidebarView === "localAgent");
 
   useEffect(() => {
     const intent = agentManagementIntent;
@@ -1318,10 +1430,13 @@ export function AssistantPage(props: AssistantPageProps) {
                         workspaceRoot={props.selectedWorkspaceRoot}
                         client={props.onmyagentServerClient}
                         activeTab={storeActiveTab}
-                        myExperts={myExpertPackages}
+                        myExperts={storeExpertShelf.experts}
+                        activeExpertAgentIds={storeExpertShelf.activeExpertAgentIds}
                         onActiveTabChange={setStoreActiveTab}
                         onSummonMarketplaceExpert={handleSummonMarketplaceExpert}
                         onCreateExpert={handleCreateExpert}
+                        onDeleteExpert={handleDeleteMarketplaceExpert}
+                        onEditExpert={handleEditMarketplaceExpert}
                         onCreateSkill={handleCreateSkill}
                         onChatWithSkill={handleChatWithSkill}
                         onEditSkill={handleEditSkill}
@@ -1332,21 +1447,21 @@ export function AssistantPage(props: AssistantPageProps) {
                     company: <CompanyRailPane onChatWithSkill={handleChatWithSkill} />,
                     localAgent: (
                       <PersonalLocalAgentPage
-                        resumeRequest={pendingArchiveResume}
-                        onResumeConsumed={() => setPendingArchiveResume(null)}
                         workspaceRoot={props.selectedWorkspaceRoot}
                         workspaceName={props.selectedWorkspaceDisplay.name}
-                        onmyagentServerClient={props.onmyagentServerClient}
-                        runtimeWorkspaceId={props.runtimeWorkspaceId ?? props.selectedWorkspaceId}
-                        onOpenArtifact={openTarget}
-                        onOpenTargetsChange={handleOpenTargetsChange}
-                        onOpenAgentManagement={(panel) => {
-                          setAgentManagementPageIntent({
-                            key: `open-panel-${Date.now()}`,
-                            action: "openPanel",
-                            panel: panel ?? "skills",
-                          });
-                          openRailView("agentManagement");
+                        hostCapabilities={{
+                          artifacts: { open: openTarget, onTargetsChange: handleOpenTargetsChange },
+                          archiveResume: {
+                            request: pendingArchiveResume,
+                            onConsumed: () => setPendingArchiveResume(null),
+                            serverClient: props.onmyagentServerClient,
+                            runtimeWorkspaceId: props.runtimeWorkspaceId ?? props.selectedWorkspaceId ?? null,
+                          },
+                          agentManagement: {
+                            open: (panel) => {
+                              setAgentManagementPageIntent({ key: `open-panel-${Date.now()}`, action: "openPanel", panel: panel ?? "skills" });
+                              openRailView("agentManagement");
+                            } },
                         }}
                       />
                     ),
@@ -1733,6 +1848,7 @@ export function AssistantPage(props: AssistantPageProps) {
               </>
             ) : null}
           </ResizablePanelGroup>
+          {storeExpertManagementOverlays}
         </div>
       </div>
 

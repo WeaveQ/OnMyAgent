@@ -26,6 +26,10 @@ import type {
 } from "../../../../app/types";
 import { useSessionActivityStore } from "../status/session-activity-store";
 import {
+  pauseSessionPromptQueueDrain,
+  shouldTouchComposerOnSend,
+} from "./composer-state-store";
+import {
   OUTPUT_LIMIT_CONTINUATION_MESSAGE_PREFIX,
   buildOutputLimitContinuationDraft,
 } from "../sync/output-limit-recovery";
@@ -126,11 +130,8 @@ export type SessionSurfaceRunHandlersInput = {
 export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInput) {
   const activeRunStartedAtRef = useRef<number | null>(null);
   const activeRunKeyRef = useRef<string | null>(null);
-  // React state updates are asynchronous, so two submit events from the same
-  // click/shortcut turn can both see `sending === false`. Keep this lock local
-  // to the submit promise; it deliberately does not block a later follow-up
-  // once OpenCode has accepted the current turn.
-  const sendInFlightRef = useRef(false);
+  // Per sessionId so a tab switch cannot steal another session's in-flight lock.
+  const sendInFlightBySessionRef = useRef(new Set<string>());
 
   const {
     sessionId,
@@ -300,10 +301,11 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
     workspaceId,
   ]);
 
-  const handleSend = useCallback(async () => {
-    const text = draft.trim();
-    if (!text && attachments.length === 0) return;
-    if (sendInFlightRef.current) return;
+  const handleSend = useCallback(async (queuedDraft?: ComposerDraft) => {
+    const text = (queuedDraft?.text ?? draft).trim();
+    const sendAttachments = queuedDraft?.attachments ?? attachments;
+    if (!text && sendAttachments.length === 0) return false;
+    if (sendInFlightBySessionRef.current.has(sessionId)) return false;
     if (
       shouldBlockCodeDraftSend({
         assistantCodeFeaturesActive,
@@ -317,14 +319,9 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
         () => setShowFolderRequiredBubble(false),
         FOLDER_REQUIRED_BUBBLE_TIMEOUT_MS,
       );
-      return;
+      return false;
     }
-    // Intentionally allow sending while the assistant is still streaming.
-    // OpenCode accepts follow-up user turns mid-run and queues them; if the
-    // backend can't accept the follow-up it'll surface an error via the
-    // catch below. This restores the "append a prompt while it's still
-    // talking" behavior that the Solid composer had.
-    sendInFlightRef.current = true;
+    sendInFlightBySessionRef.current.add(sessionId);
     setDismissedPlanBySessionId((current) =>
       removeRecordKey(current, sessionId),
     );
@@ -352,8 +349,7 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
     // First expert send can wait many seconds on isolated-dir session.create;
     // leaving the text in the box makes 准备中 feel stuck and confuses retry.
     const sendText = text;
-    const sendAttachments = attachments;
-    const nextDraftBase = buildDraft(sendText, sendAttachments);
+    const nextDraftBase = queuedDraft ?? buildDraft(sendText, sendAttachments);
     if (sendText) {
       setPendingOutgoingUserMessage({
         id: `msg_local_${crypto.randomUUID()}`,
@@ -361,10 +357,12 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
         createdAt: startedAt,
       });
     }
-    // Clear the box immediately (text + chips). Revoke blob previews only after
-    // the network path accepts, so failure can restore the draft intact.
-    clearComposerSession(sessionId);
-    onDraftChange(buildDraft("", []));
+    // Live composer send: clear immediately. Queued drain must leave the box
+    // alone — the user may already be typing the next follow-up.
+    if (shouldTouchComposerOnSend(queuedDraft)) {
+      clearComposerSession(sessionId);
+      onDraftChange(buildDraft("", []));
+    }
     try {
       const stallKey = sessionId;
       const hadStallRecovery = Boolean(stallRecoveryBySessionId[stallKey]);
@@ -391,6 +389,7 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
       await onSendDraft(nextDraft);
       sendAttachments.forEach(revokeAttachmentPreview);
       setSending(false);
+      return true;
     } catch (nextError) {
       const parsed = parseSessionError(nextError);
       setError(parsed);
@@ -400,14 +399,17 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
           .getState()
           .setError(workspaceId, sessionId, parsed.message);
       }
-      // Drop the local bubble on failure; restore composer so the user can
-      // edit and retry (we cleared optimistically before the network path).
+      // Drop the local bubble on failure. Live sends restore the composer;
+      // queued drains restore the taken item instead of overwriting the box.
       setPendingOutgoingUserMessage(null);
-      onDraftChange(nextDraftBase);
+      if (shouldTouchComposerOnSend(queuedDraft)) {
+        onDraftChange(nextDraftBase);
+      }
       setAwaitingAssistantBaseline(null);
       setNoVisibleAssistantOutputBaseline(null);
+      return false;
     } finally {
-      sendInFlightRef.current = false;
+      sendInFlightBySessionRef.current.delete(sessionId);
       setSending(false);
     }
   }, [
@@ -586,6 +588,7 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
   ]);
 
   const stopActiveRun = useCallback(async () => {
+    pauseSessionPromptQueueDrain(sessionId);
     setError(null);
     setDismissedErrorMessage(null);
     setSending(false);

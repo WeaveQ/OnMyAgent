@@ -17,6 +17,7 @@ export default {
   "model_picker.recommended": "推薦",
   "model_picker.search_placeholder": "搜索模型服務商和模型...",
   "model_picker.session_model_desc": "為此會話選擇模型。",
+  "model_picker.go_to_settings": "去設置",
   "model_picker.model_count_one": "{count} 個模型",
   "model_picker.model_count_other": "{count} 個模型",
   "model_picker.free": "免費",

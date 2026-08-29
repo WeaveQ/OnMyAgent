@@ -19,6 +19,7 @@ export default {
   "model_picker.recommended": "Recent",
   "model_picker.search_placeholder": "Search providers and models...",
   "model_picker.session_model_desc": "Select a model for this session.",
+  "model_picker.go_to_settings": "Go to settings",
   "model_picker.free": "Free",
   "model_picker.vision": "Vision",
 } as const;

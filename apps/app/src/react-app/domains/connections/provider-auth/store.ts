@@ -23,7 +23,7 @@ import { compareProviders, filterProviderList } from "../../../../app/utils/prov
 import { getReactQueryClient } from "../../../infra/query-client";
 import { ensureProviderListQuery } from "../../connections/provider-list-query";
 import {
-  disabledProvidersListsEqual,
+  applyDisabledProvidersLive, disabledProvidersListsEqual,
   isBuiltinOpenCodeZenProvider,
   nextDisabledProvidersList,
   normalizeDisabledProviders,
@@ -437,7 +437,7 @@ export function createProviderAuthStore(options: CreateProviderAuthStoreOptions)
     }
 
     options.setDisabledProviders(nextDisabled);
-    options.markOpencodeConfigReloadRequired();
+    await applyDisabledProvidersLive(options.client(), nextDisabled, options.markOpencodeConfigReloadRequired);
     refreshSnapshot();
     emitChange();
     return true;

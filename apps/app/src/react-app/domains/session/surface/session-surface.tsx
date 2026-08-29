@@ -60,7 +60,7 @@ import { useSessionSurfaceOpenTargets } from "./session-surface-open-targets";
 import { useSessionSurfaceActivityStall } from "./session-surface-activity-stall";
 import { useSessionSurfacePlanGoalEffects } from "./session-surface-plan-goal-effects";
 import { useSessionSurfaceTranscriptNotices } from "./session-surface-transcript-notices";
-import { useSessionSurfaceActivityModel } from "./session-surface-activity-model";
+import { useSessionSurfaceActivityModel } from "./session-surface-activity-model"; import { useSessionPromptQueue } from "./composer/composer-focus-policy";
 import { SessionSurfaceView } from "./session-surface-view";
 import { deriveSessionSurfaceLayoutMode } from "./session-surface-layout-mode";
 import { assistantScenarioDraftToken, isUserCancelledError } from "./chrome/personal-assistant";
@@ -582,7 +582,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     visibleError,
     cancelledError,
   });
-
+  const promptQueue = useSessionPromptQueue({ sessionId: props.sessionId, sending, remoteBusy: isRemoteSessionBusy(liveStatus.type), activityStatus: sessionActivityStatus, stopRequested: storedSessionStopRequested, draftOnly: Boolean(props.draftOnly), draft, attachments, buildDraft, handleSend, clearComposerSession, onDraftChange: props.onDraftChange, setComposerDraft, setComposerAttachments });
   useSessionSurfaceSessionEffects({
     workspaceId: props.workspaceId,
     sessionId: props.sessionId,
@@ -735,7 +735,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
     buildDraft,
     attachments,
     draft,
-    handleSend,
+    handleSend: promptQueue.sendOrEnqueue,
     handleAbort,
     modelUnavailable: props.modelUnavailable,
     transitionState: model.transitionState,
@@ -997,7 +997,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       onChangeModel={props.onChangeModel}
       onOpenModelPicker={props.onModelClick}
       renderedMessages={renderedMessages}
-      chatStreaming={chatStreaming}
+      chatStreaming={chatStreaming} composerTurnBusy={promptQueue.turnBusy}
       showThinking={showThinking}
       interruptionDividers={interruptionDividers}
       resolveTranscriptScrollElement={resolveTranscriptScrollElement}
@@ -1022,7 +1022,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       personalizedPromptTemplates={personalizedPromptTemplates}
       onSelectPromptTemplate={selectAssistantPromptTemplate}
       onDraftChange={handleComposerDraftChange}
-      onSend={handleSend}
+      onSend={promptQueue.sendOrEnqueue}
       onStop={handleAbort}
       composerDisabled={Boolean(props.composerDisabled)}
       modelUnavailable={Boolean(props.modelUnavailable)}
@@ -1079,7 +1079,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       isRemoteWorkspace={props.isRemoteWorkspace}
       isSandboxWorkspace={props.isSandboxWorkspace}
       onUploadInboxFiles={props.onUploadInboxFiles ?? handleUploadInboxFiles}
-      composerAccessory={composerAccessory}
+      composerAccessory={composerAccessory} promptQueueBar={promptQueue.bar}
       draftWorkspaceDirectory={props.draftWorkspaceDirectory}
       draftWorkspaceOwnerId={props.draftWorkspaceOwnerId}
       assistantFeatureCategoryId={assistantFeatureCategoryId}

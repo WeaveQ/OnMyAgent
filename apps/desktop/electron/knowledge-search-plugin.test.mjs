@@ -131,6 +131,9 @@ describe("knowledge_search plugin", () => {
       assert.equal(result.knowledgeRoot, resolveKnowledgeRoot(home));
       assert.ok(!result.pluginPath.includes(`${path.sep}skills${path.sep}`));
       assert.equal(result.pluginPaths?.length, 5);
+      assert.ok(
+        await readFile(path.join(configDir, "plugins", "knowledge-plugin-runtime.mjs"), "utf8"),
+      );
       assert.ok(result.skillPath?.endsWith(`${path.sep}knowledge-vault${path.sep}SKILL.md`));
       const body = await readFile(result.pluginPath, "utf8");
       assert.match(body, /export default async \(\) => \(\{/);

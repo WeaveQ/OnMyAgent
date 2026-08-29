@@ -32,6 +32,8 @@ export type ExpertPageSidePanelViewProps = {
   onmyagentServerClient: SessionPageProps["onmyagentServerClient"];
   sidePanelOpen: boolean;
   isPrimarySessionView: boolean;
+  isLocalAgentView: boolean;
+  browserSessionScopeId?: string | null;
   browserPanelRef: ComponentProps<
     typeof import("@/components/ui/resizable").ResizablePanel
   >["panelRef"];

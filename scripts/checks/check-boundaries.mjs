@@ -7,7 +7,9 @@ import {
   domainImportUsesPublicEntrypoint,
 } from './domain-boundary-policy.mjs'
 
-const repoRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))))
+const repoRoot = process.env.BOUNDARIES_ROOT
+  ? process.env.BOUNDARIES_ROOT
+  : dirname(dirname(dirname(fileURLToPath(import.meta.url))))
 const sourceExtensions = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.mts', '.cjs', '.cts'])
 const ignoredDirs = new Set(['.git', 'dist', 'node_modules', 'graphify-out'])
 const packageDirs = [
@@ -144,10 +146,48 @@ function checkFile(filePath) {
 
   for (const item of imports) {
     checkPackageRules(relativePath, item)
+    checkOrchestratorServerSource(relativePath, item, filePath)
     checkReactAppRules(filePath, relativePath, item)
     checkShellImportDepth(filePath, relativePath, item)
     checkDomainShellDepth(filePath, relativePath, item)
   }
+}
+
+function isOrchestratorProductionSrc(relativePath) {
+  return relativePath.startsWith('apps/orchestrator/src/')
+}
+
+function isOnmyagentServerPackageJson(spec) {
+  return spec === 'onmyagent-server/package.json'
+}
+
+function isOnmyagentServerModule(spec) {
+  return spec === 'onmyagent-server' || spec.startsWith('onmyagent-server/')
+}
+
+function isServerSrcImport(spec, filePath) {
+  const posix = spec.replace(/\\/g, '/')
+  if (posix.includes('apps/server/src')) return true
+  if (/(^|\/)\.\.\/server\/src(\/|$)/.test(posix)) return true
+  if (!posix.startsWith('.')) return false
+  const resolved = resolveRelativeSource(filePath, spec)
+  if (!resolved) return false
+  const rel = toPosix(relative(repoRoot, resolved))
+  return rel.startsWith('apps/server/src/') || rel === 'apps/server/src'
+}
+
+function checkOrchestratorServerSource(relativePath, item, filePath) {
+  if (!isOrchestratorProductionSrc(relativePath)) return
+  const spec = item.importPath
+  if (isOnmyagentServerPackageJson(spec)) return
+  if (!isOnmyagentServerModule(spec) && !isServerSrcImport(spec, filePath)) return
+  violations.push({
+    file: relativePath,
+    line: item.line,
+    importPath: spec,
+    message:
+      'orchestrator must spawn the onmyagent-server binary declared in package.json; do not import server source',
+  })
 }
 
 function checkPackageRules(relativePath, item) {

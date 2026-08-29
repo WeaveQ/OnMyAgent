@@ -14,24 +14,32 @@ export type ConversationItemViewProps = {
   item: ConversationItemVM;
   className?: string;
   streaming?: boolean;
+  /** Local Agent: collapse thinking when done even if the parent turn is still streaming. */
+  collapseThinkingWhenDone?: boolean;
   onApprove?: (item: ConversationItemVM) => void;
   onReject?: (item: ConversationItemVM) => void;
 };
 
 export function ConversationItemView(props: ConversationItemViewProps) {
-  const { item, className, streaming, onApprove, onReject } = props;
+  const { item, className, streaming, collapseThinkingWhenDone, onApprove, onReject } = props;
 
   switch (item.kind) {
     case "tool":
       return <ToolItemRow item={item} className={className} />;
-    case "thinking":
+    case "thinking": {
+      const thinkingDone = /^(done|completed|complete)$/i.test(
+        `${item.thinkingStatus ?? item.status ?? ""}`,
+      );
+      const keepOpenWhileStreaming = Boolean(streaming)
+        && !(collapseThinkingWhenDone && thinkingDone);
       return (
         <ThinkingBlock
           item={item}
           className={className}
-          defaultExpanded={streaming ? true : undefined}
+          defaultExpanded={keepOpenWhileStreaming ? true : undefined}
         />
       );
+    }
     case "plan":
       return <PlanBlock item={item} className={className} streaming={streaming} />;
     case "approval":

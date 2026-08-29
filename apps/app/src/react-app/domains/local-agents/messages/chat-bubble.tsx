@@ -7,31 +7,28 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { MessageRoleRow } from "@/components/ui/message-role";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
-import {
-  ToolApprovalCard,
-  ToolApprovalCardBody,
-  ToolApprovalCardFooter,
-  ToolApprovalCardHeader,
-} from "@/components/ui/tool-approval-card";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { openDesktopPath, revealDesktopItemInDir, type PersonalLocalAgent, type PersonalLocalAgentApprovalDecision, type PersonalLocalAgentApprovalRequest, type PersonalLocalAgentConversationMessage, type PersonalLocalAgentRunResult } from "../../../../app/lib/desktop";
-import { shortTime } from "../local-agent-formatters";
+import { openDesktopPath, revealDesktopItemInDir, type PersonalLocalAgent, type PersonalLocalAgentApprovalDecision, type PersonalLocalAgentApprovalRequest, type PersonalLocalAgentConversationMessage } from "../../../../app/lib/desktop";
 import type { OpenTarget } from "../../../capabilities/artifacts/open-target";
 import { ArtifactIcon } from "../../../capabilities/artifacts/artifact-icon";
 import { MarkdownBlock } from "../../../capabilities/artifacts/markdown";
 import { sanitizeAssistantTranscriptText } from "../../../capabilities/conversation/assistant-text-sanitize";
+import { LocalAgentApprovalCard } from "./local-agent-approval-card";
 import { MessageFileChanges } from "./message-file-changes";
-import { MessageTips } from "./message-tips";
 import type { ChatMessage } from "./message-types";
-import { approvalClass, localAgentLayoutClass, localAgentTextClass } from "./message-style";
+import { localAgentLayoutClass, localAgentTextClass } from "./message-style";
+import { buildLocalAgentPresentation } from "./local-agent-presentation-model";
 import {
   classifiedRunFailureMessage,
   collectRunOpenTargets,
   resolveDesktopPath,
   runTimelineAlreadyShowsFailure,
 } from "./message-utils";
-import { groupLocalAgentTimeline, LocalAgentTimelineMessage, LocalAgentToolGroupSummary, visibleRunTimelineMessages } from "./timeline-messages";
+import { LocalAgentTurnStatus } from "./local-agent-turn-status";
+import { localAgentFinalBodyFromEvents } from "./local-agent-turn-event-timeline";
+import { buildLocalAgentTurnPresentation } from "./local-agent-turn-presentation";
+import { LocalAgentTimelineMessage, visibleRunTimelineMessages } from "./timeline-messages";
 
 export const ChatBubble = memo(function ChatBubble(props: {
   message: ChatMessage;
@@ -122,12 +119,39 @@ export const ChatBubble = memo(function ChatBubble(props: {
     () => collectRunOpenTargets(run, props.workspaceRoot, props.message.text),
     [props.message.text, props.workspaceRoot, run],
   );
+  const presentation = useMemo(() => buildLocalAgentPresentation(run), [run]);
   const timelineMessages = useMemo(() => visibleRunTimelineMessages(run), [run]);
-  const timelineItems = useMemo(() => groupLocalAgentTimeline(timelineMessages), [timelineMessages]);
   const assistantBodyText = useMemo(
-    () => (isUser ? props.message.text : sanitizeAssistantTranscriptText(props.message.text).text),
-    [isUser, props.message.text],
+    () => {
+      if (isUser) return props.message.text;
+      const direct = sanitizeAssistantTranscriptText(props.message.text).text.trim();
+      const waitingText = t("local_agent.waiting_for_approval");
+      const runningText = t("local_agent.running");
+      const waitingSuffix = `\n\n${waitingText}`;
+      const withoutDerivedStatus = direct.endsWith(waitingSuffix)
+        ? direct.slice(0, -waitingSuffix.length).trim()
+        : direct;
+      if (run?.pendingApprovals?.length && withoutDerivedStatus === waitingText) return "";
+      if (run?.status === "running" && withoutDerivedStatus === runningText) return "";
+      const orderedBody = run?.status === "failed" || run?.status === "missing"
+        ? null
+        : localAgentFinalBodyFromEvents(run?.events);
+      if (orderedBody !== null && (orderedBody || run?.status !== "cancelled")) {
+        return sanitizeAssistantTranscriptText(orderedBody).text.trim();
+      }
+      return withoutDerivedStatus || sanitizeAssistantTranscriptText(presentation.finalText).text.trim();
+    },
+    [isUser, presentation.finalText, props.message.text, run?.events, run?.pendingApprovals?.length, run?.status],
   );
+  const turn = useMemo(
+    () => buildLocalAgentTurnPresentation(run, timelineMessages, assistantBodyText),
+    [assistantBodyText, run, timelineMessages],
+  );
+  const [detailsExpanded, setDetailsExpanded] = useState(() => !turn.collapseEligible);
+  useEffect(() => {
+    if (turn.collapseEligible) setDetailsExpanded(false);
+  }, [turn.collapseEligible]);
+  const showProcess = Boolean(!isUser && turn.hasProcess && (!turn.collapseEligible || detailsExpanded));
 
   // Transient subject/description shown above
   // the timeline while the turn is streaming. Derived from run.events; cleared
@@ -165,13 +189,37 @@ export const ChatBubble = memo(function ChatBubble(props: {
   const hasContent =
     isUser ||
     assistantBodyText.trim().length > 0 ||
-    timelineItems.length > 0 ||
+    turn.hasProcess ||
     Boolean(throttledThought) ||
-    (run && run.status === "running");
+    Boolean(run && (presentation.hasVisibleContent || presentation.activity !== "idle"));
   if (!hasContent) return null;
 
+  const showActivityRow = Boolean(
+    !isUser
+    && run
+    && presentation.activity !== "idle"
+    && !turn.hasProcess
+    && !throttledThought
+    && !presentation.waitingForApproval
+    && !assistantBodyText.trim(),
+  );
+  const activityLabel = presentation.activity === "waiting-approval"
+    ? t("local_agent.waiting_for_approval")
+    : presentation.activity === "completed"
+      ? t("local_agent.status_completed")
+      : presentation.activity === "failed"
+        ? t("local_agent.status_failed")
+        : presentation.activity === "cancelled"
+          ? t("local_agent.status_cancelled")
+          : presentation.activity === "missing"
+            ? t("local_agent.status_missing")
+            : t("local_agent.running");
+
   return (
-    <div className={cn("flex gap-3", isUser && "justify-end")}>
+    <div
+      className={cn("flex min-w-0 gap-3", isUser && "justify-end")}
+      data-local-agent-activity={!isUser && run ? presentation.activity : undefined}
+    >
       {!isUser ? (
         <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-dls-decision-soft text-dls-accent">
           <Bot className="size-4" />
@@ -182,7 +230,16 @@ export const ChatBubble = memo(function ChatBubble(props: {
           <pre className="whitespace-pre-wrap break-words font-sans">{props.message.text}</pre>
         ) : null}
 
-        {!isUser && throttledThought ? (
+        {!isUser && run && turn.collapseEligible ? (
+          <LocalAgentTurnStatus
+            status={run.status}
+            durationLabel={turn.durationLabel}
+            expanded={detailsExpanded}
+            onExpandedChange={setDetailsExpanded}
+          />
+        ) : null}
+
+        {!isUser && throttledThought && !timelineMessages.some((message) => message.type === "thinking") ? (
           <MessageRoleRow role="thinking" className="rounded-md border border-dls-border/60 bg-dls-surface-muted/60 px-3 py-2 text-sm leading-5 text-dls-secondary" data-testid="local-agent-thought-hint">
             <div className="flex items-center gap-2">
               <LoadingSpinner size="sm" className="text-dls-signal" />
@@ -194,27 +251,67 @@ export const ChatBubble = memo(function ChatBubble(props: {
           </MessageRoleRow>
         ) : null}
 
-        {!isUser && timelineItems.length ? (
-          <div className={cn("flex flex-col gap-2.5", throttledThought ? "mt-2" : "")} data-testid="local-agent-timeline-body">
-            {timelineItems.map((item) => (
-              <div key={item.id} className="min-w-0">
-                {item.kind === "tool_group" ? (
-                  <LocalAgentToolGroupSummary messages={item.messages} runStatus={run?.status} />
-                ) : (
-                  <LocalAgentTimelineMessage
-                    message={item.message}
-                    streaming={run?.status === "running"}
-                    runStatus={run?.status}
-                    onResolveTip={props.onResolveTip}
-                  />
-                )}
+        {showActivityRow ? (
+          <div
+            className="flex min-w-0 items-center gap-2 rounded-md border border-dls-border/60 bg-dls-surface-muted/60 px-3 py-2 text-sm leading-5 text-dls-secondary"
+            role="status"
+            aria-live="polite"
+            data-testid="local-agent-activity-row"
+          >
+            {presentation.activity === "failed" || presentation.activity === "missing" ? (
+              <NoticeBox tone="error">{activityLabel}</NoticeBox>
+            ) : presentation.activity === "completed" || presentation.activity === "cancelled" ? (
+              <StatusBadge tone={presentation.activity === "completed" ? "success" : "neutral"} shape="pill" size="tiny">
+                {activityLabel}
+              </StatusBadge>
+            ) : (
+              <>
+                <LoadingSpinner size="sm" className="text-dls-signal" />
+                <span className="min-w-0 truncate text-dls-text">{activityLabel}</span>
+              </>
+            )}
+          </div>
+        ) : null}
+
+        {showProcess ? (
+          <div
+            className={cn("session-workbuddy-turn-content", throttledThought ? "mt-2" : "")}
+            data-testid="local-agent-timeline-body"
+          >
+            {turn.processSteps.map((step) => (
+              <div key={step.id} className="min-w-0" data-local-agent-process-kind={step.message.type}>
+                <LocalAgentTimelineMessage
+                  message={step.message}
+                  streaming={run?.status === "running"}
+                  runStatus={run?.status}
+                  pendingApprovals={run?.pendingApprovals}
+                  onResolveApproval={props.onResolveApproval}
+                  onResolveTip={props.onResolveTip}
+                />
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {turn.alwaysVisibleSteps.length ? (
+          <div className="mt-2 flex min-w-0 flex-col gap-2.5" data-testid="local-agent-turn-pinned">
+            {turn.alwaysVisibleSteps.map((step) => (
+              <div key={step.id} className="min-w-0">
+                <LocalAgentTimelineMessage
+                  message={step.message}
+                  streaming={run?.status === "running"}
+                  runStatus={run?.status}
+                  pendingApprovals={run?.pendingApprovals}
+                  onResolveApproval={props.onResolveApproval}
+                  onResolveTip={props.onResolveTip}
+                />
               </div>
             ))}
           </div>
         ) : null}
 
         {!isUser && assistantBodyText.trim() ? (
-          <div className={cn((timelineItems.length || throttledThought) ? "mt-2" : "")}>
+          <div className={cn((showProcess || throttledThought || turn.hasProcess) ? "mt-2" : "")} data-testid="local-agent-turn-body">
             <MarkdownBlock text={assistantBodyText} streaming={run?.status === "running"} />
           </div>
         ) : null}
@@ -229,31 +326,16 @@ export const ChatBubble = memo(function ChatBubble(props: {
             ) : null}
             {run.pendingApprovals?.length ? (
               <div className="space-y-2">
-                <div className={localAgentTextClass.approvalTitle}>{t("local_agent.approval_required")}</div>
-                {run.pendingApprovals.map((approval) => {
-                  const risk = approval.readonly ? "safe" as const : "careful" as const;
-                  return (
-                  <ToolApprovalCard key={approval.id} risk={risk}>
-                    <ToolApprovalCardHeader className="flex-col gap-1 pb-0">
-                      <div className="truncate text-xs font-medium text-dls-text">{approval.title}</div>
-                      <div className={approvalClass.meta}>{approval.readonly ? t("local_agent.approval_readonly") : t("local_agent.approval_side_effect")}  {approval.method}</div>
-                    </ToolApprovalCardHeader>
-                    <ToolApprovalCardBody>
-                      <pre className={approvalClass.command}>{approval.command || approval.summary}</pre>
-                      <div className={approvalClass.cwd}>cwd: {approval.cwd || "--"}</div>
-                    </ToolApprovalCardBody>
-                    <ToolApprovalCardFooter
-                      risk={risk}
-                      denyLabel={t("local_agent.approval_decline")}
-                      allowOnceLabel={t("local_agent.approval_allow_once")}
-                      allowAlwaysLabel={t("local_agent.approval_allow_session")}
-                      onDeny={() => props.onResolveApproval?.(approval, "decline")}
-                      onAllowOnce={() => props.onResolveApproval?.(approval, "accept")}
-                      onAllowAlways={() => props.onResolveApproval?.(approval, "acceptForSession")}
+                {run.pendingApprovals
+                  .filter((approval) => !timelineMessages.some((message) => message.approval?.id === approval.id))
+                  .map((approval) => (
+                    <LocalAgentApprovalCard
+                      key={approval.id}
+                      approval={approval}
+                      pending
+                      onResolve={props.onResolveApproval}
                     />
-                  </ToolApprovalCard>
-                  );
-                })}
+                  ))}
               </div>
             ) : null}
             {run?.fileChanges?.length ? (

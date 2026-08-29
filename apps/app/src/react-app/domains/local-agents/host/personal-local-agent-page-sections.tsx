@@ -7,7 +7,6 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
   Activity,
-  CircleStop,
   Clock3,
   MessageSquare,
   Plus,
@@ -24,15 +23,12 @@ import { StatusPing } from "@/components/ui/status-dot";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { SelectMenu } from "../../../design-system/select-menu";
-import {
-  type PersonalLocalAgentApprovalMode,
-} from "../../../../app/lib/desktop";
 import { AgentBrandIcon } from "../agent-brand-icon";
+import { LocalAgentComposerApprovalSelect } from "../local-agent-composer-approval-select-view";
 import {
   LocalAgentDraftComposer,
 } from "../local-agent-draft-composer";
 import {
-  APPROVAL_MODE_OPTIONS,
   LOCAL_AGENT_LIST_MAX_WIDTH,
   LOCAL_AGENT_LIST_MIN_WIDTH,
   agentIdFromChatKey,
@@ -70,6 +66,9 @@ export function PersonalLocalAgentPageLayout(props: { m: PersonalLocalAgentPageM
     refreshing,
     refreshAgents,
     filteredAgents,
+    channelAgent,
+    channelConversations,
+    loadingChannelConversations,
     activeRunIdByAgent,
     messagesByAgent,
     setSelectedAgentId,
@@ -77,6 +76,7 @@ export function PersonalLocalAgentPageLayout(props: { m: PersonalLocalAgentPageM
     startAgentListResize,
     isChannelView,
     selectedAgent,
+    channelRuntimeAgent,
     selectedConversations,
     selectedConversationId,
     setSelectedChannelConversationId,
@@ -117,7 +117,6 @@ export function PersonalLocalAgentPageLayout(props: { m: PersonalLocalAgentPageM
     running,
     composerContextUsage,
     submitComposerPayload,
-    activeRun,
     cancelRun,
     displayWorkspaceRoot,
     workspaceRecentList,
@@ -137,7 +136,7 @@ return (
     data-onmyagent-view="personal-assistant"
     // Transparent root so nested frosted layers do not lighten the list pane
     // vs assistant/expert AgentConversationPanel (sibling under one shell bg).
-    className="relative flex h-full min-h-0 overflow-hidden bg-transparent text-dls-text"
+    className="relative flex h-full min-h-0 min-w-0 w-full overflow-hidden bg-transparent text-dls-text"
   >
     <aside
       className="flex shrink-0 flex-col overflow-hidden bg-dls-sidebar pb-5 mac:bg-dls-sidebar"
@@ -209,6 +208,33 @@ return (
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
+            {channelAgent ? (
+              <div className="border-b border-dls-mist py-1">
+                <SessionRowButton
+                  type="button"
+                  onClick={() => setSelectedAgentId(channelAgent.id)}
+                  active={selectedAgentId === channelAgent.id}
+                  className={localAgentLayoutClass.agentRow}
+                  data-testid="local-agent-channel-sessions"
+                >
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-dls-surface-muted text-dls-secondary">
+                    <MessageSquare className="size-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className={localAgentTextClass.rowTitle}>{channelAgent.name}</div>
+                    <div className="mt-1 truncate text-xs leading-5 text-dls-secondary">
+                      {t("local_agent.channel_session_readonly")}
+                    </div>
+                  </div>
+                  <CountBadge>{channelConversations.length}</CountBadge>
+                </SessionRowButton>
+              </div>
+            ) : loadingChannelConversations ? (
+              <div className="flex items-center gap-2 border-b border-dls-mist px-4 py-3 text-xs text-dls-secondary">
+                <LoadingSpinner size="sm" />
+                <span>{t("local_agent.channel_sessions_title")}</span>
+              </div>
+            ) : null}
             {filteredAgents.length > 0 ? (
               <div>
                 {filteredAgents.map((agent) => {
@@ -319,7 +345,7 @@ return (
                   </div>
                 </div>
               </div>
-            ) : (
+            ) : channelAgent ? null : (
               <div className="flex h-full items-center justify-center px-4 text-center text-sm leading-5 text-dls-secondary">
                 {t("local_agent.empty")}
               </div>
@@ -420,12 +446,12 @@ return (
             */}
             <div
               className={cn(
-                "flex h-8 min-w-0 max-w-[min(18rem,42vw)] items-stretch overflow-hidden rounded-lg border border-dls-border bg-dls-surface",
+                "flex h-8 min-w-0 max-w-[min(18rem,42vw)] items-stretch overflow-visible rounded-lg border border-dls-border bg-dls-surface",
                 (!selectedAgent || running) && "opacity-60",
               )}
               data-testid="local-agent-conversation-control"
             >
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 overflow-hidden rounded-l-lg">
                 <SelectMenu
                   size="compact"
                   className={cn(
@@ -434,7 +460,6 @@ return (
                     "[&>button]:!h-full [&>button]:!min-h-0 [&>button]:!rounded-none [&>button]:!border-0",
                     "[&>button]:!bg-transparent [&>button]:!px-2.5 [&>button]:!py-0 [&>button]:!shadow-none",
                     "[&>button]:hover:!border-transparent [&>button]:hover:!bg-dls-hover/60",
-                    "[&>button]:focus-visible:!ring-0 [&>button]:focus-visible:!ring-offset-0",
                   )}
                   ariaLabel={t("local_agent.conversation")}
                   options={selectedConversations.length ? selectedConversations.map((conversation) => ({ value: conversation.id, label: conversationTitle(conversation) })) : [{ value: "", label: t("local_agent.loading_conversations") }]}
@@ -466,25 +491,15 @@ return (
                 {creatingConversation ? <LoadingSpinner size="sm" /> : <Plus className="size-3.5" strokeWidth={2} />}
               </Button>
             </div>
-            {!isChannelView && selectedAcpModelInfo.supportsModelOverride ? (
-              <PersonalLocalAgentModelSelector
-                agent={selectedAgent}
-                selectedModel={selectedModel}
-                onModelChange={setSelectedModel}
-                workspaceRoot={effectiveWorkspaceRoot}
-                disabled={!selectedAgent || running}
-                acpModelInfo={selectedAcpModelInfo}
-              />
-            ) : null}
             <Button
               ref={scheduledTasksButtonRef}
               variant="ghost"
               size="icon-sm"
               className="relative"
               onClick={() => setShowScheduledTasks((open) => !open)}
-              disabled={!selectedAgent}
+              disabled={!selectedAgent || isChannelView}
               data-testid="local-agent-scheduled-tasks-button"
-              aria-expanded={showScheduledTasks}
+              aria-expanded={!isChannelView && showScheduledTasks}
               title={t("local_agent.heartbeat_title")}
               aria-label={t("local_agent.heartbeat_title")}
             >
@@ -497,7 +512,7 @@ return (
             </Button>
           </div>
         </div>
-        {showScheduledTasks && selectedAgent ? (
+        {showScheduledTasks && selectedAgent && !isChannelView ? (
           <div ref={scheduledTasksPanelRef} className={heartbeatClass.overlay} data-testid="local-agent-scheduled-tasks-panel">
             <HeartbeatPanel
               agent={selectedAgent}
@@ -520,9 +535,9 @@ return (
       </header>
       <LocalAgentStatusRail
         workspaceRoot={effectiveWorkspaceRoot}
-        agent={selectedAgent ?? null}
+        agent={isChannelView ? channelRuntimeAgent : selectedAgent ?? null}
         conversationId={selectedConversationId ?? null}
-        onOpenManagement={() => onOpenAgentManagement?.("skills")}
+        onOpenManagement={!isChannelView && onOpenAgentManagement ? () => onOpenAgentManagement("skills") : undefined}
       />
       <div
         ref={scrollRef}
@@ -539,12 +554,12 @@ return (
             <ChatBubble
               key={message.id}
               message={message}
-              workspaceRoot={effectiveWorkspaceRoot}
-              agent={selectedAgent}
+              workspaceRoot={displayWorkspaceRoot}
+              agent={isChannelView ? channelRuntimeAgent : selectedAgent}
               selectedModel={selectedModel}
               onOpenArtifact={onOpenArtifact}
-              onResolveApproval={resolveApproval}
-              onResolveTip={() => onOpenAgentManagement?.("skills")}
+              onResolveApproval={isChannelView ? undefined : resolveApproval}
+              onResolveTip={!isChannelView && onOpenAgentManagement ? () => onOpenAgentManagement("skills") : undefined}
             />
           ))}
           {selectedError ? <NoticeBox tone="error">{selectedError}</NoticeBox> : null}
@@ -565,50 +580,43 @@ return (
             onSlashCommandExecute={handleSlashCommandExecute}
             contextUsage={composerContextUsage}
             onSubmit={(payload) => { updateDraftForChat(selectedChatKey, ""); void submitComposerPayload(payload); }}
-            toolbarRight={
+            onStop={() => { void cancelRun(); }}
+            toolbarLeft={
               <>
-                {activeRun?.status === "running" ? (
-                  <Button variant="outline" size="sm" onClick={() => void cancelRun()}>
-                    <CircleStop className="mr-1.5 size-3.5" />
-                    {t("composer.stop")}
-                  </Button>
+                {!isChannelView && chipEditable ? (
+                  <div className="min-w-0 shrink" data-testid="local-agent-draft-workspace">
+                    <WorkspaceFootnote
+                      density="compact"
+                      workspaceRoot={displayWorkspaceRoot}
+                      recentWorkspaces={workspaceRecentList}
+                      disabled={running}
+                      onSelect={applyWorkspaceOverride}
+                      onClear={clearWorkspaceOverride}
+                      onBrowse={() => { void browseWorkspaceOverride(); }}
+                    />
+                  </div>
                 ) : null}
+                <LocalAgentComposerApprovalSelect
+                  value={approvalMode}
+                  onChange={setApprovalMode}
+                  disabled={isChannelView || running || (selectedCapability ? selectedCapability.supportsApproval === false : false)}
+                />
               </>
             }
-            bottomAccessory={
-              <div className="flex min-w-0 w-full max-w-full items-center gap-2">
-                <div className="min-w-0 flex-1">
-                  <WorkspaceFootnote
-                    density="compact"
-                    workspaceRoot={displayWorkspaceRoot}
-                    recentWorkspaces={workspaceRecentList}
-                    disabled={running || !chipEditable}
-                    readOnly={!chipEditable}
-                    onSelect={applyWorkspaceOverride}
-                    onClear={clearWorkspaceOverride}
-                    onBrowse={() => { void browseWorkspaceOverride(); }}
-                  />
-                </div>
-                <SelectMenu
-                  size="compact"
-                  className={cn(
-                    "w-auto min-w-[9.5rem] max-w-[14rem] shrink-0",
-                    // Opaque trigger in the composer footer strip.
-                    "[&>button]:!border-dls-border [&>button]:!bg-dls-surface-solid [&>button]:!text-dls-text",
-                    "[&>button]:hover:!bg-dls-hover",
-                  )}
-                  value={approvalMode}
-                  onChange={(value) => setApprovalMode(value as PersonalLocalAgentApprovalMode)}
-                  disabled={running || (selectedCapability ? selectedCapability.supportsApproval === false : false)}
-                  ariaLabel={t("local_agent.approval_aria")}
-                  placement="top"
-                  panelMinWidth={180}
-                  options={APPROVAL_MODE_OPTIONS.map((option) => ({
-                    value: option.id,
-                    label: option.label,
-                  }))}
+            toolbarRight={
+              !isChannelView && selectedAcpModelInfo.supportsModelOverride ? (
+                <PersonalLocalAgentModelSelector
+                  agent={selectedAgent}
+                  selectedModel={selectedModel}
+                  onModelChange={setSelectedModel}
+                  workspaceRoot={effectiveWorkspaceRoot}
+                  disabled={!selectedAgent || running}
+                  acpModelInfo={selectedAcpModelInfo}
+                  conversationId={selectedConversation?.id ?? null}
+                  providerSessionId={selectedConversation?.providerSessionId ?? null}
+                  resumeKey={selectedConversation?.resumeKey ?? null}
                 />
-              </div>
+              ) : null
             }
           />
         </div>

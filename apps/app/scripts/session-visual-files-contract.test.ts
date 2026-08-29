@@ -116,7 +116,9 @@ describe("session visual and file contracts", () => {
     expect(preview).toContain("TextEditContextMenu");
 
     for (const source of [chatPage, assistantPage, expertPage]) {
-      expect(source).toContain("onOpenArtifact={openTarget}");
+      expect(source).toContain("hostCapabilities={{");
+      expect(source).toContain("open: openTarget");
+      expect(source).toContain("onTargetsChange: handleOpenTargetsChange");
     }
   });
 
@@ -169,7 +171,8 @@ describe("session visual and file contracts", () => {
       ["apps/app/src/react-app/domains/session/surface/transcript-resource-chip.tsx", "name={label}"],
       ["apps/app/src/react-app/domains/session/surface/composer/composer-attachment-chips.tsx", "name={attachment.name}"],
       ["apps/app/src/react-app/domains/session/surface/composer/slash-mention-menus.tsx", "name={item.value || item.label}"],
-      ["apps/app/src/react-app/domains/local-agents/local-agent-draft-composer.tsx", "name={entry.name}"],
+      ["apps/app/src/react-app/domains/local-agents/local-agent-draft-composer.tsx", "name={att.name}"],
+      ["apps/app/src/react-app/domains/local-agents/local-agent-composer-menus-view.tsx", "name={entry.name}"],
       ["apps/app/src/react-app/domains/local-agents/messages/chat-bubble.tsx", "name={target.name || target.value}"],
       ["apps/app/src/react-app/domains/local-agents/messages/message-file-changes.tsx", "name={entry.fileName || entry.filePath}"],
       ["apps/app/src/react-app/domains/session/surface/specialized-tool-details.tsx", "name={item.fileName || item.path}"],

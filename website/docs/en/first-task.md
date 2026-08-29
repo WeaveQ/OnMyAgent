@@ -41,7 +41,7 @@ Write the result to notes/workspace-review.md.
 
 ### 3. While it runs
 
-- Continue the conversation or add constraints at any time
+- Queue follow-up prompts without waiting: keep typing while the Agent works and press **Send**; they are sent automatically, in order, when the current turn ends (up to 20 messages — edit, remove, or drag to reorder in the bar above the composer)
 - If a higher-risk action is requested, follow the [approval](/en/guide/approvals) prompt
 - Use the controls at the bottom to switch models and permission modes
 - If the Agent splits the work, **Recent** still shows only this parent task; watch **N/M subtasks** in the conversation

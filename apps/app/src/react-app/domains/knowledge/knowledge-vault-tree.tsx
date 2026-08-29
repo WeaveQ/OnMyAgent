@@ -22,6 +22,9 @@ import {
   type KnowledgeNoteRef,
 } from "./knowledge-vault-model";
 
+/** Match home sidebar LIST_ROW_H (34px) so vault rows share that rhythm. */
+const VAULT_ROW_H = "h-[34px] min-h-[34px] max-h-[34px]";
+
 type KnowledgeTreeActions = {
   favorites: ReadonlySet<string>;
   onNewNote: (folder: string) => void;
@@ -218,7 +221,8 @@ function TreeNodeRow(props: {
             onDrop={(event) => props.onFolderDrop(event, folder.path)}
             onClick={() => props.onToggle(folder.path)}
             className={cn(
-              "flex w-full items-center gap-1 rounded-md py-1 pr-2 text-left text-sm",
+              "flex w-full items-center gap-1 rounded-md pr-2 text-left text-sm",
+              VAULT_ROW_H,
               dropping
                 ? "bg-dls-accent-soft text-dls-accent"
                 : "text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",
@@ -291,7 +295,8 @@ function TreeNodeRow(props: {
           }}
           onClick={() => props.onSelect({ scope: props.scope, relPath: file.relPath })}
           className={cn(
-            "flex w-full items-center gap-1 rounded-md py-1 pr-2 text-left text-sm",
+            "flex w-full items-center gap-1 rounded-md pr-2 text-left text-sm",
+            VAULT_ROW_H,
             active
               ? "bg-dls-list-selected text-dls-text"
               : "text-dls-secondary hover:bg-dls-list-hover hover:text-dls-text",

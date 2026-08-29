@@ -3,22 +3,35 @@ import { useEffect, useRef } from "react";
 import { isElectronRuntime } from "@/app/utils";
 
 import type { BrowserStatePayload } from "./use-browser-state";
-import { filterTabsForSession } from "./session-browser-tabs";
+import {
+  filterTabsForSession,
+  resolveBrowserSessionForPanel,
+} from "./session-browser-tabs";
 
-function shouldRevealBrowserPanel(
+export function shouldRevealBrowserPanel(
   state: BrowserStatePayload,
   sessionId?: string | null,
 ): boolean {
   // Draft / new-task has no chat session id — never auto-open from foreign tabs.
   if (!sessionId) return false;
-  const tabs = filterTabsForSession(state.tabs ?? [], sessionId);
+  const browserSessionId = resolveBrowserSessionForPanel(
+    state.tabs ?? [],
+    state.activeTabId,
+    sessionId,
+  );
+  const tabs = filterTabsForSession(state.tabs ?? [], browserSessionId);
   if (tabs.length === 0) return false;
+  const isLocalAgentWorkspaceScope = sessionId.split(":").length === 2
+    && sessionId.startsWith("localAgent:");
 
   for (const tab of tabs) {
     const owner = tab.owner ?? "user";
     const url = String(tab.url ?? "").trim();
     const hasRealUrl = url.length > 0 && url !== "about:blank";
-    if ((owner === "agent" || owner === "claimed") && hasRealUrl) {
+    const canRevealLocalAgentTab = !isLocalAgentWorkspaceScope
+      || tab.deliverable === true
+      || tab.handoff === true;
+    if ((owner === "agent" || owner === "claimed") && hasRealUrl && canRevealLocalAgentTab) {
       return true;
     }
   }
@@ -27,7 +40,13 @@ function shouldRevealBrowserPanel(
     tabs.find((tab) => tab.tabId === state.activeTabId || tab.isActive) ?? null;
   if (!active) return false;
   const activeUrl = String(active.url ?? state.url ?? "").trim();
-  return activeUrl.length > 0 && activeUrl !== "about:blank" && active.owner !== "user";
+  const canRevealActive = !isLocalAgentWorkspaceScope
+    || active.deliverable === true
+    || active.handoff === true;
+  return activeUrl.length > 0
+    && activeUrl !== "about:blank"
+    && active.owner !== "user"
+    && canRevealActive;
 }
 
 /**

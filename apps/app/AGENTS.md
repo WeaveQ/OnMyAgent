@@ -40,6 +40,7 @@ pnpm test:ui
 | 颜色、圆角、Tab/CTA、shell chrome | `DESIGN.md` | `pnpm task check design` |
 | 用户可见文案 | i18n locales | `pnpm check:i18n:cjk` |
 | 专家/会话 busy、draft、origin、首发、SSE | Architecture Session/Expert + React ARCHITECTURE | `pnpm test:ui`（含 invariants） |
+| `domains/session/surface/composer*`（排队追问、focus policy、follow-up chips、发送可靠性） | React ARCHITECTURE §Session goal lifecycle + Architecture **prompt queue** hard rule | `bun test apps/app/scripts/session-prompt-queue.test.ts apps/app/scripts/composer-focus-policy.test.ts apps/app/scripts/follow-up-suggestions.test.ts apps/app/scripts/session-send-reliability.test.ts`（未挂 `test:ui` target，必须手跑） |
 | 专家会话面 FSM / tab / cold-open | `docs/design/expert-surface-architecture.md` | `pnpm test:ui`（§10 已编入 ui-contracts） |
 | hard_delete / create flush / listSessions 预算 | Architecture Expert lifecycle + Cold-path | `pnpm test:ui`（expert-hard-delete + cold-path-budget） |
 | 域拆分 / shell import | ARCHITECTURE + 根 AGENTS 边界 | `pnpm check:boundaries` |

@@ -32,8 +32,12 @@ export function installDirFromUninstallFields(entry = {}) {
 
   const uninstall = String(entry.uninstallString ?? "").trim();
   if (!uninstall || /\bmsiexec(\.exe)?\b/i.test(uninstall)) return "";
-  const quoted = uninstall.match(/"([^"]+\.(?:exe|msi))"/i)?.[1];
-  const unquoted = uninstall.match(/^([A-Za-z]:\\[^\s"]+\.(?:exe|msi))/i)?.[1];
+  // Registry values normally contain a quoted Windows executable, but the
+  // same helper is exercised on macOS/Linux where the test/runtime path may
+  // not carry a platform extension.  Always validate the extracted value
+  // through firstExistingPath before accepting it.
+  const quoted = uninstall.match(/^"([^"]+)"/)?.[1];
+  const unquoted = uninstall.match(/^((?:[A-Za-z]:[\\/]|\/)[^\s"]+)/)?.[1];
   const exe = firstExistingPath(quoted || unquoted || "");
   return exe ? dirname(exe) : "";
 }

@@ -22,6 +22,7 @@ export const CHANNEL_EVENTS = {
   MESSAGE_RECEIVED: "channel:message:received",
   MESSAGE_SENT: "channel:message:sent",
   MESSAGE_EDITED: "channel:message:edited",
+  TRANSCRIPT_UPDATED: "channel:transcript:updated",
 
   // Pairing events
   PAIRING_REQUESTED: "channel:pairing:requested",

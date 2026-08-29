@@ -1,4 +1,4 @@
-import { useCallback, useMemo, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, type Dispatch, type SetStateAction } from "react";
 import { t } from "@/i18n";
 import {
   personalLocalAgentConversationCreate,
@@ -30,13 +30,17 @@ type UseWorkspaceOverrideArgs = {
   setRecentWorkspaces: Dispatch<SetStateAction<string[]>>;
 };
 
+export type WorkspaceRunContext = {
+  workspaceRoot: string;
+  conversationId: string | null;
+};
+
 /**
  * Workspace freshness + override logic for the personal local-agent page.
  * Extracted from `personal-local-agent-page.tsx` so that file stays below the
- * god-file line gate. Behavior is identical to the original inline callbacks:
- * a conversation is editable only while it is "fresh" (no committed workdir and
- * no real messages), and mounting/clearing a project re-bases the conversation
- * into the chosen partition without locking the chip before the first message.
+ * god-file line gate. A conversation is editable only while it is "fresh" (no
+ * committed workdir and no real messages); mounting/clearing a project re-bases
+ * it before a send can capture the destination.
  */
 export function useWorkspaceOverride(args: UseWorkspaceOverrideArgs) {
   const {
@@ -63,6 +67,43 @@ export function useWorkspaceOverride(args: UseWorkspaceOverrideArgs) {
     (message) => Boolean(message.run) || message.role === "user",
   );
   const chipEditable = !selectedConversationWorkdir && !selectedConversationHasContent;
+  const transitionSequenceRef = useRef(0);
+  const pendingTransitionRef = useRef<{
+    agentId: string;
+    sourceConversationId: string | null;
+    promise: Promise<WorkspaceRunContext>;
+  } | null>(null);
+  const selectedAgentIdRef = useRef(selectedAgent?.id ?? null);
+  const selectedConversationIdRef = useRef(selectedConversationId);
+  const resolvedRunContextRef = useRef<WorkspaceRunContext>({
+    workspaceRoot: effectiveWorkspaceRoot,
+    conversationId: selectedConversationId,
+  });
+  const selectedAgentId = selectedAgent?.id ?? null;
+  useLayoutEffect(() => {
+    selectedAgentIdRef.current = selectedAgentId;
+    selectedConversationIdRef.current = selectedConversationId;
+    const pendingTransition = pendingTransitionRef.current;
+    if (
+      pendingTransition
+      && (
+        pendingTransition.agentId !== selectedAgentId
+        || pendingTransition.sourceConversationId !== selectedConversationId
+      )
+    ) {
+      // A workspace rebase belongs to the selection that started it. Invalidate
+      // it after the new selection commits so abandoned concurrent renders
+      // cannot cancel routing work for the currently visible conversation.
+      transitionSequenceRef.current += 1;
+      pendingTransitionRef.current = null;
+    }
+    if (!pendingTransitionRef.current) {
+      resolvedRunContextRef.current = {
+        workspaceRoot: effectiveWorkspaceRoot,
+        conversationId: selectedConversationId,
+      };
+    }
+  }, [effectiveWorkspaceRoot, selectedAgentId, selectedConversationId]);
 
   const selectedIsFreshConversation = useCallback(() => {
     if (selectedConversation?.workdir?.trim()) return false;
@@ -71,26 +112,106 @@ export function useWorkspaceOverride(args: UseWorkspaceOverrideArgs) {
 
   const rebaseFreshConversation = useCallback(
     async (partitionRoot: string, committedWorkdir: string | null) => {
-      if (!selectedAgent || running) return;
-      if (!selectedIsFreshConversation()) return;
+      if (!selectedAgent || running) return null;
+      if (!selectedIsFreshConversation()) return null;
       const agent = selectedAgent;
       const result = await personalLocalAgentConversationCreate({
         workspaceRoot: partitionRoot,
         agent,
         workdir: committedWorkdir,
       });
-      setConversationsByAgent((current) => ({
-        ...current,
-        [agent.id]: [result.conversation, ...(current[agent.id] ?? []).filter((item) => item.id !== selectedConversationId)],
-      }));
-      setSelectedConversationIdByAgent((current) => ({ ...current, [agent.id]: result.conversation.id }));
-      const key = localAgentChatKey(agent.id, result.conversation.id);
-      setMessagesByAgent((current) => ({ ...current, [key]: [welcomeMessageForAgent(agent)] }));
-      setDraftsByAgent((current) => ({ ...current, [key]: "" }));
-      setActiveRunIdByAgent((current) => ({ ...current, [key]: null }));
+      return { agent, conversation: result.conversation };
     },
-    [running, selectedAgent, selectedConversationId, selectedIsFreshConversation],
+    [running, selectedAgent, selectedIsFreshConversation],
   );
+
+  const startWorkspaceTransition = useCallback((partitionRoot: string) => {
+    const sequence = transitionSequenceRef.current + 1;
+    transitionSequenceRef.current = sequence;
+
+    if (!selectedAgent || !selectedConversation || !selectedIsFreshConversation()) {
+      pendingTransitionRef.current = null;
+      resolvedRunContextRef.current = {
+        workspaceRoot: partitionRoot,
+        conversationId: selectedConversationId,
+      };
+      return;
+    }
+
+    const previousConversationId = selectedConversationId;
+    const previousChatKey = selectedChatKey;
+    const previousRunContext = resolvedRunContextRef.current;
+    const transition = rebaseFreshConversation(partitionRoot, null)
+      .then((rebased): WorkspaceRunContext => {
+        const stillSelected = selectedAgentIdRef.current === selectedAgent.id
+          && selectedConversationIdRef.current === previousConversationId;
+        if (sequence !== transitionSequenceRef.current || !stillSelected || !rebased) {
+          return resolvedRunContextRef.current;
+        }
+        const { agent, conversation } = rebased;
+        selectedConversationIdRef.current = conversation.id;
+        resolvedRunContextRef.current = {
+          workspaceRoot: partitionRoot,
+          conversationId: conversation.id,
+        };
+        setConversationsByAgent((current) => ({
+          ...current,
+          [agent.id]: [conversation, ...(current[agent.id] ?? []).filter((item) => item.id !== previousConversationId)],
+        }));
+        setSelectedConversationIdByAgent((current) => ({ ...current, [agent.id]: conversation.id }));
+        const key = localAgentChatKey(agent.id, conversation.id);
+        setMessagesByAgent((current) => ({ ...current, [key]: [welcomeMessageForAgent(agent)] }));
+        setDraftsByAgent((current) => ({ ...current, [key]: current[previousChatKey] ?? "" }));
+        setActiveRunIdByAgent((current) => ({ ...current, [key]: null }));
+        return resolvedRunContextRef.current;
+      })
+      .catch((error) => {
+        const stillSelected = selectedAgentIdRef.current === selectedAgent.id
+          && selectedConversationIdRef.current === previousConversationId;
+        if (sequence === transitionSequenceRef.current && stillSelected) {
+          resolvedRunContextRef.current = previousRunContext;
+          const previousOverride = previousRunContext.workspaceRoot === propsWorkspaceRoot
+            ? ""
+            : previousRunContext.workspaceRoot;
+          writeWorkspaceOverride(previousOverride);
+          setWorkspaceOverrideState(previousOverride);
+        }
+        throw error;
+      })
+      .finally(() => {
+        if (sequence === transitionSequenceRef.current) pendingTransitionRef.current = null;
+      });
+    void transition.catch(() => undefined);
+    pendingTransitionRef.current = {
+      agentId: selectedAgent.id,
+      sourceConversationId: previousConversationId,
+      promise: transition,
+    };
+  }, [
+    propsWorkspaceRoot,
+    rebaseFreshConversation,
+    selectedAgent,
+    selectedChatKey,
+    selectedConversation,
+    selectedConversationId,
+    selectedIsFreshConversation,
+    setActiveRunIdByAgent,
+    setConversationsByAgent,
+    setDraftsByAgent,
+    setMessagesByAgent,
+    setSelectedConversationIdByAgent,
+    setWorkspaceOverrideState,
+  ]);
+
+  const resolveWorkspaceRunContext = useCallback(async (): Promise<WorkspaceRunContext> => {
+    const pending = pendingTransitionRef.current;
+    if (
+      pending
+      && pending.agentId === selectedAgent?.id
+      && pending.sourceConversationId === selectedConversationId
+    ) return pending.promise;
+    return resolvedRunContextRef.current;
+  }, [selectedAgent?.id, selectedConversationId]);
 
   const applyWorkspaceOverride = useCallback(
     (next: string) => {
@@ -106,11 +227,9 @@ export function useWorkspaceOverride(args: UseWorkspaceOverrideArgs) {
       // re-pick a project if they chose the wrong one. The project is displayed
       // via `effectiveWorkspaceRoot` (the override), and the workdir is committed
       // (and the chip locked) only after the first run finishes on the server.
-      if (trimmed && selectedAgent && selectedConversation && selectedIsFreshConversation()) {
-        void rebaseFreshConversation(trimmed, null);
-      }
+      startWorkspaceTransition(trimmed || propsWorkspaceRoot || "");
     },
-    [rebaseFreshConversation, selectedAgent, selectedConversation, selectedIsFreshConversation],
+    [propsWorkspaceRoot, setRecentWorkspaces, setWorkspaceOverrideState, startWorkspaceTransition],
   );
 
   const clearWorkspaceOverride = useCallback(() => {
@@ -120,10 +239,8 @@ export function useWorkspaceOverride(args: UseWorkspaceOverrideArgs) {
     // default partition but keep the workdir `null` so the conversation stays
     // fresh and the chip remains editable ("no project" state), instead of
     // immediately showing "directory locked".
-    if (selectedAgent && selectedConversation && selectedIsFreshConversation()) {
-      void rebaseFreshConversation(propsWorkspaceRoot || "", null);
-    }
-  }, [propsWorkspaceRoot, rebaseFreshConversation, selectedAgent, selectedConversation, selectedIsFreshConversation]);
+    startWorkspaceTransition(propsWorkspaceRoot || "");
+  }, [propsWorkspaceRoot, setWorkspaceOverrideState, startWorkspaceTransition]);
 
   const browseWorkspaceOverride = useCallback(async () => {
     const picked = await pickDirectory({
@@ -151,5 +268,6 @@ export function useWorkspaceOverride(args: UseWorkspaceOverrideArgs) {
     clearWorkspaceOverride,
     browseWorkspaceOverride,
     workspaceRecentList,
+    resolveWorkspaceRunContext,
   };
 }

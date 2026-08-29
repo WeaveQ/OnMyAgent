@@ -8,10 +8,18 @@ import {
   removeOptimisticSessionUserMessage,
 } from "../src/react-app/domains/session/sync/optimistic-session-user-message";
 
-function message(id: string, role: "user" | "assistant", text: string): UIMessage {
+function message(
+  id: string,
+  role: "user" | "assistant",
+  text: string,
+  createdAt?: number,
+): UIMessage {
   return {
     id,
     role,
+    ...(createdAt === undefined
+      ? {}
+      : { metadata: { opencode: { created: createdAt } } }),
     parts: [{ type: "text", text, state: "done" }],
   };
 }
@@ -44,6 +52,25 @@ describe("optimistic session user messages", () => {
         createdAt: 42,
       }),
     ).toBe(current);
+  });
+
+  it("keeps the local user turn before an assistant reply that streams first", () => {
+    const current = [
+      message("msg_previous", "assistant", "previous answer", 100),
+      message("msg_streaming", "assistant", "streaming answer", 300),
+    ];
+
+    const next = addOptimisticSessionUserMessage(current, {
+      messageId: "msg_local_user",
+      text: "next prompt",
+      createdAt: 200,
+    });
+
+    expect(next.map((item) => item.id)).toEqual([
+      "msg_previous",
+      "msg_local_user",
+      "msg_streaming",
+    ]);
   });
 
   it("lets a canonical skill text part replace its equivalent optimistic placeholder", () => {

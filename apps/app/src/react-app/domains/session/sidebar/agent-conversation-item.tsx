@@ -319,14 +319,12 @@ export function AgentConversationItem(props: {
           <div
             className={cn(
               "flex size-10 items-center justify-center overflow-hidden rounded-md text-sm font-medium",
-              "bg-dls-surface-muted text-dls-secondary ring-1 ring-dls-border/60",
-              "dark:bg-dls-surface-solid dark:text-dls-text dark:ring-dls-border",
-            )}
-            style={
               props.group.avatarUrl
-                ? undefined
-                : { backgroundColor: props.group.avatarBackground }
-            }
+                ? "bg-dls-surface-muted text-dls-secondary ring-1 ring-dls-border/60"
+                : "bg-dls-accent/10 text-dls-accent ring-1 ring-dls-accent/30",
+              props.group.avatarUrl &&
+                "dark:bg-dls-surface-solid dark:text-dls-text dark:ring-dls-border",
+            )}
           >
             {props.group.avatarUrl ? (
               <img

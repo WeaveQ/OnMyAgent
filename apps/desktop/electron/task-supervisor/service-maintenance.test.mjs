@@ -142,4 +142,38 @@ describe("detached Supervisor bounded maintenance", () => {
     assert.equal(disabledCalls, 0);
     await disabled.close("test-close");
   });
+
+  it("raises vacuum work when storage diagnostics report pressure", async () => {
+    const root = await temporaryRoot();
+    const policies = [];
+    const orchestrator = {
+      getSupervisorRuntimeHealth: async () => ({
+        store: {
+          storage: {
+            exhausted: false,
+            warnings: ["task-center-storage-high-watermark"],
+            reclaimableBytes: 1_024 * 4_096,
+            pageSize: 4_096,
+          },
+        },
+      }),
+      runMaintenance: async (policy) => {
+        policies.push(policy);
+        return { ok: true };
+      },
+      close: async () => undefined,
+      pauseAllAndDrain: async () => undefined,
+    };
+    const service = await createTaskSupervisorService({
+      userDataDir: root,
+      personalAgentRuntime: createRuntime(),
+      orchestrator,
+      maintenanceStartupDelayMs: 0,
+      maintenanceIntervalMs: 0,
+    });
+    await waitUntil(() => policies.length >= 1);
+    assert.equal(policies[0].incrementalVacuumPages, 1_024);
+    assert.equal(service.maintenanceStatus().lastPressure, "high");
+    await service.close("test-close");
+  });
 });

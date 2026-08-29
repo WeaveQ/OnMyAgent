@@ -62,6 +62,15 @@ export function createBrowserTabRegistry() {
         .map((tab) => ({ ...tab }));
     },
     assertControllable,
+    mark(tabId, sessionId, input = {}) {
+      const tab = get(tabId);
+      if (tab.owner === "user" || tab.sessionId !== sessionId) {
+        throw new Error(`browser tab ${tabId} is not owned by session ${sessionId}`);
+      }
+      if (input.deliverable === true) tab.deliverable = true;
+      if (input.handoff === true) tab.handoff = true;
+      return { ...tab };
+    },
     claim(tabId, sessionId) {
       const tab = get(tabId);
       if (tab.owner !== "user") throw new Error(`browser tab ${tabId} is already claimed`);

@@ -11,15 +11,24 @@ import React, {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
-import { Folder, Paperclip, Plus, Quote, SlashSquare, X } from "lucide-react";
+import { Plus, Quote, Square, X } from "lucide-react";
+import { LOCAL_AGENT_COMPOSER_ATTACHMENT_MAX_BYTES } from "@onmyagent/types/desktop-ipc";
 
 import { ContextUsageIndicator } from "./context-usage-indicator";
 
 import { Button } from "@/components/ui/button";
-import { MenuRowButton } from "@/components/ui/action-row";
+import { NoticeBox } from "@/components/ui/notice-box";
 import { SendButton } from "@/components/ui/send-button";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  localAgentComposerClass,
+  resolveLocalAgentComposerLayout,
+} from "./local-agent-composer-layout";
+import {
+  LocalAgentComposerMentionMenu,
+  LocalAgentComposerSlashMenu,
+  LocalAgentComposerToolMenu,
+} from "./local-agent-composer-menus-view";
 import {
   localAgentComposerListFiles,
   localAgentComposerSaveAttachment,
@@ -28,6 +37,20 @@ import {
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { ArtifactIcon } from "../../capabilities/artifacts/artifact-icon";
+import {
+  canSubmitLocalAgentComposer,
+  fileToDataUrl,
+  findAllMentionSpans,
+  findAtQuery,
+  formatAttachmentBytes,
+  getNativeFilePath,
+  isImageMime,
+  renderMentionMirror,
+  resolveLocalAgentComposerTextPresentation,
+  shouldCommitLocalAgentAttachment,
+  type AtQueryState,
+} from "./local-agent-draft-composer-support";
+import { assembleLocalAgentPrompt } from "./local-agent-prompt-assembly";
 
 export type {
   LocalAgentAttachment,
@@ -35,6 +58,11 @@ export type {
   LocalAgentQuoteChip,
   LocalAgentSlashCommand,
 } from "./local-agent-composer-types";
+export {
+  canSubmitLocalAgentComposer,
+  resolveLocalAgentComposerTextPresentation,
+  shouldCommitLocalAgentAttachment,
+} from "./local-agent-draft-composer-support";
 import type {
   LocalAgentAttachment,
   LocalAgentComposerSubmit,
@@ -43,118 +71,6 @@ import type {
 } from "./local-agent-composer-types";
 
 const LONG_PASTE_THRESHOLD = 800;
-
-import { assembleLocalAgentPrompt } from "./local-agent-prompt-assembly";
-
-function isImageMime(mime: string): boolean {
-  return mime.startsWith("image/");
-}
-
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error ?? new Error("read failed"));
-    reader.onload = () => resolve(String(reader.result ?? ""));
-    reader.readAsDataURL(file);
-  });
-}
-
-function getNativeFilePath(file: File): string | null {
-  type ElectronBridge = { files?: { getPathForFile?: (file: File) => string | null } };
-  const globalScope = globalThis as typeof globalThis & { __ONMYAGENT_ELECTRON__?: ElectronBridge };
-  const bridge = globalScope.__ONMYAGENT_ELECTRON__;
-  const helper = bridge?.files?.getPathForFile;
-  if (typeof helper === "function") {
-    try {
-      return helper(file) ?? null;
-    } catch {
-      return null;
-    }
-  }
-  const legacyPath = (file as File & { path?: string }).path;
-  return typeof legacyPath === "string" && legacyPath ? legacyPath : null;
-}
-
-function bytes(n?: number): string {
-  if (!n) return "";
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-type AtQueryState = {
-  active: boolean;
-  query: string;
-  start: number;
-  end: number;
-};
-
-type MentionSpan = { start: number; end: number };
-function findAllMentionSpans(value: string, mentions: Record<string, string>): MentionSpan[] {
-  const spans: MentionSpan[] = [];
-  const tokens = Object.keys(mentions).sort((a, b) => b.length - a.length);
-  if (!tokens.length) return spans;
-  let cursor = 0;
-  while (cursor < value.length) {
-    let matched = false;
-    for (const token of tokens) {
-      if (value.startsWith(token, cursor)) {
-        const before = cursor === 0 ? " " : value[cursor - 1];
-        if (!before || /\s/.test(before) || cursor === 0) {
-          const end = cursor + token.length;
-          const after = value[end];
-          if (after === undefined || /\s/.test(after) || after === "") {
-            spans.push({ start: cursor, end });
-            cursor = end;
-            matched = true;
-            break;
-          }
-        }
-      }
-    }
-    if (!matched) cursor += 1;
-  }
-  return spans;
-}
-
-function findAtQuery(value: string, caret: number): AtQueryState {
-  if (caret <= 0) return { active: false, query: "", start: -1, end: -1 };
-  let i = caret - 1;
-  while (i >= 0) {
-    const ch = value[i];
-    if (ch === "@") {
-      const before = i === 0 ? " " : value[i - 1];
-      if (before && /\s/.test(before) === false && i !== 0) {
-        return { active: false, query: "", start: -1, end: -1 };
-      }
-      const query = value.slice(i + 1, caret);
-      if (/\s/.test(query)) return { active: false, query: "", start: -1, end: -1 };
-      return { active: true, query, start: i, end: caret };
-    }
-    if (/\s/.test(value[i])) break;
-    i -= 1;
-  }
-  return { active: false, query: "", start: -1, end: -1 };
-}
-
-function renderMirror(value: string, mentions: Record<string, string>): React.ReactNode[] {
-  const spans = findAllMentionSpans(value, mentions);
-  if (!spans.length) return [value + "\u200b"];
-  const nodes: React.ReactNode[] = [];
-  let cursor = 0;
-  spans.forEach((span, i) => {
-    if (cursor < span.start) nodes.push(value.slice(cursor, span.start));
-    nodes.push(
-      <span key={`m-${i}`} style={{ color: "var(--dls-accent, #2563eb)" }}>
-        {value.slice(span.start, span.end)}
-      </span>,
-    );
-    cursor = span.end;
-  });
-  if (cursor < value.length) nodes.push(value.slice(cursor));
-  nodes.push("\u200b");
-  return nodes;
-}
 
 export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(props: {
   draftKey: string;
@@ -166,11 +82,10 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
   slashCommands: LocalAgentSlashCommand[];
   onDraftCommit: (draftKey: string, value: string) => void;
   onSubmit: (payload: LocalAgentComposerSubmit) => void;
+  onStop?: () => void;
   onSlashCommandExecute?: (command: LocalAgentSlashCommand) => void;
   toolbarLeft?: ReactNode;
   toolbarRight?: ReactNode;
-  /** Workbench-style strip under the card (workspace / approval). */
-  bottomAccessory?: ReactNode;
   contextUsage?: { used: number; total: number; label?: string | null } | null;
 }) {
   const [value, setValue] = useState(props.initialDraft);
@@ -189,11 +104,16 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
   const [mentionFiles, setMentionFiles] = useState<LocalAgentComposerFileEntry[]>([]);
   const [mentionIndex, setMentionIndex] = useState(0);
   const [uploading, setUploading] = useState(0);
+  const [uploadFailure, setUploadFailure] = useState<{ file: File; name: string } | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const toolMenuRef = useRef<HTMLDivElement | null>(null);
   const composingRef = useRef(false);
   const dragCounterRef = useRef(0);
+  const uploadingRef = useRef(0);
+  const uploadCountsByDraftRef = useRef(new Map<string, number>());
+  const draftKeyRef = useRef(props.draftKey);
+  draftKeyRef.current = props.draftKey;
   const fileInputId = `local-agent-file-input-${props.draftKey}`;
 
   const slashQuery = value.startsWith("/") && !/\s/.test(value) ? value.toLowerCase() : "";
@@ -212,6 +132,10 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
     setAttachments([]);
     setQuotes([]);
     setMentions({});
+    setUploadFailure(null);
+    const count = uploadCountsByDraftRef.current.get(props.draftKey) ?? 0;
+    uploadingRef.current = count;
+    setUploading(count);
   }, [props.draftKey]);
   useEffect(() => {
     const timer = window.setTimeout(() => props.onDraftCommit(props.draftKey, value), 350);
@@ -245,7 +169,18 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
 
   const submit = useCallback(() => {
     const text = value;
-    if (!text.trim() && attachments.length === 0 && quotes.length === 0) return;
+    if (
+      !canSubmitLocalAgentComposer({
+        text,
+        attachmentCount: attachments.length,
+        quoteCount: quotes.length,
+        uploading: uploadingRef.current,
+        disabled: props.disabled,
+        submitting: props.submitting,
+      })
+    ) {
+      return;
+    }
     props.onDraftCommit(props.draftKey, "");
     const assembled = assembleLocalAgentPrompt({ text, attachments, mentions, quotes });
     props.onSubmit({
@@ -261,6 +196,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
     setMentions({});
     setAtState({ active: false, query: "", start: -1, end: -1 });
     setSlashOpen(false);
+    setUploadFailure(null);
   }, [attachments, mentions, props, quotes, value]);
 
   const selectSlashCommand = useCallback(
@@ -328,7 +264,12 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
   const addAttachmentFromFile = useCallback(
     async (file: File) => {
       if (!props.workspaceRoot) return;
-      setUploading((n) => n + 1);
+      const uploadDraftKey = props.draftKey;
+      const draftUploadCount = (uploadCountsByDraftRef.current.get(uploadDraftKey) ?? 0) + 1;
+      uploadCountsByDraftRef.current.set(uploadDraftKey, draftUploadCount);
+      uploadingRef.current = draftUploadCount;
+      setUploading(draftUploadCount);
+      setUploadFailure(null);
       try {
         const nativePath = getNativeFilePath(file);
         const kind: LocalAgentAttachment["kind"] = isImageMime(file.type) ? "image" : "file";
@@ -339,38 +280,54 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
         if (nativePath) {
           absolutePath = nativePath;
           displayPath = nativePath;
-          if (kind === "image") previewUrl = await fileToDataUrl(file).catch(() => undefined);
+          if (kind === "image" && file.size <= LOCAL_AGENT_COMPOSER_ATTACHMENT_MAX_BYTES) {
+            previewUrl = await fileToDataUrl(file).catch(() => undefined);
+          }
         } else {
+          if (file.size > LOCAL_AGENT_COMPOSER_ATTACHMENT_MAX_BYTES) {
+            throw new Error("attachment exceeds local payload limit");
+          }
           const dataUrl = await fileToDataUrl(file);
           const saved = await localAgentComposerSaveAttachment({
             workspaceRoot: props.workspaceRoot,
             name: file.name,
             dataUrl,
+            size: file.size,
           });
           absolutePath = saved.path;
           displayPath = saved.path;
           size = saved.size;
           if (kind === "image") previewUrl = dataUrl;
         }
-        setAttachments((current) => [
-          ...current,
-          {
-            id: `att-${Date.now().toString(36)}-${current.length}`,
-            name: file.name,
-            absolutePath,
-            relativePath: displayPath,
-            size,
-            kind,
-            previewUrl,
-          },
-        ]);
-      } catch (error) {
-        console.warn("[local-agent composer] attach failed", error);
+        if (shouldCommitLocalAgentAttachment(draftKeyRef.current, uploadDraftKey)) {
+          setAttachments((current) => [
+            ...current,
+            {
+              id: `att-${Date.now().toString(36)}-${current.length}`,
+              name: file.name,
+              absolutePath,
+              relativePath: displayPath,
+              size,
+              kind,
+              previewUrl,
+            },
+          ]);
+        }
+      } catch {
+        if (shouldCommitLocalAgentAttachment(draftKeyRef.current, uploadDraftKey)) {
+          setUploadFailure({ file, name: file.name });
+        }
       } finally {
-        setUploading((n) => Math.max(0, n - 1));
+        const remaining = Math.max(0, (uploadCountsByDraftRef.current.get(uploadDraftKey) ?? 1) - 1);
+        if (remaining === 0) uploadCountsByDraftRef.current.delete(uploadDraftKey);
+        else uploadCountsByDraftRef.current.set(uploadDraftKey, remaining);
+        if (draftKeyRef.current === uploadDraftKey) {
+          uploadingRef.current = remaining;
+          setUploading(remaining);
+        }
       }
     },
-    [props.workspaceRoot],
+    [props.draftKey, props.workspaceRoot],
   );
 
   const handleFiles = useCallback(
@@ -386,12 +343,10 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
     async (event: ReactClipboardEvent<HTMLTextAreaElement>) => {
       const items = Array.from(event.clipboardData?.items ?? []);
       const files: File[] = [];
-      let hadImage = false;
       for (const item of items) {
         if (item.kind === "file") {
           const file = item.getAsFile();
           if (file) {
-            if (isImageMime(file.type)) hadImage = true;
             files.push(file);
           }
         }
@@ -411,7 +366,6 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
         };
         setQuotes((current) => [...current, chip]);
       }
-      void hadImage;
     },
     [handleFiles],
   );
@@ -448,6 +402,12 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
   const removeQuote = useCallback((id: string) => {
     setQuotes((current) => current.filter((q) => q.id !== id));
   }, []);
+
+  const retryUpload = useCallback(() => {
+    const failure = uploadFailure;
+    if (!failure) return;
+    void addAttachmentFromFile(failure.file);
+  }, [addAttachmentFromFile, uploadFailure]);
 
   const handleKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
@@ -526,37 +486,32 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
   }, []);
 
   const mentionSpans = useMemo(() => findAllMentionSpans(value, mentions), [value, mentions]);
-  const canSend =
-    (Boolean(value.trim()) || attachments.length > 0 || quotes.length > 0) &&
-    !props.disabled &&
-    !props.submitting;
+  const textPresentation = resolveLocalAgentComposerTextPresentation(mentionSpans.length > 0);
+  const canSend = canSubmitLocalAgentComposer({
+    text: value,
+    attachmentCount: attachments.length,
+    quoteCount: quotes.length,
+    uploading,
+    disabled: props.disabled,
+    submitting: props.submitting,
+  });
 
-  const hasFooter = Boolean(props.bottomAccessory);
+  const hasAttachments =
+    attachments.length > 0 || quotes.length > 0 || uploading > 0 || uploadFailure !== null;
+  const showStop = Boolean(props.submitting && props.onStop);
+  const layout = resolveLocalAgentComposerLayout({
+    hasAttachments,
+    dragActive,
+  });
 
   return (
-    // One outer silhouette so focus never paints a blue top half + gray footer.
-    // Keep overflow visible so slash/mention menus can escape upward.
-    // Always solid surface — glass-mixed tokens make the composer look hollow
-    // and grey out controls on mac vibrancy.
     <div
-      className={cn(
-        // overflow visible: slash/mention menus open upward past the shell.
-        "mac:titlebar-no-drag w-full min-w-0 max-w-full rounded-xl border bg-dls-surface-solid transition-[border-color,box-shadow]",
-        dragActive
-          ? "border-dls-accent/60"
-          : focused
-            ? "border-dls-border-strong"
-            : "border-dls-border",
-      )}
+      className="@container/local-composer mac:titlebar-no-drag w-full min-w-0 max-w-full"
       data-local-agent-composer-shell="true"
+      data-local-agent-composer-focused={focused ? "true" : "false"}
     >
       <div
-        className={cn(
-          // No overflow-x-hidden here: with overflow-y visible CSS forces y→auto and
-          // clips the upward slash/mention menus (button looked "unclickable").
-          "relative min-w-0 max-w-full overflow-visible bg-dls-surface-solid",
-          hasFooter ? "rounded-t-xl" : "rounded-xl",
-        )}
+        className={layout.panelChromeClass}
         data-local-agent-composer-root="true"
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
@@ -564,101 +519,32 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
         onDrop={handleDrop}
       >
         {dragActive ? (
-          <div className="pointer-events-none absolute inset-2 z-30 flex items-center justify-center rounded-xl border-2 border-dashed border-dls-accent bg-dls-accent/10 text-sm font-medium text-dls-accent">
-            {t("local_agent.composer_drop_here")}
-          </div>
-        ) : null}
-        {slashOpen ? (
-          <div
-            className="absolute bottom-full left-0 right-0 z-50 mb-2 max-h-60 overflow-y-auto rounded-xl border border-dls-border bg-dls-surface-solid p-2 "
-            data-testid="local-agent-slash-menu"
-          >
-            {visibleSlashCommands.length ? (
-              <div className="grid gap-1">
-                {visibleSlashCommands.map((command) => (
-                  <button
-                    key={`${command.source}:${command.name}`}
-                    type="button"
-                    className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-dls-hover"
-                    onClick={() => selectSlashCommand(command)}
-                    data-testid={`local-agent-slash-${command.name.replace(/^\//, "")}`}
-                  >
-                    <SlashSquare size={14} className="mt-0.5 shrink-0 text-dls-secondary" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate text-xs font-medium text-dls-text">
-                          {command.name}
-                        </span>
-                        <div className="flex items-center gap-1">
-                          {command.hint ? (
-                            <kbd className="rounded-sm border border-dls-border bg-dls-surface-muted px-1 py-0.5 text-xs font-mono text-dls-secondary">
-                              {command.hint}
-                            </kbd>
-                          ) : null}
-                          <StatusBadge size="tiny" tone="surface">
-                            {command.source === "acp" ? "ACP" : t("local_agent.slash_builtin")}
-                          </StatusBadge>
-                        </div>
-                      </div>
-                      {command.description ? (
-                        <div className="truncate text-xs text-dls-secondary">
-                          {command.description}
-                        </div>
-                      ) : null}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div
-                className="px-3 py-2 text-xs text-dls-secondary"
-                data-testid="local-agent-slash-empty"
-              >
-                {t("local_agent.slash_empty")}
-              </div>
-            )}
-          </div>
-        ) : null}
-        {atState.active && mentionFiles.length ? (
-          <div
-            className="absolute bottom-full left-0 right-0 z-50 mb-2 max-h-60 overflow-y-auto rounded-xl border border-dls-border bg-dls-surface-solid p-2 "
-            data-testid="local-agent-mention-menu"
-          >
-            <div className="grid gap-1">
-              {mentionFiles.map((entry, index) => (
-                <button
-                  key={entry.path}
-                  type="button"
-                  className={cn(
-                    "flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-dls-hover",
-                    index === mentionIndex && "bg-dls-hover",
-                  )}
-                  onMouseEnter={() => setMentionIndex(index)}
-                  onClick={() => insertMention(entry)}
-                >
-                  {entry.isDirectory ? (
-                    <Folder className="mt-0.5 size-3.5 shrink-0 text-dls-secondary" />
-                  ) : (
-                    <ArtifactIcon name={entry.name} className="mt-0.5 size-3.5 shrink-0" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-xs font-medium text-dls-text">
-                      {entry.name}
-                      {entry.isDirectory ? "/" : ""}
-                    </div>
-                    <div className="truncate text-xs text-dls-secondary">{entry.relativePath}</div>
-                  </div>
-                </button>
-              ))}
+          <div className={localAgentComposerClass.dropOverlay}>
+            <div className="rounded-xl border border-dls-border bg-dls-surface px-5 py-4 text-center text-sm font-medium text-dls-text">
+              {t("local_agent.composer_drop_here")}
             </div>
           </div>
         ) : null}
-        {attachments.length > 0 || quotes.length > 0 || uploading > 0 ? (
-          <div className="flex flex-wrap gap-2 px-4 pt-3">
+        {slashOpen ? (
+          <LocalAgentComposerSlashMenu
+            commands={visibleSlashCommands}
+            onSelect={selectSlashCommand}
+          />
+        ) : null}
+        {atState.active && mentionFiles.length ? (
+          <LocalAgentComposerMentionMenu
+            files={mentionFiles}
+            mentionIndex={mentionIndex}
+            onHover={setMentionIndex}
+            onSelect={insertMention}
+          />
+        ) : null}
+        {hasAttachments ? (
+          <div className={localAgentComposerClass.attachmentRail}>
             {attachments.map((att) => (
               <div
                 key={att.id}
-                className="group/att flex max-w-full items-center gap-2 rounded-lg bg-dls-surface-muted px-2 py-1.5 text-xs"
+                className={localAgentComposerClass.attachmentChip}
                 data-testid="local-agent-attachment"
               >
                 {att.kind === "image" && att.previewUrl ? (
@@ -674,14 +560,14 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
                   <div className="truncate text-xs font-medium text-dls-text">{att.name}</div>
                   <div className="truncate text-2xs text-dls-secondary">
                     {att.relativePath}
-                    {att.size ? ` · ${bytes(att.size)}` : ""}
+                    {att.size ? ` · ${formatAttachmentBytes(att.size)}` : ""}
                   </div>
                 </div>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  className="ml-0.5 size-5 shrink-0 rounded-md text-dls-secondary opacity-70 hover:bg-dls-hover hover:text-dls-text hover:opacity-100 group-hover/att:opacity-100"
+                  className="ml-0.5 shrink-0 text-dls-secondary opacity-70 hover:bg-dls-hover hover:text-dls-text hover:opacity-100 group-hover/att:opacity-100"
                   onClick={() => removeAttachment(att.id)}
                   aria-label={t("action.remove")}
                 >
@@ -692,7 +578,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
             {quotes.map((q) => (
               <div
                 key={q.id}
-                className="group/att flex max-w-full items-center gap-2 rounded-lg bg-dls-surface-muted px-2 py-1.5 text-xs"
+                className={localAgentComposerClass.attachmentChip}
                 data-testid="local-agent-quote"
               >
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-dls-surface text-dls-secondary">
@@ -710,7 +596,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  className="ml-0.5 size-5 shrink-0 rounded-md text-dls-secondary opacity-70 hover:bg-dls-hover hover:text-dls-text hover:opacity-100 group-hover/att:opacity-100"
+                  className="ml-0.5 shrink-0 text-dls-secondary opacity-70 hover:bg-dls-hover hover:text-dls-text hover:opacity-100 group-hover/att:opacity-100"
                   onClick={() => removeQuote(q.id)}
                   aria-label={t("action.remove")}
                 >
@@ -723,26 +609,46 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
                 {t("local_agent.composer_uploading", { count: uploading })}
               </div>
             ) : null}
+            {uploadFailure ? (
+              <NoticeBox
+                tone="error"
+                className="flex min-w-0 items-center gap-2"
+                role="alert"
+                data-testid="local-agent-upload-error"
+              >
+                <span className="min-w-0 truncate">{uploadFailure.name}</span>
+                <span className="shrink-0">{t("files.upload_failed")}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  className="ml-auto shrink-0 text-dls-status-danger-fg hover:bg-dls-hover"
+                  onClick={retryUpload}
+                >
+                  {t("system.error_action_retry")}
+                </Button>
+              </NoticeBox>
+            ) : null}
           </div>
         ) : null}
-        <div className="px-3.5 pt-3 pb-2.5">
+        <div className={layout.editorPadClass}>
           <div className="relative">
             <div
               aria-hidden
               data-local-agent-mirror="true"
-              className="pointer-events-none absolute inset-0 whitespace-pre-wrap break-words text-sm leading-6"
-              style={{ color: "transparent" }}
+              className="pointer-events-none absolute inset-0 whitespace-pre-wrap break-words text-composer"
+              style={{ color: textPresentation.mirrorColor }}
             >
-              {renderMirror(value, mentions)}
+              {renderMentionMirror(value, mentions)}
             </div>
             <Textarea
               ref={textareaRef}
               rows={2}
-              className="relative min-h-[52px] resize-none border-0 bg-transparent p-0 text-sm leading-6 text-dls-text shadow-none placeholder:text-dls-secondary/70 focus-visible:border-transparent focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-transparent"
+              className="relative min-h-[52px] resize-none border-0 bg-transparent p-0 text-composer text-dls-text shadow-none placeholder:text-dls-secondary/70 focus-visible:border-transparent focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-transparent sm:text-composer md:text-composer"
               style={{
-                color: mentionSpans.length ? "transparent" : undefined,
+                color: textPresentation.textareaColor,
                 caretColor: "var(--dls-text, currentColor)",
-                WebkitTextFillColor: mentionSpans.length ? "transparent" : undefined,
+                WebkitTextFillColor: textPresentation.textareaTextFillColor,
               }}
               aria-label={t("local_agent.input_aria")}
               data-local-agent-composer="true"
@@ -762,9 +668,14 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
               disabled={props.disabled || props.submitting}
             />
           </div>
-          {/* Match home composer action row: + menu left, send right. */}
-          <div className="mt-2 flex items-end justify-between gap-1.5">
-            <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-0.5 overflow-visible">
+          <div
+            className={localAgentComposerClass.actionRow}
+            data-local-agent-composer-toolbar="true"
+          >
+            <div
+              className={localAgentComposerClass.toolsCluster}
+              data-local-agent-composer-tools="true"
+            >
               <input
                 type="file"
                 multiple
@@ -776,15 +687,16 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
                   event.currentTarget.value = "";
                 }}
               />
-              <div ref={toolMenuRef} className="relative -ml-1">
+              <div ref={toolMenuRef} className="relative -ml-2">
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className={cn(
-                    "size-8 shrink-0 rounded-md text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
-                    toolMenuOpen && "bg-dls-surface-muted text-dls-text",
-                  )}
+                  className={
+                    toolMenuOpen
+                      ? localAgentComposerClass.activeToolButton
+                      : localAgentComposerClass.toolButton
+                  }
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => {
                     setSlashOpen(false);
@@ -800,88 +712,54 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
                   <Plus
                     size={16}
                     className={cn(
-                      "transition-transform duration-200 ease-out",
+                      "transition-transform duration-200 ease-out motion-reduce:rotate-0 motion-reduce:transition-none",
                       toolMenuOpen ? "rotate-45" : "rotate-0",
                     )}
                   />
                 </Button>
                 {toolMenuOpen ? (
-                  <div
-                    className="absolute bottom-full left-0 z-50 mb-2 w-56 overflow-hidden rounded-xl border border-dls-border bg-dls-surface-solid p-1.5 "
-                    style={{ backgroundColor: "var(--dls-surface-solid, var(--dls-surface))" }}
-                    role="menu"
-                    data-testid="local-agent-tool-menu"
-                  >
-                    <MenuRowButton
-                      type="button"
-                      align="center"
-                      density="compact"
-                      className="justify-start gap-2 text-dls-text hover:text-dls-text"
-                      onClick={openFilePicker}
-                    >
-                      <Paperclip className="size-3.5 shrink-0 text-dls-text" />
-                      <span className="truncate text-sm leading-5">{t("composer.add_file")}</span>
-                    </MenuRowButton>
-                    {props.slashCommands.length > 0 ? (
-                      <>
-                        <div className="my-1 h-px bg-dls-border/80" role="separator" />
-                        <div className="px-2 py-1 text-2xs font-medium uppercase tracking-wide text-dls-secondary">
-                          {t("local_agent.slash_menu_title")}
-                        </div>
-                        <div className="max-h-48 overflow-y-auto">
-                          {props.slashCommands.map((command) => (
-                            <MenuRowButton
-                              key={`${command.source}:${command.name}`}
-                              type="button"
-                              align="start"
-                              density="compact"
-                              className="w-full justify-start gap-2 text-dls-text hover:text-dls-text"
-                              onClick={() => selectSlashCommand(command)}
-                              data-testid={`local-agent-tool-slash-${command.name.replace(/^\//, "")}`}
-                            >
-                              <SlashSquare className="mt-0.5 size-3.5 shrink-0 text-dls-secondary" />
-                              <span className="min-w-0 flex-1 text-left">
-                                <span className="block truncate text-sm font-medium leading-5">
-                                  {command.name}
-                                </span>
-                                {command.description ? (
-                                  <span className="block truncate text-xs leading-4 text-dls-secondary">
-                                    {command.description}
-                                  </span>
-                                ) : null}
-                              </span>
-                            </MenuRowButton>
-                          ))}
-                        </div>
-                      </>
-                    ) : null}
-                  </div>
+                  <LocalAgentComposerToolMenu
+                    slashCommands={props.slashCommands}
+                    onAddFile={openFilePicker}
+                    onSelectSlash={selectSlashCommand}
+                  />
                 ) : null}
               </div>
               {props.toolbarLeft}
             </div>
-            <div className="ml-auto flex shrink-0 items-center gap-1">
-              {props.contextUsage ? <ContextUsageIndicator usage={props.contextUsage} /> : null}
+            <div
+              className={localAgentComposerClass.trailingCluster}
+              data-local-agent-composer-trailing="true"
+            >
+              {props.contextUsage ? (
+                <ContextUsageIndicator usage={props.contextUsage} size={16} className="p-0.5" />
+              ) : null}
               {props.toolbarRight}
-              <SendButton
-                type="button"
-                aria-label={t("local_agent.send_aria")}
-                onClick={submit}
-                disabled={!canSend}
-                loading={props.submitting}
-              />
+              {showStop ? (
+                <Button
+                  variant="destructive"
+                  size="icon-lg"
+                  type="button"
+                  onClick={props.onStop}
+                  className={localAgentComposerClass.stopButton}
+                  title={t("composer.stop")}
+                  aria-label={t("composer.stop")}
+                  data-testid="local-agent-composer-stop"
+                >
+                  <Square size={12} fill="currentColor" />
+                </Button>
+              ) : (
+                <SendButton
+                  type="button"
+                  aria-label={t("local_agent.send_aria")}
+                  onClick={submit}
+                  disabled={!canSend}
+                />
+              )}
             </div>
           </div>
         </div>
       </div>
-      {props.bottomAccessory ? (
-        <div
-          className="relative z-10 mt-0 flex min-h-10 w-full min-w-0 max-w-full items-center gap-1.5 overflow-visible rounded-b-xl border-t border-dls-border bg-dls-surface-muted/80 px-2 py-1 text-xs font-normal leading-none text-dls-secondary"
-          data-local-agent-composer-footer="true"
-        >
-          {props.bottomAccessory}
-        </div>
-      ) : null}
     </div>
   );
 });

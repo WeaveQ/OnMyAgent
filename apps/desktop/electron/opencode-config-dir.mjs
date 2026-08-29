@@ -100,6 +100,7 @@ export async function ensureOpencodePluginPackagePin(configDir, opencodeVersion)
  *   resolveOpencodeVersion?: () => string | null | undefined | Promise<string | null | undefined>,
  *   bundledSkillsRootPath: () => string | null,
  *   onmyagentUserSkillsRoot: () => string,
+ *   onmyagentActiveSkillsRoot?: () => string,
  *   bundledPluginsRootPath: () => string | null,
  * }} deps
  */
@@ -120,6 +121,7 @@ export async function prepareOnMyAgentOpencodeConfigDir(configDir, deps) {
 
   const bundledSkillsRootPath = deps.bundledSkillsRootPath;
   const onmyagentUserSkillsRoot = deps.onmyagentUserSkillsRoot;
+  const onmyagentActiveSkillsRoot = deps.onmyagentActiveSkillsRoot ?? onmyagentUserSkillsRoot;
   const bundledPluginsRootPath = deps.bundledPluginsRootPath;
 
   await import("./ensure-default-builtin-skills.mjs")
@@ -161,7 +163,7 @@ export async function prepareOnMyAgentOpencodeConfigDir(configDir, deps) {
 
   // Only materialize *installed* user skills into OpenCode config.
   // Full bundled-skills tree is catalog/install source, not always-on Agent load.
-  const roots = [onmyagentUserSkillsRoot()].filter(Boolean);
+  const roots = [onmyagentActiveSkillsRoot()].filter(Boolean);
   const legacySkillDirs = [];
   for (const root of roots) {
     for (const skillDir of collectSkillDirs(root)) {

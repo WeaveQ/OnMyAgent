@@ -56,7 +56,7 @@ src/react-app/
     │                            `merge-connected-providers.ts` shared inventory merge
     ├── cloud/                 Den auth + restrictions + org onboarding
     ├── shell-feedback/        Reload banner, toasts, top-right notifications
-    └── shared/                Cross-domain infra only (see below)
+    └── shared/                Infra + existing helpers (see below)
 ```
 
 **`domains/plugins/`** owns the skills/plugins UI implementation (`plugins-page.tsx`,
@@ -77,13 +77,18 @@ Domain ownership gives every feature one obvious home.
   by the server runtime API/archive). It must not re-absorb
   agent management or messaging channels.
   Composer attachments (including **Appshot** desktop capture) live under
-  `domains/session/surface/composer/`; Appshot is macOS-only and talks to the
-  desktop bridge (`captureComputerUseAppshot` / `computerUse.onAppshot`). Multi-skill
-  slash chips are Lexical token nodes in `composer/editor.tsx`.
+  `domains/session/surface/composer/`. Appshot is macOS / Windows / Linux via
+  Electron `desktopCapturer` (`isComputerUseAppshotSupported`), not macOS-only, and
+  talks to the desktop bridge (`captureComputerUseAppshot` /
+  `computerUse.onAppshot`). Multi-skill slash chips are Lexical token nodes in
+  `composer/editor.tsx`.
 - `local-agents/` owns the **Personal Local Agent auxiliary path** (desktop CLI/ACP
   harness UI): local/ACP agent edit, cards, messages UI, `agent-management/` pages,
   and the personal host under `host/`. Not the product main session engine—see
   monorepo `docs/Architecture.md` **Dual Runtime Boundary**.
+  Archive **Resume** (`host/use-archive-resume.ts`, `source: session-archive-resume`)
+  is that boundary's one-way copy: OpenCode session-archive → Personal conversation
+  store for the local-agent view. Do not write back to the main archive.
   Public exports (`AgentBrandIcon`, recent-workspace helpers, …) go through
   `domains/local-agents/index.ts` for other domains.
 - `task-center/` owns the neutral multi-agent workflow UI. Task/Run/Turn truth remains
@@ -103,8 +108,9 @@ Domain ownership gives every feature one obvious home.
 - `connections/` owns MCP and provider auth UI (**canonical**).
 - `cloud/` owns organization and Den authentication flows.
 - `shell-feedback/` owns reload banners, status toasts, and top-right notification chrome.
-- `shared/` is **infra only** (env/extension/desktop-config/server-store + thin re-exports).
-  Product features must not land here.
+- `shared/` is cross-domain **infra plus existing product helpers** already on
+  the barrel (`personalization/`, `memory/`, `assistant-archived-tasks`). Do not
+  grow the barrel or land new product pages here.
 
 Cross-domain imports must be declared by `scripts/checks/domain-boundary-policy.mjs`
 and go through the target public entrypoint (`domains/<name>/index.ts`). Undeclared
@@ -125,11 +131,10 @@ reusable product composites belong in `design-system/`.
 ┌────────────────────────────────────────────────────────────┐
 │  react-app/shell/providers.tsx (AppProviders composition)  │
 │   ServerProvider                                           │
-│   └─ GlobalSDKProvider                                     │
-│      └─ GlobalSyncProvider                                 │
-│         └─ LocalProvider                                   │
-│            └─ (QueryClientProvider + PlatformProvider      │
-│               wrap AppProviders in index.react.tsx)        │
+│   └─ ArchitectureMismatchGate / DesktopRuntimeBoot         │
+│      └─ LocalProvider                                      │
+│         └─ (QueryClientProvider + PlatformProvider         │
+│            wrap AppProviders in index.react.tsx)           │
 └────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -153,16 +158,15 @@ reusable product composites belong in `design-system/`.
 | --- | --- | --- |
 | Workspace / session identity | URL params (`workspaceId`, `sessionId`) | App-global “current session” as source of truth |
 | Server lists, caches, refetch | TanStack Query (`infra/query-client.ts`) | Duplicating the same list in Zustand |
-| Connection / SDK / local runtime | `kernel/*-provider.tsx` | New top-level providers without updating `shell/providers.tsx` |
+| Connection / local runtime | Mounted providers under `kernel/` | New top-level providers without updating `shell/providers.tsx` |
 | Feature UI ephemeral (drawer open, draft text) | Domain store or local `useState` | Kernel store |
 | Cross-route user prefs | One named domain store + explicit storage key | Ad-hoc `localStorage` in page JSX |
-| App-wide rare flags | `kernel/store.ts` (keep thin) | Growing kernel into a god store |
+| App-wide rare flags | `kernel/system-state.ts` (keep thin) | Growing kernel into a god store |
 | Goal runtime (pursue goal) | Session-scoped stores under `session/` keyed by `sessionId` / `draft:<workspaceId>` | Workspace-global goal state |
 
 ### Existing homes
 
-- `react-app/kernel/store.ts`: thin Zustand app-wide container; selectors in `kernel/selectors.ts`.
-- `react-app/kernel/{server,global-sdk,global-sync,local}-provider.tsx`: server, SDK, sync, local runtime.
+- `react-app/kernel/{server,local}-provider.tsx`: server and local runtime boundaries mounted by `shell/providers.tsx`.
 - `react-app/kernel/platform.tsx`: `PlatformProvider` + `createDefaultPlatform()` (Electron vs web).
 - `react-app/kernel/system-state.ts`: reload + reset modal state.
 - `react-app/kernel/model-config.ts`: model parse/serialize + `useDefaultModel()`.
@@ -227,7 +231,8 @@ Product behavior invariants live in `docs/Architecture.md` Session / Expert (pac
 
 ## `shared/` contents (current)
 
-`domains/shared/` is **not** a product domain. Physical contents today:
+`domains/shared/` is **not** a product domain to grow. Physical contents today
+are infra plus helpers already exported from `index.ts`:
 
 | Path | Role |
 | --- | --- |
@@ -241,9 +246,9 @@ Product behavior invariants live in `docs/Architecture.md` Session / Expert (pac
 | `session-parent-tree.ts` | Session parent-tree walk helpers |
 | `memory/` | Conversation / work-memory file sync |
 | `personalization/` | Onboarding vertical rank / automations |
-| `index.ts` | Infra exports only (no session-identity re-export) |
+| `index.ts` | Barrel for the rows above (no session-identity re-export; do not grow) |
 
-Do not add product pages, modals, or registries here.
+Do not add product pages, modals, registries, or new barrel exports here.
 
 ### Historical migration (done; keep for archaeology)
 
@@ -279,6 +284,7 @@ Summary for implementers:
 - Goal preview shows before first send; first send creates session-scoped goal runtime.
 - Pause / resume / clear affect only the current `sessionId` (draft key migrates on create).
 - Goal and planning runtimes are mutually exclusive in the UI.
+- Prompt queue is in-memory per `sessionId` (`useSessionPromptQueueStore` inside `composer-state-store.ts`); enqueue only on a live (non-`draft:*`, non-`draftOnly`) session while `isPromptQueueTurnBusy`. Drain latch waits for remote-busy-then-idle; Stop pauses drain; failed sends restore the taken item; queued drain must not clear or overwrite the live composer draft. Covered by `scripts/session-prompt-queue.test.ts`, `composer-focus-policy.test.ts`, `follow-up-suggestions.test.ts`, `session-send-reliability.test.ts` (run directly via `bun test`; not yet wired into `pnpm test:ui`).
 
 ## File size / route rules (engineering)
 

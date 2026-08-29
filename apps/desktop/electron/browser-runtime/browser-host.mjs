@@ -241,9 +241,7 @@ export function createBrowserHost(options) {
       }
       if (method === "markTab") {
         const tabId = typeof params?.tabId === "string" ? params.tabId : "";
-        const tab = registry.assertControllable(tabId, context.sessionId);
-        if (params?.deliverable === true) tab.deliverable = true;
-        if (params?.handoff === true) tab.handoff = true;
+        const tab = registry.mark(tabId, context.sessionId, params);
         return { tab: describe(tab) };
       }
       if (method === "waitForTimeout") {

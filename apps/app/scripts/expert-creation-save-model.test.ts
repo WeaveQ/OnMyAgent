@@ -1,12 +1,44 @@
 import { describe, expect, test } from "bun:test";
 
 import { createBlankWizardDraft, createDefaultAgentRegistry } from "../src/react-app/domains/agents/agent-registry";
+import type { AgentSkillItem } from "../src/react-app/domains/agents/agent-registry-types";
+import * as expertCreationSaveModel from "../src/react-app/domains/agents/expert-creation-save-model";
 import {
   buildSavedExpertPendingContext,
   createExpertRecordForSave,
 } from "../src/react-app/domains/agents/expert-creation-save-model";
 
 describe("expert creation save model", () => {
+  test("maps selected registry ids to canonical expert package skill names", () => {
+    const resolveExpertPackageSkillNames = (
+      expertCreationSaveModel as typeof expertCreationSaveModel & {
+        resolveExpertPackageSkillNames?: (
+          skillIds: readonly string[],
+          availableSkills: readonly AgentSkillItem[],
+        ) => string[];
+      }
+    ).resolveExpertPackageSkillNames;
+    expect(resolveExpertPackageSkillNames).toBeFunction();
+    if (!resolveExpertPackageSkillNames) return;
+
+    expect(
+      resolveExpertPackageSkillNames(
+        ["installed-research", "custom-skill", "installed-research"],
+        [
+          {
+            id: "installed-research",
+            name: "research-skill",
+            category: "installed",
+            group: "",
+            description: "Research",
+            enabled: true,
+            path: "/skills/research-skill",
+          },
+        ],
+      ),
+    ).toEqual(["research-skill", "custom-skill"]);
+  });
+
   test("preserves a newly imported skill from the page inventory", () => {
     const registry = createDefaultAgentRegistry();
     const importedSkill = {

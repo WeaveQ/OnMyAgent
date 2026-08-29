@@ -1,7 +1,7 @@
 /**
  * Local OpenCode `tool` helper for generated knowledge plugins.
- * Resolving `@opencode-ai/plugin` from a temp sandbox config dir hangs
- * project boot (bun/npm fetch). Keep this file next to the generated plugins.
+ * Keeping this helper beside generated files avoids resolving or fetching
+ * `@opencode-ai/plugin` from temporary sandbox config during startup.
  */
 
 function schemaNode(spec) {

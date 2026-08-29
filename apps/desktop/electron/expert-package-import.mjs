@@ -223,6 +223,49 @@ function localizedPluginText(value) {
   return "";
 }
 
+function imageMimeType(filePath) {
+  const extension = path.extname(filePath).toLowerCase();
+  if (extension === ".jpg" || extension === ".jpeg") return "image/jpeg";
+  if (extension === ".webp") return "image/webp";
+  if (extension === ".svg") return "image/svg+xml";
+  return "image/png";
+}
+
+function packageRelativePath(packageDir, value) {
+  const relative = String(value ?? "").trim().replace(/^\.\//, "");
+  if (!relative || path.isAbsolute(relative)) return null;
+  const resolved = path.resolve(packageDir, relative);
+  const withinPackage = path.relative(path.resolve(packageDir), resolved);
+  if (!withinPackage || withinPackage.startsWith("..") || path.isAbsolute(withinPackage)) {
+    return null;
+  }
+  return resolved;
+}
+
+async function resolveCopiedPackageAvatarDataUrl(packageDir, avatarPath) {
+  const candidates = [];
+  const declared = packageRelativePath(packageDir, avatarPath);
+  if (declared) candidates.push(declared);
+  const avatarsDir = path.join(packageDir, "avatars");
+  try {
+    const firstAvatar = (await readdir(avatarsDir))
+      .filter((name) => /\.(png|jpe?g|webp|svg)$/i.test(name))
+      .sort()[0];
+    if (firstAvatar) candidates.push(path.join(avatarsDir, firstAvatar));
+  } catch {
+    // No avatars directory: the renderer will use the expert-name initial.
+  }
+  for (const avatarFile of candidates) {
+    try {
+      const bytes = await readFile(avatarFile);
+      return `data:${imageMimeType(avatarFile)};base64,${bytes.toString("base64")}`;
+    } catch {
+      // Try the fallback avatar candidate.
+    }
+  }
+  return null;
+}
+
 /**
  * Seed registry fields from package plugin.json (definition only).
  * @param {unknown} plugin
@@ -255,12 +298,22 @@ async function readCopiedPackageSeed(packageDir, packageName) {
   for (const marker of PLUGIN_MARKERS) {
     try {
       const raw = await readFile(path.join(packageDir, marker), "utf8");
-      return seedFromExpertPlugin(JSON.parse(raw), packageName);
+      const plugin = JSON.parse(raw);
+      return {
+        ...seedFromExpertPlugin(plugin, packageName),
+        avatarDataUrl: await resolveCopiedPackageAvatarDataUrl(
+          packageDir,
+          plugin && typeof plugin === "object" ? plugin.avatar : "",
+        ),
+      };
     } catch {
       // try the next marker
     }
   }
-  return seedFromExpertPlugin({}, packageName);
+  return {
+    ...seedFromExpertPlugin({}, packageName),
+    avatarDataUrl: await resolveCopiedPackageAvatarDataUrl(packageDir, ""),
+  };
 }
 
 async function readPluginPackageName(packageDir) {

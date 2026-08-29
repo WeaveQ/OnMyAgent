@@ -43,6 +43,7 @@ docs/
     2026-08-02-config-consistency.md  ← local/company isomorphic config + migrate (Phase 2a)
     2026-08-09-architecture-convergence-plan.md  ← historical + board (A–D on main; E deferred)
     2026-08-09-capability-shelf.md  ← recommended vs built-in placement matrix
+    2026-08-20-computer-use-background-parity.md  ← Computer Use 后台交互对齐（handsfree AGENTS.md 指向本文）
     expert-surface-architecture.md  ← **Expert 会话面 FSM / tab / cold-open / pending 语义 SoT**
     expert-runtime-isolation.md  ← Expert OpenCode agent/skills/HOME sandbox
     preview.html / preview-dark.html / preview.css  ← visual catalog; DESIGN.md wins on drift

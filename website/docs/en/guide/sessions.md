@@ -42,6 +42,16 @@ Watch subtask progress in the current conversation; see [Parallel subtasks](#par
 | Body context menu | Select conversation body text; right-click **Cut / Copy / Paste / Select all** | Uses the system clipboard |
 | Access permissions | Decide which actions run automatically and which require a prompt | Keep approvals for external sends, deletes, and sensitive writes |
 
+### Queue follow-up prompts while busy
+
+While a session is busy (sending, remote busy, thinking / responding / waiting), keep typing the next prompt and press **Send**. It does not interrupt the current run; it is queued in a bar above the composer and sent automatically, in order, when the current turn ends.
+
+- The queue holds up to **20 messages**; each row shows a text preview and attachment count.
+- Per-item actions: drag to reorder, **Send next** (promote to the front), **Edit** (load back into the composer), and Remove.
+- A prompt that fails to send is restored to the front of the queue instead of being dropped.
+- Pressing **Stop** pauses automatic draining; it resumes on the next successful send.
+- The queue is in-memory only; closing or deleting the session and restarting the app clears it. `draft:` draft sessions and empty expert shells do not queue.
+
 ## 3. Execution, Plan, and Goal
 
 - A normal task shows streaming text, tool calls, status, and a completion reason.

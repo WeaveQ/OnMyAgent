@@ -70,7 +70,22 @@ test("prepareOpencodeSandboxHome writes providers-only config and auth", async (
   assert.match(String(written.plugin[0]), /knowledge-search\.mjs$/);
   assert.match(String(written.plugin[1]), /knowledge-read\.mjs$/);
   assert.ok(written.plugin.every((item) => !String(item).includes(`${path.sep}skills${path.sep}`)));
+  const sandboxPackage = JSON.parse(
+    await readFile(path.join(sandboxOpencodeConfigDir(paths), "package.json"), "utf8"),
+  );
+  assert.deepEqual(sandboxPackage.dependencies, { "@opencode-ai/plugin": "*" });
   assert.equal(existsSync(path.join(sandboxOpencodeConfigDir(paths), "node_modules")), true);
+  assert.ok(
+    existsSync(
+      path.join(
+        sandboxOpencodeConfigDir(paths),
+        "node_modules",
+        "@opencode-ai",
+        "plugin",
+        "package.json",
+      ),
+    ),
+  );
   const packageLock = JSON.parse(
     await readFile(path.join(sandboxOpencodeConfigDir(paths), "package-lock.json"), "utf8"),
   );

@@ -15,7 +15,7 @@ import {
   shouldAutoOpenTarget,
   type OpenTarget,
 } from "../src/react-app/domains/session/artifacts/open-target";
-import { selectTurnOpenTargets } from "../src/react-app/domains/session/surface/message-list";
+import { selectTurnOpenTargets } from "../src/react-app/domains/session/surface/message-list/open-targets";
 import {
   buildWorkspaceFileTree,
   filterHiddenFromTree,

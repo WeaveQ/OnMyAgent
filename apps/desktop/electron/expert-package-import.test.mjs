@@ -48,6 +48,17 @@ async function writeMinimalPackage(packageDir, packageName = path.basename(packa
   await writeFile(path.join(packageDir, "knowledge", "note.md"), "context\n", "utf8");
 }
 
+const TINY_PNG_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+
+async function writePackageAvatar(packageDir) {
+  await mkdir(path.join(packageDir, "avatars"), { recursive: true });
+  await writeFile(
+    path.join(packageDir, "avatars", "avatar.png"),
+    Buffer.from(TINY_PNG_BASE64, "base64"),
+  );
+}
+
 function importDeps(root) {
   return {
     marketplaceRoot: path.join(root, "my-experts"),
@@ -108,6 +119,45 @@ test("importExpertPackageFromSource copies a folder into my-experts", async () =
         "context\n",
       );
     }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("importExpertPackageFromSource returns the copied package avatar", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "onmyagent-expert-avatar-"));
+  try {
+    const source = path.join(root, "source", "review-helper");
+    await writeMinimalPackage(source);
+    await writePackageAvatar(source);
+
+    const result = await importExpertPackageFromSource({
+      sourcePath: source,
+      ...importDeps(root),
+    });
+
+    assert.equal(result.ok, true);
+    if (result.ok) {
+      assert.equal(result.avatarDataUrl, `data:image/png;base64,${TINY_PNG_BASE64}`);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("importExpertPackageFromSource returns null when the package has no avatar", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "onmyagent-expert-no-avatar-"));
+  try {
+    const source = path.join(root, "source", "review-helper");
+    await writeMinimalPackage(source);
+
+    const result = await importExpertPackageFromSource({
+      sourcePath: source,
+      ...importDeps(root),
+    });
+
+    assert.equal(result.ok, true);
+    if (result.ok) assert.equal(result.avatarDataUrl, null);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -219,11 +269,31 @@ test("exportExpertPackageToZip fails when the package is missing", async () => {
   }
 });
 
-test("export then import round-trips plugin.json and knowledge bytes", async () => {
+test("export then import round-trips plugin.json, knowledge, and bundled skill trees", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "onmyagent-expert-roundtrip-"));
   try {
     const packageDir = path.join(root, "my-experts", "review-helper");
     await writeMinimalPackage(packageDir);
+    await mkdir(path.join(packageDir, "agents"), { recursive: true });
+    await writeFile(
+      path.join(packageDir, "agents", "review-helper.md"),
+      "---\nname: review-helper\n---\n\nReview carefully.\n",
+      "utf8",
+    );
+    await writeFile(path.join(packageDir, "README.md"), "# Review helper\n", "utf8");
+    await mkdir(path.join(packageDir, "skills", "demo-skill", "scripts"), {
+      recursive: true,
+    });
+    await writeFile(
+      path.join(packageDir, "skills", "demo-skill", "SKILL.md"),
+      "---\nname: demo-skill\ndescription: Demo\n---\n",
+      "utf8",
+    );
+    await writeFile(
+      path.join(packageDir, "skills", "demo-skill", "scripts", "run.mjs"),
+      "export const run = true;\n",
+      "utf8",
+    );
     const destPath = path.join(root, "portable", "review-helper.zip");
     const exported = await exportExpertPackageToZip({
       packageName: "review-helper",
@@ -255,6 +325,25 @@ test("export then import round-trips plugin.json and knowledge bytes", async () 
       assert.equal(
         await readFile(path.join(copied, "knowledge", "note.md"), "utf8"),
         "context\n",
+      );
+      assert.equal(
+        await readFile(path.join(copied, "agents", "review-helper.md"), "utf8"),
+        await readFile(path.join(packageDir, "agents", "review-helper.md"), "utf8"),
+      );
+      assert.equal(
+        await readFile(path.join(copied, "README.md"), "utf8"),
+        "# Review helper\n",
+      );
+      assert.match(
+        await readFile(path.join(copied, "skills", "demo-skill", "SKILL.md"), "utf8"),
+        /name: demo-skill/,
+      );
+      assert.equal(
+        await readFile(
+          path.join(copied, "skills", "demo-skill", "scripts", "run.mjs"),
+          "utf8",
+        ),
+        "export const run = true;\n",
       );
     }
   } finally {

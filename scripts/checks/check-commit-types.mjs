@@ -2,14 +2,17 @@
 
 import { spawnSync } from "node:child_process";
 import {
+  cpSync,
   existsSync,
+  mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   symlinkSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { resolveCommand } from "../lib/run-command.mjs";
@@ -290,18 +293,42 @@ export function resolveCommitRange({
   };
 }
 
+function workspacePackageRoots(root) {
+  const packageRoots = ["."];
+  for (const parent of ["apps", "packages"]) {
+    const parentPath = join(root, parent);
+    if (!existsSync(parentPath)) continue;
+    for (const entry of readdirSync(parentPath, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const packageRoot = join(parent, entry.name);
+      if (existsSync(join(root, packageRoot, "package.json"))) packageRoots.push(packageRoot);
+    }
+  }
+  return packageRoots;
+}
+
+function repairWorkspaceDependencyLinks({ sourceNodeModules, targetNodeModules, worktreeRoot, packageRoots }) {
+  for (const workspacePackageRoot of packageRoots) {
+    if (workspacePackageRoot === ".") continue;
+    const manifest = readJsonFile(join(worktreeRoot, workspacePackageRoot, "package.json"));
+    const packageName = typeof manifest?.name === "string" ? manifest.name.trim() : "";
+    if (!packageName) continue;
+    const segments = packageName.split("/");
+    const sourceLink = join(sourceNodeModules, ...segments);
+    if (!existsSync(sourceLink)) continue;
+    const targetLink = join(targetNodeModules, ...segments);
+    rmSync(targetLink, { recursive: true, force: true });
+    mkdirSync(dirname(targetLink), { recursive: true });
+    const localPackageRoot = join(worktreeRoot, workspacePackageRoot);
+    const linkTarget = process.platform === "win32"
+      ? localPackageRoot
+      : relative(dirname(targetLink), localPackageRoot);
+    symlinkSync(linkTarget, targetLink, process.platform === "win32" ? "junction" : "dir");
+  }
+}
+
 function linkExistingDependencies(repoRoot, worktreeRoot) {
-  const packageRoots = [
-    ".",
-    "apps/app",
-    "apps/server",
-    "apps/desktop",
-    "apps/orchestrator",
-    "packages/types",
-    "packages/ui",
-    "packages/handsfree",
-    "packages/onmyagent-ui-mcp",
-  ];
+  const packageRoots = workspacePackageRoots(worktreeRoot);
   for (const packageRoot of packageRoots) {
     const source = join(repoRoot, packageRoot, "node_modules");
     const target = join(worktreeRoot, packageRoot, "node_modules");
@@ -309,7 +336,21 @@ function linkExistingDependencies(repoRoot, worktreeRoot) {
     const parent = dirname(target);
     if (!existsSync(parent)) continue;
     try {
-      symlinkSync(source, target, process.platform === "win32" ? "junction" : "dir");
+      if (packageRoot === ".") {
+        symlinkSync(source, target, process.platform === "win32" ? "junction" : "dir");
+      } else {
+        cpSync(source, target, {
+          recursive: true,
+          dereference: false,
+          verbatimSymlinks: true,
+        });
+        repairWorkspaceDependencyLinks({
+          sourceNodeModules: source,
+          targetNodeModules: target,
+          worktreeRoot,
+          packageRoots,
+        });
+      }
     } catch {
       // Dependencies are an optimization. A normal checkout may still have
       // its own install, and the type command will report an actionable error.

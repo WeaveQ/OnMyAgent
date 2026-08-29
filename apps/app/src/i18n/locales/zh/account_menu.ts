@@ -28,5 +28,6 @@ export default {
   "account_menu.update_check_failed": "检查更新失败",
   "account_menu.update_latest": "已是最新版本",
   "account_menu.used_percent": "已用28%",
+  "account_menu.user_guide": "使用指南",
   "account_menu.view_details": "查看详情",
 } as const;

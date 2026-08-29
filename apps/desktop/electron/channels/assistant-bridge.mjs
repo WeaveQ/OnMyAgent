@@ -13,6 +13,8 @@
 // opencode/etc.).
 import path from "node:path";
 
+import { normalizePersonalLocalAgent } from "../personal-agent-runtime/provider-registry.mjs";
+
 const POLL_INTERVAL_MS = 900;
 const POLL_TIMEOUT_MS = 180_000;
 
@@ -228,6 +230,15 @@ export function createOnMyAgentAssistantAgent() {
   };
 }
 
+export function normalizeChannelAgent(input) {
+  const id = String(input?.id ?? "").trim().toLowerCase();
+  const provider = String(input?.provider ?? "").trim().toLowerCase();
+  if (id === ONMYAGENT_ASSISTANT_AGENT_ID || provider === ONMYAGENT_ASSISTANT_PROVIDER) {
+    return createOnMyAgentAssistantAgent();
+  }
+  return normalizePersonalLocalAgent(input);
+}
+
 /**
  * Shared dispatch path used by weixin / feishu / channels agent-dispatch when a
  * chat is bound to the `onmyagent` pseudo-agent. Runs one assistant turn against
@@ -241,17 +252,31 @@ export function createOnMyAgentAssistantAgent() {
  * @param {object} deps.event - inbound message event ({ chatId, senderId, text })
  * @param {string} deps.platformLabel - platform name for log/error prefixes
  * @param {(session: object, chatId: string) => Promise<object|null>} deps.readChatSetting
- * @param {(session: object, event: object, text: string) => Promise<void>} deps.deliverReply
+ * @param {(session: object, event: object, text: string) => Promise<object|void>} deps.deliverReply
+ * @param {(session: object, event: object, text: string) => Promise<void>} [deps.deliverLocalNotice]
+ * @param {typeof runAssistantTurn} [deps.executeAssistantTurn] - injectable test seam
  * @param {(entry: { type: string, text: string }) => void} [deps.appendLog]
  * @param {Function} [deps.createClient] - injectable canonical client for tests
- * @returns {Promise<{ output: string, sessionId: string|null }>}
+ * @returns {Promise<{ output: string, sessionId: string|null, status: "completed"|"failed", error?: string }>}
  */
 export async function runAssistantBridgeTurn(deps) {
-  const { runtime, store, session, event, platformLabel, readChatSetting, deliverReply, appendLog } = deps;
+  const {
+    runtime,
+    store,
+    session,
+    event,
+    platformLabel,
+    readChatSetting,
+    deliverReply,
+    deliverLocalNotice,
+    executeAssistantTurn = runAssistantTurn,
+    appendLog,
+  } = deps;
   const connection = typeof runtime?.getPrimaryRuntimeConnection === "function"
     ? await runtime.getPrimaryRuntimeConnection()
     : null;
-  const result = await runAssistantTurn({
+  let failureMessage = "";
+  const result = await executeAssistantTurn({
     runtimeConnection: connection,
     workspaceRoot: session.options.workspaceRoot,
     chatId: event.chatId,
@@ -267,11 +292,39 @@ export async function runAssistantBridgeTurn(deps) {
     createClient: deps.createClient,
   }).catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
+    failureMessage = message;
     appendLog?.({ type: "error", text: `${platformLabel} assistant-bridge failed: ${message}` });
-    return { output: `本地助理处理失败：${message}`, sessionId: null };
+    return { output: "", sessionId: null };
   });
-  await deliverReply(session, event, result.output || "（本地助理暂无回复）").catch(() => undefined);
-  return result;
+  const output = String(result.output ?? "").trim();
+  if (failureMessage || !output) {
+    const notice = failureMessage ? `本地助理处理失败：${failureMessage}` : "本地助理暂无回复。";
+    if (event.isLocalPrompt) {
+      await deliverLocalNotice?.(session, event, notice).catch(() => undefined);
+    } else {
+      await deliverReply(session, event, notice).catch(() => undefined);
+    }
+    return { ...result, status: "failed", error: failureMessage || "assistant returned no reply" };
+  }
+  try {
+    const delivery = await deliverReply(session, event, output);
+    if (delivery?.ok === false) {
+      throw new Error(delivery.error ?? "transport rejected the assistant reply");
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const deliveryError = `assistant reply delivery failed: ${message}`;
+    appendLog?.({ type: "error", text: `${platformLabel} ${deliveryError}` });
+    if (event.isLocalPrompt) {
+      await deliverLocalNotice?.(
+        session,
+        event,
+        `本地助理回复已生成，但发送失败：${message}`,
+      ).catch(() => undefined);
+    }
+    return { ...result, status: "failed", error: deliveryError };
+  }
+  return { ...result, status: "completed" };
 }
 
 export const __test__ = {

@@ -27,7 +27,21 @@ export const MANAGEMENT_LOAD_DOMAINS: readonly ManagementLoadDomain[] = [
   "providers",
 ] as const;
 
-export const DEFAULT_MANAGEMENT_DOMAIN_TTL_MS = 60_000;
+/**
+ * Per-domain TTLs. `core` is the expensive path (desktop probes each local
+ * agent binary), so it stays warm for 10 minutes and re-entry only hits the
+ * network on manual refresh / mutation / window focus. `skills` and
+ * `providers` refresh more often because they are cheaper and the user
+ * expects to see enable/disable changes quickly.
+ */
+export const MANAGEMENT_DOMAIN_TTL_MS: Record<ManagementLoadDomain, number> = {
+  core: 10 * 60_000,
+  skills: 5 * 60_000,
+  providers: 60_000,
+};
+
+export const DEFAULT_MANAGEMENT_DOMAIN_TTL_MS =
+  MANAGEMENT_DOMAIN_TTL_MS.core;
 
 /** Which snapshot domains a panel needs before it can fully render. */
 export function domainsForPanel(
@@ -74,11 +88,13 @@ export function isDomainFresh(
   domains: DomainFreshnessMap | null | undefined,
   domain: ManagementLoadDomain,
   now = Date.now(),
-  ttlMs = DEFAULT_MANAGEMENT_DOMAIN_TTL_MS,
+  ttlMs: number | Record<ManagementLoadDomain, number> = MANAGEMENT_DOMAIN_TTL_MS,
 ): boolean {
   const entry = domains?.[domain];
   if (!entry || typeof entry.fetchedAt !== "number") return false;
-  return now - entry.fetchedAt < ttlMs;
+  const effectiveTtl =
+    typeof ttlMs === "number" ? ttlMs : (ttlMs[domain] ?? DEFAULT_MANAGEMENT_DOMAIN_TTL_MS);
+  return now - entry.fetchedAt < effectiveTtl;
 }
 
 /**
@@ -89,7 +105,7 @@ export function missingDomains(
   loaded: DomainFreshnessMap | null | undefined,
   needed: readonly ManagementLoadDomain[],
   now = Date.now(),
-  ttlMs = DEFAULT_MANAGEMENT_DOMAIN_TTL_MS,
+  ttlMs: number | Record<ManagementLoadDomain, number> = MANAGEMENT_DOMAIN_TTL_MS,
 ): ManagementLoadDomain[] {
   return needed.filter((domain) => !isDomainFresh(loaded, domain, now, ttlMs));
 }

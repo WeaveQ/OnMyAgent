@@ -168,6 +168,9 @@ export function createAgentManagementSkills(options = {}) {
     if (raw.includes("hermes")) agents.push("hermes");
     if (raw.includes("codex")) agents.push("codex");
     if (raw.includes(".gemini") || raw.includes("gemini")) agents.push("gemini");
+    if (raw.includes(".cursor") || raw.includes("cursor-agent") || raw.includes(`${path.sep}cursor${path.sep}`)) {
+      agents.push("cursor-agent");
+    }
     if (raw.includes(".onmyagent") || raw.includes("bundled-skills")) agents.push("onmyagent");
     // Catalog / desktop agents whose skill roots live outside the product list.
     if (raw.includes(".workbuddy") || raw.includes(`${path.sep}workbuddy${path.sep}`)) {
@@ -265,11 +268,12 @@ export function createAgentManagementSkills(options = {}) {
     { agent: "gemini", label: "Gemini", subpaths: [[".gemini", "skills"]] },
     { agent: "hermes", label: "Hermes", subpaths: [[".hermes", "skills"]] },
     { agent: "openclaw", label: "OpenClaw", subpaths: [[".openclaw", "plugin-skills"], [".openclaw", "skills"]] },
+    { agent: "cursor-agent", label: "Cursor Agent", subpaths: [[".cursor", "skills-cursor"]] },
     { agent: "onmyagent", label: "OnMyAgent", subpaths: [[".onmyagent", "skills"]] },
   ];
 
   const STUDIO_SWITCH_MANAGED_SKILL_AGENTS = Object.keys(STUDIO_SWITCH_SKILL_COLUMNS_BY_AGENT);
-  const STUDIO_SKILL_SYNC_AGENTS = [...STUDIO_SWITCH_MANAGED_SKILL_AGENTS, "openclaw", "onmyagent"];
+  const STUDIO_SKILL_SYNC_AGENTS = [...STUDIO_SWITCH_MANAGED_SKILL_AGENTS, "openclaw", "cursor-agent", "onmyagent"];
   const CLAUDE_RUNTIME_BUILTIN_SKILL_NAMES = new Set(["init", "review", "security-review"]);
 
   function unifiedAgentsSkillsRoot() {
@@ -285,10 +289,13 @@ export function createAgentManagementSkills(options = {}) {
         return path.join(home, ".claude", "skills");
       case "codex":
         return path.join(home, ".codex", "skills");
+      case "gemini": return path.join(home, ".gemini", "skills");
       case "hermes":
         return path.join(home, ".hermes", "skills");
       case "openclaw":
         return path.join(home, ".openclaw", "skills");
+      case "cursor-agent":
+        return path.join(home, ".cursor", "skills-cursor");
       case "onmyagent":
         return onmyagentUserSkillsRoot();
       default:
@@ -314,6 +321,7 @@ export function createAgentManagementSkills(options = {}) {
       "openclaw",
       "hermes",
       "gemini",
+      "cursor-agent",
       "onmyagent",
       "unknown",
     ];
@@ -916,7 +924,7 @@ export function createAgentManagementSkills(options = {}) {
           realpath(destination).catch(() => path.resolve(destination)),
         ]);
         if (realSource === realDestination) {
-          throw new Error("未托管 Skill 位于当前应用目录，已拒绝直接删除；请先同步到 Studio Switch/Agents 源目录后再禁用。");
+          throw new Error("Unmanaged skill is in the app directory");
         }
         await removePathIfPresent(destination);
       }

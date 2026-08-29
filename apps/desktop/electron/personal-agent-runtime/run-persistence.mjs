@@ -46,3 +46,24 @@ export function createRunPersistence({
 
   return { schedulePersistRun, flushPersistRun, retainCompletedRunBriefly };
 }
+
+/** Publish run.finished only after a terminal checkpoint lands. */
+export function attachRuntimePersistPublisher({
+  schedulePersistRun: schedulePersistRunRaw,
+  flushPersistRun,
+  publishRuntimeEvent,
+}) {
+  async function persistTerminalRun(state) {
+    await flushPersistRun(state, true);
+    publishRuntimeEvent(state, "run.finished");
+  }
+  function schedulePersistRun(state) {
+    if (state.status === "running") {
+      schedulePersistRunRaw(state);
+      publishRuntimeEvent(state, "run.delta");
+      return;
+    }
+    void persistTerminalRun(state).catch(() => undefined);
+  }
+  return { schedulePersistRun, persistTerminalRun };
+}

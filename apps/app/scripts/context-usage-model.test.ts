@@ -43,11 +43,11 @@ describe("context usage model", () => {
       source: "table",
     });
     expect(resolveContextTotal({ modelId: "doubao-seed-evolving" })).toEqual({
-      total: 256_000,
+      total: 1_000_000,
       source: "table",
     });
     expect(resolveContextTotal({ modelId: "huoshan/doubao-seed-evolving" })).toEqual({
-      total: 256_000,
+      total: 1_000_000,
       source: "table",
     });
     expect(resolveContextTotal({ modelId: "totally-unknown-xyz" })).toEqual({
@@ -196,9 +196,9 @@ describe("context usage model", () => {
         onClose: () => undefined,
       }),
     );
-    expect(html).toContain("17.4%");
+    expect(html).toContain("4.5%");
     expect(html).toContain("Tools &amp; subagents");
-    expect(html).toContain("17.3%");
+    expect(html).toContain("4.4%");
     expect(html).not.toContain("Connectors &amp; MCP");
     expect(html).not.toContain(">Skills<");
   });

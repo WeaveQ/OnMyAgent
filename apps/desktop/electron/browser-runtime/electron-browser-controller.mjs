@@ -127,6 +127,15 @@ export function createElectronBrowserController(options) {
     );
   const docsRoot = options.docsRoot
     ?? (pluginRoot ? path.join(pluginRoot, "browser", "docs") : null);
+  const browserEnabled =
+    options.isBrowserEnabled ??
+    (async () => {
+      if (!pluginRoot) return true;
+      return isBrowserAutomationSkillEnabled({
+        pluginRoot,
+        enablementPath: options.artifactPluginEnablementPath,
+      });
+    });
   const runtime = createBrowserRuntime({
     createView,
     requestApproval: options.requestApproval,
@@ -136,15 +145,7 @@ export function createElectronBrowserController(options) {
     nameSession: options.nameSession,
     consoleLogs: options.consoleLogs,
     docsRoot,
-    isBrowserEnabled:
-      options.isBrowserEnabled ??
-      (async () => {
-        if (!pluginRoot) return true;
-        return isBrowserAutomationSkillEnabled({
-          pluginRoot,
-          enablementPath: options.artifactPluginEnablementPath,
-        });
-      }),
+    isBrowserEnabled: browserEnabled,
   });
 
   // The host owns security and lifecycle; this controller owns Electron layout.
@@ -159,7 +160,10 @@ export function createElectronBrowserController(options) {
    * why localhost openTarget worked (renderer setCurrentSidePanel) while agent
    * createTab did not open the rail.
    */
-  const syncControllerAfterHostMethod = (method, params, result) => {
+  const syncControllerAfterHostMethod = (method, params, result, context) => {
+    const isLocalAgentSession = String(context?.sessionId ?? "").startsWith("localAgent:");
+    const shouldReveal = (tab) =>
+      !isLocalAgentSession || tab?.deliverable === true || tab?.handoff === true;
     let openedAgentSurface = false;
     if (method === "createTab") {
       const tabId = result?.tab?.tabId;
@@ -170,13 +174,15 @@ export function createElectronBrowserController(options) {
           records.set(tabId, { tab: result.tab, view });
           if (!order.includes(tabId)) order.push(tabId);
         }
-        activeTabId = tabId;
-        openedAgentSurface = true;
+        if (shouldReveal(result.tab)) {
+          activeTabId = tabId;
+          openedAgentSurface = true;
+        }
       }
-    } else if (method === "navigate" || method === "claimTab") {
+    } else if (method === "navigate" || method === "claimTab" || method === "markTab") {
       const tabId = result?.tab?.tabId
         ?? (typeof params?.tabId === "string" ? params.tabId : null);
-      if (tabId && records.has(tabId)) {
+      if (tabId && records.has(tabId) && shouldReveal(result?.tab)) {
         activeTabId = tabId;
         openedAgentSurface = true;
       }
@@ -198,7 +204,7 @@ export function createElectronBrowserController(options) {
       if (!view) continue;
       records.set(tab.tabId, { tab, view });
       if (!order.includes(tab.tabId)) order.push(tab.tabId);
-      if (tab.owner === "agent" || tab.owner === "claimed") {
+      if ((tab.owner === "agent" || tab.owner === "claimed") && shouldReveal(tab)) {
         activeTabId = tab.tabId;
         openedAgentSurface = true;
       }
@@ -211,7 +217,7 @@ export function createElectronBrowserController(options) {
 
   host.dispatch = async (method, params, context) => {
     const result = await originalHostDispatch(method, params, context);
-    syncControllerAfterHostMethod(method, params, result);
+    syncControllerAfterHostMethod(method, params, result, context);
     return result;
   };
 
@@ -367,6 +373,7 @@ export function createElectronBrowserController(options) {
       return { ...rpcEnvironment };
     },
     browserEnvironment() { return rpcEnvironment ? { ...rpcEnvironment } : {}; },
+    async isAutomationEnabled() { return browserEnabled(); },
     diagnostics() {
       return {
         protocolVersion: 1,

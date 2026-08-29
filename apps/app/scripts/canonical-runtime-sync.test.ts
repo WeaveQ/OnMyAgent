@@ -12,7 +12,7 @@ import {
   emptyCanonicalRuntimeState,
   readSse,
   seedCanonicalRuntimeMessages,
-} from "../src/react-app/domains/session/sync/canonical-runtime-sync";
+} from "../src/react-app/capabilities/agent-runtime/canonical-runtime-sync";
 
 function event(
   sequence: number,

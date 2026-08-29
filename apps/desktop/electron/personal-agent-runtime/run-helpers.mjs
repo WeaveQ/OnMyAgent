@@ -432,6 +432,9 @@ export function buildRunSnapshot(state, deps, options = {}) {
     output: state.outputParts.join("\n").trim(),
     error: state.error,
     events,
+    eventRevision: Number.isSafeInteger(Number(state.eventRevision))
+      ? Number(state.eventRevision)
+      : allEvents.length,
     // Running polling keeps the user prompt, cumulative assistant text, and a
     // recent structured-event tail. Terminal/direct snapshots still receive
     // the complete durable transcript exactly once.

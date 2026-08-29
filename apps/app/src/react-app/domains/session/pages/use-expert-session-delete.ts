@@ -12,8 +12,8 @@ import { t } from "../../../../i18n";
 import {
   canHardDeleteExpert,
   clearExpertLocalSessionBindings,
+  finalizeExpertRegistryAfterDelete,
   invalidateExpertPackageQuery,
-  useAgentRegistryStore,
   type AgentRegistry,
 } from "../../agents";
 import {
@@ -53,6 +53,7 @@ export type ExpertGroupDeleteTarget = {
   packageName?: string;
   source?: "mine" | "installed";
   sessionDirectories?: Record<string, string>;
+  deletePackage: boolean;
   operationId: string;
 };
 
@@ -200,6 +201,7 @@ export type RunExpertHardDeleteInput = {
   marketplace: ExpertPackageDeleteInput["marketplace"];
   sessionIds: readonly string[];
   source?: "mine" | "installed";
+  deletePackage?: boolean;
 };
 
 export type RunExpertHardDeleteDeps = {
@@ -217,12 +219,36 @@ export type RunExpertHardDeleteDeps = {
  * Shipped expert hard-delete RPCs: server session origins then desktop package.
  * Leftover UI sessionIds that 404 origins still uninstall the package.
  */
+export function runExpertHardDelete(
+  input: RunExpertHardDeleteInput & { deletePackage: false },
+  deps: RunExpertHardDeleteDeps,
+): Promise<{
+  server?: ExpertDeleteResult;
+  desktop: undefined;
+  serverMissed: boolean;
+}>;
+export function runExpertHardDelete(
+  input: RunExpertHardDeleteInput & { deletePackage?: true },
+  deps: RunExpertHardDeleteDeps,
+): Promise<{
+  server?: ExpertDeleteResult;
+  desktop: ExpertPackageDeleteResult;
+  serverMissed: boolean;
+}>;
+export function runExpertHardDelete(
+  input: RunExpertHardDeleteInput,
+  deps: RunExpertHardDeleteDeps,
+): Promise<{
+  server?: ExpertDeleteResult;
+  desktop?: ExpertPackageDeleteResult;
+  serverMissed: boolean;
+}>;
 export async function runExpertHardDelete(
   input: RunExpertHardDeleteInput,
   deps: RunExpertHardDeleteDeps,
 ): Promise<{
   server?: ExpertDeleteResult;
-  desktop: ExpertPackageDeleteResult;
+  desktop?: ExpertPackageDeleteResult;
   serverMissed: boolean;
 }> {
   const serverTimeoutMs = deps.timeoutMs ?? EXPERT_DELETE_SERVER_TIMEOUT_MS;
@@ -271,6 +297,7 @@ export async function runExpertHardDelete(
     }
   }
   if (
+    input.deletePackage !== false &&
     !shouldProceedWithDesktopPackageDelete({
       source: input.source,
       sessionIds: input.sessionIds,
@@ -281,6 +308,9 @@ export async function runExpertHardDelete(
     throw new Error("expert_delete_target_not_found");
   }
   await deps.onBeforeDesktop?.({ serverResult, serverMissed });
+  if (input.deletePackage === false) {
+    return { server: serverResult, desktop: undefined, serverMissed };
+  }
   const desktop = await awaitExpertDeleteStep(
     deps.deleteExpertPackage({
       operationId: input.operationId,
@@ -401,7 +431,9 @@ export function useExpertSessionDelete(input: {
 
       const client = input.client;
       if (!client) throw new Error("Expert delete requires the server client");
-      if (!isElectronRuntime()) throw new Error("Expert package cleanup requires the desktop runtime");
+      if (target.deletePackage && !isElectronRuntime()) {
+        throw new Error("Expert package cleanup requires the desktop runtime");
+      }
       // Origins store short packageName ("kol-ops"); agentId is often "kol-ops:kol-ops".
       // Never send agentId as packageName — that 404s expert_delete_target_not_found.
       const packageName = resolveExpertDeletePackageName({
@@ -428,6 +460,7 @@ export function useExpertSessionDelete(input: {
             marketplace,
             sessionIds: target.sessionIds,
             source: target.source,
+            deletePackage: target.deletePackage,
           },
           {
             deleteExpert: (workspaceId, request) => client.deleteExpert(workspaceId, request),
@@ -481,25 +514,28 @@ export function useExpertSessionDelete(input: {
         const queryClient = getReactQueryClient();
         const directoryQueryKey = expertDirectoryQueryKey(input.workspaceId);
         setDeleteProgress({ status: "running", operationId, server: serverResult, desktop: desktopResult });
-        if (desktopResult.state !== "completed") {
+        if (desktopResult && desktopResult.state !== "completed") {
           const error = summarizeExpertDeleteProgress({ server: serverResult, desktop: desktopResult });
           setDeleteProgress({ status: "failed", operationId, server: serverResult, desktop: desktopResult, error });
           throw new Error(error);
         }
         await queryClient.invalidateQueries({ queryKey: directoryQueryKey });
-        await invalidateExpertPackageQuery();
+        if (target.deletePackage) await invalidateExpertPackageQuery();
         clearExpertLocalSessionBindings(deletedSessionIds);
         for (const sessionId of deletedSessionIds) {
           permanentlyRemoveAssistantArchivedTask(input.workspaceId, sessionId);
         }
-        const registry = input.registry;
-        if (registry) {
-          useAgentRegistryStore.getState().setRegistry({
-            ...registry,
-            agents: registry.agents.filter((agent) => agent.id !== target.agentId),
-          });
-        }
-        setDeleteProgress({ status: "completed", operationId, server: serverResult, desktop: desktopResult });
+        await finalizeExpertRegistryAfterDelete({
+          agentId: target.agentId,
+          registry: input.registry ?? null,
+          deletePackage: target.deletePackage,
+        });
+        setDeleteProgress({
+          status: "completed",
+          operationId,
+          server: serverResult,
+          desktop: desktopResult,
+        });
       } catch (error) {
         setDeleteProgress((current) => ({
           ...current,
@@ -554,9 +590,13 @@ export function resolveExpertDeleteCopy(input: {
       : t("session.delete_session_title");
   const baseMessage =
     target?.kind === "expert"
-      ? target.name
-        ? t("session.delete_named_expert_message", { name: target.name })
-        : t("session.delete_expert_generic")
+      ? target.deletePackage
+        ? target.name
+          ? t("session.delete_named_expert_message", { name: target.name })
+          : t("session.delete_expert_generic")
+        : target.name
+          ? t("session.delete_named_expert_sessions_message", { name: target.name })
+          : t("session.delete_expert_sessions_generic")
       : input.sessionActionTitle.trim()
         ? t("session.delete_named_session_message", {
             title: input.sessionActionTitle.trim(),

@@ -221,7 +221,7 @@ export async function fetchOpencodeJson(baseUrl, pathname, opts = {}) {
 
 /**
  * @param {ReturnType<typeof spawnOpencodeServe>} server
- * @param {{ timeoutMs?: number, pollMs?: number }} [opts]
+ * @param {{ timeoutMs?: number, pollMs?: number, requestTimeoutMs?: number }} [opts]
  */
 export async function waitForHealthy(server, opts = {}) {
   // OpenCode can spend well over a minute on its first plugin/config boot on
@@ -230,6 +230,7 @@ export async function waitForHealthy(server, opts = {}) {
   // responding yet.
   const timeoutMs = opts.timeoutMs ?? (isCi() ? 150_000 : 20_000);
   const pollMs = opts.pollMs ?? 250;
+  const requestTimeoutMs = opts.requestTimeoutMs ?? 2_000;
   const start = Date.now();
   let lastError = "";
   while (Date.now() - start < timeoutMs) {
@@ -239,7 +240,7 @@ export async function waitForHealthy(server, opts = {}) {
     try {
       const remainingMs = Math.max(1, timeoutMs - (Date.now() - start));
       const health = await fetchOpencodeJson(server.baseUrl, "/global/health", {
-        timeoutMs: Math.min(2_000, remainingMs),
+        timeoutMs: Math.min(requestTimeoutMs, remainingMs),
       });
       if (health.ok && health.body && health.body.healthy === true) {
         return health.body;

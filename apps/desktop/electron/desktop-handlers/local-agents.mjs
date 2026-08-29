@@ -4,8 +4,9 @@
  */
 
 import { createHash, randomBytes } from "node:crypto";
-import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { LOCAL_AGENT_COMPOSER_ATTACHMENT_MAX_BYTES } from "@onmyagent/types/desktop-ipc";
 
 export const HANDLER_COMMAND_NAMES = Object.freeze([
   "personalLocalAgentsList",
@@ -72,6 +73,11 @@ const LOCAL_AGENT_MENTION_IGNORE = new Set([
   ".DS_Store", ".idea", ".vscode",
 ]);
 
+export const LOCAL_AGENT_ATTACHMENT_MAX_FILES = 64;
+export const LOCAL_AGENT_ATTACHMENT_MAX_TOTAL_BYTES = 128 * 1024 * 1024;
+export const LOCAL_AGENT_ATTACHMENT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const LOCAL_AGENT_ATTACHMENT_MAX_DATA_URL_CHARS = Math.ceil(LOCAL_AGENT_COMPOSER_ATTACHMENT_MAX_BYTES / 3) * 4 + 256;
+
 async function localAgentComposerListFiles(input = {}) {
   const root = String(input.workspaceRoot ?? "").trim();
   if (!root) return { files: [] };
@@ -83,9 +89,7 @@ async function localAgentComposerListFiles(input = {}) {
     const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
     for (const entry of entries) {
       if (files.length >= limit) return;
-      if (entry.name.startsWith(".") && entry.name !== ".env.example") {
-        if (LOCAL_AGENT_MENTION_IGNORE.has(entry.name)) continue;
-      }
+      if (entry.name.startsWith(".") && entry.name !== ".env.example") continue;
       if (LOCAL_AGENT_MENTION_IGNORE.has(entry.name)) continue;
       const abs = path.join(dir, entry.name);
       const rel = path.relative(root, abs);
@@ -123,29 +127,86 @@ export function createLocalAgentsDomainHandlers({
   personalAgentNativeSessions,
   personalAgentHeartbeatScheduler,
   scanAgentManagementSkills,
+  resolveLocalAgentBrowserMcpServer,
   app,
 } = {}) {
+  const attachmentWriteQueues = new Map();
+
   function localAgentAttachmentsDir(workspaceRoot) {
     const root = String(workspaceRoot ?? "").trim();
     const hash = createHash("sha1").update(root || "default").digest("hex").slice(0, 12);
     return path.join(app.getPath("userData"), "local-agent-attachments", hash);
   }
 
+  async function pruneLocalAgentAttachments(dir, incomingBytes) {
+    const now = Date.now();
+    const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+    const files = (await Promise.all(entries.flatMap((entry) => {
+      if (!entry.isFile()) return [];
+      const absolute = path.join(dir, entry.name);
+      return [stat(absolute)
+        .then((info) => ({ absolute, size: info.size, modifiedAt: info.mtimeMs }))
+        .catch(() => null)];
+    }))).filter(Boolean);
+    const retained = [];
+    for (const file of files) {
+      if (now - file.modifiedAt > LOCAL_AGENT_ATTACHMENT_MAX_AGE_MS) {
+        await unlink(file.absolute).catch(() => undefined);
+      } else {
+        retained.push(file);
+      }
+    }
+    retained.sort((left, right) => left.modifiedAt - right.modifiedAt);
+    let totalBytes = retained.reduce((total, file) => total + file.size, 0);
+    while (
+      retained.length >= LOCAL_AGENT_ATTACHMENT_MAX_FILES
+      || totalBytes + incomingBytes > LOCAL_AGENT_ATTACHMENT_MAX_TOTAL_BYTES
+    ) {
+      const oldest = retained.shift();
+      if (!oldest) break;
+      await unlink(oldest.absolute).catch(() => undefined);
+      totalBytes -= oldest.size;
+    }
+  }
+
   async function localAgentComposerSaveAttachment(input = {}) {
     const root = String(input.workspaceRoot ?? "").trim();
     if (!root) throw new Error("workspaceRoot is required");
-    const name = String(input.name ?? "attachment").replace(/[^\w.\-]+/g, "_") || "attachment";
+    const name = (String(input.name ?? "attachment").replace(/[^\w.\-]+/g, "_") || "attachment").slice(-160);
     const dataUrl = String(input.dataUrl ?? "");
-    const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+    if (dataUrl.length > LOCAL_AGENT_ATTACHMENT_MAX_DATA_URL_CHARS) {
+      throw new Error(`attachment exceeds ${LOCAL_AGENT_COMPOSER_ATTACHMENT_MAX_BYTES} bytes`);
+    }
+    const declaredSize = Number(input.size);
+    if (Number.isFinite(declaredSize) && declaredSize > LOCAL_AGENT_COMPOSER_ATTACHMENT_MAX_BYTES) {
+      throw new Error(`attachment exceeds ${LOCAL_AGENT_COMPOSER_ATTACHMENT_MAX_BYTES} bytes`);
+    }
+    const match = /^data:([^;,\s]+);base64,((?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?)$/.exec(dataUrl);
     if (!match) throw new Error("dataUrl must be base64 encoded");
     const buffer = Buffer.from(match[2], "base64");
+    if (buffer.length > LOCAL_AGENT_COMPOSER_ATTACHMENT_MAX_BYTES) {
+      throw new Error(`attachment exceeds ${LOCAL_AGENT_COMPOSER_ATTACHMENT_MAX_BYTES} bytes`);
+    }
+    if (Number.isFinite(declaredSize) && declaredSize >= 0 && declaredSize !== buffer.length) {
+      throw new Error("attachment size does not match payload");
+    }
     const dir = localAgentAttachmentsDir(root);
     await mkdir(dir, { recursive: true });
-    const stamp = Date.now().toString(36) + randomBytes(3).toString("hex");
-    const finalName = `${stamp}-${name}`;
-    const absolute = path.join(dir, finalName);
-    await writeFile(absolute, buffer);
-    return { path: absolute, relativePath: absolute, name: finalName, size: buffer.length };
+    const previous = attachmentWriteQueues.get(dir) ?? Promise.resolve();
+    const operation = previous.catch(() => undefined).then(async () => {
+      await pruneLocalAgentAttachments(dir, buffer.length);
+      const stamp = Date.now().toString(36) + randomBytes(3).toString("hex");
+      const finalName = `${stamp}-${name}`;
+      const absolute = path.join(dir, finalName);
+      await writeFile(absolute, buffer, { flag: "wx" });
+      return { path: absolute, relativePath: absolute, name: finalName, size: buffer.length };
+    });
+    attachmentWriteQueues.set(dir, operation);
+    try {
+      return await operation;
+    } finally {
+      if (attachmentWriteQueues.get(dir) === operation) attachmentWriteQueues.delete(dir);
+    }
   }
   async function personalLocalAgentHostStatusWithManagementParity(input) {
     const fleetAgent = input?.agent ?? null;
@@ -201,6 +262,51 @@ export function createLocalAgentsDomainHandlers({
     };
   }
 
+  function relayStudioPrompt(result, input) {
+    const conversationId = String(result?.conversationId ?? "").trim();
+    const prompt = String(input?.prompt ?? "").trim();
+    if (!conversationId || !prompt || typeof channelInfrastructureApi?.relayStudioMessage !== "function") return;
+    void Promise.resolve(channelInfrastructureApi.relayStudioMessage(conversationId, prompt)).catch(() => undefined);
+  }
+
+  // One application-service owner for every Personal start/cancel/approval IPC
+  // spelling. Compatibility commands delegate here so relay and input
+  // normalization cannot drift between ACP and legacy callers.
+  async function withLocalAgentBrowserMcp(input = {}) {
+    if (typeof resolveLocalAgentBrowserMcpServer !== "function") return input;
+    const browserServer = await resolveLocalAgentBrowserMcpServer(input);
+    if (!browserServer) return input;
+    const currentServers = Array.isArray(input.mcpServers) ? input.mcpServers : [];
+    const withoutStaleBrowser = currentServers.filter(
+      (server) => server?.name !== browserServer.name,
+    );
+    return {
+      ...input,
+      mcpServers: [...withoutStaleBrowser, browserServer],
+    };
+  }
+
+  const personalMessageService = {
+    async start(input = {}) {
+      const resolvedInput = await withLocalAgentBrowserMcp(input);
+      const result = await personalAgentRuntime.startMessage(resolvedInput);
+      relayStudioPrompt(result, input);
+      return result;
+    },
+    async run(input = {}) {
+      const resolvedInput = await withLocalAgentBrowserMcp(input);
+      const result = await personalAgentRuntime.runMessage(resolvedInput);
+      relayStudioPrompt(result, input);
+      return result;
+    },
+    cancel(input) {
+      return personalAgentRuntime.cancelRun(input?.runId ?? input?.id ?? input);
+    },
+    resolveApproval(input = {}) {
+      return personalAgentRuntime.resolveApproval(input);
+    },
+  };
+
   return {
   personalLocalAgentsList: async (event, args) => {
     const result = await personalAgentRuntime.listAgents(args[0] ?? {});
@@ -231,15 +337,15 @@ export function createLocalAgentsDomainHandlers({
   },
 
   personalLocalAgentAcpSend: async (event, args) => {
-    return personalAgentRuntime.acpSendMessage(args[0] ?? {});
+    return personalMessageService.start(args[0] ?? {});
   },
 
   personalLocalAgentAcpCancel: async (event, args) => {
-    return personalAgentRuntime.acpCancel(args[0] ?? {});
+    return personalMessageService.cancel(args[0]);
   },
 
   personalLocalAgentAcpResolveApproval: async (event, args) => {
-    return personalAgentRuntime.acpResolveApproval(args[0] ?? {});
+    return personalMessageService.resolveApproval(args[0] ?? {});
   },
 
   personalLocalAgentAcpConfigOptions: async (event, args) => {
@@ -307,20 +413,7 @@ export function createLocalAgentsDomainHandlers({
   },
 
   personalLocalAgentStart: async (event, args) => {
-    // Parity S4 (reverse relay): when Studio sends a message on a
-    // conversation that is bound to an IM chat (source:"channel"), mirror
-    // the user's prompt back to that chat. relayStudioMessage only acts on
-    // conversations actually bound to a channel session, so studio-created
-    // conversations are unaffected. IM-originated messages never pass
-    // through this IPC handler (the channel service calls the runtime
-    // in-process), so there is no echo risk.
-    const result = await personalAgentRuntime.startMessage(args[0] ?? {});
-    const relayConversationId = result?.conversationId ?? null;
-    const relayPrompt = String(args[0]?.prompt ?? "").trim();
-    if (relayConversationId && relayPrompt) {
-      channelInfrastructureApi.relayStudioMessage(relayConversationId, relayPrompt);
-    }
-    return result;
+    return personalMessageService.start(args[0] ?? {});
   },
 
   personalLocalAgentStatus: async (event, args) => {
@@ -334,23 +427,15 @@ export function createLocalAgentsDomainHandlers({
   },
 
   personalLocalAgentRun: async (event, args) => {
-    // Same reverse-relay behavior as personalLocalAgentStart for Studio
-    // clients that use the run (fire-and-poll) entry point directly.
-    const result = await personalAgentRuntime.runMessage(args[0] ?? {});
-    const relayConversationId = result?.conversationId ?? null;
-    const relayPrompt = String(args[0]?.prompt ?? "").trim();
-    if (relayConversationId && relayPrompt) {
-      channelInfrastructureApi.relayStudioMessage(relayConversationId, relayPrompt);
-    }
-    return result;
+    return personalMessageService.run(args[0] ?? {});
   },
 
   personalLocalAgentCancel: async (event, args) => {
-    return personalAgentRuntime.cancelRun(args[0]);
+    return personalMessageService.cancel(args[0]);
   },
 
   personalLocalAgentResolveApproval: async (event, args) => {
-    return personalAgentRuntime.resolveApproval(args[0] ?? {});
+    return personalMessageService.resolveApproval(args[0] ?? {});
   },
 
   personalLocalAgentResetConversation: async (event, args) => {

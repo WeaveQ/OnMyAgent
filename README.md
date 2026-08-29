@@ -202,7 +202,7 @@ packages/onmyagent-ui-mcp MCP server that lets agents inspect/control the UI
 
 The desktop app can start a local host stack, connect to an existing OpenCode server, or attach to a remote worker. The UI talks to the agent backend through the OpenCode SDK and OnMyAgent local APIs.
 
-**Dual-runtime boundary:** OpenCode is the primary session and server source of truth; Personal Local Agent is the desktop harness for local CLI agents (auxiliary path). UI may share a conversation timeline shape; storage and hot-write paths must not cross. See **Dual Runtime Boundary** and **Server Archive Runtime** in `docs/Architecture.md`.
+**Dual-runtime boundary:** OpenCode is the primary session and server source of truth; Personal Local Agent is the desktop harness for local CLI agents (auxiliary path). UI may share a conversation timeline shape; storage and hot-write paths must not cross except Dual Runtime named exceptions (IM 本地助理; archive-resume one-way copy). See **Dual Runtime Boundary** and **Server Archive Runtime** in `docs/Architecture.md`.
 
 For deeper architecture details, see `docs/Architecture.md`.
 

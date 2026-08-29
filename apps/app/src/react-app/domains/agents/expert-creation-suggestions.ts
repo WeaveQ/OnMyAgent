@@ -1,5 +1,8 @@
 import type { AgentWizardDraft } from "./agent-registry-types";
-import { validateExpertCreationRolePrompt } from "./expert-creation-coach-contract";
+import {
+  extractExpertCreationRolePrompt,
+  validateExpertCreationRolePrompt,
+} from "./expert-creation-coach-contract";
 
 export type ExpertDraftSuggestion = {
   name?: string;
@@ -72,18 +75,14 @@ function suggestionFromRecord(parsed: Record<string, unknown>): ExpertDraftSugge
   const userNote = typeof parsed.userNote === "string" ? parsed.userNote.trim() : "";
   const memoryValue = parsed.agentMemory ?? parsed.memory;
   const agentMemory = typeof memoryValue === "string" ? memoryValue.trim() : "";
-  const userNoteIsRolePrompt = userNote
-    ? validateExpertCreationRolePrompt(userNote).valid
-    : false;
+  const resolvedUserNote =
+    extractExpertCreationRolePrompt(userNote) ??
+    extractExpertCreationRolePrompt(agentMemory);
   const memoryIsRolePrompt = agentMemory
     ? validateExpertCreationRolePrompt(agentMemory).valid
     : false;
-  if (userNoteIsRolePrompt) {
-    suggestion.userNote = userNote;
-  } else if (memoryIsRolePrompt) {
-    // Recover a valid role prompt if a model accidentally put it in memory.
-    // Never persist the runtime prompt as long-term expert memory.
-    suggestion.userNote = agentMemory;
+  if (resolvedUserNote) {
+    suggestion.userNote = resolvedUserNote;
   }
   if (agentMemory && !memoryIsRolePrompt) {
     suggestion.agentMemory = agentMemory;
@@ -152,8 +151,16 @@ export function parseExpertDraftSuggestion(content: string): {
   visible = bare.content;
   if (!suggestion && bare.suggestion) suggestion = bare.suggestion;
 
+  visible = visible.replace(/\n{3,}/g, "\n\n").trim();
+  if (suggestion && !suggestion.userNote) {
+    const recovered =
+      extractExpertCreationRolePrompt(visible) ??
+      extractExpertCreationRolePrompt(content);
+    if (recovered) suggestion = { ...suggestion, userNote: recovered };
+  }
+
   return {
-    content: visible.replace(/\n{3,}/g, "\n\n").trim(),
+    content: visible,
     suggestion,
   };
 }

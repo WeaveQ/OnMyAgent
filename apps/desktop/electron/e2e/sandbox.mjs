@@ -42,6 +42,7 @@ export default async () => ({
  *   slashSkillNames?: readonly string[],
  *   seedAuthJson?: string,
  *   knowledgePlugins?: boolean,
+ *   projectConfig?: boolean,
  * }} [opts]
  */
 export async function createDesktopE2eSandbox(opts = {}) {
@@ -53,6 +54,9 @@ export async function createDesktopE2eSandbox(opts = {}) {
   const poisonPath = path.join(realHome, ".opencode", "plugin", "poison.mjs");
   await mkdir(realConfigDir, { recursive: true });
   await mkdir(workspace, { recursive: true });
+  if (opts.projectConfig !== false) {
+    await mkdir(path.join(workspace, ".opencode"), { recursive: true });
+  }
   if (opts.poisonPlugin) {
     await mkdir(path.dirname(poisonPath), { recursive: true });
     await writeFile(poisonPath, POISON_PLUGIN_SOURCE, "utf8");

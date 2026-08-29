@@ -27,6 +27,15 @@ function read(path: string): string {
 }
 
 describe("files three-source tabs (P0)", () => {
+  test("product spec default tab is task artifacts, not Uploads", () => {
+    expect(DEFAULT_FILES_SOURCE_TAB).toBe("task");
+    const spec = read("docs/design/files-module-product-spec.md");
+    const defaultLine = spec.match(/默认打开 Tab[^\n]*/)?.[0] ?? "";
+    expect(defaultLine).toMatch(/默认打开 Tab[：:]\s*\*\*任务文件\*\*/);
+    expect(defaultLine).not.toMatch(/用户上传/);
+    expect(defaultLine).not.toMatch(/Uploads/);
+  });
+
   test("source tab helpers default to task; project rail is disabled", () => {
     expect(DEFAULT_FILES_SOURCE_TAB).toBe("task");
     expect([...FILES_SOURCE_TABS]).toEqual(["uploads", "task", "expert"]);

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRunPersistence } from "./run-persistence.mjs";
+import { attachRuntimePersistPublisher, createRunPersistence } from "./run-persistence.mjs";
 
 function createFakeTimers() {
   let now = 0;
@@ -151,6 +151,24 @@ test("force flush cancels a pending debounce and persists immediately", async ()
   assert.equal(writes, 2);
   await timers.advance(250);
   assert.equal(writes, 2);
+});
+
+test("terminal persist publishes run.finished only after flush", async () => {
+  const events = [];
+  let writes = 0;
+  const persistence = createRunPersistence({
+    persistRun: async () => { writes += 1; },
+    runs: new Map(),
+  });
+  const { persistTerminalRun, schedulePersistRun } = attachRuntimePersistPublisher({
+    ...persistence,
+    publishRuntimeEvent: (_state, type) => { events.push(type); },
+  });
+  await persistTerminalRun({ status: "completed" });
+  assert.equal(writes, 1);
+  assert.deepEqual(events, ["run.finished"]);
+  schedulePersistRun({ status: "running" });
+  assert.deepEqual(events, ["run.finished", "run.delta"]);
 });
 
 test("retention evicts terminal runs after five minutes but keeps running state", async () => {

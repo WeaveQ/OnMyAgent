@@ -10,6 +10,8 @@
  * 4. Personal runtime must not write primary binding/archive stores.
  * 5. server must not import personal-agent-runtime.
  * 6. No production file may import both session-archive and conversation-store.
+ *    Archive-resume copies messages over HTTP + desktop IPC (named Dual Runtime
+ *    exception); it is not a mixed-import and this gate does not allow one.
  * 7. Legacy pre-rename desktop IPC channel must not return.
  *
  * Usage:

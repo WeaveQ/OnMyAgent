@@ -45,6 +45,7 @@ import {
   MARKETPLACE_CARD_GRID,
   SkillMarketplaceCard,
 } from "@/components/ui/skill-marketplace-card";
+import { skillOverflowShowsUninstall, skillUninstallUsesDesktopScan } from "./skill-marketplace-uninstall";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -497,10 +498,8 @@ function writeSkillEnabledMap(map: Record<string, boolean>) {
 }
 
 /**
- * Installed skill tile — reference layout:
- * [avatar] name [类型徽标] ··· pin sm-switch
- * description (2 lines)
- * Menu: 去对话 / 编辑 / 卸载
+ * Installed skill tile — [avatar] name [类型徽标] ··· pin sm-switch
+ * description (2 lines). Menu: 去对话 / 编辑 / 卸载 (installed + local; not builtin)
  */
 function InstalledSkillCard(props: {
   skill: LocalSkillCard;
@@ -672,7 +671,7 @@ function InstalledSkillCard(props: {
                       <Pencil className="size-4 shrink-0 text-dls-secondary" />
                       {t("store.skill_edit")}
                     </DropdownMenuItem>
-                    {!props.originLocal && !props.originBuiltin ? (
+                    {skillOverflowShowsUninstall({ originBuiltin: props.originBuiltin, originLocal: props.originLocal, readonly: props.skill.readonly }) ? (
                       <DropdownMenuItem
                         variant="destructive"
                         disabled={props.uninstalling || props.skill.readonly}
@@ -1220,10 +1219,11 @@ export function SkillsMarketplacePage(props: {
     if (skill.readonly || uninstallingSkillName || isBuiltinOriginSkill(skill)) return;
     setUninstallingSkillName(skill.name);
     try {
-      if (props.client) {
+      const useDesktopScan = skillUninstallUsesDesktopScan({ originLocal: isLocalDiscoveredSkillPath(skill.path) });
+      if (!useDesktopScan && props.client) {
         await props.client.deleteSkill(props.workspaceId, skill.name);
-      } else if (props.workspaceRoot?.trim()) {
-        const result = (await uninstallSkill(props.workspaceRoot.trim(), skill.name)) as {
+      } else if (props.workspaceRoot?.trim() || useDesktopScan) {
+        const result = (await uninstallSkill(props.workspaceRoot?.trim() ?? "", skill.name)) as {
           ok?: boolean;
           stderr?: string;
           stdout?: string;

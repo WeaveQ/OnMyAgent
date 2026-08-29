@@ -187,7 +187,7 @@ export function TaskCenterPendingGates(props: {
           <ToolApprovalCardHeader>
             <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold">{gate.title}</div>
+              <div className="min-w-0 break-words text-sm font-semibold">{gate.title}</div>
               <div className="mt-1 text-xs text-dls-secondary">
                 {t(taskCenterGateLabelKey(gate.kind))}
               </div>

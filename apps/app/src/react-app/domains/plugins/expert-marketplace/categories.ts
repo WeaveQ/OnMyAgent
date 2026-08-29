@@ -18,6 +18,11 @@ export const EXPERT_MARKETPLACE_CATEGORIES: ExpertMarketplaceCategory[] = [
   { id: "15-CreatorOps", labelKey: "session.expert_marketplace_category_creator_ops", searchLabel: "达人运营 creator ops KOL 媒介 内容运营 复盘 种草" },
 ];
 
+/** User-owned experts have a dedicated My experts page, not a market category. */
+export function expertMarketplaceCategories(): ExpertMarketplaceCategory[] {
+  return EXPERT_MARKETPLACE_CATEGORIES;
+}
+
 export function normalizeExpertMarketplaceCategoryId(
   categoryId: string | null | undefined,
 ): string {

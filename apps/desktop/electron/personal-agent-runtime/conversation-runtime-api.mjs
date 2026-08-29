@@ -13,6 +13,7 @@ import {
   listChannelConversations,
   listConversations,
   listConversationsByProvider,
+  mergeConversationEvents,
   readConversationEvents,
   resetConversationPointer,
 } from "./conversation-store.mjs";
@@ -36,12 +37,24 @@ export function createConversationRuntimeApi({
     const agent = await legacy.normalizeAgent(input.agent ?? {});
     const workspaceRoot = String(input.workspaceRoot ?? "").trim();
     if (!workspaceRoot) throw new Error("workspaceRoot is required");
+    // Reset is scoped to the selected conversation. A different conversation
+    // in the same workspace/provider/agent may continue running while the
+    // idle conversation is reset.
+    const targetConversation = await getConversation(
+      workspaceRoot,
+      agent.provider,
+      agent.id,
+      input.conversationId,
+    );
+    const targetConversationId = String(targetConversation?.id ?? "").trim();
     for (const state of runs.values()) {
       if (
         state.status === "running" &&
         state.workspaceRoot === workspaceRoot &&
         state.agentProvider === agent.provider &&
-        state.agentId === agent.id
+        state.agentId === agent.id &&
+        targetConversationId &&
+        state.conversationId === targetConversationId
       ) {
         return { ok: false, error: "agent has an active run" };
       }
@@ -122,17 +135,31 @@ export function createConversationRuntimeApi({
     const persisted = conversation?.id
       ? await readConversationEvents(workspaceRoot, agent.provider, agent.id, conversation.id)
       : { events: [], messages: [] };
+    const conversationEvents = activeRun
+      ? mergeConversationEvents(persisted.events, activeRun.events)
+      : persisted.events;
+    const derivedMessages = conversationEvents.length
+      ? runEventsToConversationMessages(conversationEvents)
+      : [];
+    const derivedMessageIds = new Set(
+      derivedMessages.map((message) => String(message?.id ?? "").trim()).filter(Boolean),
+    );
+    const checkpointMessages = Array.isArray(persisted.checkpointMessages)
+      ? persisted.checkpointMessages
+      : (Array.isArray(persisted.messages) ? persisted.messages : []);
+    const preservedMessages = checkpointMessages.filter((message) => {
+      const id = String(message?.id ?? "").trim();
+      return !id || !derivedMessageIds.has(id);
+    });
     return {
       conversation,
       activeRun: activeRun ? getRunSnapshot(activeRun) : null,
       running: Boolean(activeRun),
       status: activeRun?.status ?? conversation?.lastStatus ?? "idle",
-      events: activeRun ? activeRun.events : persisted.events,
-      conversationMessages: activeRun
-        ? runEventsToConversationMessages(activeRun.events)
-        : (Array.isArray(persisted.events) && persisted.events.length
-          ? runEventsToConversationMessages(persisted.events)
-          : persisted.messages),
+      events: conversationEvents,
+      conversationMessages: derivedMessages.length
+        ? [...preservedMessages, ...derivedMessages]
+        : checkpointMessages,
     };
   }
 

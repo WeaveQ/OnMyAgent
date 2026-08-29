@@ -141,12 +141,36 @@ test("Grok catalog uses well-known paths and enriched PATH resolution", () => {
     "official Windows grok.exe next to ~/.grok/bin/grok",
   );
   assert.deepEqual(grok.acpArgs, ["agent", "stdio"]);
+  const grokSkillDirs = (grok.skillsDirs ?? []).map((p) => String(p).replaceAll("\\", "/"));
+  assert.ok(
+    grokSkillDirs.some((p) => p.endsWith("/.grok/skills")),
+    "user Grok skills ~/.grok/skills",
+  );
+  assert.ok(
+    grokSkillDirs.some((p) => p.endsWith("/.grok/bundled/skills")),
+    "bundled Grok skills ~/.grok/bundled/skills",
+  );
 
   // Source contract: resolveOnPath must walk enrichedPath, not raw process.env.PATH only.
   const src = readFileSync(new URL("./detect-local-agents.mjs", import.meta.url), "utf8");
   assert.match(src, /enrichedPath/);
   assert.match(src, /wellKnownPaths/);
   assert.match(src, /from "\.\.\/runtime-path-env\.mjs"/);
+});
+
+test("Cursor Agent CLI uses cursor-agent acp, not the editor cursor shim", () => {
+  const cursor = KNOWN_DISCOVERABLE_AGENTS.find((item) => item.id === "cursor-agent");
+  assert.ok(cursor, "cursor-agent catalog entry present");
+  assert.deepEqual(cursor.commands, ["cursor-agent"]);
+  assert.deepEqual(cursor.acpArgs, ["acp"]);
+  assert.ok(
+    (cursor.wellKnownPaths ?? []).some((p) => String(p).replaceAll("\\", "/").endsWith("/.local/bin/cursor-agent")),
+    "~/.local/bin/cursor-agent",
+  );
+  const drafts = discoverableAgentDrafts();
+  const draft = drafts.find((item) => item.id === "cursor-agent");
+  assert.ok(draft);
+  assert.deepEqual(draft.acpArgs, ["acp"]);
 });
 
 test("Pi catalog prefers pi-acp then pi, with protocol-aware acpArgs", () => {

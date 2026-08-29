@@ -1,7 +1,6 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink, FolderOpen, Play, Plug, RefreshCw, Save, Send, Square } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -9,10 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { cn } from "@/lib/utils";
 import { SelectMenu } from "../../design-system/select-menu";
 import { AccessibleRootRow } from "../../design-system/accessible-root-row";
 import { t } from "../../../i18n";
+import { channelRuntimeStatusLabel } from "./messaging-model";
+import { FieldLabel, MetricInline, PanelSection, SettingsCardGrid } from "./settings-primitives";
 import {
   openDesktopUrl,
   personalLocalAgentsList,
@@ -190,65 +190,6 @@ function agentPayload(agent: PersonalLocalAgent) {
   };
 }
 
-function PanelSection(props: {
-  title: string;
-  description?: string;
-  actions?: ReactNode;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <section
-      className={cn(
-        // h-full: equal-height cards in the 3-column channel layout.
-        "flex h-full min-w-0 flex-col gap-3 rounded-xl border border-dls-border bg-dls-surface p-4",
-        props.className,
-      )}
-    >
-      {/* Stack title + actions: side-by-side squeezes CJK to 1-char lines in 3-col cards. */}
-      <div className="min-w-0 space-y-2">
-        <div className="min-w-0">
-          <div className="text-sm font-medium leading-5 text-dls-text break-words">
-            {props.title}
-          </div>
-          {props.description ? (
-            <p className="mt-1 text-xs leading-5 text-dls-secondary break-words">
-              {props.description}
-            </p>
-          ) : null}
-        </div>
-        {props.actions ? (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {props.actions}
-          </div>
-        ) : null}
-      </div>
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">{props.children}</div>
-    </section>
-  );
-}
-
-function FieldLabel(props: { label: string; children: ReactNode; hint?: string }) {
-  return (
-    <label className="flex min-w-0 flex-col gap-1.5 text-xs text-dls-secondary">
-      <span className="font-medium text-dls-secondary">{props.label}</span>
-      {props.children}
-      {props.hint ? (
-        <span className="text-xs leading-4 text-dls-secondary/90">{props.hint}</span>
-      ) : null}
-    </label>
-  );
-}
-
-function MetricInline(props: { label: string; value: string }) {
-  return (
-    <span className="inline-flex min-w-0 max-w-full items-baseline gap-1.5">
-      <span className="shrink-0 text-dls-secondary">{props.label}</span>
-      <span className="truncate font-medium text-dls-text">{props.value}</span>
-    </span>
-  );
-}
-
 export function TokenChannelPanel(props: {
   kind: TokenChannelKind;
   workspaceRoot?: string;
@@ -256,6 +197,7 @@ export function TokenChannelPanel(props: {
 }) {
   const { kind, onStatusChange } = props;
   const cfg = KIND_CONFIG[kind];
+  const channelLabel = kind === "telegram" ? t("messaging.telegram") : t("messaging.discord");
   const [account, setAccount] = useState<TokenAccount | null>(null);
   const [serviceState, setServiceState] = useState<TokenPanelState>({ status: "stopped" });
   const [busy, setBusy] = useState<BusyAction>(null);
@@ -347,6 +289,12 @@ export function TokenChannelPanel(props: {
     }
   }, [applyServiceState, effectiveAccountId, kind]);
 
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
+  // Boot once per channel kind. Do not depend on `refresh`: it changes whenever
+  // the parent passes a new onStatusChange lambda, which would retrigger this
+  // effect and flicker Telegram/Discord account + sidebar "not linked" text.
   useEffect(() => {
     void (async () => {
       const accountResult = (kind === "telegram" ? await telegramAccountStatus({}).catch(() => null) : await discordAccountStatus({}).catch(() => null)) as TokenAccountStatusPayload | null;
@@ -359,9 +307,9 @@ export function TokenChannelPanel(props: {
       const storedAllowed = (accountResult?.config?.allowedUserIds as string[] | undefined)
         ?? (accountResult?.status?.allowedUserIds as string[] | undefined);
       if (storedAllowed && storedAllowed.length) setAllowedUsers(storedAllowed.join(", "));
-      await refresh();
+      await refreshRef.current();
     })();
-  }, [kind, refresh]);
+  }, [kind]);
 
   // While the channel is running, subscribe to backend status pushes instead
   // of polling. The electron main process forwards channel state-change events
@@ -379,23 +327,23 @@ export function TokenChannelPanel(props: {
 
   const chooseAccessWorkspace = useCallback(async () => {
     const selected = await pickDirectory({
-      title: t("messaging.weixin_access_workspace_pick_title"),
+      title: t("messaging.channel_access_workspace_pick_title", { channel: channelLabel }),
       defaultPath: effectiveWorkspaceRoot || props.workspaceRoot,
     });
     if (typeof selected === "string" && selected.trim()) setAccessWorkspaceRoot(selected.trim());
-  }, [effectiveWorkspaceRoot, props.workspaceRoot]);
+  }, [channelLabel, effectiveWorkspaceRoot, props.workspaceRoot]);
 
   const addAccessibleWorkspaceRoot = useCallback(async () => {
     setError(null);
     const selected = await pickDirectory({
-      title: t("messaging.weixin_access_workspace_extra_pick_title"),
+      title: t("messaging.channel_access_workspace_extra_pick_title", { channel: channelLabel }),
       defaultPath: effectiveWorkspaceRoot || props.workspaceRoot,
     });
     if (typeof selected !== "string" || !selected.trim()) return;
     const root = selected.trim();
     if (root === effectiveWorkspaceRoot || effectiveAccessibleRoots.includes(root)) return;
     if (root) setAccessibleWorkspaceRoots((current) => [...current, root]);
-  }, [effectiveAccessibleRoots, effectiveWorkspaceRoot, props.workspaceRoot]);
+  }, [channelLabel, effectiveAccessibleRoots, effectiveWorkspaceRoot, props.workspaceRoot]);
 
   const saveManualAccount = useCallback(async () => {
     setBusy("save");
@@ -527,12 +475,12 @@ export function TokenChannelPanel(props: {
   const canSave = Boolean(accountId.trim() && token.trim()) && !busy;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* Runtime status strip */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-dls-border bg-dls-surface px-3 py-2.5 text-xs text-dls-secondary">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-dls-border bg-dls-surface px-4 py-3 text-xs text-dls-secondary">
         <div className="flex items-center gap-2">
-          <StatusBadge tone={statusTone(serviceState.status)} shape="pill" size="tiny">
-            {serviceState.status ?? "stopped"}
+          <StatusBadge tone={statusTone(serviceState.status)} shape="pill" size="sm">
+            {channelRuntimeStatusLabel(serviceState.status)}
           </StatusBadge>
           <Button
             type="button"
@@ -550,7 +498,7 @@ export function TokenChannelPanel(props: {
             )}
           </Button>
         </div>
-        <span className="hidden h-3 w-px bg-dls-border sm:block" aria-hidden />
+        <span className="hidden h-4 w-px bg-dls-border sm:block" aria-hidden />
         <MetricInline
           label={t(cfg.tokenLabelKey)}
           value={account?.accountId || effectiveAccountId || "--"}
@@ -575,10 +523,11 @@ export function TokenChannelPanel(props: {
           </Button>
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={stopService}
             disabled={!running || Boolean(busy)}
+            className="text-dls-secondary hover:text-dls-text"
           >
             {busy === "stop" ? busyIcon : <Square className="size-3.5" />}
             {t(cfg.stopKey)}
@@ -592,21 +541,26 @@ export function TokenChannelPanel(props: {
         </NoticeBox>
       ) : null}
 
-      {/* Token | Workspace | Routing — one row on wide screens. */}
-      <div className="grid gap-3 lg:grid-cols-3">
+      <SettingsCardGrid channel={kind}>
         <PanelSection title={t(cfg.tokenLabelKey)} description={t(cfg.descKey)}>
-          <div className="flex flex-col gap-2">
-            <Input
-              value={accountId}
-              onChange={(event) => setAccountId(event.currentTarget.value)}
-              placeholder="account_id"
-            />
-            <Input
-              value={token}
-              onChange={(event) => setToken(event.currentTarget.value)}
-              placeholder={t(cfg.tokenPlaceholderKey)}
-              type="password"
-            />
+          <div className="flex flex-col gap-3">
+            <FieldLabel label={t("messaging.channel_account_id")}>
+              <Input
+                value={accountId}
+                onChange={(event) => setAccountId(event.currentTarget.value)}
+                placeholder="default"
+                autoComplete="off"
+              />
+            </FieldLabel>
+            <FieldLabel label={t(cfg.tokenLabelKey)}>
+              <Input
+                value={token}
+                onChange={(event) => setToken(event.currentTarget.value)}
+                placeholder={t(cfg.tokenPlaceholderKey)}
+                type="password"
+                autoComplete="off"
+              />
+            </FieldLabel>
           </div>
           {cfg.needsAllowedUsers ? (
             <FieldLabel label={t(cfg.allowedUsersLabelKey ?? "")}>
@@ -623,7 +577,6 @@ export function TokenChannelPanel(props: {
           <div className="flex flex-wrap gap-1.5">
             <Button
               type="button"
-              variant="outline"
               size="sm"
               onClick={saveManualAccount}
               disabled={!canSave}
@@ -633,11 +586,12 @@ export function TokenChannelPanel(props: {
             </Button>
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={testConnection}
               disabled={!effectiveAccountId || Boolean(busy)}
               title={effectiveAccountId ? undefined : t("messaging.weixin_test_need_account")}
+              className="text-dls-secondary hover:text-dls-text"
             >
               {busy === "test" ? busyIcon : <Plug className="size-3.5" />}
               {t("messaging.weixin_test_connection")}
@@ -676,10 +630,18 @@ export function TokenChannelPanel(props: {
         </PanelSection>
 
         <PanelSection
-          title={t("messaging.weixin_access_workspace_title")}
-          description={t("messaging.weixin_access_workspace_desc")}
-          actions={
-            <>
+          title={t("messaging.channel_access_workspace_title", { channel: channelLabel })}
+          description={t("messaging.channel_access_workspace_desc", { channel: channelLabel })}
+        >
+          <div className="flex min-w-0 flex-col gap-2">
+            <Input
+              className="min-w-0 flex-1 font-mono text-xs"
+              value={effectiveWorkspaceRoot}
+              onChange={(event) => setAccessWorkspaceRoot(event.currentTarget.value)}
+              placeholder={t("messaging.weixin_access_workspace_placeholder")}
+              disabled={running || Boolean(busy)}
+            />
+            <div className="flex shrink-0 flex-wrap items-center gap-1.5">
               <Button
                 type="button"
                 variant="outline"
@@ -701,17 +663,9 @@ export function TokenChannelPanel(props: {
                   {t("messaging.weixin_access_workspace_use_current")}
                 </Button>
               ) : null}
-            </>
-          }
-        >
-          <Input
-            className="font-mono text-xs"
-            value={effectiveWorkspaceRoot}
-            onChange={(event) => setAccessWorkspaceRoot(event.currentTarget.value)}
-            placeholder={t("messaging.weixin_access_workspace_placeholder")}
-            disabled={running || Boolean(busy)}
-          />
-          <div className="rounded-lg border border-dls-border/70 bg-dls-background/60 px-3 py-2.5">
+            </div>
+          </div>
+          <div className="rounded-lg bg-dls-background/60 px-3 py-2.5">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-medium text-dls-secondary">
                 {t("messaging.weixin_access_workspace_extra_title")}
@@ -752,6 +706,8 @@ export function TokenChannelPanel(props: {
         </PanelSection>
 
         <PanelSection
+          className="lg:col-span-2"
+          headerLayout="inline"
           title={t("identities.message_routing_title")}
           actions={
             <Button
@@ -766,7 +722,7 @@ export function TokenChannelPanel(props: {
             </Button>
           }
         >
-          <div className="flex flex-col gap-2.5">
+          <div className="grid min-w-0 gap-3 sm:grid-cols-3">
             <FieldLabel label={t("messaging.weixin_reply_agent")}>
               <SelectMenu
                 size="compact"
@@ -805,7 +761,7 @@ export function TokenChannelPanel(props: {
             {t(cfg.agentHelpKey)}
           </p>
         </PanelSection>
-      </div>
+      </SettingsCardGrid>
     </div>
   );
 }

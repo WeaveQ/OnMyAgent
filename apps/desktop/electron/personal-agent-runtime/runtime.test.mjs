@@ -790,8 +790,8 @@ describe("personal agent ACP JSON-RPC client", () => {
       timeoutMs: 500,
     });
     assert.equal(result.ok, false);
-    assert.equal(result.step, "fail_cli");
-    assert.equal(result.status, "missing");
+    assert.equal(result.step, "fail_acp");
+    assert.equal(result.status, "offline");
     assert.match(result.error, /ACP process exited: 1|initialize timed out/);
   });
 
@@ -1230,15 +1230,14 @@ describe("personal agent process registry", () => {
   it("preserves provider and command fields through boundary updates", () => {
     clearAgentProcesses();
     const command = `fake-acp ${"x".repeat(1000)}`;
-    const registered = registerAgentProcess({ runId: " run-1 ", pid: 1234, provider: " codex ", conversationId: " conv-1 ", command, startedAt: 10 });
-    assert.equal(registered.runId, "run-1");
-    assert.equal(registered.provider, "codex");
-    assert.equal(registered.backend, "codex");
+    const registered = registerAgentProcess({ runId: " run-1 ", pid: 1234, agentId: " workbuddy ", provider: " custom ", conversationId: " conv-1 ", command, startedAt: 10 });
+    assert.deepEqual({ runId: registered.runId, agentId: registered.agentId, provider: registered.provider, backend: registered.backend }, { runId: "run-1", agentId: "workbuddy", provider: "custom", backend: "custom" });
     assert.equal(registered.command, command);
     const updated = updateAgentProcess("run-1", { pid: Number.NaN, command: "" });
     assert.equal(updated.pid, 1234);
     assert.equal(updated.command, command);
     assert.equal(updated.conversationId, "conv-1");
+    assert.equal(updated.agentId, "workbuddy");
   });
 
   it("filters process records by normalized provider and conversation", () => {
@@ -4519,12 +4518,24 @@ describe("personal agent runtime timeout & artifacts", () => {
   it("checks provider health and managed agent health by id", async () => {
     const workspaceRoot = await tempWorkspace();
     try {
+      let detectCalls = 0;
+      const legacy = makeFakeLegacy("opencode");
+      const detectAgent = legacy.detectAgent;
+      legacy.detectAgent = async (...args) => {
+        detectCalls += 1;
+        return detectAgent(...args);
+      };
       const runtime = createPersonalAgentRuntime({
-        legacy: makeFakeLegacy("opencode"),
+        legacy,
         adapters: { opencode: () => ({ sendMessage: async () => ({ output: "ok", command: "opencode acp", connectionMode: "OpenCode ACP session" }) }) },
       });
-      const direct = await runtime.checkProviderHealth({ workspaceRoot, agent: { provider: "opencode" } });
+      const [direct, concurrent] = await Promise.all([
+        runtime.checkProviderHealth({ workspaceRoot, agent: { provider: "opencode" } }),
+        runtime.checkProviderHealth({ workspaceRoot, agent: { provider: "opencode" } }),
+      ]);
       assert.equal(direct.healthy, true);
+      assert.equal(concurrent.healthy, true);
+      assert.equal(detectCalls, 1);
       const managed = await runtime.checkManagedAgentHealthById({ workspaceRoot, id: "opencode" });
       assert.equal(managed.healthy, true);
       const missing = await runtime.checkManagedAgentHealthById({ workspaceRoot, id: "missing" });
@@ -4583,6 +4594,44 @@ describe("personal agent runtime timeout & artifacts", () => {
       assert.ok(event.update._meta.terminal_output_delta.data.length < 4_100);
       assert.equal(event.update.outputTruncated, true);
       assert.ok(event.update.rawOutput.formatted_output.length < 4_100);
+    } finally {
+      await cleanup(workspaceRoot);
+    }
+  });
+
+  it("emits typed push-first run events while retaining status as the source of truth", async () => {
+    const workspaceRoot = await tempWorkspace();
+    try {
+      const runtimeEvents = [];
+      const runtime = createPersonalAgentRuntime({
+        legacy: makeFakeLegacy("opencode"),
+        onEvent: (event) => runtimeEvents.push(event),
+        adapters: {
+          opencode: ({ appendEvent }) => ({
+            sendMessage: async () => {
+              appendEvent({ type: "assistant", text: "streaming" });
+              await new Promise((resolve) => setTimeout(resolve, 100));
+              return { output: "streaming", command: "fake-opencode", connectionMode: "OpenCode ACP session" };
+            },
+          }),
+        },
+      });
+
+      const final = await runtime.runMessage({
+        workspaceRoot,
+        prompt: "push events",
+        agent: { provider: "opencode", id: "opencode" },
+      });
+      assert.equal(final.status, "completed");
+      assert.equal(runtimeEvents.some((event) => event.type === "run.started"), true);
+      assert.equal(runtimeEvents.some((event) => event.type === "run.snapshot"), true);
+      assert.equal(runtimeEvents.some((event) => event.type === "run.delta"), true);
+      assert.equal(runtimeEvents.some((event) => event.type === "run.finished"), true);
+      for (const event of runtimeEvents) {
+        assert.equal(event.runId, final.runId);
+        assert.equal(event.workspaceRoot, workspaceRoot);
+        assert.equal(typeof event.updatedAt, "number");
+      }
     } finally {
       await cleanup(workspaceRoot);
     }
