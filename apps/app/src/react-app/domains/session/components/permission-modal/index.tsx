@@ -111,7 +111,7 @@ const metadataDetailKeys: Array<{ key: string; labelKey: string; multiline?: boo
 ];
 
 function readablePermissionLabel(permission: string): string {
-  if (permission === "bash") return "Bash";
+  if (permission === "bash") return t("session.permission_kind_bash");
   if (permission === "edit") return t("session.permission_kind_edit");
   if (permission === "read") return t("session.permission_kind_read");
   if (permission === "external_directory") return t("session.permission_kind_external_directory");

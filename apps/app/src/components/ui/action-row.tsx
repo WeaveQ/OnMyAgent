@@ -267,7 +267,7 @@ const sessionRowButtonVariants = cva(
         false: "text-dls-text hover:bg-dls-hover",
       },
       size: {
-        conversation: "flex h-[68px] items-center gap-3 px-4",
+        conversation: "flex h-[68px] items-center gap-3 rounded-xl px-4",
         // Expert sidebar list — roomy avatar + two-line title/subtitle.
         expert: "flex h-16 items-center gap-3 rounded-xl px-2.5 py-1",
         // Agent session strip: solid chip (contrast vs outline "+ 新会话"); radius matches search.

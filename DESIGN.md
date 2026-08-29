@@ -144,6 +144,9 @@ typography:
     3xl: 28
     4xl: 32
     5xl: 48
+  extra-named:
+    assistant: 13   # §11 WorkBuddy root-transcript body
+    composer: 15    # §11 composer / draft-home long-form body
   leading:
     tight: 1.2
     normal: 1.45
@@ -600,10 +603,13 @@ components:
       border: "{colors.border}"
       padding: "p-3.5"
     session-card:
-      radius: "{rounded.md}"                          # 8 (signature — see § 4)
-      surface: "{colors.surface}"
-      padding: "{spacing.row-padding}"
+      # Live SessionRowButton size=conversation (expert rows share xl radius).
+      # Idle rows have no fill; active uses list-selected (DESIGN §5 ladder).
+      radius: "{rounded.xl}"                          # 14
+      padding: "px-4"
+      height: 68                                      # h-[68px]
       title: "{typography.scale.sm}/500"
+      surface-active: "{colors.list-selected}"
     chat-message-row:
       scope: "root session transcript only; nested transcripts retain their compact contract"
       max-content-width-default: 832
@@ -666,7 +672,7 @@ components:
       row-padding: "{spacing.menu-row-padding}"       # px-3 py-2
     tooltip:
       radius: "{rounded.sm}"                          # 6
-      surface: "{colors.ink}"
+      surface: "{colors.surface-solid}"               # §5 opaque overlays
       text: "{typography.scale.xs}"                   # 12
       padding: "px-2 py-1"
     # --- Chips / pills -----------------------------------------------
@@ -2069,6 +2075,9 @@ in dedicated registry files, not in ordinary JSX:
   so root Markdown suppresses the shared inline streaming cursor while nested
   transcript surfaces keep it. Implement these exceptions through named transcript styles or CSS variables,
   never page-level `text-[13px]` / arbitrary-radius Tailwind classes.
+  Composer and draft-home long-form body may use the named 15px `--dls-text-composer`
+  / `text-composer` token declared in `typography.extra-named`; it is not a
+  global even-scale slot and must not appear as page-level `text-[15px]`.
   Generated-content surfaces in this scope also use WorkBuddy's neutral light
   hierarchy: `#F7F7F7` table/header/quote surfaces, `#FFFFFF` table cells,
   `#EBEBEB` borders, and `#F2F2F2` artifact cards. These values must remain

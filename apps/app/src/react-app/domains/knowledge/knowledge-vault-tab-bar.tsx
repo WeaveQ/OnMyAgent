@@ -1,6 +1,7 @@
 /** @jsxImportSource react */
 import { MoreHorizontal, PencilLine, Plus, X } from "lucide-react";
 
+import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -8,7 +9,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
 import { t } from "../../../i18n";
 import { GETTING_STARTED_REL_PATH } from "./knowledge-vault-model";
 import { parseKnowledgeNoteProps } from "./knowledge-vault-frontmatter";
@@ -35,40 +35,40 @@ function tabLabel(tab: KnowledgeEditorTab): string {
 export function KnowledgeVaultTabBar(props: KnowledgeVaultTabBarProps) {
   return (
     <div className="flex h-14 min-h-0 w-full min-w-0 items-center bg-dls-background mac:titlebar-drag">
-      <div className="flex h-full min-w-0 flex-1 items-center overflow-x-auto mac:titlebar-no-drag">
-        {props.tabs.map((tab, index) => {
+      <SegmentedTabGroup
+        density="bare"
+        role="tablist"
+        className="h-full min-h-0 w-auto min-w-0 flex-1 overflow-x-auto mac:titlebar-no-drag"
+      >
+        {props.tabs.map((tab) => {
           const active = tab.id === props.activeId;
           const dirty = tab.draft !== tab.loaded;
           const label = tabLabel(tab);
           return (
-            <div key={tab.id} className="group relative flex h-full w-32 shrink-0 items-center overflow-hidden">
-              {index > 0 ? (
-                <span className="h-4 w-px shrink-0 bg-dls-border" aria-hidden />
-              ) : null}
-              <button
+            <div key={tab.id} className="group relative flex w-32 shrink-0 items-center">
+              <NavTabButton
                 type="button"
-                className={cn(
-                  "flex h-full min-w-0 flex-1 cursor-pointer items-center overflow-hidden px-3",
-                  active ? "text-dls-text" : "text-dls-secondary hover:text-dls-text",
-                )}
+                role="tab"
+                size="tab"
+                shape="tab"
+                active={active}
+                className="h-8 w-32 min-w-0 cursor-pointer justify-start px-3 text-left"
                 title={label}
                 aria-current={active ? "page" : undefined}
+                aria-selected={active}
                 onClick={() => props.onActivate(tab.id)}
               >
-                <span
-                  className={cn(
-                    "block min-w-0 w-full truncate pe-5 text-left text-sm leading-none",
-                    active ? "font-medium" : "font-normal",
-                  )}
-                >
-                  {dirty ? "• " : ""}
+                {dirty ? (
+                  <span className="size-1.5 shrink-0 rounded-full bg-current" aria-hidden />
+                ) : null}
+                <span className="block min-w-0 w-full truncate pe-5 text-left text-sm leading-none">
                   {label}
                 </span>
-              </button>
+              </NavTabButton>
               <Button
                 variant="ghost"
                 size="icon-sm"
-                className="absolute right-1 top-1/2 size-6 -translate-y-1/2 opacity-0 group-hover:opacity-100 data-[active=true]:opacity-70"
+                className="absolute right-1 top-1/2 size-6 -translate-y-1/2 opacity-0 group-hover:opacity-100 data-[active=true]:opacity-70 data-[active=true]:text-white"
                 data-active={active}
                 onClick={(event) => {
                   event.stopPropagation();
@@ -79,13 +79,10 @@ export function KnowledgeVaultTabBar(props: KnowledgeVaultTabBarProps) {
               >
                 <X className="size-3" />
               </Button>
-              {active ? (
-                <span className="absolute inset-x-3 bottom-0 h-px bg-dls-text" aria-hidden />
-              ) : null}
             </div>
           );
         })}
-      </div>
+      </SegmentedTabGroup>
       <div className="flex h-10 shrink-0 items-center gap-0.5 pe-2.5 mac:titlebar-no-drag">
         <Button
           variant="ghost"

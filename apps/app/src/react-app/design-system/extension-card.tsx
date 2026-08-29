@@ -3,7 +3,6 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { AlertCircle, CheckCircle2, Plug2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { t } from "../../i18n";
-import { APP_NAME } from "../../i18n/locales/brand";
 import type { ExtensionKind } from "../../app/constants";
 import type { EnablementResult } from "../../app/extensions";
 import { ActionRowButton, IconTile } from "@/components/ui/action-row";
@@ -44,12 +43,12 @@ export type ExtensionCardProps = {
   onClick?: () => void;
 };
 
-const kindLabel: Record<ExtensionKind, string> = {
-  mcp: "MCP",
-  plugin: "Plugin",
-  skill: "Skill",
-  "ui-control": "UI Control",
-  extension: `${APP_NAME} Extension`,
+const kindLabelKey: Record<ExtensionKind, string> = {
+  mcp: "extensions.kind_mcp",
+  plugin: "extensions.kind_plugin",
+  skill: "extensions.kind_skill",
+  "ui-control": "extensions.kind_ui_control",
+  extension: "extensions.kind_extension",
 };
 
 const kindStyle: Record<ExtensionKind, string> = {
@@ -196,7 +195,7 @@ export function ExtensionCard(props: ExtensionCardProps) {
               </StatusBadge>
             ) : (
               <StatusBadge shape="soft" size="tiny" className={kindStyle[kind]}>
-                {kindLabel[kind]}
+                {t(kindLabelKey[kind])}
               </StatusBadge>
             )}
             {hidden ? (

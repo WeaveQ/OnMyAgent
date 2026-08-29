@@ -3,9 +3,10 @@
  * Hope-style "Move to" dialog: browse folders under uploads/, pick target, confirm.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Folder, FolderPlus, Loader2, Search } from "lucide-react";
+import { Folder, FolderPlus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { cn } from "@/lib/utils";
@@ -263,7 +264,7 @@ export function MineMoveToDialog(props: MineMoveDialogProps) {
 
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-10 text-sm text-dls-secondary">
-              <Loader2 className="size-4 animate-spin" aria-hidden />
+              <LoadingSpinner />
               {t("files.loading")}
             </div>
           ) : visibleFolders.length === 0 ? (
@@ -382,7 +383,7 @@ export function MineMoveToDialog(props: MineMoveDialogProps) {
               disabled={!canConfirm}
               onClick={() => void handleConfirm()}
             >
-              {busy ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : null}
+              {busy ? <LoadingSpinner /> : null}
               {t("files.move_to_confirm")}
             </Button>
           </div>

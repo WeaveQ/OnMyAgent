@@ -40,7 +40,7 @@ const settingsSidebarClass =
 
 /** Nav rows use primary text color for both idle and active (highlight = bg only). */
 const settingsNavButtonClass =
-  "text-dls-text hover:bg-dls-list-hover hover:text-dls-text data-active:bg-dls-list-selected data-active:font-medium data-active:text-dls-text mac:hover:bg-dls-list-hover mac:active:bg-dls-list-hover mac:data-active:bg-dls-list-selected dark:mac:hover:bg-dls-list-hover dark:mac:active:bg-dls-list-hover dark:mac:data-active:bg-dls-list-selected";
+  "text-dls-text hover:bg-dls-list-hover hover:text-dls-text data-active:bg-dls-rail-active data-active:font-medium data-active:text-dls-text mac:hover:bg-dls-list-hover mac:active:bg-dls-list-hover mac:data-active:bg-dls-rail-active dark:mac:hover:bg-dls-list-hover dark:mac:active:bg-dls-list-hover dark:mac:data-active:bg-dls-rail-active";
 
 /**
  * Re-export tab metadata for backwards compatibility with existing consumers.

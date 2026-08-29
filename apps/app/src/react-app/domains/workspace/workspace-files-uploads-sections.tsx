@@ -11,7 +11,6 @@ import {
   ChevronsUpDown,
   Folder,
   FolderPlus,
-  Loader2,
   Search,
   SlidersHorizontal,
   Upload,
@@ -20,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { MenuRowButton } from "@/components/ui/action-row";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { CountBadge } from "@/components/ui/status-badge";
 import { TableBody, TableCell, TableRow } from "@/components/ui/table";
@@ -141,7 +141,7 @@ export function UploadsMineChrome(props: {
             aria-busy={props.uploading || undefined}
           >
             {props.uploading ? (
-              <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              <LoadingSpinner size="sm" />
             ) : (
               <Upload className="size-3.5" aria-hidden />
             )}
@@ -334,7 +334,7 @@ export function UploadsMineDropZone(props: {
         role="status"
         aria-busy="true"
       >
-        <Loader2 className="size-5 animate-spin" aria-hidden />
+        <LoadingSpinner />
         <span>{t("files.loading")}</span>
       </div>
     );
@@ -734,7 +734,7 @@ export function UploadsCreateFolderDialog(props: {
             disabled={props.busy || !props.name.trim()}
             onClick={() => void props.onConfirm()}
           >
-            {props.busy ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : null}
+            {props.busy ? <LoadingSpinner size="sm" /> : null}
             {t("files.create_folder_confirm")}
           </Button>
         </div>

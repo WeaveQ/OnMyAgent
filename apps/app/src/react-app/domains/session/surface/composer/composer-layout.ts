@@ -82,7 +82,7 @@ export function resolveComposerLayoutClasses(input: ComposerLayoutInput): Compos
   const rootChromeClass =
     homeLayout || heroHome || input.flushShell
       ? `bg-transparent ${shellPadClass}`
-      : `bg-gradient-to-t from-dls-background via-dls-background/95 to-transparent ${shellPadClass}`;
+      : `bg-dls-background ${shellPadClass}`;
 
   return {
     homeLayout,

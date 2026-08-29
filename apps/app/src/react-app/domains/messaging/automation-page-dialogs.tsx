@@ -241,13 +241,13 @@ export function AutomationDialog(props: {
             </AutomationField>
           </div>
           <AutomationField label={t("automation.field_prompt")}>
-            <div className="rounded-xl border border-dls-border bg-dls-surface">
+            <div className="rounded-xl border border-dls-border bg-dls-surface focus-within:ring-1 focus-within:ring-dls-focus focus-within:ring-offset-0">
               <Textarea
                 value={props.form.prompt}
                 onChange={(event) =>
                   props.onFormChange({ ...props.form, prompt: event.currentTarget.value })
                 }
-                className="min-h-28 max-h-48 resize-y border-0 bg-transparent text-sm text-dls-text focus-visible:ring-0"
+                className="min-h-28 max-h-48 resize-y border-0 bg-transparent text-sm text-dls-text"
               />
               {/* Match session chrome: model + skills + permission (simple chips). */}
               <div className="flex flex-nowrap items-center gap-0.5 border-t border-dls-border px-1.5 py-1 text-sm text-dls-secondary">

@@ -136,7 +136,7 @@ export default {
   "agent_manager.skill_agent_unknown": "未识别",
   "agent_manager.skill.kind_runtime": "Runtime",
   "agent_manager.skill.kind_slash": "Slash",
-  "agent_manager.skill.kind_plugin": "Plugin",
+  "agent_manager.skill.kind_plugin": "插件",
   "agent_manager.conn_ok": "连接正常",
   "agent_manager.conn_ok_models": "连接正常 · {count} 个模型可用",
   "agent_manager.conn_needs_auth": "需要登录认证{detail}",

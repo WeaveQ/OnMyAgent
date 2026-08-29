@@ -120,12 +120,12 @@ export type ExtensionDetailModalProps = {
   size?: "default" | "wide";
 };
 
-const kindLabel: Record<ExtensionKind, string> = {
-  mcp: "MCP Server",
-  plugin: "Plugin",
-  skill: "Skill",
-  "ui-control": "UI Control",
-  extension: `${APP_NAME} Extension`,
+const kindLabelKey: Record<ExtensionKind, string> = {
+  mcp: "extensions.kind_mcp",
+  plugin: "extensions.kind_plugin",
+  skill: "extensions.kind_skill",
+  "ui-control": "extensions.kind_ui_control",
+  extension: "extensions.kind_extension",
 };
 
 const kindDescKey: Record<ExtensionKind, string> = {
@@ -417,7 +417,7 @@ export function ExtensionDetailModal(props: ExtensionDetailModalProps) {
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-dls-secondary">{t("common.type")}</span>
                     <span className="font-medium text-dls-text">
-                      {kindLabel[kind]}
+                      {t(kindLabelKey[kind])}
                     </span>
                   </div>
 

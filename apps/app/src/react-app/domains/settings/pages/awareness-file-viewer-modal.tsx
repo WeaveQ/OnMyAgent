@@ -320,7 +320,7 @@ export function AwarenessFileViewerModal(props: AwarenessFileViewerModalProps) {
                   BODY_SURFACE,
                   BODY_PAD,
                   // Kill field-sizing / autofill growth so height stays locked.
-                  "absolute inset-0 resize-none overflow-y-auto bg-dls-surface-muted/30 outline-none focus-visible:border-dls-accent focus-visible:ring-0",
+                  "absolute inset-0 resize-none overflow-y-auto bg-dls-surface-muted/30 outline-none focus-visible:border-dls-accent focus-visible:ring-1 focus-visible:ring-dls-focus focus-visible:ring-offset-0",
                 )}
                 aria-label={fileLabel}
               />

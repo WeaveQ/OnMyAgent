@@ -24,6 +24,7 @@ import { desktopBridge } from "@/app/lib/desktop";
 import { isDesktopRuntime } from "@/app/utils";
 import { t } from "../../../../i18n";
 import { FilterChip } from "@/components/ui/action-row";
+import { EmptyStateBox } from "@/components/ui/notice-box";
 import { expertMarketplaceCategories } from "./categories";
 import {
   BUILTIN_MARKETPLACE_EXPERTS,
@@ -461,7 +462,11 @@ export function ExpertMarketplacePage(props: {
             {/* Same rhythm as skills installed: tight top, no second page title. */}
             <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-3">
               {mineExperts.length === 0 ? (
-                <div className="flex min-h-[min(22rem,60vh)] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-dls-border/80 bg-dls-surface/60 px-6 py-10 text-center">
+                <EmptyStateBox
+                  size="spacious"
+                  tone="surface"
+                  className="flex min-h-[min(22rem,60vh)] flex-col items-center justify-center gap-3"
+                >
                   <p className="text-sm font-medium text-dls-text">
                     {t("session.my_experts_empty_title")}
                   </p>
@@ -515,7 +520,7 @@ export function ExpertMarketplacePage(props: {
                       {t("session.create_expert")}
                     </Button>
                   </div>
-                </div>
+                </EmptyStateBox>
               ) : (
                 <div className={EXPERT_MINE_CARD_GRID}>
                   {mineExperts.map((expert) => (

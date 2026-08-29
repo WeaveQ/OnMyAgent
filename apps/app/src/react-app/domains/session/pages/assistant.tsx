@@ -11,6 +11,7 @@ import type { ComposerDraft } from "../../../../app/types";
 import { type OpenTarget } from "../artifacts/open-target";
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/action-row";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { ProviderAuthModal } from "../../connections";
 import { SessionSurface } from "../surface/session-surface";
@@ -19,7 +20,6 @@ import {
   DEFAULT_BROWSER_SIDE_PANEL_WIDTH,
   DEFAULT_WORKSPACE_RIGHT_SIDEBAR_EXPANDED_WIDTH,
   MIN_WORKSPACE_RIGHT_SIDEBAR_WIDTH,
-  OwDotTicker,
   shouldNotifyStaticHomeReady,
   type SidePanelItem,
   useReactRenderWatchdog,
@@ -1555,7 +1555,7 @@ export function AssistantPage(props: AssistantPageProps) {
                             role="status"
                             aria-live="polite"
                           >
-                            <OwDotTicker size="md" />
+                            <LoadingSpinner />
                             <div className="text-xs leading-5 text-dls-secondary">
                               {t("session.loading_detail")}
                             </div>

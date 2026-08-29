@@ -227,6 +227,8 @@ export default {
   "plugins.larkcli_open_browser_app_auth": "在瀏覽器中開啟進行應用授權",
   "plugins.larkcli_manual_steps_title": "連線步驟",
   "plugins.larkcli_manual_credentials_title": "填寫應用憑證",
+  "plugins.larkcli_app_secret_label": "應用密鑰",
+  "plugins.larkcli_app_secret_placeholder": "請輸入應用密鑰",
   "plugins.larkcli_manual_step1_prefix": "登入",
   "plugins.larkcli_open_platform": "飛書開放平台",
   "plugins.larkcli_manual_step1_suffix": " -> 建立企業自建應用",

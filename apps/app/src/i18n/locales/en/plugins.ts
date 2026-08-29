@@ -238,6 +238,8 @@ export default {
   "plugins.larkcli_open_browser_app_auth": "Open in browser for app authorization",
   "plugins.larkcli_manual_steps_title": "Steps",
   "plugins.larkcli_manual_credentials_title": "App credentials",
+  "plugins.larkcli_app_secret_label": "App Secret",
+  "plugins.larkcli_app_secret_placeholder": "Your Lark App Secret",
   "plugins.larkcli_manual_step1_prefix": "Open",
   "plugins.larkcli_open_platform": "Feishu Open Platform",
   "plugins.larkcli_manual_step1_suffix": " → create a custom app",
