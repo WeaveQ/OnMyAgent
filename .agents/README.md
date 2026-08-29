@@ -23,8 +23,9 @@ OpenCode product/workspace config stays under `.opencode/` (not a mirror of this
 | Put in a skill | Put in `AGENTS.md` instead |
 | --- | --- |
 | Multi-step workflow (audit, refactor, review) | Iron laws, path allow/deny, default commands |
-| Domain playbook with scripts/references | One-line “read X first” pointers |
-| Trigger phrases for auto-invocation | Always-on project rules |
+| Policy applied during a class of edits (dual-runtime, write-path, human-gate) | One-line “read X first” pointers |
+| Domain playbook with scripts/references | Always-on project rules |
+| Trigger phrases for auto-invocation | Default verify commands |
 
 ## Adding a skill
 
@@ -45,6 +46,9 @@ OpenCode product/workspace config stays under `.opencode/` (not a mirror of this
 | `ui-regression-audit` | App UI theme / i18n / screenshot **regression** (product, not handbook) |
 | `frontend-primitive-refactor` | Primitive reuse, size/token consistency while coding UI |
 | `skills-audit` | Audit this catalog for overlap / stale skills |
+| `dual-runtime` | Session / archive / Personal changes — OpenCode primary, no cross-write |
+| `session-write-path` | Session PR must name write-path owner (OpenCode / Personal / Task) |
+| `human-gate` | Human-gate paths, secrets, enterprise API, credential rules |
 
 **Handbook pair:** write copy with `product-handbook-write`, then shots with `docs-screenshot-capture`.
 

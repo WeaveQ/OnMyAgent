@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "command": "node .agents/hooks/pretooluse.mjs --format=cursor",
+        "matcher": "Read|Write|Delete|Shell"
+      }
+    ],
+    "beforeReadFile": [
+      {
+        "command": "node .agents/hooks/pretooluse.mjs --format=cursor"
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": "node .agents/hooks/pretooluse.mjs --format=cursor"
+      }
+    ]
+  }
+}
