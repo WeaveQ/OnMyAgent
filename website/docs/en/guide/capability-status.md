@@ -23,6 +23,7 @@ This page defines how the handbook uses status terms such as generally available
 | Capability | Current status | Description |
 |------------|----------------|-------------|
 | Home sessions, Experts, Automation, Files, and Market | Generally available | Still require basic prerequisites such as a model and workspace |
+| Knowledge | Generally available | Main-rail entry; multiple vaults and a block editor. Project / expert libraries stay unavailable until their scope exists |
 | Messaging channels | Conditionally available | WeChat, Feishu/Lark, Telegram, and Discord require real accounts and platform E2E verification |
 | Company | Conditionally available | Appears only after OnMyCompany is connected |
 | Projects | Hidden + Coming Soon | The main-rail entry is hidden; the Files Projects tab is still not a production project-management feature |

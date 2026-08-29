@@ -40,7 +40,8 @@ Watch subtask progress in the current conversation; see [Parallel subtasks](#par
 | Model and reasoning level | Choose the model and reasoning effort for this task. Order matches Settings → Models | Providers differ in capability, cost, and context window. A model added in Settings is available when you return to Home |
 | Context usage | See how much of the current window is occupied. The limit prefers the model's **catalog** context window (million-token windows show as **1M**, not 1048.6K). Occupancy splits into system prompt, tools and sub-agents, messages, skills, cache hits, and similar buckets | Near the limit, start a new task or compact the context. **Reply** and **Reasoning** are last-turn generation and are **not** part of occupancy |
 | Body context menu | Select conversation body text; right-click **Cut / Copy / Paste / Select all** | Uses the system clipboard |
-| Access permissions | Decide which actions run automatically and which require a prompt | Keep approvals for external sends, deletes, and sensitive writes |
+| Access permissions | **Allow full access** switch: on runs actions automatically, off asks first | Turn full access off for external sends, deletes, and sensitive writes |
+| **Save to knowledge** | Session-header button that writes the current conversation as a note | Desktop only. You can change the file name and destination. See [Knowledge](/en/guide/knowledge) |
 
 ### Queue follow-up prompts while busy
 
@@ -119,5 +120,5 @@ To drive a local CLI Agent directly, use [Agent chat](/en/guide/agent-chat) from
 
 ## 8. Related documentation
 
-- [Your first task](/en/first-task) · [Workspaces](/en/guide/workspaces) · [Files and deliverables](/en/guide/files)
+- [Your first task](/en/first-task) · [Workspaces](/en/guide/workspaces) · [Files and deliverables](/en/guide/files) · [Knowledge](/en/guide/knowledge)
 - [Agent chat](/en/guide/agent-chat) · [Approvals and permissions](/en/guide/approvals) · [Models and BYOK](/en/guide/models)
