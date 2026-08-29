@@ -25,7 +25,7 @@ import {
 /** Match home sidebar LIST_ROW_H (34px) so vault rows share that rhythm. */
 const VAULT_ROW_H = "h-[34px] min-h-[34px] max-h-[34px]";
 
-type KnowledgeTreeActions = {
+export type KnowledgeTreeActions = {
   favorites: ReadonlySet<string>;
   onNewNote: (folder: string) => void;
   onNewFolder: (folder: string) => void;

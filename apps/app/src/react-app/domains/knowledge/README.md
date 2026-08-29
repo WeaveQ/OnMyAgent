@@ -1,6 +1,6 @@
 # domains/knowledge
 
-Local Markdown vault (rail page + CodeMirror editor).
+Local Markdown vault (rail page + Plate editor).
 
 ## Ownership
 - Owns vault tree, tabs, editor/reader, search-hit parsing, and open-rail events.

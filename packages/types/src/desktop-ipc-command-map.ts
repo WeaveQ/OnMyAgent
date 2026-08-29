@@ -760,6 +760,113 @@ type TypedDesktopCommandMap = DesktopMessagingCommandMap & {
       reason?: string;
     }
   >;
+  knowledgeRecordAccess: DesktopCommandContract<
+    [
+      {
+        scope?: "user" | "project" | "expert";
+        relPath: string;
+        workspaceId?: string;
+        expertId?: string;
+      },
+    ],
+    { ok: boolean; reason?: string }
+  >;
+  knowledgeListRecent: DesktopCommandContract<
+    [{ limit?: number }?],
+    {
+      ok: boolean;
+      entries: Array<{
+        key: string;
+        scope: "user" | "project" | "expert";
+        relPath: string;
+        name: string;
+        location: string;
+        accessedAt: string;
+      }>;
+      reason?: string;
+    }
+  >;
+  knowledgeAddVault: DesktopCommandContract<
+    [{ name?: string; path?: string }],
+    {
+      ok: boolean;
+      personalVaultPath?: string | null;
+      resolvedUserVaultDir?: string;
+      usingDefault?: boolean;
+      vaults?: Array<{ name: string; path: string; isDefault: boolean }>;
+      reason?: string;
+    }
+  >;
+  knowledgeRemoveVault: DesktopCommandContract<
+    [{ path?: string }],
+    {
+      ok: boolean;
+      personalVaultPath?: string | null;
+      resolvedUserVaultDir?: string;
+      usingDefault?: boolean;
+      vaults?: Array<{ name: string; path: string; isDefault: boolean }>;
+      reason?: string;
+    }
+  >;
+  knowledgeCreateFolder: DesktopCommandContract<
+    [
+      {
+        scope?: "user" | "project" | "expert";
+        relPath: string;
+        workspaceId?: string;
+        expertId?: string;
+      },
+    ],
+    { ok: boolean; scope?: string; relPath?: string; reason?: string }
+  >;
+  knowledgeUploadFiles: DesktopCommandContract<
+    [
+      {
+        scope?: "user" | "project" | "expert";
+        destFolder?: string;
+        workspaceId?: string;
+        expertId?: string;
+        files: Array<{ name?: string; dataBase64?: string; sourcePath?: string }>;
+      },
+    ],
+    {
+      ok: boolean;
+      results: Array<{ ok: boolean; name?: string; relPath?: string; reason?: string }>;
+      reason?: string;
+    }
+  >;
+  knowledgeUploadFolder: DesktopCommandContract<
+    [
+      {
+        scope?: "user" | "project" | "expert";
+        destFolder?: string;
+        workspaceId?: string;
+        expertId?: string;
+        entries: Array<{ relPath: string; dataBase64: string }>;
+      },
+    ],
+    {
+      ok: boolean;
+      results: Array<{ ok: boolean; relPath?: string; reason?: string }>;
+      reason?: string;
+    }
+  >;
+  knowledgeUploadFolderFromDisk: DesktopCommandContract<
+    [
+      {
+        scope?: "user" | "project" | "expert";
+        sourcePath: string;
+        destFolder?: string;
+        workspaceId?: string;
+        expertId?: string;
+      },
+    ],
+    {
+      ok: boolean;
+      results: Array<{ ok: boolean; relPath?: string; reason?: string }>;
+      reason?: string;
+    }
+  >;
   openBrowserSkillInstallPage: DesktopCommandContract<
     [("cli" | "extension" | "docs")?],
     OkResult & {

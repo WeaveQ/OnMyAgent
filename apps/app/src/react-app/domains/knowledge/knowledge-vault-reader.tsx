@@ -1,6 +1,9 @@
 /** @jsxImportSource react */
+import { Button } from "@/components/ui/button";
+import { openDesktopUrl } from "../../../app/lib/desktop";
 import { t } from "../../../i18n";
 import { MarkdownPreview } from "../../capabilities/artifacts/preview";
+import { isBookmarkProps, parseBookmarkHref } from "./knowledge-bookmark";
 import {
   headingTitleFromBody,
   parseKnowledgeNoteProps,
@@ -30,6 +33,7 @@ export function KnowledgeVaultReader(props: KnowledgeVaultReaderProps) {
     props.relPath;
   const folderCrumbs = props.relPath.split("/").filter(Boolean).slice(0, -1);
   const crumbs = [props.vaultLabel, ...folderCrumbs];
+  const bookmarkHref = isBookmarkProps(propsValue) ? parseBookmarkHref(props.markdown) : null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" onDoubleClick={props.onEdit}>
@@ -43,6 +47,16 @@ export function KnowledgeVaultReader(props: KnowledgeVaultReaderProps) {
           {heading ? null : (
             <h1 className="mb-4 text-xl font-medium tracking-tight text-dls-text">{title}</h1>
           )}
+          {bookmarkHref ? (
+            <Button
+              className="mb-4"
+              variant="outline"
+              size="sm"
+              onClick={() => void openDesktopUrl(bookmarkHref)}
+            >
+              {t("knowledge.open_link")}
+            </Button>
+          ) : null}
           <KnowledgeVaultProperties value={propsValue} onChange={() => undefined} readOnly />
           <div className="mt-8">
             <MarkdownPreview className="h-auto overflow-visible p-0" content={body} />

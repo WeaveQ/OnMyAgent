@@ -1,16 +1,21 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, test } from "node:test";
 
 import {
+  addVault,
   readKnowledgeConfig,
+  removeVault,
   validatePersonalVaultPath,
   writePersonalVaultPath,
 } from "./knowledge-vault-config.mjs";
 import { ensureKnowledgeVault } from "./ensure-knowledge-vault.mjs";
-import { GETTING_STARTED_REL_PATH } from "./knowledge-vault-paths.mjs";
+import {
+  GETTING_STARTED_REL_PATH,
+  resolveKnowledgeConfigPath,
+} from "./knowledge-vault-paths.mjs";
 import { listKnowledgeVault } from "./knowledge-vault-io.mjs";
 
 describe("personal vault path override", () => {
@@ -51,6 +56,128 @@ describe("personal vault path override", () => {
         readKnowledgeConfig(home).vaults.some((item) => item.path === external),
         true,
       );
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
+  test("addVault appends, dedupes by path, and rejects missing/default", async () => {
+    const home = await mkdtemp(path.join(os.tmpdir(), "oma-kv-add-"));
+    try {
+      await ensureKnowledgeVault({ homeDir: home });
+      const defaultPath = readKnowledgeConfig(home).resolvedUserVaultDir;
+
+      const one = path.join(home, "VaultOne");
+      const two = path.join(home, "VaultTwo");
+      await mkdir(one, { recursive: true });
+      await mkdir(two, { recursive: true });
+
+      const added = await addVault(home, { name: "One", path: one });
+      assert.equal(added.ok, true);
+      assert.equal(added.vaults.some((v) => v.path === one), true);
+      assert.equal(added.usingDefault, true, "addVault does not change active vault");
+
+      // Duplicate path is a no-op (same length, same entry wins).
+      const deduped = await addVault(home, { name: "Renamed", path: one });
+      assert.equal(deduped.ok, true);
+      assert.equal(deduped.vaults.filter((v) => v.path === one).length, 1);
+      assert.equal(
+        deduped.vaults.find((v) => v.path === one)?.name,
+        "One",
+        "dedupe preserves the existing entry",
+      );
+
+      // Missing directory is rejected.
+      const missing = await addVault(home, { path: path.join(home, "nope") });
+      assert.equal(missing.ok, false);
+      assert.equal(missing.reason, "not_found");
+
+      // Default vault cannot be added as an extra entry.
+      const blockedDefault = await addVault(home, { path: defaultPath });
+      assert.equal(blockedDefault.ok, false);
+      assert.equal(blockedDefault.reason, "reserved_default");
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
+  test("removeVault drops non-default vaults and resets active selection", async () => {
+    const home = await mkdtemp(path.join(os.tmpdir(), "oma-kv-rm-"));
+    try {
+      await ensureKnowledgeVault({ homeDir: home });
+      const defaultPath = readKnowledgeConfig(home).resolvedUserVaultDir;
+      const one = path.join(home, "RmOne");
+      const two = path.join(home, "RmTwo");
+      await mkdir(one, { recursive: true });
+      await mkdir(two, { recursive: true });
+      await addVault(home, { name: "One", path: one });
+      await addVault(home, { name: "Two", path: two });
+
+      // Removing the default is rejected.
+      const blockedDefault = await removeVault(home, defaultPath);
+      assert.equal(blockedDefault.ok, false);
+      assert.equal(blockedDefault.reason, "reserved_default");
+
+      // Removing an unknown path is rejected.
+      const notFound = await removeVault(home, path.join(home, "ghost"));
+      assert.equal(notFound.ok, false);
+      assert.equal(notFound.reason, "not_found");
+
+      // Activate `one` then remove it: selection resets to default.
+      const activated = await writePersonalVaultPath(one, home);
+      assert.equal(activated.resolvedUserVaultDir, one);
+      const removedActive = await removeVault(home, one);
+      assert.equal(removedActive.ok, true);
+      assert.equal(removedActive.usingDefault, true);
+      assert.equal(removedActive.resolvedUserVaultDir, defaultPath);
+      assert.equal(removedActive.vaults.some((v) => v.path === one), false);
+      assert.equal(removedActive.vaults.some((v) => v.path === two), true);
+
+      // Removing an inactive vault leaves selection untouched.
+      const activatedTwo = await writePersonalVaultPath(two, home);
+      assert.equal(activatedTwo.resolvedUserVaultDir, two);
+      const removedInactive = await removeVault(home, two);
+      assert.equal(removedInactive.ok, true);
+      assert.equal(removedInactive.usingDefault, true);
+      assert.equal(removedInactive.personalVaultPath, null);
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  });
+
+  test("persistConfig keeps unknown config.json keys across add/remove", async () => {
+    const home = await mkdtemp(path.join(os.tmpdir(), "oma-kv-keep-"));
+    try {
+      await ensureKnowledgeVault({ homeDir: home });
+      const configPath = resolveKnowledgeConfigPath(home);
+      const extra = path.join(home, "KeepVault");
+      await mkdir(extra, { recursive: true });
+      await writeFile(
+        configPath,
+        `${JSON.stringify(
+          {
+            schemaVersion: 2,
+            customFlag: true,
+            personalVaultPath: null,
+            vaults: [],
+          },
+          null,
+          2,
+        )}\n`,
+        "utf8",
+      );
+
+      const added = await addVault(home, { name: "Keep", path: extra });
+      assert.equal(added.ok, true);
+      const afterAdd = JSON.parse(await readFile(configPath, "utf8"));
+      assert.equal(afterAdd.schemaVersion, 2);
+      assert.equal(afterAdd.customFlag, true);
+
+      const removed = await removeVault(home, extra);
+      assert.equal(removed.ok, true);
+      const afterRemove = JSON.parse(await readFile(configPath, "utf8"));
+      assert.equal(afterRemove.schemaVersion, 2);
+      assert.equal(afterRemove.customFlag, true);
     } finally {
       await rm(home, { recursive: true, force: true });
     }
