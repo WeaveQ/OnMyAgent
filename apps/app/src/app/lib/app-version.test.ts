@@ -18,10 +18,9 @@ describe("app version labels", () => {
     expect(formatAppMilestoneLabel("1.0.0-rc.1")).toBe("1.0");
   });
 
-  test("account badge joins version and localized milestone", () => {
-    expect(formatAccountVersionBadge("0.7.0", (milestone) => `milestone ${milestone}`)).toBe(
-      "v0.7.0 · milestone 0.7",
-    );
-    expect(formatAccountVersionBadge("", () => "milestone")).toBe("");
+  test("account badge is the version only", () => {
+    expect(formatAccountVersionBadge("0.7.0")).toBe("v0.7.0");
+    expect(formatAccountVersionBadge("v0.6.2")).toBe("v0.6.2");
+    expect(formatAccountVersionBadge("")).toBe("");
   });
 });

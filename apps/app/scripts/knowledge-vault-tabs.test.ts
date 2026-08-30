@@ -57,7 +57,9 @@ describe("knowledge editor tabs", () => {
     expect(source).not.toContain("justify-center");
     expect(source).not.toContain("text-center");
     expect(source).not.toContain("border-r border-dls-border");
+    expect(source).toContain("mac:titlebar-drag");
     expect(source).toContain("mac:titlebar-no-drag");
+    expect(source).not.toMatch(/flex-1[^"\n]*titlebar-no-drag/);
     expect(source).toContain("cursor-pointer");
     expect(source).not.toContain("max-w-48");
     expect(source).not.toContain("min-w-28");

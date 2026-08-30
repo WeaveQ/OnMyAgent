@@ -56,3 +56,31 @@ export function selectNodeContents(element: HTMLElement): void {
   selection.removeAllRanges();
   selection.addRange(range);
 }
+
+const EDITABLE_SELECTOR = "textarea, input, [contenteditable='true']";
+
+export function closestEditableElement(
+  node: EventTarget | Node | null,
+): HTMLElement | null {
+  if (!node || typeof node !== "object") return null;
+  const el = node as {
+    closest?: (selector: string) => Element | null;
+    parentElement?: Element | null;
+  };
+  if (typeof el.closest === "function") {
+    const found = el.closest(EDITABLE_SELECTOR);
+    if (found && isEditableElement(found)) return found as HTMLElement;
+  }
+  if (el.parentElement) return closestEditableElement(el.parentElement);
+  return null;
+}
+
+export function selectEditableContents(element: HTMLElement): void {
+  if (element instanceof HTMLTextAreaElement || element instanceof HTMLInputElement) {
+    element.focus();
+    element.select();
+    return;
+  }
+  element.focus();
+  selectNodeContents(element);
+}

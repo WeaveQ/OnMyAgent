@@ -31,7 +31,7 @@ type KnowledgeVaultToolbarProps = {
 
 export function KnowledgeVaultToolbar(props: KnowledgeVaultToolbarProps) {
   return (
-    <div className="flex h-8 shrink-0 items-center gap-0.5 px-2 text-dls-secondary mac:titlebar-no-drag">
+    <div className="flex h-8 shrink-0 items-center gap-0.5 px-2.5 text-dls-secondary mac:titlebar-no-drag">
       <KnowledgeNewMenu
         scope={props.scope}
         workspaceId={props.workspaceId}

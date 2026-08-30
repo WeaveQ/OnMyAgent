@@ -83,6 +83,15 @@ describe("personal usage UI contract", () => {
     expect(sidebar).not.toContain("onOpenUsage");
   });
 
+  test("check-for-updates does not trail the version chip", async () => {
+    const sidebar = await source(sessionRoot, "sidebar/app-sidebar.tsx");
+    const updates = sidebar.indexOf('account_menu.check_for_updates');
+    expect(updates).toBeGreaterThan(-1);
+    const afterUpdates = sidebar.slice(updates, updates + 420);
+    expect(afterUpdates).not.toContain("trailing=");
+    expect(afterUpdates).not.toContain("versionBadge");
+  });
+
   test("hosts usage under global settings, not session sidebar views", async () => {
     const usageView = await source(settingsRoot, "pages/usage-view.tsx");
     const settingsPage = await source(settingsRoot, "shell/settings-page.tsx");

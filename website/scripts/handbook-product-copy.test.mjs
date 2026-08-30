@@ -87,9 +87,13 @@ test("changelog 0.7 ships knowledge highlights and lists 0.7.x first in the side
   assert.match(zh, /知识库/);
   assert.match(zh, /存入知识库/);
   assert.match(zh, /最近访问/);
+  assert.match(zh, /增强提示词/);
+  assert.match(zh, /推荐问我/);
   assert.match(zh, /完全访问/);
   assert.match(en, /## 0.7.0/);
   assert.match(en, /Save to knowledge/);
+  assert.match(en, /Enhance prompt/);
+  assert.match(en, /Suggested follow-ups/);
   assert.match(en, /Allow full access/);
   const config = readFileSync(join(docs, ".vitepress/config.mjs"), "utf8");
   const zhChangelog = config.slice(config.indexOf('text: "更新日志"'));

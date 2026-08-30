@@ -38,7 +38,7 @@ export function KnowledgeVaultTabBar(props: KnowledgeVaultTabBarProps) {
       <SegmentedTabGroup
         density="bare"
         role="tablist"
-        className="h-full min-h-0 w-auto min-w-0 flex-1 overflow-x-auto mac:titlebar-no-drag"
+        className="h-full min-h-0 w-auto min-w-0 overflow-x-auto mac:titlebar-no-drag"
       >
         {props.tabs.map((tab) => {
           const active = tab.id === props.activeId;
@@ -83,36 +83,42 @@ export function KnowledgeVaultTabBar(props: KnowledgeVaultTabBarProps) {
           );
         })}
       </SegmentedTabGroup>
-      <div className="flex h-10 shrink-0 items-center gap-0.5 pe-2.5 mac:titlebar-no-drag">
+      <div className="flex h-8 shrink-0 items-center gap-0.5 pe-2.5 mac:titlebar-no-drag">
         <Button
           variant="ghost"
-          size="icon-sm"
+          size="icon-xs"
+          className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
           onClick={props.onAdd}
           aria-label={t("knowledge.new_tab")}
           title={t("knowledge.new_tab")}
         >
-          <Plus className="size-4" />
+          <Plus className="size-3.5" />
         </Button>
         <Button
           variant="ghost"
-          size="icon-sm"
-          className={props.mode === "edit" ? "bg-dls-list-selected" : undefined}
+          size="icon-xs"
+          className={
+            props.mode === "edit"
+              ? "bg-dls-list-selected text-dls-text"
+              : "text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+          }
           onClick={() => props.onModeChange(props.mode === "edit" ? "view" : "edit")}
           aria-label={props.mode === "edit" ? t("knowledge.mode_view") : t("knowledge.mode_edit")}
           title={props.mode === "edit" ? t("knowledge.mode_view") : t("knowledge.mode_edit")}
         >
-          <PencilLine className="size-4" />
+          <PencilLine className="size-3.5" />
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
               <Button
                 variant="ghost"
-                size="icon-sm"
+                size="icon-xs"
+                className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
                 aria-label={t("knowledge.more")}
                 title={t("knowledge.more")}
               >
-                <MoreHorizontal className="size-4" />
+                <MoreHorizontal className="size-3.5" />
               </Button>
             }
           />

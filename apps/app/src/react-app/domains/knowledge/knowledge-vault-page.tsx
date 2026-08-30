@@ -259,7 +259,9 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
             ? t("knowledge.index_restart")
             : t("knowledge.index_error"),
         );
+        return;
       }
+      await refresh();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setError(
@@ -270,7 +272,7 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
     } finally {
       setIndexing(false);
     }
-  }, [expertId, workspaceId]);
+  }, [expertId, refresh, workspaceId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -894,10 +896,10 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
         <div
           className={cn(
             LIST_LANE_HEADER_CLASS,
-            "border-b border-r border-dls-border px-2.5 mac:titlebar-no-drag",
+            "border-b border-r border-dls-border px-2.5 mac:titlebar-drag",
           )}
         >
-          <InputGroup controlSize="lg" radius="lg" tone="surface" className="w-full">
+          <InputGroup controlSize="lg" radius="lg" tone="surface" className="w-full mac:titlebar-no-drag">
             <InputGroupAddon align="inline-start" inset="tight">
               <Search className="size-4" />
             </InputGroupAddon>
@@ -1051,21 +1053,21 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
             </div>
           )}
         </section>
-        <div className="flex h-10 items-center justify-between gap-1 border-r border-t border-dls-border px-1">
-          {saveState === "saved" ? null : (
-            <span className="shrink-0 px-1 text-xs text-dls-secondary">
-              {saveState === "saving"
-                ? t("knowledge.saving")
-                : saveState === "unsaved"
-                  ? t("knowledge.unsaved")
-                  : t("knowledge.save_error")}
-            </span>
-          )}
-        </div>
-        <div className="flex h-10 items-center justify-end gap-3 border-t border-dls-border px-3 text-xs text-dls-secondary">
-          <span>{t("knowledge.stat_props", { count: footerStats.propCount })}</span>
-          <span>{t("knowledge.stat_words", { count: footerStats.words })}</span>
-          <span>{t("knowledge.stat_chars", { count: footerStats.chars })}</span>
+        <div className="flex h-10 items-center justify-between gap-3 border-t border-dls-border px-3 text-xs text-dls-secondary">
+          <span className="min-w-0 truncate">
+            {saveState === "saving"
+              ? t("knowledge.saving")
+              : saveState === "unsaved"
+                ? t("knowledge.unsaved")
+                : saveState === "error"
+                  ? t("knowledge.save_error")
+                  : null}
+          </span>
+          <span className="flex shrink-0 items-center gap-3">
+            <span>{t("knowledge.stat_props", { count: footerStats.propCount })}</span>
+            <span>{t("knowledge.stat_words", { count: footerStats.words })}</span>
+            <span>{t("knowledge.stat_chars", { count: footerStats.chars })}</span>
+          </span>
         </div>
       </div>
 

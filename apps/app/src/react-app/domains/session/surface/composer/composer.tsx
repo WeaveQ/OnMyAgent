@@ -19,6 +19,7 @@ import { ModelSelectContainer } from "../../components/model-select";
 import { Button } from "@/components/ui/button";
 import { SendButton } from "@/components/ui/send-button";
 import { ContextUsageIndicator } from "../../../local-agents";
+import { TextEditContextMenu } from "../../../../design-system/text-edit-context-menu";
 import { LexicalPromptEditor } from "./editor";
 import { AccessPermissionSelect } from "./access-permission-select";
 import { matchComposerSlashQuery } from "./tool-menu-model";
@@ -575,7 +576,7 @@ export function ReactSessionComposer(props: ComposerProps) {
           {dropzoneActive ? <ComposerDropzoneHint /> : null}
 
           <div className={editorPadClass}>
-            {/* Editor */}
+            <TextEditContextMenu className="w-full">
             <LexicalPromptEditor
               sessionId={props.sessionId}
               value={props.draft}
@@ -667,6 +668,7 @@ export function ReactSessionComposer(props: ComposerProps) {
                 void addAttachments(files);
               }}
             />
+            </TextEditContextMenu>
 
             {/* Action row — tools left; model + send as trailing cluster */}
             <div
