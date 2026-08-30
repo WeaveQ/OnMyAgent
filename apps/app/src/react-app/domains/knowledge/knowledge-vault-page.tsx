@@ -918,16 +918,13 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
             tabs={tabs}
             activeId={activeTabId}
             onActivate={(id) => applyTab(persistActiveTab(), id)}
-            onClose={(id) => {
-              const next = closeKnowledgeEditorTab(persistActiveTab(), id);
-              applyTab(next.tabs, next.activeId);
-            }}
-            onAdd={() => {
-              const next = addKnowledgeEditorTab(persistActiveTab());
-              applyTab(next.tabs, next.activeId);
-            }}
+            onClose={(id) => { const n = closeKnowledgeEditorTab(persistActiveTab(), id); applyTab(n.tabs, n.activeId); }}
+            onAdd={() => { const n = addKnowledgeEditorTab(persistActiveTab()); applyTab(n.tabs, n.activeId); }}
             mode={editorMode}
             onModeChange={setEditorMode}
+            note={selected}
+            treeActions={treeActions}
+            onShowInTree={() => { setShowRecent(false); setQuery(""); }}
           />
         </div>
         <KnowledgeVaultSidebar

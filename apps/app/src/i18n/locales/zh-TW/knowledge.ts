@@ -78,6 +78,7 @@ export default {
   "knowledge.copy_rel_path": "相對路徑",
   "knowledge.copy_abs_path": "絕對路徑",
   "knowledge.reveal": "在 Finder 中顯示",
+  "knowledge.show_in_tree": "在檔案樹中顯示",
   "knowledge.rename": "重新命名",
   "knowledge.rename_title": "重新命名",
   "knowledge.rename_placeholder": "新名稱",

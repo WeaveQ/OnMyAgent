@@ -81,6 +81,7 @@ export default {
   "knowledge.copy_rel_path": "Relative path",
   "knowledge.copy_abs_path": "Absolute path",
   "knowledge.reveal": "Show in Finder",
+  "knowledge.show_in_tree": "Show in file tree",
   "knowledge.rename": "Rename",
   "knowledge.rename_title": "Rename",
   "knowledge.rename_placeholder": "New name",

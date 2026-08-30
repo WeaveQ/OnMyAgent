@@ -78,6 +78,7 @@ export default {
   "knowledge.copy_rel_path": "相对路径",
   "knowledge.copy_abs_path": "绝对路径",
   "knowledge.reveal": "在访达中显示",
+  "knowledge.show_in_tree": "在文件树中显示",
   "knowledge.rename": "重命名",
   "knowledge.rename_title": "重命名",
   "knowledge.rename_placeholder": "新名称",
