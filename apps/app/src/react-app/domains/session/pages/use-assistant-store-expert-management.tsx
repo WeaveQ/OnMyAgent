@@ -17,6 +17,7 @@ export function useAssistantStoreExpertManagement(input: {
   showToast: Parameters<typeof useSessionExpertCreation>[0]["showToast"];
   onCreatedAgent: (agent: PendingAgentContext) => void;
 }): {
+  openExpertCreation: ReturnType<typeof useSessionExpertCreation>["openExpertCreation"];
   handleDeleteMarketplaceExpert: ReturnType<typeof useExpertPageModals>["handleDeleteMarketplaceExpert"];
   handleEditMarketplaceExpert: ReturnType<typeof useSessionExpertCreation>["handleEditMarketplaceExpert"];
   overlays: ReactNode;
@@ -37,6 +38,7 @@ export function useAssistantStoreExpertManagement(input: {
   });
 
   return {
+    openExpertCreation: creation.openExpertCreation,
     handleDeleteMarketplaceExpert: deletion.handleDeleteMarketplaceExpert,
     handleEditMarketplaceExpert: creation.handleEditMarketplaceExpert,
     overlays: (

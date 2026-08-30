@@ -33,6 +33,7 @@ export function isWalkHiddenName(name) {
  *   name: string,
  *   size: number,
  *   mtimeMs: number,
+ *   birthtimeMs: number,
  *   indexable: boolean,
  * }>>}
  */
@@ -73,6 +74,7 @@ export async function walkKnowledgeTree(dir, options = {}) {
       name,
       size: st.size,
       mtimeMs: st.mtimeMs,
+      birthtimeMs: st.birthtimeMs,
       indexable,
     });
   }

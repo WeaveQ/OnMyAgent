@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useCallback, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { ClipboardPaste, Copy, Scissors } from "lucide-react";
 
 import {
@@ -28,6 +28,7 @@ const EMPTY_FLAGS: TextEditFlags = {
 export function TextEditContextMenu(props: {
   children: React.ReactNode;
   className?: string;
+  extraItems?: ReactNode;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const editableRef = useRef<HTMLElement | null>(null);
@@ -101,14 +102,15 @@ export function TextEditContextMenu(props: {
         {props.children}
       </ContextMenuTrigger>
       <ContextMenuContent className="min-w-40" aria-label={t("common.edit")}>
-        <ContextMenuItem
-          className="hover:bg-accent hover:text-accent-foreground"
-          disabled={!flags.canCut}
-          onClick={runCut}
-        >
-          <Scissors className="size-4" />
-          {t("common.cut")}
-        </ContextMenuItem>
+        {flags.canCut ? (
+          <ContextMenuItem
+            className="hover:bg-accent hover:text-accent-foreground"
+            onClick={runCut}
+          >
+            <Scissors className="size-4" />
+            {t("common.cut")}
+          </ContextMenuItem>
+        ) : null}
         <ContextMenuItem
           className="hover:bg-accent hover:text-accent-foreground"
           disabled={!flags.canCopy}
@@ -117,14 +119,16 @@ export function TextEditContextMenu(props: {
           <Copy className="size-4" />
           {t("common.copy")}
         </ContextMenuItem>
-        <ContextMenuItem
-          className="hover:bg-accent hover:text-accent-foreground"
-          disabled={!flags.canPaste}
-          onClick={runPaste}
-        >
-          <ClipboardPaste className="size-4" />
-          {t("common.paste")}
-        </ContextMenuItem>
+        {flags.canPaste ? (
+          <ContextMenuItem
+            className="hover:bg-accent hover:text-accent-foreground"
+            onClick={runPaste}
+          >
+            <ClipboardPaste className="size-4" />
+            {t("common.paste")}
+          </ContextMenuItem>
+        ) : null}
+        {props.extraItems}
         <ContextMenuSeparator />
         <ContextMenuItem
           className="hover:bg-accent hover:text-accent-foreground"

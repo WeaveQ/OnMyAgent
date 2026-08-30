@@ -523,7 +523,7 @@ export default {
   "settings.auto_new_session_threshold_suffix": "小時未對話，自動開啟新會話",
   "settings.auto_new_session_hours_aria": "未對話多少小時後自動新起會話",
   "settings.auto_new_session_hint":
-    "開啟後，長時間未活躍的歷史上下文將不再發送給模型，有效降低 Token 消耗並提升回應速度。",
+    "逾時未對話會新開會話，舊上下文不再發給模型。",
   "settings.notifications_section_title": "通知",
   "settings.notifications_section_desc":
     "管理系統桌面通知權限，以及會話完成後是否提醒你。",

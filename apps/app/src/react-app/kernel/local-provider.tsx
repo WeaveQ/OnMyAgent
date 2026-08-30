@@ -105,9 +105,16 @@ export function normalizeOnboardingProfile(
   };
 }
 
+export const DEFAULT_AUTO_NEW_SESSION_ON_IDLE = true;
+export const DEFAULT_AUTO_NEW_SESSION_IDLE_HOURS = 48;
+
+export function resolveAutoNewSessionOnIdle(value: unknown): boolean {
+  return value !== false;
+}
+
 export function normalizeIdleHours(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(n)) return 6;
+  if (!Number.isFinite(n)) return DEFAULT_AUTO_NEW_SESSION_IDLE_HOURS;
   return Math.min(168, Math.max(1, Math.round(n)));
 }
 
@@ -225,7 +232,7 @@ export type LocalPreferences = {
    * continuing the idle thread (reduces stale context / token use).
    */
   autoNewSessionOnIdle: boolean;
-  /** Idle threshold in hours before auto-new-session applies. Default 6. */
+  /** Idle threshold in hours before auto-new-session applies. Default 48. */
   autoNewSessionIdleHours: number;
   /**
    * After a reply, show follow-up suggestion chips in Home and Expert chats.
@@ -281,8 +288,8 @@ const INITIAL_PREFS: LocalPreferences = {
     pending: [],
     shortTerm: [],
   },
-  autoNewSessionOnIdle: false,
-  autoNewSessionIdleHours: 6,
+  autoNewSessionOnIdle: DEFAULT_AUTO_NEW_SESSION_ON_IDLE,
+  autoNewSessionIdleHours: DEFAULT_AUTO_NEW_SESSION_IDLE_HOURS,
   showFollowUpSuggestions: DEFAULT_SHOW_FOLLOW_UP_SUGGESTIONS,
 };
 
@@ -330,7 +337,9 @@ export function LocalProvider({ children }: LocalProviderProps) {
       responseTone: normalizeResponseTone(persisted.responseTone),
       onboardingProfile: normalizeOnboardingProfile(persisted.onboardingProfile),
       conversationMemory: normalizeConversationMemory(persisted.conversationMemory),
-      autoNewSessionOnIdle: Boolean(persisted.autoNewSessionOnIdle),
+      autoNewSessionOnIdle: resolveAutoNewSessionOnIdle(
+        persisted.autoNewSessionOnIdle,
+      ),
       autoNewSessionIdleHours: normalizeIdleHours(persisted.autoNewSessionIdleHours),
       showFollowUpSuggestions: resolveShowFollowUpSuggestions(
         persisted.showFollowUpSuggestions,

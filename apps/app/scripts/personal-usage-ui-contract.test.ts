@@ -92,6 +92,14 @@ describe("personal usage UI contract", () => {
     expect(afterUpdates).not.toContain("versionBadge");
   });
 
+  test("account version sits beside the name block and is vertically centered", async () => {
+    const sidebar = await source(sessionRoot, "sidebar/app-sidebar.tsx");
+    expect(sidebar).not.toContain("items-baseline");
+    const badge = sidebar.indexOf("versionBadge ?");
+    expect(badge).toBeGreaterThan(-1);
+    expect(sidebar.slice(badge, badge + 180)).toContain("self-center");
+  });
+
   test("hosts usage under global settings, not session sidebar views", async () => {
     const usageView = await source(settingsRoot, "pages/usage-view.tsx");
     const settingsPage = await source(settingsRoot, "shell/settings-page.tsx");

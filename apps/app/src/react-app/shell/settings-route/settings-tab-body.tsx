@@ -454,8 +454,8 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
             autoCompactContext={ctx.autoCompactContext}
             autoCompactContextBusy={ctx.autoCompactContextBusy}
             onToggleAutoCompactContext={ctx.toggleAutoCompactContext}
-            autoNewSessionOnIdle={ctx.local.prefs.autoNewSessionOnIdle === true}
-            autoNewSessionIdleHours={ctx.local.prefs.autoNewSessionIdleHours ?? 6}
+            autoNewSessionOnIdle={ctx.local.prefs.autoNewSessionOnIdle !== false}
+            autoNewSessionIdleHours={ctx.local.prefs.autoNewSessionIdleHours ?? 48}
             onAutoNewSessionOnIdleChange={(enabled) => {
               ctx.local.setPrefs((previous) => ({
                 ...previous,

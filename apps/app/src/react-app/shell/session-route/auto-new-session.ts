@@ -1,4 +1,5 @@
 import type { SidebarSessionItem } from "../../../app/types";
+import { DEFAULT_AUTO_NEW_SESSION_IDLE_HOURS } from "../../kernel/local-provider";
 
 /**
  * When auto-new-session-on-idle is enabled and the selected session has been
@@ -21,7 +22,7 @@ export function shouldForceNewSessionOnIdle(input: {
   if (input.sessionBusy) return false;
   const hours = Number.isFinite(input.idleHours)
     ? Math.min(168, Math.max(1, Math.round(input.idleHours)))
-    : 6;
+    : DEFAULT_AUTO_NEW_SESSION_IDLE_HOURS;
   const session = input.sessions.find((item) => item.id === input.selectedSessionId);
   if (!session) return false;
   const lastActive =

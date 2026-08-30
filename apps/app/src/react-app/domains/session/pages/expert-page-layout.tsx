@@ -365,7 +365,14 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
                         onOpenArtifact={openTarget}
                         {...createWorkspaceFilesAgentHandlers({
                           sessionId: renderedSessionId,
+                          workspaceId: props.selectedWorkspaceId,
                           openRail: () => openRailView("chat"),
+                          goHomeNewTask: () => {
+                            props.onNavigateToMode("assistant");
+                            props.sidebar.onCreateTaskInWorkspace(
+                              props.selectedWorkspaceId,
+                            );
+                          },
                           showToast,
                           buildInstruction: buildAskAgentFileInstruction,
                           t,

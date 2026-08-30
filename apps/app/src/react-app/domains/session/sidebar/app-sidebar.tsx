@@ -952,21 +952,19 @@ export function SidebarAccountButton(props: {
         >
           <AccountUserAvatar displayName={displayName} size="md" className="flex-none" />
           <span className="min-w-0 flex-1">
-            <span className="flex min-w-0 items-baseline gap-2">
-              <span className={cn(appSidebarTextClass.menuTitle, "min-w-0 truncate")} title={displayName || undefined}>
-                {displayName || t("account_menu.avatar_unnamed")}
-              </span>
-              {versionBadge ? (
-                <span className="shrink-0 text-xs font-normal tabular-nums text-dls-secondary">
-                  {versionBadge}
-                </span>
-              ) : null}
+            <span className={cn(appSidebarTextClass.menuTitle, "block min-w-0 truncate")} title={displayName || undefined}>
+              {displayName || t("account_menu.avatar_unnamed")}
             </span>
             <span className="mt-0.5 block min-w-0 truncate text-xs font-normal text-dls-secondary">
               {t("account_menu.personal_workspace")}
             </span>
           </span>
-          <ChevronRight className="size-3.5 shrink-0 text-dls-secondary" aria-hidden />
+          {versionBadge ? (
+            <span className="shrink-0 self-center text-xs font-normal tabular-nums text-dls-secondary">
+              {versionBadge}
+            </span>
+          ) : null}
+          <ChevronRight className="size-3.5 shrink-0 self-center text-dls-secondary" aria-hidden />
         </DropdownMenuItem>
       </div>
 
@@ -1141,21 +1139,19 @@ export function SidebarAccountButton(props: {
           >
             <AccountUserAvatar displayName={displayName} size="sm" />
             <span className="min-w-0 flex-1">
-              <span className="flex min-w-0 items-baseline gap-2">
-                <span className={cn(appSidebarTextClass.accountName, "min-w-0 truncate")}>
-                  {displayName || t("account_menu.avatar_unnamed")}
-                </span>
-                {versionBadge ? (
-                  <span className="shrink-0 text-xs font-normal tabular-nums text-sidebar-foreground/55">
-                    {versionBadge}
-                  </span>
-                ) : null}
+              <span className={cn(appSidebarTextClass.accountName, "block min-w-0 truncate")}>
+                {displayName || t("account_menu.avatar_unnamed")}
               </span>
               <span className={appSidebarTextClass.accountEmail}>
                 {account?.email || t("account_menu.personal_workspace")}
               </span>
             </span>
-            <ChevronDown className="size-4 shrink-0 text-sidebar-foreground/55" />
+            {versionBadge ? (
+              <span className="shrink-0 self-center text-xs font-normal tabular-nums text-sidebar-foreground/55">
+                {versionBadge}
+              </span>
+            ) : null}
+            <ChevronDown className="size-4 shrink-0 self-center text-sidebar-foreground/55" />
           </Button>
         }
       />

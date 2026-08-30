@@ -276,3 +276,29 @@ export function buildComposerDraft(input: {
       : undefined,
   };
 }
+
+/** Drop leading `@uploads/foo` tokens so the bubble is the instruction, not the chip path. */
+export function stripLeadingFileMentionTokens(text: string): string {
+  return text.replace(/^(?:@[^\s@]*\/[^\s@]*\s+)+/u, "").trim();
+}
+
+/**
+ * User-visible prompt text: leftover after @file/@folder chips, not the raw
+ * `@path instruction` string (that duplicated the chip as a second bubble).
+ */
+export function composerVisibleUserText(
+  draft: Pick<ComposerDraft, "parts" | "text" | "resolvedText">,
+): string {
+  let text = draft.parts
+    .flatMap((part) => (part.type === "text" || part.type === "paste" ? [part.text] : []))
+    .join("");
+  if (!text.trim()) text = draft.resolvedText ?? draft.text;
+  for (const part of draft.parts) {
+    if (part.type !== "file" && part.type !== "directory") continue;
+    const path = part.path.trim();
+    if (!path) continue;
+    text = text.replaceAll(`@${encodeComposerMentionValue(path)}`, "");
+    text = text.replaceAll(`@${path}`, "");
+  }
+  return text.replace(/\s+/g, " ").trim();
+}

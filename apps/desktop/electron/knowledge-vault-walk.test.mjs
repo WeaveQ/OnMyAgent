@@ -20,6 +20,7 @@ describe("walkKnowledgeTree", () => {
         indexable.map((file) => file.relPath),
         ["briefs/q3.md"],
       );
+      assert.equal(typeof indexable[0]?.birthtimeMs, "number");
 
       const all = await walkKnowledgeTree(root, { includeNonIndexable: true });
       assert.ok(all.some((file) => file.relPath === "sheet.xlsx" && file.indexable === false));
