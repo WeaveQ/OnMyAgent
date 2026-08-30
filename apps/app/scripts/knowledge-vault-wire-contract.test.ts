@@ -57,6 +57,9 @@ describe("knowledge 0.7 surfaces are wired", () => {
     expect(groups).toContain('size="lg"');
     expect(groups).toContain("FieldLabel");
     expect(groups).toContain("knowledge.add_vault_failed");
+    expect(groups).toContain("initialFocus");
+    expect(groups).toContain('event.key !== "Enter"');
+    expect(groups).toContain("aria-current");
   });
 
   test("archive dialog does not echo the .md file name under the input", () => {

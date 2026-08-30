@@ -67,6 +67,7 @@ const INITIAL_ADD_STATE: AddState = {
 };
 
 export function KnowledgeVaultGroups(props: KnowledgeVaultGroupsProps) {
+  const nameRef = React.useRef<HTMLInputElement | null>(null);
   const [add, setAdd] = React.useState<AddState>(INITIAL_ADD_STATE);
   const [removing, setRemoving] = React.useState<KnowledgeVaultItem | null>(null);
   const extraUserVaults = props.userVaults.filter((vault) => !vault.isDefault);
@@ -179,7 +180,7 @@ export function KnowledgeVaultGroups(props: KnowledgeVaultGroupsProps) {
           if (!add.busy) setAdd((prev) => ({ ...prev, open }));
         }}
       >
-        <DialogContent>
+        <DialogContent initialFocus={nameRef}>
           <DialogHeader>
             <DialogTitle>{t("knowledge.add_vault_title")}</DialogTitle>
             <DialogDescription>
@@ -192,12 +193,19 @@ export function KnowledgeVaultGroups(props: KnowledgeVaultGroupsProps) {
                 {t("knowledge.add_vault_name_label")}
               </FieldLabel>
               <Input
+                ref={nameRef}
                 id="add-vault-name"
                 value={add.name}
                 placeholder={t("knowledge.add_vault_name_placeholder")}
                 onChange={(event) =>
                   setAdd((prev) => ({ ...prev, name: event.target.value }))
                 }
+                onKeyDown={(event) => {
+                  if (event.nativeEvent.isComposing || event.key === "Process") return;
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  void submitAdd();
+                }}
               />
             </Field>
             <Field>
@@ -227,7 +235,10 @@ export function KnowledgeVaultGroups(props: KnowledgeVaultGroupsProps) {
             {add.error ? <NoticeBox tone="error">{add.error}</NoticeBox> : null}
           </div>
           <DialogFooter>
-            <DialogClose render={<Button variant="outline" size="lg" />}>
+            <DialogClose
+              disabled={add.busy}
+              render={<Button variant="outline" size="lg" disabled={add.busy} />}
+            >
               {t("common.cancel")}
             </DialogClose>
             <Button
@@ -285,6 +296,7 @@ function ScopeRow(props: {
         props.active && "bg-dls-list-selected font-medium text-dls-text",
         props.dimmed && "cursor-default opacity-60 hover:bg-transparent",
       )}
+      aria-current={props.active ? "true" : undefined}
     >
       <span className="min-w-0 flex-1 truncate">{props.label}</span>
       {props.trailingHint ? (
@@ -325,6 +337,7 @@ function VaultRow(props: {
         props.active && "bg-dls-list-selected font-medium text-dls-text",
         props.dimmed && "cursor-default opacity-60 hover:bg-transparent",
       )}
+      aria-current={props.active ? "true" : undefined}
     >
       <span className="min-w-0 flex-1 truncate">{props.name}</span>
       {props.trailingHint ? (
