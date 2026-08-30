@@ -235,8 +235,9 @@ export const PROMPT_ENHANCE_SYSTEM = [
   "Do not pad a greeting or fragment to hit a minimum.",
   "One short paragraph only. No headings, bullets, or sections such as goal, constraints, or expected output.",
   "Do not invent files, folders, or attachments that were not named.",
-  "Use recent conversation only as context.",
-  "Return ONLY the rewritten prompt. No commentary, no markdown fences, no labels.",
+  "Background is only to resolve short follow-ups. Never copy it.",
+  "Never output a transcript or labels such as Recent conversation, User:, Assistant:, Previous user, or Previous assistant.",
+  "Return ONLY the rewritten prompt the user will send next. No commentary, no markdown fences, no labels.",
 ].join(" ");
 
 export type PromptEnhanceTurn = {
@@ -293,38 +294,51 @@ export function buildHomePromptEnhanceUserMessage(input: HomePromptEnhanceContex
   }
   const recentTurns = input.recentTurns ?? [];
   if (recentTurns.length) {
-    lines.push("", "Recent conversation:");
+    lines.push("", "Background for rewriting only (do not copy):");
     for (const turn of recentTurns) {
-      lines.push(`${turn.role === "user" ? "User" : "Assistant"}: ${turn.text}`);
+      lines.push(
+        turn.role === "user"
+          ? `They previously asked: ${turn.text}`
+          : `The assistant previously replied: ${turn.text}`,
+      );
     }
   }
   return lines.join("\n");
 }
 
 const ENHANCE_SCAFFOLD_HEADING =
-  /^(?:current draft|selected workspace folder)\s*:$/i;
+  /^(?:current draft|selected workspace folder|recent conversation|attachment filenames|mention names in the draft|background for rewriting only(?:\s*\(do not copy\))?)\s*:?$/i;
+
+const ENHANCE_ROLE_LINE =
+  /^(?:user|assistant|human|ai|previous user|previous assistant|they previously asked|the assistant previously replied)\s*:\s*/i;
 
 export function unwrapEnhancedPromptText(text: string): string {
   const trimmed = text.trim();
   if (!trimmed) return "";
   const fenced = trimmed.match(/^```(?:[\w-]+)?\r?\n([\s\S]*?)\r?\n```$/);
   const body = (fenced?.[1] ?? trimmed).trim();
-  const lines = body.split(/\r?\n/);
-  let index = 0;
-  while (index < lines.length) {
-    const line = lines[index]?.trim() ?? "";
+  const kept: string[] = [];
+  let skipValue = false;
+  for (const raw of body.split(/\r?\n/)) {
+    const line = raw.trim();
     if (!line) {
-      index += 1;
+      if (kept.length && kept[kept.length - 1] !== "") kept.push("");
+      continue;
+    }
+    if (skipValue) {
+      skipValue = false;
       continue;
     }
     if (ENHANCE_SCAFFOLD_HEADING.test(line)) {
-      index += 1;
-      if (index < lines.length && lines[index]?.trim()) index += 1;
+      skipValue = true;
       continue;
     }
-    break;
+    if (ENHANCE_ROLE_LINE.test(line)) continue;
+    kept.push(raw);
   }
-  return lines.slice(index).join("\n").trim();
+  while (kept.length && !kept[0]?.trim()) kept.shift();
+  while (kept.length && !kept[kept.length - 1]?.trim()) kept.pop();
+  return kept.join("\n").trim();
 }
 
 function eventProperty(properties: unknown, key: string): unknown {

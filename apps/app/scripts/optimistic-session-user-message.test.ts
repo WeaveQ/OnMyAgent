@@ -160,4 +160,27 @@ describe("optimistic session user messages", () => {
       dropEquivalentOptimisticUserMessages([...optimistic, canonical], canonical),
     ).toEqual([canonical]);
   });
+
+  it("drops the @file optimistic bubble when the server turn is only the instruction", () => {
+    const optimistic = addOptimisticSessionUserMessage([], {
+      messageId: "msg_local_file",
+      text: "@uploads/Demo%20from%20dsh-genui.mp4 请查看该文件，说明内容概要，并告诉我可以如何处理。",
+      createdAt: 42,
+    });
+    const canonical: UIMessage = {
+      id: "msg_server_file",
+      role: "user",
+      parts: [
+        {
+          type: "text",
+          text: "请查看该文件，说明内容概要，并告诉我可以如何处理。",
+          state: "done",
+          providerMetadata: { opencode: { partId: "prt_user" } },
+        },
+      ],
+    };
+    expect(
+      dropEquivalentOptimisticUserMessages([...optimistic, canonical], canonical),
+    ).toEqual([canonical]);
+  });
 });

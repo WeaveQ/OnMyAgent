@@ -2,6 +2,8 @@
  * Unit tests for shipped file-preview-policy (all file types).
  */
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import {
   FILE_PREVIEW_SELECTION_DEBOUNCE_MS,
@@ -12,7 +14,12 @@ import {
   shouldForceExternalPreviewForSize,
 } from "../src/react-app/capabilities/artifacts/file-preview-policy";
 import { shouldPreviewOfficeBinaryViaOverlay } from "../src/react-app/capabilities/artifacts/sheet-preview-policy";
-import { seedComposerFileAgentTask } from "../src/react-app/domains/session/pages/shared-page-utils";
+import {
+  createWorkspaceFilesAgentHandlers,
+  normalizeWorkspaceFileMentionPath,
+  seedComposerFileAgentTask,
+} from "../src/react-app/domains/session/pages/shared-page-utils";
+import { formatComposerFileMentionLabel } from "../src/react-app/domains/session/surface/composer/mention-encoding";
 
 describe("file-preview-policy (shipped)", () => {
   test("forces external preview above size caps by kind", () => {
@@ -176,5 +183,88 @@ describe("appendComposerFileMention (shipped)", () => {
       "file",
     );
     useComposerStateStore.getState().clearSession(sessionId);
+  });
+
+  test("seedComposerFileAgentTask maps spaced uploads paths so mention lookup matches", () => {
+    const sessionId = `test-seed-space-${Date.now()}`;
+    useComposerStateStore.getState().clearSession(sessionId);
+    const abs =
+      "/Users/me/ws/uploads/Demo from dsh-genui.mp4";
+    expect(
+      seedComposerFileAgentTask(sessionId, abs, "请查看该文件"),
+    ).toBe(true);
+    const store = useComposerStateStore.getState();
+    expect(
+      getComposerMentions(store, sessionId)["uploads/Demo from dsh-genui.mp4"],
+    ).toBe("file");
+    const draft = getComposerDraft(store, sessionId);
+    expect(draft).toContain("@uploads/Demo%20from%20dsh-genui.mp4");
+    expect(draft).not.toContain("/Users/me");
+    useComposerStateStore.getState().clearSession(sessionId);
+  });
+});
+
+describe("ask-agent home routing (shipped)", () => {
+  test("normalizeWorkspaceFileMentionPath strips absolute prefixes to uploads/", () => {
+    expect(
+      normalizeWorkspaceFileMentionPath(
+        "/Users/me/ws/uploads/Demo from dsh-genui.mp4",
+      ),
+    ).toBe("uploads/Demo from dsh-genui.mp4");
+    expect(formatComposerFileMentionLabel("uploads/Demo from dsh-genui.mp4")).toBe(
+      "uploads/Demo from dsh-genui.mp4",
+    );
+  });
+
+  test("createWorkspaceFilesAgentHandlers seeds the home draft session and calls goHomeNewTask", () => {
+    const workspaceId = `ws-ask-${Date.now()}`;
+    const homeId = `draft:${workspaceId}`;
+    useComposerStateStore.getState().clearSession(homeId);
+    let homeJumps = 0;
+    const handlers = createWorkspaceFilesAgentHandlers({
+      sessionId: "ses_expert_last",
+      workspaceId,
+      openRail: () => undefined,
+      goHomeNewTask: () => {
+        homeJumps += 1;
+      },
+      showToast: () => undefined,
+      buildInstruction: () => "请查看该文件",
+      t: (key) => key,
+    });
+    handlers.onAskAgentAboutFile({
+      path: "uploads/Demo from dsh-genui.mp4",
+      name: "Demo from dsh-genui.mp4",
+      preview: "generic",
+    });
+    expect(homeJumps).toBe(1);
+    expect(getComposerDraft(useComposerStateStore.getState(), homeId)).toContain(
+      "@uploads/Demo%20from%20dsh-genui.mp4",
+    );
+    expect(
+      getComposerDraft(useComposerStateStore.getState(), "ses_expert_last") || "",
+    ).not.toContain("Demo from dsh-genui");
+    useComposerStateStore.getState().clearSession(homeId);
+  });
+
+  test("file preview drawer closes before asking the agent", () => {
+    const drawer = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/workspace/workspace-files-preview-drawer.tsx",
+      ),
+      "utf8",
+    );
+    const expertLayout = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/pages/expert-page-layout.tsx",
+      ),
+      "utf8",
+    );
+    expect(drawer).toContain("onClose()");
+    expect(drawer).toContain("onAskAgent()");
+    expect(expertLayout).toContain('onNavigateToMode("assistant")');
+    expect(expertLayout).toContain("goHomeNewTask:");
   });
 });

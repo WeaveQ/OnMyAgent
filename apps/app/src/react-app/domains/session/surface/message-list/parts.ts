@@ -174,10 +174,13 @@ export function partsForUserVisibleGroups(parts: TranscriptPart[]): TranscriptPa
   return parts.flatMap((part) => {
     if (part.type !== "text") return [part];
     const text = partToText(part);
-    if (!isUserUploadInstructionText(text)) return [part];
-    const { remainingText } = parseUserUploadInstructionBlock(text);
-    if (!remainingText.trim()) return [];
-    return [{ ...part, text: remainingText } as TranscriptPart];
+    const withoutUpload = isUserUploadInstructionText(text)
+      ? parseUserUploadInstructionBlock(text).remainingText
+      : text;
+    const visible = withoutUpload.replace(/^(?:@[^\s@]*\/[^\s@]*\s+)+/u, "").trim();
+    if (!visible) return [];
+    if (visible === text) return [part];
+    return [{ ...part, text: visible } as TranscriptPart];
   });
 }
 

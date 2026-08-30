@@ -4,6 +4,7 @@ import {
   allKnowledgeFolderPaths,
   canDropKnowledgeItem,
   buildKnowledgeFolderTree,
+  resolveKnowledgeDropFolder,
   defaultKnowledgeNote,
   filterKnowledgeFiles,
   folderPathsContaining,
@@ -113,6 +114,57 @@ describe("knowledge vault model", () => {
     expect(canDropKnowledgeItem({ kind: "file", path: "a.md" }, "briefs")).toBe(true);
     expect(canDropKnowledgeItem({ kind: "file", path: "briefs/a.md" }, "briefs")).toBe(false);
     expect(canDropKnowledgeItem({ kind: "dir", path: "briefs" }, "briefs/deep")).toBe(false);
+  });
+
+  test("sorts folders before files at every level, then natural name order", () => {
+    const tree = buildKnowledgeFolderTree([
+      { relPath: "z.md", name: "z.md", size: 1, mtimeMs: 1, indexable: true },
+      { relPath: "a.md", name: "a.md", size: 1, mtimeMs: 1, indexable: true },
+      { relPath: "briefs/q3.md", name: "q3.md", size: 1, mtimeMs: 1, indexable: true },
+      { relPath: "briefs/a.md", name: "a.md", size: 1, mtimeMs: 1, indexable: true },
+      { relPath: "briefs/sub/note.md", name: "note.md", size: 1, mtimeMs: 1, indexable: true },
+      { relPath: "file-10.md", name: "file-10.md", size: 1, mtimeMs: 1, indexable: true },
+      { relPath: "file-2.md", name: "file-2.md", size: 1, mtimeMs: 1, indexable: true },
+    ]);
+    expect(tree.map((node) => node.name)).toEqual(["briefs", "a.md", "file-2.md", "file-10.md", "z.md"]);
+    const briefs = tree[0];
+    expect(briefs?.kind).toBe("dir");
+    if (briefs?.kind !== "dir") return;
+    expect(briefs.children.map((node) => node.name)).toEqual(["sub", "a.md", "q3.md"]);
+  });
+
+  test("sorts by modified time while keeping folders first", () => {
+    const tree = buildKnowledgeFolderTree(
+      [
+        { relPath: "old.md", name: "old.md", size: 1, mtimeMs: 1, indexable: true },
+        { relPath: "new.md", name: "new.md", size: 1, mtimeMs: 9, indexable: true },
+        { relPath: "briefs/x.md", name: "x.md", size: 1, mtimeMs: 5, indexable: true },
+      ],
+      "mtime-desc",
+    );
+    expect(tree.map((node) => node.name)).toEqual(["briefs", "new.md", "old.md"]);
+    const created = buildKnowledgeFolderTree(
+      [
+        { relPath: "later.md", name: "later.md", size: 1, mtimeMs: 9, birthtimeMs: 9, indexable: true },
+        { relPath: "earlier.md", name: "earlier.md", size: 1, mtimeMs: 2, birthtimeMs: 1, indexable: true },
+      ],
+      "ctime-asc",
+    );
+    expect(created.map((node) => node.name)).toEqual(["earlier.md", "later.md"]);
+  });
+
+  test("resolves drop folder from hover target and rejects illegal moves", () => {
+    const file = { kind: "file" as const, path: "a.md" };
+    expect(resolveKnowledgeDropFolder(file, { kind: "dir", path: "briefs" })).toBe("briefs");
+    expect(resolveKnowledgeDropFolder(file, { kind: "file", path: "briefs/q3.md" })).toBe("briefs");
+    expect(resolveKnowledgeDropFolder(file, { kind: "root", path: "" })).toBeNull();
+    expect(resolveKnowledgeDropFolder(file, { kind: "file", path: "z.md" })).toBeNull();
+    expect(
+      resolveKnowledgeDropFolder({ kind: "dir", path: "briefs" }, { kind: "dir", path: "briefs/deep" }),
+    ).toBeNull();
+    expect(
+      resolveKnowledgeDropFolder({ kind: "dir", path: "briefs/sub" }, { kind: "file", path: "z.md" }),
+    ).toBe("");
   });
 });
 

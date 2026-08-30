@@ -28,7 +28,11 @@ export {
 } from "./knowledge-vault-navigation";
 export { isKnowledgeSearchToolName, parseKnowledgeSearchHits } from "./knowledge-search-hits";
 export type { KnowledgeSearchHit } from "./knowledge-search-hits";
-export { KnowledgeArchiveSessionButton } from "./knowledge-archive-session-button";
+export {
+  KnowledgeArchiveSessionButton,
+  KnowledgeArchiveSessionIconButton,
+  useKnowledgeArchiveSession,
+} from "./knowledge-archive-session-button";
 export { sessionArchiveDefaultTitle } from "./knowledge-bookmark";
 export { KnowledgeArchiveSessionDialog } from "./knowledge-archive-session";
 export type { ArchiveScopeOption } from "./knowledge-archive-session";

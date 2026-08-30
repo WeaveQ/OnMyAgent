@@ -41,9 +41,48 @@ describe("knowledge 0.7 surfaces are wired", () => {
       join(root, "src/react-app/domains/knowledge/index.ts"),
       "utf8",
     );
-    expect(barrel).toContain("KnowledgeArchiveSessionButton");
+    expect(barrel).toContain("useKnowledgeArchiveSession");
+    expect(barrel).toContain("KnowledgeArchiveSessionIconButton");
     expect(view).toContain('from "../../knowledge"');
-    expect(view).toContain("KnowledgeArchiveSessionButton");
+    expect(view).toContain("useKnowledgeArchiveSession");
+    expect(view).toContain("KnowledgeArchiveSessionIconButton");
+  });
+
+  test("vault tree uses a follow-cursor drag layer instead of native title tooltips", () => {
+    const tree = readFileSync(
+      join(root, "src/react-app/domains/knowledge/knowledge-vault-tree.tsx"),
+      "utf8",
+    );
+    expect(tree).toContain("KnowledgeVaultDragLayer");
+    expect(tree).toContain("resolveKnowledgeDropFolder");
+    expect(tree).toContain("hideKnowledgeDragGhost");
+    expect(tree).not.toContain("title={dropping");
+    expect(
+      readFileSync(
+        join(root, "src/react-app/domains/knowledge/knowledge-vault-drag-layer.tsx"),
+        "utf8",
+      ),
+    ).toContain("--dls-z-overlay-max");
+  });
+
+  test("vault toolbar reuses one expand icon and hosts the sort menu", () => {
+    const toolbar = readFileSync(
+      join(root, "src/react-app/domains/knowledge/knowledge-vault-toolbar.tsx"),
+      "utf8",
+    );
+    expect(toolbar).toContain("ListTree");
+    expect(toolbar).toContain("DropdownMenuRadioGroup");
+    expect(toolbar).toContain("whitespace-nowrap");
+    expect(toolbar).toContain("w-max");
+    expect(toolbar).toContain("onToggleExpand");
+    expect(toolbar).not.toContain("ChevronsDown");
+    expect(toolbar).not.toContain("ChevronsUp");
+    expect(
+      readFileSync(
+        join(root, "src/react-app/domains/knowledge/use-knowledge-vault-index.ts"),
+        "utf8",
+      ),
+    ).toContain("knowledge.index_done");
   });
 
   test("vault groups use list-selected and nest extra folders", () => {

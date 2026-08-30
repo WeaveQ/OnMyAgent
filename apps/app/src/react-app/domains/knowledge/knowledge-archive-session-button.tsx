@@ -11,7 +11,7 @@ import {
 } from "./knowledge-archive-session";
 import { openKnowledgeNoteInRail } from "./knowledge-vault-navigation";
 
-type KnowledgeArchiveSessionButtonProps = {
+export type KnowledgeArchiveSessionButtonProps = {
   sessionId: string;
   defaultTitle: string;
   markdown: string;
@@ -19,7 +19,7 @@ type KnowledgeArchiveSessionButtonProps = {
   expertId?: string;
 };
 
-export function KnowledgeArchiveSessionButton(props: KnowledgeArchiveSessionButtonProps) {
+export function useKnowledgeArchiveSession(props: KnowledgeArchiveSessionButtonProps) {
   const [open, setOpen] = useState(false);
   const scopes = useMemo(() => {
     const items: ArchiveScopeOption[] = [
@@ -42,32 +42,51 @@ export function KnowledgeArchiveSessionButton(props: KnowledgeArchiveSessionButt
     return items;
   }, [props.expertId, props.workspaceId]);
 
-  if (!isElectronRuntime() || !props.sessionId.trim()) return null;
+  const available = isElectronRuntime() && Boolean(props.sessionId.trim());
+  const dialog = available ? (
+    <KnowledgeArchiveSessionDialog
+      open={open}
+      onOpenChange={setOpen}
+      sessionId={props.sessionId}
+      defaultTitle={props.defaultTitle}
+      markdown={props.markdown}
+      scopes={scopes}
+      onSaved={(result) => {
+        openKnowledgeNoteInRail({ scope: result.scope, relPath: result.relPath });
+      }}
+    />
+  ) : null;
 
+  return {
+    available,
+    openDialog: () => setOpen(true),
+    dialog,
+  };
+}
+
+export function KnowledgeArchiveSessionIconButton(props: { onClick: () => void }) {
+  return (
+    <Button
+      variant="ghost"
+      size="icon-xs"
+      type="button"
+      className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+      title={t("knowledge.save_to_knowledge")}
+      aria-label={t("knowledge.save_to_knowledge")}
+      onClick={props.onClick}
+    >
+      <Inbox className="size-3.5" />
+    </Button>
+  );
+}
+
+export function KnowledgeArchiveSessionButton(props: KnowledgeArchiveSessionButtonProps) {
+  const archive = useKnowledgeArchiveSession(props);
+  if (!archive.available) return null;
   return (
     <>
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        type="button"
-        className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
-        title={t("knowledge.save_to_knowledge")}
-        aria-label={t("knowledge.save_to_knowledge")}
-        onClick={() => setOpen(true)}
-      >
-        <Inbox className="size-3.5" />
-      </Button>
-      <KnowledgeArchiveSessionDialog
-        open={open}
-        onOpenChange={setOpen}
-        sessionId={props.sessionId}
-        defaultTitle={props.defaultTitle}
-        markdown={props.markdown}
-        scopes={scopes}
-        onSaved={(result) => {
-          openKnowledgeNoteInRail({ scope: result.scope, relPath: result.relPath });
-        }}
-      />
+      <KnowledgeArchiveSessionIconButton onClick={archive.openDialog} />
+      {archive.dialog}
     </>
   );
 }

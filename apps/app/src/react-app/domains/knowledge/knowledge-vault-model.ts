@@ -5,8 +5,28 @@ export type KnowledgeVaultFile = {
   name: string;
   size: number;
   mtimeMs: number;
+  /** Filesystem birth time when the walker provides it; else treat as mtime. */
+  birthtimeMs?: number;
   indexable: boolean;
 };
+
+export const KNOWLEDGE_TREE_SORT_KEYS = [
+  "name-asc",
+  "name-desc",
+  "mtime-desc",
+  "mtime-asc",
+  "ctime-desc",
+  "ctime-asc",
+] as const;
+
+export type KnowledgeTreeSortKey = (typeof KNOWLEDGE_TREE_SORT_KEYS)[number];
+
+export function parseKnowledgeTreeSortKey(raw: unknown): KnowledgeTreeSortKey {
+  const value = String(raw ?? "");
+  return (KNOWLEDGE_TREE_SORT_KEYS as readonly string[]).includes(value)
+    ? (value as KnowledgeTreeSortKey)
+    : "name-asc";
+}
 
 export type KnowledgeVaultScopeList = {
   scope: KnowledgeVaultScope;
@@ -154,6 +174,54 @@ export function canDropKnowledgeItem(
   return parentDirOfRelPath(source.path) !== dest;
 }
 
+export type KnowledgeDropHover = {
+  kind: "dir" | "file" | "root";
+  path: string;
+};
+
+/** Folder the item would land in, or null when the hover target is illegal. */
+export function resolveKnowledgeDropFolder(
+  source: { kind: "file" | "dir"; path: string },
+  hover: KnowledgeDropHover,
+): string | null {
+  const dest =
+    hover.kind === "root" ? "" : hover.kind === "dir" ? hover.path : parentDirOfRelPath(hover.path);
+  return canDropKnowledgeItem(source, dest) ? dest : null;
+}
+
+function knowledgeTreeSortName(node: KnowledgeTreeNode): string {
+  return node.kind === "dir" ? node.name : displayNoteTitle(node.file);
+}
+
+function knowledgeTreeNodeTime(node: KnowledgeTreeNode, which: "mtime" | "ctime"): number {
+  if (node.kind === "file") {
+    return which === "ctime" ? node.file.birthtimeMs ?? node.file.mtimeMs : node.file.mtimeMs;
+  }
+  return which === "ctime" ? node.ctimeMs ?? 0 : node.mtimeMs ?? 0;
+}
+
+export function compareKnowledgeTreeNodes(
+  a: KnowledgeTreeNode,
+  b: KnowledgeTreeNode,
+  sortKey: KnowledgeTreeSortKey = "name-asc",
+): number {
+  if (a.kind !== b.kind) return a.kind === "dir" ? -1 : 1;
+  if (sortKey === "name-asc" || sortKey === "name-desc") {
+    const byName = knowledgeTreeSortName(a).localeCompare(knowledgeTreeSortName(b), undefined, {
+      numeric: true,
+      sensitivity: "base",
+    });
+    return sortKey === "name-desc" ? -byName : byName;
+  }
+  const which = sortKey.startsWith("ctime") ? "ctime" : "mtime";
+  const delta = knowledgeTreeNodeTime(a, which) - knowledgeTreeNodeTime(b, which);
+  if (delta !== 0) return sortKey.endsWith("desc") ? -delta : delta;
+  return knowledgeTreeSortName(a).localeCompare(knowledgeTreeSortName(b), undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
 export function rewriteFolderPrefix(
   relPath: string,
   fromFolder: string,
@@ -171,6 +239,8 @@ export type KnowledgeFolderNode = {
   name: string;
   path: string;
   children: KnowledgeTreeNode[];
+  mtimeMs?: number;
+  ctimeMs?: number;
 };
 
 export type KnowledgeFileNode = {
@@ -183,6 +253,7 @@ export type KnowledgeTreeNode = KnowledgeFolderNode | KnowledgeFileNode;
 
 export function buildKnowledgeFolderTree(
   files: readonly KnowledgeVaultFile[],
+  sortKey: KnowledgeTreeSortKey = "name-asc",
 ): KnowledgeTreeNode[] {
   type MutableDir = KnowledgeFolderNode & { childMap: Map<string, MutableDir> };
   const root: MutableDir = {
@@ -222,11 +293,27 @@ export function buildKnowledgeFolderTree(
     });
   }
 
-  const strip = (nodes: KnowledgeTreeNode[]): KnowledgeTreeNode[] =>
-    nodes.map((node) =>
-      node.kind === "dir" ? { kind: "dir", name: node.name, path: node.path, children: strip(node.children) } : node,
-    );
-  return strip(root.children);
+  const decorate = (nodes: KnowledgeTreeNode[]): KnowledgeTreeNode[] => {
+    const next = nodes.map((node) => {
+      if (node.kind !== "dir") return node;
+      const children = decorate(node.children);
+      let mtimeMs = 0;
+      let ctimeMs = Number.POSITIVE_INFINITY;
+      for (const child of children) {
+        const modified = child.kind === "dir" ? child.mtimeMs ?? 0 : child.file.mtimeMs;
+        const created =
+          child.kind === "dir"
+            ? child.ctimeMs ?? Number.POSITIVE_INFINITY
+            : child.file.birthtimeMs ?? child.file.mtimeMs;
+        if (modified > mtimeMs) mtimeMs = modified;
+        if (created < ctimeMs) ctimeMs = created;
+      }
+      if (!Number.isFinite(ctimeMs)) ctimeMs = 0;
+      return { kind: "dir" as const, name: node.name, path: node.path, children, mtimeMs, ctimeMs };
+    });
+    return next.sort((a, b) => compareKnowledgeTreeNodes(a, b, sortKey));
+  };
+  return decorate(root.children);
 }
 
 export function allKnowledgeFolderPaths(

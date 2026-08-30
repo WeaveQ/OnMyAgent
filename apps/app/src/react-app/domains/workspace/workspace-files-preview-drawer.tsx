@@ -203,7 +203,14 @@ export function FilePreviewDrawer(props: {
               onOpenExternally={onOpenExternally}
               onOpenInFolder={onOpenInFolder}
               onCopyPath={onCopyPath}
-              onAskAgent={onAskAgent}
+              onAskAgent={
+                onAskAgent
+                  ? () => {
+                      onClose();
+                      onAskAgent();
+                    }
+                  : undefined
+              }
             />
 
             <div className="min-h-0 flex-1 overflow-hidden bg-dls-surface">

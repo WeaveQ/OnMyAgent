@@ -747,7 +747,7 @@ describe("expert marketplace UI contract", () => {
     expect(surfaceProps).not.toContain("resolveExpertSessionDirectoryMarker");
   });
 
-  test("expert store create expert opens a fresh assistant draft before prefill", () => {
+  test("home and expert store create expert open the expert creation page, not expert-manager on Home", () => {
     const expertPage = [
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-page.tsx"),
@@ -758,30 +758,16 @@ describe("expert marketplace UI contract", () => {
       "apps/app/src/react-app/domains/session/pages/use-expert-skill-navigation.ts",
     );
     const assistantPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx");
-    const desktopMain = readWorkspaceFile("apps/desktop/electron/main.mjs");
-    const zhSession = readWorkspaceFile("apps/app/src/i18n/locales/zh/session.ts");
-    const enSession = readWorkspaceFile("apps/app/src/i18n/locales/en/session.ts");
+    const assistantStore = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/use-assistant-store-expert-management.tsx",
+    );
 
-    // Host wires the extracted skill-navigation hook (file-size split from expert.tsx).
-    expect(expertPage).toContain("useExpertSkillNavigation");
-    expect(expertPage).toContain("onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace");
-    expect(expertSkillNav).toContain('t("session.create_expert_prompt")');
-    // Navigate first (goAssistantOfficeNewTaskWithDraft); do not await install before jump.
-    expect(expertSkillNav).toContain("goAssistantOfficeNewTaskWithDraft");
-    expect(expertSkillNav).toContain("setComposerDraftAfterNewTask(");
-    expect(expertSkillNav).toContain("navigate(workspaceAssistantRoute(id))");
-    expect(expertSkillNav).not.toContain("await installBuiltinSkillPackage");
-    expect(expertSkillNav).toContain('packageName: CREATE_EXPERT_SKILL_NAME');
-    expect(expertSkillNav).toContain('skillName: CREATE_EXPERT_SKILL_NAME');
-    expect(assistantPage).toContain('t("session.create_expert_prompt")');
-    expect(assistantPage).toContain("installBuiltinSkillPackage");
-    // expert-manager is curated under bundled-skills, not marketplace hub package ids
-    expect(desktopMain).toContain('path.join(bundledRoot, safePackage)');
-    expect(desktopMain).toContain("apps/desktop/resources/bundled-skills");
-    expect(zhSession).toContain("session.create_expert_prompt");
-    expect(zhSession).toContain("/expert-manager 帮我创建一个");
-    expect(enSession).toContain("session.create_expert_prompt");
-    expect(enSession).toContain("/expert-manager Help me create");
+    expect(expertPage).toContain("onCreateExpert={openExpertCreation}");
+    expect(assistantStore).toContain("openExpertCreation: creation.openExpertCreation");
+    expect(assistantPage).toContain("onCreateExpert={openExpertCreation}");
+    expect(assistantPage).not.toContain('t("session.create_expert_prompt")');
+    expect(expertSkillNav).not.toContain('t("session.create_expert_prompt")');
+    expect(expertSkillNav).not.toContain("handleCreateExpert");
   });
 
   test("marketplace summon binds pending agent around create-task then opens expert draft", () => {

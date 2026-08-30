@@ -81,8 +81,9 @@ import type { SessionError } from "./session-surface-support";
 import type { Agent } from "@opencode-ai/sdk/v2/client";
 import { KeyboardShortcutsGuideButton } from "./chrome/keyboard-shortcuts-guide";
 import {
-  KnowledgeArchiveSessionButton,
+  KnowledgeArchiveSessionIconButton,
   sessionArchiveDefaultTitle,
+  useKnowledgeArchiveSession,
 } from "../../knowledge";
 import { transcriptToText } from "./session-surface-model";
 
@@ -365,6 +366,15 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
     props.skills,
   ]);
 
+  const knowledgeArchive = useKnowledgeArchiveSession({
+    sessionId: props.sessionId,
+    defaultTitle: sessionArchiveDefaultTitle(
+      props.snapshot?.session,
+      props.chatHeaderAgent.name || props.sessionId,
+    ),
+    markdown: transcriptToText(props.renderedMessages),
+  });
+
   return (
     <DevProfiler id="SessionSurface">
       {/* relative: anchors draft-home top-right chrome (keyboard guide). */}
@@ -380,14 +390,11 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
             onOpenAgentSettings={props.onOpenAgentSettings}
             headerActions={
               <>
-                <KnowledgeArchiveSessionButton
-                  sessionId={props.sessionId}
-                  defaultTitle={sessionArchiveDefaultTitle(
-                    props.snapshot?.session,
-                    props.chatHeaderAgent.name || props.sessionId,
-                  )}
-                  markdown={transcriptToText(props.renderedMessages)}
-                />
+                {knowledgeArchive.available ? (
+                  <KnowledgeArchiveSessionIconButton
+                    onClick={knowledgeArchive.openDialog}
+                  />
+                ) : null}
                 {props.headerActions}
               </>
             }
@@ -427,6 +434,9 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
           scrollRef={props.scrollRef}
           contentRef={props.contentRef}
           showJumpToLatest={!personalAssistantDraftHome}
+          onSaveToKnowledge={
+            knowledgeArchive.available ? knowledgeArchive.openDialog : undefined
+          }
           onWheel={(event) => {
             props.onWheel(event);
           }}
@@ -658,6 +668,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
         {props.developerMode ? (
           <SessionDebugPanel model={props.model} snapshot={props.snapshot} />
         ) : null}
+        {knowledgeArchive.dialog}
       </div>
     </DevProfiler>
   );

@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { useState } from "react";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { t } from "../../../i18n";
@@ -12,6 +13,7 @@ import type { KnowledgeRecentEntry } from "../../../app/lib/desktop-knowledge";
 import type { KnowledgeNoteRef, KnowledgeVaultScope } from "./knowledge-vault-model";
 import { KnowledgeVaultToolbar } from "./knowledge-vault-toolbar";
 import { KnowledgeVaultTree, type KnowledgeTreeActions } from "./knowledge-vault-tree";
+import { readKnowledgeTreeSort, writeKnowledgeTreeSort } from "./knowledge-vault-tree-sort";
 import type { KnowledgeVaultFile } from "./knowledge-vault-model";
 
 type KnowledgeVaultSidebarProps = {
@@ -19,6 +21,7 @@ type KnowledgeVaultSidebarProps = {
   workspaceId?: string;
   expertId?: string;
   indexing: boolean;
+  indexNotice?: { tone: "success" | "error"; title: string } | null;
   error: string | null;
   loading: boolean;
   showRecent: boolean;
@@ -47,6 +50,8 @@ type KnowledgeVaultSidebarProps = {
 };
 
 export function KnowledgeVaultSidebar(props: KnowledgeVaultSidebarProps) {
+  const [sortKey, setSortKey] = useState(readKnowledgeTreeSort);
+  const [allExpanded, setAllExpanded] = useState(false);
   return (
     <aside className="row-span-2 flex min-h-0 flex-col overflow-hidden border-r border-dls-border">
       <KnowledgeVaultToolbar
@@ -54,18 +59,36 @@ export function KnowledgeVaultSidebar(props: KnowledgeVaultSidebarProps) {
         workspaceId={props.workspaceId}
         expertId={props.expertId}
         indexing={props.indexing}
+        sortKey={sortKey}
+        allExpanded={allExpanded}
         onNewNote={props.onNewNote}
         onNewCsv={props.onNewCsv}
         onNewFolder={props.onNewFolder}
         onNewLink={props.onNewLink}
         onUploaded={props.onUploaded}
         onOpenFolder={props.onOpenFolder}
-        onExpandAll={props.onExpandAll}
-        onCollapseAll={props.onCollapseAll}
+        onToggleExpand={() => {
+          if (allExpanded) props.onCollapseAll();
+          else props.onExpandAll();
+        }}
+        onSortKeyChange={(key) => {
+          setSortKey(key);
+          writeKnowledgeTreeSort(key);
+        }}
         onToggleRecent={props.onToggleRecent}
         onRebuildIndex={props.onRebuildIndex}
       />
-      {props.error ? (
+      {props.indexing ? (
+        <div className="px-2 pt-2">
+          <NoticeBox tone="info">{t("knowledge.index_running")}</NoticeBox>
+        </div>
+      ) : props.indexNotice ? (
+        <div className="px-2 pt-2">
+          <NoticeBox tone={props.indexNotice.tone === "error" ? "error" : "info"}>
+            {props.indexNotice.title}
+          </NoticeBox>
+        </div>
+      ) : props.error ? (
         <div className="px-2 pt-2">
           <NoticeBox tone="error">{props.error}</NoticeBox>
         </div>
@@ -91,8 +114,10 @@ export function KnowledgeVaultSidebar(props: KnowledgeVaultSidebarProps) {
             selected={props.selected}
             onSelect={props.onOpenNote}
             actions={props.treeActions}
+            sortKey={sortKey}
             expandNonce={props.expandNonce}
             collapseNonce={props.collapseNonce}
+            onAllExpandedChange={setAllExpanded}
           />
         )}
       </div>

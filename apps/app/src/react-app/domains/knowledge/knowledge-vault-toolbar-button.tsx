@@ -8,6 +8,8 @@ export function ToolbarIconButton(props: {
   label: string;
   hint: string;
   disabled?: boolean;
+  pressed?: boolean;
+  busy?: boolean;
   onClick: () => void;
   children: ReactNode;
 }) {
@@ -19,8 +21,10 @@ export function ToolbarIconButton(props: {
             type="button"
             variant="ghost"
             size="icon-sm"
-            className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag"
+            className={`text-dls-secondary hover:bg-dls-hover hover:text-dls-text mac:titlebar-no-drag${props.pressed ? " bg-dls-hover text-dls-text" : ""}`}
             disabled={props.disabled}
+            aria-pressed={props.pressed}
+            aria-busy={props.busy}
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();

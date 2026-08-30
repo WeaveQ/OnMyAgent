@@ -77,8 +77,13 @@ describe("opencode home prompt enhance scratch session", () => {
       draft: "继续",
       recentTurns: [{ role: "user", text: "先写大纲" }, { role: "assistant", text: "好的" }],
     });
-    expect(packed).toContain("Recent conversation:");
-    expect(packed).toContain("User: 先写大纲");
+    expect(packed).toContain("继续");
+    expect(packed).toContain("They previously asked: 先写大纲");
+    expect(packed).toContain("The assistant previously replied: 好的");
+    expect(packed).not.toContain("Recent conversation:");
+    expect(packed).not.toContain("User:");
+    expect(packed).not.toContain("Assistant:");
+    expect(PROMPT_ENHANCE_SYSTEM).toContain("Never output a transcript");
     expect(compactPromptEnhanceTurns([
       { role: "system", parts: [{ type: "text", text: "ignore" }] },
       { role: "user", parts: [{ type: "text", text: "one" }] },
@@ -95,6 +100,16 @@ describe("opencode home prompt enhance scratch session", () => {
         "Current draft:\n你好啊\n\nSelected workspace folder:\nomg_1\n你好啊。\n\n目标：问好。",
       ),
     ).toBe("你好啊。\n\n目标：问好。");
+    expect(
+      unwrapEnhancedPromptText(
+        [
+          "Recent conversation:",
+          "User: 你是什么模型",
+          "Assistant: 我是 ark-code-latest (模型 ID: huoshan-1/ark-code-latest)，运行在 OnMyAgent 里。",
+          "你觉得你自己作为 ark-code-latest 这个模型怎么样？有什么擅长和不擅长的地方？",
+        ].join("\n"),
+      ),
+    ).toBe("你觉得你自己作为 ark-code-latest 这个模型怎么样？有什么擅长和不擅长的地方？");
   });
 
   test("registers scratch ids so failed deletes stay hidden from lists", () => {

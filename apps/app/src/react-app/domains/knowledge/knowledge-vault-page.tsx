@@ -26,7 +26,6 @@ import {
   getKnowledgeVaultConfig,
   listKnowledgeVault,
   openKnowledgeVaultFolder,
-  rebuildKnowledgeVaultIndex,
   readKnowledgeVaultFile,
   revealDesktopItemInDir,
   searchKnowledgeVault,
@@ -76,6 +75,7 @@ import {
   type KnowledgeVaultScopeList,
 } from "./knowledge-vault-model";
 import { createKnowledgeEditorSession } from "./knowledge-vault-editor-session";
+import { useKnowledgeVaultIndex } from "./use-knowledge-vault-index";
 import { readKnowledgeFavorites, toggleKnowledgeFavorite } from "./knowledge-vault-favorites";
 import type { KnowledgeContextTarget } from "./knowledge-vault-context-menu";
 
@@ -122,7 +122,6 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
   const [collapseNonce, setCollapseNonce] = useState(0);
   const [editorMode, setEditorMode] = useState<"view" | "edit">("view");
   const [editLayout, setEditLayout] = useState<"source" | "split">("split");
-  const [indexing, setIndexing] = useState(false);
   const [showRecent, setShowRecent] = useState(false);
   const [tabs, setTabs] = useState(() => [createKnowledgeEditorTab()]);
   const [activeTabId, setActiveTabId] = useState(() => tabs[0]?.id ?? "");
@@ -176,6 +175,11 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
     setLoading(false);
     return listed.scopes as KnowledgeVaultScopeList[];
   }, [desktop, expertId, workspaceId]);
+  const { indexing, rebuildIndex, notice: indexNotice } = useKnowledgeVaultIndex({
+    workspaceId,
+    expertId,
+    refresh,
+  });
 
   const openNote = useCallback(
     async (note: KnowledgeNoteRef) => {
@@ -242,37 +246,6 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
       }),
     [openNote],
   );
-
-  const handleRebuildIndex = useCallback(async () => {
-    setIndexing(true);
-    setError(null);
-    try {
-      const result = await rebuildKnowledgeVaultIndex({
-        scope: "all",
-        workspaceId,
-        expertId,
-      });
-      if (!result?.ok) {
-        const reason = String(result?.reason ?? "");
-        setError(
-          /not declared|not implemented/i.test(reason)
-            ? t("knowledge.index_restart")
-            : t("knowledge.index_error"),
-        );
-        return;
-      }
-      await refresh();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setError(
-        /not declared|not implemented/i.test(message)
-          ? t("knowledge.index_restart")
-          : t("knowledge.index_error"),
-      );
-    } finally {
-      setIndexing(false);
-    }
-  }, [expertId, refresh, workspaceId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -932,6 +905,7 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
           workspaceId={workspaceId}
           expertId={expertId}
           indexing={indexing}
+          indexNotice={indexNotice}
           error={error}
           loading={loading}
           showRecent={showRecent}
@@ -978,7 +952,7 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
           onExpandAll={() => setExpandNonce((value) => value + 1)}
           onCollapseAll={() => setCollapseNonce((value) => value + 1)}
           onToggleRecent={() => setShowRecent((value) => !value)}
-          onRebuildIndex={() => void handleRebuildIndex()}
+          onRebuildIndex={() => void rebuildIndex()}
           onSelectVault={(selection) => void handleSelectVault(selection)}
           onVaultsChanged={() => void reloadAfterVaultChange()}
           onOpenNote={(note) => void openNote(note)}

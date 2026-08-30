@@ -224,13 +224,13 @@ export function PreferencesView(props: PreferencesViewProps) {
                   />
                   <span>{t("settings.auto_new_session_threshold_suffix")}</span>
                 </div>
-                <p className="flex items-start gap-1.5 text-sm leading-5 text-dls-secondary">
+                <p className="flex items-center gap-1.5 whitespace-nowrap text-sm leading-5 text-dls-secondary">
                   <span aria-hidden="true">💡</span>
                   <span>{t("settings.auto_new_session_hint")}</span>
                 </p>
               </div>
             ) : (
-              <p className="mt-2 flex items-start gap-1.5 text-sm leading-5 text-dls-secondary">
+              <p className="mt-2 flex items-center gap-1.5 whitespace-nowrap text-sm leading-5 text-dls-secondary">
                 <span aria-hidden="true">💡</span>
                 <span>{t("settings.auto_new_session_hint")}</span>
               </p>

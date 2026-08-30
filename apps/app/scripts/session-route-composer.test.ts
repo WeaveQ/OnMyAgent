@@ -26,6 +26,11 @@ import {
   updateDefaultModelPrefs,
 } from "../src/react-app/shell/session-route/composer";
 import { shouldForceNewSessionOnIdle } from "../src/react-app/shell/session-route/auto-new-session";
+import {
+  DEFAULT_AUTO_NEW_SESSION_IDLE_HOURS,
+  normalizeIdleHours,
+  resolveAutoNewSessionOnIdle,
+} from "../src/react-app/kernel/local-provider";
 import { resolveComposerAttachmentSourcePath } from "../src/react-app/domains/session/surface/session-surface-support";
 import type { ComposerAttachment, ComposerDraft, SidebarSessionItem } from "../src/app/types";
 import { setLocale } from "../src/i18n";
@@ -294,6 +299,14 @@ describe("session route composer", () => {
     expect(shouldForceNewSessionOnIdle({ ...staleIdle, sessionBusy: false })).toBe(
       true,
     );
+  });
+
+  test("auto-new-session defaults on with a 48-hour idle window", () => {
+    expect(resolveAutoNewSessionOnIdle(undefined)).toBe(true);
+    expect(resolveAutoNewSessionOnIdle(true)).toBe(true);
+    expect(resolveAutoNewSessionOnIdle(false)).toBe(false);
+    expect(normalizeIdleHours(undefined)).toBe(DEFAULT_AUTO_NEW_SESSION_IDLE_HOURS);
+    expect(DEFAULT_AUTO_NEW_SESSION_IDLE_HOURS).toBe(48);
   });
 
   test("detects sendable draft content from resolved text or attachments", () => {
