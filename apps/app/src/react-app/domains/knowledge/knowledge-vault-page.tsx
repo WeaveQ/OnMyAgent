@@ -899,12 +899,7 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
             "border-b border-r border-dls-border px-2.5 mac:titlebar-drag",
           )}
         >
-          <InputGroup
-            controlSize="lg"
-            radius="lg"
-            tone="surface"
-            className="w-full mac:titlebar-no-drag"
-          >
+          <InputGroup controlSize="lg" radius="lg" tone="surface" className="w-full mac:titlebar-no-drag">
             <InputGroupAddon align="inline-start" inset="tight">
               <Search className="size-4" />
             </InputGroupAddon>
