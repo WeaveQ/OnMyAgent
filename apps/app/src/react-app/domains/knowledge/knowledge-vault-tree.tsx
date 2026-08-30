@@ -70,6 +70,7 @@ type KnowledgeVaultTreeProps = {
   sortKey?: KnowledgeTreeSortKey;
   expandNonce?: number;
   collapseNonce?: number;
+  revealNonce?: number;
   onAllExpandedChange?: (allExpanded: boolean) => void;
 };
 
@@ -93,6 +94,7 @@ export function KnowledgeVaultTree(props: KnowledgeVaultTreeProps) {
   const sourceRef = useRef<DragSource | null>(null);
   const expandTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingExpandRef = useRef<string | null>(null);
+  const treeRef = useRef<HTMLUListElement | null>(null);
 
   useEffect(() => {
     if (!props.selected || props.selected.scope !== props.scope) return;
@@ -103,7 +105,19 @@ export function KnowledgeVaultTree(props: KnowledgeVaultTreeProps) {
       for (const path of parents) next.add(path);
       return next;
     });
-  }, [props.scope, props.selected]);
+  }, [props.scope, props.selected, props.revealNonce]);
+
+  useEffect(() => {
+    if (!props.revealNonce || !props.selected || props.selected.scope !== props.scope) return;
+    const relPath = props.selected.relPath;
+    const frame = window.requestAnimationFrame(() => {
+      const escaped = relPath.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+      treeRef.current
+        ?.querySelector(`[data-knowledge-note="${escaped}"]`)
+        ?.scrollIntoView({ block: "nearest" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [props.revealNonce, props.scope, props.selected, openDirs]);
 
   useEffect(() => {
     if (!props.expandNonce) return;
@@ -159,6 +173,10 @@ export function KnowledgeVaultTree(props: KnowledgeVaultTreeProps) {
       window.removeEventListener("dragover", onOver);
       window.removeEventListener("dragend", onEnd);
       if (expandTimerRef.current) clearTimeout(expandTimerRef.current);
+      expandTimerRef.current = null;
+      pendingExpandRef.current = null;
+      sourceRef.current = null;
+      releaseKnowledgeDragGhost();
     };
   }, []);
 
@@ -262,6 +280,7 @@ export function KnowledgeVaultTree(props: KnowledgeVaultTreeProps) {
     <>
       <KnowledgeVaultContextMenu target={{ kind: "root" }} {...props.actions}>
         <ul
+          ref={treeRef}
           className={cn(
             "flex min-h-full flex-col px-2 py-1",
             dropFolder === "" && "rounded-md bg-dls-accent-soft ring-1 ring-inset ring-dls-accent",
@@ -410,6 +429,7 @@ function TreeNodeRow(props: {
       >
         <button
           type="button"
+          data-knowledge-note={file.relPath}
           draggable={draggable}
           onDragStart={(event) => {
             if (!draggable) return;

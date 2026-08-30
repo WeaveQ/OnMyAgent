@@ -110,6 +110,9 @@ describe("opencode home prompt enhance scratch session", () => {
         ].join("\n"),
       ),
     ).toBe("你觉得你自己作为 ark-code-latest 这个模型怎么样？有什么擅长和不擅长的地方？");
+    expect(unwrapEnhancedPromptText("User: please review the attached brief")).toBe(
+      "User: please review the attached brief",
+    );
   });
 
   test("registers scratch ids so failed deletes stay hidden from lists", () => {

@@ -120,6 +120,7 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
   const [favorites, setFavorites] = useState<Set<string>>(() => readKnowledgeFavorites());
   const [expandNonce, setExpandNonce] = useState(0);
   const [collapseNonce, setCollapseNonce] = useState(0);
+  const [revealNonce, setRevealNonce] = useState(0);
   const [editorMode, setEditorMode] = useState<"view" | "edit">("view");
   const [editLayout, setEditLayout] = useState<"source" | "split">("split");
   const [showRecent, setShowRecent] = useState(false);
@@ -897,7 +898,11 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
             onModeChange={setEditorMode}
             note={selected}
             treeActions={treeActions}
-            onShowInTree={() => { setShowRecent(false); setQuery(""); }}
+            onShowInTree={() => {
+              setShowRecent(false);
+              setQuery("");
+              setRevealNonce((n) => n + 1);
+            }}
           />
         </div>
         <KnowledgeVaultSidebar
@@ -929,6 +934,7 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
           treeActions={treeActions}
           expandNonce={expandNonce}
           collapseNonce={collapseNonce}
+          revealNonce={revealNonce}
           onNewNote={() => {
             setCreateFolderPrefix("");
             setCreateName(suggestKnowledgeNoteName());

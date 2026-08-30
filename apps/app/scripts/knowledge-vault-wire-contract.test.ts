@@ -25,6 +25,19 @@ describe("knowledge 0.7 surfaces are wired", () => {
     );
     expect(page).toContain("KnowledgeVaultSidebar");
     expect(page).toContain("KnowledgeBookmarkForm");
+    expect(page).toContain("setRevealNonce");
+    expect(
+      readFileSync(
+        join(root, "src/react-app/domains/knowledge/knowledge-vault-tree.tsx"),
+        "utf8",
+      ),
+    ).toContain("data-knowledge-note");
+    expect(
+      readFileSync(
+        join(root, "src/react-app/domains/knowledge/knowledge-vault-sidebar.tsx"),
+        "utf8",
+      ),
+    ).toContain("props.error");
     expect(menu).toContain("onNewLink");
     expect(menu).toContain('t("knowledge.add_link")');
   });

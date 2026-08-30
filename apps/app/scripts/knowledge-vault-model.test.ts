@@ -151,6 +151,14 @@ describe("knowledge vault model", () => {
       "ctime-asc",
     );
     expect(created.map((node) => node.name)).toEqual(["earlier.md", "later.md"]);
+    const missingBirth = buildKnowledgeFolderTree(
+      [
+        { relPath: "epoch.md", name: "epoch.md", size: 1, mtimeMs: 9, birthtimeMs: 0, indexable: true },
+        { relPath: "born.md", name: "born.md", size: 1, mtimeMs: 8, birthtimeMs: 1, indexable: true },
+      ],
+      "ctime-asc",
+    );
+    expect(missingBirth.map((node) => node.name)).toEqual(["born.md", "epoch.md"]);
   });
 
   test("resolves drop folder from hover target and rejects illegal moves", () => {

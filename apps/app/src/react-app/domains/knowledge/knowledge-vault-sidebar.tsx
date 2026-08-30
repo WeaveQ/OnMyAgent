@@ -33,6 +33,7 @@ type KnowledgeVaultSidebarProps = {
   treeActions: KnowledgeTreeActions;
   expandNonce: number;
   collapseNonce: number;
+  revealNonce: number;
   onNewNote: () => void;
   onNewCsv: () => void;
   onNewFolder: () => void;
@@ -78,19 +79,18 @@ export function KnowledgeVaultSidebar(props: KnowledgeVaultSidebarProps) {
         onToggleRecent={props.onToggleRecent}
         onRebuildIndex={props.onRebuildIndex}
       />
-      {props.indexing ? (
-        <div className="px-2 pt-2">
-          <NoticeBox tone="info">{t("knowledge.index_running")}</NoticeBox>
-        </div>
-      ) : props.indexNotice ? (
-        <div className="px-2 pt-2">
-          <NoticeBox tone={props.indexNotice.tone === "error" ? "error" : "info"}>
-            {props.indexNotice.title}
-          </NoticeBox>
-        </div>
-      ) : props.error ? (
-        <div className="px-2 pt-2">
-          <NoticeBox tone="error">{props.error}</NoticeBox>
+      {props.indexing || props.indexNotice || props.error ? (
+        <div className="space-y-2 px-2 pt-2">
+          {props.indexing ? (
+            <NoticeBox tone="info">{t("knowledge.index_running")}</NoticeBox>
+          ) : props.indexNotice ? (
+            <NoticeBox tone={props.indexNotice.tone === "error" ? "error" : "info"}>
+              {props.indexNotice.title}
+            </NoticeBox>
+          ) : null}
+          {!props.indexing && props.error ? (
+            <NoticeBox tone="error">{props.error}</NoticeBox>
+          ) : null}
         </div>
       ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -117,6 +117,7 @@ export function KnowledgeVaultSidebar(props: KnowledgeVaultSidebarProps) {
             sortKey={sortKey}
             expandNonce={props.expandNonce}
             collapseNonce={props.collapseNonce}
+            revealNonce={props.revealNonce}
             onAllExpandedChange={setAllExpanded}
           />
         )}

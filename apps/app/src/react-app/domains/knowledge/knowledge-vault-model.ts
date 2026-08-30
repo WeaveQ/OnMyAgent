@@ -193,11 +193,19 @@ function knowledgeTreeSortName(node: KnowledgeTreeNode): string {
   return node.kind === "dir" ? node.name : displayNoteTitle(node.file);
 }
 
+function knowledgeFileCreatedMs(file: Pick<KnowledgeVaultFile, "mtimeMs" | "birthtimeMs">): number {
+  return file.birthtimeMs && file.birthtimeMs > 0 ? file.birthtimeMs : file.mtimeMs;
+}
+
 function knowledgeTreeNodeTime(node: KnowledgeTreeNode, which: "mtime" | "ctime"): number {
   if (node.kind === "file") {
-    return which === "ctime" ? node.file.birthtimeMs ?? node.file.mtimeMs : node.file.mtimeMs;
+    return which === "ctime" ? knowledgeFileCreatedMs(node.file) : node.file.mtimeMs;
   }
-  return which === "ctime" ? node.ctimeMs ?? 0 : node.mtimeMs ?? 0;
+  return which === "ctime"
+    ? node.ctimeMs && node.ctimeMs > 0
+      ? node.ctimeMs
+      : 0
+    : node.mtimeMs ?? 0;
 }
 
 export function compareKnowledgeTreeNodes(
@@ -303,8 +311,10 @@ export function buildKnowledgeFolderTree(
         const modified = child.kind === "dir" ? child.mtimeMs ?? 0 : child.file.mtimeMs;
         const created =
           child.kind === "dir"
-            ? child.ctimeMs ?? Number.POSITIVE_INFINITY
-            : child.file.birthtimeMs ?? child.file.mtimeMs;
+            ? child.ctimeMs && child.ctimeMs > 0
+              ? child.ctimeMs
+              : Number.POSITIVE_INFINITY
+            : knowledgeFileCreatedMs(child.file);
         if (modified > mtimeMs) mtimeMs = modified;
         if (created < ctimeMs) ctimeMs = created;
       }

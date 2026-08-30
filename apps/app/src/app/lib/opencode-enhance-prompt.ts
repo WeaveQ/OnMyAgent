@@ -319,21 +319,25 @@ export function unwrapEnhancedPromptText(text: string): string {
   const body = (fenced?.[1] ?? trimmed).trim();
   const kept: string[] = [];
   let skipValue = false;
+  let inTranscript = false;
   for (const raw of body.split(/\r?\n/)) {
     const line = raw.trim();
     if (!line) {
+      inTranscript = false;
       if (kept.length && kept[kept.length - 1] !== "") kept.push("");
+      continue;
+    }
+    if (ENHANCE_SCAFFOLD_HEADING.test(line)) {
+      inTranscript = /conversation|background|rewriting/i.test(line);
+      skipValue = !inTranscript;
       continue;
     }
     if (skipValue) {
       skipValue = false;
       continue;
     }
-    if (ENHANCE_SCAFFOLD_HEADING.test(line)) {
-      skipValue = true;
-      continue;
-    }
-    if (ENHANCE_ROLE_LINE.test(line)) continue;
+    if (inTranscript && ENHANCE_ROLE_LINE.test(line)) continue;
+    inTranscript = false;
     kept.push(raw);
   }
   while (kept.length && !kept[0]?.trim()) kept.shift();
