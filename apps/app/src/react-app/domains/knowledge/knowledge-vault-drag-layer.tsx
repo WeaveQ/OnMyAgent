@@ -37,10 +37,11 @@ export function KnowledgeVaultDragLayer(props: { drag: KnowledgeDragLayerState |
   const Icon = kind === "dir" ? Folder : FileText;
   return createPortal(
     <div
-      className="pointer-events-none fixed left-0 top-0"
+      className="pointer-events-none fixed"
       style={{
         zIndex: "var(--dls-z-overlay-max)",
-        transform: `translate(${x + 12}px, ${y + 8}px)`,
+        left: x + 12,
+        top: y + 8,
       }}
       aria-hidden
     >
