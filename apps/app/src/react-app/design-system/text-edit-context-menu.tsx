@@ -34,11 +34,15 @@ export function TextEditContextMenu(props: {
   const [flags, setFlags] = useState<TextEditFlags>(EMPTY_FLAGS);
 
   const rememberEditable = useCallback((event: MouseEvent) => {
-    editableRef.current =
+    const editable =
       closestEditableElement(event.target) ??
       closestEditableElement(document.activeElement);
+    editableRef.current = editable;
     setFlags(
-      snapshotTextEditFlags(window.getSelection(), document.activeElement),
+      snapshotTextEditFlags(
+        window.getSelection(),
+        editable ?? document.activeElement,
+      ),
     );
   }, []);
 
