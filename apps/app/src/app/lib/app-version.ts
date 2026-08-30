@@ -12,15 +12,9 @@ export function formatAppMilestoneLabel(version: string): string {
   return `${major}.${minor}`;
 }
 
-/** Account-menu chip: `v0.7.0 · milestone 0.7`, or empty when version is unset. */
-export function formatAccountVersionBadge(
-  version: string,
-  formatMilestone: (milestone: string) => string,
-): string {
-  const versionLabel = formatAppVersionLabel(version);
-  if (!versionLabel) return "";
-  const milestone = formatAppMilestoneLabel(version);
-  return milestone ? `${versionLabel} · ${formatMilestone(milestone)}` : versionLabel;
+/** Account-menu meta: `v0.7.0`, or empty when version is unset. */
+export function formatAccountVersionBadge(version: string): string {
+  return formatAppVersionLabel(version);
 }
 
 export function readAppVersion(): string {

@@ -20,6 +20,9 @@ describe("knowledge 0.7 surfaces are wired", () => {
       "utf8",
     );
     expect(sidebar).toContain("KnowledgeVaultGroups");
+    expect(sidebar.indexOf("<KnowledgeVaultTree")).toBeLessThan(
+      sidebar.indexOf("<KnowledgeVaultGroups"),
+    );
     expect(page).toContain("KnowledgeVaultSidebar");
     expect(page).toContain("KnowledgeBookmarkForm");
     expect(menu).toContain("onNewLink");
@@ -41,5 +44,15 @@ describe("knowledge 0.7 surfaces are wired", () => {
     expect(barrel).toContain("KnowledgeArchiveSessionButton");
     expect(view).toContain('from "../../knowledge"');
     expect(view).toContain("KnowledgeArchiveSessionButton");
+  });
+
+  test("archive dialog does not echo the .md file name under the input", () => {
+    const dialog = readFileSync(
+      join(root, "src/react-app/domains/knowledge/knowledge-archive-session.tsx"),
+      "utf8",
+    );
+    expect(dialog).toContain("safeArchiveFileName");
+    expect(dialog).not.toMatch(/<span[^>]*>\{\s*previewName\s*\}<\/span>/);
+    expect(dialog).not.toContain("Inbox");
   });
 });

@@ -37,6 +37,15 @@ describe("access permission select contract", () => {
     expect(accessory).not.toContain("w-72");
   });
 
+  test("draft workspace search uses InputGroup so focus ring is not doubled", () => {
+    const accessory = read(
+      "src/react-app/domains/session/surface/chrome/session-draft-workspace-accessory.tsx",
+    );
+    expect(accessory).toContain("<InputGroup");
+    expect(accessory).toContain("<InputGroupInput");
+    expect(accessory).not.toContain("focus-within:ring-1");
+  });
+
   test("treats only full as on; delegate displays as off until the user toggles", () => {
     const src = read("src/react-app/design-system/access-permission-select.tsx");
     expect(src).toContain('return mode === "full"');

@@ -48,7 +48,7 @@ type KnowledgeVaultSidebarProps = {
 
 export function KnowledgeVaultSidebar(props: KnowledgeVaultSidebarProps) {
   return (
-    <aside className="flex min-h-0 flex-col overflow-hidden border-r border-dls-border">
+    <aside className="row-span-2 flex min-h-0 flex-col overflow-hidden border-r border-dls-border">
       <KnowledgeVaultToolbar
         scope={props.scope}
         workspaceId={props.workspaceId}
@@ -65,19 +65,6 @@ export function KnowledgeVaultSidebar(props: KnowledgeVaultSidebarProps) {
         onToggleRecent={props.onToggleRecent}
         onRebuildIndex={props.onRebuildIndex}
       />
-      <div className="max-h-48 shrink-0 overflow-y-auto border-b border-dls-border px-1 py-1">
-        <KnowledgeVaultGroups
-          active={{
-            scope: props.scope,
-            vaultPath: props.scope === "user" ? props.activeVaultPath : undefined,
-          }}
-          userVaults={props.userVaults}
-          projectUnavailable={!props.workspaceId}
-          expertUnavailable={!props.expertId}
-          onSelect={props.onSelectVault}
-          onChanged={props.onVaultsChanged}
-        />
-      </div>
       {props.error ? (
         <div className="px-2 pt-2">
           <NoticeBox tone="error">{props.error}</NoticeBox>
@@ -108,6 +95,19 @@ export function KnowledgeVaultSidebar(props: KnowledgeVaultSidebarProps) {
             collapseNonce={props.collapseNonce}
           />
         )}
+      </div>
+      <div className="max-h-48 shrink-0 overflow-y-auto border-t border-dls-border px-1 py-1">
+        <KnowledgeVaultGroups
+          active={{
+            scope: props.scope,
+            vaultPath: props.scope === "user" ? props.activeVaultPath : undefined,
+          }}
+          userVaults={props.userVaults}
+          projectUnavailable={!props.workspaceId}
+          expertUnavailable={!props.expertId}
+          onSelect={props.onSelectVault}
+          onChanged={props.onVaultsChanged}
+        />
       </div>
     </aside>
   );

@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, type MouseEvent } from "react";
 import { ClipboardPaste, Copy, Scissors } from "lucide-react";
 
 import {
@@ -13,7 +13,8 @@ import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 import {
-  selectNodeContents,
+  closestEditableElement,
+  selectEditableContents,
   snapshotTextEditFlags,
   type TextEditFlags,
 } from "./text-edit-flags";
@@ -29,12 +30,20 @@ export function TextEditContextMenu(props: {
   className?: string;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const editableRef = useRef<HTMLElement | null>(null);
   const [flags, setFlags] = useState<TextEditFlags>(EMPTY_FLAGS);
 
-  const refreshFlags = useCallback(() => {
+  const rememberEditable = useCallback((event: MouseEvent) => {
+    editableRef.current =
+      closestEditableElement(event.target) ??
+      closestEditableElement(document.activeElement);
     setFlags(
       snapshotTextEditFlags(window.getSelection(), document.activeElement),
     );
+  }, []);
+
+  const focusEditable = useCallback(() => {
+    editableRef.current?.focus();
   }, []);
 
   const runCopy = useCallback(() => {
@@ -46,10 +55,12 @@ export function TextEditContextMenu(props: {
   }, []);
 
   const runCut = useCallback(() => {
+    focusEditable();
     document.execCommand("cut");
-  }, []);
+  }, [focusEditable]);
 
   const runPaste = useCallback(() => {
+    focusEditable();
     void navigator.clipboard
       ?.readText()
       .then((text) => {
@@ -58,11 +69,16 @@ export function TextEditContextMenu(props: {
       .catch(() => {
         document.execCommand("paste");
       });
-  }, []);
+  }, [focusEditable]);
 
   const runSelectAll = useCallback(() => {
     const root = rootRef.current;
-    if (root) selectNodeContents(root);
+    const editable =
+      editableRef.current ??
+      root?.querySelector<HTMLElement>("[contenteditable='true']") ??
+      root;
+    if (!editable) return;
+    selectEditableContents(editable);
   }, []);
 
   return (
@@ -74,7 +90,7 @@ export function TextEditContextMenu(props: {
             ref={rootRef}
             className={cn("min-h-0 select-text", props.className)}
             data-text-edit-context-menu="true"
-            onContextMenu={refreshFlags}
+            onContextMenu={rememberEditable}
           />
         }
       >

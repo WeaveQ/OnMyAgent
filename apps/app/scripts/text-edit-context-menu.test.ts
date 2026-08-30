@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
+  closestEditableElement,
   isEditableElement,
   snapshotTextEditFlags,
 } from "../src/react-app/design-system/text-edit-flags";
@@ -40,10 +41,21 @@ describe("text edit context menu flags", () => {
     );
     expect(flags).toEqual({ canCopy: true, canCut: true, canPaste: true });
   });
+
+  test("closestEditableElement finds a textarea probe", () => {
+    const field = {
+      tagName: "TEXTAREA",
+      readOnly: false,
+      disabled: false,
+      closest: (selector: string) =>
+        selector.includes("textarea") ? field : null,
+    };
+    expect(closestEditableElement(field)).toBe(field);
+  });
 });
 
 describe("text edit context menu wiring", () => {
-  test("preview and transcript body mount the shared edit menu", () => {
+  test("preview, transcript, and composers mount the shared edit menu", () => {
     const preview = readFileSync(
       join(import.meta.dir, "../src/react-app/capabilities/artifacts/preview.tsx"),
       "utf8",
@@ -64,6 +76,22 @@ describe("text edit context menu wiring", () => {
     );
     expect(preview).toContain("TextEditContextMenu");
     expect(layout).toContain("TextEditContextMenu");
+    const composer = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/session/surface/composer/composer.tsx",
+      ),
+      "utf8",
+    );
+    const localAgent = readFileSync(
+      join(
+        import.meta.dir,
+        "../src/react-app/domains/local-agents/local-agent-draft-composer.tsx",
+      ),
+      "utf8",
+    );
+    expect(composer).toContain("TextEditContextMenu");
+    expect(localAgent).toContain("TextEditContextMenu");
     expect(menu).toContain('t("common.cut")');
     expect(menu).toContain('t("common.copy")');
     expect(menu).toContain('t("common.paste")');

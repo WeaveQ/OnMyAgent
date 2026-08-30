@@ -1,6 +1,5 @@
 /** @jsxImportSource react */
-import { useEffect, useMemo, useState } from "react";
-import { Inbox } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { writeKnowledgeVaultFile } from "../../../app/lib/desktop";
@@ -43,6 +43,7 @@ type KnowledgeArchiveSessionDialogProps = {
 };
 
 export function KnowledgeArchiveSessionDialog(props: KnowledgeArchiveSessionDialogProps) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const [fileName, setFileName] = useState("");
   const [scopeIndex, setScopeIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -81,31 +82,51 @@ export function KnowledgeArchiveSessionDialog(props: KnowledgeArchiveSessionDial
     return { ok: true, relPath };
   };
 
+  const handleSave = async () => {
+    if (saving || !selected) return;
+    setSaving(true);
+    setError(null);
+    const result = await save();
+    setSaving(false);
+    if (!result.ok) {
+      setError(t("knowledge.archive_failed"));
+      return;
+    }
+    props.onSaved?.({ ...result, scope: selected.scope });
+    props.onOpenChange(false);
+  };
+
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-md" initialFocus={inputRef}>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Inbox className="size-4 text-dls-secondary" />
-            {t("knowledge.archive_dialog_title")}
-          </DialogTitle>
+          <DialogTitle>{t("knowledge.archive_dialog_title")}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3 py-2">
-          <label className="block text-sm font-medium text-dls-text">
+        <Field>
+          <FieldLabel htmlFor="archive-session-file-name">
             {t("knowledge.archive_file_name")}
-            <Input
-              value={fileName}
-              onChange={(event) => setFileName(event.target.value)}
-              className="mt-1"
-              autoFocus
-            />
-            <span className="mt-1 block text-xs text-dls-secondary">{previewName}</span>
-          </label>
-          {props.scopes.length > 1 ? (
+          </FieldLabel>
+          <Input
+            ref={inputRef}
+            id="archive-session-file-name"
+            value={fileName}
+            onChange={(event) => setFileName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.nativeEvent.isComposing || event.key === "Process") return;
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              void handleSave();
+            }}
+          />
+        </Field>
+        {props.scopes.length > 1 ? (
+          <Field>
+            <FieldLabel>{t("knowledge.archive_scope")}</FieldLabel>
             <div className="flex flex-wrap gap-2">
               {props.scopes.map((option, index) => (
                 <Button
                   key={option.scope}
+                  type="button"
                   size="sm"
                   variant={index === scopeIndex ? "default" : "outline"}
                   onClick={() => setScopeIndex(index)}
@@ -114,27 +135,24 @@ export function KnowledgeArchiveSessionDialog(props: KnowledgeArchiveSessionDial
                 </Button>
               ))}
             </div>
-          ) : null}
-          {error ? <NoticeBox tone="error">{error}</NoticeBox> : null}
-        </div>
+          </Field>
+        ) : null}
+        {error ? <NoticeBox tone="error">{error}</NoticeBox> : null}
         <DialogFooter>
-          <Button variant="ghost" onClick={() => props.onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            disabled={saving}
+            onClick={() => props.onOpenChange(false)}
+          >
             {t("common.cancel")}
           </Button>
           <Button
+            type="button"
+            size="lg"
             disabled={saving || !selected}
-            onClick={async () => {
-              setSaving(true);
-              setError(null);
-              const result = await save();
-              setSaving(false);
-              if (!result.ok) {
-                setError(t("knowledge.archive_failed"));
-                return;
-              }
-              if (selected) props.onSaved?.({ ...result, scope: selected.scope });
-              props.onOpenChange(false);
-            }}
+            onClick={() => void handleSave()}
           >
             {t("knowledge.save_to_knowledge")}
           </Button>

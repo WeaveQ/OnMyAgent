@@ -48,14 +48,14 @@ export function KnowledgeArchiveSessionButton(props: KnowledgeArchiveSessionButt
     <>
       <Button
         variant="ghost"
-        size="icon-sm"
+        size="icon-xs"
         type="button"
         className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
         title={t("knowledge.save_to_knowledge")}
         aria-label={t("knowledge.save_to_knowledge")}
         onClick={() => setOpen(true)}
       >
-        <Inbox className="size-4" />
+        <Inbox className="size-3.5" />
       </Button>
       <KnowledgeArchiveSessionDialog
         open={open}

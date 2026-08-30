@@ -845,9 +845,7 @@ export function SidebarAccountButton(props: {
     accountName: account?.name,
     accountEmail: account?.email,
   });
-  const versionBadge = formatAccountVersionBadge(readAppVersion(), (milestone) =>
-    t("account_menu.milestone", { milestone }),
-  );
+  const versionBadge = formatAccountVersionBadge(readAppVersion());
 
   React.useEffect(
     () =>
@@ -954,14 +952,18 @@ export function SidebarAccountButton(props: {
         >
           <AccountUserAvatar displayName={displayName} size="md" className="flex-none" />
           <span className="min-w-0 flex-1">
-            <span className={appSidebarTextClass.menuTitle} title={displayName || undefined}>
-              {displayName || t("account_menu.avatar_unnamed")}
-            </span>
-            <span className="mt-0.5 flex items-center gap-2 text-xs font-normal text-dls-secondary">
-              <span className="min-w-0 truncate">{t("account_menu.personal_workspace")}</span>
+            <span className="flex min-w-0 items-baseline gap-2">
+              <span className={cn(appSidebarTextClass.menuTitle, "min-w-0 truncate")} title={displayName || undefined}>
+                {displayName || t("account_menu.avatar_unnamed")}
+              </span>
               {versionBadge ? (
-                <span className="ml-auto shrink-0 tabular-nums text-dls-secondary">{versionBadge}</span>
+                <span className="shrink-0 text-xs font-normal tabular-nums text-dls-secondary">
+                  {versionBadge}
+                </span>
               ) : null}
+            </span>
+            <span className="mt-0.5 block min-w-0 truncate text-xs font-normal text-dls-secondary">
+              {t("account_menu.personal_workspace")}
             </span>
           </span>
           <ChevronRight className="size-3.5 shrink-0 text-dls-secondary" aria-hidden />
@@ -1065,7 +1067,6 @@ export function SidebarAccountButton(props: {
               ? t("account_menu.checking_for_updates")
               : t("account_menu.check_for_updates")
           }
-          trailing={checkingUpdates ? undefined : versionBadge || undefined}
           onSelect={() => {
             if (checkingUpdates) return;
             void handleCheckUpdates();
@@ -1140,16 +1141,18 @@ export function SidebarAccountButton(props: {
           >
             <AccountUserAvatar displayName={displayName} size="sm" />
             <span className="min-w-0 flex-1">
-              <span className={appSidebarTextClass.accountName}>
-                {displayName || t("account_menu.avatar_unnamed")}
-              </span>
-              <span className={cn(appSidebarTextClass.accountEmail, "flex items-center gap-2")}>
-                <span className="min-w-0 truncate">
-                  {account?.email || t("account_menu.personal_workspace")}
+              <span className="flex min-w-0 items-baseline gap-2">
+                <span className={cn(appSidebarTextClass.accountName, "min-w-0 truncate")}>
+                  {displayName || t("account_menu.avatar_unnamed")}
                 </span>
                 {versionBadge ? (
-                  <span className="ml-auto shrink-0 tabular-nums">{versionBadge}</span>
+                  <span className="shrink-0 text-xs font-normal tabular-nums text-sidebar-foreground/55">
+                    {versionBadge}
+                  </span>
                 ) : null}
+              </span>
+              <span className={appSidebarTextClass.accountEmail}>
+                {account?.email || t("account_menu.personal_workspace")}
               </span>
             </span>
             <ChevronDown className="size-4 shrink-0 text-sidebar-foreground/55" />

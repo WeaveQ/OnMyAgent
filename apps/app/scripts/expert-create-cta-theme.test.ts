@@ -39,6 +39,14 @@ describe("expert create CTA theme contract", () => {
     expect(panelSource).toContain("session.add_expert_from_market");
     expect(panelSource).toContain("session.create_expert_yourself");
     expect(panelSource).toContain("DropdownMenu");
+    const summonMenu = panelSource.slice(
+      panelSource.indexOf("data-expert-create"),
+      panelSource.indexOf("</DropdownMenu>"),
+    );
+    expect(summonMenu).toContain("DropdownMenuContent");
+    // Primitive already draws a hairline ring. A second `border` stacks
+    // into the thick frame the summon-experts flyout was showing.
+    expect(summonMenu).not.toContain("border border-dls-border");
   });
 
   test("uses a slightly darker light surface while preserving the dark treatment", () => {

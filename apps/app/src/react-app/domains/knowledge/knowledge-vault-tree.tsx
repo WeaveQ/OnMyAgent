@@ -133,7 +133,7 @@ export function KnowledgeVaultTree(props: KnowledgeVaultTreeProps) {
   return (
     <KnowledgeVaultContextMenu target={{ kind: "root" }} {...props.actions}>
       <ul
-        className="flex min-h-full flex-col px-1 py-1"
+        className="flex min-h-full flex-col px-2 py-1"
         onDragOver={(event) => allowDrop(event, "")}
         onDragLeave={(event) => {
           const related = event.relatedTarget as Node | null;

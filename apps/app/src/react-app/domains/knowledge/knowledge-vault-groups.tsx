@@ -1,19 +1,9 @@
 /** @jsxImportSource react */
 import * as React from "react";
-import {
-  ChevronRight,
-  Folder,
-  FolderPlus,
-  Trash2,
-} from "lucide-react";
+import { FolderPlus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogClose,
@@ -24,6 +14,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { cn } from "@/lib/utils";
 
 import { t } from "../../../i18n";
@@ -71,14 +67,9 @@ const INITIAL_ADD_STATE: AddState = {
 };
 
 export function KnowledgeVaultGroups(props: KnowledgeVaultGroupsProps) {
-  const [openGroups, setOpenGroups] = React.useState<
-    Record<KnowledgeVaultScope, boolean>
-  >({ user: true, project: true, expert: true });
   const [add, setAdd] = React.useState<AddState>(INITIAL_ADD_STATE);
   const [removing, setRemoving] = React.useState<KnowledgeVaultItem | null>(null);
-
-  const toggle = (scope: KnowledgeVaultScope) =>
-    setOpenGroups((prev) => ({ ...prev, [scope]: !prev[scope] }));
+  const extraUserVaults = props.userVaults.filter((vault) => !vault.isDefault);
 
   const chooseFolder = async () => {
     const picked = await pickDirectory({ title: t("knowledge.add_vault_title") });
@@ -127,88 +118,56 @@ export function KnowledgeVaultGroups(props: KnowledgeVaultGroupsProps) {
 
   return (
     <div className="space-y-0.5">
-      <GroupSection
-        open={openGroups.user}
-        onToggle={() => toggle("user")}
+      <ScopeRow
         label={t("knowledge.group_my_vaults")}
+        active={props.active.scope === "user" && !props.active.vaultPath}
+        onSelect={() => props.onSelect({ scope: "user", vaultPath: null })}
         action={
           <Button
             variant="ghost"
-            size="icon-sm"
-            className="size-6 text-dls-secondary"
+            size="icon-xs"
+            className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
             aria-label={t("knowledge.add_vault")}
-            onClick={() => setAdd({ ...INITIAL_ADD_STATE, open: true })}
+            onClick={(event) => {
+              event.stopPropagation();
+              setAdd({ ...INITIAL_ADD_STATE, open: true });
+            }}
           >
             <FolderPlus className="size-3.5" />
           </Button>
         }
-      >
-        {props.userVaults.map((vault) => {
-          const active =
-            props.active.scope === "user" &&
-            (vault.isDefault
-              ? !props.active.vaultPath
-              : props.active.vaultPath === vault.path);
-          return (
-            <VaultRow
-              key={vault.path}
-              name={vault.name}
-              active={active}
-              onSelect={() =>
-                props.onSelect({
-                  scope: "user",
-                  vaultPath: vault.isDefault ? null : vault.path,
-                })
-              }
-              onRemove={
-                vault.isDefault
-                  ? undefined
-                  : () => setRemoving(vault)
-              }
-            />
-          );
-        })}
-      </GroupSection>
-
-      <GroupSection
-        open={openGroups.project}
-        onToggle={() => toggle("project")}
+      />
+      {extraUserVaults.map((vault) => (
+        <VaultRow
+          key={vault.path}
+          name={vault.name}
+          active={props.active.scope === "user" && props.active.vaultPath === vault.path}
+          onSelect={() => props.onSelect({ scope: "user", vaultPath: vault.path })}
+          onRemove={() => setRemoving(vault)}
+        />
+      ))}
+      <ScopeRow
         label={t("knowledge.group_project")}
-      >
-        <VaultRow
-          name={props.projectName ?? t("knowledge.scope_project")}
-          dimmed={props.projectUnavailable}
-          trailingHint={
-            props.projectUnavailable ? t("knowledge.scope_unavailable") : null
-          }
-          active={props.active.scope === "project" && !props.projectUnavailable}
-          onSelect={
-            props.projectUnavailable
-              ? undefined
-              : () => props.onSelect({ scope: "project" })
-          }
-        />
-      </GroupSection>
-
-      <GroupSection
-        open={openGroups.expert}
-        onToggle={() => toggle("expert")}
+        active={props.active.scope === "project" && !props.projectUnavailable}
+        dimmed={props.projectUnavailable}
+        trailingHint={
+          props.projectUnavailable ? t("knowledge.scope_unavailable") : null
+        }
+        onSelect={
+          props.projectUnavailable ? undefined : () => props.onSelect({ scope: "project" })
+        }
+      />
+      <ScopeRow
         label={t("knowledge.group_expert")}
-      >
-        <VaultRow
-          name={props.expertName ?? t("knowledge.scope_expert")}
-          dimmed={props.expertUnavailable}
-          trailingHint={
-            props.expertUnavailable ? t("knowledge.scope_unavailable") : null
-          }
-          active={props.active.scope === "expert" && !props.expertUnavailable}
-          onSelect={
-            props.expertUnavailable
-              ? undefined
-              : () => props.onSelect({ scope: "expert" })
-          }
-        />
-      </GroupSection>
+        active={props.active.scope === "expert" && !props.expertUnavailable}
+        dimmed={props.expertUnavailable}
+        trailingHint={
+          props.expertUnavailable ? t("knowledge.scope_unavailable") : null
+        }
+        onSelect={
+          props.expertUnavailable ? undefined : () => props.onSelect({ scope: "expert" })
+        }
+      />
 
       <Dialog
         open={add.open}
@@ -231,6 +190,7 @@ export function KnowledgeVaultGroups(props: KnowledgeVaultGroupsProps) {
               <Input
                 value={add.name}
                 placeholder={t("knowledge.add_vault_name_placeholder")}
+                className="h-10 rounded-lg"
                 onChange={(event) =>
                   setAdd((prev) => ({ ...prev, name: event.target.value }))
                 }
@@ -240,29 +200,32 @@ export function KnowledgeVaultGroups(props: KnowledgeVaultGroupsProps) {
               <span className="text-xs font-medium text-dls-secondary">
                 {t("knowledge.add_vault_folder_label")}
               </span>
-              <div className="flex gap-2">
-                <Input
+              <InputGroup controlSize="lg" radius="lg" className="w-full">
+                <InputGroupInput
                   readOnly
                   value={add.folderPath}
-                  placeholder={t("knowledge.add_vault_choose")}
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
+                  placeholder={t("knowledge.add_vault_folder_placeholder")}
                   onClick={() => void chooseFolder()}
-                >
-                  {t("knowledge.add_vault_choose")}
-                </Button>
-              </div>
+                />
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-lg px-2.5"
+                    onClick={() => void chooseFolder()}
+                  >
+                    {t("knowledge.add_vault_choose")}
+                  </InputGroupButton>
+                </InputGroupAddon>
+              </InputGroup>
             </label>
             {add.error ? (
               <p className="text-xs text-dls-status-danger-fg">{add.error}</p>
             ) : null}
           </div>
           <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>
+            <DialogClose render={<Button variant="outline" size="sm" />}>
               {t("common.cancel")}
             </DialogClose>
             <Button
@@ -294,39 +257,41 @@ export function KnowledgeVaultGroups(props: KnowledgeVaultGroupsProps) {
   );
 }
 
-function GroupSection(props: {
-  open: boolean;
-  onToggle: () => void;
+function ScopeRow(props: {
   label: string;
+  active: boolean;
+  dimmed?: boolean;
+  trailingHint?: string | null;
   action?: React.ReactNode;
-  children: React.ReactNode;
+  onSelect?: () => void;
 }) {
   return (
-    <Collapsible open={props.open} onOpenChange={props.onToggle}>
-      <div className="flex items-center gap-1 pe-1">
-        <CollapsibleTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 min-w-0 flex-1 justify-start gap-1 px-1.5 text-xs font-semibold uppercase tracking-wide text-dls-secondary"
-            >
-              <ChevronRight
-                className={cn(
-                  "size-3.5 shrink-0 transition-transform",
-                  props.open && "rotate-90",
-                )}
-              />
-              <span className="truncate">{props.label}</span>
-            </Button>
-          }
-        />
-        {props.action}
-      </div>
-      <CollapsibleContent className="space-y-0.5 py-0.5">
-        {props.children}
-      </CollapsibleContent>
-    </Collapsible>
+    <div
+      role={props.onSelect ? "button" : undefined}
+      tabIndex={props.onSelect ? 0 : undefined}
+      onClick={props.onSelect}
+      onKeyDown={(event) => {
+        if (!props.onSelect) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          props.onSelect();
+        }
+      }}
+      className={cn(
+        "group flex h-[34px] min-h-[34px] max-h-[34px] items-center gap-1.5 rounded-md px-2 text-sm outline-none",
+        props.onSelect && "cursor-pointer hover:bg-dls-list-hover focus-visible:ring-1 focus-visible:ring-dls-focus",
+        props.active && "bg-dls-rail-pill-hover font-medium text-dls-accent",
+        props.dimmed && "cursor-default opacity-60 hover:bg-transparent",
+      )}
+    >
+      <span className="min-w-0 flex-1 truncate">{props.label}</span>
+      {props.trailingHint ? (
+        <span className="shrink-0 text-xs font-normal text-dls-secondary">
+          {props.trailingHint}
+        </span>
+      ) : null}
+      {props.action}
+    </div>
   );
 }
 
@@ -351,13 +316,12 @@ function VaultRow(props: {
         }
       }}
       className={cn(
-        "group flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-sm outline-none",
+        "group flex h-[34px] min-h-[34px] max-h-[34px] cursor-pointer items-center gap-1.5 rounded-md px-2 text-sm outline-none",
         "hover:bg-dls-list-hover focus-visible:ring-1 focus-visible:ring-dls-focus",
         props.active && "bg-dls-rail-pill-hover font-medium text-dls-accent",
         props.dimmed && "cursor-default opacity-60 hover:bg-transparent",
       )}
     >
-      <Folder className="size-3.5 shrink-0 text-dls-secondary" />
       <span className="min-w-0 flex-1 truncate">{props.name}</span>
       {props.trailingHint ? (
         <span className="shrink-0 text-xs text-dls-secondary">
@@ -367,8 +331,8 @@ function VaultRow(props: {
       {props.onRemove ? (
         <Button
           variant="ghost"
-          size="icon-sm"
-          className="size-6 shrink-0 opacity-0 text-dls-secondary group-hover:opacity-100 hover:text-dls-status-danger-fg"
+          size="icon-xs"
+          className="shrink-0 opacity-0 text-dls-secondary group-hover:opacity-100 hover:text-dls-status-danger-fg"
           aria-label={t("knowledge.remove_vault")}
           onClick={(event) => {
             event.stopPropagation();

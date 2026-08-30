@@ -93,9 +93,9 @@ App-wide choices for language, theme, font, and panel layout. These settings do 
 
 Common items include:
 
-- **Interface**: language and theme—Light, Dark, or System.
-- **Display**: font size, conversation width, whether model-reasoning traces are expanded, and system-tray icon (the tray menu follows the OS language).
-- **Session management**: automatic context compaction and automatically starting a new session after a long idle period.
+- **Interface**: language and theme (Light / Dark / System)
+- **Display**: font size, conversation width, whether model-reasoning traces are expanded, and system-tray icon (the tray menu follows the OS language)
+- **Session**: **Suggested follow-ups** (chips after a reply; off hides them in Home and Expert chats), automatic context compaction, and starting a new session after a long idle period
 
 ### System
 
