@@ -252,8 +252,8 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
         workspaceId,
         expertId,
       });
-      if (result && result.ok === false) {
-        const reason = String(result.reason ?? "");
+      if (!result?.ok) {
+        const reason = String(result?.reason ?? "");
         setError(
           /not declared|not implemented/i.test(reason)
             ? t("knowledge.index_restart")

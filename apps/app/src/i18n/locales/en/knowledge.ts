@@ -26,6 +26,7 @@ export default {
   "knowledge.add_vault_folder_placeholder": "No folder selected",
   "knowledge.add_vault_confirm": "Add",
   "knowledge.add_vault_folder_required": "Choose a folder first.",
+  "knowledge.add_vault_failed": "Could not add this folder.",
   "knowledge.remove_vault": "Remove folder",
   "knowledge.remove_vault_title": "Remove this folder?",
   "knowledge.remove_vault_confirm": "Remove",

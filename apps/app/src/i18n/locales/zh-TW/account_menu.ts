@@ -15,7 +15,6 @@ export default {
   "account_menu.credits": "積分",
   "account_menu.free_plan": "免費版",
   "account_menu.language": "語言",
-  "account_menu.milestone": "milestone {milestone}",
   "account_menu.personal_workspace": "個人工作臺",
   "account_menu.language_chinese": "中文",
   "account_menu.preferences": "偏好",

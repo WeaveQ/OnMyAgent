@@ -15,7 +15,6 @@ export default {
   "account_menu.credits": "credits",
   "account_menu.free_plan": "Free plan",
   "account_menu.language": "Language",
-  "account_menu.milestone": "milestone {milestone}",
   "account_menu.personal_workspace": "Personal workspace",
   "account_menu.language_chinese": "中文",
   "account_menu.preferences": "Preferences",

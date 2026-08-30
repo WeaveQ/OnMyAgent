@@ -27,7 +27,6 @@ export function ToolbarIconButton(props: {
               props.onClick();
             }}
             aria-label={props.label}
-            title={props.hint}
           >
             {props.children}
           </Button>

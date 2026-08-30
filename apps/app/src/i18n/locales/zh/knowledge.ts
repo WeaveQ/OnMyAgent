@@ -26,6 +26,7 @@ export default {
   "knowledge.add_vault_folder_placeholder": "未选择文件夹",
   "knowledge.add_vault_confirm": "添加",
   "knowledge.add_vault_folder_required": "请先选择一个文件夹。",
+  "knowledge.add_vault_failed": "无法添加该文件夹。",
   "knowledge.remove_vault": "移除文件夹",
   "knowledge.remove_vault_title": "移除这个文件夹？",
   "knowledge.remove_vault_confirm": "移除",

@@ -52,6 +52,20 @@ describe("text edit context menu flags", () => {
     };
     expect(closestEditableElement(field)).toBe(field);
   });
+
+  test("closestEditableElement walks from a text-node probe to the field", () => {
+    const field = {
+      tagName: "TEXTAREA",
+      readOnly: false,
+      disabled: false,
+      closest: (selector: string) =>
+        selector.includes("textarea") ? field : null,
+    };
+    const textNode = {
+      parentElement: field,
+    };
+    expect(closestEditableElement(textNode)).toBe(field);
+  });
 });
 
 describe("text edit context menu wiring", () => {

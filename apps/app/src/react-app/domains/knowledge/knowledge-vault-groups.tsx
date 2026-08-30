@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   InputGroup,
@@ -20,6 +21,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
+import { NoticeBox } from "@/components/ui/notice-box";
 import { cn } from "@/lib/utils";
 
 import { t } from "../../../i18n";
@@ -42,8 +44,6 @@ export type KnowledgeVaultSelection = {
 export type KnowledgeVaultGroupsProps = {
   active: KnowledgeVaultSelection;
   userVaults: readonly KnowledgeVaultItem[];
-  projectName?: string | null;
-  expertName?: string | null;
   projectUnavailable?: boolean;
   expertUnavailable?: boolean;
   onSelect: (selection: KnowledgeVaultSelection) => void;
@@ -99,7 +99,10 @@ export function KnowledgeVaultGroups(props: KnowledgeVaultGroupsProps) {
       setAdd(INITIAL_ADD_STATE);
       props.onChanged();
     } else {
-      setAdd((prev) => ({ ...prev, error: result?.reason ?? "add_failed" }));
+      setAdd((prev) => ({
+        ...prev,
+        error: t("knowledge.add_vault_failed"),
+      }));
     }
   };
 
@@ -141,6 +144,7 @@ export function KnowledgeVaultGroups(props: KnowledgeVaultGroupsProps) {
         <VaultRow
           key={vault.path}
           name={vault.name}
+          nested
           active={props.active.scope === "user" && props.active.vaultPath === vault.path}
           onSelect={() => props.onSelect({ scope: "user", vaultPath: vault.path })}
           onRemove={() => setRemoving(vault)}
@@ -183,25 +187,26 @@ export function KnowledgeVaultGroups(props: KnowledgeVaultGroupsProps) {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-dls-secondary">
+            <Field>
+              <FieldLabel htmlFor="add-vault-name">
                 {t("knowledge.add_vault_name_label")}
-              </span>
+              </FieldLabel>
               <Input
+                id="add-vault-name"
                 value={add.name}
                 placeholder={t("knowledge.add_vault_name_placeholder")}
-                className="h-10 rounded-lg"
                 onChange={(event) =>
                   setAdd((prev) => ({ ...prev, name: event.target.value }))
                 }
               />
-            </label>
-            <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-dls-secondary">
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="add-vault-folder">
                 {t("knowledge.add_vault_folder_label")}
-              </span>
+              </FieldLabel>
               <InputGroup controlSize="lg" radius="lg" className="w-full">
                 <InputGroupInput
+                  id="add-vault-folder"
                   readOnly
                   value={add.folderPath}
                   placeholder={t("knowledge.add_vault_folder_placeholder")}
@@ -212,25 +217,22 @@ export function KnowledgeVaultGroups(props: KnowledgeVaultGroupsProps) {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-8 rounded-lg px-2.5"
                     onClick={() => void chooseFolder()}
                   >
                     {t("knowledge.add_vault_choose")}
                   </InputGroupButton>
                 </InputGroupAddon>
               </InputGroup>
-            </label>
-            {add.error ? (
-              <p className="text-xs text-dls-status-danger-fg">{add.error}</p>
-            ) : null}
+            </Field>
+            {add.error ? <NoticeBox tone="error">{add.error}</NoticeBox> : null}
           </div>
           <DialogFooter>
-            <DialogClose render={<Button variant="outline" size="sm" />}>
+            <DialogClose render={<Button variant="outline" size="lg" />}>
               {t("common.cancel")}
             </DialogClose>
             <Button
               type="button"
-              size="sm"
+              size="lg"
               disabled={add.busy}
               onClick={() => void submitAdd()}
             >
@@ -280,7 +282,7 @@ function ScopeRow(props: {
       className={cn(
         "group flex h-[34px] min-h-[34px] max-h-[34px] items-center gap-1.5 rounded-md px-2 text-sm outline-none",
         props.onSelect && "cursor-pointer hover:bg-dls-list-hover focus-visible:ring-1 focus-visible:ring-dls-focus",
-        props.active && "bg-dls-rail-pill-hover font-medium text-dls-accent",
+        props.active && "bg-dls-list-selected font-medium text-dls-text",
         props.dimmed && "cursor-default opacity-60 hover:bg-transparent",
       )}
     >
@@ -298,6 +300,7 @@ function ScopeRow(props: {
 function VaultRow(props: {
   name: string;
   active: boolean;
+  nested?: boolean;
   onSelect?: () => void;
   onRemove?: () => void;
   dimmed?: boolean;
@@ -318,7 +321,8 @@ function VaultRow(props: {
       className={cn(
         "group flex h-[34px] min-h-[34px] max-h-[34px] cursor-pointer items-center gap-1.5 rounded-md px-2 text-sm outline-none",
         "hover:bg-dls-list-hover focus-visible:ring-1 focus-visible:ring-dls-focus",
-        props.active && "bg-dls-rail-pill-hover font-medium text-dls-accent",
+        props.nested && "ps-6",
+        props.active && "bg-dls-list-selected font-medium text-dls-text",
         props.dimmed && "cursor-default opacity-60 hover:bg-transparent",
       )}
     >

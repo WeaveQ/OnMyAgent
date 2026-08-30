@@ -46,6 +46,19 @@ describe("knowledge 0.7 surfaces are wired", () => {
     expect(view).toContain("KnowledgeArchiveSessionButton");
   });
 
+  test("vault groups use list-selected and nest extra folders", () => {
+    const groups = readFileSync(
+      join(root, "src/react-app/domains/knowledge/knowledge-vault-groups.tsx"),
+      "utf8",
+    );
+    expect(groups).toContain("bg-dls-list-selected");
+    expect(groups).not.toContain("bg-dls-rail-pill-hover");
+    expect(groups).toContain("nested");
+    expect(groups).toContain('size="lg"');
+    expect(groups).toContain("FieldLabel");
+    expect(groups).toContain("knowledge.add_vault_failed");
+  });
+
   test("archive dialog does not echo the .md file name under the input", () => {
     const dialog = readFileSync(
       join(root, "src/react-app/domains/knowledge/knowledge-archive-session.tsx"),
