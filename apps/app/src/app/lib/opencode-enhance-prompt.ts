@@ -226,18 +226,19 @@ export function shouldIgnorePromptEnhanceScratchEvent(event: {
 
 export const PROMPT_ENHANCE_MIN_CHARS = 50;
 export const PROMPT_ENHANCE_MAX_CHARS = 100;
+export const PROMPT_ENHANCE_HARD_MAX_CHARS = 160;
 
 export const PROMPT_ENHANCE_SYSTEM = [
-  "Rewrite the user's prompt so it is clearer and more specific, without changing their intent.",
+  "Rewrite only the user's next prompt so it is clearer and more specific, without changing their intent.",
   "Keep the user's language.",
   `The rewritten prompt must be at most ${PROMPT_ENHANCE_MAX_CHARS} characters (count each CJK glyph as one).`,
   `For a real task, aim for ${PROMPT_ENHANCE_MIN_CHARS}–${PROMPT_ENHANCE_MAX_CHARS} characters.`,
   "Do not pad a greeting or fragment to hit a minimum.",
-  "One short paragraph only. No headings, bullets, or sections such as goal, constraints, or expected output.",
+  "One short paragraph only. No headings, bullets, numbered news, or sections such as goal, constraints, or expected output.",
   "Do not invent files, folders, or attachments that were not named.",
-  "Background is only to resolve short follow-ups. Never copy it.",
-  "Never output a transcript or labels such as Recent conversation, User:, Assistant:, Previous user, or Previous assistant.",
-  "Return ONLY the rewritten prompt the user will send next. No commentary, no markdown fences, no labels.",
+  "Context is only to resolve short follow-ups. Never copy prior answers, news, or lists into the rewrite.",
+  "Never output a transcript or labels such as Prompt to rewrite, Context, User:, or Assistant:.",
+  "Return ONLY the rewritten prompt the user will send next.",
 ].join(" ");
 
 export type PromptEnhanceTurn = {
@@ -245,8 +246,21 @@ export type PromptEnhanceTurn = {
   text: string;
 };
 
-export const PROMPT_ENHANCE_MAX_RECENT_TURNS = 4;
-export const PROMPT_ENHANCE_TURN_CHAR_LIMIT = 400;
+export const PROMPT_ENHANCE_MAX_RECENT_TURNS = 1;
+export const PROMPT_ENHANCE_TURN_CHAR_LIMIT = 60;
+
+function turnPlainText(
+  message: {
+    parts?: ReadonlyArray<{ type?: string; text?: string }> | null;
+  } | null | undefined,
+): string {
+  return (message?.parts ?? [])
+    .filter((part) => part?.type === "text")
+    .map((part) => part.text?.trim() ?? "")
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+}
 
 export function compactPromptEnhanceTurns(
   messages: ReadonlyArray<{
@@ -254,23 +268,80 @@ export function compactPromptEnhanceTurns(
     parts?: ReadonlyArray<{ type?: string; text?: string }> | null;
   } | null | undefined>,
 ): PromptEnhanceTurn[] {
-  const turns: PromptEnhanceTurn[] = [];
   for (let index = messages.length - 1; index >= 0; index -= 1) {
-    if (turns.length >= PROMPT_ENHANCE_MAX_RECENT_TURNS) break;
     const message = messages[index];
-    const role = message?.role;
-    if (role !== "user" && role !== "assistant") continue;
-    const text = (message?.parts ?? [])
-      .filter((part) => part?.type === "text")
-      .map((part) => part.text?.trim() ?? "")
-      .filter(Boolean)
-      .join("\n")
-      .trim()
-      .slice(0, PROMPT_ENHANCE_TURN_CHAR_LIMIT);
+    if (message?.role !== "user") continue;
+    const text = clipPromptEnhanceLine(turnPlainText(message), PROMPT_ENHANCE_TURN_CHAR_LIMIT);
     if (!text) continue;
-    turns.push({ role, text });
+    return [{ role: "user", text }];
   }
-  return turns.reverse();
+  return [];
+}
+
+export function clipPromptEnhanceLine(text: string, limit: number): string {
+  const compact = text.replace(/\s+/g, " ").trim();
+  if ([...compact].length <= limit) return compact;
+  return `${[...compact].slice(0, Math.max(0, limit - 1)).join("")}…`;
+}
+
+const ASK_HINT = /[?？]|请|帮|查|整理|写|搜索|总结|生成|分析|翻译|介绍|continue|please/i;
+
+function looksLikeCopiedContext(text: string): boolean {
+  const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (lines.length === 0) return false;
+  const bullets = lines.filter(
+    (line) =>
+      /^[-*•、]/.test(line) ||
+      /^\*\*/.test(line) ||
+      /^#{1,6}\s/.test(line) ||
+      /^\d+[\.)]\s/.test(line),
+  );
+  return bullets.length >= 3 || lines.length >= 6;
+}
+
+function looksLikeUserAsk(text: string): boolean {
+  if (!text || [...text].length > 200) return false;
+  const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (lines.length > 3) return false;
+  if (looksLikeCopiedContext(text)) return false;
+  return ASK_HINT.test(text) || [...text].length <= 80;
+}
+
+/** Keep the user's actual next ask when a pasted article sits above it. */
+export function extractPromptEnhanceTarget(draft: string): string {
+  const trimmed = draft.trim();
+  if (!trimmed) return "";
+  const lines = trimmed.split(/\r?\n/);
+  const lastLine = [...lines].reverse().find((line) => line.trim())?.trim() ?? trimmed;
+  const earlier = trimmed.slice(0, Math.max(0, trimmed.lastIndexOf(lastLine))).trim();
+  if (looksLikeCopiedContext(earlier) && looksLikeUserAsk(lastLine)) return lastLine;
+  const blocks = trimmed.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
+  const lastBlock = blocks[blocks.length - 1] ?? trimmed;
+  if (
+    blocks.length >= 2 &&
+    looksLikeCopiedContext(blocks.slice(0, -1).join("\n")) &&
+    looksLikeUserAsk(lastBlock)
+  ) {
+    return lastBlock;
+  }
+  return trimmed;
+}
+
+export function countPromptEnhanceChars(text: string): number {
+  return [...text.replace(/\s+/g, " ").trim()].length;
+}
+
+const ENHANCE_SCAFFOLD_HEADING =
+  /^(?:current draft|selected workspace folder|recent conversation|attachment filenames|mention names in the draft|background for rewriting only(?:\s*\(do not copy\))?|prompt to rewrite|context(?:\s*\(do not copy\))?)\s*:?$/i;
+
+export function isUsableEnhancedPrompt(text: string): boolean {
+  const clean = text.trim();
+  if (!clean) return false;
+  if (countPromptEnhanceChars(clean) > PROMPT_ENHANCE_HARD_MAX_CHARS) return false;
+  if (looksLikeCopiedContext(clean)) return false;
+  const first = clean.split(/\r?\n/).find((line) => line.trim())?.trim() ?? "";
+  if (ENHANCE_SCAFFOLD_HEADING.test(first)) return false;
+  return true;
 }
 
 export type HomePromptEnhanceContext = {
@@ -282,8 +353,8 @@ export type HomePromptEnhanceContext = {
 };
 
 export function buildHomePromptEnhanceUserMessage(input: HomePromptEnhanceContext): string {
-  const draft = input.draft.trim();
-  const lines = [draft];
+  const draft = extractPromptEnhanceTarget(input.draft);
+  const lines = ["Prompt to rewrite:", draft];
   const attachments = (input.attachmentNames ?? []).map((name) => name.trim()).filter(Boolean);
   if (attachments.length) {
     lines.push("", "Attachment filenames:", attachments.join(", "));
@@ -292,22 +363,18 @@ export function buildHomePromptEnhanceUserMessage(input: HomePromptEnhanceContex
   if (mentions.length) {
     lines.push("", "Mention names in the draft:", mentions.map((name) => `@${name}`).join(", "));
   }
-  const recentTurns = input.recentTurns ?? [];
-  if (recentTurns.length) {
-    lines.push("", "Background for rewriting only (do not copy):");
-    for (const turn of recentTurns) {
-      lines.push(
-        turn.role === "user"
-          ? `They previously asked: ${turn.text}`
-          : `The assistant previously replied: ${turn.text}`,
-      );
-    }
+  const lastUser = [...(input.recentTurns ?? [])]
+    .reverse()
+    .find((turn) => turn.role === "user" && turn.text.trim());
+  if (lastUser) {
+    lines.push(
+      "",
+      "Context (do not copy):",
+      `Previous ask: ${clipPromptEnhanceLine(lastUser.text, PROMPT_ENHANCE_TURN_CHAR_LIMIT)}. The assistant already replied.`,
+    );
   }
   return lines.join("\n");
 }
-
-const ENHANCE_SCAFFOLD_HEADING =
-  /^(?:current draft|selected workspace folder|recent conversation|attachment filenames|mention names in the draft|background for rewriting only(?:\s*\(do not copy\))?)\s*:?$/i;
 
 const ENHANCE_ROLE_LINE =
   /^(?:user|assistant|human|ai|previous user|previous assistant|they previously asked|the assistant previously replied)\s*:\s*/i;
@@ -474,7 +541,32 @@ export type EnhancePromptWithScratchSessionInput = {
   timeoutMs?: number;
 };
 
+function finalizeEnhancedPrompt(raw: string): string {
+  return extractPromptEnhanceTarget(unwrapEnhancedPromptText(raw));
+}
+
 export async function enhancePromptWithScratchSession(
+  input: EnhancePromptWithScratchSessionInput,
+): Promise<string> {
+  const target = extractPromptEnhanceTarget(input.draft);
+  if (!target) throw new Error("Prompt is empty");
+  const first = await runPromptEnhanceScratchSession({ ...input, draft: target });
+  const cleaned = finalizeEnhancedPrompt(first);
+  if (isUsableEnhancedPrompt(cleaned) && cleaned !== target) return cleaned;
+  if (input.recentTurns?.length) {
+    const retry = await runPromptEnhanceScratchSession({
+      ...input,
+      draft: target,
+      recentTurns: [],
+    });
+    const retryCleaned = finalizeEnhancedPrompt(retry);
+    if (isUsableEnhancedPrompt(retryCleaned)) return retryCleaned;
+  }
+  if (isUsableEnhancedPrompt(cleaned)) return cleaned;
+  throw new Error("Prompt enhance returned unusable text");
+}
+
+async function runPromptEnhanceScratchSession(
   input: EnhancePromptWithScratchSessionInput,
 ): Promise<string> {
   const draft = input.draft.trim();
