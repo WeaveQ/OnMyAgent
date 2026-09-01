@@ -4,7 +4,9 @@ import {
   buildHomePromptEnhanceUserMessage,
   clearPromptEnhanceScratchSessionsForTests,
   compactPromptEnhanceTurns,
+  extractPromptEnhanceTarget,
   enhancePromptWithScratchSession,
+  isUsableEnhancedPrompt,
   isPromptEnhanceScratchSession,
   isPromptEnhanceScratchSessionId,
   listPromptEnhanceScratchSessions,
@@ -64,6 +66,7 @@ describe("opencode home prompt enhance scratch session", () => {
       mentionNames: ["agenda"],
     });
     expect(user).toContain("帮我写周报");
+    expect(user).toContain("Prompt to rewrite:");
     expect(user).toContain("notes.md");
     expect(user).not.toContain("Current draft");
     expect(user).not.toContain("Selected workspace folder");
@@ -75,11 +78,12 @@ describe("opencode home prompt enhance scratch session", () => {
     expect(PROMPT_ENHANCE_SYSTEM).toContain("Return ONLY the rewritten prompt");
     const packed = buildHomePromptEnhanceUserMessage({
       draft: "继续",
-      recentTurns: [{ role: "user", text: "先写大纲" }, { role: "assistant", text: "好的" }],
+      recentTurns: [{ role: "user", text: "先写大纲" }, { role: "assistant", text: "好的，这是很长的新闻稿" }],
     });
     expect(packed).toContain("继续");
-    expect(packed).toContain("They previously asked: 先写大纲");
-    expect(packed).toContain("The assistant previously replied: 好的");
+    expect(packed).toContain("Previous ask: 先写大纲");
+    expect(packed).not.toContain("很长的新闻稿");
+    expect(packed).not.toContain("They previously asked");
     expect(packed).not.toContain("Recent conversation:");
     expect(packed).not.toContain("User:");
     expect(packed).not.toContain("Assistant:");
@@ -91,7 +95,7 @@ describe("opencode home prompt enhance scratch session", () => {
       { role: "user", parts: [{ type: "text", text: "three" }] },
       { role: "assistant", parts: [{ type: "text", text: "four" }] },
       { role: "user", parts: [{ type: "text", text: "five" }] },
-    ]).map((turn) => turn.text)).toEqual(["two", "three", "four", "five"]);
+    ]).map((turn) => turn.text)).toEqual(["five"]);
     expect(unwrapEnhancedPromptText("```\nImproved weekly report prompt\n```")).toBe(
       "Improved weekly report prompt",
     );
@@ -113,6 +117,26 @@ describe("opencode home prompt enhance scratch session", () => {
     expect(unwrapEnhancedPromptText("User: please review the attached brief")).toBe(
       "User: please review the attached brief",
     );
+    expect(
+      extractPromptEnhanceTarget(
+        [
+          "- **嫦娥七号**计划近日择机发射",
+          "- 北京火箭大街启用",
+          "- **OpenAI** 或将上市",
+          "## 财经·市场",
+          "- 创业板走低",
+          "查一下今天南京本地的新闻,整理成要闻速览",
+        ].join("\n"),
+      ),
+    ).toBe("查一下今天南京本地的新闻,整理成要闻速览");
+    expect(isUsableEnhancedPrompt("检索今日南京本地新闻，整理成标题加一句话的要闻速览。")).toBe(
+      true,
+    );
+    expect(
+      isUsableEnhancedPrompt(
+        ["- 国际新闻", "- 财经市场", "- 南京要闻", "查一下南京新闻"].join("\n"),
+      ),
+    ).toBe(false);
   });
 
   test("registers scratch ids so failed deletes stay hidden from lists", () => {
