@@ -284,7 +284,8 @@ export function clipPromptEnhanceLine(text: string, limit: number): string {
   return `${[...compact].slice(0, Math.max(0, limit - 1)).join("")}…`;
 }
 
-const ASK_HINT = /[?？]|请|帮|查|整理|写|搜索|总结|生成|分析|翻译|介绍|continue|please/i;
+const ASK_HINT =
+  /[?\uFF1F]|\u8bf7|\u5e2e|\u67e5|\u6574\u7406|\u5199|\u641c\u7d22|\u603b\u7ed3|\u751f\u6210|\u5206\u6790|\u7ffb\u8bd1|\u4ecb\u7ecd|continue|please/i;
 
 function looksLikeCopiedContext(text: string): boolean {
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
