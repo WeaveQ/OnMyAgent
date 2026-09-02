@@ -5,6 +5,7 @@ import path from "node:path";
 import {
   SESSION_PREWARM_FALLBACK_DELAY_MS,
   SESSION_PREWARM_IDLE_TIMEOUT_MS,
+  scheduleIdleExpertColdPrewarmTask,
   scheduleIdleWork,
 } from "../src/react-app/shell/session-route/prewarm-schedule";
 
@@ -133,6 +134,32 @@ describe("session-route prewarm scheduleIdleWork", () => {
       },
     });
     expect(fallback).toBe(900);
+  });
+
+  test("scheduleIdleExpertColdPrewarmTask starts prewarm only from idle run", () => {
+    let started = 0;
+    let run: () => void = () => undefined;
+    scheduleIdleExpertColdPrewarmTask({
+      agentId: "agent-a",
+      getCurrentAgentId: () => "agent-a",
+      startPrewarm: () => {
+        started += 1;
+      },
+      host: {
+        requestIdleCallback: (cb) => {
+          run = cb;
+          return 1;
+        },
+        cancelIdleCallback: () => undefined,
+        setTimeout: () => {
+          throw new Error("idle API should be used");
+        },
+        clearTimeout: () => undefined,
+      },
+    });
+    expect(started).toBe(0);
+    run();
+    expect(started).toBe(1);
   });
 });
 

@@ -1,3 +1,5 @@
+import type { PendingAgentContext } from "../../domains/agents";
+
 /**
  * Whether first-send create should yank the route to the new session.
  *
@@ -68,4 +70,31 @@ export function activateCreatedSessionRoute(input: {
   input.navigateToWorkspaceSession(input.selectedWorkspaceId, input.sessionId);
   input.setAssistantDraftWorkspaceRoot("");
   input.focusPromptSoon();
+}
+
+export function bindExpertFreshIdleDraft(input: {
+  workspaceId: string;
+  forceNewSessionOnNextSendRef: { current: boolean };
+  openIdleDraft: (workspaceId: string) => void;
+  pendingAgentSnapshot: PendingAgentContext | null;
+  setAgent: (agent: PendingAgentContext) => void;
+  nowMs?: number;
+  createOperationId?: () => string;
+}): PendingAgentContext | null {
+  input.forceNewSessionOnNextSendRef.current = true;
+  input.openIdleDraft(input.workspaceId);
+  if (!input.pendingAgentSnapshot) return null;
+  const unbound: PendingAgentContext = {
+    ...input.pendingAgentSnapshot,
+    boundSessionId: undefined,
+    operationId:
+      input.pendingAgentSnapshot.operationId?.trim() ||
+      input.createOperationId?.() ||
+      globalThis.crypto.randomUUID(),
+    draftCreatedAt:
+      input.pendingAgentSnapshot.draftCreatedAt ?? input.nowMs ?? Date.now(),
+    draftSource: input.pendingAgentSnapshot.draftSource ?? "new-session",
+  };
+  input.setAgent(unbound);
+  return unbound;
 }

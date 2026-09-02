@@ -99,3 +99,19 @@ export function scheduleIdleWork(input: ScheduleIdleWorkInput): ScheduledIdleWor
     },
   };
 }
+
+export function scheduleIdleExpertColdPrewarmTask(input: {
+  agentId: string;
+  getCurrentAgentId: () => string | null | undefined;
+  startPrewarm: () => void;
+  host?: ScheduleIdleWorkInput["host"];
+}): ScheduledIdleWork {
+  const agentId = input.agentId.trim();
+  return scheduleIdleWork({
+    host: input.host,
+    run: () => {
+      if ((input.getCurrentAgentId()?.trim() ?? "") !== agentId) return;
+      input.startPrewarm();
+    },
+  });
+}

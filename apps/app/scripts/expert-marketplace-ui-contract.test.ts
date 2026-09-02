@@ -729,20 +729,24 @@ describe("expert marketplace UI contract", () => {
     const surfaceProps = readWorkspaceFile(
       "apps/app/src/react-app/shell/session-route/surface-props-hook-impl.ts",
     );
-    const lockStart = pageView.indexOf(
+    const actions = readWorkspaceFile(
+      "apps/app/src/react-app/shell/session-route/intent.ts",
+    );
+    expect(pageView).toContain("openExpertFreshIdleDraft(");
+    expect(pageView).not.toContain(
       "creatingSessionWorkspaceIdsRef.current.add(workspaceId)",
     );
-    const lockEnd = pageView.indexOf(
-      "creatingSessionWorkspaceIdsRef.current.delete(workspaceId)",
+    const lockStart = surfaceProps.indexOf(
+      "creatingSessionWorkspaceIdsRef.current.add(selectedWorkspaceId)",
+    );
+    const lockEnd = surfaceProps.indexOf(
+      "creatingSessionWorkspaceIdsRef.current.delete(selectedWorkspaceId)",
       lockStart,
     );
-    const creationBlock = pageView.slice(lockStart, lockEnd);
-
     expect(lockStart).toBeGreaterThan(-1);
     expect(lockEnd).toBeGreaterThan(lockStart);
-    expect(creationBlock.indexOf("try {")).toBeLessThan(
-      creationBlock.indexOf("createIsolatedExpertSessionRuntimeDirectory"),
-    );
+    expect(actions).toContain("createIsolatedExpertSessionRuntimeDirectory");
+    expect(surfaceProps).toContain("createIsolatedExpertSessionRuntimeDirectory");
     expect(surfaceProps).not.toContain("materializeExpertSessionDirectory");
     expect(surfaceProps).not.toContain("resolveExpertSessionDirectoryMarker");
   });
@@ -1239,7 +1243,7 @@ describe("expert marketplace UI contract", () => {
     expect(installHelper).toContain("coordinator.ensure({");
     expect(installHelper).toContain('marketplace: "experts"');
     expect(sessionRoute).toContain("bindPendingAgentToSession({");
-    expect(sessionRoute).toContain("sessionId: newSession.id");
+    expect(sessionRoute).toContain("writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot)");
     const promptBindIndex = sessionRoute.indexOf(
       "if (pendingAgentSnapshot && sessionId)",
     );
@@ -1248,30 +1252,29 @@ describe("expert marketplace UI contract", () => {
     expect(promptBindSlice).toContain("useExpertDirectoryStore");
     expect(promptBindSlice).toContain(".upsertIdentity(");
     expect(promptBindSlice).toContain("pendingAgentSnapshot.id");
-    expect(sessionRoute).toContain("writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot)");
     // First prompt joins install (started earlier) with env prep — not a serial
-    // await after bind. Empty-shell create fire-and-forgets install.
+    // await after bind. Empty-shell idle_draft fire-and-forgets install.
     expect(sessionRoute).toContain("installMarketplaceExpertAfterSessionCreated");
     expect(sessionRoute).toContain("Promise.all([");
-    const sessionCreatedGuardIndex = pageView.indexOf("if (!newSession) return;");
+    const idleDraftIndex = pageView.indexOf("openExpertFreshIdleDraft(");
     const installAfterCreationIndex = pageView.indexOf(
       "void installMarketplaceExpertAfterSessionCreated(agentToBind)",
     );
-    expect(sessionCreatedGuardIndex).toBeGreaterThan(-1);
-    expect(installAfterCreationIndex).toBeGreaterThan(sessionCreatedGuardIndex);
+    expect(idleDraftIndex).toBeGreaterThan(-1);
+    expect(installAfterCreationIndex).toBeGreaterThan(idleDraftIndex);
     // Binding goes through helper; agent-context stamps boundSessionId from sessionId.
     expect(agentContext).toContain("boundSessionId: input.sessionId");
   });
 
   test("expert sessions persist agent metadata snapshots for restart restore", () => {
     const sessionRoute = readWorkspaceFile(
-      "apps/app/src/react-app/shell/session-route/page-view.tsx",
+      "apps/app/src/react-app/shell/session-route/surface-props-hook-impl.ts",
     );
     const store = readWorkspaceFile("apps/app/src/react-app/domains/agents/agent-registry-store.ts");
     const model = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/conversation-model.ts");
 
-    // After create, resolvePendingAgentForPrompt may inherit; bind uses agentToBind.
-    expect(sessionRoute).toContain("writeSessionAgentSnapshot(newSession.id, agentToBind)");
+    // First send persists the snapshot; empty-shell idle_draft has no ses_*.
+    expect(sessionRoute).toContain("writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot)");
     expect(sessionRoute).toContain("resolvePendingAgentForPrompt");
     expect(store).toContain("onmyagent:customAgentSnapshotBySessionId");
     expect(store).toContain("export function readSessionAgentSnapshot");

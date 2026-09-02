@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { activateCreatedSessionRoute } from "../src/react-app/shell/session-route/created-session-actions";
+import {
+  activateCreatedSessionRoute,
+  bindExpertFreshIdleDraft,
+} from "../src/react-app/shell/session-route/created-session-actions";
+import type { PendingAgentContext } from "../src/react-app/domains/agents/pending-agent-store";
 
 describe("session route created-session actions", () => {
   test("activates a newly created workspace session and suppresses restore", () => {
@@ -52,5 +56,55 @@ describe("session route created-session actions", () => {
     expect(suppressRestoreSessionRef.current).toBe(true);
     expect(calls).toContain("active:null");
     expect(calls).toContain("navigate::ses_1");
+  });
+
+  test("bindExpertFreshIdleDraft opens idle draft without ses_* or startRun", () => {
+    const opened: string[] = [];
+    const stored: PendingAgentContext[] = [];
+    const forceNew = { current: false };
+    const snapshot: PendingAgentContext = {
+      id: "agent-a",
+      name: "Agent A",
+      description: "desc",
+      systemPrompt: "Be the expert",
+      avatar: {
+        avatarStyle: "robot",
+        avatarOptionId: "test",
+        customAvatarDataUrl: null,
+        avatarUrl: null,
+        avatarBackground: "#111",
+      },
+      boundSessionId: "ses_old",
+    };
+    const result = bindExpertFreshIdleDraft({
+      workspaceId: "ws-1",
+      forceNewSessionOnNextSendRef: forceNew,
+      openIdleDraft: (workspaceId) => opened.push(workspaceId),
+      pendingAgentSnapshot: snapshot,
+      setAgent: (agent) => stored.push(agent),
+      createOperationId: () => "op-1",
+      nowMs: 42,
+    });
+    expect(forceNew.current).toBe(true);
+    expect(opened).toEqual(["ws-1"]);
+    expect(result?.id).toBe("agent-a");
+    expect(result?.id.startsWith("ses_")).toBe(false);
+    expect(result?.boundSessionId).toBeUndefined();
+    expect(stored[0]?.boundSessionId).toBeUndefined();
+  });
+
+  test("bindExpertFreshIdleDraft does not invent a blank persona when snapshot is missing", () => {
+    const stored: PendingAgentContext[] = [];
+    const opened: string[] = [];
+    const result = bindExpertFreshIdleDraft({
+      workspaceId: "ws-1",
+      forceNewSessionOnNextSendRef: { current: false },
+      openIdleDraft: (workspaceId) => opened.push(workspaceId),
+      pendingAgentSnapshot: null,
+      setAgent: (agent) => stored.push(agent),
+    });
+    expect(opened).toEqual(["ws-1"]);
+    expect(result).toBeNull();
+    expect(stored).toEqual([]);
   });
 });
