@@ -7,6 +7,7 @@ import {
   SESSION_PREWARM_IDLE_TIMEOUT_MS,
   scheduleIdleExpertColdPrewarmTask,
   scheduleIdleWork,
+  shouldStartIdleExpertColdPrewarm,
 } from "../src/react-app/shell/session-route/prewarm-schedule";
 
 const appRoot = path.join(import.meta.dir, "..");
@@ -141,7 +142,7 @@ describe("session-route prewarm scheduleIdleWork", () => {
     let run: () => void = () => undefined;
     scheduleIdleExpertColdPrewarmTask({
       agentId: "agent-a",
-      getCurrentAgentId: () => "agent-a",
+      getCurrentAgent: () => ({ id: "agent-a" }),
       startPrewarm: () => {
         started += 1;
       },
@@ -160,6 +161,27 @@ describe("session-route prewarm scheduleIdleWork", () => {
     expect(started).toBe(0);
     run();
     expect(started).toBe(1);
+  });
+
+  test("shouldStartIdleExpertColdPrewarm rejects a bound first-send session", () => {
+    expect(
+      shouldStartIdleExpertColdPrewarm({
+        scheduledAgentId: "agent-a",
+        currentAgent: { id: "agent-a" },
+      }),
+    ).toBe(true);
+    expect(
+      shouldStartIdleExpertColdPrewarm({
+        scheduledAgentId: "agent-a",
+        currentAgent: { id: "agent-a", boundSessionId: "ses_1" },
+      }),
+    ).toBe(false);
+    expect(
+      shouldStartIdleExpertColdPrewarm({
+        scheduledAgentId: "agent-a",
+        currentAgent: { id: "agent-b" },
+      }),
+    ).toBe(false);
   });
 });
 

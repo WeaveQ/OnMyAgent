@@ -210,11 +210,21 @@ export function fetchDirectWithTimeout(
   if (userSignal && onUserAbort) {
     userSignal.addEventListener("abort", onUserAbort, { once: true });
   }
+  let timedOut = false;
   const timer = setTimeout(() => {
+    timedOut = true;
     controller.abort(new Error("Request timed out."));
   }, timeoutMs);
   return globalThis
     .fetch(request, input instanceof Request ? undefined : nextInit)
+    .catch((error) => {
+      // Native fetch rejects AbortError ("The user aborted a request."), not
+      // the abort reason. Remap our timer so callers see a timeout, not cancel.
+      if (timedOut) {
+        throw new Error("Request timed out.");
+      }
+      throw error;
+    })
     .finally(() => {
       clearTimeout(timer);
       if (userSignal && onUserAbort) {

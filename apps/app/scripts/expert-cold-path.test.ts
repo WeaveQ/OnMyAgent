@@ -276,6 +276,8 @@ describe("expert cold path wiring contracts", () => {
     const createIdx = prewarmBody.indexOf("startExpertColdPrewarm(");
     expect(idleIdx).toBeGreaterThan(0);
     expect(createIdx).toBeGreaterThan(idleIdx);
+    expect(prewarmBody).toContain("getCurrentAgent:");
+    expect(prewarmBody).toContain("usePendingAgentStore.getState().getAgent()");
   });
 
   test("idle expert prewarm starts only from the idle callback", () => {
@@ -283,7 +285,7 @@ describe("expert cold path wiring contracts", () => {
     let run: () => void = () => undefined;
     scheduleIdleExpertColdPrewarmTask({
       agentId: "agent-a",
-      getCurrentAgentId: () => "agent-a",
+      getCurrentAgent: () => ({ id: "agent-a" }),
       startPrewarm: () => {
         started += 1;
       },
@@ -309,7 +311,32 @@ describe("expert cold path wiring contracts", () => {
     let run: () => void = () => undefined;
     scheduleIdleExpertColdPrewarmTask({
       agentId: "agent-a",
-      getCurrentAgentId: () => "agent-b",
+      getCurrentAgent: () => ({ id: "agent-b" }),
+      startPrewarm: () => {
+        started += 1;
+      },
+      host: {
+        requestIdleCallback: (cb) => {
+          run = cb;
+          return 1;
+        },
+        cancelIdleCallback: () => undefined,
+        setTimeout: () => {
+          throw new Error("idle API should be used");
+        },
+        clearTimeout: () => undefined,
+      },
+    });
+    run();
+    expect(started).toBe(0);
+  });
+
+  test("idle expert prewarm skips start if first send already bound the draft", () => {
+    let started = 0;
+    let run: () => void = () => undefined;
+    scheduleIdleExpertColdPrewarmTask({
+      agentId: "agent-a",
+      getCurrentAgent: () => ({ id: "agent-a", boundSessionId: "ses_1" }),
       startPrewarm: () => {
         started += 1;
       },

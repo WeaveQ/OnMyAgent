@@ -242,6 +242,35 @@ try {
     }
   });
 
+  await step("timeout remaps native AbortError to Request timed out", async () => {
+    globalThis.fetch = (_input, init) =>
+      new Promise<Response>((_resolve, reject) => {
+        const signal = init?.signal;
+        if (!signal) return;
+        const fail = () => {
+          reject(new DOMException("The user aborted a request.", "AbortError"));
+        };
+        if (signal.aborted) {
+          fail();
+          return;
+        }
+        signal.addEventListener("abort", fail, { once: true });
+      });
+    try {
+      await assert.rejects(
+        fetchDirectWithTimeout("http://127.0.0.1/health", undefined, 15),
+        (error: unknown) => {
+          assert.ok(error instanceof Error);
+          assert.equal(error.message, "Request timed out.");
+          assert.notEqual(error.name, "AbortError");
+          return true;
+        },
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   await step("already-aborted init.signal rejects without fetch", async () => {
     let fetchCalls = 0;
     globalThis.fetch = async () => {

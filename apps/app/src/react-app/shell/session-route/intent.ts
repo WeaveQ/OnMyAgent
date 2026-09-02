@@ -145,7 +145,7 @@ export function scheduleIdleExpertColdPrewarm(input: {
   scheduleIdleExpertColdPrewarmTask({
     agentId,
     host: input.host,
-    getCurrentAgentId: () => usePendingAgentStore.getState().getAgent()?.id ?? null,
+    getCurrentAgent: () => usePendingAgentStore.getState().getAgent(),
     startPrewarm: () => {
       startExpertColdPrewarm(
         {
