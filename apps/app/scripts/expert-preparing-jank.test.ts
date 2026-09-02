@@ -21,25 +21,18 @@ const surfacePath = new URL(
 describe("expert preparing jank guards", () => {
   test("empty expert session create does not startRun (avoids stuck 准备中 shell)", async () => {
     const source = await readFile(pageViewPath, "utf8");
-    expect(source).toContain(
-      "Do NOT startRun here: this path only opens an empty expert",
-    );
-    expect(source).toContain(
-      "session shell. Marking runActive without a prompt leaves the",
-    );
-    const marker = "onCreateFreshSessionForAgent={async (workspaceId) => {";
+    const marker = "onCreateFreshSessionForAgent={(workspaceId) => {";
     const start = source.indexOf(marker);
     expect(start).toBeGreaterThanOrEqual(0);
-    // Bound the create-fresh handler body until the next sibling prop.
     const slice = source.slice(start, start + 8_000);
-    const end =
-      slice.indexOf("\n          settingsSlot=") > 0
-        ? slice.indexOf("\n          settingsSlot=")
-        : slice.indexOf("\n          onCreateSessionForAgent=");
+    const end = slice.indexOf("\n          sidebar=");
     const body = end > 0 ? slice.slice(0, end) : slice;
-    expect(body).not.toMatch(
-      /startRun\s*\(\s*workspaceId\s*,\s*newSession\.id\s*\)/,
-    );
+    expect(body).toContain("openExpertFreshIdleDraft(");
+    expect(body).toContain("scheduleIdleExpertColdPrewarm(");
+    expect(body).not.toContain("await claimOrCreateExpertColdSession(");
+    expect(body).not.toContain("await opencodeClient.session.create");
+    expect(body).not.toMatch(/\bawait\b/);
+    expect(body).not.toMatch(/\bstartRun\s*\(/);
   });
 
   test("new-session send seeds optimistic user message before route activation", async () => {
@@ -55,7 +48,7 @@ describe("expert preparing jank guards", () => {
 
   test("composer shows stop whenever busy, even if draft text remains", async () => {
     const source = await readFile(composerPath, "utf8");
-    expect(source).toContain("{props.busy ? (");
+    expect(source).toContain("composerShowsStopButton({ busy: props.busy, canSend })");
     expect(source).not.toContain("props.busy && !canSend");
     expect(source).toContain('title={t("composer.stop")}');
   });

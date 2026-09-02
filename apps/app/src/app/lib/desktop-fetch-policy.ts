@@ -168,3 +168,67 @@ export class DesktopFetchPolicyError extends Error {
     this.decision = decision;
   }
 }
+
+export function fetchDirectWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+  timeoutMs: number | undefined,
+): Promise<Response> {
+  if (!Number.isFinite(timeoutMs) || (timeoutMs ?? 0) <= 0) {
+    return globalThis.fetch(input, init);
+  }
+  const userSignal =
+    init?.signal ??
+    (typeof Request !== "undefined" && input instanceof Request
+      ? input.signal
+      : undefined);
+  if (userSignal?.aborted) {
+    const reason =
+      userSignal.reason instanceof Error
+        ? userSignal.reason
+        : new DOMException("Request cancelled.", "AbortError");
+    return Promise.reject(reason);
+  }
+  const controller = new AbortController();
+  const combinedSignal =
+    userSignal && typeof AbortSignal.any === "function"
+      ? AbortSignal.any([controller.signal, userSignal])
+      : controller.signal;
+  const nextInit: RequestInit = { ...(init ?? {}), signal: combinedSignal };
+  let request: RequestInfo | URL = input;
+  try {
+    if (typeof Request !== "undefined" && input instanceof Request) {
+      request = new Request(input, nextInit);
+    }
+  } catch (error) {
+    return Promise.reject(error);
+  }
+  const onUserAbort =
+    userSignal && combinedSignal === controller.signal
+      ? () => controller.abort(userSignal.reason)
+      : undefined;
+  if (userSignal && onUserAbort) {
+    userSignal.addEventListener("abort", onUserAbort, { once: true });
+  }
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort(new Error("Request timed out."));
+  }, timeoutMs);
+  return globalThis
+    .fetch(request, input instanceof Request ? undefined : nextInit)
+    .catch((error) => {
+      // Native fetch rejects AbortError ("The user aborted a request."), not
+      // the abort reason. Remap our timer so callers see a timeout, not cancel.
+      if (timedOut) {
+        throw new Error("Request timed out.");
+      }
+      throw error;
+    })
+    .finally(() => {
+      clearTimeout(timer);
+      if (userSignal && onUserAbort) {
+        userSignal.removeEventListener("abort", onUserAbort);
+      }
+    });
+}

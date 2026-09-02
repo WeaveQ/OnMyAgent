@@ -99,3 +99,45 @@ export function scheduleIdleWork(input: ScheduleIdleWorkInput): ScheduledIdleWor
     },
   };
 }
+
+export function shouldStartIdleExpertColdPrewarm(input: {
+  scheduledAgentId: string;
+  currentAgent:
+    | { id?: string | null; boundSessionId?: string | null }
+    | null
+    | undefined;
+}): boolean {
+  const scheduled = input.scheduledAgentId.trim();
+  if (!scheduled) return false;
+  const currentId = input.currentAgent?.id?.trim() ?? "";
+  if (currentId !== scheduled) return false;
+  // First send binds the draft; a late idle callback must not isolate+create
+  // a second unused OpenCode session for the same expert.
+  return !(input.currentAgent?.boundSessionId ?? "").trim();
+}
+
+export function scheduleIdleExpertColdPrewarmTask(input: {
+  agentId: string;
+  getCurrentAgent: () =>
+    | { id?: string | null; boundSessionId?: string | null }
+    | null
+    | undefined;
+  startPrewarm: () => void;
+  host?: ScheduleIdleWorkInput["host"];
+}): ScheduledIdleWork {
+  const agentId = input.agentId.trim();
+  return scheduleIdleWork({
+    host: input.host,
+    run: () => {
+      if (
+        !shouldStartIdleExpertColdPrewarm({
+          scheduledAgentId: agentId,
+          currentAgent: input.getCurrentAgent(),
+        })
+      ) {
+        return;
+      }
+      input.startPrewarm();
+    },
+  });
+}

@@ -76,7 +76,6 @@ const AgentsPage = lazy(() =>
 import { isDesktopProviderBlocked } from "../../../app/cloud/desktop-app-restrictions";
 import type { DesktopAppRestrictionChecker } from "../../../app/cloud/desktop-app-restrictions";
 import { ReactSessionRuntime } from "../../domains/session";
-import { usePendingAgentStore } from "../../domains/agents";
 import {
   writeCustomAgentIdForSession,
   writeSessionAgentSnapshot,
@@ -84,31 +83,22 @@ import {
 import {
   removeAssistantSession,
 } from "../../domains/agents";
-import { writeSessionOriginDurable } from "../../domains/agents";
 import {
   removeAutomationSessionRecord,
   renameAutomationSessionRecord,
 } from "../../domains/session";
 import {
-  claimOrCreateExpertColdSession,
   dispatchAssistantSessionWorkspacesChanged,
   readAssistantSessionWorkspace,
   removeAssistantSessionWorkspace,
   saveSessionDraft,
-  writeAssistantSessionWorkspace,
 } from "../../domains/session";
-import {
-  createIsolatedExpertSessionRuntimeDirectory,
-  shouldIsolateExpertSessionDirectory,
-} from "../../capabilities/session-identity/expert-session-directory";
-import { normalizeExpertWritePackageName } from "../../capabilities/session-identity/expert-package-name";
-import { useExpertDirectoryStore } from "../../capabilities/session-identity/expert-directory-store";
 import { CloudSessionProvider } from "../../domains/settings";
-import { installMarketplaceExpertAfterSessionCreated } from "./intent";
 import {
-  bindPendingAgentToSession,
-  resolvePendingAgentForPrompt,
-} from "./agent-context";
+  installMarketplaceExpertAfterSessionCreated,
+  openExpertFreshIdleDraft,
+  scheduleIdleExpertColdPrewarm,
+} from "./intent";
 import { SessionCloudAccountBridge } from "../session-cloud-account-bridge";
 import { WorkspaceProvider } from "../workspace-provider";
 import { SettingsSurface } from "../settings-route";
@@ -178,7 +168,6 @@ export type SessionRoutePageViewProps = {
   createWorkspaceOpen: boolean;
   createWorkspaceRemoteBusy: boolean;
   createWorkspaceRemoteError: string | null;
-  creatingSessionWorkspaceIdsRef: MutableRefObject<Set<string>>;
   developerMode: boolean;
   disabledProviderIds: string[];
   effectiveLoading: boolean;
@@ -323,7 +312,6 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
     createWorkspaceOpen,
     createWorkspaceRemoteBusy,
     createWorkspaceRemoteError,
-    creatingSessionWorkspaceIdsRef,
     developerMode,
     disabledProviderIds,
     effectiveLoading,
@@ -614,208 +602,26 @@ export function SessionRoutePageView(props: SessionRoutePageViewProps) {
           onCreateSessionForAgent={() => {
             forceNewSessionOnNextSendRef.current = true;
           }}
-          onCreateFreshSessionForAgent={async (workspaceId) => {
-            // Called when the user clicks "+ conversation" on an agent that is NOT yet
-            // present in the left-side agent list. We must create a real
-            // session right now (so the new agent is visible on the left as
-            // soon as we navigate to that session).
-            if (!opencodeClient) return;
-            if (creatingSessionWorkspaceIdsRef.current.has(workspaceId)) return;
-            creatingSessionWorkspaceIdsRef.current.add(workspaceId);
-            let newSession: {
-              id: string;
-              title?: string;
-              time?: unknown;
-              directory?: string;
-            } | null = null;
-            const pendingAgentSnapshot =
-              usePendingAgentStore.getState().getAgent();
-            let bindDirectory = "";
-            try {
-              const workspaceRoot = selectedWorkspaceRoot?.trim() || "";
-              const draftRoot =
-                surfaceProps?.draftWorkspace?.draftWorkspaceDirectory?.trim() || "";
-              let sessionDirectory = draftRoot || workspaceRoot || undefined;
-              bindDirectory = draftRoot;
-              // Treat empty draft and "draft == workspace root" as no real folder pick.
-              // Default sessions must bind to the external runtime-state directory.
-              if (shouldIsolateExpertSessionDirectory(workspaceRoot, draftRoot)) {
-                const agentName =
-                  pendingAgentSnapshot?.name?.trim() || "expert";
-                const agentId = pendingAgentSnapshot?.id?.trim() || "";
-                const packageName = normalizeExpertWritePackageName({
-                  agentId,
-                  packageName: pendingAgentSnapshot?.marketplaceExpert?.packageName,
-                });
-                const approvedAgentIds =
-                  pendingAgentSnapshot?.approvedAgentIds ?? [];
-                const skillNames = pendingAgentSnapshot?.skillIds ?? [];
-                const ensureWorkspaceId =
-                  selectedWorkspaceEndpoint?.workspaceId ?? workspaceId;
-                // A+B: claim draft prewarm or create under global cold queue.
-                const cold = await claimOrCreateExpertColdSession(
-                  {
-                    workspaceId: ensureWorkspaceId,
-                    agentId,
-                    agentName,
-                    packageName,
-                    approvedAgentIds,
-                    skillNames,
-                  },
-                  {
-                    createIsolatedDirectory: () =>
-                      createIsolatedExpertSessionRuntimeDirectory({
-                        client: selectedWorkspaceEndpoint?.client ?? client,
-                        workspaceId: ensureWorkspaceId,
-                        workspaceRoot,
-                        agentName,
-                        agentId,
-                        packageName,
-                        approvedAgentIds,
-                        skillNames,
-                      }),
-                    createSession: async (directory) => {
-                      const created = unwrap(
-                        await opencodeClient.session.create({ directory }),
-                      );
-                      return { id: created.id };
-                    },
-                  },
-                );
-                sessionDirectory = cold.directory;
-                bindDirectory = cold.directory;
-                newSession = {
-                  id: cold.sessionId,
-                  directory: cold.directory,
-                };
-              } else {
-                newSession = unwrap(
-                  await opencodeClient.session.create({
-                    directory: sessionDirectory,
-                  }),
-                );
-                newSession.directory = sessionDirectory;
-              }
-              // Do NOT startRun here: this path only opens an empty expert
-              // session shell. Marking runActive without a prompt leaves the
-              // transcript stuck on "准备中 / thinking" forever (no messages,
-              // never idle). Real runs start when the first draft is sent.
-            } finally {
-              creatingSessionWorkspaceIdsRef.current.delete(workspaceId);
-            }
-            if (!newSession) return;
-
-            // Bind the pending agent to this new session (so it appears with
-            // the agent avatar + system prompt when user sends first message).
-            // If the store is empty (e.g. race after navigation), inherit from
-            // the session the user was viewing so we never land on the default agent.
-            const { pendingAgentSnapshot: agentToBind } =
-              resolvePendingAgentForPrompt({
-                currentAgent:
-                  usePendingAgentStore.getState().getAgent() ??
-                  pendingAgentSnapshot,
-                createdSession: true,
-                sessionId: newSession.id,
-                inheritFromSessionId: selectedSessionId,
-                inheritAgentId: selectedSessionId
-                  ? useExpertDirectoryStore
-                      .getState()
-                      .getIdentity(workspaceId)
-                      .agentIdBySessionId.get(selectedSessionId)
-                  : null,
-              });
-            if (agentToBind) {
-              usePendingAgentStore.getState().setAgent(
-                bindPendingAgentToSession({
-                  agent: agentToBind,
-                  sessionId: newSession.id,
-                }),
-              );
-              useExpertDirectoryStore
-                .getState()
-                .upsertIdentity(workspaceId, newSession.id, agentToBind.id);
-              writeSessionAgentSnapshot(newSession.id, agentToBind);
-              // Empty session shell: do not block navigation/UI on package
-              // install. First prompt (and summon) join the same coordinator.
-              void installMarketplaceExpertAfterSessionCreated(agentToBind);
-            }
-            if (bindDirectory) {
-              writeAssistantSessionWorkspace({
-                sessionId: newSession.id,
-                ownerWorkspaceId: workspaceId,
-                directory: bindDirectory,
-              });
-              dispatchAssistantSessionWorkspacesChanged(workspaceId);
-            }
-
-            const markerClient = selectedWorkspaceEndpoint?.client ?? client;
-            const markerWorkspaceId = selectedWorkspaceEndpoint?.workspaceId ?? workspaceId;
-            const markerAgentId = agentToBind?.id?.trim() || undefined;
-            const markerPackageName = markerAgentId
-              ? normalizeExpertWritePackageName({
-                  agentId: markerAgentId,
-                  packageName: agentToBind?.marketplaceExpert?.packageName,
-                })
-              : undefined;
-            if (newSession.directory && markerClient) {
-              try {
-                await markerClient.ensureExpertSessionIsolation(markerWorkspaceId, {
-                  directory: newSession.directory,
-                  agentId: markerAgentId,
-                  packageName: markerPackageName,
-                  sessionId: newSession.id,
-                  approvedAgentIds: agentToBind?.approvedAgentIds ?? [],
-                });
-              } catch (error) {
-                console.warn("[expert-session] marker identity upgrade failed", error);
-              }
-            }
-            // Await durable origin so reload recovery has agentId + directory.
-            // Do not block navigation on the promise beyond microtask settle.
-            void writeSessionOriginDurable({
-              client: selectedWorkspaceEndpoint?.client ?? client,
-              workspaceId: selectedWorkspaceEndpoint?.workspaceId ?? workspaceId,
-              sessionId: newSession.id,
-              kind: "expert",
-              agentId: agentToBind?.id,
-              packageName: agentToBind
-                ? normalizeExpertWritePackageName({
-                    agentId: agentToBind.id,
-                    packageName: agentToBind.marketplaceExpert?.packageName,
-                  })
-                : undefined,
-              directory: newSession.directory,
-            }).then(() =>
-              getReactQueryClient().invalidateQueries({
-                queryKey: ["expert-directory", workspaceId],
-              }),
-            );
-
-            // Optimistically append the new session into the workspace list
-            // so the left-side agent panel renders the new agent immediately.
-            setLegacySelectedWorkspaceId(workspaceId);
-            writeActiveWorkspaceId(workspaceId || null);
-            writeLastSessionFor(workspaceId, newSession.id, pageMode);
-            rememberPendingCreatedSession(workspaceId, newSession.id);
-            setSessionsByWorkspaceId((current) => {
-              const next = insertSidebarSession({
-                current,
-                workspaceId,
-                session: newSession,
-                pageMode: "expert",
-                // Directory-derived identity was optimistically upserted above.
-                registerPageMode: false,
-              });
-              sessionsByWorkspaceIdRef.current = next;
-              return next;
-            });
-            setOptimisticSidebarSelection({
+          onCreateFreshSessionForAgent={(workspaceId) => {
+            const agentToBind = openExpertFreshIdleDraft({
               workspaceId,
-              sessionId: newSession.id,
+              selectedSessionId,
+              forceNewSessionOnNextSendRef,
+              openIdleDraft: (id) => {
+                void handleCreateTaskInWorkspace(id);
+              },
             });
-            navigateToWorkspaceSession(workspaceId, newSession.id);
-            focusPromptSoon();
-            void refreshRouteState();
+            if (!agentToBind) return;
+            void installMarketplaceExpertAfterSessionCreated(agentToBind);
+            scheduleIdleExpertColdPrewarm({
+              agent: agentToBind,
+              workspaceId: selectedWorkspaceEndpoint?.workspaceId ?? workspaceId,
+              workspaceRoot: selectedWorkspaceRoot,
+              client: selectedWorkspaceEndpoint?.client ?? client,
+              opencodeClient,
+              opencodeBaseUrl,
+              token,
+            });
           }}
           sidebar={{
             workspaceSessionGroups,

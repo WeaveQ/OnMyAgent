@@ -1121,7 +1121,6 @@ export function SessionRouteRender() {
       createWorkspaceOpen={createWorkspaceOpen}
       createWorkspaceRemoteBusy={createWorkspaceRemoteBusy}
       createWorkspaceRemoteError={createWorkspaceRemoteError}
-      creatingSessionWorkspaceIdsRef={creatingSessionWorkspaceIdsRef}
       developerMode={developerMode}
       disabledProviderIds={disabledProviderIds}
       effectiveLoading={effectiveLoading}

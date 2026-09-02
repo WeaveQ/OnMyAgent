@@ -152,6 +152,20 @@ export function useExpertSessionStarters(input: {
         draftSource: "new-session",
       };
     }
+    if (!nextAgent) {
+      const localExpert = input.localExpertPackages.find((expert) =>
+        marketplaceExpertMatchesAgentId(expert, agentId),
+      );
+      if (localExpert) {
+        nextAgent = {
+          ...buildPendingAgentFromMarketplaceExpert(localExpert),
+          boundSessionId: undefined,
+          operationId: createExpertOperationId(),
+          draftCreatedAt: Date.now(),
+          draftSource: "new-session",
+        };
+      }
+    }
     if (nextAgent) {
       // Same pattern as marketplace summon: create-task clears pendingAgent and
       // selectedSessionId. Re-assert draft after so the recency-sorted
