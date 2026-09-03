@@ -57,19 +57,19 @@ importers:
         version: 6.43.9
       '@dicebear/adventurer':
         specifier: ^9.4.2
-        version: 9.4.2(@dicebear/core@9.4.2)
+        version: 9.4.2(@dicebear/core@9.4.3)
       '@dicebear/bottts':
         specifier: ^9.4.2
-        version: 9.4.2(@dicebear/core@9.4.2)
+        version: 9.4.2(@dicebear/core@9.4.3)
       '@dicebear/core':
-        specifier: ^9.4.2
-        version: 9.4.2
+        specifier: ^9.4.3
+        version: 9.4.3
       '@dicebear/lorelei':
         specifier: ^9.4.2
-        version: 9.4.2(@dicebear/core@9.4.2)
+        version: 9.4.2(@dicebear/core@9.4.3)
       '@dicebear/pixel-art':
         specifier: ^9.4.2
-        version: 9.4.2(@dicebear/core@9.4.2)
+        version: 9.4.2(@dicebear/core@9.4.3)
       '@file-viewer/react':
         specifier: 2.2.8
         version: 2.2.8(react@19.2.8)
@@ -776,8 +776,8 @@ packages:
     peerDependencies:
       '@dicebear/core': ^9.0.0
 
-  '@dicebear/core@9.4.2':
-    resolution: {integrity: sha512-MF0042+Z3s8PGZKZLySfhft28bUa3B1iq0e5NSjCvY8gfMi5aIH/iRJGRJa1N9Jz1BNkxYb4yvJ/N9KO8Z6Y+w==}
+  '@dicebear/core@9.4.3':
+    resolution: {integrity: sha512-9ITrQI57k3p5hKuU8HZJ1d0kPdrmTKEJDOdlKQ8CpaChbtmnD1R+dtWmNz5IesYThXM8F64pJ0ZvJ2rsY8Hciw==}
     engines: {node: '>=18.0.0'}
 
   '@dicebear/lorelei@9.4.2':
@@ -4941,6 +4941,10 @@ packages:
     resolution: {integrity: sha512-R5SnVLJmgYYvf2F2ZgwSBnelz5G4q5AxIC277GDfUaNbrZKNANcBC7RHqYYePlszf4kBolVkJauG0ZjHHFh55g==}
     engines: {node: '>= 12'}
 
+  ip-address@10.7.0:
+    resolution: {integrity: sha512-BGFsyJd5mpXp3rK6jIdADLNgpJUK1jnjzvYF8lK+VyDab9JAmqN0YOKDdP17HlgKb2+ehPgDc8EtnRLbGCAMhA==}
+    engines: {node: '>= 12'}
+
   ipaddr.js@1.9.1:
     resolution: {integrity: sha512-0KI/607xoxSToH7GjN1FfSbLoU0+btTicjsQSWQlh/hZykN8KpmMf7uYwPW3R+akZ6R/w18ZlXSHBYXiYUPO3g==}
     engines: {node: '>= 0.10'}
@@ -5109,6 +5113,10 @@ packages:
 
   js-yaml@4.3.1:
     resolution: {integrity: sha512-CY6crGq313MX8GkwvB7tzgp99vjQxY1++5y10/BKN/GUfHqWaOGQMNZkBvqSzsZKWk/ijwHlWzzkLulsGHhjWQ==}
+    hasBin: true
+
+  js-yaml@4.3.2:
+    resolution: {integrity: sha512-SFNOvSJ+Dgf/9An904Yx+CgSlIPCkIpao4qo51lpee25TIRejdH3rhR4EZMGoNx3/TP3O+wzWuiTFl4sqbltzA==}
     hasBin: true
 
   jsesc@3.1.0:
@@ -5623,8 +5631,8 @@ packages:
     resolution: {integrity: sha512-8Ofs/AUQh8MaEcrlq5xOX0CQ9ypTF5dl78mjlMNfOK08fzpgTHQRQPBxcPlEtIw0yRpws+Zo/3r+5WRby7u3Gg==}
     engines: {node: '>= 0.6'}
 
-  node-abi@3.94.0:
-    resolution: {integrity: sha512-W5ZNO5KRPB5TkYmGVD9F6YqhsglXJzE6etpbmT+f6EQElhiX/UTG551cnsRGvLG3fyZEg9HwaDmNmj5nwJ4z9g==}
+  node-abi@3.96.0:
+    resolution: {integrity: sha512-rebQ/lz7i0EkoLzUVSrKRzA69zMkwLp95kKMWoMDkkM00Suxz0D7zEQPwRml5fQum24mj7bPvmlgLAmu2JCiYg==}
     engines: {node: '>=10'}
 
   node-abi@4.33.0:
@@ -6399,6 +6407,10 @@ packages:
   socks-proxy-agent@7.0.0:
     resolution: {integrity: sha512-Fgl0YPZ902wEsAyiQ+idGd1A7rSFx/ayC1CQVMw5P+EQx2V0SgpGtf6OKFhVjPflPUl9YMmEOnmfjCdMUsygww==}
     engines: {node: '>= 10'}
+
+  socks@2.8.10:
+    resolution: {integrity: sha512-e0VyvkVTwVYViNovRkZ9aodhxVlyoMn7eJhVUPxZ+eK9P/7CBkxvvsBOHqFPEH416726W8tLXXXjKwqgTErrCQ==}
+    engines: {node: '>= 10.0.0', npm: '>= 3.0.0'}
 
   socks@2.8.9:
     resolution: {integrity: sha512-LJhUYUvItdQ0LkJTmPeaEObWXAqFyfmP85x0tch/ez9cahmhlBBLbIqDFnvBnUJGagb0JbIQrkBs1wJ+yRYpEw==}
@@ -7624,25 +7636,25 @@ snapshots:
       ajv: 6.15.0
       ajv-keywords: 3.5.2(ajv@6.15.0)
 
-  '@dicebear/adventurer@9.4.2(@dicebear/core@9.4.2)':
+  '@dicebear/adventurer@9.4.2(@dicebear/core@9.4.3)':
     dependencies:
-      '@dicebear/core': 9.4.2
+      '@dicebear/core': 9.4.3
 
-  '@dicebear/bottts@9.4.2(@dicebear/core@9.4.2)':
+  '@dicebear/bottts@9.4.2(@dicebear/core@9.4.3)':
     dependencies:
-      '@dicebear/core': 9.4.2
+      '@dicebear/core': 9.4.3
 
-  '@dicebear/core@9.4.2':
+  '@dicebear/core@9.4.3':
     dependencies:
       '@types/json-schema': 7.0.15
 
-  '@dicebear/lorelei@9.4.2(@dicebear/core@9.4.2)':
+  '@dicebear/lorelei@9.4.2(@dicebear/core@9.4.3)':
     dependencies:
-      '@dicebear/core': 9.4.2
+      '@dicebear/core': 9.4.3
 
-  '@dicebear/pixel-art@9.4.2(@dicebear/core@9.4.2)':
+  '@dicebear/pixel-art@9.4.2(@dicebear/core@9.4.3)':
     dependencies:
-      '@dicebear/core': 9.4.2
+      '@dicebear/core': 9.4.3
 
   '@discordjs/builders@1.14.1':
     dependencies:
@@ -7821,7 +7833,7 @@ snapshots:
       detect-libc: 2.1.2
       fs-extra: 10.1.0
       got: 11.8.6
-      node-abi: 3.94.0
+      node-abi: 3.96.0
       node-api-version: 0.2.1
       node-gyp: 9.4.1
       ora: 5.4.1
@@ -10494,7 +10506,7 @@ snapshots:
       hosted-git-info: 4.1.0
       is-ci: 3.0.1
       isbinaryfile: 5.0.7
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       json5: 2.2.3
       lazy-val: 1.0.5
       minimatch: 10.2.6
@@ -10751,7 +10763,7 @@ snapshots:
       http-proxy-agent: 7.0.2
       https-proxy-agent: 7.0.6
       is-ci: 3.0.1
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       source-map-support: 0.5.21
       stat-mode: 1.0.0
       temp-file: 3.4.0
@@ -12168,6 +12180,8 @@ snapshots:
 
   ip-address@10.5.0: {}
 
+  ip-address@10.7.0: {}
+
   ipaddr.js@1.9.1: {}
 
   is-arrayish@0.2.1: {}
@@ -12275,6 +12289,10 @@ snapshots:
       argparse: 2.0.1
 
   js-yaml@4.3.1:
+    dependencies:
+      argparse: 2.0.1
+
+  js-yaml@4.3.2:
     dependencies:
       argparse: 2.0.1
 
@@ -12721,7 +12739,7 @@ snapshots:
 
   negotiator@1.0.0: {}
 
-  node-abi@3.94.0:
+  node-abi@3.96.0:
     dependencies:
       semver: 7.8.5
 
@@ -13663,9 +13681,14 @@ snapshots:
     dependencies:
       agent-base: 6.0.2
       debug: 4.4.3
-      socks: 2.8.9
+      socks: 2.8.10
     transitivePeerDependencies:
       - supports-color
+
+  socks@2.8.10:
+    dependencies:
+      ip-address: 10.7.0
+      smart-buffer: 4.2.0
 
   socks@2.8.9:
     dependencies:
