@@ -1,25 +1,19 @@
 /** @jsxImportSource react */
-import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useRef, useState, type DragEvent } from "react";
 import { Maximize2, Minimize2 } from "lucide-react";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { t } from "../../../../i18n";
-import type { AssistantCategoryId } from "../surface/personal-assistant-config";
-import type { AgentConversationGroup, AssistantGlobalPin } from "./conversation-model";
-import type { AssistantAutomationGroup } from "./assistant-automation-groups";
+import type { AssistantGlobalPin } from "./conversation-model";
 import type { AssistantListModel } from "./assistant-list-model";
-import {
-  assistantDirectoryName,
-  dropSlotToIndex,
-  groupIncludesSession,
-  pinOwnsSession,
-} from "./assistant-list-model";
+import { assistantDirectoryName, dropSlotToIndex } from "./assistant-list-model";
 import { TASK_ROW_ACTION_CLASS } from "./assistant-task-item";
-import {
-  resolveUnreadAgentIdForSession,
-  useExpertUnreadStore,
-} from "../status/expert-unread-store";
+import type {
+  AssistantBatchSectionId,
+  AssistantBatchSelectionState,
+} from "./assistant-list-model";
+import { useAssistantConversationSectionsState } from "./assistant-sidebar-controls";
 import {
   AssistantListEmptyState,
   AssistantTaskRows,
@@ -35,80 +29,40 @@ import {
   dropSlotFromEvent,
 } from "./assistant-conversation-rows";
 
-type SectionId = "pinned" | "recent" | "spaces" | "automations";
-
 type AssistantConversationSectionsProps = {
-  categoryId: AssistantCategoryId;
   workspaceId: string;
   selectedSessionId: string | null;
   sessionStatusById?: Record<string, string>;
-  /** Unpinned scheduled groups for the Schedules section. */
-  automationGroups: AssistantAutomationGroup<AgentConversationGroup>[];
-  /**
-   * All scheduled groups (incl. globally pinned) — used by the pin strip and
-   * local-pin lookup. Defaults to automationGroups when omitted.
-   */
-  automationGroupsAll?: AssistantAutomationGroup<AgentConversationGroup>[];
-  /** automationId → local pin order inside that scheduled group. */
-  automationLocalPinsById?: Record<string, string[]>;
   /** Built once in the panel — pin / space / recent rules. */
   listModel: AssistantListModel;
   expandedDirectories: string[];
-  expandedAutomationDirectories: string[];
   onExpandedDirectoriesChange: (updater: (current: string[]) => string[]) => void;
-  onExpandedAutomationDirectoriesChange: (updater: (current: string[]) => string[]) => void;
   onOpenSession: (workspaceId: string, sessionId: string) => void;
   onPrefetchSession?: (workspaceId: string, sessionId: string) => void;
   onTogglePinned: (sessionId: string) => void;
   onToggleFolderPinned?: (directory: string) => void;
-  onToggleAutomationGroupPinned?: (groupId: string) => void;
   onReorderGlobalPins?: (fromIndex: number, toIndex: number) => void;
   onReorderSpaceFolders?: (orderedDirectories: string[]) => void;
   onRenameSession?: (sessionId: string, currentTitle: string) => void;
   onArchiveSession?: (sessionId: string, title: string) => void;
   onDeleteSession?: (sessionId: string) => void;
+  batchMode?: boolean;
+  batchSelectedSessionIds?: ReadonlySet<string>;
+  batchSectionSelectionState?: Record<
+    AssistantBatchSectionId,
+    AssistantBatchSelectionState
+  >;
+  onToggleBatchSession?: (sessionId: string) => void;
+  onToggleBatchSection?: (sectionId: AssistantBatchSectionId) => void;
+  onEnterBatchMode?: () => void;
   onOpenFolder?: (path: string) => void;
   onSaveToSpace?: (sessionId: string) => void;
   onRemoveSpaceDirectory?: (directory: string) => void;
   onArchiveSpaceDirectory?: (directory: string) => void;
   onCreateTaskInDirectory?: (directory: string) => void;
-  /** Soft-archive every run under a scheduled-task group. */
-  onArchiveAutomationGroup?: (groupId: string) => void;
-  /** Confirm + permanently delete every run under a scheduled-task group. */
-  onDeleteAutomationGroup?: (target: {
-    groupId: string;
-    title: string;
-    sessionIds: string[];
-  }) => void;
 };
 
 export function AssistantConversationSections(props: AssistantConversationSectionsProps) {
-  // Recent open by default; spaces open; automations collapsed.
-  // Selection still forces its owning section open.
-  const [expandedSections, setExpandedSections] = useState<Record<SectionId, boolean>>({
-    pinned: true,
-    recent: true,
-    spaces: true,
-    automations: false,
-  });
-  const [showAllBySection, setShowAllBySection] = useState<Record<SectionId, boolean>>({
-    pinned: false,
-    recent: false,
-    spaces: false,
-    automations: false,
-  });
-  /** Per space-folder / automation-group: expand beyond FOLDER_TASK_PREVIEW_LIMIT. */
-  const [showAllByFolder, setShowAllByFolder] = useState<Record<string, boolean>>({});
-
-  const setFocusedAgent = useExpertUnreadStore((state) => state.setFocusedAgent);
-
-  // Keep unread cursor in sync with the open assistant task (clears blue dot).
-  useEffect(() => {
-    const sessionId = props.selectedSessionId?.trim() || null;
-    const scopeId = sessionId ? resolveUnreadAgentIdForSession(props.workspaceId, sessionId) : null;
-    setFocusedAgent(props.workspaceId, scopeId);
-  }, [props.selectedSessionId, props.workspaceId, setFocusedAgent]);
-
   const {
     globalPins,
     groupsBySessionId,
@@ -119,9 +73,19 @@ export function AssistantConversationSections(props: AssistantConversationSectio
     spaceLocalPinsByDirectory,
     allSpaceDirectories,
   } = props.listModel;
-
-  // Home no longer lists automation groups; empty map keeps pin ownership helpers typed.
-  const automationItemsById = useMemo(() => new Map<string, AgentConversationGroup[]>(), []);
+  const {
+    expandedSections,
+    showAllBySection,
+    showAllByFolder,
+    toggleSection,
+    expandSection,
+    toggleShowAll,
+    toggleShowAllFolder,
+  } = useAssistantConversationSectionsState({
+    workspaceId: props.workspaceId,
+    selectedSessionId: props.selectedSessionId,
+    listModel: props.listModel,
+  });
 
   const pinnedCount = globalPins.length;
   const recentCount = recentGroups.length;
@@ -130,64 +94,6 @@ export function AssistantConversationSections(props: AssistantConversationSectio
   const allSpaceDirectoriesExpanded =
     spaceDirectoryCount > 0 &&
     spaceFolders.every((folder) => props.expandedDirectories.includes(folder.directory));
-  // allSpaceDirectories comes from listModel (spaceFolderOrder storage order),
-  // not Map.keys() discovery order — required for correct pin-slot merge.
-  // Which top-level section owns the selected session (stable string key).
-  // Computed in render so the expand effect only depends on this primitive —
-  // unstable Map/array deps previously re-fired setExpandedSections every paint.
-  const selectedOwnerSection = useMemo((): SectionId | null => {
-    const selected = props.selectedSessionId;
-    if (!selected) return null;
-    if (
-      globalPins.some((pin) =>
-        pinOwnsSession(
-          pin,
-          selected,
-          groupsBySessionId,
-          spaceItemsByDirectory,
-          automationItemsById,
-        ),
-      )
-    ) {
-      return "pinned";
-    }
-    if (groupIncludesSession(recentGroups, selected)) return "recent";
-    if (spaceFolders.some((folder) => groupIncludesSession(folder.items, selected))) {
-      return "spaces";
-    }
-    return null;
-  }, [
-    automationItemsById,
-    globalPins,
-    groupsBySessionId,
-    props.selectedSessionId,
-    recentGroups,
-    spaceFolders,
-    spaceItemsByDirectory,
-  ]);
-
-  // Keep the section that owns the selected session expanded.
-  useEffect(() => {
-    if (!selectedOwnerSection) return;
-    setExpandedSections((current) =>
-      current[selectedOwnerSection] ? current : { ...current, [selectedOwnerSection]: true },
-    );
-  }, [selectedOwnerSection]);
-
-  const toggleSection = (id: SectionId) => {
-    setExpandedSections((current) => ({ ...current, [id]: !current[id] }));
-  };
-
-  const toggleShowAll = (id: SectionId) => {
-    setShowAllBySection((current) => ({ ...current, [id]: !current[id] }));
-  };
-
-  const toggleShowAllFolder = (folderKey: string) => {
-    setShowAllByFolder((current) => ({
-      ...current,
-      [folderKey]: !current[folderKey],
-    }));
-  };
 
   const showAllRecent = showAllBySection.recent;
   const visibleRecentGroups =
@@ -246,7 +152,16 @@ export function AssistantConversationSections(props: AssistantConversationSectio
     props.onReorderGlobalPins(from, to);
   };
 
-  const canReorderPins = Boolean(props.onReorderGlobalPins);
+  const canReorderPins = !props.batchMode && Boolean(props.onReorderGlobalPins);
+  const batchSelectionFor = (sectionId: AssistantBatchSectionId) =>
+    props.batchMode &&
+    props.batchSectionSelectionState &&
+    props.onToggleBatchSection
+      ? {
+          state: props.batchSectionSelectionState[sectionId],
+          onToggle: () => props.onToggleBatchSection?.(sectionId),
+        }
+      : undefined;
 
   /** Drop target + drag source props for a pin header/session surface. */
   const pinDragSurfaceProps = (pinIndex: number) =>
@@ -295,6 +210,10 @@ export function AssistantConversationSections(props: AssistantConversationSectio
             onRenameSession={props.onRenameSession}
             onArchiveSession={props.onArchiveSession}
             onDeleteSession={props.onDeleteSession}
+            batchMode={props.batchMode}
+            batchSelectedSessionIds={props.batchSelectedSessionIds}
+            onToggleBatchSession={props.onToggleBatchSession}
+            onEnterBatchMode={props.onEnterBatchMode}
             onOpenFolder={props.onOpenFolder}
             onSaveToSpace={props.onSaveToSpace}
           />
@@ -338,6 +257,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
             onArchiveDirectory={props.onArchiveSpaceDirectory}
             onRemoveFromList={props.onRemoveSpaceDirectory}
             onCreateTask={props.onCreateTaskInDirectory}
+            batchMode={props.batchMode}
           />
         </div>
         {props.expandedDirectories.includes(pin.id) ? (
@@ -358,6 +278,10 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                 onRenameSession={props.onRenameSession}
                 onArchiveSession={props.onArchiveSession}
                 onDeleteSession={props.onDeleteSession}
+                batchMode={props.batchMode}
+                batchSelectedSessionIds={props.batchSelectedSessionIds}
+                onToggleBatchSession={props.onToggleBatchSession}
+                onEnterBatchMode={props.onEnterBatchMode}
                 onOpenFolder={props.onOpenFolder}
                 onSaveToSpace={props.onSaveToSpace}
               />
@@ -384,6 +308,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
               expanded={expandedSections.pinned}
               onToggle={() => toggleSection("pinned")}
               quiet
+              batchSelection={batchSelectionFor("pinned")}
             />
             {expandedSections.pinned ? (
               <div
@@ -416,6 +341,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
             expanded={expandedSections.recent}
             onToggle={() => toggleSection("recent")}
             quiet
+            batchSelection={batchSelectionFor("recent")}
           />
           {expandedSections.recent ? (
             <div className={cn("flex flex-col pb-1", LIST_STACK_GAP)}>
@@ -436,6 +362,10 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                     onRenameSession={props.onRenameSession}
                     onArchiveSession={props.onArchiveSession}
                     onDeleteSession={props.onDeleteSession}
+                    batchMode={props.batchMode}
+                    batchSelectedSessionIds={props.batchSelectedSessionIds}
+                    onToggleBatchSession={props.onToggleBatchSession}
+                    onEnterBatchMode={props.onEnterBatchMode}
                     onOpenFolder={props.onOpenFolder}
                     onSaveToSpace={props.onSaveToSpace}
                   />
@@ -458,8 +388,9 @@ export function AssistantConversationSections(props: AssistantConversationSectio
             expanded={expandedSections.spaces}
             onToggle={() => toggleSection("spaces")}
             quiet
+            batchSelection={batchSelectionFor("spaces")}
             trailing={
-              spacesCount > 0 || spaceDirectoryCount > 0 ? (
+              !props.batchMode && (spacesCount > 0 || spaceDirectoryCount > 0) ? (
                 <IconHoverTip
                   label={
                     allSpaceDirectoriesExpanded
@@ -482,10 +413,7 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                     onClick={(event) => {
                       event.stopPropagation();
                       if (!expandedSections.spaces) {
-                        setExpandedSections((current) => ({
-                          ...current,
-                          spaces: true,
-                        }));
+                        expandSection("spaces");
                       }
                       if (allSpaceDirectoriesExpanded) {
                         props.onExpandedDirectoriesChange(() => []);
@@ -533,6 +461,10 @@ export function AssistantConversationSections(props: AssistantConversationSectio
                   onRenameSession={props.onRenameSession}
                   onArchiveSession={props.onArchiveSession}
                   onDeleteSession={props.onDeleteSession}
+                  batchMode={props.batchMode}
+                  batchSelectedSessionIds={props.batchSelectedSessionIds}
+                  onToggleBatchSession={props.onToggleBatchSession}
+                  onEnterBatchMode={props.onEnterBatchMode}
                   onSaveToSpace={props.onSaveToSpace}
                   onToggleShowAllFolder={toggleShowAllFolder}
                 />

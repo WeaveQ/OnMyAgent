@@ -1,6 +1,12 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 /** @jsxImportSource react */
-import { useCallback, useEffect, useLayoutEffect, useRef, type MouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  type MouseEvent,
+} from "react";
 import { ArrowLeft, ArrowRight, Bot, Globe, Plus, RotateCw, X } from "lucide-react";
 import { useDragControls } from "motion/react";
 import { isElectronRuntime } from "@/app/utils";
@@ -204,6 +210,54 @@ function BrowserTab({ tab }: BrowserTabProps) {
   );
 }
 
+export function BrowserPageTabHeader(props: {
+  tabs: BrowserTabInfo[];
+  onReorder: (tabIds: unknown[]) => void;
+  onCreateTab?: () => void;
+}) {
+  return (
+    <div
+      data-panel-titlebar-row="browser-pages"
+      className="flex h-10 items-center gap-1 border-b border-dls-border/60 px-2"
+    >
+      {/*
+        Keep this strip as a window-drag region (the BrowserPanel parent owns
+        titlebar-drag). Only tabs/buttons opt out through shared primitives.
+      */}
+      <div
+        data-panel-titlebar-controls="true"
+        className="min-w-0 flex-1 overflow-x-auto"
+      >
+        <PanelTabList
+          values={props.tabs.map((tab) => tab.tabId)}
+          onReorder={props.onReorder}
+        >
+          {props.tabs.map((tab) => (
+            <BrowserTab key={tab.tabId} tab={tab} />
+          ))}
+        </PanelTabList>
+      </div>
+      {props.onCreateTab ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={(
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={props.onCreateTab}
+                aria-label={t("session.browser_new_tab")}
+              >
+                <Plus />
+              </Button>
+            )}
+          />
+          <TooltipContent>{t("session.browser_new_tab")}</TooltipContent>
+        </Tooltip>
+      ) : null}
+    </div>
+  );
+}
+
 export function EmbeddedBrowserViewport({
   url,
   announcePanelOpen = true,
@@ -344,7 +398,10 @@ export function EmbeddedBrowserViewport({
   return <div ref={contentRef} className={className ?? "min-h-0 flex-1 overflow-hidden"} />;
 }
 
-export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
+export function BrowserPanel({
+  onClose,
+  sessionId = null,
+}: BrowserPanelProps) {
   const [state, dispatch] = useBrowserState();
   const urlFocusedRef = useRef(false);
   const urlInputRef = useRef<HTMLInputElement>(null);
@@ -386,6 +443,7 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
     sessionTabs[0] ??
     null;
   const hasSessionScopedTabs = Boolean(sessionId) && sessionTabs.length > 0;
+  const showPageTabHeader = sessionTabs.length > 1;
 
   // Keep the native selected tab inside this chat session's tab set.
   useEffect(() => {
@@ -417,7 +475,10 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
     void (async () => {
       const browser = getElectronBrowser();
       if (!browser?.createTab) return;
-      await browser.createTab(BROWSER_HOME_URL, { sessionId: sid });
+      const created = await browser.createTab(BROWSER_HOME_URL, { sessionId: sid });
+      if (created?.tabId && browser.selectTab) {
+        await browser.selectTab(created.tabId).catch(() => undefined);
+      }
       const next = await browser.getState?.().catch(() => null);
       if (next) {
         dispatch({
@@ -478,39 +539,13 @@ export function BrowserPanel({ onClose, sessionId = null }: BrowserPanelProps) {
           data-panel-titlebar="true"
           className="shrink-0 border-b border-dls-border bg-dls-background mac:bg-dls-background/80 mac:titlebar-drag mac:backdrop-blur-2xl mac:backdrop-saturate-150"
         >
-          <div className="flex h-10 items-center gap-1 border-b border-dls-border/60 px-2">
-            {/*
-              Keep this strip as a window-drag region (parent has titlebar-drag).
-              Only tabs/buttons opt out via Button's titlebar-no-drag — do not
-              no-drag the whole flex-1 scroller or empty top chrome becomes undraggable.
-            */}
-            <div
-              data-panel-titlebar-controls="true"
-              className="min-w-0 flex-1 overflow-x-auto"
-            >
-              <PanelTabList
-                values={sessionTabs.map((tab) => tab.tabId)}
-                onReorder={reorderTabs}
-              >
-                {sessionTabs.map((tab) => (
-                  <BrowserTab
-                    key={tab.tabId}
-                    tab={tab}
-                  />
-                ))}
-              </PanelTabList>
-            </div>
-            <Tooltip>
-              <TooltipTrigger
-                render={(
-                  <Button variant="ghost" size="icon-sm" onClick={createTab} aria-label={t("session.browser_new_tab")}>
-                    <Plus />
-                  </Button>
-                )}
-              />
-              <TooltipContent>{t("session.browser_new_tab")}</TooltipContent>
-            </Tooltip>
-          </div>
+          {showPageTabHeader ? (
+            <BrowserPageTabHeader
+              tabs={sessionTabs}
+              onReorder={reorderTabs}
+              onCreateTab={createTab}
+            />
+          ) : null}
           <div className="flex h-10 items-center gap-1 px-2">
             <Tooltip>
               <TooltipTrigger

@@ -29,6 +29,7 @@ type AgentConversationPanelHeaderProps = {
   query: string;
   selectedSessionId: string | null;
   automationActive?: boolean;
+  queryDisabled?: boolean;
   onQueryChange: (value: string) => void;
   onOpenAgents: () => void;
   onCreateTask?: () => void;
@@ -55,6 +56,7 @@ export function AgentConversationPanelHeader(props: AgentConversationPanelHeader
           </InputGroupAddon>
           <InputGroupInput
             value={props.query}
+            disabled={props.queryDisabled}
             onChange={(event) => props.onQueryChange(event.target.value)}
             placeholder={t("session.search_tasks_placeholder")}
             aria-label={t("session.search_tasks_placeholder")}

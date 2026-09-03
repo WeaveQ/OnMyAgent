@@ -1,5 +1,4 @@
 import { APP_NAME } from "../brand";
-
 export default {
   "session.allow_for_session": "在會話期間允許",
   "session.allow_once": "允許一次",
@@ -99,6 +98,7 @@ export default {
   "session.browser_select_tab": "選擇標籤頁：{label}",
   "session.browser_desktop_only": "瀏覽器僅在桌面應用程式中可用。",
   "session.code_side_panel_browser": "瀏覽器",
+  "session.code_side_panel_add_tool": "新增工作區工具",
   "session.code_side_panel_automations": "自動化任務",
   "session.code_side_panel_close": "關閉側邊欄",
   "session.code_side_panel_files": "文件",

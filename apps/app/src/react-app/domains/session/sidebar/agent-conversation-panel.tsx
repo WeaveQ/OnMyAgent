@@ -34,6 +34,13 @@ import {
 } from "../../agents";
 import { AssistantConversationSections } from "./assistant-conversation-sections";
 import {
+  AssistantBatchActionBar,
+  AssistantBatchDeleteModal,
+  useAssistantBatchActions,
+  type AssistantBatchDeleteResult,
+} from "./assistant-sidebar-controls";
+import type { AssistantBatchTask } from "./assistant-list-model";
+import {
   AgentConversationPanelHeader,
   SIDEBAR_FOOTER_CTA_CLASS,
 } from "./agent-conversation-panel-header";
@@ -195,6 +202,9 @@ export function AgentConversationPanel(props: {
   onOpenAutomation?: () => void;
   onRenameSession?: (sessionId: string, currentTitle: string) => void;
   onDeleteSession?: (sessionId: string) => void;
+  onDeleteSessions?: (
+    sessionIds: readonly string[],
+  ) => Promise<AssistantBatchDeleteResult>;
   /** Expert list: delete whole expert (all sessions under agent). */
   onDeleteExpert?: (target: {
     agentId: string;
@@ -835,19 +845,12 @@ export function AgentConversationPanel(props: {
     ],
   );
   const assistantListModel = assistantSidebarModel.listModel;
-  const automationGroupsAll = assistantSidebarModel.automationGroupsAll;
-  const automationGroups = assistantSidebarModel.automationGroups;
 
   const [expandedAssistantDirectories, setExpandedAssistantDirectories] =
-    useState<string[]>([]);
-  const [expandedAutomationDirectories, setExpandedAutomationDirectories] =
     useState<string[]>([]);
   const assistantSpaceDirectoryKey = Array.from(
     assistantListModel.spaceItemsByDirectory.keys(),
   ).join("\n");
-  const automationDirectoryKey = automationGroupsAll
-    .map((group) => group.id)
-    .join("\n");
 
   useEffect(() => {
     setAssistantGlobalPins(readAssistantGlobalPins(props.selectedWorkspaceId));
@@ -1000,30 +1003,6 @@ export function AgentConversationPanel(props: {
     [props.selectedWorkspaceId],
   );
 
-  const toggleAssistantPinnedAutomationGroup = useCallback(
-    (groupId: string) => {
-      const id = groupId.trim();
-      if (!id) return;
-      setAssistantGlobalPins((current) => {
-        const exists = current.some(
-          (pin) => pin.kind === "automation" && pin.id === id,
-        );
-        const next = exists
-          ? current.filter(
-              (pin) => !(pin.kind === "automation" && pin.id === id),
-            )
-          : [{ kind: "automation" as const, id }, ...current];
-        writeAssistantGlobalPins(props.selectedWorkspaceId, next);
-        return next;
-      });
-      // Keep the group expanded under the pin strip after pin.
-      setExpandedAutomationDirectories((current) =>
-        current.includes(id) ? current : [...current, id],
-      );
-    },
-    [props.selectedWorkspaceId],
-  );
-
   const reorderAssistantGlobalPins = useCallback(
     (fromIndex: number, toIndex: number) => {
       // UI indices are into the *category-visible* pin list; merge back so
@@ -1135,8 +1114,12 @@ export function AgentConversationPanel(props: {
     ],
   );
 
-  const handleArchiveAssistantSession = useCallback(
-    (sessionId: string, title: string) => {
+  const archiveAssistantSession = useCallback(
+    (
+      sessionId: string,
+      title: string,
+      options?: { silent?: boolean },
+    ) => {
       const rawSessions = group?.sessions ?? [];
       const byId = new Map(rawSessions.map((session) => [session.id, session]));
       const childIds = collectSessionDescendantIds(rawSessions, sessionId);
@@ -1159,7 +1142,9 @@ export function AgentConversationPanel(props: {
         );
         setArchivedRevision((value) => value + 1);
       }
-      archiveAssistantSessionCore(sessionId, title);
+      archiveAssistantSessionCore(sessionId, title, {
+        silent: options?.silent,
+      });
     },
     [
       archiveAssistantSessionCore,
@@ -1169,6 +1154,47 @@ export function AgentConversationPanel(props: {
       props.selectedWorkspaceId,
     ],
   );
+
+  const handleArchiveAssistantSession = useCallback(
+    (sessionId: string, title: string) => {
+      archiveAssistantSession(sessionId, title);
+    },
+    [archiveAssistantSession],
+  );
+
+  const handleArchiveAssistantTasks = useCallback(
+    (tasks: readonly AssistantBatchTask[]) => {
+      for (const task of tasks) {
+        archiveAssistantSession(task.sessionId, task.title, { silent: true });
+      }
+      if (tasks.length > 0) {
+        showToast({
+          tone: "success",
+          title: t("session.batch_archive_done", { count: tasks.length }),
+        });
+      }
+    },
+    [archiveAssistantSession, showToast],
+  );
+
+  const handleBatchDeleteFailures = useCallback(() => {
+    showToast({
+      tone: "error",
+      title: t("session.batch_delete_failed"),
+    });
+  }, [showToast]);
+
+  const assistantBatch = useAssistantBatchActions({
+    scopeKey: `${mode}:${props.selectedWorkspaceId}:${props.assistantCategoryId ?? ""}`,
+    listModel: assistantListModel,
+    onArchiveTasks: handleArchiveAssistantTasks,
+    onDeleteSessions: props.onDeleteSessions,
+    onDeleteFailures: handleBatchDeleteFailures,
+  });
+  const enterAssistantBatchMode = useCallback(() => {
+    if (props.query) props.onQueryChange("");
+    assistantBatch.enter();
+  }, [assistantBatch.enter, props.onQueryChange, props.query]);
 
   const handleOpenFolder = useCallback((path: string) => {
     if (!isDesktopRuntime()) {
@@ -1265,69 +1291,6 @@ export function AgentConversationPanel(props: {
       });
     },
     [props.selectedWorkspaceId, showToast],
-  );
-
-  /** Soft-archive every run under a scheduled-task (automation) group. */
-  const handleArchiveAutomationGroup = useCallback(
-    (groupId: string) => {
-      const group = automationGroupsAll.find((item) => item.id === groupId);
-      if (!group || group.items.length === 0) return;
-      const workspaceSessions = props.groups.find(
-        (item) => item.workspace.id === props.selectedWorkspaceId,
-      )?.sessions ?? [];
-      const byId = new Map(
-        workspaceSessions.map((session) => [session.id, session]),
-      );
-      for (const item of group.items) {
-        const parentId = item.latestSession.id;
-        for (const childId of collectSessionDescendantIds(
-          workspaceSessions,
-          parentId,
-        )) {
-          const child = byId.get(childId);
-          archiveAssistantSessionCore(
-            childId,
-            child?.title?.trim() || childId,
-            { silent: true, parentID: child?.parentID ?? parentId },
-          );
-        }
-        archiveAssistantSessionCore(
-          parentId,
-          item.description,
-          { silent: true },
-        );
-      }
-      // Drop group from global pins + clear local pin order.
-      setAssistantGlobalPins((current) => {
-        const next = current.filter(
-          (pin) => !(pin.kind === "automation" && pin.id === groupId),
-        );
-        if (next.length === current.length) return current;
-        writeAssistantGlobalPins(props.selectedWorkspaceId, next);
-        return next;
-      });
-      const scope = automationLocalPinScope(groupId);
-      if (scope) {
-        writeAssistantSpaceLocalPins(props.selectedWorkspaceId, scope, []);
-      }
-      setAutomationLocalPinsById((current) => {
-        if (!current[groupId]) return current;
-        const next = { ...current };
-        delete next[groupId];
-        return next;
-      });
-      showToast({
-        tone: "success",
-        title: t("session.archive_space_done"),
-      });
-    },
-    [
-      archiveAssistantSessionCore,
-      automationGroupsAll,
-      props.groups,
-      props.selectedWorkspaceId,
-      showToast,
-    ],
   );
 
   /** Soft-archive every session under a space folder, then unbind the folder. */
@@ -1451,16 +1414,6 @@ export function AgentConversationPanel(props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- key is the stable signal
   }, [assistantSpaceDirectoryKey]);
 
-  useEffect(() => {
-    setExpandedAutomationDirectories((current) => {
-      const next = new Set(current);
-      for (const group of automationGroupsAll) next.add(group.id);
-      return next.size === current.length ? current : Array.from(next);
-    });
-    // automationDirectoryKey fingerprints the automation group id set.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- key is the stable signal
-  }, [automationDirectoryKey]);
-
   /**
    * Search → click flow:
    * 1) Clear filter first so the full expert list (and row menus) return.
@@ -1506,6 +1459,7 @@ export function AgentConversationPanel(props: {
         query={props.query}
         selectedSessionId={props.selectedSessionId}
         automationActive={props.automationActive}
+        queryDisabled={mode === "assistant" && assistantBatch.active}
         onQueryChange={props.onQueryChange}
         onOpenAgents={() => {
           clearSearchIfNeeded();
@@ -1526,35 +1480,32 @@ export function AgentConversationPanel(props: {
       >
         {mode === "assistant" ? (
           <AssistantConversationSections
-            categoryId={activeAssistantCategoryId}
             workspaceId={props.selectedWorkspaceId}
             selectedSessionId={props.selectedSessionId}
             sessionStatusById={props.sessionStatusById}
-            automationGroups={automationGroups}
-            automationGroupsAll={automationGroupsAll}
-            automationLocalPinsById={automationLocalPinsById}
             listModel={assistantListModel}
             expandedDirectories={expandedAssistantDirectories}
-            expandedAutomationDirectories={expandedAutomationDirectories}
             onExpandedDirectoriesChange={setExpandedAssistantDirectories}
-            onExpandedAutomationDirectoriesChange={setExpandedAutomationDirectories}
             onOpenSession={handleOpenSessionClearingSearch}
             onPrefetchSession={props.onPrefetchSession}
             onTogglePinned={toggleAssistantPinnedSession}
             onToggleFolderPinned={toggleAssistantPinnedFolder}
-            onToggleAutomationGroupPinned={toggleAssistantPinnedAutomationGroup}
             onReorderGlobalPins={reorderAssistantGlobalPins}
             onReorderSpaceFolders={reorderAssistantSpaceFolders}
             onRenameSession={props.onRenameSession}
             onArchiveSession={handleArchiveAssistantSession}
             onDeleteSession={props.onDeleteSession}
+            batchMode={assistantBatch.active}
+            batchSelectedSessionIds={assistantBatch.selectedSessionIds}
+            batchSectionSelectionState={assistantBatch.sectionSelectionState}
+            onToggleBatchSession={assistantBatch.toggleSession}
+            onToggleBatchSection={assistantBatch.toggleSection}
+            onEnterBatchMode={enterAssistantBatchMode}
             onOpenFolder={handleOpenFolder}
             onSaveToSpace={handleSaveToSpace}
             onRemoveSpaceDirectory={handleRemoveSpaceDirectory}
             onArchiveSpaceDirectory={handleArchiveSpaceDirectory}
             onCreateTaskInDirectory={handleCreateTaskInDirectory}
-            onArchiveAutomationGroup={handleArchiveAutomationGroup}
-            onDeleteAutomationGroup={props.onDeleteAutomationGroup}
           />
         ) : (
           <AgentConversationList
@@ -1579,7 +1530,17 @@ export function AgentConversationPanel(props: {
       </div>
 
       {/* Footer create CTA — same placement/style for home + experts. */}
-      {mode === "assistant" && props.onCreateTask ? (
+      {mode === "assistant" && assistantBatch.active ? (
+        <AssistantBatchActionBar
+          selectionState={assistantBatch.selectionState}
+          busy={assistantBatch.busy}
+          canDelete={assistantBatch.canDelete}
+          onToggleAll={assistantBatch.toggleAll}
+          onCancel={assistantBatch.cancel}
+          onDelete={assistantBatch.requestDelete}
+          onArchive={() => void assistantBatch.archiveSelected()}
+        />
+      ) : mode === "assistant" && props.onCreateTask ? (
         <div className="shrink-0 pt-2">
           <Button
             type="button"
@@ -1601,6 +1562,13 @@ export function AgentConversationPanel(props: {
           </Button>
         </div>
       ) : null}
+      <AssistantBatchDeleteModal
+        open={assistantBatch.deleteOpen}
+        count={assistantBatch.selectedTasks.length}
+        busy={assistantBatch.busy}
+        onConfirm={() => void assistantBatch.confirmDelete()}
+        onCancel={assistantBatch.cancelDelete}
+      />
       {mode === "agent" && (props.onCreateExpert || props.onOpenAgents) ? (
         <div className="shrink-0 pt-2">
           {/*

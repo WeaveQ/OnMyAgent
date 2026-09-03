@@ -51,6 +51,155 @@ export type AssistantListModel = {
   allSpaceDirectories: string[];
 };
 
+export type AssistantBatchSectionId = "pinned" | "recent" | "spaces";
+
+export type AssistantBatchTask = {
+  sessionId: string;
+  title: string;
+};
+
+export type AssistantBatchSections = Record<
+  AssistantBatchSectionId,
+  AssistantBatchTask[]
+>;
+
+export type AssistantBatchSelectionState = {
+  checked: boolean;
+  indeterminate: boolean;
+  selectedCount: number;
+  totalCount: number;
+};
+
+function batchTaskFromGroup(
+  group: AgentConversationGroup,
+): AssistantBatchTask {
+  return {
+    sessionId: group.latestSession.id,
+    title: group.description,
+  };
+}
+
+function appendUniqueBatchTasks(
+  target: AssistantBatchTask[],
+  groups: readonly AgentConversationGroup[],
+  seen: Set<string>,
+) {
+  for (const group of groups) {
+    const task = batchTaskFromGroup(group);
+    if (!task.sessionId || seen.has(task.sessionId)) continue;
+    seen.add(task.sessionId);
+    target.push(task);
+  }
+}
+
+/** Full category projection, independent of disclosure and preview limits. */
+export function buildAssistantBatchSections(
+  model: AssistantListModel,
+): AssistantBatchSections {
+  const sections: AssistantBatchSections = {
+    pinned: [],
+    recent: [],
+    spaces: [],
+  };
+  const seen = new Set<string>();
+
+  for (const pin of model.globalPins) {
+    if (pin.kind === "session") {
+      const group = model.groupsBySessionId.get(pin.id);
+      if (group) appendUniqueBatchTasks(sections.pinned, [group], seen);
+      continue;
+    }
+    if (pin.kind === "folder") {
+      appendUniqueBatchTasks(
+        sections.pinned,
+        model.spaceItemsByDirectory.get(pin.id) ?? [],
+        seen,
+      );
+    }
+  }
+
+  appendUniqueBatchTasks(sections.recent, model.recentGroups, seen);
+  for (const folder of model.spaceFolders) {
+    appendUniqueBatchTasks(sections.spaces, folder.items, seen);
+  }
+  return sections;
+}
+
+export function resolveAssistantBatchSelection(
+  sessionIds: readonly string[],
+  selectedSessionIds: ReadonlySet<string>,
+): AssistantBatchSelectionState {
+  const uniqueIds = new Set(sessionIds.filter(Boolean));
+  let selectedCount = 0;
+  for (const sessionId of uniqueIds) {
+    if (selectedSessionIds.has(sessionId)) selectedCount += 1;
+  }
+  const totalCount = uniqueIds.size;
+  return {
+    checked: totalCount > 0 && selectedCount === totalCount,
+    indeterminate: selectedCount > 0 && selectedCount < totalCount,
+    selectedCount,
+    totalCount,
+  };
+}
+
+export function toggleAssistantBatchSelection(
+  selectedSessionIds: ReadonlySet<string>,
+  targetSessionIds: readonly string[],
+): Set<string> {
+  const targetIds = [...new Set(targetSessionIds.filter(Boolean))];
+  const next = new Set(selectedSessionIds);
+  const allSelected =
+    targetIds.length > 0 && targetIds.every((sessionId) => next.has(sessionId));
+  for (const sessionId of targetIds) {
+    if (allSelected) next.delete(sessionId);
+    else next.add(sessionId);
+  }
+  return next;
+}
+
+export function reconcileAssistantBatchSelection(
+  selectedSessionIds: ReadonlySet<string>,
+  availableSessionIds: readonly string[],
+): Set<string> {
+  const available = new Set(availableSessionIds);
+  return new Set(
+    [...selectedSessionIds].filter((sessionId) => available.has(sessionId)),
+  );
+}
+
+export type AssistantBatchOperationFailure = {
+  sessionId: string;
+  error: unknown;
+};
+
+export async function runAssistantBatchOperation(
+  sessionIds: readonly string[],
+  operation: (sessionId: string) => Promise<void> | void,
+): Promise<{
+  succeededIds: string[];
+  failures: AssistantBatchOperationFailure[];
+}> {
+  const succeededIds: string[] = [];
+  const failures: AssistantBatchOperationFailure[] = [];
+  for (const sessionId of new Set(sessionIds.filter(Boolean))) {
+    try {
+      await operation(sessionId);
+      succeededIds.push(sessionId);
+    } catch (error) {
+      failures.push({ sessionId, error });
+    }
+  }
+  return { succeededIds, failures };
+}
+
+export function isAssistantBatchOperationCurrent(
+  operationGeneration: number,
+  currentGeneration: number,
+): boolean {
+  return operationGeneration === currentGeneration;
+}
+
 /**
  * Storage-aware directory order: prefer `spaceFolderOrder`, append unknown
  * known directories. Used as `fullDirectories` for space-folder drag merge.

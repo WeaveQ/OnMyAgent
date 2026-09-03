@@ -42,10 +42,16 @@ export function createElectronBrowserController(options) {
   let order = [];
   let mainWindow = null;
   let activeTabId = null;
+  let selectionRevision = 0;
   let visible = false;
   let bounds = null;
   let rpcServer = null;
   let rpcEnvironment = null;
+
+  const setActiveTab = (tabId) => {
+    activeTabId = tabId;
+    selectionRevision += 1;
+  };
 
   const sendState = () => {
     if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return;
@@ -85,7 +91,11 @@ export function createElectronBrowserController(options) {
       },
     });
     view.webContents.setWindowOpenHandler?.(({ url }) => {
-      void openAllowedExternalUrl(url);
+      try {
+        openPageWindow(view, url);
+      } catch {
+        // The page must never escape into a separate Electron or system window.
+      }
       return { action: "deny" };
     });
     for (const eventName of [
@@ -127,8 +137,21 @@ export function createElectronBrowserController(options) {
     );
   const docsRoot = options.docsRoot
     ?? (pluginRoot ? path.join(pluginRoot, "browser", "docs") : null);
+  const trackControllerTab = (tab, view) => {
+    const current = records.get(tab.tabId);
+    records.set(tab.tabId, {
+      tab,
+      view,
+      favicon: current?.favicon ?? null,
+    });
+    if (!order.includes(tab.tabId)) order.push(tab.tabId);
+    if (tab.owner === "agent" || tab.owner === "claimed") {
+      setActiveTab(tab.tabId);
+    }
+  };
   const runtime = createBrowserRuntime({
     createView,
+    onTabCreated: trackControllerTab,
     requestApproval: options.requestApproval,
     clipboard: options.clipboard,
     getSelectedTabId: () => activeTabId,
@@ -159,7 +182,7 @@ export function createElectronBrowserController(options) {
    * why localhost openTarget worked (renderer setCurrentSidePanel) while agent
    * createTab did not open the rail.
    */
-  const syncControllerAfterHostMethod = (method, params, result) => {
+  const syncControllerAfterHostMethod = (method, params, result, selectionRevisionBefore) => {
     let openedAgentSurface = false;
     if (method === "createTab") {
       const tabId = result?.tab?.tabId;
@@ -167,17 +190,18 @@ export function createElectronBrowserController(options) {
         if (!records.has(tabId)) {
           const view = host.getView?.(tabId);
           if (!view) throw new Error(`missing WebContentsView for browser tab ${tabId}`);
-          records.set(tabId, { tab: result.tab, view });
-          if (!order.includes(tabId)) order.push(tabId);
+          trackControllerTab(result.tab, view);
         }
-        activeTabId = tabId;
         openedAgentSurface = true;
       }
     } else if (method === "navigate" || method === "claimTab") {
       const tabId = result?.tab?.tabId
         ?? (typeof params?.tabId === "string" ? params.tabId : null);
       if (tabId && records.has(tabId)) {
-        activeTabId = tabId;
+        records.get(tabId).tab = host.describeTab(tabId);
+        if (method === "claimTab" || selectionRevision === selectionRevisionBefore) {
+          setActiveTab(tabId);
+        }
         openedAgentSurface = true;
       }
     }
@@ -187,7 +211,7 @@ export function createElectronBrowserController(options) {
         detach(records.get(tabId)?.view);
         records.delete(tabId);
         order = order.filter((id) => id !== tabId);
-        if (activeTabId === tabId) activeTabId = order[0] ?? null;
+        if (activeTabId === tabId) setActiveTab(order[0] ?? null);
       }
     }
 
@@ -199,7 +223,7 @@ export function createElectronBrowserController(options) {
       records.set(tab.tabId, { tab, view });
       if (!order.includes(tab.tabId)) order.push(tab.tabId);
       if (tab.owner === "agent" || tab.owner === "claimed") {
-        activeTabId = tab.tabId;
+        setActiveTab(tab.tabId);
         openedAgentSurface = true;
       }
     }
@@ -210,8 +234,9 @@ export function createElectronBrowserController(options) {
   };
 
   host.dispatch = async (method, params, context) => {
+    const selectionRevisionBefore = selectionRevision;
     const result = await originalHostDispatch(method, params, context);
-    syncControllerAfterHostMethod(method, params, result);
+    syncControllerAfterHostMethod(method, params, result, selectionRevisionBefore);
     return result;
   };
 
@@ -250,18 +275,43 @@ export function createElectronBrowserController(options) {
     const tab = originalRegisterUserTab(tabId, view, {
       sessionId: typeof sessionId === "string" && sessionId.trim() ? sessionId.trim() : null,
     });
-    records.set(tabId, { tab, view, favicon: null });
-    order.push(tabId);
-    void view.webContents.loadURL(normalizeUrl(url, "about:blank"));
-    if (select || !activeTabId) activeTabId = tabId;
+    trackControllerTab(tab, view);
+    if (select || !activeTabId) setActiveTab(tabId);
+    try {
+      void Promise.resolve(
+        view.webContents.loadURL(normalizeUrl(url, "about:blank")),
+      ).catch(() => undefined);
+    } catch {
+      // Keep the internal tab isolated even when navigation fails synchronously.
+    }
     attachSelected();
     sendState();
     return { ...tab, view };
   }
 
+  function openPageWindow(sourceView, url) {
+    const sourceTab = host.listAllTabs().find(
+      (tab) => host.getView?.(tab.tabId) === sourceView,
+    );
+    if (!sourceTab || typeof url !== "string") return false;
+    const normalizedUrl = url.trim();
+    try {
+      const protocol = new URL(normalizedUrl).protocol;
+      if (protocol !== "http:" && protocol !== "https:") return false;
+    } catch {
+      return false;
+    }
+    const tab = createBrowserTab(normalizedUrl, {
+      select: true,
+      sessionId: sourceTab.sessionId,
+    });
+    requestOpenBrowserPanel({ tabId: tab.tabId, sessionId: tab.sessionId });
+    return true;
+  }
+
   function selectBrowserTab(tabId) {
     if (!records.has(tabId)) throw new Error(`Unknown browser tab: ${tabId}`);
-    activeTabId = tabId;
+    setActiveTab(tabId);
     attachSelected();
     sendState();
     return host.describeTab(tabId);
@@ -278,7 +328,7 @@ export function createElectronBrowserController(options) {
     host.closeUserTab(tabId);
     records.delete(tabId);
     order = order.filter((id) => id !== tabId);
-    if (activeTabId === tabId) activeTabId = order[0] ?? null;
+    if (activeTabId === tabId) setActiveTab(order[0] ?? null);
     attachSelected();
     sendState();
     return tabId;
@@ -385,7 +435,7 @@ export function createElectronBrowserController(options) {
       await runtime.close();
       records.clear();
       order = [];
-      activeTabId = null;
+      setActiveTab(null);
     },
   };
 }

@@ -54,7 +54,7 @@ const FILES_TREE_MIN_WIDTH = 160;
 const FILES_TREE_MAX_WIDTH_PX = 480;
 
 /** Session-lifetime layout for the files tree column. */
-let filesTreeLayoutMemory: { widthPx: number; collapsed: boolean } = {
+let filesTreeLayoutMemory = {
   widthPx: FILES_TREE_DEFAULT_WIDTH,
   collapsed: false,
 };
@@ -278,13 +278,16 @@ export function WorkspaceFilesPanel(props: {
     setPreview({ status: "idle" });
   }, []);
 
-  const rememberTreeWidth = useCallback((widthPx: number, collapsed: boolean) => {
-    const containerWidth = splitRowRef.current?.getBoundingClientRect().width;
-    const next = clampTreeWidth(widthPx, containerWidth);
-    setTreeWidthPx(next);
-    treeWidthRef.current = next;
-    filesTreeLayoutMemory = { widthPx: next, collapsed };
-  }, []);
+  const rememberTreeWidth = useCallback(
+    (widthPx: number, collapsed: boolean) => {
+      const containerWidth = splitRowRef.current?.getBoundingClientRect().width;
+      const next = clampTreeWidth(widthPx, containerWidth);
+      treeWidthRef.current = next;
+      setTreeWidthPx(next);
+      filesTreeLayoutMemory = { widthPx: next, collapsed };
+    },
+    [],
+  );
 
   const collapseTree = useCallback(() => {
     rememberTreeWidth(treeWidthRef.current, true);
@@ -312,8 +315,8 @@ export function WorkspaceFilesPanel(props: {
           startWidth + (moveEvent.clientX - startX),
           containerWidth,
         );
-        setTreeWidthPx(next);
         treeWidthRef.current = next;
+        setTreeWidthPx(next);
       };
       const onUp = (upEvent: PointerEvent) => {
         try {
@@ -734,11 +737,14 @@ export function WorkspaceFilesPanel(props: {
         aria-label={t("files.resize_tree")}
         tabIndex={0}
         onPointerDown={startTreeResize}
+        onDoubleClick={collapseTree}
         onKeyDown={(event) => {
           if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
           event.preventDefault();
-          const delta = event.key === "ArrowLeft" ? -16 : 16;
-          rememberTreeWidth(treeWidthRef.current + delta, false);
+          rememberTreeWidth(
+            treeWidthRef.current + (event.key === "ArrowLeft" ? -16 : 16),
+            false,
+          );
         }}
         className={cn(
           "group relative z-20 hidden w-2 shrink-0 cursor-col-resize touch-none outline-none sm:block",

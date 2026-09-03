@@ -3,7 +3,9 @@
  * 提取重复逻辑，减少代码冗余
  */
 
+import { useCallback } from "react";
 import type { ExpertPackageListEntry } from "../../../../app/lib/desktop";
+import type { WorkspaceSessionGroup } from "../../../../app/types";
 import type { ExpertMarketplaceEntry } from "@/react-app/domains/plugins";
 import {
   expertMarketplaceCategoryLabel,
@@ -21,6 +23,11 @@ import {
   useComposerStateStore,
 } from "../surface/composer-state-store";
 import { dispatchComposerTemplate } from "../surface/composer/capability-template";
+import {
+  collectSessionSubtreeIds,
+  permanentlyRemoveAssistantArchivedTaskTree,
+} from "../../shared";
+import { runAssistantBatchOperation } from "../sidebar/assistant-list-model";
 
 /**
  * 判断专家包是否可见（过滤掉.expert-plugin目录）
@@ -274,4 +281,46 @@ export function setExpertComposerTemplateAfterNewTask(
     `draft:${workspaceId}:${agentId}`,
     template,
   );
+}
+
+export function useAssistantSessionDeleteExecution(input: {
+  workspaceId: string;
+  workspaceSessionGroups: WorkspaceSessionGroup[];
+  onDeleteSession?: (sessionId: string) => Promise<void> | void;
+  purgeSessionWorkspaceFiles: (sessionId: string) => Promise<void>;
+}) {
+  const {
+    workspaceId,
+    workspaceSessionGroups,
+    onDeleteSession,
+    purgeSessionWorkspaceFiles,
+  } = input;
+  const executeSessionDelete = useCallback(
+    async (sessionId: string) => {
+      if (!onDeleteSession) return;
+      const listed =
+        workspaceSessionGroups.find(
+          (item) => item.workspace.id === workspaceId,
+        )?.sessions ?? [];
+      for (const id of collectSessionSubtreeIds(listed, sessionId)) {
+        await purgeSessionWorkspaceFiles(id);
+      }
+      permanentlyRemoveAssistantArchivedTaskTree(workspaceId, sessionId);
+      await onDeleteSession(sessionId);
+    },
+    [
+      onDeleteSession,
+      purgeSessionWorkspaceFiles,
+      workspaceId,
+      workspaceSessionGroups,
+    ],
+  );
+
+  const executeBatchDelete = useCallback(
+    (sessionIds: readonly string[]) =>
+      runAssistantBatchOperation(sessionIds, executeSessionDelete),
+    [executeSessionDelete],
+  );
+
+  return { executeSessionDelete, executeBatchDelete };
 }

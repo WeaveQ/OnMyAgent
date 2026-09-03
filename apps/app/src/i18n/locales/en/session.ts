@@ -1,5 +1,4 @@
 import { APP_NAME } from "../brand";
-
 export default {
   "session.allow_for_session": "Allow for session",
   "session.allow_once": "Allow once",
@@ -105,6 +104,7 @@ export default {
   "session.browser_select_tab": "Select tab: {label}",
   "session.browser_desktop_only": "Browser is available in the desktop app.",
   "session.code_side_panel_browser": "Browser",
+  "session.code_side_panel_add_tool": "Add workspace tool",
   "session.code_side_panel_automations": "Automation tasks",
   "session.code_side_panel_close": "Close side panel",
   "session.code_side_panel_files": "Files",
