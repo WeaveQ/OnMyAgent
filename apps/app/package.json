@@ -28,7 +28,7 @@
     "@codemirror/view": "^6.43.9",
     "@dicebear/adventurer": "^9.4.2",
     "@dicebear/bottts": "^9.4.2",
-    "@dicebear/core": "^9.4.2",
+    "@dicebear/core": "^9.4.3",
     "@dicebear/lorelei": "^9.4.2",
     "@dicebear/pixel-art": "^9.4.2",
     "@file-viewer/react": "2.2.8",
