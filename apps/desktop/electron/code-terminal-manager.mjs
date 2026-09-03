@@ -7,34 +7,43 @@ import pty from "node-pty";
 
 import { resolveInAppTerminalShell } from "./code-terminal-shell.mjs";
 
-// node-pty ships `spawn-helper` binaries under prebuilds/. pnpm can drop the
-// executable bit while unpacking from its content-addressed store, and the
-// resulting `posix_spawnp failed.` is swallowed by the renderer, so the
-// "打开终端" menu item ends up looking dead. Best-effort restore +x once
-// before pty.spawn is called.
+// node-pty ships `spawn-helper` binaries under prebuilds/. Packaging (and
+// pnpm) can drop the executable bit. In a packaged Electron app,
+// require.resolve("node-pty") points inside app.asar; asar is read-only, so
+// chmod there throws and used to be swallowed — the real file lives under
+// app.asar.unpacked and stays -rw-r--r--. pty.spawn then fails with
+// `posix_spawnp failed.`
+export function toAsarUnpackedPath(filePath) {
+  const asarSeg = `${path.sep}app.asar${path.sep}`;
+  const unpackedSeg = `${path.sep}app.asar.unpacked${path.sep}`;
+  const index = filePath.indexOf(asarSeg);
+  if (index === -1) return filePath;
+  return `${filePath.slice(0, index)}${unpackedSeg}${filePath.slice(index + asarSeg.length)}`;
+}
+
+function restoreExecutableBit(filePath) {
+  if (!existsSync(filePath)) return false;
+  const mode = statSync(filePath).mode;
+  if ((mode & 0o111) === 0) chmodSync(filePath, mode | 0o755);
+  return true;
+}
+
+function spawnHelperPlatformDir(platform = process.platform, arch = process.arch) {
+  if (platform === "darwin") return arch === "arm64" ? "darwin-arm64" : "darwin-x64";
+  if (platform === "linux") return arch === "arm64" ? "linux-arm64" : "linux-x64";
+  return null;
+}
+
 function ensureSpawnHelperExecutable() {
   if (process.platform === "win32") return;
   try {
     const requireFromHere = createRequire(import.meta.url);
     const ptyEntry = requireFromHere.resolve("node-pty");
     const ptyRoot = path.dirname(path.dirname(ptyEntry));
-    const prebuilds = path.join(ptyRoot, "prebuilds");
-    if (!existsSync(prebuilds)) return;
-    const platformDir =
-      process.platform === "darwin"
-        ? process.arch === "arm64"
-          ? "darwin-arm64"
-          : "darwin-x64"
-        : process.platform === "linux"
-          ? process.arch === "arm64"
-            ? "linux-arm64"
-            : "linux-x64"
-          : null;
+    const platformDir = spawnHelperPlatformDir();
     if (!platformDir) return;
-    const helper = path.join(prebuilds, platformDir, "spawn-helper");
-    if (!existsSync(helper)) return;
-    const mode = statSync(helper).mode;
-    if ((mode & 0o111) === 0) chmodSync(helper, mode | 0o755);
+    const helper = path.join(ptyRoot, "prebuilds", platformDir, "spawn-helper");
+    restoreExecutableBit(toAsarUnpackedPath(helper)) || restoreExecutableBit(helper);
   } catch {
     // Non-fatal: if we cannot chmod, node-pty will still surface its own error.
   }

@@ -15,6 +15,7 @@ export default {
   "account_menu.credits": "积分",
   "account_menu.free_plan": "免费版",
   "account_menu.language": "语言",
+  "account_menu.personal_workspace": "个人工作台",
   "account_menu.language_chinese": "中文",
   "account_menu.preferences": "偏好",
   "account_menu.quit": "退出程序",
@@ -28,5 +29,6 @@ export default {
   "account_menu.update_check_failed": "检查更新失败",
   "account_menu.update_latest": "已是最新版本",
   "account_menu.used_percent": "已用28%",
+  "account_menu.user_guide": "使用指南",
   "account_menu.view_details": "查看详情",
 } as const;

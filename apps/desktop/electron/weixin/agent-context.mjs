@@ -1,4 +1,4 @@
-import { normalizePersonalLocalAgent } from "../personal-agent-runtime/provider-registry.mjs";
+import { normalizeChannelAgent } from "../channels/assistant-bridge.mjs";
 import { getChannelRunSnapshotState } from "./local-qr.mjs";
 import { normalizePromptMode } from "./chat-policy.mjs";
 import { safeId, safeSegment, sleep, stableHash } from "./helpers.mjs";
@@ -15,7 +15,7 @@ export async function currentAgentForChat(session, chatId) {
   const memoryAgent = session.options.agentByChat.get(chatId);
   if (memoryAgent) return memoryAgent;
   const setting = await storeSafeReadChatSetting(session, chatId);
-  const storedAgent = setting?.agent ? normalizePersonalLocalAgent(setting.agent) : null;
+  const storedAgent = setting?.agent ? normalizeChannelAgent(setting.agent) : null;
   if (storedAgent) {
     const available = resolveAgentAlias(session.options.availableAgents, storedAgent.id) ?? storedAgent;
     session.options.agentByChat.set(chatId, available);

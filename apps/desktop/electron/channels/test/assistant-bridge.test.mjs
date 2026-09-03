@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 
-import { runAssistantTurn } from "../assistant-bridge.mjs";
+import { runAssistantBridgeTurn, runAssistantTurn } from "../assistant-bridge.mjs";
 
 function createMockClient({ assistantText = "你好，我是本地助理" } = {}) {
   const calls = { create: 0, get: 0, messages: 0, promptAsync: 0, lastPromptParts: null, lastCreateTitle: null };
@@ -110,5 +110,32 @@ await assert.rejects(
   /连接不可用/,
 );
 console.log("✓ missing connection rejected");
+
+console.log("Test 5: a rejected assistant reply delivery is returned and recorded locally");
+const localNotices = [];
+const bridgeResult = await runAssistantBridgeTurn({
+  runtime: { async getOpencodeConnection() { return connection; } },
+  store: { async writeChatSetting() {} },
+  session: {
+    account: { accountId: "acct" },
+    options: { workspaceRoot: "/tmp/ws" },
+  },
+  event: {
+    chatId: "chat-5",
+    senderId: "peer-5",
+    text: "hello",
+    isLocalPrompt: true,
+  },
+  platformLabel: "telegram",
+  readChatSetting: async () => null,
+  executeAssistantTurn: async () => ({ output: "finished", sessionId: "sess-5" }),
+  deliverReply: async () => ({ ok: false, error: "transport down" }),
+  deliverLocalNotice: async (_session, _event, text) => { localNotices.push(text); },
+});
+assert.equal(bridgeResult.status, "failed");
+assert.match(bridgeResult.error, /transport down/);
+assert.equal(localNotices.length, 1);
+assert.match(localNotices[0], /transport down/);
+console.log("✓ rejected delivery surfaced locally");
 
 console.log("\n✅ All assistant-bridge (P2-03) tests passed!");

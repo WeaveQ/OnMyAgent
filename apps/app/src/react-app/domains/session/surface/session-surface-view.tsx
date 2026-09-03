@@ -19,6 +19,7 @@ import type { UIMessage } from "ai";
 
 import type { OnMyAgentSessionSnapshot } from "../../../../app/lib/onmyagent-server";
 import type {
+  Client,
   ComposerAccessMode,
   ComposerAttachment,
   ComposerCollaborationMode,
@@ -34,6 +35,8 @@ import type { CloudImportedPlugin } from "../../../../app/cloud/import-state";
 import type { PendingAgentContext } from "../../agents";
 import { AgentPromptSuggestions } from "../../agents";
 import { DevProfiler } from "../../../shell";
+import { workspaceFolderNameFromPath } from "../../../../app/lib/enhance-home-prompt-model";
+import { compactPromptEnhanceTurns } from "../../../../app/lib/opencode-enhance-prompt";
 import type { OpenTarget } from "../artifacts/open-target";
 import type { SessionRenderModel } from "../sync/transition-controller";
 import { ReactSessionComposer } from "./composer/composer";
@@ -77,6 +80,12 @@ import type { AssistantCategoryId } from "./personal-assistant-config";
 import type { SessionError } from "./session-surface-support";
 import type { Agent } from "@opencode-ai/sdk/v2/client";
 import { KeyboardShortcutsGuideButton } from "./chrome/keyboard-shortcuts-guide";
+import {
+  KnowledgeArchiveSessionIconButton,
+  sessionArchiveDefaultTitle,
+  useKnowledgeArchiveSession,
+} from "../../knowledge";
+import { transcriptToText } from "./session-surface-model";
 
 export type SessionSurfaceViewProps = {
   // Layout / chrome
@@ -246,6 +255,7 @@ export type SessionSurfaceViewProps = {
   onCreateDraftWorkspace?: (name: string) => Promise<string>;
   onPickDraftWorkspace?: () => void;
   onClearDraftWorkspace?: () => void;
+  promptEnhanceClient?: Client | null;
 };
 
 export function SessionSurfaceView(props: SessionSurfaceViewProps) {
@@ -282,6 +292,19 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
     composerOuterBorderVisible,
     draftWorkspaceAccessoryActive,
   } = props;
+  const promptEnhanceDirectory =
+    props.chrome === "embedded"
+      ? null
+      : personalAssistantDraftHome
+        ? (props.draftWorkspaceDirectory?.trim() || props.workspaceRoot)
+        : props.workspaceRoot;
+  const promptEnhanceRecentTurns = useMemo(
+    () =>
+      props.chrome === "embedded" || personalAssistantDraftHome
+        ? []
+        : compactPromptEnhanceTurns(props.renderedMessages),
+    [personalAssistantDraftHome, props.chrome, props.renderedMessages],
+  );
 
   // Context ring next to model select: last assistant prompt occupancy vs model window.
   const sessionContextUsage = useMemo(() => {
@@ -343,6 +366,15 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
     props.skills,
   ]);
 
+  const knowledgeArchive = useKnowledgeArchiveSession({
+    sessionId: props.sessionId,
+    defaultTitle: sessionArchiveDefaultTitle(
+      props.snapshot?.session,
+      props.chatHeaderAgent.name || props.sessionId,
+    ),
+    markdown: transcriptToText(props.renderedMessages),
+  });
+
   return (
     <DevProfiler id="SessionSurface">
       {/* relative: anchors draft-home top-right chrome (keyboard guide). */}
@@ -356,7 +388,16 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
             codeSceneToolbar={props.codeSceneToolbar}
             personalAssistantHome={props.personalAssistantHome}
             onOpenAgentSettings={props.onOpenAgentSettings}
-            headerActions={props.headerActions}
+            headerActions={
+              <>
+                {knowledgeArchive.available ? (
+                  <KnowledgeArchiveSessionIconButton
+                    onClick={knowledgeArchive.openDialog}
+                  />
+                ) : null}
+                {props.headerActions}
+              </>
+            }
             showBottomBorder={!sessionTabsExpanded}
           />
         ) : null}
@@ -393,6 +434,9 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
           scrollRef={props.scrollRef}
           contentRef={props.contentRef}
           showJumpToLatest={!personalAssistantDraftHome}
+          onSaveToKnowledge={
+            knowledgeArchive.available ? knowledgeArchive.openDialog : undefined
+          }
           onWheel={(event) => {
             props.onWheel(event);
           }}
@@ -584,6 +628,12 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
               }
               homeLayout={homeComposerLayout}
               heroHome={Boolean(personalAssistantDraftHome)}
+              promptEnhanceClient={
+                props.chrome === "embedded" ? null : props.promptEnhanceClient ?? null
+              }
+              promptEnhanceDirectory={promptEnhanceDirectory}
+              promptEnhanceRecentTurns={promptEnhanceRecentTurns}
+              workspaceFolderName={workspaceFolderNameFromPath(promptEnhanceDirectory)}
               promptQueueBar={props.promptQueueBar}
               topAccessory={props.composerAccessory}
               // Coach / try-preview column is narrow — drop permission chip so
@@ -618,6 +668,7 @@ export function SessionSurfaceView(props: SessionSurfaceViewProps) {
         {props.developerMode ? (
           <SessionDebugPanel model={props.model} snapshot={props.snapshot} />
         ) : null}
+        {knowledgeArchive.dialog}
       </div>
     </DevProfiler>
   );

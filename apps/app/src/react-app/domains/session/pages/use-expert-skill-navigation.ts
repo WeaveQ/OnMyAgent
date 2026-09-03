@@ -17,7 +17,6 @@ import { setComposerDraftAfterNewTask } from "./shared-page-utils";
 import { openSkillChatInAssistant } from "./skill-chat-navigation";
 import { resetRailBookmarkToPrimary } from "./use-rail-location";
 
-const CREATE_EXPERT_SKILL_NAME = "expert-manager";
 const CREATE_SKILL_PACKAGE_NAME = "skill-creator";
 
 export function useExpertSkillNavigation(input: {
@@ -41,24 +40,6 @@ export function useExpertSkillNavigation(input: {
     },
     [navigate, workspaceId],
   );
-
-  const handleCreateExpert = useCallback(() => {
-    // Navigate first (same as create-skill). Awaiting skill install used to
-    // swallow the first click / leave the user on Expert store until a second tap.
-    goAssistantOfficeNewTaskWithDraft(t("session.create_expert_prompt"));
-    if (isElectronRuntime()) {
-      void installBuiltinSkillPackage({
-        source: "builtin",
-        packageName: CREATE_EXPERT_SKILL_NAME,
-        skillName: CREATE_EXPERT_SKILL_NAME,
-      }).catch((error) => {
-        console.warn(
-          "[expert-marketplace] failed to install expert-manager",
-          error,
-        );
-      });
-    }
-  }, [goAssistantOfficeNewTaskWithDraft]);
 
   const handleCreateSkill = useCallback(() => {
     goAssistantOfficeNewTaskWithDraft(t("session.create_skill_prompt"));
@@ -110,7 +91,6 @@ export function useExpertSkillNavigation(input: {
   );
 
   return {
-    handleCreateExpert,
     handleCreateSkill,
     handleChatWithSkill,
     handleEditSkill,

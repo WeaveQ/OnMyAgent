@@ -1,18 +1,17 @@
 /** @jsxImportSource react */
-import { MoreHorizontal, PencilLine, Plus, X } from "lucide-react";
+import { PencilLine, Plus, X } from "lucide-react";
 
+import { NavTabButton, SegmentedTabGroup } from "@/components/ui/action-row";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
 import { t } from "../../../i18n";
-import { GETTING_STARTED_REL_PATH } from "./knowledge-vault-model";
+import { KnowledgeVaultEditorMoreMenu } from "./knowledge-vault-editor-more-menu";
 import { parseKnowledgeNoteProps } from "./knowledge-vault-frontmatter";
+import {
+  GETTING_STARTED_REL_PATH,
+  type KnowledgeNoteRef,
+} from "./knowledge-vault-model";
 import type { KnowledgeEditorTab } from "./knowledge-vault-tabs";
+import type { KnowledgeTreeActions } from "./knowledge-vault-tree";
 
 type KnowledgeVaultTabBarProps = {
   tabs: readonly KnowledgeEditorTab[];
@@ -22,6 +21,9 @@ type KnowledgeVaultTabBarProps = {
   onAdd: () => void;
   mode: "view" | "edit";
   onModeChange: (mode: "view" | "edit") => void;
+  note: KnowledgeNoteRef | null;
+  treeActions: KnowledgeTreeActions;
+  onShowInTree: () => void;
 };
 
 function tabLabel(tab: KnowledgeEditorTab): string {
@@ -34,39 +36,42 @@ function tabLabel(tab: KnowledgeEditorTab): string {
 
 export function KnowledgeVaultTabBar(props: KnowledgeVaultTabBarProps) {
   return (
-    <div className="flex h-full min-h-0 w-full items-stretch bg-dls-background mac:titlebar-drag">
-      <div className="flex min-w-0 shrink-0 items-stretch overflow-x-auto mac:titlebar-no-drag">
-        {props.tabs.map((tab, index) => {
-          const active = tab.id === props.activeId;
-          const dirty = tab.draft !== tab.loaded;
-          return (
-            <div key={tab.id} className="flex h-full shrink-0 items-center">
-              {index > 0 ? (
-                <span className="h-3.5 w-px shrink-0 bg-dls-border" aria-hidden />
-              ) : null}
-              <div
-                className={cn(
-                  "group relative flex h-full w-36 cursor-pointer items-center justify-center px-6",
-                  active ? "text-dls-text" : "text-dls-secondary hover:text-dls-text",
-                )}
-                onClick={() => props.onActivate(tab.id)}
-              >
-                <button
+    <div className="flex h-14 min-h-0 w-full min-w-0 items-center bg-dls-background ps-4 mac:titlebar-drag">
+      <div className="flex min-w-0 flex-1 items-center">
+        <SegmentedTabGroup
+          density="bare"
+          role="tablist"
+          className="h-full min-h-0 w-auto min-w-0 overflow-x-auto mac:titlebar-no-drag"
+        >
+          {props.tabs.map((tab) => {
+            const active = tab.id === props.activeId;
+            const dirty = tab.draft !== tab.loaded;
+            const label = tabLabel(tab);
+            return (
+              <div key={tab.id} className="group relative flex w-32 shrink-0 items-center">
+                <NavTabButton
                   type="button"
-                  className={cn(
-                    "max-w-full cursor-pointer truncate text-center text-sm leading-none",
-                    active ? "font-medium" : "font-normal",
-                  )}
-                  title={tabLabel(tab)}
+                  role="tab"
+                  size="tab"
+                  shape="tab"
+                  active={active}
+                  className="h-8 w-32 min-w-0 cursor-pointer justify-start px-3 text-left"
+                  title={label}
+                  aria-current={active ? "page" : undefined}
+                  aria-selected={active}
                   onClick={() => props.onActivate(tab.id)}
                 >
-                  {dirty ? "• " : ""}
-                  {tabLabel(tab)}
-                </button>
+                  {dirty ? (
+                    <span className="size-1.5 shrink-0 rounded-full bg-current" aria-hidden />
+                  ) : null}
+                  <span className="block min-w-0 w-full truncate pe-5 text-left text-sm leading-none">
+                    {label}
+                  </span>
+                </NavTabButton>
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  className="absolute right-1 top-1/2 size-5 -translate-y-1/2 opacity-0 group-hover:opacity-100 data-[active=true]:opacity-70"
+                  className="absolute right-1 top-1/2 size-6 -translate-y-1/2 opacity-0 group-hover:opacity-100 data-[active=true]:opacity-70 data-[active=true]:text-white"
                   data-active={active}
                   onClick={(event) => {
                     event.stopPropagation();
@@ -77,58 +82,43 @@ export function KnowledgeVaultTabBar(props: KnowledgeVaultTabBarProps) {
                 >
                   <X className="size-3" />
                 </Button>
-                {active ? (
-                  <span className="absolute inset-x-4 bottom-1 h-px bg-dls-text" aria-hidden />
-                ) : null}
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </SegmentedTabGroup>
+        <div className="flex h-8 shrink-0 items-center pe-2.5 mac:titlebar-no-drag">
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+            onClick={props.onAdd}
+            aria-label={t("knowledge.new_tab")}
+            title={t("knowledge.new_tab")}
+          >
+            <Plus className="size-3.5" />
+          </Button>
+        </div>
       </div>
-      <div className="min-w-4 flex-1" aria-hidden />
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        className="m-1 shrink-0 mac:titlebar-no-drag"
-        onClick={props.onAdd}
-        aria-label={t("knowledge.new_tab")}
-        title={t("knowledge.new_tab")}
-      >
-        <Plus className="size-4" />
-      </Button>
-      <div className="flex shrink-0 items-center gap-0.5 px-1 mac:titlebar-no-drag">
+      <div className="ms-auto flex h-8 shrink-0 items-center gap-0.5 pe-2.5 mac:titlebar-no-drag">
         <Button
           variant="ghost"
-          size="icon-sm"
-          className={props.mode === "edit" ? "bg-dls-list-selected" : undefined}
+          size="icon-xs"
+          className={
+            props.mode === "edit"
+              ? "bg-dls-list-selected text-dls-text"
+              : "text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
+          }
           onClick={() => props.onModeChange(props.mode === "edit" ? "view" : "edit")}
           aria-label={props.mode === "edit" ? t("knowledge.mode_view") : t("knowledge.mode_edit")}
           title={props.mode === "edit" ? t("knowledge.mode_view") : t("knowledge.mode_edit")}
         >
-          <PencilLine className="size-4" />
+          <PencilLine className="size-3.5" />
         </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t("knowledge.more")}
-                title={t("knowledge.more")}
-              >
-                <MoreHorizontal className="size-4" />
-              </Button>
-            }
-          />
-          <DropdownMenuContent align="end" className="min-w-36">
-            <DropdownMenuItem onClick={() => props.onModeChange("view")}>
-              {t("knowledge.mode_view")}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => props.onModeChange("edit")}>
-              {t("knowledge.mode_edit")}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <KnowledgeVaultEditorMoreMenu
+          note={props.note}
+          treeActions={props.treeActions}
+          onShowInTree={props.onShowInTree}
+        />
       </div>
     </div>
   );

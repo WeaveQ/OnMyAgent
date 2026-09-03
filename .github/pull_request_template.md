@@ -26,6 +26,20 @@
 ## Why
 -
 
+## Plan
+- Write-path owner (session / expert / IM / Task PRs): OpenCode | Personal | Task | n/a
+- Intent (accepted product work only): `docs/intent/<slug>.md` or N/A
+- Files (path — what changes):
+  -
+- Order of work:
+  1.
+- Risks:
+  -
+- Proof (commands that must pass, with exit code):
+  -
+
+Execution ledgers stay in local `.loop/plans/` and must not be committed.
+
 ## Scope
 -
 

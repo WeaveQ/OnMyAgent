@@ -11,6 +11,7 @@ import type { ComposerDraft } from "../../../../app/types";
 import { type OpenTarget } from "../artifacts/open-target";
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/action-row";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { NoticeBox } from "@/components/ui/notice-box";
 import { ProviderAuthModal } from "../../connections";
 import { SessionSurface } from "../surface/session-surface";
@@ -19,7 +20,6 @@ import {
   DEFAULT_BROWSER_SIDE_PANEL_WIDTH,
   DEFAULT_WORKSPACE_RIGHT_SIDEBAR_EXPANDED_WIDTH,
   MIN_WORKSPACE_RIGHT_SIDEBAR_WIDTH,
-  OwDotTicker,
   shouldNotifyStaticHomeReady,
   type SidePanelItem,
   useReactRenderWatchdog,
@@ -157,7 +157,6 @@ import { useAssistantStoreExpertManagement } from "./use-assistant-store-expert-
 // Keep in sync with DEFAULT/MIN workspace right sidebar (outer rail = browser panel).
 const ASSISTANT_SIDE_PANEL_DEFAULT_WIDTH = DEFAULT_WORKSPACE_RIGHT_SIDEBAR_EXPANDED_WIDTH;
 const ASSISTANT_SIDE_PANEL_MIN_WIDTH = MIN_WORKSPACE_RIGHT_SIDEBAR_WIDTH;
-const CREATE_EXPERT_SKILL_NAME = "expert-manager";
 const CREATE_SKILL_PACKAGE_NAME = "skill-creator";
 
 type AssistantGroupDeleteTarget = {
@@ -344,6 +343,7 @@ export function AssistantPage(props: AssistantPageProps) {
     ],
   );
   const {
+    openExpertCreation,
     handleDeleteMarketplaceExpert,
     handleEditMarketplaceExpert,
     overlays: storeExpertManagementOverlays,
@@ -669,23 +669,6 @@ export function AssistantPage(props: AssistantPageProps) {
     },
     [props.selectedWorkspaceId, props.sidebar, setSidePanelState],
   );
-
-  const handleCreateExpert = useCallback(async () => {
-    if (isElectronRuntime()) {
-      try {
-        await installBuiltinSkillPackage({
-          source: "builtin",
-          packageName: CREATE_EXPERT_SKILL_NAME,
-          skillName: CREATE_EXPERT_SKILL_NAME,
-        });
-      } catch (error) {
-        console.warn("[expert-marketplace] failed to install expert-manager", error);
-      }
-    }
-    setAssistantCategoryId("office");
-    openAssistantNewTask("office");
-    setComposerDraftAfterNewTask(props.selectedWorkspaceId, t("session.create_expert_prompt"));
-  }, [openAssistantNewTask, props.selectedWorkspaceId]);
 
   /**
    * Always open a fresh 新任务 first (sync), then install packages in background.
@@ -1380,7 +1363,7 @@ export function AssistantPage(props: AssistantPageProps) {
                         activeExpertAgentIds={storeExpertShelf.activeExpertAgentIds}
                         onActiveTabChange={setStoreActiveTab}
                         onSummonMarketplaceExpert={handleSummonMarketplaceExpert}
-                        onCreateExpert={handleCreateExpert}
+                        onCreateExpert={openExpertCreation}
                         onDeleteExpert={handleDeleteMarketplaceExpert}
                         onEditExpert={handleEditMarketplaceExpert}
                         onCreateSkill={handleCreateSkill}
@@ -1448,7 +1431,9 @@ export function AssistantPage(props: AssistantPageProps) {
                         onOpenArtifact={openTarget}
                         {...createWorkspaceFilesAgentHandlers({
                           sessionId: renderedSessionId,
+                          workspaceId: props.selectedWorkspaceId,
                           openRail: () => openRailView("assistant"),
+                          goHomeNewTask: () => openAssistantNewTask("office"),
                           showToast,
                           buildInstruction: buildAskAgentFileInstruction,
                           t,
@@ -1555,7 +1540,7 @@ export function AssistantPage(props: AssistantPageProps) {
                             role="status"
                             aria-live="polite"
                           >
-                            <OwDotTicker size="md" />
+                            <LoadingSpinner />
                             <div className="text-xs leading-5 text-dls-secondary">
                               {t("session.loading_detail")}
                             </div>

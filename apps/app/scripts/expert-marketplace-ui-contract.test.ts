@@ -729,25 +729,29 @@ describe("expert marketplace UI contract", () => {
     const surfaceProps = readWorkspaceFile(
       "apps/app/src/react-app/shell/session-route/surface-props-hook-impl.ts",
     );
-    const lockStart = pageView.indexOf(
+    const actions = readWorkspaceFile(
+      "apps/app/src/react-app/shell/session-route/intent.ts",
+    );
+    expect(pageView).toContain("openExpertFreshIdleDraft(");
+    expect(pageView).not.toContain(
       "creatingSessionWorkspaceIdsRef.current.add(workspaceId)",
     );
-    const lockEnd = pageView.indexOf(
-      "creatingSessionWorkspaceIdsRef.current.delete(workspaceId)",
+    const lockStart = surfaceProps.indexOf(
+      "creatingSessionWorkspaceIdsRef.current.add(selectedWorkspaceId)",
+    );
+    const lockEnd = surfaceProps.indexOf(
+      "creatingSessionWorkspaceIdsRef.current.delete(selectedWorkspaceId)",
       lockStart,
     );
-    const creationBlock = pageView.slice(lockStart, lockEnd);
-
     expect(lockStart).toBeGreaterThan(-1);
     expect(lockEnd).toBeGreaterThan(lockStart);
-    expect(creationBlock.indexOf("try {")).toBeLessThan(
-      creationBlock.indexOf("createIsolatedExpertSessionRuntimeDirectory"),
-    );
+    expect(actions).toContain("createIsolatedExpertSessionRuntimeDirectory");
+    expect(surfaceProps).toContain("createIsolatedExpertSessionRuntimeDirectory");
     expect(surfaceProps).not.toContain("materializeExpertSessionDirectory");
     expect(surfaceProps).not.toContain("resolveExpertSessionDirectoryMarker");
   });
 
-  test("expert store create expert opens a fresh assistant draft before prefill", () => {
+  test("home and expert store create expert open the expert creation page, not expert-manager on Home", () => {
     const expertPage = [
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/expert.tsx"),
       readWorkspaceFile("apps/app/src/react-app/domains/session/pages/use-expert-page.tsx"),
@@ -758,30 +762,16 @@ describe("expert marketplace UI contract", () => {
       "apps/app/src/react-app/domains/session/pages/use-expert-skill-navigation.ts",
     );
     const assistantPage = readWorkspaceFile("apps/app/src/react-app/domains/session/pages/assistant.tsx");
-    const desktopMain = readWorkspaceFile("apps/desktop/electron/main.mjs");
-    const zhSession = readWorkspaceFile("apps/app/src/i18n/locales/zh/session.ts");
-    const enSession = readWorkspaceFile("apps/app/src/i18n/locales/en/session.ts");
+    const assistantStore = readWorkspaceFile(
+      "apps/app/src/react-app/domains/session/pages/use-assistant-store-expert-management.tsx",
+    );
 
-    // Host wires the extracted skill-navigation hook (file-size split from expert.tsx).
-    expect(expertPage).toContain("useExpertSkillNavigation");
-    expect(expertPage).toContain("onCreateTaskInWorkspace: props.sidebar.onCreateTaskInWorkspace");
-    expect(expertSkillNav).toContain('t("session.create_expert_prompt")');
-    // Navigate first (goAssistantOfficeNewTaskWithDraft); do not await install before jump.
-    expect(expertSkillNav).toContain("goAssistantOfficeNewTaskWithDraft");
-    expect(expertSkillNav).toContain("setComposerDraftAfterNewTask(");
-    expect(expertSkillNav).toContain("navigate(workspaceAssistantRoute(id))");
-    expect(expertSkillNav).not.toContain("await installBuiltinSkillPackage");
-    expect(expertSkillNav).toContain('packageName: CREATE_EXPERT_SKILL_NAME');
-    expect(expertSkillNav).toContain('skillName: CREATE_EXPERT_SKILL_NAME');
-    expect(assistantPage).toContain('t("session.create_expert_prompt")');
-    expect(assistantPage).toContain("installBuiltinSkillPackage");
-    // expert-manager is curated under bundled-skills, not marketplace hub package ids
-    expect(desktopMain).toContain('path.join(bundledRoot, safePackage)');
-    expect(desktopMain).toContain("apps/desktop/resources/bundled-skills");
-    expect(zhSession).toContain("session.create_expert_prompt");
-    expect(zhSession).toContain("/expert-manager 帮我创建一个");
-    expect(enSession).toContain("session.create_expert_prompt");
-    expect(enSession).toContain("/expert-manager Help me create");
+    expect(expertPage).toContain("onCreateExpert={openExpertCreation}");
+    expect(assistantStore).toContain("openExpertCreation: creation.openExpertCreation");
+    expect(assistantPage).toContain("onCreateExpert={openExpertCreation}");
+    expect(assistantPage).not.toContain('t("session.create_expert_prompt")');
+    expect(expertSkillNav).not.toContain('t("session.create_expert_prompt")');
+    expect(expertSkillNav).not.toContain("handleCreateExpert");
   });
 
   test("marketplace summon binds pending agent around create-task then opens expert draft", () => {
@@ -1253,7 +1243,7 @@ describe("expert marketplace UI contract", () => {
     expect(installHelper).toContain("coordinator.ensure({");
     expect(installHelper).toContain('marketplace: "experts"');
     expect(sessionRoute).toContain("bindPendingAgentToSession({");
-    expect(sessionRoute).toContain("sessionId: newSession.id");
+    expect(sessionRoute).toContain("writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot)");
     const promptBindIndex = sessionRoute.indexOf(
       "if (pendingAgentSnapshot && sessionId)",
     );
@@ -1262,30 +1252,29 @@ describe("expert marketplace UI contract", () => {
     expect(promptBindSlice).toContain("useExpertDirectoryStore");
     expect(promptBindSlice).toContain(".upsertIdentity(");
     expect(promptBindSlice).toContain("pendingAgentSnapshot.id");
-    expect(sessionRoute).toContain("writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot)");
     // First prompt joins install (started earlier) with env prep — not a serial
-    // await after bind. Empty-shell create fire-and-forgets install.
+    // await after bind. Empty-shell idle_draft fire-and-forgets install.
     expect(sessionRoute).toContain("installMarketplaceExpertAfterSessionCreated");
     expect(sessionRoute).toContain("Promise.all([");
-    const sessionCreatedGuardIndex = pageView.indexOf("if (!newSession) return;");
+    const idleDraftIndex = pageView.indexOf("openExpertFreshIdleDraft(");
     const installAfterCreationIndex = pageView.indexOf(
       "void installMarketplaceExpertAfterSessionCreated(agentToBind)",
     );
-    expect(sessionCreatedGuardIndex).toBeGreaterThan(-1);
-    expect(installAfterCreationIndex).toBeGreaterThan(sessionCreatedGuardIndex);
+    expect(idleDraftIndex).toBeGreaterThan(-1);
+    expect(installAfterCreationIndex).toBeGreaterThan(idleDraftIndex);
     // Binding goes through helper; agent-context stamps boundSessionId from sessionId.
     expect(agentContext).toContain("boundSessionId: input.sessionId");
   });
 
   test("expert sessions persist agent metadata snapshots for restart restore", () => {
     const sessionRoute = readWorkspaceFile(
-      "apps/app/src/react-app/shell/session-route/page-view.tsx",
+      "apps/app/src/react-app/shell/session-route/surface-props-hook-impl.ts",
     );
     const store = readWorkspaceFile("apps/app/src/react-app/domains/agents/agent-registry-store.ts");
     const model = readWorkspaceFile("apps/app/src/react-app/domains/session/sidebar/conversation-model.ts");
 
-    // After create, resolvePendingAgentForPrompt may inherit; bind uses agentToBind.
-    expect(sessionRoute).toContain("writeSessionAgentSnapshot(newSession.id, agentToBind)");
+    // First send persists the snapshot; empty-shell idle_draft has no ses_*.
+    expect(sessionRoute).toContain("writeSessionAgentSnapshot(sessionId, pendingAgentSnapshot)");
     expect(sessionRoute).toContain("resolvePendingAgentForPrompt");
     expect(store).toContain("onmyagent:customAgentSnapshotBySessionId");
     expect(store).toContain("export function readSessionAgentSnapshot");

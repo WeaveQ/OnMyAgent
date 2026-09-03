@@ -3,7 +3,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import { Check, Folder, FolderPlus, FolderX, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
@@ -153,16 +153,24 @@ export function WorkspaceFootnote(props: WorkspaceFootnoteProps): React.ReactEle
           className="w-72 border-dls-border bg-dls-surface-solid p-0"
         >
           <div className="border-b border-dls-border p-2">
-            <div className="flex items-center gap-1.5 rounded-md border border-dls-border bg-dls-surface px-2 py-1">
-              <Search className="h-3.5 w-3.5 text-dls-secondary" />
-              <Input
+            <InputGroup
+              controlSize="sm"
+              radius="lg"
+              tone="surfaceMuted"
+              className="border-dls-border/50"
+            >
+              <InputGroupAddon align="inline-start" inset="compact">
+                <Search aria-hidden="true" className="size-3.5 text-dls-secondary" />
+              </InputGroupAddon>
+              <InputGroupInput
                 autoFocus
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={t("local_agent.workspace_search_placeholder")}
-                className="h-6 border-0 bg-transparent p-0 text-xs shadow-none focus-visible:ring-0"
+                aria-label={t("local_agent.workspace_search_placeholder")}
+                className="text-sm text-dls-text placeholder:text-dls-secondary/70"
               />
-            </div>
+            </InputGroup>
           </div>
           <div className="max-h-64 overflow-y-auto py-1">
             {filtered.length === 0 ? (

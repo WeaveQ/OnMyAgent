@@ -63,7 +63,10 @@ import {
   type SessionTranscriptNotice,
 } from "./plan-goal/goal-runtime";
 import { IDLE_STATUS, MAX_TRANSCRIPT_NOTICES_PER_SESSION } from "./session-surface-constants";
-import { FOLDER_REQUIRED_BUBBLE_TIMEOUT_MS } from "./session-surface-helpers";
+import {
+  composerVisibleUserText,
+  FOLDER_REQUIRED_BUBBLE_TIMEOUT_MS,
+} from "./session-surface-helpers";
 import type { AssistantCategoryId } from "./personal-assistant-config";
 import type { UIMessage } from "ai";
 
@@ -345,10 +348,11 @@ export function useSessionSurfaceRunHandlers(input: SessionSurfaceRunHandlersInp
     // leaving the text in the box makes 准备中 feel stuck and confuses retry.
     const sendText = text;
     const nextDraftBase = queuedDraft ?? buildDraft(sendText, sendAttachments);
-    if (sendText) {
+    const optimisticText = composerVisibleUserText(nextDraftBase) || sendText;
+    if (optimisticText) {
       setPendingOutgoingUserMessage({
         id: `msg_local_${crypto.randomUUID()}`,
-        text: sendText,
+        text: optimisticText,
         createdAt: startedAt,
       });
     }

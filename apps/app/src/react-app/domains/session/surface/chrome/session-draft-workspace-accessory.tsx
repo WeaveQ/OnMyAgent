@@ -25,6 +25,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -284,28 +285,38 @@ export function SessionDraftWorkspaceAccessory(props: {
             align="start"
             side="top"
             sideOffset={6}
-            className="w-72 gap-0 p-0"
+            className="w-44 gap-0 overflow-hidden p-0"
           >
             <div className="px-2 pt-2 pb-1">
-              {/* Soft pill search — shared look with skills / connectors flyouts. */}
-              <div className="flex h-8 items-center gap-1.5 rounded-lg border border-dls-border/50 bg-dls-surface-muted px-2.5">
-                <Search className="size-3.5 shrink-0 text-dls-secondary" />
-                <Input
+              <InputGroup
+                controlSize="sm"
+                radius="lg"
+                tone="surfaceMuted"
+                className="border-dls-border/50"
+              >
+                <InputGroupAddon align="inline-start" inset="compact">
+                  <Search aria-hidden="true" className="size-3.5 text-dls-secondary" />
+                </InputGroupAddon>
+                <InputGroupInput
                   autoFocus
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder={t("session.workspace_search_placeholder")}
-                  className="h-7 border-0 bg-transparent p-0 text-sm leading-5 text-dls-text shadow-none placeholder:text-dls-secondary/70 focus-visible:ring-0"
+                  aria-label={t("session.workspace_search_placeholder")}
+                  className="text-sm text-dls-text placeholder:text-dls-secondary/70"
                 />
-              </div>
+              </InputGroup>
             </div>
 
             <div className="max-h-52 overflow-y-auto px-1.5 pb-1.5 pt-0">
               {filtered.length === 0 ? (
-                <div className="px-2.5 py-2.5 text-center text-xs leading-5 text-dls-secondary whitespace-nowrap">
-                  {knownWorkspaces.length === 0
-                    ? t("session.workspace_recent_empty")
-                    : t("session.workspace_recent_no_match")}
+                <div className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs leading-5 text-dls-secondary">
+                  <span className="size-3.5 shrink-0" aria-hidden />
+                  <span className="min-w-0">
+                    {knownWorkspaces.length === 0
+                      ? t("session.workspace_recent_empty")
+                      : t("session.workspace_recent_no_match")}
+                  </span>
                 </div>
               ) : (
                 filtered.map((path) => {

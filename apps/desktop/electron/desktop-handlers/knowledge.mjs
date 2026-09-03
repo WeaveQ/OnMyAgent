@@ -2,9 +2,22 @@
  * knowledge domain IPC handlers for the Electron desktop bridge.
  * Command names stay the same; group is `knowledge` in desktop-ipc-commands.
  */
-import { readKnowledgeConfig, writePersonalVaultPath } from "../knowledge-vault-config.mjs";
+import path from "node:path";
+
+import {
+  addVault,
+  readKnowledgeConfig,
+  removeVault,
+  writePersonalVaultPath,
+} from "../knowledge-vault-config.mjs";
 import { invalidateKnowledgeIndex } from "../knowledge-vault-index.mjs";
 import { ensureKnowledgeVault } from "../ensure-knowledge-vault.mjs";
+import {
+  createKnowledgeFolder,
+  uploadKnowledgeFiles,
+  uploadKnowledgeFolder,
+  uploadKnowledgeFolderFromDisk,
+} from "../knowledge-vault-upload.mjs";
 import {
   deleteKnowledgeFile,
   listKnowledgeVault,
@@ -13,6 +26,12 @@ import {
   searchKnowledgeVault,
   writeKnowledgeFile,
 } from "../knowledge-vault-io.mjs";
+import {
+  pruneRecentEntries,
+  readRecentFile,
+  recordRecentAccess,
+  writeRecentFile,
+} from "../knowledge-recent.mjs";
 
 export const HANDLER_COMMAND_NAMES = Object.freeze([
   "knowledgeEnsureVault",
@@ -24,7 +43,31 @@ export const HANDLER_COMMAND_NAMES = Object.freeze([
   "knowledgeRebuildIndex",
   "knowledgeGetConfig",
   "knowledgeSetPersonalVaultPath",
+  "knowledgeRecordAccess",
+  "knowledgeListRecent",
+  "knowledgeAddVault",
+  "knowledgeRemoveVault",
+  "knowledgeCreateFolder",
+  "knowledgeUploadFiles",
+  "knowledgeUploadFolder",
+  "knowledgeUploadFolderFromDisk",
 ]);
+
+function folderPart(relPath) {
+  const normalized = String(relPath ?? "").replace(/\\/g, "/");
+  const idx = normalized.lastIndexOf("/");
+  return idx > 0 ? normalized.slice(0, idx) : "";
+}
+
+function recentLocation(scope, relPath, userVaultDir) {
+  const folder = folderPart(relPath);
+  if (folder) return folder;
+  if (scope === "user") {
+    const base = path.basename(String(userVaultDir ?? ""));
+    return base && base !== "vault" ? base : "OnMyAgent";
+  }
+  return scope === "project" ? "Project" : "Expert";
+}
 
 /**
  * @param {Record<string, any>} deps
@@ -147,6 +190,148 @@ export function createKnowledgeDomainHandlers({
         await ensureKnowledgeVault({ homeDir });
       }
       return result;
+    },
+
+    knowledgeRecordAccess: async (event, args) => {
+      const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+      const scope =
+        payload.scope === "project" || payload.scope === "expert" ? payload.scope : "user";
+      const relPath = String(payload.relPath ?? "").trim();
+      if (!relPath) return { ok: false, reason: "invalid_path" };
+      const homeDir = homeDirOf();
+      try {
+        const userVaultDir = readKnowledgeConfig(homeDir).resolvedUserVaultDir;
+        const entries = await readRecentFile(homeDir);
+        const next = recordRecentAccess(entries, {
+          scope,
+          relPath,
+          vaultLabel: recentLocation(scope, relPath, userVaultDir),
+        });
+        await writeRecentFile(homeDir, next);
+        return { ok: true };
+      } catch (error) {
+        console.warn("[knowledge] record recent access failed", error);
+        return { ok: false, reason: "record_failed" };
+      }
+    },
+
+    knowledgeListRecent: async (event, args) => {
+      const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+      const limit = Number.isFinite(payload.limit) ? Math.max(0, payload.limit) : undefined;
+      const homeDir = homeDirOf();
+      try {
+        let entries = await readRecentFile(homeDir);
+
+        // Best-effort prune against current vault listing; never fail the list.
+        try {
+          const listed = await listKnowledgeVault({ homeDir: homeDirOf(), scope: "all" });
+          const present = new Set();
+          for (const scopeInfo of listed.scopes ?? []) {
+            for (const file of scopeInfo.files ?? []) {
+              present.add(`${scopeInfo.scope}:${file.relPath}`);
+            }
+          }
+          entries = pruneRecentEntries(entries, (scope, relPath) =>
+            present.has(`${scope}:${relPath}`),
+          );
+        } catch (error) {
+          console.warn("[knowledge] recent prune skipped", error);
+        }
+
+        if (limit !== undefined) entries = entries.slice(0, limit);
+        return { ok: true, entries };
+      } catch (error) {
+        console.warn("[knowledge] list recent failed", error);
+        return { ok: false, reason: "list_failed", entries: [] };
+      }
+    },
+
+    knowledgeAddVault: async (event, args) => {
+      const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+      const homeDir = homeDirOf();
+      const result = await addVault(homeDir, {
+        name: payload.name,
+        path: payload.path,
+      });
+      if (result.ok) {
+        invalidateKnowledgeIndex(homeDir);
+        await ensureKnowledgeVault({ homeDir });
+      }
+      return result;
+    },
+
+    knowledgeRemoveVault: async (event, args) => {
+      const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+      const homeDir = homeDirOf();
+      const result = await removeVault(homeDir, String(payload.path ?? ""));
+      if (result.ok) {
+        invalidateKnowledgeIndex(homeDir);
+        await ensureKnowledgeVault({ homeDir });
+      }
+      return result;
+    },
+
+    knowledgeCreateFolder: async (event, args) => {
+      const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+      try {
+        return await createKnowledgeFolder({
+          homeDir: homeDirOf(),
+          scope: payload.scope,
+          relPath: payload.relPath,
+          workspaceId: payload.workspaceId,
+          expertId: payload.expertId,
+        });
+      } catch (error) {
+        return { ok: false, reason: error?.reason ?? "create_folder_failed" };
+      }
+    },
+
+    knowledgeUploadFiles: async (event, args) => {
+      const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+      try {
+        return await uploadKnowledgeFiles({
+          homeDir: homeDirOf(),
+          scope: payload.scope,
+          destFolder: payload.destFolder,
+          files: payload.files,
+          workspaceId: payload.workspaceId,
+          expertId: payload.expertId,
+        });
+      } catch (error) {
+        return { ok: false, reason: error?.reason ?? "upload_failed", results: [] };
+      }
+    },
+
+    knowledgeUploadFolder: async (event, args) => {
+      const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+      try {
+        return await uploadKnowledgeFolder({
+          homeDir: homeDirOf(),
+          scope: payload.scope,
+          destFolder: payload.destFolder,
+          entries: payload.entries,
+          workspaceId: payload.workspaceId,
+          expertId: payload.expertId,
+        });
+      } catch (error) {
+        return { ok: false, reason: error?.reason ?? "upload_failed", results: [] };
+      }
+    },
+
+    knowledgeUploadFolderFromDisk: async (event, args) => {
+      const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+      try {
+        return await uploadKnowledgeFolderFromDisk({
+          homeDir: homeDirOf(),
+          scope: payload.scope,
+          sourcePath: payload.sourcePath,
+          destFolder: payload.destFolder,
+          workspaceId: payload.workspaceId,
+          expertId: payload.expertId,
+        });
+      } catch (error) {
+        return { ok: false, reason: error?.reason ?? "upload_failed", results: [] };
+      }
     },
   };
 }

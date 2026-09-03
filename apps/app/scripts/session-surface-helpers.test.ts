@@ -8,6 +8,7 @@ import {
   FOLDER_REQUIRED_BUBBLE_TIMEOUT_MS,
   NO_VISIBLE_ASSISTANT_OUTPUT_DELAY_MS,
   buildComposerDraft,
+  composerVisibleUserText,
   deriveActiveGoalWaitingReason,
   deriveChatStreaming,
   derivePendingSessionLoad,
@@ -36,11 +37,20 @@ describe("session-surface helpers (shipped)", () => {
     expect(src).toContain("derivePendingSessionLoad");
     expect(src).toContain("deriveChatStreaming");
     expect(src).toContain("shouldShowCodeSceneToolbar");
-    expect(src).toContain("COMPOSER_NOTICE_TIMEOUT_MS");
-    expect(src).toContain("FOLDER_REQUIRED_BUBBLE_TIMEOUT_MS");
-    expect(src).toContain("DELAYED_SESSION_LOADING_MS");
     expect(src).not.toMatch(/function workspaceAttachmentContentType\(/);
     expect(src).not.toContain("window.setTimeout(() => setNotice(null), 2400)");
+    const effects = readFileSync(
+      join(appRoot, "src/react-app/domains/session/surface/session-surface-session-effects.ts"),
+      "utf8",
+    );
+    expect(effects).toContain("COMPOSER_NOTICE_TIMEOUT_MS");
+    expect(effects).toContain("DELAYED_SESSION_LOADING_MS");
+    expect(
+      readFileSync(
+        join(appRoot, "src/react-app/domains/session/surface/session-surface-run-handlers.ts"),
+        "utf8",
+      ),
+    ).toContain("FOLDER_REQUIRED_BUBBLE_TIMEOUT_MS");
   });
 
   test("notice / folder / delayed-load timeouts are stable", () => {
@@ -255,5 +265,19 @@ describe("session-surface helpers (shipped)", () => {
       collaborationMode: { planning: true, pursueGoal: false },
     });
     expect(draft.command).toEqual({ name: "help", arguments: "me later" });
+  });
+
+  test("composerVisibleUserText keeps the instruction and drops the @file chip token", () => {
+    const draft = buildComposerDraft({
+      text: "@uploads/Demo%20from%20dsh-genui.mp4 请查看该文件，说明内容概要，并告诉我可以如何处理。",
+      attachments: [],
+      pasteParts: [],
+      mentions: { "uploads/Demo from dsh-genui.mp4": "file" },
+      accessMode: "default",
+      collaborationMode: { planning: false, pursueGoal: false },
+    });
+    expect(composerVisibleUserText(draft)).toBe(
+      "请查看该文件，说明内容概要，并告诉我可以如何处理。",
+    );
   });
 });

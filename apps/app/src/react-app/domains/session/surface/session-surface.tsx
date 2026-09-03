@@ -91,8 +91,7 @@ import {
 } from "./session-surface-permission-chrome";
 import { useSessionSurfaceMentionLoaders } from "./session-surface-mention-loaders";
 import { useSessionSurfaceSessionEffects } from "./session-surface-session-effects";
-import { addOptimisticSessionUserMessage } from "../sync/optimistic-session-user-message";
-import { skillTurnTextsEquivalent } from "./skill-reference";
+import { addOptimisticSessionUserMessage, userTurnTextsEquivalent } from "../sync/optimistic-session-user-message";
 
 export type { SessionSurfaceProps } from "./session-surface-types";
 import type { SessionSurfaceProps } from "./session-surface-types";
@@ -325,7 +324,7 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       if (message.id === pendingOutgoingUserMessage.id) return true;
       return message.parts.some(
         (part) =>
-          part.type === "text" && skillTurnTextsEquivalent(part.text, pendingText),
+          part.type === "text" && userTurnTextsEquivalent(part.text, pendingText),
       );
     });
     if (matched) setPendingOutgoingUserMessage(null);
@@ -1076,10 +1075,10 @@ export function SessionSurface(bagProps: SessionSurfaceProps) {
       onExpandPastedText={handleExpandPastedText}
       onRevealPastedText={handleRevealPastedText}
       onRemovePastedText={handleRemovePastedText}
-      isRemoteWorkspace={props.isRemoteWorkspace}
-      isSandboxWorkspace={props.isSandboxWorkspace}
+      isRemoteWorkspace={props.isRemoteWorkspace} isSandboxWorkspace={props.isSandboxWorkspace}
       onUploadInboxFiles={props.onUploadInboxFiles ?? handleUploadInboxFiles}
       composerAccessory={composerAccessory} promptQueueBar={promptQueue.bar}
+      promptEnhanceClient={opencodeClient}
       draftWorkspaceDirectory={props.draftWorkspaceDirectory}
       draftWorkspaceOwnerId={props.draftWorkspaceOwnerId}
       assistantFeatureCategoryId={assistantFeatureCategoryId}

@@ -1,16 +1,10 @@
 /** @jsxImportSource react */
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import {
-  ChevronsDown,
-  ChevronsUp,
-  FilePlus,
-  FolderOpen,
-  FolderPlus,
-  RefreshCw,
-  Search,
-} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { LIST_LANE_HEADER_CLASS } from "@/components/ui/sidebar-chrome";
+import { cn } from "@/lib/utils";
 import { KNOWLEDGE_BASE_PLACEHOLDER_ASSET } from "@/react-app/design-system/empty-state-assets";
 import { EmptyStateIllustration } from "@/react-app/design-system/empty-state-illustration";
 import {
@@ -23,9 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { NoticeBox } from "@/components/ui/notice-box";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ConfirmModal } from "@/react-app/design-system/modals/confirm-modal";
 import { t } from "../../../i18n";
 import { isElectronRuntime } from "../../../app/utils";
@@ -34,14 +26,20 @@ import {
   getKnowledgeVaultConfig,
   listKnowledgeVault,
   openKnowledgeVaultFolder,
-  rebuildKnowledgeVaultIndex,
   readKnowledgeVaultFile,
   revealDesktopItemInDir,
   searchKnowledgeVault,
+  setKnowledgePersonalVaultPath,
   writeKnowledgeVaultFile,
 } from "../../../app/lib/desktop";
 import { KnowledgeVaultReader } from "./knowledge-vault-reader";
 import { KnowledgeVaultSplitEditor } from "./knowledge-vault-split-editor";
+import { KnowledgeHtmlView } from "./knowledge-html-view";
+import { recordKnowledgeRecentAccess } from "../../../app/lib/desktop-knowledge";
+import { KnowledgeBookmarkForm, type BookmarkDraft } from "./knowledge-bookmark-form";
+import { buildBookmarkMarkdown, safeBookmarkFileName } from "./knowledge-bookmark";
+import type { KnowledgeVaultItem, KnowledgeVaultSelection } from "./knowledge-vault-groups";
+import { KnowledgeVaultSidebar } from "./knowledge-vault-sidebar";
 import { subscribeOpenKnowledgeNote, takePendingKnowledgeNote } from "./knowledge-vault-navigation";
 import {
   applyKnowledgeNoteProps,
@@ -51,7 +49,6 @@ import {
   splitMarkdownFrontmatter,
 } from "./knowledge-vault-frontmatter";
 import { KnowledgeVaultProperties } from "./knowledge-vault-properties";
-import { KnowledgeVaultSwitcher, type KnowledgeVaultOption } from "./knowledge-vault-switcher";
 import { KnowledgeVaultTabBar } from "./knowledge-vault-tab-bar";
 import {
   activateOrReuseTab,
@@ -59,7 +56,6 @@ import {
   closeKnowledgeEditorTab,
   createKnowledgeEditorTab,
 } from "./knowledge-vault-tabs";
-import { KnowledgeVaultTree } from "./knowledge-vault-tree";
 import {
   canDropKnowledgeItem,
   defaultKnowledgeNote,
@@ -79,6 +75,7 @@ import {
   type KnowledgeVaultScopeList,
 } from "./knowledge-vault-model";
 import { createKnowledgeEditorSession } from "./knowledge-vault-editor-session";
+import { useKnowledgeVaultIndex } from "./use-knowledge-vault-index";
 import { readKnowledgeFavorites, toggleKnowledgeFavorite } from "./knowledge-vault-favorites";
 import type { KnowledgeContextTarget } from "./knowledge-vault-context-menu";
 
@@ -118,13 +115,15 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
   const [moveValue, setMoveValue] = useState("");
   const [vaultLabel, setVaultLabel] = useState("");
   const [vaultPath, setVaultPath] = useState("");
-  const [vaults, setVaults] = useState<KnowledgeVaultOption[]>([]);
+  const [vaults, setVaults] = useState<KnowledgeVaultItem[]>([]);
+  const [bookmarkOpen, setBookmarkOpen] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(() => readKnowledgeFavorites());
   const [expandNonce, setExpandNonce] = useState(0);
   const [collapseNonce, setCollapseNonce] = useState(0);
+  const [revealNonce, setRevealNonce] = useState(0);
   const [editorMode, setEditorMode] = useState<"view" | "edit">("view");
   const [editLayout, setEditLayout] = useState<"source" | "split">("split");
-  const [indexing, setIndexing] = useState(false);
+  const [showRecent, setShowRecent] = useState(false);
   const [tabs, setTabs] = useState(() => [createKnowledgeEditorTab()]);
   const [activeTabId, setActiveTabId] = useState(() => tabs[0]?.id ?? "");
   const editorSessionRef = useRef(createKnowledgeEditorSession());
@@ -177,6 +176,11 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
     setLoading(false);
     return listed.scopes as KnowledgeVaultScopeList[];
   }, [desktop, expertId, workspaceId]);
+  const { indexing, rebuildIndex, notice: indexNotice } = useKnowledgeVaultIndex({
+    workspaceId,
+    expertId,
+    refresh,
+  });
 
   const openNote = useCallback(
     async (note: KnowledgeNoteRef) => {
@@ -222,6 +226,13 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
       setDraft(content);
       setLoaded(content);
       setSaveState("saved");
+      // Best-effort recent-access record; never blocks opening.
+      void recordKnowledgeRecentAccess({
+        scope: note.scope,
+        relPath: note.relPath,
+        workspaceId,
+        expertId,
+      });
       const next = activateOrReuseTab(tabsRef.current, activeTabIdRef.current, note, content);
       setTabs(next.tabs);
       setActiveTabId(next.activeId);
@@ -236,35 +247,6 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
       }),
     [openNote],
   );
-
-  const handleRebuildIndex = useCallback(async () => {
-    setIndexing(true);
-    setError(null);
-    try {
-      const result = await rebuildKnowledgeVaultIndex({
-        scope: "all",
-        workspaceId,
-        expertId,
-      });
-      if (!result?.ok) {
-        const reason = String(result?.reason ?? "");
-        setError(
-          /not declared|not implemented/i.test(reason)
-            ? t("knowledge.index_restart")
-            : t("knowledge.index_error"),
-        );
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setError(
-        /not declared|not implemented/i.test(message)
-          ? t("knowledge.index_restart")
-          : t("knowledge.index_error"),
-      );
-    } finally {
-      setIndexing(false);
-    }
-  }, [expertId, workspaceId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -292,6 +274,12 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
       setDraft(result?.content ?? "");
       setLoaded(result?.content ?? "");
       setSaveState("saved");
+      void recordKnowledgeRecentAccess({
+        scope: initial.scope,
+        relPath: initial.relPath,
+        workspaceId,
+        expertId,
+      });
     })();
     return () => {
       cancelled = true;
@@ -428,6 +416,58 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
     await openNote({ scope, relPath });
     setEditorMode("edit");
     if (next) setScopes(next);
+  };
+
+  const handleCreateBookmark = async (draft: BookmarkDraft) => {
+    const relPath = joinKnowledgeRelPath(createFolderPrefix, safeBookmarkFileName(draft.title, draft.url));
+    const result = await writeKnowledgeVaultFile({
+      scope,
+      relPath,
+      content: buildBookmarkMarkdown(draft),
+      workspaceId,
+      expertId,
+    });
+    if (!result?.ok) {
+      setError(t("knowledge.save_error"));
+      return;
+    }
+    const next = await refresh();
+    if (next) setScopes(next);
+    await openNote({ scope, relPath });
+  };
+
+  const reloadAfterVaultChange = async () => {
+    const empty = createKnowledgeEditorTab();
+    setTabs([empty]);
+    setActiveTabId(empty.id);
+    const next = await refresh();
+    if (!next) return;
+    const initial = defaultKnowledgeNote(next);
+    if (initial) await openNote(initial);
+    else {
+      setSelected(null);
+      setDraft("");
+      setLoaded("");
+    }
+  };
+
+  const handleSelectVault = async (selection: KnowledgeVaultSelection) => {
+    setShowRecent(false);
+    if (selection.scope !== "user") {
+      setScope(selection.scope);
+      return;
+    }
+    const current = vaults.find((item) => item.path === vaultPath);
+    const selectingDefault = selection.vaultPath == null;
+    const pathChanged = selectingDefault ? current?.isDefault === false : selection.vaultPath !== vaultPath;
+    setScope("user");
+    if (!pathChanged) return;
+    const result = await setKnowledgePersonalVaultPath(selection.vaultPath ?? null);
+    if (!result?.ok) {
+      setError(t("knowledge.folder_invalid"));
+      return;
+    }
+    await reloadAfterVaultChange();
   };
 
   const handleCreateFolder = async () => {
@@ -827,122 +867,111 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background">
       <div className="grid min-h-0 flex-1 grid-cols-[16rem_minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto]">
-        <div className="flex h-10 items-center border-b border-r border-dls-border px-1.5 mac:titlebar-no-drag">
-          <InputGroup controlSize="sm">
-            <InputGroupAddon>
-              <Search className="size-3.5" />
+        <div
+          className={cn(
+            LIST_LANE_HEADER_CLASS,
+            "border-b border-r border-dls-border px-2.5 mac:titlebar-drag",
+          )}
+        >
+          <InputGroup controlSize="lg" radius="lg" tone="surface" className="w-full mac:titlebar-no-drag">
+            <InputGroupAddon align="inline-start" inset="tight">
+              <Search className="size-4" />
             </InputGroupAddon>
             <InputGroupInput
               ref={searchRef}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t("knowledge.search_placeholder")}
+              aria-label={t("knowledge.search_placeholder")}
+              className="text-sm placeholder:text-dls-secondary/75"
             />
           </InputGroup>
         </div>
-        <div className="flex h-10 min-w-0 border-b border-dls-border">
+        <div className={cn(LIST_LANE_HEADER_CLASS, "min-w-0 w-full items-stretch border-b border-dls-border")}>
           <KnowledgeVaultTabBar
             tabs={tabs}
             activeId={activeTabId}
             onActivate={(id) => applyTab(persistActiveTab(), id)}
-            onClose={(id) => {
-              const next = closeKnowledgeEditorTab(persistActiveTab(), id);
-              applyTab(next.tabs, next.activeId);
-            }}
-            onAdd={() => {
-              const next = addKnowledgeEditorTab(persistActiveTab());
-              applyTab(next.tabs, next.activeId);
-            }}
+            onClose={(id) => { const n = closeKnowledgeEditorTab(persistActiveTab(), id); applyTab(n.tabs, n.activeId); }}
+            onAdd={() => { const n = addKnowledgeEditorTab(persistActiveTab()); applyTab(n.tabs, n.activeId); }}
             mode={editorMode}
             onModeChange={setEditorMode}
+            note={selected}
+            treeActions={treeActions}
+            onShowInTree={() => {
+              setShowRecent(false);
+              setQuery("");
+              setRevealNonce((n) => n + 1);
+            }}
           />
         </div>
-        <aside className="flex min-h-0 flex-col overflow-hidden border-r border-dls-border">
-          <div className="flex h-10 shrink-0 items-center justify-center gap-0.5 px-1.5 text-dls-secondary mac:titlebar-no-drag">
-            <ToolbarIconButton
-              label={t("knowledge.new_note")}
-              hint={t("knowledge.toolbar_new_note")}
-              onClick={() => {
-                setCreateFolderPrefix("");
-                setCreateName(suggestKnowledgeNoteName());
-                setCreateOpen(true);
-              }}
-            >
-              <FilePlus className="size-3.5" strokeWidth={1.75} />
-            </ToolbarIconButton>
-            <ToolbarIconButton
-              label={t("knowledge.new_folder")}
-              hint={t("knowledge.toolbar_new_folder")}
-              onClick={() => {
-                setCreateFolderPrefix("");
-                setFolderOpen(true);
-              }}
-            >
-              <FolderPlus className="size-3.5" strokeWidth={1.75} />
-            </ToolbarIconButton>
-            <span className="mx-0.5 h-3.5 w-px shrink-0 bg-dls-border" aria-hidden />
-            <ToolbarIconButton
-              label={t("knowledge.open_folder")}
-              hint={t("knowledge.toolbar_open_folder")}
-              onClick={() => void openKnowledgeVaultFolder()}
-            >
-              <FolderOpen className="size-3.5" strokeWidth={1.75} />
-            </ToolbarIconButton>
-            <span className="mx-0.5 h-3.5 w-px shrink-0 bg-dls-border" aria-hidden />
-            <ToolbarIconButton
-              label={t("knowledge.expand_all")}
-              hint={t("knowledge.toolbar_expand_all")}
-              onClick={() => setExpandNonce((value) => value + 1)}
-            >
-              <ChevronsDown className="size-3.5" strokeWidth={1.75} />
-            </ToolbarIconButton>
-            <ToolbarIconButton
-              label={t("knowledge.collapse_all")}
-              hint={t("knowledge.toolbar_collapse_all")}
-              onClick={() => setCollapseNonce((value) => value + 1)}
-            >
-              <ChevronsUp className="size-3.5" strokeWidth={1.75} />
-            </ToolbarIconButton>
-            <span className="mx-0.5 h-3.5 w-px shrink-0 bg-dls-border" aria-hidden />
-            <ToolbarIconButton
-              label={t("knowledge.sync_index")}
-              hint={t("knowledge.toolbar_sync_index")}
-              disabled={indexing}
-              onClick={() => void handleRebuildIndex()}
-            >
-              <RefreshCw
-                className={`size-3.5 ${indexing ? "animate-spin" : ""}`}
-                strokeWidth={1.75}
-              />
-            </ToolbarIconButton>
-          </div>
-          {error ? (
-            <div className="px-2 pt-2">
-              <NoticeBox tone="error">{error}</NoticeBox>
-            </div>
-          ) : null}
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            {loading ? (
-              <div className="flex h-full items-center justify-center">
-                <LoadingSpinner />
-              </div>
-            ) : visibleFiles.length === 0 && query.trim() ? (
-              <div className="px-3 py-8 text-center text-sm text-dls-secondary">
-                {t("knowledge.no_results")}
-              </div>
-            ) : (
-              <KnowledgeVaultTree
-                files={visibleFiles}
-                scope={scope}
-                selected={selected}
-                onSelect={(note) => void openNote(note)}
-                actions={treeActions}
-                expandNonce={expandNonce}
-                collapseNonce={collapseNonce}
-              />
-            )}
-          </div>
-        </aside>
+        <KnowledgeVaultSidebar
+          scope={scope}
+          workspaceId={workspaceId}
+          expertId={expertId}
+          indexing={indexing}
+          indexNotice={indexNotice}
+          error={error}
+          loading={loading}
+          showRecent={showRecent}
+          visibleFiles={visibleFiles}
+          query={query}
+          selected={selected}
+          userVaults={
+            vaults.length > 0
+              ? vaults
+              : [
+                  {
+                    name: vaultLabel || t("knowledge.default_vault"),
+                    path: vaultPath,
+                    isDefault: true,
+                  },
+                ]
+          }
+          activeVaultPath={
+            vaults.find((item) => item.path === vaultPath)?.isDefault ? null : vaultPath || null
+          }
+          treeActions={treeActions}
+          expandNonce={expandNonce}
+          collapseNonce={collapseNonce}
+          revealNonce={revealNonce}
+          onNewNote={() => {
+            setCreateFolderPrefix("");
+            setCreateName(suggestKnowledgeNoteName());
+            setCreateOpen(true);
+          }}
+          onNewCsv={() => {
+            setCreateFolderPrefix("");
+            setCreateName(suggestKnowledgeNoteName().replace(/\.md$/, ".csv"));
+            setCreateOpen(true);
+          }}
+          onNewFolder={() => {
+            setCreateFolderPrefix("");
+            setFolderOpen(true);
+          }}
+          onNewLink={() => {
+            setCreateFolderPrefix("");
+            setBookmarkOpen(true);
+          }}
+          onUploaded={() => void refresh()}
+          onOpenFolder={() => void openKnowledgeVaultFolder()}
+          onExpandAll={() => setExpandNonce((value) => value + 1)}
+          onCollapseAll={() => setCollapseNonce((value) => value + 1)}
+          onToggleRecent={() => setShowRecent((value) => !value)}
+          onRebuildIndex={() => void rebuildIndex()}
+          onSelectVault={(selection) => void handleSelectVault(selection)}
+          onVaultsChanged={() => void reloadAfterVaultChange()}
+          onOpenNote={(note) => void openNote(note)}
+          scopeForRecent={(entry) =>
+            entry.location
+              ? entry.location
+              : entry.scope === "project"
+                ? t("knowledge.scope_project")
+                : entry.scope === "expert"
+                  ? t("knowledge.scope_expert")
+                  : t("knowledge.scope_user")
+          }
+        />
         <section className="flex min-h-0 min-w-0 flex-col overflow-hidden">
           {selected ? (
             editorMode === "edit" ? (
@@ -961,6 +990,8 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
                   onLayoutChange={setEditLayout}
                 />
               </>
+            ) : selected.relPath.toLowerCase().endsWith(".html") ? (
+              <KnowledgeHtmlView content={draft} fileName={selected.relPath} />
             ) : (
               <KnowledgeVaultReader
                 markdown={draft}
@@ -999,51 +1030,21 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
             </div>
           )}
         </section>
-        <div className="flex h-10 items-center justify-between gap-1 border-r border-t border-dls-border px-1">
-          <KnowledgeVaultSwitcher
-            currentPath={vaultPath}
-            vaults={
-              vaults.length > 0
-                ? vaults
-                : [
-                    {
-                      name: vaultLabel || t("knowledge.default_vault"),
-                      path: vaultPath,
-                      isDefault: true,
-                    },
-                  ]
-            }
-            onChanged={() => {
-              void (async () => {
-                const empty = createKnowledgeEditorTab();
-                setTabs([empty]);
-                setActiveTabId(empty.id);
-                const next = await refresh();
-                if (!next) return;
-                const initial = defaultKnowledgeNote(next);
-                if (initial) await openNote(initial);
-                else {
-                  setSelected(null);
-                  setDraft("");
-                  setLoaded("");
-                }
-              })();
-            }}
-          />
-          {saveState === "saved" ? null : (
-            <span className="shrink-0 px-1 text-xs text-dls-secondary">
-              {saveState === "saving"
-                ? t("knowledge.saving")
-                : saveState === "unsaved"
-                  ? t("knowledge.unsaved")
-                  : t("knowledge.save_error")}
-            </span>
-          )}
-        </div>
-        <div className="flex h-10 items-center justify-end gap-3 border-t border-dls-border px-3 text-xs text-dls-secondary">
-          <span>{t("knowledge.stat_props", { count: footerStats.propCount })}</span>
-          <span>{t("knowledge.stat_words", { count: footerStats.words })}</span>
-          <span>{t("knowledge.stat_chars", { count: footerStats.chars })}</span>
+        <div className="flex h-10 items-center justify-between gap-3 border-t border-dls-border px-3 text-xs text-dls-secondary">
+          <span className="min-w-0 truncate">
+            {saveState === "saving"
+              ? t("knowledge.saving")
+              : saveState === "unsaved"
+                ? t("knowledge.unsaved")
+                : saveState === "error"
+                  ? t("knowledge.save_error")
+                  : null}
+          </span>
+          <span className="flex shrink-0 items-center gap-3">
+            <span>{t("knowledge.stat_props", { count: footerStats.propCount })}</span>
+            <span>{t("knowledge.stat_words", { count: footerStats.words })}</span>
+            <span>{t("knowledge.stat_chars", { count: footerStats.chars })}</span>
+          </span>
         </div>
       </div>
 
@@ -1142,36 +1143,12 @@ export function KnowledgeVaultPage(props: KnowledgeVaultPageProps) {
         onConfirm={() => void handleDelete()}
         onCancel={() => setDeleteOpen(false)}
       />
-    </div>
-  );
-}
 
-function ToolbarIconButton(props: {
-  label: string;
-  hint: string;
-  disabled?: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-dls-secondary hover:text-dls-text"
-            disabled={props.disabled}
-            onClick={props.onClick}
-            aria-label={props.label}
-          />
-        }
-      >
-        {props.children}
-      </TooltipTrigger>
-      <TooltipContent side="bottom" sideOffset={6} className="max-w-56">
-        {props.hint}
-      </TooltipContent>
-    </Tooltip>
+      <KnowledgeBookmarkForm
+        open={bookmarkOpen}
+        onOpenChange={setBookmarkOpen}
+        onCreate={(draft) => void handleCreateBookmark(draft)}
+      />
+    </div>
   );
 }

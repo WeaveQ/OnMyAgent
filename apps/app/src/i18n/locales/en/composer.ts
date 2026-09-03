@@ -62,6 +62,11 @@ export default {
   "composer.access_delegate_desc": "Ask only for risky operations",
   "composer.access_full": "Full access",
   "composer.access_full_desc": "Unrestricted internet and files",
+  "composer.access_full_allow": "Allow full access",
+  "composer.access_full_warning":
+    "Full access is on. The agent can write files, run commands, and use the network without asking. Only continue with tasks you trust.",
+  "composer.access_full_enable_hint":
+    "When on, file, command, and network actions proceed without asking.",
   "composer.access_high_risk": "High risk",
   "composer.add_file": "Add file",
   "composer.capture_appshot": "Capture desktop",
@@ -98,4 +103,8 @@ export default {
   "composer.quick_actions": "Add context",
   "composer.remove_collaboration_mode": "Remove {mode} mode",
   "composer.send_message": "Send message",
+  "composer.enhance_prompt": "Enhance prompt",
+  "composer.enhance_prompt_need_draft": "Write a prompt first",
+  "composer.enhance_prompt_undo": "Restore original",
+  "composer.enhance_prompt_failed": "Couldn't enhance the prompt",
 } as const;

@@ -250,6 +250,12 @@ describe("session route aggregate loader", () => {
     registerExpertCreationEphemeralSession("preview-session");
     expect(filterExpertCreationEphemeralSessionsByWorkspace({ ws_a: [session({ id: "preview-session" }), session({ id: "normal" })] }).ws_a?.map((item) => item.id))
       .toEqual(["normal"]);
+    const enhanceScratch = insertSidebarSession({
+      current: { ws_a: [session({ id: "normal" })] },
+      workspaceId: "ws_a",
+      session: session({ id: "ses_enhance", title: "draft:prompt-enhance" }),
+    });
+    expect(enhanceScratch.ws_a?.map((item) => item.id)).toEqual(["normal"]);
     clearExpertCreationEphemeralSessions();
     writeSessionAgentSnapshot("legacy-coach", {
       id: EXPERT_CREATION_COACH_AGENT_ID,

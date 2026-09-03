@@ -549,8 +549,8 @@ export function SessionPage(props: SessionPageProps) {
               )}
               onMouseDown={(event) => event.preventDefault()}
               onClick={openBrowserRailPane}
-              title="Browser"
-              aria-label="Browser"
+              title={t("session.code_side_panel_browser")}
+              aria-label={t("session.code_side_panel_browser")}
               aria-pressed={browserRailActive}
             >
               <Globe size={16} />

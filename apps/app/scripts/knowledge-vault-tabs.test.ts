@@ -51,15 +51,58 @@ describe("knowledge editor tabs", () => {
       join(dirname(fileURLToPath(import.meta.url)), "../src/react-app/domains/knowledge/knowledge-vault-tab-bar.tsx"),
       "utf8",
     );
-    expect(source).toContain("w-36");
+    expect(source).toContain("w-32");
     expect(source).toContain("truncate");
-    expect(source).toContain("justify-center");
-    expect(source).toContain("text-center");
+    expect(source).toContain("text-left");
+    expect(source).not.toContain("justify-center");
+    expect(source).not.toContain("text-center");
     expect(source).not.toContain("border-r border-dls-border");
+    expect(source).toContain("ps-4");
+    expect(source).toContain("mac:titlebar-drag");
     expect(source).toContain("mac:titlebar-no-drag");
+    expect(source).not.toMatch(/flex-1[^"\n]*titlebar-no-drag/);
     expect(source).toContain("cursor-pointer");
     expect(source).not.toContain("max-w-48");
     expect(source).not.toContain("min-w-28");
+    expect(source.match(/onClick=\{\(\) => props\.onActivate\(tab\.id\)\}/g)).toHaveLength(1);
+  });
+
+  test("pencil and more sit at the trailing end of the tab row", () => {
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "../src/react-app/domains/knowledge/knowledge-vault-tab-bar.tsx"),
+      "utf8",
+    );
+    const plusAt = source.indexOf('t("knowledge.new_tab")');
+    const trailingAt = source.indexOf("ms-auto");
+    const pencilAt = source.lastIndexOf("PencilLine");
+    const moreAt = source.lastIndexOf("KnowledgeVaultEditorMoreMenu");
+    expect(plusAt).toBeGreaterThan(-1);
+    expect(trailingAt).toBeGreaterThan(plusAt);
+    expect(pencilAt).toBeGreaterThan(trailingAt);
+    expect(moreAt).toBeGreaterThan(pencilAt);
+    expect(source).not.toContain("MoreHorizontal");
+    expect(source).not.toContain("DropdownMenuItem");
+  });
+
+  test("editor more menu offers current-note actions, not only view/edit", () => {
+    const menu = readFileSync(
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        "../src/react-app/domains/knowledge/knowledge-vault-editor-more-menu.tsx",
+      ),
+      "utf8",
+    );
+    expect(menu).toContain('t("knowledge.rename")');
+    expect(menu).toContain('t("knowledge.move_to")');
+    expect(menu).toContain('t("knowledge.favorite")');
+    expect(menu).toContain('t("knowledge.copy_path")');
+    expect(menu).toContain('t("knowledge.copy_rel_path")');
+    expect(menu).toContain('t("knowledge.copy_abs_path")');
+    expect(menu).toContain('t("knowledge.reveal")');
+    expect(menu).toContain('t("knowledge.show_in_tree")');
+    expect(menu).toContain('t("knowledge.delete")');
+    expect(menu).not.toContain('t("knowledge.mode_view")');
+    expect(menu).not.toContain('t("knowledge.mode_edit")');
   });
 
   test("fills an empty active tab instead of leaving a blank leftover", () => {

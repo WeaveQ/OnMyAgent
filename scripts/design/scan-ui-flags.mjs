@@ -32,11 +32,7 @@ const RING_ZERO_ALLOW_FILES = new Set([
   'components/ui/command.tsx',
   'react-app/domains/session/surface/composer/editor.tsx',
   'react-app/domains/local-agents/local-agent-draft-composer.tsx',
-  'react-app/domains/session/surface/chrome/session-draft-workspace-accessory.tsx',
   'react-app/domains/agents/expert-creation-basic-tab.tsx',
-  'react-app/domains/settings/pages/awareness-file-viewer-modal.tsx',
-  'react-app/domains/messaging/automation-page-dialogs.tsx',
-  'react-app/domains/local-agents/workspace-picker/workspace-footnote.tsx',
 ])
 
 const SHADOW_ALLOW_RE =

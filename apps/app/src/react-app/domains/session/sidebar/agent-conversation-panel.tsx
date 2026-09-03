@@ -1596,15 +1596,9 @@ export function AgentConversationPanel(props: {
                 </Button>
               }
             />
-            <DropdownMenuContent
-              align="center"
-              side="top"
-              sideOffset={8}
-              className="min-w-[12rem] border border-dls-border bg-dls-surface-solid p-1.5 text-dls-text"
-            >
+            <DropdownMenuContent align="center" side="top" sideOffset={8}>
               {props.onOpenAgents ? (
                 <DropdownMenuItem
-                  className="cursor-pointer gap-2 text-dls-text focus:bg-dls-hover"
                   onClick={() => {
                     clearSearchIfNeeded();
                     props.onOpenAgents();
@@ -1616,7 +1610,6 @@ export function AgentConversationPanel(props: {
               ) : null}
               {props.onCreateExpert ? (
                 <DropdownMenuItem
-                  className="cursor-pointer gap-2 text-dls-text focus:bg-dls-hover"
                   onClick={() => {
                     clearSearchIfNeeded();
                     props.onCreateExpert?.();

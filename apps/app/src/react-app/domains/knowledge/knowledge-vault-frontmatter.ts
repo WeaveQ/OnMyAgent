@@ -106,8 +106,27 @@ function quoteIfNeeded(value: string): string {
   return value;
 }
 
-export function serializeKnowledgeNoteProps(props: KnowledgeNoteProps): string {
-  const lines = ["---"];
+// Aliases accepted on parse must be dropped on serialize (the canonical key is
+// emitted); every other top-level key is an unknown pass-through.
+const KNOWN_KEYS = new Set([
+  "title",
+  "created",
+  "date",
+  "created_at",
+  "updated",
+  "modified",
+  "updated_at",
+  "tags",
+  "tag",
+  "related",
+  "links",
+  "source",
+]);
+
+const TOP_LEVEL_KEY = /^([A-Za-z][\w-]*):(?:\s*(.*))?$/;
+
+function serializeKnownPropLines(props: KnowledgeNoteProps): string[] {
+  const lines: string[] = [];
   if (props.title.trim()) lines.push(`title: ${quoteIfNeeded(props.title.trim())}`);
   if (props.created.trim()) lines.push(`created: ${quoteIfNeeded(props.created.trim())}`);
   if (props.updated.trim()) lines.push(`updated: ${quoteIfNeeded(props.updated.trim())}`);
@@ -120,25 +139,62 @@ export function serializeKnowledgeNoteProps(props: KnowledgeNoteProps): string {
     for (const link of props.related) lines.push(`  - ${quoteIfNeeded(link)}`);
   }
   if (props.source.trim()) lines.push(`source: ${quoteIfNeeded(props.source.trim())}`);
-  lines.push("---", "");
+  return lines;
+}
+
+// Returns lines of the original fence that do not belong to a known key, in
+// their original order and text. Known keys and their indented block-list
+// continuations are omitted so the canonical known fields can be re-emitted.
+function extractUnknownFrontmatterLines(raw: string): string[] {
+  if (!raw.trim()) return [];
+  const lines = raw.split(/\r?\n/);
+  const kept: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i] ?? "";
+    const pair = line.match(TOP_LEVEL_KEY);
+    if (pair) {
+      const key = (pair[1] ?? "").toLowerCase();
+      i += 1;
+      if (KNOWN_KEYS.has(key)) {
+        // Skip the known key plus its indented block-list continuations.
+        while (i < lines.length && /^\s+\S/.test(lines[i] ?? "")) i += 1;
+        continue;
+      }
+      kept.push(line);
+      // Preserve the unknown key together with its indented block body
+      // (block lists, block scalars, etc.).
+      while (i < lines.length && /^\s+\S/.test(lines[i] ?? "")) {
+        kept.push(lines[i] ?? "");
+        i += 1;
+      }
+      continue;
+    }
+    // Comments, blank lines, and orphan lines are passed through verbatim.
+    kept.push(line);
+    i += 1;
+  }
+  return kept;
+}
+
+export function serializeKnowledgeNoteProps(props: KnowledgeNoteProps): string {
+  const lines = ["---", ...serializeKnownPropLines(props), "---", ""];
   return lines.join("\n");
 }
 
 export function applyKnowledgeNoteProps(markdown: string, props: KnowledgeNoteProps): string {
-  const { body } = splitMarkdownFrontmatter(markdown);
-  const hasProps =
-    props.title.trim() ||
-    props.created.trim() ||
-    props.updated.trim() ||
-    props.tags.length > 0 ||
-    props.related.length > 0 ||
-    props.source.trim();
-  if (!hasProps) return body;
-  return `${serializeKnowledgeNoteProps(props)}${body.replace(/^\n/, "")}`;
+  const { raw, body } = splitMarkdownFrontmatter(markdown);
+  const knownLines = serializeKnownPropLines(props);
+  const unknownLines = extractUnknownFrontmatterLines(raw);
+  if (knownLines.length === 0 && unknownLines.length === 0) return body;
+  const fence = ["---", ...knownLines, ...unknownLines, "---", ""].join("\n");
+  return `${fence}${body.replace(/^\n/, "")}`;
 }
 
 export function headingTitleFromBody(body: string): string {
-  return body.match(/^\s*#\s+(.+)$/m)?.[1]?.trim() ?? "";
+  // Leading h1 only. `/m` would treat a later "# Section" as the document title
+  // and the reader would hide its synthetic h1.
+  return body.match(/^\s*#\s+([^\n\r]+)/)?.[1]?.trim() ?? "";
 }
 
 export function countKnowledgeBody(body: string): { words: number; chars: number } {

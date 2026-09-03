@@ -135,7 +135,8 @@ function resolveFile(input) {
 export async function readKnowledgeFile(input) {
   await ensureKnowledgeVault({ homeDir: input.homeDir });
   const target = resolveFile(input);
-  if (!isIndexableKnowledgeFile(target.relPath)) {
+  const isHtml = target.relPath.toLowerCase().endsWith(".html");
+  if (!isIndexableKnowledgeFile(target.relPath) && !isHtml) {
     return { ok: false, reason: "unsupported_type", path: target.abs, relPath: target.relPath };
   }
   let st;
@@ -156,6 +157,7 @@ export async function readKnowledgeFile(input) {
     scope: target.scope,
     relPath: target.relPath,
     path: target.abs,
+    type: isHtml ? "html" : "text",
     content,
     size: st.size,
     mtimeMs: st.mtimeMs,

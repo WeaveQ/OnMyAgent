@@ -103,11 +103,21 @@ export function clearComposerDraftForNewTask(workspaceId: string) {
  * Insert a workspace file as an `@` mention into the active session composer
  * so the user can keep chatting about it ("添加到任务 / 添加到会话").
  */
+/** Workspace-relative path for composer @file chips (`uploads/…` / inbox). */
+export function normalizeWorkspaceFileMentionPath(path: string): string {
+  let p = path.trim().replace(/\\/g, "/").replace(/^\.\//, "");
+  const uploads = p.search(/(?:^|\/)uploads\//);
+  if (uploads >= 0) return p.slice(uploads).replace(/^\//, "");
+  const inbox = p.search(/(?:^|\/)\.opencode\/onmyagent\/inbox\//);
+  if (inbox >= 0) return p.slice(inbox).replace(/^\//, "");
+  return p;
+}
+
 export function appendComposerFileMention(
   sessionId: string,
   relativePath: string,
 ): boolean {
-  const path = relativePath.trim().replace(/\\/g, "/").replace(/^\.\//, "");
+  const path = normalizeWorkspaceFileMentionPath(relativePath);
   if (!sessionId.trim() || !path) return false;
   const store = useComposerStateStore.getState();
   const draft = getComposerDraft(store, sessionId);
@@ -133,7 +143,7 @@ export function seedComposerFileAgentTask(
   relativePath: string,
   instruction: string,
 ): boolean {
-  const path = relativePath.trim().replace(/\\/g, "/").replace(/^\.\//, "");
+  const path = normalizeWorkspaceFileMentionPath(relativePath);
   if (!sessionId.trim() || !path) return false;
   const text = String(instruction ?? "").trim();
   const token = encodeComposerMentionValue(path);
@@ -170,12 +180,15 @@ type FilesToast = (input: {
 /** Shared Files-page handlers for add-to-task / ask-agent / edit-error / toast. */
 export function createWorkspaceFilesAgentHandlers(input: {
   sessionId: string;
+  workspaceId?: string;
   openRail: () => void;
+  goHomeNewTask?: () => void;
   showToast: FilesToast;
   buildInstruction: (input: { fileName: string; preview?: string }) => string;
   t: (key: string) => string;
 }) {
-  const { sessionId, openRail, showToast, buildInstruction, t } = input;
+  const { sessionId, workspaceId, openRail, goHomeNewTask, showToast, buildInstruction, t } =
+    input;
   return {
     onToast: showToast,
     onAddToTask: (relativePath: string) => {
@@ -197,16 +210,20 @@ export function createWorkspaceFilesAgentHandlers(input: {
       name: string;
       preview: string;
     }) => {
+      const homeDraftId = workspaceId
+        ? assistantDraftSessionId(workspaceId)
+        : sessionId;
+      if (goHomeNewTask) goHomeNewTask();
+      else openRail();
       if (
         !seedComposerFileAgentTask(
-          sessionId,
+          homeDraftId,
           path,
           buildInstruction({ fileName: name, preview }),
         )
       ) {
         return;
       }
-      openRail();
       showToast({
         tone: "success",
         title: t("files.ask_agent_done_title"),

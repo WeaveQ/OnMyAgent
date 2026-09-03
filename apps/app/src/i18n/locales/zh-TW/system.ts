@@ -41,6 +41,9 @@ export default {
   "system.boot_repair_working": "正在修復…",
   "system.boot_repair_done": "已修復並備份舊配置，請再試一次",
   "system.boot_repair_failed": "自動修復失敗，請打開配置目錄手動檢查",
+  "system.desktop_ipc_failed": "桌面操作失敗，請再試一次。",
+  "system.desktop_spawn_failed":
+    "無法啟動桌面元件。請完全退出應用後重新打開再試。",
   "system.error_action_retry": "再試一次",
   "system.error_action_reload_app": "重新開啟應用",
   "system.error_action_open_ai_settings": "開啟模型設定",

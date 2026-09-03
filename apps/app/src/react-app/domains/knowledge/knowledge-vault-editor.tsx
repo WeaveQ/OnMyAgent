@@ -10,6 +10,15 @@ const ArtifactTextEditor = lazy(() =>
   })),
 );
 
+// The block/rich-text editor pulls in Plate/Slate; keep it in a separate chunk
+// so the lightweight text editor and the rest of the knowledge rail do not pay
+// its bundle cost on first paint.
+const KnowledgeBlockEditor = lazy(() =>
+  import("./knowledge-block-editor").then((module) => ({
+    default: module.KnowledgeBlockEditor,
+  })),
+);
+
 type KnowledgeVaultEditorProps = {
   value: string;
   language: "markdown" | "text";
@@ -26,12 +35,19 @@ export function KnowledgeVaultEditor(props: KnowledgeVaultEditorProps) {
       }
     >
       <div className="flex min-h-0 flex-1 flex-col" aria-label={t("knowledge.editor_label")}>
-        <ArtifactTextEditor
-          className="min-h-0 flex-1"
-          value={props.value}
-          language={props.language}
-          onChange={props.onChange}
-        />
+        {props.language === "markdown" ? (
+          <KnowledgeBlockEditor
+            value={props.value}
+            onChange={props.onChange}
+          />
+        ) : (
+          <ArtifactTextEditor
+            className="min-h-0 flex-1"
+            value={props.value}
+            language={props.language}
+            onChange={props.onChange}
+          />
+        )}
       </div>
     </Suspense>
   );

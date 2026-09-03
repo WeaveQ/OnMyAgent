@@ -273,6 +273,50 @@ Electron main 另有主动 Supervisor watchdog（bounded backoff/jitter/circuit 
 claim→send→ack，断线后按每个 event stream cursor 重放；附件只进入有界元数据引用，
 不把凭证、raw app state 或任意本地路径带入 contract/output。
 
+### Messaging channel canonical transcript path
+
+Messaging chat history has one Electron-owned canonical timeline. Inbound
+provider events and successful outbound transport calls append to
+`ChannelTranscriptStore`, persisted below app `userData` at
+`channel-transcript/messages.json`. The identity key is the normalized
+`platformType + accountId + chatId` tuple; the runtime's historical `weixin`
+alias is normalized to the canonical `wechat` id at the transcript boundary. A provider message's
+external id is deduplicated only inside that tuple and direction, so two
+accounts or chats cannot silently share a transcript.
+
+`ChannelSessionStore` remains the per-Agent runtime/session binding owner. On
+transcript initialization it is read only for best-effort legacy backfill;
+legacy session files are never deleted or rewritten by the transcript store.
+Legacy records without a reliable bot account stay under an explicit
+`legacy-unknown-account` identity and therefore cannot be mislabeled as a
+future exact account.
+
+The renderer reads thread lists and paginated transcript pages through typed
+Desktop IPC (`channelGetTranscriptThreads` / `channelGetTranscript`); the
+timestamp + message-id cursor keeps equal-timestamp page boundaries lossless.
+It only uses transcript push events to refresh the visible timeline. The
+channels page does not maintain a second business-truth store. Its local
+composer invokes `channelRunAgentPrompt`, which calls the selected service's
+existing bound Agent dispatch. Feishu, Telegram and Discord keep the operator
+prompt local and send only the final Agent response through the provider's real
+send abstraction. Weixin first mirrors an accepted operator prompt as the
+labelled BOT message `你（Studio）：<prompt>` through iLink, then starts the Agent
+and relays its final response. The mirror is deliberately not recorded as a
+second outbound assistant row: the canonical timeline retains exactly one
+`local`/`operator` record on the user side. If the mirror transport fails, the
+Agent turn does not start and the renderer receives an actionable error.
+
+Active-run records persist the local-prompt flag and exact Agent snapshot
+across restart/resume, preventing legacy session double-append and cross-Agent
+attribution. Intermediate approval, failure, cancellation, and timeout notices
+for a Studio-local prompt remain in the local transcript; they are not sent to
+the external chat. On Weixin inbound, iLink `context_token` is stored after
+channel-policy admission but before the local pairing gate, so approval makes
+that chat immediately sendable. Provider message IDs enter execution dedupe
+only after authorization; ID-less payloads use content fallback at the same
+point. Thus a pre-approval delivery never runs automatically and cannot poison
+the provider's post-approval retry.
+
 - Renderer 的 `domains/task-center` 只调用 typed Desktop IPC；不 import
   Personal adapter，也不复制 Task 真相到 OpenCode archive 或 renderer store。
 - 新任务从一个 idea 开始，由 catalog-selected Primary 在 alignment 中提出结构化

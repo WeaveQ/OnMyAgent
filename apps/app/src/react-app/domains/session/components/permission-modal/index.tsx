@@ -3,11 +3,9 @@ import {
   Check,
   ChevronRight,
   Clock3,
-  FolderOpen,
   HardDrive,
   RefreshCcw,
   ShieldCheck,
-  X,
   XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, type KeyboardEvent } from "react";
@@ -21,8 +19,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import { IconTile } from "@/components/ui/action-row";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   ToolApprovalCard,
@@ -30,7 +26,6 @@ import {
   ToolApprovalCardFooter,
   ToolApprovalCardHeader,
 } from "@/components/ui/tool-approval-card";
-import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 import type { PendingPermission } from "@/app/types";
 
@@ -79,19 +74,30 @@ const permissionLayoutClass = {
     "flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-dls-text",
   metadataPre:
     "mt-3 max-h-44 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-dls-border bg-dls-surface-muted px-3 py-2.5 text-xs leading-5 text-dls-secondary",
-  // Inline panel above composer: one surface, light separators, no nested box soup.
-  panelShell: "overflow-hidden rounded-2xl border border-dls-border bg-dls-surface ",
-  panelTitle: "text-sm font-semibold leading-5 tracking-tight text-dls-text",
-  panelMessage: "mt-1 text-xs leading-5 text-dls-secondary",
-  panelNote: "mt-1.5 text-xs leading-5 text-dls-secondary",
-  panelScope:
-    "flex min-w-0 items-start gap-2 rounded-xl bg-dls-surface-muted/70 px-3 py-2.5 font-mono text-xs leading-5 text-dls-text",
-  panelDetails: "group overflow-hidden rounded-xl bg-dls-surface-muted/50",
+  // Composer already draws the outer frame. The inline panel is a strip:
+  // risk left-band from ToolApprovalCard, no second rounded box.
+  panelShell: "rounded-none border-r-0 border-t-0 bg-dls-surface",
+  panelHeader: "items-center gap-2 px-4 pb-0 pt-2.5",
+  panelBody: "flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-1.5",
+  panelDecision: "flex-row flex-wrap items-center justify-end gap-2 px-4 py-2",
+  panelTitle: "min-w-0 truncate text-sm font-medium leading-5 text-dls-text",
+  panelMessage: "mt-0.5 text-xs leading-4 text-dls-secondary",
+  panelNote: "mt-0.5 text-xs leading-4 text-dls-secondary",
+  panelScope: "min-w-0 flex-1 truncate font-mono text-xs leading-4 text-dls-text",
+  panelDetails: "group shrink-0",
   panelSummary:
-    "flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-xs font-medium text-dls-secondary transition-colors hover:text-dls-text",
+    "flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-dls-secondary transition-colors hover:text-dls-text",
   panelPre:
-    "max-h-32 overflow-auto whitespace-pre-wrap break-words border-t border-dls-border/60 px-3 py-2.5 text-xs leading-5 text-dls-secondary",
+    "basis-full mt-1 max-h-28 overflow-auto whitespace-pre-wrap break-words text-xs leading-4 text-dls-secondary",
 };
+
+const PERMISSION_SCOPE_MAX_CHARS = 80;
+
+function truncatePermissionScope(value: string): string {
+  const text = value.trim();
+  if (text.length <= PERMISSION_SCOPE_MAX_CHARS) return text;
+  return `${text.slice(0, PERMISSION_SCOPE_MAX_CHARS)}…`;
+}
 
 const metadataDetailKeys: Array<{ key: string; labelKey: string; multiline?: boolean }> = [
   { key: "command", labelKey: "session.permission_detail_command", multiline: true },
@@ -111,7 +117,7 @@ const metadataDetailKeys: Array<{ key: string; labelKey: string; multiline?: boo
 ];
 
 function readablePermissionLabel(permission: string): string {
-  if (permission === "bash") return "Bash";
+  if (permission === "bash") return t("session.permission_kind_bash");
   if (permission === "edit") return t("session.permission_kind_edit");
   if (permission === "read") return t("session.permission_kind_read");
   if (permission === "external_directory") return t("session.permission_kind_external_directory");
@@ -457,39 +463,18 @@ export function PermissionApprovalPanel(props: PermissionApprovalModalProps) {
     ? props.permission.metadata
     : {};
   const hasMetadata = Object.keys(metadata).length > 0;
-  const isExternalDirectory = props.permission.permission === "external_directory";
-  const Icon = presentation.isDoomLoop
-    ? RefreshCcw
-    : isExternalDirectory
-      ? FolderOpen
-      : ShieldCheck;
-
   const risk = permissionRiskTier(props.permission, presentation.isDoomLoop);
   const badgeTone = risk === "destructive" ? "danger" : risk === "careful" ? "warning" : "neutral";
-  // IconTile tones are limited; risk color is applied via className.
-  const iconClass =
-    risk === "destructive"
-      ? "bg-dls-status-danger-soft text-dls-status-danger-fg"
-      : risk === "careful"
-        ? "bg-dls-status-warning-soft text-dls-status-warning-fg"
-        : undefined;
   const busy = props.busy || !props.respondPermission;
+  const scopeLabel = truncatePermissionScope(presentation.scopeValue);
 
   return (
     <ToolApprovalCard risk={risk} className={permissionLayoutClass.panelShell}>
-      <ToolApprovalCardHeader className="items-start gap-3 px-4 pb-1 pt-3.5">
-        <IconTile
-          className={cn("mt-0.5 shrink-0", iconClass)}
-          shape="xl"
-          tone="neutral"
-          border={!iconClass}
-        >
-          <Icon size={16} strokeWidth={1.9} />
-        </IconTile>
+      <ToolApprovalCardHeader className={permissionLayoutClass.panelHeader}>
         <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <div className={permissionLayoutClass.panelTitle}>{presentation.title}</div>
-            <StatusBadge tone={badgeTone} shape="soft" size="sm" className="shrink-0">
+            <StatusBadge tone={badgeTone} shape="soft" size="sm" className="ms-auto shrink-0">
               {presentation.permissionLabel}
             </StatusBadge>
           </div>
@@ -498,25 +483,12 @@ export function PermissionApprovalPanel(props: PermissionApprovalModalProps) {
             <div className={permissionLayoutClass.panelNote}>{presentation.note}</div>
           ) : null}
         </div>
-        <Button
-          type="button"
-          size="icon-xs"
-          variant="ghost"
-          className="shrink-0 text-dls-secondary hover:text-dls-text"
-          onClick={() => props.respondPermission?.(props.permission.id, "reject")}
-          disabled={busy}
-          aria-label={t("session.deny")}
-        >
-          <X size={14} strokeWidth={2} />
-        </Button>
       </ToolApprovalCardHeader>
 
-      <ToolApprovalCardBody className="space-y-2.5 px-4 py-2.5">
-        <div className={permissionLayoutClass.panelScope} title={presentation.scopeValue}>
-          <HardDrive size={14} strokeWidth={1.75} className="mt-0.5 shrink-0 text-dls-secondary" />
-          <span className="min-w-0 flex-1 break-all">{presentation.scopeValue}</span>
-        </div>
-
+      <ToolApprovalCardBody className={permissionLayoutClass.panelBody}>
+        <p className={permissionLayoutClass.panelScope} title={presentation.scopeValue}>
+          {scopeLabel}
+        </p>
         {hasMetadata ? (
           <details className={permissionLayoutClass.panelDetails}>
             <summary className={permissionLayoutClass.panelSummary}>
@@ -534,32 +506,16 @@ export function PermissionApprovalPanel(props: PermissionApprovalModalProps) {
       </ToolApprovalCardBody>
 
       <ToolApprovalCardFooter
+        className={permissionLayoutClass.panelDecision}
         risk={risk}
         busy={busy}
-        denyLabel={
-          <>
-            <XCircle data-icon="inline-start" />
-            {t("session.deny")}
-          </>
-        }
-        allowAlwaysLabel={
-          <>
-            <Check data-icon="inline-start" />
-            {t("session.allow_for_session")}
-          </>
-        }
-        allowOnceLabel={
-          <>
-            <Clock3 data-icon="inline-start" />
-            {t("session.allow_once")}
-          </>
-        }
+        denyLabel={t("session.deny")}
+        allowAlwaysLabel={t("session.allow_for_session")}
+        allowOnceLabel={t("session.allow_once")}
         onDeny={() => props.respondPermission?.(props.permission.id, "reject")}
         onAllowAlways={() => props.respondPermission?.(props.permission.id, "always")}
         onAllowOnce={() => props.respondPermission?.(props.permission.id, "once")}
-      >
-        {t("session.permission_decision_hint")}
-      </ToolApprovalCardFooter>
+      />
     </ToolApprovalCard>
   );
 }

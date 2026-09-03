@@ -77,6 +77,49 @@ test("intro main-rail table includes 知识库", () => {
   const text = readDoc("index.md");
   const rail = text.slice(text.indexOf("## 3. 界面怎么走"));
   assert.match(rail, /^\| \*\*知识库\*\* \|/m);
+  assert.match(rail, /多库、块编辑、会话存入/);
+});
+
+test("changelog 0.7 ships knowledge highlights and lists 0.7.x first in the sidebar", () => {
+  const zh = readDoc("changelog/0.7.md");
+  const en = readDoc("en/changelog/0.7.md");
+  assert.match(zh, /## 0.7.0/);
+  assert.match(zh, /知识库/);
+  assert.match(zh, /存入知识库/);
+  assert.match(zh, /最近访问/);
+  assert.match(zh, /增强提示词/);
+  assert.match(zh, /推荐问我/);
+  assert.match(zh, /完全访问/);
+  assert.match(en, /## 0.7.0/);
+  assert.match(en, /Save to knowledge/);
+  assert.match(en, /Enhance prompt/);
+  assert.match(en, /Suggested follow-ups/);
+  assert.match(en, /Allow full access/);
+  const config = readFileSync(join(docs, ".vitepress/config.mjs"), "utf8");
+  const zhChangelog = config.slice(config.indexOf('text: "更新日志"'));
+  const zhSeven = zhChangelog.indexOf("/changelog/0.7");
+  const zhSix = zhChangelog.indexOf("/changelog/0.6");
+  assert.ok(zhSeven >= 0, "sidebarZh must link /changelog/0.7");
+  assert.ok(zhSix > zhSeven, "0.7.x must appear before 0.6.x in sidebarZh");
+  const enChangelog = config.slice(config.indexOf('text: "Changelog"'));
+  const enSeven = enChangelog.indexOf("/en/changelog/0.7");
+  const enSix = enChangelog.indexOf("/en/changelog/0.6");
+  assert.ok(enSeven >= 0, "sidebarEn must link /en/changelog/0.7");
+  assert.ok(enSix > enSeven, "0.7.x must appear before 0.6.x in sidebarEn");
+});
+
+test("knowledge guide no longer claims source-split as the default editor", () => {
+  const zh = readDoc("guide/knowledge.md");
+  assert.doesNotMatch(zh, /不是所见即所得/);
+  assert.match(zh, /我的资料/);
+  assert.match(zh, /最近访问/);
+  assert.match(zh, /存入知识库/);
+  assert.match(zh, /暂不可用/);
+  const en = readDoc("en/guide/knowledge.md");
+  assert.doesNotMatch(en, /This is not a WYSIWYG canvas/);
+  assert.doesNotMatch(en, /Editing defaults to \*\*source \| preview\*\*/);
+  assert.match(en, /Save to knowledge/);
+  assert.match(en, /Not available yet/);
 });
 
 test("capability-status marks 知识库 正式可用 and hides 任务中心", () => {

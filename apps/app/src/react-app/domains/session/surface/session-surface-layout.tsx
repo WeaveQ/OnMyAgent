@@ -9,6 +9,8 @@
 import type { ReactNode, RefObject, UIEvent, WheelEvent, TouchEvent, PointerEvent } from "react";
 import { t } from "../../../../i18n";
 import { cn } from "@/lib/utils";
+import { Inbox } from "lucide-react";
+import { ContextMenuItem } from "@/components/ui/context-menu";
 import { TextEditContextMenu } from "../../../design-system/text-edit-context-menu";
 import { TranscriptScrollToLatest } from "./chrome/transcript-scroll-to-latest";
 import { getSessionScrollState, useSessionScrollStore } from "./scroll-store";
@@ -59,6 +61,7 @@ export function SessionSurfaceTranscriptPane(props: {
   onPointerDown: (event: PointerEvent<HTMLDivElement>) => void;
   onScroll: (event: UIEvent<HTMLDivElement>) => void;
   onJumpToLatest: () => void;
+  onSaveToKnowledge?: () => void;
   children: ReactNode;
 }) {
   return (
@@ -86,7 +89,19 @@ export function SessionSurfaceTranscriptPane(props: {
           "[transform:translateZ(0)]",
         )}
       >
-        <TextEditContextMenu>
+        <TextEditContextMenu
+          extraItems={
+            props.onSaveToKnowledge ? (
+              <ContextMenuItem
+                className="hover:bg-accent hover:text-accent-foreground"
+                onClick={props.onSaveToKnowledge}
+              >
+                <Inbox className="size-4" />
+                {t("knowledge.save_to_knowledge")}
+              </ContextMenuItem>
+            ) : null
+          }
+        >
           <div
             ref={props.contentRef}
             className={cn("mx-auto w-full", SESSION_CONTENT_MAX_WIDTH_CLASS)}

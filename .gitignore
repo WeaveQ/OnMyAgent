@@ -105,12 +105,15 @@ vendor/opencode/
 .claude/*
 # Track shared skill symlink (source of truth is .agents/skills)
 !.claude/skills
+# Track repo PreToolUse gates (shared implementation is .agents/hooks)
+!.claude/settings.json
 .cursor/*
 !.cursor/skills
 !.cursor/rules/
 !.cursor/rules/onmyagent.mdc
 !.cursor/agents/
 !.cursor/agents/design-system-optimizer.md
+!.cursor/hooks.json
 .onmyagent/*
 .gitnexus
 
@@ -130,6 +133,9 @@ docs/plans/
 docs/archive/
 docs/features/
 docs/superpowers/
+
+# DeepSeek Harness iPPT exports (product SoT is docs/design/, not repo-root design/)
+/design/
 
 # Native/build caches
 **/.build/

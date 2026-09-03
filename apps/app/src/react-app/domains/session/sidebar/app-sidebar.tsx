@@ -3,6 +3,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import * as React from "react";
 import {
   AlertCircle,
+  BookOpen,
   Bot,
   ChevronDown,
   ChevronRight,
@@ -28,17 +29,16 @@ import {
   UserRound,
 } from "lucide-react";
 
+import { formatAccountVersionBadge, readAppVersion } from "../../../../app/lib/app-version";
 import { getDisplaySessionTitle, isGeneratedSessionTitle } from "../../../../app/lib/session-title";
 import { readLocalAuthUser } from "../../../../app/lib/local-auth";
 import { APP_NAME } from "../../../../i18n/locales/brand";
 import { resolvePublicAssetUrl } from "@/lib/public-asset-url";
-import type { WorkspaceInfo } from "../../../../app/lib/desktop";
+import { type WorkspaceInfo, openDesktopUrl } from "../../../../app/lib/desktop";
 import { OnMyAgentDenHelpLink } from "../../shared";
 import type { WorkspaceConnectionState, WorkspaceSessionGroup } from "../../../../app/types";
 import {
-  isRemoteConnectionErrorMessage,
-  getWorkspaceTaskLoadErrorDisplay,
-  isRemoteConnectionWorkspace,
+  isRemoteConnectionErrorMessage, getWorkspaceTaskLoadErrorDisplay, isRemoteConnectionWorkspace,
 } from "../../../../app/utils";
 import { t } from "../../../../i18n";
 
@@ -56,16 +56,10 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
 import {
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -83,12 +77,14 @@ import {
 import { ConfirmModal } from "../../../design-system/modals/confirm-modal";
 import { useStatusToasts } from "../../shell-feedback";
 import {
-  readProfileUserNameFromStorage,
-  resolveAccountDisplayName,
+  readProfileUserNameFromStorage, resolveAccountDisplayName,
 } from "../../../capabilities/account-avatar/account-avatar-prefs";
 import { AccountUserAvatar } from "../../../capabilities/account-avatar/account-user-avatar";
-import { SidebarContext, useSidebarContext } from "./app-sidebar-provider";
-import type { SidebarContextValue } from "./app-sidebar-provider";
+import { SidebarContext, useSidebarContext, type SidebarContextValue } from "./app-sidebar-provider";
+import {
+  SidebarAccountMenuItem,
+  sidebarAccountMenuRowClass,
+} from "../../../capabilities/account-avatar/sidebar-account-menu-item";
 import {
   MAX_SESSIONS_PREVIEW,
   buildSessionTreeState,
@@ -101,9 +97,6 @@ import {
   getSessionActivityStatusLabel,
   type SessionActivityStatus,
 } from "../status/session-activity-store";
-
-const sidebarAccountMenuRowClass =
-  "flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 text-sm font-medium text-sidebar-foreground hover:!bg-dls-hover hover:!text-dls-text focus:!bg-dls-hover focus:!text-dls-text data-highlighted:!bg-dls-hover data-highlighted:!text-dls-text data-open:!bg-dls-hover data-open:!text-dls-text data-popup-open:!bg-dls-hover data-popup-open:!text-dls-text data-state-open:!bg-dls-hover data-state-open:!text-dls-text aria-expanded:!bg-dls-hover aria-expanded:!text-dls-text [&_svg]:text-current";
 
 const sidebarAccountThemeChipClass = "rounded-md px-2 py-0.5 text-xs font-medium transition-colors";
 
@@ -852,6 +845,7 @@ export function SidebarAccountButton(props: {
     accountName: account?.name,
     accountEmail: account?.email,
   });
+  const versionBadge = formatAccountVersionBadge(readAppVersion());
 
   React.useEffect(
     () =>
@@ -956,22 +950,21 @@ export function SidebarAccountButton(props: {
           title={t("account_menu.avatar_open_profile")}
           aria-label={t("account_menu.avatar_open_profile")}
         >
-          <AccountUserAvatar
-            displayName={displayName}
-            size="md"
-            trailing={
-              displayName ? (
-                <div className={appSidebarTextClass.menuTitle} title={displayName}>
-                  {displayName}
-                </div>
-              ) : (
-                <div className={cn(appSidebarTextClass.menuTitle, "text-dls-secondary")}>
-                  {t("account_menu.avatar_unnamed")}
-                </div>
-              )
-            }
-          />
-          <ChevronRight className="ml-auto size-3.5 shrink-0 text-dls-secondary" aria-hidden />
+          <AccountUserAvatar displayName={displayName} size="md" className="flex-none" />
+          <span className="min-w-0 flex-1">
+            <span className={cn(appSidebarTextClass.menuTitle, "block min-w-0 truncate")} title={displayName || undefined}>
+              {displayName || t("account_menu.avatar_unnamed")}
+            </span>
+            <span className="mt-0.5 block min-w-0 truncate text-xs font-normal text-dls-secondary">
+              {t("account_menu.personal_workspace")}
+            </span>
+          </span>
+          {versionBadge ? (
+            <span className="shrink-0 self-center text-xs font-normal tabular-nums text-dls-secondary">
+              {versionBadge}
+            </span>
+          ) : null}
+          <ChevronRight className="size-3.5 shrink-0 self-center text-dls-secondary" aria-hidden />
         </DropdownMenuItem>
       </div>
 
@@ -1077,6 +1070,14 @@ export function SidebarAccountButton(props: {
             void handleCheckUpdates();
           }}
         />
+        <SidebarAccountMenuItem
+          icon={BookOpen}
+          label={t("account_menu.user_guide")}
+          onSelect={() => {
+            closeMenu();
+            void openDesktopUrl("https://onmyagent.com/docs/");
+          }}
+        />
       </div>
 
       <DropdownMenuSeparator className="my-0.5 bg-dls-border" />
@@ -1138,14 +1139,19 @@ export function SidebarAccountButton(props: {
           >
             <AccountUserAvatar displayName={displayName} size="sm" />
             <span className="min-w-0 flex-1">
-              <span className={appSidebarTextClass.accountName}>
+              <span className={cn(appSidebarTextClass.accountName, "block min-w-0 truncate")}>
                 {displayName || t("account_menu.avatar_unnamed")}
               </span>
-              {account?.email ? (
-                <span className={appSidebarTextClass.accountEmail}>{account.email}</span>
-              ) : null}
+              <span className={appSidebarTextClass.accountEmail}>
+                {account?.email || t("account_menu.personal_workspace")}
+              </span>
             </span>
-            <ChevronDown className="size-4 shrink-0 text-sidebar-foreground/55" />
+            {versionBadge ? (
+              <span className="shrink-0 self-center text-xs font-normal tabular-nums text-sidebar-foreground/55">
+                {versionBadge}
+              </span>
+            ) : null}
+            <ChevronDown className="size-4 shrink-0 self-center text-sidebar-foreground/55" />
           </Button>
         }
       />
@@ -1171,42 +1177,6 @@ export function SidebarAccountButton(props: {
         }}
       />
     </DropdownMenu>
-  );
-}
-
-function SidebarAccountMenuItem(props: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  onSelect?: () => void;
-  destructive?: boolean;
-  /** Trailing chevron for items that open another page / panel. */
-  showChevron?: boolean;
-}) {
-  const Icon = props.icon;
-
-  if (props.destructive) {
-    return (
-      <DropdownMenuItem
-        onClick={props.onSelect}
-        className={cn(
-          sidebarAccountMenuRowClass,
-          "flex text-dls-status-danger hover:!bg-dls-status-danger-soft hover:text-dls-status-danger focus:!bg-dls-status-danger-soft focus:text-dls-status-danger data-highlighted:!bg-dls-status-danger-soft data-highlighted:!text-dls-status-danger",
-        )}
-      >
-        <Icon className="size-3.5 text-dls-status-danger" />
-        <span className="flex-1 text-dls-status-danger">{props.label}</span>
-      </DropdownMenuItem>
-    );
-  }
-
-  return (
-    <DropdownMenuItem onClick={props.onSelect} className={sidebarAccountMenuRowClass}>
-      <Icon className="size-3.5 shrink-0" />
-      <span className="min-w-0 flex-1 truncate">{props.label}</span>
-      {props.showChevron ? (
-        <ChevronRight className="size-3.5 shrink-0 text-dls-secondary" aria-hidden />
-      ) : null}
-    </DropdownMenuItem>
   );
 }
 

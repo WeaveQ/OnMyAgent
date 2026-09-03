@@ -18,6 +18,7 @@ import { ContextUsageIndicator } from "./context-usage-indicator";
 import { Button } from "@/components/ui/button";
 import { SendButton } from "@/components/ui/send-button";
 import { Textarea } from "@/components/ui/textarea";
+import { TextEditContextMenu } from "../../design-system/text-edit-context-menu";
 import {
   localAgentComposerClass,
   resolveLocalAgentComposerLayout,
@@ -661,6 +662,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
             >
               {renderMirror(value, mentions)}
             </div>
+            <TextEditContextMenu className="relative block w-full">
             <Textarea
               ref={textareaRef}
               rows={2}
@@ -687,6 +689,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
               placeholder={props.placeholder}
               disabled={props.disabled || props.submitting}
             />
+            </TextEditContextMenu>
           </div>
           <div
             className={localAgentComposerClass.actionRow}
@@ -752,7 +755,7 @@ export const LocalAgentDraftComposer = memo(function LocalAgentDraftComposer(pro
               data-local-agent-composer-trailing="true"
             >
               {props.contextUsage ? (
-                <ContextUsageIndicator usage={props.contextUsage} size={16} className="p-0.5" />
+                <ContextUsageIndicator usage={props.contextUsage} />
               ) : null}
               {props.toolbarRight}
               {showStop ? (

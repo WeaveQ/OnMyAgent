@@ -228,6 +228,8 @@ export default {
   "plugins.larkcli_open_browser_app_auth": "在浏览器中打开进行应用授权",
   "plugins.larkcli_manual_steps_title": "连接步骤",
   "plugins.larkcli_manual_credentials_title": "填写应用凭证",
+  "plugins.larkcli_app_secret_label": "应用密钥",
+  "plugins.larkcli_app_secret_placeholder": "请输入应用密钥",
   "plugins.larkcli_manual_step1_prefix": "登录",
   "plugins.larkcli_open_platform": "飞书开放平台",
   "plugins.larkcli_manual_step1_suffix": " -> 创建企业自建应用",

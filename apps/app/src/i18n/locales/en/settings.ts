@@ -579,7 +579,7 @@ export default {
   "settings.auto_new_session_threshold_suffix": "hours without a reply, start a new session",
   "settings.auto_new_session_hours_aria": "Idle hours before auto new session",
   "settings.auto_new_session_hint":
-    "When enabled, long-idle history is not sent to the model again — lower token use and faster responses.",
+    "Idle chats start a new session; old context is not sent again.",
   "settings.notifications_section_title": "Notifications",
   "settings.notifications_section_desc":
     "Manage system desktop notification permission and whether to alert you when a turn finishes.",

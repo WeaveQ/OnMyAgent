@@ -57,8 +57,9 @@ const RESET_ONBOARDING_PREFS = {
     pending: [],
     shortTerm: [],
   },
-  autoNewSessionOnIdle: false,
-  autoNewSessionIdleHours: 6,
+  autoNewSessionOnIdle: true,
+  autoNewSessionIdleHours: 48,
+  showFollowUpSuggestions: true,
 } as const;
 
 function safeRemove(key: string) {

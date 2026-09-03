@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { resolveShowFollowUpSuggestions } from "../src/react-app/kernel/local-provider";
 import {
   latestAssistantText,
   latestUserTextBeforeAssistant,
@@ -172,5 +175,25 @@ describe("follow-up suggestions", () => {
         { role: "assistant", parts: [{ type: "text", text: "先看工资。" }] },
       ]),
     ).toBe(false);
+  });
+});
+
+describe("follow-up suggestions preference", () => {
+  test("missing persisted value stays on; only false turns chips off", () => {
+    expect(resolveShowFollowUpSuggestions(undefined)).toBe(true);
+    expect(resolveShowFollowUpSuggestions(true)).toBe(true);
+    expect(resolveShowFollowUpSuggestions(false)).toBe(false);
+  });
+
+  test("preferences, footer, and SessionSurface share one global gate", () => {
+    const root = join(import.meta.dir, "..");
+    const read = (rel: string) => readFileSync(join(root, rel), "utf8");
+    const prefsView = read("src/react-app/domains/settings/pages/preferences-view.tsx");
+    const footer = read("src/react-app/domains/session/surface/use-session-follow-up-footer.tsx");
+    const surface = read("src/react-app/domains/session/surface/session-surface.tsx");
+    expect(prefsView).toContain("settings.show_follow_up_suggestions");
+    expect(footer).toContain("local.prefs.showFollowUpSuggestions !== false");
+    expect(footer).toContain("if (!showFollowUpSuggestions)");
+    expect(surface).not.toContain("personalAssistantHome && showFollowUpSuggestions");
   });
 });

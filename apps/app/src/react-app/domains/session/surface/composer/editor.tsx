@@ -36,7 +36,7 @@ import {
   detectKeymapPlatform,
   matchKeymapAction,
 } from "../../../../kernel/keymap";
-import { decodeComposerMentionValue, encodeComposerMentionValue } from "./mention-encoding";
+import { decodeComposerMentionValue, encodeComposerMentionValue, formatComposerFileMentionLabel } from "./mention-encoding";
 import {
   COMPOSER_TEMPLATE_EVENTS,
   splitCapabilityTemplate,
@@ -153,7 +153,7 @@ class ComposerMentionNode extends TextNode {
     const dom = document.createElement("span");
     const isPath = this.__kind !== "agent";
     dom.className = isPath ? composerEditorTokenClass.fileMention : composerEditorTokenClass.agentMention;
-    dom.textContent = `@${isPath ? this.__value.split(/[\\/]/).pop() || this.__value : this.__value}`;
+    dom.textContent = `@${isPath ? formatComposerFileMentionLabel(this.__value) : this.__value}`;
     dom.contentEditable = "false";
     dom.setAttribute("spellcheck", "false");
     dom.title = `@${this.__value}`;
@@ -164,7 +164,7 @@ class ComposerMentionNode extends TextNode {
     if (prevNode.__value !== this.__value || prevNode.__kind !== this.__kind) {
       const isPath = this.__kind !== "agent";
       dom.className = isPath ? composerEditorTokenClass.fileMention : composerEditorTokenClass.agentMention;
-      dom.textContent = `@${isPath ? this.__value.split(/[\\/]/).pop() || this.__value : this.__value}`;
+      dom.textContent = `@${isPath ? formatComposerFileMentionLabel(this.__value) : this.__value}`;
       dom.title = `@${this.__value}`;
     }
     return false;

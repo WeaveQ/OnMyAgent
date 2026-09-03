@@ -442,11 +442,20 @@ export function SettingsTabBody(ctx: SettingsTabBodyCtx): ReactNode {
                 showThinking: !previous.showThinking,
               }));
             }}
+            showFollowUpSuggestions={
+              ctx.local.prefs.showFollowUpSuggestions !== false
+            }
+            onToggleShowFollowUpSuggestions={() => {
+              ctx.local.setPrefs((previous) => ({
+                ...previous,
+                showFollowUpSuggestions: previous.showFollowUpSuggestions === false,
+              }));
+            }}
             autoCompactContext={ctx.autoCompactContext}
             autoCompactContextBusy={ctx.autoCompactContextBusy}
             onToggleAutoCompactContext={ctx.toggleAutoCompactContext}
-            autoNewSessionOnIdle={ctx.local.prefs.autoNewSessionOnIdle === true}
-            autoNewSessionIdleHours={ctx.local.prefs.autoNewSessionIdleHours ?? 6}
+            autoNewSessionOnIdle={ctx.local.prefs.autoNewSessionOnIdle !== false}
+            autoNewSessionIdleHours={ctx.local.prefs.autoNewSessionIdleHours ?? 48}
             onAutoNewSessionOnIdleChange={(enabled) => {
               ctx.local.setPrefs((previous) => ({
                 ...previous,

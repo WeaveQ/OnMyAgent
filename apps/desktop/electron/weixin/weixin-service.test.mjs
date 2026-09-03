@@ -1,8 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createCipheriv } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -340,6 +339,7 @@ describe("weixin service", () => {
       await store.writeContextToken("acct", "user-1", "ctx-1");
       const sent = [];
       const client = {
+        getUpdates: async ({ signal }) => new Promise((resolve) => signal.addEventListener("abort", () => resolve({ ret: 0, msgs: [] }), { once: true })),
         sendMessage: async (payload) => {
           sent.push(payload);
           return { ret: 0 };

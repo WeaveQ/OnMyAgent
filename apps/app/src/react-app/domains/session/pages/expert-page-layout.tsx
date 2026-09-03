@@ -7,7 +7,15 @@ import { useEffect } from "react";
 import { Plus } from "lucide-react";
 import { t } from "../../../../i18n";
 import { Button } from "@/components/ui/button";
-import { OwDotTicker } from "../../../shell";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { PersonalLocalAgentPage } from "../../local-agents";
 import { SessionArchivePage } from "../chat/session-page-session-archive-page";
 import { SessionPageMainColumn, SessionRailKeepAliveStack } from "./session-page-shell";
@@ -357,7 +365,14 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
                         onOpenArtifact={openTarget}
                         {...createWorkspaceFilesAgentHandlers({
                           sessionId: renderedSessionId,
+                          workspaceId: props.selectedWorkspaceId,
                           openRail: () => openRailView("chat"),
+                          goHomeNewTask: () => {
+                            props.onNavigateToMode("assistant");
+                            props.sidebar.onCreateTaskInWorkspace(
+                              props.selectedWorkspaceId,
+                            );
+                          },
                           showToast,
                           buildInstruction: buildAskAgentFileInstruction,
                           t,
@@ -406,7 +421,7 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
                             role="status"
                             aria-live="polite"
                           >
-                            <OwDotTicker size="md" />
+                            <LoadingSpinner />
                             <div className="text-xs leading-5 text-dls-secondary">
                               {t("session.loading_detail")}
                             </div>
@@ -420,25 +435,31 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
 
                       {isPrimarySessionView && showNoExpertConversationEmptyState ? (
                         <div className="flex h-full min-h-0 items-center justify-center px-8 py-10">
-                          <div className="flex max-w-md flex-col items-center text-center">
-                            <EmptyStateIllustration src={NO_EXPERT_CONVERSATIONS_ASSET} />
-                            <h2 className="text-lg font-medium tracking-tight text-dls-text">
-                              {t("session.no_expert_conversations_title")}
-                            </h2>
-                            <p className="mt-2 max-w-sm text-sm leading-6 text-dls-secondary">
-                              {t("session.no_expert_conversations_desc")}
-                            </p>
-                            <Button
-                              type="button"
-                              size="default"
-                              className="mt-5 gap-1.5"
-                              onClick={openExpertMarket}
-                              data-testid="expert-empty-open-market"
-                            >
-                              <Plus className="size-4" strokeWidth={2} />
-                              {t("session.no_expert_conversations_action")}
-                            </Button>
-                          </div>
+                          <Empty className="max-w-md flex-none">
+                            <EmptyHeader>
+                              <EmptyMedia>
+                                <EmptyStateIllustration src={NO_EXPERT_CONVERSATIONS_ASSET} />
+                              </EmptyMedia>
+                              <EmptyTitle>
+                                {t("session.no_expert_conversations_title")}
+                              </EmptyTitle>
+                              <EmptyDescription>
+                                {t("session.no_expert_conversations_desc")}
+                              </EmptyDescription>
+                            </EmptyHeader>
+                            <EmptyContent>
+                              <Button
+                                type="button"
+                                size="default"
+                                className="gap-1.5"
+                                onClick={openExpertMarket}
+                                data-testid="expert-empty-open-market"
+                              >
+                                <Plus className="size-4" strokeWidth={2} />
+                                {t("session.no_expert_conversations_action")}
+                              </Button>
+                            </EmptyContent>
+                          </Empty>
                         </div>
                       ) : null}
 
@@ -451,7 +472,7 @@ export function ExpertPageLayout({ m }: ExpertPageLayoutProps) {
                             role="status"
                             aria-live="polite"
                           >
-                            <OwDotTicker size="md" />
+                            <LoadingSpinner />
                             <div className="text-xs leading-5 text-dls-secondary">
                               {t("session.loading_detail")}
                             </div>

@@ -2,7 +2,15 @@ import type { UIMessage } from "ai";
 
 import { readTranscriptMessageMetadata } from "./message-metadata";
 
+import { stripLeadingFileMentionTokens } from "../surface/session-surface-helpers";
 import { skillTurnTextsEquivalent } from "../surface/skill-reference";
+
+export function userTurnTextsEquivalent(left: string, right: string): boolean {
+  if (skillTurnTextsEquivalent(left, right)) return true;
+  const a = stripLeadingFileMentionTokens(left);
+  const b = stripLeadingFileMentionTokens(right);
+  return Boolean(a) && a === b;
+}
 
 type OptimisticSessionUserMessageInput = {
   messageId: string;
@@ -32,7 +40,7 @@ export function adoptEquivalentOptimisticUserTextPart(
     (part) =>
       part.type === "text" &&
       opencodePartId(part) === null &&
-      skillTurnTextsEquivalent(part.text, canonicalPart.text),
+      userTurnTextsEquivalent(part.text, canonicalPart.text),
   );
   if (optimisticIndex === -1) return null;
 
@@ -101,7 +109,7 @@ export function dropEquivalentOptimisticUserMessages(
   const next = current.filter((message) => {
     if (message.id === canonical.id) return true;
     if (!isOptimisticUserMessage(message)) return true;
-    return !skillTurnTextsEquivalent(firstUserText(message), text);
+    return !userTurnTextsEquivalent(firstUserText(message), text);
   });
   return next.length === current.length ? current : next;
 }

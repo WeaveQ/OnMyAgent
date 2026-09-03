@@ -10,6 +10,7 @@ export function createWeixinChannelSessions({
     if (!channelSessionStore) return null;
     const channelSession = await channelSessionStore.getOrCreateSession({
       platformType: "wechat",
+      accountId: session.account.accountId,
       platformUserId: event.senderId,
       agentType: `${agent.provider}/${agent.id}`,
       workspace: session.options.workspaceRoot,

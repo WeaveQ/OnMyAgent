@@ -4,7 +4,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const statusBadgeVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full font-semibold leading-none",
+  "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-sm font-semibold leading-none",
   {
     variants: {
       tone: {
@@ -18,21 +18,21 @@ const statusBadgeVariants = cva(
       },
       shape: {
         pill: "rounded-full",
-        soft: "rounded-md",
+        soft: "rounded-sm",
       },
       size: {
         tiny: "px-1.5 py-0.5 text-2xs",
         fileType: "h-3.5 min-w-3.5 rounded-xs px-0.5 text-2xs font-bold",
         sm: "px-2 py-0.5 text-xs",
-        default: "px-2 py-1 text-xs",
+        default: "h-7 px-2 py-1 text-xs",
         notice: "px-2 py-1.5 text-xs",
         lg: "px-3 py-1 text-sm",
       },
     },
     defaultVariants: {
       tone: "neutral",
-      shape: "pill",
-      size: "sm",
+      shape: "soft",
+      size: "default",
     },
   }
 )
@@ -97,8 +97,8 @@ const badgeDotVariants = cva(
 function StatusBadge({
   className,
   tone = "neutral",
-  shape = "pill",
-  size = "sm",
+  shape = "soft",
+  size = "default",
   ...props
 }: ComponentProps<"span"> & VariantProps<typeof statusBadgeVariants>) {
   return <span className={cn(statusBadgeVariants({ tone, shape, size }), className)} {...props} />

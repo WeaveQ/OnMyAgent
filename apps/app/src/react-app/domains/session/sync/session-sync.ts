@@ -6,9 +6,9 @@ import type {
   SessionStatus,
   Todo,
 } from "@opencode-ai/sdk/v2/client";
-
 import { getReactQueryClient } from "../../../infra/query-client";
 import { createClient } from "@/app/lib/opencode";
+import { shouldIgnorePromptEnhanceScratchEvent } from "@/app/lib/opencode-enhance-prompt";
 import { normalizeEvent, safeStringify } from "@/app/utils";
 import type {
   OpencodeEvent,
@@ -944,7 +944,7 @@ function applyEvent(
 ) {
   const queryClient = getReactQueryClient();
   const input = entry.input;
-
+  if (shouldIgnorePromptEnhanceScratchEvent(event)) return;
   if (event.type === "session.updated") {
     const update = getSessionUpdatedInfo(event);
     if (!update) return;

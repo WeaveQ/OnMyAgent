@@ -5,6 +5,7 @@
  */
 
 // Agent management page + OpenCode provider dialog
+export { unwrapDesktopIpcError } from "./agent-management/agent-management-desktop-error";
 export { AgentManagementPage } from "./agent-management/agent-management-page";
 export { OpenCodeProviderConfigDialog } from "./agent-management/agent-management-providers";
 export {

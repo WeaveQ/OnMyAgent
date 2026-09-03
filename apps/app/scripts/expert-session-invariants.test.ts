@@ -9,6 +9,8 @@
 import { describe, expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 
+import { bindExpertFreshIdleDraft } from "../src/react-app/shell/session-route/created-session-actions";
+import type { PendingAgentContext } from "../src/react-app/domains/agents/pending-agent-store";
 import {
   consumeActiveExpertDraftForSession,
   resolveBoundExpertDraftNavigation,
@@ -44,19 +46,72 @@ const agentSessionStatePath = new URL(
   import.meta.url,
 );
 
+function pendingExpert(input: Partial<PendingAgentContext> = {}): PendingAgentContext {
+  return {
+    id: "agent-a",
+    name: "Agent A",
+    description: "desc",
+    systemPrompt: "Be the expert",
+    avatar: {
+      avatarStyle: "robot",
+      avatarOptionId: "test",
+      customAvatarDataUrl: null,
+      avatarUrl: null,
+      avatarBackground: "#111",
+    },
+    ...input,
+  };
+}
+
 describe("invariant 1: empty expert shell must not startRun", () => {
-  test("onCreateFreshSessionForAgent does not mark runActive", async () => {
+  test("onCreateFreshSessionForAgent does not await session.create", async () => {
     const source = await readFile(pageViewPath, "utf8");
-    expect(source).toContain(
-      "Do NOT startRun here: this path only opens an empty expert",
-    );
-    const marker = "onCreateFreshSessionForAgent={async (workspaceId) => {";
+    const marker = "onCreateFreshSessionForAgent={(workspaceId) => {";
     const start = source.indexOf(marker);
     expect(start).toBeGreaterThanOrEqual(0);
     const slice = source.slice(start, start + 8_000);
-    expect(slice).not.toMatch(
-      /startRun\s*\(\s*workspaceId\s*,\s*newSession\.id\s*\)/,
+    const end = slice.indexOf("\n          sidebar=");
+    const body = end > 0 ? slice.slice(0, end) : slice;
+    expect(body).toContain("openExpertFreshIdleDraft(");
+    expect(body).not.toContain("await claimOrCreateExpertColdSession(");
+    expect(body).not.toContain("await opencodeClient.session.create");
+    expect(body).not.toMatch(/\bawait\b/);
+    expect(body).not.toMatch(/\bstartRun\s*\(/);
+  });
+
+  test("openExpertFreshIdleDraft opens idle draft without ses_* or startRun", () => {
+    const opened: string[] = [];
+    const stored: PendingAgentContext[] = [];
+    const forceNew = { current: false };
+    const result = bindExpertFreshIdleDraft({
+      workspaceId: "ws-1",
+      forceNewSessionOnNextSendRef: forceNew,
+      openIdleDraft: (workspaceId) => opened.push(workspaceId),
+      pendingAgentSnapshot: pendingExpert({ boundSessionId: "ses_old" }),
+      setAgent: (agent) => stored.push(agent),
+      createOperationId: () => "op-1",
+      nowMs: 42,
+    });
+    expect(forceNew.current).toBe(true);
+    expect(opened).toEqual(["ws-1"]);
+    expect(result?.id).toBe("agent-a");
+    expect(result?.id.startsWith("ses_")).toBe(false);
+    expect(result?.boundSessionId).toBeUndefined();
+    expect(result?.operationId).toBe("op-1");
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.boundSessionId).toBeUndefined();
+  });
+
+  test("catalog-miss fresh session does not stamp a blank persona", async () => {
+    const starters = await readFile(
+      new URL(
+        "../src/react-app/domains/session/pages/use-expert-session-starters.ts",
+        import.meta.url,
+      ),
+      "utf8",
     );
+    expect(starters).not.toContain('avatarOptionId: "fresh-session"');
+    expect(starters).toContain("onCreateFreshSessionForAgent(input.selectedWorkspaceId)");
   });
 });
 

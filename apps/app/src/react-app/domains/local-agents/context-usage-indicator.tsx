@@ -4,6 +4,7 @@ import { XIcon } from "lucide-react";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { PersonalLocalAgentConversationMessage } from "@/app/lib/desktop";
+import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   CONTEXT_USAGE_BUCKET_COLOR,
@@ -233,7 +234,7 @@ export function ContextUsageIndicator(props: {
   const [open, setOpen] = useState(false);
   const usage = toContextUsageSnapshot(props.usage);
   if (!usage) return null;
-  const size = props.size ?? 22;
+  const size = props.size ?? 16;
   const percent = contextUsagePercent(usage.used, usage.total);
   const hasKnownLimit = contextUsageHasKnownLimit(usage);
   const stroke = 2.5;
@@ -268,10 +269,12 @@ export function ContextUsageIndicator(props: {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         render={
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             className={cn(
-              "mac:titlebar-no-drag inline-flex items-center justify-center rounded-md p-1 text-dls-secondary hover:bg-dls-hover",
+              "text-dls-secondary hover:bg-dls-hover hover:text-dls-text",
               props.className,
             )}
             title={title}
@@ -310,7 +313,7 @@ export function ContextUsageIndicator(props: {
                 style={{ transition: "stroke-dashoffset 0.3s ease" }}
               />
             </svg>
-          </button>
+          </Button>
         }
       />
       <PopoverContent

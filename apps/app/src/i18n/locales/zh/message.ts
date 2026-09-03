@@ -6,4 +6,12 @@ export default {
   "message.open_with_default_app": "用默认应用打开",
   "message.reveal_in_finder": "在 Finder 中显示",
   "message.copy_path": "复制路径",
+  "session.permission_kind_bash": "Bash",
+  "session.thinking_complete": "思考完成",
+  "session.thinking_in_progress": "思考中...",
+  "session.thinking_in_progress_duration": "思考中... {seconds} 秒",
+  "session.thinking_thought_for": "思考了 {seconds} 秒",
+  "settings.show_follow_up_suggestions": "推荐问我",
+  "settings.show_follow_up_suggestions_desc":
+    "回复结束后在对话里展示后续提问建议。关闭后首页和专家会话都不再显示",
 } as const;

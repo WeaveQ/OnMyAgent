@@ -50,6 +50,15 @@ describe("session empty / draft / files / composer contracts", () => {
     expect(composer).toContain("inlineToolbarAccessory");
     expect(composer).toContain("underCardAccessory");
     expect(composer).toContain("heroHome");
+    expect(composer).toContain("HomePromptEnhanceButton");
+    expect(composer).toMatch(/flushShell \? null : \(\s*\n\s*<HomePromptEnhanceButton/);
+    expect(composer).not.toMatch(/heroHome \? \(\s*\n\s*<HomePromptEnhanceButton/);
+    // Token ring is session-detail only — hide on assistant/expert empty home.
+    expect(composer).toMatch(
+      /flushShell \|\| homeLayout \|\| !props\.contextUsage/,
+    );
+    const sessionSync = read("src/react-app/domains/session/sync/session-sync.ts");
+    expect(sessionSync).toContain("shouldIgnorePromptEnhanceScratchEvent");
     expect(composer).toContain("resolveComposerLayoutClasses");
     // Same content column width for hero home, expert empty, and in-session.
     expect(composerLayout).toContain("SESSION_CONTENT_MAX_WIDTH_CLASS");

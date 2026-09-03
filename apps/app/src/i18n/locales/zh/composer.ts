@@ -58,6 +58,11 @@ export default {
   "composer.access_delegate_desc": "仅风险操作需确认",
   "composer.access_full": "完全访问",
   "composer.access_full_desc": "可访问网络和本机文件",
+  "composer.access_full_allow": "允许完全访问",
+  "composer.access_full_warning":
+    "当前权限为允许完全访问，请注意数据安全，建议执行可信任的任务。",
+  "composer.access_full_enable_hint":
+    "打开后将不再逐项询问文件、命令和联网操作。",
   "composer.access_high_risk": "高风险",
   "composer.add_file": "添加文件",
   "composer.capture_appshot": "捕获桌面",
@@ -91,4 +96,8 @@ export default {
   "composer.quick_actions": "添加上下文",
   "composer.remove_collaboration_mode": "移除{mode}模式",
   "composer.send_message": "发送消息",
+  "composer.enhance_prompt": "增强提示词",
+  "composer.enhance_prompt_need_draft": "先写一点提示词",
+  "composer.enhance_prompt_undo": "还原原文",
+  "composer.enhance_prompt_failed": "无法增强提示词",
 } as const;

@@ -23,6 +23,8 @@ export type PreferencesViewProps = {
   busy: boolean;
   showThinking: boolean;
   onToggleShowThinking: () => void;
+  showFollowUpSuggestions: boolean;
+  onToggleShowFollowUpSuggestions: () => void;
   autoCompactContext: boolean;
   autoCompactContextBusy: boolean;
   onToggleAutoCompactContext: () => void;
@@ -126,6 +128,18 @@ export function PreferencesView(props: PreferencesViewProps) {
               />
             }
           />
+          <SettingsBlockRow
+            title={t("settings.show_follow_up_suggestions")}
+            description={t("settings.show_follow_up_suggestions_desc")}
+            actions={
+              <Switch
+                aria-label={t("settings.show_follow_up_suggestions")}
+                checked={props.showFollowUpSuggestions}
+                disabled={props.busy}
+                onCheckedChange={props.onToggleShowFollowUpSuggestions}
+              />
+            }
+          />
           {desktop ? (
             <SettingsBlockRow
               title={t("settings.menu_bar_status_item_label")}
@@ -210,13 +224,13 @@ export function PreferencesView(props: PreferencesViewProps) {
                   />
                   <span>{t("settings.auto_new_session_threshold_suffix")}</span>
                 </div>
-                <p className="flex items-start gap-1.5 text-sm leading-5 text-dls-secondary">
+                <p className="flex items-center gap-1.5 whitespace-nowrap text-sm leading-5 text-dls-secondary">
                   <span aria-hidden="true">💡</span>
                   <span>{t("settings.auto_new_session_hint")}</span>
                 </p>
               </div>
             ) : (
-              <p className="mt-2 flex items-start gap-1.5 text-sm leading-5 text-dls-secondary">
+              <p className="mt-2 flex items-center gap-1.5 whitespace-nowrap text-sm leading-5 text-dls-secondary">
                 <span aria-hidden="true">💡</span>
                 <span>{t("settings.auto_new_session_hint")}</span>
               </p>

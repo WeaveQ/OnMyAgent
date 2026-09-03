@@ -7,6 +7,7 @@
  * complete and can be tightened over time.
  */
 import type { DesktopCommandName } from "./desktop-ipc-commands.mjs";
+import type { DesktopMessagingCommandMap } from "./desktop-ipc-messaging-command-map.js";
 import type {
   CodeWorkspaceBinaryFileContent,
   CodeWorkspaceEnvironmentSnapshot,
@@ -39,22 +40,12 @@ import type {
   BuiltinSkillPackageInstallResult,
   EnsureDefaultBuiltinSkillsResult,
   CacheResetResult,
-  ChannelProbeResult,
   ComputerUseAppshotResult,
   ComputerUsePermissionResult,
   ComputerUseSkysightExclusionOperation,
   ComputerUseSkysightExclusionScope,
   DesktopBootstrapConfig,
-  DesktopChannelAuthorizedUser,
-  DesktopChannelEventHistoryEntry,
-  DesktopChannelPairingRequest,
-  DesktopChannelSession,
   DesktopFetchResult,
-  DiscordAccountStatus,
-  DiscordAccountStatusInput,
-  DiscordSaveAccountInput,
-  DiscordServiceStartInput,
-  DiscordSimulateInboundInput,
   EngineDoctorOptions,
   EngineDoctorResult,
   EngineInfo,
@@ -73,15 +64,8 @@ import type {
   ExpertPackageExportResult,
   ExpertRegistryListEntry,
   ExecResult,
-  FeishuAccountStatus,
-  FeishuAccountStatusInput,
-  FeishuSaveAccountInput,
-  FeishuServiceStartInput,
-  FeishuSimulateInboundInput,
   LocalSkillCard,
   LocalSkillContent,
-  MessagingAccessibleRootProbe,
-  MessagingChannelStatus,
   MyExpertPackageWriteInput,
   MyExpertKnowledgeStageInput,
   MyExpertKnowledgeStageResult,
@@ -159,22 +143,10 @@ import type {
   SoftwareEnvironmentInstallResult,
   SystemPermissionResult,
   SystemPermissionType,
-  TelegramAccountStatus,
-  TelegramAccountStatusInput,
-  TelegramSaveAccountInput,
-  TelegramServiceStartInput,
-  TelegramSimulateInboundInput,
   UiControlBridgeInfo,
   UpdaterEnvironment,
   UserAgentRegistryFile,
   UserAgentRegistryWriteResult,
-  WeixinAccountStatus,
-  WeixinAccountStatusInput,
-  WeixinLoginPollInput,
-  WeixinLoginStartInput,
-  WeixinSaveAccountInput,
-  WeixinServiceStartInput,
-  WeixinSimulateInboundInput,
   LocalAgentComposerListFilesInput,
   LocalAgentComposerListFilesResult,
   LocalAgentComposerSaveAttachmentInput,
@@ -275,7 +247,7 @@ export type DesktopCommandContract<
 type OkResult = { ok: boolean; error?: string };
 
 /** Explicit contracts for commands with known shared payload types. */
-type TypedDesktopCommandMap = {
+type TypedDesktopCommandMap = DesktopMessagingCommandMap & {
   // workspace
   workspaceBootstrap: DesktopCommandContract<[], WorkspaceList>;
   workspaceSetSelected: DesktopCommandContract<[string], WorkspaceList>;
@@ -788,6 +760,113 @@ type TypedDesktopCommandMap = {
       reason?: string;
     }
   >;
+  knowledgeRecordAccess: DesktopCommandContract<
+    [
+      {
+        scope?: "user" | "project" | "expert";
+        relPath: string;
+        workspaceId?: string;
+        expertId?: string;
+      },
+    ],
+    { ok: boolean; reason?: string }
+  >;
+  knowledgeListRecent: DesktopCommandContract<
+    [{ limit?: number }?],
+    {
+      ok: boolean;
+      entries: Array<{
+        key: string;
+        scope: "user" | "project" | "expert";
+        relPath: string;
+        name: string;
+        location: string;
+        accessedAt: string;
+      }>;
+      reason?: string;
+    }
+  >;
+  knowledgeAddVault: DesktopCommandContract<
+    [{ name?: string; path?: string }],
+    {
+      ok: boolean;
+      personalVaultPath?: string | null;
+      resolvedUserVaultDir?: string;
+      usingDefault?: boolean;
+      vaults?: Array<{ name: string; path: string; isDefault: boolean }>;
+      reason?: string;
+    }
+  >;
+  knowledgeRemoveVault: DesktopCommandContract<
+    [{ path?: string }],
+    {
+      ok: boolean;
+      personalVaultPath?: string | null;
+      resolvedUserVaultDir?: string;
+      usingDefault?: boolean;
+      vaults?: Array<{ name: string; path: string; isDefault: boolean }>;
+      reason?: string;
+    }
+  >;
+  knowledgeCreateFolder: DesktopCommandContract<
+    [
+      {
+        scope?: "user" | "project" | "expert";
+        relPath: string;
+        workspaceId?: string;
+        expertId?: string;
+      },
+    ],
+    { ok: boolean; scope?: string; relPath?: string; reason?: string }
+  >;
+  knowledgeUploadFiles: DesktopCommandContract<
+    [
+      {
+        scope?: "user" | "project" | "expert";
+        destFolder?: string;
+        workspaceId?: string;
+        expertId?: string;
+        files: Array<{ name?: string; dataBase64?: string; sourcePath?: string }>;
+      },
+    ],
+    {
+      ok: boolean;
+      results: Array<{ ok: boolean; name?: string; relPath?: string; reason?: string }>;
+      reason?: string;
+    }
+  >;
+  knowledgeUploadFolder: DesktopCommandContract<
+    [
+      {
+        scope?: "user" | "project" | "expert";
+        destFolder?: string;
+        workspaceId?: string;
+        expertId?: string;
+        entries: Array<{ relPath: string; dataBase64: string }>;
+      },
+    ],
+    {
+      ok: boolean;
+      results: Array<{ ok: boolean; relPath?: string; reason?: string }>;
+      reason?: string;
+    }
+  >;
+  knowledgeUploadFolderFromDisk: DesktopCommandContract<
+    [
+      {
+        scope?: "user" | "project" | "expert";
+        sourcePath: string;
+        destFolder?: string;
+        workspaceId?: string;
+        expertId?: string;
+      },
+    ],
+    {
+      ok: boolean;
+      results: Array<{ ok: boolean; relPath?: string; reason?: string }>;
+      reason?: string;
+    }
+  >;
   openBrowserSkillInstallPage: DesktopCommandContract<
     [("cli" | "extension" | "docs")?],
     OkResult & {
@@ -1196,160 +1275,6 @@ type TypedDesktopCommandMap = {
   taskOrchestratorGateResolve: DesktopCommandContract<
     [TaskOrchestratorResolveGateInput],
     TaskOrchestratorSnapshot
-  >;
-
-  // messaging — weixin
-  weixinLoginStart: DesktopCommandContract<
-    [WeixinLoginStartInput?],
-    MessagingChannelStatus
-  >;
-  weixinLoginPoll: DesktopCommandContract<[WeixinLoginPollInput], MessagingChannelStatus>;
-  weixinSaveAccount: DesktopCommandContract<[WeixinSaveAccountInput], WeixinAccountStatus>;
-  weixinAccountStatus: DesktopCommandContract<
-    [WeixinAccountStatusInput?],
-    WeixinAccountStatus
-  >;
-  weixinStart: DesktopCommandContract<[WeixinServiceStartInput], MessagingChannelStatus>;
-  weixinAutoStart: DesktopCommandContract<
-    [WeixinServiceStartInput?],
-    MessagingChannelStatus
-  >;
-  weixinStop: DesktopCommandContract<[], MessagingChannelStatus>;
-  weixinStatus: DesktopCommandContract<[], MessagingChannelStatus>;
-  weixinSimulateInbound: DesktopCommandContract<
-    [WeixinSimulateInboundInput],
-    MessagingChannelStatus
-  >;
-  weixinProbeAccessibleRoot: DesktopCommandContract<
-    [{ root: string } | { folderPath: string }],
-    MessagingAccessibleRootProbe
-  >;
-
-  // messaging — feishu
-  feishuSaveAccount: DesktopCommandContract<[FeishuSaveAccountInput], FeishuAccountStatus>;
-  feishuAccountStatus: DesktopCommandContract<
-    [FeishuAccountStatusInput?],
-    FeishuAccountStatus
-  >;
-  feishuStart: DesktopCommandContract<[FeishuServiceStartInput], MessagingChannelStatus>;
-  feishuAutoStart: DesktopCommandContract<
-    [FeishuServiceStartInput?],
-    MessagingChannelStatus
-  >;
-  feishuStop: DesktopCommandContract<[], MessagingChannelStatus>;
-  feishuStatus: DesktopCommandContract<[], MessagingChannelStatus>;
-  feishuSimulateInbound: DesktopCommandContract<
-    [FeishuSimulateInboundInput],
-    MessagingChannelStatus
-  >;
-  feishuProbeAccessibleRoot: DesktopCommandContract<
-    [{ root: string } | { folderPath: string }],
-    MessagingAccessibleRootProbe
-  >;
-
-  // messaging — telegram
-  telegramSaveAccount: DesktopCommandContract<
-    [TelegramSaveAccountInput],
-    TelegramAccountStatus
-  >;
-  telegramAccountStatus: DesktopCommandContract<
-    [TelegramAccountStatusInput?],
-    TelegramAccountStatus
-  >;
-  telegramStart: DesktopCommandContract<
-    [TelegramServiceStartInput],
-    MessagingChannelStatus
-  >;
-  telegramAutoStart: DesktopCommandContract<
-    [TelegramServiceStartInput?],
-    MessagingChannelStatus
-  >;
-  telegramStop: DesktopCommandContract<[], MessagingChannelStatus>;
-  telegramStatus: DesktopCommandContract<[], MessagingChannelStatus>;
-  telegramSimulateInbound: DesktopCommandContract<
-    [TelegramSimulateInboundInput],
-    MessagingChannelStatus
-  >;
-
-  // messaging — discord
-  discordSaveAccount: DesktopCommandContract<
-    [DiscordSaveAccountInput],
-    DiscordAccountStatus
-  >;
-  discordAccountStatus: DesktopCommandContract<
-    [DiscordAccountStatusInput?],
-    DiscordAccountStatus
-  >;
-  discordStart: DesktopCommandContract<[DiscordServiceStartInput], MessagingChannelStatus>;
-  discordAutoStart: DesktopCommandContract<
-    [DiscordServiceStartInput?],
-    MessagingChannelStatus
-  >;
-  discordStop: DesktopCommandContract<[], MessagingChannelStatus>;
-  discordStatus: DesktopCommandContract<[], MessagingChannelStatus>;
-  discordSimulateInbound: DesktopCommandContract<
-    [DiscordSimulateInboundInput],
-    MessagingChannelStatus
-  >;
-
-  // channel infrastructure (args shaped like desktop wrappers)
-  channelTestPlugin: DesktopCommandContract<
-    [{ pluginId: string; accountId?: string }],
-    ChannelProbeResult
-  >;
-  channelGetPendingPairingRequests: DesktopCommandContract<
-    [],
-    DesktopChannelPairingRequest[]
-  >;
-  channelApprovePairing: DesktopCommandContract<
-    [{ code: string }],
-    OkResult & { user?: DesktopChannelAuthorizedUser }
-  >;
-  channelDenyPairing: DesktopCommandContract<[{ code: string }], OkResult>;
-  channelGetAuthorizedUsers: DesktopCommandContract<
-    [],
-    DesktopChannelAuthorizedUser[]
-  >;
-  channelIsUserAuthorized: DesktopCommandContract<
-    [{ platformType: string; platformUserId: string }],
-    boolean
-  >;
-  channelRevokeUserAuthorization: DesktopCommandContract<
-    [{ platformType: string; platformUserId: string }],
-    OkResult
-  >;
-  channelGetOrCreateSession: DesktopCommandContract<
-    [
-      {
-        platformType: string;
-        platformUserId: string;
-        agentType: string;
-        workspace?: string;
-        chatId?: string;
-      },
-    ],
-    OkResult & { session?: DesktopChannelSession }
-  >;
-  channelGetSession: DesktopCommandContract<
-    [{ sessionId: string }],
-    OkResult & { session?: DesktopChannelSession }
-  >;
-  channelGetSessionsByPlatform: DesktopCommandContract<
-    [{ platformType: string }],
-    DesktopChannelSession[]
-  >;
-  channelGetSessionsByUser: DesktopCommandContract<
-    [{ platformType: string; platformUserId: string }],
-    DesktopChannelSession[]
-  >;
-  channelCloseSession: DesktopCommandContract<[{ sessionId: string }], OkResult>;
-  channelUpdateSessionMetadata: DesktopCommandContract<
-    [{ sessionId: string; metadata: Record<string, unknown> }],
-    OkResult
-  >;
-  channelGetEventHistory: DesktopCommandContract<
-    [{ limit?: number; filterEvent?: string }?],
-    DesktopChannelEventHistoryEntry[]
   >;
 
   // agent management

@@ -11,6 +11,7 @@ import {
   skillNamesFingerprint,
   startExpertColdPrewarm,
 } from "../src/react-app/domains/session/sync/expert-cold-path";
+import { scheduleIdleExpertColdPrewarmTask } from "../src/react-app/shell/session-route/prewarm-schedule";
 
 describe("expert cold path queue + prewarm", () => {
   beforeEach(() => {
@@ -247,14 +248,111 @@ describe("expert cold path wiring contracts", () => {
     );
   });
 
-  test("empty expert shell create uses cold path claim", async () => {
-    const source = await readFile(
+  test("empty expert shell opens idle draft without awaiting session.create", async () => {
+    const pageView = await readFile(
       new URL(
         "../src/react-app/shell/session-route/page-view.tsx",
         import.meta.url,
       ),
       "utf8",
     );
-    expect(source).toContain("claimOrCreateExpertColdSession(");
+    const intent = await readFile(
+      new URL(
+        "../src/react-app/shell/session-route/intent.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    expect(pageView).toContain("openExpertFreshIdleDraft(");
+    expect(pageView).toContain("scheduleIdleExpertColdPrewarm(");
+    expect(pageView).not.toContain("await claimOrCreateExpertColdSession(");
+    expect(pageView).not.toContain("await opencodeClient.session.create");
+    const prewarmStart = intent.indexOf(
+      "export function scheduleIdleExpertColdPrewarm",
+    );
+    expect(prewarmStart).toBeGreaterThan(0);
+    const prewarmBody = intent.slice(prewarmStart);
+    const idleIdx = prewarmBody.indexOf("scheduleIdleExpertColdPrewarmTask(");
+    const createIdx = prewarmBody.indexOf("startExpertColdPrewarm(");
+    expect(idleIdx).toBeGreaterThan(0);
+    expect(createIdx).toBeGreaterThan(idleIdx);
+    expect(prewarmBody).toContain("getCurrentAgent:");
+    expect(prewarmBody).toContain("usePendingAgentStore.getState().getAgent()");
+  });
+
+  test("idle expert prewarm starts only from the idle callback", () => {
+    let started = 0;
+    let run: () => void = () => undefined;
+    scheduleIdleExpertColdPrewarmTask({
+      agentId: "agent-a",
+      getCurrentAgent: () => ({ id: "agent-a" }),
+      startPrewarm: () => {
+        started += 1;
+      },
+      host: {
+        requestIdleCallback: (cb) => {
+          run = cb;
+          return 1;
+        },
+        cancelIdleCallback: () => undefined,
+        setTimeout: () => {
+          throw new Error("idle API should be used");
+        },
+        clearTimeout: () => undefined,
+      },
+    });
+    expect(started).toBe(0);
+    run();
+    expect(started).toBe(1);
+  });
+
+  test("idle expert prewarm skips start if pending agent changed", () => {
+    let started = 0;
+    let run: () => void = () => undefined;
+    scheduleIdleExpertColdPrewarmTask({
+      agentId: "agent-a",
+      getCurrentAgent: () => ({ id: "agent-b" }),
+      startPrewarm: () => {
+        started += 1;
+      },
+      host: {
+        requestIdleCallback: (cb) => {
+          run = cb;
+          return 1;
+        },
+        cancelIdleCallback: () => undefined,
+        setTimeout: () => {
+          throw new Error("idle API should be used");
+        },
+        clearTimeout: () => undefined,
+      },
+    });
+    run();
+    expect(started).toBe(0);
+  });
+
+  test("idle expert prewarm skips start if first send already bound the draft", () => {
+    let started = 0;
+    let run: () => void = () => undefined;
+    scheduleIdleExpertColdPrewarmTask({
+      agentId: "agent-a",
+      getCurrentAgent: () => ({ id: "agent-a", boundSessionId: "ses_1" }),
+      startPrewarm: () => {
+        started += 1;
+      },
+      host: {
+        requestIdleCallback: (cb) => {
+          run = cb;
+          return 1;
+        },
+        cancelIdleCallback: () => undefined,
+        setTimeout: () => {
+          throw new Error("idle API should be used");
+        },
+        clearTimeout: () => undefined,
+      },
+    });
+    run();
+    expect(started).toBe(0);
   });
 });

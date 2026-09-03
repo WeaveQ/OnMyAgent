@@ -220,6 +220,23 @@ export function createWeixinActiveRunPolling(options) {
     }
   }
 
+  async function sendRunNotice(session, record, text, role = "error") {
+    if (record?.isLocalPrompt) {
+      await options.channelTranscriptStore?.recordLocalNotice?.({
+        platformType: "wechat",
+        accountId: session.account.accountId,
+        chatId: record.chatId,
+        platformUserId: record.senderId,
+        content: text,
+        role,
+        agentId: record.agent?.id,
+        agentName: record.agent?.name ?? record.agent?.id,
+      }).catch(() => undefined);
+      return null;
+    }
+    return options.sendText(session, record.chatId, text, record.senderId, null, record.agent);
+  }
+
   async function pollActiveRun(session, runKey, fallbackRecord = null) {
     if (session.controller.signal.aborted) return;
     const pollKey = `${session.account.accountId}:${runKey}`;
@@ -250,7 +267,7 @@ export function createWeixinActiveRunPolling(options) {
       options.setLastError(message);
       options.appendLog({ type: "error", text: `weixin active run status query failed: ${message}` });
       if (shouldNotify) {
-        await options.sendText(session, record.chatId, `任务状态查询失败：${message}`, record.senderId).catch(() => undefined);
+        await sendRunNotice(session, record, `任务状态查询失败：${message}`).catch(() => undefined);
       }
       const retryDelayMs = Math.min(
         queryErrorRetryMaxMs,
@@ -267,7 +284,7 @@ export function createWeixinActiveRunPolling(options) {
         return;
       }
       const message = "本次本地 Agent 任务已不在运行（可能主进程重启/崩溃后遗留，或已超时中断）。已自动清除会话锁，可重新发送消息。";
-      await options.sendText(session, record.chatId, message, record.senderId).catch(() => undefined);
+      await sendRunNotice(session, record, message).catch(() => undefined);
       options.agentBusyNoticeAt.delete(pollKey);
       await deleteActiveRunIfOwned(session.account.accountId, runKey, record);
       return;
@@ -282,6 +299,13 @@ export function createWeixinActiveRunPolling(options) {
       }
       const deliveredOutput = formatAgentResultOutput(result);
       try {
+        options.channelTranscriptStore?.setActiveAgent?.({
+          platformType: "wechat",
+          accountId: session.account.accountId,
+          chatId: record.chatId,
+          agentId: record.agent?.id,
+          agentName: record.agent?.name ?? record.agent?.id,
+        });
         await options.deliverAgentOutput(session, {
           chatId: record.chatId,
           peerId: record.senderId,
@@ -301,6 +325,9 @@ export function createWeixinActiveRunPolling(options) {
         const message = error instanceof Error ? error.message : String(error);
         options.setLastError(message);
         options.appendLog({ type: "error", text: `weixin active run delivery failed: ${message}` });
+        if (record.isLocalPrompt) {
+          await sendRunNotice(session, record, `Agent 回复已生成，但发送到微信失败：${message}`);
+        }
         // The transport may have accepted an attachment before a later text
         // send failed. Clear the lock without replaying the terminal snapshot;
         // the full result remains available in the desktop runtime.
@@ -310,7 +337,7 @@ export function createWeixinActiveRunPolling(options) {
         return;
       }
       await options.appendAgentHistory(session, record.historyKey, record.userText, deliveredOutput, record.agent, record.historyStoreLimit ?? session.options.historyStoreLimit);
-      await options.appendChannelSessionHistoryById(record.channelSessionId, record.userText, deliveredOutput, record.agent);
+      if (!record.isLocalPrompt) await options.appendChannelSessionHistoryById(record.channelSessionId, record.userText, deliveredOutput, record.agent);
       clearActiveRunPoll(session.account.accountId, runKey);
       options.agentBusyNoticeAt.delete(pollKey);
       await deleteActiveRunIfOwned(session.account.accountId, runKey, record);
@@ -326,7 +353,7 @@ export function createWeixinActiveRunPolling(options) {
         ? "本次本地 Agent 任务已取消。"
         : `本次处理失败，请在 Studio 查看本地 Agent 日志。${result?.error ? `\n${result.error}` : ""}`;
       try {
-        await options.sendText(session, record.chatId, message, record.senderId);
+        await sendRunNotice(session, record, message, resultState.status === "cancelled" ? "system" : "error");
       } finally {
         // A failed terminal notification must not leave a completed/cancelled
         // runtime holding the conversation lock forever.
@@ -346,7 +373,7 @@ export function createWeixinActiveRunPolling(options) {
         return;
       }
       const message = `本次本地 Agent 任务运行已超过上限（约 ${Math.round(options.activeRunMaxAgeMs / 3_600_000)} 小时），已自动超时并清除会话锁。可重新发送消息。`;
-      await options.sendText(session, record.chatId, message, record.senderId).catch(() => undefined);
+      await sendRunNotice(session, record, message).catch(() => undefined);
       options.agentBusyNoticeAt.delete(pollKey);
       await deleteActiveRunIfOwned(session.account.accountId, runKey, record);
       return;
@@ -363,7 +390,7 @@ export function createWeixinActiveRunPolling(options) {
       );
       if (!updated || options.clearedActiveRunKeys.has(pollKey)) return;
       try {
-        await options.sendText(session, record.chatId, options.renderApprovalPrompt(updated, pendingApprovals), record.senderId);
+        await sendRunNotice(session, updated, options.renderApprovalPrompt(updated, pendingApprovals), "system");
       } finally {
         // The approval prompt is advisory; a transport failure must not stop
         // observation of the still-running task and its eventual result.

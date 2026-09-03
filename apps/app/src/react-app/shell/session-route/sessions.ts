@@ -12,6 +12,7 @@ import {
   isExpertCreationEphemeralSession,
   writeAssistantSessionCategory,
 } from "../../domains/agents";
+import { isPromptEnhanceScratchSession } from "../../../app/lib/opencode-enhance-prompt";
 import {
   filterPendingDeletedSessions,
   filterRecentlyDeletedSessions,
@@ -75,6 +76,7 @@ export function shouldKeepWorkspaceSessionItem(input: {
 }) {
   // Coach / try-preview sessions from expert creation are disposable.
   if (isExpertCreationEphemeralSession(input.sessionId)) return false;
+  if (isPromptEnhanceScratchSession({ id: input.sessionId })) return false;
   if (input.assistantSessionIds.has(input.sessionId)) return true;
   return (
     input.normalizeDirectoryPath(input.directory ?? "") ===
@@ -153,6 +155,7 @@ export async function collectWorkspaceSessionItemsWithStatus(input: {
       const dir = session?.directory;
       if (!id || !dir) continue;
       if (isExpertCreationEphemeralSession(id)) continue;
+      if (isPromptEnhanceScratchSession(session)) continue;
       if (input.normalizeDirectoryPath(dir) === normalizedWorkspaceRoot && !assistantSessionIds.has(id)) {
         addAssistantSession(id);
         assistantSessionIds.add(id);
@@ -163,7 +166,8 @@ export async function collectWorkspaceSessionItemsWithStatus(input: {
   // inventory. Keep every non-ephemeral item, including isolated Expert
   // directories; root filtering would hide them again in the renderer.
   const items = fetchedItems.filter((session) =>
-    !isExpertCreationEphemeralSession(session?.id ?? ""),
+    !isExpertCreationEphemeralSession(session?.id ?? "") &&
+    !isPromptEnhanceScratchSession(session ?? {}),
   );
   const filteredItems = filterPendingDeletedSessions({
     workspaceId: input.workspaceId,
@@ -231,7 +235,10 @@ export function insertSidebarSession(input: {
     }
     return input.current;
   }
-  if (isExpertCreationEphemeralSession(insertedSession.id)) {
+  if (
+    isExpertCreationEphemeralSession(insertedSession.id) ||
+    isPromptEnhanceScratchSession(insertedSession)
+  ) {
     return input.current;
   }
   if (input.registerPageMode !== false) {
@@ -250,7 +257,9 @@ export function filterExpertCreationEphemeralSessionsByWorkspace(
     Object.entries(sessionsByWorkspaceId).map(([workspaceId, sessions]) => [
       workspaceId,
       sessions.filter(
-        (session) => !isExpertCreationEphemeralSession(session.id),
+        (session) =>
+          !isExpertCreationEphemeralSession(session.id) &&
+          !isPromptEnhanceScratchSession(session),
       ),
     ]),
   );

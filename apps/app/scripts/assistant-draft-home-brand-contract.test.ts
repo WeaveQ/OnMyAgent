@@ -56,6 +56,9 @@ describe("assistant draft home brand contract", () => {
     expect(composerLayout).toContain("const homeLayout = Boolean(input.homeLayout);");
     expect(composerLayout).toContain("const heroHome = Boolean(input.heroHome);");
     expect(composerLayout).toContain("SESSION_CONTENT_MAX_WIDTH_CLASS");
+    expect(composer).toContain("HomePromptEnhanceButton");
+    expect(composer).toMatch(/flushShell \? null : \(\s*\n\s*<HomePromptEnhanceButton/);
+    expect(composer).toContain("enabled: !props.flushShell");
     expect(composerLayout).toContain("rounded-2xl");
     const editor = readSurface("composer/editor.tsx");
     expect(editor).toContain("min-h-28");

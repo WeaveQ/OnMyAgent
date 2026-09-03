@@ -12,6 +12,7 @@ import {
 import {
   classifyDesktopFetchDestination,
   DesktopFetchPolicyError,
+  fetchDirectWithTimeout,
 } from "./desktop-fetch-policy";
 
 export {
@@ -377,6 +378,7 @@ declare global {
         ) => () => void;
         onPairing?: (callback: (payload: unknown) => void) => () => void;
         onUserAuthorized?: (callback: (payload: unknown) => void) => () => void;
+        onTranscript?: (callback: (payload: import("./desktop-types").DesktopChannelTranscriptEvent) => void) => () => void;
       };
       browser?: {
         diagnostics?: () => Promise<{
@@ -578,7 +580,6 @@ export function subscribeSoftwareEnvironmentProgress(
 export const desktopFetch: typeof globalThis.fetch = (input, init) =>
   desktopFetchWithTimeout(input, init);
 
-/** Preserve native cancellation for loopback and enforce a main-process deadline remotely. */
 export async function desktopFetchWithTimeout(
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -589,7 +590,7 @@ export async function desktopFetchWithTimeout(
     throw new DesktopFetchPolicyError(decision);
   }
   if (decision.route === "direct") {
-    return globalThis.fetch(input, init);
+    return fetchDirectWithTimeout(input, init, timeoutMs);
   }
   return desktopFetchViaMain(input, init, timeoutMs);
 }
@@ -1414,9 +1415,7 @@ export {
   discordSimulateInbound,
   channelTestPlugin,
   testChannelConnection,
-  onChannelStatus,
-  onChannelPairing,
-  onChannelUserAuthorized,
+  onChannelStatus, onChannelPairing, onChannelUserAuthorized, onChannelTranscript,
   channelGetPendingPairingRequests,
   channelApprovePairing,
   channelDenyPairing,
@@ -1427,15 +1426,16 @@ export {
   channelGetSession,
   channelGetSessionsByPlatform,
   channelGetSessionsByUser,
+  channelGetTranscriptThreads, channelGetTranscript, channelRunAgentPrompt,
   channelCloseSession,
   channelUpdateSessionMetadata,
   channelGetEventHistory,
 } from "./desktop-messaging";
-
 export type {
   ChannelPairingRequest,
   ChannelAuthorizedUser,
   ChannelSession,
+  ChannelTranscriptMessage, ChannelTranscriptThread,
 } from "./desktop-messaging";
 
 export const agentManagementSnapshot = (

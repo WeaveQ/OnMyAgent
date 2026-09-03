@@ -525,7 +525,7 @@ export default {
   "settings.auto_new_session_threshold_suffix": "小时未对话，自动开启新会话",
   "settings.auto_new_session_hours_aria": "未对话多少小时后自动新起会话",
   "settings.auto_new_session_hint":
-    "开启后，长时间未活跃的历史上下文将不再发送给模型，有效降低 Token 消耗并提升响应速度。",
+    "超时未对话会新开会话，旧上下文不再发给模型。",
   "settings.notifications_section_title": "通知",
   "settings.notifications_section_desc":
     "管理系统桌面通知权限，以及会话完成后是否提醒你。",

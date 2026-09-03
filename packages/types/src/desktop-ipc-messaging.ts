@@ -269,6 +269,7 @@ export type DesktopChannelAuthorizedUser = {
 export type DesktopChannelSession = {
   id: string;
   platformType: string;
+  accountId?: string | null;
   platformUserId: string;
   agentType: string;
   workspace?: string;
@@ -290,4 +291,73 @@ export type DesktopChannelEventHistoryEntry = {
   name: string;
   payload: unknown;
   timestamp: number;
+};
+
+export type DesktopChannelTranscriptMessage = {
+  id: string;
+  platformType: string;
+  accountId: string;
+  chatId: string;
+  platformUserId?: string;
+  direction: "inbound" | "outbound" | "local";
+  role: "user" | "assistant" | "operator" | "command" | "system" | "error" | string;
+  source: "external" | "channel" | "operator" | "legacy" | string;
+  timestamp: number;
+  externalId?: string;
+  agentId?: string;
+  agentName?: string;
+  content: string;
+  metadata: Record<string, unknown>;
+};
+
+export type DesktopChannelTranscriptEvent = {
+  platformType: string;
+  accountId: string;
+  chatId: string;
+  message: DesktopChannelTranscriptMessage;
+};
+
+export type DesktopChannelTranscriptThread = {
+  platformType: string;
+  accountId: string;
+  chatId: string;
+  platformUserId?: string;
+  messageCount: number;
+  lastMessageAt: number;
+  lastMessage: string;
+  lastMessageDirection: "inbound" | "outbound" | "local";
+  agentId?: string;
+};
+
+export type DesktopChannelTranscriptInput = {
+  platformType: string;
+  accountId: string;
+  chatId: string;
+  limit?: number;
+  before?: number;
+  beforeId?: string;
+};
+
+export type DesktopChannelTranscriptPage = {
+  messages: DesktopChannelTranscriptMessage[];
+  hasMore: boolean;
+  nextBefore: number | null;
+  nextBeforeId: string | null;
+};
+
+export type ChannelAgentPromptInput = {
+  platformType: string;
+  accountId: string;
+  chatId: string;
+  platformUserId?: string;
+  text: string;
+};
+
+export type ChannelAgentPromptResult = {
+  ok: boolean;
+  runId?: string | null;
+  status?: string;
+  error?: string;
+  chatId?: string;
+  platformType?: string;
 };
