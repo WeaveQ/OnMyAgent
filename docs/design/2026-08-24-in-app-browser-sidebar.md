@@ -5,11 +5,10 @@ Status: awaiting written-spec review
 
 ## 1. Problem
 
-The session side panel currently exposes browser pages through two nested tab
-systems: the outer workspace tool tab contains a single `Browser` tab, while
-`BrowserPanel` renders page tabs below it. This duplicates chrome and consumes
-vertical space. Browser page requests that open a new window are also routed to
-the operating system browser instead of becoming OnMyAgent tabs.
+The session side panel must keep workspace tools visible as peer tabs. Opening
+Browser from Files should append a `Browser` tool tab after the existing Files
+tab, while `BrowserPanel` keeps page tabs inside that selected tool. Browser
+page requests that open a new window must also become OnMyAgent page tabs.
 
 Renderer popovers cannot cover native `WebContentsView` content. The same
 occlusion affects both the in-app browser and Office file previews, so tool
@@ -19,7 +18,8 @@ preview width and its existing resize/collapse affordance is not discoverable.
 
 ## 2. Goals
 
-1. Render browser page tabs as the single top tab row when Browser is active.
+1. Keep the workspace tool tab row visible when Browser is active, with page
+   tabs rendered inside the Browser tool.
 2. Keep all HTTP/HTTPS new-window navigation inside OnMyAgent and scoped to the
    originating chat session.
 3. Ensure renderer popovers and dialogs always appear above native browser and
@@ -54,10 +54,10 @@ when the occluder disappears, the existing animation-frame/bounds loop
 reattaches it at the current bounds.
 
 The outer workspace panel remains responsible for switching between Files,
-Terminal, Browser, Review, and Automations. When Browser is active, it delegates
-the top header row to `BrowserPanel` so page tabs replace the singleton Browser
-tool chip. The tool chooser is supplied to that browser header rather than
-adding another row.
+Terminal, Browser, Review, and Automations and always renders that tool row.
+`BrowserPanel` owns only its inner page-tab row and navigation controls. The
+inner row stays hidden for a single page and appears when multiple pages need
+switching.
 
 ## 5. Staged implementation
 
@@ -98,22 +98,22 @@ Acceptance:
 - Collapse, expand, drag, double-click, and keyboard resize preserve the active
   file.
 
-### Stage 3: single browser tab row
+### Stage 3: persistent workspace tool row
 
-- When Browser is active, remove the outer singleton Browser chip from visible
-  chrome.
-- Render session-scoped page tabs directly in the workspace panel title row.
+- Keep the outer Files/Terminal/Browser tool row visible when Browser is active.
+- Append the Browser tool after already-open tools rather than replacing them.
+- Render session-scoped page tabs inside the Browser tool only when more than
+  one page is open.
 - Preserve tab selection, close, reorder, favicon/loading state, and native
   titlebar no-drag behavior.
-- Keep one `+` action. It opens the workspace tool chooser; choosing Browser
-  creates and selects a new in-app page tab, while other choices open their
-  existing tool surfaces.
-- Non-browser tools retain their current outer tab treatment.
+- Keep the outer `+` action as the workspace tool chooser. The Browser page row
+  keeps its own `+` action for creating another in-app page tab.
 
 Acceptance:
 
-- Browser mode shows one page-tab row followed by the navigation/address row.
-- No duplicate Browser tab appears above the page tabs.
+- Choosing Browser after Files shows `Files` followed by `Browser` in the outer
+  workspace tool row and selects Browser.
+- Browser page tabs appear below the outer tool row when multiple pages are open.
 - Switching away and back restores the session's page tabs.
 
 ### Stage 4: internal new-window routing
@@ -197,8 +197,8 @@ Acceptance:
 Each stage begins with a failing behavior test and ends with its focused suite
 passing before commit.
 
-- Renderer tests: occluder detection, Files collapse/restore, single browser tab
-  header, Downloads/More controls, and session-scoped history actions.
+- Renderer tests: occluder detection, Files collapse/restore, workspace tool and
+  Browser page-tab headers, Downloads/More controls, and session-scoped history actions.
 - Electron tests: window-open routing, download lifecycle normalization,
   persistence/restore/trim, history coalescing, zoom, and IPC contracts.
 - Regression gates: `pnpm task check app`, `pnpm task check desktop`,
@@ -213,7 +213,7 @@ The implementation will keep one tested commit per stage:
 
 1. native preview occlusion;
 2. Files list resize/collapse discoverability;
-3. single browser page-tab row;
+3. persistent workspace tool row with inner Browser page tabs;
 4. internal new-window routing;
 5. persistent downloads;
 6. More menu zoom and persistent history.

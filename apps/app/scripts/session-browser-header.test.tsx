@@ -19,8 +19,8 @@ const workspaceSource = readFileSync(
   "utf8",
 );
 
-describe("single browser page-tab header", () => {
-  test("integrated Browser owns exactly one title row with chooser and close", () => {
+describe("workspace and browser tab headers", () => {
+  test("keeps Browser in the workspace tool row", () => {
     const html = renderToStaticMarkup(
       createElement(CodeWorkspaceSidePanel, {
         workspacePath: null,
@@ -34,12 +34,12 @@ describe("single browser page-tab header", () => {
     );
 
     expect(html.match(/data-panel-titlebar-row=/g)).toHaveLength(1);
-    expect(html).toContain('data-panel-titlebar-row="browser-pages"');
+    expect(html).toContain('data-panel-titlebar-row="workspace-tools"');
     expect(html.match(/data-workspace-tool-chooser="true"/g)).toHaveLength(1);
     expect(html).toContain('aria-label="Add workspace tool"');
     expect(html.match(/data-code-side-panel-close="true"/g)).toHaveLength(1);
     expect(html).toContain("Browser is available in the desktop app.");
-    expect(html).not.toContain("browser-singleton");
+    expect(html).toContain("browser-singleton");
   });
 
   test("explicit Browser choice creates one session-scoped home page", async () => {
@@ -87,8 +87,17 @@ describe("single browser page-tab header", () => {
       expect(workspaceSource).not.toContain(removed);
     }
     expect(browserSource).not.toContain("export function WorkspaceHeader");
-    expect(workspaceSource).toContain('activeTab?.kind !== "browser"');
+    expect(workspaceSource).not.toContain('activeTab?.kind !== "browser"');
+    expect(workspaceSource).not.toContain("renderToolMenu");
+    expect(workspaceSource).toContain('data-panel-titlebar-row="workspace-tools"');
     expect(workspaceSource).toContain('selectedKind === "browser"');
     expect(workspaceSource).toContain("url: BROWSER_HOME_URL");
+  });
+
+  test("hides the inner page-tab row until the Browser has multiple pages", () => {
+    expect(browserSource).toContain(
+      "const showPageTabHeader = sessionTabs.length > 1;",
+    );
+    expect(browserSource).toContain("{showPageTabHeader ? (");
   });
 });

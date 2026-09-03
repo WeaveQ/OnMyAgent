@@ -6,9 +6,8 @@ import {
   useLayoutEffect,
   useRef,
   type MouseEvent,
-  type ReactNode,
 } from "react";
-import { ArrowLeft, ArrowRight, Bot, Globe, PanelRight, Plus, RotateCw, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bot, Globe, Plus, RotateCw, X } from "lucide-react";
 import { useDragControls } from "motion/react";
 import { isElectronRuntime } from "@/app/utils";
 import { PanelTab, PanelTabClose, PanelTabItem, PanelTabList } from "@/components/panel-tabs";
@@ -25,7 +24,6 @@ import {
   type BrowserTabInfo,
   useBrowserState,
 } from "./use-browser-state";
-import { hasVisibleNativePreviewOccluder } from "../../../capabilities/native-preview-occlusion";
 import { BROWSER_HOME_URL } from "./open-in-app-browser";
 import { filterTabsForSession } from "./session-browser-tabs";
 import {
@@ -37,10 +35,6 @@ type BrowserPanelProps = {
   onClose: () => void;
   /** Chat session id — scopes page tabs so A/B sessions do not share tabs. */
   sessionId?: string | null;
-  /** Workspace-owned tool chooser replaces the standalone browser new-tab action. */
-  renderToolMenu?: () => ReactNode;
-  /** Workspace close action stays available when Browser owns the title row. */
-  renderPanelClose?: () => ReactNode;
 };
 type EmbeddedBrowserViewportProps = {
   url?: string;
@@ -133,6 +127,15 @@ function sameBounds(
   );
 }
 
+function hasNativeBrowserOccluder() {
+  const overlays = document.querySelectorAll('[role="dialog"], [role="alertdialog"]');
+  for (const overlay of overlays) {
+    if (!(overlay instanceof HTMLElement)) continue;
+    if (overlay.offsetParent !== null || overlay.getClientRects().length > 0) return true;
+  }
+  return false;
+}
+
 type BrowserTabProps = {
   tab: BrowserTabInfo;
 };
@@ -211,13 +214,11 @@ export function BrowserPageTabHeader(props: {
   tabs: BrowserTabInfo[];
   onReorder: (tabIds: unknown[]) => void;
   onCreateTab?: () => void;
-  renderToolMenu?: () => ReactNode;
-  renderPanelClose?: () => ReactNode;
 }) {
   return (
     <div
       data-panel-titlebar-row="browser-pages"
-      className="flex h-14 items-center gap-1 border-b border-dls-border/60 px-2"
+      className="flex h-10 items-center gap-1 border-b border-dls-border/60 px-2"
     >
       {/*
         Keep this strip as a window-drag region (the BrowserPanel parent owns
@@ -236,9 +237,7 @@ export function BrowserPageTabHeader(props: {
           ))}
         </PanelTabList>
       </div>
-      {props.renderToolMenu ? (
-        props.renderToolMenu()
-      ) : props.onCreateTab ? (
+      {props.onCreateTab ? (
         <Tooltip>
           <TooltipTrigger
             render={(
@@ -255,7 +254,6 @@ export function BrowserPageTabHeader(props: {
           <TooltipContent>{t("session.browser_new_tab")}</TooltipContent>
         </Tooltip>
       ) : null}
-      {props.renderPanelClose?.()}
     </div>
   );
 }
@@ -296,7 +294,7 @@ export function EmbeddedBrowserViewport({
     }
 
     const bounds = computeBounds(content);
-    if (bounds.width < 1 || bounds.height < 1 || hasVisibleNativePreviewOccluder()) return;
+    if (bounds.width < 1 || bounds.height < 1 || hasNativeBrowserOccluder()) return;
     browser.show?.(bounds);
     shownRef.current = true;
     lastBoundsRef.current = bounds;
@@ -324,7 +322,7 @@ export function EmbeddedBrowserViewport({
 
       const bounds = computeBounds(content);
 
-      if (bounds.width < 1 || bounds.height < 1 || hasVisibleNativePreviewOccluder()) {
+      if (bounds.width < 1 || bounds.height < 1 || hasNativeBrowserOccluder()) {
         if (shownRef.current) {
           void browser.hide?.();
           shownRef.current = false;
@@ -403,8 +401,6 @@ export function EmbeddedBrowserViewport({
 export function BrowserPanel({
   onClose,
   sessionId = null,
-  renderToolMenu,
-  renderPanelClose,
 }: BrowserPanelProps) {
   const [state, dispatch] = useBrowserState();
   const urlFocusedRef = useRef(false);
@@ -447,6 +443,7 @@ export function BrowserPanel({
     sessionTabs[0] ??
     null;
   const hasSessionScopedTabs = Boolean(sessionId) && sessionTabs.length > 0;
+  const showPageTabHeader = sessionTabs.length > 1;
 
   // Keep the native selected tab inside this chat session's tab set.
   useEffect(() => {
@@ -525,41 +522,9 @@ export function BrowserPanel({
 
   if (!isElectronRuntime() || !browser) {
     return (
-      <TooltipProvider delay={1000}>
-        <div className="flex h-full flex-col">
-          <div
-            data-panel-titlebar="true"
-            className="shrink-0 border-b border-dls-border bg-dls-background mac:titlebar-drag"
-          >
-            <BrowserPageTabHeader
-              tabs={sessionTabs}
-              onReorder={reorderTabs}
-              renderToolMenu={renderToolMenu}
-              renderPanelClose={
-                renderPanelClose ??
-                (() => (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    data-code-side-panel-close="true"
-                    className="text-dls-secondary hover:bg-dls-hover hover:text-dls-text"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={onClose}
-                    aria-label={t("session.code_side_panel_close")}
-                    title={t("session.code_side_panel_close")}
-                  >
-                    <PanelRight className="size-3.5" />
-                  </Button>
-                ))
-              }
-            />
-          </div>
-          <div className="flex min-h-0 flex-1 items-center justify-center p-4 text-center text-dls-secondary">
-            <p className="text-sm">{t("session.browser_desktop_only")}</p>
-          </div>
-        </div>
-      </TooltipProvider>
+      <div className="flex h-full items-center justify-center p-4 text-center text-dls-secondary">
+        <p className="text-sm">{t("session.browser_desktop_only")}</p>
+      </div>
     );
   }
 
@@ -574,13 +539,13 @@ export function BrowserPanel({
           data-panel-titlebar="true"
           className="shrink-0 border-b border-dls-border bg-dls-background mac:bg-dls-background/80 mac:titlebar-drag mac:backdrop-blur-2xl mac:backdrop-saturate-150"
         >
-          <BrowserPageTabHeader
-            tabs={sessionTabs}
-            onReorder={reorderTabs}
-            onCreateTab={createTab}
-            renderToolMenu={renderToolMenu}
-            renderPanelClose={renderPanelClose}
-          />
+          {showPageTabHeader ? (
+            <BrowserPageTabHeader
+              tabs={sessionTabs}
+              onReorder={reorderTabs}
+              onCreateTab={createTab}
+            />
+          ) : null}
           <div className="flex h-10 items-center gap-1 px-2">
             <Tooltip>
               <TooltipTrigger

@@ -3,7 +3,6 @@ import { useLayoutEffect, useRef, useState } from "react";
 
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { hasVisibleNativePreviewOccluder } from "../native-preview-occlusion";
 import { PreviewError } from "./preview";
 
 type Bounds = { x: number; y: number; width: number; height: number };
@@ -56,7 +55,7 @@ export function OfficeFilePreview(props: {
       if (failed) return;
       const bounds = computeBounds(container);
       const now = performance.now();
-      if (bounds.width < 1 || bounds.height < 1 || hasVisibleNativePreviewOccluder()) {
+      if (bounds.width < 1 || bounds.height < 1) {
         if (shown) void Promise.resolve(preview.hide?.()).catch(() => undefined);
         shown = false;
         return;

@@ -1461,21 +1461,6 @@ export function CodeWorkspaceSidePanel(props: {
         <BrowserPanel
           sessionId={props.sessionId}
           onClose={() => void closeTab(activeTab)}
-          renderToolMenu={() => (
-            <WorkspaceHeaderToolChooser
-              items={visibleToolItems}
-              busyKind={terminalBusy ? "terminal" : null}
-              onAdd={(kind) => {
-                void addTab(
-                  kind,
-                  kind === "browser" ? { seedHomeWhenEmpty: true } : undefined,
-                );
-              }}
-            />
-          )}
-          renderPanelClose={() => (
-            <WorkspaceHeaderCloseButton onClose={props.onClose} />
-          )}
         />
       );
     }
@@ -1514,72 +1499,66 @@ export function CodeWorkspaceSidePanel(props: {
     props.fileTargets,
     props.focusPath,
     props.focusToken,
-    props.onClose,
     props.onViewAutomation,
     props.workspaceId,
     props.workspacePath,
-    addTab,
-    terminalBusy,
-    visibleToolItems,
   ]);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-dls-background" data-code-workspace-side-panel="true">
-      {activeTab?.kind !== "browser" ? (
-        <header
-          data-panel-titlebar="true"
-          data-panel-titlebar-row="workspace-tools"
-          className="flex h-14 shrink-0 items-center gap-1 border-b border-dls-mist px-2 mac:titlebar-drag"
+      <header
+        data-panel-titlebar="true"
+        data-panel-titlebar-row="workspace-tools"
+        className="flex h-14 shrink-0 items-center gap-1 border-b border-dls-mist px-2 mac:titlebar-drag"
+      >
+        {/*
+          Empty header chrome stays draggable. Tabs/buttons already use
+          titlebar-no-drag via Button — do not blanket the scroller.
+        */}
+        <div
+          data-panel-titlebar-controls="true"
+          className="min-w-0 flex-1 overflow-x-auto"
         >
-          {/*
-            Empty header chrome stays draggable. Tabs/buttons already use
-            titlebar-no-drag via Button — do not blanket the scroller.
-          */}
-          <div
-            data-panel-titlebar-controls="true"
-            className="min-w-0 flex-1 overflow-x-auto"
-          >
-            <div className="flex min-w-max items-center gap-1">
-              <PanelTabList values={tabs.map((tab) => tab.id)} onReorder={() => undefined}>
-                {tabs.map((tab) => {
-                  const Icon = toolIcon(tab.kind);
-                  return (
-                    <PanelTabItem key={tab.id} value={tab.id} id={tab.id} className="w-40">
-                      <div className="relative">
-                        <PanelTab
-                          active={tab.id === activeId}
-                          onClick={() => {
-                            if (tab.kind === "browser") props.onBrowserOpen?.();
-                            setActiveId(tab.id);
-                          }}
-                          title={tab.label}
-                        >
-                          <Icon />
-                          <span className="truncate">{tab.label}</span>
-                        </PanelTab>
-                        <PanelTabClose active={tab.id === activeId} label={tab.label} onClose={() => void closeTab(tab)} />
-                      </div>
-                    </PanelTabItem>
+          <div className="flex min-w-max items-center gap-1">
+            <PanelTabList values={tabs.map((tab) => tab.id)} onReorder={() => undefined}>
+              {tabs.map((tab) => {
+                const Icon = toolIcon(tab.kind);
+                return (
+                  <PanelTabItem key={tab.id} value={tab.id} id={tab.id} className="w-40">
+                    <div className="relative">
+                      <PanelTab
+                        active={tab.id === activeId}
+                        onClick={() => {
+                          if (tab.kind === "browser") props.onBrowserOpen?.();
+                          setActiveId(tab.id);
+                        }}
+                        title={tab.label}
+                      >
+                        <Icon />
+                        <span className="truncate">{tab.label}</span>
+                      </PanelTab>
+                      <PanelTabClose active={tab.id === activeId} label={tab.label} onClose={() => void closeTab(tab)} />
+                    </div>
+                  </PanelTabItem>
+                );
+              })}
+            </PanelTabList>
+            {tabs.length > 0 ? (
+              <WorkspaceHeaderToolChooser
+                items={visibleToolItems}
+                busyKind={terminalBusy ? "terminal" : null}
+                onAdd={(kind) => {
+                  void addTab(
+                    kind,
+                    kind === "browser" ? { seedHomeWhenEmpty: true } : undefined,
                   );
-                })}
-              </PanelTabList>
-              {tabs.length > 0 ? (
-                <WorkspaceHeaderToolChooser
-                  items={visibleToolItems}
-                  busyKind={terminalBusy ? "terminal" : null}
-                  onAdd={(kind) => {
-                    void addTab(
-                      kind,
-                      kind === "browser" ? { seedHomeWhenEmpty: true } : undefined,
-                    );
-                  }}
-                />
-              ) : null}
-            </div>
+                }}
+              />
+            ) : null}
           </div>
-          <WorkspaceHeaderCloseButton onClose={props.onClose} />
-        </header>
-      ) : null}
+        </div>
+        <WorkspaceHeaderCloseButton onClose={props.onClose} />
+      </header>
       {terminalError ? (
         <div className="shrink-0 border-b border-dls-border px-3 py-2">
           <NoticeBox tone="error" size="default" className="flex items-start justify-between gap-2">
