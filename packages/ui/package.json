@@ -20,8 +20,8 @@
     "typecheck": "tsc -p tsconfig.react.json --noEmit"
   },
   "dependencies": {
-    "@paper-design/shaders": "0.0.80",
-    "@paper-design/shaders-react": "0.0.80"
+    "@paper-design/shaders": "0.0.81",
+    "@paper-design/shaders-react": "0.0.81"
   },
   "peerDependencies": {
     "react": "^18 || ^19"
