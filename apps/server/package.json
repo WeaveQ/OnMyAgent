@@ -58,7 +58,7 @@
     "jsonc-parser": "^3.2.1",
     "minimatch": "^10.2.6",
     "yaml": "^2.9.0",
-    "zod": "^4.4.3"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@types/node": "^24.13.2",
